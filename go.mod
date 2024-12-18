@@ -5,6 +5,7 @@ go 1.22.0
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/gin-gonic/gin v1.10.0
+	github.com/samber/lo v1.38.1
 	github.com/sashabaranov/go-openai v1.36.0
 	github.com/u2takey/ffmpeg-go v0.5.0
 	github.com/wulien/jupiter v0.11.13
@@ -53,6 +54,7 @@ require (
 	go.uber.org/zap v1.25.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
+	golang.org/x/exp v0.0.0-20221031165847-c99f073a8326 // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect

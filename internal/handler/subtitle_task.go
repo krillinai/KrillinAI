@@ -4,7 +4,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"krillin-ai/internal/dto"
 	"krillin-ai/internal/response"
-	"net/http"
 )
 
 func (h Handler) StartSubtitleTask(c *gin.Context) {
@@ -20,7 +19,7 @@ func (h Handler) StartSubtitleTask(c *gin.Context) {
 
 	svc := h.Service
 
-	taskID, err := svc.StartSubtitleTask(req)
+	data, err := svc.StartSubtitleTask(req)
 	if err != nil {
 		response.R(c, response.Response{
 			Error: -1,
@@ -29,14 +28,36 @@ func (h Handler) StartSubtitleTask(c *gin.Context) {
 		})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"error": 0,
-		"msg":   "成功",
-		"data":  gin.H{"task_id": taskID},
+	response.R(c, response.Response{
+		Error: 0,
+		Msg:   "成功",
+		Data:  data,
 	})
 }
 
-func GetSubtitleTaskStatus(c *gin.Context) {
-	// todo
+func (h Handler) GetSubtitleTask(c *gin.Context) {
+	var req dto.GetVideoSubtitleTaskReq
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.R(c, response.Response{
+			Error: -1,
+			Msg:   "参数错误",
+			Data:  nil,
+		})
+		return
+	}
+	svc := h.Service
+	data, err := svc.GetTaskStatus(req)
+	if err != nil {
+		response.R(c, response.Response{
+			Error: -1,
+			Msg:   err.Error(),
+			Data:  nil,
+		})
+		return
+	}
+	response.R(c, response.Response{
+		Error: 0,
+		Msg:   "成功",
+		Data:  data,
+	})
 }

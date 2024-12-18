@@ -24,7 +24,7 @@ type StartVideoSubtitleTaskRes struct {
 }
 
 type GetVideoSubtitleTaskReq struct {
-	TaskId string `query:"task_id"`
+	TaskId string `form:"taskId"`
 }
 
 type VideoInfo struct {
@@ -42,7 +42,7 @@ type SubtitleInfo struct {
 
 type GetVideoSubtitleTaskResData struct {
 	TaskId            string          `json:"task_id"`
-	ProcessPercent    uint32          `json:"process_percent"`
+	ProcessPercent    uint8           `json:"process_percent"`
 	VideoInfo         *VideoInfo      `json:"video_info"`
 	SubtitleInfo      []*SubtitleInfo `json:"subtitle_info"`
 	TargetLanguage    string          `json:"target_language"`

@@ -1,2 +1,4 @@
 .idea
-config/config.toml
+tasks/
+cookies.txt
+.vscode/

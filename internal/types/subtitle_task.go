@@ -270,7 +270,7 @@ type SubtitleTask struct {
 	Status                uint8          `json:"status" gorm:"column:status"`                                 // 1-处理中,2-成功,3-失败
 	LastSuccessStepNum    uint8          `json:"last_success_step_num" gorm:"column:last_success_step_num"`   // 最后成功的子任务序号，用于任务恢复
 	FailReason            string         `json:"fail_reason" gorm:"column:fail_reason"`                       // 失败原因
-	ProcessPct            int8           `json:"process_percent" gorm:"column:process_percent"`               // 处理进度
+	ProcessPct            uint8          `json:"process_percent" gorm:"column:process_percent"`               // 处理进度
 	Duration              uint32         `json:"duration" gorm:"column:duration"`                             // 视频时长
 	SrtNum                int            `json:"srt_num" gorm:"column:srt_num"`                               // 字幕数量
 	SubtitleInfos         []SubtitleInfo `gorm:"foreignKey:TaskId;references:TaskId"`

@@ -1,0 +1,11 @@
+[app]
+    base_path = "./tasks"
+    segment_duration = 5
+    translate_parallel_num = 5
+
+[server]
+    host = "127.0.0.1"
+    port = 8888
+
+[openai]
+    api_key = "sk-XXX"
