@@ -71,7 +71,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	var err error
 	ctx := context.Background()
 	// 创建字幕任务文件夹
-	taskBasePath := filepath.Join(config.Conf.App.BasePath, taskId)
+	taskBasePath := filepath.Join("./tasks", taskId)
 	if _, err = os.Stat(taskBasePath); os.IsNotExist(err) {
 		// 不存在则创建
 		err = os.MkdirAll(taskBasePath, os.ModePerm)

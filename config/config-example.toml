@@ -1,5 +1,4 @@
 [app]
-    base_path = "./tasks"
     segment_duration = 5
     translate_parallel_num = 5
 
