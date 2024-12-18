@@ -5,13 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/samber/lo"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
-	"github.com/wulien/jupiter/pkg/conf"
-	"github.com/wulien/jupiter/pkg/xlog"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"krillin-ai/config"
 	"krillin-ai/internal/dto"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
+	"krillin-ai/log"
 	"krillin-ai/pkg/openai"
 	"krillin-ai/pkg/util"
 	"os"
@@ -62,19 +64,19 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 			if len(beforeAfter) == 2 {
 				replaceWordsMap[beforeAfter[0]] = beforeAfter[1]
 			} else {
-				xlog.Default().Info("generateAudioSubtitles replace param length err", xlog.Any("replace", replace), xlog.Any("taskId", taskId))
+				log.GetLogger().Info("generateAudioSubtitles replace param length err", zap.Any("replace", replace), zap.Any("taskId", taskId))
 			}
 		}
 	}
 	var err error
 	ctx := context.Background()
 	// 创建字幕任务文件夹
-	taskBasePath := conf.GetString("subtitle.base_path") + taskId // 工作目录: ....../service/subtitle/task_id
+	taskBasePath := filepath.Join(config.Conf.App.BasePath, taskId)
 	if _, err = os.Stat(taskBasePath); os.IsNotExist(err) {
 		// 不存在则创建
 		err = os.MkdirAll(taskBasePath, os.ModePerm)
 		if err != nil {
-			xlog.Default().Error("StartVideoSubtitleTask MkdirAll err", xlog.Any("req", req), xlog.FieldErr(err))
+			log.GetLogger().Error("StartVideoSubtitleTask MkdirAll err", zap.Any("req", req), zap.Error(err))
 		}
 	}
 
@@ -102,48 +104,48 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 				const size = 64 << 10
 				buf := make([]byte, size)
 				buf = buf[:runtime.Stack(buf, false)]
-				//xlog.Default().Error("autoVideoSubtitle panic", xlog.Any("panic:", r), xlog.Any("stack:", buf))
+				log.GetLogger().Error("autoVideoSubtitle panic", zap.Any("panic:", r), zap.Any("stack:", buf))
 				storage.SubtitleTasks[taskId].Status = types.SubtitleTaskStatusFailed
 			}
 		}()
-		//xlog.Default().Info("video subtitle start task", xlog.String("taskId", taskId))
+		log.GetLogger().Info("video subtitle start task", zap.String("taskId", taskId))
 		err = s.linkToAudioFile(ctx, &stepParam)
 		if err != nil {
-			//xlog.Default().Error("StartVideoSubtitleTask linkToAudioFile err", xlog.Any("req", req), xlog.FieldErr(err))
+			log.GetLogger().Error("StartVideoSubtitleTask linkToAudioFile err", zap.Any("req", req), zap.Error(err))
 			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
 			storage.SubtitleTasks[stepParam.TaskId].FailReason = "link to audio error"
 			return
 		}
 		err = s.getVideoInfo(ctx, &stepParam)
 		if err != nil {
-			//xlog.Default().Error("StartVideoSubtitleTask getVideoInfo err", xlog.Any("req", req), xlog.FieldErr(err))
+			log.GetLogger().Error("StartVideoSubtitleTask getVideoInfo err", zap.Any("req", req), zap.Error(err))
 			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
 			storage.SubtitleTasks[stepParam.TaskId].FailReason = "get video info error"
 			return
 		}
 		err = s.audioToSubtitle(ctx, &stepParam)
 		if err != nil {
-			//xlog.Default().Error("StartVideoSubtitleTask audioToSubtitle err", xlog.Any("req", req), xlog.FieldErr(err))
+			log.GetLogger().Error("StartVideoSubtitleTask audioToSubtitle err", zap.Any("req", req), zap.Error(err))
 			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
 			storage.SubtitleTasks[stepParam.TaskId].FailReason = "audio to subtitle error"
 			return
 		}
 		//err = s.srtFileToSpeech(ctx, &stepParam)
 		//if err != nil {
-		//	//xlog.Default().Error("StartVideoSubtitleTask srtFileToSpeech err", xlog.Any("req", req), xlog.FieldErr(err))
+		//	//zap.Default().Error("StartVideoSubtitleTask srtFileToSpeech err", zap.Any("req", req), zap.FieldErr(err))
 		//	storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
 		//	storage.SubtitleTasks[stepParam.TaskId].FailReason = "srt file to speech error"
 		//	return
 		//}
 		err = s.uploadSubtitles(ctx, &stepParam)
 		if err != nil {
-			//xlog.Default().Error("StartVideoSubtitleTask uploadSubtitles err", xlog.Any("req", req), xlog.FieldErr(err))
+			log.GetLogger().Error("StartVideoSubtitleTask uploadSubtitles err", zap.Any("req", req), zap.Error(err))
 			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
 			storage.SubtitleTasks[stepParam.TaskId].FailReason = "upload subtitles error"
 			return
 		}
 
-		//xlog.Default().Info("video subtitle task end", xlog.String("taskId", taskId))
+		log.GetLogger().Info("video subtitle task end", zap.String("taskId", taskId))
 	}()
 
 	return &dto.StartVideoSubtitleTaskResData{
@@ -151,9 +153,29 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	}, nil
 }
 
-func (s Service) GetTaskStatus(req dto.GetVideoSubtitleTaskReq) (*dto.GetVideoSubtitleTaskRes, error) {
-	// todo
-	return nil, nil
+func (s Service) GetTaskStatus(req dto.GetVideoSubtitleTaskReq) (*dto.GetVideoSubtitleTaskResData, error) {
+	task := storage.SubtitleTasks[req.TaskId]
+	if task == nil {
+		return nil, errors.New("任务不存在")
+	}
+	return &dto.GetVideoSubtitleTaskResData{
+		TaskId:         task.TaskId,
+		ProcessPercent: task.ProcessPct,
+		VideoInfo: &dto.VideoInfo{
+			Title:                 task.Title,
+			Description:           task.Description,
+			TranslatedTitle:       task.TranslatedTitle,
+			TranslatedDescription: task.TranslatedDescription,
+		},
+		SubtitleInfo: lo.Map(task.SubtitleInfos, func(item types.SubtitleInfo, _ int) *dto.SubtitleInfo {
+			return &dto.SubtitleInfo{
+				Name:        item.Name,
+				DownloadUrl: item.DownloadUrl,
+			}
+		}),
+		TargetLanguage:    task.TargetLanguage,
+		SpeechDownloadUrl: task.SpeechDownloadUrl,
+	}, nil
 }
 
 // 新版流程：链接->本地音频文件->扣费->视频信息获取（若有）->本地字幕文件->cos上的字幕信息
@@ -168,21 +190,18 @@ func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleT
 		var videoId string
 		videoId, err = util.GetYouTubeID(link)
 		if err != nil {
-			//xlog.Default().Error("linkToAudioFile.GetYouTubeID err", xlog.Any("step param", stepParam), xlog.FieldErr(err))
+			log.GetLogger().Error("linkToAudioFile.GetYouTubeID err", zap.Any("step param", stepParam), zap.Error(err))
 			return err
 		}
 		stepParam.Link = "https://www.youtube.com/watch?v=" + videoId
 		// 使用 yt-dlp 下载音频并保存到指定目录
 		cmdArgs := []string{"-f", "bestaudio", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "192K", "-o", audioPath, stepParam.Link}
-		proxy := conf.GetString("subtitle.proxy")
-		if proxy != "" {
-			cmdArgs = append(cmdArgs, "--proxy", proxy)
-			//cmdArgs = append(cmdArgs, "--cookies", "./cookies.txt")
-		}
+
+		cmdArgs = append(cmdArgs, "--cookies", "./cookies.txt")
 		cmd := exec.Command("yt-dlp", cmdArgs...)
 		err = cmd.Run()
 		if err != nil {
-			//xlog.Default().Error("generateAudioSubtitles.Step2DownloadAudio yt-dlp err", xlog.Any("step param", stepParam), xlog.FieldErr(err))
+			log.GetLogger().Error("generateAudioSubtitles.Step2DownloadAudio yt-dlp err", zap.Any("step param", stepParam), zap.Error(err))
 			return err
 		}
 	} else if strings.Contains(link, "bilibili.com") {
@@ -192,18 +211,18 @@ func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleT
 		}
 		stepParam.Link = "https://www.bilibili.com/video/" + videoId
 		cmdArgs := []string{"-f", "bestaudio[ext=m4a]", "-x", "--audio-format", "mp3", "-o", audioPath, stepParam.Link}
-		proxy := conf.GetString("subtitle.proxy")
-		if proxy != "" {
-			cmdArgs = append(cmdArgs, "--proxy", proxy)
-		}
+		//proxy := conf.GetString("subtitle.proxy")
+		//if proxy != "" {
+		//	cmdArgs = append(cmdArgs, "--proxy", proxy)
+		//}
 		cmd := exec.Command("yt-dlp", cmdArgs...)
 		err = cmd.Run()
 		if err != nil {
-			//xlog.Default().Error("generateAudioSubtitles.Step2DownloadAudio yt-dlp err", xlog.Any("step param", stepParam), xlog.FieldErr(err))
+			log.GetLogger().Error("generateAudioSubtitles.Step2DownloadAudio yt-dlp err", zap.Any("step param", stepParam), zap.Error(err))
 			return err
 		}
 	} else {
-		//xlog.Default().Info("linkToAudioFile.unsupported link type", xlog.Any("step param", stepParam))
+		log.GetLogger().Info("linkToAudioFile.unsupported link type", zap.Any("step param", stepParam))
 		return errors.New("invalid link")
 	}
 	stepParam.AudioFilePath = audioPath
@@ -222,35 +241,37 @@ func (s Service) getVideoInfo(ctx context.Context, stepParam *types.SubtitleTask
 		// 获取标题
 		titleCmdArgs := []string{"--skip-download", "--encoding", "utf-8", "--get-title", stepParam.Link}
 		descriptionCmdArgs := []string{"--skip-download", "--encoding", "utf-8", "--get-description", stepParam.Link}
-		proxy := conf.GetString("subtitle.proxy")
-		if proxy != "" {
-			titleCmdArgs = append(titleCmdArgs, "--proxy", proxy)
-			descriptionCmdArgs = append(descriptionCmdArgs, "--proxy", proxy)
-			//titleCmdArgs = append(titleCmdArgs, "--cookies", "./cookies.txt")
-			//descriptionCmdArgs = append(descriptionCmdArgs, "--cookies", "./cookies.txt")
-		}
+		//proxy := conf.GetString("subtitle.proxy")
+		//if proxy != "" {
+		//	titleCmdArgs = append(titleCmdArgs, "--proxy", proxy)
+		//	descriptionCmdArgs = append(descriptionCmdArgs, "--proxy", proxy)
+		//	titleCmdArgs = append(titleCmdArgs, "--cookies", "./cookies.txt")
+		//	descriptionCmdArgs = append(descriptionCmdArgs, "--cookies", "./cookies.txt")
+		//}
+		titleCmdArgs = append(titleCmdArgs, "--cookies", "./cookies.txt")
+		descriptionCmdArgs = append(descriptionCmdArgs, "--cookies", "./cookies.txt")
 		cmd := exec.Command("yt-dlp", titleCmdArgs...)
 		var output []byte
 		output, err = cmd.Output()
 		if err != nil {
-			//xlog.Default().Error("getVideoInfo yt-dlp error", xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+			log.GetLogger().Error("getVideoInfo yt-dlp error", zap.Any("stepParam", stepParam), zap.Error(err))
 			// 不需要整个流程退出
 		}
 		title = string(output)
 		cmd = exec.Command("yt-dlp", descriptionCmdArgs...)
 		output, err = cmd.Output()
 		if err != nil {
-			//xlog.Default().Error("getVideoInfo yt-dlp error", xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+			log.GetLogger().Error("getVideoInfo yt-dlp error", zap.Any("stepParam", stepParam), zap.Error(err))
 		}
 		description = string(output)
-		//xlog.Default().Debug("getVideoInfo title and description", xlog.String("title", title), xlog.String("description", description))
+		log.GetLogger().Debug("getVideoInfo title and description", zap.String("title", title), zap.String("description", description))
 		// 翻译
 		var result string
 		result, err = s.OpenaiClient.ChatCompletion(fmt.Sprintf(types.TranslateVideoTitleAndDescriptionPrompt, types.GetStandardLanguageName(stepParam.TargetLanguage), title+"####"+description))
 		if err != nil {
-			//xlog.Default().Error("getVideoInfo openai chat completion error", xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+			log.GetLogger().Error("getVideoInfo openai chat completion error", zap.Any("stepParam", stepParam), zap.Error(err))
 		}
-		//xlog.Default().Debug("getVideoInfo translate video info result", xlog.String("result", result))
+		log.GetLogger().Debug("getVideoInfo translate video info result", zap.String("result", result))
 
 		storage.SubtitleTasks[stepParam.TaskId].Title = title
 		storage.SubtitleTasks[stepParam.TaskId].Description = description
@@ -264,7 +285,7 @@ func (s Service) getVideoInfo(ctx context.Context, stepParam *types.SubtitleTask
 			storage.SubtitleTasks[stepParam.TaskId].TranslatedTitle = splitResult[0]
 			storage.SubtitleTasks[stepParam.TaskId].TranslatedDescription = splitResult[1]
 		} else {
-			//xlog.Default().Error("getVideoInfo translate video info error split result length != 1 and 2", xlog.Any("stepParam", stepParam), xlog.Any("translate result", result), xlog.FieldErr(err))
+			log.GetLogger().Error("getVideoInfo translate video info error split result length != 1 and 2", zap.Any("stepParam", stepParam), zap.Any("translate result", result), zap.Error(err))
 		}
 	}
 	return nil
@@ -298,7 +319,7 @@ func (s Service) uploadSubtitles(ctx context.Context, stepParam *types.SubtitleT
 			replacedSrcFile := util.AddSuffixToFileName(srcFile, "_replaced")
 			err = util.ReplaceFileContent(srcFile, replacedSrcFile, stepParam.ReplaceWordsMap)
 			if err != nil {
-				//xlog.Default().Error("generateAudioSubtitles.uploadSubtitles ReplaceFileContent err", xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+				log.GetLogger().Error("generateAudioSubtitles.uploadSubtitles ReplaceFileContent err", zap.Any("stepParam", stepParam), zap.Error(err))
 				return err
 			}
 			srcFile = replacedSrcFile
@@ -321,11 +342,11 @@ func (s Service) uploadSubtitles(ctx context.Context, stepParam *types.SubtitleT
 }
 
 func (s Service) splitAudio(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
-	xlog.Default().Info("audioToSubtitle.splitAudio start", xlog.String("task id", stepParam.TaskId))
+	log.GetLogger().Info("audioToSubtitle.splitAudio start", zap.String("task id", stepParam.TaskId))
 	var err error
 	// 使用ffmpeg-go分割音频
 	outputPattern := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskSplitAudioFileNamePattern) // 输出文件格式
-	segmentDuration := conf.GetInt("subtitle.segment_duration") * 60                                    // 每段的时长
+	segmentDuration := config.Conf.App.SegmentDuration * 60                                             // 每段的时长
 	err = ffmpeg.Input(stepParam.AudioFilePath).
 		Output(outputPattern, ffmpeg.KwArgs{
 			"f":                "segment",       // 设置输出文件类型为分段
@@ -334,18 +355,18 @@ func (s Service) splitAudio(ctx context.Context, stepParam *types.SubtitleTaskSt
 		}).OverWriteOutput().ErrorToStdOut().Run()
 
 	if err != nil {
-		xlog.Default().Error("audioToSubtitle.splitAudio ffmpeg err", xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+		log.GetLogger().Error("audioToSubtitle.splitAudio ffmpeg err", zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
 
 	// 获取分割后的文件列表
 	audioFiles, err := filepath.Glob(filepath.Join(stepParam.TaskBasePath, fmt.Sprintf("%s_*.mp3", types.SubtitleTaskSplitAudioFileNamePrefix)))
 	if err != nil {
-		xlog.Default().Error("audioToSubtitle.splitAudio filepath.Glob err", xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+		log.GetLogger().Error("audioToSubtitle.splitAudio filepath.Glob err", zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
 	if len(audioFiles) == 0 {
-		xlog.Default().Error("audioToSubtitle.splitAudio no audio files found", xlog.Any("stepParam", stepParam))
+		log.GetLogger().Error("audioToSubtitle.splitAudio no audio files found", zap.Any("stepParam", stepParam))
 		return errors.New("no audio files found")
 	}
 
@@ -361,15 +382,15 @@ func (s Service) splitAudio(ctx context.Context, stepParam *types.SubtitleTaskSt
 	// 更新字幕任务信息
 	storage.SubtitleTasks[stepParam.TaskId].ProcessPct = 20
 
-	//xlog.Default().Info("audioToSubtitle.splitAudio end", xlog.String("task id", stepParam.TaskId))
+	log.GetLogger().Info("audioToSubtitle.splitAudio end", zap.String("task id", stepParam.TaskId))
 	return nil
 }
 
 func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
-	xlog.Default().Info("audioToSubtitle.audioToSrt start", xlog.Any("taskId", stepParam.TaskId))
+	log.GetLogger().Info("audioToSubtitle.audioToSrt start", zap.Any("taskId", stepParam.TaskId))
 	var (
 		stepNum             = 0
-		parallelControlChan = make(chan struct{}, conf.GetInt("subtitle.translate_parallel_num"))
+		parallelControlChan = make(chan struct{}, config.Conf.App.TranslateParallelNum)
 		eg                  errgroup.Group
 		stepNumMu           sync.Mutex
 		err                 error
@@ -394,7 +415,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 				}
 			}
 			if err != nil {
-				xlog.Default().Error("audioToSubtitle.audioToSrt.Transcription err", xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+				log.GetLogger().Error("audioToSubtitle.audioToSrt.Transcription err", zap.Any("stepParam", stepParam), zap.Error(err))
 				return err
 			}
 
@@ -403,20 +424,20 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			// 更新字幕任务信息
 			stepNumMu.Lock()
 			stepNum++
-			processPct := int8(20 + 70*stepNum/(len(stepParam.SmallAudios)*2))
+			processPct := uint8(20 + 70*stepNum/(len(stepParam.SmallAudios)*2))
 			stepNumMu.Unlock()
 			storage.SubtitleTasks[stepParam.TaskId].ProcessPct = processPct
 
 			// 拆分字幕并翻译
 			err = s.splitTextAndTranslate(stepParam.TaskId, stepParam.TaskBasePath, stepParam.TargetLanguage, stepParam.EnableModalFilter, audioFile)
 			if err != nil {
-				xlog.Default().Error("audioToSubtitle.audioToSrt.splitTextAndTranslate err", xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+				log.GetLogger().Error("audioToSubtitle.audioToSrt.splitTextAndTranslate err", zap.Any("stepParam", stepParam), zap.Error(err))
 				return err
 			}
 
 			stepNumMu.Lock()
 			stepNum++
-			processPct = int8(20 + 70*stepNum/(len(stepParam.SmallAudios)*2))
+			processPct = uint8(20 + 70*stepNum/(len(stepParam.SmallAudios)*2))
 			stepNumMu.Unlock()
 
 			storage.SubtitleTasks[stepParam.TaskId].ProcessPct = processPct
@@ -424,7 +445,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			// 生成时间戳
 			err = s.generateTimestamps(stepParam.TaskId, stepParam.TaskBasePath, stepParam.OriginLanguage, stepParam.SubtitleResultType, audioFile)
 			if err != nil {
-				xlog.Default().Error("audioToSubtitle.audioToSrt.generateTimestamps err", xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+				log.GetLogger().Error("audioToSubtitle.audioToSrt.generateTimestamps err", zap.Any("stepParam", stepParam), zap.Error(err))
 				return err
 			}
 			return nil
@@ -432,7 +453,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	}
 
 	if err = eg.Wait(); err != nil {
-		xlog.Default().Error("audioToSubtitle.audioToSrt.eg.Wait err", xlog.Any("taskId", stepParam.TaskId), xlog.FieldErr(err))
+		log.GetLogger().Error("audioToSubtitle.audioToSrt.eg.Wait err", zap.Any("taskId", stepParam.TaskId), zap.Error(err))
 		return err
 	}
 
@@ -450,8 +471,8 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	originNoTsFile := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, types.SubtitleTaskSrtNoTimestampFileName)
 	err = util.MergeFile(originNoTsFile, originNoTsFiles...)
 	if err != nil {
-		xlog.Default().Error("audioToSubtitle.audioToSrt.MergeFile originNoTs err",
-			xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+		log.GetLogger().Error("audioToSubtitle.audioToSrt.MergeFile originNoTs err",
+			zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
 
@@ -459,8 +480,8 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	bilingualFile := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, types.SubtitleTaskBilingualSrtFileName)
 	err = util.MergeSrtFiles(bilingualFile, bilingualFiles...)
 	if err != nil {
-		xlog.Default().Error("audioToSubtitle.audioToSrt.MergeFile ts err",
-			xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+		log.GetLogger().Error("audioToSubtitle.audioToSrt.MergeFile ts err",
+			zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
 
@@ -470,20 +491,20 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	// 更新字幕任务信息
 	storage.SubtitleTasks[stepParam.TaskId].ProcessPct = 90
 
-	xlog.Default().Info("audioToSubtitle.audioToSrt end", xlog.Any("taskId", stepParam.TaskId))
+	log.GetLogger().Info("audioToSubtitle.audioToSrt end", zap.Any("taskId", stepParam.TaskId))
 
 	return nil
 }
 
 func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
-	xlog.Default().Info("audioToSubtitle.splitSrt start", xlog.Any("task id", stepParam.TaskId))
+	log.GetLogger().Info("audioToSubtitle.splitSrt start", zap.Any("task id", stepParam.TaskId))
 
 	originLanguageSrtFilePath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskOriginLanguageSrtFileName)
 	targetLanguageSrtFilePath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskTargetLanguageSrtFileName)
 	// 打开双语字幕文件
 	file, err := os.Open(stepParam.BilingualSrtFilePath)
 	if err != nil {
-		xlog.Default().Error("audioToSubtitle.splitSrt os.Open err", xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+		log.GetLogger().Error("audioToSubtitle.splitSrt os.Open err", zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
 	defer file.Close()
@@ -491,13 +512,13 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	// 打开输出文件
 	originLanguageSrtFile, err := os.Create(originLanguageSrtFilePath)
 	if err != nil {
-		xlog.Default().Error("audioToSubtitle.splitSrt os.Create originLanguageSrtFile err", xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+		log.GetLogger().Error("audioToSubtitle.splitSrt os.Create originLanguageSrtFile err", zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
 	defer originLanguageSrtFile.Close()
 	targetLanguageSrtFile, err := os.Create(targetLanguageSrtFilePath)
 	if err != nil {
-		xlog.Default().Error("audioToSubtitle.splitSrt os.Create targetLanguageSrtFile err", xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+		log.GetLogger().Error("audioToSubtitle.splitSrt os.Create targetLanguageSrtFile err", zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
 	defer targetLanguageSrtFile.Close()
@@ -525,7 +546,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	}
 
 	if err = scanner.Err(); err != nil {
-		xlog.Default().Error("audioToSubtitle.splitSrt scanner.Err err", xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+		log.GetLogger().Error("audioToSubtitle.splitSrt scanner.Err err", zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
 	// 添加原语言单语字幕
@@ -568,7 +589,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 		stepParam.TtsSourceFilePath = stepParam.BilingualSrtFilePath
 	}
 
-	xlog.Default().Info("audioToSubtitle.splitSrt end", xlog.Any("task id", stepParam.TaskId))
+	log.GetLogger().Info("audioToSubtitle.splitSrt end", zap.Any("task id", stepParam.TaskId))
 	return nil
 }
 
@@ -806,7 +827,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 	// 获取原始无时间戳字幕内容
 	srtBlocks, err := util.ParseSrtNoTsToSrtBlock(audioFile.SrtNoTsFile)
 	if err != nil {
-		xlog.Default().Error("generateAudioSubtitles.generateTimestamps.ReadSrtBlocks err", xlog.String("taskId", taskId), xlog.FieldErr(err))
+		log.GetLogger().Error("generateAudioSubtitles.generateTimestamps.ReadSrtBlocks err", zap.String("taskId", taskId), zap.Error(err))
 		return err
 	}
 
@@ -821,7 +842,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 			continue
 		}
 		lastTs = ts
-		tsOffset := conf.GetFloat64("subtitle.segment_duration") * 60 * float64(audioFile.Num-1)
+		tsOffset := float64(config.Conf.App.SegmentDuration) * 60 * float64(audioFile.Num-1)
 		srtBlock.Timestamp = fmt.Sprintf("%s --> %s", util.FormatTime(float32(sentenceTs.Start+tsOffset)), util.FormatTime(float32(sentenceTs.End+tsOffset)))
 	}
 
@@ -829,7 +850,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 	finalBilingualSrtFileName := fmt.Sprintf("%s/%s", basePath, fmt.Sprintf(types.SubtitleTaskSplitBilingualSrtFileNamePattern, audioFile.Num))
 	finalBilingualSrtFile, err := os.Create(finalBilingualSrtFileName)
 	if err != nil {
-		xlog.Default().Error("generateAudioSubtitles.generateTimestamps.os.Open err", xlog.String("taskId", taskId), xlog.FieldErr(err))
+		log.GetLogger().Error("generateAudioSubtitles.generateTimestamps.os.Open err", zap.String("taskId", taskId), zap.Error(err))
 		return err
 	}
 	defer finalBilingualSrtFile.Close()
@@ -874,7 +895,7 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 	}
 
 	if err != nil {
-		xlog.Default().Error("generateAudioSubtitles.splitTextAndTranslate.ChatCompletion err", xlog.Any("taskId", taskId), xlog.FieldErr(err))
+		log.GetLogger().Error("generateAudioSubtitles.splitTextAndTranslate.ChatCompletion err", zap.Any("taskId", taskId), zap.Error(err))
 		return err
 	}
 
@@ -882,7 +903,7 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 	originNoTsSrtFile := fmt.Sprintf("%s/%s", baseTaskPath, fmt.Sprintf(types.SubtitleTaskSplitSrtNoTimestampFileNamePattern, audioFile.Num))
 	err = os.WriteFile(originNoTsSrtFile, []byte(splitContent), 0644)
 	if err != nil {
-		xlog.Default().Error("generateAudioSubtitles.splitTextAndTranslate.os.WriteFile err", xlog.Any("taskId", taskId), xlog.FieldErr(err))
+		log.GetLogger().Error("generateAudioSubtitles.splitTextAndTranslate.os.WriteFile err", zap.Any("taskId", taskId), zap.Error(err))
 		return err
 	}
 

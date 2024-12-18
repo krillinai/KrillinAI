@@ -10,6 +10,6 @@ func SetupRouter(r *gin.Engine) {
 	hdl := handler.NewHandler()
 	{
 		api.POST("/subtitleTask", hdl.StartSubtitleTask)
-		//api.GET("/subtitleTask", controllers.GetSubtitleTaskStatus)
+		api.GET("/subtitleTask", hdl.GetSubtitleTask)
 	}
 }
