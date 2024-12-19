@@ -12,6 +12,8 @@
 			min-width: 320px;
 			min-height: 100vh;
 			color: #333;
+			background: url('/source/background.jpg') no-repeat center center fixed;
+			background-size: cover;
 		}
 
 		h1 {
@@ -146,10 +148,10 @@
 				<input type="radio" name="inputType" value="url" checked>
 				输入视频地址
 			</label>
-			<label>
-				<input type="radio" name="inputType" value="file">
-				本地视频上传
-			</label>
+<!--			<label>-->
+<!--				<input type="radio" name="inputType" value="file">-->
+<!--				本地视频上传-->
+<!--			</label>-->
 		</div>
 
 		<div class="formItem" id="urlInputContainer">
@@ -163,7 +165,7 @@
 			<p id="uploadStatus" class="loading hidden">正在上传...</p>
 		</div>
 
-		<button type="submit" id="executeButton">执行</button>
+		<button type="submit" id="executeButton">执 行</button>
 	</form>
 
 	<div id="progressSection" class="progressSection hidden">
@@ -252,12 +254,20 @@
 		}
 
 		const inputType = document.querySelector('input[name="inputType"]:checked').value;
-		const formData = new FormData();
+		const params = {
+			bilingual: 1,
+			language: "en",
+			modal_filter: 1,
+			origin_lang: "en",
+			target_lang: "zh_cn",
+			translation_subtitle_pos: 1,
+			tts: 2
+		};
 
 		if (inputType === 'url') {
-			formData.append('url', urlInput.value.trim());
+			params.url = urlInput.value.trim();
 		} else if (inputType === 'file' && uploadedVideoUrl) {
-			formData.append('videoUrl', uploadedVideoUrl);
+			params.url = uploadedVideoUrl;
 		} else {
 			alert('请上传视频后再执行任务');
 			return;
@@ -265,30 +275,32 @@
 
 		// 请求启动任务接口
 
-		const taskId = await startTask(formData);
+		const taskId = await startTask(params);
 
-		// 显示任务进度区域
-		progressSection.classList.remove('hidden');
 		downloadLinks.classList.add('hidden');
 		downloadLinks.innerHTML = ''; // 清空之前的下载链接
 
-		await pollTaskProgress(taskId);
+		if (taskId) {
+			// 显示任务进度区域
+			progressSection.classList.remove('hidden');
+			await pollTaskProgress(taskId);
+		}
 	});
 
 
 	// 请求启动任务接口
-	async function startTask(formData) {
+	async function startTask(params) {
 		try {
 			const response = await fetch(API_SUBMIT_URL, {
 				method: 'POST',
-				body: formData,
+				body: JSON.stringify(params),
 			});
 			if (!response.ok) {
 				alert('启动任务失败');
 				throw new Error('启动任务失败');
 			}
 			const data = await response.json();
-			return data.taskId;
+			return data.task_id || '';
 		} catch (error) {
 			console.error('启动任务失败:', error);
 			return null;
@@ -302,13 +314,13 @@
 		try {
 			let progress = 0;
 			while (progress < 100) {
-				const response = await fetch(`${API_PROGRESS_URL}?taskId=${taskId}`);
+				const response = await fetch(`${API_PROGRESS_URL}?task_id=${taskId}`);
 				if (!response.ok) {
 					alert('查询进度失败');
 					throw new Error('查询进度失败');
 				}
 				const data = await response.json();
-				progress = data.progress;
+				progress = data.process_percent;
 				progressBar.style.width = progress + '%';
 				progressBar.textContent = progress + '%';
 				if (progress >= 100) {
