@@ -5,6 +5,7 @@ import (
 	"krillin-ai/config"
 	"krillin-ai/internal/router"
 	"krillin-ai/log"
+	"krillin-ai/pkg/util"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,6 +23,15 @@ func main() {
 
 	log.InitLogger()
 	defer log.GetLogger().Sync() // 确保日志被正确写入
+
+	err = util.CheckAndDownloadFfmpeg()
+	if err != nil {
+		panic(fmt.Sprintf("ffmpeg环境准备失败: %v", err))
+	}
+	err = util.CheckAndDownloadYtDlp()
+	if err != nil {
+		panic(fmt.Sprintf("yt-dlp环境准备失败: %v", err))
+	}
 
 	app := App{
 		Engine: gin.Default(),
