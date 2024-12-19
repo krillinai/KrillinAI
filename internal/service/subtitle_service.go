@@ -71,7 +71,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	var err error
 	ctx := context.Background()
 	// 创建字幕任务文件夹
-	taskBasePath := filepath.Join(config.Conf.App.BasePath, taskId)
+	taskBasePath := filepath.Join("./tasks", taskId)
 	if _, err = os.Stat(taskBasePath); os.IsNotExist(err) {
 		// 不存在则创建
 		err = os.MkdirAll(taskBasePath, os.ModePerm)
@@ -198,7 +198,7 @@ func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleT
 		cmdArgs := []string{"-f", "bestaudio", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "192K", "-o", audioPath, stepParam.Link}
 
 		cmdArgs = append(cmdArgs, "--cookies", "./cookies.txt")
-		cmd := exec.Command("yt-dlp", cmdArgs...)
+		cmd := exec.Command(storage.YtdlpPath, cmdArgs...)
 		err = cmd.Run()
 		if err != nil {
 			log.GetLogger().Error("generateAudioSubtitles.Step2DownloadAudio yt-dlp err", zap.Any("step param", stepParam), zap.Error(err))
@@ -215,7 +215,7 @@ func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleT
 		//if proxy != "" {
 		//	cmdArgs = append(cmdArgs, "--proxy", proxy)
 		//}
-		cmd := exec.Command("yt-dlp", cmdArgs...)
+		cmd := exec.Command(storage.YtdlpPath, cmdArgs...)
 		err = cmd.Run()
 		if err != nil {
 			log.GetLogger().Error("generateAudioSubtitles.Step2DownloadAudio yt-dlp err", zap.Any("step param", stepParam), zap.Error(err))
@@ -250,7 +250,7 @@ func (s Service) getVideoInfo(ctx context.Context, stepParam *types.SubtitleTask
 		//}
 		titleCmdArgs = append(titleCmdArgs, "--cookies", "./cookies.txt")
 		descriptionCmdArgs = append(descriptionCmdArgs, "--cookies", "./cookies.txt")
-		cmd := exec.Command("yt-dlp", titleCmdArgs...)
+		cmd := exec.Command(storage.YtdlpPath, titleCmdArgs...)
 		var output []byte
 		output, err = cmd.Output()
 		if err != nil {
@@ -258,7 +258,7 @@ func (s Service) getVideoInfo(ctx context.Context, stepParam *types.SubtitleTask
 			// 不需要整个流程退出
 		}
 		title = string(output)
-		cmd = exec.Command("yt-dlp", descriptionCmdArgs...)
+		cmd = exec.Command(storage.YtdlpPath, descriptionCmdArgs...)
 		output, err = cmd.Output()
 		if err != nil {
 			log.GetLogger().Error("getVideoInfo yt-dlp error", zap.Any("stepParam", stepParam), zap.Error(err))
