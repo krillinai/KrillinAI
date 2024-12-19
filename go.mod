@@ -1,17 +1,18 @@
 module krillin-ai
 
-go 1.22.0
+go 1.22.2
+
+toolchain go1.22.10
 
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/gin-gonic/gin v1.10.0
-	github.com/nwaples/rardecode v1.1.3
 	github.com/samber/lo v1.38.1
 	github.com/sashabaranov/go-openai v1.36.0
 	github.com/u2takey/ffmpeg-go v0.5.0
 	github.com/wulien/jupiter v0.11.13
 	go.uber.org/zap v1.25.0
-	golang.org/x/sync v0.3.0
+	golang.org/x/sync v0.9.0
 )
 
 require (
@@ -25,7 +26,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
-	github.com/gen2brain/go-unarr v0.2.4 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
@@ -59,7 +59,7 @@ require (
 	golang.org/x/exp v0.0.0-20221031165847-c99f073a8326 // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
-	golang.org/x/text v0.15.0 // indirect
+	golang.org/x/text v0.20.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

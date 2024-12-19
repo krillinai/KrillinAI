@@ -184,8 +184,15 @@ func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleT
 	var err error
 	link := stepParam.Link
 	audioPath := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, types.SubtitleTaskAudioFileName)
-	if strings.Contains(link, "cdn.krillin.ai") {
-		// todo
+	if strings.Contains(link, "local:") {
+		// 本地文件
+		videoPath := strings.ReplaceAll(link, "local:", "")
+		cmd := exec.Command("ffmpeg", "-i", videoPath, "-vn", "-ar", "44100", "-ac", "2", "-ab", "192k", "-f", "mp3", audioPath)
+		err = cmd.Run()
+		if err != nil {
+			log.GetLogger().Error("generateAudioSubtitles.Step1LinkToAudio ffmpeg err", zap.Any("step param", stepParam), zap.Error(err))
+			return err
+		}
 	} else if strings.Contains(link, "youtube.com") {
 		var videoId string
 		videoId, err = util.GetYouTubeID(link)

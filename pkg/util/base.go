@@ -1,8 +1,8 @@
 package util
 
 import (
+	"archive/zip"
 	"fmt"
-	"github.com/gen2brain/go-unarr"
 	"go.uber.org/zap"
 	"io"
 	"krillin-ai/internal/storage"
@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -93,19 +94,48 @@ func DownloadFile(url, filepath string) error {
 	return err
 }
 
-// 解压zip文件
-func ExtractZip(archivePath, destDir string) error {
-	a, err := unarr.NewArchive(archivePath)
+func Unzip(zipFile, destDir string) error {
+	zipReader, err := zip.OpenReader(zipFile)
 	if err != nil {
-		log.GetLogger().Error("打开文件失败", zap.Error(err))
-		return err
+		return fmt.Errorf("打开zip文件失败: %v", err)
 	}
-	defer a.Close()
-	_, err = a.Extract(destDir)
+	defer zipReader.Close()
+
+	err = os.MkdirAll(destDir, 0755)
 	if err != nil {
-		log.GetLogger().Error("解压文件失败", zap.Error(err))
+		return fmt.Errorf("创建目标目录失败: %v", err)
 	}
-	return err
+
+	for _, file := range zipReader.File {
+		filePath := filepath.Join(destDir, file.Name)
+
+		if file.FileInfo().IsDir() {
+			err := os.MkdirAll(filePath, file.Mode())
+			if err != nil {
+				return fmt.Errorf("创建目录失败: %v", err)
+			}
+			continue
+		}
+
+		destFile, err := os.Create(filePath)
+		if err != nil {
+			return fmt.Errorf("创建文件失败: %v", err)
+		}
+		defer destFile.Close()
+
+		zipFileReader, err := file.Open()
+		if err != nil {
+			return fmt.Errorf("打开zip文件内容失败: %v", err)
+		}
+		defer zipFileReader.Close()
+
+		_, err = io.Copy(destFile, zipFileReader)
+		if err != nil {
+			return fmt.Errorf("复制文件内容失败: %v", err)
+		}
+	}
+
+	return nil
 }
 
 // CheckAndDownloadFfmpeg 检测并安装ffmpeg
@@ -127,31 +157,31 @@ func CheckAndDownloadFfmpeg() error {
 
 	var ffmpegURL string
 	if runtime.GOOS == "linux" {
-		// todo
+		ffmpegURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-linux-64.zip"
 	} else if runtime.GOOS == "darwin" {
-		ffmpegURL = "https://evermeet.cx/ffmpeg/ffmpeg-7.1.7z"
+		ffmpegURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-linux-arm-64.zip"
 	} else if runtime.GOOS == "windows" {
-		ffmpegURL = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-essentials.7z"
+		ffmpegURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-win-64.zip"
 	} else {
 		log.GetLogger().Error("不支持你当前的操作系统", zap.String("当前系统", runtime.GOOS))
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
 
 	// 下载
-	ffmpegDownloadPath := "./bin/ffmpeg.7z"
+	ffmpegDownloadPath := "./bin/ffmpeg.zip"
 	err = DownloadFile(ffmpegURL, ffmpegDownloadPath)
 	if err != nil {
 		log.GetLogger().Error("下载ffmpeg失败", zap.Error(err))
 		return err
 	}
-	err = ExtractZip(ffmpegDownloadPath, "./bin")
+	err = Unzip(ffmpegDownloadPath, "./bin")
 	if err != nil {
 		log.GetLogger().Error("解压ffmpeg失败", zap.Error(err))
 		return err
 	}
 	log.GetLogger().Info("ffmpeg解压成功")
 
-	ffmpegPathLocal := "./bin/ffmpeg/ffmpeg-2024-12-16-git-d2096679d5-essentials_build/bin/ffmpeg.exe"
+	ffmpegPathLocal := "./bin/ffmpeg.exe"
 	if runtime.GOOS != "windows" {
 		err = os.Chmod(ffmpegPathLocal, 0755)
 		if err != nil {

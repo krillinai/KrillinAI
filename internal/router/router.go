@@ -13,6 +13,7 @@ func SetupRouter(r *gin.Engine) {
 	{
 		api.POST("/subtitleTask", hdl.StartSubtitleTask)
 		api.GET("/subtitleTask", hdl.GetSubtitleTask)
+		api.POST("/file", hdl.UploadFile)
 	}
 
 	// 提供静态文件
