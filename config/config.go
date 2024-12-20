@@ -5,8 +5,9 @@ import (
 )
 
 type App struct {
-	SegmentDuration      int `toml:"segment_duration"`
-	TranslateParallelNum int `toml:"translate_parallel_num"`
+	SegmentDuration      int    `toml:"segment_duration"`
+	TranslateParallelNum int    `toml:"translate_parallel_num"`
+	Proxy                string `toml:"proxy"`
 }
 
 type Server struct {

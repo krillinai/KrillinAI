@@ -1,6 +1,7 @@
 [app]
     segment_duration = 5
     translate_parallel_num = 5
+    proxy = ""
 
 [server]
     host = "127.0.0.1"
