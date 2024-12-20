@@ -1,6 +1,8 @@
 <div align="center">
-  <h1>Krillin AI</h1>
-  <p>世界帧精彩</p>
+  <h1>Krillin AI
+  <p></p><p></p>
+
+  世界帧精彩</h1>
   <p>基于AI大模型的视频字幕翻译和配音工具，语音识别，智能断句，专业级翻译，一键部署全流程</p>
   <p>交流Q群: 754069680</p>
   其他语言: [English](README_en.md)
