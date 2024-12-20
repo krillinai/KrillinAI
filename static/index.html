@@ -320,7 +320,7 @@
 		try {
 			let progress = 0;
 			while (progress < 100) {
-				const response = await fetch(`${API_PROGRESS_URL}?task_id=${taskId}`).then(res => res.json()).then(data => {
+				const response = await fetch(`${API_PROGRESS_URL}?taskId=${taskId}`).then(res => res.json()).then(data => {
 					return data || {};
 				});
 				console.log('progress response---:', response);
