@@ -8,3 +8,9 @@
 
 [openai]
     api_key = "sk-XXX"
+
+[aliyun]
+    access_key_id = ""
+    access_key_secret = ""
+    app_key = ""
+    cosy_voice_ws_addr = ""

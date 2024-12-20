@@ -9,6 +9,7 @@ type StartVideoSubtitleTaskReq struct {
 	TranslationSubtitlePos uint8    `json:"translation_subtitle_pos"`
 	ModalFilter            uint8    `json:"modal_filter"`
 	Tts                    uint8    `json:"tts"`
+	TtsVoiceCode           uint8    `json:"tts_voice_code"`
 	Replace                []string `json:"replace"`
 	Language               string   `json:"language"`
 }

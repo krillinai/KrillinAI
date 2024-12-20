@@ -106,6 +106,16 @@ const (
 )
 
 const (
+	SubtitleTaskTtsYes uint8 = iota + 1
+	SubtitleTaskTtsNo
+)
+
+const (
+	SubtitleTaskTtsVoiceCodeSijia uint8 = iota + 1
+	SubtitleTaskTtsVoiceCodeSicheng
+)
+
+const (
 	SubtitleTaskStatusProcessing uint8 = iota + 1
 	SubtitleTaskStatusSuccess
 	SubtitleTaskStatusFailed
@@ -124,6 +134,11 @@ const (
 	SubtitleTaskOriginLanguageSrtFileName          = "origin_language_srt.srt"
 	SubtitleTaskTargetLanguageSrtFileName          = "target_language_srt.srt"
 	SubtitleTaskStepParamGobPersistenceFileName    = "step_param.gob"
+)
+
+const (
+	TtsAudioDurationDetailsFileName = "audio_duration_details.txt"
+	TtsResultAudioFileName          = "tts_final_audio.wav"
 )
 
 type StandardLanguageName string
@@ -224,6 +239,7 @@ type SubtitleTaskStepParam struct {
 	SubtitleResultType   SubtitleResultType
 	EnableModalFilter    bool
 	EnableTts            bool
+	TtsVoiceCode         string // 人声语音编码
 	ReplaceWordsMap      map[string]string
 	OriginLanguage       StandardLanguageName // 视频源语言
 	TargetLanguage       StandardLanguageName // 用户希望的目标翻译语言

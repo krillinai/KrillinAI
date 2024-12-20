@@ -18,10 +18,18 @@ type Openai struct {
 	ApiKey string `toml:"api_key"`
 }
 
+type Aliyun struct {
+	AccessKeyId     string `toml:"access_key_id"`
+	AccessKeySecret string `toml:"access_key_secret"`
+	AppKey          string `toml:"app_key"`
+	CosyVoiceWsAddr string `toml:"cosy_voice_ws_addr"`
+}
+
 type Config struct {
 	App    App    `toml:"app"`
-	Openai Openai `toml:"openai"`
 	Server Server `toml:"server"`
+	Openai Openai `toml:"openai"`
+	Aliyun Aliyun `toml:"aliyun"`
 }
 
 var Conf Config

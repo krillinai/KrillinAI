@@ -1,13 +1,18 @@
 package service
 
-import "krillin-ai/pkg/openai"
+import (
+	"krillin-ai/pkg/aliyun"
+	"krillin-ai/pkg/openai"
+)
 
 type Service struct {
-	OpenaiClient *openai.Client
+	OpenaiClient    *openai.Client
+	CosyCloneClient *aliyun.CosyCloneClient
 }
 
 func NewService() *Service {
 	return &Service{
-		OpenaiClient: openai.NewClient(),
+		OpenaiClient:    openai.NewClient(),
+		CosyCloneClient: aliyun.NewCosyCloneClient(),
 	}
 }
