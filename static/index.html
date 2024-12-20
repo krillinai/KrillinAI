@@ -189,8 +189,8 @@
 	const progressBar = document.getElementById('progressBar');
 	const downloadLinks = document.getElementById('downloadLinks');
 
-	const API_SUBMIT_URL = "/capability/subtitleTask";
-	const API_PROGRESS_URL = "/capability/subtitleTask";
+	const API_SUBMIT_URL = "//www.krillin.ai/capability/subtitleTask";
+	const API_PROGRESS_URL = "//www.krillin.ai/capability/subtitleTask";
 	const API_UPLOAD_URL = "/api/upload";
 
 	let uploadedVideoUrl = null; // 存储上传后的视频地址
@@ -294,16 +294,19 @@
 		try {
 			const response = await fetch(API_SUBMIT_URL, {
 				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
 				body: JSON.stringify(params),
+			}).then(res => res.json()).then(data => {
+				return data;
 			});
-			if (!response.ok) {
+			if (+response.error !== 0 && +response.error !== 200) {
 				alert('启动任务失败');
 				throw new Error('启动任务失败');
 			}
 			console.log('response---:', response);
-			const data = await response.json();
-			console.log('response to data---:', response);
-			return data.task_id || '';
+			return (response.data || {}).task_id || '';
 		} catch (error) {
 			console.error('启动任务失败:', error);
 			return null;
@@ -317,22 +320,23 @@
 		try {
 			let progress = 0;
 			while (progress < 100) {
-				const response = await fetch(`${API_PROGRESS_URL}?task_id=${taskId}`);
+				const response = await fetch(`${API_PROGRESS_URL}?task_id=${taskId}`).then(res => res.json()).then(data => {
+					return data || {};
+				});
 				console.log('progress response---:', response);
-				if (!response.ok) {
+				if (+response.error !== 0 && +response.error !== 200) {
 					alert('查询进度失败');
 					throw new Error('查询进度失败');
 				}
-				const data = await response.json();
-				console.log('progress response to data---:', data);
-				progress = data.process_percent;
+				const data = response.data || {};
+				progress = data.process_percent || 0;
 				progressBar.style.width = progress + '%';
 				progressBar.textContent = progress + '%';
 				if (progress >= 100) {
 					displayDownloadLinks(data.subtitle_info || []);
 					return;
 				}
-				await new Promise(resolve => setTimeout(resolve, 1000));
+				await new Promise(resolve => setTimeout(resolve, 3000));
 			}
 		} catch (error) {
 			console.error('查询进度失败:', error);
