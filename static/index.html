@@ -276,6 +276,7 @@
 		// 请求启动任务接口
 
 		const taskId = await startTask(params);
+		console.log('taskId---:', taskId);
 
 		downloadLinks.classList.add('hidden');
 		downloadLinks.innerHTML = ''; // 清空之前的下载链接
@@ -299,7 +300,9 @@
 				alert('启动任务失败');
 				throw new Error('启动任务失败');
 			}
+			console.log('response---:', response);
 			const data = await response.json();
+			console.log('response to data---:', response);
 			return data.task_id || '';
 		} catch (error) {
 			console.error('启动任务失败:', error);
@@ -315,11 +318,13 @@
 			let progress = 0;
 			while (progress < 100) {
 				const response = await fetch(`${API_PROGRESS_URL}?task_id=${taskId}`);
+				console.log('progress response---:', response);
 				if (!response.ok) {
 					alert('查询进度失败');
 					throw new Error('查询进度失败');
 				}
 				const data = await response.json();
+				console.log('progress response to data---:', data);
 				progress = data.process_percent;
 				progressBar.style.width = progress + '%';
 				progressBar.textContent = progress + '%';
