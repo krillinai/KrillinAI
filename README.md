@@ -25,22 +25,17 @@ Krillin AI 是一个专为追求高质量视频处理的用户和开发者设计
 
 ---
 ## 效果展示
-<table>
-<tr>
-<td width="50%">
+<div style="display: flex; justify-content: space-between;">
+  <div style="flex: 1; margin-right: 10px;">
+    <h3>字幕翻译</h3>
+    <iframe width="100%" height="315" src="./docs/subtitle_translation.mp4" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+  </div>
+  <div style="flex: 1; margin-left: 10px;">
+    <h3>配音和声音克隆</h3>
 
-### 字幕翻译
----
-
-</td>
-<td width="50%">
-
-### 配音和声音克隆
----
-
-</td>
-</tr>
-</table>
+[//]: # (    <iframe width="100%" height="315" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>)
+  </div>
+</div>
 
 
 ---
