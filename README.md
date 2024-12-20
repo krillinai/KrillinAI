@@ -1,11 +1,10 @@
 <div align="center">
-  <h1>Krillin AI
-  <p></p><p></p>
+  <h1>Krillin AI</h1>
+  <p>世界帧精彩</p>
 
-  世界帧精彩</h1>
   <p>基于AI大模型的视频字幕翻译和配音工具，语音识别，智能断句，专业级翻译，一键部署全流程</p>
   <p>交流Q群: 754069680</p>
-  其他语言: [English](README_en.md)
+  其他语言: [English](./docs/README_en.md)
 
 </div>
 
@@ -25,17 +24,7 @@ Krillin AI 是一个专为追求高质量视频处理的用户和开发者设计
 
 ---
 ## 效果展示
-<div style="display: flex; justify-content: space-between;">
-  <div style="flex: 1; margin-right: 10px;">
-    <h3>字幕翻译</h3>
-    <iframe width="100%" height="315" src="./docs/subtitle_translation.mp4" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-  </div>
-  <div style="flex: 1; margin-left: 10px;">
-    <h3>配音和声音克隆</h3>
-
-[//]: # (    <iframe width="100%" height="315" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>)
-  </div>
-</div>
+![字幕翻译](./docs/subtitle_translation.gif)
 
 
 ---
