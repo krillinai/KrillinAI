@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/samber/lo"
-	ffmpeg "github.com/u2takey/ffmpeg-go"
-	"github.com/wulien/jupiter/pkg/xlog"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"io"
@@ -199,7 +197,7 @@ func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleT
 	if strings.Contains(link, "local:") {
 		// 本地文件
 		videoPath := strings.ReplaceAll(link, "local:", "")
-		cmd := exec.Command("ffmpeg", "-i", videoPath, "-vn", "-ar", "44100", "-ac", "2", "-ab", "192k", "-f", "mp3", audioPath)
+		cmd := exec.Command(storage.FfmpegPath, "-i", videoPath, "-vn", "-ar", "44100", "-ac", "2", "-ab", "192k", "-f", "mp3", audioPath)
 		err = cmd.Run()
 		if err != nil {
 			log.GetLogger().Error("generateAudioSubtitles.Step1LinkToAudio ffmpeg err", zap.Any("step param", stepParam), zap.Error(err))
@@ -363,16 +361,20 @@ func (s Service) uploadSubtitles(ctx context.Context, stepParam *types.SubtitleT
 func (s Service) splitAudio(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	log.GetLogger().Info("audioToSubtitle.splitAudio start", zap.String("task id", stepParam.TaskId))
 	var err error
-	// 使用ffmpeg-go分割音频
+	// 使用ffmpeg分割音频
 	outputPattern := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskSplitAudioFileNamePattern) // 输出文件格式
-	segmentDuration := config.Conf.App.SegmentDuration * 60                                             // 每段的时长
-	err = ffmpeg.Input(stepParam.AudioFilePath).
-		Output(outputPattern, ffmpeg.KwArgs{
-			"f":                "segment",       // 设置输出文件类型为分段
-			"segment_time":     segmentDuration, // 设置每段的时长(以秒为单位)
-			"reset_timestamps": "1",             // 重置每段的时间戳
-		}).OverWriteOutput().ErrorToStdOut().Run()
+	segmentDuration := config.Conf.App.SegmentDuration * 60
 
+	cmd := exec.Command(
+		storage.FfmpegPath,
+		"-i", stepParam.AudioFilePath, // 输入
+		"-f", "segment", // 输出文件格式为分段
+		"-segment_time", fmt.Sprintf("%d", segmentDuration), // 每段时长（以秒为单位）
+		"-reset_timestamps", "1", // 重置每段时间戳
+		"-y", // 覆盖输出文件
+		outputPattern,
+	)
+	err = cmd.Run()
 	if err != nil {
 		log.GetLogger().Error("audioToSubtitle.splitAudio ffmpeg err", zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
@@ -941,7 +943,7 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 	// Step 1: 解析字幕文件
 	subtitles, err := parseSRT(stepParam.TtsSourceFilePath)
 	if err != nil {
-		log.GetLogger().Error("audioToSubtitle.parseSRT err", xlog.Any("stepParam", stepParam), xlog.FieldErr(err))
+		log.GetLogger().Error("audioToSubtitle.parseSRT err", zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
 
@@ -975,7 +977,7 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 		}
 		endTime, err := time.Parse("15:04:05,000", sub.End)
 		if err != nil {
-			xlog.Default().Error("audioToSubtitle.time.Parse err", xlog.Any("stepParam", stepParam), xlog.Any("num", i+1), xlog.FieldErr(err))
+			log.GetLogger().Error("audioToSubtitle.time.Parse err", zap.Any("stepParam", stepParam), zap.Any("num", i+1), zap.Error(err))
 			return err
 		}
 		if i == 0 {
@@ -1002,7 +1004,7 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 			// 如果不是最后一条字幕，增加静音帧时长
 			nextStartTime, err := time.Parse("15:04:05,000", subtitles[i+1].Start)
 			if err != nil {
-				xlog.Default().Error("audioToSubtitle.time.Parse err", xlog.Any("stepParam", stepParam), xlog.Any("num", i+2), xlog.FieldErr(err))
+				log.GetLogger().Error("audioToSubtitle.time.Parse err", zap.Any("stepParam", stepParam), zap.Any("num", i+2), zap.Error(err))
 				return err
 			}
 			if endTime.Before(nextStartTime) {
@@ -1071,7 +1073,7 @@ func parseSRT(filePath string) ([]types.SrtSentenceWithStrTime, error) {
 
 func newGenerateSilence(outputAudio string, duration float64) error {
 	// 生成 PCM 格式的静音文件
-	cmd := exec.Command("ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=channel_layout=mono:sample_rate=44100", "-t",
+	cmd := exec.Command(storage.FfmpegPath, "-y", "-f", "lavfi", "-i", "anullsrc=channel_layout=mono:sample_rate=44100", "-t",
 		fmt.Sprintf("%.3f", duration), "-ar", "44100", "-ac", "1", "-c:a", "pcm_s16le", outputAudio)
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
@@ -1119,8 +1121,8 @@ func adjustAudioDuration(inputFile, outputFile, taskBasePath string, subtitleDur
 		}
 		f.Close()
 
-		cmd := exec.Command("ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concatFile, "-c", "copy", outputFile)
-		xlog.Default().Info("AiCapabilityGrpcServer adjustAudioDuration", xlog.Any("inputFile", inputFile), xlog.Any("outputFile", outputFile), xlog.String("run command", cmd.String()))
+		cmd := exec.Command(storage.FfmpegPath, "-y", "-f", "concat", "-safe", "0", "-i", concatFile, "-c", "copy", outputFile)
+		log.GetLogger().Info("AiCapabilityGrpcServer adjustAudioDuration", zap.Any("inputFile", inputFile), zap.Any("outputFile", outputFile), zap.String("run command", cmd.String()))
 		cmd.Stderr = os.Stderr
 		err = cmd.Run()
 		if err != nil {
@@ -1142,7 +1144,7 @@ func adjustAudioDuration(inputFile, outputFile, taskBasePath string, subtitleDur
 		//}
 
 		// 使用 atempo 滤镜调整音频播放速率
-		cmd := exec.Command("ffmpeg", "-y", "-i", inputFile, "-filter:a", fmt.Sprintf("atempo=%.2f", speed), outputFile)
+		cmd := exec.Command(storage.FfmpegPath, "-y", "-i", inputFile, "-filter:a", fmt.Sprintf("atempo=%.2f", speed), outputFile)
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
 	}
@@ -1175,7 +1177,7 @@ func copyFile(src, dst string) error {
 
 func getAudioDuration(inputFile string) (float64, error) {
 	// 使用 ffprobe 获取精确时长
-	cmd := exec.Command("ffprobe", "-i", inputFile, "-show_entries", "format=duration", "-v", "quiet", "-of", "csv=p=0")
+	cmd := exec.Command(storage.FfprobePath, "-i", inputFile, "-show_entries", "format=duration", "-v", "quiet", "-of", "csv=p=0")
 	cmdOutput, err := cmd.Output()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get audio duration: %w", err)
@@ -1208,7 +1210,7 @@ func concatenateAudioFiles(audioFiles []string, outputFile, taskBasePath string)
 	}
 	f.Close()
 
-	cmd := exec.Command("ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", outputFile)
+	cmd := exec.Command(storage.FfmpegPath, "-y", "-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", outputFile)
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }

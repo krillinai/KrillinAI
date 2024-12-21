@@ -28,6 +28,10 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("ffmpeg环境准备失败: %v", err))
 	}
+	err = util.CheckAndDownloadFfprobe()
+	if err != nil {
+		panic(fmt.Sprintf("ffprobe环境准备失败: %v", err))
+	}
 	err = util.CheckAndDownloadYtDlp()
 	if err != nil {
 		panic(fmt.Sprintf("yt-dlp环境准备失败: %v", err))

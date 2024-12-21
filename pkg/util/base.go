@@ -196,6 +196,64 @@ func CheckAndDownloadFfmpeg() error {
 	return nil
 }
 
+// CheckAndDownloadFfprobe 检测并安装ffprobe
+func CheckAndDownloadFfprobe() error {
+	// 检查检测并安装ffprobe是否已经安装
+	_, err := exec.LookPath("ffmpeg")
+	if err == nil {
+		log.GetLogger().Info("已找到ffprobe")
+		storage.FfprobePath = "ffprobe"
+		return nil
+	}
+	log.GetLogger().Info("没有找到ffprobe，即将开始自动安装")
+	// 确保./bin目录存在
+	err = os.MkdirAll("./bin", 0755)
+	if err != nil {
+		log.GetLogger().Error("创建./bin目录失败", zap.Error(err))
+		return err
+	}
+
+	var ffprobeURL string
+	if runtime.GOOS == "linux" {
+		ffprobeURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffprobe-6.1-linux-64.zip"
+	} else if runtime.GOOS == "darwin" {
+		ffprobeURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffprobe-6.1-linux-arm-64.zip"
+	} else if runtime.GOOS == "windows" {
+		ffprobeURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffprobe-6.1-win-64.zip"
+	} else {
+		log.GetLogger().Error("不支持你当前的操作系统", zap.String("当前系统", runtime.GOOS))
+		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+	}
+
+	// 下载
+	ffprobeDownloadPath := "./bin/ffprobe.zip"
+	err = DownloadFile(ffprobeURL, ffprobeDownloadPath)
+	if err != nil {
+		log.GetLogger().Error("下载ffprobe失败", zap.Error(err))
+		return err
+	}
+	err = Unzip(ffprobeDownloadPath, "./bin")
+	if err != nil {
+		log.GetLogger().Error("解压ffprobe失败", zap.Error(err))
+		return err
+	}
+	log.GetLogger().Info("ffprobe解压成功")
+
+	ffprobePathLocal := "./bin/ffprobe.exe"
+	if runtime.GOOS != "windows" {
+		err = os.Chmod(ffprobePathLocal, 0755)
+		if err != nil {
+			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
+			return err
+		}
+	}
+
+	storage.FfprobePath = ffprobePathLocal
+	log.GetLogger().Info("ffprobe安装完成", zap.String("路径", ffprobePathLocal))
+
+	return nil
+}
+
 // CheckAndDownloadYtDlp 检测并安装yt-dlp
 func CheckAndDownloadYtDlp() error {
 	_, err := exec.LookPath("yt-dlp")

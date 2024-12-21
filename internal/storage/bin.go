@@ -1,6 +1,7 @@
 package storage
 
 var (
-	FfmpegPath string
-	YtdlpPath  string
+	FfmpegPath  string
+	FfprobePath string
+	YtdlpPath   string
 )
