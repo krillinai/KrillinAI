@@ -1,14 +1,14 @@
 [app]
-    segment_duration = 5
-    translate_parallel_num = 5
-    proxy = ""
+    segment_duration = 5 # 音频分割间隔，单位：分钟
+    translate_parallel_num = 5 # 并发进行大模型翻译的数量上限
+    proxy = "" # 网络代理
 
 [server]
     host = "127.0.0.1"
     port = 8888
 
 [openai]
-    api_key = "sk-XXX"
+    api_key = "sk-XXX" # OpenAI API密钥
 
 [aliyun]
     access_key_id = ""
