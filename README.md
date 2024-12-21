@@ -30,7 +30,7 @@ KrillinAI是一个为追求高质量视频翻译的用户和开发者设计的�
 
 ### 字幕翻译
 ---
-https://github.com/user-attachments/assets/944b57d1-7068-416e-9418-c3e924fae2ea
+https://github.com/user-attachments/assets/bba1ac0a-fe6b-4947-b58d-ba99306d0339
 
 </td>
 <td width="50%">
