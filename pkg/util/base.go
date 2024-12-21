@@ -159,7 +159,7 @@ func CheckAndDownloadFfmpeg() error {
 	if runtime.GOOS == "linux" {
 		ffmpegURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-linux-64.zip"
 	} else if runtime.GOOS == "darwin" {
-		ffmpegURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-linux-arm-64.zip"
+		ffmpegURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-macos-64.zip"
 	} else if runtime.GOOS == "windows" {
 		ffmpegURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-win-64.zip"
 	} else {
@@ -181,13 +181,15 @@ func CheckAndDownloadFfmpeg() error {
 	}
 	log.GetLogger().Info("ffmpeg解压成功")
 
-	ffmpegPathLocal := "./bin/ffmpeg.exe"
+	ffmpegPathLocal := "./bin/ffmpeg"
 	if runtime.GOOS != "windows" {
 		err = os.Chmod(ffmpegPathLocal, 0755)
 		if err != nil {
 			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
 			return err
 		}
+	} else {
+		ffmpegPathLocal += ".exe"
 	}
 
 	storage.FfmpegPath = ffmpegPathLocal
@@ -217,7 +219,7 @@ func CheckAndDownloadFfprobe() error {
 	if runtime.GOOS == "linux" {
 		ffprobeURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffprobe-6.1-linux-64.zip"
 	} else if runtime.GOOS == "darwin" {
-		ffprobeURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffprobe-6.1-linux-arm-64.zip"
+		ffprobeURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffprobe-6.1-macos-64.zip"
 	} else if runtime.GOOS == "windows" {
 		ffprobeURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffprobe-6.1-win-64.zip"
 	} else {
@@ -239,13 +241,15 @@ func CheckAndDownloadFfprobe() error {
 	}
 	log.GetLogger().Info("ffprobe解压成功")
 
-	ffprobePathLocal := "./bin/ffprobe.exe"
+	ffprobePathLocal := "./bin/ffprobe"
 	if runtime.GOOS != "windows" {
 		err = os.Chmod(ffprobePathLocal, 0755)
 		if err != nil {
 			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
 			return err
 		}
+	} else {
+		ffprobePathLocal += ".exe"
 	}
 
 	storage.FfprobePath = ffprobePathLocal
@@ -282,7 +286,13 @@ func CheckAndDownloadYtDlp() error {
 	}
 
 	ytDlpPathLocal := "./bin/yt-dlp"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS != "windows" {
+		err = os.Chmod(ytDlpPathLocal, 0755)
+		if err != nil {
+			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
+			return err
+		}
+	} else {
 		ytDlpPathLocal += ".exe"
 	}
 	err = DownloadFile(ytDlpURL, ytDlpPathLocal)
