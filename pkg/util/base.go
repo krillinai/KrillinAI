@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go.uber.org/zap"
 	"io"
+	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/log"
 	"math"
@@ -76,19 +77,32 @@ func IsNumber(s string) bool {
 	return err == nil
 }
 
-// DownloadFile 下载文件并保存到指定路径
-func DownloadFile(url, filepath string) error {
+// DownloadFile 下载文件并保存到指定路径，支持代理
+func DownloadFile(urlStr, filepath, proxyAddr string) error {
+	proxyURL, err := url.Parse(proxyAddr)
+	if err != nil {
+		return err
+	}
+
+	client := &http.Client{}
+
+	if proxyURL != nil {
+		client.Transport = &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+		}
+	}
+
+	resp, err := client.Get(urlStr)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
 	out, err := os.Create(filepath)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
 
 	_, err = io.Copy(out, resp.Body)
 	return err
@@ -169,7 +183,7 @@ func CheckAndDownloadFfmpeg() error {
 
 	// 下载
 	ffmpegDownloadPath := "./bin/ffmpeg.zip"
-	err = DownloadFile(ffmpegURL, ffmpegDownloadPath)
+	err = DownloadFile(ffmpegURL, ffmpegDownloadPath, config.Conf.App.Proxy)
 	if err != nil {
 		log.GetLogger().Error("下载ffmpeg失败", zap.Error(err))
 		return err
@@ -229,7 +243,7 @@ func CheckAndDownloadFfprobe() error {
 
 	// 下载
 	ffprobeDownloadPath := "./bin/ffprobe.zip"
-	err = DownloadFile(ffprobeURL, ffprobeDownloadPath)
+	err = DownloadFile(ffprobeURL, ffprobeDownloadPath, config.Conf.App.Proxy)
 	if err != nil {
 		log.GetLogger().Error("下载ffprobe失败", zap.Error(err))
 		return err
@@ -285,32 +299,26 @@ func CheckAndDownloadYtDlp() error {
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
 
-	ytDlpPathLocal := "./bin/yt-dlp"
-	if runtime.GOOS != "windows" {
-		err = os.Chmod(ytDlpPathLocal, 0755)
-		if err != nil {
-			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
-			return err
-		}
-	} else {
-		ytDlpPathLocal += ".exe"
+	ytDlpDownloadPath := "./bin/yt-dlp"
+	if runtime.GOOS == "windows" {
+		ytDlpDownloadPath += ".exe"
 	}
-	err = DownloadFile(ytDlpURL, ytDlpPathLocal)
+	err = DownloadFile(ytDlpURL, ytDlpDownloadPath, config.Conf.App.Proxy)
 	if err != nil {
 		log.GetLogger().Error("下载yt-dlp失败", zap.Error(err))
 		return err
 	}
 
 	if runtime.GOOS != "windows" {
-		err = os.Chmod(ytDlpPathLocal, 0755)
+		err = os.Chmod(ytDlpDownloadPath, 0755)
 		if err != nil {
 			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
 			return err
 		}
 	}
 
-	storage.YtdlpPath = ytDlpPathLocal
-	log.GetLogger().Info("yt-dlp安装完成", zap.String("路径", ytDlpPathLocal))
+	storage.YtdlpPath = ytDlpDownloadPath
+	log.GetLogger().Info("yt-dlp安装完成", zap.String("路径", ytDlpDownloadPath))
 
 	return nil
 }

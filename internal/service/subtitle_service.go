@@ -191,16 +191,19 @@ func (s Service) GetTaskStatus(req dto.GetVideoSubtitleTaskReq) (*dto.GetVideoSu
 // 新版流程：链接->本地音频文件->扣费->视频信息获取（若有）->本地字幕文件->cos上的字幕信息
 
 func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
-	var err error
+	var (
+		err    error
+		output []byte
+	)
 	link := stepParam.Link
 	audioPath := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, types.SubtitleTaskAudioFileName)
 	if strings.Contains(link, "local:") {
 		// 本地文件
 		videoPath := strings.ReplaceAll(link, "local:", "")
 		cmd := exec.Command(storage.FfmpegPath, "-i", videoPath, "-vn", "-ar", "44100", "-ac", "2", "-ab", "192k", "-f", "mp3", audioPath)
-		err = cmd.Run()
+		output, err = cmd.CombinedOutput()
 		if err != nil {
-			log.GetLogger().Error("generateAudioSubtitles.Step1LinkToAudio ffmpeg err", zap.Any("step param", stepParam), zap.Error(err))
+			log.GetLogger().Error("generateAudioSubtitles.Step1LinkToAudio ffmpeg err", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
 			return err
 		}
 	} else if strings.Contains(link, "youtube.com") {
@@ -215,10 +218,13 @@ func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleT
 		cmdArgs := []string{"-f", "bestaudio", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "192K", "-o", audioPath, stepParam.Link}
 
 		cmdArgs = append(cmdArgs, "--cookies", "./cookies.txt")
+		if storage.FfmpegPath != "ffmpeg" {
+			cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
+		}
 		cmd := exec.Command(storage.YtdlpPath, cmdArgs...)
-		err = cmd.Run()
+		output, err = cmd.CombinedOutput()
 		if err != nil {
-			log.GetLogger().Error("generateAudioSubtitles.Step2DownloadAudio yt-dlp err", zap.Any("step param", stepParam), zap.Error(err))
+			log.GetLogger().Error("generateAudioSubtitles.Step2DownloadAudio yt-dlp err", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
 			return err
 		}
 	} else if strings.Contains(link, "bilibili.com") {
@@ -228,14 +234,17 @@ func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleT
 		}
 		stepParam.Link = "https://www.bilibili.com/video/" + videoId
 		cmdArgs := []string{"-f", "bestaudio[ext=m4a]", "-x", "--audio-format", "mp3", "-o", audioPath, stepParam.Link}
+		if storage.FfmpegPath != "ffmpeg" {
+			cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
+		}
 		//proxy := conf.GetString("subtitle.proxy")
 		//if proxy != "" {
 		//	cmdArgs = append(cmdArgs, "--proxy", proxy)
 		//}
 		cmd := exec.Command(storage.YtdlpPath, cmdArgs...)
-		err = cmd.Run()
+		output, err = cmd.CombinedOutput()
 		if err != nil {
-			log.GetLogger().Error("generateAudioSubtitles.Step2DownloadAudio yt-dlp err", zap.Any("step param", stepParam), zap.Error(err))
+			log.GetLogger().Error("generateAudioSubtitles.Step2DownloadAudio yt-dlp err", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
 			return err
 		}
 	} else {
@@ -267,18 +276,24 @@ func (s Service) getVideoInfo(ctx context.Context, stepParam *types.SubtitleTask
 		//}
 		titleCmdArgs = append(titleCmdArgs, "--cookies", "./cookies.txt")
 		descriptionCmdArgs = append(descriptionCmdArgs, "--cookies", "./cookies.txt")
+		if storage.FfmpegPath != "ffmpeg" {
+			titleCmdArgs = append(titleCmdArgs, "--ffmpeg-location", storage.FfmpegPath)
+			descriptionCmdArgs = append(descriptionCmdArgs, "--ffmpeg-location", storage.FfmpegPath)
+		}
 		cmd := exec.Command(storage.YtdlpPath, titleCmdArgs...)
 		var output []byte
-		output, err = cmd.Output()
+		output, err = cmd.CombinedOutput()
 		if err != nil {
-			log.GetLogger().Error("getVideoInfo yt-dlp error", zap.Any("stepParam", stepParam), zap.Error(err))
+			log.GetLogger().Error("getVideoInfo yt-dlp error", zap.Any("stepParam", stepParam), zap.String("output", string(output)), zap.Error(err))
+			output = []byte{}
 			// 不需要整个流程退出
 		}
 		title = string(output)
 		cmd = exec.Command(storage.YtdlpPath, descriptionCmdArgs...)
-		output, err = cmd.Output()
+		output, err = cmd.CombinedOutput()
 		if err != nil {
-			log.GetLogger().Error("getVideoInfo yt-dlp error", zap.Any("stepParam", stepParam), zap.Error(err))
+			log.GetLogger().Error("getVideoInfo yt-dlp error", zap.Any("stepParam", stepParam), zap.String("output", string(output)), zap.Error(err))
+			output = []byte{}
 		}
 		description = string(output)
 		log.GetLogger().Debug("getVideoInfo title and description", zap.String("title", title), zap.String("description", description))
