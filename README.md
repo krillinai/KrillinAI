@@ -46,10 +46,21 @@ TODO
 ---
 ## 快速开始
 ### 基本步骤
-1. 下载release中的可执行文件，放入空文件夹
+1. 下载release中与你设备系统匹配的可执行文件，放入空文件夹
 2. 在文件夹内创建config文件夹，然后在config文件夹创建config.toml文件，复制源代码config目录下的config-example.toml文件的内容填入config.toml，并对照填写你的配置信息。
 3. 双击可执行文件，启动服务
 4. 打开浏览器，输入`http://127.0.0.1:8888`，开始使用 (8888替换成你在配置文件中填写的端口)
+
+### To: macOS用户
+本软件没有做签名，因此在macOS上运行时，在完成“基本步骤”中的文件配置后，还需要手动信任应用，方法如下：
+1. 在终端打开可执行文件（假设文件名是krillinai）所在目录
+2. 依次执行以下命令：
+   ```
+    sudo xattr -rd com.apple.quarantine ./krillinai
+    sudo chmod +x ./krillinai
+    ./krillinai
+    ```
+    即可启动服务
 
 ### Cookie配置说明
 
