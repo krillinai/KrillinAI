@@ -87,4 +87,6 @@ If you encounter video download failures, please refer to the [Cookie Configurat
 - Do not submit unnecessary files like `.vscode`, `.idea`, etc. Please make good use of `.gitignore` to filter them.
 - Do not submit `config.toml`; instead, submit `config-example.toml`.
 
+## Star History
 
+[![Star History Chart](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)

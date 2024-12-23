@@ -83,3 +83,7 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 ## 贡献规范
 1. 不要提交无用文件，如.vscode、.idea等，请善于使用.gitignore过滤
 2. 不要提交config.toml，而是使用config-example.toml提交
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
