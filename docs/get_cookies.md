@@ -21,3 +21,15 @@
 3. 选择"Export Cookies"选项
 4. 将导出的cookies.txt文件保存到本软件所在的目录下
 5. 如果导出的文件名不是cookies.txt，请将文件名改为cookies.txt
+
+图示：
+![导出cookies](./images/export_cookies.png)
+
+导出后，工具的工作文件夹的结构应该是这样的：
+```
+/── config/
+│   └── config.toml
+├── tasks/
+├── cookies.txt （<- 导出cookies.txt文件）
+└── krillinai.exe
+```
