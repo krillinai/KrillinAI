@@ -3,7 +3,8 @@ package openai
 import (
 	"context"
 	openai "github.com/sashabaranov/go-openai"
-	"github.com/wulien/jupiter/pkg/xlog"
+	"go.uber.org/zap"
+	"krillin-ai/log"
 )
 
 type Word struct {
@@ -36,7 +37,7 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 
 	resp, err := c.client.CreateChatCompletion(context.Background(), req)
 	if err != nil {
-		xlog.Default().Error("openai create chat completion failed", xlog.FieldErr(err))
+		log.GetLogger().Error("openai create chat completion failed", zap.Error(err))
 		return "", err
 	}
 
@@ -59,7 +60,7 @@ func (c *Client) Transcription(audioFile, language string) (*TranscriptionData, 
 		},
 	)
 	if err != nil {
-		xlog.Default().Error("openai create transcription failed", xlog.FieldErr(err))
+		log.GetLogger().Error("openai create transcription failed", zap.Error(err))
 		return nil, err
 	}
 

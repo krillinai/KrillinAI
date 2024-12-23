@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/wulien/jupiter/pkg/xlog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -280,7 +279,6 @@ func ReplaceFileContent(srcFile, dstFile string, replacements map[string]string)
 	}
 
 	if err = scanner.Err(); err != nil {
-		xlog.Default().Error("replaceFileContent err", xlog.FieldErr(err))
 		return err
 	}
 

@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
-	"github.com/wulien/jupiter/pkg/xlog"
+	"go.uber.org/zap"
 	"krillin-ai/config"
+	"krillin-ai/log"
 )
 
 type TokenResult struct {
@@ -29,14 +30,14 @@ func CreateToken() (string, error) {
 	request.Version = "2019-02-28"
 	response, err := client.ProcessCommonRequest(request)
 	if err != nil {
-		xlog.Default().Error("aliyun sdk create token request error:", xlog.Any("err", err))
+		log.GetLogger().Error("aliyun sdk create token request error:", zap.Error(err))
 		return "", err
 	}
 
 	var tr TokenResult
 	err = json.Unmarshal([]byte(response.GetHttpContentString()), &tr)
 	if err != nil {
-		xlog.Default().Error("aliyun sdk json unmarshal error:", xlog.Any("err", err))
+		log.GetLogger().Error("aliyun sdk json unmarshal error:", zap.Error(err))
 		return "", err
 	}
 	return tr.Token.Id, nil
