@@ -49,6 +49,13 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 </table>
 
 ---
+### Language Support
+
+Input languages: 🇨🇳 Chinese, 🇺🇸 English, 🇯🇵 Japanese supported (more languages being added)
+
+Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc. Also supports translation into Pinyin (more languages being added).
+
+---
 ## Quick Start
 ### Basic Steps
 1. Download the executable file that matches your device system from the release and place it in an empty folder.
