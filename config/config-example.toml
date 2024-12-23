@@ -10,7 +10,7 @@
 [openai]
     api_key = "sk-XXX" # OpenAI API密钥
 
-[aliyun]
+[aliyun] # 此处配置可以先忽略
     access_key_id = ""
     access_key_secret = ""
     app_key = ""
