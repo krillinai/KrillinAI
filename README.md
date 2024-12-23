@@ -24,6 +24,14 @@ KrillinAI是一个为追求高质量视频翻译的用户和开发者设计的�
 🎙️ **多样化配音选择**：支持阿里云、Google Cloud[TODO]等主流TTS服务，满足不同场景下的需求。
 
 ---
+
+## 语言支持
+
+输入语言支持：🇨🇳中文，🇺🇸英文，🇯🇵日语（持续增加中）
+
+翻译语言支持：英文，中文，俄语，西班牙语，法语等56种语言，还支持翻译成拼音（持续增加中）
+
+---
 ## 效果展示
 <table>
 <tr>
@@ -36,6 +44,8 @@ https://github.com/user-attachments/assets/bba1ac0a-fe6b-4947-b58d-ba99306d0339
 </td>
 <td width="50%">
 
+
+
 ### 配音
 ---
 https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
@@ -43,13 +53,6 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 </td>
 </tr>
 </table>
-
----
-## 语言支持
-
-输入语言支持：🇨🇳中文，🇺🇸英文，🇯🇵日语（持续增加中）
-
-翻译语言支持：英文，中文，俄语，西班牙语，法语等56种语言，还支持翻译成拼音（持续增加中）
 
 ---
 ## 快速开始
