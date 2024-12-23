@@ -4,6 +4,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"krillin-ai/internal/dto"
 	"krillin-ai/internal/response"
+	"os"
+	"path/filepath"
 )
 
 func (h Handler) StartSubtitleTask(c *gin.Context) {
@@ -88,4 +90,27 @@ func (h Handler) UploadFile(c *gin.Context) {
 		Msg:   "文件上传成功",
 		Data:  gin.H{"file_path": "local:" + savePath},
 	})
+}
+
+func (h Handler) DownloadFile(c *gin.Context) {
+	requestedFile := c.Param("filepath")
+	if requestedFile == "" {
+		response.R(c, response.Response{
+			Error: -1,
+			Msg:   "文件路径为空",
+			Data:  nil,
+		})
+		return
+	}
+
+	localFilePath := filepath.Join(".", requestedFile)
+	if _, err := os.Stat(localFilePath); os.IsNotExist(err) {
+		response.R(c, response.Response{
+			Error: -1,
+			Msg:   "文件不存在",
+			Data:  nil,
+		})
+		return
+	}
+	c.FileAttachment(localFilePath, filepath.Base(localFilePath))
 }

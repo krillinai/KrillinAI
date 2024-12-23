@@ -587,7 +587,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	}
 	// 添加原语言单语字幕
 	subtitleInfo := types.SubtitleFileInfo{
-		Path:               originLanguageSrtFilePath,
+		Path:               "/api/file/" + originLanguageSrtFilePath,
 		LanguageIdentifier: string(stepParam.OriginLanguage),
 	}
 	if stepParam.UserUILanguage == types.LanguageNameEnglish {
@@ -599,7 +599,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	// 添加目标语言单语字幕
 	if stepParam.SubtitleResultType == types.SubtitleResultTypeTargetOnly || stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnBottom || stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop {
 		subtitleInfo = types.SubtitleFileInfo{
-			Path:               targetLanguageSrtFilePath,
+			Path:               "/api/file/" + targetLanguageSrtFilePath,
 			LanguageIdentifier: string(stepParam.TargetLanguage),
 		}
 		if stepParam.UserUILanguage == types.LanguageNameEnglish {
@@ -612,7 +612,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	// 添加双语字幕
 	if stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop || stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnBottom {
 		subtitleInfo = types.SubtitleFileInfo{
-			Path:               stepParam.BilingualSrtFilePath,
+			Path:               "/api/file/" + stepParam.BilingualSrtFilePath,
 			LanguageIdentifier: "bilingual",
 		}
 		if stepParam.UserUILanguage == types.LanguageNameEnglish {
