@@ -75,14 +75,11 @@ sudo chmod +x ./krillinai
 ```
 This will start the service.
 
-
 ### Cookie Configuration Instructions
 
-If you encounter video download failures, please refer to the [Cookie Configuration Instructions](./docs/get_cookies.md) to configure your cookie information.
+If you encounter video download failures, please refer to the [Cookie Configuration Instructions](./get_cookies.md) to configure your cookie information.
 
----
-
-### Contribution Guidelines
+## Contribution Guidelines
 
 - Do not submit unnecessary files like `.vscode`, `.idea`, etc. Please make good use of `.gitignore` to filter them.
 - Do not submit `config.toml`; instead, submit `config-example.toml`.
