@@ -79,7 +79,6 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 
 请参考 [Cookie 配置说明](./docs/get_cookies.md) 配置你的Cookie信息。
 
----
 ## 贡献规范
 1. 不要提交无用文件，如.vscode、.idea等，请善于使用.gitignore过滤
 2. 不要提交config.toml，而是使用config-example.toml提交
