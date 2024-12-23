@@ -28,6 +28,14 @@ Krillin AI is a one-stop solution designed for users and developers seeking high
 🎙️ **Diverse Voiceover Options**: Supports mainstream TTS services such as Alibaba Cloud, Google Cloud [TODO], meeting the needs of various scenarios.
 
 ---
+### Language Support
+
+Input languages: 🇨🇳 Chinese, 🇺🇸 English, 🇯🇵 Japanese supported (more languages being added)
+
+Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc. Also supports translation into Pinyin (more languages being added).
+
+
+---
 ## Showcase
 <table>
 <tr>
@@ -47,13 +55,6 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 </td>
 </tr>
 </table>
-
----
-### Language Support
-
-Input languages: 🇨🇳 Chinese, 🇺🇸 English, 🇯🇵 Japanese supported (more languages being added)
-
-Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc. Also supports translation into Pinyin (more languages being added).
 
 ---
 ## Quick Start
