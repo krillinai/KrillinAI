@@ -1,0 +1,7 @@
+.idea
+tasks/
+cookies.txt
+.vscode/
+config/config.toml
+bin/
+uploads/

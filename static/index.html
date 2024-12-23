@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Krillin AI</title>
+	<style>
+		body {
+			margin: 0;
+			display: flex;
+			place-items: center;
+			min-width: 320px;
+			min-height: 100vh;
+			color: #333;
+			background: url('/static/background.jpg') no-repeat center center fixed;
+			background-size: cover;
+		}
+
+		h1 {
+			text-align: center;
+			font-size: 3.2em;
+			line-height: 1.1;
+		}
+
+		button {
+			padding: 10px 20px;
+			background-color: #007bff;
+			color: #fff;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			outline: 0;
+		}
+		button:hover {
+			background-color: #036adb;
+		}
+		button:focus,
+		button:focus-visible {
+			outline: 0;
+		}
+		button:disabled {
+			background-color: #ccc;
+			cursor: not-allowed;
+		}
+
+		.container {
+			width: 500px;
+			padding: 30px;
+			margin: 0 auto;
+			background-color: #fff;
+			box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+			border-radius: 8px;
+			font-family: Arial, sans-serif;
+		}
+
+		form {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			/*margin: 0 40px;*/
+			gap: 15px;
+		}
+
+		.formItem {
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			justify-content: center;
+			width: 100%;
+			height: 42px;
+			gap: 10px;
+
+			label {
+				line-height: 38px
+			}
+
+			input {
+				flex: 1;
+				line-height: 38px;
+			}
+
+			input[type="url"] {
+				padding: 0 14px;
+				border: 1px solid #ccc;
+				border-radius: 6px;
+				outline: 0;
+			}
+		}
+		.download-links {
+			display: flex;
+			justify-content: center;
+			width: 100%;
+			gap: 30px;
+		}
+		.download-links a {
+			display: inline-block;
+			color: #007bff;
+			text-decoration: none;
+		}
+		.download-links a:hover {
+			text-decoration: underline;
+		}
+
+		.progressSection {
+			display: flex;
+			align-items: center;
+			flex-wrap: wrap;
+			gap: 10px;
+		}
+
+		.progressSection h4 {
+			font-weight: 400;
+			color: #333;
+		}
+		.progress-bar {
+			flex: 1;
+			position: relative;
+			height: 20px;
+			border-radius: 4px;
+			background-color: #f3f3f3;
+			overflow: hidden;
+		}
+		.progress-bar-fill {
+			height: 100%;
+			width: 0;
+			line-height: 20px;
+			text-align: center;
+			color: white;
+			background-color: #4caf50;
+		}
+		.loading {
+			color: #4caf50;
+			text-align: center;
+		}
+		.hidden {
+			display: none;
+		}
+	</style>
+</head>
+<body>
+<div class="container">
+	<h1>世界帧精彩</h1>
+
+	<form id="taskForm">
+		<div class="formItem">
+			<label>
+				<input type="radio" name="inputType" value="url" checked>
+				输入视频地址
+			</label>
+<!--			<label>-->
+<!--				<input type="radio" name="inputType" value="file">-->
+<!--				本地视频上传-->
+<!--			</label>-->
+		</div>
+
+		<div class="formItem" id="urlInputContainer">
+			<label for="urlInput">输入视频地址:</label>
+			<input type="url" id="urlInput" name="urlInput" placeholder="请输入有效的链接">
+		</div>
+
+		<div class="formItem hidden" id="fileInputContainer">
+			<label for="fileInput">上传本地视频:</label>
+			<input type="file" id="fileInput" name="fileInput" accept="video/*">
+			<p id="uploadStatus" class="loading hidden">正在上传...</p>
+		</div>
+
+		<button type="submit" id="executeButton">执 行</button>
+	</form>
+
+	<div id="progressSection" class="progressSection hidden">
+		<h4>任务进度: </h4>
+		<div class="progress-bar">
+			<div class="progress-bar-fill" id="progressBar">0%</div>
+		</div>
+		<div id="downloadLinks" class="hidden download-links"></div>
+	</div>
+</div>
+
+<script>
+	const urlInputContainer = document.getElementById('urlInputContainer');
+	const fileInputContainer = document.getElementById('fileInputContainer');
+	const urlInput = document.getElementById('urlInput');
+	const fileInput = document.getElementById('fileInput');
+	const uploadStatus = document.getElementById('uploadStatus');
+	const executeButton = document.getElementById('executeButton');
+	const taskForm = document.getElementById('taskForm');
+	const progressSection = document.getElementById('progressSection');
+	const progressBar = document.getElementById('progressBar');
+	const downloadLinks = document.getElementById('downloadLinks');
+
+	const API_SUBMIT_URL = "/api/capability/subtitleTask";
+	const API_PROGRESS_URL = "/api/capability/subtitleTask";
+	const API_UPLOAD_URL = "/api/upload";
+
+	let uploadedVideoUrl = null; // 存储上传后的视频地址
+
+	// 切换输入方式
+	document.querySelectorAll('input[name="inputType"]').forEach(radio => {
+		radio.addEventListener('change', () => {
+			if (radio.value === 'url') {
+				urlInputContainer.classList.remove('hidden');
+				fileInputContainer.classList.add('hidden');
+				fileInput.required = false;
+				urlInput.required = true;
+				executeButton.disabled = false; // 启用“执行”按钮
+			} else {
+				urlInputContainer.classList.add('hidden');
+				fileInputContainer.classList.remove('hidden');
+				urlInput.required = false;
+				fileInput.required = true;
+				executeButton.disabled = true; // 禁用“执行”按钮，等待上传完成
+			}
+		});
+	});
+
+	// 处理视频上传
+	fileInput.addEventListener('change', async () => {
+		if (fileInput.files.length === 0) return;
+
+		uploadStatus.classList.remove('hidden');
+		executeButton.disabled = true; // 禁用“执行”按钮
+
+		const file = fileInput.files[0];
+
+		const formData = new FormData();
+		formData.append('video', file);
+
+		try {
+			const response = await fetch(API_UPLOAD_URL, {
+				method: 'POST',
+				body: formData,
+			});
+			if (!response.ok) throw new Error('视频上传失败');
+			const data = await response.json();
+			uploadedVideoUrl = data.videoUrl; // 获取返回的视频地址
+			alert('视频上传成功');
+			executeButton.disabled = false; // 启用“执行”按钮
+		} catch (error) {
+			console.error('视频上传失败:', error);
+			alert('视频上传失败，请重试');
+		} finally {
+			uploadStatus.classList.add('hidden');
+		}
+	});
+
+	// 点击执行按钮发送任务请求
+	taskForm.addEventListener('submit', async (event) => {
+		event.preventDefault();
+
+		if (!taskForm.checkValidity()) {
+			taskForm.reportValidity();
+			return;
+		}
+
+		const inputType = document.querySelector('input[name="inputType"]:checked').value;
+		const params = {
+			bilingual: 1,
+			language: "en",
+			modal_filter: 1,
+			origin_lang: "en",
+			target_lang: "zh_cn",
+			translation_subtitle_pos: 1,
+			tts: 2
+		};
+
+		if (inputType === 'url') {
+			params.url = urlInput.value.trim();
+		} else if (inputType === 'file' && uploadedVideoUrl) {
+			params.url = uploadedVideoUrl;
+		} else {
+			alert('请上传视频后再执行任务');
+			return;
+		}
+
+		// 请求启动任务接口
+
+		const taskId = await startTask(params);
+		console.log('taskId---:', taskId);
+
+		downloadLinks.classList.add('hidden');
+		downloadLinks.innerHTML = ''; // 清空之前的下载链接
+
+		if (taskId) {
+			// 显示任务进度区域
+			progressSection.classList.remove('hidden');
+			await pollTaskProgress(taskId);
+		}
+	});
+
+
+	// 请求启动任务接口
+	async function startTask(params) {
+		try {
+			const response = await fetch(API_SUBMIT_URL, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(params),
+			}).then(res => res.json()).then(data => {
+				return data;
+			});
+			if (+response.error !== 0 && +response.error !== 200) {
+				alert('启动任务失败');
+				throw new Error('启动任务失败');
+			}
+			console.log('response---:', response);
+			return (response.data || {}).task_id || '';
+		} catch (error) {
+			console.error('启动任务失败:', error);
+			return null;
+		}
+
+		// return new Promise(resolve => setTimeout(() => resolve('taskId123'), 1000)); // 模拟返回 taskId
+	}
+
+	// 轮询任务进度接口
+	async function pollTaskProgress(taskId) {
+		try {
+			let progress = 0;
+			while (progress < 100) {
+				const response = await fetch(`${API_PROGRESS_URL}?taskId=${taskId}`).then(res => res.json()).then(data => {
+					return data || {};
+				});
+				console.log('progress response---:', response);
+				if (+response.error !== 0 && +response.error !== 200) {
+					alert('查询进度失败');
+					throw new Error('查询进度失败');
+				}
+				const data = response.data || {};
+				progress = data.process_percent || 0;
+				progressBar.style.width = progress + '%';
+				progressBar.textContent = progress + '%';
+				if (progress >= 100) {
+					displayDownloadLinks(data.subtitle_info || []);
+					return;
+				}
+				await new Promise(resolve => setTimeout(resolve, 3000));
+			}
+		} catch (error) {
+			console.error('查询进度失败:', error);
+		}
+
+		// return new Promise(resolve => {
+		// 	let progress = 0;
+		// 	const interval = setInterval(() => {
+		// 		progress += 10;
+		// 		progressBar.style.width = progress + '%';
+		// 		progressBar.textContent = progress + '%';
+		//
+		// 		if (progress >= 100) {
+		// 			clearInterval(interval);
+		// 			const subtitleInfo = [
+		// 				{
+		// 					name:"中文字幕", // 字幕名称
+		// 					download_url:"https://cdn.krillin.ai/srt/6b10jGNNbXQ_zh.srt"
+		// 				},
+		// 				{
+		// 					name:"英文字幕", // 字幕名称
+		// 					download_url:"https://cdn.krillin.ai/srt/6b10jGNNbXQ_en.srt"
+		// 				},
+		// 				{
+		// 					name:"中英文字幕", // 字幕名称
+		// 					download_url:"https://cdn.krillin.ai/srt/6b10jGNNbXQ_zh_en.srt"
+		// 				}
+		// 			];
+		// 			displayDownloadLinks(subtitleInfo);
+		// 		}
+		// 	}, 500); // 每 500 毫秒更新一次进度
+		// });
+	}
+
+	// 显示下载链接
+	function displayDownloadLinks(urls) {
+		console.log(urls);
+		downloadLinks.innerHTML = '';
+		urls.forEach(({name, download_url}) => {
+			const link = document.createElement('a');
+			link.href = download_url;
+			link.textContent = name;
+			link.download = '';
+			downloadLinks.appendChild(link);
+		});
+		downloadLinks.classList.remove('hidden');
+	}
+</script>
+</body>
+</html>

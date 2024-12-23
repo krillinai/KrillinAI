@@ -3,7 +3,7 @@
   <p>Frames of the World in Splendor</p>
   <p>An AI-powered video subtitle translation and dubbing tool featuring speech recognition, intelligent sentence segmentation, professional-level translation, and one-click deployment for the entire workflow</p>
 
-  Read this in other languages: [中文](README.md)
+  Read this in other languages: [中文](../README.md)
 
 </div>
 
