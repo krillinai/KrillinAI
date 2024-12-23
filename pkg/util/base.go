@@ -289,7 +289,7 @@ func CheckAndDownloadYtDlp() error {
 
 	var ytDlpURL string
 	if runtime.GOOS == "linux" {
-		// todo
+		ytDlpURL = "https://github.com/yt-dlp/yt-dlp/releases/download/2024.12.13/yt-dlp_linux"
 	} else if runtime.GOOS == "darwin" {
 		ytDlpURL = "https://github.com/yt-dlp/yt-dlp/releases/download/2024.12.13/yt-dlp_macos"
 	} else if runtime.GOOS == "windows" {

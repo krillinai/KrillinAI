@@ -48,7 +48,7 @@ https://github.com/user-attachments/assets/bba1ac0a-fe6b-4947-b58d-ba99306d0339
 </td>
 <td width="50%">
 
-### Speech
+### Dubbing
 ---
 https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 
