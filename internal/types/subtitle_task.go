@@ -1,7 +1,6 @@
 package types
 
 import (
-	"context"
 	"krillin-ai/pkg/openai"
 )
 
@@ -205,25 +204,6 @@ const (
 	LanguageNameAlbanian      StandardLanguageName = "sq"
 )
 
-type StepParam struct {
-	BasePath              string
-	Uid                   uint32
-	TaskId                string
-	VideoId               string
-	AudioFile             string
-	SmallAudios           []*SmallAudio
-	OriginSrtNoTsFile     string
-	SubtitleResultType    SubtitleResultType
-	EnableModalFilter     bool
-	ReplaceWordsMap       map[string]string
-	OriginLanguage        StandardLanguageName // 视频源语言
-	TargetLanguage        StandardLanguageName // 用户希望的目标翻译语言
-	UserUILanguage        StandardLanguageName // 用户的使用语言
-	TargetLanguageSrtFile string
-	OriginLanguageSrtFile string
-	BilingualSrtFile      string
-}
-
 type SubtitleFileInfo struct {
 	Name               string
 	Path               string
@@ -249,8 +229,6 @@ type SubtitleTaskStepParam struct {
 	TtsSourceFilePath    string
 	TtsResultFilePath    string
 }
-
-type SubtitleTaskStepFunc func(ctx context.Context, stepParam *SubtitleTaskStepParam) error
 
 type SrtSentence struct {
 	Text  string
