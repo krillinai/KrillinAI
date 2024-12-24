@@ -57,9 +57,9 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 ---
 ## 快速开始
 ### 基本步骤
-1. 下载release中与你设备系统匹配的可执行文件，放入空文件夹
-2. 在文件夹内创建config文件夹，然后在config文件夹创建config.toml文件，复制源代码config目录下的config-example.toml文件的内容填入config.toml，并对照填写你的配置信息。
-3. 双击可执行文件，启动服务
+1. 下载[Release](https://github.com/krillinai/KrillinAI/releases)中与你设备系统匹配的可执行文件，放入空文件夹
+2. 在文件夹内创建`config`文件夹，然后在`config`文件夹创建`config.toml`文件，复制源代码`config`目录下的`config-example.toml`文件的内容填入`config.toml`，并对照填写你的配置信息。
+3. 双击，或在终端执行可执行文件，启动服务
 4. 打开浏览器，输入`http://127.0.0.1:8888`，开始使用 (8888替换成你在配置文件中填写的端口)
 
 ### To: macOS用户
@@ -78,6 +78,10 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 如果你遇到视频下载失败的情况
 
 请参考 [Cookie 配置说明](./docs/get_cookies.md) 配置你的Cookie信息。
+
+## 常见问题
+
+请移步[常见问题](./docs/faq.md)
 
 ## 贡献规范
 1. 不要提交无用文件，如.vscode、.idea等，请善于使用.gitignore过滤
