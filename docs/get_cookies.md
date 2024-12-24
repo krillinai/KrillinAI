@@ -30,6 +30,6 @@
 /── config/
 │   └── config.toml
 ├── tasks/
-├── cookies.txt （<- 导出cookies.txt文件）
+├── cookies.txt （<- 导出的cookies.txt文件）
 └── krillinai.exe
 ```

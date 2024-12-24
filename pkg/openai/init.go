@@ -1,9 +1,7 @@
 package openai
 
 import (
-	"fmt"
 	"github.com/sashabaranov/go-openai"
-	"krillin-ai/config"
 	"net/http"
 	"net/url"
 )
@@ -12,15 +10,10 @@ type Client struct {
 	client *openai.Client
 }
 
-func NewClient() *Client {
-	cfg := openai.DefaultConfig(config.Conf.Openai.ApiKey)
+func NewClient(apiKey string, proxyUrl *url.URL) *Client {
+	cfg := openai.DefaultConfig(apiKey)
 
-	proxy := config.Conf.App.Proxy
-	if proxy != "" {
-		proxyUrl, err := url.Parse(config.Conf.App.Proxy)
-		if err != nil {
-			panic(fmt.Sprintf("代理地址解析失败: %v", err))
-		}
+	if proxyUrl != nil {
 		transport := &http.Transport{
 			Proxy: http.ProxyURL(proxyUrl),
 		}
