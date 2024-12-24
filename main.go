@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"go.uber.org/zap"
 	"krillin-ai/config"
 	"krillin-ai/internal/router"
 	"krillin-ai/log"
@@ -11,32 +12,37 @@ import (
 )
 
 type App struct {
-	Engine *gin.Engine
+	Engine   *gin.Engine
+	ProxyUrl string
 }
 
 func main() {
 	var err error
-	err = config.LoadConfig("./config/config.toml")
-	if err != nil {
-		panic(fmt.Sprintf("加载配置文件失败: %v", err))
-	}
-
 	log.InitLogger()
 	defer log.GetLogger().Sync() // 确保日志被正确写入
 
+	err = config.LoadConfig("./config/config.toml")
+	if err != nil {
+		log.GetLogger().Error("加载配置文件失败: %v", zap.Error(err))
+		return
+	}
 	err = util.CheckAndDownloadFfmpeg()
 	if err != nil {
-		panic(fmt.Sprintf("ffmpeg环境准备失败: %v", err))
+		log.GetLogger().Error("ffmpeg环境准备失败", zap.Error(err))
+		return
+
 	}
 	err = util.CheckAndDownloadFfprobe()
 	if err != nil {
-		panic(fmt.Sprintf("ffprobe环境准备失败: %v", err))
+		log.GetLogger().Error("ffprobe环境准备失败", zap.Error(err))
 	}
 	err = util.CheckAndDownloadYtDlp()
 	if err != nil {
-		panic(fmt.Sprintf("yt-dlp环境准备失败: %v", err))
+		log.GetLogger().Error("yt-dlp环境准备失败", zap.Error(err))
+		return
 	}
 
+	gin.SetMode(gin.ReleaseMode)
 	app := App{
 		Engine: gin.Default(),
 	}

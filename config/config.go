@@ -2,12 +2,14 @@ package config
 
 import (
 	"github.com/BurntSushi/toml"
+	"net/url"
 )
 
 type App struct {
 	SegmentDuration      int    `toml:"segment_duration"`
 	TranslateParallelNum int    `toml:"translate_parallel_num"`
 	Proxy                string `toml:"proxy"`
+	ParsedProxy          *url.URL
 }
 
 type Server struct {
@@ -36,7 +38,11 @@ type Config struct {
 var Conf Config
 
 func LoadConfig(filePath string) error {
-	// 读取TOML文件并解析
 	_, err := toml.DecodeFile(filePath, &Conf)
+	if err != nil {
+		return err
+	}
+	// 解析代理地址
+	Conf.App.ParsedProxy, err = url.Parse(Conf.App.Proxy)
 	return err
 }
