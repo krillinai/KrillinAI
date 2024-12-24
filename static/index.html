@@ -18,29 +18,9 @@
 
 		h1 {
 			text-align: center;
-			font-size: 3.2em;
-			line-height: 1.1;
-		}
-
-		button {
-			padding: 10px 20px;
-			background-color: #007bff;
-			color: #fff;
-			border: none;
-			border-radius: 4px;
-			cursor: pointer;
-			outline: 0;
-		}
-		button:hover {
-			background-color: #036adb;
-		}
-		button:focus,
-		button:focus-visible {
-			outline: 0;
-		}
-		button:disabled {
-			background-color: #ccc;
-			cursor: not-allowed;
+			font-size: 32px;
+			line-height: 42px;
+			margin: 0 auto 20px;
 		}
 
 		.container {
@@ -60,6 +40,27 @@
 			justify-content: center;
 			/*margin: 0 40px;*/
 			gap: 15px;
+
+			button {
+				padding: 8px 20px;
+				background-color: #007bff;
+				color: #fff;
+				border: none;
+				border-radius: 4px;
+				cursor: pointer;
+				outline: 0;
+			}
+			button:hover {
+				background-color: #036adb;
+			}
+			button:focus,
+			button:focus-visible {
+				outline: 0;
+			}
+			button:disabled {
+				background-color: #ccc;
+				cursor: not-allowed;
+			}
 		}
 
 		.formItem {
@@ -129,6 +130,41 @@
 			color: white;
 			background-color: #4caf50;
 		}
+		.setWrap {
+			display: flex;
+			flex-direction: row;
+			flex-wrap: wrap;
+			justify-content: space-between;
+			width: 100%;
+		}
+		.formGroup {
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			justify-content: center;
+			width: 50%;
+			min-height: 42px;
+			gap: 10px;
+		}
+		.formGroup label {
+			display: inline-block;
+			width: 100px;
+			text-align: right;
+		}
+		.formGroup select {
+			width: 100px;
+			height: 32px;
+			line-height: 32px;
+		}
+		.formGroup input[type="text"] {
+			width: 130px;
+			height: 28px;
+			line-height: 28px;
+			margin-bottom: 10px;
+		}
+		.formGroup input[type="checkbox"] {
+			margin-right: 10px;
+		}
 		.loading {
 			color: #4caf50;
 			text-align: center;
@@ -165,6 +201,123 @@
 			<p id="uploadStatus" class="loading hidden">正在上传...</p>
 		</div>
 
+		<div class="setWrap">
+			<!-- 源语言 -->
+			<div class="formGroup">
+				<label>源语言</label>
+				<input type="checkbox" id="source-language-toggle" checked disabled>
+				<select id="source-language">
+					<option value="zh_cn">简体中文</option>
+					<option value="en">英文</option>
+					<option value="jp">日文</option>
+				</select>
+			</div>
+
+			<!-- 字幕翻译 -->
+			<div class="formGroup">
+				<label>字幕翻译</label>
+				<input type="checkbox" id="translation-toggle">
+				<select id="translation-language" disabled>
+					<option value="zh_cn">简体中文</option>
+					<option value="zh_tw">繁体中文</option>
+					<option value="en">英语</option>
+					<option value="jp">日语</option>
+					<option value="pinyin">拼音</option>
+					<option value="mid">印度尼西亚语</option>
+					<option value="ms">马来西亚语</option>
+					<option value="th">泰语</option>
+					<option value="vi">越南语</option>
+					<option value="fil">菲律宾语</option>
+					<option value="ko">韩语</option>
+					<option value="ar">阿拉伯语</option>
+					<option value="fr">法语</option>
+					<option value="de">德语</option>
+					<option value="it">意大利语</option>
+					<option value="ru">俄语</option>
+					<option value="pt">葡萄牙语</option>
+					<option value="es">西班牙语</option>
+					<option value="hi">印度语</option>
+					<option value="bn">孟加拉语</option>
+					<option value="he">希伯来语</option>
+					<option value="fa">波斯语</option>
+					<option value="af">南非语</option>
+					<option value="sv">瑞典语</option>
+					<option value="fi">芬兰语</option>
+					<option value="da">丹麦语</option>
+					<option value="no">挪威语</option>
+					<option value="nl">荷兰语</option>
+					<option value="el">希腊语</option>
+					<option value="uk">乌克兰语</option>
+					<option value="hu">匈牙利语</option>
+					<option value="pl">波兰语</option>
+					<option value="tr">土耳其语</option>
+					<option value="sr">塞尔维亚语</option>
+					<option value="hr">克罗地亚语</option>
+					<option value="cs">捷克语</option>
+					<option value="sw">斯瓦西里语</option>
+					<option value="yo">约鲁巴语</option>
+					<option value="ha">豪萨语</option>
+					<option value="am">阿姆哈拉语</option>
+					<option value="om">奥罗莫语</option>
+					<option value="is">冰岛语</option>
+					<option value="lb">卢森堡语</option>
+					<option value="ca">加泰罗尼亚语</option>
+					<option value="ro">罗马尼亚语</option>
+					<option value="ro2">摩尔多瓦语</option>
+					<option value="sk">斯洛伐克语</option>
+					<option value="bs">波斯尼亚语</option>
+					<option value="mk">马其顿语</option>
+					<option value="sl">斯洛文尼亚语</option>
+					<option value="bg">保加利亚语</option>
+					<option value="lv">拉脱维亚语</option>
+					<option value="lt">立陶宛语</option>
+					<option value="et">爱沙尼亚语</option>
+					<option value="mt">马耳他语</option>
+					<option value="sq">阿尔巴尼亚语</option>
+				</select>
+			</div>
+
+			<!-- 双语字幕 -->
+			<div class="formGroup">
+				<label>双语字幕</label>
+				<input type="checkbox" id="bilingual-toggle" disabled>
+				<select id="bilingual-position" disabled>
+					<option value="1">上方</option>
+					<option value="2">下方</option>
+				</select>
+			</div>
+
+			<!-- 配音 -->
+			<div class="formGroup">
+				<label>配音</label>
+				<input type="checkbox" id="voiceover-toggle">
+				<select id="voiceover-voice" disabled>
+					<option value="2">男声</option>
+					<option value="1">女声</option>
+				</select>
+			</div>
+
+			<!-- 语气词过滤 -->
+			<div class="formGroup" style="width: 100%; justify-content: flex-start;">
+				<label>语气词过滤</label>
+				<input type="checkbox" id="filler-filter-toggle">
+			</div>
+
+			<!-- 词汇替换 -->
+			<div class="formGroup" style="width: 100%; justify-content: flex-start; align-items: flex-start;">
+				<label style="padding: 10px 0;">词汇替换</label>
+				<input style="margin: 14px 10px 14px 4px;" type="checkbox" id="word-replacement-toggle">
+				<div id="word-replacement-container" style="display: none;">
+					<div class="replacement-row">
+						<input type="text" placeholder="原词" class="original-word">
+						<input type="text" placeholder="替换词" class="replacement-word">
+						<button type="button" class="remove-row">删除</button>
+					</div>
+					<button type="button" id="add-row">新增替换</button>
+				</div>
+			</div>
+		</div>
+
 		<button type="submit" id="executeButton">执 行</button>
 	</form>
 
@@ -193,7 +346,106 @@
 	const API_PROGRESS_URL = "/api/capability/subtitleTask";
 	const API_UPLOAD_URL = "/api/upload";
 
-	let uploadedVideoUrl = null; // 存储上传后的视频地址
+	let uploadedVideoUrl = null; // 存储上传后的视频地址// 获取表单元素
+	const translationToggle = document.getElementById("translation-toggle");
+	const translationLanguage = document.getElementById("translation-language");
+	const bilingualToggle = document.getElementById("bilingual-toggle");
+	const bilingualPosition = document.getElementById("bilingual-position");
+	const voiceoverToggle = document.getElementById("voiceover-toggle");
+	const voiceoverVoice = document.getElementById("voiceover-voice");
+	const wordReplacementToggle = document.getElementById("word-replacement-toggle");
+	const wordReplacementContainer = document.getElementById("word-replacement-container");
+	const addRowButton = document.getElementById("add-row");
+
+	// 更新状态（启用或禁用表单项）
+	function updateFormState() {
+		translationLanguage.disabled = !translationToggle.checked;
+		if (!translationToggle.checked) {
+			bilingualToggle.checked = false;
+			voiceoverToggle.checked = false;
+		}
+		voiceoverToggle.disabled = !translationToggle.checked;
+		bilingualToggle.disabled = !translationToggle.checked;
+		voiceoverToggle.disabled = !translationToggle.checked;
+		bilingualPosition.disabled = !bilingualToggle.checked;
+		voiceoverVoice.disabled = !voiceoverToggle.checked;
+		wordReplacementContainer.style.display = wordReplacementToggle.checked ? "block" : "none";
+	}
+
+	// 字幕翻译开关
+	translationToggle.addEventListener("change", () => {
+		updateFormState();
+	});
+
+	// 双语字幕开关
+	bilingualToggle.addEventListener("change", () => {
+		bilingualPosition.disabled = !bilingualToggle.checked;
+	});
+
+	// 配音开关
+	voiceoverToggle.addEventListener("change", () => {
+		updateFormState();
+	});
+
+	// 词汇替换开关
+	wordReplacementToggle.addEventListener("change", () => {
+		updateFormState();
+	});
+
+	// 新增词汇替换行
+	addRowButton.addEventListener("click", () => {
+		const newRow = document.createElement("div");
+		newRow.className = "replacement-row";
+		newRow.innerHTML = `
+        <input type="text" placeholder="原词" class="original-word">
+        <input type="text" placeholder="替换词" class="replacement-word">
+        <button type="button" class="remove-row">删除</button>
+      `;
+		wordReplacementContainer.insertBefore(newRow, addRowButton);
+
+		// 绑定删除按钮事件
+		newRow.querySelector(".remove-row").addEventListener("click", () => {
+			newRow.remove();
+		});
+	});
+
+	// 提交表单
+	function getParams () {
+		const formData = {
+			origin_lang: document.getElementById("source-language").value,
+			target_lang: translationToggle.checked ? translationLanguage.value : 'none',
+			bilingual: bilingualToggle.checked ? 1 : 2,
+			translation_subtitle_pos: +bilingualPosition.value,
+			tts: voiceoverToggle.checked ? 1 : 2,
+			modal_filter: document.getElementById("filler-filter-toggle").checked ? 1 : 2,
+		};
+
+		if (formData.tts === 1) {
+			formData.tts_voice_code = +voiceoverVoice.value;
+		}
+
+		if (formData.target_lang === 'ro2') {
+			formData.target_lang = 'ro';
+		}
+
+		if (wordReplacementToggle.checked) {
+			formData.replace = Array.from(document.querySelectorAll(".replacement-row")).map(row => {
+				if (row.querySelector(".original-word").value) {
+					return (`${row.querySelector(".original-word").value}|${row.querySelector(".replacement-word").value}`
+					);
+				} else {
+					return null;
+				}
+			}).filter(item => item !== null)
+		}
+
+		console.log("表单数据：", formData);
+
+		return formData;
+	}
+
+	// 初始化时更新表单状态
+	updateFormState();
 
 	// 切换输入方式
 	document.querySelectorAll('input[name="inputType"]').forEach(radio => {
@@ -254,29 +506,34 @@
 		}
 
 		const inputType = document.querySelector('input[name="inputType"]:checked').value;
-		const params = {
-			bilingual: 1,
-			language: "en",
-			modal_filter: 1,
-			origin_lang: "en",
-			target_lang: "zh_cn",
-			translation_subtitle_pos: 1,
-			tts: 2
-		};
+		// const params = {
+		// 	bilingual: 1,
+		// 	language: "en",
+		// 	modal_filter: 1,
+		// 	origin_lang: "en",
+		// 	target_lang: "zh_cn",
+		// 	translation_subtitle_pos: 1,
+		// 	tts: 2
+		// };
+		let url = '';
 
 		if (inputType === 'url') {
-			params.url = urlInput.value.trim();
+			url = urlInput.value.trim();
 		} else if (inputType === 'file' && uploadedVideoUrl) {
-			params.url = uploadedVideoUrl;
+			url = uploadedVideoUrl;
 		} else {
 			alert('请上传视频后再执行任务');
 			return;
 		}
 
-		// 请求启动任务接口
+		if (!url) {
+			alert('请输入视频链接后再执行任务');
+			return;
+		}
+		const params = getParams();
 
-		const taskId = await startTask(params);
-		console.log('taskId---:', taskId);
+		// 请求启动任务接口
+		const taskId = await startTask({...params, url});
 
 		downloadLinks.classList.add('hidden');
 		downloadLinks.innerHTML = ''; // 清空之前的下载链接
@@ -305,7 +562,6 @@
 				alert('启动任务失败');
 				throw new Error('启动任务失败');
 			}
-			console.log('response---:', response);
 			return (response.data || {}).task_id || '';
 		} catch (error) {
 			console.error('启动任务失败:', error);
