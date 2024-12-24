@@ -5,3 +5,4 @@ cookies.txt
 config/config.toml
 bin/
 uploads/
+app.log
