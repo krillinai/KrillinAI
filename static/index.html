@@ -24,9 +24,9 @@
 		}
 
 		.container {
-			width: 500px;
+			width: 620px;
 			padding: 30px;
-			margin: 0 auto;
+			margin: 20px auto;
 			background-color: #fff;
 			box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
 			border-radius: 8px;
@@ -141,7 +141,7 @@
 			display: flex;
 			flex-direction: row;
 			align-items: center;
-			justify-content: center;
+			justify-content: flex-start;
 			width: 50%;
 			min-height: 42px;
 			gap: 10px;
@@ -152,12 +152,12 @@
 			text-align: right;
 		}
 		.formGroup select {
-			width: 100px;
+			width: 160px;
 			height: 32px;
 			line-height: 32px;
 		}
 		.formGroup input[type="text"] {
-			width: 130px;
+			width: 188px;
 			height: 28px;
 			line-height: 28px;
 			margin-bottom: 10px;
@@ -204,7 +204,7 @@
 		<div class="setWrap">
 			<!-- 源语言 -->
 			<div class="formGroup">
-				<label>源语言</label>
+				<label>源语言:</label>
 				<input type="checkbox" id="source-language-toggle" checked disabled>
 				<select id="source-language">
 					<option value="zh_cn">简体中文</option>
@@ -215,8 +215,8 @@
 
 			<!-- 字幕翻译 -->
 			<div class="formGroup">
-				<label>字幕翻译</label>
-				<input type="checkbox" id="translation-toggle">
+				<label>字幕翻译:</label>
+				<input type="checkbox" id="translation-toggle" checked>
 				<select id="translation-language" disabled>
 					<option value="zh_cn">简体中文</option>
 					<option value="zh_tw">繁体中文</option>
@@ -279,17 +279,17 @@
 
 			<!-- 双语字幕 -->
 			<div class="formGroup">
-				<label>双语字幕</label>
-				<input type="checkbox" id="bilingual-toggle" disabled>
+				<label>双语字幕:</label>
+				<input type="checkbox" id="bilingual-toggle" disabled checked>
 				<select id="bilingual-position" disabled>
-					<option value="1">上方</option>
-					<option value="2">下方</option>
+					<option value="1">翻译后字幕在上方</option>
+					<option value="2">翻译后字幕在下方</option>
 				</select>
 			</div>
 
 			<!-- 配音 -->
 			<div class="formGroup">
-				<label>配音</label>
+				<label>配音:</label>
 				<input type="checkbox" id="voiceover-toggle">
 				<select id="voiceover-voice" disabled>
 					<option value="2">男声</option>
@@ -299,20 +299,20 @@
 
 			<!-- 语气词过滤 -->
 			<div class="formGroup" style="width: 100%; justify-content: flex-start;">
-				<label>语气词过滤</label>
-				<input type="checkbox" id="filler-filter-toggle">
+				<label>语气词过滤:</label>
+				<input type="checkbox" id="filler-filter-toggle" checked>
 			</div>
 
 			<!-- 词汇替换 -->
 			<div class="formGroup" style="width: 100%; justify-content: flex-start; align-items: flex-start;">
-				<label style="padding: 10px 0;">词汇替换</label>
+				<label style="padding: 10px 0;">词汇替换:</label>
 				<input style="margin: 14px 10px 14px 4px;" type="checkbox" id="word-replacement-toggle">
-				<div id="word-replacement-container" style="display: none;">
-					<div class="replacement-row">
-						<input type="text" placeholder="原词" class="original-word">
-						<input type="text" placeholder="替换词" class="replacement-word">
-						<button type="button" class="remove-row">删除</button>
-					</div>
+				<div id="word-replacement-container" style="display: none; padding-top: 6px">
+<!--					<div class="replacement-row">-->
+<!--						<input type="text" placeholder="原词" class="original-word">-->
+<!--						<input type="text" placeholder="替换词" class="replacement-word">-->
+<!--						<button type="button" class="remove-row">删除</button>-->
+<!--					</div>-->
 					<button type="button" id="add-row">新增替换</button>
 				</div>
 			</div>
@@ -344,9 +344,11 @@
 
 	const API_SUBMIT_URL = "/api/capability/subtitleTask";
 	const API_PROGRESS_URL = "/api/capability/subtitleTask";
-	const API_UPLOAD_URL = "/api/upload";
+	const API_UPLOAD_URL = "/api/file";
 
-	let uploadedVideoUrl = null; // 存储上传后的视频地址// 获取表单元素
+	let uploadedVideoUrl = null; // 存储上传后的视频地址
+
+	// 获取表单元素
 	const translationToggle = document.getElementById("translation-toggle");
 	const translationLanguage = document.getElementById("translation-language");
 	const bilingualToggle = document.getElementById("bilingual-toggle");
@@ -412,6 +414,7 @@
 	// 提交表单
 	function getParams () {
 		const formData = {
+			language: 'zh_cn',
 			origin_lang: document.getElementById("source-language").value,
 			target_lang: translationToggle.checked ? translationLanguage.value : 'none',
 			bilingual: bilingualToggle.checked ? 1 : 2,
