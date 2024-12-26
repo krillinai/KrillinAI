@@ -4,21 +4,9 @@ import (
 	"context"
 	openai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
+	"krillin-ai/internal/types"
 	"krillin-ai/log"
 )
-
-type Word struct {
-	Num   int
-	Text  string
-	Start float64
-	End   float64
-}
-
-type TranscriptionData struct {
-	Language string
-	Text     string
-	Words    []Word
-}
 
 func (c *Client) ChatCompletion(query string) (string, error) {
 	req := openai.ChatCompletionRequest{
@@ -46,7 +34,7 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 	return resContent, nil
 }
 
-func (c *Client) Transcription(audioFile, language string) (*TranscriptionData, error) {
+func (c *Client) Transcription(audioFile, language string) (*types.TranscriptionData, error) {
 	resp, err := c.client.CreateTranscription(
 		context.Background(),
 		openai.AudioRequest{
@@ -64,14 +52,14 @@ func (c *Client) Transcription(audioFile, language string) (*TranscriptionData, 
 		return nil, err
 	}
 
-	transcriptionData := &TranscriptionData{
+	transcriptionData := &types.TranscriptionData{
 		Language: resp.Language,
 		Text:     resp.Text,
-		Words:    make([]Word, 0),
+		Words:    make([]types.Word, 0),
 	}
 	num := 0
 	for _, word := range resp.Words {
-		wordItem := Word{
+		wordItem := types.Word{
 			Num:   num,
 			Text:  word.Word,
 			Start: word.Start,

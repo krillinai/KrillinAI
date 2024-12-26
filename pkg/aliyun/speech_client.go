@@ -3,7 +3,8 @@ package aliyun
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"go.uber.org/zap"
+	"krillin-ai/log"
 	"strings"
 	"time"
 
@@ -19,7 +20,7 @@ type SpeechClient struct {
 	synthesisComplete chan struct{}
 }
 
-type Header struct {
+type TtsHeader struct {
 	Appkey    string `json:"appkey"`
 	MessageID string `json:"message_id"`
 	TaskID    string `json:"task_id"`
@@ -43,11 +44,11 @@ type RunSynthesisPayload struct {
 }
 
 type Message struct {
-	Header  Header      `json:"header"`
+	Header  TtsHeader   `json:"header"`
 	Payload interface{} `json:"payload,omitempty"`
 }
 
-func NewSpeechClient(url, appkey string, onTextMessage func(string), onBinaryMessage func([]byte)) (*SpeechClient, error) {
+func NewSpeechClient(appkey string, onTextMessage func(string), onBinaryMessage func([]byte)) (*SpeechClient, error) {
 	token, _ := CreateToken()
 	fullURL := "wss://nls-gateway-cn-beijing.aliyuncs.com/ws/v1?token=" + token
 	dialer := websocket.DefaultDialer
@@ -76,7 +77,7 @@ func generateID() string {
 
 func (c *SpeechClient) sendMessage(name string, payload interface{}) error {
 	message := Message{
-		Header: Header{
+		Header: TtsHeader{
 			Appkey:    c.appkey,
 			MessageID: generateID(),
 			TaskID:    c.taskID,
@@ -85,10 +86,9 @@ func (c *SpeechClient) sendMessage(name string, payload interface{}) error {
 		},
 		Payload: payload,
 	}
-	//打印message，转成json字符串格式
 	jsonData, _ := json.Marshal(message)
-	// 打印 JSON 字符串
 	fmt.Println(string(jsonData))
+	log.GetLogger().Debug("SpeechClient sendMessage", zap.String("message", string(jsonData)))
 	return c.conn.WriteJSON(message)
 }
 
@@ -123,7 +123,6 @@ func (c *SpeechClient) StopSynthesis() error {
 func (c *SpeechClient) Close() error {
 	err := c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 	if err != nil {
-		log.Println("write close:", err)
 		return err
 	}
 	return c.conn.Close()
@@ -135,24 +134,23 @@ func (c *SpeechClient) receiveMessages(onTextMessage func(string), onBinaryMessa
 		messageType, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-				log.Println("connection closed normally")
+				log.GetLogger().Error("SpeechClient receiveMessages websocket非正常关闭", zap.Error(err))
 				return
 			}
-			fmt.Println("read:", err)
 			return
 		}
 		if messageType == websocket.TextMessage {
 			var msg Message
 			if err := json.Unmarshal(message, &msg); err != nil {
-				fmt.Println("failed to unmarshal message:", err)
+				log.GetLogger().Error("SpeechClient receiveMessages json解析失败", zap.Error(err))
 				return
 			}
 			if msg.Header.Name == "SynthesisCompleted" {
-				fmt.Println("SynthesisCompleted event received")
+				log.GetLogger().Info("SynthesisCompleted event received")
 				// 收到结束消息退出
 				break
 			} else if msg.Header.Name == "SynthesisStarted" {
-				fmt.Println("SynthesisStarted event received")
+				log.GetLogger().Info("SynthesisStarted event received")
 				close(c.synthesisStarted)
 			} else {
 				onTextMessage(string(message))

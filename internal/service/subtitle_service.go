@@ -14,7 +14,6 @@ import (
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
-	"krillin-ai/pkg/openai"
 	"krillin-ai/pkg/util"
 	"os"
 	"os/exec"
@@ -188,7 +187,7 @@ func (s Service) GetTaskStatus(req dto.GetVideoSubtitleTaskReq) (*dto.GetVideoSu
 	}, nil
 }
 
-// 新版流程：链接->本地音频文件->扣费->视频信息获取（若有）->本地字幕文件->cos上的字幕信息
+// 新版流程：链接->本地音频文件->视频信息获取（若有）->本地字幕文件->cos上的字幕信息
 
 func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	var (
@@ -439,13 +438,13 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 				<-parallelControlChan
 			}()
 			// 语音转文字
-			var transcriptionData *openai.TranscriptionData
+			var transcriptionData *types.TranscriptionData
 			for i := 0; i < 3; i++ {
 				language := string(stepParam.OriginLanguage)
 				if language == "zh_cn" {
 					language = "zh" // 切换一下
 				}
-				transcriptionData, err = s.OpenaiClient.Transcription(audioFile.AudioFile, language)
+				transcriptionData, err = s.Transcriber.Transcription(audioFile.AudioFile, language)
 				if err == nil {
 					break
 				}
@@ -629,7 +628,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	return nil
 }
 
-func getSentenceTimestamps(words []openai.Word, sentence string, lastTs float64, language types.StandardLanguageName) (types.SrtSentence, float64, error) {
+func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, language types.StandardLanguageName) (types.SrtSentence, float64, error) {
 	var srtSt types.SrtSentence
 	var sentenceWordList []string
 	if language == types.LanguageNameEnglish || language == types.LanguageNameGerman { // 处理方式不同
@@ -638,7 +637,7 @@ func getSentenceTimestamps(words []openai.Word, sentence string, lastTs float64,
 			return srtSt, 0, fmt.Errorf("sentence is empty")
 		}
 
-		sentenceWords := make([]openai.Word, 0)
+		sentenceWords := make([]types.Word, 0)
 
 		thisLastTs := lastTs
 		sentenceWordIndex := 0
@@ -663,7 +662,7 @@ func getSentenceTimestamps(words []openai.Word, sentence string, lastTs float64,
 			}
 
 			if sentenceWordIndex >= len(words) {
-				sentenceWords = append(sentenceWords, openai.Word{
+				sentenceWords = append(sentenceWords, types.Word{
 					Text: sentenceWord,
 				})
 				sentenceWordIndex = 0
@@ -726,7 +725,7 @@ func getSentenceTimestamps(words []openai.Word, sentence string, lastTs float64,
 			return srtSt, 0, fmt.Errorf("sentence is empty")
 		}
 
-		sentenceWords := make([]openai.Word, 0)
+		sentenceWords := make([]types.Word, 0)
 
 		thisLastTs := lastTs
 		sentenceWordIndex := 0
@@ -768,7 +767,7 @@ func getSentenceTimestamps(words []openai.Word, sentence string, lastTs float64,
 }
 
 // 找到 Num 值递增的最大连续子数组
-func findMaxIncreasingSubArray(words []openai.Word) (int, int) {
+func findMaxIncreasingSubArray(words []types.Word) (int, int) {
 	if len(words) == 0 {
 		return 0, 0
 	}
@@ -805,7 +804,7 @@ func findMaxIncreasingSubArray(words []openai.Word) (int, int) {
 }
 
 // 跳跃（非连续）找到 Num 值递增的最大子数组
-func jumpFindMaxIncreasingSubArray(words []openai.Word) (int, int) {
+func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int) {
 	if len(words) == 0 {
 		return -1, -1
 	}

@@ -5,7 +5,9 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
+	"go.uber.org/zap"
 	"krillin-ai/config"
+	"krillin-ai/log"
 	"net/url"
 	"os"
 	"sort"
@@ -15,8 +17,6 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 )
-
-// type CosyClone struct{}
 
 // _encodeText URL-编码文本，保证符合规范
 func _encodeText(text string) string {
@@ -53,28 +53,28 @@ func GenerateSignature(secret, stringToSign string) string {
 	return _encodeText(signature)
 }
 
-type CosyCloneClient struct {
+type AliyunClient struct {
 	restyClient     *resty.Client
 	accessKeyID     string
 	accessKeySecret string
 	appkey          string
-	wsUrl           string
+	bailianApiKey   string
 }
 
-func NewCosyCloneClient() *CosyCloneClient {
+func NewClient() *AliyunClient {
 	cli := resty.New()
-	return &CosyCloneClient{
+	return &AliyunClient{
 		restyClient:     cli,
-		accessKeyID:     config.Conf.Aliyun.AccessKeyId,
-		accessKeySecret: config.Conf.Aliyun.AccessKeySecret,
-		appkey:          config.Conf.Aliyun.AppKey,
-		wsUrl:           config.Conf.Aliyun.CosyVoiceWsAddr,
+		accessKeyID:     config.Conf.Aliyun.Tts.AccessKeyId,
+		accessKeySecret: config.Conf.Aliyun.Tts.AccessKeySecret,
+		appkey:          config.Conf.Aliyun.Tts.AppKey,
+		bailianApiKey:   config.Conf.Aliyun.Bailian.ApiKey,
 	}
 }
 
-func (client *CosyCloneClient) CosyVoiceClone(voicePrefix, audioURL string) {
+func (c *AliyunClient) CosyVoiceClone(voicePrefix, audioURL string) {
 	parameters := map[string]string{
-		"AccessKeyId":      client.accessKeyID,
+		"AccessKeyId":      c.accessKeyID,
 		"Action":           "CosyVoiceClone",
 		"Format":           "JSON",
 		"RegionId":         "cn-shanghai",
@@ -88,31 +88,29 @@ func (client *CosyCloneClient) CosyVoiceClone(voicePrefix, audioURL string) {
 	}
 
 	queryString := _encodeDict(parameters)
-	fmt.Println("规范化的请求字符串:", queryString)
+	log.GetLogger().Debug("规范化的请求字符串:", zap.String("value", queryString))
 	stringToSign := "POST" + "&" + _encodeText("/") + "&" + _encodeText(queryString)
-	fmt.Println("待签名的字符串:", stringToSign)
-	signature := GenerateSignature(client.accessKeySecret, stringToSign)
-	fmt.Println("URL编码后的签名:", signature)
+	log.GetLogger().Debug("待签名的字符串:", zap.String("value", stringToSign))
+	signature := GenerateSignature(c.accessKeySecret, stringToSign)
+	log.GetLogger().Debug("签名:", zap.String("value", signature))
 	fullURL := fmt.Sprintf("https://nls-slp.cn-shanghai.aliyuncs.com/?Signature=%s&%s", signature, queryString)
-	fmt.Printf("url: %s\n", fullURL)
+	log.GetLogger().Debug("fullURL", zap.String("value", fullURL))
 
-	// Make the POST request using resty
 	values := url.Values{}
 	for key, value := range parameters {
 		values.Add(key, value)
 	}
-	// resp, err := client.restyClient.R().SetQueryParam("Signature", signature).SetQueryParamsFromValues(values).Post(fullURL)
-	resp, err := client.restyClient.R().Post(fullURL)
+	resp, err := c.restyClient.R().Post(fullURL)
 	if err != nil {
-		fmt.Println("Error:", err)
+		log.GetLogger().Error("CosyVoiceClone请求失败", zap.Error(err))
 		return
 	}
 	fmt.Println("Response:", resp.String())
 }
 
-func (client *CosyCloneClient) CosyCloneList(voicePrefix string, pageIndex, pageSize int) {
+func (c *AliyunClient) CosyCloneList(voicePrefix string, pageIndex, pageSize int) {
 	parameters := map[string]string{
-		"AccessKeyId":      client.accessKeyID,
+		"AccessKeyId":      c.accessKeyID,
 		"Action":           "ListCosyVoice",
 		"Format":           "JSON",
 		"RegionId":         "cn-shanghai",
@@ -130,7 +128,7 @@ func (client *CosyCloneClient) CosyCloneList(voicePrefix string, pageIndex, page
 	fmt.Println("规范化的请求字符串:", queryString)
 	stringToSign := "POST" + "&" + _encodeText("/") + "&" + _encodeText(queryString)
 	fmt.Println("待签名的字符串:", stringToSign)
-	signature := GenerateSignature(client.accessKeySecret, stringToSign)
+	signature := GenerateSignature(c.accessKeySecret, stringToSign)
 	fmt.Println("URL编码后的签名:", signature)
 	fullURL := fmt.Sprintf("https://nls-slp.cn-shanghai.aliyuncs.com/?Signature=%s&%s", signature, queryString)
 	fmt.Printf("url: %s\n", fullURL)
@@ -140,7 +138,7 @@ func (client *CosyCloneClient) CosyCloneList(voicePrefix string, pageIndex, page
 	for key, value := range parameters {
 		values.Add(key, value)
 	}
-	resp, err := client.restyClient.R().Post(fullURL)
+	resp, err := c.restyClient.R().Post(fullURL)
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
@@ -148,7 +146,7 @@ func (client *CosyCloneClient) CosyCloneList(voicePrefix string, pageIndex, page
 	fmt.Println("Response:", resp.String())
 }
 
-func (client *CosyCloneClient) Text2Speech(text, voice, outputFile string) error {
+func (c *AliyunClient) Text2Speech(text, voice, outputFile string) error {
 	file, err := os.OpenFile(outputFile, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
@@ -161,13 +159,14 @@ func (client *CosyCloneClient) Text2Speech(text, voice, outputFile string) error
 
 	onBinaryMessage := func(data []byte) {
 		if _, err := file.Write(data); err != nil {
+
 			fmt.Println("Failed to write data to file:", err)
 		}
 	}
 
-	speechClient, err := NewSpeechClient(client.wsUrl, client.appkey, onTextMessage, onBinaryMessage)
+	speechClient, err := NewSpeechClient(c.appkey, onTextMessage, onBinaryMessage)
 	if err != nil {
-		return fmt.Errorf("failed to create speech client: %w", err)
+		return fmt.Errorf("failed to create speech c: %w", err)
 	}
 	defer speechClient.Close()
 

@@ -19,7 +19,7 @@ type TokenResult struct {
 }
 
 func CreateToken() (string, error) {
-	client, err := sdk.NewClientWithAccessKey("cn-shanghai", config.Conf.Aliyun.AccessKeyId, config.Conf.Aliyun.AccessKeySecret)
+	client, err := sdk.NewClientWithAccessKey("cn-shanghai", config.Conf.Aliyun.Tts.AccessKeyId, config.Conf.Aliyun.Tts.AccessKeySecret)
 	if err != nil {
 		return "", err
 	}
