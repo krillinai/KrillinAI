@@ -12,30 +12,19 @@
 Krillin AI is a one-stop solution designed for users and developers seeking high-quality video processing. It provides an end-to-end workflow, from video download to the final product, ensuring every frame of your content is extraordinary.
 
 ## Key Features and Functions:
+🎯 **One-Click Startup**: There is no need for complicated environment configuration. Krillin AI supports automatic installation of dependencies, allowing you to quickly get started and put it into use immediately.  
+📥 **Video Acquisition**: With yt-dlp integrated, it can directly download videos via YouTube and Bilibili links, simplifying the process of collecting materials.  
+📜 **Subtitle Recognition**: Based on the Whisper model, it conducts subtitle recognition, enabling high-speed and high-quality transcription.  
+🧠 **Intelligent Subtitle Segmentation and Alignment**: Utilizing self-developed algorithms to perform intelligent segmentation and alignment of subtitles, avoiding misalignment and loss of context.  
+🔄 **Custom Vocabulary Replacement**: It supports one-click replacement of vocabulary to adapt to the language style of specific fields.  
+🌍 **Professional-Level Translation**: The sentence translation engine ensures the consistency of context and semantic coherence.  
+🎙️ **Diverse Options for External Services**: It supports voice and large model services from mainstream providers (ongoing integration) such as OpenAI and Alibaba Cloud, meeting the needs in different scenarios.
 
-🎯 **One-click Start**: No complicated environment setup required. Krillin AI supports automatic dependency installation, allowing you to quickly get started and use it immediately.
-
-📥 **Video Acquisition**: Integrated with yt-dlp, directly download videos from YouTube and Bilibili links, simplifying the material collection process.
-
-📜 **Subtitle Recognition**: Using the Whisper model for subtitle recognition, ensuring high-precision transcription.
-
-🧠 **Intelligent Subtitle Segmentation and Alignment**: Utilizing self-developed algorithms to intelligently segment and align subtitles, preventing misalignment and loss of context.
-
-🔄 **Custom Vocabulary Replacement**: Supports one-click vocabulary replacement [TODO], adaptable to specific domain language styles.
-
-🌍 **Professional Translation**: Full-sentence translation engine, ensuring contextual consistency and semantic coherence.
-
-🎙️ **Diverse Voiceover Options**: Supports mainstream TTS services such as Alibaba Cloud, Google Cloud [TODO], meeting the needs of various scenarios.
-
----
-### Language Support
-
+## Language Support
 Input languages: 🇨🇳 Chinese, 🇺🇸 English, 🇯🇵 Japanese supported (more languages being added)
 
-Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc. Also supports translation into Pinyin (more languages being added).
+Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc. Also supports translation into Pinyin.
 
-
----
 ## Showcase
 <table>
 <tr>
@@ -56,7 +45,6 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 </tr>
 </table>
 
----
 ## Quick Start
 ### Basic Steps
 1. Download the executable file that matches your device system from the release and place it in an empty folder.
