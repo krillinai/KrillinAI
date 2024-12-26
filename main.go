@@ -35,6 +35,7 @@ func main() {
 	err = util.CheckAndDownloadFfprobe()
 	if err != nil {
 		log.GetLogger().Error("ffprobe环境准备失败", zap.Error(err))
+		return
 	}
 	err = util.CheckAndDownloadYtDlp()
 	if err != nil {

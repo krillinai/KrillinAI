@@ -1,7 +1,9 @@
 [app]
     segment_duration = 5 # 音频分割间隔，单位：分钟
     translate_parallel_num = 5 # 并发进行大模型翻译的数量上限
-    proxy = "" # 网络代理
+    proxy = "" # 网络代理地址，格式如http://127.0.0.1:7890
+    transcribe_provider = "openai" # 语音识别供应商，当前可选值：openai,aliyun。强烈建议openai，选择后需要在下方配置供应商密钥等信息，下同
+    llm_provider = "openai" # LLM供应商，当前可选值：openai
 
 [server]
     host = "127.0.0.1"
@@ -10,8 +12,10 @@
 [openai]
     api_key = "sk-XXX" # OpenAI API密钥
 
-[aliyun] # 此处配置可以先忽略
-    access_key_id = ""
-    access_key_secret = ""
-    app_key = ""
-    cosy_voice_ws_addr = ""
+[aliyun]
+    [aliyun.tts] # tts配置可以先忽略
+        access_key_id = ""
+        access_key_secret = ""
+        app_key= ""
+    [aliyun.asr]
+        api_key = ""

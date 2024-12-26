@@ -10,6 +10,8 @@ type App struct {
 	TranslateParallelNum int    `toml:"translate_parallel_num"`
 	Proxy                string `toml:"proxy"`
 	ParsedProxy          *url.URL
+	TranscribeProvider   string `toml:"transcribe_provider"`
+	LlmProvider          string `toml:"llm_provider"`
 }
 
 type Server struct {
@@ -21,11 +23,19 @@ type Openai struct {
 	ApiKey string `toml:"api_key"`
 }
 
-type Aliyun struct {
+type AliyunTts struct {
 	AccessKeyId     string `toml:"access_key_id"`
 	AccessKeySecret string `toml:"access_key_secret"`
 	AppKey          string `toml:"app_key"`
-	CosyVoiceWsAddr string `toml:"cosy_voice_ws_addr"`
+}
+
+type AliyunBailian struct {
+	ApiKey string `toml:"api_key"`
+}
+
+type Aliyun struct {
+	Tts     AliyunTts     `toml:"tts"`
+	Bailian AliyunBailian `toml:"bailian"`
 }
 
 type Config struct {

@@ -1,9 +1,5 @@
 package types
 
-import (
-	"krillin-ai/pkg/openai"
-)
-
 var SplitTextPrompt = `你是一个语言处理专家，擅长翻译和处理文本，按下面的要求，根据句意和标点对给出的内容进行拆分并翻译：
 
 - 将原句子翻译成 %s
@@ -76,7 +72,7 @@ var TranslateVideoTitleAndDescriptionPrompt = `你是一个专业的翻译专家
 type SmallAudio struct {
 	AudioFile         string
 	Num               int
-	TranscriptionData *openai.TranscriptionData
+	TranscriptionData *TranscriptionData
 	SrtNoTsFile       string
 }
 
@@ -138,6 +134,10 @@ const (
 const (
 	TtsAudioDurationDetailsFileName = "audio_duration_details.txt"
 	TtsResultAudioFileName          = "tts_final_audio.wav"
+)
+
+const (
+	AsrMono16kAudioFileName = "mono_16k_audio.mp3"
 )
 
 type StandardLanguageName string
@@ -269,8 +269,20 @@ type SubtitleTask struct {
 	SrtNum                int            `json:"srt_num" gorm:"column:srt_num"`                               // 字幕数量
 	SubtitleInfos         []SubtitleInfo `gorm:"foreignKey:TaskId;references:TaskId"`
 	Cover                 string         `json:"cover" gorm:"column:cover"`                             // 封面
-	Cost                  uint32         `json:"cost" gorm:"column:cost"`                               // 消耗的额度
 	SpeechDownloadUrl     string         `json:"speech_download_url" gorm:"column:speech_download_url"` // 语音文件下载地址
 	CreateTime            int64          `json:"create_time" gorm:"column:create_time;autoCreateTime"`  // 创建时间
 	UpdateTime            int64          `json:"update_time" gorm:"column:update_time;autoUpdateTime"`  // 更新时间
+}
+
+type Word struct {
+	Num   int
+	Text  string
+	Start float64
+	End   float64
+}
+
+type TranscriptionData struct {
+	Language string
+	Text     string
+	Words    []Word
 }
