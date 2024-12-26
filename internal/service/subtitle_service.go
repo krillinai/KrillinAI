@@ -922,7 +922,7 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 		splitContent = ""
 	} else {
 		for i := 0; i < 3; i++ {
-			splitContent, err = s.OpenaiClient.ChatCompletion(splitPrompt + audioFile.TranscriptionData.Text)
+			splitContent, err = s.ChatCompleter.ChatCompletion(splitPrompt + audioFile.TranscriptionData.Text)
 			if err == nil {
 				break
 			}

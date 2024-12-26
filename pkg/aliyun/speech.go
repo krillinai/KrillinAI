@@ -53,7 +53,7 @@ func GenerateSignature(secret, stringToSign string) string {
 	return _encodeText(signature)
 }
 
-type AliyunClient struct {
+type Client struct {
 	restyClient     *resty.Client
 	accessKeyID     string
 	accessKeySecret string
@@ -61,9 +61,9 @@ type AliyunClient struct {
 	bailianApiKey   string
 }
 
-func NewClient() *AliyunClient {
+func NewClient() *Client {
 	cli := resty.New()
-	return &AliyunClient{
+	return &Client{
 		restyClient:     cli,
 		accessKeyID:     config.Conf.Aliyun.Tts.AccessKeyId,
 		accessKeySecret: config.Conf.Aliyun.Tts.AccessKeySecret,
@@ -72,7 +72,7 @@ func NewClient() *AliyunClient {
 	}
 }
 
-func (c *AliyunClient) CosyVoiceClone(voicePrefix, audioURL string) {
+func (c *Client) CosyVoiceClone(voicePrefix, audioURL string) {
 	parameters := map[string]string{
 		"AccessKeyId":      c.accessKeyID,
 		"Action":           "CosyVoiceClone",
@@ -108,7 +108,7 @@ func (c *AliyunClient) CosyVoiceClone(voicePrefix, audioURL string) {
 	fmt.Println("Response:", resp.String())
 }
 
-func (c *AliyunClient) CosyCloneList(voicePrefix string, pageIndex, pageSize int) {
+func (c *Client) CosyCloneList(voicePrefix string, pageIndex, pageSize int) {
 	parameters := map[string]string{
 		"AccessKeyId":      c.accessKeyID,
 		"Action":           "ListCosyVoice",
@@ -146,7 +146,7 @@ func (c *AliyunClient) CosyCloneList(voicePrefix string, pageIndex, pageSize int
 	fmt.Println("Response:", resp.String())
 }
 
-func (c *AliyunClient) Text2Speech(text, voice, outputFile string) error {
+func (c *Client) Text2Speech(text, voice, outputFile string) error {
 	file, err := os.OpenFile(outputFile, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)

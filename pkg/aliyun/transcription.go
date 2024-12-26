@@ -23,7 +23,7 @@ const (
 
 var dialer = websocket.DefaultDialer
 
-func (c *AliyunClient) Transcription(audioFile, language string) (*types.TranscriptionData, error) {
+func (c *Client) Transcription(audioFile, language string) (*types.TranscriptionData, error) {
 	// 处理音频
 	processedAudioFile, err := processAudio(audioFile)
 	if err != nil {
