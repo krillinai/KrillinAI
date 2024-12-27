@@ -480,7 +480,7 @@
 		const file = fileInput.files[0];
 
 		const formData = new FormData();
-		formData.append('video', file);
+		formData.append('file', file);
 
 		try {
 			const response = await fetch(API_UPLOAD_URL, {
