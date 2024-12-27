@@ -185,10 +185,10 @@
 				<input type="radio" name="inputType" value="url" checked>
 				输入视频地址
 			</label>
-<!--			<label>-->
-<!--				<input type="radio" name="inputType" value="file">-->
-<!--				本地视频上传-->
-<!--			</label>-->
+			<label>
+				<input type="radio" name="inputType" value="file">
+				本地视频上传
+			</label>
 		</div>
 
 		<div class="formItem" id="urlInputContainer">
@@ -198,7 +198,7 @@
 
 		<div class="formItem hidden" id="fileInputContainer">
 			<label for="fileInput">上传本地视频:</label>
-			<input type="file" id="fileInput" name="fileInput" accept="video/*">
+			<input style="margin-left: 6px" type="file" id="fileInput" name="fileInput" accept="video/*">
 			<p id="uploadStatus" class="loading hidden">正在上传...</p>
 		</div>
 
@@ -489,8 +489,8 @@
 			});
 			if (!response.ok) throw new Error('视频上传失败');
 			const data = await response.json();
-			uploadedVideoUrl = data.videoUrl; // 获取返回的视频地址
-			alert('视频上传成功');
+			uploadedVideoUrl = data.data.file_path; // 获取返回的视频地址
+			// alert('视频上传成功');
 			executeButton.disabled = false; // 启用“执行”按钮
 		} catch (error) {
 			console.error('视频上传失败:', error);
