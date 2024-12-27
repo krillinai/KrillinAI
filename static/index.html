@@ -91,6 +91,7 @@
 		.download-links {
 			display: flex;
 			justify-content: center;
+			flex-wrap: wrap;
 			width: 100%;
 			gap: 30px;
 		}
@@ -592,7 +593,7 @@
 				progressBar.style.width = progress + '%';
 				progressBar.textContent = progress + '%';
 				if (progress >= 100) {
-					displayDownloadLinks(data.subtitle_info || []);
+					displayDownloadLinks(data.subtitle_info || [], data.speech_download_url || '');
 					return;
 				}
 				await new Promise(resolve => setTimeout(resolve, 3000));
@@ -631,7 +632,7 @@
 	}
 
 	// 显示下载链接
-	function displayDownloadLinks(urls) {
+	function displayDownloadLinks(urls, speechUrl) {
 		console.log(urls);
 		downloadLinks.innerHTML = '';
 		urls.forEach(({name, download_url}) => {
@@ -641,6 +642,27 @@
 			link.download = '';
 			downloadLinks.appendChild(link);
 		});
+		if (speechUrl) {
+			const sArr = speechUrl.split('/');
+			const sName = sArr[sArr.length - 1];
+			// fetch(speechUrl)
+			// 	.then((response) => response.blob())
+			// 	.then((blob) => {
+			// 		const blobUrl = URL.createObjectURL(blob);
+			// 		const link = document.createElement("a");
+			// 		link.href = blobUrl;
+			// 		link.textContent = sName;
+			// 		link.download = sName; // 设置下载文件名
+			// 		downloadLinks.appendChild(link);
+			// 	});
+			const link = document.createElement('a');
+			link.style = 'text-align: center;';
+			link.href = speechUrl;
+			link.target = '_blank';
+			link.textContent = `配音：${sName}`;
+			link.download = '';
+			downloadLinks.appendChild(link);
+		}
 		downloadLinks.classList.remove('hidden');
 	}
 </script>

@@ -73,6 +73,12 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 
 请参考 [Cookie 配置说明](./docs/get_cookies.md) 配置你的Cookie信息。
 
+### 阿里云配置说明
+* 如果`transcription_provider`或者`llm_provider`配置项填写了`aliyun`，即语音识别或翻译过程中使用了阿里云服务，则需要配置`aliyun.bailian`的`api_key`  
+* 在启动任务时开启了“配音”功能，则需要配置`aliyun.tts`的相关密钥信息  
+
+配置帮助：[阿里云配置说明](./docs/aliyun.md)
+
 ## 常见问题
 
 请移步[常见问题](./docs/faq.md)

@@ -345,20 +345,20 @@ func (s Service) uploadSubtitles(ctx context.Context, stepParam *types.SubtitleT
 	subtitleInfos := make([]types.SubtitleInfo, 0)
 	var err error
 	for _, info := range stepParam.SubtitleInfos {
-		srcFile := info.Path
+		resultPath := info.Path
 		if len(stepParam.ReplaceWordsMap) > 0 { // 需要进行替换
-			replacedSrcFile := util.AddSuffixToFileName(srcFile, "_replaced")
-			err = util.ReplaceFileContent(srcFile, replacedSrcFile, stepParam.ReplaceWordsMap)
+			replacedSrcFile := util.AddSuffixToFileName(resultPath, "_replaced")
+			err = util.ReplaceFileContent(resultPath, replacedSrcFile, stepParam.ReplaceWordsMap)
 			if err != nil {
 				log.GetLogger().Error("generateAudioSubtitles.uploadSubtitles ReplaceFileContent err", zap.Any("stepParam", stepParam), zap.Error(err))
 				return err
 			}
-			srcFile = replacedSrcFile
+			resultPath = replacedSrcFile
 		}
 		subtitleInfos = append(subtitleInfos, types.SubtitleInfo{
 			TaskId:      stepParam.TaskId,
 			Name:        info.Name,
-			DownloadUrl: srcFile,
+			DownloadUrl: "/api/file/" + resultPath,
 		})
 	}
 	// 更新字幕任务信息
@@ -367,7 +367,7 @@ func (s Service) uploadSubtitles(ctx context.Context, stepParam *types.SubtitleT
 	storage.SubtitleTasks[stepParam.TaskId].ProcessPct = 100
 	// 配音文件
 	if stepParam.TtsResultFilePath != "" {
-		storage.SubtitleTasks[stepParam.TaskId].SpeechDownloadUrl = stepParam.TtsResultFilePath
+		storage.SubtitleTasks[stepParam.TaskId].SpeechDownloadUrl = "/api/file/" + stepParam.TtsResultFilePath
 	}
 	return nil
 }
@@ -586,7 +586,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	}
 	// 添加原语言单语字幕
 	subtitleInfo := types.SubtitleFileInfo{
-		Path:               "/api/file/" + originLanguageSrtFilePath,
+		Path:               originLanguageSrtFilePath,
 		LanguageIdentifier: string(stepParam.OriginLanguage),
 	}
 	if stepParam.UserUILanguage == types.LanguageNameEnglish {
@@ -598,7 +598,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	// 添加目标语言单语字幕
 	if stepParam.SubtitleResultType == types.SubtitleResultTypeTargetOnly || stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnBottom || stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop {
 		subtitleInfo = types.SubtitleFileInfo{
-			Path:               "/api/file/" + targetLanguageSrtFilePath,
+			Path:               targetLanguageSrtFilePath,
 			LanguageIdentifier: string(stepParam.TargetLanguage),
 		}
 		if stepParam.UserUILanguage == types.LanguageNameEnglish {
@@ -611,7 +611,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	// 添加双语字幕
 	if stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop || stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnBottom {
 		subtitleInfo = types.SubtitleFileInfo{
-			Path:               "/api/file/" + stepParam.BilingualSrtFilePath,
+			Path:               stepParam.BilingualSrtFilePath,
 			LanguageIdentifier: "bilingual",
 		}
 		if stepParam.UserUILanguage == types.LanguageNameEnglish {
