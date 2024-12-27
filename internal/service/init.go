@@ -23,7 +23,7 @@ func NewService() *Service {
 
 	switch config.Conf.App.TranscribeProvider {
 	case "openai":
-		transcriber = openai.NewClient(config.Conf.Openai.ApiKey, config.Conf.App.ParsedProxy)
+		transcriber = openai.NewClient(config.Conf.Openai.ApiKey, config.Conf.App.Proxy)
 	case "aliyun":
 		transcriber = aliyun.NewClient()
 	}
@@ -31,14 +31,14 @@ func NewService() *Service {
 
 	switch config.Conf.App.LlmProvider {
 	case "openai":
-		chatCompleter = openai.NewClient(config.Conf.Openai.ApiKey, config.Conf.App.ParsedProxy)
+		chatCompleter = openai.NewClient(config.Conf.Openai.ApiKey, config.Conf.App.Proxy)
 	case "aliyun":
 		chatCompleter = aliyun.NewChatClient(config.Conf.Aliyun.Bailian.ApiKey)
 	}
 	log.GetLogger().Info("当前选择的LLM源： ", zap.String("llm", config.Conf.App.LlmProvider))
 
 	return &Service{
-		OpenaiClient:    openai.NewClient(config.Conf.Openai.ApiKey, config.Conf.App.ParsedProxy),
+		OpenaiClient:    openai.NewClient(config.Conf.Openai.ApiKey, config.Conf.App.Proxy),
 		CosyCloneClient: aliyun.NewClient(),
 
 		Transcriber:   transcriber,

@@ -2,20 +2,20 @@ package openai
 
 import (
 	"github.com/sashabaranov/go-openai"
+	"krillin-ai/config"
 	"net/http"
-	"net/url"
 )
 
 type Client struct {
 	client *openai.Client
 }
 
-func NewClient(apiKey string, proxyUrl *url.URL) *Client {
+func NewClient(apiKey string, proxyAddr string) *Client {
 	cfg := openai.DefaultConfig(apiKey)
 
-	if proxyUrl != nil {
+	if proxyAddr != "" {
 		transport := &http.Transport{
-			Proxy: http.ProxyURL(proxyUrl),
+			Proxy: http.ProxyURL(config.Conf.App.ParsedProxy),
 		}
 		cfg.HTTPClient = &http.Client{
 			Transport: transport,
