@@ -79,16 +79,10 @@ func IsNumber(s string) bool {
 
 // DownloadFile 下载文件并保存到指定路径，支持代理
 func DownloadFile(urlStr, filepath, proxyAddr string) error {
-	proxyURL, err := url.Parse(proxyAddr)
-	if err != nil {
-		return err
-	}
-
 	client := &http.Client{}
-
-	if proxyURL != nil {
+	if proxyAddr != "" {
 		client.Transport = &http.Transport{
-			Proxy: http.ProxyURL(proxyURL),
+			Proxy: http.ProxyURL(config.Conf.App.ParsedProxy),
 		}
 	}
 
