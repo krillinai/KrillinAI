@@ -20,6 +20,9 @@ Krillin AI is a one-stop solution designed for users and developers seeking high
 🌍 **Professional-Level Translation**: The sentence translation engine ensures the consistency of context and semantic coherence.  
 🎙️ **Diverse Options for External Services**: It supports voice and large model services from mainstream providers (ongoing integration) such as OpenAI and Alibaba Cloud, meeting the needs in different scenarios.
 
+## Interface Preview
+![界面预览](./images/ui.jpg)
+
 ## Language Support
 Input languages: 🇨🇳 Chinese, 🇺🇸 English, 🇯🇵 Japanese supported (more languages being added)
 
