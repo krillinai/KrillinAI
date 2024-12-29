@@ -156,6 +156,18 @@ func CheckAndDownloadFfmpeg() error {
 		storage.FfmpegPath = "ffmpeg"
 		return nil
 	}
+
+	ffmpegBinFilePath := "./bin/ffmpeg"
+	if runtime.GOOS == "windows" {
+		ffmpegBinFilePath += ".exe"
+	}
+	// 先前下载过的
+	if _, err = os.Stat(ffmpegBinFilePath); err == nil {
+		log.GetLogger().Info("已找到ffmpeg")
+		storage.FfmpegPath = ffmpegBinFilePath
+		return nil
+	}
+
 	log.GetLogger().Info("没有找到ffmpeg，即将开始自动安装")
 	// 确保./bin目录存在
 	err = os.MkdirAll("./bin", 0755)
@@ -190,19 +202,16 @@ func CheckAndDownloadFfmpeg() error {
 	}
 	log.GetLogger().Info("ffmpeg解压成功")
 
-	ffmpegPathLocal := "./bin/ffmpeg"
 	if runtime.GOOS != "windows" {
-		err = os.Chmod(ffmpegPathLocal, 0755)
+		err = os.Chmod(ffmpegBinFilePath, 0755)
 		if err != nil {
 			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
 			return err
 		}
-	} else {
-		ffmpegPathLocal += ".exe"
 	}
 
-	storage.FfmpegPath = ffmpegPathLocal
-	log.GetLogger().Info("ffmpeg安装完成", zap.String("路径", ffmpegPathLocal))
+	storage.FfmpegPath = ffmpegBinFilePath
+	log.GetLogger().Info("ffmpeg安装完成", zap.String("路径", ffmpegBinFilePath))
 
 	return nil
 }
@@ -210,12 +219,24 @@ func CheckAndDownloadFfmpeg() error {
 // CheckAndDownloadFfprobe 检测并安装ffprobe
 func CheckAndDownloadFfprobe() error {
 	// 检查检测并安装ffprobe是否已经安装
-	_, err := exec.LookPath("ffmpeg")
+	_, err := exec.LookPath("ffprobe")
 	if err == nil {
 		log.GetLogger().Info("已找到ffprobe")
 		storage.FfprobePath = "ffprobe"
 		return nil
 	}
+
+	ffprobeBinFilePath := "./bin/ffprobe"
+	if runtime.GOOS == "windows" {
+		ffprobeBinFilePath += ".exe"
+	}
+	// 先前下载过的
+	if _, err = os.Stat(ffprobeBinFilePath); err == nil {
+		log.GetLogger().Info("已找到ffprobe")
+		storage.FfmpegPath = ffprobeBinFilePath
+		return nil
+	}
+
 	log.GetLogger().Info("没有找到ffprobe，即将开始自动安装")
 	// 确保./bin目录存在
 	err = os.MkdirAll("./bin", 0755)
@@ -250,19 +271,16 @@ func CheckAndDownloadFfprobe() error {
 	}
 	log.GetLogger().Info("ffprobe解压成功")
 
-	ffprobePathLocal := "./bin/ffprobe"
 	if runtime.GOOS != "windows" {
-		err = os.Chmod(ffprobePathLocal, 0755)
+		err = os.Chmod(ffprobeBinFilePath, 0755)
 		if err != nil {
 			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
 			return err
 		}
-	} else {
-		ffprobePathLocal += ".exe"
 	}
 
-	storage.FfprobePath = ffprobePathLocal
-	log.GetLogger().Info("ffprobe安装完成", zap.String("路径", ffprobePathLocal))
+	storage.FfprobePath = ffprobeBinFilePath
+	log.GetLogger().Info("ffprobe安装完成", zap.String("路径", ffprobeBinFilePath))
 
 	return nil
 }
@@ -275,6 +293,18 @@ func CheckAndDownloadYtDlp() error {
 		storage.YtdlpPath = "yt-dlp"
 		return nil
 	}
+
+	ytdlpBinFilePath := "./bin/yt-dlp"
+	if runtime.GOOS == "windows" {
+		ytdlpBinFilePath += ".exe"
+	}
+	// 先前下载过的
+	if _, err = os.Stat(ytdlpBinFilePath); err == nil {
+		log.GetLogger().Info("已找到ytdlp")
+		storage.FfmpegPath = ytdlpBinFilePath
+		return nil
+	}
+
 	log.GetLogger().Info("没有找到yt-dlp，即将开始自动安装")
 	err = os.MkdirAll("./bin", 0755)
 	if err != nil {
@@ -294,26 +324,22 @@ func CheckAndDownloadYtDlp() error {
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
 
-	ytDlpDownloadPath := "./bin/yt-dlp"
-	if runtime.GOOS == "windows" {
-		ytDlpDownloadPath += ".exe"
-	}
-	err = DownloadFile(ytDlpURL, ytDlpDownloadPath, config.Conf.App.Proxy)
+	err = DownloadFile(ytDlpURL, ytdlpBinFilePath, config.Conf.App.Proxy)
 	if err != nil {
 		log.GetLogger().Error("下载yt-dlp失败", zap.Error(err))
 		return err
 	}
 
 	if runtime.GOOS != "windows" {
-		err = os.Chmod(ytDlpDownloadPath, 0755)
+		err = os.Chmod(ytdlpBinFilePath, 0755)
 		if err != nil {
 			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
 			return err
 		}
 	}
 
-	storage.YtdlpPath = ytDlpDownloadPath
-	log.GetLogger().Info("yt-dlp安装完成", zap.String("路径", ytDlpDownloadPath))
+	storage.YtdlpPath = ytdlpBinFilePath
+	log.GetLogger().Info("yt-dlp安装完成", zap.String("路径", ytdlpBinFilePath))
 
 	return nil
 }
