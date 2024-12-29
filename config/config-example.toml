@@ -13,9 +13,13 @@
     api_key = "sk-XXX" # OpenAI API密钥
 
 [aliyun]
-    [aliyun.tts] # tts配置可以先忽略
+    [aliyun.oss] # 使用音色克隆必须配置该项
+        access_key_id = ""
+        access_key_secret = ""
+        bucket = ""
+    [aliyun.speech] # 使用配音必须配置该项
         access_key_id = ""
         access_key_secret = ""
         app_key= ""
-    [aliyun.bailian] # 阿里云百炼大模型平台api key
+    [aliyun.bailian] # llm_provider为aliyun时必须配置该项
         api_key = ""

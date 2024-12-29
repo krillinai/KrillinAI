@@ -220,6 +220,7 @@ type SubtitleTaskStepParam struct {
 	EnableModalFilter    bool
 	EnableTts            bool
 	TtsVoiceCode         string // 人声语音编码
+	VoiceCloneAudioUrl   string // 音色克隆的源音频oss地址
 	ReplaceWordsMap      map[string]string
 	OriginLanguage       StandardLanguageName // 视频源语言
 	TargetLanguage       StandardLanguageName // 用户希望的目标翻译语言

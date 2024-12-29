@@ -3,6 +3,7 @@ package util
 import (
 	"archive/zip"
 	"fmt"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"io"
 	"krillin-ai/config"
@@ -315,4 +316,8 @@ func CheckAndDownloadYtDlp() error {
 	log.GetLogger().Info("yt-dlp安装完成", zap.String("路径", ytDlpDownloadPath))
 
 	return nil
+}
+
+func GenerateID() string {
+	return strings.ReplaceAll(uuid.New().String(), "-", "")
 }
