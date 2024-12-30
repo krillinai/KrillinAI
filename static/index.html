@@ -12,7 +12,7 @@
 			min-width: 320px;
 			min-height: 100vh;
 			color: #333;
-			background: url('/static/background.jpg') no-repeat center center fixed;
+			background: #000 url('/static/background.jpg') no-repeat center center fixed;
 			background-size: cover;
 		}
 
@@ -143,7 +143,7 @@
 			flex-direction: row;
 			align-items: center;
 			justify-content: flex-start;
-			width: 50%;
+			width: 100%;
 			min-height: 42px;
 			gap: 10px;
 		}
@@ -166,7 +166,25 @@
 		.formGroup input[type="checkbox"] {
 			margin-right: 10px;
 		}
+		.formGroup .voice-file-input {
+			width: auto;
+			min-width: 100px;
+			padding: 6px 10px;
+			text-align: center;
+			font-size: 12px;
+			border: 1px solid #999;
+			border-radius: 4px;
+			background: #eee;
+			cursor: pointer;
+		}
+		.formGroup .voice-file-input-remove {
+			display: none;
+			font-size: 12px;
+			color: #666;
+			cursor: pointer;
+		}
 		.loading {
+			word-break: keep-all;
 			color: #4caf50;
 			text-align: center;
 		}
@@ -198,7 +216,7 @@
 
 		<div class="formItem hidden" id="fileInputContainer">
 			<label for="fileInput">上传本地视频:</label>
-			<input style="margin-left: 6px" type="file" id="fileInput" name="fileInput" accept="video/*">
+			<input style="margin-left: 6px" type="file" id="fileInput" name="fileInput" accept="video/*, audio/*">
 			<p id="uploadStatus" class="loading hidden">正在上传...</p>
 		</div>
 
@@ -296,16 +314,23 @@
 					<option value="2">男声</option>
 					<option value="1">女声</option>
 				</select>
+				<span>或</span>
+				<label for="voiceFileInput" id="voiceFileInputName" class="voice-file-input">
+					选择音色克隆样本
+				</label>
+				<span class="voice-file-input-remove" id="voiceFileInputRemove">删除</span>
+				<input style="display: none" type="file" id="voiceFileInput" name="voiceFileInput" accept="audio/*">
+				<p id="voiceUploadStatus" class="loading hidden">正在上传...</p>
 			</div>
 
 			<!-- 语气词过滤 -->
-			<div class="formGroup" style="width: 100%; justify-content: flex-start;">
+			<div class="formGroup">
 				<label>语气词过滤:</label>
 				<input type="checkbox" id="filler-filter-toggle" checked>
 			</div>
 
 			<!-- 词汇替换 -->
-			<div class="formGroup" style="width: 100%; justify-content: flex-start; align-items: flex-start;">
+			<div class="formGroup" style="justify-content: flex-start; align-items: flex-start;">
 				<label style="padding: 10px 0;">词汇替换:</label>
 				<input style="margin: 14px 10px 14px 4px;" type="checkbox" id="word-replacement-toggle">
 				<div id="word-replacement-container" style="display: none; padding-top: 6px">
@@ -337,17 +362,15 @@
 	const urlInput = document.getElementById('urlInput');
 	const fileInput = document.getElementById('fileInput');
 	const uploadStatus = document.getElementById('uploadStatus');
+	const voiceFileInput = document.getElementById('voiceFileInput');
+	const voiceFileInputName = document.getElementById('voiceFileInputName');
+	const voiceFileInputRemove = document.getElementById('voiceFileInputRemove');
+	const voiceUploadStatus = document.getElementById('voiceUploadStatus');
 	const executeButton = document.getElementById('executeButton');
 	const taskForm = document.getElementById('taskForm');
 	const progressSection = document.getElementById('progressSection');
 	const progressBar = document.getElementById('progressBar');
 	const downloadLinks = document.getElementById('downloadLinks');
-
-	const API_SUBMIT_URL = "/api/capability/subtitleTask";
-	const API_PROGRESS_URL = "/api/capability/subtitleTask";
-	const API_UPLOAD_URL = "/api/file";
-
-	let uploadedVideoUrl = null; // 存储上传后的视频地址
 
 	// 获取表单元素
 	const translationToggle = document.getElementById("translation-toggle");
@@ -359,6 +382,13 @@
 	const wordReplacementToggle = document.getElementById("word-replacement-toggle");
 	const wordReplacementContainer = document.getElementById("word-replacement-container");
 	const addRowButton = document.getElementById("add-row");
+
+	const API_SUBMIT_URL = "/api/capability/subtitleTask";
+	const API_PROGRESS_URL = "/api/capability/subtitleTask";
+	const API_UPLOAD_URL = "/api/file";
+
+	let uploadedVideoUrl = null; // 存储上传后的视频地址
+	let uploadedAudioUrl = null; // 存储上传后的音频地址
 
 	// 更新状态（启用或禁用表单项）
 	function updateFormState() {
@@ -372,6 +402,8 @@
 		voiceoverToggle.disabled = !translationToggle.checked;
 		bilingualPosition.disabled = !bilingualToggle.checked;
 		voiceoverVoice.disabled = !voiceoverToggle.checked;
+		voiceFileInput.disabled = !voiceoverToggle.checked;
+		voiceFileInputName.style.cursor = voiceoverToggle.checked ? "pointer" : "not-allowed";
 		wordReplacementContainer.style.display = wordReplacementToggle.checked ? "block" : "none";
 	}
 
@@ -412,6 +444,14 @@
 		});
 	});
 
+	// 删除上传音频
+	voiceFileInputRemove.addEventListener("click", () => {
+		voiceFileInput.value = '';
+		voiceFileInputName.textContent = '选择音色克隆样本';
+		uploadedAudioUrl = null;
+		voiceFileInputRemove.style.display = 'none';
+	});
+
 	// 提交表单
 	function getParams () {
 		const formData = {
@@ -426,6 +466,9 @@
 
 		if (formData.tts === 1) {
 			formData.tts_voice_code = +voiceoverVoice.value;
+			if (uploadedAudioUrl) {
+				formData.tts_voice_clone_src_file_url = uploadedAudioUrl;
+			}
 		}
 
 		if (formData.target_lang === 'ro2') {
@@ -497,6 +540,35 @@
 			alert('视频上传失败，请重试');
 		} finally {
 			uploadStatus.classList.add('hidden');
+		}
+	});
+
+	// 处理音频上传
+	voiceFileInput.addEventListener('change', async () => {
+		if (voiceFileInput.files.length === 0) return;
+
+		voiceUploadStatus.classList.remove('hidden');
+
+		const file = voiceFileInput.files[0];
+
+		const formData = new FormData();
+		formData.append('file', file);
+
+		try {
+			const response = await fetch(API_UPLOAD_URL, {
+				method: 'POST',
+				body: formData,
+			});
+			if (!response.ok) throw new Error('上传失败');
+			const data = await response.json();
+			uploadedAudioUrl = data.data.file_path; // 获取返回的地址
+			voiceFileInputName.textContent = file.name;
+			voiceFileInputRemove.style.display = 'block';
+		} catch (error) {
+			console.error('视频上传失败:', error);
+			alert('视频上传失败，请重试');
+		} finally {
+			voiceUploadStatus.classList.add('hidden');
 		}
 	});
 

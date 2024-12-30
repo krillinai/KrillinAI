@@ -5,7 +5,6 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"go.uber.org/zap"
-	"krillin-ai/config"
 	"krillin-ai/log"
 )
 
@@ -18,8 +17,8 @@ type TokenResult struct {
 	}
 }
 
-func CreateToken() (string, error) {
-	client, err := sdk.NewClientWithAccessKey("cn-shanghai", config.Conf.Aliyun.Tts.AccessKeyId, config.Conf.Aliyun.Tts.AccessKeySecret)
+func CreateToken(ak, sk string) (string, error) {
+	client, err := sdk.NewClientWithAccessKey("cn-shanghai", ak, sk)
 	if err != nil {
 		return "", err
 	}

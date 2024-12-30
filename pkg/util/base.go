@@ -3,6 +3,7 @@ package util
 import (
 	"archive/zip"
 	"fmt"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"io"
 	"krillin-ai/config"
@@ -155,6 +156,18 @@ func CheckAndDownloadFfmpeg() error {
 		storage.FfmpegPath = "ffmpeg"
 		return nil
 	}
+
+	ffmpegBinFilePath := "./bin/ffmpeg"
+	if runtime.GOOS == "windows" {
+		ffmpegBinFilePath += ".exe"
+	}
+	// 先前下载过的
+	if _, err = os.Stat(ffmpegBinFilePath); err == nil {
+		log.GetLogger().Info("已找到ffmpeg")
+		storage.FfmpegPath = ffmpegBinFilePath
+		return nil
+	}
+
 	log.GetLogger().Info("没有找到ffmpeg，即将开始自动安装")
 	// 确保./bin目录存在
 	err = os.MkdirAll("./bin", 0755)
@@ -165,11 +178,11 @@ func CheckAndDownloadFfmpeg() error {
 
 	var ffmpegURL string
 	if runtime.GOOS == "linux" {
-		ffmpegURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-linux-64.zip"
+		ffmpegURL = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/ffmpeg-6.1-linux-64.zip"
 	} else if runtime.GOOS == "darwin" {
-		ffmpegURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-macos-64.zip"
+		ffmpegURL = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/ffmpeg-6.1-macos-64.zip"
 	} else if runtime.GOOS == "windows" {
-		ffmpegURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffmpeg-6.1-win-64.zip"
+		ffmpegURL = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/ffmpeg-6.1-win-64.zip"
 	} else {
 		log.GetLogger().Error("不支持你当前的操作系统", zap.String("当前系统", runtime.GOOS))
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
@@ -189,19 +202,16 @@ func CheckAndDownloadFfmpeg() error {
 	}
 	log.GetLogger().Info("ffmpeg解压成功")
 
-	ffmpegPathLocal := "./bin/ffmpeg"
 	if runtime.GOOS != "windows" {
-		err = os.Chmod(ffmpegPathLocal, 0755)
+		err = os.Chmod(ffmpegBinFilePath, 0755)
 		if err != nil {
 			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
 			return err
 		}
-	} else {
-		ffmpegPathLocal += ".exe"
 	}
 
-	storage.FfmpegPath = ffmpegPathLocal
-	log.GetLogger().Info("ffmpeg安装完成", zap.String("路径", ffmpegPathLocal))
+	storage.FfmpegPath = ffmpegBinFilePath
+	log.GetLogger().Info("ffmpeg安装完成", zap.String("路径", ffmpegBinFilePath))
 
 	return nil
 }
@@ -209,12 +219,24 @@ func CheckAndDownloadFfmpeg() error {
 // CheckAndDownloadFfprobe 检测并安装ffprobe
 func CheckAndDownloadFfprobe() error {
 	// 检查检测并安装ffprobe是否已经安装
-	_, err := exec.LookPath("ffmpeg")
+	_, err := exec.LookPath("ffprobe")
 	if err == nil {
 		log.GetLogger().Info("已找到ffprobe")
 		storage.FfprobePath = "ffprobe"
 		return nil
 	}
+
+	ffprobeBinFilePath := "./bin/ffprobe"
+	if runtime.GOOS == "windows" {
+		ffprobeBinFilePath += ".exe"
+	}
+	// 先前下载过的
+	if _, err = os.Stat(ffprobeBinFilePath); err == nil {
+		log.GetLogger().Info("已找到ffprobe")
+		storage.FfmpegPath = ffprobeBinFilePath
+		return nil
+	}
+
 	log.GetLogger().Info("没有找到ffprobe，即将开始自动安装")
 	// 确保./bin目录存在
 	err = os.MkdirAll("./bin", 0755)
@@ -225,11 +247,11 @@ func CheckAndDownloadFfprobe() error {
 
 	var ffprobeURL string
 	if runtime.GOOS == "linux" {
-		ffprobeURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffprobe-6.1-linux-64.zip"
+		ffprobeURL = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/ffprobe-6.1-linux-64.zip"
 	} else if runtime.GOOS == "darwin" {
-		ffprobeURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffprobe-6.1-macos-64.zip"
+		ffprobeURL = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/ffprobe-6.1-macos-64.zip"
 	} else if runtime.GOOS == "windows" {
-		ffprobeURL = "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1/ffprobe-6.1-win-64.zip"
+		ffprobeURL = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/ffprobe-6.1-win-64.zip"
 	} else {
 		log.GetLogger().Error("不支持你当前的操作系统", zap.String("当前系统", runtime.GOOS))
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
@@ -249,19 +271,16 @@ func CheckAndDownloadFfprobe() error {
 	}
 	log.GetLogger().Info("ffprobe解压成功")
 
-	ffprobePathLocal := "./bin/ffprobe"
 	if runtime.GOOS != "windows" {
-		err = os.Chmod(ffprobePathLocal, 0755)
+		err = os.Chmod(ffprobeBinFilePath, 0755)
 		if err != nil {
 			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
 			return err
 		}
-	} else {
-		ffprobePathLocal += ".exe"
 	}
 
-	storage.FfprobePath = ffprobePathLocal
-	log.GetLogger().Info("ffprobe安装完成", zap.String("路径", ffprobePathLocal))
+	storage.FfprobePath = ffprobeBinFilePath
+	log.GetLogger().Info("ffprobe安装完成", zap.String("路径", ffprobeBinFilePath))
 
 	return nil
 }
@@ -274,6 +293,18 @@ func CheckAndDownloadYtDlp() error {
 		storage.YtdlpPath = "yt-dlp"
 		return nil
 	}
+
+	ytdlpBinFilePath := "./bin/yt-dlp"
+	if runtime.GOOS == "windows" {
+		ytdlpBinFilePath += ".exe"
+	}
+	// 先前下载过的
+	if _, err = os.Stat(ytdlpBinFilePath); err == nil {
+		log.GetLogger().Info("已找到ytdlp")
+		storage.FfmpegPath = ytdlpBinFilePath
+		return nil
+	}
+
 	log.GetLogger().Info("没有找到yt-dlp，即将开始自动安装")
 	err = os.MkdirAll("./bin", 0755)
 	if err != nil {
@@ -283,36 +314,36 @@ func CheckAndDownloadYtDlp() error {
 
 	var ytDlpURL string
 	if runtime.GOOS == "linux" {
-		ytDlpURL = "https://github.com/yt-dlp/yt-dlp/releases/download/2024.12.13/yt-dlp_linux"
+		ytDlpURL = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/yt-dlp_linux"
 	} else if runtime.GOOS == "darwin" {
-		ytDlpURL = "https://github.com/yt-dlp/yt-dlp/releases/download/2024.12.13/yt-dlp_macos"
+		ytDlpURL = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/yt-dlp_macos"
 	} else if runtime.GOOS == "windows" {
-		ytDlpURL = "https://github.com/yt-dlp/yt-dlp/releases/download/2024.12.13/yt-dlp.exe"
+		ytDlpURL = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/yt-dlp.exe"
 	} else {
 		log.GetLogger().Error("不支持你当前的操作系统", zap.String("当前系统", runtime.GOOS))
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
 
-	ytDlpDownloadPath := "./bin/yt-dlp"
-	if runtime.GOOS == "windows" {
-		ytDlpDownloadPath += ".exe"
-	}
-	err = DownloadFile(ytDlpURL, ytDlpDownloadPath, config.Conf.App.Proxy)
+	err = DownloadFile(ytDlpURL, ytdlpBinFilePath, config.Conf.App.Proxy)
 	if err != nil {
 		log.GetLogger().Error("下载yt-dlp失败", zap.Error(err))
 		return err
 	}
 
 	if runtime.GOOS != "windows" {
-		err = os.Chmod(ytDlpDownloadPath, 0755)
+		err = os.Chmod(ytdlpBinFilePath, 0755)
 		if err != nil {
 			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
 			return err
 		}
 	}
 
-	storage.YtdlpPath = ytDlpDownloadPath
-	log.GetLogger().Info("yt-dlp安装完成", zap.String("路径", ytDlpDownloadPath))
+	storage.YtdlpPath = ytdlpBinFilePath
+	log.GetLogger().Info("yt-dlp安装完成", zap.String("路径", ytdlpBinFilePath))
 
 	return nil
+}
+
+func GenerateID() string {
+	return strings.ReplaceAll(uuid.New().String(), "-", "")
 }

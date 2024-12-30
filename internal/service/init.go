@@ -10,11 +10,11 @@ import (
 )
 
 type Service struct {
-	OpenaiClient    *openai.Client
-	CosyCloneClient *aliyun.Client
-
-	Transcriber   types.Transcriber
-	ChatCompleter types.ChatCompleter
+	Transcriber      types.Transcriber
+	ChatCompleter    types.ChatCompleter
+	TtsClient        *aliyun.TtsClient
+	OssClient        *aliyun.OssClient
+	VoiceCloneClient *aliyun.VoiceCloneClient
 }
 
 func NewService() *Service {
@@ -25,7 +25,7 @@ func NewService() *Service {
 	case "openai":
 		transcriber = openai.NewClient(config.Conf.Openai.ApiKey, config.Conf.App.Proxy)
 	case "aliyun":
-		transcriber = aliyun.NewClient()
+		transcriber = aliyun.NewAsrClient(config.Conf.Aliyun.Bailian.ApiKey)
 	}
 	log.GetLogger().Info("当前选择的转录源： ", zap.String("transcriber", config.Conf.App.TranscribeProvider))
 
@@ -38,10 +38,10 @@ func NewService() *Service {
 	log.GetLogger().Info("当前选择的LLM源： ", zap.String("llm", config.Conf.App.LlmProvider))
 
 	return &Service{
-		OpenaiClient:    openai.NewClient(config.Conf.Openai.ApiKey, config.Conf.App.Proxy),
-		CosyCloneClient: aliyun.NewClient(),
-
-		Transcriber:   transcriber,
-		ChatCompleter: chatCompleter,
+		Transcriber:      transcriber,
+		ChatCompleter:    chatCompleter,
+		TtsClient:        aliyun.NewTtsClient(config.Conf.Aliyun.Speech.AccessKeyId, config.Conf.Aliyun.Speech.AccessKeySecret, config.Conf.Aliyun.Speech.AppKey),
+		OssClient:        aliyun.NewOssClient(config.Conf.Aliyun.Oss.AccessKeyId, config.Conf.Aliyun.Oss.AccessKeySecret, config.Conf.Aliyun.Oss.Bucket),
+		VoiceCloneClient: aliyun.NewVoiceCloneClient(config.Conf.Aliyun.Speech.AccessKeyId, config.Conf.Aliyun.Speech.AccessKeySecret, config.Conf.Aliyun.Speech.AppKey),
 	}
 }

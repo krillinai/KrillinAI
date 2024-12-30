@@ -23,7 +23,13 @@ type Openai struct {
 	ApiKey string `toml:"api_key"`
 }
 
-type AliyunTts struct {
+type AliyunOss struct {
+	AccessKeyId     string `toml:"access_key_id"`
+	AccessKeySecret string `toml:"access_key_secret"`
+	Bucket          string `toml:"bucket"`
+}
+
+type AliyunSpeech struct {
 	AccessKeyId     string `toml:"access_key_id"`
 	AccessKeySecret string `toml:"access_key_secret"`
 	AppKey          string `toml:"app_key"`
@@ -34,7 +40,8 @@ type AliyunBailian struct {
 }
 
 type Aliyun struct {
-	Tts     AliyunTts     `toml:"tts"`
+	Oss     AliyunOss     `toml:"oss"`
+	Speech  AliyunSpeech  `toml:"speech"`
 	Bailian AliyunBailian `toml:"bailian"`
 }
 

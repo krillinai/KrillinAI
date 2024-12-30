@@ -94,6 +94,21 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	} else {
 		ttsVoiceCode = "sicheng"
 	}
+
+	// 处理声音克隆源
+	var voiceCloneAudioUrl string
+	if req.TtsVoiceCloneSrcFileUrl != "" {
+		localFileUrl := strings.TrimPrefix(req.TtsVoiceCloneSrcFileUrl, "local:")
+		fileKey := util.GenerateRandStringWithUpperLowerNum(5) + filepath.Ext(localFileUrl) // 防止url encode的问题，这里统一处理
+		err = s.OssClient.UploadFile(context.Background(), fileKey, localFileUrl, s.OssClient.Bucket)
+		if err != nil {
+			log.GetLogger().Error("StartVideoSubtitleTask UploadFile err", zap.Any("req", req), zap.Error(err))
+			return nil, errors.New("上传声音克隆源失败")
+		}
+		voiceCloneAudioUrl = fmt.Sprintf("https://%s.oss-cn-shanghai.aliyuncs.com/%s", s.OssClient.Bucket, fileKey)
+		log.GetLogger().Info("StartVideoSubtitleTask 上传声音克隆源成功", zap.Any("oss url", voiceCloneAudioUrl))
+	}
+
 	stepParam := types.SubtitleTaskStepParam{
 		TaskId:             taskId,
 		TaskBasePath:       taskBasePath,
@@ -102,6 +117,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		EnableModalFilter:  req.ModalFilter == types.SubtitleTaskModalFilterYes,
 		EnableTts:          req.Tts == types.SubtitleTaskTtsYes,
 		TtsVoiceCode:       ttsVoiceCode,
+		VoiceCloneAudioUrl: voiceCloneAudioUrl,
 		ReplaceWordsMap:    replaceWordsMap,
 		OriginLanguage:     types.StandardLanguageName(req.OriginLanguage),
 		TargetLanguage:     types.StandardLanguageName(req.TargetLang),
@@ -298,7 +314,7 @@ func (s Service) getVideoInfo(ctx context.Context, stepParam *types.SubtitleTask
 		log.GetLogger().Debug("getVideoInfo title and description", zap.String("title", title), zap.String("description", description))
 		// 翻译
 		var result string
-		result, err = s.OpenaiClient.ChatCompletion(fmt.Sprintf(types.TranslateVideoTitleAndDescriptionPrompt, types.GetStandardLanguageName(stepParam.TargetLanguage), title+"####"+description))
+		result, err = s.ChatCompleter.ChatCompletion(fmt.Sprintf(types.TranslateVideoTitleAndDescriptionPrompt, types.GetStandardLanguageName(stepParam.TargetLanguage), title+"####"+description))
 		if err != nil {
 			log.GetLogger().Error("getVideoInfo openai chat completion error", zap.Any("stepParam", stepParam), zap.Error(err))
 		}
@@ -961,8 +977,6 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 		return err
 	}
 
-	// 创建临时目录存储音频文件
-	aliyunClient := s.CosyCloneClient
 	var audioFiles []string
 	var currentTime time.Time
 
@@ -974,10 +988,22 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 	}
 	defer durationDetailFile.Close()
 
-	// Step 2: 使用 Google TTS 生成音频
+	// Step 2: 使用 阿里云TTS
+	// 判断是否使用音色克隆
+	voiceCode := stepParam.TtsVoiceCode
+	if stepParam.VoiceCloneAudioUrl != "" {
+		var code string
+		code, err = s.VoiceCloneClient.CosyVoiceClone("krillinai", stepParam.VoiceCloneAudioUrl)
+		if err != nil {
+			log.GetLogger().Error("generateAudioSubtitles.srtFileToSpeech.VoiceCloneClient.CosyVoiceClone err", zap.Any("stepParam", stepParam), zap.Error(err))
+			return err
+		}
+		voiceCode = code
+	}
+
 	for i, sub := range subtitles {
 		outputFile := filepath.Join(stepParam.TaskBasePath, fmt.Sprintf("subtitle_%d.wav", i+1))
-		err = aliyunClient.Text2Speech(sub.Text, stepParam.TtsVoiceCode, outputFile)
+		err = s.TtsClient.Text2Speech(sub.Text, voiceCode, outputFile)
 		if err != nil {
 			log.GetLogger().Error("generateAudioSubtitles.srtFileToSpeech.Text2Speech err", zap.Any("taskId", stepParam.TaskId), zap.Any("num", i+1), zap.Error(err))
 			return err
@@ -1119,7 +1145,7 @@ func adjustAudioDuration(inputFile, outputFile, taskBasePath string, subtitleDur
 		}
 
 		silenceAudioDuration, _ := getAudioDuration(silenceFile)
-		fmt.Println("silenceDuration:", silenceAudioDuration)
+		log.GetLogger().Debug("adjustAudioDuration", zap.Any("silenceDuration", silenceAudioDuration))
 
 		// 拼接音频和静音
 		concatFile := filepath.Join(taskBasePath, "concat.txt")
@@ -1144,7 +1170,7 @@ func adjustAudioDuration(inputFile, outputFile, taskBasePath string, subtitleDur
 		}
 
 		concatFileDuration, _ := getAudioDuration(outputFile)
-		fmt.Println("concatFileDuration:", concatFileDuration)
+		log.GetLogger().Debug("adjustAudioDuration", zap.Any("concatFileDuration", concatFileDuration))
 		return nil
 	}
 

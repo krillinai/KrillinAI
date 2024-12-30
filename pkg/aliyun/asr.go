@@ -17,13 +17,23 @@ import (
 	"time"
 )
 
+type AsrClient struct {
+	BailianApiKey string
+}
+
+func NewAsrClient(bailianApiKey string) *AsrClient {
+	return &AsrClient{
+		BailianApiKey: bailianApiKey,
+	}
+}
+
 const (
 	wsURL = "wss://dashscope.aliyuncs.com/api-ws/v1/inference/" // WebSocket服务器地址
 )
 
 var dialer = websocket.DefaultDialer
 
-func (c *Client) Transcription(audioFile, language string) (*types.TranscriptionData, error) {
+func (c AsrClient) Transcription(audioFile, language string) (*types.TranscriptionData, error) {
 	// 处理音频
 	processedAudioFile, err := processAudio(audioFile)
 	if err != nil {
@@ -32,7 +42,7 @@ func (c *Client) Transcription(audioFile, language string) (*types.Transcription
 	}
 
 	// 连接WebSocket服务
-	conn, err := connectWebSocket(c.bailianApiKey)
+	conn, err := connectWebSocket(c.BailianApiKey)
 	if err != nil {
 		log.GetLogger().Error("连接WebSocket失败", zap.Error(err), zap.String("audio file", audioFile))
 		return nil, err
@@ -241,7 +251,7 @@ func generateRunTaskCmd(language string) (string, string, error) {
 func waitForTaskStarted(taskStarted chan bool) {
 	select {
 	case <-taskStarted:
-		fmt.Println("任务开启成功")
+		log.GetLogger().Info("阿里云语音识别任务开启成功")
 	case <-time.After(10 * time.Second):
 		log.GetLogger().Error("等待task-started超时，任务开启失败")
 	}
@@ -308,7 +318,7 @@ func handleEvent(conn *websocket.Conn, event *Event, taskStarted chan<- bool, ta
 	case "result-generated":
 		log.GetLogger().Info("收到result-generated事件", zap.String("当前text", event.Payload.Output.Sentence.Text))
 	case "task-finished":
-		fmt.Println("任务完成")
+		log.GetLogger().Info("收到task-finished事件，任务完成", zap.String("taskID", event.Header.TaskID))
 		taskDone <- true
 		return true
 	case "task-failed":

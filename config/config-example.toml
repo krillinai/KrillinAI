@@ -12,10 +12,14 @@
 [openai]
     api_key = "sk-XXX" # OpenAI API密钥
 
-[aliyun]
-    [aliyun.tts] # tts配置可以先忽略
+[aliyun] # 阿里云此处的配置非必填，请参考文档中的“阿里云配置说明”
+    [aliyun.oss]
+        access_key_id = ""
+        access_key_secret = ""
+        bucket = ""
+    [aliyun.speech]
         access_key_id = ""
         access_key_secret = ""
         app_key= ""
-    [aliyun.bailian] # 阿里云百炼大模型平台api key
+    [aliyun.bailian]
         api_key = ""
