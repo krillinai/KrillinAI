@@ -1,6 +1,6 @@
 <div align="center">
   <img src="./images/logo.png" alt="KrillinAI" height="140">
-  <p>Frames of the World in Splendor</p>
+  # Frames of the World in Splendor
   <p>An AI-powered video subtitle translation and dubbing tool featuring speech recognition, intelligent sentence segmentation, professional-level translation, and one-click deployment for the entire workflow</p>
 
   Read this in other languages: [中文](../README.md)
