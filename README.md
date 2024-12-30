@@ -1,6 +1,7 @@
 <div align="center">
-  <h1>Krillin AI</h1>
-  <p>世界帧精彩</p>
+  <img src="./docs/images/logo.png" alt="KrillinAI" height="140">
+
+  # 世界帧精彩
 
   <p>基于AI大模型的视频字幕翻译和配音工具，语音识别，智能断句，专业级翻译，一键部署全流程</p>
   <p>交流Q群: 754069680</p>
@@ -31,6 +32,9 @@ KrillinAI是一个为追求高质量视频翻译的用户和开发者设计的�
 ![界面预览](./docs/images/ui.jpg)
 
 ## 效果展示
+下图为46分钟的本地视频导入，一键执行后生成的字幕文件入轨后的效果，无任何手动调整。无缺失、重叠，断句自然，翻译质量也非常高。
+![对齐效果](./docs/images/alignment.png)
+
 <table>
 <tr>
 <td width="50%">
