@@ -20,3 +20,5 @@
 ![阿里云speech](images/aliyun_speech_2.png)
 4. 复制app key即可
 ![阿里云speech](images/aliyun_speech_3.png)
+
+## 阿里云OSS服务开通
