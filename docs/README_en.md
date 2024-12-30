@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Krillin AI</h1>
+  <img src="./images/logo.png" alt="KrillinAI" height="140">
   <p>Frames of the World in Splendor</p>
   <p>An AI-powered video subtitle translation and dubbing tool featuring speech recognition, intelligent sentence segmentation, professional-level translation, and one-click deployment for the entire workflow</p>
 
@@ -20,15 +20,17 @@ Krillin AI is a one-stop solution designed for users and developers seeking high
 🌍 **Professional-Level Translation**: The sentence translation engine ensures the consistency of context and semantic coherence.  
 🎙️ **Diverse Options for External Services**: It supports voice and large model services from mainstream providers (ongoing integration) such as OpenAI and Alibaba Cloud, meeting the needs in different scenarios.
 
+## Language Support
+Input languages: 🇨🇳 Chinese, 🇺🇸 English, 🇯🇵 Japanese supported (more languages being added)  
+Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc. Also supports translation into Pinyin.
+
 ## Interface Preview
 ![界面预览](./images/ui.jpg)
 
-## Language Support
-Input languages: 🇨🇳 Chinese, 🇺🇸 English, 🇯🇵 Japanese supported (more languages being added)
-
-Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc. Also supports translation into Pinyin.
-
 ## Showcase
+The following picture demonstrates the effect after the subtitle file, which was generated through a one-click operation after importing a 46-minute local video, was inserted into the track. There was no manual adjustment involved at all. There are no missing or overlapping subtitles, the sentence segmentation is natural, and the translation quality is also quite high.
+![Alignment](./images/alignment.png)
+
 <table>
 <tr>
 <td width="50%">
@@ -69,6 +71,16 @@ This will start the service.
 ### Cookie Configuration Instructions
 
 If you encounter video download failures, please refer to the [Cookie Configuration Instructions](./get_cookies.md) to configure your cookie information.
+
+### Alibaba Cloud Configuration Instructions
+The following usage situations require the configuration of Alibaba Cloud:
+* If `llm_provider` is filled with `aliyun`, it indicates that the large model service of Alibaba Cloud will be used. Consequently, the configuration of the `aliyun.bailian` item needs to be set up.
+* If `transcription_provider` is filled with `aliyun`, or if the "voice dubbing" function is enabled when starting a task, the voice service of Alibaba Cloud will be utilized. Therefore, the configuration of the `aliyun.speech` item needs to be filled in.
+* If the "voice dubbing" function is enabled and local audio files are uploaded for voice timbre cloning at the same time, the OSS cloud storage service of Alibaba Cloud will also be used. Hence, the configuration of the `aliyun.oss` item needs to be filled in.
+Configuration Guide: [Alibaba Cloud Configuration Instructions](./aliyun.md)
+
+## Frequently Asked Questions
+Please refer to [Frequently Asked Questions](./faq.md)
 
 ## Contribution Guidelines
 
