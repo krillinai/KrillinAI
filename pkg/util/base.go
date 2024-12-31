@@ -233,7 +233,7 @@ func CheckAndDownloadFfprobe() error {
 	// 先前下载过的
 	if _, err = os.Stat(ffprobeBinFilePath); err == nil {
 		log.GetLogger().Info("已找到ffprobe")
-		storage.FfmpegPath = ffprobeBinFilePath
+		storage.FfprobePath = ffprobeBinFilePath
 		return nil
 	}
 
@@ -301,7 +301,7 @@ func CheckAndDownloadYtDlp() error {
 	// 先前下载过的
 	if _, err = os.Stat(ytdlpBinFilePath); err == nil {
 		log.GetLogger().Info("已找到ytdlp")
-		storage.FfmpegPath = ytdlpBinFilePath
+		storage.YtdlpPath = ytdlpBinFilePath
 		return nil
 	}
 
