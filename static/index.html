@@ -383,9 +383,9 @@
 	const wordReplacementContainer = document.getElementById("word-replacement-container");
 	const addRowButton = document.getElementById("add-row");
 
-	const API_SUBMIT_URL = "/api/capability/subtitleTask";
-	const API_PROGRESS_URL = "/api/capability/subtitleTask";
-	const API_UPLOAD_URL = "/api/file";
+	const API_SUBMIT_URL = "//www.krillin.ai/api/capability/subtitleTask";
+	const API_PROGRESS_URL = "//www.krillin.ai/api/capability/subtitleTask";
+	const API_UPLOAD_URL = "//www.krillin.ai/api/file";
 
 	let uploadedVideoUrl = null; // 存储上传后的视频地址
 	let uploadedAudioUrl = null; // 存储上传后的音频地址
@@ -531,13 +531,16 @@
 				body: formData,
 			});
 			if (!response.ok) throw new Error('视频上传失败');
-			const data = await response.json();
-			uploadedVideoUrl = data.data.file_path; // 获取返回的视频地址
-			// alert('视频上传成功');
+			const res = await response.json();
+			const { error, data, msg } = res || {};
+			if (error !== 0 && error !== 200) {
+				throw new Error(msg || '上传失败，请重试')
+			}
+			uploadedVideoUrl = data.file_path; // 获取返回的视频地址
 			executeButton.disabled = false; // 启用“执行”按钮
 		} catch (error) {
 			console.error('视频上传失败:', error);
-			alert('视频上传失败，请重试');
+			alert(error);
 		} finally {
 			uploadStatus.classList.add('hidden');
 		}
@@ -560,13 +563,17 @@
 				body: formData,
 			});
 			if (!response.ok) throw new Error('上传失败');
-			const data = await response.json();
-			uploadedAudioUrl = data.data.file_path; // 获取返回的地址
+			const res = await response.json();
+			const { error, data, msg } = res || {};
+			if (error !== 0 && error !== 200) {
+				throw new Error(msg || '上传失败，请重试')
+			}
+			uploadedAudioUrl = data.file_path; // 获取返回的地址
 			voiceFileInputName.textContent = file.name;
 			voiceFileInputRemove.style.display = 'block';
 		} catch (error) {
-			console.error('视频上传失败:', error);
-			alert('视频上传失败，请重试');
+			console.error('音频上传失败:', error);
+			alert(error);
 		} finally {
 			voiceUploadStatus.classList.add('hidden');
 		}
@@ -635,11 +642,11 @@
 				return data;
 			});
 			if (+response.error !== 0 && +response.error !== 200) {
-				alert('启动任务失败');
-				throw new Error('启动任务失败');
+				throw new Error(response.msg || '启动任务失败');
 			}
 			return (response.data || {}).task_id || '';
 		} catch (error) {
+			alert(error);
 			console.error('启动任务失败:', error);
 			return null;
 		}
@@ -657,8 +664,7 @@
 				});
 				console.log('progress response---:', response);
 				if (+response.error !== 0 && +response.error !== 200) {
-					alert('查询进度失败');
-					throw new Error('查询进度失败');
+					throw new Error(response.msg || '查询进度失败');
 				}
 				const data = response.data || {};
 				progress = data.process_percent || 0;
@@ -671,6 +677,7 @@
 				await new Promise(resolve => setTimeout(resolve, 3000));
 			}
 		} catch (error) {
+			alert(error);
 			console.error('查询进度失败:', error);
 		}
 
