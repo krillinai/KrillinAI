@@ -183,6 +183,9 @@ func (s Service) GetTaskStatus(req dto.GetVideoSubtitleTaskReq) (*dto.GetVideoSu
 	if task == nil {
 		return nil, errors.New("任务不存在")
 	}
+	if task.Status == types.SubtitleTaskStatusFailed {
+		return nil, fmt.Errorf("任务失败，原因：%s", task.FailReason)
+	}
 	return &dto.GetVideoSubtitleTaskResData{
 		TaskId:         task.TaskId,
 		ProcessPercent: task.ProcessPct,
