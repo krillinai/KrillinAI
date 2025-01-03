@@ -5,9 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/samber/lo"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"krillin-ai/config"
 	"krillin-ai/internal/dto"
@@ -24,6 +21,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/samber/lo"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.StartVideoSubtitleTaskResData, error) {
@@ -511,11 +512,17 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	// 合并文件
 	originNoTsFiles := make([]string, 0)
 	bilingualFiles := make([]string, 0)
+	shortOriginMixedFiles := make([]string, 0)
+	shortOriginFiles := make([]string, 0)
 	for i := 1; i <= len(stepParam.SmallAudios); i++ {
 		splitOriginNoTsFile := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitSrtNoTimestampFileNamePattern, i))
 		originNoTsFiles = append(originNoTsFiles, splitOriginNoTsFile)
 		splitBilingualFile := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitBilingualSrtFileNamePattern, i))
 		bilingualFiles = append(bilingualFiles, splitBilingualFile)
+		shortOriginMixedFile := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitShortOriginMixedSrtFileNamePattern, i))
+		shortOriginMixedFiles = append(shortOriginMixedFiles, shortOriginMixedFile)
+		shortOriginFile := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitShortOriginSrtFileNamePattern, i))
+		shortOriginFiles = append(shortOriginFiles, shortOriginFile)
 	}
 
 	// 合并原始无时间戳字幕
@@ -530,6 +537,24 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	// 合并最终双语字幕
 	bilingualFile := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, types.SubtitleTaskBilingualSrtFileName)
 	err = util.MergeSrtFiles(bilingualFile, bilingualFiles...)
+	if err != nil {
+		log.GetLogger().Error("audioToSubtitle.audioToSrt.MergeFile ts err",
+			zap.Any("stepParam", stepParam), zap.Error(err))
+		return err
+	}
+
+	//合并最终双语字幕 长中文+短英文
+	shortOriginMixedFile := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, types.SubtitleTaskShortOriginMixedSrtFileName)
+	err = util.MergeSrtFiles(shortOriginMixedFile, shortOriginMixedFiles...)
+	if err != nil {
+		log.GetLogger().Error("audioToSubtitle.audioToSrt.MergeFile ts err",
+			zap.Any("stepParam", stepParam), zap.Error(err))
+		return err
+	}
+
+	// 合并最终原始字幕 短英文
+	shortOriginFile := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, types.SubtitleTaskShortOriginSrtFileName)
+	err = util.MergeSrtFiles(shortOriginFile, shortOriginFiles...)
 	if err != nil {
 		log.GetLogger().Error("audioToSubtitle.audioToSrt.MergeFile ts err",
 			zap.Any("stepParam", stepParam), zap.Error(err))
@@ -644,16 +669,15 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	return nil
 }
 
-func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, language types.StandardLanguageName) (types.SrtSentence, float64, error) {
+func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, language types.StandardLanguageName) (types.SrtSentence, []types.Word, float64, error) {
 	var srtSt types.SrtSentence
 	var sentenceWordList []string
+	sentenceWords := make([]types.Word, 0)
 	if language == types.LanguageNameEnglish || language == types.LanguageNameGerman { // 处理方式不同
 		sentenceWordList = util.SplitSentence(sentence)
 		if len(sentenceWordList) == 0 {
-			return srtSt, 0, fmt.Errorf("sentence is empty")
+			return srtSt, sentenceWords, 0, fmt.Errorf("sentence is empty")
 		}
-
-		sentenceWords := make([]types.Word, 0)
 
 		thisLastTs := lastTs
 		sentenceWordIndex := 0
@@ -691,7 +715,7 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 
 		beginWordIndex, endWordIndex := findMaxIncreasingSubArray(sentenceWords)
 		if (endWordIndex - beginWordIndex) == 0 {
-			return srtSt, 0, fmt.Errorf("no valid sentence")
+			return srtSt, sentenceWords, 0, fmt.Errorf("no valid sentence")
 		}
 
 		// 找到最大连续子数组后，再去找整个句子开始和结束的时间戳
@@ -701,13 +725,14 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 			srtSt.Start = beginWord.Start
 			srtSt.End = endWord.End
 			thisLastTs = endWord.End
-			return srtSt, thisLastTs, nil
+			return srtSt, sentenceWords, thisLastTs, nil
 		}
 
 		if beginWordIndex > 0 {
 			for i := beginWordIndex - 1; i >= 0; i-- {
 				if beginWord.Num > 0 && strings.EqualFold(words[beginWord.Num-1].Text, sentenceWords[i].Text) {
 					beginWord = words[beginWord.Num-1]
+					sentenceWords[i] = beginWord
 				}
 			}
 		}
@@ -716,6 +741,7 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 			for i := endWordIndex; i < len(sentenceWords); i++ {
 				if endWord.Num+1 < len(words) && strings.EqualFold(words[endWord.Num+1].Text, sentenceWords[i].Text) {
 					endWord = words[endWord.Num+1]
+					sentenceWords[i] = endWord
 				}
 			}
 		}
@@ -734,11 +760,11 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 			thisLastTs = endWord.End
 		}
 
-		return srtSt, thisLastTs, nil
+		return srtSt, sentenceWords, thisLastTs, nil
 	} else {
 		sentenceWordList = strings.Split(util.GetRecognizableString(sentence), "")
 		if len(sentenceWordList) == 0 {
-			return srtSt, 0, fmt.Errorf("sentence is empty")
+			return srtSt, sentenceWords, 0, fmt.Errorf("sentence is empty")
 		}
 
 		sentenceWords := make([]types.Word, 0)
@@ -766,7 +792,7 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 		// 对于sentence每个词，已经尝试找到了它的[]Word
 		beginWordIndex, endWordIndex := jumpFindMaxIncreasingSubArray(sentenceWords)
 		if (endWordIndex - beginWordIndex) == 0 {
-			return srtSt, 0, fmt.Errorf("no valid sentence")
+			return srtSt, sentenceWords, 0, fmt.Errorf("no valid sentence")
 		}
 
 		beginWord := sentenceWords[beginWordIndex]
@@ -778,7 +804,7 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 			thisLastTs = endWord.End
 		}
 
-		return srtSt, thisLastTs, nil
+		return srtSt, sentenceWords, thisLastTs, nil
 	}
 }
 
@@ -884,17 +910,91 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 
 	// 获取每个字幕块的时间戳
 	var lastTs float64
+	shortOriginSrtMap := make(map[int][]util.SrtBlock, 0)
 	for _, srtBlock := range srtBlocks {
 		if srtBlock.OriginLanguageSentence == "" {
 			continue
 		}
-		sentenceTs, ts, err := getSentenceTimestamps(audioFile.TranscriptionData.Words, srtBlock.OriginLanguageSentence, lastTs, originLanguage)
+		sentenceTs, sentenceWords, ts, err := getSentenceTimestamps(audioFile.TranscriptionData.Words, srtBlock.OriginLanguageSentence, lastTs, originLanguage)
 		if err != nil || ts < lastTs {
 			continue
 		}
 		lastTs = ts
 		tsOffset := float64(config.Conf.App.SegmentDuration) * 60 * float64(audioFile.Num-1)
 		srtBlock.Timestamp = fmt.Sprintf("%s --> %s", util.FormatTime(float32(sentenceTs.Start+tsOffset)), util.FormatTime(float32(sentenceTs.End+tsOffset)))
+
+		// 生成短句子的英文字幕
+		var (
+			originSentence       string
+			startWord            types.Word
+			endWord              types.Word
+			shortSentenceWordNum int = 8 //控制单行英文的字数
+		)
+
+		if len(sentenceWords) <= shortSentenceWordNum {
+			shortOriginSrtMap[srtBlock.Index] = append(shortOriginSrtMap[srtBlock.Index], util.SrtBlock{
+				Index:                  srtBlock.Index,
+				Timestamp:              fmt.Sprintf("%s --> %s", util.FormatTime(float32(sentenceTs.Start+tsOffset)), util.FormatTime(float32(sentenceTs.End+tsOffset))),
+				OriginLanguageSentence: srtBlock.OriginLanguageSentence,
+			})
+			continue
+		}
+
+		if len(sentenceWords) > 8 && len(sentenceWords) <= 16 {
+			shortSentenceWordNum = len(sentenceWords)/2 + 1
+		} else if len(sentenceWords) > 16 && len(sentenceWords) <= 24 {
+			shortSentenceWordNum = len(sentenceWords)/3 + 1
+		} else if len(sentenceWords) > 24 && len(sentenceWords) <= 32 {
+			shortSentenceWordNum = len(sentenceWords)/4 + 1
+		} else if len(sentenceWords) > 32 && len(sentenceWords) <= 40 {
+			shortSentenceWordNum = len(sentenceWords)/5 + 1
+		}
+
+		i := 1
+		for _, word := range sentenceWords {
+			if i == 1 || i%(shortSentenceWordNum+1) == 0 {
+				startWord = word
+				if startWord.Start > endWord.End {
+					startWord.Start = endWord.End
+				}
+
+				if startWord.Start < sentenceTs.Start {
+					startWord.Start = sentenceTs.Start
+				}
+				endWord = startWord
+				originSentence += word.Text + " "
+				i++
+				continue
+			}
+
+			originSentence += word.Text + " "
+			if endWord.End < word.End {
+				endWord = word
+			}
+
+			if endWord.End > sentenceTs.End {
+				endWord.End = sentenceTs.End
+			}
+
+			if i%shortSentenceWordNum == 0 && i > 1 {
+				shortOriginSrtMap[srtBlock.Index] = append(shortOriginSrtMap[srtBlock.Index], util.SrtBlock{
+					Index:                  srtBlock.Index,
+					Timestamp:              fmt.Sprintf("%s --> %s", util.FormatTime(float32(startWord.Start+tsOffset)), util.FormatTime(float32(endWord.End+tsOffset))),
+					OriginLanguageSentence: originSentence,
+				})
+				originSentence = ""
+			}
+
+			i++
+		}
+
+		if originSentence != "" {
+			shortOriginSrtMap[srtBlock.Index] = append(shortOriginSrtMap[srtBlock.Index], util.SrtBlock{
+				Index:                  srtBlock.Index,
+				Timestamp:              fmt.Sprintf("%s --> %s", util.FormatTime(float32(startWord.Start+tsOffset)), util.FormatTime(float32(endWord.End+tsOffset))),
+				OriginLanguageSentence: originSentence,
+			})
+		}
 	}
 
 	// 保存带时间戳的原始字幕
@@ -917,6 +1017,46 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 			// on bottom 或者单语类型，都用on bottom
 			_, _ = finalBilingualSrtFile.WriteString(srtBlock.OriginLanguageSentence + "\n")
 			_, _ = finalBilingualSrtFile.WriteString(srtBlock.TargetLanguageSentence + "\n\n")
+		}
+	}
+
+	// 保存带时间戳的字幕,长中文+短英文（示意，也支持其他语言）
+	srtShortOriginMixedFileName := fmt.Sprintf("%s/%s", basePath, fmt.Sprintf(types.SubtitleTaskSplitShortOriginMixedSrtFileNamePattern, audioFile.Num))
+	srtShortOriginMixedFile, err := os.Create(srtShortOriginMixedFileName)
+	if err != nil {
+		log.GetLogger().Error("generateAudioSubtitles.generateTimestamps.os.Open err", zap.String("taskId", taskId), zap.Error(err))
+		return err
+	}
+	defer srtShortOriginMixedFile.Close()
+
+	// 保存带时间戳的短英文字幕
+	srtShortOriginFileName := fmt.Sprintf("%s/%s", basePath, fmt.Sprintf(types.SubtitleTaskSplitShortOriginSrtFileNamePattern, audioFile.Num))
+	srtShortOriginFile, err := os.Create(srtShortOriginFileName)
+	if err != nil {
+		log.GetLogger().Error("generateAudioSubtitles.generateTimestamps.os.Open err", zap.String("taskId", taskId), zap.Error(err))
+		return err
+	}
+	defer srtShortOriginMixedFile.Close()
+
+	mixedSrtNum := 1
+	shortSrtNum := 1
+	// 写入短英文混合字幕文件
+	for _, srtBlock := range srtBlocks {
+		srtShortOriginMixedFile.WriteString(fmt.Sprintf("%d\n", mixedSrtNum))
+		srtShortOriginMixedFile.WriteString(srtBlock.Timestamp + "\n")
+		srtShortOriginMixedFile.WriteString(srtBlock.TargetLanguageSentence + "\n\n")
+		mixedSrtNum++
+		shortOriginSentence := shortOriginSrtMap[srtBlock.Index]
+		for _, shortOriginBlock := range shortOriginSentence {
+			srtShortOriginMixedFile.WriteString(fmt.Sprintf("%d\n", mixedSrtNum))
+			srtShortOriginMixedFile.WriteString(shortOriginBlock.Timestamp + "\n")
+			srtShortOriginMixedFile.WriteString(shortOriginBlock.OriginLanguageSentence + "\n\n")
+			mixedSrtNum++
+
+			srtShortOriginFile.WriteString(fmt.Sprintf("%d\n", shortSrtNum))
+			srtShortOriginFile.WriteString(shortOriginBlock.Timestamp + "\n")
+			srtShortOriginFile.WriteString(shortOriginBlock.OriginLanguageSentence + "\n\n")
+			shortSrtNum++
 		}
 	}
 
