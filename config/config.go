@@ -73,6 +73,7 @@ func LoadConfig(filePath string) error {
 		return err
 	}
 	if Conf.App.TranscribeProvider == "fasterwhisper" {
+		Conf.App.TranslateParallelNum = 1
 		if Conf.LocalModel.FasterWhisper != "tiny" && Conf.LocalModel.FasterWhisper != "medium" && Conf.LocalModel.FasterWhisper != "large-v2" {
 			return errors.New("检测到开启了fasterwhisper，但模型选型配置不正确，请检查配置")
 		}

@@ -1,6 +1,6 @@
 [app]
     segment_duration = 5 # 音频分割间隔，单位：分钟，建议值：5-10
-    translate_parallel_num = 5 # 并发进行大模型翻译的数量上限，建议值：5
+    translate_parallel_num = 5 # 并发进行模型转录和翻译的数量上限，建议值：5，如果使用了本地模型，该项自动不生效
     proxy = "" # 网络代理地址，格式如http://127.0.0.1:7890，可不填
     transcribe_provider = "openai" # 语音识别，当前可选值：openai,fasterwhisper,aliyun。fasterwhisper不支持macOS
     llm_provider = "openai" # LLM，当前可选值：openai,aliyun
