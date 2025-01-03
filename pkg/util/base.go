@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 var strWithUpperLowerNum = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789")
@@ -123,4 +124,10 @@ func GenerateID() string {
 func ChangeFileExtension(path string, newExt string) string {
 	ext := filepath.Ext(path)
 	return path[:len(path)-len(ext)] + newExt
+}
+
+func CleanPunction(word string) string {
+	return strings.TrimFunc(word, func(r rune) bool {
+		return unicode.IsPunct(r)
+	})
 }

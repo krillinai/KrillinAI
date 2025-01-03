@@ -53,7 +53,7 @@ func (c *FastwhisperProcessor) Transcription(audioFile, language, workDir string
 		for _, word := range segment.Words {
 			transcripotionData.Words = append(transcripotionData.Words, types.Word{
 				Num:   num,
-				Text:  strings.TrimSpace(word.Word),
+				Text:  util.CleanPunction(strings.TrimSpace(word.Word)),
 				Start: word.Start,
 				End:   word.End,
 			})
