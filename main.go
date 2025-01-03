@@ -2,18 +2,16 @@ package main
 
 import (
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"krillin-ai/config"
+	"krillin-ai/internal/deps"
 	"krillin-ai/internal/router"
 	"krillin-ai/log"
-	"krillin-ai/pkg/util"
-
-	"github.com/gin-gonic/gin"
 )
 
 type App struct {
-	Engine   *gin.Engine
-	ProxyUrl string
+	Engine *gin.Engine
 }
 
 func main() {
@@ -23,23 +21,13 @@ func main() {
 
 	err = config.LoadConfig("./config/config.toml")
 	if err != nil {
-		log.GetLogger().Error("加载配置文件失败: %v", zap.Error(err))
+		log.GetLogger().Error("加载配置文件失败", zap.Error(err))
 		return
 	}
-	err = util.CheckAndDownloadFfmpeg()
-	if err != nil {
-		log.GetLogger().Error("ffmpeg环境准备失败", zap.Error(err))
-		return
 
-	}
-	err = util.CheckAndDownloadFfprobe()
+	err = deps.CheckDependency()
 	if err != nil {
-		log.GetLogger().Error("ffprobe环境准备失败", zap.Error(err))
-		return
-	}
-	err = util.CheckAndDownloadYtDlp()
-	if err != nil {
-		log.GetLogger().Error("yt-dlp环境准备失败", zap.Error(err))
+		log.GetLogger().Error("依赖环境准备失败", zap.Error(err))
 		return
 	}
 
@@ -48,7 +36,6 @@ func main() {
 		Engine: gin.Default(),
 	}
 
-	app.Engine = gin.Default()
 	router.SetupRouter(app.Engine)
 	_ = app.Engine.Run(fmt.Sprintf("%s:%d", config.Conf.Server.Host, config.Conf.Server.Port))
 }

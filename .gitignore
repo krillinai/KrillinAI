@@ -4,6 +4,7 @@ cookies.txt
 .vscode/
 config/config.toml
 bin/
+models/
 uploads/
 app.log
 build/

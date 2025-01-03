@@ -10,8 +10,11 @@ type Client struct {
 	client *openai.Client
 }
 
-func NewClient(apiKey string, proxyAddr string) *Client {
+func NewClient(baseUrl, apiKey, proxyAddr string) *Client {
 	cfg := openai.DefaultConfig(apiKey)
+	if baseUrl != "" {
+		cfg.BaseURL = baseUrl
+	}
 
 	if proxyAddr != "" {
 		transport := &http.Transport{

@@ -33,7 +33,7 @@ const (
 
 var dialer = websocket.DefaultDialer
 
-func (c AsrClient) Transcription(audioFile, language string) (*types.TranscriptionData, error) {
+func (c AsrClient) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
 	// 处理音频
 	processedAudioFile, err := processAudio(audioFile)
 	if err != nil {
