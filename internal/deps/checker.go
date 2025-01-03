@@ -256,6 +256,11 @@ func checkFasterWhisper() error {
 	}
 	if _, err = os.Stat(filePath); os.IsNotExist(err) {
 		log.GetLogger().Info("没有找到faster-whisper，即将开始自动下载，文件较大请耐心等待")
+		err = os.MkdirAll("./bin", 0755)
+		if err != nil {
+			log.GetLogger().Error("创建./bin目录失败", zap.Error(err))
+			return err
+		}
 		var downloadUrl string
 		if runtime.GOOS == "windows" {
 			downloadUrl = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/Faster-Whisper-XXL_r194.5_windows.zip"
