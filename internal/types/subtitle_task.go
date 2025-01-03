@@ -117,18 +117,22 @@ const (
 )
 
 const (
-	SubtitleTaskAudioFileName                      = "origin_audio.mp3"
-	SubtitleTaskSplitAudioFileNamePrefix           = "split_audio"
-	SubtitleTaskSplitAudioFileNamePattern          = SubtitleTaskSplitAudioFileNamePrefix + "_%03d.mp3"
-	SubtitleTaskSplitAudioTxtFileNamePattern       = "split_audio_txt_%d.txt"
-	SubtitleTaskSplitAudioWordsFileNamePattern     = "split_audio_words_%d.txt"
-	SubtitleTaskSplitSrtNoTimestampFileNamePattern = "srt_no_ts_%d.srt"
-	SubtitleTaskSrtNoTimestampFileName             = "srt_no_ts.srt"
-	SubtitleTaskSplitBilingualSrtFileNamePattern   = "split_bilingual_srt_%d.srt"
-	SubtitleTaskBilingualSrtFileName               = "bilingual_srt.srt"
-	SubtitleTaskOriginLanguageSrtFileName          = "origin_language_srt.srt"
-	SubtitleTaskTargetLanguageSrtFileName          = "target_language_srt.srt"
-	SubtitleTaskStepParamGobPersistenceFileName    = "step_param.gob"
+	SubtitleTaskAudioFileName                           = "origin_audio.mp3"
+	SubtitleTaskSplitAudioFileNamePrefix                = "split_audio"
+	SubtitleTaskSplitAudioFileNamePattern               = SubtitleTaskSplitAudioFileNamePrefix + "_%03d.mp3"
+	SubtitleTaskSplitAudioTxtFileNamePattern            = "split_audio_txt_%d.txt"
+	SubtitleTaskSplitAudioWordsFileNamePattern          = "split_audio_words_%d.txt"
+	SubtitleTaskSplitSrtNoTimestampFileNamePattern      = "srt_no_ts_%d.srt"
+	SubtitleTaskSrtNoTimestampFileName                  = "srt_no_ts.srt"
+	SubtitleTaskSplitBilingualSrtFileNamePattern        = "split_bilingual_srt_%d.srt"
+	SubtitleTaskSplitShortOriginMixedSrtFileNamePattern = "split_short_origin_mixed_srt_%d.srt" //长中文+短英文
+	SubtitleTaskSplitShortOriginSrtFileNamePattern      = "split_short_origin_srt_%d.srt"       //短英文
+	SubtitleTaskBilingualSrtFileName                    = "bilingual_srt.srt"
+	SubtitleTaskShortOriginMixedSrtFileName             = "short_origin_mixed_srt.srt" //长中文+短英文
+	SubtitleTaskShortOriginSrtFileName                  = "short_origin_srt.srt"       //短英文
+	SubtitleTaskOriginLanguageSrtFileName               = "origin_language_srt.srt"
+	SubtitleTaskTargetLanguageSrtFileName               = "target_language_srt.srt"
+	SubtitleTaskStepParamGobPersistenceFileName         = "step_param.gob"
 )
 
 const (
@@ -211,24 +215,25 @@ type SubtitleFileInfo struct {
 }
 
 type SubtitleTaskStepParam struct {
-	TaskId               string
-	TaskBasePath         string
-	Link                 string
-	AudioFilePath        string
-	SmallAudios          []*SmallAudio
-	SubtitleResultType   SubtitleResultType
-	EnableModalFilter    bool
-	EnableTts            bool
-	TtsVoiceCode         string // 人声语音编码
-	VoiceCloneAudioUrl   string // 音色克隆的源音频oss地址
-	ReplaceWordsMap      map[string]string
-	OriginLanguage       StandardLanguageName // 视频源语言
-	TargetLanguage       StandardLanguageName // 用户希望的目标翻译语言
-	UserUILanguage       StandardLanguageName // 用户的使用语言
-	BilingualSrtFilePath string
-	SubtitleInfos        []SubtitleFileInfo
-	TtsSourceFilePath    string
-	TtsResultFilePath    string
+	TaskId                      string
+	TaskBasePath                string
+	Link                        string
+	AudioFilePath               string
+	SmallAudios                 []*SmallAudio
+	SubtitleResultType          SubtitleResultType
+	EnableModalFilter           bool
+	EnableTts                   bool
+	TtsVoiceCode                string // 人声语音编码
+	VoiceCloneAudioUrl          string // 音色克隆的源音频oss地址
+	ReplaceWordsMap             map[string]string
+	OriginLanguage              StandardLanguageName // 视频源语言
+	TargetLanguage              StandardLanguageName // 用户希望的目标翻译语言
+	UserUILanguage              StandardLanguageName // 用户的使用语言
+	BilingualSrtFilePath        string
+	ShortOriginMixedSrtFilePath string
+	SubtitleInfos               []SubtitleFileInfo
+	TtsSourceFilePath           string
+	TtsResultFilePath           string
 }
 
 type SrtSentence struct {
