@@ -463,7 +463,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 				if language == "zh_cn" {
 					language = "zh" // 切换一下
 				}
-				transcriptionData, err = s.Transcriber.Transcription(audioFile.AudioFile, language)
+				transcriptionData, err = s.Transcriber.Transcription(audioFile.AudioFile, language, stepParam.TaskBasePath)
 				if err == nil {
 					break
 				}

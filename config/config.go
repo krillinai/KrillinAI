@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"github.com/BurntSushi/toml"
 	"net/url"
 )
@@ -19,8 +20,13 @@ type Server struct {
 	Port int    `toml:"port"`
 }
 
+type LocalModel struct {
+	FasterWhisper string `toml:"faster_whisper"`
+}
+
 type Openai struct {
-	ApiKey string `toml:"api_key"`
+	BaseUrl string `toml:"base_url"`
+	ApiKey  string `toml:"api_key"`
 }
 
 type AliyunOss struct {
@@ -46,20 +52,30 @@ type Aliyun struct {
 }
 
 type Config struct {
-	App    App    `toml:"app"`
-	Server Server `toml:"server"`
-	Openai Openai `toml:"openai"`
-	Aliyun Aliyun `toml:"aliyun"`
+	App        App        `toml:"app"`
+	Server     Server     `toml:"server"`
+	LocalModel LocalModel `toml:"local_model"`
+	Openai     Openai     `toml:"openai"`
+	Aliyun     Aliyun     `toml:"aliyun"`
 }
 
 var Conf Config
 
 func LoadConfig(filePath string) error {
-	_, err := toml.DecodeFile(filePath, &Conf)
+	var err error
+	_, err = toml.DecodeFile(filePath, &Conf)
 	if err != nil {
 		return err
 	}
 	// 解析代理地址
 	Conf.App.ParsedProxy, err = url.Parse(Conf.App.Proxy)
-	return err
+	if err != nil {
+		return err
+	}
+	if Conf.App.TranscribeProvider == "fasterwhisper" {
+		if Conf.LocalModel.FasterWhisper != "tiny" {
+			return errors.New("检测到开启了fasterwhisper，但模型选型配置不正确，请检查配置")
+		}
+	}
+	return nil
 }

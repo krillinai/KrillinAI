@@ -5,5 +5,5 @@ type ChatCompleter interface {
 }
 
 type Transcriber interface {
-	Transcription(audioFile, language string) (*TranscriptionData, error)
+	Transcription(audioFile, language, wordDir string) (*TranscriptionData, error)
 }

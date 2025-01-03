@@ -34,7 +34,7 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 	return resContent, nil
 }
 
-func (c *Client) Transcription(audioFile, language string) (*types.TranscriptionData, error) {
+func (c *Client) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
 	resp, err := c.client.CreateTranscription(
 		context.Background(),
 		openai.AudioRequest{

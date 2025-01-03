@@ -1,18 +1,23 @@
 [app]
-    segment_duration = 5 # 音频分割间隔，单位：分钟
-    translate_parallel_num = 5 # 并发进行大模型翻译的数量上限
-    proxy = "" # 网络代理地址，格式如http://127.0.0.1:7890
-    transcribe_provider = "openai" # 语音识别供应商，当前可选值：openai,aliyun。强烈建议openai，选择后需要在下方配置供应商密钥等信息，下同
-    llm_provider = "openai" # LLM供应商，当前可选值：openai,aliyun
+    segment_duration = 5 # 音频分割间隔，单位：分钟，建议值：5-10
+    translate_parallel_num = 5 # 并发进行大模型翻译的数量上限，建议值：5
+    proxy = "" # 网络代理地址，格式如http://127.0.0.1:7890，可不填
+    transcribe_provider = "openai" # 语音识别，当前可选值：openai,fasterwhisper,aliyun。fasterwhisper不支持macOS
+    llm_provider = "openai" # LLM，当前可选值：openai,aliyun
 
 [server]
     host = "127.0.0.1"
     port = 8888
 
+# 下方的配置非必填，请结合上方的选项和文档说明进行配置
+[local_model]
+    faster_whisper = "medium" # fasterwhisper的本地模型选择，可选值：tiny,medium,large-v2。建议medium及以上
+
 [openai]
+    base_url = "" # OpenAI API 自定义base url，可配合转发站密钥使用，留空为默认API地址
     api_key = "sk-XXX" # OpenAI API密钥
 
-[aliyun] # 阿里云此处的配置非必填，请参考文档中的“阿里云配置说明”
+[aliyun] # 具体请参考文档中的“阿里云配置说明”
     [aliyun.oss]
         access_key_id = ""
         access_key_secret = ""
