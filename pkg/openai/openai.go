@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
+	"strings"
 )
 
 func (c *Client) ChatCompletion(query string) (string, error) {
@@ -54,19 +55,39 @@ func (c *Client) Transcription(audioFile, language, workDir string) (*types.Tran
 
 	transcriptionData := &types.TranscriptionData{
 		Language: resp.Language,
-		Text:     resp.Text,
+		Text:     strings.ReplaceAll(resp.Text, "-", " "), // 连字符处理，因为模型存在很多错误添加到连字符
 		Words:    make([]types.Word, 0),
 	}
 	num := 0
 	for _, word := range resp.Words {
-		wordItem := types.Word{
-			Num:   num,
-			Text:  word.Word,
-			Start: word.Start,
-			End:   word.End,
+		if strings.Contains(word.Word, "—") {
+			// 对称切分
+			mid := (word.Start + word.End) / 2
+			seperatedWords := strings.Split(word.Word, "—")
+			transcriptionData.Words = append(transcriptionData.Words, []types.Word{
+				{
+					Num:   num,
+					Text:  seperatedWords[0],
+					Start: word.Start,
+					End:   mid,
+				},
+				{
+					Num:   num + 1,
+					Text:  seperatedWords[1],
+					Start: mid,
+					End:   word.End,
+				},
+			}...)
+			num += 2
+		} else {
+			transcriptionData.Words = append(transcriptionData.Words, types.Word{
+				Num:   num,
+				Text:  word.Word,
+				Start: word.Start,
+				End:   word.End,
+			})
+			num++
 		}
-		num++
-		transcriptionData.Words = append(transcriptionData.Words, wordItem)
 	}
 
 	return transcriptionData, nil
