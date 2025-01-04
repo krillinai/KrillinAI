@@ -45,21 +45,42 @@ func (c *FastwhisperProcessor) Transcription(audioFile, language, workDir string
 	}
 
 	var (
-		transcripotionData types.TranscriptionData
-		num                int
+		transcriptionData types.TranscriptionData
+		num               int
 	)
 	for _, segment := range result.Segments {
-		transcripotionData.Text += segment.Text
+		transcriptionData.Text += strings.ReplaceAll(segment.Text, "—", " ") // 连字符处理，因为模型存在很多错误添加到连字符
 		for _, word := range segment.Words {
-			transcripotionData.Words = append(transcripotionData.Words, types.Word{
-				Num:   num,
-				Text:  util.CleanPunction(strings.TrimSpace(word.Word)),
-				Start: word.Start,
-				End:   word.End,
-			})
-			num++
+			if strings.Contains(word.Word, "—") {
+				// 对称切分
+				mid := (word.Start + word.End) / 2
+				seperatedWords := strings.Split(word.Word, "—")
+				transcriptionData.Words = append(transcriptionData.Words, []types.Word{
+					{
+						Num:   num,
+						Text:  util.CleanPunction(strings.TrimSpace(seperatedWords[0])),
+						Start: word.Start,
+						End:   mid,
+					},
+					{
+						Num:   num + 1,
+						Text:  util.CleanPunction(strings.TrimSpace(seperatedWords[1])),
+						Start: mid,
+						End:   word.End,
+					},
+				}...)
+				num += 2
+			} else {
+				transcriptionData.Words = append(transcriptionData.Words, types.Word{
+					Num:   num,
+					Text:  util.CleanPunction(strings.TrimSpace(word.Word)),
+					Start: word.Start,
+					End:   word.End,
+				})
+				num++
+			}
 		}
 	}
 	log.GetLogger().Info("FastwhisperProcessor转录成功")
-	return &transcripotionData, nil
+	return &transcriptionData, nil
 }

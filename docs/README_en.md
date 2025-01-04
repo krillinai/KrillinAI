@@ -14,13 +14,14 @@
 Krillin AI is a one-stop solution designed for users and developers seeking high-quality video processing. It provides an end-to-end workflow, from video download to the final product, ensuring every frame of your content is extraordinary.
 
 ## Key Features and Functions:
-🎯 **One-Click Startup**: There is no need for complicated environment configuration. Krillin AI supports automatic installation of dependencies, allowing you to quickly get started and put it into use immediately.  
-📥 **Video Acquisition**: With yt-dlp integrated, it can directly download videos via YouTube and Bilibili links, simplifying the process of collecting materials.  
-📜 **Subtitle Recognition**: Based on the Whisper model, it conducts subtitle recognition, enabling high-speed and high-quality transcription.  
-🧠 **Intelligent Subtitle Segmentation and Alignment**: Utilizing self-developed algorithms to perform intelligent segmentation and alignment of subtitles, avoiding misalignment and loss of context.  
-🔄 **Custom Vocabulary Replacement**: It supports one-click replacement of vocabulary to adapt to the language style of specific fields.  
-🌍 **Professional-Level Translation**: The sentence translation engine ensures the consistency of context and semantic coherence.  
-🎙️ **Diverse Options for External Services**: It supports voice and large model services from mainstream providers (ongoing integration) such as OpenAI and Alibaba Cloud, meeting the needs in different scenarios.
+🎯 **One-Click Start**: There is no need for complicated environment configuration. Krillin AI supports automatic installation of dependencies, enabling you to quickly get started and put it into use immediately.  
+📥 **Video Acquisition**: Integrated with yt-dlp, it can directly download videos via YouTube and Bilibili links, simplifying the process of material collection. You can also directly upload local videos.  
+📜 **Subtitle Recognition and Translation**: It supports voice and large model services of mainstream providers such as OpenAI and Alibaba Cloud, as well as local models (continuous integration in progress).  
+🧠 **Intelligent Subtitle Segmentation and Alignment**: Utilize self-developed algorithms to conduct intelligent segmentation and alignment of subtitles, getting rid of rigid sentence breaks.  
+🔄 **Custom Vocabulary Replacement**: Support one-click replacement of vocabulary to adapt to the language style of specific fields.  
+🌍 **Professional Translation**: The whole-paragraph translation engine ensures the consistency of context and semantic coherence.  
+🎙️ **Dubbing and Voice Cloning**: You can choose the default male or female voice tones to generate video reading dubbing for the translated content, or upload local audio samples to clone voice tones for dubbing.  
+📝 **Dubbing Alignment**: It can perform cross-language dubbing and also align with the original subtitles.  
 
 ## Language Support
 Input languages: 🇨🇳 Chinese, 🇺🇸 English, 🇯🇵 Japanese supported (more languages being added)  
@@ -61,12 +62,12 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 
 ### To: macOS Users
 This software is not signed, so after completing the file configuration in the "Basic Steps," you will need to manually trust the application on macOS. Follow these steps:
-1. Open the terminal and navigate to the directory where the executable file (assuming the file name is `krillinai`) is located.
+1. Open the terminal and navigate to the directory where the executable file (assuming the file name is `KrillinAI-v1.0.0-windows`) is located.
 2. Execute the following commands in sequence:
 ```
-sudo xattr -rd com.apple.quarantine ./krillinai
-sudo chmod +x ./krillinai
-./krillinai
+sudo xattr -rd com.apple.quarantine ./KrillinAI-v1.0.0-windows
+sudo chmod +x ./KrillinAI-v1.0.0-windows
+./KrillinAI-v1.0.0-windows
 ```
 This will start the service.
 
