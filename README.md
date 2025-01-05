@@ -81,13 +81,18 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 
 请参考 [Cookie 配置说明](./docs/get_cookies.md) 配置你的Cookie信息。
 
-### 阿里云配置说明
+### 配置帮助
+最快速便捷的配置方式：
+* `transcription_provider`和`llm_provider`都选择`openai`，这样在下方`openai`、`local_model`、`aliyun`三个配置项大类里只需要填写`openai.apikey`就可以进行字幕翻译。(`app.proxy`和`openai.base_url`按自己情况选填)
+
+使用本地语言识别模型（暂不支持macOS）的配置方式（兼顾成本、速度与质量的选择）
+* `transcription_provider`填写`local_model`，`llm_provider`填写`openai`，这样在下方`openai`、`local_model`三个配置项大类里只需要填写`openai.apikey`和`local_model.faster_whisper`就可以进行字幕翻译，本地模型会自动下载。(`app.proxy`和`openai.base_url`同上)
+
 以下几种使用情况，需要进行阿里云的配置：
 * 如果`llm_provider`填写了`aliyun`，需要使用阿里云的大模型服务，因此需要配置`aliyun.bailian`项的配置
 * 如果`transcription_provider`填写了`aliyun`，或者在启动任务时开启了“配音”功能，都需要使用阿里云的语音服务，因此需要填写`aliyun.speech`项的配置
-* 如果开启了“配音”功能，同时上传了本地的音频做音色克隆，则还需要使用阿里云的OSS云存储服务，因此需要填写`aliyun.oss`项的配置
-
-配置帮助：[阿里云配置说明](./docs/aliyun.md)
+* 如果开启了“配音”功能，同时上传了本地的音频做音色克隆，则还需要使用阿里云的OSS云存储服务，因此需要填写`aliyun.oss`项的配置  
+阿里云配置帮助：[阿里云配置说明](./docs/aliyun.md)
 
 ## 常见问题
 
