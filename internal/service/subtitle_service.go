@@ -444,19 +444,31 @@ func (s Service) splitAudio(ctx context.Context, stepParam *types.SubtitleTaskSt
 func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	log.GetLogger().Info("audioToSubtitle.audioToSrt start", zap.Any("taskId", stepParam.TaskId))
 	var (
+		cancel              context.CancelFunc
 		stepNum             = 0
 		parallelControlChan = make(chan struct{}, config.Conf.App.TranslateParallelNum)
-		eg                  errgroup.Group
+		eg                  *errgroup.Group
 		stepNumMu           sync.Mutex
 		err                 error
 	)
+	ctx, cancel = context.WithCancel(ctx)
+	defer cancel()
+	eg, ctx = errgroup.WithContext(ctx)
 	for _, audioFileItem := range stepParam.SmallAudios {
 		parallelControlChan <- struct{}{}
 		audioFile := audioFileItem
 		eg.Go(func() error {
 			defer func() {
 				<-parallelControlChan
+				if r := recover(); r != nil {
+					log.GetLogger().Error("audioToSubtitle.audioToSrt panic recovered", zap.Any("recover", r))
+				}
 			}()
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
 			// 语音转文字
 			var transcriptionData *types.TranscriptionData
 			for i := 0; i < 3; i++ {
@@ -470,6 +482,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 				}
 			}
 			if err != nil {
+				cancel()
 				log.GetLogger().Error("audioToSubtitle.audioToSrt.Transcription err", zap.Any("stepParam", stepParam), zap.Error(err))
 				return err
 			}
@@ -486,6 +499,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			// 拆分字幕并翻译
 			err = s.splitTextAndTranslate(stepParam.TaskId, stepParam.TaskBasePath, stepParam.TargetLanguage, stepParam.EnableModalFilter, audioFile)
 			if err != nil {
+				cancel()
 				log.GetLogger().Error("audioToSubtitle.audioToSrt.splitTextAndTranslate err", zap.Any("stepParam", stepParam), zap.Error(err))
 				return err
 			}
@@ -500,6 +514,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			// 生成时间戳
 			err = s.generateTimestamps(stepParam.TaskId, stepParam.TaskBasePath, stepParam.OriginLanguage, stepParam.SubtitleResultType, audioFile)
 			if err != nil {
+				cancel()
 				log.GetLogger().Error("audioToSubtitle.audioToSrt.generateTimestamps err", zap.Any("stepParam", stepParam), zap.Error(err))
 				return err
 			}
