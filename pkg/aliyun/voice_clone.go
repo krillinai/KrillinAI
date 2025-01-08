@@ -107,7 +107,7 @@ func (c *VoiceCloneClient) CosyVoiceClone(voicePrefix, audioURL string) (string,
 	}
 	log.GetLogger().Info("CosyVoiceClone请求完毕", zap.String("Response", resp.String()))
 	if res.Message != "SUCCESS" {
-		log.GetLogger().Error("CosyVoiceClone请求响应错误", zap.String("Message", res.Message))
+		log.GetLogger().Error("CosyVoiceClone请求响应错误", zap.String("Request Id", res.RequestId), zap.Int("Code", res.Code), zap.String("Message", res.Message))
 		return "", fmt.Errorf("CosyVoiceClone请求响应错误: %s", res.Message)
 	}
 	return res.VoiceName, nil
