@@ -732,20 +732,38 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 		}
 
 		if beginWordIndex > 0 {
-			for i := beginWordIndex - 1; i >= 0; i-- {
-				if beginWord.Num > 0 && strings.EqualFold(words[beginWord.Num-1].Text, sentenceWords[i].Text) {
-					beginWord = words[beginWord.Num-1]
-					sentenceWords[i] = beginWord
+			for i, j := beginWordIndex-1, beginWord.Num-1; i >= 0 && j >= 0; {
+				if words[j].Text == "" {
+					j--
+					continue
 				}
+				if strings.EqualFold(words[j].Text, sentenceWords[i].Text) {
+					beginWord = words[j]
+					sentenceWords[i] = beginWord
+				} else {
+					break
+				}
+
+				i--
+				j--
 			}
 		}
 
 		if endWordIndex < len(sentenceWords) {
-			for i := endWordIndex; i < len(sentenceWords); i++ {
-				if endWord.Num+1 < len(words) && strings.EqualFold(words[endWord.Num+1].Text, sentenceWords[i].Text) {
-					endWord = words[endWord.Num+1]
-					sentenceWords[i] = endWord
+			for i, j := endWordIndex, endWord.Num+1; i < len(sentenceWords) && j < len(words); {
+				if words[j].Text == "" {
+					j++
+					continue
 				}
+				if strings.EqualFold(words[j].Text, sentenceWords[i].Text) {
+					endWord = words[j]
+					sentenceWords[i] = endWord
+				} else {
+					break
+				}
+
+				i++
+				j++
 			}
 		}
 
@@ -758,6 +776,9 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 		}
 
 		srtSt.Start = beginWord.Start
+		if srtSt.Start < thisLastTs {
+			srtSt.Start = thisLastTs
+		}
 		srtSt.End = endWord.End
 		if beginWord.Num != endWord.Num && endWord.End > thisLastTs {
 			thisLastTs = endWord.End
@@ -802,6 +823,9 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 		endWord := sentenceWords[endWordIndex]
 
 		srtSt.Start = beginWord.Start
+		if srtSt.Start < thisLastTs {
+			srtSt.Start = thisLastTs
+		}
 		srtSt.End = endWord.End
 		if beginWord.Num != endWord.Num && endWord.End > thisLastTs {
 			thisLastTs = endWord.End
@@ -931,7 +955,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 			originSentence       string
 			startWord            types.Word
 			endWord              types.Word
-			shortSentenceWordNum int = 8 //控制单行英文的字数
+			shortSentenceWordNum int = 12 //控制单行英文的字数
 		)
 
 		if len(sentenceWords) <= shortSentenceWordNum {
@@ -943,13 +967,13 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 			continue
 		}
 
-		if len(sentenceWords) > 8 && len(sentenceWords) <= 16 {
+		if len(sentenceWords) > 8 && len(sentenceWords) <= 2*shortSentenceWordNum {
 			shortSentenceWordNum = len(sentenceWords)/2 + 1
-		} else if len(sentenceWords) > 16 && len(sentenceWords) <= 24 {
+		} else if len(sentenceWords) > 2*shortSentenceWordNum && len(sentenceWords) <= 3*shortSentenceWordNum {
 			shortSentenceWordNum = len(sentenceWords)/3 + 1
-		} else if len(sentenceWords) > 24 && len(sentenceWords) <= 32 {
+		} else if len(sentenceWords) > 3*shortSentenceWordNum && len(sentenceWords) <= 4*shortSentenceWordNum {
 			shortSentenceWordNum = len(sentenceWords)/4 + 1
-		} else if len(sentenceWords) > 32 && len(sentenceWords) <= 40 {
+		} else if len(sentenceWords) > 4*shortSentenceWordNum && len(sentenceWords) <= 5*shortSentenceWordNum {
 			shortSentenceWordNum = len(sentenceWords)/5 + 1
 		}
 
@@ -957,7 +981,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 		for _, word := range sentenceWords {
 			if i == 1 || i%(shortSentenceWordNum+1) == 0 {
 				startWord = word
-				if startWord.Start > endWord.End {
+				if startWord.Start < endWord.End {
 					startWord.Start = endWord.End
 				}
 
