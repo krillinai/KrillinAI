@@ -7,6 +7,7 @@ OUTPUT_DIR=build
 # 目标平台
 PLATFORMS=\
     "darwin/arm64" \
+    "darwin/amd64" \
     "linux/amd64" \
     "windows/amd64"
 
