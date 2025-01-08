@@ -7,3 +7,4 @@ bin/
 uploads/
 app.log
 build/
+models/
