@@ -25,7 +25,7 @@
 1. 进入[阿里云对象存储服务控制台](https://oss.console.aliyun.com/overview)，首次进入需开通服务
 2. 左侧选择Bucket列表，然后点击创建
 ![阿里云OSS](./images/aliyun_oss_1.png)
-3. 选择快捷创建，填写合适的名字和就近的地域，完成创建(此处填写的名字就是配置项`aliyun.oss.bucket`的值)
+3. 选择快捷创建，填写符合要求的Bucket名称并选择**上海**地域，完成创建(此处填写的名字就是配置项`aliyun.oss.bucket`的值)
 ![阿里云OSS](./images/aliyun_oss_2.png)
 4. 创建完成后进入Bucket
 ![阿里云OSS](./images/aliyun_oss_3.png)
