@@ -180,8 +180,8 @@ func ParseSrtNoTsToSrtBlock(srtNoTsFile string) ([]*SrtBlock, error) {
 }
 
 func SplitSentence(sentence string) []string {
-	// 使用正则表达式移除标点符号和特殊字符（除了字母、数字和空格）
-	re := regexp.MustCompile(`[^\w\s']+`)
+	// 使用正则表达式移除标点符号和特殊字符（保留各语言字母、数字和空格）
+	re := regexp.MustCompile(`[^\p{L}\p{N}\s']+`)
 	cleanedSentence := re.ReplaceAllString(sentence, " ")
 
 	// 使用 strings.Fields 按空格拆分成单词
