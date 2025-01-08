@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	"io"
+	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"net/http"
@@ -154,7 +155,7 @@ type Event struct {
 func processAudio(filePath string) (string, error) {
 	dest := strings.ReplaceAll(filePath, filepath.Ext(filePath), "_mono_16K.mp3")
 	cmdArgs := []string{"-i", filePath, "-ac", "1", "-ar", "16000", "-b:a", "192k", dest}
-	cmd := exec.Command("ffmpeg", cmdArgs...)
+	cmd := exec.Command(storage.FfmpegPath, cmdArgs...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.GetLogger().Error("处理音频失败", zap.Error(err), zap.String("audio file", filePath), zap.String("output", string(output)))
