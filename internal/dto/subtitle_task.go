@@ -13,6 +13,9 @@ type StartVideoSubtitleTaskReq struct {
 	TtsVoiceCloneSrcFileUrl string   `json:"tts_voice_clone_src_file_url"`
 	Replace                 []string `json:"replace"`
 	Language                string   `json:"language"`
+	EmbedSubtitleVideoType  string   `json:"embed_subtitle_video_type"`
+	VerticalMajorTitle      string   `json:"vertical_major_title"`
+	VerticalMinorTitle      string   `json:"vertical_minor_title"`
 }
 
 type StartVideoSubtitleTaskResData struct {

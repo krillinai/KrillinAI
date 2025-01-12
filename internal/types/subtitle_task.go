@@ -133,6 +133,9 @@ const (
 	SubtitleTaskOriginLanguageSrtFileName               = "origin_language_srt.srt"
 	SubtitleTaskTargetLanguageSrtFileName               = "target_language_srt.srt"
 	SubtitleTaskStepParamGobPersistenceFileName         = "step_param.gob"
+	SubtitleTaskTransferredVerticalVideoFileName        = "transferred_vertical_video.mp4"
+	SubtitleTaskHorizontalEmbedVideoFileName            = "horizontal_embed.mp4"
+	SubtitleTaskVerticalEmbedVideoFileName              = "vertical_embed.mp4"
 )
 
 const (
@@ -234,6 +237,10 @@ type SubtitleTaskStepParam struct {
 	SubtitleInfos               []SubtitleFileInfo
 	TtsSourceFilePath           string
 	TtsResultFilePath           string
+	InputVideoPath              string // 源视频路径
+	EmbedSubtitleVideoType      string // 合成字幕嵌入的视频类型 none不嵌入 horizontal横屏 vertical竖屏
+	VerticalVideoMajorTitle     string // 合成竖屏视频的主标题
+	VerticalVideoMinorTitle     string
 }
 
 type SrtSentence struct {

@@ -344,6 +344,21 @@
 					<button type="button" id="add-row">新增替换</button>
 				</div>
 			</div>
+
+			<!-- 合成字幕嵌入视频 -->
+			<div class="formGroup hidden" id="embed-subtitle-container">
+				<label>合成字幕嵌入视频:</label>
+				<input type="checkbox" id="embed-subtitle-toggle">
+				<select id="embed-subtitle">
+					<option value="horizontal">横屏视频</option>
+					<option value="vertical">竖屏视频</option>
+					<option value="all">横屏+竖屏视频</option>
+				</select>
+				<div id="subtitle-text-inputs" class="hidden">
+					<input type="text" id="subtitle-text-1" placeholder="请输入竖屏视频主标题">
+					<input type="text" id="subtitle-text-2" placeholder="请输入竖屏视频副标题">
+				</div>
+			</div>
 		</div>
 
 		<button type="submit" id="executeButton">执 行</button>
@@ -384,6 +399,13 @@
 	const wordReplacementToggle = document.getElementById("word-replacement-toggle");
 	const wordReplacementContainer = document.getElementById("word-replacement-container");
 	const addRowButton = document.getElementById("add-row");
+	const embedSubtitleVideoTypeToggle = document.getElementById("embed-subtitle-toggle");
+	const embedSubtitleVideoType = document.getElementById("embed-subtitle");
+	const embedSubtitleContainer = document.getElementById("embed-subtitle-container");
+	const embedSubtitle = document.getElementById("embed-subtitle");
+	const subtitleTextInputs = document.getElementById("subtitle-text-inputs");
+	const verticalMajorTitle = document.getElementById("subtitle-text-1");
+	const verticalMinorTitle = document.getElementById("subtitle-text-2");
 
 	const API_SUBMIT_URL = "/api/capability/subtitleTask";
 	const API_PROGRESS_URL = "/api/capability/subtitleTask";
@@ -454,6 +476,16 @@
 		voiceFileInputRemove.style.display = 'none';
 	});
 
+	// 监听“合成字幕嵌入视频”选项的变化
+	embedSubtitle.addEventListener("change", () => {
+		const selectedValue = embedSubtitle.value;
+		if (selectedValue === "vertical" || selectedValue === "all") {
+			subtitleTextInputs.classList.remove("hidden");
+		} else {
+			subtitleTextInputs.classList.add("hidden");
+		}
+	});
+
 	// 提交表单
 	function getParams () {
 		const formData = {
@@ -464,6 +496,7 @@
 			translation_subtitle_pos: +bilingualPosition.value,
 			tts: voiceoverToggle.checked ? 1 : 2,
 			modal_filter: document.getElementById("filler-filter-toggle").checked ? 1 : 2,
+			embed_subtitle_video_type: embedSubtitleVideoTypeToggle.checked ? embedSubtitleVideoType.value : 'none',
 		};
 
 		if (formData.tts === 1) {
@@ -488,6 +521,12 @@
 			}).filter(item => item !== null)
 		}
 
+		// 添加字幕文本到请求参数中
+		if (embedSubtitleVideoTypeToggle.checked && (embedSubtitle.value === "vertical" || embedSubtitle.value === "all")) {
+			formData.vertical_major_title = verticalMajorTitle.value;
+			formData.vertical_minor_title = verticalMinorTitle.value;
+		}
+
 		console.log("表单数据：", formData);
 
 		return formData;
@@ -502,12 +541,14 @@
 			if (radio.value === 'url') {
 				urlInputContainer.classList.remove('hidden');
 				fileInputContainer.classList.add('hidden');
+				embedSubtitleContainer.classList.add('hidden');
 				fileInput.required = false;
 				urlInput.required = true;
 				executeButton.disabled = false; // 启用“执行”按钮
 			} else {
 				urlInputContainer.classList.add('hidden');
 				fileInputContainer.classList.remove('hidden');
+				embedSubtitleContainer.classList.remove('hidden');
 				urlInput.required = false;
 				fileInput.required = true;
 				executeButton.disabled = true; // 禁用“执行”按钮，等待上传完成
@@ -587,6 +628,11 @@
 
 		if (!taskForm.checkValidity()) {
 			taskForm.reportValidity();
+			return;
+		}
+
+		if (!bilingualToggle.checked && embedSubtitleVideoTypeToggle) {
+			alert('合成字幕嵌入视频必须打开双语选项')
 			return;
 		}
 
@@ -676,40 +722,12 @@
 					displayDownloadLinks(data.subtitle_info || [], data.speech_download_url || '');
 					return;
 				}
-				await new Promise(resolve => setTimeout(resolve, 3000));
+				await new Promise(resolve => setTimeout(resolve, 5000));
 			}
 		} catch (error) {
 			alert(error);
 			console.error('查询进度失败:', error);
 		}
-
-		// return new Promise(resolve => {
-		// 	let progress = 0;
-		// 	const interval = setInterval(() => {
-		// 		progress += 10;
-		// 		progressBar.style.width = progress + '%';
-		// 		progressBar.textContent = progress + '%';
-		//
-		// 		if (progress >= 100) {
-		// 			clearInterval(interval);
-		// 			const subtitleInfo = [
-		// 				{
-		// 					name:"中文字幕", // 字幕名称
-		// 					download_url:"https://cdn.krillin.ai/srt/6b10jGNNbXQ_zh.srt"
-		// 				},
-		// 				{
-		// 					name:"英文字幕", // 字幕名称
-		// 					download_url:"https://cdn.krillin.ai/srt/6b10jGNNbXQ_en.srt"
-		// 				},
-		// 				{
-		// 					name:"中英文字幕", // 字幕名称
-		// 					download_url:"https://cdn.krillin.ai/srt/6b10jGNNbXQ_zh_en.srt"
-		// 				}
-		// 			];
-		// 			displayDownloadLinks(subtitleInfo);
-		// 		}
-		// 	}, 500); // 每 500 毫秒更新一次进度
-		// });
 	}
 
 	// 显示下载链接

@@ -77,7 +77,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	taskBasePath := filepath.Join("./tasks", taskId)
 	if _, err = os.Stat(taskBasePath); os.IsNotExist(err) {
 		// 不存在则创建
-		err = os.MkdirAll(taskBasePath, os.ModePerm)
+		err = os.MkdirAll(filepath.Join(taskBasePath, "output"), os.ModePerm)
 		if err != nil {
 			log.GetLogger().Error("StartVideoSubtitleTask MkdirAll err", zap.Any("req", req), zap.Error(err))
 		}
@@ -111,18 +111,21 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	}
 
 	stepParam := types.SubtitleTaskStepParam{
-		TaskId:             taskId,
-		TaskBasePath:       taskBasePath,
-		Link:               req.Url,
-		SubtitleResultType: resultType,
-		EnableModalFilter:  req.ModalFilter == types.SubtitleTaskModalFilterYes,
-		EnableTts:          req.Tts == types.SubtitleTaskTtsYes,
-		TtsVoiceCode:       ttsVoiceCode,
-		VoiceCloneAudioUrl: voiceCloneAudioUrl,
-		ReplaceWordsMap:    replaceWordsMap,
-		OriginLanguage:     types.StandardLanguageName(req.OriginLanguage),
-		TargetLanguage:     types.StandardLanguageName(req.TargetLang),
-		UserUILanguage:     types.StandardLanguageName(req.Language),
+		TaskId:                  taskId,
+		TaskBasePath:            taskBasePath,
+		Link:                    req.Url,
+		SubtitleResultType:      resultType,
+		EnableModalFilter:       req.ModalFilter == types.SubtitleTaskModalFilterYes,
+		EnableTts:               req.Tts == types.SubtitleTaskTtsYes,
+		TtsVoiceCode:            ttsVoiceCode,
+		VoiceCloneAudioUrl:      voiceCloneAudioUrl,
+		ReplaceWordsMap:         replaceWordsMap,
+		OriginLanguage:          types.StandardLanguageName(req.OriginLanguage),
+		TargetLanguage:          types.StandardLanguageName(req.TargetLang),
+		UserUILanguage:          types.StandardLanguageName(req.Language),
+		EmbedSubtitleVideoType:  req.EmbedSubtitleVideoType,
+		VerticalVideoMajorTitle: req.VerticalMajorTitle,
+		VerticalVideoMinorTitle: req.VerticalMinorTitle,
 	}
 	go func() {
 		defer func() {
@@ -161,6 +164,13 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 			log.GetLogger().Error("StartVideoSubtitleTask srtFileToSpeech err", zap.Any("req", req), zap.Error(err))
 			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
 			storage.SubtitleTasks[stepParam.TaskId].FailReason = "srt file to speech error"
+			return
+		}
+		err = s.embedSubtitles(ctx, &stepParam)
+		if err != nil {
+			log.GetLogger().Error("StartVideoSubtitleTask embedSubtitles err", zap.Any("req", req), zap.Error(err))
+			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
+			storage.SubtitleTasks[stepParam.TaskId].FailReason = "embed subtitles error"
 			return
 		}
 		err = s.uploadSubtitles(ctx, &stepParam)
@@ -219,6 +229,7 @@ func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleT
 	if strings.Contains(link, "local:") {
 		// 本地文件
 		videoPath := strings.ReplaceAll(link, "local:", "")
+		stepParam.InputVideoPath = videoPath
 		cmd := exec.Command(storage.FfmpegPath, "-i", videoPath, "-vn", "-ar", "44100", "-ac", "2", "-ab", "192k", "-f", "mp3", audioPath)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
@@ -358,6 +369,50 @@ func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleT
 	}
 	// 更新字幕任务信息
 	storage.SubtitleTasks[stepParam.TaskId].ProcessPct = 95
+	return nil
+}
+
+func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
+	var err error
+	if stepParam.EmbedSubtitleVideoType != "none" {
+		var width, height int
+		width, height, err = getResolution(stepParam.InputVideoPath)
+		// 横屏可以合成竖屏的，但竖屏暂时不支持合成横屏的
+		if stepParam.EmbedSubtitleVideoType == "horizontal" || stepParam.EmbedSubtitleVideoType == "all" {
+			if width < height {
+				log.GetLogger().Info("检测到输入视频是竖屏，无法合成横屏视频，跳过")
+				return nil
+			}
+			log.GetLogger().Info("合成字幕嵌入视频：横屏")
+			err = embedSubtitles(stepParam.InputVideoPath, stepParam.BilingualSrtFilePath, stepParam.TaskBasePath, true)
+			if err != nil {
+				log.GetLogger().Error("generateAudioSubtitles embedSubtitles err", zap.Any("step param", stepParam), zap.Error(err))
+				return err
+			}
+		}
+		if stepParam.EmbedSubtitleVideoType == "vertical" || stepParam.EmbedSubtitleVideoType == "all" {
+			verticalVideoPath := stepParam.InputVideoPath
+			if width > height {
+				// 生成竖屏视频
+				transferredVerticalVideoPath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskTransferredVerticalVideoFileName)
+				err = convertToVertical(stepParam.InputVideoPath, transferredVerticalVideoPath, stepParam.VerticalVideoMajorTitle, stepParam.VerticalVideoMinorTitle)
+				if err != nil {
+					log.GetLogger().Error("生成竖屏视频失败", zap.Any("step param", stepParam), zap.Error(err))
+					return err
+				}
+				verticalVideoPath = transferredVerticalVideoPath
+			}
+			log.GetLogger().Info("合成字幕嵌入视频：竖屏")
+			err = embedSubtitles(verticalVideoPath, stepParam.ShortOriginMixedSrtFilePath, stepParam.TaskBasePath, false)
+			if err != nil {
+				log.GetLogger().Error("generateAudioSubtitles embedSubtitles err", zap.Any("step param", stepParam), zap.Error(err))
+				return err
+			}
+		}
+		log.GetLogger().Info("字幕嵌入视频成功")
+		return nil
+	}
+	log.GetLogger().Info("合成字幕嵌入视频：不合成")
 	return nil
 }
 
@@ -569,6 +624,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
+	stepParam.ShortOriginMixedSrtFilePath = shortOriginMixedFile
 
 	// 合并最终原始字幕 短英文
 	shortOriginFile := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, types.SubtitleTaskShortOriginSrtFileName)

@@ -131,3 +131,34 @@ func CleanPunction(word string) string {
 		return unicode.IsPunct(r)
 	})
 }
+
+func IsAlphabetic(r rune) bool {
+	if unicode.IsLetter(r) { // 中文在IsLetter中会返回true
+		switch {
+		// 英语及其他拉丁字母的范围
+		case r >= 'A' && r <= 'Z', r >= 'a' && r <= 'z':
+			return true
+		// 扩展拉丁字母（法语、西班牙语等使用的附加字符）
+		case r >= '\u00C0' && r <= '\u024F':
+			return true
+		// 希腊字母
+		case r >= '\u0370' && r <= '\u03FF':
+			return true
+		// 西里尔字母（俄语等）
+		case r >= '\u0400' && r <= '\u04FF':
+			return true
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+func ContainsAlphabetic(text string) bool {
+	for _, r := range text {
+		if IsAlphabetic(r) {
+			return true
+		}
+	}
+	return false
+}
