@@ -131,7 +131,9 @@ const (
 	SubtitleTaskShortOriginMixedSrtFileName             = "short_origin_mixed_srt.srt" //长中文+短英文
 	SubtitleTaskShortOriginSrtFileName                  = "short_origin_srt.srt"       //短英文
 	SubtitleTaskOriginLanguageSrtFileName               = "origin_language_srt.srt"
+	SubtitleTaskOriginLanguageTextFileName              = "origin_language.txt"
 	SubtitleTaskTargetLanguageSrtFileName               = "target_language_srt.srt"
+	SubtitleTaskTargetLanguageTextFileName              = "target_language.txt"
 	SubtitleTaskStepParamGobPersistenceFileName         = "step_param.gob"
 	SubtitleTaskTransferredVerticalVideoFileName        = "transferred_vertical_video.mp4"
 	SubtitleTaskHorizontalEmbedVideoFileName            = "horizontal_embed.mp4"

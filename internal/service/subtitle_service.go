@@ -111,22 +111,25 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	}
 
 	stepParam := types.SubtitleTaskStepParam{
-		TaskId:                  taskId,
-		TaskBasePath:            taskBasePath,
-		Link:                    req.Url,
-		SubtitleResultType:      resultType,
-		EnableModalFilter:       req.ModalFilter == types.SubtitleTaskModalFilterYes,
-		EnableTts:               req.Tts == types.SubtitleTaskTtsYes,
-		TtsVoiceCode:            ttsVoiceCode,
-		VoiceCloneAudioUrl:      voiceCloneAudioUrl,
-		ReplaceWordsMap:         replaceWordsMap,
-		OriginLanguage:          types.StandardLanguageName(req.OriginLanguage),
-		TargetLanguage:          types.StandardLanguageName(req.TargetLang),
-		UserUILanguage:          types.StandardLanguageName(req.Language),
-		EmbedSubtitleVideoType:  req.EmbedSubtitleVideoType,
-		VerticalVideoMajorTitle: req.VerticalMajorTitle,
-		VerticalVideoMinorTitle: req.VerticalMinorTitle,
-		OriginLanguageWordOneLine: req.OriginLanguageWordOneLine,
+		TaskId:                    taskId,
+		TaskBasePath:              taskBasePath,
+		Link:                      req.Url,
+		SubtitleResultType:        resultType,
+		EnableModalFilter:         req.ModalFilter == types.SubtitleTaskModalFilterYes,
+		EnableTts:                 req.Tts == types.SubtitleTaskTtsYes,
+		TtsVoiceCode:              ttsVoiceCode,
+		VoiceCloneAudioUrl:        voiceCloneAudioUrl,
+		ReplaceWordsMap:           replaceWordsMap,
+		OriginLanguage:            types.StandardLanguageName(req.OriginLanguage),
+		TargetLanguage:            types.StandardLanguageName(req.TargetLang),
+		UserUILanguage:            types.StandardLanguageName(req.Language),
+		EmbedSubtitleVideoType:    req.EmbedSubtitleVideoType,
+		VerticalVideoMajorTitle:   req.VerticalMajorTitle,
+		VerticalVideoMinorTitle:   req.VerticalMinorTitle,
+		OriginLanguageWordOneLine: 12, // 默认值
+	}
+	if req.OriginLanguageWordOneLine != 0 {
+		stepParam.OriginLanguageWordOneLine = req.OriginLanguageWordOneLine
 	}
 	go func() {
 		defer func() {
@@ -651,7 +654,9 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	log.GetLogger().Info("audioToSubtitle.splitSrt start", zap.Any("task id", stepParam.TaskId))
 
 	originLanguageSrtFilePath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskOriginLanguageSrtFileName)
+	originLanguageTextFilePath := filepath.Join(stepParam.TaskBasePath, "output", types.SubtitleTaskOriginLanguageTextFileName)
 	targetLanguageSrtFilePath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskTargetLanguageSrtFileName)
+	targetLanguageTextFilePath := filepath.Join(stepParam.TaskBasePath, "output", types.SubtitleTaskTargetLanguageTextFileName)
 	// 打开双语字幕文件
 	file, err := os.Open(stepParam.BilingualSrtFilePath)
 	if err != nil {
@@ -660,19 +665,33 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	}
 	defer file.Close()
 
-	// 打开输出文件
+	// 打开输出字幕和文稿文件
 	originLanguageSrtFile, err := os.Create(originLanguageSrtFilePath)
 	if err != nil {
 		log.GetLogger().Error("audioToSubtitle.splitSrt os.Create originLanguageSrtFile err", zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
 	defer originLanguageSrtFile.Close()
+
+	originLanguageTextFile, err := os.Create(originLanguageTextFilePath)
+	if err != nil {
+		log.GetLogger().Error("audioToSubtitle.splitSrt os.Create originLanguageTextFile err", zap.Any("stepParam", stepParam), zap.Error(err))
+		return err
+	}
+	defer originLanguageTextFile.Close()
+
 	targetLanguageSrtFile, err := os.Create(targetLanguageSrtFilePath)
 	if err != nil {
 		log.GetLogger().Error("audioToSubtitle.splitSrt os.Create targetLanguageSrtFile err", zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
 	defer targetLanguageSrtFile.Close()
+
+	targetLanguageTextFile, err := os.Create(targetLanguageTextFilePath)
+	if err != nil {
+		log.GetLogger().Error("audioToSubtitle.splitSrt os.Create targetLanguageTextFile err", zap.Any("stepParam", stepParam), zap.Error(err))
+	}
+	defer targetLanguageTextFile.Close()
 
 	isTargetOnTop := stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop
 
@@ -684,7 +703,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 		// 空行代表一个字幕块的结束
 		if line == "" {
 			if len(block) > 0 {
-				util.ProcessBlock(block, targetLanguageSrtFile, originLanguageSrtFile, isTargetOnTop)
+				util.ProcessBlock(block, targetLanguageSrtFile, targetLanguageTextFile, originLanguageSrtFile, originLanguageTextFile, isTargetOnTop)
 				block = nil
 			}
 		} else {
@@ -693,7 +712,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	}
 	// 处理文件末尾的字幕块
 	if len(block) > 0 {
-		util.ProcessBlock(block, targetLanguageSrtFile, originLanguageSrtFile, isTargetOnTop)
+		util.ProcessBlock(block, targetLanguageSrtFile, targetLanguageTextFile, originLanguageSrtFile, originLanguageTextFile, isTargetOnTop)
 	}
 
 	if err = scanner.Err(); err != nil {
@@ -1025,13 +1044,12 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 
 		// 生成短句子的英文字幕
 		var (
-			originSentence       string
-			startWord            types.Word
-			endWord              types.Word
-			shortSentenceWordNum = originLanguageWordOneLine //控制单行英文的字数
+			originSentence string
+			startWord      types.Word
+			endWord        types.Word
 		)
 
-		if len(sentenceWords) <= shortSentenceWordNum {
+		if len(sentenceWords) <= originLanguageWordOneLine {
 			shortOriginSrtMap[srtBlock.Index] = append(shortOriginSrtMap[srtBlock.Index], util.SrtBlock{
 				Index:                  srtBlock.Index,
 				Timestamp:              fmt.Sprintf("%s --> %s", util.FormatTime(float32(sentenceTs.Start+tsOffset)), util.FormatTime(float32(sentenceTs.End+tsOffset))),
@@ -1040,19 +1058,19 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 			continue
 		}
 
-		if len(sentenceWords) > 8 && len(sentenceWords) <= 2*shortSentenceWordNum {
-			shortSentenceWordNum = len(sentenceWords)/2 + 1
-		} else if len(sentenceWords) > 2*shortSentenceWordNum && len(sentenceWords) <= 3*shortSentenceWordNum {
-			shortSentenceWordNum = len(sentenceWords)/3 + 1
-		} else if len(sentenceWords) > 3*shortSentenceWordNum && len(sentenceWords) <= 4*shortSentenceWordNum {
-			shortSentenceWordNum = len(sentenceWords)/4 + 1
-		} else if len(sentenceWords) > 4*shortSentenceWordNum && len(sentenceWords) <= 5*shortSentenceWordNum {
-			shortSentenceWordNum = len(sentenceWords)/5 + 1
+		if len(sentenceWords) > 8 && len(sentenceWords) <= 2*originLanguageWordOneLine {
+			originLanguageWordOneLine = len(sentenceWords)/2 + 1
+		} else if len(sentenceWords) > 2*originLanguageWordOneLine && len(sentenceWords) <= 3*originLanguageWordOneLine {
+			originLanguageWordOneLine = len(sentenceWords)/3 + 1
+		} else if len(sentenceWords) > 3*originLanguageWordOneLine && len(sentenceWords) <= 4*originLanguageWordOneLine {
+			originLanguageWordOneLine = len(sentenceWords)/4 + 1
+		} else if len(sentenceWords) > 4*originLanguageWordOneLine && len(sentenceWords) <= 5*originLanguageWordOneLine {
+			originLanguageWordOneLine = len(sentenceWords)/5 + 1
 		}
 
 		i := 1
 		for _, word := range sentenceWords {
-			if i == 1 || i%(shortSentenceWordNum+1) == 0 {
+			if i == 1 || i%(originLanguageWordOneLine+1) == 0 {
 				startWord = word
 				if startWord.Start < endWord.End {
 					startWord.Start = endWord.End
@@ -1076,7 +1094,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 				endWord.End = sentenceTs.End
 			}
 
-			if i%shortSentenceWordNum == 0 && i > 1 {
+			if i%originLanguageWordOneLine == 0 && i > 1 {
 				shortOriginSrtMap[srtBlock.Index] = append(shortOriginSrtMap[srtBlock.Index], util.SrtBlock{
 					Index:                  srtBlock.Index,
 					Timestamp:              fmt.Sprintf("%s --> %s", util.FormatTime(float32(startWord.Start+tsOffset)), util.FormatTime(float32(endWord.End+tsOffset))),
@@ -1084,7 +1102,6 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 				})
 				originSentence = ""
 			}
-
 			i++
 		}
 
