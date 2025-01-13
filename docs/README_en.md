@@ -21,7 +21,7 @@ Krillin AI is a one-stop solution designed for users and developers seeking high
 🔄 **Custom Vocabulary Replacement**: Support one-click replacement of vocabulary to adapt to the language style of specific fields.  
 🌍 **Professional Translation**: The whole-paragraph translation engine ensures the consistency of context and semantic coherence.  
 🎙️ **Dubbing and Voice Cloning**: You can choose the default male or female voice tones to generate video reading dubbing for the translated content, or upload local audio samples to clone voice tones for dubbing.  
-📝 **Dubbing Alignment**: It can perform cross-language dubbing and also align with the original subtitles.  
+📝 **Dubbing Alignment**: It can perform cross-language dubbing and also align with the original subtitles.   
 🎬 **Video Composition**: With one click, compose horizontal and vertical videos with embedded subtitles. Subtitles that exceed the width limit will be processed automatically. 
 
 ## Language Support
