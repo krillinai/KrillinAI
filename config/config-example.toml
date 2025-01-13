@@ -15,6 +15,7 @@
 
 [openai]
     base_url = "" # OpenAI API 自定义base url，可配合转发站密钥使用，留空为默认API地址
+    model = "" # 指定模型名，可通过此字段结合base_url使用外部任何与OpenAI API兼容的大模型服务，留空默认为gpt-4o-mini
     api_key = "sk-XXX" # OpenAI API密钥
 
 [aliyun] # 具体请参考文档中的“阿里云配置说明”
