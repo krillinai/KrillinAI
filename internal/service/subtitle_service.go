@@ -111,18 +111,19 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	}
 
 	stepParam := types.SubtitleTaskStepParam{
-		TaskId:             taskId,
-		TaskBasePath:       taskBasePath,
-		Link:               req.Url,
-		SubtitleResultType: resultType,
-		EnableModalFilter:  req.ModalFilter == types.SubtitleTaskModalFilterYes,
-		EnableTts:          req.Tts == types.SubtitleTaskTtsYes,
-		TtsVoiceCode:       ttsVoiceCode,
-		VoiceCloneAudioUrl: voiceCloneAudioUrl,
-		ReplaceWordsMap:    replaceWordsMap,
-		OriginLanguage:     types.StandardLanguageName(req.OriginLanguage),
-		TargetLanguage:     types.StandardLanguageName(req.TargetLang),
-		UserUILanguage:     types.StandardLanguageName(req.Language),
+		TaskId:                    taskId,
+		TaskBasePath:              taskBasePath,
+		Link:                      req.Url,
+		SubtitleResultType:        resultType,
+		EnableModalFilter:         req.ModalFilter == types.SubtitleTaskModalFilterYes,
+		EnableTts:                 req.Tts == types.SubtitleTaskTtsYes,
+		TtsVoiceCode:              ttsVoiceCode,
+		VoiceCloneAudioUrl:        voiceCloneAudioUrl,
+		ReplaceWordsMap:           replaceWordsMap,
+		OriginLanguage:            types.StandardLanguageName(req.OriginLanguage),
+		TargetLanguage:            types.StandardLanguageName(req.TargetLang),
+		UserUILanguage:            types.StandardLanguageName(req.Language),
+		OriginLanguageWordOneLine: req.OriginLanguageWordOneLine,
 	}
 	go func() {
 		defer func() {
@@ -512,7 +513,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			storage.SubtitleTasks[stepParam.TaskId].ProcessPct = processPct
 
 			// 生成时间戳
-			err = s.generateTimestamps(stepParam.TaskId, stepParam.TaskBasePath, stepParam.OriginLanguage, stepParam.SubtitleResultType, audioFile)
+			err = s.generateTimestamps(stepParam.TaskId, stepParam.TaskBasePath, stepParam.OriginLanguage, stepParam.SubtitleResultType, audioFile, stepParam.OriginLanguageWordOneLine)
 			if err != nil {
 				cancel()
 				log.GetLogger().Error("audioToSubtitle.audioToSrt.generateTimestamps err", zap.Any("stepParam", stepParam), zap.Error(err))
@@ -942,7 +943,8 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int) {
 	return startIdx, endIdx
 }
 
-func (s Service) generateTimestamps(taskId, basePath string, originLanguage types.StandardLanguageName, resultType types.SubtitleResultType, audioFile *types.SmallAudio) error {
+func (s Service) generateTimestamps(taskId, basePath string, originLanguage types.StandardLanguageName,
+	resultType types.SubtitleResultType, audioFile *types.SmallAudio, originLanguageWordOneLine int) error {
 	// 获取原始无时间戳字幕内容
 	srtBlocks, err := util.ParseSrtNoTsToSrtBlock(audioFile.SrtNoTsFile)
 	if err != nil {
@@ -970,7 +972,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 			originSentence       string
 			startWord            types.Word
 			endWord              types.Word
-			shortSentenceWordNum int = 12 //控制单行英文的字数
+			shortSentenceWordNum int = originLanguageWordOneLine //控制单行英文的字数
 		)
 
 		if len(sentenceWords) <= shortSentenceWordNum {
