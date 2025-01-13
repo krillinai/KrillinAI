@@ -241,6 +241,7 @@ type SubtitleTaskStepParam struct {
 	EmbedSubtitleVideoType      string // 合成字幕嵌入的视频类型 none不嵌入 horizontal横屏 vertical竖屏
 	VerticalVideoMajorTitle     string // 合成竖屏视频的主标题
 	VerticalVideoMinorTitle     string
+	OriginLanguageWordOneLine   int // 源语言字幕一行显示多少个字
 }
 
 type SrtSentence struct {
