@@ -234,6 +234,7 @@ type SubtitleTaskStepParam struct {
 	SubtitleInfos               []SubtitleFileInfo
 	TtsSourceFilePath           string
 	TtsResultFilePath           string
+	OriginLanguageWordOneLine   int // 源语言字幕一行显示多少个字
 }
 
 type SrtSentence struct {
