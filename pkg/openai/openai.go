@@ -4,6 +4,7 @@ import (
 	"context"
 	openai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
+	"krillin-ai/config"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"strings"
@@ -22,6 +23,9 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 				Content: query,
 			},
 		},
+	}
+	if config.Conf.Openai.Model != "" {
+		req.Model = config.Conf.Openai.Model
 	}
 
 	resp, err := c.client.CreateChatCompletion(context.Background(), req)

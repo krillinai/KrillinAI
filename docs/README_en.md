@@ -22,13 +22,14 @@ Krillin AI is a one-stop solution designed for users and developers seeking high
 🌍 **Professional Translation**: The whole-paragraph translation engine ensures the consistency of context and semantic coherence.  
 🎙️ **Dubbing and Voice Cloning**: You can choose the default male or female voice tones to generate video reading dubbing for the translated content, or upload local audio samples to clone voice tones for dubbing.  
 📝 **Dubbing Alignment**: It can perform cross-language dubbing and also align with the original subtitles.  
+🎬 **Video Composition**: With one click, compose horizontal and vertical videos with embedded subtitles. Subtitles that exceed the width limit will be processed automatically. 
 
 ## Language Support
-Input languages: 🇨🇳 Chinese, 🇺🇸 English, 🇯🇵 Japanese supported (more languages being added)  
-Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc. Also supports translation into Pinyin.
+Input languages: Chinese, English, Japanese, German, Turkish supported (more languages being added)  
+Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc.
 
 ## Interface Preview
-![界面预览](./images/ui.jpg)
+![界面预览](./images/ui.png)
 
 ## Showcase
 The following picture demonstrates the effect after the subtitle file, which was generated through a one-click operation after importing a 46-minute local video, was inserted into the track. There was no manual adjustment involved at all. There are no missing or overlapping subtitles, the sentence segmentation is natural, and the translation quality is also quite high.

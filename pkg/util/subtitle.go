@@ -2,10 +2,8 @@ package util
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -13,18 +11,8 @@ import (
 	"unicode"
 )
 
-// 判断是否包含中文字符
-func containsChinese(s string) bool {
-	for _, r := range s {
-		if unicode.Is(unicode.Han, r) {
-			return true
-		}
-	}
-	return false
-}
-
 // 处理每一个字幕块
-func ProcessBlock(block []string, targetLanguageFile, originLanguageFile *os.File, isTargetOnTop bool) {
+func ProcessBlock(block []string, targetLanguageFile, targetLanguageTextFile, originLanguageFile, originLanguageTextFile *os.File, isTargetOnTop bool) {
 	var targetLines, originLines []string
 	// 匹配时间戳的正则表达式
 	timePattern := regexp.MustCompile(`\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}`)
@@ -38,21 +26,25 @@ func ProcessBlock(block []string, targetLanguageFile, originLanguageFile *os.Fil
 		if len(targetLines) == 2 && len(originLines) == 2 { // 刚写完编号和时间戳，到了上方的文字行
 			if isTargetOnTop {
 				targetLines = append(targetLines, line)
+				targetLanguageTextFile.WriteString(line) // 文稿文件
 			} else {
 				originLines = append(originLines, line)
+				originLanguageTextFile.WriteString(line)
 			}
 			continue
 		}
 		// 到了下方的文字行
 		if isTargetOnTop {
 			originLines = append(originLines, line)
+			originLanguageTextFile.WriteString(line)
 		} else {
 			targetLines = append(targetLines, line)
+			targetLanguageTextFile.WriteString(line)
 		}
 	}
 
 	if len(targetLines) > 2 {
-		// 写入中文文件
+		// 写入目标语言文件
 		for _, line := range targetLines {
 			targetLanguageFile.WriteString(line + "\n")
 		}
@@ -60,7 +52,7 @@ func ProcessBlock(block []string, targetLanguageFile, originLanguageFile *os.Fil
 	}
 
 	if len(originLines) > 2 {
-		// 写入英文文件
+		// 写入源语言文件
 		for _, line := range originLines {
 			originLanguageFile.WriteString(line + "\n")
 		}
@@ -86,31 +78,6 @@ type Format struct {
 
 type ProbeData struct {
 	Format Format `json:"format"`
-}
-
-// 获取 MP3 文件的时长（秒）
-func GetMP3Duration(filePath string) (uint32, error) {
-	// 调用ffprobe获取音频文件的时长
-	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "json", filePath)
-	output, err := cmd.Output()
-	if err != nil {
-		return 0, err
-	}
-
-	// 解析ffprobe返回的JSON数据
-	var probeData ProbeData
-	err = json.Unmarshal(output, &probeData)
-	if err != nil {
-		return 0, err
-	}
-
-	// 将时长字符串转换为浮点数
-	duration, err := strconv.ParseFloat(probeData.Format.Duration, 64)
-	if err != nil {
-		return 0, err
-	}
-
-	return uint32(duration), nil
 }
 
 type SrtBlock struct {

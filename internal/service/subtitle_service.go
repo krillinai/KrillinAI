@@ -77,7 +77,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	taskBasePath := filepath.Join("./tasks", taskId)
 	if _, err = os.Stat(taskBasePath); os.IsNotExist(err) {
 		// 不存在则创建
-		err = os.MkdirAll(taskBasePath, os.ModePerm)
+		err = os.MkdirAll(filepath.Join(taskBasePath, "output"), os.ModePerm)
 		if err != nil {
 			log.GetLogger().Error("StartVideoSubtitleTask MkdirAll err", zap.Any("req", req), zap.Error(err))
 		}
@@ -123,7 +123,13 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		OriginLanguage:            types.StandardLanguageName(req.OriginLanguage),
 		TargetLanguage:            types.StandardLanguageName(req.TargetLang),
 		UserUILanguage:            types.StandardLanguageName(req.Language),
-		OriginLanguageWordOneLine: req.OriginLanguageWordOneLine,
+		EmbedSubtitleVideoType:    req.EmbedSubtitleVideoType,
+		VerticalVideoMajorTitle:   req.VerticalMajorTitle,
+		VerticalVideoMinorTitle:   req.VerticalMinorTitle,
+		OriginLanguageWordOneLine: 12, // 默认值
+	}
+	if req.OriginLanguageWordOneLine != 0 {
+		stepParam.OriginLanguageWordOneLine = req.OriginLanguageWordOneLine
 	}
 	go func() {
 		defer func() {
@@ -162,6 +168,13 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 			log.GetLogger().Error("StartVideoSubtitleTask srtFileToSpeech err", zap.Any("req", req), zap.Error(err))
 			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
 			storage.SubtitleTasks[stepParam.TaskId].FailReason = "srt file to speech error"
+			return
+		}
+		err = s.embedSubtitles(ctx, &stepParam)
+		if err != nil {
+			log.GetLogger().Error("StartVideoSubtitleTask embedSubtitles err", zap.Any("req", req), zap.Error(err))
+			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
+			storage.SubtitleTasks[stepParam.TaskId].FailReason = "embed subtitles error"
 			return
 		}
 		err = s.uploadSubtitles(ctx, &stepParam)
@@ -220,6 +233,7 @@ func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleT
 	if strings.Contains(link, "local:") {
 		// 本地文件
 		videoPath := strings.ReplaceAll(link, "local:", "")
+		stepParam.InputVideoPath = videoPath
 		cmd := exec.Command(storage.FfmpegPath, "-i", videoPath, "-vn", "-ar", "44100", "-ac", "2", "-ab", "192k", "-f", "mp3", audioPath)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
@@ -359,6 +373,50 @@ func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleT
 	}
 	// 更新字幕任务信息
 	storage.SubtitleTasks[stepParam.TaskId].ProcessPct = 95
+	return nil
+}
+
+func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
+	var err error
+	if stepParam.EmbedSubtitleVideoType != "none" {
+		var width, height int
+		width, height, err = getResolution(stepParam.InputVideoPath)
+		// 横屏可以合成竖屏的，但竖屏暂时不支持合成横屏的
+		if stepParam.EmbedSubtitleVideoType == "horizontal" || stepParam.EmbedSubtitleVideoType == "all" {
+			if width < height {
+				log.GetLogger().Info("检测到输入视频是竖屏，无法合成横屏视频，跳过")
+				return nil
+			}
+			log.GetLogger().Info("合成字幕嵌入视频：横屏")
+			err = embedSubtitles(stepParam.InputVideoPath, stepParam.BilingualSrtFilePath, stepParam.TaskBasePath, true)
+			if err != nil {
+				log.GetLogger().Error("generateAudioSubtitles embedSubtitles err", zap.Any("step param", stepParam), zap.Error(err))
+				return err
+			}
+		}
+		if stepParam.EmbedSubtitleVideoType == "vertical" || stepParam.EmbedSubtitleVideoType == "all" {
+			verticalVideoPath := stepParam.InputVideoPath
+			if width > height {
+				// 生成竖屏视频
+				transferredVerticalVideoPath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskTransferredVerticalVideoFileName)
+				err = convertToVertical(stepParam.InputVideoPath, transferredVerticalVideoPath, stepParam.VerticalVideoMajorTitle, stepParam.VerticalVideoMinorTitle)
+				if err != nil {
+					log.GetLogger().Error("生成竖屏视频失败", zap.Any("step param", stepParam), zap.Error(err))
+					return err
+				}
+				verticalVideoPath = transferredVerticalVideoPath
+			}
+			log.GetLogger().Info("合成字幕嵌入视频：竖屏")
+			err = embedSubtitles(verticalVideoPath, stepParam.ShortOriginMixedSrtFilePath, stepParam.TaskBasePath, false)
+			if err != nil {
+				log.GetLogger().Error("generateAudioSubtitles embedSubtitles err", zap.Any("step param", stepParam), zap.Error(err))
+				return err
+			}
+		}
+		log.GetLogger().Info("字幕嵌入视频成功")
+		return nil
+	}
+	log.GetLogger().Info("合成字幕嵌入视频：不合成")
 	return nil
 }
 
@@ -570,6 +628,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
+	stepParam.ShortOriginMixedSrtFilePath = shortOriginMixedFile
 
 	// 合并最终原始字幕 短英文
 	shortOriginFile := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, types.SubtitleTaskShortOriginSrtFileName)
@@ -595,7 +654,9 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	log.GetLogger().Info("audioToSubtitle.splitSrt start", zap.Any("task id", stepParam.TaskId))
 
 	originLanguageSrtFilePath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskOriginLanguageSrtFileName)
+	originLanguageTextFilePath := filepath.Join(stepParam.TaskBasePath, "output", types.SubtitleTaskOriginLanguageTextFileName)
 	targetLanguageSrtFilePath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskTargetLanguageSrtFileName)
+	targetLanguageTextFilePath := filepath.Join(stepParam.TaskBasePath, "output", types.SubtitleTaskTargetLanguageTextFileName)
 	// 打开双语字幕文件
 	file, err := os.Open(stepParam.BilingualSrtFilePath)
 	if err != nil {
@@ -604,19 +665,33 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	}
 	defer file.Close()
 
-	// 打开输出文件
+	// 打开输出字幕和文稿文件
 	originLanguageSrtFile, err := os.Create(originLanguageSrtFilePath)
 	if err != nil {
 		log.GetLogger().Error("audioToSubtitle.splitSrt os.Create originLanguageSrtFile err", zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
 	defer originLanguageSrtFile.Close()
+
+	originLanguageTextFile, err := os.Create(originLanguageTextFilePath)
+	if err != nil {
+		log.GetLogger().Error("audioToSubtitle.splitSrt os.Create originLanguageTextFile err", zap.Any("stepParam", stepParam), zap.Error(err))
+		return err
+	}
+	defer originLanguageTextFile.Close()
+
 	targetLanguageSrtFile, err := os.Create(targetLanguageSrtFilePath)
 	if err != nil {
 		log.GetLogger().Error("audioToSubtitle.splitSrt os.Create targetLanguageSrtFile err", zap.Any("stepParam", stepParam), zap.Error(err))
 		return err
 	}
 	defer targetLanguageSrtFile.Close()
+
+	targetLanguageTextFile, err := os.Create(targetLanguageTextFilePath)
+	if err != nil {
+		log.GetLogger().Error("audioToSubtitle.splitSrt os.Create targetLanguageTextFile err", zap.Any("stepParam", stepParam), zap.Error(err))
+	}
+	defer targetLanguageTextFile.Close()
 
 	isTargetOnTop := stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop
 
@@ -628,7 +703,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 		// 空行代表一个字幕块的结束
 		if line == "" {
 			if len(block) > 0 {
-				util.ProcessBlock(block, targetLanguageSrtFile, originLanguageSrtFile, isTargetOnTop)
+				util.ProcessBlock(block, targetLanguageSrtFile, targetLanguageTextFile, originLanguageSrtFile, originLanguageTextFile, isTargetOnTop)
 				block = nil
 			}
 		} else {
@@ -637,7 +712,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	}
 	// 处理文件末尾的字幕块
 	if len(block) > 0 {
-		util.ProcessBlock(block, targetLanguageSrtFile, originLanguageSrtFile, isTargetOnTop)
+		util.ProcessBlock(block, targetLanguageSrtFile, targetLanguageTextFile, originLanguageSrtFile, originLanguageTextFile, isTargetOnTop)
 	}
 
 	if err = scanner.Err(); err != nil {
@@ -969,13 +1044,12 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 
 		// 生成短句子的英文字幕
 		var (
-			originSentence       string
-			startWord            types.Word
-			endWord              types.Word
-			shortSentenceWordNum int = originLanguageWordOneLine //控制单行英文的字数
+			originSentence string
+			startWord      types.Word
+			endWord        types.Word
 		)
 
-		if len(sentenceWords) <= shortSentenceWordNum {
+		if len(sentenceWords) <= originLanguageWordOneLine {
 			shortOriginSrtMap[srtBlock.Index] = append(shortOriginSrtMap[srtBlock.Index], util.SrtBlock{
 				Index:                  srtBlock.Index,
 				Timestamp:              fmt.Sprintf("%s --> %s", util.FormatTime(float32(sentenceTs.Start+tsOffset)), util.FormatTime(float32(sentenceTs.End+tsOffset))),
@@ -984,19 +1058,19 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 			continue
 		}
 
-		if len(sentenceWords) > 8 && len(sentenceWords) <= 2*shortSentenceWordNum {
-			shortSentenceWordNum = len(sentenceWords)/2 + 1
-		} else if len(sentenceWords) > 2*shortSentenceWordNum && len(sentenceWords) <= 3*shortSentenceWordNum {
-			shortSentenceWordNum = len(sentenceWords)/3 + 1
-		} else if len(sentenceWords) > 3*shortSentenceWordNum && len(sentenceWords) <= 4*shortSentenceWordNum {
-			shortSentenceWordNum = len(sentenceWords)/4 + 1
-		} else if len(sentenceWords) > 4*shortSentenceWordNum && len(sentenceWords) <= 5*shortSentenceWordNum {
-			shortSentenceWordNum = len(sentenceWords)/5 + 1
+		if len(sentenceWords) > 8 && len(sentenceWords) <= 2*originLanguageWordOneLine {
+			originLanguageWordOneLine = len(sentenceWords)/2 + 1
+		} else if len(sentenceWords) > 2*originLanguageWordOneLine && len(sentenceWords) <= 3*originLanguageWordOneLine {
+			originLanguageWordOneLine = len(sentenceWords)/3 + 1
+		} else if len(sentenceWords) > 3*originLanguageWordOneLine && len(sentenceWords) <= 4*originLanguageWordOneLine {
+			originLanguageWordOneLine = len(sentenceWords)/4 + 1
+		} else if len(sentenceWords) > 4*originLanguageWordOneLine && len(sentenceWords) <= 5*originLanguageWordOneLine {
+			originLanguageWordOneLine = len(sentenceWords)/5 + 1
 		}
 
 		i := 1
 		for _, word := range sentenceWords {
-			if i == 1 || i%(shortSentenceWordNum+1) == 0 {
+			if i == 1 || i%(originLanguageWordOneLine+1) == 0 {
 				startWord = word
 				if startWord.Start < endWord.End {
 					startWord.Start = endWord.End
@@ -1020,7 +1094,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 				endWord.End = sentenceTs.End
 			}
 
-			if i%shortSentenceWordNum == 0 && i > 1 {
+			if i%originLanguageWordOneLine == 0 && i > 1 {
 				shortOriginSrtMap[srtBlock.Index] = append(shortOriginSrtMap[srtBlock.Index], util.SrtBlock{
 					Index:                  srtBlock.Index,
 					Timestamp:              fmt.Sprintf("%s --> %s", util.FormatTime(float32(startWord.Start+tsOffset)), util.FormatTime(float32(endWord.End+tsOffset))),
@@ -1028,7 +1102,6 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 				})
 				originSentence = ""
 			}
-
 			i++
 		}
 

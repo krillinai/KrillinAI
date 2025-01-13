@@ -26,6 +26,7 @@ type LocalModel struct {
 
 type Openai struct {
 	BaseUrl string `toml:"base_url"`
+	Model   string `toml:"model"`
 	ApiKey  string `toml:"api_key"`
 }
 

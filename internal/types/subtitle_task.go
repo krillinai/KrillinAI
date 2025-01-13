@@ -2,10 +2,10 @@ package types
 
 var SplitTextPrompt = `你是一个语言处理专家，擅长翻译和处理文本，按下面的要求，根据句意和标点对给出的内容进行拆分并翻译：
 
-- 将原句子翻译成 %s
-- 不要漏掉和修改原文的任何一个字，要做的仅是拆分和给出对应的翻译，然后用[]将句子包裹
-- 优先根据标点符号进行拆分，尤其是逗号、句号、问号等终止符号，一定要拆分，确保每个句子完整的同时，尽量把句子拆短些。
-- 拆分后的句子尽量不要超过15个单词。
+- 将原句子翻译成 %s，要求翻译自然流畅，和专业翻译员的翻译效果难以区分。
+- 不要漏掉和修改原文的任何一个字，要做的仅是拆分和给出对应的翻译，然后用[]将句子包裹。
+- 根据标点符号进行拆分，逗号、句号、问号等终止符号，一定要拆分，确保每个句子完整的同时，把句子拆短些。
+- 拆分后的句子不要超过15个单词。
 - 翻译的时候一定要将对应的原句子翻译完整，不要遗漏原句中的任何信息。
 - 上方翻译的句子和下方原句一一对应，不要错乱。
 - 不需要任何额外的话语，直接按下面格式输出结果。
@@ -24,8 +24,8 @@ var SplitTextPrompt = `你是一个语言处理专家，擅长翻译和处理文
 // 带有语气词过滤的拆分Prompt
 var SplitTextPromptWithModalFilter = `你是一个语言处理专家，擅长翻译和处理文本，按下面的要求，根据句意和标点对给出的内容进行拆分并翻译：
 
-- 将原句子翻译成 %s
-- 不要漏掉和修改原文的任何一个字，要做的仅是拆分和给出对应的翻译，然后用[]将句子包裹
+- 将原句子翻译成 %s，和专业翻译员的翻译效果难以区分。
+- 不要漏掉和修改原文的任何一个字，要做的仅是拆分和给出对应的翻译，然后用[]将句子包裹。
 - 根据标点符号进行拆分，逗号、句号、问号等终止符号，一定要拆分，确保每个句子完整的同时，把句子拆短些。
 - 拆分后的句子不要超过15个单词。
 - 翻译的时候一定要将对应的原句子翻译完整，不要遗漏原句中的任何信息。
@@ -131,8 +131,13 @@ const (
 	SubtitleTaskShortOriginMixedSrtFileName             = "short_origin_mixed_srt.srt" //长中文+短英文
 	SubtitleTaskShortOriginSrtFileName                  = "short_origin_srt.srt"       //短英文
 	SubtitleTaskOriginLanguageSrtFileName               = "origin_language_srt.srt"
+	SubtitleTaskOriginLanguageTextFileName              = "origin_language.txt"
 	SubtitleTaskTargetLanguageSrtFileName               = "target_language_srt.srt"
+	SubtitleTaskTargetLanguageTextFileName              = "target_language.txt"
 	SubtitleTaskStepParamGobPersistenceFileName         = "step_param.gob"
+	SubtitleTaskTransferredVerticalVideoFileName        = "transferred_vertical_video.mp4"
+	SubtitleTaskHorizontalEmbedVideoFileName            = "horizontal_embed.mp4"
+	SubtitleTaskVerticalEmbedVideoFileName              = "vertical_embed.mp4"
 )
 
 const (
@@ -234,6 +239,10 @@ type SubtitleTaskStepParam struct {
 	SubtitleInfos               []SubtitleFileInfo
 	TtsSourceFilePath           string
 	TtsResultFilePath           string
+	InputVideoPath              string // 源视频路径
+	EmbedSubtitleVideoType      string // 合成字幕嵌入的视频类型 none不嵌入 horizontal横屏 vertical竖屏
+	VerticalVideoMajorTitle     string // 合成竖屏视频的主标题
+	VerticalVideoMinorTitle     string
 	OriginLanguageWordOneLine   int // 源语言字幕一行显示多少个字
 }
 
