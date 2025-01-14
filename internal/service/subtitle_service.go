@@ -80,10 +80,10 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		Status:   types.SubtitleTaskStatusProcessing,
 	}
 	var ttsVoiceCode string
-	if req.TtsVoiceCode == types.SubtitleTaskTtsVoiceCodeSijia {
-		ttsVoiceCode = "sijia"
+	if req.TtsVoiceCode == types.SubtitleTaskTtsVoiceCodeLongyu {
+		ttsVoiceCode = "longyu"
 	} else {
-		ttsVoiceCode = "sicheng"
+		ttsVoiceCode = "longchen"
 	}
 
 	// 处理声音克隆源

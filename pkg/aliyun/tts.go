@@ -99,6 +99,7 @@ func (c *TtsClient) Text2Speech(text, voice, outputFile string) error {
 	go c.receiveMessages(conn, onTextMessage, onBinaryMessage, synthesisStarted, synthesisComplete)
 
 	taskId := util.GenerateID()
+	log.GetLogger().Info("SpeechClient StartSynthesis", zap.String("taskId", taskId), zap.Any("payload", startPayload))
 	if err := c.StartSynthesis(conn, taskId, startPayload, synthesisStarted); err != nil {
 		return fmt.Errorf("failed to start synthesis: %w", err)
 	}

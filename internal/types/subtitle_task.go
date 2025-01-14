@@ -106,8 +106,8 @@ const (
 )
 
 const (
-	SubtitleTaskTtsVoiceCodeSijia uint8 = iota + 1
-	SubtitleTaskTtsVoiceCodeSicheng
+	SubtitleTaskTtsVoiceCodeLongyu uint8 = iota + 1
+	SubtitleTaskTtsVoiceCodeLongchen
 )
 
 const (
