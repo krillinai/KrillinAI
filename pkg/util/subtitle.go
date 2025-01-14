@@ -3,7 +3,9 @@ package util
 import (
 	"bufio"
 	"fmt"
+	"krillin-ai/internal/storage"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -283,4 +285,21 @@ func GetRecognizableString(s string) string {
 		}
 	}
 	return string(result)
+}
+
+func GetAudioDuration(inputFile string) (float64, error) {
+	// 使用 ffprobe 获取精确时长
+	cmd := exec.Command(storage.FfprobePath, "-i", inputFile, "-show_entries", "format=duration", "-v", "quiet", "-of", "csv=p=0")
+	cmdOutput, err := cmd.Output()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get audio duration: %w", err)
+	}
+
+	// 解析时长
+	duration, err := strconv.ParseFloat(strings.TrimSpace(string(cmdOutput)), 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse audio duration: %w", err)
+	}
+
+	return duration, nil
 }
