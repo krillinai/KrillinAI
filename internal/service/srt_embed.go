@@ -3,6 +3,7 @@ package service
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"go.uber.org/zap"
 	"krillin-ai/internal/storage"
@@ -18,6 +19,50 @@ import (
 	"strings"
 	"time"
 )
+
+func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
+	var err error
+	if stepParam.EmbedSubtitleVideoType != "none" {
+		var width, height int
+		width, height, err = getResolution(stepParam.InputVideoPath)
+		// 横屏可以合成竖屏的，但竖屏暂时不支持合成横屏的
+		if stepParam.EmbedSubtitleVideoType == "horizontal" || stepParam.EmbedSubtitleVideoType == "all" {
+			if width < height {
+				log.GetLogger().Info("检测到输入视频是竖屏，无法合成横屏视频，跳过")
+				return nil
+			}
+			log.GetLogger().Info("合成字幕嵌入视频：横屏")
+			err = embedSubtitles(stepParam.InputVideoPath, stepParam.BilingualSrtFilePath, stepParam.TaskBasePath, true)
+			if err != nil {
+				log.GetLogger().Error("generateAudioSubtitles embedSubtitles err", zap.Any("step param", stepParam), zap.Error(err))
+				return err
+			}
+		}
+		if stepParam.EmbedSubtitleVideoType == "vertical" || stepParam.EmbedSubtitleVideoType == "all" {
+			verticalVideoPath := stepParam.InputVideoPath
+			if width > height {
+				// 生成竖屏视频
+				transferredVerticalVideoPath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskTransferredVerticalVideoFileName)
+				err = convertToVertical(stepParam.InputVideoPath, transferredVerticalVideoPath, stepParam.VerticalVideoMajorTitle, stepParam.VerticalVideoMinorTitle)
+				if err != nil {
+					log.GetLogger().Error("生成竖屏视频失败", zap.Any("step param", stepParam), zap.Error(err))
+					return err
+				}
+				verticalVideoPath = transferredVerticalVideoPath
+			}
+			log.GetLogger().Info("合成字幕嵌入视频：竖屏")
+			err = embedSubtitles(verticalVideoPath, stepParam.ShortOriginMixedSrtFilePath, stepParam.TaskBasePath, false)
+			if err != nil {
+				log.GetLogger().Error("generateAudioSubtitles embedSubtitles err", zap.Any("step param", stepParam), zap.Error(err))
+				return err
+			}
+		}
+		log.GetLogger().Info("字幕嵌入视频成功")
+		return nil
+	}
+	log.GetLogger().Info("合成字幕嵌入视频：不合成")
+	return nil
+}
 
 func splitMajorTextInHorizontal(text string) []string {
 	// 按语言情况分割

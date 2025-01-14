@@ -18,8 +18,10 @@
 ![阿里云speech](images/aliyun_speech_1.png)
 3. 选择功能并开通
 ![阿里云speech](images/aliyun_speech_2.png)
-4. 复制app key即可
+4. “流式文本语音合成（CosyVoice大模型）”需要升级成商业版，其它服务可以用免费体验版
 ![阿里云speech](images/aliyun_speech_3.png)
+5. 复制app key即可
+![阿里云speech](images/aliyun_speech_4.png)
 
 ## 阿里云OSS服务开通
 1. 进入[阿里云对象存储服务控制台](https://oss.console.aliyun.com/overview)，首次进入需开通服务
