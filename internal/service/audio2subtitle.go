@@ -129,7 +129,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			}
 			if err != nil {
 				cancel()
-				log.GetLogger().Error("audioToSubtitle.audioToSrt.Transcription err", zap.Any("stepParam", stepParam), zap.Error(err))
+				log.GetLogger().Error("audioToSubtitle.audioToSrt.Transcription err", zap.Any("stepParam", stepParam), zap.String("audio file", audioFileItem.AudioFile), zap.Error(err))
 				return err
 			}
 
@@ -146,7 +146,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			err = s.splitTextAndTranslate(stepParam.TaskId, stepParam.TaskBasePath, stepParam.TargetLanguage, stepParam.EnableModalFilter, audioFile)
 			if err != nil {
 				cancel()
-				log.GetLogger().Error("audioToSubtitle.audioToSrt.splitTextAndTranslate err", zap.Any("stepParam", stepParam), zap.Error(err))
+				log.GetLogger().Error("audioToSubtitle.audioToSrt.splitTextAndTranslate err", zap.Any("stepParam", stepParam), zap.String("audio file", audioFileItem.AudioFile), zap.Error(err))
 				return err
 			}
 
@@ -161,7 +161,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			err = s.generateTimestamps(stepParam.TaskId, stepParam.TaskBasePath, stepParam.OriginLanguage, stepParam.SubtitleResultType, audioFile, stepParam.OriginLanguageWordOneLine)
 			if err != nil {
 				cancel()
-				log.GetLogger().Error("audioToSubtitle.audioToSrt.generateTimestamps err", zap.Any("stepParam", stepParam), zap.Error(err))
+				log.GetLogger().Error("audioToSubtitle.audioToSrt.generateTimestamps err", zap.Any("stepParam", stepParam), zap.String("audio file", audioFileItem.AudioFile), zap.Error(err))
 				return err
 			}
 			return nil
@@ -469,8 +469,8 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 			return srtSt, sentenceWords, 0, fmt.Errorf("sentence is empty")
 		}
 
-		sentenceWords := make([]types.Word, 0)
-
+		// 这里的sentence words不是字面上连续的，而是可能有重复，可读连续的用下面的readable
+		readableSentenceWords := make([]types.Word, 0)
 		thisLastTs := lastTs
 		sentenceWordIndex := 0
 		wordNow := words[sentenceWordIndex]
@@ -492,9 +492,10 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 
 		}
 		// 对于sentence每个词，已经尝试找到了它的[]Word
-		beginWordIndex, endWordIndex := jumpFindMaxIncreasingSubArray(sentenceWords)
+		var beginWordIndex, endWordIndex int
+		beginWordIndex, endWordIndex, readableSentenceWords = jumpFindMaxIncreasingSubArray(sentenceWords)
 		if (endWordIndex - beginWordIndex) == 0 {
-			return srtSt, sentenceWords, 0, fmt.Errorf("no valid sentence")
+			return srtSt, readableSentenceWords, 0, fmt.Errorf("no valid sentence")
 		}
 
 		beginWord := sentenceWords[beginWordIndex]
@@ -509,7 +510,7 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 			thisLastTs = endWord.End
 		}
 
-		return srtSt, sentenceWords, thisLastTs, nil
+		return srtSt, readableSentenceWords, thisLastTs, nil
 	}
 }
 
@@ -551,9 +552,9 @@ func findMaxIncreasingSubArray(words []types.Word) (int, int) {
 }
 
 // 跳跃（非连续）找到 Num 值递增的最大子数组
-func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int) {
+func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) {
 	if len(words) == 0 {
-		return -1, -1
+		return -1, -1, nil
 	}
 
 	// dp[i] 表示以 words[i] 结束的递增子数组的长度
@@ -561,7 +562,7 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int) {
 	// prev[i] 用来记录与当前递增子数组相连的前一个元素的索引
 	prev := make([]int, len(words))
 
-	// 初始化，所有的 dp[i] 都是1，因为每个元素本身就是一个长度为1的子数组
+	// 初始化，所有的 dp[i] 都是 1，因为每个元素本身就是一个长度为 1 的子数组
 	for i := 0; i < len(words); i++ {
 		dp[i] = 1
 		prev[i] = -1
@@ -592,7 +593,7 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int) {
 
 	// 如果未找到递增子数组，直接返回
 	if endIdx == -1 {
-		return -1, -1
+		return -1, -1, nil
 	}
 
 	// 回溯找到子数组的起始索引
@@ -601,17 +602,43 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int) {
 		startIdx = prev[startIdx]
 	}
 
-	// 返回找到的最长递增子数组的起始和结束索引
-	return startIdx, endIdx
+	// 构造结果子数组
+	result := []types.Word{}
+	for i := startIdx; i != -1; i = prev[i] {
+		result = append(result, words[i])
+	}
+
+	// 由于是从后往前构造的子数组，需要反转
+	for i, j := 0, len(result)-1; i < j; i, j = i+1, j-1 {
+		result[i], result[j] = result[j], result[i]
+	}
+
+	return startIdx, endIdx, result
 }
 
 func (s Service) generateTimestamps(taskId, basePath string, originLanguage types.StandardLanguageName,
 	resultType types.SubtitleResultType, audioFile *types.SmallAudio, originLanguageWordOneLine int) error {
+	// 判断有没有文本
+	srtNoTsFile, err := os.Open(audioFile.SrtNoTsFile)
+	if err != nil {
+		log.GetLogger().Error("generateAudioSubtitles.generateTimestamps.OpenSrtNoTsFile err", zap.String("taskId", taskId), zap.Error(err))
+		return err
+	}
+	scanner := bufio.NewScanner(srtNoTsFile)
+	if scanner.Scan() {
+		if strings.Contains(scanner.Text(), "[无文本]") {
+			return nil
+		}
+	}
+	srtNoTsFile.Close()
 	// 获取原始无时间戳字幕内容
 	srtBlocks, err := util.ParseSrtNoTsToSrtBlock(audioFile.SrtNoTsFile)
 	if err != nil {
 		log.GetLogger().Error("generateAudioSubtitles.generateTimestamps.ReadSrtBlocks err", zap.String("taskId", taskId), zap.Error(err))
 		return err
+	}
+	if len(srtBlocks) == 0 {
+		return nil
 	}
 
 	// 获取每个字幕块的时间戳

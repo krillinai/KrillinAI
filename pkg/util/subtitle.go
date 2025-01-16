@@ -127,8 +127,8 @@ func ParseSrtNoTsToSrtBlock(srtNoTsFile string) ([]*SrtBlock, error) {
 			var index int
 			_, err = fmt.Sscanf(line, "%d", &index)
 			if err != nil {
-				return nil, err
-			}
+				return blocks, nil
+			} // 可能是空语音等，直接忽略
 			currentBlock.Index = index
 		} else if currentBlock.TargetLanguageSentence == "" {
 			currentBlock.TargetLanguageSentence = line
@@ -193,6 +193,10 @@ func MergeSrtFiles(finalFile string, files ...string) error {
 	writer := bufio.NewWriter(output)
 	lineNumber := 0
 	for _, file := range files {
+		// 不存在某一个file就跳过
+		if _, err = os.Stat(file); os.IsNotExist(err) {
+			continue
+		}
 		// 打开当前字幕文件
 		f, err := os.Open(file)
 		if err != nil {
