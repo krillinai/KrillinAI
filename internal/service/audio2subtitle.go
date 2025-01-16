@@ -129,7 +129,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			}
 			if err != nil {
 				cancel()
-				log.GetLogger().Error("audioToSubtitle.audioToSrt.Transcription err", zap.Any("stepParam", stepParam), zap.Error(err))
+				log.GetLogger().Error("audioToSubtitle.audioToSrt.Transcription err", zap.Any("stepParam", stepParam), zap.String("audio file", audioFileItem.AudioFile), zap.Error(err))
 				return err
 			}
 
@@ -146,7 +146,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			err = s.splitTextAndTranslate(stepParam.TaskId, stepParam.TaskBasePath, stepParam.TargetLanguage, stepParam.EnableModalFilter, audioFile)
 			if err != nil {
 				cancel()
-				log.GetLogger().Error("audioToSubtitle.audioToSrt.splitTextAndTranslate err", zap.Any("stepParam", stepParam), zap.Error(err))
+				log.GetLogger().Error("audioToSubtitle.audioToSrt.splitTextAndTranslate err", zap.Any("stepParam", stepParam), zap.String("audio file", audioFileItem.AudioFile), zap.Error(err))
 				return err
 			}
 
@@ -161,7 +161,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			err = s.generateTimestamps(stepParam.TaskId, stepParam.TaskBasePath, stepParam.OriginLanguage, stepParam.SubtitleResultType, audioFile, stepParam.OriginLanguageWordOneLine)
 			if err != nil {
 				cancel()
-				log.GetLogger().Error("audioToSubtitle.audioToSrt.generateTimestamps err", zap.Any("stepParam", stepParam), zap.Error(err))
+				log.GetLogger().Error("audioToSubtitle.audioToSrt.generateTimestamps err", zap.Any("stepParam", stepParam), zap.String("audio file", audioFileItem.AudioFile), zap.Error(err))
 				return err
 			}
 			return nil
@@ -618,11 +618,27 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) 
 
 func (s Service) generateTimestamps(taskId, basePath string, originLanguage types.StandardLanguageName,
 	resultType types.SubtitleResultType, audioFile *types.SmallAudio, originLanguageWordOneLine int) error {
+	// 判断有没有文本
+	srtNoTsFile, err := os.Open(audioFile.SrtNoTsFile)
+	if err != nil {
+		log.GetLogger().Error("generateAudioSubtitles.generateTimestamps.OpenSrtNoTsFile err", zap.String("taskId", taskId), zap.Error(err))
+		return err
+	}
+	scanner := bufio.NewScanner(srtNoTsFile)
+	if scanner.Scan() {
+		if strings.Contains(scanner.Text(), "[无文本]") {
+			return nil
+		}
+	}
+	srtNoTsFile.Close()
 	// 获取原始无时间戳字幕内容
 	srtBlocks, err := util.ParseSrtNoTsToSrtBlock(audioFile.SrtNoTsFile)
 	if err != nil {
 		log.GetLogger().Error("generateAudioSubtitles.generateTimestamps.ReadSrtBlocks err", zap.String("taskId", taskId), zap.Error(err))
 		return err
+	}
+	if len(srtBlocks) == 0 {
+		return nil
 	}
 
 	// 获取每个字幕块的时间戳
