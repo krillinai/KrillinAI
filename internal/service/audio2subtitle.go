@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -17,6 +15,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
@@ -683,8 +684,9 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 		}
 
 		i := 1
+		nextStart := true
 		for _, word := range sentenceWords {
-			if i == 1 || i%(originLanguageWordOneLine+1) == 0 {
+			if nextStart {
 				startWord = word
 				if startWord.Start < endWord.End {
 					startWord.Start = endWord.End
@@ -696,6 +698,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 				endWord = startWord
 				originSentence += word.Text + " "
 				i++
+				nextStart = false
 				continue
 			}
 
@@ -715,6 +718,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 					OriginLanguageSentence: originSentence,
 				})
 				originSentence = ""
+				nextStart = true
 			}
 			i++
 		}
