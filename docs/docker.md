@@ -1,7 +1,7 @@
 # Docker 部署指南
 
 ## 方法1. 使用配置文件
-先准备好配置文件，假设服务器监听端口为8888
+先准备好配置文件，假设服务器监听端口为8888，服务器监听地址为0.0.0.0
 
 ### docker run启动
 ```bash
@@ -35,7 +35,7 @@ KrillinAI 支持通过环境变量来代替配置文件。所有环境变量都�
 - `KRILLIN_LLM_PROVIDER`: LLM 服务提供商（默认值: openai，可选: openai/aliyun）
 
 ### 服务器配置
-- `KRILLIN_SERVER_HOST`: 服务器监听地址（默认值: 127.0.0.1）
+- `KRILLIN_SERVER_HOST`: 服务器监听地址（默认值: 127.0.0.1，docker中推荐设置为0.0.0.0）
 - `KRILLIN_SERVER_PORT`: 服务器监听端口（整数，默认值: 8888）
 
 ### 本地模型配置
@@ -65,6 +65,7 @@ KrillinAI 支持通过环境变量来代替配置文件。所有环境变量都�
 ```bash
 docker run -d \
   -p 8888:8888 \
+  -e KRILLIN_SERVER_HOST=0.0.0.0 \
   -e KRILLIN_OPENAI_API_KEY=your-api-key \
   ghcr.io/krillinai/krillin
 ```
@@ -78,6 +79,7 @@ services:
     ports:
       - "8888:8888"
     environment:
+      - KRILLIN_SERVER_HOST=0.0.0.0
       - KRILLIN_OPENAI_API_KEY=your-api-key
 ```
 
@@ -109,4 +111,4 @@ services:
 ## 注意事项
 1. 环境变量的值会覆盖配置文件中的对应设置。即环境变量优先级高于配置文件。不推荐混合使用配置文件和环境变量。
 2. 配置文件和环境变量二选一即可，推荐使用环境变量方式。
-
+3. 如果docker容器的网络模式不为host，建议将服务器监听地址设置为0.0.0.0，否则可能无法访问服务。

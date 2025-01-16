@@ -35,5 +35,8 @@ VOLUME ["/app/bin", "/app/models"]
 # 设置环境变量
 ENV PATH="/app/bin:${PATH}"
 
+# 设置端口
+EXPOSE 8888/tcp
+
 # 设置入口点
 ENTRYPOINT ["./KrillinAI"]
