@@ -1,15 +1,15 @@
 <div align="center">
-  <img src="./images/logo.png" alt="KrillinAI" height="140">
+  <img src="./images/logo.png" alt="KrillinAI" height="100">
 
-  # Frames of the World in Splendor
+  # AI Audio&Video Translation and Dubbing Tool
 
-  <p>An AI-powered video subtitle translation and dubbing tool featuring speech recognition, intelligent sentence segmentation, professional-level translation, and one-click deployment for the entire workflow</p>
+<p>Based on LLMs, professional-level translation, capable of generating both portrait and landscape formats, one-click deployment.</p>
 
-  Read this in other languages: [中文](../README.md)
+  **English: [中文](../README.md)**
 
 </div>
 
-🚀 **Project Overview (Online version free trial)**
+🚀 **Project Overview**
 
 Krillin AI is a one-stop solution designed for users and developers seeking high-quality video processing. It provides an end-to-end workflow, from video download to the final product, ensuring every frame of your content is extraordinary.
 
