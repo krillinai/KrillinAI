@@ -1,18 +1,18 @@
 <div align="center">
-  <img src="./docs/images/logo.png" alt="KrillinAI" height="140">
+  <img src="./docs/images/logo.png" alt="KrillinAI" height="100">
 
-  # 世界帧精彩
+  # 极简部署AI音视频翻译配音工具
 
-  <p>基于AI大模型的视频字幕翻译和配音工具，语音识别，智能断句，专业级翻译，一键部署全流程</p>
-  <p>交流Q群: 754069680</p>
+  <p>基于AI大模型，专业级翻译切割对齐，可生成横竖屏格式，一键部署全流程</p>
+  <p> Q群: 754069680 </p>
 
-  其他语言: [English](./docs/README_en.md)
+  **中文｜ [English](./docs/README_en.md)**
 
 </div>
 
 🚀 **项目简介**  
 
-KrillinAI是一个为追求高质量视频翻译的用户和开发者设计的解决方案，提供从视频下载到最终成品的一站式工作流程，用AI赋能跨语言文化沟通。
+KrillinAI是一个为追求高质量音视频翻译的内容创作者和开发者设计的解决方案，提供从视频下载到最终成品的一站式工作流程，用AI赋能跨语言文化沟通。
 
 ## 主要特点与功能：
 🎯 **一键启动**：无需复杂的环境配置，Krillin AI支持自动安装依赖，快速上手，立即投入使用  
