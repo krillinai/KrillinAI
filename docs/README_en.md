@@ -63,14 +63,17 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 
 ### To: macOS Users
 This software is not signed, so after completing the file configuration in the "Basic Steps," you will need to manually trust the application on macOS. Follow these steps:
-1. Open the terminal and navigate to the directory where the executable file (assuming the file name is `KrillinAI-v1.0.0-windows`) is located.
+1. Open the terminal and navigate to the directory where the executable file (assuming the file name is `KrillinAI_1.0.0_macOS_arm64`) is located.
 2. Execute the following commands in sequence:
 ```
-sudo xattr -rd com.apple.quarantine ./KrillinAI-v1.0.0-windows
-sudo chmod +x ./KrillinAI-v1.0.0-windows
-./KrillinAI-v1.0.0-windows
+sudo xattr -rd com.apple.quarantine ./KrillinAI_1.0.0_macOS_arm64
+sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
+./KrillinAI_1.0.0_macOS_arm64
 ```
 This will start the service.
+
+### Docker Deployment
+This project supports Docker deployment. Please refer to the [Docker Deployment Instructions](./docker.md).
 
 ### Cookie Configuration Instructions
 
