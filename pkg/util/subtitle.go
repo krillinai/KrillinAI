@@ -98,6 +98,9 @@ func TrimString(s string) string {
 	// 去除结尾的空格和 ']'
 	s = strings.TrimRight(s, " ]")
 
+	//替换中文单引号
+	s = strings.ReplaceAll(s, "’", "'")
+
 	return s
 }
 
