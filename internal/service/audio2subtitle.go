@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -17,6 +15,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
@@ -652,7 +653,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 		if err != nil || ts < lastTs {
 			continue
 		}
-		lastTs = ts
+
 		tsOffset := float64(config.Conf.App.SegmentDuration) * 60 * float64(audioFile.Num-1)
 		srtBlock.Timestamp = fmt.Sprintf("%s --> %s", util.FormatTime(float32(sentenceTs.Start+tsOffset)), util.FormatTime(float32(sentenceTs.End+tsOffset)))
 
@@ -669,23 +670,29 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 				Timestamp:              fmt.Sprintf("%s --> %s", util.FormatTime(float32(sentenceTs.Start+tsOffset)), util.FormatTime(float32(sentenceTs.End+tsOffset))),
 				OriginLanguageSentence: srtBlock.OriginLanguageSentence,
 			})
+			lastTs = ts
 			continue
 		}
 
-		if len(sentenceWords) > 8 && len(sentenceWords) <= 2*originLanguageWordOneLine {
-			originLanguageWordOneLine = len(sentenceWords)/2 + 1
+		thisLineWord := originLanguageWordOneLine
+		if len(sentenceWords) > originLanguageWordOneLine && len(sentenceWords) <= 2*originLanguageWordOneLine {
+			thisLineWord = len(sentenceWords)/2 + 1
 		} else if len(sentenceWords) > 2*originLanguageWordOneLine && len(sentenceWords) <= 3*originLanguageWordOneLine {
-			originLanguageWordOneLine = len(sentenceWords)/3 + 1
+			thisLineWord = len(sentenceWords)/3 + 1
 		} else if len(sentenceWords) > 3*originLanguageWordOneLine && len(sentenceWords) <= 4*originLanguageWordOneLine {
-			originLanguageWordOneLine = len(sentenceWords)/4 + 1
+			thisLineWord = len(sentenceWords)/4 + 1
 		} else if len(sentenceWords) > 4*originLanguageWordOneLine && len(sentenceWords) <= 5*originLanguageWordOneLine {
-			originLanguageWordOneLine = len(sentenceWords)/5 + 1
+			thisLineWord = len(sentenceWords)/5 + 1
 		}
 
 		i := 1
+		nextStart := true
 		for _, word := range sentenceWords {
-			if i == 1 || i%(originLanguageWordOneLine+1) == 0 {
+			if nextStart {
 				startWord = word
+				if startWord.Start < lastTs {
+					startWord.Start = lastTs
+				}
 				if startWord.Start < endWord.End {
 					startWord.Start = endWord.End
 				}
@@ -696,6 +703,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 				endWord = startWord
 				originSentence += word.Text + " "
 				i++
+				nextStart = false
 				continue
 			}
 
@@ -708,13 +716,14 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 				endWord.End = sentenceTs.End
 			}
 
-			if i%originLanguageWordOneLine == 0 && i > 1 {
+			if i%thisLineWord == 0 && i > 1 {
 				shortOriginSrtMap[srtBlock.Index] = append(shortOriginSrtMap[srtBlock.Index], util.SrtBlock{
 					Index:                  srtBlock.Index,
 					Timestamp:              fmt.Sprintf("%s --> %s", util.FormatTime(float32(startWord.Start+tsOffset)), util.FormatTime(float32(endWord.End+tsOffset))),
 					OriginLanguageSentence: originSentence,
 				})
 				originSentence = ""
+				nextStart = true
 			}
 			i++
 		}
@@ -726,6 +735,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 				OriginLanguageSentence: originSentence,
 			})
 		}
+		lastTs = ts
 	}
 
 	// 保存带时间戳的原始字幕
