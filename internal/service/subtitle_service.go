@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/samber/lo"
-	"go.uber.org/zap"
 	"krillin-ai/internal/dto"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -15,6 +13,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.StartVideoSubtitleTaskResData, error) {
@@ -140,14 +141,13 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 			storage.SubtitleTasks[stepParam.TaskId].FailReason = "link to audio error"
 			return
 		}
-		// 暂时不加视频信息
-		//err = s.getVideoInfo(ctx, &stepParam)
-		//if err != nil {
-		//	log.GetLogger().Error("StartVideoSubtitleTask getVideoInfo err", zap.Any("req", req), zap.Error(err))
-		//	storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
-		//	storage.SubtitleTasks[stepParam.TaskId].FailReason = "get video info error"
-		//	return
-		//}
+		err = s.getVideoInfo(ctx, &stepParam)
+		if err != nil {
+			log.GetLogger().Error("StartVideoSubtitleTask getVideoInfo err", zap.Any("req", req), zap.Error(err))
+			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
+			storage.SubtitleTasks[stepParam.TaskId].FailReason = "get video info error"
+			return
+		}
 		err = s.audioToSubtitle(ctx, &stepParam)
 		if err != nil {
 			log.GetLogger().Error("StartVideoSubtitleTask audioToSubtitle err", zap.Any("req", req), zap.Error(err))
