@@ -7,7 +7,7 @@
 ```bash
 docker run -d \
   -p 8888:8888 \
-  -v /path/to/config.toml:/app/config.toml \
+  -v /path/to/config.toml:/app/config/config.toml \
   ghcr.io/krillinai/krillin
 ```
 
@@ -20,7 +20,7 @@ services:
     ports:
       - "8888:8888"
     volumes:
-      - /path/to/config.toml:/app/config.toml
+      - /path/to/config.toml:/app/config/config.toml
 ```
 
 ## 方法2. 使用环境变量
@@ -111,4 +111,5 @@ services:
 ## 注意事项
 1. 环境变量的值会覆盖配置文件中的对应设置。即环境变量优先级高于配置文件。不推荐混合使用配置文件和环境变量。
 2. 配置文件和环境变量二选一即可，推荐使用环境变量方式。
-3. 如果docker容器的网络模式不为host，建议将服务器监听地址设置为0.0.0.0，否则可能无法访问服务。
+3. 如果docker容器的网络模式不为host，建议将配置文件服务器监听地址设置为0.0.0.0，否则可能无法访问服务。
+4. 如果容器内需要访问宿主机的网络代理，请将代理地址配置项`proxy`的`127.0.0.1`设置为`host.docker.internal`，例如`http://host.docker.internal:7890`
