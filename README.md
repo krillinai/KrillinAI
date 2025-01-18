@@ -67,14 +67,17 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 
 ### To: macOS用户
 本软件没有做签名，因此在macOS上运行时，在完成“基本步骤”中的文件配置后，还需要手动信任应用，方法如下：
-1. 在终端打开可执行文件（假设文件名是KrillinAI-v1.0.0-windows）所在目录
+1. 在终端打开可执行文件（假设文件名是KrillinAI_1.0.0_macOS_arm64）所在目录
 2. 依次执行以下命令：
    ```
-    sudo xattr -rd com.apple.quarantine ./KrillinAI-v1.0.0-windows
-    sudo chmod +x ./KrillinAI-v1.0.0-windows
-    ./KrillinAI-v1.0.0-windows
+    sudo xattr -rd com.apple.quarantine ./KrillinAI_1.0.0_macOS_arm64
+    sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
+    ./KrillinAI_1.0.0_macOS_arm64
     ```
     即可启动服务
+
+### Docker部署
+本项目支持Docker部署，请参考[Docker部署说明](./docs/docker.md)
 
 ### Cookie配置说明
 
