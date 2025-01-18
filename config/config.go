@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"github.com/BurntSushi/toml"
+	"krillin-ai/log"
 	"net/url"
 	"os"
 	"strconv"
@@ -172,7 +173,7 @@ func validateConfig() error {
 			return errors.New("使用阿里云语音服务需要配置相关密钥")
 		}
 	default:
-		return errors.New("不支持的转写服务提供商")
+		return errors.New("不支持的转录提供商")
 	}
 
 	// 检查LLM提供商配置
@@ -192,19 +193,16 @@ func validateConfig() error {
 	return nil
 }
 
-func LoadConfig(filePath string) error {
+func LoadConfig() error {
 	var err error
-
-	// 如果提供了配置文件路径，则尝试加载
-	if filePath != "" {
-		_, err = toml.DecodeFile(filePath, &Conf)
-		if err != nil {
-			return err
-		}
+	configPath := "./config/config.toml"
+	if _, err = os.Stat(configPath); os.IsNotExist(err) {
+		log.GetLogger().Info("未找到配置文件，从环境变量中加载配置")
+		loadFromEnv()
+	} else {
+		log.GetLogger().Info("已找到配置文件，从配置文件中加载配置")
+		_, err = toml.DecodeFile(configPath, &Conf)
 	}
-
-	// 加载环境变量配置
-	loadFromEnv()
 
 	// 解析代理地址
 	Conf.App.ParsedProxy, err = url.Parse(Conf.App.Proxy)
@@ -212,7 +210,7 @@ func LoadConfig(filePath string) error {
 		return err
 	}
 
-	// 如果使用fasterwhisper，强制设置并行数为1
+	// 本地模型不并发
 	if Conf.App.TranscribeProvider == "fasterwhisper" {
 		Conf.App.TranslateParallelNum = 1
 	}
