@@ -19,9 +19,9 @@ func main() {
 	log.InitLogger()
 	defer log.GetLogger().Sync() // 确保日志被正确写入
 
-	err = config.LoadConfig("./config/config.toml")
+	err = config.LoadConfig()
 	if err != nil {
-		log.GetLogger().Error("加载配置文件失败", zap.Error(err))
+		log.GetLogger().Error("加载配置失败", zap.Error(err))
 		return
 	}
 
@@ -37,5 +37,6 @@ func main() {
 	}
 
 	router.SetupRouter(app.Engine)
+	log.GetLogger().Info("服务启动", zap.String("host", config.Conf.Server.Host), zap.Int("port", config.Conf.Server.Port))
 	_ = app.Engine.Run(fmt.Sprintf("%s:%d", config.Conf.Server.Host, config.Conf.Server.Port))
 }
