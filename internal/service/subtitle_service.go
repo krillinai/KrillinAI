@@ -137,7 +137,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		if err != nil {
 			log.GetLogger().Error("StartVideoSubtitleTask linkToAudioFile err", zap.Any("req", req), zap.Error(err))
 			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
-			storage.SubtitleTasks[stepParam.TaskId].FailReason = "link to audio error"
+			storage.SubtitleTasks[stepParam.TaskId].FailReason = err.Error()
 			return
 		}
 		// 暂时不加视频信息

@@ -27,15 +27,15 @@ func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleT
 		cmd := exec.Command(storage.FfmpegPath, "-i", videoPath, "-vn", "-ar", "44100", "-ac", "2", "-ab", "192k", "-f", "mp3", audioPath)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
-			log.GetLogger().Error("generateAudioSubtitles.Step1LinkToAudio ffmpeg err", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
-			return err
+			log.GetLogger().Error("generateAudioSubtitles.linkToAudioFile ffmpeg error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
+			return fmt.Errorf("generateAudioSubtitles.linkToAudioFile ffmpeg error: %w", err)
 		}
 	} else if strings.Contains(link, "youtube.com") {
 		var videoId string
 		videoId, err = util.GetYouTubeID(link)
 		if err != nil {
-			log.GetLogger().Error("linkToAudioFile.GetYouTubeID err", zap.Any("step param", stepParam), zap.Error(err))
-			return err
+			log.GetLogger().Error("linkToAudioFile.GetYouTubeID error", zap.Any("step param", stepParam), zap.Error(err))
+			return fmt.Errorf("linkToAudioFile.GetYouTubeID error: %w", err)
 		}
 		stepParam.Link = "https://www.youtube.com/watch?v=" + videoId
 		cmdArgs := []string{"-f", "bestaudio", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "192K", "-o", audioPath, stepParam.Link}
@@ -47,13 +47,13 @@ func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleT
 		cmd := exec.Command(storage.YtdlpPath, cmdArgs...)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
-			log.GetLogger().Error("generateAudioSubtitles.Step2DownloadAudio yt-dlp err", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
-			return err
+			log.GetLogger().Error("linkToAudioFile download audio yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
+			return fmt.Errorf("linkToAudioFile download audio yt-dlp error: %w", err)
 		}
 	} else if strings.Contains(link, "bilibili.com") {
 		videoId := util.GetBilibiliVideoId(link)
 		if videoId == "" {
-			return errors.New("invalid link")
+			return errors.New("linkToAudioFile error: invalid link")
 		}
 		stepParam.Link = "https://www.bilibili.com/video/" + videoId
 		cmdArgs := []string{"-f", "bestaudio[ext=m4a]", "-x", "--audio-format", "mp3", "-o", audioPath, stepParam.Link}
@@ -63,12 +63,12 @@ func (s Service) linkToAudioFile(ctx context.Context, stepParam *types.SubtitleT
 		cmd := exec.Command(storage.YtdlpPath, cmdArgs...)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
-			log.GetLogger().Error("generateAudioSubtitles.Step2DownloadAudio yt-dlp err", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
-			return err
+			log.GetLogger().Error("linkToAudioFile download audio yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
+			return fmt.Errorf("linkToAudioFile download audio yt-dlp error: %w", err)
 		}
 	} else {
 		log.GetLogger().Info("linkToAudioFile.unsupported link type", zap.Any("step param", stepParam))
-		return errors.New("invalid link")
+		return errors.New("linkToAudioFile error: unsupported link, only support youtube, bilibili and local file")
 	}
 	stepParam.AudioFilePath = audioPath
 	// 更新字幕任务信息

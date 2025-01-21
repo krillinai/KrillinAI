@@ -24,8 +24,8 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 	// Step 1: 解析字幕文件
 	subtitles, err := parseSRT(stepParam.TtsSourceFilePath)
 	if err != nil {
-		log.GetLogger().Error("audioToSubtitle.parseSRT err", zap.Any("stepParam", stepParam), zap.Error(err))
-		return err
+		log.GetLogger().Error("srtFileToSpeech parseSRT error", zap.Any("stepParam", stepParam), zap.Error(err))
+		return fmt.Errorf("srtFileToSpeech parseSRT error: %w", err)
 	}
 
 	var audioFiles []string
@@ -34,8 +34,8 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 	// 创建文件记录音频的开始和结束时间
 	durationDetailFile, err := os.Create(filepath.Join(stepParam.TaskBasePath, types.TtsAudioDurationDetailsFileName))
 	if err != nil {
-		log.GetLogger().Error("generateAudioSubtitles.srtFileToSpeech.os.Create err", zap.Any("stepParam", stepParam), zap.Error(err))
-		return err
+		log.GetLogger().Error("srtFileToSpeech create durationDetailFile error", zap.Any("stepParam", stepParam), zap.Error(err))
+		return fmt.Errorf("srtFileToSpeech create durationDetailFile error: %w", err)
 	}
 	defer durationDetailFile.Close()
 
@@ -46,8 +46,8 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 		var code string
 		code, err = s.VoiceCloneClient.CosyVoiceClone("krillinai", stepParam.VoiceCloneAudioUrl)
 		if err != nil {
-			log.GetLogger().Error("generateAudioSubtitles.srtFileToSpeech.VoiceCloneClient.CosyVoiceClone err", zap.Any("stepParam", stepParam), zap.Error(err))
-			return err
+			log.GetLogger().Error("srtFileToSpeech CosyVoiceClone error", zap.Any("stepParam", stepParam), zap.Error(err))
+			return fmt.Errorf("srtFileToSpeech CosyVoiceClone error: %w", err)
 		}
 		voiceCode = code
 	}
@@ -56,20 +56,20 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 		outputFile := filepath.Join(stepParam.TaskBasePath, fmt.Sprintf("subtitle_%d.wav", i+1))
 		err = s.TtsClient.Text2Speech(sub.Text, voiceCode, outputFile)
 		if err != nil {
-			log.GetLogger().Error("generateAudioSubtitles.srtFileToSpeech.Text2Speech err", zap.Any("taskId", stepParam.TaskId), zap.Any("num", i+1), zap.Error(err))
-			return err
+			log.GetLogger().Error("srtFileToSpeech Text2Speech error", zap.Any("stepParam", stepParam), zap.Any("num", i+1), zap.Error(err))
+			return fmt.Errorf("srtFileToSpeech Text2Speech error: %w", err)
 		}
 
 		// Step 3: 调整音频时长
 		startTime, err := time.Parse("15:04:05,000", sub.Start)
 		if err != nil {
-			log.GetLogger().Error("generateAudioSubtitles.adjustAudioDuration.time.Parse err", zap.Any("taskId", stepParam.TaskId), zap.Any("num", i+1), zap.Error(err))
-			return err
+			log.GetLogger().Error("srtFileToSpeech parse time error", zap.Any("stepParam", stepParam), zap.Any("num", i+1), zap.String("time str", sub.Start), zap.Error(err))
+			return fmt.Errorf("srtFileToSpeech parse time error: %w", err)
 		}
 		endTime, err := time.Parse("15:04:05,000", sub.End)
 		if err != nil {
-			log.GetLogger().Error("audioToSubtitle.time.Parse err", zap.Any("stepParam", stepParam), zap.Any("num", i+1), zap.Error(err))
-			return err
+			log.GetLogger().Error("audioToSubtitle.time.Parse error", zap.Any("stepParam", stepParam), zap.Any("num", i+1), zap.String("time str", sub.Start), zap.Error(err))
+			return fmt.Errorf("srtFileToSpeech audioToSubtitle.time.Parse error: %w", err)
 		}
 		if i == 0 {
 			// 如果第一条字幕不是从00:00开始，增加静音帧
@@ -78,8 +78,8 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 				silenceFilePath := filepath.Join(stepParam.TaskBasePath, "silence_0.wav")
 				err := newGenerateSilence(silenceFilePath, float64(silenceDurationMs)/1000)
 				if err != nil {
-					log.GetLogger().Error("generateAudioSubtitles.newGenerateSilence.ChatCompletion err", zap.Any("taskId", stepParam.TaskId), zap.Error(err))
-					return err
+					log.GetLogger().Error("srtFileToSpeech newGenerateSilence error", zap.Any("stepParam", stepParam), zap.Error(err))
+					return fmt.Errorf("srtFileToSpeech newGenerateSilence error: %w", err)
 				}
 				audioFiles = append(audioFiles, silenceFilePath)
 
@@ -95,8 +95,8 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 			// 如果不是最后一条字幕，增加静音帧时长
 			nextStartTime, err := time.Parse("15:04:05,000", subtitles[i+1].Start)
 			if err != nil {
-				log.GetLogger().Error("audioToSubtitle.time.Parse err", zap.Any("stepParam", stepParam), zap.Any("num", i+2), zap.Error(err))
-				return err
+				log.GetLogger().Error("srtFileToSpeech parse time error", zap.Any("stepParam", stepParam), zap.Any("num", i+2), zap.String("time str", subtitles[i+1].Start), zap.Error(err))
+				return fmt.Errorf("srtFileToSpeech parse time error: %w", err)
 			}
 			if endTime.Before(nextStartTime) {
 				duration = nextStartTime.Sub(startTime).Seconds()
@@ -106,8 +106,8 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 		adjustedFile := filepath.Join(stepParam.TaskBasePath, fmt.Sprintf("adjusted_%d.wav", i+1))
 		err = adjustAudioDuration(outputFile, adjustedFile, stepParam.TaskBasePath, duration)
 		if err != nil {
-			log.GetLogger().Error("audioToSubtitle.adjustAudioDuration err", zap.Any("stepParam", stepParam), zap.Any("num", i+1), zap.Error(err))
-			return err
+			log.GetLogger().Error("srtFileToSpeech adjustAudioDuration error", zap.Any("stepParam", stepParam), zap.Any("num", i+1), zap.Error(err))
+			return fmt.Errorf("srtFileToSpeech adjustAudioDuration error: %w", err)
 		}
 
 		audioFiles = append(audioFiles, adjustedFile)
@@ -115,8 +115,8 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 		// 计算音频的实际时长
 		audioDuration, err := util.GetAudioDuration(adjustedFile)
 		if err != nil {
-			log.GetLogger().Error("audioToSubtitle.GetAudioDuration err", zap.Any("stepParam", stepParam), zap.Any("num", i+1), zap.Error(err))
-			return err
+			log.GetLogger().Error("srtFileToSpeech GetAudioDuration error", zap.Any("stepParam", stepParam), zap.Any("num", i+1), zap.Error(err))
+			return fmt.Errorf("srtFileToSpeech GetAudioDuration error: %w", err)
 		}
 
 		// 计算音频的结束时间
@@ -130,8 +130,8 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 	finalOutput := filepath.Join(stepParam.TaskBasePath, types.TtsResultAudioFileName)
 	err = concatenateAudioFiles(audioFiles, finalOutput, stepParam.TaskBasePath)
 	if err != nil {
-		log.GetLogger().Error("audioToSubtitle.concatenateAudioFiles err", zap.Any("stepParam", stepParam), zap.Error(err))
-		return err
+		log.GetLogger().Error("srtFileToSpeech concatenateAudioFiles error", zap.Any("stepParam", stepParam), zap.Error(err))
+		return fmt.Errorf("srtFileToSpeech concatenateAudioFiles error: %w", err)
 	}
 	stepParam.TtsResultFilePath = finalOutput
 	// 更新字幕任务信息
@@ -143,7 +143,7 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 func parseSRT(filePath string) ([]types.SrtSentenceWithStrTime, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("读取文件失败: %v", err)
+		return nil, fmt.Errorf("parseSRT read file error: %w", err)
 	}
 
 	var subtitles []types.SrtSentenceWithStrTime
@@ -168,7 +168,7 @@ func newGenerateSilence(outputAudio string, duration float64) error {
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("failed to generate PCM silence: %w", err)
+		return fmt.Errorf("newGenerateSilence failed to generate PCM silence: %w", err)
 	}
 
 	return nil
@@ -195,32 +195,32 @@ func adjustAudioDuration(inputFile, outputFile, taskBasePath string, subtitleDur
 		}
 
 		silenceAudioDuration, _ := util.GetAudioDuration(silenceFile)
-		log.GetLogger().Debug("adjustAudioDuration", zap.Any("silenceDuration", silenceAudioDuration))
+		log.GetLogger().Info("adjustAudioDuration", zap.Any("silenceDuration", silenceAudioDuration))
 
 		// 拼接音频和静音
 		concatFile := filepath.Join(taskBasePath, "concat.txt")
 		f, err := os.Create(concatFile)
 		if err != nil {
-			return fmt.Errorf("error creating concat file: %v", err)
+			return fmt.Errorf("adjustAudioDuration create concat file error: %w", err)
 		}
 		defer os.Remove(concatFile)
 
 		_, err = f.WriteString(fmt.Sprintf("file '%s'\nfile '%s'\n", filepath.Base(inputFile), filepath.Base(silenceFile)))
 		if err != nil {
-			return fmt.Errorf("error writing to concat file: %v", err)
+			return fmt.Errorf("adjustAudioDuration write to concat file error: %v", err)
 		}
 		f.Close()
 
 		cmd := exec.Command(storage.FfmpegPath, "-y", "-f", "concat", "-safe", "0", "-i", concatFile, "-c", "copy", outputFile)
-		log.GetLogger().Info("AiCapabilityGrpcServer adjustAudioDuration", zap.Any("inputFile", inputFile), zap.Any("outputFile", outputFile), zap.String("run command", cmd.String()))
+		log.GetLogger().Info("adjustAudioDuration", zap.Any("inputFile", inputFile), zap.Any("outputFile", outputFile), zap.String("run command", cmd.String()))
 		cmd.Stderr = os.Stderr
 		err = cmd.Run()
 		if err != nil {
-			return fmt.Errorf("error concatenating audio and silence: %v", err)
+			return fmt.Errorf("adjustAudioDuration concat audio and silence  error: %v", err)
 		}
 
 		concatFileDuration, _ := util.GetAudioDuration(outputFile)
-		log.GetLogger().Debug("adjustAudioDuration", zap.Any("concatFileDuration", concatFileDuration))
+		log.GetLogger().Info("adjustAudioDuration", zap.Any("concatFileDuration", concatFileDuration))
 		return nil
 	}
 

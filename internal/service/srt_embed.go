@@ -34,8 +34,8 @@ func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTa
 			log.GetLogger().Info("合成字幕嵌入视频：横屏")
 			err = embedSubtitles(stepParam, true)
 			if err != nil {
-				log.GetLogger().Error("generateAudioSubtitles embedSubtitles err", zap.Any("step param", stepParam), zap.Error(err))
-				return err
+				log.GetLogger().Error("embedSubtitles embedSubtitles error", zap.Any("step param", stepParam), zap.Error(err))
+				return fmt.Errorf("embedSubtitles embedSubtitles error: %w", err)
 			}
 		}
 		if stepParam.EmbedSubtitleVideoType == "vertical" || stepParam.EmbedSubtitleVideoType == "all" {
@@ -44,16 +44,16 @@ func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTa
 				transferredVerticalVideoPath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskTransferredVerticalVideoFileName)
 				err = convertToVertical(stepParam.InputVideoPath, transferredVerticalVideoPath, stepParam.VerticalVideoMajorTitle, stepParam.VerticalVideoMinorTitle)
 				if err != nil {
-					log.GetLogger().Error("生成竖屏视频失败", zap.Any("step param", stepParam), zap.Error(err))
-					return err
+					log.GetLogger().Error("embedSubtitles convertToVertical error", zap.Any("step param", stepParam), zap.Error(err))
+					return fmt.Errorf("embedSubtitles convertToVertical error: %w", err)
 				}
 				stepParam.InputVideoPath = transferredVerticalVideoPath
 			}
 			log.GetLogger().Info("合成字幕嵌入视频：竖屏")
 			err = embedSubtitles(stepParam, false)
 			if err != nil {
-				log.GetLogger().Error("generateAudioSubtitles embedSubtitles err", zap.Any("step param", stepParam), zap.Error(err))
-				return err
+				log.GetLogger().Error("embedSubtitles embedSubtitles error", zap.Any("step param", stepParam), zap.Error(err))
+				return fmt.Errorf("embedSubtitles embedSubtitles error: %w", err)
 			}
 		}
 		log.GetLogger().Info("字幕嵌入视频成功")
@@ -121,11 +121,11 @@ func splitChineseText(text string, maxWordLine int) []string {
 	return lines
 }
 
-func parseSRTTime(timeStr string) (time.Duration, error) {
+func parseSrtTime(timeStr string) (time.Duration, error) {
 	timeStr = strings.Replace(timeStr, ",", ".", 1)
 	parts := strings.Split(timeStr, ":")
 	if len(parts) != 3 {
-		return 0, fmt.Errorf("invalid time format: %s", timeStr)
+		return 0, fmt.Errorf("parseSrtTime invalid time format: %s", timeStr)
 	}
 
 	hours, err := strconv.Atoi(parts[0])
@@ -168,13 +168,15 @@ func formatTimestamp(t time.Duration) string {
 func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.SubtitleTaskStepParam) error {
 	file, err := os.Open(inputSRT)
 	if err != nil {
-		return err
+		log.GetLogger().Error("srtToAss Open input srt error", zap.Error(err))
+		return fmt.Errorf("srtToAss Open input srt error: %w", err)
 	}
 	defer file.Close()
 
 	assFile, err := os.Create(outputASS)
 	if err != nil {
-		return err
+		log.GetLogger().Error("srtToAss Create output ass error", zap.Error(err))
+		return fmt.Errorf("srtToAss Create output ass error: %w", err)
 	}
 	defer assFile.Close()
 	scanner := bufio.NewScanner(file)
@@ -198,13 +200,15 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 
 			startTimeStr := strings.TrimSpace(parts[0])
 			endTimeStr := strings.TrimSpace(parts[1])
-			startTime, err := parseSRTTime(startTimeStr)
+			startTime, err := parseSrtTime(startTimeStr)
 			if err != nil {
-				return err
+				log.GetLogger().Error("srtToAss parseSrtTime error", zap.Error(err))
+				return fmt.Errorf("srtToAss parseSrtTime error: %w", err)
 			}
-			endTime, err := parseSRTTime(endTimeStr)
+			endTime, err := parseSrtTime(endTimeStr)
 			if err != nil {
-				return err
+				log.GetLogger().Error("srtToAss parseSrtTime error", zap.Error(err))
+				return fmt.Errorf("srtToAss parseSrtTime error: %w", err)
 			}
 
 			var subtitleLines []string
@@ -254,11 +258,11 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 
 			startTimeStr := strings.TrimSpace(parts[0])
 			endTimeStr := strings.TrimSpace(parts[1])
-			startTime, err := parseSRTTime(startTimeStr)
+			startTime, err := parseSrtTime(startTimeStr)
 			if err != nil {
 				return err
 			}
-			endTime, err := parseSRTTime(endTimeStr)
+			endTime, err := parseSrtTime(endTimeStr)
 			if err != nil {
 				return err
 			}
@@ -308,14 +312,15 @@ func embedSubtitles(stepParam *types.SubtitleTaskStepParam, isHorizontal bool) e
 	assPath := filepath.Join(stepParam.TaskBasePath, "formatted_subtitles.ass")
 
 	if err := srtToAss(stepParam.BilingualSrtFilePath, assPath, isHorizontal, stepParam); err != nil {
-		return err
+		log.GetLogger().Error("embedSubtitles srtToAss error", zap.Any("step param", stepParam), zap.Error(err))
+		return fmt.Errorf("embedSubtitles srtToAss error: %w", err)
 	}
 
 	cmd := exec.Command(storage.FfmpegPath, "-y", "-i", stepParam.InputVideoPath, "-vf", fmt.Sprintf("ass=%s", strings.ReplaceAll(assPath, "\\", "/")), "-c:a", "aac", "-b:a", "192k", filepath.Join(stepParam.TaskBasePath, fmt.Sprintf("/output/%s", outputFileName)))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.GetLogger().Error("embedSubtitles ffmpeg err", zap.Any("video path", stepParam.InputVideoPath), zap.String("output", string(output)), zap.Error(err))
-		return err
+		log.GetLogger().Error("embedSubtitles embed subtitle into video ffmpeg error", zap.String("video path", stepParam.InputVideoPath), zap.String("output", string(output)), zap.Error(err))
+		return fmt.Errorf("embedSubtitles embed subtitle into video ffmpeg error: %w", err)
 	}
 	return nil
 }

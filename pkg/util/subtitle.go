@@ -299,13 +299,13 @@ func GetAudioDuration(inputFile string) (float64, error) {
 	cmd := exec.Command(storage.FfprobePath, "-i", inputFile, "-show_entries", "format=duration", "-v", "quiet", "-of", "csv=p=0")
 	cmdOutput, err := cmd.Output()
 	if err != nil {
-		return 0, fmt.Errorf("failed to get audio duration: %w", err)
+		return 0, fmt.Errorf("GetAudioDuration failed to get audio duration: %w", err)
 	}
 
 	// 解析时长
 	duration, err := strconv.ParseFloat(strings.TrimSpace(string(cmdOutput)), 64)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse audio duration: %w", err)
+		return 0, fmt.Errorf("GetAudioDuration failed to parse audio duration: %w", err)
 	}
 
 	return duration, nil
