@@ -65,12 +65,17 @@ func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTa
 
 func splitMajorTextInHorizontal(text string, language types.StandardLanguageName, maxWordOneLine int) []string {
 	// 按语言情况分割
-	var segments []string
+	var (
+		segments []string
+		sep      string
+	)
 	if language == types.LanguageNameSimplifiedChinese || language == types.LanguageNameTraditionalChinese ||
 		language == types.LanguageNameJapanese || language == types.LanguageNameKorean || language == types.LanguageNameThai {
 		segments = regexp.MustCompile(`.`).FindAllString(text, -1)
+		sep = ""
 	} else {
 		segments = strings.Split(text, " ")
+		sep = " "
 	}
 
 	totalWidth := len(segments)
@@ -96,10 +101,9 @@ func splitMajorTextInHorizontal(text string, language types.StandardLanguageName
 	}
 
 	// 分割文本，保留原有句子格式
-	line1 := strings.Join(segments[:splitIndex], "")
-	line2 := strings.Join(segments[splitIndex:], "")
-	line1 = util.CleanPunction(line1)
-	line2 = util.CleanPunction(line2)
+
+	line1 := util.CleanPunction(strings.Join(segments[:splitIndex], sep))
+	line2 := util.CleanPunction(strings.Join(segments[splitIndex:], sep))
 
 	return []string{line1, line2}
 }
