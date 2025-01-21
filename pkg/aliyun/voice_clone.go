@@ -102,13 +102,13 @@ func (c *VoiceCloneClient) CosyVoiceClone(voicePrefix, audioURL string) (string,
 	var res VoiceCloneResp
 	resp, err := c.restyClient.R().SetResult(&res).Post(fullURL)
 	if err != nil {
-		log.GetLogger().Error("CosyVoiceClone请求失败", zap.Error(err))
-		return "", err
+		log.GetLogger().Error("CosyVoiceClone post error", zap.Error(err))
+		return "", fmt.Errorf("CosyVoiceClone post error: %w: ", err)
 	}
 	log.GetLogger().Info("CosyVoiceClone请求完毕", zap.String("Response", resp.String()))
 	if res.Message != "SUCCESS" {
-		log.GetLogger().Error("CosyVoiceClone请求响应错误", zap.String("Request Id", res.RequestId), zap.Int("Code", res.Code), zap.String("Message", res.Message))
-		return "", fmt.Errorf("CosyVoiceClone请求响应错误: %s", res.Message)
+		log.GetLogger().Error("CosyVoiceClone res message is not success", zap.String("Request Id", res.RequestId), zap.Int("Code", res.Code), zap.String("Message", res.Message))
+		return "", fmt.Errorf("CosyVoiceClone res message is not success, message: %s", res.Message)
 	}
 	return res.VoiceName, nil
 }

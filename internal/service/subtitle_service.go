@@ -101,25 +101,25 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	}
 
 	stepParam := types.SubtitleTaskStepParam{
-		TaskId:                    taskId,
-		TaskBasePath:              taskBasePath,
-		Link:                      req.Url,
-		SubtitleResultType:        resultType,
-		EnableModalFilter:         req.ModalFilter == types.SubtitleTaskModalFilterYes,
-		EnableTts:                 req.Tts == types.SubtitleTaskTtsYes,
-		TtsVoiceCode:              ttsVoiceCode,
-		VoiceCloneAudioUrl:        voiceCloneAudioUrl,
-		ReplaceWordsMap:           replaceWordsMap,
-		OriginLanguage:            types.StandardLanguageName(req.OriginLanguage),
-		TargetLanguage:            types.StandardLanguageName(req.TargetLang),
-		UserUILanguage:            types.StandardLanguageName(req.Language),
-		EmbedSubtitleVideoType:    req.EmbedSubtitleVideoType,
-		VerticalVideoMajorTitle:   req.VerticalMajorTitle,
-		VerticalVideoMinorTitle:   req.VerticalMinorTitle,
-		OriginLanguageWordOneLine: 12, // 默认值
+		TaskId:                  taskId,
+		TaskBasePath:            taskBasePath,
+		Link:                    req.Url,
+		SubtitleResultType:      resultType,
+		EnableModalFilter:       req.ModalFilter == types.SubtitleTaskModalFilterYes,
+		EnableTts:               req.Tts == types.SubtitleTaskTtsYes,
+		TtsVoiceCode:            ttsVoiceCode,
+		VoiceCloneAudioUrl:      voiceCloneAudioUrl,
+		ReplaceWordsMap:         replaceWordsMap,
+		OriginLanguage:          types.StandardLanguageName(req.OriginLanguage),
+		TargetLanguage:          types.StandardLanguageName(req.TargetLang),
+		UserUILanguage:          types.StandardLanguageName(req.Language),
+		EmbedSubtitleVideoType:  req.EmbedSubtitleVideoType,
+		VerticalVideoMajorTitle: req.VerticalMajorTitle,
+		VerticalVideoMinorTitle: req.VerticalMinorTitle,
+		MaxWordOneLine:          12, // 默认值
 	}
 	if req.OriginLanguageWordOneLine != 0 {
-		stepParam.OriginLanguageWordOneLine = req.OriginLanguageWordOneLine
+		stepParam.MaxWordOneLine = req.OriginLanguageWordOneLine
 	}
 	go func() {
 		defer func() {
@@ -137,7 +137,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		if err != nil {
 			log.GetLogger().Error("StartVideoSubtitleTask linkToAudioFile err", zap.Any("req", req), zap.Error(err))
 			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
-			storage.SubtitleTasks[stepParam.TaskId].FailReason = "link to audio error"
+			storage.SubtitleTasks[stepParam.TaskId].FailReason = err.Error()
 			return
 		}
 		// 暂时不加视频信息

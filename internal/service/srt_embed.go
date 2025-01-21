@@ -32,29 +32,28 @@ func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTa
 				return nil
 			}
 			log.GetLogger().Info("合成字幕嵌入视频：横屏")
-			err = embedSubtitles(stepParam.InputVideoPath, stepParam.BilingualSrtFilePath, stepParam.TaskBasePath, true)
+			err = embedSubtitles(stepParam, true)
 			if err != nil {
-				log.GetLogger().Error("generateAudioSubtitles embedSubtitles err", zap.Any("step param", stepParam), zap.Error(err))
-				return err
+				log.GetLogger().Error("embedSubtitles embedSubtitles error", zap.Any("step param", stepParam), zap.Error(err))
+				return fmt.Errorf("embedSubtitles embedSubtitles error: %w", err)
 			}
 		}
 		if stepParam.EmbedSubtitleVideoType == "vertical" || stepParam.EmbedSubtitleVideoType == "all" {
-			verticalVideoPath := stepParam.InputVideoPath
 			if width > height {
 				// 生成竖屏视频
 				transferredVerticalVideoPath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskTransferredVerticalVideoFileName)
 				err = convertToVertical(stepParam.InputVideoPath, transferredVerticalVideoPath, stepParam.VerticalVideoMajorTitle, stepParam.VerticalVideoMinorTitle)
 				if err != nil {
-					log.GetLogger().Error("生成竖屏视频失败", zap.Any("step param", stepParam), zap.Error(err))
-					return err
+					log.GetLogger().Error("embedSubtitles convertToVertical error", zap.Any("step param", stepParam), zap.Error(err))
+					return fmt.Errorf("embedSubtitles convertToVertical error: %w", err)
 				}
-				verticalVideoPath = transferredVerticalVideoPath
+				stepParam.InputVideoPath = transferredVerticalVideoPath
 			}
 			log.GetLogger().Info("合成字幕嵌入视频：竖屏")
-			err = embedSubtitles(verticalVideoPath, stepParam.ShortOriginMixedSrtFilePath, stepParam.TaskBasePath, false)
+			err = embedSubtitles(stepParam, false)
 			if err != nil {
-				log.GetLogger().Error("generateAudioSubtitles embedSubtitles err", zap.Any("step param", stepParam), zap.Error(err))
-				return err
+				log.GetLogger().Error("embedSubtitles embedSubtitles error", zap.Any("step param", stepParam), zap.Error(err))
+				return fmt.Errorf("embedSubtitles embedSubtitles error: %w", err)
 			}
 		}
 		log.GetLogger().Info("字幕嵌入视频成功")
@@ -64,20 +63,25 @@ func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTa
 	return nil
 }
 
-func splitMajorTextInHorizontal(text string) []string {
+func splitMajorTextInHorizontal(text string, language types.StandardLanguageName, maxWordOneLine int) []string {
 	// 按语言情况分割
-	var segments []string
-	containsAlphabetic := util.ContainsAlphabetic(text)
-	if !containsAlphabetic {
+	var (
+		segments []string
+		sep      string
+	)
+	if language == types.LanguageNameSimplifiedChinese || language == types.LanguageNameTraditionalChinese ||
+		language == types.LanguageNameJapanese || language == types.LanguageNameKorean || language == types.LanguageNameThai {
 		segments = regexp.MustCompile(`.`).FindAllString(text, -1)
+		sep = ""
 	} else {
 		segments = strings.Split(text, " ")
+		sep = " "
 	}
 
 	totalWidth := len(segments)
 
 	// 直接返回原句子
-	if (containsAlphabetic && totalWidth <= 10) || (!containsAlphabetic && totalWidth <= 20) {
+	if totalWidth <= maxWordOneLine {
 		return []string{text}
 	}
 
@@ -97,10 +101,9 @@ func splitMajorTextInHorizontal(text string) []string {
 	}
 
 	// 分割文本，保留原有句子格式
-	line1 := strings.Join(segments[:splitIndex], "")
-	line2 := strings.Join(segments[splitIndex:], "")
-	line1 = util.CleanPunction(line1)
-	line2 = util.CleanPunction(line2)
+
+	line1 := util.CleanPunction(strings.Join(segments[:splitIndex], sep))
+	line2 := util.CleanPunction(strings.Join(segments[splitIndex:], sep))
 
 	return []string{line1, line2}
 }
@@ -118,11 +121,11 @@ func splitChineseText(text string, maxWordLine int) []string {
 	return lines
 }
 
-func parseSRTTime(timeStr string) (time.Duration, error) {
+func parseSrtTime(timeStr string) (time.Duration, error) {
 	timeStr = strings.Replace(timeStr, ",", ".", 1)
 	parts := strings.Split(timeStr, ":")
 	if len(parts) != 3 {
-		return 0, fmt.Errorf("invalid time format: %s", timeStr)
+		return 0, fmt.Errorf("parseSrtTime invalid time format: %s", timeStr)
 	}
 
 	hours, err := strconv.Atoi(parts[0])
@@ -162,16 +165,18 @@ func formatTimestamp(t time.Duration) string {
 	return fmt.Sprintf("%02d:%02d:%02d.%02d", hours, minutes, seconds, milliseconds)
 }
 
-func srtToAss(inputSRT, outputASS string, isHorizontal bool) error {
+func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.SubtitleTaskStepParam) error {
 	file, err := os.Open(inputSRT)
 	if err != nil {
-		return err
+		log.GetLogger().Error("srtToAss Open input srt error", zap.Error(err))
+		return fmt.Errorf("srtToAss Open input srt error: %w", err)
 	}
 	defer file.Close()
 
 	assFile, err := os.Create(outputASS)
 	if err != nil {
-		return err
+		log.GetLogger().Error("srtToAss Create output ass error", zap.Error(err))
+		return fmt.Errorf("srtToAss Create output ass error: %w", err)
 	}
 	defer assFile.Close()
 	scanner := bufio.NewScanner(file)
@@ -195,13 +200,15 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool) error {
 
 			startTimeStr := strings.TrimSpace(parts[0])
 			endTimeStr := strings.TrimSpace(parts[1])
-			startTime, err := parseSRTTime(startTimeStr)
+			startTime, err := parseSrtTime(startTimeStr)
 			if err != nil {
-				return err
+				log.GetLogger().Error("srtToAss parseSrtTime error", zap.Error(err))
+				return fmt.Errorf("srtToAss parseSrtTime error: %w", err)
 			}
-			endTime, err := parseSRTTime(endTimeStr)
+			endTime, err := parseSrtTime(endTimeStr)
 			if err != nil {
-				return err
+				log.GetLogger().Error("srtToAss parseSrtTime error", zap.Error(err))
+				return fmt.Errorf("srtToAss parseSrtTime error: %w", err)
 			}
 
 			var subtitleLines []string
@@ -216,7 +223,14 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool) error {
 			if len(subtitleLines) < 2 {
 				continue
 			}
-			majorLine := strings.Join(splitMajorTextInHorizontal(subtitleLines[0]), "      \\N")
+			var majorTextLanguage types.StandardLanguageName
+			if stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop { // 一定是bilingual
+				majorTextLanguage = stepParam.TargetLanguage
+			} else {
+				majorTextLanguage = stepParam.OriginLanguage
+			}
+
+			majorLine := strings.Join(splitMajorTextInHorizontal(subtitleLines[0], majorTextLanguage, stepParam.MaxWordOneLine), "      \\N")
 			minorLine := util.CleanPunction(subtitleLines[1])
 
 			// ASS条目
@@ -226,6 +240,7 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool) error {
 			_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 		}
 	} else {
+		// TODO 竖屏拆分调优
 		_, _ = assFile.WriteString(types.AssHeaderVertical)
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -243,11 +258,11 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool) error {
 
 			startTimeStr := strings.TrimSpace(parts[0])
 			endTimeStr := strings.TrimSpace(parts[1])
-			startTime, err := parseSRTTime(startTimeStr)
+			startTime, err := parseSrtTime(startTimeStr)
 			if err != nil {
 				return err
 			}
-			endTime, err := parseSRTTime(endTimeStr)
+			endTime, err := parseSrtTime(endTimeStr)
 			if err != nil {
 				return err
 			}
@@ -289,22 +304,23 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool) error {
 	return nil
 }
 
-func embedSubtitles(videoFilePath, srtFilePath, workDir string, isHorizontal bool) error {
+func embedSubtitles(stepParam *types.SubtitleTaskStepParam, isHorizontal bool) error {
 	outputFileName := types.SubtitleTaskVerticalEmbedVideoFileName
-	assPath := filepath.Join(workDir, "formatted_subtitles.ass")
-
 	if isHorizontal {
 		outputFileName = types.SubtitleTaskHorizontalEmbedVideoFileName
 	}
-	if err := srtToAss(srtFilePath, assPath, isHorizontal); err != nil {
-		return err
+	assPath := filepath.Join(stepParam.TaskBasePath, "formatted_subtitles.ass")
+
+	if err := srtToAss(stepParam.BilingualSrtFilePath, assPath, isHorizontal, stepParam); err != nil {
+		log.GetLogger().Error("embedSubtitles srtToAss error", zap.Any("step param", stepParam), zap.Error(err))
+		return fmt.Errorf("embedSubtitles srtToAss error: %w", err)
 	}
 
-	cmd := exec.Command(storage.FfmpegPath, "-y", "-i", videoFilePath, "-vf", fmt.Sprintf("ass=%s", strings.ReplaceAll(assPath, "\\", "/")), "-c:a", "copy", filepath.Join(workDir, fmt.Sprintf("/output/%s", outputFileName)))
+	cmd := exec.Command(storage.FfmpegPath, "-y", "-i", stepParam.InputVideoPath, "-vf", fmt.Sprintf("ass=%s", strings.ReplaceAll(assPath, "\\", "/")), "-c:a", "aac", "-b:a", "192k", filepath.Join(stepParam.TaskBasePath, fmt.Sprintf("/output/%s", outputFileName)))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.GetLogger().Error("embedSubtitles ffmpeg err", zap.Any("step param", videoFilePath), zap.String("output", string(output)), zap.Error(err))
-		return err
+		log.GetLogger().Error("embedSubtitles embed subtitle into video ffmpeg error", zap.String("video path", stepParam.InputVideoPath), zap.String("output", string(output)), zap.Error(err))
+		return fmt.Errorf("embedSubtitles embed subtitle into video ffmpeg error: %w", err)
 	}
 	return nil
 }

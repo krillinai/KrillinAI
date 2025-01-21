@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"go.uber.org/zap"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -18,8 +19,8 @@ func (s Service) uploadSubtitles(ctx context.Context, stepParam *types.SubtitleT
 			replacedSrcFile := util.AddSuffixToFileName(resultPath, "_replaced")
 			err = util.ReplaceFileContent(resultPath, replacedSrcFile, stepParam.ReplaceWordsMap)
 			if err != nil {
-				log.GetLogger().Error("generateAudioSubtitles.uploadSubtitles ReplaceFileContent err", zap.Any("stepParam", stepParam), zap.Error(err))
-				return err
+				log.GetLogger().Error("uploadSubtitles ReplaceFileContent err", zap.Any("stepParam", stepParam), zap.Error(err))
+				return fmt.Errorf("uploadSubtitles ReplaceFileContent err: %w", err)
 			}
 			resultPath = replacedSrcFile
 		}
