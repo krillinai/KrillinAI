@@ -159,7 +159,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			storage.SubtitleTasks[stepParam.TaskId].ProcessPct = processPct
 
 			// 生成时间戳
-			err = s.generateTimestamps(stepParam.TaskId, stepParam.TaskBasePath, stepParam.OriginLanguage, stepParam.SubtitleResultType, audioFile, stepParam.OriginLanguageWordOneLine)
+			err = s.generateTimestamps(stepParam.TaskId, stepParam.TaskBasePath, stepParam.OriginLanguage, stepParam.SubtitleResultType, audioFile, stepParam.MaxWordOneLine)
 			if err != nil {
 				cancel()
 				log.GetLogger().Error("audioToSubtitle.audioToSrt.generateTimestamps err", zap.Any("stepParam", stepParam), zap.String("audio file", audioFileItem.AudioFile), zap.Error(err))
