@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go.uber.org/zap"
+	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
@@ -23,6 +24,10 @@ func (s Service) getVideoInfo(ctx context.Context, stepParam *types.SubtitleTask
 		descriptionCmdArgs := []string{"--skip-download", "--encoding", "utf-8", "--get-description", stepParam.Link}
 		titleCmdArgs = append(titleCmdArgs, "--cookies", "./cookies.txt")
 		descriptionCmdArgs = append(descriptionCmdArgs, "--cookies", "./cookies.txt")
+		if config.Conf.App.Proxy != "" {
+			titleCmdArgs = append(titleCmdArgs, "--proxy", config.Conf.App.Proxy)
+			descriptionCmdArgs = append(descriptionCmdArgs, "--proxy", config.Conf.App.Proxy)
+		}
 		if storage.FfmpegPath != "ffmpeg" {
 			titleCmdArgs = append(titleCmdArgs, "--ffmpeg-location", storage.FfmpegPath)
 			descriptionCmdArgs = append(descriptionCmdArgs, "--ffmpeg-location", storage.FfmpegPath)
