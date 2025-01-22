@@ -22,7 +22,36 @@
 			line-height: 42px;
 			margin: 0 auto 20px;
 		}
+		select {
+			width: 160px;
+			height: 38px;
+			padding: 0 30px 0 12px;
+			border: 1px solid #ddd;
+			border-radius: 6px;
+			background-color: #fff;
+			background-image: url('data:image/svg+xml,%3Csvg fill="%23333" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/%3E%3C/svg%3E');
+			background-repeat: no-repeat;
+			background-position: right 12px center;
+			background-size: 12px;
+			-webkit-appearance: none;
+			-moz-appearance: none;
+			appearance: none;
+			cursor: pointer;
+			font-size: 14px;
+			color: #333;
+			transition: border-color 0.3s ease, box-shadow 0.3s ease;
+		}
 
+		select:focus {
+			border-color: #007bff;
+			box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+			outline: none; /* 移除默认的聚焦轮廓 */
+		}
+
+		/* 隐藏 IE 默认箭头 */
+		select::-ms-expand {
+			display: none;
+		}
 		.container {
 			width: 620px;
 			padding: 30px;
@@ -42,24 +71,30 @@
 			gap: 15px;
 
 			button {
-				padding: 8px 20px;
-				background-color: #007bff;
+				padding: 10px 24px;
+				background: linear-gradient(135deg, #007bff, #0056b3);
 				color: #fff;
 				border: none;
-				border-radius: 4px;
+				border-radius: 6px;
 				cursor: pointer;
 				outline: 0;
+				transition: background 0.3s ease, transform 0.2s ease;
+				box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 			}
+
 			button:hover {
-				background-color: #036adb;
+				background: linear-gradient(135deg, #0056b3, #003d80);
+				transform: translateY(-2px);
+			}
+
+			button:disabled {
+				background: #ccc;
+				cursor: not-allowed;
+				transform: none;
 			}
 			button:focus,
 			button:focus-visible {
 				outline: 0;
-			}
-			button:disabled {
-				background-color: #ccc;
-				cursor: not-allowed;
 			}
 		}
 
@@ -78,14 +113,28 @@
 
 			input {
 				flex: 1;
-				line-height: 38px;
+				line-height: 26px;
 			}
-
 			input[type="url"] {
-				padding: 0 14px;
-				border: 1px solid #ccc;
+				padding: 8px 14px;
+				border: 1px solid #ddd;
 				border-radius: 6px;
 				outline: 0;
+				transition: border-color 0.3s ease;
+			}
+			input[type="url"]:focus {
+				border-color: #007bff;
+				box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+			}
+			input[type="checkbox"],
+			input[type="radio"] {
+				width: 18px;
+				height: 18px;
+				transition: transform 0.2s;
+			}
+			input[type="checkbox"]:hover,
+			input[type="radio"]:hover {
+				transform: scale(1.1);
 			}
 		}
 		.download-links {
@@ -119,7 +168,7 @@
 			flex: 1;
 			position: relative;
 			height: 20px;
-			border-radius: 4px;
+			border-radius: 10px;
 			background-color: #f3f3f3;
 			overflow: hidden;
 		}
@@ -129,7 +178,8 @@
 			line-height: 20px;
 			text-align: center;
 			color: white;
-			background-color: #4caf50;
+			background: linear-gradient(135deg, #4caf50, #45a049);
+			transition: width 0.5s ease;
 		}
 		.setWrap {
 			display: flex;
@@ -184,10 +234,60 @@
 			cursor: pointer;
 		}
 		.loading {
-			word-break: keep-all;
+			display: flex;
+			align-items: center;
+			gap: 10px;
 			color: #4caf50;
-			text-align: center;
 		}
+
+		.loading::after {
+			content: '';
+			width: 16px;
+			height: 16px;
+			border: 2px solid #4caf50;
+			border-top: 2px solid transparent;
+			border-radius: 50%;
+			animation: spin 1s linear infinite;
+		}
+		@keyframes spin {
+			0% { transform: rotate(0deg); }
+			100% { transform: rotate(360deg); }
+		}
+		/* 次要按钮样式 */
+		.download-button {
+			display: inline-block;
+			margin: 5px;
+			padding: 10px 24px;
+			background: #f8f9fa;
+			color: #495057;
+			border: 1px solid #ced4da;
+			border-radius: 6px;
+			cursor: pointer;
+			outline: 0;
+			transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+			text-decoration: none;
+			text-align: center;
+			font-size: 14px;
+		}
+		.download-button:hover {
+			background: #e9ecef;
+			border-color: #adb5bd;
+			color: #343a40;
+		}
+		.download-button:focus,
+		.download-button:focus-visible {
+			outline: 0;
+			border-color: #007bff;
+			box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); /* 添加焦点状态的光晕效果 */
+		}
+
+		.hint-text {
+			margin-top: 10px;
+			font-size: 14px;
+			color: #666;
+			font-style: italic;
+		}
+
 		.hidden {
 			display: none;
 		}
@@ -346,7 +446,7 @@
 			</div>
 
 			<!-- 合成字幕嵌入视频 -->
-			<div class="formGroup hidden" id="embed-subtitle-container">
+			<div class="formGroup" id="embed-subtitle-container">
 				<label>合成字幕嵌入视频:</label>
 				<input type="checkbox" id="embed-subtitle-toggle">
 				<select id="embed-subtitle">
@@ -358,6 +458,7 @@
 					<input type="text" id="subtitle-text-1" placeholder="请输入竖屏视频主标题">
 					<input type="text" id="subtitle-text-2" placeholder="请输入竖屏视频副标题">
 				</div>
+				<div id="subtitle-hint" class="hint-text">适合B站、Youtube等</div> <!-- 新增提示信息区域 -->
 			</div>
 		</div>
 
@@ -403,7 +504,6 @@
 	const addRowButton = document.getElementById("add-row");
 	const embedSubtitleVideoTypeToggle = document.getElementById("embed-subtitle-toggle");
 	const embedSubtitleVideoType = document.getElementById("embed-subtitle");
-	const embedSubtitleContainer = document.getElementById("embed-subtitle-container");
 	const embedSubtitle = document.getElementById("embed-subtitle");
 	const subtitleTextInputs = document.getElementById("subtitle-text-inputs");
 	const verticalMajorTitle = document.getElementById("subtitle-text-1");
@@ -479,13 +579,27 @@
 		voiceFileInputRemove.style.display = 'none';
 	});
 
-	// 监听“合成字幕嵌入视频”选项的变化
+	// 监听“合成字幕嵌入视频”选项
 	embedSubtitle.addEventListener("change", () => {
 		const selectedValue = embedSubtitle.value;
 		if (selectedValue === "vertical" || selectedValue === "all") {
 			subtitleTextInputs.classList.remove("hidden");
 		} else {
 			subtitleTextInputs.classList.add("hidden");
+		}
+	});
+
+	// 监听“合成字幕嵌入视频”选项
+	document.getElementById('embed-subtitle').addEventListener('change', function() {
+		const hintElement = document.getElementById('subtitle-hint');
+		const selectedValue = this.value;
+
+		if (selectedValue === 'vertical') {
+			hintElement.textContent = '适合小红书、视频号、Shorts等';
+		} else if (selectedValue === 'horizontal') {
+			hintElement.textContent = '适合B站、Youtube等';
+		} else {
+			hintElement.textContent = ''; // 清空提示信息
 		}
 	});
 
@@ -544,14 +658,12 @@
 			if (radio.value === 'url') {
 				urlInputContainer.classList.remove('hidden');
 				fileInputContainer.classList.add('hidden');
-				embedSubtitleContainer.classList.add('hidden');
 				fileInput.required = false;
 				urlInput.required = true;
 				executeButton.disabled = false; // 启用“执行”按钮
 			} else {
 				urlInputContainer.classList.add('hidden');
 				fileInputContainer.classList.remove('hidden');
-				embedSubtitleContainer.classList.remove('hidden');
 				urlInput.required = false;
 				fileInput.required = true;
 				executeButton.disabled = true; // 禁用“执行”按钮，等待上传完成
@@ -743,34 +855,29 @@
 	function displayDownloadLinks(urls, speechUrl) {
 		console.log(urls);
 		downloadLinks.innerHTML = '';
+
 		urls.forEach(({name, download_url}) => {
 			const link = document.createElement('a');
 			link.href = download_url;
 			link.textContent = name;
 			link.download = '';
+			link.classList.add('download-button'); // 添加按钮样式
 			downloadLinks.appendChild(link);
 		});
+
 		if (speechUrl) {
 			const sArr = speechUrl.split('/');
 			const sName = sArr[sArr.length - 1];
-			// fetch(speechUrl)
-			// 	.then((response) => response.blob())
-			// 	.then((blob) => {
-			// 		const blobUrl = URL.createObjectURL(blob);
-			// 		const link = document.createElement("a");
-			// 		link.href = blobUrl;
-			// 		link.textContent = sName;
-			// 		link.download = sName; // 设置下载文件名
-			// 		downloadLinks.appendChild(link);
-			// 	});
+
 			const link = document.createElement('a');
-			link.style = 'text-align: center;';
 			link.href = speechUrl;
 			link.target = '_blank';
 			link.textContent = `配音：${sName}`;
 			link.download = '';
+			link.classList.add('download-button'); // 添加按钮样式
 			downloadLinks.appendChild(link);
 		}
+
 		downloadLinks.classList.remove('hidden');
 	}
 </script>
