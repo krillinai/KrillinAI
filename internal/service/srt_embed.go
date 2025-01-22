@@ -22,7 +22,7 @@ import (
 
 func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	var err error
-	if stepParam.EmbedSubtitleVideoType != "none" {
+	if stepParam.EmbedSubtitleVideoType == "horizontal" || stepParam.EmbedSubtitleVideoType == "vertical" || stepParam.EmbedSubtitleVideoType == "all" {
 		var width, height int
 		width, height, err = getResolution(stepParam.InputVideoPath)
 		// 横屏可以合成竖屏的，但竖屏暂时不支持合成横屏的

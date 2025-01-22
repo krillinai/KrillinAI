@@ -77,7 +77,7 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 
 	if !strings.HasPrefix(link, "local:") && stepParam.EmbedSubtitleVideoType != "none" {
 		// 需要下载原视频
-		cmd := exec.Command(storage.YtdlpPath, "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]", "-o", videoPath, stepParam.Link)
+		cmd := exec.Command(storage.YtdlpPath, "-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]", "-o", videoPath, stepParam.Link)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			log.GetLogger().Error("linkToFile download video yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
