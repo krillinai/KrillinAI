@@ -133,9 +133,9 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		}()
 		// 新版流程：链接->本地音频文件->视频信息获取（若有）->本地字幕文件->语言合成->视频合成->字幕文件链接生成
 		log.GetLogger().Info("video subtitle start task", zap.String("taskId", taskId))
-		err = s.linkToAudioFile(ctx, &stepParam)
+		err = s.linkToFile(ctx, &stepParam)
 		if err != nil {
-			log.GetLogger().Error("StartVideoSubtitleTask linkToAudioFile err", zap.Any("req", req), zap.Error(err))
+			log.GetLogger().Error("StartVideoSubtitleTask linkToFile err", zap.Any("req", req), zap.Error(err))
 			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
 			storage.SubtitleTasks[stepParam.TaskId].FailReason = err.Error()
 			return

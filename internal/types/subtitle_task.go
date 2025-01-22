@@ -110,6 +110,7 @@ const (
 
 const (
 	SubtitleTaskAudioFileName                           = "origin_audio.mp3"
+	SubtitleTaskVideoFileName                           = "origin_video.mp4"
 	SubtitleTaskSplitAudioFileNamePrefix                = "split_audio"
 	SubtitleTaskSplitAudioFileNamePattern               = SubtitleTaskSplitAudioFileNamePrefix + "_%03d.mp3"
 	SubtitleTaskSplitAudioTxtFileNamePattern            = "split_audio_txt_%d.txt"
