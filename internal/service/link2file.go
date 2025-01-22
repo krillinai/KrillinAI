@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"go.uber.org/zap"
+	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
@@ -41,7 +42,9 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 		}
 		stepParam.Link = "https://www.youtube.com/watch?v=" + videoId
 		cmdArgs := []string{"-f", "bestaudio", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "192K", "-o", audioPath, stepParam.Link}
-
+		if config.Conf.App.Proxy != "" {
+			cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
+		}
 		cmdArgs = append(cmdArgs, "--cookies", "./cookies.txt")
 		if storage.FfmpegPath != "ffmpeg" {
 			cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
@@ -59,6 +62,9 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 		}
 		stepParam.Link = "https://www.bilibili.com/video/" + videoId
 		cmdArgs := []string{"-f", "bestaudio[ext=m4a]", "-x", "--audio-format", "mp3", "-o", audioPath, stepParam.Link}
+		if config.Conf.App.Proxy != "" {
+			cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
+		}
 		if storage.FfmpegPath != "ffmpeg" {
 			cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
 		}
@@ -77,7 +83,11 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 
 	if !strings.HasPrefix(link, "local:") && stepParam.EmbedSubtitleVideoType != "none" {
 		// 需要下载原视频
-		cmd := exec.Command(storage.YtdlpPath, "-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]", "-o", videoPath, stepParam.Link)
+		cmdArgs := []string{"-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]", "-o", videoPath, stepParam.Link}
+		if config.Conf.App.Proxy != "" {
+			cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
+		}
+		cmd := exec.Command(storage.YtdlpPath, cmdArgs...)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			log.GetLogger().Error("linkToFile download video yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
