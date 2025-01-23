@@ -31,7 +31,7 @@ KrillinAI提供了从视频下载，音频提取，音频转录，文本切割�
 翻译语言支持：英文，中文，俄语，西班牙语，法语等56种语言
 
 ## 界面预览
-![界面预览](./docs/images/ui.png)
+![界面预览](./docs/images/ui.jpg)
 
 ## 效果展示
 下图为46分钟的本地视频导入，一键执行后生成的字幕文件入轨后的效果，无任何手动调整。无缺失、重叠，断句自然，翻译质量也非常高。
@@ -61,7 +61,7 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 ## 快速开始
 ### 基本步骤
 1. 下载[Release](https://github.com/krillinai/KrillinAI/releases)中与你设备系统匹配的可执行文件，放入空文件夹
-2. 在文件夹内创建`config`文件夹，然后在`config`文件夹创建`config.toml`文件，复制源代码`config`目录下的`config-example.toml`文件的内容填入`config.toml`，并对照填写你的配置信息。
+2. 在文件夹内创建`config`文件夹，然后在`config`文件夹创建`config.toml`文件，复制源代码`config`目录下的`config-example.toml`文件的内容填入`config.toml`，并对照填写你的配置信息。（想用openai模型但不会获取key的可以加群免费试用）
 3. 双击，或在终端执行可执行文件，启动服务
 4. 打开浏览器，输入`http://127.0.0.1:8888`，开始使用 (8888替换成你在配置文件中填写的端口)
 
@@ -79,15 +79,15 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 ### Docker部署
 本项目支持Docker部署，请参考[Docker部署说明](./docs/docker.md)
 
-### Cookie配置说明
+### Cookie配置说明(非必选)
 
 如果你遇到视频下载失败的情况
 
 请参考 [Cookie 配置说明](./docs/get_cookies.md) 配置你的Cookie信息。
 
-### 配置帮助
+### 配置帮助（必看）
 最快速便捷的配置方式：
-* `transcription_provider`和`llm_provider`都选择`openai`，这样在下方`openai`、`local_model`、`aliyun`三个配置项大类里只需要填写`openai.apikey`就可以进行字幕翻译。(`app.proxy`和`openai.base_url`按自己情况选填)
+* `transcription_provider`和`llm_provider`都选择`openai`，这样在下方`openai`、`local_model`、`aliyun`三个配置项大类里只需要填写`openai.apikey`就可以进行字幕翻译。(`app.proxy`、`model`和`openai.base_url`按自己情况选填)
 
 使用本地语言识别模型（暂不支持macOS）的配置方式（兼顾成本、速度与质量的选择）
 * `transcription_provider`填写`fasterwhisper`，`llm_provider`填写`openai`，这样在下方`openai`、`local_model`三个配置项大类里只需要填写`openai.apikey`和`local_model.faster_whisper`就可以进行字幕翻译，本地模型会自动下载。(`app.proxy`和`openai.base_url`同上)
