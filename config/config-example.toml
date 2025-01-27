@@ -17,6 +17,9 @@
     base_url = "" # OpenAI API 自定义base url，可配合转发站密钥使用，留空为默认API地址
     model = "" # 指定模型名，可通过此字段结合base_url使用外部任何与OpenAI API兼容的大模型服务，留空默认为gpt-4o-mini
     api_key = "sk-XXX" # OpenAI API密钥
+    [openai.whisper] # 由于使用whisperAPI进行语音识别时，上方可能配置使用了OpenAI格式兼容的其它厂商的模型，所以此处需要独立填入openai的配置信息
+        base_url = ""
+        api_key = ""
 
 [aliyun] # 具体请参考文档中的“阿里云配置说明”
     [aliyun.oss]

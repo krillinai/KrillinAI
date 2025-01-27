@@ -27,10 +27,16 @@ type LocalModel struct {
 	FasterWhisper string `toml:"faster_whisper"`
 }
 
-type Openai struct {
+type OpenAiWhisper struct {
 	BaseUrl string `toml:"base_url"`
-	Model   string `toml:"model"`
 	ApiKey  string `toml:"api_key"`
+}
+
+type Openai struct {
+	BaseUrl string        `toml:"base_url"`
+	Model   string        `toml:"model"`
+	ApiKey  string        `toml:"api_key"`
+	Whisper OpenAiWhisper `toml:"whisper"`
 }
 
 type AliyunOss struct {
@@ -128,6 +134,14 @@ func loadFromEnv() {
 		Conf.Openai.ApiKey = v
 	}
 
+	// Whisper配置
+	if v := os.Getenv("KRILLIN_OPENAI_WHISPER_BASE_URL"); v != "" {
+		Conf.Openai.Whisper.BaseUrl = v
+	}
+	if v := os.Getenv("KRILLIN_OPENAI_WHISPER_API_KEY"); v != "" {
+		Conf.Openai.Whisper.ApiKey = v
+	}
+
 	// Aliyun OSS 配置
 	if v := os.Getenv("KRILLIN_ALIYUN_OSS_ACCESS_KEY_ID"); v != "" {
 		Conf.Aliyun.Oss.AccessKeyId = v
@@ -161,7 +175,7 @@ func validateConfig() error {
 	// 检查转写服务提供商配置
 	switch Conf.App.TranscribeProvider {
 	case "openai":
-		if Conf.Openai.ApiKey == "" {
+		if Conf.Openai.Whisper.ApiKey == "" {
 			return errors.New("使用OpenAI转写服务需要配置 OpenAI API Key")
 		}
 	case "fasterwhisper":
