@@ -4,6 +4,7 @@ import (
 	"context"
 	openai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
+	"io"
 	"krillin-ai/config"
 	"krillin-ai/log"
 )
@@ -21,18 +22,33 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 				Content: query,
 			},
 		},
+		Stream:    true,
+		MaxTokens: 8192,
 	}
 	if config.Conf.Openai.Model != "" {
 		req.Model = config.Conf.Openai.Model
 	}
 
-	resp, err := c.client.CreateChatCompletion(context.Background(), req)
+	stream, err := c.client.CreateChatCompletionStream(context.Background(), req)
 	if err != nil {
-		log.GetLogger().Error("openai create chat completion failed", zap.Error(err))
+		log.GetLogger().Error("openai create chat completion stream failed", zap.Error(err))
 		return "", err
 	}
+	defer stream.Close()
 
-	resContent := resp.Choices[0].Message.Content
+	var resContent string
+	for {
+		response, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.GetLogger().Error("openai stream receive failed", zap.Error(err))
+			return "", err
+		}
+
+		resContent += response.Choices[0].Delta.Content
+	}
 
 	return resContent, nil
 }
