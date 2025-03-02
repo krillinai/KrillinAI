@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./docs/images/logo.png" alt="KrillinAI" height="100">
+  <img src="./images/logo.png" alt="KrillinAI" height="100">
 
   # 极简部署AI视频翻译配音工具
 
@@ -31,11 +31,11 @@ KrillinAI提供了从视频下载，音频提取，音频转录，文本切割�
 翻译语言支持：英文，中文，俄语，西班牙语，法语等56种语言
 
 ## 界面预览
-![界面预览](./docs/images/ui.jpg)
+![界面预览](./images/ui.jpg)
 
 ## 效果展示
 下图为46分钟的本地视频导入，一键执行后生成的字幕文件入轨后的效果，无任何手动调整。无缺失、重叠，断句自然，翻译质量也非常高。
-![对齐效果](./docs/images/alignment.png)
+![对齐效果](./images/alignment.png)
 
 <table>
 <tr>
@@ -77,13 +77,13 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
     即可启动服务
 
 ### Docker部署
-本项目支持Docker部署，请参考[Docker部署说明](./docs/docker.md)
+本项目支持Docker部署，请参考[Docker部署说明](./docker.md)
 
 ### Cookie配置说明(非必选)
 
 如果你遇到视频下载失败的情况
 
-请参考 [Cookie 配置说明](./docs/get_cookies.md) 配置你的Cookie信息。
+请参考 [Cookie 配置说明](./get_cookies.md) 配置你的Cookie信息。
 
 ### 配置帮助（必看）
 最快速便捷的配置方式：
@@ -96,11 +96,11 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 * 如果`llm_provider`填写了`aliyun`，需要使用阿里云的大模型服务，因此需要配置`aliyun.bailian`项的配置
 * 如果`transcription_provider`填写了`aliyun`，或者在启动任务时开启了“配音”功能，都需要使用阿里云的语音服务，因此需要填写`aliyun.speech`项的配置
 * 如果开启了“配音”功能，同时上传了本地的音频做音色克隆，则还需要使用阿里云的OSS云存储服务，因此需要填写`aliyun.oss`项的配置  
-阿里云配置帮助：[阿里云配置说明](./docs/aliyun.md)
+阿里云配置帮助：[阿里云配置说明](./aliyun.md)
 
 ## 常见问题
 
-请移步[常见问题](./docs/faq.md)
+请移步[常见问题](./faq.md)
 
 ## 贡献规范
 1. 不要提交无用文件，如.vscode、.idea等，请善于使用.gitignore过滤

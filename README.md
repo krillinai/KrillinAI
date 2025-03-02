@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./images/logo.png" alt="KrillinAI" height="100">
+  <img src="./docs/images/logo.png" alt="KrillinAI" height="100">
 
   # AI Audio&Video Translation and Dubbing Tool
 
@@ -29,11 +29,11 @@ Input languages: Chinese, English, Japanese, German, Turkish supported (more lan
 Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc.
 
 ## Interface Preview
-![ui preview](./images/ui.png)
+![ui preview](./docs/images/ui.jpg)
 
 ## Showcase
 The following picture demonstrates the effect after the subtitle file, which was generated through a one-click operation after importing a 46-minute local video, was inserted into the track. There was no manual adjustment involved at all. There are no missing or overlapping subtitles, the sentence segmentation is natural, and the translation quality is also quite high.
-![Alignment](./images/alignment.png)
+![Alignment](./docs/images/alignment.png)
 
 <table>
 <tr>
@@ -73,11 +73,11 @@ sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
 This will start the service.
 
 ### Docker Deployment
-This project supports Docker deployment. Please refer to the [Docker Deployment Instructions](./docker.md).
+This project supports Docker deployment. Please refer to the [Docker Deployment Instructions](./docs/docker.md).
 
 ### Cookie Configuration Instructions
 
-If you encounter video download failures, please refer to the [Cookie Configuration Instructions](./get_cookies.md) to configure your cookie information.
+If you encounter video download failures, please refer to the [Cookie Configuration Instructions](./docs/get_cookies.md) to configure your cookie information.
 
 ### Configuration Help
 The quickest and most convenient configuration method:
@@ -90,10 +90,10 @@ The following usage situations require the configuration of Alibaba Cloud:
 * If `llm_provider` is filled with `aliyun`, it indicates that the large model service of Alibaba Cloud will be used. Consequently, the configuration of the `aliyun.bailian` item needs to be set up.
 * If `transcription_provider` is filled with `aliyun`, or if the "voice dubbing" function is enabled when starting a task, the voice service of Alibaba Cloud will be utilized. Therefore, the configuration of the `aliyun.speech` item needs to be filled in.
 * If the "voice dubbing" function is enabled and local audio files are uploaded for voice timbre cloning at the same time, the OSS cloud storage service of Alibaba Cloud will also be used. Hence, the configuration of the `aliyun.oss` item needs to be filled in.
-Configuration Guide: [Alibaba Cloud Configuration Instructions](./aliyun.md)
+Configuration Guide: [Alibaba Cloud Configuration Instructions](./docs/aliyun.md)
 
 ## Frequently Asked Questions
-Please refer to [Frequently Asked Questions](./faq.md)
+Please refer to [Frequently Asked Questions](./docs/faq.md)
 
 ## Contribution Guidelines
 
