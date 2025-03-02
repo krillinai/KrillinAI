@@ -8,6 +8,7 @@ import (
 	"krillin-ai/pkg/aliyun"
 	"krillin-ai/pkg/fasterwhisper"
 	"krillin-ai/pkg/openai"
+	"krillin-ai/pkg/whisper"
 )
 
 type Service struct {
@@ -24,7 +25,7 @@ func NewService() *Service {
 
 	switch config.Conf.App.TranscribeProvider {
 	case "openai":
-		transcriber = openai.NewClient(config.Conf.Openai.BaseUrl, config.Conf.Openai.ApiKey, config.Conf.App.Proxy)
+		transcriber = whisper.NewClient(config.Conf.Openai.Whisper.BaseUrl, config.Conf.Openai.Whisper.ApiKey, config.Conf.App.Proxy)
 	case "aliyun":
 		transcriber = aliyun.NewAsrClient(config.Conf.Aliyun.Bailian.ApiKey)
 	case "fasterwhisper":
