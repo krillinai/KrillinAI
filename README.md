@@ -1,56 +1,52 @@
 <div align="center">
-  <img src="./docs/images/logo.png" alt="KrillinAI" height="100">
+  <img src="./images/logo.png" alt="KrillinAI" height="100">
 
-  # 极简部署AI视频翻译配音工具
+  # AI Audio&Video Translation and Dubbing Tool
 
-  <p>专业级翻译切割对齐，高质量声音克隆，一键生成横竖屏格式，适配抖音，哔哩哔哩，小红书，视频号，快手等主流平台</p>
-  <p> Q群: 754069680 </p>
+<p>Based on LLMs, professional-level translation, capable of generating both portrait and landscape formats, one-click deployment.</p>
 
-  **中文｜ [English](./docs/README_en.md)**
+  **English | [中文](./docs/README_zh.md)**
 
 </div>
 
-🚀 **项目简介**  
+🚀 **Project Overview**
 
-KrillinAI提供了从视频下载，音频提取，音频转录，文本切割，翻译，对齐，到最终合成适配抖音，哔哩哔哩，小红书，视频号，快手等主流平台格式的一站式解决方案。
+Krillin AI is a one-stop solution designed for users and developers seeking high-quality video processing. It provides an end-to-end workflow, from video download to the final product, ensuring every frame of your content is extraordinary.
 
-## 主要特点与功能：
-🎯 **一键启动**：无需复杂的环境配置，自动安装依赖，立即投入使用  
-📥 **视频获取**：集成yt-dlp，直接通过YouTube，Bilibili链接下载视频，也可直接上传本地视频  
-📜 **字幕识别和翻译**：支持OpenAI、阿里云等主流供应商的语音和大模型服务以及Faster Whisper本地模型（持续集成中）  
-🧠 **智能字幕分割对齐**：自研算法对字幕进行智能分割和对齐，摆脱生硬的断句  
-🔄 **自定义词汇替换**：支持一键替换词汇，适应特定领域语言风格  
-🌍 **专业级翻译**：整段翻译引擎，确保上下文一致和语义连贯  
-🎙️ **配音和声音克隆**：可选默认的男女生音色生成翻译后的视频朗读配音，或者上传本地音频样本克隆音色进行朗读  
-📝 **配音对齐**：跨语言配音，也能与原字幕对齐  
-🎬 **视频合成**：一键合成横屏和竖屏视频，自动处理宽度超限的字幕
+## Key Features and Functions:
+🎯 **One-Click Start**: There is no need for complicated environment configuration. Krillin AI supports automatic installation of dependencies, enabling you to quickly get started and put it into use immediately.  
+📥 **Video Acquisition**: Integrated with yt-dlp, it can directly download videos via YouTube and Bilibili links, simplifying the process of material collection. You can also directly upload local videos.  
+📜 **Subtitle Recognition and Translation**: It supports voice and large model services of mainstream providers such as OpenAI and Alibaba Cloud, as well as local models (continuous integration in progress).  
+🧠 **Intelligent Subtitle Segmentation and Alignment**: Utilize self-developed algorithms to conduct intelligent segmentation and alignment of subtitles, getting rid of rigid sentence breaks.  
+🔄 **Custom Vocabulary Replacement**: Support one-click replacement of vocabulary to adapt to the language style of specific fields.  
+🌍 **Professional Translation**: The whole-paragraph translation engine ensures the consistency of context and semantic coherence.  
+🎙️ **Dubbing and Voice Cloning**: You can choose the default male or female voice tones to generate video reading dubbing for the translated content, or upload local audio samples to clone voice tones for dubbing.  
+📝 **Dubbing Alignment**: It can perform cross-language dubbing and also align with the original subtitles.   
+🎬 **Video Composition**: With one click, compose horizontal and vertical videos with embedded subtitles. Subtitles that exceed the width limit will be processed automatically. 
 
-## 语言支持
-输入语言支持：中文，英文，日语，德语，土耳其语（持续增加中）
+## Language Support
+Input languages: Chinese, English, Japanese, German, Turkish supported (more languages being added)  
+Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc.
 
-翻译语言支持：英文，中文，俄语，西班牙语，法语等56种语言
+## Interface Preview
+![ui preview](./images/ui.png)
 
-## 界面预览
-![界面预览](./docs/images/ui.jpg)
-
-## 效果展示
-下图为46分钟的本地视频导入，一键执行后生成的字幕文件入轨后的效果，无任何手动调整。无缺失、重叠，断句自然，翻译质量也非常高。
-![对齐效果](./docs/images/alignment.png)
+## Showcase
+The following picture demonstrates the effect after the subtitle file, which was generated through a one-click operation after importing a 46-minute local video, was inserted into the track. There was no manual adjustment involved at all. There are no missing or overlapping subtitles, the sentence segmentation is natural, and the translation quality is also quite high.
+![Alignment](./images/alignment.png)
 
 <table>
 <tr>
 <td width="50%">
 
-### 字幕翻译
+### Subtitle Translation
 ---
 https://github.com/user-attachments/assets/bba1ac0a-fe6b-4947-b58d-ba99306d0339
 
 </td>
 <td width="50%">
 
-
-
-### 配音
+### Dubbing
 ---
 https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 
@@ -58,57 +54,51 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 </tr>
 </table>
 
-## 快速开始
-### 基本步骤
-1. 下载[Release](https://github.com/krillinai/KrillinAI/releases)中与你设备系统匹配的可执行文件，放入空文件夹
-2. 在文件夹内创建`config`文件夹，然后在`config`文件夹创建`config.toml`文件，复制源代码`config`目录下的`config-example.toml`文件的内容填入`config.toml`，并对照填写你的配置信息。（想用openai模型但不会获取key的可以加群免费试用）
-3. 双击，或在终端执行可执行文件，启动服务
-4. 打开浏览器，输入`http://127.0.0.1:8888`，开始使用 (8888替换成你在配置文件中填写的端口)
+## Quick Start
+### Basic Steps
+1. Download the executable file that matches your device system from the release and place it in an empty folder.
+2. Create a `config` folder inside the folder, then create a `config.toml` file in the `config` folder. Copy the content from the `config-example.toml` file in the source code's `config` directory into `config.toml` and fill in your configuration information accordingly.
+3. Double-click the executable file to start the service.
+4. Open a browser and enter `http://127.0.0.1:8888` to start using it (replace 8888 with the port you configured in the `config.toml` file).
 
-### To: macOS用户
-本软件没有做签名，因此在macOS上运行时，在完成“基本步骤”中的文件配置后，还需要手动信任应用，方法如下：
-1. 在终端打开可执行文件（假设文件名是KrillinAI_1.0.0_macOS_arm64）所在目录
-2. 依次执行以下命令：
-   ```
-    sudo xattr -rd com.apple.quarantine ./KrillinAI_1.0.0_macOS_arm64
-    sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
-    ./KrillinAI_1.0.0_macOS_arm64
-    ```
-    即可启动服务
+### To: macOS Users
+This software is not signed, so after completing the file configuration in the "Basic Steps," you will need to manually trust the application on macOS. Follow these steps:
+1. Open the terminal and navigate to the directory where the executable file (assuming the file name is `KrillinAI_1.0.0_macOS_arm64`) is located.
+2. Execute the following commands in sequence:
+```
+sudo xattr -rd com.apple.quarantine ./KrillinAI_1.0.0_macOS_arm64
+sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
+./KrillinAI_1.0.0_macOS_arm64
+```
+This will start the service.
 
-### Docker部署
-本项目支持Docker部署，请参考[Docker部署说明](./docs/docker.md)
+### Docker Deployment
+This project supports Docker deployment. Please refer to the [Docker Deployment Instructions](./docker.md).
 
-### Cookie配置说明(非必选)
+### Cookie Configuration Instructions
 
-如果你遇到视频下载失败的情况
+If you encounter video download failures, please refer to the [Cookie Configuration Instructions](./get_cookies.md) to configure your cookie information.
 
-请参考 [Cookie 配置说明](./docs/get_cookies.md) 配置你的Cookie信息。
+### Configuration Help
+The quickest and most convenient configuration method:
+* Select `openai` for both `transcription_provider` and `llm_provider`. In this way, you only need to fill in `openai.apikey` in the following three major configuration item categories, namely `openai`, `local_model`, and `aliyun`, and then you can conduct subtitle translation. (Fill in `app.proxy`, `model` and `openai.base_url` as per your own situation.)
 
-### 配置帮助（必看）
-最快速便捷的配置方式：
-* `transcription_provider`和`llm_provider`都选择`openai`，这样在下方`openai`、`local_model`、`aliyun`三个配置项大类里只需要填写`openai.apikey`就可以进行字幕翻译。(`app.proxy`、`model`和`openai.base_url`按自己情况选填)
+The configuration method for using the local speech recognition model (macOS is not supported for the time being) (a choice that takes into account cost, speed, and quality):
+* Fill in `fasterwhisper` for `transcription_provider` and `openai` for `llm_provider`. In this way, you only need to fill in `openai.apikey` and `local_model.faster_whisper` in the following three major configuration item categories, namely `openai` and `local_model`, and then you can conduct subtitle translation. The local model will be downloaded automatically. (The same applies to `app.proxy` and `openai.base_url` as mentioned above.)
 
-使用本地语言识别模型（暂不支持macOS）的配置方式（兼顾成本、速度与质量的选择）
-* `transcription_provider`填写`fasterwhisper`，`llm_provider`填写`openai`，这样在下方`openai`、`local_model`三个配置项大类里只需要填写`openai.apikey`和`local_model.faster_whisper`就可以进行字幕翻译，本地模型会自动下载。(`app.proxy`和`openai.base_url`同上)
+The following usage situations require the configuration of Alibaba Cloud:
+* If `llm_provider` is filled with `aliyun`, it indicates that the large model service of Alibaba Cloud will be used. Consequently, the configuration of the `aliyun.bailian` item needs to be set up.
+* If `transcription_provider` is filled with `aliyun`, or if the "voice dubbing" function is enabled when starting a task, the voice service of Alibaba Cloud will be utilized. Therefore, the configuration of the `aliyun.speech` item needs to be filled in.
+* If the "voice dubbing" function is enabled and local audio files are uploaded for voice timbre cloning at the same time, the OSS cloud storage service of Alibaba Cloud will also be used. Hence, the configuration of the `aliyun.oss` item needs to be filled in.
+Configuration Guide: [Alibaba Cloud Configuration Instructions](./aliyun.md)
 
-以下几种使用情况，需要进行阿里云的配置：
-* 如果`llm_provider`填写了`aliyun`，需要使用阿里云的大模型服务，因此需要配置`aliyun.bailian`项的配置
-* 如果`transcription_provider`填写了`aliyun`，或者在启动任务时开启了“配音”功能，都需要使用阿里云的语音服务，因此需要填写`aliyun.speech`项的配置
-* 如果开启了“配音”功能，同时上传了本地的音频做音色克隆，则还需要使用阿里云的OSS云存储服务，因此需要填写`aliyun.oss`项的配置  
-阿里云配置帮助：[阿里云配置说明](./docs/aliyun.md)
+## Frequently Asked Questions
+Please refer to [Frequently Asked Questions](./faq.md)
 
-## 常见问题
+## Contribution Guidelines
 
-请移步[常见问题](./docs/faq.md)
-
-## 贡献规范
-1. 不要提交无用文件，如.vscode、.idea等，请善于使用.gitignore过滤
-2. 不要提交config.toml，而是使用config-example.toml提交
-
-## 联系我们
-1. 加入我们的QQ群，解答问题：754069680
-2. 关注我们的社交媒体账号，[哔哩哔哩](https://space.bilibili.com/242124650)，每天分享AI科技领域优质内容
+- Do not submit unnecessary files like `.vscode`, `.idea`, etc. Please make good use of `.gitignore` to filter them.
+- Do not submit `config.toml`; instead, submit `config-example.toml`.
 
 ## Star History
 
