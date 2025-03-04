@@ -1,8 +1,7 @@
-package fasterwhisper
+package whisperkit
 
 import (
 	"encoding/json"
-	"go.uber.org/zap"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
@@ -10,37 +9,42 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
-func (c *FastwhisperProcessor) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
+func (c *WhisperKitProcessor) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
 	cmdArgs := []string{
-		"--model_dir", "./models/",
-		"--model", c.Model,
-		"--one_word", "2",
-		"--output_format", "json",
+		"transcribe",
+		"--model-path", "/Users/outisli/AI_Models/whisperkit-coreml/openai_whisper-large-v2",
+		"--audio-encoder-compute-units", "all",
+		"--text-decoder-compute-units", "all",
 		"--language", language,
-		"--output_dir", workDir,
-		audioFile,
+		"--report",
+		"--report-path", workDir,
+		"--word-timestamps",
+		"--skip-special-tokens",
+		"--audio-path", audioFile,
 	}
-	cmd := exec.Command(storage.FasterwhisperPath, cmdArgs...)
-	log.GetLogger().Info("FastwhisperProcessor转录开始", zap.String("cmd", cmd.String()))
+	cmd := exec.Command(storage.WhisperKitPath, cmdArgs...)
+	log.GetLogger().Info("WhisperKitProcessor转录开始", zap.String("cmd", cmd.String()))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.GetLogger().Error("FastwhisperProcessor  cmd 执行失败", zap.String("output", string(output)), zap.Error(err))
+		log.GetLogger().Error("WhisperKitProcessor  cmd 执行失败", zap.String("output", string(output)), zap.Error(err))
 		return nil, err
 	}
-	log.GetLogger().Info("FastwhisperProcessor转录json生成完毕", zap.String("audio file", audioFile))
+	log.GetLogger().Info("WhisperKitProcessor转录json生成完毕", zap.String("audio file", audioFile))
 
-	var result types.FasterWhisperOutput
+	var result types.WhisperKitOutput
 	fileData, err := os.Open(util.ChangeFileExtension(audioFile, ".json"))
 	if err != nil {
-		log.GetLogger().Error("FastwhisperProcessor 打开json文件失败", zap.Error(err))
+		log.GetLogger().Error("WhisperKitProcessor 打开json文件失败", zap.Error(err))
 		return nil, err
 	}
 	defer fileData.Close()
 	decoder := json.NewDecoder(fileData)
 	if err = decoder.Decode(&result); err != nil {
-		log.GetLogger().Error("FastwhisperProcessor 解析json文件失败", zap.Error(err))
+		log.GetLogger().Error("WhisperKitProcessor 解析json文件失败", zap.Error(err))
 		return nil, err
 	}
 
@@ -81,6 +85,6 @@ func (c *FastwhisperProcessor) Transcription(audioFile, language, workDir string
 			}
 		}
 	}
-	log.GetLogger().Info("FastwhisperProcessor转录成功")
+	log.GetLogger().Info("WhisperKitProcessor转录成功")
 	return &transcriptionData, nil
 }
