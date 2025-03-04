@@ -24,7 +24,7 @@ type Server struct {
 }
 
 type LocalModel struct {
-	FasterWhisper string `toml:"faster_whisper"`
+	WhisperKit string `toml:"whisperkit"`
 }
 
 type OpenAiWhisper struct {
@@ -81,7 +81,7 @@ var Conf = Config{
 		Port: 8888,
 	},
 	LocalModel: LocalModel{
-		FasterWhisper: "medium",
+		WhisperKit: "large-v2",
 	},
 }
 
@@ -120,7 +120,7 @@ func loadFromEnv() {
 
 	// LocalModel 配置
 	if v := os.Getenv("KRILLIN_FASTER_WHISPER"); v != "" {
-		Conf.LocalModel.FasterWhisper = v
+		Conf.LocalModel.WhisperKit = v
 	}
 
 	// OpenAI 配置
@@ -178,9 +178,9 @@ func validateConfig() error {
 		if Conf.Openai.Whisper.ApiKey == "" {
 			return errors.New("使用OpenAI转写服务需要配置 OpenAI API Key")
 		}
-	case "fasterwhisper":
-		if Conf.LocalModel.FasterWhisper != "tiny" && Conf.LocalModel.FasterWhisper != "medium" && Conf.LocalModel.FasterWhisper != "large-v2" {
-			return errors.New("检测到开启了fasterwhisper，但模型选型配置不正确，请检查配置")
+	case "whisperkit":
+		if Conf.LocalModel.WhisperKit != "tiny" && Conf.LocalModel.WhisperKit != "medium" && Conf.LocalModel.WhisperKit != "large-v2" {
+			return errors.New("检测到开启了whisperkit，但模型选型配置不正确，请检查配置")
 		}
 	case "aliyun":
 		if Conf.Aliyun.Speech.AccessKeyId == "" || Conf.Aliyun.Speech.AccessKeySecret == "" || Conf.Aliyun.Speech.AppKey == "" {
@@ -225,7 +225,7 @@ func LoadConfig() error {
 	}
 
 	// 本地模型不并发
-	if Conf.App.TranscribeProvider == "fasterwhisper" {
+	if Conf.App.TranscribeProvider == "whisperkit" {
 		Conf.App.TranslateParallelNum = 1
 	}
 

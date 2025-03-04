@@ -6,7 +6,7 @@ import (
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"krillin-ai/pkg/aliyun"
-	"krillin-ai/pkg/fasterwhisper"
+	"krillin-ai/pkg/whisperkit"
 	"krillin-ai/pkg/openai"
 	"krillin-ai/pkg/whisper"
 )
@@ -28,8 +28,8 @@ func NewService() *Service {
 		transcriber = whisper.NewClient(config.Conf.Openai.Whisper.BaseUrl, config.Conf.Openai.Whisper.ApiKey, config.Conf.App.Proxy)
 	case "aliyun":
 		transcriber = aliyun.NewAsrClient(config.Conf.Aliyun.Bailian.ApiKey)
-	case "fasterwhisper":
-		transcriber = fasterwhisper.NewFastwhisperProcessor(config.Conf.LocalModel.FasterWhisper)
+	case "whisperkit":
+		transcriber = whisperkit.NewWhisperKitProcessor(config.Conf.LocalModel.WhisperKit)
 	}
 	log.GetLogger().Info("当前选择的转录源： ", zap.String("transcriber", config.Conf.App.TranscribeProvider))
 
