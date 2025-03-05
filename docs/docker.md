@@ -39,7 +39,7 @@ KrillinAI 支持通过环境变量来代替配置文件。所有环境变量都�
 - `KRILLIN_SERVER_PORT`: 服务器监听端口（整数，默认值: 8888）
 
 ### 本地模型配置
-- `KRILLIN_FASTER_WHISPER`: Faster Whisper 所使用的模型（当 transcribe_provider 为 fasterwhisper 时有效，默认值: medium，可选: tiny/medium/large-v2）
+- `KRILLIN_LOCAL_WHISPER`: Local Whisper 所使用的模型（当 transcribe_provider 为 fasterwhisper 或 whisperkit 时有效，默认值: medium，可选: tiny/medium/large-v2）
 
 ### OpenAI 配置
 - `KRILLIN_OPENAI_BASE_URL`: OpenAI API 基础 URL（可选，默认值: 官方 API 地址）

@@ -16,7 +16,7 @@ import (
 func (c *WhisperKitProcessor) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
 	cmdArgs := []string{
 		"transcribe",
-		"--model-path", "/Users/outisli/AI_Models/whisperkit-coreml/openai_whisper-large-v2",
+		"--model-path", "./models/whisperkit/openai_whisper-large-v2",
 		"--audio-encoder-compute-units", "all",
 		"--text-decoder-compute-units", "all",
 		"--language", language,

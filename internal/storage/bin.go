@@ -4,5 +4,6 @@ var (
 	FfmpegPath        string
 	FfprobePath       string
 	YtdlpPath         string
-	WhisperKitPath string
+	FasterwhisperPath string
+	WhisperKitPath    string
 )
