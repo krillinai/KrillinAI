@@ -2,7 +2,6 @@ package deps
 
 import (
 	"fmt"
-	"go.uber.org/zap"
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/log"
@@ -10,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+
+	"go.uber.org/zap"
 )
 
 func CheckDependency() error {
@@ -34,7 +35,18 @@ func CheckDependency() error {
 			log.GetLogger().Error("fasterwhisper环境准备失败", zap.Error(err))
 			return err
 		}
-		err = checkModel()
+		err = checkModel("fasterwhisper")
+		if err != nil {
+			log.GetLogger().Error("本地模型环境准备失败", zap.Error(err))
+			return err
+		}
+	}
+	if config.Conf.App.TranscribeProvider == "whisperkit" {
+		if err = checkWhisperKit(); err != nil {
+			log.GetLogger().Error("whisperkit环境准备失败", zap.Error(err))
+			return err
+		}
+		err = checkModel("whisperkit")
 		if err != nil {
 			log.GetLogger().Error("本地模型环境准备失败", zap.Error(err))
 			return err
@@ -292,34 +304,76 @@ func checkFasterWhisper() error {
 }
 
 // 检测本地模型
-func checkModel() error {
+func checkModel(whisperType string) error {
 	var err error
-	if _, err = os.Stat("./models"); os.IsNotExist(err) {
-		err = os.MkdirAll("./models", 0755)
+	if _, err = os.Stat("./models/whisperkit"); os.IsNotExist(err) {
+		err = os.MkdirAll("./models/whisperkit", 0755)
 		if err != nil {
 			log.GetLogger().Error("创建./models目录失败", zap.Error(err))
 			return err
 		}
 	}
 	// 模型文件
-	model := config.Conf.LocalModel.FasterWhisper
-	modelFile := fmt.Sprintf("./models/faster-whisper-%s/model.bin", model)
-	if _, err = os.Stat(modelFile); os.IsNotExist(err) {
-		// 下载
-		log.GetLogger().Info(fmt.Sprintf("没有找到模型文件%s,即将开始自动下载", modelFile))
-		downloadUrl := fmt.Sprintf("https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/faster-whisper-%s.zip", model)
-		err = util.DownloadFile(downloadUrl, fmt.Sprintf("./models/faster-whisper-%s.zip", model), config.Conf.App.Proxy)
-		if err != nil {
-			log.GetLogger().Error("下载模型失败", zap.Error(err))
-			return err
+	model := config.Conf.LocalModel.Whisper
+	var modelPath string // cli中使用的model path
+	switch whisperType {
+	case "fasterwhisper":
+		modelPath = fmt.Sprintf("./models/faster-whisper-%s/model.bin", model)
+		if _, err = os.Stat(modelPath); os.IsNotExist(err) {
+			// 下载
+			log.GetLogger().Info(fmt.Sprintf("没有找到模型文件%s,即将开始自动下载", modelPath))
+			downloadUrl := fmt.Sprintf("https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/faster-whisper-%s.zip", model)
+			err = util.DownloadFile(downloadUrl, fmt.Sprintf("./models/faster-whisper-%s.zip", model), config.Conf.App.Proxy)
+			if err != nil {
+				log.GetLogger().Error("下载fasterwhisper模型失败", zap.Error(err))
+				return err
+			}
+			err = util.Unzip(fmt.Sprintf("./models/faster-whisper-%s.zip", model), fmt.Sprintf("./models/faster-whisper-%s/", model))
+			if err != nil {
+				log.GetLogger().Error("解压模型失败", zap.Error(err))
+				return err
+			}
+			log.GetLogger().Info("模型下载完成", zap.String("路径", modelPath))
 		}
-		err = util.Unzip(fmt.Sprintf("./models/faster-whisper-%s.zip", model), fmt.Sprintf("./models/faster-whisper-%s/", model))
-		if err != nil {
-			log.GetLogger().Error("解压模型失败", zap.Error(err))
-			return err
+	case "whisperkit":
+		modelPath = "./models/whisperkit/openai_whisper-large-v2"
+		files, _ := os.ReadDir(modelPath)
+		if len(files) == 0 {
+			log.GetLogger().Info("没有找到whisperkit模型，即将开始自动下载")
+			downloadUrl := "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/whisperkit-large-v2.zip"
+			err = util.DownloadFile(downloadUrl, "./models/whisperkit/openai_whisper-large-v2.zip", config.Conf.App.Proxy)
+			if err != nil {
+				log.GetLogger().Info("下载whisperkit模型失败", zap.Error(err))
+				return err
+			}
+			err = util.Unzip("./models/whisperkit/openai_whisper-large-v2.zip", "./models/whisperkit/")
+			if err != nil {
+				log.GetLogger().Error("解压whisperkit模型失败", zap.Error(err))
+				return err
+			}
+			log.GetLogger().Info("whisperkit模型下载完成", zap.String("路径", modelPath))
 		}
-		log.GetLogger().Info("模型下载完成", zap.String("路径", modelFile))
 	}
-	log.GetLogger().Info("模型检查完成", zap.String("路径", modelFile))
+
+	log.GetLogger().Info("模型检查完成", zap.String("路径", modelPath))
+	return nil
+}
+
+// 检测whisperkit
+func checkWhisperKit() error {
+	cmd := exec.Command("which", "whisperkit-cli")
+	err := cmd.Run()
+	if err != nil {
+		log.GetLogger().Info("没有找到whisperkit-cli，即将开始自动安装")
+		cmd = exec.Command("brew", "install", "whisperkit-cli")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			log.GetLogger().Error("whisperkit-cli 安装失败", zap.String("info", string(output)), zap.Error(err))
+			return err
+		}
+		log.GetLogger().Info("whisperkit-cli 安装成功")
+	}
+	storage.WhisperKitPath = "whisperkit-cli"
+	log.GetLogger().Info("检测到whisperkit-cli已安装")
 	return nil
 }

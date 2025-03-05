@@ -2,10 +2,13 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"github.com/BurntSushi/toml"
+	"go.uber.org/zap"
 	"krillin-ai/log"
 	"net/url"
 	"os"
+	"runtime"
 	"strconv"
 )
 
@@ -24,7 +27,7 @@ type Server struct {
 }
 
 type LocalModel struct {
-	FasterWhisper string `toml:"faster_whisper"`
+	Whisper string `toml:"whisper"`
 }
 
 type OpenAiWhisper struct {
@@ -81,7 +84,7 @@ var Conf = Config{
 		Port: 8888,
 	},
 	LocalModel: LocalModel{
-		FasterWhisper: "medium",
+		Whisper: "large-v2",
 	},
 }
 
@@ -119,8 +122,8 @@ func loadFromEnv() {
 	}
 
 	// LocalModel 配置
-	if v := os.Getenv("KRILLIN_FASTER_WHISPER"); v != "" {
-		Conf.LocalModel.FasterWhisper = v
+	if v := os.Getenv("KRILLIN_LOCAL_WHISPER"); v != "" {
+		Conf.LocalModel.Whisper = v
 	}
 
 	// OpenAI 配置
@@ -179,8 +182,16 @@ func validateConfig() error {
 			return errors.New("使用OpenAI转写服务需要配置 OpenAI API Key")
 		}
 	case "fasterwhisper":
-		if Conf.LocalModel.FasterWhisper != "tiny" && Conf.LocalModel.FasterWhisper != "medium" && Conf.LocalModel.FasterWhisper != "large-v2" {
+		if Conf.LocalModel.Whisper != "tiny" && Conf.LocalModel.Whisper != "medium" && Conf.LocalModel.Whisper != "large-v2" {
 			return errors.New("检测到开启了fasterwhisper，但模型选型配置不正确，请检查配置")
+		}
+	case "whisperkit":
+		if runtime.GOOS != "darwin" {
+			log.GetLogger().Error("whisperkit只支持macos", zap.String("当前系统", runtime.GOOS))
+			return fmt.Errorf("whisperkit只支持macos")
+		}
+		if Conf.LocalModel.Whisper != "large-v2" {
+			return errors.New("检测到开启了whisperkit，但模型选型配置不正确，请检查配置")
 		}
 	case "aliyun":
 		if Conf.Aliyun.Speech.AccessKeyId == "" || Conf.Aliyun.Speech.AccessKeySecret == "" || Conf.Aliyun.Speech.AppKey == "" {
@@ -225,7 +236,7 @@ func LoadConfig() error {
 	}
 
 	// 本地模型不并发
-	if Conf.App.TranscribeProvider == "fasterwhisper" {
+	if Conf.App.TranscribeProvider == "fasterwhisper" || Conf.App.TranscribeProvider == "whisperkit" {
 		Conf.App.TranslateParallelNum = 1
 	}
 
