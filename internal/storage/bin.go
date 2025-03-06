@@ -5,4 +5,5 @@ var (
 	FfprobePath       string
 	YtdlpPath         string
 	FasterwhisperPath string
+	WhisperKitPath    string
 )

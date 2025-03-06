@@ -9,3 +9,7 @@ uploads/
 app.log
 build/
 dist/
+
+# MACOS
+.DS_Store
+._*
