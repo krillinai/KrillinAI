@@ -25,7 +25,7 @@ func (c *FastwhisperProcessor) Transcription(audioFile, language, workDir string
 	cmd := exec.Command(storage.FasterwhisperPath, cmdArgs...)
 	log.GetLogger().Info("FastwhisperProcessor转录开始", zap.String("cmd", cmd.String()))
 	output, err := cmd.CombinedOutput()
-	if err != nil {
+	if err != nil && !strings.Contains(string(output), "Subtitles are written to") {
 		log.GetLogger().Error("FastwhisperProcessor  cmd 执行失败", zap.String("output", string(output)), zap.Error(err))
 		return nil, err
 	}
