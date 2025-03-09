@@ -4,9 +4,11 @@
   # 极简部署AI视频翻译配音工具
 
   <p>专业级翻译切割对齐，高质量声音克隆，一键生成横竖屏格式，适配抖音，哔哩哔哩，小红书，视频号，快手等主流平台</p>
-  <p> Q群: 754069680 </p>
 
-  ** 中文｜[English](../README.md)**
+  中文｜[English](../README.md)
+
+ [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
+[![哔哩哔哩](https://img.shields.io/badge/哔哩哔哩-KrillinAI-red?logo=bilibili)](https://space.bilibili.com/242124650)
 
 </div>
 
