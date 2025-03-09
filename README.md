@@ -7,6 +7,9 @@
 
   **English | [中文](./docs/README_zh.md)**
 
+  [![Discord](https://img.shields.io/badge/Discord-KrillinAI-blue)](https://discord.gg/7RUa4WuW)
+  [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-green?logo=twitter)](https://x.com/KrillinAI)
+
 </div>
 
 🚀 **Project Overview**
