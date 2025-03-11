@@ -3,13 +3,16 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/BurntSushi/toml"
-	"go.uber.org/zap"
 	"krillin-ai/log"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
+
+	"github.com/BurntSushi/toml"
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 )
 
 type App struct {
@@ -242,4 +245,24 @@ func LoadConfig() error {
 
 	// 验证配置
 	return validateConfig()
+}
+
+// SaveConfig 保存配置到文件
+func SaveConfig() error {
+	// 获取配置文件路径
+	configPath := filepath.Join("config", "config.toml")
+
+	// 将配置转换为TOML格式
+	data, err := yaml.Marshal(Conf)
+	if err != nil {
+		return err
+	}
+
+	// 写入文件
+	err = os.WriteFile(configPath, data, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
