@@ -40,7 +40,6 @@ func (fm *FileManager) ShowUploadDialog() {
 		filePath := reader.URI().Path()
 		fileName := filepath.Base(filePath)
 
-		// 上传文件
 		err = fm.uploadFile(filePath, fileName)
 		if err != nil {
 			dialog.ShowError(err, fm.window)
@@ -128,7 +127,6 @@ func (fm *FileManager) DownloadFile(index int) {
 			return
 		}
 
-		// 下载文件
 		resp, err := http.Get("http://localhost:8888" + filePath)
 		if err != nil {
 			dialog.ShowError(err, fm.window)
