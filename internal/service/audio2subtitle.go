@@ -701,8 +701,13 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 				if startWord.Start < sentenceTs.Start {
 					startWord.Start = sentenceTs.Start
 				}
-				endWord = startWord
+				// 首个单词的开始时间戳大于句子的结束时间戳，说明这个单词找错了，放弃掉
+				if startWord.End > sentenceTs.End {
+					originSentence += word.Text + " "
+					continue
+				}
 				originSentence += word.Text + " "
+				endWord = startWord
 				i++
 				nextStart = false
 				continue
