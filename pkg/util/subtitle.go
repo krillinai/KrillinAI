@@ -114,9 +114,16 @@ func ParseSrtNoTsToSrtBlock(srtNoTsFile string) ([]*SrtBlock, error) {
 	var blocks []*SrtBlock
 	var currentBlock SrtBlock
 	scanner := bufio.NewScanner(file)
+	start := true
 
 	for scanner.Scan() {
 		line := TrimString(scanner.Text())
+		// 去掉最开始的描述
+		if start && !IsNumber(line) {
+			continue
+		} else {
+			start = false
+		}
 		if line == "" { // 空行表示一个块的结束
 			if currentBlock.Index != 0 {
 				cur := currentBlock
