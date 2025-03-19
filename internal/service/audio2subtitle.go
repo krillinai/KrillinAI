@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -110,7 +111,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			defer func() {
 				<-parallelControlChan
 				if r := recover(); r != nil {
-					log.GetLogger().Error("audioToSubtitle.audioToSrt panic recovered", zap.Any("recover", r))
+					log.GetLogger().Error("audioToSubtitle.audioToSrt panic recovered", zap.Any("panic", r), zap.String("stack", string(debug.Stack())))
 				}
 			}()
 			select {
@@ -132,8 +133,12 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			}
 			if err != nil {
 				cancel()
-				log.GetLogger().Error("audioToSubtitle audioToSrt Transcription err", zap.Any("stepParam", stepParam), zap.String("audio file", audioFileItem.AudioFile), zap.Error(err))
+				log.GetLogger().Error("audioToSubtitle audioToSrt Transcription err", zap.Any("stepParam", stepParam), zap.String("audio file", audioFile.AudioFile), zap.Error(err))
 				return fmt.Errorf("audioToSubtitle audioToSrt Transcription err: %w", err)
+			}
+
+			if transcriptionData.Text == "" {
+				log.GetLogger().Info("audioToSubtitle audioToSrt TranscriptionData.Text is empty", zap.Any("stepParam", stepParam), zap.String("audio file", audioFile.AudioFile))
 			}
 
 			audioFile.TranscriptionData = transcriptionData
@@ -149,7 +154,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			err = s.splitTextAndTranslate(stepParam.TaskId, stepParam.TaskBasePath, stepParam.TargetLanguage, stepParam.EnableModalFilter, audioFile)
 			if err != nil {
 				cancel()
-				log.GetLogger().Error("audioToSubtitle audioToSrt splitTextAndTranslate err", zap.Any("stepParam", stepParam), zap.String("audio file", audioFileItem.AudioFile), zap.Error(err))
+				log.GetLogger().Error("audioToSubtitle audioToSrt splitTextAndTranslate err", zap.Any("stepParam", stepParam), zap.String("audio file", audioFile.AudioFile), zap.Error(err))
 				return fmt.Errorf("audioToSubtitle audioToSrt err: %w", err)
 			}
 
@@ -164,7 +169,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			err = s.generateTimestamps(stepParam.TaskId, stepParam.TaskBasePath, stepParam.OriginLanguage, stepParam.SubtitleResultType, audioFile, stepParam.MaxWordOneLine)
 			if err != nil {
 				cancel()
-				log.GetLogger().Error("audioToSubtitle audioToSrt generateTimestamps err", zap.Any("stepParam", stepParam), zap.String("audio file", audioFileItem.AudioFile), zap.Error(err))
+				log.GetLogger().Error("audioToSubtitle audioToSrt generateTimestamps err", zap.Any("stepParam", stepParam), zap.String("audio file", audioFile.AudioFile), zap.Error(err))
 				return fmt.Errorf("audioToSubtitle audioToSrt err: %w", err)
 			}
 			return nil
