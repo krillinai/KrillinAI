@@ -826,8 +826,8 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 	if audioFile.TranscriptionData.Text == "" {
 		return fmt.Errorf("audioToSubtitle splitTextAndTranslate audioFile.TranscriptionData.Text is empty")
 	}
-	// 最多尝试3次获取有效的翻译结果
-	for i := 0; i < 3; i++ {
+	// 最多尝试4次获取有效的翻译结果
+	for i := 0; i < 4; i++ {
 		splitContent, err = s.ChatCompleter.ChatCompletion(splitPrompt + audioFile.TranscriptionData.Text)
 		if err != nil {
 			log.GetLogger().Warn("audioToSubtitle splitTextAndTranslate ChatCompletion error, retrying...",
@@ -915,6 +915,6 @@ func isValidSplitContent(splitContent, originalText string) bool {
 	originalTextLength := len(strings.TrimSpace(originalText))
 	combinedLength := len(strings.TrimSpace(combinedOriginal))
 
-	// 允许150字的误差
-	return math.Abs(float64(originalTextLength-combinedLength)) <= 150
+	// 允许200字符的误差
+	return math.Abs(float64(originalTextLength-combinedLength)) <= 200
 }
