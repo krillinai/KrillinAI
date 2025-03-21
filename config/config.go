@@ -3,13 +3,14 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/BurntSushi/toml"
-	"go.uber.org/zap"
 	"krillin-ai/log"
 	"net/url"
 	"os"
 	"runtime"
 	"strconv"
+
+	"github.com/BurntSushi/toml"
+	"go.uber.org/zap"
 )
 
 type App struct {
@@ -221,12 +222,19 @@ func validateConfig() error {
 func LoadConfig() error {
 	var err error
 	configPath := "./config/config.toml"
-	if _, err = os.Stat(configPath); os.IsNotExist(err) {
+
+	// 检查配置文件是否存在
+	if _, statErr := os.Stat(configPath); os.IsNotExist(statErr) {
+		// 配置文件不存在，从环境变量加载
 		log.GetLogger().Info("未找到配置文件，从环境变量中加载配置")
 		loadFromEnv()
 	} else {
+		// 配置文件存在，优先从配置文件加载
 		log.GetLogger().Info("已找到配置文件，从配置文件中加载配置")
 		_, err = toml.DecodeFile(configPath, &Conf)
+		if err != nil {
+			return fmt.Errorf("配置文件解析失败: %w", err)
+		}
 	}
 
 	// 解析代理地址
