@@ -7,7 +7,8 @@
 
 **[English](../README.md) ｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)**
 
- [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
+  [![Discord](https://img.shields.io/badge/Discord-KrillinAI-blue)](https://discord.gg/7RUa4WuW)
+  [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
 [![哔哩哔哩](https://img.shields.io/badge/哔哩哔哩-KrillinAI-red?logo=bilibili)](https://space.bilibili.com/242124650)
 
 </div>
