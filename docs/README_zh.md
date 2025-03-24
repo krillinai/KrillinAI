@@ -1,9 +1,7 @@
 <div align="center">
-  <img src="./images/logo.png" alt="KrillinAI" height="100">
+  <img src="./images/logo.png" alt="KrillinAI" height="90">
 
   # 极简部署AI视频翻译配音工具
-
-  <p>专业级翻译切割对齐，高质量声音克隆，一键生成横竖屏格式，适配抖音，哔哩哔哩，小红书，视频号，快手等主流平台</p>
 
   **[English](../README.md)｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)**
 
