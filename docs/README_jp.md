@@ -5,7 +5,7 @@
 
   <p>プロ級の翻訳・分割・調整、高品質な音声クローン、ワンクリックで縦横画面フォーマットを生成、抖音（TikTok）、Bilibili、小红书、WeChat動画、Kwaiなどの主要プラットフォームに対応</p>
 
-  中文｜[English](../README.md)｜日語(../README_jp.md)
+  [简体中文](../images/README_zh.md)｜[English](../README.md)｜日本語
 
  [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 [![哔哩哔哩](https://img.shields.io/badge/哔哩哔哩-KrillinAI-red?logo=bilibili)](https://space.bilibili.com/242124650)
@@ -64,9 +64,9 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 ## クイックスタート
 ### 基本手順
 1. [Release](https://github.com/krillinai/KrillinAI/releases)からお使いのデバイスに合った実行ファイルをダウンロードし、空のフォルダに配置
-2. フォルダ内にconfigフォルダを作成し、configフォルダ内にconfig.tomlファイルを作成、ソースコードのconfigディレクトリにあるconfig-example.tomlファイルの内容をコピーして貼り付け、設定情報を記入（OpenAIモデルを使いたいがキーの取得方法がわからない場合はグループに参加して無料で試用可能）
+2. フォルダ内に`config`フォルダを作成し、`config`フォルダ内に`config.toml`ファイルを作成、ソースコードの`config`ディレクトリにある`config-example.toml`ファイルの内容をコピーして貼り付け、設定情報を記入（OpenAIモデルを使いたいがキーの取得方法がわからない場合はグループに参加して無料で試用可能）
 3. 実行ファイルをダブルクリック、またはターミナルで実行してサービスを起動
-4. ブラウザを開き、http://127.0.0.1:8888と入力して使用開始（8888は設定ファイルで指定したポートに置き換え）
+4. ブラウザを開き `http://127.0.0.1:8888`と入力して使用開始
 
 ### macOSユーザー向け
 本ソフトウェアは署名されていないため、macOSで実行する場合、「基本手順」のファイル設定完了後、手動でアプリを信頼する必要があります。方法は以下の通り：
