@@ -3,8 +3,6 @@
 
   # AI動画翻訳・吹き替えツール（簡単デプロイ）
 
-  <p>プロ級の翻訳・分割・調整、高品質な音声クローン、ワンクリックで縦横画面フォーマットを生成、抖音（TikTok）、Bilibili、小红书、WeChat動画、Kwaiなどの主要プラットフォームに対応</p>
-
 **[English](../README.md) ｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)**
 
   [![Discord](https://img.shields.io/badge/Discord-KrillinAI-blue)](https://discord.gg/7RUa4WuW)
