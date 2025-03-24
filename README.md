@@ -30,7 +30,7 @@ Krillin AI is a one-stop solution designed for users and developers seeking high
 
 🔄 **Term Replacement** - One-click domain-specific vocabulary swap 
 
-🎙️ **Dubbing and Voice Cloning** - Default voices or custom audio samples
+🎙️ **Dubbing and Voice Cloning** - CosyVoice selected or cloning voices
 
 🎬 **Video Composition** - Auto-formatting for horizontal/vertical layouts
 
