@@ -40,6 +40,7 @@ type SubtitleManager struct {
 	embedSubtitle      string // none, horizontal, vertical, all
 	verticalTitles     [2]string
 	progressBar        *widget.ProgressBar
+	progressLabel      *widget.Label // 进度百分比标签
 	downloadContainer  *fyne.Container
 	tipsLabel          *widget.Label
 	onVideoSelected    func(string)
@@ -324,6 +325,11 @@ func (sm *SubtitleManager) GetVideoUrl() string {
 	return sm.videoUrl
 }
 
+// SetProgressLabel 设置进度百分比标签
+func (sm *SubtitleManager) SetProgressLabel(label *widget.Label) {
+	sm.progressLabel = label
+}
+
 func (sm *SubtitleManager) StartTask() error {
 	task := &api.SubtitleTask{
 		URL:                     sm.videoUrl,
@@ -416,7 +422,14 @@ func (sm *SubtitleManager) pollTaskStatus(taskId string) {
 		}
 
 		// 更新进度条
-		sm.progressBar.SetValue(float64(result.Data.ProcessPercent) / 100.0)
+		progress := float64(result.Data.ProcessPercent) / 100.0
+		sm.progressBar.SetValue(progress)
+
+		// 同时更新进度标签
+		if sm.progressLabel != nil {
+			sm.progressLabel.SetText(fmt.Sprintf("%d%%", result.Data.ProcessPercent))
+			sm.progressLabel.Show()
+		}
 
 		if result.Data.ProcessPercent >= 100 {
 			sm.displayDownloadLinks(result.Data.SubtitleInfo, result.Data.SpeechDownloadURL)

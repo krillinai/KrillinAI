@@ -1,53 +1,153 @@
 package desktop
 
 import (
+	"image/color"
+	"time"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
-// Show 展示桌面应用
-func Show() {
-	myApp := app.New()
-	myWindow := myApp.NewWindow("Krillin AI")
+func createNavButton(text string, icon fyne.Resource, isSelected bool, onTap func()) *widget.Button {
+	btn := widget.NewButtonWithIcon(text, icon, onTap)
 
-	// 创建左侧导航栏
-	nav := widget.NewList(
-		func() int { return 2 },
-		func() fyne.CanvasObject { return widget.NewLabel("Template") },
-		func(id widget.ListItemID, item fyne.CanvasObject) {
-			label := item.(*widget.Label)
-			switch id {
-			case 0:
-				label.SetText("字幕任务")
-			case 1:
-				label.SetText("配置")
-			}
-		},
-	)
-
-	// 创建内容区域
-	content := container.NewStack()
-	nav.OnSelected = func(id widget.ListItemID) {
-		switch id {
-		case 0:
-			content.Objects = []fyne.CanvasObject{CreateSubtitleTab(myWindow)}
-		case 1:
-			content.Objects = []fyne.CanvasObject{CreateConfigTab(myWindow)}
-		}
-		content.Refresh()
+	// 根据选中状态设置颜色
+	if isSelected {
+		btn.Importance = widget.HighImportance
+	} else {
+		btn.Importance = widget.LowImportance
 	}
 
-	// 设置默认选中项
-	nav.Select(0)
+	return btn
+}
 
-	// 创建主布局
-	split := container.NewHSplit(nav, content)
+// Show 展示桌面
+func Show() {
+	myApp := app.New()
+
+	// 自定义主题
+	myApp.Settings().SetTheme(NewCustomTheme())
+
+	myWindow := myApp.NewWindow("Krillin AI")
+
+	logoContainer := container.NewVBox()
+
+	logo := canvas.NewText("Krillin AI", color.NRGBA{R: 88, G: 157, B: 246, A: 255})
+	logo.TextSize = 28
+	logo.TextStyle = fyne.TextStyle{Bold: true}
+	logo.Alignment = fyne.TextAlignCenter
+
+	separator := canvas.NewRectangle(color.NRGBA{R: 210, G: 225, B: 245, A: 255})
+	separator.SetMinSize(fyne.NewSize(0, 2))
+
+	slogan := canvas.NewText("智能字幕生成助手", color.NRGBA{R: 100, G: 120, B: 160, A: 255})
+	slogan.TextSize = 12
+	slogan.Alignment = fyne.TextAlignCenter
+
+	logoContainer.Add(logo)
+	logoContainer.Add(separator)
+	logoContainer.Add(slogan)
+
+	// 创建左侧导航栏
+	navItems := []string{"字幕任务", "配置"}
+	navIcons := []fyne.Resource{theme.DocumentIcon(), theme.SettingsIcon()}
+
+	// 存储导航按钮列表
+	var navButtons []*widget.Button
+	navContainer := container.NewVBox()
+
+	// 内容区域
+	content := AnimatedContainer()
+
+	currentSelectedIndex := 0
+
+	// 创建导航项
+	for i, item := range navItems {
+		index := i // 捕获变量
+		isSelected := (i == currentSelectedIndex)
+
+		// 创建导航按钮以及点击处理函数
+		navBtn := createNavButton(item, navIcons[i], isSelected, func() {
+			// 如果已经是当前选中项，不做任何操作
+			if currentSelectedIndex == index {
+				return
+			}
+
+			// 更新所有导航项的状态
+			for j, btn := range navButtons {
+				if j == index {
+					btn.Importance = widget.HighImportance
+				} else {
+					btn.Importance = widget.LowImportance
+				}
+			}
+
+			// 更新当前选中的索引
+			currentSelectedIndex = index
+
+			// 刷新容器
+			navContainer.Refresh()
+
+			// 更新内容
+			updateContent(index, content)
+		})
+
+		// 将导航按钮添加到列表和容器中
+		navButtons = append(navButtons, navBtn)
+		navContainer.Add(container.NewPadded(navBtn))
+	}
+
+	updateContent(0, content)
+
+	navBackground := canvas.NewRectangle(color.NRGBA{R: 250, G: 251, B: 254, A: 255})
+
+	navWithBackground := container.NewStack(
+		navBackground,
+		container.NewBorder(
+			container.NewPadded(logoContainer),
+			nil, nil, nil,
+			container.NewPadded(navContainer),
+		),
+	)
+
+	// 主布局
+	split := container.NewHSplit(navWithBackground, content)
 	split.SetOffset(0.2)
 
-	myWindow.SetContent(split)
+	mainContainer := container.NewPadded(split)
+
+	// 底部状态栏
+	statusText := canvas.NewText("就绪", color.NRGBA{R: 100, G: 120, B: 160, A: 180})
+	statusText.TextSize = 12
+	statusBar := container.NewHBox(
+		layout.NewSpacer(),
+		statusText,
+	)
+
+	finalContainer := container.NewBorder(nil, container.NewPadded(statusBar), nil, nil, mainContainer)
+
+	myWindow.SetContent(finalContainer)
 	myWindow.Resize(fyne.NewSize(1000, 700))
 	myWindow.CenterOnScreen()
 	myWindow.ShowAndRun()
+}
+
+// 更新内容区域
+func updateContent(index int, content *fyne.Container) {
+	var newContent fyne.CanvasObject
+
+	switch index {
+	case 0:
+		newContent = CreateSubtitleTab(fyne.CurrentApp().Driver().AllWindows()[0])
+	case 1:
+		newContent = CreateConfigTab(fyne.CurrentApp().Driver().AllWindows()[0])
+	}
+
+	// 使用淡入淡出动画切换内容
+	SwitchContent(content, newContent, 300*time.Millisecond)
 }

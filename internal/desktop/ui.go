@@ -2,17 +2,20 @@ package desktop
 
 import (
 	"fmt"
+	"image/color"
 	"krillin-ai/config"
 	"krillin-ai/internal/deps"
 	"krillin-ai/log"
 	"path/filepath"
 	"strconv"
-
-	"fyne.io/fyne/v2/data/binding"
+	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"go.uber.org/zap"
@@ -20,6 +23,9 @@ import (
 
 // 创建配置界面
 func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
+	// 创建页面标题
+	pageTitle := TitleText("应用配置")
+
 	// app 配置
 	appGroup := createAppConfigGroup()
 	localModelGroup := createLocalModelGroup()
@@ -32,19 +38,36 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 	// 保存按钮
 	saveButton := createSaveButton(window)
 
-	// 创建滚动容器
-	scroll := container.NewScroll(container.NewVBox(
-		appGroup,
-		localModelGroup,
-		openaiGroup,
-		whisperGroup,
-		aliyunOssGroup,
-		aliyunSpeechGroup,
-		aliyunBailianGroup,
-		saveButton,
-	))
+	// 创建一个背景效果
+	background := canvas.NewRectangle(color.NRGBA{R: 248, G: 250, B: 253, A: 255})
 
-	return container.NewBorder(nil, nil, nil, nil, scroll)
+	// 添加一些视觉分隔和间距
+	spacer1 := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 0})
+	spacer1.SetMinSize(fyne.NewSize(0, 10))
+	spacer2 := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 0})
+	spacer2.SetMinSize(fyne.NewSize(0, 10))
+
+	// 创建滚动容器
+	configContainer := container.NewVBox(
+		container.NewPadded(pageTitle),
+		spacer1,
+		container.NewPadded(appGroup),
+		container.NewPadded(localModelGroup),
+		container.NewPadded(openaiGroup),
+		container.NewPadded(whisperGroup),
+		container.NewPadded(aliyunOssGroup),
+		container.NewPadded(aliyunSpeechGroup),
+		container.NewPadded(aliyunBailianGroup),
+		spacer2,
+		container.NewPadded(saveButton),
+	)
+
+	scroll := container.NewScroll(configContainer)
+
+	// 使用一个Stack将背景和滚动内容组合
+	configStack := container.NewStack(background, scroll)
+
+	return container.NewPadded(configStack)
 }
 
 // 创建字幕任务界面
@@ -52,7 +75,7 @@ func CreateSubtitleTab(window fyne.Window) fyne.CanvasObject {
 	sm := NewSubtitleManager(window)
 
 	// 创建标题
-	title := widget.NewLabelWithStyle("视频字幕生成", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	title := TitleText("视频字幕生成")
 
 	// 创建视频输入区域
 	videoInputContainer := createVideoInputContainer(sm)
@@ -71,29 +94,49 @@ func CreateSubtitleTab(window fyne.Window) fyne.CanvasObject {
 
 	// 创建开始按钮
 	startButton := createStartButton(window, sm, videoInputContainer, embedSettingsCard, progress, downloadContainer)
+	startButtonContainer := container.NewHBox(layout.NewSpacer(), startButton, layout.NewSpacer())
+
+	// 创建一个背景效果
+	background := canvas.NewRectangle(color.NRGBA{R: 248, G: 250, B: 253, A: 255})
+
+	// 添加一些视觉分隔和间距
+	spacer1 := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 0})
+	spacer1.SetMinSize(fyne.NewSize(0, 10))
+	spacer2 := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 0})
+	spacer2.SetMinSize(fyne.NewSize(0, 10))
+	spacer3 := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 0})
+	spacer3.SetMinSize(fyne.NewSize(0, 10))
+
+	// 创建进度区域容器
+	progressArea := container.NewVBox(progress)
 
 	// 创建主布局
 	mainContent := container.NewVBox(
 		container.NewPadded(title),
-		container.NewVBox(
-			videoInputContainer,
-			subtitleSettingsCard,
-			voiceSettingsCard,
-			embedSettingsCard,
-			container.NewPadded(startButton),
-			progress,
-			downloadContainer,
-			tipsLabel,
-		),
+		spacer1,
+		container.NewPadded(videoInputContainer),
+		container.NewPadded(subtitleSettingsCard),
+		container.NewPadded(voiceSettingsCard),
+		container.NewPadded(embedSettingsCard),
+		spacer2,
+		container.NewPadded(startButtonContainer),
+		spacer3,
+		progressArea,
+		downloadContainer,
+		tipsLabel,
 	)
 
-	return container.NewPadded(mainContent)
+	scroll := container.NewScroll(mainContent)
+
+	// 使用一个Stack将背景和滚动内容组合
+	contentStack := container.NewStack(background, scroll)
+
+	return container.NewPadded(contentStack)
 }
 
 // 创建应用配置组
-func createAppConfigGroup() *widget.Card {
-	appSegmentDurationEntry := widget.NewEntry()
-	appSegmentDurationEntry.SetPlaceHolder("字幕分段处理时长(分钟)")
+func createAppConfigGroup() *fyne.Container {
+	appSegmentDurationEntry := StyledEntry("字幕分段处理时长(分钟)")
 	appSegmentDurationEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.SegmentDuration)))
 	appSegmentDurationEntry.Validator = func(s string) error {
 		val, err := strconv.Atoi(s)
@@ -106,8 +149,7 @@ func createAppConfigGroup() *widget.Card {
 		return nil
 	}
 
-	appTranslateParallelNumEntry := widget.NewEntry()
-	appTranslateParallelNumEntry.SetPlaceHolder("翻译并行数量")
+	appTranslateParallelNumEntry := StyledEntry("翻译并行数量")
 	appTranslateParallelNumEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.TranslateParallelNum)))
 	appTranslateParallelNumEntry.Validator = func(s string) error {
 		val, err := strconv.Atoi(s)
@@ -120,73 +162,70 @@ func createAppConfigGroup() *widget.Card {
 		return nil
 	}
 
-	appProxyEntry := widget.NewEntry()
-	appProxyEntry.SetPlaceHolder("网络代理地址")
+	appProxyEntry := StyledEntry("网络代理地址")
 	appProxyEntry.Bind(binding.BindString(&config.Conf.App.Proxy))
-	//appProxyEntry.Text = config.Conf.App.Proxy
-	//appProxyEntry.OnChanged = func(text string) {
-	//	config.Conf.App.Proxy = text
-	//}
 
-	appTranscribeProviderEntry := widget.NewSelect([]string{"openai", "fasterwhisper", "whisperkit", "aliyun"}, func(s string) {
+	appTranscribeProviderEntry := StyledSelect([]string{"openai", "fasterwhisper", "whisperkit", "aliyun"}, func(s string) {
 		config.Conf.App.TranscribeProvider = s
 	})
 	appTranscribeProviderEntry.SetSelected(config.Conf.App.TranscribeProvider)
 
-	appLlmProviderEntry := widget.NewSelect([]string{"openai", "aliyun"}, func(s string) {
+	appLlmProviderEntry := StyledSelect([]string{"openai", "aliyun"}, func(s string) {
 		config.Conf.App.LlmProvider = s
 	})
 	appLlmProviderEntry.SetSelected(config.Conf.App.LlmProvider)
 
-	return widget.NewCard("应用配置", "", container.NewVBox(
-		widget.NewForm(
-			widget.NewFormItem("字幕分段处理时长(分钟)", appSegmentDurationEntry),
-			widget.NewFormItem("翻译并行数量", appTranslateParallelNumEntry),
-			widget.NewFormItem("网络代理地址", appProxyEntry),
-			widget.NewFormItem("语音识别服务源", appTranscribeProviderEntry),
-			widget.NewFormItem("LLM服务源", appLlmProviderEntry),
-		),
-	))
+	// 格式化表单项以使其更美观
+	form := widget.NewForm(
+		widget.NewFormItem("字幕分段处理时长(分钟)", appSegmentDurationEntry),
+		widget.NewFormItem("翻译并行数量", appTranslateParallelNumEntry),
+		widget.NewFormItem("网络代理地址", appProxyEntry),
+		widget.NewFormItem("语音识别服务源", appTranscribeProviderEntry),
+		widget.NewFormItem("LLM服务源", appLlmProviderEntry),
+	)
+
+	return GlassCard("应用配置", "基本设置参数", form)
 }
 
 // 创建本地模型配置组
-func createLocalModelGroup() *widget.Card {
-	localModelFasterwhisperEntry := widget.NewSelect([]string{"tiny", "medium", "large-v2"}, func(s string) {
+func createLocalModelGroup() *fyne.Container {
+	localModelFasterwhisperEntry := StyledSelect([]string{"tiny", "medium", "large-v2"}, func(s string) {
 		config.Conf.LocalModel.Fasterwhisper = s
 	})
 	localModelFasterwhisperEntry.SetSelected(config.Conf.LocalModel.Fasterwhisper)
 
-	localModelWhisperkitEntry := widget.NewSelect([]string{"large-v2"}, func(s string) {
+	localModelWhisperkitEntry := StyledSelect([]string{"large-v2"}, func(s string) {
 		config.Conf.LocalModel.Whisperkit = s
 	})
 	localModelWhisperkitEntry.SetSelected(config.Conf.LocalModel.Whisperkit)
 
-	return widget.NewCard("本地模型配置", "", container.NewVBox(
-		widget.NewForm(
-			widget.NewFormItem("Fasterwhisper模型", localModelFasterwhisperEntry),
-			widget.NewFormItem("Whisperkit模型", localModelWhisperkitEntry),
-		),
-	))
+	form := widget.NewForm(
+		widget.NewFormItem("Fasterwhisper模型", localModelFasterwhisperEntry),
+		widget.NewFormItem("Whisperkit模型", localModelWhisperkitEntry),
+	)
+
+	return StyledCard("本地模型配置", form)
 }
 
 // 创建视频输入容器
-func createVideoInputContainer(sm *SubtitleManager) fyne.CanvasObject {
+func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 	// 视频输入方式选择
+	inputTypeRadio := widget.NewRadioGroup([]string{"本地视频", "视频链接"}, nil)
+	inputTypeRadio.Horizontal = true
 	inputTypeContainer := container.NewHBox(
 		widget.NewLabel("输入方式:"),
-		widget.NewRadioGroup([]string{"本地视频", "视频链接"}, nil),
+		inputTypeRadio,
 	)
 
 	// 视频链接输入框
-	urlEntry := widget.NewEntry()
-	urlEntry.SetPlaceHolder("请输入视频链接")
+	urlEntry := StyledEntry("请输入视频链接")
 	urlEntry.Hide()
 	urlEntry.OnChanged = func(text string) {
 		sm.SetVideoUrl(text)
 	}
 
 	// 视频选择按钮
-	selectButton := widget.NewButtonWithIcon("选择视频文件", theme.FolderOpenIcon(), sm.ShowFileDialog)
+	selectButton := PrimaryButton("选择视频文件", theme.FolderOpenIcon(), sm.ShowFileDialog)
 	selectedVideoLabel := widget.NewLabel("")
 	selectedVideoLabel.Hide()
 
@@ -206,7 +245,8 @@ func createVideoInputContainer(sm *SubtitleManager) fyne.CanvasObject {
 	videoInputContainer.Objects = []fyne.CanvasObject{selectButton, selectedVideoLabel}
 
 	// 切换输入方式
-	inputTypeContainer.Objects[1].(*widget.RadioGroup).OnChanged = func(value string) {
+	inputTypeRadio.SetSelected("本地视频")
+	inputTypeRadio.OnChanged = func(value string) {
 		if value == "本地视频" {
 			urlEntry.Hide()
 			selectButton.Show()
@@ -226,7 +266,7 @@ func createVideoInputContainer(sm *SubtitleManager) fyne.CanvasObject {
 	langContainer := container.NewGridWithColumns(2,
 		container.NewHBox(
 			widget.NewLabel("源语言:"),
-			widget.NewSelect([]string{
+			StyledSelect([]string{
 				"简体中文", "英文", "日文", "土耳其语", "德语", "韩语", "俄语",
 			}, func(value string) {
 				langMap := map[string]string{
@@ -238,7 +278,7 @@ func createVideoInputContainer(sm *SubtitleManager) fyne.CanvasObject {
 		),
 		container.NewHBox(
 			widget.NewLabel("目标语言:"),
-			widget.NewSelect([]string{
+			StyledSelect([]string{
 				"简体中文", "繁体中文", "英语", "日语", "韩语", "法语", "德语", "俄语",
 				"西班牙语", "葡萄牙语", "意大利语", "阿拉伯语", "土耳其语",
 			}, func(value string) {
@@ -257,67 +297,86 @@ func createVideoInputContainer(sm *SubtitleManager) fyne.CanvasObject {
 	langContainer.Objects[0].(*fyne.Container).Objects[1].(*widget.Select).SetSelected("简体中文")
 	langContainer.Objects[1].(*fyne.Container).Objects[1].(*widget.Select).SetSelected("简体中文")
 
-	// 创建卡片容器
-	return widget.NewCard("视频源设置", "", container.NewVBox(
-		inputTypeContainer,
-		videoInputContainer,
-		langContainer,
-	))
+	// 创建容器
+	content := container.NewVBox(
+		container.NewPadded(inputTypeContainer),
+		container.NewPadded(videoInputContainer),
+		container.NewPadded(langContainer),
+	)
+
+	return GlassCard("视频源设置", "选择视频和语言", content)
 }
 
 // 创建字幕设置卡片
-func createSubtitleSettingsCard(sm *SubtitleManager) *widget.Card {
-	return widget.NewCard("字幕设置", "",
-		container.NewVBox(
-			container.NewGridWithColumns(2,
-				container.NewHBox(
-					widget.NewCheck("启用双语字幕", func(checked bool) {
-						sm.SetBilingualEnabled(checked)
-					}),
-					widget.NewSelect([]string{
-						"翻译后字幕在上方", "翻译后字幕在下方",
-					}, func(value string) {
-						if value == "翻译后字幕在上方" {
-							sm.SetBilingualPosition(1)
-						} else {
-							sm.SetBilingualPosition(2)
-						}
-					}),
-				),
-				widget.NewCheck("启用语气词过滤", func(checked bool) {
-					sm.SetFillerFilter(checked)
-				}),
-			),
-		),
+func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
+	// 创建更美观的双语位置选择器
+	bilingualCheck := widget.NewCheck("启用双语字幕", func(checked bool) {
+		sm.SetBilingualEnabled(checked)
+	})
+	bilingualCheck.SetChecked(true)
+
+	// 使用更长的选项文本，强制下拉框显示更宽
+	positionSelect := widget.NewSelect([]string{
+		"翻译后字幕在上方    ", // 添加额外空格增加宽度
+		"翻译后字幕在下方    ", // 添加额外空格增加宽度
+	}, func(value string) {
+		if value == "翻译后字幕在上方    " {
+			sm.SetBilingualPosition(1)
+		} else {
+			sm.SetBilingualPosition(2)
+		}
+	})
+	positionSelect.SetSelected("翻译后字幕在上方    ")
+
+	fillerCheck := widget.NewCheck("启用语气词过滤", func(checked bool) {
+		sm.SetFillerFilter(checked)
+	})
+	fillerCheck.SetChecked(true)
+
+	// 使用更合理的布局
+	content := container.NewVBox(
+		container.NewHBox(bilingualCheck, fillerCheck),
+		positionSelect, // 直接让它占据整行以获得足够空间
 	)
+
+	return StyledCard("字幕设置", content)
 }
 
 // 创建配音设置卡片
-func createVoiceSettingsCard(sm *SubtitleManager) *widget.Card {
-	return widget.NewCard("配音设置", "",
-		container.NewVBox(
-			container.NewGridWithColumns(2,
-				container.NewHBox(
-					widget.NewCheck("启用配音", func(checked bool) {
-						sm.SetVoiceoverEnabled(checked)
-					}),
-					widget.NewSelect([]string{"男声", "女声"}, func(value string) {
-						if value == "男声" {
-							sm.SetVoiceoverGender(2)
-						} else {
-							sm.SetVoiceoverGender(1)
-						}
-					}),
-				),
-				widget.NewButtonWithIcon("选择音色克隆样本", theme.MediaMusicIcon(), sm.ShowAudioFileDialog),
-			),
-		),
+func createVoiceSettingsCard(sm *SubtitleManager) *fyne.Container {
+	// 创建配音启用复选框和性别选择
+	voiceoverCheck := widget.NewCheck("启用配音", func(checked bool) {
+		sm.SetVoiceoverEnabled(checked)
+	})
+
+	genderSelect := StyledSelect([]string{"男声", "女声"}, func(value string) {
+		if value == "男声" {
+			sm.SetVoiceoverGender(2)
+		} else {
+			sm.SetVoiceoverGender(1)
+		}
+	})
+	genderSelect.SetSelected("男声")
+
+	// 创建音频选择按钮 - 使用普通按钮，蓝色文字
+	audioSampleButton := SecondaryButton("选择音色克隆样本", theme.MediaMusicIcon(), sm.ShowAudioFileDialog)
+
+	// 使用漂亮的网格布局
+	grid := container.NewGridWithColumns(2,
+		container.NewHBox(voiceoverCheck, genderSelect),
+		audioSampleButton,
 	)
+
+	return StyledCard("配音设置", grid)
 }
 
 // 创建字幕嵌入设置卡片
-func createEmbedSettingsCard(sm *SubtitleManager) *widget.Card {
-	embedTypeSelect := widget.NewSelect([]string{
+func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
+	// 创建字幕嵌入复选框
+	embedCheck := widget.NewCheck("合成字幕嵌入视频", nil)
+
+	// 创建视频类型选择
+	embedTypeSelect := StyledSelect([]string{
 		"横屏视频", "竖屏视频", "横屏+竖屏视频",
 	}, func(value string) {
 		switch value {
@@ -332,40 +391,36 @@ func createEmbedSettingsCard(sm *SubtitleManager) *widget.Card {
 	embedTypeSelect.Disable()
 
 	// 创建标题输入区域
+	mainTitleEntry := StyledEntry("请输入主标题")
+	subTitleEntry := StyledEntry("请输入副标题")
+
 	titleInputContainer := container.NewVBox(
 		container.NewGridWithColumns(2,
 			widget.NewLabel("主标题:"),
-			widget.NewMultiLineEntry(),
+			mainTitleEntry,
 		),
 		container.NewGridWithColumns(2,
 			widget.NewLabel("副标题:"),
-			widget.NewMultiLineEntry(),
+			subTitleEntry,
 		),
 	)
 	titleInputContainer.Hide()
 
-	card := widget.NewCard("字幕嵌入设置", "",
-		container.NewVBox(
-			container.NewHBox(
-				widget.NewCheck("合成字幕嵌入视频", func(checked bool) {
-					if checked {
-						embedTypeSelect.Enable()
-						embedTypeSelect.SetSelected("横屏视频")
-						sm.SetEmbedSubtitle("horizontal")
-						if embedTypeSelect.Selected == "竖屏视频" || embedTypeSelect.Selected == "横屏+竖屏视频" {
-							titleInputContainer.Show()
-						}
-					} else {
-						embedTypeSelect.Disable()
-						sm.SetEmbedSubtitle("none")
-						titleInputContainer.Hide()
-					}
-				}),
-				embedTypeSelect,
-			),
-			titleInputContainer,
-		),
-	)
+	// 设置复选框行为
+	embedCheck.OnChanged = func(checked bool) {
+		if checked {
+			embedTypeSelect.Enable()
+			embedTypeSelect.SetSelected("横屏视频")
+			sm.SetEmbedSubtitle("horizontal")
+			if embedTypeSelect.Selected == "竖屏视频" || embedTypeSelect.Selected == "横屏+竖屏视频" {
+				titleInputContainer.Show()
+			}
+		} else {
+			embedTypeSelect.Disable()
+			sm.SetEmbedSubtitle("none")
+			titleInputContainer.Hide()
+		}
+	}
 
 	// 更新标题输入区域的显示状态
 	embedTypeSelect.OnChanged = func(value string) {
@@ -376,39 +431,160 @@ func createEmbedSettingsCard(sm *SubtitleManager) *widget.Card {
 		}
 	}
 
-	return card
+	// 创建顶部控制区域
+	topContainer := container.NewHBox(embedCheck, embedTypeSelect)
+
+	// 创建主容器
+	mainContainer := container.NewVBox(
+		topContainer,
+		container.NewPadded(titleInputContainer),
+	)
+
+	return StyledCard("字幕嵌入设置", mainContainer)
 }
 
 // 创建进度和下载区域
-func createProgressAndDownloadArea(sm *SubtitleManager) (*widget.ProgressBar, *fyne.Container, *widget.Label) {
+func createProgressAndDownloadArea(sm *SubtitleManager) (*widget.ProgressBar, *fyne.Container, *fyne.Container) {
+	// 创建进度条
 	progress := widget.NewProgressBar()
 	progress.Hide()
-	sm.SetProgressBar(progress)
 
+	//进度百分比标签
+	percentLabel := widget.NewLabel("0%")
+	percentLabel.Hide()
+	percentLabel.Alignment = fyne.TextAlignTrailing
+
+	// 进度条容器
+	progressContainer := container.NewBorder(nil, nil, nil, percentLabel, progress)
+	progressContainer.Hide()
+
+	// 添加半透明背景和阴影
+	progressBg := canvas.NewRectangle(color.NRGBA{R: 240, G: 245, B: 250, A: 230})
+	progressBg.SetMinSize(fyne.NewSize(0, 40))
+	progressBg.CornerRadius = 8
+
+	progressShadow := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 20})
+	progressShadow.Move(fyne.NewPos(2, 2))
+	progressShadow.SetMinSize(fyne.NewSize(0, 40))
+	progressShadow.CornerRadius = 8
+
+	progressWithBg := container.NewStack(
+		progressShadow,
+		progressBg,
+		container.NewPadded(progressContainer),
+	)
+	progressWithBg.Hide()
+
+	// 设置进度条和标签
+	sm.SetProgressBar(progress)
+	sm.SetProgressLabel(percentLabel)
+
+	// 创建下载容器背景
+	downloadBg := canvas.NewRectangle(color.NRGBA{R: 240, G: 250, B: 255, A: 230})
+	downloadBg.CornerRadius = 10
+
+	// 创建下载容器
 	downloadContainer := container.NewVBox()
 	downloadContainer.Hide()
 	sm.SetDownloadContainer(downloadContainer)
 
+	// 包装下载容器和背景
+	downloadWithBg := container.NewStack(
+		downloadBg,
+		container.NewPadded(downloadContainer),
+	)
+	downloadWithBg.Hide()
+
+	// 创建提示标签
 	tipsLabel := widget.NewLabel("")
 	tipsLabel.Hide()
+	tipsLabel.Alignment = fyne.TextAlignCenter
+	tipsLabel.Wrapping = fyne.TextWrapWord
 	sm.SetTipsLabel(tipsLabel)
 
-	return progress, downloadContainer, tipsLabel
+	tipsBg := canvas.NewRectangle(color.NRGBA{R: 255, G: 250, B: 230, A: 200})
+	tipsBg.CornerRadius = 6
+
+	tipsWithBg := container.NewStack(
+		tipsBg,
+		container.NewPadded(tipsLabel),
+	)
+	tipsWithBg.Hide()
+
+	return progress, downloadWithBg, tipsWithBg
 }
 
 // 创建开始按钮
-func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContainer fyne.CanvasObject, embedSettingsCard *widget.Card, progress *widget.ProgressBar, downloadContainer *fyne.Container) *widget.Button {
-	return widget.NewButtonWithIcon("开始任务", theme.MediaPlayIcon(), func() {
-		sm.SetVerticalTitles(
-			embedSettingsCard.Content.(*fyne.Container).Objects[1].(*fyne.Container).Objects[0].(*fyne.Container).Objects[1].(*widget.Entry).Text,
-			embedSettingsCard.Content.(*fyne.Container).Objects[1].(*fyne.Container).Objects[1].(*fyne.Container).Objects[1].(*widget.Entry).Text,
-		)
+func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContainer *fyne.Container, embedSettingsCard *fyne.Container, progress *widget.ProgressBar, downloadContainer *fyne.Container) *widget.Button {
+	btn := widget.NewButtonWithIcon("开始任务", theme.MediaPlayIcon(), nil)
+	btn.Importance = widget.HighImportance
+
+	btn.OnTapped = func() {
+		// 按钮动画效果替换为简单的刷新
+		originalImportance := btn.Importance
+		btn.Importance = widget.DangerImportance
+		btn.Refresh()
+
+		go func() {
+			time.Sleep(300 * time.Millisecond)
+			btn.Importance = originalImportance
+			btn.Refresh()
+		}()
+
+		var mainTitle, subTitle string
+
+		if embedSettingsCard != nil && len(embedSettingsCard.Objects) > 1 {
+			if titleContainer, ok := embedSettingsCard.Objects[1].(*fyne.Container); ok && titleContainer != nil && len(titleContainer.Objects) >= 2 {
+				// 获取主标题
+				if mainTitleRow, ok := titleContainer.Objects[0].(*fyne.Container); ok && mainTitleRow != nil && len(mainTitleRow.Objects) >= 2 {
+					if mainTitleEntry, ok := mainTitleRow.Objects[1].(*widget.Entry); ok {
+						mainTitle = mainTitleEntry.Text
+					}
+				}
+
+				// 获取副标题
+				if subTitleRow, ok := titleContainer.Objects[1].(*fyne.Container); ok && subTitleRow != nil && len(subTitleRow.Objects) >= 2 {
+					if subTitleEntry, ok := subTitleRow.Objects[1].(*widget.Entry); ok {
+						subTitle = subTitleEntry.Text
+					}
+				}
+			}
+		}
+
+		sm.SetVerticalTitles(mainTitle, subTitle)
+
+		// 显示进度条并隐藏下载容器
 		progress.Show()
+		sm.progressBar.SetValue(0) // 直接访问进度条
 		downloadContainer.Hide()
+
+		go func() {
+			// 模拟加载进度，逐渐增加进度条值
+			for i := 0.0; i < 0.95 && sm.progressBar.Value < 0.95; i += 0.03 {
+				time.Sleep(150 * time.Millisecond)
+				sm.progressBar.SetValue(i)
+			}
+		}()
 
 		// 检查是否有视频URL
 		if sm.GetVideoUrl() == "" {
-			if videoInputContainer.(*fyne.Container).Objects[0].(*fyne.Container).Objects[1].(*widget.RadioGroup).Selected == "本地视频" {
+			inputType := "本地视频" // 默认值
+
+			if videoInputContainer != nil && len(videoInputContainer.Objects) > 0 {
+				for i := 0; i < len(videoInputContainer.Objects); i++ {
+					// 如果对象是Container，查找其中的RadioGroup
+					if container, ok := videoInputContainer.Objects[i].(*fyne.Container); ok {
+						for j := 0; j < len(container.Objects); j++ {
+							if radio, ok := container.Objects[j].(*widget.RadioGroup); ok {
+								inputType = radio.Selected
+								break
+							}
+						}
+					}
+				}
+			}
+
+			if inputType == "本地视频" {
 				dialog.ShowError(fmt.Errorf("请先选择视频文件"), window)
 			} else {
 				dialog.ShowError(fmt.Errorf("请输入视频链接"), window)
@@ -422,12 +598,18 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 		if err != nil {
 			dialog.ShowError(fmt.Errorf("配置不正确: %v", err), window)
 			log.GetLogger().Error("配置不正确", zap.Error(err))
+			progress.Hide()
+			return
 		}
-		err = deps.CheckDependency() // todo 提示优化
+
+		err = deps.CheckDependency()
 		if err != nil {
 			dialog.ShowError(fmt.Errorf("依赖环境准备失败: %v", err), window)
 			log.GetLogger().Error("依赖环境准备失败", zap.Error(err))
+			progress.Hide()
+			return
 		}
+
 		log.GetLogger().Info("配置内容", zap.Any("config", config.Conf))
 
 		if err = sm.StartTask(); err != nil {
@@ -435,110 +617,133 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 			progress.Hide()
 			return
 		}
+
+		sm.progressBar.SetValue(1.0)
 		downloadContainer.Show()
-	})
+
+		sm.progressBar.Refresh()
+	}
+
+	return btn
 }
 
 // 创建OpenAI配置组
-func createOpenAIConfigGroup() *widget.Card {
-	openaiBaseUrlEntry := widget.NewEntry()
-	openaiBaseUrlEntry.SetPlaceHolder("OpenAI API base url")
+func createOpenAIConfigGroup() *fyne.Container {
+	openaiBaseUrlEntry := StyledEntry("OpenAI API base url")
 	openaiBaseUrlEntry.Bind(binding.BindString(&config.Conf.Openai.BaseUrl))
 
-	openaiModelEntry := widget.NewEntry()
-	openaiModelEntry.SetPlaceHolder("OpenAI模型名称")
+	openaiModelEntry := StyledEntry("OpenAI模型名称")
 	openaiModelEntry.Bind(binding.BindString(&config.Conf.Openai.Model))
 
-	openaiApiKeyEntry := widget.NewPasswordEntry()
-	openaiApiKeyEntry.SetPlaceHolder("OpenAI API密钥")
+	openaiApiKeyEntry := StyledPasswordEntry("OpenAI API密钥")
 	openaiApiKeyEntry.Bind(binding.BindString(&config.Conf.Openai.ApiKey))
 
-	return widget.NewCard("OpenAI配置", "", container.NewVBox(
-		widget.NewForm(
-			widget.NewFormItem("API base url", openaiBaseUrlEntry),
-			widget.NewFormItem("模型名称", openaiModelEntry),
-			widget.NewFormItem("API密钥", openaiApiKeyEntry),
-		),
-	))
+	form := widget.NewForm(
+		widget.NewFormItem("API base url", openaiBaseUrlEntry),
+		widget.NewFormItem("模型名称", openaiModelEntry),
+		widget.NewFormItem("API密钥", openaiApiKeyEntry),
+	)
+
+	return StyledCard("OpenAI配置", form)
 }
 
 // 创建Whisper配置组
-func createWhisperConfigGroup() *widget.Card {
-	whisperBaseUrlEntry := widget.NewEntry()
-	whisperBaseUrlEntry.SetPlaceHolder("Whisper API base url")
-	whisperBaseUrlEntry.Text = config.Conf.Openai.Whisper.BaseUrl
+func createWhisperConfigGroup() *fyne.Container {
+	whisperBaseUrlEntry := StyledEntry("Whisper API base url")
+	whisperBaseUrlEntry.Bind(binding.BindString(&config.Conf.Openai.Whisper.BaseUrl))
 
-	whisperApiKeyEntry := widget.NewPasswordEntry()
-	whisperApiKeyEntry.SetPlaceHolder("Whisper API密钥")
-	whisperApiKeyEntry.Text = config.Conf.Openai.Whisper.ApiKey
+	whisperApiKeyEntry := StyledPasswordEntry("Whisper API密钥")
+	whisperApiKeyEntry.Bind(binding.BindString(&config.Conf.Openai.Whisper.ApiKey))
 
-	return widget.NewCard("Whisper配置", "", container.NewVBox(
-		widget.NewForm(
-			widget.NewFormItem("API base url", whisperBaseUrlEntry),
-			widget.NewFormItem("API密钥", whisperApiKeyEntry),
-		),
-	))
+	form := widget.NewForm(
+		widget.NewFormItem("API base url", whisperBaseUrlEntry),
+		widget.NewFormItem("API密钥", whisperApiKeyEntry),
+	)
+
+	return StyledCard("Whisper配置", form)
 }
 
 // 创建阿里云OSS配置组
-func createAliyunOSSConfigGroup() *widget.Card {
-	ossAccessKeyIdEntry := widget.NewEntry()
-	ossAccessKeyIdEntry.SetPlaceHolder("阿里云AccessKey ID")
-	ossAccessKeyIdEntry.Text = config.Conf.Aliyun.Oss.AccessKeyId
+func createAliyunOSSConfigGroup() *fyne.Container {
+	ossAccessKeyIdEntry := StyledEntry("阿里云AccessKey ID")
+	ossAccessKeyIdEntry.Bind(binding.BindString(&config.Conf.Aliyun.Oss.AccessKeyId))
 
-	ossAccessKeySecretEntry := widget.NewPasswordEntry()
-	ossAccessKeySecretEntry.SetPlaceHolder("阿里云AccessKey Secret")
-	ossAccessKeySecretEntry.Text = config.Conf.Aliyun.Oss.AccessKeySecret
+	ossAccessKeySecretEntry := StyledPasswordEntry("阿里云AccessKey Secret")
+	ossAccessKeySecretEntry.Bind(binding.BindString(&config.Conf.Aliyun.Oss.AccessKeySecret))
 
-	ossBucketEntry := widget.NewEntry()
-	ossBucketEntry.SetPlaceHolder("OSS Bucket名称")
-	ossBucketEntry.Text = config.Conf.Aliyun.Oss.Bucket
+	ossBucketEntry := StyledEntry("OSS Bucket名称")
+	ossBucketEntry.Bind(binding.BindString(&config.Conf.Aliyun.Oss.Bucket))
 
-	return widget.NewCard("阿里云OSS配置", "", container.NewVBox(
-		widget.NewForm(
-			widget.NewFormItem("AccessKey ID", ossAccessKeyIdEntry),
-			widget.NewFormItem("AccessKey Secret", ossAccessKeySecretEntry),
-			widget.NewFormItem("Bucket名称", ossBucketEntry),
-		),
-	))
+	form := widget.NewForm(
+		widget.NewFormItem("AccessKey ID", ossAccessKeyIdEntry),
+		widget.NewFormItem("AccessKey Secret", ossAccessKeySecretEntry),
+		widget.NewFormItem("Bucket名称", ossBucketEntry),
+	)
+
+	return GlassCard("阿里云OSS配置", "对象存储服务", form)
 }
 
 // 创建阿里云语音配置组
-func createAliyunSpeechConfigGroup() *widget.Card {
-	speechAppKeyEntry := widget.NewEntry()
-	speechAppKeyEntry.SetPlaceHolder("阿里云语音服务AppKey")
-	speechAppKeyEntry.Text = config.Conf.Aliyun.Speech.AppKey
+func createAliyunSpeechConfigGroup() *fyne.Container {
+	speechAppKeyEntry := StyledEntry("阿里云语音服务AppKey")
+	speechAppKeyEntry.Bind(binding.BindString(&config.Conf.Aliyun.Speech.AppKey))
 
-	return widget.NewCard("阿里云语音配置", "", container.NewVBox(
-		widget.NewForm(
-			widget.NewFormItem("AppKey", speechAppKeyEntry),
-		),
-	))
+	form := widget.NewForm(
+		widget.NewFormItem("AppKey", speechAppKeyEntry),
+	)
+
+	return StyledCard("阿里云语音配置", form)
 }
 
 // 创建阿里云百炼配置组
-func createAliyunBailianConfigGroup() *widget.Card {
-	bailianApiKeyEntry := widget.NewPasswordEntry()
-	bailianApiKeyEntry.SetPlaceHolder("阿里云百炼API密钥")
-	bailianApiKeyEntry.Text = config.Conf.Aliyun.Bailian.ApiKey
+func createAliyunBailianConfigGroup() *fyne.Container {
+	bailianApiKeyEntry := StyledPasswordEntry("阿里云百炼API密钥")
+	bailianApiKeyEntry.Bind(binding.BindString(&config.Conf.Aliyun.Bailian.ApiKey))
 
-	return widget.NewCard("阿里云百炼配置", "", container.NewVBox(
-		widget.NewForm(
-			widget.NewFormItem("API密钥", bailianApiKeyEntry),
-		),
-	))
+	form := widget.NewForm(
+		widget.NewFormItem("API密钥", bailianApiKeyEntry),
+	)
+
+	return StyledCard("阿里云百炼配置", form)
 }
 
 // 创建保存按钮
 func createSaveButton(window fyne.Window) *widget.Button {
-	return widget.NewButtonWithIcon("保存配置", theme.DocumentSaveIcon(), func() {
-		err := config.SaveConfig()
-		if err != nil {
-			dialog.ShowError(fmt.Errorf("保存配置失败: %v", err), window)
-			log.GetLogger().Error("保存配置失败", zap.Error(err))
-			return
-		}
-		config.LoadConfig()
-		dialog.ShowInformation("成功", "配置已保存", window)
-	})
+	// 创建保存按钮（但不设置点击事件）
+	saveButton := widget.NewButtonWithIcon("保存配置", theme.DocumentSaveIcon(), nil)
+	saveButton.Importance = widget.HighImportance
+
+	// 设置点击事件
+	saveButton.OnTapped = func() {
+		// 创建loading对话框
+		progress := dialog.NewProgress("保存中", "正在保存配置...", window)
+		progress.Show()
+
+		// 模拟保存进度
+		go func() {
+			for i := 0.0; i <= 1.0; i += 0.1 {
+				time.Sleep(50 * time.Millisecond)
+				progress.SetValue(i)
+			}
+
+			// 保存配置
+			err := config.SaveConfig()
+			progress.Hide()
+
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("保存配置失败: %v", err), window)
+				log.GetLogger().Error("保存配置失败", zap.Error(err))
+				return
+			}
+
+			// 重新加载配置
+			config.LoadConfig()
+
+			successDialog := dialog.NewInformation("成功", "配置已保存", window)
+			successDialog.SetDismissText("确定")
+			successDialog.Show()
+		}()
+	}
+
+	return saveButton
 }
