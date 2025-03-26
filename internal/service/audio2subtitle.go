@@ -14,8 +14,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -829,30 +829,31 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 		splitPrompt = fmt.Sprintf(types.SplitTextPrompt, types.GetStandardLanguageName(targetLanguage))
 	}
 	if audioFile.TranscriptionData.Text == "" {
-		return fmt.Errorf("audioToSubtitle splitTextAndTranslate audioFile.TranscriptionData.Text is empty")
-	}
-	// 最多尝试4次获取有效的翻译结果
-	for i := 0; i < 4; i++ {
-		splitContent, err = s.ChatCompleter.ChatCompletion(splitPrompt + audioFile.TranscriptionData.Text)
+		splitContent = ""
+	} else {
+		// 最多尝试4次获取有效的翻译结果
+		for i := 0; i < 4; i++ {
+			splitContent, err = s.ChatCompleter.ChatCompletion(splitPrompt + audioFile.TranscriptionData.Text)
+			if err != nil {
+				log.GetLogger().Warn("audioToSubtitle splitTextAndTranslate ChatCompletion error, retrying...",
+					zap.Any("taskId", taskId), zap.Int("attempt", i+1), zap.Error(err))
+				continue
+			}
+
+			// 验证返回内容的格式和原文匹配度
+			if isValidSplitContent(splitContent, audioFile.TranscriptionData.Text) {
+				break
+			}
+
+			log.GetLogger().Warn("audioToSubtitle splitTextAndTranslate invalid response format or content mismatch, retrying...",
+				zap.Any("taskId", taskId), zap.Int("attempt", i+1))
+			err = fmt.Errorf("invalid split content format or content mismatch")
+		}
+
 		if err != nil {
-			log.GetLogger().Warn("audioToSubtitle splitTextAndTranslate ChatCompletion error, retrying...",
-				zap.Any("taskId", taskId), zap.Int("attempt", i+1), zap.Error(err))
-			continue
+			log.GetLogger().Error("audioToSubtitle splitTextAndTranslate failed after retries", zap.Any("taskId", taskId), zap.Error(err))
+			return fmt.Errorf("audioToSubtitle splitTextAndTranslate error: %w", err)
 		}
-
-		// 验证返回内容的格式和原文匹配度
-		if isValidSplitContent(splitContent, audioFile.TranscriptionData.Text) {
-			break
-		}
-
-		log.GetLogger().Warn("audioToSubtitle splitTextAndTranslate invalid response format or content mismatch, retrying...",
-			zap.Any("taskId", taskId), zap.Int("attempt", i+1))
-		err = fmt.Errorf("invalid split content format or content mismatch")
-	}
-
-	if err != nil {
-		log.GetLogger().Error("audioToSubtitle splitTextAndTranslate failed after retries", zap.Any("taskId", taskId), zap.Error(err))
-		return fmt.Errorf("audioToSubtitle splitTextAndTranslate error: %w", err)
 	}
 
 	// 保存不带时间戳的原始字幕
