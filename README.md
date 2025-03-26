@@ -1,35 +1,38 @@
 <div align="center">
-  <img src="./docs/images/logo.png" alt="KrillinAI" height="100">
+  <img src="./docs/images/logo.png" alt="KrillinAI" height="90">
+
 
   # AI Audio&Video Translation and Dubbing Tool
 
-<p>Based on LLMs, professional-level translation, capable of generating both portrait and landscape formats, one-click deployment.</p>
+  **[English](./README.md) | [简体中文](./docs/README_zh.md) |[日本語](./docs/README_jp.md)**
 
-  **English | [中文](./docs/README_zh.md)**
+  [![Discord](https://img.shields.io/badge/Discord-KrillinAI-blue)](https://discord.gg/7RUa4WuW)
+  [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
+[![哔哩哔哩](https://img.shields.io/badge/哔哩哔哩-KrillinAI-red?logo=bilibili)](https://space.bilibili.com/242124650)
+   [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 
 </div>
 
-🚀 **Project Overview**
+## Overview
 
 Krillin AI is a one-stop solution designed for users and developers seeking high-quality video processing. It provides an end-to-end workflow, from video download to the final product, ensuring every frame of your content is extraordinary.
 
-## Key Features and Functions:
-🎯 **One-Click Start**: There is no need for complicated environment configuration. Krillin AI supports automatic installation of dependencies, enabling you to quickly get started and put it into use immediately.  
-📥 **Video Acquisition**: Integrated with yt-dlp, it can directly download videos via YouTube and Bilibili links, simplifying the process of material collection. You can also directly upload local videos.  
-📜 **Subtitle Recognition and Translation**: It supports voice and large model services of mainstream providers such as OpenAI and Alibaba Cloud, as well as local models (continuous integration in progress).  
-🧠 **Intelligent Subtitle Segmentation and Alignment**: Utilize self-developed algorithms to conduct intelligent segmentation and alignment of subtitles, getting rid of rigid sentence breaks.  
-🔄 **Custom Vocabulary Replacement**: Support one-click replacement of vocabulary to adapt to the language style of specific fields.  
-🌍 **Professional Translation**: The whole-paragraph translation engine ensures the consistency of context and semantic coherence.  
-🎙️ **Dubbing and Voice Cloning**: You can choose the default male or female voice tones to generate video reading dubbing for the translated content, or upload local audio samples to clone voice tones for dubbing.  
-📝 **Dubbing Alignment**: It can perform cross-language dubbing and also align with the original subtitles.   
-🎬 **Video Composition**: With one click, compose horizontal and vertical videos with embedded subtitles. Subtitles that exceed the width limit will be processed automatically. 
+## Key Features:
+🎯 **One-Click Start** - Launch your workflow instantly 
 
-## Language Support
-Input languages: Chinese, English, Japanese, German, Turkish supported (more languages being added)  
-Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc.
+📥 **Video download** - yt-dlp and local file uploading supported
 
-## Interface Preview
-![ui preview](./docs/images/ui.jpg)
+📜 **Precise Subtitles** - Whisper-powered high-accuracy recognition
+
+🧠 **Smart Segmentation** - LLM-based subtitle chunking & alignment
+
+🌍 **Professional Translation** - Paragraph-level translation for consistency 
+
+🔄 **Term Replacement** - One-click domain-specific vocabulary swap 
+
+🎙️ **Dubbing and Voice Cloning** - CosyVoice selected or cloning voices
+
+🎬 **Video Composition** - Auto-formatting for horizontal/vertical layouts
 
 ## Showcase
 The following picture demonstrates the effect after the subtitle file, which was generated through a one-click operation after importing a 46-minute local video, was inserted into the track. There was no manual adjustment involved at all. There are no missing or overlapping subtitles, the sentence segmentation is natural, and the translation quality is also quite high.
@@ -54,7 +57,14 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 </tr>
 </table>
 
-## Quick Start
+## 🌍 Language Support
+Input languages: Chinese, English, Japanese, German, Turkish supported (more languages being added)  
+Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc.
+
+## Interface Preview
+![ui preview](./docs/images/ui.jpg)
+
+## 🚀 Quick Start
 ### Basic Steps
 1. Download the executable file that matches your device system from the release and place it in an empty folder.
 2. Create a `config` folder inside the folder, then create a `config.toml` file in the `config` folder. Copy the content from the `config-example.toml` file in the source code's `config` directory into `config.toml` and fill in your configuration information accordingly.
