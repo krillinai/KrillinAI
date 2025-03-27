@@ -558,14 +558,6 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 		sm.progressBar.SetValue(0) // 直接访问进度条
 		downloadContainer.Hide()
 
-		go func() {
-			// 模拟加载进度，逐渐增加进度条值
-			for i := 0.0; i < 0.95 && sm.progressBar.Value < 0.95; i += 0.03 {
-				time.Sleep(150 * time.Millisecond)
-				sm.progressBar.SetValue(i)
-			}
-		}()
-
 		// 检查是否有视频URL
 		if sm.GetVideoUrl() == "" {
 			inputType := "本地视频" // 默认值
@@ -618,9 +610,7 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 			return
 		}
 
-		sm.progressBar.SetValue(1.0)
 		downloadContainer.Show()
-
 		sm.progressBar.Refresh()
 	}
 

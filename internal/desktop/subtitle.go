@@ -456,17 +456,17 @@ func (sm *SubtitleManager) displayDownloadLinks(subtitleInfo []api.SubtitleResul
 					dialog.ShowError(fmt.Errorf("下载失败: %v", err), sm.window)
 					return
 				}
-				defer resp.Body.Close()
 
-				dialog.ShowFileSave(func(writer fyne.URIWriteCloser, err error) {
+				saveDialog := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
 					if err != nil {
 						dialog.ShowError(err, sm.window)
 						return
 					}
 					if writer == nil {
-						return
+						return // 用户取消了
 					}
 					defer writer.Close()
+					defer resp.Body.Close()
 
 					_, err = io.Copy(writer, resp.Body)
 					if err != nil {
@@ -476,6 +476,10 @@ func (sm *SubtitleManager) displayDownloadLinks(subtitleInfo []api.SubtitleResul
 
 					dialog.ShowInformation("下载完成", "文件已保存", sm.window)
 				}, sm.window)
+
+				// 设置建议的文件名
+				saveDialog.SetFileName(filepath.Base(downloadURL))
+				saveDialog.Show()
 			}()
 		})
 		btn.Importance = widget.HighImportance
