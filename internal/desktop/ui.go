@@ -75,7 +75,7 @@ func CreateSubtitleTab(window fyne.Window) fyne.CanvasObject {
 	sm := NewSubtitleManager(window)
 
 	// 创建标题
-	title := TitleText("视频字幕生成")
+	title := TitleText("视频翻译配音")
 
 	// 创建视频输入区域
 	videoInputContainer := createVideoInputContainer(sm)
@@ -304,7 +304,7 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		container.NewPadded(langContainer),
 	)
 
-	return GlassCard("视频源设置", "选择视频和语言", content)
+	return GlassCard("1. 视频源设置", "选择视频和语言", content)
 }
 
 // 创建字幕设置卡片
@@ -339,7 +339,7 @@ func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
 		positionSelect, // 直接让它占据整行以获得足够空间
 	)
 
-	return StyledCard("字幕设置", content)
+	return StyledCard("2. 字幕设置", content)
 }
 
 // 创建配音设置卡片
@@ -367,7 +367,7 @@ func createVoiceSettingsCard(sm *SubtitleManager) *fyne.Container {
 		audioSampleButton,
 	)
 
-	return StyledCard("配音设置", grid)
+	return StyledCard("3. 配音设置", grid)
 }
 
 // 创建字幕嵌入设置卡片

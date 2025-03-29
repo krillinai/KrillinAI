@@ -1,7 +1,19 @@
 version: 2
 
 builds:
-  - env:
+  - id: server
+    main: ./cmd/server
+    binary: KrillinAI
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+  - id: desktop
+    main: ./cmd/desktop
+    binary: KrillinAI-Desktop
+    env:
       - CGO_ENABLED=0
     goos:
       - darwin
@@ -22,6 +34,8 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--label=org.opencontainers.image.source=https://github.com/{{ .Env.GITHUB_REPOSITORY_OWNER }}/{{.ProjectName}}"
+    ids:
+      - server
   - image_templates:
       - "ghcr.io/{{ tolower .Env.GITHUB_REPOSITORY_OWNER }}/{{ tolower .ProjectName }}:{{.Version}}-arm64"
       - "ghcr.io/{{ tolower .Env.GITHUB_REPOSITORY_OWNER }}/{{ tolower .ProjectName }}:latest-arm64"
@@ -34,6 +48,8 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--label=org.opencontainers.image.source=https://github.com/{{ .Env.GITHUB_REPOSITORY_OWNER }}/{{.ProjectName}}"
+    ids:
+      - server
 
 docker_manifests:
   - name_template: ghcr.io/{{ tolower .Env.GITHUB_REPOSITORY_OWNER }}/{{ tolower .ProjectName }}:{{.Version}}
@@ -58,6 +74,9 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
       {{- end }}
+    builds:
+      - server
+      - desktop
 
 changelog:
   sort: asc

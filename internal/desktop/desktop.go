@@ -45,7 +45,7 @@ func Show() {
 	separator := canvas.NewRectangle(color.NRGBA{R: 210, G: 225, B: 245, A: 255})
 	separator.SetMinSize(fyne.NewSize(0, 2))
 
-	slogan := canvas.NewText("智能字幕生成助手", color.NRGBA{R: 100, G: 120, B: 160, A: 255})
+	slogan := canvas.NewText("智能内容创作助手", color.NRGBA{R: 100, G: 120, B: 160, A: 255})
 	slogan.TextSize = 12
 	slogan.Alignment = fyne.TextAlignCenter
 
@@ -54,7 +54,7 @@ func Show() {
 	logoContainer.Add(slogan)
 
 	// 创建左侧导航栏
-	navItems := []string{"字幕任务", "配置"}
+	navItems := []string{"工作台", "配置"}
 	navIcons := []fyne.Resource{theme.DocumentIcon(), theme.SettingsIcon()}
 
 	// 存储导航按钮列表
