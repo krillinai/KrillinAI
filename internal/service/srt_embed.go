@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
@@ -18,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
@@ -25,6 +26,11 @@ func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTa
 	if stepParam.EmbedSubtitleVideoType == "horizontal" || stepParam.EmbedSubtitleVideoType == "vertical" || stepParam.EmbedSubtitleVideoType == "all" {
 		var width, height int
 		width, height, err = getResolution(stepParam.InputVideoPath)
+		if err != nil {
+			log.GetLogger().Error("embedSubtitles getResolution error", zap.Any("step param", stepParam), zap.Error(err))
+			return fmt.Errorf("embedSubtitles getResolution error: %w", err)
+		}
+
 		// 横屏可以合成竖屏的，但竖屏暂时不支持合成横屏的
 		if stepParam.EmbedSubtitleVideoType == "horizontal" || stepParam.EmbedSubtitleVideoType == "all" {
 			if width < height {
