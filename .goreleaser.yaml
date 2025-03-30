@@ -7,6 +7,7 @@ builds:
       - darwin
       - linux
       - windows
+    main: ./cmd/server/main.go
 
 # Docker 构建配置
 dockers:
