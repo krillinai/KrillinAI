@@ -57,17 +57,19 @@ func (s Service) getVideoInfo(ctx context.Context, stepParam *types.SubtitleTask
 		}
 		log.GetLogger().Debug("getVideoInfo translate video info result", zap.String("result", result))
 
-		storage.SubtitleTasks[stepParam.TaskId].Title = title
-		storage.SubtitleTasks[stepParam.TaskId].Description = description
-		storage.SubtitleTasks[stepParam.TaskId].OriginLanguage = string(stepParam.OriginLanguage)
-		storage.SubtitleTasks[stepParam.TaskId].TargetLanguage = string(stepParam.TargetLanguage)
-		storage.SubtitleTasks[stepParam.TaskId].ProcessPct = 10
+		taskPtr := stepParam.TaskPtr
+
+		taskPtr.Title = title
+		taskPtr.Description = description
+		taskPtr.OriginLanguage = string(stepParam.OriginLanguage)
+		taskPtr.TargetLanguage = string(stepParam.TargetLanguage)
+		taskPtr.ProcessPct = 10
 		splitResult := strings.Split(result, "####")
 		if len(splitResult) == 1 {
-			storage.SubtitleTasks[stepParam.TaskId].TranslatedTitle = splitResult[0]
+			taskPtr.TranslatedTitle = splitResult[0]
 		} else if len(splitResult) == 2 {
-			storage.SubtitleTasks[stepParam.TaskId].TranslatedTitle = splitResult[0]
-			storage.SubtitleTasks[stepParam.TaskId].TranslatedDescription = splitResult[1]
+			taskPtr.TranslatedTitle = splitResult[0]
+			taskPtr.TranslatedDescription = splitResult[1]
 		} else {
 			log.GetLogger().Error("getVideoInfo translate video info error split result length != 1 and 2", zap.Any("stepParam", stepParam), zap.Any("translate result", result), zap.Error(err))
 		}

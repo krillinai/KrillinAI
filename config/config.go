@@ -8,17 +8,17 @@ import (
 	"krillin-ai/log"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
-	"strconv"
 )
 
 type App struct {
-	SegmentDuration      int    `toml:"segment_duration"`
-	TranslateParallelNum int    `toml:"translate_parallel_num"`
-	Proxy                string `toml:"proxy"`
-	ParsedProxy          *url.URL
-	TranscribeProvider   string `toml:"transcribe_provider"`
-	LlmProvider          string `toml:"llm_provider"`
+	SegmentDuration      int      `toml:"segment_duration"`
+	TranslateParallelNum int      `toml:"translate_parallel_num"`
+	Proxy                string   `toml:"proxy"`
+	ParsedProxy          *url.URL `toml:"-"`
+	TranscribeProvider   string   `toml:"transcribe_provider"`
+	LlmProvider          string   `toml:"llm_provider"`
 }
 
 type Server struct {
@@ -27,7 +27,8 @@ type Server struct {
 }
 
 type LocalModel struct {
-	Whisper string `toml:"whisper"`
+	Fasterwhisper string `toml:"fasterwhisper"`
+	Whisperkit    string `toml:"whisperkit"`
 }
 
 type OpenAiWhisper struct {
@@ -84,93 +85,9 @@ var Conf = Config{
 		Port: 8888,
 	},
 	LocalModel: LocalModel{
-		Whisper: "large-v2",
+		Fasterwhisper: "large-v2",
+		Whisperkit:    "large-v2",
 	},
-}
-
-// 从环境变量加载配置
-func loadFromEnv() {
-	// App 配置
-	if v := os.Getenv("KRILLIN_SEGMENT_DURATION"); v != "" {
-		if duration, err := strconv.Atoi(v); err == nil {
-			Conf.App.SegmentDuration = duration
-		}
-	}
-	if v := os.Getenv("KRILLIN_TRANSLATE_PARALLEL_NUM"); v != "" {
-		if num, err := strconv.Atoi(v); err == nil {
-			Conf.App.TranslateParallelNum = num
-		}
-	}
-	if v := os.Getenv("KRILLIN_PROXY"); v != "" {
-		Conf.App.Proxy = v
-	}
-	if v := os.Getenv("KRILLIN_TRANSCRIBE_PROVIDER"); v != "" {
-		Conf.App.TranscribeProvider = v
-	}
-	if v := os.Getenv("KRILLIN_LLM_PROVIDER"); v != "" {
-		Conf.App.LlmProvider = v
-	}
-
-	// Server 配置
-	if v := os.Getenv("KRILLIN_SERVER_HOST"); v != "" {
-		Conf.Server.Host = v
-	}
-	if v := os.Getenv("KRILLIN_SERVER_PORT"); v != "" {
-		if port, err := strconv.Atoi(v); err == nil {
-			Conf.Server.Port = port
-		}
-	}
-
-	// LocalModel 配置
-	if v := os.Getenv("KRILLIN_LOCAL_WHISPER"); v != "" {
-		Conf.LocalModel.Whisper = v
-	}
-
-	// OpenAI 配置
-	if v := os.Getenv("KRILLIN_OPENAI_BASE_URL"); v != "" {
-		Conf.Openai.BaseUrl = v
-	}
-	if v := os.Getenv("KRILLIN_OPENAI_MODEL"); v != "" {
-		Conf.Openai.Model = v
-	}
-	if v := os.Getenv("KRILLIN_OPENAI_API_KEY"); v != "" {
-		Conf.Openai.ApiKey = v
-	}
-
-	// Whisper配置
-	if v := os.Getenv("KRILLIN_OPENAI_WHISPER_BASE_URL"); v != "" {
-		Conf.Openai.Whisper.BaseUrl = v
-	}
-	if v := os.Getenv("KRILLIN_OPENAI_WHISPER_API_KEY"); v != "" {
-		Conf.Openai.Whisper.ApiKey = v
-	}
-
-	// Aliyun OSS 配置
-	if v := os.Getenv("KRILLIN_ALIYUN_OSS_ACCESS_KEY_ID"); v != "" {
-		Conf.Aliyun.Oss.AccessKeyId = v
-	}
-	if v := os.Getenv("KRILLIN_ALIYUN_OSS_ACCESS_KEY_SECRET"); v != "" {
-		Conf.Aliyun.Oss.AccessKeySecret = v
-	}
-	if v := os.Getenv("KRILLIN_ALIYUN_OSS_BUCKET"); v != "" {
-		Conf.Aliyun.Oss.Bucket = v
-	}
-
-	// Aliyun Speech 配置
-	if v := os.Getenv("KRILLIN_ALIYUN_SPEECH_ACCESS_KEY_ID"); v != "" {
-		Conf.Aliyun.Speech.AccessKeyId = v
-	}
-	if v := os.Getenv("KRILLIN_ALIYUN_SPEECH_ACCESS_KEY_SECRET"); v != "" {
-		Conf.Aliyun.Speech.AccessKeySecret = v
-	}
-	if v := os.Getenv("KRILLIN_ALIYUN_SPEECH_APP_KEY"); v != "" {
-		Conf.Aliyun.Speech.AppKey = v
-	}
-
-	// Aliyun Bailian 配置
-	if v := os.Getenv("KRILLIN_ALIYUN_BAILIAN_API_KEY"); v != "" {
-		Conf.Aliyun.Bailian.ApiKey = v
-	}
 }
 
 // 检查必要的配置是否完整
@@ -182,7 +99,7 @@ func validateConfig() error {
 			return errors.New("使用OpenAI转写服务需要配置 OpenAI API Key")
 		}
 	case "fasterwhisper":
-		if Conf.LocalModel.Whisper != "tiny" && Conf.LocalModel.Whisper != "medium" && Conf.LocalModel.Whisper != "large-v2" {
+		if Conf.LocalModel.Fasterwhisper != "tiny" && Conf.LocalModel.Fasterwhisper != "medium" && Conf.LocalModel.Fasterwhisper != "large-v2" {
 			return errors.New("检测到开启了fasterwhisper，但模型选型配置不正确，请检查配置")
 		}
 	case "whisperkit":
@@ -190,7 +107,7 @@ func validateConfig() error {
 			log.GetLogger().Error("whisperkit只支持macos", zap.String("当前系统", runtime.GOOS))
 			return fmt.Errorf("whisperkit只支持macos")
 		}
-		if Conf.LocalModel.Whisper != "large-v2" {
+		if Conf.LocalModel.Whisperkit != "large-v2" {
 			return errors.New("检测到开启了whisperkit，但模型选型配置不正确，请检查配置")
 		}
 	case "aliyun":
@@ -218,28 +135,48 @@ func validateConfig() error {
 	return nil
 }
 
-func LoadConfig() error {
+func LoadConfig() {
 	var err error
 	configPath := "./config/config.toml"
 	if _, err = os.Stat(configPath); os.IsNotExist(err) {
-		log.GetLogger().Info("未找到配置文件，从环境变量中加载配置")
-		loadFromEnv()
+		return
 	} else {
 		log.GetLogger().Info("已找到配置文件，从配置文件中加载配置")
 		_, err = toml.DecodeFile(configPath, &Conf)
 	}
+}
 
+// 验证配置
+func CheckConfig() error {
+	var err error
 	// 解析代理地址
 	Conf.App.ParsedProxy, err = url.Parse(Conf.App.Proxy)
 	if err != nil {
 		return err
 	}
+	return validateConfig()
+}
 
-	// 本地模型不并发
-	if Conf.App.TranscribeProvider == "fasterwhisper" || Conf.App.TranscribeProvider == "whisperkit" {
-		Conf.App.TranslateParallelNum = 1
+// SaveConfig 保存配置到文件
+func SaveConfig() error {
+	configPath := filepath.Join("config", "config.toml")
+
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		err = os.MkdirAll(filepath.Dir(configPath), os.ModePerm)
+		if err != nil {
+			return err
+		}
 	}
 
-	// 验证配置
-	return validateConfig()
+	data, err := toml.Marshal(Conf)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(configPath, data, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

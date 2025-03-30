@@ -22,7 +22,7 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 	link := stepParam.Link
 	audioPath := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, types.SubtitleTaskAudioFileName)
 	videoPath := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, types.SubtitleTaskVideoFileName)
-	storage.SubtitleTasks[stepParam.TaskId].ProcessPct = 3
+	stepParam.TaskPtr.ProcessPct = 3
 	if strings.Contains(link, "local:") {
 		// 本地文件
 		videoPath = strings.ReplaceAll(link, "local:", "")
@@ -78,7 +78,7 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 		log.GetLogger().Info("linkToFile.unsupported link type", zap.Any("step param", stepParam))
 		return errors.New("linkToFile error: unsupported link, only support youtube, bilibili and local file")
 	}
-	storage.SubtitleTasks[stepParam.TaskId].ProcessPct = 6
+	stepParam.TaskPtr.ProcessPct = 6
 	stepParam.AudioFilePath = audioPath
 
 	if !strings.HasPrefix(link, "local:") && stepParam.EmbedSubtitleVideoType != "none" {
@@ -97,6 +97,6 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 	}
 
 	// 更新字幕任务信息
-	storage.SubtitleTasks[stepParam.TaskId].ProcessPct = 10
+	stepParam.TaskPtr.ProcessPct = 10
 	return nil
 }
