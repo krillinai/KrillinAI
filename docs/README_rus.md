@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./docs/images/logo.png" alt="KrillinAI" height="90">
+  <img src="./images/logo.png" alt="KrillinAI" height="90">
 
   # AI инструмент для перевода и озвучки аудио и видео
 
