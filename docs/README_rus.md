@@ -1,7 +1,6 @@
 <div align="center">
   <img src="./docs/images/logo.png" alt="KrillinAI" height="90">
 
-
   # AI инструмент для перевода и озвучки аудио и видео
 
   **[English](./README.md) | [简体中文](./docs/README_zh.md) | [日本語](./docs/README_jp.md)｜[Русский](./docs/README_rus.md)**
