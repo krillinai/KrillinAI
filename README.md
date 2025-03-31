@@ -15,7 +15,7 @@
 
 ## Overview
 
-Krillin AI is a one-stop solution designed for users and developers seeking high-quality video processing. It provides an end-to-end workflow, from video download to the final product, ensuring every frame of your content is extraordinary.
+Krillin AI is an all-in-one solution for effortless video localization and enhancement. This minimalist yet powerful tool handles everything from translation, voice cloning, and dubbing to adaptive formatting—seamlessly converting videos between landscape and portrait modes for optimal display across all content platforms. With its end-to-end workflow, Krillin AI transforms raw footage into polished, platform-ready content in just a few clicks.
 
 ## Key Features:
 🎯 **One-Click Start** - Launch your workflow instantly 
