@@ -4,7 +4,7 @@
 
   # AI Audio&Video Translation and Dubbing Tool
 
-  **[English](./README.md) | [简体中文](./docs/README_zh.md) |[日本語](./docs/README_jp.md)**
+  **[English](./README.md) | [简体中文](./docs/README_zh.md) |[日本語](./docs/README_jp.md)｜[Русский](./docs/README_rus.md)**
 
   [![Discord](https://img.shields.io/badge/Discord-KrillinAI-blue)](https://discord.gg/7RUa4WuW)
   [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
