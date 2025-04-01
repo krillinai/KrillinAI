@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"go.uber.org/zap"
-	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
@@ -31,12 +30,13 @@ func (s Service) uploadSubtitles(ctx context.Context, stepParam *types.SubtitleT
 		})
 	}
 	// 更新字幕任务信息
-	storage.SubtitleTasks[stepParam.TaskId].SubtitleInfos = subtitleInfos
-	storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusSuccess
-	storage.SubtitleTasks[stepParam.TaskId].ProcessPct = 100
+	taskPtr := stepParam.TaskPtr
+	taskPtr.SubtitleInfos = subtitleInfos
+	taskPtr.Status = types.SubtitleTaskStatusSuccess
+	taskPtr.ProcessPct = 100
 	// 配音文件
 	if stepParam.TtsResultFilePath != "" {
-		storage.SubtitleTasks[stepParam.TaskId].SpeechDownloadUrl = "/api/file/" + stepParam.TtsResultFilePath
+		taskPtr.SpeechDownloadUrl = "/api/file/" + stepParam.TtsResultFilePath
 	}
 	return nil
 }

@@ -11,7 +11,8 @@
 
 # 下方的配置非必填，请结合上方的选项和文档说明进行配置
 [local_model]
-    whisperkit = "medium" # fasterwhisper的本地模型可选值：tiny,medium,large-v2。whisperkit的本地模型可选值：large-v2，建议medium及以上
+    fasterwhisper = "large-v2" # fasterwhisper的本地模型可选值：tiny,medium,large-v2，建议medium及以上
+    whisperkit = "large-v2" # whisperkit的本地模型可选值：large-v2
 
 [openai]
     base_url = "" # OpenAI API 自定义base url，可配合转发站密钥使用，留空为默认API地址

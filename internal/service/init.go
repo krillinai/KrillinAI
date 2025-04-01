@@ -1,7 +1,6 @@
 package service
 
 import (
-	"go.uber.org/zap"
 	"krillin-ai/config"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
@@ -10,6 +9,8 @@ import (
 	"krillin-ai/pkg/openai"
 	"krillin-ai/pkg/whisper"
 	"krillin-ai/pkg/whisperkit"
+
+	"go.uber.org/zap"
 )
 
 type Service struct {
@@ -30,9 +31,9 @@ func NewService() *Service {
 	case "aliyun":
 		transcriber = aliyun.NewAsrClient(config.Conf.Aliyun.Bailian.ApiKey)
 	case "fasterwhisper":
-		transcriber = fasterwhisper.NewFastwhisperProcessor(config.Conf.LocalModel.Whisper)
+		transcriber = fasterwhisper.NewFastwhisperProcessor(config.Conf.LocalModel.Fasterwhisper)
 	case "whisperkit":
-		transcriber = whisperkit.NewWhisperKitProcessor(config.Conf.LocalModel.Whisper)
+		transcriber = whisperkit.NewWhisperKitProcessor(config.Conf.LocalModel.Whisperkit)
 	}
 	log.GetLogger().Info("当前选择的转录源： ", zap.String("transcriber", config.Conf.App.TranscribeProvider))
 

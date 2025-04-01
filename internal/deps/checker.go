@@ -314,10 +314,11 @@ func checkModel(whisperType string) error {
 		}
 	}
 	// 模型文件
-	model := config.Conf.LocalModel.Whisper
+	var model string
 	var modelPath string // cli中使用的model path
 	switch whisperType {
 	case "fasterwhisper":
+		model = config.Conf.LocalModel.Fasterwhisper
 		modelPath = fmt.Sprintf("./models/faster-whisper-%s/model.bin", model)
 		if _, err = os.Stat(modelPath); os.IsNotExist(err) {
 			// 下载
@@ -336,6 +337,7 @@ func checkModel(whisperType string) error {
 			log.GetLogger().Info("模型下载完成", zap.String("路径", modelPath))
 		}
 	case "whisperkit":
+		model = config.Conf.LocalModel.Whisperkit
 		modelPath = "./models/whisperkit/openai_whisper-large-v2"
 		files, _ := os.ReadDir(modelPath)
 		if len(files) == 0 {

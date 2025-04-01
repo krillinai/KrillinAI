@@ -74,11 +74,13 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	}
 
 	// 创建任务
-	storage.SubtitleTasks[taskId] = &types.SubtitleTask{
+	taskPtr := &types.SubtitleTask{
 		TaskId:   taskId,
 		VideoSrc: req.Url,
 		Status:   types.SubtitleTaskStatusProcessing,
 	}
+	storage.SubtitleTasks.Store(taskId, taskPtr)
+
 	var ttsVoiceCode string
 	if req.TtsVoiceCode == types.SubtitleTaskTtsVoiceCodeLongyu {
 		ttsVoiceCode = "longyu"
@@ -102,6 +104,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 
 	stepParam := types.SubtitleTaskStepParam{
 		TaskId:                  taskId,
+		TaskPtr:                 taskPtr,
 		TaskBasePath:            taskBasePath,
 		Link:                    req.Url,
 		SubtitleResultType:      resultType,
@@ -128,7 +131,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 				buf := make([]byte, size)
 				buf = buf[:runtime.Stack(buf, false)]
 				log.GetLogger().Error("autoVideoSubtitle panic", zap.Any("panic:", r), zap.Any("stack:", buf))
-				storage.SubtitleTasks[taskId].Status = types.SubtitleTaskStatusFailed
+				stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
 			}
 		}()
 		// 新版流程：链接->本地音频文件->视频信息获取（若有）->本地字幕文件->语言合成->视频合成->字幕文件链接生成
@@ -136,44 +139,44 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		err = s.linkToFile(ctx, &stepParam)
 		if err != nil {
 			log.GetLogger().Error("StartVideoSubtitleTask linkToFile err", zap.Any("req", req), zap.Error(err))
-			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
-			storage.SubtitleTasks[stepParam.TaskId].FailReason = err.Error()
+			stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
+			stepParam.TaskPtr.FailReason = err.Error()
 			return
 		}
 		// 暂时不加视频信息
 		//err = s.getVideoInfo(ctx, &stepParam)
 		//if err != nil {
 		//	log.GetLogger().Error("StartVideoSubtitleTask getVideoInfo err", zap.Any("req", req), zap.Error(err))
-		//	storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
-		//	storage.SubtitleTasks[stepParam.TaskId].FailReason = "get video info error"
+		//	stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
+		//	stepParam.TaskPtr.FailReason = "get video info error"
 		//	return
 		//}
 		err = s.audioToSubtitle(ctx, &stepParam)
 		if err != nil {
 			log.GetLogger().Error("StartVideoSubtitleTask audioToSubtitle err", zap.Any("req", req), zap.Error(err))
-			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
-			storage.SubtitleTasks[stepParam.TaskId].FailReason = err.Error()
+			stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
+			stepParam.TaskPtr.FailReason = err.Error()
 			return
 		}
 		err = s.srtFileToSpeech(ctx, &stepParam)
 		if err != nil {
 			log.GetLogger().Error("StartVideoSubtitleTask srtFileToSpeech err", zap.Any("req", req), zap.Error(err))
-			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
-			storage.SubtitleTasks[stepParam.TaskId].FailReason = err.Error()
+			stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
+			stepParam.TaskPtr.FailReason = err.Error()
 			return
 		}
 		err = s.embedSubtitles(ctx, &stepParam)
 		if err != nil {
 			log.GetLogger().Error("StartVideoSubtitleTask embedSubtitles err", zap.Any("req", req), zap.Error(err))
-			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
-			storage.SubtitleTasks[stepParam.TaskId].FailReason = err.Error()
+			stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
+			stepParam.TaskPtr.FailReason = err.Error()
 			return
 		}
 		err = s.uploadSubtitles(ctx, &stepParam)
 		if err != nil {
 			log.GetLogger().Error("StartVideoSubtitleTask uploadSubtitles err", zap.Any("req", req), zap.Error(err))
-			storage.SubtitleTasks[stepParam.TaskId].Status = types.SubtitleTaskStatusFailed
-			storage.SubtitleTasks[stepParam.TaskId].FailReason = err.Error()
+			stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
+			stepParam.TaskPtr.FailReason = err.Error()
 			return
 		}
 
@@ -186,29 +189,30 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 }
 
 func (s Service) GetTaskStatus(req dto.GetVideoSubtitleTaskReq) (*dto.GetVideoSubtitleTaskResData, error) {
-	task := storage.SubtitleTasks[req.TaskId]
-	if task == nil {
+	task, ok := storage.SubtitleTasks.Load(req.TaskId)
+	if !ok || task == nil {
 		return nil, errors.New("任务不存在")
 	}
-	if task.Status == types.SubtitleTaskStatusFailed {
-		return nil, fmt.Errorf("任务失败，原因：%s", task.FailReason)
+	taskPtr := task.(*types.SubtitleTask)
+	if taskPtr.Status == types.SubtitleTaskStatusFailed {
+		return nil, fmt.Errorf("任务失败，原因：%s", taskPtr.FailReason)
 	}
 	return &dto.GetVideoSubtitleTaskResData{
-		TaskId:         task.TaskId,
-		ProcessPercent: task.ProcessPct,
+		TaskId:         taskPtr.TaskId,
+		ProcessPercent: taskPtr.ProcessPct,
 		VideoInfo: &dto.VideoInfo{
-			Title:                 task.Title,
-			Description:           task.Description,
-			TranslatedTitle:       task.TranslatedTitle,
-			TranslatedDescription: task.TranslatedDescription,
+			Title:                 taskPtr.Title,
+			Description:           taskPtr.Description,
+			TranslatedTitle:       taskPtr.TranslatedTitle,
+			TranslatedDescription: taskPtr.TranslatedDescription,
 		},
-		SubtitleInfo: lo.Map(task.SubtitleInfos, func(item types.SubtitleInfo, _ int) *dto.SubtitleInfo {
+		SubtitleInfo: lo.Map(taskPtr.SubtitleInfos, func(item types.SubtitleInfo, _ int) *dto.SubtitleInfo {
 			return &dto.SubtitleInfo{
 				Name:        item.Name,
 				DownloadUrl: item.DownloadUrl,
 			}
 		}),
-		TargetLanguage:    task.TargetLanguage,
-		SpeechDownloadUrl: task.SpeechDownloadUrl,
+		TargetLanguage:    taskPtr.TargetLanguage,
+		SpeechDownloadUrl: taskPtr.SpeechDownloadUrl,
 	}, nil
 }

@@ -1,5 +1,7 @@
 package storage
 
-import "krillin-ai/internal/types"
+import (
+	"sync"
+)
 
-var SubtitleTasks = make(map[string]*types.SubtitleTask)
+var SubtitleTasks = sync.Map{} // task id -> SubtitleTask，用于接口查询数据

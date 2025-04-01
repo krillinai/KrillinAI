@@ -38,7 +38,7 @@ func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleT
 		return fmt.Errorf("audioToSubtitle splitSrt error: %w", err)
 	}
 	// 更新字幕任务信息
-	storage.SubtitleTasks[stepParam.TaskId].ProcessPct = 95
+	stepParam.TaskPtr.ProcessPct = 95
 	return nil
 }
 
@@ -85,7 +85,7 @@ func (s Service) splitAudio(ctx context.Context, stepParam *types.SubtitleTaskSt
 	}
 
 	// 更新字幕任务信息
-	storage.SubtitleTasks[stepParam.TaskId].ProcessPct = 20
+	stepParam.TaskPtr.ProcessPct = 20
 
 	log.GetLogger().Info("audioToSubtitle.splitAudio end", zap.String("task id", stepParam.TaskId))
 	return nil
@@ -147,8 +147,8 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			stepNumMu.Lock()
 			stepNum++
 			processPct := uint8(20 + 70*stepNum/(len(stepParam.SmallAudios)*2))
+			stepParam.TaskPtr.ProcessPct = processPct
 			stepNumMu.Unlock()
-			storage.SubtitleTasks[stepParam.TaskId].ProcessPct = processPct
 
 			// 拆分字幕并翻译
 			err = s.splitTextAndTranslate(stepParam.TaskId, stepParam.TaskBasePath, stepParam.TargetLanguage, stepParam.EnableModalFilter, audioFile)
@@ -161,9 +161,8 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			stepNumMu.Lock()
 			stepNum++
 			processPct = uint8(20 + 70*stepNum/(len(stepParam.SmallAudios)*2))
+			stepParam.TaskPtr.ProcessPct = processPct
 			stepNumMu.Unlock()
-
-			storage.SubtitleTasks[stepParam.TaskId].ProcessPct = processPct
 
 			// 生成时间戳
 			err = s.generateTimestamps(stepParam.TaskId, stepParam.TaskBasePath, stepParam.OriginLanguage, stepParam.SubtitleResultType, audioFile, stepParam.MaxWordOneLine)
@@ -238,7 +237,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	stepParam.BilingualSrtFilePath = bilingualFile
 
 	// 更新字幕任务信息
-	storage.SubtitleTasks[stepParam.TaskId].ProcessPct = 90
+	stepParam.TaskPtr.ProcessPct = 90
 
 	log.GetLogger().Info("audioToSubtitle.audioToSrt end", zap.Any("taskId", stepParam.TaskId))
 

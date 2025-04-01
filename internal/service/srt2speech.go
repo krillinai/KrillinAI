@@ -135,7 +135,7 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 	}
 	stepParam.TtsResultFilePath = finalOutput
 	// 更新字幕任务信息
-	storage.SubtitleTasks[stepParam.TaskId].ProcessPct = 98
+	stepParam.TaskPtr.ProcessPct = 98
 	log.GetLogger().Info("srtFileToSpeech success", zap.String("task id", stepParam.TaskId))
 	return nil
 }
