@@ -13,6 +13,8 @@
 
 </div>
 
+### 📢 New Release for Win & Mac Desktop Version – Welcome to Test and Provide Feedback
+
 ## Overview
 
 Krillin AI is an all-in-one solution for effortless video localization and enhancement. This minimalist yet powerful tool handles everything from translation, dubbing to voice cloning，formatting—seamlessly converting videos between landscape and portrait modes for optimal display across all content platforms(YouTube, TikTok, Bilibili, Douyin, WeChat Channel, RedNote, Kuaishou). With its end-to-end workflow, Krillin AI transforms raw footage into polished, platform-ready content in just a few clicks.
@@ -62,7 +64,7 @@ Input languages: Chinese, English, Japanese, German, Turkish supported (more lan
 Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc.
 
 ## Interface Preview
-![ui preview](./docs/images/ui.jpg)
+![ui preview](./docs/images/ui_desktop.png)
 
 ## 🚀 Quick Start
 ### Basic Steps
