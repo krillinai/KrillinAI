@@ -4,7 +4,7 @@
 
   # AI Audio&Video Translation and Dubbing Tool
 
-  **[English](./README.md) | [简体中文](./docs/README_zh.md) |[日本語](./docs/README_jp.md)**
+  **[English](./README.md) | [简体中文](./docs/README_zh.md) |[日本語](./docs/README_jp.md)｜[Русский](./docs/README_rus.md)**
 
   [![Discord](https://img.shields.io/badge/Discord-KrillinAI-blue)](https://discord.gg/7RUa4WuW)
   [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
@@ -15,7 +15,7 @@
 
 ## Overview
 
-Krillin AI is a one-stop solution designed for users and developers seeking high-quality video processing. It provides an end-to-end workflow, from video download to the final product, ensuring every frame of your content is extraordinary.
+Krillin AI is an all-in-one solution for effortless video localization and enhancement. This minimalist yet powerful tool handles everything from translation, dubbing to voice cloning，formatting—seamlessly converting videos between landscape and portrait modes for optimal display across all content platforms(YouTube, TikTok, Bilibili, Douyin, WeChat Channel, RedNote, Kuaishou). With its end-to-end workflow, Krillin AI transforms raw footage into polished, platform-ready content in just a few clicks.
 
 ## Key Features:
 🎯 **One-Click Start** - Launch your workflow instantly 

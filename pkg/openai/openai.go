@@ -46,6 +46,10 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 			log.GetLogger().Error("openai stream receive failed", zap.Error(err))
 			return "", err
 		}
+		if len(response.Choices) == 0 {
+			log.GetLogger().Info("openai stream receive no choices", zap.Any("response", response))
+			continue
+		}
 
 		resContent += response.Choices[0].Delta.Content
 	}
