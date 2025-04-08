@@ -3,6 +3,8 @@
 
   # AI инструмент для перевода и озвучки аудио и видео
 
+  <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="krillinai%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+
   **[English](../README.md) | [简体中文](../docs/README_zh.md) | [日本語](../docs/README_jp.md)｜[Русский](../docs/README_rus.md)**
 
   [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
