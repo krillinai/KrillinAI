@@ -4,12 +4,13 @@
 
   # AI Audio&Video Translation and Dubbing Tool
 
-  **[English](./README.md) | [简体中文](./docs/README_zh.md) |[日本語](./docs/README_jp.md)｜[Русский](./docs/README_rus.md)**
+<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="krillinai%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-  [![Discord](https://img.shields.io/badge/Discord-KrillinAI-blue)](https://discord.gg/7RUa4WuW)
+  **[English](./README.md) | [简体中文](./docs/README_zh.md) |[日本語](./docs/README_jp.md)｜[한국어](./docs/README_kr.md)｜[Русский](./docs/README_rus.md)**
+
   [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
-[![哔哩哔哩](https://img.shields.io/badge/哔哩哔哩-KrillinAI-red?logo=bilibili)](https://space.bilibili.com/242124650)
-   [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
+[![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%20followers&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
+[![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 
 </div>
 
@@ -20,7 +21,7 @@
 Krillin AI is an all-in-one solution for effortless video localization and enhancement. This minimalist yet powerful tool handles everything from translation, dubbing to voice cloning，formatting—seamlessly converting videos between landscape and portrait modes for optimal display across all content platforms(YouTube, TikTok, Bilibili, Douyin, WeChat Channel, RedNote, Kuaishou). With its end-to-end workflow, Krillin AI transforms raw footage into polished, platform-ready content in just a few clicks.
 
 ## Key Features:
-🎯 **One-Click Start** - Launch your workflow instantly 
+🎯 **One-Click Start** - Launch your workflow instantly,New desktop version available—easier to use!
 
 📥 **Video download** - yt-dlp and local file uploading supported
 
@@ -42,20 +43,29 @@ The following picture demonstrates the effect after the subtitle file, which was
 
 <table>
 <tr>
-<td width="50%">
+<td width="33%">
 
 ### Subtitle Translation
 ---
 https://github.com/user-attachments/assets/bba1ac0a-fe6b-4947-b58d-ba99306d0339
 
 </td>
-<td width="50%">
+<td width="33%">
 
 ### Dubbing
 ---
 https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 
 </td>
+
+<td width="33%">
+
+### Portrait
+---
+https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
+
+</td>
+
 </tr>
 </table>
 
@@ -68,12 +78,27 @@ Translation languages: 56 languages supported, including English, Chinese, Russi
 
 ## 🚀 Quick Start
 ### Basic Steps
-1. Download the executable file that matches your device system from the release and place it in an empty folder.
-2. Create a `config` folder inside the folder, then create a `config.toml` file in the `config` folder. Copy the content from the `config-example.toml` file in the source code's `config` directory into `config.toml` and fill in your configuration information accordingly.
-3. Double-click the executable file to start the service.
-4. Open a browser and enter `http://127.0.0.1:8888` to start using it (replace 8888 with the port you configured in the `config.toml` file).
+First, download the Release executable file that matches your device's system. Follow the instructions below to choose between the desktop or non-desktop version, then place the software in an empty folder. Running the program will generate some directories, so keeping it in an empty folder makes management easier.
+
+[For the desktop version (release files with "desktop" in the name), refer here]  
+_The desktop version is newly released to address the difficulty beginners face in editing configuration files correctly. It still has some bugs and is being continuously updated._  
+
+Double-click the file to start using it.
+
+[For the non-desktop version (release files without "desktop" in the name), refer here]  
+_The non-desktop version is the original release, with more complex configuration but stable functionality. It is also suitable for server deployment, as it provides a web-based UI._  
+
+Create a `config` folder in the directory, then create a `config.toml` file inside it. Copy the contents of the `config-example.toml` file from the source code's `config` directory into your `config.toml` and fill in your configuration details. (If you want to use OpenAI models but don’t know how to get a key, you can join the group for free trial access.)
+
+Double-click the executable or run it in the terminal to start the service.
+
+Open your browser and enter http://127.0.0.1:8888 to begin using it. (Replace 8888 with the port number you specified in the config file.)
 
 ### To: macOS Users
+[For the desktop version, i.e., release files with "desktop" in the name, refer here]  
+There is currently an issue with the packaging method for the desktop version. After downloading, try renaming the file to "KrillinAI" and then double-click to run. This problem is being fixed.
+
+[For the non-desktop version, i.e., release files without "desktop" in the name, refer here]  
 This software is not signed, so after completing the file configuration in the "Basic Steps," you will need to manually trust the application on macOS. Follow these steps:
 1. Open the terminal and navigate to the directory where the executable file (assuming the file name is `KrillinAI_1.0.0_macOS_arm64`) is located.
 2. Execute the following commands in sequence:
