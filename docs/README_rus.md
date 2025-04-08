@@ -3,12 +3,12 @@
 
   # AI инструмент для перевода и озвучки аудио и видео
 
+  <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="krillinai%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+
   **[English](../README.md) | [简体中文](../docs/README_zh.md) | [日本語](../docs/README_jp.md)｜[Русский](../docs/README_rus.md)**
 
-  [![Discord](https://img.shields.io/badge/Discord-KrillinAI-blue)](https://discord.gg/7RUa4WuW)
   [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
-[![哔哩哔哩](https://img.shields.io/badge/哔哩哔哩-KrillinAI-red?logo=bilibili)](https://space.bilibili.com/242124650)
-   [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
+[![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%20подписчиков&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
 
 </div>
 
@@ -39,18 +39,26 @@ Krillin AI — это универсальное решение для прос�
 
 <table>
 <tr>
-<td width="50%">
+<td width="33%">
 
 ### Перевод субтитров
 ---
 https://github.com/user-attachments/assets/bba1ac0a-fe6b-4947-b58d-ba99306d0339
 
 </td>
-<td width="50%">
+<td width="33%">
 
 ### Озвучка
 ---
 https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
+
+</td>
+
+<td width="33%">
+
+### портретный режим
+---
+https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 </td>
 </tr>
