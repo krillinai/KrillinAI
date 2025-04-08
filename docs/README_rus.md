@@ -5,7 +5,7 @@
 
   <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="krillinai%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-  **[English](../README.md) | [简体中文](../docs/README_zh.md) | [日本語](../docs/README_jp.md)｜[Русский](../docs/README_rus.md)**
+  **[English](../README.md) | [简体中文](../docs/README_zh.md) |[日本語](../docs/README_jp.md)｜[한국어](../docs/README_kr.md)｜[Русский](../docs/README_rus.md)**
 
   [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%20подписчиков&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
@@ -69,7 +69,8 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 Языки перевода: 56 языков, включая английский, китайский, русский, испанский, французский и др.
 
 ## Предпросмотр интерфейса
-![ui preview](./docs/images/ui.jpg)
+![Предпросмотр интерфейса](../docs/images/ui_desktop.png)
+
 
 ## 🚀 Быстрый старт
 ### Основные шаги
