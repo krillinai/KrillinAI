@@ -68,7 +68,7 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 翻译语言支持：英文，中文，俄语，西班牙语，法语等56种语言
 
 ## 界面预览
-![界面预览](./docs/images/ui_desktop.png)
+![界面预览](../docs/images/ui_desktop.png)
 
 
 ## 🚀 快速开始
