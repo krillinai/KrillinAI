@@ -57,8 +57,7 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 翻訳言語対応：英語、中国語、ロシア語、スペイン語、フランス語など56言語
 
 ## インターフェースプレビュー
-![インターフェースプレビュー](./images/ui.jpg)
-
+![インターフェースプレビュー](./images/ui_desktop.png)
 
 
 ## クイックスタート
