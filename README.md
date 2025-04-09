@@ -96,7 +96,17 @@ Open your browser and enter http://127.0.0.1:8888 to begin using it. (Replace 88
 
 ### To: macOS Users
 [For the desktop version, i.e., release files with "desktop" in the name, refer here]  
-There is currently an issue with the packaging method for the desktop version. After downloading, try renaming the file to "KrillinAI" and then double-click to run. This problem is being fixed.
+The current packaging method for the desktop version cannot support direct double-click execution or DMG installation due to signing issues. Manual trust configuration is required as follows:
+
+1. Open the directory containing the executable file (assuming the filename is KrillinAI_1.0.0_desktop_macOS_arm64) in Terminal
+
+2. Execute the following commands sequentially:
+
+```
+sudo xattr -cr ./KrillinAI_1.0.0_desktop_macOS_arm64  
+sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64  
+./KrillinAI_1.0.0_desktop_macOS_arm64  
+```
 
 [For the non-desktop version, i.e., release files without "desktop" in the name, refer here]  
 This software is not signed, so after completing the file configuration in the "Basic Steps," you will need to manually trust the application on macOS. Follow these steps:

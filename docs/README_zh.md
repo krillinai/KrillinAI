@@ -96,7 +96,14 @@ _非桌面版是一开始的版本，配置比较复杂，但是功能稳定，�
 
 ### To: macOS用户
 【如果是桌面版，即release文件带desktop的看此处】  
-桌面端目前打包方式有点问题，尝试下载好之后把文件名改成KrillinAI之后双击试试，此问题正在修复中。
+桌面端目前打包方式由于签名等问题，还不能够做到双击直接运行或者dmg安装，需要手动信任应用，方法如下：
+1. 在终端打开可执行文件（假设文件名是KrillinAI_1.0.0_desktop_macOS_arm64）所在目录
+2. 依次执行以下命令：
+```
+sudo xattr -cr ./KrillinAI_1.0.0_desktop_macOS_arm64
+sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64 
+./KrillinAI_1.0.0_desktop_macOS_arm64
+```
 
 【如果是非桌面版，即release文件不带desktop的看此处】  
 本软件没有做签名，因此在macOS上运行时，在完成“基本步骤”中的文件配置后，还需要手动信任应用，方法如下：
