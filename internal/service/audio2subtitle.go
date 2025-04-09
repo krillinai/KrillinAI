@@ -856,14 +856,20 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 	}
 
 	// 保存不带时间戳的原始字幕
-	originNoTsSrtFile := fmt.Sprintf("%s/%s", baseTaskPath, fmt.Sprintf(types.SubtitleTaskSplitSrtNoTimestampFileNamePattern, audioFile.Num))
-	err = os.WriteFile(originNoTsSrtFile, []byte(splitContent), 0644)
+	originNoTsSrtFileName := filepath.Join(baseTaskPath, fmt.Sprintf(types.SubtitleTaskSplitSrtNoTimestampFileNamePattern, audioFile.Num))
+	originNoTsSrtFile, err := os.Create(originNoTsSrtFileName)
+	if err != nil {
+		log.GetLogger().Error("audioToSubtitle splitTextAndTranslate create srt file err", zap.Any("taskId", taskId), zap.Error(err))
+		return fmt.Errorf("audioToSubtitle splitTextAndTranslate create srt file err: %w", err)
+	}
+	defer originNoTsSrtFile.Sync()
+	defer originNoTsSrtFile.Close()
+	_, err = originNoTsSrtFile.WriteString(splitContent)
 	if err != nil {
 		log.GetLogger().Error("audioToSubtitle splitTextAndTranslate write originNoTsSrtFile err", zap.Any("taskId", taskId), zap.Error(err))
 		return fmt.Errorf("audioToSubtitle splitTextAndTranslate write originNoTsSrtFile err: %w", err)
 	}
-
-	audioFile.SrtNoTsFile = originNoTsSrtFile
+	audioFile.SrtNoTsFile = originNoTsSrtFileName
 	return nil
 }
 
