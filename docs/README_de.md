@@ -120,11 +120,11 @@ sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
 Dadurch wird der Dienst gestartet.
 
 ### Dadurch wird der Dienst gestartet.
-Dieses Projekt unterstützt Docker-Bereitstellung. Bitte lesen Sie die [Docker Deployment Instructions](./docs/docker.md).
+Dieses Projekt unterstützt Docker-Bereitstellung. Bitte lesen Sie die [Docker Deployment Instructions](../docs/docker.md).
 
 ### Cookie-Konfigurationsanleitung
 
-Falls Probleme beim Herunterladen von Videos auftreten, lesen Sie bitte die [Cookie Configuration Instructions](./docs/get_cookies.md) zur Einrichtung Ihrer Cookie-Informationen.
+Falls Probleme beim Herunterladen von Videos auftreten, lesen Sie bitte die [Cookie Configuration Instructions](../docs/get_cookies.md) zur Einrichtung Ihrer Cookie-Informationen.
 
 ### Konfigurationshilfe
 Die schnellste und bequemste Konfigurationsmethode:
