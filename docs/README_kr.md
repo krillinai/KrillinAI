@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./docs/images/logo.png" alt="KrillinAI" height="90">
+  <img src="../docs/images/logo.png" alt="KrillinAI" height="90">
 
 
   # AI 오디오&비디오 번역 및 더빙 도구
