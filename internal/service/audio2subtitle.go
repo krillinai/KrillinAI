@@ -846,7 +846,7 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 
 			log.GetLogger().Warn("audioToSubtitle splitTextAndTranslate invalid response format or content mismatch, retrying...",
 				zap.Any("taskId", taskId), zap.Int("attempt", i+1))
-			err = fmt.Errorf("invalid split content format or content mismatch")
+			err = fmt.Errorf("invalid split content format or content mismatch, audio file num: %d", audioFile.Num)
 		}
 
 		if err != nil {
