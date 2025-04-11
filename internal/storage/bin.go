@@ -6,4 +6,5 @@ var (
 	YtdlpPath         string
 	FasterwhisperPath string
 	WhisperKitPath    string
+	WhispercppPath    string
 )
