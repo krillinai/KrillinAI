@@ -54,7 +54,7 @@ func Show() {
 	logoContainer.Add(slogan)
 
 	// 创建左侧导航栏
-	navItems := []string{"工作台", "配置"}
+	navItems := []string{"工作台 Workbench", "配置 Config"}
 	navIcons := []fyne.Resource{theme.DocumentIcon(), theme.SettingsIcon()}
 
 	// 存储导航按钮列表

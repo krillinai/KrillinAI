@@ -75,7 +75,7 @@ func CreateSubtitleTab(window fyne.Window) fyne.CanvasObject {
 	sm := NewSubtitleManager(window)
 
 	// 创建标题
-	title := TitleText("视频翻译配音")
+	title := TitleText("视频翻译配音Video Translate & Dubbing")
 
 	// 创建视频输入区域
 	videoInputContainer := createVideoInputContainer(sm)
@@ -177,14 +177,14 @@ func createAppConfigGroup() *fyne.Container {
 
 	// 格式化表单项以使其更美观
 	form := widget.NewForm(
-		widget.NewFormItem("字幕分段处理时长(分钟)", appSegmentDurationEntry),
-		widget.NewFormItem("翻译并行数量", appTranslateParallelNumEntry),
-		widget.NewFormItem("网络代理地址", appProxyEntry),
-		widget.NewFormItem("语音识别服务源", appTranscribeProviderEntry),
-		widget.NewFormItem("LLM服务源", appLlmProviderEntry),
+		widget.NewFormItem("字幕分段处理时长(分钟) Segment duration (minutes)", appSegmentDurationEntry),
+		widget.NewFormItem("翻译并行数量 Translate parallel num", appTranslateParallelNumEntry),
+		widget.NewFormItem("网络代理地址 proxy", appProxyEntry),
+		widget.NewFormItem("语音识别服务源 Transcriber provider", appTranscribeProviderEntry),
+		widget.NewFormItem("LLM服务源 Llm provider", appLlmProviderEntry),
 	)
 
-	return GlassCard("应用配置", "基本设置参数", form)
+	return GlassCard("应用配置 App Config", "基本参数 Basic config", form)
 }
 
 // 创建本地模型配置组
@@ -200,32 +200,32 @@ func createLocalModelGroup() *fyne.Container {
 	localModelWhisperkitEntry.SetSelected(config.Conf.LocalModel.Whisperkit)
 
 	form := widget.NewForm(
-		widget.NewFormItem("Fasterwhisper模型", localModelFasterwhisperEntry),
-		widget.NewFormItem("Whisperkit模型", localModelWhisperkitEntry),
+		widget.NewFormItem("Fasterwhisper模型 Model", localModelFasterwhisperEntry),
+		widget.NewFormItem("Whisperkit模型 Model", localModelWhisperkitEntry),
 	)
 
-	return StyledCard("本地模型配置", form)
+	return StyledCard("本地模型配置 Local model setting", form)
 }
 
 // 创建视频输入容器
 func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 	// 视频输入方式选择
-	inputTypeRadio := widget.NewRadioGroup([]string{"本地视频", "视频链接"}, nil)
+	inputTypeRadio := widget.NewRadioGroup([]string{"本地视频 Local video", "视频链接 Video link"}, nil)
 	inputTypeRadio.Horizontal = true
 	inputTypeContainer := container.NewHBox(
-		widget.NewLabel("输入方式:"),
+		widget.NewLabel("输入方式 Input type:"),
 		inputTypeRadio,
 	)
 
 	// 视频链接输入框
-	urlEntry := StyledEntry("请输入视频链接")
+	urlEntry := StyledEntry("请输入视频链接Please enter the video link")
 	urlEntry.Hide()
 	urlEntry.OnChanged = func(text string) {
 		sm.SetVideoUrl(text)
 	}
 
 	// 视频选择按钮
-	selectButton := PrimaryButton("选择视频文件", theme.FolderOpenIcon(), sm.ShowFileDialog)
+	selectButton := PrimaryButton("选择视频文件Choose video file", theme.FolderOpenIcon(), sm.ShowFileDialog)
 	selectedVideoLabel := widget.NewLabel("")
 	selectedVideoLabel.Hide()
 
@@ -233,7 +233,7 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 	sm.SetVideoSelectedCallback(func(path string) { // 设置视频地址+控制信息展示
 		if path != "" {
 			sm.SetVideoUrl(path)
-			selectedVideoLabel.SetText("已选择: " + filepath.Base(path))
+			selectedVideoLabel.SetText("已选择Chosen: " + filepath.Base(path))
 			selectedVideoLabel.Show()
 		} else {
 			selectedVideoLabel.Hide()
@@ -245,9 +245,9 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 	videoInputContainer.Objects = []fyne.CanvasObject{selectButton, selectedVideoLabel}
 
 	// 切换输入方式
-	inputTypeRadio.SetSelected("本地视频")
+	inputTypeRadio.SetSelected("本地视频 Local video")
 	inputTypeRadio.OnChanged = func(value string) {
-		if value == "本地视频" {
+		if value == "本地视频 Local video" {
 			urlEntry.Hide()
 			selectButton.Show()
 			selectedVideoLabel.Show()
@@ -265,25 +265,25 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 	// 创建语言选择容器
 	langContainer := container.NewGridWithColumns(2,
 		container.NewHBox(
-			widget.NewLabel("源语言:"),
+			widget.NewLabel("源语言 Origin language:"),
 			StyledSelect([]string{
-				"简体中文", "英文", "日文", "土耳其语", "德语", "韩语", "俄语",
+				"简体中文", "English", "日文", "土耳其语", "德语", "韩语", "俄语",
 			}, func(value string) {
 				langMap := map[string]string{
-					"简体中文": "zh_cn", "英文": "en", "日文": "ja",
+					"简体中文": "zh_cn", "English": "en", "日文": "ja",
 					"土耳其语": "tr", "德语": "de", "韩语": "ko", "俄语": "ru",
 				}
 				sm.SetSourceLang(langMap[value])
 			}),
 		),
 		container.NewHBox(
-			widget.NewLabel("目标语言:"),
+			widget.NewLabel("目标语言 Target language:"),
 			StyledSelect([]string{
-				"简体中文", "繁体中文", "英语", "日语", "韩语", "法语", "德语", "俄语",
+				"简体中文", "繁体中文", "English", "日语", "韩语", "法语", "德语", "俄语",
 				"西班牙语", "葡萄牙语", "意大利语", "阿拉伯语", "土耳其语",
 			}, func(value string) {
 				langMap := map[string]string{
-					"简体中文": "zh_cn", "繁体中文": "zh_tw", "英语": "en",
+					"简体中文": "zh_cn", "繁体中文": "zh_tw", "English": "en",
 					"日语": "ja", "韩语": "ko", "法语": "fr", "德语": "de",
 					"俄语": "ru", "西班牙语": "es", "葡萄牙语": "pt",
 					"意大利语": "it", "阿拉伯语": "ar", "土耳其语": "tr",
@@ -304,31 +304,31 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		container.NewPadded(langContainer),
 	)
 
-	return GlassCard("1. 视频源设置", "选择视频和语言", content)
+	return GlassCard("1. 视频源设置 Video Source", "选择视频和语言 Choose video & language", content)
 }
 
 // 创建字幕设置卡片
 func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
 	// 创建更美观的双语位置选择器
-	bilingualCheck := widget.NewCheck("启用双语字幕", func(checked bool) {
+	bilingualCheck := widget.NewCheck("启用双语字幕 Enable bilingual subtitles", func(checked bool) {
 		sm.SetBilingualEnabled(checked)
 	})
 	bilingualCheck.SetChecked(true)
 
 	// 使用更长的选项文本，强制下拉框显示更宽
 	positionSelect := widget.NewSelect([]string{
-		"翻译后字幕在上方    ", // 添加额外空格增加宽度
-		"翻译后字幕在下方    ", // 添加额外空格增加宽度
+		"翻译后字幕在上方 Translation subtitle on top",
+		"翻译后字幕在下方 Translation subtitle on bottom",
 	}, func(value string) {
-		if value == "翻译后字幕在上方    " {
+		if value == "翻译后字幕在上方 Translation subtitle on top" {
 			sm.SetBilingualPosition(1)
 		} else {
 			sm.SetBilingualPosition(2)
 		}
 	})
-	positionSelect.SetSelected("翻译后字幕在上方    ")
+	positionSelect.SetSelected("翻译后字幕在上方 Translation subtitle on top")
 
-	fillerCheck := widget.NewCheck("启用语气词过滤", func(checked bool) {
+	fillerCheck := widget.NewCheck("启用语气词过滤 Use modal filter", func(checked bool) {
 		sm.SetFillerFilter(checked)
 	})
 	fillerCheck.SetChecked(true)
@@ -339,27 +339,27 @@ func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
 		positionSelect, // 直接让它占据整行以获得足够空间
 	)
 
-	return StyledCard("2. 字幕设置", content)
+	return StyledCard("2. 字幕设置 Subtitle setting", content)
 }
 
 // 创建配音设置卡片
 func createVoiceSettingsCard(sm *SubtitleManager) *fyne.Container {
 	// 创建配音启用复选框和性别选择
-	voiceoverCheck := widget.NewCheck("启用配音", func(checked bool) {
+	voiceoverCheck := widget.NewCheck("启用配音 Enable dubbing", func(checked bool) {
 		sm.SetVoiceoverEnabled(checked)
 	})
 
-	genderSelect := StyledSelect([]string{"男声", "女声"}, func(value string) {
-		if value == "男声" {
+	genderSelect := StyledSelect([]string{"男声 Male", "女声 Female"}, func(value string) {
+		if value == "男声 Male" {
 			sm.SetVoiceoverGender(2)
 		} else {
 			sm.SetVoiceoverGender(1)
 		}
 	})
-	genderSelect.SetSelected("男声")
+	genderSelect.SetSelected("男声 Male")
 
 	// 创建音频选择按钮 - 使用普通按钮，蓝色文字
-	audioSampleButton := SecondaryButton("选择音色克隆样本", theme.MediaMusicIcon(), sm.ShowAudioFileDialog)
+	audioSampleButton := SecondaryButton("选择音色克隆样本 Choose voice clone sample", theme.MediaMusicIcon(), sm.ShowAudioFileDialog)
 
 	// 使用漂亮的网格布局
 	grid := container.NewGridWithColumns(2,
@@ -367,17 +367,17 @@ func createVoiceSettingsCard(sm *SubtitleManager) *fyne.Container {
 		audioSampleButton,
 	)
 
-	return StyledCard("3. 配音设置", grid)
+	return StyledCard("3. 配音设置 Dubbing setting", grid)
 }
 
 // 创建字幕嵌入设置卡片
 func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 	// 创建字幕嵌入复选框
-	embedCheck := widget.NewCheck("合成字幕嵌入视频", nil)
+	embedCheck := widget.NewCheck("合成字幕嵌入视频 Embed subtitles into video", nil)
 
 	// 创建视频类型选择
 	embedTypeSelect := StyledSelect([]string{
-		"横屏视频", "竖屏视频", "横屏+竖屏视频",
+		"横屏视频 Landscape video", "竖屏视频 Portrait video", "横屏+竖屏视频 Landscape+Portrait video",
 	}, func(value string) {
 		switch value {
 		case "横屏视频":
@@ -391,16 +391,16 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 	embedTypeSelect.Disable()
 
 	// 创建标题输入区域
-	mainTitleEntry := StyledEntry("请输入主标题")
-	subTitleEntry := StyledEntry("请输入副标题")
+	mainTitleEntry := StyledEntry("请输入主标题 Enter main title")
+	subTitleEntry := StyledEntry("请输入副标题 Enter sub title")
 
 	titleInputContainer := container.NewVBox(
 		container.NewGridWithColumns(2,
-			widget.NewLabel("主标题:"),
+			widget.NewLabel("主标题 Main title:"),
 			mainTitleEntry,
 		),
 		container.NewGridWithColumns(2,
-			widget.NewLabel("副标题:"),
+			widget.NewLabel("副标题 Sub title:"),
 			subTitleEntry,
 		),
 	)
@@ -410,9 +410,9 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 	embedCheck.OnChanged = func(checked bool) {
 		if checked {
 			embedTypeSelect.Enable()
-			embedTypeSelect.SetSelected("横屏视频")
+			embedTypeSelect.SetSelected("横屏视频 Landscape video")
 			sm.SetEmbedSubtitle("horizontal")
-			if embedTypeSelect.Selected == "竖屏视频" || embedTypeSelect.Selected == "横屏+竖屏视频" {
+			if embedTypeSelect.Selected == "竖屏视频 Portrait video" || embedTypeSelect.Selected == "横屏+竖屏视频 Landscape+Portrait video" {
 				titleInputContainer.Show()
 			}
 		} else {
@@ -424,7 +424,7 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 
 	// 更新标题输入区域的显示状态
 	embedTypeSelect.OnChanged = func(value string) {
-		if value == "竖屏视频" || value == "横屏+竖屏视频" {
+		if value == "竖屏视频 Portrait video" || value == "横屏+竖屏视频 Landscape+Portrait video" {
 			titleInputContainer.Show()
 		} else {
 			titleInputContainer.Hide()
@@ -440,7 +440,7 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 		container.NewPadded(titleInputContainer),
 	)
 
-	return StyledCard("字幕嵌入设置", mainContainer)
+	return StyledCard("字幕嵌入设置 Subtitle embed setting", mainContainer)
 }
 
 // 创建进度和下载区域
@@ -516,7 +516,7 @@ func createProgressAndDownloadArea(sm *SubtitleManager) (*widget.ProgressBar, *f
 
 // 创建开始按钮
 func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContainer *fyne.Container, embedSettingsCard *fyne.Container, progress *widget.ProgressBar, downloadContainer *fyne.Container) *widget.Button {
-	btn := widget.NewButtonWithIcon("开始任务", theme.MediaPlayIcon(), nil)
+	btn := widget.NewButtonWithIcon("开始任务 Start task", theme.MediaPlayIcon(), nil)
 	btn.Importance = widget.HighImportance
 
 	btn.OnTapped = func() {
@@ -622,19 +622,19 @@ func createOpenAIConfigGroup() *fyne.Container {
 	openaiBaseUrlEntry := StyledEntry("OpenAI API base url")
 	openaiBaseUrlEntry.Bind(binding.BindString(&config.Conf.Openai.BaseUrl))
 
-	openaiModelEntry := StyledEntry("OpenAI模型名称")
+	openaiModelEntry := StyledEntry("OpenAI模型名称 Model name")
 	openaiModelEntry.Bind(binding.BindString(&config.Conf.Openai.Model))
 
-	openaiApiKeyEntry := StyledPasswordEntry("OpenAI API密钥")
+	openaiApiKeyEntry := StyledPasswordEntry("OpenAI API密钥 Key")
 	openaiApiKeyEntry.Bind(binding.BindString(&config.Conf.Openai.ApiKey))
 
 	form := widget.NewForm(
 		widget.NewFormItem("API base url", openaiBaseUrlEntry),
-		widget.NewFormItem("模型名称", openaiModelEntry),
-		widget.NewFormItem("API密钥", openaiApiKeyEntry),
+		widget.NewFormItem("模型名称 Model name", openaiModelEntry),
+		widget.NewFormItem("API密钥 key", openaiApiKeyEntry),
 	)
 
-	return StyledCard("OpenAI配置", form)
+	return StyledCard("OpenAI配置 Config", form)
 }
 
 // 创建Whisper配置组
@@ -647,10 +647,10 @@ func createWhisperConfigGroup() *fyne.Container {
 
 	form := widget.NewForm(
 		widget.NewFormItem("API base url", whisperBaseUrlEntry),
-		widget.NewFormItem("API密钥", whisperApiKeyEntry),
+		widget.NewFormItem("API密钥 Key", whisperApiKeyEntry),
 	)
 
-	return StyledCard("Whisper配置", form)
+	return StyledCard("Whisper配置 Config", form)
 }
 
 // 创建阿里云OSS配置组
@@ -661,52 +661,60 @@ func createAliyunOSSConfigGroup() *fyne.Container {
 	ossAccessKeySecretEntry := StyledPasswordEntry("阿里云AccessKey Secret")
 	ossAccessKeySecretEntry.Bind(binding.BindString(&config.Conf.Aliyun.Oss.AccessKeySecret))
 
-	ossBucketEntry := StyledEntry("OSS Bucket名称")
+	ossBucketEntry := StyledEntry("OSS Bucket名称 ")
 	ossBucketEntry.Bind(binding.BindString(&config.Conf.Aliyun.Oss.Bucket))
 
 	form := widget.NewForm(
 		widget.NewFormItem("AccessKey ID", ossAccessKeyIdEntry),
 		widget.NewFormItem("AccessKey Secret", ossAccessKeySecretEntry),
-		widget.NewFormItem("Bucket名称", ossBucketEntry),
+		widget.NewFormItem("Bucket名称 Name", ossBucketEntry),
 	)
 
-	return GlassCard("阿里云OSS配置", "对象存储服务", form)
+	return GlassCard("阿里云OSS配置 Aliyun OSS Config", "对象存储服务OSS service", form)
 }
 
 // 创建阿里云语音配置组
 func createAliyunSpeechConfigGroup() *fyne.Container {
-	speechAppKeyEntry := StyledEntry("阿里云语音服务AppKey")
+	ossAccessKeyIdEntry := StyledEntry("阿里云 AccessKey ID")
+	ossAccessKeyIdEntry.Bind(binding.BindString(&config.Conf.Aliyun.Speech.AccessKeyId))
+
+	ossAccessKeySecretEntry := StyledPasswordEntry("阿里云 AccessKey Secret")
+	ossAccessKeySecretEntry.Bind(binding.BindString(&config.Conf.Aliyun.Speech.AccessKeySecret))
+
+	speechAppKeyEntry := StyledEntry("阿里云语音服务 AppKey")
 	speechAppKeyEntry.Bind(binding.BindString(&config.Conf.Aliyun.Speech.AppKey))
 
 	form := widget.NewForm(
+		widget.NewFormItem("AccessKey ID", ossAccessKeyIdEntry),
+		widget.NewFormItem("AccessKey Secret", ossAccessKeySecretEntry),
 		widget.NewFormItem("AppKey", speechAppKeyEntry),
 	)
 
-	return StyledCard("阿里云语音配置", form)
+	return StyledCard("阿里云语音配置 Aliyun Speech config", form)
 }
 
 // 创建阿里云百炼配置组
 func createAliyunBailianConfigGroup() *fyne.Container {
-	bailianApiKeyEntry := StyledPasswordEntry("阿里云百炼API密钥")
+	bailianApiKeyEntry := StyledPasswordEntry("阿里云百炼API密钥 Aliyun bailian api key")
 	bailianApiKeyEntry.Bind(binding.BindString(&config.Conf.Aliyun.Bailian.ApiKey))
 
 	form := widget.NewForm(
-		widget.NewFormItem("API密钥", bailianApiKeyEntry),
+		widget.NewFormItem("API密钥 key", bailianApiKeyEntry),
 	)
 
-	return StyledCard("阿里云百炼配置", form)
+	return StyledCard("阿里云百炼配置 Aliyun bailian config", form)
 }
 
 // 创建保存按钮
 func createSaveButton(window fyne.Window) *widget.Button {
 	// 创建保存按钮（但不设置点击事件）
-	saveButton := widget.NewButtonWithIcon("保存配置", theme.DocumentSaveIcon(), nil)
+	saveButton := widget.NewButtonWithIcon("保存配置 Save config", theme.DocumentSaveIcon(), nil)
 	saveButton.Importance = widget.HighImportance
 
 	// 设置点击事件
 	saveButton.OnTapped = func() {
 		// 创建loading对话框
-		progress := dialog.NewProgress("保存中", "正在保存配置...", window)
+		progress := dialog.NewProgress("保存中 Saving", "正在保存配置... Saving...", window)
 		progress.Show()
 
 		// 模拟保存进度
@@ -722,15 +730,15 @@ func createSaveButton(window fyne.Window) *widget.Button {
 
 			if err != nil {
 				dialog.ShowError(fmt.Errorf("保存配置失败: %v", err), window)
-				log.GetLogger().Error("保存配置失败", zap.Error(err))
+				log.GetLogger().Error("保存配置失败 Failed to save config", zap.Error(err))
 				return
 			}
 
 			// 重新加载配置
 			config.LoadConfig()
 
-			successDialog := dialog.NewInformation("成功", "配置已保存", window)
-			successDialog.SetDismissText("确定")
+			successDialog := dialog.NewInformation("成功 Success", "配置已保存 Config saved", window)
+			successDialog.SetDismissText("确定 OK")
 			successDialog.Show()
 		}()
 	}
