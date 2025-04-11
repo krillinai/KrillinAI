@@ -210,7 +210,7 @@ func createLocalModelGroup() *fyne.Container {
 // 创建视频输入容器
 func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 	// 视频输入方式选择
-	inputTypeRadio := widget.NewRadioGroup([]string{"本地视频Local video", "视频链接Video link"}, nil)
+	inputTypeRadio := widget.NewRadioGroup([]string{"本地视频 Local video", "视频链接 Video link"}, nil)
 	inputTypeRadio.Horizontal = true
 	inputTypeContainer := container.NewHBox(
 		widget.NewLabel("输入方式 Input type:"),
