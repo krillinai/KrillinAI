@@ -101,10 +101,12 @@ func validateConfig() error {
 			return errors.New("使用OpenAI转写服务需要配置 OpenAI API Key")
 		}
 	case "fasterwhisper":
+		Conf.App.TranslateParallelNum = 1
 		if Conf.LocalModel.Fasterwhisper != "tiny" && Conf.LocalModel.Fasterwhisper != "medium" && Conf.LocalModel.Fasterwhisper != "large-v2" {
 			return errors.New("检测到开启了fasterwhisper，但模型选型配置不正确，请检查配置")
 		}
 	case "whisperkit":
+		Conf.App.TranslateParallelNum = 1
 		if runtime.GOOS != "darwin" {
 			log.GetLogger().Error("whisperkit只支持macos", zap.String("当前系统", runtime.GOOS))
 			return fmt.Errorf("whisperkit只支持macos")
@@ -113,6 +115,7 @@ func validateConfig() error {
 			return errors.New("检测到开启了whisperkit，但模型选型配置不正确，请检查配置")
 		}
 	case "whispercpp":
+		Conf.App.TranslateParallelNum = 1
 		if Conf.LocalModel.Fasterwhisper != "tiny" && Conf.LocalModel.Fasterwhisper != "medium" && Conf.LocalModel.Fasterwhisper != "large-v2" {
 			return errors.New("检测到开启了whisper.cpp，但模型选型配置不正确，请检查配置")
 		}

@@ -52,7 +52,7 @@ type SubtitleManager struct {
 func NewSubtitleManager(window fyne.Window) *SubtitleManager {
 	return &SubtitleManager{
 		window:            window,
-		sourceLang:        "zh_cn",
+		sourceLang:        "en",
 		targetLang:        "zh_cn",
 		bilingualEnabled:  true,
 		bilingualPosition: 1,
