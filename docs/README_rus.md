@@ -1,13 +1,13 @@
 <div align="center">
   <img src="./images/logo.png" alt="KrillinAI" height="90">
 
-  # AI инструмент для перевода и озвучки аудио и видео
+# AI инструмент для перевода и озвучки аудио и видео
 
-  <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="krillinai%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="krillinai%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-  **[English](../README.md)｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)｜[한국어](../docs/README_kr.md)｜[Français](../docs/README_fr.md)｜[Deutsch](../docs/README_de.md)｜[Español](../docs/README_es.md)｜[Português](../docs/README_pt.md)｜[Русский](../docs/README_rus.md)**
-  
-  [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
+**[English](../README.md)｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)｜[한국어](../docs/README_kr.md)｜[Français](../docs/README_fr.md)｜[Deutsch](../docs/README_de.md)｜[Español](../docs/README_es.md)｜[Português](../docs/README_pt.md)｜[Русский](../docs/README_rus.md)**
+
+[![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%20подписчиков&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
 
 </div>
@@ -27,7 +27,7 @@ Krillin AI — это универсальное решение для прос�
 
 🌍 **Профессиональный перевод** -  согласованный перевод на уровне абзацев
 
-🔄 **Замена терминов** - смена специализированной лексики в один клик 
+🔄 **Замена терминов** - смена специализированной лексики в один клик
 
 🎙️ **Озвучка и клонирование голоса** - выбор голосов CosyVoice или создание копий
 
@@ -91,11 +91,11 @@ sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
 Это запустит сервис.
 
 ### Инструкции по настройке Cookie
-Этот проект поддерживает развертывание через Docker. Пожалуйста, обратитесь к [Docker Deployment Instructions](./docs/docker.md).
+Этот проект поддерживает развертывание через Docker. Пожалуйста, обратитесь к [Docker Deployment Instructions](./docker.md).
 
 ### Cookie Configuration Instructions
 
-Если вы столкнулись с ошибками при загрузке видео, пожалуйста, обратитесь к [Cookie Configuration Instructions](./docs/get_cookies.md) для настройки информации о ваших cookie.
+Если вы столкнулись с ошибками при загрузке видео, пожалуйста, обратитесь к [Cookie Configuration Instructions](./get_cookies.md) для настройки информации о ваших cookie.
 
 ### Помощь по настройке
 Самый быстрый и удобный способ настройки:
@@ -108,10 +108,10 @@ sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
 * Если llm_provider заполнен как aliyun, это означает, что будет использоваться сервис больших моделей Alibaba Cloud. Следовательно, необходимо настроить параметр aliyun.bailian.
 * Если transcription_provider заполнен как aliyun, или если функция "озвучки" включена при запуске задачи, будет использоваться голосовой сервис Alibaba Cloud. Поэтому необходимо заполнить параметр aliyun.speech.
 * Если функция "озвучки" включена и одновременно загружаются локальные аудиофайлы для клонирования тембра голоса, также будет использоваться сервис облачного хранилища OSS от Alibaba Cloud. Следовательно, необходимо заполнить параметр aliyun.oss.
-Руководство по настройке: [Alibaba Cloud Configuration Instructions](./docs/aliyun.md)
+  Руководство по настройке: [Alibaba Cloud Configuration Instructions](./aliyun.md)
 
 ## Часто задаваемые вопросы
-Пожалуйста, обратитесь к [Frequently Asked Questions](./docs/faq.md)
+Пожалуйста, обратитесь к [Frequently Asked Questions](./faq_rus.md)
 
 ## Рекомендации по внесению вклада
 
