@@ -61,8 +61,19 @@ func Show() {
 	var navButtons []*widget.Button
 	navContainer := container.NewVBox()
 
-	// 内容区域
-	content := AnimatedContainer()
+	// 创建内容区域，使用Stack容器来叠放多个内容
+	contentStack := container.NewStack()
+
+	// 预先创建两个tab的内容
+	workbenchContent := CreateSubtitleTab(myWindow)
+	configContent := CreateConfigTab(myWindow)
+
+	// 默认显示工作台内容
+	contentStack.Add(workbenchContent)
+	contentStack.Add(configContent)
+
+	// 默认隐藏配置内容
+	configContent.Hide()
 
 	currentSelectedIndex := 0
 
@@ -93,16 +104,28 @@ func Show() {
 			// 刷新容器
 			navContainer.Refresh()
 
-			// 更新内容
-			updateContent(index, content)
+			// 切换显示内容而不是重新创建
+			if index == 0 {
+				// 显示工作台内容
+				workbenchContent.Show()
+				configContent.Hide()
+				// 确保进度条和下载区域状态正确显示
+				workbenchContent.Refresh()
+				FadeAnimation(workbenchContent, 300*time.Millisecond, 0.0, 1.0)
+			} else {
+				// 显示配置内容
+				workbenchContent.Hide()
+				configContent.Show()
+				FadeAnimation(configContent, 300*time.Millisecond, 0.0, 1.0)
+			}
+
+			contentStack.Refresh()
 		})
 
 		// 将导航按钮添加到列表和容器中
 		navButtons = append(navButtons, navBtn)
 		navContainer.Add(container.NewPadded(navBtn))
 	}
-
-	updateContent(0, content)
 
 	navBackground := canvas.NewRectangle(color.NRGBA{R: 250, G: 251, B: 254, A: 255})
 
@@ -116,7 +139,7 @@ func Show() {
 	)
 
 	// 主布局
-	split := container.NewHSplit(navWithBackground, content)
+	split := container.NewHSplit(navWithBackground, container.NewPadded(contentStack))
 	split.SetOffset(0.2)
 
 	mainContainer := container.NewPadded(split)
@@ -137,7 +160,8 @@ func Show() {
 	myWindow.ShowAndRun()
 }
 
-// 更新内容区域
+// 这个函数现在不再使用，因为我们预先创建了所有内容
+// 保留它是为了兼容性
 func updateContent(index int, content *fyne.Container) {
 	var newContent fyne.CanvasObject
 
