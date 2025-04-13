@@ -28,6 +28,7 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 
 	// app 配置
 	appGroup := createAppConfigGroup()
+	serverGroup := createServerConfigGroup()
 	localModelGroup := createLocalModelGroup()
 	openaiGroup := createOpenAIConfigGroup()
 	whisperGroup := createWhisperConfigGroup()
@@ -52,6 +53,7 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 		container.NewPadded(pageTitle),
 		spacer1,
 		container.NewPadded(appGroup),
+		container.NewPadded(serverGroup),
 		container.NewPadded(localModelGroup),
 		container.NewPadded(openaiGroup),
 		container.NewPadded(whisperGroup),
@@ -185,6 +187,32 @@ func createAppConfigGroup() *fyne.Container {
 	)
 
 	return GlassCard("应用配置 App Config", "基本参数 Basic config", form)
+}
+
+// 创建server配置组
+func createServerConfigGroup() *fyne.Container {
+	serverHostEntry := StyledEntry("服务器地址 Server address")
+	serverHostEntry.Bind(binding.BindString(&config.Conf.Server.Host))
+
+	serverPortEntry := StyledEntry("服务器端口 Server port")
+	serverPortEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.Server.Port)))
+	serverPortEntry.Validator = func(s string) error {
+		val, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("请输入数字")
+		}
+		if val < 1 || val > 65535 {
+			return fmt.Errorf("请输入1-65535之间的有效端口")
+		}
+		return nil
+	}
+
+	form := widget.NewForm(
+		widget.NewFormItem("服务器地址 Server address", serverHostEntry),
+		widget.NewFormItem("服务器端口 Server port", serverPortEntry),
+	)
+
+	return GlassCard("服务器配置 Server Config", "API服务器设置 API server settings", form)
 }
 
 // 创建本地模型配置组
