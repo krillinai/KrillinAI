@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -495,10 +496,9 @@ func (sm *SubtitleManager) displayDownloadLinks(subtitleInfo []api.SubtitleResul
 					dialog.ShowError(fmt.Errorf("下载失败: %v", err), sm.window)
 					return
 				}
-				defer resp.Body.Close()
 
 				// 创建保存文件的对话框
-				dialog.ShowFileSave(func(writer fyne.URIWriteCloser, err error) {
+				saveDialog := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
 					if err != nil {
 						dialog.ShowError(err, sm.window)
 						return
@@ -507,6 +507,7 @@ func (sm *SubtitleManager) displayDownloadLinks(subtitleInfo []api.SubtitleResul
 						return
 					}
 					defer writer.Close()
+					defer resp.Body.Close() // 移到这里，确保数据复制完成后再关闭
 
 					_, err = io.Copy(writer, resp.Body)
 					if err != nil {
@@ -516,6 +517,17 @@ func (sm *SubtitleManager) displayDownloadLinks(subtitleInfo []api.SubtitleResul
 
 					dialog.ShowInformation("下载完成", "文件已保存", sm.window)
 				}, sm.window)
+
+				// 设置建议的文件名
+				fileName := filepath.Base(speechDownloadURL)
+				// 确保音频文件有正确的扩展名
+				if !strings.HasSuffix(strings.ToLower(fileName), ".mp3") &&
+					!strings.HasSuffix(strings.ToLower(fileName), ".wav") &&
+					!strings.HasSuffix(strings.ToLower(fileName), ".aac") {
+					fileName += ".mp3" // 默认添加.mp3扩展名
+				}
+				saveDialog.SetFileName(fileName)
+				saveDialog.Show()
 			}()
 		})
 		btn.Importance = widget.HighImportance
