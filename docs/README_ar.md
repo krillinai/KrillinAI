@@ -78,29 +78,30 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 ## 🚀 بدء سريع
 ### الخطوات الأساسية
 
-First, download the Release executable file that matches your device's system. Follow the instructions below to choose between the desktop or non-desktop version, then place the software in an empty folder. Running the program will generate some directories, so keeping it in an empty folder makes management easier.
+أولاً، قم بتنزيل ملف الإصدار التنفيذي الذي يتوافق مع نظام جهازك. اتبع التعليمات أدناه للاختيار بين نسخة سطح المكتب أو النسخة العادية، ثم ضع البرنامج في مجلد فارغ. عند تشغيل البرنامج، سيتم إنشاء بعض المجلدات تلقائياً، لذا فإن وضعه في مجلد فارغ يجعل إدارته أسهل.
 
 [For the desktop version (release files with "desktop" in the name), refer here]  
 _The desktop version is newly released to address the difficulty beginners face in editing configuration files correctly. It still has some bugs and is being continuously updated._  
 
-Double-click the file to start using it.
+انقر نقرًا مزدوجًا على الملف لبدء استخدامه.
 
-[For the non-desktop version (release files without "desktop" in the name), refer here]  
-_The non-desktop version is the original release, with more complex configuration but stable functionality. It is also suitable for server deployment, as it provides a web-based UI._  
+[لنسخة غير سطح المكتب (ملفات الإصدار التي لا تحتوي على "desktop" في الاسم)، ارجع إلى هنا]  
+_تعتبر نسخة غير سطح المكتب هي الإصدار الأصلي، تتميز بإعدادات أكثر تعقيدًا ولكن بوظائف مستقرة. وهي مناسبة أيضًا للنشر على الخوادم، حيث توفر واجهة مستخدم تعمل عبر الويب._
 
-Create a `config` folder in the directory, then create a `config.toml` file inside it. Copy the contents of the `config-example.toml` file from the source code's `config` directory into your `config.toml` and fill in your configuration details. (If you want to use OpenAI models but don’t know how to get a key, you can join the group for free trial access.)
+قم بإنشاء مجلد `config` في الدليل، ثم أنشئ ملف `config.toml` بداخله. انسخ محتويات ملف `config-example.toml` من مجلد `config` في الكود المصدقي إلى ملف `config.toml` الخاص بك وقم بملء تفاصيل الإعدادات. (إذا كنت ترغب في استخدام نماذج OpenAI ولكنك لا تعرف كيفية الحصول على مفتاح، يمكنك الانضمام إلى المجموعة للحصول على وصول تجريبي مجاني.)
 
-Double-click the executable or run it in the terminal to start the service.
+انقر نقرًا مزدوجًا على الملف التنفيذي أو قم بتشغيله في الطرفية لبدء الخدمة.
 
-Open your browser and enter http://127.0.0.1:8888 to begin using it. (Replace 8888 with the port number you specified in the config file.)
+افتح متصفحك وأدخل http://127.0.0.1:8888 لبدء استخدامه. (استبدل 8888 برقم المنفذ الذي حددته في ملف الإعدادات.)
 
-### To: macOS Users
-[For the desktop version, i.e., release files with "desktop" in the name, refer here]  
-The current packaging method for the desktop version cannot support direct double-click execution or DMG installation due to signing issues. Manual trust configuration is required as follows:
+### إلى: مستخدمي نظام macOS
+[لنسخة سطح المكتب (أي ملفات الإصدار التي تحتوي على "desktop" في الاسم)، ارجع هنا]
+طريقة التغليف الحالية لنسخة سطح المكتب لا تدعم التشغيل المباشر بالنقر المزدوج أو التثبيت عبر DMG بسبب مشاكل التوقيع. يتطلب ذلك إعداد الثقة يدوياً كما يلي:
 
-1. Open the directory containing the executable file (assuming the filename is KrillinAI_1.0.0_desktop_macOS_arm64) in Terminal
+1. افتح المجلد الذي يحتوي على الملف التنفيذي (لنفترض أن اسم الملف هو KrillinAI_1.0.0_desktop_macOS_arm64) في Terminal
 
-2. Execute the following commands sequentially:
+2. نفّذ الأوامر التالية بالتسلسل:
+
 
 ```
 sudo xattr -cr ./KrillinAI_1.0.0_desktop_macOS_arm64  
@@ -108,46 +109,52 @@ sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64
 ./KrillinAI_1.0.0_desktop_macOS_arm64  
 ```
 
-[For the non-desktop version, i.e., release files without "desktop" in the name, refer here]  
-This software is not signed, so after completing the file configuration in the "Basic Steps," you will need to manually trust the application on macOS. Follow these steps:
-1. Open the terminal and navigate to the directory where the executable file (assuming the file name is `KrillinAI_1.0.0_macOS_arm64`) is located.
-2. Execute the following commands in sequence:
+[للنسخة العادية (ملفات الإصدار التي لا تحتوي على "desktop" في الاسم)، راجع هنا]
+هذا البرنامج غير موقّع، لذا بعد إكمال إعداد الملفات وفق "الخطوات الأساسية"، ستحتاج إلى منح الثقة يدوياً للتطبيق على نظام macOS. اتبع هذه الخطوات:
+1. افتح Terminal وانتقل إلى المجلد الذي يحتوي على الملف التنفيذي (لنفترض أن اسم الملف هو KrillinAI_1.0.0_macOS_arm64).
+
+2. نفّذ الأوامر التالية بالتسلسل:
+
 ```
 sudo xattr -rd com.apple.quarantine ./KrillinAI_1.0.0_macOS_arm64
 sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
 ./KrillinAI_1.0.0_macOS_arm64
 ```
-This will start the service.
+سيؤدي هذا إلى بدء تشغيل الخدمة.
 
-### Docker Deployment
-This project supports Docker deployment. Please refer to the [Docker Deployment Instructions](../docs/docker.md).
+### النشر باستخدام Docker
 
-### Cookie Configuration Instructions
+هذا المشروع يدعم النشر عبر يُرجى الرجوع إلى [Docker Deployment Instructions](../docs/docker.md).
 
-If you encounter video download failures, please refer to the [Cookie Configuration Instructions](../docs/get_cookies.md) to configure your cookie information.
+### تعليمات إعداد Cookie
 
-### Configuration Help
-The quickest and most convenient configuration method:
-* Select `openai` for both `transcription_provider` and `llm_provider`. In this way, you only need to fill in `openai.apikey` in the following three major configuration item categories, namely `openai`, `local_model`, and `aliyun`, and then you can conduct subtitle translation. (Fill in `app.proxy`, `model` and `openai.base_url` as per your own situation.)
+إذا واجهت فشلًا في تنزيل الفيديو، يُرجى الرجوع إلى تعليمات إعداد Cookie لتهيئة معلومات الـ Cookie الخاصة بك.
 
-The configuration method for using the local speech recognition model (macOS is not supported for the time being) (a choice that takes into account cost, speed, and quality):
-* Fill in `fasterwhisper` for `transcription_provider` and `openai` for `llm_provider`. In this way, you only need to fill in `openai.apikey` and `local_model.faster_whisper` in the following three major configuration item categories, namely `openai` and `local_model`, and then you can conduct subtitle translation. The local model will be downloaded automatically. (The same applies to `app.proxy` and `openai.base_url` as mentioned above.)
+(ملاحظة: تم الحفاظ على نفس تنسيق الروابط والعناوين كما في النص الأصلي)
 
-The following usage situations require the configuration of Alibaba Cloud:
-* If `llm_provider` is filled with `aliyun`, it indicates that the large model service of Alibaba Cloud will be used. Consequently, the configuration of the `aliyun.bailian` item needs to be set up.
-* If `transcription_provider` is filled with `aliyun`, or if the "voice dubbing" function is enabled when starting a task, the voice service of Alibaba Cloud will be utilized. Therefore, the configuration of the `aliyun.speech` item needs to be filled in.
-* If the "voice dubbing" function is enabled and local audio files are uploaded for voice timbre cloning at the same time, the OSS cloud storage service of Alibaba Cloud will also be used. Hence, the configuration of the `aliyun.oss` item needs to be filled in.
-Configuration Guide: [Alibaba Cloud Configuration Instructions](../docs/aliyun.md)
 
-## Frequently Asked Questions
-Please refer to [Frequently Asked Questions](../docs/faq.md)
+### مساعدة في الإعدادات
+أسرع وأكثر طريقة ملائمة للإعداد:
+* د openai لكل من transcription_provider و llm_provider. بهذه الطريقة، تحتاج فقط إلى ملء openai.apikey في الفئات الثلاث الرئيسية لبنود الإعداد التالية، وهي openai، local_model، و aliyun، ثم يمكنك إجراء ترجمة الترجمة النصية. (املأ app.proxy، model و openai.base_url حسب حالتك الخاصة.)
 
-## Contribution Guidelines
+طريقة الإعداد لاستخدام نموذج التعرف على الكلام المحلي (غير مدعوم على macOS في الوقت الحالي) (خيار يأخذ في الاعتبار التكلفة والسرعة والجودة):
 
-- Do not submit unnecessary files like `.vscode`, `.idea`, etc. Please make good use of `.gitignore` to filter them.
-- Do not submit `config.toml`; instead, submit `config-example.toml`.
+* املأ fasterwhisper لـ transcription_provider و openai لـ llm_provider. بهذه الطريقة، تحتاج فقط إلى ملء openai.apikey و local_model.faster_whisper في الفئتين الرئيسيتين لبنود الإعداد التالية، وهما openai و local_model، ثم يمكنك إجراء ترجمة الترجمة النصية. سيتم تنزيل النموذج المحلي تلقائيًا. (ينطبق نفس الأمر على app.proxy و openai.base_url كما ذكر أعلاه.)
 
-## Star History
+حالات الاستخدام التي تتطلب إعدادات علي بابا السحابية
+* إذا تم تعيين llm_provider إلى aliyun، فهذا يعني أنه سيتم استخدام خدمة النماذج الكبيرة من علي بابا السحابية. وبالتالي، يجب إعداد عنصر aliyun.bailian في الإعدادات.
+* إذا تم تعيين transcription_provider إلى aliyun، أو إذا تم تمكين وظيفة "الدبلجة الصوتية" عند بدء المهمة، فسيتم استخدام خدمة الصوت من علي بابا السحابية. لذلك، يجب ملء عنصر aliyun.speech في الإعدادات.
+* إذا تم تمكين وظيفة "الدبلجة الصوتية" وتم تحميل ملفات صوتية محلية لاستنساخ نبرة الصوت في نفس الوقت، فسيتم أيضًا استخدام خدمة التخزين السحابي OSS من علي بابا السحابية. وبالتالي، يجب ملء عنصر aliyun.oss في الإعدادات.
+دليل الإعدادات: [Alibaba Cloud Configuration Instructions](../docs/aliyun.md)
+
+## الأسئلة الشائعة
+يُرجى الرجوع إلى [Frequently Asked Questions](../docs/faq.md)
+
+## إرشادات المساهمة
+
+- لا تقم بإرسال ملفات غير ضرورية مثل .vscode، .idea، وغيرها. يُرجى استخدام .gitignore بشكل صحيح لتصفيتها.
+- لا تقم بإرسال ملف config.toml؛ بدلاً من ذلك، قم بإرسال ملف config-example.toml.
+## تاريخ النجوم
 
 [![Star History Chart](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
 
