@@ -106,7 +106,7 @@ func (sm *SubtitleManager) ShowFileDialog() {
 			Error int    `json:"error"`
 			Msg   string `json:"msg"`
 			Data  struct {
-				FilePath string `json:"file_path"`
+				FilePath []string `json:"file_path"`
 			} `json:"data"`
 		}
 
@@ -121,7 +121,7 @@ func (sm *SubtitleManager) ShowFileDialog() {
 		}
 
 		if sm.onVideoSelected != nil {
-			sm.onVideoSelected(result.Data.FilePath)
+			sm.onVideoSelected(result.Data.FilePath[0])
 		}
 	}, sm.window)
 }
