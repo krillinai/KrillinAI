@@ -69,6 +69,25 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </tr>
 </table>
 
+## 🔍 Speech Recognition Support
+_**All local models in the table below support automatic installation of executable files + model files. Just make your selection, and KrillinAI will handle everything else for you.**_
+
+| Service         | Supported Platforms          | Model Options                     | Local/Cloud | Notes          |
+|-----------------|------------------------------|-----------------------------------|-------------|----------------|
+| **OpenAI Whisper** | Cross-platform       | -                                 | Cloud       | Fast with excellent results |
+| **FasterWhisper** | Windows/Linux     | `tiny`/`medium`/`large-v2` (recommend medium+) | Local    | Faster speed, no cloud service overhead |
+| **WhisperKit**    | macOS (Apple Silicon only)   | `large-v2`                        | Local       | Native optimization for Apple chips |
+| **Alibaba Cloud ASR** | Cross-platform    | -                                 | Cloud       | Bypasses China mainland network issues |
+
+## 🚀 Large Language Model Support
+
+✅ Compatible with all **OpenAI API-compatible** cloud/local LLM services including but not limited to:
+- OpenAI
+- DeepSeek
+- Qwen (Tongyi Qianwen)
+- Self-hosted open-source models
+- Other OpenAI-format compatible API services
+
 ## 🌍 Language Support
 Input languages: Chinese, English, Japanese, German, Turkish supported (more languages being added)  
 Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc.
