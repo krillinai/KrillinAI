@@ -350,7 +350,7 @@ func checkWhisperKit() error {
 func checkWhisperX() error {
 	filePath := "./bin/whisperx_mac/bin/whisperx"
 	if runtime.GOOS == "windows" {
-		filePath = ".\\bin\\whisperx_win\\Scripts\\whisperx.exe"
+		filePath = ".\\bin\\whisperx_win\\Scripts\\whisperx"
 	}
 	storage.WhisperXPath = filePath
 	log.GetLogger().Info("whisperx检查完成", zap.String("路径", filePath))
