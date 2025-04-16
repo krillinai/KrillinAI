@@ -12,6 +12,7 @@
 # 下方的配置非必填，请结合上方的选项和文档说明进行配置
 [local_model]
     fasterwhisper = "large-v2" # fasterwhisper的本地模型可选值：tiny,medium,large-v2，建议medium及以上
+    whisperx = "large-v2" # whisperx的本地模型可选值：large-v2
     whisperkit = "large-v2" # whisperkit的本地模型可选值：large-v2
     whispercpp = "large-v2" # whisper.cpp的本地模型
 

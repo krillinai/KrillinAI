@@ -41,6 +41,18 @@ func CheckDependency() error {
 			return err
 		}
 	}
+	if config.Conf.App.TranscribeProvider == "whisperx" {
+		err = checkWhisperX()
+		if err != nil {
+			log.GetLogger().Error("whisperx环境准备失败", zap.Error(err))
+			return err
+		}
+		err = checkModel("whisperx")
+		if err != nil {
+			log.GetLogger().Error("本地模型环境准备失败", zap.Error(err))
+			return err
+		}
+	}
 	if config.Conf.App.TranscribeProvider == "whisperkit" {
 		if err = checkWhisperKit(); err != nil {
 			log.GetLogger().Error("whisperkit环境准备失败", zap.Error(err))
@@ -333,6 +345,18 @@ func checkWhisperKit() error {
 	return nil
 }
 
+// 检测whisperx
+// TODO
+func checkWhisperX() error {
+	filePath := "./bin/whisperx_mac/bin/whisperx"
+	if runtime.GOOS == "windows" {
+		filePath = ".\\bin\\whisperx_win\\Scripts\\whisperx.exe"
+	}
+	storage.WhisperXPath = filePath
+	log.GetLogger().Info("whisperx检查完成", zap.String("路径", filePath))
+	return nil
+}
+
 // 检测whispercpp
 func checkWhispercpp() error {
 	var (
@@ -396,6 +420,20 @@ func checkModel(whisperType string) error {
 			}
 			log.GetLogger().Info("模型下载完成", zap.String("路径", modelPath))
 		}
+	case "whisperx":
+		// TODO
+		// model = config.Conf.LocalModel.WhisperX
+		// modelPath = fmt.Sprintf("./models/whispercpp/ggml-%s.bin", model)
+		// if _, err = os.Stat(modelPath); os.IsNotExist(err) {
+		// 	log.GetLogger().Info(fmt.Sprintf("没有找到WhisperX模型%s,即将开始自动下载", modelPath))
+		// 	downloadUrl := fmt.Sprintf("https://gitcode.com/hf_mirrors/ai-gitcode/whisper.cpp/blob/main/ggml-%s.bin", model)
+		// 	err = util.DownloadFile(downloadUrl, fmt.Sprintf("./models/whispercpp/ggml-%s.bin", model), config.Conf.App.Proxy)
+		// 	if err != nil {
+		// 		log.GetLogger().Info("下载whisper.cpp模型失败", zap.Error(err))
+		// 		return err
+		// 	}
+		// 	log.GetLogger().Info("whisper.cpp模型下载完成", zap.String("路径", modelPath))
+		// }
 	case "whispercpp":
 		model = config.Conf.LocalModel.Whispercpp
 		modelPath = fmt.Sprintf("./models/whispercpp/ggml-%s.bin", model)
