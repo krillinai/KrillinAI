@@ -34,8 +34,8 @@ func (c *WhisperXProcessor) Transcription(audioFile, language, workDir string) (
 		"--language", language,
 		"--output_dir", workDir,
 		"--compute_type", precision,
-		"--batch_size", "8",
-		"--model_cache_only", "False",
+		"--batch_size", "2",
+		"--model_cache_only", "True",
 	}
 	cmd := exec.Command(uvPath, cmdArgs...)
 	log.GetLogger().Info("WhisperXProcessor转录开始", zap.String("cmd", cmd.String()))

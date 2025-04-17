@@ -934,6 +934,6 @@ func isValidSplitContent(splitContent, originalText string) bool {
 	originalTextLength := len(strings.TrimSpace(originalText))
 	combinedLength := len(strings.TrimSpace(combinedOriginal))
 
-	// 允许300字符的误差
-	return math.Abs(float64(originalTextLength-combinedLength)) <= 300
+	// 允许200字符的误差
+	return math.Abs(float64(originalTextLength-combinedLength)) <= 200
 }
