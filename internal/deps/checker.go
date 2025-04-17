@@ -391,6 +391,11 @@ func checkWhisperX() error {
 		if runtime.GOOS == "windows" {
 			cmd = exec.Command(".\\bin\\whisperx\\uv.exe", "sync", "--python=.\\python\\python.exe", "--directory=.\\bin\\whisperx")
 		} else {
+			err = os.Chmod(uvPath, 0755)
+			if err != nil {
+				log.GetLogger().Error("设置UV文件权限失败", zap.Error(err))
+				return err
+			}
 			cmd = exec.Command("./bin/whisperx/uv", "sync", "--directory=./bin/whisperx")
 		}
 		output, err := cmd.CombinedOutput()
@@ -402,10 +407,9 @@ func checkWhisperX() error {
 	}
 
 	if runtime.GOOS != "windows" {
-		err1 := os.Chmod(filePath, 0755)
-		err2 := os.Chmod(uvPath, 0755)
-		if err1 != nil || err2 != nil {
-			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
+		err = os.Chmod(filePath, 0755)
+		if err != nil {
+			log.GetLogger().Error("设置WhisperX文件权限失败", zap.Error(err))
 			return err
 		}
 	}
