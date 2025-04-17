@@ -8,22 +8,22 @@ import (
 	"krillin-ai/pkg/util"
 	"os"
 	"os/exec"
-	"strings"
 	"runtime"
+	"strings"
 
 	"go.uber.org/zap"
 )
 
 func (c *WhisperXProcessor) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
-	precision := "float16"
-	uvPath := ""
+	var (
+		precision string = "float16"
+		uvPath    string = "./bin/whisperx/uv"
+	)
 	if runtime.GOOS == "darwin" {
 		precision = "float32"
-	}
-	if runtime.GOOS == "darwin" {
-		uvPath = "./bin/whisperx_mac/uv"
-	}else if runtime.GOOS == "windows" {
-		uvPath = ".\\bin\\whisperx_win\\uv.exe"
+	} else if runtime.GOOS == "windows" {
+		uvPath = ".\\bin\\whisperx\\uv.exe"
+	} else {
 	}
 	cmdArgs := []string{
 		"run",
@@ -40,7 +40,7 @@ func (c *WhisperXProcessor) Transcription(audioFile, language, workDir string) (
 	cmd := exec.Command(uvPath, cmdArgs...)
 	log.GetLogger().Info("WhisperXProcessor转录开始", zap.String("cmd", cmd.String()))
 	output, err := cmd.CombinedOutput()
-	if err != nil{
+	if err != nil {
 		log.GetLogger().Error("WhisperXProcessor  cmd 执行失败", zap.String("output", string(output)), zap.Error(err))
 		return nil, err
 	}

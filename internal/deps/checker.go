@@ -346,14 +346,71 @@ func checkWhisperKit() error {
 }
 
 // 检测whisperx
-// TODO
 func checkWhisperX() error {
-	filePath := "./bin/whisperx_mac/bin/whisperx"
+	var (
+		filePath string
+		uvPath   string
+		err      error
+	)
 	if runtime.GOOS == "windows" {
-		filePath = ".\\bin\\whisperx_win\\Scripts\\whisperx"
+		filePath = ".\\bin\\whisperx\\.venv\\Scripts\\whisperx"
+		uvPath = ".\\bin\\whisperx\\uv.exe"
+	} else {
+		filePath = "./bin/whisperx/.venv/bin/whisperx"
+		uvPath = "./bin/whisperx/uv"
+	}
+
+	if _, err = os.Stat(uvPath); os.IsNotExist(err) {
+		var cmd *exec.Cmd
+		// TODO: 下载压缩包
+		// log.GetLogger().Info("没有找到WhisperX，即将开始自动下载，文件较大请耐心等待")
+		// err = os.MkdirAll("./bin", 0755)
+		// if err != nil {
+		// 	log.GetLogger().Error("创建./bin目录失败", zap.Error(err))
+		// 	return err
+		// }
+		// var downloadUrl string
+		// if runtime.GOOS == "windows" {
+		// 	downloadUrl = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/WhisperX_win.zip"
+		// } else if runtime.GOOS == "darwin" {
+		// 	downloadUrl = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/WhisperX_linux.zip"
+		// } else {
+		// 	downloadUrl = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/WhisperX_mac.zip"
+		// }
+		// err = util.DownloadFile(downloadUrl, "./bin/WhisperX.zip", config.Conf.App.Proxy)
+		// if err != nil {
+		// 	log.GetLogger().Error("下载WhisperX失败", zap.Error(err))
+		// 	return err
+		// }
+		log.GetLogger().Info("开始解压WhisperX")
+		err = util.Unzip("./bin/WhisperX.zip", "./bin/whisperx/")
+		if err != nil {
+			log.GetLogger().Error("解压WhisperX失败", zap.Error(err))
+			return err
+		}
+		if runtime.GOOS == "windows" {
+			cmd = exec.Command(".\\bin\\whisperx\\uv.exe", "sync", "--python=.\\python\\python.exe", "--directory=.\\bin\\whisperx")
+		} else {
+			cmd = exec.Command("./bin/whisperx/uv", "sync", "--directory=./bin/whisperx")
+		}
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			log.GetLogger().Error("WhisperX 安装失败", zap.String("info", string(output)), zap.Error(err))
+			return err
+		}
+		log.GetLogger().Info("WhisperX 安装成功")
+	}
+
+	if runtime.GOOS != "windows" {
+		err1 := os.Chmod(filePath, 0755)
+		err2 := os.Chmod(uvPath, 0755)
+		if err1 != nil || err2 != nil {
+			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
+			return err
+		}
 	}
 	storage.WhisperXPath = filePath
-	log.GetLogger().Info("whisperx检查完成", zap.String("路径", filePath))
+	log.GetLogger().Info("WhisperX检查完成", zap.String("路径", filePath))
 	return nil
 }
 
@@ -421,19 +478,24 @@ func checkModel(whisperType string) error {
 			log.GetLogger().Info("模型下载完成", zap.String("路径", modelPath))
 		}
 	case "whisperx":
-		// TODO
-		// model = config.Conf.LocalModel.WhisperX
-		// modelPath = fmt.Sprintf("./models/whispercpp/ggml-%s.bin", model)
-		// if _, err = os.Stat(modelPath); os.IsNotExist(err) {
-		// 	log.GetLogger().Info(fmt.Sprintf("没有找到WhisperX模型%s,即将开始自动下载", modelPath))
-		// 	downloadUrl := fmt.Sprintf("https://gitcode.com/hf_mirrors/ai-gitcode/whisper.cpp/blob/main/ggml-%s.bin", model)
-		// 	err = util.DownloadFile(downloadUrl, fmt.Sprintf("./models/whispercpp/ggml-%s.bin", model), config.Conf.App.Proxy)
-		// 	if err != nil {
-		// 		log.GetLogger().Info("下载whisper.cpp模型失败", zap.Error(err))
-		// 		return err
-		// 	}
-		// 	log.GetLogger().Info("whisper.cpp模型下载完成", zap.String("路径", modelPath))
-		// }
+		// TODO: upload models
+		model = config.Conf.LocalModel.WhisperX
+		modelDir := fmt.Sprintf("./models/whisperx/models--Systran--faster-whisper-%s", model)
+		if _, err = os.Stat(modelDir); os.IsNotExist(err) {
+			log.GetLogger().Info(fmt.Sprintf("没有找到WhisperX模型%s,即将开始自动下载", modelDir))
+			// downloadUrl := fmt.Sprintf("https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/WhisperX_models_%s.zip", model)
+			// err = util.DownloadFile(downloadUrl, fmt.Sprintf("./models/WhisperX_models_%s.zip", model), config.Conf.App.Proxy)
+			// if err != nil {
+			// 	log.GetLogger().Info("下载WhisperX模型失败", zap.Error(err))
+			// 	return err
+			// }
+			err = util.Unzip(fmt.Sprintf("./models/WhisperX_models_%s.zip", model), "./models/whisperx/")
+			if err != nil {
+				log.GetLogger().Error("解压模型失败", zap.Error(err))
+				return err
+			}
+			log.GetLogger().Info("WhisperX模型下载完成", zap.String("路径", modelDir))
+		}
 	case "whispercpp":
 		model = config.Conf.LocalModel.Whispercpp
 		modelPath = fmt.Sprintf("./models/whispercpp/ggml-%s.bin", model)
