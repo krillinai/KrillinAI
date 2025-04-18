@@ -3,32 +3,119 @@ name: release
 on:
   push:
     tags:
-      - 'v*'
-      - 'v*-*'
+      - "v*"
+      - "v*-*"
 
 permissions:
   contents: write
 
 jobs:
-  goreleaser:
+  build-desktop:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
 
+      - name: Install XGO
+        run: |
+          go install src.techknowlogick.com/xgo@latest
+      
+      - name: Pull Docker Image
+        run: |
+          docker pull ghcr.io/techknowlogick/xgo:latest
+
+      - name: Get Version
+        id: version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const rawTag = '${{ github.ref_name }}';
+            const version = rawTag.replace(/^v/, ''); // Remove the leading 'v' if present
+            console.log(`Version: ${version}`);
+            core.setOutput('version', version);
+
+      - name: Build Binary
+        run: |
+          targets=(
+              # macOS (amd64)
+              "darwin amd64 _amd64 macOS"
+              # macOS (arm64)
+              "darwin arm64 _arm64 macOS"
+              # Windows (amd64)
+              "windows amd64 .exe Windows"
+              # Windows (386)
+              "windows 386 _i386.exe Windows"
+          )
+          mkdir -p build
+
+          # 遍历所有平台
+          for entry in "${targets[@]}"; do
+            (
+              # 拆分字符串
+              IFS=' ' read -r -a parts <<< "$entry"
+              os="${parts[0]}"
+              arch="${parts[1]}"
+              suffix="${parts[2]}"
+              display_os="${parts[3]}"
+              log_prefix="[${os}-${arch}]"
+              # 构建目标目录
+              target_dir="dist/${os}_${arch}"
+              mkdir -p "$target_dir"
+              # 使用 xgo 构建
+              echo "${log_prefix} 🚀 Building for $os/$arch..."
+              xgo \
+                  --targets="$os/$arch" \
+                  --out "krillinai_desktop" \
+                  --dest "$target_dir" \
+                  ./cmd/desktop 2>&1 | sed "s/^/${log_prefix} /"
+              # 生成最终二进制文件名日志输
+              binary_name="KrillinAI_Desktop_${{ steps.version.outputs.version }}_${display_os}${suffix}"
+              # 移动并重命名文件
+              mv "$target_dir"/krillinai_desktop* "build/$binary_name"
+              echo "${log_prefix} ✅ Built: build/$binary_name"
+            ) &
+          done
+          
+          wait
+          echo "✨ All concurrent tasks completed!"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: build/*
+          retention-days: 1
+
+  goreleaser:
+    needs: build-desktop
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: build
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
