@@ -31,8 +31,8 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 		Stream:    true,
 		MaxTokens: 8192,
 	}
-	if config.Conf.Openai.Model != "" {
-		req.Model = config.Conf.Openai.Model
+	if config.Conf.LLM.Model != "" {
+		req.Model = config.Conf.LLM.Model
 	}
 
 	stream, err := c.client.CreateChatCompletionStream(context.Background(), req)
@@ -73,8 +73,8 @@ func (c *Client) Transcription(audioFile, language, workDir string) (*types.Tran
 		},
 		Language: language,
 	}
-	if config.Conf.Openai.Model != "" {
-		transReq.Model = config.Conf.Openai.Model
+	if config.Conf.Transcribe.OpenAI.Model != "" {
+		transReq.Model = config.Conf.Transcribe.OpenAI.Model
 	}
 
 	resp, err := c.client.CreateTranscription(context.Background(), transReq)
@@ -139,7 +139,7 @@ func (c *Client) TextToSpeech(text, voice string, outputFile string) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", "sk-AseODaJRaIsYRCKOAufuVHvWZ9Dm6IwCp308qJdQXBok2SzT"))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.Conf.Tts.OpenAI.ApiKey))
 
 	// 发送HTTP请求
 	client := &http.Client{}

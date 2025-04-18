@@ -3,12 +3,13 @@ package aliyun
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"go.uber.org/zap"
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
 	"os"
 	"time"
+
+	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 type TtsClient struct {
@@ -53,7 +54,7 @@ func NewTtsClient(accessKeyId, accessKeySecret, appkey string) *TtsClient {
 	}
 }
 
-func (c *TtsClient) Text2Speech(text, voice, outputFile string) error {
+func (c *TtsClient) TextToSpeech(text, voice, outputFile string) error {
 	file, err := os.OpenFile(outputFile, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)

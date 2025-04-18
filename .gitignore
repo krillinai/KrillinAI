@@ -2,7 +2,7 @@
 tasks/
 cookies.txt
 .vscode/
-config/config.toml
+config/config*
 bin/
 models/
 uploads/

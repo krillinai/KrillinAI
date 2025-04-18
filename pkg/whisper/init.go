@@ -1,9 +1,10 @@
 package whisper
 
 import (
-	"github.com/sashabaranov/go-openai"
 	"krillin-ai/config"
 	"net/http"
+
+	"github.com/sashabaranov/go-openai"
 )
 
 type Client struct {
