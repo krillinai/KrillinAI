@@ -113,6 +113,10 @@ jobs:
             arch: 386
             suffix: _i386.exe
             display_os: Windows
+          - os: windows
+            arch: arm64
+            suffix: _arm64.exe
+            display_os: Windows
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
