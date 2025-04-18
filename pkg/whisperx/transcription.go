@@ -17,11 +17,9 @@ import (
 func (c *WhisperXProcessor) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
 	var (
 		precision string = "float16"
-		envPath    string = "./bin/whisperx/.venv/bin/activate"
+		envPath   string = "./bin/whisperx/.venv/bin/activate"
 	)
-	if runtime.GOOS == "darwin" {
-		precision = "float32"
-	} else if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" {
 		envPath = ".\\bin\\whisperx\\.venv\\Scripts\\activate"
 	} else {
 	}
