@@ -348,7 +348,7 @@ func checkWhisperKit() error {
 // 检测whisperx
 func checkWhisperX() error {
 	var (
-		filePath  string
+		filePath string
 		_filePath string
 		err       error
 	)
@@ -356,7 +356,7 @@ func checkWhisperX() error {
 		filePath = "whisperx"
 		_filePath = ".\\bin\\whisperx\\.venv\\Scripts\\whisperx.exe"
 	} else if runtime.GOOS == "linux" {
-		filePath = "whisperx"
+		filePath = "./bin/whisperx/.venv/bin/whisperx"
 		_filePath = "./bin/whisperx/.venv/bin/whisperx"
 	} else {
 		return fmt.Errorf("WhisperX不支持你当前的操作系统: %s，请选择WhisperKit", runtime.GOOS)
@@ -384,12 +384,12 @@ func checkWhisperX() error {
 		// 	log.GetLogger().Error("下载WhisperX失败", zap.Error(err))
 		// 	return err
 		// }
-		log.GetLogger().Info("开始解压WhisperX")
-		err = util.Unzip("./bin/WhisperX.zip", "./bin/whisperx/")
-		if err != nil {
-			log.GetLogger().Error("解压WhisperX失败", zap.Error(err))
-			return err
-		}
+		// log.GetLogger().Info("开始解压WhisperX")
+		// err = util.Unzip("./bin/WhisperX.zip", "./bin/whisperx/")
+		// if err != nil {
+		// 	log.GetLogger().Error("解压WhisperX失败", zap.Error(err))
+		// 	return err
+		// }
 		if runtime.GOOS == "windows" {
 			cmd = exec.Command(".\\bin\\whisperx\\python\\python.exe", "-m", "venv", ".\\bin\\whisperx\\.venv")
 			output, err := cmd.CombinedOutput()
@@ -397,27 +397,25 @@ func checkWhisperX() error {
 				log.GetLogger().Error("创建python虚拟环境失败", zap.String("info", string(output)), zap.Error(err))
 				return err
 			}
-			// cmd = exec.Command(".\\bin\\whisperx\\.venv\\Scripts\\activate", "&&", "cd", ".\\bin\\whisperx", "&&", "pip", "install", "--pre", "torch", "torchaudio", "https://download.pytorch.org/whl/nightly/cu128", "&&", "pip", "install", "-e", ".")
 			cmd = exec.Command(".\\bin\\whisperx\\.venv\\Scripts\\activate", "&&", "pip", "install", "-r", ".\\bin\\whisperx\\requirements_win.txt")
-			// cmd = exec.Command(".\\bin\\whisperx\\.venv\\Scripts\\activate", "&&", "cd", ".\\bin\\whisperx", "&&", "pip", "install", "--pre", "torch", "torchaudio", "https://download.pytorch.org/whl/nightly/cu128")
 			cmd.CombinedOutput()
 		} else {
-			os.Chmod("./python/bin/python", 0755)
-			cmd = exec.Command("./bin/whisperx/uv", "sync", "--python=./python/bin/python", "--directory=./bin/whisperx")
-			cmd.CombinedOutput()
+			os.Chmod("./bin/whisperx/python/bin/python3.12", 0755)
+			os.Chmod("./bin/whisperx/install.sh", 0755)
+			os.Chmod("./bin/whisperx/activate.sh", 0755)
+			log.GetLogger().Info("开始安装WhisperX")
+			cmd = exec.Command("bash", "./bin/whisperx/install.sh")
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				log.GetLogger().Error("WhisperX 安装失败", zap.String("info", string(output)), zap.Error(err))
+				return err
+			}
 		}
 		log.GetLogger().Info("WhisperX 安装成功")
 	}
 
-	if runtime.GOOS != "windows" {
-		err = os.Chmod(filePath, 0755)
-		if err != nil {
-			log.GetLogger().Error("设置WhisperX文件权限失败", zap.Error(err))
-			return err
-		}
-	}
 	storage.WhisperXPath = filePath
-	log.GetLogger().Info("WhisperX检查完成", zap.String("路径", filePath))
+	log.GetLogger().Info("WhisperX检查完成", zap.String("路径", _filePath))
 	return nil
 }
 

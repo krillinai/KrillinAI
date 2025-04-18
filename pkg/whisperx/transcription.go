@@ -16,24 +16,41 @@ import (
 
 func (c *WhisperXProcessor) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
 	var (
-		precision string = "float16"
-		envPath   string = "./bin/whisperx/.venv/bin/activate"
+		cmdArgs []string
+		envPath string
 	)
 	if runtime.GOOS == "windows" {
 		envPath = ".\\bin\\whisperx\\.venv\\Scripts\\activate"
 	} else {
+		envPath = "bash"
 	}
-	cmdArgs := []string{
-		"&&",
-		storage.WhisperXPath,
-		audioFile,
-		"--model_dir", "./models/whisperx",
-		"--model", c.Model,
-		"--language", language,
-		"--output_dir", workDir,
-		"--compute_type", precision,
-		"--batch_size", "2",
-		"--model_cache_only", "True",
+	if runtime.GOOS == "windows" {
+		cmdArgs = []string{
+			"&&",
+			storage.WhisperXPath,
+			audioFile,
+			"--model_dir", "./models/whisperx",
+			"--model", c.Model,
+			"--language", language,
+			"--output_dir", workDir,
+			"--compute_type", "float16",
+			"--batch_size", "2",
+			"--model_cache_only", "True",
+		}
+	} else {
+		cmdArgs = []string{
+			"./bin/whisperx/activate.sh",
+			"&&",
+			storage.WhisperXPath,
+			audioFile,
+			"--model_dir", "./models/whisperx",
+			"--model", c.Model,
+			"--language", language,
+			"--output_dir", workDir,
+			"--compute_type", "float16",
+			"--batch_size", "2",
+			"--model_cache_only", "True",
+		}
 	}
 	cmd := exec.Command(envPath, cmdArgs...)
 	log.GetLogger().Info("WhisperXProcessor转录开始", zap.String("cmd", cmd.String()))
