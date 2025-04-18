@@ -12,7 +12,7 @@ require (
 	github.com/google/uuid v1.4.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/samber/lo v1.38.1
-	github.com/sashabaranov/go-openai v1.36.0
+	github.com/sashabaranov/go-openai v1.38.1
 	go.uber.org/zap v1.25.0
 	golang.org/x/sync v0.9.0
 )

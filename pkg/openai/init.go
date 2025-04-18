@@ -1,13 +1,16 @@
 package openai
 
 import (
-	"github.com/sashabaranov/go-openai"
 	"krillin-ai/config"
 	"net/http"
+
+	"github.com/sashabaranov/go-openai"
 )
 
 type Client struct {
-	client *openai.Client
+	client  *openai.Client
+	BaseUrl string
+	ApiKey  string
 }
 
 func NewClient(baseUrl, apiKey, proxyAddr string) *Client {
@@ -25,6 +28,10 @@ func NewClient(baseUrl, apiKey, proxyAddr string) *Client {
 		}
 	}
 
-	client := openai.NewClientWithConfig(cfg)
-	return &Client{client: client}
+	openAIclient := openai.NewClientWithConfig(cfg)
+	return &Client{
+		client:  openAIclient,
+		BaseUrl: baseUrl,
+		ApiKey:  apiKey,
+	}
 }
