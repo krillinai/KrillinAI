@@ -17,16 +17,16 @@ import (
 func (c *WhisperXProcessor) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
 	var (
 		precision string = "float16"
-		uvPath    string = "./bin/whisperx/uv"
+		envPath    string = "./bin/whisperx/.venv/bin/activate"
 	)
 	if runtime.GOOS == "darwin" {
 		precision = "float32"
 	} else if runtime.GOOS == "windows" {
-		uvPath = ".\\bin\\whisperx\\uv.exe"
+		envPath = ".\\bin\\whisperx\\.venv\\Scripts\\activate"
 	} else {
 	}
 	cmdArgs := []string{
-		"run",
+		"&&",
 		storage.WhisperXPath,
 		audioFile,
 		"--model_dir", "./models/whisperx",
@@ -37,7 +37,7 @@ func (c *WhisperXProcessor) Transcription(audioFile, language, workDir string) (
 		"--batch_size", "2",
 		"--model_cache_only", "True",
 	}
-	cmd := exec.Command(uvPath, cmdArgs...)
+	cmd := exec.Command(envPath, cmdArgs...)
 	log.GetLogger().Info("WhisperXProcessor转录开始", zap.String("cmd", cmd.String()))
 	output, err := cmd.CombinedOutput()
 	if err != nil {

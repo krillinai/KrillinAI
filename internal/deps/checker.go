@@ -349,18 +349,18 @@ func checkWhisperKit() error {
 func checkWhisperX() error {
 	var (
 		filePath string
-		uvPath   string
+		_filePath   string
 		err      error
 	)
 	if runtime.GOOS == "windows" {
-		filePath = ".\\bin\\whisperx\\.venv\\Scripts\\whisperx"
-		uvPath = ".\\bin\\whisperx\\uv.exe"
+		filePath = "whisperx"
+		_filePath = ".\\bin\\whisperx\\.venv\\Scripts\\whisperx.exe"
 	} else {
-		filePath = "./bin/whisperx/.venv/bin/whisperx"
-		uvPath = "./bin/whisperx/uv"
+		filePath = "whisperx"
+		_filePath = "./bin/whisperx/.venv/bin/whisperx"
 	}
 
-	if _, err = os.Stat(uvPath); os.IsNotExist(err) {
+	if _, err = os.Stat(_filePath); os.IsNotExist(err) {
 		var cmd *exec.Cmd
 		// TODO: 下载压缩包
 		// log.GetLogger().Info("没有找到WhisperX，即将开始自动下载，文件较大请耐心等待")
@@ -389,19 +389,16 @@ func checkWhisperX() error {
 			return err
 		}
 		if runtime.GOOS == "windows" {
-			cmd = exec.Command(".\\bin\\whisperx\\uv.exe", "sync", "--python=.\\python\\python.exe", "--directory=.\\bin\\whisperx")
-		} else {
-			err = os.Chmod(uvPath, 0755)
+			cmd = exec.Command(".\\bin\\whisperx\\python\\python.exe", "-m", "venv", ".\\bin\\whisperx\\.venv")
+			output, err := cmd.CombinedOutput()
 			if err != nil {
-				log.GetLogger().Error("设置UV文件权限失败", zap.Error(err))
+				log.GetLogger().Error("创建python虚拟环境失败", zap.String("info", string(output)), zap.Error(err))
 				return err
 			}
-			cmd = exec.Command("./bin/whisperx/uv", "sync", "--directory=./bin/whisperx")
-		}
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			log.GetLogger().Error("WhisperX 安装失败", zap.String("info", string(output)), zap.Error(err))
-			return err
+			// cmd = exec.Command(".\\bin\\whisperx\\.venv\\Scripts\\activate", "&&", "cd", ".\\bin\\whisperx", "&&", "pip", "install", "--pre", "torch", "torchaudio", "https://download.pytorch.org/whl/nightly/cu128", "&&", "pip", "install", "-e", ".")
+			cmd = exec.Command(".\\bin\\whisperx\\.venv\\Scripts\\activate", "&&", "pip", "install", "-r", ".\\bin\\whisperx\\requirements_win.txt")
+			// cmd = exec.Command(".\\bin\\whisperx\\.venv\\Scripts\\activate", "&&", "cd", ".\\bin\\whisperx", "&&", "pip", "install", "--pre", "torch", "torchaudio", "https://download.pytorch.org/whl/nightly/cu128")
+			cmd.CombinedOutput()
 		}
 		log.GetLogger().Info("WhisperX 安装成功")
 	}
