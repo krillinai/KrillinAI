@@ -384,12 +384,12 @@ func checkWhisperX() error {
 		// 	log.GetLogger().Error("下载WhisperX失败", zap.Error(err))
 		// 	return err
 		// }
-		// log.GetLogger().Info("开始解压WhisperX")
-		// err = util.Unzip("./bin/WhisperX.zip", "./bin/whisperx/")
-		// if err != nil {
-		// 	log.GetLogger().Error("解压WhisperX失败", zap.Error(err))
-		// 	return err
-		// }
+		log.GetLogger().Info("开始解压WhisperX")
+		err = util.Unzip("./bin/WhisperX.zip", "./bin/whisperx/")
+		if err != nil {
+			log.GetLogger().Error("解压WhisperX失败", zap.Error(err))
+			return err
+		}
 		if runtime.GOOS == "windows" {
 			cmd = exec.Command(".\\bin\\whisperx\\python\\python.exe", "-m", "venv", ".\\bin\\whisperx\\.venv")
 			output, err := cmd.CombinedOutput()
@@ -402,7 +402,6 @@ func checkWhisperX() error {
 		} else {
 			os.Chmod("./bin/whisperx/python/bin/python3.12", 0755)
 			os.Chmod("./bin/whisperx/install.sh", 0755)
-			os.Chmod("./bin/whisperx/activate.sh", 0755)
 			log.GetLogger().Info("开始安装WhisperX")
 			cmd = exec.Command("bash", "./bin/whisperx/install.sh")
 			output, err := cmd.CombinedOutput()

@@ -2,14 +2,12 @@ package whisperx
 
 import (
 	"encoding/json"
-	"fmt"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -53,17 +51,10 @@ func (c *WhisperXProcessor) Transcription(audioFile, language, workDir string) (
 			"--model_cache_only", "True",
 		}
 		cmd = exec.Command(envPath, cmdArgs...)
-		venvBasePath := "./bin/whisperx/.venv"
-		cudaLibPath := filepath.Join(venvBasePath, "lib/python3.12/site-packages/nvidia/cudnn/lib")
-		absCudaLibPath, err := filepath.Abs(cudaLibPath)
-		ldLibraryPathVar := fmt.Sprintf("LD_LIBRARY_PATH=%s", absCudaLibPath)
+		cudaLibPath := "LD_LIBRARY_PATH=./bin/whisperx/.venv/lib/python3.12/site-packages/nvidia/cudnn/lib"
 		currentEnv := os.Environ()
-		newEnv := append(currentEnv, ldLibraryPathVar)
+		newEnv := append(currentEnv, cudaLibPath)
 		cmd.Env = newEnv
-		if err != nil {
-			fmt.Printf("警告: 无法获取绝对路径 %s: %v。使用相对路径。\n", cudaLibPath, err)
-			absCudaLibPath = cudaLibPath // 回退到相对路径
-		}
 	}
 	log.GetLogger().Info("WhisperXProcessor转录开始", zap.String("cmd", cmd.String()))
 	output, err := cmd.CombinedOutput()
