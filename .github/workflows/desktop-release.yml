@@ -119,31 +119,27 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.prepare.outputs.commit_sha }}
-            
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
 
-      - name: Install XGO
-        run: |
-          go install src.techknowlogick.com/xgo@latest
-      
       - name: Build Binary
-        run: |
-          xgo --targets=${{ matrix.os }}/${{ matrix.arch }} \
-            --out krillinai_desktop \
-            ./cmd/desktop
+        uses: crazy-max/ghaction-xgo@v3
+        with:
+          xgo_version: latest
+          go_version: latest
+          dest: build
+          prefix: krillinai_desktop
+          targets: ${{ matrix.os }}/${{ matrix.arch }}
+          v: true
+          trimpath: true
+          pkg: ./cmd/desktop
 
       - name: Rename Binary
         run: |
-          mv krillinai_desktop* KrillinAI_Desktop${{ matrix.suffix }}
+          mv build/krillinai_desktop* KrillinAI_Desktop${{ matrix.suffix }}
 
       - name: Get Version
         id: version
