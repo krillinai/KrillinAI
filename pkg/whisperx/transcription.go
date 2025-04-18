@@ -35,7 +35,7 @@ func (c *WhisperXProcessor) Transcription(audioFile, language, workDir string) (
 			"--language", language,
 			"--output_dir", workDir,
 			"--compute_type", "float16",
-			"--batch_size", "2",
+			"--batch_size", "10",
 			"--model_cache_only", "True",
 		}
 		cmd = exec.Command(envPath, cmdArgs...)
@@ -47,7 +47,7 @@ func (c *WhisperXProcessor) Transcription(audioFile, language, workDir string) (
 			"--language", language,
 			"--output_dir", workDir,
 			"--compute_type", "float16",
-			"--batch_size", "2",
+			"--batch_size", "10",
 			"--model_cache_only", "True",
 		}
 		cmd = exec.Command(envPath, cmdArgs...)
