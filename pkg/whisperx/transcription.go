@@ -2,12 +2,14 @@ package whisperx
 
 import (
 	"encoding/json"
+	"fmt"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -18,11 +20,12 @@ func (c *WhisperXProcessor) Transcription(audioFile, language, workDir string) (
 	var (
 		cmdArgs []string
 		envPath string
+		cmd     *exec.Cmd
 	)
 	if runtime.GOOS == "windows" {
 		envPath = ".\\bin\\whisperx\\.venv\\Scripts\\activate"
 	} else {
-		envPath = "bash"
+		envPath = storage.WhisperXPath
 	}
 	if runtime.GOOS == "windows" {
 		cmdArgs = []string{
@@ -37,11 +40,9 @@ func (c *WhisperXProcessor) Transcription(audioFile, language, workDir string) (
 			"--batch_size", "2",
 			"--model_cache_only", "True",
 		}
+		cmd = exec.Command(envPath, cmdArgs...)
 	} else {
 		cmdArgs = []string{
-			"./bin/whisperx/activate.sh",
-			"&&",
-			storage.WhisperXPath,
 			audioFile,
 			"--model_dir", "./models/whisperx",
 			"--model", c.Model,
@@ -51,8 +52,19 @@ func (c *WhisperXProcessor) Transcription(audioFile, language, workDir string) (
 			"--batch_size", "2",
 			"--model_cache_only", "True",
 		}
+		cmd = exec.Command(envPath, cmdArgs...)
+		venvBasePath := "./bin/whisperx/.venv"
+		cudaLibPath := filepath.Join(venvBasePath, "lib/python3.12/site-packages/nvidia/cudnn/lib")
+		absCudaLibPath, err := filepath.Abs(cudaLibPath)
+		ldLibraryPathVar := fmt.Sprintf("LD_LIBRARY_PATH=%s", absCudaLibPath)
+		currentEnv := os.Environ()
+		newEnv := append(currentEnv, ldLibraryPathVar)
+		cmd.Env = newEnv
+		if err != nil {
+			fmt.Printf("警告: 无法获取绝对路径 %s: %v。使用相对路径。\n", cudaLibPath, err)
+			absCudaLibPath = cudaLibPath // 回退到相对路径
+		}
 	}
-	cmd := exec.Command(envPath, cmdArgs...)
 	log.GetLogger().Info("WhisperXProcessor转录开始", zap.String("cmd", cmd.String()))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
