@@ -17,6 +17,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"regexp"
 	"sync"
 
 	"go.uber.org/zap"
@@ -831,8 +832,10 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 		splitContent = ""
 	} else {
 		// 最多尝试4次获取有效的翻译结果
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			splitContent, err = s.ChatCompleter.ChatCompletion(splitPrompt + audioFile.TranscriptionData.Text)
+			re := regexp.MustCompile(`(?s)<think>.*?</think>`)
+			splitContent = strings.TrimSpace(re.ReplaceAllString(splitContent, ""))
 			if err != nil {
 				log.GetLogger().Warn("audioToSubtitle splitTextAndTranslate ChatCompletion error, retrying...",
 					zap.Any("taskId", taskId), zap.Int("attempt", i+1), zap.Error(err))
@@ -843,6 +846,10 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 			if isValidSplitContent(splitContent, audioFile.TranscriptionData.Text) {
 				break
 			}
+
+			// save splitContent to a file
+			originTextFileName := filepath.Join(baseTaskPath, "error_output.txt")
+			os.WriteFile(originTextFileName, []byte(splitContent), 0644)
 
 			log.GetLogger().Warn("audioToSubtitle splitTextAndTranslate invalid response format or content mismatch, retrying...",
 				zap.Any("taskId", taskId), zap.Int("attempt", i+1))
@@ -887,6 +894,7 @@ func isValidSplitContent(splitContent, originalText string) bool {
 
 	lines := strings.Split(splitContent, "\n")
 	if len(lines) < 3 { // 至少需要一个完整的块
+		//log.GetLogger().Warn("audioToSubtitle invaild Format, not enough lines", zap.Any("splitContent", splitContent))
 		return false
 	}
 
@@ -903,7 +911,7 @@ func isValidSplitContent(splitContent, originalText string) bool {
 		// 检查是否为序号行
 		if _, err := strconv.Atoi(line); err == nil {
 			if i+2 >= len(lines) {
-				log.GetLogger().Warn("audioToSubtitle invaild Format", zap.Any("splitContent", splitContent), zap.Any("line", line))
+				log.GetLogger().Warn("audioToSubtitle invaild Format, block is not complete", zap.Any("splitContent", splitContent), zap.Any("line", line))
 				return false
 			}
 			// 收集原文行（第三行），并去除方括号
@@ -917,7 +925,7 @@ func isValidSplitContent(splitContent, originalText string) bool {
 	}
 
 	if !isValidFormat || len(originalLines) == 0 {
-		log.GetLogger().Warn("audioToSubtitle invaild Format", zap.Any("splitContent", splitContent))
+		log.GetLogger().Warn("audioToSubtitle invaild Format, original line misiing", zap.Any("splitContent", splitContent))
 		return false
 	}
 
@@ -926,6 +934,6 @@ func isValidSplitContent(splitContent, originalText string) bool {
 	originalTextLength := len(strings.TrimSpace(originalText))
 	combinedLength := len(strings.TrimSpace(combinedOriginal))
 
-	// 允许200字符的误差
-	return math.Abs(float64(originalTextLength-combinedLength)) <= 200
+	// 允许300字符的误差
+	return math.Abs(float64(originalTextLength-combinedLength)) <= 300
 }
