@@ -41,12 +41,35 @@ func CheckDependency() error {
 			return err
 		}
 	}
+	if config.Conf.App.TranscribeProvider == "whisperx" {
+		err = checkWhisperX()
+		if err != nil {
+			log.GetLogger().Error("whisperx环境准备失败", zap.Error(err))
+			return err
+		}
+		err = checkModel("whisperx")
+		if err != nil {
+			log.GetLogger().Error("本地模型环境准备失败", zap.Error(err))
+			return err
+		}
+	}
 	if config.Conf.App.TranscribeProvider == "whisperkit" {
 		if err = checkWhisperKit(); err != nil {
 			log.GetLogger().Error("whisperkit环境准备失败", zap.Error(err))
 			return err
 		}
 		err = checkModel("whisperkit")
+		if err != nil {
+			log.GetLogger().Error("本地模型环境准备失败", zap.Error(err))
+			return err
+		}
+	}
+	if config.Conf.App.TranscribeProvider == "whispercpp" {
+		if err = checkWhispercpp(); err != nil {
+			log.GetLogger().Error("whisper.cpp环境准备失败", zap.Error(err))
+			return err
+		}
+		err = checkModel("whispercpp")
 		if err != nil {
 			log.GetLogger().Error("本地模型环境准备失败", zap.Error(err))
 			return err
@@ -303,6 +326,128 @@ func checkFasterWhisper() error {
 	return nil
 }
 
+// 检测whisperkit
+func checkWhisperKit() error {
+	cmd := exec.Command("which", "whisperkit-cli")
+	err := cmd.Run()
+	if err != nil {
+		log.GetLogger().Info("没有找到whisperkit-cli，即将开始自动安装")
+		cmd = exec.Command("brew", "install", "whisperkit-cli")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			log.GetLogger().Error("whisperkit-cli 安装失败", zap.String("info", string(output)), zap.Error(err))
+			return err
+		}
+		log.GetLogger().Info("whisperkit-cli 安装成功")
+	}
+	storage.WhisperKitPath = "whisperkit-cli"
+	log.GetLogger().Info("检测到whisperkit-cli已安装")
+	return nil
+}
+
+// 检测whisperx
+func checkWhisperX() error {
+	var (
+		filePath string
+		_filePath string
+		err       error
+	)
+	if runtime.GOOS == "windows" {
+		filePath = "whisperx"
+		_filePath = ".\\bin\\whisperx\\.venv\\Scripts\\whisperx.exe"
+	} else if runtime.GOOS == "linux" {
+		filePath = "./bin/whisperx/.venv/bin/whisperx"
+		_filePath = "./bin/whisperx/.venv/bin/whisperx"
+	} else {
+		return fmt.Errorf("WhisperX不支持你当前的操作系统: %s，请选择WhisperKit", runtime.GOOS)
+	}
+
+	if _, err = os.Stat(_filePath); os.IsNotExist(err) {
+		var cmd *exec.Cmd
+		// TODO: 下载压缩包
+		// log.GetLogger().Info("没有找到WhisperX，即将开始自动下载，文件较大请耐心等待")
+		// err = os.MkdirAll("./bin", 0755)
+		// if err != nil {
+		// 	log.GetLogger().Error("创建./bin目录失败", zap.Error(err))
+		// 	return err
+		// }
+		// var downloadUrl string
+		// if runtime.GOOS == "windows" {
+		// 	downloadUrl = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/WhisperX_win.zip"
+		// } else if runtime.GOOS == "darwin" {
+		// 	downloadUrl = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/WhisperX_linux.zip"
+		// } else {
+		// 	downloadUrl = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/WhisperX_mac.zip"
+		// }
+		// err = util.DownloadFile(downloadUrl, "./bin/WhisperX.zip", config.Conf.App.Proxy)
+		// if err != nil {
+		// 	log.GetLogger().Error("下载WhisperX失败", zap.Error(err))
+		// 	return err
+		// }
+		log.GetLogger().Info("开始解压WhisperX")
+		err = util.Unzip("./bin/WhisperX.zip", "./bin/whisperx/")
+		if err != nil {
+			log.GetLogger().Error("解压WhisperX失败", zap.Error(err))
+			return err
+		}
+		if runtime.GOOS == "windows" {
+			cmd = exec.Command(".\\bin\\whisperx\\python\\python.exe", "-m", "venv", ".\\bin\\whisperx\\.venv")
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				log.GetLogger().Error("创建python虚拟环境失败", zap.String("info", string(output)), zap.Error(err))
+				return err
+			}
+			cmd = exec.Command(".\\bin\\whisperx\\.venv\\Scripts\\activate", "&&", "pip", "install", "-r", ".\\bin\\whisperx\\requirements_win.txt")
+			cmd.CombinedOutput()
+		} else {
+			os.Chmod("./bin/whisperx/python/bin/python3.12", 0755)
+			os.Chmod("./bin/whisperx/install.sh", 0755)
+			log.GetLogger().Info("开始安装WhisperX")
+			cmd = exec.Command("bash", "./bin/whisperx/install.sh")
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				log.GetLogger().Error("WhisperX 安装失败", zap.String("info", string(output)), zap.Error(err))
+				return err
+			}
+		}
+		log.GetLogger().Info("WhisperX 安装成功")
+	}
+
+	storage.WhisperXPath = filePath
+	log.GetLogger().Info("WhisperX检查完成", zap.String("路径", _filePath))
+	return nil
+}
+
+// 检测whispercpp
+func checkWhispercpp() error {
+	var (
+		filePath string
+		err      error
+	)
+	if runtime.GOOS == "windows" {
+		filePath = ".\\bin\\whispercpp\\whisper-cli.exe"
+	} else if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+		filePath = "./bin/whispercpp/whisper-cli"
+	} else {
+		return fmt.Errorf("whisper.cpp不支持你当前的操作系统: %s，请选择其它transcription provider", runtime.GOOS)
+	}
+	// TODO
+	if _, err = os.Stat(filePath); os.IsNotExist(err) {
+		// error
+		return fmt.Errorf("whisper.cpp不存在")
+	}
+	if runtime.GOOS != "windows" {
+		err = os.Chmod(filePath, 0755)
+		if err != nil {
+			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
+			return err
+		}
+	}
+	storage.WhispercppPath = filePath
+	log.GetLogger().Info("whisper.cpp检查完成", zap.String("路径", filePath))
+	return nil
+}
+
 // 检测本地模型
 func checkModel(whisperType string) error {
 	var err error
@@ -336,9 +481,41 @@ func checkModel(whisperType string) error {
 			}
 			log.GetLogger().Info("模型下载完成", zap.String("路径", modelPath))
 		}
+	case "whisperx":
+		// TODO: upload models
+		model = config.Conf.LocalModel.WhisperX
+		modelDir := fmt.Sprintf("./models/whisperx/models--Systran--faster-whisper-%s", model)
+		if _, err = os.Stat(modelDir); os.IsNotExist(err) {
+			log.GetLogger().Info(fmt.Sprintf("没有找到WhisperX模型%s,即将开始自动下载", modelDir))
+			// downloadUrl := fmt.Sprintf("https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/WhisperX_models_%s.zip", model)
+			// err = util.DownloadFile(downloadUrl, fmt.Sprintf("./models/WhisperX_models_%s.zip", model), config.Conf.App.Proxy)
+			// if err != nil {
+			// 	log.GetLogger().Info("下载WhisperX模型失败", zap.Error(err))
+			// 	return err
+			// }
+			err = util.Unzip(fmt.Sprintf("./models/WhisperX_models_%s.zip", model), "./models/whisperx/")
+			if err != nil {
+				log.GetLogger().Error("解压模型失败", zap.Error(err))
+				return err
+			}
+			log.GetLogger().Info("WhisperX模型下载完成", zap.String("路径", modelDir))
+		}
+	case "whispercpp":
+		model = config.Conf.LocalModel.Whispercpp
+		modelPath = fmt.Sprintf("./models/whispercpp/ggml-%s.bin", model)
+		if _, err = os.Stat(modelPath); os.IsNotExist(err) {
+			log.GetLogger().Info(fmt.Sprintf("没有找到whisper.cpp模型%s,即将开始自动下载", modelPath))
+			downloadUrl := fmt.Sprintf("https://gitcode.com/hf_mirrors/ai-gitcode/whisper.cpp/blob/main/ggml-%s.bin", model)
+			err = util.DownloadFile(downloadUrl, fmt.Sprintf("./models/whispercpp/ggml-%s.bin", model), config.Conf.App.Proxy)
+			if err != nil {
+				log.GetLogger().Info("下载whisper.cpp模型失败", zap.Error(err))
+				return err
+			}
+			log.GetLogger().Info("whisper.cpp模型下载完成", zap.String("路径", modelPath))
+		}
 	case "whisperkit":
 		model = config.Conf.LocalModel.Whisperkit
-		modelPath = "./models/whisperkit/openai_whisper-large-v2"
+		modelPath = fmt.Sprintf("./models/whisperkit/openai_whisper-%s", model)
 		files, _ := os.ReadDir(modelPath)
 		if len(files) == 0 {
 			log.GetLogger().Info("没有找到whisperkit模型，即将开始自动下载")
@@ -358,24 +535,5 @@ func checkModel(whisperType string) error {
 	}
 
 	log.GetLogger().Info("模型检查完成", zap.String("路径", modelPath))
-	return nil
-}
-
-// 检测whisperkit
-func checkWhisperKit() error {
-	cmd := exec.Command("which", "whisperkit-cli")
-	err := cmd.Run()
-	if err != nil {
-		log.GetLogger().Info("没有找到whisperkit-cli，即将开始自动安装")
-		cmd = exec.Command("brew", "install", "whisperkit-cli")
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			log.GetLogger().Error("whisperkit-cli 安装失败", zap.String("info", string(output)), zap.Error(err))
-			return err
-		}
-		log.GetLogger().Info("whisperkit-cli 安装成功")
-	}
-	storage.WhisperKitPath = "whisperkit-cli"
-	log.GetLogger().Info("检测到whisperkit-cli已安装")
 	return nil
 }
