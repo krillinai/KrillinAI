@@ -1287,7 +1287,7 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 		splitContent = ""
 	} else {
 		// 最多尝试4次获取有效的翻译结果
-		for i := 0; i < 4; i++ {
+		for i := range 100 {
 			splitContent, err = s.ChatCompleter.ChatCompletion(splitPrompt + audioFile.TranscriptionData.Text)
 			if err != nil {
 				log.GetLogger().Warn("audioToSubtitle splitTextAndTranslate ChatCompletion error, retrying...",
