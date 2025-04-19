@@ -91,9 +91,9 @@ type Transcribe struct {
 }
 
 type Tts struct {
-	Provider Provider `toml:"provider"`
-	OpenAI   Openai   `toml:"openai"`
-	Aliyun   Aliyun   `toml:"aliyun"`
+	Provider Provider  `toml:"provider"`
+	OpenAI   Openai    `toml:"openai"`
+	Aliyun   TTSAliyun `toml:"aliyun"`
 }
 
 type TTSAliyun struct {
@@ -173,7 +173,7 @@ func validateConfig() error {
 			return errors.New("检测到开启了whisperkit，但模型选型配置不正确，请检查配置")
 		}
 	case "aliyun":
-		if Conf.Transcribe.Aliyun.Speech.AccessKeyId == "" || Conf.Transcribe.Aliyun.Speech.AccessKeySecret == "" || Conf.Transcribe.Aliyun.Speech.AppKey == "" {
+		if Conf.Transcribe.Aliyun.ApiKey == "" {
 			return errors.New("使用阿里云语音服务需要配置相关密钥")
 		}
 	default:
@@ -185,7 +185,7 @@ func validateConfig() error {
 
 func LoadConfig() {
 	var err error
-	configPath := "./config/config.toml"
+	configPath := "./config/config-new.toml"
 	if _, err = os.Stat(configPath); os.IsNotExist(err) {
 		return
 	} else {

@@ -124,7 +124,7 @@ func (c *Client) Transcription(audioFile, language, workDir string) (*types.Tran
 }
 
 func (c *Client) TextToSpeech(text, voice string, outputFile string) error {
-	url := fmt.Sprintf(c.BaseUrl, "/v1/audio/speech")
+	url := c.BaseUrl + "/v1/audio/speech"
 
 	// 创建HTTP请求
 	reqBody := fmt.Sprintf(`{

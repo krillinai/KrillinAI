@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -12,6 +11,8 @@ import (
 	"krillin-ai/pkg/util"
 	"os/exec"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
@@ -81,7 +82,7 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 	stepParam.TaskPtr.ProcessPct = 6
 	stepParam.AudioFilePath = audioPath
 
-	if !strings.HasPrefix(link, "local:") && stepParam.EmbedSubtitleVideoType != "none" {
+	if !strings.HasPrefix(link, "local:") && (stepParam.EmbedSubtitleVideoType != "none" || stepParam.EnableTts) {
 		// 需要下载原视频
 		cmdArgs := []string{"-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]", "-o", videoPath, stepParam.Link}
 		if config.Conf.App.Proxy != "" {

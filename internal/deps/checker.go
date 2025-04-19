@@ -29,7 +29,7 @@ func CheckDependency() error {
 		log.GetLogger().Error("yt-dlp环境准备失败", zap.Error(err))
 		return err
 	}
-	if config.Conf.App.TranscribeProvider == "fasterwhisper" {
+	if config.Conf.Transcribe.Provider.Name == "fasterwhisper" {
 		err = checkFasterWhisper()
 		if err != nil {
 			log.GetLogger().Error("fasterwhisper环境准备失败", zap.Error(err))
@@ -41,7 +41,7 @@ func CheckDependency() error {
 			return err
 		}
 	}
-	if config.Conf.App.TranscribeProvider == "whisperkit" {
+	if config.Conf.Transcribe.Provider.Name == "whisperkit" {
 		if err = checkWhisperKit(); err != nil {
 			log.GetLogger().Error("whisperkit环境准备失败", zap.Error(err))
 			return err
@@ -318,7 +318,7 @@ func checkModel(whisperType string) error {
 	var modelPath string // cli中使用的model path
 	switch whisperType {
 	case "fasterwhisper":
-		model = config.Conf.LocalModel.Fasterwhisper
+		model = config.Conf.Transcribe.Fasterwhisper.Model
 		modelPath = fmt.Sprintf("./models/faster-whisper-%s/model.bin", model)
 		if _, err = os.Stat(modelPath); os.IsNotExist(err) {
 			// 下载
@@ -337,7 +337,7 @@ func checkModel(whisperType string) error {
 			log.GetLogger().Info("模型下载完成", zap.String("路径", modelPath))
 		}
 	case "whisperkit":
-		model = config.Conf.LocalModel.Whisperkit
+		// model = config.Conf.Transcribe.Whisperkit.Model
 		modelPath = "./models/whisperkit/openai_whisper-large-v2"
 		files, _ := os.ReadDir(modelPath)
 		if len(files) == 0 {

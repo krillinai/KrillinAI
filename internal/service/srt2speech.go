@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
@@ -14,6 +13,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // 输入中文字幕，生成配音
@@ -54,7 +55,7 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 
 	for i, sub := range subtitles {
 		outputFile := filepath.Join(stepParam.TaskBasePath, fmt.Sprintf("subtitle_%d.wav", i+1))
-		err = s.TtsClient.Text2Speech(sub.Text, voiceCode, outputFile)
+		err = s.TtsClient.TextToSpeech(sub.Text, voiceCode, outputFile)
 		if err != nil {
 			log.GetLogger().Error("srtFileToSpeech Text2Speech error", zap.Any("stepParam", stepParam), zap.Any("num", i+1), zap.Error(err))
 			return fmt.Errorf("srtFileToSpeech Text2Speech error: %w", err)

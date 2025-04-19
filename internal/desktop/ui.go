@@ -31,7 +31,7 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 	serverGroup := createServerConfigGroup()
 	localModelGroup := createLocalModelGroup()
 	openaiGroup := createOpenAIConfigGroup()
-	whisperGroup := createWhisperConfigGroup()
+	transcribeOpenAIGroup := createTranscribeOpenAIConfigGroup()
 	aliyunOssGroup := createAliyunOSSConfigGroup()
 	aliyunSpeechGroup := createAliyunSpeechConfigGroup()
 	aliyunBailianGroup := createAliyunBailianConfigGroup()
@@ -56,7 +56,7 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 		container.NewPadded(serverGroup),
 		container.NewPadded(localModelGroup),
 		container.NewPadded(openaiGroup),
-		container.NewPadded(whisperGroup),
+		container.NewPadded(transcribeOpenAIGroup),
 		container.NewPadded(aliyunOssGroup),
 		container.NewPadded(aliyunSpeechGroup),
 		container.NewPadded(aliyunBailianGroup),
@@ -168,14 +168,14 @@ func createAppConfigGroup() *fyne.Container {
 	appProxyEntry.Bind(binding.BindString(&config.Conf.App.Proxy))
 
 	appTranscribeProviderEntry := StyledSelect([]string{"openai", "fasterwhisper", "whisperkit", "aliyun"}, func(s string) {
-		config.Conf.App.TranscribeProvider = s
+		config.Conf.Transcribe.Provider.Name = s
 	})
-	appTranscribeProviderEntry.SetSelected(config.Conf.App.TranscribeProvider)
+	appTranscribeProviderEntry.SetSelected(config.Conf.Transcribe.Provider.Name)
 
-	appLlmProviderEntry := StyledSelect([]string{"openai", "aliyun"}, func(s string) {
-		config.Conf.App.LlmProvider = s
-	})
-	appLlmProviderEntry.SetSelected(config.Conf.App.LlmProvider)
+	// appLlmProviderEntry := StyledSelect([]string{"openai", "aliyun"}, func(s string) {
+	// 	config.Conf.App.LlmProvider = s
+	// })
+	// appLlmProviderEntry.SetSelected(config.Conf.App.LlmProvider)
 
 	// 格式化表单项以使其更美观
 	form := widget.NewForm(
@@ -183,7 +183,7 @@ func createAppConfigGroup() *fyne.Container {
 		widget.NewFormItem("翻译并行数量 Translate parallel num", appTranslateParallelNumEntry),
 		widget.NewFormItem("网络代理地址 proxy", appProxyEntry),
 		widget.NewFormItem("语音识别服务源 Transcriber provider", appTranscribeProviderEntry),
-		widget.NewFormItem("LLM服务源 Llm provider", appLlmProviderEntry),
+		// widget.NewFormItem("LLM服务源 Llm provider", appLlmProviderEntry),
 	)
 
 	return GlassCard("应用配置 App Config", "基本参数 Basic config", form)
@@ -218,14 +218,14 @@ func createServerConfigGroup() *fyne.Container {
 // 创建本地模型配置组
 func createLocalModelGroup() *fyne.Container {
 	localModelFasterwhisperEntry := StyledSelect([]string{"tiny", "medium", "large-v2"}, func(s string) {
-		config.Conf.LocalModel.Fasterwhisper = s
+		config.Conf.Transcribe.Fasterwhisper.Model = s
 	})
-	localModelFasterwhisperEntry.SetSelected(config.Conf.LocalModel.Fasterwhisper)
+	localModelFasterwhisperEntry.SetSelected(config.Conf.Transcribe.Fasterwhisper.Model)
 
 	localModelWhisperkitEntry := StyledSelect([]string{"large-v2"}, func(s string) {
-		config.Conf.LocalModel.Whisperkit = s
+		config.Conf.Transcribe.Whisperkit.Model = s
 	})
-	localModelWhisperkitEntry.SetSelected(config.Conf.LocalModel.Whisperkit)
+	localModelWhisperkitEntry.SetSelected(config.Conf.Transcribe.Whisperkit.Model)
 
 	form := widget.NewForm(
 		widget.NewFormItem("Fasterwhisper模型 Model", localModelFasterwhisperEntry),
@@ -648,13 +648,13 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 // 创建OpenAI配置组
 func createOpenAIConfigGroup() *fyne.Container {
 	openaiBaseUrlEntry := StyledEntry("OpenAI API base url")
-	openaiBaseUrlEntry.Bind(binding.BindString(&config.Conf.Openai.BaseUrl))
+	openaiBaseUrlEntry.Bind(binding.BindString(&config.Conf.LLM.BaseUrl))
 
 	openaiModelEntry := StyledEntry("OpenAI模型名称 Model name")
-	openaiModelEntry.Bind(binding.BindString(&config.Conf.Openai.Model))
+	openaiModelEntry.Bind(binding.BindString(&config.Conf.LLM.Model))
 
 	openaiApiKeyEntry := StyledPasswordEntry("OpenAI API密钥 Key")
-	openaiApiKeyEntry.Bind(binding.BindString(&config.Conf.Openai.ApiKey))
+	openaiApiKeyEntry.Bind(binding.BindString(&config.Conf.LLM.ApiKey))
 
 	form := widget.NewForm(
 		widget.NewFormItem("API base url", openaiBaseUrlEntry),
@@ -665,17 +665,20 @@ func createOpenAIConfigGroup() *fyne.Container {
 	return StyledCard("OpenAI配置 Config", form)
 }
 
-// 创建Whisper配置组
-func createWhisperConfigGroup() *fyne.Container {
-	whisperBaseUrlEntry := StyledEntry("Whisper API base url")
-	whisperBaseUrlEntry.Bind(binding.BindString(&config.Conf.Openai.Whisper.BaseUrl))
+// 创建OpenAI转录配置组，OpenAI转录支持Whisper，gpt-4o-transcribe,gtp-4o-mini-transcribe
+func createTranscribeOpenAIConfigGroup() *fyne.Container {
+	baseUrlEntry := StyledEntry("OpenAI API base url")
+	baseUrlEntry.Bind(binding.BindString(&config.Conf.Transcribe.OpenAI.BaseUrl))
 
-	whisperApiKeyEntry := StyledPasswordEntry("Whisper API密钥")
-	whisperApiKeyEntry.Bind(binding.BindString(&config.Conf.Openai.Whisper.ApiKey))
+	apiKeyEntry := StyledPasswordEntry("OpenAI API key")
+	apiKeyEntry.Bind(binding.BindString(&config.Conf.Transcribe.OpenAI.ApiKey))
 
 	form := widget.NewForm(
-		widget.NewFormItem("API base url", whisperBaseUrlEntry),
-		widget.NewFormItem("API密钥 Key", whisperApiKeyEntry),
+		widget.NewFormItem("API base url", baseUrlEntry),
+		widget.NewFormItem("API密钥 Key", apiKeyEntry),
+		widget.NewFormItem("模型名称 Model", StyledSelect([]string{"whisper-1", "gpt-4o-transcribe", "gpt-4o-mini-transcribe"}, func(s string) {
+			config.Conf.Transcribe.OpenAI.Model = s
+		})),
 	)
 
 	return StyledCard("Whisper配置 Config", form)
@@ -684,13 +687,13 @@ func createWhisperConfigGroup() *fyne.Container {
 // 创建阿里云OSS配置组
 func createAliyunOSSConfigGroup() *fyne.Container {
 	ossAccessKeyIdEntry := StyledEntry("阿里云AccessKey ID")
-	ossAccessKeyIdEntry.Bind(binding.BindString(&config.Conf.Aliyun.Oss.AccessKeyId))
+	ossAccessKeyIdEntry.Bind(binding.BindString(&config.Conf.Tts.Aliyun.Oss.AccessKeyId))
 
 	ossAccessKeySecretEntry := StyledPasswordEntry("阿里云AccessKey Secret")
-	ossAccessKeySecretEntry.Bind(binding.BindString(&config.Conf.Aliyun.Oss.AccessKeySecret))
+	ossAccessKeySecretEntry.Bind(binding.BindString(&config.Conf.Tts.Aliyun.Oss.AccessKeySecret))
 
 	ossBucketEntry := StyledEntry("OSS Bucket名称 ")
-	ossBucketEntry.Bind(binding.BindString(&config.Conf.Aliyun.Oss.Bucket))
+	ossBucketEntry.Bind(binding.BindString(&config.Conf.Tts.Aliyun.Oss.Bucket))
 
 	form := widget.NewForm(
 		widget.NewFormItem("AccessKey ID", ossAccessKeyIdEntry),
@@ -704,13 +707,13 @@ func createAliyunOSSConfigGroup() *fyne.Container {
 // 创建阿里云语音配置组
 func createAliyunSpeechConfigGroup() *fyne.Container {
 	ossAccessKeyIdEntry := StyledEntry("阿里云 AccessKey ID")
-	ossAccessKeyIdEntry.Bind(binding.BindString(&config.Conf.Aliyun.Speech.AccessKeyId))
+	ossAccessKeyIdEntry.Bind(binding.BindString(&config.Conf.Tts.Aliyun.Speech.AccessKeyId))
 
 	ossAccessKeySecretEntry := StyledPasswordEntry("阿里云 AccessKey Secret")
-	ossAccessKeySecretEntry.Bind(binding.BindString(&config.Conf.Aliyun.Speech.AccessKeySecret))
+	ossAccessKeySecretEntry.Bind(binding.BindString(&config.Conf.Tts.Aliyun.Speech.AccessKeySecret))
 
 	speechAppKeyEntry := StyledEntry("阿里云语音服务 AppKey")
-	speechAppKeyEntry.Bind(binding.BindString(&config.Conf.Aliyun.Speech.AppKey))
+	speechAppKeyEntry.Bind(binding.BindString(&config.Conf.Tts.Aliyun.Speech.AppKey))
 
 	form := widget.NewForm(
 		widget.NewFormItem("AccessKey ID", ossAccessKeyIdEntry),
@@ -724,7 +727,7 @@ func createAliyunSpeechConfigGroup() *fyne.Container {
 // 创建阿里云百炼配置组
 func createAliyunBailianConfigGroup() *fyne.Container {
 	bailianApiKeyEntry := StyledPasswordEntry("阿里云百炼API密钥 Aliyun bailian api key")
-	bailianApiKeyEntry.Bind(binding.BindString(&config.Conf.Aliyun.Bailian.ApiKey))
+	bailianApiKeyEntry.Bind(binding.BindString(&config.Conf.Tts.Aliyun.Bailian.ApiKey))
 
 	form := widget.NewForm(
 		widget.NewFormItem("API密钥 key", bailianApiKeyEntry),

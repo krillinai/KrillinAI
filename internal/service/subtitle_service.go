@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/samber/lo"
-	"go.uber.org/zap"
 	"krillin-ai/internal/dto"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -15,6 +13,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.StartVideoSubtitleTaskResData, error) {
@@ -81,13 +82,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	}
 	storage.SubtitleTasks.Store(taskId, taskPtr)
 
-	var ttsVoiceCode string
-	if req.TtsVoiceCode == types.SubtitleTaskTtsVoiceCodeLongyu {
-		ttsVoiceCode = "longyu"
-	} else {
-		ttsVoiceCode = "longchen"
-	}
-
+	ttsVoiceCode := req.TtsVoiceCode
 	// 处理声音克隆源
 	var voiceCloneAudioUrl string
 	if req.TtsVoiceCloneSrcFileUrl != "" {
