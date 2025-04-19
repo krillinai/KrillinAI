@@ -328,7 +328,7 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 	)
 
 	// 设置默认语言
-	langContainer.Objects[0].(*fyne.Container).Objects[1].(*widget.Select).SetSelected("简体中文")
+	langContainer.Objects[0].(*fyne.Container).Objects[1].(*widget.Select).SetSelected("English")
 	langContainer.Objects[1].(*fyne.Container).Objects[1].(*widget.Select).SetSelected("简体中文")
 
 	// 创建容器
