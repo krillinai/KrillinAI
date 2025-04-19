@@ -31,7 +31,7 @@ func Show() {
 	myApp := app.New()
 
 	// 自定义主题
-	myApp.Settings().SetTheme(NewCustomTheme())
+	myApp.Settings().SetTheme(NewCustomTheme(false))
 
 	myWindow := myApp.NewWindow("Krillin AI")
 
@@ -72,7 +72,6 @@ func Show() {
 	contentStack.Add(workbenchContent)
 	contentStack.Add(configContent)
 
-	// 默认隐藏配置内容
 	configContent.Hide()
 
 	currentSelectedIndex := 0
@@ -101,19 +100,15 @@ func Show() {
 			// 更新当前选中的索引
 			currentSelectedIndex = index
 
-			// 刷新容器
 			navContainer.Refresh()
 
-			// 切换显示内容而不是重新创建
 			if index == 0 {
-				// 显示工作台内容
 				workbenchContent.Show()
 				configContent.Hide()
 				// 确保进度条和下载区域状态正确显示
 				workbenchContent.Refresh()
 				FadeAnimation(workbenchContent, 300*time.Millisecond, 0.0, 1.0)
 			} else {
-				// 显示配置内容
 				workbenchContent.Hide()
 				configContent.Show()
 				FadeAnimation(configContent, 300*time.Millisecond, 0.0, 1.0)
@@ -158,20 +153,4 @@ func Show() {
 	myWindow.Resize(fyne.NewSize(1000, 700))
 	myWindow.CenterOnScreen()
 	myWindow.ShowAndRun()
-}
-
-// 这个函数现在不再使用，因为我们预先创建了所有内容
-// 保留它是为了兼容性
-func updateContent(index int, content *fyne.Container) {
-	var newContent fyne.CanvasObject
-
-	switch index {
-	case 0:
-		newContent = CreateSubtitleTab(fyne.CurrentApp().Driver().AllWindows()[0])
-	case 1:
-		newContent = CreateConfigTab(fyne.CurrentApp().Driver().AllWindows()[0])
-	}
-
-	// 使用淡入淡出动画切换内容
-	SwitchContent(content, newContent, 300*time.Millisecond)
 }
