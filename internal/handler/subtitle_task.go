@@ -65,7 +65,7 @@ func (h Handler) GetSubtitleTask(c *gin.Context) {
 }
 
 func (h Handler) UploadFile(c *gin.Context) {
-	file, err := c.FormFile("file")
+	form, err := c.MultipartForm()
 	if err != nil {
 		response.R(c, response.Response{
 			Error: -1,
@@ -75,20 +75,35 @@ func (h Handler) UploadFile(c *gin.Context) {
 		return
 	}
 
-	savePath := "./uploads/" + file.Filename
-	if err = c.SaveUploadedFile(file, savePath); err != nil {
+	files := form.File["file"]
+	if len(files) == 0 {
 		response.R(c, response.Response{
 			Error: -1,
-			Msg:   "文件保存失败",
+			Msg:   "未上传任何文件",
 			Data:  nil,
 		})
 		return
 	}
 
+	// 保存每个文件
+	var savedFiles []string
+	for _, file := range files {
+		savePath := "./uploads/" + file.Filename
+		if err := c.SaveUploadedFile(file, savePath); err != nil {
+			response.R(c, response.Response{
+				Error: -1,
+				Msg:   "文件保存失败: " + file.Filename,
+				Data:  nil,
+			})
+			return
+		}
+		savedFiles = append(savedFiles, "local:"+savePath)
+	}
+
 	response.R(c, response.Response{
 		Error: 0,
 		Msg:   "文件上传成功",
-		Data:  gin.H{"file_path": "local:" + savePath},
+		Data:  gin.H{"file_path": savedFiles},
 	})
 }
 
