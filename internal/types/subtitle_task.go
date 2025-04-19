@@ -162,70 +162,6 @@ const (
 	AsrMono16kAudioFileName = "mono_16k_audio.mp3"
 )
 
-type StandardLanguageName string
-
-const (
-	// 第一批
-	LanguageNameSimplifiedChinese  StandardLanguageName = "zh_cn"
-	LanguageNameTraditionalChinese StandardLanguageName = "zh_tw"
-	LanguageNameEnglish            StandardLanguageName = "en"
-	LanguageNameJapanese           StandardLanguageName = "ja"
-	LanguageNameIndonesian         StandardLanguageName = "id"
-	LanguageNameMalaysian          StandardLanguageName = "ms"
-	LanguageNameThai               StandardLanguageName = "th"
-	LanguageNameVietnamese         StandardLanguageName = "vi"
-	LanguageNameFilipino           StandardLanguageName = "fil"
-	LanguageNameKorean             StandardLanguageName = "ko"
-	LanguageNameArabic             StandardLanguageName = "ar"
-	LanguageNameFrench             StandardLanguageName = "fr"
-	LanguageNameGerman             StandardLanguageName = "de"
-	LanguageNameItalian            StandardLanguageName = "it"
-	LanguageNameRussian            StandardLanguageName = "ru"
-	LanguageNamePortuguese         StandardLanguageName = "pt"
-	LanguageNameSpanish            StandardLanguageName = "es"
-	// 第二批
-	LanguageNameHindi     StandardLanguageName = "hi"
-	LanguageNameBengali   StandardLanguageName = "bn"
-	LanguageNameHebrew    StandardLanguageName = "he"
-	LanguageNamePersian   StandardLanguageName = "fa"
-	LanguageNameAfrikaans StandardLanguageName = "af"
-	LanguageNameSwedish   StandardLanguageName = "sv"
-	LanguageNameFinnish   StandardLanguageName = "fi"
-	LanguageNameDanish    StandardLanguageName = "da"
-	LanguageNameNorwegian StandardLanguageName = "no"
-	LanguageNameDutch     StandardLanguageName = "nl"
-	LanguageNameGreek     StandardLanguageName = "el"
-	LanguageNameUkrainian StandardLanguageName = "uk"
-	LanguageNameHungarian StandardLanguageName = "hu"
-	LanguageNamePolish    StandardLanguageName = "pl"
-	LanguageNameTurkish   StandardLanguageName = "tr"
-	LanguageNameSerbian   StandardLanguageName = "sr"
-	LanguageNameCroatian  StandardLanguageName = "hr"
-	LanguageNameCzech     StandardLanguageName = "cs"
-	// 第三批
-	LanguageNamePinyin        StandardLanguageName = "pinyin"
-	LanguageNameSwahili       StandardLanguageName = "sw"
-	LanguageNameYoruba        StandardLanguageName = "yo"
-	LanguageNameHausa         StandardLanguageName = "ha"
-	LanguageNameAmharic       StandardLanguageName = "am"
-	LanguageNameOromo         StandardLanguageName = "om"
-	LanguageNameIcelandic     StandardLanguageName = "is"
-	LanguageNameLuxembourgish StandardLanguageName = "lb"
-	LanguageNameCatalan       StandardLanguageName = "ca"
-	LanguageNameRomanian      StandardLanguageName = "ro"
-	LanguageNameMoldovan      StandardLanguageName = "ro" // 和LanguageNameRomanian重复
-	LanguageNameSlovak        StandardLanguageName = "sk"
-	LanguageNameBosnian       StandardLanguageName = "bs"
-	LanguageNameMacedonian    StandardLanguageName = "mk"
-	LanguageNameSlovenian     StandardLanguageName = "sl"
-	LanguageNameBulgarian     StandardLanguageName = "bg"
-	LanguageNameLatvian       StandardLanguageName = "lv"
-	LanguageNameLithuanian    StandardLanguageName = "lt"
-	LanguageNameEstonian      StandardLanguageName = "et"
-	LanguageNameMaltese       StandardLanguageName = "mt"
-	LanguageNameAlbanian      StandardLanguageName = "sq"
-)
-
 type SubtitleFileInfo struct {
 	Name               string
 	Path               string
@@ -245,9 +181,9 @@ type SubtitleTaskStepParam struct {
 	TtsVoiceCode                string // 人声语音编码
 	VoiceCloneAudioUrl          string // 音色克隆的源音频oss地址
 	ReplaceWordsMap             map[string]string
-	OriginLanguage              StandardLanguageName // 视频源语言
-	TargetLanguage              StandardLanguageName // 用户希望的目标翻译语言
-	UserUILanguage              StandardLanguageName // 用户的使用语言
+	OriginLanguage              StandardLanguageCode // 视频源语言
+	TargetLanguage              StandardLanguageCode // 用户希望的目标翻译语言
+	UserUILanguage              StandardLanguageCode // 用户的使用语言
 	BilingualSrtFilePath        string
 	ShortOriginMixedSrtFilePath string
 	SubtitleInfos               []SubtitleFileInfo
