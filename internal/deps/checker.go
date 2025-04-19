@@ -8,6 +8,7 @@ import (
 	"krillin-ai/pkg/util"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 
 	"go.uber.org/zap"
@@ -54,12 +55,12 @@ func CheckDependency() error {
 	}
 	if config.Conf.App.TranscribeProvider == "whispercpp" {
 		if err = checkWhispercpp(); err != nil {
-			log.GetLogger().Error("whisper.cpp环境准备失败", zap.Error(err))
+			log.GetLogger().Error("whispercpp环境准备失败", zap.Error(err))
 			return err
 		}
 		err = checkModel("whispercpp")
 		if err != nil {
-			log.GetLogger().Error("本地模型环境准备失败", zap.Error(err))
+			log.GetLogger().Error("whispercpp本地模型环境准备失败", zap.Error(err))
 			return err
 		}
 	}
@@ -340,16 +341,33 @@ func checkWhispercpp() error {
 		err      error
 	)
 	if runtime.GOOS == "windows" {
-		filePath = ".\\bin\\whispercpp\\whisper-cli.exe"
-	} else if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
-		filePath = "./bin/whispercpp/whisper-cli"
+		filePath = filepath.Join("bin", "whispercpp", "whisper-cli.exe")
 	} else {
 		return fmt.Errorf("whisper.cpp不支持你当前的操作系统: %s，请选择其它transcription provider", runtime.GOOS)
 	}
-	// TODO
 	if _, err = os.Stat(filePath); os.IsNotExist(err) {
-		// error
-		return fmt.Errorf("whisper.cpp不存在")
+		log.GetLogger().Info("没有找到whispercpp，即将开始自动下载，文件较大请耐心等待")
+		err = os.MkdirAll("bin", 0755)
+		if err != nil {
+			log.GetLogger().Error("创建./bin目录失败", zap.Error(err))
+			return err
+		}
+		var downloadUrl string
+		if runtime.GOOS == "windows" {
+			downloadUrl = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/whispercpp-windows-cuda.zip"
+		}
+		zipFilePath := filepath.Join("bin", "whispercpp-windows-cuda.zip")
+		err = util.DownloadFile(downloadUrl, zipFilePath, config.Conf.App.Proxy)
+		if err != nil {
+			log.GetLogger().Error("下载whispercpp失败", zap.Error(err))
+			return err
+		}
+		log.GetLogger().Info("开始解压whispercpp")
+		err = util.Unzip(zipFilePath, filepath.Join("bin", "whispercpp")+string(filepath.Separator))
+		if err != nil {
+			log.GetLogger().Error("解压whispercpp失败", zap.Error(err))
+			return err
+		}
 	}
 	if runtime.GOOS != "windows" {
 		err = os.Chmod(filePath, 0755)
@@ -359,7 +377,7 @@ func checkWhispercpp() error {
 		}
 	}
 	storage.WhispercppPath = filePath
-	log.GetLogger().Info("whisper.cpp检查完成", zap.String("路径", filePath))
+	log.GetLogger().Info("whispercpp检查完成", zap.String("路径", filePath))
 	return nil
 }
 

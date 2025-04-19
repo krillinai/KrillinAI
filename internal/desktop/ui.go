@@ -165,7 +165,7 @@ func createAppConfigGroup() *fyne.Container {
 	appProxyEntry := StyledEntry("网络代理地址")
 	appProxyEntry.Bind(binding.BindString(&config.Conf.App.Proxy))
 
-	appTranscribeProviderEntry := StyledSelect([]string{"openai", "fasterwhisper", "whisperkit", "aliyun"}, func(s string) {
+	appTranscribeProviderEntry := StyledSelect([]string{"openai", "fasterwhisper", "whispercpp", "whisperkit", "aliyun"}, func(s string) {
 		config.Conf.App.TranscribeProvider = s
 	})
 	appTranscribeProviderEntry.SetSelected(config.Conf.App.TranscribeProvider)
@@ -199,8 +199,14 @@ func createLocalModelGroup() *fyne.Container {
 	})
 	localModelWhisperkitEntry.SetSelected(config.Conf.LocalModel.Whisperkit)
 
+	localModelWhispercppEntry := StyledSelect([]string{"large-v2"}, func(s string) {
+		config.Conf.LocalModel.Whisperkit = s
+	})
+	localModelWhispercppEntry.SetSelected(config.Conf.LocalModel.Whispercpp)
+
 	form := widget.NewForm(
 		widget.NewFormItem("Fasterwhisper模型 Model", localModelFasterwhisperEntry),
+		widget.NewFormItem("Whispercpp模型 Model", localModelWhispercppEntry),
 		widget.NewFormItem("Whisperkit模型 Model", localModelWhisperkitEntry),
 	)
 
