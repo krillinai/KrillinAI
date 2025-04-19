@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"krillin-ai/config"
 	"krillin-ai/internal/deps"
+	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"path/filepath"
 	"strconv"
@@ -297,32 +298,30 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 	}
 
 	// 创建语言选择容器
+	var targetSelectOptions []string
+	targetLangMap := make(map[string]string)
+	for code, name := range types.StandardLanguageCode2Name {
+		targetSelectOptions = append(targetSelectOptions, name)
+		targetLangMap[name] = string(code)
+	}
 	langContainer := container.NewGridWithColumns(2,
 		container.NewHBox(
 			widget.NewLabel("源语言 Origin language:"),
 			StyledSelect([]string{
-				"简体中文", "English", "日文", "土耳其语", "德语", "韩语", "俄语",
+				"简体中文", "English", "日文", "土耳其语", "德语", "韩语", "俄语", "Bahasa Melayu",
 			}, func(value string) {
-				langMap := map[string]string{
+				sourceLangMap := map[string]string{
 					"简体中文": "zh_cn", "English": "en", "日文": "ja",
 					"土耳其语": "tr", "德语": "de", "韩语": "ko", "俄语": "ru",
+					"Bahasa Melayu": "ms",
 				}
-				sm.SetSourceLang(langMap[value])
+				sm.SetSourceLang(sourceLangMap[value])
 			}),
 		),
 		container.NewHBox(
 			widget.NewLabel("目标语言 Target language:"),
-			StyledSelect([]string{
-				"简体中文", "繁体中文", "English", "日语", "韩语", "法语", "德语", "俄语",
-				"西班牙语", "葡萄牙语", "意大利语", "阿拉伯语", "土耳其语",
-			}, func(value string) {
-				langMap := map[string]string{
-					"简体中文": "zh_cn", "繁体中文": "zh_tw", "English": "en",
-					"日语": "ja", "韩语": "ko", "法语": "fr", "德语": "de",
-					"俄语": "ru", "西班牙语": "es", "葡萄牙语": "pt",
-					"意大利语": "it", "阿拉伯语": "ar", "土耳其语": "tr",
-				}
-				sm.SetTargetLang(langMap[value])
+			StyledSelect(targetSelectOptions, func(value string) {
+				sm.SetTargetLang(targetLangMap[value])
 			}),
 		),
 	)
