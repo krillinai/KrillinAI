@@ -8,7 +8,7 @@
 docker run -d \
   -p 8888:8888 \
   -v /path/to/config.toml:/app/config/config.toml \
-  ghcr.io/krillinai/krillin
+  krillinai/krillin
 ```
 
 ### docker-compose启动
@@ -16,7 +16,7 @@ docker run -d \
 version: '3'
 services:
   krillin:
-    image: ghcr.io/krillinai/krillin
+    image: krillinai/krillin
     ports:
       - "8888:8888"
     volumes:
@@ -33,7 +33,7 @@ docker run -d \
   -v /path/to/config.toml:/app/config/config.toml \
   -v /path/to/models:/app/models \
   -v /path/to/bin:/app/bin \
-  ghcr.io/krillinai/krillin
+  krillinai/krillin
 ```
 
 ### docker-compose启动
@@ -41,7 +41,7 @@ docker run -d \
 version: '3'
 services:
   krillin:
-    image: ghcr.io/krillinai/krillin
+    image: krillinai/krillin
     ports:
       - "8888:8888"
     volumes:

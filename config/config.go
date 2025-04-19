@@ -29,6 +29,7 @@ type Server struct {
 type LocalModel struct {
 	Fasterwhisper string `toml:"fasterwhisper"`
 	Whisperkit    string `toml:"whisperkit"`
+	Whispercpp    string `toml:"whispercpp"`
 }
 
 type OpenAiWhisper struct {
@@ -87,6 +88,7 @@ var Conf = Config{
 	LocalModel: LocalModel{
 		Fasterwhisper: "large-v2",
 		Whisperkit:    "large-v2",
+		Whispercpp:    "large-v2",
 	},
 }
 
@@ -103,12 +105,21 @@ func validateConfig() error {
 			return errors.New("检测到开启了fasterwhisper，但模型选型配置不正确，请检查配置")
 		}
 	case "whisperkit":
+		Conf.App.TranslateParallelNum = 1
 		if runtime.GOOS != "darwin" {
 			log.GetLogger().Error("whisperkit只支持macos", zap.String("当前系统", runtime.GOOS))
 			return fmt.Errorf("whisperkit只支持macos")
 		}
 		if Conf.LocalModel.Whisperkit != "large-v2" {
 			return errors.New("检测到开启了whisperkit，但模型选型配置不正确，请检查配置")
+		}
+	case "whispercpp":
+		if runtime.GOOS != "windows" { // 当前先仅支持win，模型仅支持large-v2，最小化产品
+			log.GetLogger().Error("whispercpp only support windows", zap.String("current os", runtime.GOOS))
+			return fmt.Errorf("whispercpp only support windows")
+		}
+		if Conf.LocalModel.Whispercpp != "large-v2" {
+			return errors.New("检测到开启了whisper.cpp，但模型选型配置不正确，请检查配置")
 		}
 	case "aliyun":
 		if Conf.Aliyun.Speech.AccessKeyId == "" || Conf.Aliyun.Speech.AccessKeySecret == "" || Conf.Aliyun.Speech.AppKey == "" {
@@ -142,7 +153,10 @@ func LoadConfig() {
 		return
 	} else {
 		log.GetLogger().Info("已找到配置文件，从配置文件中加载配置")
-		_, err = toml.DecodeFile(configPath, &Conf)
+		if _, err = toml.DecodeFile(configPath, &Conf); err != nil {
+			log.GetLogger().Error("加载配置文件失败", zap.Error(err))
+			return
+		}
 	}
 }
 
