@@ -1287,7 +1287,7 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 		splitContent = ""
 	} else {
 		// 最多尝试4次获取有效的翻译结果
-		for i := range 4 {
+		for i := range 100 {
 			splitContent, err = s.ChatCompleter.ChatCompletion(splitPrompt + audioFile.TranscriptionData.Text)
 			re := regexp.MustCompile(`(?s)<think>.*?</think>`)
 			splitContent = strings.TrimSpace(re.ReplaceAllString(splitContent, ""))
