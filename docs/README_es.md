@@ -9,6 +9,7 @@
   **[English](../README.md)｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)｜[한국어](../docs/README_kr.md)｜[Tiếng Việt](../docs/README_vi.md)｜[Français](../docs/README_fr.md)｜[Deutsch](../docs/README_de.md)｜[Español](../docs/README_es.md)｜[Português](../docs/README_pt.md)｜[Русский](../docs/README_rus.md)｜[اللغة العربية](../docs/README_ar.md)**
 
   [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
+  [![Discord](https://img.shields.io/discord/1333374141092331605?label=Discord&logo=discord&style=flat-square)](https://discord.gg/sKUAsHfy)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%20followers&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
 
 </div>
@@ -69,9 +70,28 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </tr>
 </table>
 
+## 🔍 Soporte de Reconocimiento de Voz
+_**Todos los modelos locales en la siguiente tabla soportan instalación automática de archivos ejecutables + archivos de modelo. Solo haz tu selección y KrillinAI se encargará de todo lo demás.**_
+
+| Servicio         | Plataformas Soportadas	          | Opciones de Modelo	                    | Local/Nube	 | Notas          |
+|-----------------|------------------------------|-----------------------------------|-------------|----------------|
+| **OpenAI Whisper** | Multiplataforma       | -                                 | Nube       | Rápido con excelentes resultados |
+| **FasterWhisper** | Windows/Linux     | `tiny`/`medium`/`large-v2` (recomendado medium+) | Local    | Mayor velocidad, sin sobrecarga de servicios en la nube |
+| **WhisperKit**    | macOS (solo Apple Silicon)   | `large-v2`                        | Local       | Optimización nativa para chips Apple |
+| **Alibaba Cloud ASR** | Multiplataforma   | -                                 | Nube       | Evita problemas de red en China continental |
+
+## 🚀 Soporte para Modelos de Lenguaje Grande
+
+✅ Compatible con todos los servicios **compatibles con API OpenAI** locales/en la nube incluyendo pero no limitado a:
+- OpenAI
+- DeepSeek
+- Qwen (Tongyi Qianwen)
+- Modelos de código abierto autoalojados
+- Otros servicios API compatibles con formato OpenAI
+
 ## 🌍 Idiomas Soportados
 Idiomas de entrada: Chino, Inglés, Japonés, Alemán, Turco (se están añadiendo más idiomas)
-Idiomas de traducción: 56 idiomas soportados, incluyendo Inglés, Chino, Ruso, Español, Francés, etc.
+Idiomas de traducción: **101** idiomas soportados, incluyendo Inglés, Chino, Ruso, Español, Francés, etc.
 
 ## Vista Previa de la Interfaz
 ![ui preview](../docs/images/ui_desktop.png)
