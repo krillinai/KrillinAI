@@ -124,6 +124,9 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	if req.OriginLanguageWordOneLine != 0 {
 		stepParam.MaxWordOneLine = req.OriginLanguageWordOneLine
 	}
+
+	log.GetLogger().Info("current task info", zap.String("taskId", taskId), zap.Any("param", stepParam))
+
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
