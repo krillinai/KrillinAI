@@ -70,8 +70,24 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </tr>
 </table>
 
+## 🔍 Suporte a Reconhecimento de Voz
+_**Todos os modelos locais na tabela abaixo suportam instalação automática de arquivos executáveis + arquivos de modelo. Basta fazer sua seleção e o KrillinAI cuidará de todo o resto para você.**_
 
+| Serviço         | Plataformas Suportadas	         | Opções de Modelo	                     | Local/Nuvem | Observações          |
+|-----------------|------------------------------|-----------------------------------|-------------|----------------|
+| **OpenAI Whisper** | Multiplataforma	       | -                                 | Nuvem       | Rápido com excelentes resultados |
+| **FasterWhisper** | Windows/Linux     | `tiny`/`medium`/`large-v2` (recommend medium+) | Local    | Velocidade maior, sem sobrecarga de serviço em nuvem |
+| **WhisperKit**    | macOS (Apple Silicon only)   | `large-v2`                        | Local       | Otimização nativa para chips Apple |
+| **Alibaba Cloud ASR** | Multiplataforma	    | -                                 | Nuvem       | Contorna problemas de rede na China continental |
 
+## 🚀 Suporte a Modelos de Linguagem Grande
+
+✅ Compatível com todos os serviços **compatíveis com API OpenAI** locais/em nuvem, incluindo mas não limitado a:
+- OpenAI
+- DeepSeek
+- Qwen (Tongyi Qianwen)
+- Modelos de código aberto auto-hospedados
+- Outros serviços API compatíveis com formato OpenAI
 
 
 ## 🌍 Idiomas Suportados
