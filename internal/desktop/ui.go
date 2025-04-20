@@ -411,16 +411,7 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 	// 创建视频类型选择
 	embedTypeSelect := StyledSelect([]string{
 		"横屏视频 Landscape video", "竖屏视频 Portrait video", "横屏+竖屏视频 Landscape+Portrait video",
-	}, func(value string) {
-		switch value {
-		case "横屏视频":
-			sm.SetEmbedSubtitle("horizontal")
-		case "竖屏视频":
-			sm.SetEmbedSubtitle("vertical")
-		case "横屏+竖屏视频":
-			sm.SetEmbedSubtitle("all")
-		}
-	})
+	}, nil)
 	embedTypeSelect.Disable()
 
 	// 创建标题输入区域
@@ -444,23 +435,24 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 		if checked {
 			embedTypeSelect.Enable()
 			embedTypeSelect.SetSelected("横屏视频 Landscape video")
-			sm.SetEmbedSubtitle("horizontal")
-			if embedTypeSelect.Selected == "竖屏视频 Portrait video" || embedTypeSelect.Selected == "横屏+竖屏视频 Landscape+Portrait video" {
-				titleInputContainer.Show()
-			}
 		} else {
 			embedTypeSelect.Disable()
 			sm.SetEmbedSubtitle("none")
-			titleInputContainer.Hide()
 		}
 	}
 
 	// 更新标题输入区域的显示状态
 	embedTypeSelect.OnChanged = func(value string) {
-		if value == "竖屏视频 Portrait video" || value == "横屏+竖屏视频 Landscape+Portrait video" {
-			titleInputContainer.Show()
-		} else {
+		switch value {
+		case "横屏视频 Landscape video":
 			titleInputContainer.Hide()
+			sm.SetEmbedSubtitle("horizontal")
+		case "竖屏视频 Portrait video":
+			titleInputContainer.Show()
+			sm.SetEmbedSubtitle("vertical")
+		case "横屏+竖屏视频 Landscape+Portrait video":
+			titleInputContainer.Show()
+			sm.SetEmbedSubtitle("all")
 		}
 	}
 
@@ -634,8 +626,6 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 			progress.Hide()
 			return
 		}
-
-		log.GetLogger().Info("配置内容", zap.Any("config", config.Conf))
 
 		if err = sm.StartTask(); err != nil {
 			dialog.ShowError(err, window)
