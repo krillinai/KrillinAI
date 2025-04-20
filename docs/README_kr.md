@@ -9,6 +9,7 @@
   **[English](../README.md)｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)｜[한국어](../docs/README_kr.md)｜[Tiếng Việt](../docs/README_vi.md)｜[Français](../docs/README_fr.md)｜[Deutsch](../docs/README_de.md)｜[Español](../docs/README_es.md)｜[Português](../docs/README_pt.md)｜[Русский](../docs/README_rus.md)｜[اللغة العربية](../docs/README_ar.md)**
   
   [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
+    [![Discord](https://img.shields.io/discord/1333374141092331605?label=Discord&logo=discord&style=flat-square)](https://discord.gg/kYRUEQus)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%20followers&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
 
 </div>
@@ -59,9 +60,28 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 </tr>
 </table>
 
+## 🔍 음성 인식 지원
+_**아래 표의 모든 로컬 모델은 실행 파일 + 모델 파일의 자동 설치를 지원합니다. 원하는 모델을 선택하기만 하면 KrillinAI이 나머지 모든 작업을 처리합니다.**_
+
+| 서비스         | 지원 플랫폼          | 모델 옵션                    | 로컬/클라우드 | 참고사항         |
+|-----------------|------------------------------|-----------------------------------|-------------|----------------|
+| **OpenAI Whisper** | 크로스 플랫폼      | -                                 | 클라우드       | 빠른 속도와 우수한 결과 |
+| **FasterWhisper** | Windows/Linux     | `tiny`/`medium`/`large-v2` (medium+ 권장) | 로컬    | 더 빠른 속도, 클라우드 서비스 오버헤드 없음 |
+| **WhisperKit**    | macOS (Apple Silicon 전용)   | `large-v2`                        | 로컬       | Apple 칩에 최적화 |
+| **Alibaba Cloud ASR** | 크로스 플랫폼    | -                                 | 클라우드       | 중국 본토 네트워크 문제 회피 |
+
+## 🚀 대규모 언어 모델 지원
+
+✅ **OpenAI API 호환** 클라우드/로컬 LLM 서비스와 완벽 호환 (다음 포함):
+- OpenAI
+- DeepSeek
+- Qwen (Tongyi Qianwen)
+- 자체 호스팅 오픈소스 모델
+- 기타 OpenAI 형식 호환 API 서비스
+
 ## 🌍 언어 지원
 입력 언어: 중국어, 영어, 일본어, 독일어, 터키어, 한국어 지원 (추가 언어 계속 확장 중)
-번역 언어: 영어, 중국어, 러시아어, 스페인어, 프랑스어 등 56개 언어 지원
+번역 언어: 영어, 중국어, 러시아어, 스페인어, 프랑스어 등 101개 언어 지원
 
 ## 인터페이스 미리보기
 ![ui preview](./docs/images/ui_desktop.png)
