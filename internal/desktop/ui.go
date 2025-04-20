@@ -635,8 +635,6 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 			return
 		}
 
-		log.GetLogger().Info("配置内容", zap.Any("config", config.Conf))
-
 		if err = sm.StartTask(); err != nil {
 			dialog.ShowError(err, window)
 			progress.Hide()
