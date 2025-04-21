@@ -14,14 +14,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"regexp"
 	"sync"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
@@ -30,7 +31,7 @@ func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleT
 	if err != nil {
 		return fmt.Errorf("audioToSubtitle splitAudio error: %w", err)
 	}
-	err = s.audioToSrt(ctx, stepParam) // 这里进度更新到90%了
+	err = s.audioToSrt_Parallel(ctx, stepParam) // 这里进度更新到90%了
 	if err != nil {
 		return fmt.Errorf("audioToSubtitle audioToSrt error: %w", err)
 	}
@@ -76,7 +77,7 @@ func (s Service) splitAudio(ctx context.Context, stepParam *types.SubtitleTaskSt
 		return errors.New("audioToSubtitle splitAudio no audio files found")
 	}
 
-	num := 1
+	num := 0
 	for _, audioFile := range audioFiles {
 		stepParam.SmallAudios = append(stepParam.SmallAudios, &types.SmallAudio{
 			AudioFile: audioFile,
@@ -186,7 +187,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	bilingualFiles := make([]string, 0)
 	shortOriginMixedFiles := make([]string, 0)
 	shortOriginFiles := make([]string, 0)
-	for i := 1; i <= len(stepParam.SmallAudios); i++ {
+	for i := 0; i < len(stepParam.SmallAudios); i++ {
 		splitOriginNoTsFile := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitSrtNoTimestampFileNamePattern, i))
 		originNoTsFiles = append(originNoTsFiles, splitOriginNoTsFile)
 		splitBilingualFile := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitBilingualSrtFileNamePattern, i))
@@ -243,6 +244,470 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	log.GetLogger().Info("audioToSubtitle.audioToSrt end", zap.Any("taskId", stepParam.TaskId))
 
 	return nil
+}
+
+// audioToSrt orchestrates the transcription, translation, and timestamping pipeline.
+// Transcription: Sequential
+// Translation:   Parallel (Managed by errgroup)
+// Timestamping:  Sequential (Reads output from translation)
+func (s Service) audioToSrt_Parallel(parentCtx context.Context, stepParam *types.SubtitleTaskStepParam) (err error) {
+	log.GetLogger().Info("audioToSubtitle.audioToSrt_Parallel start", zap.String("taskId", stepParam.TaskId))
+	eg, ctx := errgroup.WithContext(parentCtx)
+	// Note: We don't need a separate context.WithCancel here,
+	// errgroup.WithContext provides one. Its cancel func is implicitly
+	// called if any eg.Go func returns an error.
+	var stepNum int64
+	var stepNumMu sync.Mutex
+	totalSteps := int64(len(stepParam.SmallAudios) * 3) // Approx total steps
+	// --- Determine Concurrency for Translation ---
+	translationConcurrency := int64(config.Conf.App.TranslateParallelNum)
+	if translationConcurrency <= 0 {
+		translationConcurrency = 4 // Default concurrency if config is invalid
+		log.GetLogger().Warn("TranslateParallelNum config is invalid, using default", zap.Int64("default", translationConcurrency))
+	}
+	// --- Channels ---
+	// Buffer size should ideally accommodate concurrency to avoid blocking writers if reader is slow.
+	chanBuffer := len(stepParam.SmallAudios)
+	if chanBuffer < int(translationConcurrency) {
+		chanBuffer = int(translationConcurrency) // Ensure buffer is at least concurrency level
+	}
+	translationInputChan := make(chan *types.SmallAudio, chanBuffer)  // Transcription -> Translation
+	translationOutputChan := make(chan *types.SmallAudio, chanBuffer) // Translation -> Timestamping
+	// --- Semaphore (Only for Translation) ---
+	// Use golang.org/x/sync/semaphore for weighted semaphore
+	translationSemaphore := semaphore.NewWeighted(translationConcurrency)
+	// --- Progress Update Helper ---
+	updateProgress := func(stageName string, audioFileNum int) {
+		stepNumMu.Lock()
+		defer stepNumMu.Unlock()
+		stepNum++
+		progress := uint8(0)
+		if totalSteps > 0 {
+			// Scale progress more reasonably within the 20-90 range
+			progress = uint8(20 + (70 * stepNum / totalSteps))
+		} else {
+			progress = 20
+		}
+		// Clamp progress
+		if progress < 20 {
+			progress = 20
+		}
+		if progress > 90 {
+			progress = 90
+		}
+		// Avoid database writes if progress hasn't changed significantly? (Optional optimization)
+		// Or just update always:
+		stepParam.TaskPtr.ProcessPct = progress
+		// TODO: Consider if TaskPtr needs its own mutex if updated elsewhere,
+		// or if the DB update handles concurrency. For now, assuming safe within this func scope.
+	}
+	// --- Launch Stage 1: Transcription (Sequential) ---
+	eg.Go(func() error {
+		// This function now returns error on failure and closes translationInputChan on success or failure.
+		// It should NOT call cancel() directly; returning error handles cancellation via errgroup.
+		return s.runTranscriptionStage(ctx, stepParam, translationInputChan, updateProgress)
+	})
+	// --- Launch Stage 2: Translation Manager & Workers (Parallel) ---
+	eg.Go(func() error {
+		// This function launches workers using eg.Go and closes translationOutputChan ONLY after
+		// all workers it launched have completed successfully. Errors from workers propagate via errgroup.
+		// It should NOT call cancel() directly.
+		return s.runTranslationStageAndWorkers(ctx, stepParam, translationInputChan, translationOutputChan, translationSemaphore, updateProgress)
+	})
+	// --- Stage 3: Timestamping (Sequential) ---
+	// This runs *after* the translation stage signals completion by closing translationOutputChan.
+	// We use a separate goroutine for timestamping as well, managed by the errgroup.
+	// This ensures that if timestamping fails, the main eg.Wait() will catch it.
+	var timestampErr error // Capture timestamp specific error
+	eg.Go(func() error {
+		log.GetLogger().Info("Starting sequential timestamping stage (waiting for input)...")
+		itemsTimestamped := 0
+		for translatedItem := range translationOutputChan { // Read until the channel is closed
+			itemsTimestamped++
+			// Check context before processing each item. Crucial if a worker failed.
+			select {
+			case <-ctx.Done():
+				log.GetLogger().Warn("Timestamping stage detected cancellation before processing item", zap.Int("audio_file_num", translatedItem.Num), zap.Error(ctx.Err()))
+				// Drain the channel to allow the translation stage goroutine to finish closing the channel.
+				// This prevents a potential deadlock if translation is waiting to write while timestamping has exited.
+				go func() {
+					log.GetLogger().Warn("Draining translationOutputChan after timestamping cancellation")
+					for range translationOutputChan {
+					}
+				}()
+				return fmt.Errorf("timestamping cancelled: %w", ctx.Err()) // Return context error
+			default:
+				// Process the item sequentially
+				err := s.processTimestamping(ctx, stepParam, translatedItem, updateProgress)
+				if err != nil {
+					log.GetLogger().Error("Error during sequential timestamping processing", zap.Int("audio_file_num", translatedItem.Num), zap.Error(err))
+					// No need to call cancel() here, returning error triggers errgroup cancellation
+					timestampErr = err // Store specific error if needed for logging later
+					// Drain the channel on error as well
+					go func() {
+						log.GetLogger().Warn("Draining translationOutputChan after timestamping error")
+						for range translationOutputChan {
+						}
+					}()
+					return fmt.Errorf("timestamping failed for item %d: %w", translatedItem.Num, err)
+				}
+			}
+		}
+		log.GetLogger().Info("Timestamping stage finished processing items.", zap.Int("items_processed", itemsTimestamped))
+		return nil // Timestamping completed successfully
+	})
+	// --- Wait for all stages ---
+	// Wait blocks until all eg.Go routines complete or one returns an error.
+	// If an error occurs, ctx is cancelled, and Wait returns the first error.
+	waitErr := eg.Wait()
+	if waitErr != nil {
+		// Log the primary error caught by the errgroup
+		log.GetLogger().Error("Pipeline failed", zap.String("taskId", stepParam.TaskId), zap.Error(waitErr))
+		// Check if the error came specifically from timestamping for more detailed logging if needed
+		if timestampErr != nil && errors.Is(waitErr, timestampErr) {
+			log.GetLogger().Error("Timestamping stage was the source of the pipeline error.", zap.Error(timestampErr))
+		}
+		// Check if the error is context cancellation (which might have originated from any stage)
+		if errors.Is(waitErr, context.Canceled) || errors.Is(waitErr, context.DeadlineExceeded) {
+			log.GetLogger().Warn("Pipeline context was cancelled or timed out.", zap.Error(waitErr))
+		}
+		return fmt.Errorf("pipeline processing error: %w", waitErr)
+	}
+	// --- Merge Files (Only if pipeline succeeded) ---
+	log.GetLogger().Info("All processing stages finished successfully. Starting file merge.")
+	mergeErr := s.mergeProcessedFiles(stepParam)
+	if mergeErr != nil {
+		log.GetLogger().Error("File merge failed after successful processing stages", zap.String("taskId", stepParam.TaskId), zap.Error(mergeErr))
+		return mergeErr // Return merge error
+	}
+	// --- Final Progress Update ---
+	stepNumMu.Lock()
+	stepParam.TaskPtr.ProcessPct = 90 // Set to 90 after merge
+	stepNumMu.Unlock()
+	// TODO: Persist final progress update if needed
+	log.GetLogger().Info("audioToSubtitle.audioToSrt_Parallel end successfully", zap.String("taskId", stepParam.TaskId))
+	return nil // Success
+}
+
+// runTranscriptionStage processes audio files sequentially for transcription.
+// It sends results to translationInputChan and closes the channel when done or on error.
+// It returns an error if transcription fails for any file or if context is cancelled.
+func (s Service) runTranscriptionStage(
+	ctx context.Context,
+	stepParam *types.SubtitleTaskStepParam,
+	translationInputChan chan<- *types.SmallAudio,
+	updateProgress func(string, int),
+) (err error) {
+	// Ensure channel is closed regardless of how the function exits
+	defer func() {
+		close(translationInputChan)
+		log.GetLogger().Debug("Closed translationInputChan")
+		if r := recover(); r != nil {
+			errMsg := fmt.Sprintf("panic during transcription stage: %v", r)
+			log.GetLogger().Error("Transcription stage panic recovered", zap.Any("panic", r), zap.String("stack", string(debug.Stack())))
+			// Ensure the error is returned so errgroup cancels context
+			err = errors.New(errMsg)
+		}
+	}()
+	log.GetLogger().Info("Transcription stage started.")
+	for i, audioFile := range stepParam.SmallAudios {
+		// Capture range variable for closure
+		currentAudioFile := audioFile
+		log.GetLogger().Debug("Processing transcription", zap.Int("index", i), zap.Int("num", currentAudioFile.Num))
+		// Check for cancellation before starting work on an item
+		select {
+		case <-ctx.Done():
+			log.GetLogger().Warn("Transcription stage cancelled before processing item", zap.Int("audio_file_num", currentAudioFile.Num), zap.Error(ctx.Err()))
+			return ctx.Err() // Return context error to errgroup
+		default:
+		}
+		log.GetLogger().Info("Starting transcription", zap.Int("audio_file_num", currentAudioFile.Num), zap.String("file", currentAudioFile.AudioFile))
+		var transcriptionData *types.TranscriptionData
+		var transcribeErr error
+		for attempt := 0; attempt < 3; attempt++ { // Retry logic
+			// Check for cancellation within retry loop
+			select {
+			case <-ctx.Done():
+				log.GetLogger().Warn("Transcription cancelled during retry loop", zap.Int("audio_file_num", currentAudioFile.Num), zap.Error(ctx.Err()))
+				return ctx.Err()
+			default:
+			}
+			language := string(stepParam.OriginLanguage)
+			// Handle specific language mapping if necessary
+			if language == "zh_cn" {
+				language = "zh"
+			}
+			// Perform transcription
+			transcriptionData, transcribeErr = s.Transcriber.Transcription(currentAudioFile.AudioFile, language, stepParam.TaskBasePath)
+			if transcribeErr == nil {
+				break // Success, exit retry loop
+			}
+			log.GetLogger().Warn("Transcription attempt failed, retrying",
+				zap.Int("audio_file_num", currentAudioFile.Num),
+				zap.Int("attempt", attempt+1),
+				zap.Error(transcribeErr))
+			// Optional: Add delay between retries if needed
+			// time.Sleep(500 * time.Millisecond)
+		}
+		// Check result after retries
+		if transcribeErr != nil {
+			log.GetLogger().Error("Transcription final error after retries", zap.Int("audio_file_num", currentAudioFile.Num), zap.Error(transcribeErr))
+			// Return error to errgroup, no need to call cancel()
+			return fmt.Errorf("transcription failed for file %d after retries: %w", currentAudioFile.Num, transcribeErr)
+		}
+		if transcriptionData == nil {
+			log.GetLogger().Error("Transcription returned nil data without error", zap.Int("audio_file_num", currentAudioFile.Num))
+			return fmt.Errorf("transcription returned nil data without error for file %d", currentAudioFile.Num)
+		}
+		// It's okay if text is empty, just log it
+		if transcriptionData.Text == "" {
+			log.GetLogger().Info("Transcription result text is empty", zap.Int("audio_file_num", currentAudioFile.Num))
+		}
+		currentAudioFile.TranscriptionData = transcriptionData
+		log.GetLogger().Info("Finished transcription", zap.Int("audio_file_num", currentAudioFile.Num))
+		updateProgress("transcribe", currentAudioFile.Num)
+		// Send the processed item to the translation stage
+		select {
+		case translationInputChan <- currentAudioFile:
+			log.GetLogger().Debug("Sent to translation channel", zap.Int("audio_file_num", currentAudioFile.Num))
+		case <-ctx.Done():
+			log.GetLogger().Warn("Context cancelled before sending to translation channel", zap.Int("audio_file_num", currentAudioFile.Num), zap.Error(ctx.Err()))
+			return ctx.Err() // Return context error to errgroup
+		}
+	}
+	log.GetLogger().Info("Transcription stage finished successfully.")
+	return nil // Signal successful completion of this stage
+}
+
+// runTranslationStageAndWorkers manages launching parallel translation workers using the errgroup.
+// It reads from translationInputChan, launches workers via eg.Go, waits for them,
+// and closes translationOutputChan ONLY after all workers complete successfully.
+// Returns an error immediately if context is cancelled or if launching a worker fails.
+// Worker errors are propagated through the errgroup.
+func (s Service) runTranslationStageAndWorkers(
+	ctx context.Context,
+	stepParam *types.SubtitleTaskStepParam,
+	translationInputChan <-chan *types.SmallAudio,
+	translationOutputChan chan<- *types.SmallAudio,
+	translationSemaphore *semaphore.Weighted,
+	updateProgress func(string, int),
+) (err error) {
+	// Ensure the output channel is closed when this manager function exits.
+	// This is crucial for the downstream timestamping stage to terminate its loop.
+	defer func() {
+		close(translationOutputChan)
+		log.GetLogger().Debug("Closed translationOutputChan")
+		if r := recover(); r != nil {
+			errMsg := fmt.Sprintf("panic during translation stage management: %v", r)
+			log.GetLogger().Error("Translation stage manager panic recovered", zap.Any("panic", r), zap.String("stack", string(debug.Stack())))
+			// Ensure the error is returned so errgroup cancels context
+			err = errors.New(errMsg)
+		}
+	}()
+	// Use a local errgroup to manage the workers spawned by this stage.
+	// This allows us to wait for all workers to complete before closing the output channel.
+	workerEg, workerCtx := errgroup.WithContext(ctx) // Inherit context from parent errgroup
+	log.GetLogger().Info("Translation stage manager started, launching workers.")
+	// Loop reading from the input channel and launching workers
+	for audioFile := range translationInputChan {
+		// Capture range variable for the goroutine closure
+		currentItem := audioFile
+		// Acquire semaphore - Block until a slot is available or context is cancelled
+		if err := translationSemaphore.Acquire(workerCtx, 1); err != nil {
+			// This error typically means the context was cancelled while waiting
+			log.GetLogger().Warn("Failed to acquire translation semaphore", zap.Int("audio_file_num", currentItem.Num), zap.Error(err))
+			// workerCtx.Err() should be non-nil here
+			return fmt.Errorf("failed acquiring semaphore (context likely cancelled): %w", workerCtx.Err())
+		}
+		// Launch the worker using the local errgroup
+		workerEg.Go(func() (workerErr error) {
+			// Release semaphore when this worker goroutine finishes
+			defer translationSemaphore.Release(1)
+			// Defer panic recovery for the worker
+			defer func() {
+				if r := recover(); r != nil {
+					log.GetLogger().Error("Translation worker panic recovered", zap.Any("panic", r), zap.String("stack", string(debug.Stack())), zap.Int("audio_file_num", currentItem.Num))
+					workerErr = fmt.Errorf("panic in translation worker for item %d: %v", currentItem.Num, r)
+				}
+				log.GetLogger().Debug("Translation worker finished", zap.Int("item_num", currentItem.Num), zap.Error(workerErr))
+			}()
+			// Check context *again* immediately after starting goroutine
+			select {
+			case <-workerCtx.Done():
+				log.GetLogger().Warn("Translation worker cancelled shortly after starting", zap.Int("audio_file_num", currentItem.Num), zap.Error(workerCtx.Err()))
+				return workerCtx.Err() // Return context error
+			default:
+			}
+			log.GetLogger().Info("Starting translation work", zap.Int("audio_file_num", currentItem.Num))
+			// Perform the translation task
+			translateErr := s.splitTextAndTranslate(stepParam.TaskId, stepParam.TaskBasePath, stepParam.TargetLanguage, stepParam.EnableModalFilter, currentItem)
+			if translateErr != nil {
+				log.GetLogger().Error("Translation worker failed", zap.Int("audio_file_num", currentItem.Num), zap.Error(translateErr))
+				// Return the error to the worker errgroup. This will cancel workerCtx.
+				return fmt.Errorf("translation failed for item %d: %w", currentItem.Num, translateErr)
+			}
+			// Translation successful, update progress
+			updateProgress("translate", currentItem.Num)
+			// Send the result to the output channel
+			select {
+			case translationOutputChan <- currentItem:
+				log.GetLogger().Debug("Worker sent to translation output channel", zap.Int("audio_file_num", currentItem.Num))
+			case <-workerCtx.Done():
+				log.GetLogger().Warn("Context cancelled before worker could send to translation output channel", zap.Int("audio_file_num", currentItem.Num), zap.Error(workerCtx.Err()))
+				return workerCtx.Err() // Return context error
+			}
+			return nil // Worker completed successfully
+		})
+	} // End of loop reading translationInputChan
+	log.GetLogger().Info("Translation stage manager finished reading input. Waiting for workers...")
+	// Wait for all workers launched by this manager to complete.
+	// If any worker returned an error, workerEg.Wait() will return the first error encountered,
+	// and workerCtx would have been cancelled.
+	if waitErr := workerEg.Wait(); waitErr != nil {
+		log.GetLogger().Error("Error occurred in translation worker(s)", zap.Error(waitErr))
+		// Propagate the error up to the main errgroup.
+		// The defer func will still close translationOutputChan, which is generally okay,
+		// as the downstream consumer (timestamping) should handle context cancellation.
+		return fmt.Errorf("translation stage failed: %w", waitErr)
+	}
+	log.GetLogger().Info("All translation workers finished successfully.")
+	// If we reach here, all workers succeeded. The defer func will close translationOutputChan.
+	return nil
+}
+
+// processTimestamping handles the sequential generation of timestamps for a single item.
+// Returns error on failure or context cancellation.
+func (s Service) processTimestamping(
+	ctx context.Context,
+	stepParam *types.SubtitleTaskStepParam,
+	audioFile *types.SmallAudio,
+	updateProgress func(string, int),
+) (err error) {
+	// Defer panic recovery
+	defer func() {
+		if r := recover(); r != nil {
+			errMsg := fmt.Sprintf("panic during timestamp generation for file %d: %v", audioFile.Num, r)
+			log.GetLogger().Error("Timestamp generation panic recovered", zap.Any("panic", r), zap.String("stack", string(debug.Stack())), zap.Int("audio_file_num", audioFile.Num))
+			// Ensure the error is returned so errgroup cancels context
+			err = errors.New(errMsg)
+		}
+	}()
+	// Check context before starting work (redundant with check in caller loop, but safe)
+	select {
+	case <-ctx.Done():
+		log.GetLogger().Warn("Timestamping processing skipped due to cancellation check at start", zap.Int("audio_file_num", audioFile.Num), zap.Error(ctx.Err()))
+		return ctx.Err() // Return context error
+	default:
+	}
+	log.GetLogger().Info("Starting timestamp generation", zap.Int("audio_file_num", audioFile.Num), zap.String("file", audioFile.AudioFile))
+	// Perform timestamp generation
+	genErr := s.generateTimestamps(stepParam.TaskId, stepParam.TaskBasePath, stepParam.OriginLanguage, stepParam.SubtitleResultType, audioFile, stepParam.MaxWordOneLine)
+	if genErr != nil {
+		log.GetLogger().Error("Timestamp generation failed", zap.Int("audio_file_num", audioFile.Num), zap.Error(genErr))
+		// Return error to the calling eg.Go routine, which propagates to the main errgroup
+		return fmt.Errorf("generateTimestamps failed for file %d: %w", audioFile.Num, genErr)
+	}
+	log.GetLogger().Info("Finished timestamp generation", zap.Int("audio_file_num", audioFile.Num))
+	updateProgress("timestamp", audioFile.Num) // Stage 3 complete for this item
+	return nil                                 // Success for this item
+}
+
+// mergeProcessedFiles remains the same as your provided version.
+// It should only be called after the errgroup has completed successfully.
+func (s Service) mergeProcessedFiles(stepParam *types.SubtitleTaskStepParam) error {
+	log.GetLogger().Info("Starting file merge process.", zap.String("taskId", stepParam.TaskId))
+	basePath := stepParam.TaskBasePath
+	// Helper function to check existence and add to list
+	checkAndAdd := func(pattern string, num int, list *[]string, logName string) {
+		filePath := filepath.Join(basePath, fmt.Sprintf(pattern, num))
+		if _, statErr := os.Stat(filePath); statErr == nil {
+			*list = append(*list, filePath)
+		} else if !os.IsNotExist(statErr) {
+			// Log unexpected errors checking file existence
+			log.GetLogger().Error("Error checking file existence for merge", zap.String("path", filePath), zap.Error(statErr))
+		} else {
+			// File doesn't exist, log as warning depending on importance
+			log.GetLogger().Warn("Skipping missing file for merge", zap.Int("num", num), zap.String("type", logName), zap.String("pattern", pattern))
+		}
+	}
+	// Prepare lists of files to merge
+	originNoTsFiles := make([]string, 0, len(stepParam.SmallAudios))
+	bilingualFiles := make([]string, 0, len(stepParam.SmallAudios))
+	shortOriginMixedFiles := make([]string, 0, len(stepParam.SmallAudios))
+	shortOriginFiles := make([]string, 0, len(stepParam.SmallAudios))
+	for i := 0; i < len(stepParam.SmallAudios); i++ {
+		checkAndAdd(types.SubtitleTaskSplitSrtNoTimestampFileNamePattern, i, &originNoTsFiles, "originNoTs")
+		checkAndAdd(types.SubtitleTaskSplitBilingualSrtFileNamePattern, i, &bilingualFiles, "bilingual")
+		checkAndAdd(types.SubtitleTaskSplitShortOriginMixedSrtFileNamePattern, i, &shortOriginMixedFiles, "shortOriginMixed")
+		checkAndAdd(types.SubtitleTaskSplitShortOriginSrtFileNamePattern, i, &shortOriginFiles, "shortOrigin")
+	}
+	var mergeErr error
+	var mergedSomething bool // Track if any merge actually happened
+	// --- Merge Origin No Timestamp ---
+	if len(originNoTsFiles) > 0 {
+		targetFile := filepath.Join(basePath, types.SubtitleTaskSrtNoTimestampFileName)
+		log.GetLogger().Info("Merging originNoTs files", zap.Int("count", len(originNoTsFiles)), zap.String("output", targetFile))
+		mergeErr = util.MergeFile(targetFile, originNoTsFiles...) // Assuming MergeFile is suitable for non-SRT text
+		if mergeErr != nil {
+			log.GetLogger().Error("Error merging originNoTsFile", zap.String("taskId", stepParam.TaskId), zap.Error(mergeErr))
+			return fmt.Errorf("merge originNoTsFile error: %w", mergeErr)
+		}
+		mergedSomething = true
+	} else {
+		log.GetLogger().Warn("No originNoTs files found to merge", zap.String("taskId", stepParam.TaskId))
+	}
+	// --- Merge Bilingual ---
+	if len(bilingualFiles) > 0 {
+		targetFile := filepath.Join(basePath, types.SubtitleTaskBilingualSrtFileName)
+		log.GetLogger().Info("Merging bilingual files", zap.Int("count", len(bilingualFiles)), zap.String("output", targetFile))
+		mergeErr = util.MergeSrtFiles(targetFile, bilingualFiles...)
+		if mergeErr != nil {
+			log.GetLogger().Error("Error merging BilingualFile", zap.String("taskId", stepParam.TaskId), zap.Error(mergeErr))
+			return fmt.Errorf("merge BilingualFile error: %w", mergeErr)
+		}
+		stepParam.BilingualSrtFilePath = targetFile // Set path for subsequent steps
+		mergedSomething = true
+	} else {
+		log.GetLogger().Warn("No bilingual files found to merge", zap.String("taskId", stepParam.TaskId))
+		// Depending on requirements, this might be a critical error if BilingualSrtFilePath is needed later.
+		// Consider returning an error if this specific file MUST exist:
+		// return errors.New("critical error: no bilingual SRT files generated or found for merging")
+	}
+	// --- Merge Short Origin Mixed ---
+	if len(shortOriginMixedFiles) > 0 {
+		targetFile := filepath.Join(basePath, types.SubtitleTaskShortOriginMixedSrtFileName)
+		log.GetLogger().Info("Merging shortOriginMixed files", zap.Int("count", len(shortOriginMixedFiles)), zap.String("output", targetFile))
+		mergeErr = util.MergeSrtFiles(targetFile, shortOriginMixedFiles...)
+		if mergeErr != nil {
+			log.GetLogger().Error("Error merging shortOriginMixedFile", zap.String("taskId", stepParam.TaskId), zap.Error(mergeErr))
+			return fmt.Errorf("merge shortOriginMixedFile error: %w", mergeErr)
+		}
+		stepParam.ShortOriginMixedSrtFilePath = targetFile
+		mergedSomething = true
+	} else {
+		log.GetLogger().Warn("No shortOriginMixed files found to merge", zap.String("taskId", stepParam.TaskId))
+	}
+	// --- Merge Short Origin ---
+	if len(shortOriginFiles) > 0 {
+		targetFile := filepath.Join(basePath, types.SubtitleTaskShortOriginSrtFileName)
+		log.GetLogger().Info("Merging shortOrigin files", zap.Int("count", len(shortOriginFiles)), zap.String("output", targetFile))
+		mergeErr = util.MergeSrtFiles(targetFile, shortOriginFiles...)
+		if mergeErr != nil {
+			log.GetLogger().Error("Error merging shortOriginFile", zap.String("taskId", stepParam.TaskId), zap.Error(mergeErr))
+			return fmt.Errorf("merge shortOriginFile error: %w", mergeErr)
+		}
+		mergedSomething = true
+		// Assuming stepParam doesn't need shortOriginFile path directly stored
+	} else {
+		log.GetLogger().Warn("No shortOrigin files found to merge", zap.String("taskId", stepParam.TaskId))
+	}
+	if !mergedSomething {
+		log.GetLogger().Warn("No files were found to merge for any category.", zap.String("taskId", stepParam.TaskId))
+		// Decide if this is an error condition. If at least one merged file is expected, return an error.
+		// return errors.New("no subtitle files were generated or found to merge")
+	}
+	log.GetLogger().Info("File merge process finished.", zap.String("taskId", stepParam.TaskId))
+	return nil // No merge errors encountered
 }
 
 func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
@@ -359,7 +824,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	return nil
 }
 
-func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, language types.StandardLanguageName) (types.SrtSentence, []types.Word, float64, error) {
+func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, language types.StandardLanguageCode) (types.SrtSentence, []types.Word, float64, error) {
 	var srtSt types.SrtSentence
 	var sentenceWordList []string
 	sentenceWords := make([]types.Word, 0)
@@ -625,7 +1090,7 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) 
 	return startIdx, endIdx, result
 }
 
-func (s Service) generateTimestamps(taskId, basePath string, originLanguage types.StandardLanguageName,
+func (s Service) generateTimestamps(taskId, basePath string, originLanguage types.StandardLanguageCode,
 	resultType types.SubtitleResultType, audioFile *types.SmallAudio, originLanguageWordOneLine int) error {
 	// 判断有没有文本
 	srtNoTsFile, err := os.Open(audioFile.SrtNoTsFile)
@@ -662,7 +1127,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 			continue
 		}
 
-		tsOffset := float64(config.Conf.App.SegmentDuration) * 60 * float64(audioFile.Num-1)
+		tsOffset := float64(config.Conf.App.SegmentDuration) * 60 * float64(audioFile.Num)
 		srtBlock.Timestamp = fmt.Sprintf("%s --> %s", util.FormatTime(float32(sentenceTs.Start+tsOffset)), util.FormatTime(float32(sentenceTs.End+tsOffset)))
 
 		// 生成短句子的英文字幕
@@ -817,7 +1282,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 	return nil
 }
 
-func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLanguage types.StandardLanguageName, enableModalFilter bool, audioFile *types.SmallAudio) error {
+func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLanguage types.StandardLanguageCode, enableModalFilter bool, audioFile *types.SmallAudio) error {
 	var (
 		splitContent string
 		splitPrompt  string
@@ -832,7 +1297,7 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 		splitContent = ""
 	} else {
 		// 最多尝试4次获取有效的翻译结果
-		for i := range 4 {
+		for i := range 100 {
 			splitContent, err = s.ChatCompleter.ChatCompletion(splitPrompt + audioFile.TranscriptionData.Text)
 			re := regexp.MustCompile(`(?s)<think>.*?</think>`)
 			splitContent = strings.TrimSpace(re.ReplaceAllString(splitContent, ""))
@@ -852,7 +1317,7 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 			os.WriteFile(originTextFileName, []byte(splitContent), 0644)
 
 			log.GetLogger().Warn("audioToSubtitle splitTextAndTranslate invalid response format or content mismatch, retrying...",
-				zap.Any("taskId", taskId), zap.Int("attempt", i+1))
+				zap.Any("taskId", taskId), zap.Int("audioFileNum", audioFile.Num), zap.Int("attempt", i+1))
 			err = fmt.Errorf("invalid split content format or content mismatch, audio file num: %d", audioFile.Num)
 		}
 

@@ -20,15 +20,16 @@ package types
 
 // 内容如下:`
 
-var SplitTextPrompt = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现准确和高质量翻译：
+var SplitTextPrompt = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现准确和高质量的字幕翻译：
 
-1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平。
+1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平，保持意思不变。
 2. 严格依据标点符号（逗号、句号、问号等）将内容拆分成单独的句子，并依据以下规则确保拆分粒度合理：
-   - 每个句子在保证句意完整的情况下尽可能短，长度尽量不得超过15个字。
+   - 每个句子在保证句意完整的情况下尽可能短，长度尽量不得超过15个字，以免字幕过长影响观感和阅读体验。
    - 可以根据连词（例如 "and", "but", "which", "when", "so", "所以", "但是", "因此", "考虑到" 等）进一步拆分句子，避免语句太长。
 3. 对每个拆分的句子分别翻译，确保不遗漏或修改任何字词。
 4. 将每对翻译后的句子与原句用独立编号表示，并分别以方括号[]包裹内容。
-5. 输出的翻译与原文应保持对应，严格按照原文顺序呈现，不得有错位，且原文尽可能使用原文。
+5. 输出的翻译与原文应保持对应，严格按照原文顺序呈现，不得有错位，与原文表达的意思保持一致，且原文尽可能使用原文。
+6. 不管内容是正式还是非正式，都要翻译。
 
 翻译输出应采用如下格式：
 **正常翻译的示例（注意每块3部分，每个部分都独占一行，空格分块）**：
@@ -47,16 +48,17 @@ var SplitTextPrompt = `你是一个语言处理专家，专注于自然语言处
 `
 
 // 带有语气词过滤的拆分Prompt
-var SplitTextPromptWithModalFilter = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现准确和高质量翻译：
+var SplitTextPromptWithModalFilter = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现准确和高质量的字幕翻译：
 
-1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平。
+1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平，保持意思不变。
 2. 严格依据标点符号（逗号、句号、问号等）将内容拆分成单独的句子，并依据以下规则确保拆分粒度合理：
-   - 每个句子在保证句意完整的情况下尽可能短，长度尽量不得超过15个字。
+   - 每个句子在保证句意完整的情况下尽可能短，长度尽量不得超过15个字，以免字幕过长影响观感和阅读体验。
    - 可以根据连词（例如 "and", "but", "which", "when", "so", "所以", "但是", "因此", "考虑到" 等）进一步拆分句子，避免语句太长。
 3. 对每个拆分的句子分别翻译，确保不遗漏或修改任何字词。
 4. 将每对翻译后的句子与原句用独立编号表示，并分别以方括号[]包裹内容。
-5. 输出的翻译与原文应保持对应，严格按照原文顺序呈现，不得有错位，且原文尽可能使用原文。
+5. 输出的翻译与原文应保持对应，严格按照原文顺序呈现，不得有错位，与原文表达的意思保持一致，且原文尽可能使用原文。
 6. 忽略文本中的语气词，比如"Oh" "Ah" "Wow"等等。
+7. 不管内容是正式还是非正式，都要翻译。
 
 翻译输出应采用如下格式：
 **正常翻译的示例（注意每块3部分，每个部分都独占一行，空格分块）**：
@@ -162,70 +164,6 @@ const (
 	AsrMono16kAudioFileName = "mono_16k_audio.mp3"
 )
 
-type StandardLanguageName string
-
-const (
-	// 第一批
-	LanguageNameSimplifiedChinese  StandardLanguageName = "zh_cn"
-	LanguageNameTraditionalChinese StandardLanguageName = "zh_tw"
-	LanguageNameEnglish            StandardLanguageName = "en"
-	LanguageNameJapanese           StandardLanguageName = "ja"
-	LanguageNameIndonesian         StandardLanguageName = "id"
-	LanguageNameMalaysian          StandardLanguageName = "ms"
-	LanguageNameThai               StandardLanguageName = "th"
-	LanguageNameVietnamese         StandardLanguageName = "vi"
-	LanguageNameFilipino           StandardLanguageName = "fil"
-	LanguageNameKorean             StandardLanguageName = "ko"
-	LanguageNameArabic             StandardLanguageName = "ar"
-	LanguageNameFrench             StandardLanguageName = "fr"
-	LanguageNameGerman             StandardLanguageName = "de"
-	LanguageNameItalian            StandardLanguageName = "it"
-	LanguageNameRussian            StandardLanguageName = "ru"
-	LanguageNamePortuguese         StandardLanguageName = "pt"
-	LanguageNameSpanish            StandardLanguageName = "es"
-	// 第二批
-	LanguageNameHindi     StandardLanguageName = "hi"
-	LanguageNameBengali   StandardLanguageName = "bn"
-	LanguageNameHebrew    StandardLanguageName = "he"
-	LanguageNamePersian   StandardLanguageName = "fa"
-	LanguageNameAfrikaans StandardLanguageName = "af"
-	LanguageNameSwedish   StandardLanguageName = "sv"
-	LanguageNameFinnish   StandardLanguageName = "fi"
-	LanguageNameDanish    StandardLanguageName = "da"
-	LanguageNameNorwegian StandardLanguageName = "no"
-	LanguageNameDutch     StandardLanguageName = "nl"
-	LanguageNameGreek     StandardLanguageName = "el"
-	LanguageNameUkrainian StandardLanguageName = "uk"
-	LanguageNameHungarian StandardLanguageName = "hu"
-	LanguageNamePolish    StandardLanguageName = "pl"
-	LanguageNameTurkish   StandardLanguageName = "tr"
-	LanguageNameSerbian   StandardLanguageName = "sr"
-	LanguageNameCroatian  StandardLanguageName = "hr"
-	LanguageNameCzech     StandardLanguageName = "cs"
-	// 第三批
-	LanguageNamePinyin        StandardLanguageName = "pinyin"
-	LanguageNameSwahili       StandardLanguageName = "sw"
-	LanguageNameYoruba        StandardLanguageName = "yo"
-	LanguageNameHausa         StandardLanguageName = "ha"
-	LanguageNameAmharic       StandardLanguageName = "am"
-	LanguageNameOromo         StandardLanguageName = "om"
-	LanguageNameIcelandic     StandardLanguageName = "is"
-	LanguageNameLuxembourgish StandardLanguageName = "lb"
-	LanguageNameCatalan       StandardLanguageName = "ca"
-	LanguageNameRomanian      StandardLanguageName = "ro"
-	LanguageNameMoldovan      StandardLanguageName = "ro" // 和LanguageNameRomanian重复
-	LanguageNameSlovak        StandardLanguageName = "sk"
-	LanguageNameBosnian       StandardLanguageName = "bs"
-	LanguageNameMacedonian    StandardLanguageName = "mk"
-	LanguageNameSlovenian     StandardLanguageName = "sl"
-	LanguageNameBulgarian     StandardLanguageName = "bg"
-	LanguageNameLatvian       StandardLanguageName = "lv"
-	LanguageNameLithuanian    StandardLanguageName = "lt"
-	LanguageNameEstonian      StandardLanguageName = "et"
-	LanguageNameMaltese       StandardLanguageName = "mt"
-	LanguageNameAlbanian      StandardLanguageName = "sq"
-)
-
 type SubtitleFileInfo struct {
 	Name               string
 	Path               string
@@ -245,9 +183,9 @@ type SubtitleTaskStepParam struct {
 	TtsVoiceCode                string // 人声语音编码
 	VoiceCloneAudioUrl          string // 音色克隆的源音频oss地址
 	ReplaceWordsMap             map[string]string
-	OriginLanguage              StandardLanguageName // 视频源语言
-	TargetLanguage              StandardLanguageName // 用户希望的目标翻译语言
-	UserUILanguage              StandardLanguageName // 用户的使用语言
+	OriginLanguage              StandardLanguageCode // 视频源语言
+	TargetLanguage              StandardLanguageCode // 用户希望的目标翻译语言
+	UserUILanguage              StandardLanguageCode // 用户的使用语言
 	BilingualSrtFilePath        string
 	ShortOriginMixedSrtFilePath string
 	SubtitleInfos               []SubtitleFileInfo

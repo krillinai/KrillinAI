@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"krillin-ai/config"
 	"krillin-ai/internal/api"
 	"krillin-ai/internal/handler"
 	"krillin-ai/log"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -95,7 +95,7 @@ func (sm *SubtitleManager) ShowFileDialog() {
 		}
 		writer.Close()
 
-		resp, err := http.Post("http://localhost:8888/api/file", writer.FormDataContentType(), body)
+		resp, err := http.Post(fmt.Sprintf("http://%s:%d/api/file", config.Conf.Server.Host, config.Conf.Server.Port), writer.FormDataContentType(), body)
 		if err != nil {
 			dialog.ShowError(err, sm.window)
 			return
@@ -178,7 +178,7 @@ func (sm *SubtitleManager) uploadVideo(localPath string) error {
 	}
 	writer.Close()
 
-	resp, err := http.Post("http://localhost:8888/api/file", writer.FormDataContentType(), body)
+	resp, err := http.Post(fmt.Sprintf("http://%s:%d/api/file", config.Conf.Server.Host, config.Conf.Server.Port), writer.FormDataContentType(), body)
 	if err != nil {
 		return fmt.Errorf("上传文件失败: %w", err)
 	}
@@ -225,7 +225,7 @@ func (sm *SubtitleManager) uploadAudio() error {
 	}
 	writer.Close()
 
-	resp, err := http.Post("http://localhost:8888/api/file", writer.FormDataContentType(), body)
+	resp, err := http.Post(fmt.Sprintf("http://%s:%d/api/file", config.Conf.Server.Host, config.Conf.Server.Port), writer.FormDataContentType(), body)
 	if err != nil {
 		return fmt.Errorf("上传文件失败: %w", err)
 	}
@@ -352,7 +352,7 @@ func (sm *SubtitleManager) StartTask() error {
 		return fmt.Errorf("序列化任务数据失败: %w", err)
 	}
 
-	resp, err := http.Post("http://localhost:8888/api/capability/subtitleTask", "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post(fmt.Sprintf("http://%s:%d/api/capability/subtitleTask", config.Conf.Server.Host, config.Conf.Server.Port), "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("发送任务请求失败: %w", err)
 	}
@@ -392,7 +392,7 @@ func (sm *SubtitleManager) pollTaskStatus(taskId string) {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		resp, err := http.Get(fmt.Sprintf("http://localhost:8888/api/capability/subtitleTask?taskId=%s", taskId))
+		resp, err := http.Get(fmt.Sprintf("http://%s:%d/api/capability/subtitleTask?taskId=%s", config.Conf.Server.Host, config.Conf.Server.Port, taskId))
 		if err != nil {
 			log.GetLogger().Error("获取任务状态失败", zap.Error(err))
 			continue
@@ -451,7 +451,7 @@ func (sm *SubtitleManager) displayDownloadLinks(subtitleInfo []api.SubtitleResul
 		fileName := result.Name
 		btn := widget.NewButton("下载"+fileName, func() {
 			go func() {
-				resp, err := http.Get("http://localhost:8888" + downloadURL)
+				resp, err := http.Get(fmt.Sprintf("http://%s:%d", config.Conf.Server.Host, config.Conf.Server.Port) + downloadURL)
 				if err != nil {
 					dialog.ShowError(fmt.Errorf("下载失败: %v", err), sm.window)
 					return
@@ -490,15 +490,14 @@ func (sm *SubtitleManager) displayDownloadLinks(subtitleInfo []api.SubtitleResul
 	if speechDownloadURL != "" {
 		btn := widget.NewButton("下载配音文件", func() {
 			go func() {
-				resp, err := http.Get("http://localhost:8888" + speechDownloadURL)
+				resp, err := http.Get(fmt.Sprintf("http://%s:%d", config.Conf.Server.Host, config.Conf.Server.Port) + speechDownloadURL)
 				if err != nil {
 					dialog.ShowError(fmt.Errorf("下载失败: %v", err), sm.window)
 					return
 				}
-				defer resp.Body.Close()
 
 				// 创建保存文件的对话框
-				dialog.ShowFileSave(func(writer fyne.URIWriteCloser, err error) {
+				saveDialog := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
 					if err != nil {
 						dialog.ShowError(err, sm.window)
 						return
@@ -507,6 +506,7 @@ func (sm *SubtitleManager) displayDownloadLinks(subtitleInfo []api.SubtitleResul
 						return
 					}
 					defer writer.Close()
+					defer resp.Body.Close()
 
 					_, err = io.Copy(writer, resp.Body)
 					if err != nil {
@@ -516,6 +516,9 @@ func (sm *SubtitleManager) displayDownloadLinks(subtitleInfo []api.SubtitleResul
 
 					dialog.ShowInformation("下载完成", "文件已保存", sm.window)
 				}, sm.window)
+
+				saveDialog.SetFileName("tts_final_audio.wav")
+				saveDialog.Show()
 			}()
 		})
 		btn.Importance = widget.HighImportance
@@ -523,13 +526,4 @@ func (sm *SubtitleManager) displayDownloadLinks(subtitleInfo []api.SubtitleResul
 	}
 
 	sm.downloadContainer.Show()
-}
-
-func parseURL(urlStr string) *url.URL {
-	u, err := url.Parse(urlStr)
-	if err != nil {
-		log.GetLogger().Error("解析URL失败", zap.Error(err), zap.String("url", urlStr))
-		return &url.URL{Path: urlStr} // 如果解析失败，返回一个简单的URL
-	}
-	return u
 }

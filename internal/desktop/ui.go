@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"krillin-ai/config"
 	"krillin-ai/internal/deps"
+	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"path/filepath"
 	"strconv"
@@ -28,6 +29,7 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 
 	// app 配置
 	appGroup := createAppConfigGroup()
+	serverGroup := createServerConfigGroup()
 	localModelGroup := createLocalModelGroup()
 	openaiGroup := createOpenAIConfigGroup()
 	whisperGroup := createWhisperConfigGroup()
@@ -52,6 +54,7 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 		container.NewPadded(pageTitle),
 		spacer1,
 		container.NewPadded(appGroup),
+		container.NewPadded(serverGroup),
 		container.NewPadded(localModelGroup),
 		container.NewPadded(openaiGroup),
 		container.NewPadded(whisperGroup),
@@ -187,6 +190,32 @@ func createAppConfigGroup() *fyne.Container {
 	return GlassCard("应用配置 App Config", "基本参数 Basic config", form)
 }
 
+// 创建server配置组
+func createServerConfigGroup() *fyne.Container {
+	serverHostEntry := StyledEntry("服务器地址 Server address")
+	serverHostEntry.Bind(binding.BindString(&config.Conf.Server.Host))
+
+	serverPortEntry := StyledEntry("服务器端口 Server port")
+	serverPortEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.Server.Port)))
+	serverPortEntry.Validator = func(s string) error {
+		val, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("请输入数字")
+		}
+		if val < 1 || val > 65535 {
+			return fmt.Errorf("请输入1-65535之间的有效端口")
+		}
+		return nil
+	}
+
+	form := widget.NewForm(
+		widget.NewFormItem("服务器地址 Server address", serverHostEntry),
+		widget.NewFormItem("服务器端口 Server port", serverPortEntry),
+	)
+
+	return GlassCard("服务器配置 Server Config", "API服务器设置 API server settings", form)
+}
+
 // 创建本地模型配置组
 func createLocalModelGroup() *fyne.Container {
 	localModelFasterwhisperEntry := StyledSelect([]string{"tiny", "medium", "large-v2"}, func(s string) {
@@ -269,38 +298,36 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 	}
 
 	// 创建语言选择容器
+	var targetSelectOptions []string
+	targetLangMap := make(map[string]string)
+	for code, name := range types.StandardLanguageCode2Name {
+		targetSelectOptions = append(targetSelectOptions, name)
+		targetLangMap[name] = string(code)
+	}
 	langContainer := container.NewGridWithColumns(2,
 		container.NewHBox(
 			widget.NewLabel("源语言 Origin language:"),
 			StyledSelect([]string{
-				"简体中文", "English", "日文", "土耳其语", "德语", "韩语", "俄语",
+				"简体中文", "English", "日文", "土耳其语", "德语", "韩语", "俄语", "Bahasa Melayu",
 			}, func(value string) {
-				langMap := map[string]string{
+				sourceLangMap := map[string]string{
 					"简体中文": "zh_cn", "English": "en", "日文": "ja",
 					"土耳其语": "tr", "德语": "de", "韩语": "ko", "俄语": "ru",
+					"Bahasa Melayu": "ms",
 				}
-				sm.SetSourceLang(langMap[value])
+				sm.SetSourceLang(sourceLangMap[value])
 			}),
 		),
 		container.NewHBox(
 			widget.NewLabel("目标语言 Target language:"),
-			StyledSelect([]string{
-				"简体中文", "繁体中文", "English", "日语", "韩语", "法语", "德语", "俄语",
-				"西班牙语", "葡萄牙语", "意大利语", "阿拉伯语", "土耳其语",
-			}, func(value string) {
-				langMap := map[string]string{
-					"简体中文": "zh_cn", "繁体中文": "zh_tw", "English": "en",
-					"日语": "ja", "韩语": "ko", "法语": "fr", "德语": "de",
-					"俄语": "ru", "西班牙语": "es", "葡萄牙语": "pt",
-					"意大利语": "it", "阿拉伯语": "ar", "土耳其语": "tr",
-				}
-				sm.SetTargetLang(langMap[value])
+			StyledSelect(targetSelectOptions, func(value string) {
+				sm.SetTargetLang(targetLangMap[value])
 			}),
 		),
 	)
 
 	// 设置默认语言
-	langContainer.Objects[0].(*fyne.Container).Objects[1].(*widget.Select).SetSelected("简体中文")
+	langContainer.Objects[0].(*fyne.Container).Objects[1].(*widget.Select).SetSelected("English")
 	langContainer.Objects[1].(*fyne.Container).Objects[1].(*widget.Select).SetSelected("简体中文")
 
 	// 创建容器
@@ -384,16 +411,7 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 	// 创建视频类型选择
 	embedTypeSelect := StyledSelect([]string{
 		"横屏视频 Landscape video", "竖屏视频 Portrait video", "横屏+竖屏视频 Landscape+Portrait video",
-	}, func(value string) {
-		switch value {
-		case "横屏视频":
-			sm.SetEmbedSubtitle("horizontal")
-		case "竖屏视频":
-			sm.SetEmbedSubtitle("vertical")
-		case "横屏+竖屏视频":
-			sm.SetEmbedSubtitle("all")
-		}
-	})
+	}, nil)
 	embedTypeSelect.Disable()
 
 	// 创建标题输入区域
@@ -417,23 +435,24 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 		if checked {
 			embedTypeSelect.Enable()
 			embedTypeSelect.SetSelected("横屏视频 Landscape video")
-			sm.SetEmbedSubtitle("horizontal")
-			if embedTypeSelect.Selected == "竖屏视频 Portrait video" || embedTypeSelect.Selected == "横屏+竖屏视频 Landscape+Portrait video" {
-				titleInputContainer.Show()
-			}
 		} else {
 			embedTypeSelect.Disable()
 			sm.SetEmbedSubtitle("none")
-			titleInputContainer.Hide()
 		}
 	}
 
 	// 更新标题输入区域的显示状态
 	embedTypeSelect.OnChanged = func(value string) {
-		if value == "竖屏视频 Portrait video" || value == "横屏+竖屏视频 Landscape+Portrait video" {
-			titleInputContainer.Show()
-		} else {
+		switch value {
+		case "横屏视频 Landscape video":
 			titleInputContainer.Hide()
+			sm.SetEmbedSubtitle("horizontal")
+		case "竖屏视频 Portrait video":
+			titleInputContainer.Show()
+			sm.SetEmbedSubtitle("vertical")
+		case "横屏+竖屏视频 Landscape+Portrait video":
+			titleInputContainer.Show()
+			sm.SetEmbedSubtitle("all")
 		}
 	}
 
@@ -607,8 +626,6 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 			progress.Hide()
 			return
 		}
-
-		log.GetLogger().Info("配置内容", zap.Any("config", config.Conf))
 
 		if err = sm.StartTask(); err != nil {
 			dialog.ShowError(err, window)

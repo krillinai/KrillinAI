@@ -5,9 +5,10 @@
   
   <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="krillinai%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-  **[English](../README.md)｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)｜[한국어](../docs/README_kr.md)｜[Français](../docs/README_fr.md)｜[Deutsch](../docs/README_de.md)｜[Español](../docs/README_es.md)｜[Português](../docs/README_pt.md)｜[Русский](../docs/README_rus.md)**
+  **[English](../README.md)｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)｜[한국어](../docs/README_kr.md)｜[Tiếng Việt](../docs/README_vi.md)｜[Français](../docs/README_fr.md)｜[Deutsch](../docs/README_de.md)｜[Español](../docs/README_es.md)｜[Português](../docs/README_pt.md)｜[Русский](../docs/README_rus.md)｜[اللغة العربية](../docs/README_ar.md)**
   
   [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
+    [![Discord](https://img.shields.io/discord/1333374141092331605?label=Discord&logo=discord&style=flat-square)](https://discord.gg/sKUAsHfy)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%20フォロワー&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
 
 </div>
@@ -59,10 +60,29 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </tr>
 </table>
 
-## 対応言語
-入力言語対応：中国語、英語、日本語、ドイツ語、トルコ語（随時追加中）
+## 🔍  音声認識サポート
+_**以下の表に記載されているすべてのローカルモデルは、実行ファイル＋モデルファイルの自動インストールに対応しています。選択するだけで、KrillinAIが残りの作業をすべて処理します。**_
 
-翻訳言語対応：英語、中国語、ロシア語、スペイン語、フランス語など56言語
+| サービス         | 対応プラットフォーム       | モデルオプション                     | ローカル/クラウド | 備考          |
+|-----------------|------------------------------|-----------------------------------|-------------|----------------|
+| **OpenAI Whisper** | クロスプラットフォーム      | -                                 | クラウド       | 高速で優れた精度 |
+| **FasterWhisper** | Windows/Linux     | `tiny`/`medium`/`large-v2` (medium以上推奨) | ローカル    | 高速処理、クラウド依存なし |
+| **WhisperKit**    | macOS (Apple Siliconのみ)   | `large-v2`                        | ローカル       | Appleチップ向け最適化 |
+| **Alibaba Cloud ASR** | クロスプラットフォーム    | -                                 | クラウド       | 中国本土のネットワーク制限回避 |
+
+## 🚀 大規模言語モデル（LLM）サポート
+
+✅ **OpenAI API互換**のクラウド/ローカルLLMサービスすべてに対応（以下に限定されません）:
+- OpenAI
+- DeepSeek
+- Qwen (Tongyi Qianwen)
+- セルフホスト型オープンソースモデル
+- その他OpenAI形式互換APIサービス
+
+## 対応言語
+入力言語対応：中国語、英語、日本語、ドイツ語、トルコ語、マレー語（随時追加中）
+
+翻訳言語対応：英語、中国語、ロシア語、スペイン語、フランス語など101言語
 
 ## インターフェースプレビュー
 ![インターフェースプレビュー](./images/ui_desktop.png)
