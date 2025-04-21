@@ -5,6 +5,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"go.uber.org/zap"
+	"krillin-ai/config"
 	"krillin-ai/log"
 )
 
@@ -21,6 +22,9 @@ func CreateToken(ak, sk string) (string, error) {
 	client, err := sdk.NewClientWithAccessKey("cn-shanghai", ak, sk)
 	if err != nil {
 		return "", err
+	}
+	if config.Conf.App.Proxy != "" {
+		client.SetHttpProxy(config.Conf.App.Proxy)
 	}
 	request := requests.NewCommonRequest()
 	request.Method = "POST"
