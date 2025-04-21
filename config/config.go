@@ -14,6 +14,7 @@ import (
 
 type App struct {
 	SegmentDuration      int      `toml:"segment_duration"`
+	FfmepegParallelNum   int      `toml:"ffmpeg_parallel_num"`
 	TranslateParallelNum int      `toml:"translate_parallel_num"`
 	Proxy                string   `toml:"proxy"`
 	ParsedProxy          *url.URL `toml:"-"`
@@ -77,6 +78,7 @@ type Config struct {
 var Conf = Config{
 	App: App{
 		SegmentDuration:      5,
+		FfmepegParallelNum:   5,
 		TranslateParallelNum: 5,
 		TranscribeProvider:   "openai",
 		LlmProvider:          "openai",
@@ -168,6 +170,25 @@ func CheckConfig() error {
 	if err != nil {
 		return err
 	}
+
+	// 限制ffmpeg并发数
+	max := func(a, b int) int {
+		if a > b {
+			return a
+		}
+		return b
+	}
+	min := func(a, b int) int {
+		if a < b {
+			return a
+		}
+		return b
+	}
+	FfmepegParallelNum := min(
+		max(runtime.NumCPU()-2, 1),
+		Conf.App.FfmepegParallelNum,
+	)
+	Conf.App.FfmepegParallelNum = FfmepegParallelNum
 	return validateConfig()
 }
 

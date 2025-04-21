@@ -2,6 +2,7 @@ package service
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime/debug"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,7 +28,7 @@ import (
 
 func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	var err error
-	err = s.splitAudio(ctx, stepParam)
+	err = s.splitAudio_Parallel(ctx, stepParam)
 	if err != nil {
 		return fmt.Errorf("audioToSubtitle splitAudio error: %w", err)
 	}
@@ -40,6 +42,230 @@ func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleT
 	}
 	// 更新字幕任务信息
 	stepParam.TaskPtr.ProcessPct = 95
+	return nil
+}
+
+// getAudioDuration uses ffprobe to get the duration of an audio file in seconds.
+func getAudioDuration(ctx context.Context, ffprobePath, audioFilePath string) (float64, error) {
+	cmd := exec.CommandContext(ctx,
+		ffprobePath,
+		"-v", "error", // Only show errors
+		"-show_entries", "format=duration", // Get duration from format section
+		"-of", "default=noprint_wrappers=1:nokey=1", // Output only the value
+		audioFilePath,
+	)
+
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		return 0, fmt.Errorf("ffprobe failed: %w, stderr: %s", err, stderr.String())
+	}
+
+	durationStr := strings.TrimSpace(out.String())
+	duration, err := strconv.ParseFloat(durationStr, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse duration '%s': %w", durationStr, err)
+	}
+
+	return duration, nil
+}
+
+func (s Service) splitAudio_Parallel(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
+	logger := log.GetLogger() // Get logger instance
+	logger.Info("audioToSubtitle.splitAudio start", zap.String("task id", stepParam.TaskId))
+
+	// --- Configuration ---
+	ffprobePath := storage.FfprobePath // Assuming you have this defined
+	ffmpegPath := storage.FfmpegPath
+	segmentDurationSeconds := float64(config.Conf.App.SegmentDuration * 60) // Desired segment duration in seconds
+	if segmentDurationSeconds <= 0 {
+		return errors.New("invalid segment duration configured")
+	}
+
+	concurrencyLimit := config.Conf.App.FfmepegParallelNum
+
+	// --- 1. Get Total Duration ---
+	totalDuration, err := getAudioDuration(ctx, ffprobePath, stepParam.AudioFilePath)
+	if err != nil {
+		logger.Error("audioToSubtitle.splitAudio getAudioDuration failed", zap.Any("stepParam", stepParam), zap.Error(err))
+		return fmt.Errorf("audioToSubtitle.splitAudio getAudioDuration failed: %w", err)
+	}
+	if totalDuration <= 0 {
+		logger.Error("audioToSubtitle.splitAudio audio duration is zero or negative", zap.Float64("duration", totalDuration), zap.Any("stepParam", stepParam))
+		return errors.New("audioToSubtitle.splitAudio audio duration is zero or negative")
+	}
+	logger.Info("Audio total duration", zap.Float64("seconds", totalDuration), zap.String("taskId", stepParam.TaskId))
+
+	// --- 2. Calculate Segments ---
+	numSegments := int(math.Ceil(totalDuration / segmentDurationSeconds))
+	logger.Info("Calculated number of segments", zap.Int("numSegments", numSegments), zap.String("taskId", stepParam.TaskId))
+
+	if numSegments == 0 {
+		// Edge case: audio shorter than segment duration
+		numSegments = 1
+	}
+
+	// --- 3. Parallel Execution Setup ---
+	var wg sync.WaitGroup
+	errChan := make(chan error, numSegments) // Buffered channel to collect errors
+	// Use a mutex to safely append to the results slice from multiple goroutines
+	var resultMutex sync.Mutex
+	var createdAudios []*types.SmallAudio
+
+	// Semaphore to limit concurrency
+	semaphore := make(chan struct{}, concurrencyLimit)
+
+	// --- 4. Launch Goroutines ---
+	for i := 0; i < numSegments; i++ {
+		// Check for context cancellation before starting a new task
+		select {
+		case <-ctx.Done():
+			logger.Warn("Context cancelled before starting all split tasks", zap.String("taskId", stepParam.TaskId))
+			goto CANCELLATION_CHECK
+		default:
+			// Proceed
+		}
+
+		wg.Add(1)
+		semaphore <- struct{}{} // Acquire semaphore slot
+
+		go func(segmentIndex int) {
+			defer wg.Done()
+			defer func() { <-semaphore }() // Release semaphore slot
+
+			// Check context cancellation at the beginning of the goroutine
+			select {
+			case <-ctx.Done():
+				logger.Info("Split task cancelled early", zap.Int("segmentIndex", segmentIndex), zap.String("taskId", stepParam.TaskId))
+				errChan <- fmt.Errorf("task cancelled during split segment %d: %w", segmentIndex, ctx.Err())
+				return
+			default:
+				// continue execution
+			}
+
+			startTime := float64(segmentIndex) * segmentDurationSeconds
+			currentSegmentDuration := segmentDurationSeconds
+
+			outputFileName := fmt.Sprintf(types.SubtitleTaskSplitAudioFileNamePattern, segmentIndex)
+			outputFilePath := filepath.Join(stepParam.TaskBasePath, outputFileName)
+
+			logger.Debug("Starting ffmpeg split for segment",
+				zap.Int("segmentIndex", segmentIndex),
+				zap.Float64("startTime", startTime),
+				zap.Float64("segmentDuration", currentSegmentDuration),
+				zap.String("outputFile", outputFilePath),
+				zap.String("taskId", stepParam.TaskId),
+			)
+
+			cmd := exec.CommandContext(ctx, // Use CommandContext for cancellation
+				ffmpegPath,
+				"-ss", fmt.Sprintf("%.3f", startTime), // Start time
+				"-i", stepParam.AudioFilePath, // Input file (after -ss for speed)
+				"-t", fmt.Sprintf("%.3f", currentSegmentDuration), // Duration of this segment
+				"-vn", // Disable video
+				"-y",
+				outputFilePath,
+			)
+
+			var stderr bytes.Buffer
+			cmd.Stderr = &stderr
+
+			err := cmd.Run()
+			if err != nil {
+				// Check if the error is due to context cancellation
+				if ctx.Err() != nil {
+					logger.Warn("ffmpeg split cancelled for segment", zap.Int("segmentIndex", segmentIndex), zap.Error(ctx.Err()), zap.String("taskId", stepParam.TaskId))
+					errChan <- fmt.Errorf("split cancelled for segment %d: %w", segmentIndex, ctx.Err())
+					return
+				}
+				// Otherwise, it's an ffmpeg execution error
+				errMsg := fmt.Sprintf("ffmpeg split failed for segment %d: %v, stderr: %s", segmentIndex, err, stderr.String())
+				logger.Error("ffmpeg command failed",
+					zap.Int("segmentIndex", segmentIndex),
+					zap.Error(err),
+					zap.String("stderr", stderr.String()),
+					zap.String("taskId", stepParam.TaskId),
+				)
+				errChan <- errors.New(errMsg)
+				return
+			}
+
+			// Success - add to results
+			resultMutex.Lock()
+			createdAudios = append(createdAudios, &types.SmallAudio{
+				AudioFile: outputFilePath,
+				Num:       segmentIndex,
+			})
+			resultMutex.Unlock()
+
+			logger.Debug("Successfully split segment", zap.Int("segmentIndex", segmentIndex), zap.String("outputFile", outputFilePath), zap.String("taskId", stepParam.TaskId))
+
+		}(i) // Pass loop variable i to the goroutine
+	}
+
+CANCELLATION_CHECK: // Label for goto jump on cancellation
+
+	// --- 5. Wait and Collect Results ---
+	wg.Wait()
+	close(errChan)
+
+	// Check for any errors reported by goroutines
+	var firstErr error
+	for err := range errChan {
+		if err != nil && firstErr == nil {
+			// Ignore context cancellation errors if the main context is done, prioritize other ffmpeg errors
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				if ctx.Err() != nil && firstErr == nil { // Only record context error if it's the first one seen
+					firstErr = ctx.Err() // Record the context error
+				}
+				// otherwise ignore cancellation errors from goroutines if we already have a real ffmpeg error
+			} else {
+				firstErr = err // Record the first non-cancellation error
+			}
+		}
+	}
+
+	if firstErr != nil {
+		// If context was cancelled, return the context error preferably
+		if ctx.Err() != nil {
+			logger.Error("audioToSubtitle splitAudio context cancelled during processing", zap.String("taskId", stepParam.TaskId), zap.Error(ctx.Err()))
+			return fmt.Errorf("audioToSubtitle splitAudio context cancelled: %w", ctx.Err())
+		}
+		// Otherwise return the first ffmpeg error encountered
+		logger.Error("audioToSubtitle splitAudio failed during parallel execution", zap.String("taskId", stepParam.TaskId), zap.Error(firstErr))
+		// Consider cleanup of successfully created files here if needed
+		return fmt.Errorf("audioToSubtitle splitAudio failed during parallel execution: %w", firstErr)
+	}
+
+	// --- 6. Assemble Final List ---
+	// Verify we got the expected number of segments (especially important if cancellation happened)
+	if len(createdAudios) != numSegments && ctx.Err() == nil { // Only error if not cancelled
+		logger.Error("audioToSubtitle splitAudio did not create expected number of segments",
+			zap.Int("expected", numSegments),
+			zap.Int("created", len(createdAudios)),
+			zap.Any("stepParam", stepParam))
+		return fmt.Errorf("audioToSubtitle splitAudio expected %d segments, but created %d", numSegments, len(createdAudios))
+	}
+	if len(createdAudios) == 0 && ctx.Err() == nil {
+		logger.Error("audioToSubtitle splitAudio no audio files were created", zap.Any("stepParam", stepParam))
+		return errors.New("audioToSubtitle splitAudio no audio files created")
+	}
+
+	// Sort the results by segment number to ensure order
+	sort.Slice(createdAudios, func(i, j int) bool {
+		return createdAudios[i].Num < createdAudios[j].Num
+	})
+
+	stepParam.SmallAudios = createdAudios
+
+	// Update task progress
+	stepParam.TaskPtr.ProcessPct = 20 // Or update based on actual progress
+
+	logger.Info("audioToSubtitle.splitAudio end", zap.Int("segmentsCreated", len(createdAudios)), zap.String("task id", stepParam.TaskId))
 	return nil
 }
 
