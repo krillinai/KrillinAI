@@ -1,5 +1,6 @@
 [app]
     segment_duration = 5 # 音频切分处理间隔，单位：分钟，建议值：5-10，如果视频中话语较少可以适当提高
+    ffmpeg_parallel_num = 5 # ffmpeg并发处理的数量上限，建议值：5，如果视频较大可以适当提高
     translate_parallel_num = 5 # 并发进行模型转录和翻译的数量上限，建议值：5，如果使用了本地模型，该项自动不生效
     proxy = "" # 网络代理地址，格式如http://127.0.0.1:7890，可不填
     transcribe_provider = "openai" # 语音识别，当前可选值：openai,fasterwhisper,whisperkit,whispercpp,aliyun。(fasterwhisper不支持macOS,whisperkit只支持M芯片)
