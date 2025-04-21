@@ -8,7 +8,7 @@
 docker run -d \
   -p 8888:8888 \
   -v /path/to/config.toml:/app/config/config.toml \
-  krillinai/krillin
+  asteria798/krillinai
 ```
 
 ### docker-compose启动
@@ -16,7 +16,7 @@ docker run -d \
 version: '3'
 services:
   krillin:
-    image: krillinai/krillin
+    image: asteria798/krillinai
     ports:
       - "8888:8888"
     volumes:
