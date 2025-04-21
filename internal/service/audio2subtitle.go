@@ -100,7 +100,6 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 		parallelControlChan = make(chan struct{}, config.Conf.App.TranslateParallelNum)
 		eg                  *errgroup.Group
 		stepNumMu           sync.Mutex
-		err                 error
 	)
 	ctx, cancel = context.WithCancel(ctx)
 	defer cancel()
@@ -115,6 +114,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 					log.GetLogger().Error("audioToSubtitle.audioToSrt panic recovered", zap.Any("panic", r), zap.String("stack", string(debug.Stack())))
 				}
 			}()
+			var err error
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -176,7 +176,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 		})
 	}
 
-	if err = eg.Wait(); err != nil {
+	if err := eg.Wait(); err != nil {
 		log.GetLogger().Error("audioToSubtitle audioToSrt eg.Wait err", zap.Any("taskId", stepParam.TaskId), zap.Error(err))
 		return fmt.Errorf("audioToSubtitle audioToSrt eg.Wait err: %w", err)
 	}
@@ -199,7 +199,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 
 	// 合并原始无时间戳字幕
 	originNoTsFile := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, types.SubtitleTaskSrtNoTimestampFileName)
-	err = util.MergeFile(originNoTsFile, originNoTsFiles...)
+	err := util.MergeFile(originNoTsFile, originNoTsFiles...)
 	if err != nil {
 		log.GetLogger().Error("audioToSubtitle audioToSrt merge originNoTsFile err",
 			zap.Any("stepParam", stepParam), zap.Error(err))
