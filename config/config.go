@@ -108,6 +108,7 @@ func validateConfig() error {
 		}
 	case "whisperkit":
 		Conf.App.TranslateParallelNum = 1
+		Conf.App.TranslateParallelNum = 1
 		if runtime.GOOS != "darwin" {
 			log.GetLogger().Error("whisperkit只支持macos", zap.String("当前系统", runtime.GOOS))
 			return fmt.Errorf("whisperkit只支持macos")

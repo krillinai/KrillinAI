@@ -47,7 +47,7 @@ docker_manifests:
       - "{{ tolower .Env.DOCKER_USERNAME }}/{{ tolower .ProjectName }}:latest-arm64"
 
 archives:
-  - format: binary
+  - formats: ["binary"]
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
@@ -59,6 +59,10 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
       {{- end }}
+
+release:
+  extra_files:
+    - glob: "build/*"
 
 changelog:
   sort: asc

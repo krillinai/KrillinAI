@@ -289,8 +289,12 @@ func (s Service) audioToSrt_Parallel(parentCtx context.Context, stepParam *types
 			progress = 20
 		}
 		// Clamp progress
-		if progress < 20 { progress = 20 }
-		if progress > 90 { progress = 90 }
+		if progress < 20 {
+			progress = 20
+		}
+		if progress > 90 {
+			progress = 90
+		}
 		// Avoid database writes if progress hasn't changed significantly? (Optional optimization)
 		// Or just update always:
 		stepParam.TaskPtr.ProcessPct = progress
@@ -328,7 +332,8 @@ func (s Service) audioToSrt_Parallel(parentCtx context.Context, stepParam *types
 				// This prevents a potential deadlock if translation is waiting to write while timestamping has exited.
 				go func() {
 					log.GetLogger().Warn("Draining translationOutputChan after timestamping cancellation")
-					for range translationOutputChan {}
+					for range translationOutputChan {
+					}
 				}()
 				return fmt.Errorf("timestamping cancelled: %w", ctx.Err()) // Return context error
 			default:
@@ -341,7 +346,8 @@ func (s Service) audioToSrt_Parallel(parentCtx context.Context, stepParam *types
 					// Drain the channel on error as well
 					go func() {
 						log.GetLogger().Warn("Draining translationOutputChan after timestamping error")
-						for range translationOutputChan {}
+						for range translationOutputChan {
+						}
 					}()
 					return fmt.Errorf("timestamping failed for item %d: %w", translatedItem.Num, err)
 				}
@@ -382,6 +388,7 @@ func (s Service) audioToSrt_Parallel(parentCtx context.Context, stepParam *types
 	log.GetLogger().Info("audioToSubtitle.audioToSrt_Parallel end successfully", zap.String("taskId", stepParam.TaskId))
 	return nil // Success
 }
+
 // runTranscriptionStage processes audio files sequentially for transcription.
 // It sends results to translationInputChan and closes the channel when done or on error.
 // It returns an error if transcription fails for any file or if context is cancelled.
@@ -471,6 +478,7 @@ func (s Service) runTranscriptionStage(
 	log.GetLogger().Info("Transcription stage finished successfully.")
 	return nil // Signal successful completion of this stage
 }
+
 // runTranslationStageAndWorkers manages launching parallel translation workers using the errgroup.
 // It reads from translationInputChan, launches workers via eg.Go, waits for them,
 // and closes translationOutputChan ONLY after all workers complete successfully.
@@ -566,6 +574,7 @@ func (s Service) runTranslationStageAndWorkers(
 	// If we reach here, all workers succeeded. The defer func will close translationOutputChan.
 	return nil
 }
+
 // processTimestamping handles the sequential generation of timestamps for a single item.
 // Returns error on failure or context cancellation.
 func (s Service) processTimestamping(
@@ -602,6 +611,7 @@ func (s Service) processTimestamping(
 	updateProgress("timestamp", audioFile.Num) // Stage 3 complete for this item
 	return nil                                 // Success for this item
 }
+
 // mergeProcessedFiles remains the same as your provided version.
 // It should only be called after the errgroup has completed successfully.
 func (s Service) mergeProcessedFiles(stepParam *types.SubtitleTaskStepParam) error {
@@ -814,7 +824,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	return nil
 }
 
-func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, language types.StandardLanguageName) (types.SrtSentence, []types.Word, float64, error) {
+func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, language types.StandardLanguageCode) (types.SrtSentence, []types.Word, float64, error) {
 	var srtSt types.SrtSentence
 	var sentenceWordList []string
 	sentenceWords := make([]types.Word, 0)
@@ -1080,7 +1090,7 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) 
 	return startIdx, endIdx, result
 }
 
-func (s Service) generateTimestamps(taskId, basePath string, originLanguage types.StandardLanguageName,
+func (s Service) generateTimestamps(taskId, basePath string, originLanguage types.StandardLanguageCode,
 	resultType types.SubtitleResultType, audioFile *types.SmallAudio, originLanguageWordOneLine int) error {
 	// 判断有没有文本
 	srtNoTsFile, err := os.Open(audioFile.SrtNoTsFile)
@@ -1272,7 +1282,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 	return nil
 }
 
-func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLanguage types.StandardLanguageName, enableModalFilter bool, audioFile *types.SmallAudio) error {
+func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLanguage types.StandardLanguageCode, enableModalFilter bool, audioFile *types.SmallAudio) error {
 	var (
 		splitContent string
 		splitPrompt  string
@@ -1389,6 +1399,6 @@ func isValidSplitContent(splitContent, originalText string) bool {
 	originalTextLength := len(strings.TrimSpace(originalText))
 	combinedLength := len(strings.TrimSpace(combinedOriginal))
 
-	// 允许200字符的误差
-	return math.Abs(float64(originalTextLength-combinedLength)) <= 200
+	// 允许300字符的误差
+	return math.Abs(float64(originalTextLength-combinedLength)) <= 300
 }

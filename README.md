@@ -9,6 +9,7 @@
   **[English](./README.md)｜[简体中文](./docs/README_zh.md)｜[日本語](./docs/README_jp.md)｜[한국어](./docs/README_kr.md)｜[Tiếng Việt](./docs/README_vi.md)｜[Français](./docs/README_fr.md)｜[Deutsch](./docs/README_de.md)｜[Español](./docs/README_es.md)｜[Português](./docs/README_pt.md)｜[Русский](./docs/README_rus.md)｜[اللغة العربية](./docs/README_ar.md)**
 
   [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
+  [![Discord](https://img.shields.io/discord/1333374141092331605?label=Discord&logo=discord&style=flat-square)](https://discord.gg/sKUAsHfy)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%20followers&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 
@@ -89,8 +90,9 @@ _**All local models in the table below support automatic installation of executa
 - Other OpenAI-format compatible API services
 
 ## 🌍 Language Support
-Input languages: Chinese, English, Japanese, German, Turkish supported (more languages being added)  
-Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc.
+Input language support: Chinese, English, Japanese, German, Turkish, Korean, Russian, Malay (continuously expanding)
+
+Translation languages: 101 languages supported, including English, Chinese, Russian, Spanish, French, etc.
 
 ## Interface Preview
 ![ui preview](./docs/images/ui_desktop.png)
@@ -102,12 +104,12 @@ First, download the Release executable file that matches your device's system. F
 [For the desktop version (release files with "desktop" in the name), refer here]  
 _The desktop version is newly released to address the difficulty beginners face in editing configuration files correctly. It still has some bugs and is being continuously updated._  
 
-Double-click the file to start using it.
+Double-click the file to start using it. (The desktop version also requires configuration, which is done within the software.)
 
 [For the non-desktop version (release files without "desktop" in the name), refer here]  
 _The non-desktop version is the original release, with more complex configuration but stable functionality. It is also suitable for server deployment, as it provides a web-based UI._  
 
-Create a `config` folder in the directory, then create a `config.toml` file inside it. Copy the contents of the `config-example.toml` file from the source code's `config` directory into your `config.toml` and fill in your configuration details. (If you want to use OpenAI models but don’t know how to get a key, you can join the group for free trial access.)
+Create a `config` folder in the directory, then create a `config.toml` file inside it. Copy the contents of the `config-example.toml` file from the source code's `config` directory into your `config.toml` and fill in your configuration details. 
 
 Double-click the executable or run it in the terminal to start the service.
 
