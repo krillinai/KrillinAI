@@ -847,16 +847,16 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 
 			// 验证返回内容的格式和原文匹配度
 			if isValidSplitContent(splitContent, audioFile.TranscriptionData.Text) {
+				log.GetLogger().Info("audioToSubtitle splitTextAndTranslate split content check success")
 				break
 			}
 
-			// save splitContent to a file
 			originTextFileName := filepath.Join(baseTaskPath, "error_output.txt")
 			os.WriteFile(originTextFileName, []byte(splitContent), 0644)
 
 			log.GetLogger().Warn("audioToSubtitle splitTextAndTranslate invalid response format or content mismatch, retrying...",
 				zap.Any("taskId", taskId), zap.Int("attempt", i+1))
-			err = fmt.Errorf("invalid split content format or content mismatch, audio file num: %d", audioFile.Num)
+			//err = fmt.Errorf("invalid split content format or content mismatch, audio file num: %d", audioFile.Num)
 		}
 
 		if err != nil {
@@ -902,7 +902,6 @@ func isValidSplitContent(splitContent, originalText string) bool {
 	}
 
 	var originalLines []string
-	var isValidFormat bool
 
 	// 验证格式并提取原文
 	for i := 0; i < len(lines); i++ {
@@ -923,11 +922,10 @@ func isValidSplitContent(splitContent, originalText string) bool {
 			originalLine = strings.TrimSuffix(originalLine, "]")
 			originalLines = append(originalLines, originalLine)
 			i += 2 // 跳过翻译行和原文行
-			isValidFormat = true
 		}
 	}
 
-	if !isValidFormat || len(originalLines) == 0 {
+	if len(originalLines) == 0 {
 		log.GetLogger().Warn("audioToSubtitle invaild Format, original line misiing", zap.Any("splitContent", splitContent))
 		return false
 	}
