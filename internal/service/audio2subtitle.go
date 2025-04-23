@@ -628,6 +628,9 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) 
 func (s Service) generateTimestamps(taskId, basePath string, originLanguage types.StandardLanguageCode,
 	resultType types.SubtitleResultType, audioFile *types.SmallAudio, originLanguageWordOneLine int) error {
 	// 判断有没有文本
+	if len(audioFile.TranscriptionData.Words) == 0 {
+		return nil
+	}
 	srtNoTsFile, err := os.Open(audioFile.SrtNoTsFile)
 	if err != nil {
 		log.GetLogger().Error("audioToSubtitle generateTimestamps open SrtNoTsFile error", zap.String("taskId", taskId), zap.Error(err))
