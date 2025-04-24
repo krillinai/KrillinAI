@@ -164,6 +164,18 @@ func createAppConfigGroup() *fyne.Container {
 		}
 		return nil
 	}
+	appTranscribeParallelNumEntry := StyledEntry("转录并行数量")
+	appTranscribeParallelNumEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.TranscribeParallelNum)))
+	appTranscribeParallelNumEntry.Validator = func(s string) error {
+		val, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("请输入数字")
+		}
+		if val < 1 || val > 10 {
+			return fmt.Errorf("请输入1-10之间的数字")
+		}
+		return nil
+	}
 
 	appProxyEntry := StyledEntry("网络代理地址")
 	appProxyEntry.Bind(binding.BindString(&config.Conf.App.Proxy))
@@ -182,6 +194,7 @@ func createAppConfigGroup() *fyne.Container {
 	form := widget.NewForm(
 		widget.NewFormItem("字幕分段处理时长(分钟) Segment duration (minutes)", appSegmentDurationEntry),
 		widget.NewFormItem("翻译并行数量 Translate parallel num", appTranslateParallelNumEntry),
+		widget.NewFormItem("转录并行数量 Transcribe parallel num", appTranscribeParallelNumEntry),
 		widget.NewFormItem("网络代理地址 proxy", appProxyEntry),
 		widget.NewFormItem("语音识别服务源 Transcriber provider", appTranscribeProviderEntry),
 		widget.NewFormItem("LLM服务源 Llm provider", appLlmProviderEntry),

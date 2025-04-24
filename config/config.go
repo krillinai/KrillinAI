@@ -15,6 +15,7 @@ import (
 type App struct {
 	SegmentDuration      int      `toml:"segment_duration"`
 	TranslateParallelNum int      `toml:"translate_parallel_num"`
+	TranscribeParallelNum int      `toml:"transcribe_parallel_num"`
 	Proxy                string   `toml:"proxy"`
 	ParsedProxy          *url.URL `toml:"-"`
 	TranscribeProvider   string   `toml:"transcribe_provider"`
@@ -78,6 +79,7 @@ var Conf = Config{
 	App: App{
 		SegmentDuration:      5,
 		TranslateParallelNum: 5,
+		TranscribeParallelNum: 10,
 		TranscribeProvider:   "openai",
 		LlmProvider:          "openai",
 	},
@@ -105,7 +107,7 @@ func validateConfig() error {
 			return errors.New("检测到开启了fasterwhisper，但模型选型配置不正确，请检查配置")
 		}
 	case "whisperkit":
-		Conf.App.TranslateParallelNum = 1
+		Conf.App.TranscribeParallelNum = 1
 		if runtime.GOOS != "darwin" {
 			log.GetLogger().Error("whisperkit只支持macos", zap.String("当前系统", runtime.GOOS))
 			return fmt.Errorf("whisperkit只支持macos")
