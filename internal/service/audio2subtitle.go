@@ -362,7 +362,8 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 	var srtSt types.SrtSentence
 	var sentenceWordList []string
 	sentenceWords := make([]types.Word, 0)
-	if language == types.LanguageNameEnglish || language == types.LanguageNameGerman || language == types.LanguageNameTurkish || language == types.LanguageNameRussian { // 处理方式不同
+	if language == types.LanguageNameEnglish || language == types.LanguageNameGerman ||
+		language == types.LanguageNameTurkish || language == types.LanguageNameRussian || language == types.LanguageNameMalaysian { // 处理方式不同
 		sentenceWordList = util.SplitSentence(sentence)
 		if len(sentenceWordList) == 0 {
 			return srtSt, sentenceWords, 0, fmt.Errorf("getSentenceTimestamps sentence is empty")

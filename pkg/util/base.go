@@ -3,7 +3,6 @@ package util
 import (
 	"archive/zip"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"math"
 	"math/rand"
@@ -14,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/google/uuid"
 )
 
 var strWithUpperLowerNum = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789")
@@ -152,6 +153,20 @@ func IsAlphabetic(r rune) bool {
 		}
 	}
 	return false
+}
+
+func AddFileNameSuffix(file, suffix string) string {
+	// 获取最后一个点号的位置，用于分离文件扩展名
+	lastDotIndex := strings.LastIndex(file, ".")
+	if lastDotIndex == -1 {
+		// 如果没有扩展名，直接在末尾添加后缀
+		return file + "_" + suffix
+	}
+
+	// 分离文件名和扩展名，在中间插入后缀
+	fileName := file[:lastDotIndex]
+	fileExt := file[lastDotIndex:]
+	return fileName + "_" + suffix + fileExt
 }
 
 func ContainsAlphabetic(text string) bool {

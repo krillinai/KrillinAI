@@ -17,6 +17,25 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	TTSFileNamePattern           = "tts_%d.wav"
+	TTSGroupMergeFileNamePattern = "tts_group_%d_%d.wav"
+	TTSAdjustFileNameSuffix      = "adjusted"
+	TTSFirtSilenceFileName       = "tts_silence_0.wav"
+	TTSGroupSize                 = 4
+
+	TtsResultAudioFileName          = "tts_final_audio.wav"
+	TtsResultBackgroupAudioFileName = "tts_final_backgroup_audio.wav"
+)
+
+func MakeTTSFileName(index int) string {
+	return fmt.Sprintf(TTSFileNamePattern, index)
+}
+
+func MakeTTSGroupMergeFileName(startIndex int, endIndex int) string {
+	return fmt.Sprintf(TTSGroupMergeFileNamePattern, startIndex, endIndex)
+}
+
 // 输入中文字幕，生成配音
 func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	if !stepParam.EnableTts {
@@ -135,10 +154,319 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 		return fmt.Errorf("srtFileToSpeech concatenateAudioFiles error: %w", err)
 	}
 	stepParam.TtsResultFilePath = finalOutput
+	ttsFile := "output_tts" + filepath.Ext(stepParam.InputVideoPath)
+
+	stepParam.TtsResultFilePath = filepath.Join(stepParam.TaskBasePath, ttsFile)
+	// 合成配音文件
+	util.ReplaceAudioInVideo(stepParam.InputVideoPath, finalOutput, stepParam.TtsResultFilePath)
 	// 更新字幕任务信息
 	stepParam.TaskPtr.ProcessPct = 98
 	log.GetLogger().Info("srtFileToSpeech success", zap.String("task id", stepParam.TaskId))
 	return nil
+}
+
+func (s Service) newSrtFileToSpeech(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
+	if !stepParam.EnableTts {
+		return nil
+	}
+	// Step 1: 解析字幕文件
+	subtitles, err := parseSRT(stepParam.TtsSourceFilePath)
+	if err != nil {
+		log.GetLogger().Error("srtFileToSpeech parseSRT error", zap.Any("stepParam", stepParam), zap.Error(err))
+		return fmt.Errorf("srtFileToSpeech parseSRT error: %w", err)
+	}
+
+	voiceOutputFiles := make([]string, 0)
+	for i, sub := range subtitles {
+		outputFile := filepath.Join(stepParam.TaskBasePath, MakeTTSFileName(i))
+		err = s.TtsClient.TextToSpeech(sub.Text, stepParam.TtsVoiceCode, outputFile)
+		if err != nil {
+			log.GetLogger().Error("srtFileToSpeech Text2Speech error", zap.Any("stepParam", stepParam), zap.Any("num", i+1), zap.Error(err))
+			return fmt.Errorf("srtFileToSpeech Text2Speech error: %w", err)
+		}
+		voiceOutputFiles = append(voiceOutputFiles, outputFile)
+	}
+
+	// 按组处理音频文件
+	processedFiles, adjustedSubtitles, err := processAudioFilesInGroups(voiceOutputFiles, subtitles, TTSGroupSize, stepParam.TaskBasePath)
+	if err != nil {
+		log.GetLogger().Error("srtFileToSpeech processAudioFilesInGroups error", zap.Any("stepParam", stepParam), zap.Error(err))
+		return fmt.Errorf("srtFileToSpeech processAudioFilesInGroups error: %w", err)
+	}
+
+	// 生成新的字幕文件
+	newSrtPath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskBilingualTargetTopTTSSrtFileName)
+	if err := util.NewSrtFile(adjustedSubtitles, newSrtPath); err != nil {
+		log.GetLogger().Error("srtFileToSpeech generateNewSrtFile error", zap.Any("stepParam", stepParam), zap.Error(err))
+		return fmt.Errorf("srtFileToSpeech generateNewSrtFile error: %w", err)
+	}
+
+	stepParam.BilingualTargetTopTTSSrtFilePath = newSrtPath
+	// 拼接所有音频文件
+	finalOutput := filepath.Join(stepParam.TaskBasePath, TtsResultAudioFileName)
+	err = util.ConcatenateAudioFiles(&util.ConcatenateAudioFilesReq{
+		AudioFiles: processedFiles,
+		OutputFile: finalOutput,
+		BasePath:   stepParam.TaskBasePath,
+	})
+	if err != nil {
+		log.GetLogger().Error("srtFileToSpeech concatenateAudioFiles error", zap.Any("stepParam", stepParam), zap.Error(err))
+		return err
+	}
+
+	stepParam.TtsResultFilePath = finalOutput
+	ttsFile := "output_tts" + filepath.Ext(stepParam.InputVideoPath)
+
+	stepParam.TtsResultFilePath = filepath.Join(stepParam.TaskBasePath, ttsFile)
+	// 合成配音文件
+	util.ReplaceAudioInVideo(stepParam.InputVideoPath, finalOutput, stepParam.TtsResultFilePath)
+	// 更新字幕任务信息
+	stepParam.TaskPtr.ProcessPct = 98
+	log.GetLogger().Info("srtFileToSpeech success", zap.String("task id", stepParam.TaskId))
+	return nil
+}
+
+func processAudioFilesInGroups(audioFiles []string, subtitles []types.SrtSentenceWithStrTime, groupSize int, taskBasePath string) ([]string, []types.SrtSentenceWithStrTime, error) {
+	// 记录需要提前分组的位置
+	needSplitAtIndex := make(map[int]bool)
+	// 预处理：检测间隔超过5秒的字幕对
+	for i := 0; i < len(subtitles)-1; i++ {
+		endTime, err := time.Parse("15:04:05,000", subtitles[i].End)
+		if err != nil {
+			return nil, nil, fmt.Errorf("解析字幕结束时间失败: %w", err)
+		}
+
+		nextStartTime, err := time.Parse("15:04:05,000", subtitles[i+1].Start)
+		if err != nil {
+			return nil, nil, fmt.Errorf("解析下一个字幕开始时间失败: %w", err)
+		}
+
+		// 检查间隔是否超过5秒
+		if nextStartTime.Sub(endTime).Seconds() > 5.0 {
+			// 标记需要在i位置分组
+			needSplitAtIndex[i+1] = true
+			// 调整当前字幕的结束时间为下一个字幕的开始时间
+			subtitles[i].End = subtitles[i+1].Start
+		}
+	}
+	var processedFiles []string
+	adjustedSubtitles := make([]types.SrtSentenceWithStrTime, len(subtitles))
+	copy(adjustedSubtitles, subtitles) // 复制原始字幕
+
+	// 处理第一个字幕的起始时间
+	if len(subtitles) > 0 {
+		startTime, err := time.Parse("15:04:05,000", subtitles[0].Start)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to parse first subtitle time: %w", err)
+		}
+		// 如果第一条字幕不是从00:00开始，增加静音帧
+		if startTime.Second() > 0 {
+			silenceDurationMs := startTime.Sub(time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)).Milliseconds()
+			silenceFilePath := filepath.Join(taskBasePath, TTSFirtSilenceFileName)
+			if err := util.NewGenerateSilence(&util.NewGenerateSilenceReq{OutputAudio: silenceFilePath, Duration: float64(silenceDurationMs) / 1000}); err != nil {
+				return nil, nil, fmt.Errorf("failed to generate initial silence: %w", err)
+			}
+			processedFiles = append(processedFiles, silenceFilePath)
+		}
+	}
+
+	// 按组遍历文件，考虑需要提前分组的情况
+	i := 0
+	for i < len(audioFiles) {
+		// 确定当前组的结束索引
+		end := i + groupSize
+		if end > len(audioFiles) {
+			end = len(audioFiles)
+		}
+
+		// 检查当前组内是否有需要提前分组的位置
+		for j := i + 1; j < end; j++ {
+			if needSplitAtIndex[j] {
+				end = j
+				break
+			}
+		}
+
+		// 处理当前组
+		groupFiles := audioFiles[i:end]
+		groupSubtitles := subtitles[i:end]
+		needsAdjustment, err := checkGroupNeedsAdjustment(groupFiles, groupSubtitles)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to check group adjustment: %w", err)
+		}
+		if needsAdjustment {
+			// 处理需要合并的组
+			mergedFile := filepath.Join(taskBasePath, MakeTTSGroupMergeFileName(i, i+len(groupFiles)))
+			if err := util.ConcatenateAudioFiles(&util.ConcatenateAudioFilesReq{
+				AudioFiles: groupFiles,
+				OutputFile: mergedFile,
+				BasePath:   taskBasePath,
+			}); err != nil {
+				return nil, nil, fmt.Errorf("failed to merge group files: %w", err)
+			}
+
+			// 获取每个音频文件的实际时长
+			audioDurations := make([]float64, len(groupFiles))
+			var totalAudioDuration float64
+			for j, file := range groupFiles {
+				duration, err := util.GetAudioDuration(file)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to get audio duration: %w", err)
+				}
+				audioDurations[j] = duration
+				totalAudioDuration += duration
+			}
+
+			// 调整组内字幕时间戳
+			groupStartTime, err := time.Parse("15:04:05,000", groupSubtitles[0].Start)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to parse group start time: %w", err)
+			}
+
+			// 根据音频实际时长调整字幕时间
+			currentTime := groupStartTime
+			for j := range groupFiles {
+				adjustedSubtitles[i+j].Start = currentTime.Format("15:04:05,000")
+				currentTime = currentTime.Add(time.Duration(audioDurations[j] * float64(time.Second)))
+				adjustedSubtitles[i+j].End = currentTime.Format("15:04:05,000")
+			}
+
+			// 计算目标时长
+			targetDuration, err := getTTSTargetDuration(&getTTSTargetDurationReq{
+				StartIdx:  i,
+				EndIdx:    i + len(groupFiles),
+				Subtitles: subtitles,
+			})
+			if err != nil {
+				return nil, nil, err
+			}
+			// 如果合并后的音频需要加速，调整时间戳
+			if totalAudioDuration > targetDuration {
+				speedFactor := totalAudioDuration / targetDuration
+				currentTime = groupStartTime
+				for j := range groupFiles {
+					adjustedDuration := audioDurations[j] / speedFactor
+					adjustedSubtitles[i+j].Start = currentTime.Format("15:04:05,000")
+					currentTime = currentTime.Add(time.Duration(adjustedDuration * float64(time.Second)))
+					adjustedSubtitles[i+j].End = currentTime.Format("15:04:05,000")
+				}
+			}
+
+			// 调整合并后的文件时长
+			adjustedFile := util.AddFileNameSuffix(mergedFile, TTSAdjustFileNameSuffix)
+			silenceDuration, err := util.AdjustAudioDuration(&util.AdjustAudioDurationReq{
+				InputFile:  mergedFile,
+				OutputFile: adjustedFile,
+				BasePath:   taskBasePath,
+				Duration:   targetDuration,
+			})
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to adjust merged file: %w", err)
+			}
+			// 分组最后一条记录的end时间需要减去silenceDuration
+			if silenceDuration > 2 && needSplitAtIndex[i+len(groupFiles)] {
+				lastIndex := i + len(groupFiles) - 1
+				lastEndTime, err := time.Parse("15:04:05,000", adjustedSubtitles[lastIndex].End)
+				if err != nil {
+					return nil, nil, fmt.Errorf("解析最后一条字幕结束时间失败: %w", err)
+				}
+				newEndTime := lastEndTime.Add(-time.Duration(silenceDuration * float64(time.Second)))
+				adjustedSubtitles[lastIndex].End = newEndTime.Format("15:04:05,000")
+			}
+			processedFiles = append(processedFiles, adjustedFile)
+		} else {
+			// 处理不需要合并的组内文件
+			for j := range groupFiles {
+				targetDuration, err := getTTSTargetDuration(&getTTSTargetDurationReq{
+					StartIdx:  i + j,
+					EndIdx:    i + j + 1,
+					Subtitles: subtitles,
+				})
+				if err != nil {
+					return nil, nil, err
+				}
+
+				adjustedFile := util.AddFileNameSuffix(groupFiles[j], TTSAdjustFileNameSuffix)
+				silenceDuration, err := util.AdjustAudioDuration(&util.AdjustAudioDurationReq{
+					InputFile:  groupFiles[j],
+					OutputFile: adjustedFile,
+					BasePath:   taskBasePath,
+					Duration:   targetDuration,
+				})
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to adjust audio duration: %w", err)
+				}
+				// 如果发生了静音补偿，调整当前字幕的结束时间
+				if silenceDuration > 2 && needSplitAtIndex[i+len(groupFiles)] {
+					endTime, err := time.Parse("15:04:05,000", adjustedSubtitles[i+j].End)
+					if err != nil {
+						return nil, nil, fmt.Errorf("解析字幕结束时间失败: %w", err)
+					}
+					newEndTime := endTime.Add(-time.Duration(silenceDuration * float64(time.Second)))
+					adjustedSubtitles[i+j].End = newEndTime.Format("15:04:05,000")
+				}
+				processedFiles = append(processedFiles, adjustedFile)
+			}
+		}
+
+		// 移动到下一组
+		i = end
+	}
+
+	return processedFiles, adjustedSubtitles, nil
+}
+
+// 检查组是否需要调整
+func checkGroupNeedsAdjustment(groupFiles []string, groupSubtitles []types.SrtSentenceWithStrTime) (bool, error) {
+	for j, file := range groupFiles {
+		audioDuration, err := util.GetAudioDuration(file)
+		if err != nil {
+			return false, fmt.Errorf("failed to get audio duration: %w", err)
+		}
+
+		subtitleStart, err := time.Parse("15:04:05,000", groupSubtitles[j].Start)
+		if err != nil {
+			return false, fmt.Errorf("failed to parse subtitle start time: %w", err)
+		}
+		subtitleEnd, err := time.Parse("15:04:05,000", groupSubtitles[j].End)
+		if err != nil {
+			return false, fmt.Errorf("failed to parse subtitle end time: %w", err)
+		}
+		subtitleDuration := subtitleEnd.Sub(subtitleStart).Seconds()
+
+		if audioDuration > subtitleDuration*1.2 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// 根据字幕信息，计算tts翻译后的目标时长
+type getTTSTargetDurationReq struct {
+	StartIdx  int
+	EndIdx    int
+	Subtitles []types.SrtSentenceWithStrTime
+}
+
+func getTTSTargetDuration(req *getTTSTargetDurationReq) (float64, error) {
+	startTime, err := time.Parse("15:04:05,000", req.Subtitles[req.StartIdx].Start)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse start time: %w", err)
+	}
+
+	var endTime time.Time
+	if req.EndIdx < len(req.Subtitles) {
+		// 使用下一段的开始时间
+		endTime, err = time.Parse("15:04:05,000", req.Subtitles[req.EndIdx].Start)
+	} else {
+		// 最后一段使用结束时间
+		endTime, err = time.Parse("15:04:05,000", req.Subtitles[req.EndIdx-1].End)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse end time: %w", err)
+	}
+
+	return endTime.Sub(startTime).Seconds(), nil
 }
 
 func parseSRT(filePath string) ([]types.SrtSentenceWithStrTime, error) {
@@ -148,15 +476,23 @@ func parseSRT(filePath string) ([]types.SrtSentenceWithStrTime, error) {
 	}
 
 	var subtitles []types.SrtSentenceWithStrTime
-	re := regexp.MustCompile(`(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\s+(.+?)\n`)
+	re := regexp.MustCompile(`(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\s*\n((?:.+\n?)*)`)
 	matches := re.FindAllStringSubmatch(string(data), -1)
 
 	for _, match := range matches {
-		subtitles = append(subtitles, types.SrtSentenceWithStrTime{
+		texts := strings.Split(strings.TrimSpace(match[3]), "\n")
+		subtitle := types.SrtSentenceWithStrTime{
 			Start: match[1],
 			End:   match[2],
-			Text:  strings.Replace(match[3], "\n", " ", -1), // 去除换行
-		})
+			Text:  strings.TrimSpace(texts[0]),
+		}
+
+		// 如果有第二行文本，则作为翻译
+		if len(texts) > 1 {
+			subtitle.Text2 = strings.TrimSpace(texts[1])
+		}
+
+		subtitles = append(subtitles, subtitle)
 	}
 
 	return subtitles, nil

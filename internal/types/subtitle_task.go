@@ -141,6 +141,7 @@ const (
 	SubtitleTaskSplitShortOriginMixedSrtFileNamePattern = "split_short_origin_mixed_srt_%d.srt" //长中文+短英文
 	SubtitleTaskSplitShortOriginSrtFileNamePattern      = "split_short_origin_srt_%d.srt"       //短英文
 	SubtitleTaskBilingualSrtFileName                    = "bilingual_srt.srt"
+	SubtitleTaskBilingualTargetTopTTSSrtFileName        = "bilingual_target_top_tts_srt.srt"
 	SubtitleTaskShortOriginMixedSrtFileName             = "short_origin_mixed_srt.srt" //长中文+短英文
 	SubtitleTaskShortOriginSrtFileName                  = "short_origin_srt.srt"       //短英文
 	SubtitleTaskOriginLanguageSrtFileName               = "origin_language_srt.srt"
@@ -233,31 +234,32 @@ type SubtitleFileInfo struct {
 }
 
 type SubtitleTaskStepParam struct {
-	TaskId                      string
-	TaskPtr                     *SubtitleTask // 和storage里面对应
-	TaskBasePath                string
-	Link                        string
-	AudioFilePath               string
-	SmallAudios                 []*SmallAudio
-	SubtitleResultType          SubtitleResultType
-	EnableModalFilter           bool
-	EnableTts                   bool
-	TtsVoiceCode                string // 人声语音编码
-	VoiceCloneAudioUrl          string // 音色克隆的源音频oss地址
-	ReplaceWordsMap             map[string]string
-	OriginLanguage              StandardLanguageName // 视频源语言
-	TargetLanguage              StandardLanguageName // 用户希望的目标翻译语言
-	UserUILanguage              StandardLanguageName // 用户的使用语言
-	BilingualSrtFilePath        string
-	ShortOriginMixedSrtFilePath string
-	SubtitleInfos               []SubtitleFileInfo
-	TtsSourceFilePath           string
-	TtsResultFilePath           string
-	InputVideoPath              string // 源视频路径
-	EmbedSubtitleVideoType      string // 合成字幕嵌入的视频类型 none不嵌入 horizontal横屏 vertical竖屏
-	VerticalVideoMajorTitle     string // 合成竖屏视频的主标题
-	VerticalVideoMinorTitle     string
-	MaxWordOneLine              int // 字幕一行最多显示多少个字
+	TaskId                           string
+	TaskPtr                          *SubtitleTask // 和storage里面对应
+	TaskBasePath                     string
+	Link                             string
+	AudioFilePath                    string
+	SmallAudios                      []*SmallAudio
+	SubtitleResultType               SubtitleResultType
+	EnableModalFilter                bool
+	EnableTts                        bool
+	TtsVoiceCode                     string // 人声语音编码
+	VoiceCloneAudioUrl               string // 音色克隆的源音频oss地址
+	ReplaceWordsMap                  map[string]string
+	OriginLanguage                   StandardLanguageName // 视频源语言
+	TargetLanguage                   StandardLanguageName // 用户希望的目标翻译语言
+	UserUILanguage                   StandardLanguageName // 用户的使用语言
+	BilingualSrtFilePath             string
+	ShortOriginMixedSrtFilePath      string
+	SubtitleInfos                    []SubtitleFileInfo
+	TtsSourceFilePath                string
+	TtsResultFilePath                string
+	InputVideoPath                   string // 源视频路径
+	EmbedSubtitleVideoType           string // 合成字幕嵌入的视频类型 none不嵌入 horizontal横屏 vertical竖屏
+	VerticalVideoMajorTitle          string // 合成竖屏视频的主标题
+	VerticalVideoMinorTitle          string
+	MaxWordOneLine                   int // 字幕一行最多显示多少个字
+	BilingualTargetTopTTSSrtFilePath string
 }
 
 type SrtSentence struct {
@@ -268,6 +270,7 @@ type SrtSentence struct {
 
 type SrtSentenceWithStrTime struct {
 	Text  string
+	Text2 string
 	Start string
 	End   string
 }

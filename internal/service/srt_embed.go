@@ -65,6 +65,16 @@ func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTa
 		log.GetLogger().Info("字幕嵌入视频成功")
 		return nil
 	}
+
+	if stepParam.EnableTts {
+		err = embedTtsSubtitle(stepParam, true)
+		if err != nil {
+			log.GetLogger().Error("embedSubtitles embedTtsSubtitle error", zap.Any("step param", stepParam), zap.Error(err))
+			return fmt.Errorf("embedSubtitles embedTtsSubtitle error: %w", err)
+		}
+		log.GetLogger().Info("合成TTS字幕嵌入视频：合成")
+	}
+
 	log.GetLogger().Info("合成字幕嵌入视频：不合成")
 	return nil
 }
@@ -328,6 +338,26 @@ func embedSubtitles(stepParam *types.SubtitleTaskStepParam, isHorizontal bool) e
 		log.GetLogger().Error("embedSubtitles embed subtitle into video ffmpeg error", zap.String("video path", stepParam.InputVideoPath), zap.String("output", string(output)), zap.Error(err))
 		return fmt.Errorf("embedSubtitles embed subtitle into video ffmpeg error: %w", err)
 	}
+
+	return nil
+}
+
+func embedTtsSubtitle(stepParam *types.SubtitleTaskStepParam, isHorizontal bool) error {
+	assTtsPath := filepath.Join(stepParam.TaskBasePath, "tts_formatted_subtitles.ass")
+
+	if err := srtToAss(stepParam.BilingualTargetTopTTSSrtFilePath, assTtsPath, isHorizontal, stepParam); err != nil {
+		log.GetLogger().Error("embedSubtitles srtToAss error", zap.Any("step param", stepParam), zap.Error(err))
+		return fmt.Errorf("embedSubtitles srtToAss error: %w", err)
+	}
+	ttsFile := "tts_with_subtitle" + filepath.Ext(stepParam.TtsResultFilePath)
+	ttsWithSubtitleFile := filepath.Join(stepParam.TaskBasePath, ttsFile)
+	cmd := exec.Command(storage.FfmpegPath, "-y", "-i", stepParam.TtsResultFilePath, "-vf", fmt.Sprintf("ass=%s", strings.ReplaceAll(assTtsPath, "\\", "/")), "-c:a", "aac", "-b:a", "192k", ttsWithSubtitleFile)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.GetLogger().Error("embedSubtitles embed subtitle into video ffmpeg error", zap.String("video path", stepParam.InputVideoPath), zap.String("output", string(output)), zap.Error(err))
+		return fmt.Errorf("embedSubtitles embed subtitle into video ffmpeg error: %w", err)
+	}
+
 	return nil
 }
 

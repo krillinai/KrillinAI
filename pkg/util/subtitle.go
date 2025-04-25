@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"krillin-ai/internal/storage"
+	"krillin-ai/internal/types"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,14 +32,14 @@ func ProcessBlock(block []string, targetLanguageFile, targetLanguageTextFile, or
 				targetLanguageTextFile.WriteString(line) // 文稿文件
 			} else {
 				originLines = append(originLines, line)
-				originLanguageTextFile.WriteString(line)
+				originLanguageTextFile.WriteString(line + " ")
 			}
 			continue
 		}
 		// 到了下方的文字行
 		if isTargetOnTop {
 			originLines = append(originLines, line)
-			originLanguageTextFile.WriteString(line)
+			originLanguageTextFile.WriteString(line + " ")
 		} else {
 			targetLines = append(targetLines, line)
 			targetLanguageTextFile.WriteString(line)
@@ -316,4 +317,41 @@ func GetAudioDuration(inputFile string) (float64, error) {
 	}
 
 	return duration, nil
+}
+
+// 根据SrtSentenceWithStrTime生成字幕文件
+func NewSrtFile(adjustedSubtitles []types.SrtSentenceWithStrTime, outputPath string) error {
+	file, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create new srt file: %w", err)
+	}
+	defer file.Close()
+
+	for i, sub := range adjustedSubtitles {
+		if sub.Text2 == "" {
+			// 单行字幕的情况
+			_, err := fmt.Fprintf(file, "%d\n%s --> %s\n%s\n\n",
+				i+1,
+				sub.Start,
+				sub.End,
+				sub.Text,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to write subtitle: %w", err)
+			}
+		} else {
+			// 双语字幕的情况
+			_, err := fmt.Fprintf(file, "%d\n%s --> %s\n%s\n%s\n\n",
+				i+1,
+				sub.Start,
+				sub.End,
+				sub.Text,
+				sub.Text2,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to write subtitle: %w", err)
+			}
+		}
+	}
+	return nil
 }

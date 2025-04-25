@@ -1,35 +1,50 @@
 [app]
-    segment_duration = 5 # 音频切分处理间隔，单位：分钟，建议值：5-10，如果视频中话语较少可以适当提高
+    segment_duration = 3 # 音频切分处理间隔，单位：分钟，建议值：5-10，如果视频中话语较少可以适当提高
     translate_parallel_num = 5 # 并发进行模型转录和翻译的数量上限，建议值：5，如果使用了本地模型，该项自动不生效
-    proxy = "" # 网络代理地址，格式如http://127.0.0.1:7890，可不填
-    transcribe_provider = "openai" # 语音识别，当前可选值：openai,fasterwhisper,whisperkit,aliyun。(fasterwhisper不支持macOS,whisperkit只支持M芯片macOS)
-    llm_provider = "openai" # LLM，当前可选值：openai,aliyun
+    proxy = "http://127.0.0.1:7897" # 网络代理地址，格式如http://127.0.0.1:7890，可不填
 
 [server]
     host = "127.0.0.1"
     port = 8888
 
 # 下方的配置非必填，请结合上方的选项和文档说明进行配置
-[local_model]
-    fasterwhisper = "large-v2" # fasterwhisper的本地模型可选值：tiny,medium,large-v2，建议medium及以上
-    whisperkit = "large-v2" # whisperkit的本地模型可选值：large-v2
+# [local_model]
+#     whisperkit = "medium" # fasterwhisper的本地模型可选值：tiny,medium,large-v2。whisperkit的本地模型可选值：large-v2，建议medium及以上
 
-[openai]
-    base_url = "" # OpenAI API 自定义base url，可配合转发站密钥使用，留空为默认API地址
-    model = "" # 指定模型名，可通过此字段结合base_url使用外部任何与OpenAI API兼容的大模型服务，留空默认为gpt-4o-mini
-    api_key = "sk-XXX" # OpenAI API密钥
-    [openai.whisper] # 由于使用whisperAPI进行语音识别时，上方可能配置使用了OpenAI格式兼容的其它厂商的模型，所以此处需要独立填入openai的配置信息
+[llm] #支持openai,deepseek,阿里云tongyi
+    base_url = ""
+    api_key = ""
+    model = ""
+
+[transcribe] #视频转文本支持多种方案，配置时先填provider，再填对应的配置
+    [transcribe.provider]
+        name = "openai" #语音识别，当前可选值：openai,fasterwhisper,whisperkit,aliyun。(fasterwhisper不支持macOS,whisperkit只支持M芯片macOS)
+    [transcribe.openai]
         base_url = ""
         api_key = ""
+        model = "whisper-1" # whisper-1
+    [transcribe.fasterwhisper]
+        model = "medium" # fasterwhisper的本地模型可选值：tiny,medium,large-v2。建议medium及以上
+    [transcribe.whisperkit]
+        model = "large-v2" # whisperkit的本地模型可选值：large-v2
+    [transcribe.aliyun]
+        api_key = "" #百炼平台api_key
 
-[aliyun] # 具体请参考文档中的“阿里云配置说明”
-    [aliyun.oss]
-        access_key_id = ""
-        access_key_secret = ""
-        bucket = ""
-    [aliyun.speech]
-        access_key_id = ""
-        access_key_secret = ""
-        app_key= ""
-    [aliyun.bailian]
+[tts]
+    [tts.provider]
+        name = "aliyun"
+    [tts.openai]
+        base_url = ""
         api_key = ""
+        model = "" #gpt-4o-mini-tts, tts-1, tts-1-hd
+    [tts.aliyun]
+        [tts.aliyun.oss]
+            access_key_id = ""
+            access_key_secret = ""
+            bucket = ""
+        [tts.aliyun.speech]
+            access_key_id = ""
+            access_key_secret = ""
+            app_key= ""
+        [tts.aliyun.bailian]
+            api_key = ""

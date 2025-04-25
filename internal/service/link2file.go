@@ -84,19 +84,20 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 
 	if !strings.HasPrefix(link, "local:") && (stepParam.EmbedSubtitleVideoType != "none" || stepParam.EnableTts) {
 		// 需要下载原视频
-		cmdArgs := []string{"-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]", "-o", videoPath, stepParam.Link}
-		if config.Conf.App.Proxy != "" {
-			cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
-		}
-		if storage.FfmpegPath != "" {
-			cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
-		}
-		cmd := exec.Command(storage.YtdlpPath, cmdArgs...)
-		output, err = cmd.CombinedOutput()
-		if err != nil {
-			log.GetLogger().Error("linkToFile download video yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
-			return fmt.Errorf("linkToFile download video yt-dlp error: %w", err)
-		}
+		// cmdArgs := []string{"-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]", "-o", videoPath, stepParam.Link}
+		// if config.Conf.App.Proxy != "" {
+		// 	cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
+		// }
+		// if storage.FfmpegPath != "" {
+		// 	cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
+		// }
+		// cmd := exec.Command(storage.YtdlpPath, cmdArgs...)
+		// output, err = cmd.CombinedOutput()
+		// if err != nil {
+		// 	log.GetLogger().Error("linkToFile download video yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
+		// 	return fmt.Errorf("linkToFile download video yt-dlp error: %w", err)
+		// }
+		util.DownloadVideo(stepParam.Link, "720", videoPath)
 		stepParam.InputVideoPath = videoPath
 	}
 
