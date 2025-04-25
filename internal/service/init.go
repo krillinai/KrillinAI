@@ -32,6 +32,8 @@ func NewService() *Service {
 		transcriber = aliyun.NewAsrClient(config.Conf.Transcribe.Aliyun.ApiKey)
 	case "fasterwhisper":
 		transcriber = fasterwhisper.NewFastwhisperProcessor(config.Conf.Transcribe.Fasterwhisper.Model)
+	case "whispercpp":
+		// transcriber = whispercpp.NewWhispercppProcessor(config.Conf.LocalModel.Whispercpp)
 	case "whisperkit":
 		transcriber = whisperkit.NewWhisperKitProcessor(config.Conf.Transcribe.Whisperkit.Model)
 	}

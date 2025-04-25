@@ -108,9 +108,9 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		TtsVoiceCode:            ttsVoiceCode,
 		VoiceCloneAudioUrl:      voiceCloneAudioUrl,
 		ReplaceWordsMap:         replaceWordsMap,
-		OriginLanguage:          types.StandardLanguageName(req.OriginLanguage),
-		TargetLanguage:          types.StandardLanguageName(req.TargetLang),
-		UserUILanguage:          types.StandardLanguageName(req.Language),
+		OriginLanguage:          types.StandardLanguageCode(req.OriginLanguage),
+		TargetLanguage:          types.StandardLanguageCode(req.TargetLang),
+		UserUILanguage:          types.StandardLanguageCode(req.Language),
 		EmbedSubtitleVideoType:  req.EmbedSubtitleVideoType,
 		VerticalVideoMajorTitle: req.VerticalMajorTitle,
 		VerticalVideoMinorTitle: req.VerticalMinorTitle,
@@ -119,6 +119,9 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	if req.OriginLanguageWordOneLine != 0 {
 		stepParam.MaxWordOneLine = req.OriginLanguageWordOneLine
 	}
+
+	log.GetLogger().Info("current task info", zap.String("taskId", taskId), zap.Any("param", stepParam))
+
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {

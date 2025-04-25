@@ -89,8 +89,9 @@ _**All local models in the table below support automatic installation of executa
 - Other OpenAI-format compatible API services
 
 ## 🌍 Language Support
-Input languages: Chinese, English, Japanese, German, Turkish supported (more languages being added)  
-Translation languages: 56 languages supported, including English, Chinese, Russian, Spanish, French, etc.
+Input language support: Chinese, English, Japanese, German, Turkish, Korean, Russian, Malay (continuously expanding)
+
+Translation languages: 101 languages supported, including English, Chinese, Russian, Spanish, French, etc.
 
 ## Interface Preview
 ![ui preview](./docs/images/ui_desktop.png)
@@ -102,12 +103,12 @@ First, download the Release executable file that matches your device's system. F
 [For the desktop version (release files with "desktop" in the name), refer here]  
 _The desktop version is newly released to address the difficulty beginners face in editing configuration files correctly. It still has some bugs and is being continuously updated._  
 
-Double-click the file to start using it.
+Double-click the file to start using it. (The desktop version also requires configuration, which is done within the software.)
 
 [For the non-desktop version (release files without "desktop" in the name), refer here]  
 _The non-desktop version is the original release, with more complex configuration but stable functionality. It is also suitable for server deployment, as it provides a web-based UI._  
 
-Create a `config` folder in the directory, then create a `config.toml` file inside it. Copy the contents of the `config-example.toml` file from the source code's `config` directory into your `config.toml` and fill in your configuration details. (If you want to use OpenAI models but don’t know how to get a key, you can join the group for free trial access.)
+Create a `config` folder in the directory, then create a `config.toml` file inside it. Copy the contents of the `config-example.toml` file from the source code's `config` directory into your `config.toml` and fill in your configuration details. 
 
 Double-click the executable or run it in the terminal to start the service.
 

@@ -11,7 +11,6 @@ import (
 	"krillin-ai/log"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -53,7 +52,7 @@ type SubtitleManager struct {
 func NewSubtitleManager(window fyne.Window) *SubtitleManager {
 	return &SubtitleManager{
 		window:            window,
-		sourceLang:        "zh_cn",
+		sourceLang:        "en",
 		targetLang:        "zh_cn",
 		bilingualEnabled:  true,
 		bilingualPosition: 1,
@@ -527,13 +526,4 @@ func (sm *SubtitleManager) displayDownloadLinks(subtitleInfo []api.SubtitleResul
 	}
 
 	sm.downloadContainer.Show()
-}
-
-func parseURL(urlStr string) *url.URL {
-	u, err := url.Parse(urlStr)
-	if err != nil {
-		log.GetLogger().Error("解析URL失败", zap.Error(err), zap.String("url", urlStr))
-		return &url.URL{Path: urlStr} // 如果解析失败，返回一个简单的URL
-	}
-	return u
 }

@@ -9,8 +9,8 @@
   **[English](../README.md)｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)｜[한국어](../docs/README_kr.md)｜[Tiếng Việt](../docs/README_vi.md)｜[Français](../docs/README_fr.md)｜[Deutsch](../docs/README_de.md)｜[Español](../docs/README_es.md)｜[Português](../docs/README_pt.md)｜[Русский](../docs/README_rus.md)｜[اللغة العربية](../docs/README_ar.md)**
   
   [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
+    [![Discord](https://img.shields.io/discord/1333374141092331605?label=Discord&logo=discord&style=flat-square)](https://discord.gg/sKUAsHfy)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%20followers&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
-[![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 
 </div>
 
@@ -69,9 +69,29 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </tr>
 </table>
 
+## 🔍 Spracherkennungs-Unterstützung
+_**Alle lokalen Modelle in der folgenden Tabelle unterstützen die automatische Installation von ausführbaren Dateien + Modelldateien. Treffen Sie einfach Ihre Auswahl und KrillinAI erledigt den Rest für Sie.**_
+
+| Dienst         | Unterstützte Plattformen        | Modelloptionen                    | Lokal/Cloud | Hinweise          |
+|-----------------|------------------------------|-----------------------------------|-------------|----------------|
+| **OpenAI Whisper** | Plattformübergreifend       | -                                 | Cloud       | Schnell mit hervorragenden Ergebnissen |
+| **FasterWhisper** | Windows/Linux     | `tiny`/`medium`/`large-v2` (empfohlen: medium+) | Lokal    | Höhere Geschwindigkeit, kein Cloud-Service-Overhead |
+| **WhisperKit**    | macOS (nur Apple Silicon)   | `large-v2`                        | Lokal       | Native Optimierung für Apple-Chips |
+| **Alibaba Cloud ASR** | Plattformübergreifend   | -                                 | Cloud       | Umgeht Netzwerkprobleme im chinesischen Festland |
+
+## 🚀 Unterstützung für Große Sprachmodelle
+
+✅ Kompatibel mit allen **OpenAI-API-kompatiblen** Cloud-/Lokal-LLM-Diensten, einschließlich aber nicht beschränkt auf:
+- OpenAI
+- DeepSeek
+- Qwen (Tongyi Qianwen)
+- Selbstgehostete Open-Source-Modelle
+- Andere OpenAI-Format-kompatible API-Dienste
+
 ## 🌍 Sprachunterstützung
 Eingabesprachen: Chinesisch, Englisch, Japanisch, Deutsch, Türkisch (weitere Sprachen in Vorbereitung)
-Übersetzungssprachen: 56 Sprachen unterstützt, darunter Englisch, Chinesisch, Russisch, Spanisch, Französisch etc.
+
+Übersetzungssprachen: **101** Sprachen unterstützt, darunter Englisch, Chinesisch, Russisch, Spanisch, Französisch etc.
 
 ## Interface-Vorschau
 ![ui preview](../docs/images/ui_desktop.png)

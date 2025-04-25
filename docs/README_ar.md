@@ -9,6 +9,7 @@
   **[English](../README.md)｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)｜[한국어](../docs/README_kr.md)｜[Tiếng Việt](../docs/README_vi.md)｜[Français](../docs/README_fr.md)｜[Deutsch](../docs/README_de.md)｜[Español](../docs/README_es.md)｜[Português](../docs/README_pt.md)｜[Русский](../docs/README_rus.md)｜[اللغة العربية](../docs/README_ar.md)**
 
   [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
+    [![Discord](https://img.shields.io/discord/1333374141092331605?label=Discord&logo=discord&style=flat-square)](https://discord.gg/sKUAsHfy)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%20followers&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
 
 </div>
@@ -68,9 +69,29 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </tr>
 </table>
 
+## 🔍 دعم التعرف على الصوت
+_**جميع النماذج المحلية في الجدول أدناه تدعم التثبيت التلقائي للملفات التنفيذية + ملفات النماذج. فقط قم باختيارك، وسيتولى KrillinAI كل شيء آخر لك.**_
+
+| Service         | Supported Platforms          | Model Options                     | Local/Cloud | Notes          |
+|-----------------|------------------------------|-----------------------------------|-------------|----------------|
+| **OpenAI Whisper** | Cross-platform       | -                                 | Cloud       | Fast with excellent results |
+| **FasterWhisper** | Windows/Linux     | `tiny`/`medium`/`large-v2` (recommend medium+) | Local    | Faster speed, no cloud service overhead |
+| **WhisperKit**    | macOS (Apple Silicon only)   | `large-v2`                        | Local       | Native optimization for Apple chips |
+| **Alibaba Cloud ASR** | Cross-platform    | -                                 | Cloud       | Bypasses China mainland network issues |
+
+## 🚀 دعم نماذج اللغة الكبيرة
+
+✅ متوافق مع جميع خدمات المتوافقة مع OpenAI API السحابية/المحلية بما في ذلك على سبيل المثال لا الحصر:
+- OpenAI
+- DeepSeek
+- Qwen (Tongyi Qianwen)
+- Self-hosted open-source models
+- Other OpenAI-format compatible API services
+
+
 ## 🌍 اللغات المدعومة
 لغات الإدخال: الصينية، الإنجليزية، اليابانية، الألمانية، التركية (مع إضافة المزيد من اللغات قريبًا)
-لغات الترجمة: 56 لغة مدعومة، بما في ذلك الإنجليزية، الصينية، الروسية، الإسبانية، الفرنسية، وغيرها.
+لغات الترجمة: 101 لغة مدعومة، بما في ذلك الإنجليزية، الصينية، الروسية، الإسبانية، الفرنسية، وغيرها.
 
 ## معاينة الواجهة
 ![ui preview](../docs/images/ui_desktop.png)

@@ -30,6 +30,7 @@ type Server struct {
 type LocalModel struct {
 	Fasterwhisper string `toml:"fasterwhisper"`
 	Whisperkit    string `toml:"whisperkit"`
+	Whispercpp    string `toml:"whispercpp"`
 }
 
 type Fasterwhisper struct {
@@ -165,6 +166,7 @@ func validateConfig() error {
 			return errors.New("检测到开启了fasterwhisper，但模型选型配置不正确，请检查配置")
 		}
 	case "whisperkit":
+		Conf.App.TranslateParallelNum = 1
 		if runtime.GOOS != "darwin" {
 			log.GetLogger().Error("whisperkit只支持macos", zap.String("当前系统", runtime.GOOS))
 			return fmt.Errorf("whisperkit只支持macos")
@@ -172,6 +174,14 @@ func validateConfig() error {
 		if Conf.Transcribe.Whisperkit.Model != "large-v2" {
 			return errors.New("检测到开启了whisperkit，但模型选型配置不正确，请检查配置")
 		}
+	case "whispercpp":
+		if runtime.GOOS != "windows" { // 当前先仅支持win，模型仅支持large-v2，最小化产品
+			log.GetLogger().Error("whispercpp only support windows", zap.String("current os", runtime.GOOS))
+			return fmt.Errorf("whispercpp only support windows")
+		}
+		// if Conf.LocalModel.Whispercpp != "large-v2" {
+		// 	return errors.New("检测到开启了whisper.cpp，但模型选型配置不正确，请检查配置")
+		// }
 	case "aliyun":
 		if Conf.Transcribe.Aliyun.ApiKey == "" {
 			return errors.New("使用阿里云语音服务需要配置相关密钥")

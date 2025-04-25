@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -358,7 +359,7 @@ func (s Service) splitSrt(ctx context.Context, stepParam *types.SubtitleTaskStep
 	return nil
 }
 
-func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, language types.StandardLanguageName) (types.SrtSentence, []types.Word, float64, error) {
+func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, language types.StandardLanguageCode) (types.SrtSentence, []types.Word, float64, error) {
 	var srtSt types.SrtSentence
 	var sentenceWordList []string
 	sentenceWords := make([]types.Word, 0)
@@ -625,7 +626,7 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) 
 	return startIdx, endIdx, result
 }
 
-func (s Service) generateTimestamps(taskId, basePath string, originLanguage types.StandardLanguageName,
+func (s Service) generateTimestamps(taskId, basePath string, originLanguage types.StandardLanguageCode,
 	resultType types.SubtitleResultType, audioFile *types.SmallAudio, originLanguageWordOneLine int) error {
 	// 判断有没有文本
 	srtNoTsFile, err := os.Open(audioFile.SrtNoTsFile)
@@ -817,7 +818,7 @@ func (s Service) generateTimestamps(taskId, basePath string, originLanguage type
 	return nil
 }
 
-func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLanguage types.StandardLanguageName, enableModalFilter bool, audioFile *types.SmallAudio) error {
+func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLanguage types.StandardLanguageCode, enableModalFilter bool, audioFile *types.SmallAudio) error {
 	var (
 		splitContent string
 		splitPrompt  string
@@ -832,8 +833,10 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 		splitContent = ""
 	} else {
 		// 最多尝试4次获取有效的翻译结果
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			splitContent, err = s.ChatCompleter.ChatCompletion(splitPrompt + audioFile.TranscriptionData.Text)
+			re := regexp.MustCompile(`(?s)<think>.*?</think>`)
+			splitContent = strings.TrimSpace(re.ReplaceAllString(splitContent, ""))
 			if err != nil {
 				log.GetLogger().Warn("audioToSubtitle splitTextAndTranslate ChatCompletion error, retrying...",
 					zap.Any("taskId", taskId), zap.Int("attempt", i+1), zap.Error(err))
@@ -844,6 +847,10 @@ func (s Service) splitTextAndTranslate(taskId, baseTaskPath string, targetLangua
 			if isValidSplitContent(splitContent, audioFile.TranscriptionData.Text) {
 				break
 			}
+
+			// save splitContent to a file
+			originTextFileName := filepath.Join(baseTaskPath, "error_output.txt")
+			os.WriteFile(originTextFileName, []byte(splitContent), 0644)
 
 			log.GetLogger().Warn("audioToSubtitle splitTextAndTranslate invalid response format or content mismatch, retrying...",
 				zap.Any("taskId", taskId), zap.Int("attempt", i+1))
@@ -888,6 +895,7 @@ func isValidSplitContent(splitContent, originalText string) bool {
 
 	lines := strings.Split(splitContent, "\n")
 	if len(lines) < 3 { // 至少需要一个完整的块
+		//log.GetLogger().Warn("audioToSubtitle invaild Format, not enough lines", zap.Any("splitContent", splitContent))
 		return false
 	}
 
@@ -904,7 +912,7 @@ func isValidSplitContent(splitContent, originalText string) bool {
 		// 检查是否为序号行
 		if _, err := strconv.Atoi(line); err == nil {
 			if i+2 >= len(lines) {
-				log.GetLogger().Warn("audioToSubtitle invaild Format", zap.Any("splitContent", splitContent), zap.Any("line", line))
+				log.GetLogger().Warn("audioToSubtitle invaild Format, block is not complete", zap.Any("splitContent", splitContent), zap.Any("line", line))
 				return false
 			}
 			// 收集原文行（第三行），并去除方括号
@@ -918,7 +926,7 @@ func isValidSplitContent(splitContent, originalText string) bool {
 	}
 
 	if !isValidFormat || len(originalLines) == 0 {
-		log.GetLogger().Warn("audioToSubtitle invaild Format", zap.Any("splitContent", splitContent))
+		log.GetLogger().Warn("audioToSubtitle invaild Format, original line misiing", zap.Any("splitContent", splitContent))
 		return false
 	}
 
@@ -927,6 +935,6 @@ func isValidSplitContent(splitContent, originalText string) bool {
 	originalTextLength := len(strings.TrimSpace(originalText))
 	combinedLength := len(strings.TrimSpace(combinedOriginal))
 
-	// 允许200字符的误差
-	return math.Abs(float64(originalTextLength-combinedLength)) <= 200
+	// 允许300字符的误差
+	return math.Abs(float64(originalTextLength-combinedLength)) <= 300
 }

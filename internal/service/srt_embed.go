@@ -79,7 +79,7 @@ func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTa
 	return nil
 }
 
-func splitMajorTextInHorizontal(text string, language types.StandardLanguageName, maxWordOneLine int) []string {
+func splitMajorTextInHorizontal(text string, language types.StandardLanguageCode, maxWordOneLine int) []string {
 	// 按语言情况分割
 	var (
 		segments []string
@@ -239,7 +239,7 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 			if len(subtitleLines) < 2 {
 				continue
 			}
-			var majorTextLanguage types.StandardLanguageName
+			var majorTextLanguage types.StandardLanguageCode
 			if stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop { // 一定是bilingual
 				majorTextLanguage = stepParam.TargetLanguage
 			} else {
