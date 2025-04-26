@@ -106,7 +106,6 @@ func (s Service) transcribeAudio(audioFilePath string, language string, taskBase
 	transcriptionData, err := s.Transcriber.Transcription(audioFilePath, language, taskBasePath)
 
 	if err != nil {
-		log.GetLogger().Error("audioToSubtitle transcribeAudio Transcription err", zap.Any("audioFilePath", audioFilePath), zap.Any("taskBasePath", taskBasePath))
 		return nil, fmt.Errorf("audioToSubtitle transcribeAudio Transcription err: %w", err)
 	}
 
@@ -187,6 +186,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 					var translatedResults []TranslatedItem
 					var err error
 					// 翻译文本
+					log.GetLogger().Info("Begin to translate", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
 					for range config.Conf.App.TranslateMaxAttempts {
 						translatedResults, err = s.splitTextAndTranslate(translateItem.Data, types.GetStandardLanguageName(stepParam.TargetLanguage), stepParam.EnableModalFilter)
 						if err == nil {
@@ -197,6 +197,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 						cancel()
 						return fmt.Errorf("audioToSubtitle audioToSrt splitTextAndTranslate err: %w", err)
 					}
+					log.GetLogger().Info("Translate completed", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
 					// 发送翻译结果
 					translatedQueue <- DataWithId[[]TranslatedItem]{
 						Data: translatedResults,
@@ -222,6 +223,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 						err               error
 						transcriptionData *types.TranscriptionData
 					)
+					log.GetLogger().Info("Begin to transcribe", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", audioFileItem.Id))
 					// 语音转文字
 					for range config.Conf.App.TranscribeMaxAttempts {
 						transcriptionData, err = s.transcribeAudio(audioFileItem.Data, string(stepParam.OriginLanguage), stepParam.TaskBasePath)
@@ -233,6 +235,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 						cancel()
 						return fmt.Errorf("audioToSubtitle audioToSrt Transcription err: %w", err)
 					}
+					log.GetLogger().Info("Transcribe completed", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", audioFileItem.Id))
 					pendingTranslationQueue <- DataWithId[string]{
 						Data: transcriptionData.Text,
 						Id:   audioFileItem.Id,
