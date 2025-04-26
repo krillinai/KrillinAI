@@ -3,19 +3,22 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/BurntSushi/toml"
-	"go.uber.org/zap"
 	"krillin-ai/log"
 	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"github.com/BurntSushi/toml"
+	"go.uber.org/zap"
 )
 
 type App struct {
 	SegmentDuration      int      `toml:"segment_duration"`
-	TranslateParallelNum int      `toml:"translate_parallel_num"`
 	TranscribeParallelNum int      `toml:"transcribe_parallel_num"`
+	TranslateParallelNum int      `toml:"translate_parallel_num"`
+	TranscribeMaxAttempts  int      `toml:"transcribe_max_attempts"`
+	TranslateMaxAttempts  int      `toml:"translate_max_attempts"`
 	Proxy                string   `toml:"proxy"`
 	ParsedProxy          *url.URL `toml:"-"`
 	TranscribeProvider   string   `toml:"transcribe_provider"`

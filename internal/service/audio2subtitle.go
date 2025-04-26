@@ -187,7 +187,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 					var translatedResults []TranslatedItem
 					var err error
 					// 翻译文本
-					for range 5 {
+					for range config.Conf.App.TranslateMaxAttempts {
 						translatedResults, err = s.splitTextAndTranslate(translateItem.Data, types.GetStandardLanguageName(stepParam.TargetLanguage), stepParam.EnableModalFilter)
 						if err == nil {
 							break
@@ -223,7 +223,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 						transcriptionData *types.TranscriptionData
 					)
 					// 语音转文字
-					for range 3 {
+					for range config.Conf.App.TranscribeMaxAttempts {
 						transcriptionData, err = s.transcribeAudio(audioFileItem.Data, string(stepParam.OriginLanguage), stepParam.TaskBasePath)
 						if err == nil {
 							break

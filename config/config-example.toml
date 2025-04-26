@@ -2,6 +2,8 @@
     segment_duration = 5 # 音频切分处理间隔，单位：分钟，建议值：5-10，如果视频中话语较少可以适当提高
     transcribe_parallel_num = 5 # 并发进行转录的数量上限，建议值：5，如果使用了本地模型，可以适当调低
     translate_parallel_num = 10 # 并发进行翻译的数量上限，建议值：2倍于转录的并发量，如果使用TPM限制严格的API，可以适当调低
+    transcribe_max_attempts = 3 # 转录最大尝试次数，建议值：3
+    translate_max_attempts = 5 # 翻译最大尝试次数，建议值：5，如果模型参数量较少或翻译失败率较高可以适当调高
     proxy = "" # 网络代理地址，格式如http://127.0.0.1:7890，可不填
     transcribe_provider = "openai" # 语音识别，当前可选值：openai,fasterwhisper,whisperkit,whisper.cpp,aliyun。(fasterwhisper不支持macOS,whisperkit只支持M芯片)
     llm_provider = "openai" # LLM，当前可选值：openai,aliyun
