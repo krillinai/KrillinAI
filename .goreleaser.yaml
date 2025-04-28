@@ -12,8 +12,8 @@ builds:
 # Docker 构建配置
 dockers:
   - image_templates:
-      - "ghcr.io/{{ tolower .Env.GITHUB_REPOSITORY_OWNER }}/{{ tolower .ProjectName }}:{{.Version}}-amd64"
-      - "ghcr.io/{{ tolower .Env.GITHUB_REPOSITORY_OWNER }}/{{ tolower .ProjectName }}:latest-amd64"
+      - "{{ tolower .Env.DOCKER_USERNAME }}/{{ tolower .ProjectName }}:{{.Version}}-amd64"
+      - "{{ tolower .Env.DOCKER_USERNAME }}/{{ tolower .ProjectName }}:latest-amd64"
     dockerfile: Dockerfile
     use: buildx
     build_flag_templates:
@@ -24,8 +24,8 @@ dockers:
       - "--label=org.opencontainers.image.version={{.Version}}"
       - "--label=org.opencontainers.image.source=https://github.com/{{ .Env.GITHUB_REPOSITORY_OWNER }}/{{.ProjectName}}"
   - image_templates:
-      - "ghcr.io/{{ tolower .Env.GITHUB_REPOSITORY_OWNER }}/{{ tolower .ProjectName }}:{{.Version}}-arm64"
-      - "ghcr.io/{{ tolower .Env.GITHUB_REPOSITORY_OWNER }}/{{ tolower .ProjectName }}:latest-arm64"
+      - "{{ tolower .Env.DOCKER_USERNAME }}/{{ tolower .ProjectName }}:{{.Version}}-arm64"
+      - "{{ tolower .Env.DOCKER_USERNAME }}/{{ tolower .ProjectName }}:latest-arm64"
     dockerfile: Dockerfile
     use: buildx
     build_flag_templates:
@@ -37,17 +37,17 @@ dockers:
       - "--label=org.opencontainers.image.source=https://github.com/{{ .Env.GITHUB_REPOSITORY_OWNER }}/{{.ProjectName}}"
 
 docker_manifests:
-  - name_template: ghcr.io/{{ tolower .Env.GITHUB_REPOSITORY_OWNER }}/{{ tolower .ProjectName }}:{{.Version}}
+  - name_template: "{{ tolower .Env.DOCKER_USERNAME }}/{{ tolower .ProjectName }}:{{.Version}}"
     image_templates:
-      - ghcr.io/{{ tolower .Env.GITHUB_REPOSITORY_OWNER }}/{{ tolower .ProjectName }}:{{.Version}}-amd64
-      - ghcr.io/{{ tolower .Env.GITHUB_REPOSITORY_OWNER }}/{{ tolower .ProjectName }}:{{.Version}}-arm64
-  - name_template: ghcr.io/{{ tolower .Env.GITHUB_REPOSITORY_OWNER }}/{{ tolower .ProjectName }}:latest
+      - "{{ tolower .Env.DOCKER_USERNAME }}/{{ tolower .ProjectName }}:{{.Version}}-amd64"
+      - "{{ tolower .Env.DOCKER_USERNAME }}/{{ tolower .ProjectName }}:{{.Version}}-arm64"
+  - name_template: "{{ tolower .Env.DOCKER_USERNAME }}/{{ tolower .ProjectName }}:latest"
     image_templates:
-      - ghcr.io/{{ tolower .Env.GITHUB_REPOSITORY_OWNER }}/{{ tolower .ProjectName }}:latest-amd64
-      - ghcr.io/{{ tolower .Env.GITHUB_REPOSITORY_OWNER }}/{{ tolower .ProjectName }}:latest-arm64
+      - "{{ tolower .Env.DOCKER_USERNAME }}/{{ tolower .ProjectName }}:latest-amd64"
+      - "{{ tolower .Env.DOCKER_USERNAME }}/{{ tolower .ProjectName }}:latest-arm64"
 
 archives:
-  - format: binary
+  - formats: ["binary"]
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
@@ -59,6 +59,10 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
       {{- end }}
+
+release:
+  extra_files:
+    - glob: "build/*"
 
 changelog:
   sort: asc

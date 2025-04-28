@@ -6,11 +6,11 @@
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="krillinai%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-  **[English](../README.md)｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)｜[한국어](../docs/README_kr.md)｜[Français](../docs/README_fr.md)｜[Deutsch](../docs/README_de.md)｜[Español](../docs/README_es.md)｜[Português](../docs/README_pt.md)｜[Русский](../docs/README_rus.md)**
+  **[English](../README.md)｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)｜[한국어](../docs/README_kr.md)｜[Tiếng Việt](../docs/README_vi.md)｜[Français](../docs/README_fr.md)｜[Deutsch](../docs/README_de.md)｜[Español](../docs/README_es.md)｜[Português](../docs/README_pt.md)｜[Русский](../docs/README_rus.md)｜[اللغة العربية](../docs/README_ar.md)**
 
   [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
+  [![Discord](https://img.shields.io/discord/1333374141092331605?label=Discord&logo=discord&style=flat-square)](https://discord.gg/sKUAsHfy)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%20followers&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
-[![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 
 </div>
 
@@ -70,9 +70,28 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </tr>
 </table>
 
+## 🔍 Reconnaissance Vocale
+_**Tous les modèles locaux dans le tableau ci-dessous prennent en charge l'installation automatique des fichiers exécutables + fichiers de modèle. Il vous suffit de faire votre sélection, et KrillinAI s'occupera du reste.**_
+
+| Service         | Plateformes supportées        | Options de modèle                  | Local/Cloud | Remarques          |
+|-----------------|------------------------------|-----------------------------------|-------------|----------------|
+| **OpenAI Whisper** | Multi-plateforme       | -                                 | Cloud       | Rapide avec d'excellents résultats |
+| **FasterWhisper** | Windows/Linux     | `tiny`/`medium`/`large-v2` (recommandé medium+) | Local    | Vitesse accrue, pas de surcharge de service cloud |
+| **WhisperKit**    | macOS (Apple Silicon uniquement)   | `large-v2`                        | Local       | Optimisation native pour puces Apple |
+| **Alibaba Cloud ASR** | Multi-plateforme   | -                                 | Cloud       | Contourne les problèmes réseau en Chine continentale |
+
+## 🚀 Prise en charge des Grands Modèles de Langage
+
+✅ Compatible avec tous les services cloud/locaux **compatibles avec l'API OpenAI**, y compris mais sans s'y limiter :
+- OpenAI
+- DeepSeek
+- Qwen (Tongyi Qianwen)
+- Modèles open source auto-hébergés
+- Autres services API compatibles avec le format OpenAI
+
 ## 🌍 Langues Prises en Charge
 Langues d'entrée : Chinois, Anglais, Japonais, Allemand, Turc (autres en cours d'ajout)  
-Langues de traduction : 56 langues dont Anglais, Chinois, Russe, Espagnol, Français, etc.
+Langues de traduction : 101 langues dont Anglais, Chinois, Russe, Espagnol, Français, etc.
 
 ## Aperçu de l'Interface
 ![ui preview](../docs/images/ui_desktop.png)

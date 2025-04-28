@@ -31,7 +31,7 @@ func Show() {
 	myApp := app.New()
 
 	// 自定义主题
-	myApp.Settings().SetTheme(NewCustomTheme())
+	myApp.Settings().SetTheme(NewCustomTheme(false))
 
 	myWindow := myApp.NewWindow("Krillin AI")
 
@@ -61,8 +61,18 @@ func Show() {
 	var navButtons []*widget.Button
 	navContainer := container.NewVBox()
 
-	// 内容区域
-	content := AnimatedContainer()
+	// 创建内容区域，使用Stack容器来叠放多个内容
+	contentStack := container.NewStack()
+
+	// 预先创建两个tab的内容
+	workbenchContent := CreateSubtitleTab(myWindow)
+	configContent := CreateConfigTab(myWindow)
+
+	// 默认显示工作台内容
+	contentStack.Add(workbenchContent)
+	contentStack.Add(configContent)
+
+	configContent.Hide()
 
 	currentSelectedIndex := 0
 
@@ -90,19 +100,27 @@ func Show() {
 			// 更新当前选中的索引
 			currentSelectedIndex = index
 
-			// 刷新容器
 			navContainer.Refresh()
 
-			// 更新内容
-			updateContent(index, content)
+			if index == 0 {
+				workbenchContent.Show()
+				configContent.Hide()
+				// 确保进度条和下载区域状态正确显示
+				workbenchContent.Refresh()
+				FadeAnimation(workbenchContent, 300*time.Millisecond, 0.0, 1.0)
+			} else {
+				workbenchContent.Hide()
+				configContent.Show()
+				FadeAnimation(configContent, 300*time.Millisecond, 0.0, 1.0)
+			}
+
+			contentStack.Refresh()
 		})
 
 		// 将导航按钮添加到列表和容器中
 		navButtons = append(navButtons, navBtn)
 		navContainer.Add(container.NewPadded(navBtn))
 	}
-
-	updateContent(0, content)
 
 	navBackground := canvas.NewRectangle(color.NRGBA{R: 250, G: 251, B: 254, A: 255})
 
@@ -116,7 +134,7 @@ func Show() {
 	)
 
 	// 主布局
-	split := container.NewHSplit(navWithBackground, content)
+	split := container.NewHSplit(navWithBackground, container.NewPadded(contentStack))
 	split.SetOffset(0.2)
 
 	mainContainer := container.NewPadded(split)
@@ -135,19 +153,4 @@ func Show() {
 	myWindow.Resize(fyne.NewSize(1000, 700))
 	myWindow.CenterOnScreen()
 	myWindow.ShowAndRun()
-}
-
-// 更新内容区域
-func updateContent(index int, content *fyne.Container) {
-	var newContent fyne.CanvasObject
-
-	switch index {
-	case 0:
-		newContent = CreateSubtitleTab(fyne.CurrentApp().Driver().AllWindows()[0])
-	case 1:
-		newContent = CreateConfigTab(fyne.CurrentApp().Driver().AllWindows()[0])
-	}
-
-	// 使用淡入淡出动画切换内容
-	SwitchContent(content, newContent, 300*time.Millisecond)
 }
