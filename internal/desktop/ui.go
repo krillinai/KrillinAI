@@ -259,8 +259,9 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		sm.SetVideoUrl(text)
 	}
 
-	// 视频选择按钮
-	selectButton := PrimaryButton("选择视频文件Choose video file", theme.FolderOpenIcon(), sm.ShowFileDialog)
+	// 视频选择按钮（支持多文件选择）
+	selectButton := PrimaryButton("选择视频文件 Choose video files", theme.FolderOpenIcon(), sm.ShowFileDialog)
+
 	selectedVideoLabel := widget.NewLabel("")
 	selectedVideoLabel.Hide()
 
@@ -269,6 +270,31 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		if path != "" {
 			sm.SetVideoUrl(path)
 			selectedVideoLabel.SetText("已选择Chosen: " + filepath.Base(path))
+			selectedVideoLabel.Show()
+		} else {
+			selectedVideoLabel.Hide()
+		}
+	})
+
+	// 设置多视频选择回调
+	sm.SetVideosSelectedCallback(func(paths []string) {
+		if len(paths) > 0 {
+			// 设置第一个视频的URL
+			sm.SetVideoUrl(paths[0])
+
+			// 显示已选择的文件数量
+			fileNames := make([]string, 0, len(paths))
+			for _, path := range paths {
+				fileNames = append(fileNames, filepath.Base(path))
+			}
+
+			// 构建文件列表，每行显示一个文件
+			displayText := fmt.Sprintf("已选择 %d 个文件:\n", len(paths))
+			for i, name := range fileNames {
+				displayText += fmt.Sprintf("%d. %s\n", i+1, name)
+			}
+
+			selectedVideoLabel.SetText(displayText)
 			selectedVideoLabel.Show()
 		} else {
 			selectedVideoLabel.Hide()
