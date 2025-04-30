@@ -6,10 +6,10 @@
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="krillinai%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-  **[English](./README.md)｜[简体中文](./docs/README_zh.md)｜[日本語](./docs/README_jp.md)｜[한국어](./docs/README_kr.md)｜[Tiếng Việt](./docs/README_vi.md)｜[Français](./docs/README_fr.md)｜[Deutsch](./docs/README_de.md)｜[Español](./docs/README_es.md)｜[Português](./docs/README_pt.md)｜[Русский](./docs/README_rus.md)｜[اللغة العربية](./docs/README_ar.md)**
+  **[English](./README.md)｜[简体中文](docs/zh/README.md)｜[日本語](./docs/jp/README.md)｜[한국어](./docs/kr/README.md)｜[Tiếng Việt](./docs/vi/README.md)｜[Français](./docs/fr/README.md)｜[Deutsch](./docs/de/README.md)｜[Español](./docs/es/README.md)｜[Português](./docs/pt/README.md)｜[Русский](./docs/rus/README.md)｜[اللغة العربية](./docs/ar/README.md)**
 
-  [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
-  [![Discord](https://img.shields.io/discord/1333374141092331605?label=Discord&logo=discord&style=flat-square)](https://discord.gg/sKUAsHfy)
+[![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
+[![Discord](https://img.shields.io/discord/1333374141092331605?label=Discord&logo=discord&style=flat-square)](https://discord.gg/sKUAsHfy)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%20followers&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 
@@ -141,11 +141,11 @@ sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
 This will start the service.
 
 ### Docker Deployment
-This project supports Docker deployment. Please refer to the [Docker Deployment Instructions](./docs/docker.md).
+This project supports Docker deployment. Please refer to the [Docker Deployment Instructions](./docker.md).
 
 ### Cookie Configuration Instructions
 
-If you encounter video download failures, please refer to the [Cookie Configuration Instructions](./docs/get_cookies.md) to configure your cookie information.
+If you encounter video download failures, please refer to the [Cookie Configuration Instructions](./get_cookies.md) to configure your cookie information.
 
 ### Configuration Help
 The quickest and most convenient configuration method:
@@ -158,10 +158,10 @@ The following usage situations require the configuration of Alibaba Cloud:
 * If `llm_provider` is filled with `aliyun`, it indicates that the large model service of Alibaba Cloud will be used. Consequently, the configuration of the `aliyun.bailian` item needs to be set up.
 * If `transcription_provider` is filled with `aliyun`, or if the "voice dubbing" function is enabled when starting a task, the voice service of Alibaba Cloud will be utilized. Therefore, the configuration of the `aliyun.speech` item needs to be filled in.
 * If the "voice dubbing" function is enabled and local audio files are uploaded for voice timbre cloning at the same time, the OSS cloud storage service of Alibaba Cloud will also be used. Hence, the configuration of the `aliyun.oss` item needs to be filled in.
-Configuration Guide: [Alibaba Cloud Configuration Instructions](./docs/aliyun.md)
+Configuration Guide: [Alibaba Cloud Configuration Instructions](./aliyun.md)
 
 ## Frequently Asked Questions
-Please refer to [Frequently Asked Questions](./docs/faq.md)
+Please refer to [Frequently Asked Questions](./faq.md)
 
 ## Contribution Guidelines
 
