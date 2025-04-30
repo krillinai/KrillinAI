@@ -5,7 +5,7 @@
 
   <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="krillinai%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-  **[English](../README.md)｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)｜[한국어](../docs/README_kr.md)｜[Français](../docs/README_fr.md)｜[Deutsch](../docs/README_de.md)｜[Español](../docs/README_es.md)｜[Português](../docs/README_pt.md)｜[Русский](../docs/README_rus.md)**
+  **[English](../README.md)｜[简体中文](../docs/README_zh.md)｜[日本語](../docs/README_jp.md)｜[한국어](../docs/README_kr.md)｜[Tiếng Việt](../docs/README_vi.md)｜[Français](../docs/README_fr.md)｜[Deutsch](../docs/README_de.md)｜[Español](../docs/README_es.md)｜[Português](../docs/README_pt.md)｜[Русский](../docs/README_rus.md)｜[اللغة العربية](../docs/README_ar.md)**
 
  [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=粉丝&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
@@ -70,11 +70,29 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </tr>
 </table>
 
+## 🔍 语音识别服务支持
+_**下表中的本地模型全部支持自动安装可执行文件+模型文件，你只要选择，其它的KrillinAI帮你全部准备完毕。**_
+
+| 服务源         | 支持平台                     | 模型可选项              | 本地/云端 | 备注          |
+|----------------|------------------------------|-----------------------------------|-------|-------------|
+| **OpenAI Whisper** | 全平台          | -                                 | 云端    | 速度快效果好      |
+| **FasterWhisper** | Windows/Linux     | `tiny`/`medium`/`large-v2` (推荐medium+) | 本地    | 速度更快，无云服务开销 |
+| **WhisperKit**    | macOS (仅限M系列芯片)        | `large-v2`                        | 本地    | Apple芯片原生优化 |
+| **阿里云ASR**     | 全平台                       | -                                 | 云端    | 避免中国大陆网络问题  |
+
+## 🚀 大模型支持
+
+✅ 兼容所有符合 **OpenAI API规范** 的云端/本地大模型服务，包括但不限于：
+- OpenAI
+- DeepSeek
+- 通义千问
+- 本地部署的开源模型
+- 其他兼容OpenAI格式的API服务
 
 ## 语言支持
-输入语言支持：中文，英文，日语，德语，土耳其语（持续增加中）
+输入语言支持：中文，英文，日语，德语，土耳其，韩语，俄语，马来语（持续增加中）
 
-翻译语言支持：英文，中文，俄语，西班牙语，法语等56种语言
+翻译语言支持：英文，中文，俄语，西班牙语，法语等101种语言
 
 ## 界面预览
 ![界面预览](../docs/images/ui_desktop.png)
@@ -86,11 +104,11 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 【如果是桌面版，即release文件带desktop的看此处】  
 _桌面版是新发布的，为了解决新手用户难以正确编辑配置文件的问题，还有不少bug，持续更新中_
-1. 双击文件即可开始使用
+1. 双击文件即可开始使用(桌面端也是需要配置的，在软件内配置)
 
 【如果是非桌面版，即release文件不带desktop的看此处】  
 _非桌面版是一开始的版本，配置比较复杂，但是功能稳定，同时适合服务器部署，因为会以web的方式提供ui_
-1. 在文件夹内创建`config`文件夹，然后在`config`文件夹创建`config.toml`文件，复制源代码`config`目录下的`config-example.toml`文件的内容填入`config.toml`，并对照填写你的配置信息。（想用openai模型但不会获取key的可以加群免费试用）
+1. 在文件夹内创建`config`文件夹，然后在`config`文件夹创建`config.toml`文件，复制源代码`config`目录下的`config-example.toml`文件的内容填入`config.toml`，并对照填写你的配置信息。
 2. 双击，或在终端执行可执行文件，启动服务 
 3. 打开浏览器，输入`http://127.0.0.1:8888`，开始使用 (8888替换成你在配置文件中填写的端口)
 

@@ -6,6 +6,7 @@ import (
 	"krillin-ai/log"
 	"krillin-ai/pkg/aliyun"
 	"krillin-ai/pkg/fasterwhisper"
+	"krillin-ai/pkg/whispercpp"
 	"krillin-ai/pkg/openai"
 	"krillin-ai/pkg/whisper"
 	"krillin-ai/pkg/whisperkit"
@@ -32,6 +33,8 @@ func NewService() *Service {
 		transcriber = aliyun.NewAsrClient(config.Conf.Aliyun.Bailian.ApiKey)
 	case "fasterwhisper":
 		transcriber = fasterwhisper.NewFastwhisperProcessor(config.Conf.LocalModel.Fasterwhisper)
+	case "whispercpp":
+		transcriber = whispercpp.NewWhispercppProcessor(config.Conf.LocalModel.Whispercpp)
 	case "whisperkit":
 		transcriber = whisperkit.NewWhisperKitProcessor(config.Conf.LocalModel.Whisperkit)
 	}
