@@ -1,9 +1,12 @@
-FROM alpine:latest as builder
+FROM ubuntu:latest
 
-# 安装基础工具并创建目录
-WORKDIR /build
-RUN apk add --no-cache wget && \
-    mkdir -p bin && \
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends wget ca-certificates ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p bin && \
     ARCH=$(uname -m) && \
     case "$ARCH" in \
         x86_64) \
@@ -22,26 +25,15 @@ RUN apk add --no-cache wget && \
     wget -O bin/yt-dlp "$URL" && \
     chmod +x bin/yt-dlp
 
-# 最终镜像
-FROM jrottenberg/ffmpeg:6.1-alpine
-
-# 设置工作目录并复制文件
-WORKDIR /app
-COPY --from=builder /build/bin /app/bin
 COPY KrillinAI ./
 
-# 创建必要目录并设置权限
 RUN mkdir -p /app/models && \
     chmod +x ./KrillinAI
 
-# 声明卷
 VOLUME ["/app/bin", "/app/models"]
 
-# 设置环境变量
 ENV PATH="/app/bin:${PATH}"
 
-# 设置端口
 EXPOSE 8888/tcp
 
-# 设置入口点
 ENTRYPOINT ["./KrillinAI"]
