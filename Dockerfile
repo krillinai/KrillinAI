@@ -1,13 +1,6 @@
-FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/ubuntu:20.04
+FROM ubuntu:latest
 
 WORKDIR /app
-
-RUN tee /etc/apt/sources.list <<EOF
-deb http://mirrors.aliyun.com/ubuntu/ focal main restricted universe multiverse
-deb http://mirrors.aliyun.com/ubuntu/ focal-updates main restricted universe multiverse
-deb http://mirrors.aliyun.com/ubuntu/ focal-backports main restricted universe multiverse
-deb http://mirrors.aliyun.com/ubuntu/ focal-security main restricted universe multiverse
-EOF
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends wget ca-certificates ffmpeg && \
