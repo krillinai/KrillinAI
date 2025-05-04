@@ -96,7 +96,7 @@ func splitMajorTextInHorizontal(text string, language types.StandardLanguageCode
 	currentWidth := 0
 	splitIndex := 0
 
-	for i, _ := range segments {
+	for i := range segments {
 		currentWidth++
 
 		// 当达到 2/5 宽度时，设置拆分点
