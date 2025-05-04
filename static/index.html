@@ -316,7 +316,7 @@
 
 		<div class="formItem hidden" id="fileInputContainer">
 			<label for="fileInput">上传本地视频:</label>
-			<input style="margin-left: 6px" type="file" id="fileInput" name="fileInput" accept="video/*, audio/*">
+			<input style="margin-left: 6px" type="file" id="fileInput" name="fileInput" accept="video/*, audio/*" multiple>
 			<p id="uploadStatus" class="loading hidden">正在上传...</p>
 		</div>
 
@@ -680,10 +680,10 @@
 		uploadStatus.classList.remove('hidden');
 		executeButton.disabled = true; // 禁用“执行”按钮
 
-		const file = fileInput.files[0];
-
 		const formData = new FormData();
-		formData.append('file', file);
+		for (const file of fileInput.files) {
+			formData.append('file', file); // 确保字段名与后端一致
+		}
 
 		try {
 			const response = await fetch(API_UPLOAD_URL, {
@@ -694,9 +694,9 @@
 			const res = await response.json();
 			const { error, data, msg } = res || {};
 			if (error !== 0 && error !== 200) {
-				throw new Error(msg || '上传失败，请重试')
+				throw new Error(msg || '上传失败，请重试');
 			}
-			uploadedVideoUrl = data.file_path; // 获取返回的视频地址
+			uploadedVideoUrl = data.file_path; // 获取返回的文件路径数组
 			executeButton.disabled = false; // 启用“执行”按钮
 		} catch (error) {
 			console.error('视频上传失败:', error);
@@ -779,18 +779,23 @@
 			return;
 		}
 		const params = getParams();
-
 		// 请求启动任务接口
-		const taskId = await startTask({...params, url});
-
-		downloadLinks.classList.add('hidden');
-		downloadLinks.innerHTML = ''; // 清空之前的下载链接
-
-		if (taskId) {
-			executeButton.disabled = true;
-			// 显示任务进度区域
-			progressSection.classList.remove('hidden');
-			await pollTaskProgress(taskId);
+		if (Array.isArray(url)) {
+			for (const singleUrl of url) {
+				const taskId = await startTask({ ...params, url: singleUrl });
+				if (taskId) {
+					executeButton.disabled = true;
+					progressSection.classList.remove('hidden');
+					await pollTaskProgress(taskId);
+				}
+			}
+		} else {
+			const taskId = await startTask({ ...params, url });
+			if (taskId) {
+				executeButton.disabled = true;
+				progressSection.classList.remove('hidden');
+				await pollTaskProgress(taskId);
+			}
 		}
 	});
 
