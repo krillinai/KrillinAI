@@ -14,15 +14,15 @@ import (
 )
 
 type App struct {
-	SegmentDuration      int      `toml:"segment_duration"`
+	SegmentDuration       int      `toml:"segment_duration"`
 	TranscribeParallelNum int      `toml:"transcribe_parallel_num"`
-	TranslateParallelNum int      `toml:"translate_parallel_num"`
-	TranscribeMaxAttempts  int      `toml:"transcribe_max_attempts"`
+	TranslateParallelNum  int      `toml:"translate_parallel_num"`
+	TranscribeMaxAttempts int      `toml:"transcribe_max_attempts"`
 	TranslateMaxAttempts  int      `toml:"translate_max_attempts"`
-	Proxy                string   `toml:"proxy"`
-	ParsedProxy          *url.URL `toml:"-"`
-	TranscribeProvider   string   `toml:"transcribe_provider"`
-	LlmProvider          string   `toml:"llm_provider"`
+	Proxy                 string   `toml:"proxy"`
+	ParsedProxy           *url.URL `toml:"-"`
+	TranscribeProvider    string   `toml:"transcribe_provider"`
+	LlmProvider           string   `toml:"llm_provider"`
 }
 
 type Server struct {
@@ -80,11 +80,13 @@ type Config struct {
 
 var Conf = Config{
 	App: App{
-		SegmentDuration:      5,
-		TranslateParallelNum: 5,
+		SegmentDuration:       5,
+		TranslateParallelNum:  5,
 		TranscribeParallelNum: 10,
-		TranscribeProvider:   "openai",
-		LlmProvider:          "openai",
+		TranscribeMaxAttempts: 3,
+		TranslateMaxAttempts:  3,
+		TranscribeProvider:    "openai",
+		LlmProvider:           "openai",
 	},
 	Server: Server{
 		Host: "127.0.0.1",
@@ -110,7 +112,6 @@ func validateConfig() error {
 			return errors.New("检测到开启了fasterwhisper，但模型选型配置不正确，请检查配置")
 		}
 	case "whisperkit":
-		Conf.App.TranscribeParallelNum = 1
 		if runtime.GOOS != "darwin" {
 			log.GetLogger().Error("whisperkit只支持macos", zap.String("当前系统", runtime.GOOS))
 			return fmt.Errorf("whisperkit只支持macos")

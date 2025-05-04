@@ -17,6 +17,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -223,7 +224,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 						err               error
 						transcriptionData *types.TranscriptionData
 					)
-					log.GetLogger().Info("Begin to transcribe", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", audioFileItem.Id))
+					log.GetLogger().Info("Begin transcribe", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", audioFileItem.Id))
 					// 语音转文字
 					for range config.Conf.App.TranscribeMaxAttempts {
 						transcriptionData, err = s.transcribeAudio(audioFileItem.Data, string(stepParam.OriginLanguage), stepParam.TaskBasePath)
@@ -250,16 +251,16 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			}
 		})
 	}
-	// 输入音频文件到队列
+	// 输入音频文件到转录队列，开始流程
 	for i, audioFileItem := range stepParam.SmallAudios {
 		pendingTranscriptionQueue <- DataWithId[string]{
 			Data: audioFileItem.AudioFile,
 			Id:   i,
 		}
 	}
-	close(pendingTranscriptionQueue)
 
 	// 处理转录和翻译结果
+	var mu sync.Mutex
 	eg.Go(func() error {
 		stepNum := 0
 		for {
@@ -267,17 +268,21 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			case <-ctx.Done():
 				return nil
 			case transcribedItem := <-transcribedQueue:
+				mu.Lock()
 				stepNum++
 				// 更新字幕任务信息
 				processPct := uint8(20 + 70*stepNum/len(stepParam.SmallAudios)/2)
 				stepParam.TaskPtr.ProcessPct = processPct
+				mu.Unlock()
 				// 处理转录结果
 				stepParam.SmallAudios[transcribedItem.Id].TranscriptionData = transcribedItem.Data
 			case translatedItems := <-translatedQueue:
+				mu.Lock()
 				stepNum++
 				// 更新字幕任务信息
 				processPct := uint8(20 + 70*stepNum/len(stepParam.SmallAudios)/2)
 				stepParam.TaskPtr.ProcessPct = processPct
+				mu.Unlock()
 				// 处理翻译结果，保存不带时间戳的原始字幕
 				originNoTsSrtFileName := filepath.Join(stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitSrtNoTimestampFileNamePattern, translatedItems.Id))
 				originNoTsSrtFile, err := os.Create(originNoTsSrtFileName)
@@ -298,21 +303,24 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 				srtBlocks := []*util.SrtBlock{}
 				for i, translatedItem := range translatedItems.Data {
 					srtBlocks = append(srtBlocks, &util.SrtBlock{
-						Index: i + 1,
-						Timestamp: "",
+						Index:                  i + 1,
+						Timestamp:              "",
 						OriginLanguageSentence: translatedItem.OriginText,
 						TargetLanguageSentence: translatedItem.TranslatedText,
 					})
 				}
-				
+
 				err = generateSrtWithTimestamps(srtBlocks, stepParam.TaskBasePath, translatedItems.Id, stepParam.OriginLanguage, smallAudioPtr.TranscriptionData.Words, stepParam.SubtitleResultType, stepParam.MaxWordOneLine)
 				if err != nil {
 					cancel()
 					return fmt.Errorf("audioToSubtitle audioToSrt generateTimestamps err: %w", err)
 				}
-				// 如果翻译完成，关闭翻译队列并退出循环
-				if stepNum >= len(stepParam.SmallAudios) * 2 {
+				// 转录、翻译任务全部完成
+				if stepNum >= len(stepParam.SmallAudios)*2 {
+					close(pendingTranscriptionQueue)
+					close(transcribedQueue)
 					close(pendingTranslationQueue)
+					close(translatedQueue)
 					return nil
 				}
 			}
@@ -768,7 +776,7 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) 
 	return startIdx, endIdx, result
 }
 
-func generateSrtWithTimestamps(srtBlocks []*util.SrtBlock, basePath string, segmentIdx int,originLanguage types.StandardLanguageCode, words []types.Word, resultType types.SubtitleResultType, maxWordOneLine int) error {
+func generateSrtWithTimestamps(srtBlocks []*util.SrtBlock, basePath string, segmentIdx int, originLanguage types.StandardLanguageCode, words []types.Word, resultType types.SubtitleResultType, maxWordOneLine int) error {
 	if len(srtBlocks) == 0 {
 		return nil
 	}
@@ -951,7 +959,7 @@ func parseAndCheckContent(splitContent, originalText string) ([]TranslatedItem, 
 	}
 
 	// 处理无文本标记
-	if strings.Contains(splitContent, "[%无文本%]") {
+	if strings.Contains(splitContent, "[无文本]") {
 		if len(strings.TrimSpace(originalText)) < 10 {
 			return result, nil
 		} else {
@@ -961,7 +969,7 @@ func parseAndCheckContent(splitContent, originalText string) ([]TranslatedItem, 
 
 	lines := strings.Split(splitContent, "\n")
 	if len(lines) < 3 { // 至少需要一个完整的块
-		log.GetLogger().Warn("audioToSubtitle invaild Format, not enough lines", zap.Any("splitContent", splitContent))
+		log.GetLogger().Error("audioToSubtitle invaild Format, not enough lines", zap.Any("splitContent", splitContent))
 		return nil, fmt.Errorf("audioToSubtitle invaild Format, not enough lines")
 	}
 
@@ -978,7 +986,7 @@ func parseAndCheckContent(splitContent, originalText string) ([]TranslatedItem, 
 		}
 
 		if i+2 >= len(lines) {
-			log.GetLogger().Warn("audioToSubtitle invaild Format, block is not complete", zap.Any("splitContent", splitContent), zap.Any("line", line))
+			log.GetLogger().Error("audioToSubtitle invaild Format, block is not complete", zap.Any("splitContent", splitContent), zap.Any("line", line))
 			return nil, fmt.Errorf("audioToSubtitle invaild Format, block is not complete")
 		}
 		// 获取翻译行和原文行
@@ -1007,7 +1015,7 @@ func parseAndCheckContent(splitContent, originalText string) ([]TranslatedItem, 
 		lenError = -lenError
 	}
 
-	if lenError > len(originalText)/10+len(result)+10 {
+	if lenError > len(originalText)/10 {
 		// return nil, fmt.Errorf("audioToSubtitle invaild Format, originalText and splitContent length not match", zap.Any("splitContent", splitContent), zap.Any("originalText", originalText))
 		log.GetLogger().Warn("audioToSubtitle invaild Format, originalText and splitContent length not match", zap.Any("splitContent", splitContent), zap.Any("originalText", originalText))
 	}
