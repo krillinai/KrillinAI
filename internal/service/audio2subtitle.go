@@ -3,6 +3,7 @@ package service
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go.uber.org/zap"
@@ -19,6 +20,9 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // 翻译结果数据结构
@@ -171,6 +175,25 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	//eg, ctx = errgroup.WithContext(ctx)
+	statusFilePath := "task_status.json"
+	file, err := os.Create(statusFilePath)
+	if err != nil {
+		log.GetLogger().Info("Failed to create task status file:", zap.Error(err))
+		return err
+	}
+	file.Close()
+	status, err := loadTaskStatus(statusFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to load task status: %w", err)
+	}
+	fmt.Println(status)
+	/*if status.CompletedFiles[audioFileItem.AudioFile] {
+				log.GetLogger().Info("Skipping completed file:", zap.Any("audioFile", audioFileItem))
+			}
+			parallelControlChan <- struct{}{}
+			audioFile := audioFileItem
+	*/
 	// 并发启动协程处理翻译
 	for range config.Conf.App.TranslateParallelNum {
 		eg.Go(func() error {
@@ -320,7 +343,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 		}
 	})
 
-	err := eg.Wait()
+	err = eg.Wait()
 	if err != nil {
 		log.GetLogger().Error("audioToSubtitle audioToSrt errgroup wait err", zap.Any("stepParam", stepParam), zap.Error(err))
 		return fmt.Errorf("audioToSubtitle audioToSrt errgroup wait err: %w", err)
@@ -389,6 +412,45 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 
 	return nil
 }
+
+type TaskStatus struct {
+	CompletedFiles map[string]bool
+}
+
+func loadTaskStatus(filePath string) (TaskStatus, error) {
+	var status TaskStatus
+	file, err := os.Open(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return TaskStatus{CompletedFiles: make(map[string]bool)}, nil
+		}
+		return status, err
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return status, err
+	}
+	if fileInfo.Size() == 0 {
+		return TaskStatus{CompletedFiles: make(map[string]bool)}, nil
+	}
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&status)
+	return status, err
+}
+
+func saveTaskStatus(status TaskStatus, filePath string) error {
+	file, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	return encoder.Encode(status)
+}
+
 
 func splitSrt(stepParam *types.SubtitleTaskStepParam) error {
 	log.GetLogger().Info("audioToSubtitle.splitSrt start", zap.Any("task id", stepParam.TaskId))
