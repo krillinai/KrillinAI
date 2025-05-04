@@ -23,6 +23,7 @@ services:
     volumes:
       - /path/to/config.toml:/app/config/config.toml # 配置文件
       - /path/to/tasks:/app/tasks # 输出目录
+```
 
 ## 持久化模型
 如果使用fasterwhisper模型， KrillinAI 会自动下载模型所需文件到`/app/models`目录和`/app/bin`目录。容器删除后，这些文件会丢失。如果需要持久化模型，可以将这两个目录映射到宿主机的目录。
