@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -17,10 +19,6 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"sync"
-
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
 
 // 翻译结果数据结构
@@ -260,7 +258,6 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	}
 
 	// 处理转录和翻译结果
-	var mu sync.Mutex
 	eg.Go(func() error {
 		stepNum := 0
 		for {
@@ -268,21 +265,17 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			case <-ctx.Done():
 				return nil
 			case transcribedItem := <-transcribedQueue:
-				mu.Lock()
 				stepNum++
 				// 更新字幕任务信息
 				processPct := uint8(20 + 70*stepNum/len(stepParam.SmallAudios)/2)
 				stepParam.TaskPtr.ProcessPct = processPct
-				mu.Unlock()
 				// 处理转录结果
 				stepParam.SmallAudios[transcribedItem.Id].TranscriptionData = transcribedItem.Data
 			case translatedItems := <-translatedQueue:
-				mu.Lock()
 				stepNum++
 				// 更新字幕任务信息
 				processPct := uint8(20 + 70*stepNum/len(stepParam.SmallAudios)/2)
 				stepParam.TaskPtr.ProcessPct = processPct
-				mu.Unlock()
 				// 处理翻译结果，保存不带时间戳的原始字幕
 				originNoTsSrtFileName := filepath.Join(stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitSrtNoTimestampFileNamePattern, translatedItems.Id))
 				originNoTsSrtFile, err := os.Create(originNoTsSrtFileName)
