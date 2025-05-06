@@ -23,7 +23,7 @@ func Test_isValidSplitContent(t *testing.T) {
 	}
 
 	// 执行测试
-	if got := isValidSplitContent(string(splitContent), string(originalText)); !got {
-		t.Errorf("isValidSplitContent() = %v, want true", got)
+	if _, err := parseAndCheckContent(string(splitContent), string(originalText)); err != nil {
+		t.Errorf("parseAndCheckContent() error = %v, want nil", err)
 	}
 }

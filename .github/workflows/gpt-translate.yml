@@ -1,0 +1,21 @@
+name: GPT Translate
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  gpt_translate:
+    if: contains(github.event.comment.body, '/gt') || contains(github.event.comment.body, '/gpt-translate')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run GPT Translate
+        uses: PairZhu/gpt-translate@master
+        with:
+          apikey: ${{ secrets.OPENAI_API_KEY }}
+          model: ${{ secrets.OPENAI_MODEL }}
+          basePath: ${{ secrets.OPENAI_BASE_URL }}
+          prompt: '请将给定文本翻译为目标语言 {targetLanguage}。翻译带链接的内容时请勿修改任何链接地址，但可以在合适的情况修改链接文本。在合适的非代码位置可以修改标点符号的全半角。请确保翻译后的文本符合 {targetFileExt} 文件的语法和格式。请勿添加任何额外的解释或注释。文本内容如下：'
+

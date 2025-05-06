@@ -85,7 +85,6 @@ var TranslateVideoTitleAndDescriptionPrompt = `你是一个专业的翻译专家
 
 type SmallAudio struct {
 	AudioFile         string
-	Num               int
 	TranscriptionData *TranscriptionData
 	SrtNoTsFile       string
 }
