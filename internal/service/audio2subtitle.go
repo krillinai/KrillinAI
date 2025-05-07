@@ -30,6 +30,7 @@ type TranslatedItem struct {
 	OriginText     string
 	TranslatedText string
 }
+const StatusFileName = "task_status.json"
 
 func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	var err error
@@ -182,7 +183,6 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 		log.GetLogger().Info("Failed to create task status file:", zap.Error(err))
 		return err
 	}
-	file.Close()
 	status, err := loadTaskStatus(statusFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to load task status: %w", err)

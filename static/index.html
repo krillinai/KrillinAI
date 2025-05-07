@@ -307,6 +307,10 @@
 				<input type="radio" name="inputType" value="file">
 				本地视频上传
 			</label>
+			<label>
+				<input type="radio" name="inputType" value="existing_task">
+				加载已有任务
+			</label>
 		</div>
 
 		<div class="formItem" id="urlInputContainer">
@@ -318,6 +322,12 @@
 			<label for="fileInput">上传本地视频:</label>
 			<input style="margin-left: 6px" type="file" id="fileInput" name="fileInput" accept="video/*, audio/*" multiple>
 			<p id="uploadStatus" class="loading hidden">正在上传...</p>
+		</div>
+
+		<div class="formItem hidden" id="existingTaskInputContainer">
+			<label for="existingTaskFile">加载任务文件:</label>
+			<input type="file" id="existingTaskFile" name="existingTaskFile" accept=".json" title="请选择任务状态文件（task_status.json）">
+			<p id="existingTaskUploadStatus" class="loading hidden">正在加载任务...</p>
 		</div>
 
 		<div class="setWrap">
@@ -438,11 +448,6 @@
 				<label style="padding: 10px 0;">词汇替换:</label>
 				<input style="margin: 14px 10px 14px 4px;" type="checkbox" id="word-replacement-toggle">
 				<div id="word-replacement-container" style="display: none; padding-top: 6px">
-<!--					<div class="replacement-row">-->
-<!--						<input type="text" placeholder="原词" class="original-word">-->
-<!--						<input type="text" placeholder="替换词" class="replacement-word">-->
-<!--						<button type="button" class="remove-row">删除</button>-->
-<!--					</div>-->
 					<button type="button" id="add-row">新增替换</button>
 				</div>
 			</div>
@@ -460,7 +465,7 @@
 					<input type="text" id="subtitle-text-1" placeholder="请输入竖屏视频主标题">
 					<input type="text" id="subtitle-text-2" placeholder="请输入竖屏视频副标题">
 				</div>
-				<div id="subtitle-hint" class="hint-text">适合B站、Youtube等</div> <!-- 新增提示信息区域 -->
+				<div id="subtitle-hint" class="hint-text">适合B站、Youtube等</div>
 			</div>
 		</div>
 
@@ -474,16 +479,18 @@
 		</div>
 		<div id="downloadLinks" class="hidden download-links"></div>
 	</div>
-	<div id="tips" class="">
-	</div>
+	<div id="tips" class=""></div>
 </div>
 
 <script>
 	const urlInputContainer = document.getElementById('urlInputContainer');
 	const fileInputContainer = document.getElementById('fileInputContainer');
+	const existingTaskInputContainer = document.getElementById('existingTaskInputContainer');
 	const urlInput = document.getElementById('urlInput');
 	const fileInput = document.getElementById('fileInput');
+	const existingTaskFile = document.getElementById('existingTaskFile');
 	const uploadStatus = document.getElementById('uploadStatus');
+	const existingTaskUploadStatus = document.getElementById('existingTaskUploadStatus');
 	const voiceFileInput = document.getElementById('voiceFileInput');
 	const voiceFileInputName = document.getElementById('voiceFileInputName');
 	const voiceFileInputRemove = document.getElementById('voiceFileInputRemove');
@@ -494,7 +501,6 @@
 	const progressBar = document.getElementById('progressBar');
 	const downloadLinks = document.getElementById('downloadLinks');
 
-	// 获取表单元素
 	const translationToggle = document.getElementById("translation-toggle");
 	const translationLanguage = document.getElementById("translation-language");
 	const bilingualToggle = document.getElementById("bilingual-toggle");
@@ -504,22 +510,17 @@
 	const wordReplacementToggle = document.getElementById("word-replacement-toggle");
 	const wordReplacementContainer = document.getElementById("word-replacement-container");
 	const addRowButton = document.getElementById("add-row");
-	const embedSubtitleVideoTypeToggle = document.getElementById("embed-subtitle-toggle");
-	const embedSubtitleVideoType = document.getElementById("embed-subtitle");
 	const embedSubtitle = document.getElementById("embed-subtitle");
 	const subtitleTextInputs = document.getElementById("subtitle-text-inputs");
-	const verticalMajorTitle = document.getElementById("subtitle-text-1");
-	const verticalMinorTitle = document.getElementById("subtitle-text-2");
 	const tips = document.getElementById("tips");
 
 	const API_SUBMIT_URL = "/api/capability/subtitleTask";
 	const API_PROGRESS_URL = "/api/capability/subtitleTask";
 	const API_UPLOAD_URL = "/api/file";
 
-	let uploadedVideoUrl = null; // 存储上传后的视频地址
-	let uploadedAudioUrl = null; // 存储上传后的音频地址
+	let uploadedVideoUrl = null;
+	let uploadedAudioUrl = null;
 
-	// 更新状态（启用或禁用表单项）
 	function updateFormState() {
 		translationLanguage.disabled = !translationToggle.checked;
 		if (!translationToggle.checked) {
@@ -528,7 +529,6 @@
 		}
 		voiceoverToggle.disabled = !translationToggle.checked;
 		bilingualToggle.disabled = !translationToggle.checked;
-		voiceoverToggle.disabled = !translationToggle.checked;
 		bilingualPosition.disabled = !bilingualToggle.checked;
 		voiceoverVoice.disabled = !voiceoverToggle.checked;
 		voiceFileInput.disabled = !voiceoverToggle.checked;
@@ -536,27 +536,11 @@
 		wordReplacementContainer.style.display = wordReplacementToggle.checked ? "block" : "none";
 	}
 
-	// 字幕翻译开关
-	translationToggle.addEventListener("change", () => {
-		updateFormState();
-	});
+	translationToggle.addEventListener("change", updateFormState);
+	bilingualToggle.addEventListener("change", () => bilingualPosition.disabled = !bilingualToggle.checked);
+	voiceoverToggle.addEventListener("change", updateFormState);
+	wordReplacementToggle.addEventListener("change", () => wordReplacementContainer.style.display = wordReplacementToggle.checked ? "block" : "none");
 
-	// 双语字幕开关
-	bilingualToggle.addEventListener("change", () => {
-		bilingualPosition.disabled = !bilingualToggle.checked;
-	});
-
-	// 配音开关
-	voiceoverToggle.addEventListener("change", () => {
-		updateFormState();
-	});
-
-	// 词汇替换开关
-	wordReplacementToggle.addEventListener("change", () => {
-		updateFormState();
-	});
-
-	// 新增词汇替换行
 	addRowButton.addEventListener("click", () => {
 		const newRow = document.createElement("div");
 		newRow.className = "replacement-row";
@@ -566,14 +550,9 @@
         <button type="button" class="remove-row">删除</button>
       `;
 		wordReplacementContainer.insertBefore(newRow, addRowButton);
-
-		// 绑定删除按钮事件
-		newRow.querySelector(".remove-row").addEventListener("click", () => {
-			newRow.remove();
-		});
+		newRow.querySelector(".remove-row").addEventListener("click", () => newRow.remove());
 	});
 
-	// 删除上传音频
 	voiceFileInputRemove.addEventListener("click", () => {
 		voiceFileInput.value = '';
 		voiceFileInputName.textContent = '选择音色克隆样本';
@@ -581,32 +560,17 @@
 		voiceFileInputRemove.style.display = 'none';
 	});
 
-	// 监听“合成字幕嵌入视频”选项
 	embedSubtitle.addEventListener("change", () => {
 		const selectedValue = embedSubtitle.value;
-		if (selectedValue === "vertical" || selectedValue === "all") {
-			subtitleTextInputs.classList.remove("hidden");
-		} else {
-			subtitleTextInputs.classList.add("hidden");
-		}
+		subtitleTextInputs.classList.toggle("hidden", ![ "vertical", "all" ].includes(selectedValue));
 	});
 
-	// 监听“合成字幕嵌入视频”选项
-	document.getElementById('embed-subtitle').addEventListener('change', function() {
-		const hintElement = document.getElementById('subtitle-hint');
-		const selectedValue = this.value;
-
-		if (selectedValue === 'vertical') {
-			hintElement.textContent = '适合小红书、视频号、Shorts等';
-		} else if (selectedValue === 'horizontal') {
-			hintElement.textContent = '适合B站、Youtube等';
-		} else {
-			hintElement.textContent = ''; // 清空提示信息
-		}
+	embedSubtitle.addEventListener('change', function() {
+		const hint = document.getElementById('subtitle-hint');
+		hint.textContent = this.value === 'vertical' ? '适合小红书、视频号、Shorts等' : this.value === 'horizontal' ? '适合B站、Youtube等' : '';
 	});
 
-	// 提交表单
-	function getParams () {
+	function getParams() {
 		const formData = {
 			language: 'zh_cn',
 			origin_lang: document.getElementById("source-language").value,
@@ -615,276 +579,177 @@
 			translation_subtitle_pos: +bilingualPosition.value,
 			tts: voiceoverToggle.checked ? 1 : 2,
 			modal_filter: document.getElementById("filler-filter-toggle").checked ? 1 : 2,
-			embed_subtitle_video_type: embedSubtitleVideoTypeToggle.checked ? embedSubtitleVideoType.value : 'none',
+			embed_subtitle_video_type: embedSubtitle.checked ? embedSubtitle.value : 'none',
 		};
 
 		if (formData.tts === 1) {
 			formData.tts_voice_code = +voiceoverVoice.value;
-			if (uploadedAudioUrl) {
-				formData.tts_voice_clone_src_file_url = uploadedAudioUrl;
-			}
+			if (uploadedAudioUrl) formData.tts_voice_clone_src_file_url = uploadedAudioUrl;
 		}
 
-		if (formData.target_lang === 'ro2') {
-			formData.target_lang = 'ro';
-		}
+		formData.target_lang = formData.target_lang === 'ro2' ? 'ro' : formData.target_lang;
 
 		if (wordReplacementToggle.checked) {
 			formData.replace = Array.from(document.querySelectorAll(".replacement-row")).map(row => {
-				if (row.querySelector(".original-word").value) {
-					return (`${row.querySelector(".original-word").value}|${row.querySelector(".replacement-word").value}`
-					);
-				} else {
-					return null;
-				}
-			}).filter(item => item !== null)
+				const original = row.querySelector(".original-word").value;
+				const replacement = row.querySelector(".replacement-word").value;
+				return original ? `${original}|${replacement}` : null;
+			}).filter(Boolean);
 		}
 
-		// 添加字幕文本到请求参数中
-		if (embedSubtitleVideoTypeToggle.checked && (embedSubtitle.value === "vertical" || embedSubtitle.value === "all")) {
-			formData.vertical_major_title = verticalMajorTitle.value;
-			formData.vertical_minor_title = verticalMinorTitle.value;
+		if (embedSubtitle.checked && [ "vertical", "all" ].includes(embedSubtitle.value)) {
+			formData.vertical_major_title = document.getElementById("subtitle-text-1").value;
+			formData.vertical_minor_title = document.getElementById("subtitle-text-2").value;
 		}
-
-		console.log("表单数据：", formData);
 
 		return formData;
 	}
 
-	// 初始化时更新表单状态
 	updateFormState();
 
-	// 切换输入方式
 	document.querySelectorAll('input[name="inputType"]').forEach(radio => {
 		radio.addEventListener('change', () => {
-			if (radio.value === 'url') {
-				urlInputContainer.classList.remove('hidden');
-				fileInputContainer.classList.add('hidden');
-				fileInput.required = false;
-				urlInput.required = true;
-				executeButton.disabled = false; // 启用“执行”按钮
-			} else {
-				urlInputContainer.classList.add('hidden');
-				fileInputContainer.classList.remove('hidden');
-				urlInput.required = false;
-				fileInput.required = true;
-				executeButton.disabled = true; // 禁用“执行”按钮，等待上传完成
-			}
+			const value = radio.value;
+			urlInputContainer.classList.toggle("hidden", value !== 'url');
+			fileInputContainer.classList.toggle("hidden", value !== 'file');
+			existingTaskInputContainer.classList.toggle("hidden", value !== 'existing_task');
+			urlInput.required = value === 'url';
+			fileInput.required = value === 'file';
+			existingTaskFile.required = value === 'existing_task';
+			executeButton.disabled = !urlInput.value && !uploadedVideoUrl && !existingTaskFile.value;
 		});
 	});
 
-	// 处理视频上传
 	fileInput.addEventListener('change', async () => {
-		if (fileInput.files.length === 0) return;
-
+		if (!fileInput.files.length) return;
 		uploadStatus.classList.remove('hidden');
-		executeButton.disabled = true; // 禁用“执行”按钮
+		executeButton.disabled = true;
 
 		const formData = new FormData();
-		for (const file of fileInput.files) {
-			formData.append('file', file); // 确保字段名与后端一致
-		}
+		for (const file of fileInput.files) formData.append('file', file);
 
 		try {
-			const response = await fetch(API_UPLOAD_URL, {
-				method: 'POST',
-				body: formData,
-			});
+			const response = await fetch(API_UPLOAD_URL, { method: 'POST', body: formData });
 			if (!response.ok) throw new Error('视频上传失败');
-			const res = await response.json();
-			const { error, data, msg } = res || {};
-			if (error !== 0 && error !== 200) {
-				throw new Error(msg || '上传失败，请重试');
-			}
-			uploadedVideoUrl = data.file_path; // 获取返回的文件路径数组
-			executeButton.disabled = false; // 启用“执行”按钮
+			const { error, data } = await response.json();
+			if (error !== 0) throw new Error(data.msg || '上传失败，请重试');
+			uploadedVideoUrl = data.file_path;
 		} catch (error) {
-			console.error('视频上传失败:', error);
 			alert(error);
+			console.error('视频上传失败:', error);
 		} finally {
 			uploadStatus.classList.add('hidden');
+			executeButton.disabled = !uploadedVideoUrl;
 		}
 	});
 
-	// 处理音频上传
 	voiceFileInput.addEventListener('change', async () => {
-		if (voiceFileInput.files.length === 0) return;
-
+		if (!voiceFileInput.files.length) return;
 		voiceUploadStatus.classList.remove('hidden');
 
 		const file = voiceFileInput.files[0];
-
 		const formData = new FormData();
 		formData.append('file', file);
 
 		try {
-			const response = await fetch(API_UPLOAD_URL, {
-				method: 'POST',
-				body: formData,
-			});
-			if (!response.ok) throw new Error('上传失败');
-			const res = await response.json();
-			const { error, data, msg } = res || {};
-			if (error !== 0 && error !== 200) {
-				throw new Error(msg || '上传失败，请重试')
-			}
-			uploadedAudioUrl = data.file_path; // 获取返回的地址
+			const response = await fetch(API_UPLOAD_URL, { method: 'POST', body: formData });
+			if (!response.ok) throw new Error('音频上传失败');
+			const { error, data } = await response.json();
+			if (error !== 0) throw new Error(data.msg || '上传失败，请重试');
+			uploadedAudioUrl = data.file_path;
 			voiceFileInputName.textContent = file.name;
 			voiceFileInputRemove.style.display = 'block';
 		} catch (error) {
-			console.error('音频上传失败:', error);
 			alert(error);
+			console.error('音频上传失败:', error);
 		} finally {
 			voiceUploadStatus.classList.add('hidden');
 		}
 	});
 
-	// 点击执行按钮发送任务请求
 	taskForm.addEventListener('submit', async (event) => {
 		event.preventDefault();
+		if (!taskForm.checkValidity()) return;
 
-		if (!taskForm.checkValidity()) {
-			taskForm.reportValidity();
-			return;
-		}
-
-		if (!bilingualToggle.checked && embedSubtitleVideoTypeToggle.checked) {
-			alert('合成字幕嵌入视频必须打开双语选项')
+		if (!bilingualToggle.checked && embedSubtitle.checked) {
+			alert('合成字幕嵌入视频必须打开双语选项');
 			return;
 		}
 
 		const inputType = document.querySelector('input[name="inputType"]:checked').value;
-		// const params = {
-		// 	bilingual: 1,
-		// 	language: "en",
-		// 	modal_filter: 1,
-		// 	origin_lang: "en",
-		// 	target_lang: "zh_cn",
-		// 	translation_subtitle_pos: 1,
-		// 	tts: 2
-		// };
-		let url = '';
+		let inputValue;
 
 		if (inputType === 'url') {
-			url = urlInput.value.trim();
-		} else if (inputType === 'file' && uploadedVideoUrl) {
-			url = uploadedVideoUrl;
-		} else {
-			alert('请上传视频后再执行任务');
+			inputValue = urlInput.value.trim();
+		} else if (inputType === 'file') {
+			inputValue = uploadedVideoUrl;
+		} else if (inputType === 'existing_task') {
+			// 加载任务逻辑待补充，此处示例返回虚拟 taskId（需对接后端）
+			inputValue = 'existing_task_demo_id';
+		}
+
+		if (!inputValue) {
+			alert('请提供有效输入');
 			return;
 		}
 
-		if (!url) {
-			alert('请输入视频链接后再执行任务');
-			return;
-		}
 		const params = getParams();
-		// 请求启动任务接口
-		if (Array.isArray(url)) {
-			for (const singleUrl of url) {
-				const taskId = await startTask({ ...params, url: singleUrl });
-				if (taskId) {
-					executeButton.disabled = true;
-					progressSection.classList.remove('hidden');
-					await pollTaskProgress(taskId);
-				}
-			}
-		} else {
-			const taskId = await startTask({ ...params, url });
-			if (taskId) {
-				executeButton.disabled = true;
-				progressSection.classList.remove('hidden');
-				await pollTaskProgress(taskId);
-			}
-		}
-	});
+		params.url = inputValue;
 
-
-	// 请求启动任务接口
-	async function startTask(params) {
 		try {
 			const response = await fetch(API_SUBMIT_URL, {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(params),
-			}).then(res => res.json()).then(data => {
-				return data;
 			});
-			if (+response.error !== 0 && +response.error !== 200) {
-				throw new Error(response.msg || '启动任务失败');
-			}
-			return (response.data || {}).task_id || '';
+			const { error, data } = await response.json();
+			if (error !== 0) throw new Error(data.msg || '任务启动失败');
+			const taskId = data.task_id;
+
+			executeButton.disabled = true;
+			progressSection.classList.remove('hidden');
+			await pollTaskProgress(taskId);
 		} catch (error) {
 			alert(error);
-			console.error('启动任务失败:', error);
-			return null;
+			console.error('任务处理失败:', error);
 		}
+	});
 
-		// return new Promise(resolve => setTimeout(() => resolve('taskId123'), 1000)); // 模拟返回 taskId
-	}
-
-	// 轮询任务进度接口
 	async function pollTaskProgress(taskId) {
-		try {
-			let progress = 0;
-			while (progress < 100) {
-				const response = await fetch(`${API_PROGRESS_URL}?taskId=${taskId}`).then(res => res.json()).then(data => {
-					return data || {};
-				});
-				console.log('progress response---:', response);
-				if (+response.error !== 0 && +response.error !== 200) {
-					executeButton.disabled = false;
-					throw new Error(response.msg || '查询进度失败');
-				}
-				const data = response.data || {};
-				progress = data.process_percent || 0;
-				progressBar.style.width = progress + '%';
-				progressBar.textContent = progress + '%';
-				if (progress >= 100) {
-					displayDownloadLinks(data.subtitle_info || [], data.speech_download_url || '');
-					executeButton.disabled = false;
-					// 显示output路径说明
-					tips.textContent = "若需要查看合成的视频或者文字稿，请到软件目录下的/tasks/"+data.task_id+"/output 目录下查看。";
-					return;
-				}
-				await new Promise(resolve => setTimeout(resolve, 5000));
+		let progress = 0;
+		while (progress < 100) {
+			const response = await fetch(`${API_PROGRESS_URL}?taskId=${taskId}`);
+			const { data } = await response.json();
+			progress = data.process_percent || 0;
+			progressBar.style.width = `${progress}%`;
+			progressBar.textContent = `${progress}%`;
+
+			if (progress >= 100) {
+				displayDownloadLinks(data.subtitle_info, data.speech_download_url);
+				tips.textContent = `合成结果位于：/tasks/${data.task_id}/output`;
+				break;
 			}
-		} catch (error) {
-			alert(error);
-			executeButton.disabled = false;
-			console.error('查询进度失败:', error);
+			await new Promise(resolve => setTimeout(resolve, 5000));
 		}
+		executeButton.disabled = false;
 	}
 
-	// 显示下载链接
 	function displayDownloadLinks(urls, speechUrl) {
-		console.log(urls);
 		downloadLinks.innerHTML = '';
-
-		urls.forEach(({name, download_url}) => {
+		(urls || []).forEach(({ name, download_url }) => {
 			const link = document.createElement('a');
 			link.href = download_url;
 			link.textContent = name;
-			link.download = '';
-			link.classList.add('download-button'); // 添加按钮样式
+			link.classList.add('download-button');
 			downloadLinks.appendChild(link);
 		});
-
 		if (speechUrl) {
-			const sArr = speechUrl.split('/');
-			const sName = sArr[sArr.length - 1];
-
 			const link = document.createElement('a');
 			link.href = speechUrl;
-			link.target = '_blank';
-			link.textContent = `配音：${sName}`;
-			link.download = '';
-			link.classList.add('download-button'); // 添加按钮样式
+			link.textContent = `配音文件：${speechUrl.split('/').pop()}`;
+			link.classList.add('download-button');
 			downloadLinks.appendChild(link);
 		}
-
 		downloadLinks.classList.remove('hidden');
 	}
 </script>
