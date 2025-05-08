@@ -1019,10 +1019,21 @@ func parseAndCheckContent(splitContent, originalText string) ([]TranslatedItem, 
 
 	// 处理无文本标记
 	if strings.Contains(splitContent, "[无文本]") {
-		if len(strings.TrimSpace(originalText)) < 10 {
+		// 检查原始文本是否是音乐标记或类似内容
+		lowerOriginal := strings.ToLower(strings.TrimSpace(originalText))
+		if len(lowerOriginal) < 30 && (strings.Contains(lowerOriginal, "music") ||
+			strings.Contains(lowerOriginal, "playing") ||
+			strings.Contains(lowerOriginal, "♪") ||
+			strings.Contains(lowerOriginal, "♫") ||
+			len(lowerOriginal) < 10) {
+			// 如果原始文本是音乐标记或很短，则返回空结果
 			return result, nil
 		} else {
-			return nil, errors.New("originalText is not empty but splitContent contains [无文本]")
+			// 记录警告但不返回错误，允许处理继续
+			log.GetLogger().Warn("originalText might contain actual content but splitContent contains [无文本]",
+				zap.String("originalText", originalText),
+				zap.String("splitContent", splitContent))
+			return result, nil
 		}
 	}
 
