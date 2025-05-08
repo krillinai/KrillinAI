@@ -3,10 +3,9 @@ package service
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -19,6 +18,9 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // 翻译结果数据结构
@@ -26,6 +28,8 @@ type TranslatedItem struct {
 	OriginText     string
 	TranslatedText string
 }
+
+const StatusFileName = "task_status.json"
 
 func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	var err error
@@ -171,6 +175,23 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	//如果是读中断，则配置文件中获得中断的状态
+	if stepParam.InterruptStatus == "interrupt" {
+		statusFilePath := filepath.Join(stepParam.TaskBasePath, StatusFileName)
+		status, err := loadTaskStatus(statusFilePath)
+		if err != nil {
+			return fmt.Errorf("audioToSrt loadTaskStatus error: %w", err)
+		}
+
+		if status.TranslatedResults != nil {
+			for id, results := range status.TranslatedResults {
+				translatedQueue <- DataWithId[[]TranslatedItem]{
+					Data: results,
+					Id:   id,
+				}
+			}
+		}
+	}
 	// 并发启动协程处理翻译
 	for range config.Conf.App.TranslateParallelNum {
 		eg.Go(func() error {
@@ -388,6 +409,51 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	log.GetLogger().Info("audioToSubtitle.audioToSrt end", zap.Any("taskId", stepParam.TaskId))
 
 	return nil
+}
+
+type TaskStatus struct {
+	CompletedFiles    map[string]bool
+	TranslatedResults map[int][]TranslatedItem
+}
+
+func loadTaskStatus(filePath string) (TaskStatus, error) {
+	var status TaskStatus
+	file, err := os.Open(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return TaskStatus{CompletedFiles: make(map[string]bool)}, errors.New("AudioToSrt status file not found")
+		}
+		return status, err
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return status, err
+	}
+	if fileInfo.Size() == 0 {
+		return TaskStatus{CompletedFiles: make(map[string]bool)}, nil
+	}
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&status)
+	if err != nil {
+		return status, err
+	}
+	if status.TranslatedResults == nil {
+		status.TranslatedResults = make(map[int][]TranslatedItem)
+	}
+	return status, nil
+}
+
+func saveTaskStatus(status TaskStatus, filePath string) error {
+	file, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	return encoder.Encode(status)
 }
 
 func splitSrt(stepParam *types.SubtitleTaskStepParam) error {

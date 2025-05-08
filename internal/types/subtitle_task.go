@@ -173,6 +173,7 @@ type SubtitleTaskStepParam struct {
 	TaskId                      string
 	TaskPtr                     *SubtitleTask // 和storage里面对应
 	TaskBasePath                string
+	InterruptStatus             string
 	Link                        string
 	AudioFilePath               string
 	SmallAudios                 []*SmallAudio
