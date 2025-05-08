@@ -64,33 +64,6 @@ func (h Handler) GetSubtitleTask(c *gin.Context) {
 	})
 }
 
-func (h Handler) LoadExistingTask(c *gin.Context) {
-	var req dto.LoadExistingTaskReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.R(c, response.Response{
-			Error: -1,
-			Msg:   "参数错误",
-			Data:  nil,
-		})
-		return
-	}
-	svc := h.Service
-	data, err := svc.LoadExistingTask(req)
-	if err != nil {
-		response.R(c, response.Response{
-			Error: -1,
-			Msg:   err.Error(),
-			Data:  nil,
-		})
-		return
-	}
-	response.R(c, response.Response{
-		Error: 0,
-		Msg:   "成功",
-		Data:  data,
-	})
-}
-
 func (h Handler) UploadFile(c *gin.Context) {
 	form, err := c.MultipartForm()
 	if err != nil {

@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -30,6 +28,7 @@ type TranslatedItem struct {
 	OriginText     string
 	TranslatedText string
 }
+
 const StatusFileName = "task_status.json"
 
 func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
@@ -176,24 +175,23 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	//eg, ctx = errgroup.WithContext(ctx)
-	statusFilePath := "task_status.json"
-	file, err := os.Create(statusFilePath)
-	if err != nil {
-		log.GetLogger().Info("Failed to create task status file:", zap.Error(err))
-		return err
-	}
-	status, err := loadTaskStatus(statusFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to load task status: %w", err)
-	}
-	fmt.Println(status)
-	/*if status.CompletedFiles[audioFileItem.AudioFile] {
-				log.GetLogger().Info("Skipping completed file:", zap.Any("audioFile", audioFileItem))
+	//如果是读中断，则配置文件中获得中断的状态
+	if stepParam.InterruptStatus == "interrupt" {
+		statusFilePath := filepath.Join(stepParam.TaskBasePath, StatusFileName)
+		status, err := loadTaskStatus(statusFilePath)
+		if err != nil {
+			return fmt.Errorf("audioToSrt loadTaskStatus error: %w", err)
+		}
+
+		if status.TranslatedResults != nil {
+			for id, results := range status.TranslatedResults {
+				translatedQueue <- DataWithId[[]TranslatedItem]{
+					Data: results,
+					Id:   id,
+				}
 			}
-			parallelControlChan <- struct{}{}
-			audioFile := audioFileItem
-	*/
+		}
+	}
 	// 并发启动协程处理翻译
 	for range config.Conf.App.TranslateParallelNum {
 		eg.Go(func() error {
@@ -343,7 +341,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 		}
 	})
 
-	err = eg.Wait()
+	err := eg.Wait()
 	if err != nil {
 		log.GetLogger().Error("audioToSubtitle audioToSrt errgroup wait err", zap.Any("stepParam", stepParam), zap.Error(err))
 		return fmt.Errorf("audioToSubtitle audioToSrt errgroup wait err: %w", err)
@@ -414,7 +412,8 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 }
 
 type TaskStatus struct {
-	CompletedFiles map[string]bool
+	CompletedFiles    map[string]bool
+	TranslatedResults map[int][]TranslatedItem
 }
 
 func loadTaskStatus(filePath string) (TaskStatus, error) {
@@ -422,7 +421,7 @@ func loadTaskStatus(filePath string) (TaskStatus, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return TaskStatus{CompletedFiles: make(map[string]bool)}, nil
+			return TaskStatus{CompletedFiles: make(map[string]bool)}, errors.New("AudioToSrt status file not found")
 		}
 		return status, err
 	}
@@ -437,7 +436,13 @@ func loadTaskStatus(filePath string) (TaskStatus, error) {
 	}
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&status)
-	return status, err
+	if err != nil {
+		return status, err
+	}
+	if status.TranslatedResults == nil {
+		status.TranslatedResults = make(map[int][]TranslatedItem)
+	}
+	return status, nil
 }
 
 func saveTaskStatus(status TaskStatus, filePath string) error {
@@ -450,7 +455,6 @@ func saveTaskStatus(status TaskStatus, filePath string) error {
 	encoder := json.NewEncoder(file)
 	return encoder.Encode(status)
 }
-
 
 func splitSrt(stepParam *types.SubtitleTaskStepParam) error {
 	log.GetLogger().Info("audioToSubtitle.splitSrt start", zap.Any("task id", stepParam.TaskId))
