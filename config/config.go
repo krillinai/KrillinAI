@@ -195,7 +195,7 @@ func validateConfig() error {
 
 func LoadConfig() {
 	var err error
-	configPath := "./config/config-new.toml"
+	configPath := "./config/config.toml"
 	if _, err = os.Stat(configPath); os.IsNotExist(err) {
 		return
 	} else {
