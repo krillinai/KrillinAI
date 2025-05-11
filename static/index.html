@@ -546,12 +546,12 @@
 
 <script>
     function TaskList() {
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useCallback } = React;
         const [tasks, setTasks] = useState([]);
         const [isLoading, setIsLoading] = useState(true);
         const [error, setError] = useState(null);
-
         const API_TASKS_URL = "/api/tasks";
+        const API_PROGRESS_URL = "/api/progress";
 
         useEffect(() => {
             fetchTasks();
@@ -564,21 +564,50 @@
                 const response = await fetch(API_TASKS_URL);
                 if (!response.ok) throw new Error(`HTTP错误：${response.status}`);
                 const responseData = await response.json();
-                if (!responseData.success) throw new Error(responseData.message);
 
-                const formattedTasks = responseData.data.map(task => ({
+                if (responseData.error !== 0) throw new Error(responseData.msg || "获取任务失败");
+
+                // 从 Data 中获取 tasks 数组
+                const taskList = responseData.data.tasks;
+                const formattedTasks = taskList.map(task => ({
                     taskId: task.task_id,
                     name: task.task_name,
                     status: task.status,
                     progress: task.progress
                 }));
                 setTasks(formattedTasks);
+
+                // 检查任务状态为 processing 的任务并获取进度
+                formattedTasks.forEach(task => {
+                    if (task.status === "processing") {
+                        fetchTaskProgress(task.taskId);
+                    }
+                });
             } catch (err) {
                 setError(`获取任务失败：${err.message}`);
             } finally {
                 setIsLoading(false);
             }
         };
+
+        const fetchTaskProgress = useCallback(async (taskId) => {
+            try {
+                const response = await fetch(`${API_PROGRESS_URL}?taskId=${taskId}`);
+                if (!response.ok) throw new Error(`HTTP错误：${response.status}`);
+                const responseData = await response.json();
+
+                if (responseData.error !== 0) throw new Error(responseData.msg || "获取进度失败");
+
+                // 更新任务进度
+                setTasks(prevTasks => prevTasks.map(task =>
+                    task.taskId === taskId
+                        ? {...task, progress: responseData.progress, status: responseData.status }
+                        : task
+                ));
+            } catch (err) {
+                console.error(`获取任务进度失败：${err.message}`);
+            }
+        }, []);
 
         if (isLoading) {
             return React.createElement('div', { className: 'loading' }, '加载任务列表中...');

@@ -129,3 +129,20 @@ func (h Handler) DownloadFile(c *gin.Context) {
 	}
 	c.FileAttachment(localFilePath, filepath.Base(localFilePath))
 }
+
+func (h Handler) GetAllTasks(c *gin.Context) {
+	svc := h.Service
+	tasks, err := svc.GetAllTasks()
+	if err != nil {
+		response.R(c, response.Response{
+			Error: -1,
+			Msg:   "获取所有任务列表失败",
+			Data:  nil,
+		})
+	}
+	response.R(c, response.Response{
+		Error: 0,
+		Msg:   "获取所有任务列表成功",
+		Data:  tasks,
+	})
+}

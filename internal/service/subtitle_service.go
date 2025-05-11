@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
+	"io/fs"
 	"krillin-ai/internal/dto"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -218,4 +220,134 @@ func (s Service) GetTaskStatus(req dto.GetVideoSubtitleTaskReq) (*dto.GetVideoSu
 		TargetLanguage:    taskPtr.TargetLanguage,
 		SpeechDownloadUrl: taskPtr.SpeechDownloadUrl,
 	}, nil
+}
+
+func (s Service) GetAllTasks() (*dto.GetAllTaskRes, error) {
+	var tasks []dto.GetOneTask
+
+	currentDir, err := os.Getwd()
+	if err != nil {
+		log.GetLogger().Error("Get Current WorkDir err", zap.Error(err))
+		return nil, err
+	}
+	tasksDir := filepath.Join(currentDir, "tasks")
+
+	err = filepath.WalkDir(tasksDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			log.GetLogger().Error("GetAllTasks WalkDir err", zap.Error(err))
+			return err
+		}
+		if d.IsDir() {
+			parentDir := filepath.Dir(path)
+			if parentDir == tasksDir {
+				taskStorage, ok := storage.SubtitleTasks.Load(d.Name())
+				var task dto.GetOneTask
+				if ok && taskStorage != nil {
+					//进行中，能获取到任务,直接获取任务信息
+					taskPtr := taskStorage.(*types.SubtitleTask)
+					task = dto.GetOneTask{
+						TaskID:   taskPtr.TaskId,
+						TaskName: d.Name(),
+						Status:   "processing",
+						Progress: int(taskPtr.ProcessPct),
+					}
+				} else {
+					//可能是中断或者完成，这时候应该扫描文件去检查
+					IsCompleted, err := IsTaskCompleted(tasksDir, d.Name())
+					if err != nil {
+						log.GetLogger().Error("GetAllTasks IsTaskCompleted err", zap.Error(err))
+						return err
+					}
+					if IsCompleted {
+						task = dto.GetOneTask{
+							TaskID:   d.Name(),
+							TaskName: d.Name(),
+							Status:   "success",
+						}
+					} else {
+						IsInterrupted, err := IsTaskInterrupted(tasksDir, d.Name())
+						if err != nil {
+							log.GetLogger().Error("GetAllTasks IsTaskInterrupted err", zap.Error(err))
+							return err
+						}
+						if IsInterrupted {
+							task = dto.GetOneTask{
+								TaskID:   d.Name(),
+								TaskName: d.Name(),
+								Status:   "interrupted",
+							}
+						}
+					}
+				}
+				tasks = append(tasks, task)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &dto.GetAllTaskRes{Tasks: tasks}, nil
+}
+
+// 加载并解析任务状态文件
+func LoadTaskStatus(taskDir string) (dto.TaskStatusDTO, error) {
+	statusFilePath := filepath.Join(taskDir, types.StatusFileName)
+	// 检查文件是否存在
+	if _, err := os.Stat(statusFilePath); os.IsNotExist(err) {
+		return dto.TaskStatusDTO{
+			Status:         types.SubtitleTaskStatusUnknown, // 默认未知状态
+			Message:        "状态文件不存在，可能是旧版本任务",
+			CompletedFiles: make(map[string]bool),
+		}, nil
+	} else if err != nil {
+		return dto.TaskStatusDTO{}, fmt.Errorf("检查状态文件时出错: %v", err)
+	}
+	file, err := os.Open(statusFilePath)
+	if err != nil {
+		return dto.TaskStatusDTO{}, fmt.Errorf("打开状态文件失败: %v", err)
+	}
+	defer file.Close()
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return dto.TaskStatusDTO{}, fmt.Errorf("获取文件信息失败: %v", err)
+	}
+	status := dto.TaskStatusDTO{
+		Status:         types.SubtitleTaskStatusUnknown,
+		CompletedFiles: make(map[string]bool),
+	}
+
+	if fileInfo.Size() > 0 {
+		if err := json.NewDecoder(file).Decode(&status); err != nil {
+			return dto.TaskStatusDTO{}, fmt.Errorf("解析状态文件失败: %v", err)
+		}
+	}
+	// 确保 map 字段已初始化
+	if status.CompletedFiles == nil {
+		status.CompletedFiles = make(map[string]bool)
+	}
+	if status.TranslatedResults == nil {
+		status.TranslatedResults = make(map[int][]dto.TranslatedItemDTO)
+	}
+	return status, nil
+}
+
+// IsTaskCompleted 判断任务是否已完成
+func IsTaskCompleted(taskDir string, fileName string) (bool, error) {
+	FilePath := filepath.Join(taskDir, fileName)
+	status, err := LoadTaskStatus(FilePath)
+	if err != nil {
+		return false, err
+	}
+	return status.Status == types.SubtitleTaskStatusSuccess, nil
+}
+
+// IsTaskInterrupted 判断任务是否中断
+func IsTaskInterrupted(taskDir string, fileName string) (bool, error) {
+	FilePath := filepath.Join(taskDir, fileName)
+	status, err := LoadTaskStatus(FilePath)
+	if err != nil {
+		return false, err
+	}
+	return status.Status == types.SubtitleTaskStatusInterrupted, nil
 }

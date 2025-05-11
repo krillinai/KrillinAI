@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"krillin-ai/config"
+	"krillin-ai/internal/dto"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
@@ -28,8 +29,6 @@ type TranslatedItem struct {
 	OriginText     string
 	TranslatedText string
 }
-
-const StatusFileName = "task_status.json"
 
 func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	var err error
@@ -177,7 +176,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 
 	//如果是读中断，则配置文件中获得中断的状态
 	if stepParam.InterruptStatus == "interrupt" {
-		statusFilePath := filepath.Join(stepParam.TaskBasePath, StatusFileName)
+		statusFilePath := filepath.Join(stepParam.TaskBasePath, types.StatusFileName)
 		status, err := loadTaskStatus(statusFilePath)
 		if err != nil {
 			return fmt.Errorf("audioToSrt loadTaskStatus error: %w", err)
@@ -186,7 +185,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 		if status.TranslatedResults != nil {
 			for id, results := range status.TranslatedResults {
 				translatedQueue <- DataWithId[[]TranslatedItem]{
-					Data: results,
+					Data: convertToTranslatedItem(results),
 					Id:   id,
 				}
 			}
@@ -411,17 +410,12 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	return nil
 }
 
-type TaskStatus struct {
-	CompletedFiles    map[string]bool
-	TranslatedResults map[int][]TranslatedItem
-}
-
-func loadTaskStatus(filePath string) (TaskStatus, error) {
-	var status TaskStatus
+func loadTaskStatus(filePath string) (dto.TaskStatusDTO, error) {
+	var status dto.TaskStatusDTO
 	file, err := os.Open(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return TaskStatus{CompletedFiles: make(map[string]bool)}, errors.New("AudioToSrt status file not found")
+			return dto.TaskStatusDTO{CompletedFiles: make(map[string]bool)}, errors.New("AudioToSrt status file not found")
 		}
 		return status, err
 	}
@@ -432,7 +426,7 @@ func loadTaskStatus(filePath string) (TaskStatus, error) {
 		return status, err
 	}
 	if fileInfo.Size() == 0 {
-		return TaskStatus{CompletedFiles: make(map[string]bool)}, nil
+		return dto.TaskStatusDTO{CompletedFiles: make(map[string]bool)}, nil
 	}
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&status)
@@ -440,12 +434,12 @@ func loadTaskStatus(filePath string) (TaskStatus, error) {
 		return status, err
 	}
 	if status.TranslatedResults == nil {
-		status.TranslatedResults = make(map[int][]TranslatedItem)
+		status.TranslatedResults = make(map[int][]dto.TranslatedItemDTO)
 	}
 	return status, nil
 }
 
-func saveTaskStatus(status TaskStatus, filePath string) error {
+func saveTaskStatus(status dto.TaskStatusDTO, filePath string) error {
 	file, err := os.Create(filePath)
 	if err != nil {
 		return err

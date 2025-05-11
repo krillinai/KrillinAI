@@ -33,9 +33,6 @@ type GetVideoSubtitleTaskReq struct {
 	TaskId string `form:"taskId"`
 }
 
-type LoadExistingTaskReq struct {
-}
-
 type VideoInfo struct {
 	Title                 string `json:"title"`
 	Description           string `json:"description"`
@@ -56,6 +53,31 @@ type GetVideoSubtitleTaskResData struct {
 	SubtitleInfo      []*SubtitleInfo `json:"subtitle_info"`
 	TargetLanguage    string          `json:"target_language"`
 	SpeechDownloadUrl string          `json:"speech_download_url"`
+}
+
+// 获取所有任务
+type GetAllTaskReq struct {
+}
+
+type GetOneTask struct {
+	TaskID   string `json:"task_id"`
+	TaskName string `json:"task_name"`
+	Status   string `json:"status"`
+	Progress int    `json:"progress"`
+}
+type GetAllTaskRes struct {
+	Tasks []GetOneTask `json:"tasks"`
+}
+
+type TranslatedItemDTO struct {
+	OriginText     string
+	TranslatedText string
+}
+type TaskStatusDTO struct {
+	Status            uint8                       `json:"status"`
+	Message           string                      `json:"message,omitempty"`
+	CompletedFiles    map[string]bool             `json:"completedFiles"`
+	TranslatedResults map[int][]TranslatedItemDTO `json:"translatedResults"`
 }
 
 type GetVideoSubtitleTaskRes struct {
