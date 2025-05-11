@@ -11,7 +11,6 @@ import (
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
 	"os/exec"
-	"strconv"
 	"strings"
 )
 
@@ -27,7 +26,7 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 	if strings.Contains(link, "local:") {
 		// 本地文件
 		videoPath = strings.ReplaceAll(link, "local:", "")
-		cmd := exec.Command(storage.FfmpegPath, "-i", videoPath, "-vn", "-threads", strconv.Itoa(config.Conf.App.FfmepegParallelNum), "-ar", "44100", "-ac", "2", "-ab", "192k", "-f", "mp3", audioPath)
+		cmd := exec.Command(storage.FfmpegPath, "-i", videoPath, "-vn", "-ar", "44100", "-ac", "2", "-ab", "192k", "-f", "mp3", audioPath)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			log.GetLogger().Error("generateAudioSubtitles.linkToFile ffmpeg error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))

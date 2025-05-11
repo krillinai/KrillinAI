@@ -180,25 +180,6 @@ func CheckConfig() error {
 	if err != nil {
 		return err
 	}
-
-	// 限制ffmpeg并发数
-	max := func(a, b int) int {
-		if a > b {
-			return a
-		}
-		return b
-	}
-	min := func(a, b int) int {
-		if a < b {
-			return a
-		}
-		return b
-	}
-	FfmepegParallelNum := min(
-		max(runtime.NumCPU()-2, 1),
-		Conf.App.FfmepegParallelNum,
-	)
-	Conf.App.FfmepegParallelNum = FfmepegParallelNum
 	return validateConfig()
 }
 
