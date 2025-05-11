@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -19,6 +17,9 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // 翻译结果数据结构
