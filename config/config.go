@@ -3,23 +3,26 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/BurntSushi/toml"
-	"go.uber.org/zap"
 	"krillin-ai/log"
 	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"github.com/BurntSushi/toml"
+	"go.uber.org/zap"
 )
 
 type App struct {
-	SegmentDuration      int      `toml:"segment_duration"`
-	FfmepegParallelNum   int      `toml:"ffmpeg_parallel_num"`
-	TranslateParallelNum int      `toml:"translate_parallel_num"`
-	Proxy                string   `toml:"proxy"`
-	ParsedProxy          *url.URL `toml:"-"`
-	TranscribeProvider   string   `toml:"transcribe_provider"`
-	LlmProvider          string   `toml:"llm_provider"`
+	SegmentDuration       int      `toml:"segment_duration"`
+	TranscribeParallelNum int      `toml:"transcribe_parallel_num"`
+	TranslateParallelNum  int      `toml:"translate_parallel_num"`
+	TranscribeMaxAttempts int      `toml:"transcribe_max_attempts"`
+	TranslateMaxAttempts  int      `toml:"translate_max_attempts"`
+	Proxy                 string   `toml:"proxy"`
+	ParsedProxy           *url.URL `toml:"-"`
+	TranscribeProvider    string   `toml:"transcribe_provider"`
+	LlmProvider           string   `toml:"llm_provider"`
 }
 
 type Server struct {
@@ -78,11 +81,13 @@ type Config struct {
 
 var Conf = Config{
 	App: App{
-		SegmentDuration:      5,
-		FfmepegParallelNum:   5,
-		TranslateParallelNum: 5,
-		TranscribeProvider:   "openai",
-		LlmProvider:          "openai",
+		SegmentDuration:       5,
+		TranslateParallelNum:  5,
+		TranscribeParallelNum: 10,
+		TranscribeMaxAttempts: 3,
+		TranslateMaxAttempts:  3,
+		TranscribeProvider:    "openai",
+		LlmProvider:           "openai",
 	},
 	Server: Server{
 		Host: "127.0.0.1",
@@ -109,8 +114,6 @@ func validateConfig() error {
 			return errors.New("检测到开启了fasterwhisper，但模型选型配置不正确，请检查配置")
 		}
 	case "whisperkit":
-		Conf.App.TranslateParallelNum = 1
-		Conf.App.TranslateParallelNum = 1
 		if runtime.GOOS != "darwin" {
 			log.GetLogger().Error("whisperkit只支持macos", zap.String("当前系统", runtime.GOOS))
 			return fmt.Errorf("whisperkit只支持macos")

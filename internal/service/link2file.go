@@ -87,7 +87,7 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 		if config.Conf.App.Proxy != "" {
 			cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
 		}
-		if storage.FfmpegPath != "" {
+		if storage.FfmpegPath != "ffmpeg" {
 			cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
 		}
 		cmd := exec.Command(storage.YtdlpPath, cmdArgs...)

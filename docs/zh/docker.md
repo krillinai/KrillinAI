@@ -8,7 +8,8 @@
 docker run -d \
   -p 8888:8888 \
   -v /path/to/config.toml:/app/config/config.toml \
-  krillinai/krillin
+  -v /path/to/tasks:/app/tasks \
+  asteria798/krillinai
 ```
 
 ### docker-compose启动
@@ -16,11 +17,12 @@ docker run -d \
 version: '3'
 services:
   krillin:
-    image: krillinai/krillin
+    image: asteria798/krillinai
     ports:
       - "8888:8888"
     volumes:
-      - /path/to/config.toml:/app/config/config.toml
+      - /path/to/config.toml:/app/config/config.toml # 配置文件
+      - /path/to/tasks:/app/tasks # 输出目录
 ```
 
 ## 持久化模型
@@ -31,9 +33,10 @@ services:
 docker run -d \
   -p 8888:8888 \
   -v /path/to/config.toml:/app/config/config.toml \
+  -v /path/to/tasks:/app/tasks \
   -v /path/to/models:/app/models \
   -v /path/to/bin:/app/bin \
-  krillinai/krillin
+  asteria798/krillinai
 ```
 
 ### docker-compose启动
@@ -41,11 +44,12 @@ docker run -d \
 version: '3'
 services:
   krillin:
-    image: krillinai/krillin
+    image: asteria798/krillinai
     ports:
       - "8888:8888"
     volumes:
-      - /path/to/config.toml:/app/config/config.toml
+      - /path/to/config.toml:/app/config/config.toml      
+      - /path/to/tasks:/app/tasks
       - /path/to/models:/app/models
       - /path/to/bin:/app/bin
 ```

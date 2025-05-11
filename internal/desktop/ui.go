@@ -152,6 +152,19 @@ func createAppConfigGroup() *fyne.Container {
 		return nil
 	}
 
+	appTranscribeParallelNumEntry := StyledEntry("转录并行数量")
+	appTranscribeParallelNumEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.TranscribeParallelNum)))
+	appTranscribeParallelNumEntry.Validator = func(s string) error {
+		val, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("请输入数字")
+		}
+		if val < 1 || val > 10 {
+			return fmt.Errorf("请输入1-10之间的数字")
+		}
+		return nil
+	}
+
 	appTranslateParallelNumEntry := StyledEntry("翻译并行数量")
 	appTranslateParallelNumEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.TranslateParallelNum)))
 	appTranslateParallelNumEntry.Validator = func(s string) error {
@@ -159,8 +172,34 @@ func createAppConfigGroup() *fyne.Container {
 		if err != nil {
 			return fmt.Errorf("请输入数字")
 		}
+		if val < 1 || val > 20 {
+			return fmt.Errorf("请输入1-20之间的数字")
+		}
+		return nil
+	}
+
+	appTranscribeMaxAttemptsEntry := StyledEntry("转录最大尝试次数")
+	appTranscribeMaxAttemptsEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.TranscribeMaxAttempts)))
+	appTranscribeMaxAttemptsEntry.Validator = func(s string) error {
+		val, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("请输入数字")
+		}
 		if val < 1 || val > 10 {
 			return fmt.Errorf("请输入1-10之间的数字")
+		}
+		return nil
+	}
+
+	appTranslateMaxAttemptsEntry := StyledEntry("翻译最大尝试次数")
+	appTranslateMaxAttemptsEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.TranslateMaxAttempts)))
+	appTranslateMaxAttemptsEntry.Validator = func(s string) error {
+		val, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("请输入数字")
+		}
+		if val < 1 || val > 20 {
+			return fmt.Errorf("请输入1-20之间的数字")
 		}
 		return nil
 	}
@@ -181,7 +220,10 @@ func createAppConfigGroup() *fyne.Container {
 	// 格式化表单项以使其更美观
 	form := widget.NewForm(
 		widget.NewFormItem("字幕分段处理时长(分钟) Segment duration (minutes)", appSegmentDurationEntry),
+		widget.NewFormItem("转录并行数量 Transcribe parallel num", appTranscribeParallelNumEntry),
 		widget.NewFormItem("翻译并行数量 Translate parallel num", appTranslateParallelNumEntry),
+		widget.NewFormItem("转录最大尝试次数 Transcribe max attempts", appTranscribeMaxAttemptsEntry),
+		widget.NewFormItem("翻译最大尝试次数 Translate max attempts", appTranslateMaxAttemptsEntry),
 		widget.NewFormItem("网络代理地址 proxy", appProxyEntry),
 		widget.NewFormItem("语音识别服务源 Transcriber provider", appTranscribeProviderEntry),
 		widget.NewFormItem("LLM服务源 Llm provider", appLlmProviderEntry),
@@ -259,8 +301,9 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		sm.SetVideoUrl(text)
 	}
 
-	// 视频选择按钮
-	selectButton := PrimaryButton("选择视频文件Choose video file", theme.FolderOpenIcon(), sm.ShowFileDialog)
+	// 视频选择按钮（支持多文件选择）
+	selectButton := PrimaryButton("选择视频文件 Choose video files", theme.FolderOpenIcon(), sm.ShowFileDialog)
+
 	selectedVideoLabel := widget.NewLabel("")
 	selectedVideoLabel.Hide()
 
@@ -269,6 +312,31 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		if path != "" {
 			sm.SetVideoUrl(path)
 			selectedVideoLabel.SetText("已选择Chosen: " + filepath.Base(path))
+			selectedVideoLabel.Show()
+		} else {
+			selectedVideoLabel.Hide()
+		}
+	})
+
+	// 设置多视频选择回调
+	sm.SetVideosSelectedCallback(func(paths []string) {
+		if len(paths) > 0 {
+			// 设置第一个视频的URL
+			sm.SetVideoUrl(paths[0])
+
+			// 显示已选择的文件数量
+			fileNames := make([]string, 0, len(paths))
+			for _, path := range paths {
+				fileNames = append(fileNames, filepath.Base(path))
+			}
+
+			// 构建文件列表，每行显示一个文件
+			displayText := fmt.Sprintf("已选择 %d 个文件:\n", len(paths))
+			for i, name := range fileNames {
+				displayText += fmt.Sprintf("%d. %s\n", i+1, name)
+			}
+
+			selectedVideoLabel.SetText(displayText)
 			selectedVideoLabel.Show()
 		} else {
 			selectedVideoLabel.Hide()

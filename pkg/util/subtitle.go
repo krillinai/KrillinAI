@@ -104,60 +104,6 @@ func TrimString(s string) string {
 	return s
 }
 
-func ParseSrtNoTsToSrtBlock(srtNoTsFile string) ([]*SrtBlock, error) {
-	file, err := os.Open(srtNoTsFile)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	var blocks []*SrtBlock
-	var currentBlock SrtBlock
-	scanner := bufio.NewScanner(file)
-	start := true
-
-	for scanner.Scan() {
-		line := TrimString(scanner.Text())
-		// 去掉最开始的描述
-		if start && !IsNumber(line) {
-			continue
-		} else {
-			start = false
-		}
-		if line == "" { // 空行表示一个块的结束
-			if currentBlock.Index != 0 {
-				cur := currentBlock
-				blocks = append(blocks, &cur)
-				currentBlock = SrtBlock{} // 重置
-			}
-			continue
-		}
-
-		if currentBlock.Index == 0 { // 按文件内容依次赋值
-			var index int
-			_, err = fmt.Sscanf(line, "%d", &index)
-			if err != nil {
-				return blocks, nil
-			} // 可能是空语音等，直接忽略
-			currentBlock.Index = index
-		} else if currentBlock.TargetLanguageSentence == "" {
-			currentBlock.TargetLanguageSentence = line
-		} else if currentBlock.OriginLanguageSentence == "" {
-			currentBlock.OriginLanguageSentence = line
-		}
-	}
-	// 最后的块
-	if currentBlock.Index != 0 {
-		cur := currentBlock
-		blocks = append(blocks, &cur)
-	}
-
-	if err = scanner.Err(); err != nil {
-		return nil, err
-	}
-	return blocks, nil
-}
-
 func SplitSentence(sentence string) []string {
 	// 使用正则表达式移除标点符号和特殊字符（保留各语言字母、数字和空格）
 	re := regexp.MustCompile(`[^\p{L}\p{N}\s']+`)

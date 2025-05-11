@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
+	"krillin-ai/config"
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
+	"net/http"
 	"os"
 	"time"
 )
@@ -64,6 +66,9 @@ func (c *TtsClient) Text2Speech(text, voice, outputFile string) error {
 	token, _ := CreateToken(c.AccessKeyID, c.AccessKeySecret)
 	fullURL := "wss://nls-gateway-cn-beijing.aliyuncs.com/ws/v1?token=" + token
 	dialer := websocket.DefaultDialer
+	if config.Conf.App.Proxy != "" {
+		dialer.Proxy = http.ProxyURL(config.Conf.App.ParsedProxy)
+	}
 	dialer.HandshakeTimeout = 10 * time.Second
 	conn, _, err = dialer.Dial(fullURL, nil)
 	if err != nil {
