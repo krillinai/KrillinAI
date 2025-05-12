@@ -141,7 +141,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		}()
 		// 新版流程：链接->本地音频文件->视频信息获取（若有）->本地字幕文件->语言合成->视频合成->字幕文件链接生成
 		log.GetLogger().Info("video subtitle start task", zap.String("taskId", taskId))
-		err = s.linkToFile(ctx, &stepParam)
+		err = s.linkToFile(ctx, &stepParam) //10%
 		if err != nil {
 			log.GetLogger().Error("StartVideoSubtitleTask linkToFile err", zap.Any("req", req), zap.Error(err))
 			stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
@@ -232,6 +232,16 @@ func (s Service) GetAllTasks() (*dto.GetAllTaskRes, error) {
 	}
 	tasksDir := filepath.Join(currentDir, "tasks")
 
+	// 检查tasks目录是否存在，不存在则创建
+	if _, err := os.Stat(tasksDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(tasksDir, 0755); err != nil {
+			log.GetLogger().Error("Create tasks directory failed", zap.Error(err))
+			return nil, err
+		}
+		// 目录创建后返回空任务列表
+		return &dto.GetAllTaskRes{Tasks: tasks}, nil
+	}
+
 	err = filepath.WalkDir(tasksDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			log.GetLogger().Error("GetAllTasks WalkDir err", zap.Error(err))
@@ -296,9 +306,8 @@ func LoadTaskStatus(taskDir string) (dto.TaskStatusDTO, error) {
 	// 检查文件是否存在
 	if _, err := os.Stat(statusFilePath); os.IsNotExist(err) {
 		return dto.TaskStatusDTO{
-			Status:         types.SubtitleTaskStatusUnknown, // 默认未知状态
-			Message:        "状态文件不存在，可能是旧版本任务",
-			CompletedFiles: make(map[string]bool),
+			Status:  types.SubtitleTaskStatusUnknown, // 默认未知状态
+			Message: "状态文件不存在，可能是旧版本任务",
 		}, nil
 	} else if err != nil {
 		return dto.TaskStatusDTO{}, fmt.Errorf("检查状态文件时出错: %v", err)
@@ -313,8 +322,7 @@ func LoadTaskStatus(taskDir string) (dto.TaskStatusDTO, error) {
 		return dto.TaskStatusDTO{}, fmt.Errorf("获取文件信息失败: %v", err)
 	}
 	status := dto.TaskStatusDTO{
-		Status:         types.SubtitleTaskStatusUnknown,
-		CompletedFiles: make(map[string]bool),
+		Status: types.SubtitleTaskStatusUnknown,
 	}
 
 	if fileInfo.Size() > 0 {
@@ -322,13 +330,7 @@ func LoadTaskStatus(taskDir string) (dto.TaskStatusDTO, error) {
 			return dto.TaskStatusDTO{}, fmt.Errorf("解析状态文件失败: %v", err)
 		}
 	}
-	// 确保 map 字段已初始化
-	if status.CompletedFiles == nil {
-		status.CompletedFiles = make(map[string]bool)
-	}
-	if status.TranslatedResults == nil {
-		status.TranslatedResults = make(map[int][]dto.TranslatedItemDTO)
-	}
+
 	return status, nil
 }
 

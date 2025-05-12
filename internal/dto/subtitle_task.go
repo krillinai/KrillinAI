@@ -1,5 +1,7 @@
 package dto
 
+import "krillin-ai/internal/types"
+
 type StartVideoSubtitleTaskReq struct {
 	AppId                     uint32   `json:"app_id"`
 	Url                       string   `json:"url"`
@@ -74,12 +76,31 @@ type TranslatedItemDTO struct {
 	TranslatedText string
 }
 type TaskStatusDTO struct {
-	Status            uint8                       `json:"status"`
-	Message           string                      `json:"message,omitempty"`
-	CompletedFiles    map[string]bool             `json:"completedFiles"`
-	TranslatedResults map[int][]TranslatedItemDTO `json:"translatedResults"`
+	TaskId          string                     `json:"taskId"`
+	TaskBasePath    string                     `json:"taskBasePath"`
+	Status          uint8                      `json:"status"`
+	ProcessPct      uint8                      `json:"processPct"`
+	Message         string                     `json:"message,omitempty"`
+	OriginLanguage  types.StandardLanguageCode `json:"originLanguage"`
+	TargetLanguage  types.StandardLanguageCode `json:"targetLanguage"`
+	InterruptStatus string                     `json:"interruptStatus"`
+	// 新增：已处理的音频片段状态
+	ProcessedAudios       map[int]AudioProcessStatus `json:"processedAudios"`
+	PendingTranscriptions []QueueItem[string]        `json:"pendingTranscriptions"`
+	PendingTranslations   []QueueItem[string]        `json:"pendingTranslations"`
+	LastSavedTime         string                     `json:"lastSavedTime"`
 }
 
+type QueueItem[T any] struct {
+	Data T   `json:"data"`
+	Id   int `json:"id"`
+}
+
+type AudioProcessStatus struct {
+	Transcribed  bool `json:"transcribed"`
+	Translated   bool `json:"translated"`
+	SrtGenerated bool `json:"srtGenerated"`
+}
 type GetVideoSubtitleTaskRes struct {
 	Error int32                        `json:"error"`
 	Msg   string                       `json:"msg"`

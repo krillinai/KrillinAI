@@ -546,18 +546,14 @@
 
 <script>
     function TaskList() {
-        const { useState, useEffect, useCallback } = React;
+        const { useState, useEffect, useCallback, useRef} = React;
         const [tasks, setTasks] = useState([]);
         const [isLoading, setIsLoading] = useState(true);
         const [error, setError] = useState(null);
         const API_TASKS_URL = "/api/tasks";
         const API_PROGRESS_URL = "/api/progress";
 
-        useEffect(() => {
-            fetchTasks();
-        }, []);
-
-        const fetchTasks = async () => {
+        const fetchTasks = useCallback(async () => {
             setIsLoading(true);
             setError(null);
             try {
@@ -568,7 +564,7 @@
                 if (responseData.error !== 0) throw new Error(responseData.msg || "获取任务失败");
 
                 // 从 Data 中获取 tasks 数组
-                const taskList = responseData.data.tasks;
+                const taskList = responseData.data?.tasks || [];
                 const formattedTasks = taskList.map(task => ({
                     taskId: task.task_id,
                     name: task.task_name,
@@ -588,7 +584,19 @@
             } finally {
                 setIsLoading(false);
             }
-        };
+        }, []);
+
+
+        useEffect(() => {
+            taskListRoot = componentRef.current;
+            fetchTasks();
+        }, [fetchTasks]);
+
+        const componentRef = useRef();
+        useEffect(() => {
+            taskListRoot = componentRef.current; // 赋值给全局变量
+            fetchTasks();
+        }, [fetchTasks]);
 
         const fetchTaskProgress = useCallback(async (taskId) => {
             try {
@@ -599,11 +607,12 @@
                 if (responseData.error !== 0) throw new Error(responseData.msg || "获取进度失败");
 
                 // 更新任务进度
-                setTasks(prevTasks => prevTasks.map(task =>
-                    task.taskId === taskId
-                        ? {...task, progress: responseData.progress, status: responseData.status }
-                        : task
-                ));
+                setTasks(prev => prev.map(task => {
+                    if (task.taskId === taskId && task.status !== responseData.status) {
+                        return { ...task, ...responseData };
+                    }
+                    return task;
+                }));
             } catch (err) {
                 console.error(`获取任务进度失败：${err.message}`);
             }
@@ -616,49 +625,51 @@
             return React.createElement('div', { className: 'error', style: { color: 'red' } }, error);
         }
 
+
         return React.createElement(
             'div',
-            { style: { width: '100%' } },
-            tasks.length > 0 ? tasks.map(task =>
-                React.createElement(
-                    'div',
-                    { key: task.taskId, className: 'task-item' },
-                    // 任务ID和名称
+            { ref: componentRef, style: { width: '100%' } }, // 正确设置属性
+            tasks.length > 0
+                ? tasks.map(task =>
                     React.createElement(
                         'div',
-                        null,
-                        React.createElement('strong', null, '任务 ID:'),
-                        ' ',
-                        task.taskId,
-                        React.createElement('br', null),
-                        React.createElement('strong', null, '任务名称:'),
-                        ' ',
-                        task.name
-                    ),
-                    // 状态和进度（仅进行中显示进度）
-                    React.createElement(
-                        'div',
-                        null,
-                        React.createElement('strong', null, '完成状态:'),
+                        { key: task.taskId, className: 'task-item' },
+                        // 任务ID和名称
                         React.createElement(
-                            'span',
-                            { className: `status-badge ${getStatusClass(task.status)}` },
-                            getStatusLabel(task.status),
-                            // 仅当状态为 processing 时显示进度
-                            task.status === "processing" ? ` (${task.progress}%)` : null
+                            'div',
+                            null,
+                            React.createElement('strong', null, '任务 ID:'),
+                            ' ',
+                            task.taskId,
+                            React.createElement('br', null),
+                            React.createElement('strong', null, '任务名称:'),
+                            ' ',
+                            task.name
+                        ),
+                        // 状态和进度
+                        React.createElement(
+                            'div',
+                            null,
+                            React.createElement('strong', null, '完成状态:'),
+                            React.createElement(
+                                'span',
+                                { className: `status-badge ${getStatusClass(task.status)}` },
+                                getStatusLabel(task.status),
+                                task.status === "processing" ? ` (${task.progress}%)` : null
+                            )
+                        ),
+                        // 操作按钮
+                        React.createElement(
+                            'button',
+                            {
+                                className: 'task-button',
+                                disabled: !isButtonEnabled(task.status)
+                            },
+                            task.status === "interrupted" ? "继续任务" : "查看详情"
                         )
-                    ),
-                    // 操作按钮
-                    React.createElement(
-                        'button',
-                        {
-                            className: 'task-button',
-                            disabled: !isButtonEnabled(task.status)
-                        },
-                        task.status === "interrupted" ? "继续任务" : "查看详情"
                     )
                 )
-            ) : React.createElement('div', { className: 'empty' }, '暂无任务')
+                : React.createElement('div', { className: 'empty' }, '暂无任务')
         );
     }
 
@@ -1006,6 +1017,20 @@
                 progressSection.classList.remove('hidden');
                 await pollTaskProgress(taskId);
             }
+        }
+
+        if (taskId) {
+            executeButton.disabled = true;
+            progressSection.classList.remove('hidden');
+
+            // **新增：立即更新任务列表**
+            if (taskListRoot && taskListRoot.fetchTasks) {
+                taskListRoot.fetchTasks(); // 调用组件内的 fetchTasks
+            } else {
+                fetchTasks(); // 直接调用全局函数（如果已提升）
+            }
+
+            await pollTaskProgress(taskId);
         }
     });
 
