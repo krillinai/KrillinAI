@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"krillin-ai/config"
 	"krillin-ai/internal/deps"
+	"krillin-ai/internal/server"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"path/filepath"
@@ -695,13 +696,55 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 			return
 		}
 
+		// 重启后端服务以刷新配置
+		if err = server.StopBackend(); err != nil {
+			dialog.ShowError(fmt.Errorf("停止后端服务失败: %v", err), window)
+			log.GetLogger().Error("停止后端服务失败", zap.Error(err))
+			progress.Hide()
+			return
+		}
+
+		go func() {
+			err := server.StartBackend()
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("启动后端服务失败: %v", err), window)
+				log.GetLogger().Error("启动后端服务失败", zap.Error(err))
+				progress.Hide()
+				return
+			}
+		}()
+
+		// 延迟一段时间以确保后端服务启动
+		time.Sleep(1 * time.Second)
+
+		// 隐藏开始按钮
+		btn.Hide()
+
 		if err = sm.StartTask(); err != nil {
 			dialog.ShowError(err, window)
 			progress.Hide()
 			return
 		}
 
-		downloadContainer.Show()
+		// 监听进度条
+		go func() {
+			for {
+				time.Sleep(1 * time.Second)
+				if sm.progressBar.Value < 1 {
+					continue
+				}
+				// 多任务时防抖
+				time.Sleep(1 * time.Second)
+				if sm.progressBar.Value < 1 {
+					continue
+				}
+				break
+			}
+			// 显示下载按钮
+			btn.Show()
+			// 显示下载容器
+			downloadContainer.Show()
+		}()
 		sm.progressBar.Refresh()
 	}
 
@@ -804,34 +847,21 @@ func createSaveButton(window fyne.Window) *widget.Button {
 
 	// 设置点击事件
 	saveButton.OnTapped = func() {
-		// 创建loading对话框
-		progress := dialog.NewProgress("保存中 Saving", "正在保存配置... Saving...", window)
-		progress.Show()
+		// 保存配置
+		err := config.SaveConfig()
 
-		// 模拟保存进度
-		go func() {
-			for i := 0.0; i <= 1.0; i += 0.1 {
-				time.Sleep(50 * time.Millisecond)
-				progress.SetValue(i)
-			}
+		if err != nil {
+			dialog.ShowError(fmt.Errorf("保存配置失败: %v", err), window)
+			log.GetLogger().Error("保存配置失败 Failed to save config", zap.Error(err))
+			return
+		}
 
-			// 保存配置
-			err := config.SaveConfig()
-			progress.Hide()
+		// 重新加载配置
+		config.LoadConfig()
 
-			if err != nil {
-				dialog.ShowError(fmt.Errorf("保存配置失败: %v", err), window)
-				log.GetLogger().Error("保存配置失败 Failed to save config", zap.Error(err))
-				return
-			}
-
-			// 重新加载配置
-			config.LoadConfig()
-
-			successDialog := dialog.NewInformation("成功 Success", "配置已保存 Config saved", window)
-			successDialog.SetDismissText("确定 OK")
-			successDialog.Show()
-		}()
+		successDialog := dialog.NewInformation("成功 Success", "配置已保存 Config saved", window)
+		successDialog.SetDismissText("确定 OK")
+		successDialog.Show()
 	}
 
 	return saveButton
