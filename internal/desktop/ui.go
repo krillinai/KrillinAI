@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"krillin-ai/config"
 	"krillin-ai/internal/deps"
+	"krillin-ai/internal/server"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"path/filepath"
@@ -22,6 +23,8 @@ import (
 	"go.uber.org/zap"
 )
 
+var TempConf config.Config
+
 // 创建配置界面
 func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 	// 创建页面标题
@@ -36,9 +39,6 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 	aliyunOssGroup := createAliyunOSSConfigGroup()
 	aliyunSpeechGroup := createAliyunSpeechConfigGroup()
 	aliyunBailianGroup := createAliyunBailianConfigGroup()
-
-	// 保存按钮
-	saveButton := createSaveButton(window)
 
 	// 创建一个背景效果
 	background := canvas.NewRectangle(color.NRGBA{R: 248, G: 250, B: 253, A: 255})
@@ -62,7 +62,6 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 		container.NewPadded(aliyunSpeechGroup),
 		container.NewPadded(aliyunBailianGroup),
 		spacer2,
-		container.NewPadded(saveButton),
 	)
 
 	scroll := container.NewScroll(configContainer)
@@ -140,7 +139,7 @@ func CreateSubtitleTab(window fyne.Window) fyne.CanvasObject {
 // 创建应用配置组
 func createAppConfigGroup() *fyne.Container {
 	appSegmentDurationEntry := StyledEntry("字幕分段处理时长(分钟)")
-	appSegmentDurationEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.SegmentDuration)))
+	appSegmentDurationEntry.Bind(binding.IntToString(binding.BindInt(&TempConf.App.SegmentDuration)))
 	appSegmentDurationEntry.Validator = func(s string) error {
 		val, err := strconv.Atoi(s)
 		if err != nil {
@@ -153,7 +152,7 @@ func createAppConfigGroup() *fyne.Container {
 	}
 
 	appTranscribeParallelNumEntry := StyledEntry("转录并行数量")
-	appTranscribeParallelNumEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.TranscribeParallelNum)))
+	appTranscribeParallelNumEntry.Bind(binding.IntToString(binding.BindInt(&TempConf.App.TranscribeParallelNum)))
 	appTranscribeParallelNumEntry.Validator = func(s string) error {
 		val, err := strconv.Atoi(s)
 		if err != nil {
@@ -166,7 +165,7 @@ func createAppConfigGroup() *fyne.Container {
 	}
 
 	appTranslateParallelNumEntry := StyledEntry("翻译并行数量")
-	appTranslateParallelNumEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.TranslateParallelNum)))
+	appTranslateParallelNumEntry.Bind(binding.IntToString(binding.BindInt(&TempConf.App.TranslateParallelNum)))
 	appTranslateParallelNumEntry.Validator = func(s string) error {
 		val, err := strconv.Atoi(s)
 		if err != nil {
@@ -179,7 +178,7 @@ func createAppConfigGroup() *fyne.Container {
 	}
 
 	appTranscribeMaxAttemptsEntry := StyledEntry("转录最大尝试次数")
-	appTranscribeMaxAttemptsEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.TranscribeMaxAttempts)))
+	appTranscribeMaxAttemptsEntry.Bind(binding.IntToString(binding.BindInt(&TempConf.App.TranscribeMaxAttempts)))
 	appTranscribeMaxAttemptsEntry.Validator = func(s string) error {
 		val, err := strconv.Atoi(s)
 		if err != nil {
@@ -192,7 +191,7 @@ func createAppConfigGroup() *fyne.Container {
 	}
 
 	appTranslateMaxAttemptsEntry := StyledEntry("翻译最大尝试次数")
-	appTranslateMaxAttemptsEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.TranslateMaxAttempts)))
+	appTranslateMaxAttemptsEntry.Bind(binding.IntToString(binding.BindInt(&TempConf.App.TranslateMaxAttempts)))
 	appTranslateMaxAttemptsEntry.Validator = func(s string) error {
 		val, err := strconv.Atoi(s)
 		if err != nil {
@@ -205,17 +204,17 @@ func createAppConfigGroup() *fyne.Container {
 	}
 
 	appProxyEntry := StyledEntry("网络代理地址")
-	appProxyEntry.Bind(binding.BindString(&config.Conf.App.Proxy))
+	appProxyEntry.Bind(binding.BindString(&TempConf.App.Proxy))
 
 	appTranscribeProviderEntry := StyledSelect([]string{"openai", "fasterwhisper", "whispercpp", "whisperkit", "aliyun"}, func(s string) {
-		config.Conf.App.TranscribeProvider = s
+		TempConf.App.TranscribeProvider = s
 	})
-	appTranscribeProviderEntry.SetSelected(config.Conf.App.TranscribeProvider)
+	appTranscribeProviderEntry.SetSelected(TempConf.App.TranscribeProvider)
 
 	appLlmProviderEntry := StyledSelect([]string{"openai", "aliyun"}, func(s string) {
-		config.Conf.App.LlmProvider = s
+		TempConf.App.LlmProvider = s
 	})
-	appLlmProviderEntry.SetSelected(config.Conf.App.LlmProvider)
+	appLlmProviderEntry.SetSelected(TempConf.App.LlmProvider)
 
 	// 格式化表单项以使其更美观
 	form := widget.NewForm(
@@ -235,10 +234,10 @@ func createAppConfigGroup() *fyne.Container {
 // 创建server配置组
 func createServerConfigGroup() *fyne.Container {
 	serverHostEntry := StyledEntry("服务器地址 Server address")
-	serverHostEntry.Bind(binding.BindString(&config.Conf.Server.Host))
+	serverHostEntry.Bind(binding.BindString(&TempConf.Server.Host))
 
 	serverPortEntry := StyledEntry("服务器端口 Server port")
-	serverPortEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.Server.Port)))
+	serverPortEntry.Bind(binding.IntToString(binding.BindInt(&TempConf.Server.Port)))
 	serverPortEntry.Validator = func(s string) error {
 		val, err := strconv.Atoi(s)
 		if err != nil {
@@ -261,19 +260,19 @@ func createServerConfigGroup() *fyne.Container {
 // 创建本地模型配置组
 func createLocalModelGroup() *fyne.Container {
 	localModelFasterwhisperEntry := StyledSelect([]string{"tiny", "medium", "large-v2"}, func(s string) {
-		config.Conf.LocalModel.Fasterwhisper = s
+		TempConf.LocalModel.Fasterwhisper = s
 	})
-	localModelFasterwhisperEntry.SetSelected(config.Conf.LocalModel.Fasterwhisper)
+	localModelFasterwhisperEntry.SetSelected(TempConf.LocalModel.Fasterwhisper)
 
 	localModelWhisperkitEntry := StyledSelect([]string{"large-v2"}, func(s string) {
-		config.Conf.LocalModel.Whisperkit = s
+		TempConf.LocalModel.Whisperkit = s
 	})
-	localModelWhisperkitEntry.SetSelected(config.Conf.LocalModel.Whisperkit)
+	localModelWhisperkitEntry.SetSelected(TempConf.LocalModel.Whisperkit)
 
 	localModelWhispercppEntry := StyledSelect([]string{"large-v2"}, func(s string) {
-		config.Conf.LocalModel.Whisperkit = s
+		TempConf.LocalModel.Whisperkit = s
 	})
-	localModelWhispercppEntry.SetSelected(config.Conf.LocalModel.Whispercpp)
+	localModelWhispercppEntry.SetSelected(TempConf.LocalModel.Whispercpp)
 
 	form := widget.NewForm(
 		widget.NewFormItem("Fasterwhisper模型 Model", localModelFasterwhisperEntry),
@@ -704,13 +703,55 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 			return
 		}
 
+		// 重启后端服务以刷新配置
+		if err = server.StopBackend(); err != nil {
+			dialog.ShowError(fmt.Errorf("停止后端服务失败: %v", err), window)
+			log.GetLogger().Error("停止后端服务失败", zap.Error(err))
+			progress.Hide()
+			return
+		}
+
+		go func() {
+			err := server.StartBackend()
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("启动后端服务失败: %v", err), window)
+				log.GetLogger().Error("启动后端服务失败", zap.Error(err))
+				progress.Hide()
+				return
+			}
+		}()
+
+		// 延迟一段时间以确保后端服务启动
+		time.Sleep(1 * time.Second)
+
+		// 隐藏开始按钮
+		btn.Hide()
+
 		if err = sm.StartTask(); err != nil {
 			dialog.ShowError(err, window)
 			progress.Hide()
 			return
 		}
 
-		downloadContainer.Show()
+		// 监听进度条
+		go func() {
+			for {
+				time.Sleep(1 * time.Second)
+				if sm.progressBar.Value < 1 {
+					continue
+				}
+				// 多任务时防抖
+				time.Sleep(1 * time.Second)
+				if sm.progressBar.Value < 1 {
+					continue
+				}
+				break
+			}
+			// 显示下载按钮
+			btn.Show()
+			// 显示下载容器
+			downloadContainer.Show()
+		}()
 		sm.progressBar.Refresh()
 	}
 
@@ -720,13 +761,13 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 // 创建OpenAI配置组
 func createOpenAIConfigGroup() *fyne.Container {
 	openaiBaseUrlEntry := StyledEntry("OpenAI API base url")
-	openaiBaseUrlEntry.Bind(binding.BindString(&config.Conf.Openai.BaseUrl))
+	openaiBaseUrlEntry.Bind(binding.BindString(&TempConf.Openai.BaseUrl))
 
 	openaiModelEntry := StyledEntry("OpenAI模型名称 Model name")
-	openaiModelEntry.Bind(binding.BindString(&config.Conf.Openai.Model))
+	openaiModelEntry.Bind(binding.BindString(&TempConf.Openai.Model))
 
 	openaiApiKeyEntry := StyledPasswordEntry("OpenAI API密钥 Key")
-	openaiApiKeyEntry.Bind(binding.BindString(&config.Conf.Openai.ApiKey))
+	openaiApiKeyEntry.Bind(binding.BindString(&TempConf.Openai.ApiKey))
 
 	form := widget.NewForm(
 		widget.NewFormItem("API base url", openaiBaseUrlEntry),
@@ -740,10 +781,10 @@ func createOpenAIConfigGroup() *fyne.Container {
 // 创建Whisper配置组
 func createWhisperConfigGroup() *fyne.Container {
 	whisperBaseUrlEntry := StyledEntry("Whisper API base url")
-	whisperBaseUrlEntry.Bind(binding.BindString(&config.Conf.Openai.Whisper.BaseUrl))
+	whisperBaseUrlEntry.Bind(binding.BindString(&TempConf.Openai.Whisper.BaseUrl))
 
 	whisperApiKeyEntry := StyledPasswordEntry("Whisper API密钥")
-	whisperApiKeyEntry.Bind(binding.BindString(&config.Conf.Openai.Whisper.ApiKey))
+	whisperApiKeyEntry.Bind(binding.BindString(&TempConf.Openai.Whisper.ApiKey))
 
 	form := widget.NewForm(
 		widget.NewFormItem("API base url", whisperBaseUrlEntry),
@@ -756,13 +797,13 @@ func createWhisperConfigGroup() *fyne.Container {
 // 创建阿里云OSS配置组
 func createAliyunOSSConfigGroup() *fyne.Container {
 	ossAccessKeyIdEntry := StyledEntry("阿里云AccessKey ID")
-	ossAccessKeyIdEntry.Bind(binding.BindString(&config.Conf.Aliyun.Oss.AccessKeyId))
+	ossAccessKeyIdEntry.Bind(binding.BindString(&TempConf.Aliyun.Oss.AccessKeyId))
 
 	ossAccessKeySecretEntry := StyledPasswordEntry("阿里云AccessKey Secret")
-	ossAccessKeySecretEntry.Bind(binding.BindString(&config.Conf.Aliyun.Oss.AccessKeySecret))
+	ossAccessKeySecretEntry.Bind(binding.BindString(&TempConf.Aliyun.Oss.AccessKeySecret))
 
 	ossBucketEntry := StyledEntry("OSS Bucket名称 ")
-	ossBucketEntry.Bind(binding.BindString(&config.Conf.Aliyun.Oss.Bucket))
+	ossBucketEntry.Bind(binding.BindString(&TempConf.Aliyun.Oss.Bucket))
 
 	form := widget.NewForm(
 		widget.NewFormItem("AccessKey ID", ossAccessKeyIdEntry),
@@ -776,13 +817,13 @@ func createAliyunOSSConfigGroup() *fyne.Container {
 // 创建阿里云语音配置组
 func createAliyunSpeechConfigGroup() *fyne.Container {
 	ossAccessKeyIdEntry := StyledEntry("阿里云 AccessKey ID")
-	ossAccessKeyIdEntry.Bind(binding.BindString(&config.Conf.Aliyun.Speech.AccessKeyId))
+	ossAccessKeyIdEntry.Bind(binding.BindString(&TempConf.Aliyun.Speech.AccessKeyId))
 
 	ossAccessKeySecretEntry := StyledPasswordEntry("阿里云 AccessKey Secret")
-	ossAccessKeySecretEntry.Bind(binding.BindString(&config.Conf.Aliyun.Speech.AccessKeySecret))
+	ossAccessKeySecretEntry.Bind(binding.BindString(&TempConf.Aliyun.Speech.AccessKeySecret))
 
 	speechAppKeyEntry := StyledEntry("阿里云语音服务 AppKey")
-	speechAppKeyEntry.Bind(binding.BindString(&config.Conf.Aliyun.Speech.AppKey))
+	speechAppKeyEntry.Bind(binding.BindString(&TempConf.Aliyun.Speech.AppKey))
 
 	form := widget.NewForm(
 		widget.NewFormItem("AccessKey ID", ossAccessKeyIdEntry),
@@ -796,52 +837,11 @@ func createAliyunSpeechConfigGroup() *fyne.Container {
 // 创建阿里云百炼配置组
 func createAliyunBailianConfigGroup() *fyne.Container {
 	bailianApiKeyEntry := StyledPasswordEntry("阿里云百炼API密钥 Aliyun bailian api key")
-	bailianApiKeyEntry.Bind(binding.BindString(&config.Conf.Aliyun.Bailian.ApiKey))
+	bailianApiKeyEntry.Bind(binding.BindString(&TempConf.Aliyun.Bailian.ApiKey))
 
 	form := widget.NewForm(
 		widget.NewFormItem("API密钥 key", bailianApiKeyEntry),
 	)
 
 	return StyledCard("阿里云百炼配置 Aliyun bailian config", form)
-}
-
-// 创建保存按钮
-func createSaveButton(window fyne.Window) *widget.Button {
-	// 创建保存按钮（但不设置点击事件）
-	saveButton := widget.NewButtonWithIcon("保存配置 Save config", theme.DocumentSaveIcon(), nil)
-	saveButton.Importance = widget.HighImportance
-
-	// 设置点击事件
-	saveButton.OnTapped = func() {
-		// 创建loading对话框
-		progress := dialog.NewProgress("保存中 Saving", "正在保存配置... Saving...", window)
-		progress.Show()
-
-		// 模拟保存进度
-		go func() {
-			for i := 0.0; i <= 1.0; i += 0.1 {
-				time.Sleep(50 * time.Millisecond)
-				progress.SetValue(i)
-			}
-
-			// 保存配置
-			err := config.SaveConfig()
-			progress.Hide()
-
-			if err != nil {
-				dialog.ShowError(fmt.Errorf("保存配置失败: %v", err), window)
-				log.GetLogger().Error("保存配置失败 Failed to save config", zap.Error(err))
-				return
-			}
-
-			// 重新加载配置
-			config.LoadConfig()
-
-			successDialog := dialog.NewInformation("成功 Success", "配置已保存 Config saved", window)
-			successDialog.SetDismissText("确定 OK")
-			successDialog.Show()
-		}()
-	}
-
-	return saveButton
 }
