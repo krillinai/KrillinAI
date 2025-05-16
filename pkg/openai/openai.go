@@ -7,6 +7,7 @@ import (
 	"io"
 	"krillin-ai/config"
 	"krillin-ai/log"
+	"os"
 
 	openai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
@@ -87,10 +88,53 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 		resContent += response.Choices[0].Delta.Content
 	}
 
+	// // Save results to a text file
+	// filePath0 := "query.txt"
+	// file0, err := os.Create(filePath0)
+	// if err != nil {
+	// 	log.GetLogger().Error("failed to create file", zap.Error(err))
+	// 	return "", err
+	// }
+	// defer file0.Close()
+
+	// if _, err := file0.WriteString(query); err != nil {
+	// 	log.GetLogger().Error("failed to write to file", zap.Error(err))
+	// 	return "", err
+	// }
+
+	// Save results to a text file
+	querySuffix := query[len(query)-10:]
+	filePath := fmt.Sprintf("raw_llm_output_%s.json", querySuffix)
+	file, err := os.Create(filePath)
+	if err != nil {
+		log.GetLogger().Error("failed to create file", zap.Error(err))
+		return "", err
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(resContent); err != nil {
+		log.GetLogger().Error("failed to write to file", zap.Error(err))
+		return "", err
+	}
+
 	if config.Conf.Openai.JsonLLM {
 		parsedContent, err := parseJSONResponse(resContent)
 		if err != nil {
 			log.GetLogger().Error("failed to parse JSON response", zap.Error(err))
+			return "", err
+		}
+		// Save results to a text file
+		querySuffix := query[len(query)-10:]
+		filePath := fmt.Sprintf("parsedContent_llm_output_%s.txt", querySuffix)
+		file, err := os.Create(filePath)
+		if err != nil {
+			log.GetLogger().Error("failed to create file", zap.Error(err))
+			return "", err
+		}
+		defer file.Close()
+
+		if _, err := file.WriteString(parsedContent); err != nil {
+			log.GetLogger().Error("failed to write to file", zap.Error(err))
 			return "", err
 		}
 		return parsedContent, nil

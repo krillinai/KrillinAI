@@ -156,6 +156,18 @@ func (s Service) splitTextAndTranslate(inputText string, targetLanguage string, 
 	if err != nil {
 		return nil, fmt.Errorf("audioToSubtitle splitTextAndTranslate error: %w", err)
 	}
+
+	// Save results to a text file
+	filePath := "output_results.txt"
+	file, err := os.Create(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	for _, item := range results {
+		file.WriteString(fmt.Sprintf("Original: %s\nTranslated: %s\n\n", item.OriginText, item.TranslatedText))
+	}
 	return results, nil
 }
 

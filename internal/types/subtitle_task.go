@@ -45,6 +45,7 @@ var SplitTextPrompt = `你是一个语言处理专家，专注于自然语言处
 [无文本]
 
 确保高效、精确地完成上述翻译任务，输入内容如下：
+
 `
 
 // 带有语气词过滤的拆分Prompt
@@ -74,6 +75,7 @@ var SplitTextPromptWithModalFilter = `你是一个语言处理专家，专注于
 [无文本]
 
 确保高效、精确地完成上述翻译任务，输入内容如下：
+
 `
 
 var SplitTextPromptJson = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现字幕的准确和高质量翻译：
@@ -89,6 +91,7 @@ var SplitTextPromptJson = `你是一个语言处理专家，专注于自然语�
 7. 每个拆分的句子只能有一个完整的语句。
 
 确保高效、精确地完成上述字幕翻译任务，输入内容如下：
+
 `
 
 var SplitTextPromptWithModalFilterJson = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现字幕的准确和高质量翻译：
@@ -105,6 +108,7 @@ var SplitTextPromptWithModalFilterJson = `你是一个语言处理专家，专�
 8. 每个拆分的句子只能有一个完整的语句。
 
 确保高效、精确地完成上述字幕翻译任务，输入内容如下：
+
 `
 
 var TranslateVideoTitleAndDescriptionPrompt = `你是一个专业的翻译专家，请翻译下面给出的标题和描述信息（两者用####来分隔），要求如下：
