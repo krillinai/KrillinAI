@@ -43,10 +43,12 @@ type OpenAiWhisper struct {
 }
 
 type Openai struct {
-	BaseUrl string        `toml:"base_url"`
-	Model   string        `toml:"model"`
-	ApiKey  string        `toml:"api_key"`
-	Whisper OpenAiWhisper `toml:"whisper"`
+	BaseUrl    string        `toml:"base_url"`
+	Model      string        `toml:"model"`
+	ApiKey     string        `toml:"api_key"`
+	JsonLLM    bool          `toml:"json_llm"`
+	NoThinkTag bool          `toml:"nothink_tag"`
+	Whisper    OpenAiWhisper `toml:"whisper"`
 }
 
 type AliyunOss struct {
