@@ -365,14 +365,50 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		videoInputContainer.Refresh()
 	}
 
-	// 创建语言选择容器
+	// 创建容器
+	content := container.NewVBox(
+		container.NewPadded(inputTypeContainer),
+		container.NewPadded(videoInputContainer),
+	)
+
+	return GlassCard("1. 视频源设置 Video Source", "选择视频和语言 Choose video & language", content)
+}
+
+// 创建字幕设置卡片
+func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
+	positionSelect := widget.NewSelect([]string{
+		"翻译后字幕在上方 Translation subtitle on top",
+		"翻译后字幕在下方 Translation subtitle on bottom",
+	}, func(value string) {
+		if value == "翻译后字幕在上方 Translation subtitle on top" {
+			sm.SetBilingualPosition(1)
+		} else {
+			sm.SetBilingualPosition(2)
+		}
+	})
+	positionSelect.SetSelected("翻译后字幕在上方 Translation subtitle on top")
+
+	bilingualCheck := widget.NewCheck("启用双语字幕 Enable bilingual subtitles", func(checked bool) {
+		sm.SetBilingualEnabled(checked)
+		if checked {
+			positionSelect.Enable()
+		} else {
+			positionSelect.Disable()
+		}
+	})
+	bilingualCheck.SetChecked(true)
+
 	var targetSelectOptions []string
 	targetLangMap := make(map[string]string)
 	for code, name := range types.StandardLanguageCode2Name {
 		targetSelectOptions = append(targetSelectOptions, name)
 		targetLangMap[name] = string(code)
 	}
-	langContainer := container.NewGridWithColumns(2,
+	targetLangSelector := StyledSelect(targetSelectOptions, func(value string) {
+		sm.SetTargetLang(targetLangMap[value])
+	})
+
+	langContainer := container.NewVBox(
 		container.NewHBox(
 			widget.NewLabel("源语言 Origin language:"),
 			StyledSelect([]string{
@@ -388,9 +424,7 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		),
 		container.NewHBox(
 			widget.NewLabel("目标语言 Target language:"),
-			StyledSelect(targetSelectOptions, func(value string) {
-				sm.SetTargetLang(targetLangMap[value])
-			}),
+			targetLangSelector,
 		),
 	)
 
@@ -398,46 +432,15 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 	langContainer.Objects[0].(*fyne.Container).Objects[1].(*widget.Select).SetSelected("English")
 	langContainer.Objects[1].(*fyne.Container).Objects[1].(*widget.Select).SetSelected("简体中文")
 
-	// 创建容器
-	content := container.NewVBox(
-		container.NewPadded(inputTypeContainer),
-		container.NewPadded(videoInputContainer),
-		container.NewPadded(langContainer),
-	)
-
-	return GlassCard("1. 视频源设置 Video Source", "选择视频和语言 Choose video & language", content)
-}
-
-// 创建字幕设置卡片
-func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
-	// 创建更美观的双语位置选择器
-	bilingualCheck := widget.NewCheck("启用双语字幕 Enable bilingual subtitles", func(checked bool) {
-		sm.SetBilingualEnabled(checked)
-	})
-	bilingualCheck.SetChecked(true)
-
-	// 使用更长的选项文本，强制下拉框显示更宽
-	positionSelect := widget.NewSelect([]string{
-		"翻译后字幕在上方 Translation subtitle on top",
-		"翻译后字幕在下方 Translation subtitle on bottom",
-	}, func(value string) {
-		if value == "翻译后字幕在上方 Translation subtitle on top" {
-			sm.SetBilingualPosition(1)
-		} else {
-			sm.SetBilingualPosition(2)
-		}
-	})
-	positionSelect.SetSelected("翻译后字幕在上方 Translation subtitle on top")
-
 	fillerCheck := widget.NewCheck("启用语气词过滤 Use modal filter", func(checked bool) {
 		sm.SetFillerFilter(checked)
 	})
 	fillerCheck.SetChecked(true)
 
-	// 使用更合理的布局
 	content := container.NewVBox(
 		container.NewHBox(bilingualCheck, fillerCheck),
-		positionSelect, // 直接让它占据整行以获得足够空间
+		langContainer,
+		positionSelect,
 	)
 
 	return StyledCard("2. 字幕设置 Subtitle setting", content)
@@ -445,11 +448,6 @@ func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
 
 // 创建配音设置卡片
 func createVoiceSettingsCard(sm *SubtitleManager) *fyne.Container {
-	// 创建配音启用复选框和性别选择
-	voiceoverCheck := widget.NewCheck("启用配音 Enable dubbing", func(checked bool) {
-		sm.SetVoiceoverEnabled(checked)
-	})
-
 	genderSelect := StyledSelect([]string{"男声 Male", "女声 Female"}, func(value string) {
 		if value == "男声 Male" {
 			sm.SetVoiceoverGender(2)
@@ -458,14 +456,25 @@ func createVoiceSettingsCard(sm *SubtitleManager) *fyne.Container {
 		}
 	})
 	genderSelect.SetSelected("男声 Male")
+	genderSelect.Disable()
 
-	// 创建音频选择按钮 - 使用普通按钮，蓝色文字
 	audioSampleButton := SecondaryButton("选择音色克隆样本 Choose voice clone sample", theme.MediaMusicIcon(), sm.ShowAudioFileDialog)
+	audioSampleButton.Disable()
 
-	// 使用漂亮的网格布局
-	grid := container.NewGridWithColumns(2,
-		container.NewHBox(voiceoverCheck, genderSelect),
-		audioSampleButton,
+	voiceoverCheck := widget.NewCheck("启用配音 Enable dubbing", func(checked bool) {
+		sm.SetVoiceoverEnabled(checked)
+		if checked {
+			genderSelect.Enable()
+			audioSampleButton.Enable()
+		} else {
+			genderSelect.Disable()
+			audioSampleButton.Disable()
+		}
+	})
+
+	grid := container.NewVBox(
+		container.NewHBox(voiceoverCheck),
+		container.NewHBox(genderSelect, audioSampleButton),
 	)
 
 	return StyledCard("3. 配音设置 Dubbing setting", grid)

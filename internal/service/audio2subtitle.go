@@ -496,9 +496,10 @@ func splitSrt(stepParam *types.SubtitleTaskStepParam) error {
 			subtitleInfo.Name = "双语字幕"
 		}
 		stepParam.SubtitleInfos = append(stepParam.SubtitleInfos, subtitleInfo)
-		// 供生成配音使用
-		stepParam.TtsSourceFilePath = stepParam.BilingualSrtFilePath
 	}
+
+	// 供生成配音使用
+	stepParam.TtsSourceFilePath = stepParam.BilingualSrtFilePath
 
 	log.GetLogger().Info("audioToSubtitle.splitSrt end", zap.Any("task id", stepParam.TaskId))
 	return nil
