@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -19,6 +17,9 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // 翻译结果数据结构
@@ -152,22 +153,27 @@ func (s Service) splitTextAndTranslate(inputText string, targetLanguage string, 
 	re := regexp.MustCompile(`^\s*<think>.*?</think>`)
 	textResult = strings.TrimSpace(re.ReplaceAllString(textResult, ""))
 
+	// 如果返回的文本为空，则进行重试
+	for attempt := 1; attempt <= config.Conf.App.TranslateMaxAttempts; attempt++ {
+		log.GetLogger().Info(
+			"audioToSubtitle splitTextAndTranslate textResult is empty, retrying",
+			zap.Int("attempt", attempt),
+			zap.String("inputTextLast10", inputText[len(inputText)-10:]),
+		)
+		textResult, err = s.ChatCompleter.ChatCompletion(prompt + inputText)
+		if err != nil {
+			return nil, fmt.Errorf("audioToSubtitle splitTextAndTranslate ChatCompletion error: %w", err)
+		}
+		textResult = strings.TrimSpace(re.ReplaceAllString(textResult, ""))
+		if textResult != "" {
+			break
+		}
+	}
+
 	results, err := parseAndCheckContent(textResult, inputText)
 	if err != nil {
 		return nil, fmt.Errorf("audioToSubtitle splitTextAndTranslate error: %w", err)
 	}
-
-	// // Save results to a text file
-	// filePath := "output_results.txt"
-	// file, err := os.Create(filePath)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to create file: %w", err)
-	// }
-	// defer file.Close()
-
-	// for _, item := range results {
-	// 	file.WriteString(fmt.Sprintf("Original: %s\nTranslated: %s\n\n", item.OriginText, item.TranslatedText))
-	// }
 	return results, nil
 }
 
