@@ -621,7 +621,7 @@
 		if (formData.tts === 1) {
 			formData.tts_voice_code = +voiceoverVoice.value;
 			if (uploadedAudioUrl) {
-				formData.tts_voice_clone_src_file_url = uploadedAudioUrl;
+				formData.tts_voice_clone_src_file_url = uploadedAudioUrl[0];
 			}
 		}
 

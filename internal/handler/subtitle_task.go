@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"krillin-ai/internal/dto"
 	"krillin-ai/internal/response"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -11,6 +12,7 @@ import (
 func (h Handler) StartSubtitleTask(c *gin.Context) {
 	var req dto.StartVideoSubtitleTaskReq
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("参数绑定错误: %v", err) // 打印详细的绑定错误信息
 		response.R(c, response.Response{
 			Error: -1,
 			Msg:   "参数错误",
