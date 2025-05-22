@@ -7,13 +7,18 @@ import (
 	"krillin-ai/pkg/util"
 	"math"
 	"os/exec"
+	"runtime"
+
+	"golang.org/x/sync/errgroup"
 )
 
+// MIN_SEGMENT_DURATION >= MIN_DURATION + TOLERANCE_DURATION * 2 > ENERGY_WINDOW_DURATION > 0
 const (
 	SAMPLE_RATE            = 3000
-	ENERGY_WINDOW_DURATION = 0.5  // 计算音频能量的时间长度
-	ERROR_RATE             = 0.1  // 误差率
-	MIN_DURATION           = 0.25 // 最小音频时长比
+	ENERGY_WINDOW_DURATION = 1.5 // 计算音频能量的时间长度
+	TOLERANCE_DURATION     = 8   // 容忍的时间误差
+	MIN_DURATION           = 10  // 最小音频时长
+	MIN_SEGMENT_DURATION   = 20  // 最小分割时长
 )
 
 func buildFFmpegCmd(input string, start, end float64) (*exec.Cmd, error) {
@@ -47,7 +52,7 @@ func getQuietestTimePoint(input string, start, end float64) (second float64, err
 	}
 
 	if err := cmd.Start(); err != nil {
-		return 0, fmt.Errorf("failed to start ffmpeg command: %w", err)
+		return 0, fmt.Errorf("failed to start ffmpeg command: [%s] %w", cmd.String(), err)
 	}
 
 	originBuffer := make([]byte, 1024)
@@ -65,7 +70,7 @@ func getQuietestTimePoint(input string, start, end float64) (second float64, err
 			break
 		}
 		if err != nil {
-			return 0, fmt.Errorf("error reading from stdout: %w", err)
+			return 0, fmt.Errorf("error reading from stdout: [%s] %w", cmd.String(), err)
 		}
 		for i := range n {
 			if i%2 == 0 {
@@ -93,41 +98,49 @@ func getQuietestTimePoint(input string, start, end float64) (second float64, err
 		}
 	}
 	if err := cmd.Wait(); err != nil {
-		return 0, fmt.Errorf("ffmpeg command failed: %w", err)
+		return 0, fmt.Errorf("ffmpeg command run failed: [%s] %w", cmd.String(), err)
 	}
 	return float64(minEnergyIndex)/SAMPLE_RATE + start, nil
 }
 
-func IterateSplitTimePoints(input string, segmentDuration float64) func(yield func(float64, float64) bool) error {
-	return func(yield func(float64, float64) bool) error {
-		audioDuration, err := util.GetAudioDuration(input)
-		if err != nil {
-			return fmt.Errorf("failed to get audio duration: %w", err)
-		}
-
-		beginTime := 0.0
-		for audioDuration-beginTime > segmentDuration {
-			timePoint, err := getQuietestTimePoint(
-				input,
-				beginTime+(1-ERROR_RATE)*segmentDuration,
-				beginTime+(1+ERROR_RATE)*segmentDuration,
-			)
-			if err != nil {
-				return fmt.Errorf("failed to get silence time point: %w", err)
-			}
-
-			if audioDuration-timePoint < segmentDuration*MIN_DURATION {
-				break
-			}
-
-			if !yield(beginTime, timePoint) {
-				return nil
-			}
-			beginTime = timePoint
-		}
-		yield(beginTime, audioDuration)
-		return nil
+func GetSplitPoints(input string, segmentDuration float64) ([]float64, error) {
+	if segmentDuration < MIN_SEGMENT_DURATION {
+		return nil, fmt.Errorf("segment duration must be greater than %v seconds", MIN_SEGMENT_DURATION)
 	}
+
+	audioDuration, err := util.GetAudioDuration(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get audio duration: %w", err)
+	}
+	segmentNum := int(math.Ceil(audioDuration / segmentDuration))
+	timePoints := make([]float64, segmentNum+1)
+	for i := range segmentNum {
+		timePoints[i] = float64(i) * segmentDuration
+	}
+	eg := errgroup.Group{}
+	eg.SetLimit(runtime.NumCPU())
+	for i := 1; i < segmentNum; i++ {
+		i := i
+		eg.Go(func() error {
+			start := timePoints[i] - TOLERANCE_DURATION
+			end := timePoints[i] + TOLERANCE_DURATION
+			timePoint, err := getQuietestTimePoint(input, start, end)
+			if err != nil {
+				return fmt.Errorf("failed to get quietest time point: %w", err)
+			}
+			timePoints[i] = timePoint
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, fmt.Errorf("failed to get quietest time points: %w", err)
+	}
+	// 如果最后一个片段短于最小分割时长，则将其合并到前一个片段
+	if audioDuration-timePoints[segmentNum-1] < MIN_DURATION {
+		timePoints = timePoints[:segmentNum]
+	}
+	timePoints[len(timePoints)-1] = audioDuration
+	return timePoints, nil
 }
 
 func ClipAudio(input, output string, start, end float64) error {
@@ -140,11 +153,10 @@ func ClipAudio(input, output string, start, end float64) error {
 		"-ss", fmt.Sprintf("%.3f", start), // 起始时间
 		"-to", fmt.Sprintf("%.3f", end), // 结束时间
 		"-i", input,
-		"-c:a", "copy",
 		output,
 	)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to clip audio: %w", err)
+		return fmt.Errorf("failed to clip audio: [%s] %w", cmd.String(), err)
 	}
 	return nil
 }
