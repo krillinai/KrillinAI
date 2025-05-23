@@ -96,7 +96,7 @@ func splitMajorTextInHorizontal(text string, language types.StandardLanguageCode
 	currentWidth := 0
 	splitIndex := 0
 
-	for i, _ := range segments {
+	for i := range segments {
 		currentWidth++
 
 		// 当达到 2/5 宽度时，设置拆分点
@@ -364,13 +364,17 @@ func getResolution(inputVideo string) (int, int, error) {
 	}
 
 	output := strings.TrimSpace(out.String())
-	dimensions := strings.Split(output, "x")
-	if len(dimensions) != 2 {
+	output = strings.TrimSuffix(output, "x") // 去除尾部可能存在的x,例如1920x1080x
+
+	re := regexp.MustCompile(`^(\d+)x(\d+)$`)
+	dimensions := re.FindStringSubmatch(output)
+	if len(dimensions) != 3 {
 		log.GetLogger().Error("获取视频分辨率失败", zap.String("output", output))
 		return 0, 0, fmt.Errorf("invalid resolution format: %s", output)
 	}
-	width, _ := strconv.Atoi(dimensions[0])
-	height, _ := strconv.Atoi(dimensions[1])
+
+	width, _ := strconv.Atoi(dimensions[1])
+	height, _ := strconv.Atoi(dimensions[2])
 	return width, height, nil
 }
 

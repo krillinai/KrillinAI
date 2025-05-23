@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"krillin-ai/config"
 	"krillin-ai/internal/deps"
+	"krillin-ai/internal/server"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"path/filepath"
@@ -37,9 +38,6 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 	aliyunSpeechGroup := createAliyunSpeechConfigGroup()
 	aliyunBailianGroup := createAliyunBailianConfigGroup()
 
-	// 保存按钮
-	saveButton := createSaveButton(window)
-
 	// 创建一个背景效果
 	background := canvas.NewRectangle(color.NRGBA{R: 248, G: 250, B: 253, A: 255})
 
@@ -62,7 +60,6 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 		container.NewPadded(aliyunSpeechGroup),
 		container.NewPadded(aliyunBailianGroup),
 		spacer2,
-		container.NewPadded(saveButton),
 	)
 
 	scroll := container.NewScroll(configContainer)
@@ -152,6 +149,19 @@ func createAppConfigGroup() *fyne.Container {
 		return nil
 	}
 
+	appTranscribeParallelNumEntry := StyledEntry("转录并行数量")
+	appTranscribeParallelNumEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.TranscribeParallelNum)))
+	appTranscribeParallelNumEntry.Validator = func(s string) error {
+		val, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("请输入数字")
+		}
+		if val < 1 || val > 10 {
+			return fmt.Errorf("请输入1-10之间的数字")
+		}
+		return nil
+	}
+
 	appTranslateParallelNumEntry := StyledEntry("翻译并行数量")
 	appTranslateParallelNumEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.TranslateParallelNum)))
 	appTranslateParallelNumEntry.Validator = func(s string) error {
@@ -159,8 +169,34 @@ func createAppConfigGroup() *fyne.Container {
 		if err != nil {
 			return fmt.Errorf("请输入数字")
 		}
+		if val < 1 || val > 20 {
+			return fmt.Errorf("请输入1-20之间的数字")
+		}
+		return nil
+	}
+
+	appTranscribeMaxAttemptsEntry := StyledEntry("转录最大尝试次数")
+	appTranscribeMaxAttemptsEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.TranscribeMaxAttempts)))
+	appTranscribeMaxAttemptsEntry.Validator = func(s string) error {
+		val, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("请输入数字")
+		}
 		if val < 1 || val > 10 {
 			return fmt.Errorf("请输入1-10之间的数字")
+		}
+		return nil
+	}
+
+	appTranslateMaxAttemptsEntry := StyledEntry("翻译最大尝试次数")
+	appTranslateMaxAttemptsEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.TranslateMaxAttempts)))
+	appTranslateMaxAttemptsEntry.Validator = func(s string) error {
+		val, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("请输入数字")
+		}
+		if val < 1 || val > 20 {
+			return fmt.Errorf("请输入1-20之间的数字")
 		}
 		return nil
 	}
@@ -181,7 +217,10 @@ func createAppConfigGroup() *fyne.Container {
 	// 格式化表单项以使其更美观
 	form := widget.NewForm(
 		widget.NewFormItem("字幕分段处理时长(分钟) Segment duration (minutes)", appSegmentDurationEntry),
+		widget.NewFormItem("转录并行数量 Transcribe parallel num", appTranscribeParallelNumEntry),
 		widget.NewFormItem("翻译并行数量 Translate parallel num", appTranslateParallelNumEntry),
+		widget.NewFormItem("转录最大尝试次数 Transcribe max attempts", appTranscribeMaxAttemptsEntry),
+		widget.NewFormItem("翻译最大尝试次数 Translate max attempts", appTranslateMaxAttemptsEntry),
 		widget.NewFormItem("网络代理地址 proxy", appProxyEntry),
 		widget.NewFormItem("语音识别服务源 Transcriber provider", appTranscribeProviderEntry),
 		widget.NewFormItem("LLM服务源 Llm provider", appLlmProviderEntry),
@@ -259,8 +298,9 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		sm.SetVideoUrl(text)
 	}
 
-	// 视频选择按钮
-	selectButton := PrimaryButton("选择视频文件Choose video file", theme.FolderOpenIcon(), sm.ShowFileDialog)
+	// 视频选择按钮（支持多文件选择）
+	selectButton := PrimaryButton("选择视频文件 Choose video files", theme.FolderOpenIcon(), sm.ShowFileDialog)
+
 	selectedVideoLabel := widget.NewLabel("")
 	selectedVideoLabel.Hide()
 
@@ -269,6 +309,31 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		if path != "" {
 			sm.SetVideoUrl(path)
 			selectedVideoLabel.SetText("已选择Chosen: " + filepath.Base(path))
+			selectedVideoLabel.Show()
+		} else {
+			selectedVideoLabel.Hide()
+		}
+	})
+
+	// 设置多视频选择回调
+	sm.SetVideosSelectedCallback(func(paths []string) {
+		if len(paths) > 0 {
+			// 设置第一个视频的URL
+			sm.SetVideoUrl(paths[0])
+
+			// 显示已选择的文件数量
+			fileNames := make([]string, 0, len(paths))
+			for _, path := range paths {
+				fileNames = append(fileNames, filepath.Base(path))
+			}
+
+			// 构建文件列表，每行显示一个文件
+			displayText := fmt.Sprintf("已选择 %d 个文件:\n", len(paths))
+			for i, name := range fileNames {
+				displayText += fmt.Sprintf("%d. %s\n", i+1, name)
+			}
+
+			selectedVideoLabel.SetText(displayText)
 			selectedVideoLabel.Show()
 		} else {
 			selectedVideoLabel.Hide()
@@ -297,14 +362,50 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		videoInputContainer.Refresh()
 	}
 
-	// 创建语言选择容器
+	// 创建容器
+	content := container.NewVBox(
+		container.NewPadded(inputTypeContainer),
+		container.NewPadded(videoInputContainer),
+	)
+
+	return GlassCard("1. 视频源设置 Video Source", "选择视频和语言 Choose video & language", content)
+}
+
+// 创建字幕设置卡片
+func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
+	positionSelect := widget.NewSelect([]string{
+		"翻译后字幕在上方 Translation subtitle on top",
+		"翻译后字幕在下方 Translation subtitle on bottom",
+	}, func(value string) {
+		if value == "翻译后字幕在上方 Translation subtitle on top" {
+			sm.SetBilingualPosition(1)
+		} else {
+			sm.SetBilingualPosition(2)
+		}
+	})
+	positionSelect.SetSelected("翻译后字幕在上方 Translation subtitle on top")
+
+	bilingualCheck := widget.NewCheck("启用双语字幕 Enable bilingual subtitles", func(checked bool) {
+		sm.SetBilingualEnabled(checked)
+		if checked {
+			positionSelect.Enable()
+		} else {
+			positionSelect.Disable()
+		}
+	})
+	bilingualCheck.SetChecked(true)
+
 	var targetSelectOptions []string
 	targetLangMap := make(map[string]string)
 	for code, name := range types.StandardLanguageCode2Name {
 		targetSelectOptions = append(targetSelectOptions, name)
 		targetLangMap[name] = string(code)
 	}
-	langContainer := container.NewGridWithColumns(2,
+	targetLangSelector := StyledSelect(targetSelectOptions, func(value string) {
+		sm.SetTargetLang(targetLangMap[value])
+	})
+
+	langContainer := container.NewVBox(
 		container.NewHBox(
 			widget.NewLabel("源语言 Origin language:"),
 			StyledSelect([]string{
@@ -320,9 +421,7 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		),
 		container.NewHBox(
 			widget.NewLabel("目标语言 Target language:"),
-			StyledSelect(targetSelectOptions, func(value string) {
-				sm.SetTargetLang(targetLangMap[value])
-			}),
+			targetLangSelector,
 		),
 	)
 
@@ -330,46 +429,15 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 	langContainer.Objects[0].(*fyne.Container).Objects[1].(*widget.Select).SetSelected("English")
 	langContainer.Objects[1].(*fyne.Container).Objects[1].(*widget.Select).SetSelected("简体中文")
 
-	// 创建容器
-	content := container.NewVBox(
-		container.NewPadded(inputTypeContainer),
-		container.NewPadded(videoInputContainer),
-		container.NewPadded(langContainer),
-	)
-
-	return GlassCard("1. 视频源设置 Video Source", "选择视频和语言 Choose video & language", content)
-}
-
-// 创建字幕设置卡片
-func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
-	// 创建更美观的双语位置选择器
-	bilingualCheck := widget.NewCheck("启用双语字幕 Enable bilingual subtitles", func(checked bool) {
-		sm.SetBilingualEnabled(checked)
-	})
-	bilingualCheck.SetChecked(true)
-
-	// 使用更长的选项文本，强制下拉框显示更宽
-	positionSelect := widget.NewSelect([]string{
-		"翻译后字幕在上方 Translation subtitle on top",
-		"翻译后字幕在下方 Translation subtitle on bottom",
-	}, func(value string) {
-		if value == "翻译后字幕在上方 Translation subtitle on top" {
-			sm.SetBilingualPosition(1)
-		} else {
-			sm.SetBilingualPosition(2)
-		}
-	})
-	positionSelect.SetSelected("翻译后字幕在上方 Translation subtitle on top")
-
 	fillerCheck := widget.NewCheck("启用语气词过滤 Use modal filter", func(checked bool) {
 		sm.SetFillerFilter(checked)
 	})
 	fillerCheck.SetChecked(true)
 
-	// 使用更合理的布局
 	content := container.NewVBox(
 		container.NewHBox(bilingualCheck, fillerCheck),
-		positionSelect, // 直接让它占据整行以获得足够空间
+		langContainer,
+		positionSelect,
 	)
 
 	return StyledCard("2. 字幕设置 Subtitle setting", content)
@@ -377,11 +445,6 @@ func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
 
 // 创建配音设置卡片
 func createVoiceSettingsCard(sm *SubtitleManager) *fyne.Container {
-	// 创建配音启用复选框和性别选择
-	voiceoverCheck := widget.NewCheck("启用配音 Enable dubbing", func(checked bool) {
-		sm.SetVoiceoverEnabled(checked)
-	})
-
 	genderSelect := StyledSelect([]string{"男声 Male", "女声 Female"}, func(value string) {
 		if value == "男声 Male" {
 			sm.SetVoiceoverGender(2)
@@ -390,14 +453,25 @@ func createVoiceSettingsCard(sm *SubtitleManager) *fyne.Container {
 		}
 	})
 	genderSelect.SetSelected("男声 Male")
+	genderSelect.Disable()
 
-	// 创建音频选择按钮 - 使用普通按钮，蓝色文字
 	audioSampleButton := SecondaryButton("选择音色克隆样本 Choose voice clone sample", theme.MediaMusicIcon(), sm.ShowAudioFileDialog)
+	audioSampleButton.Disable()
 
-	// 使用漂亮的网格布局
-	grid := container.NewGridWithColumns(2,
-		container.NewHBox(voiceoverCheck, genderSelect),
-		audioSampleButton,
+	voiceoverCheck := widget.NewCheck("启用配音 Enable dubbing", func(checked bool) {
+		sm.SetVoiceoverEnabled(checked)
+		if checked {
+			genderSelect.Enable()
+			audioSampleButton.Enable()
+		} else {
+			genderSelect.Disable()
+			audioSampleButton.Disable()
+		}
+	})
+
+	grid := container.NewVBox(
+		container.NewHBox(voiceoverCheck),
+		container.NewHBox(genderSelect, audioSampleButton),
 	)
 
 	return StyledCard("3. 配音设置 Dubbing setting", grid)
@@ -626,6 +700,32 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 			progress.Hide()
 			return
 		}
+		// 隐藏开始按钮
+		btn.Hide()
+
+		if config.ConfigBackup != config.Conf {
+			// 重启后端服务以刷新配置
+			if err = server.StopBackend(); err != nil {
+				dialog.ShowError(fmt.Errorf("停止后端服务失败: %v", err), window)
+				log.GetLogger().Error("停止后端服务失败", zap.Error(err))
+				progress.Hide()
+				return
+			}
+
+			go func() {
+				err := server.StartBackend()
+				if err != nil {
+					dialog.ShowError(fmt.Errorf("启动后端服务失败: %v", err), window)
+					log.GetLogger().Error("启动后端服务失败", zap.Error(err))
+					progress.Hide()
+					return
+				}
+			}()
+
+			// 延迟一段时间以确保后端服务启动
+			time.Sleep(1 * time.Second)
+			config.ConfigBackup = config.Conf
+		}
 
 		if err = sm.StartTask(); err != nil {
 			dialog.ShowError(err, window)
@@ -633,7 +733,25 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 			return
 		}
 
-		downloadContainer.Show()
+		// 监听进度条
+		go func() {
+			for {
+				time.Sleep(1 * time.Second)
+				if sm.progressBar.Value < 1 {
+					continue
+				}
+				// 多任务时防抖
+				time.Sleep(1 * time.Second)
+				if sm.progressBar.Value < 1 {
+					continue
+				}
+				break
+			}
+			// 显示下载按钮
+			btn.Show()
+			// 显示下载容器
+			downloadContainer.Show()
+		}()
 		sm.progressBar.Refresh()
 	}
 
@@ -726,45 +844,4 @@ func createAliyunBailianConfigGroup() *fyne.Container {
 	)
 
 	return StyledCard("阿里云百炼配置 Aliyun bailian config", form)
-}
-
-// 创建保存按钮
-func createSaveButton(window fyne.Window) *widget.Button {
-	// 创建保存按钮（但不设置点击事件）
-	saveButton := widget.NewButtonWithIcon("保存配置 Save config", theme.DocumentSaveIcon(), nil)
-	saveButton.Importance = widget.HighImportance
-
-	// 设置点击事件
-	saveButton.OnTapped = func() {
-		// 创建loading对话框
-		progress := dialog.NewProgress("保存中 Saving", "正在保存配置... Saving...", window)
-		progress.Show()
-
-		// 模拟保存进度
-		go func() {
-			for i := 0.0; i <= 1.0; i += 0.1 {
-				time.Sleep(50 * time.Millisecond)
-				progress.SetValue(i)
-			}
-
-			// 保存配置
-			err := config.SaveConfig()
-			progress.Hide()
-
-			if err != nil {
-				dialog.ShowError(fmt.Errorf("保存配置失败: %v", err), window)
-				log.GetLogger().Error("保存配置失败 Failed to save config", zap.Error(err))
-				return
-			}
-
-			// 重新加载配置
-			config.LoadConfig()
-
-			successDialog := dialog.NewInformation("成功 Success", "配置已保存 Config saved", window)
-			successDialog.SetDismissText("确定 OK")
-			successDialog.Show()
-		}()
-	}
-
-	return saveButton
 }

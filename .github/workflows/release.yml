@@ -74,7 +74,7 @@ jobs:
                   --dest "$target_dir" \
                   ./cmd/desktop 2>&1 | sed "s/^/${log_prefix} /"
               # 生成最终二进制文件名日志输
-              binary_name="KrillinAI_Desktop_${{ steps.version.outputs.version }}_${display_os}${suffix}"
+              binary_name="KrillinAI_${{ steps.version.outputs.version }}_Desktop_${display_os}${suffix}"
               # 移动并重命名文件
               mv "$target_dir"/krillinai_desktop* "build/$binary_name"
               echo "${log_prefix} ✅ Built: build/$binary_name"
@@ -104,7 +104,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 20
+          fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
