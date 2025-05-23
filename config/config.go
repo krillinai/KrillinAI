@@ -13,6 +13,8 @@ import (
 	"go.uber.org/zap"
 )
 
+var ConfigBackup Config // 用于在开始任务之前，检测配置是否更新，更新后要重启服务端
+
 type App struct {
 	SegmentDuration       int      `toml:"segment_duration"`
 	TranscribeParallelNum int      `toml:"transcribe_parallel_num"`

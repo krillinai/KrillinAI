@@ -24,12 +24,12 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	config.LoadConfig()
 	go func() {
 		if err := server.StartBackend(); err != nil {
 			log.GetLogger().Error("后端服务启动失败", zap.Error(err))
 			os.Exit(1)
 		}
 	}()
+	config.ConfigBackup = config.Conf
 	desktop.Show()
 }
