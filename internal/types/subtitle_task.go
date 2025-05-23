@@ -83,12 +83,6 @@ var TranslateVideoTitleAndDescriptionPrompt = `你是一个专业的翻译专家
 %s
 `
 
-type SmallAudio struct {
-	AudioFile         string
-	TranscriptionData *TranscriptionData
-	SrtNoTsFile       string
-}
-
 type SubtitleResultType int
 
 const (
@@ -175,7 +169,6 @@ type SubtitleTaskStepParam struct {
 	TaskBasePath                string
 	Link                        string
 	AudioFilePath               string
-	SmallAudios                 []*SmallAudio
 	SubtitleResultType          SubtitleResultType
 	EnableModalFilter           bool
 	EnableTts                   bool
