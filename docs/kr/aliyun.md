@@ -8,7 +8,7 @@
 
 ## 알리바바 클라우드 `access_key_id` 및 `access_key_secret` 획득
 1. [알리바바 클라우드 AccessKey 관리 페이지](https://ram.console.aliyun.com/profile/access-keys)로 이동합니다.
-2. AccessKey 생성을 클릭하고, 필요시 사용 방식을 선택하여 "로컬 개발 환경에서 사용"을 선택합니다.
+2. AccessKey 생성을 클릭하고, 필요 시 사용 방식을 선택하여 "로컬 개발 환경에서 사용"을 선택합니다.
 ![알리바바 클라우드 access key](/docs/images/aliyun_accesskey_1.png)
 3. 안전하게 보관하며, 가능하면 로컬 파일에 복사하여 저장합니다.
 

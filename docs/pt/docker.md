@@ -54,6 +54,6 @@ services:
       - /path/to/bin:/app/bin
 ```
 
-## Considerações
+## Observações
 1. Se o modo de rede do contêiner Docker não for host, recomenda-se definir o endereço de escuta do servidor no arquivo de configuração como `0.0.0.0`, caso contrário, pode não ser possível acessar o serviço.
 2. Se o contêiner precisar acessar o proxy de rede do host, configure o item de configuração do proxy `proxy` de `127.0.0.1` para `host.docker.internal`, por exemplo, `http://host.docker.internal:7890`.

@@ -1,7 +1,7 @@
-# Guía de implementación de Docker
+# Guía de despliegue de Docker
 
 ## Comenzar rápidamente
-Primero, prepara el archivo de configuración, configurando el puerto de escucha del servidor en `8888` y la dirección de escucha del servidor en `0.0.0.0`.
+Primero, prepara el archivo de configuración, estableciendo el puerto de escucha del servidor en `8888` y la dirección de escucha del servidor en `0.0.0.0`.
 
 ### Inicio con docker run
 ```bash
@@ -55,5 +55,5 @@ services:
 ```
 
 ## Consideraciones
-1. Si el modo de red del contenedor de Docker no es host, se recomienda configurar la dirección de escucha del servidor en el archivo de configuración como `0.0.0.0`, de lo contrario, es posible que no se pueda acceder al servicio.
+1. Si el modo de red del contenedor de Docker no es host, se recomienda establecer la dirección de escucha del servidor en el archivo de configuración en `0.0.0.0`, de lo contrario, es posible que no se pueda acceder al servicio.
 2. Si el contenedor necesita acceder al proxy de red del host, configura la opción de dirección del proxy `proxy` de `127.0.0.1` a `host.docker.internal`, por ejemplo, `http://host.docker.internal:7890`.

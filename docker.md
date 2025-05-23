@@ -26,7 +26,7 @@ services:
 ```
 
 ## Persisting Models
-If using the fasterwhisper model, KrillinAI will automatically download the necessary files to the `/app/models` and `/app/bin` directories. These files will be lost when the container is deleted. To persist the models, you can map these two directories to a directory on the host.
+If using the fasterwhisper model, KrillinAI will automatically download the required model files to the `/app/models` and `/app/bin` directories. These files will be lost when the container is deleted. To persist the models, you can map these two directories to a directory on the host.
 
 ### Starting with docker run
 ```bash
@@ -56,4 +56,4 @@ services:
 
 ## Notes
 1. If the network mode of the Docker container is not set to host, it is recommended to set the server listening address in the configuration file to `0.0.0.0`, otherwise the service may not be accessible.
-2. If the container needs to access the host's network proxy, please set the proxy address configuration item `proxy`'s `127.0.0.1` to `host.docker.internal`, for example, `http://host.docker.internal:7890`.
+2. If the container needs to access the host's network proxy, please set the proxy address configuration item `proxy` from `127.0.0.1` to `host.docker.internal`, for example, `http://host.docker.internal:7890`.
