@@ -33,8 +33,6 @@ func createNavButton(text string, icon fyne.Resource, isSelected bool, onTap fun
 
 // Show 展示桌面
 func Show() {
-	TempConf = config.Conf
-
 	myApp := app.New()
 
 	// 自定义主题
@@ -86,7 +84,7 @@ func Show() {
 	// 创建导航项
 	for i, item := range navItems {
 		index := i // 捕获变量
-		isSelected := (i == currentSelectedIndex)
+		isSelected := i == currentSelectedIndex
 
 		// 创建导航按钮以及点击处理函数
 		navBtn := createNavButton(item, navIcons[i], isSelected, func() {
@@ -105,18 +103,15 @@ func Show() {
 			}
 
 			if index == 0 {
-				if TempConf != config.Conf {
-					// 如果配置发生了变化，重新加载配置
-					config.Conf = TempConf
-					err := config.SaveConfig()
-					if err != nil {
-						// 保存配置失败，弹出提示框
-						dialog.ShowError(fmt.Errorf("保存配置失败: %v", err), myWindow)
-						log.GetLogger().Error("保存配置失败 Failed to save config", zap.Error(err))
-						return
-					}
-					log.GetLogger().Info("配置已保存 Config saved successfully")
+				// tab切换出去就保存和重新加载配置
+				err := config.SaveConfig()
+				if err != nil {
+					// 保存配置失败，弹出提示框
+					dialog.ShowError(fmt.Errorf("保存配置失败: %v", err), myWindow)
+					log.GetLogger().Error("保存配置失败 Failed to save config", zap.Error(err))
+					return
 				}
+				log.GetLogger().Info("配置已保存 Config saved successfully")
 				workbenchContent.Show()
 				configContent.Hide()
 				// 确保进度条和下载区域状态正确显示
@@ -124,16 +119,13 @@ func Show() {
 				FadeAnimation(workbenchContent, 300*time.Millisecond, 0.0, 1.0)
 			} else {
 				workbenchContent.Hide()
-				TempConf = config.Conf
 				configContent.Show()
 				FadeAnimation(configContent, 300*time.Millisecond, 0.0, 1.0)
 			}
 
 			// 更新当前选中的索引
 			currentSelectedIndex = index
-
 			navContainer.Refresh()
-
 			contentStack.Refresh()
 		})
 
@@ -175,13 +167,10 @@ func Show() {
 	myWindow.ShowAndRun()
 
 	// 关闭窗口时保存配置
-	if TempConf != config.Conf {
-		config.Conf = TempConf
-		err := config.SaveConfig()
-		if err != nil {
-			log.GetLogger().Error("保存配置失败 Failed to save config", zap.Error(err))
-			return
-		}
-		log.GetLogger().Info("配置已保存 Config saved successfully")
+	err := config.SaveConfig()
+	if err != nil {
+		log.GetLogger().Error("保存配置失败 Failed to save config", zap.Error(err))
+		return
 	}
+	log.GetLogger().Info("配置已保存 Config saved successfully")
 }
