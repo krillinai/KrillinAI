@@ -24,7 +24,7 @@ Windows用户请将本软件的工作目录放在非C盘的文件夹。
 此处`yt-dlp.exe`替换为你系统实际的ytdlp软件名称。
 
 ### 5. 部署后，字幕生成正常，但是合成的字幕嵌入视频里有很多乱码
-多数是因为Linux缺失中文字体。请在[这里](https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/%E5%AD%97%E4%BD%93/msyh.ttc)的“字体”文件夹下载微软雅黑字体（或者自行选择满足你要求的字体），然后按下面的步骤操作：
+多数是因为Linux缺失中文字体。请下载[微软雅黑](https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/%E5%AD%97%E4%BD%93/msyh.ttc)和[微软雅黑-bold](https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/%E5%AD%97%E4%BD%93/msyhbd.ttc)字体（或者自行选择满足你要求的字体），然后按下面的步骤操作：
 1. 在/usr/share/fonts/下新建msyh文件夹并拷贝下载的字体到该目录内
 2. 
     ```
