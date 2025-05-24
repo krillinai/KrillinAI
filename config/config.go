@@ -83,8 +83,8 @@ type Config struct {
 var Conf = Config{
 	App: App{
 		SegmentDuration:       5,
-		TranslateParallelNum:  5,
-		TranscribeParallelNum: 10,
+		TranslateParallelNum:  3,
+		TranscribeParallelNum: 1,
 		TranscribeMaxAttempts: 3,
 		TranslateMaxAttempts:  3,
 		TranscribeProvider:    "openai",
