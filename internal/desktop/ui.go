@@ -214,11 +214,10 @@ func createAppConfigGroup() *fyne.Container {
 	})
 	appLlmProviderEntry.SetSelected(config.Conf.App.LlmProvider)
 
-	// 格式化表单项以使其更美观
 	form := widget.NewForm(
 		widget.NewFormItem("字幕分段处理时长(分钟) Segment duration (minutes)", appSegmentDurationEntry),
-		widget.NewFormItem("转录并行数量 Transcribe parallel num", appTranscribeParallelNumEntry),
-		widget.NewFormItem("翻译并行数量 Translate parallel num", appTranslateParallelNumEntry),
+		widget.NewFormItem("转录最大并行数量 Transcribe parallel num", appTranscribeParallelNumEntry),
+		widget.NewFormItem("翻译最大并行数量 Translate parallel num", appTranslateParallelNumEntry),
 		widget.NewFormItem("转录最大尝试次数 Transcribe max attempts", appTranscribeMaxAttemptsEntry),
 		widget.NewFormItem("翻译最大尝试次数 Translate max attempts", appTranslateMaxAttemptsEntry),
 		widget.NewFormItem("网络代理地址 proxy", appProxyEntry),
