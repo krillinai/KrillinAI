@@ -3,11 +3,11 @@ package service
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"krillin-ai/config"
+	"krillin-ai/internal/dto"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
@@ -19,6 +19,10 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"time"
+
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // 翻译结果数据结构
@@ -29,7 +33,7 @@ type TranslatedItem struct {
 
 func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	var err error
-	err = splitAudio(stepParam)
+	err = splitAudio(stepParam) //20%
 	if err != nil {
 		return fmt.Errorf("audioToSubtitle splitAudio error: %w", err)
 	}
@@ -143,17 +147,17 @@ func (s Service) splitTextAndTranslate(inputText string, targetLanguage string, 
 	return results, nil
 }
 
+type DataWithId[T any] struct {
+	Data T
+	Id   int
+}
+
 func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	defer func() {
 		if r := recover(); r != nil {
 			log.GetLogger().Error("audioToSubtitle audioToSrt panic recovered", zap.Any("panic", r), zap.String("stack", string(debug.Stack())))
 		}
 	}()
-
-	type DataWithId[T any] struct {
-		Data T
-		Id   int
-	}
 
 	var (
 		// 待翻译的文本队列
@@ -170,6 +174,60 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	log.GetLogger().Info("audioToSubtitle.audioToSrt start", zap.Any("taskId", stepParam.TaskId))
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	// 检查是否有中断状态需要恢复
+	if stepParam.InterruptStatus == "interrupt" {
+		statusFilePath := stepParam.TaskBasePath
+		status, err := LoadTaskStatus(statusFilePath)
+		if err != nil {
+			log.GetLogger().Warn("加载中断状态失败，从头开始", zap.Error(err))
+		} else {
+			// 恢复进度
+			stepParam.TaskPtr.ProcessPct = status.ProcessPct
+			for i, audioStatus := range status.ProcessedAudios {
+				if i >= len(stepParam.SmallAudios) {
+					continue
+				}
+
+				// 恢复转录数据
+				if audioStatus.Transcribed {
+					transcribeFile := filepath.Join(
+						stepParam.TaskBasePath,
+						fmt.Sprintf("transcription_%d.json", i),
+					)
+					if data, err := os.ReadFile(transcribeFile); err == nil {
+						var td types.TranscriptionData
+						if json.Unmarshal(data, &td) == nil {
+							stepParam.SmallAudios[i].TranscriptionData = &td
+						}
+					}
+				}
+
+				// 恢复翻译文件路径
+				if audioStatus.Translated {
+					srtFile := filepath.Join(
+						stepParam.TaskBasePath,
+						fmt.Sprintf(types.SubtitleTaskSplitSrtNoTimestampFileNamePattern, i),
+					)
+					if _, err := os.Stat(srtFile); err == nil {
+						stepParam.SmallAudios[i].SrtNoTsFile = srtFile
+					}
+				}
+			}
+			// 恢复队列状态
+			restoreQueue := func(queue chan DataWithId[string], items []dto.QueueItem[string]) {
+				for _, item := range items {
+					select {
+					case queue <- DataWithId[string]{Data: item.Data, Id: item.Id}:
+					default:
+					}
+				}
+			}
+			restoreQueue(pendingTranscriptionQueue, status.PendingTranscriptions)
+			restoreQueue(pendingTranslationQueue, status.PendingTranslations)
+			log.GetLogger().Info("成功恢复中断的任务", zap.Uint8("processPct", status.ProcessPct))
+		}
+	}
 
 	// 并发启动协程处理翻译
 	for range config.Conf.App.TranslateParallelNum {
@@ -271,6 +329,9 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 				stepParam.TaskPtr.ProcessPct = processPct
 				// 处理转录结果
 				stepParam.SmallAudios[transcribedItem.Id].TranscriptionData = transcribedItem.Data
+				// 保存当前状态
+				saveCurrentStatus(stepParam, pendingTranscriptionQueue, pendingTranslationQueue)
+
 			case translatedItems := <-translatedQueue:
 				stepNum++
 				// 更新字幕任务信息
@@ -308,6 +369,8 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 					cancel()
 					return fmt.Errorf("audioToSubtitle audioToSrt generateTimestamps err: %w", err)
 				}
+				// 保存当前状态
+				saveCurrentStatus(stepParam, pendingTranscriptionQueue, pendingTranslationQueue)
 				// 转录、翻译任务全部完成
 				if stepNum >= len(stepParam.SmallAudios)*2 {
 					close(pendingTranscriptionQueue)
@@ -388,6 +451,73 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	log.GetLogger().Info("audioToSubtitle.audioToSrt end", zap.Any("taskId", stepParam.TaskId))
 
 	return nil
+}
+
+func saveCurrentStatus(stepParam *types.SubtitleTaskStepParam,
+	transQueue chan DataWithId[string],
+	translQueue chan DataWithId[string]) {
+	status := dto.TaskStatusDTO{
+		TaskId:          stepParam.TaskId,
+		Status:          types.SubtitleTaskStatusProcessing,
+		ProcessPct:      stepParam.TaskPtr.ProcessPct,
+		OriginLanguage:  stepParam.OriginLanguage,
+		TargetLanguage:  stepParam.TargetLanguage,
+		TaskBasePath:    stepParam.TaskBasePath,
+		InterruptStatus: "active",
+		LastSavedTime:   time.Now().Format(time.RFC3339),
+		ProcessedAudios: make(map[int]dto.AudioProcessStatus),
+	}
+
+	// 记录已处理的音频片段状态
+	for i, audio := range stepParam.SmallAudios {
+		status.ProcessedAudios[i] = dto.AudioProcessStatus{
+			Transcribed: audio.TranscriptionData != nil,
+			Translated:  audio.SrtNoTsFile != "",
+		}
+	}
+
+	// 保存队列中的待处理任务
+	status.PendingTranscriptions = extractQueueItems(transQueue)
+	status.PendingTranslations = extractQueueItems(translQueue)
+
+	// 保存状态到文件
+	if err := saveTaskStatus(status, *stepParam); err != nil {
+		log.GetLogger().Warn("保存状态失败", zap.Error(err))
+	}
+}
+
+func extractQueueItems[T any](queue chan DataWithId[T]) []dto.QueueItem[T] {
+	items := []dto.QueueItem[T]{}
+	for {
+		select {
+		case item, ok := <-queue:
+			if !ok {
+				return items
+			}
+			items = append(items, dto.QueueItem[T]{Data: item.Data, Id: item.Id})
+		default:
+			return items
+		}
+	}
+}
+
+func saveTaskStatus(status dto.TaskStatusDTO, stepParam types.SubtitleTaskStepParam) error {
+	statusFilePath := filepath.Join(stepParam.TaskBasePath, types.StatusFileName)
+	// 检查文件是否存在，不存在则创建目录
+	if _, err := os.Stat(statusFilePath); os.IsNotExist(err) {
+		if err := os.MkdirAll(filepath.Dir(statusFilePath), 0755); err != nil {
+			return fmt.Errorf("创建状态文件目录失败: %w", err)
+		}
+	}
+	// 以写入模式打开文件（如果不存在会自动创建，如果存在会截断内容）
+	file, err := os.OpenFile(statusFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("打开状态文件失败: %w", err)
+	}
+	defer file.Close()
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(status)
 }
 
 func splitSrt(stepParam *types.SubtitleTaskStepParam) error {

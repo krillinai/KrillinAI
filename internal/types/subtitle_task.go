@@ -127,7 +127,11 @@ const (
 	SubtitleTaskStatusProcessing uint8 = iota + 1
 	SubtitleTaskStatusSuccess
 	SubtitleTaskStatusFailed
+	SubtitleTaskStatusInterrupted
+	SubtitleTaskStatusUnknown
 )
+
+const StatusFileName = "task_status.json"
 
 const (
 	SubtitleTaskAudioFileName                           = "origin_audio.mp3"
@@ -173,6 +177,7 @@ type SubtitleTaskStepParam struct {
 	TaskId                      string
 	TaskPtr                     *SubtitleTask // 和storage里面对应
 	TaskBasePath                string
+	InterruptStatus             string
 	Link                        string
 	AudioFilePath               string
 	SmallAudios                 []*SmallAudio
