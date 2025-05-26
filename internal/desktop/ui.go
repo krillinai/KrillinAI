@@ -78,7 +78,7 @@ func CreateSubtitleTab(window fyne.Window) fyne.CanvasObject {
 	// 创建配音设置区域
 	voiceSettingsCard := createVoiceSettingsCard(sm)
 
-	// 创建字幕嵌入设置区域
+	// 创建视频合成区域
 	embedSettingsCard := createEmbedSettingsCard(sm)
 
 	// 创建进度和下载区域
@@ -539,7 +539,7 @@ func createVoiceSettingsCard(sm *SubtitleManager) *fyne.Container {
 	voiceCodeEntry.Disable()
 
 	// todo 限制为仅阿里云
-	audioSampleButton := SecondaryButton("选择音色克隆样本 Choose voice clone sample", theme.MediaMusicIcon(), sm.ShowAudioFileDialog)
+	audioSampleButton := SecondaryButton("选择音色克隆样本(仅支持阿里云tts) Choose voice clone sample(Aliyun tts only)", theme.MediaMusicIcon(), sm.ShowAudioFileDialog)
 	audioSampleButton.Disable()
 
 	voiceoverCheck := widget.NewCheck("启用配音 Enable dubbing", func(checked bool) {
@@ -561,10 +561,9 @@ func createVoiceSettingsCard(sm *SubtitleManager) *fyne.Container {
 	return StyledCard("3. 配音设置 Dubbing setting", grid)
 }
 
-// 创建字幕嵌入设置卡片
+// 视频合成卡片
 func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
-	// 创建字幕嵌入复选框
-	embedCheck := widget.NewCheck("合成字幕嵌入视频 Embed subtitles into video", nil)
+	embedCheck := widget.NewCheck("合成视频 Composite video", nil)
 
 	// 创建视频类型选择
 	embedTypeSelect := StyledSelect([]string{
@@ -623,7 +622,7 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 		container.NewPadded(titleInputContainer),
 	)
 
-	return StyledCard("字幕嵌入设置 Subtitle embed setting", mainContainer)
+	return StyledCard("视频合成设置 Subtitle embed setting", mainContainer)
 }
 
 // 创建进度和下载区域
