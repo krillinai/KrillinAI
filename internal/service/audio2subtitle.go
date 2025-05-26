@@ -771,7 +771,7 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) 
 }
 
 func generateSrtWithTimestamps(srtBlocks []*util.SrtBlock, basePath string, segmentIdx int, originLanguage types.StandardLanguageCode, words []types.Word, resultType types.SubtitleResultType, maxWordOneLine int) error {
-	if len(srtBlocks) == 0 {
+	if len(srtBlocks) == 0 || len(words) == 0 {
 		return nil
 	}
 
