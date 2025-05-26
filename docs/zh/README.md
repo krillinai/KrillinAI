@@ -13,9 +13,7 @@
 
 </div>
 
-### 📢win&mac桌面端新发布 欢迎测试反馈[文档有点落后，持续更新中]
-
- ## 项目简介  
+ ## 项目简介  ([现在体验在线版本！](https://www.klic.studio/))
 
 Krillin AI 是一款全能型音视频本地化与增强解决方案。这款简约而强大的工具，集音视频翻译、配音、语音克隆于一身，支持横竖屏格式输出，确保在所有主流平台（哔哩哔哩，小红书，抖音，视频号，快手，YouTube，TikTok等）都能完美呈现。通过端到端的工作流程，Krillin AI 仅需点击几次，就能将原始素材转化为精美即用的跨平台内容。
 
@@ -30,11 +28,13 @@ Krillin AI 是一款全能型音视频本地化与增强解决方案。这款简
 
 🔄 **术语替换**：一键替换专业领域词汇 
 
-🌍 **专业翻译**：基于LLM，段落级翻译保持语义连贯性
+🌍 **专业翻译**：带上下文进行LLM翻译保持语义自然
 
 🎙️ **配音克隆**：提供CosyVoice精选音色或自定义音色克隆
 
 🎬 **视频合成**：自动处理横竖版视频和字幕排版
+
+💻 **跨平台**：支持Windows、Linux、macOS，提供桌面版和server版
 
 
 ## 效果展示
@@ -86,10 +86,15 @@ _**下表中的本地模型全部支持自动安装可执行文件+模型文件�
 
 ✅ 兼容所有符合 **OpenAI API规范** 的云端/本地大语言模型服务，包括但不限于：
 - OpenAI
+- Gemini
 - DeepSeek
 - 通义千问
 - 本地部署的开源模型
 - 其他兼容OpenAI格式的API服务
+
+## 🎤 TTS文本转语音支持
+- 阿里云语音服务
+- OpenAI TTS
 
 ## 语言支持
 输入语言支持：中文，英文，日语，德语，土耳其，韩语，俄语，马来语（持续增加中）
@@ -105,12 +110,12 @@ _**下表中的本地模型全部支持自动安装可执行文件+模型文件�
 首先下载[Release](https://github.com/krillinai/KrillinAI/releases)中与你设备系统匹配的可执行文件，按照下面的教程选择桌面版还是非桌面版，然后放入空文件夹，把软件下载到一个空文件夹，因为运行之后会生成一些目录，放到空文件夹会好管理一些。  
 
 【如果是桌面版，即release文件带desktop的看此处】  
-_桌面版是新发布的，为了解决新手用户难以正确编辑配置文件的问题，还有不少bug，持续更新中_
+_桌面版是新发布的，为了解决新手用户难以正确编辑配置文件的问题，还有一些bug，持续更新中_
 1. 双击文件即可开始使用(桌面端也是需要配置的，在软件内配置)
 
 【如果是非桌面版，即release文件不带desktop的看此处】  
 _非桌面版是一开始的版本，配置比较复杂，但是功能稳定，同时适合服务器部署，因为会以web的方式提供ui_
-1. 在文件夹内创建`config`文件夹，然后在`config`文件夹创建`config.toml`文件，复制源代码`config`目录下的`config-example.toml`文件的内容填入`config.toml`，并对照填写你的配置信息。
+1. 在文件夹内创建`config`文件夹，然后在`config`文件夹创建`config.toml`文件，复制源代码`config`目录下的`config-example.toml`文件的内容填入`config.toml`，并按注释对照填写你的配置信息。
 2. 双击，或在终端执行可执行文件，启动服务 
 3. 打开浏览器，输入`http://127.0.0.1:8888`，开始使用 (8888替换成你在配置文件中填写的端口)
 
@@ -147,16 +152,17 @@ sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64
 
 ### 配置帮助（必看）
 最快速便捷的配置方式：
-* `transcription_provider`和`llm_provider`都选择`openai`，这样在下方`openai`、`local_model`、`aliyun`三个配置项大类里只需要填写`openai.apikey`就可以进行字幕翻译。(`app.proxy`、`model`和`openai.base_url`按自己情况选填)
+* `transcribe.provider.name`填写`openai`，这样只需要填写`transcribe.openai`块，以及`llm`块的大模型配置就可以进行字幕翻译。(`app.proxy`、`model`和`openai.base_url`按自己情况选填)
 
-使用本地语言识别模型（暂不支持macOS）的配置方式（兼顾成本、速度与质量的选择）
-* `transcription_provider`填写`fasterwhisper`，`llm_provider`填写`openai`，这样在下方`openai`、`local_model`三个配置项大类里只需要填写`openai.apikey`和`local_model.faster_whisper`就可以进行字幕翻译，本地模型会自动下载。(`app.proxy`和`openai.base_url`同上)
+使用本地语言识别模型的配置方式（兼顾成本、速度与质量的选择）
+* `transcribe.provider.name`填写`fasterwhisper`，`transcribe.fasterwhisper.model`填写`large-v2`，然后再填写`llm`填写大模型配置，就可以进行字幕翻译，本地模型会自动下载安装。(`app.proxy`和`openai.base_url`等同上)
 
-以下几种使用情况，需要进行阿里云的配置：
-* 如果`llm_provider`填写了`aliyun`，需要使用阿里云的大模型服务，因此需要配置`aliyun.bailian`项的配置
-* 如果`transcription_provider`填写了`aliyun`，或者在启动任务时开启了“配音”功能，都需要使用阿里云的语音服务，因此需要填写`aliyun.speech`项的配置
-* 如果开启了“配音”功能，同时上传了本地的音频做音色克隆，则还需要使用阿里云的OSS云存储服务，因此需要填写`aliyun.oss`项的配置  
-阿里云配置帮助：[阿里云配置说明](./aliyun.md)
+文本转语音（TTS）是可选的，配置逻辑和上面一样，填写`tts.provider.name`，然后填写`tts`下面对应的配置块就可以了，UI里声音代码按照选择的提供商的文档进行填写即可。阿里云的aksk等的填写可能会重复，这是为了保证配置结构清晰。  
+注意：使用声音克隆的话，`tts`只支持选择`aliyun`。
+
+**阿里云AccessKey、Bucket、AppKey的获取请阅读**：[阿里云配置说明](./aliyun.md) 
+
+请理解，任务=语音识别+大模型翻译+语音服务（TTS等，可选），这对于你理解配置文件很有帮助。
 
 ## 常见问题
 
