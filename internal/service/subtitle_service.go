@@ -81,13 +81,6 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	}
 	storage.SubtitleTasks.Store(taskId, taskPtr)
 
-	var ttsVoiceCode string
-	if req.TtsVoiceCode == types.SubtitleTaskTtsVoiceCodeLongyu {
-		ttsVoiceCode = "longyu"
-	} else {
-		ttsVoiceCode = "longchen"
-	}
-
 	// 处理声音克隆源
 	var voiceCloneAudioUrl string
 	if req.TtsVoiceCloneSrcFileUrl != "" {
@@ -110,7 +103,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		SubtitleResultType:      resultType,
 		EnableModalFilter:       req.ModalFilter == types.SubtitleTaskModalFilterYes,
 		EnableTts:               req.Tts == types.SubtitleTaskTtsYes,
-		TtsVoiceCode:            ttsVoiceCode,
+		TtsVoiceCode:            req.TtsVoiceCode,
 		VoiceCloneAudioUrl:      voiceCloneAudioUrl,
 		ReplaceWordsMap:         replaceWordsMap,
 		OriginLanguage:          types.StandardLanguageCode(req.OriginLanguage),
