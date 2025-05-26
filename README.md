@@ -13,16 +13,14 @@
 
 </div>
 
-### 📢 New Release for Windows & macOS Desktop, Welcome to Test and Provide Feedback [Documentation is a bit outdated, ongoing updates]
+ ## Project Introduction  ([Try the online version now!](https://www.klic.studio/))
 
- ## Project Introduction  
-
-Krillin AI is a versatile audio and video localization and enhancement solution. This minimalist yet powerful tool integrates video translation, dubbing, and voice cloning, supporting both landscape and portrait formats to ensure perfect presentation across all major platforms (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). With an end-to-end workflow, Krillin AI can transform raw materials into polished, ready-to-use cross-platform content with just a few clicks.
+Krillin AI is a versatile audio and video localization and enhancement solution. This minimalist yet powerful tool integrates video translation, dubbing, and voice cloning, supporting both landscape and portrait formats to ensure perfect presentation across all major platforms (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). With an end-to-end workflow, Krillin AI can transform raw materials into beautifully ready-to-use cross-platform content with just a few clicks.
 
 ## Key Features and Functions:
-🎯 **One-Click Start**: No complex environment setup required, automatic dependency installation, ready to use immediately, with a new desktop version for easier use!
+🎯 **One-click Start**: No complex environment setup required, automatic dependency installation, ready to use immediately, with a new desktop version for easier access!
 
-📥 **Video Acquisition**: Supports yt-dlp downloads or local file uploads
+📥 **Video Acquisition**: Supports downloading via yt-dlp or local file uploads
 
 📜 **Accurate Recognition**: High-accuracy speech recognition based on Whisper
 
@@ -30,15 +28,17 @@ Krillin AI is a versatile audio and video localization and enhancement solution.
 
 🔄 **Terminology Replacement**: One-click replacement of specialized vocabulary 
 
-🌍 **Professional Translation**: LLM-based paragraph-level translation maintains semantic coherence
+🌍 **Professional Translation**: LLM translation with context to maintain natural semantics
 
-🎙️ **Voice Cloning**: Offers selected voice tones from CosyVoice or custom voice cloning
+🎙️ **Voice Cloning**: Offers CosyVoice selected tones or custom voice cloning
 
 🎬 **Video Composition**: Automatically handles landscape and portrait video and subtitle layout
 
+💻 **Cross-Platform**: Supports Windows, Linux, macOS, providing both desktop and server versions
+
 
 ## Effect Demonstration
-The image below shows the effect of the subtitle file generated after importing a 46-minute local video and executing it with one click, without any manual adjustments. There are no omissions or overlaps, the segmentation is natural, and the translation quality is very high.
+The image below shows the effect of the subtitle file generated after importing a 46-minute local video and executing it with one click, without any manual adjustments. There are no omissions or overlaps, the sentence breaks are natural, and the translation quality is very high.
 ![Alignment Effect](/docs/images/alignment.png)
 
 <table>
@@ -72,24 +72,29 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </table>
 
 ## 🔍 Supported Speech Recognition Services
-_**All local models in the table below support automatic installation of executable files + model files; you just need to select, and KrillinAI will prepare everything for you.**_
+_**All local models in the table below support automatic installation of executable files + model files; you just need to choose, and KrillinAI will prepare everything for you.**_
 
-| Service Source        | Supported Platforms | Model Options                               | Local/Cloud | Remarks          |
-|----------------------|---------------------|--------------------------------------------|-------------|------------------|
-| **OpenAI Whisper**   | All Platforms        | -                                          | Cloud       | Fast and effective |
-| **FasterWhisper**    | Windows/Linux       | `tiny`/`medium`/`large-v2` (recommended medium+) | Local       | Faster, no cloud service costs |
-| **WhisperKit**       | macOS (M-series only) | `large-v2`                                | Local       | Native optimization for Apple chips |
-| **WhisperCpp**       | All Platforms        | `large-v2`                                | Local       | Supports all platforms |
-| **Aliyun ASR**       | All Platforms        | -                                          | Cloud       | Avoids network issues in mainland China |
+| Service Source         | Supported Platforms | Model Options                                  | Local/Cloud | Remarks          |
+|-----------------------|---------------------|------------------------------------------------|-------------|------------------|
+| **OpenAI Whisper**    | All Platforms        | -                                              | Cloud       | Fast and effective |
+| **FasterWhisper**     | Windows/Linux       | `tiny`/`medium`/`large-v2` (recommended medium+) | Local       | Faster, no cloud service costs |
+| **WhisperKit**        | macOS (M-series only) | `large-v2`                                     | Local       | Native optimization for Apple chips |
+| **WhisperCpp**        | All Platforms        | `large-v2`                                     | Local       | Supports all platforms |
+| **Aliyun ASR**        | All Platforms        | -                                              | Cloud       | Avoids network issues in mainland China |
 
-## 🚀 Large Language Model Support
+## 🚀 Supported Large Language Models
 
 ✅ Compatible with all cloud/local large language model services that comply with **OpenAI API specifications**, including but not limited to:
 - OpenAI
+- Gemini
 - DeepSeek
 - Tongyi Qianwen
 - Locally deployed open-source models
 - Other API services compatible with OpenAI format
+
+## 🎤 TTS Text-to-Speech Support
+- Aliyun Voice Service
+- OpenAI TTS
 
 ## Language Support
 Input languages supported: Chinese, English, Japanese, German, Turkish, Korean, Russian, Malay (continuously increasing)
@@ -102,21 +107,21 @@ Translation languages supported: English, Chinese, Russian, Spanish, French, and
 
 ## 🚀 Quick Start
 ### Basic Steps
-First, download the executable file that matches your device system from the [Release](https://github.com/krillinai/KrillinAI/releases), then follow the tutorial below to choose between the desktop version or non-desktop version, and place it in an empty folder. Download the software into an empty folder, as it will generate some directories after running, making it easier to manage.
+First, download the executable file that matches your device system from the [Release](https://github.com/krillinai/KrillinAI/releases), then follow the tutorial below to choose between the desktop version or non-desktop version, and place it in an empty folder. Download the software into an empty folder because it will generate some directories after running, making it easier to manage.
 
-【If it is the desktop version, i.e., the release file with "desktop", see here】  
-_The desktop version is newly released to address the issue of novice users having difficulty correctly editing configuration files, and there are still many bugs; ongoing updates are in progress._
+【If it is the desktop version, i.e., the release file contains "desktop," see here】  
+_The desktop version is newly released to solve the problem of new users having difficulty correctly editing configuration files, and there are some bugs that are continuously being updated._
 1. Double-click the file to start using it (the desktop version also requires configuration within the software)
 
-【If it is the non-desktop version, i.e., the release file without "desktop", see here】  
-_The non-desktop version is the initial version, with a more complex configuration, but stable functionality, suitable for server deployment, as it provides a UI in a web manner._
-1. Create a `config` folder within the directory, then create a `config.toml` file in the `config` folder, copy the contents of the `config-example.toml` file from the source code's `config` directory into `config.toml`, and fill in your configuration information accordingly.
+【If it is the non-desktop version, i.e., the release file does not contain "desktop," see here】  
+_The non-desktop version is the initial version, with a more complex configuration, but stable functionality, suitable for server deployment, as it provides a UI in a web format._
+1. Create a `config` folder within the directory, then create a `config.toml` file in the `config` folder, copy the contents of the `config-example.toml` file from the source code's `config` directory into `config.toml`, and fill in your configuration information according to the comments.
 2. Double-click or execute the executable file in the terminal to start the service 
 3. Open your browser and enter `http://127.0.0.1:8888` to start using it (replace 8888 with the port you filled in the configuration file)
 
 ### To: macOS Users
-【If it is the desktop version, i.e., the release file with "desktop", see here】  
-Due to signing issues, the current packaging method for the desktop version cannot be run directly by double-clicking or installed via dmg; you need to manually trust the application. The method is as follows:
+【If it is the desktop version, i.e., the release file contains "desktop," see here】  
+Currently, due to signing issues, the desktop version cannot be run directly by double-clicking or installed via dmg; you need to manually trust the application. The method is as follows:
 1. Open the terminal in the directory where the executable file (assuming the file name is KrillinAI_1.0.0_desktop_macOS_arm64) is located
 2. Execute the following commands in order:
 ```
@@ -125,7 +130,7 @@ sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64
 ./KrillinAI_1.0.0_desktop_macOS_arm64
 ```
 
-【If it is the non-desktop version, i.e., the release file without "desktop", see here】  
+【If it is the non-desktop version, i.e., the release file does not contain "desktop," see here】  
 This software is not signed, so when running on macOS, after completing the file configuration in the "Basic Steps," you also need to manually trust the application. The method is as follows:
 1. Open the terminal in the directory where the executable file (assuming the file name is KrillinAI_1.0.0_macOS_arm64) is located
 2. Execute the following commands in order:
@@ -146,17 +151,18 @@ If you encounter video download failures,
 please refer to the [Cookie Configuration Instructions](./get_cookies.md) to configure your Cookie information.
 
 ### Configuration Help (Must Read)
-The fastest and most convenient configuration method:
-* Set both `transcription_provider` and `llm_provider` to `openai`, so you only need to fill in `openai.apikey` in the three configuration categories below: `openai`, `local_model`, and `aliyun` for subtitle translation. (`app.proxy`, `model`, and `openai.base_url` can be filled in as needed)
+The quickest and easiest configuration method:
+* Fill in `transcribe.provider.name` with `openai`, so you only need to fill in the `transcribe.openai` block and the large model configuration in the `llm` block to perform subtitle translation. (`app.proxy`, `model`, and `openai.base_url` can be filled in as needed)
 
-Using a local language recognition model (not yet supported on macOS) configuration method (balancing cost, speed, and quality):
-* Set `transcription_provider` to `fasterwhisper` and `llm_provider` to `openai`, so you only need to fill in `openai.apikey` and `local_model.faster_whisper` in the three configuration categories below: `openai` and `local_model` for subtitle translation, and the local model will be automatically downloaded. (`app.proxy` and `openai.base_url` as above)
+Using local language recognition model configuration (balancing cost, speed, and quality):
+* Fill in `transcribe.provider.name` with `fasterwhisper`, fill in `transcribe.fasterwhisper.model` with `large-v2`, and then fill in the `llm` with the large model configuration to perform subtitle translation; the local model will be automatically downloaded and installed. (`app.proxy` and `openai.base_url` are the same as above)
 
-For the following situations, Aliyun configuration is required:
-* If `llm_provider` is set to `aliyun`, you need to use Aliyun's large model service, so you need to configure the `aliyun.bailian` item.
-* If `transcription_provider` is set to `aliyun`, or if the "Dubbing" feature is enabled when starting a task, you need to use Aliyun's speech service, so you need to fill in the `aliyun.speech` item.
-* If the "Dubbing" feature is enabled and you have uploaded local audio for voice cloning, you will also need to use Aliyun's OSS cloud storage service, so you need to fill in the `aliyun.oss` item.  
-Aliyun configuration help: [Aliyun Configuration Instructions](./aliyun.md)
+Text-to-speech (TTS) is optional; the configuration logic is the same as above. Fill in `tts.provider.name`, then fill in the corresponding configuration block under `tts`. The sound codes in the UI should be filled in according to the documentation of the selected provider. The filling of Aliyun's aksk, etc., may be repetitive to ensure a clear configuration structure.  
+Note: If using voice cloning, `tts` only supports selecting `aliyun`.
+
+**For obtaining Aliyun AccessKey, Bucket, and AppKey, please read**: [Aliyun Configuration Instructions](./aliyun.md) 
+
+Please understand that the task = speech recognition + large model translation + voice service (TTS, etc., optional), which will help you understand the configuration file better.
 
 ## Frequently Asked Questions
 
@@ -167,7 +173,7 @@ Please visit [Frequently Asked Questions](./faq.md)
 2. Do not submit config.toml; instead, submit config-example.toml.
 
 ## Contact Us
-1. Join our QQ group for answers to questions: 754069680
+1. Join our QQ group for questions: 754069680
 2. Follow our social media accounts, [Bilibili](https://space.bilibili.com/242124650), where we share quality content in the AI technology field every day.
 
 ## Star History
