@@ -1,21 +1,21 @@
 package dto
 
 type StartVideoSubtitleTaskReq struct {
-	AppId                   uint32   `json:"app_id"`
-	Url                     string   `json:"url"`
-	OriginLanguage          string   `json:"origin_lang"`
-	TargetLang              string   `json:"target_lang"`
-	Bilingual               uint8    `json:"bilingual"`
-	TranslationSubtitlePos  uint8    `json:"translation_subtitle_pos"`
-	ModalFilter             uint8    `json:"modal_filter"`
-	Tts                     uint8    `json:"tts"`
-	TtsVoiceCode            uint8    `json:"tts_voice_code"`
-	TtsVoiceCloneSrcFileUrl string   `json:"tts_voice_clone_src_file_url"`
-	Replace                 []string `json:"replace"`
-	Language                string   `json:"language"`
-	EmbedSubtitleVideoType  string   `json:"embed_subtitle_video_type"`
-	VerticalMajorTitle      string   `json:"vertical_major_title"`
-	VerticalMinorTitle      string   `json:"vertical_minor_title"`
+	AppId                     uint32   `json:"app_id"`
+	Url                       string   `json:"url"`
+	OriginLanguage            string   `json:"origin_lang"`
+	TargetLang                string   `json:"target_lang"`
+	Bilingual                 uint8    `json:"bilingual"`
+	TranslationSubtitlePos    uint8    `json:"translation_subtitle_pos"`
+	ModalFilter               uint8    `json:"modal_filter"`
+	Tts                       uint8    `json:"tts"`
+	TtsVoiceCode              string   `json:"tts_voice_code"`
+	TtsVoiceCloneSrcFileUrl   string   `json:"tts_voice_clone_src_file_url"`
+	Replace                   []string `json:"replace"`
+	Language                  string   `json:"language"`
+	EmbedSubtitleVideoType    string   `json:"embed_subtitle_video_type"`
+	VerticalMajorTitle        string   `json:"vertical_major_title"`
+	VerticalMinorTitle        string   `json:"vertical_minor_title"`
 	OriginLanguageWordOneLine int      `json:"origin_language_word_one_line"`
 }
 

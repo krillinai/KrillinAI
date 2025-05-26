@@ -38,7 +38,7 @@ type SubtitleManager struct {
 	bilingualEnabled   bool
 	bilingualPosition  int
 	voiceoverEnabled   bool
-	voiceoverGender    int // 1-女声，2-男声
+	ttsVoiceCode       string // 声音代码
 	fillerFilter       bool
 	wordReplacements   []api.WordReplacement
 	embedSubtitle      string // none, horizontal, vertical, all
@@ -72,7 +72,7 @@ func NewSubtitleManager(window fyne.Window) *SubtitleManager {
 		bilingualPosition: 1,
 		fillerFilter:      true,
 		voiceoverEnabled:  false,
-		voiceoverGender:   2,
+		ttsVoiceCode:      "",
 		embedSubtitle:     "none",
 		downloadContainer: container.NewVBox(),
 		tipsLabel:         widget.NewLabel(""),
@@ -414,9 +414,9 @@ func (sm *SubtitleManager) SetVoiceoverEnabled(enabled bool) {
 	sm.voiceoverEnabled = enabled
 }
 
-// SetVoiceoverGender 设置配音性别
-func (sm *SubtitleManager) SetVoiceoverGender(gender int) {
-	sm.voiceoverGender = gender
+// SetTtsVoiceCode 设置配音性别
+func (sm *SubtitleManager) SetTtsVoiceCode(code string) {
+	sm.ttsVoiceCode = code
 }
 
 // SetEmbedSubtitle 设置字幕嵌入方式
@@ -485,7 +485,7 @@ func (sm *SubtitleManager) StartTask() error {
 		Bilingual:               boolToInt(sm.bilingualEnabled),
 		TranslationSubtitlePos:  sm.bilingualPosition,
 		TTS:                     boolToInt(sm.voiceoverEnabled),
-		TTSVoiceCode:            sm.voiceoverGender,
+		TTSVoiceCode:            sm.ttsVoiceCode,
 		TTSVoiceCloneSrcFileURL: sm.voiceoverAudioPath,
 		ModalFilter:             boolToInt(sm.fillerFilter),
 		EmbedSubtitleVideoType:  sm.embedSubtitle,
@@ -576,7 +576,7 @@ func (sm *SubtitleManager) processMultipleVideos() {
 				Bilingual:               boolToInt(sm.bilingualEnabled),
 				TranslationSubtitlePos:  sm.bilingualPosition,
 				TTS:                     boolToInt(sm.voiceoverEnabled),
-				TTSVoiceCode:            sm.voiceoverGender,
+				TTSVoiceCode:            sm.ttsVoiceCode,
 				TTSVoiceCloneSrcFileURL: sm.voiceoverAudioPath,
 				ModalFilter:             boolToInt(sm.fillerFilter),
 				EmbedSubtitleVideoType:  sm.embedSubtitle,
