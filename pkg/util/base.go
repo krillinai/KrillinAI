@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"unicode"
@@ -185,13 +186,38 @@ func CopyFile(src, dst string) error {
 	return destinationFile.Sync()
 }
 
-// KeepOnlyAlphanumeric 只保留字母(a-zA-Z)和数字(0-9)
-func KeepOnlyAlphanumeric(input string) string {
-	var result []rune
-	for _, r := range input {
-		if unicode.IsLetter(r) || unicode.IsNumber(r) {
-			result = append(result, r)
-		}
+// SanitizePathName 清理字符串，使其成为合法路径名
+func SanitizePathName(name string) string {
+	var illegalChars *regexp.Regexp
+	if runtime.GOOS == "windows" {
+		// Windows 特殊字符
+		illegalChars = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
+	} else {
+		// POSIX 系统：只禁用 / 和空字节
+		illegalChars = regexp.MustCompile(`[/\x00]`)
 	}
-	return string(result)
+
+	sanitized := illegalChars.ReplaceAllString(name, "_")
+
+	// 去除前后空格
+	sanitized = strings.TrimSpace(sanitized)
+
+	// 防止空字符串
+	if sanitized == "" {
+		sanitized = "unnamed"
+	}
+
+	// 避免 Windows 下的保留文件名
+	reserved := map[string]bool{
+		"CON": true, "PRN": true, "AUX": true, "NUL": true,
+		"COM1": true, "COM2": true, "COM3": true, "COM4": true,
+		"LPT1": true, "LPT2": true,
+	}
+
+	upper := strings.ToUpper(sanitized)
+	if reserved[upper] {
+		sanitized = "_" + sanitized
+	}
+
+	return sanitized
 }
