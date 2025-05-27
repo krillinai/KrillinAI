@@ -184,3 +184,14 @@ func CopyFile(src, dst string) error {
 
 	return destinationFile.Sync()
 }
+
+// KeepOnlyAlphanumeric 只保留字母(a-zA-Z)和数字(0-9)
+func KeepOnlyAlphanumeric(input string) string {
+	var result []rune
+	for _, r := range input {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			result = append(result, r)
+		}
+	}
+	return string(result)
+}
