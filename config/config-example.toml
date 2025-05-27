@@ -18,8 +18,7 @@
     model = "" # 指定模型名，可通过此字段结合base_url使用外部任何与OpenAI API兼容的大模型服务，留空默认为gpt-4o-mini
 
 [transcribe] # 视频转文本支持多种方案，配置时先填provider，再填对应的配置
-    [transcribe.provider]
-        name = "openai" #语音识别，当前可选值：openai,fasterwhisper,whisperkit,whisper.cpp,aliyun。(fasterwhisper不支持macOS,whisperkit只支持M芯片)
+    provider = "openai" #语音识别，当前可选值：openai,fasterwhisper,whisperkit,whisper.cpp,aliyun。(fasterwhisper不支持macOS,whisperkit只支持M芯片)
     [transcribe.openai]
         base_url = ""
         api_key = ""
@@ -41,8 +40,7 @@
             app_key= ""
 
 [tts]
-    [tts.provider]
-        name = "aliyun" # 可选值：openai,aliyun
+    provider = "aliyun" # 可选值：openai,aliyun
     [tts.openai]
         base_url = ""
         api_key = ""
