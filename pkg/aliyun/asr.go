@@ -207,7 +207,10 @@ func (c *AsrClient) Transcription(audioFile, language, workDir string) (*types.T
 			// 构建返回结果
 			resultData = &types.TranscriptionData{
 				Language: language,
-				Text:     getResult.Result.Sentences[0].Text,
+			}
+
+			for _, sentence := range getResult.Result.Sentences {
+				resultData.Text += sentence.Text
 			}
 
 			var words []types.Word
