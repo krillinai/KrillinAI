@@ -1,9 +1,9 @@
 <div align="center">
-  <img src="/docs/images/logo.png" alt="KrillinAI" height="90">
+  <img src="/docs/images/logo.png" alt="KlicStudio" height="90">
 
   # 极简部署AI视频翻译配音工具
 
-  <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="krillinai%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+  <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKlicStudio | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
   **[English](/README.md)｜[简体中文](/docs/zh/README.md)｜[日本語](/docs/jp/README.md)｜[한국어](/docs/kr/README.md)｜[Tiếng Việt](/docs/vi/README.md)｜[Français](/docs/fr/README.md)｜[Deutsch](/docs/de/README.md)｜[Español](/docs/es/README.md)｜[Português](/docs/pt/README.md)｜[Русский](/docs/rus/README.md)｜[اللغة العربية](/docs/ar/README.md)**
 
@@ -72,7 +72,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </table>
 
 ## 🔍 语音识别服务支持
-_**下表中的本地模型全部支持自动安装可执行文件+模型文件，你只要选择，其它的KrillinAI帮你全部准备完毕。**_
+_**下表中的本地模型全部支持自动安装可执行文件+模型文件，你只要选择，其它的Klic帮你全部准备完毕。**_
 
 | 服务源                | 支持平台            | 模型可选项                                  | 本地/云端 | 备注          |
 |--------------------|-----------------|----------------------------------------|-------|-------------|
@@ -107,7 +107,7 @@ _**下表中的本地模型全部支持自动安装可执行文件+模型文件�
 
 ## 🚀 快速开始
 ### 基本步骤
-首先下载[Release](https://github.com/krillinai/KrillinAI/releases)中与你设备系统匹配的可执行文件，按照下面的教程选择桌面版还是非桌面版，然后放入空文件夹，把软件下载到一个空文件夹，因为运行之后会生成一些目录，放到空文件夹会好管理一些。  
+首先下载[Release](https://github.com/KrillinAI/KlicStudio/releases)中与你设备系统匹配的可执行文件，按照下面的教程选择桌面版还是非桌面版，然后放入空文件夹，把软件下载到一个空文件夹，因为运行之后会生成一些目录，放到空文件夹会好管理一些。  
 
 【如果是桌面版，即release文件带desktop的看此处】  
 _桌面版是新发布的，为了解决新手用户难以正确编辑配置文件的问题，还有一些bug，持续更新中_
@@ -122,22 +122,22 @@ _非桌面版是一开始的版本，配置比较复杂，但是功能稳定，�
 ### To: macOS用户
 【如果是桌面版，即release文件带desktop的看此处】  
 桌面端目前打包方式由于签名等问题，还不能够做到双击直接运行或者dmg安装，需要手动信任应用，方法如下：
-1. 在终端打开可执行文件（假设文件名是KrillinAI_1.0.0_desktop_macOS_arm64）所在目录
+1. 在终端打开可执行文件（假设文件名是KlicStudio_1.0.0_desktop_macOS_arm64）所在目录
 2. 依次执行以下命令：
 ```
-sudo xattr -cr ./KrillinAI_1.0.0_desktop_macOS_arm64
-sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64 
-./KrillinAI_1.0.0_desktop_macOS_arm64
+sudo xattr -cr ./KlicStudio_1.0.0_desktop_macOS_arm64
+sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64 
+./KlicStudio_1.0.0_desktop_macOS_arm64
 ```
 
 【如果是非桌面版，即release文件不带desktop的看此处】  
 本软件没有做签名，因此在macOS上运行时，在完成“基本步骤”中的文件配置后，还需要手动信任应用，方法如下：
-1. 在终端打开可执行文件（假设文件名是KrillinAI_1.0.0_macOS_arm64）所在目录
+1. 在终端打开可执行文件（假设文件名是KlicStudio_1.0.0_macOS_arm64）所在目录
 2. 依次执行以下命令：
    ```
-    sudo xattr -rd com.apple.quarantine ./KrillinAI_1.0.0_macOS_arm64
-    sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
-    ./KrillinAI_1.0.0_macOS_arm64
+    sudo xattr -rd com.apple.quarantine ./KlicStudio_1.0.0_macOS_arm64
+    sudo chmod +x ./KlicStudio_1.0.0_macOS_arm64
+    ./KlicStudio_1.0.0_macOS_arm64
     ```
     即可启动服务
 
@@ -157,7 +157,7 @@ sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64
 使用本地语言识别模型的配置方式（兼顾成本、速度与质量的选择）
 * `transcribe.provider.name`填写`fasterwhisper`，`transcribe.fasterwhisper.model`填写`large-v2`，然后再填写`llm`填写大模型配置，就可以进行字幕翻译，本地模型会自动下载安装。(`app.proxy`和`openai.base_url`等同上)
 
-文本转语音（TTS）是可选的，配置逻辑和上面一样，填写`tts.provider.name`，然后填写`tts`下面对应的配置块就可以了，UI里声音代码按照选择的提供商的文档进行填写即可。阿里云的aksk等的填写可能会重复，这是为了保证配置结构清晰。  
+文本转语音（TTS）是可选的，配置逻辑和上面一样，填写`tts.provider.name`，然后填写`tts`下面对应的配置块就可以了，UI里声音代码按照选择的提供商的文档进行填写即可（下方常见问题里有文档地址）。阿里云的aksk等的填写可能会重复，这是为了保证配置结构清晰。  
 注意：使用声音克隆的话，`tts`只支持选择`aliyun`。
 
 **阿里云AccessKey、Bucket、AppKey的获取请阅读**：[阿里云配置说明](./aliyun.md) 
@@ -178,4 +178,4 @@ sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=KrillinAI/KlicStudio&type=Date)](https://star-history.com/#KrillinAI/KlicStudio&Date)
