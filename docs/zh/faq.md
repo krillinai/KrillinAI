@@ -33,3 +33,8 @@ Windows用户请将本软件的工作目录放在非C盘的文件夹。
     sudo mkfontdir
     fc-cache
     ```
+   
+### 6. 语音合成的音色代码怎么填？
+请参照语音服务提供商的文档，以下是本项目相关的：  
+[OpenAI TTS文档](https://platform.openai.com/docs/guides/text-to-speech/api-reference)， 位于Voice options  
+[阿里云智能语音交互文档](https://help.aliyun.com/zh/isi/developer-reference/overview-of-speech-synthesis) ，位于音色列表-voice参数值
