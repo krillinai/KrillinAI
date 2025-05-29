@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="/docs/images/logo.png" alt="KlicStudio" height="90">
+  <img src="/docs/images/logo.jpg" alt="KlicStudio" height="90">
 
   # 극간소화 AI 비디오 번역 및 더빙 도구
 

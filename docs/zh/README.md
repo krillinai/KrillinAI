@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="/docs/images/logo.png" alt="KlicStudio" height="90">
+  <img src="/docs/images/logo.jpg" alt="KlicStudio" height="90">
 
   # 极简部署AI视频翻译配音工具
 

@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="/docs/images/logo.png" alt="KlicStudio" height="90">
+  <img src="/docs/images/logo.jpg" alt="KlicStudio" height="90">
 
   # أداة ترجمة الفيديو والصوت باستخدام الذكاء الاصطناعي
 

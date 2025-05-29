@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="/docs/images/logo.png" alt="KlicStudio" height="90">
+  <img src="/docs/images/logo.jpg" alt="KlicStudio" height="90">
 
   # Herramienta de traducción y doblaje de video AI de despliegue minimalista
 
