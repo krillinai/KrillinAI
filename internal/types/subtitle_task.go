@@ -130,29 +130,30 @@ const (
 )
 
 const (
-	SubtitleTaskAudioFileName                           = "origin_audio.mp3"
-	SubtitleTaskVideoFileName                           = "origin_video.mp4"
-	SubtitleTaskSplitAudioFileNamePrefix                = "split_audio"
-	SubtitleTaskSplitAudioFileNamePattern               = SubtitleTaskSplitAudioFileNamePrefix + "_%03d.mp3"
-	SubtitleTaskSplitAudioTxtFileNamePattern            = "split_audio_txt_%d.txt"
-	SubtitleTaskSplitAudioWordsFileNamePattern          = "split_audio_words_%d.txt"
-	SubtitleTaskSplitSrtNoTimestampFileNamePattern      = "srt_no_ts_%d.srt"
-	SubtitleTaskSrtNoTimestampFileName                  = "srt_no_ts.srt"
-	SubtitleTaskSplitBilingualSrtFileNamePattern        = "split_bilingual_srt_%d.srt"
-	SubtitleTaskSplitShortOriginMixedSrtFileNamePattern = "split_short_origin_mixed_srt_%d.srt" //长中文+短英文
-	SubtitleTaskSplitShortOriginSrtFileNamePattern      = "split_short_origin_srt_%d.srt"       //短英文
-	SubtitleTaskBilingualSrtFileName                    = "bilingual_srt.srt"
-	SubtitleTaskShortOriginMixedSrtFileName             = "short_origin_mixed_srt.srt" //长中文+短英文
-	SubtitleTaskShortOriginSrtFileName                  = "short_origin_srt.srt"       //短英文
-	SubtitleTaskOriginLanguageSrtFileName               = "origin_language_srt.srt"
-	SubtitleTaskOriginLanguageTextFileName              = "origin_language.txt"
-	SubtitleTaskTargetLanguageSrtFileName               = "target_language_srt.srt"
-	SubtitleTaskTargetLanguageTextFileName              = "target_language.txt"
-	SubtitleTaskStepParamGobPersistenceFileName         = "step_param.gob"
-	SubtitleTaskTransferredVerticalVideoFileName        = "transferred_vertical_video.mp4"
-	SubtitleTaskHorizontalEmbedVideoFileName            = "horizontal_embed.mp4"
-	SubtitleTaskVerticalEmbedVideoFileName              = "vertical_embed.mp4"
-	SubtitleTaskVideoWithTtsFileName                    = "video_with_tts.mp4"
+	SubtitleTaskAudioFileName                                    = "origin_audio.mp3"
+	SubtitleTaskVideoFileName                                    = "origin_video.mp4"
+	SubtitleTaskSplitAudioFileNamePrefix                         = "split_audio"
+	SubtitleTaskSplitAudioFileNamePattern                        = SubtitleTaskSplitAudioFileNamePrefix + "_%03d.mp3"
+	SubtitleTaskSplitAudioTxtFileNamePattern                     = "split_audio_txt_%d.txt"
+	SubtitleTaskSplitAudioWordsFileNamePattern                   = "split_audio_words_%d.txt"
+	SubtitleTaskSplitSrtNoTimestampFileNamePattern               = "srt_no_ts_%d.srt"
+	SubtitleTaskSrtNoTimestampFileName                           = "srt_no_ts.srt"
+	SubtitleTaskSplitBilingualSrtFileNamePattern                 = "split_bilingual_srt_%d.srt"
+	SubtitleTaskSplitShortOriginMixedSrtFileNamePattern          = "split_short_origin_mixed_srt_%d.srt" //长中文+短英文
+	SubtitleTaskSplitShortOriginSrtFileNamePattern               = "split_short_origin_srt_%d.srt"       //短英文
+	SubtitleTaskBilingualSrtFileName                             = "bilingual_srt.srt"
+	SubtitleTaskShortOriginMixedSrtFileName                      = "short_origin_mixed_srt.srt" //长中文+短英文
+	SubtitleTaskShortOriginSrtFileName                           = "short_origin_srt.srt"       //短英文
+	SubtitleTaskOriginLanguageSrtFileName                        = "origin_language_srt.srt"
+	SubtitleTaskOriginLanguageTextFileName                       = "origin_language.txt"
+	SubtitleTaskTargetLanguageSrtFileName                        = "target_language_srt.srt"
+	SubtitleTaskTargetLanguageTextFileName                       = "target_language.txt"
+	SubtitleTaskStepParamGobPersistenceFileName                  = "step_param.gob"
+	SubtitleTaskAudioTranscriptionDataPersistenceFileNamePattern = "audio_transcription_data_%d.json"
+	SubtitleTaskTransferredVerticalVideoFileName                 = "transferred_vertical_video.mp4"
+	SubtitleTaskHorizontalEmbedVideoFileName                     = "horizontal_embed.mp4"
+	SubtitleTaskVerticalEmbedVideoFileName                       = "vertical_embed.mp4"
+	SubtitleTaskVideoWithTtsFileName                             = "video_with_tts.mp4"
 )
 
 const (

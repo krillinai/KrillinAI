@@ -2,9 +2,12 @@ package util
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/texttheater/golang-levenshtein/levenshtein"
 	"io"
+	"krillin-ai/internal/types"
 	"math"
 	"math/rand"
 	"net/url"
@@ -220,4 +223,83 @@ func SanitizePathName(name string) string {
 	}
 
 	return sanitized
+}
+
+// FindClosestConsecutiveWords 查找 words 中 Num 连续递增的一组词，使得其拼接后的文本与 inputStr 的编辑距离最小。
+func FindClosestConsecutiveWords(words []types.Word, inputStr string) []types.Word {
+	if len(words) == 0 {
+		return nil
+	}
+
+	// 先将输入按 Num 排序（如果你已经保证是有序的可跳过此步骤）
+	// sort.Slice(words, func(i, j int) bool { return words[i].Num < words[j].Num })
+
+	// Step 1: 获取所有 Num 连续递增的 []types.Word 组合
+	var groups [][]types.Word
+	var currentGroup []types.Word
+
+	for i, word := range words {
+		if i == 0 {
+			currentGroup = append(currentGroup, word)
+			continue
+		}
+
+		if word.Num == words[i-1].Num+1 {
+			currentGroup = append(currentGroup, word)
+		} else {
+			if len(currentGroup) > 0 {
+				groups = append(groups, currentGroup)
+			}
+			currentGroup = []types.Word{word}
+		}
+	}
+	if len(currentGroup) > 0 {
+		groups = append(groups, currentGroup)
+	}
+
+	// Step 2: 比较编辑距离，找最接近 inputStr 的那个组
+	minDistance := -1
+	var bestGroup []types.Word
+
+	for _, group := range groups {
+		var sb strings.Builder
+		for _, w := range group {
+			sb.WriteString(w.Text)
+		}
+		groupText := sb.String()
+
+		dist := levenshtein.DistanceForStrings([]rune(groupText), []rune(inputStr), levenshtein.DefaultOptions)
+
+		if minDistance == -1 || dist < minDistance {
+			minDistance = dist
+			bestGroup = group
+		}
+	}
+
+	return bestGroup
+}
+
+func SaveToDisk(data any, filename string) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ") // 美化输出
+	return encoder.Encode(data)
+}
+
+func LoadFromDisk(filename string) (any, error) {
+	var data any
+	file, err := os.Open(filename)
+	if err != nil {
+		return data, err
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&data)
+	return data, err
 }
