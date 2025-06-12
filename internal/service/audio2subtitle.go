@@ -93,7 +93,7 @@ func splitAudio(stepParam *types.SubtitleTaskStepParam) error {
 	return nil
 }
 
-func (s Service) transcribeAudio(audioFilePath string, language string, taskBasePath string) (*types.TranscriptionData, error) {
+func (s Service) transcribeAudio(id int, audioFilePath string, language string, taskBasePath string) (*types.TranscriptionData, error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.GetLogger().Error("audioToSubtitle transcribeAudio panic recovered", zap.Any("panic", r), zap.String("stack", string(debug.Stack())))
@@ -108,6 +108,8 @@ func (s Service) transcribeAudio(audioFilePath string, language string, taskBase
 	if err != nil {
 		return nil, fmt.Errorf("audioToSubtitle transcribeAudio Transcription err: %w", err)
 	}
+
+	_ = util.SaveToDisk(transcriptionData, filepath.Join(taskBasePath, fmt.Sprintf(types.SubtitleTaskAudioTranscriptionDataPersistenceFileNamePattern, id)))
 
 	if transcriptionData.Text == "" {
 		log.GetLogger().Info("audioToSubtitle transcribeAudio TranscriptionData.Text is empty", zap.Any("audioFilePath", audioFilePath), zap.Any("taskBasePath", taskBasePath))
@@ -243,7 +245,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 					log.GetLogger().Info("Begin transcribe", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", audioFileItem.Id))
 					// 语音转文字
 					for range config.Conf.App.TranscribeMaxAttempts {
-						transcriptionData, err = s.transcribeAudio(audioFileItem.Data, string(stepParam.OriginLanguage), stepParam.TaskBasePath)
+						transcriptionData, err = s.transcribeAudio(audioFileItem.Id, audioFileItem.Data, string(stepParam.OriginLanguage), stepParam.TaskBasePath)
 						if err == nil {
 							break
 						}
@@ -672,6 +674,9 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 
 		beginWord := sentenceWords[beginWordIndex]
 		endWord := sentenceWords[endWordIndex]
+		//sequence := util.FindClosestConsecutiveWords(words, sentence)
+		//beginWord := sequence[0]
+		//endWord := sequence[len(sequence)-1]
 
 		srtSt.Start = beginWord.Start
 		if srtSt.Start < thisLastTs {
@@ -729,6 +734,10 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) 
 		return -1, -1, nil
 	}
 
+	if len(words) == 1 {
+		return 0, 0, words
+	}
+
 	// dp[i] 表示以 words[i] 结束的递增子数组的长度
 	dp := make([]int, len(words))
 	// prev[i] 用来记录与当前递增子数组相连的前一个元素的索引
@@ -775,9 +784,11 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) 
 	}
 
 	// 构造结果子数组
-	result := []types.Word{}
-	for i := startIdx; i != -1; i = prev[i] {
-		result = append(result, words[i])
+	result := make([]types.Word, 0, maxLen)
+	current := endIdx
+	for current != -1 {
+		result = append(result, words[current])
+		current = prev[current]
 	}
 
 	// 由于是从后往前构造的子数组，需要反转
@@ -789,7 +800,7 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) 
 }
 
 func generateSrtWithTimestamps(srtBlocks []*util.SrtBlock, basePath string, segmentIdx int, originLanguage types.StandardLanguageCode, words []types.Word, resultType types.SubtitleResultType, maxWordOneLine int) error {
-	if len(srtBlocks) == 0 {
+	if len(srtBlocks) == 0 || len(words) == 0 {
 		return nil
 	}
 

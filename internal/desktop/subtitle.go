@@ -38,7 +38,7 @@ type SubtitleManager struct {
 	bilingualEnabled   bool
 	bilingualPosition  int
 	voiceoverEnabled   bool
-	voiceoverGender    int // 1-女声，2-男声
+	ttsVoiceCode       string // 声音代码
 	fillerFilter       bool
 	wordReplacements   []api.WordReplacement
 	embedSubtitle      string // none, horizontal, vertical, all
@@ -72,7 +72,7 @@ func NewSubtitleManager(window fyne.Window) *SubtitleManager {
 		bilingualPosition: 1,
 		fillerFilter:      true,
 		voiceoverEnabled:  false,
-		voiceoverGender:   2,
+		ttsVoiceCode:      "",
 		embedSubtitle:     "none",
 		downloadContainer: container.NewVBox(),
 		tipsLabel:         widget.NewLabel(""),
@@ -414,9 +414,9 @@ func (sm *SubtitleManager) SetVoiceoverEnabled(enabled bool) {
 	sm.voiceoverEnabled = enabled
 }
 
-// SetVoiceoverGender 设置配音性别
-func (sm *SubtitleManager) SetVoiceoverGender(gender int) {
-	sm.voiceoverGender = gender
+// SetTtsVoiceCode 设置配音性别
+func (sm *SubtitleManager) SetTtsVoiceCode(code string) {
+	sm.ttsVoiceCode = code
 }
 
 // SetEmbedSubtitle 设置字幕嵌入方式
@@ -485,7 +485,7 @@ func (sm *SubtitleManager) StartTask() error {
 		Bilingual:               boolToInt(sm.bilingualEnabled),
 		TranslationSubtitlePos:  sm.bilingualPosition,
 		TTS:                     boolToInt(sm.voiceoverEnabled),
-		TTSVoiceCode:            sm.voiceoverGender,
+		TTSVoiceCode:            sm.ttsVoiceCode,
 		TTSVoiceCloneSrcFileURL: sm.voiceoverAudioPath,
 		ModalFilter:             boolToInt(sm.fillerFilter),
 		EmbedSubtitleVideoType:  sm.embedSubtitle,
@@ -576,7 +576,7 @@ func (sm *SubtitleManager) processMultipleVideos() {
 				Bilingual:               boolToInt(sm.bilingualEnabled),
 				TranslationSubtitlePos:  sm.bilingualPosition,
 				TTS:                     boolToInt(sm.voiceoverEnabled),
-				TTSVoiceCode:            sm.voiceoverGender,
+				TTSVoiceCode:            sm.ttsVoiceCode,
 				TTSVoiceCloneSrcFileURL: sm.voiceoverAudioPath,
 				ModalFilter:             boolToInt(sm.fillerFilter),
 				EmbedSubtitleVideoType:  sm.embedSubtitle,
@@ -718,7 +718,8 @@ func (sm *SubtitleManager) pollTaskStatus(taskId string) {
 		resp, err := http.Get(fmt.Sprintf("http://%s:%d/api/capability/subtitleTask?taskId=%s", config.Conf.Server.Host, config.Conf.Server.Port, taskId))
 		if err != nil {
 			log.GetLogger().Error("获取任务状态失败", zap.Error(err))
-			continue
+			dialog.ShowError(fmt.Errorf("获取任务状态失败 Failed to get task status: %v", err), sm.window)
+			return
 		}
 
 		var result struct {
@@ -735,13 +736,15 @@ func (sm *SubtitleManager) pollTaskStatus(taskId string) {
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 			log.GetLogger().Error("解析响应失败", zap.Error(err))
 			resp.Body.Close()
-			continue
+			dialog.ShowError(fmt.Errorf("获取任务状态失败 Failed to get task status: %v", err), sm.window)
+			return
 		}
 		resp.Body.Close()
 
-		if result.Error != 0 && result.Error != 200 {
+		if result.Error != 0 {
 			log.GetLogger().Error("获取任务状态失败", zap.String("msg", result.Msg))
-			continue
+			dialog.ShowError(fmt.Errorf("获取任务状态失败 Failed to get task status: %v", result.Msg), sm.window)
+			return
 		}
 
 		if result.Data.ProcessPercent != lastPercent {
@@ -773,7 +776,7 @@ func (sm *SubtitleManager) pollTaskStatus(taskId string) {
 			sm.tipsLabel.SetText(fmt.Sprintf("若需要查看合成的视频或者文字稿，请到软件目录下的/tasks/%s/output 目录下查看。", result.Data.TaskId))
 			sm.tipsLabel.Show()
 
-			break
+			return
 		}
 	}
 }

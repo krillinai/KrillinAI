@@ -37,8 +37,8 @@ func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTa
 				log.GetLogger().Info("检测到输入视频是竖屏，无法合成横屏视频，跳过")
 				return nil
 			}
-			log.GetLogger().Info("合成字幕嵌入视频：横屏")
-			err = embedSubtitles(stepParam, true)
+			log.GetLogger().Info("合成视频：横屏")
+			err = embedSubtitles(stepParam, true, stepParam.EnableTts)
 			if err != nil {
 				log.GetLogger().Error("embedSubtitles embedSubtitles error", zap.Any("step param", stepParam), zap.Error(err))
 				return fmt.Errorf("embedSubtitles embedSubtitles error: %w", err)
@@ -55,8 +55,8 @@ func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTa
 				}
 				stepParam.InputVideoPath = transferredVerticalVideoPath
 			}
-			log.GetLogger().Info("合成字幕嵌入视频：竖屏")
-			err = embedSubtitles(stepParam, false)
+			log.GetLogger().Info("合成视频：竖屏")
+			err = embedSubtitles(stepParam, false, stepParam.EnableTts)
 			if err != nil {
 				log.GetLogger().Error("embedSubtitles embedSubtitles error", zap.Any("step param", stepParam), zap.Error(err))
 				return fmt.Errorf("embedSubtitles embedSubtitles error: %w", err)
@@ -65,7 +65,7 @@ func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTa
 		log.GetLogger().Info("字幕嵌入视频成功")
 		return nil
 	}
-	log.GetLogger().Info("合成字幕嵌入视频：不合成")
+	log.GetLogger().Info("合成视频：不合成")
 	return nil
 }
 
@@ -310,7 +310,7 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 	return nil
 }
 
-func embedSubtitles(stepParam *types.SubtitleTaskStepParam, isHorizontal bool) error {
+func embedSubtitles(stepParam *types.SubtitleTaskStepParam, isHorizontal bool, withTts bool) error {
 	outputFileName := types.SubtitleTaskVerticalEmbedVideoFileName
 	if isHorizontal {
 		outputFileName = types.SubtitleTaskHorizontalEmbedVideoFileName
@@ -321,8 +321,12 @@ func embedSubtitles(stepParam *types.SubtitleTaskStepParam, isHorizontal bool) e
 		log.GetLogger().Error("embedSubtitles srtToAss error", zap.Any("step param", stepParam), zap.Error(err))
 		return fmt.Errorf("embedSubtitles srtToAss error: %w", err)
 	}
+	input := stepParam.InputVideoPath
+	if withTts {
+		input = stepParam.VideoWithTtsFilePath
+	}
 
-	cmd := exec.Command(storage.FfmpegPath, "-y", "-i", stepParam.InputVideoPath, "-vf", fmt.Sprintf("ass=%s", strings.ReplaceAll(assPath, "\\", "/")), "-c:a", "aac", "-b:a", "192k", filepath.Join(stepParam.TaskBasePath, fmt.Sprintf("/output/%s", outputFileName)))
+	cmd := exec.Command(storage.FfmpegPath, "-y", "-i", input, "-vf", fmt.Sprintf("ass=%s", strings.ReplaceAll(assPath, "\\", "/")), "-c:a", "aac", "-b:a", "192k", filepath.Join(stepParam.TaskBasePath, fmt.Sprintf("/output/%s", outputFileName)))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.GetLogger().Error("embedSubtitles embed subtitle into video ffmpeg error", zap.String("video path", stepParam.InputVideoPath), zap.String("output", string(output)), zap.Error(err))

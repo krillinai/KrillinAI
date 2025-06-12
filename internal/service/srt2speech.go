@@ -134,6 +134,14 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 		return fmt.Errorf("srtFileToSpeech concatenateAudioFiles error: %w", err)
 	}
 	stepParam.TtsResultFilePath = finalOutput
+
+	videoWithTtsPath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskVideoWithTtsFileName)
+	// 合成音频替换后的新视频
+	err = util.ReplaceAudioInVideo(stepParam.InputVideoPath, finalOutput, videoWithTtsPath)
+	if err != nil {
+		log.GetLogger().Error("srtFileToSpeech ReplaceAudioInVideo error", zap.Any("stepParam", stepParam), zap.Error(err))
+	}
+	stepParam.VideoWithTtsFilePath = videoWithTtsPath
 	// 更新字幕任务信息
 	stepParam.TaskPtr.ProcessPct = 98
 	log.GetLogger().Info("srtFileToSpeech success", zap.String("task id", stepParam.TaskId))

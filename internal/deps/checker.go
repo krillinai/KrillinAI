@@ -30,7 +30,7 @@ func CheckDependency() error {
 		log.GetLogger().Error("yt-dlp环境准备失败", zap.Error(err))
 		return err
 	}
-	if config.Conf.App.TranscribeProvider == "fasterwhisper" {
+	if config.Conf.Transcribe.Provider == "fasterwhisper" {
 		err = checkFasterWhisper()
 		if err != nil {
 			log.GetLogger().Error("fasterwhisper环境准备失败", zap.Error(err))
@@ -42,7 +42,18 @@ func CheckDependency() error {
 			return err
 		}
 	}
-	if config.Conf.App.TranscribeProvider == "whisperx" {
+	if config.Conf.Transcribe.Provider == "whisperkit" {
+		if err = checkWhisperKit(); err != nil {
+			log.GetLogger().Error("whisperkit环境准备失败", zap.Error(err))
+			return err
+		}
+		err = checkModel("whisperkit")
+		if err != nil {
+			log.GetLogger().Error("本地模型环境准备失败", zap.Error(err))
+			return err
+		}
+	}
+	if config.Conf.Transcribe.Provider == "whisperx" {
 		err = checkWhisperX()
 		if err != nil {
 			log.GetLogger().Error("whisperx环境准备失败", zap.Error(err))
@@ -54,18 +65,7 @@ func CheckDependency() error {
 			return err
 		}
 	}
-	if config.Conf.App.TranscribeProvider == "whisperkit" {
-		if err = checkWhisperKit(); err != nil {
-			log.GetLogger().Error("whisperkit环境准备失败", zap.Error(err))
-			return err
-		}
-		err = checkModel("whisperkit")
-		if err != nil {
-			log.GetLogger().Error("本地模型环境准备失败", zap.Error(err))
-			return err
-		}
-	}
-	if config.Conf.App.TranscribeProvider == "whispercpp" {
+	if config.Conf.Transcribe.Provider == "whispercpp" {
 		if err = checkWhispercpp(); err != nil {
 			log.GetLogger().Error("whispercpp环境准备失败", zap.Error(err))
 			return err
@@ -481,7 +481,7 @@ func checkModel(whisperType string) error {
 	var modelPath string // cli中使用的model path
 	switch whisperType {
 	case "fasterwhisper":
-		model = config.Conf.LocalModel.Fasterwhisper
+		model = config.Conf.Transcribe.Fasterwhisper.Model
 		modelPath = fmt.Sprintf("./models/faster-whisper-%s/model.bin", model)
 		if _, err = os.Stat(modelPath); os.IsNotExist(err) {
 			// 下载
@@ -501,7 +501,7 @@ func checkModel(whisperType string) error {
 		}
 	case "whisperx":
 		// TODO: upload models
-		model = config.Conf.LocalModel.WhisperX
+		model = config.Conf.Transcribe.Whisperx.Model
 		modelDir := fmt.Sprintf("./models/whisperx/models--Systran--faster-whisper-%s", model)
 		if _, err = os.Stat(modelDir); os.IsNotExist(err) {
 			log.GetLogger().Info(fmt.Sprintf("没有找到WhisperX模型%s,即将开始自动下载", modelDir))
@@ -519,7 +519,7 @@ func checkModel(whisperType string) error {
 			log.GetLogger().Info("WhisperX模型下载完成", zap.String("路径", modelDir))
 		}
 	case "whispercpp":
-		model = config.Conf.LocalModel.Whispercpp
+		model = config.Conf.Transcribe.Whispercpp.Model
 		modelPath = fmt.Sprintf("./models/whispercpp/ggml-%s.bin", model)
 		if _, err = os.Stat(modelPath); os.IsNotExist(err) {
 			log.GetLogger().Info(fmt.Sprintf("没有找到whisper.cpp模型%s,即将开始自动下载", modelPath))
@@ -532,7 +532,7 @@ func checkModel(whisperType string) error {
 			log.GetLogger().Info("whisper.cpp模型下载完成", zap.String("路径", modelPath))
 		}
 	case "whisperkit":
-		model = config.Conf.LocalModel.Whisperkit
+		model = config.Conf.Transcribe.Whisperkit.Model
 		modelPath = fmt.Sprintf("./models/whisperkit/openai_whisper-%s", model)
 		files, _ := os.ReadDir(modelPath)
 		if len(files) == 0 {

@@ -2,8 +2,10 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"krillin-ai/internal/dto"
 	"krillin-ai/internal/response"
+	"krillin-ai/log"
 	"os"
 	"path/filepath"
 )
@@ -11,6 +13,7 @@ import (
 func (h Handler) StartSubtitleTask(c *gin.Context) {
 	var req dto.StartVideoSubtitleTaskReq
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.GetLogger().Error("StartSubtitleTask ShouldBindJSON err", zap.Error(err))
 		response.R(c, response.Response{
 			Error: -1,
 			Msg:   "参数错误",
