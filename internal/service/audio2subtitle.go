@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -19,6 +17,9 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // 翻译结果数据结构
@@ -118,12 +119,28 @@ func (s Service) transcribeAudio(id int, audioFilePath string, language string, 
 
 func (s Service) splitTextAndTranslate(inputText string, targetLanguage string, enableModalFilter bool) ([]TranslatedItem, error) {
 	var prompt string
+	var promptPrefix string
+
+	promptPrefix = ""
+
+	//// 对于qwen3模型，开启非思考模式
+	//if config.Conf.Openai.NoThinkTag {
+	//	promptPrefix = "\\no_think\n"
+	//}
 
 	// 选择提示词
 	if enableModalFilter {
-		prompt = fmt.Sprintf(types.SplitTextPromptWithModalFilter, targetLanguage)
+		if config.Conf.Llm.Json {
+			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPromptWithModalFilterJson, targetLanguage)
+		} else {
+			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPromptWithModalFilter, targetLanguage)
+		}
 	} else {
-		prompt = fmt.Sprintf(types.SplitTextPrompt, targetLanguage)
+		if config.Conf.Llm.Json {
+			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPromptJson, targetLanguage)
+		} else {
+			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPrompt, targetLanguage)
+		}
 	}
 
 	// 如果输入文本为空，则返回空结果
@@ -135,6 +152,7 @@ func (s Service) splitTextAndTranslate(inputText string, targetLanguage string, 
 	if err != nil {
 		return nil, fmt.Errorf("audioToSubtitle splitTextAndTranslate ChatCompletion error: %w", err)
 	}
+
 	re := regexp.MustCompile(`^\s*<think>.*?</think>`)
 	textResult = strings.TrimSpace(re.ReplaceAllString(textResult, ""))
 
@@ -957,9 +975,9 @@ func parseAndCheckContent(splitContent, originalText string) ([]TranslatedItem, 
 		if splitContent == originalText {
 			return result, nil
 		} else if splitContent == "" {
-			return nil, errors.New("splitContent is empty but originalText is not")
+			return nil, fmt.Errorf("splitContent is empty but originalText is not, originalText: " + originalText)
 		} else {
-			return nil, errors.New("originalText is empty but splitContent is not")
+			return nil, errors.New("originalText is empty but splitContent is not, splitContent: " + splitContent)
 		}
 	}
 

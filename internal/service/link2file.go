@@ -26,7 +26,6 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 	if strings.Contains(link, "local:") {
 		// 本地文件
 		videoPath = strings.ReplaceAll(link, "local:", "")
-		stepParam.InputVideoPath = videoPath
 		cmd := exec.Command(storage.FfmpegPath, "-i", videoPath, "-vn", "-ar", "44100", "-ac", "2", "-ab", "192k", "-f", "mp3", audioPath)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
