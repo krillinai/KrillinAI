@@ -2,6 +2,7 @@ package openai
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	openai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
@@ -14,6 +15,41 @@ import (
 )
 
 func (c *Client) ChatCompletion(query string) (string, error) {
+	var responseFormat *openai.ChatCompletionResponseFormat
+
+	if config.Conf.Llm.Json {
+		responseFormat = &openai.ChatCompletionResponseFormat{
+			Type: "json_schema",
+			JSONSchema: &openai.ChatCompletionResponseFormatJSONSchema{
+				Name:   "translation_response",
+				Strict: true,
+				Schema: json.RawMessage(`{
+					"type": "object",
+					"properties": {
+						"translations": {
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"original_sentence": {"type": "string"},
+									"translated_sentence": {"type": "string"}
+								},
+								"required": ["original_sentence", "translated_sentence"],
+								"additionalProperties": false
+							}
+						}
+					},
+					"required": ["translations"],
+					"additionalProperties": false
+				}`),
+			},
+		}
+	} else {
+		responseFormat = &openai.ChatCompletionResponseFormat{
+			Type: "text",
+		}
+	}
+
 	req := openai.ChatCompletionRequest{
 		Model: config.Conf.Llm.Model,
 		Messages: []openai.ChatCompletionMessage{
@@ -26,8 +62,10 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 				Content: query,
 			},
 		},
-		Stream:    true,
-		MaxTokens: 8192,
+		Temperature:    0.9,
+		Stream:         true,
+		MaxTokens:      8192,
+		ResponseFormat: responseFormat,
 	}
 
 	stream, err := c.client.CreateChatCompletionStream(context.Background(), req)
@@ -53,6 +91,15 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 		}
 
 		resContent += response.Choices[0].Delta.Content
+	}
+
+	if config.Conf.Llm.Json {
+		parsedContent, err := parseJSONResponse(resContent)
+		if err != nil {
+			log.GetLogger().Error("failed to parse JSON response", zap.Error(err))
+			return "", err
+		}
+		return parsedContent, nil
 	}
 
 	return resContent, nil
@@ -106,4 +153,28 @@ func (c *Client) Text2Speech(text, voice string, outputFile string) error {
 	}
 
 	return nil
+}
+
+func parseJSONResponse(jsonStr string) (string, error) {
+	var response struct {
+		Translations []struct {
+			Original   string `json:"original_sentence"`
+			Translated string `json:"translated_sentence"`
+		} `json:"translations"`
+	}
+
+	err := json.Unmarshal([]byte(jsonStr), &response)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse JSON: %v", err)
+	}
+
+	var result strings.Builder
+	for i, item := range response.Translations {
+		result.WriteString(fmt.Sprintf("%d\n%s\n%s\n\n",
+			i+1,
+			item.Translated,
+			item.Original))
+	}
+
+	return result.String(), nil
 }

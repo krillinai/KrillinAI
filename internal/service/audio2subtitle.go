@@ -123,20 +123,20 @@ func (s Service) splitTextAndTranslate(inputText string, targetLanguage string, 
 
 	promptPrefix = ""
 
-	// 对于qwen3模型，开启非思考模式
-	if config.Conf.Openai.NoThinkTag {
-		promptPrefix = "\\no_think\n"
-	}
+	//// 对于qwen3模型，开启非思考模式
+	//if config.Conf.Openai.NoThinkTag {
+	//	promptPrefix = "\\no_think\n"
+	//}
 
 	// 选择提示词
 	if enableModalFilter {
-		if config.Conf.Openai.JsonLLM {
+		if config.Conf.Llm.Json {
 			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPromptWithModalFilterJson, targetLanguage)
 		} else {
 			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPromptWithModalFilter, targetLanguage)
 		}
 	} else {
-		if config.Conf.Openai.JsonLLM {
+		if config.Conf.Llm.Json {
 			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPromptJson, targetLanguage)
 		} else {
 			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPrompt, targetLanguage)

@@ -499,25 +499,25 @@ func checkModel(whisperType string) error {
 			}
 			log.GetLogger().Info("模型下载完成", zap.String("路径", modelPath))
 		}
-	case "whisperx":
-		// TODO: upload models
-		model = config.Conf.Transcribe.Whisperx.Model
-		modelDir := fmt.Sprintf("./models/whisperx/models--Systran--faster-whisper-%s", model)
-		if _, err = os.Stat(modelDir); os.IsNotExist(err) {
-			log.GetLogger().Info(fmt.Sprintf("没有找到WhisperX模型%s,即将开始自动下载", modelDir))
-			// downloadUrl := fmt.Sprintf("https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/WhisperX_models_%s.zip", model)
-			// err = util.DownloadFile(downloadUrl, fmt.Sprintf("./models/WhisperX_models_%s.zip", model), config.Conf.App.Proxy)
-			// if err != nil {
-			// 	log.GetLogger().Info("下载WhisperX模型失败", zap.Error(err))
-			// 	return err
-			// }
-			err = util.Unzip(fmt.Sprintf("./models/WhisperX_models_%s.zip", model), "./models/whisperx/")
-			if err != nil {
-				log.GetLogger().Error("解压模型失败", zap.Error(err))
-				return err
-			}
-			log.GetLogger().Info("WhisperX模型下载完成", zap.String("路径", modelDir))
-		}
+	//case "whisperx":
+	//	// TODO: upload models
+	//	model = config.Conf.Transcribe.Whisperx.Model
+	//	modelDir := fmt.Sprintf("./models/whisperx/models--Systran--faster-whisper-%s", model)
+	//	if _, err = os.Stat(modelDir); os.IsNotExist(err) {
+	//		log.GetLogger().Info(fmt.Sprintf("没有找到WhisperX模型%s,即将开始自动下载", modelDir))
+	//		// downloadUrl := fmt.Sprintf("https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/WhisperX_models_%s.zip", model)
+	//		// err = util.DownloadFile(downloadUrl, fmt.Sprintf("./models/WhisperX_models_%s.zip", model), config.Conf.App.Proxy)
+	//		// if err != nil {
+	//		// 	log.GetLogger().Info("下载WhisperX模型失败", zap.Error(err))
+	//		// 	return err
+	//		// }
+	//		err = util.Unzip(fmt.Sprintf("./models/WhisperX_models_%s.zip", model), "./models/whisperx/")
+	//		if err != nil {
+	//			log.GetLogger().Error("解压模型失败", zap.Error(err))
+	//			return err
+	//		}
+	//		log.GetLogger().Info("WhisperX模型下载完成", zap.String("路径", modelDir))
+	//	}
 	case "whispercpp":
 		model = config.Conf.Transcribe.Whispercpp.Model
 		modelPath = fmt.Sprintf("./models/whispercpp/ggml-%s.bin", model)

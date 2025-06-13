@@ -16,6 +16,7 @@
     base_url = "" # 自定义base url，可配合转发站密钥使用，留空为openai官方api
     api_key = "" # API密钥
     model = "" # 指定模型名，可通过此字段结合base_url使用外部任何与OpenAI API兼容的大模型服务，留空默认为gpt-4o-mini
+    json = false # 所使用的llm接口是否支持json格式，如果支持请设置为true，若不知道这是什么，请保持为false
 
 [transcribe] # 视频转文本支持多种方案，配置时先填provider，再填对应的配置
     provider = "openai" #语音识别，当前可选值：openai,fasterwhisper,whisperkit,whisper.cpp,aliyun。(fasterwhisper不支持macOS,whisperkit只支持M芯片)
