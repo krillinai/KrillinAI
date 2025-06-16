@@ -123,9 +123,10 @@ var SplitLongSentencePrompt = `请将以下原文和译文分割成2-3个部分�
 译文：%s
 
 要求：
-1. 分割后的句子必须保持语义完整，避免切断完整概念，避免切分后的句子不符合语法规范
-2. 确保原文和译文的分割部分一一对应
-3. 务必返回JSON格式，包含origin_part和translated_part数组，例如：
+1. 分割后的句子必须保持语义完整，避免切断完整概念
+2. 切分后的句子需要符合语法规范，可添加连词等保证阅读时语言自然
+3. 确保原文和译文的分割部分一一对应
+4. 务必返回JSON格式，包含origin_part和translated_part数组，例如：
 {"align":[{"origin_part":"原文部分1","translated_part":"译文部分1"},{"origin_part":"原文部分2","translated_part":"译文部分2"}]}`
 
 type SmallAudio struct {
@@ -175,30 +176,30 @@ const (
 )
 
 const (
-	SubtitleTaskAudioFileName                           = "origin_audio.mp3"
-	SubtitleTaskVideoFileName                           = "origin_video.mp4"
-	SubtitleTaskSplitAudioFileNamePrefix                = "split_audio"
-	SubtitleTaskSplitAudioFileNamePattern               = SubtitleTaskSplitAudioFileNamePrefix + "_%03d.mp3"
-	SubtitleTaskSplitAudioTxtFileNamePattern            = "split_audio_txt_%d.txt"
-	SubtitleTaskSplitAudioWordsFileNamePattern          = "split_audio_words_%d.txt"
-	SubtitleTaskSplitSrtNoTimestampFileNamePattern      = "srt_no_ts_%d.srt"
-	SubtitleTaskSrtNoTimestampFileName                  = "srt_no_ts.srt"
-	SubtitleTaskSplitBilingualSrtFileNamePattern        = "split_bilingual_srt_%d.srt"
-	SubtitleTaskSplitShortOriginMixedSrtFileNamePattern = "split_short_origin_mixed_srt_%d.srt" //长中文+短英文
-	SubtitleTaskSplitShortOriginSrtFileNamePattern      = "split_short_origin_srt_%d.srt"       //短英文
-	SubtitleTaskBilingualSrtFileName                    = "bilingual_srt.srt"
-	SubtitleTaskShortOriginMixedSrtFileName             = "short_origin_mixed_srt.srt" //长中文+短英文
-	SubtitleTaskShortOriginSrtFileName                  = "short_origin_srt.srt"       //短英文
-	SubtitleTaskOriginLanguageSrtFileName               = "origin_language_srt.srt"
-	SubtitleTaskOriginLanguageTextFileName              = "origin_language.txt"
-	SubtitleTaskTargetLanguageSrtFileName               = "target_language_srt.srt"
-	SubtitleTaskTargetLanguageTextFileName              = "target_language.txt"
-	SubtitleTaskStepParamGobPersistenceFileName         = "step_param.gob"
+	SubtitleTaskAudioFileName                                    = "origin_audio.mp3"
+	SubtitleTaskVideoFileName                                    = "origin_video.mp4"
+	SubtitleTaskSplitAudioFileNamePrefix                         = "split_audio"
+	SubtitleTaskSplitAudioFileNamePattern                        = SubtitleTaskSplitAudioFileNamePrefix + "_%03d.mp3"
+	SubtitleTaskSplitAudioTxtFileNamePattern                     = "split_audio_txt_%d.txt"
+	SubtitleTaskSplitAudioWordsFileNamePattern                   = "split_audio_words_%d.txt"
+	SubtitleTaskSplitSrtNoTimestampFileNamePattern               = "srt_no_ts_%d.srt"
+	SubtitleTaskSrtNoTimestampFileName                           = "srt_no_ts.srt"
+	SubtitleTaskSplitBilingualSrtFileNamePattern                 = "split_bilingual_srt_%d.srt"
+	SubtitleTaskSplitShortOriginMixedSrtFileNamePattern          = "split_short_origin_mixed_srt_%d.srt" //长中文+短英文
+	SubtitleTaskSplitShortOriginSrtFileNamePattern               = "split_short_origin_srt_%d.srt"       //短英文
+	SubtitleTaskBilingualSrtFileName                             = "bilingual_srt.srt"
+	SubtitleTaskShortOriginMixedSrtFileName                      = "short_origin_mixed_srt.srt" //长中文+短英文
+	SubtitleTaskShortOriginSrtFileName                           = "short_origin_srt.srt"       //短英文
+	SubtitleTaskOriginLanguageSrtFileName                        = "origin_language_srt.srt"
+	SubtitleTaskOriginLanguageTextFileName                       = "origin_language.txt"
+	SubtitleTaskTargetLanguageSrtFileName                        = "target_language_srt.srt"
+	SubtitleTaskTargetLanguageTextFileName                       = "target_language.txt"
+	SubtitleTaskStepParamGobPersistenceFileName                  = "step_param.gob"
 	SubtitleTaskAudioTranscriptionDataPersistenceFileNamePattern = "audio_transcription_data_%d.json"
 	SubtitleTaskTranslationDataPersistenceFileNamePattern        = "translation_data_%d.json"
-	SubtitleTaskTransferredVerticalVideoFileName        = "transferred_vertical_video.mp4"
-	SubtitleTaskHorizontalEmbedVideoFileName            = "horizontal_embed.mp4"
-	SubtitleTaskVerticalEmbedVideoFileName              = "vertical_embed.mp4"
+	SubtitleTaskTransferredVerticalVideoFileName                 = "transferred_vertical_video.mp4"
+	SubtitleTaskHorizontalEmbedVideoFileName                     = "horizontal_embed.mp4"
+	SubtitleTaskVerticalEmbedVideoFileName                       = "vertical_embed.mp4"
 	SubtitleTaskVideoWithTtsFileName                             = "video_with_tts.mp4"
 )
 

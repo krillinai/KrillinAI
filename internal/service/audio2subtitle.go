@@ -89,7 +89,7 @@ func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleT
 //	return nil
 //}
 
-func (s Service) transcribeAudio(audioFilePath string, language string, taskBasePath string) (*types.TranscriptionData, error) {
+func (s Service) transcribeAudio(id int, audioFilePath string, language string, taskBasePath string) (transcriptionData *types.TranscriptionData, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("audioToSubtitle transcribeAudio panic recovered: %v", r)
@@ -168,7 +168,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	}()
 
 	log.GetLogger().Info("audioToSubtitle.audioToSrt start", zap.Any("taskId", stepParam.TaskId))
-	timePoints, err := GetSplitPoints(stepParam.AudioFilePath, float64(config.Conf.App.SegmentDuration) * 60)
+	timePoints, err := GetSplitPoints(stepParam.AudioFilePath, float64(config.Conf.App.SegmentDuration)*60)
 	if err != nil {
 		log.GetLogger().Error("audioToSubtitle audioToSrt GetSplitPoints err", zap.Any("taskId", stepParam.TaskId), zap.Error(err))
 		return fmt.Errorf("audioToSubtitle audioToSrt GetSplitPoints err: %w", err)
@@ -331,7 +331,6 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 			}
 		})
 	}
-
 
 	// 处理结果，更新字幕任务信息
 	eg.Go(func() error {
