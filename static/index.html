@@ -1,1127 +1,894 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Krillin AI</title>
-    <style>
-        body {
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            align-items: center;
-            min-width: 320px;
-            min-height: 100vh;
-            color: #333;
-            background: #000 url('/static/background.jpg') no-repeat center center fixed;
-            background-size: cover;
-        }
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Krillin AI</title>
+	<style>
+		body {
+			margin: 0;
+			display: flex;
+			place-items: center;
+			min-width: 320px;
+			min-height: 100vh;
+			color: #333;
+			background: #000 url('/static/background.jpg') no-repeat center center fixed;
+			background-size: cover;
+		}
 
-        h1 {
-            text-align: center;
-            font-size: 32px;
-            line-height: 42px;
-            margin: 0 auto 20px;
-        }
-        select {
-            width: 160px;
-            height: 38px;
-            padding: 0 30px 0 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            background-color: #fff;
-            background-image: url('data:image/svg+xml,%3Csvg fill="%23333" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/%3E%3C/svg%3E');
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            background-size: 12px;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            cursor: pointer;
-            font-size: 14px;
-            color: #333;
-            transition: border-color 0.3s ease, box-shadow 0.3s ease;
-        }
+		h1 {
+			text-align: center;
+			font-size: 32px;
+			line-height: 42px;
+			margin: 0 auto 20px;
+		}
+		select {
+			width: 160px;
+			height: 38px;
+			padding: 0 30px 0 12px;
+			border: 1px solid #ddd;
+			border-radius: 6px;
+			background-color: #fff;
+			background-image: url('data:image/svg+xml,%3Csvg fill="%23333" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/%3E%3C/svg%3E');
+			background-repeat: no-repeat;
+			background-position: right 12px center;
+			background-size: 12px;
+			-webkit-appearance: none;
+			-moz-appearance: none;
+			appearance: none;
+			cursor: pointer;
+			font-size: 14px;
+			color: #333;
+			transition: border-color 0.3s ease, box-shadow 0.3s ease;
+		}
 
-        select:focus {
-            border-color: #007bff;
-            box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
-            outline: none; /* 移除默认的聚焦轮廓 */
-        }
+		select:focus {
+			border-color: #007bff;
+			box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+			outline: none; /* 移除默认的聚焦轮廓 */
+		}
 
-        /* 隐藏 IE 默认箭头 */
-        select::-ms-expand {
-            display: none;
-        }
-        .container {
-            width: 620px;
-            padding: 30px;
-            margin: 20px auto;
-            background-color: #fff;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            font-family: Arial, sans-serif;
-        }
+		/* 隐藏 IE 默认箭头 */
+		select::-ms-expand {
+			display: none;
+		}
+		.container {
+			width: 620px;
+			padding: 30px;
+			margin: 20px auto;
+			background-color: #fff;
+			box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+			border-radius: 8px;
+			font-family: Arial, sans-serif;
+		}
 
-        form {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            /*margin: 0 40px;*/
-            gap: 15px;
+		form {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			/*margin: 0 40px;*/
+			gap: 15px;
 
-            button {
-                padding: 10px 24px;
-                background: linear-gradient(135deg, #007bff, #0056b3);
-                color: #fff;
-                border: none;
-                border-radius: 6px;
-                cursor: pointer;
-                outline: 0;
-                transition: background 0.3s ease, transform 0.2s ease;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
+			button {
+				padding: 10px 24px;
+				background: linear-gradient(135deg, #007bff, #0056b3);
+				color: #fff;
+				border: none;
+				border-radius: 6px;
+				cursor: pointer;
+				outline: 0;
+				transition: background 0.3s ease, transform 0.2s ease;
+				box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+			}
 
-            button:hover {
-                background: linear-gradient(135deg, #0056b3, #003d80);
-                transform: translateY(-2px);
-            }
+			button:hover {
+				background: linear-gradient(135deg, #0056b3, #003d80);
+				transform: translateY(-2px);
+			}
 
-            button:disabled {
-                background: #ccc;
-                cursor: not-allowed;
-                transform: none;
-            }
-            button:focus,
-            button:focus-visible {
-                outline: 0;
-            }
-        }
+			button:disabled {
+				background: #ccc;
+				cursor: not-allowed;
+				transform: none;
+			}
+			button:focus,
+			button:focus-visible {
+				outline: 0;
+			}
+		}
 
-        .formItem {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 42px;
-            gap: 10px;
+		.formItem {
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			justify-content: center;
+			width: 100%;
+			height: 42px;
+			gap: 10px;
 
-            label {
-                line-height: 38px
-            }
+			label {
+				line-height: 38px
+			}
 
-            input {
-                flex: 1;
-                line-height: 26px;
-            }
-            input[type="url"] {
-                padding: 8px 14px;
-                border: 1px solid #ddd;
-                border-radius: 6px;
-                outline: 0;
-                transition: border-color 0.3s ease;
-            }
-            input[type="url"]:focus {
-                border-color: #007bff;
-                box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
-            }
-            input[type="checkbox"],
-            input[type="radio"] {
-                width: 18px;
-                height: 18px;
-                transition: transform 0.2s;
-            }
-            input[type="checkbox"]:hover,
-            input[type="radio"]:hover {
-                transform: scale(1.1);
-            }
-        }
-        .download-links {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            width: 100%;
-            gap: 30px;
-        }
-        .download-links a {
-            display: inline-block;
-            color: #007bff;
-            text-decoration: none;
-        }
-        .download-links a:hover {
-            text-decoration: underline;
-        }
+			input {
+				flex: 1;
+				line-height: 26px;
+			}
+			input[type="url"] {
+				padding: 8px 14px;
+				border: 1px solid #ddd;
+				border-radius: 6px;
+				outline: 0;
+				transition: border-color 0.3s ease;
+			}
+			input[type="url"]:focus {
+				border-color: #007bff;
+				box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+			}
+			input[type="checkbox"],
+			input[type="radio"] {
+				width: 18px;
+				height: 18px;
+				transition: transform 0.2s;
+			}
+			input[type="checkbox"]:hover,
+			input[type="radio"]:hover {
+				transform: scale(1.1);
+			}
+		}
+		.download-links {
+			display: flex;
+			justify-content: center;
+			flex-wrap: wrap;
+			width: 100%;
+			gap: 30px;
+		}
+		.download-links a {
+			display: inline-block;
+			color: #007bff;
+			text-decoration: none;
+		}
+		.download-links a:hover {
+			text-decoration: underline;
+		}
 
-        .progressSection {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
+		.progressSection {
+			display: flex;
+			align-items: center;
+			flex-wrap: wrap;
+			gap: 10px;
+		}
 
-        .progressSection h4 {
-            font-weight: 400;
-            color: #333;
-        }
-        .progress-bar {
-            flex: 1;
-            position: relative;
-            height: 20px;
-            border-radius: 10px;
-            background-color: #f3f3f3;
-            overflow: hidden;
-        }
-        .progress-bar-fill {
-            height: 100%;
-            width: 0;
-            line-height: 20px;
-            text-align: center;
-            color: white;
-            background: linear-gradient(135deg, #4caf50, #45a049);
-            transition: width 0.5s ease;
-        }
-        .setWrap {
-            display: flex;
-            flex-direction: row;
-            flex-wrap: wrap;
-            justify-content: space-between;
-            width: 100%;
-        }
-        .formGroup {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: flex-start;
-            width: 100%;
-            min-height: 42px;
-            gap: 10px;
-        }
-        .formGroup label {
-            display: inline-block;
-            width: 100px;
-            text-align: right;
-        }
-        .formGroup select {
-            width: 160px;
-            height: 32px;
-            line-height: 32px;
-        }
-        .formGroup input[type="text"] {
-            width: 188px;
-            height: 28px;
-            line-height: 28px;
-            margin-bottom: 10px;
-        }
-        .formGroup input[type="checkbox"] {
-            margin-right: 10px;
-        }
-        .formGroup .voice-file-input {
-            width: auto;
-            min-width: 100px;
-            padding: 6px 10px;
-            text-align: center;
-            font-size: 12px;
-            border: 1px solid #999;
-            border-radius: 4px;
-            background: #eee;
-            cursor: pointer;
-        }
-        .formGroup .voice-file-input-remove {
-            display: none;
-            font-size: 12px;
-            color: #666;
-            cursor: pointer;
-        }
-        .loading {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #4caf50;
-        }
+		.progressSection h4 {
+			font-weight: 400;
+			color: #333;
+		}
+		.progress-bar {
+			flex: 1;
+			position: relative;
+			height: 20px;
+			border-radius: 10px;
+			background-color: #f3f3f3;
+			overflow: hidden;
+		}
+		.progress-bar-fill {
+			height: 100%;
+			width: 0;
+			line-height: 20px;
+			text-align: center;
+			color: white;
+			background: linear-gradient(135deg, #4caf50, #45a049);
+			transition: width 0.5s ease;
+		}
+		.setWrap {
+			display: flex;
+			flex-direction: row;
+			flex-wrap: wrap;
+			justify-content: space-between;
+			width: 100%;
+		}
+		.formGroup {
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			justify-content: flex-start;
+			width: 100%;
+			min-height: 42px;
+			gap: 10px;
+		}
+		.formGroup label {
+			display: inline-block;
+			width: 100px;
+			text-align: right;
+		}
+		.formGroup select {
+			width: 160px;
+			height: 32px;
+			line-height: 32px;
+		}
+		.formGroup input[type="text"] {
+			width: 188px;
+			height: 28px;
+			line-height: 28px;
+			margin-bottom: 10px;
+		}
+		.formGroup input[type="checkbox"] {
+			margin-right: 10px;
+		}
+		.formGroup .voice-file-input {
+			width: auto;
+			min-width: 100px;
+			padding: 6px 10px;
+			text-align: center;
+			font-size: 12px;
+			border: 1px solid #999;
+			border-radius: 4px;
+			background: #eee;
+			cursor: pointer;
+		}
+		.formGroup .voice-file-input-remove {
+			display: none;
+			font-size: 12px;
+			color: #666;
+			cursor: pointer;
+		}
+		.loading {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			color: #4caf50;
+		}
 
-        .loading::after {
-            content: '';
-            width: 16px;
-            height: 16px;
-            border: 2px solid #4caf50;
-            border-top: 2px solid transparent;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        /* 次要按钮样式 */
-        .download-button {
-            display: inline-block;
-            margin: 5px;
-            padding: 10px 24px;
-            background: #f8f9fa;
-            color: #495057;
-            border: 1px solid #ced4da;
-            border-radius: 6px;
-            cursor: pointer;
-            outline: 0;
-            transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
-            text-decoration: none;
-            text-align: center;
-            font-size: 14px;
-        }
-        .download-button:hover {
-            background: #e9ecef;
-            border-color: #adb5bd;
-            color: #343a40;
-        }
-        .download-button:focus,
-        .download-button:focus-visible {
-            outline: 0;
-            border-color: #007bff;
-            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); /* 添加焦点状态的光晕效果 */
-        }
+		.loading::after {
+			content: '';
+			width: 16px;
+			height: 16px;
+			border: 2px solid #4caf50;
+			border-top: 2px solid transparent;
+			border-radius: 50%;
+			animation: spin 1s linear infinite;
+		}
+		@keyframes spin {
+			0% { transform: rotate(0deg); }
+			100% { transform: rotate(360deg); }
+		}
+		/* 次要按钮样式 */
+		.download-button {
+			display: inline-block;
+			margin: 5px;
+			padding: 10px 24px;
+			background: #f8f9fa;
+			color: #495057;
+			border: 1px solid #ced4da;
+			border-radius: 6px;
+			cursor: pointer;
+			outline: 0;
+			transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+			text-decoration: none;
+			text-align: center;
+			font-size: 14px;
+		}
+		.download-button:hover {
+			background: #e9ecef;
+			border-color: #adb5bd;
+			color: #343a40;
+		}
+		.download-button:focus,
+		.download-button:focus-visible {
+			outline: 0;
+			border-color: #007bff;
+			box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); /* 添加焦点状态的光晕效果 */
+		}
 
-        .hint-text {
-            margin-top: 10px;
-            font-size: 14px;
-            color: #666;
-            font-style: italic;
-        }
+		.hint-text {
+			margin-top: 10px;
+			font-size: 14px;
+			color: #666;
+			font-style: italic;
+		}
 
-        .hidden {
-            display: none;
-        }
-
-
-        .task-container{
-            min-height: 300px;
-            width: 620px;
-            padding: 30px;
-            margin: 40px auto;
-            order: 1;   
-            position: relative;
-            background-color: #fff;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            font-family: Arial, sans-serif;
-            z-index: 1;
-        }
-        .task-item {
-            z-index: 2;
-            position: relative;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        .status-badge {
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 14px;
-        }
-        .status-badge.completed {
-            background-color: #4caf50;
-            color: white;
-        }
-        .status-badge.processing {
-            background-color: #2196f3;
-            color: white;
-        }
-        .status-badge.interrupted {
-            background-color: #ff5722;
-            color: white;
-        }
-        button.task-button {
-            padding: 8px 16px;
-            border: 1px solid #007bff;
-            border-radius: 6px;
-            background-color: #007bff;
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-        button.task-button:disabled {
-            background-color: #eee;
-            color: #666;
-            border-color: #ccc;
-            cursor: not-allowed;
-        }
-    </style>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+		.hidden {
+			display: none;
+		}
+	</style>
 </head>
 <body>
 <div class="container">
-    <h1>世界帧精彩</h1>
+	<h1>世界帧精彩</h1>
 
-    <form id="taskForm">
-        <div class="formItem">
-            <label>
-                <input type="radio" name="inputType" value="url" checked>
-                输入视频地址
-            </label>
-            <label>
-                <input type="radio" name="inputType" value="file">
-                本地视频上传
-            </label>
-        </div>
+	<form id="taskForm">
+		<div class="formItem">
+			<label>
+				<input type="radio" name="inputType" value="url" checked>
+				输入视频地址
+			</label>
+			<label>
+				<input type="radio" name="inputType" value="file">
+				本地视频上传
+			</label>
+		</div>
 
-        <div class="formItem" id="urlInputContainer">
-            <label for="urlInput">输入视频地址:</label>
-            <input type="url" id="urlInput" name="urlInput" placeholder="请输入有效的链接">
-        </div>
+		<div class="formItem" id="urlInputContainer">
+			<label for="urlInput">输入视频地址:</label>
+			<input type="url" id="urlInput" name="urlInput" placeholder="请输入有效的链接">
+		</div>
 
-        <div class="formItem hidden" id="fileInputContainer">
-            <label for="fileInput">上传本地视频:</label>
-            <input style="margin-left: 6px" type="file" id="fileInput" name="fileInput" accept="video/*, audio/*" multiple>
-            <p id="uploadStatus" class="loading hidden">正在上传...</p>
-        </div>
+		<div class="formItem hidden" id="fileInputContainer">
+			<label for="fileInput">上传本地视频:</label>
+			<input style="margin-left: 6px" type="file" id="fileInput" name="fileInput" accept="video/*, audio/*" multiple>
+			<p id="uploadStatus" class="loading hidden">正在上传...</p>
+		</div>
 
-        <div class="setWrap">
-            <!-- 源语言 -->
-            <div class="formGroup">
-                <label>源语言:</label>
-                <input type="checkbox" id="source-language-toggle" checked disabled>
-                <select id="source-language">
-                    <option value="zh_cn">简体中文</option>
-                    <option value="en">英文</option>
-                    <option value="ja">日文</option>
-                    <option value="tr">土耳其语</option>
-                    <option value="de">德语</option>
-                    <option value="ko">韩语</option>
-                    <option value="ru">俄语</option>
-                </select>
-            </div>
+		<div class="setWrap">
+			<!-- 源语言 -->
+			<div class="formGroup">
+				<label>源语言:</label>
+				<input type="checkbox" id="source-language-toggle" checked disabled>
+				<select id="source-language">
+					<option value="zh_cn">简体中文</option>
+					<option value="en">英文</option>
+					<option value="ja">日文</option>
+					<option value="tr">土耳其语</option>
+					<option value="de">德语</option>
+					<option value="ko">韩语</option>
+					<option value="ru">俄语</option>
+				</select>
+			</div>
 
-            <!-- 字幕翻译 -->
-            <div class="formGroup">
-                <label>字幕翻译:</label>
-                <input type="checkbox" id="translation-toggle" checked>
-                <select id="translation-language" disabled>
-                    <option value="zh_cn">简体中文</option>
-                    <option value="zh_tw">繁体中文</option>
-                    <option value="en">英语</option>
-                    <option value="ja">日语</option>
-                    <option value="pinyin">拼音</option>
-                    <option value="mid">印度尼西亚语</option>
-                    <option value="ms">马来西亚语</option>
-                    <option value="th">泰语</option>
-                    <option value="vi">越南语</option>
-                    <option value="fil">菲律宾语</option>
-                    <option value="ko">韩语</option>
-                    <option value="ar">阿拉伯语</option>
-                    <option value="fr">法语</option>
-                    <option value="de">德语</option>
-                    <option value="it">意大利语</option>
-                    <option value="ru">俄语</option>
-                    <option value="pt">葡萄牙语</option>
-                    <option value="es">西班牙语</option>
-                    <option value="hi">印度语</option>
-                    <option value="bn">孟加拉语</option>
-                    <option value="he">希伯来语</option>
-                    <option value="fa">波斯语</option>
-                    <option value="af">南非语</option>
-                    <option value="sv">瑞典语</option>
-                    <option value="fi">芬兰语</option>
-                    <option value="da">丹麦语</option>
-                    <option value="no">挪威语</option>
-                    <option value="nl">荷兰语</option>
-                    <option value="el">希腊语</option>
-                    <option value="uk">乌克兰语</option>
-                    <option value="hu">匈牙利语</option>
-                    <option value="pl">波兰语</option>
-                    <option value="tr">土耳其语</option>
-                    <option value="sr">塞尔维亚语</option>
-                    <option value="hr">克罗地亚语</option>
-                    <option value="cs">捷克语</option>
-                    <option value="sw">斯瓦西里语</option>
-                    <option value="yo">约鲁巴语</option>
-                    <option value="ha">豪萨语</option>
-                    <option value="am">阿姆哈拉语</option>
-                    <option value="om">奥罗莫语</option>
-                    <option value="is">冰岛语</option>
-                    <option value="lb">卢森堡语</option>
-                    <option value="ca">加泰罗尼亚语</option>
-                    <option value="ro">罗马尼亚语</option>
-                    <option value="ro2">摩尔多瓦语</option>
-                    <option value="sk">斯洛伐克语</option>
-                    <option value="bs">波斯尼亚语</option>
-                    <option value="mk">马其顿语</option>
-                    <option value="sl">斯洛文尼亚语</option>
-                    <option value="bg">保加利亚语</option>
-                    <option value="lv">拉脱维亚语</option>
-                    <option value="lt">立陶宛语</option>
-                    <option value="et">爱沙尼亚语</option>
-                    <option value="mt">马耳他语</option>
-                    <option value="sq">阿尔巴尼亚语</option>
-                </select>
-            </div>
+			<!-- 字幕翻译 -->
+			<div class="formGroup">
+				<label>字幕翻译:</label>
+				<input type="checkbox" id="translation-toggle" checked>
+				<select id="translation-language" disabled>
+					<option value="zh_cn">简体中文</option>
+					<option value="zh_tw">繁体中文</option>
+					<option value="en">英语</option>
+					<option value="ja">日语</option>
+					<option value="pinyin">拼音</option>
+					<option value="mid">印度尼西亚语</option>
+					<option value="ms">马来西亚语</option>
+					<option value="th">泰语</option>
+					<option value="vi">越南语</option>
+					<option value="fil">菲律宾语</option>
+					<option value="ko">韩语</option>
+					<option value="ar">阿拉伯语</option>
+					<option value="fr">法语</option>
+					<option value="de">德语</option>
+					<option value="it">意大利语</option>
+					<option value="ru">俄语</option>
+					<option value="pt">葡萄牙语</option>
+					<option value="es">西班牙语</option>
+					<option value="hi">印度语</option>
+					<option value="bn">孟加拉语</option>
+					<option value="he">希伯来语</option>
+					<option value="fa">波斯语</option>
+					<option value="af">南非语</option>
+					<option value="sv">瑞典语</option>
+					<option value="fi">芬兰语</option>
+					<option value="da">丹麦语</option>
+					<option value="no">挪威语</option>
+					<option value="nl">荷兰语</option>
+					<option value="el">希腊语</option>
+					<option value="uk">乌克兰语</option>
+					<option value="hu">匈牙利语</option>
+					<option value="pl">波兰语</option>
+					<option value="tr">土耳其语</option>
+					<option value="sr">塞尔维亚语</option>
+					<option value="hr">克罗地亚语</option>
+					<option value="cs">捷克语</option>
+					<option value="sw">斯瓦西里语</option>
+					<option value="yo">约鲁巴语</option>
+					<option value="ha">豪萨语</option>
+					<option value="am">阿姆哈拉语</option>
+					<option value="om">奥罗莫语</option>
+					<option value="is">冰岛语</option>
+					<option value="lb">卢森堡语</option>
+					<option value="ca">加泰罗尼亚语</option>
+					<option value="ro">罗马尼亚语</option>
+					<option value="ro2">摩尔多瓦语</option>
+					<option value="sk">斯洛伐克语</option>
+					<option value="bs">波斯尼亚语</option>
+					<option value="mk">马其顿语</option>
+					<option value="sl">斯洛文尼亚语</option>
+					<option value="bg">保加利亚语</option>
+					<option value="lv">拉脱维亚语</option>
+					<option value="lt">立陶宛语</option>
+					<option value="et">爱沙尼亚语</option>
+					<option value="mt">马耳他语</option>
+					<option value="sq">阿尔巴尼亚语</option>
+				</select>
+			</div>
 
-            <!-- 双语字幕 -->
-            <div class="formGroup">
-                <label>双语字幕:</label>
-                <input type="checkbox" id="bilingual-toggle" disabled checked>
-                <select id="bilingual-position" disabled>
-                    <option value="1">翻译后字幕在上方</option>
-                    <option value="2">翻译后字幕在下方</option>
-                </select>
-            </div>
+			<!-- 双语字幕 -->
+			<div class="formGroup">
+				<label>双语字幕:</label>
+				<input type="checkbox" id="bilingual-toggle" disabled checked>
+				<select id="bilingual-position" disabled>
+					<option value="1">翻译后字幕在上方</option>
+					<option value="2">翻译后字幕在下方</option>
+				</select>
+			</div>
 
-            <!-- 配音 -->
-            <div class="formGroup">
-                <label>配音:</label>
-                <input type="checkbox" id="voiceover-toggle">
-                <select id="voiceover-voice" disabled>
-                    <option value="2">男声</option>
-                    <option value="1">女声</option>
-                </select>
-                <span>或</span>
-                <label for="voiceFileInput" id="voiceFileInputName" class="voice-file-input">
-                    选择音色克隆样本
-                </label>
-                <span class="voice-file-input-remove" id="voiceFileInputRemove">删除</span>
-                <input style="display: none" type="file" id="voiceFileInput" name="voiceFileInput" accept="audio/*">
-                <p id="voiceUploadStatus" class="loading hidden">正在上传...</p>
-            </div>
+			<!-- 配音 -->
+			<div class="formGroup">
+				<label>配音:</label>
+				<input type="checkbox" id="voiceover-toggle">
+				<input
+						type="text"
+						id="voiceover-voice"
+						placeholder="输入 voice code"
+						disabled
+				>
+				<span>或</span>
+				<label for="voiceFileInput" id="voiceFileInputName" class="voice-file-input">
+					选择音色克隆样本(仅阿里云)
+				</label>
+				<span class="voice-file-input-remove" id="voiceFileInputRemove">删除</span>
+				<input style="display: none" type="file" id="voiceFileInput" name="voiceFileInput" accept="audio/*">
+				<p id="voiceUploadStatus" class="loading hidden">正在上传...</p>
+			</div>
 
-            <!-- 语气词过滤 -->
-            <div class="formGroup">
-                <label>语气词过滤:</label>
-                <input type="checkbox" id="filler-filter-toggle" checked>
-            </div>
+			<!-- 语气词过滤 -->
+			<div class="formGroup">
+				<label>语气词过滤:</label>
+				<input type="checkbox" id="filler-filter-toggle" checked>
+			</div>
 
-            <!-- 词汇替换 -->
-            <div class="formGroup" style="justify-content: flex-start; align-items: flex-start;">
-                <label style="padding: 10px 0;">词汇替换:</label>
-                <input style="margin: 14px 10px 14px 4px;" type="checkbox" id="word-replacement-toggle">
-                <div id="word-replacement-container" style="display: none; padding-top: 6px">
-                    <!--					<div class="replacement-row">-->
-                    <!--						<input type="text" placeholder="原词" class="original-word">-->
-                    <!--						<input type="text" placeholder="替换词" class="replacement-word">-->
-                    <!--						<button type="button" class="remove-row">删除</button>-->
-                    <!--					</div>-->
-                    <button type="button" id="add-row">新增替换</button>
-                </div>
-            </div>
+			<!-- 词汇替换 -->
+			<div class="formGroup" style="justify-content: flex-start; align-items: flex-start;">
+				<label style="padding: 10px 0;">词汇替换:</label>
+				<input style="margin: 14px 10px 14px 4px;" type="checkbox" id="word-replacement-toggle">
+				<div id="word-replacement-container" style="display: none; padding-top: 6px">
+<!--					<div class="replacement-row">-->
+<!--						<input type="text" placeholder="原词" class="original-word">-->
+<!--						<input type="text" placeholder="替换词" class="replacement-word">-->
+<!--						<button type="button" class="remove-row">删除</button>-->
+<!--					</div>-->
+					<button type="button" id="add-row">新增替换</button>
+				</div>
+			</div>
 
-            <!-- 合成字幕嵌入视频 -->
-            <div class="formGroup" id="embed-subtitle-container">
-                <label>合成字幕嵌入视频:</label>
-                <input type="checkbox" id="embed-subtitle-toggle">
-                <select id="embed-subtitle">
-                    <option value="horizontal">横屏视频</option>
-                    <option value="vertical">竖屏视频</option>
-                    <option value="all">横屏+竖屏视频</option>
-                </select>
-                <div id="subtitle-text-inputs" class="hidden">
-                    <input type="text" id="subtitle-text-1" placeholder="请输入竖屏视频主标题">
-                    <input type="text" id="subtitle-text-2" placeholder="请输入竖屏视频副标题">
-                </div>
-                <div id="subtitle-hint" class="hint-text">适合B站、Youtube等</div> <!-- 新增提示信息区域 -->
-            </div>
-        </div>
+			<!-- 合成字幕嵌入视频 -->
+			<div class="formGroup" id="embed-subtitle-container">
+				<label>合成视频:</label>
+				<input type="checkbox" id="embed-subtitle-toggle">
+				<select id="embed-subtitle">
+					<option value="horizontal">横屏视频</option>
+					<option value="vertical">竖屏视频</option>
+					<option value="all">横屏+竖屏视频</option>
+				</select>
+				<div id="subtitle-text-inputs" class="hidden">
+					<input type="text" id="subtitle-text-1" placeholder="请输入竖屏视频主标题">
+					<input type="text" id="subtitle-text-2" placeholder="请输入竖屏视频副标题">
+				</div>
+				<div id="subtitle-hint" class="hint-text">适合B站、Youtube等</div> <!-- 新增提示信息区域 -->
+			</div>
+		</div>
 
-        <button type="submit" id="executeButton">执 行</button>
-    </form>
+		<button type="submit" id="executeButton">执 行</button>
+	</form>
 
-    <div id="progressSection" class="progressSection hidden">
-        <h4>任务进度: </h4>
-        <div class="progress-bar">
-            <div class="progress-bar-fill" id="progressBar">0%</div>
-        </div>
-        <div id="downloadLinks" class="hidden download-links"></div>
-    </div>
-    <div id="tips" class="">
-    </div>
-</div>
-
-<div class="task-container">
-    <h2>任务列表</h2>
-    <div id="task-list-root"></div>
+	<div id="progressSection" class="progressSection hidden">
+		<h4>任务进度: </h4>
+		<div class="progress-bar">
+			<div class="progress-bar-fill" id="progressBar">0%</div>
+		</div>
+		<div id="downloadLinks" class="hidden download-links"></div>
+	</div>
+	<div id="tips" class="">
+	</div>
 </div>
 
 <script>
-    function TaskList() {
-        const { useState, useEffect, useCallback, useRef} = React;
-        const [tasks, setTasks] = useState([]);
-        const [isLoading, setIsLoading] = useState(true);
-        const [error, setError] = useState(null);
-        const API_TASKS_URL = "/api/tasks";
-        const API_PROGRESS_URL = "/api/progress";
+	const urlInputContainer = document.getElementById('urlInputContainer');
+	const fileInputContainer = document.getElementById('fileInputContainer');
+	const urlInput = document.getElementById('urlInput');
+	const fileInput = document.getElementById('fileInput');
+	const uploadStatus = document.getElementById('uploadStatus');
+	const voiceFileInput = document.getElementById('voiceFileInput');
+	const voiceFileInputName = document.getElementById('voiceFileInputName');
+	const voiceFileInputRemove = document.getElementById('voiceFileInputRemove');
+	const voiceUploadStatus = document.getElementById('voiceUploadStatus');
+	const executeButton = document.getElementById('executeButton');
+	const taskForm = document.getElementById('taskForm');
+	const progressSection = document.getElementById('progressSection');
+	const progressBar = document.getElementById('progressBar');
+	const downloadLinks = document.getElementById('downloadLinks');
 
-        const fetchTasks = useCallback(async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                const response = await fetch(API_TASKS_URL);
-                if (!response.ok) throw new Error(`HTTP错误：${response.status}`);
-                const responseData = await response.json();
+	// 获取表单元素
+	const translationToggle = document.getElementById("translation-toggle");
+	const translationLanguage = document.getElementById("translation-language");
+	const bilingualToggle = document.getElementById("bilingual-toggle");
+	const bilingualPosition = document.getElementById("bilingual-position");
+	const voiceoverToggle = document.getElementById("voiceover-toggle");
+	const voiceoverVoice = document.getElementById("voiceover-voice");
+	const wordReplacementToggle = document.getElementById("word-replacement-toggle");
+	const wordReplacementContainer = document.getElementById("word-replacement-container");
+	const addRowButton = document.getElementById("add-row");
+	const embedSubtitleVideoTypeToggle = document.getElementById("embed-subtitle-toggle");
+	const embedSubtitleVideoType = document.getElementById("embed-subtitle");
+	const embedSubtitle = document.getElementById("embed-subtitle");
+	const subtitleTextInputs = document.getElementById("subtitle-text-inputs");
+	const verticalMajorTitle = document.getElementById("subtitle-text-1");
+	const verticalMinorTitle = document.getElementById("subtitle-text-2");
+	const tips = document.getElementById("tips");
 
-                if (responseData.error !== 0) throw new Error(responseData.msg || "获取任务失败");
+	const API_SUBMIT_URL = "/api/capability/subtitleTask";
+	const API_PROGRESS_URL = "/api/capability/subtitleTask";
+	const API_UPLOAD_URL = "/api/file";
 
-                // 从 Data 中获取 tasks 数组
-                const taskList = responseData.data?.tasks || [];
-                const formattedTasks = taskList.map(task => ({
-                    taskId: task.task_id,
-                    name: task.task_name,
-                    status: task.status,
-                    progress: task.progress
-                }));
-                setTasks(formattedTasks);
+	let uploadedVideoUrl = null; // 存储上传后的视频地址
+	let uploadedAudioUrl = null; // 存储上传后的音频地址
 
-                // 检查任务状态为 processing 的任务并获取进度
-                formattedTasks.forEach(task => {
-                    if (task.status === "processing") {
-                        fetchTaskProgress(task.taskId);
-                    }
-                });
-            } catch (err) {
-                setError(`获取任务失败：${err.message}`);
-            } finally {
-                setIsLoading(false);
-            }
-        }, []);
+	// 更新状态（启用或禁用表单项）
+	function updateFormState() {
+		translationLanguage.disabled = !translationToggle.checked;
+		if (!translationToggle.checked) {
+			bilingualToggle.checked = false;
+			voiceoverToggle.checked = false;
+		}
+		voiceoverToggle.disabled = !translationToggle.checked;
+		bilingualToggle.disabled = !translationToggle.checked;
+		voiceoverToggle.disabled = !translationToggle.checked;
+		bilingualPosition.disabled = !bilingualToggle.checked;
+		voiceoverVoice.disabled = !voiceoverToggle.checked;
+		voiceFileInput.disabled = !voiceoverToggle.checked;
+		voiceFileInputName.style.cursor = voiceoverToggle.checked ? "pointer" : "not-allowed";
+		wordReplacementContainer.style.display = wordReplacementToggle.checked ? "block" : "none";
+	}
 
+	// 字幕翻译开关
+	translationToggle.addEventListener("change", () => {
+		updateFormState();
+	});
 
-        useEffect(() => {
-            taskListRoot = componentRef.current;
-            fetchTasks();
-        }, [fetchTasks]);
+	// 双语字幕开关
+	bilingualToggle.addEventListener("change", () => {
+		bilingualPosition.disabled = !bilingualToggle.checked;
+	});
 
-        const componentRef = useRef();
-        useEffect(() => {
-            taskListRoot = componentRef.current; // 赋值给全局变量
-            fetchTasks();
-        }, [fetchTasks]);
+	// 配音开关
+	voiceoverToggle.addEventListener("change", () => {
+		updateFormState();
+	});
 
-        const fetchTaskProgress = useCallback(async (taskId) => {
-            try {
-                const response = await fetch(`${API_PROGRESS_URL}?taskId=${taskId}`);
-                if (!response.ok) throw new Error(`HTTP错误：${response.status}`);
-                const responseData = await response.json();
+	// 词汇替换开关
+	wordReplacementToggle.addEventListener("change", () => {
+		updateFormState();
+	});
 
-                if (responseData.error !== 0) throw new Error(responseData.msg || "获取进度失败");
-
-                // 更新任务进度
-                setTasks(prev => prev.map(task => {
-                    if (task.taskId === taskId && task.status !== responseData.status) {
-                        return { ...task, ...responseData };
-                    }
-                    return task;
-                }));
-            } catch (err) {
-                console.error(`获取任务进度失败：${err.message}`);
-            }
-        }, []);
-
-        if (isLoading) {
-            return React.createElement('div', { className: 'loading' }, '加载任务列表中...');
-        }
-        if (error) {
-            return React.createElement('div', { className: 'error', style: { color: 'red' } }, error);
-        }
-
-
-        return React.createElement(
-            'div',
-            { ref: componentRef, style: { width: '100%' } }, // 正确设置属性
-            tasks.length > 0
-                ? tasks.map(task =>
-                    React.createElement(
-                        'div',
-                        { key: task.taskId, className: 'task-item' },
-                        // 任务ID和名称
-                        React.createElement(
-                            'div',
-                            null,
-                            React.createElement('strong', null, '任务 ID:'),
-                            ' ',
-                            task.taskId,
-                            React.createElement('br', null),
-                            React.createElement('strong', null, '任务名称:'),
-                            ' ',
-                            task.name
-                        ),
-                        // 状态和进度
-                        React.createElement(
-                            'div',
-                            null,
-                            React.createElement('strong', null, '完成状态:'),
-                            React.createElement(
-                                'span',
-                                { className: `status-badge ${getStatusClass(task.status)}` },
-                                getStatusLabel(task.status),
-                                task.status === "processing" ? ` (${task.progress}%)` : null
-                            )
-                        ),
-                        // 操作按钮
-                        React.createElement(
-                            'button',
-                            {
-                                className: 'task-button',
-                                disabled: !isButtonEnabled(task.status)
-                            },
-                            task.status === "interrupted" ? "继续任务" : "查看详情"
-                        )
-                    )
-                )
-                : React.createElement('div', { className: 'empty' }, '暂无任务')
-        );
-    }
-
-    const urlInputContainer = document.getElementById('urlInputContainer');
-    const fileInputContainer = document.getElementById('fileInputContainer');
-    const urlInput = document.getElementById('urlInput');
-    const fileInput = document.getElementById('fileInput');
-    const uploadStatus = document.getElementById('uploadStatus');
-    const voiceFileInput = document.getElementById('voiceFileInput');
-    const voiceFileInputName = document.getElementById('voiceFileInputName');
-    const voiceFileInputRemove = document.getElementById('voiceFileInputRemove');
-    const voiceUploadStatus = document.getElementById('voiceUploadStatus');
-    const executeButton = document.getElementById('executeButton');
-    const taskForm = document.getElementById('taskForm');
-    const progressSection = document.getElementById('progressSection');
-    const progressBar = document.getElementById('progressBar');
-    const downloadLinks = document.getElementById('downloadLinks');
-
-    // 获取表单元素
-    const translationToggle = document.getElementById("translation-toggle");
-    const translationLanguage = document.getElementById("translation-language");
-    const bilingualToggle = document.getElementById("bilingual-toggle");
-    const bilingualPosition = document.getElementById("bilingual-position");
-    const voiceoverToggle = document.getElementById("voiceover-toggle");
-    const voiceoverVoice = document.getElementById("voiceover-voice");
-    const wordReplacementToggle = document.getElementById("word-replacement-toggle");
-    const wordReplacementContainer = document.getElementById("word-replacement-container");
-    const addRowButton = document.getElementById("add-row");
-    const embedSubtitleVideoTypeToggle = document.getElementById("embed-subtitle-toggle");
-    const embedSubtitleVideoType = document.getElementById("embed-subtitle");
-    const embedSubtitle = document.getElementById("embed-subtitle");
-    const subtitleTextInputs = document.getElementById("subtitle-text-inputs");
-    const verticalMajorTitle = document.getElementById("subtitle-text-1");
-    const verticalMinorTitle = document.getElementById("subtitle-text-2");
-    const tips = document.getElementById("tips");
-
-    const API_SUBMIT_URL = "/api/capability/subtitleTask";
-    const API_PROGRESS_URL = "/api/capability/subtitleTask";
-    const API_UPLOAD_URL = "/api/file";
-
-    let uploadedVideoUrl = null; // 存储上传后的视频地址
-    let uploadedAudioUrl = null; // 存储上传后的音频地址
-
-    // 更新状态（启用或禁用表单项）
-    function updateFormState() {
-        translationLanguage.disabled = !translationToggle.checked;
-        if (!translationToggle.checked) {
-            bilingualToggle.checked = false;
-            voiceoverToggle.checked = false;
-        }
-        voiceoverToggle.disabled = !translationToggle.checked;
-        bilingualToggle.disabled = !translationToggle.checked;
-        voiceoverToggle.disabled = !translationToggle.checked;
-        bilingualPosition.disabled = !bilingualToggle.checked;
-        voiceoverVoice.disabled = !voiceoverToggle.checked;
-        voiceFileInput.disabled = !voiceoverToggle.checked;
-        voiceFileInputName.style.cursor = voiceoverToggle.checked ? "pointer" : "not-allowed";
-        wordReplacementContainer.style.display = wordReplacementToggle.checked ? "block" : "none";
-    }
-
-
-    // 状态转换工具函数
-    function getStatusClass(status) {
-        switch(status) {
-            case "completed": return "completed";
-            case "processing": return "processing";
-            case "interrupted": return "interrupted";
-            default: return "";
-        }
-    }
-
-    function getStatusLabel(status) {
-        switch(status) {
-            case "completed": return "已完成";
-            case "processing": return "进行中";
-            case "interrupted": return "中断";
-            default: return "未知状态";
-        }
-    }
-
-    // 渲染 React 组件
-    const root = ReactDOM.createRoot(document.getElementById('task-list-root'));
-    root.render(React.createElement(TaskList));
-
-    function isButtonEnabled(status) {
-        return status === "interrupted";
-    }
-    // 字幕翻译开关
-    translationToggle.addEventListener("change", () => {
-        updateFormState();
-    });
-
-    // 双语字幕开关
-    bilingualToggle.addEventListener("change", () => {
-        bilingualPosition.disabled = !bilingualToggle.checked;
-    });
-
-    // 配音开关
-    voiceoverToggle.addEventListener("change", () => {
-        updateFormState();
-    });
-
-    // 词汇替换开关
-    wordReplacementToggle.addEventListener("change", () => {
-        updateFormState();
-    });
-
-    // 新增词汇替换行
-    addRowButton.addEventListener("click", () => {
-        const newRow = document.createElement("div");
-        newRow.className = "replacement-row";
-        newRow.innerHTML = `
+	// 新增词汇替换行
+	addRowButton.addEventListener("click", () => {
+		const newRow = document.createElement("div");
+		newRow.className = "replacement-row";
+		newRow.innerHTML = `
         <input type="text" placeholder="原词" class="original-word">
         <input type="text" placeholder="替换词" class="replacement-word">
         <button type="button" class="remove-row">删除</button>
       `;
-        wordReplacementContainer.insertBefore(newRow, addRowButton);
+		wordReplacementContainer.insertBefore(newRow, addRowButton);
 
-        // 绑定删除按钮事件
-        newRow.querySelector(".remove-row").addEventListener("click", () => {
-            newRow.remove();
-        });
-    });
+		// 绑定删除按钮事件
+		newRow.querySelector(".remove-row").addEventListener("click", () => {
+			newRow.remove();
+		});
+	});
 
-    // 删除上传音频
-    voiceFileInputRemove.addEventListener("click", () => {
-        voiceFileInput.value = '';
-        voiceFileInputName.textContent = '选择音色克隆样本';
-        uploadedAudioUrl = null;
-        voiceFileInputRemove.style.display = 'none';
-    });
+	// 删除上传音频
+	voiceFileInputRemove.addEventListener("click", () => {
+		voiceFileInput.value = '';
+		voiceFileInputName.textContent = '选择音色克隆样本';
+		uploadedAudioUrl = null;
+		voiceFileInputRemove.style.display = 'none';
+	});
 
-    // 监听“合成字幕嵌入视频”选项
-    embedSubtitle.addEventListener("change", () => {
-        const selectedValue = embedSubtitle.value;
-        if (selectedValue === "vertical" || selectedValue === "all") {
-            subtitleTextInputs.classList.remove("hidden");
-        } else {
-            subtitleTextInputs.classList.add("hidden");
-        }
-    });
+	// 监听“合成字幕嵌入视频”选项
+	embedSubtitle.addEventListener("change", () => {
+		const selectedValue = embedSubtitle.value;
+		if (selectedValue === "vertical" || selectedValue === "all") {
+			subtitleTextInputs.classList.remove("hidden");
+		} else {
+			subtitleTextInputs.classList.add("hidden");
+		}
+	});
 
-    // 监听“合成字幕嵌入视频”选项
-    document.getElementById('embed-subtitle').addEventListener('change', function() {
-        const hintElement = document.getElementById('subtitle-hint');
-        const selectedValue = this.value;
+	// 监听“合成字幕嵌入视频”选项
+	document.getElementById('embed-subtitle').addEventListener('change', function() {
+		const hintElement = document.getElementById('subtitle-hint');
+		const selectedValue = this.value;
 
-        if (selectedValue === 'vertical') {
-            hintElement.textContent = '适合小红书、视频号、Shorts等';
-        } else if (selectedValue === 'horizontal') {
-            hintElement.textContent = '适合B站、Youtube等';
-        } else {
-            hintElement.textContent = ''; // 清空提示信息
-        }
-    });
+		if (selectedValue === 'vertical') {
+			hintElement.textContent = '适合小红书、视频号、Shorts等';
+		} else if (selectedValue === 'horizontal') {
+			hintElement.textContent = '适合B站、Youtube等';
+		} else {
+			hintElement.textContent = ''; // 清空提示信息
+		}
+	});
 
-    // 提交表单
-    function getParams () {
-        const formData = {
-            language: 'zh_cn',
-            origin_lang: document.getElementById("source-language").value,
-            target_lang: translationToggle.checked ? translationLanguage.value : 'none',
-            bilingual: bilingualToggle.checked ? 1 : 2,
-            translation_subtitle_pos: +bilingualPosition.value,
-            tts: voiceoverToggle.checked ? 1 : 2,
-            modal_filter: document.getElementById("filler-filter-toggle").checked ? 1 : 2,
-            embed_subtitle_video_type: embedSubtitleVideoTypeToggle.checked ? embedSubtitleVideoType.value : 'none',
-        };
+	// 提交表单
+	function getParams () {
+		const formData = {
+			language: 'zh_cn',
+			origin_lang: document.getElementById("source-language").value,
+			target_lang: translationToggle.checked ? translationLanguage.value : 'none',
+			bilingual: bilingualToggle.checked ? 1 : 2,
+			translation_subtitle_pos: +bilingualPosition.value,
+			tts: voiceoverToggle.checked ? 1 : 2,
+			modal_filter: document.getElementById("filler-filter-toggle").checked ? 1 : 2,
+			embed_subtitle_video_type: embedSubtitleVideoTypeToggle.checked ? embedSubtitleVideoType.value : 'none',
+		};
 
-        if (formData.tts === 1) {
-            formData.tts_voice_code = +voiceoverVoice.value;
-            if (uploadedAudioUrl) {
-                formData.tts_voice_clone_src_file_url = uploadedAudioUrl;
-            }
-        }
+		if (formData.tts === 1) {
+			formData.tts_voice_code = +voiceoverVoice.value;
+			if (uploadedAudioUrl) {
+				formData.tts_voice_clone_src_file_url = uploadedAudioUrl[0];
+			}
+		}
 
-        if (formData.target_lang === 'ro2') {
-            formData.target_lang = 'ro';
-        }
+		if (formData.target_lang === 'ro2') {
+			formData.target_lang = 'ro';
+		}
 
-        if (wordReplacementToggle.checked) {
-            formData.replace = Array.from(document.querySelectorAll(".replacement-row")).map(row => {
-                if (row.querySelector(".original-word").value) {
-                    return (`${row.querySelector(".original-word").value}|${row.querySelector(".replacement-word").value}`
-                    );
-                } else {
-                    return null;
-                }
-            }).filter(item => item !== null)
-        }
+		if (wordReplacementToggle.checked) {
+			formData.replace = Array.from(document.querySelectorAll(".replacement-row")).map(row => {
+				if (row.querySelector(".original-word").value) {
+					return (`${row.querySelector(".original-word").value}|${row.querySelector(".replacement-word").value}`
+					);
+				} else {
+					return null;
+				}
+			}).filter(item => item !== null)
+		}
 
-        // 添加字幕文本到请求参数中
-        if (embedSubtitleVideoTypeToggle.checked && (embedSubtitle.value === "vertical" || embedSubtitle.value === "all")) {
-            formData.vertical_major_title = verticalMajorTitle.value;
-            formData.vertical_minor_title = verticalMinorTitle.value;
-        }
+		// 添加字幕文本到请求参数中
+		if (embedSubtitleVideoTypeToggle.checked && (embedSubtitle.value === "vertical" || embedSubtitle.value === "all")) {
+			formData.vertical_major_title = verticalMajorTitle.value;
+			formData.vertical_minor_title = verticalMinorTitle.value;
+		}
 
-        console.log("表单数据：", formData);
+		console.log("表单数据：", formData);
 
-        return formData;
-    }
+		return formData;
+	}
 
-    // 初始化时更新表单状态
-    updateFormState();
+	// 初始化时更新表单状态
+	updateFormState();
 
-    // 切换输入方式
-    document.querySelectorAll('input[name="inputType"]').forEach(radio => {
-        radio.addEventListener('change', () => {
-            if (radio.value === 'url') {
-                urlInputContainer.classList.remove('hidden');
-                fileInputContainer.classList.add('hidden');
-                fileInput.required = false;
-                urlInput.required = true;
-                executeButton.disabled = false; // 启用“执行”按钮
-            } else {
-                urlInputContainer.classList.add('hidden');
-                fileInputContainer.classList.remove('hidden');
-                urlInput.required = false;
-                fileInput.required = true;
-                executeButton.disabled = true; // 禁用“执行”按钮，等待上传完成
-            }
-        });
-    });
+	// 切换输入方式
+	document.querySelectorAll('input[name="inputType"]').forEach(radio => {
+		radio.addEventListener('change', () => {
+			if (radio.value === 'url') {
+				urlInputContainer.classList.remove('hidden');
+				fileInputContainer.classList.add('hidden');
+				fileInput.required = false;
+				urlInput.required = true;
+				executeButton.disabled = false; // 启用“执行”按钮
+			} else {
+				urlInputContainer.classList.add('hidden');
+				fileInputContainer.classList.remove('hidden');
+				urlInput.required = false;
+				fileInput.required = true;
+				executeButton.disabled = true; // 禁用“执行”按钮，等待上传完成
+			}
+		});
+	});
 
-    // 处理视频上传
-    fileInput.addEventListener('change', async () => {
-        if (fileInput.files.length === 0) return;
+	// 处理视频上传
+	fileInput.addEventListener('change', async () => {
+		if (fileInput.files.length === 0) return;
 
-        uploadStatus.classList.remove('hidden');
-        executeButton.disabled = true; // 禁用“执行”按钮
+		uploadStatus.classList.remove('hidden');
+		executeButton.disabled = true; // 禁用“执行”按钮
 
-        const formData = new FormData();
-        for (const file of fileInput.files) {
-            formData.append('file', file); // 确保字段名与后端一致
-        }
+		const formData = new FormData();
+		for (const file of fileInput.files) {
+			formData.append('file', file); // 确保字段名与后端一致
+		}
 
-        try {
-            const response = await fetch(API_UPLOAD_URL, {
-                method: 'POST',
-                body: formData,
-            });
-            if (!response.ok) throw new Error('视频上传失败');
-            const res = await response.json();
-            const { error, data, msg } = res || {};
-            if (error !== 0 && error !== 200) {
-                throw new Error(msg || '上传失败，请重试');
-            }
-            uploadedVideoUrl = data.file_path; // 获取返回的文件路径数组
-            executeButton.disabled = false; // 启用“执行”按钮
-        } catch (error) {
-            console.error('视频上传失败:', error);
-            alert(error);
-        } finally {
-            uploadStatus.classList.add('hidden');
-        }
-    });
+		try {
+			const response = await fetch(API_UPLOAD_URL, {
+				method: 'POST',
+				body: formData,
+			});
+			if (!response.ok) throw new Error('视频上传失败');
+			const res = await response.json();
+			const { error, data, msg } = res || {};
+			if (error !== 0 && error !== 200) {
+				throw new Error(msg || '上传失败，请重试');
+			}
+			uploadedVideoUrl = data.file_path; // 获取返回的文件路径数组
+			executeButton.disabled = false; // 启用“执行”按钮
+		} catch (error) {
+			console.error('视频上传失败:', error);
+			alert(error);
+		} finally {
+			uploadStatus.classList.add('hidden');
+		}
+	});
 
-    // 处理音频上传
-    voiceFileInput.addEventListener('change', async () => {
-        if (voiceFileInput.files.length === 0) return;
+	// 处理音频上传
+	voiceFileInput.addEventListener('change', async () => {
+		if (voiceFileInput.files.length === 0) return;
 
-        voiceUploadStatus.classList.remove('hidden');
+		voiceUploadStatus.classList.remove('hidden');
 
-        const file = voiceFileInput.files[0];
+		const file = voiceFileInput.files[0];
 
-        const formData = new FormData();
-        formData.append('file', file);
+		const formData = new FormData();
+		formData.append('file', file);
 
-        try {
-            const response = await fetch(API_UPLOAD_URL, {
-                method: 'POST',
-                body: formData,
-            });
-            if (!response.ok) throw new Error('上传失败');
-            const res = await response.json();
-            const { error, data, msg } = res || {};
-            if (error !== 0 && error !== 200) {
-                throw new Error(msg || '上传失败，请重试')
-            }
-            uploadedAudioUrl = data.file_path; // 获取返回的地址
-            voiceFileInputName.textContent = file.name;
-            voiceFileInputRemove.style.display = 'block';
-        } catch (error) {
-            console.error('音频上传失败:', error);
-            alert(error);
-        } finally {
-            voiceUploadStatus.classList.add('hidden');
-        }
-    });
+		try {
+			const response = await fetch(API_UPLOAD_URL, {
+				method: 'POST',
+				body: formData,
+			});
+			if (!response.ok) throw new Error('上传失败');
+			const res = await response.json();
+			const { error, data, msg } = res || {};
+			if (error !== 0 && error !== 200) {
+				throw new Error(msg || '上传失败，请重试')
+			}
+			uploadedAudioUrl = data.file_path; // 获取返回的地址
+			voiceFileInputName.textContent = file.name;
+			voiceFileInputRemove.style.display = 'block';
+		} catch (error) {
+			console.error('音频上传失败:', error);
+			alert(error);
+		} finally {
+			voiceUploadStatus.classList.add('hidden');
+		}
+	});
 
-    // 点击执行按钮发送任务请求
-    taskForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
+	// 点击执行按钮发送任务请求
+	taskForm.addEventListener('submit', async (event) => {
+		event.preventDefault();
 
-        if (!taskForm.checkValidity()) {
-            taskForm.reportValidity();
-            return;
-        }
+		if (!taskForm.checkValidity()) {
+			taskForm.reportValidity();
+			return;
+		}
 
-        if (!bilingualToggle.checked && embedSubtitleVideoTypeToggle.checked) {
-            alert('合成字幕嵌入视频必须打开双语选项')
-            return;
-        }
+		if (!bilingualToggle.checked && embedSubtitleVideoTypeToggle.checked) {
+			alert('合成字幕嵌入视频必须打开双语选项')
+			return;
+		}
 
-        const inputType = document.querySelector('input[name="inputType"]:checked').value;
-        // const params = {
-        // 	bilingual: 1,
-        // 	language: "en",
-        // 	modal_filter: 1,
-        // 	origin_lang: "en",
-        // 	target_lang: "zh_cn",
-        // 	translation_subtitle_pos: 1,
-        // 	tts: 2
-        // };
-        let url = '';
+		const inputType = document.querySelector('input[name="inputType"]:checked').value;
+		// const params = {
+		// 	bilingual: 1,
+		// 	language: "en",
+		// 	modal_filter: 1,
+		// 	origin_lang: "en",
+		// 	target_lang: "zh_cn",
+		// 	translation_subtitle_pos: 1,
+		// 	tts: 2
+		// };
+		let url = '';
 
-        if (inputType === 'url') {
-            url = urlInput.value.trim();
-        } else if (inputType === 'file' && uploadedVideoUrl) {
-            url = uploadedVideoUrl;
-        } else {
-            alert('请上传视频后再执行任务');
-            return;
-        }
+		if (inputType === 'url') {
+			url = urlInput.value.trim();
+		} else if (inputType === 'file' && uploadedVideoUrl) {
+			url = uploadedVideoUrl;
+		} else {
+			alert('请上传视频后再执行任务');
+			return;
+		}
 
-        if (!url) {
-            alert('请输入视频链接后再执行任务');
-            return;
-        }
-        const params = getParams();
-        // 请求启动任务接口
-        if (Array.isArray(url)) {
-            for (const singleUrl of url) {
-                const taskId = await startTask({ ...params, url: singleUrl });
-                if (taskId) {
-                    executeButton.disabled = true;
-                    progressSection.classList.remove('hidden');
-                    await pollTaskProgress(taskId);
-                }
-            }
-        } else {
-            const taskId = await startTask({ ...params, url });
-            if (taskId) {
-                executeButton.disabled = true;
-                progressSection.classList.remove('hidden');
-                await pollTaskProgress(taskId);
-            }
-        }
-
-        if (taskId) {
-            executeButton.disabled = true;
-            progressSection.classList.remove('hidden');
-
-            // **新增：立即更新任务列表**
-            if (taskListRoot && taskListRoot.fetchTasks) {
-                taskListRoot.fetchTasks(); // 调用组件内的 fetchTasks
-            } else {
-                fetchTasks(); // 直接调用全局函数（如果已提升）
-            }
-
-            await pollTaskProgress(taskId);
-        }
-    });
+		if (!url) {
+			alert('请输入视频链接后再执行任务');
+			return;
+		}
+		const params = getParams();
+		// 请求启动任务接口
+		if (Array.isArray(url)) {
+			for (const singleUrl of url) {
+				const taskId = await startTask({ ...params, url: singleUrl });
+				if (taskId) {
+					executeButton.disabled = true;
+					progressSection.classList.remove('hidden');
+					await pollTaskProgress(taskId);
+				}
+			}
+		} else {
+			const taskId = await startTask({ ...params, url });
+			if (taskId) {
+				executeButton.disabled = true;
+				progressSection.classList.remove('hidden');
+				await pollTaskProgress(taskId);
+			}
+		}
+	});
 
 
-    // 请求启动任务接口
-    async function startTask(params) {
-        try {
-            const response = await fetch(API_SUBMIT_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(params),
-            }).then(res => res.json()).then(data => {
-                return data;
-            });
-            if (+response.error !== 0 && +response.error !== 200) {
-                throw new Error(response.msg || '启动任务失败');
-            }
-            return (response.data || {}).task_id || '';
-        } catch (error) {
-            alert(error);
-            console.error('启动任务失败:', error);
-            return null;
-        }
+	// 请求启动任务接口
+	async function startTask(params) {
+		try {
+			const response = await fetch(API_SUBMIT_URL, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(params),
+			}).then(res => res.json()).then(data => {
+				return data;
+			});
+			if (+response.error !== 0 && +response.error !== 200) {
+				throw new Error(response.msg || '启动任务失败');
+			}
+			return (response.data || {}).task_id || '';
+		} catch (error) {
+			alert(error);
+			console.error('启动任务失败:', error);
+			return null;
+		}
 
-        // return new Promise(resolve => setTimeout(() => resolve('taskId123'), 1000)); // 模拟返回 taskId
-    }
+		// return new Promise(resolve => setTimeout(() => resolve('taskId123'), 1000)); // 模拟返回 taskId
+	}
 
-    // 轮询任务进度接口
-    async function pollTaskProgress(taskId) {
-        try {
-            let progress = 0;
-            while (progress < 100) {
-                const response = await fetch(`${API_PROGRESS_URL}?taskId=${taskId}`).then(res => res.json()).then(data => {
-                    return data || {};
-                });
-                console.log('progress response---:', response);
-                if (+response.error !== 0 && +response.error !== 200) {
-                    executeButton.disabled = false;
-                    throw new Error(response.msg || '查询进度失败');
-                }
-                const data = response.data || {};
-                progress = data.process_percent || 0;
-                progressBar.style.width = progress + '%';
-                progressBar.textContent = progress + '%';
-                if (progress >= 100) {
-                    displayDownloadLinks(data.subtitle_info || [], data.speech_download_url || '');
-                    executeButton.disabled = false;
-                    // 显示output路径说明
-                    tips.textContent = "若需要查看合成的视频或者文字稿，请到软件目录下的/tasks/"+data.task_id+"/output 目录下查看。";
-                    return;
-                }
-                await new Promise(resolve => setTimeout(resolve, 5000));
-            }
-        } catch (error) {
-            alert(error);
-            executeButton.disabled = false;
-            console.error('查询进度失败:', error);
-        }
-    }
+	// 轮询任务进度接口
+	async function pollTaskProgress(taskId) {
+		try {
+			let progress = 0;
+			while (progress < 100) {
+				const response = await fetch(`${API_PROGRESS_URL}?taskId=${taskId}`).then(res => res.json()).then(data => {
+					return data || {};
+				});
+				console.log('progress response---:', response);
+				if (+response.error !== 0 && +response.error !== 200) {
+					executeButton.disabled = false;
+					throw new Error(response.msg || '查询进度失败');
+				}
+				const data = response.data || {};
+				progress = data.process_percent || 0;
+				progressBar.style.width = progress + '%';
+				progressBar.textContent = progress + '%';
+				if (progress >= 100) {
+					displayDownloadLinks(data.subtitle_info || [], data.speech_download_url || '');
+					executeButton.disabled = false;
+					// 显示output路径说明
+					tips.textContent = "若需要查看合成的视频或者文字稿，请到软件目录下的/tasks/"+data.task_id+"/output 目录下查看。";
+					return;
+				}
+				await new Promise(resolve => setTimeout(resolve, 5000));
+			}
+		} catch (error) {
+			alert(error);
+			executeButton.disabled = false;
+			console.error('查询进度失败:', error);
+		}
+	}
 
-    // 显示下载链接
-    function displayDownloadLinks(urls, speechUrl) {
-        console.log(urls);
-        downloadLinks.innerHTML = '';
+	// 显示下载链接
+	function displayDownloadLinks(urls, speechUrl) {
+		console.log(urls);
+		downloadLinks.innerHTML = '';
 
-        urls.forEach(({name, download_url}) => {
-            const link = document.createElement('a');
-            link.href = download_url;
-            link.textContent = name;
-            link.download = '';
-            link.classList.add('download-button'); // 添加按钮样式
-            downloadLinks.appendChild(link);
-        });
+		urls.forEach(({name, download_url}) => {
+			const link = document.createElement('a');
+			link.href = download_url;
+			link.textContent = name;
+			link.download = '';
+			link.classList.add('download-button'); // 添加按钮样式
+			downloadLinks.appendChild(link);
+		});
 
-        if (speechUrl) {
-            const sArr = speechUrl.split('/');
-            const sName = sArr[sArr.length - 1];
+		if (speechUrl) {
+			const sArr = speechUrl.split('/');
+			const sName = sArr[sArr.length - 1];
 
-            const link = document.createElement('a');
-            link.href = speechUrl;
-            link.target = '_blank';
-            link.textContent = `配音：${sName}`;
-            link.download = '';
-            link.classList.add('download-button'); // 添加按钮样式
-            downloadLinks.appendChild(link);
-        }
+			const link = document.createElement('a');
+			link.href = speechUrl;
+			link.target = '_blank';
+			link.textContent = `配音：${sName}`;
+			link.download = '';
+			link.classList.add('download-button'); // 添加按钮样式
+			downloadLinks.appendChild(link);
+		}
 
-        downloadLinks.classList.remove('hidden');
-    }
+		downloadLinks.classList.remove('hidden');
+	}
 </script>
 </body>
 </html>

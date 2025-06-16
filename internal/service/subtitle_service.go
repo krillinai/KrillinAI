@@ -34,7 +34,9 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		}
 	}
 	// 生成任务id
-	taskId := util.GenerateRandStringWithUpperLowerNum(8)
+	seperates := strings.Split(req.Url, "/")
+	taskId := fmt.Sprintf("%s_%s", util.SanitizePathName(string([]rune(strings.ReplaceAll(seperates[len(seperates)-1], " ", ""))[:16])), util.GenerateRandStringWithUpperLowerNum(4))
+	taskId = strings.ReplaceAll(taskId, "=", "") // 等于号影响ffmpeg处理
 	// 构造任务所需参数
 	var resultType types.SubtitleResultType
 	// 根据入参选项确定要返回的字幕类型
@@ -83,13 +85,6 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	}
 	storage.SubtitleTasks.Store(taskId, taskPtr)
 
-	var ttsVoiceCode string
-	if req.TtsVoiceCode == types.SubtitleTaskTtsVoiceCodeLongyu {
-		ttsVoiceCode = "longyu"
-	} else {
-		ttsVoiceCode = "longchen"
-	}
-
 	// 处理声音克隆源
 	var voiceCloneAudioUrl string
 	if req.TtsVoiceCloneSrcFileUrl != "" {
@@ -112,7 +107,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		SubtitleResultType:      resultType,
 		EnableModalFilter:       req.ModalFilter == types.SubtitleTaskModalFilterYes,
 		EnableTts:               req.Tts == types.SubtitleTaskTtsYes,
-		TtsVoiceCode:            ttsVoiceCode,
+		TtsVoiceCode:            req.TtsVoiceCode,
 		VoiceCloneAudioUrl:      voiceCloneAudioUrl,
 		ReplaceWordsMap:         replaceWordsMap,
 		OriginLanguage:          types.StandardLanguageCode(req.OriginLanguage),

@@ -26,7 +26,6 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 	if strings.Contains(link, "local:") {
 		// 本地文件
 		videoPath = strings.ReplaceAll(link, "local:", "")
-		stepParam.InputVideoPath = videoPath
 		cmd := exec.Command(storage.FfmpegPath, "-i", videoPath, "-vn", "-ar", "44100", "-ac", "2", "-ab", "192k", "-f", "mp3", audioPath)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
@@ -96,8 +95,8 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 			log.GetLogger().Error("linkToFile download video yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
 			return fmt.Errorf("linkToFile download video yt-dlp error: %w", err)
 		}
-		stepParam.InputVideoPath = videoPath
 	}
+	stepParam.InputVideoPath = videoPath
 
 	// 更新字幕任务信息
 	stepParam.TaskPtr.ProcessPct = 10

@@ -20,15 +20,15 @@ package types
 
 // 内容如下:`
 
-var SplitTextPrompt = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现准确和高质量翻译：
+var SplitTextPrompt = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现字幕的准确和高质量翻译：
 
-1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平。
-2. 严格依据标点符号（逗号、句号、问号等）将内容拆分成单独的句子，并依据以下规则确保拆分粒度合理：
-   - 每个句子在保证句意完整的情况下尽可能短，长度尽量不得超过15个字。
-   - 可以根据连词（例如 "and", "but", "which", "when", "so", "所以", "但是", "因此", "考虑到" 等）进一步拆分句子，避免语句太长。
+1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平，保持意思相同。
+2. 严格依据标点符号（逗号: ，,、句号:。.、问号:？?等）将内容拆分成单独的句子，并依据以下规则确保拆分长度较短：
+   - 每个句子在保证句意完整的情况下尽可能短，适中的字幕长短能提供舒适的观看体验。
+   - 根据连词（例如 "and", "but", "which", "when", "so", "所以", "但是", "因此", "考虑到" 等）进一步拆分句子，得到较短的结果。
 3. 对每个拆分的句子分别翻译，确保不遗漏或修改任何字词。
 4. 将每对翻译后的句子与原句用独立编号表示，并分别以方括号[]包裹内容。
-5. 输出的翻译与原文应保持对应，严格按照原文顺序呈现，不得有错位，且原文尽可能使用原文。
+5. 输出的翻译与原文应保持对应，严格按照原文顺序呈现，不得有错位，与原文表达的意思保持一致，且原文尽可能使用原文。
 6. 不管内容是正式还是非正式，都要翻译。
 
 翻译输出应采用如下格式：
@@ -45,18 +45,19 @@ var SplitTextPrompt = `你是一个语言处理专家，专注于自然语言处
 [无文本]
 
 确保高效、精确地完成上述翻译任务，输入内容如下：
+
 `
 
 // 带有语气词过滤的拆分Prompt
-var SplitTextPromptWithModalFilter = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现准确和高质量翻译：
+var SplitTextPromptWithModalFilter = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现字幕的准确和高质量翻译：
 
-1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平。
-2. 严格依据标点符号（逗号、句号、问号等）将内容拆分成单独的句子，并依据以下规则确保拆分粒度合理：
-   - 每个句子在保证句意完整的情况下尽可能短，长度尽量不得超过15个字。
-   - 可以根据连词（例如 "and", "but", "which", "when", "so", "所以", "但是", "因此", "考虑到" 等）进一步拆分句子，避免语句太长。
+1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平，保持意思相同。
+2. 严格依据标点符号（逗号: ，,、句号:。.、问号:？?等）将内容拆分成单独的句子，并依据以下规则确保拆分长度较短：
+   - 每个句子在保证句意完整的情况下尽可能短，适中的字幕长短能提供舒适的观看体验。
+   - 根据连词（例如 "and", "but", "which", "when", "so", "所以", "但是", "因此", "考虑到" 等）进一步拆分句子，得到较短的结果。
 3. 对每个拆分的句子分别翻译，确保不遗漏或修改任何字词。
 4. 将每对翻译后的句子与原句用独立编号表示，并分别以方括号[]包裹内容。
-5. 输出的翻译与原文应保持对应，严格按照原文顺序呈现，不得有错位，且原文尽可能使用原文。
+5. 输出的翻译与原文应保持对应，严格按照原文顺序呈现，不得有错位，与原文表达的意思保持一致，且原文尽可能使用原文。
 6. 忽略文本中的语气词，比如"Oh" "Ah" "Wow"等等。
 7. 不管内容是正式还是非正式，都要翻译。
 
@@ -74,6 +75,40 @@ var SplitTextPromptWithModalFilter = `你是一个语言处理专家，专注于
 [无文本]
 
 确保高效、精确地完成上述翻译任务，输入内容如下：
+
+`
+
+var SplitTextPromptJson = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现字幕的准确和高质量翻译：
+
+1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平，保持意思相同。
+2. 严格依据标点符号（逗号: ，,、句号:。.、问号:？?等）将内容拆分成单独的句子，并依据以下规则确保拆分长度较短：
+   - 每个句子在保证句意完整的情况下尽可能短，适中的字幕长短能提供舒适的观看体验。
+   - 根据连词（例如 "and", "but", "which", "when", "so", "所以", "但是", "因此", "考虑到" 等）进一步拆分句子，得到较短的结果。
+3. 对每个拆分的句子分别翻译，确保不遗漏或修改任何字词。
+4. 输出的翻译与原文确保相对应，严格按照原文顺序呈现。
+5. 输出格式必须是一个 JSON 数组，每个元素包含 'original_sentence' 和 'translated_sentence' 字段。
+6. 结果中的原句子要和原文中完全一致，包括首字母是否大小写，标点符号也要保留不修改，英文原文请使用英文标点符号，务必不要纠正任何语病和拼写错误。
+7. 每个拆分的句子只能有一个完整的语句。
+
+确保高效、精确地完成上述字幕翻译任务，输入内容如下：
+
+`
+
+var SplitTextPromptWithModalFilterJson = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现字幕的准确和高质量翻译：
+
+1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平，保持意思相同。
+2. 严格依据标点符号（逗号: ，,、句号:。.、问号:？?等）将内容拆分成单独的句子，并依据以下规则确保拆分长度较短：
+   - 每个句子在保证句意完整的情况下尽可能短，适中的字幕长短能提供舒适的观看体验。
+   - 根据连词（例如 "and", "but", "which", "when", "so", "所以", "但是", "因此", "考虑到" 等）进一步拆分句子，得到较短的结果。
+3. 忽略文本中的语气词，比如"Oh" "Ah" "Wow"等等。
+4. 对每个拆分的句子分别翻译，确保不遗漏或修改任何字词。
+5. 输出的翻译与原文确保相对应，严格按照原文顺序呈现。
+6. 输出格式必须是一个 JSON 数组，每个元素包含 'original_sentence' 和 'translated_sentence' 字段。
+7. 结果中的原句子要和原文中完全一致，包括首字母是否大小写，标点符号也要保留不修改，英文原文请使用英文标点符号，务必不要纠正任何语病和拼写错误。
+8. 每个拆分的句子只能有一个完整的语句。
+
+确保高效、精确地完成上述字幕翻译任务，输入内容如下：
+
 `
 
 var TranslateVideoTitleAndDescriptionPrompt = `你是一个专业的翻译专家，请翻译下面给出的标题和描述信息（两者用####来分隔），要求如下：
@@ -82,6 +117,16 @@ var TranslateVideoTitleAndDescriptionPrompt = `你是一个专业的翻译专家
  以下全部是源内容，请完整按要求翻译：
 %s
 `
+
+var SplitLongSentencePrompt = `请将以下原文和译文分割成2-3个部分，确保每个部分都尽可能短：
+原文：%s
+译文：%s
+
+要求：
+1. 分割后的句子必须保持语义完整，避免切断完整概念，避免切分后的句子不符合语法规范
+2. 确保原文和译文的分割部分一一对应
+3. 务必返回JSON格式，包含origin_part和translated_part数组，例如：
+{"align":[{"origin_part":"原文部分1","translated_part":"译文部分1"},{"origin_part":"原文部分2","translated_part":"译文部分2"}]}`
 
 type SmallAudio struct {
 	AudioFile         string
@@ -134,28 +179,31 @@ const (
 const StatusFileName = "task_status.json"
 
 const (
-	SubtitleTaskAudioFileName                           = "origin_audio.mp3"
-	SubtitleTaskVideoFileName                           = "origin_video.mp4"
-	SubtitleTaskSplitAudioFileNamePrefix                = "split_audio"
-	SubtitleTaskSplitAudioFileNamePattern               = SubtitleTaskSplitAudioFileNamePrefix + "_%03d.mp3"
-	SubtitleTaskSplitAudioTxtFileNamePattern            = "split_audio_txt_%d.txt"
-	SubtitleTaskSplitAudioWordsFileNamePattern          = "split_audio_words_%d.txt"
-	SubtitleTaskSplitSrtNoTimestampFileNamePattern      = "srt_no_ts_%d.srt"
-	SubtitleTaskSrtNoTimestampFileName                  = "srt_no_ts.srt"
-	SubtitleTaskSplitBilingualSrtFileNamePattern        = "split_bilingual_srt_%d.srt"
-	SubtitleTaskSplitShortOriginMixedSrtFileNamePattern = "split_short_origin_mixed_srt_%d.srt" //长中文+短英文
-	SubtitleTaskSplitShortOriginSrtFileNamePattern      = "split_short_origin_srt_%d.srt"       //短英文
-	SubtitleTaskBilingualSrtFileName                    = "bilingual_srt.srt"
-	SubtitleTaskShortOriginMixedSrtFileName             = "short_origin_mixed_srt.srt" //长中文+短英文
-	SubtitleTaskShortOriginSrtFileName                  = "short_origin_srt.srt"       //短英文
-	SubtitleTaskOriginLanguageSrtFileName               = "origin_language_srt.srt"
-	SubtitleTaskOriginLanguageTextFileName              = "origin_language.txt"
-	SubtitleTaskTargetLanguageSrtFileName               = "target_language_srt.srt"
-	SubtitleTaskTargetLanguageTextFileName              = "target_language.txt"
-	SubtitleTaskStepParamGobPersistenceFileName         = "step_param.gob"
-	SubtitleTaskTransferredVerticalVideoFileName        = "transferred_vertical_video.mp4"
-	SubtitleTaskHorizontalEmbedVideoFileName            = "horizontal_embed.mp4"
-	SubtitleTaskVerticalEmbedVideoFileName              = "vertical_embed.mp4"
+	SubtitleTaskAudioFileName                                    = "origin_audio.mp3"
+	SubtitleTaskVideoFileName                                    = "origin_video.mp4"
+	SubtitleTaskSplitAudioFileNamePrefix                         = "split_audio"
+	SubtitleTaskSplitAudioFileNamePattern                        = SubtitleTaskSplitAudioFileNamePrefix + "_%03d.mp3"
+	SubtitleTaskSplitAudioTxtFileNamePattern                     = "split_audio_txt_%d.txt"
+	SubtitleTaskSplitAudioWordsFileNamePattern                   = "split_audio_words_%d.txt"
+	SubtitleTaskSplitSrtNoTimestampFileNamePattern               = "srt_no_ts_%d.srt"
+	SubtitleTaskSrtNoTimestampFileName                           = "srt_no_ts.srt"
+	SubtitleTaskSplitBilingualSrtFileNamePattern                 = "split_bilingual_srt_%d.srt"
+	SubtitleTaskSplitShortOriginMixedSrtFileNamePattern          = "split_short_origin_mixed_srt_%d.srt" //长中文+短英文
+	SubtitleTaskSplitShortOriginSrtFileNamePattern               = "split_short_origin_srt_%d.srt"       //短英文
+	SubtitleTaskBilingualSrtFileName                             = "bilingual_srt.srt"
+	SubtitleTaskShortOriginMixedSrtFileName                      = "short_origin_mixed_srt.srt" //长中文+短英文
+	SubtitleTaskShortOriginSrtFileName                           = "short_origin_srt.srt"       //短英文
+	SubtitleTaskOriginLanguageSrtFileName                        = "origin_language_srt.srt"
+	SubtitleTaskOriginLanguageTextFileName                       = "origin_language.txt"
+	SubtitleTaskTargetLanguageSrtFileName                        = "target_language_srt.srt"
+	SubtitleTaskTargetLanguageTextFileName                       = "target_language.txt"
+	SubtitleTaskStepParamGobPersistenceFileName                  = "step_param.gob"
+	SubtitleTaskAudioTranscriptionDataPersistenceFileNamePattern = "audio_transcription_data_%d.json"
+	SubtitleTaskTranslationDataPersistenceFileNamePattern        = "translation_data_%d.json"
+	SubtitleTaskTransferredVerticalVideoFileName                 = "transferred_vertical_video.mp4"
+	SubtitleTaskHorizontalEmbedVideoFileName                     = "horizontal_embed.mp4"
+	SubtitleTaskVerticalEmbedVideoFileName                       = "vertical_embed.mp4"
+	SubtitleTaskVideoWithTtsFileName                             = "video_with_tts.mp4"
 )
 
 const (
@@ -199,7 +247,8 @@ type SubtitleTaskStepParam struct {
 	EmbedSubtitleVideoType      string // 合成字幕嵌入的视频类型 none不嵌入 horizontal横屏 vertical竖屏
 	VerticalVideoMajorTitle     string // 合成竖屏视频的主标题
 	VerticalVideoMinorTitle     string
-	MaxWordOneLine              int // 字幕一行最多显示多少个字
+	MaxWordOneLine              int    // 字幕一行最多显示多少个字
+	VideoWithTtsFilePath        string // 替换源视频的音频为tts结果后的视频路径
 }
 
 type SrtSentence struct {

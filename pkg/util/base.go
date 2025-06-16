@@ -2,15 +2,19 @@ package util
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/texttheater/golang-levenshtein/levenshtein"
 	"io"
+	"krillin-ai/internal/types"
 	"math"
 	"math/rand"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"unicode"
@@ -183,4 +187,128 @@ func CopyFile(src, dst string) error {
 	}
 
 	return destinationFile.Sync()
+}
+
+// SanitizePathName 清理字符串，使其成为合法路径名
+func SanitizePathName(name string) string {
+	name = strings.ReplaceAll(name, ".", "_")
+
+	var illegalChars *regexp.Regexp
+	if runtime.GOOS == "windows" {
+		// Windows 特殊字符
+		illegalChars = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
+	} else {
+		// POSIX 系统：只禁用 / 和空字节
+		illegalChars = regexp.MustCompile(`[/\x00]`)
+	}
+
+	sanitized := illegalChars.ReplaceAllString(name, "_")
+
+	// 去除前后空格
+	sanitized = strings.TrimSpace(sanitized)
+
+	// 防止空字符串
+	if sanitized == "" {
+		sanitized = "unnamed"
+	}
+
+	// 避免 Windows 下的保留文件名
+	reserved := map[string]bool{
+		"CON": true, "PRN": true, "AUX": true, "NUL": true,
+		"COM1": true, "COM2": true, "COM3": true, "COM4": true,
+		"LPT1": true, "LPT2": true,
+	}
+
+	upper := strings.ToUpper(sanitized)
+	if reserved[upper] {
+		sanitized = "_" + sanitized
+	}
+
+	return sanitized
+}
+
+// FindClosestConsecutiveWords 查找 words 中 Num 连续递增的一组词，使得其拼接后的文本与 inputStr 的编辑距离最小。
+func FindClosestConsecutiveWords(words []types.Word, inputStr string) []types.Word {
+	if len(words) == 0 {
+		return nil
+	}
+
+	// 先将输入按 Num 排序（如果你已经保证是有序的可跳过此步骤）
+	// sort.Slice(words, func(i, j int) bool { return words[i].Num < words[j].Num })
+
+	// Step 1: 获取所有 Num 连续递增的 []types.Word 组合
+	var groups [][]types.Word
+	var currentGroup []types.Word
+
+	for i, word := range words {
+		if i == 0 {
+			currentGroup = append(currentGroup, word)
+			continue
+		}
+
+		if word.Num == words[i-1].Num+1 {
+			currentGroup = append(currentGroup, word)
+		} else {
+			if len(currentGroup) > 0 {
+				groups = append(groups, currentGroup)
+			}
+			currentGroup = []types.Word{word}
+		}
+	}
+	if len(currentGroup) > 0 {
+		groups = append(groups, currentGroup)
+	}
+
+	// Step 2: 比较编辑距离，找最接近 inputStr 的那个组
+	minDistance := -1
+	var bestGroup []types.Word
+
+	for _, group := range groups {
+		var sb strings.Builder
+		for _, w := range group {
+			sb.WriteString(w.Text)
+		}
+		groupText := sb.String()
+
+		dist := levenshtein.DistanceForStrings([]rune(groupText), []rune(inputStr), levenshtein.DefaultOptions)
+
+		if minDistance == -1 || dist < minDistance {
+			minDistance = dist
+			bestGroup = group
+		}
+	}
+
+	return bestGroup
+}
+
+func SaveToDisk(data any, filename string) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ") // 美化输出
+	return encoder.Encode(data)
+}
+
+func LoadFromDisk(filename string) (any, error) {
+	var data any
+	file, err := os.Open(filename)
+	if err != nil {
+		return data, err
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&data)
+	return data, err
+}
+
+// 清理 Markdown 的 ```json 标记
+func CleanMarkdownCodeBlock(response string) string {
+	re := regexp.MustCompile("(?m)^```(json|[a-zA-Z]*)?\n?|```$")
+	cleaned := re.ReplaceAllString(response, "")
+	return strings.TrimSpace(cleaned)
 }
