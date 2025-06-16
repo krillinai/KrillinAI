@@ -3,6 +3,7 @@ package service
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"krillin-ai/config"
@@ -42,7 +43,53 @@ func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleT
 	return nil
 }
 
-func (s Service) transcribeAudio(audioFilePath string, language string, taskBasePath string) (transcriptionData *types.TranscriptionData, err error) {
+//func splitAudio(stepParam *types.SubtitleTaskStepParam) error {
+//	log.GetLogger().Info("audioToSubtitle.splitAudio start", zap.String("task id", stepParam.TaskId))
+//	var err error
+//	// 使用ffmpeg分割音频
+//	outputPattern := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskSplitAudioFileNamePattern) // 输出文件格式
+//	segmentDuration := config.Conf.App.SegmentDuration * 60
+//
+//	cmd := exec.Command(
+//		storage.FfmpegPath,
+//		"-i", stepParam.AudioFilePath, // 输入
+//		"-f", "segment", // 输出文件格式为分段
+//		"-segment_time", fmt.Sprintf("%d", segmentDuration), // 每段时长（以秒为单位）
+//		"-reset_timestamps", "1", // 重置每段时间戳
+//		"-y", // 覆盖输出文件
+//		outputPattern,
+//	)
+//	err = cmd.Run()
+//	if err != nil {
+//		log.GetLogger().Error("audioToSubtitle splitAudio ffmpeg err", zap.Any("stepParam", stepParam), zap.Error(err))
+//		return fmt.Errorf("audioToSubtitle splitAudio ffmpeg err: %w", err)
+//	}
+//
+//	// 获取分割后的文件列表
+//	audioFiles, err := filepath.Glob(filepath.Join(stepParam.TaskBasePath, fmt.Sprintf("%s_*.mp3", types.SubtitleTaskSplitAudioFileNamePrefix)))
+//	if err != nil {
+//		log.GetLogger().Error("audioToSubtitle splitAudio filepath.Glob err", zap.Any("stepParam", stepParam), zap.Error(err))
+//		return fmt.Errorf("audioToSubtitle splitAudio filepath.Glob err: %w", err)
+//	}
+//	if len(audioFiles) == 0 {
+//		log.GetLogger().Error("audioToSubtitle splitAudio no audio files found", zap.Any("stepParam", stepParam))
+//		return errors.New("audioToSubtitle splitAudio no audio files found")
+//	}
+//
+//	for _, audioFile := range audioFiles {
+//		stepParam.SmallAudios = append(stepParam.SmallAudios, &types.SmallAudio{
+//			AudioFile: audioFile,
+//		})
+//	}
+//
+//	// 更新字幕任务信息
+//	stepParam.TaskPtr.ProcessPct = 20
+//
+//	log.GetLogger().Info("audioToSubtitle.splitAudio end", zap.String("task id", stepParam.TaskId))
+//	return nil
+//}
+
+func (s Service) transcribeAudio(audioFilePath string, language string, taskBasePath string) (*types.TranscriptionData, error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("audioToSubtitle transcribeAudio panic recovered: %v", r)
@@ -58,6 +105,8 @@ func (s Service) transcribeAudio(audioFilePath string, language string, taskBase
 		return nil, fmt.Errorf("audioToSubtitle transcribeAudio Transcription err: %w", err)
 	}
 
+	_ = util.SaveToDisk(transcriptionData, filepath.Join(taskBasePath, fmt.Sprintf(types.SubtitleTaskAudioTranscriptionDataPersistenceFileNamePattern, id)))
+
 	if transcriptionData.Text == "" {
 		log.GetLogger().Info("audioToSubtitle transcribeAudio TranscriptionData.Text is empty", zap.Any("audioFilePath", audioFilePath), zap.Any("taskBasePath", taskBasePath))
 	}
@@ -66,12 +115,28 @@ func (s Service) transcribeAudio(audioFilePath string, language string, taskBase
 
 func (s Service) splitTextAndTranslate(inputText string, targetLanguage string, enableModalFilter bool) ([]TranslatedItem, error) {
 	var prompt string
+	var promptPrefix string
+
+	promptPrefix = ""
+
+	//// 对于qwen3模型，开启非思考模式
+	//if config.Conf.Openai.NoThinkTag {
+	//	promptPrefix = "\\no_think\n"
+	//}
 
 	// 选择提示词
 	if enableModalFilter {
-		prompt = fmt.Sprintf(types.SplitTextPromptWithModalFilter, targetLanguage)
+		if config.Conf.Llm.Json {
+			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPromptWithModalFilterJson, targetLanguage)
+		} else {
+			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPromptWithModalFilter, targetLanguage)
+		}
 	} else {
-		prompt = fmt.Sprintf(types.SplitTextPrompt, targetLanguage)
+		if config.Conf.Llm.Json {
+			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPromptJson, targetLanguage)
+		} else {
+			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPrompt, targetLanguage)
+		}
 	}
 
 	// 如果输入文本为空，则返回空结果
@@ -83,6 +148,7 @@ func (s Service) splitTextAndTranslate(inputText string, targetLanguage string, 
 	if err != nil {
 		return nil, fmt.Errorf("audioToSubtitle splitTextAndTranslate ChatCompletion error: %w", err)
 	}
+
 	re := regexp.MustCompile(`^\s*<think>.*?</think>`)
 	textResult = strings.TrimSpace(re.ReplaceAllString(textResult, ""))
 
@@ -159,7 +225,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 				select {
 				case <-ctx.Done():
 					return nil
-				case splitItem, ok := <-pendingSplitQueue:		
+				case splitItem, ok := <-pendingSplitQueue:
 					if !ok {
 						return nil
 					}
@@ -200,7 +266,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 					log.GetLogger().Info("Begin transcribe", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", audioFileItem.Id))
 					// 语音转文字
 					for range config.Conf.App.TranscribeMaxAttempts {
-						transcriptionData, err = s.transcribeAudio(audioFileItem.Data, string(stepParam.OriginLanguage), stepParam.TaskBasePath)
+						transcriptionData, err = s.transcribeAudio(audioFileItem.Id, audioFileItem.Data, string(stepParam.OriginLanguage), stepParam.TaskBasePath)
 						if err == nil {
 							break
 						}
@@ -244,11 +310,22 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 					if err != nil {
 						return fmt.Errorf("audioToSubtitle audioToSrt splitTextAndTranslate err: %w", err)
 					}
+					_ = util.SaveToDisk(translatedResults, filepath.Join(stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskTranslationDataPersistenceFileNamePattern, translateItem.Id)))
 					log.GetLogger().Info("Translate completed", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
-					// 发送翻译结果
-					translatedQueue <- DataWithId[[]TranslatedItem]{
-						Data: translatedResults,
-						Id:   translateItem.Id,
+					// 分割长句
+					splitResults, err := s.splitTranslateItem(translatedResults)
+					if err != nil {
+						// 不中断
+						log.GetLogger().Error("audioToSubtitle audioToSrt splitTranslateItem err", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id), zap.Error(err))
+						translatedQueue <- DataWithId[[]TranslatedItem]{
+							Data: translatedResults,
+							Id:   translateItem.Id,
+						}
+					} else {
+						translatedQueue <- DataWithId[[]TranslatedItem]{
+							Data: splitResults,
+							Id:   translateItem.Id,
+						}
 					}
 				}
 			}
@@ -523,9 +600,10 @@ func splitSrt(stepParam *types.SubtitleTaskStepParam) error {
 			subtitleInfo.Name = "双语字幕"
 		}
 		stepParam.SubtitleInfos = append(stepParam.SubtitleInfos, subtitleInfo)
-		// 供生成配音使用
-		stepParam.TtsSourceFilePath = stepParam.BilingualSrtFilePath
 	}
+
+	// 供生成配音使用
+	stepParam.TtsSourceFilePath = stepParam.BilingualSrtFilePath
 
 	log.GetLogger().Info("audioToSubtitle.splitSrt end", zap.Any("task id", stepParam.TaskId))
 	return nil
@@ -680,6 +758,9 @@ func getSentenceTimestamps(words []types.Word, sentence string, lastTs float64, 
 
 		beginWord := sentenceWords[beginWordIndex]
 		endWord := sentenceWords[endWordIndex]
+		//sequence := util.FindClosestConsecutiveWords(words, sentence)
+		//beginWord := sequence[0]
+		//endWord := sequence[len(sequence)-1]
 
 		srtSt.Start = beginWord.Start
 		if srtSt.Start < thisLastTs {
@@ -737,13 +818,17 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) 
 		return -1, -1, nil
 	}
 
+	if len(words) == 1 {
+		return 0, 0, words
+	}
+
 	// dp[i] 表示以 words[i] 结束的递增子数组的长度
 	dp := make([]int, len(words))
 	// prev[i] 用来记录与当前递增子数组相连的前一个元素的索引
 	prev := make([]int, len(words))
 
 	// 初始化，所有的 dp[i] 都是 1，因为每个元素本身就是一个长度为 1 的子数组
-	for i := range words {
+	for i := range len(words) {
 		dp[i] = 1
 		prev[i] = -1
 	}
@@ -783,9 +868,11 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) 
 	}
 
 	// 构造结果子数组
-	result := []types.Word{}
-	for i := startIdx; i != -1; i = prev[i] {
-		result = append(result, words[i])
+	result := make([]types.Word, 0, maxLen)
+	current := endIdx
+	for current != -1 {
+		result = append(result, words[current])
+		current = prev[current]
 	}
 
 	// 由于是从后往前构造的子数组，需要反转
@@ -797,7 +884,7 @@ func jumpFindMaxIncreasingSubArray(words []types.Word) (int, int, []types.Word) 
 }
 
 func generateSrtWithTimestamps(srtBlocks []*util.SrtBlock, tsOffset float64, words []types.Word, segmentIdx int, stepParam *types.SubtitleTaskStepParam) error {
-	if len(srtBlocks) == 0 {
+	if len(srtBlocks) == 0 || len(words) == 0 {
 		return nil
 	}
 
@@ -971,9 +1058,9 @@ func parseAndCheckContent(splitContent, originalText string) ([]TranslatedItem, 
 		if splitContent == originalText {
 			return result, nil
 		} else if splitContent == "" {
-			return nil, errors.New("splitContent is empty but originalText is not")
+			return nil, fmt.Errorf("splitContent is empty but originalText is not, originalText: " + originalText)
 		} else {
-			return nil, errors.New("originalText is empty but splitContent is not")
+			return nil, errors.New("originalText is empty but splitContent is not, splitContent: " + splitContent)
 		}
 	}
 
@@ -1050,4 +1137,83 @@ func parseAndCheckContent(splitContent, originalText string) ([]TranslatedItem, 
 		log.GetLogger().Warn("audioToSubtitle invaild Format, originalText and splitContent length not match", zap.Any("splitContent", splitContent), zap.Any("originalText", originalText))
 	}
 	return result, nil
+}
+
+// calcLength 计算文本视觉长度
+func calcLength(text string) float64 {
+	var length float64
+	for _, r := range text {
+		code := r
+		switch {
+		case (code >= 0x4E00 && code <= 0x9FFF) || (code >= 0x3040 && code <= 0x30FF): // 中日文
+			length += 1.75
+		case (code >= 0xAC00 && code <= 0xD7A3) || (code >= 0x1100 && code <= 0x11FF): // 韩文
+			length += 1.5
+		case code >= 0x0E00 && code <= 0x0E7F: // 泰文
+			length += 1
+		case code >= 0xFF01 && code <= 0xFF5E: // 全角符号
+			length += 1.75
+		default: // 其他字符（英文等）
+			length += 1
+		}
+	}
+	return length
+}
+
+// splitTranslateItem 根据字符权重和最大长度分割长句
+func (s Service) splitTranslateItem(items []TranslatedItem) ([]TranslatedItem, error) {
+	var result []TranslatedItem
+	maxLength := 70 // todo 先写死
+	//targetMultiplier := config.Conf.Subtitle.TargetMultiplier
+
+	for _, item := range items {
+		// 计算翻译文本的加权长度
+		if calcLength(item.OriginText) <= float64(maxLength) && calcLength(item.TranslatedText) <= float64(maxLength) {
+			result = append(result, item)
+			continue
+		}
+
+		// 调用大模型进行分割
+		log.GetLogger().Info("splitTranslateItem long sentence detected, need split", zap.Any("item", item))
+		splitItems, err := s.splitLongSentence(item)
+		if err != nil {
+			log.GetLogger().Error("splitTranslateItem splitLongSentence error", zap.Error(err), zap.Any("item", item))
+			return nil, fmt.Errorf("split long sentence error: %w", err)
+		}
+		result = append(result, splitItems...)
+	}
+
+	return result, nil
+}
+
+// splitLongSentence 使用大模型分割长句并保持原文和译文对齐
+func (s Service) splitLongSentence(item TranslatedItem) ([]TranslatedItem, error) {
+	prompt := fmt.Sprintf(types.SplitLongSentencePrompt, item.OriginText, item.TranslatedText)
+
+	response, err := s.ChatCompleter.ChatCompletion(prompt)
+	if err != nil {
+		return nil, fmt.Errorf("chat completion error: %w", err)
+	}
+
+	var splitResult struct {
+		Align []struct {
+			OriginPart     string `json:"origin_part"`
+			TranslatedPart string `json:"translated_part"`
+		} `json:"align"`
+	}
+	if err := json.Unmarshal([]byte(util.CleanMarkdownCodeBlock(response)), &splitResult); err != nil {
+		log.GetLogger().Error("splitLongSentence parse split result error", zap.Error(err), zap.Any("response", response))
+		return nil, fmt.Errorf("parse split result error: %w", err)
+	}
+
+	// 转换为TranslatedItem切片
+	var splitItems []TranslatedItem
+	for _, part := range splitResult.Align {
+		splitItems = append(splitItems, TranslatedItem{
+			OriginText:     part.OriginPart,
+			TranslatedText: part.TranslatedPart,
+		})
+	}
+
+	return splitItems, nil
 }

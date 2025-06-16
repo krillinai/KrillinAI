@@ -1,16 +1,21 @@
 package desktop
 
 import (
+	"fmt"
 	"image/color"
+	"krillin-ai/config"
+	"krillin-ai/log"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"go.uber.org/zap"
 )
 
 func createNavButton(text string, icon fyne.Resource, isSelected bool, onTap func()) *widget.Button {
@@ -79,7 +84,7 @@ func Show() {
 	// 创建导航项
 	for i, item := range navItems {
 		index := i // 捕获变量
-		isSelected := (i == currentSelectedIndex)
+		isSelected := i == currentSelectedIndex
 
 		// 创建导航按钮以及点击处理函数
 		navBtn := createNavButton(item, navIcons[i], isSelected, func() {
@@ -97,12 +102,16 @@ func Show() {
 				}
 			}
 
-			// 更新当前选中的索引
-			currentSelectedIndex = index
-
-			navContainer.Refresh()
-
 			if index == 0 {
+				// tab切换出去就保存和重新加载配置
+				err := config.SaveConfig()
+				if err != nil {
+					// 保存配置失败，弹出提示框
+					dialog.ShowError(fmt.Errorf("保存配置失败: %v", err), myWindow)
+					log.GetLogger().Error("保存配置失败 Failed to save config", zap.Error(err))
+					return
+				}
+				log.GetLogger().Info("配置已保存 Config saved successfully")
 				workbenchContent.Show()
 				configContent.Hide()
 				// 确保进度条和下载区域状态正确显示
@@ -114,6 +123,9 @@ func Show() {
 				FadeAnimation(configContent, 300*time.Millisecond, 0.0, 1.0)
 			}
 
+			// 更新当前选中的索引
+			currentSelectedIndex = index
+			navContainer.Refresh()
 			contentStack.Refresh()
 		})
 
@@ -153,4 +165,12 @@ func Show() {
 	myWindow.Resize(fyne.NewSize(1000, 700))
 	myWindow.CenterOnScreen()
 	myWindow.ShowAndRun()
+
+	// 关闭窗口时保存配置
+	err := config.SaveConfig()
+	if err != nil {
+		log.GetLogger().Error("保存配置失败 Failed to save config", zap.Error(err))
+		return
+	}
+	log.GetLogger().Info("配置已保存 Config saved successfully")
 }

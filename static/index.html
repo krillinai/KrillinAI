@@ -414,13 +414,15 @@
 			<div class="formGroup">
 				<label>配音:</label>
 				<input type="checkbox" id="voiceover-toggle">
-				<select id="voiceover-voice" disabled>
-					<option value="2">男声</option>
-					<option value="1">女声</option>
-				</select>
+				<input
+						type="text"
+						id="voiceover-voice"
+						placeholder="输入 voice code"
+						disabled
+				>
 				<span>或</span>
 				<label for="voiceFileInput" id="voiceFileInputName" class="voice-file-input">
-					选择音色克隆样本
+					选择音色克隆样本(仅阿里云)
 				</label>
 				<span class="voice-file-input-remove" id="voiceFileInputRemove">删除</span>
 				<input style="display: none" type="file" id="voiceFileInput" name="voiceFileInput" accept="audio/*">
@@ -449,7 +451,7 @@
 
 			<!-- 合成字幕嵌入视频 -->
 			<div class="formGroup" id="embed-subtitle-container">
-				<label>合成字幕嵌入视频:</label>
+				<label>合成视频:</label>
 				<input type="checkbox" id="embed-subtitle-toggle">
 				<select id="embed-subtitle">
 					<option value="horizontal">横屏视频</option>
@@ -621,7 +623,7 @@
 		if (formData.tts === 1) {
 			formData.tts_voice_code = +voiceoverVoice.value;
 			if (uploadedAudioUrl) {
-				formData.tts_voice_clone_src_file_url = uploadedAudioUrl;
+				formData.tts_voice_clone_src_file_url = uploadedAudioUrl[0];
 			}
 		}
 

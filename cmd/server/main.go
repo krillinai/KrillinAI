@@ -14,7 +14,9 @@ func main() {
 	defer log.GetLogger().Sync()
 
 	var err error
-	config.LoadConfig()
+	if !config.LoadConfig() {
+		return
+	}
 
 	if err = config.CheckConfig(); err != nil {
 		log.GetLogger().Error("加载配置失败", zap.Error(err))

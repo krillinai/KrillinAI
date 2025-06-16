@@ -13,6 +13,8 @@ import (
 	"go.uber.org/zap"
 )
 
+var ConfigBackup Config // 用于在开始任务之前，检测配置是否更新，更新后要重启服务端
+
 type App struct {
 	SegmentDuration       int      `toml:"segment_duration"`
 	TranscribeParallelNum int      `toml:"transcribe_parallel_num"`
@@ -21,8 +23,6 @@ type App struct {
 	TranslateMaxAttempts  int      `toml:"translate_max_attempts"`
 	Proxy                 string   `toml:"proxy"`
 	ParsedProxy           *url.URL `toml:"-"`
-	TranscribeProvider    string   `toml:"transcribe_provider"`
-	LlmProvider           string   `toml:"llm_provider"`
 }
 
 type Server struct {
@@ -30,10 +30,52 @@ type Server struct {
 	Port int    `toml:"port"`
 }
 
-type LocalModel struct {
-	Fasterwhisper string `toml:"fasterwhisper"`
-	Whisperkit    string `toml:"whisperkit"`
-	Whispercpp    string `toml:"whispercpp"`
+type OpenaiCompatibleConfig struct {
+	BaseUrl string `toml:"base_url"`
+	ApiKey  string `toml:"api_key"`
+	Model   string `toml:"model"`
+	Json    bool   `toml:"json"`
+}
+
+type LocalModelConfig struct {
+	Model string `toml:"model"`
+}
+
+type AliyunSpeechConfig struct {
+	AccessKeyId     string `toml:"access_key_id"`
+	AccessKeySecret string `toml:"access_key_secret"`
+	AppKey          string `toml:"app_key"`
+}
+
+type AliyunOssConfig struct {
+	AccessKeyId     string `toml:"access_key_id"`
+	AccessKeySecret string `toml:"access_key_secret"`
+	Bucket          string `toml:"bucket"`
+}
+
+type AliyunTranscribeConfig struct {
+	Oss    AliyunOssConfig    `toml:"oss"`
+	Speech AliyunSpeechConfig `toml:"speech"`
+}
+
+type Transcribe struct {
+	Provider      string                 `toml:"provider"`
+	Openai        OpenaiCompatibleConfig `toml:"openai"`
+	Fasterwhisper LocalModelConfig       `toml:"fasterwhisper"`
+	Whisperkit    LocalModelConfig       `toml:"whisperkit"`
+	Whispercpp    LocalModelConfig       `toml:"whispercpp"`
+	Aliyun        AliyunTranscribeConfig `toml:"aliyun"`
+}
+
+type AliyunTtsConfig struct {
+	Oss    AliyunOssConfig    `toml:"oss"`
+	Speech AliyunSpeechConfig `toml:"speech"`
+}
+
+type Tts struct {
+	Provider string                 `toml:"provider"`
+	Openai   OpenaiCompatibleConfig `toml:"openai"`
+	Aliyun   AliyunTtsConfig        `toml:"aliyun"`
 }
 
 type OpenAiWhisper struct {
@@ -41,74 +83,62 @@ type OpenAiWhisper struct {
 	ApiKey  string `toml:"api_key"`
 }
 
-type Openai struct {
-	BaseUrl string        `toml:"base_url"`
-	Model   string        `toml:"model"`
-	ApiKey  string        `toml:"api_key"`
-	Whisper OpenAiWhisper `toml:"whisper"`
-}
-
-type AliyunOss struct {
-	AccessKeyId     string `toml:"access_key_id"`
-	AccessKeySecret string `toml:"access_key_secret"`
-	Bucket          string `toml:"bucket"`
-}
-
-type AliyunSpeech struct {
-	AccessKeyId     string `toml:"access_key_id"`
-	AccessKeySecret string `toml:"access_key_secret"`
-	AppKey          string `toml:"app_key"`
-}
-
-type AliyunBailian struct {
-	ApiKey string `toml:"api_key"`
-}
-
-type Aliyun struct {
-	Oss     AliyunOss     `toml:"oss"`
-	Speech  AliyunSpeech  `toml:"speech"`
-	Bailian AliyunBailian `toml:"bailian"`
-}
-
 type Config struct {
-	App        App        `toml:"app"`
-	Server     Server     `toml:"server"`
-	LocalModel LocalModel `toml:"local_model"`
-	Openai     Openai     `toml:"openai"`
-	Aliyun     Aliyun     `toml:"aliyun"`
+	App        App                    `toml:"app"`
+	Server     Server                 `toml:"server"`
+	Llm        OpenaiCompatibleConfig `toml:"llm"`
+	Transcribe Transcribe             `toml:"transcribe"`
+	Tts        Tts                    `toml:"tts"`
 }
 
 var Conf = Config{
 	App: App{
 		SegmentDuration:       5,
-		TranslateParallelNum:  5,
-		TranscribeParallelNum: 10,
+		TranslateParallelNum:  3,
+		TranscribeParallelNum: 1,
 		TranscribeMaxAttempts: 3,
 		TranslateMaxAttempts:  3,
-		TranscribeProvider:    "openai",
-		LlmProvider:           "openai",
 	},
 	Server: Server{
 		Host: "127.0.0.1",
 		Port: 8888,
 	},
-	LocalModel: LocalModel{
-		Fasterwhisper: "large-v2",
-		Whisperkit:    "large-v2",
-		Whispercpp:    "large-v2",
+	Llm: OpenaiCompatibleConfig{
+		Model: "gpt-4o-mini",
+	},
+	Transcribe: Transcribe{
+		Provider: "openai",
+		Openai: OpenaiCompatibleConfig{
+			Model: "whisper-1",
+		},
+		Fasterwhisper: LocalModelConfig{
+			Model: "large-v2",
+		},
+		Whisperkit: LocalModelConfig{
+			Model: "large-v2",
+		},
+		Whispercpp: LocalModelConfig{
+			Model: "large-v2",
+		},
+	},
+	Tts: Tts{
+		Provider: "openai",
+		Openai: OpenaiCompatibleConfig{
+			Model: "gpt-4o-mini-tts",
+		},
 	},
 }
 
 // 检查必要的配置是否完整
 func validateConfig() error {
 	// 检查转写服务提供商配置
-	switch Conf.App.TranscribeProvider {
+	switch Conf.Transcribe.Provider {
 	case "openai":
-		if Conf.Openai.Whisper.ApiKey == "" {
-			return errors.New("使用OpenAI转写服务需要配置 OpenAI API Key")
+		if Conf.Transcribe.Openai.ApiKey == "" {
+			return errors.New("使用OpenAI转录服务需要配置 OpenAI API Key")
 		}
 	case "fasterwhisper":
-		if Conf.LocalModel.Fasterwhisper != "tiny" && Conf.LocalModel.Fasterwhisper != "medium" && Conf.LocalModel.Fasterwhisper != "large-v2" {
+		if Conf.Transcribe.Fasterwhisper.Model != "tiny" && Conf.Transcribe.Fasterwhisper.Model != "medium" && Conf.Transcribe.Fasterwhisper.Model != "large-v2" {
 			return errors.New("检测到开启了fasterwhisper，但模型选型配置不正确，请检查配置")
 		}
 	case "whisperkit":
@@ -116,7 +146,7 @@ func validateConfig() error {
 			log.GetLogger().Error("whisperkit只支持macos", zap.String("当前系统", runtime.GOOS))
 			return fmt.Errorf("whisperkit只支持macos")
 		}
-		if Conf.LocalModel.Whisperkit != "large-v2" {
+		if Conf.Transcribe.Whisperkit.Model != "large-v2" {
 			return errors.New("检测到开启了whisperkit，但模型选型配置不正确，请检查配置")
 		}
 	case "whispercpp":
@@ -124,45 +154,33 @@ func validateConfig() error {
 			log.GetLogger().Error("whispercpp only support windows", zap.String("current os", runtime.GOOS))
 			return fmt.Errorf("whispercpp only support windows")
 		}
-		if Conf.LocalModel.Whispercpp != "large-v2" {
+		if Conf.Transcribe.Whispercpp.Model != "large-v2" {
 			return errors.New("检测到开启了whisper.cpp，但模型选型配置不正确，请检查配置")
 		}
 	case "aliyun":
-		if Conf.Aliyun.Speech.AccessKeyId == "" || Conf.Aliyun.Speech.AccessKeySecret == "" || Conf.Aliyun.Speech.AppKey == "" {
+		if Conf.Transcribe.Aliyun.Speech.AccessKeyId == "" || Conf.Transcribe.Aliyun.Speech.AccessKeySecret == "" || Conf.Transcribe.Aliyun.Speech.AppKey == "" {
 			return errors.New("使用阿里云语音服务需要配置相关密钥")
 		}
 	default:
 		return errors.New("不支持的转录提供商")
 	}
 
-	// 检查LLM提供商配置
-	switch Conf.App.LlmProvider {
-	case "openai":
-		if Conf.Openai.ApiKey == "" {
-			return errors.New("使用OpenAI LLM服务需要配置 OpenAI API Key")
-		}
-	case "aliyun":
-		if Conf.Aliyun.Bailian.ApiKey == "" {
-			return errors.New("使用阿里云百炼服务需要配置 API Key")
-		}
-	default:
-		return errors.New("不支持的LLM提供商")
-	}
-
 	return nil
 }
 
-func LoadConfig() {
+func LoadConfig() bool {
 	var err error
 	configPath := "./config/config.toml"
 	if _, err = os.Stat(configPath); os.IsNotExist(err) {
-		return
+		log.GetLogger().Info("未找到配置文件")
+		return false
 	} else {
 		log.GetLogger().Info("已找到配置文件，从配置文件中加载配置")
 		if _, err = toml.DecodeFile(configPath, &Conf); err != nil {
 			log.GetLogger().Error("加载配置文件失败", zap.Error(err))
-			return
+			return false
 		}
+		return true
 	}
 }
 

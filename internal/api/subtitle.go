@@ -22,7 +22,7 @@ type SubtitleTask struct {
 	Bilingual               int      `json:"bilingual"`                              // 是否双语 1:是 2:否
 	TranslationSubtitlePos  int      `json:"translation_subtitle_pos"`               // 翻译字幕位置 1:上方 2:下方
 	TTS                     int      `json:"tts"`                                    // 是否配音 1:是 2:否
-	TTSVoiceCode            int      `json:"tts_voice_code,omitempty"`               // 配音声音代码 1:女声 2:男声
+	TTSVoiceCode            string   `json:"tts_voice_code,omitempty"`               // 配音声音代码
 	TTSVoiceCloneSrcFileURL string   `json:"tts_voice_clone_src_file_url,omitempty"` // 音色克隆源文件URL
 	ModalFilter             int      `json:"modal_filter"`                           // 是否过滤语气词 1:是 2:否
 	Replace                 []string `json:"replace,omitempty"`                      // 词汇替换列表
