@@ -118,6 +118,16 @@ var TranslateVideoTitleAndDescriptionPrompt = `你是一个专业的翻译专家
 %s
 `
 
+var SplitLongSentencePrompt = `请将以下原文和译文分割成2-3个部分，确保每个部分都尽可能短：
+原文：%s
+译文：%s
+
+要求：
+1. 分割后的句子必须保持语义完整，避免切断完整概念，避免切分后的句子不符合语法规范
+2. 确保原文和译文的分割部分一一对应
+3. 务必返回JSON格式，包含origin_part和translated_part数组，例如：
+{"align":[{"origin_part":"原文部分1","translated_part":"译文部分1"},{"origin_part":"原文部分2","translated_part":"译文部分2"}]}`
+
 type SmallAudio struct {
 	AudioFile         string
 	TranscriptionData *TranscriptionData
@@ -185,6 +195,7 @@ const (
 	SubtitleTaskTargetLanguageTextFileName                       = "target_language.txt"
 	SubtitleTaskStepParamGobPersistenceFileName                  = "step_param.gob"
 	SubtitleTaskAudioTranscriptionDataPersistenceFileNamePattern = "audio_transcription_data_%d.json"
+	SubtitleTaskTranslationDataPersistenceFileNamePattern        = "translation_data_%d.json"
 	SubtitleTaskTransferredVerticalVideoFileName                 = "transferred_vertical_video.mp4"
 	SubtitleTaskHorizontalEmbedVideoFileName                     = "horizontal_embed.mp4"
 	SubtitleTaskVerticalEmbedVideoFileName                       = "vertical_embed.mp4"

@@ -3,6 +3,7 @@ package service
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"krillin-ai/config"
@@ -216,11 +217,22 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 						cancel()
 						return fmt.Errorf("audioToSubtitle audioToSrt splitTextAndTranslate err: %w", err)
 					}
+					_ = util.SaveToDisk(translatedResults, filepath.Join(stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskTranslationDataPersistenceFileNamePattern, translateItem.Id)))
 					log.GetLogger().Info("Translate completed", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
-					// 发送翻译结果
-					translatedQueue <- DataWithId[[]TranslatedItem]{
-						Data: translatedResults,
-						Id:   translateItem.Id,
+					// 分割长句
+					splitResults, err := s.splitTranslateItem(translatedResults)
+					if err != nil {
+						// 不中断
+						log.GetLogger().Error("audioToSubtitle audioToSrt splitTranslateItem err", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id), zap.Error(err))
+						translatedQueue <- DataWithId[[]TranslatedItem]{
+							Data: translatedResults,
+							Id:   translateItem.Id,
+						}
+					} else {
+						translatedQueue <- DataWithId[[]TranslatedItem]{
+							Data: splitResults,
+							Id:   translateItem.Id,
+						}
 					}
 				}
 			}
@@ -1054,4 +1066,83 @@ func parseAndCheckContent(splitContent, originalText string) ([]TranslatedItem, 
 		log.GetLogger().Warn("audioToSubtitle invaild Format, originalText and splitContent length not match", zap.Any("splitContent", splitContent), zap.Any("originalText", originalText))
 	}
 	return result, nil
+}
+
+// calcLength 计算文本视觉长度
+func calcLength(text string) float64 {
+	var length float64
+	for _, r := range text {
+		code := r
+		switch {
+		case (code >= 0x4E00 && code <= 0x9FFF) || (code >= 0x3040 && code <= 0x30FF): // 中日文
+			length += 1.75
+		case (code >= 0xAC00 && code <= 0xD7A3) || (code >= 0x1100 && code <= 0x11FF): // 韩文
+			length += 1.5
+		case code >= 0x0E00 && code <= 0x0E7F: // 泰文
+			length += 1
+		case code >= 0xFF01 && code <= 0xFF5E: // 全角符号
+			length += 1.75
+		default: // 其他字符（英文等）
+			length += 1
+		}
+	}
+	return length
+}
+
+// splitTranslateItem 根据字符权重和最大长度分割长句
+func (s Service) splitTranslateItem(items []TranslatedItem) ([]TranslatedItem, error) {
+	var result []TranslatedItem
+	maxLength := 70 // todo 先写死
+	//targetMultiplier := config.Conf.Subtitle.TargetMultiplier
+
+	for _, item := range items {
+		// 计算翻译文本的加权长度
+		if calcLength(item.OriginText) <= float64(maxLength) && calcLength(item.TranslatedText) <= float64(maxLength) {
+			result = append(result, item)
+			continue
+		}
+
+		// 调用大模型进行分割
+		log.GetLogger().Info("splitTranslateItem long sentence detected, need split", zap.Any("item", item))
+		splitItems, err := s.splitLongSentence(item)
+		if err != nil {
+			log.GetLogger().Error("splitTranslateItem splitLongSentence error", zap.Error(err), zap.Any("item", item))
+			return nil, fmt.Errorf("split long sentence error: %w", err)
+		}
+		result = append(result, splitItems...)
+	}
+
+	return result, nil
+}
+
+// splitLongSentence 使用大模型分割长句并保持原文和译文对齐
+func (s Service) splitLongSentence(item TranslatedItem) ([]TranslatedItem, error) {
+	prompt := fmt.Sprintf(types.SplitLongSentencePrompt, item.OriginText, item.TranslatedText)
+
+	response, err := s.ChatCompleter.ChatCompletion(prompt)
+	if err != nil {
+		return nil, fmt.Errorf("chat completion error: %w", err)
+	}
+
+	var splitResult struct {
+		Align []struct {
+			OriginPart     string `json:"origin_part"`
+			TranslatedPart string `json:"translated_part"`
+		} `json:"align"`
+	}
+	if err := json.Unmarshal([]byte(util.CleanMarkdownCodeBlock(response)), &splitResult); err != nil {
+		log.GetLogger().Error("splitLongSentence parse split result error", zap.Error(err), zap.Any("response", response))
+		return nil, fmt.Errorf("parse split result error: %w", err)
+	}
+
+	// 转换为TranslatedItem切片
+	var splitItems []TranslatedItem
+	for _, part := range splitResult.Align {
+		splitItems = append(splitItems, TranslatedItem{
+			OriginText:     part.OriginPart,
+			TranslatedText: part.TranslatedPart,
+		})
+	}
+
+	return splitItems, nil
 }

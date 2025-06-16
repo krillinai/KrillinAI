@@ -191,6 +191,8 @@ func CopyFile(src, dst string) error {
 
 // SanitizePathName 清理字符串，使其成为合法路径名
 func SanitizePathName(name string) string {
+	name = strings.ReplaceAll(name, ".", "_")
+
 	var illegalChars *regexp.Regexp
 	if runtime.GOOS == "windows" {
 		// Windows 特殊字符
@@ -302,4 +304,11 @@ func LoadFromDisk(filename string) (any, error) {
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&data)
 	return data, err
+}
+
+// 清理 Markdown 的 ```json 标记
+func CleanMarkdownCodeBlock(response string) string {
+	re := regexp.MustCompile("(?m)^```(json|[a-zA-Z]*)?\n?|```$")
+	cleaned := re.ReplaceAllString(response, "")
+	return strings.TrimSpace(cleaned)
 }

@@ -229,20 +229,19 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 			if len(subtitleLines) < 2 {
 				continue
 			}
-			var majorTextLanguage types.StandardLanguageCode
-			if stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop { // 一定是bilingual
-				majorTextLanguage = stepParam.TargetLanguage
-			} else {
-				majorTextLanguage = stepParam.OriginLanguage
-			}
+			//var majorTextLanguage types.StandardLanguageCode
+			//if stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop { // 一定是bilingual
+			//	majorTextLanguage = stepParam.TargetLanguage
+			//} else {
+			//	majorTextLanguage = stepParam.OriginLanguage
+			//}
 
-			majorLine := strings.Join(splitMajorTextInHorizontal(subtitleLines[0], majorTextLanguage, stepParam.MaxWordOneLine), "      \\N")
-			minorLine := util.CleanPunction(subtitleLines[1])
+			//majorLine := strings.Join(splitMajorTextInHorizontal(subtitleLines[0], majorTextLanguage, stepParam.MaxWordOneLine), "      \\N")
 
 			// ASS条目
 			startFormatted := formatTimestamp(startTime)
 			endFormatted := formatTimestamp(endTime)
-			combinedText := fmt.Sprintf("{\\an2}{\\rMajor}%s\\N{\\rMinor}%s", majorLine, minorLine)
+			combinedText := fmt.Sprintf("{\\an2}{\\rMajor}%s\\N{\\rMinor}%s", subtitleLines[0], util.CleanPunction(subtitleLines[1]))
 			_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 		}
 	} else {
