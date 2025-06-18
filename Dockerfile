@@ -25,10 +25,10 @@ RUN mkdir -p bin && \
     wget -O bin/yt-dlp "$URL" && \
     chmod +x bin/yt-dlp
 
-COPY KrillinAI ./
+COPY KlicStudio ./
 
 RUN mkdir -p /app/models && \
-    chmod +x ./KrillinAI
+    chmod +x ./KlicStudio
 
 VOLUME ["/app/bin", "/app/models"]
 
@@ -36,4 +36,4 @@ ENV PATH="/app/bin:${PATH}"
 
 EXPOSE 8888/tcp
 
-ENTRYPOINT ["./KrillinAI"]
+ENTRYPOINT ["./KlicStudio"]
