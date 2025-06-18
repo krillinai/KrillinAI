@@ -113,7 +113,7 @@ func (s Service) transcribeAudio(id int, audioFilePath string, language string, 
 	return transcriptionData, nil
 }
 
-func (s Service) splitTextAndTranslate(inputText string, targetLanguage string, enableModalFilter bool) ([]TranslatedItem, error) {
+func (s Service) splitTextAndTranslate(basePath, inputText, targetLanguage string, enableModalFilter bool, id int) ([]TranslatedItem, error) {
 	var prompt string
 	var promptPrefix string
 
@@ -148,6 +148,7 @@ func (s Service) splitTextAndTranslate(inputText string, targetLanguage string, 
 	if err != nil {
 		return nil, fmt.Errorf("audioToSubtitle splitTextAndTranslate ChatCompletion error: %w", err)
 	}
+	_ = util.SaveToDisk(textResult, filepath.Join(basePath, fmt.Sprintf(types.SubtitleTaskTranslationRawDataPersistenceFileNamePattern, id)))
 
 	re := regexp.MustCompile(`^\s*<think>.*?</think>`)
 	textResult = strings.TrimSpace(re.ReplaceAllString(textResult, ""))
@@ -302,7 +303,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 					// 翻译文本
 					log.GetLogger().Info("Begin to translate", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
 					for range config.Conf.App.TranslateMaxAttempts {
-						translatedResults, err = s.splitTextAndTranslate(translateItem.Data, types.GetStandardLanguageName(stepParam.TargetLanguage), stepParam.EnableModalFilter)
+						translatedResults, err = s.splitTextAndTranslate(stepParam.TaskBasePath, translateItem.Data, types.GetStandardLanguageName(stepParam.TargetLanguage), stepParam.EnableModalFilter, translateItem.Id)
 						if err == nil {
 							break
 						}

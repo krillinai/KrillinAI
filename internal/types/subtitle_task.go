@@ -125,8 +125,9 @@ var SplitLongSentencePrompt = `请将以下原文和译文分割成2-3个部分�
 要求：
 1. 分割后的句子必须保持语义完整，避免切断完整概念
 2. 切分后的句子需要符合语法规范，可添加连词等保证阅读时语言自然
-3. 确保原文和译文的分割部分一一对应
-4. 务必返回JSON格式，包含origin_part和translated_part数组，例如：
+3. 分割后的原文与原文不能有偏差 
+4. 译文如果有遗漏，请在分割的同时补全
+5. 务必返回JSON格式，包含origin_part和translated_part数组，例如：
 {"align":[{"origin_part":"原文部分1","translated_part":"译文部分1"},{"origin_part":"原文部分2","translated_part":"译文部分2"}]}`
 
 type SmallAudio struct {
@@ -196,6 +197,7 @@ const (
 	SubtitleTaskTargetLanguageTextFileName                       = "target_language.txt"
 	SubtitleTaskStepParamGobPersistenceFileName                  = "step_param.gob"
 	SubtitleTaskAudioTranscriptionDataPersistenceFileNamePattern = "audio_transcription_data_%d.json"
+	SubtitleTaskTranslationRawDataPersistenceFileNamePattern     = "audio_translation_raw_data_%d.json"
 	SubtitleTaskTranslationDataPersistenceFileNamePattern        = "translation_data_%d.json"
 	SubtitleTaskTransferredVerticalVideoFileName                 = "transferred_vertical_video.mp4"
 	SubtitleTaskHorizontalEmbedVideoFileName                     = "horizontal_embed.mp4"
