@@ -113,7 +113,7 @@ func (s Service) transcribeAudio(id int, audioFilePath string, language string, 
 	return transcriptionData, nil
 }
 
-func (s Service) splitTextAndTranslate(basePath, inputText, targetLanguage string, enableModalFilter bool, id int) ([]TranslatedItem, error) {
+func (s Service) splitTextAndTranslate(basePath, inputText, targetLanguage string, enableModalFilter bool, id int) ([]*TranslatedItem, error) {
 	var prompt string
 	var promptPrefix string
 
@@ -141,7 +141,7 @@ func (s Service) splitTextAndTranslate(basePath, inputText, targetLanguage strin
 
 	// 如果输入文本为空，则返回空结果
 	if inputText == "" {
-		return []TranslatedItem{}, nil
+		return []*TranslatedItem{}, nil
 	}
 
 	textResult, err := s.ChatCompleter.ChatCompletion(prompt + inputText)
@@ -197,7 +197,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 		// 待翻译的文本队列
 		pendingTranslationQueue = make(chan DataWithId[string], segmentNum)
 		// 翻译结果队列
-		translatedQueue = make(chan DataWithId[[]TranslatedItem], segmentNum)
+		translatedQueue = make(chan DataWithId[[]*TranslatedItem], segmentNum)
 	)
 	eg, ctx := errgroup.WithContext(ctx)
 
@@ -298,7 +298,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 					if !ok {
 						return nil
 					}
-					var translatedResults []TranslatedItem
+					var translatedResults []*TranslatedItem
 					var err error
 					// 翻译文本
 					log.GetLogger().Info("Begin to translate", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
@@ -318,12 +318,12 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 					if err != nil {
 						// 不中断
 						log.GetLogger().Error("audioToSubtitle audioToSrt splitTranslateItem err", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id), zap.Error(err))
-						translatedQueue <- DataWithId[[]TranslatedItem]{
+						translatedQueue <- DataWithId[[]*TranslatedItem]{
 							Data: translatedResults,
 							Id:   translateItem.Id,
 						}
 					} else {
-						translatedQueue <- DataWithId[[]TranslatedItem]{
+						translatedQueue <- DataWithId[[]*TranslatedItem]{
 							Data: splitResults,
 							Id:   translateItem.Id,
 						}
@@ -1050,8 +1050,8 @@ func generateSrtWithTimestamps(srtBlocks []*util.SrtBlock, tsOffset float64, wor
 	return nil
 }
 
-func parseAndCheckContent(splitContent, originalText string) ([]TranslatedItem, error) {
-	result := []TranslatedItem{}
+func parseAndCheckContent(splitContent, originalText string) ([]*TranslatedItem, error) {
+	var result []*TranslatedItem
 
 	// 处理空内容情况
 	if splitContent == "" || originalText == "" {
@@ -1113,7 +1113,7 @@ func parseAndCheckContent(splitContent, originalText string) ([]TranslatedItem, 
 		originalLine := strings.TrimSpace(lines[i+2])
 		originalLine = strings.TrimPrefix(originalLine, "[")
 		originalLine = strings.TrimSuffix(originalLine, "]")
-		result = append(result, TranslatedItem{
+		result = append(result, &TranslatedItem{
 			OriginText:     originalLine,
 			TranslatedText: translatedLine,
 		})
@@ -1161,8 +1161,8 @@ func calcLength(text string) float64 {
 }
 
 // splitTranslateItem 根据字符权重和最大长度分割长句
-func (s Service) splitTranslateItem(items []TranslatedItem) ([]TranslatedItem, error) {
-	var result []TranslatedItem
+func (s Service) splitTranslateItem(items []*TranslatedItem) ([]*TranslatedItem, error) {
+	var result []*TranslatedItem
 	maxLength := 70 // todo 先写死
 	//targetMultiplier := config.Conf.Subtitle.TargetMultiplier
 
@@ -1187,7 +1187,7 @@ func (s Service) splitTranslateItem(items []TranslatedItem) ([]TranslatedItem, e
 }
 
 // splitLongSentence 使用大模型分割长句并保持原文和译文对齐
-func (s Service) splitLongSentence(item TranslatedItem) ([]TranslatedItem, error) {
+func (s Service) splitLongSentence(item *TranslatedItem) ([]*TranslatedItem, error) {
 	prompt := fmt.Sprintf(types.SplitLongSentencePrompt, item.OriginText, item.TranslatedText)
 
 	response, err := s.ChatCompleter.ChatCompletion(prompt)
@@ -1207,9 +1207,9 @@ func (s Service) splitLongSentence(item TranslatedItem) ([]TranslatedItem, error
 	}
 
 	// 转换为TranslatedItem切片
-	var splitItems []TranslatedItem
+	var splitItems []*TranslatedItem
 	for _, part := range splitResult.Align {
-		splitItems = append(splitItems, TranslatedItem{
+		splitItems = append(splitItems, &TranslatedItem{
 			OriginText:     part.OriginPart,
 			TranslatedText: part.TranslatedPart,
 		})
@@ -1217,3 +1217,12 @@ func (s Service) splitLongSentence(item TranslatedItem) ([]TranslatedItem, error
 
 	return splitItems, nil
 }
+
+//func beautifyTranslateItems(language types.StandardLanguageCode, items []*TranslatedItem) {
+//	if language != types.LanguageNameSimplifiedChinese && language != types.LanguageNameTraditionalChinese {
+//		return
+//	}
+//	for _, item := range items {
+//
+//	}
+//}

@@ -250,10 +250,15 @@ func createLlmConfigGroup() *fyne.Container {
 	modelEntry := StyledEntry("模型名称 Model name")
 	modelEntry.Bind(binding.BindString(&config.Conf.Llm.Model))
 
+	jsonCheck := widget.NewCheck("JSON 格式化 format", func(b bool) {
+		config.Conf.Llm.Json = b
+	})
+
 	form := widget.NewForm(
 		widget.NewFormItem("API Base URL", baseUrlEntry),
 		widget.NewFormItem("API Key", apiKeyEntry),
 		widget.NewFormItem("模型名称 Model name", modelEntry),
+		widget.NewFormItem("模型是否支持 Does model support", jsonCheck),
 	)
 	return GlassCard("LLM 配置 LLM Config", "LLM配置 LLM config", form)
 }
