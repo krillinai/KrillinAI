@@ -384,9 +384,17 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 				}
 				// 保存不带时间戳的原始字幕
 				for i, translatedItem := range translatedItems.Data {
-					originNoTsSrtFile.WriteString(fmt.Sprintf("%d\n", i+1))
-					originNoTsSrtFile.WriteString(fmt.Sprintf("[%s]\n", translatedItem.TranslatedText))
-					originNoTsSrtFile.WriteString(fmt.Sprintf("[%s]\n\n", translatedItem.OriginText))
+					translatedText := translatedItem.TranslatedText
+					if util.IsAsianLanguage(stepParam.TargetLanguage) {
+						translatedText = util.BeautifyAsianLanguageSentence(translatedText)
+					}
+					originText := translatedItem.OriginText
+					if util.IsAsianLanguage(stepParam.OriginLanguage) {
+						originText = util.BeautifyAsianLanguageSentence(originText)
+					}
+					_, _ = originNoTsSrtFile.WriteString(fmt.Sprintf("%d\n", i+1))
+					_, _ = originNoTsSrtFile.WriteString(fmt.Sprintf("[%s]\n", translatedText))
+					_, _ = originNoTsSrtFile.WriteString(fmt.Sprintf("[%s]\n\n", originText))
 				}
 
 				// 此处是为了修复一个未知原因的文件不创建的问题
