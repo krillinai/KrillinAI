@@ -38,11 +38,11 @@ func Show() {
 	// 自定义主题
 	myApp.Settings().SetTheme(NewCustomTheme(false))
 
-	myWindow := myApp.NewWindow("Krillin AI")
+	myWindow := myApp.NewWindow("Klic Studio")
 
 	logoContainer := container.NewVBox()
 
-	logo := canvas.NewText("Krillin AI", color.NRGBA{R: 88, G: 157, B: 246, A: 255})
+	logo := canvas.NewText("Klic Studio", color.NRGBA{R: 88, G: 157, B: 246, A: 255})
 	logo.TextSize = 28
 	logo.TextStyle = fyne.TextStyle{Bold: true}
 	logo.Alignment = fyne.TextAlignCenter
