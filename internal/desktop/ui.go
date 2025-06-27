@@ -196,19 +196,13 @@ func createAppConfigGroup() *fyne.Container {
 	appProxyEntry := StyledEntry("网络代理地址")
 	appProxyEntry.Bind(binding.BindString(&config.Conf.App.Proxy))
 
-	appTranscribeProviderEntry := StyledSelect([]string{"openai", "fasterwhisper", "whispercpp", "whisperkit", "aliyun"}, func(s string) {
-		config.Conf.Transcribe.Provider = s
-	})
-	appTranscribeProviderEntry.SetSelected(config.Conf.Transcribe.Provider)
-
 	form := widget.NewForm(
-		widget.NewFormItem("字幕分段处理时长(分钟) Segment duration (minutes)", appSegmentDurationEntry),
+		widget.NewFormItem("分段处理时长(分钟) Segment duration (minutes)", appSegmentDurationEntry),
 		widget.NewFormItem("转录最大并行数量 Transcribe parallel num", appTranscribeParallelNumEntry),
 		widget.NewFormItem("翻译最大并行数量 Translate parallel num", appTranslateParallelNumEntry),
 		widget.NewFormItem("转录最大尝试次数 Transcribe max attempts", appTranscribeMaxAttemptsEntry),
 		widget.NewFormItem("翻译最大尝试次数 Translate max attempts", appTranslateMaxAttemptsEntry),
 		widget.NewFormItem("网络代理地址 proxy", appProxyEntry),
-		widget.NewFormItem("语音识别服务源 Transcriber provider", appTranscribeProviderEntry),
 	)
 
 	return GlassCard("应用配置 App Config", "基本参数 Basic config", form)
