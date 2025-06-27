@@ -2,6 +2,7 @@ package whisper
 
 import (
 	"context"
+	"fmt"
 	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"krillin-ai/internal/types"
@@ -20,6 +21,7 @@ func (c *Client) Transcription(audioFile, language, workDir string) (*types.Tran
 				openai.TranscriptionTimestampGranularityWord,
 			},
 			Language: language,
+			Prompt:   fmt.Sprintf("输出的目标语言：%s，需要输出标点符号。", types.GetStandardLanguageName(types.StandardLanguageCode(language))),
 		},
 	)
 	if err != nil {

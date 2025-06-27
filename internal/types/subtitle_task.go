@@ -130,6 +130,21 @@ var SplitLongSentencePrompt = `请将以下原文和译文分割成2-3个部分�
 5. 务必返回JSON格式，包含origin_part和translated_part数组，例如：
 {"align":[{"origin_part":"原文部分1","translated_part":"译文部分1"},{"origin_part":"原文部分2","translated_part":"译文部分2"}]}`
 
+var SplitTextWithContextPrompt = `你是一个专业翻译专家，擅长结合上下文进行准确翻译。请根据以下提供的上下文句子和目标句子，将目标句子翻译成%s，并确保翻译结果与上下文保持连贯一致：
+
+上下文句子：
+%s
+
+需要翻译的目标句子：%s
+
+翻译要求：
+1. 严格按照目标语言的语法和表达习惯翻译
+2. 保持专业术语的一致性
+3. 输出仅包含翻译后的文本，不添加任何额外解释或格式
+4. 确保翻译结果与上下文语义连贯
+
+请直接输出翻译结果：`
+
 type SmallAudio struct {
 	AudioFile         string
 	TranscriptionData *TranscriptionData

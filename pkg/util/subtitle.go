@@ -283,7 +283,7 @@ func BeautifyAsianLanguageSentence(input string) string {
 	}
 
 	// 需要处理的单标点
-	singlePunctuations := ",.;:!?~，、。！？；：…~-"
+	singlePunctuations := ",.;:!?~，、。！？；：…"
 
 	// 先处理字符串末尾的标点
 	runes := []rune(input)
@@ -352,4 +352,51 @@ func BeautifyAsianLanguageSentence(input string) string {
 	}
 
 	return strings.TrimSpace(string(result))
+}
+
+// SplitTextSentences 将文本按常见的半全角分隔符号切分成句子，会考虑一些特殊的不用切分的情况
+func SplitTextSentences(text string) []string {
+	const (
+		dotPlaceholder   = "\u0001"
+		commaPlaceholder = "\u0002"
+		timePlaceholder  = "\u0003"
+	)
+
+	// 时间
+	timeRegex := regexp.MustCompile(`\b\d{1,2}(?::|\.)\d{2}\s+[ap]\.m\.`)
+	text = timeRegex.ReplaceAllStringFunc(text, func(m string) string {
+		return strings.ReplaceAll(m, ".", timePlaceholder)
+	})
+
+	// 千位分隔符
+	text = regexp.MustCompile(`\b\d{1,3}(?:,\d{3})+\b`).ReplaceAllStringFunc(text, func(m string) string {
+		return strings.ReplaceAll(m, ",", commaPlaceholder)
+	})
+
+	// 小数
+	text = regexp.MustCompile(`\b\d+\.\d+\b`).ReplaceAllStringFunc(text, func(m string) string {
+		return strings.ReplaceAll(m, ".", dotPlaceholder)
+	})
+
+	// 缩写词
+	text = regexp.MustCompile(`\b(?:[A-Za-z]\.){2,}[A-Za-z]?\b|\b[A-Z][a-z]*\.(?:[A-Z][a-z]*\.)+`).ReplaceAllStringFunc(text, func(m string) string {
+		return strings.ReplaceAll(m, ".", dotPlaceholder)
+	})
+
+	text = regexp.MustCompile(`([。.！!？?；;，,\n]+)`).ReplaceAllString(text, "${1}\u0000")
+
+	parts := strings.Split(text, "\u0000")
+
+	var sentences []string
+	for _, part := range parts {
+		s := strings.TrimSpace(part)
+		s = strings.ReplaceAll(s, timePlaceholder, ".")
+		s = strings.ReplaceAll(s, dotPlaceholder, ".")
+		s = strings.ReplaceAll(s, commaPlaceholder, ",")
+		if s != "" {
+			sentences = append(sentences, s)
+		}
+	}
+
+	return sentences
 }
