@@ -18,7 +18,7 @@
 
 ## Overview
 
-Krillin AI is an all-in-one solution for effortless video localization and enhancement. This minimalist yet powerful tool handles everything from translation, dubbing to voice cloning，formatting—seamlessly converting videos between landscape and portrait modes for optimal display across all content platforms(YouTube, TikTok, Bilibili, Douyin, WeChat Channel, RedNote, Kuaishou). With its end-to-end workflow, Krillin AI transforms raw footage into polished, platform-ready content in just a few clicks.
+Klic Studio is an all-in-one solution for effortless video localization and enhancement. This minimalist yet powerful tool handles everything from video translation, dubbing to voice cloning，formatting—seamlessly converting videos between landscape and portrait modes for optimal display across all content platforms(YouTube, TikTok, Bilibili, Douyin, WeChat Channel, RedNote, Kuaishou). With its end-to-end workflow, Klic Studio transforms raw footage into polished, platform-ready content in just a few clicks.
 
 ## Key Features:
 🎯 **One-Click Start** - Launch your workflow instantly,New desktop version available—easier to use!
@@ -70,7 +70,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </table>
 
 ## 🔍 Speech Recognition Support
-_**All local models in the table below support automatic installation of executable files + model files. Just make your selection, and KrillinAI will handle everything else for you.**_
+_**All local models in the table below support automatic installation of executable files + model files. Just make your selection, and Klic Studio will handle everything else for you.**_
 
 | Service         | Supported Platforms          | Model Options                     | Local/Cloud | Notes          |
 |-----------------|------------------------------|-----------------------------------|-------------|----------------|
