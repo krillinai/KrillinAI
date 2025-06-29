@@ -161,10 +161,18 @@ func (s Service) splitTextAndTranslate(basePath, inputText, targetLanguage strin
 	return results, nil
 }
 
-func (s Service) splitTextAndTranslateV2(basePath, inputText, targetLanguage string, enableModalFilter bool, id int) ([]*TranslatedItem, error) {
+func (s Service) splitTextAndTranslateV2(basePath, inputText string, originLang, targetLang types.StandardLanguageCode, enableModalFilter bool, id int) ([]*TranslatedItem, error) {
 	sentences := util.SplitTextSentences(inputText)
 	if len(sentences) == 0 {
 		return []*TranslatedItem{}, nil
+	}
+	// 补丁：whisper转录中文的时候很多句子后面不输出符号，导致上面基于符号的切分失效
+	if originLang == types.LanguageNameSimplifiedChinese || originLang == types.LanguageNameTraditionalChinese {
+		newSentences := make([]string, 0)
+		for _, sentence := range sentences {
+			newSentences = append(newSentences, strings.Split(sentence, " ")...)
+		}
+		sentences = newSentences
 	}
 
 	var (
@@ -201,7 +209,7 @@ func (s Service) splitTextAndTranslateV2(basePath, inputText, targetLanguage str
 			}
 
 			ctx := ctxBuilder.String()
-			prompt := fmt.Sprintf(types.SplitTextWithContextPrompt, targetLanguage, ctx, originText)
+			prompt := fmt.Sprintf(types.SplitTextWithContextPrompt, types.GetStandardLanguageName(targetLang), ctx, originText)
 
 			translatedText, err := s.ChatCompleter.ChatCompletion(prompt)
 			if err != nil {
@@ -376,7 +384,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 				// 翻译文本
 				log.GetLogger().Info("Begin to translate", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
 				for range config.Conf.App.TranslateMaxAttempts {
-					translatedResults, err = s.splitTextAndTranslateV2(stepParam.TaskBasePath, translateItem.Data, types.GetStandardLanguageName(stepParam.TargetLanguage), stepParam.EnableModalFilter, translateItem.Id)
+					translatedResults, err = s.splitTextAndTranslateV2(stepParam.TaskBasePath, translateItem.Data, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, translateItem.Id)
 					if err == nil {
 						break
 					}
