@@ -118,16 +118,15 @@ var TranslateVideoTitleAndDescriptionPrompt = `你是一个专业的翻译专家
 %s
 `
 
-var SplitLongSentencePrompt = `请将以下原文和译文分割成2-3个部分，确保每个部分都尽可能短：
+var SplitLongSentencePrompt = `请将以下原文和译文分割成多个部分，确保每个部分都尽可能短：
 原文：%s
 译文：%s
 
 要求：
-1. 分割后的句子必须保持语义完整，避免切断完整概念
-2. 切分后的句子需要符合语法规范，可添加连词等保证阅读时语言自然
-3. 分割后的原文与原文不能有偏差 
-4. 译文如果有遗漏，请在分割的同时补全
-5. 务必返回JSON格式，包含origin_part和translated_part数组，例如：
+1. 分割后的原文与原文不能有偏差 
+2. 分割后的每个翻译句都需要符合语法规范，可进行添加连词、去除助词等操作等保证每句读起来都是自然的
+3. 译文如果有遗漏，请在分割的同时补全
+4. 务必返回JSON格式，包含origin_part和translated_part数组，例如：
 {"align":[{"origin_part":"原文部分1","translated_part":"译文部分1"},{"origin_part":"原文部分2","translated_part":"译文部分2"}]}`
 
 var SplitTextWithContextPrompt = `你是一个专业翻译专家，擅长结合上下文进行准确翻译。请根据以下提供的上下文句子和目标句子，将目标句子翻译成%s，并确保翻译结果与上下文保持连贯一致：
