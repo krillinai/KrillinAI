@@ -12,7 +12,6 @@ import (
 	"krillin-ai/pkg/util"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -112,53 +111,6 @@ func (s Service) transcribeAudio(id int, audioFilePath string, language string, 
 		log.GetLogger().Info("audioToSubtitle transcribeAudio TranscriptionData.Text is empty", zap.Any("audioFilePath", audioFilePath), zap.Any("taskBasePath", taskBasePath))
 	}
 	return transcriptionData, nil
-}
-
-func (s Service) splitTextAndTranslate(basePath, inputText, targetLanguage string, enableModalFilter bool, id int) ([]*TranslatedItem, error) {
-	var prompt string
-	var promptPrefix string
-
-	promptPrefix = ""
-
-	//// 对于qwen3模型，开启非思考模式
-	//if config.Conf.Openai.NoThinkTag {
-	//	promptPrefix = "\\no_think\n"
-	//}
-
-	// 选择提示词
-	if enableModalFilter {
-		if config.Conf.Llm.Json {
-			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPromptWithModalFilterJson, targetLanguage)
-		} else {
-			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPromptWithModalFilter, targetLanguage)
-		}
-	} else {
-		if config.Conf.Llm.Json {
-			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPromptJson, targetLanguage)
-		} else {
-			prompt = promptPrefix + fmt.Sprintf(types.SplitTextPrompt, targetLanguage)
-		}
-	}
-
-	// 如果输入文本为空，则返回空结果
-	if inputText == "" {
-		return []*TranslatedItem{}, nil
-	}
-
-	textResult, err := s.ChatCompleter.ChatCompletion(prompt + inputText)
-	if err != nil {
-		return nil, fmt.Errorf("audioToSubtitle splitTextAndTranslate ChatCompletion error: %w", err)
-	}
-	_ = util.SaveToDisk(textResult, filepath.Join(basePath, fmt.Sprintf(types.SubtitleTaskTranslationRawDataPersistenceFileNamePattern, id)))
-
-	re := regexp.MustCompile(`^\s*<think>.*?</think>`)
-	textResult = strings.TrimSpace(re.ReplaceAllString(textResult, ""))
-
-	results, err := parseAndCheckContent(textResult, inputText)
-	if err != nil {
-		return nil, fmt.Errorf("audioToSubtitle splitTextAndTranslate error: %w", err)
-	}
-	return results, nil
 }
 
 func (s Service) splitTextAndTranslateV2(basePath, inputText string, originLang, targetLang types.StandardLanguageCode, enableModalFilter bool, id int) ([]*TranslatedItem, error) {

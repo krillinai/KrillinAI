@@ -35,7 +35,6 @@ type OpenaiCompatibleConfig struct {
 	BaseUrl string `toml:"base_url"`
 	ApiKey  string `toml:"api_key"`
 	Model   string `toml:"model"`
-	Json    bool   `toml:"json"`
 }
 
 type LocalModelConfig struct {
@@ -99,6 +98,7 @@ var Conf = Config{
 		TranscribeParallelNum: 1,
 		TranscribeMaxAttempts: 3,
 		TranslateMaxAttempts:  3,
+		MaxSentenceLength:     70,
 	},
 	Server: Server{
 		Host: "127.0.0.1",

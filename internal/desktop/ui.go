@@ -193,6 +193,19 @@ func createAppConfigGroup() *fyne.Container {
 		return nil
 	}
 
+	appMaxSentenceLengthEntry := StyledEntry("每个句子最大字符数 Max sentence length")
+	appMaxSentenceLengthEntry.Bind(binding.IntToString(binding.BindInt(&config.Conf.App.MaxSentenceLength)))
+	appMaxSentenceLengthEntry.Validator = func(s string) error {
+		val, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("请输入数字")
+		}
+		if val < 1 || val > 200 {
+			return fmt.Errorf("请输入1-200之间的数字")
+		}
+		return nil
+	}
+
 	appProxyEntry := StyledEntry("网络代理地址")
 	appProxyEntry.Bind(binding.BindString(&config.Conf.App.Proxy))
 
@@ -202,6 +215,7 @@ func createAppConfigGroup() *fyne.Container {
 		widget.NewFormItem("翻译最大并行数量 Translate parallel num", appTranslateParallelNumEntry),
 		widget.NewFormItem("转录最大尝试次数 Transcribe max attempts", appTranscribeMaxAttemptsEntry),
 		widget.NewFormItem("翻译最大尝试次数 Translate max attempts", appTranslateMaxAttemptsEntry),
+		widget.NewFormItem("每个句子最大字符数 Max sentence length", appMaxSentenceLengthEntry),
 		widget.NewFormItem("网络代理地址 proxy", appProxyEntry),
 	)
 
@@ -244,15 +258,10 @@ func createLlmConfigGroup() *fyne.Container {
 	modelEntry := StyledEntry("模型名称 Model name")
 	modelEntry.Bind(binding.BindString(&config.Conf.Llm.Model))
 
-	jsonCheck := widget.NewCheck("JSON 格式化 format", func(b bool) {
-		config.Conf.Llm.Json = b
-	})
-
 	form := widget.NewForm(
 		widget.NewFormItem("API Base URL", baseUrlEntry),
 		widget.NewFormItem("API Key", apiKeyEntry),
 		widget.NewFormItem("模型名称 Model name", modelEntry),
-		widget.NewFormItem("模型是否支持 Does model support", jsonCheck),
 	)
 	return GlassCard("LLM 配置 LLM Config", "LLM配置 LLM config", form)
 }
