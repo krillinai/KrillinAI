@@ -175,6 +175,59 @@ func (s Service) splitTextAndTranslateV2(basePath, inputText string, originLang,
 		sentences = newSentences
 	}
 
+	shortSentences := make([]string, 0)
+	lastMerged := false
+	//判断句子如果还是过长，就继续用大模型拆句
+	for i, sentence := range sentences {
+		// 如果前一次循环已经处理了当前句子（作为合并的一部分），跳过
+		if lastMerged {
+			lastMerged = false
+			continue
+		}
+
+		// 如果当前句子小于10个字符，尝试与下一个句子合并
+		if len(sentence) < 10 && i < len(sentences)-1 {
+			// 与下一个句子合并
+			mergedSentence := sentence + " " + sentences[i+1]
+			if calcLength(mergedSentence) <= float64(config.Conf.App.MaxSentenceLength) {
+				shortSentences = append(shortSentences, mergedSentence)
+				// 标记下一个句子已处理，需要在外层循环中跳过
+				lastMerged = true
+				continue
+			}
+		}
+
+		if calcLength(sentence) <= float64(config.Conf.App.MaxSentenceLength) {
+			shortSentences = append(shortSentences, sentence)
+			continue
+		}
+
+		// 调用大模型进行分割
+		log.GetLogger().Info("use llm split origin long sentence", zap.Any("sentence", sentence))
+		splitItems, err := s.splitOriginLongSentence(sentence)
+		if err != nil {
+			log.GetLogger().Error("splitTranslateItem splitLongSentence error", zap.Error(err), zap.Any("sentence", sentence))
+		}
+		//拆完之后还长，就再拆一次
+		for _, item := range splitItems {
+			if calcLength(item) <= float64(config.Conf.App.MaxSentenceLength) {
+				shortSentences = append(shortSentences, item)
+				continue
+			}
+
+			// 调用大模型进行分割
+			log.GetLogger().Info("use llm split origin long sentence", zap.Any("item", item))
+			splitItems, err := s.splitOriginLongSentence(item)
+			if err != nil {
+				log.GetLogger().Error("splitTranslateItem splitLongSentence error", zap.Error(err), zap.Any("item", item))
+			}
+
+			shortSentences = append(shortSentences, splitItems...)
+		}
+	}
+
+	sentences = shortSentences
+
 	var (
 		signal  = make(chan struct{}, config.Conf.App.TranslateParallelNum) // 控制最大并发数
 		wg      sync.WaitGroup
@@ -1302,6 +1355,44 @@ func (s Service) splitLongSentence(item *TranslatedItem) ([]*TranslatedItem, err
 	}
 
 	return splitItems, nil
+}
+
+func (s Service) splitOriginLongSentence(sentence string) ([]string, error) {
+	prompt := fmt.Sprintf(types.SplitOriginLongSentencePrompt, sentence, config.Conf.App.MaxSentenceLength)
+
+	var response string
+	var err error
+	shortSentences := make([]string, 0)
+	// 尝试调用3次
+	for i := range 3 {
+		response, err = s.ChatCompleter.ChatCompletion(prompt)
+		if err != nil {
+			log.GetLogger().Error("splitOriginLongSentence chat completion error", zap.Error(err), zap.String("sentence", sentence), zap.Any("time", i))
+			continue
+		}
+		var splitResult struct {
+			ShortSentences []struct {
+				Text string `json:"text"`
+			} `json:"short_sentences"`
+		}
+
+		cleanResponse := util.CleanMarkdownCodeBlock(response)
+		if err = json.Unmarshal([]byte(cleanResponse), &splitResult); err != nil {
+			log.GetLogger().Error("splitOriginLongSentence parse split result error", zap.Error(err), zap.Any("response", response))
+			continue
+		}
+
+		for _, shortSentence := range splitResult.ShortSentences {
+			shortSentences = append(shortSentences, shortSentence.Text)
+		}
+		break
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("parse split result error: %w", err)
+	}
+
+	return shortSentences, nil
 }
 
 //func beautifyTranslateItems(language types.StandardLanguageCode, items []*TranslatedItem) {

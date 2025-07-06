@@ -21,6 +21,7 @@ type App struct {
 	TranslateParallelNum  int      `toml:"translate_parallel_num"`
 	TranscribeMaxAttempts int      `toml:"transcribe_max_attempts"`
 	TranslateMaxAttempts  int      `toml:"translate_max_attempts"`
+	MaxSentenceLength     int      `toml:"max_sentence_length"`
 	Proxy                 string   `toml:"proxy"`
 	ParsedProxy           *url.URL `toml:"-"`
 }

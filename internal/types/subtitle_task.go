@@ -129,6 +129,19 @@ var SplitLongSentencePrompt = `请将以下原文和译文分割成多个部分�
 4. 务必返回JSON格式，包含origin_part和translated_part数组，例如：
 {"align":[{"origin_part":"原文部分1","translated_part":"译文部分1"},{"origin_part":"原文部分2","translated_part":"译文部分2"}]}`
 
+var SplitOriginLongSentencePrompt = `Please split the following text into multiple parts, ensuring each part does not exceed the character limit:
+
+Original text: %s
+
+Requirements:
+1. The split sentences must exactly match the original text, absolutely no changes to the original text are allowed
+2. Split based on sentence meaning, keeping each part under %d characters
+3. Return in JSON format only, no other descriptions or explanations
+4. Example format:
+{"short_sentences":[{"text": "split sentence 1"},{"text": "split sentence 2"}]}
+
+`
+
 var SplitTextWithContextPrompt = `你是一个专业翻译专家，擅长结合上下文进行准确翻译。请根据以下提供的上下文句子和目标句子，将目标句子翻译成%s，并确保翻译结果与上下文保持连贯一致：
 
 上下文句子：
