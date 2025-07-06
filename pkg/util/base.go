@@ -195,11 +195,11 @@ func SanitizePathName(name string) string {
 
 	var illegalChars *regexp.Regexp
 	if runtime.GOOS == "windows" {
-		// Windows 特殊字符
-		illegalChars = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
+		// Windows 特殊字符，包括方括号（会影响 filepath.Glob）
+		illegalChars = regexp.MustCompile(`[<>:"/\\|?*\[\]\x00-\x1F]`)
 	} else {
-		// POSIX 系统：只禁用 / 和空字节
-		illegalChars = regexp.MustCompile(`[/\x00]`)
+		// POSIX 系统：禁用 /、空字节和方括号（会影响 filepath.Glob）
+		illegalChars = regexp.MustCompile(`[/\[\]\x00]`)
 	}
 
 	sanitized := illegalChars.ReplaceAllString(name, "_")
