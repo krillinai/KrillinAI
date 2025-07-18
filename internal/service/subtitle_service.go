@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/samber/lo"
-	"go.uber.org/zap"
 	"krillin-ai/internal/dto"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -15,6 +13,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.StartVideoSubtitleTaskResData, error) {
@@ -35,6 +35,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 	seperates := strings.Split(req.Url, "/")
 	taskId := fmt.Sprintf("%s_%s", util.SanitizePathName(string([]rune(strings.ReplaceAll(seperates[len(seperates)-1], " ", ""))[:16])), util.GenerateRandStringWithUpperLowerNum(4))
 	taskId = strings.ReplaceAll(taskId, "=", "") // 等于号影响ffmpeg处理
+	taskId = strings.ReplaceAll(taskId, "?", "") // 问号影响ffmpeg处理
 	// 构造任务所需参数
 	var resultType types.SubtitleResultType
 	// 根据入参选项确定要返回的字幕类型
