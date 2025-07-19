@@ -9,12 +9,27 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
+// 全局主题管理器实例
+var globalThemeManager *ThemeManager
+
+// SetGlobalThemeManager 设置全局主题管理器
+func SetGlobalThemeManager(tm *ThemeManager) {
+	globalThemeManager = tm
+}
+
+func GetCurrentThemeIsDark() bool {
+	if globalThemeManager != nil {
+		return globalThemeManager.IsDarkMode()
+	}
+	return false
+}
+
 // FadeAnimation 淡入淡出动画
 func FadeAnimation(content fyne.CanvasObject, duration time.Duration, startOpacity, endOpacity float64) {
-	// 使用更柔和的动画效果
 	rect := canvas.NewRectangle(color.NRGBA{R: 240, G: 246, B: 252, A: 0})
 	rect.FillColor = color.NRGBA{R: 240, G: 246, B: 252, A: uint8(startOpacity * 255)}
 
@@ -30,32 +45,131 @@ func FadeAnimation(content fyne.CanvasObject, duration time.Duration, startOpaci
 	anim.Start()
 }
 
-// PrimaryButton 创建主要按钮
+// GlassmorphismCard 毛玻璃效果卡片
+func GlassmorphismCard(title, subtitle string, content fyne.CanvasObject, isDark bool) *fyne.Container {
+	var bgColor color.Color
+	var titleColor color.Color
+	var subtitleColor color.Color
+	var borderColor color.Color
+
+	if isDark {
+		// 夜晚主题毛玻璃效果
+		bgColor = color.NRGBA{R: 30, G: 41, B: 59, A: 180} // 半透明深色背景
+		titleColor = color.NRGBA{R: 248, G: 250, B: 252, A: 255}
+		subtitleColor = color.NRGBA{R: 148, G: 163, B: 184, A: 200}
+		borderColor = color.NRGBA{R: 51, G: 65, B: 85, A: 100}
+	} else {
+		// 明亮主题毛玻璃效果
+		bgColor = color.NRGBA{R: 255, G: 255, B: 255, A: 180} // 半透明白色背景
+		titleColor = color.NRGBA{R: 17, G: 24, B: 39, A: 255}
+		subtitleColor = color.NRGBA{R: 107, G: 114, B: 128, A: 200}
+		borderColor = color.NRGBA{R: 209, G: 213, B: 219, A: 100}
+	}
+
+	// 创建毛玻璃背景
+	glassBackground := canvas.NewRectangle(bgColor)
+	glassBackground.CornerRadius = 16
+	glassBackground.StrokeColor = borderColor
+	glassBackground.StrokeWidth = 1
+
+	// 标题
+	titleLabel := canvas.NewText(title, titleColor)
+	titleLabel.TextSize = 18
+	titleLabel.TextStyle = fyne.TextStyle{Bold: true}
+
+	// 副标题
+	var subtitleLabel *canvas.Text
+	if subtitle != "" {
+		subtitleLabel = canvas.NewText(subtitle, subtitleColor)
+		subtitleLabel.TextSize = 14
+	}
+
+	// 标题容器
+	var headerContainer *fyne.Container
+	if subtitleLabel != nil {
+		headerContainer = container.NewVBox(titleLabel, subtitleLabel)
+	} else {
+		headerContainer = container.NewVBox(titleLabel)
+	}
+
+	// 分隔线
+	dividerColor := color.NRGBA{R: 209, G: 213, B: 219, A: 100}
+	if isDark {
+		dividerColor = color.NRGBA{R: 51, G: 65, B: 85, A: 100}
+	}
+	divider := canvas.NewLine(dividerColor)
+	divider.StrokeWidth = 1
+
+	contentWithPadding := container.NewPadded(content)
+
+	// 布局
+	cardContent := container.NewBorder(
+		container.NewVBox(container.NewPadded(headerContainer), divider),
+		nil, nil, nil,
+		contentWithPadding,
+	)
+
+	// 多层阴影效果
+	shadow1 := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 10})
+	shadow1.Move(fyne.NewPos(2, 2))
+	shadow1.CornerRadius = 16
+
+	shadow2 := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 5})
+	shadow2.Move(fyne.NewPos(4, 4))
+	shadow2.CornerRadius = 16
+
+	return container.NewStack(shadow2, shadow1, glassBackground, cardContent)
+}
+
+// TransparentCard 透明效果卡片
+func TransparentCard(content fyne.CanvasObject, isDark bool) *fyne.Container {
+	var bgColor color.Color
+	var borderColor color.Color
+
+	if isDark {
+		bgColor = color.NRGBA{R: 30, G: 41, B: 59, A: 120}
+		borderColor = color.NRGBA{R: 51, G: 65, B: 85, A: 80}
+	} else {
+		bgColor = color.NRGBA{R: 255, G: 255, B: 255, A: 120}
+		borderColor = color.NRGBA{R: 209, G: 213, B: 219, A: 80}
+	}
+
+	background := canvas.NewRectangle(bgColor)
+	background.CornerRadius = 12
+	background.StrokeColor = borderColor
+	background.StrokeWidth = 1
+
+	return container.NewStack(background, container.NewPadded(content))
+}
+
 func PrimaryButton(text string, icon fyne.Resource, action func()) *widget.Button {
 	btn := widget.NewButtonWithIcon(text, icon, action)
 	btn.Importance = widget.HighImportance
 	return btn
 }
 
-// SecondaryButton 创建次要按钮
 func SecondaryButton(text string, icon fyne.Resource, action func()) *widget.Button {
 	btn := widget.NewButtonWithIcon(text, icon, action)
 	btn.Importance = widget.MediumImportance
 	return btn
 }
 
-// TitleText 创建标题文本
+func GhostButton(text string, icon fyne.Resource, action func()) *widget.Button {
+	btn := widget.NewButtonWithIcon(text, icon, action)
+	btn.Importance = widget.LowImportance
+	return btn
+}
+
 func TitleText(text string) *canvas.Text {
-	title := canvas.NewText(text, color.NRGBA{R: 88, G: 157, B: 246, A: 255})
-	title.TextSize = 22
+	title := canvas.NewText(text, theme.Color(theme.ColorNamePrimary))
+	title.TextSize = 24
 	title.TextStyle = fyne.TextStyle{Bold: true}
 	title.Alignment = fyne.TextAlignCenter
 	return title
 }
 
-// SubtitleText 创建副标题文本
 func SubtitleText(text string) *canvas.Text {
-	subtitle := canvas.NewText(text, color.NRGBA{R: 100, G: 120, B: 160, A: 255})
+	subtitle := canvas.NewText(text, theme.Color(theme.ColorNameForeground))
 	subtitle.TextSize = 16
 	subtitle.TextStyle = fyne.TextStyle{Italic: true}
 	subtitle.Alignment = fyne.TextAlignCenter
@@ -69,57 +183,18 @@ func createShadowRectangle(fillColor color.Color, cornerRadius float32) *canvas.
 }
 
 func GlassCard(title, subtitle string, content fyne.CanvasObject) *fyne.Container {
-	glassBackground := createShadowRectangle(color.NRGBA{R: 255, G: 255, B: 255, A: 200}, 12)
-
-	titleLabel := canvas.NewText(title, color.NRGBA{R: 60, G: 80, B: 120, A: 255})
-	titleLabel.TextSize = 16
-	titleLabel.TextStyle = fyne.TextStyle{Bold: true}
-
-	// 副标题
-	var subtitleLabel *canvas.Text
-	if subtitle != "" {
-		subtitleLabel = canvas.NewText(subtitle, color.NRGBA{R: 100, G: 120, B: 150, A: 200})
-		subtitleLabel.TextSize = 12
-	}
-
-	// 标题容器
-	var headerContainer *fyne.Container
-	if subtitleLabel != nil {
-		headerContainer = container.NewVBox(titleLabel, subtitleLabel)
-	} else {
-		headerContainer = container.NewVBox(titleLabel)
-	}
-
-	// 分隔线
-	divider := canvas.NewLine(color.NRGBA{R: 220, G: 230, B: 240, A: 255})
-	divider.StrokeWidth = 1
-
-	contentWithPadding := container.NewPadded(content)
-
-	// 布局
-	cardContent := container.NewBorder(
-		container.NewVBox(container.NewPadded(headerContainer), divider),
-		nil, nil, nil,
-		contentWithPadding,
-	)
-
-	// 阴影
-	shadow := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 20})
-	shadow.Move(fyne.NewPos(3, 3))
-	shadow.Resize(fyne.NewSize(cardContent.Size().Width, cardContent.Size().Height))
-	shadow.CornerRadius = 12
-
-	return container.NewStack(shadow, glassBackground, cardContent)
+	return GlassmorphismCard(title, subtitle, content, false)
 }
 
+// StyledCard 样式化卡片 - 优化版本
 func StyledCard(title string, content fyne.CanvasObject) *fyne.Container {
-	bg := createShadowRectangle(color.NRGBA{R: 250, G: 251, B: 254, A: 255}, 8)
+	bg := createShadowRectangle(color.NRGBA{R: 250, G: 251, B: 254, A: 255}, 12)
 
-	titleLabel := canvas.NewText(title, color.NRGBA{R: 60, G: 80, B: 120, A: 255})
+	titleLabel := canvas.NewText(title, color.NRGBA{R: 17, G: 24, B: 39, A: 255})
 	titleLabel.TextSize = 16
 	titleLabel.TextStyle = fyne.TextStyle{Bold: true}
 
-	divider := canvas.NewRectangle(color.NRGBA{R: 230, G: 235, B: 240, A: 255})
+	divider := canvas.NewRectangle(color.NRGBA{R: 229, G: 231, B: 235, A: 255})
 	divider.SetMinSize(fyne.NewSize(0, 1))
 
 	// 组合
@@ -135,18 +210,18 @@ func StyledCard(title string, content fyne.CanvasObject) *fyne.Container {
 	shadow := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 15})
 	shadow.Move(fyne.NewPos(2, 2))
 	shadow.SetMinSize(fyne.NewSize(contentContainer.Size().Width+4, contentContainer.Size().Height+4))
-	shadow.CornerRadius = 8
+	shadow.CornerRadius = 12
 
 	return container.NewStack(shadow, bg, contentContainer)
 }
 
+// StyledSelect 样式化选择器
 func StyledSelect(options []string, selected func(string)) *widget.Select {
 	sel := widget.NewSelect(options, selected)
 
 	// 针对包含"翻译后字幕"的选项增加宽度
 	for _, option := range options {
 		if len(option) > 8 {
-
 			extraOptions := make([]string, len(options))
 			copy(extraOptions, options)
 
@@ -171,18 +246,21 @@ func StyledSelect(options []string, selected func(string)) *widget.Select {
 	return sel
 }
 
+// StyledEntry 样式化输入框
 func StyledEntry(placeholder string) *widget.Entry {
 	entry := widget.NewEntry()
 	entry.SetPlaceHolder(placeholder)
 	return entry
 }
 
+// StyledPasswordEntry 样式化密码输入框
 func StyledPasswordEntry(placeholder string) *widget.Entry {
 	entry := widget.NewPasswordEntry()
 	entry.SetPlaceHolder(placeholder)
 	return entry
 }
 
+// DividedContainer 分隔容器
 func DividedContainer(vertical bool, items ...fyne.CanvasObject) *fyne.Container {
 	if len(items) <= 1 {
 		if len(items) == 1 {
@@ -210,8 +288,9 @@ func DividedContainer(vertical bool, items ...fyne.CanvasObject) *fyne.Container
 	return container.New(layout.NewHBoxLayout(), objects...)
 }
 
+// createDivider 创建分隔线
 func createDivider(vertical bool) fyne.CanvasObject {
-	divider := canvas.NewRectangle(color.NRGBA{R: 210, G: 220, B: 240, A: 255})
+	divider := canvas.NewRectangle(color.NRGBA{R: 209, G: 213, B: 219, A: 255})
 	if vertical {
 		divider.SetMinSize(fyne.NewSize(0, 1))
 	} else {
@@ -220,6 +299,7 @@ func createDivider(vertical bool) fyne.CanvasObject {
 	return divider
 }
 
+// ProgressWithLabel 进度条带标签
 func ProgressWithLabel(initial float64) (*widget.ProgressBar, *widget.Label, *fyne.Container) {
 	progress := widget.NewProgressBar()
 	progress.SetValue(initial)
@@ -237,13 +317,15 @@ func UpdateProgressLabel(progress *widget.ProgressBar, label *widget.Label) {
 	label.SetText(fmt.Sprintf("%d%%", percentage))
 }
 
+// AnimatedContainer 动画容器
 func AnimatedContainer() *fyne.Container {
 	return container.NewStack()
 }
 
+// SwitchContent 切换内容
 func SwitchContent(container *fyne.Container, content fyne.CanvasObject, duration time.Duration) {
 	if container == nil || content == nil {
-		return 
+		return
 	}
 
 	if len(container.Objects) > 0 {
@@ -267,4 +349,70 @@ func SwitchContent(container *fyne.Container, content fyne.CanvasObject, duratio
 		container.Refresh()
 		FadeAnimation(content, duration/2, 0.0, 1.0)
 	}
+}
+
+// ModernCard 现代卡片组件
+func ModernCard(title string, content fyne.CanvasObject, isDark bool) *fyne.Container {
+	var bgColor color.Color
+	var titleColor color.Color
+	var borderColor color.Color
+
+	if isDark {
+		bgColor = color.NRGBA{R: 30, G: 41, B: 59, A: 255}
+		titleColor = color.NRGBA{R: 248, G: 250, B: 252, A: 255}
+		borderColor = color.NRGBA{R: 51, G: 65, B: 85, A: 255}
+	} else {
+		bgColor = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+		titleColor = color.NRGBA{R: 17, G: 24, B: 39, A: 255}
+		borderColor = color.NRGBA{R: 209, G: 213, B: 219, A: 255}
+	}
+
+	background := canvas.NewRectangle(bgColor)
+	background.CornerRadius = 12
+	background.StrokeColor = borderColor
+	background.StrokeWidth = 1
+
+	titleLabel := canvas.NewText(title, titleColor)
+	titleLabel.TextSize = 16
+	titleLabel.TextStyle = fyne.TextStyle{Bold: true}
+
+	divider := canvas.NewRectangle(color.NRGBA{R: 229, G: 231, B: 235, A: 255})
+	if isDark {
+		divider.FillColor = color.NRGBA{R: 51, G: 65, B: 85, A: 255}
+	}
+	divider.SetMinSize(fyne.NewSize(0, 1))
+
+	contentContainer := container.NewBorder(
+		container.NewVBox(
+			container.NewPadded(titleLabel),
+			divider,
+		),
+		nil, nil, nil,
+		container.NewPadded(content),
+	)
+
+	// 阴影效果
+	shadow := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 10})
+	shadow.Move(fyne.NewPos(2, 2))
+	shadow.CornerRadius = 12
+
+	return container.NewStack(shadow, background, contentContainer)
+}
+
+// ThemeToggleButton 主题切换按钮
+func ThemeToggleButton(isDark bool, onToggle func()) *widget.Button {
+	var icon fyne.Resource
+	var text string
+
+	if isDark {
+		icon = theme.ColorPaletteIcon()
+		text = "明亮模式"
+	} else {
+		icon = theme.ColorPaletteIcon()
+		text = "夜晚模式"
+	}
+
+	btn := widget.NewButtonWithIcon(text, icon, onToggle)
+	btn.Importance = widget.MediumImportance
+	return btn
 }
