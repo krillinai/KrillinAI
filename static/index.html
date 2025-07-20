@@ -1,894 +1,1898 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Krillin AI</title>
-	<style>
-		body {
-			margin: 0;
-			display: flex;
-			place-items: center;
-			min-width: 320px;
-			min-height: 100vh;
-			color: #333;
-			background: #000 url('/static/background.jpg') no-repeat center center fixed;
-			background-size: cover;
-		}
-
-		h1 {
-			text-align: center;
-			font-size: 32px;
-			line-height: 42px;
-			margin: 0 auto 20px;
-		}
-		select {
-			width: 160px;
-			height: 38px;
-			padding: 0 30px 0 12px;
-			border: 1px solid #ddd;
-			border-radius: 6px;
-			background-color: #fff;
-			background-image: url('data:image/svg+xml,%3Csvg fill="%23333" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/%3E%3C/svg%3E');
-			background-repeat: no-repeat;
-			background-position: right 12px center;
-			background-size: 12px;
-			-webkit-appearance: none;
-			-moz-appearance: none;
-			appearance: none;
-			cursor: pointer;
-			font-size: 14px;
-			color: #333;
-			transition: border-color 0.3s ease, box-shadow 0.3s ease;
-		}
-
-		select:focus {
-			border-color: #007bff;
-			box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
-			outline: none; /* 移除默认的聚焦轮廓 */
-		}
-
-		/* 隐藏 IE 默认箭头 */
-		select::-ms-expand {
-			display: none;
-		}
-		.container {
-			width: 620px;
-			padding: 30px;
-			margin: 20px auto;
-			background-color: #fff;
-			box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-			border-radius: 8px;
-			font-family: Arial, sans-serif;
-		}
-
-		form {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			/*margin: 0 40px;*/
-			gap: 15px;
-
-			button {
-				padding: 10px 24px;
-				background: linear-gradient(135deg, #007bff, #0056b3);
-				color: #fff;
-				border: none;
-				border-radius: 6px;
-				cursor: pointer;
-				outline: 0;
-				transition: background 0.3s ease, transform 0.2s ease;
-				box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-			}
-
-			button:hover {
-				background: linear-gradient(135deg, #0056b3, #003d80);
-				transform: translateY(-2px);
-			}
-
-			button:disabled {
-				background: #ccc;
-				cursor: not-allowed;
-				transform: none;
-			}
-			button:focus,
-			button:focus-visible {
-				outline: 0;
-			}
-		}
-
-		.formItem {
-			display: flex;
-			flex-direction: row;
-			align-items: center;
-			justify-content: center;
-			width: 100%;
-			height: 42px;
-			gap: 10px;
-
-			label {
-				line-height: 38px
-			}
-
-			input {
-				flex: 1;
-				line-height: 26px;
-			}
-			input[type="url"] {
-				padding: 8px 14px;
-				border: 1px solid #ddd;
-				border-radius: 6px;
-				outline: 0;
-				transition: border-color 0.3s ease;
-			}
-			input[type="url"]:focus {
-				border-color: #007bff;
-				box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
-			}
-			input[type="checkbox"],
-			input[type="radio"] {
-				width: 18px;
-				height: 18px;
-				transition: transform 0.2s;
-			}
-			input[type="checkbox"]:hover,
-			input[type="radio"]:hover {
-				transform: scale(1.1);
-			}
-		}
-		.download-links {
-			display: flex;
-			justify-content: center;
-			flex-wrap: wrap;
-			width: 100%;
-			gap: 30px;
-		}
-		.download-links a {
-			display: inline-block;
-			color: #007bff;
-			text-decoration: none;
-		}
-		.download-links a:hover {
-			text-decoration: underline;
-		}
-
-		.progressSection {
-			display: flex;
-			align-items: center;
-			flex-wrap: wrap;
-			gap: 10px;
-		}
-
-		.progressSection h4 {
-			font-weight: 400;
-			color: #333;
-		}
-		.progress-bar {
-			flex: 1;
-			position: relative;
-			height: 20px;
-			border-radius: 10px;
-			background-color: #f3f3f3;
-			overflow: hidden;
-		}
-		.progress-bar-fill {
-			height: 100%;
-			width: 0;
-			line-height: 20px;
-			text-align: center;
-			color: white;
-			background: linear-gradient(135deg, #4caf50, #45a049);
-			transition: width 0.5s ease;
-		}
-		.setWrap {
-			display: flex;
-			flex-direction: row;
-			flex-wrap: wrap;
-			justify-content: space-between;
-			width: 100%;
-		}
-		.formGroup {
-			display: flex;
-			flex-direction: row;
-			align-items: center;
-			justify-content: flex-start;
-			width: 100%;
-			min-height: 42px;
-			gap: 10px;
-		}
-		.formGroup label {
-			display: inline-block;
-			width: 100px;
-			text-align: right;
-		}
-		.formGroup select {
-			width: 160px;
-			height: 32px;
-			line-height: 32px;
-		}
-		.formGroup input[type="text"] {
-			width: 188px;
-			height: 28px;
-			line-height: 28px;
-			margin-bottom: 10px;
-		}
-		.formGroup input[type="checkbox"] {
-			margin-right: 10px;
-		}
-		.formGroup .voice-file-input {
-			width: auto;
-			min-width: 100px;
-			padding: 6px 10px;
-			text-align: center;
-			font-size: 12px;
-			border: 1px solid #999;
-			border-radius: 4px;
-			background: #eee;
-			cursor: pointer;
-		}
-		.formGroup .voice-file-input-remove {
-			display: none;
-			font-size: 12px;
-			color: #666;
-			cursor: pointer;
-		}
-		.loading {
-			display: flex;
-			align-items: center;
-			gap: 10px;
-			color: #4caf50;
-		}
-
-		.loading::after {
-			content: '';
-			width: 16px;
-			height: 16px;
-			border: 2px solid #4caf50;
-			border-top: 2px solid transparent;
-			border-radius: 50%;
-			animation: spin 1s linear infinite;
-		}
-		@keyframes spin {
-			0% { transform: rotate(0deg); }
-			100% { transform: rotate(360deg); }
-		}
-		/* 次要按钮样式 */
-		.download-button {
-			display: inline-block;
-			margin: 5px;
-			padding: 10px 24px;
-			background: #f8f9fa;
-			color: #495057;
-			border: 1px solid #ced4da;
-			border-radius: 6px;
-			cursor: pointer;
-			outline: 0;
-			transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
-			text-decoration: none;
-			text-align: center;
-			font-size: 14px;
-		}
-		.download-button:hover {
-			background: #e9ecef;
-			border-color: #adb5bd;
-			color: #343a40;
-		}
-		.download-button:focus,
-		.download-button:focus-visible {
-			outline: 0;
-			border-color: #007bff;
-			box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); /* 添加焦点状态的光晕效果 */
-		}
-
-		.hint-text {
-			margin-top: 10px;
-			font-size: 14px;
-			color: #666;
-			font-style: italic;
-		}
-
-		.hidden {
-			display: none;
-		}
-	</style>
-</head>
-<body>
-<div class="container">
-	<h1>世界帧精彩</h1>
-
-	<form id="taskForm">
-		<div class="formItem">
-			<label>
-				<input type="radio" name="inputType" value="url" checked>
-				输入视频地址
-			</label>
-			<label>
-				<input type="radio" name="inputType" value="file">
-				本地视频上传
-			</label>
-		</div>
-
-		<div class="formItem" id="urlInputContainer">
-			<label for="urlInput">输入视频地址:</label>
-			<input type="url" id="urlInput" name="urlInput" placeholder="请输入有效的链接">
-		</div>
-
-		<div class="formItem hidden" id="fileInputContainer">
-			<label for="fileInput">上传本地视频:</label>
-			<input style="margin-left: 6px" type="file" id="fileInput" name="fileInput" accept="video/*, audio/*" multiple>
-			<p id="uploadStatus" class="loading hidden">正在上传...</p>
-		</div>
-
-		<div class="setWrap">
-			<!-- 源语言 -->
-			<div class="formGroup">
-				<label>源语言:</label>
-				<input type="checkbox" id="source-language-toggle" checked disabled>
-				<select id="source-language">
-					<option value="zh_cn">简体中文</option>
-					<option value="en">英文</option>
-					<option value="ja">日文</option>
-					<option value="tr">土耳其语</option>
-					<option value="de">德语</option>
-					<option value="ko">韩语</option>
-					<option value="ru">俄语</option>
-				</select>
-			</div>
-
-			<!-- 字幕翻译 -->
-			<div class="formGroup">
-				<label>字幕翻译:</label>
-				<input type="checkbox" id="translation-toggle" checked>
-				<select id="translation-language" disabled>
-					<option value="zh_cn">简体中文</option>
-					<option value="zh_tw">繁体中文</option>
-					<option value="en">英语</option>
-					<option value="ja">日语</option>
-					<option value="pinyin">拼音</option>
-					<option value="mid">印度尼西亚语</option>
-					<option value="ms">马来西亚语</option>
-					<option value="th">泰语</option>
-					<option value="vi">越南语</option>
-					<option value="fil">菲律宾语</option>
-					<option value="ko">韩语</option>
-					<option value="ar">阿拉伯语</option>
-					<option value="fr">法语</option>
-					<option value="de">德语</option>
-					<option value="it">意大利语</option>
-					<option value="ru">俄语</option>
-					<option value="pt">葡萄牙语</option>
-					<option value="es">西班牙语</option>
-					<option value="hi">印度语</option>
-					<option value="bn">孟加拉语</option>
-					<option value="he">希伯来语</option>
-					<option value="fa">波斯语</option>
-					<option value="af">南非语</option>
-					<option value="sv">瑞典语</option>
-					<option value="fi">芬兰语</option>
-					<option value="da">丹麦语</option>
-					<option value="no">挪威语</option>
-					<option value="nl">荷兰语</option>
-					<option value="el">希腊语</option>
-					<option value="uk">乌克兰语</option>
-					<option value="hu">匈牙利语</option>
-					<option value="pl">波兰语</option>
-					<option value="tr">土耳其语</option>
-					<option value="sr">塞尔维亚语</option>
-					<option value="hr">克罗地亚语</option>
-					<option value="cs">捷克语</option>
-					<option value="sw">斯瓦西里语</option>
-					<option value="yo">约鲁巴语</option>
-					<option value="ha">豪萨语</option>
-					<option value="am">阿姆哈拉语</option>
-					<option value="om">奥罗莫语</option>
-					<option value="is">冰岛语</option>
-					<option value="lb">卢森堡语</option>
-					<option value="ca">加泰罗尼亚语</option>
-					<option value="ro">罗马尼亚语</option>
-					<option value="ro2">摩尔多瓦语</option>
-					<option value="sk">斯洛伐克语</option>
-					<option value="bs">波斯尼亚语</option>
-					<option value="mk">马其顿语</option>
-					<option value="sl">斯洛文尼亚语</option>
-					<option value="bg">保加利亚语</option>
-					<option value="lv">拉脱维亚语</option>
-					<option value="lt">立陶宛语</option>
-					<option value="et">爱沙尼亚语</option>
-					<option value="mt">马耳他语</option>
-					<option value="sq">阿尔巴尼亚语</option>
-				</select>
-			</div>
-
-			<!-- 双语字幕 -->
-			<div class="formGroup">
-				<label>双语字幕:</label>
-				<input type="checkbox" id="bilingual-toggle" disabled checked>
-				<select id="bilingual-position" disabled>
-					<option value="1">翻译后字幕在上方</option>
-					<option value="2">翻译后字幕在下方</option>
-				</select>
-			</div>
-
-			<!-- 配音 -->
-			<div class="formGroup">
-				<label>配音:</label>
-				<input type="checkbox" id="voiceover-toggle">
-				<input
-						type="text"
-						id="voiceover-voice"
-						placeholder="输入 voice code"
-						disabled
-				>
-				<span>或</span>
-				<label for="voiceFileInput" id="voiceFileInputName" class="voice-file-input">
-					选择音色克隆样本(仅阿里云)
-				</label>
-				<span class="voice-file-input-remove" id="voiceFileInputRemove">删除</span>
-				<input style="display: none" type="file" id="voiceFileInput" name="voiceFileInput" accept="audio/*">
-				<p id="voiceUploadStatus" class="loading hidden">正在上传...</p>
-			</div>
-
-			<!-- 语气词过滤 -->
-			<div class="formGroup">
-				<label>语气词过滤:</label>
-				<input type="checkbox" id="filler-filter-toggle" checked>
-			</div>
-
-			<!-- 词汇替换 -->
-			<div class="formGroup" style="justify-content: flex-start; align-items: flex-start;">
-				<label style="padding: 10px 0;">词汇替换:</label>
-				<input style="margin: 14px 10px 14px 4px;" type="checkbox" id="word-replacement-toggle">
-				<div id="word-replacement-container" style="display: none; padding-top: 6px">
-<!--					<div class="replacement-row">-->
-<!--						<input type="text" placeholder="原词" class="original-word">-->
-<!--						<input type="text" placeholder="替换词" class="replacement-word">-->
-<!--						<button type="button" class="remove-row">删除</button>-->
-<!--					</div>-->
-					<button type="button" id="add-row">新增替换</button>
-				</div>
-			</div>
-
-			<!-- 合成字幕嵌入视频 -->
-			<div class="formGroup" id="embed-subtitle-container">
-				<label>合成视频:</label>
-				<input type="checkbox" id="embed-subtitle-toggle">
-				<select id="embed-subtitle">
-					<option value="horizontal">横屏视频</option>
-					<option value="vertical">竖屏视频</option>
-					<option value="all">横屏+竖屏视频</option>
-				</select>
-				<div id="subtitle-text-inputs" class="hidden">
-					<input type="text" id="subtitle-text-1" placeholder="请输入竖屏视频主标题">
-					<input type="text" id="subtitle-text-2" placeholder="请输入竖屏视频副标题">
-				</div>
-				<div id="subtitle-hint" class="hint-text">适合B站、Youtube等</div> <!-- 新增提示信息区域 -->
-			</div>
-		</div>
-
-		<button type="submit" id="executeButton">执 行</button>
-	</form>
-
-	<div id="progressSection" class="progressSection hidden">
-		<h4>任务进度: </h4>
-		<div class="progress-bar">
-			<div class="progress-bar-fill" id="progressBar">0%</div>
-		</div>
-		<div id="downloadLinks" class="hidden download-links"></div>
-	</div>
-	<div id="tips" class="">
-	</div>
-</div>
-
-<script>
-	const urlInputContainer = document.getElementById('urlInputContainer');
-	const fileInputContainer = document.getElementById('fileInputContainer');
-	const urlInput = document.getElementById('urlInput');
-	const fileInput = document.getElementById('fileInput');
-	const uploadStatus = document.getElementById('uploadStatus');
-	const voiceFileInput = document.getElementById('voiceFileInput');
-	const voiceFileInputName = document.getElementById('voiceFileInputName');
-	const voiceFileInputRemove = document.getElementById('voiceFileInputRemove');
-	const voiceUploadStatus = document.getElementById('voiceUploadStatus');
-	const executeButton = document.getElementById('executeButton');
-	const taskForm = document.getElementById('taskForm');
-	const progressSection = document.getElementById('progressSection');
-	const progressBar = document.getElementById('progressBar');
-	const downloadLinks = document.getElementById('downloadLinks');
-
-	// 获取表单元素
-	const translationToggle = document.getElementById("translation-toggle");
-	const translationLanguage = document.getElementById("translation-language");
-	const bilingualToggle = document.getElementById("bilingual-toggle");
-	const bilingualPosition = document.getElementById("bilingual-position");
-	const voiceoverToggle = document.getElementById("voiceover-toggle");
-	const voiceoverVoice = document.getElementById("voiceover-voice");
-	const wordReplacementToggle = document.getElementById("word-replacement-toggle");
-	const wordReplacementContainer = document.getElementById("word-replacement-container");
-	const addRowButton = document.getElementById("add-row");
-	const embedSubtitleVideoTypeToggle = document.getElementById("embed-subtitle-toggle");
-	const embedSubtitleVideoType = document.getElementById("embed-subtitle");
-	const embedSubtitle = document.getElementById("embed-subtitle");
-	const subtitleTextInputs = document.getElementById("subtitle-text-inputs");
-	const verticalMajorTitle = document.getElementById("subtitle-text-1");
-	const verticalMinorTitle = document.getElementById("subtitle-text-2");
-	const tips = document.getElementById("tips");
-
-	const API_SUBMIT_URL = "/api/capability/subtitleTask";
-	const API_PROGRESS_URL = "/api/capability/subtitleTask";
-	const API_UPLOAD_URL = "/api/file";
-
-	let uploadedVideoUrl = null; // 存储上传后的视频地址
-	let uploadedAudioUrl = null; // 存储上传后的音频地址
-
-	// 更新状态（启用或禁用表单项）
-	function updateFormState() {
-		translationLanguage.disabled = !translationToggle.checked;
-		if (!translationToggle.checked) {
-			bilingualToggle.checked = false;
-			voiceoverToggle.checked = false;
-		}
-		voiceoverToggle.disabled = !translationToggle.checked;
-		bilingualToggle.disabled = !translationToggle.checked;
-		voiceoverToggle.disabled = !translationToggle.checked;
-		bilingualPosition.disabled = !bilingualToggle.checked;
-		voiceoverVoice.disabled = !voiceoverToggle.checked;
-		voiceFileInput.disabled = !voiceoverToggle.checked;
-		voiceFileInputName.style.cursor = voiceoverToggle.checked ? "pointer" : "not-allowed";
-		wordReplacementContainer.style.display = wordReplacementToggle.checked ? "block" : "none";
-	}
-
-	// 字幕翻译开关
-	translationToggle.addEventListener("change", () => {
-		updateFormState();
-	});
-
-	// 双语字幕开关
-	bilingualToggle.addEventListener("change", () => {
-		bilingualPosition.disabled = !bilingualToggle.checked;
-	});
-
-	// 配音开关
-	voiceoverToggle.addEventListener("change", () => {
-		updateFormState();
-	});
-
-	// 词汇替换开关
-	wordReplacementToggle.addEventListener("change", () => {
-		updateFormState();
-	});
-
-	// 新增词汇替换行
-	addRowButton.addEventListener("click", () => {
-		const newRow = document.createElement("div");
-		newRow.className = "replacement-row";
-		newRow.innerHTML = `
-        <input type="text" placeholder="原词" class="original-word">
-        <input type="text" placeholder="替换词" class="replacement-word">
-        <button type="button" class="remove-row">删除</button>
-      `;
-		wordReplacementContainer.insertBefore(newRow, addRowButton);
-
-		// 绑定删除按钮事件
-		newRow.querySelector(".remove-row").addEventListener("click", () => {
-			newRow.remove();
-		});
-	});
-
-	// 删除上传音频
-	voiceFileInputRemove.addEventListener("click", () => {
-		voiceFileInput.value = '';
-		voiceFileInputName.textContent = '选择音色克隆样本';
-		uploadedAudioUrl = null;
-		voiceFileInputRemove.style.display = 'none';
-	});
-
-	// 监听“合成字幕嵌入视频”选项
-	embedSubtitle.addEventListener("change", () => {
-		const selectedValue = embedSubtitle.value;
-		if (selectedValue === "vertical" || selectedValue === "all") {
-			subtitleTextInputs.classList.remove("hidden");
-		} else {
-			subtitleTextInputs.classList.add("hidden");
-		}
-	});
-
-	// 监听“合成字幕嵌入视频”选项
-	document.getElementById('embed-subtitle').addEventListener('change', function() {
-		const hintElement = document.getElementById('subtitle-hint');
-		const selectedValue = this.value;
-
-		if (selectedValue === 'vertical') {
-			hintElement.textContent = '适合小红书、视频号、Shorts等';
-		} else if (selectedValue === 'horizontal') {
-			hintElement.textContent = '适合B站、Youtube等';
-		} else {
-			hintElement.textContent = ''; // 清空提示信息
-		}
-	});
-
-	// 提交表单
-	function getParams () {
-		const formData = {
-			language: 'zh_cn',
-			origin_lang: document.getElementById("source-language").value,
-			target_lang: translationToggle.checked ? translationLanguage.value : 'none',
-			bilingual: bilingualToggle.checked ? 1 : 2,
-			translation_subtitle_pos: +bilingualPosition.value,
-			tts: voiceoverToggle.checked ? 1 : 2,
-			modal_filter: document.getElementById("filler-filter-toggle").checked ? 1 : 2,
-			embed_subtitle_video_type: embedSubtitleVideoTypeToggle.checked ? embedSubtitleVideoType.value : 'none',
-		};
-
-		if (formData.tts === 1) {
-			formData.tts_voice_code = +voiceoverVoice.value;
-			if (uploadedAudioUrl) {
-				formData.tts_voice_clone_src_file_url = uploadedAudioUrl[0];
-			}
-		}
-
-		if (formData.target_lang === 'ro2') {
-			formData.target_lang = 'ro';
-		}
-
-		if (wordReplacementToggle.checked) {
-			formData.replace = Array.from(document.querySelectorAll(".replacement-row")).map(row => {
-				if (row.querySelector(".original-word").value) {
-					return (`${row.querySelector(".original-word").value}|${row.querySelector(".replacement-word").value}`
-					);
-				} else {
-					return null;
-				}
-			}).filter(item => item !== null)
-		}
-
-		// 添加字幕文本到请求参数中
-		if (embedSubtitleVideoTypeToggle.checked && (embedSubtitle.value === "vertical" || embedSubtitle.value === "all")) {
-			formData.vertical_major_title = verticalMajorTitle.value;
-			formData.vertical_minor_title = verticalMinorTitle.value;
-		}
-
-		console.log("表单数据：", formData);
-
-		return formData;
-	}
-
-	// 初始化时更新表单状态
-	updateFormState();
-
-	// 切换输入方式
-	document.querySelectorAll('input[name="inputType"]').forEach(radio => {
-		radio.addEventListener('change', () => {
-			if (radio.value === 'url') {
-				urlInputContainer.classList.remove('hidden');
-				fileInputContainer.classList.add('hidden');
-				fileInput.required = false;
-				urlInput.required = true;
-				executeButton.disabled = false; // 启用“执行”按钮
-			} else {
-				urlInputContainer.classList.add('hidden');
-				fileInputContainer.classList.remove('hidden');
-				urlInput.required = false;
-				fileInput.required = true;
-				executeButton.disabled = true; // 禁用“执行”按钮，等待上传完成
-			}
-		});
-	});
-
-	// 处理视频上传
-	fileInput.addEventListener('change', async () => {
-		if (fileInput.files.length === 0) return;
-
-		uploadStatus.classList.remove('hidden');
-		executeButton.disabled = true; // 禁用“执行”按钮
-
-		const formData = new FormData();
-		for (const file of fileInput.files) {
-			formData.append('file', file); // 确保字段名与后端一致
-		}
-
-		try {
-			const response = await fetch(API_UPLOAD_URL, {
-				method: 'POST',
-				body: formData,
-			});
-			if (!response.ok) throw new Error('视频上传失败');
-			const res = await response.json();
-			const { error, data, msg } = res || {};
-			if (error !== 0 && error !== 200) {
-				throw new Error(msg || '上传失败，请重试');
-			}
-			uploadedVideoUrl = data.file_path; // 获取返回的文件路径数组
-			executeButton.disabled = false; // 启用“执行”按钮
-		} catch (error) {
-			console.error('视频上传失败:', error);
-			alert(error);
-		} finally {
-			uploadStatus.classList.add('hidden');
-		}
-	});
-
-	// 处理音频上传
-	voiceFileInput.addEventListener('change', async () => {
-		if (voiceFileInput.files.length === 0) return;
-
-		voiceUploadStatus.classList.remove('hidden');
-
-		const file = voiceFileInput.files[0];
-
-		const formData = new FormData();
-		formData.append('file', file);
-
-		try {
-			const response = await fetch(API_UPLOAD_URL, {
-				method: 'POST',
-				body: formData,
-			});
-			if (!response.ok) throw new Error('上传失败');
-			const res = await response.json();
-			const { error, data, msg } = res || {};
-			if (error !== 0 && error !== 200) {
-				throw new Error(msg || '上传失败，请重试')
-			}
-			uploadedAudioUrl = data.file_path; // 获取返回的地址
-			voiceFileInputName.textContent = file.name;
-			voiceFileInputRemove.style.display = 'block';
-		} catch (error) {
-			console.error('音频上传失败:', error);
-			alert(error);
-		} finally {
-			voiceUploadStatus.classList.add('hidden');
-		}
-	});
-
-	// 点击执行按钮发送任务请求
-	taskForm.addEventListener('submit', async (event) => {
-		event.preventDefault();
-
-		if (!taskForm.checkValidity()) {
-			taskForm.reportValidity();
-			return;
-		}
-
-		if (!bilingualToggle.checked && embedSubtitleVideoTypeToggle.checked) {
-			alert('合成字幕嵌入视频必须打开双语选项')
-			return;
-		}
-
-		const inputType = document.querySelector('input[name="inputType"]:checked').value;
-		// const params = {
-		// 	bilingual: 1,
-		// 	language: "en",
-		// 	modal_filter: 1,
-		// 	origin_lang: "en",
-		// 	target_lang: "zh_cn",
-		// 	translation_subtitle_pos: 1,
-		// 	tts: 2
-		// };
-		let url = '';
-
-		if (inputType === 'url') {
-			url = urlInput.value.trim();
-		} else if (inputType === 'file' && uploadedVideoUrl) {
-			url = uploadedVideoUrl;
-		} else {
-			alert('请上传视频后再执行任务');
-			return;
-		}
-
-		if (!url) {
-			alert('请输入视频链接后再执行任务');
-			return;
-		}
-		const params = getParams();
-		// 请求启动任务接口
-		if (Array.isArray(url)) {
-			for (const singleUrl of url) {
-				const taskId = await startTask({ ...params, url: singleUrl });
-				if (taskId) {
-					executeButton.disabled = true;
-					progressSection.classList.remove('hidden');
-					await pollTaskProgress(taskId);
-				}
-			}
-		} else {
-			const taskId = await startTask({ ...params, url });
-			if (taskId) {
-				executeButton.disabled = true;
-				progressSection.classList.remove('hidden');
-				await pollTaskProgress(taskId);
-			}
-		}
-	});
-
-
-	// 请求启动任务接口
-	async function startTask(params) {
-		try {
-			const response = await fetch(API_SUBMIT_URL, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify(params),
-			}).then(res => res.json()).then(data => {
-				return data;
-			});
-			if (+response.error !== 0 && +response.error !== 200) {
-				throw new Error(response.msg || '启动任务失败');
-			}
-			return (response.data || {}).task_id || '';
-		} catch (error) {
-			alert(error);
-			console.error('启动任务失败:', error);
-			return null;
-		}
-
-		// return new Promise(resolve => setTimeout(() => resolve('taskId123'), 1000)); // 模拟返回 taskId
-	}
-
-	// 轮询任务进度接口
-	async function pollTaskProgress(taskId) {
-		try {
-			let progress = 0;
-			while (progress < 100) {
-				const response = await fetch(`${API_PROGRESS_URL}?taskId=${taskId}`).then(res => res.json()).then(data => {
-					return data || {};
-				});
-				console.log('progress response---:', response);
-				if (+response.error !== 0 && +response.error !== 200) {
-					executeButton.disabled = false;
-					throw new Error(response.msg || '查询进度失败');
-				}
-				const data = response.data || {};
-				progress = data.process_percent || 0;
-				progressBar.style.width = progress + '%';
-				progressBar.textContent = progress + '%';
-				if (progress >= 100) {
-					displayDownloadLinks(data.subtitle_info || [], data.speech_download_url || '');
-					executeButton.disabled = false;
-					// 显示output路径说明
-					tips.textContent = "若需要查看合成的视频或者文字稿，请到软件目录下的/tasks/"+data.task_id+"/output 目录下查看。";
-					return;
-				}
-				await new Promise(resolve => setTimeout(resolve, 5000));
-			}
-		} catch (error) {
-			alert(error);
-			executeButton.disabled = false;
-			console.error('查询进度失败:', error);
-		}
-	}
-
-	// 显示下载链接
-	function displayDownloadLinks(urls, speechUrl) {
-		console.log(urls);
-		downloadLinks.innerHTML = '';
-
-		urls.forEach(({name, download_url}) => {
-			const link = document.createElement('a');
-			link.href = download_url;
-			link.textContent = name;
-			link.download = '';
-			link.classList.add('download-button'); // 添加按钮样式
-			downloadLinks.appendChild(link);
-		});
-
-		if (speechUrl) {
-			const sArr = speechUrl.split('/');
-			const sName = sArr[sArr.length - 1];
-
-			const link = document.createElement('a');
-			link.href = speechUrl;
-			link.target = '_blank';
-			link.textContent = `配音：${sName}`;
-			link.download = '';
-			link.classList.add('download-button'); // 添加按钮样式
-			downloadLinks.appendChild(link);
-		}
-
-		downloadLinks.classList.remove('hidden');
-	}
-</script>
-</body>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1200" />
+    <title>Klic Studio</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Inter:400,600,700&display=swap"
+    />
+    <style>
+      body {
+        margin: 0;
+        font-family: "Inter", Arial, sans-serif;
+        background: linear-gradient(120deg, #f8fafc 0%, #e0e7ef 100%);
+        min-height: 100vh;
+        color: #222;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 12px 0 rgba(30, 41, 59, 0.06);
+        border: 1px solid rgba(209, 213, 219, 0.3);
+      }
+      .card-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0 0 20px 0;
+        display: flex;
+        align-items: center;
+      }
+      .card-title::before {
+        content: "";
+        width: 4px;
+        height: 20px;
+        background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        border-radius: 2px;
+        margin-right: 12px;
+      }
+      .form-group {
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .form-group label {
+        min-width: 200px;
+        text-align: left;
+      }
+      .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 16px;
+      }
+      .form-label {
+        font-weight: 600;
+        color: #374151;
+        min-width: 120px;
+        text-align: right;
+      }
+      .form-input {
+        flex: 1;
+        padding: 10px 14px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        background: #fff;
+      }
+      .form-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+      .form-select {
+        padding: 10px 14px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #fff;
+        cursor: pointer;
+        transition: border-color 0.2s;
+      }
+      .form-select:focus {
+        outline: none;
+        border-color: #3b82f6;
+      }
+      .radio-group {
+        display: flex;
+        gap: 20px;
+      }
+      .radio-item,
+      .checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-weight: 500;
+      }
+      .radio-item input,
+      .checkbox-item input {
+        width: 18px;
+        height: 18px;
+        accent-color: #3b82f6;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .action-area {
+        text-align: center;
+        margin: 32px 0;
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #3b82f6, #60a5fa);
+        color: white;
+        border: none;
+        padding: 14px 32px;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+      }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+      }
+      .btn-primary:active {
+        transform: translateY(1px);
+        box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+        background: linear-gradient(135deg, #2563eb, #4f46e5);
+        transition: all 0.1s;
+      }
+      .btn-primary:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+      .btn-primary.clicked {
+        animation: button-click 0.5s;
+      }
+      @keyframes button-click {
+        0% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(0.95);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      .progress-section {
+        margin-top: 24px;
+        padding: 20px;
+        background: rgba(236, 244, 255, 0.8);
+        border-radius: 12px;
+        border: 1px solid rgba(59, 130, 246, 0.2);
+      }
+      .progress-section h4 {
+        margin: 0 0 12px 0;
+        color: #1e293b;
+        font-weight: 600;
+      }
+      .progress-bar {
+        width: 100%;
+        height: 24px;
+        background: #e5e7eb;
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+      }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #10b981, #059669);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 12px;
+        transition: width 0.3s ease;
+        min-width: 40px;
+      }
+      .download-links {
+        margin-top: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .download-links a {
+        padding: 8px 16px;
+        background: #f8fafc;
+        color: #3b82f6;
+        text-decoration: none;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s;
+      }
+      .download-links a:hover {
+        background: #eff6ff;
+        border-color: #3b82f6;
+        transform: translateY(-1px);
+      }
+      .loading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #059669;
+        font-weight: 500;
+      }
+      .loading::after {
+        content: "";
+        width: 16px;
+        height: 16px;
+        border: 2px solid #059669;
+        border-top: 2px solid transparent;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      .hint {
+        font-size: 12px;
+        color: #6b7280;
+        margin-left: 8px;
+      }
+      .app-container {
+        display: flex;
+        height: 100vh;
+      }
+      .sidebar {
+        width: 240px;
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: 2px 0 16px 0 rgba(30, 41, 59, 0.08);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 32px 0 0 0;
+        border-top-right-radius: 24px;
+        border-bottom-right-radius: 24px;
+        backdrop-filter: blur(12px);
+      }
+      .logo {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #3b82f6;
+        margin-bottom: 16px;
+        letter-spacing: 2px;
+      }
+      .slogan {
+        font-size: 1rem;
+        color: #64748b;
+        margin-bottom: 32px;
+      }
+      .nav {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: auto;
+      }
+      .nav-btn {
+        width: 90%;
+        margin: 0 auto;
+        padding: 14px 0;
+        border: none;
+        border-radius: 10px;
+        background: none;
+        font-size: 1.1rem;
+        color: #334155;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+      }
+      .nav-btn.active,
+      .nav-btn:hover {
+        background: linear-gradient(90deg, #3b82f6 60%, #60a5fa 100%);
+        color: #fff;
+      }
+      .sidebar-bottom {
+        margin: 32px 0 0 0;
+        width: 100%;
+        text-align: center;
+      }
+      .main-content {
+        flex: 1;
+        padding: 40px 0 0 0;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        background: transparent;
+        overflow: hidden;
+      }
+      .main-inner {
+        max-width: 900px;
+        margin: 0 auto;
+        width: 100%;
+        height: calc(100vh - 120px);
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 18px;
+        box-shadow: 0 4px 32px 0 rgba(30, 41, 59, 0.1);
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        backdrop-filter: blur(8px);
+        overflow: hidden;
+      }
+      #page-workbench,
+      #page-config {
+        flex: 1;
+        padding: 36px 48px 24px 48px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        /* 为状态栏预留空间，避免内容被遮挡 */
+        padding-bottom: 60px;
+      }
+      /* 美化滚动条 */
+      #page-workbench::-webkit-scrollbar,
+      #page-config::-webkit-scrollbar {
+        width: 8px;
+      }
+      #page-workbench::-webkit-scrollbar-track,
+      #page-config::-webkit-scrollbar-track {
+        background: rgba(241, 245, 249, 0.5);
+        border-radius: 4px;
+      }
+      #page-workbench::-webkit-scrollbar-thumb,
+      #page-config::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.5);
+        border-radius: 4px;
+      }
+      #page-workbench::-webkit-scrollbar-thumb:hover,
+      #page-config::-webkit-scrollbar-thumb:hover {
+        background: rgba(100, 116, 139, 0.7);
+      }
+      .status-bar {
+        width: 100%;
+        height: 38px;
+        background: rgba(236, 244, 255, 0.85);
+        color: #64748b;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: first baseline;
+        padding: 0 24px;
+        border-top: 1px solid #e5e7eb;
+        border-bottom-left-radius: 18px;
+        border-bottom-right-radius: 18px;
+        box-shadow: 0 2px 8px 0 rgba(30, 41, 59, 0.04);
+        overflow: visible;
+        white-space: nowrap;
+        min-width: 0;
+        box-sizing: border-box;
+      }
+      @media (max-width: 1200px) {
+        .main-inner {
+          padding: 24px 8px;
+        }
+        .sidebar {
+          width: 180px;
+        }
+        .status-bar {
+          font-size: 0.8rem;
+          padding: 0 20px;
+        }
+        #page-workbench,
+        #page-config {
+          padding-bottom: 50px;
+        }
+      }
+      @media (max-width: 900px) {
+        .main-inner {
+          padding: 8px 2px;
+        }
+        .sidebar {
+          display: none;
+        }
+        .status-bar {
+          font-size: 0.75rem;
+          padding: 0 16px;
+          height: 32px;
+        }
+        #page-workbench,
+        #page-config {
+          padding-bottom: 40px;
+        }
+      }
+      @media (max-width: 600px) {
+        .status-bar {
+          font-size: 0.7rem;
+          padding: 0 12px;
+          height: 28px;
+        }
+        #page-workbench,
+        #page-config {
+          padding-bottom: 35px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-container">
+      <div class="sidebar">
+        <div class="logo">Klic Studio</div>
+        <div class="slogan">智能内容创作助手</div>
+        <div class="nav">
+          <button class="nav-btn active" id="nav-workbench">工作台</button>
+          <button class="nav-btn" id="nav-config">配置</button>
+        </div>
+        <div class="sidebar-bottom">
+          <span style="font-size: 13px; color: #94a3b8">v1.0</span>
+        </div>
+      </div>
+      <div class="main-content">
+        <div class="main-inner">
+          <div id="page-workbench">
+            <h1
+              style="
+                text-align: center;
+                font-size: 2.2rem;
+                font-weight: 700;
+                color: #1e293b;
+                margin: 0 0 32px 0;
+              "
+            >
+              视频翻译配音
+            </h1>
+
+            <!-- 视频输入区域 -->
+            <div class="card">
+              <h3 class="card-title">1. 视频源设置</h3>
+              <div class="form-group">
+                <label class="form-label">输入方式:</label>
+                <div class="radio-group">
+                  <label class="radio-item">
+                    <input type="radio" name="inputType" value="url" checked />
+                    <span>视频链接</span>
+                  </label>
+                  <label class="radio-item">
+                    <input type="radio" name="inputType" value="file" />
+                    <span>本地视频</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group" id="urlInputContainer">
+                <label class="form-label">视频地址:</label>
+                <input
+                  type="url"
+                  id="urlInput"
+                  placeholder="请输入有效的视频链接"
+                  class="form-input"
+                />
+              </div>
+
+              <div class="form-group hidden" id="fileInputContainer">
+                <label class="form-label">上传视频:</label>
+                <input
+                  type="file"
+                  id="fileInput"
+                  accept="video/*,audio/*"
+                  multiple
+                  class="form-input"
+                />
+                <div id="uploadStatus" class="loading hidden">正在上传...</div>
+              </div>
+            </div>
+
+            <!-- 字幕设置区域 -->
+            <div class="card">
+              <h3 class="card-title">2. 字幕设置</h3>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">源语言:</label>
+                  <select id="source-language" class="form-select">
+                    <option value="zh_cn">简体中文</option>
+                    <option value="en">English</option>
+                    <option value="ja">日文</option>
+                    <option value="tr">土耳其语</option>
+                    <option value="de">德语</option>
+                    <option value="ko">韩语</option>
+                    <option value="ru">俄语</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">目标语言:</label>
+                  <select id="target-language" class="form-select">
+                    <option value="zh_cn">简体中文</option>
+                    <option value="en">English</option>
+                    <option value="ja">日文</option>
+                    <option value="tr">土耳其语</option>
+                    <option value="de">德语</option>
+                    <option value="ko">韩语</option>
+                    <option value="ru">俄语</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="checkbox-item">
+                  <input type="checkbox" id="bilingual-toggle" checked />
+                  <span>启用双语字幕</span>
+                </label>
+                <select
+                  id="bilingual-position"
+                  class="form-select"
+                  style="width: 200px; margin-left: 16px"
+                >
+                  <option value="top">翻译后字幕在上方</option>
+                  <option value="bottom">翻译后字幕在下方</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="checkbox-item">
+                  <input type="checkbox" id="filler-filter-toggle" checked />
+                  <span>启用语气词过滤</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 配音设置区域 -->
+            <div class="card">
+              <h3 class="card-title">3. 配音设置</h3>
+              <div class="form-group">
+                <label class="checkbox-item">
+                  <input type="checkbox" id="voiceover-toggle" />
+                  <span>启用配音</span>
+                </label>
+                <input
+                  type="text"
+                  id="voiceover-voice"
+                  placeholder="输入声音代码"
+                  class="form-input"
+                  style="width: 200px; margin-left: 16px"
+                  disabled
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">音色克隆样本:</label>
+                <input
+                  type="file"
+                  id="voiceFileInput"
+                  accept="audio/*"
+                  class="form-input"
+                  style="width: 300px"
+                />
+                <span class="hint">仅支持阿里云TTS</span>
+              </div>
+            </div>
+
+            <!-- 视频合成设置 -->
+            <div class="card">
+              <h3 class="card-title">4. 视频合成设置</h3>
+              <div class="form-group">
+                <label class="checkbox-item">
+                  <input type="checkbox" id="embed-subtitle-toggle" />
+                  <span>合成视频</span>
+                </label>
+                <select
+                  id="embed-subtitle"
+                  class="form-select"
+                  style="width: 200px; margin-left: 16px"
+                  disabled
+                >
+                  <option value="horizontal">横屏视频</option>
+                  <option value="vertical">竖屏视频</option>
+                  <option value="all">横屏+竖屏视频</option>
+                </select>
+              </div>
+              <div id="subtitle-text-inputs" class="hidden">
+                <div class="form-group">
+                  <label class="form-label">主标题:</label>
+                  <input
+                    type="text"
+                    id="subtitle-text-1"
+                    placeholder="请输入竖屏视频主标题"
+                    class="form-input"
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">副标题:</label>
+                  <input
+                    type="text"
+                    id="subtitle-text-2"
+                    placeholder="请输入竖屏视频副标题"
+                    class="form-input"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- 执行按钮 -->
+            <div class="action-area">
+              <button type="button" id="executeButton" class="btn-primary">
+                开始任务
+              </button>
+            </div>
+
+            <!-- 进度区域 -->
+            <div id="progressSection" class="progress-section hidden">
+              <h4>任务进度</h4>
+              <div class="progress-bar">
+                <div class="progress-fill" id="progressBar">0%</div>
+              </div>
+              <div id="downloadLinks" class="download-links hidden"></div>
+            </div>
+          </div>
+          <div id="page-config" style="display: none">
+            <h1
+              style="
+                text-align: center;
+                font-size: 2.2rem;
+                font-weight: 700;
+                color: #1e293b;
+                margin: 0 0 32px 0;
+              "
+            >
+              应用配置
+            </h1>
+
+            <!-- 应用配置 -->
+            <div class="card">
+              <h3 class="card-title">应用配置 App Config</h3>
+              <div class="form-group">
+                <label class="form-label"
+                  >分段处理时长(分钟) Segment duration (minutes):</label
+                >
+                <input
+                  type="number"
+                  id="segment-duration"
+                  value="5"
+                  min="1"
+                  max="30"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >转录最大并行数量 Transcribe parallel num:</label
+                >
+                <input
+                  type="number"
+                  id="transcribe-parallel"
+                  value="2"
+                  min="1"
+                  max="10"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >翻译最大并行数量 Translate parallel num:</label
+                >
+                <input
+                  type="number"
+                  id="translate-parallel"
+                  value="5"
+                  min="1"
+                  max="20"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >转录最大尝试次数 Transcribe max attempts:</label
+                >
+                <input
+                  type="number"
+                  id="transcribe-max-attempts"
+                  value="3"
+                  min="1"
+                  max="10"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >翻译最大尝试次数 Translate max attempts:</label
+                >
+                <input
+                  type="number"
+                  id="translate-max-attempts"
+                  value="3"
+                  min="1"
+                  max="20"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >每个句子最大字符数 Max sentence length:</label
+                >
+                <input
+                  type="number"
+                  id="max-sentence-length"
+                  value="100"
+                  min="1"
+                  max="200"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">网络代理地址 proxy:</label>
+                <input
+                  type="text"
+                  id="proxy"
+                  placeholder="http://127.0.0.1:7890"
+                  class="form-input"
+                />
+              </div>
+            </div>
+
+            <!-- 服务器配置 -->
+            <div class="card">
+              <h3 class="card-title">服务器配置 Server Config</h3>
+              <div class="form-group">
+                <label class="form-label">服务器地址 Server address:</label>
+                <input
+                  type="text"
+                  id="server-host"
+                  value="127.0.0.1"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">服务器端口 Server port:</label>
+                <input
+                  type="number"
+                  id="server-port"
+                  value="8888"
+                  min="1"
+                  max="65535"
+                  class="form-input"
+                />
+              </div>
+            </div>
+
+            <!-- LLM配置 -->
+            <div class="card">
+              <h3 class="card-title">LLM 配置 LLM Config</h3>
+              <div class="form-group">
+                <label class="form-label">API Base URL:</label>
+                <input
+                  type="url"
+                  id="llm-base-url"
+                  placeholder="https://api.openai.com/v1"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">API Key:</label>
+                <input
+                  type="password"
+                  id="llm-api-key"
+                  placeholder="sk-..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">模型名称 Model name:</label>
+                <input
+                  type="text"
+                  id="llm-model"
+                  value="gpt-3.5-turbo"
+                  class="form-input"
+                />
+              </div>
+            </div>
+
+            <!-- 语音识别配置 -->
+            <div class="card">
+              <h3 class="card-title">语音识别配置 Transcribe Config</h3>
+              <div class="form-group">
+                <label class="form-label">提供商 Provider:</label>
+                <select id="transcribe-provider" class="form-select">
+                  <option value="openai">OpenAI</option>
+                  <option value="fasterwhisper">FasterWhisper</option>
+                  <option value="whisperkit">WhisperKit</option>
+                  <option value="whispercpp">WhisperCpp</option>
+                  <option value="aliyun">阿里云</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">OpenAI Base URL:</label>
+                <input
+                  type="url"
+                  id="openai-base-url"
+                  placeholder="https://api.openai.com/v1"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">OpenAI API Key:</label>
+                <input
+                  type="password"
+                  id="openai-api-key"
+                  placeholder="sk-..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">OpenAI 模型 Model:</label>
+                <input
+                  type="text"
+                  id="openai-model"
+                  value="whisper-1"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">FasterWhisper 模型 Model:</label>
+                <input
+                  type="text"
+                  id="fasterwhisper-model"
+                  placeholder="base"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">WhisperKit 模型 Model:</label>
+                <input
+                  type="text"
+                  id="whisperkit-model"
+                  placeholder="base"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">WhisperCpp 模型 Model:</label>
+                <input
+                  type="text"
+                  id="whispercpp-model"
+                  placeholder="base"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云 Aliyun OSS Access Key ID:</label
+                >
+                <input
+                  type="text"
+                  id="aliyun-oss-key-id"
+                  placeholder="LTAI..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云 Aliyun OSS Access Key Secret:</label
+                >
+                <input
+                  type="password"
+                  id="aliyun-oss-key-secret"
+                  placeholder="..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">阿里云 Aliyun OSS Bucket Name:</label>
+                <input
+                  type="text"
+                  id="aliyun-oss-bucket"
+                  placeholder="your-bucket-name"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云语音 Aliyun Speech Access Key ID:</label
+                >
+                <input
+                  type="text"
+                  id="aliyun-speech-key-id"
+                  placeholder="LTAI..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云语音 Aliyun Speech Access Key Secret:</label
+                >
+                <input
+                  type="password"
+                  id="aliyun-speech-key-secret"
+                  placeholder="..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云语音 Aliyun Speech App Key:</label
+                >
+                <input
+                  type="text"
+                  id="aliyun-speech-app-key"
+                  placeholder="..."
+                  class="form-input"
+                />
+              </div>
+            </div>
+
+            <!-- TTS配置 -->
+            <div class="card">
+              <h3 class="card-title">文本转语音配置 TTS Config</h3>
+              <div class="form-group">
+                <label class="form-label">提供商 Provider:</label>
+                <select id="tts-provider" class="form-select">
+                  <option value="openai">OpenAI</option>
+                  <option value="aliyun">阿里云</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">OpenAI Base URL:</label>
+                <input
+                  type="url"
+                  id="tts-openai-base-url"
+                  placeholder="https://api.openai.com/v1"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">OpenAI API Key:</label>
+                <input
+                  type="password"
+                  id="tts-openai-api-key"
+                  placeholder="sk-..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">OpenAI 模型 Model:</label>
+                <input
+                  type="text"
+                  id="tts-openai-model"
+                  value="tts-1"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云 Aliyun OSS Access Key ID:</label
+                >
+                <input
+                  type="text"
+                  id="tts-aliyun-oss-key-id"
+                  placeholder="LTAI..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云 Aliyun OSS Access Key Secret:</label
+                >
+                <input
+                  type="password"
+                  id="tts-aliyun-oss-key-secret"
+                  placeholder="..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">阿里云 Aliyun OSS Bucket:</label>
+                <input
+                  type="text"
+                  id="tts-aliyun-oss-bucket"
+                  placeholder="your-bucket-name"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云 Aliyun Speech Access Key ID:</label
+                >
+                <input
+                  type="text"
+                  id="tts-aliyun-speech-key-id"
+                  placeholder="LTAI..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云 Aliyun Speech Access Key Secret:</label
+                >
+                <input
+                  type="password"
+                  id="tts-aliyun-speech-key-secret"
+                  placeholder="..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">阿里云 Aliyun Speech App Key:</label>
+                <input
+                  type="text"
+                  id="tts-aliyun-speech-app-key"
+                  placeholder="..."
+                  class="form-input"
+                />
+              </div>
+            </div>
+
+            <!-- 保存按钮 -->
+            <div class="action-area">
+              <button type="button" id="saveConfigButton" class="btn-primary">
+                保存配置
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="status-bar" id="status-bar">就绪</div>
+      </div>
+    </div>
+
+    <script>
+      // 获取简洁的时间格式 (HH:MM) - 使用用户本地时区
+      function getSimpleTime() {
+        return new Date().toLocaleTimeString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+      }
+
+      // 跟踪当前活跃页面
+      let currentActivePage = "workbench"; // 默认为工作台页面
+
+      // Tab 切换逻辑
+      const navBtns = document.querySelectorAll(".nav-btn");
+      const pageWorkbench = document.getElementById("page-workbench");
+      const pageConfig = document.getElementById("page-config");
+      navBtns.forEach((btn) => {
+        btn.onclick = async () => {
+          const previousPage = currentActivePage;
+          const newPage = btn.id === "nav-workbench" ? "workbench" : "config";
+
+          // 如果从配置页面切换到工作台页面，自动保存配置
+          if (previousPage === "config" && newPage === "workbench") {
+            console.log("从配置页面切换到工作台，自动保存配置...");
+            try {
+              await saveConfig(false, true); // 不显示成功提示，标记为自动保存
+            } catch (error) {
+              console.error("自动保存配置失败:", error);
+            }
+          }
+
+          // 更新页面显示
+          navBtns.forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          currentActivePage = newPage;
+
+          if (btn.id === "nav-workbench") {
+            pageWorkbench.style.display = "";
+            pageConfig.style.display = "none";
+          } else {
+            pageWorkbench.style.display = "none";
+            pageConfig.style.display = "";
+            // 切换到配置页面时加载配置
+            loadConfig();
+          }
+        };
+      });
+    </script>
+    <script>
+      // 添加按钮点击动画效果
+      function addButtonClickEffect(button) {
+        if (!button) return;
+        button.addEventListener("click", function () {
+          this.classList.add("clicked");
+          setTimeout(() => {
+            this.classList.remove("clicked");
+          }, 500);
+        });
+      }
+
+      // 加载配置数据
+      async function loadConfig() {
+        try {
+          const response = await fetch("/api/config", {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+          if (response.ok) {
+            const result = await response.json();
+            if (result.error === 0 && result.data) {
+              populateConfigForm(result.data);
+              console.log("配置加载成功");
+            }
+          }
+        } catch (error) {
+          console.log("加载配置失败，使用默认配置:", error);
+        }
+      }
+
+      // 填充配置表单
+      function populateConfigForm(configData) {
+        // 应用配置
+        if (configData.app) {
+          document.getElementById("segment-duration").value =
+            configData.app.segmentDuration || 5;
+          document.getElementById("transcribe-parallel").value =
+            configData.app.transcribeParallelNum || 2;
+          document.getElementById("translate-parallel").value =
+            configData.app.translateParallelNum || 5;
+          document.getElementById("transcribe-max-attempts").value =
+            configData.app.transcribeMaxAttempts || 3;
+          document.getElementById("translate-max-attempts").value =
+            configData.app.translateMaxAttempts || 3;
+          document.getElementById("max-sentence-length").value =
+            configData.app.maxSentenceLength || 100;
+          document.getElementById("proxy").value = configData.app.proxy || "";
+        }
+
+        // 服务器配置
+        if (configData.server) {
+          document.getElementById("server-host").value =
+            configData.server.host || "127.0.0.1";
+          document.getElementById("server-port").value =
+            configData.server.port || 8888;
+        }
+
+        // LLM配置
+        if (configData.llm) {
+          document.getElementById("llm-base-url").value =
+            configData.llm.baseUrl || "";
+          document.getElementById("llm-api-key").value =
+            configData.llm.apiKey || "";
+          document.getElementById("llm-model").value =
+            configData.llm.model || "gpt-3.5-turbo";
+        }
+
+        // 转录配置
+        if (configData.transcribe) {
+          document.getElementById("transcribe-provider").value =
+            configData.transcribe.provider || "openai";
+          if (configData.transcribe.openai) {
+            document.getElementById("openai-base-url").value =
+              configData.transcribe.openai.baseUrl || "";
+            document.getElementById("openai-api-key").value =
+              configData.transcribe.openai.apiKey || "";
+            document.getElementById("openai-model").value =
+              configData.transcribe.openai.model || "whisper-1";
+          }
+          if (configData.transcribe.fasterwhisper) {
+            document.getElementById("fasterwhisper-model").value =
+              configData.transcribe.fasterwhisper.model || "";
+          }
+          if (configData.transcribe.whisperkit) {
+            document.getElementById("whisperkit-model").value =
+              configData.transcribe.whisperkit.model || "";
+          }
+          if (configData.transcribe.whispercpp) {
+            document.getElementById("whispercpp-model").value =
+              configData.transcribe.whispercpp.model || "";
+          }
+          if (configData.transcribe.aliyun) {
+            if (configData.transcribe.aliyun.oss) {
+              document.getElementById("aliyun-oss-key-id").value =
+                configData.transcribe.aliyun.oss.accessKeyId || "";
+              document.getElementById("aliyun-oss-key-secret").value =
+                configData.transcribe.aliyun.oss.accessKeySecret || "";
+              document.getElementById("aliyun-oss-bucket").value =
+                configData.transcribe.aliyun.oss.bucket || "";
+            }
+            if (configData.transcribe.aliyun.speech) {
+              document.getElementById("aliyun-speech-key-id").value =
+                configData.transcribe.aliyun.speech.accessKeyId || "";
+              document.getElementById("aliyun-speech-key-secret").value =
+                configData.transcribe.aliyun.speech.accessKeySecret || "";
+              document.getElementById("aliyun-speech-app-key").value =
+                configData.transcribe.aliyun.speech.appKey || "";
+            }
+          }
+        }
+
+        // TTS配置
+        if (configData.tts) {
+          document.getElementById("tts-provider").value =
+            configData.tts.provider || "openai";
+          if (configData.tts.openai) {
+            document.getElementById("tts-openai-base-url").value =
+              configData.tts.openai.baseUrl || "";
+            document.getElementById("tts-openai-api-key").value =
+              configData.tts.openai.apiKey || "";
+            document.getElementById("tts-openai-model").value =
+              configData.tts.openai.model || "tts-1";
+          }
+          if (configData.tts.aliyun) {
+            if (configData.tts.aliyun.oss) {
+              document.getElementById("tts-aliyun-oss-key-id").value =
+                configData.tts.aliyun.oss.accessKeyId || "";
+              document.getElementById("tts-aliyun-oss-key-secret").value =
+                configData.tts.aliyun.oss.accessKeySecret || "";
+              document.getElementById("tts-aliyun-oss-bucket").value =
+                configData.tts.aliyun.oss.bucket || "";
+            }
+            if (configData.tts.aliyun.speech) {
+              document.getElementById("tts-aliyun-speech-key-id").value =
+                configData.tts.aliyun.speech.accessKeyId || "";
+              document.getElementById("tts-aliyun-speech-key-secret").value =
+                configData.tts.aliyun.speech.accessKeySecret || "";
+              document.getElementById("tts-aliyun-speech-app-key").value =
+                configData.tts.aliyun.speech.appKey || "";
+            }
+          }
+        }
+      }
+
+      // 收集配置表单数据的函数
+      function collectConfigData() {
+        return {
+          app: {
+            segmentDuration:
+              parseInt(document.getElementById("segment-duration").value) || 5,
+            transcribeParallelNum:
+              parseInt(document.getElementById("transcribe-parallel").value) ||
+              2,
+            translateParallelNum:
+              parseInt(document.getElementById("translate-parallel").value) ||
+              5,
+            transcribeMaxAttempts:
+              parseInt(
+                document.getElementById("transcribe-max-attempts").value
+              ) || 3,
+            translateMaxAttempts:
+              parseInt(
+                document.getElementById("translate-max-attempts").value
+              ) || 3,
+            maxSentenceLength:
+              parseInt(document.getElementById("max-sentence-length").value) ||
+              100,
+            proxy: document.getElementById("proxy").value,
+          },
+          server: {
+            host: document.getElementById("server-host").value,
+            port:
+              parseInt(document.getElementById("server-port").value) || 8888,
+          },
+          llm: {
+            baseUrl: document.getElementById("llm-base-url").value,
+            apiKey: document.getElementById("llm-api-key").value,
+            model: document.getElementById("llm-model").value,
+          },
+          transcribe: {
+            provider: document.getElementById("transcribe-provider").value,
+            openai: {
+              baseUrl: document.getElementById("openai-base-url").value,
+              apiKey: document.getElementById("openai-api-key").value,
+              model: document.getElementById("openai-model").value,
+            },
+            fasterwhisper: {
+              model: document.getElementById("fasterwhisper-model").value,
+            },
+            whisperkit: {
+              model: document.getElementById("whisperkit-model").value,
+            },
+            whispercpp: {
+              model: document.getElementById("whispercpp-model").value,
+            },
+            aliyun: {
+              oss: {
+                accessKeyId: document.getElementById("aliyun-oss-key-id").value,
+                accessKeySecret: document.getElementById(
+                  "aliyun-oss-key-secret"
+                ).value,
+                bucket: document.getElementById("aliyun-oss-bucket").value,
+              },
+              speech: {
+                accessKeyId: document.getElementById("aliyun-speech-key-id")
+                  .value,
+                accessKeySecret: document.getElementById(
+                  "aliyun-speech-key-secret"
+                ).value,
+                appKey: document.getElementById("aliyun-speech-app-key").value,
+              },
+            },
+          },
+          tts: {
+            provider: document.getElementById("tts-provider").value,
+            openai: {
+              baseUrl: document.getElementById("tts-openai-base-url").value,
+              apiKey: document.getElementById("tts-openai-api-key").value,
+              model: document.getElementById("tts-openai-model").value,
+            },
+            aliyun: {
+              oss: {
+                accessKeyId: document.getElementById("tts-aliyun-oss-key-id")
+                  .value,
+                accessKeySecret: document.getElementById(
+                  "tts-aliyun-oss-key-secret"
+                ).value,
+                bucket: document.getElementById("tts-aliyun-oss-bucket").value,
+              },
+              speech: {
+                accessKeyId: document.getElementById("tts-aliyun-speech-key-id")
+                  .value,
+                accessKeySecret: document.getElementById(
+                  "tts-aliyun-speech-key-secret"
+                ).value,
+                appKey: document.getElementById("tts-aliyun-speech-app-key")
+                  .value,
+              },
+            },
+          },
+        };
+      }
+
+      // 保存配置的函数
+      function saveConfig(showSuccessAlert = true, isAutoSave = false) {
+        const configData = collectConfigData();
+        const statusPrefix = isAutoSave ? "自动保存" : "保存";
+
+        // 显示保存状态
+        document.getElementById("status-bar").textContent =
+          `正在${statusPrefix}配置... - ` + getSimpleTime();
+
+        return fetch("/api/config", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(configData),
+        })
+          .then((response) => {
+            if (response.ok) {
+              return response.json();
+            }
+            throw new Error("网络请求失败");
+          })
+          .then((data) => {
+            // 检查业务错误码
+            if (data.error === 0) {
+              if (showSuccessAlert) {
+                alert("配置已成功保存！");
+              }
+              document.getElementById("status-bar").textContent =
+                `配置已${statusPrefix} - ` + getSimpleTime();
+              return true;
+            } else {
+              // 显示后端返回的具体错误信息
+              const errorMsg = data.msg || "保存配置失败";
+              if (showSuccessAlert || !isAutoSave) {
+                alert(`${statusPrefix}配置失败：` + errorMsg);
+              }
+              document.getElementById("status-bar").textContent =
+                `配置${statusPrefix}失败 - ` + getSimpleTime();
+              console.error("配置验证失败:", data);
+              return false;
+            }
+          })
+          .catch((error) => {
+            console.error("保存配置错误:", error);
+            if (showSuccessAlert || !isAutoSave) {
+              alert(`${statusPrefix}配置失败：网络错误或服务器异常`);
+            }
+            document.getElementById("status-bar").textContent =
+              `配置${statusPrefix}失败 - ` + getSimpleTime();
+            return false;
+          });
+      }
+
+      // 配置页面逻辑
+      const saveConfigButton = document.getElementById("saveConfigButton");
+      if (saveConfigButton) {
+        addButtonClickEffect(saveConfigButton);
+        saveConfigButton.onclick = () => {
+          saveConfig(true, false);
+        };
+      }
+
+      // 表单交互逻辑
+      const voiceoverToggleEl = document.getElementById("voiceover-toggle");
+      if (voiceoverToggleEl) {
+        voiceoverToggleEl.onchange = function () {
+          const voiceInput = document.getElementById("voiceover-voice");
+          if (voiceInput) voiceInput.disabled = !this.checked;
+        };
+      }
+
+      const embedSubtitleToggleEl = document.getElementById(
+        "embed-subtitle-toggle"
+      );
+      if (embedSubtitleToggleEl) {
+        embedSubtitleToggleEl.onchange = function () {
+          const embedSelect = document.getElementById("embed-subtitle");
+          if (embedSelect) embedSelect.disabled = !this.checked;
+        };
+      }
+
+      const embedSubtitleEl = document.getElementById("embed-subtitle");
+      if (embedSubtitleEl) {
+        embedSubtitleEl.onchange = function () {
+          const textInputs = document.getElementById("subtitle-text-inputs");
+          if (textInputs) {
+            if (this.value === "vertical" || this.value === "all") {
+              textInputs.classList.remove("hidden");
+            } else {
+              textInputs.classList.add("hidden");
+            }
+          }
+        };
+      }
+
+      // 输入方式切换
+      document.querySelectorAll('input[name="inputType"]').forEach((radio) => {
+        radio.addEventListener("change", () => {
+          const urlContainer = document.getElementById("urlInputContainer");
+          const fileContainer = document.getElementById("fileInputContainer");
+          const fileInput = document.getElementById("fileInput");
+          const urlInput = document.getElementById("urlInput");
+          const executeButton = document.getElementById("executeButton");
+
+          if (radio.value === "url") {
+            if (urlContainer) urlContainer.classList.remove("hidden");
+            if (fileContainer) fileContainer.classList.add("hidden");
+            if (fileInput) fileInput.required = false;
+            if (urlInput) urlInput.required = true;
+            if (executeButton) executeButton.disabled = false;
+          } else {
+            if (urlContainer) urlContainer.classList.add("hidden");
+            if (fileContainer) fileContainer.classList.remove("hidden");
+            if (urlInput) urlInput.required = false;
+            if (fileInput) fileInput.required = true;
+            if (executeButton) executeButton.disabled = true;
+          }
+        });
+      });
+    </script>
+
+    <script>
+      // 主要功能JavaScript
+      const urlInputContainer = document.getElementById("urlInputContainer");
+      const fileInputContainer = document.getElementById("fileInputContainer");
+      const urlInput = document.getElementById("urlInput");
+      const fileInput = document.getElementById("fileInput");
+      const uploadStatus = document.getElementById("uploadStatus");
+      const voiceFileInput = document.getElementById("voiceFileInput");
+      const executeButton = document.getElementById("executeButton");
+      const progressSection = document.getElementById("progressSection");
+      const progressBar = document.getElementById("progressBar");
+      const downloadLinks = document.getElementById("downloadLinks");
+
+      // 获取表单元素
+      const translationToggle = document.getElementById("bilingual-toggle");
+      const translationLanguage = document.getElementById("target-language");
+      const bilingualToggle = document.getElementById("bilingual-toggle");
+      const bilingualPosition = document.getElementById("bilingual-position");
+      const voiceoverToggle = document.getElementById("voiceover-toggle");
+      const voiceoverVoice = document.getElementById("voiceover-voice");
+      const embedSubtitleVideoTypeToggle = document.getElementById(
+        "embed-subtitle-toggle"
+      );
+      const embedSubtitleVideoType = document.getElementById("embed-subtitle");
+      const embedSubtitle = document.getElementById("embed-subtitle");
+      const subtitleTextInputs = document.getElementById(
+        "subtitle-text-inputs"
+      );
+      const verticalMajorTitle = document.getElementById("subtitle-text-1");
+      const verticalMinorTitle = document.getElementById("subtitle-text-2");
+
+      const API_SUBMIT_URL = "/api/capability/subtitleTask";
+      const API_PROGRESS_URL = "/api/capability/subtitleTask";
+      const API_UPLOAD_URL = "/api/file";
+
+      let uploadedVideoUrl = null;
+      let uploadedAudioUrl = null;
+
+      // 更新状态（启用或禁用表单项）
+      function updateFormState() {
+        if (translationLanguage && translationToggle)
+          translationLanguage.disabled = !translationToggle.checked;
+        if (translationToggle && !translationToggle.checked) {
+          if (bilingualToggle) bilingualToggle.checked = false;
+          if (voiceoverToggle) voiceoverToggle.checked = false;
+        }
+        if (voiceoverToggle && translationToggle)
+          voiceoverToggle.disabled = !translationToggle.checked;
+        if (bilingualPosition && bilingualToggle)
+          bilingualPosition.disabled = !bilingualToggle.checked;
+        if (voiceoverVoice && voiceoverToggle)
+          voiceoverVoice.disabled = !voiceoverToggle.checked;
+        if (voiceFileInput && voiceoverToggle)
+          voiceFileInput.disabled = !voiceoverToggle.checked;
+      }
+
+      // 提交表单参数
+      function getParams() {
+        const formData = {
+          language: "zh_cn",
+          origin_lang: document.getElementById("source-language")
+            ? document.getElementById("source-language").value
+            : "zh_cn",
+          target_lang:
+            translationToggle &&
+            translationToggle.checked &&
+            translationLanguage
+              ? translationLanguage.value
+              : "none",
+          bilingual: bilingualToggle && bilingualToggle.checked ? 1 : 2,
+          translation_subtitle_pos:
+            bilingualPosition && bilingualPosition.value === "top" ? 1 : 2,
+          tts: voiceoverToggle && voiceoverToggle.checked ? 1 : 2,
+          modal_filter:
+            document.getElementById("filler-filter-toggle") &&
+            document.getElementById("filler-filter-toggle").checked
+              ? 1
+              : 2,
+          embed_subtitle_video_type:
+            embedSubtitleVideoTypeToggle &&
+            embedSubtitleVideoTypeToggle.checked &&
+            embedSubtitleVideoType
+              ? embedSubtitleVideoType.value
+              : "none",
+        };
+
+        if (formData.tts === 1 && voiceoverVoice && voiceoverVoice.value) {
+          formData.tts_voice_code = voiceoverVoice.value;
+          if (uploadedAudioUrl) {
+            formData.tts_voice_clone_src_file_url = Array.isArray(
+              uploadedAudioUrl
+            )
+              ? uploadedAudioUrl[0]
+              : uploadedAudioUrl;
+          }
+        }
+
+        if (formData.target_lang === "ro2") {
+          formData.target_lang = "ro";
+        }
+
+        // 添加字幕文本到请求参数中
+        if (
+          embedSubtitleVideoTypeToggle &&
+          embedSubtitleVideoTypeToggle.checked &&
+          embedSubtitle &&
+          (embedSubtitle.value === "vertical" || embedSubtitle.value === "all")
+        ) {
+          if (verticalMajorTitle)
+            formData.vertical_major_title = verticalMajorTitle.value;
+          if (verticalMinorTitle)
+            formData.vertical_minor_title = verticalMinorTitle.value;
+        }
+
+        console.log("表单数据：", formData);
+        return formData;
+      }
+
+      // 事件监听器
+      if (translationToggle) {
+        translationToggle.addEventListener("change", () => {
+          updateFormState();
+        });
+      }
+
+      if (bilingualToggle) {
+        bilingualToggle.addEventListener("change", () => {
+          if (bilingualPosition)
+            bilingualPosition.disabled = !bilingualToggle.checked;
+        });
+      }
+
+      if (voiceoverToggle) {
+        voiceoverToggle.addEventListener("change", () => {
+          updateFormState();
+        });
+      }
+
+      if (embedSubtitle) {
+        embedSubtitle.addEventListener("change", () => {
+          const selectedValue = embedSubtitle.value;
+          if (subtitleTextInputs) {
+            if (selectedValue === "vertical" || selectedValue === "all") {
+              subtitleTextInputs.classList.remove("hidden");
+            } else {
+              subtitleTextInputs.classList.add("hidden");
+            }
+          }
+        });
+      }
+
+      // 处理视频上传
+      if (fileInput) {
+        fileInput.addEventListener("change", async () => {
+          if (fileInput.files.length === 0) return;
+
+          if (uploadStatus) uploadStatus.classList.remove("hidden");
+          if (executeButton) executeButton.disabled = true;
+
+          const formData = new FormData();
+          for (const file of fileInput.files) {
+            formData.append("file", file);
+          }
+
+          try {
+            const response = await fetch(API_UPLOAD_URL, {
+              method: "POST",
+              body: formData,
+            });
+            if (!response.ok) throw new Error("视频上传失败");
+            const res = await response.json();
+            const { error, data, msg } = res || {};
+            if (error !== 0 && error !== 200) {
+              throw new Error(msg || "上传失败，请重试");
+            }
+            uploadedVideoUrl = data.file_path;
+            if (executeButton) executeButton.disabled = false;
+          } catch (error) {
+            console.error("视频上传失败:", error);
+            alert(error);
+          } finally {
+            if (uploadStatus) uploadStatus.classList.add("hidden");
+          }
+        });
+      }
+
+      // 处理音频上传
+      if (voiceFileInput) {
+        voiceFileInput.addEventListener("change", async () => {
+          if (voiceFileInput.files.length === 0) return;
+
+          const file = voiceFileInput.files[0];
+          const formData = new FormData();
+          formData.append("file", file);
+
+          try {
+            const response = await fetch(API_UPLOAD_URL, {
+              method: "POST",
+              body: formData,
+            });
+            if (!response.ok) throw new Error("上传失败");
+            const res = await response.json();
+            const { error, data, msg } = res || {};
+            if (error !== 0 && error !== 200) {
+              throw new Error(msg || "上传失败，请重试");
+            }
+            uploadedAudioUrl = data.file_path;
+            console.log("音频上传成功:", uploadedAudioUrl);
+          } catch (error) {
+            console.error("音频上传失败:", error);
+            alert(error);
+          }
+        });
+      }
+
+      // 请求启动任务接口
+      async function startTask(params) {
+        try {
+          const response = await fetch(API_SUBMIT_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(params),
+          });
+          const data = await response.json();
+          if (+data.error !== 0 && +data.error !== 200) {
+            throw new Error(data.msg || "启动任务失败");
+          }
+          return (data.data || {}).task_id || "";
+        } catch (error) {
+          alert(error);
+          console.error("启动任务失败:", error);
+          return null;
+        }
+      }
+
+      // 轮询任务进度接口
+      async function pollTaskProgress(taskId) {
+        try {
+          let progress = 0;
+          while (progress < 100) {
+            const response = await fetch(
+              `${API_PROGRESS_URL}?taskId=${taskId}`
+            );
+            const data = await response.json();
+            console.log("progress response---:", data);
+            if (+data.error !== 0 && +data.error !== 200) {
+              if (executeButton) executeButton.disabled = false;
+              throw new Error(data.msg || "查询进度失败");
+            }
+            const responseData = data.data || {};
+            progress = responseData.process_percent || 0;
+            if (progressBar) {
+              progressBar.style.width = progress + "%";
+              progressBar.textContent = progress + "%";
+            }
+            if (progress >= 100) {
+              displayDownloadLinks(
+                responseData.subtitle_info || [],
+                responseData.speech_download_url || "",
+                responseData.task_id || "",
+                embedSubtitleVideoTypeToggle &&
+                  embedSubtitleVideoTypeToggle.checked
+                  ? embedSubtitleVideoType.value
+                  : "none"
+              );
+              if (executeButton) executeButton.disabled = false;
+              // 显示output路径说明
+              if (downloadLinks) {
+                const tips = document.createElement("div");
+                tips.textContent =
+                  "若需要查看合成的视频或者文字稿，请到软件目录下的/tasks/" +
+                  responseData.task_id +
+                  "/output 目录下查看。";
+                tips.style.marginTop = "10px";
+                tips.style.color = "#666";
+                tips.style.fontSize = "14px";
+                downloadLinks.parentNode.appendChild(tips);
+              }
+              return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+          }
+        } catch (error) {
+          alert(error);
+          if (executeButton) executeButton.disabled = false;
+          console.error("查询进度失败:", error);
+        }
+      }
+
+      // 显示下载链接
+      function displayDownloadLinks(
+        urls,
+        speechUrl,
+        taskId,
+        embedSubtitleType
+      ) {
+        console.log("下载链接:", urls);
+        console.log("嵌入字幕类型:", embedSubtitleType);
+        console.log("任务ID:", taskId);
+        if (!downloadLinks) return;
+
+        downloadLinks.innerHTML = "";
+
+        // 显示字幕下载链接
+        urls.forEach(({ name, download_url }) => {
+          const link = document.createElement("a");
+          link.href = download_url;
+          link.textContent = name;
+          link.download = "";
+          downloadLinks.appendChild(link);
+        });
+
+        // 显示配音下载链接
+        if (speechUrl) {
+          const sArr = speechUrl.split("/");
+          const sName = sArr[sArr.length - 1];
+          const link = document.createElement("a");
+          link.href = speechUrl;
+          link.target = "_blank";
+          link.textContent = `配音：${sName}`;
+          link.download = "";
+          downloadLinks.appendChild(link);
+        }
+
+        // 显示嵌入字幕视频下载链接
+        if (taskId && embedSubtitleType && embedSubtitleType !== "none") {
+          if (
+            embedSubtitleType === "horizontal" ||
+            embedSubtitleType === "all"
+          ) {
+            const horizontalLink = document.createElement("a");
+            horizontalLink.href = `/api/file/tasks/${taskId}/output/horizontal_embed.mp4`;
+            horizontalLink.textContent = "横屏视频：horizontal_embed.mp4";
+            horizontalLink.download = "";
+            downloadLinks.appendChild(horizontalLink);
+          }
+
+          if (embedSubtitleType === "vertical" || embedSubtitleType === "all") {
+            const verticalLink = document.createElement("a");
+            verticalLink.href = `/api/file/tasks/${taskId}/output/vertical_embed.mp4`;
+            verticalLink.textContent = "竖屏视频：vertical_embed.mp4";
+            verticalLink.download = "";
+            downloadLinks.appendChild(verticalLink);
+          }
+        }
+
+        downloadLinks.classList.remove("hidden");
+      }
+
+      // 给执行按钮添加点击动画和事件监听器
+      if (executeButton) {
+        addButtonClickEffect(executeButton);
+
+        executeButton.addEventListener("click", async () => {
+          console.log("开始任务按钮被点击");
+
+          // 更新状态栏
+          const statusBar = document.getElementById("status-bar");
+          if (statusBar) {
+            statusBar.textContent = "正在执行任务... - " + getSimpleTime();
+          }
+
+          // 检查双语字幕和视频合成的逻辑
+          if (
+            bilingualToggle &&
+            !bilingualToggle.checked &&
+            embedSubtitleVideoTypeToggle &&
+            embedSubtitleVideoTypeToggle.checked
+          ) {
+            alert("合成字幕嵌入视频必须打开双语选项");
+            return;
+          }
+
+          // 检查视频URL是否存在
+          const inputType = document.querySelector(
+            'input[name="inputType"]:checked'
+          );
+          if (!inputType) {
+            alert("请选择输入方式");
+            return;
+          }
+
+          let url = "";
+          if (inputType.value === "url") {
+            url = urlInput ? urlInput.value.trim() : "";
+            if (!url) {
+              alert("请输入视频链接");
+              return;
+            }
+          } else if (inputType.value === "file") {
+            if (!uploadedVideoUrl) {
+              alert("请上传视频文件");
+              return;
+            }
+            url = uploadedVideoUrl;
+          }
+
+          if (!url) {
+            alert("请输入视频链接或上传视频文件");
+            return;
+          }
+
+          const params = getParams();
+          console.log("请求参数:", params);
+
+          // 请求启动任务接口
+          if (Array.isArray(url)) {
+            for (const singleUrl of url) {
+              const taskId = await startTask({ ...params, url: singleUrl });
+              if (taskId) {
+                executeButton.disabled = true;
+                if (progressSection) progressSection.classList.remove("hidden");
+                await pollTaskProgress(taskId);
+              }
+            }
+          } else {
+            const taskId = await startTask({ ...params, url });
+            if (taskId) {
+              executeButton.disabled = true;
+              if (progressSection) progressSection.classList.remove("hidden");
+              await pollTaskProgress(taskId);
+            }
+          }
+        });
+      }
+
+      // 初始化时更新表单状态
+      updateFormState();
+
+      // 页面加载完成后执行初始化
+      document.addEventListener("DOMContentLoaded", function () {
+        console.log("页面加载完成，开始初始化配置");
+        // 如果当前在配置页面，则加载配置
+        const configPage = document.getElementById("page-config");
+        if (configPage && configPage.style.display !== "none") {
+          loadConfig();
+        }
+      });
+    </script>
+  </body>
 </html>

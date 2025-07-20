@@ -25,7 +25,6 @@ import (
 
 // 创建配置界面
 func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
-	// 创建页面标题
 	pageTitle := TitleText("应用配置")
 
 	appGroup := createAppConfigGroup()
@@ -34,14 +33,25 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 	transcribeGroup := createTranscribeConfigGroup()
 	ttsGroup := createTtsConfigGroup()
 
-	// 创建一个背景效果
-	background := canvas.NewRectangle(color.NRGBA{R: 248, G: 250, B: 253, A: 255})
+	var background *canvas.LinearGradient
+	if GetCurrentThemeIsDark() {
+		background = canvas.NewLinearGradient(
+			color.NRGBA{R: 15, G: 23, B: 42, A: 255},
+			color.NRGBA{R: 30, G: 41, B: 59, A: 255},
+			0.0,
+		)
+	} else {
+		background = canvas.NewLinearGradient(
+			color.NRGBA{R: 248, G: 250, B: 252, A: 255},
+			color.NRGBA{R: 241, G: 245, B: 249, A: 255},
+			0.0,
+		)
+	}
 
-	// 添加一些视觉分隔和间距
 	spacer1 := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 0})
-	spacer1.SetMinSize(fyne.NewSize(0, 10))
+	spacer1.SetMinSize(fyne.NewSize(0, 15))
 	spacer2 := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 0})
-	spacer2.SetMinSize(fyne.NewSize(0, 10))
+	spacer2.SetMinSize(fyne.NewSize(0, 15))
 
 	configContainer := container.NewVBox(
 		container.NewPadded(pageTitle),
@@ -56,7 +66,6 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 
 	scroll := container.NewScroll(configContainer)
 
-	// 使用一个Stack将背景和滚动内容组合
 	configStack := container.NewStack(background, scroll)
 
 	return container.NewPadded(configStack)
@@ -66,43 +75,42 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 func CreateSubtitleTab(window fyne.Window) fyne.CanvasObject {
 	sm := NewSubtitleManager(window)
 
-	// 创建标题
 	title := TitleText("视频翻译配音Video Translate & Dubbing")
 
-	// 创建视频输入区域
 	videoInputContainer := createVideoInputContainer(sm)
-
-	// 创建字幕设置区域
 	subtitleSettingsCard := createSubtitleSettingsCard(sm)
-
-	// 创建配音设置区域
 	voiceSettingsCard := createVoiceSettingsCard(sm)
-
-	// 创建视频合成区域
 	embedSettingsCard := createEmbedSettingsCard(sm)
 
-	// 创建进度和下载区域
 	progress, downloadContainer, tipsLabel := createProgressAndDownloadArea(sm)
 
-	// 创建开始按钮
 	startButton := createStartButton(window, sm, videoInputContainer, embedSettingsCard, progress, downloadContainer)
 	startButtonContainer := container.NewHBox(layout.NewSpacer(), startButton, layout.NewSpacer())
 
-	// 创建一个背景效果
-	background := canvas.NewRectangle(color.NRGBA{R: 248, G: 250, B: 253, A: 255})
+	var background *canvas.LinearGradient
+	if GetCurrentThemeIsDark() {
+		background = canvas.NewLinearGradient(
+			color.NRGBA{R: 15, G: 23, B: 42, A: 255},
+			color.NRGBA{R: 30, G: 41, B: 59, A: 255},
+			0.0,
+		)
+	} else {
+		background = canvas.NewLinearGradient(
+			color.NRGBA{R: 248, G: 250, B: 252, A: 255},
+			color.NRGBA{R: 241, G: 245, B: 249, A: 255},
+			0.0,
+		)
+	}
 
-	// 添加一些视觉分隔和间距
 	spacer1 := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 0})
-	spacer1.SetMinSize(fyne.NewSize(0, 10))
+	spacer1.SetMinSize(fyne.NewSize(0, 15))
 	spacer2 := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 0})
-	spacer2.SetMinSize(fyne.NewSize(0, 10))
+	spacer2.SetMinSize(fyne.NewSize(0, 15))
 	spacer3 := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 0})
-	spacer3.SetMinSize(fyne.NewSize(0, 10))
+	spacer3.SetMinSize(fyne.NewSize(0, 15))
 
-	// 创建进度区域容器
 	progressArea := container.NewVBox(progress)
 
-	// 创建主布局
 	mainContent := container.NewVBox(
 		container.NewPadded(title),
 		spacer1,
@@ -219,7 +227,7 @@ func createAppConfigGroup() *fyne.Container {
 		widget.NewFormItem("网络代理地址 proxy", appProxyEntry),
 	)
 
-	return GlassCard("应用配置 App Config", "基本参数 Basic config", form)
+	return GlassmorphismCard("应用配置 App Config", "基本参数 Basic config", form, GetCurrentThemeIsDark())
 }
 
 // 创建server配置组
@@ -245,9 +253,10 @@ func createServerConfigGroup() *fyne.Container {
 		widget.NewFormItem("服务器端口 Server port", serverPortEntry),
 	)
 
-	return GlassCard("服务器配置 Server Config", "API服务器设置 API server settings", form)
+	return GlassmorphismCard("服务器配置 Server Config", "API服务器设置 API server settings", form, GetCurrentThemeIsDark())
 }
 
+// 创建LLM配置组
 func createLlmConfigGroup() *fyne.Container {
 	baseUrlEntry := StyledEntry("API Base URL")
 	baseUrlEntry.Bind(binding.BindString(&config.Conf.Llm.BaseUrl))
@@ -263,9 +272,10 @@ func createLlmConfigGroup() *fyne.Container {
 		widget.NewFormItem("API Key", apiKeyEntry),
 		widget.NewFormItem("模型名称 Model name", modelEntry),
 	)
-	return GlassCard("LLM 配置 LLM Config", "LLM配置 LLM config", form)
+	return GlassmorphismCard("LLM 配置 LLM Config", "LLM配置 LLM config", form, GetCurrentThemeIsDark())
 }
 
+// 创建语音识别配置组
 func createTranscribeConfigGroup() *fyne.Container {
 	providerOptions := []string{"openai", "fasterwhisper", "whisperkit", "whispercpp", "aliyun"}
 	providerSelect := widget.NewSelect(providerOptions, func(value string) {
@@ -325,9 +335,10 @@ func createTranscribeConfigGroup() *fyne.Container {
 		widget.NewFormItem("阿里云语音 Aliyun Speech App Key", aliyunSpeechAppKeyEntry),
 	)
 
-	return GlassCard("语音识别配置 Transcribe Config", "语音识别配置 Transcribe config", form)
+	return GlassmorphismCard("语音识别配置 Transcribe Config", "语音识别配置 Transcribe config", form, GetCurrentThemeIsDark())
 }
 
+// 创建文本转语音配置组
 func createTtsConfigGroup() *fyne.Container {
 	providerOptions := []string{"openai", "aliyun"}
 	providerSelect := widget.NewSelect(providerOptions, func(value string) {
@@ -372,12 +383,11 @@ func createTtsConfigGroup() *fyne.Container {
 		widget.NewFormItem("阿里云 Aliyun Speech App Key", aliyunSpeechAppKeyEntry),
 	)
 
-	return GlassCard("文本转语音配置 TTS Config", "文本转语音配置 TTS config", form)
+	return GlassmorphismCard("文本转语音配置 TTS Config", "文本转语音配置 TTS config", form, GetCurrentThemeIsDark())
 }
 
 // 创建视频输入容器
 func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
-	// 视频输入方式选择
 	inputTypeRadio := widget.NewRadioGroup([]string{"本地视频 Local video", "视频链接 Video link"}, nil)
 	inputTypeRadio.Horizontal = true
 	inputTypeContainer := container.NewHBox(
@@ -385,20 +395,17 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		inputTypeRadio,
 	)
 
-	// 视频链接输入框
 	urlEntry := StyledEntry("请输入视频链接Please enter the video link")
 	urlEntry.Hide()
 	urlEntry.OnChanged = func(text string) {
 		sm.SetVideoUrl(text)
 	}
 
-	// 视频选择按钮（支持多文件选择）
 	selectButton := PrimaryButton("选择视频文件 Choose video files", theme.FolderOpenIcon(), sm.ShowFileDialog)
 
 	selectedVideoLabel := widget.NewLabel("")
 	selectedVideoLabel.Hide()
 
-	// 设置视频选择回调
 	sm.SetVideoSelectedCallback(func(path string) { // 设置视频地址+控制信息展示
 		if path != "" {
 			sm.SetVideoUrl(path)
@@ -409,19 +416,15 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		}
 	})
 
-	// 设置多视频选择回调
 	sm.SetVideosSelectedCallback(func(paths []string) {
 		if len(paths) > 0 {
-			// 设置第一个视频的URL
 			sm.SetVideoUrl(paths[0])
 
-			// 显示已选择的文件数量
 			fileNames := make([]string, 0, len(paths))
 			for _, path := range paths {
 				fileNames = append(fileNames, filepath.Base(path))
 			}
 
-			// 构建文件列表，每行显示一个文件
 			displayText := fmt.Sprintf("已选择 %d 个文件:\n", len(paths))
 			for i, name := range fileNames {
 				displayText += fmt.Sprintf("%d. %s\n", i+1, name)
@@ -434,11 +437,9 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		}
 	})
 
-	// 视频输入容器
 	videoInputContainer := container.NewVBox()
 	videoInputContainer.Objects = []fyne.CanvasObject{selectButton, selectedVideoLabel}
 
-	// 切换输入方式
 	inputTypeRadio.SetSelected("本地视频 Local video")
 	inputTypeRadio.OnChanged = func(value string) {
 		if value == "本地视频 Local video" {
@@ -456,13 +457,12 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		videoInputContainer.Refresh()
 	}
 
-	// 创建容器
 	content := container.NewVBox(
 		container.NewPadded(inputTypeContainer),
 		container.NewPadded(videoInputContainer),
 	)
 
-	return GlassCard("1. 视频源设置 Video Source", "选择视频和语言 Choose video & language", content)
+	return GlassmorphismCard("1. 视频源设置 Video Source", "选择视频和语言 Choose video & language", content, GetCurrentThemeIsDark())
 }
 
 // 创建字幕设置卡片
@@ -534,7 +534,7 @@ func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
 		positionSelect,
 	)
 
-	return StyledCard("2. 字幕设置 Subtitle setting", content)
+	return ModernCard("2. 字幕设置 Subtitle setting", content, GetCurrentThemeIsDark())
 }
 
 // 创建配音设置卡片
@@ -546,8 +546,8 @@ func createVoiceSettingsCard(sm *SubtitleManager) *fyne.Container {
 	}
 	voiceCodeEntry.Disable()
 
-	// todo 限制为仅阿里云
-	audioSampleButton := SecondaryButton("选择音色克隆样本(仅支持阿里云tts) Choose voice clone sample(Aliyun tts only)", theme.MediaMusicIcon(), sm.ShowAudioFileDialog)
+	// 音色克隆功能 - 当前支持阿里云TTS，未来可扩展其他提供商
+	audioSampleButton := SecondaryButton("选择音色克隆样本 Choose voice clone sample (Currently supports Aliyun TTS)", theme.MediaMusicIcon(), sm.ShowAudioFileDialog)
 	audioSampleButton.Disable()
 
 	voiceoverCheck := widget.NewCheck("启用配音 Enable dubbing", func(checked bool) {
@@ -566,20 +566,18 @@ func createVoiceSettingsCard(sm *SubtitleManager) *fyne.Container {
 		container.NewHBox(container.NewBorder(voiceCodeEntry, nil, nil, audioSampleButton)),
 	)
 
-	return StyledCard("3. 配音设置 Dubbing setting", grid)
+	return ModernCard("3. 配音设置 Dubbing setting", grid, GetCurrentThemeIsDark())
 }
 
 // 视频合成卡片
 func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 	embedCheck := widget.NewCheck("合成视频 Composite video", nil)
 
-	// 创建视频类型选择
 	embedTypeSelect := StyledSelect([]string{
 		"横屏视频 Landscape video", "竖屏视频 Portrait video", "横屏+竖屏视频 Landscape+Portrait video",
 	}, nil)
 	embedTypeSelect.Disable()
 
-	// 创建标题输入区域
 	mainTitleEntry := StyledEntry("请输入主标题 Enter main title")
 	subTitleEntry := StyledEntry("请输入副标题 Enter sub title")
 
@@ -595,7 +593,6 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 	)
 	titleInputContainer.Hide()
 
-	// 设置复选框行为
 	embedCheck.OnChanged = func(checked bool) {
 		if checked {
 			embedTypeSelect.Enable()
@@ -606,7 +603,6 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 		}
 	}
 
-	// 更新标题输入区域的显示状态
 	embedTypeSelect.OnChanged = func(value string) {
 		switch value {
 		case "横屏视频 Landscape video":
@@ -621,34 +617,28 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 		}
 	}
 
-	// 创建顶部控制区域
 	topContainer := container.NewHBox(embedCheck, embedTypeSelect)
 
-	// 创建主容器
 	mainContainer := container.NewVBox(
 		topContainer,
 		container.NewPadded(titleInputContainer),
 	)
 
-	return StyledCard("视频合成设置 Subtitle embed setting", mainContainer)
+	return ModernCard("视频合成设置 Subtitle embed setting", mainContainer, GetCurrentThemeIsDark())
 }
 
 // 创建进度和下载区域
 func createProgressAndDownloadArea(sm *SubtitleManager) (*widget.ProgressBar, *fyne.Container, *fyne.Container) {
-	// 创建进度条
 	progress := widget.NewProgressBar()
 	progress.Hide()
 
-	//进度百分比标签
 	percentLabel := widget.NewLabel("0%")
 	percentLabel.Hide()
 	percentLabel.Alignment = fyne.TextAlignTrailing
 
-	// 进度条容器
 	progressContainer := container.NewBorder(nil, nil, nil, percentLabel, progress)
 	progressContainer.Hide()
 
-	// 添加半透明背景和阴影
 	progressBg := canvas.NewRectangle(color.NRGBA{R: 240, G: 245, B: 250, A: 230})
 	progressBg.SetMinSize(fyne.NewSize(0, 40))
 	progressBg.CornerRadius = 8
@@ -665,27 +655,22 @@ func createProgressAndDownloadArea(sm *SubtitleManager) (*widget.ProgressBar, *f
 	)
 	progressWithBg.Hide()
 
-	// 设置进度条和标签
 	sm.SetProgressBar(progress)
 	sm.SetProgressLabel(percentLabel)
 
-	// 创建下载容器背景
 	downloadBg := canvas.NewRectangle(color.NRGBA{R: 240, G: 250, B: 255, A: 230})
 	downloadBg.CornerRadius = 10
 
-	// 创建下载容器
 	downloadContainer := container.NewVBox()
 	downloadContainer.Hide()
 	sm.SetDownloadContainer(downloadContainer)
 
-	// 包装下载容器和背景
 	downloadWithBg := container.NewStack(
 		downloadBg,
 		container.NewPadded(downloadContainer),
 	)
 	downloadWithBg.Hide()
 
-	// 创建提示标签
 	tipsLabel := widget.NewLabel("")
 	tipsLabel.Hide()
 	tipsLabel.Alignment = fyne.TextAlignCenter
@@ -704,13 +689,12 @@ func createProgressAndDownloadArea(sm *SubtitleManager) (*widget.ProgressBar, *f
 	return progress, downloadWithBg, tipsWithBg
 }
 
-// 创建开始按钮
+// 开始按钮
 func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContainer *fyne.Container, embedSettingsCard *fyne.Container, progress *widget.ProgressBar, downloadContainer *fyne.Container) *widget.Button {
 	btn := widget.NewButtonWithIcon("开始任务 Start task", theme.MediaPlayIcon(), nil)
 	btn.Importance = widget.HighImportance
 
 	btn.OnTapped = func() {
-		// 按钮动画效果替换为简单的刷新
 		originalImportance := btn.Importance
 		btn.Importance = widget.DangerImportance
 		btn.Refresh()
@@ -725,14 +709,12 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 
 		if embedSettingsCard != nil && len(embedSettingsCard.Objects) > 1 {
 			if titleContainer, ok := embedSettingsCard.Objects[1].(*fyne.Container); ok && titleContainer != nil && len(titleContainer.Objects) >= 2 {
-				// 获取主标题
 				if mainTitleRow, ok := titleContainer.Objects[0].(*fyne.Container); ok && mainTitleRow != nil && len(mainTitleRow.Objects) >= 2 {
 					if mainTitleEntry, ok := mainTitleRow.Objects[1].(*widget.Entry); ok {
 						mainTitle = mainTitleEntry.Text
 					}
 				}
 
-				// 获取副标题
 				if subTitleRow, ok := titleContainer.Objects[1].(*fyne.Container); ok && subTitleRow != nil && len(subTitleRow.Objects) >= 2 {
 					if subTitleEntry, ok := subTitleRow.Objects[1].(*widget.Entry); ok {
 						subTitle = subTitleEntry.Text
@@ -743,14 +725,12 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 
 		sm.SetVerticalTitles(mainTitle, subTitle)
 
-		// 显示进度条并隐藏下载容器
 		progress.Show()
-		sm.progressBar.SetValue(0) // 直接访问进度条
+		sm.progressBar.SetValue(0)
 		downloadContainer.Hide()
 
-		// 检查是否有视频URL
 		if sm.GetVideoUrl() == "" {
-			inputType := "本地视频" // 默认值
+			inputType := "本地视频"
 
 			if videoInputContainer != nil && len(videoInputContainer.Objects) > 0 {
 				for i := 0; i < len(videoInputContainer.Objects); i++ {
@@ -775,7 +755,6 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 			return
 		}
 
-		// 桌面端的启动之前要check config
 		err := config.CheckConfig()
 		if err != nil {
 			dialog.ShowError(fmt.Errorf("配置不正确: %v", err), window)
@@ -791,11 +770,9 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 			progress.Hide()
 			return
 		}
-		// 隐藏开始按钮
 		btn.Hide()
 
 		if config.ConfigBackup != config.Conf {
-			// 重启后端服务以刷新配置
 			if err = server.StopBackend(); err != nil {
 				dialog.ShowError(fmt.Errorf("停止后端服务失败: %v", err), window)
 				log.GetLogger().Error("停止后端服务失败", zap.Error(err))
@@ -813,7 +790,6 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 				}
 			}()
 
-			// 延迟一段时间以确保后端服务启动
 			time.Sleep(1 * time.Second)
 			config.ConfigBackup = config.Conf
 		}
@@ -824,23 +800,19 @@ func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContai
 			return
 		}
 
-		// 监听进度条
 		go func() {
 			for {
 				time.Sleep(1 * time.Second)
 				if sm.progressBar.Value < 1 {
 					continue
 				}
-				// 多任务时防抖
 				time.Sleep(1 * time.Second)
 				if sm.progressBar.Value < 1 {
 					continue
 				}
 				break
 			}
-			// 显示下载按钮
 			btn.Show()
-			// 显示下载容器
 			downloadContainer.Show()
 		}()
 		sm.progressBar.Refresh()
