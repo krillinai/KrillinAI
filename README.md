@@ -114,7 +114,8 @@ Translation languages supported: English, Chinese, Russian, Spanish, French, and
 
 ## Interface Preview
 
-![Interface Preview](/docs/images/ui_desktop.png)
+![Interface Preview](/docs/images/ui_desktop_light.png)
+![Interface Preview](/docs/images/ui_desktop_dark.png)
 
 ## 🚀 Quick Start
 
