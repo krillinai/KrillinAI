@@ -37,3 +37,7 @@ Most of this is due to missing Chinese fonts on Linux. Please download the [Micr
 Please refer to the documentation of the voice service provider. The following are related to this project:  
 [OpenAI TTS Documentation](https://platform.openai.com/docs/guides/text-to-speech/api-reference), located in Voice options  
 [Alibaba Cloud Intelligent Voice Interaction Documentation](https://help.aliyun.com/zh/isi/developer-reference/overview-of-speech-synthesis), located in Tone List - voice parameter values
+
+### 7. The progress bar isn't moving. Is it working?
+Yes.(If you don't see the error message)  
+The progress bar updates only after a part of task is fully completed. Time-consuming operations like Whisper transcription or FFmpeg processing can cause it to pause for extended periods. Please wait for the task to finish.

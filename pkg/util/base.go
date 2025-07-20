@@ -198,8 +198,8 @@ func SanitizePathName(name string) string {
 		// Windows 特殊字符，包括方括号（会影响 filepath.Glob）
 		illegalChars = regexp.MustCompile(`[<>:"/\\|?*\[\]\x00-\x1F]`)
 	} else {
-		// POSIX 系统：禁用 /、空字节和方括号（会影响 filepath.Glob）
-		illegalChars = regexp.MustCompile(`[/\[\]\x00]`)
+		// POSIX 系统：禁用 /、空字节、方括号和问号（会影响 filepath.Glob 和 ffmpeg）
+		illegalChars = regexp.MustCompile(`[/\[\]\x00?]`)
 	}
 
 	sanitized := illegalChars.ReplaceAllString(name, "_")
