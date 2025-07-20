@@ -1711,7 +1711,7 @@
               progressBar.textContent = progress + "%";
             }
             if (progress >= 100) {
-              displayDownloadLinks(
+              await displayDownloadLinks(
                 responseData.subtitle_info || [],
                 responseData.speech_download_url || "",
                 responseData.task_id || "",
@@ -1745,7 +1745,7 @@
       }
 
       // 显示下载链接
-      function displayDownloadLinks(
+      async function displayDownloadLinks(
         urls,
         speechUrl,
         taskId,
@@ -1779,25 +1779,66 @@
           downloadLinks.appendChild(link);
         }
 
-        // 显示嵌入字幕视频下载链接
+        // 检查并显示嵌入字幕视频下载链接
         if (taskId && embedSubtitleType && embedSubtitleType !== "none") {
+          const checkAndAddVideoLink = async (
+            videoType,
+            fileName,
+            displayName
+          ) => {
+            try {
+              const response = await fetch(
+                `/api/file/tasks/${taskId}/output/${fileName}`,
+                {
+                  method: "HEAD",
+                }
+              );
+              if (response.ok) {
+                const link = document.createElement("a");
+                link.href = `/api/file/tasks/${taskId}/output/${fileName}`;
+                link.textContent = displayName;
+                link.download = "";
+                downloadLinks.appendChild(link);
+              } else {
+                // 文件不存在，添加提示信息
+                const tip = document.createElement("div");
+                tip.textContent = `${displayName}： 生成的视频文件不存在，无法生成${videoType}视频`;
+                tip.style.color = "#666";
+                tip.style.fontSize = "12px";
+                tip.style.marginTop = "4px";
+                tip.style.fontStyle = "italic";
+                downloadLinks.appendChild(tip);
+              }
+            } catch (error) {
+              console.error(`检查${fileName}文件失败:`, error);
+              // 发生错误时也添加提示信息
+              const tip = document.createElement("div");
+              tip.textContent = `${displayName}：文件检查失败`;
+              tip.style.color = "#666";
+              tip.style.fontSize = "12px";
+              tip.style.marginTop = "4px";
+              tip.style.fontStyle = "italic";
+              downloadLinks.appendChild(tip);
+            }
+          };
+
           if (
             embedSubtitleType === "horizontal" ||
             embedSubtitleType === "all"
           ) {
-            const horizontalLink = document.createElement("a");
-            horizontalLink.href = `/api/file/tasks/${taskId}/output/horizontal_embed.mp4`;
-            horizontalLink.textContent = "横屏视频：horizontal_embed.mp4";
-            horizontalLink.download = "";
-            downloadLinks.appendChild(horizontalLink);
+            await checkAndAddVideoLink(
+              "横屏",
+              "horizontal_embed.mp4",
+              "横屏视频：horizontal_embed.mp4"
+            );
           }
 
           if (embedSubtitleType === "vertical" || embedSubtitleType === "all") {
-            const verticalLink = document.createElement("a");
-            verticalLink.href = `/api/file/tasks/${taskId}/output/vertical_embed.mp4`;
-            verticalLink.textContent = "竖屏视频：vertical_embed.mp4";
-            verticalLink.download = "";
-            downloadLinks.appendChild(verticalLink);
+            await checkAndAddVideoLink(
+              "竖屏",
+              "vertical_embed.mp4",
+              "竖屏视频：vertical_embed.mp4"
+            );
           }
         }
 
