@@ -503,11 +503,11 @@ func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
 		container.NewHBox(
 			widget.NewLabel("源语言 Origin language:"),
 			StyledSelect([]string{
-				"简体中文", "English", "日文", "土耳其语", "德语", "韩语", "俄语", "Bahasa Melayu",
+				"简体中文", "English", "日本語", "Türkçe", "Deutsch", "한국어", "Русский язык", "Bahasa Melayu",
 			}, func(value string) {
 				sourceLangMap := map[string]string{
-					"简体中文": "zh_cn", "English": "en", "日文": "ja",
-					"土耳其语": "tr", "德语": "de", "韩语": "ko", "俄语": "ru",
+					"简体中文": "zh_cn", "English": "en", "日本語": "ja",
+					"Türkçe": "tr", "Deutsch": "de", "한국어": "ko", "Русский язык": "ru",
 					"Bahasa Melayu": "ms",
 				}
 				sm.SetSourceLang(sourceLangMap[value])
