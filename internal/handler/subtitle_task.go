@@ -1,13 +1,16 @@
 package handler
 
 import (
-	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 	"krillin-ai/internal/dto"
 	"krillin-ai/internal/response"
+	"krillin-ai/internal/service"
+	"krillin-ai/internal/deps"
 	"krillin-ai/log"
 	"os"
 	"path/filepath"
+
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func (h Handler) StartSubtitleTask(c *gin.Context) {
@@ -20,6 +23,14 @@ func (h Handler) StartSubtitleTask(c *gin.Context) {
 			Data:  nil,
 		})
 		return
+	}
+
+	// 检查配置是否需要重新初始化
+	if configUpdated {
+		log.GetLogger().Info("检测到配置更新，重新初始化服务")
+		deps.CheckDependency()
+		h.Service = service.NewService()
+		configUpdated = false
 	}
 
 	svc := h.Service
@@ -50,6 +61,14 @@ func (h Handler) GetSubtitleTask(c *gin.Context) {
 		})
 		return
 	}
+
+	// 检查配置是否需要重新初始化
+	if configUpdated {
+		log.GetLogger().Info("检测到配置更新，重新初始化服务")
+		h.Service = service.NewService()
+		configUpdated = false
+	}
+
 	svc := h.Service
 	data, err := svc.GetTaskStatus(req)
 	if err != nil {

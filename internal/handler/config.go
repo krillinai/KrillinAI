@@ -9,6 +9,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// 全局变量，用于标记配置是否需要重新初始化
+var configUpdated bool
+
 // ConfigRequest 定义前端发送的配置数据结构
 type ConfigRequest struct {
 	App struct {
@@ -170,8 +173,11 @@ func (h Handler) UpdateConfig(c *gin.Context) {
 
 	log.GetLogger().Info("更新配置信息")
 
-	// 备份当前配置
+	// 更新配置备份，确保桌面应用能检测到配置变化
 	config.ConfigBackup = config.Conf
+
+	// 标记配置已更新，需要重新初始化服务
+	configUpdated = true
 
 	// 更新应用配置
 	config.Conf.App.SegmentDuration = req.App.SegmentDuration
