@@ -340,7 +340,7 @@ func createTranscribeConfigGroup() *fyne.Container {
 
 // 创建文本转语音配置组
 func createTtsConfigGroup() *fyne.Container {
-	providerOptions := []string{"openai", "aliyun"}
+	providerOptions := []string{"openai", "aliyun", "edge-tts"}
 	providerSelect := widget.NewSelect(providerOptions, func(value string) {
 		config.Conf.Tts.Provider = value
 	})
