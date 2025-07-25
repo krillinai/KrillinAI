@@ -2,7 +2,7 @@ package fasterwhisper
 
 import (
 	"encoding/json"
-	"go.uber.org/zap"
+	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 func (c *FastwhisperProcessor) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
@@ -22,6 +24,12 @@ func (c *FastwhisperProcessor) Transcription(audioFile, language, workDir string
 		"--output_dir", workDir,
 		audioFile,
 	}
+
+	if config.Conf.Transcribe.EnableGpuAcceleration {
+		cmdArgs = append(cmdArgs[:len(cmdArgs)-1], "--compute_type", "float16", cmdArgs[len(cmdArgs)-1])
+		log.GetLogger().Info("FastwhisperProcessor启用GPU加速", zap.String("model", c.Model))
+	}
+
 	cmd := exec.Command(storage.FasterwhisperPath, cmdArgs...)
 	log.GetLogger().Info("FastwhisperProcessor转录开始", zap.String("cmd", cmd.String()))
 	output, err := cmd.CombinedOutput()

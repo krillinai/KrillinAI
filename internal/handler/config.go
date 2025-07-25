@@ -33,8 +33,9 @@ type ConfigRequest struct {
 		Model   string `json:"model"`
 	} `json:"llm"`
 	Transcribe struct {
-		Provider string `json:"provider"`
-		Openai   struct {
+		Provider              string `json:"provider"`
+		EnableGpuAcceleration bool   `json:"enableGpuAcceleration"`
+		Openai                struct {
 			BaseUrl string `json:"baseUrl"`
 			ApiKey  string `json:"apiKey"`
 			Model   string `json:"model"`
@@ -126,6 +127,7 @@ func (h Handler) GetConfig(c *gin.Context) {
 
 	// 转录配置
 	configResponse.Transcribe.Provider = config.Conf.Transcribe.Provider
+	configResponse.Transcribe.EnableGpuAcceleration = config.Conf.Transcribe.EnableGpuAcceleration
 	configResponse.Transcribe.Openai.BaseUrl = config.Conf.Transcribe.Openai.BaseUrl
 	configResponse.Transcribe.Openai.ApiKey = config.Conf.Transcribe.Openai.ApiKey
 	configResponse.Transcribe.Openai.Model = config.Conf.Transcribe.Openai.Model
@@ -199,6 +201,7 @@ func (h Handler) UpdateConfig(c *gin.Context) {
 
 	// 更新转录配置
 	config.Conf.Transcribe.Provider = req.Transcribe.Provider
+	config.Conf.Transcribe.EnableGpuAcceleration = req.Transcribe.EnableGpuAcceleration
 	config.Conf.Transcribe.Openai.BaseUrl = req.Transcribe.Openai.BaseUrl
 	config.Conf.Transcribe.Openai.ApiKey = req.Transcribe.Openai.ApiKey
 	config.Conf.Transcribe.Openai.Model = req.Transcribe.Openai.Model
