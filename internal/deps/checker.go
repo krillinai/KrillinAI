@@ -591,9 +591,23 @@ func checkEdgeTts() error {
 	if runtime.GOOS == "windows" {
 		downloadUrl = "https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-windows.exe"
 	} else if runtime.GOOS == "linux" {
-		downloadUrl = "https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-linux"
+		if runtime.GOARCH == "amd64" {
+			downloadUrl = "https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-linux-amd64"
+		} else if runtime.GOARCH == "arm64" {
+			downloadUrl = "https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-linux-arm64"
+		} else {
+			log.GetLogger().Error("不支持你当前的操作系统", zap.String("当前系统", runtime.GOOS))
+			return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+		}
 	} else if runtime.GOOS == "darwin" {
-		downloadUrl = "https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-macos"
+		if runtime.GOARCH == "amd64" {
+			downloadUrl = "https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-macos-intel"
+		} else if runtime.GOARCH == "arm64" {
+			downloadUrl = "https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-macos-apple"
+		} else {
+			log.GetLogger().Error("不支持你当前的操作系统", zap.String("当前系统", runtime.GOOS))
+			return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+		}
 	}else {
 		log.GetLogger().Error("不支持你当前的操作系统", zap.String("当前系统", runtime.GOOS))
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
