@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./images/logo.png" alt="KrillinAI" height="90">
 
-  # 极简部署AI视频翻译配音工具
+  # 全能型AI视频翻译配音工具
 
   <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="krillinai%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -33,7 +33,7 @@ Klic Studio是一款由Krillin AI开发的全能型音视频本地化方案，�
 
 🎬 **横竖屏输出**：自动处理横竖版视频和字幕排版，跨平台格式一次成型
 
-🔄 **术语替换**：一键替换专业领域词汇 
+🔄 **术语替换**：一键替换识别错误，专业词汇等 
 
 
 ## 效果展示
