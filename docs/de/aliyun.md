@@ -1,11 +1,11 @@
 ## Voraussetzungen
-Sie benötigen ein [Alibaba Cloud](https://www.aliyun.com) Konto, das durch eine echte Identitätsprüfung verifiziert wurde. Die meisten Dienste bieten ein kostenloses Kontingent.
+Sie benötigen ein [Alibaba Cloud](https://www.aliyun.com) Konto, das durch eine Identitätsprüfung verifiziert wurde. Die meisten Dienste bieten ein kostenloses Kontingent.
 
 ## Abrufen von `access_key_id` und `access_key_secret` für Alibaba Cloud
 1. Gehen Sie zur [Alibaba Cloud AccessKey-Verwaltungsseite](https://ram.console.aliyun.com/profile/access-keys).
-2. Klicken Sie auf "AccessKey erstellen". Wählen Sie bei Bedarf die Verwendungsmethode "In der lokalen Entwicklungsumgebung verwenden".
+2. Klicken Sie auf "AccessKey erstellen". Wenn erforderlich, wählen Sie die Verwendungsmethode "In der lokalen Entwicklungsumgebung verwenden".
 ![Alibaba Cloud access key](/docs/images/aliyun_accesskey_1.png)
-3. Bewahren Sie diese sicher auf, am besten kopieren Sie sie in eine lokale Datei.
+3. Bewahren Sie es sicher auf, am besten kopieren Sie es in eine lokale Datei.
 
 ## Aktivierung des Alibaba Cloud Sprachdienstes
 1. Gehen Sie zur [Alibaba Cloud Sprachdienstverwaltungsseite](https://nls-portal.console.aliyun.com/applist). Bei der ersten Anmeldung müssen Sie den Dienst aktivieren.
@@ -22,9 +22,9 @@ Sie benötigen ein [Alibaba Cloud](https://www.aliyun.com) Konto, das durch eine
 1. Gehen Sie zur [Alibaba Cloud Object Storage Service-Konsole](https://oss.console.aliyun.com/overview). Bei der ersten Anmeldung müssen Sie den Dienst aktivieren.
 2. Wählen Sie in der linken Spalte die Bucket-Liste aus und klicken Sie auf "Erstellen".
 ![Alibaba Cloud OSS](/docs/images/aliyun_oss_1.png)
-3. Wählen Sie "Schneller erstellen", geben Sie einen Bucket-Namen ein, der den Anforderungen entspricht, und wählen Sie die Region **Shanghai** aus, um die Erstellung abzuschließen (der hier eingegebene Name ist der Wert für die Konfiguration `aliyun.oss.bucket`).
+3. Wählen Sie "Schneller erstellen", geben Sie einen Bucket-Namen ein, der den Anforderungen entspricht, und wählen Sie die Region **Shanghai**, um die Erstellung abzuschließen (der hier eingegebene Name ist der Wert für die Konfiguration `aliyun.oss.bucket`).
 ![Alibaba Cloud OSS](/docs/images/aliyun_oss_2.png)
-4. Nach der Erstellung gehen Sie in den Bucket.
+4. Nach der Erstellung gehen Sie zum Bucket.
 ![Alibaba Cloud OSS](/docs/images/aliyun_oss_3.png)
 5. Deaktivieren Sie den Schalter "Öffentlichen Zugriff blockieren" und setzen Sie die Lese- und Schreibberechtigungen auf "Öffentlich lesbar".
 ![Alibaba Cloud OSS](/docs/images/aliyun_oss_4.png)

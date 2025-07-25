@@ -26,7 +26,7 @@ services:
 ```
 
 ## Lưu trữ mô hình
-Nếu sử dụng mô hình fasterwhisper, KrillinAI sẽ tự động tải xuống các tệp cần thiết cho mô hình vào thư mục `/app/models` và thư mục `/app/bin`. Sau khi xóa container, các tệp này sẽ bị mất. Nếu cần lưu trữ mô hình, bạn có thể ánh xạ hai thư mục này đến thư mục của máy chủ.
+Nếu sử dụng mô hình fasterwhisper, KrillinAI sẽ tự động tải xuống các tệp cần thiết cho mô hình vào thư mục `/app/models` và thư mục `/app/bin`. Sau khi xóa container, các tệp này sẽ bị mất. Nếu cần lưu trữ mô hình, bạn có thể ánh xạ hai thư mục này đến thư mục trên máy chủ.
 
 ### Khởi động bằng docker run
 ```bash
@@ -56,4 +56,4 @@ services:
 
 ## Lưu ý
 1. Nếu chế độ mạng của container docker không phải là host, nên thiết lập địa chỉ lắng nghe của máy chủ trong tệp cấu hình là `0.0.0.0`, nếu không có thể không truy cập được dịch vụ.
-2. Nếu trong container cần truy cập proxy mạng của máy chủ, hãy thiết lập mục cấu hình proxy `127.0.0.1` thành `host.docker.internal`, ví dụ `http://host.docker.internal:7890`.
+2. Nếu trong container cần truy cập proxy mạng của máy chủ, hãy cấu hình mục địa chỉ proxy `proxy` từ `127.0.0.1` thành `host.docker.internal`, ví dụ `http://host.docker.internal:7890`.
