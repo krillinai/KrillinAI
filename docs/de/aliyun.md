@@ -1,31 +1,31 @@
 ## Voraussetzungen
-Sie benötigen ein [Alibaba Cloud](https://www.aliyun.com) Konto, das durch eine echte Identitätsprüfung verifiziert wurde. Die meisten Dienste bieten ein kostenloses Kontingent.
+Sie benötigen ein [Alibaba Cloud](https://www.aliyun.com) Konto und müssen die Echtheitsprüfung abschließen. Die meisten Dienste haben kostenlose Kontingente.
 
-## Abrufen von `access_key_id` und `access_key_secret` für Alibaba Cloud
+## Erhalten von Alibaba Cloud `access_key_id` und `access_key_secret`
 1. Gehen Sie zur [Alibaba Cloud AccessKey-Verwaltungsseite](https://ram.console.aliyun.com/profile/access-keys).
-2. Klicken Sie auf "AccessKey erstellen". Wählen Sie bei Bedarf die Verwendungsmethode "In der lokalen Entwicklungsumgebung verwenden".
+2. Klicken Sie auf "AccessKey erstellen." Wählen Sie bei Bedarf die Nutzungsmethode "In der lokalen Entwicklungsumgebung verwenden."
 ![Alibaba Cloud access key](/docs/images/aliyun_accesskey_1.png)
-3. Bewahren Sie diese sicher auf, am besten kopieren Sie sie in eine lokale Datei.
+3. Bewahren Sie es sicher auf; es ist am besten, es in eine lokale Datei zu kopieren.
 
-## Aktivierung des Alibaba Cloud Sprachdienstes
-1. Gehen Sie zur [Alibaba Cloud Sprachdienstverwaltungsseite](https://nls-portal.console.aliyun.com/applist). Bei der ersten Anmeldung müssen Sie den Dienst aktivieren.
-2. Klicken Sie auf "Projekt erstellen".
+## Aktivierung des Alibaba Cloud Voice Service
+1. Gehen Sie zur [Alibaba Cloud Voice Service-Verwaltungsseite](https://nls-portal.console.aliyun.com/applist). Sie müssen den Dienst bei Ihrem ersten Besuch aktivieren.
+2. Klicken Sie auf "Projekt erstellen."
 ![Alibaba Cloud speech](/docs/images/aliyun_speech_1.png)
-3. Wählen Sie die Funktionen aus und aktivieren Sie sie.
+3. Wählen Sie Funktionen aus und aktivieren Sie diese.
 ![Alibaba Cloud speech](/docs/images/aliyun_speech_2.png)
-4. "Stream Text-to-Speech (CosyVoice großes Modell)" muss auf die kommerzielle Version aktualisiert werden, andere Dienste können mit der kostenlosen Testversion verwendet werden.
+4. Das "Streaming Text-to-Speech (CosyVoice Large Model)" muss auf die kommerzielle Version aktualisiert werden; andere Dienste können die kostenlose Testversion nutzen.
 ![Alibaba Cloud speech](/docs/images/aliyun_speech_3.png)
-5. Kopieren Sie einfach den App-Key.
+5. Kopieren Sie einfach den App-Schlüssel.
 ![Alibaba Cloud speech](/docs/images/aliyun_speech_4.png)
 
-## Aktivierung des Alibaba Cloud OSS-Dienstes
-1. Gehen Sie zur [Alibaba Cloud Object Storage Service-Konsole](https://oss.console.aliyun.com/overview). Bei der ersten Anmeldung müssen Sie den Dienst aktivieren.
-2. Wählen Sie in der linken Spalte die Bucket-Liste aus und klicken Sie auf "Erstellen".
+## Aktivierung des Alibaba Cloud OSS Service
+1. Gehen Sie zur [Alibaba Cloud Object Storage Service-Konsole](https://oss.console.aliyun.com/overview). Sie müssen den Dienst bei Ihrem ersten Besuch aktivieren.
+2. Wählen Sie die Bucket-Liste auf der linken Seite und klicken Sie dann auf "Erstellen."
 ![Alibaba Cloud OSS](/docs/images/aliyun_oss_1.png)
-3. Wählen Sie "Schneller erstellen", geben Sie einen Bucket-Namen ein, der den Anforderungen entspricht, und wählen Sie die Region **Shanghai** aus, um die Erstellung abzuschließen (der hier eingegebene Name ist der Wert für die Konfiguration `aliyun.oss.bucket`).
+3. Wählen Sie "Schnell erstellen", füllen Sie einen konformen Bucket-Namen aus und wählen Sie die **Shanghai**-Region, um die Erstellung abzuschließen (der hier eingegebene Name wird der Wert für das Konfigurationselement `aliyun.oss.bucket` sein).
 ![Alibaba Cloud OSS](/docs/images/aliyun_oss_2.png)
-4. Nach der Erstellung gehen Sie in den Bucket.
+4. Nach der Erstellung betreten Sie den Bucket.
 ![Alibaba Cloud OSS](/docs/images/aliyun_oss_3.png)
-5. Deaktivieren Sie den Schalter "Öffentlichen Zugriff blockieren" und setzen Sie die Lese- und Schreibberechtigungen auf "Öffentlich lesbar".
+5. Schalten Sie den Schalter "Öffentlichen Zugriff blockieren" aus und setzen Sie die Lese- und Schreibberechtigungen auf "Öffentlich lesen."
 ![Alibaba Cloud OSS](/docs/images/aliyun_oss_4.png)
 ![Alibaba Cloud OSS](/docs/images/aliyun_oss_5.png)
