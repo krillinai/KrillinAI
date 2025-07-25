@@ -9,21 +9,25 @@ RUN apt-get update && \
 RUN mkdir -p bin && \
     ARCH=$(uname -m) && \
     case "$ARCH" in \
-        x86_64) \
-            URL="https://github.com/yt-dlp/yt-dlp/releases/download/2025.01.15/yt-dlp_linux"; \
-            ;; \
-        armv7l) \
-            URL="https://github.com/yt-dlp/yt-dlp/releases/download/2025.01.15/yt-dlp_linux_armv7l"; \
-            ;; \
-        aarch64) \
-            URL="https://github.com/yt-dlp/yt-dlp/releases/download/2025.01.15/yt-dlp_linux_aarch64"; \
-            ;; \
-        *) \
-            echo "Unsupported architecture: $ARCH" && exit 1; \
-            ;; \
+    x86_64) \
+    YT_DLP_URL="https://github.com/yt-dlp/yt-dlp/releases/download/2025.01.15/yt-dlp_linux"; \
+    EDGE_TTS_URL="https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-linux-amd64"; \
+    ;; \
+    armv7l) \
+    YT_DLP_URL="https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-linux-armv7"; \
+    EDGE_TTS_URL="https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-linux-armv7"; \
+    ;; \
+    aarch64) \
+    YT_DLP_URL="https://github.com/yt-dlp/yt-dlp/releases/download/2025.01.15/yt-dlp_linux_aarch64"; \
+    EDGE_TTS_URL="https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-linux-arm64"; \
+    ;; \
+    *) \
+    echo "Unsupported architecture: $ARCH" && exit 1; \
+    ;; \
     esac && \
-    wget -O bin/yt-dlp "$URL" && \
-    chmod +x bin/yt-dlp
+    wget -O bin/yt-dlp "$YT_DLP_URL" && \
+    wget -O bin/edge-tts "$EDGE_TTS_URL" && \
+    chmod +x bin/yt-dlp bin/edge-tts
 
 COPY KlicStudio ./
 

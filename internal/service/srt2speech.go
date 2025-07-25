@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
@@ -13,7 +12,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // 输入中文字幕，生成配音
@@ -52,13 +54,15 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 		voiceCode = code
 	}
 
+	// 并发处理TTS转换
+	err = s.processSubtitlesConcurrently(subtitles, voiceCode, stepParam)
+	if err != nil {
+		log.GetLogger().Error("srtFileToSpeech processSubtitlesConcurrently error", zap.Any("stepParam", stepParam), zap.Error(err))
+		return fmt.Errorf("srtFileToSpeech processSubtitlesConcurrently error: %w", err)
+	}
+
 	for i, sub := range subtitles {
 		outputFile := filepath.Join(stepParam.TaskBasePath, fmt.Sprintf("subtitle_%d.wav", i+1))
-		err = s.TtsClient.Text2Speech(sub.Text, voiceCode, outputFile)
-		if err != nil {
-			log.GetLogger().Error("srtFileToSpeech Text2Speech error", zap.Any("stepParam", stepParam), zap.Any("num", i+1), zap.Error(err))
-			return fmt.Errorf("srtFileToSpeech Text2Speech error: %w", err)
-		}
 
 		// Step 3: 调整音频时长
 		startTime, err := time.Parse("15:04:05,000", sub.Start)
@@ -145,6 +149,114 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 	// 更新字幕任务信息
 	stepParam.TaskPtr.ProcessPct = 98
 	log.GetLogger().Info("srtFileToSpeech success", zap.String("task id", stepParam.TaskId))
+	return nil
+}
+
+func (s Service) processSubtitlesConcurrently(subtitles []types.SrtSentenceWithStrTime, voiceCode string, stepParam *types.SubtitleTaskStepParam) error {
+	// 创建一个结果数组来存储每个字幕的处理结果
+	type processingResult struct {
+		index int
+		err   error
+	}
+
+	maxConcurrency := 3 // 降低并发数以减少网络压力
+	semaphore := make(chan struct{}, maxConcurrency)
+	var wg sync.WaitGroup
+	resultCh := make(chan processingResult, len(subtitles))
+
+	// 并发生成所有音频文件
+	for i, sub := range subtitles {
+		wg.Add(1)
+		go func(index int, subtitle types.SrtSentenceWithStrTime) {
+			defer wg.Done()
+
+			// 获取信号量
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
+			outputFile := filepath.Join(stepParam.TaskBasePath, fmt.Sprintf("subtitle_%d.wav", index+1))
+			err := s.TtsClient.Text2Speech(subtitle.Text, voiceCode, outputFile)
+			if err != nil {
+				log.GetLogger().Error("processSubtitlesConcurrently Text2Speech error",
+					zap.Any("index", index+1),
+					zap.String("text", subtitle.Text),
+					zap.Error(err))
+				resultCh <- processingResult{index: index, err: fmt.Errorf("subtitle %d TTS error: %w", index+1, err)}
+				return
+			}
+
+			// 成功处理
+			resultCh <- processingResult{index: index, err: nil}
+		}(i, sub)
+	}
+
+	// 等待所有goroutine完成
+	wg.Wait()
+	close(resultCh)
+
+	// 收集所有结果并统计错误
+	results := make([]processingResult, len(subtitles))
+	errorCount := 0
+	var firstError error
+
+	for result := range resultCh {
+		results[result.index] = result
+		if result.err != nil {
+			errorCount++
+			if firstError == nil {
+				firstError = result.err
+			}
+		}
+	}
+
+	// 如果有超过一半的字幕失败，则返回错误
+	failureThreshold := len(subtitles) / 2
+	if errorCount > failureThreshold {
+		log.GetLogger().Error("processSubtitlesConcurrently: too many failures",
+			zap.Int("total", len(subtitles)),
+			zap.Int("errors", errorCount),
+			zap.Int("threshold", failureThreshold))
+		return fmt.Errorf("too many TTS failures: %d/%d failed, first error: %w", errorCount, len(subtitles), firstError)
+	}
+
+	// 验证成功的文件是否存在，对于失败的文件生成静音
+	for i, result := range results {
+		outputFile := filepath.Join(stepParam.TaskBasePath, fmt.Sprintf("subtitle_%d.wav", i+1))
+
+		if result.err != nil {
+			// 为失败的字幕生成静音文件
+			log.GetLogger().Warn("生成静音文件替代失败的TTS",
+				zap.Int("index", i+1),
+				zap.String("file", outputFile))
+
+			// 生成0.5秒的静音作为替代
+			err := newGenerateSilence(outputFile, 0.5)
+			if err != nil {
+				log.GetLogger().Error("生成替代静音文件失败",
+					zap.Int("index", i+1),
+					zap.Error(err))
+				return fmt.Errorf("failed to generate silence for subtitle %d: %w", i+1, err)
+			}
+		} else {
+			// 验证成功生成的文件是否存在
+			if _, err := os.Stat(outputFile); os.IsNotExist(err) {
+				log.GetLogger().Error("processSubtitlesConcurrently output file not exist",
+					zap.Any("index", i+1),
+					zap.String("file", outputFile))
+				return fmt.Errorf("subtitle %d output file not exist: %s", i+1, outputFile)
+			}
+		}
+	}
+
+	if errorCount > 0 {
+		log.GetLogger().Warn("processSubtitlesConcurrently completed with some failures",
+			zap.Int("total", len(subtitles)),
+			zap.Int("errors", errorCount),
+			zap.Int("success", len(subtitles)-errorCount))
+	} else {
+		log.GetLogger().Info("processSubtitlesConcurrently completed successfully", zap.Int("total", len(subtitles)))
+	}
+
 	return nil
 }
 

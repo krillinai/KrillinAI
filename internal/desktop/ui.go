@@ -315,6 +315,7 @@ func createTranscribeConfigGroup() *fyne.Container {
 
 	form := widget.NewForm(
 		widget.NewFormItem("提供商 Provider", providerSelect),
+		widget.NewFormItem("GPU加速 GPU acceleration", widget.NewCheckWithData("启用 Enable", binding.BindBool(&config.Conf.Transcribe.EnableGpuAcceleration))),
 
 		widget.NewFormItem("OpenAI Base URL", openaiBaseUrlEntry),
 		widget.NewFormItem("OpenAI API Key", openaiApiKeyEntry),
@@ -340,7 +341,7 @@ func createTranscribeConfigGroup() *fyne.Container {
 
 // 创建文本转语音配置组
 func createTtsConfigGroup() *fyne.Container {
-	providerOptions := []string{"openai", "aliyun"}
+	providerOptions := []string{"openai", "aliyun", "edge-tts"}
 	providerSelect := widget.NewSelect(providerOptions, func(value string) {
 		config.Conf.Tts.Provider = value
 	})

@@ -804,6 +804,16 @@
                 </select>
               </div>
               <div class="form-group">
+                <label class="form-label">
+                  GPU加速 Enable Gpu Acceleration
+                  <span class="hint">仅 FasterWhisper 生效(Only FasterWhisper)</span>
+                </label>
+                <select id="gpu-acceleration" class="form-select">
+                  <option value="true">是 Yes</option>
+                  <option value="false">否 No</option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label class="form-label">OpenAI Base URL:</label>
                 <input
                   type="url"
@@ -931,6 +941,7 @@
                 <select id="tts-provider" class="form-select">
                   <option value="openai">OpenAI</option>
                   <option value="aliyun">阿里云</option>
+                  <option value="edge-tts">Edge TTS</option>
                 </select>
               </div>
               <div class="form-group">
@@ -1157,6 +1168,10 @@
 
         // 转录配置
         if (configData.transcribe) {
+          document.getElementById("gpu-acceleration").value =
+            configData.transcribe.enableGpuAcceleration === true
+              ? "true"
+              : "false";
           document.getElementById("transcribe-provider").value =
             configData.transcribe.provider || "openai";
           if (configData.transcribe.openai) {
@@ -1269,6 +1284,8 @@
           },
           transcribe: {
             provider: document.getElementById("transcribe-provider").value,
+            enableGpuAcceleration:
+              document.getElementById("gpu-acceleration").value == true,
             openai: {
               baseUrl: document.getElementById("openai-base-url").value,
               apiKey: document.getElementById("openai-api-key").value,

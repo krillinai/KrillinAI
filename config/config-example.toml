@@ -21,6 +21,7 @@
 
 [transcribe] # 视频转文本支持多种方案，配置时先填provider，再填对应的配置
     provider = "openai" #语音识别，当前可选值：openai,fasterwhisper,whisperkit,whisper.cpp,aliyun。(fasterwhisper不支持macOS,whisperkit只支持M芯片)
+    enable_gpu_acceleration = false # 给fasterwhisper进行GPU加速选项,50系显卡请务必开启,否则无法正常运行
     [transcribe.openai]
         base_url = ""
         api_key = ""
@@ -42,7 +43,7 @@
             app_key= ""
 
 [tts]
-    provider = "aliyun" # 可选值：openai,aliyun
+    provider = "aliyun" # 可选值：openai,aliyun,edge-tts
     [tts.openai]
         base_url = ""
         api_key = ""

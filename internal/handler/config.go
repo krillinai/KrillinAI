@@ -9,6 +9,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// 全局变量，用于标记配置是否需要重新初始化
+var configUpdated bool
+
 // ConfigRequest 定义前端发送的配置数据结构
 type ConfigRequest struct {
 	App struct {
@@ -30,8 +33,9 @@ type ConfigRequest struct {
 		Model   string `json:"model"`
 	} `json:"llm"`
 	Transcribe struct {
-		Provider string `json:"provider"`
-		Openai   struct {
+		Provider              string `json:"provider"`
+		EnableGpuAcceleration bool   `json:"enableGpuAcceleration"`
+		Openai                struct {
 			BaseUrl string `json:"baseUrl"`
 			ApiKey  string `json:"apiKey"`
 			Model   string `json:"model"`
@@ -123,6 +127,7 @@ func (h Handler) GetConfig(c *gin.Context) {
 
 	// 转录配置
 	configResponse.Transcribe.Provider = config.Conf.Transcribe.Provider
+	configResponse.Transcribe.EnableGpuAcceleration = config.Conf.Transcribe.EnableGpuAcceleration
 	configResponse.Transcribe.Openai.BaseUrl = config.Conf.Transcribe.Openai.BaseUrl
 	configResponse.Transcribe.Openai.ApiKey = config.Conf.Transcribe.Openai.ApiKey
 	configResponse.Transcribe.Openai.Model = config.Conf.Transcribe.Openai.Model
@@ -170,8 +175,11 @@ func (h Handler) UpdateConfig(c *gin.Context) {
 
 	log.GetLogger().Info("更新配置信息")
 
-	// 备份当前配置
+	// 更新配置备份，确保桌面应用能检测到配置变化
 	config.ConfigBackup = config.Conf
+
+	// 标记配置已更新，需要重新初始化服务
+	configUpdated = true
 
 	// 更新应用配置
 	config.Conf.App.SegmentDuration = req.App.SegmentDuration
@@ -193,6 +201,7 @@ func (h Handler) UpdateConfig(c *gin.Context) {
 
 	// 更新转录配置
 	config.Conf.Transcribe.Provider = req.Transcribe.Provider
+	config.Conf.Transcribe.EnableGpuAcceleration = req.Transcribe.EnableGpuAcceleration
 	config.Conf.Transcribe.Openai.BaseUrl = req.Transcribe.Openai.BaseUrl
 	config.Conf.Transcribe.Openai.ApiKey = req.Transcribe.Openai.ApiKey
 	config.Conf.Transcribe.Openai.Model = req.Transcribe.Openai.Model
