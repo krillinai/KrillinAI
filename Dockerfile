@@ -11,15 +11,15 @@ RUN mkdir -p bin && \
     case "$ARCH" in \
     x86_64) \
     YT_DLP_URL="https://github.com/yt-dlp/yt-dlp/releases/download/2025.01.15/yt-dlp_linux"; \
-    EDGE_TTS_URL="https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-linux"; \
+    EDGE_TTS_URL="https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-linux-amd64"; \
     ;; \
     armv7l) \
-    YT_DLP_URL="https://github.com/yt-dlp/yt-dlp/releases/download/2025.01.15/yt-dlp_linux_armv7l"; \
-    EDGE_TTS_URL="https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-linux"; \
+    YT_DLP_URL="https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-linux-armv7"; \
+    EDGE_TTS_URL="https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-linux-armv7"; \
     ;; \
     aarch64) \
     YT_DLP_URL="https://github.com/yt-dlp/yt-dlp/releases/download/2025.01.15/yt-dlp_linux_aarch64"; \
-    EDGE_TTS_URL="https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-linux"; \
+    EDGE_TTS_URL="https://github.com/puji4810/edge-tts-pkg/releases/download/v0.0.1/edge-tts-linux-arm64"; \
     ;; \
     *) \
     echo "Unsupported architecture: $ARCH" && exit 1; \
