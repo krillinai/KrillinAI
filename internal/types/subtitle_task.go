@@ -142,20 +142,65 @@ Requirements:
 
 `
 
-var SplitTextWithContextPrompt = `你是一个专业翻译专家，擅长结合上下文进行准确翻译。请根据以下提供的上下文句子和目标句子，将目标句子翻译成%s，并确保翻译结果与上下文保持连贯一致：
+// var SplitTextWithContextPrompt = `你是一个专业翻译专家，擅长结合上下文进行准确翻译。请根据以下提供的上下文句子和目标句子，将目标句子翻译成%s，并确保翻译结果与上下文保持连贯一致：
 
-上下文句子：
+// 上下文句子：
+// %s
+
+// 需要翻译的目标句子：%s
+
+// 翻译要求：
+// 1. 严格按照目标语言的语法和表达习惯翻译
+// 2. 保持专业术语的一致性
+// 3. 输出仅包含翻译后的文本，不添加任何额外解释或格式
+// 4. 确保翻译结果与上下文语义连贯
+
+// 请直接输出翻译结果：`
+
+// var SplitTextWithContextPrompt = `You are a professional translation expert skilled in providing accurate translations based on context. Please translate the target sentence into %s according to the provided context sentences below, ensuring the translation remains coherent and consistent.
+
+// Here's the full context:
+// %s
+
+// Target sentence to translate:
+// %s
+
+// %s
+
+// Translation requirements:
+// 1.Analyze how the target sentence connects to both the preceding and following context
+// 2.Provide the most natural translation that preserves the original tone and intent
+// 3.Highlight any idioms, cultural references, or nuanced phrases that require special attention
+// 4.If there are multiple possible interpretations, briefly explain each option
+// 5.Maintain consistent terminology with the surrounding sentences"
+// 6.Output only the translated text without any additional explanations or formatting
+
+// Please provide only the translation result:`
+
+var SplitTextWithContextPrompt = `You are a professional translation expert.
+
+[STRICT TRANSLATION TASK]
+**Objective**: 
+Translate ONLY the "Target Sentence" below into %s. 
+Must reference but NEVER translate surrounding context.
+
+**Critical Rules**:
+1. OUTPUT MUST BE A SINGLE LINE containing ONLY the target sentence's translation
+2. NEVER continue/complete the target sentence's thought
+3. IGNORE all "Next Sentences" completely
+4. Maintain contextual flow from "Previous Sentences" implicitly
+
+**Context**:
+[Previous Sentences]
 %s
 
-需要翻译的目标句子：%s
+[Target Sentence]
+%s
 
-翻译要求：
-1. 严格按照目标语言的语法和表达习惯翻译
-2. 保持专业术语的一致性
-3. 输出仅包含翻译后的文本，不添加任何额外解释或格式
-4. 确保翻译结果与上下文语义连贯
+[Next Sentences]
+%s
 
-请直接输出翻译结果：`
+**Provide only the translation result:**`
 
 type SmallAudio struct {
 	AudioFile         string

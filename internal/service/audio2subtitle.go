@@ -184,8 +184,8 @@ func (s Service) splitTextAndTranslateV2(basePath, inputText string, originLang,
 		signal  = make(chan struct{}, config.Conf.App.TranslateParallelNum) // 控制最大并发数
 		wg      sync.WaitGroup
 		results = make([]*TranslatedItem, len(sentences))
-		errChan = make(chan error, 1)
-		mutex   sync.Mutex
+		// errChan = make(chan error, 1)
+		// mutex   sync.Mutex
 	)
 
 	for i, sentence := range sentences {
@@ -196,53 +196,56 @@ func (s Service) splitTextAndTranslateV2(basePath, inputText string, originLang,
 			defer wg.Done()
 			defer func() { <-signal }()
 
-			// 准备上下文（前后各5句）
-			var ctxBuilder strings.Builder
-			start := max(0, index-5)
-			end := min(len(sentences)-1, index+5)
+			contextSentenceNum := 3
+
+			// 生成前面3个句子的string
+			var previousSentences string
 			if index > 0 {
-				ctxBuilder.WriteString("上文:\n")
-				for i := start; i < index; i++ {
-					ctxBuilder.WriteString(fmt.Sprintf("%s", sentences[i]))
+				start := 0
+				if index-contextSentenceNum > 0 {
+					start = index - contextSentenceNum
 				}
-			}
-			if index < len(sentences)-1 {
-				ctxBuilder.WriteString("下文:\n")
-				for i := index + 1; i <= end; i++ {
-					ctxBuilder.WriteString(fmt.Sprintf("%s", sentences[i]))
+				for i := start; i < index; i++ {
+					previousSentences += sentences[i] + "\n"
 				}
 			}
 
-			ctx := ctxBuilder.String()
-			prompt := fmt.Sprintf(types.SplitTextWithContextPrompt, types.GetStandardLanguageName(targetLang), ctx, originText)
+			// 生成后面3个句子的string
+			var nextSentences string
+			if index < len(sentences)-1 {
+				end := len(sentences) - 1
+				if index+contextSentenceNum < end {
+					end = index + contextSentenceNum
+				}
+				for i := index + 1; i <= end; i++ {
+					if i > index+1 {
+						nextSentences += "\n"
+					}
+					nextSentences += sentences[i]
+				}
+			}
+
+			prompt := fmt.Sprintf(types.SplitTextWithContextPrompt, types.GetStandardLanguageName(targetLang), previousSentences, originText, nextSentences)
 
 			translatedText, err := s.ChatCompleter.ChatCompletion(prompt)
 			if err != nil {
-				mutex.Lock()
-				select {
-				case errChan <- fmt.Errorf("splitTextAndTranslateV2 llm translate error: %w, original text: %s", err, originText):
-				default:
+				log.GetLogger().Error("splitTextAndTranslateV2 llm translate error", zap.Error(err), zap.Any("original text", originText))
+				results[index] = &TranslatedItem{
+					OriginText:     originText,
+					TranslatedText: originText,
 				}
-				mutex.Unlock()
-				return
-			}
-
-			translatedText = strings.TrimSpace(translatedText)
-			results[index] = &TranslatedItem{
-				OriginText:     originText,
-				TranslatedText: translatedText,
+			} else {
+				translatedText = strings.TrimSpace(translatedText)
+				results[index] = &TranslatedItem{
+					OriginText:     originText,
+					TranslatedText: translatedText,
+				}
 			}
 		}(i, sentence)
 	}
 
-	go func() {
-		wg.Wait()
-		close(errChan)
-	}()
-
-	if err := <-errChan; err != nil {
-		return nil, err
-	}
+	wg.Wait()
+	// close(errChan)
 
 	return results, nil
 }
