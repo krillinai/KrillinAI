@@ -1,39 +1,110 @@
-### 1. Impossible de voir le fichier de configuration `app.log`, impossible de connaître le contenu de l'erreur
-Les utilisateurs de Windows doivent placer le répertoire de travail de ce logiciel dans un dossier qui n'est pas sur le disque C.
+### 1. Le programme signale "Fichier de configuration introuvable" ou "xxxxx nécessite la configuration de la clé API xxxxx." Comment puis-je résoudre ce problème ?
 
-### 2. Le fichier de configuration a bien été créé, mais l'erreur "fichier de configuration introuvable" persiste
-Assurez-vous que le nom du fichier de configuration est `config.toml`, et non `config.toml.txt` ou autre. Une fois la configuration terminée, la structure du dossier de travail de ce logiciel devrait être la suivante :
-```
-/── config/
-│   └── config.toml
-├── cookies.txt （<- fichier cookies.txt optionnel）
-└── krillinai.exe
-```
+C'est un problème de configuration courant. Il y a plusieurs raisons pour lesquelles cela peut se produire :
 
-### 3. La configuration du grand modèle a été remplie, mais l'erreur "xxxxx nécessite la configuration de la clé API xxxxx" apparaît
-Bien que les services de modèle et de voix puissent tous deux utiliser les services d'OpenAI, il existe également des scénarios où le grand modèle utilise des services non-OpenAI, c'est pourquoi ces deux configurations sont séparées. En plus de la configuration du grand modèle, veuillez chercher la configuration de whisper en bas pour remplir les clés et autres informations correspondantes.
+1. **Emplacement ou nom de fichier incorrect :**
 
-### 4. L'erreur contient "yt-dlp error"
-Le problème du téléchargeur vidéo semble être lié à des problèmes de réseau ou de version du téléchargeur. Vérifiez si le proxy réseau est activé et configuré dans les options de proxy du fichier de configuration, et il est conseillé de choisir un nœud à Hong Kong. Le téléchargeur est installé automatiquement par ce logiciel, et bien que je mettrai à jour la source d'installation, ce n'est pas une source officielle, donc il peut y avoir des retards. En cas de problème, essayez de mettre à jour manuellement avec la méthode suivante :
+* Le programme nécessite un fichier de configuration nommé exactement `config.toml`. Assurez-vous de ne pas l'avoir accidentellement nommé `config.toml.txt`.
+* Ce fichier doit être placé dans un dossier `config`. La structure correcte du répertoire de travail devrait être :
+  ```
+  /── config/
+  │   └── config.toml
+  └── krillinai.exe(votre fichier exécutable)
+  ```
+* **Pour les utilisateurs de Windows :** Il est recommandé de placer l'ensemble du répertoire logiciel dans un dossier qui n'est pas sur le disque C: pour éviter d'éventuels problèmes de permission.
 
-Ouvrez un terminal dans le répertoire bin du logiciel et exécutez
-```
-./yt-dlp.exe -U
-```
-Remplacez `yt-dlp.exe` par le nom réel du logiciel ytdlp sur votre système.
+2. **Configuration incomplète de la clé API :**
 
-### 5. Après le déploiement, la génération de sous-titres fonctionne normalement, mais les sous-titres intégrés dans la vidéo contiennent beaucoup de caractères illisibles
-Cela est principalement dû à l'absence de polices chinoises sur Linux. Veuillez télécharger les polices [Microsoft YaHei](https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/%E5%AD%97%E4%BD%93/msyh.ttc) et [Microsoft YaHei Bold](https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/%E5%AD%97%E4%BD%93/msyhbd.ttc) (ou choisir des polices qui répondent à vos exigences), puis suivez les étapes ci-dessous :
-1. Créez un dossier msyh sous /usr/share/fonts/ et copiez les polices téléchargées dans ce répertoire.
-2. 
+* L'application nécessite des configurations séparées pour le modèle de langage large (pour la traduction), le service vocal (pour la transcription et la synthèse vocale) et le service tts.
+* Même si vous utilisez OpenAI pour tout, vous devez remplir la clé dans différentes sections du fichier `config.toml`. Recherchez la section `llm`, la section `transcribe`, la section `tts` et remplissez les clés API correspondantes et d'autres informations requises.
+
+### 2. Je reçois une erreur contenant "erreur yt-dlp". Que dois-je faire ?
+
+Cette erreur indique un problème avec le téléchargeur de vidéos, qui est généralement lié à votre réseau ou à la version du téléchargeur.
+
+* **Réseau :** Si vous utilisez un proxy, assurez-vous qu'il est correctement configuré dans les paramètres du proxy de votre fichier `config.toml`.
+* **Mettre à jour `yt-dlp` :** La version de `yt-dlp` fournie avec le logiciel peut être obsolète. Vous pouvez la mettre à jour manuellement en ouvrant un terminal dans le répertoire `bin` du logiciel et en exécutant la commande :
+  ```
+  ./yt-dlp.exe -U
+  ```
+  
+  (Remplacez `yt-dlp.exe` par le nom de fichier correct pour votre système d'exploitation s'il diffère).
+
+### 3. Les sous-titres dans la vidéo finale sont illisibles ou apparaissent sous forme de blocs carrés, surtout sur Linux.
+
+Cela est presque toujours causé par des polices manquantes sur le système, en particulier celles qui prennent en charge les caractères chinois. Pour résoudre ce problème, vous devez installer les polices nécessaires.
+
+1. Téléchargez les polices requises, telles que [Microsoft YaHei](https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/%E5%AD%97%E4%BD%93/msyh.ttc) et [Microsoft YaHei Bold](https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/%E5%AD%97%E4%BD%93/msyhbd.ttc).
+2. Créez un nouveau répertoire de polices : `sudo mkdir -p /usr/share/fonts/msyh`.
+3. Copiez les fichiers de police `.ttc` téléchargés dans ce nouveau répertoire.
+4. Exécutez les commandes suivantes pour reconstruire le cache des polices :
     ```
     cd /usr/share/fonts/msyh
     sudo mkfontscale
     sudo mkfontdir
-    fc-cache
+    sudo fc-cache -fv
     ```
 
-### 6. Comment remplir le code de voix pour la synthèse vocale ?
-Veuillez vous référer à la documentation du fournisseur de services vocaux, voici les informations pertinentes pour ce projet :  
-[Documentation OpenAI TTS](https://platform.openai.com/docs/guides/text-to-speech/api-reference), située dans les options de voix  
-[Documentation d'interaction vocale intelligente d'Alibaba Cloud](https://help.aliyun.com/zh/isi/developer-reference/overview-of-speech-synthesis), située dans la liste des voix - valeur du paramètre voice
+### 4. Sur macOS, l'application ne démarre pas et affiche une erreur comme "KlicStudio est endommagé et ne peut pas être ouvert."
+
+Cela est causé par la fonctionnalité de sécurité de macOS, Gatekeeper, qui restreint les applications des développeurs non identifiés. Pour résoudre ce problème, vous devez supprimer manuellement l'attribut de quarantaine.
+
+1. Ouvrez l'application **Terminal**.
+2. Tapez la commande `xattr -cr` suivie d'un espace, puis faites glisser le fichier `KlicStudio.app` de votre fenêtre Finder dans le Terminal. La commande ressemblera à ceci :
+    ```
+    xattr -cr /Applications/KlicStudio.app
+    ```
+3. Appuyez sur Entrée. Vous devriez maintenant pouvoir ouvrir l'application.
+
+### 5. Je reçois des erreurs comme `erreur ffmpeg`, `erreur audioToSrt` ou `statut de sortie 1` pendant le traitement.
+
+Ces erreurs indiquent généralement des problèmes avec les dépendances ou les ressources système.
+
+* **`erreur ffmpeg` :** Cela indique que `ffmpeg` n'est soit pas installé, soit pas accessible depuis le PATH du système. Assurez-vous d'avoir une version complète et officielle de `ffmpeg` installée et que son emplacement est ajouté aux variables d'environnement de votre système.
+* **`erreur audioToSrt` ou `statut de sortie 1` :** Cette erreur se produit pendant la phase de transcription (audio en texte). Les causes courantes sont :
+  * **Problèmes de modèle :** Le modèle de transcription local (par exemple, `fasterwhisper`) n'a pas pu se charger ou a été corrompu pendant le téléchargement.
+  * **Mémoire insuffisante (RAM) :** L'exécution de modèles locaux est gourmande en ressources. Si votre machine manque de mémoire, le système d'exploitation peut terminer le processus, entraînant une erreur.
+  * **Échec du réseau :** Si vous utilisez un service de transcription en ligne (comme l'API Whisper d'OpenAI), cela indique un problème avec votre connexion réseau ou une clé API invalide.
+
+### 6. La barre de progression ne bouge pas. Le programme est-il gelé ?
+
+Non, tant que vous ne voyez pas de message d'erreur, le programme fonctionne. La barre de progression ne se met à jour qu'après qu'une tâche majeure (comme la transcription ou le codage vidéo) soit entièrement terminée. Ces tâches peuvent prendre beaucoup de temps, ce qui peut amener la barre de progression à faire une pause pendant une période prolongée. Veuillez être patient et attendre la fin de la tâche.
+
+### 7. Ma GPU NVIDIA de la série 5000 n'est pas prise en charge par `fasterwhisper`. Que dois-je faire ?
+
+Il a été observé que le modèle `fasterwhisper` peut ne pas fonctionner correctement avec les GPU NVIDIA de la série 5000 (à partir de mi-2025). Vous avez quelques alternatives pour la transcription :
+
+1. **Utiliser un modèle basé sur le cloud :** Définissez `transcribe.provider.name` sur `openai` ou `aliyun` dans votre fichier `config.toml`. Ensuite, remplissez la clé API correspondante et les détails de configuration. Cela utilisera le modèle Whisper du fournisseur cloud au lieu du modèle local.
+2. **Utiliser un autre modèle local :** Vous pouvez expérimenter avec d'autres modèles de transcription locaux, tels que le `whisper.cpp` original.
+
+### 8. Comment puis-je trouver et remplir le code de voix/ton correct pour la synthèse vocale ?
+
+Les voix disponibles et leurs codes correspondants sont définis par le fournisseur de services vocaux que vous utilisez. Veuillez vous référer à leur documentation officielle.
+
+* **OpenAI TTS :** [Documentation](https://platform.openai.com/docs/guides/text-to-speech/api-reference) (voir les options de `voice`).
+* **Alibaba Cloud :** [Documentation](https://help.aliyun.com/zh/isi/developer-reference/overview-of-speech-synthesis) (voir le paramètre `voice` dans la liste des tons).
+
+### 9. Comment puis-je utiliser un modèle de langage large (LLM) local, comme celui fonctionnant sur Ollama, pour la traduction ?
+
+Oui, vous pouvez configurer KlicStudio pour utiliser n'importe quel LLM local qui fournit un point de terminaison API compatible avec OpenAI.
+
+1. **Démarrez votre LLM local :** Assurez-vous que votre service local (par exemple, Ollama exécutant Llama3) est actif et accessible.
+2. **Modifier `config.toml` :** Dans la section pour le modèle de langage large (traducteur) :
+
+* Définissez le `name` (ou `type`) du fournisseur sur `"openai"`.
+* Définissez la `api_key` sur une chaîne aléatoire (par exemple, `"ollama"`), car elle n'est pas nécessaire pour les appels locaux.
+* Définissez le `base_url` sur le point de terminaison API de votre modèle local. Pour Ollama, c'est généralement `http://localhost:11434/v1`.
+* Définissez le `model` sur le nom du modèle que vous servez, par exemple, `"llama3"`.
+
+### 10. Puis-je personnaliser le style des sous-titres (police, taille, couleur) dans la vidéo finale ?
+
+Non. Actuellement, KlicStudio génère des **sous-titres codés en dur**, ce qui signifie qu'ils sont intégrés directement dans les images de la vidéo. L'application **n'offre pas d'options pour personnaliser le style des sous-titres** ; elle utilise un style prédéfini.
+
+Pour une personnalisation avancée, la solution de contournement recommandée est de :
+
+1. Utiliser KlicStudio pour générer le fichier de sous-titres `.srt` traduit.
+2. Importer votre vidéo originale et ce fichier `.srt` dans un éditeur vidéo professionnel (par exemple, Premiere Pro, Final Cut Pro, DaVinci Resolve) pour appliquer des styles personnalisés avant le rendu.
+
+### 11. J'ai déjà un fichier `.srt` traduit. KlicStudio peut-il l'utiliser pour effectuer uniquement le doublage ?
+
+Non, cette fonctionnalité n'est pas actuellement prise en charge. L'application exécute un pipeline complet de la transcription à la génération de la vidéo finale.

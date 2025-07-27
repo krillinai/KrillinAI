@@ -1,44 +1,47 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KlicStudio" height="90">
 
-  # 极简部署AI视频翻译配音工具
+# 极简 AI 视频翻译与配音工具
 
-  <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKlicStudio | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKlicStudio | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-  **[English](/README.md)｜[简体中文](/docs/zh/README.md)｜[日本語](/docs/jp/README.md)｜[한국어](/docs/kr/README.md)｜[Tiếng Việt](/docs/vi/README.md)｜[Français](/docs/fr/README.md)｜[Deutsch](/docs/de/README.md)｜[Español](/docs/es/README.md)｜[Português](/docs/pt/README.md)｜[Русский](/docs/rus/README.md)｜[اللغة العربية](/docs/ar/README.md)**
+**[English](/README.md)｜[简体中文](/docs/zh/README.md)｜[日本語](/docs/jp/README.md)｜[한국어](/docs/kr/README.md)｜[Tiếng Việt](/docs/vi/README.md)｜[Français](/docs/fr/README.md)｜[Deutsch](/docs/de/README.md)｜[Español](/docs/es/README.md)｜[Português](/docs/pt/README.md)｜[Русский](/docs/rus/README.md)｜[اللغة العربية](/docs/ar/README.md)**
 
 [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=粉丝&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/krillinai/KlicStudio)
 
 </div>
 
- ## 项目简介  ([现在体验在线版本！](https://www.klic.studio/))
+## 项目介绍  ([立即体验在线版本！](https://www.klic.studio/))
+[**快速开始**](#-quick-start)
 
-Klic Studio是一款由Krillin AI开发的全能型音视频本地化方案，集音视频翻译、配音、声音克隆于一身，一键生成好莱坞影视级字幕。支持横竖屏格式输出，确保在所有主流平台（哔哩哔哩，小红书，抖音，视频号，快手，YouTube，TikTok等）都能完美呈现，轻松满足内容全球化的需求！
+Klic Studio 是由 Krillin AI 开发的多功能音视频本地化和增强解决方案。这个极简而强大的工具集成了视频翻译、配音和语音克隆，支持横屏和竖屏格式，确保在所有主要平台（Bilibili、小红书、抖音、微信视频、快手、YouTube、TikTok 等）上完美呈现。通过端到端的工作流程，您只需几次点击即可将原材料转化为精美的跨平台内容。
 
-## 主要特点与功能：
-🎯 **一键启动**：无需复杂的环境配置，自动安装依赖，开箱即用。新增桌面版本，使用更便捷！
+## 主要特点和功能：
 
-📥 **视频获取**：支持yt-dlp下载或本地文件上传
+🎯 **一键启动**：无需复杂的环境配置，自动安装依赖，立即可用，提供新的桌面版本以便于访问！
 
-📜 **精准识别**：基于Whisper的高准确度语音识别
+📥 **视频获取**：支持 yt-dlp 下载或本地文件上传
 
-🧠 **品质翻译**：适配主流SOTA大语言模型，字幕组级别翻译质量
+📜 **准确识别**：基于 Whisper 的高精度语音识别
 
-🌍 **影视级字幕**：单词级切割对齐算法，对齐好莱坞影视级字幕品质，单行字幕不折行
+🧠 **智能分段**：使用 LLM 进行字幕分段和对齐
 
-🎙️ **配音克隆**：提供CosyVoice精选音色或自定义音色克隆
+🔄 **术语替换**：一键替换专业词汇
 
-🎬 **横竖屏输出**：自动处理横竖版视频和字幕排版，跨平台格式一次成型
+🌍 **专业翻译**：基于上下文的 LLM 翻译，保持自然语义
 
-🔄 **术语替换**：一键替换专业领域词汇
+🎙️ **语音克隆**：提供 CosyVoice 中选择的语音音调或自定义语音克隆
 
-💻 **跨平台**：支持Windows、Linux、macOS，提供桌面版和server版
+🎬 **视频合成**：自动处理横屏和竖屏视频及字幕布局
 
+💻 **跨平台**：支持 Windows、Linux、macOS，提供桌面和服务器版本
 
-## 效果展示
-下图为46分钟的本地视频导入，一键执行后生成的字幕文件入轨后的效果，无任何手动调整。无缺失、重叠，断句自然，翻译质量也非常高。
+## 效果演示
+
+下图展示了在导入一段 46 分钟的本地视频并一键执行后生成的字幕文件效果，无需任何手动调整。没有遗漏或重叠，分段自然，翻译质量非常高。
 ![对齐效果](/docs/images/alignment.png)
 
 <table>
@@ -46,24 +49,28 @@ Klic Studio是一款由Krillin AI开发的全能型音视频本地化方案，�
 <td width="33%">
 
 ### 字幕翻译
+
 ---
+
 https://github.com/user-attachments/assets/bba1ac0a-fe6b-4947-b58d-ba99306d0339
 
 </td>
 <td width="33%">
 
-
-
 ### 配音
+
 ---
+
 https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 
 </td>
 
 <td width="33%">
 
-### 竖屏
+### 竖屏模式
+
 ---
+
 https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 </td>
@@ -71,111 +78,141 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </tr>
 </table>
 
-## 🔍 语音识别服务支持
-_**下表中的本地模型全部支持自动安装可执行文件+模型文件，你只要选择，其它的Klic帮你全部准备完毕。**_
+## 🔍 支持的语音识别服务
 
-| 服务源                | 支持平台            | 模型可选项                                  | 本地/云端 | 备注          |
-|--------------------|-----------------|----------------------------------------|-------|-------------|
-| **OpenAI Whisper** | 全平台             | -                                      | 云端    | 速度快效果好      |
-| **FasterWhisper**  | Windows/Linux   | `tiny`/`medium`/`large-v2` (推荐medium+) | 本地    | 速度更快，无云服务开销 |
-| **WhisperKit**     | macOS (仅限M系列芯片) | `large-v2`                             | 本地    | Apple芯片原生优化 |
-| **WhisperCpp**     | 全平台             | `large-v2`                             | 本地    | 支持全平台       |
-| **阿里云ASR**         | 全平台             | -                                      | 云端    | 避免中国大陆网络问题  |
+_**下表中的所有本地模型支持可执行文件 + 模型文件的自动安装；您只需选择，Klic 将为您准备一切。**_
+
+| 服务来源              | 支持的平台         | 模型选项                             | 本地/云      | 备注                       |
+|----------------------|---------------------|--------------------------------------|--------------|-----------------------------|
+| **OpenAI Whisper**   | 所有平台            | -                                    | 云           | 速度快，效果好            |
+| **FasterWhisper**    | Windows/Linux       | `tiny`/`medium`/`large-v2`（推荐 medium+） | 本地         | 速度更快，无云服务费用    |
+| **WhisperKit**       | macOS（仅限 M 系列） | `large-v2`                          | 本地         | 针对 Apple 芯片的本地优化 |
+| **WhisperCpp**       | 所有平台            | `large-v2`                          | 本地         | 支持所有平台               |
+| **Alibaba Cloud ASR**| 所有平台            | -                                    | 云           | 避免中国大陆的网络问题    |
 
 ## 🚀 大语言模型支持
 
-✅ 兼容所有符合 **OpenAI API规范** 的云端/本地大语言模型服务，包括但不限于：
+✅ 兼容所有符合 **OpenAI API 规范** 的云/本地大语言模型服务，包括但不限于：
+
 - OpenAI
 - Gemini
 - DeepSeek
 - 通义千问
 - 本地部署的开源模型
-- 其他兼容OpenAI格式的API服务
+- 其他兼容 OpenAI 格式的 API 服务
 
-## 🎤 TTS文本转语音支持
+## 🎤 TTS 文本转语音支持
+
 - 阿里云语音服务
 - OpenAI TTS
 
 ## 语言支持
-输入语言支持：中文，英文，日语，德语，土耳其，韩语，俄语，马来语（持续增加中）
 
-翻译语言支持：英文，中文，俄语，西班牙语，法语等101种语言
+支持的输入语言：中文、英语、日语、德语、土耳其语、韩语、俄语、马来语（持续增加中）
+
+支持的翻译语言：英语、中文、俄语、西班牙语、法语及其他 101 种语言
 
 ## 界面预览
-![界面预览](/docs/images/ui_desktop.png)
 
+![界面预览](/docs/images/ui_desktop_light.png)
+![界面预览](/docs/images/ui_desktop_dark.png)
 
 ## 🚀 快速开始
+
+您可以在 [KlicStudio 的 Deepwiki](https://deepwiki.com/krillinai/KlicStudio) 上提问。它会索引库中的文件，因此您可以快速找到答案。
+
 ### 基本步骤
-首先下载[Release](https://github.com/KrillinAI/KlicStudio/releases)中与你设备系统匹配的可执行文件，按照下面的教程选择桌面版还是非桌面版，然后放入空文件夹，把软件下载到一个空文件夹，因为运行之后会生成一些目录，放到空文件夹会好管理一些。  
 
-【如果是桌面版，即release文件带desktop的看此处】  
-_桌面版是新发布的，为了解决新手用户难以正确编辑配置文件的问题，还有一些bug，持续更新中_
-1. 双击文件即可开始使用(桌面端也是需要配置的，在软件内配置)
+首先，从 [Release](https://github.com/KrillinAI/KlicStudio/releases) 下载与您的设备系统匹配的可执行文件，然后按照下面的教程选择桌面版或非桌面版。将软件下载放在一个空文件夹中，因为运行它会生成一些目录，保持在空文件夹中会使管理更容易。
 
-【如果是非桌面版，即release文件不带desktop的看此处】  
-_非桌面版是一开始的版本，配置比较复杂，但是功能稳定，同时适合服务器部署，因为会以web的方式提供ui_
-1. 在文件夹内创建`config`文件夹，然后在`config`文件夹创建`config.toml`文件，复制源代码`config`目录下的`config-example.toml`文件的内容填入`config.toml`，并按注释对照填写你的配置信息。
-2. 双击，或在终端执行可执行文件，启动服务 
-3. 打开浏览器，输入`http://127.0.0.1:8888`，开始使用 (8888替换成你在配置文件中填写的端口)
+【如果是桌面版，即带有“desktop”的发布文件，请查看这里】
+_桌面版是新发布的，旨在解决新用户在正确编辑配置文件时遇到的问题，并且有一些错误正在持续更新。_
 
-### To: macOS用户
-【如果是桌面版，即release文件带desktop的看此处】  
-桌面端目前打包方式由于签名等问题，还不能够做到双击直接运行或者dmg安装，需要手动信任应用，方法如下：
-1. 在终端打开可执行文件（假设文件名是KlicStudio_1.0.0_desktop_macOS_arm64）所在目录
-2. 依次执行以下命令：
+1. 双击文件开始使用（桌面版也需要在软件内进行配置）
+
+【如果是非桌面版，即不带“desktop”的发布文件，请查看这里】
+_非桌面版是初始版本，配置更复杂，但功能稳定，适合服务器部署，因为它以网页格式提供 UI。_
+
+1. 在文件夹内创建一个 `config` 文件夹，然后在 `config` 文件夹中创建一个 `config.toml` 文件。将源代码 `config` 目录中的 `config-example.toml` 文件内容复制到 `config.toml` 中，并根据注释填写您的配置信息。
+2. 双击或在终端中执行可执行文件以启动服务
+3. 打开浏览器并输入 `http://127.0.0.1:8888` 开始使用（将 8888 替换为您在配置文件中指定的端口）
+
+### 对于：macOS 用户
+
+【如果是桌面版，即带有“desktop”的发布文件，请查看这里】
+由于签名问题，桌面版目前无法双击运行或通过 dmg 安装；您需要手动信任该应用程序。方法如下：
+
+1. 在可执行文件所在目录打开终端（假设文件名为 KlicStudio_1.0.0_desktop_macOS_arm64）
+2. 按顺序执行以下命令：
+
 ```
 sudo xattr -cr ./KlicStudio_1.0.0_desktop_macOS_arm64
 sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64 
 ./KlicStudio_1.0.0_desktop_macOS_arm64
 ```
 
-【如果是非桌面版，即release文件不带desktop的看此处】  
-本软件没有做签名，因此在macOS上运行时，在完成“基本步骤”中的文件配置后，还需要手动信任应用，方法如下：
-1. 在终端打开可执行文件（假设文件名是KlicStudio_1.0.0_macOS_arm64）所在目录
-2. 依次执行以下命令：
+【如果是非桌面版，即不带“desktop”的发布文件，请查看这里】
+该软件未签名，因此在 macOS 上运行时，在完成“基本步骤”中的文件配置后，您还需要手动信任该应用程序。方法如下：
+
+1. 在可执行文件所在目录打开终端（假设文件名为 KlicStudio_1.0.0_macOS_arm64）
+2. 按顺序执行以下命令：
    ```
-    sudo xattr -rd com.apple.quarantine ./KlicStudio_1.0.0_macOS_arm64
-    sudo chmod +x ./KlicStudio_1.0.0_macOS_arm64
-    ./KlicStudio_1.0.0_macOS_arm64
-    ```
-    即可启动服务
+   sudo xattr -rd com.apple.quarantine ./KlicStudio_1.0.0_macOS_arm64
+   sudo chmod +x ./KlicStudio_1.0.0_macOS_arm64
+   ./KlicStudio_1.0.0_macOS_arm64
+   ```
+   
+   这将启动服务
 
-### Docker部署
-本项目支持Docker部署，请参考[Docker部署说明](./docker.md)
+### Docker 部署
 
-### Cookie配置说明(非必选)
+该项目支持 Docker 部署；请参阅 [Docker 部署说明](./docker.md)
 
-如果你遇到视频下载失败的情况
+根据提供的配置文件，以下是您 README 文件中更新的“配置帮助（必读）”部分：
 
-请参考 [Cookie 配置说明](./get_cookies.md) 配置你的Cookie信息。
+### 配置帮助（必读）
 
-### 配置帮助（必看）
-最快速便捷的配置方式：
-* `transcribe.provider.name`填写`openai`，这样只需要填写`transcribe.openai`块，以及`llm`块的大模型配置就可以进行字幕翻译。(`app.proxy`、`model`和`openai.base_url`按自己情况选填)
+配置文件分为几个部分：`[app]`、`[server]`、`[llm]`、`[transcribe]` 和 `[tts]`。一个任务由语音识别（`transcribe`）+ 大模型翻译（`llm`）+ 可选的语音服务（`tts`）组成。理解这一点将帮助您更好地掌握配置文件。
 
-使用本地语言识别模型的配置方式（兼顾成本、速度与质量的选择）
-* `transcribe.provider.name`填写`fasterwhisper`，`transcribe.fasterwhisper.model`填写`large-v2`，然后再填写`llm`填写大模型配置，就可以进行字幕翻译，本地模型会自动下载安装。(`app.proxy`和`openai.base_url`等同上)
+**最简单和最快的配置：**
 
-文本转语音（TTS）是可选的，配置逻辑和上面一样，填写`tts.provider.name`，然后填写`tts`下面对应的配置块就可以了，UI里声音代码按照选择的提供商的文档进行填写即可（下方常见问题里有文档地址）。阿里云的aksk等的填写可能会重复，这是为了保证配置结构清晰。  
-注意：使用声音克隆的话，`tts`只支持选择`aliyun`。
+**仅用于字幕翻译：**
+   * 在 `[transcribe]` 部分，将 `provider.name` 设置为 `openai`。
+   * 然后，您只需在 `[llm]` 块中填写您的 OpenAI API 密钥即可开始进行字幕翻译。`app.proxy`、`model` 和 `openai.base_url` 可根据需要填写。
 
-**阿里云AccessKey、Bucket、AppKey的获取请阅读**：[阿里云配置说明](./aliyun.md) 
+**平衡成本、速度和质量（使用本地语音识别）：**
 
-请理解，任务=语音识别+大模型翻译+语音服务（TTS等，可选），这对于你理解配置文件很有帮助。
+* 在 `[transcribe]` 部分，将 `provider.name` 设置为 `fasterwhisper`。
+* 将 `transcribe.fasterwhisper.model` 设置为 `large-v2`。
+* 在 `[llm]` 块中填写您的大语言模型配置。
+* 所需的本地模型将自动下载和安装。
+
+**文本转语音（TTS）配置（可选）：**
+
+* TTS 配置是可选的。
+* 首先，在 `[tts]` 部分设置 `provider.name`（例如，`aliyun` 或 `openai`）。
+* 然后，填写所选提供商的相应配置块。例如，如果选择 `aliyun`，则必须填写 `[tts.aliyun]` 部分。
+* 用户界面中的语音代码应根据所选提供商的文档进行选择。
+* **注意：** 如果您计划使用语音克隆功能，则必须选择 `aliyun` 作为 TTS 提供商。
+
+**阿里云配置：**
+
+* 有关获取阿里云服务所需的 `AccessKey`、`Bucket` 和 `AppKey` 的详细信息，请参阅 [阿里云配置说明](https://www.google.com/search?q=./aliyun.md)。重复的 AccessKey 等字段旨在保持清晰的配置结构。
 
 ## 常见问题
 
-请移步[常见问题](./faq.md)
+请访问 [常见问题](./faq.md)
 
-## 贡献规范
-1. 不要提交无用文件，如.vscode、.idea等，请善于使用.gitignore过滤
-2. 不要提交config.toml，而是使用config-example.toml提交
+## 贡献指南
+
+1. 请勿提交无用文件，如 .vscode、.idea 等；请使用 .gitignore 过滤它们。
+2. 请勿提交 config.toml；请提交 config-example.toml。
 
 ## 联系我们
-1. 加入我们的QQ群，解答问题：754069680
-2. 关注我们的社交媒体账号，[哔哩哔哩](https://space.bilibili.com/242124650)，每天分享AI科技领域优质内容
 
-## Star History
+1. 加入我们的 QQ 群以获取问题解答：754069680
+2. 关注我们的社交媒体账号，[Bilibili](https://space.bilibili.com/242124650)，我们每天分享 AI 技术领域的优质内容。
+
+## Star 历史
 
 [![Star History Chart](https://api.star-history.com/svg?repos=KrillinAI/KlicStudio&type=Date)](https://star-history.com/#KrillinAI/KlicStudio&Date)
