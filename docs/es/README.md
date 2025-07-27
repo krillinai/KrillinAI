@@ -15,29 +15,29 @@
 
  ## Introducción al proyecto  ([¡Experimenta la versión en línea ahora!](https://www.klic.studio/))
 
-Klic Studio es una solución integral de localización de audio y video desarrollada por Krillin AI, que combina traducción de audio y video, doblaje y clonación de voz, generando subtítulos de calidad cinematográfica de Hollywood con un solo clic. Soporta formatos de pantalla horizontal y vertical, asegurando una presentación perfecta en todas las plataformas principales (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.), satisfaciendo fácilmente las necesidades de globalización de contenido.
+Klic Studio es una solución integral de localización y mejora de audio y video desarrollada por Krillin AI. Esta herramienta minimalista y poderosa combina traducción de audio y video, doblaje y clonación de voz, soportando formatos de pantalla horizontal y vertical, asegurando una presentación perfecta en todas las plataformas principales (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). A través de un flujo de trabajo de extremo a extremo, puedes transformar el material original en contenido multiplataforma listo para usar con solo unos pocos clics.
 
-## Principales características y funciones:
-🎯 **Inicio con un clic**: Sin configuraciones de entorno complicadas, instalación automática de dependencias, listo para usar. Nueva versión de escritorio, ¡más conveniente!
+## Características y funciones principales:
+🎯 **Inicio con un clic**: Sin configuraciones de entorno complicadas, instalación automática de dependencias, ¡listo para usar de inmediato! Nueva versión de escritorio para mayor comodidad.
 
 📥 **Obtención de video**: Soporta descarga con yt-dlp o carga de archivos locales.
 
 📜 **Reconocimiento preciso**: Reconocimiento de voz de alta precisión basado en Whisper.
 
-🧠 **Traducción de calidad**: Adaptado a modelos de lenguaje de última generación, calidad de traducción a nivel de grupo de subtítulos.
-
-🌍 **Subtítulos de calidad cinematográfica**: Algoritmo de alineación a nivel de palabra, alineando la calidad de subtítulos de Hollywood, subtítulos de una sola línea sin saltos de línea.
-
-🎙️ **Clonación de voz**: Ofrece voces seleccionadas de CosyVoice o clonación de voces personalizadas.
-
-🎬 **Salida en horizontal y vertical**: Procesamiento automático de videos y subtítulos en formato horizontal y vertical, formato multiplataforma listo en un solo paso.
+🧠 **Segmentación inteligente**: Uso de LLM para segmentación y alineación de subtítulos.
 
 🔄 **Reemplazo de términos**: Reemplazo de vocabulario especializado con un clic.
 
+🌍 **Traducción profesional**: Traducción LLM con contexto para mantener la naturalidad semántica.
+
+🎙️ **Clonación de voz**: Ofrece tonos seleccionados de CosyVoice o clonación de tonos personalizados.
+
+🎬 **Composición de video**: Procesamiento automático de videos en formato horizontal y vertical y maquetación de subtítulos.
+
 💻 **Multiplataforma**: Soporta Windows, Linux, macOS, ofreciendo versiones de escritorio y servidor.
 
-## Demostración de efectos
-La imagen a continuación muestra el efecto de los archivos de subtítulos generados tras importar un video local de 46 minutos y ejecutar con un clic, sin ajustes manuales. Sin pérdidas, superposiciones, con pausas naturales y calidad de traducción muy alta.
+## Ejemplo de resultados
+La imagen a continuación muestra el efecto de un archivo de subtítulos generado tras importar un video local de 46 minutos y ejecutar con un clic, sin ajustes manuales. Sin pérdidas, superposiciones, con pausas naturales y una calidad de traducción muy alta.
 ![Efecto de alineación](/docs/images/alignment.png)
 
 <table>
@@ -70,20 +70,20 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </tr>
 </table>
 
-## 🔍 Soporte de servicio de reconocimiento de voz
-_**Todos los modelos locales en la tabla a continuación son compatibles con la instalación automática de archivos ejecutables + archivos de modelo, solo necesitas elegir, Klic se encargará del resto.**_
+## 🔍 Soporte para servicios de reconocimiento de voz
+_**Todos los modelos locales en la tabla a continuación soportan instalación automática de archivos ejecutables + archivos de modelo, solo necesitas elegir, Klic se encargará del resto.**_
 
-| Fuente de servicio       | Plataformas soportadas | Opciones de modelo                           | Local/Nube | Notas          |
-|-------------------------|-----------------------|---------------------------------------------|------------|----------------|
-| **OpenAI Whisper**      | Todas las plataformas  | -                                           | Nube       | Rápido y de buena calidad      |
+| Fuente de servicio       | Plataformas soportadas | Opciones de modelo                             | Local/Nube | Notas          |
+|-------------------------|-----------------------|-----------------------------------------------|------------|----------------|
+| **OpenAI Whisper**      | Todas las plataformas  | -                                             | Nube       | Rápido y efectivo |
 | **FasterWhisper**       | Windows/Linux         | `tiny`/`medium`/`large-v2` (recomendado medium+) | Local      | Más rápido, sin costos de nube |
-| **WhisperKit**          | macOS (solo para chips M) | `large-v2`                                | Local      | Optimización nativa para chips Apple |
-| **WhisperCpp**          | Todas las plataformas  | `large-v2`                                | Local      | Soporte para todas las plataformas       |
-| **Aliyun ASR**          | Todas las plataformas  | -                                           | Nube       | Evitar problemas de red en China continental  |
+| **WhisperKit**          | macOS (solo para chips M) | `large-v2`                                   | Local      | Optimización nativa para chips Apple |
+| **WhisperCpp**          | Todas las plataformas  | `large-v2`                                   | Local      | Soporta todas las plataformas |
+| **Aliyun ASR**          | Todas las plataformas  | -                                             | Nube       | Evita problemas de red en China continental |
 
-## 🚀 Soporte para modelos de lenguaje grandes
+## 🚀 Soporte para modelos de lenguaje grande
 
-✅ Compatible con todos los servicios de modelos de lenguaje grandes en la nube/local que cumplen con las **especificaciones de la API de OpenAI**, incluyendo pero no limitado a:
+✅ Compatible con todos los servicios de modelos de lenguaje grande en la nube/local que cumplen con las **especificaciones de la API de OpenAI**, incluyendo pero no limitado a:
 - OpenAI
 - Gemini
 - DeepSeek
@@ -96,7 +96,7 @@ _**Todos los modelos locales en la tabla a continuación son compatibles con la 
 - OpenAI TTS
 
 ## Soporte de idiomas
-Idiomas de entrada soportados: chino, inglés, japonés, alemán, turco, coreano, ruso, malayo (en continuo aumento)
+Idiomas de entrada soportados: chino, inglés, japonés, alemán, turco, coreano, ruso, malayo (en constante aumento)
 
 Idiomas de traducción soportados: inglés, chino, ruso, español, francés y otros 101 idiomas.
 
@@ -105,7 +105,7 @@ Idiomas de traducción soportados: inglés, chino, ruso, español, francés y ot
 
 ## 🚀 Comenzar rápidamente
 ### Pasos básicos
-Primero descarga el archivo ejecutable que coincida con tu sistema operativo en [Release](https://github.com/KrillinAI/KlicStudio/releases), según el tutorial a continuación, elige entre la versión de escritorio o no de escritorio, y colócalo en una carpeta vacía. Descarga el software en una carpeta vacía, ya que generará algunos directorios después de ejecutarse, lo que facilitará la gestión.
+Primero, descarga el archivo ejecutable que coincida con tu sistema operativo en [Release](https://github.com/KrillinAI/KlicStudio/releases), sigue el tutorial a continuación para elegir entre la versión de escritorio o no de escritorio, y colócalo en una carpeta vacía. Descarga el software en una carpeta vacía, ya que se generarán algunos directorios después de la ejecución, y será más fácil de gestionar en una carpeta vacía.
 
 【Si es la versión de escritorio, es decir, el archivo de release que lleva desktop, mira aquí】  
 _La versión de escritorio es nueva, diseñada para resolver problemas de edición de archivos de configuración para usuarios novatos, y hay algunos errores que se están corrigiendo continuamente._
@@ -113,14 +113,14 @@ _La versión de escritorio es nueva, diseñada para resolver problemas de edici�
 
 【Si es la versión no de escritorio, es decir, el archivo de release que no lleva desktop, mira aquí】  
 _La versión no de escritorio es la versión inicial, con una configuración más compleja, pero funcionalmente estable, adecuada para despliegue en servidores, ya que proporcionará una interfaz de usuario de forma web._
-1. Crea una carpeta `config` dentro de la carpeta, luego crea un archivo `config.toml` dentro de la carpeta `config`, copia el contenido del archivo `config-example.toml` en el directorio `config` y completa tu información de configuración según las anotaciones.
+1. Crea una carpeta `config` dentro de la carpeta, luego crea un archivo `config.toml` dentro de la carpeta `config`, copia el contenido del archivo `config-example.toml` en el directorio de código fuente en `config` y completa tu información de configuración de acuerdo con los comentarios.
 2. Haz doble clic o ejecuta el archivo ejecutable en la terminal para iniciar el servicio.
-3. Abre el navegador e ingresa `http://127.0.0.1:8888` para comenzar a usarlo (reemplaza 8888 con el puerto que ingresaste en el archivo de configuración).
+3. Abre el navegador e ingresa `http://127.0.0.1:8888` para comenzar a usarlo (reemplaza 8888 con el puerto que hayas ingresado en el archivo de configuración).
 
 ### Para: usuarios de macOS
 【Si es la versión de escritorio, es decir, el archivo de release que lleva desktop, mira aquí】  
-Actualmente, debido a problemas de firma, la versión de escritorio no puede ejecutarse con un doble clic o instalarse como dmg, necesitas confiar manualmente en la aplicación, el método es el siguiente:
-1. Abre el archivo ejecutable en la terminal (suponiendo que el nombre del archivo es KlicStudio_1.0.0_desktop_macOS_arm64) en el directorio donde se encuentra.
+Actualmente, debido a problemas de firma, la versión de escritorio no puede ejecutarse directamente con un doble clic o instalación de dmg, necesitas confiar manualmente en la aplicación, el método es el siguiente:
+1. Abre la terminal en el directorio donde se encuentra el archivo ejecutable (supongamos que el nombre del archivo es KlicStudio_1.0.0_desktop_macOS_arm64).
 2. Ejecuta los siguientes comandos uno por uno:
 ```
 sudo xattr -cr ./KlicStudio_1.0.0_desktop_macOS_arm64
@@ -129,8 +129,8 @@ sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64
 ```
 
 【Si es la versión no de escritorio, es decir, el archivo de release que no lleva desktop, mira aquí】  
-Este software no está firmado, por lo que al ejecutarlo en macOS, después de completar la configuración de archivos en "pasos básicos", también necesitas confiar manualmente en la aplicación, el método es el siguiente:
-1. Abre el archivo ejecutable en la terminal (suponiendo que el nombre del archivo es KlicStudio_1.0.0_macOS_arm64) en el directorio donde se encuentra.
+Este software no tiene firma, por lo que al ejecutarlo en macOS, después de completar la configuración de archivos en "Pasos básicos", también necesitas confiar manualmente en la aplicación, el método es el siguiente:
+1. Abre la terminal en el directorio donde se encuentra el archivo ejecutable (supongamos que el nombre del archivo es KlicStudio_1.0.0_macOS_arm64).
 2. Ejecuta los siguientes comandos uno por uno:
    ```
     sudo xattr -rd com.apple.quarantine ./KlicStudio_1.0.0_macOS_arm64
@@ -144,18 +144,18 @@ Este proyecto soporta despliegue con Docker, por favor consulta [Instrucciones d
 
 ### Instrucciones de configuración de Cookies (opcional)
 
-Si encuentras problemas al descargar videos,
+Si encuentras problemas al descargar videos, 
 
 por favor consulta [Instrucciones de configuración de Cookies](./get_cookies.md) para configurar tu información de Cookies.
 
-### Ayuda de configuración (importante)
+### Ayuda de configuración (imprescindible)
 La forma más rápida y conveniente de configurar:
 * Rellena `transcribe.provider.name` con `openai`, así solo necesitas completar el bloque `transcribe.openai` y la configuración del modelo grande en el bloque `llm` para realizar la traducción de subtítulos. (`app.proxy`, `model` y `openai.base_url` son opcionales según tu situación).
 
-Forma de configuración para usar modelos de reconocimiento de voz locales (equilibrando costo, velocidad y calidad):
+Forma de configuración usando un modelo de reconocimiento de voz local (equilibrando costo, velocidad y calidad):
 * Rellena `transcribe.provider.name` con `fasterwhisper`, `transcribe.fasterwhisper.model` con `large-v2`, y luego completa el bloque `llm` con la configuración del modelo grande para realizar la traducción de subtítulos, el modelo local se descargará e instalará automáticamente. (`app.proxy` y `openai.base_url` son iguales a lo anterior).
 
-La conversión de texto a voz (TTS) es opcional, la lógica de configuración es la misma que la anterior, rellena `tts.provider.name`, y luego completa el bloque de configuración correspondiente debajo de `tts`, en la interfaz de usuario, los códigos de voz se completan según la documentación del proveedor seleccionado (la dirección de la documentación está en las preguntas frecuentes más abajo). La configuración de ak, sk y otros de Aliyun puede repetirse, esto es para asegurar que la estructura de configuración sea clara.  
+La conversión de texto a voz (TTS) es opcional, la lógica de configuración es la misma que la anterior, rellena `tts.provider.name`, y luego completa el bloque de configuración correspondiente debajo de `tts`, en la interfaz de usuario, los códigos de voz se completan de acuerdo con la documentación del proveedor seleccionado (la dirección de la documentación está en las preguntas frecuentes a continuación). La entrada de ak, sk, etc. de Aliyun puede repetirse, esto es para garantizar que la estructura de configuración sea clara.  
 Nota: Si usas clonación de voz, `tts` solo soporta seleccionar `aliyun`.
 
 **Para obtener el AccessKey, Bucket y AppKey de Aliyun, por favor lee**: [Instrucciones de configuración de Aliyun](./aliyun.md).
@@ -172,7 +172,7 @@ Por favor visita [Preguntas frecuentes](./faq.md).
 
 ## Contáctanos
 1. Únete a nuestro grupo de QQ para resolver dudas: 754069680.
-2. Sigue nuestras cuentas en redes sociales, [Bilibili](https://space.bilibili.com/242124650), compartiendo contenido de calidad en el campo de la tecnología AI todos los días.
+2. Sigue nuestras cuentas en redes sociales, [Bilibili](https://space.bilibili.com/242124650), compartimos contenido de calidad en el campo de la tecnología AI todos los días.
 
 ## Historial de estrellas
 

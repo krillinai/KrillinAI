@@ -15,30 +15,30 @@
 
  ## Présentation du projet  ([Essayez la version en ligne maintenant !](https://www.klic.studio/))
 
-Klic Studio est une solution de localisation audio et vidéo tout-en-un développée par Krillin AI, intégrant traduction audio et vidéo, doublage et clonage vocal, permettant de générer des sous-titres de qualité cinématographique en un clic. Il prend en charge les formats d'affichage horizontal et vertical, garantissant une présentation parfaite sur toutes les plateformes majeures (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.), répondant facilement aux besoins de mondialisation du contenu !
+Klic Studio est une solution de localisation et d'amélioration audio-vidéo tout-en-un développée par Krillin AI. Cet outil simple mais puissant combine traduction audio-vidéo, doublage et clonage vocal, prenant en charge les formats paysage et portrait, garantissant une présentation parfaite sur toutes les principales plateformes (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). Grâce à un flux de travail de bout en bout, il suffit de quelques clics pour transformer le matériel brut en contenu multiplateforme prêt à l'emploi.
 
 ## Principales caractéristiques et fonctionnalités :
-🎯 **Démarrage en un clic** : Pas besoin de configuration complexe, installation automatique des dépendances, prêt à l'emploi. Nouvelle version de bureau pour une utilisation plus pratique !
+🎯 **Démarrage en un clic** : Pas de configuration d'environnement complexe, installation automatique des dépendances, prêt à l'emploi, avec une nouvelle version de bureau pour plus de commodité !
 
-📥 **Acquisition vidéo** : Prend en charge le téléchargement via yt-dlp ou le téléchargement de fichiers locaux
+📥 **Acquisition vidéo** : Prise en charge du téléchargement yt-dlp ou du téléchargement de fichiers locaux
 
-📜 **Reconnaissance précise** : Reconnaissance vocale de haute précision basée sur Whisper
+📜 **Reconnaissance précise** : Reconnaissance vocale à haute précision basée sur Whisper
 
-🧠 **Traduction de qualité** : Adaptée aux modèles de langage SOTA, qualité de traduction au niveau des groupes de sous-titres
+🧠 **Segmentation intelligente** : Utilisation de LLM pour la segmentation et l'alignement des sous-titres
 
-🌍 **Sous-titres de qualité cinématographique** : Algorithme d'alignement de découpage au niveau des mots, alignement avec la qualité des sous-titres de Hollywood, sous-titres en une seule ligne sans retour à la ligne
+🔄 **Remplacement de termes** : Remplacement d'un clic des termes spécialisés 
 
-🎙️ **Clonage vocal** : Propose des voix sélectionnées de CosyVoice ou un clonage de voix personnalisé
+🌍 **Traduction professionnelle** : Traduction LLM avec contexte pour maintenir la naturalité sémantique
 
-🎬 **Sortie en mode horizontal et vertical** : Traitement automatique des vidéos et de la mise en page des sous-titres en mode horizontal et vertical, format multiplateforme prêt en une seule fois
+🎙️ **Clonage vocal** : Fournit des voix sélectionnées par CosyVoice ou un clonage de voix personnalisé
 
-🔄 **Remplacement de termes** : Remplacement d'un clic des termes spécialisés
+🎬 **Composition vidéo** : Traitement automatique des vidéos en mode paysage et portrait ainsi que de la mise en page des sous-titres
 
-💻 **Multiplateforme** : Prend en charge Windows, Linux, macOS, avec versions de bureau et serveur
+💻 **Multiplateforme** : Prise en charge de Windows, Linux, macOS, avec des versions de bureau et serveur
 
 
 ## Exemples de résultats
-L'image ci-dessous montre l'importation d'une vidéo locale de 46 minutes, avec le fichier de sous-titres généré après une exécution en un clic, sans aucun ajustement manuel. Pas de pertes, de chevauchements, les phrases sont naturelles et la qualité de traduction est très élevée.
+L'image ci-dessous montre l'importation d'une vidéo locale de 46 minutes, avec le fichier de sous-titres généré après un clic, sans aucun ajustement manuel. Pas de pertes, de chevauchements, les phrases sont naturelles et la qualité de la traduction est très élevée.
 ![Effet d'alignement](/docs/images/alignment.png)
 
 <table>
@@ -62,7 +62,7 @@ https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 
 <td width="33%">
 
-### Mode vertical
+### Portrait
 ---
 https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
@@ -72,19 +72,19 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </table>
 
 ## 🔍 Support des services de reconnaissance vocale
-_**Tous les modèles locaux dans le tableau ci-dessous prennent en charge l'installation automatique des fichiers exécutables + fichiers de modèle, il vous suffit de choisir, Klic s'occupe du reste.**_
+_**Tous les modèles locaux dans le tableau ci-dessous prennent en charge l'installation automatique des fichiers exécutables + fichiers modèles, il vous suffit de choisir, Klic s'occupe du reste.**_
 
-| Source de service        | Plateformes prises en charge | Options de modèle                             | Local/Cloud | Remarques          |
-|-------------------------|-----------------------------|---------------------------------------------|-------------|--------------------|
-| **OpenAI Whisper**      | Toutes les plateformes       | -                                           | Cloud       | Rapide et efficace  |
-| **FasterWhisper**       | Windows/Linux               | `tiny`/`medium`/`large-v2` (recommandé medium+) | Local       | Plus rapide, sans frais de service cloud |
-| **WhisperKit**          | macOS (uniquement pour les puces M) | `large-v2`                                | Local       | Optimisé pour les puces Apple |
-| **WhisperCpp**          | Toutes les plateformes       | `large-v2`                                | Local       | Prise en charge de toutes les plateformes |
-| **Aliyun ASR**          | Toutes les plateformes       | -                                           | Cloud       | Évite les problèmes de réseau en Chine continentale |
+| Source de service      | Plateforme supportée | Options de modèle                             | Local/Cloud | Remarques          |
+|--------------------|-----------------|----------------------------------------|-------|-------------|
+| **OpenAI Whisper** | Toutes plateformes | -                                      | Cloud    | Rapide et efficace      |
+| **FasterWhisper**  | Windows/Linux   | `tiny`/`medium`/`large-v2` (recommandé medium+) | Local    | Plus rapide, sans frais de service cloud |
+| **WhisperKit**     | macOS (uniquement pour les puces M) | `large-v2`                             | Local    | Optimisé pour les puces Apple |
+| **WhisperCpp**     | Toutes plateformes | `large-v2`                             | Local    | Prise en charge de toutes les plateformes       |
+| **Aliyun ASR**         | Toutes plateformes | -                                      | Cloud    | Évite les problèmes de réseau en Chine continentale  |
 
 ## 🚀 Support des grands modèles de langage
 
-✅ Compatible avec tous les services de grands modèles de langage cloud/local conformes aux **spécifications de l'API OpenAI**, y compris mais sans s'y limiter :
+✅ Compatible avec tous les services de grands modèles de langage cloud/local conformes aux **normes de l'API OpenAI**, y compris mais sans s'y limiter :
 - OpenAI
 - Gemini
 - DeepSeek
@@ -92,8 +92,8 @@ _**Tous les modèles locaux dans le tableau ci-dessous prennent en charge l'inst
 - Modèles open source déployés localement
 - Autres services API compatibles avec le format OpenAI
 
-## 🎤 Support TTS (texte à parole)
-- Service vocal d'Aliyun
+## 🎤 Support TTS (texte en parole)
+- Service vocal Aliyun
 - OpenAI TTS
 
 ## Support linguistique
@@ -107,21 +107,21 @@ Langues de traduction prises en charge : anglais, chinois, russe, espagnol, fran
 
 ## 🚀 Démarrage rapide
 ### Étapes de base
-Tout d'abord, téléchargez le fichier exécutable correspondant à votre système d'exploitation dans les [Releases](https://github.com/KrillinAI/KlicStudio/releases), choisissez ensuite la version de bureau ou non de bureau selon le tutoriel ci-dessous, puis placez-le dans un dossier vide. Téléchargez le logiciel dans un dossier vide, car il générera certains répertoires après exécution, ce qui sera plus facile à gérer.
+Tout d'abord, téléchargez le fichier exécutable correspondant à votre système d'exploitation dans les [Releases](https://github.com/KrillinAI/KlicStudio/releases), puis suivez le tutoriel ci-dessous pour choisir entre la version de bureau ou non, et placez-le dans un dossier vide. Téléchargez le logiciel dans un dossier vide, car il générera certains répertoires après exécution, ce qui sera plus facile à gérer.  
 
 【Pour la version de bureau, c'est-à-dire les fichiers release avec "desktop", consultez ici】  
-_La version de bureau est nouvellement publiée pour résoudre les problèmes de configuration des fichiers pour les nouveaux utilisateurs, avec quelques bugs, mises à jour continues_
+_La version de bureau est nouvellement publiée pour résoudre les problèmes de configuration des fichiers pour les nouveaux utilisateurs, et il y a encore quelques bugs, mises à jour continues en cours_
 1. Double-cliquez sur le fichier pour commencer à l'utiliser (la version de bureau nécessite également une configuration dans le logiciel)
 
 【Pour la version non de bureau, c'est-à-dire les fichiers release sans "desktop", consultez ici】  
-_La version non de bureau est la version initiale, la configuration est plus complexe, mais la fonctionnalité est stable, adaptée au déploiement sur serveur, car elle fournit une interface utilisateur via le web_
-1. Créez un dossier `config` dans le dossier, puis créez un fichier `config.toml` dans le dossier `config`, copiez le contenu du fichier `config-example.toml` dans le répertoire `config` et remplissez vos informations de configuration en vous référant aux commentaires.
+_La version non de bureau est la version initiale, la configuration est plus complexe, mais les fonctionnalités sont stables, et elle est adaptée au déploiement sur serveur, car elle fournit une interface utilisateur via le web_
+1. Créez un dossier `config` dans le dossier, puis créez un fichier `config.toml` dans le dossier `config`, copiez le contenu du fichier `config-example.toml` dans le répertoire source `config` dans `config.toml`, et remplissez vos informations de configuration en vous référant aux commentaires.
 2. Double-cliquez ou exécutez le fichier exécutable dans le terminal pour démarrer le service 
 3. Ouvrez votre navigateur et entrez `http://127.0.0.1:8888` pour commencer à utiliser (remplacez 8888 par le port que vous avez rempli dans le fichier de configuration)
 
-### À l'attention des utilisateurs de macOS
+### Pour : utilisateurs de macOS
 【Pour la version de bureau, c'est-à-dire les fichiers release avec "desktop", consultez ici】  
-Actuellement, en raison de problèmes de signature, la version de bureau ne peut pas être exécutée par double-clic ou installée via dmg, vous devez faire confiance à l'application manuellement, voici comment :
+Actuellement, en raison de problèmes de signature, la version de bureau ne peut pas être exécutée par un double-clic ou installée via dmg, vous devez faire confiance à l'application manuellement, voici comment :
 1. Ouvrez le terminal dans le répertoire où se trouve le fichier exécutable (supposons que le nom du fichier soit KlicStudio_1.0.0_desktop_macOS_arm64)
 2. Exécutez les commandes suivantes :
 ```
@@ -131,7 +131,7 @@ sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64
 ```
 
 【Pour la version non de bureau, c'est-à-dire les fichiers release sans "desktop", consultez ici】  
-Ce logiciel n'a pas été signé, donc lors de l'exécution sur macOS, après avoir complété la configuration des fichiers dans les "Étapes de base", vous devez également faire confiance à l'application manuellement, voici comment :
+Ce logiciel n'a pas été signé, donc lors de l'exécution sur macOS, après avoir terminé la configuration des fichiers dans les "Étapes de base", vous devez également faire confiance à l'application manuellement, voici comment :
 1. Ouvrez le terminal dans le répertoire où se trouve le fichier exécutable (supposons que le nom du fichier soit KlicStudio_1.0.0_macOS_arm64)
 2. Exécutez les commandes suivantes :
    ```
@@ -142,23 +142,23 @@ Ce logiciel n'a pas été signé, donc lors de l'exécution sur macOS, après av
     Cela démarrera le service
 
 ### Déploiement Docker
-Ce projet prend en charge le déploiement Docker, veuillez consulter [les instructions de déploiement Docker](./docker.md)
+Ce projet prend en charge le déploiement Docker, veuillez consulter [Instructions de déploiement Docker](./docker.md)
 
 ### Instructions de configuration des cookies (non obligatoire)
 
-Si vous rencontrez des échecs de téléchargement de vidéos
+Si vous rencontrez des problèmes de téléchargement de vidéos
 
-Veuillez consulter [les instructions de configuration des cookies](./get_cookies.md) pour configurer vos informations de cookie.
+Veuillez consulter [Instructions de configuration des cookies](./get_cookies.md) pour configurer vos informations de cookie.
 
 ### Aide à la configuration (à lire)
-La manière la plus rapide et la plus pratique de configurer :
-* Remplissez `transcribe.provider.name` avec `openai`, ainsi vous n'aurez qu'à remplir le bloc `transcribe.openai` et la configuration du grand modèle dans le bloc `llm` pour effectuer la traduction des sous-titres. (`app.proxy`, `model` et `openai.base_url` sont à remplir selon votre situation)
+La manière la plus rapide et la plus simple de configurer :
+* Remplissez `transcribe.provider.name` avec `openai`, vous n'aurez alors qu'à remplir le bloc `transcribe.openai` et la configuration du grand modèle dans le bloc `llm` pour effectuer la traduction des sous-titres. (`app.proxy`, `model` et `openai.base_url` sont à remplir selon votre situation)
 
-Pour utiliser un modèle de reconnaissance vocale local (équilibrant coût, vitesse et qualité) :
-* Remplissez `transcribe.provider.name` avec `fasterwhisper`, `transcribe.fasterwhisper.model` avec `large-v2`, puis remplissez le bloc `llm` avec la configuration du grand modèle, la configuration du modèle local sera automatiquement téléchargée et installée. (`app.proxy` et `openai.base_url` comme ci-dessus)
+Utilisation d'un modèle de reconnaissance vocale local (équilibrant coût, vitesse et qualité) :
+* Remplissez `transcribe.provider.name` avec `fasterwhisper`, `transcribe.fasterwhisper.model` avec `large-v2`, puis remplissez le bloc `llm` avec la configuration du grand modèle pour effectuer la traduction des sous-titres, le modèle local sera automatiquement téléchargé et installé. (`app.proxy` et `openai.base_url` comme ci-dessus)
 
-La conversion texte-parole (TTS) est optionnelle, la logique de configuration est la même que ci-dessus, remplissez `tts.provider.name`, puis remplissez le bloc de configuration correspondant sous `tts`, le code de voix dans l'interface utilisateur doit être rempli selon la documentation du fournisseur choisi (les adresses de documentation sont disponibles dans la section des questions fréquentes ci-dessous). Les informations telles que l'aksk d'Aliyun peuvent être répétées pour garantir la clarté de la structure de configuration.  
-Remarque : Si vous utilisez le clonage vocal, `tts` ne prend en charge que le choix de `aliyun`.
+La conversion texte en parole (TTS) est optionnelle, la logique de configuration est la même que ci-dessus, remplissez `tts.provider.name`, puis remplissez le bloc de configuration correspondant sous `tts`, le code de la voix dans l'interface utilisateur doit être rempli selon la documentation du fournisseur choisi (les adresses de documentation sont dans la section FAQ ci-dessous). Les informations telles que l'AccessKey, le Bucket et l'AppKey d'Aliyun peuvent être répétées pour garantir la clarté de la structure de configuration.  
+Remarque : si vous utilisez le clonage vocal, `tts` ne prend en charge que le choix de `aliyun`.
 
 **Pour obtenir l'AccessKey, le Bucket et l'AppKey d'Aliyun, veuillez lire** : [Instructions de configuration d'Aliyun](./aliyun.md) 
 
@@ -166,15 +166,15 @@ Veuillez comprendre que la tâche = reconnaissance vocale + traduction par grand
 
 ## Questions fréquentes
 
-Veuillez consulter [les questions fréquentes](./faq.md)
+Veuillez consulter [Questions fréquentes](./faq.md)
 
 ## Règles de contribution
 1. Ne soumettez pas de fichiers inutiles, tels que .vscode, .idea, etc., utilisez .gitignore pour filtrer
-2. Ne soumettez pas config.toml, mais soumettez config-example.toml
+2. Ne soumettez pas config.toml, mais utilisez config-example.toml pour soumettre
 
 ## Contactez-nous
 1. Rejoignez notre groupe QQ pour poser des questions : 754069680
-2. Suivez nos comptes de médias sociaux, [Bilibili](https://space.bilibili.com/242124650), partageant quotidiennement du contenu de qualité dans le domaine de la technologie AI
+2. Suivez nos comptes de médias sociaux, [Bilibili](https://space.bilibili.com/242124650), partageant chaque jour du contenu de qualité dans le domaine de la technologie AI
 
 ## Historique des étoiles
 

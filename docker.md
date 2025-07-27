@@ -26,7 +26,7 @@ services:
 ```
 
 ## Persisting Models
-If using the fasterwhisper model, KrillinAI will automatically download the necessary model files to the `/app/models` and `/app/bin` directories. These files will be lost when the container is deleted. To persist the models, you can map these two directories to a directory on the host.
+If using the fasterwhisper model, KrillinAI will automatically download the necessary files to the `/app/models` and `/app/bin` directories. These files will be lost when the container is deleted. To persist the models, you can map these two directories to a directory on the host.
 
 ### Starting with docker run
 ```bash
