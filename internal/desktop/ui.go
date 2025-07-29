@@ -75,7 +75,9 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 func CreateSubtitleTab(window fyne.Window) fyne.CanvasObject {
 	sm := NewSubtitleManager(window)
 
-	title := TitleText("视频翻译配音Video Translate & Dubbing")
+	title1 := TitleText("视频翻译配音")
+	title2 := TitleText("Video Translate & Dubbing")
+	titleContainer := container.NewVBox(title1, title2)
 
 	videoInputContainer := createVideoInputContainer(sm)
 	subtitleSettingsCard := createSubtitleSettingsCard(sm)
@@ -112,7 +114,7 @@ func CreateSubtitleTab(window fyne.Window) fyne.CanvasObject {
 	progressArea := container.NewVBox(progress)
 
 	mainContent := container.NewVBox(
-		container.NewPadded(title),
+		container.NewPadded(titleContainer),
 		spacer1,
 		container.NewPadded(videoInputContainer),
 		container.NewPadded(subtitleSettingsCard),
@@ -389,20 +391,19 @@ func createTtsConfigGroup() *fyne.Container {
 
 // 创建视频输入容器
 func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
-	inputTypeRadio := widget.NewRadioGroup([]string{"本地视频 Local video", "视频链接 Video link"}, nil)
+	inputTypeRadio := widget.NewRadioGroup([]string{"本地上传 Upload a file", "输入链接 Paste a link"}, nil)
 	inputTypeRadio.Horizontal = true
 	inputTypeContainer := container.NewHBox(
-		widget.NewLabel("输入方式 Input type:"),
 		inputTypeRadio,
 	)
 
-	urlEntry := StyledEntry("请输入视频链接Please enter the video link")
+	urlEntry := StyledEntry("输入视频链接 Paste a link here")
 	urlEntry.Hide()
 	urlEntry.OnChanged = func(text string) {
 		sm.SetVideoUrl(text)
 	}
 
-	selectButton := PrimaryButton("选择视频文件 Choose video files", theme.FolderOpenIcon(), sm.ShowFileDialog)
+	selectButton := PrimaryButton("选择视频文件 Select Video Files", theme.FolderOpenIcon(), sm.ShowFileDialog)
 
 	selectedVideoLabel := widget.NewLabel("")
 	selectedVideoLabel.Hide()
@@ -441,9 +442,9 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 	videoInputContainer := container.NewVBox()
 	videoInputContainer.Objects = []fyne.CanvasObject{selectButton, selectedVideoLabel}
 
-	inputTypeRadio.SetSelected("本地视频 Local video")
+	inputTypeRadio.SetSelected("本地上传 Upload a file")
 	inputTypeRadio.OnChanged = func(value string) {
-		if value == "本地视频 Local video" {
+		if value == "本地上传 Upload a file" {
 			urlEntry.Hide()
 			selectButton.Show()
 			selectedVideoLabel.Show()
@@ -463,24 +464,24 @@ func createVideoInputContainer(sm *SubtitleManager) *fyne.Container {
 		container.NewPadded(videoInputContainer),
 	)
 
-	return GlassmorphismCard("1. 视频源设置 Video Source", "选择视频和语言 Choose video & language", content, GetCurrentThemeIsDark())
+	return GlassmorphismCard("1. 选择视频 Select Video", "", content, GetCurrentThemeIsDark())
 }
 
 // 创建字幕设置卡片
 func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
 	positionSelect := widget.NewSelect([]string{
-		"翻译后字幕在上方 Translation subtitle on top",
-		"翻译后字幕在下方 Translation subtitle on bottom",
+		"翻译在上 Translation Above",
+		"翻译在下 Translation Below",
 	}, func(value string) {
-		if value == "翻译后字幕在上方 Translation subtitle on top" {
+		if value == "翻译在上 Translation Above" {
 			sm.SetBilingualPosition(1)
 		} else {
 			sm.SetBilingualPosition(2)
 		}
 	})
-	positionSelect.SetSelected("翻译后字幕在上方 Translation subtitle on top")
+	positionSelect.SetSelected("翻译在上 Translation Above")
 
-	bilingualCheck := widget.NewCheck("启用双语字幕 Enable bilingual subtitles", func(checked bool) {
+	bilingualCheck := widget.NewCheck("启用双语字幕 Bilingual Subtitles", func(checked bool) {
 		sm.SetBilingualEnabled(checked)
 		if checked {
 			positionSelect.Enable()
@@ -502,7 +503,7 @@ func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
 
 	langContainer := container.NewVBox(
 		container.NewHBox(
-			widget.NewLabel("源语言 Origin language:"),
+			widget.NewLabel("源语言 Original Language:"),
 			StyledSelect([]string{
 				"简体中文", "English", "日本語", "Türkçe", "Deutsch", "한국어", "Русский язык", "Bahasa Melayu",
 			}, func(value string) {
@@ -515,7 +516,7 @@ func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
 			}),
 		),
 		container.NewHBox(
-			widget.NewLabel("目标语言 Target language:"),
+			widget.NewLabel("翻译成 Translate To:"),
 			targetLangSelector,
 		),
 	)
@@ -524,7 +525,7 @@ func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
 	langContainer.Objects[0].(*fyne.Container).Objects[1].(*widget.Select).SetSelected("English")
 	langContainer.Objects[1].(*fyne.Container).Objects[1].(*widget.Select).SetSelected("简体中文")
 
-	fillerCheck := widget.NewCheck("启用语气词过滤 Use modal filter", func(checked bool) {
+	fillerCheck := widget.NewCheck("启用语气词过滤 Tone Word Filtering", func(checked bool) {
 		sm.SetFillerFilter(checked)
 	})
 	fillerCheck.SetChecked(true)
@@ -535,7 +536,7 @@ func createSubtitleSettingsCard(sm *SubtitleManager) *fyne.Container {
 		positionSelect,
 	)
 
-	return ModernCard("2. 字幕设置 Subtitle setting", content, GetCurrentThemeIsDark())
+	return ModernCard("2. 字幕设置 Subtitle settings", content, GetCurrentThemeIsDark())
 }
 
 // 创建配音设置卡片
@@ -548,10 +549,10 @@ func createVoiceSettingsCard(sm *SubtitleManager) *fyne.Container {
 	voiceCodeEntry.Disable()
 
 	// 音色克隆功能 - 当前支持阿里云TTS，未来可扩展其他提供商
-	audioSampleButton := SecondaryButton("选择音色克隆样本 Choose voice clone sample (Currently supports Aliyun TTS)", theme.MediaMusicIcon(), sm.ShowAudioFileDialog)
+	audioSampleButton := SecondaryButton("选择音色克隆样本 Select Voice Clone Sample（Aliyun TTS Supported）", theme.MediaMusicIcon(), sm.ShowAudioFileDialog)
 	audioSampleButton.Disable()
 
-	voiceoverCheck := widget.NewCheck("启用配音 Enable dubbing", func(checked bool) {
+	voiceoverCheck := widget.NewCheck("启用配音 Apply Dubbing", func(checked bool) {
 		sm.SetVoiceoverEnabled(checked)
 		if checked {
 			voiceCodeEntry.Enable()
@@ -567,15 +568,15 @@ func createVoiceSettingsCard(sm *SubtitleManager) *fyne.Container {
 		container.NewHBox(container.NewBorder(voiceCodeEntry, nil, nil, audioSampleButton)),
 	)
 
-	return ModernCard("3. 配音设置 Dubbing setting", grid, GetCurrentThemeIsDark())
+	return ModernCard("3. 配音设置 Dubbing settings", grid, GetCurrentThemeIsDark())
 }
 
 // 视频合成卡片
 func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
-	embedCheck := widget.NewCheck("合成视频 Composite video", nil)
+	embedCheck := widget.NewCheck("合成 Composite", nil)
 
 	embedTypeSelect := StyledSelect([]string{
-		"横屏视频 Landscape video", "竖屏视频 Portrait video", "横屏+竖屏视频 Landscape+Portrait video",
+		"横屏输出 Landscape（16：9）", "竖屏输出 Portrait（9:16）", "横屏+竖屏 (Landscape+Portrait)",
 	}, nil)
 	embedTypeSelect.Disable()
 
@@ -597,7 +598,7 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 	embedCheck.OnChanged = func(checked bool) {
 		if checked {
 			embedTypeSelect.Enable()
-			embedTypeSelect.SetSelected("横屏视频 Landscape video")
+			embedTypeSelect.SetSelected("横屏输出 Landscape（16：9）")
 		} else {
 			embedTypeSelect.Disable()
 			sm.SetEmbedSubtitle("none")
@@ -606,13 +607,13 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 
 	embedTypeSelect.OnChanged = func(value string) {
 		switch value {
-		case "横屏视频 Landscape video":
+		case "横屏输出 Landscape（16：9）":
 			titleInputContainer.Hide()
 			sm.SetEmbedSubtitle("horizontal")
-		case "竖屏视频 Portrait video":
+		case "竖屏输出 Portrait（9:16）":
 			titleInputContainer.Show()
 			sm.SetEmbedSubtitle("vertical")
-		case "横屏+竖屏视频 Landscape+Portrait video":
+		case "横屏+竖屏 (Landscape+Portrait)":
 			titleInputContainer.Show()
 			sm.SetEmbedSubtitle("all")
 		}
@@ -625,7 +626,7 @@ func createEmbedSettingsCard(sm *SubtitleManager) *fyne.Container {
 		container.NewPadded(titleInputContainer),
 	)
 
-	return ModernCard("视频合成设置 Subtitle embed setting", mainContainer, GetCurrentThemeIsDark())
+	return ModernCard("视频合成设置 Composition Settings", mainContainer, GetCurrentThemeIsDark())
 }
 
 // 创建进度和下载区域
@@ -692,7 +693,7 @@ func createProgressAndDownloadArea(sm *SubtitleManager) (*widget.ProgressBar, *f
 
 // 开始按钮
 func createStartButton(window fyne.Window, sm *SubtitleManager, videoInputContainer *fyne.Container, embedSettingsCard *fyne.Container, progress *widget.ProgressBar, downloadContainer *fyne.Container) *widget.Button {
-	btn := widget.NewButtonWithIcon("开始任务 Start task", theme.MediaPlayIcon(), nil)
+	btn := widget.NewButtonWithIcon("开始翻译 Start Translating", theme.MediaPlayIcon(), nil)
 	btn.Importance = widget.HighImportance
 
 	btn.OnTapped = func() {
