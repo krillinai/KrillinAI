@@ -113,13 +113,22 @@ func (s Service) transcribeAudio(id int, audioFilePath string, language string, 
 	return transcriptionData, nil
 }
 
+func (s Service) IsSplitUseSpace(language types.StandardLanguageCode) bool {
+	if language == types.LanguageNameSimplifiedChinese || language == types.LanguageNameTraditionalChinese ||
+		language == types.LanguageNameJapanese || language == types.LanguageNameKorean || language == types.LanguageNameThai {
+		return true
+	}
+
+	return false
+}
+
 func (s Service) splitTextAndTranslateV2(basePath, inputText string, originLang, targetLang types.StandardLanguageCode, enableModalFilter bool, id int) ([]*TranslatedItem, error) {
-	sentences := util.SplitTextSentences(inputText)
+	sentences := util.SplitTextSentences(inputText, config.Conf.App.MaxSentenceLength)
 	if len(sentences) == 0 {
 		return []*TranslatedItem{}, nil
 	}
 	// 补丁：whisper转录中文的时候很多句子后面不输出符号，导致上面基于符号的切分失效
-	if originLang == types.LanguageNameSimplifiedChinese || originLang == types.LanguageNameTraditionalChinese {
+	if s.IsSplitUseSpace(originLang) {
 		newSentences := make([]string, 0)
 		for _, sentence := range sentences {
 			newSentences = append(newSentences, strings.Split(sentence, " ")...)
@@ -128,28 +137,12 @@ func (s Service) splitTextAndTranslateV2(basePath, inputText string, originLang,
 	}
 
 	shortSentences := make([]string, 0)
-	lastMerged := false
 	//判断句子如果还是过长，就继续用大模型拆句
-	for i, sentence := range sentences {
-		// 如果前一次循环已经处理了当前句子（作为合并的一部分），跳过
-		if lastMerged {
-			lastMerged = false
+	for _, sentence := range sentences {
+		if sentence == "" {
 			continue
 		}
-
-		// 如果当前句子小于10个字符，尝试与下一个句子合并
-		if len(sentence) < 10 && i < len(sentences)-1 {
-			// 与下一个句子合并
-			mergedSentence := sentence + " " + sentences[i+1]
-			if calcLength(mergedSentence) <= float64(config.Conf.App.MaxSentenceLength) {
-				shortSentences = append(shortSentences, mergedSentence)
-				// 标记下一个句子已处理，需要在外层循环中跳过
-				lastMerged = true
-				continue
-			}
-		}
-
-		if calcLength(sentence) <= float64(config.Conf.App.MaxSentenceLength) {
+		if util.CountEffectiveChars(sentence) <= config.Conf.App.MaxSentenceLength {
 			shortSentences = append(shortSentences, sentence)
 			continue
 		}
@@ -162,7 +155,7 @@ func (s Service) splitTextAndTranslateV2(basePath, inputText string, originLang,
 		}
 		//拆完之后还长，就再拆一次
 		for _, item := range splitItems {
-			if calcLength(item) <= float64(config.Conf.App.MaxSentenceLength) {
+			if util.CountEffectiveChars(item) <= config.Conf.App.MaxSentenceLength {
 				shortSentences = append(shortSentences, item)
 				continue
 			}
@@ -472,12 +465,12 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 				}
 				// 保存不带时间戳的原始字幕
 				for i, translatedItem := range translatedItems.Data {
-					if util.IsAsianLanguage(stepParam.TargetLanguage) {
-						translatedItem.TranslatedText = util.BeautifyAsianLanguageSentence(translatedItem.TranslatedText)
-					}
-					if util.IsAsianLanguage(stepParam.OriginLanguage) {
-						translatedItem.OriginText = util.BeautifyAsianLanguageSentence(translatedItem.OriginText)
-					}
+					// if util.IsAsianLanguage(stepParam.TargetLanguage) {
+					// 	translatedItem.TranslatedText = util.BeautifyAsianLanguageSentence(translatedItem.TranslatedText)
+					// }
+					// if util.IsAsianLanguage(stepParam.OriginLanguage) {
+					// 	translatedItem.OriginText = util.BeautifyAsianLanguageSentence(translatedItem.OriginText)
+					// }
 					_, _ = originNoTsSrtFile.WriteString(fmt.Sprintf("%d\n", i+1))
 					_, _ = originNoTsSrtFile.WriteString(fmt.Sprintf("%s\n", translatedItem.TranslatedText))
 					_, _ = originNoTsSrtFile.WriteString(fmt.Sprintf("%s\n\n", translatedItem.OriginText))
@@ -985,6 +978,12 @@ func generateSrtWithTimestamps(srtBlocks []*util.SrtBlock, tsOffset float64, wor
 	// 获取每个字幕块的时间戳
 	var lastTs float64
 	shortOriginSrtMap := make(map[int][]util.SrtBlock, 0)
+	timeMatcher := NewTimestampGenerator()
+	newSrtBlocks, err := timeMatcher.GenerateTimestamps(srtBlocks, words, stepParam.OriginLanguage, tsOffset)
+	if err != nil {
+		return fmt.Errorf("audioToSubtitle generateTimestamps GenerateTimestamps error: %w", err)
+	}
+
 	for _, srtBlock := range srtBlocks {
 		if srtBlock.OriginLanguageSentence == "" {
 			continue
@@ -1090,7 +1089,7 @@ func generateSrtWithTimestamps(srtBlocks []*util.SrtBlock, tsOffset float64, wor
 	defer finalBilingualSrtFile.Close()
 
 	// 写入字幕文件
-	for _, srtBlock := range srtBlocks {
+	for _, srtBlock := range newSrtBlocks {
 		_, _ = finalBilingualSrtFile.WriteString(fmt.Sprintf("%d\n", srtBlock.Index))
 		_, _ = finalBilingualSrtFile.WriteString(srtBlock.Timestamp + "\n")
 		if stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop {
@@ -1257,8 +1256,7 @@ func calcLength(text string) float64 {
 // splitTranslateItem 根据字符权重和最大长度分割长句
 func (s Service) splitTranslateItem(items []*TranslatedItem) ([]*TranslatedItem, error) {
 	var result []*TranslatedItem
-	maxLength := 70 // todo 先写死
-	//targetMultiplier := config.Conf.Subtitle.TargetMultiplier
+	maxLength := config.Conf.App.MaxSentenceLength + 30
 
 	for _, item := range items {
 		// 计算翻译文本的加权长度
@@ -1313,7 +1311,7 @@ func (s Service) splitLongSentence(item *TranslatedItem) ([]*TranslatedItem, err
 }
 
 func (s Service) splitOriginLongSentence(sentence string) ([]string, error) {
-	prompt := fmt.Sprintf(types.SplitOriginLongSentencePrompt, sentence, config.Conf.App.MaxSentenceLength)
+	prompt := fmt.Sprintf(types.SplitOriginLongSentencePrompt, sentence)
 
 	var response string
 	var err error

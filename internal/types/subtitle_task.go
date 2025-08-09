@@ -129,15 +129,16 @@ var SplitLongSentencePrompt = `请将以下原文和译文分割成多个部分�
 4. 务必返回JSON格式，包含origin_part和translated_part数组，例如：
 {"align":[{"origin_part":"原文部分1","translated_part":"译文部分1"},{"origin_part":"原文部分2","translated_part":"译文部分2"}]}`
 
-var SplitOriginLongSentencePrompt = `Please split the following text into multiple parts, ensuring each part does not exceed the character limit:
+var SplitOriginLongSentencePrompt = `Please split the following text into multiple parts, ensuring it's divided into at most 3 short sentences, preferably 2:
 
 Original text: %s
 
 Requirements:
 1. The split sentences must exactly match the original text, absolutely no changes to the original text are allowed
-2. Split based on sentence meaning, keeping each part under %d characters
-3. Return in JSON format only, no other descriptions or explanations
-4. Example format:
+2. Split based on sentence meaning, dividing into at most 3 parts, preferably 2 parts
+3. Try to make the split as balanced as possible while maintaining sentence integrity
+4. Return in JSON format only, no other descriptions or explanations
+5. Example format:
 {"short_sentences":[{"text": "split sentence 1"},{"text": "split sentence 2"}]}
 
 `
@@ -177,18 +178,19 @@ Requirements:
 
 // Please provide only the translation result:`
 
-var SplitTextWithContextPrompt = `You are a professional translation expert.
+var SplitTextWithContextPrompt = `You are a professional subtitle translation expert.
 
 [STRICT TRANSLATION TASK]
 **Objective**: 
-Translate ONLY the "Target Sentence" below into %s. 
-Must reference but NEVER translate surrounding context.
+Translate ONLY the "Target Sentence" below into %s.
+Use "Previous Sentences" ONLY to understand the context of referents (e.g. pronouns or ellipses), not to infer meaning.
 
 **Critical Rules**:
-1. OUTPUT MUST BE A SINGLE LINE containing ONLY the target sentence's translation
-2. NEVER continue/complete the target sentence's thought
-3. IGNORE all "Next Sentences" completely
-4. Maintain contextual flow from "Previous Sentences" implicitly
+1. OUTPUT MUST BE A SINGLE LINE: only the translation of the target sentence
+2. Do NOT infer or explain the meaning of the target sentence. Do NOT add any logical connections or causal phrases
+3. If the sentence is fragmentary or dependent (e.g. starts with "that"), KEEP IT THAT WAY in translation
+4. Do NOT complete or rewrite the sentence for fluency
+5. IGNORE the "Next Sentences" completely
 
 **Context**:
 [Previous Sentences]
@@ -200,7 +202,7 @@ Must reference but NEVER translate surrounding context.
 [Next Sentences]
 %s
 
-**Provide only the translation result:**`
+**Your output must be literal, minimal, and on a single line. Provide only the translation result:**`
 
 type SmallAudio struct {
 	AudioFile         string

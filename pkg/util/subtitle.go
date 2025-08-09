@@ -29,20 +29,20 @@ func ProcessBlock(block []string, targetLanguageFile, targetLanguageTextFile, or
 		if len(targetLines) == 2 && len(originLines) == 2 { // 刚写完编号和时间戳，到了上方的文字行
 			if isTargetOnTop {
 				targetLines = append(targetLines, line)
-				targetLanguageTextFile.WriteString(line) // 文稿文件
+				targetLanguageTextFile.WriteString(line + " ") // 文稿文件
 			} else {
 				originLines = append(originLines, line)
-				originLanguageTextFile.WriteString(line)
+				originLanguageTextFile.WriteString(line + " ")
 			}
 			continue
 		}
 		// 到了下方的文字行
 		if isTargetOnTop {
 			originLines = append(originLines, line)
-			originLanguageTextFile.WriteString(line)
+			originLanguageTextFile.WriteString(line + " ")
 		} else {
 			targetLines = append(targetLines, line)
-			targetLanguageTextFile.WriteString(line)
+			targetLanguageTextFile.WriteString(line + " ")
 		}
 	}
 
@@ -355,48 +355,272 @@ func BeautifyAsianLanguageSentence(input string) string {
 }
 
 // SplitTextSentences 将文本按常见的半全角分隔符号切分成句子，会考虑一些特殊的不用切分的情况
-func SplitTextSentences(text string) []string {
-	const (
-		dotPlaceholder   = "\u0001"
-		commaPlaceholder = "\u0002"
-		timePlaceholder  = "\u0003"
-	)
+// maxChars: 最小字符数，完整句子小于此字符数时不切割，否则连逗号也要切割
+// 使用示例:
+//
+//	SplitTextSentences("你好,世界!", 5)  // 返回: ["你好,世界!"] (不切割，因为总字符数<5)
+//	SplitTextSentences("这是一个很长的句子,包含很多内容。", 10) // 返回: ["这是一个很长的句子", "包含很多内容。"] (切割逗号)
+func SplitTextSentences(text string, maxChars int) []string {
+	if strings.TrimSpace(text) == "" {
+		return []string{}
+	}
 
-	// 时间
-	timeRegex := regexp.MustCompile(`\b\d{1,2}(?::|\.)\d{2}\s+[ap]\.m\.`)
-	text = timeRegex.ReplaceAllStringFunc(text, func(m string) string {
-		return strings.ReplaceAll(m, ".", timePlaceholder)
-	})
+	// 第一步：保护特殊模式（数字、时间、缩写等）
+	text = protectSpecialNumbers(text)
 
-	// 千位分隔符
-	text = regexp.MustCompile(`\b\d{1,3}(?:,\d{3})+\b`).ReplaceAllStringFunc(text, func(m string) string {
-		return strings.ReplaceAll(m, ",", commaPlaceholder)
-	})
+	// 第二步：智能切割 - 首先按完整句子分割
+	completeSentences := splitByCompleteSentences(text)
 
-	// 小数
-	text = regexp.MustCompile(`\b\d+\.\d+\b`).ReplaceAllStringFunc(text, func(m string) string {
-		return strings.ReplaceAll(m, ".", dotPlaceholder)
-	})
+	var result []string
+	for _, sentence := range completeSentences {
+		sentence = strings.TrimSpace(sentence)
+		if sentence == "" {
+			continue
+		}
 
-	// 缩写词
-	text = regexp.MustCompile(`\b(?:[A-Za-z]\.){2,}[A-Za-z]?\b|\b[A-Z][a-z]*\.(?:[A-Z][a-z]*\.)+`).ReplaceAllStringFunc(text, func(m string) string {
-		return strings.ReplaceAll(m, ".", dotPlaceholder)
-	})
+		// 统计有效字符数（排除标点和空格）
+		effectiveChars := CountEffectiveChars(sentence)
 
-	text = regexp.MustCompile(`([。.！!？?；;，,\n]+)`).ReplaceAllString(text, "${1}\u0000")
+		// 如果完整句子小于最小字符数，不切割
+		if effectiveChars < maxChars {
+			cleaned := restoreProtectedPatterns(sentence)
+			result = append(result, strings.TrimSpace(cleaned))
+		} else {
+			// 完整句子过长，需要进一步按逗号等标点切割
+			subSentences := splitByAllPunctuation(sentence)
+			merged := mergeShortSentences(subSentences, 20, maxChars)
 
-	parts := strings.Split(text, "\u0000")
-
-	var sentences []string
-	for _, part := range parts {
-		s := strings.TrimSpace(part)
-		s = strings.ReplaceAll(s, timePlaceholder, ".")
-		s = strings.ReplaceAll(s, dotPlaceholder, ".")
-		s = strings.ReplaceAll(s, commaPlaceholder, ",")
-		if s != "" {
-			sentences = append(sentences, s)
+			for _, subSentence := range merged {
+				cleaned := restoreProtectedPatterns(subSentence)
+				cleaned = strings.TrimSpace(cleaned)
+				if cleaned != "" {
+					result = append(result, cleaned)
+				}
+			}
 		}
 	}
 
-	return sentences
+	return result
+}
+
+// protectedPatterns 存储被保护的模式
+var protectedPatterns map[string]string
+
+// protectSpecialNumbers 保护数字、时间、缩写等不被误切
+func protectSpecialNumbers(text string) string {
+	protectedPatterns = make(map[string]string)
+
+	// 使用更直接的方法来保护列表编号模式
+	// 先处理特定的模式，如 "1.value", "2.be", "3.give" 等
+	listNumberPattern := regexp.MustCompile(`\b\d+\.[a-zA-Z]`)
+	text = listNumberPattern.ReplaceAllStringFunc(text, func(match string) string {
+		placeholder := fmt.Sprintf("\uE000%d\uE000", len(protectedPatterns))
+		protectedPatterns[placeholder] = match
+		return placeholder
+	})
+
+	patterns := []struct {
+		regex *regexp.Regexp
+		name  string
+	}{
+		// 保护域名和网址（如 .com, .org, .net 等）
+		{regexp.MustCompile(`\b[a-zA-Z0-9-]+\.(?:com|org|net|edu|gov|mil|int|co|io|ai|me|tv|fm|am|pm|uk|cn|jp|de|fr|it|es|ru|in|au|ca|br|mx|ar|cl|pe|ve|ec|py|uy|bo|gf|sr|gy|fk|gs|sh|ac|ad|ae|af|ag|al|am|an|ao|aq|as|at|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|cc|cd|cf|cg|ch|ci|ck|cm|co|cr|cs|cu|cv|cx|cy|cz|dj|dk|dm|do|dz|eg|eh|er|et|eu|fi|fj|fk|fo|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|iq|ir|is|je|jm|jo|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|qa|re|ro|rs|rw|sa|sb|sc|sd|se|sg|si|sj|sk|sl|sm|sn|so|st|su|sv|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tz|ua|ug|um|us|uy|uz|va|vc|vg|vi|vn|vu|wf|ws|ye|yt|za|zm|zw)\b`), "domain"},
+		// 保护 a.m., p.m., A.M., P.M. 这类缩写
+		{regexp.MustCompile(`(?i)\b[ap]\.m\.`), "ampm"},
+		// 时间格式
+		{regexp.MustCompile(`\b\d{1,2}[:\.]\d{2}\s*(?:[ap]\.?m\.?|AM|PM)?\b`), "time"},
+		// 小数（包括多位小数）
+		{regexp.MustCompile(`\b\d+\.\d+\b`), "decimal"},
+		// 千位分隔符
+		{regexp.MustCompile(`\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b`), "thousands"},
+		// 版本号（如 1.0, 2.5.1 等）
+		{regexp.MustCompile(`\b\d+(?:\.\d+)+\b`), "version"},
+		// 英文缩写
+		{regexp.MustCompile(`\b(?:[A-Z][a-z]*\.){2,}|(?:[A-Z]\.){2,}[A-Z]?\b`), "abbrev"},
+		// Mr., Mrs., Dr. 等称谓
+		{regexp.MustCompile(`\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr)\.`), "title"},
+		// 列表编号（如 1., 2., 3. 等）- 数字+点+空格
+		{regexp.MustCompile(`\b\d+\.\s`), "list_number_with_space"},
+		// 字母编号（如 a., b., c. 等）
+		{regexp.MustCompile(`\b[a-zA-Z]\.\s`), "letter_number_with_space"},
+	}
+
+	for _, pattern := range patterns {
+		text = pattern.regex.ReplaceAllStringFunc(text, func(match string) string {
+			placeholder := fmt.Sprintf("\uE000%d\uE000", len(protectedPatterns))
+			protectedPatterns[placeholder] = match
+			return placeholder
+		})
+	}
+
+	return text
+}
+
+// splitByCompleteSentences 按完整句子标点分割（句号、感叹号、问号等）
+func splitByCompleteSentences(text string) []string {
+	// 只按句末标点分割，不包含逗号
+	completeSentenceMarkers := []string{
+		".", "!", "?", "。", "！", "？", "；", "\n", "\r\n",
+	}
+
+	// 创建正则表达式模式
+	var patterns []string
+	for _, marker := range completeSentenceMarkers {
+		patterns = append(patterns, regexp.QuoteMeta(marker))
+	}
+
+	// 匹配连续的句末标点符号
+	regexPattern := fmt.Sprintf(`([%s]+)`, strings.Join(patterns, ""))
+	regex := regexp.MustCompile(regexPattern)
+
+	// 在标点符号后添加分隔符
+	text = regex.ReplaceAllString(text, "${1}\uE001")
+
+	// 按分隔符分割
+	parts := strings.Split(text, "\uE001")
+
+	var segments []string
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			segments = append(segments, trimmed)
+		}
+	}
+
+	return segments
+}
+
+// countEffectiveChars 统计有效字符数（排除标点和空格）
+func CountEffectiveChars(text string) int {
+	effectiveText := regexp.MustCompile(`[^\p{L}\p{N}]`).ReplaceAllString(text, "")
+	return len([]rune(effectiveText))
+}
+
+// splitByAllPunctuation 按所有标点符号分割文本
+func splitByAllPunctuation(text string) []string {
+	// 注意：这里的text已经在SplitTextSentences中被保护过了，不需要再次保护
+
+	// 定义分割标点符号（包括中英文标点）
+	punctuationMarkers := []string{
+		// 句末标点
+		".", "!", "?", "；", "。", "！", "？", "；",
+		// 句内标点（也要分割）
+		",", "，", ";",
+		// 换行符
+		"\n", "\r\n",
+	}
+
+	// 创建正则表达式模式
+	var patterns []string
+	for _, marker := range punctuationMarkers {
+		patterns = append(patterns, regexp.QuoteMeta(marker))
+	}
+
+	// 匹配连续的标点符号
+	regexPattern := fmt.Sprintf(`([%s]+)`, strings.Join(patterns, ""))
+	regex := regexp.MustCompile(regexPattern)
+
+	// 在标点符号后添加分隔符
+	text = regex.ReplaceAllString(text, "${1}\uE001")
+
+	// 按分隔符分割
+	parts := strings.Split(text, "\uE001")
+
+	var segments []string
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			segments = append(segments, trimmed)
+		}
+	}
+
+	return segments
+}
+
+// mergeShortSentences 合并过短的句子
+// maxChars: 最小字符数，句子小于此值时考虑合并
+// maxChars: 最大字符数，合并后的句子不能超过此值
+func mergeShortSentences(segments []string, minChars, maxChars int) []string {
+	if len(segments) == 0 {
+		return segments
+	}
+
+	var result []string
+	var current strings.Builder
+
+	for i, segment := range segments {
+		segment = strings.TrimSpace(segment)
+		if segment == "" {
+			continue
+		}
+
+		// 添加到当前句子
+		if current.Len() > 0 {
+			current.WriteString(" ")
+		}
+		current.WriteString(segment)
+
+		currentText := current.String()
+		currentEffectiveChars := CountEffectiveChars(currentText)
+
+		// 检查是否应该合并下一个片段
+		shouldMerge := false
+		if i < len(segments)-1 { // 还有下一个片段
+			nextSegment := strings.TrimSpace(segments[i+1])
+			if nextSegment != "" {
+				// 计算合并后的长度
+				potentialMerged := currentText + " " + nextSegment
+				mergedEffectiveChars := CountEffectiveChars(potentialMerged)
+
+				// 只有当前句子小于minChars，并且合并后不超过maxChars才合并
+				shouldMerge = currentEffectiveChars < minChars && mergedEffectiveChars <= maxChars
+			}
+		}
+
+		if !shouldMerge {
+			// 不合并，输出当前句子并重置
+			result = append(result, strings.TrimSpace(currentText))
+			current.Reset()
+		}
+		// 如果shouldMerge为true，继续循环到下一个片段进行合并
+	}
+
+	// 处理最后的片段
+	if current.Len() > 0 {
+		result = append(result, strings.TrimSpace(current.String()))
+	}
+
+	return result
+}
+
+// isTooShort 判断句子是否过短需要合并
+func isTooShort(text string, maxChars int) bool {
+	text = strings.TrimSpace(text)
+
+	// 计算有效字符数（排除标点和空格）
+	effectiveChars := CountEffectiveChars(text)
+
+	// 如果有效字符少于最小字符数，认为过短
+	if effectiveChars < maxChars {
+		return true
+	}
+
+	// 如果只有一个单词，也认为过短（除非已经达到最小字符数）
+	words := strings.Fields(text)
+	return len(words) <= 1 && effectiveChars < maxChars
+}
+
+// restoreProtectedPatterns 恢复被保护的模式
+func restoreProtectedPatterns(text string) string {
+	for placeholder, original := range protectedPatterns {
+		text = strings.ReplaceAll(text, placeholder, original)
+	}
+	return text
+}
+
+// 将start和end转换为指定格式
+func ConvertTimes(start, end float32) string {
+	startTime := FormatTime(start)
+	endTime := FormatTime(end)
+	return fmt.Sprintf("%s --> %s", startTime, endTime)
 }
