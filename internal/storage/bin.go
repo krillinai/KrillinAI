@@ -9,4 +9,5 @@ var (
 	WhisperKitPath    string
 	WhispercppPath    string
 	EdgeTtsPath       string
+	VttToSrtPath      string
 )

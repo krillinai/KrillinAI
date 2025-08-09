@@ -273,7 +273,7 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 		return err
 	}
 
-	// 2. 处理音频分段和转录
+	// 2. 处理音频分段和转录以及翻译
 	audioSegments, err := s.processAudioSegments(ctx, stepParam, timePoints)
 	if err != nil {
 		return err
