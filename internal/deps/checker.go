@@ -81,10 +81,6 @@ func CheckDependency() error {
 			log.GetLogger().Error("edge-tts环境准备失败", zap.Error(err))
 		}
 	}
-	if err = checkVttToSrt(); err != nil {
-		log.GetLogger().Error("vtt-to-srt脚本准备失败", zap.Error(err))
-		return err
-	}
 
 	return nil
 }
@@ -624,11 +620,5 @@ func checkEdgeTts() error {
 	}
 	storage.EdgeTtsPath = EdgeTtsBinFilePath
 	log.GetLogger().Info("edge-tts安装完成", zap.String("路径", EdgeTtsBinFilePath))
-	return nil
-}
-
-func checkVttToSrt() error {
-	storage.VttToSrtPath = "./bin/vtt2srt"
-	log.GetLogger().Info("vtt2srt检查完成", zap.String("路径", storage.VttToSrtPath))
 	return nil
 }
