@@ -249,7 +249,7 @@
         height: 100vh;
       }
       .sidebar {
-        width: 240px;
+        width: 300px;
         background: rgba(255, 255, 255, 0.85);
         box-shadow: 2px 0 16px 0 rgba(30, 41, 59, 0.08);
         display: flex;
@@ -263,6 +263,7 @@
       .logo {
         font-size: 2rem;
         font-weight: 700;
+        text-align: center;
         color: #3b82f6;
         margin-bottom: 16px;
         letter-spacing: 2px;
@@ -271,6 +272,10 @@
         font-size: 1rem;
         color: #64748b;
         margin-bottom: 32px;
+        text-align: center;
+        word-wrap: break-word;
+        line-height: 1.4;
+        padding: 0 16px;
       }
       .nav {
         width: 100%;
@@ -433,13 +438,13 @@
       <div class="sidebar">
         <div class="logo">Klic Studio</div>
         <div class="slogan">
-          智能内容创作助手
+          AI Video Translation & Dubbing by Krillin AI
         </div>
         <div class="nav">
           <button class="nav-btn active" id="nav-workbench">
-            工作台 Workbench
+            工作台 Dashboard
           </button>
-          <button class="nav-btn" id="nav-config">配置 Config</button>
+          <button class="nav-btn" id="nav-config">设置 Settings</button>
         </div>
         <div class="sidebar-bottom">
           <span style="font-size: 13px; color: #94a3b8">v1.0</span>
@@ -457,22 +462,21 @@
                 margin: 0 0 32px 0;
               "
             >
-              视频翻译配音 Video Translation & Dubbing
+              视频翻译配音<br> Video Translation & Dubbing
             </h1>
 
             <!-- 视频输入区域 -->
             <div class="card">
               <h3 class="card-title">1. 视频源设置 Video Source Settings</h3>
               <div class="form-group">
-                <label class="form-label">输入方式 Input Method:</label>
                 <div class="radio-group">
                   <label class="radio-item">
                     <input type="radio" name="inputType" value="url" checked />
-                    <span>视频链接 Video URL</span>
+                    <span>输入链接 Paste a link</span>
                   </label>
                   <label class="radio-item">
                     <input type="radio" name="inputType" value="file" />
-                    <span>本地视频 Local Video</span>
+                    <span>本地上传 Upload a file</span>
                   </label>
                 </div>
               </div>
@@ -482,7 +486,7 @@
                 <input
                   type="url"
                   id="urlInput"
-                  placeholder="请输入有效的视频链接 Please enter a valid video URL"
+                  placeholder="输入视频链接 Paste a link here"
                   class="form-input"
                 />
               </div>
@@ -507,7 +511,7 @@
               <h3 class="card-title">2. 字幕设置 Subtitle Settings</h3>
               <div class="form-row">
                 <div class="form-group">
-                  <label class="form-label">源语言<br />Source Language:</label>
+                  <label class="form-label">源语言<br />Original Language:</label>
                   <select id="source-language" class="form-select">
                     <option value="zh_cn">简体中文</option>
                     <option value="en">English</option>
@@ -521,7 +525,7 @@
                 </div>
                 <div class="form-group">
                   <label class="form-label"
-                    >目标语言<br />Target Language:</label
+                    >翻译成<br />Translate To:</label
                   >
                   <select id="target-language" class="form-select">
                     <option value="zh_cn">简体中文</option>
@@ -632,7 +636,7 @@
               <div class="form-group">
                 <label class="checkbox-item">
                   <input type="checkbox" id="bilingual-toggle" checked />
-                  <span>启用双语字幕 Enable Bilingual Subtitles</span>
+                  <span>启用双语字幕 Bilingual Subtitles</span>
                 </label>
                 <select
                   id="bilingual-position"
@@ -640,10 +644,10 @@
                   style="width: 200px; margin-left: 16px"
                 >
                   <option value="top">
-                    翻译后字幕在上方 Translated Subtitles on Top
+                    翻译在上 Translation Above
                   </option>
                   <option value="bottom">
-                    翻译后字幕在下方 Translated Subtitles at Bottom
+                    翻译在下 Translation Below
                   </option>
                 </select>
               </div>
@@ -651,18 +655,18 @@
               <div class="form-group">
                 <label class="checkbox-item">
                   <input type="checkbox" id="filler-filter-toggle" checked />
-                  <span>启用语气词过滤 Enable Filler Word Filter</span>
+                  <span>启用语气词过滤 Tone Word Filtering</span>
                 </label>
               </div>
             </div>
 
             <!-- 配音设置区域 -->
             <div class="card">
-              <h3 class="card-title">3. 配音设置 Voice Dubbing Settings</h3>
+              <h3 class="card-title">3. 配音设置 Dubbing Settings </h3>
               <div class="form-group">
                 <label class="checkbox-item">
                   <input type="checkbox" id="voiceover-toggle" />
-                  <span>启用配音 Enable Voice Dubbing</span>
+                  <span>启用配音 Apply Dubbing</span>
                 </label>
                 <input
                   type="text"
@@ -675,7 +679,7 @@
               </div>
               <div class="form-group">
                 <label class="form-label"
-                  >音色克隆样本<br />Voice Clone Sample:</label
+                  >选择音色克隆样本<br />Select Voice Clone Sample:</label
                 >
                 <input
                   type="file"
@@ -685,7 +689,7 @@
                   style="width: 300px"
                 />
                 <span class="hint"
-                  >仅支持阿里云TTS Only supports Aliyun TTS</span
+                  >（Aliyun TTS Supported）</span
                 >
               </div>
             </div>
@@ -693,12 +697,12 @@
             <!-- 视频合成设置 -->
             <div class="card">
               <h3 class="card-title">
-                4. 视频合成设置 Video Synthesis Settings
+                4. 视频合成设置 Composition Settings
               </h3>
               <div class="form-group">
                 <label class="checkbox-item">
                   <input type="checkbox" id="embed-subtitle-toggle" />
-                  <span>合成视频 Synthesize Video</span>
+                  <span>合成 Composite</span>
                 </label>
                 <select
                   id="embed-subtitle"
@@ -706,10 +710,10 @@
                   style="width: 200px; margin-left: 16px"
                   disabled
                 >
-                  <option value="horizontal">横屏视频 Horizontal Video</option>
-                  <option value="vertical">竖屏视频 Vertical Video</option>
+                  <option value="horizontal">横屏输出 Landscape（16：9）</option>
+                  <option value="vertical">竖屏输出 Portrait（9:16）</option>
                   <option value="all">
-                    横屏+竖屏视频 Horizontal + Vertical Video
+                    横屏+竖屏 (Landscape+Portrait)
                   </option>
                 </select>
               </div>
@@ -738,7 +742,7 @@
             <!-- 执行按钮 -->
             <div class="action-area">
               <button type="button" id="executeButton" class="btn-primary">
-                开始任务 Start Task
+                开始翻译 Start Translating
               </button>
             </div>
 
