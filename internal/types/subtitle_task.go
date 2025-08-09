@@ -204,21 +204,6 @@ Use "Previous Sentences" ONLY to understand the context of referents (e.g. prono
 
 **Your output must be literal, minimal, and on a single line. Provide only the translation result:**`
 
-const SplitTranslatedSentencePrompt = `You are an expert in language alignment. Your task is to split a translated sentence into parts that perfectly correspond to the parts of the original sentence.
-
-Here is the full translated text:
----
-%s
----
-
-Here is how to correctly split the original sentence, please split the translated text in the same way:
----
-%s
----
-
-Please output the result in a JSON array format where each element is a string of the split translated part. For example: {"parts": ["part 1", "part 2", "part 3"]}.
-Ensure the number of parts in your output exactly matches the number of parts in the original sentence split. Do not add any extra explanations.
-`
 
 type SmallAudio struct {
 	AudioFile         string
