@@ -395,3 +395,10 @@ type TranscriptionData struct {
 	Text     string
 	Words    []Word
 }
+
+type SrtBlock struct {
+	Index                  int
+	Timestamp              string
+	OriginLanguageSentence string
+	TargetLanguageSentence string
+}

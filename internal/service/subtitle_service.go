@@ -135,7 +135,6 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 			}
 		}()
 		// 新版流程：链接->本地音频文件->视频信息获取（若有）->本地字幕文件->语言合成->视频合成->字幕文件链接生成
-		// TODO  Youtube have Vtt file
 		log.GetLogger().Info("video subtitle start task", zap.String("taskId", taskId))
 		err = s.linkToFile(ctx, &stepParam)
 		if err != nil {
@@ -155,21 +154,11 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 
 		// 针对YouTube视频优先尝试使用yt-dlp下载字幕
 		if strings.Contains(req.Url, "youtube.com") {
-			log.GetLogger().Info("Attempting to download YouTube subtitles", zap.String("taskId", taskId))
-			err = s.downloadYouTubeSubtitle(ctx, &stepParam)
-			if err == nil {
-				// 成功下载到字幕文件，直接处理字幕
-				log.GetLogger().Info("Successfully downloaded YouTube subtitles, processing...", zap.String("taskId", taskId))
-				err = s.processYouTubeSubtitle(ctx, &stepParam)
-				if err != nil {
-					log.GetLogger().Error("StartVideoSubtitleTask processYouTubeSubtitle err", zap.Any("req", req), zap.Error(err))
-					stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
-					stepParam.TaskPtr.FailReason = err.Error()
-					return
-				}
-			} else {
-				// 下载字幕失败，回退到音频转录方式
-				log.GetLogger().Warn("Failed to download YouTube subtitles, falling back to audio transcription",
+			log.GetLogger().Info("Attempting to process YouTube subtitles directly", zap.String("taskId", taskId))
+			err = s.YouTubeSubtitleSrv.Process(ctx, &stepParam)
+			if err != nil {
+				// 下载或处理字幕失败，回退到音频转录方式
+				log.GetLogger().Warn("Failed to process YouTube subtitles directly, falling back to audio transcription",
 					zap.String("taskId", taskId), zap.Error(err))
 				err = s.audioToSubtitle(ctx, &stepParam)
 				if err != nil {

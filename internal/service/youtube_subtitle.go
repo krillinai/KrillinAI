@@ -3,14 +3,12 @@ package service
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"krillin-ai/config"
@@ -19,116 +17,335 @@ import (
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
 
+	"regexp"
+	"sort"
+
 	"go.uber.org/zap"
 )
 
-// 将内部语言代码映射为YouTube字幕语言代码
-func (s Service) mapLanguageForYouTube(language string) string {
-	languageMap := map[string]string{
-		// 中文相关
-        "zh_cn": "zh-Hans", // 简体中文
-        "zh_tw": "zh-Hant", // 繁体中文
-        
-        "en":  "en",    // 英语
-        "es":  "es",    // 西班牙语
-        "fr":  "fr",    // 法语
-        "de":  "de",    // 德语
-        "ja":  "ja",    // 日语
-        "ko":  "ko",    // 韩语
-        "ru":  "ru",    // 俄语
-        "pt":  "pt",    // 葡萄牙语
-        "it":  "it",    // 意大利语
-        "ar":  "ar",    // 阿拉伯语
-        "hi":  "hi",    // 印地语
-        "th":  "th",    // 泰语
-        "vi":  "vi",    // 越南语
-        "tr":  "tr",    // 土耳其语
-        "pl":  "pl",    // 波兰语
-        "nl":  "nl",    // 荷兰语
-        "sv":  "sv",    // 瑞典语
-        "da":  "da",    // 丹麦语
-        "no":  "no",    // 挪威语
-        "fi":  "fi",    // 芬兰语
-        "id":  "id",    // 印度尼西亚语
-        "ms":  "ms",    // 马来语
-        "fil": "fil",   // 菲律宾语
-        "bn":  "bn",    // 孟加拉语
-        "he":  "iw",    // 希伯来语 (YouTube使用iw)
-        "fa":  "fa",    // 波斯语
-        "af":  "af",    // 南非语
-        "el":  "el",    // 希腊语
-        "uk":  "uk",    // 乌克兰语
-        "hu":  "hu",    // 匈牙利语
-        "sr":  "sr",    // 塞尔维亚语
-        "hr":  "hr",    // 克罗地亚语
-        "cs":  "cs",    // 捷克语
-        "sw":  "sw",    // 斯瓦希里语
-        "yo":  "yo",    // 约鲁巴语
-        "ha":  "ha",    // 豪萨语
-        "am":  "am",    // 阿姆哈拉语
-        "om":  "om",    // 奥罗莫语
-        "is":  "is",    // 冰岛语
-        "lb":  "lb",    // 卢森堡语
-        "ca":  "ca",    // 加泰罗尼亚语
-        "ro":  "ro",    // 罗马尼亚语
-        "sk":  "sk",    // 斯洛伐克语
-        "bs":  "bs",    // 波斯尼亚语
-        "mk":  "mk",    // 马其顿语
-        "sl":  "sl",    // 斯洛文尼亚语
-        "bg":  "bg",    // 保加利亚语
-        "lv":  "lv",    // 拉脱维亚语
-        "lt":  "lt",    // 立陶宛语
-        "et":  "et",    // 爱沙尼亚语
-        "mt":  "mt",    // 马耳他语
-        "sq":  "sq",    // 阿尔巴尼亚语
-        "pa":  "pa",    // 旁遮普语
-        "jv":  "jv",    // 爪哇语
-        "ta":  "ta",    // 泰米尔语
-        "ur":  "ur",    // 乌尔都语
-        "mr":  "mr",    // 马拉地语
-        "te":  "te",    // 泰卢固语
-        "ps":  "ps",    // 普什图语
-        "ln":  "ln",    // 林加拉语
-        "ml":  "ml",    // 马拉雅拉姆语
-        "uz":  "uz",    // 乌兹别克语
-        "kn":  "kn",    // 卡纳达语
-        "or":  "or",    // 奥里亚语
-        "ig":  "ig",    // 伊博语
-        "zu":  "zu",    // 祖鲁语
-        "xh":  "xh",    // 科萨语
-        "km":  "km",    // 高棉语
-        "lo":  "lo",    // 老挝语
-        "ka":  "ka",    // 格鲁吉亚语
-        "hy":  "hy",    // 亚美尼亚语
-        "tg":  "tg",    // 塔吉克语
-        "tk":  "tk",    // 土库曼语
-        "kk":  "kk",    // 哈萨克语
-        "ky":  "ky",    // 吉尔吉斯语
-        "mn":  "mn",    // 蒙古语
-        "gd":  "gd",    // 苏格兰盖尔语
-        "ga":  "ga",    // 爱尔兰语
-        "cy":  "cy",    // 威尔士语
-        "ba":  "ba",    // 巴什基尔语
-        "ceb": "ceb",   // 宿务语
-        "tt":  "tt",    // 鞑靼语
-        "rw":  "rw",    // 卢旺达语
-        "be":  "be",    // 白俄罗斯语
-        "mg":  "mg",    // 马达加斯加语
-        "sm":  "sm",    // 萨摩亚语
-        "to":  "to",    // 汤加语
-        "mi":  "mi",    // 毛利语
-        "gv":  "gv",    // 马恩岛语
+type vttBlock struct {
+	index         int
+	startTime     string
+	endTime       string
+	lines         []string
+	cleanLines    []string
+	cleanText     string
+	hasTimingTags bool
+}
+
+type srtSubtitle struct {
+	startTime string
+	endTime   string
+	text      string
+	duration  int64
+}
+
+// translator defines the interface for text translation.
+type translator interface {
+	splitTextAndTranslateV2(basePath, inputText string, originLang, targetLang types.StandardLanguageCode, enableModalFilter bool, id int) ([]*TranslatedItem, error)
+}
+
+// YouTubeSubtitleService handles all operations related to YouTube subtitles.
+type YouTubeSubtitleService struct {
+	translator translator
+}
+
+// NewYouTubeSubtitleService creates a new YouTubeSubtitleService.
+func NewYouTubeSubtitleService(translator translator) *YouTubeSubtitleService {
+	return &YouTubeSubtitleService{
+		translator: translator,
+	}
+}
+
+// Process handles the entire workflow for YouTube subtitles, from downloading to processing.
+func (s *YouTubeSubtitleService) Process(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
+	// 1. Download subtitle file
+	err := s.downloadYouTubeSubtitle(ctx, stepParam)
+	if err != nil {
+		// Return error to let the caller handle fallback (e.g., audio transcription)
+		return err
 	}
 
-	if mappedLang, exists := languageMap[language]; exists {
-		return mappedLang
+	// 2. Process the downloaded subtitle file
+	log.GetLogger().Info("Successfully downloaded YouTube subtitles, processing...", zap.String("taskId", stepParam.TaskId))
+	err = s.processYouTubeSubtitle(ctx, stepParam)
+	if err != nil {
+		return fmt.Errorf("processYouTubeSubtitle err: %w", err)
 	}
 
-	return language
+	return nil
+}
+
+func (s *YouTubeSubtitleService) convertVttToSrtGo(inputPath, outputPath string) error {
+	contentBytes, err := os.ReadFile(inputPath)
+	if err != nil {
+		return fmt.Errorf("failed to read VTT file: %w", err)
+	}
+	content := string(contentBytes)
+	lines := strings.Split(content, "\n")
+
+	// --- 1. Parse all VTT blocks ---
+	var vttBlocks []*vttBlock
+	timestampRegex := regexp.MustCompile(`^(\d{2}:\d{2}:\d{2})\.(\d{3})\s-->\s(\d{2}:\d{2}:\d{2})\.(\d{3})`)
+	tagRegex := regexp.MustCompile(`<[^>]*>`)
+	timingTagRegex := regexp.MustCompile(`<\d{2}:\d{2}:\d{2}\.\d{3}>`)
+
+	for i := 0; i < len(lines); {
+		line := strings.TrimSpace(lines[i])
+		if line == "" || strings.HasPrefix(line, "WEBVTT") || strings.HasPrefix(line, "Kind:") || strings.HasPrefix(line, "Language:") {
+			i++
+			continue
+		}
+
+		if matches := timestampRegex.FindStringSubmatch(line); len(matches) == 5 {
+			startTime := fmt.Sprintf("%s,%s", matches[1], matches[2])
+			endTime := fmt.Sprintf("%s,%s", matches[3], matches[4])
+
+			i++
+			var subtitleLines []string
+			for i < len(lines) && strings.TrimSpace(lines[i]) != "" {
+				subtitleLines = append(subtitleLines, strings.TrimSpace(lines[i]))
+				i++
+			}
+
+			if len(subtitleLines) > 0 {
+				block := &vttBlock{
+					startTime: startTime,
+					endTime:   endTime,
+					lines:     subtitleLines,
+					index:     len(vttBlocks),
+				}
+				var cleanLines []string
+				for _, l := range block.lines {
+					cleanLine := strings.TrimSpace(tagRegex.ReplaceAllString(l, ""))
+					if cleanLine != "" {
+						cleanLines = append(cleanLines, cleanLine)
+					}
+				}
+				block.cleanLines = cleanLines
+				block.cleanText = strings.Join(cleanLines, " ")
+				block.hasTimingTags = timingTagRegex.MatchString(strings.Join(block.lines, " "))
+				vttBlocks = append(vttBlocks, block)
+			}
+		} else {
+			i++
+		}
+	}
+
+	// --- 2. Identify candidate blocks ---
+	var candidateBlocks []*vttBlock
+	for _, block := range vttBlocks {
+		if !block.hasTimingTags && len(block.cleanLines) == 1 {
+			candidateBlocks = append(candidateBlocks, block)
+		}
+	}
+
+	// --- 3. Build precise timeline ---
+	subtitlesMap := make(map[string]*srtSubtitle)
+	for _, sBlock := range candidateBlocks {
+		text := sBlock.cleanText
+		startTime := sBlock.startTime
+		endTime := sBlock.endTime
+
+		// Search backwards for start time
+		for i := sBlock.index - 1; i >= 0; i-- {
+			pBlock := vttBlocks[i]
+			if util.IsTextMatch(text, pBlock.cleanText) {
+				startTime = pBlock.startTime
+				break
+			}
+		}
+
+		// Search forwards for end time
+		for i := sBlock.index + 1; i < len(vttBlocks); i++ {
+			tBlock := vttBlocks[i]
+			if !tBlock.hasTimingTags && len(tBlock.cleanLines) >= 1 {
+				if tBlock.cleanLines[0] == text {
+					endTime = tBlock.startTime
+					break
+				}
+			}
+		}
+
+		duration := util.TimeToMilliseconds(endTime) - util.TimeToMilliseconds(startTime)
+		if existing, ok := subtitlesMap[text]; !ok || duration > existing.duration {
+			subtitlesMap[text] = &srtSubtitle{
+				startTime: startTime,
+				endTime:   endTime,
+				text:      text,
+				duration:  duration,
+			}
+		}
+	}
+
+	// --- 4. Clean and sort ---
+	var finalSubtitles []*srtSubtitle
+	for _, sub := range subtitlesMap {
+		finalSubtitles = append(finalSubtitles, sub)
+	}
+	sort.Slice(finalSubtitles, func(i, j int) bool {
+		return util.TimeToMilliseconds(finalSubtitles[i].startTime) < util.TimeToMilliseconds(finalSubtitles[j].startTime)
+	})
+
+	// Fix overlaps
+	if len(finalSubtitles) > 1 {
+		for i := 0; i < len(finalSubtitles)-1; i++ {
+			currentEndMs := util.TimeToMilliseconds(finalSubtitles[i].endTime)
+			nextStartMs := util.TimeToMilliseconds(finalSubtitles[i+1].startTime)
+
+			if currentEndMs > nextStartMs {
+				adjustedEndMs := nextStartMs - 50
+				if adjustedEndMs > util.TimeToMilliseconds(finalSubtitles[i].startTime) {
+					finalSubtitles[i].endTime = util.MillisecondsToTime(adjustedEndMs)
+				}
+			}
+		}
+	}
+
+	// --- 5. Write SRT file ---
+	var srtContent strings.Builder
+	for i, subtitle := range finalSubtitles {
+		srtContent.WriteString(fmt.Sprintf("%d\n", i+1))
+		srtContent.WriteString(fmt.Sprintf("%s --> %s\n", subtitle.startTime, subtitle.endTime))
+		srtContent.WriteString(subtitle.text + "\n\n")
+	}
+
+	return os.WriteFile(outputPath, []byte(srtContent.String()), 0644)
+}
+
+func (s *YouTubeSubtitleService) parseVttTime(timeStr string) (float64, error) {
+	// VTT format: HH:MM:SS.ms or MM:SS.ms
+	parts := strings.Split(timeStr, ":")
+	var h, m, sec, ms int
+	var err error
+
+	if len(parts) == 3 { // HH:MM:SS.ms
+		h, err = strconv.Atoi(parts[0])
+		if err != nil {
+			return 0, err
+		}
+		m, err = strconv.Atoi(parts[1])
+		if err != nil {
+			return 0, err
+		}
+		secParts := strings.Split(parts[2], ".")
+		sec, err = strconv.Atoi(secParts[0])
+		if err != nil {
+			return 0, err
+		}
+		ms, err = strconv.Atoi(secParts[1])
+		if err != nil {
+			return 0, err
+		}
+	} else if len(parts) == 2 { // MM:SS.ms
+		m, err = strconv.Atoi(parts[0])
+		if err != nil {
+			return 0, err
+		}
+		secParts := strings.Split(parts[1], ".")
+		sec, err = strconv.Atoi(secParts[0])
+		if err != nil {
+			return 0, err
+		}
+		ms, err = strconv.Atoi(secParts[1])
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		return 0, fmt.Errorf("invalid time format: %s", timeStr)
+	}
+
+	return float64(h)*3600 + float64(m)*60 + float64(sec) + float64(ms)/1000, nil
+}
+
+func (s *YouTubeSubtitleService) parseVttToWords(vttPath string) ([]types.Word, error) {
+	file, err := os.Open(vttPath)
+	if err != nil {
+		return nil, fmt.Errorf("parseVttToWords open file error: %w", err)
+	}
+	defer file.Close()
+
+	var words []types.Word
+	scanner := bufio.NewScanner(file)
+	var blockStartTime, blockEndTime float64
+	wordNum := 0
+
+	timestampLineRegex := regexp.MustCompile(`^((?:\d{2}:)?\d{2}:\d{2}\.\d{3})\s-->\s((?:\d{2}:)?\d{2}:\d{2}\.\d{3})`)
+	wordTimeRegex := regexp.MustCompile(`<((?:\d{2}:)?\d{2}:\d{2}\.\d{3})>`)
+	styleTagRegex := regexp.MustCompile(`</?c>`)
+	hasWordTimestampRegex := regexp.MustCompile(`<(?:\d{2}:)?\d{2}:\d{2}\.\d{3}>`)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if matches := timestampLineRegex.FindStringSubmatch(line); len(matches) > 2 {
+			start, err := s.parseVttTime(matches[1])
+			if err != nil {
+				log.GetLogger().Warn("parseVttToWords: failed to parse block start time", zap.String("time", matches[1]), zap.Error(err))
+				continue
+			}
+			end, err := s.parseVttTime(matches[2])
+			if err != nil {
+				log.GetLogger().Warn("parseVttToWords: failed to parse block end time", zap.String("time", matches[2]), zap.Error(err))
+				continue
+			}
+			blockStartTime = start
+			blockEndTime = end
+			continue
+		}
+
+		if strings.TrimSpace(line) == "" || strings.HasPrefix(line, "WEBVTT") || strings.HasPrefix(line, "Kind:") || strings.HasPrefix(line, "Language:") {
+			continue
+		}
+
+		if !hasWordTimestampRegex.MatchString(line) {
+			continue
+		}
+
+		content := styleTagRegex.ReplaceAllString(line, "")
+		lastTime := blockStartTime
+
+		timeMatches := wordTimeRegex.FindAllStringSubmatch(content, -1)
+		textParts := wordTimeRegex.Split(content, -1)
+
+		for i, textPart := range textParts {
+			cleanedText := strings.TrimSpace(textPart)
+			if cleanedText == "" {
+				continue
+			}
+
+			var endTime float64
+			if i < len(timeMatches) {
+				var err error
+				endTime, err = s.parseVttTime(timeMatches[i][1])
+				if err != nil {
+					log.GetLogger().Warn("parseVttToWords: failed to parse word end time", zap.String("time", timeMatches[i][1]), zap.Error(err))
+					endTime = lastTime // Fallback
+				}
+			} else {
+				endTime = blockEndTime
+			}
+
+			words = append(words, types.Word{
+				Text:  cleanedText,
+				Start: lastTime,
+				End:   endTime,
+				Num:   wordNum,
+			})
+			wordNum++
+			lastTime = endTime
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("parseVttToWords scan error: %w", err)
+	}
+
+	return words, nil
 }
 
 // 使用yt-dlp下载YouTube视频的字幕文件
-func (s Service) downloadYouTubeSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
+func (s *YouTubeSubtitleService) downloadYouTubeSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	link := stepParam.Link
 	if !strings.Contains(link, "youtube.com") {
 		return fmt.Errorf("downloadYouTubeSubtitle: not a YouTube link")
@@ -143,7 +360,7 @@ func (s Service) downloadYouTubeSubtitle(ctx context.Context, stepParam *types.S
 	stepParam.Link = "https://www.youtube.com/watch?v=" + videoId
 
 	// 确定要下载的字幕语言
-	subtitleLang := s.mapLanguageForYouTube(string(stepParam.OriginLanguage))
+	subtitleLang := util.MapLanguageForYouTube(string(stepParam.OriginLanguage))
 
 	// 构造yt-dlp命令参数
 	outputPattern := filepath.Join(stepParam.TaskBasePath, "%(title)s.%(ext)s")
@@ -218,7 +435,7 @@ func (s Service) downloadYouTubeSubtitle(ctx context.Context, stepParam *types.S
 }
 
 // 查找下载的字幕文件
-func (s Service) findDownloadedSubtitleFile(taskBasePath, language string) (string, error) {
+func (s *YouTubeSubtitleService) findDownloadedSubtitleFile(taskBasePath, language string) (string, error) {
 	// 支持的字幕文件扩展名
 	extensions := []string{".vtt", ".srt"}
 
@@ -249,7 +466,7 @@ func (s Service) findDownloadedSubtitleFile(taskBasePath, language string) (stri
 }
 
 // 处理YouTube字幕文件，转换为标准格式并进行翻译
-func (s Service) processYouTubeSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
+func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	if stepParam.OriginalSubtitleFilePath == "" {
 		return fmt.Errorf("processYouTubeSubtitle: no original subtitle file found")
 	}
@@ -273,89 +490,124 @@ func (s Service) processYouTubeSubtitle(ctx context.Context, stepParam *types.Su
 
 	stepParam.TaskPtr.ProcessPct = 90
 	log.GetLogger().Info("processYouTubeSubtitle completed", zap.Any("taskId", stepParam.TaskId))
+
+	err = splitSrt(stepParam)
+	if err != nil {
+		return fmt.Errorf("processYouTubeSubtitle splitSrt error: %w", err)
+	}
+
 	return nil
 }
 
 // 转换为SRT格式
-func (s Service) convertToSrtFormat(inputPath, taskBasePath string) (string, error) {
+func (s *YouTubeSubtitleService) convertToSrtFormat(inputPath, taskBasePath string) (string, error) {
 	if strings.HasSuffix(inputPath, ".srt") {
 		return inputPath, nil
 	}
 
 	if strings.HasSuffix(inputPath, ".vtt") {
-		// 使用VttToSrtPath脚本转换
 		outputPath := filepath.Join(taskBasePath, "converted_subtitle.srt")
 
-		log.GetLogger().Info("Converting VTT to SRT", zap.String("input", inputPath), zap.String("output", outputPath))
+		log.GetLogger().Info("Converting VTT to SRT with internal Go function", zap.String("input", inputPath), zap.String("output", outputPath))
 
-		cmd := exec.Command(storage.VttToSrtPath, inputPath, outputPath)
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			log.GetLogger().Error("VTT to SRT conversion failed", zap.String("output", string(output)), zap.Error(err))
+		if err := util.ConvertVttToSrtGo(inputPath, outputPath); err != nil {
+			log.GetLogger().Error("VTT to SRT conversion failed", zap.Error(err))
 			return "", fmt.Errorf("VTT to SRT conversion failed: %w", err)
 		}
 
-		log.GetLogger().Info("VTT to SRT conversion completed", zap.String("output", string(output)))
+		log.GetLogger().Info("VTT to SRT conversion completed", zap.String("output", outputPath))
 		return outputPath, nil
 	}
 
 	return "", fmt.Errorf("unsupported subtitle format: %s", inputPath)
 }
 
-// MergedSentence 表示一个或多个SRT块合并成的逻辑句子 为了翻译时提供更好的上下文
-type MergedSentence struct {
-	OriginalText string
-	Blocks       []*util.SrtBlock
-}
-
 // TranslateSrtFile 翻译SRT文件
-func (s Service) TranslateSrtFile(ctx context.Context, stepParam *types.SubtitleTaskStepParam, srtFilePath string) error {
+func (s *YouTubeSubtitleService) TranslateSrtFile(ctx context.Context, stepParam *types.SubtitleTaskStepParam, srtFilePath string) error {
 	log.GetLogger().Info("translateSrtFile starting", zap.Any("taskId", stepParam.TaskId), zap.String("srtFile", srtFilePath))
 
-	// 1. 解析SRT文件 获取SRT块
-	srtBlocks, err := s.ParseSrtFile(srtFilePath)
+	// 1. 解析SRT/VTT文件 获取SRT块用于提取原文
+	utilSrtBlocks, err := util.ParseSrtFile(srtFilePath)
 	if err != nil {
 		return fmt.Errorf("translateSrtFile parseSrtFile error: %w", err)
 	}
+	if len(utilSrtBlocks) == 0 {
+		return fmt.Errorf("translateSrtFile: no srt blocks found in file")
+	}
+
+	var srtBlocks []*types.SrtBlock
+	for _, b := range utilSrtBlocks {
+		srtBlocks = append(srtBlocks, &types.SrtBlock{
+			Index:                  b.Index,
+			Timestamp:              b.Timestamp,
+			OriginLanguageSentence: b.OriginLanguageSentence,
+			TargetLanguageSentence: b.TargetLanguageSentence,
+		})
+	}
+
 	stepParam.TaskPtr.ProcessPct = 40
 
-	// 2. 将相邻的SRT块合并成逻辑句子以获得更好的翻译上下文
-	mergedSentences := s.mergeSrtBlocks(srtBlocks)
-
-	// 3. 提取合并后的文本内容进行翻译
-	var textContents []string
-	for _, merged := range mergedSentences {
-		textContents = append(textContents, merged.OriginalText)
-	}
-
-	if len(textContents) == 0 {
-		return fmt.Errorf("translateSrtFile: no text content found in SRT file")
-	}
-
-	for _, text := range textContents {
-		log.GetLogger().Info("translateSrtFile merged text for translation", zap.String("text", text))
-	}
-	stepParam.TaskPtr.ProcessPct = 50
-
-	// 4. 批量翻译合并后的文本内容
-	log.GetLogger().Info("translateSrtFile starting translation", zap.Any("taskId", stepParam.TaskId), zap.Int("textCount", len(textContents)))
-	translatedItems, err := s.translateSubtitleTextsV2(textContents, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter)
+	// 2. 解析VTT文件以获取单词级时间戳
+	utilWords, err := util.ParseVttToWords(stepParam.OriginalSubtitleFilePath)
 	if err != nil {
-		return fmt.Errorf("translateSrtFile translateSubtitleTextsV2 error: %w", err)
+		return fmt.Errorf("translateSrtFile parseVttToWords error: %w", err)
 	}
-	for _, item := range translatedItems {
-		log.GetLogger().Info("translateSrtFile translatedItem", zap.String("originText", item.OriginText), zap.String("translatedText", item.TranslatedText))
+	// convert []util.Word to []types.Word
+	var words []types.Word
+	for _, w := range utilWords {
+		words = append(words, types.Word{
+			Text:  w.Text,
+			Start: w.Start,
+			End:   w.End,
+			Num:   w.Num,
+		})
+	}
+
+	// 3. 将所有SRT块的原文合并为一个长文本
+	var allOriginTextBuilder strings.Builder
+	for _, block := range srtBlocks {
+		allOriginTextBuilder.WriteString(block.OriginLanguageSentence)
+		allOriginTextBuilder.WriteString(" ")
+	}
+	allOriginText := strings.TrimSpace(allOriginTextBuilder.String())
+
+	// 4. 调用V2翻译服务，传入完整的上下文
+	log.GetLogger().Info("translateSrtFile starting translation for full text", zap.Any("taskId", stepParam.TaskId))
+	translatedItems, err := s.translator.splitTextAndTranslateV2(stepParam.TaskBasePath, allOriginText, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, 0)
+	if err != nil {
+		return fmt.Errorf("translateSrtFile splitTextAndTranslateV2 error: %w", err)
 	}
 	stepParam.TaskPtr.ProcessPct = 80
 
-	// 5. 将翻译结果使用llm拆分并应用回原始的SRT块
-	err = s.applyMergedTranslationToSrtBlocks(mergedSentences, translatedItems, stepParam)
-	if err != nil {
-		return fmt.Errorf("translateSrtFile applyMergedTranslationToSrtBlocks error: %w", err)
+	// 5. 将翻译结果转换为无时间戳的SrtBlock
+	var tempSrtBlocks []*util.SrtBlock
+	for i, item := range translatedItems {
+		tempSrtBlocks = append(tempSrtBlocks, &util.SrtBlock{
+			Index:                  i + 1,
+			OriginLanguageSentence: item.OriginText,
+			TargetLanguageSentence: item.TranslatedText,
+		})
 	}
 
-	// 6. 生成各种格式的字幕文件
-	err = s.generateSubtitleFiles(stepParam, srtBlocks)
+	// 6. 使用`generateSrtWithTimestamps`的逻辑为字幕块生成时间戳
+	timeMatcher := NewTimestampGenerator()
+	finalUtilSrtBlocks, err := timeMatcher.GenerateTimestamps(tempSrtBlocks, words, stepParam.OriginLanguage, 0)
+	if err != nil {
+		return fmt.Errorf("translateSrtFile GenerateTimestamps error: %w", err)
+	}
+
+	var finalSrtBlocks []*types.SrtBlock
+	for _, b := range finalUtilSrtBlocks {
+		finalSrtBlocks = append(finalSrtBlocks, &types.SrtBlock{
+			Index:                  b.Index,
+			Timestamp:              b.Timestamp,
+			OriginLanguageSentence: b.OriginLanguageSentence,
+			TargetLanguageSentence: b.TargetLanguageSentence,
+		})
+	}
+
+	// 7. 生成各种格式的字幕文件
+	err = s.generateSubtitleFiles(stepParam, finalSrtBlocks)
 	if err != nil {
 		return fmt.Errorf("translateSrtFile generateSubtitleFiles error: %w", err)
 	}
@@ -365,388 +617,8 @@ func (s Service) TranslateSrtFile(ctx context.Context, stepParam *types.Subtitle
 	return nil
 }
 
-// 解析SRT文件
-func (s Service) ParseSrtFile(srtFilePath string) ([]*util.SrtBlock, error) {
-	file, err := os.Open(srtFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("parseSrtFile open file error: %w", err)
-	}
-	defer file.Close()
-
-	var srtBlocks []*util.SrtBlock
-	scanner := bufio.NewScanner(file)
-	var currentBlock []string
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		line = strings.TrimSpace(line)
-
-		if line == "" {
-			// 空行表示一个字幕块结束
-			if len(currentBlock) >= 3 {
-				block, err := s.parseSrtBlock(currentBlock)
-				if err != nil {
-					log.GetLogger().Warn("parseSrtFile skip invalid block", zap.Any("block", currentBlock), zap.Error(err))
-				} else {
-					srtBlocks = append(srtBlocks, block)
-				}
-			}
-			currentBlock = nil
-		} else {
-			currentBlock = append(currentBlock, line)
-		}
-	}
-
-	// 处理文件末尾的最后一个块
-	if len(currentBlock) >= 3 {
-		block, err := s.parseSrtBlock(currentBlock)
-		if err != nil {
-			log.GetLogger().Warn("parseSrtFile skip final invalid block", zap.Any("block", currentBlock), zap.Error(err))
-		} else {
-			srtBlocks = append(srtBlocks, block)
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("parseSrtFile scan error: %w", err)
-	}
-
-	return srtBlocks, nil
-}
-
-// 解析单个SRT块
-func (s Service) parseSrtBlock(blockLines []string) (*util.SrtBlock, error) {
-	if len(blockLines) < 3 {
-		return nil, fmt.Errorf("parseSrtBlock: invalid block format, need at least 3 lines")
-	}
-
-	// 第一行是序号
-	index, err := strconv.Atoi(blockLines[0])
-	if err != nil {
-		return nil, fmt.Errorf("parseSrtBlock: invalid index: %w", err)
-	}
-
-	// 第二行是时间戳
-	timestamp := blockLines[1]
-	if !strings.Contains(timestamp, "-->") {
-		return nil, fmt.Errorf("parseSrtBlock: invalid timestamp format")
-	}
-
-	// 处理文本内容
-	var originText, targetText string
-
-	if len(blockLines) == 3 {
-		// 单语字幕，只有一行文本
-		originText = strings.TrimSpace(blockLines[2])
-		targetText = "" // 需要翻译
-	} else if len(blockLines) >= 4 {
-		// 双语字幕，有两行文本
-		originText = strings.TrimSpace(blockLines[2])
-		targetText = strings.TrimSpace(blockLines[3])
-	}
-
-	if originText == "" {
-		return nil, fmt.Errorf("parseSrtBlock: no origin text content found")
-	}
-
-	return &util.SrtBlock{
-		Index:                  index,
-		Timestamp:              timestamp,
-		OriginLanguageSentence: originText,
-		TargetLanguageSentence: targetText,
-	}, nil
-}
-
-func (s Service) splitTranslatedSentence(originalParts []string, translatedFullText string) ([]string, error) {
-	if len(originalParts) == 1 {
-		return []string{translatedFullText}, nil
-	}
-
-	var originalPartsStr string
-	for i, part := range originalParts {
-		originalPartsStr += fmt.Sprintf("%d. %s\n", i+1, part)
-	}
-
-	prompt := fmt.Sprintf(types.SplitTranslatedSentencePrompt, translatedFullText, originalPartsStr)
-
-	response, err := s.ChatCompleter.ChatCompletion(prompt)
-	if err != nil {
-		return nil, fmt.Errorf("splitTranslatedSentence chat completion error: %w", err)
-	}
-
-	var splitResult struct {
-		Parts []string `json:"parts"`
-	}
-
-	cleanResponse := util.CleanMarkdownCodeBlock(response)
-	if err := json.Unmarshal([]byte(cleanResponse), &splitResult); err != nil {
-		log.GetLogger().Error("splitTranslatedSentence parse split result error", zap.Error(err), zap.Any("response", response))
-		// 作为备用方案，按比例分配
-		return s.splitByRatio(originalParts, translatedFullText), nil
-	}
-
-	if len(splitResult.Parts) != len(originalParts) {
-		log.GetLogger().Warn("splitTranslatedSentence part count mismatch", zap.Int("expected", len(originalParts)), zap.Int("got", len(splitResult.Parts)))
-		// 作为备用方案，按比例分配
-		return s.splitByRatio(originalParts, translatedFullText), nil
-	}
-
-	return splitResult.Parts, nil
-}
-
-func (s Service) splitByRatio(originalParts []string, translatedFullText string) []string {
-	var totalOriginalLen int
-	for _, part := range originalParts {
-		totalOriginalLen += len(part)
-	}
-
-	if totalOriginalLen == 0 {
-		// 无法按比例切分，将所有文本放入第一部分
-		result := make([]string, len(originalParts))
-		result[0] = translatedFullText
-		return result
-	}
-
-	result := make([]string, len(originalParts))
-	translatedRunes := []rune(translatedFullText)
-	var currentPos int
-	for i := 0; i < len(originalParts)-1; i++ {
-		ratio := float64(len(originalParts[i])) / float64(totalOriginalLen)
-		splitPos := currentPos + int(ratio*float64(len(translatedRunes)))
-		if splitPos > len(translatedRunes) {
-			splitPos = len(translatedRunes)
-		}
-		result[i] = string(translatedRunes[currentPos:splitPos])
-		currentPos = splitPos
-	}
-	result[len(originalParts)-1] = string(translatedRunes[currentPos:])
-
-	return result
-}
-
-// applyMergedTranslationToSrtBlocks 将合并翻译后的结果智能地拆分并应用回原始的SRT块
-func (s Service) applyMergedTranslationToSrtBlocks(mergedSentences []MergedSentence, translatedItems []*TranslatedItem, stepParam *types.SubtitleTaskStepParam) error {
-	translationMap := make(map[string]string)
-	for _, item := range translatedItems {
-		if item != nil {
-			translationMap[strings.TrimSpace(item.OriginText)] = item.TranslatedText
-		}
-	}
-
-	for _, merged := range mergedSentences {
-		mergedOriginalText := strings.TrimSpace(merged.OriginalText)
-		translatedText, found := translationMap[mergedOriginalText]
-
-		if !found {
-			log.GetLogger().Warn("applyMergedTranslationToSrtBlocks: no translation found for merged sentence, using original text",
-				zap.String("merged_sentence", mergedOriginalText))
-			// 如果找不到翻译，每个块都使用自己的原文
-			for _, block := range merged.Blocks {
-				block.TargetLanguageSentence = block.OriginLanguageSentence
-			}
-			continue
-		}
-
-		if len(merged.Blocks) == 1 {
-			merged.Blocks[0].TargetLanguageSentence = translatedText
-		} else {
-			// 如果一个翻译对应多个块，需要将其拆分
-			var originalParts []string
-			for _, block := range merged.Blocks {
-				originalParts = append(originalParts, block.OriginLanguageSentence)
-			}
-
-			translatedParts, err := s.splitTranslatedSentence(originalParts, translatedText)
-			if err != nil {
-				log.GetLogger().Error("applyMergedTranslationToSrtBlocks: failed to split translated sentence, using ratio-based splitting",
-					zap.String("merged_sentence", mergedOriginalText), zap.Error(err))
-				// 出错时，作为备用方案，按比例分配
-				translatedParts = s.splitByRatio(originalParts, translatedText)
-			}
-
-			for i, block := range merged.Blocks {
-				if i < len(translatedParts) {
-					block.TargetLanguageSentence = translatedParts[i]
-				} else {
-					// 如果拆分出的部分少于原始块，用空字符串填充
-					block.TargetLanguageSentence = ""
-				}
-			}
-		}
-	}
-
-	// 为所有块应用语言特定的美化
-	for _, merged := range mergedSentences {
-		for _, block := range merged.Blocks {
-			if util.IsAsianLanguage(stepParam.TargetLanguage) {
-				block.TargetLanguageSentence = util.BeautifyAsianLanguageSentence(block.TargetLanguageSentence)
-			}
-			if util.IsAsianLanguage(stepParam.OriginLanguage) {
-				block.OriginLanguageSentence = util.BeautifyAsianLanguageSentence(block.OriginLanguageSentence)
-			}
-		}
-	}
-
-	return nil
-}
-
-// translateSubtitleTextsV2 为字幕文本提供并发翻译。
-// 它为每个文本提供上下文（前后句子）以提高翻译质量
-func (s Service) translateSubtitleTextsV2(inputTexts []string, originLang, targetLang types.StandardLanguageCode, enableModalFilter bool) ([]*TranslatedItem, error) {
-	if len(inputTexts) == 0 {
-		return []*TranslatedItem{}, nil
-	}
-
-	// 并发翻译
-	var (
-		signal  = make(chan struct{}, config.Conf.App.TranslateParallelNum) // 控制最大并发数
-		wg      sync.WaitGroup
-		results = make([]*TranslatedItem, len(inputTexts))
-	)
-
-	for i, sentence := range inputTexts {
-		wg.Add(1)
-		signal <- struct{}{}
-
-		go func(index int, originText string) {
-			defer wg.Done()
-			defer func() { <-signal }()
-
-			// 为提高翻译质量，提供上下文
-			contextSentenceNum := 3
-
-			// 生成前面句子的string
-			var previousSentences string
-			if index > 0 {
-				start := 0
-				if index-contextSentenceNum > 0 {
-					start = index - contextSentenceNum
-				}
-				for i := start; i < index; i++ {
-					previousSentences += inputTexts[i] + "\n"
-				}
-			}
-
-			// 生成后面句子的string
-			var nextSentences string
-			if index < len(inputTexts)-1 {
-				end := len(inputTexts) - 1
-				if index+contextSentenceNum < end {
-					end = index + contextSentenceNum
-				}
-				for i := index + 1; i <= end; i++ {
-					if i > index+1 {
-						nextSentences += "\n"
-					}
-					nextSentences += inputTexts[i]
-				}
-			}
-
-			// 构建翻译提示词
-			prompt := fmt.Sprintf(types.SplitTextWithContextPrompt, types.GetStandardLanguageName(targetLang), previousSentences, originText, nextSentences)
-
-			// 执行翻译，带重试机制
-			var translatedText string
-			var err error
-			for attempt := range config.Conf.App.TranslateMaxAttempts {
-				translatedText, err = s.ChatCompleter.ChatCompletion(prompt)
-				if err == nil {
-					break
-				}
-				log.GetLogger().Warn("translateSubtitleTextsV2 translation attempt failed",
-					zap.Int("sentenceIndex", index),
-					zap.Int("attempt", attempt+1),
-					zap.Error(err))
-			}
-
-			if err != nil {
-				log.GetLogger().Error("translateSubtitleTextsV2 llm translate error", zap.Error(err), zap.Any("original text", originText))
-				results[index] = &TranslatedItem{
-					OriginText:     originText,
-					TranslatedText: originText, // 翻译失败时返回原文
-				}
-			} else {
-				translatedText = strings.TrimSpace(translatedText)
-				results[index] = &TranslatedItem{
-					OriginText:     originText,
-					TranslatedText: translatedText,
-				}
-			}
-		}(i, sentence)
-	}
-
-	wg.Wait()
-
-	return results, nil
-}
-
-// --- 时间戳处理和字幕块合并逻辑 ---
-
-func (s Service) mergeSrtBlocks(blocks []*util.SrtBlock) []MergedSentence {
-	var mergedSentences []MergedSentence
-	if len(blocks) == 0 {
-		return mergedSentences
-	}
-
-	timeGapThreshold := 200 * time.Millisecond
-	maxLength := 250 // Max characters to merge
-
-	var currentBlocks []*util.SrtBlock
-
-	for i := 0; i < len(blocks); i++ {
-		currentBlocks = append(currentBlocks, blocks[i])
-
-		// 决定是否结束当前的合并组
-		finalize := false
-		if i+1 >= len(blocks) { // 是最后一个块
-			finalize = true
-		} else {
-			_, currentEnd, err := util.GetBlockTimes(blocks[i])
-			if err != nil {
-				log.GetLogger().Warn("无法解析当前块的时间，将结束合并组", zap.Int("blockIndex", blocks[i].Index), zap.Error(err))
-				finalize = true
-			} else {
-				nextStart, _, err := util.GetBlockTimes(blocks[i+1])
-				if err != nil {
-					log.GetLogger().Warn("无法解析下一个块的时间，将结束合并组", zap.Int("blockIndex", blocks[i+1].Index), zap.Error(err))
-					finalize = true
-				} else {
-					// 条件1：时间间隔太大
-					if nextStart-currentEnd > timeGapThreshold {
-						finalize = true
-					}
-					// 条件2：合并后的文本太长
-					var currentLength int
-					for _, b := range currentBlocks {
-						currentLength += len(b.OriginLanguageSentence)
-					}
-					if currentLength >= maxLength {
-						finalize = true
-					}
-				}
-			}
-		}
-
-		if finalize {
-			var sb strings.Builder
-			for _, b := range currentBlocks {
-				sb.WriteString(strings.TrimSpace(b.OriginLanguageSentence))
-				sb.WriteString(" ")
-			}
-
-			mergedSentences = append(mergedSentences, MergedSentence{
-				OriginalText: strings.TrimSpace(sb.String()),
-				Blocks:       currentBlocks,
-			})
-			currentBlocks = nil // 开始新的一组
-		}
-	}
-
-	return mergedSentences
-}
-
 // 生成各种格式的字幕文件
-func (s Service) generateSubtitleFiles(stepParam *types.SubtitleTaskStepParam, srtBlocks []*util.SrtBlock) error {
+func (s *YouTubeSubtitleService) generateSubtitleFiles(stepParam *types.SubtitleTaskStepParam, srtBlocks []*types.SrtBlock) error {
 	// 生成双语字幕文件
 	bilingualSrtPath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskBilingualSrtFileName)
 	err := s.writeBilingualSrtFile(bilingualSrtPath, srtBlocks, stepParam.SubtitleResultType)
@@ -778,7 +650,7 @@ func (s Service) generateSubtitleFiles(stepParam *types.SubtitleTaskStepParam, s
 }
 
 // 写入双语字幕文件
-func (s Service) writeBilingualSrtFile(filePath string, srtBlocks []*util.SrtBlock, resultType types.SubtitleResultType) error {
+func (s *YouTubeSubtitleService) writeBilingualSrtFile(filePath string, srtBlocks []*types.SrtBlock, resultType types.SubtitleResultType) error {
 	file, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -802,7 +674,7 @@ func (s Service) writeBilingualSrtFile(filePath string, srtBlocks []*util.SrtBlo
 }
 
 // 写入原语言字幕文件
-func (s Service) writeOriginSrtFile(filePath string, srtBlocks []*util.SrtBlock) error {
+func (s *YouTubeSubtitleService) writeOriginSrtFile(filePath string, srtBlocks []*types.SrtBlock) error {
 	file, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -819,7 +691,7 @@ func (s Service) writeOriginSrtFile(filePath string, srtBlocks []*util.SrtBlock)
 }
 
 // 写入目标语言字幕文件
-func (s Service) writeTargetSrtFile(filePath string, srtBlocks []*util.SrtBlock) error {
+func (s *YouTubeSubtitleService) writeTargetSrtFile(filePath string, srtBlocks []*types.SrtBlock) error {
 	file, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -836,7 +708,7 @@ func (s Service) writeTargetSrtFile(filePath string, srtBlocks []*util.SrtBlock)
 }
 
 // 填充字幕信息
-func (s Service) populateSubtitleInfos(stepParam *types.SubtitleTaskStepParam, srtBlocks []*util.SrtBlock) {
+func (s *YouTubeSubtitleService) populateSubtitleInfos(stepParam *types.SubtitleTaskStepParam, srtBlocks []*types.SrtBlock) {
 	// 添加原语言单语字幕
 	originSrtPath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskOriginLanguageSrtFileName)
 	subtitleInfo := types.SubtitleFileInfo{

@@ -21,11 +21,13 @@ func Test_YoutubeSubtitle(t *testing.T) {
 	}
 
 	// 执行测试
-	err := s.TranslateSrtFile(context.Background(), &types.SubtitleTaskStepParam{
-		TaskId:         "kgysZPHh",
-		TaskPtr:        testTask, // 提供有效的 TaskPtr
-		OriginLanguage: "en",
-		TargetLanguage: "zh_cn",
+	err := s.YouTubeSubtitleSrv.TranslateSrtFile(context.Background(), &types.SubtitleTaskStepParam{
+		TaskId:                   "kgysZPHh",
+		TaskPtr:                  testTask, // 提供有效的 TaskPtr
+		OriginLanguage:           "en",
+		TargetLanguage:           "zh_cn",
+		TaskBasePath:             "/home/puji/KrillinAI/tasks/watch_vfLoHojLh_685Z/",
+		OriginalSubtitleFilePath: "/home/puji/KrillinAI/tasks/watch_vfLoHojLh_685Z/test.vtt",
 	}, subtitleFile)
 	if err != nil {
 		t.Errorf("TranslateSrtFile() error = %v, want nil", err)
