@@ -52,7 +52,7 @@ func Show() {
 	separator := canvas.NewRectangle(color.NRGBA{R: 209, G: 213, B: 219, A: 255})
 	separator.SetMinSize(fyne.NewSize(0, 2))
 
-	slogan := canvas.NewText("智能内容创作助手", color.NRGBA{R: 107, G: 114, B: 128, A: 255})
+	slogan := canvas.NewText("AI Video Translation & Dubbing by Krillin AI", color.NRGBA{R: 107, G: 114, B: 128, A: 255})
 	slogan.TextSize = 12
 	slogan.Alignment = fyne.TextAlignCenter
 
@@ -60,7 +60,7 @@ func Show() {
 	logoContainer.Add(separator)
 	logoContainer.Add(slogan)
 
-	navItems := []string{"工作台 Workbench", "配置 Config"}
+	navItems := []string{"工作台 Dashboard", "配置 Settings"}
 	navIcons := []fyne.Resource{theme.DocumentIcon(), theme.SettingsIcon()}
 
 	var navButtons []*widget.Button
