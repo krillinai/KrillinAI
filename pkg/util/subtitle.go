@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
-	"time"
 )
 
 // 处理每一个字幕块
@@ -624,57 +623,4 @@ func ConvertTimes(start, end float32) string {
 	startTime := FormatTime(start)
 	endTime := FormatTime(end)
 	return fmt.Sprintf("%s --> %s", startTime, endTime)
-}
-
-// ParseSrtTime 解析SRT时间戳字符串（例如 "00:00:06,799"）为 time.Duration
-func ParseSrtTime(timeStr string) (time.Duration, error) {
-	// 格式: HH:MM:SS,ms
-	parts := strings.Split(timeStr, ",")
-	if len(parts) != 2 {
-		return 0, fmt.Errorf("invalid time format: missing comma in %s", timeStr)
-	}
-
-	timeParts := strings.Split(parts[0], ":")
-	if len(timeParts) != 3 {
-		return 0, fmt.Errorf("invalid time format: must be HH:MM:SS in %s", timeParts[0])
-	}
-
-	h, err := strconv.Atoi(timeParts[0])
-	if err != nil {
-		return 0, err
-	}
-	m, err := strconv.Atoi(timeParts[1])
-	if err != nil {
-		return 0, err
-	}
-	s, err := strconv.Atoi(timeParts[2])
-	if err != nil {
-		return 0, err
-	}
-	ms, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return 0, err
-	}
-
-	return time.Duration(h)*time.Hour + time.Duration(m)*time.Minute + time.Duration(s)*time.Second + time.Duration(ms)*time.Millisecond, nil
-}
-
-// GetBlockTimes 从SrtBlock中提取开始和结束时间
-func GetBlockTimes(block *SrtBlock) (start time.Duration, end time.Duration, err error) {
-	parts := strings.Split(block.Timestamp, " --> ")
-	if len(parts) != 2 {
-		err = fmt.Errorf("invalid timestamp format in block %d: %s", block.Index, block.Timestamp)
-		return
-	}
-	start, err = ParseSrtTime(parts[0])
-	if err != nil {
-		err = fmt.Errorf("parsing start time for block %d: %w", block.Index, err)
-		return
-	}
-	end, err = ParseSrtTime(parts[1])
-	if err != nil {
-		err = fmt.Errorf("parsing end time for block %d: %w", block.Index, err)
-		return
-	}
-	return
 }

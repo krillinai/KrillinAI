@@ -41,7 +41,6 @@ type AudioSegment struct {
 	SrtNoTsFile       string
 }
 
-// TODO 解耦
 func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	var err error
 	err = s.audioToSrt(ctx, stepParam) // 这里进度更新到90%了

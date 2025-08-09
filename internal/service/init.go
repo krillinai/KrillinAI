@@ -6,21 +6,22 @@ import (
 	"krillin-ai/log"
 	"krillin-ai/pkg/aliyun"
 	"krillin-ai/pkg/fasterwhisper"
+	"krillin-ai/pkg/localtts"
 	"krillin-ai/pkg/openai"
 	"krillin-ai/pkg/whisper"
 	"krillin-ai/pkg/whispercpp"
 	"krillin-ai/pkg/whisperkit"
-	"krillin-ai/pkg/localtts"
 
 	"go.uber.org/zap"
 )
 
 type Service struct {
-	Transcriber      types.Transcriber
-	ChatCompleter    types.ChatCompleter
-	TtsClient        types.Ttser
-	OssClient        *aliyun.OssClient
-	VoiceCloneClient *aliyun.VoiceCloneClient
+	Transcriber        types.Transcriber
+	ChatCompleter      types.ChatCompleter
+	TtsClient          types.Ttser
+	OssClient          *aliyun.OssClient
+	VoiceCloneClient   *aliyun.VoiceCloneClient
+	YouTubeSubtitleSrv *YouTubeSubtitleService
 }
 
 func NewService() *Service {
@@ -58,11 +59,14 @@ func NewService() *Service {
 		ttsClient = localtts.NewEdgeTtsClient()
 	}
 
-	return &Service{
+	s := &Service{
 		Transcriber:      transcriber,
 		ChatCompleter:    chatCompleter,
 		TtsClient:        ttsClient,
 		OssClient:        aliyun.NewOssClient(config.Conf.Transcribe.Aliyun.Oss.AccessKeyId, config.Conf.Transcribe.Aliyun.Oss.AccessKeySecret, config.Conf.Transcribe.Aliyun.Oss.Bucket),
 		VoiceCloneClient: aliyun.NewVoiceCloneClient(config.Conf.Tts.Aliyun.Speech.AccessKeyId, config.Conf.Tts.Aliyun.Speech.AccessKeySecret, config.Conf.Tts.Aliyun.Speech.AppKey),
 	}
+	s.YouTubeSubtitleSrv = NewYouTubeSubtitleService(s)
+
+	return s
 }
