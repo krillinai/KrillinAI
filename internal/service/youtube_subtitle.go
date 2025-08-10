@@ -258,6 +258,27 @@ func (s *YouTubeSubtitleService) parseVttTime(timeStr string) (float64, error) {
 	return float64(h)*3600 + float64(m)*60 + float64(sec) + float64(ms)/1000, nil
 }
 
+func (s *YouTubeSubtitleService) parseSrtTime(timeStr string) (float64, error) {
+	vttTimeStr := strings.Replace(timeStr, ",", ".", 1)
+	return s.parseVttTime(vttTimeStr)
+}
+
+func (s *YouTubeSubtitleService) parseSrtTimestampLine(line string) (float64, float64, error) {
+	parts := strings.Split(line, " --> ")
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("invalid srt timestamp line: %s", line)
+	}
+	startTime, err := s.parseSrtTime(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to parse start time from '%s': %w", parts[0], err)
+	}
+	endTime, err := s.parseSrtTime(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to parse end time from '%s': %w", parts[1], err)
+	}
+	return startTime, endTime, nil
+}
+
 func (s *YouTubeSubtitleService) parseVttToWords(vttPath string) ([]types.Word, error) {
 	file, err := os.Open(vttPath)
 	if err != nil {
@@ -552,7 +573,6 @@ func (s *YouTubeSubtitleService) TranslateSrtFile(ctx context.Context, stepParam
 	if err != nil {
 		return fmt.Errorf("translateSrtFile parseVttToWords error: %w", err)
 	}
-	// convert []util.Word to []types.Word
 	var words []types.Word
 	for _, w := range utilWords {
 		words = append(words, types.Word{
@@ -562,51 +582,131 @@ func (s *YouTubeSubtitleService) TranslateSrtFile(ctx context.Context, stepParam
 			Num:   w.Num,
 		})
 	}
-
-	// 3. 将所有SRT块的原文合并为一个长文本
-	var allOriginTextBuilder strings.Builder
-	for _, block := range srtBlocks {
-		allOriginTextBuilder.WriteString(block.OriginLanguageSentence)
-		allOriginTextBuilder.WriteString(" ")
+	for _, w := range words {
+		log.GetLogger().Info("word", zap.Any("word", w))
 	}
-	allOriginText := strings.TrimSpace(allOriginTextBuilder.String())
 
-	// 4. 调用V2翻译服务，传入完整的上下文
-	log.GetLogger().Info("translateSrtFile starting translation for full text", zap.Any("taskId", stepParam.TaskId))
-	translatedItems, err := s.translator.splitTextAndTranslateV2(stepParam.TaskBasePath, allOriginText, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, 0)
-	if err != nil {
-		return fmt.Errorf("translateSrtFile splitTextAndTranslateV2 error: %w", err)
+	// 3. 将字幕块分段，模拟audio2subtitle的逻辑
+	const segmentSize = 10 // 每10个SRT块作为一个分段
+	var finalSrtBlocks []*types.SrtBlock
+	totalBlocks := len(srtBlocks)
+
+	for i := 0; i < totalBlocks; i += segmentSize {
+		end := i + segmentSize
+		if end > totalBlocks {
+			end = totalBlocks
+		}
+		segmentBlocks := srtBlocks[i:end]
+		if len(segmentBlocks) == 0 {
+			continue
+		}
+
+		// 3.1 获取当前分段的时间范围和原文
+		var segmentTextBuilder strings.Builder
+		var segmentStartTime, segmentEndTime float64
+		var timeRangeSet bool
+
+		for _, block := range segmentBlocks {
+			segmentTextBuilder.WriteString(block.OriginLanguageSentence)
+			segmentTextBuilder.WriteString(" ")
+
+			// 解析当前块的时间戳来确定段落的时间范围
+			if block.Timestamp != "" {
+				startTime, endTime, err := s.parseSrtTimestampLine(block.Timestamp)
+				if err == nil {
+					if !timeRangeSet {
+						segmentStartTime = startTime
+						segmentEndTime = endTime
+						timeRangeSet = true
+					} else {
+						if startTime < segmentStartTime {
+							segmentStartTime = startTime
+						}
+						if endTime > segmentEndTime {
+							segmentEndTime = endTime
+						}
+					}
+				}
+			}
+		}
+
+		segmentText := strings.TrimSpace(segmentTextBuilder.String())
+		if segmentText == "" {
+			continue
+		}
+
+		// 3.1.1 根据时间范围过滤相关的词语
+		var segmentWords []types.Word
+		if timeRangeSet {
+			// 为时间范围添加一些缓冲区以确保不遗漏边界词语
+			bufferTime := 5.0 // 5秒缓冲
+			filterStartTime := segmentStartTime - bufferTime
+			filterEndTime := segmentEndTime + bufferTime
+
+			for _, word := range words {
+				// 如果词语的时间范围与段落时间范围有重叠，则包含这个词语
+				if word.End >= filterStartTime && word.Start <= filterEndTime {
+					segmentWords = append(segmentWords, word)
+				}
+			}
+		}
+
+		// 如果基于时间的过滤没有找到词语，则使用所有词语作为回退
+		if len(segmentWords) == 0 {
+			log.GetLogger().Warn("Could not find words in time range, using all words as fallback.",
+				zap.Int("start_index", i),
+				zap.Float64("segment_start_time", segmentStartTime),
+				zap.Float64("segment_end_time", segmentEndTime))
+			segmentWords = words
+		} else {
+			log.GetLogger().Info("Found words for segment",
+				zap.Int("start_index", i),
+				zap.Int("word_count", len(segmentWords)),
+				zap.Float64("segment_start_time", segmentStartTime),
+				zap.Float64("segment_end_time", segmentEndTime))
+		}
+
+		// 3.2 翻译分段文本
+		log.GetLogger().Info("Translating segment", zap.Int("start_index", i), zap.Int("end_index", end))
+		translatedItems, err := s.translator.splitTextAndTranslateV2(stepParam.TaskBasePath, segmentText, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, i)
+		if err != nil {
+			log.GetLogger().Error("Failed to translate segment, skipping.", zap.Error(err), zap.Int("start_index", i))
+			continue
+		}
+
+		// 3.3 将翻译结果转换为无时间戳的SrtBlock
+		var tempSrtBlocks []*util.SrtBlock
+		for itemIndex, item := range translatedItems {
+			tempSrtBlocks = append(tempSrtBlocks, &util.SrtBlock{
+				Index:                  itemIndex + 1, // Index is relative to the segment
+				OriginLanguageSentence: item.OriginText,
+				TargetLanguageSentence: item.TranslatedText,
+			})
+		}
+
+		// 3.4 为当前分段生成时间戳
+		timeMatcher := NewTimestampGenerator()
+		segmentUtilSrtBlocks, err := timeMatcher.GenerateTimestamps(tempSrtBlocks, segmentWords, stepParam.OriginLanguage, 0)
+		if err != nil {
+			log.GetLogger().Error("Failed to generate timestamps for segment, skipping.", zap.Error(err), zap.Int("start_index", i))
+			continue
+		}
+
+		// 3.5 收集处理好的字幕块
+		for _, b := range segmentUtilSrtBlocks {
+			finalSrtBlocks = append(finalSrtBlocks, &types.SrtBlock{
+				// Index需要重新计算以保证全局唯一和递增
+				Index:                  len(finalSrtBlocks) + 1,
+				Timestamp:              b.Timestamp,
+				OriginLanguageSentence: b.OriginLanguageSentence,
+				TargetLanguageSentence: b.TargetLanguageSentence,
+			})
+		}
 	}
+
 	stepParam.TaskPtr.ProcessPct = 80
 
-	// 5. 将翻译结果转换为无时间戳的SrtBlock
-	var tempSrtBlocks []*util.SrtBlock
-	for i, item := range translatedItems {
-		tempSrtBlocks = append(tempSrtBlocks, &util.SrtBlock{
-			Index:                  i + 1,
-			OriginLanguageSentence: item.OriginText,
-			TargetLanguageSentence: item.TranslatedText,
-		})
-	}
-
-	// 6. 使用`generateSrtWithTimestamps`的逻辑为字幕块生成时间戳
-	timeMatcher := NewTimestampGenerator()
-	finalUtilSrtBlocks, err := timeMatcher.GenerateTimestamps(tempSrtBlocks, words, stepParam.OriginLanguage, 0)
-	if err != nil {
-		return fmt.Errorf("translateSrtFile GenerateTimestamps error: %w", err)
-	}
-
-	var finalSrtBlocks []*types.SrtBlock
-	for _, b := range finalUtilSrtBlocks {
-		finalSrtBlocks = append(finalSrtBlocks, &types.SrtBlock{
-			Index:                  b.Index,
-			Timestamp:              b.Timestamp,
-			OriginLanguageSentence: b.OriginLanguageSentence,
-			TargetLanguageSentence: b.TargetLanguageSentence,
-		})
-	}
-
-	// 7. 生成各种格式的字幕文件
+	// 4. 生成各种格式的字幕文件
 	err = s.generateSubtitleFiles(stepParam, finalSrtBlocks)
 	if err != nil {
 		return fmt.Errorf("translateSrtFile generateSubtitleFiles error: %w", err)
