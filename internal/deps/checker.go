@@ -608,12 +608,11 @@ func checkEdgeTts() error {
 			log.GetLogger().Error("不支持你当前的操作系统", zap.String("当前系统", runtime.GOOS))
 			return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 		}
-	}else {
+	} else {
 		log.GetLogger().Error("不支持你当前的操作系统", zap.String("当前系统", runtime.GOOS))
 		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
-	edgettsDownloadPath := "./bin/edge-tts"
-	err = util.DownloadFile(downloadUrl, edgettsDownloadPath, config.Conf.App.Proxy)
+	err = util.DownloadFile(downloadUrl, EdgeTtsBinFilePath, config.Conf.App.Proxy)
 	if err != nil {
 		log.GetLogger().Error("下载edge-tts失败", zap.Error(err))
 		return err
