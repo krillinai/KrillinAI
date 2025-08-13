@@ -365,6 +365,113 @@ func (s *YouTubeSubtitleService) parseVttToWords(vttPath string) ([]types.Word, 
 	return words, nil
 }
 
+// 判断文本是否标点稀缺
+func (s *YouTubeSubtitleService) isPunctuationSparse(text string) bool {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return true
+	}
+	// 常见中英标点
+	punctRegex := regexp.MustCompile(`[\.,!\?;:，。！？；：]`)
+	punctCount := len(punctRegex.FindAllStringIndex(trimmed, -1))
+	// 长文本且无标点，视为稀缺
+	if punctCount == 0 && len([]rune(trimmed)) > 20 {
+		return true
+	}
+	// 标点占比过低也视为稀缺
+	ratio := float64(punctCount) / float64(len([]rune(trimmed)))
+	return ratio < 0.01
+}
+
+// 基于词级时间戳与时长/停顿/字数上限进行分句（适用于无标点场景）
+func (s *YouTubeSubtitleService) splitByWordPausesAndLimits(words []types.Word, lang types.StandardLanguageCode, maxChars int) []string {
+	if len(words) == 0 {
+		return nil
+	}
+
+	// 语言自适应阈值
+	var minPauseSec float64
+	var maxDurationSec float64
+	if util.IsAsianLanguage(lang) {
+		minPauseSec = 0.30
+		maxDurationSec = 3.5
+	} else {
+		minPauseSec = 0.45
+		maxDurationSec = 4.5
+	}
+
+	// 组句时的连接符（中日韩泰不加空格）
+	joinWithSpace := !util.IsAsianLanguage(lang)
+
+	var (
+		result           []string
+		builder          strings.Builder
+		currentStart     = words[0].Start
+		prevEnd          = words[0].End
+		currentCharCount = 0
+	)
+
+	appendWord := func(w string) {
+		if builder.Len() > 0 && joinWithSpace {
+			builder.WriteString(" ")
+		}
+		builder.WriteString(w)
+		currentCharCount += util.CountEffectiveChars(w)
+	}
+
+	flush := func() {
+		text := strings.TrimSpace(util.CleanPunction(builder.String()))
+		if text != "" {
+			result = append(result, text)
+		}
+		builder.Reset()
+		currentCharCount = 0
+	}
+
+	// 先写入第一个词
+	appendWord(strings.TrimSpace(words[0].Text))
+
+	for i := 1; i < len(words); i++ {
+		w := words[i]
+		// 计算与上个词的停顿
+		pause := w.Start - prevEnd
+		// 预估加入该词后的时长与字数
+		duration := w.End - currentStart
+		nextChars := currentCharCount + util.CountEffectiveChars(w.Text)
+
+		// 到达任一阈值则切分
+		if pause >= minPauseSec || duration >= maxDurationSec || nextChars >= maxChars {
+			flush()
+			currentStart = w.Start
+		}
+
+		appendWord(strings.TrimSpace(w.Text))
+		prevEnd = w.End
+	}
+
+	// 最后残留
+	if builder.Len() > 0 {
+		flush()
+	}
+
+	// 如仍为空，退回将所有词拼为一句
+	if len(result) == 0 {
+		var all strings.Builder
+		for i, w := range words {
+			if i > 0 && joinWithSpace {
+				all.WriteString(" ")
+			}
+			all.WriteString(strings.TrimSpace(w.Text))
+		}
+		text := strings.TrimSpace(util.CleanPunction(all.String()))
+		if text != "" {
+			result = append(result, text)
+		}
+	}
+
+	return result
+}
+
 // 使用yt-dlp下载YouTube视频的字幕文件
 func (s *YouTubeSubtitleService) downloadYouTubeSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	link := stepParam.Link
@@ -582,12 +689,9 @@ func (s *YouTubeSubtitleService) TranslateSrtFile(ctx context.Context, stepParam
 			Num:   w.Num,
 		})
 	}
-	for _, w := range words {
-		log.GetLogger().Info("word", zap.Any("word", w))
-	}
 
 	// 3. 将字幕块分段，模拟audio2subtitle的逻辑
-	const segmentSize = 10 // 每10个SRT块作为一个分段
+	const segmentSize = 10
 	var finalSrtBlocks []*types.SrtBlock
 	totalBlocks := len(srtBlocks)
 
@@ -666,22 +770,47 @@ func (s *YouTubeSubtitleService) TranslateSrtFile(ctx context.Context, stepParam
 				zap.Float64("segment_end_time", segmentEndTime))
 		}
 
-		// 3.2 翻译分段文本
+		// 3.2 翻译分段文本（优先无标点时间感知切分）
 		log.GetLogger().Info("Translating segment", zap.Int("start_index", i), zap.Int("end_index", end))
-		translatedItems, err := s.translator.splitTextAndTranslateV2(stepParam.TaskBasePath, segmentText, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, i)
-		if err != nil {
-			log.GetLogger().Error("Failed to translate segment, skipping.", zap.Error(err), zap.Int("start_index", i))
-			continue
+
+		useTimeAware := util.IsAsianLanguage(stepParam.OriginLanguage) || s.isPunctuationSparse(segmentText)
+		var tempSrtBlocks []*util.SrtBlock
+
+		if useTimeAware && len(segmentWords) > 0 {
+			preSentences := s.splitByWordPausesAndLimits(segmentWords, stepParam.OriginLanguage, config.Conf.App.MaxSentenceLength)
+			for idx, sent := range preSentences {
+				items, err := s.translator.splitTextAndTranslateV2(stepParam.TaskBasePath, sent, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, i+idx)
+				if err != nil {
+					log.GetLogger().Warn("translate short sentence failed, skip", zap.Error(err), zap.String("sentence", sent))
+					continue
+				}
+				for _, it := range items {
+					tempSrtBlocks = append(tempSrtBlocks, &util.SrtBlock{
+						Index:                  len(tempSrtBlocks) + 1,
+						OriginLanguageSentence: it.OriginText,
+						TargetLanguageSentence: it.TranslatedText,
+					})
+				}
+			}
+			if len(tempSrtBlocks) == 0 {
+				log.GetLogger().Warn("time-aware split yielded no result, fallback to default translator", zap.Int("start_index", i))
+			}
 		}
 
-		// 3.3 将翻译结果转换为无时间戳的SrtBlock
-		var tempSrtBlocks []*util.SrtBlock
-		for itemIndex, item := range translatedItems {
-			tempSrtBlocks = append(tempSrtBlocks, &util.SrtBlock{
-				Index:                  itemIndex + 1, // Index is relative to the segment
-				OriginLanguageSentence: item.OriginText,
-				TargetLanguageSentence: item.TranslatedText,
-			})
+		// 回退：按原有逻辑一次性切分+翻译
+		if len(tempSrtBlocks) == 0 {
+			translatedItems, err := s.translator.splitTextAndTranslateV2(stepParam.TaskBasePath, segmentText, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, i)
+			if err != nil {
+				log.GetLogger().Error("Failed to translate segment, skipping.", zap.Error(err), zap.Int("start_index", i))
+				continue
+			}
+			for itemIndex, item := range translatedItems {
+				tempSrtBlocks = append(tempSrtBlocks, &util.SrtBlock{
+					Index:                  itemIndex + 1, // Index is relative to the segment
+					OriginLanguageSentence: item.OriginText,
+					TargetLanguageSentence: item.TranslatedText,
+				})
+			}
 		}
 
 		// 3.4 为当前分段生成时间戳
