@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -415,4 +416,52 @@ func ThemeToggleButton(isDark bool, onToggle func()) *widget.Button {
 	btn := widget.NewButtonWithIcon(text, icon, onToggle)
 	btn.Importance = widget.MediumImportance
 	return btn
+}
+
+// 自定义可点击对象，避免按钮的默认样式
+type tappableObject struct {
+	widget.BaseWidget
+	rect    *canvas.Rectangle
+	onTap   func()
+	onHover func(bool) // 悬停回调函数
+}
+
+func (t *tappableObject) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(t.rect)
+}
+
+func (t *tappableObject) Tapped(*fyne.PointEvent) {
+	if t.onTap != nil {
+		t.onTap()
+	}
+}
+
+func (t *tappableObject) TappedSecondary(*fyne.PointEvent) {}
+
+func (t *tappableObject) MouseIn(*desktop.MouseEvent) {
+	if t.onHover != nil {
+		t.onHover(true)
+	}
+}
+
+func (t *tappableObject) MouseOut() {
+	if t.onHover != nil {
+		t.onHover(false)
+	}
+}
+
+func (t *tappableObject) MouseMoved(*desktop.MouseEvent) {}
+
+func (t *tappableObject) Resize(size fyne.Size) {
+	t.BaseWidget.Resize(size)
+	if t.rect != nil {
+		t.rect.Resize(size)
+	}
+}
+
+func (t *tappableObject) Move(pos fyne.Position) {
+	t.BaseWidget.Move(pos)
+	if t.rect != nil {
+		t.rect.Move(pos)
+	}
 }
