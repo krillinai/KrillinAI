@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"krillin-ai/config"
 	"krillin-ai/log"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -60,8 +59,8 @@ func Show() {
 	logoContainer.Add(separator)
 	logoContainer.Add(slogan)
 
-	navItems := []string{"工作台 Dashboard", "配置 Settings"}
-	navIcons := []fyne.Resource{theme.DocumentIcon(), theme.SettingsIcon()}
+	navItems := []string{"工作台 Dashboard", "LLM 配置", "配置 Settings"}
+	navIcons := []fyne.Resource{theme.DocumentIcon(), theme.ComputerIcon(), theme.SettingsIcon()}
 
 	var navButtons []*widget.Button
 	navContainer := container.NewVBox()
@@ -69,22 +68,34 @@ func Show() {
 	contentStack := container.NewStack()
 	currentSelectedIndex := 0
 
-	var workbenchContent, configContent fyne.CanvasObject
+	var workbenchContent, llmContent, configContent fyne.CanvasObject
 
 	var refreshContent = func() {
 		contentStack.Objects = []fyne.CanvasObject{}
 
 		workbenchContent = CreateSubtitleTab(myWindow)
+		llmContent = CreateLlmTab()
 		configContent = CreateConfigTab(myWindow)
 
-		if currentSelectedIndex == 0 {
+		switch currentSelectedIndex {
+		case 0:
 			contentStack.Add(workbenchContent)
+			contentStack.Add(llmContent)
 			contentStack.Add(configContent)
+			llmContent.Hide()
 			configContent.Hide()
-		} else {
+		case 1:
 			contentStack.Add(workbenchContent)
+			contentStack.Add(llmContent)
 			contentStack.Add(configContent)
 			workbenchContent.Hide()
+			configContent.Hide()
+		case 2:
+			contentStack.Add(workbenchContent)
+			contentStack.Add(llmContent)
+			contentStack.Add(configContent)
+			workbenchContent.Hide()
+			llmContent.Hide()
 		}
 
 		contentStack.Refresh()
@@ -114,31 +125,32 @@ func Show() {
 				}
 			}
 
-			if index == 0 {
-				err := config.SaveConfig()
-				if err != nil {
-					dialog.ShowError(fmt.Errorf("保存配置失败: %v", err), myWindow)
-					log.GetLogger().Error("保存配置失败 Failed to save config", zap.Error(err))
-					return
-				}
-				log.GetLogger().Info("配置已保存 Config saved successfully")
+			// 保存配置并切换界面
+			err := config.SaveConfig()
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("保存配置失败: %v", err), myWindow)
+			}
+
+			switch index {
+			case 0:
 				workbenchContent.Show()
+				llmContent.Hide()
 				configContent.Hide()
-				workbenchContent.Refresh()
-				FadeAnimation(workbenchContent, 300*time.Millisecond, 0.0, 1.0)
-			} else {
+			case 1:
 				workbenchContent.Hide()
+				llmContent.Show()
+				configContent.Hide()
+			case 2:
+				workbenchContent.Hide()
+				llmContent.Hide()
 				configContent.Show()
-				FadeAnimation(configContent, 300*time.Millisecond, 0.0, 1.0)
 			}
 
 			currentSelectedIndex = index
-			navContainer.Refresh()
-			contentStack.Refresh()
 		})
 
 		navButtons = append(navButtons, navBtn)
-		navContainer.Add(container.NewPadded(navBtn))
+		navContainer.Add(navBtn)
 	}
 
 	themeToggleContainer := themeManager.CreateThemeToggleButton()
