@@ -497,15 +497,6 @@
         background: rgba(77, 107, 254, 0.05);
       }
 
-      .provider-card.siliconcloud {
-        border-color: #6e29f6;
-      }
-
-      .provider-card.siliconcloud:hover {
-        border-color: #6e29f6;
-        background: rgba(110, 41, 246, 0.05);
-      }
-
       .provider-icon {
         display: flex;
         justify-content: center;
@@ -528,10 +519,6 @@
 
       .provider-card.deepseek .provider-icon {
         color: #4d6bfe;
-      }
-
-      .provider-card.siliconcloud .provider-icon {
-        color: #6e29f6;
       }
 
       .provider-name {
@@ -915,10 +902,7 @@
               <p class="card-subtitle">点击下方卡片快速跳转到对应平台购买API</p>
 
               <div class="provider-grid">
-                <div
-                  class="provider-card qwen"
-                  onclick="window.open('https://bailian.console.aliyun.com/', '_blank')"
-                >
+                <div class="provider-card qwen" id="provider-qwen">
                   <div class="provider-icon">
                     <img
                       src="./source/qwen-color.svg"
@@ -931,10 +915,7 @@
                   <div class="provider-desc">阿里云大模型服务</div>
                 </div>
 
-                <div
-                  class="provider-card openai"
-                  onclick="window.open('https://platform.openai.com/', '_blank')"
-                >
+                <div class="provider-card openai" id="provider-openai">
                   <div class="provider-icon">
                     <img
                       src="./source/openai.svg"
@@ -947,10 +928,7 @@
                   <div class="provider-desc">GPT模型API服务</div>
                 </div>
 
-                <div
-                  class="provider-card deepseek"
-                  onclick="window.open('https://platform.deepseek.com/', '_blank')"
-                >
+                <div class="provider-card deepseek" id="provider-deepseek">
                   <div class="provider-icon">
                     <img
                       src="./source/deepseek-color.svg"
@@ -963,20 +941,12 @@
                   <div class="provider-desc">高性价比AI模型</div>
                 </div>
 
-                <div
-                  class="provider-card siliconcloud"
-                  onclick="window.open('https://siliconflow.cn/', '_blank')"
-                >
+                <div class="provider-card add" id="provider-add">
                   <div class="provider-icon">
-                    <img
-                      src="./source/siliconcloud-color.svg"
-                      alt="SiliconCloud"
-                      width="24"
-                      height="24"
-                    />
+                    <span style="font-size: 20px; line-height: 24px">＋</span>
                   </div>
-                  <div class="provider-name">SiliconCloud</div>
-                  <div class="provider-desc">硅基流动</div>
+                  <div class="provider-name">新增</div>
+                  <div class="provider-desc">添加自定义供应商</div>
                 </div>
               </div>
             </div>
@@ -1011,6 +981,12 @@
                   class="form-input"
                 />
               </div>
+              <div class="form-group">
+                <label class="form-label">支持模型 Supported models:</label>
+                <select id="llm-model-suggest" class="form-select">
+                  <option value="">请选择或手动输入</option>
+                </select>
+              </div>
             </div>
 
             <!-- 使用指南 -->
@@ -1028,7 +1004,6 @@
                     >
                   </li>
                   <li>DeepSeek：<code>https://api.deepseek.com/v1</code></li>
-                  <li>SiliconFlow<code>https://api.siliconflow.cn/v1</code></li>
                 </ul>
 
                 <h4>2. API Key：</h4>
@@ -1042,7 +1017,6 @@
                   <li>OpenAI：gpt-3.5-turbo, gpt-4, gpt-4-turbo...</li>
                   <li>阿里云：qwen-turbo, qwen-plus, qwen-max...</li>
                   <li>DeepSeek：deepseek-chat, deepseek-coder...</li>
-                  <li>SiliconFlow：DeepSeek-R1, DeepSeek-V3, QwQ-32B...</li>
                 </ul>
 
                 <h4>4. 使用建议：</h4>
@@ -1533,6 +1507,13 @@
             pageWorkbench.style.display = "";
           } else if (btn.id === "nav-llm-config") {
             pageLLMConfig.style.display = "";
+            // 进入 LLM 页面时初始化建议下拉为空
+            const suggest = document.getElementById("llm-model-suggest");
+            if (suggest) {
+              suggest.innerHTML = '<option value="">请选择或手动输入</option>';
+            }
+            // 同步获取配置，确保 LLM 表单最新
+            loadConfig();
           } else if (btn.id === "nav-config") {
             pageConfig.style.display = "";
             loadConfig();
@@ -1551,6 +1532,77 @@
           }, 500);
         });
       }
+
+      // 供应商点击填充逻辑
+      function setProvider(baseUrl, models) {
+        const baseInput = document.getElementById("llm-base-url");
+        const modelInput = document.getElementById("llm-model");
+        const suggest = document.getElementById("llm-model-suggest");
+        if (baseInput) baseInput.value = baseUrl || "";
+        if (suggest) {
+          suggest.innerHTML = '<option value="">请选择或手动输入</option>';
+          (models || []).forEach((m) => {
+            const opt = document.createElement("option");
+            opt.value = m;
+            opt.textContent = m;
+            suggest.appendChild(opt);
+          });
+          if (models && models.length > 0) {
+            suggest.value = models[0];
+            if (modelInput) modelInput.value = models[0];
+          } else if (modelInput) {
+            modelInput.value = "";
+          }
+        }
+      }
+
+      // 模型建议选择时同步到输入框
+      document.addEventListener("DOMContentLoaded", () => {
+        const suggest = document.getElementById("llm-model-suggest");
+        if (suggest) {
+          suggest.addEventListener("change", () => {
+            const modelInput = document.getElementById("llm-model");
+            if (modelInput && suggest.value) {
+              modelInput.value = suggest.value;
+            }
+          });
+        }
+
+        // 供应商卡片点击绑定
+        const qwen = document.getElementById("provider-qwen");
+        const openai = document.getElementById("provider-openai");
+        const deepseek = document.getElementById("provider-deepseek");
+        const add = document.getElementById("provider-add");
+        if (qwen) {
+          qwen.onclick = () =>
+            setProvider("https://dashscope.aliyuncs.com/compatible-mode/v1", [
+              "qwen-turbo",
+              "qwen-plus",
+              "qwen-max",
+            ]);
+        }
+        if (openai) {
+          openai.onclick = () =>
+            setProvider("https://api.openai.com/v1", [
+              "gpt-4o-mini",
+              "gpt-4o",
+              "gpt-4.1-mini",
+              "o3-mini",
+            ]);
+        }
+        if (deepseek) {
+          deepseek.onclick = () =>
+            setProvider("https://api.deepseek.com/v1", [
+              "deepseek-chat",
+              "deepseek-coder",
+              "DeepSeek-V3",
+              "DeepSeek-R1",
+            ]);
+        }
+        if (add) {
+          add.onclick = () => setProvider("", []);
+        }
+      });
 
       // 加载配置数据
       async function loadConfig() {
@@ -1611,6 +1663,11 @@
             configData.llm.apiKey || "";
           document.getElementById("llm-model").value =
             configData.llm.model || "gpt-3.5-turbo";
+          // 清空建议模型下拉
+          const suggest = document.getElementById("llm-model-suggest");
+          if (suggest) {
+            suggest.innerHTML = '<option value="">请选择或手动输入</option>';
+          }
         }
 
         // 转录配置

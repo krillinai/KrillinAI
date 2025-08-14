@@ -71,14 +71,19 @@ func CreateConfigTab(window fyne.Window) fyne.CanvasObject {
 	return container.NewPadded(configStack)
 }
 
+// LLM 配置控件引用，供供应商卡片点击时联动
+var llmBaseUrlEntryRef *widget.Entry
+var llmModelEntryRef *widget.Entry
+var llmModelSelectRef *widget.Select
+
 func CreateLlmTab() fyne.CanvasObject {
 	pageTitle := TitleText("LLM 配置")
 
-	// 创建API供应商快捷链接区域
-	providersCard := createApiProvidersCard()
-
 	// 创建LLM配置表单
 	llmConfigCard := createLlmConfigGroup()
+
+	// 创建API供应商快捷设置区域（依赖上面的表单控件引用）
+	providersCard := createApiProvidersCard()
 
 	// 创建使用指南卡片
 	guideCard := createLlmGuideCard()
@@ -120,6 +125,26 @@ func CreateLlmTab() fyne.CanvasObject {
 
 // 创建API供应商快捷链接卡片
 func createApiProvidersCard() *fyne.Container {
+	// 内部工具：设置 BaseURL 和 推荐模型
+	setProvider := func(baseURL string, models []string) {
+		if llmBaseUrlEntryRef != nil {
+			llmBaseUrlEntryRef.SetText(baseURL)
+		}
+		if llmModelSelectRef != nil {
+			llmModelSelectRef.Options = models
+			llmModelSelectRef.Refresh()
+			if len(models) > 0 {
+				llmModelSelectRef.SetSelected(models[0])
+				if llmModelEntryRef != nil {
+					llmModelEntryRef.SetText(models[0])
+				}
+			} else {
+				if llmModelEntryRef != nil {
+					llmModelEntryRef.SetText("")
+				}
+			}
+		}
+	}
 	// 通义千问卡片
 	qwenCard := createProviderCard(
 		"通义千问 Qwen",
@@ -127,6 +152,11 @@ func createApiProvidersCard() *fyne.Container {
 		"https://bailian.console.aliyun.com/",
 		color.NRGBA{R: 99, G: 54, B: 231, A: 255}, // 通义千问紫色
 		"qwen",
+		func() {
+			setProvider("https://dashscope.aliyuncs.com/compatible-mode/v1", []string{
+				"qwen-turbo", "qwen-plus", "qwen-max",
+			})
+		},
 	)
 
 	// OpenAI卡片
@@ -136,6 +166,11 @@ func createApiProvidersCard() *fyne.Container {
 		"https://platform.openai.com/",
 		color.NRGBA{R: 116, G: 195, B: 101, A: 255}, // OpenAI绿色
 		"openai",
+		func() {
+			setProvider("https://api.openai.com/v1", []string{
+				"gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "o3-mini",
+			})
+		},
 	)
 
 	// DeepSeek卡片
@@ -145,15 +180,23 @@ func createApiProvidersCard() *fyne.Container {
 		"https://platform.deepseek.com/",
 		color.NRGBA{R: 77, G: 107, B: 254, A: 255}, // DeepSeek蓝色
 		"deepseek",
+		func() {
+			setProvider("https://api.deepseek.com/v1", []string{
+				"deepseek-chat", "deepseek-coder", "DeepSeek-V3", "DeepSeek-R1",
+			})
+		},
 	)
 
-	// SiliconCloud卡片
-	siliconcloudCard := createProviderCard(
-		"SiliconCloud",
-		"硅基流动",
-		"https://siliconflow.cn/",
-		color.NRGBA{R: 110, G: 41, B: 246, A: 255}, // SiliconCloud紫色
-		"siliconcloud",
+	// 新增自定义供应商卡片
+	addProviderCard := createProviderCard(
+		"新增",
+		"添加自定义供应商",
+		"https://example.com/krillinai/add-provider", // 占位链接，后续可替换
+		color.NRGBA{R: 14, G: 165, B: 233, A: 255},   // 青色强调
+		"add",
+		func() {
+			setProvider("", []string{})
+		},
 	)
 
 	providersGrid := container.New(
@@ -161,7 +204,7 @@ func createApiProvidersCard() *fyne.Container {
 		qwenCard,
 		openaiCard,
 		deepseekCard,
-		siliconcloudCard,
+		addProviderCard,
 	)
 
 	return GlassmorphismCard(
@@ -182,8 +225,8 @@ func getProviderIcon(provider string) fyne.CanvasObject {
 		pngPath = "source/openai.png"
 	case "deepseek":
 		pngPath = "source/deepseek-color.png"
-	case "siliconcloud":
-		pngPath = "source/siliconcloud-color.png"
+	// case "siliconcloud":
+	// 	pngPath = "source/siliconcloud-color.png"
 	default:
 		return container.NewWithoutLayout()
 	}
@@ -203,7 +246,7 @@ func getProviderIcon(provider string) fyne.CanvasObject {
 }
 
 // 创建单个供应商卡片
-func createProviderCard(name, description, url string, accentColor color.Color, provider string) *fyne.Container {
+func createProviderCard(name, description, url string, accentColor color.Color, provider string, onTap func()) *fyne.Container {
 	isDark := GetCurrentThemeIsDark()
 
 	var bgColor color.Color
@@ -288,9 +331,13 @@ func createProviderCard(name, description, url string, accentColor color.Color, 
 			background.FillColor = hoverBgColor
 			background.Refresh()
 
-			// 打开浏览器链接
-			if app := fyne.CurrentApp(); app != nil {
-				app.OpenURL(parseURL(url))
+			// 执行点击回调，若未提供回调且存在 URL 则尝试打开浏览器
+			if onTap != nil {
+				onTap()
+			} else {
+				if app := fyne.CurrentApp(); app != nil && url != "" {
+					app.OpenURL(parseURL(url))
+				}
 			}
 
 			// 恢复原位置和颜色
@@ -332,7 +379,6 @@ func createLlmGuideCard() *fyne.Container {
    - OpenAI官方：https://api.openai.com/v1  
    - 阿里云百炼：https://dashscope.aliyuncs.com/compatible-mode/v1  
    - DeepSeek：https://api.deepseek.com/v1  
-   - SiliconFlow：https://api.siliconflow.cn/v1 
 
 ## API Key：  
    - 在对应平台的控制台中获取  
@@ -342,7 +388,6 @@ func createLlmGuideCard() *fyne.Container {
    - OpenAI：gpt-3.5-turbo, gpt-4, gpt-4-turbo...
    - 阿里云：qwen-turbo, qwen-plus, qwen-max...
    - DeepSeek：deepseek-chat, deepseek-coder...
-   - SiliconFlow：DeepSeek-R1, DeepSeek-V3, QwQ-32B...
 
 ## 使用建议：
    - 根据实际需求选择合适的模型
@@ -560,17 +605,29 @@ func createServerConfigGroup() *fyne.Container {
 func createLlmConfigGroup() *fyne.Container {
 	baseUrlEntry := StyledEntry("API Base URL")
 	baseUrlEntry.Bind(binding.BindString(&config.Conf.Llm.BaseUrl))
+	llmBaseUrlEntryRef = baseUrlEntry
 
 	apiKeyEntry := StyledPasswordEntry("API Key")
 	apiKeyEntry.Bind(binding.BindString(&config.Conf.Llm.ApiKey))
 
 	modelEntry := StyledEntry("模型名称 Model name")
 	modelEntry.Bind(binding.BindString(&config.Conf.Llm.Model))
+	llmModelEntryRef = modelEntry
+
+	// 推荐模型下拉（只展示、选中后同步到文本框）
+	modelSelect := StyledSelect([]string{}, func(v string) {
+		if v != "" && llmModelEntryRef != nil {
+			llmModelEntryRef.SetText(v)
+		}
+	})
+	modelSelect.PlaceHolder = "选择推荐模型（可选）"
+	llmModelSelectRef = modelSelect
 
 	form := widget.NewForm(
 		widget.NewFormItem("API Base URL", baseUrlEntry),
 		widget.NewFormItem("API Key", apiKeyEntry),
 		widget.NewFormItem("模型名称 Model name", modelEntry),
+		widget.NewFormItem("支持模型 Supported models", modelSelect),
 	)
 	return GlassmorphismCard("LLM 配置 LLM Config", "LLM配置 LLM config", form, GetCurrentThemeIsDark())
 }
