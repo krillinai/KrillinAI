@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -12,6 +11,8 @@ import (
 	"krillin-ai/pkg/util"
 	"os/exec"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
@@ -40,7 +41,15 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 			return fmt.Errorf("linkToFile.GetYouTubeID error: %w", err)
 		}
 		stepParam.Link = "https://www.youtube.com/watch?v=" + videoId
-		cmdArgs := []string{"-f", "bestaudio", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "192K", "-o", audioPath, stepParam.Link}
+		// 使用更灵活的音频格式选择器，避免 HTTP 403 错误
+		cmdArgs := []string{
+			"-f", "bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio/worst",
+			"--extract-audio",
+			"--audio-format", "mp3",
+			"--audio-quality", "192K",
+			"-o", audioPath,
+			stepParam.Link,
+		}
 		if config.Conf.App.Proxy != "" {
 			cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
 		}
