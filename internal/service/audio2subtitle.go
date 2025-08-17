@@ -147,27 +147,14 @@ func (s Service) splitTextAndTranslateV2(basePath, inputText string, originLang,
 			continue
 		}
 
-		// 调用大模型进行分割
-		log.GetLogger().Info("use llm split origin long sentence", zap.Any("sentence", sentence))
-		splitItems, err := s.splitOriginLongSentence(sentence)
+		// 递归拆分长句子直到满足长度要求，保持顺序
+		splitSentences, err := s.splitSentenceRecursively(sentence, 0, 5) // 最多5层递归
 		if err != nil {
-			log.GetLogger().Error("splitTranslateItem splitLongSentence error", zap.Error(err), zap.Any("sentence", sentence))
-		}
-		//拆完之后还长，就再拆一次
-		for _, item := range splitItems {
-			if util.CountEffectiveChars(item) <= config.Conf.App.MaxSentenceLength {
-				shortSentences = append(shortSentences, item)
-				continue
-			}
-
-			// 调用大模型进行分割
-			log.GetLogger().Info("use llm split origin long sentence", zap.Any("item", item))
-			splitItems, err := s.splitOriginLongSentence(item)
-			if err != nil {
-				log.GetLogger().Error("splitTranslateItem splitLongSentence error", zap.Error(err), zap.Any("item", item))
-			}
-
-			shortSentences = append(shortSentences, splitItems...)
+			log.GetLogger().Error("splitSentenceRecursively error", zap.Error(err), zap.Any("sentence", sentence))
+			// 如果拆分失败，直接添加原句子
+			shortSentences = append(shortSentences, sentence)
+		} else {
+			shortSentences = append(shortSentences, splitSentences...)
 		}
 	}
 
@@ -1312,6 +1299,9 @@ func (s Service) splitLongSentence(item *TranslatedItem) ([]*TranslatedItem, err
 
 func (s Service) splitOriginLongSentence(sentence string) ([]string, error) {
 	prompt := fmt.Sprintf(types.SplitOriginLongSentencePrompt, sentence)
+	if len(sentence) > 200 {
+		prompt = fmt.Sprintf(types.SplitLongTextByMeaningPrompt, sentence)
+	}
 
 	var response string
 	var err error
@@ -1346,6 +1336,47 @@ func (s Service) splitOriginLongSentence(sentence string) ([]string, error) {
 	}
 
 	return shortSentences, nil
+}
+
+// splitSentenceRecursively 递归拆分句子，保持顺序
+func (s Service) splitSentenceRecursively(sentence string, depth int, maxDepth int) ([]string, error) {
+	// 防止无限递归
+	if depth >= maxDepth {
+		log.GetLogger().Warn("reached max split depth", zap.Any("sentence", sentence), zap.Int("depth", depth))
+		return []string{sentence}, nil
+	}
+
+	// 如果句子已经满足长度要求，直接返回
+	if util.CountEffectiveChars(sentence) <= config.Conf.App.MaxSentenceLength {
+		return []string{sentence}, nil
+	}
+
+	// 调用大模型进行分割
+	log.GetLogger().Info("use llm split origin long sentence", zap.Any("sentence", sentence), zap.Int("depth", depth))
+	splitItems, err := s.splitOriginLongSentence(sentence)
+	if err != nil {
+		log.GetLogger().Error("splitSentenceRecursively splitLongSentence error", zap.Error(err), zap.Any("sentence", sentence), zap.Int("depth", depth))
+		return []string{sentence}, nil // 返回原句子而不是错误
+	}
+
+	// 如果没有拆分出多个部分，返回原句子
+	if len(splitItems) <= 1 {
+		return []string{sentence}, nil
+	}
+
+	// 递归处理每个拆分结果，保持顺序
+	var result []string
+	for _, item := range splitItems {
+		subResults, err := s.splitSentenceRecursively(item, depth+1, maxDepth)
+		if err != nil {
+			log.GetLogger().Error("splitSentenceRecursively recursive error", zap.Error(err), zap.Any("item", item), zap.Int("depth", depth))
+			result = append(result, item) // 如果递归失败，添加原项
+		} else {
+			result = append(result, subResults...)
+		}
+	}
+
+	return result, nil
 }
 
 //func beautifyTranslateItems(language types.StandardLanguageCode, items []*TranslatedItem) {

@@ -129,7 +129,7 @@ var SplitLongSentencePrompt = `请将以下原文和译文分割成多个部分�
 4. 务必返回JSON格式，包含origin_part和translated_part数组，例如：
 {"align":[{"origin_part":"原文部分1","translated_part":"译文部分1"},{"origin_part":"原文部分2","translated_part":"译文部分2"}]}`
 
-var SplitOriginLongSentencePrompt = `Please split the following text into multiple parts, ensuring it's divided into at most 3 short sentences, preferably 2:
+var SplitOriginLongSentencePrompt = `Please split the following text into multiple parts, ensuring it's divided into at most 3 short sentences, preferably 2 parts,
 
 Original text: %s
 
@@ -140,6 +140,29 @@ Requirements:
 4. Return in JSON format only, no other descriptions or explanations
 5. Example format:
 {"short_sentences":[{"text": "split sentence 1"},{"text": "split sentence 2"}]}
+
+`
+
+var SplitLongTextByMeaningPrompt = `Please split the following long text into shorter sentences based on semantic meaning. Do not change, add, or remove any words from the original text.
+
+Original text: %s
+
+Requirements:
+1. Split the text into as many shorter, meaningful sentences as possible while preserving ALL original words
+2. Do NOT change, modify, add, or remove any words - only split at natural breakpoints
+3. Split at natural linguistic boundaries such as:
+   - Punctuation marks (commas, semicolons, periods)
+   - Conjunctions (and, but, or, so, because, when, while, etc.)
+   - Relative pronouns (which, that, who, where, etc.)
+   - Natural pause points that maintain sentence meaning
+4. Each split part should be a complete, meaningful unit that can stand alone
+5. Prioritize shorter segments - split as much as possible while maintaining semantic integrity
+6. No limit on the number of splits - make each part as short as possible while still being meaningful
+7. Maintain the original word order and exact spelling
+8. Preserve all original punctuation and capitalization
+9. Return in JSON format only, no other descriptions or explanations
+10. Example format:
+{"short_sentences":[{"text": "first short part"},{"text": "second short part"},{"text": "third short part"}]}
 
 `
 
