@@ -331,7 +331,8 @@
         overflow: hidden;
       }
       #page-workbench,
-      #page-config {
+      #page-config,
+      #llm-config {
         flex: 1;
         padding: 36px 48px 24px 48px;
         overflow-y: auto;
@@ -343,21 +344,25 @@
       }
       /* 美化滚动条 */
       #page-workbench::-webkit-scrollbar,
-      #page-config::-webkit-scrollbar {
+      #page-config::-webkit-scrollbar,
+      #llm-config::-webkit-scrollbar {
         width: 8px;
       }
       #page-workbench::-webkit-scrollbar-track,
-      #page-config::-webkit-scrollbar-track {
+      #page-config::-webkit-scrollbar-track,
+      #llm-config::-webkit-scrollbar-track {
         background: rgba(241, 245, 249, 0.5);
         border-radius: 4px;
       }
       #page-workbench::-webkit-scrollbar-thumb,
-      #page-config::-webkit-scrollbar-thumb {
+      #page-config::-webkit-scrollbar-thumb,
+      #llm-config::-webkit-scrollbar-thumb {
         background: rgba(148, 163, 184, 0.5);
         border-radius: 4px;
       }
       #page-workbench::-webkit-scrollbar-thumb:hover,
-      #page-config::-webkit-scrollbar-thumb:hover {
+      #page-config::-webkit-scrollbar-thumb:hover,
+      #llm-config::-webkit-scrollbar-thumb:hover {
         background: rgba(100, 116, 139, 0.7);
       }
       .status-bar {
@@ -431,18 +436,161 @@
         min-width: 350px;
         width: auto;
       }
+      /* 卡片副标题 */
+      .card-subtitle {
+        color: #6b7280;
+        font-size: 0.9rem;
+        margin: -10px 0 20px 0;
+      }
+
+      /* API 供应商网格 */
+      .provider-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+      }
+
+      /* 供应商卡片 */
+      .provider-card {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 12px;
+        padding: 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .provider-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        border-width: 3px;
+      }
+
+      .provider-card.qwen {
+        border-color: #6336e7;
+      }
+
+      .provider-card.qwen:hover {
+        border-color: #6336e7;
+        background: rgba(99, 54, 231, 0.05);
+      }
+
+      .provider-card.openai {
+        border-color: #74c365;
+      }
+
+      .provider-card.openai:hover {
+        border-color: #74c365;
+        background: rgba(116, 195, 101, 0.05);
+      }
+
+      .provider-card.deepseek {
+        border-color: #4d6bfe;
+      }
+
+      .provider-card.deepseek:hover {
+        border-color: #4d6bfe;
+        background: rgba(77, 107, 254, 0.05);
+      }
+
+      .provider-icon {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 12px;
+        color: #6b7280;
+      }
+
+      .provider-card .provider-icon img {
+        filter: none;
+      }
+
+      .provider-card.openai .provider-icon {
+        color: #74c365;
+      }
+
+      .provider-card.qwen .provider-icon {
+        color: #6336e7;
+      }
+
+      .provider-card.deepseek .provider-icon {
+        color: #4d6bfe;
+      }
+
+      .provider-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 8px;
+        text-align: center;
+      }
+
+      .provider-desc {
+        font-size: 0.9rem;
+        color: #6b7280;
+        text-align: center;
+      }
+
+      /* 使用指南样式 */
+      .guide-content {
+        background: rgba(248, 250, 252, 0.8);
+        border-radius: 8px;
+        padding: 20px;
+        border: 1px solid rgba(209, 213, 219, 0.3);
+      }
+
+      .guide-content h4 {
+        color: #3b82f6;
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 16px 0 8px 0;
+      }
+
+      .guide-content h4:first-child {
+        margin-top: 0;
+      }
+
+      .guide-content ul {
+        margin: 0 0 12px 0;
+        padding-left: 20px;
+      }
+
+      .guide-content li {
+        margin-bottom: 4px;
+        color: #4b5563;
+        line-height: 1.5;
+      }
+
+      .guide-content code {
+        background: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: "Monaco", "Consolas", monospace;
+        font-size: 0.85rem;
+        user-select: all;
+      }
+
+      .guide-content code:hover {
+        background: rgba(59, 130, 246, 0.15);
+      }
     </style>
   </head>
   <body>
     <div class="app-container">
       <div class="sidebar">
         <div class="logo">Klic Studio</div>
-        <div class="slogan">
-          AI Video Translation & Dubbing by Krillin AI
-        </div>
+        <div class="slogan">AI Video Translation & Dubbing by Krillin AI</div>
         <div class="nav">
           <button class="nav-btn active" id="nav-workbench">
             工作台 Dashboard
+          </button>
+          <button class="nav-btn" id="nav-llm-config">
+            LLM 配置 LLM Config
           </button>
           <button class="nav-btn" id="nav-config">设置 Settings</button>
         </div>
@@ -462,7 +610,8 @@
                 margin: 0 0 32px 0;
               "
             >
-              视频翻译配音<br> Video Translation & Dubbing
+              视频翻译配音<br />
+              Video Translation & Dubbing
             </h1>
 
             <!-- 视频输入区域 -->
@@ -511,7 +660,9 @@
               <h3 class="card-title">2. 字幕设置 Subtitle Settings</h3>
               <div class="form-row">
                 <div class="form-group">
-                  <label class="form-label">源语言<br />Original Language:</label>
+                  <label class="form-label"
+                    >源语言<br />Original Language:</label
+                  >
                   <select id="source-language" class="form-select">
                     <option value="zh_cn">简体中文</option>
                     <option value="en">English</option>
@@ -524,9 +675,7 @@
                   </select>
                 </div>
                 <div class="form-group">
-                  <label class="form-label"
-                    >翻译成<br />Translate To:</label
-                  >
+                  <label class="form-label">翻译成<br />Translate To:</label>
                   <select id="target-language" class="form-select">
                     <option value="zh_cn">简体中文</option>
                     <option value="zh_tw">繁體中文</option>
@@ -643,12 +792,8 @@
                   class="form-select"
                   style="width: 200px; margin-left: 16px"
                 >
-                  <option value="top">
-                    翻译在上 Translation Above
-                  </option>
-                  <option value="bottom">
-                    翻译在下 Translation Below
-                  </option>
+                  <option value="top">翻译在上 Translation Above</option>
+                  <option value="bottom">翻译在下 Translation Below</option>
                 </select>
               </div>
 
@@ -662,7 +807,7 @@
 
             <!-- 配音设置区域 -->
             <div class="card">
-              <h3 class="card-title">3. 配音设置 Dubbing Settings </h3>
+              <h3 class="card-title">3. 配音设置 Dubbing Settings</h3>
               <div class="form-group">
                 <label class="checkbox-item">
                   <input type="checkbox" id="voiceover-toggle" />
@@ -688,17 +833,13 @@
                   class="form-input"
                   style="width: 300px"
                 />
-                <span class="hint"
-                  >（Aliyun TTS Supported）</span
-                >
+                <span class="hint">（Aliyun TTS Supported）</span>
               </div>
             </div>
 
             <!-- 视频合成设置 -->
             <div class="card">
-              <h3 class="card-title">
-                4. 视频合成设置 Composition Settings
-              </h3>
+              <h3 class="card-title">4. 视频合成设置 Composition Settings</h3>
               <div class="form-group">
                 <label class="checkbox-item">
                   <input type="checkbox" id="embed-subtitle-toggle" />
@@ -710,11 +851,11 @@
                   style="width: 200px; margin-left: 16px"
                   disabled
                 >
-                  <option value="horizontal">横屏输出 Landscape（16：9）</option>
-                  <option value="vertical">竖屏输出 Portrait（9:16）</option>
-                  <option value="all">
-                    横屏+竖屏 (Landscape+Portrait)
+                  <option value="horizontal">
+                    横屏输出 Landscape（16：9）
                   </option>
+                  <option value="vertical">竖屏输出 Portrait（9:16）</option>
+                  <option value="all">横屏+竖屏 (Landscape+Portrait)</option>
                 </select>
               </div>
               <div id="subtitle-text-inputs" class="hidden">
@@ -753,6 +894,137 @@
                 <div class="progress-fill" id="progressBar">0%</div>
               </div>
               <div id="downloadLinks" class="download-links hidden"></div>
+            </div>
+          </div>
+          <div id="llm-config" style="display: none">
+            <div class="card">
+              <h3 class="card-title">API 供应商</h3>
+              <p class="card-subtitle">点击下方卡片快速跳转到对应平台购买API</p>
+
+              <div class="provider-grid">
+                <div class="provider-card qwen" id="provider-qwen">
+                  <div class="provider-icon">
+                    <img
+                      src="./source/qwen-color.svg"
+                      alt="通义千问"
+                      width="24"
+                      height="24"
+                    />
+                  </div>
+                  <div class="provider-name">通义千问 Qwen</div>
+                  <div class="provider-desc">阿里云大模型服务</div>
+                </div>
+
+                <div class="provider-card openai" id="provider-openai">
+                  <div class="provider-icon">
+                    <img
+                      src="./source/openai.svg"
+                      alt="OpenAI"
+                      width="24"
+                      height="24"
+                    />
+                  </div>
+                  <div class="provider-name">OpenAI</div>
+                  <div class="provider-desc">GPT模型API服务</div>
+                </div>
+
+                <div class="provider-card deepseek" id="provider-deepseek">
+                  <div class="provider-icon">
+                    <img
+                      src="./source/deepseek-color.svg"
+                      alt="DeepSeek"
+                      width="24"
+                      height="24"
+                    />
+                  </div>
+                  <div class="provider-name">DeepSeek</div>
+                  <div class="provider-desc">高性价比AI模型</div>
+                </div>
+
+                <div class="provider-card add" id="provider-add">
+                  <div class="provider-icon">
+                    <span style="font-size: 20px; line-height: 24px">＋</span>
+                  </div>
+                  <div class="provider-name">新增</div>
+                  <div class="provider-desc">添加自定义供应商</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- LLM 配置 -->
+            <div class="card">
+              <h3 class="card-title">LLM 配置 LLM Config</h3>
+              <div class="form-group">
+                <label class="form-label">API Base URL:</label>
+                <input
+                  type="url"
+                  id="llm-base-url"
+                  placeholder="https://api.openai.com/v1"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">API Key:</label>
+                <input
+                  type="password"
+                  id="llm-api-key"
+                  placeholder="sk-..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">模型名称 Model name:</label>
+                <input
+                  type="text"
+                  id="llm-model"
+                  value="gpt-3.5-turbo"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">支持模型 Supported models:</label>
+                <select id="llm-model-suggest" class="form-select">
+                  <option value="">请选择或手动输入</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 使用指南 -->
+            <div class="card">
+              <h3 class="card-title">使用指南</h3>
+              <p class="card-subtitle">LLM API配置说明（可复制文本）</p>
+
+              <div class="guide-content">
+                <h4>1. API Base URL：</h4>
+                <ul>
+                  <li>OpenAI官方：<code>https://api.openai.com/v1</code></li>
+                  <li>
+                    阿里云百炼：<code
+                      >https://dashscope.aliyuncs.com/compatible-mode/v1</code
+                    >
+                  </li>
+                  <li>DeepSeek：<code>https://api.deepseek.com/v1</code></li>
+                </ul>
+
+                <h4>2. API Key：</h4>
+                <ul>
+                  <li>在对应平台的控制台中获取</li>
+                  <li>请妥善保管，避免泄露</li>
+                </ul>
+
+                <h4>3. 模型名称：</h4>
+                <ul>
+                  <li>OpenAI：gpt-3.5-turbo, gpt-4, gpt-4-turbo...</li>
+                  <li>阿里云：qwen-turbo, qwen-plus, qwen-max...</li>
+                  <li>DeepSeek：deepseek-chat, deepseek-coder...</li>
+                </ul>
+
+                <h4>4. 使用建议：</h4>
+                <ul>
+                  <li>根据实际需求选择合适的模型</li>
+                  <li>注意API调用费用</li>
+                </ul>
+              </div>
             </div>
           </div>
           <div id="page-config" style="display: none">
@@ -886,7 +1158,7 @@
             </div>
 
             <!-- LLM配置 -->
-            <div class="card">
+            <!-- <div class="card">
               <h3 class="card-title">LLM 配置 LLM Config</h3>
               <div class="form-group">
                 <label class="form-label">API Base URL:</label>
@@ -915,7 +1187,7 @@
                   class="form-input"
                 />
               </div>
-            </div>
+            </div> -->
 
             <!-- 语音识别配置 -->
             <div class="card">
@@ -933,7 +1205,9 @@
               <div class="form-group">
                 <label class="form-label">
                   GPU加速 Enable Gpu Acceleration
-                  <span class="hint">仅 FasterWhisper 生效(Only FasterWhisper)</span>
+                  <span class="hint"
+                    >仅 FasterWhisper 生效(Only FasterWhisper)</span
+                  >
                 </label>
                 <select id="gpu-acceleration" class="form-select">
                   <option value="true">是 Yes</option>
@@ -1191,10 +1465,18 @@
       const navBtns = document.querySelectorAll(".nav-btn");
       const pageWorkbench = document.getElementById("page-workbench");
       const pageConfig = document.getElementById("page-config");
+      const pageLLMConfig = document.getElementById("llm-config");
       navBtns.forEach((btn) => {
         btn.onclick = async () => {
           const previousPage = currentActivePage;
-          const newPage = btn.id === "nav-workbench" ? "workbench" : "config";
+          let newPage;
+          if (btn.id === "nav-workbench") {
+            newPage = "workbench";
+          } else if (btn.id === "nav-llm-config") {
+            newPage = "llm-config";
+          } else if (btn.id === "nav-config") {
+            newPage = "config";
+          }
 
           // 如果从配置页面切换到工作台页面，自动保存配置
           if (previousPage === "config" && newPage === "workbench") {
@@ -1216,11 +1498,23 @@
           btn.classList.add("active");
           currentActivePage = newPage;
 
+          pageWorkbench.style.display = "none";
+          pageConfig.style.display = "none";
+          pageLLMConfig.style.display = "none";
+
+          // 显示对应页面
           if (btn.id === "nav-workbench") {
             pageWorkbench.style.display = "";
-            pageConfig.style.display = "none";
-          } else {
-            pageWorkbench.style.display = "none";
+          } else if (btn.id === "nav-llm-config") {
+            pageLLMConfig.style.display = "";
+            // 进入 LLM 页面时初始化建议下拉为空
+            const suggest = document.getElementById("llm-model-suggest");
+            if (suggest) {
+              suggest.innerHTML = '<option value="">请选择或手动输入</option>';
+            }
+            // 同步获取配置，确保 LLM 表单最新
+            loadConfig();
+          } else if (btn.id === "nav-config") {
             pageConfig.style.display = "";
             loadConfig();
           }
@@ -1238,6 +1532,77 @@
           }, 500);
         });
       }
+
+      // 供应商点击填充逻辑
+      function setProvider(baseUrl, models) {
+        const baseInput = document.getElementById("llm-base-url");
+        const modelInput = document.getElementById("llm-model");
+        const suggest = document.getElementById("llm-model-suggest");
+        if (baseInput) baseInput.value = baseUrl || "";
+        if (suggest) {
+          suggest.innerHTML = '<option value="">请选择或手动输入</option>';
+          (models || []).forEach((m) => {
+            const opt = document.createElement("option");
+            opt.value = m;
+            opt.textContent = m;
+            suggest.appendChild(opt);
+          });
+          if (models && models.length > 0) {
+            suggest.value = models[0];
+            if (modelInput) modelInput.value = models[0];
+          } else if (modelInput) {
+            modelInput.value = "";
+          }
+        }
+      }
+
+      // 模型建议选择时同步到输入框
+      document.addEventListener("DOMContentLoaded", () => {
+        const suggest = document.getElementById("llm-model-suggest");
+        if (suggest) {
+          suggest.addEventListener("change", () => {
+            const modelInput = document.getElementById("llm-model");
+            if (modelInput && suggest.value) {
+              modelInput.value = suggest.value;
+            }
+          });
+        }
+
+        // 供应商卡片点击绑定
+        const qwen = document.getElementById("provider-qwen");
+        const openai = document.getElementById("provider-openai");
+        const deepseek = document.getElementById("provider-deepseek");
+        const add = document.getElementById("provider-add");
+        if (qwen) {
+          qwen.onclick = () =>
+            setProvider("https://dashscope.aliyuncs.com/compatible-mode/v1", [
+              "qwen-turbo",
+              "qwen-plus",
+              "qwen-max",
+            ]);
+        }
+        if (openai) {
+          openai.onclick = () =>
+            setProvider("https://api.openai.com/v1", [
+              "gpt-4o-mini",
+              "gpt-4o",
+              "gpt-4.1-mini",
+              "o3-mini",
+            ]);
+        }
+        if (deepseek) {
+          deepseek.onclick = () =>
+            setProvider("https://api.deepseek.com/v1", [
+              "deepseek-chat",
+              "deepseek-coder",
+              "DeepSeek-V3",
+              "DeepSeek-R1",
+            ]);
+        }
+        if (add) {
+          add.onclick = () => setProvider("", []);
+        }
+      });
 
       // 加载配置数据
       async function loadConfig() {
@@ -1298,6 +1663,11 @@
             configData.llm.apiKey || "";
           document.getElementById("llm-model").value =
             configData.llm.model || "gpt-3.5-turbo";
+          // 清空建议模型下拉
+          const suggest = document.getElementById("llm-model-suggest");
+          if (suggest) {
+            suggest.innerHTML = '<option value="">请选择或手动输入</option>';
+          }
         }
 
         // 转录配置
