@@ -204,7 +204,6 @@ Use "Previous Sentences" ONLY to understand the context of referents (e.g. prono
 
 **Your output must be literal, minimal, and on a single line. Provide only the translation result:**`
 
-
 type SmallAudio struct {
 	AudioFile         string
 	TranscriptionData *TranscriptionData
@@ -301,7 +300,7 @@ type SubtitleTaskStepParam struct {
 	TaskBasePath                string
 	Link                        string
 	AudioFilePath               string
-	OriginalSubtitleFilePath    string // YouTube下载的原始字幕文件路径
+	VttFile                     string // YouTube下载的原始字幕文件路径
 	SubtitleResultType          SubtitleResultType
 	EnableModalFilter           bool
 	EnableTts                   bool

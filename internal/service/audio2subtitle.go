@@ -126,7 +126,7 @@ func (s Service) transcribeAudio(id int, audioFilePath string, language string, 
 	return transcriptionData, nil
 }
 
-func (s Service) IsSplitUseSpace(language types.StandardLanguageCode) bool {
+func IsSplitUseSpace(language types.StandardLanguageCode) bool {
 	if language == types.LanguageNameSimplifiedChinese || language == types.LanguageNameTraditionalChinese ||
 		language == types.LanguageNameJapanese || language == types.LanguageNameKorean || language == types.LanguageNameThai {
 		return true
@@ -141,7 +141,7 @@ func (s Service) splitTextAndTranslateV2(basePath, inputText string, originLang,
 		return []*TranslatedItem{}, nil
 	}
 	// 补丁：whisper转录中文的时候很多句子后面不输出符号，导致上面基于符号的切分失效
-	if s.IsSplitUseSpace(originLang) {
+	if IsSplitUseSpace(originLang) {
 		newSentences := make([]string, 0)
 		for _, sentence := range sentences {
 			newSentences = append(newSentences, strings.Split(sentence, " ")...)
