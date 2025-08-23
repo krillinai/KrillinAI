@@ -10,14 +10,12 @@ import (
 	"strings"
 )
 
-
 type Word struct {
 	Text  string
 	Start float64
 	End   float64
 	Num   int
 }
-
 
 func TimeToMilliseconds(timeStr string) int64 {
 	timeStr = strings.Replace(timeStr, ",", ".", -1)
@@ -78,7 +76,7 @@ func IsTextMatch(textA, textB string) bool {
 	return false
 }
 
-func ConvertVttToSrtGo(inputPath, outputPath string) error {
+func ConvertVttToSrt(inputPath, outputPath string) error {
 	contentBytes, err := os.ReadFile(inputPath)
 	if err != nil {
 		return fmt.Errorf("failed to read VTT file: %w", err)

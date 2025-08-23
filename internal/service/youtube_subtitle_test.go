@@ -20,24 +20,26 @@ func Test_YoutubeSubtitle(t *testing.T) {
 		ProcessPct:     0,
 	}
 	config.Conf.App.MaxSentenceLength = 100
-
-	_, err := s.YouTubeSubtitleSrv.convertToSrtFormat("/home/puji/KrillinAI/tasks/watch_vmdgIpmoF_dkxs/test.vtt", "/home/puji/KrillinAI/tasks/watch_vmdgIpmoF_dkxs/")
+	vttFile := "D:/test_data/trans/vtt/test.vtt"
+	_, err := s.YouTubeSubtitleSrv.convertVttToSrt(vttFile, "D:/test_data/trans/vtt/")
 	if err != nil {
 		t.Errorf("convertToSrtFormat() error = %v", err)
 		return
 	}
-	subtitleFile := "/home/puji/KrillinAI/tasks/watch_vmdgIpmoF_dkxs//converted_subtitle.srt"
 
+	taskBasePath := "D:/test_data/trans/vtt/"
+	originSrt := taskBasePath + "origin.srt"
+	translatedSrt := taskBasePath + "translated.srt"
 
 	// 执行测试
 	err = s.YouTubeSubtitleSrv.TranslateSrtFile(context.Background(), &types.SubtitleTaskStepParam{
-		TaskId:                   "kgysZPHh",
-		TaskPtr:                  testTask, // 提供有效的 TaskPtr
-		OriginLanguage:           "en",
-		TargetLanguage:           "zh_cn",
-		TaskBasePath:             "/home/puji/KrillinAI/tasks/watch_vmdgIpmoF_dkxs/",
-		OriginalSubtitleFilePath: "/home/puji/KrillinAI/tasks/watch_vmdgIpmoF_dkxs/test.vtt",
-	}, subtitleFile)
+		TaskId:         "kgysZPHh",
+		TaskPtr:        testTask, // 提供有效的 TaskPtr
+		OriginLanguage: "en",
+		TargetLanguage: "zh_cn",
+		TaskBasePath:   taskBasePath,
+		VttFile:        vttFile,
+	}, translatedSrt)
 	if err != nil {
 		t.Errorf("TranslateSrtFile() error = %v, want nil", err)
 	}

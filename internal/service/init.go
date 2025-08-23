@@ -66,7 +66,7 @@ func NewService() *Service {
 		OssClient:        aliyun.NewOssClient(config.Conf.Transcribe.Aliyun.Oss.AccessKeyId, config.Conf.Transcribe.Aliyun.Oss.AccessKeySecret, config.Conf.Transcribe.Aliyun.Oss.Bucket),
 		VoiceCloneClient: aliyun.NewVoiceCloneClient(config.Conf.Tts.Aliyun.Speech.AccessKeyId, config.Conf.Tts.Aliyun.Speech.AccessKeySecret, config.Conf.Tts.Aliyun.Speech.AppKey),
 	}
-	s.YouTubeSubtitleSrv = NewYouTubeSubtitleService(s)
+	// s.YouTubeSubtitleSrv = NewYouTubeSubtitleService(s)
 
 	return s
 }
