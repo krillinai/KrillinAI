@@ -155,7 +155,14 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		// 针对YouTube视频优先尝试使用yt-dlp下载字幕
 		if strings.Contains(req.Url, "youtube.com") {
 			log.GetLogger().Info("Attempting to process YouTube subtitles directly", zap.String("taskId", taskId))
-			err = s.YouTubeSubtitleSrv.Process(ctx, &stepParam)
+			req := &YoutubeSubtitleReq{
+				TaskBasePath:   "D:/test_data/trans/vtt/",
+				TaskId:         "kgysZPHh",
+				OriginLanguage: "en",
+				TargetLanguage: "zh_cn",
+				URL:            "https://www.youtube.com/watch?v=kgysZPHh",
+			}
+			_, err = s.YouTubeSubtitleSrv.Process(ctx, req)
 			if err != nil {
 				// 下载或处理字幕失败，回退到音频转录方式
 				log.GetLogger().Warn("Failed to process YouTube subtitles directly, falling back to audio transcription",
