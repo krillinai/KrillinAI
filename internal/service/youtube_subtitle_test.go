@@ -3,44 +3,73 @@ package service
 import (
 	"context"
 	"krillin-ai/config"
-	"krillin-ai/internal/types"
+	"krillin-ai/internal/deps"
+	"os"
 	"testing"
 )
 
 func Test_YoutubeSubtitle(t *testing.T) {
 	// 固定的测试文件路径
 	s := initService()
+	deps.CheckDependency()
+	config.Conf.App.MaxSentenceLength = 50
 
-	// 创建一个测试用的 SubtitleTask
-	testTask := &types.SubtitleTask{
-		TaskId:         "kgysZPHh",
+	req := &YoutubeSubtitleReq{
+		TaskBasePath:   "D:/test_data/trans/vtt/",
+		TaskId:         "CuxmTJqpc0U",
 		OriginLanguage: "en",
 		TargetLanguage: "zh_cn",
-		Status:         1, // 处理中
-		ProcessPct:     0,
+		URL:            "https://www.youtube.com/watch?v=CuxmTJqpc0U",
 	}
-	config.Conf.App.MaxSentenceLength = 100
-	vttFile := "D:/test_data/trans/vtt/test.vtt"
-	_, err := s.YouTubeSubtitleSrv.convertVttToSrt(vttFile, "D:/test_data/trans/vtt/")
+
+	_, err := s.YouTubeSubtitleSrv.Process(context.Background(), req)
 	if err != nil {
-		t.Errorf("convertToSrtFormat() error = %v", err)
+		t.Errorf("HandleYouTubeSubtitle() error = %v, want nil", err)
+	}
+
+}
+
+func Test_ExtractWordsFromVtt(t *testing.T) {
+	s := initService()
+	deps.CheckDependency()
+	config.Conf.App.MaxSentenceLength = 100
+
+	vttFile := "D:/test_data/trans/vtt/GjickmuG0vU.en.vtt"
+	words, err := s.YouTubeSubtitleSrv.ExtractWordsFromVtt(vttFile)
+	if err != nil {
+		t.Errorf("ExtractWordsFromVtt() error = %v, want nil", err)
+	}
+
+	//将words输出到文件
+	outputFile := "D:/test_data/trans/vtt/extracted_words.txt"
+	file, err := os.Create(outputFile)
+	if err != nil {
+		t.Errorf("Failed to create output file: %v", err)
 		return
 	}
+	defer file.Close()
+	for _, word := range words {
+		file.WriteString(word.Start + "-->" + word.End + "\n")
+		file.WriteString(word.Text + "\n\n")
+	}
+}
 
-	taskBasePath := "D:/test_data/trans/vtt/"
-	originSrt := taskBasePath + "origin.srt"
-	translatedSrt := taskBasePath + "translated.srt"
+func Test_processYouTubeSubtitle(t *testing.T) {
+	s := initService()
+	deps.CheckDependency()
+	config.Conf.App.MaxSentenceLength = 50
 
-	// 执行测试
-	err = s.YouTubeSubtitleSrv.TranslateSrtFile(context.Background(), &types.SubtitleTaskStepParam{
-		TaskId:         "kgysZPHh",
-		TaskPtr:        testTask, // 提供有效的 TaskPtr
+	req := &YoutubeSubtitleReq{
+		TaskBasePath:   "D:/test_data/trans/vtt/",
+		TaskId:         "HP7JOkeZ0Yg",
 		OriginLanguage: "en",
 		TargetLanguage: "zh_cn",
-		TaskBasePath:   taskBasePath,
-		VttFile:        vttFile,
-	}, translatedSrt)
+		URL:            "https://www.youtube.com/watch?v=HP7JOkeZ0Yg",
+		VttFile:        "D:/test_data/trans/vtt/HP7JOkeZ0Yg.en.vtt",
+	}
+
+	_, err := s.YouTubeSubtitleSrv.processYouTubeSubtitle(context.Background(), req)
 	if err != nil {
-		t.Errorf("TranslateSrtFile() error = %v, want nil", err)
+		t.Errorf("HandleYouTubeSubtitle() error = %v, want nil", err)
 	}
 }
