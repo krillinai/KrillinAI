@@ -117,6 +117,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		VerticalVideoMajorTitle: req.VerticalMajorTitle,
 		VerticalVideoMinorTitle: req.VerticalMinorTitle,
 		MaxWordOneLine:          12, // 默认值
+		VttSwitch:               req.VttSwitch,
 	}
 	if req.OriginLanguageWordOneLine != 0 {
 		stepParam.MaxWordOneLine = req.OriginLanguageWordOneLine
@@ -153,28 +154,31 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		//}
 
 		// 针对YouTube视频优先尝试使用yt-dlp下载字幕
-		if strings.Contains(req.Url, "youtube.com") {
-			log.GetLogger().Info("Attempting to process YouTube subtitles directly", zap.String("taskId", taskId))
+		if strings.Contains(req.Url, "youtube.com") && stepParam.VttSwitch {
+			log.GetLogger().Info("Start Process youtube video with vtt", zap.String("taskId", taskId))
 			req := &YoutubeSubtitleReq{
-				TaskBasePath:   "D:/test_data/trans/vtt/",
-				TaskId:         "kgysZPHh",
-				OriginLanguage: "en",
-				TargetLanguage: "zh_cn",
-				URL:            "https://www.youtube.com/watch?v=kgysZPHh",
+				TaskBasePath:   stepParam.TaskBasePath,
+				TaskId:         taskId,
+				OriginLanguage: string(stepParam.OriginLanguage),
+				TargetLanguage: string(stepParam.TargetLanguage),
+				URL:            req.Url,
+				TaskPtr:        stepParam.TaskPtr,
 			}
-			_, err = s.YouTubeSubtitleSrv.Process(ctx, req)
+			srtFile, err := s.YouTubeSubtitleSrv.Process(ctx, req)
 			if err != nil {
 				// 下载或处理字幕失败，回退到音频转录方式
-				log.GetLogger().Warn("Failed to process YouTube subtitles directly, falling back to audio transcription",
+				log.GetLogger().Warn("Failed to process YouTube subtitles with vtt, falling back to audio transcription",
 					zap.String("taskId", taskId), zap.Error(err))
-				err = s.audioToSubtitle(ctx, &stepParam)
-				if err != nil {
-					log.GetLogger().Error("StartVideoSubtitleTask audioToSubtitle err", zap.Any("req", req), zap.Error(err))
-					stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
-					stepParam.TaskPtr.FailReason = err.Error()
-					return
-				}
+				stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
+				stepParam.TaskPtr.FailReason = err.Error()
+				return
 			}
+			stepParam.BilingualSrtFilePath = srtFile
+			err = splitSrt(&stepParam)
+			if err != nil {
+				return
+			}
+			stepParam.TaskPtr.ProcessPct = 95
 		} else {
 			// 非YouTube视频，使用原来的音频转录流程
 			err = s.audioToSubtitle(ctx, &stepParam)

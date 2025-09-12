@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -12,6 +11,8 @@ import (
 	"krillin-ai/pkg/util"
 	"os/exec"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
@@ -33,26 +34,28 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 			return fmt.Errorf("generateAudioSubtitles.linkToFile ffmpeg error: %w", err)
 		}
 	} else if strings.Contains(link, "youtube.com") {
-		var videoId string
-		videoId, err = util.GetYouTubeID(link)
-		if err != nil {
-			log.GetLogger().Error("linkToFile.GetYouTubeID error", zap.Any("step param", stepParam), zap.Error(err))
-			return fmt.Errorf("linkToFile.GetYouTubeID error: %w", err)
-		}
-		stepParam.Link = "https://www.youtube.com/watch?v=" + videoId
-		cmdArgs := []string{"-f", "bestaudio", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "192K", "-o", audioPath, stepParam.Link}
-		if config.Conf.App.Proxy != "" {
-			cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
-		}
-		cmdArgs = append(cmdArgs, "--cookies", "./cookies.txt")
-		if storage.FfmpegPath != "ffmpeg" {
-			cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
-		}
-		cmd := exec.Command(storage.YtdlpPath, cmdArgs...)
-		output, err = cmd.CombinedOutput()
-		if err != nil {
-			log.GetLogger().Error("linkToFile download audio yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
-			return fmt.Errorf("linkToFile download audio yt-dlp error: %w", err)
+		if !stepParam.VttSwitch {
+			var videoId string
+			videoId, err = util.GetYouTubeID(link)
+			if err != nil {
+				log.GetLogger().Error("linkToFile.GetYouTubeID error", zap.Any("step param", stepParam), zap.Error(err))
+				return fmt.Errorf("linkToFile.GetYouTubeID error: %w", err)
+			}
+			stepParam.Link = "https://www.youtube.com/watch?v=" + videoId
+			cmdArgs := []string{"-f", "bestaudio", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "192K", "-o", audioPath, stepParam.Link}
+			if config.Conf.App.Proxy != "" {
+				cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
+			}
+			cmdArgs = append(cmdArgs, "--cookies", "./cookies.txt")
+			if storage.FfmpegPath != "ffmpeg" {
+				cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
+			}
+			cmd := exec.Command(storage.YtdlpPath, cmdArgs...)
+			output, err = cmd.CombinedOutput()
+			if err != nil {
+				log.GetLogger().Error("linkToFile download audio yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
+				return fmt.Errorf("linkToFile download audio yt-dlp error: %w", err)
+			}
 		}
 	} else if strings.Contains(link, "bilibili.com") {
 		videoId := util.GetBilibiliVideoId(link)

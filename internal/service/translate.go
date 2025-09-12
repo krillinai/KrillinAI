@@ -39,38 +39,13 @@ func (t *Translator) SplitTextAndTranslate(inputText string, originLang, targetL
 	}
 
 	shortSentences := make([]string, 0)
-	//判断句子如果还是过长，就继续用大模型拆句
+	// 使用递归拆句确保所有句子都满足长度要求
 	for _, sentence := range sentences {
 		if sentence == "" {
 			continue
 		}
-		if util.CountEffectiveChars(sentence) <= config.Conf.App.MaxSentenceLength {
-			shortSentences = append(shortSentences, sentence)
-			continue
-		}
-
-		// 调用大模型进行分割
-		log.GetLogger().Info("use llm split origin long sentence", zap.Any("sentence", sentence))
-		splitItems, err := t.splitOriginLongSentence(sentence)
-		if err != nil {
-			log.GetLogger().Error("splitTranslateItem splitLongSentence error", zap.Error(err), zap.Any("sentence", sentence))
-		}
-		//拆完之后还长，就再拆一次
-		for _, item := range splitItems {
-			if util.CountEffectiveChars(item) <= config.Conf.App.MaxSentenceLength {
-				shortSentences = append(shortSentences, item)
-				continue
-			}
-
-			// 调用大模型进行分割
-			log.GetLogger().Info("use llm split origin long sentence", zap.Any("item", item))
-			splitItems, err := t.splitOriginLongSentence(item)
-			if err != nil {
-				log.GetLogger().Error("splitTranslateItem splitLongSentence error", zap.Error(err), zap.Any("item", item))
-			}
-
-			shortSentences = append(shortSentences, splitItems...)
-		}
+		recursiveSplitItems := t.recursiveSplitSentence(sentence, 0)
+		shortSentences = append(shortSentences, recursiveSplitItems...)
 	}
 
 	sentences = shortSentences
@@ -131,6 +106,8 @@ func (t *Translator) SplitTextAndTranslate(inputText string, originLang, targetL
 				}
 			} else {
 				translatedText = strings.TrimSpace(translatedText)
+				// 清理翻译结果中的多余引号
+				translatedText = strings.Trim(translatedText, `"'`)
 				results[index] = &TranslatedItem{
 					OriginText:     originText,
 					TranslatedText: translatedText,
@@ -170,7 +147,12 @@ func (t *Translator) splitOriginLongSentence(sentence string) ([]string, error) 
 		}
 
 		for _, shortSentence := range splitResult.ShortSentences {
-			shortSentences = append(shortSentences, shortSentence.Text)
+			// 清理文本，移除多余的引号
+			cleanText := strings.TrimSpace(shortSentence.Text)
+			cleanText = strings.Trim(cleanText, `"'`)
+			if cleanText != "" {
+				shortSentences = append(shortSentences, cleanText)
+			}
 		}
 		break
 	}
@@ -180,4 +162,60 @@ func (t *Translator) splitOriginLongSentence(sentence string) ([]string, error) 
 	}
 
 	return shortSentences, nil
+}
+
+// recursiveSplitSentence 递归拆分句子直到满足长度要求
+func (t *Translator) recursiveSplitSentence(sentence string, depth int) []string {
+	const maxDepth = 5 // 防止无限递归，最多拆分5层
+
+	// 如果句子已经满足长度要求，直接返回
+	if util.CountEffectiveChars(sentence) <= config.Conf.App.MaxSentenceLength {
+		return []string{sentence}
+	}
+
+	// 如果递归深度过深，强制返回原句子（避免无限递归）
+	if depth >= maxDepth {
+		log.GetLogger().Warn("recursive split reached max depth, returning original sentence",
+			zap.String("sentence", sentence),
+			zap.Int("depth", depth),
+			zap.Int("charCount", util.CountEffectiveChars(sentence)))
+		return []string{sentence}
+	}
+
+	// 使用大模型拆分句子
+	log.GetLogger().Info("recursive split long sentence",
+		zap.String("sentence", sentence),
+		zap.Int("depth", depth),
+		zap.Int("charCount", util.CountEffectiveChars(sentence)))
+
+	splitItems, err := t.splitOriginLongSentence(sentence)
+	if err != nil {
+		log.GetLogger().Error("recursive split error, returning original sentence",
+			zap.Error(err),
+			zap.String("sentence", sentence),
+			zap.Int("depth", depth))
+		return []string{sentence}
+	}
+
+	// 如果拆分失败（返回空或只有一个与原句相同的项），返回原句子
+	if len(splitItems) == 0 || (len(splitItems) == 1 && strings.TrimSpace(splitItems[0]) == strings.TrimSpace(sentence)) {
+		log.GetLogger().Warn("llm split returned same sentence, stopping recursion",
+			zap.String("sentence", sentence),
+			zap.Int("depth", depth))
+		return []string{sentence}
+	}
+
+	// 递归处理拆分后的每个子句
+	result := make([]string, 0)
+	for _, item := range splitItems {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		// 递归拆分子句
+		subItems := t.recursiveSplitSentence(item, depth+1)
+		result = append(result, subItems...)
+	}
+
+	return result
 }
