@@ -4,9 +4,9 @@ blank_issues_enabled: false
 
 contact_links:
   - name: "📚 阅读README"
-    url: https://github.com/krillinai/KlicStudio/blob/master/README.md
+    url: https://github.com/krillinai/KrillinAI/blob/master/README.md
     about: "在提问前，请先查看文档"
 
   - name: "❓ 问题提问"
-	  url: "https://github.com/krillinai/KlicStudio/blob/master/faq.md"
+	  url: "https://github.com/krillinai/KrillinAI/blob/master/faq.md"
 	  about: "部分FAQ, 更多问题可以在issue中查看"

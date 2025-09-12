@@ -45,14 +45,14 @@ Cela est presque toujours causé par des polices manquantes sur le système, en 
     sudo fc-cache -fv
     ```
 
-### 4. Sur macOS, l'application ne démarre pas et affiche une erreur comme "KlicStudio est endommagé et ne peut pas être ouvert."
+### 4. Sur macOS, l'application ne démarre pas et affiche une erreur comme "KrillinAI est endommagé et ne peut pas être ouvert."
 
 Cela est causé par la fonctionnalité de sécurité de macOS, Gatekeeper, qui restreint les applications des développeurs non identifiés. Pour résoudre ce problème, vous devez supprimer manuellement l'attribut de quarantaine.
 
 1. Ouvrez l'application **Terminal**.
-2. Tapez la commande `xattr -cr` suivie d'un espace, puis faites glisser le fichier `KlicStudio.app` de votre fenêtre Finder dans le Terminal. La commande ressemblera à ceci :
+2. Tapez la commande `xattr -cr` suivie d'un espace, puis faites glisser le fichier `KrillinAI.app` de votre fenêtre Finder dans le Terminal. La commande ressemblera à ceci :
     ```
-    xattr -cr /Applications/KlicStudio.app
+    xattr -cr /Applications/KrillinAI.app
     ```
 3. Appuyez sur Entrée. Vous devriez maintenant pouvoir ouvrir l'application.
 
@@ -86,7 +86,7 @@ Les voix disponibles et leurs codes correspondants sont définis par le fourniss
 
 ### 9. Comment puis-je utiliser un modèle de langage large (LLM) local, comme celui fonctionnant sur Ollama, pour la traduction ?
 
-Oui, vous pouvez configurer KlicStudio pour utiliser n'importe quel LLM local qui fournit un point de terminaison API compatible avec OpenAI.
+Oui, vous pouvez configurer KrillinAI pour utiliser n'importe quel LLM local qui fournit un point de terminaison API compatible avec OpenAI.
 
 1. **Démarrez votre LLM local :** Assurez-vous que votre service local (par exemple, Ollama exécutant Llama3) est actif et accessible.
 2. **Modifier `config.toml` :** Dans la section pour le modèle de langage large (traducteur) :
@@ -98,13 +98,13 @@ Oui, vous pouvez configurer KlicStudio pour utiliser n'importe quel LLM local qu
 
 ### 10. Puis-je personnaliser le style des sous-titres (police, taille, couleur) dans la vidéo finale ?
 
-Non. Actuellement, KlicStudio génère des **sous-titres codés en dur**, ce qui signifie qu'ils sont intégrés directement dans les images de la vidéo. L'application **n'offre pas d'options pour personnaliser le style des sous-titres** ; elle utilise un style prédéfini.
+Non. Actuellement, KrillinAI génère des **sous-titres codés en dur**, ce qui signifie qu'ils sont intégrés directement dans les images de la vidéo. L'application **n'offre pas d'options pour personnaliser le style des sous-titres** ; elle utilise un style prédéfini.
 
 Pour une personnalisation avancée, la solution de contournement recommandée est de :
 
-1. Utiliser KlicStudio pour générer le fichier de sous-titres `.srt` traduit.
+1. Utiliser KrillinAI pour générer le fichier de sous-titres `.srt` traduit.
 2. Importer votre vidéo originale et ce fichier `.srt` dans un éditeur vidéo professionnel (par exemple, Premiere Pro, Final Cut Pro, DaVinci Resolve) pour appliquer des styles personnalisés avant le rendu.
 
-### 11. J'ai déjà un fichier `.srt` traduit. KlicStudio peut-il l'utiliser pour effectuer uniquement le doublage ?
+### 11. J'ai déjà un fichier `.srt` traduit. KrillinAI peut-il l'utiliser pour effectuer uniquement le doublage ?
 
 Non, cette fonctionnalité n'est pas actuellement prise en charge. L'application exécute un pipeline complet de la transcription à la génération de la vidéo finale.

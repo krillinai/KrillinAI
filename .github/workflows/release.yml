@@ -70,13 +70,13 @@ jobs:
               echo "${log_prefix} 🚀 Building for $os/$arch..."
               xgo \
                   --targets="$os/$arch" \
-                  --out "klicstudio_desktop" \
+                  --out "krillinai_desktop" \
                   --dest "$target_dir" \
                   ./cmd/desktop 2>&1 | sed "s/^/${log_prefix} /"
               # 生成最终二进制文件名日志输
-              binary_name="KlicStudio_${{ steps.version.outputs.version }}_Desktop_${display_os}${suffix}"
+              binary_name="KrillinAI_${{ steps.version.outputs.version }}_Desktop_${display_os}${suffix}"
               # 移动并重命名文件
-              mv "$target_dir"/klicstudio_desktop* "build/$binary_name"
+              mv "$target_dir"/krillinai_desktop* "build/$binary_name"
               echo "${log_prefix} ✅ Built: build/$binary_name"
             ) &
           done

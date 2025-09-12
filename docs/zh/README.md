@@ -1,16 +1,16 @@
 <div align="center">
-  <img src="/docs/images/logo.jpg" alt="KlicStudio" height="90">
+  <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
 # 极简 AI 视频翻译与配音工具
 
-<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKlicStudio | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
 **[English](/README.md)｜[简体中文](/docs/zh/README.md)｜[日本語](/docs/jp/README.md)｜[한국어](/docs/kr/README.md)｜[Tiếng Việt](/docs/vi/README.md)｜[Français](/docs/fr/README.md)｜[Deutsch](/docs/de/README.md)｜[Español](/docs/es/README.md)｜[Português](/docs/pt/README.md)｜[Русский](/docs/rus/README.md)｜[اللغة العربية](/docs/ar/README.md)**
 
 [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=粉丝&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/krillinai/KlicStudio)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/krillinai/KrillinAI)
 
 </div>
 
@@ -119,11 +119,11 @@ _**下表中的所有本地模型支持可执行文件 + 模型文件的自动�
 
 ## 🚀 快速开始
 
-您可以在 [KlicStudio 的 Deepwiki](https://deepwiki.com/krillinai/KlicStudio) 上提问。它会索引库中的文件，因此您可以快速找到答案。
+您可以在 [KrillinAI 的 Deepwiki](https://deepwiki.com/krillinai/KrillinAI) 上提问。它会索引库中的文件，因此您可以快速找到答案。
 
 ### 基本步骤
 
-首先，从 [Release](https://github.com/KrillinAI/KlicStudio/releases) 下载与您的设备系统匹配的可执行文件，然后按照下面的教程选择桌面版或非桌面版。将软件下载放在一个空文件夹中，因为运行它会生成一些目录，保持在空文件夹中会使管理更容易。
+首先，从 [Release](https://github.com/KrillinAI/KrillinAI/releases) 下载与您的设备系统匹配的可执行文件，然后按照下面的教程选择桌面版或非桌面版。将软件下载放在一个空文件夹中，因为运行它会生成一些目录，保持在空文件夹中会使管理更容易。
 
 【如果是桌面版，即带有“desktop”的发布文件，请查看这里】
 _桌面版是新发布的，旨在解决新用户在正确编辑配置文件时遇到的问题，并且有一些错误正在持续更新。_
@@ -142,24 +142,24 @@ _非桌面版是初始版本，配置更复杂，但功能稳定，适合服务�
 【如果是桌面版，即带有“desktop”的发布文件，请查看这里】
 由于签名问题，桌面版目前无法双击运行或通过 dmg 安装；您需要手动信任该应用程序。方法如下：
 
-1. 在可执行文件所在目录打开终端（假设文件名为 KlicStudio_1.0.0_desktop_macOS_arm64）
+1. 在可执行文件所在目录打开终端（假设文件名为 KrillinAI_1.0.0_desktop_macOS_arm64）
 2. 按顺序执行以下命令：
 
 ```
-sudo xattr -cr ./KlicStudio_1.0.0_desktop_macOS_arm64
-sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64 
-./KlicStudio_1.0.0_desktop_macOS_arm64
+sudo xattr -cr ./KrillinAI_1.0.0_desktop_macOS_arm64
+sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64 
+./KrillinAI_1.0.0_desktop_macOS_arm64
 ```
 
 【如果是非桌面版，即不带“desktop”的发布文件，请查看这里】
 该软件未签名，因此在 macOS 上运行时，在完成“基本步骤”中的文件配置后，您还需要手动信任该应用程序。方法如下：
 
-1. 在可执行文件所在目录打开终端（假设文件名为 KlicStudio_1.0.0_macOS_arm64）
+1. 在可执行文件所在目录打开终端（假设文件名为 KrillinAI_1.0.0_macOS_arm64）
 2. 按顺序执行以下命令：
    ```
-   sudo xattr -rd com.apple.quarantine ./KlicStudio_1.0.0_macOS_arm64
-   sudo chmod +x ./KlicStudio_1.0.0_macOS_arm64
-   ./KlicStudio_1.0.0_macOS_arm64
+   sudo xattr -rd com.apple.quarantine ./KrillinAI_1.0.0_macOS_arm64
+   sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
+   ./KrillinAI_1.0.0_macOS_arm64
    ```
    
    这将启动服务
@@ -215,4 +215,4 @@ sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64
 
 ## Star 历史
 
-[![Star History Chart](https://api.star-history.com/svg?repos=KrillinAI/KlicStudio&type=Date)](https://star-history.com/#KrillinAI/KlicStudio&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)

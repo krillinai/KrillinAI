@@ -45,14 +45,14 @@ This is almost always caused by missing fonts on the system, particularly those 
     sudo fc-cache -fv
     ```
 
-### 4. On macOS, the application won't start and shows an error like "KlicStudio is damaged and can’t be opened."
+### 4. On macOS, the application won't start and shows an error like "KrillinAI is damaged and can’t be opened."
 
 This is caused by macOS's security feature, Gatekeeper, which restricts apps from unidentified developers. To fix this, you must manually remove the quarantine attribute.
 
 1. Open the **Terminal** app.
-2. Type the command `xattr -cr` followed by a space, then drag the `KlicStudio.app` file from your Finder window into the Terminal. The command will look something like this:
+2. Type the command `xattr -cr` followed by a space, then drag the `KrillinAI.app` file from your Finder window into the Terminal. The command will look something like this:
     ```
-    xattr -cr /Applications/KlicStudio.app
+    xattr -cr /Applications/KrillinAI.app
     ```
 3. Press Enter. You should now be able to open the application.
 
@@ -86,7 +86,7 @@ The available voices and their corresponding codes are defined by the voice serv
 
 ### 9. How can I use a local Large Language Model (LLM), like one running on Ollama, for translation?
 
-Yes, you can configure KlicStudio to use any local LLM that provides an OpenAI-compatible API endpoint.
+Yes, you can configure KrillinAI to use any local LLM that provides an OpenAI-compatible API endpoint.
 
 1. **Start Your Local LLM:** Ensure your local service (e.g., Ollama running Llama3) is active and accessible.
 2. **Edit `config.toml`:** In the section for the large language model (translator):
@@ -98,14 +98,14 @@ Yes, you can configure KlicStudio to use any local LLM that provides an OpenAI-c
 
 ### 10. Can I customize the subtitle style (font, size, color) in the final video?
 
-No. Currently, KlicStudio generates **hardcoded subtitles**, meaning they are burned directly into the video frames. The application **does not offer options to customize the subtitle style**; it uses a preset style.
+No. Currently, KrillinAI generates **hardcoded subtitles**, meaning they are burned directly into the video frames. The application **does not offer options to customize the subtitle style**; it uses a preset style.
 
 For advanced customization, the recommended workaround is to:
 
-1. Use KlicStudio to generate the translated `.srt` subtitle file.
+1. Use KrillinAI to generate the translated `.srt` subtitle file.
 2. Import your original video and this `.srt` file into a professional video editor (e.g., Premiere Pro, Final Cut Pro, DaVinci Resolve) to apply custom styles before rendering.
 
-### 11. I already have a translated `.srt` file. Can KlicStudio use it to just perform the dubbing?
+### 11. I already have a translated `.srt` file. Can KrillinAI use it to just perform the dubbing?
 
 No, this feature is not currently supported. The application runs a full pipeline from transcription to final video generation.
 

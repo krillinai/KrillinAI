@@ -29,10 +29,10 @@ RUN mkdir -p bin && \
     wget -O bin/edge-tts "$EDGE_TTS_URL" && \
     chmod +x bin/yt-dlp bin/edge-tts
 
-COPY KlicStudio ./
+COPY KrillinAI ./
 
 RUN mkdir -p /app/models && \
-    chmod +x ./KlicStudio
+    chmod +x ./KrillinAI
 
 VOLUME ["/app/bin", "/app/models"]
 
@@ -40,4 +40,4 @@ ENV PATH="/app/bin:${PATH}"
 
 EXPOSE 8888/tcp
 
-ENTRYPOINT ["./KlicStudio"]
+ENTRYPOINT ["./KrillinAI"]
