@@ -1,16 +1,16 @@
 <div align="center">
-  <img src="/docs/images/logo.jpg" alt="KlicStudio" height="90">
+  <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
 # 미니멀리스트 AI 비디오 번역 및 더빙 도구
 
-<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKlicStudio | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
 **[English](/README.md)｜[简体中文](/docs/zh/README.md)｜[日本語](/docs/jp/README.md)｜[한국어](/docs/kr/README.md)｜[Tiếng Việt](/docs/vi/README.md)｜[Français](/docs/fr/README.md)｜[Deutsch](/docs/de/README.md)｜[Español](/docs/es/README.md)｜[Português](/docs/pt/README.md)｜[Русский](/docs/rus/README.md)｜[اللغة العربية](/docs/ar/README.md)**
 
 [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=粉丝&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/krillinai/KlicStudio)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/krillinai/KrillinAI)
 
 </div>
 
@@ -119,11 +119,11 @@ _**아래 표의 모든 로컬 모델은 실행 파일 + 모델 파일의 자동
 
 ## 🚀 빠른 시작
 
-[KlicStudio의 Deepwiki](https://deepwiki.com/krillinai/KlicStudio)에서 질문할 수 있습니다. 이곳은 리포지토리의 파일을 색인화하여 빠르게 답변을 찾을 수 있습니다.
+[KrillinAI의 Deepwiki](https://deepwiki.com/krillinai/KrillinAI)에서 질문할 수 있습니다. 이곳은 리포지토리의 파일을 색인화하여 빠르게 답변을 찾을 수 있습니다.
 
 ### 기본 단계
 
-먼저, [Release](https://github.com/KrillinAI/KlicStudio/releases)에서 장치 시스템에 맞는 실행 파일을 다운로드한 후, 아래 튜토리얼에 따라 데스크탑 버전 또는 비데스크탑 버전을 선택합니다. 소프트웨어 다운로드를 빈 폴더에 두세요. 실행하면 일부 디렉토리가 생성되며, 빈 폴더에 두면 관리가 더 쉬워집니다.
+먼저, [Release](https://github.com/KrillinAI/KrillinAI/releases)에서 장치 시스템에 맞는 실행 파일을 다운로드한 후, 아래 튜토리얼에 따라 데스크탑 버전 또는 비데스크탑 버전을 선택합니다. 소프트웨어 다운로드를 빈 폴더에 두세요. 실행하면 일부 디렉토리가 생성되며, 빈 폴더에 두면 관리가 더 쉬워집니다.
 
 【데스크탑 버전인 경우, 즉 "desktop"이 포함된 릴리스 파일인 경우, 여기를 참조하세요】
 _데스크탑 버전은 새로운 사용자가 구성 파일을 올바르게 편집하는 데 어려움을 겪는 문제를 해결하기 위해 새로 출시되었으며, 지속적으로 업데이트되는 몇 가지 버그가 있습니다._
@@ -142,24 +142,24 @@ _비데스크탑 버전은 초기 버전으로, 구성은 더 복잡하지만 �
 【데스크탑 버전인 경우, 즉 "desktop"이 포함된 릴리스 파일인 경우, 여기를 참조하세요】
 서명 문제로 인해 현재 데스크탑 버전은 두 번 클릭하여 실행하거나 dmg를 통해 설치할 수 없습니다. 애플리케이션을 수동으로 신뢰해야 합니다. 방법은 다음과 같습니다:
 
-1. 실행 파일이 있는 디렉토리에서 터미널을 엽니다 (파일 이름이 KlicStudio_1.0.0_desktop_macOS_arm64라고 가정).
+1. 실행 파일이 있는 디렉토리에서 터미널을 엽니다 (파일 이름이 KrillinAI_1.0.0_desktop_macOS_arm64라고 가정).
 2. 다음 명령을 순서대로 실행합니다:
 
 ```
-sudo xattr -cr ./KlicStudio_1.0.0_desktop_macOS_arm64
-sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64 
-./KlicStudio_1.0.0_desktop_macOS_arm64
+sudo xattr -cr ./KrillinAI_1.0.0_desktop_macOS_arm64
+sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64 
+./KrillinAI_1.0.0_desktop_macOS_arm64
 ```
 
 【비데스크탑 버전인 경우, 즉 "desktop"이 포함되지 않은 릴리스 파일인 경우, 여기를 참조하세요】
 이 소프트웨어는 서명되지 않았으므로 macOS에서 실행할 때 "기본 단계"에서 파일 구성을 완료한 후에도 애플리케이션을 수동으로 신뢰해야 합니다. 방법은 다음과 같습니다:
 
-1. 실행 파일이 있는 디렉토리에서 터미널을 엽니다 (파일 이름이 KlicStudio_1.0.0_macOS_arm64라고 가정).
+1. 실행 파일이 있는 디렉토리에서 터미널을 엽니다 (파일 이름이 KrillinAI_1.0.0_macOS_arm64라고 가정).
 2. 다음 명령을 순서대로 실행합니다:
    ```
-   sudo xattr -rd com.apple.quarantine ./KlicStudio_1.0.0_macOS_arm64
-   sudo chmod +x ./KlicStudio_1.0.0_macOS_arm64
-   ./KlicStudio_1.0.0_macOS_arm64
+   sudo xattr -rd com.apple.quarantine ./KrillinAI_1.0.0_macOS_arm64
+   sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
+   ./KrillinAI_1.0.0_macOS_arm64
    ```
    
    이렇게 하면 서비스가 시작됩니다.
@@ -215,4 +215,4 @@ sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64
 
 ## 스타 역사
 
-[![스타 역사 차트](https://api.star-history.com/svg?repos=KrillinAI/KlicStudio&type=Date)](https://star-history.com/#KrillinAI/KlicStudio&Date)
+[![스타 역사 차트](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)

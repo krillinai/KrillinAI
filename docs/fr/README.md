@@ -1,16 +1,16 @@
 <div align="center">
-  <img src="/docs/images/logo.jpg" alt="KlicStudio" height="90">
+  <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
 # Outil de traduction et de doublage vidéo AI minimaliste
 
-<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKlicStudio | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
 **[English](/README.md)｜[简体中文](/docs/zh/README.md)｜[日本語](/docs/jp/README.md)｜[한국어](/docs/kr/README.md)｜[Tiếng Việt](/docs/vi/README.md)｜[Français](/docs/fr/README.md)｜[Deutsch](/docs/de/README.md)｜[Español](/docs/es/README.md)｜[Português](/docs/pt/README.md)｜[Русский](/docs/rus/README.md)｜[اللغة العربية](/docs/ar/README.md)**
 
 [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=粉丝&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/krillinai/KlicStudio)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/krillinai/KrillinAI)
 
 </div>
 
@@ -119,11 +119,11 @@ Langues de traduction prises en charge : anglais, chinois, russe, espagnol, fran
 
 ## 🚀 Démarrage rapide
 
-Vous pouvez poser des questions sur le [Deepwiki de KlicStudio](https://deepwiki.com/krillinai/KlicStudio). Il indexe les fichiers dans le dépôt, vous pouvez donc trouver des réponses rapidement.
+Vous pouvez poser des questions sur le [Deepwiki de KrillinAI](https://deepwiki.com/krillinai/KrillinAI). Il indexe les fichiers dans le dépôt, vous pouvez donc trouver des réponses rapidement.
 
 ### Étapes de base
 
-Tout d'abord, téléchargez le fichier exécutable qui correspond à votre système de périphérique depuis le [Release](https://github.com/KrillinAI/KlicStudio/releases), puis suivez le tutoriel ci-dessous pour choisir entre la version de bureau ou la version non de bureau. Placez le téléchargement du logiciel dans un dossier vide, car son exécution générera certains répertoires, et le garder dans un dossier vide facilitera la gestion.
+Tout d'abord, téléchargez le fichier exécutable qui correspond à votre système de périphérique depuis le [Release](https://github.com/KrillinAI/KrillinAI/releases), puis suivez le tutoriel ci-dessous pour choisir entre la version de bureau ou la version non de bureau. Placez le téléchargement du logiciel dans un dossier vide, car son exécution générera certains répertoires, et le garder dans un dossier vide facilitera la gestion.
 
 【Si c'est la version de bureau, c'est-à-dire le fichier de version avec "desktop", voir ici】
 _La version de bureau est nouvellement publiée pour résoudre les problèmes des nouveaux utilisateurs qui ont du mal à éditer correctement les fichiers de configuration, et il y a quelques bugs qui sont continuellement mis à jour._
@@ -142,24 +142,24 @@ _La version non de bureau est la version initiale, qui a une configuration plus 
 【Si c'est la version de bureau, c'est-à-dire le fichier de version avec "desktop", voir ici】
 En raison de problèmes de signature, la version de bureau ne peut actuellement pas être exécutée par double-clic ou installée via dmg ; vous devez faire confiance manuellement à l'application. La méthode est la suivante :
 
-1. Ouvrez le terminal dans le répertoire où se trouve le fichier exécutable (en supposant que le nom du fichier est KlicStudio_1.0.0_desktop_macOS_arm64)
+1. Ouvrez le terminal dans le répertoire où se trouve le fichier exécutable (en supposant que le nom du fichier est KrillinAI_1.0.0_desktop_macOS_arm64)
 2. Exécutez les commandes suivantes dans l'ordre :
 
 ```
-sudo xattr -cr ./KlicStudio_1.0.0_desktop_macOS_arm64
-sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64 
-./KlicStudio_1.0.0_desktop_macOS_arm64
+sudo xattr -cr ./KrillinAI_1.0.0_desktop_macOS_arm64
+sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64 
+./KrillinAI_1.0.0_desktop_macOS_arm64
 ```
 
 【Si c'est la version non de bureau, c'est-à-dire le fichier de version sans "desktop", voir ici】
 Ce logiciel n'est pas signé, donc lors de l'exécution sur macOS, après avoir terminé la configuration du fichier dans les "Étapes de base", vous devez également faire confiance manuellement à l'application. La méthode est la suivante :
 
-1. Ouvrez le terminal dans le répertoire où se trouve le fichier exécutable (en supposant que le nom du fichier est KlicStudio_1.0.0_macOS_arm64)
+1. Ouvrez le terminal dans le répertoire où se trouve le fichier exécutable (en supposant que le nom du fichier est KrillinAI_1.0.0_macOS_arm64)
 2. Exécutez les commandes suivantes dans l'ordre :
    ```
-   sudo xattr -rd com.apple.quarantine ./KlicStudio_1.0.0_macOS_arm64
-   sudo chmod +x ./KlicStudio_1.0.0_macOS_arm64
-   ./KlicStudio_1.0.0_macOS_arm64
+   sudo xattr -rd com.apple.quarantine ./KrillinAI_1.0.0_macOS_arm64
+   sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
+   ./KrillinAI_1.0.0_macOS_arm64
    ```
    
    Cela démarrera le service
@@ -215,4 +215,4 @@ Veuillez visiter [Questions Fréquemment Posées](./faq.md)
 
 ## Historique des étoiles
 
-[![Graphique de l'historique des étoiles](https://api.star-history.com/svg?repos=KrillinAI/KlicStudio&type=Date)](https://star-history.com/#KrillinAI/KlicStudio&Date)
+[![Graphique de l'historique des étoiles](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)

@@ -1,16 +1,16 @@
 <div align="center">
-  <img src="/docs/images/logo.jpg" alt="KlicStudio" height="90">
+  <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
 # أداة ترجمة الفيديو والتعليق الصوتي بالذكاء الاصطناعي البسيطة
 
-<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKlicStudio | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
 **[English](/README.md)｜[简体中文](/docs/zh/README.md)｜[日本語](/docs/jp/README.md)｜[한국어](/docs/kr/README.md)｜[Tiếng Việt](/docs/vi/README.md)｜[Français](/docs/fr/README.md)｜[Deutsch](/docs/de/README.md)｜[Español](/docs/es/README.md)｜[Português](/docs/pt/README.md)｜[Русский](/docs/rus/README.md)｜[اللغة العربية](/docs/ar/README.md)**
 
 [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=粉丝&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/krillinai/KlicStudio)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/krillinai/KrillinAI)
 
 </div>
 
@@ -119,11 +119,11 @@ _**جميع النماذج المحلية في الجدول أدناه تدعم 
 
 ## 🚀 البدء السريع
 
-يمكنك طرح الأسئلة على [Deepwiki of KlicStudio](https://deepwiki.com/krillinai/KlicStudio). يقوم بفهرسة الملفات في المستودع، لذا يمكنك العثور على الإجابات بسرعة.
+يمكنك طرح الأسئلة على [Deepwiki of KrillinAI](https://deepwiki.com/krillinai/KrillinAI). يقوم بفهرسة الملفات في المستودع، لذا يمكنك العثور على الإجابات بسرعة.
 
 ### الخطوات الأساسية
 
-أولاً، قم بتنزيل الملف التنفيذي الذي يتناسب مع نظام جهازك من [الإصدار](https://github.com/KrillinAI/KlicStudio/releases)، ثم اتبع الدليل أدناه للاختيار بين إصدار سطح المكتب أو الإصدار غير المكتبي. ضع تحميل البرنامج في مجلد فارغ، حيث أن تشغيله سيولد بعض الدلائل، والحفاظ عليه في مجلد فارغ سيسهل الإدارة.
+أولاً، قم بتنزيل الملف التنفيذي الذي يتناسب مع نظام جهازك من [الإصدار](https://github.com/KrillinAI/KrillinAI/releases)، ثم اتبع الدليل أدناه للاختيار بين إصدار سطح المكتب أو الإصدار غير المكتبي. ضع تحميل البرنامج في مجلد فارغ، حيث أن تشغيله سيولد بعض الدلائل، والحفاظ عليه في مجلد فارغ سيسهل الإدارة.
 
 【إذا كان إصدار سطح المكتب، أي ملف الإصدار الذي يحتوي على "desktop"، انظر هنا】
 _تم إصدار إصدار سطح المكتب حديثًا لمعالجة مشكلات المستخدمين الجدد الذين يواجهون صعوبة في تحرير ملفات التكوين بشكل صحيح، وهناك بعض الأخطاء التي يتم تحديثها باستمرار._
@@ -142,24 +142,24 @@ _الإصدار غير المكتبي هو الإصدار الأولي، وال�
 【إذا كان إصدار سطح المكتب، أي ملف الإصدار الذي يحتوي على "desktop"، انظر هنا】
 بسبب مشكلات التوقيع، لا يمكن حاليًا تشغيل إصدار سطح المكتب بنقرة مزدوجة أو تثبيته عبر dmg؛ تحتاج إلى الوثوق بالبرنامج يدويًا. الطريقة هي كما يلي:
 
-1. افتح الطرفية في الدليل حيث يوجد الملف التنفيذي (افترض أن اسم الملف هو KlicStudio_1.0.0_desktop_macOS_arm64)
+1. افتح الطرفية في الدليل حيث يوجد الملف التنفيذي (افترض أن اسم الملف هو KrillinAI_1.0.0_desktop_macOS_arm64)
 2. نفذ الأوامر التالية بالترتيب:
 
 ```
-sudo xattr -cr ./KlicStudio_1.0.0_desktop_macOS_arm64
-sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64 
-./KlicStudio_1.0.0_desktop_macOS_arm64
+sudo xattr -cr ./KrillinAI_1.0.0_desktop_macOS_arm64
+sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64 
+./KrillinAI_1.0.0_desktop_macOS_arm64
 ```
 
 【إذا كان الإصدار غير المكتبي، أي ملف الإصدار بدون "desktop"، انظر هنا】
 هذا البرنامج غير موقع، لذا عند التشغيل على macOS، بعد إكمال تكوين الملف في "الخطوات الأساسية"، تحتاج أيضًا إلى الوثوق بالبرنامج يدويًا. الطريقة هي كما يلي:
 
-1. افتح الطرفية في الدليل حيث يوجد الملف التنفيذي (افترض أن اسم الملف هو KlicStudio_1.0.0_macOS_arm64)
+1. افتح الطرفية في الدليل حيث يوجد الملف التنفيذي (افترض أن اسم الملف هو KrillinAI_1.0.0_macOS_arm64)
 2. نفذ الأوامر التالية بالترتيب:
    ```
-   sudo xattr -rd com.apple.quarantine ./KlicStudio_1.0.0_macOS_arm64
-   sudo chmod +x ./KlicStudio_1.0.0_macOS_arm64
-   ./KlicStudio_1.0.0_macOS_arm64
+   sudo xattr -rd com.apple.quarantine ./KrillinAI_1.0.0_macOS_arm64
+   sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
+   ./KrillinAI_1.0.0_macOS_arm64
    ```
    
    سيبدأ هذا الخدمة
@@ -215,4 +215,4 @@ sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64
 
 ## تاريخ النجوم
 
-[![مخطط تاريخ النجوم](https://api.star-history.com/svg?repos=KrillinAI/KlicStudio&type=Date)](https://star-history.com/#KrillinAI/KlicStudio&Date)
+[![مخطط تاريخ النجوم](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)

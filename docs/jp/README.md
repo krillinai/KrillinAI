@@ -1,16 +1,16 @@
 <div align="center">
-  <img src="/docs/images/logo.jpg" alt="KlicStudio" height="90">
+  <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
 # ミニマリストAIビデオ翻訳および吹き替えツール
 
-<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKlicStudio | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
 **[English](/README.md)｜[简体中文](/docs/zh/README.md)｜[日本語](/docs/jp/README.md)｜[한국어](/docs/kr/README.md)｜[Tiếng Việt](/docs/vi/README.md)｜[Français](/docs/fr/README.md)｜[Deutsch](/docs/de/README.md)｜[Español](/docs/es/README.md)｜[Português](/docs/pt/README.md)｜[Русский](/docs/rus/README.md)｜[اللغة العربية](/docs/ar/README.md)**
 
 [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=ファン&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/krillinai/KlicStudio)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/krillinai/KrillinAI)
 
 </div>
 
@@ -119,11 +119,11 @@ _**以下の表のすべてのローカルモデルは、実行可能ファイ�
 
 ## 🚀 クイックスタート
 
-[Deepwiki of KlicStudio](https://deepwiki.com/krillinai/KlicStudio)で質問できます。リポジトリ内のファイルをインデックス化しているので、迅速に回答を見つけることができます。
+[Deepwiki of KrillinAI](https://deepwiki.com/krillinai/KrillinAI)で質問できます。リポジトリ内のファイルをインデックス化しているので、迅速に回答を見つけることができます。
 
 ### 基本ステップ
 
-まず、[Release](https://github.com/KrillinAI/KlicStudio/releases)からデバイスシステムに合った実行可能ファイルをダウンロードし、以下のチュートリアルに従ってデスクトップ版または非デスクトップ版を選択します。ソフトウェアのダウンロードは空のフォルダーに配置してください。実行するといくつかのディレクトリが生成されるため、空のフォルダーに保管することで管理が容易になります。
+まず、[Release](https://github.com/KrillinAI/KrillinAI/releases)からデバイスシステムに合った実行可能ファイルをダウンロードし、以下のチュートリアルに従ってデスクトップ版または非デスクトップ版を選択します。ソフトウェアのダウンロードは空のフォルダーに配置してください。実行するといくつかのディレクトリが生成されるため、空のフォルダーに保管することで管理が容易になります。
 
 【デスクトップ版の場合、「desktop」を含むリリースファイルを参照】
 _デスクトップ版は、新しいユーザーが設定ファイルを正しく編集するのに苦労する問題に対処するために新たにリリースされており、いくつかのバグが継続的に更新されています。_
@@ -142,24 +142,24 @@ _非デスクトップ版は初期版で、設定がより複雑ですが、機�
 【デスクトップ版の場合、「desktop」を含むリリースファイルを参照】
 署名の問題により、デスクトップ版は現在ダブルクリックで実行したり、dmg経由でインストールしたりできません。アプリケーションを手動で信頼する必要があります。方法は以下の通りです：
 
-1. 実行可能ファイル（ファイル名がKlicStudio_1.0.0_desktop_macOS_arm64と仮定）のあるディレクトリでターミナルを開きます。
+1. 実行可能ファイル（ファイル名がKrillinAI_1.0.0_desktop_macOS_arm64と仮定）のあるディレクトリでターミナルを開きます。
 2. 以下のコマンドを順番に実行します：
 
 ```
-sudo xattr -cr ./KlicStudio_1.0.0_desktop_macOS_arm64
-sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64 
-./KlicStudio_1.0.0_desktop_macOS_arm64
+sudo xattr -cr ./KrillinAI_1.0.0_desktop_macOS_arm64
+sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64 
+./KrillinAI_1.0.0_desktop_macOS_arm64
 ```
 
 【非デスクトップ版の場合、「desktop」を含まないリリースファイルを参照】
 このソフトウェアは署名されていないため、macOSで実行する際には、「基本ステップ」でファイル設定を完了した後、アプリケーションを手動で信頼する必要があります。方法は以下の通りです：
 
-1. 実行可能ファイル（ファイル名がKlicStudio_1.0.0_macOS_arm64と仮定）のあるディレクトリでターミナルを開きます。
+1. 実行可能ファイル（ファイル名がKrillinAI_1.0.0_macOS_arm64と仮定）のあるディレクトリでターミナルを開きます。
 2. 以下のコマンドを順番に実行します：
    ```
-   sudo xattr -rd com.apple.quarantine ./KlicStudio_1.0.0_macOS_arm64
-   sudo chmod +x ./KlicStudio_1.0.0_macOS_arm64
-   ./KlicStudio_1.0.0_macOS_arm64
+   sudo xattr -rd com.apple.quarantine ./KrillinAI_1.0.0_macOS_arm64
+   sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
+   ./KrillinAI_1.0.0_macOS_arm64
    ```
    
    これでサービスが開始されます。
@@ -215,4 +215,4 @@ sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64
 
 ## スター履歴
 
-[![スター履歴チャート](https://api.star-history.com/svg?repos=KrillinAI/KlicStudio&type=Date)](https://star-history.com/#KrillinAI/KlicStudio&Date)
+[![スター履歴チャート](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)
