@@ -17,6 +17,7 @@ type StartVideoSubtitleTaskReq struct {
 	VerticalMajorTitle        string   `json:"vertical_major_title"`
 	VerticalMinorTitle        string   `json:"vertical_minor_title"`
 	OriginLanguageWordOneLine int      `json:"origin_language_word_one_line"`
+	VttSwitch                 bool     `json:"vtt_switch"` // 是否使用VTT格式字幕文件
 }
 
 type StartVideoSubtitleTaskResData struct {
