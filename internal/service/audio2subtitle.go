@@ -22,6 +22,14 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// filterStandaloneQuotes 过滤单独的双引号行
+func filterStandaloneQuotes(text string) string {
+	if strings.TrimSpace(text) == "\"" {
+		return "" // 返回空字符串而不是单独的双引号
+	}
+	return text
+}
+
 // 翻译结果数据结构
 type TranslatedItem struct {
 	OriginText     string
