@@ -333,6 +333,13 @@ func (s *YouTubeSubtitleService) ExtractWordsFromVtt(vttFile string) ([]VttWord,
 						continue // 跳过空的单词
 					}
 
+					// 过滤掉单独的双引号
+					trimmedText := strings.TrimSpace(word.Text)
+					if s.isSingleDoubleQuote(trimmedText) {
+						log.GetLogger().Debug("过滤掉单独的双引号", zap.String("文本", trimmedText))
+						continue // 跳过单独的双引号
+					}
+
 					wordKey := fmt.Sprintf("%s-%s-%s", word.Text, word.Start, word.End)
 					if !processedWords[wordKey] {
 						words = append(words, word)
@@ -364,6 +371,12 @@ func (s *YouTubeSubtitleService) ExtractWordsFromVtt(vttFile string) ([]VttWord,
 							zap.String("文本", trimmedLine),
 							zap.String("时间", blockStartTime+" -> "+blockEndTime))
 						continue
+					}
+
+					// 过滤掉单独的双引号
+					if s.isSingleDoubleQuote(trimmedLine) {
+						log.GetLogger().Debug("过滤掉单独的双引号", zap.String("文本", trimmedLine))
+						continue // 跳过单独的双引号
 					}
 
 					// 创建单词的唯一标识
@@ -707,6 +720,11 @@ func (s *YouTubeSubtitleService) writeVttWordsToSrt(vttWords []VttWord, srtFile 
 
 	// 步骤1: 根据标点符号将单词整理成完整的句子 (约占总进度的10%)
 	sentences := s.groupWordsIntoSentences(vttWords)
+	// 输出句子到调试文件
+	debugFile := filepath.Join(req.TaskBasePath, "no_ts.txt")
+	if err := s.writeSentencesToDebugFile(sentences, debugFile); err != nil {
+		log.GetLogger().Warn("Failed to write sentences debug file", zap.Error(err))
+	}
 	if len(sentences) == 0 {
 		return fmt.Errorf("no sentences formed from VTT words")
 	}
@@ -891,6 +909,9 @@ func (s *YouTubeSubtitleService) groupWordsIntoSentences(words []VttWord) []Sent
 		}
 	}
 
+	// 第三步：清理单独的标点符号和过短的句子
+	finalSentences = s.cleanupPunctuationOnlySentences(finalSentences)
+
 	log.GetLogger().Debug("Grouped words into sentences",
 		zap.Int("总单词数", len(words)),
 		zap.Int("一级分割句子数", len(primarySentences)),
@@ -929,6 +950,102 @@ func (s *YouTubeSubtitleService) IsAudioCuePublic(text string) bool {
 	return s.isAudioCue(text)
 }
 
+// SplitBySecondarySentencePunctuationWithDepthPublic 公开的深度分割方法，用于测试
+func (s *YouTubeSubtitleService) SplitBySecondarySentencePunctuationWithDepthPublic(words []VttWord) []Sentence {
+	return s.splitBySecondarySentencePunctuationWithDepth(words, 0)
+}
+
+// CreateSentenceFromWordsPublic 公开的句子创建方法，用于测试
+func (s *YouTubeSubtitleService) CreateSentenceFromWordsPublic(words []VttWord) Sentence {
+	return s.createSentenceFromWords(words)
+}
+
+// cleanupPunctuationOnlySentences 清理只包含标点符号的句子，将其合并到前一句
+func (s *YouTubeSubtitleService) cleanupPunctuationOnlySentences(sentences []Sentence) []Sentence {
+	if len(sentences) <= 1 {
+		return sentences
+	}
+
+	var result []Sentence
+	removedCount := 0
+
+	for _, sentence := range sentences {
+		sentenceText := strings.TrimSpace(sentence.Text)
+
+		// 检查是否只是标点符号或非常短的文本
+		if s.isPunctuationOnly(sentenceText) && len(result) > 0 {
+			removedCount++
+			log.GetLogger().Info("发现单独的双引号句子，将被移除",
+				zap.String("text", sentenceText),
+				zap.String("sentence_full", sentence.Text))
+
+			// 将标点符号合并到前一句
+			lastIdx := len(result) - 1
+			prevSentence := &result[lastIdx]
+
+			// 合并文本，添加空格（如果需要）
+			if prevSentence.Text != "" && !strings.HasSuffix(prevSentence.Text, " ") {
+				prevSentence.Text += " " + sentenceText
+			} else {
+				prevSentence.Text += sentenceText
+			}
+
+			// 合并单词数据
+			prevSentence.Words = append(prevSentence.Words, sentence.Words...)
+
+			// 更新结束时间
+			if sentence.EndTime != "" {
+				prevSentence.EndTime = sentence.EndTime
+			}
+
+			log.GetLogger().Debug("Merged punctuation-only sentence",
+				zap.String("punctuation", sentenceText),
+				zap.String("merged_into", prevSentence.Text))
+		} else {
+			// 正常句子，直接添加
+			result = append(result, sentence)
+		}
+	}
+
+	log.GetLogger().Info("清理双引号句子完成",
+		zap.Int("输入句子数", len(sentences)),
+		zap.Int("输出句子数", len(result)),
+		zap.Int("移除的双引号句子数", removedCount))
+
+	return result
+}
+
+// isPunctuationOnly 检查文本是否只包含标点符号或单个字符
+func (s *YouTubeSubtitleService) isPunctuationOnly(text string) bool {
+	if text == "" {
+		return true
+	}
+
+	// 只过滤单独的双引号（各种类型的双引号）
+	trimmed := strings.TrimSpace(text)
+	doubleQuotes := []string{"\"", "\u201c", "\u201d"} // 英文双引号、中文左双引号、中文右双引号
+	for _, quote := range doubleQuotes {
+		if trimmed == quote {
+			return true // 只有双引号才过滤
+		}
+	}
+
+	// 不再过滤其他标点符号，让它们保留
+	return false
+}
+
+// isSingleDoubleQuote 检查文本是否是单独的双引号
+func (s *YouTubeSubtitleService) isSingleDoubleQuote(text string) bool {
+	trimmed := strings.TrimSpace(text)
+	doubleQuotes := []string{"\"", "\u201c", "\u201d"} // 英文双引号、中文左双引号、中文右双引号
+	for _, quote := range doubleQuotes {
+		if trimmed == quote {
+			return true
+		}
+	}
+	return false
+}
+
 // endsWithSentencePunctuation 检查文本是否以句子结束标点符号结尾
 func (s *YouTubeSubtitleService) endsWithSentencePunctuation(text string, punctuation []rune) bool {
 	if text == "" {
@@ -938,8 +1055,45 @@ func (s *YouTubeSubtitleService) endsWithSentencePunctuation(text string, punctu
 	textRunes := []rune(text)
 	lastRune := textRunes[len(textRunes)-1]
 
+	// 直接检查最后一个字符
 	for _, punct := range punctuation {
 		if lastRune == punct {
+			return true
+		}
+	}
+
+	// 检查倒数第二个字符（处理引号后的标点情况，如 TLC."）
+	if len(textRunes) >= 2 {
+		secondLastRune := textRunes[len(textRunes)-2]
+		// 如果最后一个字符是引号，检查倒数第二个字符是否是标点
+		if lastRune == '"' || lastRune == '\u201c' || lastRune == '\u201d' || lastRune == '」' || lastRune == '』' {
+			for _, punct := range punctuation {
+				if secondLastRune == punct {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// containsQuoteStart 检查文本是否包含引号开始符号
+func (s *YouTubeSubtitleService) containsQuoteStart(text string) bool {
+	quoteStarts := []string{`"`, `"`, `「`, `『`}
+	for _, start := range quoteStarts {
+		if strings.Contains(text, start) {
+			return true
+		}
+	}
+	return false
+}
+
+// containsQuoteEnd 检查文本是否包含引号结束符号
+func (s *YouTubeSubtitleService) containsQuoteEnd(text string) bool {
+	quoteEnds := []string{`"`, `"`, `」`, `』`}
+	for _, end := range quoteEnds {
+		if strings.Contains(text, end) {
 			return true
 		}
 	}
@@ -956,15 +1110,66 @@ func (s *YouTubeSubtitleService) splitByPrimarySentencePunctuation(words []VttWo
 	var currentWords []VttWord
 	primaryEndPunctuation := []rune{'.', '!', '?', '。', '！', '？'}
 
-	for _, word := range words {
+	// 常见的缩写词，不应该作为句子结束标志
+	abbreviations := map[string]bool{
+		"dr.": true, "mr.": true, "mrs.": true, "ms.": true, "prof.": true,
+		"vs.": true, "etc.": true, "inc.": true, "ltd.": true, "corp.": true,
+		"co.": true, "jr.": true, "sr.": true, "st.": true, "ave.": true,
+		"blvd.": true, "rd.": true, "apt.": true, "no.": true, "vol.": true,
+		"ch.": true, "sec.": true, "fig.": true, "pg.": true, "pp.": true,
+		"i.e.": true, "e.g.": true, "cf.": true, "et.": true, "al.": true,
+	}
+
+	// 跟踪引号状态
+	var inQuotes bool
+
+	for i, word := range words {
 		currentWords = append(currentWords, word)
+
+		// 检查引号状态变化
+		if s.containsQuoteStart(word.Text) && !inQuotes {
+			inQuotes = true
+		}
 
 		// 检查单词是否以整句结束标点符号结尾
 		if s.endsWithSentencePunctuation(word.Text, primaryEndPunctuation) {
-			if len(currentWords) > 0 {
-				sentence := s.createSentenceFromWords(currentWords)
-				sentences = append(sentences, sentence)
-				currentWords = []VttWord{} // 重置
+			wordLower := strings.ToLower(strings.TrimSpace(word.Text))
+
+			// 如果是缩写词，不分句
+			if abbreviations[wordLower] {
+				continue
+			}
+
+			// 如果只是一个标点符号（如单独的引号），合并到前一句而不分句
+			if len(strings.TrimSpace(word.Text)) == 1 && i > 0 {
+				continue
+			}
+
+			// 检查是否在引号内
+			if inQuotes {
+				// 如果当前词包含引号结束，结束引号状态并分句
+				if s.containsQuoteEnd(word.Text) {
+					inQuotes = false
+					if len(currentWords) > 0 {
+						sentence := s.createSentenceFromWords(currentWords)
+						sentences = append(sentences, sentence)
+						currentWords = []VttWord{} // 重置
+					}
+				} else {
+					// 在引号内但没有引号结束符，也可以分句（引号内分句是允许的）
+					if len(currentWords) > 0 {
+						sentence := s.createSentenceFromWords(currentWords)
+						sentences = append(sentences, sentence)
+						currentWords = []VttWord{} // 重置
+					}
+				}
+			} else {
+				// 正常分句（不在引号内）
+				if len(currentWords) > 0 {
+					sentence := s.createSentenceFromWords(currentWords)
+					sentences = append(sentences, sentence)
+					currentWords = []VttWord{} // 重置
+				}
 			}
 		}
 	}
@@ -980,53 +1185,171 @@ func (s *YouTubeSubtitleService) splitByPrimarySentencePunctuation(words []VttWo
 
 // splitBySecondarySentencePunctuation 按逗号、分号等断句标点符号分割
 func (s *YouTubeSubtitleService) splitBySecondarySentencePunctuation(words []VttWord) []Sentence {
+	return s.splitBySecondarySentencePunctuationWithDepth(words, 0)
+}
+
+// splitAtCommas 按逗号分割句子，返回分割后的词语组
+func (s *YouTubeSubtitleService) splitAtCommas(words []VttWord) [][]VttWord {
 	if len(words) == 0 {
 		return nil
 	}
 
-	var sentences []Sentence
-	var currentWords []VttWord
-	secondaryEndPunctuation := []rune{',', ';', '，', '；'} // 中英文逗号和分号
-	foundPunctuation := false                             // 跟踪是否找到了标点符号
+	var result [][]VttWord
+	var currentPart []VttWord
 
 	for _, word := range words {
-		currentWords = append(currentWords, word)
+		currentPart = append(currentPart, word)
 
-		// 检查单词是否以逗号或分号结尾
-		if s.endsWithSentencePunctuation(word.Text, secondaryEndPunctuation) {
-			foundPunctuation = true
-			if len(currentWords) > 0 {
-				sentence := s.createSentenceFromWords(currentWords)
-				sentences = append(sentences, sentence)
-				currentWords = []VttWord{} // 重置
+		// 检查是否以逗号或分号结尾
+		if strings.HasSuffix(word.Text, ",") || strings.HasSuffix(word.Text, ";") ||
+			strings.HasSuffix(word.Text, "，") || strings.HasSuffix(word.Text, "；") {
+
+			// 保存当前部分
+			if len(currentPart) > 0 {
+				result = append(result, currentPart)
+				currentPart = nil
 			}
 		}
 	}
 
-	// 处理最后一组单词
-	if len(currentWords) > 0 {
-		sentence := s.createSentenceFromWords(currentWords)
-		sentences = append(sentences, sentence)
+	// 处理剩余的词语
+	if len(currentPart) > 0 {
+		result = append(result, currentPart)
 	}
 
-	// 如果没有找到可分割的标点符号，使用智能分句策略
-	if !foundPunctuation {
-		log.GetLogger().Info("No punctuation found, using smart sentence splitting",
-			zap.Int("total_words", len(words)))
-		return s.splitBySmartRules(words)
+	// 如果没有找到逗号，返回原始句子
+	if len(result) <= 1 {
+		return [][]VttWord{words}
 	}
 
-	// 如果找到标点符号但句子仍然过长，也使用智能分句作为补充
-	for _, sentence := range sentences {
-		if util.CountEffectiveChars(sentence.Text) > config.Conf.App.MaxSentenceLength {
-			log.GetLogger().Info("Found long sentence even after punctuation split, using smart splitting",
-				zap.Int("sentence_length", util.CountEffectiveChars(sentence.Text)),
-				zap.Int("max_length", config.Conf.App.MaxSentenceLength))
-			return s.splitBySmartRules(words)
+	// 合并过短的子句（少于2个单词的子句）
+	var mergedResult [][]VttWord
+	var tempPart []VttWord
+
+	for i, part := range result {
+		if len(part) == 1 {
+			// 1个单词的部分，先暂存
+			tempPart = append(tempPart, part...)
+		} else {
+			// 多个单词的部分
+			if len(tempPart) > 0 {
+				// 如果有暂存的单个单词，与当前部分合并
+				mergedPart := append(tempPart, part...)
+				mergedResult = append(mergedResult, mergedPart)
+				tempPart = nil
+			} else {
+				// 没有暂存的单个单词，直接加入
+				mergedResult = append(mergedResult, part)
+			}
+		}
+
+		// 如果是最后一个部分，且还有暂存的单词
+		if i == len(result)-1 && len(tempPart) > 0 {
+			if len(mergedResult) > 0 {
+				// 与最后一个已添加的部分合并
+				lastIndex := len(mergedResult) - 1
+				mergedResult[lastIndex] = append(mergedResult[lastIndex], tempPart...)
+			} else {
+				// 如果没有其他部分，直接作为一个部分
+				mergedResult = append(mergedResult, tempPart)
+			}
+		}
+	}
+
+	return mergedResult
+}
+
+// splitBySecondarySentencePunctuationWithDepth 用递归方式分割长句
+func (s *YouTubeSubtitleService) splitBySecondarySentencePunctuationWithDepth(words []VttWord, depth int) []Sentence {
+	// 防止无限递归
+	if depth > 3 {
+		return []Sentence{s.createSentenceFromWords(words)}
+	}
+
+	// 检查整句是否过长，如果不长就检查是否有逗号可以分割
+	sentenceText := s.createSentenceFromWords(words).Text
+	totalEffectiveChars := util.CountEffectiveChars(sentenceText)
+
+	log.GetLogger().Info("尝试分割长句", zap.String("sentence", sentenceText), zap.Int("chars", totalEffectiveChars), zap.Int("depth", depth))
+
+	// 第一步：尝试逗号分割（不管长度，优先按逗号分割）
+	commaSplitResult := s.splitAtCommas(words)
+	if len(commaSplitResult) > 1 {
+		// 检查是否所有分割出的子句都符合要求（不太长）
+		allValid := true
+		for _, part := range commaSplitResult {
+			partText := s.createSentenceFromWords(part).Text
+			partChars := util.CountEffectiveChars(partText)
+			if partChars > config.Conf.App.MaxSentenceLength {
+				// 分割后仍然过长
+				allValid = false
+				break
+			}
+		}
+
+		if allValid {
+			// 逗号分割成功，将所有部分转换为句子
+			var sentences []Sentence
+			for _, part := range commaSplitResult {
+				sentences = append(sentences, s.createSentenceFromWords(part))
+			}
+			log.GetLogger().Info("逗号分割成功", zap.Int("parts", len(sentences)))
+			return sentences
+		}
+	}
+
+	// 如果逗号分割失败或没有逗号，检查是否需要进一步分割
+	if totalEffectiveChars <= config.Conf.App.MaxSentenceLength {
+		// 句子不长且没有有效的逗号分割，直接返回
+		return []Sentence{s.createSentenceFromWords(words)}
+	}
+
+	// 第二步：逗号分割失败，对每个过长的部分使用智能分割
+	var sentences []Sentence
+	for _, part := range commaSplitResult {
+		partText := s.createSentenceFromWords(part).Text
+		partChars := util.CountEffectiveChars(partText)
+
+		if partChars > config.Conf.App.MaxSentenceLength {
+			// 过长的部分，使用智能分割
+			smartSplitResult := s.splitBySmartRules(part)
+			sentences = append(sentences, smartSplitResult...)
+		} else {
+			// 合适长度的部分，直接加入
+			sentences = append(sentences, s.createSentenceFromWords(part))
 		}
 	}
 
 	return sentences
+}
+
+// isInterruptionPattern 检查当前位置是否是插入语模式
+// 例如: "personally, yes," "actually, no," "well, okay," 等
+func (s *YouTubeSubtitleService) isInterruptionPattern(words []VttWord, currentIndex int) bool {
+	if currentIndex >= len(words)-1 {
+		return false
+	}
+
+	// 检查下一个词是否是常见的插入语词汇，并且以逗号结尾
+	nextWordIndex := currentIndex + 1
+	if nextWordIndex < len(words) {
+		nextWord := strings.ToLower(strings.TrimSpace(words[nextWordIndex].Text))
+
+		// 常见的插入语词汇列表
+		interruptionWords := []string{
+			"yes,", "yeah,", "no,", "okay,", "ok,", "right,", "well,",
+			"actually,", "really,", "indeed,", "certainly,", "sure,",
+			"exactly,", "absolutely,", "definitely,", "probably,", "maybe,",
+		}
+
+		for _, interruptionWord := range interruptionWords {
+			if nextWord == interruptionWord {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // createSentenceFromWords 从单词列表创建句子
@@ -1985,6 +2308,39 @@ func (s *YouTubeSubtitleService) wouldSplitPhrase(endWords, nextWords, phrase []
 	}
 
 	return false
+}
+
+// writeSentencesToDebugFile 将句子信息写入调试文件
+func (s *YouTubeSubtitleService) writeSentencesToDebugFile(sentences []Sentence, debugFile string) error {
+	file, err := os.Create(debugFile)
+	if err != nil {
+		return fmt.Errorf("failed to create debug file: %w", err)
+	}
+	defer file.Close()
+
+	for i, sentence := range sentences {
+		_, err := file.WriteString(fmt.Sprintf("Sentence %d:\n", i+1))
+		if err != nil {
+			return err
+		}
+
+		_, err = file.WriteString(fmt.Sprintf("Text: %s\n", sentence.Text))
+		if err != nil {
+			return err
+		}
+
+		_, err = file.WriteString(fmt.Sprintf("Start: %s, End: %s\n", sentence.StartTime, sentence.EndTime))
+		if err != nil {
+			return err
+		}
+
+		_, err = file.WriteString(fmt.Sprintf("Word count: %d\n\n", len(sentence.Words)))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // mergeVeryShortSentences 合并过短的句子到前一句
