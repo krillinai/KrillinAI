@@ -17,7 +17,7 @@
 ## 프로젝트 소개  ([지금 온라인 버전 사용해보기!](https://www.klic.studio/))
 [**빠른 시작**](#-quick-start)
 
-Klic Studio는 Krillin AI가 개발한 다재다능한 오디오 및 비디오 현지화 및 향상 솔루션입니다. 이 미니멀하면서도 강력한 도구는 비디오 번역, 더빙 및 음성 클로닝을 통합하여 모든 주요 플랫폼(Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok 등)에서 완벽한 프레젠테이션을 보장하는 가로 및 세로 형식을 지원합니다. 엔드 투 엔드 워크플로우를 통해 원자재를 몇 번의 클릭만으로 아름답게 사용할 수 있는 크로스 플랫폼 콘텐츠로 변환할 수 있습니다.
+KrilliAI는 Krillin AI가 개발한 다재다능한 오디오 및 비디오 현지화 및 향상 솔루션입니다. 이 미니멀하면서도 강력한 도구는 비디오 번역, 더빙 및 음성 클로닝을 통합하여 모든 주요 플랫폼(Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok 등)에서 완벽한 프레젠테이션을 보장하는 가로 및 세로 형식을 지원합니다. 엔드 투 엔드 워크플로우를 통해 원자재를 몇 번의 클릭만으로 아름답게 사용할 수 있는 크로스 플랫폼 콘텐츠로 변환할 수 있습니다.
 
 ## 주요 기능 및 기능:
 
