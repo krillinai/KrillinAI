@@ -17,7 +17,7 @@
 ## Projektvorstellung  ([Probieren Sie jetzt die Online-Version aus!](https://www.klic.studio/))
 [**Schnellstart**](#-quick-start)
 
-KrilliAI ist eine vielseitige Lösung zur Lokalisierung und Verbesserung von Audio und Video, die von Krillin AI entwickelt wurde. Dieses minimalistische, aber leistungsstarke Tool integriert Videoübersetzung, Synchronisation und Sprachklonierung und unterstützt sowohl Quer- als auch Hochformat, um eine perfekte Präsentation auf allen wichtigen Plattformen (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok usw.) zu gewährleisten. Mit einem End-to-End-Workflow können Sie Rohmaterialien mit nur wenigen Klicks in wunderschön bereitgestellte plattformübergreifende Inhalte verwandeln.
+KrillinAI ist eine vielseitige Lösung zur Lokalisierung und Verbesserung von Audio und Video, die von Krillin AI entwickelt wurde. Dieses minimalistische, aber leistungsstarke Tool integriert Videoübersetzung, Synchronisation und Sprachklonierung und unterstützt sowohl Quer- als auch Hochformat, um eine perfekte Präsentation auf allen wichtigen Plattformen (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok usw.) zu gewährleisten. Mit einem End-to-End-Workflow können Sie Rohmaterialien mit nur wenigen Klicks in wunderschön bereitgestellte plattformübergreifende Inhalte verwandeln.
 
 ## Hauptmerkmale und Funktionen:
 
