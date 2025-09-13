@@ -17,7 +17,7 @@
 ## Introduction au projet  ([Essayez la version en ligne maintenant !](https://www.klic.studio/))
 [**Démarrage rapide**](#-quick-start)
 
-Klic Studio est une solution polyvalente de localisation et d'amélioration audio et vidéo développée par Krillin AI. Cet outil minimaliste mais puissant intègre la traduction vidéo, le doublage et le clonage vocal, prenant en charge les formats paysage et portrait pour garantir une présentation parfaite sur toutes les principales plateformes (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). Avec un flux de travail de bout en bout, vous pouvez transformer des matériaux bruts en contenu prêt à l'emploi et multiplateforme en quelques clics.
+KrilliAI est une solution polyvalente de localisation et d'amélioration audio et vidéo développée par Krillin AI. Cet outil minimaliste mais puissant intègre la traduction vidéo, le doublage et le clonage vocal, prenant en charge les formats paysage et portrait pour garantir une présentation parfaite sur toutes les principales plateformes (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). Avec un flux de travail de bout en bout, vous pouvez transformer des matériaux bruts en contenu prêt à l'emploi et multiplateforme en quelques clics.
 
 ## Caractéristiques et fonctions clés :
 

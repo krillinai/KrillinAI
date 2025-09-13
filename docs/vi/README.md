@@ -17,7 +17,7 @@
 ## Giới Thiệu Dự Án  ([Thử phiên bản trực tuyến ngay!](https://www.klic.studio/))
 [**Khởi Đầu Nhanh**](#-quick-start)
 
-Klic Studio là một giải pháp đa năng cho việc địa phương hóa và nâng cao âm thanh và video được phát triển bởi Krillin AI. Công cụ tối giản nhưng mạnh mẽ này tích hợp dịch video, lồng ghép và nhân bản giọng nói, hỗ trợ cả định dạng ngang và dọc để đảm bảo trình bày hoàn hảo trên tất cả các nền tảng chính (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, v.v.). Với quy trình làm việc từ đầu đến cuối, bạn có thể biến nguyên liệu thô thành nội dung đa nền tảng sẵn sàng sử dụng chỉ với vài cú nhấp chuột.
+KrilliAI là một giải pháp đa năng cho việc địa phương hóa và nâng cao âm thanh và video được phát triển bởi Krillin AI. Công cụ tối giản nhưng mạnh mẽ này tích hợp dịch video, lồng ghép và nhân bản giọng nói, hỗ trợ cả định dạng ngang và dọc để đảm bảo trình bày hoàn hảo trên tất cả các nền tảng chính (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, v.v.). Với quy trình làm việc từ đầu đến cuối, bạn có thể biến nguyên liệu thô thành nội dung đa nền tảng sẵn sàng sử dụng chỉ với vài cú nhấp chuột.
 
 ## Tính Năng và Chức Năng Chính:
 

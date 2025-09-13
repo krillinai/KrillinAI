@@ -33,7 +33,7 @@ func createNavButton(text string, icon fyne.Resource, isSelected bool, onTap fun
 // Show 展示桌面
 func Show() {
 	myApp := app.New()
-	myWindow := myApp.NewWindow("Klic Studio")
+	myWindow := myApp.NewWindow("KrilliAI")
 
 	// 创建主题管理器
 	themeManager := NewThemeManager(myApp, myWindow)
@@ -43,7 +43,7 @@ func Show() {
 
 	logoContainer := container.NewVBox()
 
-	logo := canvas.NewText("Klic Studio", color.NRGBA{R: 59, G: 130, B: 246, A: 255})
+	logo := canvas.NewText("KrilliAI", color.NRGBA{R: 59, G: 130, B: 246, A: 255})
 	logo.TextSize = 28
 	logo.TextStyle = fyne.TextStyle{Bold: true}
 	logo.Alignment = fyne.TextAlignCenter
