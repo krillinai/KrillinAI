@@ -180,17 +180,20 @@ Requirements:
 
 var SplitTextWithContextPrompt = `You are a professional subtitle translation expert.
 
-[STRICT TRANSLATION TASK]
+[TRANSLATION TASK]
 **Objective**: 
-Translate ONLY the "Target Sentence" below into %s.
-Use "Previous Sentences" ONLY to understand the context of referents (e.g. pronouns or ellipses), not to infer meaning.
+Translate the "Target Sentence" below into %s with natural, fluent expression.
+Use "Previous Sentences" to understand context and maintain coherence.
 
 **Critical Rules**:
-1. OUTPUT MUST BE A SINGLE LINE: only the translation of the target sentence
-2. Do NOT infer or explain the meaning of the target sentence. Do NOT add any logical connections or causal phrases
-3. If the sentence is fragmentary or dependent (e.g. starts with "that"), KEEP IT THAT WAY in translation
-4. Do NOT complete or rewrite the sentence for fluency
-5. IGNORE the "Next Sentences" completely
+1. OUTPUT MUST BE A SINGLE LINE: only the translated text
+2. Translate naturally and idiomatically - avoid word-for-word literal translation
+3. Remove stuttering/repeated words (e.g., "I I I'm" → translate as "I'm")
+4. Filter out filler words (um, uh, er, ah, oh, mm, hmm, etc.) - do NOT translate them
+5. Use proper punctuation marks in the target language (for Chinese: use ，。！？ not spaces)
+6. Keep the original meaning but express it smoothly and naturally in the target language
+7. If sentence is incomplete/fragmentary, keep it that way but translate fluently
+8. IGNORE the "Next Sentences" - they are for reference only
 
 **Context**:
 [Previous Sentences]
@@ -202,7 +205,7 @@ Use "Previous Sentences" ONLY to understand the context of referents (e.g. prono
 [Next Sentences]
 %s
 
-**Your output must be literal, minimal, and on a single line. Provide only the translation result:**`
+**Provide only the natural, fluent translation on a single line:**`
 
 type SmallAudio struct {
 	AudioFile         string

@@ -432,9 +432,17 @@ func (s *YouTubeSubtitleService) cleanVttText(text string) string {
 	musicSymbolRegex := regexp.MustCompile(`[♪♫♬♩🎵🎶🎤🎧🎼🎹🎸🎺🎻🥁]`)
 	cleanedText = musicSymbolRegex.ReplaceAllString(cleanedText, "")
 
+	// 过滤 >> 符号（YouTube自动字幕的提示符号）
+	cleanedText = strings.ReplaceAll(cleanedText, ">>", "")
+
+	// 过滤常见的语气词（位于句首或独立出现时）
+	// 匹配 Um, Uh, Er, Ah, Oh, Mm, Hmm 等，支持大小写
+	fillerWordsRegex := regexp.MustCompile(`(?i)^\s*(um|uh|er|ah|oh|mm|hmm|hm|eh)\s*[,，]?\s*`)
+	cleanedText = fillerWordsRegex.ReplaceAllString(cleanedText, "")
+
 	// HTML实体解码映射
 	htmlEntities := map[string]string{
-		"&gt;&gt;": ">>", // 大于号双引号
+		"&gt;&gt;": "", // 大于号双引号 - 直接过滤掉
 		"&gt;":     ">",  // 大于号
 		"&lt;&lt;": "<<", // 小于号双引号
 		"&lt;":     "<",  // 小于号
@@ -1973,6 +1981,11 @@ func (s *YouTubeSubtitleService) splitBySemanticBreaks(words []VttWord) []Senten
 		"after": true, "during": true,
 	}
 
+	// 关系代词需要更严格的判断（通常不应该分割）
+	relativePronouns := map[string]bool{
+		"who": true, "whom": true, "whose": true, "which": true, "that": true,
+	}
+
 	var sentences []Sentence
 	var currentWords []VttWord
 	minSentenceLength := 5 // 最小句子长度（单词数）
@@ -1992,7 +2005,34 @@ func (s *YouTubeSubtitleService) splitBySemanticBreaks(words []VttWord) []Senten
 		if !shouldBreak && contextualBreakWords[wordLower] && len(currentWords) >= minSentenceLength {
 			// 额外条件：确保前面有完整的主谓结构
 			if s.hasCompletePhrase(currentWords[:len(currentWords)-1]) {
-				shouldBreak = true
+				// 检查分割后的长度是否满足要求
+				currentText := s.createSentenceFromWords(currentWords[:len(currentWords)-1]).Text
+				currentChars := util.CountEffectiveChars(currentText)
+				
+				// 计算剩余部分的长度
+				remainingWords := words[i:]
+				remainingText := s.createSentenceFromWords(remainingWords).Text
+				remainingChars := util.CountEffectiveChars(remainingText)
+				
+				// 只有当前部分和剩余部分都不超过限制时才分割
+				if currentChars <= config.Conf.App.MaxSentenceLength && 
+				   remainingChars <= config.Conf.App.MaxSentenceLength {
+					shouldBreak = true
+				}
+			}
+		}
+
+		// 关系代词（who, which等）只在句子过长且有完整从句时才分割
+		if !shouldBreak && relativePronouns[wordLower] && len(currentWords) >= minSentenceLength*2 {
+			// 只有在当前部分已经很长的情况下才考虑在关系代词处分割
+			currentText := s.createSentenceFromWords(currentWords[:len(currentWords)-1]).Text
+			currentChars := util.CountEffectiveChars(currentText)
+			
+			if currentChars > config.Conf.App.MaxSentenceLength {
+				// 确保前面有完整的主谓结构
+				if s.hasCompletePhrase(currentWords[:len(currentWords)-1]) {
+					shouldBreak = true
+				}
 			}
 		}
 
