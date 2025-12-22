@@ -213,6 +213,79 @@ func ConvertVttToSrt(inputPath, outputPath string) error {
 	return os.WriteFile(outputPath, []byte(srtContent.String()), 0644)
 }
 
+// ConvertBlockVttToSrt converts block-level VTT (without word-level timestamps) to SRT format
+func ConvertBlockVttToSrt(inputPath, outputPath string) error {
+	contentBytes, err := os.ReadFile(inputPath)
+	if err != nil {
+		return fmt.Errorf("failed to read VTT file: %w", err)
+	}
+	content := string(contentBytes)
+	lines := strings.Split(content, "\n")
+
+	timestampRegex := regexp.MustCompile(`^(\d{2}:\d{2}:\d{2})\.(\d{3})\s-->\s(\d{2}:\d{2}:\d{2})\.(\d{3})`)
+	tagRegex := regexp.MustCompile(`<[^>]*>`)
+
+	var srtBlocks []struct {
+		startTime string
+		endTime   string
+		text      string
+	}
+
+	for i := 0; i < len(lines); {
+		line := strings.TrimSpace(lines[i])
+		
+		// Skip header lines
+		if line == "" || strings.HasPrefix(line, "WEBVTT") || strings.HasPrefix(line, "Kind:") || strings.HasPrefix(line, "Language:") {
+			i++
+			continue
+		}
+
+		// Check for timestamp line
+		if matches := timestampRegex.FindStringSubmatch(line); len(matches) == 5 {
+			startTime := fmt.Sprintf("%s,%s", matches[1], matches[2])
+			endTime := fmt.Sprintf("%s,%s", matches[3], matches[4])
+
+			i++
+			var subtitleLines []string
+			
+			// Collect all subtitle lines until empty line
+			for i < len(lines) && strings.TrimSpace(lines[i]) != "" {
+				cleanLine := strings.TrimSpace(tagRegex.ReplaceAllString(lines[i], ""))
+				if cleanLine != "" {
+					subtitleLines = append(subtitleLines, cleanLine)
+				}
+				i++
+			}
+
+			// Merge multiple lines with space
+			if len(subtitleLines) > 0 {
+				text := strings.Join(subtitleLines, " ")
+				srtBlocks = append(srtBlocks, struct {
+					startTime string
+					endTime   string
+					text      string
+				}{
+					startTime: startTime,
+					endTime:   endTime,
+					text:      text,
+				})
+			}
+		} else {
+			i++
+		}
+	}
+
+	// Write SRT file
+	var srtContent strings.Builder
+	for i, block := range srtBlocks {
+		srtContent.WriteString(fmt.Sprintf("%d\n", i+1))
+		srtContent.WriteString(fmt.Sprintf("%s --> %s\n", block.startTime, block.endTime))
+		srtContent.WriteString(block.text + "\n\n")
+	}
+
+	return os.WriteFile(outputPath, []byte(srtContent.String()), 0644)
+}
+
 func ParseVttTime(timeStr string) (float64, error) {
 	// VTT format: HH:MM:SS.ms or MM:SS.ms
 	parts := strings.Split(timeStr, ":")
