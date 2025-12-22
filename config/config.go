@@ -22,6 +22,8 @@ type App struct {
 	TranscribeMaxAttempts int      `toml:"transcribe_max_attempts"`
 	TranslateMaxAttempts  int      `toml:"translate_max_attempts"`
 	MaxSentenceLength     int      `toml:"max_sentence_length"`
+	EnableBlockVttBatch   bool     `toml:"enable_block_vtt_batch"`
+	VttBatchSize          int      `toml:"vtt_batch_size"`
 	Proxy                 string   `toml:"proxy"`
 	ParsedProxy           *url.URL `toml:"-"`
 }
@@ -100,6 +102,8 @@ var Conf = Config{
 		TranscribeMaxAttempts: 3,
 		TranslateMaxAttempts:  3,
 		MaxSentenceLength:     70,
+		EnableBlockVttBatch:   false,
+		VttBatchSize:          10,
 	},
 	Server: Server{
 		Host: "127.0.0.1",

@@ -1448,6 +1448,49 @@ func (s *YouTubeSubtitleService) writeSrtBlocksToFile(blocks []*util.SrtBlock, s
 	return nil
 }
 
+// writeTargetLanguageSrtFile 写入只包含目标语言的SRT文件
+func (s *YouTubeSubtitleService) writeTargetLanguageSrtFile(blocks []*util.SrtBlock, srtFile string) error {
+	file, err := os.Create(srtFile)
+	if err != nil {
+		return fmt.Errorf("failed to create target language SRT file: %w", err)
+	}
+	defer file.Close()
+
+	for _, block := range blocks {
+		// 写入序号
+		_, err = file.WriteString(fmt.Sprintf("%d\n", block.Index))
+		if err != nil {
+			return err
+		}
+
+		// 写入时间戳
+		_, err = file.WriteString(block.Timestamp + "\n")
+		if err != nil {
+			return err
+		}
+
+		// 只写入目标语言文本
+		if block.TargetLanguageSentence != "" {
+			_, err = file.WriteString(block.TargetLanguageSentence + "\n\n")
+			if err != nil {
+				return err
+			}
+		} else if block.OriginLanguageSentence != "" {
+			// 如果没有翻译，使用原语言
+			_, err = file.WriteString(block.OriginLanguageSentence + "\n\n")
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	log.GetLogger().Info("Target language SRT file written successfully",
+		zap.String("文件", srtFile),
+		zap.Int("块数", len(blocks)))
+
+	return nil
+}
+
 // writeShortMixedSrtFile 生成短字幕文件，基于已拆分的长字幕SRT块
 func (s *YouTubeSubtitleService) writeShortMixedSrtFile(srtBlocks []*util.SrtBlock, shortSrtFile string, sentences []Sentence) error {
 	file, err := os.Create(shortSrtFile)
@@ -2428,4 +2471,140 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// DetectVttFormat 检测VTT文件格式类型，返回是否包含单词级时间戳
+// 返回值: true=word-level (有行内时间戳), false=block-level (仅块级时间戳)
+// 导出为公开方法以便测试
+func (s *YouTubeSubtitleService) DetectVttFormat(vttFile string) (bool, error) {
+	file, err := os.Open(vttFile)
+	if err != nil {
+		return false, fmt.Errorf("无法打开VTT文件: %w", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	// 匹配单词级行内时间戳的正则表达式
+	wordTimeRegex := regexp.MustCompile(`<(\d{2}:\d{2}:\d{2}\.\d{3})>`)
+	
+	lineCount := 0
+	maxLinesToCheck := 100 // 检查前100行即可判断格式
+	
+	for scanner.Scan() && lineCount < maxLinesToCheck {
+		line := scanner.Text()
+		lineCount++
+		
+		// 如果发现行内时间戳，说明是word-level格式
+		if wordTimeRegex.MatchString(line) {
+			log.GetLogger().Info("检测到word-level VTT格式（包含单词级时间戳）", 
+				zap.String("file", vttFile))
+			return true, nil
+		}
+	}
+	
+	if err := scanner.Err(); err != nil {
+		return false, fmt.Errorf("读取VTT文件错误: %w", err)
+	}
+	
+	log.GetLogger().Info("检测到block-level VTT格式（仅块级时间戳）", 
+		zap.String("file", vttFile))
+	return false, nil
+}
+
+// ProcessBlockLevelVtt 处理块级时间戳的VTT文件（无单词级时间戳）
+// 流程: VTT → SRT → 批量翻译 → 双语字幕
+func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *YoutubeSubtitleReq) (string, error) {
+	log.GetLogger().Info("开始处理block-level VTT字幕", 
+		zap.String("taskId", req.TaskId),
+		zap.String("vttFile", req.VttFile))
+	
+	// 更新进度：开始处理
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 20
+	}
+	
+	// 1. 转换VTT到临时SRT文件
+	tempSrtFile := filepath.Join(req.TaskBasePath, "temp_block_level.srt")
+	err := util.ConvertBlockVttToSrt(req.VttFile, tempSrtFile)
+	if err != nil {
+		return "", fmt.Errorf("VTT转SRT失败: %w", err)
+	}
+	log.GetLogger().Info("VTT转SRT完成", zap.String("srtFile", tempSrtFile))
+	
+	// 更新进度：VTT转换完成
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 30
+	}
+	
+	// 2. 生成原文SRT文件（origin_language_srt.srt）
+	originSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskOriginLanguageSrtFileName)
+	// 直接复制临时SRT作为原文字幕
+	originData, err := os.ReadFile(tempSrtFile)
+	if err != nil {
+		return "", fmt.Errorf("读取临时SRT失败: %w", err)
+	}
+	err = os.WriteFile(originSrtFile, originData, 0644)
+	if err != nil {
+		return "", fmt.Errorf("写入原文SRT失败: %w", err)
+	}
+	log.GetLogger().Info("生成原文SRT完成", zap.String("originSrtFile", originSrtFile))
+	
+	// 更新进度：原文SRT生成完成
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 40
+	}
+	
+	// 3. 解析SRT文件
+	srtBlocks, err := util.ParseSrtFile(tempSrtFile)
+	if err != nil {
+		return "", fmt.Errorf("解析SRT文件失败: %w", err)
+	}
+	log.GetLogger().Info("解析SRT完成", zap.Int("字幕块数", len(srtBlocks)))
+	
+	// 4. 批量翻译（40%-90%的进度在BatchTranslateSrtBlocks内部更新）
+	err = s.translator.BatchTranslateSrtBlocks(srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr)
+	if err != nil {
+		return "", fmt.Errorf("批量翻译失败: %w", err)
+	}
+	log.GetLogger().Info("批量翻译完成", zap.Int("翻译块数", len(srtBlocks)))
+	
+	// 更新进度：翻译完成
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 90
+	}
+	
+	// 5. 生成目标语言SRT文件（target_language_srt.srt）
+	targetSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskTargetLanguageSrtFileName)
+	err = s.writeTargetLanguageSrtFile(srtBlocks, targetSrtFile)
+	if err != nil {
+		return "", fmt.Errorf("写入目标语言SRT失败: %w", err)
+	}
+	log.GetLogger().Info("生成目标语言SRT完成", zap.String("targetSrtFile", targetSrtFile))
+	
+	// 更新进度：目标语言SRT生成完成
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 95
+	}
+	
+	// 6. 生成双语字幕文件（bilingual_srt.srt）
+	bilingualSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskBilingualSrtFileName)
+	err = s.writeSrtBlocksToFile(srtBlocks, bilingualSrtFile)
+	if err != nil {
+		return "", fmt.Errorf("写入双语字幕失败: %w", err)
+	}
+	log.GetLogger().Info("生成双语字幕完成", zap.String("bilingualSrtFile", bilingualSrtFile))
+	
+	// 更新进度：完成
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 100
+	}
+	
+	log.GetLogger().Info("block-level VTT处理完成", 
+		zap.String("taskId", req.TaskId),
+		zap.String("输出文件", bilingualSrtFile))
+	
+	// 清理临时文件
+	os.Remove(tempSrtFile)
+	
+	return bilingualSrtFile, nil
 }

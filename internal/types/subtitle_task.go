@@ -22,7 +22,7 @@ package types
 
 var SplitTextPrompt = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现字幕的准确和高质量翻译：
 
-1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平，保持意思相同。
+1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平，保持意思相同。**如果目标语言是中文，必须使用简体中文，不能使用繁体中文。**
 2. 严格依据标点符号（逗号: ，,、句号:。.、问号:？?等）将内容拆分成单独的句子，并依据以下规则确保拆分长度较短：
    - 每个句子在保证句意完整的情况下尽可能短，适中的字幕长短能提供舒适的观看体验。
    - 根据连词（例如 "and", "but", "which", "when", "so", "所以", "但是", "因此", "考虑到" 等）进一步拆分句子，得到较短的结果。
@@ -51,7 +51,7 @@ var SplitTextPrompt = `你是一个语言处理专家，专注于自然语言处
 // 带有语气词过滤的拆分Prompt
 var SplitTextPromptWithModalFilter = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现字幕的准确和高质量翻译：
 
-1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平，保持意思相同。
+1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平，保持意思相同。**如果目标语言是中文，必须使用简体中文，不能使用繁体中文。**
 2. 严格依据标点符号（逗号: ，,、句号:。.、问号:？?等）将内容拆分成单独的句子，并依据以下规则确保拆分长度较短：
    - 每个句子在保证句意完整的情况下尽可能短，适中的字幕长短能提供舒适的观看体验。
    - 根据连词（例如 "and", "but", "which", "when", "so", "所以", "但是", "因此", "考虑到" 等）进一步拆分句子，得到较短的结果。
@@ -187,13 +187,14 @@ Use "Previous Sentences" to understand context and maintain coherence.
 
 **Critical Rules**:
 1. OUTPUT MUST BE A SINGLE LINE: only the translated text
-2. Translate naturally and idiomatically - avoid word-for-word literal translation
-3. Remove stuttering/repeated words (e.g., "I I I'm" → translate as "I'm")
-4. Filter out filler words (um, uh, er, ah, oh, mm, hmm, etc.) - do NOT translate them
-5. Use proper punctuation marks in the target language (for Chinese: use ，。！？ not spaces)
-6. Keep the original meaning but express it smoothly and naturally in the target language
-7. If sentence is incomplete/fragmentary, keep it that way but translate fluently
-8. IGNORE the "Next Sentences" - they are for reference only
+2. If translating to Chinese, MUST use Simplified Chinese characters (简体中文), NOT Traditional Chinese (繁体中文)
+3. Translate naturally and idiomatically - avoid word-for-word literal translation
+4. Remove stuttering/repeated words (e.g., "I I I'm" → translate as "I'm")
+5. Filter out filler words (um, uh, er, ah, oh, mm, hmm, etc.) - do NOT translate them
+6. Use proper punctuation marks in the target language (for Chinese: use ，。！？ not spaces)
+7. Keep the original meaning but express it smoothly and naturally in the target language
+8. If sentence is incomplete/fragmentary, keep it that way but translate fluently
+9. IGNORE the "Next Sentences" - they are for reference only
 
 **Context**:
 [Previous Sentences]
