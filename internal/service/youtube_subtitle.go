@@ -31,13 +31,14 @@ type VttWord struct {
 }
 
 type YoutubeSubtitleReq struct {
-	TaskBasePath   string
-	TaskId         string
-	URL            string
-	OriginLanguage string
-	TargetLanguage string
-	VttFile        string
-	TaskPtr        *types.SubtitleTask
+	TaskBasePath        string
+	TaskId              string
+	URL                 string
+	OriginLanguage      string
+	TargetLanguage      string
+	VttFile             string
+	TaskPtr             *types.SubtitleTask
+	TargetLanguageFirst bool // 是否将目标语言放在上面（双语字幕）
 }
 
 // YouTubeSubtitleService handles all operations related to YouTube subtitles.
@@ -248,16 +249,126 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 		return "", fmt.Errorf("processYouTubeSubtitle: no original subtitle file found")
 	}
 
-	log.GetLogger().Info("processYouTubeSubtitle start", zap.Any("taskId", req.TaskId), zap.String("subtitleFile", req.VttFile))
+	log.GetLogger().Info("processYouTubeSubtitle start",
+		zap.String("taskId", req.TaskId),
+		zap.String("subtitleFile", req.VttFile))
 
-	bilingualSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskBilingualSrtFileName)
-	// 1. 转换VTT到SRT格式
-	err := s.ConvertVttToSrt(req, bilingualSrtFile)
-	if err != nil {
-		return "", fmt.Errorf("processYouTubeSubtitle convertToSrtFormat error: %w", err)
+	// 更新进度：开始处理
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 10
 	}
 
-	log.GetLogger().Info("processYouTubeSubtitle converted to SRT", zap.Any("taskId", req.TaskId), zap.String("srtFile", bilingualSrtFile))
+	// 1. 提取VTT单词
+	vttFilePath := req.VttFile
+	if vttFilePath == "" {
+		foundVttFile, err := s.findVttFileInDirectory(req.TaskBasePath)
+		if err != nil {
+			return "", fmt.Errorf("failed to find VTT file: %w", err)
+		}
+		vttFilePath = foundVttFile
+	}
+
+	vttWords, err := s.ExtractWordsFromVtt(vttFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to extract VTT words: %w", err)
+	}
+	log.GetLogger().Info("提取VTT单词完成", zap.Int("单词数", len(vttWords)))
+
+	// 更新进度：提取完成
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 20
+	}
+
+	// 2. 组织成句子
+	sentences := s.groupWordsIntoSentences(vttWords)
+	if len(sentences) == 0 {
+		return "", fmt.Errorf("no sentences formed from VTT words")
+	}
+	log.GetLogger().Info("组织句子完成", zap.Int("句子数", len(sentences)))
+
+	// 更新进度：句子组织完成
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 30
+	}
+
+	// 3. 生成原始语言SRT文件（origin_language_srt.srt）
+	originSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskOriginLanguageSrtFileName)
+	srtBlocks, err := s.generateOriginLanguageSrt(sentences, originSrtFile, req)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate origin language SRT: %w", err)
+	}
+	log.GetLogger().Info("生成原始语言SRT完成",
+		zap.String("文件", originSrtFile),
+		zap.Int("块数", len(srtBlocks)))
+
+	// 更新进度：原始SRT生成完成
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 40
+	}
+
+	// 4. 批量翻译生成目标语言SRT（40%-90%进度）
+	err = s.translator.BatchTranslateSrtBlocks(srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr)
+	if err != nil {
+		return "", fmt.Errorf("failed to batch translate: %w", err)
+	}
+	log.GetLogger().Info("批量翻译完成", zap.Int("块数", len(srtBlocks)))
+
+	// 更新进度：翻译完成
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 90
+	}
+
+	// 5. 生成目标语言SRT文件（target_language_srt.srt）
+	targetSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskTargetLanguageSrtFileName)
+	err = s.writeTargetLanguageSrtFile(srtBlocks, targetSrtFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to write target language SRT: %w", err)
+	}
+	log.GetLogger().Info("生成目标语言SRT完成", zap.String("文件", targetSrtFile))
+
+	// 更新进度：目标语言SRT生成完成
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 92
+	}
+
+	// 6. 生成双语字幕文件（bilingual_srt.srt）
+	bilingualSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskBilingualSrtFileName)
+	err = s.writeBilingualSrtFile(srtBlocks, bilingualSrtFile, req.TargetLanguageFirst)
+	if err != nil {
+		return "", fmt.Errorf("failed to write bilingual SRT: %w", err)
+	}
+	log.GetLogger().Info("生成双语字幕完成", zap.String("文件", bilingualSrtFile))
+
+	// 更新进度：双语字幕生成完成
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 95
+	}
+
+	// 7. 生成纯文本文件到output目录
+	outputDir := filepath.Join(req.TaskBasePath, "output")
+	err = os.MkdirAll(outputDir, 0755)
+	if err != nil {
+		log.GetLogger().Warn("创建output目录失败", zap.Error(err))
+	}
+	originTxtFile := filepath.Join(outputDir, "origin_language.txt")
+	targetTxtFile := filepath.Join(outputDir, "target_language.txt")
+	err = s.generateTextFiles(srtBlocks, originTxtFile, targetTxtFile, req.TargetLanguage)
+	if err != nil {
+		log.GetLogger().Warn("生成文本文件失败", zap.Error(err))
+	} else {
+		log.GetLogger().Info("生成文本文件完成",
+			zap.String("原文", originTxtFile),
+			zap.String("译文", targetTxtFile))
+	}
+
+	// 更新进度：完成
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 100
+	}
+
+	log.GetLogger().Info("processYouTubeSubtitle 处理完成",
+		zap.String("taskId", req.TaskId),
+		zap.String("输出文件", bilingualSrtFile))
 
 	return bilingualSrtFile, nil
 }
@@ -442,7 +553,7 @@ func (s *YouTubeSubtitleService) cleanVttText(text string) string {
 
 	// HTML实体解码映射
 	htmlEntities := map[string]string{
-		"&gt;&gt;": "", // 大于号双引号 - 直接过滤掉
+		"&gt;&gt;": "",   // 大于号双引号 - 直接过滤掉
 		"&gt;":     ">",  // 大于号
 		"&lt;&lt;": "<<", // 小于号双引号
 		"&lt;":     "<",  // 小于号
@@ -901,29 +1012,159 @@ func (s *YouTubeSubtitleService) groupWordsIntoSentences(words []VttWord) []Sent
 		return nil
 	}
 
+	fmt.Printf("\n========== 开始句子分组 ==========\n")
+	fmt.Printf("总单词数: %d\n", len(words))
+	fmt.Printf("最大句子长度: %d 字符\n\n", config.Conf.App.MaxSentenceLength)
+
 	// 第一步：按整句标点符号分割（句号、问号、感叹号）
 	primarySentences := s.splitByPrimarySentencePunctuation(words)
+	fmt.Printf("=== 第一步：按句号/问号/感叹号分割 ===\n")
+	fmt.Printf("结果: %d 个句子\n\n", len(primarySentences))
+
+	log.GetLogger().Info("第一步：按句号/问号/感叹号分割完成",
+		zap.Int("总单词数", len(words)),
+		zap.Int("句子数", len(primarySentences)))
 
 	// 第二步：对超长的句子按逗号、分号等进行二次分割
-	var finalSentences []Sentence
+	fmt.Printf("=== 第二步：检查超长句子并按逗号/分号分割 ===\n")
+	var secondarySentences []Sentence
+	superLongCount := 0
 	for _, sentence := range primarySentences {
-		if util.CountEffectiveChars(sentence.Text) > config.Conf.App.MaxSentenceLength {
+		sentenceChars := util.CountEffectiveChars(sentence.Text)
+		if sentenceChars > config.Conf.App.MaxSentenceLength {
+			superLongCount++
+			fmt.Printf("发现超长句子 #%d: %d 字符\n", superLongCount, sentenceChars)
+			log.GetLogger().Info("检测到超长句子，尝试按逗号分割",
+				zap.String("句子预览", sentence.Text[:min(len(sentence.Text), 80)]+"..."),
+				zap.Int("字符数", sentenceChars))
 			// 超长句子，按逗号等进行二次分割
-			secondarySentences := s.splitBySecondarySentencePunctuation(sentence.Words)
-			finalSentences = append(finalSentences, secondarySentences...)
+			splitResults := s.splitByCommasPunctuation(sentence.Words)
+			secondarySentences = append(secondarySentences, splitResults...)
 		} else {
 			// 句子长度合适，直接保留
-			finalSentences = append(finalSentences, sentence)
+			secondarySentences = append(secondarySentences, sentence)
+		}
+	}
+	fmt.Printf("共处理 %d 个超长句子\n", superLongCount)
+	fmt.Printf("结果: %d 个句子\n\n", len(secondarySentences))
+	log.GetLogger().Info("第二步：按逗号/分号分割完成",
+		zap.Int("句子数", len(secondarySentences)))
+
+	// 第三步：对仍然超长的句子，使用LLM递归拆分（并发处理）
+	var llmSplitSentences []Sentence
+	var needLLMSplit []int // 记录需要LLM拆分的句子索引
+
+	// 先筛选出需要LLM拆分的句子
+	for i, sentence := range secondarySentences {
+		sentenceChars := util.CountEffectiveChars(sentence.Text)
+		if sentenceChars > config.Conf.App.MaxSentenceLength {
+			needLLMSplit = append(needLLMSplit, i)
 		}
 	}
 
-	// 第三步：清理单独的标点符号和过短的句子
-	finalSentences = s.cleanupPunctuationOnlySentences(finalSentences)
+	if len(needLLMSplit) > 0 {
+		fmt.Printf("\n=== 第三步：LLM递归拆分 ===\n")
+		fmt.Printf("检测到 %d 个超长句子需要LLM拆分（总共 %d 句）\n", len(needLLMSplit), len(secondarySentences))
+		fmt.Printf("并发限制：3个goroutine\n\n")
 
-	log.GetLogger().Debug("Grouped words into sentences",
-		zap.Int("总单词数", len(words)),
-		zap.Int("一级分割句子数", len(primarySentences)),
+		log.GetLogger().Info("检测到需要LLM拆分的超长句子",
+			zap.Int("超长句子数", len(needLLMSplit)),
+			zap.Int("总句子数", len(secondarySentences)))
+
+		// 使用并发处理LLM拆分
+		type llmResult struct {
+			index     int
+			sentences []Sentence
+		}
+		resultChan := make(chan llmResult, len(needLLMSplit))
+		semaphore := make(chan struct{}, 3) // 限制并发数为3
+
+		// 并发处理每个超长句子，使用信号量控制并发数
+		for _, idx := range needLLMSplit {
+			semaphore <- struct{}{} // 获取信号量
+			go func(index int, sentence Sentence) {
+				defer func() { <-semaphore }() // 释放信号量
+
+				sentenceChars := util.CountEffectiveChars(sentence.Text)
+				log.GetLogger().Warn("并发调用LLM递归拆分",
+					zap.Int("句子索引", index),
+					zap.String("句子预览", sentence.Text[:min(len(sentence.Text), 80)]+"..."),
+					zap.Int("字符数", sentenceChars))
+
+				splitResults := s.splitSentenceByLLMRecursive(sentence)
+				resultChan <- llmResult{index: index, sentences: splitResults}
+			}(idx, secondarySentences[idx])
+		}
+
+		// 收集所有结果
+		llmResults := make(map[int][]Sentence)
+		for i := 0; i < len(needLLMSplit); i++ {
+			result := <-resultChan
+			llmResults[result.index] = result.sentences
+			fmt.Printf("进度: %d/%d - 句子#%d 拆分完成，得到 %d 个子句\n",
+				i+1, len(needLLMSplit), result.index, len(result.sentences))
+		}
+		close(resultChan)
+		fmt.Printf("\n所有LLM拆分任务完成！\n\n")
+
+		// 按顺序合并结果
+		for i, sentence := range secondarySentences {
+			if splitResults, exists := llmResults[i]; exists {
+				llmSplitSentences = append(llmSplitSentences, splitResults...)
+			} else {
+				llmSplitSentences = append(llmSplitSentences, sentence)
+			}
+		}
+	} else {
+		llmSplitSentences = secondarySentences
+	}
+
+	fmt.Printf("=== LLM拆分统计 ===\n")
+	fmt.Printf("拆分前: %d 句\n", len(secondarySentences))
+	fmt.Printf("拆分后: %d 句\n\n", len(llmSplitSentences))
+
+	log.GetLogger().Info("第三步：LLM递归拆分完成",
+		zap.Int("句子数", len(llmSplitSentences)))
+
+	// 第四步：清理单独的标点符号和过短的句子
+	finalSentences := s.cleanupPunctuationOnlySentences(llmSplitSentences)
+	fmt.Printf("=== 第四步：清理标点符号句子 ===\n")
+	fmt.Printf("结果: %d 个句子\n\n", len(finalSentences))
+
+	log.GetLogger().Info("第四步：清理标点符号句子完成",
 		zap.Int("最终句子数", len(finalSentences)))
+
+	// 统计最终结果
+	maxChars := 0
+	avgChars := 0
+	shortSentences := 0 // 单词数<3的句子
+	for _, sent := range finalSentences {
+		chars := util.CountEffectiveChars(sent.Text)
+		if chars > maxChars {
+			maxChars = chars
+		}
+		avgChars += chars
+		if len(sent.Words) < 3 {
+			shortSentences++
+		}
+	}
+	if len(finalSentences) > 0 {
+		avgChars = avgChars / len(finalSentences)
+	}
+
+	fmt.Printf("========== 句子分组完成 ==========\n")
+	fmt.Printf("总单词数: %d\n", len(words))
+	fmt.Printf("最终句子数: %d\n", len(finalSentences))
+	fmt.Printf("最长句子: %d 字符\n", maxChars)
+	fmt.Printf("平均长度: %d 字符\n", avgChars)
+	fmt.Printf("短句(<3词): %d 个\n", shortSentences)
+	fmt.Printf("================================\n\n")
+
+	log.GetLogger().Info("句子分组完成",
+		zap.Int("总单词数", len(words)),
+		zap.Int("最终句子数", len(finalSentences)),
+		zap.Int("最长句子字符数", maxChars),
+		zap.Int("平均句子字符数", avgChars))
 
 	return finalSentences
 }
@@ -1194,6 +1435,174 @@ func (s *YouTubeSubtitleService) splitByPrimarySentencePunctuation(words []VttWo
 // splitBySecondarySentencePunctuation 按逗号、分号等断句标点符号分割
 func (s *YouTubeSubtitleService) splitBySecondarySentencePunctuation(words []VttWord) []Sentence {
 	return s.splitBySecondarySentencePunctuationWithDepth(words, 0)
+}
+
+// splitByCommasPunctuation 简单按逗号和分号分割句子（不再使用复杂的智能分割）
+func (s *YouTubeSubtitleService) splitByCommasPunctuation(words []VttWord) []Sentence {
+	if len(words) == 0 {
+		return nil
+	}
+
+	var sentences []Sentence
+	var currentWords []VttWord
+
+	for _, word := range words {
+		currentWords = append(currentWords, word)
+
+		// 检查是否以逗号或分号结尾
+		if strings.HasSuffix(word.Text, ",") || strings.HasSuffix(word.Text, ";") ||
+			strings.HasSuffix(word.Text, "，") || strings.HasSuffix(word.Text, "；") {
+
+			// 检查当前积累的单词是否已经足够长
+			if len(currentWords) >= 3 { // 至少3个单词才分句
+				sentence := s.createSentenceFromWords(currentWords)
+				sentences = append(sentences, sentence)
+				currentWords = nil
+			}
+		}
+	}
+
+	// 处理剩余的词语
+	if len(currentWords) > 0 {
+		// 创建最后一个句子，不要合并到前一句
+		sentences = append(sentences, s.createSentenceFromWords(currentWords))
+	}
+
+	// 检查是否成功按逗号拆分
+	if len(sentences) <= 1 {
+		// 没有找到逗号分割点或拆分失败
+		sentenceText := s.createSentenceFromWords(words).Text
+		sentenceChars := util.CountEffectiveChars(sentenceText)
+
+		// 如果句子仍然很长，使用简单语义关键词拆分
+		if sentenceChars > config.Conf.App.MaxSentenceLength {
+			log.GetLogger().Info("没有逗号分割点，使用简单语义关键词拆分",
+				zap.Int("字符数", sentenceChars),
+				zap.Int("单词数", len(words)))
+
+			// 使用简化的语义拆分（更快速）
+			return s.splitBySimpleSemanticBreaks(words)
+		}
+		return []Sentence{s.createSentenceFromWords(words)}
+	}
+
+	// 按逗号拆分成功，记录日志
+	log.GetLogger().Info("按逗号拆分完成",
+		zap.Int("输入单词数", len(words)),
+		zap.Int("输出句子数", len(sentences)))
+
+	return sentences
+}
+
+// splitSentenceByLLMRecursive 使用LLM递归拆分超长句子
+func (s *YouTubeSubtitleService) splitSentenceByLLMRecursive(sentence Sentence) []Sentence {
+	// 调用translator的递归拆分方法
+	splitTexts := s.translator.RecursiveSplitSentence(sentence.Text, 0)
+
+	if len(splitTexts) <= 1 {
+		// LLM拆分失败，返回原句
+		log.GetLogger().Warn("LLM拆分失败或返回单句，保留原句",
+			zap.String("原句", sentence.Text[:min(len(sentence.Text), 80)]+"..."))
+		return []Sentence{sentence}
+	}
+
+	// 将拆分后的文本映射回VttWord
+	var results []Sentence
+	wordIndex := 0
+	allWords := sentence.Words
+	const minWordsPerSentence = 3 // 每个句子最少3个单词
+
+	for i, splitText := range splitTexts {
+		splitText = strings.TrimSpace(splitText)
+		if splitText == "" {
+			continue
+		}
+
+		// 查找匹配的单词序列
+		matchedWords := s.findMatchingWords(splitText, allWords, wordIndex)
+
+		// 检查是否达到最小单词数
+		if len(matchedWords) < minWordsPerSentence {
+			// 单词数太少，记录警告但仍然添加
+			log.GetLogger().Warn("LLM拆分结果单词数不足",
+				zap.Int("片段序号", i+1),
+				zap.String("文本", splitText),
+				zap.Int("单词数", len(matchedWords)),
+				zap.Int("最小要求", minWordsPerSentence))
+		}
+
+		if len(matchedWords) > 0 {
+			results = append(results, s.createSentenceFromWords(matchedWords))
+			wordIndex += len(matchedWords)
+			log.GetLogger().Debug("LLM拆分结果",
+				zap.Int("片段序号", i+1),
+				zap.String("文本", splitText[:min(len(splitText), 50)]),
+				zap.Int("单词数", len(matchedWords)))
+		} else {
+			log.GetLogger().Warn("无法找到匹配的单词序列",
+				zap.String("拆分文本", splitText[:min(len(splitText), 50)]))
+		}
+	}
+
+	// 如果有剩余的单词，添加到最后一句
+	if wordIndex < len(allWords) && len(results) > 0 {
+		lastIdx := len(results) - 1
+		remainingWords := allWords[wordIndex:]
+		allWords := append(results[lastIdx].Words, remainingWords...)
+		results[lastIdx] = s.createSentenceFromWords(allWords)
+		log.GetLogger().Debug("合并剩余单词到最后一句",
+			zap.Int("剩余单词数", len(remainingWords)))
+	}
+
+	// 如果拆分结果为空，返回原句
+	if len(results) == 0 {
+		log.GetLogger().Warn("LLM拆分后结果为空，保留原句")
+		return []Sentence{sentence}
+	}
+
+	return results
+}
+
+// findMatchingWords 在单词列表中查找匹配文本的单词序列
+func (s *YouTubeSubtitleService) findMatchingWords(targetText string, words []VttWord, startIndex int) []VttWord {
+	if startIndex >= len(words) {
+		return nil
+	}
+
+	// 清理目标文本
+	targetText = strings.TrimSpace(targetText)
+	targetWords := strings.Fields(targetText)
+
+	var matchedWords []VttWord
+	currentIndex := startIndex
+	targetWordIndex := 0
+
+	// 尝试匹配单词
+	for currentIndex < len(words) && targetWordIndex < len(targetWords) {
+		wordText := strings.ToLower(strings.TrimSpace(words[currentIndex].Text))
+		// 移除标点符号进行比较
+		wordTextClean := strings.Trim(wordText, ".,;:!?\"'()[]{}")
+		targetWord := strings.ToLower(strings.TrimSpace(targetWords[targetWordIndex]))
+		targetWordClean := strings.Trim(targetWord, ".,;:!?\"'()[]{}")
+
+		if wordTextClean == targetWordClean || strings.Contains(wordTextClean, targetWordClean) {
+			matchedWords = append(matchedWords, words[currentIndex])
+			targetWordIndex++
+		}
+		currentIndex++
+
+		// 如果已经匹配了很多单词但还有很多目标单词未匹配，可能匹配错误
+		if len(matchedWords) > len(targetWords)*2 {
+			break
+		}
+	}
+
+	// 如果匹配的单词数量太少，认为匹配失败
+	if len(matchedWords) < len(targetWords)/2 {
+		return nil
+	}
+
+	return matchedWords
 }
 
 // splitAtCommas 按逗号分割句子，返回分割后的词语组
@@ -1487,6 +1896,335 @@ func (s *YouTubeSubtitleService) writeTargetLanguageSrtFile(blocks []*util.SrtBl
 	log.GetLogger().Info("Target language SRT file written successfully",
 		zap.String("文件", srtFile),
 		zap.Int("块数", len(blocks)))
+
+	return nil
+}
+
+// generateOriginLanguageSrt 生成原始语言SRT文件（word-level VTT处理）
+func (s *YouTubeSubtitleService) generateOriginLanguageSrt(sentences []Sentence, srtFile string, req *YoutubeSubtitleReq) ([]*util.SrtBlock, error) {
+	srtBlocks := make([]*util.SrtBlock, 0, len(sentences))
+
+	// 为每个句子创建SRT块
+	for idx, sentence := range sentences {
+		// VTT时间戳已经是字符串格式 (HH:MM:SS.mmm)
+		// 需要转换为SRT格式 (HH:MM:SS,mmm) - 只是把点换成逗号
+		startTime := strings.Replace(sentence.StartTime, ".", ",", 1)
+		endTime := strings.Replace(sentence.EndTime, ".", ",", 1)
+
+		timestamp := fmt.Sprintf("%s --> %s", startTime, endTime)
+
+		// 创建SRT块
+		srtBlocks = append(srtBlocks, &util.SrtBlock{
+			Index:                  idx + 1,
+			Timestamp:              timestamp,
+			OriginLanguageSentence: sentence.Text,
+			TargetLanguageSentence: "", // 稍后翻译
+		})
+	}
+
+	// 写入原始语言SRT文件
+	file, err := os.Create(srtFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create origin language SRT file: %w", err)
+	}
+	defer file.Close()
+
+	for _, block := range srtBlocks {
+		_, err = file.WriteString(fmt.Sprintf("%d\n", block.Index))
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = file.WriteString(block.Timestamp + "\n")
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = file.WriteString(block.OriginLanguageSentence + "\n\n")
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return srtBlocks, nil
+}
+
+// formatTimeForSrt 将浮点数时间格式化为SRT时间戳格式
+func (s *YouTubeSubtitleService) formatTimeForSrt(timeInSeconds float64) string {
+	hours := int(timeInSeconds) / 3600
+	minutes := (int(timeInSeconds) % 3600) / 60
+	seconds := int(timeInSeconds) % 60
+	milliseconds := int((timeInSeconds - float64(int(timeInSeconds))) * 1000)
+
+	return fmt.Sprintf("%02d:%02d:%02d,%03d", hours, minutes, seconds, milliseconds)
+}
+
+// writeBilingualSrtFile 生成双语字幕文件，支持配置目标语言在上或在下
+func (s *YouTubeSubtitleService) writeBilingualSrtFile(blocks []*util.SrtBlock, srtFile string, targetLanguageFirst bool) error {
+	file, err := os.Create(srtFile)
+	if err != nil {
+		return fmt.Errorf("failed to create bilingual SRT file: %w", err)
+	}
+	defer file.Close()
+
+	for _, block := range blocks {
+		// 写入序号
+		_, err = file.WriteString(fmt.Sprintf("%d\n", block.Index))
+		if err != nil {
+			return err
+		}
+
+		// 写入时间戳
+		_, err = file.WriteString(block.Timestamp + "\n")
+		if err != nil {
+			return err
+		}
+
+		// 根据配置决定显示顺序
+		var textContent strings.Builder
+		if targetLanguageFirst {
+			// 目标语言在上
+			if block.TargetLanguageSentence != "" {
+				textContent.WriteString(block.TargetLanguageSentence)
+				if block.OriginLanguageSentence != "" {
+					textContent.WriteString("\n")
+					textContent.WriteString(block.OriginLanguageSentence)
+				}
+			} else if block.OriginLanguageSentence != "" {
+				textContent.WriteString(block.OriginLanguageSentence)
+			}
+		} else {
+			// 原语言在上（默认）
+			if block.OriginLanguageSentence != "" {
+				textContent.WriteString(block.OriginLanguageSentence)
+				if block.TargetLanguageSentence != "" {
+					textContent.WriteString("\n")
+					textContent.WriteString(block.TargetLanguageSentence)
+				}
+			} else if block.TargetLanguageSentence != "" {
+				textContent.WriteString(block.TargetLanguageSentence)
+			}
+		}
+
+		if textContent.Len() > 0 {
+			_, err = file.WriteString(textContent.String() + "\n\n")
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	log.GetLogger().Info("Bilingual SRT file written successfully",
+		zap.String("文件", srtFile),
+		zap.Int("块数", len(blocks)),
+		zap.Bool("目标语言在上", targetLanguageFirst))
+
+	return nil
+}
+
+// generateTextFiles 生成纯文本文件
+func (s *YouTubeSubtitleService) generateTextFiles(blocks []*util.SrtBlock, originFile, targetFile, targetLanguage string) error {
+	log.GetLogger().Info("开始生成文本文件",
+		zap.Int("blocks数量", len(blocks)),
+		zap.String("目标语言", targetLanguage),
+		zap.String("原文文件", originFile),
+		zap.String("译文文件", targetFile))
+
+	// 生成原文文本文件
+	originF, err := os.Create(originFile)
+	if err != nil {
+		return fmt.Errorf("failed to create origin text file: %w", err)
+	}
+	defer originF.Close()
+
+	originLineCount := 0
+	for _, block := range blocks {
+		if block.OriginLanguageSentence != "" {
+			content := block.OriginLanguageSentence + "\n"
+			n, err := originF.WriteString(content)
+			if err != nil {
+				return err
+			}
+			originLineCount++
+			if originLineCount <= 3 {
+				log.GetLogger().Debug("写入原文",
+					zap.Int("行号", originLineCount),
+					zap.String("内容", block.OriginLanguageSentence),
+					zap.Int("写入字节数", n))
+			}
+		}
+	}
+	log.GetLogger().Info("原文文件写入完成", zap.Int("总行数", originLineCount))
+
+	// 生成译文文本文件
+	targetF, err := os.Create(targetFile)
+	if err != nil {
+		return fmt.Errorf("failed to create target text file: %w", err)
+	}
+	defer targetF.Close()
+
+	// 根据目标语言选择逗号
+	comma := ","
+	if targetLanguage == "zh" || targetLanguage == "zh-CN" || targetLanguage == "zh-TW" || targetLanguage == "ja" || targetLanguage == "ko" {
+		comma = "，"
+	}
+
+	// 辅助函数：检查字符串结尾是否有标点符号
+	hasPunctuation := func(s string) bool {
+		if s == "" {
+			return false
+		}
+		// 获取最后一个字符
+		lastRune := []rune(s)
+		if len(lastRune) == 0 {
+			return false
+		}
+		last := lastRune[len(lastRune)-1]
+
+		// 检查是否为标点符号（包括中英文标点）
+		return (last >= 0x21 && last <= 0x2F) || // !"#$%&'()*+,-./
+			(last >= 0x3A && last <= 0x40) || // :;<=>?@
+			(last >= 0x5B && last <= 0x60) || // [\]^_`
+			(last >= 0x7B && last <= 0x7E) || // {|}~
+			(last >= 0x2000 && last <= 0x206F) || // 通用标点（包括省略号U+2026）
+			(last >= 0x3000 && last <= 0x303F) || // CJK符号和标点
+			(last >= 0xFF00 && last <= 0xFFEF) // 全角ASCII、全角标点
+	}
+
+	// 辅助函数：检查字符串结尾是否有结束标点（句号、问号、感叹号等）
+	hasEndPunctuation := func(s string) bool {
+		if s == "" {
+			return false
+		}
+		lastRune := []rune(s)
+		if len(lastRune) == 0 {
+			return false
+		}
+		last := lastRune[len(lastRune)-1]
+
+		// 中英文的句号、问号、感叹号、省略号
+		return last == '。' || last == '！' || last == '？' ||
+			last == '.' || last == '!' || last == '?' ||
+			last == '…' || last == 0x2026 // 省略号 U+2026
+	}
+
+	// 对于中文/日文/韩文，将句子中间的空格替换为逗号
+	shouldReplaceSpaces := targetLanguage == "zh" || targetLanguage == "zh-CN" || targetLanguage == "zh-TW" || targetLanguage == "ja" || targetLanguage == "ko"
+
+	// 智能合并算法参数
+	const (
+		targetLineLength = 15 // 目标行长度（15字左右）
+		minLineLength    = 8  // 最小行长度
+		maxLineLength    = 22 // 最大行长度（严格控制，不能太长）
+	)
+
+	targetLineCount := 0
+	var currentLine strings.Builder // 当前正在构建的行
+
+	for _, block := range blocks {
+		if block.TargetLanguageSentence != "" {
+			sentence := block.TargetLanguageSentence
+
+			// 如果是中文/日文/韩文，将句子中间的空格替换为逗号
+			if shouldReplaceSpaces {
+				sentence = strings.ReplaceAll(sentence, " ", comma)
+			}
+
+			currentText := currentLine.String()
+			currentLen := len([]rune(currentText))
+			sentenceLen := len([]rune(sentence))
+
+			// 如果当前行为空，直接添加这个句子
+			if currentLen == 0 {
+				currentLine.WriteString(sentence)
+			} else {
+				// 判断是否应该合并
+				currentHasEnd := hasEndPunctuation(currentText)
+				sentenceHasEnd := hasEndPunctuation(sentence)
+
+				// 计算合并后的潜在长度
+				potentialLen := currentLen + sentenceLen
+				if !currentHasEnd && !hasPunctuation(currentText) {
+					potentialLen += 1 // 需要加逗号
+				}
+
+				// 关键规则：如果当前行有结束标点，只能和同样有结束标点的句子合并
+				if currentHasEnd && !sentenceHasEnd {
+					// 当前行有结束标点，但新句子没有，不合并，输出当前行
+					targetF.WriteString(currentLine.String() + "\n")
+					targetLineCount++
+					currentLine.Reset()
+					currentLine.WriteString(sentence)
+				} else if currentHasEnd && currentLen >= targetLineLength {
+					// 当前行有结束标点且已达到目标长度，输出当前行，不继续合并
+					targetF.WriteString(currentLine.String() + "\n")
+					targetLineCount++
+					currentLine.Reset()
+					currentLine.WriteString(sentence)
+				} else if potentialLen > maxLineLength {
+					// 合并后会超过最大长度，输出当前行，新句子开始新行
+					if !hasPunctuation(currentText) {
+						currentLine.WriteString(comma)
+					}
+					targetF.WriteString(currentLine.String() + "\n")
+					targetLineCount++
+					currentLine.Reset()
+					currentLine.WriteString(sentence)
+				} else {
+					// 长度允许合并
+					if hasEndPunctuation(currentText) {
+						// 如果前面是结束标点，不加逗号，直接拼接
+						currentLine.WriteString(sentence)
+					} else if !hasPunctuation(currentText) {
+						// 如果前面没有任何标点，添加逗号
+						currentLine.WriteString(comma)
+						currentLine.WriteString(sentence)
+					} else {
+						// 如果前面是其他标点（逗号等），直接拼接
+						currentLine.WriteString(sentence)
+					}
+				}
+			}
+
+			// 检查当前行是否应该输出：
+			currentText = currentLine.String()
+			currentLen = len([]rune(currentText))
+
+			// 输出条件：有结束标点 且 (长度达到目标 或 超过最大长度)
+			if hasEndPunctuation(currentText) && currentLen >= targetLineLength {
+				targetF.WriteString(currentLine.String() + "\n")
+				targetLineCount++
+				currentLine.Reset()
+			} else if currentLen >= maxLineLength {
+				// 超过最大长度，强制输出
+				targetF.WriteString(currentLine.String() + "\n")
+				targetLineCount++
+				currentLine.Reset()
+			}
+
+		} else if block.OriginLanguageSentence != "" {
+			// 如果没有翻译，使用原文（按原逻辑处理）
+			if currentLine.Len() > 0 {
+				targetF.WriteString(currentLine.String() + "\n")
+				targetLineCount++
+				currentLine.Reset()
+			}
+			targetF.WriteString(block.OriginLanguageSentence + "\n")
+			targetLineCount++
+		}
+	}
+
+	// 输出最后剩余的内容
+	if currentLine.Len() > 0 {
+		targetF.WriteString(currentLine.String() + "\n")
+		targetLineCount++
+	}
+
+	log.GetLogger().Info("译文文件写入完成", zap.Int("总行数", targetLineCount))
+
+	log.GetLogger().Info("Text files generated successfully",
+		zap.String("原文文件", originFile),
+		zap.String("译文文件", targetFile))
 
 	return nil
 }
@@ -1996,6 +2734,102 @@ func (s *YouTubeSubtitleService) applySplittingStrategies(words []VttWord) []Sen
 	return s.splitByFixedLength(words)
 }
 
+// splitBySimpleSemanticBreaks 简化的语义分割（更快速，适合大量单词）
+func (s *YouTubeSubtitleService) splitBySimpleSemanticBreaks(words []VttWord) []Sentence {
+	if len(words) <= 5 {
+		return []Sentence{s.createSentenceFromWords(words)}
+	}
+
+	// 语义分割关键词
+	breakWords := map[string]bool{
+		// 连词
+		"and": true, "but": true, "or": true, "so": true,
+		// 从句标识
+		"that": true, "which": true, "what": true, "who": true, "when": true,
+		"where": true, "why": true, "how": true, "whose": true, "whom": true,
+		// 原因和条件
+		"because": true, "since": true, "if": true, "unless": true, "although": true,
+		"though": true, "while": true, "whereas": true,
+		// 时间
+		"before": true, "after": true, "until": true, "whenever": true,
+		// 转折和递进
+		"however": true, "therefore": true, "moreover": true, "furthermore": true,
+		"meanwhile": true, "besides": true, "nonetheless": true,
+	}
+
+	var sentences []Sentence
+	var currentWords []VttWord
+	var currentChars int // 跟踪当前累积的字符数
+
+	for i, word := range words {
+		wordText := word.Text
+		wordLen := len(wordText) + 1 // +1 for space
+		currentWords = append(currentWords, word)
+		currentChars += wordLen
+
+		wordLower := strings.ToLower(strings.TrimSpace(wordText))
+
+		// 判断是否应该分割
+		shouldBreak := false
+
+		// 条件1：遇到关键词且累积字符数接近限制（留10字符余量）
+		if breakWords[wordLower] && currentChars >= config.Conf.App.MaxSentenceLength-10 {
+			shouldBreak = true
+		}
+
+		// 条件2：强制分割 - 字符数超过限制且遇到关键词
+		if !shouldBreak && breakWords[wordLower] && currentChars >= config.Conf.App.MaxSentenceLength {
+			shouldBreak = true
+		}
+
+		// 条件3：超强制分割 - 字符数远超限制，立即分割
+		if !shouldBreak && currentChars >= config.Conf.App.MaxSentenceLength+15 {
+			shouldBreak = true
+		}
+
+		// 执行分割
+		if shouldBreak && i < len(words)-1 && len(currentWords) >= 3 {
+			// 在关键词之前分割
+			if breakWords[wordLower] && len(currentWords) > 1 {
+				sentence := s.createSentenceFromWords(currentWords[:len(currentWords)-1])
+				sentences = append(sentences, sentence)
+				currentWords = []VttWord{word} // 关键词作为下一句开头
+				currentChars = wordLen
+			} else {
+				sentence := s.createSentenceFromWords(currentWords)
+				sentences = append(sentences, sentence)
+				currentWords = nil
+				currentChars = 0
+			}
+		}
+	}
+
+	// 处理剩余单词
+	if len(currentWords) > 0 {
+		if len(sentences) > 0 && len(currentWords) < 3 {
+			// 剩余单词太少，合并到最后一句
+			lastIdx := len(sentences) - 1
+			allWords := append(sentences[lastIdx].Words, currentWords...)
+			sentences[lastIdx] = s.createSentenceFromWords(allWords)
+		} else {
+			sentences = append(sentences, s.createSentenceFromWords(currentWords))
+		}
+	}
+
+	log.GetLogger().Info("简单语义分割完成",
+		zap.Int("输入单词数", len(words)),
+		zap.Int("输出句子数", len(sentences)))
+
+	// 如果没有成功分割，使用固定长度分割
+	if len(sentences) <= 1 {
+		log.GetLogger().Warn("语义分割失败，使用固定长度分割",
+			zap.Int("单词数", len(words)))
+		return s.splitByFixedLength(words)
+	}
+
+	return sentences
+}
+
 // splitBySemanticBreaks 基于语义分割点分句（连词、过渡词等）
 func (s *YouTubeSubtitleService) splitBySemanticBreaks(words []VttWord) []Sentence {
 	if len(words) <= 5 {
@@ -2051,15 +2885,15 @@ func (s *YouTubeSubtitleService) splitBySemanticBreaks(words []VttWord) []Senten
 				// 检查分割后的长度是否满足要求
 				currentText := s.createSentenceFromWords(currentWords[:len(currentWords)-1]).Text
 				currentChars := util.CountEffectiveChars(currentText)
-				
+
 				// 计算剩余部分的长度
 				remainingWords := words[i:]
 				remainingText := s.createSentenceFromWords(remainingWords).Text
 				remainingChars := util.CountEffectiveChars(remainingText)
-				
+
 				// 只有当前部分和剩余部分都不超过限制时才分割
-				if currentChars <= config.Conf.App.MaxSentenceLength && 
-				   remainingChars <= config.Conf.App.MaxSentenceLength {
+				if currentChars <= config.Conf.App.MaxSentenceLength &&
+					remainingChars <= config.Conf.App.MaxSentenceLength {
 					shouldBreak = true
 				}
 			}
@@ -2070,7 +2904,7 @@ func (s *YouTubeSubtitleService) splitBySemanticBreaks(words []VttWord) []Senten
 			// 只有在当前部分已经很长的情况下才考虑在关系代词处分割
 			currentText := s.createSentenceFromWords(currentWords[:len(currentWords)-1]).Text
 			currentChars := util.CountEffectiveChars(currentText)
-			
+
 			if currentChars > config.Conf.App.MaxSentenceLength {
 				// 确保前面有完整的主谓结构
 				if s.hasCompletePhrase(currentWords[:len(currentWords)-1]) {
@@ -2486,27 +3320,27 @@ func (s *YouTubeSubtitleService) DetectVttFormat(vttFile string) (bool, error) {
 	scanner := bufio.NewScanner(file)
 	// 匹配单词级行内时间戳的正则表达式
 	wordTimeRegex := regexp.MustCompile(`<(\d{2}:\d{2}:\d{2}\.\d{3})>`)
-	
+
 	lineCount := 0
 	maxLinesToCheck := 100 // 检查前100行即可判断格式
-	
+
 	for scanner.Scan() && lineCount < maxLinesToCheck {
 		line := scanner.Text()
 		lineCount++
-		
+
 		// 如果发现行内时间戳，说明是word-level格式
 		if wordTimeRegex.MatchString(line) {
-			log.GetLogger().Info("检测到word-level VTT格式（包含单词级时间戳）", 
+			log.GetLogger().Info("检测到word-level VTT格式（包含单词级时间戳）",
 				zap.String("file", vttFile))
 			return true, nil
 		}
 	}
-	
+
 	if err := scanner.Err(); err != nil {
 		return false, fmt.Errorf("读取VTT文件错误: %w", err)
 	}
-	
-	log.GetLogger().Info("检测到block-level VTT格式（仅块级时间戳）", 
+
+	log.GetLogger().Info("检测到block-level VTT格式（仅块级时间戳）",
 		zap.String("file", vttFile))
 	return false, nil
 }
@@ -2514,15 +3348,15 @@ func (s *YouTubeSubtitleService) DetectVttFormat(vttFile string) (bool, error) {
 // ProcessBlockLevelVtt 处理块级时间戳的VTT文件（无单词级时间戳）
 // 流程: VTT → SRT → 批量翻译 → 双语字幕
 func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *YoutubeSubtitleReq) (string, error) {
-	log.GetLogger().Info("开始处理block-level VTT字幕", 
+	log.GetLogger().Info("开始处理block-level VTT字幕",
 		zap.String("taskId", req.TaskId),
 		zap.String("vttFile", req.VttFile))
-	
+
 	// 更新进度：开始处理
 	if req.TaskPtr != nil {
 		req.TaskPtr.ProcessPct = 20
 	}
-	
+
 	// 1. 转换VTT到临时SRT文件
 	tempSrtFile := filepath.Join(req.TaskBasePath, "temp_block_level.srt")
 	err := util.ConvertBlockVttToSrt(req.VttFile, tempSrtFile)
@@ -2530,12 +3364,12 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 		return "", fmt.Errorf("VTT转SRT失败: %w", err)
 	}
 	log.GetLogger().Info("VTT转SRT完成", zap.String("srtFile", tempSrtFile))
-	
+
 	// 更新进度：VTT转换完成
 	if req.TaskPtr != nil {
 		req.TaskPtr.ProcessPct = 30
 	}
-	
+
 	// 2. 生成原文SRT文件（origin_language_srt.srt）
 	originSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskOriginLanguageSrtFileName)
 	// 直接复制临时SRT作为原文字幕
@@ -2548,31 +3382,31 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 		return "", fmt.Errorf("写入原文SRT失败: %w", err)
 	}
 	log.GetLogger().Info("生成原文SRT完成", zap.String("originSrtFile", originSrtFile))
-	
+
 	// 更新进度：原文SRT生成完成
 	if req.TaskPtr != nil {
 		req.TaskPtr.ProcessPct = 40
 	}
-	
+
 	// 3. 解析SRT文件
 	srtBlocks, err := util.ParseSrtFile(tempSrtFile)
 	if err != nil {
 		return "", fmt.Errorf("解析SRT文件失败: %w", err)
 	}
 	log.GetLogger().Info("解析SRT完成", zap.Int("字幕块数", len(srtBlocks)))
-	
+
 	// 4. 批量翻译（40%-90%的进度在BatchTranslateSrtBlocks内部更新）
 	err = s.translator.BatchTranslateSrtBlocks(srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr)
 	if err != nil {
 		return "", fmt.Errorf("批量翻译失败: %w", err)
 	}
 	log.GetLogger().Info("批量翻译完成", zap.Int("翻译块数", len(srtBlocks)))
-	
+
 	// 更新进度：翻译完成
 	if req.TaskPtr != nil {
 		req.TaskPtr.ProcessPct = 90
 	}
-	
+
 	// 5. 生成目标语言SRT文件（target_language_srt.srt）
 	targetSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskTargetLanguageSrtFileName)
 	err = s.writeTargetLanguageSrtFile(srtBlocks, targetSrtFile)
@@ -2580,12 +3414,12 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 		return "", fmt.Errorf("写入目标语言SRT失败: %w", err)
 	}
 	log.GetLogger().Info("生成目标语言SRT完成", zap.String("targetSrtFile", targetSrtFile))
-	
+
 	// 更新进度：目标语言SRT生成完成
 	if req.TaskPtr != nil {
 		req.TaskPtr.ProcessPct = 95
 	}
-	
+
 	// 6. 生成双语字幕文件（bilingual_srt.srt）
 	bilingualSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskBilingualSrtFileName)
 	err = s.writeSrtBlocksToFile(srtBlocks, bilingualSrtFile)
@@ -2593,18 +3427,18 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 		return "", fmt.Errorf("写入双语字幕失败: %w", err)
 	}
 	log.GetLogger().Info("生成双语字幕完成", zap.String("bilingualSrtFile", bilingualSrtFile))
-	
+
 	// 更新进度：完成
 	if req.TaskPtr != nil {
 		req.TaskPtr.ProcessPct = 100
 	}
-	
-	log.GetLogger().Info("block-level VTT处理完成", 
+
+	log.GetLogger().Info("block-level VTT处理完成",
 		zap.String("taskId", req.TaskId),
 		zap.String("输出文件", bilingualSrtFile))
-	
+
 	// 清理临时文件
 	os.Remove(tempSrtFile)
-	
+
 	return bilingualSrtFile, nil
 }

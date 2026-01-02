@@ -133,13 +133,15 @@ var SplitOriginLongSentencePrompt = `Please split the following text into multip
 
 Original text: %s
 
-Requirements:
+CRITICAL Requirements:
 1. The split sentences must exactly match the original text, absolutely no changes to the original text are allowed
 2. Split based on sentence meaning, dividing into at most 3 parts, preferably 2 parts
-3. Try to make the split as balanced as possible while maintaining sentence integrity
-4. Return in JSON format only, no other descriptions or explanations
-5. Example format:
-{"short_sentences":[{"text": "split sentence 1"},{"text": "split sentence 2"}]}
+3. **Each split part MUST contain at least 3-5 words. NEVER create single-word or two-word fragments**
+4. Split at natural break points (conjunctions, clauses) - DO NOT split phrases like "we're marking out", "you're going to", etc.
+5. Try to make the split as balanced as possible while maintaining sentence integrity
+6. Return in JSON format only, no other descriptions or explanations
+7. Example format:
+{"short_sentences":[{"text": "split sentence 1 with at least 3 words"},{"text": "split sentence 2 with at least 3 words"}]}
 
 `
 

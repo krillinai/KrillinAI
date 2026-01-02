@@ -158,14 +158,15 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		if strings.Contains(req.Url, "youtube.com") && stepParam.VttSwitch {
 			log.GetLogger().Info("Start Process youtube video with vtt", zap.String("taskId", taskId))
 			req := &YoutubeSubtitleReq{
-				TaskBasePath:   stepParam.TaskBasePath,
-				TaskId:         taskId,
-				OriginLanguage: string(stepParam.OriginLanguage),
-				TargetLanguage: string(stepParam.TargetLanguage),
-				URL:            req.Url,
-				TaskPtr:        stepParam.TaskPtr,
+				TaskBasePath:        stepParam.TaskBasePath,
+				TaskId:              taskId,
+				OriginLanguage:      string(stepParam.OriginLanguage),
+				TargetLanguage:      string(stepParam.TargetLanguage),
+				URL:                 req.Url,
+				TaskPtr:             stepParam.TaskPtr,
+				TargetLanguageFirst: config.Conf.App.TargetLanguageFirst,
 			}
-			
+
 			// 先下载VTT字幕
 			vttFile, err := s.YouTubeSubtitleSrv.downloadYouTubeSubtitle(ctx, req)
 			if err != nil {
@@ -177,7 +178,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 				return
 			}
 			req.VttFile = vttFile
-			
+
 			// 检测VTT格式类型
 			hasWordTimestamps := true // 默认假设有单词级时间戳
 			if config.Conf.App.EnableBlockVttBatch {
@@ -190,7 +191,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 					hasWordTimestamps = detected
 				}
 			}
-			
+
 			var srtFile string
 			if hasWordTimestamps {
 				// 使用原有的word-level处理流程（完全不变）
@@ -201,7 +202,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 				log.GetLogger().Info("使用block-level VTT处理流程", zap.String("taskId", taskId))
 				srtFile, err = s.YouTubeSubtitleSrv.ProcessBlockLevelVtt(ctx, req)
 			}
-			
+
 			if err != nil {
 				// 处理字幕失败，回退到音频转录方式
 				log.GetLogger().Warn("Failed to process YouTube subtitles, falling back to audio transcription",
@@ -210,7 +211,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 				stepParam.TaskPtr.FailReason = err.Error()
 				return
 			}
-			
+
 			stepParam.BilingualSrtFilePath = srtFile
 			err = splitSrt(&stepParam)
 			if err != nil {

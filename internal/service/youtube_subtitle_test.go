@@ -60,12 +60,13 @@ func Test_processYouTubeSubtitle(t *testing.T) {
 	config.Conf.App.MaxSentenceLength = 50
 
 	req := &YoutubeSubtitleReq{
-		TaskBasePath:   "D:/test_data/trans/vtt/",
-		TaskId:         "HP7JOkeZ0Yg",
-		OriginLanguage: "en",
-		TargetLanguage: "zh_cn",
-		URL:            "https://www.youtube.com/watch?v=HP7JOkeZ0Yg",
-		VttFile:        "D:/test_data/trans/vtt/HP7JOkeZ0Yg.en.vtt",
+		TaskBasePath:        "d:/develop/self/ai/KrillinAI/tasks/watch_v1srQ7Mq__UcQG/",
+		TaskId:              "1srQ7Mq__UcQG",
+		OriginLanguage:      "en",
+		TargetLanguage:      "zh_cn",
+		URL:                 "https://www.youtube.com/watch?v=1srQ7Mq_ToI",
+		VttFile:             "d:/develop/self/ai/KrillinAI/tasks/watch_v1srQ7Mq__UcQG/1srQ7Mq_ToI.en.vtt",
+		TargetLanguageFirst: config.Conf.App.TargetLanguageFirst,
 	}
 
 	_, err := s.YouTubeSubtitleSrv.processYouTubeSubtitle(context.Background(), req)

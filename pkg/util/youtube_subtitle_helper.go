@@ -233,7 +233,7 @@ func ConvertBlockVttToSrt(inputPath, outputPath string) error {
 
 	for i := 0; i < len(lines); {
 		line := strings.TrimSpace(lines[i])
-		
+
 		// Skip header lines
 		if line == "" || strings.HasPrefix(line, "WEBVTT") || strings.HasPrefix(line, "Kind:") || strings.HasPrefix(line, "Language:") {
 			i++
@@ -247,7 +247,7 @@ func ConvertBlockVttToSrt(inputPath, outputPath string) error {
 
 			i++
 			var subtitleLines []string
-			
+
 			// Collect all subtitle lines until empty line
 			for i < len(lines) && strings.TrimSpace(lines[i]) != "" {
 				cleanLine := strings.TrimSpace(tagRegex.ReplaceAllString(lines[i], ""))

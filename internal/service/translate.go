@@ -163,6 +163,11 @@ func (t *Translator) splitOriginLongSentence(sentence string) ([]string, error) 
 	return shortSentences, nil
 }
 
+// RecursiveSplitSentence 递归拆分句子直到满足长度要求（公开方法）
+func (t *Translator) RecursiveSplitSentence(sentence string, depth int) []string {
+	return t.recursiveSplitSentence(sentence, depth)
+}
+
 // recursiveSplitSentence 递归拆分句子直到满足长度要求
 func (t *Translator) recursiveSplitSentence(sentence string, depth int) []string {
 	const maxDepth = 5 // 防止无限递归，最多拆分5层
@@ -400,15 +405,15 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 	if len(blocks) == 0 {
 		return nil
 	}
-	
+
 	batchSize := config.Conf.App.VttBatchSize
 	if batchSize <= 0 {
 		batchSize = 10 // 默认值
 	}
-	
+
 	originLangCode := types.StandardLanguageCode(originLang)
 	targetLangCode := types.StandardLanguageCode(targetLang)
-	
+
 	// 统计有内容的字幕块数量
 	validBlocksCount := 0
 	for _, block := range blocks {
@@ -416,9 +421,9 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 			validBlocksCount++
 		}
 	}
-	
+
 	totalBatches := (validBlocksCount + batchSize - 1) / batchSize
-	
+
 	log.GetLogger().Info("开始批量翻译SRT字幕块",
 		zap.Int("总块数", len(blocks)),
 		zap.Int("有效块数", validBlocksCount),
@@ -426,7 +431,7 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 		zap.Int("总批次数", totalBatches),
 		zap.String("源语言", originLang),
 		zap.String("目标语言", targetLang))
-	
+
 	// 分批处理
 	currentBatch := 0
 	for i := 0; i < len(blocks); i += batchSize {
@@ -434,9 +439,9 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 		if end > len(blocks) {
 			end = len(blocks)
 		}
-		
+
 		batch := blocks[i:end]
-		
+
 		// 检查批次中是否有有效内容
 		hasValidContent := false
 		for _, block := range batch {
@@ -445,11 +450,11 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 				break
 			}
 		}
-		
+
 		if !hasValidContent {
 			continue
 		}
-		
+
 		currentBatch++
 		log.GetLogger().Info("处理批次",
 			zap.Int("当前批次", currentBatch),
@@ -457,7 +462,7 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 			zap.Int("批次起始", i+1),
 			zap.Int("批次结束", end),
 			zap.String("进度", fmt.Sprintf("%d/%d", currentBatch, totalBatches)))
-		
+
 		// 构建批量翻译的输入文本
 		var originTexts []string
 		for _, block := range batch {
@@ -465,11 +470,11 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 				originTexts = append(originTexts, block.OriginLanguageSentence)
 			}
 		}
-		
+
 		if len(originTexts) == 0 {
 			continue
 		}
-		
+
 		// 调用批量翻译
 		translations, err := t.batchTranslateTexts(originTexts, originLangCode, targetLangCode)
 		if err != nil {
@@ -479,22 +484,22 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 				zap.Int("总批次", totalBatches),
 				zap.Int("批次起始", i+1),
 				zap.Int("批次结束", end))
-			
+
 			// 失败时回退到单独翻译每个字幕
 			for j, block := range batch {
 				if block.OriginLanguageSentence == "" {
 					continue
 				}
-				
+
 				log.GetLogger().Info("单独翻译字幕",
 					zap.Int("索引", i+j+1),
 					zap.String("文本预览", block.OriginLanguageSentence[:min(len(block.OriginLanguageSentence), 50)]))
-				
+
 				translatedText, err := t.translateSingleText(
 					block.OriginLanguageSentence,
 					originLangCode,
 					targetLangCode)
-				
+
 				if err != nil {
 					log.GetLogger().Error("单独翻译失败，使用原文",
 						zap.Error(err),
@@ -504,7 +509,7 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 					block.TargetLanguageSentence = translatedText
 				}
 			}
-			
+
 			// 更新任务进度
 			if taskPtr != nil {
 				progress := float64(currentBatch) / float64(totalBatches)
@@ -512,18 +517,18 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 			}
 			continue
 		}
-		
+
 		log.GetLogger().Info("批量翻译成功",
 			zap.Int("当前批次", currentBatch),
 			zap.Int("翻译数量", len(translations)))
-		
+
 		// 将翻译结果赋值回SRT块
 		for j, translation := range translations {
 			if j < len(batch) {
 				batch[j].TargetLanguageSentence = translation
 			}
 		}
-		
+
 		// 更新任务进度（假设翻译占总进度的50%）
 		if taskPtr != nil {
 			progress := float64(currentBatch) / float64(totalBatches)
@@ -531,8 +536,8 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 			taskPtr.ProcessPct = 40 + uint8(progress*50)
 		}
 	}
-	
-	log.GetLogger().Info("批量翻译完成", 
+
+	log.GetLogger().Info("批量翻译完成",
 		zap.Int("总块数", len(blocks)),
 		zap.Int("处理批次", currentBatch))
 	return nil
@@ -543,19 +548,19 @@ func (t *Translator) batchTranslateTexts(texts []string, originLang, targetLang 
 	if len(texts) == 0 {
 		return []string{}, nil
 	}
-	
+
 	// 构建批量翻译提示词
 	var textList strings.Builder
 	for i, text := range texts {
 		textList.WriteString(fmt.Sprintf("%d. %s\n", i+1, text))
 	}
-	
+
 	// 构建语言说明，如果是中文特别强调简体
 	targetLangName := types.GetStandardLanguageName(targetLang)
 	if targetLang == "zh" || string(targetLang) == "Chinese" {
 		targetLangName = "Simplified Chinese (简体中文)"
 	}
-	
+
 	prompt := fmt.Sprintf(`You are a professional subtitle translator. Translate the following %d subtitles from %s to %s.
 
 CRITICAL INSTRUCTIONS:
@@ -577,16 +582,16 @@ Required JSON format (output ONLY this structure):
 		targetLangName,
 		len(texts),
 		textList.String())
-	
+
 	// 调用LLM
 	maxAttempts := 3
 	var lastErr error
-	
+
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		log.GetLogger().Info("调用LLM翻译",
 			zap.Int("文本数", len(texts)),
 			zap.Int("尝试次数", attempt+1))
-		
+
 		response, err := t.chatCompleter.ChatCompletion(prompt)
 		if err != nil {
 			lastErr = err
@@ -596,20 +601,20 @@ Required JSON format (output ONLY this structure):
 			time.Sleep(time.Second * time.Duration(attempt+1))
 			continue
 		}
-		
+
 		log.GetLogger().Info("LLM返回响应",
 			zap.Int("响应长度", len(response)))
-		
+
 		// 解析JSON响应
 		cleanResponse := util.CleanMarkdownCodeBlock(response)
-		
+
 		var result struct {
 			Translations []struct {
 				Index int    `json:"index"`
 				Text  string `json:"text"`
 			} `json:"translations"`
 		}
-		
+
 		if err := json.Unmarshal([]byte(cleanResponse), &result); err != nil {
 			lastErr = fmt.Errorf("解析JSON失败: %w", err)
 			if attempt == 0 {
@@ -625,7 +630,7 @@ Required JSON format (output ONLY this structure):
 			}
 			continue
 		}
-		
+
 		// 验证结果数量
 		if len(result.Translations) != len(texts) {
 			lastErr = fmt.Errorf("翻译结果数量不匹配: 期望 %d, 实际 %d", len(texts), len(result.Translations))
@@ -634,7 +639,7 @@ Required JSON format (output ONLY this structure):
 				zap.Int("尝试次数", attempt+1))
 			continue
 		}
-		
+
 		// 提取翻译结果
 		translations := make([]string, len(texts))
 		for _, trans := range result.Translations {
@@ -642,22 +647,21 @@ Required JSON format (output ONLY this structure):
 				translations[trans.Index-1] = strings.TrimSpace(trans.Text)
 			}
 		}
-		
+
 		return translations, nil
 	}
-	
+
 	return nil, fmt.Errorf("批量翻译失败，已重试%d次: %w", maxAttempts, lastErr)
 }
 
 // translateSingleText 翻译单个文本（用作批量翻译失败时的回退）
 func (t *Translator) translateSingleText(text string, originLang, targetLang types.StandardLanguageCode) (string, error) {
 	prompt := fmt.Sprintf(types.SplitTextPrompt, types.GetStandardLanguageName(targetLang), text)
-	
+
 	translatedText, err := t.translateWithRetry(prompt, text, originLang, targetLang)
 	if err != nil {
 		return "", fmt.Errorf("单文本翻译失败: %w", err)
 	}
-	
+
 	return translatedText, nil
 }
-
