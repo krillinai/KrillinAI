@@ -651,9 +651,7 @@ func splitSrt(stepParam *types.SubtitleTaskStepParam) error {
 	log.GetLogger().Info("audioToSubtitle.splitSrt start", zap.Any("task id", stepParam.TaskId))
 
 	originLanguageSrtFilePath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskOriginLanguageSrtFileName)
-	originLanguageTextFilePath := filepath.Join(stepParam.TaskBasePath, "output", types.SubtitleTaskOriginLanguageTextFileName)
 	targetLanguageSrtFilePath := filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskTargetLanguageSrtFileName)
-	targetLanguageTextFilePath := filepath.Join(stepParam.TaskBasePath, "output", types.SubtitleTaskTargetLanguageTextFileName)
 	// 打开双语字幕文件
 	file, err := os.Open(stepParam.BilingualSrtFilePath)
 	if err != nil {
@@ -662,7 +660,7 @@ func splitSrt(stepParam *types.SubtitleTaskStepParam) error {
 	}
 	defer file.Close()
 
-	// 打开输出字幕和文稿文件
+	// 打开输出字幕文件
 	originLanguageSrtFile, err := os.Create(originLanguageSrtFilePath)
 	if err != nil {
 		log.GetLogger().Error("audioToSubtitle splitSrt create originLanguageSrtFile error", zap.Any("taskId", stepParam.TaskId), zap.Error(err))
@@ -670,26 +668,12 @@ func splitSrt(stepParam *types.SubtitleTaskStepParam) error {
 	}
 	defer originLanguageSrtFile.Close()
 
-	originLanguageTextFile, err := os.Create(originLanguageTextFilePath)
-	if err != nil {
-		log.GetLogger().Error("audioToSubtitle splitSrt create originLanguageTextFile error", zap.Any("taskId", stepParam.TaskId), zap.Error(err))
-		return fmt.Errorf("audioToSubtitle splitSrt create originLanguageTextFile error: %w", err)
-	}
-	defer originLanguageTextFile.Close()
-
 	targetLanguageSrtFile, err := os.Create(targetLanguageSrtFilePath)
 	if err != nil {
 		log.GetLogger().Error("audioToSubtitle.splitSrt create targetLanguageSrtFile error", zap.Any("taskId", stepParam.TaskId), zap.Error(err))
 		return fmt.Errorf("audioToSubtitle.splitSrt create targetLanguageSrtFile error: %w", err)
 	}
 	defer targetLanguageSrtFile.Close()
-
-	targetLanguageTextFile, err := os.Create(targetLanguageTextFilePath)
-	if err != nil {
-		log.GetLogger().Error("audioToSubtitle.splitSrt create targetLanguageTextFile error", zap.Any("taskId", stepParam.TaskId), zap.Error(err))
-		return fmt.Errorf("audioToSubtitle.splitSrt create targetLanguageTextFile error: %w", err)
-	}
-	defer targetLanguageTextFile.Close()
 
 	isTargetOnTop := stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop
 
@@ -701,7 +685,7 @@ func splitSrt(stepParam *types.SubtitleTaskStepParam) error {
 		// 空行代表一个字幕块的结束
 		if line == "" {
 			if len(block) > 0 {
-				util.ProcessBlock(block, targetLanguageSrtFile, targetLanguageTextFile, originLanguageSrtFile, originLanguageTextFile, isTargetOnTop)
+				util.ProcessBlock(block, targetLanguageSrtFile, nil, originLanguageSrtFile, nil, isTargetOnTop)
 				block = nil
 			}
 		} else {
@@ -710,7 +694,7 @@ func splitSrt(stepParam *types.SubtitleTaskStepParam) error {
 	}
 	// 处理文件末尾的字幕块
 	if len(block) > 0 {
-		util.ProcessBlock(block, targetLanguageSrtFile, targetLanguageTextFile, originLanguageSrtFile, originLanguageTextFile, isTargetOnTop)
+		util.ProcessBlock(block, targetLanguageSrtFile, nil, originLanguageSrtFile, nil, isTargetOnTop)
 	}
 
 	if err = scanner.Err(); err != nil {

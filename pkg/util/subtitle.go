@@ -17,6 +17,8 @@ import (
 // 处理每一个字幕块
 func ProcessBlock(block []string, targetLanguageFile, targetLanguageTextFile, originLanguageFile, originLanguageTextFile *os.File, isTargetOnTop bool) {
 	var targetLines, originLines []string
+	var targetText, originText string
+
 	// 匹配时间戳的正则表达式
 	timePattern := regexp.MustCompile(`\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}`)
 	for _, line := range block {
@@ -29,21 +31,29 @@ func ProcessBlock(block []string, targetLanguageFile, targetLanguageTextFile, or
 		if len(targetLines) == 2 && len(originLines) == 2 { // 刚写完编号和时间戳，到了上方的文字行
 			if isTargetOnTop {
 				targetLines = append(targetLines, line)
-				targetLanguageTextFile.WriteString(line + " ") // 文稿文件
+				targetText = line
 			} else {
 				originLines = append(originLines, line)
-				originLanguageTextFile.WriteString(line + " ")
+				originText = line
 			}
 			continue
 		}
 		// 到了下方的文字行
 		if isTargetOnTop {
 			originLines = append(originLines, line)
-			originLanguageTextFile.WriteString(line + " ")
+			originText = line
 		} else {
 			targetLines = append(targetLines, line)
-			targetLanguageTextFile.WriteString(line + " ")
+			targetText = line
 		}
+	}
+
+	// 写入文本文件，每个block一行，带换行符（如果文件不为nil）
+	if targetText != "" && targetLanguageTextFile != nil {
+		targetLanguageTextFile.WriteString(targetText + "\n")
+	}
+	if originText != "" && originLanguageTextFile != nil {
+		originLanguageTextFile.WriteString(originText + "\n")
 	}
 
 	if len(targetLines) > 2 {

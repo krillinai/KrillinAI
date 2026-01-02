@@ -24,6 +24,7 @@ type App struct {
 	MaxSentenceLength     int      `toml:"max_sentence_length"`
 	EnableBlockVttBatch   bool     `toml:"enable_block_vtt_batch"`
 	VttBatchSize          int      `toml:"vtt_batch_size"`
+	TargetLanguageFirst   bool     `toml:"target_language_first"` // 双语字幕中目标语言是否在上
 	Proxy                 string   `toml:"proxy"`
 	ParsedProxy           *url.URL `toml:"-"`
 }
