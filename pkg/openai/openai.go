@@ -75,6 +75,9 @@ func (c *Client) Text2Speech(text, voice string, outputFile string) error {
 	if model == "" {
 		model = "tts-1"
 	}
+	if voice == "" {
+		voice = "alloy"
+	}
 	reqBodyMap := map[string]string{
 		"model":           model,
 		"input":           text,
