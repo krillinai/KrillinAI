@@ -3,6 +3,7 @@ package util
 import (
 	"bufio"
 	"fmt"
+	"html"
 	"os"
 	"regexp"
 	"sort"
@@ -119,7 +120,15 @@ func ConvertVttToSrt(inputPath, outputPath string) error {
 				for _, l := range block.lines {
 					cleanLine := strings.TrimSpace(tagRegex.ReplaceAllString(l, ""))
 					if cleanLine != "" {
-						cleanLines = append(cleanLines, cleanLine)
+						// 解码HTML实体（如 &gt;&gt;, &lt;, &amp; 等）
+						cleanLine = html.UnescapeString(cleanLine)
+						// 过滤说话人标记 >>
+						cleanLine = strings.ReplaceAll(cleanLine, ">>", "")
+						// 清理多余空格
+						cleanLine = strings.TrimSpace(cleanLine)
+						if cleanLine != "" {
+							cleanLines = append(cleanLines, cleanLine)
+						}
 					}
 				}
 				block.cleanLines = cleanLines
@@ -252,7 +261,15 @@ func ConvertBlockVttToSrt(inputPath, outputPath string) error {
 			for i < len(lines) && strings.TrimSpace(lines[i]) != "" {
 				cleanLine := strings.TrimSpace(tagRegex.ReplaceAllString(lines[i], ""))
 				if cleanLine != "" {
-					subtitleLines = append(subtitleLines, cleanLine)
+					// 解码HTML实体（如 &gt;&gt;, &lt;, &amp; 等）
+					cleanLine = html.UnescapeString(cleanLine)
+					// 过滤说话人标记 >>
+					cleanLine = strings.ReplaceAll(cleanLine, ">>", "")
+					// 清理多余空格
+					cleanLine = strings.TrimSpace(cleanLine)
+					if cleanLine != "" {
+						subtitleLines = append(subtitleLines, cleanLine)
+					}
 				}
 				i++
 			}

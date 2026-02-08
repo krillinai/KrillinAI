@@ -400,15 +400,39 @@ IMPORTANT: The previous translation was inadequate. Please ensure:
 	return originalPrompt + enhancement
 }
 
-// BatchTranslateSrtBlocks 批量翻译SRT字幕块（每次处理N个单元）
+// isSentenceEnding 判断文本是否以句子结束符号结尾
+func isSentenceEnding(text string) bool {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return false
+	}
+
+	// 检查常见的句子结束符号
+	sentenceEndings := []string{
+		".", "?", "!", // 英文
+		"。", "？", "！", // 中文
+		"…", ".", "?", "!", // 日文
+		"..", "...", // 省略号
+	}
+
+	for _, ending := range sentenceEndings {
+		if strings.HasSuffix(text, ending) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// BatchTranslateSrtBlocks 批量翻译SRT字幕块（智能分组：按完整句子分组，最多10个块）
 func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang, targetLang string, taskPtr *types.SubtitleTask) error {
 	if len(blocks) == 0 {
 		return nil
 	}
 
-	batchSize := config.Conf.App.VttBatchSize
-	if batchSize <= 0 {
-		batchSize = 10 // 默认值
+	maxBatchSize := config.Conf.App.VttBatchSize
+	if maxBatchSize <= 0 {
+		maxBatchSize = 10 // 默认最大批次大小
 	}
 
 	originLangCode := types.StandardLanguageCode(originLang)
@@ -422,46 +446,137 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 		}
 	}
 
-	totalBatches := (validBlocksCount + batchSize - 1) / batchSize
-
-	log.GetLogger().Info("开始批量翻译SRT字幕块",
+	log.GetLogger().Info("开始智能批量翻译SRT字幕块",
 		zap.Int("总块数", len(blocks)),
 		zap.Int("有效块数", validBlocksCount),
-		zap.Int("批量大小", batchSize),
-		zap.Int("总批次数", totalBatches),
+		zap.Int("最大批次大小", maxBatchSize),
 		zap.String("源语言", originLang),
 		zap.String("目标语言", targetLang))
 
-	// 分批处理
-	currentBatch := 0
-	for i := 0; i < len(blocks); i += batchSize {
-		end := i + batchSize
-		if end > len(blocks) {
-			end = len(blocks)
-		}
+	// 第一步：按句子分组（识别完整句子）
+	var sentences [][]*util.SrtBlock
+	var currentSentence []*util.SrtBlock
 
-		batch := blocks[i:end]
-
-		// 检查批次中是否有有效内容
-		hasValidContent := false
-		for _, block := range batch {
-			if block.OriginLanguageSentence != "" {
-				hasValidContent = true
-				break
-			}
-		}
-
-		if !hasValidContent {
+	for _, block := range blocks {
+		// 跳过空块
+		if block.OriginLanguageSentence == "" {
 			continue
 		}
 
-		currentBatch++
+		currentSentence = append(currentSentence, block)
+
+		// 兜底保证：即使没有句子结束符，也不能超过最大批次大小
+		if len(currentSentence) >= maxBatchSize {
+			log.GetLogger().Warn("句子累积达到最大批次大小，强制结束句子",
+				zap.Int("当前块数", len(currentSentence)),
+				zap.Int("最大批次大小", maxBatchSize))
+			sentences = append(sentences, currentSentence)
+			currentSentence = make([]*util.SrtBlock, 0)
+			continue
+		}
+
+		// 遇到句子结尾，结束当前句子
+		if isSentenceEnding(block.OriginLanguageSentence) {
+			sentences = append(sentences, currentSentence)
+			currentSentence = make([]*util.SrtBlock, 0)
+		}
+	}
+
+	// 处理最后一个未结束的句子
+	if len(currentSentence) > 0 {
+		sentences = append(sentences, currentSentence)
+	}
+
+	log.GetLogger().Info("句子识别完成",
+		zap.Int("识别到的句子数", len(sentences)))
+
+	// 第二步：智能合并句子成批次（3/2/1策略）
+	var batches [][]*util.SrtBlock
+	i := 0
+
+	for i < len(sentences) {
+		// 策略1: 尝试合并3个句子
+		if i+2 < len(sentences) {
+			combined := make([]*util.SrtBlock, 0)
+			combined = append(combined, sentences[i]...)
+			combined = append(combined, sentences[i+1]...)
+			combined = append(combined, sentences[i+2]...)
+
+			// 确保合并后不超过最大批次大小
+			if len(combined) > 0 && len(combined) <= maxBatchSize {
+				batches = append(batches, combined)
+				log.GetLogger().Debug("合并3个句子",
+					zap.Int("批次块数", len(combined)),
+					zap.Int("句子索引", i))
+				i += 3
+				continue
+			}
+		}
+
+		// 策略2: 尝试合并2个句子
+		if i+1 < len(sentences) {
+			combined := make([]*util.SrtBlock, 0)
+			combined = append(combined, sentences[i]...)
+			combined = append(combined, sentences[i+1]...)
+
+			// 确保合并后不超过最大批次大小
+			if len(combined) > 0 && len(combined) <= maxBatchSize {
+				batches = append(batches, combined)
+				log.GetLogger().Debug("合并2个句子",
+					zap.Int("批次块数", len(combined)),
+					zap.Int("句子索引", i))
+				i += 2
+				continue
+			}
+		}
+
+		// 策略3: 单个句子
+		// 确保单个句子不超过最大批次大小
+		if len(sentences[i]) > 0 && len(sentences[i]) <= maxBatchSize {
+			batches = append(batches, sentences[i])
+			log.GetLogger().Debug("单个句子",
+				zap.Int("批次块数", len(sentences[i])),
+				zap.Int("句子索引", i))
+			i++
+		} else {
+			// 如果单个句子超过最大批次大小，需要拆分
+			log.GetLogger().Warn("单个句子超过最大批次大小，强制拆分",
+				zap.Int("句子块数", len(sentences[i])),
+				zap.Int("最大批次大小", maxBatchSize))
+
+			for j := 0; j < len(sentences[i]); j += maxBatchSize {
+				end := j + maxBatchSize
+				if end > len(sentences[i]) {
+					end = len(sentences[i])
+				}
+				batches = append(batches, sentences[i][j:end])
+			}
+			i++
+		}
+	}
+
+	totalBatches := len(batches)
+
+	// 统计合并策略使用情况
+	var totalBlocks int
+	for _, batch := range batches {
+		totalBlocks += len(batch)
+	}
+
+	log.GetLogger().Info("智能分组完成",
+		zap.Int("总句子数", len(sentences)),
+		zap.Int("总批次数", totalBatches),
+		zap.String("平均每批次", fmt.Sprintf("%.1f个块", float64(totalBlocks)/float64(max(totalBatches, 1)))),
+		zap.String("分组策略", "3/2/1句子合并策略，最大"+fmt.Sprintf("%d", maxBatchSize)+"个块"))
+
+	// 分批处理
+	for batchIdx, batch := range batches {
+		currentBatchNum := batchIdx + 1
 		log.GetLogger().Info("处理批次",
-			zap.Int("当前批次", currentBatch),
+			zap.Int("当前批次", currentBatchNum),
 			zap.Int("总批次", totalBatches),
-			zap.Int("批次起始", i+1),
-			zap.Int("批次结束", end),
-			zap.String("进度", fmt.Sprintf("%d/%d", currentBatch, totalBatches)))
+			zap.Int("批次块数", len(batch)),
+			zap.String("进度", fmt.Sprintf("%d/%d", currentBatchNum, totalBatches)))
 
 		// 构建批量翻译的输入文本
 		var originTexts []string
@@ -480,19 +595,18 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 		if err != nil {
 			log.GetLogger().Error("批量翻译失败，尝试单独翻译",
 				zap.Error(err),
-				zap.Int("当前批次", currentBatch),
+				zap.Int("当前批次", currentBatchNum),
 				zap.Int("总批次", totalBatches),
-				zap.Int("批次起始", i+1),
-				zap.Int("批次结束", end))
+				zap.Int("批次块数", len(batch)))
 
 			// 失败时回退到单独翻译每个字幕
-			for j, block := range batch {
+			for _, block := range batch {
 				if block.OriginLanguageSentence == "" {
 					continue
 				}
 
 				log.GetLogger().Info("单独翻译字幕",
-					zap.Int("索引", i+j+1),
+					zap.Int("块索引", block.Index),
 					zap.String("文本预览", block.OriginLanguageSentence[:min(len(block.OriginLanguageSentence), 50)]))
 
 				translatedText, err := t.translateSingleText(
@@ -503,7 +617,7 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 				if err != nil {
 					log.GetLogger().Error("单独翻译失败，使用原文",
 						zap.Error(err),
-						zap.Int("索引", i+j+1))
+						zap.Int("块索引", block.Index))
 					block.TargetLanguageSentence = block.OriginLanguageSentence
 				} else {
 					block.TargetLanguageSentence = translatedText
@@ -512,14 +626,14 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 
 			// 更新任务进度
 			if taskPtr != nil {
-				progress := float64(currentBatch) / float64(totalBatches)
+				progress := float64(currentBatchNum) / float64(totalBatches)
 				taskPtr.ProcessPct = 40 + uint8(progress*50)
 			}
 			continue
 		}
 
 		log.GetLogger().Info("批量翻译成功",
-			zap.Int("当前批次", currentBatch),
+			zap.Int("当前批次", currentBatchNum),
 			zap.Int("翻译数量", len(translations)))
 
 		// 将翻译结果赋值回SRT块
@@ -531,15 +645,16 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 
 		// 更新任务进度（假设翻译占总进度的50%）
 		if taskPtr != nil {
-			progress := float64(currentBatch) / float64(totalBatches)
+			progress := float64(currentBatchNum) / float64(totalBatches)
 			// 假设翻译在40%-90%之间
 			taskPtr.ProcessPct = 40 + uint8(progress*50)
 		}
 	}
 
-	log.GetLogger().Info("批量翻译完成",
+	log.GetLogger().Info("智能批量翻译完成",
 		zap.Int("总块数", len(blocks)),
-		zap.Int("处理批次", currentBatch))
+		zap.Int("处理批次", totalBatches),
+		zap.String("平均每批次", fmt.Sprintf("%.1f个块", float64(validBlocksCount)/float64(max(totalBatches, 1)))))
 	return nil
 }
 
@@ -564,12 +679,15 @@ func (t *Translator) batchTranslateTexts(texts []string, originLang, targetLang 
 	prompt := fmt.Sprintf(`You are a professional subtitle translator. Translate the following %d subtitles from %s to %s.
 
 CRITICAL INSTRUCTIONS:
-1. Translate naturally and fluently in %s
-2. If target language is Chinese, MUST use Simplified Chinese characters (简体中文), NOT Traditional Chinese (繁体中文)
-3. Maintain the exact same number of subtitles (%d items)
-4. Preserve punctuation and formatting
-5. Output ONLY valid JSON, NO markdown code blocks, NO explanations, NO notes
-6. Start directly with { and end with }
+1. DO NOT modify, add, or remove any content from the original text - translate ONLY
+2. Translate naturally and fluently in %s
+3. If target language is Chinese, MUST use Simplified Chinese characters (简体中文), NOT Traditional Chinese (繁体中文)
+4. Maintain the exact same number of subtitles (%d items)
+5. Preserve punctuation and formatting exactly as they appear
+6. Keep proper nouns, numbers, and special terms accurate
+7. Do NOT add explanations, interpretations, or extra information
+8. Output ONLY valid JSON, NO markdown code blocks, NO explanations, NO notes
+9. Start directly with { and end with }
 
 Input subtitles:
 %s
