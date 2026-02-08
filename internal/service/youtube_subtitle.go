@@ -147,7 +147,7 @@ func (s *YouTubeSubtitleService) downloadYouTubeSubtitle(ctx context.Context, re
 	}
 
 	// 添加cookies
-	cmdArgs = append(cmdArgs, "--cookies", "./cookies.txt")
+	// cmdArgs = append(cmdArgs, "--cookies", "./cookies.txt")
 
 	// 添加ffmpeg路径
 	if storage.FfmpegPath != "ffmpeg" {
