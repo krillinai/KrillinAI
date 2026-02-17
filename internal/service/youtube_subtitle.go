@@ -2247,7 +2247,6 @@ func (s *YouTubeSubtitleService) generateTextFiles(blocks []*util.SrtBlock, orig
 	return nil
 }
 
-
 // findVttWordsForText 根据文本内容在句子中找到对应的VttWord
 func (s *YouTubeSubtitleService) findVttWordsForText(text string, sentences []Sentence) []VttWord {
 	textWords := strings.Fields(strings.TrimSpace(text))
@@ -2332,7 +2331,6 @@ func (s *YouTubeSubtitleService) findVttWordsForSrtBlock(
 		zap.String("originText", originText))
 	return []VttWord{}
 }
-
 
 // parseSrtTimestamp 解析SRT时间戳格式 "HH:MM:SS,mmm --> HH:MM:SS,mmm"
 func (s *YouTubeSubtitleService) parseSrtTimestamp(timestamp string) (float64, float64, error) {
