@@ -199,6 +199,13 @@ sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64
 
 * 有关获取阿里云服务所需的 `AccessKey`、`Bucket` 和 `AppKey` 的详细信息，请参阅 [阿里云配置说明](https://www.google.com/search?q=./aliyun.md)。重复的 AccessKey 等字段旨在保持清晰的配置结构。
 
+**短字幕配置：**
+
+* `short_subtitle_max_chars`: 短字幕英文每行最大字符数，默认 20
+  - 适用于竖屏视频
+  - 中文保持完整，英文按此长度拆分
+  - 建议值：15-25
+
 ## 常见问题
 
 请访问 [常见问题](./faq.md)
