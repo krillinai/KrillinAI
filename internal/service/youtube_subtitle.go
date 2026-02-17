@@ -2404,6 +2404,55 @@ func (s *YouTubeSubtitleService) findVttWordsForText(text string, sentences []Se
 	return []VttWord{}
 }
 
+// findVttWordsForSrtBlock 根据 SRT 块找到对应的 VTT 单词序列
+func (s *YouTubeSubtitleService) findVttWordsForSrtBlock(
+	srtBlock *util.SrtBlock,
+	sentences []Sentence,
+) []VttWord {
+	if srtBlock.OriginLanguageSentence == "" {
+		return []VttWord{}
+	}
+
+	// 清理文本
+	originText := strings.TrimSpace(srtBlock.OriginLanguageSentence)
+	originText = strings.Trim(originText, `"'`)
+	expectedWords := strings.Fields(originText)
+
+	if len(expectedWords) == 0 {
+		return []VttWord{}
+	}
+
+	// 在所有句子中查找匹配的单词序列
+	for _, sentence := range sentences {
+		if len(sentence.Words) < len(expectedWords) {
+			continue
+		}
+
+		// 尝试匹配
+		for i := 0; i <= len(sentence.Words)-len(expectedWords); i++ {
+			match := true
+			for j, expectedWord := range expectedWords {
+				actualWord := strings.TrimSpace(sentence.Words[i+j].Text)
+				expectedClean := strings.Trim(expectedWord, ".,!?;:")
+				actualClean := strings.Trim(actualWord, ".,!?;:")
+
+				if !strings.EqualFold(expectedClean, actualClean) {
+					match = false
+					break
+				}
+			}
+
+			if match {
+				return sentence.Words[i : i+len(expectedWords)]
+			}
+		}
+	}
+
+	log.GetLogger().Debug("No VTT words found for SRT block",
+		zap.String("originText", originText))
+	return []VttWord{}
+}
+
 // getAllWordsFromSentences 从所有句子中获取所有单词的扁平列表
 func (s *YouTubeSubtitleService) getAllWordsFromSentences(sentences []Sentence) []VttWord {
 	var allWords []VttWord
