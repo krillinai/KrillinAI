@@ -3531,3 +3531,105 @@ func (s *YouTubeSubtitleService) groupWordsByCharLength(words []VttWord, maxChar
 
 	return groups
 }
+
+// writeShortSubtitleFile 生成短字幕文件（中文完整 + 英文拆分）
+// 适用于竖屏视频：中文保持完整便于理解，英文按字符长度拆分避免一行太长
+func (s *YouTubeSubtitleService) writeShortSubtitleFile(
+	srtBlocks []*util.SrtBlock,
+	sentences []Sentence,
+	shortSrtFile string,
+	targetLanguageFirst bool,
+) error {
+	file, err := os.Create(shortSrtFile)
+	if err != nil {
+		return fmt.Errorf("failed to create short subtitle file: %w", err)
+	}
+	defer file.Close()
+
+	blockIndex := 1
+	maxChars := config.Conf.App.ShortSubtitleMaxChars
+	if maxChars <= 0 {
+		maxChars = 20 // 默认值
+	}
+
+	log.GetLogger().Info("开始生成短字幕文件",
+		zap.String("file", shortSrtFile),
+		zap.Int("maxChars", maxChars),
+		zap.Int("srtBlocksCount", len(srtBlocks)))
+
+	for _, srtBlock := range srtBlocks {
+		// 1. 写入完整的中文翻译
+		if srtBlock.TargetLanguageSentence != "" {
+			_, err = file.WriteString(fmt.Sprintf("%d\n", blockIndex))
+			if err != nil {
+				return err
+			}
+			_, err = file.WriteString(srtBlock.Timestamp + "\n")
+			if err != nil {
+				return err
+			}
+			_, err = file.WriteString(srtBlock.TargetLanguageSentence + "\n\n")
+			if err != nil {
+				return err
+			}
+			blockIndex++
+		}
+
+		// 2. 找到对应的 VTT 单词
+		vttWords := s.findVttWordsForSrtBlock(srtBlock, sentences)
+		if len(vttWords) == 0 {
+			log.GetLogger().Warn("No VTT words found for SRT block, skipping English split",
+				zap.String("originText", srtBlock.OriginLanguageSentence))
+			continue
+		}
+
+		// 3. 按字符长度分组
+		groups := s.groupWordsByCharLength(vttWords, maxChars)
+
+		log.GetLogger().Debug("Split English into groups",
+			zap.String("originText", srtBlock.OriginLanguageSentence),
+			zap.Int("groupsCount", len(groups)))
+
+		// 4. 为每个英文片段生成字幕块
+		for _, group := range groups {
+			startTime := group[0].Start
+			endTime := group[len(group)-1].End
+
+			// 拼接单词
+			var words []string
+			for _, word := range group {
+				words = append(words, word.Text)
+			}
+			text := strings.Join(words, " ")
+
+			// 转换时间戳格式
+			timestamp, err := s.convertToSrtTimestamp(startTime, endTime)
+			if err != nil {
+				log.GetLogger().Warn("Failed to convert timestamp, using SRT block timestamp",
+					zap.Error(err))
+				timestamp = srtBlock.Timestamp
+			}
+
+			// 写入英文片段
+			_, err = file.WriteString(fmt.Sprintf("%d\n", blockIndex))
+			if err != nil {
+				return err
+			}
+			_, err = file.WriteString(timestamp + "\n")
+			if err != nil {
+				return err
+			}
+			_, err = file.WriteString(text + "\n\n")
+			if err != nil {
+				return err
+			}
+			blockIndex++
+		}
+	}
+
+	log.GetLogger().Info("Short subtitle file written successfully",
+		zap.String("file", shortSrtFile),
+		zap.Int("totalBlocks", blockIndex-1))
+
+	return nil
+}
