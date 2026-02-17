@@ -344,7 +344,22 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 		req.TaskPtr.ProcessPct = 95
 	}
 
-	// 7. 生成纯文本文件到output目录
+	// 7. 生成短字幕文件（竖屏用）
+	shortSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskShortOriginMixedSrtFileName)
+	err = s.writeShortSubtitleFile(srtBlocks, sentences, shortSrtFile, req.TargetLanguageFirst)
+	if err != nil {
+		log.GetLogger().Warn("生成短字幕失败", zap.Error(err))
+		// 不影响主流程，继续执行
+	} else {
+		log.GetLogger().Info("生成短字幕完成", zap.String("文件", shortSrtFile))
+	}
+
+	// 更新进度：短字幕生成完成
+	if req.TaskPtr != nil {
+		req.TaskPtr.ProcessPct = 98
+	}
+
+	// 8. 生成纯文本文件到output目录
 	outputDir := filepath.Join(req.TaskBasePath, "output")
 	err = os.MkdirAll(outputDir, 0755)
 	if err != nil {
