@@ -3442,3 +3442,43 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 
 	return bilingualSrtFile, nil
 }
+
+// groupWordsByCharLength 按字符长度将 VTT 单词分组
+// maxChars: 每组最大字符数（包含单词间的空格）
+func (s *YouTubeSubtitleService) groupWordsByCharLength(words []VttWord, maxChars int) [][]VttWord {
+	if len(words) == 0 {
+		return nil
+	}
+
+	var groups [][]VttWord
+	var currentGroup []VttWord
+	currentLength := 0
+
+	for _, word := range words {
+		wordLen := len(word.Text)
+
+		// 计算加上这个单词后的总长度（包含空格）
+		newLength := currentLength
+		if len(currentGroup) > 0 {
+			newLength += 1 // 空格
+		}
+		newLength += wordLen
+
+		// 如果超过上限，且当前组不为空，则开始新组
+		if newLength > maxChars && len(currentGroup) > 0 {
+			groups = append(groups, currentGroup)
+			currentGroup = []VttWord{word}
+			currentLength = wordLen
+		} else {
+			currentGroup = append(currentGroup, word)
+			currentLength = newLength
+		}
+	}
+
+	// 处理最后一组
+	if len(currentGroup) > 0 {
+		groups = append(groups, currentGroup)
+	}
+
+	return groups
+}
