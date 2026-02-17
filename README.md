@@ -199,6 +199,13 @@ The configuration file is divided into several sections: `[app]`, `[server]`, `[
 
 * For details on obtaining the necessary `AccessKey`, `Bucket`, and `AppKey` for Alibaba Cloud services, please refer to the [Alibaba Cloud Configuration Instructions](https://www.google.com/search?q=./aliyun.md). The repeated fields for AccessKey, etc., are designed to maintain a clear configuration structure.
 
+**Short Subtitle Configuration:**
+
+* `short_subtitle_max_chars`: Maximum characters per line for English short subtitles (default: 20)
+  - Designed for portrait/vertical videos
+  - Chinese text remains intact, English text is split according to this length
+  - Recommended value: 15-25
+
 ## Frequently Asked Questions
 
 Please visit [Frequently Asked Questions](./faq.md)
