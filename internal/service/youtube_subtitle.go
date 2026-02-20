@@ -2301,10 +2301,36 @@ func (s *YouTubeSubtitleService) findVttWordsForSrtBlock(
 		return []VttWord{}
 	}
 
+	// 解析 SRT 块的时间戳范围
+	srtStartTime, srtEndTime, err := s.parseSrtTimestamp(srtBlock.Timestamp)
+	var useTimeFilter bool
+	if err != nil {
+		log.GetLogger().Debug("Failed to parse SRT timestamp, using text-only matching",
+			zap.String("timestamp", srtBlock.Timestamp),
+			zap.Error(err))
+		useTimeFilter = false
+	} else {
+		useTimeFilter = true
+	}
+
 	// 在所有句子中查找匹配的单词序列
 	for _, sentence := range sentences {
 		if len(sentence.Words) < len(expectedWords) {
 			continue
+		}
+
+		// 如果启用时间过滤，检查句子的时间范围是否与 SRT 块匹配
+		if useTimeFilter && len(sentence.Words) > 0 {
+			// 获取句子第一个单词的开始时间
+			firstWordTime, err := s.parseVttTime(sentence.Words[0].Start)
+			if err == nil {
+				// 如果句子开始时间与 SRT 块开始时间相差超过 1 秒，跳过
+				// 这样可以避免匹配到重复的文本
+				timeDiff := firstWordTime - srtStartTime
+				if timeDiff < -0.5 || timeDiff > 1.0 {
+					continue
+				}
+			}
 		}
 
 		// 尝试匹配
@@ -2322,13 +2348,34 @@ func (s *YouTubeSubtitleService) findVttWordsForSrtBlock(
 			}
 
 			if match {
-				return sentence.Words[i : i+len(expectedWords)]
+				// 如果启用时间过滤，再次验证匹配的单词时间范围
+				if useTimeFilter {
+					matchedWords := sentence.Words[i : i+len(expectedWords)]
+					firstTime, err1 := s.parseVttTime(matchedWords[0].Start)
+					lastTime, err2 := s.parseVttTime(matchedWords[len(matchedWords)-1].End)
+
+					if err1 == nil && err2 == nil {
+						// 检查匹配的单词时间范围是否与 SRT 块时间范围重叠
+						// 允许一定的时间误差（0.5秒）
+						if firstTime <= srtEndTime+0.5 && lastTime >= srtStartTime-0.5 {
+							log.GetLogger().Debug("Found VTT words with time validation",
+								zap.String("originText", originText),
+								zap.Float64("srtStart", srtStartTime),
+								zap.Float64("vttStart", firstTime))
+							return matchedWords
+						}
+					}
+				} else {
+					// 没有时间过滤，直接返回匹配的单词
+					return sentence.Words[i : i+len(expectedWords)]
+				}
 			}
 		}
 	}
 
 	log.GetLogger().Debug("No VTT words found for SRT block",
-		zap.String("originText", originText))
+		zap.String("originText", originText),
+		zap.String("timestamp", srtBlock.Timestamp))
 	return []VttWord{}
 }
 
