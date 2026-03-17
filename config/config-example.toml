@@ -43,11 +43,14 @@
             app_key= ""
 
 [tts]
-    provider = "aliyun" # 可选值：openai,aliyun,edge-tts
+    provider = "aliyun" # 可选值：openai,aliyun,edge-tts,cambai
     [tts.openai]
         base_url = ""
         api_key = ""
         model = "" # gpt-4o-mini-tts, tts-1, tts-1-hd
+    [tts.cambai]
+        api_key = ""
+        model = "mars-flash"
     [tts.aliyun] # provider选aliyun这块就都要填
         [tts.aliyun.oss]
             access_key_id = ""

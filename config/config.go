@@ -73,10 +73,17 @@ type AliyunTtsConfig struct {
 	Speech AliyunSpeechConfig `toml:"speech"`
 }
 
+type CambaiConfig struct {
+	ApiKey   string `toml:"api_key"`
+	Model    string `toml:"model"`
+	Language string `toml:"language"`
+}
+
 type Tts struct {
 	Provider string                 `toml:"provider"`
 	Openai   OpenaiCompatibleConfig `toml:"openai"`
 	Aliyun   AliyunTtsConfig        `toml:"aliyun"`
+	Cambai   CambaiConfig           `toml:"cambai"`
 }
 
 type OpenAiWhisper struct {
