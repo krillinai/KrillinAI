@@ -81,6 +81,11 @@ type ConfigRequest struct {
 				AppKey          string `json:"appKey"`
 			} `json:"speech"`
 		} `json:"aliyun"`
+		Cambai struct {
+			ApiKey   string `json:"apiKey"`
+			Model    string `json:"model"`
+			Language string `json:"language"`
+		} `json:"cambai"`
 	} `json:"tts"`
 }
 
@@ -152,6 +157,9 @@ func (h Handler) GetConfig(c *gin.Context) {
 	configResponse.Tts.Aliyun.Speech.AccessKeyId = config.Conf.Tts.Aliyun.Speech.AccessKeyId
 	configResponse.Tts.Aliyun.Speech.AccessKeySecret = config.Conf.Tts.Aliyun.Speech.AccessKeySecret
 	configResponse.Tts.Aliyun.Speech.AppKey = config.Conf.Tts.Aliyun.Speech.AppKey
+	configResponse.Tts.Cambai.ApiKey = config.Conf.Tts.Cambai.ApiKey
+	configResponse.Tts.Cambai.Model = config.Conf.Tts.Cambai.Model
+	configResponse.Tts.Cambai.Language = config.Conf.Tts.Cambai.Language
 
 	response.R(c, response.Response{
 		Error: 0,
@@ -226,6 +234,9 @@ func (h Handler) UpdateConfig(c *gin.Context) {
 	config.Conf.Tts.Aliyun.Speech.AccessKeyId = req.Tts.Aliyun.Speech.AccessKeyId
 	config.Conf.Tts.Aliyun.Speech.AccessKeySecret = req.Tts.Aliyun.Speech.AccessKeySecret
 	config.Conf.Tts.Aliyun.Speech.AppKey = req.Tts.Aliyun.Speech.AppKey
+	config.Conf.Tts.Cambai.ApiKey = req.Tts.Cambai.ApiKey
+	config.Conf.Tts.Cambai.Model = req.Tts.Cambai.Model
+	config.Conf.Tts.Cambai.Language = req.Tts.Cambai.Language
 
 	// 验证配置
 	if err := config.CheckConfig(); err != nil {

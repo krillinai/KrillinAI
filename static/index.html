@@ -1343,6 +1343,7 @@
                   <option value="openai">OpenAI</option>
                   <option value="aliyun">阿里云</option>
                   <option value="edge-tts">Edge TTS</option>
+                  <option value="cambai">Camb AI</option>
                 </select>
               </div>
               <div class="form-group">
@@ -1430,6 +1431,24 @@
                 <input
                   type="text"
                   id="tts-aliyun-speech-app-key"
+                  placeholder="..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Camb AI API Key:</label>
+                <input
+                  type="password"
+                  id="tts-cambai-api-key"
+                  placeholder="..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Camb AI 模型 Model:</label>
+                <input
+                  type="text"
+                  id="tts-cambai-model"
                   placeholder="..."
                   class="form-input"
                 />
@@ -1748,6 +1767,12 @@
                 configData.tts.aliyun.speech.appKey || "";
             }
           }
+          if (configData.tts.cambai) {
+            document.getElementById("tts-cambai-api-key").value =
+              configData.tts.cambai.apiKey || "";
+            document.getElementById("tts-cambai-model").value =
+              configData.tts.cambai.model || "";
+          }
         }
       }
 
@@ -1847,6 +1872,10 @@
                 appKey: document.getElementById("tts-aliyun-speech-app-key")
                   .value,
               },
+            },
+            cambai: {
+              apiKey: document.getElementById("tts-cambai-api-key").value,
+              model: document.getElementById("tts-cambai-model").value,
             },
           },
         };

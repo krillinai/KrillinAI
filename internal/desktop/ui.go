@@ -698,7 +698,7 @@ func createTranscribeConfigGroup() *fyne.Container {
 
 // 创建文本转语音配置组
 func createTtsConfigGroup() *fyne.Container {
-	providerOptions := []string{"openai", "aliyun", "edge-tts"}
+	providerOptions := []string{"openai", "aliyun", "edge-tts", "cambai"}
 	providerSelect := widget.NewSelect(providerOptions, func(value string) {
 		config.Conf.Tts.Provider = value
 	})
@@ -725,6 +725,11 @@ func createTtsConfigGroup() *fyne.Container {
 	aliyunSpeechAppKeyEntry := StyledEntry("阿里云 Aliyun Speech App Key")
 	aliyunSpeechAppKeyEntry.Bind(binding.BindString(&config.Conf.Tts.Aliyun.Speech.AppKey))
 
+	cambaiApiKeyEntry := StyledPasswordEntry("Camb AI API Key")
+	cambaiApiKeyEntry.Bind(binding.BindString(&config.Conf.Tts.Cambai.ApiKey))
+	cambaiModelEntry := StyledEntry("Camb AI 模型 Model")
+	cambaiModelEntry.Bind(binding.BindString(&config.Conf.Tts.Cambai.Model))
+
 	form := widget.NewForm(
 		widget.NewFormItem("提供商 Provider", providerSelect),
 
@@ -739,6 +744,9 @@ func createTtsConfigGroup() *fyne.Container {
 		widget.NewFormItem("阿里云 Aliyun Speech Access Key ID", aliyunSpeechKeyIdEntry),
 		widget.NewFormItem("阿里云 Aliyun  Speech Access Key Secret", aliyunSpeechKeySecretEntry),
 		widget.NewFormItem("阿里云 Aliyun Speech App Key", aliyunSpeechAppKeyEntry),
+
+		widget.NewFormItem("Camb AI API Key", cambaiApiKeyEntry),
+		widget.NewFormItem("Camb AI 模型 Model", cambaiModelEntry),
 	)
 
 	return GlassmorphismCard("文本转语音配置 TTS Config", "文本转语音配置 TTS config", form, GetCurrentThemeIsDark())
