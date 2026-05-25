@@ -146,8 +146,8 @@ func (s *YouTubeSubtitleService) downloadYouTubeSubtitle(ctx context.Context, re
 		cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
 	}
 
-	// 添加cookies
-	// cmdArgs = append(cmdArgs, "--cookies", "./cookies.txt")
+	// 添加cookies（如果存在且格式有效）
+	cmdArgs = appendCookiesArgs(cmdArgs, youtubeCookiesPath)
 
 	// 添加ffmpeg路径
 	if storage.FfmpegPath != "ffmpeg" {
@@ -2338,8 +2338,8 @@ func (s *YouTubeSubtitleService) findVttWordsForSrtBlock(
 			match := true
 			for j, expectedWord := range expectedWords {
 				actualWord := strings.TrimSpace(sentence.Words[i+j].Text)
-				expectedClean := strings.Trim(expectedWord, ".,!?;:")
-				actualClean := strings.Trim(actualWord, ".,!?;:")
+				expectedClean := strings.Trim(expectedWord, `".,!?;:'"`)
+				actualClean := strings.Trim(actualWord, `".,!?;:'"`)
 
 				if !strings.EqualFold(expectedClean, actualClean) {
 					match = false
