@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -20,13 +21,26 @@ type RenderVideoRequest struct {
 }
 
 func (s Service) RenderVideo(ctx context.Context, req RenderVideoRequest) (string, error) {
-	_ = ctx
-	return renderSubtitleFile(req)
+	return renderSubtitleFile(ctx, req)
+}
+
+func renderAssPath(req RenderVideoRequest) string {
+	base := strings.TrimSuffix(filepath.Base(req.OutputFile), filepath.Ext(req.OutputFile))
+	if base == "" || base == "." {
+		base = "subtitles"
+	}
+	return filepath.Join(req.Workdir, fmt.Sprintf("formatted_%s.ass", base))
+}
+
+func escapeAssFilterPath(path string) string {
+	p := strings.ReplaceAll(path, "\\", "/")
+	p = strings.ReplaceAll(p, ":", `\:`)
+	return p
 }
 
 func buildEmbedSubtitleArgs(req RenderVideoRequest) ([]string, string) {
-	assPath := filepath.Join(req.Workdir, "formatted_subtitles.ass")
-	ass := strings.ReplaceAll(assPath, "\\", "/")
+	assPath := renderAssPath(req)
+	ass := escapeAssFilterPath(assPath)
 	return []string{
 		"-y",
 		"-i", req.InputVideo,
@@ -37,8 +51,12 @@ func buildEmbedSubtitleArgs(req RenderVideoRequest) ([]string, string) {
 	}, assPath
 }
 
-func renderSubtitleFile(req RenderVideoRequest) (string, error) {
-	assPath := filepath.Join(req.Workdir, "formatted_subtitles.ass")
+func renderSubtitleFile(ctx context.Context, req RenderVideoRequest) (string, error) {
+	if err := os.MkdirAll(filepath.Dir(req.OutputFile), 0755); err != nil {
+		return "", fmt.Errorf("renderSubtitleFile mkdir output dir error: %w", err)
+	}
+
+	assPath := renderAssPath(req)
 	stepParam := req.StepParam
 	if stepParam == nil {
 		stepParam = &types.SubtitleTaskStepParam{TaskBasePath: req.Workdir}
@@ -47,7 +65,7 @@ func renderSubtitleFile(req RenderVideoRequest) (string, error) {
 		return "", fmt.Errorf("renderSubtitleFile srtToAss error: %w", err)
 	}
 	args, _ := buildEmbedSubtitleArgs(req)
-	cmd := exec.Command(storage.FfmpegPath, args...)
+	cmd := exec.CommandContext(ctx, storage.FfmpegPath, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("renderSubtitleFile ffmpeg error: %w, output: %s", err, string(output))
