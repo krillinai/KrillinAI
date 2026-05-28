@@ -27,8 +27,9 @@ func makeTaskID(input string) string {
 	if trimmed == "" {
 		last = "task"
 	} else if parsed, err := url.Parse(trimmed); err == nil {
-		if v := parsed.Query().Get("v"); v != "" {
-			last = v
+		query := parsed.Query()
+		if values, ok := query["v"]; ok && len(values) > 0 {
+			last = values[0]
 		} else if parsed.Path != "" {
 			parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
 			last = parts[len(parts)-1]
