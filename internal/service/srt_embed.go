@@ -319,7 +319,7 @@ func embedSubtitles(stepParam *types.SubtitleTaskStepParam, isHorizontal bool, w
 		input = stepParam.VideoWithTtsFilePath
 	}
 
-	_, err := renderSubtitleFile(RenderVideoRequest{
+	_, err := renderSubtitleFile(context.Background(), RenderVideoRequest{
 		Workdir:      stepParam.TaskBasePath,
 		InputVideo:   input,
 		SubtitleFile: stepParam.BilingualSrtFilePath,
