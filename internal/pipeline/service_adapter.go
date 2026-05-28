@@ -1,0 +1,53 @@
+package pipeline
+
+import (
+	"context"
+	"krillin-ai/internal/service"
+	"krillin-ai/internal/types"
+)
+
+type StageService interface {
+	PrepareMedia(context.Context, *types.SubtitleTaskStepParam) error
+	GenerateSubtitlesFromAudio(context.Context, *types.SubtitleTaskStepParam) error
+	GenerateSpeechFromSRT(context.Context, *types.SubtitleTaskStepParam) error
+	FinalizeSubtitleResults(context.Context, *types.SubtitleTaskStepParam) error
+	DownloadYouTubeSubtitle(context.Context, *service.YoutubeSubtitleReq) (string, error)
+	ProcessYouTubeSubtitle(context.Context, *service.YoutubeSubtitleReq) (string, error)
+	RenderVideo(context.Context, service.RenderVideoRequest) (string, error)
+}
+
+type ServiceAdapter struct {
+	svc *service.Service
+}
+
+func NewServiceAdapter(svc *service.Service) *ServiceAdapter {
+	return &ServiceAdapter{svc: svc}
+}
+
+func (a *ServiceAdapter) PrepareMedia(ctx context.Context, p *types.SubtitleTaskStepParam) error {
+	return a.svc.PrepareMedia(ctx, p)
+}
+
+func (a *ServiceAdapter) GenerateSubtitlesFromAudio(ctx context.Context, p *types.SubtitleTaskStepParam) error {
+	return a.svc.GenerateSubtitlesFromAudio(ctx, p)
+}
+
+func (a *ServiceAdapter) GenerateSpeechFromSRT(ctx context.Context, p *types.SubtitleTaskStepParam) error {
+	return a.svc.GenerateSpeechFromSRT(ctx, p)
+}
+
+func (a *ServiceAdapter) FinalizeSubtitleResults(ctx context.Context, p *types.SubtitleTaskStepParam) error {
+	return a.svc.FinalizeSubtitleResults(ctx, p)
+}
+
+func (a *ServiceAdapter) DownloadYouTubeSubtitle(ctx context.Context, r *service.YoutubeSubtitleReq) (string, error) {
+	return a.svc.DownloadYouTubeSubtitle(ctx, r)
+}
+
+func (a *ServiceAdapter) ProcessYouTubeSubtitle(ctx context.Context, r *service.YoutubeSubtitleReq) (string, error) {
+	return a.svc.ProcessYouTubeSubtitle(ctx, r)
+}
+
+func (a *ServiceAdapter) RenderVideo(ctx context.Context, r service.RenderVideoRequest) (string, error) {
+	return a.svc.RenderVideo(ctx, r)
+}
