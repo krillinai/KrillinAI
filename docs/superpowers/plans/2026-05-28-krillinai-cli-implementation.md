@@ -206,7 +206,7 @@ type Outputs struct {
 	TargetSRT         string `json:"target_srt,omitempty"`
 	BilingualSRT      string `json:"bilingual_srt,omitempty"`
 	ShortOriginSRT    string `json:"short_origin_srt,omitempty"`
-	ShortMixedSRT     string `json:"short_origin_mixed_srt,omitempty"`
+	ShortOriginMixedSRT string `json:"short_origin_mixed_srt,omitempty"`
 	TTSAudio          string `json:"tts_audio,omitempty"`
 	VideoWithTTS      string `json:"video_with_tts,omitempty"`
 	HorizontalVideo   string `json:"horizontal_video,omitempty"`
@@ -398,7 +398,7 @@ func (m *Manifest) ApplyDefaultOutputs() error {
 	m.Outputs.TargetSRT = filepath.Join(m.Workdir, "target_language_srt.srt")
 	m.Outputs.BilingualSRT = filepath.Join(m.Workdir, "bilingual_srt.srt")
 	m.Outputs.ShortOriginSRT = filepath.Join(m.Workdir, "short_origin_srt.srt")
-	m.Outputs.ShortMixedSRT = filepath.Join(m.Workdir, "short_origin_mixed_srt.srt")
+	m.Outputs.ShortOriginMixedSRT = filepath.Join(m.Workdir, "short_origin_mixed_srt.srt")
 	m.Outputs.TTSAudio = filepath.Join(m.Workdir, "tts_final_audio.wav")
 	m.Outputs.VideoWithTTS = filepath.Join(m.Workdir, "video_with_tts.mp4")
 	m.Outputs.HorizontalVideo = filepath.Join(m.Workdir, "horizontal_bilingual.mp4")
