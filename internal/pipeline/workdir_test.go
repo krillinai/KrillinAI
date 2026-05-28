@@ -42,3 +42,17 @@ func TestNormalizeLocalInput(t *testing.T) {
 		t.Fatalf("NormalizeInput(url) = %q", got)
 	}
 }
+
+func TestMakeTaskIDEmptyInputUsesTaskFallback(t *testing.T) {
+	got := makeTaskID("")
+	if !strings.HasPrefix(got, "task_") {
+		t.Fatalf("makeTaskID(empty) = %q, want task_ prefix", got)
+	}
+}
+
+func TestMakeTaskIDUsesQueryVWithoutPath(t *testing.T) {
+	got := makeTaskID("https://example.com?v=abc123")
+	if !strings.HasPrefix(got, "abc123_") {
+		t.Fatalf("makeTaskID(query v) = %q, want abc123_ prefix", got)
+	}
+}

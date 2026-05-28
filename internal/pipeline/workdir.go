@@ -24,11 +24,14 @@ func ResolveWorkdir(input, explicit string) (string, string, error) {
 func makeTaskID(input string) string {
 	trimmed := strings.TrimSpace(input)
 	last := trimmed
-	if parsed, err := url.Parse(trimmed); err == nil && parsed.Path != "" {
-		parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
-		last = parts[len(parts)-1]
+	if trimmed == "" {
+		last = "task"
+	} else if parsed, err := url.Parse(trimmed); err == nil {
 		if v := parsed.Query().Get("v"); v != "" {
 			last = v
+		} else if parsed.Path != "" {
+			parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+			last = parts[len(parts)-1]
 		}
 	}
 	last = strings.ReplaceAll(last, " ", "")
@@ -36,7 +39,11 @@ func makeTaskID(input string) string {
 	if len(runes) > 16 {
 		runes = runes[:16]
 	}
-	base := util.SanitizePathName(string(runes))
+	baseInput := string(runes)
+	if strings.TrimSpace(baseInput) == "" {
+		baseInput = "task"
+	}
+	base := util.SanitizePathName(baseInput)
 	if base == "" {
 		base = "task"
 	}
