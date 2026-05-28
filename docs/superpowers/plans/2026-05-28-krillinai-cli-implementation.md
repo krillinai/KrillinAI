@@ -540,7 +540,7 @@ func makeTaskID(input string) string {
 	if base == "" {
 		base = "task"
 	}
-	return fmt.Sprintf("%s_%s", base, util.GenerateRandStringWithUpperLowerNum(4))
+	return fmt.Sprintf("%s_%s", base, util.GenerateRandStringWithUpperLowerNum(8))
 }
 
 func NormalizeInput(input string) string {
