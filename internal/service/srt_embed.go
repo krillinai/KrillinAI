@@ -314,24 +314,20 @@ func embedSubtitles(stepParam *types.SubtitleTaskStepParam, isHorizontal bool, w
 	if isHorizontal {
 		outputFileName = types.SubtitleTaskHorizontalEmbedVideoFileName
 	}
-	assPath := filepath.Join(stepParam.TaskBasePath, "formatted_subtitles.ass")
-
-	if err := srtToAss(stepParam.BilingualSrtFilePath, assPath, isHorizontal, stepParam); err != nil {
-		log.GetLogger().Error("embedSubtitles srtToAss error", zap.Any("step param", stepParam), zap.Error(err))
-		return fmt.Errorf("embedSubtitles srtToAss error: %w", err)
-	}
 	input := stepParam.InputVideoPath
 	if withTts {
 		input = stepParam.VideoWithTtsFilePath
 	}
 
-	cmd := exec.Command(storage.FfmpegPath, "-y", "-i", input, "-vf", fmt.Sprintf("ass=%s", strings.ReplaceAll(assPath, "\\", "/")), "-c:a", "aac", "-b:a", "192k", filepath.Join(stepParam.TaskBasePath, fmt.Sprintf("/output/%s", outputFileName)))
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.GetLogger().Error("embedSubtitles embed subtitle into video ffmpeg error", zap.String("video path", stepParam.InputVideoPath), zap.String("output", string(output)), zap.Error(err))
-		return fmt.Errorf("embedSubtitles embed subtitle into video ffmpeg error: %w", err)
-	}
-	return nil
+	_, err := renderSubtitleFile(RenderVideoRequest{
+		Workdir:      stepParam.TaskBasePath,
+		InputVideo:   input,
+		SubtitleFile: stepParam.BilingualSrtFilePath,
+		OutputFile:   filepath.Join(stepParam.TaskBasePath, "output", outputFileName),
+		Horizontal:   isHorizontal,
+		StepParam:    stepParam,
+	})
+	return err
 }
 
 func getFontPaths() (string, string, error) {
