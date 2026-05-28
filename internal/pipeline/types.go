@@ -1,5 +1,7 @@
 package pipeline
 
+import "encoding/json"
+
 type Stage string
 
 const (
@@ -68,23 +70,23 @@ func ExitCodeForError(err *Error) int {
 }
 
 type Outputs struct {
-	OriginVideo      string `json:"origin_video,omitempty"`
-	OriginAudio      string `json:"origin_audio,omitempty"`
-	OriginSRT        string `json:"origin_srt,omitempty"`
-	TargetSRT        string `json:"target_srt,omitempty"`
-	BilingualSRT     string `json:"bilingual_srt,omitempty"`
-	ShortOriginSRT   string `json:"short_origin_srt,omitempty"`
-	ShortMixedSRT    string `json:"short_origin_mixed_srt,omitempty"`
-	TTSAudio         string `json:"tts_audio,omitempty"`
-	VideoWithTTS     string `json:"video_with_tts,omitempty"`
-	HorizontalVideo  string `json:"horizontal_video,omitempty"`
-	VerticalVideo    string `json:"vertical_video,omitempty"`
-	TransferredVideo string `json:"transferred_vertical_video,omitempty"`
-	OriginCover      string `json:"origin_cover,omitempty"`
-	GeneratedCover   string `json:"generated_cover,omitempty"`
-	FinalCoverPrompt string `json:"cover_prompt,omitempty"`
-	OriginText       string `json:"origin_text,omitempty"`
-	TargetText       string `json:"target_text,omitempty"`
+	OriginVideo         string `json:"origin_video,omitempty"`
+	OriginAudio         string `json:"origin_audio,omitempty"`
+	OriginSRT           string `json:"origin_srt,omitempty"`
+	TargetSRT           string `json:"target_srt,omitempty"`
+	BilingualSRT        string `json:"bilingual_srt,omitempty"`
+	ShortOriginSRT      string `json:"short_origin_srt,omitempty"`
+	ShortOriginMixedSRT string `json:"short_origin_mixed_srt,omitempty"`
+	TTSAudio            string `json:"tts_audio,omitempty"`
+	VideoWithTTS        string `json:"video_with_tts,omitempty"`
+	HorizontalVideo     string `json:"horizontal_video,omitempty"`
+	VerticalVideo       string `json:"vertical_video,omitempty"`
+	TransferredVideo    string `json:"transferred_vertical_video,omitempty"`
+	OriginCover         string `json:"origin_cover,omitempty"`
+	GeneratedCover      string `json:"generated_cover,omitempty"`
+	FinalCoverPrompt    string `json:"cover_prompt,omitempty"`
+	OriginText          string `json:"origin_text,omitempty"`
+	TargetText          string `json:"target_text,omitempty"`
 }
 
 type Response struct {
@@ -99,4 +101,20 @@ type Response struct {
 	FailedIndexes []int             `json:"failed_indexes,omitempty"`
 	Error         *Error            `json:"error,omitempty"`
 	DurationMS    int64             `json:"duration_ms,omitempty"`
+}
+
+func (r Response) MarshalJSON() ([]byte, error) {
+	type response Response
+	type responseWithOptionalOutputs struct {
+		response
+		Outputs *Outputs `json:"outputs,omitempty"`
+	}
+
+	resp := responseWithOptionalOutputs{
+		response: response(r),
+	}
+	if r.Outputs != (Outputs{}) {
+		resp.Outputs = &r.Outputs
+	}
+	return json.Marshal(resp)
 }
