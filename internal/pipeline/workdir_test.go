@@ -56,3 +56,10 @@ func TestMakeTaskIDUsesQueryVWithoutPath(t *testing.T) {
 		t.Fatalf("makeTaskID(query v) = %q, want abc123_ prefix", got)
 	}
 }
+
+func TestMakeTaskIDUsesEmptyQueryVAsFallback(t *testing.T) {
+	got := makeTaskID("https://example.com/watch?v=")
+	if !strings.HasPrefix(got, "task_") {
+		t.Fatalf("makeTaskID(empty query v) = %q, want task_ prefix", got)
+	}
+}
