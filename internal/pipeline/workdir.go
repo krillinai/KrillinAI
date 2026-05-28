@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// ResolveWorkdir returns a task ID and work directory, creating workdir/output.
 func ResolveWorkdir(input, explicit string) (string, string, error) {
 	taskID := makeTaskID(input)
 	workdir := explicit
@@ -48,10 +49,11 @@ func makeTaskID(input string) string {
 	if base == "" {
 		base = "task"
 	}
-	return fmt.Sprintf("%s_%s", base, util.GenerateRandStringWithUpperLowerNum(4))
+	return fmt.Sprintf("%s_%s", base, util.GenerateRandStringWithUpperLowerNum(8))
 }
 
 func NormalizeInput(input string) string {
+	input = strings.TrimSpace(input)
 	if strings.HasPrefix(input, "local:") ||
 		strings.HasPrefix(input, "http://") ||
 		strings.HasPrefix(input, "https://") {

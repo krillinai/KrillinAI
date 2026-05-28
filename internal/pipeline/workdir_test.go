@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -21,12 +22,17 @@ func TestResolveWorkdirExplicit(t *testing.T) {
 }
 
 func TestResolveWorkdirDefault(t *testing.T) {
+	t.Chdir(t.TempDir())
 	taskID, workdir, err := ResolveWorkdir("https://www.youtube.com/watch?v=abc123", "")
 	if err != nil {
 		t.Fatalf("ResolveWorkdir() error = %v", err)
 	}
-	if !strings.HasPrefix(workdir, filepath.Join("tasks", taskID)) {
+	wantPrefix := filepath.Join("tasks", taskID)
+	if !strings.HasPrefix(workdir, wantPrefix) {
 		t.Fatalf("workdir = %q does not start with tasks/taskID %q", workdir, taskID)
+	}
+	if _, err := os.Stat(filepath.Join(workdir, "output")); err != nil {
+		t.Fatalf("workdir output directory stat error = %v", err)
 	}
 }
 
@@ -40,6 +46,9 @@ func TestNormalizeLocalInput(t *testing.T) {
 	}
 	if got := NormalizeInput("https://www.bilibili.com/video/BV123"); got != "https://www.bilibili.com/video/BV123" {
 		t.Fatalf("NormalizeInput(url) = %q", got)
+	}
+	if got := NormalizeInput(" https://example.com "); got != "https://example.com" {
+		t.Fatalf("NormalizeInput(trimmed url) = %q", got)
 	}
 }
 
@@ -61,5 +70,13 @@ func TestMakeTaskIDUsesEmptyQueryVAsFallback(t *testing.T) {
 	got := makeTaskID("https://example.com/watch?v=")
 	if !strings.HasPrefix(got, "task_") {
 		t.Fatalf("makeTaskID(empty query v) = %q, want task_ prefix", got)
+	}
+}
+
+func TestMakeTaskIDUsesEightCharSuffix(t *testing.T) {
+	got := makeTaskID("abc")
+	parts := strings.Split(got, "_")
+	if len(parts) < 2 || len(parts[len(parts)-1]) != 8 {
+		t.Fatalf("makeTaskID() = %q, want 8-character suffix", got)
 	}
 }
