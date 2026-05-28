@@ -92,7 +92,7 @@ type Response struct {
 	Stage         Stage             `json:"stage"`
 	Workdir       string            `json:"workdir,omitempty"`
 	TaskID        string            `json:"task_id,omitempty"`
-	CaptionSource string            `json:"caption_source,omitempty"`
+	CaptionSource CaptionSource     `json:"caption_source,omitempty"`
 	Inputs        map[string]string `json:"inputs,omitempty"`
 	Outputs       Outputs           `json:"outputs,omitempty"`
 	Warnings      []string          `json:"warnings,omitempty"`
