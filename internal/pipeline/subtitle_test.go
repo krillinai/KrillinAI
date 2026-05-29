@@ -12,10 +12,12 @@ type fakeStageService struct {
 	downloadErr error
 	processErr  error
 	calls       []string
+	prepareVTT  []bool
 }
 
-func (f *fakeStageService) PrepareMedia(context.Context, *types.SubtitleTaskStepParam) error {
+func (f *fakeStageService) PrepareMedia(_ context.Context, p *types.SubtitleTaskStepParam) error {
 	f.calls = append(f.calls, "prepare")
+	f.prepareVTT = append(f.prepareVTT, p.VttSwitch)
 	return nil
 }
 
@@ -64,8 +66,11 @@ func TestGenerateSubtitlesFallsBackToAudioWhenAnySourceFails(t *testing.T) {
 	if !resp.OK {
 		t.Fatalf("OK = false, want true")
 	}
-	if got := fake.calls; len(got) != 3 || got[0] != "prepare" || got[1] != "download-youtube" || got[2] != "audio" {
+	if got := fake.calls; len(got) != 4 || got[0] != "prepare" || got[1] != "download-youtube" || got[2] != "prepare" || got[3] != "audio" {
 		t.Fatalf("calls = %v", got)
+	}
+	if got := fake.prepareVTT; len(got) != 2 || got[0] != true || got[1] != false {
+		t.Fatalf("prepare VttSwitch values = %v, want [true false]", got)
 	}
 }
 
@@ -96,7 +101,7 @@ func TestGenerateSubtitlesYouTubeCaptionsDoNotUseAudio(t *testing.T) {
 	dir := t.TempDir()
 	fake := &fakeStageService{}
 	req := SubtitleRequest{
-		Input:         "https://youtu.be/abc",
+		Input:         "https://www.youtube.com/watch?v=abc",
 		Workdir:       dir,
 		TaskID:        "demo",
 		OriginLang:    "en",
@@ -138,5 +143,8 @@ func TestGenerateSubtitlesWhisperSkipsYouTubeDownload(t *testing.T) {
 	}
 	if got := fake.calls; len(got) != 2 || got[0] != "prepare" || got[1] != "audio" {
 		t.Fatalf("calls = %v", got)
+	}
+	if got := fake.prepareVTT; len(got) != 1 || got[0] != false {
+		t.Fatalf("prepare VttSwitch values = %v, want [false]", got)
 	}
 }
