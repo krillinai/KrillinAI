@@ -62,6 +62,10 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 			return failSubtitleStage(req, manifest, ErrorKindRetryable, "platform_caption_failed", err)
 		}
 		manifest.Warnings = append(manifest.Warnings, "平台字幕不可用，回退到转录")
+		stepParam.VttSwitch = false
+		if err := svc.PrepareMedia(ctx, stepParam); err != nil {
+			return failSubtitleStage(req, manifest, ErrorKindRetryable, "prepare_audio_fallback_failed", err)
+		}
 	}
 
 	if err := svc.GenerateSubtitlesFromAudio(ctx, stepParam); err != nil {
@@ -102,16 +106,17 @@ func subtitleStepParam(req SubtitleRequest) *types.SubtitleTaskStepParam {
 		Status:   types.SubtitleTaskStatusProcessing,
 	}
 	return &types.SubtitleTaskStepParam{
-		TaskId:             req.TaskID,
-		TaskPtr:            taskPtr,
-		TaskBasePath:       req.Workdir,
-		Link:               req.Input,
-		SubtitleResultType: resultType,
-		OriginLanguage:     types.StandardLanguageCode(req.OriginLang),
-		TargetLanguage:     types.StandardLanguageCode(req.TargetLang),
-		UserUILanguage:     types.StandardLanguageCode(userLang),
-		MaxWordOneLine:     maxWordOneLine,
-		VttSwitch:          true,
+		TaskId:                 req.TaskID,
+		TaskPtr:                taskPtr,
+		TaskBasePath:           req.Workdir,
+		Link:                   req.Input,
+		SubtitleResultType:     resultType,
+		OriginLanguage:         types.StandardLanguageCode(req.OriginLang),
+		TargetLanguage:         types.StandardLanguageCode(req.TargetLang),
+		UserUILanguage:         types.StandardLanguageCode(userLang),
+		MaxWordOneLine:         maxWordOneLine,
+		VttSwitch:              isYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper,
+		EmbedSubtitleVideoType: "none",
 	}
 }
 
@@ -176,5 +181,5 @@ func subtitleResponse(ok bool, req SubtitleRequest, manifest *Manifest, captionS
 
 func isYouTubeInput(input string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(input))
-	return strings.Contains(normalized, "youtube.com") || strings.Contains(normalized, "youtu.be")
+	return strings.Contains(normalized, "youtube.com")
 }
