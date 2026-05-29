@@ -168,18 +168,76 @@ This software is not signed, so when running on macOS, after completing the file
 
 This project supports Docker deployment; please refer to the [Docker Deployment Instructions](./docker.md)
 
-### CLI 用法
+### CLI Usage
 
-KrillinAI 提供阶段化 CLI，适合脚本和 Agent 调用。每个命令默认同步执行，完成后输出 JSON。
+KrillinAI provides a staged CLI suitable for scripting, automation pipelines, and AI Agent invocation. The CLI executes synchronously by default, outputs a single JSON line to stdout upon completion, and writes `krillinai_manifest.json` to the working directory for subsequent stages to reuse prior artifacts.
+
+Build from source:
 
 ```bash
-krillinai subtitle "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --origin-lang en --target-lang zh_cn --workdir tasks/demo
-krillinai tts --workdir tasks/demo --input-srt tasks/demo/target_language_srt.srt --line-mode target-only
-krillinai render-horizontal --workdir tasks/demo --video tasks/demo/origin_video.mp4 --subtitle tasks/demo/bilingual_srt.srt
-krillinai render-vertical --workdir tasks/demo --video tasks/demo/origin_video.mp4 --subtitle tasks/demo/short_origin_mixed_srt.srt
+go build -o build/krillinai-cli ./cmd/cli
 ```
 
-Agent 应优先读取 stdout JSON 和 `krillinai_manifest.json`，不要解析普通日志。
+Command overview:
+
+| Command | Purpose | Typical Outputs |
+|---|---|---|
+| `subtitle` | Generate subtitles from YouTube / Bilibili links or local videos; tries platform captions first, falls back to Whisper transcription | `origin_language_srt.srt`, `target_language_srt.srt`, `bilingual_srt.srt`, `short_origin_mixed_srt.srt` |
+| `tts` | Generate target-language dubbing from target subtitles | `tts_final_audio.wav`, `video_with_tts.mp4` |
+| `render-horizontal` | Produce horizontal video: original + bilingual subtitles, or dubbed video + target subtitles | `horizontal_bilingual.mp4` |
+| `render-vertical` | Produce vertical video: original converted to vertical + short subtitles, or dubbed video + target subtitles | `transferred_vertical_video.mp4`, `vertical_bilingual.mp4` |
+| `pipeline` | Orchestrate multiple stages via `--outputs` | Determined by selected stages |
+| `cover` | Generate a cover image from the original cover and prompt templates | `generated_cover.png` |
+
+Typical workflow:
+
+```bash
+# 1. Generate subtitles: original, target, bilingual, and vertical short subtitles
+./build/krillinai-cli subtitle "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+  --origin-lang en \
+  --target-lang zh_cn \
+  --workdir tasks/demo \
+  --caption-source any
+
+# 2. Generate dubbing from target-language subtitles
+./build/krillinai-cli tts \
+  --workdir tasks/demo \
+  --input-srt tasks/demo/target_language_srt.srt \
+  --line-mode target-only \
+  --video tasks/demo/origin_video.mp4
+
+# 3. Produce horizontal bilingual-subtitle video
+./build/krillinai-cli render-horizontal \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/bilingual_srt.srt
+
+# 4. Produce vertical short-subtitle video
+./build/krillinai-cli render-vertical \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/short_origin_mixed_srt.srt \
+  --major-title "今日话题" \
+  --minor-title "AI Video"
+```
+
+Agent integration conventions:
+
+- Parse the last JSON line on stdout and `krillinai_manifest.json` — do not parse plain-text logs.
+- The `outputs` field records stage artifact paths; subsequent commands can pass only `--workdir` to reuse the manifest.
+- Supports `--dry-run` to validate parameters and generate a manifest without downloading video or calling external AI services.
+- Handle errors by `error.kind`: `usage` → fix parameters, `retryable` → retry, `dependency` → install `ffmpeg` / `ffprobe` / `yt-dlp`.
+
+For a complete parameter reference, see [CLI Capability Summary](./docs/zh/cli.md).
+
+### Agent Skills
+
+The repository also includes ready-to-use Agent Skills under `skills/` so coding agents can call the CLI with stable conventions:
+
+- [`krillinai-cli`](./skills/krillinai-cli/SKILL.md): top-level routing skill for choosing subtitle, TTS, render, pipeline, or cover workflows.
+- [`krillinai-subtitle`](./skills/krillinai-subtitle/SKILL.md), [`krillinai-tts`](./skills/krillinai-tts/SKILL.md), [`krillinai-render-horizontal`](./skills/krillinai-render-horizontal/SKILL.md), and [`krillinai-render-vertical`](./skills/krillinai-render-vertical/SKILL.md): stage-specific operating guides.
+- [`krillinai-pipeline`](./skills/krillinai-pipeline/SKILL.md) and [`krillinai-cover`](./skills/krillinai-cover/SKILL.md): planning/reserved guides for pipeline orchestration and cover generation until those execution paths are fully wired.
+- [`cli-contract.md`](./skills/krillinai-cli/references/cli-contract.md): shared JSON, manifest, outputs, and error-handling contract.
 
 Based on the provided configuration file, here is the updated "Configuration Help (Must Read)" section for your README file:
 
