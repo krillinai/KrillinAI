@@ -1,13 +1,24 @@
 version: 2
 
 builds:
-  - env:
+  - id: server
+    binary: KrillinAI
+    env:
       - CGO_ENABLED=0
     goos:
       - darwin
       - linux
       - windows
     main: ./cmd/server/main.go
+  - id: cli
+    binary: krillinai
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    main: ./cmd/cli/main.go
 
 # Docker 构建配置
 dockers:

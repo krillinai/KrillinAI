@@ -168,6 +168,19 @@ sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64
 
 该项目支持 Docker 部署；请参阅 [Docker 部署说明](./docker.md)
 
+### CLI 用法
+
+KrillinAI 提供阶段化 CLI，适合脚本和 Agent 调用。每个命令默认同步执行，完成后输出 JSON。
+
+```bash
+krillinai subtitle "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --origin-lang en --target-lang zh_cn --workdir tasks/demo
+krillinai tts --workdir tasks/demo --input-srt tasks/demo/target_language_srt.srt --line-mode target-only
+krillinai render-horizontal --workdir tasks/demo --video tasks/demo/origin_video.mp4 --subtitle tasks/demo/bilingual_srt.srt
+krillinai render-vertical --workdir tasks/demo --video tasks/demo/origin_video.mp4 --subtitle tasks/demo/short_origin_mixed_srt.srt
+```
+
+Agent 应优先读取 stdout JSON 和 `krillinai_manifest.json`，不要解析普通日志。
+
 根据提供的配置文件，以下是您 README 文件中更新的“配置帮助（必读）”部分：
 
 ### 配置帮助（必读）

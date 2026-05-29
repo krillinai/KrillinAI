@@ -168,6 +168,19 @@ This software is not signed, so when running on macOS, after completing the file
 
 This project supports Docker deployment; please refer to the [Docker Deployment Instructions](./docker.md)
 
+### CLI 用法
+
+KrillinAI 提供阶段化 CLI，适合脚本和 Agent 调用。每个命令默认同步执行，完成后输出 JSON。
+
+```bash
+krillinai subtitle "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --origin-lang en --target-lang zh_cn --workdir tasks/demo
+krillinai tts --workdir tasks/demo --input-srt tasks/demo/target_language_srt.srt --line-mode target-only
+krillinai render-horizontal --workdir tasks/demo --video tasks/demo/origin_video.mp4 --subtitle tasks/demo/bilingual_srt.srt
+krillinai render-vertical --workdir tasks/demo --video tasks/demo/origin_video.mp4 --subtitle tasks/demo/short_origin_mixed_srt.srt
+```
+
+Agent 应优先读取 stdout JSON 和 `krillinai_manifest.json`，不要解析普通日志。
+
 Based on the provided configuration file, here is the updated "Configuration Help (Must Read)" section for your README file:
 
 ### Configuration Help (Must Read)
@@ -223,4 +236,3 @@ Please visit [Frequently Asked Questions](./faq.md)
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=KrillinAI/KlicStudio&type=Date)](https://star-history.com/#KrillinAI/KlicStudio&Date)
-
