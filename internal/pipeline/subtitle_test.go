@@ -13,6 +13,7 @@ type fakeStageService struct {
 	processErr  error
 	calls       []string
 	prepareVTT  []bool
+	lastSpeech  *types.SubtitleTaskStepParam
 }
 
 func (f *fakeStageService) PrepareMedia(_ context.Context, p *types.SubtitleTaskStepParam) error {
@@ -26,7 +27,9 @@ func (f *fakeStageService) GenerateSubtitlesFromAudio(context.Context, *types.Su
 	return nil
 }
 
-func (f *fakeStageService) GenerateSpeechFromSRT(context.Context, *types.SubtitleTaskStepParam) error {
+func (f *fakeStageService) GenerateSpeechFromSRT(_ context.Context, p *types.SubtitleTaskStepParam) error {
+	f.calls = append(f.calls, "speech")
+	f.lastSpeech = p
 	return nil
 }
 
