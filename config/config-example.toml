@@ -61,3 +61,10 @@
             access_key_id = ""
             access_key_secret = ""
             app_key= ""
+
+[image]
+    provider = "openai-compatible"
+    [image.openai]
+        base_url = ""
+        api_key = ""
+        model = "gpt-image-1"
