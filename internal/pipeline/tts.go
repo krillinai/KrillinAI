@@ -30,9 +30,11 @@ func GenerateTTS(ctx context.Context, svc StageService, req TTSRequest) (Respons
 	}
 	manifest.TaskID = req.TaskID
 	manifest.Workdir = req.Workdir
+	existingOutputs := manifest.Outputs
 	if err := manifest.ApplyDefaultOutputs(); err != nil {
 		return ttsFailureResponse(req, manifest, ErrorKindInternal, "apply_outputs_failed", err), err
 	}
+	restoreOutputs(manifest, existingOutputs)
 
 	inputSRT := req.InputSRT
 	if inputSRT == "" {
@@ -87,6 +89,60 @@ func ttsManifest(req TTSRequest) (*Manifest, error) {
 		return NewManifest(req.TaskID, req.Workdir), nil
 	}
 	return nil, err
+}
+
+func restoreOutputs(manifest *Manifest, existing Outputs) {
+	if existing.OriginVideo != "" {
+		manifest.Outputs.OriginVideo = existing.OriginVideo
+	}
+	if existing.OriginAudio != "" {
+		manifest.Outputs.OriginAudio = existing.OriginAudio
+	}
+	if existing.OriginSRT != "" {
+		manifest.Outputs.OriginSRT = existing.OriginSRT
+	}
+	if existing.TargetSRT != "" {
+		manifest.Outputs.TargetSRT = existing.TargetSRT
+	}
+	if existing.BilingualSRT != "" {
+		manifest.Outputs.BilingualSRT = existing.BilingualSRT
+	}
+	if existing.ShortOriginSRT != "" {
+		manifest.Outputs.ShortOriginSRT = existing.ShortOriginSRT
+	}
+	if existing.ShortOriginMixedSRT != "" {
+		manifest.Outputs.ShortOriginMixedSRT = existing.ShortOriginMixedSRT
+	}
+	if existing.TTSAudio != "" {
+		manifest.Outputs.TTSAudio = existing.TTSAudio
+	}
+	if existing.VideoWithTTS != "" {
+		manifest.Outputs.VideoWithTTS = existing.VideoWithTTS
+	}
+	if existing.HorizontalVideo != "" {
+		manifest.Outputs.HorizontalVideo = existing.HorizontalVideo
+	}
+	if existing.VerticalVideo != "" {
+		manifest.Outputs.VerticalVideo = existing.VerticalVideo
+	}
+	if existing.TransferredVideo != "" {
+		manifest.Outputs.TransferredVideo = existing.TransferredVideo
+	}
+	if existing.OriginCover != "" {
+		manifest.Outputs.OriginCover = existing.OriginCover
+	}
+	if existing.GeneratedCover != "" {
+		manifest.Outputs.GeneratedCover = existing.GeneratedCover
+	}
+	if existing.FinalCoverPrompt != "" {
+		manifest.Outputs.FinalCoverPrompt = existing.FinalCoverPrompt
+	}
+	if existing.OriginText != "" {
+		manifest.Outputs.OriginText = existing.OriginText
+	}
+	if existing.TargetText != "" {
+		manifest.Outputs.TargetText = existing.TargetText
+	}
 }
 
 func failTTSStage(req TTSRequest, manifest *Manifest, code string, err error) (Response, error) {
