@@ -1,6 +1,10 @@
 package cli
 
-import "testing"
+import (
+	"context"
+	"krillin-ai/internal/pipeline"
+	"testing"
+)
 
 func TestParseSubtitleCommand(t *testing.T) {
 	cmd, err := Parse([]string{
@@ -29,5 +33,26 @@ func TestParseTTSCommandRequiresInputSRT(t *testing.T) {
 	_, err := Parse([]string{"tts", "--workdir", "tasks/demo"})
 	if err == nil {
 		t.Fatalf("Parse() error = nil, want error")
+	}
+}
+
+func TestExecuteDryRunSubtitleReturnsJSONReadyResponse(t *testing.T) {
+	cmd, err := Parse([]string{
+		"subtitle",
+		"local:demo.mp4",
+		"--origin-lang", "en",
+		"--target-lang", "zh_cn",
+		"--workdir", t.TempDir(),
+		"--dry-run",
+	})
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	resp := Execute(context.Background(), nil, cmd)
+	if !resp.OK {
+		t.Fatalf("OK = false, error = %#v", resp.Error)
+	}
+	if resp.Stage != pipeline.StageSubtitle {
+		t.Fatalf("Stage = %s", resp.Stage)
 	}
 }

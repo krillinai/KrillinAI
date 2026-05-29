@@ -17,6 +17,15 @@ func main() {
 	log.InitLogger()
 	defer log.GetLogger().Sync()
 
+	cmd, err := cli.Parse(os.Args[1:])
+	if err != nil {
+		writeAndExit(errorResponse(err, pipeline.ErrorKindUsage))
+	}
+	if cmd.DryRun {
+		writeAndExit(cli.Execute(context.Background(), nil, cmd))
+		return
+	}
+
 	if !config.LoadConfig() {
 		writeAndExit(pipeline.Response{
 			OK: false,
@@ -32,10 +41,6 @@ func main() {
 	}
 	if err := deps.CheckDependency(); err != nil {
 		writeAndExit(errorResponse(err, pipeline.ErrorKindDependency))
-	}
-	cmd, err := cli.Parse(os.Args[1:])
-	if err != nil {
-		writeAndExit(errorResponse(err, pipeline.ErrorKindUsage))
 	}
 	svc := service.NewService()
 	adapter := pipeline.NewServiceAdapter(svc)

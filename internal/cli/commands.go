@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"io"
 	"krillin-ai/internal/pipeline"
+	"os"
 	"strings"
 )
 
 type Command struct {
 	Name     string
+	DryRun   bool
 	Subtitle pipeline.SubtitleRequest
 	TTS      pipeline.TTSRequest
 	Render   pipeline.RenderRequest
@@ -42,6 +44,9 @@ func Parse(args []string) (Command, error) {
 }
 
 func Execute(ctx context.Context, svc pipeline.StageService, cmd Command) pipeline.Response {
+	if cmd.DryRun {
+		return dryRun(cmd)
+	}
 	switch cmd.Name {
 	case "subtitle":
 		resp, err := pipeline.GenerateSubtitles(ctx, svc, cmd.Subtitle)
@@ -74,6 +79,7 @@ func parseSubtitle(name string, args []string) (Command, error) {
 	captionSource := fs.String("caption-source", string(pipeline.CaptionSourceAny), "caption source")
 	bilingualTop := fs.Bool("bilingual-top", false, "put target subtitle on top")
 	maxWordOneLine := fs.Int("max-word-one-line", 0, "max words per line")
+	dryRun := fs.Bool("dry-run", false, "validate command without running external services")
 	input := ""
 	parseArgs := args
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
@@ -90,7 +96,8 @@ func parseSubtitle(name string, args []string) (Command, error) {
 		return Command{}, errors.New("subtitle requires input")
 	}
 	return Command{
-		Name: name,
+		Name:   name,
+		DryRun: *dryRun,
 		Subtitle: pipeline.SubtitleRequest{
 			Input:          input,
 			Workdir:        *workdir,
@@ -114,6 +121,7 @@ func parseTTS(name string, args []string) (Command, error) {
 	video := fs.String("video", "", "input video")
 	voice := fs.String("voice", "", "voice")
 	voiceCloneSource := fs.String("voice-clone-source", "", "voice clone source")
+	dryRun := fs.Bool("dry-run", false, "validate command without running external services")
 	if err := fs.Parse(args); err != nil {
 		return Command{}, err
 	}
@@ -121,7 +129,8 @@ func parseTTS(name string, args []string) (Command, error) {
 		return Command{}, errors.New("tts requires --input-srt")
 	}
 	return Command{
-		Name: name,
+		Name:   name,
+		DryRun: *dryRun,
 		TTS: pipeline.TTSRequest{
 			Workdir:          *workdir,
 			TaskID:           *taskID,
@@ -144,11 +153,13 @@ func parseRender(name string, args []string, horizontal bool) (Command, error) {
 	dubbed := fs.Bool("dubbed", false, "render dubbed video")
 	majorTitle := fs.String("major-title", "", "vertical major title")
 	minorTitle := fs.String("minor-title", "", "vertical minor title")
+	dryRun := fs.Bool("dry-run", false, "validate command without running external services")
 	if err := fs.Parse(args); err != nil {
 		return Command{}, err
 	}
 	return Command{
-		Name: name,
+		Name:   name,
+		DryRun: *dryRun,
 		Render: pipeline.RenderRequest{
 			Workdir:    *workdir,
 			TaskID:     *taskID,
@@ -167,6 +178,7 @@ func parsePipeline(name string, args []string) (Command, error) {
 	fs := newFlagSet(name)
 	outputs := fs.String("outputs", "subtitle", "outputs")
 	async := fs.Bool("async", false, "run async")
+	dryRun := fs.Bool("dry-run", false, "validate command without running external services")
 	if err := fs.Parse(args); err != nil {
 		return Command{}, err
 	}
@@ -174,12 +186,80 @@ func parsePipeline(name string, args []string) (Command, error) {
 		return Command{}, err
 	}
 	return Command{
-		Name: name,
+		Name:   name,
+		DryRun: *dryRun,
 		Pipeline: pipeline.PipelineRequest{
 			Outputs: *outputs,
 			Async:   *async,
 		},
 	}, nil
+}
+
+func dryRun(cmd Command) pipeline.Response {
+	switch cmd.Name {
+	case "subtitle":
+		return dryRunManifest(cmd.Subtitle.Workdir, cmd.Subtitle.TaskID, pipeline.StageSubtitle, func(m *pipeline.Manifest) {
+			m.InputURL = cmd.Subtitle.Input
+			m.OriginLanguage = cmd.Subtitle.OriginLang
+			m.TargetLanguage = cmd.Subtitle.TargetLang
+			m.CaptionSource = string(cmd.Subtitle.CaptionSource)
+		})
+	case "tts":
+		return dryRunManifest(cmd.TTS.Workdir, cmd.TTS.TaskID, pipeline.StageTTS, nil)
+	case "render-horizontal":
+		return dryRunManifest(cmd.Render.Workdir, cmd.Render.TaskID, pipeline.StageRenderHorizontal, nil)
+	case "render-vertical":
+		return dryRunManifest(cmd.Render.Workdir, cmd.Render.TaskID, pipeline.StageRenderVertical, nil)
+	case "pipeline":
+		return pipeline.Response{OK: true, Stage: pipeline.StagePipeline}
+	default:
+		return pipeline.Response{
+			OK: false,
+			Error: &pipeline.Error{
+				Kind:    pipeline.ErrorKindUsage,
+				Code:    "unsupported_dry_run",
+				Message: fmt.Sprintf("unsupported dry-run command: %s", cmd.Name),
+			},
+		}
+	}
+}
+
+func dryRunManifest(workdir, taskID string, stage pipeline.Stage, update func(*pipeline.Manifest)) pipeline.Response {
+	if workdir == "" {
+		workdir = "."
+	}
+	manifest := pipeline.NewManifest(taskID, workdir)
+	if update != nil {
+		update(manifest)
+	}
+	if err := manifest.ApplyDefaultOutputs(); err != nil {
+		return dryRunError(stage, workdir, taskID, "apply_outputs_failed", err)
+	}
+	manifest.MarkStage(stage, true, "dry-run")
+	if err := manifest.Save(); err != nil && !errors.Is(err, os.ErrExist) {
+		return dryRunError(stage, workdir, taskID, "save_manifest_failed", err)
+	}
+	return pipeline.Response{
+		OK:      true,
+		Stage:   stage,
+		Workdir: manifest.Workdir,
+		TaskID:  manifest.TaskID,
+		Outputs: manifest.Outputs,
+	}
+}
+
+func dryRunError(stage pipeline.Stage, workdir, taskID, code string, err error) pipeline.Response {
+	return pipeline.Response{
+		OK:      false,
+		Stage:   stage,
+		Workdir: workdir,
+		TaskID:  taskID,
+		Error: &pipeline.Error{
+			Kind:    pipeline.ErrorKindInternal,
+			Code:    code,
+			Message: err.Error(),
+		},
+	}
 }
 
 func newFlagSet(name string) *flag.FlagSet {
