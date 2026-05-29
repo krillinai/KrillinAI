@@ -168,6 +168,68 @@ sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64
 
 Этот проект поддерживает развертывание с помощью Docker; пожалуйста, обратитесь к [Инструкциям по развертыванию Docker](./docker.md)
 
+### Использование CLI
+
+KrillinAI теперь предоставляет поэтапный CLI, удобный для скриптов, автоматизированных пайплайнов и AI Agent. По умолчанию CLI выполняется синхронно, после завершения выводит одну строку JSON в stdout и записывает `krillinai_manifest.json` в рабочий каталог, чтобы последующие этапы могли переиспользовать уже созданные артефакты.
+
+Сборка CLI из исходного кода:
+
+```bash
+go build -o build/krillinai-cli ./cmd/cli
+```
+
+Обзор команд:
+
+| Команда | Назначение | Основные артефакты |
+|---|---|---|
+| `subtitle` | Создает субтитры из ссылок YouTube / Bilibili или локального видео; сначала пытается скачать субтитры платформы, а при неудаче переходит к транскрибации Whisper | `origin_language_srt.srt`, `target_language_srt.srt`, `bilingual_srt.srt`, `short_origin_mixed_srt.srt` |
+| `tts` | Создает озвучку на целевом языке по целевым субтитрам | `tts_final_audio.wav`, `video_with_tts.mp4` |
+| `render-horizontal` | Создает горизонтальное видео: оригинальное видео + двуязычные субтитры или видео с озвучкой + субтитры на целевом языке | `horizontal_bilingual.mp4` |
+| `render-vertical` | Создает вертикальное видео: оригинальное видео, преобразованное в вертикальный формат + короткие субтитры, или видео с озвучкой + субтитры на целевом языке | `transferred_vertical_video.mp4`, `vertical_bilingual.mp4` |
+| `pipeline` | Связывает несколько этапов согласно outputs | Зависит от выбранных этапов |
+| `cover` | Создает обложку на основе исходной обложки видео и шаблона prompt | `generated_cover.png` |
+
+Типичный рабочий процесс:
+
+```bash
+# 1. Создать исходные, целевые, двуязычные и короткие вертикальные субтитры
+./build/krillinai-cli subtitle "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+  --origin-lang en \
+  --target-lang zh_cn \
+  --workdir tasks/demo \
+  --caption-source any
+
+# 2. Создать озвучку по субтитрам целевого языка
+./build/krillinai-cli tts \
+  --workdir tasks/demo \
+  --input-srt tasks/demo/target_language_srt.srt \
+  --line-mode target-only \
+  --video tasks/demo/origin_video.mp4
+
+# 3. Создать горизонтальное видео с двуязычными субтитрами
+./build/krillinai-cli render-horizontal \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/bilingual_srt.srt
+
+# 4. Создать вертикальное видео с короткими двуязычными субтитрами
+./build/krillinai-cli render-vertical \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/short_origin_mixed_srt.srt \
+  --major-title "Тема дня" \
+  --minor-title "AI Video"
+```
+
+Правила интеграции для Agent:
+
+- Сначала читайте последнюю строку JSON из stdout и `krillinai_manifest.json`; не анализируйте обычные логи.
+- Поле `outputs` хранит пути к артефактам, поэтому последующие команды могут переиспользовать manifest, передав только `--workdir`.
+- `--dry-run` проверяет параметры и создает manifest без загрузки видео и без вызова внешних AI-сервисов.
+- Обрабатывайте ошибки по `error.kind`: `usage` означает исправить параметры, `retryable` означает повторить попытку, `dependency` означает установить `ffmpeg` / `ffprobe` / `yt-dlp`.
+
+Более подробное описание параметров смотрите в [сводке возможностей CLI](../zh/cli.md).
+
 На основе предоставленного конфигурационного файла вот обновленный раздел "Помощь по конфигурации (обязательно к прочтению)" для вашего файла README:
 
 ### Помощь по конфигурации (обязательно к прочтению)

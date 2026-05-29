@@ -2,6 +2,7 @@
 .claude/
 .github/
 docs/plans/
+docs/superpowers/
 tasks/
 cookies.txt
 .vscode/
@@ -20,3 +21,6 @@ dist/
 .DS_Store
 ._*
 KrillinAI.exe
+.codegraph/
+.deepseek/
+run.log

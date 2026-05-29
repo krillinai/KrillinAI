@@ -21,6 +21,10 @@ func main() {
 	if err != nil {
 		writeAndExit(errorResponse(err, pipeline.ErrorKindUsage))
 	}
+	if cmd.Help {
+		fmt.Print(cli.Help(cmd))
+		return
+	}
 	if cmd.DryRun {
 		writeAndExit(cli.Execute(context.Background(), nil, cmd))
 		return

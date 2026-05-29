@@ -168,6 +168,77 @@ Ce logiciel n'est pas signé, donc lors de l'exécution sur macOS, après avoir 
 
 Ce projet prend en charge le déploiement Docker ; veuillez vous référer aux [Instructions de déploiement Docker](./docker.md)
 
+### Utilisation de la CLI
+
+KrillinAI propose désormais une CLI par étapes, adaptée aux scripts, aux pipelines d'automatisation et aux agents IA. Par défaut, la CLI s'exécute de manière synchrone, imprime une ligne JSON sur stdout à la fin, et écrit `krillinai_manifest.json` dans le répertoire de travail afin que les étapes suivantes puissent réutiliser les artefacts existants.
+
+Compiler la CLI depuis le code source :
+
+```bash
+go build -o build/krillinai-cli ./cmd/cli
+```
+
+Résumé des commandes :
+
+| Commande | Usage | Artefacts courants |
+|---|---|---|
+| `subtitle` | Génère des sous-titres depuis un lien YouTube / Bilibili ou une vidéo locale ; tente d'abord les sous-titres de la plateforme, puis revient à Whisper en cas d'échec | `origin_language_srt.srt`, `target_language_srt.srt`, `bilingual_srt.srt`, `short_origin_mixed_srt.srt` |
+| `tts` | Génère un doublage dans la langue cible à partir des sous-titres cibles | `tts_final_audio.wav`, `video_with_tts.mp4` |
+| `render-horizontal` | Génère une vidéo horizontale : vidéo originale + sous-titres bilingues, ou vidéo doublée + sous-titres en langue cible | `horizontal_bilingual.mp4` |
+| `render-vertical` | Génère une vidéo verticale : vidéo originale convertie en vertical + sous-titres courts, ou vidéo doublée + sous-titres en langue cible | `transferred_vertical_video.mp4`, `vertical_bilingual.mp4` |
+| `pipeline` | Enchaîne plusieurs étapes selon outputs | Dépend des étapes sélectionnées |
+| `cover` | Génère une couverture à partir de la couverture originale de la vidéo et d'un modèle de prompt | `generated_cover.png` |
+
+Flux de travail typique :
+
+```bash
+# 1. Générer les sous-titres source, cible, bilingues et courts pour vertical
+./build/krillinai-cli subtitle "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+  --origin-lang en \
+  --target-lang zh_cn \
+  --workdir tasks/demo \
+  --caption-source any
+
+# 2. Générer le doublage à partir des sous-titres de la langue cible
+./build/krillinai-cli tts \
+  --workdir tasks/demo \
+  --input-srt tasks/demo/target_language_srt.srt \
+  --line-mode target-only \
+  --video tasks/demo/origin_video.mp4
+
+# 3. Générer une vidéo horizontale avec sous-titres bilingues
+./build/krillinai-cli render-horizontal \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/bilingual_srt.srt
+
+# 4. Générer une vidéo verticale avec sous-titres bilingues courts
+./build/krillinai-cli render-vertical \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/short_origin_mixed_srt.srt \
+  --major-title "Sujet du jour" \
+  --minor-title "AI Video"
+```
+
+Conventions d'intégration pour les agents :
+
+- Lire en priorité la dernière ligne JSON de stdout et `krillinai_manifest.json` ; ne pas analyser les logs ordinaires.
+- Le champ `outputs` enregistre les chemins des artefacts ; les commandes suivantes peuvent réutiliser le manifest avec seulement `--workdir`.
+- `--dry-run` valide les paramètres et génère le manifest sans télécharger de vidéo ni appeler de service IA externe.
+- Traiter les erreurs selon `error.kind` : `usage` pour corriger les paramètres, `retryable` pour réessayer, `dependency` pour installer `ffmpeg` / `ffprobe` / `yt-dlp`.
+
+Pour une description plus complète des paramètres, consultez le [résumé des capacités CLI](../zh/cli.md).
+
+### Agent Skills
+
+Le dépôt inclut également des Agent Skills prêts à l'emploi dans `skills/`, afin que les agents puissent appeler la CLI avec des conventions stables :
+
+- [`krillinai-cli`](../../skills/krillinai-cli/SKILL.md) : skill d'entrée principale pour choisir les workflows de sous-titres, TTS, rendu, pipeline ou couverture.
+- [`krillinai-subtitle`](../../skills/krillinai-subtitle/SKILL.md), [`krillinai-tts`](../../skills/krillinai-tts/SKILL.md), [`krillinai-render-horizontal`](../../skills/krillinai-render-horizontal/SKILL.md) et [`krillinai-render-vertical`](../../skills/krillinai-render-vertical/SKILL.md) : guides opérationnels propres à chaque étape.
+- [`krillinai-pipeline`](../../skills/krillinai-pipeline/SKILL.md) et [`krillinai-cover`](../../skills/krillinai-cover/SKILL.md) : guides de planification/réservation pour l'orchestration pipeline et la génération de couverture tant que ces chemins d'exécution ne sont pas entièrement connectés.
+- [`cli-contract.md`](../../skills/krillinai-cli/references/cli-contract.md) : contrat partagé pour JSON, manifest, outputs et gestion des erreurs.
+
 Basé sur le fichier de configuration fourni, voici la section mise à jour "Aide à la configuration (À lire absolument)" pour votre fichier README :
 
 ### Aide à la configuration (À lire absolument)
