@@ -8,6 +8,7 @@ require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.63.72
 	github.com/aliyun/alibabacloud-oss-go-sdk-v2 v1.1.3
 	github.com/gin-gonic/gin v1.10.0
+	github.com/go-ego/gse v1.0.2
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/google/uuid v1.4.0
 	github.com/gorilla/websocket v1.5.0
@@ -64,6 +65,7 @@ require (
 	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
+	github.com/vcaesar/cedar v0.30.0 // indirect
 	github.com/yuin/goldmark v1.7.1 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect

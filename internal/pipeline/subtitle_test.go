@@ -9,16 +9,18 @@ import (
 )
 
 type fakeStageService struct {
-	downloadErr error
-	processErr  error
-	calls       []string
-	prepareVTT  []bool
-	lastSpeech  *types.SubtitleTaskStepParam
+	downloadErr       error
+	processErr        error
+	calls             []string
+	prepareVTT        []bool
+	prepareEmbedTypes []string
+	lastSpeech        *types.SubtitleTaskStepParam
 }
 
 func (f *fakeStageService) PrepareMedia(_ context.Context, p *types.SubtitleTaskStepParam) error {
 	f.calls = append(f.calls, "prepare")
 	f.prepareVTT = append(f.prepareVTT, p.VttSwitch)
+	f.prepareEmbedTypes = append(f.prepareEmbedTypes, p.EmbedSubtitleVideoType)
 	return nil
 }
 
@@ -121,8 +123,42 @@ func TestGenerateSubtitlesYouTubeCaptionsDoNotUseAudio(t *testing.T) {
 	if resp.CaptionSource == "" {
 		t.Fatalf("CaptionSource is empty")
 	}
-	if got := fake.calls; len(got) != 3 || got[0] != "prepare" || got[1] != "download-youtube" || got[2] != "process-youtube" {
+	if got := fake.calls; len(got) != 4 || got[0] != "prepare" || got[1] != "download-youtube" || got[2] != "process-youtube" || got[3] != "prepare" {
 		t.Fatalf("calls = %v", got)
+	}
+	for _, call := range fake.calls {
+		if call == "audio" {
+			t.Fatalf("calls = %v, did not expect audio transcription", fake.calls)
+		}
+	}
+}
+
+func TestGenerateSubtitlesYouTubeCaptionsPrepareOriginalMediaForRendering(t *testing.T) {
+	dir := t.TempDir()
+	fake := &fakeStageService{}
+	req := SubtitleRequest{
+		Input:         "https://www.youtube.com/watch?v=abc",
+		Workdir:       dir,
+		TaskID:        "demo",
+		OriginLang:    "en",
+		TargetLang:    "zh_cn",
+		CaptionSource: CaptionSourceAny,
+	}
+	resp, err := GenerateSubtitles(context.Background(), fake, req)
+	if err != nil {
+		t.Fatalf("GenerateSubtitles() error = %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("OK = false, want true")
+	}
+	if got := fake.calls; len(got) != 4 || got[0] != "prepare" || got[1] != "download-youtube" || got[2] != "process-youtube" || got[3] != "prepare" {
+		t.Fatalf("calls = %v", got)
+	}
+	if got := fake.prepareVTT; len(got) != 2 || got[0] != true || got[1] != false {
+		t.Fatalf("prepare VttSwitch values = %v, want [true false]", got)
+	}
+	if got := fake.prepareEmbedTypes; len(got) != 2 || got[1] != "all" {
+		t.Fatalf("prepare EmbedSubtitleVideoType values = %v, want second value all", got)
 	}
 }
 

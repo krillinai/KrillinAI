@@ -3322,7 +3322,33 @@ func (s *YouTubeSubtitleService) groupWordsByCharLength(words []VttWord, maxChar
 		groups = append(groups, currentGroup)
 	}
 
-	return groups
+	return mergeShortTrailingWordGroup(groups)
+}
+
+func mergeShortTrailingWordGroup(groups [][]VttWord) [][]VttWord {
+	if len(groups) < 2 {
+		return groups
+	}
+
+	last := groups[len(groups)-1]
+	if len(last) > 1 || wordGroupTextLength(last) > 12 {
+		return groups
+	}
+
+	prevIndex := len(groups) - 2
+	groups[prevIndex] = append(groups[prevIndex], last...)
+	return groups[:len(groups)-1]
+}
+
+func wordGroupTextLength(words []VttWord) int {
+	length := 0
+	for i, word := range words {
+		if i > 0 {
+			length++
+		}
+		length += len([]rune(word.Text))
+	}
+	return length
 }
 
 // writeShortSubtitleFile 生成短字幕文件（中文完整 + 英文拆分）

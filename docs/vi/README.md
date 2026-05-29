@@ -168,6 +168,68 @@ Phần mềm này không được ký, vì vậy khi chạy trên macOS, sau khi
 
 Dự án này hỗ trợ triển khai Docker; vui lòng tham khảo [Hướng Dẫn Triển Khai Docker](./docker.md)
 
+### Cách dùng CLI
+
+KrillinAI hiện cung cấp CLI theo từng giai đoạn, phù hợp cho script, pipeline tự động hóa và AI Agent. Theo mặc định, CLI chạy đồng bộ, in một dòng JSON ra stdout khi hoàn tất và ghi `krillinai_manifest.json` vào thư mục làm việc để các giai đoạn sau có thể tái sử dụng các sản phẩm đã tạo.
+
+Biên dịch CLI từ mã nguồn:
+
+```bash
+go build -o build/krillinai-cli ./cmd/cli
+```
+
+Tổng quan lệnh:
+
+| Lệnh | Mục đích | Sản phẩm thường gặp |
+|---|---|---|
+| `subtitle` | Tạo phụ đề từ liên kết YouTube / Bilibili hoặc video cục bộ; ưu tiên tải phụ đề nền tảng, nếu thất bại sẽ dùng Whisper để nhận diện | `origin_language_srt.srt`, `target_language_srt.srt`, `bilingual_srt.srt`, `short_origin_mixed_srt.srt` |
+| `tts` | Tạo lồng tiếng bằng ngôn ngữ đích từ phụ đề đích | `tts_final_audio.wav`, `video_with_tts.mp4` |
+| `render-horizontal` | Tạo video ngang: video gốc + phụ đề song ngữ, hoặc video đã lồng tiếng + phụ đề ngôn ngữ đích | `horizontal_bilingual.mp4` |
+| `render-vertical` | Tạo video dọc: chuyển video gốc sang dọc + phụ đề ngắn, hoặc video đã lồng tiếng + phụ đề ngôn ngữ đích | `transferred_vertical_video.mp4`, `vertical_bilingual.mp4` |
+| `pipeline` | Kết nối nhiều giai đoạn theo outputs | Phụ thuộc vào các giai đoạn được chọn |
+| `cover` | Tạo ảnh bìa từ ảnh bìa video gốc và mẫu prompt | `generated_cover.png` |
+
+Quy trình điển hình:
+
+```bash
+# 1. Tạo phụ đề ngôn ngữ gốc, ngôn ngữ đích, song ngữ và phụ đề ngắn cho video dọc
+./build/krillinai-cli subtitle "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+  --origin-lang en \
+  --target-lang zh_cn \
+  --workdir tasks/demo \
+  --caption-source any
+
+# 2. Tạo lồng tiếng từ phụ đề ngôn ngữ đích
+./build/krillinai-cli tts \
+  --workdir tasks/demo \
+  --input-srt tasks/demo/target_language_srt.srt \
+  --line-mode target-only \
+  --video tasks/demo/origin_video.mp4
+
+# 3. Tạo video ngang với phụ đề song ngữ
+./build/krillinai-cli render-horizontal \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/bilingual_srt.srt
+
+# 4. Tạo video dọc với phụ đề song ngữ ngắn
+./build/krillinai-cli render-vertical \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/short_origin_mixed_srt.srt \
+  --major-title "Chủ đề hôm nay" \
+  --minor-title "AI Video"
+```
+
+Quy ước tích hợp cho Agent:
+
+- Ưu tiên đọc dòng JSON cuối cùng trong stdout và `krillinai_manifest.json`; không phân tích log thông thường.
+- Trường `outputs` ghi lại đường dẫn sản phẩm, các lệnh sau có thể tái sử dụng manifest chỉ bằng cách truyền `--workdir`.
+- `--dry-run` xác thực tham số và tạo manifest mà không tải video hoặc gọi dịch vụ AI bên ngoài.
+- Xử lý lỗi theo `error.kind`: `usage` là sửa tham số, `retryable` là có thể thử lại, `dependency` là cần cài `ffmpeg` / `ffprobe` / `yt-dlp`.
+
+Để biết mô tả tham số đầy đủ hơn, xem [tóm tắt khả năng CLI](../zh/cli.md).
+
 Dựa trên tệp cấu hình đã cung cấp, đây là phần "Hỗ Trợ Cấu Hình (Cần Đọc)" đã được cập nhật cho tệp README của bạn:
 
 ### Hỗ Trợ Cấu Hình (Cần Đọc)

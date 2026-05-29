@@ -168,6 +168,77 @@ sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64
 
 يدعم هذا المشروع نشر Docker؛ يرجى الرجوع إلى [تعليمات نشر Docker](./docker.md)
 
+### استخدام CLI
+
+يوفر KrillinAI الآن واجهة أوامر مرحلية مناسبة للسكريبتات وخطوط الأتمتة ووكلاء الذكاء الاصطناعي. تعمل الأوامر بشكل متزامن افتراضيًا، وتطبع في stdout سطر JSON واحدًا عند الانتهاء، وتكتب `krillinai_manifest.json` في مجلد العمل حتى تتمكن المراحل اللاحقة من إعادة استخدام المخرجات.
+
+بناء CLI من المصدر:
+
+```bash
+go build -o build/krillinai-cli ./cmd/cli
+```
+
+نظرة عامة على الأوامر:
+
+| الأمر | الغرض | المخرجات الشائعة |
+|---|---|---|
+| `subtitle` | إنشاء ترجمات من رابط YouTube / Bilibili أو فيديو محلي؛ يفضل تنزيل ترجمات المنصة ثم يعود إلى Whisper عند الفشل | `origin_language_srt.srt`، `target_language_srt.srt`، `bilingual_srt.srt`، `short_origin_mixed_srt.srt` |
+| `tts` | إنشاء دبلجة باللغة الهدف من الترجمة الهدف | `tts_final_audio.wav`، `video_with_tts.mp4` |
+| `render-horizontal` | إنشاء فيديو أفقي: الفيديو الأصلي + ترجمة ثنائية، أو فيديو مدبلج + ترجمة باللغة الهدف | `horizontal_bilingual.mp4` |
+| `render-vertical` | إنشاء فيديو عمودي: تحويل الفيديو الأصلي إلى عمودي + ترجمة قصيرة، أو فيديو مدبلج + ترجمة باللغة الهدف | `transferred_vertical_video.mp4`، `vertical_bilingual.mp4` |
+| `pipeline` | ربط عدة مراحل حسب قيمة outputs | يعتمد على المراحل المحددة |
+| `cover` | إنشاء غلاف من غلاف الفيديو الأصلي وقالب prompt | `generated_cover.png` |
+
+سير عمل نموذجي:
+
+```bash
+# 1. إنشاء ترجمات المصدر والهدف والترجمة الثنائية والترجمة القصيرة للفيديو العمودي
+./build/krillinai-cli subtitle "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+  --origin-lang en \
+  --target-lang zh_cn \
+  --workdir tasks/demo \
+  --caption-source any
+
+# 2. إنشاء الدبلجة من ترجمة اللغة الهدف
+./build/krillinai-cli tts \
+  --workdir tasks/demo \
+  --input-srt tasks/demo/target_language_srt.srt \
+  --line-mode target-only \
+  --video tasks/demo/origin_video.mp4
+
+# 3. إنشاء فيديو أفقي بترجمة ثنائية
+./build/krillinai-cli render-horizontal \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/bilingual_srt.srt
+
+# 4. إنشاء فيديو عمودي بترجمة ثنائية قصيرة
+./build/krillinai-cli render-vertical \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/short_origin_mixed_srt.srt \
+  --major-title "موضوع اليوم" \
+  --minor-title "AI Video"
+```
+
+اتفاقيات تكامل Agent:
+
+- اقرأ آخر سطر JSON في stdout وملف `krillinai_manifest.json` أولًا؛ لا تعتمد على تحليل السجلات العادية.
+- يسجل حقل `outputs` مسارات المخرجات، ويمكن للأوامر اللاحقة استخدام `--workdir` فقط لإعادة استخدام manifest.
+- يدعم `--dry-run` للتحقق من المعلمات وإنشاء manifest دون تنزيل فيديو أو استدعاء خدمات ذكاء اصطناعي خارجية.
+- عالج الأخطاء حسب `error.kind`: `usage` لتصحيح المعلمات، و`retryable` لإعادة المحاولة، و`dependency` لتثبيت `ffmpeg` / `ffprobe` / `yt-dlp`.
+
+للحصول على شرح أكثر تفصيلًا للمعلمات، راجع [ملخص قدرات CLI](../zh/cli.md).
+
+### Agent Skills
+
+يوفر المستودع أيضًا Skills جاهزة للاستخدام داخل `skills/` حتى تتمكن الوكلاء من استدعاء CLI وفق اتفاقيات مستقرة:
+
+- [`krillinai-cli`](../../skills/krillinai-cli/SKILL.md): skill المدخل العام لاختيار سير عمل الترجمة، TTS، التصيير، pipeline أو الغلاف.
+- [`krillinai-subtitle`](../../skills/krillinai-subtitle/SKILL.md)، [`krillinai-tts`](../../skills/krillinai-tts/SKILL.md)، [`krillinai-render-horizontal`](../../skills/krillinai-render-horizontal/SKILL.md)، و[`krillinai-render-vertical`](../../skills/krillinai-render-vertical/SKILL.md): أدلة تشغيل خاصة بكل مرحلة.
+- [`krillinai-pipeline`](../../skills/krillinai-pipeline/SKILL.md) و[`krillinai-cover`](../../skills/krillinai-cover/SKILL.md): أدلة تخطيط/واجهات محجوزة لتنظيم pipeline وتوليد الغلاف إلى أن يتم توصيل مسارات التنفيذ بالكامل.
+- [`cli-contract.md`](../../skills/krillinai-cli/references/cli-contract.md): عقد JSON وmanifest والمخرجات ومعالجة الأخطاء المشترك.
+
 استنادًا إلى ملف التكوين المقدم، إليك قسم "مساعدة التكوين (يجب قراءته)" المحدث لملف README الخاص بك:
 
 ### مساعدة التكوين (يجب قراءته)

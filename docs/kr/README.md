@@ -168,6 +168,77 @@ sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64
 
 이 프로젝트는 Docker 배포를 지원합니다. [Docker 배포 지침](./docker.md)을 참조하세요.
 
+### CLI 사용법
+
+KrillinAI는 스크립트, 자동화 파이프라인, AI Agent가 호출하기 쉬운 단계형 CLI를 제공합니다. CLI는 기본적으로 동기 실행되며, 완료 후 stdout에 JSON 한 줄을 출력하고 작업 디렉터리에 `krillinai_manifest.json`을 기록하여 이후 단계가 기존 산출물을 재사용할 수 있게 합니다.
+
+소스에서 CLI 빌드:
+
+```bash
+go build -o build/krillinai-cli ./cmd/cli
+```
+
+명령 개요:
+
+| 명령 | 용도 | 주요 산출물 |
+|---|---|---|
+| `subtitle` | YouTube / Bilibili 링크 또는 로컬 영상에서 자막을 생성합니다. 플랫폼 자막을 우선 다운로드하고 실패하면 Whisper 전사로 대체합니다 | `origin_language_srt.srt`, `target_language_srt.srt`, `bilingual_srt.srt`, `short_origin_mixed_srt.srt` |
+| `tts` | 목표 언어 자막을 기반으로 목표 언어 더빙을 생성합니다 | `tts_final_audio.wav`, `video_with_tts.mp4` |
+| `render-horizontal` | 가로 영상을 생성합니다: 원본 영상 + 이중 언어 자막, 또는 더빙 영상 + 목표 언어 자막 | `horizontal_bilingual.mp4` |
+| `render-vertical` | 세로 영상을 생성합니다: 원본 영상을 세로로 변환 + 짧은 자막, 또는 더빙 영상 + 목표 언어 자막 | `transferred_vertical_video.mp4`, `vertical_bilingual.mp4` |
+| `pipeline` | outputs에 따라 여러 단계를 연결합니다 | 선택한 단계에 따라 다름 |
+| `cover` | 원본 영상 커버와 prompt 템플릿으로 커버를 생성합니다 | `generated_cover.png` |
+
+일반적인 워크플로:
+
+```bash
+# 1. 원본 언어, 목표 언어, 이중 언어 자막, 세로 영상용 짧은 자막 생성
+./build/krillinai-cli subtitle "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+  --origin-lang en \
+  --target-lang zh_cn \
+  --workdir tasks/demo \
+  --caption-source any
+
+# 2. 목표 언어 자막으로 더빙 생성
+./build/krillinai-cli tts \
+  --workdir tasks/demo \
+  --input-srt tasks/demo/target_language_srt.srt \
+  --line-mode target-only \
+  --video tasks/demo/origin_video.mp4
+
+# 3. 이중 언어 자막이 포함된 가로 영상 생성
+./build/krillinai-cli render-horizontal \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/bilingual_srt.srt
+
+# 4. 짧은 이중 언어 자막이 포함된 세로 영상 생성
+./build/krillinai-cli render-vertical \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/short_origin_mixed_srt.srt \
+  --major-title "오늘의 주제" \
+  --minor-title "AI Video"
+```
+
+Agent 통합 규칙:
+
+- stdout의 마지막 JSON 줄과 `krillinai_manifest.json`을 우선 읽으세요. 일반 로그를 파싱하지 마세요.
+- `outputs` 필드는 산출물 경로를 기록하며, 이후 명령은 `--workdir`만 전달해 manifest를 재사용할 수 있습니다.
+- `--dry-run`은 영상을 다운로드하거나 외부 AI 서비스를 호출하지 않고 매개변수를 검증하고 manifest를 생성합니다.
+- `error.kind`에 따라 오류를 처리하세요: `usage`는 매개변수 수정, `retryable`은 재시도, `dependency`는 `ffmpeg` / `ffprobe` / `yt-dlp` 설치가 필요합니다.
+
+더 자세한 매개변수 설명은 [CLI 기능 요약](../zh/cli.md)을 참고하세요.
+
+### Agent Skills
+
+이 저장소는 Agent가 안정적인 규칙으로 CLI를 호출할 수 있도록 `skills/` 아래에 바로 사용할 수 있는 Agent Skills도 제공합니다:
+
+- [`krillinai-cli`](../../skills/krillinai-cli/SKILL.md): 자막, TTS, 렌더링, pipeline 또는 커버 워크플로를 선택하는 최상위 진입 skill입니다.
+- [`krillinai-subtitle`](../../skills/krillinai-subtitle/SKILL.md), [`krillinai-tts`](../../skills/krillinai-tts/SKILL.md), [`krillinai-render-horizontal`](../../skills/krillinai-render-horizontal/SKILL.md), [`krillinai-render-vertical`](../../skills/krillinai-render-vertical/SKILL.md): 단계별 운영 가이드입니다.
+- [`krillinai-pipeline`](../../skills/krillinai-pipeline/SKILL.md) 및 [`krillinai-cover`](../../skills/krillinai-cover/SKILL.md): pipeline 오케스트레이션과 커버 생성을 위한 계획/예약 가이드이며, 해당 실행 경로가 완전히 연결될 때까지 계획 용도로 사용합니다.
+- [`cli-contract.md`](../../skills/krillinai-cli/references/cli-contract.md): JSON, manifest, outputs, 오류 처리에 대한 공통 계약입니다.
+
 제공된 구성 파일을 기반으로, README 파일의 "구성 도움말(반드시 읽어야 함)" 섹션을 업데이트한 내용은 다음과 같습니다:
 
 ### 구성 도움말 (반드시 읽어야 함)

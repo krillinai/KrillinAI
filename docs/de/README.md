@@ -168,6 +168,77 @@ Diese Software ist nicht signiert, daher müssen Sie beim Ausführen auf macOS n
 
 Dieses Projekt unterstützt die Docker-Bereitstellung; bitte beziehen Sie sich auf die [Docker-Bereitstellungsanweisungen](./docker.md)
 
+### CLI-Verwendung
+
+KrillinAI bietet jetzt eine stufenbasierte CLI für Skripte, Automatisierungspipelines und AI Agents. Die CLI läuft standardmäßig synchron, gibt nach Abschluss eine JSON-Zeile über stdout aus und schreibt `krillinai_manifest.json` in das Arbeitsverzeichnis, damit spätere Stufen vorhandene Artefakte wiederverwenden können.
+
+CLI aus dem Quellcode bauen:
+
+```bash
+go build -o build/krillinai-cli ./cmd/cli
+```
+
+Befehlsübersicht:
+
+| Befehl | Zweck | Häufige Artefakte |
+|---|---|---|
+| `subtitle` | Untertitel aus YouTube-/Bilibili-Links oder lokalen Videos erzeugen; Plattformuntertitel werden bevorzugt, bei Fehlschlag wird auf Whisper zurückgegriffen | `origin_language_srt.srt`, `target_language_srt.srt`, `bilingual_srt.srt`, `short_origin_mixed_srt.srt` |
+| `tts` | Zielsprachige Vertonung aus Zieluntertiteln erzeugen | `tts_final_audio.wav`, `video_with_tts.mp4` |
+| `render-horizontal` | Querformatvideo erzeugen: Originalvideo + zweisprachige Untertitel oder vertontes Video + Zielsprachenuntertitel | `horizontal_bilingual.mp4` |
+| `render-vertical` | Hochformatvideo erzeugen: Originalvideo ins Hochformat umwandeln + kurze Untertitel oder vertontes Video + Zielsprachenuntertitel | `transferred_vertical_video.mp4`, `vertical_bilingual.mp4` |
+| `pipeline` | Mehrere Stufen anhand von outputs verbinden | Abhängig von den gewählten Stufen |
+| `cover` | Cover aus dem ursprünglichen Videocover und einer Prompt-Vorlage erzeugen | `generated_cover.png` |
+
+Typischer Workflow:
+
+```bash
+# 1. Quell-, Ziel-, zweisprachige und kurze Hochformat-Untertitel erzeugen
+./build/krillinai-cli subtitle "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+  --origin-lang en \
+  --target-lang zh_cn \
+  --workdir tasks/demo \
+  --caption-source any
+
+# 2. Vertonung aus Zielsprachenuntertiteln erzeugen
+./build/krillinai-cli tts \
+  --workdir tasks/demo \
+  --input-srt tasks/demo/target_language_srt.srt \
+  --line-mode target-only \
+  --video tasks/demo/origin_video.mp4
+
+# 3. Querformatvideo mit zweisprachigen Untertiteln erzeugen
+./build/krillinai-cli render-horizontal \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/bilingual_srt.srt
+
+# 4. Hochformatvideo mit kurzen zweisprachigen Untertiteln erzeugen
+./build/krillinai-cli render-vertical \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/short_origin_mixed_srt.srt \
+  --major-title "Heutiges Thema" \
+  --minor-title "AI Video"
+```
+
+Agent-Integrationsregeln:
+
+- Zuerst die letzte JSON-Zeile in stdout und `krillinai_manifest.json` auswerten; normale Logs nicht parsen.
+- Das Feld `outputs` enthält Artefaktpfade; spätere Befehle können nur mit `--workdir` das Manifest wiederverwenden.
+- `--dry-run` prüft Parameter und erzeugt ein Manifest, ohne Videos herunterzuladen oder externe AI-Dienste aufzurufen.
+- Fehler nach `error.kind` behandeln: `usage` bedeutet Parameter korrigieren, `retryable` bedeutet erneut versuchen, `dependency` bedeutet `ffmpeg` / `ffprobe` / `yt-dlp` installieren.
+
+Weitere Parameterdetails finden Sie in der [CLI-Funktionsübersicht](../zh/cli.md).
+
+### Agent Skills
+
+Das Repository enthält außerdem sofort nutzbare Agent Skills unter `skills/`, damit Agents die CLI mit stabilen Konventionen aufrufen können:
+
+- [`krillinai-cli`](../../skills/krillinai-cli/SKILL.md): zentrale Routing-Skill zur Auswahl von Untertitel-, TTS-, Render-, Pipeline- oder Cover-Workflows.
+- [`krillinai-subtitle`](../../skills/krillinai-subtitle/SKILL.md), [`krillinai-tts`](../../skills/krillinai-tts/SKILL.md), [`krillinai-render-horizontal`](../../skills/krillinai-render-horizontal/SKILL.md) und [`krillinai-render-vertical`](../../skills/krillinai-render-vertical/SKILL.md): stufenspezifische Betriebsanleitungen.
+- [`krillinai-pipeline`](../../skills/krillinai-pipeline/SKILL.md) und [`krillinai-cover`](../../skills/krillinai-cover/SKILL.md): Planungs-/Reservierungsleitfäden für Pipeline-Orchestrierung und Cover-Erzeugung, bis diese Ausführungspfade vollständig verdrahtet sind.
+- [`cli-contract.md`](../../skills/krillinai-cli/references/cli-contract.md): gemeinsamer Vertrag für JSON, Manifest, Ausgaben und Fehlerbehandlung.
+
 Basierend auf der bereitgestellten Konfigurationsdatei finden Sie hier den aktualisierten Abschnitt "Konfigurationshilfe (Unbedingt lesen)" für Ihre README-Datei:
 
 ### Konfigurationshilfe (Unbedingt lesen)

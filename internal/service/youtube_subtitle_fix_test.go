@@ -94,14 +94,33 @@ func TestParseVttTime(t *testing.T) {
 	}
 }
 
+func TestGroupWordsByCharLengthMergesShortTrailingWord(t *testing.T) {
+	s := &YouTubeSubtitleService{}
+	words := []VttWord{
+		{Text: "Every", Start: "00:00:28.600", End: "00:00:28.780"},
+		{Text: "hour", Start: "00:00:28.780", End: "00:00:28.960"},
+		{Text: "you", Start: "00:00:28.960", End: "00:00:29.120"},
+		{Text: "spend", Start: "00:00:29.120", End: "00:00:29.360"},
+		{Text: "scrolling,", Start: "00:00:29.360", End: "00:00:30.190"},
+	}
+
+	groups := s.groupWordsByCharLength(words, 20)
+	if len(groups) != 1 {
+		t.Fatalf("group count = %d, want 1; groups = %#v", len(groups), groups)
+	}
+	if got := groups[0][len(groups[0])-1].Text; got != "scrolling," {
+		t.Fatalf("last word = %q, want scrolling,", got)
+	}
+}
+
 func TestTimeRangeMatching(t *testing.T) {
 	// 测试时间范围匹配逻辑
 	tests := []struct {
-		name         string
-		srtStart     float64
-		vttStart     float64
-		shouldMatch  bool
-		description  string
+		name        string
+		srtStart    float64
+		vttStart    float64
+		shouldMatch bool
+		description string
 	}{
 		{
 			name:        "Exact match",

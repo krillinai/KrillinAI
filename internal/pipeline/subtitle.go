@@ -56,6 +56,9 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 		}
 		if err == nil {
 			manifest.CaptionSource = "youtube_vtt"
+			if err := prepareOriginalMediaForRendering(ctx, svc, stepParam); err != nil {
+				return failSubtitleStage(req, manifest, ErrorKindRetryable, "prepare_media_for_render_failed", err)
+			}
 			return saveSubtitleSuccess(manifest, req, CaptionSource("youtube_vtt"))
 		}
 		if req.CaptionSource != CaptionSourceAny {
@@ -118,6 +121,12 @@ func subtitleStepParam(req SubtitleRequest) *types.SubtitleTaskStepParam {
 		VttSwitch:              isYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper,
 		EmbedSubtitleVideoType: "none",
 	}
+}
+
+func prepareOriginalMediaForRendering(ctx context.Context, svc StageService, stepParam *types.SubtitleTaskStepParam) error {
+	stepParam.VttSwitch = false
+	stepParam.EmbedSubtitleVideoType = "all"
+	return svc.PrepareMedia(ctx, stepParam)
 }
 
 func subtitleYouTubeReq(req SubtitleRequest, taskPtr *types.SubtitleTask) *service.YoutubeSubtitleReq {

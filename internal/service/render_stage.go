@@ -60,9 +60,21 @@ func renderSubtitleFile(ctx context.Context, req RenderVideoRequest) (string, er
 	stepParam := req.StepParam
 	if stepParam == nil {
 		stepParam = &types.SubtitleTaskStepParam{TaskBasePath: req.Workdir}
+		req.StepParam = stepParam
 	}
 	if err := srtToAss(req.SubtitleFile, assPath, req.Horizontal, stepParam); err != nil {
 		return "", fmt.Errorf("renderSubtitleFile srtToAss error: %w", err)
+	}
+	if !req.Horizontal {
+		width, height, err := getResolution(req.InputVideo)
+		if err != nil {
+			return "", fmt.Errorf("renderSubtitleFile getResolution error: %w", err)
+		}
+		inputVideo, err := prepareRenderVideoInput(req, width, height, convertToVertical)
+		if err != nil {
+			return "", fmt.Errorf("renderSubtitleFile prepare vertical input error: %w", err)
+		}
+		req.InputVideo = inputVideo
 	}
 	args, _ := buildEmbedSubtitleArgs(req)
 	cmd := exec.CommandContext(ctx, storage.FfmpegPath, args...)
@@ -71,4 +83,25 @@ func renderSubtitleFile(ctx context.Context, req RenderVideoRequest) (string, er
 		return "", fmt.Errorf("renderSubtitleFile ffmpeg error: %w, output: %s", err, string(output))
 	}
 	return req.OutputFile, nil
+}
+
+type verticalConverter func(inputVideo, outputVideo, majorTitle, minorTitle string) error
+
+func prepareRenderVideoInput(req RenderVideoRequest, width, height int, convert verticalConverter) (string, error) {
+	if req.Horizontal || width <= height {
+		return req.InputVideo, nil
+	}
+	majorTitle, minorTitle := "", ""
+	if req.StepParam != nil {
+		majorTitle = req.StepParam.VerticalVideoMajorTitle
+		minorTitle = req.StepParam.VerticalVideoMinorTitle
+	}
+	output := filepath.Join(req.Workdir, types.SubtitleTaskTransferredVerticalVideoFileName)
+	if err := convert(req.InputVideo, output, majorTitle, minorTitle); err != nil {
+		return "", err
+	}
+	if req.StepParam != nil {
+		req.StepParam.InputVideoPath = output
+	}
+	return output, nil
 }

@@ -170,16 +170,74 @@ sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64
 
 ### CLI 用法
 
-KrillinAI 提供阶段化 CLI，适合脚本和 Agent 调用。每个命令默认同步执行，完成后输出 JSON。
+KrillinAI 现在提供阶段化 CLI，适合脚本、自动化流水线和 AI Agent 调用。CLI 默认同步执行，完成后在 stdout 输出一行 JSON，并在工作目录写入 `krillinai_manifest.json`，方便后续阶段复用已有产物。
+
+从源码构建 CLI：
 
 ```bash
-krillinai subtitle "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --origin-lang en --target-lang zh_cn --workdir tasks/demo
-krillinai tts --workdir tasks/demo --input-srt tasks/demo/target_language_srt.srt --line-mode target-only
-krillinai render-horizontal --workdir tasks/demo --video tasks/demo/origin_video.mp4 --subtitle tasks/demo/bilingual_srt.srt
-krillinai render-vertical --workdir tasks/demo --video tasks/demo/origin_video.mp4 --subtitle tasks/demo/short_origin_mixed_srt.srt
+go build -o build/krillinai-cli ./cmd/cli
 ```
 
-Agent 应优先读取 stdout JSON 和 `krillinai_manifest.json`，不要解析普通日志。
+命令总览：
+
+| 命令 | 用途 | 常见产物 |
+|---|---|---|
+| `subtitle` | 从 YouTube / Bilibili 链接或本地视频生成字幕；优先下载平台字幕，失败时回退 Whisper 转录 | `origin_language_srt.srt`、`target_language_srt.srt`、`bilingual_srt.srt`、`short_origin_mixed_srt.srt` |
+| `tts` | 根据目标字幕生成目标语言配音 | `tts_final_audio.wav`、`video_with_tts.mp4` |
+| `render-horizontal` | 生成横屏视频：原视频 + 双语字幕，或配音视频 + 目标语言字幕 | `horizontal_bilingual.mp4` |
+| `render-vertical` | 生成竖屏视频：原视频转竖屏 + 短字幕，或配音视频 + 目标语言字幕 | `transferred_vertical_video.mp4`、`vertical_bilingual.mp4` |
+| `pipeline` | 按 outputs 串联多个阶段 | 由所选阶段决定 |
+| `cover` | 根据原视频封面和提示词模板生成封面 | `generated_cover.png` |
+
+典型工作流：
+
+```bash
+# 1. 生成字幕：源语言、目标语言、双语字幕、竖屏短字幕
+./build/krillinai-cli subtitle "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+  --origin-lang en \
+  --target-lang zh_cn \
+  --workdir tasks/demo \
+  --caption-source any
+
+# 2. 根据目标语言字幕生成配音
+./build/krillinai-cli tts \
+  --workdir tasks/demo \
+  --input-srt tasks/demo/target_language_srt.srt \
+  --line-mode target-only \
+  --video tasks/demo/origin_video.mp4
+
+# 3. 生成横屏双语字幕视频
+./build/krillinai-cli render-horizontal \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/bilingual_srt.srt
+
+# 4. 生成竖屏双语短字幕视频
+./build/krillinai-cli render-vertical \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/short_origin_mixed_srt.srt \
+  --major-title "今日话题" \
+  --minor-title "AI Video"
+```
+
+Agent 集成约定：
+
+- 优先解析 stdout 最后一行 JSON 和 `krillinai_manifest.json`，不要解析普通日志。
+- `outputs` 字段会记录阶段产物路径，后续命令可以只传 `--workdir` 复用 manifest。
+- 支持 `--dry-run` 校验参数并生成 manifest，不会下载视频或调用外部 AI 服务。
+- 根据 `error.kind` 处理错误：`usage` 修正参数，`retryable` 可重试，`dependency` 需要安装 `ffmpeg` / `ffprobe` / `yt-dlp`。
+
+更完整的参数说明请参考 [CLI 能力总结](./cli.md)。
+
+### Agent Skills
+
+仓库还在 `skills/` 目录下提供了可直接给 Agent 使用的 Skills，用于按稳定约定调用 CLI：
+
+- [`krillinai-cli`](../../skills/krillinai-cli/SKILL.md)：总入口 skill，用于选择字幕、TTS、渲染、pipeline 或封面工作流。
+- [`krillinai-subtitle`](../../skills/krillinai-subtitle/SKILL.md)、[`krillinai-tts`](../../skills/krillinai-tts/SKILL.md)、[`krillinai-render-horizontal`](../../skills/krillinai-render-horizontal/SKILL.md)、[`krillinai-render-vertical`](../../skills/krillinai-render-vertical/SKILL.md)：各阶段的调用指南。
+- [`krillinai-pipeline`](../../skills/krillinai-pipeline/SKILL.md) 和 [`krillinai-cover`](../../skills/krillinai-cover/SKILL.md)：pipeline 编排和封面生成的规划/预留指南，等对应执行路径完全接通后再用于真实执行。
+- [`cli-contract.md`](../../skills/krillinai-cli/references/cli-contract.md)：共享的 JSON、manifest、产物路径和错误处理约定。
 
 根据提供的配置文件，以下是您 README 文件中更新的“配置帮助（必读）”部分：
 

@@ -13,6 +13,7 @@ import (
 
 type Command struct {
 	Name     string
+	Help     bool
 	DryRun   bool
 	Subtitle pipeline.SubtitleRequest
 	TTS      pipeline.TTSRequest
@@ -25,6 +26,9 @@ func Parse(args []string) (Command, error) {
 		return Command{}, errors.New("missing command")
 	}
 	name := args[0]
+	if isHelpArg(name) {
+		return Command{Help: true}, nil
+	}
 	switch name {
 	case "subtitle":
 		return parseSubtitle(name, args[1:])
@@ -37,9 +41,115 @@ func Parse(args []string) (Command, error) {
 	case "pipeline":
 		return parsePipeline(name, args[1:])
 	case "cover", "status":
+		if hasHelpArg(args[1:]) {
+			return Command{Name: name, Help: true}, nil
+		}
 		return Command{Name: name}, nil
 	default:
 		return Command{}, fmt.Errorf("unknown command: %s", name)
+	}
+}
+
+func Help(cmd Command) string {
+	switch cmd.Name {
+	case "subtitle":
+		return `Usage:
+  krillinai-cli subtitle <input> --origin-lang <lang> --target-lang <lang> --workdir <dir> [flags]
+
+Flags:
+  --origin-lang <lang>       Source language, such as en, zh, ja
+  --target-lang <lang>       Target language, such as zh_cn
+  --user-lang <lang>         UI language for generated messages
+  --workdir <dir>            Task working directory
+  --task-id <id>             Optional task id
+  --caption-source <source>  any, manual, auto, or whisper
+  --bilingual-top            Put target subtitle on top (default true)
+  --max-word-one-line <n>    Max words per subtitle line
+  --dry-run                  Validate and write manifest without external calls
+  -h, --help                 Show this help
+`
+	case "tts":
+		return `Usage:
+  krillinai-cli tts --workdir <dir> --input-srt <file> [flags]
+
+Flags:
+  --workdir <dir>                 Task working directory
+  --task-id <id>                  Optional task id
+  --input-srt <file>              SRT file to synthesize
+  --line-mode <mode>              target-only, bilingual-target-top, or bilingual-target-bottom
+  --video <file>                  Optional source video for dubbed output
+  --voice <voice>                 Provider-specific voice
+  --voice-clone-source <source>   Optional voice clone source
+  --dry-run                       Validate and write manifest without external calls
+  -h, --help                      Show this help
+`
+	case "render-horizontal":
+		return `Usage:
+  krillinai-cli render-horizontal --workdir <dir> --video <file> --subtitle <file> [flags]
+
+Flags:
+  --workdir <dir>       Task working directory
+  --task-id <id>        Optional task id
+  --video <file>        Input video
+  --audio <file>        Optional input audio
+  --subtitle <file>     Subtitle file to burn in
+  --dubbed              Render dubbed variant
+  --dry-run             Validate and write manifest without external calls
+  -h, --help            Show this help
+`
+	case "render-vertical":
+		return `Usage:
+  krillinai-cli render-vertical --workdir <dir> --video <file> --subtitle <file> [flags]
+
+Flags:
+  --workdir <dir>       Task working directory
+  --task-id <id>        Optional task id
+  --video <file>        Input video
+  --audio <file>        Optional input audio
+  --subtitle <file>     Subtitle file to burn in
+  --dubbed              Render dubbed variant
+  --major-title <text>  Vertical video major title
+  --minor-title <text>  Vertical video minor title
+  --dry-run             Validate and write manifest without external calls
+  -h, --help            Show this help
+`
+	case "pipeline":
+		return `Usage:
+  krillinai-cli pipeline --outputs <list> [flags]
+
+Flags:
+  --outputs <list>  Comma-separated outputs, such as subtitle,tts,vertical-bilingual
+  --async           Run asynchronously when supported
+  --dry-run         Validate requested outputs
+  -h, --help        Show this help
+`
+	case "cover":
+		return `Usage:
+  krillinai-cli cover
+
+Cover generation is a reserved/planned CLI surface in the current implementation.
+`
+	case "status":
+		return `Usage:
+  krillinai-cli status
+
+Status query is a reserved/planned CLI surface in the current implementation.
+`
+	default:
+		return `Usage:
+  krillinai-cli <command> [flags]
+
+Commands:
+  subtitle             Generate source, target, bilingual, and short vertical subtitles
+  tts                  Generate target-language dubbing from SRT subtitles
+  render-horizontal    Render landscape subtitle or dubbed videos
+  render-vertical      Render portrait subtitle or dubbed videos
+  pipeline             Plan or run multi-stage workflows when supported
+  cover                Reserved cover generation surface
+  status               Reserved status query surface
+
+Run "krillinai-cli <command> --help" for command-specific flags.
+`
 	}
 }
 
@@ -70,6 +180,9 @@ func Execute(ctx context.Context, svc pipeline.StageService, cmd Command) pipeli
 }
 
 func parseSubtitle(name string, args []string) (Command, error) {
+	if hasHelpArg(args) {
+		return Command{Name: name, Help: true}, nil
+	}
 	fs := newFlagSet(name)
 	originLang := fs.String("origin-lang", "", "origin language")
 	targetLang := fs.String("target-lang", "", "target language")
@@ -77,7 +190,7 @@ func parseSubtitle(name string, args []string) (Command, error) {
 	workdir := fs.String("workdir", "", "workdir")
 	taskID := fs.String("task-id", "", "task id")
 	captionSource := fs.String("caption-source", string(pipeline.CaptionSourceAny), "caption source")
-	bilingualTop := fs.Bool("bilingual-top", false, "put target subtitle on top")
+	bilingualTop := fs.Bool("bilingual-top", true, "put target subtitle on top")
 	maxWordOneLine := fs.Int("max-word-one-line", 0, "max words per line")
 	dryRun := fs.Bool("dry-run", false, "validate command without running external services")
 	input := ""
@@ -113,6 +226,9 @@ func parseSubtitle(name string, args []string) (Command, error) {
 }
 
 func parseTTS(name string, args []string) (Command, error) {
+	if hasHelpArg(args) {
+		return Command{Name: name, Help: true}, nil
+	}
 	fs := newFlagSet(name)
 	workdir := fs.String("workdir", "", "workdir")
 	taskID := fs.String("task-id", "", "task id")
@@ -144,6 +260,9 @@ func parseTTS(name string, args []string) (Command, error) {
 }
 
 func parseRender(name string, args []string, horizontal bool) (Command, error) {
+	if hasHelpArg(args) {
+		return Command{Name: name, Help: true}, nil
+	}
 	fs := newFlagSet(name)
 	workdir := fs.String("workdir", "", "workdir")
 	taskID := fs.String("task-id", "", "task id")
@@ -175,6 +294,9 @@ func parseRender(name string, args []string, horizontal bool) (Command, error) {
 }
 
 func parsePipeline(name string, args []string) (Command, error) {
+	if hasHelpArg(args) {
+		return Command{Name: name, Help: true}, nil
+	}
 	fs := newFlagSet(name)
 	outputs := fs.String("outputs", "subtitle", "outputs")
 	async := fs.Bool("async", false, "run async")
@@ -266,6 +388,19 @@ func newFlagSet(name string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	return fs
+}
+
+func hasHelpArg(args []string) bool {
+	for _, arg := range args {
+		if isHelpArg(arg) {
+			return true
+		}
+	}
+	return false
+}
+
+func isHelpArg(arg string) bool {
+	return arg == "-h" || arg == "--help" || arg == "help"
 }
 
 func responseWithError(resp pipeline.Response, err error) pipeline.Response {
