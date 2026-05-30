@@ -1,0 +1,64 @@
+name: "❓ 问题讨论 (Question & Discussion)"
+description: "提出问题、寻求帮助或发起一个讨论"
+labels: ["question", "discussion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### 📝 提问前自查 (Self-check Before Asking)
+  - type: checkboxes
+    id: self-check
+    attributes:
+      label: "提问前自查"
+      description: "请在提问前确认以下几点"
+      options:
+        - label: "我已经搜索过现有的 Issues，确认没有类似的问题或讨论。"
+        - label: "我已经仔细阅读了项目的 README.md 和相关文档。"
+  - type: textarea
+    id: question
+    attributes:
+      label: "🤔 我的问题是... (My Question Is...)"
+      description: "请详细描述你的问题"
+      placeholder: "我想了解..."
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: "💡 相关背景 (Relevant Context)"
+      description: "请提供相关的背景信息"
+      placeholder: "相关的背景信息..."
+    validations:
+      required: false
+  - type: textarea
+    id: tried-actions
+    attributes:
+      label: "尝试过的操作 (What I've Tried)"
+      description: "请描述你已经尝试过的操作"
+      placeholder: "我已经尝试过..."
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: |
+        ### 环境信息 (可选，Optional)
+  - type: input
+    id: software-version
+    attributes:
+      label: "软件版本"
+      description: "我使用的软件版本是"
+      placeholder: "例如: v1.0.0"
+    validations:
+      required: false
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: "操作系统"
+      description: "我的操作系统是"
+      options:
+        - macOS
+        - Windows 11
+        - Ubuntu 22.04
+        - 其他
+    validations:
+      required: false 

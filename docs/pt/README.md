@@ -1,23 +1,23 @@
 <div align="center">
-  <img src="/docs/images/logo.jpg" alt="KlicStudio" height="90">
+  <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
 # Ferramenta Minimalista de Tradução e Dublagem de Vídeo com IA
 
-<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKlicStudio | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
 **[English](/README.md)｜[简体中文](/docs/zh/README.md)｜[日本語](/docs/jp/README.md)｜[한국어](/docs/kr/README.md)｜[Tiếng Việt](/docs/vi/README.md)｜[Français](/docs/fr/README.md)｜[Deutsch](/docs/de/README.md)｜[Español](/docs/es/README.md)｜[Português](/docs/pt/README.md)｜[Русский](/docs/rus/README.md)｜[اللغة العربية](/docs/ar/README.md)**
 
 [![Twitter](https://img.shields.io/badge/Twitter-KrillinAI-orange?logo=twitter)](https://x.com/KrillinAI)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://jq.qq.com/?_wv=1027&k=754069680)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=粉丝&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/krillinai/KlicStudio)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/krillinai/KrillinAI)
 
 </div>
 
 ## Introdução ao Projeto  ([Experimente a versão online agora!](https://www.klic.studio/))
 [**Início Rápido**](#-quick-start)
 
-Klic Studio é uma solução versátil de localização e aprimoramento de áudio e vídeo desenvolvida pela Krillin AI. Esta ferramenta minimalista, mas poderosa, integra tradução de vídeo, dublagem e clonagem de voz, suportando formatos paisagem e retrato para garantir uma apresentação perfeita em todas as principais plataformas (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). Com um fluxo de trabalho de ponta a ponta, você pode transformar materiais brutos em conteúdo pronto para uso em várias plataformas com apenas alguns cliques.
+KrillinAI é uma solução versátil de localização e aprimoramento de áudio e vídeo desenvolvida pela Krillin AI. Esta ferramenta minimalista, mas poderosa, integra tradução de vídeo, dublagem e clonagem de voz, suportando formatos paisagem e retrato para garantir uma apresentação perfeita em todas as principais plataformas (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). Com um fluxo de trabalho de ponta a ponta, você pode transformar materiais brutos em conteúdo pronto para uso em várias plataformas com apenas alguns cliques.
 
 ## Principais Recursos e Funções:
 
@@ -119,11 +119,11 @@ Idiomas de tradução suportados: Inglês, Chinês, Russo, Espanhol, Francês e 
 
 ## 🚀 Início Rápido
 
-Você pode fazer perguntas na [Deepwiki do KlicStudio](https://deepwiki.com/krillinai/KlicStudio). Ele indexa os arquivos no repositório, para que você possa encontrar respostas rapidamente.
+Você pode fazer perguntas na [Deepwiki do KrillinAI](https://deepwiki.com/krillinai/KrillinAI). Ele indexa os arquivos no repositório, para que você possa encontrar respostas rapidamente.
 
 ### Passos Básicos
 
-Primeiro, baixe o arquivo executável que corresponde ao sistema do seu dispositivo na [Release](https://github.com/KrillinAI/KlicStudio/releases), depois siga o tutorial abaixo para escolher entre a versão para desktop ou a versão não desktop. Coloque o download do software em uma pasta vazia, pois executá-lo gerará alguns diretórios, e mantê-lo em uma pasta vazia facilitará a gestão.
+Primeiro, baixe o arquivo executável que corresponde ao sistema do seu dispositivo na [Release](https://github.com/KrillinAI/KrillinAI/releases), depois siga o tutorial abaixo para escolher entre a versão para desktop ou a versão não desktop. Coloque o download do software em uma pasta vazia, pois executá-lo gerará alguns diretórios, e mantê-lo em uma pasta vazia facilitará a gestão.
 
 【Se for a versão para desktop, ou seja, o arquivo de release com "desktop", veja aqui】
 _A versão para desktop foi recém-lançada para resolver os problemas de novos usuários que têm dificuldade em editar arquivos de configuração corretamente, e há alguns bugs que estão sendo atualizados continuamente._
@@ -142,26 +142,26 @@ _A versão não desktop é a versão inicial, que possui uma configuração mais
 【Se for a versão para desktop, ou seja, o arquivo de release com "desktop", veja aqui】
 Devido a problemas de assinatura, a versão para desktop atualmente não pode ser executada com um clique ou instalada via dmg; você precisa confiar manualmente no aplicativo. O método é o seguinte:
 
-1. Abra o terminal no diretório onde o arquivo executável (supondo que o nome do arquivo seja KlicStudio_1.0.0_desktop_macOS_arm64) está localizado
+1. Abra o terminal no diretório onde o arquivo executável (supondo que o nome do arquivo seja KrillinAI_1.0.0_desktop_macOS_arm64) está localizado
 2. Execute os seguintes comandos em ordem:
 
 ```
-sudo xattr -cr ./KlicStudio_1.0.0_desktop_macOS_arm64
-sudo chmod +x ./KlicStudio_1.0.0_desktop_macOS_arm64 
-./KlicStudio_1.0.0_desktop_macOS_arm64
+sudo xattr -cr ./KrillinAI_1.0.0_desktop_macOS_arm64
+sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64
+./KrillinAI_1.0.0_desktop_macOS_arm64
 ```
 
 【Se for a versão não desktop, ou seja, o arquivo de release sem "desktop", veja aqui】
 Este software não está assinado, então ao executá-lo no macOS, após completar a configuração do arquivo nos "Passos Básicos", você também precisa confiar manualmente no aplicativo. O método é o seguinte:
 
-1. Abra o terminal no diretório onde o arquivo executável (supondo que o nome do arquivo seja KlicStudio_1.0.0_macOS_arm64) está localizado
+1. Abra o terminal no diretório onde o arquivo executável (supondo que o nome do arquivo seja KrillinAI_1.0.0_macOS_arm64) está localizado
 2. Execute os seguintes comandos em ordem:
    ```
-   sudo xattr -rd com.apple.quarantine ./KlicStudio_1.0.0_macOS_arm64
-   sudo chmod +x ./KlicStudio_1.0.0_macOS_arm64
-   ./KlicStudio_1.0.0_macOS_arm64
+   sudo xattr -rd com.apple.quarantine ./KrillinAI_1.0.0_macOS_arm64
+   sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
+   ./KrillinAI_1.0.0_macOS_arm64
    ```
-   
+
    Isso iniciará o serviço
 
 ### Implantação com Docker
@@ -277,4 +277,4 @@ Por favor, visite [Perguntas Frequentes](./faq.md)
 
 ## Histórico de Estrelas
 
-[![Gráfico de Histórico de Estrelas](https://api.star-history.com/svg?repos=KrillinAI/KlicStudio&type=Date)](https://star-history.com/#KrillinAI/KlicStudio&Date)
+[![Gráfico de Histórico de Estrelas](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)

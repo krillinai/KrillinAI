@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"krillin-ai/config"
 	"krillin-ai/log"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -34,7 +33,7 @@ func createNavButton(text string, icon fyne.Resource, isSelected bool, onTap fun
 // Show 展示桌面
 func Show() {
 	myApp := app.New()
-	myWindow := myApp.NewWindow("Klic Studio")
+	myWindow := myApp.NewWindow("KrillinAI")
 
 	// 创建主题管理器
 	themeManager := NewThemeManager(myApp, myWindow)
@@ -44,7 +43,7 @@ func Show() {
 
 	logoContainer := container.NewVBox()
 
-	logo := canvas.NewText("Klic Studio", color.NRGBA{R: 59, G: 130, B: 246, A: 255})
+	logo := canvas.NewText("KrillinAI", color.NRGBA{R: 59, G: 130, B: 246, A: 255})
 	logo.TextSize = 28
 	logo.TextStyle = fyne.TextStyle{Bold: true}
 	logo.Alignment = fyne.TextAlignCenter
@@ -52,7 +51,7 @@ func Show() {
 	separator := canvas.NewRectangle(color.NRGBA{R: 209, G: 213, B: 219, A: 255})
 	separator.SetMinSize(fyne.NewSize(0, 2))
 
-	slogan := canvas.NewText("智能内容创作助手", color.NRGBA{R: 107, G: 114, B: 128, A: 255})
+	slogan := canvas.NewText("AI Video Translation & Dubbing by Krillin AI", color.NRGBA{R: 107, G: 114, B: 128, A: 255})
 	slogan.TextSize = 12
 	slogan.Alignment = fyne.TextAlignCenter
 
@@ -60,8 +59,8 @@ func Show() {
 	logoContainer.Add(separator)
 	logoContainer.Add(slogan)
 
-	navItems := []string{"工作台 Workbench", "配置 Config"}
-	navIcons := []fyne.Resource{theme.DocumentIcon(), theme.SettingsIcon()}
+	navItems := []string{"工作台 Dashboard", "LLM 配置", "配置 Settings"}
+	navIcons := []fyne.Resource{theme.DocumentIcon(), theme.ComputerIcon(), theme.SettingsIcon()}
 
 	var navButtons []*widget.Button
 	navContainer := container.NewVBox()
@@ -69,22 +68,34 @@ func Show() {
 	contentStack := container.NewStack()
 	currentSelectedIndex := 0
 
-	var workbenchContent, configContent fyne.CanvasObject
+	var workbenchContent, llmContent, configContent fyne.CanvasObject
 
 	var refreshContent = func() {
 		contentStack.Objects = []fyne.CanvasObject{}
 
 		workbenchContent = CreateSubtitleTab(myWindow)
+		llmContent = CreateLlmTab()
 		configContent = CreateConfigTab(myWindow)
 
-		if currentSelectedIndex == 0 {
+		switch currentSelectedIndex {
+		case 0:
 			contentStack.Add(workbenchContent)
+			contentStack.Add(llmContent)
 			contentStack.Add(configContent)
+			llmContent.Hide()
 			configContent.Hide()
-		} else {
+		case 1:
 			contentStack.Add(workbenchContent)
+			contentStack.Add(llmContent)
 			contentStack.Add(configContent)
 			workbenchContent.Hide()
+			configContent.Hide()
+		case 2:
+			contentStack.Add(workbenchContent)
+			contentStack.Add(llmContent)
+			contentStack.Add(configContent)
+			workbenchContent.Hide()
+			llmContent.Hide()
 		}
 
 		contentStack.Refresh()
@@ -114,31 +125,32 @@ func Show() {
 				}
 			}
 
-			if index == 0 {
-				err := config.SaveConfig()
-				if err != nil {
-					dialog.ShowError(fmt.Errorf("保存配置失败: %v", err), myWindow)
-					log.GetLogger().Error("保存配置失败 Failed to save config", zap.Error(err))
-					return
-				}
-				log.GetLogger().Info("配置已保存 Config saved successfully")
+			// 保存配置并切换界面
+			err := config.SaveConfig()
+			if err != nil {
+				dialog.ShowError(fmt.Errorf("保存配置失败: %v", err), myWindow)
+			}
+
+			switch index {
+			case 0:
 				workbenchContent.Show()
+				llmContent.Hide()
 				configContent.Hide()
-				workbenchContent.Refresh()
-				FadeAnimation(workbenchContent, 300*time.Millisecond, 0.0, 1.0)
-			} else {
+			case 1:
 				workbenchContent.Hide()
+				llmContent.Show()
+				configContent.Hide()
+			case 2:
+				workbenchContent.Hide()
+				llmContent.Hide()
 				configContent.Show()
-				FadeAnimation(configContent, 300*time.Millisecond, 0.0, 1.0)
 			}
 
 			currentSelectedIndex = index
-			navContainer.Refresh()
-			contentStack.Refresh()
 		})
 
 		navButtons = append(navButtons, navBtn)
-		navContainer.Add(container.NewPadded(navBtn))
+		navContainer.Add(navBtn)
 	}
 
 	themeToggleContainer := themeManager.CreateThemeToggleButton()

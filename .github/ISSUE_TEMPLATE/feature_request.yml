@@ -1,0 +1,43 @@
+name: "✨ 功能请求 (Feature Request)"
+description: "为项目提出一个新功能的想法"
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem-description
+    attributes:
+      label: "🚀 这个功能解决什么问题？ (Is your feature request related to a problem?)"
+      description: "请描述你遇到的问题或需求"
+      placeholder: "我遇到了一个问题..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution-description
+    attributes:
+      label: "⭐ 你期望的功能是什么样的？ (Describe the solution you'd like)"
+      description: "请描述你期望的功能"
+      placeholder: "我希望能够..."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "💡 你考虑过其它替代方案吗？ (Describe alternatives you've considered)"
+      description: "请描述你考虑过的其他解决方案"
+      placeholder: "我考虑过..."
+    validations:
+      required: false
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: "➕ 补充信息 (Additional Context)"
+      description: "请提供任何其他相关的上下文信息"
+      placeholder: "其他相关信息..."
+    validations:
+      required: false
+  - type: checkboxes
+    id: willing-to-contribute
+    attributes:
+      label: "贡献意愿"
+      description: "是否愿意提交PR"
+      options:
+        - label: "是否愿意提交PR"

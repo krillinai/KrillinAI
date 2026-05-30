@@ -45,14 +45,14 @@
     sudo fc-cache -fv
     ```
 
-### 4. 在macOS上，应用程序无法启动并显示“KlicStudio已损坏，无法打开”的错误。
+### 4. 在macOS上，应用程序无法启动并显示“KrillinAI已损坏，无法打开”的错误。
 
 这是由于macOS的安全功能Gatekeeper，限制了来自未识别开发者的应用程序。要解决此问题，您必须手动删除隔离属性。
 
 1. 打开**终端**应用程序。
-2. 输入命令`xattr -cr`后跟一个空格，然后将`KlicStudio.app`文件从Finder窗口拖到终端中。命令看起来像这样：
+2. 输入命令`xattr -cr`后跟一个空格，然后将`KrillinAI.app`文件从Finder窗口拖到终端中。命令看起来像这样：
     ```
-    xattr -cr /Applications/KlicStudio.app
+    xattr -cr /Applications/KrillinAI.app
     ```
 3. 按Enter键。您现在应该能够打开该应用程序。
 
@@ -86,7 +86,7 @@
 
 ### 9. 我如何使用本地大型语言模型（LLM），例如在Ollama上运行的模型进行翻译？
 
-是的，您可以配置KlicStudio使用任何提供OpenAI兼容API端点的本地LLM。
+是的，您可以配置KrillinAI使用任何提供OpenAI兼容API端点的本地LLM。
 
 1. **启动您的本地LLM：** 确保您的本地服务（例如，运行Llama3的Ollama）处于活动状态并可访问。
 2. **编辑`config.toml`：** 在大型语言模型（翻译器）部分：
@@ -98,13 +98,13 @@
 
 ### 10. 我可以自定义最终视频中的字幕样式（字体、大小、颜色）吗？
 
-不可以。目前，KlicStudio生成**硬编码字幕**，这意味着它们直接嵌入到视频帧中。该应用程序**不提供自定义字幕样式的选项**；它使用预设样式。
+不可以。目前，KrillinAI生成**硬编码字幕**，这意味着它们直接嵌入到视频帧中。该应用程序**不提供自定义字幕样式的选项**；它使用预设样式。
 
 对于高级自定义，推荐的解决方法是：
 
-1. 使用KlicStudio生成翻译后的`.srt`字幕文件。
+1. 使用KrillinAI生成翻译后的`.srt`字幕文件。
 2. 将您的原始视频和此`.srt`文件导入专业视频编辑器（例如，Premiere Pro、Final Cut Pro、DaVinci Resolve），以在渲染之前应用自定义样式。
 
-### 11. 我已经有一个翻译后的`.srt`文件。KlicStudio可以仅使用它进行配音吗？
+### 11. 我已经有一个翻译后的`.srt`文件。KrillinAI可以仅使用它进行配音吗？
 
 不可以，目前不支持此功能。该应用程序运行从转录到最终视频生成的完整流程。

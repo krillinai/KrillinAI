@@ -1,0 +1,65 @@
+name: "🐛 错误回报 (Bug Report)"
+description: "报告一个软件中可复现的错误"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### 📝 前置检查 (Prerequisites)
+        
+        请在提交前确认以下几点：
+  - type: checkboxes
+    attributes:
+      label: "前置检查"
+      description: "请在提交前确认以下几点"
+      options:
+        - label: "我已经搜索过现有的 Issues，确认没有重复的问题。"
+        - label: "我已经阅读了项目的文档（如果有的话），但没有找到解决方案。"
+        - label: "我使用的是最新版本的软件。"
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: "🐞 Bug 描述 (Bug Description)"
+      description: "请详细描述这个bug"
+      placeholder: "请描述你遇到的问题..."
+    validations:
+      required: true
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: "👣 复现步骤 (Steps to Reproduce)"
+      description: "请提供详细的复现步骤"
+      placeholder: |
+        1. 第一步
+        2. 第二步
+        3. 第三步
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: "✅ 预期行为 (Expected Behavior)"
+      description: "请描述你期望看到的行为"
+      placeholder: "我期望..."
+    validations:
+      required: true
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: "❌ 实际行为 (Actual Behavior)"
+      description: "请描述实际发生的行为"
+      placeholder: "实际上..."
+    validations:
+      required: true
+  - type: textarea
+    id: error-log
+    attributes:
+      label: "🪵 错误日志 (Error Log)"
+      description: "请粘贴相关的错误日志"
+      placeholder: |
+        ```
+        (在此处粘贴日志)
+        ```
+      render: shell
+    validations:
+      required: false 
