@@ -1,7 +1,7 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# Công Cụ Dịch và Lồng Ghép Video AI Tối Giản
+# Công Cụ Dịch và Lồng Ghép Video cho Con Người / AI Agent (Kèm Bộ Skills)
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -14,14 +14,22 @@
 
 </div>
 
-## Giới Thiệu Dự Án  ([Thử phiên bản trực tuyến ngay!](https://www.klic.studio/))
+## Giới Thiệu Dự Án  (v2.0 hỗ trợ Agent — thử ngay)
 [**Khởi Đầu Nhanh**](#-quick-start)
 
-KrillinAI là một giải pháp đa năng cho việc địa phương hóa và nâng cao âm thanh và video được phát triển bởi Krillin AI. Công cụ tối giản nhưng mạnh mẽ này tích hợp dịch video, lồng ghép và nhân bản giọng nói, hỗ trợ cả định dạng ngang và dọc để đảm bảo trình bày hoàn hảo trên tất cả các nền tảng chính (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, v.v.). Với quy trình làm việc từ đầu đến cuối, bạn có thể biến nguyên liệu thô thành nội dung đa nền tảng sẵn sàng sử dụng chỉ với vài cú nhấp chuột.
+KrillinAI là giải pháp đa năng cho việc địa phương hóa và nâng cao âm thanh và video được phát triển bởi nhóm Krillin AI, được thiết kế cho cả người dùng con người và AI Agent. Công cụ bao gồm toàn bộ quy trình bao gồm tải video, chép lại giọng nói, dịch phụ đề, lồng tiếng TTS, chuyển đổi dọc và tạo ảnh bìa, hỗ trợ cả định dạng ngang và dọc để đảm bảo trình bày hoàn hảo trên tất cả các nền tảng chính (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, v.v.). Người dùng con người có thể hoàn thành bản địa hóa nội dung đầu cuối chỉ với một cú nhấp chuột qua client; mỗi khả năng cũng có thể được gọi độc lập qua CLI, và AI Agent có thể điều phối một hoặc nhiều giai đoạn theo nhu cầu để tạo thành các quy trình tự động linh hoạt.
+
+## Tính Năng Mới
+
+🤖 **Hỗ Trợ CLI**: Cung cấp giao diện dòng lệnh theo giai đoạn, mỗi giai đoạn thực thi độc lập và xuất kết quả có cấu trúc, hỗ trợ tái sử dụng sản phẩm giữa các giai đoạn.
+
+🧩 **Bộ Skills**: Thư mục `skills/` cung cấp Skills cho từng giai đoạn để AI Agent có thể gọi trực tiếp theo quy ước ổn định, không cần tự phân tích tài liệu CLI.
+
+🔗 **Phối Hợp Pipeline**: Kết nối nhiều giai đoạn trong một lệnh, cho phép tự động hóa hoàn toàn từ tải xuống đến kết xuất.
+
+🖼️ **Tạo Ảnh Bìa**: Tự động tạo ảnh bìa nền tảng từ hình thu nhỏ video gốc và mẫu gợi ý.
 
 ## Tính Năng và Chức Năng Chính:
-
-🎯 **Khởi Đầu Một Cú Nhấp**: Không cần cấu hình môi trường phức tạp, tự động cài đặt phụ thuộc, sẵn sàng sử dụng ngay lập tức, với phiên bản máy tính để bàn mới để dễ dàng truy cập hơn!
 
 📥 **Lấy Video**: Hỗ trợ tải xuống yt-dlp hoặc tải lên tệp cục bộ
 

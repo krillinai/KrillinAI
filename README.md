@@ -1,7 +1,7 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# Minimalist AI Video Translation and Dubbing Tool
+# Video Translation & Dubbing Tool for Humans / Agents (Skills Included)
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -14,14 +14,22 @@
 
 </div>
 
-## Project Introduction  ([Try the online version now!](https://www.klic.studio/))
+## Project Introduction  (v2.0 with Agent support — try it now)
 [**Quick Start**](#-quick-start)
 
-KrillinAI is a versatile audio and video localization and enhancement solution developed by Krillin AI. This minimalist yet powerful tool integrates video translation, dubbing, and voice cloning, supporting both landscape and portrait formats to ensure perfect presentation on all major platforms (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). With an end-to-end workflow, you can transform raw materials into beautifully ready-to-use cross-platform content with just a few clicks.
+KrillinAI is a versatile audio and video localization and enhancement solution developed by the Krillin AI team, designed for both human users and AI Agents. The tool covers the complete pipeline including video download, speech transcription, subtitle translation, TTS dubbing, portrait conversion, and cover generation, supporting both landscape and portrait formats to ensure perfect presentation on all major platforms (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). Human users can complete end-to-end content localization with one click via the client; each capability can also be invoked independently via CLI, and AI Agents can orchestrate single or multiple stages on demand to flexibly compose automated workflows.
+
+## New Features
+
+🤖 **CLI Support**: Provides a phased command-line interface where each stage executes independently and outputs structured results, supporting cross-stage artifact reuse.
+
+🧩 **Skills Collection**: The `skills/` directory provides per-stage Skills for AI Agents to invoke directly under a stable contract, no need to parse CLI documentation.
+
+🔗 **Pipeline Orchestration**: Chain multiple stages in one command, enabling full automation from download to rendering.
+
+🖼️ **Cover Generation**: Automatically generate platform cover images from the original video thumbnail and a prompt template.
 
 ## Key Features and Functions:
-
-🎯 **One-click Start**: No complex environment configuration required, automatic dependency installation, ready to use immediately, with a new desktop version for easier access!
 
 📥 **Video Acquisition**: Supports yt-dlp downloads or local file uploads
 
