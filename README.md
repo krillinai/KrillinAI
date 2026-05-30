@@ -14,7 +14,7 @@
 
 </div>
 
-## Project Introduction  (v2.0 with Agent support — try it now)
+## Project Introduction  (v2.0 with Agent support — now released)
 [**Quick Start**](#-quick-start)
 
 KrillinAI is a versatile audio and video localization and enhancement solution developed by the Krillin AI team, designed for both human users and AI Agents. The tool covers the complete pipeline including video download, speech transcription, subtitle translation, TTS dubbing, portrait conversion, and cover generation, supporting both landscape and portrait formats to ensure perfect presentation on all major platforms (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). Human users can complete end-to-end content localization with one click via the client; each capability can also be invoked independently via CLI, and AI Agents can orchestrate single or multiple stages on demand to flexibly compose automated workflows.
