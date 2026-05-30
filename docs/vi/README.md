@@ -14,7 +14,7 @@
 
 </div>
 
-## Giới Thiệu Dự Án  (v2.0 hỗ trợ Agent — thử ngay)
+## Giới Thiệu Dự Án  (v2.0 hỗ trợ Agent — đã ra mắt)
 [**Khởi Đầu Nhanh**](#-quick-start)
 
 KrillinAI là giải pháp đa năng cho việc địa phương hóa và nâng cao âm thanh và video được phát triển bởi nhóm Krillin AI, được thiết kế cho cả người dùng con người và AI Agent. Công cụ bao gồm toàn bộ quy trình bao gồm tải video, chép lại giọng nói, dịch phụ đề, lồng tiếng TTS, chuyển đổi dọc và tạo ảnh bìa, hỗ trợ cả định dạng ngang và dọc để đảm bảo trình bày hoàn hảo trên tất cả các nền tảng chính (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, v.v.). Người dùng con người có thể hoàn thành bản địa hóa nội dung đầu cuối chỉ với một cú nhấp chuột qua client; mỗi khả năng cũng có thể được gọi độc lập qua CLI, và AI Agent có thể điều phối một hoặc nhiều giai đoạn theo nhu cầu để tạo thành các quy trình tự động linh hoạt.

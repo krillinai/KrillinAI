@@ -1,7 +1,7 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# 面向人类 / AI Agent的视频翻译配音工具（内含Skills集合）
+# 面向人类 / AI Agent的视频翻译配音工具（含Skills集合）
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -14,7 +14,7 @@
 
 </div>
 
-## 项目介绍  (5月31日已发布支持Agent调用的2.0版本)
+## 项目介绍  (已发布支持Agent调用的2.0版本)
 [**快速开始**](#-quick-start)
 
 KrillinAI 是由 Krillin AI团队开发的多功能音视频本地化与增强解决方案，同时面向**人类用户**和 **AI Agent** 设计。工具覆盖视频下载、音频转录、字幕翻译、TTS 配音、竖屏转换、封面生成等完整链路，支持横屏与竖屏格式，确保在所有主要平台（Bilibili、小红书、抖音、微信视频、快手、YouTube、TikTok 等）上完美呈现。人类用户可通过客户端一键完成端到端内容本地化；每项能力也均可通过 CLI 独立调用，AI Agent 可按需编排单个或多个阶段，灵活组合成自动化工作流。
