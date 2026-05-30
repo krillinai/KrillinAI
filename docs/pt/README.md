@@ -1,7 +1,7 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# Ferramenta Minimalista de Tradução e Dublagem de Vídeo com IA
+# Ferramenta de Tradução e Dublagem de Vídeo para Humanos / AI Agents (com Coleção de Skills)
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -14,14 +14,22 @@
 
 </div>
 
-## Introdução ao Projeto  ([Experimente a versão online agora!](https://www.klic.studio/))
+## Introdução ao Projeto  (v2.0 com suporte a Agent — já disponível)
 [**Início Rápido**](#-quick-start)
 
-KrillinAI é uma solução versátil de localização e aprimoramento de áudio e vídeo desenvolvida pela Krillin AI. Esta ferramenta minimalista, mas poderosa, integra tradução de vídeo, dublagem e clonagem de voz, suportando formatos paisagem e retrato para garantir uma apresentação perfeita em todas as principais plataformas (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). Com um fluxo de trabalho de ponta a ponta, você pode transformar materiais brutos em conteúdo pronto para uso em várias plataformas com apenas alguns cliques.
+KrillinAI é uma solução versátil de localização e aprimoramento de áudio e vídeo desenvolvida pela equipe Krillin AI, projetada tanto para usuários humanos quanto para AI Agents. A ferramenta cobre o pipeline completo incluindo download de vídeo, transcrição de voz, tradução de legendas, dublagem TTS, conversão retrato e geração de capa, suportando formatos paisagem e retrato para garantir uma apresentação perfeita em todas as principais plataformas (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). Usuários humanos podem concluir a localização de conteúdo de ponta a ponta com um clique via cliente; cada capacidade também pode ser invocada independentemente via CLI, e AI Agents podem orquestrar um ou múltiplos estágios sob demanda para compor fluxos de trabalho automatizados flexíveis.
+
+## Novos Recursos
+
+🤖 **Suporte CLI**: Fornece uma interface de linha de comando por fases, onde cada etapa é executada de forma independente e produz resultados estruturados, com suporte para reutilização de artefatos entre etapas.
+
+🧩 **Coleção de Skills**: O diretório `skills/` fornece Skills por etapa para que os AI Agents as invoquem diretamente sob um contrato estável, sem precisar analisar a documentação da CLI.
+
+🔗 **Orquestração de Pipeline**: Encadeie várias etapas em um único comando, permitindo automação completa do download ao renderização.
+
+🖼️ **Geração de Capa**: Gere automaticamente imagens de capa de plataforma a partir da miniatura do vídeo original e de um modelo de prompt.
 
 ## Principais Recursos e Funções:
-
-🎯 **Início com um Clique**: Sem configuração de ambiente complexa, instalação automática de dependências, pronto para uso imediatamente, com uma nova versão para desktop para facilitar o acesso!
 
 📥 **Aquisição de Vídeo**: Suporta downloads via yt-dlp ou uploads de arquivos locais
 
@@ -37,7 +45,7 @@ KrillinAI é uma solução versátil de localização e aprimoramento de áudio 
 
 🎬 **Composição de Vídeo**: Processa automaticamente vídeos em paisagem e retrato e layout de legendas
 
-💻 **Multiplataforma**: Suporta Windows, Linux, macOS, oferecendo versões para desktop e servidor
+💻 **Multiplataforma**: Suporta Windows, Linux, macOS, oferecendo versões para desktop, servidor e CLI
 
 ## Demonstração de Efeito
 
@@ -147,7 +155,7 @@ Devido a problemas de assinatura, a versão para desktop atualmente não pode se
 
 ```
 sudo xattr -cr ./KrillinAI_1.0.0_desktop_macOS_arm64
-sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64 
+sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64
 ./KrillinAI_1.0.0_desktop_macOS_arm64
 ```
 
@@ -161,12 +169,74 @@ Este software não está assinado, então ao executá-lo no macOS, após complet
    sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
    ./KrillinAI_1.0.0_macOS_arm64
    ```
-   
+
    Isso iniciará o serviço
 
 ### Implantação com Docker
 
 Este projeto suporta implantação com Docker; consulte as [Instruções de Implantação com Docker](./docker.md)
+
+### Uso da CLI
+
+O KrillinAI agora oferece uma CLI em etapas, adequada para scripts, pipelines de automação e agentes de IA. Por padrão, a CLI executa de forma síncrona, imprime uma linha JSON no stdout ao concluir e grava `krillinai_manifest.json` no diretório de trabalho para que etapas posteriores possam reutilizar artefatos existentes.
+
+Compile a CLI a partir do código-fonte:
+
+```bash
+go build -o build/krillinai-cli ./cmd/cli
+```
+
+Resumo dos comandos:
+
+| Comando | Uso | Artefatos comuns |
+|---|---|---|
+| `subtitle` | Gera legendas a partir de links do YouTube / Bilibili ou vídeos locais; tenta primeiro baixar legendas da plataforma e recorre ao Whisper se falhar | `origin_language_srt.srt`, `target_language_srt.srt`, `bilingual_srt.srt`, `short_origin_mixed_srt.srt` |
+| `tts` | Gera dublagem no idioma de destino a partir das legendas de destino | `tts_final_audio.wav`, `video_with_tts.mp4` |
+| `render-horizontal` | Gera vídeo horizontal: vídeo original + legendas bilíngues, ou vídeo dublado + legendas no idioma de destino | `horizontal_bilingual.mp4` |
+| `render-vertical` | Gera vídeo vertical: vídeo original convertido para vertical + legendas curtas, ou vídeo dublado + legendas no idioma de destino | `transferred_vertical_video.mp4`, `vertical_bilingual.mp4` |
+| `pipeline` | Encadeia várias etapas de acordo com outputs | Depende das etapas selecionadas |
+| `cover` | Gera uma capa a partir da capa original do vídeo e de um modelo de prompt | `generated_cover.png` |
+
+Fluxo de trabalho típico:
+
+```bash
+# 1. Gerar legendas de origem, destino, bilíngues e curtas para vertical
+./build/krillinai-cli subtitle "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+  --origin-lang en \
+  --target-lang zh_cn \
+  --workdir tasks/demo \
+  --caption-source any
+
+# 2. Gerar dublagem a partir das legendas no idioma de destino
+./build/krillinai-cli tts \
+  --workdir tasks/demo \
+  --input-srt tasks/demo/target_language_srt.srt \
+  --line-mode target-only \
+  --video tasks/demo/origin_video.mp4
+
+# 3. Gerar vídeo horizontal com legendas bilíngues
+./build/krillinai-cli render-horizontal \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/bilingual_srt.srt
+
+# 4. Gerar vídeo vertical com legendas bilíngues curtas
+./build/krillinai-cli render-vertical \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/short_origin_mixed_srt.srt \
+  --major-title "Tema de hoje" \
+  --minor-title "AI Video"
+```
+
+Convenções de integração para Agent:
+
+- Leia primeiro a última linha JSON do stdout e `krillinai_manifest.json`; não analise logs comuns.
+- O campo `outputs` registra os caminhos dos artefatos, e comandos posteriores podem reutilizar o manifest passando apenas `--workdir`.
+- `--dry-run` valida parâmetros e gera o manifest sem baixar vídeo nem chamar serviços externos de IA.
+- Trate erros por `error.kind`: `usage` corrige parâmetros, `retryable` permite tentar novamente, `dependency` exige instalar `ffmpeg` / `ffprobe` / `yt-dlp`.
+
+Para uma explicação mais completa dos parâmetros, consulte o [resumo de capacidades da CLI](../zh/cli.md).
 
 Com base no arquivo de configuração fornecido, aqui está a seção atualizada "Ajuda de Configuração (Leitura Obrigatória)" para o seu arquivo README:
 

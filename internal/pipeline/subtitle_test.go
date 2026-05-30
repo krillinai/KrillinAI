@@ -1,0 +1,189 @@
+package pipeline
+
+import (
+	"context"
+	"errors"
+	"krillin-ai/internal/service"
+	"krillin-ai/internal/types"
+	"testing"
+)
+
+type fakeStageService struct {
+	downloadErr       error
+	processErr        error
+	calls             []string
+	prepareVTT        []bool
+	prepareEmbedTypes []string
+	lastSpeech        *types.SubtitleTaskStepParam
+}
+
+func (f *fakeStageService) PrepareMedia(_ context.Context, p *types.SubtitleTaskStepParam) error {
+	f.calls = append(f.calls, "prepare")
+	f.prepareVTT = append(f.prepareVTT, p.VttSwitch)
+	f.prepareEmbedTypes = append(f.prepareEmbedTypes, p.EmbedSubtitleVideoType)
+	return nil
+}
+
+func (f *fakeStageService) GenerateSubtitlesFromAudio(context.Context, *types.SubtitleTaskStepParam) error {
+	f.calls = append(f.calls, "audio")
+	return nil
+}
+
+func (f *fakeStageService) GenerateSpeechFromSRT(_ context.Context, p *types.SubtitleTaskStepParam) error {
+	f.calls = append(f.calls, "speech")
+	f.lastSpeech = p
+	return nil
+}
+
+func (f *fakeStageService) FinalizeSubtitleResults(context.Context, *types.SubtitleTaskStepParam) error {
+	return nil
+}
+
+func (f *fakeStageService) DownloadYouTubeSubtitle(context.Context, *service.YoutubeSubtitleReq) (string, error) {
+	f.calls = append(f.calls, "download-youtube")
+	return "demo.en.vtt", f.downloadErr
+}
+
+func (f *fakeStageService) ProcessYouTubeSubtitle(context.Context, *service.YoutubeSubtitleReq) (string, error) {
+	f.calls = append(f.calls, "process-youtube")
+	return "bilingual_srt.srt", f.processErr
+}
+
+func (f *fakeStageService) RenderVideo(context.Context, service.RenderVideoRequest) (string, error) {
+	return "", nil
+}
+
+func TestGenerateSubtitlesFallsBackToAudioWhenAnySourceFails(t *testing.T) {
+	dir := t.TempDir()
+	fake := &fakeStageService{downloadErr: errors.New("no captions")}
+	req := SubtitleRequest{
+		Input:         "https://www.youtube.com/watch?v=abc",
+		Workdir:       dir,
+		TaskID:        "demo",
+		OriginLang:    "en",
+		TargetLang:    "zh_cn",
+		CaptionSource: CaptionSourceAny,
+	}
+	resp, err := GenerateSubtitles(context.Background(), fake, req)
+	if err != nil {
+		t.Fatalf("GenerateSubtitles() error = %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("OK = false, want true")
+	}
+	if got := fake.calls; len(got) != 4 || got[0] != "prepare" || got[1] != "download-youtube" || got[2] != "prepare" || got[3] != "audio" {
+		t.Fatalf("calls = %v", got)
+	}
+	if got := fake.prepareVTT; len(got) != 2 || got[0] != true || got[1] != false {
+		t.Fatalf("prepare VttSwitch values = %v, want [true false]", got)
+	}
+}
+
+func TestGenerateSubtitlesManualDoesNotFallback(t *testing.T) {
+	dir := t.TempDir()
+	fake := &fakeStageService{downloadErr: errors.New("no captions")}
+	req := SubtitleRequest{
+		Input:         "https://www.youtube.com/watch?v=abc",
+		Workdir:       dir,
+		TaskID:        "demo",
+		OriginLang:    "en",
+		TargetLang:    "zh_cn",
+		CaptionSource: CaptionSourceManual,
+	}
+	resp, err := GenerateSubtitles(context.Background(), fake, req)
+	if err == nil {
+		t.Fatalf("GenerateSubtitles() error = nil, want error")
+	}
+	if resp.OK {
+		t.Fatalf("OK = true, want false")
+	}
+	if got := fake.calls; len(got) != 2 || got[1] != "download-youtube" {
+		t.Fatalf("calls = %v", got)
+	}
+}
+
+func TestGenerateSubtitlesYouTubeCaptionsDoNotUseAudio(t *testing.T) {
+	dir := t.TempDir()
+	fake := &fakeStageService{}
+	req := SubtitleRequest{
+		Input:         "https://www.youtube.com/watch?v=abc",
+		Workdir:       dir,
+		TaskID:        "demo",
+		OriginLang:    "en",
+		TargetLang:    "zh_cn",
+		CaptionSource: CaptionSourceAny,
+	}
+	resp, err := GenerateSubtitles(context.Background(), fake, req)
+	if err != nil {
+		t.Fatalf("GenerateSubtitles() error = %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("OK = false, want true")
+	}
+	if resp.CaptionSource == "" {
+		t.Fatalf("CaptionSource is empty")
+	}
+	if got := fake.calls; len(got) != 4 || got[0] != "prepare" || got[1] != "download-youtube" || got[2] != "process-youtube" || got[3] != "prepare" {
+		t.Fatalf("calls = %v", got)
+	}
+	for _, call := range fake.calls {
+		if call == "audio" {
+			t.Fatalf("calls = %v, did not expect audio transcription", fake.calls)
+		}
+	}
+}
+
+func TestGenerateSubtitlesYouTubeCaptionsPrepareOriginalMediaForRendering(t *testing.T) {
+	dir := t.TempDir()
+	fake := &fakeStageService{}
+	req := SubtitleRequest{
+		Input:         "https://www.youtube.com/watch?v=abc",
+		Workdir:       dir,
+		TaskID:        "demo",
+		OriginLang:    "en",
+		TargetLang:    "zh_cn",
+		CaptionSource: CaptionSourceAny,
+	}
+	resp, err := GenerateSubtitles(context.Background(), fake, req)
+	if err != nil {
+		t.Fatalf("GenerateSubtitles() error = %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("OK = false, want true")
+	}
+	if got := fake.calls; len(got) != 4 || got[0] != "prepare" || got[1] != "download-youtube" || got[2] != "process-youtube" || got[3] != "prepare" {
+		t.Fatalf("calls = %v", got)
+	}
+	if got := fake.prepareVTT; len(got) != 2 || got[0] != true || got[1] != false {
+		t.Fatalf("prepare VttSwitch values = %v, want [true false]", got)
+	}
+	if got := fake.prepareEmbedTypes; len(got) != 2 || got[1] != "all" {
+		t.Fatalf("prepare EmbedSubtitleVideoType values = %v, want second value all", got)
+	}
+}
+
+func TestGenerateSubtitlesWhisperSkipsYouTubeDownload(t *testing.T) {
+	dir := t.TempDir()
+	fake := &fakeStageService{}
+	req := SubtitleRequest{
+		Input:         "https://www.youtube.com/watch?v=abc",
+		Workdir:       dir,
+		TaskID:        "demo",
+		OriginLang:    "en",
+		TargetLang:    "zh_cn",
+		CaptionSource: CaptionSourceWhisper,
+	}
+	resp, err := GenerateSubtitles(context.Background(), fake, req)
+	if err != nil {
+		t.Fatalf("GenerateSubtitles() error = %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("OK = false, want true")
+	}
+	if got := fake.calls; len(got) != 2 || got[0] != "prepare" || got[1] != "audio" {
+		t.Fatalf("calls = %v", got)
+	}
+	if got := fake.prepareVTT; len(got) != 1 || got[0] != false {
+		t.Fatalf("prepare VttSwitch values = %v, want [false]", got)
+	}
+}

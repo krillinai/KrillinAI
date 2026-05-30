@@ -1,4 +1,8 @@
 .idea
+.claude/
+.github/
+docs/plans/
+docs/superpowers/
 tasks/
 cookies.txt
 .vscode/
@@ -10,6 +14,13 @@ app.log
 build/
 dist/
 
+# Superpowers Skills Framework (local junction to ~/.superpowers)
+.superpowers
+
 # MACOS
 .DS_Store
 ._*
+KrillinAI.exe
+.codegraph/
+.deepseek/
+run.log

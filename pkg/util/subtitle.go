@@ -17,6 +17,8 @@ import (
 // 处理每一个字幕块
 func ProcessBlock(block []string, targetLanguageFile, targetLanguageTextFile, originLanguageFile, originLanguageTextFile *os.File, isTargetOnTop bool) {
 	var targetLines, originLines []string
+	var targetText, originText string
+
 	// 匹配时间戳的正则表达式
 	timePattern := regexp.MustCompile(`\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}`)
 	for _, line := range block {
@@ -29,21 +31,29 @@ func ProcessBlock(block []string, targetLanguageFile, targetLanguageTextFile, or
 		if len(targetLines) == 2 && len(originLines) == 2 { // 刚写完编号和时间戳，到了上方的文字行
 			if isTargetOnTop {
 				targetLines = append(targetLines, line)
-				targetLanguageTextFile.WriteString(line + " ") // 文稿文件
+				targetText = line
 			} else {
 				originLines = append(originLines, line)
-				originLanguageTextFile.WriteString(line + " ")
+				originText = line
 			}
 			continue
 		}
 		// 到了下方的文字行
 		if isTargetOnTop {
 			originLines = append(originLines, line)
-			originLanguageTextFile.WriteString(line + " ")
+			originText = line
 		} else {
 			targetLines = append(targetLines, line)
-			targetLanguageTextFile.WriteString(line + " ")
+			targetText = line
 		}
+	}
+
+	// 写入文本文件，每个block一行，带换行符（如果文件不为nil）
+	if targetText != "" && targetLanguageTextFile != nil {
+		targetLanguageTextFile.WriteString(targetText + "\n")
+	}
+	if originText != "" && originLanguageTextFile != nil {
+		originLanguageTextFile.WriteString(originText + "\n")
 	}
 
 	if len(targetLines) > 2 {
@@ -400,7 +410,26 @@ func SplitTextSentences(text string, maxChars int) []string {
 		}
 	}
 
-	return result
+	// 最后一步：过滤并合并单独的标点符号
+	finalResult := make([]string, 0)
+	for _, sentence := range result {
+		trimmed := strings.TrimSpace(sentence)
+
+		// 检查是否是单独的标点符号（主要是引号）
+		if isStandalonePunctuation(trimmed) {
+			// 如果是单独的标点符号，尝试合并到前一个句子
+			if len(finalResult) > 0 {
+				// 将标点符号合并到前一个句子的末尾
+				lastIdx := len(finalResult) - 1
+				finalResult[lastIdx] = finalResult[lastIdx] + trimmed
+			}
+			// 如果没有前一个句子，则跳过这个单独的标点符号
+		} else {
+			finalResult = append(finalResult, sentence)
+		}
+	}
+
+	return finalResult
 }
 
 // protectedPatterns 存储被保护的模式
@@ -623,4 +652,29 @@ func ConvertTimes(start, end float32) string {
 	startTime := FormatTime(start)
 	endTime := FormatTime(end)
 	return fmt.Sprintf("%s --> %s", startTime, endTime)
+}
+
+// isStandalonePunctuation 检查是否是单独的标点符号
+func isStandalonePunctuation(text string) bool {
+	if text == "" {
+		return false
+	}
+
+	// 定义需要过滤的单独标点符号（主要是引号）
+	standalonePuncts := []string{
+		"\"",     // 英文双引号
+		"\u201c", // 中文左双引号 "
+		"\u201d", // 中文右双引号 "
+		"'",      // 英文单引号
+		"\u2018", // 中文左单引号 '
+		"\u2019", // 中文右单引号 '
+	}
+
+	for _, punct := range standalonePuncts {
+		if text == punct {
+			return true
+		}
+	}
+
+	return false
 }

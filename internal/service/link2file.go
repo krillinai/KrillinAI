@@ -41,27 +41,29 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 			return fmt.Errorf("linkToFile.GetYouTubeID error: %w", err)
 		}
 		stepParam.Link = "https://www.youtube.com/watch?v=" + videoId
-		// 使用更灵活的音频格式选择器，避免 HTTP 403 错误
-		cmdArgs := []string{
-			"-f", "bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio/worst",
-			"--extract-audio",
-			"--audio-format", "mp3",
-			"--audio-quality", "192K",
-			"-o", audioPath,
-			stepParam.Link,
-		}
-		if config.Conf.App.Proxy != "" {
-			cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
-		}
-		cmdArgs = append(cmdArgs, "--cookies", "./cookies.txt")
-		if storage.FfmpegPath != "ffmpeg" {
-			cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
-		}
-		cmd := exec.Command(storage.YtdlpPath, cmdArgs...)
-		output, err = cmd.CombinedOutput()
-		if err != nil {
-			log.GetLogger().Error("linkToFile download audio yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
-			return fmt.Errorf("linkToFile download audio yt-dlp error: %w", err)
+		if !stepParam.VttSwitch {
+			// 使用更灵活的音频格式选择器，避免 HTTP 403 错误。
+			cmdArgs := []string{
+				"-f", "bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio/worst",
+				"--extract-audio",
+				"--audio-format", "mp3",
+				"--audio-quality", "192K",
+				"-o", audioPath,
+				stepParam.Link,
+			}
+			if config.Conf.App.Proxy != "" {
+				cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
+			}
+			cmdArgs = appendCookiesArgs(cmdArgs, youtubeCookiesPath)
+			if storage.FfmpegPath != "ffmpeg" {
+				cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
+			}
+			cmd := exec.Command(storage.YtdlpPath, cmdArgs...)
+			output, err = cmd.CombinedOutput()
+			if err != nil {
+				log.GetLogger().Error("linkToFile download audio yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
+				return fmt.Errorf("linkToFile download audio yt-dlp error: %w", err)
+			}
 		}
 	} else if strings.Contains(link, "bilibili.com") {
 		videoId := util.GetBilibiliVideoId(link)
