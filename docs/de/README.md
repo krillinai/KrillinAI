@@ -1,7 +1,7 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# Minimalistisches KI-Videoübersetzungs- und Synchronisationstool
+# Video-Übersetzungs- und Synchronisationstool für Menschen / KI-Agenten (mit Skills-Sammlung)
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -14,14 +14,22 @@
 
 </div>
 
-## Projektvorstellung  ([Probieren Sie jetzt die Online-Version aus!](https://www.klic.studio/))
+## Projektvorstellung  (v2.0 mit Agent-Unterstützung — jetzt ausprobieren)
 [**Schnellstart**](#-quick-start)
 
-KrillinAI ist eine vielseitige Lösung zur Lokalisierung und Verbesserung von Audio und Video, die von Krillin AI entwickelt wurde. Dieses minimalistische, aber leistungsstarke Tool integriert Videoübersetzung, Synchronisation und Sprachklonierung und unterstützt sowohl Quer- als auch Hochformat, um eine perfekte Präsentation auf allen wichtigen Plattformen (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok usw.) zu gewährleisten. Mit einem End-to-End-Workflow können Sie Rohmaterialien mit nur wenigen Klicks in wunderschön bereitgestellte plattformübergreifende Inhalte verwandeln.
+KrillinAI ist eine vielseitige Lösung zur Lokalisierung und Verbesserung von Audio und Video, die vom Krillin AI-Team entwickelt wurde und sowohl für menschliche Benutzer als auch für KI-Agenten konzipiert ist. Das Tool deckt die komplette Pipeline ab, einschließlich Video-Download, Sprachtranskription, Untertitelübersetzung, TTS-Synchronisation, Hochformat-Konvertierung und Cover-Generierung, und unterstützt sowohl Quer- als auch Hochformat für eine perfekte Präsentation auf allen wichtigen Plattformen (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok usw.). Menschliche Benutzer können die End-to-End-Inhaltslokalisierung mit einem Klick über den Client abschließen; jede Funktion kann auch unabhängig über die CLI aufgerufen werden, und KI-Agenten können einzelne oder mehrere Stufen nach Bedarf orchestrieren, um flexible automatisierte Workflows zu erstellen.
+
+## Neue Funktionen
+
+🤖 **CLI-Unterstützung**: Bietet eine stufenweise Befehlszeilenschnittstelle, bei der jede Stufe unabhängig ausgeführt wird und strukturierte Ergebnisse ausgibt, mit Unterstützung für stufenspezifische Artefakt-Wiederverwendung.
+
+🧩 **Skills-Sammlung**: Das Verzeichnis `skills/` enthält stufenspezifische Skills, die KI-Agenten direkt nach einem stabilen Vertrag aufrufen können, ohne die CLI-Dokumentation selbst zu analysieren.
+
+🔗 **Pipeline-Orchestrierung**: Verketten Sie mehrere Stufen in einem Befehl und ermöglichen so eine vollständige Automatisierung vom Download bis zum Rendering.
+
+🖼️ **Cover-Generierung**: Generieren Sie automatisch Plattform-Cover-Bilder aus dem Thumbnail des Originalvideos und einer Prompt-Vorlage.
 
 ## Hauptmerkmale und Funktionen:
-
-🎯 **Ein-Klick-Start**: Keine komplexe Umgebungs-Konfiguration erforderlich, automatische Abhängigkeitsinstallation, sofort einsatzbereit, mit einer neuen Desktop-Version für einfacheren Zugriff!
 
 📥 **Videoerfassung**: Unterstützt yt-dlp-Downloads oder lokale Datei-Uploads
 

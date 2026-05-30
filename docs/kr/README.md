@@ -1,7 +1,7 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# 미니멀리스트 AI 비디오 번역 및 더빙 도구
+# 인간 / AI 에이전트를 위한 비디오 번역 및 더빙 도구 (Skills 컬렉션 포함)
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -14,14 +14,22 @@
 
 </div>
 
-## 프로젝트 소개  ([지금 온라인 버전 사용해보기!](https://www.klic.studio/))
+## 프로젝트 소개  (Agent 지원 v2.0 — 지금 체험)
 [**빠른 시작**](#-quick-start)
 
-KrillinAI는 Krillin AI가 개발한 다재다능한 오디오 및 비디오 현지화 및 향상 솔루션입니다. 이 미니멀하면서도 강력한 도구는 비디오 번역, 더빙 및 음성 클로닝을 통합하여 모든 주요 플랫폼(Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok 등)에서 완벽한 프레젠테이션을 보장하는 가로 및 세로 형식을 지원합니다. 엔드 투 엔드 워크플로우를 통해 원자재를 몇 번의 클릭만으로 아름답게 사용할 수 있는 크로스 플랫폼 콘텐츠로 변환할 수 있습니다.
+KrillinAI는 Krillin AI 팀이 개발한 다목적 오디오 및 비디오 현지화 및 향상 솔루션으로, 인간 사용자와 AI 에이전트 모두를 위해 설계되었습니다. 비디오 다운로드, 음성 전사, 자막 번역, TTS 더빙, 세로 변환, 커버 생성 등 완전한 파이프라인을 포괄하며 가로 및 세로 형식을 지원하여 모든 주요 플랫폼(Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok 등)에서 완벽한 프레젠테이션을 보장합니다. 인간 사용자는 클라이언트를 통해 원클릭으로 엔드투엔드 콘텐츠 현지화를 완료할 수 있으며, 각 기능은 CLI를 통해 독립적으로 호출할 수도 있어 AI 에이전트가 단일 또는 여러 단계를 필요에 따라 편성하여 유연한 자동화 워크플로를 구성할 수 있습니다.
+
+## 새로운 기능
+
+🤖 **CLI 지원**: 각 단계가 독립적으로 실행되고 구조화된 결과를 출력하는 단계별 명령줄 인터페이스를 제공하며, 단계 간 아티팩트 재사용을 지원합니다.
+
+🧩 **Skills 컬렉션**: `skills/` 디렉토리에 AI 에이전트가 안정적인 계약에 따라 직접 호출할 수 있는 각 단계별 Skills가 제공되어 CLI 문서를 직접 파싱할 필요가 없습니다.
+
+🔗 **Pipeline 편성**: 여러 단계를 한 명령으로 연결하여 다운로드부터 렌더링까지 전체 프로세스를 자동화합니다.
+
+🖼️ **커버 생성**: 원본 비디오 썸네일과 프롬프트 템플릿에서 플랫폼 커버 이미지를 자동으로 생성합니다.
 
 ## 주요 기능 및 기능:
-
-🎯 **원클릭 시작**: 복잡한 환경 구성 필요 없이 자동 종속성 설치, 즉시 사용 가능, 더 쉽게 접근할 수 있는 새로운 데스크탑 버전 제공!
 
 📥 **비디오 수집**: yt-dlp 다운로드 또는 로컬 파일 업로드 지원
 

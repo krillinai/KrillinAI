@@ -1,7 +1,7 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# 极简 AI 视频翻译与配音工具
+# 面向人类 / AI Agent的视频翻译配音工具（内含Skills集合）
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
