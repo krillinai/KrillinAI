@@ -45,7 +45,7 @@ KrillinAI est une solution polyvalente de localisation et d'amélioration audio 
 
 🎬 **Composition vidéo** : Traite automatiquement les vidéos paysage et portrait ainsi que la mise en page des sous-titres
 
-💻 **Multiplateforme** : Prend en charge Windows, Linux, macOS, fournissant à la fois des versions de bureau et serveur
+💻 **Multiplateforme** : Prend en charge Windows, Linux, macOS, avec des modes bureau, serveur et CLI
 
 ## Démonstration d'effet
 

@@ -45,7 +45,7 @@ KrillinAI là giải pháp đa năng cho việc địa phương hóa và nâng c
 
 🎬 **Biên Tập Video**: Tự động xử lý video ngang và dọc và bố cục phụ đề
 
-💻 **Đa Nền Tảng**: Hỗ trợ Windows, Linux, macOS, cung cấp cả phiên bản máy tính để bàn và máy chủ
+💻 **Đa Nền Tảng**: Hỗ trợ Windows, Linux, macOS, cung cấp phiên bản máy tính để bàn, máy chủ và CLI
 
 ## Minh Họa Hiệu Ứng
 

@@ -45,7 +45,7 @@ KrillinAI ist eine vielseitige Lösung zur Lokalisierung und Verbesserung von Au
 
 🎬 **Videokomposition**: Automatische Verarbeitung von Quer- und Hochformatvideos sowie Untertitel-Layout
 
-💻 **Plattformübergreifend**: Unterstützt Windows, Linux, macOS und bietet sowohl Desktop- als auch Serverversionen
+💻 **Plattformübergreifend**: Unterstützt Windows, Linux, macOS und bietet Desktop-, Server- und CLI-Nutzung
 
 ## Effekt-Demonstration
 
