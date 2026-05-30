@@ -1,7 +1,7 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# Minimalist AI Video Translation and Dubbing Tool
+# Video Translation & Dubbing Tool for Humans / Agents (Skills Included)
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -14,14 +14,22 @@
 
 </div>
 
-## Project Introduction  ([Try the online version now!](https://www.klic.studio/))
+## Project Introduction  (v2.0 with Agent support — now released)
 [**Quick Start**](#-quick-start)
 
-KrillinAI is a versatile audio and video localization and enhancement solution developed by Krillin AI. This minimalist yet powerful tool integrates video translation, dubbing, and voice cloning, supporting both landscape and portrait formats to ensure perfect presentation on all major platforms (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). With an end-to-end workflow, you can transform raw materials into beautifully ready-to-use cross-platform content with just a few clicks.
+KrillinAI is a versatile audio and video localization and enhancement solution developed by the Krillin AI team, designed for both human users and AI Agents. The tool covers the complete pipeline including video download, speech transcription, subtitle translation, TTS dubbing, portrait conversion, and cover generation, supporting both landscape and portrait formats to ensure perfect presentation on all major platforms (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). Human users can complete end-to-end content localization with one click via the client; each capability can also be invoked independently via CLI, and AI Agents can orchestrate single or multiple stages on demand to flexibly compose automated workflows.
+
+## New Features
+
+🤖 **CLI Support**: Provides a phased command-line interface where each stage executes independently and outputs structured results, supporting cross-stage artifact reuse.
+
+🧩 **Skills Collection**: The `skills/` directory provides per-stage Skills for AI Agents to invoke directly under a stable contract, no need to parse CLI documentation.
+
+🔗 **Pipeline Orchestration**: Chain multiple stages in one command, enabling full automation from download to rendering.
+
+🖼️ **Cover Generation**: Automatically generate platform cover images from the original video thumbnail and a prompt template.
 
 ## Key Features and Functions:
-
-🎯 **One-click Start**: No complex environment configuration required, automatic dependency installation, ready to use immediately, with a new desktop version for easier access!
 
 📥 **Video Acquisition**: Supports yt-dlp downloads or local file uploads
 
@@ -37,7 +45,7 @@ KrillinAI is a versatile audio and video localization and enhancement solution d
 
 🎬 **Video Composition**: Automatically processes landscape and portrait videos and subtitle layout
 
-💻 **Cross-Platform**: Supports Windows, Linux, macOS, providing both desktop and server versions
+💻 **Cross-Platform**: Supports Windows, Linux, macOS, providing desktop, server, and CLI modes
 
 ## Effect Demonstration
 
@@ -147,7 +155,7 @@ Due to signing issues, the desktop version currently cannot be double-clicked to
 
 ```
 sudo xattr -cr ./KrillinAI_1.0.0_desktop_macOS_arm64
-sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64 
+sudo chmod +x ./KrillinAI_1.0.0_desktop_macOS_arm64
 ./KrillinAI_1.0.0_desktop_macOS_arm64
 ```
 
@@ -161,12 +169,83 @@ This software is not signed, so when running on macOS, after completing the file
     sudo chmod +x ./KrillinAI_1.0.0_macOS_arm64
     ./KrillinAI_1.0.0_macOS_arm64
    ```
-   
+
    This will start the service
 
 ### Docker Deployment
 
 This project supports Docker deployment; please refer to the [Docker Deployment Instructions](./docker.md)
+
+### CLI Usage
+
+KrillinAI provides a staged CLI suitable for scripting, automation pipelines, and AI Agent invocation. The CLI executes synchronously by default, outputs a single JSON line to stdout upon completion, and writes `krillinai_manifest.json` to the working directory for subsequent stages to reuse prior artifacts.
+
+Build from source:
+
+```bash
+go build -o build/krillinai-cli ./cmd/cli
+```
+
+Command overview:
+
+| Command | Purpose | Typical Outputs |
+|---|---|---|
+| `subtitle` | Generate subtitles from YouTube / Bilibili links or local videos; tries platform captions first, falls back to Whisper transcription | `origin_language_srt.srt`, `target_language_srt.srt`, `bilingual_srt.srt`, `short_origin_mixed_srt.srt` |
+| `tts` | Generate target-language dubbing from target subtitles | `tts_final_audio.wav`, `video_with_tts.mp4` |
+| `render-horizontal` | Produce horizontal video: original + bilingual subtitles, or dubbed video + target subtitles | `horizontal_bilingual.mp4` |
+| `render-vertical` | Produce vertical video: original converted to vertical + short subtitles, or dubbed video + target subtitles | `transferred_vertical_video.mp4`, `vertical_bilingual.mp4` |
+| `pipeline` | Orchestrate multiple stages via `--outputs` | Determined by selected stages |
+| `cover` | Generate a cover image from the original cover and prompt templates | `generated_cover.png` |
+
+Typical workflow:
+
+```bash
+# 1. Generate subtitles: original, target, bilingual, and vertical short subtitles
+./build/krillinai-cli subtitle "https://www.youtube.com/watch?v=dQw4w9WgXcQ" \
+  --origin-lang en \
+  --target-lang zh_cn \
+  --workdir tasks/demo \
+  --caption-source any
+
+# 2. Generate dubbing from target-language subtitles
+./build/krillinai-cli tts \
+  --workdir tasks/demo \
+  --input-srt tasks/demo/target_language_srt.srt \
+  --line-mode target-only \
+  --video tasks/demo/origin_video.mp4
+
+# 3. Produce horizontal bilingual-subtitle video
+./build/krillinai-cli render-horizontal \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/bilingual_srt.srt
+
+# 4. Produce vertical short-subtitle video
+./build/krillinai-cli render-vertical \
+  --workdir tasks/demo \
+  --video tasks/demo/origin_video.mp4 \
+  --subtitle tasks/demo/short_origin_mixed_srt.srt \
+  --major-title "今日话题" \
+  --minor-title "AI Video"
+```
+
+Agent integration conventions:
+
+- Parse the last JSON line on stdout and `krillinai_manifest.json` — do not parse plain-text logs.
+- The `outputs` field records stage artifact paths; subsequent commands can pass only `--workdir` to reuse the manifest.
+- Supports `--dry-run` to validate parameters and generate a manifest without downloading video or calling external AI services.
+- Handle errors by `error.kind`: `usage` → fix parameters, `retryable` → retry, `dependency` → install `ffmpeg` / `ffprobe` / `yt-dlp`.
+
+For a complete parameter reference, see [CLI Capability Summary](./docs/zh/cli.md).
+
+### Agent Skills
+
+The repository also includes ready-to-use Agent Skills under `skills/` so coding agents can call the CLI with stable conventions:
+
+- [`krillinai-cli`](./skills/krillinai-cli/SKILL.md): top-level routing skill for choosing subtitle, TTS, render, pipeline, or cover workflows.
+- [`krillinai-subtitle`](./skills/krillinai-subtitle/SKILL.md), [`krillinai-tts`](./skills/krillinai-tts/SKILL.md), [`krillinai-render-horizontal`](./skills/krillinai-render-horizontal/SKILL.md), and [`krillinai-render-vertical`](./skills/krillinai-render-vertical/SKILL.md): stage-specific operating guides.
+- [`krillinai-pipeline`](./skills/krillinai-pipeline/SKILL.md) and [`krillinai-cover`](./skills/krillinai-cover/SKILL.md): planning/reserved guides for pipeline orchestration and cover generation until those execution paths are fully wired.
+- [`cli-contract.md`](./skills/krillinai-cli/references/cli-contract.md): shared JSON, manifest, outputs, and error-handling contract.
 
 Based on the provided configuration file, here is the updated "Configuration Help (Must Read)" section for your README file:
 
@@ -199,6 +278,13 @@ The configuration file is divided into several sections: `[app]`, `[server]`, `[
 
 * For details on obtaining the necessary `AccessKey`, `Bucket`, and `AppKey` for Alibaba Cloud services, please refer to the [Alibaba Cloud Configuration Instructions](https://www.google.com/search?q=./aliyun.md). The repeated fields for AccessKey, etc., are designed to maintain a clear configuration structure.
 
+**Short Subtitle Configuration:**
+
+* `short_subtitle_max_chars`: Maximum characters per line for English short subtitles (default: 20)
+  - Designed for portrait/vertical videos
+  - Chinese text remains intact, English text is split according to this length
+  - Recommended value: 15-25
+
 ## Frequently Asked Questions
 
 Please visit [Frequently Asked Questions](./faq.md)
@@ -216,4 +302,3 @@ Please visit [Frequently Asked Questions](./faq.md)
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)
-

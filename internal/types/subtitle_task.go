@@ -22,7 +22,7 @@ package types
 
 var SplitTextPrompt = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现字幕的准确和高质量翻译：
 
-1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平，保持意思相同。
+1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平，保持意思相同。**如果目标语言是中文，必须使用简体中文，不能使用繁体中文。**
 2. 严格依据标点符号（逗号: ，,、句号:。.、问号:？?等）将内容拆分成单独的句子，并依据以下规则确保拆分长度较短：
    - 每个句子在保证句意完整的情况下尽可能短，适中的字幕长短能提供舒适的观看体验。
    - 根据连词（例如 "and", "but", "which", "when", "so", "所以", "但是", "因此", "考虑到" 等）进一步拆分句子，得到较短的结果。
@@ -51,7 +51,7 @@ var SplitTextPrompt = `你是一个语言处理专家，专注于自然语言处
 // 带有语气词过滤的拆分Prompt
 var SplitTextPromptWithModalFilter = `你是一个语言处理专家，专注于自然语言处理和翻译任务。按照以下步骤和要求，以最大程度实现字幕的准确和高质量翻译：
 
-1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平，保持意思相同。
+1. 将原句翻译为%s，确保译文流畅、自然，达到专业翻译水平，保持意思相同。**如果目标语言是中文，必须使用简体中文，不能使用繁体中文。**
 2. 严格依据标点符号（逗号: ，,、句号:。.、问号:？?等）将内容拆分成单独的句子，并依据以下规则确保拆分长度较短：
    - 每个句子在保证句意完整的情况下尽可能短，适中的字幕长短能提供舒适的观看体验。
    - 根据连词（例如 "and", "but", "which", "when", "so", "所以", "但是", "因此", "考虑到" 等）进一步拆分句子，得到较短的结果。
@@ -133,13 +133,15 @@ var SplitOriginLongSentencePrompt = `Please split the following text into multip
 
 Original text: %s
 
-Requirements:
+CRITICAL Requirements:
 1. The split sentences must exactly match the original text, absolutely no changes to the original text are allowed
 2. Split based on sentence meaning, dividing into at most 3 parts, preferably 2 parts
-3. Try to make the split as balanced as possible while maintaining sentence integrity
-4. Return in JSON format only, no other descriptions or explanations
-5. Example format:
-{"short_sentences":[{"text": "split sentence 1"},{"text": "split sentence 2"}]}
+3. **Each split part MUST contain at least 3-5 words. NEVER create single-word or two-word fragments**
+4. Split at natural break points (conjunctions, clauses) - DO NOT split phrases like "we're marking out", "you're going to", etc.
+5. Try to make the split as balanced as possible while maintaining sentence integrity
+6. Return in JSON format only, no other descriptions or explanations
+7. Example format:
+{"short_sentences":[{"text": "split sentence 1 with at least 3 words"},{"text": "split sentence 2 with at least 3 words"}]}
 
 `
 
@@ -203,17 +205,21 @@ Requirements:
 
 var SplitTextWithContextPrompt = `You are a professional subtitle translation expert.
 
-[STRICT TRANSLATION TASK]
+[TRANSLATION TASK]
 **Objective**: 
-Translate ONLY the "Target Sentence" below into %s.
-Use "Previous Sentences" ONLY to understand the context of referents (e.g. pronouns or ellipses), not to infer meaning.
+Translate the "Target Sentence" below into %s with natural, fluent expression.
+Use "Previous Sentences" to understand context and maintain coherence.
 
 **Critical Rules**:
-1. OUTPUT MUST BE A SINGLE LINE: only the translation of the target sentence
-2. Do NOT infer or explain the meaning of the target sentence. Do NOT add any logical connections or causal phrases
-3. If the sentence is fragmentary or dependent (e.g. starts with "that"), KEEP IT THAT WAY in translation
-4. Do NOT complete or rewrite the sentence for fluency
-5. IGNORE the "Next Sentences" completely
+1. OUTPUT MUST BE A SINGLE LINE: only the translated text
+2. If translating to Chinese, MUST use Simplified Chinese characters (简体中文), NOT Traditional Chinese (繁体中文)
+3. Translate naturally and idiomatically - avoid word-for-word literal translation
+4. Remove stuttering/repeated words (e.g., "I I I'm" → translate as "I'm")
+5. Filter out filler words (um, uh, er, ah, oh, mm, hmm, etc.) - do NOT translate them
+6. Use proper punctuation marks in the target language (for Chinese: use ，。！？ not spaces)
+7. Keep the original meaning but express it smoothly and naturally in the target language
+8. If sentence is incomplete/fragmentary, keep it that way but translate fluently
+9. IGNORE the "Next Sentences" - they are for reference only
 
 **Context**:
 [Previous Sentences]
@@ -225,7 +231,7 @@ Use "Previous Sentences" ONLY to understand the context of referents (e.g. prono
 [Next Sentences]
 %s
 
-**Your output must be literal, minimal, and on a single line. Provide only the translation result:**`
+**Provide only the natural, fluent translation on a single line:**`
 
 type SmallAudio struct {
 	AudioFile         string
@@ -323,6 +329,7 @@ type SubtitleTaskStepParam struct {
 	TaskBasePath                string
 	Link                        string
 	AudioFilePath               string
+	VttFile                     string // YouTube下载的原始字幕文件路径
 	SubtitleResultType          SubtitleResultType
 	EnableModalFilter           bool
 	EnableTts                   bool
@@ -343,6 +350,7 @@ type SubtitleTaskStepParam struct {
 	VerticalVideoMinorTitle     string
 	MaxWordOneLine              int    // 字幕一行最多显示多少个字
 	VideoWithTtsFilePath        string // 替换源视频的音频为tts结果后的视频路径
+	VttSwitch                   bool   // 是否使用VTT格式字幕文件
 }
 
 type SrtSentence struct {
@@ -400,4 +408,11 @@ type TranscriptionData struct {
 	Language string
 	Text     string
 	Words    []Word
+}
+
+type SrtBlock struct {
+	Index                  int
+	Timestamp              string
+	OriginLanguageSentence string
+	TargetLanguageSentence string
 }

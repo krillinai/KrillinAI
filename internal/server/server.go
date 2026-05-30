@@ -19,7 +19,7 @@ func StartBackend() error {
 	engine := gin.Default()
 	router.SetupRouter(engine)
 	BackEnd = &http.Server{
-		Addr: fmt.Sprintf("%s:%d", config.Conf.Server.Host, config.Conf.Server.Port),
+		Addr:    fmt.Sprintf("%s:%d", config.Conf.Server.Host, config.Conf.Server.Port),
 		Handler: engine,
 	}
 	log.GetLogger().Info("服务启动", zap.String("host", config.Conf.Server.Host), zap.Int("port", config.Conf.Server.Port))

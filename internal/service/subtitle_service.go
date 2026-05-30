@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"krillin-ai/config"
 	"krillin-ai/internal/dto"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 )
@@ -116,6 +118,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		VerticalVideoMajorTitle: req.VerticalMajorTitle,
 		VerticalVideoMinorTitle: req.VerticalMinorTitle,
 		MaxWordOneLine:          12, // 默认值
+		VttSwitch:               req.VttSwitch,
 	}
 	if req.OriginLanguageWordOneLine != 0 {
 		stepParam.MaxWordOneLine = req.OriginLanguageWordOneLine
@@ -150,12 +153,80 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 		//	stepParam.TaskPtr.FailReason = "get video info error"
 		//	return
 		//}
-		err = s.audioToSubtitle(ctx, &stepParam)
-		if err != nil {
-			log.GetLogger().Error("StartVideoSubtitleTask audioToSubtitle err", zap.Any("req", req), zap.Error(err))
-			stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
-			stepParam.TaskPtr.FailReason = err.Error()
-			return
+
+		// 针对YouTube视频优先尝试使用yt-dlp下载字幕
+		if strings.Contains(req.Url, "youtube.com") && stepParam.VttSwitch {
+			log.GetLogger().Info("Start Process youtube video with vtt", zap.String("taskId", taskId))
+			req := &YoutubeSubtitleReq{
+				TaskBasePath:        stepParam.TaskBasePath,
+				TaskId:              taskId,
+				OriginLanguage:      string(stepParam.OriginLanguage),
+				TargetLanguage:      string(stepParam.TargetLanguage),
+				URL:                 req.Url,
+				TaskPtr:             stepParam.TaskPtr,
+				TargetLanguageFirst: config.Conf.App.TargetLanguageFirst,
+			}
+
+			// 先下载VTT字幕
+			vttFile, err := s.YouTubeSubtitleSrv.downloadYouTubeSubtitle(ctx, req)
+			if err != nil {
+				// 下载失败，回退到音频转录方式
+				log.GetLogger().Warn("Failed to download YouTube subtitles, falling back to audio transcription",
+					zap.String("taskId", taskId), zap.Error(err))
+				stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
+				stepParam.TaskPtr.FailReason = err.Error()
+				return
+			}
+			req.VttFile = vttFile
+
+			// 检测VTT格式类型
+			hasWordTimestamps := true // 默认假设有单词级时间戳
+			if config.Conf.App.EnableBlockVttBatch {
+				// 只有启用了新功能才进行格式检测
+				detected, detectErr := s.YouTubeSubtitleSrv.DetectVttFormat(vttFile)
+				if detectErr != nil {
+					log.GetLogger().Warn("VTT格式检测失败，使用默认处理方式",
+						zap.String("taskId", taskId), zap.Error(detectErr))
+				} else {
+					hasWordTimestamps = detected
+				}
+			}
+
+			var srtFile string
+			if hasWordTimestamps {
+				// 使用原有的word-level处理流程（完全不变）
+				log.GetLogger().Info("使用word-level VTT处理流程", zap.String("taskId", taskId))
+				srtFile, err = s.YouTubeSubtitleSrv.processYouTubeSubtitle(ctx, req)
+			} else {
+				// 使用新的block-level处理流程
+				log.GetLogger().Info("使用block-level VTT处理流程", zap.String("taskId", taskId))
+				srtFile, err = s.YouTubeSubtitleSrv.ProcessBlockLevelVtt(ctx, req)
+			}
+
+			if err != nil {
+				// 处理字幕失败，回退到音频转录方式
+				log.GetLogger().Warn("Failed to process YouTube subtitles, falling back to audio transcription",
+					zap.String("taskId", taskId), zap.Error(err))
+				stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
+				stepParam.TaskPtr.FailReason = err.Error()
+				return
+			}
+
+			stepParam.BilingualSrtFilePath = srtFile
+			err = splitSrt(&stepParam)
+			if err != nil {
+				return
+			}
+			stepParam.TaskPtr.ProcessPct = 95
+		} else {
+			// 非YouTube视频，使用原来的音频转录流程
+			err = s.audioToSubtitle(ctx, &stepParam)
+			if err != nil {
+				log.GetLogger().Error("StartVideoSubtitleTask audioToSubtitle err", zap.Any("req", req), zap.Error(err))
+				stepParam.TaskPtr.Status = types.SubtitleTaskStatusFailed
+				stepParam.TaskPtr.FailReason = err.Error()
+				return
+			}
 		}
 		err = s.srtFileToSpeech(ctx, &stepParam)
 		if err != nil {

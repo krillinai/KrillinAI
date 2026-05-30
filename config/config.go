@@ -22,6 +22,10 @@ type App struct {
 	TranscribeMaxAttempts int      `toml:"transcribe_max_attempts"`
 	TranslateMaxAttempts  int      `toml:"translate_max_attempts"`
 	MaxSentenceLength     int      `toml:"max_sentence_length"`
+	EnableBlockVttBatch   bool     `toml:"enable_block_vtt_batch"`
+	VttBatchSize          int      `toml:"vtt_batch_size"`
+	TargetLanguageFirst   bool     `toml:"target_language_first"`    // 双语字幕中目标语言是否在上
+	ShortSubtitleMaxChars int      `toml:"short_subtitle_max_chars"` // 短字幕英文每行最大字符数
 	Proxy                 string   `toml:"proxy"`
 	ParsedProxy           *url.URL `toml:"-"`
 }
@@ -79,6 +83,11 @@ type Tts struct {
 	Aliyun   AliyunTtsConfig        `toml:"aliyun"`
 }
 
+type Image struct {
+	Provider string                 `toml:"provider"`
+	Openai   OpenaiCompatibleConfig `toml:"openai"`
+}
+
 type OpenAiWhisper struct {
 	BaseUrl string `toml:"base_url"`
 	ApiKey  string `toml:"api_key"`
@@ -90,6 +99,7 @@ type Config struct {
 	Llm        OpenaiCompatibleConfig `toml:"llm"`
 	Transcribe Transcribe             `toml:"transcribe"`
 	Tts        Tts                    `toml:"tts"`
+	Image      Image                  `toml:"image"`
 }
 
 var Conf = Config{
@@ -100,6 +110,8 @@ var Conf = Config{
 		TranscribeMaxAttempts: 3,
 		TranslateMaxAttempts:  3,
 		MaxSentenceLength:     70,
+		EnableBlockVttBatch:   false,
+		VttBatchSize:          10,
 	},
 	Server: Server{
 		Host: "127.0.0.1",
@@ -128,6 +140,12 @@ var Conf = Config{
 		Provider: "openai",
 		Openai: OpenaiCompatibleConfig{
 			Model: "gpt-4o-mini-tts",
+		},
+	},
+	Image: Image{
+		Provider: "openai-compatible",
+		Openai: OpenaiCompatibleConfig{
+			Model: "gpt-image-1",
 		},
 	},
 }
