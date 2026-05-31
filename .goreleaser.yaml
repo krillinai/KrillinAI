@@ -11,7 +11,7 @@ builds:
       - windows
     main: ./cmd/server/main.go
   - id: cli
-    binary: krillinai
+    binary: krillinai-cli
     env:
       - CGO_ENABLED=0
     goos:
@@ -58,9 +58,25 @@ docker_manifests:
       - "{{ tolower .Env.DOCKER_USERNAME }}/{{ tolower .ProjectName }}:latest-arm64"
 
 archives:
-  - formats: ["binary"]
+  - id: server
+    ids: ["server"]
+    formats: ["binary"]
     name_template: >-
       {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- if eq .Os "darwin" }}macOS_{{ .Arch }}
+      {{- else if and (eq .Os "windows") (eq .Arch "amd64") }}{{ title .Os }}
+      {{- else }}{{ title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+      {{- end }}
+  - id: cli
+    ids: ["cli"]
+    formats: ["binary"]
+    name_template: >-
+      {{ .ProjectName }}-cli_
       {{- .Version }}_
       {{- if eq .Os "darwin" }}macOS_{{ .Arch }}
       {{- else if and (eq .Os "windows") (eq .Arch "amd64") }}{{ title .Os }}
