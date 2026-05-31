@@ -23,7 +23,7 @@ jobs:
 
       - name: Install XGO
         run: |
-          go install src.techknowlogick.com/xgo@latest
+          go install src.techknowlogick.com/xgo@v1.7.0+1.19.5
       
       - name: Pull Docker Image
         run: |
