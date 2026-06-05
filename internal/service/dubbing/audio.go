@@ -3,6 +3,7 @@ package dubbing
 import (
 	"fmt"
 	"krillin-ai/internal/storage"
+	"math"
 	"os/exec"
 	"strings"
 )
@@ -32,9 +33,9 @@ func WriteTinySilence(output string, run CommandRunner) error {
 	})
 }
 
-func buildAtempoFilter(speed float64) string {
-	if speed <= 0 {
-		speed = 1
+func buildAtempoFilter(speed float64) (string, error) {
+	if speed <= 0 || math.IsNaN(speed) || math.IsInf(speed, 0) {
+		return "", fmt.Errorf("speed must be finite and > 0: %v", speed)
 	}
 
 	parts := []string{}
@@ -47,7 +48,7 @@ func buildAtempoFilter(speed float64) string {
 		speed /= 0.5
 	}
 	parts = append(parts, fmt.Sprintf("atempo=%.3f", speed))
-	return strings.Join(parts, ",")
+	return strings.Join(parts, ","), nil
 }
 
 func buildMuxArgs(inputVideo, inputAudio, outputVideo string) []string {
@@ -60,6 +61,7 @@ func buildMuxArgs(inputVideo, inputAudio, outputVideo string) []string {
 		"-map", "1:a:0",
 		"-c:a", "aac",
 		"-b:a", "192k",
+		"-shortest",
 		outputVideo,
 	}
 }
