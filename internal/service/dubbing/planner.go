@@ -91,7 +91,9 @@ func (p *Planner) makeChunks(cues []Cue, plan []PlanItem) []Chunk {
 
 		prev := cues[i-1]
 		gap := cue.Start - prev.End
-		mustSplit := len(current.Items) >= p.cfg.MaxChunkSize || gap > p.cfg.GapTolerance
+		shouldMergeShortCue := gap <= p.cfg.GapTolerance &&
+			(prev.Duration() < p.cfg.MinSubtitleDuration || cue.Duration() < p.cfg.MinSubtitleDuration)
+		mustSplit := len(current.Items) >= p.cfg.MaxChunkSize || !shouldMergeShortCue
 		if mustSplit {
 			chunks = append(chunks, current)
 			current = Chunk{ID: len(chunks) + 1, Start: cue.Start, End: cue.End, Items: []int{i}}

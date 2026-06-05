@@ -5,6 +5,11 @@ import (
 )
 
 func FitTimeline(plan []PlanItem, chunks []Chunk, cfg Config) ([]PlanItem, Report, error) {
+	cfg = normalizeSpeedConfig(cfg)
+	if !(cfg.SpeedMin > 0 && cfg.SpeedMin <= cfg.SpeedAccept && cfg.SpeedAccept <= cfg.SpeedMax) {
+		return nil, Report{}, fmt.Errorf("invalid speed config: min %.2f accept %.2f max %.2f", cfg.SpeedMin, cfg.SpeedAccept, cfg.SpeedMax)
+	}
+
 	fitted := append([]PlanItem(nil), plan...)
 	report := Report{}
 
@@ -15,9 +20,12 @@ func FitTimeline(plan []PlanItem, chunks []Chunk, cfg Config) ([]PlanItem, Repor
 		}
 
 		actual := 0.0
-		for _, idx := range chunk.Items {
+		for itemIndex, idx := range chunk.Items {
 			if idx < 0 || idx >= len(fitted) {
 				return nil, report, fmt.Errorf("chunk %d references plan item %d out of range", chunk.ID, idx)
+			}
+			if fitted[idx].ActualDuration <= 0 {
+				return nil, report, fmt.Errorf("chunk %d item %d references plan index %d with non-positive actual duration: %.3f", chunk.ID, itemIndex, idx, fitted[idx].ActualDuration)
 			}
 			actual += fitted[idx].ActualDuration
 		}
@@ -36,6 +44,9 @@ func FitTimeline(plan []PlanItem, chunks []Chunk, cfg Config) ([]PlanItem, Repor
 			report.Warnings = append(report.Warnings, fmt.Sprintf("chunk %d speed %.2f exceeds max %.2f", chunk.ID, speed, cfg.SpeedMax))
 		}
 		appliedSpeed := speed
+		if appliedSpeed > cfg.SpeedMax {
+			appliedSpeed = cfg.SpeedMax
+		}
 		if appliedSpeed < cfg.SpeedMin {
 			appliedSpeed = cfg.SpeedMin
 		}
@@ -58,4 +69,18 @@ func FitTimeline(plan []PlanItem, chunks []Chunk, cfg Config) ([]PlanItem, Repor
 	}
 
 	return fitted, report, nil
+}
+
+func normalizeSpeedConfig(cfg Config) Config {
+	defaults := DefaultConfig()
+	if cfg.SpeedMin <= 0 {
+		cfg.SpeedMin = defaults.SpeedMin
+	}
+	if cfg.SpeedAccept <= 0 {
+		cfg.SpeedAccept = defaults.SpeedAccept
+	}
+	if cfg.SpeedMax <= 0 {
+		cfg.SpeedMax = defaults.SpeedMax
+	}
+	return cfg
 }
