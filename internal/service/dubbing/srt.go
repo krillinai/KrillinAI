@@ -15,6 +15,7 @@ func ParseSRTFile(path string) ([]Cue, error) {
 
 	text := strings.ReplaceAll(string(data), "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
+	text = strings.TrimPrefix(text, "\ufeff")
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return nil, nil

@@ -28,6 +28,22 @@ func TestParseSRTSupportsMultilineCRLFAndNoTrailingBlank(t *testing.T) {
 	}
 }
 
+func TestParseSRTFileTrimsUTF8BOM(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bom.srt")
+	content := "\ufeff1\n00:00:01,000 --> 00:00:02,000\n你好\n\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cues, err := ParseSRTFile(path)
+	if err != nil {
+		t.Fatalf("ParseSRTFile() error = %v", err)
+	}
+	if len(cues) != 1 || cues[0].Index != 1 {
+		t.Fatalf("cues = %+v", cues)
+	}
+}
+
 func TestParseSRTFileReturnsErrorForMalformedBlock(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "bad.srt")
