@@ -188,6 +188,43 @@ func TestRunCreatesCustomOutputParentDirs(t *testing.T) {
 	}
 }
 
+func TestRunFailsWhenMuxDoesNotCreateOutput(t *testing.T) {
+	dir := t.TempDir()
+	input := filepath.Join(dir, "input.srt")
+	video := filepath.Join(dir, "origin.mp4")
+	if err := os.WriteFile(input, []byte("1\n00:00:00,000 --> 00:00:01,000\n你好\n\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(video, []byte("video"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	deps := Dependencies{
+		TTS:         &fakeTTS{writeOnReturn: true},
+		Language:    "zh_cn",
+		Voice:       "voice",
+		Workdir:     dir,
+		InputSRT:    input,
+		InputVideo:  video,
+		OutputAudio: filepath.Join(dir, "tts_final_audio.wav"),
+		OutputVideo: filepath.Join(dir, "video_with_tts.mp4"),
+		Config:      DefaultConfig(),
+		FFmpeg: func(args []string) error {
+			out := args[len(args)-1]
+			if strings.HasSuffix(out, ".wav") {
+				return os.WriteFile(out, []byte("media"), 0644)
+			}
+			return nil
+		},
+		Duration: func(string) (float64, error) {
+			return 0.8, nil
+		},
+	}
+	_, err := NewRunner(deps).Run(context.Background())
+	if err == nil {
+		t.Fatalf("Run() error = nil, want missing mux output error")
+	}
+}
+
 func TestRunnerRequiresInputVideoForMux(t *testing.T) {
 	dir := t.TempDir()
 	input := filepath.Join(dir, "input.srt")
