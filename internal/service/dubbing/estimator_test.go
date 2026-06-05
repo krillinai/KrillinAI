@@ -55,3 +55,26 @@ func TestHeuristicFallbackReturnsLowConfidence(t *testing.T) {
 		t.Fatalf("seconds=%v confidence=%v", seconds, confidence)
 	}
 }
+
+func TestStatisticalEstimatorSupportsRequiredProfiles(t *testing.T) {
+	est := NewStatisticalEstimator()
+	languages := []types.StandardLanguageCode{
+		types.LanguageNameSimplifiedChinese,
+		types.LanguageNameTraditionalChinese,
+		types.LanguageNameJapanese,
+		types.LanguageNameKorean,
+		types.LanguageNameEnglish,
+		types.LanguageNameGerman,
+		types.LanguageNameRussian,
+		types.LanguageNameTurkish,
+	}
+	for _, language := range languages {
+		seconds, confidence, err := est.Estimate("hello 世界", language)
+		if err != nil {
+			t.Fatalf("Estimate(%s) error = %v", language, err)
+		}
+		if seconds <= 0 || confidence < 0.75 {
+			t.Fatalf("Estimate(%s) seconds=%v confidence=%v", language, seconds, confidence)
+		}
+	}
+}

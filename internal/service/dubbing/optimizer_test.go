@@ -54,3 +54,11 @@ func TestLLMOptimizerHandlesNilAndCancelledContext(t *testing.T) {
 		t.Fatalf("cancelled context should return error")
 	}
 }
+
+func TestLLMOptimizerCancelledContextWinsBeforeNilChat(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := NewLLMOptimizer(nil).Optimize(ctx, "原文", 1.2, "test"); err == nil {
+		t.Fatalf("cancelled context with nil chat should return error")
+	}
+}
