@@ -46,7 +46,7 @@ func GenerateRawSegments(ctx context.Context, tts types.Ttser, plan []PlanItem, 
 
 		dur, err := duration(output)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("measure segment %d duration failed for %s: %w", plan[i].Index, output, err)
 		}
 		plan[i].ActualDuration = dur
 	}
@@ -55,8 +55,15 @@ func GenerateRawSegments(ctx context.Context, tts types.Ttser, plan []PlanItem, 
 }
 
 func retryTTS(tts types.Ttser, text, voice, output string, attempts int) error {
+	if attempts <= 0 {
+		return fmt.Errorf("attempts must be > 0: %d", attempts)
+	}
+
 	var last error
 	for i := 0; i < attempts; i++ {
+		if err := os.Remove(output); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("remove stale output %s: %w", output, err)
+		}
 		last = tts.Text2Speech(text, voice, output)
 		if last == nil {
 			if _, err := os.Stat(output); err == nil {

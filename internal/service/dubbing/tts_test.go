@@ -5,12 +5,14 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
 type fakeTTS struct {
-	failures int
-	calls    int
+	failures      int
+	calls         int
+	writeOnReturn bool
 }
 
 func (f *fakeTTS) Text2Speech(text, voice, outputFile string) error {
@@ -18,12 +20,15 @@ func (f *fakeTTS) Text2Speech(text, voice, outputFile string) error {
 	if f.calls <= f.failures {
 		return errors.New("tts failed")
 	}
+	if !f.writeOnReturn {
+		return nil
+	}
 	return os.WriteFile(outputFile, []byte("wav"), 0644)
 }
 
 func TestGenerateRawSegmentsRetriesAndWritesFiles(t *testing.T) {
 	dir := t.TempDir()
-	tts := &fakeTTS{failures: 1}
+	tts := &fakeTTS{failures: 1, writeOnReturn: true}
 	plan := []PlanItem{{Index: 1, SpokenText: "你好"}}
 	got, err := GenerateRawSegments(context.Background(), tts, plan, "voice", dir, nil, func(string) (float64, error) {
 		return 1.2, nil
@@ -39,5 +44,45 @@ func TestGenerateRawSegmentsRetriesAndWritesFiles(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "raw", "1.wav")); err != nil {
 		t.Fatalf("raw file missing: %v", err)
+	}
+}
+
+func TestRetryTTSRejectsNonPositiveAttempts(t *testing.T) {
+	err := retryTTS(&fakeTTS{}, "hello", "voice", filepath.Join(t.TempDir(), "out.wav"), 0)
+	if err == nil || !strings.Contains(err.Error(), "attempts must be > 0") {
+		t.Fatalf("retryTTS() error = %v, want attempts validation", err)
+	}
+}
+
+func TestRetryTTSDoesNotTreatStaleOutputAsSuccess(t *testing.T) {
+	output := filepath.Join(t.TempDir(), "out.wav")
+	if err := os.WriteFile(output, []byte("stale"), 0644); err != nil {
+		t.Fatalf("write stale output: %v", err)
+	}
+
+	tts := &fakeTTS{writeOnReturn: false}
+	err := retryTTS(tts, "hello", "voice", output, 1)
+	if err == nil {
+		t.Fatal("retryTTS() error = nil, want missing output error")
+	}
+	if _, statErr := os.Stat(output); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("stale output stat error = %v, want removed output", statErr)
+	}
+}
+
+func TestGenerateRawSegmentsWrapsDurationProbeError(t *testing.T) {
+	dir := t.TempDir()
+	tts := &fakeTTS{writeOnReturn: true}
+	plan := []PlanItem{{Index: 1, SpokenText: "你好"}}
+
+	_, err := GenerateRawSegments(context.Background(), tts, plan, "voice", dir, nil, func(string) (float64, error) {
+		return 0, errors.New("probe failed")
+	})
+	if err == nil {
+		t.Fatal("GenerateRawSegments() error = nil, want duration error")
+	}
+	output := filepath.Join(dir, "raw", "1.wav")
+	if !strings.Contains(err.Error(), "measure segment 1 duration failed") || !strings.Contains(err.Error(), output) {
+		t.Fatalf("GenerateRawSegments() error = %q, want segment index and output path", err)
 	}
 }
