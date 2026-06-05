@@ -90,6 +90,11 @@ func AssembleAudio(plan []PlanItem, segmentsDir, outputAudio string, run Command
 		run = defaultFFmpegRunner
 	}
 
+	filters, err := validateAssemblePlan(plan, segmentsDir)
+	if err != nil {
+		return err
+	}
+
 	fittedDir := filepath.Join(segmentsDir, "fitted")
 	if err := os.MkdirAll(fittedDir, 0755); err != nil {
 		return err
@@ -97,21 +102,17 @@ func AssembleAudio(plan []PlanItem, segmentsDir, outputAudio string, run Command
 
 	concatLines := make([]string, 0, len(plan)*2)
 	lastEnd := 0.0
-	for _, item := range plan {
+	for i, item := range plan {
 		raw := filepath.Join(segmentsDir, "raw", fmt.Sprintf("%d.wav", item.Index))
 		if err := ensureNonEmptyFile(raw, "raw segment"); err != nil {
 			return err
 		}
 
 		fitted := fittedSegmentPath(segmentsDir, item.Index)
-		filter, err := buildAtempoFilter(item.SpeedFactor)
-		if err != nil {
-			return err
-		}
 		if err := run([]string{
 			"-y",
 			"-i", raw,
-			"-filter:a", filter,
+			"-filter:a", filters[i],
 			"-ar", "44100",
 			"-ac", "1",
 			"-c:a", "pcm_s16le",
@@ -120,9 +121,6 @@ func AssembleAudio(plan []PlanItem, segmentsDir, outputAudio string, run Command
 			return fmt.Errorf("fit segment %d: %w", item.Index, err)
 		}
 
-		if item.NewStart < lastEnd {
-			return fmt.Errorf("plan item %d starts before previous end: start %.3f lastEnd %.3f", item.Index, item.NewStart, lastEnd)
-		}
 		if item.NewStart > lastEnd {
 			silence := filepath.Join(fittedDir, fmt.Sprintf("silence_%d.wav", item.Index))
 			if err := run([]string{
@@ -161,4 +159,35 @@ func AssembleAudio(plan []PlanItem, segmentsDir, outputAudio string, run Command
 	}
 
 	return nil
+}
+
+func validateAssemblePlan(plan []PlanItem, segmentsDir string) ([]string, error) {
+	if len(plan) == 0 {
+		return nil, fmt.Errorf("plan is empty")
+	}
+
+	filters := make([]string, len(plan))
+	lastEnd := 0.0
+	for i, item := range plan {
+		if item.NewEnd <= item.NewStart {
+			return nil, fmt.Errorf("plan item %d new end must be greater than new start: start %.3f end %.3f", item.Index, item.NewStart, item.NewEnd)
+		}
+		if item.NewStart < lastEnd {
+			return nil, fmt.Errorf("plan item %d starts before previous end: start %.3f lastEnd %.3f", item.Index, item.NewStart, lastEnd)
+		}
+
+		filter, err := buildAtempoFilter(item.SpeedFactor)
+		if err != nil {
+			return nil, err
+		}
+		filters[i] = filter
+
+		raw := filepath.Join(segmentsDir, "raw", fmt.Sprintf("%d.wav", item.Index))
+		if err := ensureNonEmptyFile(raw, "raw segment"); err != nil {
+			return nil, err
+		}
+
+		lastEnd = item.NewEnd
+	}
+	return filters, nil
 }
