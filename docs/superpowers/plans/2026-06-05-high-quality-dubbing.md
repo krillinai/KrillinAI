@@ -85,10 +85,7 @@ func TestDefaultDubbingConfig(t *testing.T) {
 ```go
 package dubbing
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 func TestDefaultConfigValues(t *testing.T) {
 	cfg := DefaultConfig()
@@ -376,7 +373,10 @@ func TestWriteSRTUsesNewTimeline(t *testing.T) {
 ```go
 package dubbing
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestCleanTextForSpeechRemovesNoiseButKeepsMeaning(t *testing.T) {
 	got := CleanTextForSpeech("（掌声）  你好——世界 & ™ ")
