@@ -53,6 +53,7 @@ func TestGenerateTTSUsesManifestTargetSRTWhenInputEmpty(t *testing.T) {
 	manifest := NewManifest("demo", dir)
 	manifest.Outputs.TargetSRT = customTarget
 	manifest.FailedIndexes = []int{2}
+	manifest.TargetLanguage = "zh_cn"
 	data, err := json.Marshal(manifest)
 	if err != nil {
 		t.Fatal(err)
@@ -93,6 +94,9 @@ func TestGenerateTTSUsesManifestTargetSRTWhenInputEmpty(t *testing.T) {
 	}
 	if fake.lastSpeech.VoiceCloneAudioUrl != "clone.wav" {
 		t.Fatalf("VoiceCloneAudioUrl = %q", fake.lastSpeech.VoiceCloneAudioUrl)
+	}
+	if fake.lastSpeech.TargetLanguage != "zh_cn" {
+		t.Fatalf("TargetLanguage = %q, want zh_cn", fake.lastSpeech.TargetLanguage)
 	}
 	if len(resp.FailedIndexes) != 1 || resp.FailedIndexes[0] != 2 {
 		t.Fatalf("FailedIndexes = %v, want [2]", resp.FailedIndexes)
