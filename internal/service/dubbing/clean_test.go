@@ -17,3 +17,12 @@ func TestIsSilenceOnlyText(t *testing.T) {
 		t.Fatalf("spoken text should not be silence-only")
 	}
 }
+
+func TestIsSilenceOnlyTextDoesNotTreatPlainParenthesizedTextAsSilence(t *testing.T) {
+	if IsSilenceOnlyText("（你好）") {
+		t.Fatalf("plain parenthesized text should not be silence-only")
+	}
+	if IsSilenceOnlyText("(普通说明)") {
+		t.Fatalf("plain parenthesized text should not be silence-only")
+	}
+}
