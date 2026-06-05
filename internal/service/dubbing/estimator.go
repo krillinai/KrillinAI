@@ -21,21 +21,20 @@ type CalibratingEstimator interface {
 type speechRateProfile struct {
 	runePerSecond float64
 	confidence    float64
-	spaceDiscount float64
 	pauseWeight   float64
 	numberWeight  float64
 	acronymWeight float64
 }
 
 var speechProfiles = map[types.StandardLanguageCode]speechRateProfile{
-	types.LanguageNameSimplifiedChinese:  {runePerSecond: 4.2, confidence: 0.95, spaceDiscount: 0.6, pauseWeight: 0.30, numberWeight: 0.22, acronymWeight: 0.12},
-	types.LanguageNameTraditionalChinese: {runePerSecond: 4.1, confidence: 0.95, spaceDiscount: 0.6, pauseWeight: 0.30, numberWeight: 0.22, acronymWeight: 0.12},
-	types.LanguageNameJapanese:           {runePerSecond: 4.0, confidence: 0.94, spaceDiscount: 0.6, pauseWeight: 0.28, numberWeight: 0.20, acronymWeight: 0.12},
-	types.LanguageNameKorean:             {runePerSecond: 4.3, confidence: 0.93, spaceDiscount: 0.6, pauseWeight: 0.28, numberWeight: 0.20, acronymWeight: 0.12},
-	types.LanguageNameEnglish:            {runePerSecond: 13.5, confidence: 0.92, spaceDiscount: 1.0, pauseWeight: 0.24, numberWeight: 0.26, acronymWeight: 0.32},
-	types.LanguageNameGerman:             {runePerSecond: 11.8, confidence: 0.91, spaceDiscount: 1.0, pauseWeight: 0.24, numberWeight: 0.25, acronymWeight: 0.28},
-	types.LanguageNameRussian:            {runePerSecond: 10.8, confidence: 0.90, spaceDiscount: 0.95, pauseWeight: 0.24, numberWeight: 0.24, acronymWeight: 0.24},
-	types.LanguageNameTurkish:            {runePerSecond: 12.0, confidence: 0.91, spaceDiscount: 0.98, pauseWeight: 0.24, numberWeight: 0.24, acronymWeight: 0.26},
+	types.LanguageNameSimplifiedChinese:  {runePerSecond: 4.2, confidence: 0.95, pauseWeight: 0.30, numberWeight: 0.22, acronymWeight: 0.12},
+	types.LanguageNameTraditionalChinese: {runePerSecond: 4.1, confidence: 0.95, pauseWeight: 0.30, numberWeight: 0.22, acronymWeight: 0.12},
+	types.LanguageNameJapanese:           {runePerSecond: 4.0, confidence: 0.94, pauseWeight: 0.28, numberWeight: 0.20, acronymWeight: 0.12},
+	types.LanguageNameKorean:             {runePerSecond: 4.3, confidence: 0.93, pauseWeight: 0.28, numberWeight: 0.20, acronymWeight: 0.12},
+	types.LanguageNameEnglish:            {runePerSecond: 13.5, confidence: 0.92, pauseWeight: 0.24, numberWeight: 0.26, acronymWeight: 0.32},
+	types.LanguageNameGerman:             {runePerSecond: 11.8, confidence: 0.91, pauseWeight: 0.24, numberWeight: 0.25, acronymWeight: 0.28},
+	types.LanguageNameRussian:            {runePerSecond: 10.8, confidence: 0.90, pauseWeight: 0.24, numberWeight: 0.24, acronymWeight: 0.24},
+	types.LanguageNameTurkish:            {runePerSecond: 12.0, confidence: 0.91, pauseWeight: 0.24, numberWeight: 0.24, acronymWeight: 0.26},
 }
 
 type StatisticalEstimator struct {
@@ -78,6 +77,7 @@ func (e *StatisticalEstimator) Calibrate(language types.StandardLanguageCode, es
 	if target <= 0 || math.IsNaN(target) || math.IsInf(target, 0) {
 		return
 	}
+	target = math.Max(0.5, math.Min(1.5, target))
 
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -146,14 +146,6 @@ func nonSpaceRuneCount(text string) int {
 		}
 	}
 	return count
-}
-
-func baseDuration(text string, profile speechRateProfile) float64 {
-	runeCount := nonSpaceRuneCount(text)
-	if runeCount == 0 {
-		return 0
-	}
-	return float64(runeCount) / profile.runePerSecond
 }
 
 func punctuationPause(text string, profile speechRateProfile) float64 {

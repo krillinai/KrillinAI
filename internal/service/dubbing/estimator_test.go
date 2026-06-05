@@ -30,6 +30,21 @@ func TestEstimatorCalibrationAdjustsFutureEstimates(t *testing.T) {
 	}
 }
 
+func TestEstimatorCalibrationClampsOutliers(t *testing.T) {
+	est := NewStatisticalEstimator()
+	before, _, _ := est.Estimate("这是一个测试句子", types.LanguageNameSimplifiedChinese)
+	est.Calibrate(types.LanguageNameSimplifiedChinese, before, before*100)
+	afterHigh, _, _ := est.Estimate("这是一个测试句子", types.LanguageNameSimplifiedChinese)
+	if afterHigh > before*1.6 {
+		t.Fatalf("outlier high calibration after = %v, before = %v", afterHigh, before)
+	}
+	est.Calibrate(types.LanguageNameSimplifiedChinese, before, before*0.01)
+	afterLow, _, _ := est.Estimate("这是一个测试句子", types.LanguageNameSimplifiedChinese)
+	if afterLow < before*0.6 {
+		t.Fatalf("outlier low calibration after = %v, before = %v", afterLow, before)
+	}
+}
+
 func TestHeuristicFallbackReturnsLowConfidence(t *testing.T) {
 	est := NewHeuristicEstimator()
 	seconds, confidence, err := est.Estimate("hello world", "")

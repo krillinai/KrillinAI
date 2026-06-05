@@ -19,8 +19,10 @@ func (o *LLMOptimizer) Optimize(ctx context.Context, text string, availableSecon
 	if o == nil || o.chat == nil {
 		return text, nil
 	}
-	if err := ctx.Err(); err != nil {
-		return "", err
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 	}
 	prompt := fmt.Sprintf(`请把下面字幕改写成更自然、更短、 更适合口播的一句话。
 要求：
