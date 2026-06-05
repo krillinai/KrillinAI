@@ -9,6 +9,19 @@ func TestCleanTextForSpeechRemovesNoiseButKeepsMeaning(t *testing.T) {
 	}
 }
 
+func TestCleanTextForSpeechKeepsMeaningfulHyphenatedText(t *testing.T) {
+	cases := map[string]string{
+		"COVID-19": "COVID-19",
+		"e-mail":   "e-mail",
+		"re-enter": "re-enter",
+	}
+	for input, want := range cases {
+		if got := CleanTextForSpeech(input); got != want {
+			t.Fatalf("CleanTextForSpeech(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
 func TestIsSilenceOnlyText(t *testing.T) {
 	if !IsSilenceOnlyText("（音乐）") {
 		t.Fatalf("music cue should be silence-only")

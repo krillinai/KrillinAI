@@ -18,7 +18,6 @@ func CleanTextForSpeech(text string) string {
 	text = strings.ReplaceAll(text, "©", "")
 	text = strings.ReplaceAll(text, "——", "")
 	text = strings.ReplaceAll(text, "--", "")
-	text = strings.ReplaceAll(text, "-", "")
 	text = spacePattern.ReplaceAllString(text, " ")
 	return strings.TrimSpace(text)
 }
