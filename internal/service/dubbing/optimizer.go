@@ -16,13 +16,13 @@ func NewLLMOptimizer(chat types.ChatCompleter) *LLMOptimizer {
 }
 
 func (o *LLMOptimizer) Optimize(ctx context.Context, text string, availableSeconds float64, reason string) (string, error) {
-	if o == nil || o.chat == nil {
-		return text, nil
-	}
 	if ctx != nil {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
+	}
+	if o == nil || o.chat == nil {
+		return text, nil
 	}
 	prompt := fmt.Sprintf(`请把下面字幕改写成更自然、更短、 更适合口播的一句话。
 要求：
