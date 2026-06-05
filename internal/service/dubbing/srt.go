@@ -50,6 +50,9 @@ func ParseSRTFile(path string) ([]Cue, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cue %d end: %w", index, err)
 		}
+		if end <= start {
+			return nil, fmt.Errorf("cue %d invalid duration: start=%s end=%s", index, FormatTimestamp(start), FormatTimestamp(end))
+		}
 
 		cues = append(cues, Cue{
 			Index: index,
