@@ -26,3 +26,16 @@ func TestIsSilenceOnlyTextDoesNotTreatPlainParenthesizedTextAsSilence(t *testing
 		t.Fatalf("plain parenthesized text should not be silence-only")
 	}
 }
+
+func TestIsSilenceOnlyTextDoesNotTreatMixedSpeechAsSilence(t *testing.T) {
+	cases := []string{
+		"背景音乐响起，但他说你好",
+		"掌声之后，他继续讲话",
+		"music starts and then hello",
+	}
+	for _, text := range cases {
+		if IsSilenceOnlyText(text) {
+			t.Fatalf("mixed speech %q should not be silence-only", text)
+		}
+	}
+}
