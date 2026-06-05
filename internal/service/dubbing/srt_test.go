@@ -56,6 +56,34 @@ func TestParseSRTFileAllowsFlexibleArrowWhitespace(t *testing.T) {
 	}
 }
 
+func TestParseSRTFileRejectsNonPositiveCueDuration(t *testing.T) {
+	cases := []struct {
+		name    string
+		content string
+	}{
+		{
+			name:    "zero duration",
+			content: "1\n00:00:01,000 --> 00:00:01,000\n你好\n\n",
+		},
+		{
+			name:    "end before start",
+			content: "1\n00:00:02,000 --> 00:00:01,000\n你好\n\n",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "bad.srt")
+			if err := os.WriteFile(path, []byte(tt.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := ParseSRTFile(path); err == nil {
+				t.Fatalf("ParseSRTFile() error = nil, want non-positive duration error")
+			}
+		})
+	}
+}
+
 func TestParseTimestampRejectsOutOfRangeValues(t *testing.T) {
 	badValues := []string{
 		"00:60:00,000",
