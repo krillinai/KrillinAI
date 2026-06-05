@@ -51,17 +51,22 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		return Result{}, err
 	}
 
+	cues, err := ParseSRTFile(r.deps.InputSRT)
+	if err != nil {
+		return Result{}, err
+	}
+	if len(cues) == 0 {
+		return Result{}, errors.New("input srt has no cues")
+	}
+
 	dubbingDir := filepath.Join(r.deps.Workdir, DubbingDirName)
 	segmentsDir := filepath.Join(dubbingDir, "segments")
 	if err := os.MkdirAll(segmentsDir, 0755); err != nil {
 		return Result{}, err
 	}
 
-	cues, err := ParseSRTFile(r.deps.InputSRT)
-	if err != nil {
-		return Result{}, err
-	}
-	if err := WriteSRTFile(filepath.Join(dubbingDir, DubbingInputFileName), cues); err != nil {
+	cleanedCues := cleanCuesForSpeech(cues)
+	if err := WriteSRTFile(filepath.Join(dubbingDir, DubbingInputFileName), cleanedCues); err != nil {
 		return Result{}, err
 	}
 
@@ -92,6 +97,9 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		return Result{}, err
 	}
 
+	if err := ensureParentDir(r.deps.OutputAudio); err != nil {
+		return Result{}, err
+	}
 	if err := AssembleAudio(fitted, segmentsDir, r.deps.OutputAudio, r.deps.FFmpeg); err != nil {
 		return Result{}, err
 	}
@@ -99,6 +107,9 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		return Result{}, err
 	}
 
+	if err := ensureParentDir(r.deps.OutputVideo); err != nil {
+		return Result{}, err
+	}
 	if err := r.deps.FFmpeg(buildMuxArgs(r.deps.InputVideo, r.deps.OutputAudio, r.deps.OutputVideo)); err != nil {
 		return Result{}, err
 	}
@@ -133,6 +144,23 @@ func (r *Runner) validate() error {
 		return err
 	}
 	return nil
+}
+
+func cleanCuesForSpeech(cues []Cue) []Cue {
+	cleaned := make([]Cue, len(cues))
+	copy(cleaned, cues)
+	for i := range cleaned {
+		cleaned[i].Text = CleanTextForSpeech(cleaned[i].Text)
+	}
+	return cleaned
+}
+
+func ensureParentDir(path string) error {
+	dir := filepath.Dir(path)
+	if dir == "" || dir == "." {
+		return nil
+	}
+	return os.MkdirAll(dir, 0755)
 }
 
 func ensureNonEmptyFile(path, label string) error {
