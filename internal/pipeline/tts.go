@@ -63,6 +63,7 @@ func GenerateTTS(ctx context.Context, svc StageService, req TTSRequest) (Respons
 		TtsVoiceCode:         req.Voice,
 		VoiceCloneAudioUrl:   req.VoiceCloneSource,
 		VideoWithTtsFilePath: manifest.Outputs.VideoWithTTS,
+		TargetLanguage:       types.StandardLanguageCode(manifest.TargetLanguage),
 	}
 	if err := svc.GenerateSpeechFromSRT(ctx, stepParam); err != nil {
 		return failTTSStage(req, manifest, "generate_speech_failed", err)

@@ -727,7 +727,7 @@ func splitSrt(stepParam *types.SubtitleTaskStepParam) error {
 	}
 
 	// 供生成配音使用
-	stepParam.TtsSourceFilePath = stepParam.BilingualSrtFilePath
+	stepParam.TtsSourceFilePath = targetSRTPathForDubbing(stepParam.TaskBasePath)
 
 	log.GetLogger().Info("audioToSubtitle.splitSrt end", zap.Any("task id", stepParam.TaskId))
 	return nil
