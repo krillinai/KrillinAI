@@ -24,8 +24,11 @@ func ParseSRTFile(path string) ([]Cue, error) {
 	cues := make([]Cue, 0, len(blocks))
 	for _, block := range blocks {
 		lines := nonEmptyLines(block)
-		if len(lines) < 2 {
+		if len(lines) == 0 {
 			continue
+		}
+		if len(lines) < 2 {
+			return nil, fmt.Errorf("malformed srt block: %q", block)
 		}
 
 		index, err := strconv.Atoi(strings.TrimSpace(lines[0]))
@@ -33,17 +36,17 @@ func ParseSRTFile(path string) ([]Cue, error) {
 			return nil, fmt.Errorf("invalid srt index %q: %w", lines[0], err)
 		}
 
-		parts := strings.Split(lines[1], " --> ")
+		parts := strings.Split(lines[1], "-->")
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid srt timestamp line %q", lines[1])
 		}
 
-		start, err := ParseTimestamp(parts[0])
+		start, err := ParseTimestamp(strings.TrimSpace(parts[0]))
 		if err != nil {
 			return nil, fmt.Errorf("cue %d start: %w", index, err)
 		}
 
-		end, err := ParseTimestamp(parts[1])
+		end, err := ParseTimestamp(strings.TrimSpace(parts[1]))
 		if err != nil {
 			return nil, fmt.Errorf("cue %d end: %w", index, err)
 		}
@@ -82,10 +85,16 @@ func ParseTimestamp(value string) (float64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("invalid hour in %q: %w", value, err)
 	}
+	if hours < 0 {
+		return 0, fmt.Errorf("invalid hour in %q: must be >= 0", value)
+	}
 
 	minutes, err := strconv.Atoi(fields[1])
 	if err != nil {
 		return 0, fmt.Errorf("invalid minute in %q: %w", value, err)
+	}
+	if minutes < 0 || minutes >= 60 {
+		return 0, fmt.Errorf("invalid minute in %q: must be in [0, 60)", value)
 	}
 
 	secParts := strings.Split(fields[2], ",")
@@ -97,10 +106,16 @@ func ParseTimestamp(value string) (float64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("invalid second in %q: %w", value, err)
 	}
+	if seconds < 0 || seconds >= 60 {
+		return 0, fmt.Errorf("invalid second in %q: must be in [0, 60)", value)
+	}
 
 	millis, err := strconv.Atoi(secParts[1])
 	if err != nil {
 		return 0, fmt.Errorf("invalid millis in %q: %w", value, err)
+	}
+	if millis < 0 || millis >= 1000 {
+		return 0, fmt.Errorf("invalid millis in %q: must be in [0, 1000)", value)
 	}
 
 	return float64(hours*3600+minutes*60+seconds) + float64(millis)/1000, nil
