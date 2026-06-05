@@ -1,6 +1,7 @@
 package dubbing
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,6 +78,63 @@ func TestAssembleAudioRejectsOverlappingPlanBeforeRunner(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "starts before previous end") {
 		t.Fatalf("AssembleAudio() error = %v, want overlap error", err)
+	}
+	if calls != 0 {
+		t.Fatalf("runner calls = %d, want 0", calls)
+	}
+}
+
+func TestAssembleAudioRejectsInvalidSpeedFactorBeforeRunner(t *testing.T) {
+	tests := []struct {
+		name        string
+		speedFactor float64
+	}{
+		{name: "zero", speedFactor: 0},
+		{name: "infinity", speedFactor: math.Inf(1)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			rawDir := filepath.Join(dir, "raw")
+			if err := os.MkdirAll(rawDir, 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(rawDir, "1.wav"), []byte("raw"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			calls := 0
+			plan := []PlanItem{{Index: 1, NewStart: 0, NewEnd: 1, SpeedFactor: tt.speedFactor}}
+			err := AssembleAudio(plan, dir, filepath.Join(dir, "out.wav"), func(args []string) error {
+				calls++
+				t.Fatalf("runner called with args = %v", args)
+				return nil
+			})
+			if err == nil {
+				t.Fatal("AssembleAudio() error = nil, want invalid speed factor error")
+			}
+			if calls != 0 {
+				t.Fatalf("runner calls = %d, want 0", calls)
+			}
+		})
+	}
+}
+
+func TestAssembleAudioRejectsMissingRawSegmentBeforeRunner(t *testing.T) {
+	dir := t.TempDir()
+	rawDir := filepath.Join(dir, "raw")
+	if err := os.MkdirAll(rawDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	plan := []PlanItem{{Index: 1, NewStart: 0, NewEnd: 1, SpeedFactor: 1}}
+	err := AssembleAudio(plan, dir, filepath.Join(dir, "out.wav"), func(args []string) error {
+		calls++
+		t.Fatalf("runner called with args = %v", args)
+		return nil
+	})
+	if err == nil {
+		t.Fatal("AssembleAudio() error = nil, want missing raw segment error")
 	}
 	if calls != 0 {
 		t.Fatalf("runner calls = %d, want 0", calls)
