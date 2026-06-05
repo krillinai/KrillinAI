@@ -28,6 +28,48 @@ func TestParseSRTSupportsMultilineCRLFAndNoTrailingBlank(t *testing.T) {
 	}
 }
 
+func TestParseSRTFileReturnsErrorForMalformedBlock(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.srt")
+	content := "1\n00:00:01,000 --> 00:00:02,000\n你好\n\n2\n只有编号没有时间线\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ParseSRTFile(path); err == nil {
+		t.Fatalf("ParseSRTFile() error = nil, want malformed block error")
+	}
+}
+
+func TestParseSRTFileAllowsFlexibleArrowWhitespace(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "input.srt")
+	content := "1\n00:00:01,000-->00:00:02,000\n你好\n\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cues, err := ParseSRTFile(path)
+	if err != nil {
+		t.Fatalf("ParseSRTFile() error = %v", err)
+	}
+	if len(cues) != 1 || cues[0].Start != 1 || cues[0].End != 2 {
+		t.Fatalf("cues = %+v", cues)
+	}
+}
+
+func TestParseTimestampRejectsOutOfRangeValues(t *testing.T) {
+	badValues := []string{
+		"00:60:00,000",
+		"00:00:60,000",
+		"00:00:00,1000",
+		"-01:00:00,000",
+	}
+	for _, value := range badValues {
+		if _, err := ParseTimestamp(value); err == nil {
+			t.Fatalf("ParseTimestamp(%q) error = nil, want range error", value)
+		}
+	}
+}
+
 func TestWriteSRTUsesNewTimeline(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "dub.srt")
