@@ -13,8 +13,27 @@ func targetSRTPathForDubbing(taskBasePath string) string {
 	return filepath.Join(taskBasePath, types.SubtitleTaskTargetLanguageSrtFileName)
 }
 
+type voiceCloneFunc func(prefix, audioURL string) (string, error)
+
+func resolveDubbingVoiceCode(baseVoice, cloneURL string, clone voiceCloneFunc) (string, error) {
+	if cloneURL == "" {
+		return baseVoice, nil
+	}
+	if clone == nil {
+		return "", fmt.Errorf("srtFileToSpeech CosyVoiceClone error: voice clone client is nil")
+	}
+	code, err := clone("krillinai", cloneURL)
+	if err != nil {
+		return "", fmt.Errorf("srtFileToSpeech CosyVoiceClone error: %w", err)
+	}
+	return code, nil
+}
+
 // 输入目标语言字幕，生成配音
 func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
+	if stepParam == nil {
+		return fmt.Errorf("srtFileToSpeech stepParam is nil")
+	}
 	if !stepParam.EnableTts {
 		return nil
 	}
@@ -22,16 +41,13 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 		stepParam.TtsSourceFilePath = targetSRTPathForDubbing(stepParam.TaskBasePath)
 	}
 
-	voiceCode := stepParam.TtsVoiceCode
-	if stepParam.VoiceCloneAudioUrl != "" {
-		if s.VoiceCloneClient == nil {
-			return fmt.Errorf("srtFileToSpeech CosyVoiceClone error: voice clone client is nil")
-		}
-		code, err := s.VoiceCloneClient.CosyVoiceClone("krillinai", stepParam.VoiceCloneAudioUrl)
-		if err != nil {
-			return fmt.Errorf("srtFileToSpeech CosyVoiceClone error: %w", err)
-		}
-		voiceCode = code
+	var clone voiceCloneFunc
+	if s.VoiceCloneClient != nil {
+		clone = s.VoiceCloneClient.CosyVoiceClone
+	}
+	voiceCode, err := resolveDubbingVoiceCode(stepParam.TtsVoiceCode, stepParam.VoiceCloneAudioUrl, clone)
+	if err != nil {
+		return err
 	}
 
 	outputAudio := stepParam.TtsResultFilePath
