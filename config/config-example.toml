@@ -62,6 +62,17 @@
             access_key_secret = ""
             app_key= ""
 
+[dubbing]
+    min_subtitle_duration = 2.5 # 最短配音字幕时长，短句会优先合并
+    max_chunk_size = 5 # 单个配音 chunk 最多合并字幕条数
+    gap_tolerance = 1.5 # 可吸收的相邻字幕空隙，单位秒
+    speed_min = 0.95 # 允许的最慢调速倍率
+    speed_accept = 1.15 # 推荐的最大自然调速倍率
+    speed_max = 1.30 # 硬上限，超过后优先改写文本
+    enable_text_rewrite = true # 是否允许 LLM 改写为自然口播
+    rewrite_max_attempts = 2 # 单条字幕最多改写次数
+    estimator = "statistical" # 估时器，当前支持 statistical
+
 [image]
     provider = "openai-compatible"
     [image.openai]

@@ -83,6 +83,18 @@ type Tts struct {
 	Aliyun   AliyunTtsConfig        `toml:"aliyun"`
 }
 
+type Dubbing struct {
+	MinSubtitleDuration float64 `toml:"min_subtitle_duration"`
+	MaxChunkSize        int     `toml:"max_chunk_size"`
+	GapTolerance        float64 `toml:"gap_tolerance"`
+	SpeedMin            float64 `toml:"speed_min"`
+	SpeedAccept         float64 `toml:"speed_accept"`
+	SpeedMax            float64 `toml:"speed_max"`
+	EnableTextRewrite   bool    `toml:"enable_text_rewrite"`
+	RewriteMaxAttempts  int     `toml:"rewrite_max_attempts"`
+	Estimator           string  `toml:"estimator"`
+}
+
 type Image struct {
 	Provider string                 `toml:"provider"`
 	Openai   OpenaiCompatibleConfig `toml:"openai"`
@@ -99,6 +111,7 @@ type Config struct {
 	Llm        OpenaiCompatibleConfig `toml:"llm"`
 	Transcribe Transcribe             `toml:"transcribe"`
 	Tts        Tts                    `toml:"tts"`
+	Dubbing    Dubbing                `toml:"dubbing"`
 	Image      Image                  `toml:"image"`
 }
 
@@ -141,6 +154,17 @@ var Conf = Config{
 		Openai: OpenaiCompatibleConfig{
 			Model: "gpt-4o-mini-tts",
 		},
+	},
+	Dubbing: Dubbing{
+		MinSubtitleDuration: 2.5,
+		MaxChunkSize:        5,
+		GapTolerance:        1.5,
+		SpeedMin:            0.95,
+		SpeedAccept:         1.15,
+		SpeedMax:            1.30,
+		EnableTextRewrite:   true,
+		RewriteMaxAttempts:  2,
+		Estimator:           "statistical",
 	},
 	Image: Image{
 		Provider: "openai-compatible",
