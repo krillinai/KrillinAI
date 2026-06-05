@@ -7,7 +7,7 @@ import (
 
 var (
 	parenNoisePattern = regexp.MustCompile(`(?i)[(（][^()（）]*(music|applause|laughter|laugh|noise|sound|silence|inaudible|掌声|音乐|笑声|噪音|静音)[^()（）]*[)）]`)
-	anyParenPattern   = regexp.MustCompile(`[(（][^()（）]{0,20}[)）]`)
+	silenceCuePattern = regexp.MustCompile(`(?i)(music|applause|laughter|laugh|noise|sound|silence|inaudible|掌声|音乐|笑声|噪音|静音)`)
 	spacePattern      = regexp.MustCompile(`\s+`)
 )
 
@@ -29,7 +29,5 @@ func IsSilenceOnlyText(text string) bool {
 	if cleaned == "" {
 		return true
 	}
-
-	withoutParens := anyParenPattern.ReplaceAllString(cleaned, "")
-	return strings.TrimSpace(withoutParens) == ""
+	return silenceCuePattern.MatchString(text) || silenceCuePattern.MatchString(cleaned)
 }
