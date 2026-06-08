@@ -148,7 +148,8 @@ func BuildAssHeader(set *StyleSet, horizontal bool) string {
 
 func DialogueTags(s Style) string {
 	var tags strings.Builder
-	if s.FadeInMS != nil || s.FadeOutMS != nil || s.OverrideTags != "" {
+	overrideTags := normalizeOverrideTags(s.OverrideTags)
+	if s.FadeInMS != nil || s.FadeOutMS != nil || overrideTags != "" {
 		tags.WriteString("{")
 		if s.FadeInMS != nil || s.FadeOutMS != nil {
 			in := 0
@@ -161,7 +162,7 @@ func DialogueTags(s Style) string {
 			}
 			tags.WriteString(fmt.Sprintf(`\fad(%d,%d)`, in, out))
 		}
-		tags.WriteString(s.OverrideTags)
+		tags.WriteString(overrideTags)
 		tags.WriteString("}")
 	}
 	return tags.String()
@@ -202,7 +203,11 @@ func NormalizeASSColor(input string) (string, error) {
 	hex = strings.ToUpper(hex)
 	alpha := "00"
 	if len(hex) == 8 {
-		alpha = hex[6:8]
+		alphaValue, err := strconv.ParseUint(hex[6:8], 16, 8)
+		if err != nil {
+			return "", fmt.Errorf("invalid HTML alpha %q: %w", input, err)
+		}
+		alpha = fmt.Sprintf("%02X", 255-alphaValue)
 	}
 	red := hex[0:2]
 	green := hex[2:4]
@@ -370,14 +375,14 @@ func mergeStyleRest(base, override Style) Style {
 }
 
 func validateScreen(path string, screen ScreenStyle) error {
-	if err := validateStyle(path+".major", screen.Major); err != nil {
+	if err := validateStyle(path+".major", "Major", screen.Major); err != nil {
 		return err
 	}
-	return validateStyle(path+".minor", screen.Minor)
+	return validateStyle(path+".minor", "Minor", screen.Minor)
 }
 
-func validateStyle(path string, style Style) error {
-	if err := validateRawASSStyle(path+".raw_ass_style", style.RawASSStyle); err != nil {
+func validateStyle(path, expectedName string, style Style) error {
+	if err := validateRawASSStyle(path+".raw_ass_style", expectedName, style.RawASSStyle); err != nil {
 		return err
 	}
 	if err := validateASSFieldString(path+".name", style.Name); err != nil {
@@ -410,6 +415,12 @@ func validateStyle(path string, style Style) error {
 	if err := validateInt(path+".alignment", style.AlignmentValue, 1, 9); err != nil {
 		return err
 	}
+	if err := validateInt(path+".border_style", style.BorderStyle, 1, 3); err != nil {
+		return err
+	}
+	if err := validateInt(path+".encoding", style.Encoding, 0, 255); err != nil {
+		return err
+	}
 	if err := validateInt(path+".margin_l", style.MarginL, 0, 2000); err != nil {
 		return err
 	}
@@ -425,13 +436,22 @@ func validateStyle(path string, style Style) error {
 	if err := validateFloat(path+".shadow", style.Shadow, 0, 20); err != nil {
 		return err
 	}
+	if err := validateFloat(path+".spacing", style.Spacing, -100, 100); err != nil {
+		return err
+	}
+	if err := validateFloat(path+".angle", style.Angle, -360, 360); err != nil {
+		return err
+	}
 	if err := validateInt(path+".fade_in_ms", style.FadeInMS, 0, 10000); err != nil {
 		return err
 	}
-	return validateInt(path+".fade_out_ms", style.FadeOutMS, 0, 10000)
+	if err := validateInt(path+".fade_out_ms", style.FadeOutMS, 0, 10000); err != nil {
+		return err
+	}
+	return validateOverrideTags(path+".override_tags", style.OverrideTags)
 }
 
-func validateRawASSStyle(path, raw string) error {
+func validateRawASSStyle(path, expectedName, raw string) error {
 	if raw == "" {
 		return nil
 	}
@@ -441,7 +461,34 @@ func validateRawASSStyle(path, raw string) error {
 	if len(strings.Split(raw, ",")) != 23 {
 		return fmt.Errorf("%s must be a complete simple Style line with 23 comma-separated fields; escaped commas are not supported", path)
 	}
+	fields := strings.Split(raw, ",")
+	name := strings.TrimPrefix(fields[0], "Style: ")
+	if name != expectedName {
+		return fmt.Errorf("%s style name must be %q, got %q", path, expectedName, name)
+	}
 	return nil
+}
+
+func validateOverrideTags(path, tags string) error {
+	normalized := normalizeOverrideTags(tags)
+	if normalized == "" {
+		return nil
+	}
+	if strings.ContainsAny(normalized, "{}\n\r") {
+		return fmt.Errorf("%s must not contain braces, newline, or carriage return", path)
+	}
+	if !strings.HasPrefix(normalized, `\`) {
+		return fmt.Errorf("%s must start with an ASS override tag backslash", path)
+	}
+	return nil
+}
+
+func normalizeOverrideTags(tags string) string {
+	trimmed := strings.TrimSpace(tags)
+	if strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}") {
+		trimmed = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(trimmed, "{"), "}"))
+	}
+	return trimmed
 }
 
 func validateColor(path, value string) error {
