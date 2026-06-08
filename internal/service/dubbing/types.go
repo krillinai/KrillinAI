@@ -69,10 +69,12 @@ type PlanItem struct {
 }
 
 type Chunk struct {
-	ID    int
-	Items []int
-	Start float64
-	End   float64
+	ID             int
+	Items          []int
+	Start          float64
+	End            float64
+	ActualDuration float64
+	SpeedFactor    float64
 }
 
 type Report struct {

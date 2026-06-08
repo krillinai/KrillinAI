@@ -18,6 +18,7 @@ type Command struct {
 	Subtitle pipeline.SubtitleRequest
 	TTS      pipeline.TTSRequest
 	Render   pipeline.RenderRequest
+	Cover    pipeline.CoverRequest
 	Pipeline pipeline.PipelineRequest
 }
 
@@ -40,7 +41,9 @@ func Parse(args []string) (Command, error) {
 		return parseRender(name, args[1:], false)
 	case "pipeline":
 		return parsePipeline(name, args[1:])
-	case "cover", "status":
+	case "cover":
+		return parseCover(name, args[1:])
+	case "status":
 		if hasHelpArg(args[1:]) {
 			return Command{Name: name, Help: true}, nil
 		}
@@ -125,9 +128,15 @@ Flags:
 `
 	case "cover":
 		return `Usage:
-  krillinai-cli cover
+  krillinai-cli cover --workdir <dir> --prompt <text> [flags]
 
-Cover generation is a reserved/planned CLI surface in the current implementation.
+Flags:
+  --workdir <dir>   Task working directory
+  --task-id <id>    Optional task id
+  --prompt <text>   Prompt for GPT image cover generation
+  --size <size>     Image size, such as 1024x1024 or 1536x1024
+  --dry-run         Validate and write manifest without external calls
+  -h, --help        Show this help
 `
 	case "status":
 		return `Usage:
@@ -145,7 +154,7 @@ Commands:
   render-horizontal    Render landscape subtitle or dubbed videos
   render-vertical      Render portrait subtitle or dubbed videos
   pipeline             Plan or run multi-stage workflows when supported
-  cover                Reserved cover generation surface
+  cover                Generate a cover image from a prompt
   status               Reserved status query surface
 
 Run "krillinai-cli <command> --help" for command-specific flags.
@@ -167,6 +176,9 @@ func Execute(ctx context.Context, svc pipeline.StageService, cmd Command) pipeli
 	case "render-horizontal", "render-vertical":
 		resp, err := pipeline.Render(ctx, svc, cmd.Render)
 		return responseWithError(resp, err)
+	case "cover":
+		resp, err := pipeline.GenerateCover(ctx, svc, cmd.Cover)
+		return responseWithError(resp, err)
 	default:
 		return pipeline.Response{
 			OK: false,
@@ -177,6 +189,34 @@ func Execute(ctx context.Context, svc pipeline.StageService, cmd Command) pipeli
 			},
 		}
 	}
+}
+
+func parseCover(name string, args []string) (Command, error) {
+	if hasHelpArg(args) {
+		return Command{Name: name, Help: true}, nil
+	}
+	fs := newFlagSet(name)
+	workdir := fs.String("workdir", "", "workdir")
+	taskID := fs.String("task-id", "", "task id")
+	prompt := fs.String("prompt", "", "image prompt")
+	size := fs.String("size", "", "image size")
+	dryRun := fs.Bool("dry-run", false, "validate command without running external services")
+	if err := fs.Parse(args); err != nil {
+		return Command{}, err
+	}
+	if strings.TrimSpace(*prompt) == "" {
+		return Command{}, errors.New("cover requires --prompt")
+	}
+	return Command{
+		Name:   name,
+		DryRun: *dryRun,
+		Cover: pipeline.CoverRequest{
+			Workdir: *workdir,
+			TaskID:  *taskID,
+			Prompt:  *prompt,
+			Size:    *size,
+		},
+	}, nil
 }
 
 func parseSubtitle(name string, args []string) (Command, error) {
@@ -332,6 +372,10 @@ func dryRun(cmd Command) pipeline.Response {
 		return dryRunManifest(cmd.Render.Workdir, cmd.Render.TaskID, pipeline.StageRenderHorizontal, nil)
 	case "render-vertical":
 		return dryRunManifest(cmd.Render.Workdir, cmd.Render.TaskID, pipeline.StageRenderVertical, nil)
+	case "cover":
+		return dryRunManifest(cmd.Cover.Workdir, cmd.Cover.TaskID, pipeline.StageCover, func(m *pipeline.Manifest) {
+			m.Outputs.FinalCoverPrompt = m.Outputs.FinalCoverPrompt
+		})
 	case "pipeline":
 		return pipeline.Response{OK: true, Stage: pipeline.StagePipeline}
 	default:
