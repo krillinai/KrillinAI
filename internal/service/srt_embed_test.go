@@ -178,6 +178,53 @@ func TestVerticalAssUsesCustomMinorStyle(t *testing.T) {
 	}
 }
 
+func TestSrtToAssRejectsInvalidSubtitleStyle(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "subtitle.srt")
+	out := filepath.Join(dir, "subtitle.ass")
+	content := "1\n00:00:00,840 --> 00:00:02,900\n主字幕\n\n"
+	if err := os.WriteFile(in, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	style := subtitlestyle.DefaultStyleSet()
+	style.Horizontal.Major.PrimaryColor = "not-a-color"
+
+	err := srtToAss(in, out, true, &types.SubtitleTaskStepParam{
+		TaskBasePath:  dir,
+		SubtitleStyle: style,
+	})
+	if err == nil {
+		t.Fatal("srtToAss() error = nil, want invalid subtitle style error")
+	}
+	if !strings.Contains(err.Error(), "subtitle style") && !strings.Contains(err.Error(), "horizontal.major.primary_color") {
+		t.Fatalf("srtToAss() error = %q, want subtitle style context", err.Error())
+	}
+}
+
+func TestSrtToAssDefaultHeaderUsesStyleDefaults(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "subtitle.srt")
+	out := filepath.Join(dir, "subtitle.ass")
+	content := "1\n00:00:00,840 --> 00:00:02,900\n主字幕\n\n"
+	if err := os.WriteFile(in, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := srtToAss(in, out, true, &types.SubtitleTaskStepParam{TaskBasePath: dir})
+	if err != nil {
+		t.Fatalf("srtToAss() error = %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ass := string(data)
+	if !strings.Contains(ass, "Style: Major,Arial,14,&H0000BFFF") {
+		t.Fatalf("default Major style missing:\n%s", ass)
+	}
+}
+
 func subtitleDisplayWidth(text string) int {
 	width := 0
 	for _, r := range text {
