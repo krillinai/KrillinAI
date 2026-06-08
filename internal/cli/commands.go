@@ -9,10 +9,36 @@ import (
 	"krillin-ai/internal/pipeline"
 	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 )
 
 const defaultSubtitleStylePath = "config/subtitle-style-default.json"
+
+type subtitleStyleLoadError struct {
+	err  error
+	user bool
+}
+
+func (e subtitleStyleLoadError) Error() string {
+	if e.err == nil {
+		return ""
+	}
+	return e.err.Error()
+}
+
+func (e subtitleStyleLoadError) Unwrap() error {
+	return e.err
+}
+
+func userStyleLoadError(err error) error {
+	return subtitleStyleLoadError{err: err, user: true}
+}
+
+func defaultStyleLoadError(err error) error {
+	return subtitleStyleLoadError{err: err}
+}
 
 type Command struct {
 	Name     string
@@ -463,37 +489,91 @@ func dryRunError(stage pipeline.Stage, workdir, taskID, code string, err error) 
 
 func loadSubtitleStyleForCLI(styleFile string) (*subtitlestyle.StyleSet, error) {
 	base := subtitlestyle.DefaultStyleSet()
-	if _, err := os.Stat(defaultSubtitleStylePath); err == nil {
-		fileStyle, err := subtitlestyle.LoadOverrideFile(defaultSubtitleStylePath)
+	if defaultPath, ok, err := findDefaultSubtitleStylePath(); err != nil {
+		return nil, defaultStyleLoadError(err)
+	} else if ok {
+		fileStyle, err := subtitlestyle.LoadOverrideFile(defaultPath)
 		if err != nil {
-			return nil, err
+			return nil, defaultStyleLoadError(err)
 		}
 		base, err = subtitlestyle.Merge(base, fileStyle)
 		if err != nil {
-			return nil, err
+			return nil, defaultStyleLoadError(err)
 		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, err
 	}
 	if strings.TrimSpace(styleFile) == "" {
 		return base, nil
 	}
 	override, err := subtitlestyle.LoadOverrideFile(styleFile)
 	if err != nil {
-		return nil, err
+		return nil, userStyleLoadError(err)
 	}
-	return subtitlestyle.Merge(base, override)
+	merged, err := subtitlestyle.Merge(base, override)
+	if err != nil {
+		return nil, userStyleLoadError(err)
+	}
+	return merged, nil
+}
+
+func findDefaultSubtitleStylePath() (string, bool, error) {
+	paths := []string{defaultSubtitleStylePath}
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		paths = appendDefaultStyleParentPaths(paths, exeDir)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", false, err
+	}
+	if _, sourceFile, _, ok := runtime.Caller(0); ok {
+		paths = appendDefaultStyleParentPaths(paths, filepath.Dir(sourceFile))
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		paths = appendDefaultStyleParentPaths(paths, cwd)
+	} else {
+		return "", false, err
+	}
+	seen := make(map[string]bool, len(paths))
+	for _, path := range paths {
+		clean := filepath.Clean(path)
+		if seen[clean] {
+			continue
+		}
+		seen[clean] = true
+		if _, err := os.Stat(clean); err == nil {
+			return clean, true, nil
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", false, err
+		}
+	}
+	return "", false, nil
+}
+
+func appendDefaultStyleParentPaths(paths []string, dir string) []string {
+	for {
+		paths = append(paths, filepath.Join(dir, defaultSubtitleStylePath))
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return paths
+		}
+		dir = parent
+	}
 }
 
 func styleLoadFailure(stage pipeline.Stage, workdir, taskID string, err error) pipeline.Response {
+	kind := pipeline.ErrorKindUsage
+	code := "subtitle_style_load_failed"
+	var styleErr subtitleStyleLoadError
+	if errors.As(err, &styleErr) && !styleErr.user {
+		kind = pipeline.ErrorKindInternal
+		code = "default_subtitle_style_load_failed"
+	}
 	return pipeline.Response{
 		OK:      false,
 		Stage:   stage,
 		Workdir: workdir,
 		TaskID:  taskID,
 		Error: &pipeline.Error{
-			Kind:    pipeline.ErrorKindUsage,
-			Code:    "subtitle_style_load_failed",
+			Kind:    kind,
+			Code:    code,
 			Message: err.Error(),
 		},
 	}

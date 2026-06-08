@@ -2,7 +2,9 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"krillin-ai/internal/pipeline"
+	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"os"
 	"path/filepath"
 	"strings"
@@ -246,5 +248,67 @@ func TestExecuteDryRunRenderLoadsSubtitleStyleFile(t *testing.T) {
 	manifestPath := filepath.Join(dir, "krillinai_manifest.json")
 	if _, err := os.Stat(manifestPath); !os.IsNotExist(err) {
 		t.Fatalf("manifest exists after dry-run: err = %v", err)
+	}
+}
+
+func TestLoadSubtitleStyleFindsRepoDefaultFromDifferentWorkingDir(t *testing.T) {
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defaultPath, ok, err := findDefaultSubtitleStylePath()
+	if err != nil {
+		t.Fatalf("findDefaultSubtitleStylePath() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("default subtitle style path not found")
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Fatalf("restore cwd: %v", err)
+		}
+	})
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+
+	style, err := loadSubtitleStyleForCLI("")
+	if err != nil {
+		t.Fatalf("loadSubtitleStyleForCLI() error = %v", err)
+	}
+	defaultFile, err := subtitlestyle.LoadOverrideFile(defaultPath)
+	if err != nil {
+		t.Fatalf("load default file: %v", err)
+	}
+	if style.Horizontal.Major.PrimaryColor != defaultFile.Horizontal.Major.PrimaryColor {
+		t.Fatalf("primary color = %q, want repo default %q", style.Horizontal.Major.PrimaryColor, defaultFile.Horizontal.Major.PrimaryColor)
+	}
+}
+
+func TestStyleLoadFailureClassifiesDefaultStyleErrorsAsInternal(t *testing.T) {
+	err := defaultStyleLoadError(errors.New("broken default style"))
+	resp := styleLoadFailure(pipeline.StageRenderHorizontal, "work", "task", err)
+	if resp.Error == nil {
+		t.Fatal("Error = nil, want style load error")
+	}
+	if resp.Error.Kind != pipeline.ErrorKindInternal {
+		t.Fatalf("Kind = %s, want internal", resp.Error.Kind)
+	}
+	if resp.Error.Code != "default_subtitle_style_load_failed" {
+		t.Fatalf("Code = %q, want default_subtitle_style_load_failed", resp.Error.Code)
+	}
+}
+
+func TestStyleLoadFailureClassifiesUserStyleErrorsAsUsage(t *testing.T) {
+	err := userStyleLoadError(errors.New("missing user style"))
+	resp := styleLoadFailure(pipeline.StageRenderHorizontal, "work", "task", err)
+	if resp.Error == nil {
+		t.Fatal("Error = nil, want style load error")
+	}
+	if resp.Error.Kind != pipeline.ErrorKindUsage {
+		t.Fatalf("Kind = %s, want usage", resp.Error.Kind)
+	}
+	if resp.Error.Code != "subtitle_style_load_failed" {
+		t.Fatalf("Code = %q, want subtitle_style_load_failed", resp.Error.Code)
 	}
 }
