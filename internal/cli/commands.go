@@ -41,14 +41,15 @@ func defaultStyleLoadError(err error) error {
 }
 
 type Command struct {
-	Name     string
-	Help     bool
-	DryRun   bool
-	Subtitle pipeline.SubtitleRequest
-	TTS      pipeline.TTSRequest
-	Render   pipeline.RenderRequest
-	Cover    pipeline.CoverRequest
-	Pipeline pipeline.PipelineRequest
+	Name              string
+	Help              bool
+	DryRun            bool
+	SubtitleStyleFile string
+	Subtitle          pipeline.SubtitleRequest
+	TTS               pipeline.TTSRequest
+	Render            pipeline.RenderRequest
+	Cover             pipeline.CoverRequest
+	Pipeline          pipeline.PipelineRequest
 }
 
 func Parse(args []string) (Command, error) {
@@ -200,7 +201,7 @@ func Execute(ctx context.Context, svc pipeline.StageService, cmd Command) pipeli
 	}
 	switch cmd.Name {
 	case "subtitle":
-		style, err := loadSubtitleStyleForCLI(cmd.Subtitle.SubtitleStyleFile)
+		style, err := loadSubtitleStyleForCLI(cmd.SubtitleStyleFile)
 		if err != nil {
 			return styleLoadFailure(pipeline.StageSubtitle, cmd.Subtitle.Workdir, cmd.Subtitle.TaskID, err)
 		}
@@ -211,7 +212,7 @@ func Execute(ctx context.Context, svc pipeline.StageService, cmd Command) pipeli
 		resp, err := pipeline.GenerateTTS(ctx, svc, cmd.TTS)
 		return responseWithError(resp, err)
 	case "render-horizontal", "render-vertical":
-		style, err := loadSubtitleStyleForCLI(cmd.Render.SubtitleStyleFile)
+		style, err := loadSubtitleStyleForCLI(cmd.SubtitleStyleFile)
 		if err != nil {
 			return styleLoadFailure(renderStageFromCommand(cmd.Name), cmd.Render.Workdir, cmd.Render.TaskID, err)
 		}
@@ -292,19 +293,19 @@ func parseSubtitle(name string, args []string) (Command, error) {
 		return Command{}, errors.New("subtitle requires input")
 	}
 	return Command{
-		Name:   name,
-		DryRun: *dryRun,
+		Name:              name,
+		DryRun:            *dryRun,
+		SubtitleStyleFile: *subtitleStyleFile,
 		Subtitle: pipeline.SubtitleRequest{
-			Input:             input,
-			Workdir:           *workdir,
-			TaskID:            *taskID,
-			OriginLang:        *originLang,
-			TargetLang:        *targetLang,
-			UserLang:          *userLang,
-			CaptionSource:     pipeline.CaptionSource(*captionSource),
-			BilingualTop:      *bilingualTop,
-			MaxWordOneLine:    *maxWordOneLine,
-			SubtitleStyleFile: *subtitleStyleFile,
+			Input:          input,
+			Workdir:        *workdir,
+			TaskID:         *taskID,
+			OriginLang:     *originLang,
+			TargetLang:     *targetLang,
+			UserLang:       *userLang,
+			CaptionSource:  pipeline.CaptionSource(*captionSource),
+			BilingualTop:   *bilingualTop,
+			MaxWordOneLine: *maxWordOneLine,
 		},
 	}, nil
 }
@@ -362,19 +363,19 @@ func parseRender(name string, args []string, horizontal bool) (Command, error) {
 		return Command{}, err
 	}
 	return Command{
-		Name:   name,
-		DryRun: *dryRun,
+		Name:              name,
+		DryRun:            *dryRun,
+		SubtitleStyleFile: *subtitleStyleFile,
 		Render: pipeline.RenderRequest{
-			Workdir:           *workdir,
-			TaskID:            *taskID,
-			Video:             *video,
-			Audio:             *audio,
-			Subtitle:          *subtitle,
-			Horizontal:        horizontal,
-			Dubbed:            *dubbed,
-			MajorTitle:        *majorTitle,
-			MinorTitle:        *minorTitle,
-			SubtitleStyleFile: *subtitleStyleFile,
+			Workdir:    *workdir,
+			TaskID:     *taskID,
+			Video:      *video,
+			Audio:      *audio,
+			Subtitle:   *subtitle,
+			Horizontal: horizontal,
+			Dubbed:     *dubbed,
+			MajorTitle: *majorTitle,
+			MinorTitle: *minorTitle,
 		},
 	}, nil
 }
@@ -406,19 +407,19 @@ func parsePipeline(name string, args []string) (Command, error) {
 func dryRun(cmd Command) pipeline.Response {
 	switch cmd.Name {
 	case "subtitle":
-		if _, err := loadSubtitleStyleForCLI(cmd.Subtitle.SubtitleStyleFile); err != nil {
+		if _, err := loadSubtitleStyleForCLI(cmd.SubtitleStyleFile); err != nil {
 			return styleLoadFailure(pipeline.StageSubtitle, cmd.Subtitle.Workdir, cmd.Subtitle.TaskID, err)
 		}
 		return dryRunResponse(pipeline.StageSubtitle, cmd.Subtitle.Workdir, cmd.Subtitle.TaskID)
 	case "tts":
 		return dryRunManifest(cmd.TTS.Workdir, cmd.TTS.TaskID, pipeline.StageTTS, nil)
 	case "render-horizontal":
-		if _, err := loadSubtitleStyleForCLI(cmd.Render.SubtitleStyleFile); err != nil {
+		if _, err := loadSubtitleStyleForCLI(cmd.SubtitleStyleFile); err != nil {
 			return styleLoadFailure(pipeline.StageRenderHorizontal, cmd.Render.Workdir, cmd.Render.TaskID, err)
 		}
 		return dryRunResponse(pipeline.StageRenderHorizontal, cmd.Render.Workdir, cmd.Render.TaskID)
 	case "render-vertical":
-		if _, err := loadSubtitleStyleForCLI(cmd.Render.SubtitleStyleFile); err != nil {
+		if _, err := loadSubtitleStyleForCLI(cmd.SubtitleStyleFile); err != nil {
 			return styleLoadFailure(pipeline.StageRenderVertical, cmd.Render.Workdir, cmd.Render.TaskID, err)
 		}
 		return dryRunResponse(pipeline.StageRenderVertical, cmd.Render.Workdir, cmd.Render.TaskID)
