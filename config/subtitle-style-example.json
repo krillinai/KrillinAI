@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "horizontal": {
+    "major": {
+      "font_size": 18,
+      "primary_color": "#FFFFFF",
+      "outline_color": "#111111",
+      "outline": 3,
+      "shadow": 1,
+      "fade_in_ms": 120,
+      "fade_out_ms": 120,
+      "override_tags": "\\blur1"
+    },
+    "minor": {
+      "font_size": 12,
+      "primary_color": "#FFD966",
+      "outline": 2.5
+    }
+  },
+  "vertical": {
+    "major": {
+      "font_size": 14,
+      "primary_color": "#FFFFFF",
+      "outline": 3,
+      "margin_v": 86
+    },
+    "minor": {
+      "font_size": 8,
+      "primary_color": "#FFD966",
+      "margin_v": 100
+    }
+  }
+}
