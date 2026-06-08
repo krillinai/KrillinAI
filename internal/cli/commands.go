@@ -87,7 +87,7 @@ Flags:
   --video <file>                  Optional source video for dubbed output
   --voice <voice>                 Provider-specific voice
   --voice-clone-source <source>   Optional voice clone source
-  --dry-run                       Validate and write manifest without external calls
+  --dry-run                       Validate command without external calls
   -h, --help                      Show this help
 `
 	case "render-horizontal":
@@ -141,7 +141,7 @@ Flags:
   --task-id <id>    Optional task id
   --prompt <text>   Prompt for GPT image cover generation
   --size <size>     Image size, such as 1024x1024 or 1536x1024
-  --dry-run         Validate and write manifest without external calls
+  --dry-run         Validate command without external calls
   -h, --help        Show this help
 `
 	case "status":
