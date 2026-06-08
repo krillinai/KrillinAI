@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"krillin-ai/internal/types"
 )
 
@@ -97,6 +98,83 @@ func TestHorizontalAssKeepsSingleLineSubtitle(t *testing.T) {
 	}
 	if strings.Contains(ass, "{\\rMinor}") {
 		t.Fatalf("single-line subtitle should not include Minor style: %s", ass)
+	}
+}
+
+func TestHorizontalAssUsesCustomSubtitleStyle(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "subtitle.srt")
+	out := filepath.Join(dir, "subtitle.ass")
+	content := "1\n00:00:00,840 --> 00:00:02,900\n主字幕\n副字幕\n\n"
+	if err := os.WriteFile(in, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	fontSize := 22
+	marginV := 44
+	outline := 4.0
+	fadeIn := 120
+	fadeOut := 180
+	style := subtitlestyle.DefaultStyleSet()
+	style.Horizontal.Major.FontSize = &fontSize
+	style.Horizontal.Major.PrimaryColor = "#FFFFFF"
+	style.Horizontal.Major.MarginV = &marginV
+	style.Horizontal.Major.Outline = &outline
+	style.Horizontal.Major.FadeInMS = &fadeIn
+	style.Horizontal.Major.FadeOutMS = &fadeOut
+	style.Horizontal.Major.OverrideTags = `\blur1`
+
+	err := srtToAss(in, out, true, &types.SubtitleTaskStepParam{
+		TaskBasePath:  dir,
+		SubtitleStyle: style,
+	})
+	if err != nil {
+		t.Fatalf("srtToAss() error = %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ass := string(data)
+	if !strings.Contains(ass, "Style: Major,Arial,22,&H00FFFFFF") {
+		t.Fatalf("custom Major style missing:\n%s", ass)
+	}
+	if !strings.Contains(ass, ",4,1.5,2,10,10,44,1") {
+		t.Fatalf("custom outline/margin missing:\n%s", ass)
+	}
+	if !strings.Contains(ass, `{\fad(120,180)\blur1}{\an2}{\rMajor}主字幕`) {
+		t.Fatalf("custom dialogue tags missing:\n%s", ass)
+	}
+}
+
+func TestVerticalAssUsesCustomMinorStyle(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "subtitle.srt")
+	out := filepath.Join(dir, "subtitle.ass")
+	content := "1\n00:00:00,840 --> 00:00:02,900\nEnglish subtitle\n\n"
+	if err := os.WriteFile(in, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	fontSize := 11
+	style := subtitlestyle.DefaultStyleSet()
+	style.Vertical.Minor.FontSize = &fontSize
+	style.Vertical.Minor.PrimaryColor = "#00FF00"
+
+	err := srtToAss(in, out, false, &types.SubtitleTaskStepParam{
+		TaskBasePath:  dir,
+		SubtitleStyle: style,
+	})
+	if err != nil {
+		t.Fatalf("srtToAss() error = %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ass := string(data)
+	if !strings.Contains(ass, "Style: Minor,Arial,11,&H0000FF00") {
+		t.Fatalf("custom vertical Minor style missing:\n%s", ass)
 	}
 }
 
