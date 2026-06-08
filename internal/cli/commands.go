@@ -72,7 +72,7 @@ Flags:
   --bilingual-top            Put target subtitle on top (default true)
   --max-word-one-line <n>    Max words per subtitle line
   --subtitle-style-file <file>  JSON subtitle style override file
-  --dry-run                  Validate and write manifest without external calls
+  --dry-run                  Validate command without external calls
   -h, --help                 Show this help
 `
 	case "tts":
@@ -102,7 +102,7 @@ Flags:
   --subtitle <file>     Subtitle file to burn in
   --subtitle-style-file <file>  JSON subtitle style override file
   --dubbed              Render dubbed variant
-  --dry-run             Validate and write manifest without external calls
+  --dry-run             Validate command without external calls
   -h, --help            Show this help
 `
 	case "render-vertical":
@@ -119,7 +119,7 @@ Flags:
   --dubbed              Render dubbed variant
   --major-title <text>  Vertical video major title
   --minor-title <text>  Vertical video minor title
-  --dry-run             Validate and write manifest without external calls
+  --dry-run             Validate command without external calls
   -h, --help            Show this help
 `
 	case "pipeline":
