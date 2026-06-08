@@ -11,6 +11,7 @@ import (
 )
 
 type StyleSet struct {
+	Version    int         `json:"version,omitempty"`
 	Horizontal ScreenStyle `json:"horizontal"`
 	Vertical   ScreenStyle `json:"vertical"`
 }
@@ -52,6 +53,7 @@ type Style struct {
 
 func DefaultStyleSet() *StyleSet {
 	return &StyleSet{
+		Version: 1,
 		Horizontal: ScreenStyle{
 			Major: defaultStyle("Major", 14, 2.5, 1.5, 20),
 			Minor: defaultStyle("Minor", 10, 2.5, 1.5, 30),
@@ -97,6 +99,9 @@ func Merge(base, override *StyleSet) (*StyleSet, error) {
 	}
 	merged := cloneStyleSet(base)
 	if override != nil {
+		if override.Version != 0 {
+			merged.Version = override.Version
+		}
 		mergeScreen(&merged.Horizontal, override.Horizontal)
 		mergeScreen(&merged.Vertical, override.Vertical)
 	}
@@ -481,6 +486,7 @@ func validateFloat(path string, value *float64, min, max float64) error {
 
 func cloneStyleSet(set *StyleSet) StyleSet {
 	return StyleSet{
+		Version: set.Version,
 		Horizontal: ScreenStyle{
 			Major: cloneStyle(set.Horizontal.Major),
 			Minor: cloneStyle(set.Horizontal.Minor),
