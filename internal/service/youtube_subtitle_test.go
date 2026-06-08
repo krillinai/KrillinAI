@@ -4,18 +4,21 @@ import (
 	"context"
 	"krillin-ai/config"
 	"krillin-ai/internal/deps"
+	"krillin-ai/log"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
 func Test_YoutubeSubtitle(t *testing.T) {
-	// 固定的测试文件路径
+	skipYouTubeSubtitleIntegrationTest(t)
+
 	s := initService()
 	deps.CheckDependency()
 	config.Conf.App.MaxSentenceLength = 50
 
 	req := &YoutubeSubtitleReq{
-		TaskBasePath:   "D:/test_data/trans/vtt/",
+		TaskBasePath:   t.TempDir(),
 		TaskId:         "CuxmTJqpc0U",
 		OriginLanguage: "en",
 		TargetLanguage: "zh_cn",
@@ -30,18 +33,22 @@ func Test_YoutubeSubtitle(t *testing.T) {
 }
 
 func Test_ExtractWordsFromVtt(t *testing.T) {
-	s := initService()
-	deps.CheckDependency()
+	log.InitLogger()
+	s := NewYouTubeSubtitleService()
 	config.Conf.App.MaxSentenceLength = 100
 
-	vttFile := "D:/test_data/trans/vtt/GjickmuG0vU.en.vtt"
-	words, err := s.YouTubeSubtitleSrv.ExtractWordsFromVtt(vttFile)
+	workdir := t.TempDir()
+	vttFile := copyTestVtt(t, workdir, "GjickmuG0vU.en.vtt")
+	words, err := s.ExtractWordsFromVtt(vttFile)
 	if err != nil {
 		t.Errorf("ExtractWordsFromVtt() error = %v, want nil", err)
 	}
+	if len(words) == 0 {
+		t.Fatal("ExtractWordsFromVtt() returned no words")
+	}
 
 	//将words输出到文件
-	outputFile := "D:/test_data/trans/vtt/extracted_words.txt"
+	outputFile := filepath.Join(workdir, "extracted_words.txt")
 	file, err := os.Create(outputFile)
 	if err != nil {
 		t.Errorf("Failed to create output file: %v", err)
@@ -55,17 +62,21 @@ func Test_ExtractWordsFromVtt(t *testing.T) {
 }
 
 func Test_processYouTubeSubtitle(t *testing.T) {
+	skipYouTubeSubtitleIntegrationTest(t)
+
 	s := initService()
 	deps.CheckDependency()
 	config.Conf.App.MaxSentenceLength = 50
+	workdir := t.TempDir()
+	vttFile := copyTestVtt(t, workdir, "1srQ7Mq_ToI.en.vtt")
 
 	req := &YoutubeSubtitleReq{
-		TaskBasePath:        "d:/develop/self/ai/KrillinAI/tasks/watch_v1srQ7Mq__UcQG/",
+		TaskBasePath:        workdir,
 		TaskId:              "1srQ7Mq__UcQG",
 		OriginLanguage:      "en",
 		TargetLanguage:      "zh_cn",
 		URL:                 "https://www.youtube.com/watch?v=1srQ7Mq_ToI",
-		VttFile:             "d:/develop/self/ai/KrillinAI/tasks/watch_v1srQ7Mq__UcQG/1srQ7Mq_ToI.en.vtt",
+		VttFile:             vttFile,
 		TargetLanguageFirst: config.Conf.App.TargetLanguageFirst,
 	}
 
@@ -73,4 +84,26 @@ func Test_processYouTubeSubtitle(t *testing.T) {
 	if err != nil {
 		t.Errorf("HandleYouTubeSubtitle() error = %v, want nil", err)
 	}
+}
+
+func skipYouTubeSubtitleIntegrationTest(t *testing.T) {
+	t.Helper()
+	if os.Getenv("KRILLIN_RUN_YOUTUBE_SUBTITLE_INTEGRATION") != "1" {
+		t.Skip("set KRILLIN_RUN_YOUTUBE_SUBTITLE_INTEGRATION=1 to run YouTube subtitle integration tests")
+	}
+}
+
+func copyTestVtt(t *testing.T, dir, name string) string {
+	t.Helper()
+
+	data, err := os.ReadFile("test.vtt")
+	if err != nil {
+		t.Fatalf("read test fixture: %v", err)
+	}
+
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatalf("write test fixture: %v", err)
+	}
+	return path
 }
