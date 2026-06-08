@@ -14,7 +14,10 @@
     "minor": {
       "font_size": 12,
       "primary_color": "#FFD966",
-      "outline": 2.5
+      "outline": 2.5,
+      "fade_in_ms": 80,
+      "fade_out_ms": 80,
+      "override_tags": "\\blur0.6"
     }
   },
   "vertical": {
@@ -22,12 +25,18 @@
       "font_size": 14,
       "primary_color": "#FFFFFF",
       "outline": 3,
-      "margin_v": 86
+      "margin_v": 86,
+      "fade_in_ms": 100,
+      "fade_out_ms": 100,
+      "override_tags": "\\blur0.8"
     },
     "minor": {
       "font_size": 8,
       "primary_color": "#FFD966",
-      "margin_v": 100
+      "margin_v": 100,
+      "fade_in_ms": 80,
+      "fade_out_ms": 80,
+      "override_tags": "\\blur0.6"
     }
   }
 }
