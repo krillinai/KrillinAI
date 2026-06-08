@@ -391,18 +391,21 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 	styleSet := subtitlestyle.DefaultStyleSet()
 	if stepParam != nil && stepParam.SubtitleStyle != nil {
 		styleSet = stepParam.SubtitleStyle
+		if err := subtitlestyle.Validate(styleSet); err != nil {
+			return fmt.Errorf("subtitle style invalid: %w", err)
+		}
 	}
 	screenStyle := styleSet.Vertical
 	if isHorizontal {
 		screenStyle = styleSet.Horizontal
 	}
+	majorTags := subtitlestyle.DialogueTags(screenStyle.Major)
+	minorTags := subtitlestyle.DialogueTags(screenStyle.Minor)
+	majorAlignment := subtitlestyle.Alignment(screenStyle.Major)
+	minorAlignment := subtitlestyle.Alignment(screenStyle.Minor)
 
 	if isHorizontal {
 		_, _ = assFile.WriteString(subtitlestyle.BuildAssHeader(styleSet, isHorizontal))
-		majorTags := subtitlestyle.DialogueTags(screenStyle.Major)
-		minorTags := subtitlestyle.DialogueTags(screenStyle.Minor)
-		majorAlignment := subtitlestyle.Alignment(screenStyle.Major)
-		minorAlignment := subtitlestyle.Alignment(screenStyle.Minor)
 		for scanner.Scan() {
 			line := scanner.Text()
 			if line == "" {
@@ -513,8 +516,8 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 					startFormatted := formatTimestamp(iStart)
 					endFormatted := formatTimestamp(iEnd)
 					combinedText := fmt.Sprintf("%s{\\an%d}{\\rMajor}%s",
-						subtitlestyle.DialogueTags(screenStyle.Major),
-						subtitlestyle.Alignment(screenStyle.Major),
+						majorTags,
+						majorAlignment,
 						line)
 					_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 				}
@@ -524,8 +527,8 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 				endFormatted := formatTimestamp(endTime)
 				cleanedText := util.CleanPunction(content)
 				combinedText := fmt.Sprintf("%s{\\an%d}{\\rMinor}%s",
-					subtitlestyle.DialogueTags(screenStyle.Minor),
-					subtitlestyle.Alignment(screenStyle.Minor),
+					minorTags,
+					minorAlignment,
 					cleanedText)
 				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Minor,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 			}
