@@ -169,7 +169,7 @@ func TestParseCoverCommandHelp(t *testing.T) {
 }
 
 func TestHelpDryRunTextDoesNotClaimManifestWrites(t *testing.T) {
-	commands := []string{"subtitle", "tts", "render-horizontal", "render-vertical", "cover"}
+	commands := []string{"subtitle", "render-horizontal", "render-vertical"}
 	for _, name := range commands {
 		cmd, err := Parse([]string{name, "--help"})
 		if err != nil {

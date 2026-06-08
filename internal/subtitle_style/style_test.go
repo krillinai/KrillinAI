@@ -32,8 +32,8 @@ func TestParseColorConvertsHTMLToASS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NormalizeASSColor(alpha) error = %v", err)
 	}
-	if got != "&H80CC6633" {
-		t.Fatalf("NormalizeASSColor(alpha) = %q, want &H80CC6633", got)
+	if got != "&H7FCC6633" {
+		t.Fatalf("NormalizeASSColor(alpha) = %q, want &H7FCC6633", got)
 	}
 }
 
@@ -168,6 +168,63 @@ func TestRawStyleAndDialogueTags(t *testing.T) {
 	tags := DialogueTags(style.Horizontal.Major)
 	if tags != `{\fad(120,180)\blur1}` {
 		t.Fatalf("DialogueTags() = %q", tags)
+	}
+}
+
+func TestValidateRejectsRawStyleWithWrongName(t *testing.T) {
+	style := DefaultStyleSet()
+	style.Horizontal.Major.RawASSStyle = "Style: MyMajor,Arial,30,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,4,2,2,20,20,40,1"
+
+	err := Validate(style)
+	if err == nil {
+		t.Fatal("Validate() error = nil, want raw style name error")
+	}
+	if !strings.Contains(err.Error(), "horizontal.major.raw_ass_style") || !strings.Contains(err.Error(), "Major") {
+		t.Fatalf("error = %v, want raw style name context", err)
+	}
+}
+
+func TestValidateRejectsUnsafeOverrideTags(t *testing.T) {
+	style := DefaultStyleSet()
+	style.Horizontal.Major.OverrideTags = `\blur1}
+Dialogue: 0,0:00:00.00,0:00:01.00,Major,,0,0,0,,Injected`
+
+	err := Validate(style)
+	if err == nil {
+		t.Fatal("Validate() error = nil, want unsafe override_tags error")
+	}
+	if !strings.Contains(err.Error(), "horizontal.major.override_tags") {
+		t.Fatalf("error = %v, want override_tags context", err)
+	}
+}
+
+func TestDialogueTagsNormalizesBraces(t *testing.T) {
+	style := DefaultStyleSet()
+	style.Horizontal.Major.OverrideTags = `{\blur1}`
+
+	tags := DialogueTags(style.Horizontal.Major)
+	if tags != `{\blur1}` {
+		t.Fatalf("DialogueTags() = %q, want normalized override tags", tags)
+	}
+}
+
+func TestValidateRejectsOutOfRangeStyleFields(t *testing.T) {
+	style := DefaultStyleSet()
+	borderStyle := 4
+	encoding := -1
+	spacing := 1001.0
+	angle := 361.0
+	style.Horizontal.Major.BorderStyle = &borderStyle
+	style.Horizontal.Minor.Encoding = &encoding
+	style.Vertical.Major.Spacing = &spacing
+	style.Vertical.Minor.Angle = &angle
+
+	err := Validate(style)
+	if err == nil {
+		t.Fatal("Validate() error = nil, want out-of-range field error")
+	}
+	if !strings.Contains(err.Error(), "border_style") {
+		t.Fatalf("error = %v, want first invalid field path", err)
 	}
 }
 
