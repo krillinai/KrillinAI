@@ -53,6 +53,16 @@ func TestLoadOverrideRejectsUnknownField(t *testing.T) {
 	}
 }
 
+func TestDecodeAcceptsVersion(t *testing.T) {
+	got, err := Decode([]byte(`{"version":1,"horizontal":{"major":{"primary_color":"#FFFFFF"}}}`), "style.json")
+	if err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	}
+	if got.Version != 1 {
+		t.Fatalf("version = %d, want 1", got.Version)
+	}
+}
+
 func TestMergeKeepsDefaultsForMissingFields(t *testing.T) {
 	base := DefaultStyleSet()
 	override := &StyleSet{
@@ -73,6 +83,16 @@ func TestMergeKeepsDefaultsForMissingFields(t *testing.T) {
 	}
 	if got.Vertical.Minor.FontSize == nil || *got.Vertical.Minor.FontSize != 7 {
 		t.Fatalf("vertical minor font size not inherited: %#v", got.Vertical.Minor.FontSize)
+	}
+}
+
+func TestMergeOverridesVersion(t *testing.T) {
+	got, err := Merge(DefaultStyleSet(), &StyleSet{Version: 2})
+	if err != nil {
+		t.Fatalf("Merge() error = %v", err)
+	}
+	if got.Version != 2 {
+		t.Fatalf("version = %d, want 2", got.Version)
 	}
 }
 
