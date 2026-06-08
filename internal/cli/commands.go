@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"io"
 	"krillin-ai/internal/pipeline"
+	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"os"
 	"strings"
 )
+
+const defaultSubtitleStylePath = "config/subtitle-style-default.json"
 
 type Command struct {
 	Name     string
@@ -68,6 +71,7 @@ Flags:
   --caption-source <source>  any, manual, auto, or whisper
   --bilingual-top            Put target subtitle on top (default true)
   --max-word-one-line <n>    Max words per subtitle line
+  --subtitle-style-file <file>  JSON subtitle style override file
   --dry-run                  Validate and write manifest without external calls
   -h, --help                 Show this help
 `
@@ -96,6 +100,7 @@ Flags:
   --video <file>        Input video
   --audio <file>        Optional input audio
   --subtitle <file>     Subtitle file to burn in
+  --subtitle-style-file <file>  JSON subtitle style override file
   --dubbed              Render dubbed variant
   --dry-run             Validate and write manifest without external calls
   -h, --help            Show this help
@@ -110,6 +115,7 @@ Flags:
   --video <file>        Input video
   --audio <file>        Optional input audio
   --subtitle <file>     Subtitle file to burn in
+  --subtitle-style-file <file>  JSON subtitle style override file
   --dubbed              Render dubbed variant
   --major-title <text>  Vertical video major title
   --minor-title <text>  Vertical video minor title
@@ -168,12 +174,22 @@ func Execute(ctx context.Context, svc pipeline.StageService, cmd Command) pipeli
 	}
 	switch cmd.Name {
 	case "subtitle":
+		style, err := loadSubtitleStyleForCLI(cmd.Subtitle.SubtitleStyleFile)
+		if err != nil {
+			return styleLoadFailure(pipeline.StageSubtitle, cmd.Subtitle.Workdir, cmd.Subtitle.TaskID, err)
+		}
+		cmd.Subtitle.SubtitleStyle = style
 		resp, err := pipeline.GenerateSubtitles(ctx, svc, cmd.Subtitle)
 		return responseWithError(resp, err)
 	case "tts":
 		resp, err := pipeline.GenerateTTS(ctx, svc, cmd.TTS)
 		return responseWithError(resp, err)
 	case "render-horizontal", "render-vertical":
+		style, err := loadSubtitleStyleForCLI(cmd.Render.SubtitleStyleFile)
+		if err != nil {
+			return styleLoadFailure(renderStageFromCommand(cmd.Name), cmd.Render.Workdir, cmd.Render.TaskID, err)
+		}
+		cmd.Render.SubtitleStyle = style
 		resp, err := pipeline.Render(ctx, svc, cmd.Render)
 		return responseWithError(resp, err)
 	case "cover":
@@ -232,6 +248,7 @@ func parseSubtitle(name string, args []string) (Command, error) {
 	captionSource := fs.String("caption-source", string(pipeline.CaptionSourceAny), "caption source")
 	bilingualTop := fs.Bool("bilingual-top", true, "put target subtitle on top")
 	maxWordOneLine := fs.Int("max-word-one-line", 0, "max words per line")
+	subtitleStyleFile := fs.String("subtitle-style-file", "", "subtitle style JSON file")
 	dryRun := fs.Bool("dry-run", false, "validate command without running external services")
 	input := ""
 	parseArgs := args
@@ -252,15 +269,16 @@ func parseSubtitle(name string, args []string) (Command, error) {
 		Name:   name,
 		DryRun: *dryRun,
 		Subtitle: pipeline.SubtitleRequest{
-			Input:          input,
-			Workdir:        *workdir,
-			TaskID:         *taskID,
-			OriginLang:     *originLang,
-			TargetLang:     *targetLang,
-			UserLang:       *userLang,
-			CaptionSource:  pipeline.CaptionSource(*captionSource),
-			BilingualTop:   *bilingualTop,
-			MaxWordOneLine: *maxWordOneLine,
+			Input:             input,
+			Workdir:           *workdir,
+			TaskID:            *taskID,
+			OriginLang:        *originLang,
+			TargetLang:        *targetLang,
+			UserLang:          *userLang,
+			CaptionSource:     pipeline.CaptionSource(*captionSource),
+			BilingualTop:      *bilingualTop,
+			MaxWordOneLine:    *maxWordOneLine,
+			SubtitleStyleFile: *subtitleStyleFile,
 		},
 	}, nil
 }
@@ -312,6 +330,7 @@ func parseRender(name string, args []string, horizontal bool) (Command, error) {
 	dubbed := fs.Bool("dubbed", false, "render dubbed video")
 	majorTitle := fs.String("major-title", "", "vertical major title")
 	minorTitle := fs.String("minor-title", "", "vertical minor title")
+	subtitleStyleFile := fs.String("subtitle-style-file", "", "subtitle style JSON file")
 	dryRun := fs.Bool("dry-run", false, "validate command without running external services")
 	if err := fs.Parse(args); err != nil {
 		return Command{}, err
@@ -320,15 +339,16 @@ func parseRender(name string, args []string, horizontal bool) (Command, error) {
 		Name:   name,
 		DryRun: *dryRun,
 		Render: pipeline.RenderRequest{
-			Workdir:    *workdir,
-			TaskID:     *taskID,
-			Video:      *video,
-			Audio:      *audio,
-			Subtitle:   *subtitle,
-			Horizontal: horizontal,
-			Dubbed:     *dubbed,
-			MajorTitle: *majorTitle,
-			MinorTitle: *minorTitle,
+			Workdir:           *workdir,
+			TaskID:            *taskID,
+			Video:             *video,
+			Audio:             *audio,
+			Subtitle:          *subtitle,
+			Horizontal:        horizontal,
+			Dubbed:            *dubbed,
+			MajorTitle:        *majorTitle,
+			MinorTitle:        *minorTitle,
+			SubtitleStyleFile: *subtitleStyleFile,
 		},
 	}, nil
 }
@@ -360,6 +380,9 @@ func parsePipeline(name string, args []string) (Command, error) {
 func dryRun(cmd Command) pipeline.Response {
 	switch cmd.Name {
 	case "subtitle":
+		if _, err := loadSubtitleStyleForCLI(cmd.Subtitle.SubtitleStyleFile); err != nil {
+			return styleLoadFailure(pipeline.StageSubtitle, cmd.Subtitle.Workdir, cmd.Subtitle.TaskID, err)
+		}
 		return dryRunManifest(cmd.Subtitle.Workdir, cmd.Subtitle.TaskID, pipeline.StageSubtitle, func(m *pipeline.Manifest) {
 			m.InputURL = cmd.Subtitle.Input
 			m.OriginLanguage = cmd.Subtitle.OriginLang
@@ -369,8 +392,14 @@ func dryRun(cmd Command) pipeline.Response {
 	case "tts":
 		return dryRunManifest(cmd.TTS.Workdir, cmd.TTS.TaskID, pipeline.StageTTS, nil)
 	case "render-horizontal":
+		if _, err := loadSubtitleStyleForCLI(cmd.Render.SubtitleStyleFile); err != nil {
+			return styleLoadFailure(pipeline.StageRenderHorizontal, cmd.Render.Workdir, cmd.Render.TaskID, err)
+		}
 		return dryRunManifest(cmd.Render.Workdir, cmd.Render.TaskID, pipeline.StageRenderHorizontal, nil)
 	case "render-vertical":
+		if _, err := loadSubtitleStyleForCLI(cmd.Render.SubtitleStyleFile); err != nil {
+			return styleLoadFailure(pipeline.StageRenderVertical, cmd.Render.Workdir, cmd.Render.TaskID, err)
+		}
 		return dryRunManifest(cmd.Render.Workdir, cmd.Render.TaskID, pipeline.StageRenderVertical, nil)
 	case "cover":
 		return dryRunManifest(cmd.Cover.Workdir, cmd.Cover.TaskID, pipeline.StageCover, func(m *pipeline.Manifest) {
@@ -426,6 +455,51 @@ func dryRunError(stage pipeline.Stage, workdir, taskID, code string, err error) 
 			Message: err.Error(),
 		},
 	}
+}
+
+func loadSubtitleStyleForCLI(styleFile string) (*subtitlestyle.StyleSet, error) {
+	base := subtitlestyle.DefaultStyleSet()
+	if _, err := os.Stat(defaultSubtitleStylePath); err == nil {
+		fileStyle, err := subtitlestyle.LoadOverrideFile(defaultSubtitleStylePath)
+		if err != nil {
+			return nil, err
+		}
+		base, err = subtitlestyle.Merge(base, fileStyle)
+		if err != nil {
+			return nil, err
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	if strings.TrimSpace(styleFile) == "" {
+		return base, nil
+	}
+	override, err := subtitlestyle.LoadOverrideFile(styleFile)
+	if err != nil {
+		return nil, err
+	}
+	return subtitlestyle.Merge(base, override)
+}
+
+func styleLoadFailure(stage pipeline.Stage, workdir, taskID string, err error) pipeline.Response {
+	return pipeline.Response{
+		OK:      false,
+		Stage:   stage,
+		Workdir: workdir,
+		TaskID:  taskID,
+		Error: &pipeline.Error{
+			Kind:    pipeline.ErrorKindUsage,
+			Code:    "subtitle_style_load_failed",
+			Message: err.Error(),
+		},
+	}
+}
+
+func renderStageFromCommand(name string) pipeline.Stage {
+	if name == "render-horizontal" {
+		return pipeline.StageRenderHorizontal
+	}
+	return pipeline.StageRenderVertical
 }
 
 func newFlagSet(name string) *flag.FlagSet {

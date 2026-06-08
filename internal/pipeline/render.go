@@ -11,16 +11,17 @@ import (
 )
 
 type RenderRequest struct {
-	Workdir    string
-	TaskID     string
-	Video      string
-	Audio      string
-	Subtitle   string
-	Horizontal bool
-	Dubbed     bool
-	MajorTitle string
-	MinorTitle string
-	SubtitleStyle *subtitlestyle.StyleSet
+	Workdir           string
+	TaskID            string
+	Video             string
+	Audio             string
+	Subtitle          string
+	Horizontal        bool
+	Dubbed            bool
+	MajorTitle        string
+	MinorTitle        string
+	SubtitleStyleFile string
+	SubtitleStyle     *subtitlestyle.StyleSet
 }
 
 func Render(ctx context.Context, svc StageService, req RenderRequest) (Response, error) {

@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 	"krillin-ai/internal/pipeline"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -50,10 +52,43 @@ func TestParseSubtitleCommandCanPutTargetLanguageOnBottom(t *testing.T) {
 	}
 }
 
+func TestParseSubtitleCommandAcceptsSubtitleStyleFile(t *testing.T) {
+	cmd, err := Parse([]string{
+		"subtitle",
+		"local:demo.mp4",
+		"--origin-lang", "en",
+		"--target-lang", "zh_cn",
+		"--workdir", "tasks/demo",
+		"--subtitle-style-file", "style.json",
+	})
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if cmd.Subtitle.SubtitleStyleFile != "style.json" {
+		t.Fatalf("SubtitleStyleFile = %q", cmd.Subtitle.SubtitleStyleFile)
+	}
+}
+
 func TestParseTTSCommandRequiresInputSRT(t *testing.T) {
 	_, err := Parse([]string{"tts", "--workdir", "tasks/demo"})
 	if err == nil {
 		t.Fatalf("Parse() error = nil, want error")
+	}
+}
+
+func TestParseRenderCommandAcceptsSubtitleStyleFile(t *testing.T) {
+	cmd, err := Parse([]string{
+		"render-horizontal",
+		"--workdir", "tasks/demo",
+		"--video", "origin.mp4",
+		"--subtitle", "bilingual.srt",
+		"--subtitle-style-file", "style.json",
+	})
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if cmd.Render.SubtitleStyleFile != "style.json" {
+		t.Fatalf("SubtitleStyleFile = %q", cmd.Render.SubtitleStyleFile)
 	}
 }
 
@@ -149,5 +184,49 @@ func TestExecuteDryRunSubtitleReturnsJSONReadyResponse(t *testing.T) {
 	}
 	if resp.Stage != pipeline.StageSubtitle {
 		t.Fatalf("Stage = %s", resp.Stage)
+	}
+}
+
+func TestExecuteDryRunRenderRejectsInvalidSubtitleStyleFile(t *testing.T) {
+	cmd, err := Parse([]string{
+		"render-horizontal",
+		"--workdir", t.TempDir(),
+		"--video", "origin.mp4",
+		"--subtitle", "bilingual.srt",
+		"--subtitle-style-file", "missing.json",
+		"--dry-run",
+	})
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	resp := Execute(context.Background(), nil, cmd)
+	if resp.OK {
+		t.Fatalf("OK = true, want false for missing style file")
+	}
+	if resp.Error == nil || !strings.Contains(resp.Error.Message, "missing.json") {
+		t.Fatalf("error = %#v, want missing style file message", resp.Error)
+	}
+}
+
+func TestExecuteDryRunRenderLoadsSubtitleStyleFile(t *testing.T) {
+	dir := t.TempDir()
+	stylePath := filepath.Join(dir, "style.json")
+	if err := os.WriteFile(stylePath, []byte(`{"horizontal":{"major":{"primary_color":"#FFFFFF"}}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cmd, err := Parse([]string{
+		"render-horizontal",
+		"--workdir", dir,
+		"--video", "origin.mp4",
+		"--subtitle", "bilingual.srt",
+		"--subtitle-style-file", stylePath,
+		"--dry-run",
+	})
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	resp := Execute(context.Background(), nil, cmd)
+	if !resp.OK {
+		t.Fatalf("OK = false, error = %#v", resp.Error)
 	}
 }
