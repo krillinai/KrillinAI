@@ -66,8 +66,8 @@ func TestParseSubtitleCommandAcceptsSubtitleStyleFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	if cmd.Subtitle.SubtitleStyleFile != "style.json" {
-		t.Fatalf("SubtitleStyleFile = %q", cmd.Subtitle.SubtitleStyleFile)
+	if cmd.SubtitleStyleFile != "style.json" {
+		t.Fatalf("SubtitleStyleFile = %q", cmd.SubtitleStyleFile)
 	}
 }
 
@@ -89,8 +89,8 @@ func TestParseRenderCommandAcceptsSubtitleStyleFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	if cmd.Render.SubtitleStyleFile != "style.json" {
-		t.Fatalf("SubtitleStyleFile = %q", cmd.Render.SubtitleStyleFile)
+	if cmd.SubtitleStyleFile != "style.json" {
+		t.Fatalf("SubtitleStyleFile = %q", cmd.SubtitleStyleFile)
 	}
 }
 
