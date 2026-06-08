@@ -427,7 +427,7 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 				subtitleLines = append(subtitleLines, textLine)
 			}
 
-			if len(subtitleLines) < 2 {
+			if len(subtitleLines) == 0 {
 				continue
 			}
 			//var majorTextLanguage types.StandardLanguageCode
@@ -442,6 +442,11 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 			// ASS条目
 			startFormatted := formatTimestamp(startTime)
 			endFormatted := formatTimestamp(endTime)
+			if len(subtitleLines) == 1 {
+				combinedText := fmt.Sprintf("{\\an2}{\\rMajor}%s", util.CleanPunction(subtitleLines[0]))
+				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
+				continue
+			}
 			combinedText := fmt.Sprintf("{\\an2}{\\rMajor}%s\\N{\\rMinor}%s", subtitleLines[0], util.CleanPunction(subtitleLines[1]))
 			_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 		}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"krillin-ai/internal/service"
 	"krillin-ai/internal/types"
+	pkgimage "krillin-ai/pkg/image"
 )
 
 type StageService interface {
@@ -14,6 +15,7 @@ type StageService interface {
 	DownloadYouTubeSubtitle(context.Context, *service.YoutubeSubtitleReq) (string, error)
 	ProcessYouTubeSubtitle(context.Context, *service.YoutubeSubtitleReq) (string, error)
 	RenderVideo(context.Context, service.RenderVideoRequest) (string, error)
+	GenerateCoverImage(context.Context, pkgimage.GenerateRequest) (pkgimage.GenerateResult, error)
 }
 
 type ServiceAdapter struct {
@@ -50,4 +52,8 @@ func (a *ServiceAdapter) ProcessYouTubeSubtitle(ctx context.Context, r *service.
 
 func (a *ServiceAdapter) RenderVideo(ctx context.Context, r service.RenderVideoRequest) (string, error) {
 	return a.svc.RenderVideo(ctx, r)
+}
+
+func (a *ServiceAdapter) GenerateCoverImage(ctx context.Context, r pkgimage.GenerateRequest) (pkgimage.GenerateResult, error) {
+	return a.svc.GenerateCoverImage(ctx, r)
 }

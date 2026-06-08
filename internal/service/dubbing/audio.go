@@ -85,6 +85,14 @@ func fittedSegmentPath(segmentsDir string, index int) string {
 	return filepath.Join(segmentsDir, "fitted", fmt.Sprintf("%d.wav", index))
 }
 
+func rawChunkPath(segmentsDir string, id int) string {
+	return filepath.Join(segmentsDir, "raw", fmt.Sprintf("chunk_%d.wav", id))
+}
+
+func fittedChunkPath(segmentsDir string, id int) string {
+	return filepath.Join(segmentsDir, "fitted", fmt.Sprintf("chunk_%d.wav", id))
+}
+
 func AssembleAudio(plan []PlanItem, segmentsDir, outputAudio string, run CommandRunner) error {
 	if run == nil {
 		run = defaultFFmpegRunner
@@ -161,6 +169,76 @@ func AssembleAudio(plan []PlanItem, segmentsDir, outputAudio string, run Command
 	return nil
 }
 
+func AssembleChunkAudio(plan []PlanItem, chunks []Chunk, segmentsDir, outputAudio string, run CommandRunner) error {
+	if run == nil {
+		run = defaultFFmpegRunner
+	}
+	filters, err := validateAssembleChunkPlan(plan, chunks, segmentsDir)
+	if err != nil {
+		return err
+	}
+
+	fittedDir := filepath.Join(segmentsDir, "fitted")
+	if err := os.MkdirAll(fittedDir, 0755); err != nil {
+		return err
+	}
+
+	concatLines := make([]string, 0, len(chunks)*2)
+	lastEnd := 0.0
+	for i, chunk := range chunks {
+		raw := rawChunkPath(segmentsDir, chunk.ID)
+		fitted := fittedChunkPath(segmentsDir, chunk.ID)
+		if err := run([]string{
+			"-y",
+			"-i", raw,
+			"-filter:a", filters[i],
+			"-ar", "44100",
+			"-ac", "1",
+			"-c:a", "pcm_s16le",
+			fitted,
+		}); err != nil {
+			return fmt.Errorf("fit chunk %d: %w", chunk.ID, err)
+		}
+
+		if chunk.Start > lastEnd {
+			silence := filepath.Join(fittedDir, fmt.Sprintf("silence_chunk_%d.wav", chunk.ID))
+			if err := run([]string{
+				"-y",
+				"-f", "lavfi",
+				"-i", "anullsrc=channel_layout=mono:sample_rate=44100",
+				"-t", fmt.Sprintf("%.3f", chunk.Start-lastEnd),
+				"-ar", "44100",
+				"-ac", "1",
+				"-c:a", "pcm_s16le",
+				silence,
+			}); err != nil {
+				return fmt.Errorf("write silence before chunk %d: %w", chunk.ID, err)
+			}
+			concatLines = append(concatLines, fmt.Sprintf("file '%s'", filepath.Base(silence)))
+		}
+
+		concatLines = append(concatLines, fmt.Sprintf("file '%s'", filepath.Base(fitted)))
+		lastEnd = chunkFittedEnd(plan, chunk)
+	}
+
+	concatPath := filepath.Join(fittedDir, "concat.txt")
+	if err := os.WriteFile(concatPath, []byte(strings.Join(concatLines, "\n")+"\n"), 0644); err != nil {
+		return err
+	}
+
+	if err := run([]string{
+		"-y",
+		"-f", "concat",
+		"-safe", "0",
+		"-i", concatPath,
+		"-c", "copy",
+		outputAudio,
+	}); err != nil {
+		return fmt.Errorf("concat fitted audio: %w", err)
+	}
+	return nil
+}
+
 func validateAssemblePlan(plan []PlanItem, segmentsDir string) ([]string, error) {
 	if len(plan) == 0 {
 		return nil, fmt.Errorf("plan is empty")
@@ -190,4 +268,69 @@ func validateAssemblePlan(plan []PlanItem, segmentsDir string) ([]string, error)
 		lastEnd = item.NewEnd
 	}
 	return filters, nil
+}
+
+func validateAssembleChunkPlan(plan []PlanItem, chunks []Chunk, segmentsDir string) ([]string, error) {
+	if len(plan) == 0 {
+		return nil, fmt.Errorf("plan is empty")
+	}
+	if len(chunks) == 0 {
+		return nil, fmt.Errorf("chunks are empty")
+	}
+
+	filters := make([]string, len(chunks))
+	lastEnd := 0.0
+	for i, chunk := range chunks {
+		if len(chunk.Items) == 0 {
+			return nil, fmt.Errorf("chunk %d has no items", chunk.ID)
+		}
+		if chunk.Start < lastEnd {
+			return nil, fmt.Errorf("chunk %d starts before previous end: start %.3f lastEnd %.3f", chunk.ID, chunk.Start, lastEnd)
+		}
+		end := chunkFittedEnd(plan, chunk)
+		if end <= chunk.Start {
+			return nil, fmt.Errorf("chunk %d end must be greater than start: start %.3f end %.3f", chunk.ID, chunk.Start, end)
+		}
+		filter, err := buildAtempoFilter(chunkSpeedFactor(plan, chunk))
+		if err != nil {
+			return nil, err
+		}
+		filters[i] = filter
+
+		raw := rawChunkPath(segmentsDir, chunk.ID)
+		if err := ensureNonEmptyFile(raw, "raw chunk"); err != nil {
+			return nil, err
+		}
+		lastEnd = end
+	}
+	return filters, nil
+}
+
+func chunkSpeedFactor(plan []PlanItem, chunk Chunk) float64 {
+	if chunk.SpeedFactor > 0 {
+		return chunk.SpeedFactor
+	}
+	for _, idx := range chunk.Items {
+		if idx >= 0 && idx < len(plan) && plan[idx].SpeedFactor > 0 {
+			return plan[idx].SpeedFactor
+		}
+	}
+	return 1
+}
+
+func chunkFittedEnd(plan []PlanItem, chunk Chunk) float64 {
+	end := 0.0
+	for _, idx := range chunk.Items {
+		if idx >= 0 && idx < len(plan) && plan[idx].NewEnd > end {
+			end = plan[idx].NewEnd
+		}
+	}
+	if end > 0 {
+		return end
+	}
+	end = chunk.Start
+	if chunk.End > end {
+		end = chunk.End
+	}
+	return end
 }

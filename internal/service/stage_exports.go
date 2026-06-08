@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"krillin-ai/internal/types"
+	pkgimage "krillin-ai/pkg/image"
 )
 
 var ErrYouTubeSubtitleServiceNotInitialized = errors.New("youtube subtitle service not initialized")
+var ErrImageClientNotInitialized = errors.New("image client not initialized")
 
 func (s Service) PrepareMedia(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	return s.linkToFile(ctx, stepParam)
@@ -36,4 +38,11 @@ func (s Service) ProcessYouTubeSubtitle(ctx context.Context, req *YoutubeSubtitl
 		return "", ErrYouTubeSubtitleServiceNotInitialized
 	}
 	return s.YouTubeSubtitleSrv.processYouTubeSubtitle(ctx, req)
+}
+
+func (s Service) GenerateCoverImage(ctx context.Context, req pkgimage.GenerateRequest) (pkgimage.GenerateResult, error) {
+	if s.ImageClient == nil {
+		return pkgimage.GenerateResult{}, ErrImageClientNotInitialized
+	}
+	return s.ImageClient.Generate(ctx, req)
 }

@@ -76,12 +76,12 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		return Result{}, err
 	}
 
-	plan, err = GenerateRawSegments(ctx, r.deps.TTS, plan, r.deps.Voice, segmentsDir, r.deps.FFmpeg, r.deps.Duration)
+	plan, chunks, err = GenerateRawChunkSegments(ctx, r.deps.TTS, plan, chunks, r.deps.Voice, segmentsDir, r.deps.FFmpeg, r.deps.Duration)
 	if err != nil {
 		return Result{}, err
 	}
 
-	fitted, report, err := FitTimeline(plan, chunks, r.deps.Config)
+	fitted, fittedChunks, report, err := FitTimeline(plan, chunks, r.deps.Config)
 	if err != nil {
 		return Result{}, err
 	}
@@ -100,7 +100,7 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 	if err := ensureParentDir(r.deps.OutputAudio); err != nil {
 		return Result{}, err
 	}
-	if err := AssembleAudio(fitted, segmentsDir, r.deps.OutputAudio, r.deps.FFmpeg); err != nil {
+	if err := AssembleChunkAudio(fitted, fittedChunks, segmentsDir, r.deps.OutputAudio, r.deps.FFmpeg); err != nil {
 		return Result{}, err
 	}
 	if err := ensureNonEmptyFile(r.deps.OutputAudio, "output audio"); err != nil {
@@ -119,7 +119,7 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 
 	return Result{
 		Plan:   fitted,
-		Chunks: chunks,
+		Chunks: fittedChunks,
 		Report: report,
 		DubSRT: dubSRT,
 		Audio:  r.deps.OutputAudio,

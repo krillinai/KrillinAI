@@ -85,7 +85,39 @@ func TestParseSubcommandHelp(t *testing.T) {
 	}
 }
 
-func TestParseReservedCommandHelp(t *testing.T) {
+func TestParseCoverCommand(t *testing.T) {
+	cmd, err := Parse([]string{
+		"cover",
+		"--workdir", "tasks/demo",
+		"--task-id", "demo",
+		"--prompt", "电影感科技封面，醒目中文标题",
+		"--size", "1536x1024",
+	})
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if cmd.Name != "cover" {
+		t.Fatalf("Name = %q, want cover", cmd.Name)
+	}
+	if cmd.Cover.Workdir != "tasks/demo" {
+		t.Fatalf("Workdir = %q", cmd.Cover.Workdir)
+	}
+	if cmd.Cover.Prompt != "电影感科技封面，醒目中文标题" {
+		t.Fatalf("Prompt = %q", cmd.Cover.Prompt)
+	}
+	if cmd.Cover.Size != "1536x1024" {
+		t.Fatalf("Size = %q", cmd.Cover.Size)
+	}
+}
+
+func TestParseCoverCommandRequiresPrompt(t *testing.T) {
+	_, err := Parse([]string{"cover", "--workdir", "tasks/demo"})
+	if err == nil {
+		t.Fatalf("Parse() error = nil, want error")
+	}
+}
+
+func TestParseCoverCommandHelp(t *testing.T) {
 	cmd, err := Parse([]string{"cover", "--help"})
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
@@ -94,8 +126,8 @@ func TestParseReservedCommandHelp(t *testing.T) {
 		t.Fatalf("Command = %#v, want cover help", cmd)
 	}
 	help := Help(cmd)
-	if !strings.Contains(help, "reserved/planned") {
-		t.Fatalf("Help() = %q, want reserved command notice", help)
+	if !strings.Contains(help, "--prompt") {
+		t.Fatalf("Help() = %q, want cover flags", help)
 	}
 }
 

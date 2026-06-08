@@ -73,9 +73,9 @@
     rewrite_max_attempts = 2 # 单条字幕最多改写次数
     estimator = "statistical" # 估时器，当前支持 statistical
 
-[image]
-    provider = "openai-compatible"
+[image] # 封面生图配置
+    provider = "openai-compatible" # 当前支持openai-compatible，使用OpenAI Images API兼容格式
     [image.openai]
-        base_url = ""
-        api_key = ""
-        model = "gpt-image-1"
+        base_url = "" # 生图接口base url，留空使用OpenAI官方接口；自定义转发站通常填写以/v1结尾的地址
+        api_key = "" # 生图API密钥
+        model = "gpt-image-1" # 生图模型，例如gpt-image-1，或转发站支持的兼容模型

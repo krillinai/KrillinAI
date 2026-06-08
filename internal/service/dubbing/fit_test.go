@@ -12,7 +12,7 @@ func TestFitTimelineProducesMonotonicTimesAndChunkSpeed(t *testing.T) {
 		{Index: 2, OriginalStart: 1.1, OriginalEnd: 2, SpokenText: "二", ActualDuration: 0.8, ChunkID: 1},
 	}
 	chunks := []Chunk{{ID: 1, Items: []int{0, 1}, Start: 0, End: 2.5}}
-	got, report, err := FitTimeline(plan, chunks, cfg)
+	got, _, report, err := FitTimeline(plan, chunks, cfg)
 	if err != nil {
 		t.Fatalf("FitTimeline() error = %v", err)
 	}
@@ -24,6 +24,32 @@ func TestFitTimelineProducesMonotonicTimesAndChunkSpeed(t *testing.T) {
 	}
 }
 
+func TestFitTimelineUsesChunkAudioAndEstimatedWeights(t *testing.T) {
+	cfg := DefaultConfig()
+	plan := []PlanItem{
+		{Index: 1, EstimatedDuration: 1, ChunkID: 1},
+		{Index: 2, EstimatedDuration: 3, ChunkID: 1},
+	}
+	chunks := []Chunk{{ID: 1, Items: []int{0, 1}, Start: 10, End: 15, ActualDuration: 4}}
+
+	got, _, report, err := FitTimeline(plan, chunks, cfg)
+	if err != nil {
+		t.Fatalf("FitTimeline() error = %v", err)
+	}
+	if got[0].NewStart != 10 || got[0].NewEnd != 11 {
+		t.Fatalf("first cue window = %.3f --> %.3f, want 10 --> 11", got[0].NewStart, got[0].NewEnd)
+	}
+	if got[1].NewStart != 11 || got[1].NewEnd != 14 {
+		t.Fatalf("second cue window = %.3f --> %.3f, want 11 --> 14", got[1].NewStart, got[1].NewEnd)
+	}
+	if got[0].SpeedFactor != 1 || got[1].SpeedFactor != 1 {
+		t.Fatalf("SpeedFactor = %.3f %.3f, want chunk speed 1", got[0].SpeedFactor, got[1].SpeedFactor)
+	}
+	if report.MaxSpeedFactor != 1 {
+		t.Fatalf("MaxSpeedFactor = %v, want 1", report.MaxSpeedFactor)
+	}
+}
+
 func TestFitTimelineClampsAppliedSpeedToMaxButReportsRequiredSpeed(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.SpeedMax = 1.25
@@ -32,7 +58,7 @@ func TestFitTimelineClampsAppliedSpeedToMaxButReportsRequiredSpeed(t *testing.T)
 		{Index: 1, ActualDuration: 4, ChunkID: 1},
 	}
 	chunks := []Chunk{{ID: 1, Items: []int{0}, Start: 0, End: 2}}
-	got, report, err := FitTimeline(plan, chunks, cfg)
+	got, _, report, err := FitTimeline(plan, chunks, cfg)
 	if err != nil {
 		t.Fatalf("FitTimeline() error = %v", err)
 	}
@@ -57,7 +83,7 @@ func TestFitTimelineRejectsNonPositiveActualDuration(t *testing.T) {
 		{Index: 8, ActualDuration: 0, ChunkID: 3},
 	}
 	chunks := []Chunk{{ID: 3, Items: []int{0, 1}, Start: 0, End: 1}}
-	_, _, err := FitTimeline(plan, chunks, cfg)
+	_, _, _, err := FitTimeline(plan, chunks, cfg)
 	if err == nil {
 		t.Fatal("FitTimeline() error = nil, want non-positive actual duration error")
 	}
@@ -76,7 +102,7 @@ func TestFitTimelineNormalizesZeroSpeedConfig(t *testing.T) {
 		{Index: 1, ActualDuration: 1.2, ChunkID: 1},
 	}
 	chunks := []Chunk{{ID: 1, Items: []int{0}, Start: 0, End: 1}}
-	got, report, err := FitTimeline(plan, chunks, cfg)
+	got, _, report, err := FitTimeline(plan, chunks, cfg)
 	if err != nil {
 		t.Fatalf("FitTimeline() error = %v", err)
 	}
@@ -97,7 +123,7 @@ func TestFitTimelineRejectsInvalidSpeedOrder(t *testing.T) {
 		{Index: 1, ActualDuration: 1, ChunkID: 1},
 	}
 	chunks := []Chunk{{ID: 1, Items: []int{0}, Start: 0, End: 1}}
-	_, _, err := FitTimeline(plan, chunks, cfg)
+	_, _, _, err := FitTimeline(plan, chunks, cfg)
 	if err == nil {
 		t.Fatal("FitTimeline() error = nil, want invalid speed config error")
 	}

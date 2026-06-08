@@ -6,6 +6,7 @@ import (
 	"krillin-ai/log"
 	"krillin-ai/pkg/aliyun"
 	"krillin-ai/pkg/fasterwhisper"
+	pkgimage "krillin-ai/pkg/image"
 	"krillin-ai/pkg/localtts"
 	"krillin-ai/pkg/openai"
 	"krillin-ai/pkg/whisper"
@@ -22,6 +23,7 @@ type Service struct {
 	OssClient          *aliyun.OssClient
 	VoiceCloneClient   *aliyun.VoiceCloneClient
 	YouTubeSubtitleSrv *YouTubeSubtitleService
+	ImageClient        *pkgimage.OpenAICompatibleClient
 }
 
 func NewService() *Service {
@@ -65,6 +67,7 @@ func NewService() *Service {
 		TtsClient:        ttsClient,
 		OssClient:        aliyun.NewOssClient(config.Conf.Transcribe.Aliyun.Oss.AccessKeyId, config.Conf.Transcribe.Aliyun.Oss.AccessKeySecret, config.Conf.Transcribe.Aliyun.Oss.Bucket),
 		VoiceCloneClient: aliyun.NewVoiceCloneClient(config.Conf.Tts.Aliyun.Speech.AccessKeyId, config.Conf.Tts.Aliyun.Speech.AccessKeySecret, config.Conf.Tts.Aliyun.Speech.AppKey),
+		ImageClient:      pkgimage.NewOpenAICompatibleClient(config.Conf.Image.Openai.BaseUrl, config.Conf.Image.Openai.ApiKey, config.Conf.Image.Openai.Model),
 	}
 	s.YouTubeSubtitleSrv = NewYouTubeSubtitleService()
 

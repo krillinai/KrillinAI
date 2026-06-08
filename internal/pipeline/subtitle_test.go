@@ -5,6 +5,7 @@ import (
 	"errors"
 	"krillin-ai/internal/service"
 	"krillin-ai/internal/types"
+	pkgimage "krillin-ai/pkg/image"
 	"testing"
 )
 
@@ -15,6 +16,9 @@ type fakeStageService struct {
 	prepareVTT        []bool
 	prepareEmbedTypes []string
 	lastSpeech        *types.SubtitleTaskStepParam
+	lastCoverPrompt   string
+	lastCoverSize     string
+	coverImageB64     string
 }
 
 func (f *fakeStageService) PrepareMedia(_ context.Context, p *types.SubtitleTaskStepParam) error {
@@ -51,6 +55,13 @@ func (f *fakeStageService) ProcessYouTubeSubtitle(context.Context, *service.Yout
 
 func (f *fakeStageService) RenderVideo(context.Context, service.RenderVideoRequest) (string, error) {
 	return "", nil
+}
+
+func (f *fakeStageService) GenerateCoverImage(_ context.Context, req pkgimage.GenerateRequest) (pkgimage.GenerateResult, error) {
+	f.calls = append(f.calls, "cover-image")
+	f.lastCoverPrompt = req.Prompt
+	f.lastCoverSize = req.Size
+	return pkgimage.GenerateResult{B64JSON: f.coverImageB64}, nil
 }
 
 func TestGenerateSubtitlesFallsBackToAudioWhenAnySourceFails(t *testing.T) {

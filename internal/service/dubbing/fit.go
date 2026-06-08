@@ -2,32 +2,28 @@ package dubbing
 
 import (
 	"fmt"
+	"strings"
 )
 
-func FitTimeline(plan []PlanItem, chunks []Chunk, cfg Config) ([]PlanItem, Report, error) {
+func FitTimeline(plan []PlanItem, chunks []Chunk, cfg Config) ([]PlanItem, []Chunk, Report, error) {
 	cfg = normalizeSpeedConfig(cfg)
 	if !(cfg.SpeedMin > 0 && cfg.SpeedMin <= cfg.SpeedAccept && cfg.SpeedAccept <= cfg.SpeedMax) {
-		return nil, Report{}, fmt.Errorf("invalid speed config: min %.2f accept %.2f max %.2f", cfg.SpeedMin, cfg.SpeedAccept, cfg.SpeedMax)
+		return nil, nil, Report{}, fmt.Errorf("invalid speed config: min %.2f accept %.2f max %.2f", cfg.SpeedMin, cfg.SpeedAccept, cfg.SpeedMax)
 	}
 
 	fitted := append([]PlanItem(nil), plan...)
+	fittedChunks := append([]Chunk(nil), chunks...)
 	report := Report{}
 
-	for _, chunk := range chunks {
+	for chunkIndex, chunk := range fittedChunks {
 		available := chunk.End - chunk.Start
 		if available <= 0 {
-			return nil, report, fmt.Errorf("chunk %d has non-positive duration: %.3f", chunk.ID, available)
+			return nil, nil, report, fmt.Errorf("chunk %d has non-positive duration: %.3f", chunk.ID, available)
 		}
 
-		actual := 0.0
-		for itemIndex, idx := range chunk.Items {
-			if idx < 0 || idx >= len(fitted) {
-				return nil, report, fmt.Errorf("chunk %d references plan item %d out of range", chunk.ID, idx)
-			}
-			if fitted[idx].ActualDuration <= 0 {
-				return nil, report, fmt.Errorf("chunk %d item %d references plan index %d with non-positive actual duration: %.3f", chunk.ID, itemIndex, idx, fitted[idx].ActualDuration)
-			}
-			actual += fitted[idx].ActualDuration
+		actual, err := chunkActualDuration(fitted, chunk)
+		if err != nil {
+			return nil, nil, report, err
 		}
 
 		speed := 1.0
@@ -50,13 +46,12 @@ func FitTimeline(plan []PlanItem, chunks []Chunk, cfg Config) ([]PlanItem, Repor
 		if appliedSpeed < cfg.SpeedMin {
 			appliedSpeed = cfg.SpeedMin
 		}
+		fittedChunks[chunkIndex].SpeedFactor = appliedSpeed
 
+		durations := allocateChunkDurations(fitted, chunk, actual, appliedSpeed)
 		cursor := chunk.Start
-		for _, idx := range chunk.Items {
-			duration := fitted[idx].ActualDuration
-			if appliedSpeed > 0 {
-				duration = duration / appliedSpeed
-			}
+		for i, idx := range chunk.Items {
+			duration := durations[i]
 			fitted[idx].NewStart = cursor
 			fitted[idx].NewEnd = cursor + duration
 			fitted[idx].SpeedFactor = appliedSpeed
@@ -68,7 +63,73 @@ func FitTimeline(plan []PlanItem, chunks []Chunk, cfg Config) ([]PlanItem, Repor
 		}
 	}
 
-	return fitted, report, nil
+	return fitted, fittedChunks, report, nil
+}
+
+func chunkActualDuration(plan []PlanItem, chunk Chunk) (float64, error) {
+	if chunk.ActualDuration > 0 {
+		for itemIndex, idx := range chunk.Items {
+			if idx < 0 || idx >= len(plan) {
+				return 0, fmt.Errorf("chunk %d references plan item %d out of range", chunk.ID, itemIndex)
+			}
+		}
+		return chunk.ActualDuration, nil
+	}
+
+	actual := 0.0
+	for itemIndex, idx := range chunk.Items {
+		if idx < 0 || idx >= len(plan) {
+			return 0, fmt.Errorf("chunk %d references plan item %d out of range", chunk.ID, itemIndex)
+		}
+		if plan[idx].ActualDuration <= 0 {
+			return 0, fmt.Errorf("chunk %d item %d references plan index %d with non-positive actual duration: %.3f", chunk.ID, itemIndex, idx, plan[idx].ActualDuration)
+		}
+		actual += plan[idx].ActualDuration
+	}
+	return actual, nil
+}
+
+func allocateChunkDurations(plan []PlanItem, chunk Chunk, actual, speed float64) []float64 {
+	durations := make([]float64, len(chunk.Items))
+	if len(chunk.Items) == 0 {
+		return durations
+	}
+	if speed <= 0 {
+		speed = 1
+	}
+
+	total := actual / speed
+	weights := make([]float64, len(chunk.Items))
+	weightSum := 0.0
+	useItemActual := chunk.ActualDuration <= 0
+	for i, idx := range chunk.Items {
+		weight := 0.0
+		if useItemActual {
+			weight = plan[idx].ActualDuration
+		}
+		if weight <= 0 {
+			weight = plan[idx].EstimatedDuration
+		}
+		if weight <= 0 {
+			weight = float64(len([]rune(strings.TrimSpace(plan[idx].SpokenText))))
+		}
+		if weight <= 0 {
+			weight = 1
+		}
+		weights[i] = weight
+		weightSum += weight
+	}
+	if weightSum <= 0 {
+		even := total / float64(len(durations))
+		for i := range durations {
+			durations[i] = even
+		}
+		return durations
+	}
+	for i, weight := range weights {
+		durations[i] = total * weight / weightSum
+	}
+	return durations
 }
 
 func normalizeSpeedConfig(cfg Config) Config {

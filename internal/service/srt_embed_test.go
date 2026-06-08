@@ -71,6 +71,35 @@ func TestVerticalAssKeepsChineseLineInSingleDialogueWithLineBreak(t *testing.T) 
 	}
 }
 
+func TestHorizontalAssKeepsSingleLineSubtitle(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "single-line.srt")
+	out := filepath.Join(dir, "single-line.ass")
+	content := "1\n00:00:00,840 --> 00:00:02,900\n我认为学习速记是一项技能\n\n"
+	if err := os.WriteFile(in, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := srtToAss(in, out, true, &types.SubtitleTaskStepParam{TaskBasePath: dir})
+	if err != nil {
+		t.Fatalf("srtToAss() error = %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ass := string(data)
+	if count := strings.Count(ass, "Dialogue:"); count != 1 {
+		t.Fatalf("Dialogue count = %d, want 1; ass = %s", count, ass)
+	}
+	if !strings.Contains(ass, "{\\an2}{\\rMajor}我认为学习速记是一项技能") {
+		t.Fatalf("single-line subtitle was not written as Major dialogue: %s", ass)
+	}
+	if strings.Contains(ass, "{\\rMinor}") {
+		t.Fatalf("single-line subtitle should not include Minor style: %s", ass)
+	}
+}
+
 func subtitleDisplayWidth(text string) int {
 	width := 0
 	for _, r := range text {
