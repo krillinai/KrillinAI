@@ -383,24 +383,19 @@ func dryRun(cmd Command) pipeline.Response {
 		if _, err := loadSubtitleStyleForCLI(cmd.Subtitle.SubtitleStyleFile); err != nil {
 			return styleLoadFailure(pipeline.StageSubtitle, cmd.Subtitle.Workdir, cmd.Subtitle.TaskID, err)
 		}
-		return dryRunManifest(cmd.Subtitle.Workdir, cmd.Subtitle.TaskID, pipeline.StageSubtitle, func(m *pipeline.Manifest) {
-			m.InputURL = cmd.Subtitle.Input
-			m.OriginLanguage = cmd.Subtitle.OriginLang
-			m.TargetLanguage = cmd.Subtitle.TargetLang
-			m.CaptionSource = string(cmd.Subtitle.CaptionSource)
-		})
+		return dryRunResponse(pipeline.StageSubtitle, cmd.Subtitle.Workdir, cmd.Subtitle.TaskID)
 	case "tts":
 		return dryRunManifest(cmd.TTS.Workdir, cmd.TTS.TaskID, pipeline.StageTTS, nil)
 	case "render-horizontal":
 		if _, err := loadSubtitleStyleForCLI(cmd.Render.SubtitleStyleFile); err != nil {
 			return styleLoadFailure(pipeline.StageRenderHorizontal, cmd.Render.Workdir, cmd.Render.TaskID, err)
 		}
-		return dryRunManifest(cmd.Render.Workdir, cmd.Render.TaskID, pipeline.StageRenderHorizontal, nil)
+		return dryRunResponse(pipeline.StageRenderHorizontal, cmd.Render.Workdir, cmd.Render.TaskID)
 	case "render-vertical":
 		if _, err := loadSubtitleStyleForCLI(cmd.Render.SubtitleStyleFile); err != nil {
 			return styleLoadFailure(pipeline.StageRenderVertical, cmd.Render.Workdir, cmd.Render.TaskID, err)
 		}
-		return dryRunManifest(cmd.Render.Workdir, cmd.Render.TaskID, pipeline.StageRenderVertical, nil)
+		return dryRunResponse(pipeline.StageRenderVertical, cmd.Render.Workdir, cmd.Render.TaskID)
 	case "cover":
 		return dryRunManifest(cmd.Cover.Workdir, cmd.Cover.TaskID, pipeline.StageCover, func(m *pipeline.Manifest) {
 			m.Outputs.FinalCoverPrompt = m.Outputs.FinalCoverPrompt
@@ -416,6 +411,15 @@ func dryRun(cmd Command) pipeline.Response {
 				Message: fmt.Sprintf("unsupported dry-run command: %s", cmd.Name),
 			},
 		}
+	}
+}
+
+func dryRunResponse(stage pipeline.Stage, workdir, taskID string) pipeline.Response {
+	return pipeline.Response{
+		OK:      true,
+		Stage:   stage,
+		Workdir: workdir,
+		TaskID:  taskID,
 	}
 }
 

@@ -229,4 +229,8 @@ func TestExecuteDryRunRenderLoadsSubtitleStyleFile(t *testing.T) {
 	if !resp.OK {
 		t.Fatalf("OK = false, error = %#v", resp.Error)
 	}
+	manifestPath := filepath.Join(dir, "krillinai_manifest.json")
+	if _, err := os.Stat(manifestPath); !os.IsNotExist(err) {
+		t.Fatalf("manifest exists after dry-run: err = %v", err)
+	}
 }
