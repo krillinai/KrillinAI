@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -77,6 +78,13 @@ func Decode(data []byte, source string) (*StyleSet, error) {
 	if err := decoder.Decode(&set); err != nil {
 		return nil, fmt.Errorf("%s: %w", source, err)
 	}
+	var extra json.RawMessage
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err != nil {
+			return nil, fmt.Errorf("%s: trailing JSON: %w", source, err)
+		}
+		return nil, fmt.Errorf("%s: trailing JSON after style object", source)
+	}
 	if err := Validate(&set); err != nil {
 		return nil, fmt.Errorf("%s: %w", source, err)
 	}
@@ -85,7 +93,7 @@ func Decode(data []byte, source string) (*StyleSet, error) {
 
 func Merge(base, override *StyleSet) (*StyleSet, error) {
 	if base == nil {
-		base = &StyleSet{}
+		base = DefaultStyleSet()
 	}
 	merged := cloneStyleSet(base)
 	if override != nil {
@@ -231,10 +239,10 @@ func assStyleLine(style Style, fallbackName string) string {
 	}
 	name := valueOr(style.Name, fallbackName)
 	fontName := valueOr(style.FontName, "Arial")
-	primary := normalizeOrDefault(style.PrimaryColor, "&H0000BFFF")
-	secondary := normalizeOrDefault(style.SecondaryColor, "&H000000FF")
-	outlineColor := normalizeOrDefault(style.OutlineColor, "&H00000000")
-	backColor := normalizeOrDefault(style.BackColor, "&H64000000")
+	primary := normalizeColorOrEmptyDefault("primary_color", style.PrimaryColor, "&H0000BFFF")
+	secondary := normalizeColorOrEmptyDefault("secondary_color", style.SecondaryColor, "&H000000FF")
+	outlineColor := normalizeColorOrEmptyDefault("outline_color", style.OutlineColor, "&H00000000")
+	backColor := normalizeColorOrEmptyDefault("back_color", style.BackColor, "&H64000000")
 	return fmt.Sprintf("Style: %s,%s,%d,%s,%s,%s,%s,%d,%d,%d,%d,%d,%d,%s,%s,%d,%s,%s,%d,%d,%d,%d,%d",
 		name,
 		fontName,
@@ -367,6 +375,24 @@ func validateStyle(path string, style Style) error {
 	if err := validateRawASSStyle(path+".raw_ass_style", style.RawASSStyle); err != nil {
 		return err
 	}
+	if err := validateASSFieldString(path+".name", style.Name); err != nil {
+		return err
+	}
+	if err := validateASSFieldString(path+".font_name", style.FontName); err != nil {
+		return err
+	}
+	if err := validateColor(path+".primary_color", style.PrimaryColor); err != nil {
+		return err
+	}
+	if err := validateColor(path+".secondary_color", style.SecondaryColor); err != nil {
+		return err
+	}
+	if err := validateColor(path+".outline_color", style.OutlineColor); err != nil {
+		return err
+	}
+	if err := validateColor(path+".back_color", style.BackColor); err != nil {
+		return err
+	}
 	if err := validateInt(path+".font_size", style.FontSize, 1, 200); err != nil {
 		return err
 	}
@@ -408,7 +434,27 @@ func validateRawASSStyle(path, raw string) error {
 		return fmt.Errorf("%s must start with \"Style: \"", path)
 	}
 	if len(strings.Split(raw, ",")) != 23 {
-		return fmt.Errorf("%s must contain 23 comma-separated fields", path)
+		return fmt.Errorf("%s must be a complete simple Style line with 23 comma-separated fields; escaped commas are not supported", path)
+	}
+	return nil
+}
+
+func validateColor(path, value string) error {
+	if value == "" {
+		return nil
+	}
+	if _, err := NormalizeASSColor(value); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	return nil
+}
+
+func validateASSFieldString(path, value string) error {
+	if value == "" {
+		return nil
+	}
+	if strings.ContainsAny(value, ",\n\r") {
+		return fmt.Errorf("%s must not contain comma, newline, or carriage return", path)
 	}
 	return nil
 }
@@ -450,10 +496,13 @@ func cloneStyle(style Style) Style {
 	return mergeStyle(Style{}, style)
 }
 
-func normalizeOrDefault(input, fallback string) string {
+func normalizeColorOrEmptyDefault(path, input, fallback string) string {
+	if input == "" {
+		return fallback
+	}
 	normalized, err := NormalizeASSColor(input)
 	if err != nil {
-		return fallback
+		panic(fmt.Sprintf("%s: invalid style color reached ASS generation: %v", path, err))
 	}
 	return normalized
 }
