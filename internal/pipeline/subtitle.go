@@ -13,16 +13,17 @@ import (
 const defaultSubtitleMaxWordOneLine = 12
 
 type SubtitleRequest struct {
-	Input          string
-	Workdir        string
-	TaskID         string
-	OriginLang     string
-	TargetLang     string
-	UserLang       string
-	CaptionSource  CaptionSource
-	BilingualTop   bool
-	MaxWordOneLine int
-	SubtitleStyle  *subtitlestyle.StyleSet
+	Input             string
+	Workdir           string
+	TaskID            string
+	OriginLang        string
+	TargetLang        string
+	UserLang          string
+	CaptionSource     CaptionSource
+	BilingualTop      bool
+	MaxWordOneLine    int
+	SubtitleStyleFile string
+	SubtitleStyle     *subtitlestyle.StyleSet
 }
 
 func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleRequest) (Response, error) {
