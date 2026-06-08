@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "horizontal": {
+    "major": {
+      "font_name": "Arial",
+      "font_size": 18,
+      "primary_color": "#FFFFFF",
+      "outline_color": "#050505",
+      "back_color": "&H64000000",
+      "bold": true,
+      "outline": 3.6,
+      "shadow": 1.2,
+      "alignment": 2,
+      "margin_v": 44,
+      "fade_in_ms": 120,
+      "fade_out_ms": 120,
+      "override_tags": "\\blur0.6"
+    },
+    "minor": {
+      "font_name": "Arial",
+      "font_size": 12,
+      "primary_color": "#00E5FF",
+      "outline_color": "#050505",
+      "back_color": "&H64000000",
+      "bold": true,
+      "outline": 2.8,
+      "shadow": 1,
+      "alignment": 2,
+      "margin_v": 24,
+      "fade_in_ms": 90,
+      "fade_out_ms": 90,
+      "override_tags": "\\blur0.4"
+    }
+  },
+  "vertical": {
+    "major": {
+      "font_name": "Arial",
+      "font_size": 15,
+      "primary_color": "#FFFFFF",
+      "outline_color": "#050505",
+      "back_color": "&H64000000",
+      "bold": true,
+      "outline": 3.2,
+      "shadow": 1.1,
+      "alignment": 2,
+      "margin_v": 90,
+      "fade_in_ms": 100,
+      "fade_out_ms": 100,
+      "override_tags": "\\blur0.5"
+    },
+    "minor": {
+      "font_name": "Arial",
+      "font_size": 9,
+      "primary_color": "#00E5FF",
+      "outline_color": "#050505",
+      "back_color": "&H64000000",
+      "bold": true,
+      "outline": 2.4,
+      "shadow": 0.8,
+      "alignment": 2,
+      "margin_v": 104,
+      "fade_in_ms": 80,
+      "fade_out_ms": 80,
+      "override_tags": "\\blur0.35"
+    }
+  }
+}
