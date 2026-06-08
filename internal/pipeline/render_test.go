@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"krillin-ai/internal/service"
+	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,6 +42,31 @@ func TestRenderHorizontalDubbedOutputName(t *testing.T) {
 	}
 	if !strings.HasSuffix(fake.lastRender.OutputFile, "horizontal_dubbed.mp4") {
 		t.Fatalf("OutputFile = %q, want horizontal_dubbed.mp4 suffix", fake.lastRender.OutputFile)
+	}
+}
+
+func TestRenderPassesSubtitleStyleToService(t *testing.T) {
+	dir := t.TempDir()
+	fake := &renderFakeService{}
+	style := subtitlestyle.DefaultStyleSet()
+	req := RenderRequest{
+		Workdir:       dir,
+		TaskID:        "demo",
+		Video:         "origin_video.mp4",
+		Subtitle:      "bilingual_srt.srt",
+		Horizontal:    true,
+		SubtitleStyle: style,
+	}
+
+	resp, err := Render(context.Background(), fake, req)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("OK = false, want true")
+	}
+	if fake.lastRender.StepParam == nil || fake.lastRender.StepParam.SubtitleStyle != style {
+		t.Fatalf("SubtitleStyle was not passed to service")
 	}
 }
 

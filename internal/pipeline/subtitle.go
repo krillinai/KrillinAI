@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"krillin-ai/internal/service"
+	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"krillin-ai/internal/types"
 	"os"
 	"strings"
@@ -21,6 +22,7 @@ type SubtitleRequest struct {
 	CaptionSource  CaptionSource
 	BilingualTop   bool
 	MaxWordOneLine int
+	SubtitleStyle  *subtitlestyle.StyleSet
 }
 
 func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleRequest) (Response, error) {
@@ -120,6 +122,7 @@ func subtitleStepParam(req SubtitleRequest) *types.SubtitleTaskStepParam {
 		MaxWordOneLine:         maxWordOneLine,
 		VttSwitch:              isYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper,
 		EmbedSubtitleVideoType: "none",
+		SubtitleStyle:          req.SubtitleStyle,
 	}
 }
 
