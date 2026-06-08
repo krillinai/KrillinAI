@@ -166,6 +166,20 @@ func TestParseCoverCommandHelp(t *testing.T) {
 	}
 }
 
+func TestHelpDryRunTextDoesNotClaimManifestWrites(t *testing.T) {
+	commands := []string{"subtitle", "tts", "render-horizontal", "render-vertical", "cover"}
+	for _, name := range commands {
+		cmd, err := Parse([]string{name, "--help"})
+		if err != nil {
+			t.Fatalf("Parse(%s --help) error = %v", name, err)
+		}
+		help := Help(cmd)
+		if strings.Contains(help, "write manifest") {
+			t.Fatalf("%s help still claims dry-run writes manifest:\n%s", name, help)
+		}
+	}
+}
+
 func TestExecuteDryRunSubtitleReturnsJSONReadyResponse(t *testing.T) {
 	cmd, err := Parse([]string{
 		"subtitle",
