@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"krillin-ai/internal/service"
+	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"krillin-ai/internal/types"
 	pkgimage "krillin-ai/pkg/image"
 	"testing"
@@ -15,6 +16,7 @@ type fakeStageService struct {
 	calls             []string
 	prepareVTT        []bool
 	prepareEmbedTypes []string
+	lastPrepare       *types.SubtitleTaskStepParam
 	lastSpeech        *types.SubtitleTaskStepParam
 	lastCoverPrompt   string
 	lastCoverSize     string
@@ -25,6 +27,7 @@ func (f *fakeStageService) PrepareMedia(_ context.Context, p *types.SubtitleTask
 	f.calls = append(f.calls, "prepare")
 	f.prepareVTT = append(f.prepareVTT, p.VttSwitch)
 	f.prepareEmbedTypes = append(f.prepareEmbedTypes, p.EmbedSubtitleVideoType)
+	f.lastPrepare = p
 	return nil
 }
 
@@ -87,6 +90,32 @@ func TestGenerateSubtitlesFallsBackToAudioWhenAnySourceFails(t *testing.T) {
 	}
 	if got := fake.prepareVTT; len(got) != 2 || got[0] != true || got[1] != false {
 		t.Fatalf("prepare VttSwitch values = %v, want [true false]", got)
+	}
+}
+
+func TestGenerateSubtitlesPassesSubtitleStyleToStepParam(t *testing.T) {
+	dir := t.TempDir()
+	fake := &fakeStageService{}
+	style := subtitlestyle.DefaultStyleSet()
+	req := SubtitleRequest{
+		Input:         "local:demo.mp4",
+		Workdir:       dir,
+		TaskID:        "demo",
+		OriginLang:    "en",
+		TargetLang:    "zh_cn",
+		CaptionSource: CaptionSourceWhisper,
+		SubtitleStyle: style,
+	}
+
+	resp, err := GenerateSubtitles(context.Background(), fake, req)
+	if err != nil {
+		t.Fatalf("GenerateSubtitles() error = %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("OK = false, want true")
+	}
+	if fake.lastPrepare == nil || fake.lastPrepare.SubtitleStyle != style {
+		t.Fatalf("SubtitleStyle was not passed to stepParam")
 	}
 }
 

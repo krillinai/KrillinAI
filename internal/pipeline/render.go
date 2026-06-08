@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"krillin-ai/internal/service"
+	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"krillin-ai/internal/types"
 	"os"
 	"path/filepath"
@@ -19,6 +20,7 @@ type RenderRequest struct {
 	Dubbed     bool
 	MajorTitle string
 	MinorTitle string
+	SubtitleStyle *subtitlestyle.StyleSet
 }
 
 func Render(ctx context.Context, svc StageService, req RenderRequest) (Response, error) {
@@ -46,6 +48,7 @@ func Render(ctx context.Context, svc StageService, req RenderRequest) (Response,
 		TtsResultFilePath:       manifest.Outputs.TTSAudio,
 		VerticalVideoMajorTitle: req.MajorTitle,
 		VerticalVideoMinorTitle: req.MinorTitle,
+		SubtitleStyle:           req.SubtitleStyle,
 	}
 	rendered, err := svc.RenderVideo(ctx, service.RenderVideoRequest{
 		Workdir:      req.Workdir,
