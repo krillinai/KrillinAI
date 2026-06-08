@@ -76,6 +76,64 @@ func TestMergeKeepsDefaultsForMissingFields(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsInvalidColorWithFieldPath(t *testing.T) {
+	style := DefaultStyleSet()
+	style.Horizontal.Major.PrimaryColor = "not-a-color"
+
+	err := Validate(style)
+	if err == nil {
+		t.Fatal("Validate() error = nil, want invalid color error")
+	}
+	if !strings.Contains(err.Error(), "horizontal.major.primary_color") {
+		t.Fatalf("error = %v, want field path containing primary_color", err)
+	}
+}
+
+func TestDecodeRejectsTrailingJSON(t *testing.T) {
+	_, err := Decode([]byte(`{"horizontal":{"major":{"primary_color":"#FFFFFF"}}} {"vertical":{}}`), "style.json")
+	if err == nil {
+		t.Fatal("Decode() error = nil, want trailing JSON error")
+	}
+	if !strings.Contains(err.Error(), "trailing") {
+		t.Fatalf("error = %v, want trailing JSON error", err)
+	}
+}
+
+func TestValidateRejectsUnsafeFontName(t *testing.T) {
+	style := DefaultStyleSet()
+	style.Horizontal.Major.FontName = "Arial,Injected"
+
+	err := Validate(style)
+	if err == nil {
+		t.Fatal("Validate() error = nil, want invalid font_name error")
+	}
+	if !strings.Contains(err.Error(), "horizontal.major.font_name") {
+		t.Fatalf("error = %v, want field path containing font_name", err)
+	}
+}
+
+func TestMergeNilBaseUsesDefaults(t *testing.T) {
+	override := &StyleSet{
+		Horizontal: ScreenStyle{
+			Major: Style{PrimaryColor: "#FFFFFF"},
+		},
+	}
+
+	got, err := Merge(nil, override)
+	if err != nil {
+		t.Fatalf("Merge(nil, override) error = %v", err)
+	}
+	if got.Horizontal.Major.PrimaryColor != "#FFFFFF" {
+		t.Fatalf("primary color = %q, want override", got.Horizontal.Major.PrimaryColor)
+	}
+	if got.Vertical.Minor.MarginV == nil || *got.Vertical.Minor.MarginV != 101 {
+		t.Fatalf("vertical minor margin not inherited from defaults: %#v", got.Vertical.Minor.MarginV)
+	}
+	if got.Vertical.Major.Outline == nil || *got.Vertical.Major.Outline != 2.2 {
+		t.Fatalf("vertical major outline not inherited from defaults: %#v", got.Vertical.Major.Outline)
+	}
+}
+
 func TestRawStyleAndDialogueTags(t *testing.T) {
 	style := DefaultStyleSet()
 	style.Horizontal.Major.RawASSStyle = "Style: Major,Arial,30,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,4,2,2,20,20,40,1"
