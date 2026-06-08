@@ -1,5 +1,7 @@
 package types
 
+import subtitlestyle "krillin-ai/internal/subtitle_style"
+
 // var SplitTextPrompt = `你是一个英语处理专家，擅长翻译成%s和处理英文文本，根据句意和标点对句子进行拆分。
 
 // - 不要漏掉原英文任何一个单词
@@ -348,9 +350,10 @@ type SubtitleTaskStepParam struct {
 	EmbedSubtitleVideoType      string // 合成字幕嵌入的视频类型 none不嵌入 horizontal横屏 vertical竖屏
 	VerticalVideoMajorTitle     string // 合成竖屏视频的主标题
 	VerticalVideoMinorTitle     string
-	MaxWordOneLine              int    // 字幕一行最多显示多少个字
-	VideoWithTtsFilePath        string // 替换源视频的音频为tts结果后的视频路径
-	VttSwitch                   bool   // 是否使用VTT格式字幕文件
+	MaxWordOneLine              int                     // 字幕一行最多显示多少个字
+	VideoWithTtsFilePath        string                  // 替换源视频的音频为tts结果后的视频路径
+	VttSwitch                   bool                    // 是否使用VTT格式字幕文件
+	SubtitleStyle               *subtitlestyle.StyleSet // CLI/Agent 传入的字幕样式；nil 时使用默认样式
 }
 
 type SrtSentence struct {

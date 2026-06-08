@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"krillin-ai/internal/storage"
+	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
@@ -387,9 +388,21 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 	}
 	defer assFile.Close()
 	scanner := bufio.NewScanner(file)
+	styleSet := subtitlestyle.DefaultStyleSet()
+	if stepParam != nil && stepParam.SubtitleStyle != nil {
+		styleSet = stepParam.SubtitleStyle
+	}
+	screenStyle := styleSet.Vertical
+	if isHorizontal {
+		screenStyle = styleSet.Horizontal
+	}
 
 	if isHorizontal {
-		_, _ = assFile.WriteString(types.AssHeaderHorizontal)
+		_, _ = assFile.WriteString(subtitlestyle.BuildAssHeader(styleSet, isHorizontal))
+		majorTags := subtitlestyle.DialogueTags(screenStyle.Major)
+		minorTags := subtitlestyle.DialogueTags(screenStyle.Minor)
+		majorAlignment := subtitlestyle.Alignment(screenStyle.Major)
+		minorAlignment := subtitlestyle.Alignment(screenStyle.Minor)
 		for scanner.Scan() {
 			line := scanner.Text()
 			if line == "" {
@@ -443,16 +456,18 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 			startFormatted := formatTimestamp(startTime)
 			endFormatted := formatTimestamp(endTime)
 			if len(subtitleLines) == 1 {
-				combinedText := fmt.Sprintf("{\\an2}{\\rMajor}%s", util.CleanPunction(subtitleLines[0]))
+				combinedText := fmt.Sprintf("%s{\\an%d}{\\rMajor}%s", majorTags, majorAlignment, util.CleanPunction(subtitleLines[0]))
 				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 				continue
 			}
-			combinedText := fmt.Sprintf("{\\an2}{\\rMajor}%s\\N{\\rMinor}%s", subtitleLines[0], util.CleanPunction(subtitleLines[1]))
+			combinedText := fmt.Sprintf("%s{\\an%d}{\\rMajor}%s\\N%s{\\an%d}{\\rMinor}%s",
+				majorTags, majorAlignment, subtitleLines[0],
+				minorTags, minorAlignment, util.CleanPunction(subtitleLines[1]))
 			_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 		}
 	} else {
 		// TODO 竖屏拆分调优
-		_, _ = assFile.WriteString(types.AssHeaderVertical)
+		_, _ = assFile.WriteString(subtitlestyle.BuildAssHeader(styleSet, isHorizontal))
 		for scanner.Scan() {
 			line := scanner.Text()
 			if line == "" {
@@ -497,7 +512,10 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 					}
 					startFormatted := formatTimestamp(iStart)
 					endFormatted := formatTimestamp(iEnd)
-					combinedText := fmt.Sprintf("{\\an2}{\\rMajor}%s", line)
+					combinedText := fmt.Sprintf("%s{\\an%d}{\\rMajor}%s",
+						subtitlestyle.DialogueTags(screenStyle.Major),
+						subtitlestyle.Alignment(screenStyle.Major),
+						line)
 					_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 				}
 			} else {
@@ -505,7 +523,10 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 				startFormatted := formatTimestamp(startTime)
 				endFormatted := formatTimestamp(endTime)
 				cleanedText := util.CleanPunction(content)
-				combinedText := fmt.Sprintf("{\\an2}{\\rMinor}%s", cleanedText)
+				combinedText := fmt.Sprintf("%s{\\an%d}{\\rMinor}%s",
+					subtitlestyle.DialogueTags(screenStyle.Minor),
+					subtitlestyle.Alignment(screenStyle.Minor),
+					cleanedText)
 				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Minor,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 			}
 		}
