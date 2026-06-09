@@ -5,6 +5,7 @@ import (
 	"krillin-ai/config"
 	"krillin-ai/log"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -12,9 +13,18 @@ import (
 )
 
 func Test_isValidSplitContent(t *testing.T) {
-	// 固定的测试文件路径
-	splitContentFile := "g:\\bin\\AI\\tasks\\gdQRrtQP\\srt_no_ts_1.srt"
-	originalTextFile := "g:\\bin\\AI\\tasks\\gdQRrtQP\\output\\origin_1.txt"
+	dir := t.TempDir()
+	splitContentFile := filepath.Join(dir, "srt_no_ts_1.srt")
+	originalTextFile := filepath.Join(dir, "origin_1.txt")
+	splitContentFixture := "1\n[学习速记是一项技能]\n[learning shorthand is a skill]\n\n2\n[它能够改变你的人生]\n[that could change your life]\n"
+	originalTextFixture := "learning shorthand is a skillthat could change your life"
+
+	if err := os.WriteFile(splitContentFile, []byte(splitContentFixture), 0o600); err != nil {
+		t.Fatalf("写入分割内容测试文件失败: %v", err)
+	}
+	if err := os.WriteFile(originalTextFile, []byte(originalTextFixture), 0o600); err != nil {
+		t.Fatalf("写入原始文本测试文件失败: %v", err)
+	}
 
 	// 读取分割内容文件
 	splitContent, err := os.ReadFile(splitContentFile)
