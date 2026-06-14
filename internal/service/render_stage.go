@@ -20,6 +20,8 @@ type RenderVideoRequest struct {
 	StepParam    *types.SubtitleTaskStepParam
 }
 
+type resolutionProbe func(inputVideo string) (int, int, error)
+
 func (s Service) RenderVideo(ctx context.Context, req RenderVideoRequest) (string, error) {
 	return renderSubtitleFile(ctx, req)
 }
@@ -62,19 +64,13 @@ func renderSubtitleFile(ctx context.Context, req RenderVideoRequest) (string, er
 		stepParam = &types.SubtitleTaskStepParam{TaskBasePath: req.Workdir}
 		req.StepParam = stepParam
 	}
-	if err := srtToAss(req.SubtitleFile, assPath, req.Horizontal, stepParam); err != nil {
-		return "", fmt.Errorf("renderSubtitleFile srtToAss error: %w", err)
+	preparedReq, err := prepareSubtitleRenderLayout(req, getResolution, convertToVertical)
+	if err != nil {
+		return "", fmt.Errorf("renderSubtitleFile prepare subtitle layout error: %w", err)
 	}
-	if !req.Horizontal {
-		width, height, err := getResolution(req.InputVideo)
-		if err != nil {
-			return "", fmt.Errorf("renderSubtitleFile getResolution error: %w", err)
-		}
-		inputVideo, err := prepareRenderVideoInput(req, width, height, convertToVertical)
-		if err != nil {
-			return "", fmt.Errorf("renderSubtitleFile prepare vertical input error: %w", err)
-		}
-		req.InputVideo = inputVideo
+	req = preparedReq
+	if err := srtToAss(req.SubtitleFile, assPath, req.Horizontal, req.StepParam); err != nil {
+		return "", fmt.Errorf("renderSubtitleFile srtToAss error: %w", err)
 	}
 	args, _ := buildEmbedSubtitleArgs(req)
 	cmd := exec.CommandContext(ctx, storage.FfmpegPath, args...)
@@ -86,6 +82,29 @@ func renderSubtitleFile(ctx context.Context, req RenderVideoRequest) (string, er
 }
 
 type verticalConverter func(inputVideo, outputVideo, majorTitle, minorTitle string) error
+
+func prepareSubtitleRenderLayout(req RenderVideoRequest, probe resolutionProbe, convert verticalConverter) (RenderVideoRequest, error) {
+	if req.StepParam == nil {
+		req.StepParam = &types.SubtitleTaskStepParam{TaskBasePath: req.Workdir}
+	}
+	width, height, err := probe(req.InputVideo)
+	if err != nil {
+		return req, fmt.Errorf("get resolution error: %w", err)
+	}
+	if !req.Horizontal {
+		inputVideo, err := prepareRenderVideoInput(req, width, height, convert)
+		if err != nil {
+			return req, fmt.Errorf("prepare vertical input error: %w", err)
+		}
+		req.InputVideo = inputVideo
+		if width > height {
+			width, height = 720, 1280
+		}
+	}
+	req.StepParam.RenderWidth = width
+	req.StepParam.RenderHeight = height
+	return req, nil
+}
 
 func prepareRenderVideoInput(req RenderVideoRequest, width, height int, convert verticalConverter) (string, error) {
 	if req.Horizontal || width <= height {

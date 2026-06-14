@@ -85,6 +85,59 @@ func TestPrepareRenderVideoInputConvertsHorizontalVerticalRequest(t *testing.T) 
 	}
 }
 
+func TestPrepareSubtitleRenderLayoutSetsHorizontalDimensions(t *testing.T) {
+	req := RenderVideoRequest{
+		InputVideo: "tasks/demo/origin_video.mp4",
+		Horizontal: true,
+		StepParam:  &types.SubtitleTaskStepParam{},
+	}
+
+	got, err := prepareSubtitleRenderLayout(req, func(input string) (int, int, error) {
+		if input != req.InputVideo {
+			t.Fatalf("probe input = %q, want %q", input, req.InputVideo)
+		}
+		return 1920, 1080, nil
+	}, func(input, output, majorTitle, minorTitle string) error {
+		t.Fatal("horizontal render should not convert video")
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("prepareSubtitleRenderLayout() error = %v", err)
+	}
+	if got.StepParam.RenderWidth != 1920 || got.StepParam.RenderHeight != 1080 {
+		t.Fatalf("Render dimensions = %dx%d, want 1920x1080", got.StepParam.RenderWidth, got.StepParam.RenderHeight)
+	}
+	if got.InputVideo != req.InputVideo {
+		t.Fatalf("InputVideo = %q, want %q", got.InputVideo, req.InputVideo)
+	}
+}
+
+func TestPrepareSubtitleRenderLayoutSetsConvertedVerticalDimensions(t *testing.T) {
+	workdir := filepath.Join("tasks", "demo")
+	req := RenderVideoRequest{
+		Workdir:    workdir,
+		InputVideo: filepath.Join(workdir, "origin_video.mp4"),
+		Horizontal: false,
+		StepParam:  &types.SubtitleTaskStepParam{TaskBasePath: workdir},
+	}
+
+	got, err := prepareSubtitleRenderLayout(req, func(input string) (int, int, error) {
+		return 1280, 720, nil
+	}, func(input, output, majorTitle, minorTitle string) error {
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("prepareSubtitleRenderLayout() error = %v", err)
+	}
+	wantInput := filepath.Join(workdir, types.SubtitleTaskTransferredVerticalVideoFileName)
+	if got.InputVideo != wantInput {
+		t.Fatalf("InputVideo = %q, want converted vertical path %q", got.InputVideo, wantInput)
+	}
+	if got.StepParam.RenderWidth != 720 || got.StepParam.RenderHeight != 1280 {
+		t.Fatalf("Render dimensions = %dx%d, want 720x1280", got.StepParam.RenderWidth, got.StepParam.RenderHeight)
+	}
+}
+
 func TestGetFontPathsUsesChineseCapableFontsOnDarwin(t *testing.T) {
 	bold, regular, err := fontPathsForOS("darwin", func(path string) bool {
 		return strings.Contains(path, "Hiragino Sans GB")

@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/go-ego/gse"
 	"go.uber.org/zap"
@@ -32,7 +33,12 @@ var (
 	chineseSegmenterErr  error
 )
 
-const verticalChineseMaxRunesPerLine = 18
+const (
+	verticalChineseMaxRunesPerLine = 18
+	assDefaultPlayResX             = 384
+	assDefaultPlayResY             = 288
+	subtitleWrapSafetyRatio        = 0.92
+)
 
 func (s Service) embedSubtitles(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	var err error
@@ -230,6 +236,306 @@ func subtitleTextDisplayWidth(text string) int {
 		}
 	}
 	return width
+}
+
+type subtitleWrapConfig struct {
+	maxLineWidth float64
+	fontSize     float64
+	scaleX       float64
+	spacing      float64
+}
+
+func newSubtitleWrapConfig(style subtitlestyle.Style, stepParam *types.SubtitleTaskStepParam) subtitleWrapConfig {
+	width := assDefaultPlayResX
+	if stepParam != nil && stepParam.RenderWidth > 0 && stepParam.RenderHeight > 0 {
+		scale := math.Min(float64(assDefaultPlayResX)/float64(stepParam.RenderWidth), float64(assDefaultPlayResY)/float64(stepParam.RenderHeight))
+		width = int(math.Floor(float64(stepParam.RenderWidth) * scale))
+		if width < 1 {
+			width = assDefaultPlayResX
+		}
+	}
+
+	fontSize := float64(styleIntValue(style.FontSize, 14))
+	marginL := float64(styleIntValue(style.MarginL, 10))
+	marginR := float64(styleIntValue(style.MarginR, 10))
+	maxLineWidth := (float64(width) - marginL - marginR) * subtitleWrapSafetyRatio
+	if maxLineWidth < fontSize {
+		maxLineWidth = fontSize
+	}
+
+	return subtitleWrapConfig{
+		maxLineWidth: maxLineWidth,
+		fontSize:     fontSize,
+		scaleX:       float64(styleIntValue(style.ScaleX, 100)) / 100,
+		spacing:      styleFloatValue(style.Spacing, 0),
+	}
+}
+
+func styleIntValue(value *int, fallback int) int {
+	if value == nil {
+		return fallback
+	}
+	return *value
+}
+
+func styleFloatValue(value *float64, fallback float64) float64 {
+	if value == nil {
+		return fallback
+	}
+	return *value
+}
+
+func wrapSubtitleForASS(text string, style subtitlestyle.Style, stepParam *types.SubtitleTaskStepParam) []string {
+	text = util.CleanPunction(strings.TrimSpace(text))
+	if text == "" {
+		return nil
+	}
+	config := newSubtitleWrapConfig(style, stepParam)
+	if estimateSubtitleTextWidth(text, config) <= config.maxLineWidth {
+		return []string{text}
+	}
+	if containsCJKOrThai(text) {
+		return wrapCJKSubtitle(text, config)
+	}
+	return []string{text}
+}
+
+func wrapVerticalChineseSubtitleForASS(text string, style subtitlestyle.Style, stepParam *types.SubtitleTaskStepParam) []string {
+	config := newSubtitleWrapConfig(style, stepParam)
+	legacyMaxWidth := config.fontSize * float64(verticalChineseMaxRunesPerLine)
+	if legacyMaxWidth > 0 && legacyMaxWidth < config.maxLineWidth {
+		config.maxLineWidth = legacyMaxWidth
+	}
+	text = util.CleanPunction(strings.TrimSpace(text))
+	if text == "" {
+		return nil
+	}
+	if estimateSubtitleTextWidth(text, config) <= config.maxLineWidth {
+		return []string{text}
+	}
+	return wrapCJKSubtitle(text, config)
+}
+
+func joinASSLines(lines []string) string {
+	return strings.Join(lines, `\N`)
+}
+
+func wrapCJKSubtitle(text string, config subtitleWrapConfig) []string {
+	tokens := []string{}
+	if containsChinese(text) {
+		tokens = segmentChineseText(text)
+	}
+	if len(tokens) == 0 {
+		for _, r := range text {
+			tokens = append(tokens, string(r))
+		}
+	}
+
+	var lines []string
+	var current strings.Builder
+	currentWidth := 0.0
+	for _, token := range tokens {
+		tokenWidth := estimateSubtitleTextWidth(token, config)
+		if tokenWidth > config.maxLineWidth {
+			if current.Len() > 0 {
+				lines = append(lines, util.CleanPunction(current.String()))
+				current.Reset()
+				currentWidth = 0
+			}
+			chunks := wrapCJKRunesByWidth(token, config)
+			if len(chunks) == 0 {
+				continue
+			}
+			if len(chunks) > 1 {
+				lines = append(lines, chunks[:len(chunks)-1]...)
+			}
+			lastChunk := chunks[len(chunks)-1]
+			current.WriteString(lastChunk)
+			currentWidth = estimateSubtitleTextWidth(lastChunk, config)
+			continue
+		}
+		if !isTrailingSubtitlePunctuation(token) &&
+			current.Len() > 0 &&
+			currentWidth+tokenWidth > config.maxLineWidth {
+			lines = append(lines, util.CleanPunction(current.String()))
+			current.Reset()
+			currentWidth = 0
+		}
+		current.WriteString(token)
+		currentWidth += tokenWidth
+	}
+	if current.Len() > 0 {
+		lines = append(lines, util.CleanPunction(current.String()))
+	}
+	return balanceChineseSubtitleLines(lines, tokens)
+}
+
+func balanceChineseSubtitleLines(lines []string, tokens []string) []string {
+	lines = rebalanceShortChineseTrailingLine(lines)
+	if len(lines) != 2 {
+		return lines
+	}
+	if subtitleTextDisplayWidth(lines[0]) < subtitleTextDisplayWidth(lines[1]) {
+		return lines
+	}
+	if len(tokens) < 2 {
+		return lines
+	}
+	targetFirstWidth := subtitleTextDisplayWidth(lines[0]+lines[1]) * 2 / 5
+	if targetFirstWidth < 1 {
+		targetFirstWidth = 1
+	}
+	splitAt := bestChineseTokenSplitByDisplayWidth(tokens, targetFirstWidth)
+	if splitAt <= 0 || splitAt >= len(tokens) {
+		return lines
+	}
+	balanced := []string{
+		util.CleanPunction(strings.Join(tokens[:splitAt], "")),
+		util.CleanPunction(strings.Join(tokens[splitAt:], "")),
+	}
+	if balanced[0] == "" || balanced[1] == "" {
+		return lines
+	}
+	if subtitleTextDisplayWidth(balanced[0]) >= subtitleTextDisplayWidth(balanced[1]) {
+		return lines
+	}
+	return balanced
+}
+
+func bestChineseTokenSplitByDisplayWidth(tokens []string, targetWidth int) int {
+	best := 1
+	bestDiff := math.MaxInt
+	currentWidth := 0
+	for i, token := range tokens[:len(tokens)-1] {
+		currentWidth += subtitleTextDisplayWidth(token)
+		diff := int(math.Abs(float64(currentWidth - targetWidth)))
+		if isPreferredChineseTokenBreak(token, tokens[i+1]) {
+			diff -= 2
+		}
+		if diff < bestDiff {
+			bestDiff = diff
+			best = i + 1
+		}
+	}
+	return best
+}
+
+func isPreferredChineseTokenBreak(prev, next string) bool {
+	prevRunes := []rune(prev)
+	nextRunes := []rune(next)
+	if len(prevRunes) == 0 || len(nextRunes) == 0 {
+		return false
+	}
+	prevLast := prevRunes[len(prevRunes)-1]
+	nextFirst := nextRunes[0]
+	if strings.ContainsRune("，。！？；：、,.!?;:", prevLast) {
+		return true
+	}
+	if strings.ContainsRune("的了着过呢吗吧啊呀和与或但而就都也", prevLast) {
+		return true
+	}
+	if strings.ContainsRune("，。！？；：、,.!?;:", nextFirst) {
+		return false
+	}
+	return false
+}
+
+func wrapCJKRunesByWidth(text string, config subtitleWrapConfig) []string {
+	var lines []string
+	var current strings.Builder
+	currentWidth := 0.0
+	for _, r := range text {
+		part := string(r)
+		partWidth := estimateSubtitleTextWidth(part, config)
+		if current.Len() > 0 && currentWidth+partWidth > config.maxLineWidth {
+			lines = append(lines, util.CleanPunction(current.String()))
+			current.Reset()
+			currentWidth = 0
+		}
+		current.WriteRune(r)
+		currentWidth += partWidth
+	}
+	if current.Len() > 0 {
+		lines = append(lines, util.CleanPunction(current.String()))
+	}
+	if len(lines) == 0 {
+		return []string{util.CleanPunction(text)}
+	}
+	return lines
+}
+
+func estimateSubtitleTextWidth(text string, config subtitleWrapConfig) float64 {
+	width := 0.0
+	runeCount := 0
+	for _, r := range text {
+		width += subtitleRuneWidth(r, config.fontSize)
+		runeCount++
+	}
+	if runeCount > 1 {
+		width += float64(runeCount-1) * config.spacing
+	}
+	return width * config.scaleX
+}
+
+func subtitleRuneWidth(r rune, fontSize float64) float64 {
+	switch {
+	case unicode.IsSpace(r):
+		return fontSize * 0.33
+	case isCJKRune(r):
+		return fontSize
+	case isThaiRune(r):
+		return fontSize * 0.92
+	case isWideScriptRune(r):
+		return fontSize * 0.95
+	case r >= 'A' && r <= 'Z':
+		return fontSize * 0.66
+	case r >= 'a' && r <= 'z':
+		return fontSize * 0.56
+	case r >= '0' && r <= '9':
+		return fontSize * 0.56
+	case unicode.IsPunct(r):
+		return fontSize * 0.38
+	default:
+		return fontSize * 0.62
+	}
+}
+
+func containsCJKOrThai(text string) bool {
+	for _, r := range text {
+		if isCJKRune(r) || isThaiRune(r) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsChinese(text string) bool {
+	for _, r := range text {
+		if r >= '\u4e00' && r <= '\u9fff' {
+			return true
+		}
+	}
+	return false
+}
+
+func isCJKRune(r rune) bool {
+	return (r >= '\u4e00' && r <= '\u9fff') ||
+		(r >= '\u3040' && r <= '\u30ff') ||
+		(r >= '\u3400' && r <= '\u4dbf') ||
+		(r >= '\uac00' && r <= '\ud7af') ||
+		(r >= '\uff00' && r <= '\uffef')
+}
+
+func isThaiRune(r rune) bool {
+	return r >= '\u0e00' && r <= '\u0e7f'
+}
+
+func isWideScriptRune(r rune) bool {
+	return (r >= '\u0590' && r <= '\u05ff') ||
+		(r >= '\u0600' && r <= '\u06ff') ||
+		(r >= '\u0900' && r <= '\u097f') ||
+		(r >= '\u0980' && r <= '\u09ff') ||
+		(r >= '\u0b80' && r <= '\u0bff')
 }
 
 func isTrailingSubtitlePunctuation(segment string) bool {
@@ -459,13 +765,16 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 			startFormatted := formatTimestamp(startTime)
 			endFormatted := formatTimestamp(endTime)
 			if len(subtitleLines) == 1 {
-				combinedText := fmt.Sprintf("%s{\\an%d}{\\rMajor}%s", majorTags, majorAlignment, util.CleanPunction(subtitleLines[0]))
+				majorText := joinASSLines(wrapSubtitleForASS(subtitleLines[0], screenStyle.Major, stepParam))
+				combinedText := fmt.Sprintf("%s{\\an%d}{\\rMajor}%s", majorTags, majorAlignment, majorText)
 				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 				continue
 			}
+			majorText := joinASSLines(wrapSubtitleForASS(subtitleLines[0], screenStyle.Major, stepParam))
+			minorText := joinASSLines(wrapSubtitleForASS(subtitleLines[1], screenStyle.Minor, stepParam))
 			combinedText := fmt.Sprintf("%s{\\an%d}{\\rMajor}%s\\N%s{\\an%d}{\\rMinor}%s",
-				majorTags, majorAlignment, subtitleLines[0],
-				minorTags, minorAlignment, util.CleanPunction(subtitleLines[1]))
+				majorTags, majorAlignment, majorText,
+				minorTags, minorAlignment, minorText)
 			_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 		}
 	} else {
@@ -505,7 +814,10 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 
 			if !util.ContainsAlphabetic(content) {
 				// 处理中文字幕
-				chineseLines := splitChineseText(content, verticalChineseMaxRunesPerLine)
+				chineseLines := wrapVerticalChineseSubtitleForASS(content, screenStyle.Major, stepParam)
+				if len(chineseLines) == 0 {
+					chineseLines = splitChineseText(content, verticalChineseMaxRunesPerLine)
+				}
 				totalTime := endTime - startTime
 				for i, line := range chineseLines {
 					iStart := startTime + time.Duration(float64(i)*float64(totalTime)/float64(len(chineseLines)))
@@ -525,7 +837,7 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 				// 处理英文字幕
 				startFormatted := formatTimestamp(startTime)
 				endFormatted := formatTimestamp(endTime)
-				cleanedText := util.CleanPunction(content)
+				cleanedText := joinASSLines(wrapSubtitleForASS(content, screenStyle.Minor, stepParam))
 				combinedText := fmt.Sprintf("%s{\\an%d}{\\rMinor}%s",
 					minorTags,
 					minorAlignment,
