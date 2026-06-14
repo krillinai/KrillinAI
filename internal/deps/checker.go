@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -225,61 +227,185 @@ func checkAndDownloadFfprobe() error {
 
 // 检测并安装yt-dlp
 func checkAndDownloadYtDlp() error {
-	_, err := exec.LookPath("yt-dlp")
-	if err == nil {
+	path, err := resolveYtDlpDependency(defaultYtDlpDependencyEnv())
+	if err != nil {
+		return err
+	}
+	storage.YtdlpPath = path
+	return nil
+}
+
+type ytdlpDependencyEnv struct {
+	goos          string
+	goarch        string
+	proxy         string
+	lastCheckPath string
+	now           func() time.Time
+	lookPath      func(string) (string, error)
+	stat          func(string) (os.FileInfo, error)
+	mkdirAll      func(string, os.FileMode) error
+	downloadFile  func(string, string, string) error
+	chmod         func(string, os.FileMode) error
+	runCommand    func(string, ...string) ([]byte, error)
+}
+
+func defaultYtDlpDependencyEnv() ytdlpDependencyEnv {
+	return ytdlpDependencyEnv{
+		goos:          runtime.GOOS,
+		goarch:        runtime.GOARCH,
+		proxy:         config.Conf.App.Proxy,
+		lastCheckPath: filepath.Join("bin", ".yt-dlp-last-check"),
+		now:           time.Now,
+		lookPath:      exec.LookPath,
+		stat:          os.Stat,
+		mkdirAll:      os.MkdirAll,
+		downloadFile:  util.DownloadFile,
+		chmod:         os.Chmod,
+		runCommand: func(name string, args ...string) ([]byte, error) {
+			return exec.Command(name, args...).CombinedOutput()
+		},
+	}
+}
+
+func resolveYtDlpDependency(env ytdlpDependencyEnv) (string, error) {
+	if path, err := env.lookPath("yt-dlp"); err == nil {
 		log.GetLogger().Info("已找到yt-dlp")
-		storage.YtdlpPath = "yt-dlp"
-		return nil
+		if recentlyCheckedYtDlp(env) {
+			return "yt-dlp", nil
+		}
+		if err = updateYtDlpBinary(env, path); err != nil {
+			log.GetLogger().Warn("系统yt-dlp自更新失败，将下载stable最新版到本地bin", zap.Error(err))
+			ytdlpBinFilePath := ytDlpBundledPath(env.goos)
+			if err = env.mkdirAll("./bin", 0755); err != nil {
+				log.GetLogger().Error("创建./bin目录失败", zap.Error(err))
+				return "", err
+			}
+			if err = downloadLatestYtDlp(env, ytdlpBinFilePath); err != nil {
+				return "", err
+			}
+			markYtDlpChecked(env)
+			return ytdlpBinFilePath, nil
+		}
+		markYtDlpChecked(env)
+		return "yt-dlp", nil
 	}
 
-	ytdlpBinFilePath := "./bin/yt-dlp"
-	if runtime.GOOS == "windows" {
-		ytdlpBinFilePath += ".exe"
-	}
-	// 先前下载过的
-	if _, err = os.Stat(ytdlpBinFilePath); err == nil {
+	ytdlpBinFilePath := ytDlpBundledPath(env.goos)
+	if _, err := env.stat(ytdlpBinFilePath); err == nil {
 		log.GetLogger().Info("已找到ytdlp")
-		storage.YtdlpPath = ytdlpBinFilePath
-		return nil
+		if recentlyCheckedYtDlp(env) {
+			return ytdlpBinFilePath, nil
+		}
+		if err := updateYtDlpBinary(env, ytdlpBinFilePath); err != nil {
+			log.GetLogger().Warn("yt-dlp自更新失败，将下载stable最新版覆盖", zap.Error(err))
+			if err = downloadLatestYtDlp(env, ytdlpBinFilePath); err != nil {
+				return "", err
+			}
+		}
+		markYtDlpChecked(env)
+		return ytdlpBinFilePath, nil
 	}
 
 	log.GetLogger().Info("没有找到yt-dlp，即将开始自动安装")
-	err = os.MkdirAll("./bin", 0755)
-	if err != nil {
+	if err := env.mkdirAll("./bin", 0755); err != nil {
 		log.GetLogger().Error("创建./bin目录失败", zap.Error(err))
+		return "", err
+	}
+	if err := downloadLatestYtDlp(env, ytdlpBinFilePath); err != nil {
+		return "", err
+	}
+	markYtDlpChecked(env)
+	return ytdlpBinFilePath, nil
+}
+
+func updateYtDlpBinary(env ytdlpDependencyEnv, path string) error {
+	args := []string{"--update-to", "stable"}
+	if env.proxy != "" {
+		args = append(args, "--proxy", env.proxy)
+	}
+	output, err := env.runCommand(path, args...)
+	if err != nil {
+		log.GetLogger().Warn("yt-dlp更新到stable失败", zap.String("path", path), zap.String("output", string(output)), zap.Error(err))
 		return err
 	}
+	log.GetLogger().Info("yt-dlp已更新到stable通道", zap.String("path", path), zap.String("output", string(output)))
+	return nil
+}
 
-	var ytDlpURL string
-	if runtime.GOOS == "linux" {
-		ytDlpURL = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/yt-dlp_linux"
-	} else if runtime.GOOS == "darwin" {
-		ytDlpURL = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/yt-dlp_macos"
-	} else if runtime.GOOS == "windows" {
-		ytDlpURL = "https://modelscope.cn/models/Maranello/KrillinAI_dependency_cn/resolve/master/yt-dlp.exe"
-	} else {
-		log.GetLogger().Error("不支持你当前的操作系统", zap.String("当前系统", runtime.GOOS))
-		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+func recentlyCheckedYtDlp(env ytdlpDependencyEnv) bool {
+	if env.lastCheckPath == "" || env.now == nil {
+		return false
 	}
-
-	err = util.DownloadFile(ytDlpURL, ytdlpBinFilePath, config.Conf.App.Proxy)
+	data, err := os.ReadFile(env.lastCheckPath)
 	if err != nil {
+		return false
+	}
+	last, err := time.Parse(time.RFC3339, strings.TrimSpace(string(data)))
+	if err != nil {
+		return false
+	}
+	return env.now().Sub(last) < 24*time.Hour
+}
+
+func markYtDlpChecked(env ytdlpDependencyEnv) {
+	if env.lastCheckPath == "" || env.now == nil {
+		return
+	}
+	if err := os.MkdirAll(filepath.Dir(env.lastCheckPath), 0755); err != nil {
+		log.GetLogger().Warn("创建yt-dlp更新时间缓存目录失败", zap.Error(err))
+		return
+	}
+	if err := os.WriteFile(env.lastCheckPath, []byte(env.now().UTC().Format(time.RFC3339)), 0644); err != nil {
+		log.GetLogger().Warn("写入yt-dlp更新时间缓存失败", zap.Error(err))
+	}
+}
+
+func downloadLatestYtDlp(env ytdlpDependencyEnv, path string) error {
+	ytDlpURL, err := latestYtDlpStableURL(env.goos, env.goarch)
+	if err != nil {
+		log.GetLogger().Error("不支持你当前的操作系统", zap.String("当前系统", env.goos), zap.String("当前架构", env.goarch))
+		return err
+	}
+	if err = env.downloadFile(ytDlpURL, path, env.proxy); err != nil {
 		log.GetLogger().Error("下载yt-dlp失败", zap.Error(err))
 		return err
 	}
-
-	if runtime.GOOS != "windows" {
-		err = os.Chmod(ytdlpBinFilePath, 0755)
-		if err != nil {
+	if env.goos != "windows" {
+		if err = env.chmod(path, 0755); err != nil {
 			log.GetLogger().Error("设置文件权限失败", zap.Error(err))
 			return err
 		}
 	}
-
-	storage.YtdlpPath = ytdlpBinFilePath
-	log.GetLogger().Info("yt-dlp安装完成", zap.String("路径", ytdlpBinFilePath))
-
+	log.GetLogger().Info("yt-dlp安装完成", zap.String("路径", path))
 	return nil
+}
+
+func ytDlpBundledPath(goos string) string {
+	if goos == "windows" {
+		return "./bin/yt-dlp.exe"
+	}
+	return "./bin/yt-dlp"
+}
+
+func latestYtDlpStableURL(goos, goarch string) (string, error) {
+	const base = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/"
+	switch goos {
+	case "linux":
+		if goarch == "arm64" {
+			return base + "yt-dlp_linux_aarch64", nil
+		}
+		if goarch == "amd64" || goarch == "" {
+			return base + "yt-dlp_linux", nil
+		}
+	case "darwin":
+		return base + "yt-dlp_macos", nil
+	case "windows":
+		if goarch == "arm64" {
+			return base + "yt-dlp_arm64.exe", nil
+		}
+		return base + "yt-dlp.exe", nil
+	}
+	return "", fmt.Errorf("unsupported OS or architecture: %s/%s", goos, goarch)
 }
 
 // 检测faster whisper
