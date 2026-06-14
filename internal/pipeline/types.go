@@ -12,6 +12,7 @@ const (
 	StageCover            Stage = "cover"
 	StagePipeline         Stage = "pipeline"
 	StageUpdate           Stage = "update"
+	StageVoices           Stage = "voices"
 )
 
 type CaptionSource string
@@ -90,6 +91,15 @@ type Outputs struct {
 	TargetText          string `json:"target_text,omitempty"`
 }
 
+type Voice struct {
+	Code     string `json:"code"`
+	Name     string `json:"name,omitempty"`
+	Language string `json:"language,omitempty"`
+	Gender   string `json:"gender,omitempty"`
+	Provider string `json:"provider,omitempty"`
+	Scenario string `json:"scenario,omitempty"`
+}
+
 type Response struct {
 	OK            bool              `json:"ok"`
 	Stage         Stage             `json:"stage"`
@@ -97,6 +107,7 @@ type Response struct {
 	TaskID        string            `json:"task_id,omitempty"`
 	CaptionSource CaptionSource     `json:"caption_source,omitempty"`
 	Inputs        map[string]string `json:"inputs,omitempty"`
+	Voices        []Voice           `json:"voices,omitempty"`
 	Outputs       Outputs           `json:"outputs,omitempty"`
 	Warnings      []string          `json:"warnings,omitempty"`
 	FailedIndexes []int             `json:"failed_indexes,omitempty"`

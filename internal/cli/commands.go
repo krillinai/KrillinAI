@@ -6,9 +6,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"krillin-ai/config"
 	"krillin-ai/internal/pipeline"
 	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"krillin-ai/internal/updater"
+	"krillin-ai/internal/voices"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -52,6 +54,7 @@ type Command struct {
 	Cover             pipeline.CoverRequest
 	Pipeline          pipeline.PipelineRequest
 	Update            UpdateRequest
+	Voices            VoicesRequest
 }
 
 type UpdateRequest struct {
@@ -59,6 +62,10 @@ type UpdateRequest struct {
 	Version string
 	Target  string
 	Force   bool
+}
+
+type VoicesRequest struct {
+	Provider string
 }
 
 func Parse(args []string) (Command, error) {
@@ -84,6 +91,8 @@ func Parse(args []string) (Command, error) {
 		return parseCover(name, args[1:])
 	case "update":
 		return parseUpdate(name, args[1:])
+	case "voices":
+		return parseVoices(name, args[1:])
 	case "status":
 		if hasHelpArg(args[1:]) {
 			return Command{Name: name, Help: true}, nil
@@ -194,6 +203,15 @@ Flags:
   --dry-run            Validate command without downloading or replacing files
   -h, --help           Show this help
 `
+	case "voices":
+		return `Usage:
+  krillinai-cli voices [flags]
+
+Flags:
+  --provider <name>  TTS provider to list voices for: aliyun, openai, or edge-tts; default current config
+  --dry-run          Return the same local voice list without external calls
+  -h, --help         Show this help
+`
 	case "status":
 		return `Usage:
   krillinai-cli status
@@ -212,6 +230,7 @@ Commands:
   pipeline             Plan or run multi-stage workflows when supported
   cover                Generate a cover image from a prompt
   update               Update krillinai-cli from GitHub releases
+  voices               List available TTS voice codes
   status               Reserved status query surface
 
 Run "krillinai-cli <command> --help" for command-specific flags.
@@ -248,6 +267,8 @@ func Execute(ctx context.Context, svc pipeline.StageService, cmd Command) pipeli
 		return responseWithError(resp, err)
 	case "update":
 		return executeUpdate(ctx, cmd.Update)
+	case "voices":
+		return executeVoices(cmd.Voices)
 	default:
 		return pipeline.Response{
 			OK: false,
@@ -257,6 +278,58 @@ func Execute(ctx context.Context, svc pipeline.StageService, cmd Command) pipeli
 				Message: fmt.Sprintf("unsupported command: %s", cmd.Name),
 			},
 		}
+	}
+}
+
+func parseVoices(name string, args []string) (Command, error) {
+	if hasHelpArg(args) {
+		return Command{Name: name, Help: true}, nil
+	}
+	fs := newFlagSet(name)
+	provider := fs.String("provider", "", "tts provider")
+	dryRun := fs.Bool("dry-run", false, "return local voice list without external calls")
+	if err := fs.Parse(args); err != nil {
+		return Command{}, err
+	}
+	if fs.NArg() != 0 {
+		return Command{}, errors.New("voices does not accept positional arguments")
+	}
+	return Command{
+		Name:   name,
+		DryRun: *dryRun,
+		Voices: VoicesRequest{
+			Provider: *provider,
+		},
+	}, nil
+}
+
+func executeVoices(req VoicesRequest) pipeline.Response {
+	provider := strings.TrimSpace(req.Provider)
+	if provider == "" {
+		provider = currentTTSProvider()
+	}
+	list, err := voices.List(provider)
+	if err != nil {
+		return pipeline.Response{
+			OK:    false,
+			Stage: pipeline.StageVoices,
+			Inputs: map[string]string{
+				"provider": provider,
+			},
+			Error: &pipeline.Error{
+				Kind:    pipeline.ErrorKindUsage,
+				Code:    "list_voices_failed",
+				Message: err.Error(),
+			},
+		}
+	}
+	return pipeline.Response{
+		OK:    true,
+		Stage: pipeline.StageVoices,
+		Inputs: map[string]string{
+			"provider": provider,
+		},
+		Voices: list,
 	}
 }
 
@@ -540,6 +613,8 @@ func dryRun(cmd Command) pipeline.Response {
 			Stage:  pipeline.StageUpdate,
 			Inputs: inputs,
 		}
+	case "voices":
+		return executeVoices(cmd.Voices)
 	default:
 		return pipeline.Response{
 			OK: false,
@@ -550,6 +625,10 @@ func dryRun(cmd Command) pipeline.Response {
 			},
 		}
 	}
+}
+
+var currentTTSProvider = func() string {
+	return config.Conf.Tts.Provider
 }
 
 func dryRunResponse(stage pipeline.Stage, workdir, taskID string) pipeline.Response {
