@@ -147,6 +147,166 @@ func TestHorizontalAssUsesCustomSubtitleStyle(t *testing.T) {
 	}
 }
 
+func TestHorizontalAssWrapsLargeFontChineseSubtitle(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "large-chinese.srt")
+	out := filepath.Join(dir, "large-chinese.ass")
+	content := "1\n00:00:00,840 --> 00:00:02,900\n这是一段字号很大的中文字幕如果不自动换行就会超出屏幕之外影响观看体验\n\n"
+	if err := os.WriteFile(in, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	fontSize := 80
+	style := subtitlestyle.DefaultStyleSet()
+	style.Horizontal.Major.FontSize = &fontSize
+
+	err := srtToAss(in, out, true, &types.SubtitleTaskStepParam{
+		TaskBasePath:  dir,
+		SubtitleStyle: style,
+	})
+	if err != nil {
+		t.Fatalf("srtToAss() error = %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ass := string(data)
+	if !strings.Contains(ass, `\N`) {
+		t.Fatalf("large-font Chinese subtitle was not wrapped: %s", ass)
+	}
+}
+
+func TestHorizontalAssWrapsChineseWithShorterFirstLine(t *testing.T) {
+	fontSize := 26
+	style := subtitlestyle.DefaultStyleSet()
+	style.Horizontal.Major.FontSize = &fontSize
+
+	got := wrapSubtitleForASS("只是想让你知道你走在正确的道路上", style.Horizontal.Major, &types.SubtitleTaskStepParam{
+		RenderWidth:  1920,
+		RenderHeight: 1080,
+	})
+	if len(got) != 2 {
+		t.Fatalf("wrapped line count = %d, want 2; lines = %#v", len(got), got)
+	}
+
+	firstWidth := subtitleDisplayWidth(got[0])
+	secondWidth := subtitleDisplayWidth(got[1])
+	if firstWidth >= secondWidth {
+		t.Fatalf("first Chinese subtitle line should be shorter than second: lines=%#v widths=%d,%d", got, firstWidth, secondWidth)
+	}
+	if strings.Contains(strings.Join(got, "\n"), "知\n道") {
+		t.Fatalf("Chinese subtitle should not break inside the word 知道: lines=%#v", got)
+	}
+}
+
+func TestHorizontalAssWrapsChineseAtWordBoundaries(t *testing.T) {
+	fontSize := 26
+	style := subtitlestyle.DefaultStyleSet()
+	style.Horizontal.Major.FontSize = &fontSize
+
+	got := wrapSubtitleForASS("很多克服糟糕的日子和重新开始", style.Horizontal.Major, &types.SubtitleTaskStepParam{
+		RenderWidth:  1920,
+		RenderHeight: 1080,
+	})
+	joined := strings.Join(got, "\n")
+	if strings.Contains(joined, "糟\n糕") {
+		t.Fatalf("Chinese subtitle should not break inside the word 糟糕: lines=%#v", got)
+	}
+}
+
+func TestHorizontalAssDoesNotInsertEnglishLineBreaks(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "large-english.srt")
+	out := filepath.Join(dir, "large-english.ass")
+	content := "1\n00:00:00,840 --> 00:00:02,900\nThis large subtitle should wrap at natural word boundaries before it runs beyond the edge of the video frame\n\n"
+	if err := os.WriteFile(in, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	fontSize := 58
+	style := subtitlestyle.DefaultStyleSet()
+	style.Horizontal.Major.FontSize = &fontSize
+
+	err := srtToAss(in, out, true, &types.SubtitleTaskStepParam{
+		TaskBasePath:  dir,
+		SubtitleStyle: style,
+	})
+	if err != nil {
+		t.Fatalf("srtToAss() error = %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ass := string(data)
+	if strings.Contains(ass, `\N`) {
+		t.Fatalf("English subtitle should rely on ASS/libass wrapping, not manual line breaks: %s", ass)
+	}
+}
+
+func TestHorizontalAssDoesNotSplitLongEnglishToken(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "long-token.srt")
+	out := filepath.Join(dir, "long-token.ass")
+	content := "1\n00:00:00,840 --> 00:00:02,900\nDonaudampfschifffahrtsgesellschaftskapitaensmuetzeDonaudampfschifffahrtsgesellschaftskapitaensmuetze\n\n"
+	if err := os.WriteFile(in, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	fontSize := 46
+	style := subtitlestyle.DefaultStyleSet()
+	style.Horizontal.Major.FontSize = &fontSize
+
+	err := srtToAss(in, out, true, &types.SubtitleTaskStepParam{
+		TaskBasePath:  dir,
+		SubtitleStyle: style,
+	})
+	if err != nil {
+		t.Fatalf("srtToAss() error = %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ass := string(data)
+	if strings.Contains(ass, `\N`) {
+		t.Fatalf("long English token should rely on ASS/libass wrapping, not manual line breaks: %s", ass)
+	}
+}
+
+func TestHorizontalAssWrapsUsingNarrowRenderWidth(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "narrow-chinese.srt")
+	out := filepath.Join(dir, "narrow-chinese.ass")
+	content := "1\n00:00:00,840 --> 00:00:02,900\n这段字幕需要适配窄屏\n\n"
+	if err := os.WriteFile(in, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	fontSize := 22
+	style := subtitlestyle.DefaultStyleSet()
+	style.Horizontal.Major.FontSize = &fontSize
+
+	err := srtToAss(in, out, true, &types.SubtitleTaskStepParam{
+		TaskBasePath:  dir,
+		SubtitleStyle: style,
+		RenderWidth:   720,
+		RenderHeight:  1280,
+	})
+	if err != nil {
+		t.Fatalf("srtToAss() error = %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ass := string(data)
+	if !strings.Contains(ass, `\N`) {
+		t.Fatalf("narrow render width was not used for subtitle wrapping: %s", ass)
+	}
+}
+
 func TestVerticalAssUsesCustomMinorStyle(t *testing.T) {
 	dir := t.TempDir()
 	in := filepath.Join(dir, "subtitle.srt")
