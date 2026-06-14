@@ -8,6 +8,7 @@ import (
 	"io"
 	"krillin-ai/internal/pipeline"
 	subtitlestyle "krillin-ai/internal/subtitle_style"
+	"krillin-ai/internal/updater"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -50,6 +51,14 @@ type Command struct {
 	Render            pipeline.RenderRequest
 	Cover             pipeline.CoverRequest
 	Pipeline          pipeline.PipelineRequest
+	Update            UpdateRequest
+}
+
+type UpdateRequest struct {
+	Repo    string
+	Version string
+	Target  string
+	Force   bool
 }
 
 func Parse(args []string) (Command, error) {
@@ -73,6 +82,8 @@ func Parse(args []string) (Command, error) {
 		return parsePipeline(name, args[1:])
 	case "cover":
 		return parseCover(name, args[1:])
+	case "update":
+		return parseUpdate(name, args[1:])
 	case "status":
 		if hasHelpArg(args[1:]) {
 			return Command{Name: name, Help: true}, nil
@@ -171,6 +182,18 @@ Flags:
   --dry-run         Validate and write manifest without external calls
   -h, --help        Show this help
 `
+	case "update":
+		return `Usage:
+  krillinai-cli update [flags]
+
+Flags:
+  --repo <owner/name>  GitHub repository to update from (default krillinai/KrillinAI)
+  --version <tag>      Specific release tag, such as v2.0.3; default latest release
+  --target <file>      Executable path to replace; default current executable
+  --force              Reinstall even when current version matches latest
+  --dry-run            Validate command without downloading or replacing files
+  -h, --help           Show this help
+`
 	case "status":
 		return `Usage:
   krillinai-cli status
@@ -188,6 +211,7 @@ Commands:
   render-vertical      Render portrait subtitle or dubbed videos
   pipeline             Plan or run multi-stage workflows when supported
   cover                Generate a cover image from a prompt
+  update               Update krillinai-cli from GitHub releases
   status               Reserved status query surface
 
 Run "krillinai-cli <command> --help" for command-specific flags.
@@ -222,6 +246,8 @@ func Execute(ctx context.Context, svc pipeline.StageService, cmd Command) pipeli
 	case "cover":
 		resp, err := pipeline.GenerateCover(ctx, svc, cmd.Cover)
 		return responseWithError(resp, err)
+	case "update":
+		return executeUpdate(ctx, cmd.Update)
 	default:
 		return pipeline.Response{
 			OK: false,
@@ -231,6 +257,76 @@ func Execute(ctx context.Context, svc pipeline.StageService, cmd Command) pipeli
 				Message: fmt.Sprintf("unsupported command: %s", cmd.Name),
 			},
 		}
+	}
+}
+
+func parseUpdate(name string, args []string) (Command, error) {
+	if hasHelpArg(args) {
+		return Command{Name: name, Help: true}, nil
+	}
+	fs := newFlagSet(name)
+	repo := fs.String("repo", updater.DefaultRepo, "GitHub repository")
+	version := fs.String("version", "", "release tag")
+	target := fs.String("target", "", "target executable")
+	force := fs.Bool("force", false, "force reinstall")
+	dryRun := fs.Bool("dry-run", false, "validate command without running update")
+	if err := fs.Parse(args); err != nil {
+		return Command{}, err
+	}
+	if fs.NArg() != 0 {
+		return Command{}, errors.New("update does not accept positional arguments")
+	}
+	return Command{
+		Name:   name,
+		DryRun: *dryRun,
+		Update: UpdateRequest{
+			Repo:    *repo,
+			Version: *version,
+			Target:  *target,
+			Force:   *force,
+		},
+	}, nil
+}
+
+func executeUpdate(ctx context.Context, req UpdateRequest) pipeline.Response {
+	result, err := updater.Run(ctx, updater.Request{
+		Repo:           req.Repo,
+		Version:        req.Version,
+		Target:         req.Target,
+		Force:          req.Force,
+		CurrentVersion: Version,
+	}, updater.HTTPRunner{})
+	if err != nil {
+		return pipeline.Response{
+			OK:    false,
+			Stage: pipeline.StageUpdate,
+			Error: &pipeline.Error{
+				Kind:      pipeline.ErrorKindRetryable,
+				Code:      "update_failed",
+				Message:   err.Error(),
+				Retryable: true,
+			},
+		}
+	}
+	inputs := map[string]string{
+		"repo": req.Repo,
+	}
+	if req.Version != "" {
+		inputs["version"] = req.Version
+	}
+	if req.Target != "" {
+		inputs["target"] = req.Target
+	}
+	if result.Asset != "" {
+		inputs["asset"] = result.Asset
+	}
+	return pipeline.Response{
+		OK:     true,
+		Stage:  pipeline.StageUpdate,
+		Inputs: inputs,
+		Warnings: []string{
+			result.Message,
+		},
 	}
 }
 
@@ -429,6 +525,21 @@ func dryRun(cmd Command) pipeline.Response {
 		})
 	case "pipeline":
 		return pipeline.Response{OK: true, Stage: pipeline.StagePipeline}
+	case "update":
+		inputs := map[string]string{
+			"repo": cmd.Update.Repo,
+		}
+		if cmd.Update.Version != "" {
+			inputs["version"] = cmd.Update.Version
+		}
+		if cmd.Update.Target != "" {
+			inputs["target"] = cmd.Update.Target
+		}
+		return pipeline.Response{
+			OK:     true,
+			Stage:  pipeline.StageUpdate,
+			Inputs: inputs,
+		}
 	default:
 		return pipeline.Response{
 			OK: false,

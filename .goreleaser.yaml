@@ -14,6 +14,8 @@ builds:
     binary: krillinai-cli
     env:
       - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X krillin-ai/internal/cli.Version={{.Version}}
     goos:
       - darwin
       - linux
