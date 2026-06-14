@@ -29,6 +29,10 @@ func main() {
 		writeAndExit(cli.Execute(context.Background(), nil, cmd))
 		return
 	}
+	if cmd.Name == "update" {
+		writeAndExit(cli.Execute(context.Background(), nil, cmd))
+		return
+	}
 
 	if !config.LoadConfig() {
 		writeAndExit(pipeline.Response{
