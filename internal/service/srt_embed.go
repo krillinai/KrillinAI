@@ -805,12 +805,30 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 				return err
 			}
 
-			var content string
-			scanner.Scan()
-			content = scanner.Text()
-			if content == "" {
+			var subtitleLines []string
+			for scanner.Scan() {
+				textLine := scanner.Text()
+				if textLine == "" {
+					break
+				}
+				subtitleLines = append(subtitleLines, textLine)
+			}
+			if len(subtitleLines) == 0 {
 				continue
 			}
+			if len(subtitleLines) > 1 {
+				startFormatted := formatTimestamp(startTime)
+				endFormatted := formatTimestamp(endTime)
+				majorText := joinASSLines(wrapSubtitleForASS(subtitleLines[0], screenStyle.Major, stepParam))
+				minorText := joinASSLines(wrapSubtitleForASS(subtitleLines[1], screenStyle.Minor, stepParam))
+				combinedText := fmt.Sprintf("%s{\\an%d}{\\rMajor}%s\\N%s{\\an%d}{\\rMinor}%s",
+					majorTags, majorAlignment, majorText,
+					minorTags, minorAlignment, minorText)
+				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
+				continue
+			}
+
+			content := subtitleLines[0]
 
 			if !util.ContainsAlphabetic(content) {
 				// 处理中文字幕
