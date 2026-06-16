@@ -72,6 +72,32 @@ func TestVerticalAssKeepsChineseLineInSingleDialogueWithLineBreak(t *testing.T) 
 	}
 }
 
+func TestVerticalAssKeepsBothLinesFromBilingualSRT(t *testing.T) {
+	dir := t.TempDir()
+	in := filepath.Join(dir, "bilingual.srt")
+	out := filepath.Join(dir, "bilingual.ass")
+	content := "1\n00:00:00,840 --> 00:00:02,900\n这是中文字幕\nThis is the English subtitle\n\n"
+	if err := os.WriteFile(in, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := srtToAss(in, out, false, &types.SubtitleTaskStepParam{TaskBasePath: dir})
+	if err != nil {
+		t.Fatalf("srtToAss() error = %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ass := string(data)
+	if !strings.Contains(ass, "{\\rMajor}这是中文字幕") {
+		t.Fatalf("vertical bilingual SRT should keep first line as Major: %s", ass)
+	}
+	if !strings.Contains(ass, "{\\rMinor}This is the English subtitle") {
+		t.Fatalf("vertical bilingual SRT should keep second line as Minor: %s", ass)
+	}
+}
+
 func TestHorizontalAssKeepsSingleLineSubtitle(t *testing.T) {
 	dir := t.TempDir()
 	in := filepath.Join(dir, "single-line.srt")
