@@ -71,13 +71,24 @@ func (c *Client) Text2Speech(text, voice string, outputFile string) error {
 	url := baseUrl + "/audio/speech"
 
 	// 创建HTTP请求
-	reqBody := fmt.Sprintf(`{
-		"model": "tts-1",
-		"input": "%s",
-		"voice":"%s",
-		"response_format": "wav"
-	}`, text, voice)
-	req, err := http.NewRequest("POST", url, strings.NewReader(reqBody))
+	model := config.Conf.Tts.Openai.Model
+	if model == "" {
+		model = "tts-1"
+	}
+	if voice == "" {
+		voice = "alloy"
+	}
+	reqBodyMap := map[string]string{
+		"model":           model,
+		"input":           text,
+		"voice":           voice,
+		"response_format": "wav",
+	}
+	reqBodyBytes, err := json.Marshal(reqBodyMap)
+	if err != nil {
+		return fmt.Errorf("failed to marshal TTS request body: %w", err)
+	}
+	req, err := http.NewRequest("POST", url, strings.NewReader(string(reqBodyBytes)))
 	if err != nil {
 		return err
 	}
