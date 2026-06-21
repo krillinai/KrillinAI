@@ -6,8 +6,10 @@ import (
 	"krillin-ai/internal/response"
 	"krillin-ai/internal/service"
 	"krillin-ai/log"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -141,6 +143,20 @@ func (h Handler) DownloadFile(c *gin.Context) {
 	}
 
 	localFilePath := filepath.Join(".", requestedFile)
+
+	// Restrict downloads to the tasks output directory to prevent
+	// arbitrary file reads (e.g. config/config.toml with API keys).
+	tasksDir, err := filepath.Abs("tasks")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "内部错误"})
+		return
+	}
+	absPath, err := filepath.Abs(localFilePath)
+	if err != nil || !strings.HasPrefix(absPath, tasksDir+string(os.PathSeparator)) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "禁止访问"})
+		return
+	}
+
 	if _, err := os.Stat(localFilePath); os.IsNotExist(err) {
 		response.R(c, response.Response{
 			Error: -1,
