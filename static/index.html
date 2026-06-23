@@ -803,6 +803,13 @@
                   <span>启用语气词过滤 Tone Word Filtering</span>
                 </label>
               </div>
+
+              <div class="form-group">
+                <label class="checkbox-item">
+                  <input type="checkbox" id="platform-subtitle-toggle" checked />
+                  <span>优先使用平台字幕 Prefer Platform Subtitles</span>
+                </label>
+              </div>
             </div>
 
             <!-- 配音设置区域 -->
@@ -2000,6 +2007,9 @@
       const translationLanguage = document.getElementById("target-language");
       const bilingualToggle = document.getElementById("bilingual-toggle");
       const bilingualPosition = document.getElementById("bilingual-position");
+      const platformSubtitleToggle = document.getElementById(
+        "platform-subtitle-toggle"
+      );
       const voiceoverToggle = document.getElementById("voiceover-toggle");
       const voiceoverVoice = document.getElementById("voiceover-voice");
       const embedSubtitleVideoTypeToggle = document.getElementById(
@@ -2036,6 +2046,13 @@
           voiceoverVoice.disabled = !voiceoverToggle.checked;
         if (voiceFileInput && voiceoverToggle)
           voiceFileInput.disabled = !voiceoverToggle.checked;
+        if (platformSubtitleToggle) {
+          const selectedInputType = document.querySelector(
+            'input[name="inputType"]:checked'
+          );
+          platformSubtitleToggle.disabled =
+            selectedInputType && selectedInputType.value !== "url";
+        }
       }
 
       // 提交表单参数
@@ -2060,6 +2077,10 @@
             document.getElementById("filler-filter-toggle").checked
               ? 1
               : 2,
+          vtt_switch:
+            platformSubtitleToggle && platformSubtitleToggle.checked
+              ? true
+              : false,
           embed_subtitle_video_type:
             embedSubtitleVideoTypeToggle &&
             embedSubtitleVideoTypeToggle.checked &&
