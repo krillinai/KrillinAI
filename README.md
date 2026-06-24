@@ -113,6 +113,7 @@ _**All local models in the table below support automatic installation of executa
 
 - Alibaba Cloud Voice Service
 - OpenAI TTS
+- MiniMax TTS
 
 ## Language Support
 
