@@ -8,6 +8,7 @@ import (
 	"krillin-ai/pkg/fasterwhisper"
 	pkgimage "krillin-ai/pkg/image"
 	"krillin-ai/pkg/localtts"
+	"krillin-ai/pkg/minimax"
 	"krillin-ai/pkg/openai"
 	"krillin-ai/pkg/whisper"
 	"krillin-ai/pkg/whispercpp"
@@ -59,6 +60,8 @@ func NewService() *Service {
 		ttsClient = aliyun.NewTtsClient(config.Conf.Tts.Aliyun.Speech.AccessKeyId, config.Conf.Tts.Aliyun.Speech.AccessKeySecret, config.Conf.Tts.Aliyun.Speech.AppKey)
 	case "edge-tts":
 		ttsClient = localtts.NewEdgeTtsClient()
+	case "minimax":
+		ttsClient = minimax.NewTtsClient(config.Conf.Tts.Minimax.BaseUrl, config.Conf.Tts.Minimax.ApiKey, config.Conf.Tts.Minimax.Model)
 	}
 
 	s := &Service{

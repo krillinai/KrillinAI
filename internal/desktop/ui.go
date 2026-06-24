@@ -698,7 +698,7 @@ func createTranscribeConfigGroup() *fyne.Container {
 
 // 创建文本转语音配置组
 func createTtsConfigGroup() *fyne.Container {
-	providerOptions := []string{"openai", "aliyun", "edge-tts"}
+	providerOptions := []string{"openai", "aliyun", "edge-tts", "minimax"}
 	providerSelect := widget.NewSelect(providerOptions, func(value string) {
 		config.Conf.Tts.Provider = value
 	})
@@ -710,6 +710,13 @@ func createTtsConfigGroup() *fyne.Container {
 	openaiApiKeyEntry.Bind(binding.BindString(&config.Conf.Tts.Openai.ApiKey))
 	openaiModelEntry := StyledEntry("模型名称 Model name")
 	openaiModelEntry.Bind(binding.BindString(&config.Conf.Tts.Openai.Model))
+
+	minimaxBaseUrlEntry := StyledEntry("API Base URL")
+	minimaxBaseUrlEntry.Bind(binding.BindString(&config.Conf.Tts.Minimax.BaseUrl))
+	minimaxApiKeyEntry := StyledPasswordEntry("API Key")
+	minimaxApiKeyEntry.Bind(binding.BindString(&config.Conf.Tts.Minimax.ApiKey))
+	minimaxModelEntry := StyledEntry("模型名称 Model name")
+	minimaxModelEntry.Bind(binding.BindString(&config.Conf.Tts.Minimax.Model))
 
 	aliyunOssKeyIdEntry := StyledEntry("阿里云 Aliyun Access Key ID")
 	aliyunOssKeyIdEntry.Bind(binding.BindString(&config.Conf.Tts.Aliyun.Oss.AccessKeyId))
@@ -731,6 +738,10 @@ func createTtsConfigGroup() *fyne.Container {
 		widget.NewFormItem("OpenAI Base URL", openaiBaseUrlEntry),
 		widget.NewFormItem("OpenAI API Key", openaiApiKeyEntry),
 		widget.NewFormItem("OpenAI 模型 Model", openaiModelEntry),
+
+		widget.NewFormItem("MiniMax Base URL", minimaxBaseUrlEntry),
+		widget.NewFormItem("MiniMax API Key", minimaxApiKeyEntry),
+		widget.NewFormItem("MiniMax 模型 Model", minimaxModelEntry),
 
 		widget.NewFormItem("阿里云 Aliyun OSS Access Key ID", aliyunOssKeyIdEntry),
 		widget.NewFormItem("阿里云 Aliyun OSS Access Key Secret", aliyunOssKeySecretEntry),

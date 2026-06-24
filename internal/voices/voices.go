@@ -12,6 +12,7 @@ const (
 	ProviderAliyun = "aliyun"
 	ProviderOpenAI = "openai"
 	ProviderEdge   = "edge-tts"
+	Minimax        = "minimax"
 )
 
 func List(provider string) ([]pipeline.Voice, error) {
@@ -21,6 +22,8 @@ func List(provider string) ([]pipeline.Voice, error) {
 		return cloneVoices(aliyunVoices), nil
 	case ProviderOpenAI:
 		return cloneVoices(openaiVoices), nil
+	case Minimax:
+		return cloneVoices(minimaxVoices), nil
 	case ProviderEdge:
 		return nil, fmt.Errorf("edge-tts voice listing is not supported yet; use edge-tts --list-voices")
 	default:
@@ -29,7 +32,7 @@ func List(provider string) ([]pipeline.Voice, error) {
 }
 
 func Providers() []string {
-	return []string{ProviderAliyun, ProviderOpenAI, ProviderEdge}
+	return []string{ProviderAliyun, ProviderOpenAI, Minimax, ProviderEdge}
 }
 
 func cloneVoices(in []pipeline.Voice) []pipeline.Voice {
@@ -67,4 +70,13 @@ var openaiVoices = []pipeline.Voice{
 	{Provider: ProviderOpenAI, Code: "onyx", Language: "multi", Scenario: "deep"},
 	{Provider: ProviderOpenAI, Code: "sage", Language: "multi", Scenario: "neutral"},
 	{Provider: ProviderOpenAI, Code: "shimmer", Language: "multi", Scenario: "soft"},
+}
+
+var minimaxVoices = []pipeline.Voice{
+	{Provider: Minimax, Code: "English_Graceful_Lady", Name: "Graceful Lady", Language: "en", Gender: "female", Scenario: "优雅女声"},
+	{Provider: Minimax, Code: "English_radiant_girl", Name: "Radiant Girl", Language: "en", Gender: "female", Scenario: "活泼女声"},
+	{Provider: Minimax, Code: "English_Insightful_Speaker", Name: "Insightful Speaker", Language: "en", Gender: "male", Scenario: "沉稳男声"},
+	{Provider: Minimax, Code: "English_Persuasive_Man", Name: "Persuasive Man", Language: "en", Gender: "male", Scenario: "有说服力男声"},
+	{Provider: Minimax, Code: "English_expressive_narrator", Name: "Expressive Narrator", Language: "en", Gender: "male", Scenario: "旁白"},
+	{Provider: Minimax, Code: "English_Lucky_Robot", Name: "Lucky Robot", Language: "en", Gender: "neutral", Scenario: "机器人"},
 }
