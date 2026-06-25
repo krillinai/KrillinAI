@@ -81,6 +81,7 @@ type Tts struct {
 	Provider string                 `toml:"provider"`
 	Openai   OpenaiCompatibleConfig `toml:"openai"`
 	Aliyun   AliyunTtsConfig        `toml:"aliyun"`
+	Minimax  OpenaiCompatibleConfig `toml:"minimax"`
 }
 
 type Dubbing struct {
