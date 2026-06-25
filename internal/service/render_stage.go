@@ -47,6 +47,8 @@ func buildEmbedSubtitleArgs(req RenderVideoRequest) ([]string, string) {
 		"-y",
 		"-i", req.InputVideo,
 		"-vf", fmt.Sprintf("ass=%s", ass),
+		"-c:v", "libx264",
+		"-preset", "fast",
 		"-c:a", "aac",
 		"-b:a", "192k",
 		req.OutputFile,
