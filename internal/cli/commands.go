@@ -208,7 +208,7 @@ Flags:
   krillinai-cli voices [flags]
 
 Flags:
-  --provider <name>  TTS provider to list voices for: aliyun, openai, or edge-tts; default current config
+  --provider <name>  TTS provider to list voices for: aliyun, openai, minimax, or edge-tts; default current config
   --dry-run          Return the same local voice list without external calls
   -h, --help         Show this help
 `

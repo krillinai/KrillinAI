@@ -47,11 +47,15 @@
             app_key= ""
 
 [tts]
-    provider = "aliyun" # 可选值：openai,aliyun,edge-tts
+    provider = "aliyun" # 可选值：openai,aliyun,edge-tts,minimax
     [tts.openai]
         base_url = ""
         api_key = ""
         model = "" # gpt-4o-mini-tts, tts-1, tts-1-hd
+    [tts.minimax] # MiniMax TTS(T2A v2),provider选minimax时填写
+        base_url = "" # 留空默认海外版 https://api.minimax.io，国内可填 https://api.minimaxi.com
+        api_key = "" # MiniMax API密钥
+        model = "" # 留空默认 speech-2.8-hd，可选 speech-2.8-turbo, speech-2.6-hd, speech-2.6-turbo
     [tts.aliyun] # provider选aliyun这块就都要填
         [tts.aliyun.oss]
             access_key_id = ""
