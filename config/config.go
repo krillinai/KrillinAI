@@ -101,6 +101,22 @@ type Image struct {
 	Openai   OpenaiCompatibleConfig `toml:"openai"`
 }
 
+// TwelveLabsConfig configures the TwelveLabs Pegasus video-understanding client.
+type TwelveLabsConfig struct {
+	BaseUrl string `toml:"base_url"` // 自定义 base url，留空使用官方 https://api.twelvelabs.io/v1.3
+	ApiKey  string `toml:"api_key"`  // TwelveLabs API 密钥
+	Model   string `toml:"model"`    // Pegasus 模型名，留空默认 pegasus1.5
+	Prompt  string `toml:"prompt"`   // 可选：自定义内容理解提示词，留空使用内置翻译场景提示词
+}
+
+// ContentUnderstanding is an OPT-IN stage that analyzes the source video to
+// produce a scene/context summary, which is injected into translation prompts
+// for more context-aware translations. Disabled unless provider is set.
+type ContentUnderstanding struct {
+	Provider   string           `toml:"provider"` // 可选值：留空(关闭)，twelvelabs
+	TwelveLabs TwelveLabsConfig `toml:"twelvelabs"`
+}
+
 type OpenAiWhisper struct {
 	BaseUrl string `toml:"base_url"`
 	ApiKey  string `toml:"api_key"`
@@ -114,6 +130,9 @@ type Config struct {
 	Tts        Tts                    `toml:"tts"`
 	Dubbing    Dubbing                `toml:"dubbing"`
 	Image      Image                  `toml:"image"`
+	// ContentUnderstanding is opt-in; zero value (empty provider) keeps the
+	// existing translation behavior unchanged.
+	ContentUnderstanding ContentUnderstanding `toml:"content_understanding"`
 }
 
 var Conf = Config{
