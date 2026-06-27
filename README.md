@@ -115,6 +115,26 @@ _**All local models in the table below support automatic installation of executa
 - OpenAI TTS
 - MiniMax TTS
 
+## 🎬 Video Content Understanding (optional, for scene-aware translation)
+
+KrillinAI can optionally analyze the source video with [TwelveLabs](https://twelvelabs.io) **Pegasus** before
+translation. Pegasus produces a short scene/context summary (setting, speakers, tone, domain/jargon) that is injected
+into the translation prompts, helping the LLM disambiguate ambiguous terms, names and register — i.e. *scene-aware*
+translation.
+
+This is **fully opt-in and non-breaking**: it is disabled unless you set `content_understanding.provider`, and any
+failure simply falls back to the normal translation flow. Enable it in `config.toml`:
+
+```toml
+[content_understanding]
+    provider = "twelvelabs"
+    [content_understanding.twelvelabs]
+        api_key = "YOUR_TWELVELABS_API_KEY"
+        # model and prompt are optional; defaults to pegasus1.5 with a built-in translation-oriented prompt
+```
+
+You can grab a free API key at https://twelvelabs.io — there is a generous free tier.
+
 ## Language Support
 
 Input languages supported: Chinese, English, Japanese, German, Turkish, Korean, Russian, Malay (continuously increasing)

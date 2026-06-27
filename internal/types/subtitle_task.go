@@ -235,6 +235,15 @@ Use "Previous Sentences" to understand context and maintain coherence.
 
 **Provide only the natural, fluent translation on a single line:**`
 
+// VideoContextPromptPrefix wraps the TwelveLabs Pegasus scene summary so it can
+// be prepended to translation prompts. It is only used when content
+// understanding is enabled and a summary is available.
+var VideoContextPromptPrefix = `[VIDEO CONTEXT]
+The subtitles below come from a video with the following scene/context (use it to disambiguate terms, names, tone and register; do NOT translate this block):
+%s
+
+`
+
 type SmallAudio struct {
 	AudioFile         string
 	TranscriptionData *TranscriptionData
@@ -356,6 +365,7 @@ type SubtitleTaskStepParam struct {
 	SubtitleStyle               *subtitlestyle.StyleSet // CLI/Agent 传入的字幕样式；nil 时使用默认样式
 	RenderWidth                 int                     // 当前待烧录字幕视频宽度，用于按字号估算自动换行
 	RenderHeight                int                     // 当前待烧录字幕视频高度，用于按字号估算自动换行
+	VideoContextSummary         string                  // 可选：TwelveLabs Pegasus 生成的视频场景摘要，用于场景感知翻译，未启用时为空
 }
 
 type SrtSentence struct {

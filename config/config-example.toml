@@ -83,3 +83,11 @@
         base_url = "" # 生图接口base url，留空使用OpenAI官方接口；自定义转发站通常填写以/v1结尾的地址
         api_key = "" # 生图API密钥
         model = "gpt-image-1" # 生图模型，例如gpt-image-1，或转发站支持的兼容模型
+
+[content_understanding] # 可选：视频内容理解（场景感知翻译）。留空 provider 即关闭，不影响默认翻译行为
+    provider = "" # 可选值：留空(关闭)，twelvelabs
+    [content_understanding.twelvelabs] # provider 选 twelvelabs 时填写。免费额度可在 https://twelvelabs.io 申请
+        base_url = "" # 自定义 base url，留空使用官方 https://api.twelvelabs.io/v1.3
+        api_key = "" # TwelveLabs API 密钥
+        model = "" # Pegasus 模型名，留空默认 pegasus1.5
+        prompt = "" # 可选：自定义内容理解提示词，留空使用内置的翻译场景提示词
