@@ -1,3 +1,5 @@
+> **[Growth & Marketing Skills](https://github.com/krillinai/growth-skills)** — KrillinAI 的全部 Skills 已完整整合至 Growth & Marketing Skills 技能集合。
+
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
