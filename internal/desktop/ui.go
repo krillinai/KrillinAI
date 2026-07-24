@@ -187,6 +187,20 @@ func createApiProvidersCard() *fyne.Container {
 		},
 	)
 
+	// Atlas Cloud卡片
+	atlasCloudCard := createProviderCard(
+		"Atlas Cloud",
+		"OpenAI兼容模型服务",
+		"https://www.atlascloud.ai/console/api-keys",
+		color.NRGBA{R: 14, G: 165, B: 233, A: 255}, // Atlas Cloud blue
+		"atlascloud",
+		func() {
+			setProvider("https://api.atlascloud.ai/v1", []string{
+				"qwen/qwen3.5-flash", "deepseek-ai/deepseek-v4-pro",
+			})
+		},
+	)
+
 	// 新增自定义供应商卡片
 	addProviderCard := createProviderCard(
 		"新增",
@@ -204,6 +218,7 @@ func createApiProvidersCard() *fyne.Container {
 		qwenCard,
 		openaiCard,
 		deepseekCard,
+		atlasCloudCard,
 		addProviderCard,
 	)
 
