@@ -1,3 +1,5 @@
+> **[Growth & Marketing Skills](https://github.com/krillinai/growth-skills)** — All Skills from KrillinAI have been fully integrated into the Growth & Marketing Skills collection.
+
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
