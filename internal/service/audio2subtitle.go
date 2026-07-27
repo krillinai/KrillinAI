@@ -143,7 +143,7 @@ func IsSplitUseSpace(language types.StandardLanguageCode) bool {
 	return false
 }
 
-func (s Service) splitTextAndTranslateV2(basePath, inputText string, originLang, targetLang types.StandardLanguageCode, enableModalFilter bool, id int) ([]*TranslatedItem, error) {
+func (s Service) splitTextAndTranslateV2(basePath, inputText string, originLang, targetLang types.StandardLanguageCode, enableModalFilter bool, id int, videoContextSummary string) ([]*TranslatedItem, error) {
 	sentences := util.SplitTextSentences(inputText, config.Conf.App.MaxSentenceLength)
 	if len(sentences) == 0 {
 		return []*TranslatedItem{}, nil
@@ -227,6 +227,7 @@ func (s Service) splitTextAndTranslateV2(basePath, inputText string, originLang,
 			}
 
 			prompt := fmt.Sprintf(types.SplitTextWithContextPrompt, types.GetStandardLanguageName(targetLang), previousSentences, originText, nextSentences)
+			prompt = withVideoContext(videoContextSummary, prompt)
 
 			translatedText, err := s.ChatCompleter.ChatCompletion(prompt)
 			if err != nil {
@@ -260,6 +261,9 @@ func (s Service) audioToSrt(ctx context.Context, stepParam *types.SubtitleTaskSt
 	}()
 
 	log.GetLogger().Info("audioToSubtitle.audioToSrt start", zap.Any("taskId", stepParam.TaskId))
+
+	// 0. 可选：使用 TwelveLabs Pegasus 生成视频场景摘要，用于场景感知翻译（未启用时跳过，不影响原流程）
+	s.enrichVideoContext(stepParam)
 
 	// 1. 获取分割点
 	timePoints, err := s.getSplitPointsForAudio(stepParam)
@@ -439,7 +443,7 @@ func (s Service) startTranslateWorker(ctx context.Context, eg *errgroup.Group, s
 				// 翻译文本
 				log.GetLogger().Info("Begin to translate", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
 				for range config.Conf.App.TranslateMaxAttempts {
-					translatedResults, err = s.splitTextAndTranslateV2(stepParam.TaskBasePath, translateItem.Data, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, translateItem.Id)
+					translatedResults, err = s.splitTextAndTranslateV2(stepParam.TaskBasePath, translateItem.Data, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, translateItem.Id, stepParam.VideoContextSummary)
 					if err == nil {
 						break
 					}
