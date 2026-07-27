@@ -43,4 +43,32 @@ func TestBuildMuxArgsMapsVideoAndDubAudio(t *testing.T) {
 	if !strings.Contains(joined, "-shortest") {
 		t.Fatalf("args should include -shortest: %v", args)
 	}
+	// apad 必须与 -shortest 同时存在：只有 -shortest 会截断视频尾部，
+	// 只有 apad 会无限补静音导致 ffmpeg 不退出。
+	if !strings.Contains(joined, "-af apad") {
+		t.Fatalf("args should pad audio with apad so the video tail is not truncated: %v", args)
+	}
+}
+
+func TestBuildMuxArgsPadsAudioInsteadOfTruncatingVideo(t *testing.T) {
+	args := buildMuxArgs("input.mp4", "dub.wav", "out.mp4")
+
+	apad, shortest := -1, -1
+	for i, a := range args {
+		switch a {
+		case "apad":
+			apad = i
+		case "-shortest":
+			shortest = i
+		}
+	}
+	if apad == -1 {
+		t.Fatalf("apad filter missing: %v", args)
+	}
+	if shortest == -1 {
+		t.Fatalf("-shortest missing: %v", args)
+	}
+	if apad > shortest {
+		t.Fatalf("apad must be applied before -shortest takes effect: %v", args)
+	}
 }
