@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
@@ -3297,7 +3298,11 @@ func (s *YouTubeSubtitleService) groupWordsByCharLength(words []VttWord, maxChar
 	currentLength := 0
 
 	for _, word := range words {
-		wordLen := len(word.Text)
+		// 按字符数而非字节数计算：len() 对非 ASCII 返回字节数，
+		// 会让日语/韩语/俄语/阿拉伯语等源语言的实际行长上限缩到
+		// maxChars 的 1/2 ~ 1/4，字幕被切成碎片。
+		// 对 ASCII 两者相同，英文行为不变。
+		wordLen := utf8.RuneCountInString(word.Text)
 
 		// 计算加上这个单词后的总长度（包含空格）
 		newLength := currentLength
