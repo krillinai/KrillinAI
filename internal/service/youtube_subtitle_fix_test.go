@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -110,6 +111,57 @@ func TestGroupWordsByCharLengthMergesShortTrailingWord(t *testing.T) {
 	}
 	if got := groups[0][len(groups[0])-1].Text; got != "scrolling," {
 		t.Fatalf("last word = %q, want scrolling,", got)
+	}
+}
+
+// 非 ASCII 源语言必须按字符数分组。按字节数会把这些语言的字幕切成碎片：
+// 「日本語」3 个字符占 9 字节，maxChars=20 时按字节只能放 2 个词。
+func TestGroupWordsByCharLengthCountsRunesNotBytes(t *testing.T) {
+	s := &YouTubeSubtitleService{}
+
+	cases := []struct {
+		name  string
+		words []string
+		want  int
+	}{
+		{
+			name:  "japanese",
+			words: []string{"これは", "日本語", "の", "字幕", "です"},
+			want:  1, // 12 字符 <= 20，应保持一行
+		},
+		{
+			// 尾组两个词，避免被 mergeShortTrailingWordGroup 合并回去。
+			// 按字符共 32 个 -> 2 组；按字节共 59 个 -> 4 组。
+			name:  "russian",
+			words: []string{"быстрая", "коричневая", "лиса", "прыгает"},
+			want:  2,
+		},
+		{
+			name:  "ascii unchanged",
+			words: []string{"the", "quick", "brown", "fox"},
+			want:  1, // 17 字符 <= 20
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			words := make([]VttWord, 0, len(tc.words))
+			for _, w := range tc.words {
+				words = append(words, VttWord{Text: w, Start: "00:00:00.000", End: "00:00:01.000"})
+			}
+			groups := s.groupWordsByCharLength(words, 20)
+			if len(groups) != tc.want {
+				var got []string
+				for _, g := range groups {
+					var seg []string
+					for _, w := range g {
+						seg = append(seg, w.Text)
+					}
+					got = append(got, strings.Join(seg, " "))
+				}
+				t.Fatalf("group count = %d, want %d; groups = %v", len(groups), tc.want, got)
+			}
+		})
 	}
 }
 
