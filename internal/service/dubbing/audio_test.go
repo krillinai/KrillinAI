@@ -53,22 +53,24 @@ func TestBuildMuxArgsMapsVideoAndDubAudio(t *testing.T) {
 func TestBuildMuxArgsPadsAudioInsteadOfTruncatingVideo(t *testing.T) {
 	args := buildMuxArgs("input.mp4", "dub.wav", "out.mp4")
 
-	apad, shortest := -1, -1
+	// 真实约束是 apad 必须作为 -af 的值出现（裸 token 会被 ffmpeg 当成输出文件），
+	// 且 -shortest 必须同时存在。两者在命令行上的先后顺序不影响 ffmpeg 行为：
+	// -af 是滤镜选项，-shortest 是输出选项，作用在不同阶段。
+	afValue, shortest := "", false
 	for i, a := range args {
 		switch a {
-		case "apad":
-			apad = i
+		case "-af":
+			if i+1 < len(args) {
+				afValue = args[i+1]
+			}
 		case "-shortest":
-			shortest = i
+			shortest = true
 		}
 	}
-	if apad == -1 {
-		t.Fatalf("apad filter missing: %v", args)
+	if afValue != "apad" {
+		t.Fatalf("-af should be apad, got %q: %v", afValue, args)
 	}
-	if shortest == -1 {
+	if !shortest {
 		t.Fatalf("-shortest missing: %v", args)
-	}
-	if apad > shortest {
-		t.Fatalf("apad must be applied before -shortest takes effect: %v", args)
 	}
 }
