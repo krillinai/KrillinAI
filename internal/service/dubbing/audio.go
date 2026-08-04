@@ -61,9 +61,14 @@ func buildMuxArgs(inputVideo, inputAudio, outputVideo string) []string {
 		"-c:v", "copy",
 		"-map", "0:v:0",
 		"-map", "1:a:0",
+		// apad 生成无限静音，配合 -shortest 使输出恰好等于视频长度。
+		// 只用 -shortest 会让输出在配音音轨结束处截断，丢掉最后一句字幕
+		// 之后的视频内容（片尾、结束画面等）。两个参数必须成对使用，
+		// 单独使用 apad 会无限补静音导致命令不结束。
+		"-af", "apad",
+		"-shortest",
 		"-c:a", "aac",
 		"-b:a", "192k",
-		"-shortest",
 		outputVideo,
 	}
 }
