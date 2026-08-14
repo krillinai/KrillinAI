@@ -1,4 +1,4 @@
-> **[Growth & Marketing Skills](https://github.com/krillinai/growth-skills)** — All Skills from KrillinAI have been fully integrated into the Growth & Marketing Skills collection.
+> **[Growee Skills](https://github.com/krillinai/growee-skills)** — KrillinAI's Agent Skills are available through this full-lifecycle AI growth skills collection.
 
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
@@ -16,7 +16,7 @@
 
 </div>
 
-## Project Introduction ([Check all the Growth & Marketing Skills](https://github.com/krillinai/growth-skills))
+## Project Introduction ([Explore Growee Skills](https://github.com/krillinai/growee-skills))
 [**Quick Start**](#-quick-start)
 
 KrillinAI is a versatile audio and video localization and enhancement solution developed by the Krillin AI team, designed for both human users and AI Agents. The tool covers the complete pipeline including video download, speech transcription, subtitle translation, TTS dubbing, portrait conversion, and cover generation, supporting both landscape and portrait formats to ensure perfect presentation on all major platforms (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). Human users can complete end-to-end content localization with one click via the client; each capability can also be invoked independently via CLI, and AI Agents can orchestrate single or multiple stages on demand to flexibly compose automated workflows.
