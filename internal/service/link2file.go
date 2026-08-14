@@ -9,6 +9,7 @@ import (
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
+	"net/url"
 	"os/exec"
 	"strings"
 
@@ -70,7 +71,7 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 		if videoId == "" {
 			return errors.New("linkToFile error: invalid link")
 		}
-		stepParam.Link = "https://www.bilibili.com/video/" + videoId
+		stepParam.Link = normalizeBilibiliVideoURL(link, videoId)
 		cmdArgs := []string{"-f", "bestaudio[ext=m4a]", "-x", "--audio-format", "mp3", "-o", audioPath, stepParam.Link}
 		if config.Conf.App.Proxy != "" {
 			cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
@@ -112,4 +113,21 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 	// 更新字幕任务信息
 	stepParam.TaskPtr.ProcessPct = 10
 	return nil
+}
+
+func normalizeBilibiliVideoURL(link, videoId string) string {
+	videoURL := "https://www.bilibili.com/video/" + videoId
+	parsedURL, err := url.Parse(link)
+	if err != nil {
+		return videoURL
+	}
+
+	page := parsedURL.Query().Get("p")
+	if page == "" {
+		return videoURL
+	}
+
+	query := url.Values{}
+	query.Set("p", page)
+	return videoURL + "?" + query.Encode()
 }
