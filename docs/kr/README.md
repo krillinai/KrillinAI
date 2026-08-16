@@ -294,4 +294,4 @@ Agent 통합 규칙:
 
 ## 스타 역사
 
-[![스타 역사 차트](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)
+[![스타 역사 차트](https://star-history.dera.page/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.dera.page/#KrillinAI/KrillinAI&Date)

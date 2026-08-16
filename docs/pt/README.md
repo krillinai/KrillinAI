@@ -285,4 +285,4 @@ Por favor, visite [Perguntas Frequentes](./faq.md)
 
 ## Histórico de Estrelas
 
-[![Gráfico de Histórico de Estrelas](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)
+[![Gráfico de Histórico de Estrelas](https://star-history.dera.page/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.dera.page/#KrillinAI/KrillinAI&Date)
