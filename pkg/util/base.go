@@ -312,3 +312,42 @@ func CleanMarkdownCodeBlock(response string) string {
 	cleaned := re.ReplaceAllString(response, "")
 	return strings.TrimSpace(cleaned)
 }
+
+// trailingCommaRe matches a comma that is immediately followed (optionally
+// after whitespace) by a closing brace or bracket, i.e. an illegal trailing
+// comma in JSON such as `{"a":1,}` or `[1,2,]`.
+var trailingCommaRe = regexp.MustCompile(`,(\s*[}\]])`)
+
+// ExtractJSON makes a best-effort attempt to turn an LLM response into a
+// parseable JSON document. LLMs (especially local models via Ollama) often
+// wrap the JSON in a markdown code block, prepend a conversational sentence,
+// or emit trailing commas — all of which make encoding/json fail. It:
+//
+//  1. strips markdown code fences,
+//  2. slices from the first `{` or `[` to the matching last `}` or `]`, so
+//     any conversational prefix/suffix (in any language) is dropped, and
+//  3. removes trailing commas before a closing `}` or `]`.
+//
+// If no JSON object/array delimiters are found, the fence-stripped, trimmed
+// string is returned unchanged so the caller still sees the original error.
+func ExtractJSON(response string) string {
+	s := CleanMarkdownCodeBlock(response)
+
+	// Find the outermost object/array span. Use whichever opening delimiter
+	// appears first, and its matching last closing delimiter.
+	openObj, openArr := strings.IndexByte(s, '{'), strings.IndexByte(s, '[')
+	start, closeByte := -1, byte('}')
+	switch {
+	case openObj == -1 && openArr == -1:
+		return s
+	case openArr == -1 || (openObj != -1 && openObj < openArr):
+		start, closeByte = openObj, '}'
+	default:
+		start, closeByte = openArr, ']'
+	}
+	if end := strings.LastIndexByte(s, closeByte); end > start {
+		s = s[start : end+1]
+	}
+
+	return strings.TrimSpace(trailingCommaRe.ReplaceAllString(s, "$1"))
+}
