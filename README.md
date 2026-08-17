@@ -108,6 +108,7 @@ _**All local models in the table below support automatic installation of executa
 - Gemini
 - DeepSeek
 - Tongyi Qianwen
+- OrcaRouter
 - Locally deployed open-source models
 - Other API services compatible with OpenAI format
 
