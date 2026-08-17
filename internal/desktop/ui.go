@@ -187,6 +187,20 @@ func createApiProvidersCard() *fyne.Container {
 		},
 	)
 
+	// OrcaRouter卡片
+	orcaRouterCard := createProviderCard(
+		"OrcaRouter",
+		"AI 网关,统一接入 Claude/OpenAI 模型",
+		"https://www.orcarouter.ai/",
+		color.NRGBA{R: 0, G: 150, B: 136, A: 255}, // OrcaRouter青色
+		"orcarouter",
+		func() {
+			setProvider("https://api.orcarouter.ai/v1", []string{
+				"anthropic/claude-sonnet-5", "anthropic/claude-haiku-4.5", "anthropic/claude-opus-5",
+			})
+		},
+	)
+
 	// 新增自定义供应商卡片
 	addProviderCard := createProviderCard(
 		"新增",
@@ -204,6 +218,7 @@ func createApiProvidersCard() *fyne.Container {
 		qwenCard,
 		openaiCard,
 		deepseekCard,
+		orcaRouterCard,
 		addProviderCard,
 	)
 
