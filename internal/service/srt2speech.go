@@ -15,6 +15,22 @@ func targetSRTPathForDubbing(taskBasePath string) string {
 
 type voiceCloneFunc func(prefix, audioURL string) (string, error)
 
+// voiceCloneFuncForProvider returns the voice clone implementation that belongs to
+// the configured TTS provider, so a cloned voice is always created by the same
+// provider that will synthesize the dubbing audio.
+func (s Service) voiceCloneFuncForProvider(provider string) voiceCloneFunc {
+	if provider == ttsProviderMinimax {
+		if s.MinimaxVoiceCloneClient == nil {
+			return nil
+		}
+		return s.MinimaxVoiceCloneClient.CloneVoice
+	}
+	if s.VoiceCloneClient == nil {
+		return nil
+	}
+	return s.VoiceCloneClient.CosyVoiceClone
+}
+
 func resolveDubbingVoiceCode(baseVoice, cloneURL string, clone voiceCloneFunc) (string, error) {
 	if cloneURL == "" {
 		return baseVoice, nil
@@ -41,10 +57,7 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 		stepParam.TtsSourceFilePath = targetSRTPathForDubbing(stepParam.TaskBasePath)
 	}
 
-	var clone voiceCloneFunc
-	if s.VoiceCloneClient != nil {
-		clone = s.VoiceCloneClient.CosyVoiceClone
-	}
+	clone := s.voiceCloneFuncForProvider(config.Conf.Tts.Provider)
 	voiceCode, err := resolveDubbingVoiceCode(stepParam.TtsVoiceCode, stepParam.VoiceCloneAudioUrl, clone)
 	if err != nil {
 		return err

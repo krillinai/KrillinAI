@@ -5,7 +5,37 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"krillin-ai/pkg/aliyun"
+	"krillin-ai/pkg/minimax"
 )
+
+func TestVoiceCloneFuncForProviderUsesMinimaxClient(t *testing.T) {
+	s := Service{MinimaxVoiceCloneClient: minimax.NewVoiceCloneClient("", "key", "")}
+	if s.voiceCloneFuncForProvider(ttsProviderMinimax) == nil {
+		t.Fatal("voiceCloneFuncForProvider() = nil, want the configured clone func")
+	}
+}
+
+func TestVoiceCloneFuncForProviderDoesNotFallBackForMinimax(t *testing.T) {
+	s := Service{VoiceCloneClient: aliyun.NewVoiceCloneClient("id", "secret", "appkey")}
+	if s.voiceCloneFuncForProvider(ttsProviderMinimax) != nil {
+		t.Fatal("voiceCloneFuncForProvider() != nil, want nil when the provider client is missing")
+	}
+}
+
+func TestVoiceCloneFuncForProviderKeepsDefaultProvider(t *testing.T) {
+	s := Service{VoiceCloneClient: aliyun.NewVoiceCloneClient("id", "secret", "appkey")}
+	if s.voiceCloneFuncForProvider("aliyun") == nil {
+		t.Fatal("voiceCloneFuncForProvider() = nil, want the default clone func")
+	}
+}
+
+func TestVoiceCloneFuncForProviderNilWithoutClients(t *testing.T) {
+	if (Service{}).voiceCloneFuncForProvider("aliyun") != nil {
+		t.Fatal("voiceCloneFuncForProvider() != nil, want nil without any clone client")
+	}
+}
 
 func TestSrtFileToSpeechRejectsNilStepParam(t *testing.T) {
 	err := Service{}.srtFileToSpeech(context.Background(), nil)
