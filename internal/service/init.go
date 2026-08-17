@@ -17,20 +17,25 @@ import (
 	"go.uber.org/zap"
 )
 
+// ttsProviderMinimax is the TTS provider value that selects the MiniMax clients.
+const ttsProviderMinimax = "minimax"
+
 type Service struct {
-	Transcriber        types.Transcriber
-	ChatCompleter      types.ChatCompleter
-	TtsClient          types.Ttser
-	OssClient          *aliyun.OssClient
-	VoiceCloneClient   *aliyun.VoiceCloneClient
-	YouTubeSubtitleSrv *YouTubeSubtitleService
-	ImageClient        *pkgimage.OpenAICompatibleClient
+	Transcriber             types.Transcriber
+	ChatCompleter           types.ChatCompleter
+	TtsClient               types.Ttser
+	OssClient               *aliyun.OssClient
+	VoiceCloneClient        *aliyun.VoiceCloneClient
+	MinimaxVoiceCloneClient *minimax.VoiceCloneClient
+	YouTubeSubtitleSrv      *YouTubeSubtitleService
+	ImageClient             *pkgimage.OpenAICompatibleClient
 }
 
 func NewService() *Service {
 	var transcriber types.Transcriber
 	var chatCompleter types.ChatCompleter
 	var ttsClient types.Ttser
+	var minimaxVoiceCloneClient *minimax.VoiceCloneClient
 
 	switch config.Conf.Transcribe.Provider {
 	case "openai":
@@ -60,17 +65,19 @@ func NewService() *Service {
 		ttsClient = aliyun.NewTtsClient(config.Conf.Tts.Aliyun.Speech.AccessKeyId, config.Conf.Tts.Aliyun.Speech.AccessKeySecret, config.Conf.Tts.Aliyun.Speech.AppKey)
 	case "edge-tts":
 		ttsClient = localtts.NewEdgeTtsClient()
-	case "minimax":
+	case ttsProviderMinimax:
 		ttsClient = minimax.NewTtsClient(config.Conf.Tts.Minimax.BaseUrl, config.Conf.Tts.Minimax.ApiKey, config.Conf.Tts.Minimax.Model)
+		minimaxVoiceCloneClient = minimax.NewVoiceCloneClient(config.Conf.Tts.Minimax.BaseUrl, config.Conf.Tts.Minimax.ApiKey, config.Conf.Tts.Minimax.Model)
 	}
 
 	s := &Service{
-		Transcriber:      transcriber,
-		ChatCompleter:    chatCompleter,
-		TtsClient:        ttsClient,
-		OssClient:        aliyun.NewOssClient(config.Conf.Transcribe.Aliyun.Oss.AccessKeyId, config.Conf.Transcribe.Aliyun.Oss.AccessKeySecret, config.Conf.Transcribe.Aliyun.Oss.Bucket),
-		VoiceCloneClient: aliyun.NewVoiceCloneClient(config.Conf.Tts.Aliyun.Speech.AccessKeyId, config.Conf.Tts.Aliyun.Speech.AccessKeySecret, config.Conf.Tts.Aliyun.Speech.AppKey),
-		ImageClient:      pkgimage.NewOpenAICompatibleClient(config.Conf.Image.Openai.BaseUrl, config.Conf.Image.Openai.ApiKey, config.Conf.Image.Openai.Model),
+		Transcriber:             transcriber,
+		ChatCompleter:           chatCompleter,
+		TtsClient:               ttsClient,
+		OssClient:               aliyun.NewOssClient(config.Conf.Transcribe.Aliyun.Oss.AccessKeyId, config.Conf.Transcribe.Aliyun.Oss.AccessKeySecret, config.Conf.Transcribe.Aliyun.Oss.Bucket),
+		VoiceCloneClient:        aliyun.NewVoiceCloneClient(config.Conf.Tts.Aliyun.Speech.AccessKeyId, config.Conf.Tts.Aliyun.Speech.AccessKeySecret, config.Conf.Tts.Aliyun.Speech.AppKey),
+		MinimaxVoiceCloneClient: minimaxVoiceCloneClient,
+		ImageClient:             pkgimage.NewOpenAICompatibleClient(config.Conf.Image.Openai.BaseUrl, config.Conf.Image.Openai.ApiKey, config.Conf.Image.Openai.Model),
 	}
 	s.YouTubeSubtitleSrv = NewYouTubeSubtitleService()
 
