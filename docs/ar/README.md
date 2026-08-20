@@ -294,4 +294,4 @@ go build -o build/krillinai-cli ./cmd/cli
 
 ## تاريخ النجوم
 
-[![مخطط تاريخ النجوم](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)
+[![مخطط تاريخ النجوم](https://star-history.dera.page/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.dera.page/#KrillinAI/KrillinAI&Date)

@@ -294,4 +294,4 @@ Por favor visita [Preguntas Frecuentes](./faq.md)
 
 ## Historial de Estrellas
 
-[![Gráfico de Historial de Estrellas](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)
+[![Gráfico de Historial de Estrellas](https://star-history.dera.page/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.dera.page/#KrillinAI/KrillinAI&Date)

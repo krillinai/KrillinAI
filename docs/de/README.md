@@ -294,4 +294,4 @@ Bitte besuchen Sie die [Häufig gestellten Fragen](./faq.md)
 
 ## Star-Historie
 
-[![Star-Historien-Diagramm](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)
+[![Star-Historien-Diagramm](https://star-history.dera.page/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.dera.page/#KrillinAI/KrillinAI&Date)

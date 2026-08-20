@@ -285,4 +285,4 @@ go build -o build/krillinai-cli ./cmd/cli
 
 ## История звезд
 
-[![График истории звезд](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)
+[![График истории звезд](https://star-history.dera.page/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.dera.page/#KrillinAI/KrillinAI&Date)
