@@ -285,4 +285,4 @@ Vui lòng truy cập [Câu Hỏi Thường Gặp](./faq.md)
 
 ## Lịch Sử Sao
 
-[![Biểu Đồ Lịch Sử Sao](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)
+[![Biểu Đồ Lịch Sử Sao](https://star-history.dera.page/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.dera.page/#KrillinAI/KrillinAI&Date)
