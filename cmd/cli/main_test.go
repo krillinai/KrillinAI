@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"krillin-ai/internal/cli"
 	"krillin-ai/internal/pipeline"
+	"strings"
 	"testing"
 )
 
@@ -46,5 +49,36 @@ func TestRequiresTranscriptionAtStart(t *testing.T) {
 				t.Fatalf("requiresTranscriptionAtStart() = %v, want %v", got, test.want)
 			}
 		})
+	}
+}
+
+func TestConfigureOpenCreatorProgressWritesJSONLines(t *testing.T) {
+	t.Setenv("OPENCREATOR_KRILLINAI_CLI", "1")
+	var buffer bytes.Buffer
+	output := &jsonLineWriter{output: &buffer}
+	cmd := cli.Command{Name: "subtitle"}
+
+	configureOpenCreatorProgress(&cmd, output)
+	if cmd.Subtitle.ReportProgress == nil {
+		t.Fatal("ReportProgress is nil")
+	}
+	cmd.Subtitle.ReportProgress("transcribing_audio", 42, "working")
+
+	line := strings.TrimSpace(buffer.String())
+	var frame progressFrame
+	if err := json.Unmarshal([]byte(line), &frame); err != nil {
+		t.Fatalf("invalid progress JSON %q: %v", line, err)
+	}
+	if frame.Type != "progress" || frame.Phase != "transcribing_audio" || frame.Percent != 42 || frame.Message != "working" {
+		t.Fatalf("unexpected progress frame: %+v", frame)
+	}
+}
+
+func TestConfigureOpenCreatorProgressStaysDisabledByDefault(t *testing.T) {
+	t.Setenv("OPENCREATOR_KRILLINAI_CLI", "")
+	cmd := cli.Command{Name: "subtitle"}
+	configureOpenCreatorProgress(&cmd, &jsonLineWriter{output: &bytes.Buffer{}})
+	if cmd.Subtitle.ReportProgress != nil {
+		t.Fatal("ReportProgress should remain nil")
 	}
 }

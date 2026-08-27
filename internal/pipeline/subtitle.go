@@ -55,6 +55,7 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 	if err := svc.PrepareMedia(ctx, stepParam); err != nil {
 		return failSubtitleStage(req, manifest, ErrorKindRetryable, "prepare_media_failed", err)
 	}
+	syncPreparedMediaOutputs(manifest, stepParam)
 
 	var platformCaptionErr error
 	if isYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper {
@@ -80,6 +81,7 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 			if err := prepareOriginalMediaForRendering(ctx, svc, stepParam); err != nil {
 				return failSubtitleStage(req, manifest, ErrorKindRetryable, "prepare_media_for_render_failed", err)
 			}
+			syncPreparedMediaOutputs(manifest, stepParam)
 			reportSubtitleProgress(req, "collecting_outputs", 95, "正在整理字幕和视频产物")
 			return saveSubtitleSuccess(manifest, req, CaptionSource("youtube_vtt"))
 		}
@@ -101,6 +103,7 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 				err,
 			))
 		}
+		syncPreparedMediaOutputs(manifest, stepParam)
 	}
 
 	stepParam.TaskPtr.SetProgressReporter(audioSubtitleProgressReporter(req))
@@ -156,6 +159,15 @@ func minInt(left, right int) int {
 		return left
 	}
 	return right
+}
+
+func syncPreparedMediaOutputs(manifest *Manifest, stepParam *types.SubtitleTaskStepParam) {
+	if stepParam.InputVideoPath != "" {
+		manifest.Outputs.OriginVideo = stepParam.InputVideoPath
+	}
+	if stepParam.AudioFilePath != "" {
+		manifest.Outputs.OriginAudio = stepParam.AudioFilePath
+	}
 }
 
 func subtitleManifest(req SubtitleRequest) (*Manifest, error) {

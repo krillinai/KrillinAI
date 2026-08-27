@@ -21,6 +21,8 @@ type fakeStageService struct {
 	lastCoverPrompt   string
 	lastCoverSize     string
 	coverImageB64     string
+	preparedVideoPath string
+	preparedAudioPath string
 }
 
 func (f *fakeStageService) PrepareMedia(_ context.Context, p *types.SubtitleTaskStepParam) error {
@@ -28,6 +30,12 @@ func (f *fakeStageService) PrepareMedia(_ context.Context, p *types.SubtitleTask
 	f.prepareVTT = append(f.prepareVTT, p.VttSwitch)
 	f.prepareEmbedTypes = append(f.prepareEmbedTypes, p.EmbedSubtitleVideoType)
 	f.lastPrepare = p
+	if f.preparedVideoPath != "" {
+		p.InputVideoPath = f.preparedVideoPath
+	}
+	if f.preparedAudioPath != "" {
+		p.AudioFilePath = f.preparedAudioPath
+	}
 	return nil
 }
 
@@ -121,6 +129,35 @@ func TestGenerateSubtitlesPassesSubtitleStyleToStepParam(t *testing.T) {
 	}
 	if fake.lastPrepare == nil || fake.lastPrepare.SubtitleStyle != style {
 		t.Fatalf("SubtitleStyle was not passed to stepParam")
+	}
+}
+
+func TestGenerateSubtitlesReportsPreparedLocalMediaOutputs(t *testing.T) {
+	dir := t.TempDir()
+	source := dir + "/source.webm"
+	audio := dir + "/origin_audio.mp3"
+	fake := &fakeStageService{
+		preparedVideoPath: source,
+		preparedAudioPath: audio,
+	}
+	req := SubtitleRequest{
+		Input:         "local:" + source,
+		Workdir:       dir,
+		TaskID:        "demo",
+		OriginLang:    "en",
+		TargetLang:    "zh_cn",
+		CaptionSource: CaptionSourceWhisper,
+	}
+
+	resp, err := GenerateSubtitles(context.Background(), fake, req)
+	if err != nil {
+		t.Fatalf("GenerateSubtitles() error = %v", err)
+	}
+	if resp.Outputs.OriginVideo != source {
+		t.Fatalf("OriginVideo = %q, want %q", resp.Outputs.OriginVideo, source)
+	}
+	if resp.Outputs.OriginAudio != audio {
+		t.Fatalf("OriginAudio = %q, want %q", resp.Outputs.OriginAudio, audio)
 	}
 }
 
