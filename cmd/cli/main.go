@@ -11,6 +11,7 @@ import (
 	"krillin-ai/internal/service"
 	"krillin-ai/log"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -51,15 +52,41 @@ func main() {
 			},
 		})
 	}
-	if err := config.CheckConfig(); err != nil {
+	if err := config.CheckBaseConfig(); err != nil {
 		writeAndExit(errorResponse(err, pipeline.ErrorKindUsage))
 	}
-	if err := deps.CheckDependency(); err != nil {
+	if requiresTranscriptionAtStart(cmd) {
+		if err := config.ValidateTranscriptionConfig(); err != nil {
+			writeAndExit(errorResponse(err, pipeline.ErrorKindUsage))
+		}
+	}
+	if err := deps.CheckCoreDependencies(); err != nil {
 		writeAndExit(errorResponse(err, pipeline.ErrorKindDependency))
+	}
+	if requiresTranscriptionAtStart(cmd) {
+		if err := deps.CheckTranscriptionDependency(); err != nil {
+			writeAndExit(errorResponse(err, pipeline.ErrorKindDependency))
+		}
+	}
+	if cmd.Name == "tts" {
+		if err := deps.CheckTTSDependency(); err != nil {
+			writeAndExit(errorResponse(err, pipeline.ErrorKindDependency))
+		}
 	}
 	svc := service.NewService()
 	adapter := pipeline.NewServiceAdapter(svc)
 	writeAndExit(cli.Execute(context.Background(), adapter, cmd))
+}
+
+func requiresTranscriptionAtStart(cmd cli.Command) bool {
+	if cmd.Name != "subtitle" {
+		return false
+	}
+	if cmd.Subtitle.CaptionSource == pipeline.CaptionSourceWhisper {
+		return true
+	}
+	input := strings.ToLower(strings.TrimSpace(cmd.Subtitle.Input))
+	return !strings.Contains(input, "youtube.com") && !strings.Contains(input, "youtu.be")
 }
 
 func errorResponse(err error, kind pipeline.ErrorKind) pipeline.Response {

@@ -60,3 +60,30 @@ func TestExtractBilingualTargetBottom(t *testing.T) {
 		t.Fatalf("target bottom not extracted: %q", string(got))
 	}
 }
+
+func TestValidateSRTTimelineRejectsInvalidDuration(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "invalid.srt")
+	content := "1\n00:00:01,000 --> 00:00:01,000\nhello\n\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateSRTTimelineFile(path, false); err == nil {
+		t.Fatal("validateSRTTimelineFile() error = nil, want invalid duration")
+	}
+}
+
+func TestValidateSRTTimelineAllowsOverlapOnlyWhenRequested(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "mixed.srt")
+	content := "1\n00:00:01,000 --> 00:00:02,000\ntarget\n\n2\n00:00:01,200 --> 00:00:01,500\norigin\n\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateSRTTimelineFile(path, false); err == nil {
+		t.Fatal("validateSRTTimelineFile() error = nil, want overlap error")
+	}
+	if err := validateSRTTimelineFile(path, true); err != nil {
+		t.Fatalf("validateSRTTimelineFile(allow overlap) error = %v", err)
+	}
+}

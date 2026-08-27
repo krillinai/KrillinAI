@@ -159,6 +159,7 @@ func (s *YouTubeSubtitleService) downloadYouTubeSubtitle(ctx context.Context, re
 	// 添加重试机制
 	maxAttempts := 3
 	var lastErr error
+	var lastOutput []byte
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		log.GetLogger().Info("Attempting to download YouTube subtitle",
@@ -184,6 +185,7 @@ func (s *YouTubeSubtitleService) downloadYouTubeSubtitle(ctx context.Context, re
 		}
 
 		lastErr = err
+		lastOutput = output
 		log.GetLogger().Warn("downloadYouTubeSubtitle attempt failed",
 			zap.Any("taskId", req.TaskId),
 			zap.Int("attempt", attempt+1),
@@ -197,7 +199,12 @@ func (s *YouTubeSubtitleService) downloadYouTubeSubtitle(ctx context.Context, re
 	}
 
 	log.GetLogger().Error("downloadYouTubeSubtitle failed after all attempts", zap.Any("req", req), zap.Error(lastErr))
-	return "", fmt.Errorf("downloadYouTubeSubtitle yt-dlp error after %d attempts: %w", maxAttempts, lastErr)
+	return "", fmt.Errorf(
+		"downloadYouTubeSubtitle yt-dlp error after %d attempts: %w: %s",
+		maxAttempts,
+		lastErr,
+		compactCommandOutput(lastOutput),
+	)
 }
 
 // 查找下载的字幕文件
@@ -255,7 +262,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 
 	// 更新进度：开始处理
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 10
+		req.TaskPtr.SetProgress(10)
 	}
 
 	// 1. 提取VTT单词
@@ -276,7 +283,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 
 	// 更新进度：提取完成
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 20
+		req.TaskPtr.SetProgress(20)
 	}
 
 	// 2. 组织成句子
@@ -288,7 +295,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 
 	// 更新进度：句子组织完成
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 30
+		req.TaskPtr.SetProgress(30)
 	}
 
 	// 3. 生成原始语言SRT文件（origin_language_srt.srt）
@@ -303,7 +310,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 
 	// 更新进度：原始SRT生成完成
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 40
+		req.TaskPtr.SetProgress(40)
 	}
 
 	// 4. 批量翻译生成目标语言SRT（40%-90%进度）
@@ -315,7 +322,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 
 	// 更新进度：翻译完成
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 90
+		req.TaskPtr.SetProgress(90)
 	}
 
 	// 5. 生成目标语言SRT文件（target_language_srt.srt）
@@ -328,7 +335,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 
 	// 更新进度：目标语言SRT生成完成
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 92
+		req.TaskPtr.SetProgress(92)
 	}
 
 	// 6. 生成双语字幕文件（bilingual_srt.srt）
@@ -341,7 +348,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 
 	// 更新进度：双语字幕生成完成
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 95
+		req.TaskPtr.SetProgress(95)
 	}
 
 	// 7. 生成短字幕文件（竖屏用）
@@ -356,7 +363,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 
 	// 更新进度：短字幕生成完成
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 98
+		req.TaskPtr.SetProgress(98)
 	}
 
 	// 8. 生成纯文本文件到output目录
@@ -378,7 +385,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 
 	// 更新进度：完成
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 100
+		req.TaskPtr.SetProgress(100)
 	}
 
 	log.GetLogger().Info("processYouTubeSubtitle 处理完成",
@@ -865,7 +872,7 @@ func (s *YouTubeSubtitleService) writeVttWordsToSrt(vttWords []VttWord, srtFile 
 
 	// 更新进度到15%
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = baseProgress + uint8(float64(targetProgress-baseProgress)*0.1)
+		req.TaskPtr.SetProgress(baseProgress + uint8(float64(targetProgress-baseProgress)*0.1))
 		log.GetLogger().Info("Progress updated after grouping sentences",
 			zap.Uint8("progress", req.TaskPtr.ProcessPct))
 	}
@@ -947,7 +954,7 @@ func (s *YouTubeSubtitleService) writeVttWordsToSrt(vttWords []VttWord, srtFile 
 		// 实时更新翻译进度
 		if req.TaskPtr != nil {
 			currentTranslationProgress := float64(completedTasks) / float64(len(sentences))
-			req.TaskPtr.ProcessPct = translationProgressBase + uint8(float64(translationProgressRange)*currentTranslationProgress)
+			req.TaskPtr.SetProgress(translationProgressBase + uint8(float64(translationProgressRange)*currentTranslationProgress))
 
 			// 每完成5个或完成所有任务时记录日志
 			if completedTasks%5 == 0 || completedTasks == len(sentences) {
@@ -977,7 +984,7 @@ func (s *YouTubeSubtitleService) writeVttWordsToSrt(vttWords []VttWord, srtFile 
 
 	// 更新进度到85%（结果整理完成）
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = baseProgress + uint8(float64(targetProgress-baseProgress)*0.85)
+		req.TaskPtr.SetProgress(baseProgress + uint8(float64(targetProgress-baseProgress)*0.85))
 		log.GetLogger().Info("Progress updated after organizing results",
 			zap.Uint8("progress", req.TaskPtr.ProcessPct))
 	}
@@ -990,7 +997,7 @@ func (s *YouTubeSubtitleService) writeVttWordsToSrt(vttWords []VttWord, srtFile 
 
 	// 更新进度到88%（正常SRT文件写入完成）
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = baseProgress + uint8(float64(targetProgress-baseProgress)*0.88)
+		req.TaskPtr.SetProgress(baseProgress + uint8(float64(targetProgress-baseProgress)*0.88))
 		log.GetLogger().Info("Progress updated after writing SRT file",
 			zap.Uint8("progress", req.TaskPtr.ProcessPct))
 	}
@@ -1007,7 +1014,7 @@ func (s *YouTubeSubtitleService) writeVttWordsToSrt(vttWords []VttWord, srtFile 
 
 	// 最终更新进度到90%（所有操作完成）
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = targetProgress
+		req.TaskPtr.SetProgress(targetProgress)
 		log.GetLogger().Info("writeVttWordsToSrt completed",
 			zap.Uint8("final_progress", req.TaskPtr.ProcessPct),
 			zap.Int("total_srt_blocks", len(srtBlocks)))
@@ -3196,7 +3203,7 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 
 	// 更新进度：开始处理
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 20
+		req.TaskPtr.SetProgress(20)
 	}
 
 	// 1. 转换VTT到临时SRT文件
@@ -3209,7 +3216,7 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 
 	// 更新进度：VTT转换完成
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 30
+		req.TaskPtr.SetProgress(30)
 	}
 
 	// 2. 生成原文SRT文件（origin_language_srt.srt）
@@ -3227,7 +3234,7 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 
 	// 更新进度：原文SRT生成完成
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 40
+		req.TaskPtr.SetProgress(40)
 	}
 
 	// 3. 解析SRT文件
@@ -3246,7 +3253,7 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 
 	// 更新进度：翻译完成
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 90
+		req.TaskPtr.SetProgress(90)
 	}
 
 	// 5. 生成目标语言SRT文件（target_language_srt.srt）
@@ -3259,7 +3266,7 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 
 	// 更新进度：目标语言SRT生成完成
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 95
+		req.TaskPtr.SetProgress(95)
 	}
 
 	// 6. 生成双语字幕文件（bilingual_srt.srt）
@@ -3272,7 +3279,7 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 
 	// 更新进度：完成
 	if req.TaskPtr != nil {
-		req.TaskPtr.ProcessPct = 100
+		req.TaskPtr.SetProgress(100)
 	}
 
 	log.GetLogger().Info("block-level VTT处理完成",

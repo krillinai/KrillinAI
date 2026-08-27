@@ -415,11 +415,11 @@ func TestLoadSubtitleStyleFindsRepoDefaultFromDifferentWorkingDir(t *testing.T) 
 	if !ok {
 		t.Fatal("default subtitle style path not found")
 	}
-	t.Cleanup(func() {
+	defer func() {
 		if err := os.Chdir(originalWd); err != nil {
 			t.Fatalf("restore cwd: %v", err)
 		}
-	})
+	}()
 	if err := os.Chdir(t.TempDir()); err != nil {
 		t.Fatal(err)
 	}

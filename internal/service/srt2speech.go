@@ -88,7 +88,7 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 	stepParam.TtsResultFilePath = result.Audio
 	stepParam.VideoWithTtsFilePath = result.Video
 	if stepParam.TaskPtr != nil {
-		stepParam.TaskPtr.ProcessPct = 98
+		stepParam.TaskPtr.SetProgress(98)
 	}
 	return nil
 }

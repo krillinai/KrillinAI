@@ -21,6 +21,7 @@ dist/
 .DS_Store
 ._*
 KrillinAI.exe
+opencreator-server.exe
 .codegraph/
 .deepseek/
 run.log

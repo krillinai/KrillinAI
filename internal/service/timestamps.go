@@ -68,7 +68,8 @@ func (tg *TimestampGenerator) GenerateTimestamps(srtBlocks []*util.SrtBlock, wor
 	updatedBlocks := make([]*util.SrtBlock, len(srtBlocks))
 
 	for i, block := range srtBlocks {
-		updatedBlocks[i] = block
+		updatedBlock := *block
+		updatedBlocks[i] = &updatedBlock
 
 		if block.OriginLanguageSentence == "" {
 			// Skip empty sentences
