@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"krillin-ai/config"
 	"krillin-ai/internal/cli"
 	"krillin-ai/internal/deps"
@@ -12,15 +13,17 @@ import (
 	"krillin-ai/log"
 	"os"
 	"strings"
+	"sync"
 )
 
 func main() {
 	log.InitLogger()
 	defer log.GetLogger().Sync()
+	output := &jsonLineWriter{output: os.Stdout}
 
 	cmd, err := cli.Parse(os.Args[1:])
 	if err != nil {
-		writeAndExit(errorResponse(err, pipeline.ErrorKindUsage))
+		writeAndExit(output, errorResponse(err, pipeline.ErrorKindUsage))
 	}
 	if cmd.Help {
 		fmt.Print(cli.Help(cmd))
@@ -30,20 +33,21 @@ func main() {
 		if cmd.Voices.Provider == "" {
 			_ = config.LoadConfig()
 		}
-		writeAndExit(cli.Execute(context.Background(), nil, cmd))
+		writeAndExit(output, cli.Execute(context.Background(), nil, cmd))
 		return
 	}
 	if cmd.DryRun {
-		writeAndExit(cli.Execute(context.Background(), nil, cmd))
+		writeAndExit(output, cli.Execute(context.Background(), nil, cmd))
 		return
 	}
 	if cmd.Name == "update" {
-		writeAndExit(cli.Execute(context.Background(), nil, cmd))
+		writeAndExit(output, cli.Execute(context.Background(), nil, cmd))
 		return
 	}
+	configureOpenCreatorProgress(&cmd, output)
 
 	if !config.LoadConfig() {
-		writeAndExit(pipeline.Response{
+		writeAndExit(output, pipeline.Response{
 			OK: false,
 			Error: &pipeline.Error{
 				Kind:    pipeline.ErrorKindUsage,
@@ -53,29 +57,70 @@ func main() {
 		})
 	}
 	if err := config.CheckBaseConfig(); err != nil {
-		writeAndExit(errorResponse(err, pipeline.ErrorKindUsage))
+		writeAndExit(output, errorResponse(err, pipeline.ErrorKindUsage))
 	}
 	if requiresTranscriptionAtStart(cmd) {
 		if err := config.ValidateTranscriptionConfig(); err != nil {
-			writeAndExit(errorResponse(err, pipeline.ErrorKindUsage))
+			writeAndExit(output, errorResponse(err, pipeline.ErrorKindUsage))
 		}
 	}
 	if err := deps.CheckCoreDependencies(); err != nil {
-		writeAndExit(errorResponse(err, pipeline.ErrorKindDependency))
+		writeAndExit(output, errorResponse(err, pipeline.ErrorKindDependency))
 	}
 	if requiresTranscriptionAtStart(cmd) {
 		if err := deps.CheckTranscriptionDependency(); err != nil {
-			writeAndExit(errorResponse(err, pipeline.ErrorKindDependency))
+			writeAndExit(output, errorResponse(err, pipeline.ErrorKindDependency))
 		}
 	}
 	if cmd.Name == "tts" {
 		if err := deps.CheckTTSDependency(); err != nil {
-			writeAndExit(errorResponse(err, pipeline.ErrorKindDependency))
+			writeAndExit(output, errorResponse(err, pipeline.ErrorKindDependency))
 		}
 	}
 	svc := service.NewService()
 	adapter := pipeline.NewServiceAdapter(svc)
-	writeAndExit(cli.Execute(context.Background(), adapter, cmd))
+	writeAndExit(output, cli.Execute(context.Background(), adapter, cmd))
+}
+
+type progressFrame struct {
+	Type    string `json:"type"`
+	Phase   string `json:"phase"`
+	Percent int    `json:"percent"`
+	Message string `json:"message,omitempty"`
+}
+
+type jsonLineWriter struct {
+	mu     sync.Mutex
+	output io.Writer
+}
+
+func (w *jsonLineWriter) Write(value any) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	_, err = fmt.Fprintln(w.output, string(data))
+	return err
+}
+
+func configureOpenCreatorProgress(cmd *cli.Command, output *jsonLineWriter) {
+	if os.Getenv("OPENCREATOR_KRILLINAI_CLI") != "1" || cmd.Name != "subtitle" {
+		return
+	}
+	previous := cmd.Subtitle.ReportProgress
+	cmd.Subtitle.ReportProgress = func(phase string, percent int, message string) {
+		if previous != nil {
+			previous(phase, percent, message)
+		}
+		_ = output.Write(progressFrame{
+			Type:    "progress",
+			Phase:   phase,
+			Percent: percent,
+			Message: message,
+		})
+	}
 }
 
 func requiresTranscriptionAtStart(cmd cli.Command) bool {
@@ -101,13 +146,11 @@ func errorResponse(err error, kind pipeline.ErrorKind) pipeline.Response {
 	}
 }
 
-func writeAndExit(resp pipeline.Response) {
-	data, err := json.Marshal(resp)
-	if err != nil {
+func writeAndExit(output *jsonLineWriter, resp pipeline.Response) {
+	if err := output.Write(resp); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, `{"ok":false,"error":{"kind":"internal","code":"json_marshal_failed","message":%q}}`+"\n", err.Error())
 		os.Exit(1)
 	}
-	fmt.Println(string(data))
 	if !resp.OK {
 		os.Exit(pipeline.ExitCodeForError(resp.Error))
 	}
