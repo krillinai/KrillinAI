@@ -12,7 +12,6 @@ import (
 	"krillin-ai/internal/service"
 	"krillin-ai/log"
 	"os"
-	"strings"
 	"sync"
 )
 
@@ -130,8 +129,7 @@ func requiresTranscriptionAtStart(cmd cli.Command) bool {
 	if cmd.Subtitle.CaptionSource == pipeline.CaptionSourceWhisper {
 		return true
 	}
-	input := strings.ToLower(strings.TrimSpace(cmd.Subtitle.Input))
-	return !strings.Contains(input, "youtube.com") && !strings.Contains(input, "youtu.be")
+	return !pipeline.IsYouTubeInput(cmd.Subtitle.Input)
 }
 
 func errorResponse(err error, kind pipeline.ErrorKind) pipeline.Response {

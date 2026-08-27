@@ -19,10 +19,11 @@ const (
 type CaptionSource string
 
 const (
-	CaptionSourceAny     CaptionSource = "any"
-	CaptionSourceManual  CaptionSource = "manual"
-	CaptionSourceAuto    CaptionSource = "auto"
-	CaptionSourceWhisper CaptionSource = "whisper"
+	CaptionSourceAny      CaptionSource = "any"
+	CaptionSourceManual   CaptionSource = "manual"
+	CaptionSourceAuto     CaptionSource = "auto"
+	CaptionSourcePlatform CaptionSource = "platform"
+	CaptionSourceWhisper  CaptionSource = "whisper"
 )
 
 type LineMode string

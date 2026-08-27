@@ -2,10 +2,14 @@ package deps
 
 import (
 	"errors"
+	"krillin-ai/config"
+	"krillin-ai/internal/resourcepath"
+	"krillin-ai/internal/storage"
 	"krillin-ai/log"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 
@@ -15,6 +19,52 @@ import (
 func TestMain(m *testing.M) {
 	log.Logger = zap.NewNop()
 	os.Exit(m.Run())
+}
+
+func TestConfigurePackagedTranscriptionDependencyUsesWhisperKitArchiveDirectory(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv(resourcepath.RootEnv, root)
+
+	executableName := "whisperkit-cli"
+	if runtime.GOOS == "windows" {
+		executableName += ".exe"
+	}
+	executablePath := filepath.Join(root, "bin", executableName)
+	modelPath := filepath.Join(
+		root,
+		"models",
+		"whisperkit",
+		"openai_whisper-large-v2",
+	)
+	if err := os.MkdirAll(filepath.Dir(executablePath), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(executablePath, []byte("test"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(modelPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	previousTranscribe := config.Conf.Transcribe
+	previousWhisperKitPath := storage.WhisperKitPath
+	t.Cleanup(func() {
+		config.Conf.Transcribe = previousTranscribe
+		storage.WhisperKitPath = previousWhisperKitPath
+	})
+	config.Conf.Transcribe.Provider = "whisperkit"
+	config.Conf.Transcribe.Whisperkit.Model = "large-v2"
+
+	if err := configurePackagedTranscriptionDependency(); err != nil {
+		t.Fatalf("configurePackagedTranscriptionDependency() error = %v", err)
+	}
+	if storage.WhisperKitPath != executablePath {
+		t.Fatalf(
+			"WhisperKitPath = %q, want %q",
+			storage.WhisperKitPath,
+			executablePath,
+		)
+	}
 }
 
 func TestResolveYtDlpUpdatesExistingBundledBinaryToStableRelease(t *testing.T) {

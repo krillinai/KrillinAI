@@ -156,7 +156,11 @@ func configurePackagedTranscriptionDependency() error {
 		if storage.WhisperKitPath, err = packagedExecutable("whisperkit-cli"); err != nil {
 			return err
 		}
-		if _, err = resourcepath.RequireDir("models", "whisperkit", config.Conf.Transcribe.Whisperkit.Model); err != nil {
+		if _, err = resourcepath.RequireDir(
+			"models",
+			"whisperkit",
+			fmt.Sprintf("openai_whisper-%s", config.Conf.Transcribe.Whisperkit.Model),
+		); err != nil {
 			return err
 		}
 	}

@@ -357,3 +357,22 @@ func TestGenerateSubtitlesFallbackPreparesVideoWhenRequested(t *testing.T) {
 		t.Fatalf("prepare EmbedSubtitleVideoType values = %v, want [none all]", got)
 	}
 }
+
+func TestIsYouTubeInput(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{input: "https://www.youtube.com/watch?v=demo", want: true},
+		{input: "https://m.youtube.com/watch?v=demo", want: true},
+		{input: "https://youtu.be/demo", want: true},
+		{input: "https://www.youtube-nocookie.com/embed/demo", want: true},
+		{input: "https://youtube.com.example.test/watch?v=demo", want: false},
+		{input: "local:/tmp/video.mp4", want: false},
+	}
+	for _, test := range tests {
+		if got := IsYouTubeInput(test.input); got != test.want {
+			t.Fatalf("IsYouTubeInput(%q) = %v, want %v", test.input, got, test.want)
+		}
+	}
+}
