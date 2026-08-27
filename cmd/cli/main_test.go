@@ -23,6 +23,13 @@ func TestRequiresTranscriptionAtStart(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "short youtube URLs can start without ASR",
+			cmd: cli.Command{Name: "subtitle", Subtitle: pipeline.SubtitleRequest{
+				Input: "https://youtu.be/demo", CaptionSource: pipeline.CaptionSourcePlatform,
+			}},
+			want: false,
+		},
+		{
 			name: "forced speech recognition requires ASR",
 			cmd: cli.Command{Name: "subtitle", Subtitle: pipeline.SubtitleRequest{
 				Input: "https://www.youtube.com/watch?v=demo", CaptionSource: pipeline.CaptionSourceWhisper,

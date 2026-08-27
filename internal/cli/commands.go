@@ -115,7 +115,7 @@ Flags:
   --user-lang <lang>         UI language for generated messages
   --workdir <dir>            Task working directory
   --task-id <id>             Optional task id
-  --caption-source <source>  any, manual, auto, or whisper
+  --caption-source <source>  any, platform, manual, auto, or whisper
   --bilingual-top            Put target subtitle on top (default true)
   --max-word-one-line <n>    Max words per subtitle line
   --subtitle-style-file <file>  JSON subtitle style override file

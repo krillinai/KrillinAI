@@ -7,6 +7,7 @@ import (
 	"krillin-ai/internal/service"
 	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"krillin-ai/internal/types"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -58,7 +59,7 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 	syncPreparedMediaOutputs(manifest, stepParam)
 
 	var platformCaptionErr error
-	if isYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper {
+	if IsYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper {
 		reportSubtitleProgress(req, "reading_platform_captions", 20, "正在获取平台字幕")
 		stepParam.TaskPtr.SetProgressReporter(func(percent uint8) {
 			phase, message, overall := platformSubtitleProgress(percent)
@@ -200,7 +201,7 @@ func subtitleStepParam(req SubtitleRequest) *types.SubtitleTaskStepParam {
 		VideoSrc: req.Input,
 		Status:   types.SubtitleTaskStatusProcessing,
 	}
-	vttSwitch := isYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper
+	vttSwitch := IsYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper
 	embedSubtitleVideoType := "none"
 	if req.PrepareVideo && !vttSwitch {
 		embedSubtitleVideoType = "all"
@@ -291,7 +292,15 @@ func subtitleResponse(ok bool, req SubtitleRequest, manifest *Manifest, captionS
 	return resp
 }
 
-func isYouTubeInput(input string) bool {
-	normalized := strings.ToLower(strings.TrimSpace(input))
-	return strings.Contains(normalized, "youtube.com")
+func IsYouTubeInput(input string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(input))
+	if err != nil {
+		return false
+	}
+	hostname := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
+	return hostname == "youtu.be" ||
+		hostname == "youtube.com" ||
+		strings.HasSuffix(hostname, ".youtube.com") ||
+		hostname == "youtube-nocookie.com" ||
+		strings.HasSuffix(hostname, ".youtube-nocookie.com")
 }
