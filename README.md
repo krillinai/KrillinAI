@@ -25,9 +25,9 @@ KrillinAI is a versatile audio and video localization and enhancement solution d
 
 🤖 **CLI Support**: Provides a phased command-line interface where each stage executes independently and outputs structured results, supporting cross-stage artifact reuse.
 
-🧩 **Skills Collection**: The `skills/` directory provides per-stage Skills for AI Agents to invoke directly under a stable contract, no need to parse CLI documentation.
+🧩 **Skills Collection**: The `skills/` directory provides per-stage Skills for AI Agents to invoke directly under a stable contract, without requiring CLI documentation parsing.
 
-🔗 **Pipeline Orchestration**: Chain multiple stages in one command, enabling full automation from download to rendering.
+🔗 **Pipeline Orchestration**: Chain multiple stages in a single command, enabling full automation from download to rendering.
 
 🖼️ **Cover Generation**: Automatically generate platform cover images from the original video thumbnail and a prompt template.
 
