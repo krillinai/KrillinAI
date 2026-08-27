@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
+	"krillin-ai/internal/resourcepath"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
@@ -15,8 +16,14 @@ import (
 )
 
 func (c *FastwhisperProcessor) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
+	modelDir := "./models/"
+	if root, configured, err := resourcepath.Root(); err != nil {
+		return nil, err
+	} else if configured {
+		modelDir = root + string(os.PathSeparator) + "models" + string(os.PathSeparator) + "fasterwhisper"
+	}
 	cmdArgs := []string{
-		"--model_dir", "./models/",
+		"--model_dir", modelDir,
 		"--model", c.Model,
 		"--one_word", "2",
 		"--output_format", "json",

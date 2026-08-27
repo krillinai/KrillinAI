@@ -5,6 +5,7 @@ import "encoding/json"
 type Stage string
 
 const (
+	StageDownload         Stage = "download"
 	StageSubtitle         Stage = "subtitle"
 	StageTTS              Stage = "tts"
 	StageRenderHorizontal Stage = "render-horizontal"

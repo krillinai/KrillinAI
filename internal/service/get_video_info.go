@@ -63,7 +63,7 @@ func (s Service) getVideoInfo(ctx context.Context, stepParam *types.SubtitleTask
 		taskPtr.Description = description
 		taskPtr.OriginLanguage = string(stepParam.OriginLanguage)
 		taskPtr.TargetLanguage = string(stepParam.TargetLanguage)
-		taskPtr.ProcessPct = 10
+		taskPtr.SetProgress(10)
 		splitResult := strings.Split(result, "####")
 		if len(splitResult) == 1 {
 			taskPtr.TranslatedTitle = splitResult[0]

@@ -175,8 +175,9 @@ var Conf = Config{
 	},
 }
 
-// 检查必要的配置是否完整
-func validateConfig() error {
+// ValidateTranscriptionConfig checks the selected transcription provider only
+// when a workflow is about to use speech recognition.
+func ValidateTranscriptionConfig() error {
 	// 检查转写服务提供商配置
 	switch Conf.Transcribe.Provider {
 	case "openai":
@@ -200,7 +201,7 @@ func validateConfig() error {
 			log.GetLogger().Error("whispercpp only support windows", zap.String("current os", runtime.GOOS))
 			return fmt.Errorf("whispercpp only support windows")
 		}
-		if Conf.Transcribe.Whispercpp.Model != "large-v2" {
+		if Conf.Transcribe.Whispercpp.Model != "tiny" && Conf.Transcribe.Whispercpp.Model != "medium" && Conf.Transcribe.Whispercpp.Model != "large-v2" {
 			return errors.New("检测到开启了whisper.cpp，但模型选型配置不正确，请检查配置")
 		}
 	case "aliyun":
@@ -232,13 +233,19 @@ func LoadConfig() bool {
 
 // 验证配置
 func CheckConfig() error {
-	var err error
-	// 解析代理地址
-	Conf.App.ParsedProxy, err = url.Parse(Conf.App.Proxy)
-	if err != nil {
+	if err := CheckBaseConfig(); err != nil {
 		return err
 	}
-	return validateConfig()
+	return ValidateTranscriptionConfig()
+}
+
+// CheckBaseConfig validates configuration shared by all CLI stages. A stage
+// that can finish with platform captions must not require ASR credentials up
+// front.
+func CheckBaseConfig() error {
+	var err error
+	Conf.App.ParsedProxy, err = url.Parse(Conf.App.Proxy)
+	return err
 }
 
 // SaveConfig 保存配置到文件

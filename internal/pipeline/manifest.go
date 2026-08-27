@@ -67,7 +67,32 @@ func (m *Manifest) Save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(ManifestPath(m.Workdir), append(data, '\n'), 0644)
+	path := ManifestPath(m.Workdir)
+	temp, err := os.CreateTemp(m.Workdir, ".krillinai-manifest-*.tmp")
+	if err != nil {
+		return err
+	}
+	tempName := temp.Name()
+	defer os.Remove(tempName)
+	if _, err := temp.Write(append(data, '\n')); err != nil {
+		temp.Close()
+		return err
+	}
+	if err := temp.Sync(); err != nil {
+		temp.Close()
+		return err
+	}
+	if err := temp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tempName, path); err != nil {
+		return err
+	}
+	if dir, err := os.Open(m.Workdir); err == nil {
+		_ = dir.Sync()
+		_ = dir.Close()
+	}
+	return nil
 }
 
 func (m *Manifest) ApplyDefaultOutputs() error {

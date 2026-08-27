@@ -52,6 +52,20 @@ func TestEscapeAssFilterPathEscapesWindowsDriveAndSeparators(t *testing.T) {
 	}
 }
 
+func TestBuildEmbedSubtitleArgsQuotesEscapedAssFilename(t *testing.T) {
+	req := RenderVideoRequest{
+		Workdir:    `C:\tasks\demo`,
+		InputVideo: `C:\tasks\demo\origin_video.mp4`,
+		OutputFile: `C:\tasks\demo\horizontal.mp4`,
+		Horizontal: true,
+	}
+	args, _ := buildEmbedSubtitleArgs(req)
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, `ass=filename='C\:/tasks/demo/formatted_horizontal.ass'`) {
+		t.Fatalf("args do not contain a quoted escaped ASS filename: %v", args)
+	}
+}
+
 func TestPrepareRenderVideoInputConvertsHorizontalVerticalRequest(t *testing.T) {
 	workdir := filepath.Join("tasks", "demo")
 	req := RenderVideoRequest{
@@ -175,5 +189,18 @@ func TestBuildVerticalFilterEscapesTitleTextAndUsesCompactHeader(t *testing.T) {
 	}
 	if !strings.Contains(filter, `CLI 集成测试\: A\\'s`) {
 		t.Fatalf("filter did not escape title text safely: %s", filter)
+	}
+}
+
+func TestBuildVerticalFilterEscapesWindowsFontPathOnce(t *testing.T) {
+	filter := buildVerticalFilter("", "", `C:\Windows\Fonts\msyhbd.ttc`, `C\:/Windows/Fonts/msyh.ttc`)
+	if !strings.Contains(filter, `fontfile='C\:/Windows/Fonts/msyhbd.ttc'`) {
+		t.Fatalf("filter did not normalize native Windows font path: %s", filter)
+	}
+	if !strings.Contains(filter, `fontfile='C\:/Windows/Fonts/msyh.ttc'`) {
+		t.Fatalf("filter did not preserve an already escaped Windows font path: %s", filter)
+	}
+	if strings.Contains(filter, `C\\:/Windows/Fonts`) {
+		t.Fatalf("filter escaped the Windows drive separator twice: %s", filter)
 	}
 }

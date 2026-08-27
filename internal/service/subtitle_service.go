@@ -217,7 +217,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 			if err != nil {
 				return
 			}
-			stepParam.TaskPtr.ProcessPct = 95
+			stepParam.TaskPtr.SetProgress(95)
 		} else {
 			// 非YouTube视频，使用原来的音频转录流程
 			err = s.audioToSubtitle(ctx, &stepParam)

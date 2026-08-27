@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	openai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
@@ -15,6 +16,15 @@ import (
 )
 
 func (c *Client) ChatCompletion(query string) (string, error) {
+	return c.ChatCompletionContext(context.Background(), query)
+}
+
+func (c *Client) ChatCompletionContext(ctx context.Context, query string) (string, error) {
+	if c.requestTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.requestTimeout)
+		defer cancel()
+	}
 	var responseFormat *openai.ChatCompletionResponseFormat
 
 	req := openai.ChatCompletionRequest{
@@ -35,10 +45,10 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 		ResponseFormat: responseFormat,
 	}
 
-	stream, err := c.client.CreateChatCompletionStream(context.Background(), req)
+	stream, err := c.client.CreateChatCompletionStream(ctx, req)
 	if err != nil {
 		log.GetLogger().Error("openai create chat completion stream failed", zap.Error(err))
-		return "", err
+		return "", normalizeChatCompletionError(err)
 	}
 	defer stream.Close()
 
@@ -50,7 +60,7 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 		}
 		if err != nil {
 			log.GetLogger().Error("openai stream receive failed", zap.Error(err))
-			return "", err
+			return "", normalizeChatCompletionError(err)
 		}
 		if len(response.Choices) == 0 {
 			log.GetLogger().Info("openai stream receive no choices", zap.Any("response", response))
@@ -61,6 +71,16 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 	}
 
 	return resContent, nil
+}
+
+func normalizeChatCompletionError(err error) error {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("llm_translation_timeout: %w", err)
+	}
+	if errors.Is(err, context.Canceled) {
+		return fmt.Errorf("llm_translation_canceled: %w", err)
+	}
+	return err
 }
 
 func (c *Client) Text2Speech(text, voice string, outputFile string) error {

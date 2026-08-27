@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"krillin-ai/internal/storage"
+	"krillin-ai/internal/resourcepath"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
@@ -18,8 +19,12 @@ import (
 
 func (c *WhispercppProcessor) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
 	name := util.ChangeFileExtension(audioFile, "")
+	modelPath, err := resourcepath.Resolve("models", "whispercpp", fmt.Sprintf("ggml-%s.bin", c.Model))
+	if err != nil {
+		return nil, err
+	}
 	cmdArgs := []string{
-		"-m", fmt.Sprintf("./models/whispercpp/ggml-%s.bin", c.Model),
+		"-m", modelPath,
 		"--output-json-full",
 		"--flash-attn",
 		"--split-on-word",

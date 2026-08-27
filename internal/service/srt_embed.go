@@ -912,9 +912,9 @@ func fontCandidatesForOS(goos string) ([]fontPair, error) {
 	switch goos {
 	case "windows":
 		return []fontPair{
-			{bold: "C\\:/Windows/Fonts/msyhbd.ttc", regular: "C\\:/Windows/Fonts/msyh.ttc"},
-			{bold: "C\\:/Windows/Fonts/simhei.ttf", regular: "C\\:/Windows/Fonts/msyh.ttc"},
-			{bold: "C\\:/Windows/Fonts/simsun.ttc", regular: "C\\:/Windows/Fonts/simsun.ttc"},
+			{bold: "C:/Windows/Fonts/msyhbd.ttc", regular: "C:/Windows/Fonts/msyh.ttc"},
+			{bold: "C:/Windows/Fonts/simhei.ttf", regular: "C:/Windows/Fonts/msyh.ttc"},
+			{bold: "C:/Windows/Fonts/simsun.ttc", regular: "C:/Windows/Fonts/simsun.ttc"},
 		}, nil
 	case "darwin":
 		return []fontPair{
@@ -950,8 +950,7 @@ func chooseFontPair(candidates []fontPair, exists func(string) bool) (string, st
 }
 
 func pathExists(path string) bool {
-	normalized := strings.ReplaceAll(path, `C\:/`, `C:/`)
-	_, err := os.Stat(normalized)
+	_, err := os.Stat(filepath.FromSlash(path))
 	return err == nil
 }
 
@@ -1048,5 +1047,7 @@ func escapeDrawtextText(text string) string {
 }
 
 func escapeFilterPath(path string) string {
-	return strings.ReplaceAll(path, ":", `\:`)
+	normalized := strings.ReplaceAll(path, `\:/`, `:/`)
+	normalized = strings.ReplaceAll(normalized, `\`, `/`)
+	return strings.ReplaceAll(normalized, ":", `\:`)
 }
