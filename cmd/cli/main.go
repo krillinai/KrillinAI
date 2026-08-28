@@ -29,9 +29,8 @@ func main() {
 		return
 	}
 	if cmd.Name == "voices" {
-		if cmd.Voices.Provider == "" {
-			_ = config.LoadConfig()
-		}
+		_ = config.LoadConfig()
+		_ = config.CheckBaseConfig()
 		writeAndExit(output, cli.Execute(context.Background(), nil, cmd))
 		return
 	}
@@ -58,6 +57,13 @@ func main() {
 	if err := config.CheckBaseConfig(); err != nil {
 		writeAndExit(output, errorResponse(err, pipeline.ErrorKindUsage))
 	}
+	if cmd.Name == "speech" {
+		if err := config.ValidateTTSConfig(); err != nil {
+			writeAndExit(output, errorResponse(err, pipeline.ErrorKindUsage))
+		}
+		writeAndExit(output, cli.Execute(context.Background(), nil, cmd))
+		return
+	}
 	if requiresTranscriptionAtStart(cmd) {
 		if err := config.ValidateTranscriptionConfig(); err != nil {
 			writeAndExit(output, errorResponse(err, pipeline.ErrorKindUsage))
@@ -72,6 +78,9 @@ func main() {
 		}
 	}
 	if cmd.Name == "tts" {
+		if err := config.ValidateTTSConfig(); err != nil {
+			writeAndExit(output, errorResponse(err, pipeline.ErrorKindUsage))
+		}
 		if err := deps.CheckTTSDependency(); err != nil {
 			writeAndExit(output, errorResponse(err, pipeline.ErrorKindDependency))
 		}
@@ -105,20 +114,27 @@ func (w *jsonLineWriter) Write(value any) error {
 }
 
 func configureOpenCreatorProgress(cmd *cli.Command, output *jsonLineWriter) {
-	if os.Getenv("OPENCREATOR_KRILLINAI_CLI") != "1" || cmd.Name != "subtitle" {
+	if os.Getenv("OPENCREATOR_KRILLINAI_CLI") != "1" {
 		return
 	}
-	previous := cmd.Subtitle.ReportProgress
-	cmd.Subtitle.ReportProgress = func(phase string, percent int, message string) {
-		if previous != nil {
-			previous(phase, percent, message)
+	writeProgress := func(previous func(string, int, string)) func(string, int, string) {
+		return func(phase string, percent int, message string) {
+			if previous != nil {
+				previous(phase, percent, message)
+			}
+			_ = output.Write(progressFrame{
+				Type:    "progress",
+				Phase:   phase,
+				Percent: percent,
+				Message: message,
+			})
 		}
-		_ = output.Write(progressFrame{
-			Type:    "progress",
-			Phase:   phase,
-			Percent: percent,
-			Message: message,
-		})
+	}
+	switch cmd.Name {
+	case "subtitle":
+		cmd.Subtitle.ReportProgress = writeProgress(cmd.Subtitle.ReportProgress)
+	case "tts":
+		cmd.TTS.ReportProgress = writeProgress(cmd.TTS.ReportProgress)
 	}
 }
 

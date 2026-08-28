@@ -93,6 +93,97 @@ func Test_splitOriginLongSentence(t *testing.T) {
 	}
 }
 
+type progressTranscriber struct {
+	progress []int
+}
+
+func (t progressTranscriber) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
+	return t.TranscriptionWithProgress(audioFile, language, workDir, nil)
+}
+
+func (t progressTranscriber) TranscriptionWithProgress(
+	_, _, _ string,
+	reportProgress func(percent int),
+) (*types.TranscriptionData, error) {
+	for _, percent := range t.progress {
+		if reportProgress != nil {
+			reportProgress(percent)
+		}
+	}
+	return &types.TranscriptionData{Text: "transcribed"}, nil
+}
+
+func TestTranscribeAudioForwardsProviderProgress(t *testing.T) {
+	service := Service{Transcriber: progressTranscriber{progress: []int{0, 33, 66, 100}}}
+	var reported []int
+
+	result, err := service.transcribeAudio(
+		0,
+		"sample.mp3",
+		"zh_cn",
+		t.TempDir(),
+		func(percent int) {
+			reported = append(reported, percent)
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Text != "transcribed" {
+		t.Fatalf("transcription text = %q", result.Text)
+	}
+	if got := fmt.Sprint(reported); got != "[0 33 66 100]" {
+		t.Fatalf("reported progress = %s", got)
+	}
+}
+
+func TestAudioProcessPercentUsesDetailedTranscriptionAndTranslationProgress(t *testing.T) {
+	const (
+		splitWeight      = 0.1
+		transcribeWeight = 0.4
+		translateWeight  = 0.5
+	)
+	tests := []struct {
+		name          string
+		split         int
+		transcription float64
+		translation   float64
+		want          uint8
+	}{
+		{name: "audio split", split: 1, want: 22},
+		{name: "transcription one third", split: 1, transcription: 0.33, want: 32},
+		{name: "transcription two thirds", split: 1, transcription: 0.66, want: 42},
+		{name: "transcription complete", split: 1, transcription: 1, want: 52},
+		{name: "primary translation complete", split: 1, transcription: 1, translation: 0.35, want: 65},
+		{name: "long sentence halfway", split: 1, transcription: 1, translation: 0.675, want: 77},
+		{name: "subtitle processing complete", split: 1, transcription: 1, translation: 1, want: 90},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			transcription := map[int]float64{}
+			if test.transcription > 0 {
+				transcription[0] = test.transcription
+			}
+			translation := map[int]float64{}
+			if test.translation > 0 {
+				translation[0] = test.translation
+			}
+			got := audioProcessPercent(
+				1,
+				test.split,
+				transcription,
+				translation,
+				splitWeight,
+				transcribeWeight,
+				translateWeight,
+			)
+			if got != test.want {
+				t.Fatalf("audioProcessPercent() = %d, want %d", got, test.want)
+			}
+		})
+	}
+}
+
 type echoBatchCompleter struct {
 	batchSizes []int
 }
@@ -234,5 +325,39 @@ func TestParseTranslationBatchAcceptsFencedJSON(t *testing.T) {
 	}
 	if len(translations) != 1 || translations[0] != "A" {
 		t.Fatalf("translations = %v", translations)
+	}
+}
+
+func TestSplitTranslateItemReportsLongSentenceProgress(t *testing.T) {
+	previousMaxSentenceLength := config.Conf.App.MaxSentenceLength
+	config.Conf.App.MaxSentenceLength = 10
+	t.Cleanup(func() { config.Conf.App.MaxSentenceLength = previousMaxSentenceLength })
+
+	completer := &scriptedCompleter{responses: []string{
+		`{"align":[{"origin_part":"first origin part","translated_part":"first translated part"}]}`,
+		`{"align":[{"origin_part":"second origin part","translated_part":"second translated part"}]}`,
+	}}
+	service := Service{ChatCompleter: completer}
+	items := []*TranslatedItem{
+		{OriginText: "short", TranslatedText: "short"},
+		{
+			OriginText:     strings.Repeat("first origin ", 8),
+			TranslatedText: strings.Repeat("first translated ", 8),
+		},
+		{
+			OriginText:     strings.Repeat("second origin ", 8),
+			TranslatedText: strings.Repeat("second translated ", 8),
+		},
+	}
+	var progress []string
+
+	_, err := service.splitTranslateItem(items, func(completed, total int) {
+		progress = append(progress, fmt.Sprintf("%d/%d", completed, total))
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprint(progress); got != "[0/2 1/2 2/2]" {
+		t.Fatalf("progress = %s", got)
 	}
 }

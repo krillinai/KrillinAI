@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"krillin-ai/config"
+	"krillin-ai/internal/types"
 	"krillin-ai/log"
 
 	"go.uber.org/zap"
@@ -96,23 +97,32 @@ type t2aResponse struct {
 
 // buildRequestBody 组装非流式 T2A v2 请求体，输出 wav 以匹配下游配音流程。
 func (c *TtsClient) buildRequestBody(text, voice string) ([]byte, error) {
+	return c.buildSpeechRequest(types.TTSSpeechOptions{Text: text, Voice: voice})
+}
+
+func (c *TtsClient) buildSpeechRequest(options types.TTSSpeechOptions) ([]byte, error) {
+	voice := strings.TrimSpace(options.Voice)
 	voice = strings.TrimSpace(voice)
 	if voice == "" {
 		voice = DefaultVoice
 	}
+	speed := options.Speed
+	if speed <= 0 {
+		speed = 1
+	}
 	reqBody := t2aRequest{
 		Model:  c.Model,
-		Text:   text,
+		Text:   options.Text,
 		Stream: false,
 		VoiceSetting: voiceSetting{
 			VoiceID: voice,
-			Speed:   1,
+			Speed:   speed,
 			Vol:     1,
 			Pitch:   0,
 		},
 		AudioSetting: audioSetting{
 			SampleRate: 44100,
-			Format:     "wav",
+			Format:     speechFormat(options.Format, options.OutputFile),
 			Channel:    1,
 		},
 	}
@@ -141,16 +151,24 @@ func decodeAudio(respBody []byte) ([]byte, error) {
 
 // Text2Speech 将文本合成为语音并写入 outputFile（wav）。
 func (c *TtsClient) Text2Speech(text, voice, outputFile string) error {
+	return c.Synthesize(context.Background(), types.TTSSpeechOptions{
+		Text:       text,
+		Voice:      voice,
+		OutputFile: outputFile,
+	})
+}
+
+func (c *TtsClient) Synthesize(ctx context.Context, options types.TTSSpeechOptions) error {
 	if c.ApiKey == "" {
 		return fmt.Errorf("minimax tts api key is empty")
 	}
 
-	body, err := c.buildRequestBody(text, voice)
+	body, err := c.buildSpeechRequest(options)
 	if err != nil {
 		return fmt.Errorf("minimax tts build request failed: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
 	url := c.BaseUrl + "/v1/t2a_v2"
@@ -183,13 +201,118 @@ func (c *TtsClient) Text2Speech(text, voice, outputFile string) error {
 		return err
 	}
 
-	outputDir := filepath.Dir(outputFile)
+	outputDir := filepath.Dir(options.OutputFile)
 	if err = os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("minimax tts create output dir failed: %w", err)
 	}
-	if err = os.WriteFile(outputFile, audio, 0644); err != nil {
+	if err = os.WriteFile(options.OutputFile, audio, 0644); err != nil {
 		return fmt.Errorf("minimax tts write output file failed: %w", err)
 	}
 
 	return nil
+}
+
+func speechFormat(explicit, outputFile string) string {
+	format := strings.ToLower(strings.TrimSpace(explicit))
+	if format == "mp3" || format == "wav" {
+		return format
+	}
+	if strings.EqualFold(filepath.Ext(outputFile), ".mp3") {
+		return "mp3"
+	}
+	return "wav"
+}
+
+func (c *TtsClient) ListVoices(ctx context.Context) ([]types.TTSVoice, error) {
+	if c.ApiKey == "" {
+		return append([]types.TTSVoice(nil), minimaxFallbackVoices...), nil
+	}
+	body, err := json.Marshal(map[string]string{"voice_type": "all"})
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseUrl+"/v1/get_voice", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.ApiKey)
+	response, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	responseBody, err := io.ReadAll(io.LimitReader(response.Body, 4<<20))
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("minimax get_voice returned HTTP %d", response.StatusCode)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(responseBody, &payload); err != nil {
+		return nil, err
+	}
+	voices := extractMiniMaxVoices(payload)
+	if len(voices) == 0 {
+		return append([]types.TTSVoice(nil), minimaxFallbackVoices...), nil
+	}
+	return voices, nil
+}
+
+func extractMiniMaxVoices(payload map[string]any) []types.TTSVoice {
+	groups := []struct {
+		key  string
+		kind string
+	}{
+		{key: "system_voice", kind: "builtin"},
+		{key: "voice_cloning", kind: "custom"},
+		{key: "voice_generation", kind: "designed"},
+	}
+	var voices []types.TTSVoice
+	for _, group := range groups {
+		values, ok := payload[group.key].([]any)
+		if !ok {
+			continue
+		}
+		for _, value := range values {
+			item, ok := value.(map[string]any)
+			if !ok {
+				continue
+			}
+			code := miniMaxString(item, "voice_id", "voiceId")
+			if code == "" {
+				continue
+			}
+			name := miniMaxString(item, "voice_name", "voiceName")
+			if name == "" {
+				name = code
+			}
+			voices = append(voices, types.TTSVoice{
+				Code:     code,
+				Name:     name,
+				Provider: "minimax",
+				Kind:     group.kind,
+			})
+		}
+	}
+	return voices
+}
+
+func miniMaxString(value map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if candidate, ok := value[key].(string); ok && strings.TrimSpace(candidate) != "" {
+			return strings.TrimSpace(candidate)
+		}
+	}
+	return ""
+}
+
+var minimaxFallbackVoices = []types.TTSVoice{
+	{Code: "English_Graceful_Lady", Name: "Graceful Lady", Language: "en", Gender: "female", Provider: "minimax", Scenario: "优雅女声", Kind: "builtin", Recommended: true},
+	{Code: "English_radiant_girl", Name: "Radiant Girl", Language: "en", Gender: "female", Provider: "minimax", Scenario: "活泼女声", Kind: "builtin"},
+	{Code: "English_Insightful_Speaker", Name: "Insightful Speaker", Language: "en", Gender: "male", Provider: "minimax", Scenario: "沉稳男声", Kind: "builtin"},
+	{Code: "English_Persuasive_Man", Name: "Persuasive Man", Language: "en", Gender: "male", Provider: "minimax", Scenario: "说服力", Kind: "builtin"},
+	{Code: "English_expressive_narrator", Name: "Expressive Narrator", Language: "en", Gender: "male", Provider: "minimax", Scenario: "旁白", Kind: "builtin"},
+	{Code: "English_Lucky_Robot", Name: "Lucky Robot", Language: "en", Gender: "neutral", Provider: "minimax", Scenario: "机器人", Kind: "builtin"},
 }

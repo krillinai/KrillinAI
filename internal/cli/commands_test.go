@@ -316,8 +316,8 @@ func TestExecuteDryRunVoicesReturnsAliyunVoiceList(t *testing.T) {
 	if len(resp.Voices) == 0 {
 		t.Fatal("Voices is empty, want aliyun voice list")
 	}
-	if !containsVoiceCode(resp.Voices, "longxiaochun_v2") {
-		t.Fatalf("Voices = %#v, want aliyun voice code longxiaochun_v2", resp.Voices)
+	if !containsVoiceCode(resp.Voices, "Cherry") {
+		t.Fatalf("Voices = %#v, want aliyun voice code Cherry", resp.Voices)
 	}
 }
 

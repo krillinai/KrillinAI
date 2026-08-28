@@ -50,7 +50,7 @@ func TestFitTimelineUsesChunkAudioAndEstimatedWeights(t *testing.T) {
 	}
 }
 
-func TestFitTimelineClampsAppliedSpeedToMaxButReportsRequiredSpeed(t *testing.T) {
+func TestFitTimelineUsesRequiredSpeedBeyondQualityLimitWithoutOverflow(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.SpeedMax = 1.25
 	cfg.SpeedAccept = 1.1
@@ -65,14 +65,42 @@ func TestFitTimelineClampsAppliedSpeedToMaxButReportsRequiredSpeed(t *testing.T)
 	if report.MaxSpeedFactor != 2 {
 		t.Fatalf("MaxSpeedFactor = %v, want raw required speed 2", report.MaxSpeedFactor)
 	}
-	if got[0].SpeedFactor != cfg.SpeedMax {
-		t.Fatalf("SpeedFactor = %v, want clamped max %v", got[0].SpeedFactor, cfg.SpeedMax)
+	if got[0].SpeedFactor != 2 {
+		t.Fatalf("SpeedFactor = %v, want required speed 2", got[0].SpeedFactor)
 	}
-	if got[0].NewEnd <= chunks[0].End {
-		t.Fatalf("NewEnd = %v, want overflow beyond chunk end %v", got[0].NewEnd, chunks[0].End)
+	if got[0].NewEnd != chunks[0].End {
+		t.Fatalf("NewEnd = %v, want chunk end %v", got[0].NewEnd, chunks[0].End)
 	}
-	if !warningsContain(report.Warnings, "exceeds max") || !warningsContain(report.Warnings, "overflows") {
-		t.Fatalf("warnings = %+v, want max and overflow warnings", report.Warnings)
+	if !warningsContain(report.Warnings, "exceeds max") || warningsContain(report.Warnings, "overflows") {
+		t.Fatalf("warnings = %+v, want max warning without overflow", report.Warnings)
+	}
+}
+
+func TestFitTimelineKeepsOverlongChunkBeforeNextChunkBoundary(t *testing.T) {
+	cfg := DefaultConfig()
+	plan := []PlanItem{
+		{Index: 33, EstimatedDuration: 4.8, ChunkID: 13},
+		{Index: 34, EstimatedDuration: 3.6, ChunkID: 13},
+		{Index: 35, EstimatedDuration: 4.9, ChunkID: 13},
+		{Index: 36, EstimatedDuration: 5.1, ChunkID: 14},
+	}
+	chunks := []Chunk{
+		{ID: 13, Items: []int{0, 1, 2}, Start: 82.8, End: 90, ActualDuration: 11.04},
+		{ID: 14, Items: []int{3}, Start: 90, End: 93.28, ActualDuration: 3.28},
+	}
+
+	got, gotChunks, report, err := FitTimeline(plan, chunks, cfg)
+	if err != nil {
+		t.Fatalf("FitTimeline() error = %v", err)
+	}
+	if got[2].NewEnd > got[3].NewStart {
+		t.Fatalf("chunk boundary overlaps: previous end %.3f next start %.3f", got[2].NewEnd, got[3].NewStart)
+	}
+	if gotChunks[0].SpeedFactor <= cfg.SpeedMax {
+		t.Fatalf("chunk 13 speed = %.3f, want fallback above max %.3f", gotChunks[0].SpeedFactor, cfg.SpeedMax)
+	}
+	if warningsContain(report.Warnings, "overflows") {
+		t.Fatalf("warnings = %+v, want no overflow warning", report.Warnings)
 	}
 }
 

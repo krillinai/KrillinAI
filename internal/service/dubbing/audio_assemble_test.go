@@ -237,3 +237,31 @@ func TestAssembleChunkAudioPreservesGapAfterShortChunkAudio(t *testing.T) {
 		t.Fatalf("silence before second chunk = %q, want 4.000", silenceDuration)
 	}
 }
+
+func TestAssembleChunkAudioAllowsFloatingPointBoundaryNoise(t *testing.T) {
+	dir := t.TempDir()
+	rawDir := filepath.Join(dir, "raw")
+	if err := os.MkdirAll(rawDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"chunk_16.wav", "chunk_17.wav"} {
+		if err := os.WriteFile(filepath.Join(rawDir, name), []byte("raw"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	plan := []PlanItem{
+		{Index: 42, NewStart: 96.84, NewEnd: 111.00000000000001, SpeedFactor: 1.028, ChunkID: 16},
+		{Index: 43, NewStart: 111, NewEnd: 114.08, SpeedFactor: 1, ChunkID: 17},
+	}
+	chunks := []Chunk{
+		{ID: 16, Items: []int{0}, Start: 96.84, End: 111, ActualDuration: 14.56, SpeedFactor: 1.028},
+		{ID: 17, Items: []int{1}, Start: 111, End: 114.08, ActualDuration: 3.08, SpeedFactor: 1},
+	}
+
+	err := AssembleChunkAudio(plan, chunks, dir, filepath.Join(dir, "out.wav"), func(args []string) error {
+		return os.WriteFile(args[len(args)-1], []byte("media"), 0644)
+	})
+	if err != nil {
+		t.Fatalf("AssembleChunkAudio() error = %v, want floating-point boundary accepted", err)
+	}
+}

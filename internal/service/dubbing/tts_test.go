@@ -102,12 +102,25 @@ func TestGenerateRawChunkSegmentsCallsTTSOncePerChunk(t *testing.T) {
 		{ID: 2, Items: []int{2}, Start: 6, End: 8},
 	}
 
-	gotPlan, gotChunks, err := GenerateRawChunkSegments(context.Background(), tts, plan, chunks, "voice", dir, nil, func(path string) (float64, error) {
-		if strings.Contains(path, "chunk_1.wav") {
-			return 3.2, nil
-		}
-		return 1.1, nil
-	})
+	var progress [][2]int
+	gotPlan, gotChunks, err := GenerateRawChunkSegments(
+		context.Background(),
+		tts,
+		plan,
+		chunks,
+		"voice",
+		dir,
+		nil,
+		func(path string) (float64, error) {
+			if strings.Contains(path, "chunk_1.wav") {
+				return 3.2, nil
+			}
+			return 1.1, nil
+		},
+		func(completed, total int) {
+			progress = append(progress, [2]int{completed, total})
+		},
+	)
 	if err != nil {
 		t.Fatalf("GenerateRawChunkSegments() error = %v", err)
 	}
@@ -122,6 +135,9 @@ func TestGenerateRawChunkSegmentsCallsTTSOncePerChunk(t *testing.T) {
 	}
 	if gotPlan[0].ActualDuration != 0 || gotPlan[1].ActualDuration != 0 {
 		t.Fatalf("item actual durations should remain chunk-derived later: %+v", gotPlan)
+	}
+	if len(progress) != 2 || progress[0] != [2]int{1, 2} || progress[1] != [2]int{2, 2} {
+		t.Fatalf("progress = %+v, want [[1 2] [2 2]]", progress)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "raw", "chunk_1.wav")); err != nil {
 		t.Fatalf("chunk raw file missing: %v", err)

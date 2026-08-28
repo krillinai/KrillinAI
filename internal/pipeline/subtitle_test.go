@@ -23,6 +23,7 @@ type fakeStageService struct {
 	coverImageB64     string
 	preparedVideoPath string
 	preparedAudioPath string
+	audioProgress     []uint8
 }
 
 func (f *fakeStageService) PrepareMedia(_ context.Context, p *types.SubtitleTaskStepParam) error {
@@ -39,8 +40,11 @@ func (f *fakeStageService) PrepareMedia(_ context.Context, p *types.SubtitleTask
 	return nil
 }
 
-func (f *fakeStageService) GenerateSubtitlesFromAudio(context.Context, *types.SubtitleTaskStepParam) error {
+func (f *fakeStageService) GenerateSubtitlesFromAudio(_ context.Context, p *types.SubtitleTaskStepParam) error {
 	f.calls = append(f.calls, "audio")
+	for _, percent := range f.audioProgress {
+		p.TaskPtr.SetProgress(percent)
+	}
 	return nil
 }
 
@@ -159,6 +163,45 @@ func TestGenerateSubtitlesReportsPreparedLocalMediaOutputs(t *testing.T) {
 	if resp.Outputs.OriginAudio != audio {
 		t.Fatalf("OriginAudio = %q, want %q", resp.Outputs.OriginAudio, audio)
 	}
+}
+
+func TestGenerateSubtitlesMapsDetailedAudioProgress(t *testing.T) {
+	dir := t.TempDir()
+	fake := &fakeStageService{
+		audioProgress: []uint8{22, 32, 42, 52, 65, 77, 90},
+	}
+	var reported []int
+	req := SubtitleRequest{
+		Input:         "local:demo.mp4",
+		Workdir:       dir,
+		TaskID:        "demo",
+		OriginLang:    "zh_cn",
+		TargetLang:    "en",
+		CaptionSource: CaptionSourceWhisper,
+		ReportProgress: func(_ string, percent int, _ string) {
+			reported = append(reported, percent)
+		},
+	}
+
+	if _, err := GenerateSubtitles(context.Background(), fake, req); err != nil {
+		t.Fatal(err)
+	}
+
+	want := []int{39, 45, 52, 58, 67, 75, 83}
+	for _, percent := range want {
+		if !containsInt(reported, percent) {
+			t.Fatalf("reported progress %v does not contain %d", reported, percent)
+		}
+	}
+}
+
+func containsInt(values []int, target int) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func TestGenerateSubtitlesManualDoesNotFallback(t *testing.T) {
