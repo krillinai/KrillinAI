@@ -1,26 +1,27 @@
 package voices
 
 import (
+	"context"
 	"krillin-ai/internal/pipeline"
 	"strings"
 	"testing"
 )
 
-func TestListAliyunVoicesIncludesCosyVoiceCodes(t *testing.T) {
-	got, err := List(ProviderAliyun)
+func TestListAliyunVoicesIncludesQwenVoiceCodes(t *testing.T) {
+	got, err := List(context.Background(), ProviderAliyun)
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
-	if !hasVoice(got, "longxiaochun_v2") {
-		t.Fatalf("aliyun voices = %#v, want longxiaochun_v2", got)
+	if !hasVoice(got, "Cherry") {
+		t.Fatalf("aliyun voices = %#v, want Cherry", got)
 	}
-	if !hasVoice(got, "longxiaocheng_v2") {
-		t.Fatalf("aliyun voices = %#v, want longxiaocheng_v2", got)
+	if !hasVoice(got, "Ethan") {
+		t.Fatalf("aliyun voices = %#v, want Ethan", got)
 	}
 }
 
 func TestListRejectsUnsupportedProvider(t *testing.T) {
-	_, err := List("unknown")
+	_, err := List(context.Background(), "unknown")
 	if err == nil {
 		t.Fatal("List() error = nil, want unsupported provider error")
 	}
@@ -30,7 +31,7 @@ func TestListRejectsUnsupportedProvider(t *testing.T) {
 }
 
 func TestListMinimaxVoices(t *testing.T) {
-	got, err := List(Minimax)
+	got, err := List(context.Background(), Minimax)
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}

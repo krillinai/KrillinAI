@@ -81,6 +81,28 @@ func TestConfigureOpenCreatorProgressWritesJSONLines(t *testing.T) {
 	}
 }
 
+func TestConfigureOpenCreatorTTSProgressWritesJSONLines(t *testing.T) {
+	t.Setenv("OPENCREATOR_KRILLINAI_CLI", "1")
+	var buffer bytes.Buffer
+	output := &jsonLineWriter{output: &buffer}
+	cmd := cli.Command{Name: "tts"}
+
+	configureOpenCreatorProgress(&cmd, output)
+	if cmd.TTS.ReportProgress == nil {
+		t.Fatal("TTS ReportProgress is nil")
+	}
+	cmd.TTS.ReportProgress("generating_voice", 64, "working")
+
+	line := strings.TrimSpace(buffer.String())
+	var frame progressFrame
+	if err := json.Unmarshal([]byte(line), &frame); err != nil {
+		t.Fatalf("invalid progress JSON %q: %v", line, err)
+	}
+	if frame.Type != "progress" || frame.Phase != "generating_voice" || frame.Percent != 64 || frame.Message != "working" {
+		t.Fatalf("unexpected progress frame: %+v", frame)
+	}
+}
+
 func TestConfigureOpenCreatorProgressStaysDisabledByDefault(t *testing.T) {
 	t.Setenv("OPENCREATOR_KRILLINAI_CLI", "")
 	cmd := cli.Command{Name: "subtitle"}

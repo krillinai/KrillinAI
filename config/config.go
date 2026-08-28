@@ -73,8 +73,11 @@ type Transcribe struct {
 }
 
 type AliyunTtsConfig struct {
-	Oss    AliyunOssConfig    `toml:"oss"`
-	Speech AliyunSpeechConfig `toml:"speech"`
+	BaseUrl string             `toml:"base_url"`
+	ApiKey  string             `toml:"api_key"`
+	Model   string             `toml:"model"`
+	Oss     AliyunOssConfig    `toml:"oss"`
+	Speech  AliyunSpeechConfig `toml:"speech"`
 }
 
 type Tts struct {
@@ -155,6 +158,14 @@ var Conf = Config{
 		Openai: OpenaiCompatibleConfig{
 			Model: "gpt-4o-mini-tts",
 		},
+		Aliyun: AliyunTtsConfig{
+			BaseUrl: "https://dashscope.aliyuncs.com/api/v1",
+			Model:   "qwen3-tts-flash",
+		},
+		Minimax: OpenaiCompatibleConfig{
+			BaseUrl: "https://api.minimax.io",
+			Model:   "speech-2.8-hd",
+		},
 	},
 	Dubbing: Dubbing{
 		MinSubtitleDuration: 2.5,
@@ -212,6 +223,28 @@ func ValidateTranscriptionConfig() error {
 		return errors.New("不支持的转录提供商")
 	}
 
+	return nil
+}
+
+func ValidateTTSConfig() error {
+	switch Conf.Tts.Provider {
+	case "openai":
+		if Conf.Tts.Openai.ApiKey == "" {
+			return errors.New("使用 OpenAI 配音服务需要配置 API Key")
+		}
+	case "aliyun":
+		if Conf.Tts.Aliyun.ApiKey == "" {
+			return errors.New("使用阿里云百炼配音服务需要配置 API Key")
+		}
+	case "minimax":
+		if Conf.Tts.Minimax.ApiKey == "" {
+			return errors.New("使用 MiniMax 配音服务需要配置 API Key")
+		}
+	case "edge-tts":
+		return nil
+	default:
+		return errors.New("不支持的配音提供商")
+	}
 	return nil
 }
 

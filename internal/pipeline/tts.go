@@ -18,12 +18,14 @@ type TTSRequest struct {
 	Video            string
 	Voice            string
 	VoiceCloneSource string
+	ReportProgress   func(phase string, percent int, message string)
 }
 
 func GenerateTTS(ctx context.Context, svc StageService, req TTSRequest) (Response, error) {
 	if req.LineMode == "" {
 		req.LineMode = LineModeTargetOnly
 	}
+	reportTTSProgress(req, "preparing_voice", 10, "正在准备配音")
 	manifest, err := ttsManifest(req)
 	if err != nil {
 		return ttsFailureResponse(req, nil, ErrorKindInternal, "load_manifest_failed", err), err
@@ -65,6 +67,14 @@ func GenerateTTS(ctx context.Context, svc StageService, req TTSRequest) (Respons
 		VideoWithTtsFilePath: manifest.Outputs.VideoWithTTS,
 		TargetLanguage:       types.StandardLanguageCode(manifest.TargetLanguage),
 	}
+	stepParam.TaskPtr.SetProgressReporter(func(percent uint8) {
+		if percent >= 95 {
+			reportTTSProgress(req, "collecting_outputs", int(percent), "正在整理配音产物")
+			return
+		}
+		reportTTSProgress(req, "generating_voice", int(percent), "正在生成配音")
+	})
+	reportTTSProgress(req, "generating_voice", 20, "正在生成配音")
 	if err := svc.GenerateSpeechFromSRT(ctx, stepParam); err != nil {
 		return failTTSStage(req, manifest, "generate_speech_failed", err)
 	}
@@ -78,7 +88,15 @@ func GenerateTTS(ctx context.Context, svc StageService, req TTSRequest) (Respons
 	if err := manifest.Save(); err != nil {
 		return ttsFailureResponse(req, manifest, ErrorKindInternal, "save_manifest_failed", err), err
 	}
+	reportTTSProgress(req, "collecting_outputs", 99, "正在整理配音产物")
 	return ttsResponse(true, req, manifest, nil), nil
+}
+
+func reportTTSProgress(req TTSRequest, phase string, percent int, message string) {
+	if req.ReportProgress == nil {
+		return
+	}
+	req.ReportProgress(phase, percent, message)
 }
 
 func ttsManifest(req TTSRequest) (*Manifest, error) {

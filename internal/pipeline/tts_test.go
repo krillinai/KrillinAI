@@ -102,3 +102,39 @@ func TestGenerateTTSUsesManifestTargetSRTWhenInputEmpty(t *testing.T) {
 		t.Fatalf("FailedIndexes = %v, want [2]", resp.FailedIndexes)
 	}
 }
+
+func TestGenerateTTSReportsVoiceGenerationProgress(t *testing.T) {
+	dir := t.TempDir()
+	input := filepath.Join(dir, "target.srt")
+	if err := os.WriteFile(input, []byte("1\n00:00:00,000 --> 00:00:01,000\n你好\n\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	fake := &fakeStageService{}
+	type update struct {
+		phase   string
+		percent int
+	}
+	var updates []update
+	req := TTSRequest{
+		Workdir:  dir,
+		TaskID:   "demo",
+		InputSRT: input,
+		ReportProgress: func(phase string, percent int, _ string) {
+			updates = append(updates, update{phase: phase, percent: percent})
+		},
+	}
+
+	if _, err := GenerateTTS(context.Background(), fake, req); err != nil {
+		t.Fatalf("GenerateTTS() error = %v", err)
+	}
+	if len(updates) < 3 {
+		t.Fatalf("progress updates = %+v, want preparing, generating, and collecting", updates)
+	}
+	if updates[0] != (update{phase: "preparing_voice", percent: 10}) {
+		t.Fatalf("first progress = %+v, want preparing_voice/10", updates[0])
+	}
+	last := updates[len(updates)-1]
+	if last != (update{phase: "collecting_outputs", percent: 99}) {
+		t.Fatalf("last progress = %+v, want collecting_outputs/99", last)
+	}
+}

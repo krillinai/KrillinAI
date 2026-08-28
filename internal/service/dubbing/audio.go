@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+const timelineComparisonEpsilon = 1e-6
+
 func defaultFFmpegRunner(args []string) error {
 	cmd := exec.Command(storage.FfmpegPath, args...)
 	output, err := cmd.CombinedOutput()
@@ -250,7 +252,7 @@ func validateAssemblePlan(plan []PlanItem, segmentsDir string) ([]string, error)
 		if item.NewEnd <= item.NewStart {
 			return nil, fmt.Errorf("plan item %d new end must be greater than new start: start %.3f end %.3f", item.Index, item.NewStart, item.NewEnd)
 		}
-		if item.NewStart < lastEnd {
+		if item.NewStart+timelineComparisonEpsilon < lastEnd {
 			return nil, fmt.Errorf("plan item %d starts before previous end: start %.3f lastEnd %.3f", item.Index, item.NewStart, lastEnd)
 		}
 
@@ -284,7 +286,7 @@ func validateAssembleChunkPlan(plan []PlanItem, chunks []Chunk, segmentsDir stri
 		if len(chunk.Items) == 0 {
 			return nil, fmt.Errorf("chunk %d has no items", chunk.ID)
 		}
-		if chunk.Start < lastEnd {
+		if chunk.Start+timelineComparisonEpsilon < lastEnd {
 			return nil, fmt.Errorf("chunk %d starts before previous end: start %.3f lastEnd %.3f", chunk.ID, chunk.Start, lastEnd)
 		}
 		end := chunkFittedEnd(plan, chunk)

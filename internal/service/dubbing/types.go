@@ -88,18 +88,19 @@ type CommandRunner func(args []string) error
 type DurationProbe func(path string) (float64, error)
 
 type Dependencies struct {
-	TTS         types.Ttser
-	Chat        types.ChatCompleter
-	Language    types.StandardLanguageCode
-	Voice       string
-	Workdir     string
-	InputSRT    string
-	InputVideo  string
-	OutputAudio string
-	OutputVideo string
-	Config      Config
-	FFmpeg      CommandRunner
-	Duration    DurationProbe
+	TTS            types.Ttser
+	Chat           types.ChatCompleter
+	Language       types.StandardLanguageCode
+	Voice          string
+	Workdir        string
+	InputSRT       string
+	InputVideo     string
+	OutputAudio    string
+	OutputVideo    string
+	Config         Config
+	FFmpeg         CommandRunner
+	Duration       DurationProbe
+	ReportProgress func(completed, total int)
 }
 
 type TextOptimizer interface {

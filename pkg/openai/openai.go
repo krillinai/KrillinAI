@@ -10,8 +10,6 @@ import (
 	"io"
 	"krillin-ai/config"
 	"krillin-ai/log"
-	"net/http"
-	"os"
 	"strings"
 )
 
@@ -84,53 +82,12 @@ func normalizeChatCompletionError(err error) error {
 }
 
 func (c *Client) Text2Speech(text, voice string, outputFile string) error {
-	baseUrl := config.Conf.Tts.Openai.BaseUrl
-	if baseUrl == "" {
-		baseUrl = "https://api.openai.com/v1"
-	}
-	url := baseUrl + "/audio/speech"
-
-	// 创建HTTP请求
-	reqBody := fmt.Sprintf(`{
-		"model": "tts-1",
-		"input": "%s",
-		"voice":"%s",
-		"response_format": "wav"
-	}`, text, voice)
-	req, err := http.NewRequest("POST", url, strings.NewReader(reqBody))
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.Conf.Tts.Openai.ApiKey))
-
-	// 发送HTTP请求
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		log.GetLogger().Error("openai tts failed", zap.Int("status_code", resp.StatusCode), zap.String("body", string(body)))
-		return fmt.Errorf("openai tts none-200 status code: %d", resp.StatusCode)
-	}
-
-	file, err := os.Create(outputFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return NewTtsClient(
+		config.Conf.Tts.Openai.BaseUrl,
+		config.Conf.Tts.Openai.ApiKey,
+		config.Conf.Tts.Openai.Model,
+		config.Conf.App.Proxy,
+	).Text2Speech(text, voice, outputFile)
 }
 
 func parseJSONResponse(jsonStr string) (string, error) {

@@ -1,206 +1,341 @@
 package aliyun
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"go.uber.org/zap"
-	"krillin-ai/config"
-	"krillin-ai/log"
-	"krillin-ai/pkg/util"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
 	"time"
+
+	"krillin-ai/internal/resourcepath"
+	"krillin-ai/internal/types"
+)
+
+const (
+	DefaultTTSBaseURL = "https://dashscope.aliyuncs.com/api/v1"
+	DefaultTTSModel   = "qwen3-tts-flash"
+	DefaultTTSVoice   = "Cherry"
 )
 
 type TtsClient struct {
-	AccessKeyID     string
-	AccessKeySecret string
-	Appkey          string
+	BaseURL    string
+	APIKey     string
+	Model      string
+	httpClient *http.Client
 }
 
-type TtsHeader struct {
-	Appkey    string `json:"appkey"`
-	MessageID string `json:"message_id"`
-	TaskID    string `json:"task_id"`
-	Namespace string `json:"namespace"`
-	Name      string `json:"name"`
+type ttsRequest struct {
+	Model string   `json:"model"`
+	Input ttsInput `json:"input"`
 }
 
-type StartSynthesisPayload struct {
-	Voice                  string `json:"voice,omitempty"`
-	Format                 string `json:"format,omitempty"`
-	SampleRate             int    `json:"sample_rate,omitempty"`
-	Volume                 int    `json:"volume,omitempty"`
-	SpeechRate             int    `json:"speech_rate,omitempty"`
-	PitchRate              int    `json:"pitch_rate,omitempty"`
-	EnableSubtitle         bool   `json:"enable_subtitle,omitempty"`
-	EnablePhonemeTimestamp bool   `json:"enable_phoneme_timestamp,omitempty"`
+type ttsInput struct {
+	Text         string `json:"text"`
+	Voice        string `json:"voice"`
+	LanguageType string `json:"language_type"`
 }
 
-type RunSynthesisPayload struct {
-	Text string `json:"text"`
+type ttsResponse struct {
+	Output struct {
+		Audio struct {
+			URL string `json:"url"`
+		} `json:"audio"`
+	} `json:"output"`
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	RequestID string `json:"request_id"`
 }
 
-type Message struct {
-	Header  TtsHeader   `json:"header"`
-	Payload interface{} `json:"payload,omitempty"`
-}
-
-func NewTtsClient(accessKeyId, accessKeySecret, appkey string) *TtsClient {
+func NewTtsClient(baseURL, apiKey, model, proxy string) *TtsClient {
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if baseURL == "" {
+		baseURL = DefaultTTSBaseURL
+	}
+	if strings.TrimSpace(model) == "" {
+		model = DefaultTTSModel
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if proxyURL, err := url.Parse(strings.TrimSpace(proxy)); err == nil && proxyURL.Scheme != "" {
+		transport.Proxy = http.ProxyURL(proxyURL)
+	}
 	return &TtsClient{
-		AccessKeyID:     accessKeyId,
-		AccessKeySecret: accessKeySecret,
-		Appkey:          appkey,
+		BaseURL: baseURL,
+		APIKey:  strings.TrimSpace(apiKey),
+		Model:   strings.TrimSpace(model),
+		httpClient: &http.Client{
+			Transport: transport,
+			Timeout:   90 * time.Second,
+		},
 	}
 }
 
 func (c *TtsClient) Text2Speech(text, voice, outputFile string) error {
-	file, err := os.OpenFile(outputFile, os.O_CREATE|os.O_WRONLY, 0666)
+	return c.Synthesize(context.Background(), types.TTSSpeechOptions{
+		Text:       text,
+		Voice:      voice,
+		OutputFile: outputFile,
+	})
+}
+
+func (c *TtsClient) Synthesize(ctx context.Context, options types.TTSSpeechOptions) error {
+	if c.APIKey == "" {
+		return fmt.Errorf("aliyun bailian tts api key is empty")
+	}
+	voice := strings.TrimSpace(options.Voice)
+	if voice == "" {
+		voice = DefaultTTSVoice
+	}
+	format := speechFormat(options.Format, options.OutputFile)
+	speed := options.Speed
+	if speed <= 0 {
+		speed = 1
+	}
+	body, err := json.Marshal(ttsRequest{
+		Model: c.Model,
+		Input: ttsInput{
+			Text:         options.Text,
+			Voice:        voice,
+			LanguageType: "Auto",
+		},
+	})
 	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
+		return fmt.Errorf("aliyun bailian tts encode request: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		c.generationEndpoint(),
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+	response, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("aliyun bailian tts request failed: %w", err)
+	}
+	defer response.Body.Close()
+	responseBody, err := io.ReadAll(io.LimitReader(response.Body, 4<<20))
+	if err != nil {
+		return err
+	}
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("aliyun bailian tts returned HTTP %d: %s", response.StatusCode, boundedMessage(responseBody))
+	}
+	var decoded ttsResponse
+	if err := json.Unmarshal(responseBody, &decoded); err != nil {
+		return fmt.Errorf("aliyun bailian tts decode response: %w", err)
+	}
+	if decoded.Code != "" {
+		return fmt.Errorf("aliyun bailian tts error %s: %s", decoded.Code, decoded.Message)
+	}
+	if decoded.Output.Audio.URL == "" {
+		return fmt.Errorf("aliyun bailian tts response did not include an audio URL")
+	}
+	return c.downloadAndProcessAudio(
+		ctx,
+		decoded.Output.Audio.URL,
+		options.OutputFile,
+		format,
+		speed,
+	)
+}
+
+func (c *TtsClient) ListVoices(context.Context) ([]types.TTSVoice, error) {
+	return append([]types.TTSVoice(nil), aliyunBuiltinVoices...), nil
+}
+
+func (c *TtsClient) generationEndpoint() string {
+	if strings.HasSuffix(c.BaseURL, "/services/aigc/multimodal-generation/generation") {
+		return c.BaseURL
+	}
+	return c.BaseURL + "/services/aigc/multimodal-generation/generation"
+}
+
+func (c *TtsClient) downloadAudio(ctx context.Context, source, outputFile string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, source, nil)
+	if err != nil {
+		return err
+	}
+	response, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("aliyun bailian tts download audio: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("aliyun bailian audio download returned HTTP %d", response.StatusCode)
+	}
+	if err := os.MkdirAll(filepath.Dir(outputFile), 0755); err != nil {
+		return err
+	}
+	file, err := os.Create(outputFile)
+	if err != nil {
+		return err
 	}
 	defer file.Close()
-
-	var conn *websocket.Conn
-	token, _ := CreateToken(c.AccessKeyID, c.AccessKeySecret)
-	fullURL := "wss://nls-gateway-cn-beijing.aliyuncs.com/ws/v1?token=" + token
-	dialer := websocket.DefaultDialer
-	if config.Conf.App.Proxy != "" {
-		dialer.Proxy = http.ProxyURL(config.Conf.App.ParsedProxy)
+	if _, err := io.Copy(file, io.LimitReader(response.Body, 100<<20)); err != nil {
+		return err
 	}
-	dialer.HandshakeTimeout = 10 * time.Second
-	conn, _, err = dialer.Dial(fullURL, nil)
+	return nil
+}
+
+func boundedMessage(value []byte) string {
+	const limit = 300
+	message := strings.TrimSpace(string(value))
+	if len(message) <= limit {
+		return message
+	}
+	return message[:limit]
+}
+
+func (c *TtsClient) downloadAndProcessAudio(
+	ctx context.Context,
+	source string,
+	outputFile string,
+	format string,
+	speed float64,
+) error {
+	outputDir := filepath.Dir(outputFile)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return err
+	}
+	native, err := os.CreateTemp(outputDir, ".aliyun-tts-*.wav")
 	if err != nil {
 		return err
 	}
-	_ = conn.SetReadDeadline(time.Now().Add(time.Second * 60))
-	defer c.Close(conn)
-
-	onTextMessage := func(message string) {
-		log.GetLogger().Info("Received text message", zap.String("Message", message))
+	nativePath := native.Name()
+	if err := native.Close(); err != nil {
+		return err
 	}
-
-	onBinaryMessage := func(data []byte) {
-		if _, err := file.Write(data); err != nil {
-			log.GetLogger().Error("Failed to write data to file", zap.Error(err))
+	defer os.Remove(nativePath)
+	if err := c.downloadAudio(ctx, source, nativePath); err != nil {
+		return err
+	}
+	if format == "wav" && speed == 1 {
+		if err := os.Remove(outputFile); err != nil && !os.IsNotExist(err) {
+			return err
 		}
+		return os.Rename(nativePath, outputFile)
 	}
-
-	var (
-		synthesisStarted  = make(chan struct{})
-		synthesisComplete = make(chan struct{})
-	)
-
-	startPayload := StartSynthesisPayload{
-		Voice:      voice,
-		Format:     "wav",
-		SampleRate: 44100,
-		Volume:     50,
-		SpeechRate: 0,
-		PitchRate:  0,
-	}
-
-	go c.receiveMessages(conn, onTextMessage, onBinaryMessage, synthesisStarted, synthesisComplete)
-
-	taskId := util.GenerateID()
-	log.GetLogger().Info("SpeechClient StartSynthesis", zap.String("taskId", taskId), zap.Any("payload", startPayload))
-	if err := c.StartSynthesis(conn, taskId, startPayload, synthesisStarted); err != nil {
-		return fmt.Errorf("failed to start synthesis: %w", err)
-	}
-
-	if err := c.RunSynthesis(conn, taskId, text); err != nil {
-		return fmt.Errorf("failed to run synthesis: %w", err)
-	}
-
-	if err := c.StopSynthesis(conn, taskId, synthesisComplete); err != nil {
-		return fmt.Errorf("failed to stop synthesis: %w", err)
-	}
-
-	return nil
+	return transcodeAudio(ctx, nativePath, outputFile, format, speed)
 }
 
-func (c *TtsClient) sendMessage(conn *websocket.Conn, taskId, name string, payload interface{}) error {
-	message := Message{
-		Header: TtsHeader{
-			Appkey:    c.Appkey,
-			MessageID: util.GenerateID(),
-			TaskID:    taskId,
-			Namespace: "FlowingSpeechSynthesizer",
-			Name:      name,
-		},
-		Payload: payload,
-	}
-	jsonData, _ := json.Marshal(message)
-	log.GetLogger().Debug("SpeechClient sendMessage", zap.String("message", string(jsonData)))
-	return conn.WriteJSON(message)
-}
-
-func (c *TtsClient) StartSynthesis(conn *websocket.Conn, taskId string, payload StartSynthesisPayload, synthesisStarted chan struct{}) error {
-	err := c.sendMessage(conn, taskId, "StartSynthesis", payload)
+func transcodeAudio(ctx context.Context, input, output, format string, speed float64) error {
+	ffmpeg, err := ffmpegPath()
 	if err != nil {
 		return err
 	}
-
-	// 阻塞等待 SynthesisStarted 事件
-	<-synthesisStarted
-
+	args := []string{"-y", "-i", input}
+	if speed != 1 {
+		args = append(args, "-filter:a", "atempo="+strconv.FormatFloat(speed, 'f', 3, 64))
+	}
+	args = append(args, "-ar", "44100", "-ac", "1")
+	if format == "mp3" {
+		args = append(args, "-c:a", "libmp3lame", "-b:a", "192k")
+	} else {
+		args = append(args, "-c:a", "pcm_s16le")
+	}
+	args = append(args, output)
+	command := exec.CommandContext(ctx, ffmpeg, args...)
+	if result, err := command.CombinedOutput(); err != nil {
+		return fmt.Errorf("aliyun bailian tts audio conversion failed: %w, output: %s", err, boundedMessage(result))
+	}
 	return nil
 }
 
-func (c *TtsClient) RunSynthesis(conn *websocket.Conn, taskId, text string) error {
-	return c.sendMessage(conn, taskId, "RunSynthesis", RunSynthesisPayload{Text: text})
-}
-
-func (c *TtsClient) StopSynthesis(conn *websocket.Conn, taskId string, synthesisComplete chan struct{}) error {
-	err := c.sendMessage(conn, taskId, "StopSynthesis", nil)
-	if err != nil {
-		return err
+func ffmpegPath() (string, error) {
+	name := "ffmpeg"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
 	}
-
-	// 阻塞等待 SynthesisCompleted 事件
-	<-synthesisComplete
-
-	return nil
-}
-
-func (c *TtsClient) Close(conn *websocket.Conn) error {
-	err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-	if err != nil {
-		return err
-	}
-	return conn.Close()
-}
-
-func (c *TtsClient) receiveMessages(conn *websocket.Conn, onTextMessage func(string), onBinaryMessage func([]byte), synthesisStarted, synthesisComplete chan struct{}) {
-	defer close(synthesisComplete)
-	for {
-		messageType, message, err := conn.ReadMessage()
+	if root, configured, err := resourcepath.Root(); err != nil {
+		return "", err
+	} else if configured {
+		path, err := resourcepath.RequireFile("bin", name)
 		if err != nil {
-			if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-				log.GetLogger().Error("SpeechClient receiveMessages websocket非正常关闭", zap.Error(err))
-				return
-			}
-			return
+			return "", fmt.Errorf("aliyun bailian tts requires packaged ffmpeg under %s: %w", root, err)
 		}
-		if messageType == websocket.TextMessage {
-			var msg Message
-			if err := json.Unmarshal(message, &msg); err != nil {
-				log.GetLogger().Error("SpeechClient receiveMessages json解析失败", zap.Error(err))
-				return
-			}
-			if msg.Header.Name == "SynthesisCompleted" {
-				log.GetLogger().Info("SynthesisCompleted event received")
-				// 收到结束消息退出
-				break
-			} else if msg.Header.Name == "SynthesisStarted" {
-				log.GetLogger().Info("SynthesisStarted event received")
-				close(synthesisStarted)
-			} else {
-				onTextMessage(string(message))
-			}
-		} else if messageType == websocket.BinaryMessage {
-			onBinaryMessage(message)
-		}
+		return path, nil
 	}
+	path, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		return "", fmt.Errorf("aliyun bailian tts requires ffmpeg for MP3 or speed conversion: %w", err)
+	}
+	return path, nil
+}
+
+var aliyunBuiltinVoices = []types.TTSVoice{
+	{Code: "Cherry", Name: "芊悦", Language: "zh-CN", Gender: "female", Provider: "aliyun", Scenario: "阳光积极", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}, Recommended: true},
+	{Code: "Serena", Name: "苏瑶", Language: "zh-CN", Gender: "female", Provider: "aliyun", Scenario: "温柔叙事", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Ethan", Name: "晨煦", Language: "zh-CN", Gender: "male", Provider: "aliyun", Scenario: "阳光男声", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Chelsie", Name: "千雪", Language: "zh-CN", Gender: "female", Provider: "aliyun", Scenario: "二次元", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Momo", Name: "茉兔", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "撒娇搞怪", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Vivian", Name: "十三", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "可爱小暴躁", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Moon", Name: "月白", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "率性帅气", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Maia", Name: "四月", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "知性温柔", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Kai", Name: "凯", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "舒缓自然", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Nofish", Name: "不吃鱼", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "自然设计师", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Bella", Name: "萌宝", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "活泼萝莉", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Jennifer", Name: "詹妮弗", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "电影质感美语", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Ryan", Name: "甜茶", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "戏感张力", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Katerina", Name: "卡捷琳娜", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "成熟御姐", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Aiden", Name: "艾登", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "美语青年", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Eldric Sage", Name: "沧明子", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "沉稳睿智老者", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Mia", Name: "乖小妹", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "温顺乖巧", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Mochi", Name: "沙小弥", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "聪慧少年", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Bellona", Name: "燕铮莺", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "洪亮热血", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Vincent", Name: "田叔", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "沙哑豪迈", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Bunny", Name: "萌小姬", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "萌系萝莉", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Neil", Name: "阿闻", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "新闻主持", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Elias", Name: "墨讲师", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "知识讲解", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Arthur", Name: "徐大爷", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "乡土故事", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Nini", Name: "邻家妹妹", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "甜软亲切", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Seren", Name: "小婉", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "舒缓助眠", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Pip", Name: "顽屁小孩", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "调皮童声", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Stella", Name: "少女阿月", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "甜美少女", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Bodega", Name: "博德加", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "西班牙男声", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Sonrisa", Name: "索尼莎", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "拉美女声", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Alek", Name: "阿列克", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "俄语男声", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Dolce", Name: "多尔切", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "意大利男声", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Sohee", Name: "素熙", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "韩语女声", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Ono Anna", Name: "小野杏", Language: "multi", Gender: "female", Provider: "aliyun", Scenario: "日语少女", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Lenn", Name: "莱恩", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "德语青年", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Emilien", Name: "埃米尔安", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "法语青年", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Andre", Name: "安德雷", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "磁性沉稳", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Radio Gol", Name: "拉迪奥·戈尔", Language: "multi", Gender: "male", Provider: "aliyun", Scenario: "足球解说", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Jada", Name: "上海-阿珍", Language: "zh-shanghai", Gender: "female", Provider: "aliyun", Scenario: "上海话", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Dylan", Name: "北京-晓东", Language: "zh-beijing", Gender: "male", Provider: "aliyun", Scenario: "北京话", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Li", Name: "南京-老李", Language: "zh-nanjing", Gender: "male", Provider: "aliyun", Scenario: "南京话", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Marcus", Name: "陕西-秦川", Language: "zh-shaanxi", Gender: "male", Provider: "aliyun", Scenario: "陕西话", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Roy", Name: "闽南-阿杰", Language: "zh-minnan", Gender: "male", Provider: "aliyun", Scenario: "闽南语", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Peter", Name: "天津-李彼得", Language: "zh-tianjin", Gender: "male", Provider: "aliyun", Scenario: "天津话", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Sunny", Name: "四川-晴儿", Language: "zh-sichuan", Gender: "female", Provider: "aliyun", Scenario: "四川话", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Eric", Name: "四川-程川", Language: "zh-sichuan", Gender: "male", Provider: "aliyun", Scenario: "四川话", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Rocky", Name: "粤语-阿强", Language: "zh-yue", Gender: "male", Provider: "aliyun", Scenario: "粤语", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+	{Code: "Kiki", Name: "粤语-阿清", Language: "zh-yue", Gender: "female", Provider: "aliyun", Scenario: "粤语", Kind: "builtin", SupportedModels: []string{"qwen3-tts-flash"}},
+}
+
+func speechFormat(explicit, outputFile string) string {
+	format := strings.ToLower(strings.TrimSpace(explicit))
+	if format == "mp3" || format == "wav" {
+		return format
+	}
+	if strings.EqualFold(filepath.Ext(outputFile), ".mp3") {
+		return "mp3"
+	}
+	return "wav"
 }
