@@ -1,7 +1,7 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# Ferramenta de Tradução e Dublagem de Vídeo para Humanos / AI Agents (com Coleção de Skills)
+# Ferramenta de Tradução e Dublagem de Vídeo para Humanos / AI Agents
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -14,7 +14,7 @@
 
 </div>
 
-## Introdução ao Projeto ([Confira Growee Skills](https://github.com/krillinai/growee-skills))
+## Introdução ao Projeto
 [**Início Rápido**](#-quick-start)
 
 KrillinAI é uma solução versátil de localização e aprimoramento de áudio e vídeo desenvolvida pela equipe Krillin AI, projetada tanto para usuários humanos quanto para AI Agents. A ferramenta cobre o pipeline completo incluindo download de vídeo, transcrição de voz, tradução de legendas, dublagem TTS, conversão retrato e geração de capa, suportando formatos paisagem e retrato para garantir uma apresentação perfeita em todas as principais plataformas (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). Usuários humanos podem concluir a localização de conteúdo de ponta a ponta com um clique via cliente; cada capacidade também pode ser invocada independentemente via CLI, e AI Agents podem orquestrar um ou múltiplos estágios sob demanda para compor fluxos de trabalho automatizados flexíveis.
@@ -22,8 +22,6 @@ KrillinAI é uma solução versátil de localização e aprimoramento de áudio 
 ## Novos Recursos
 
 🤖 **Suporte CLI**: Fornece uma interface de linha de comando por fases, onde cada etapa é executada de forma independente e produz resultados estruturados, com suporte para reutilização de artefatos entre etapas.
-
-🧩 **Coleção de Skills**: O diretório `skills/` fornece Skills por etapa para que os AI Agents as invoquem diretamente sob um contrato estável, sem precisar analisar a documentação da CLI.
 
 🔗 **Orquestração de Pipeline**: Encadeie várias etapas em um único comando, permitindo automação completa do download ao renderização.
 

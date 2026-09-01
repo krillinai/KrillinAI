@@ -1,9 +1,7 @@
-> **[Growee Skills](https://github.com/krillinai/growee-skills)** — KrillinAI 的 Agent Skills 已整合至全生命周期 AI 增长技能合集。
-
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# 面向人类 / AI Agent的视频翻译配音工具（含Skills集合）
+# 面向人类 / AI Agent的视频翻译配音工具
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -16,7 +14,7 @@
 
 </div>
 
-## 项目介绍（[查看 Growee Skills](https://github.com/krillinai/growee-skills)）
+## 项目介绍
 [**快速开始**](#-quick-start)
 
 KrillinAI 是由 Krillin AI团队开发的多功能音视频本地化与增强解决方案，同时面向**人类用户**和 **AI Agent** 设计。工具覆盖视频下载、音频转录、字幕翻译、TTS 配音、竖屏转换、封面生成等完整链路，支持横屏与竖屏格式，确保在所有主要平台（Bilibili、小红书、抖音、微信视频、快手、YouTube、TikTok 等）上完美呈现。人类用户可通过客户端一键完成端到端内容本地化；每项能力也均可通过 CLI 独立调用，AI Agent 可按需编排单个或多个阶段，灵活组合成自动化工作流。
@@ -24,8 +22,6 @@ KrillinAI 是由 Krillin AI团队开发的多功能音视频本地化与增强�
 ## 2.0版本新增特性
 
 🤖 **支持CLI调用**：提供阶段化命令行接口，每个阶段独立执行并输出结构化结果，支持跨阶段产物复用。
-
-🧩 **Skills集合**：skills 目录下提供各阶段 Skills，AI Agent 可按稳定约定直接调用，无需自行解析 CLI 文档。
 
 🔗 **Pipeline 串联编排**：将多个阶段一键串联，实现从下载到渲染的全流程自动化。
 
@@ -239,15 +235,6 @@ Agent 集成约定：
 - 根据 `error.kind` 处理错误：`usage` 修正参数，`retryable` 可重试，`dependency` 需要安装 `ffmpeg` / `ffprobe` / `yt-dlp`。
 
 更完整的参数说明请参考 [CLI 能力总结](./cli.md)。
-
-### Agent Skills
-
-仓库还在 `skills/` 目录下提供了可直接给 Agent 使用的 Skills，用于按稳定约定调用 CLI：
-
-- [`krillinai-cli`](../../skills/krillinai-cli/SKILL.md)：总入口 skill，用于选择字幕、TTS、渲染、pipeline 或封面工作流。
-- [`krillinai-subtitle`](../../skills/krillinai-subtitle/SKILL.md)、[`krillinai-tts`](../../skills/krillinai-tts/SKILL.md)、[`krillinai-render-horizontal`](../../skills/krillinai-render-horizontal/SKILL.md)、[`krillinai-render-vertical`](../../skills/krillinai-render-vertical/SKILL.md)：各阶段的调用指南。
-- [`krillinai-pipeline`](../../skills/krillinai-pipeline/SKILL.md) 和 [`krillinai-cover`](../../skills/krillinai-cover/SKILL.md)：pipeline 编排和封面生成的规划/预留指南，等对应执行路径完全接通后再用于真实执行。
-- [`cli-contract.md`](../../skills/krillinai-cli/references/cli-contract.md)：共享的 JSON、manifest、产物路径和错误处理约定。
 
 根据提供的配置文件，以下是您 README 文件中更新的“配置帮助（必读）”部分：
 

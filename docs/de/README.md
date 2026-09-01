@@ -1,7 +1,7 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# Video-Übersetzungs- und Synchronisationstool für Menschen / KI-Agenten (mit Skills-Sammlung)
+# Video-Übersetzungs- und Synchronisationstool für Menschen / KI-Agenten
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -14,7 +14,7 @@
 
 </div>
 
-## Projektvorstellung ([Growee Skills ansehen](https://github.com/krillinai/growee-skills))
+## Projektvorstellung
 [**Schnellstart**](#-quick-start)
 
 KrillinAI ist eine vielseitige Lösung zur Lokalisierung und Verbesserung von Audio und Video, die vom Krillin AI-Team entwickelt wurde und sowohl für menschliche Benutzer als auch für KI-Agenten konzipiert ist. Das Tool deckt die komplette Pipeline ab, einschließlich Video-Download, Sprachtranskription, Untertitelübersetzung, TTS-Synchronisation, Hochformat-Konvertierung und Cover-Generierung, und unterstützt sowohl Quer- als auch Hochformat für eine perfekte Präsentation auf allen wichtigen Plattformen (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok usw.). Menschliche Benutzer können die End-to-End-Inhaltslokalisierung mit einem Klick über den Client abschließen; jede Funktion kann auch unabhängig über die CLI aufgerufen werden, und KI-Agenten können einzelne oder mehrere Stufen nach Bedarf orchestrieren, um flexible automatisierte Workflows zu erstellen.
@@ -22,8 +22,6 @@ KrillinAI ist eine vielseitige Lösung zur Lokalisierung und Verbesserung von Au
 ## Neue Funktionen
 
 🤖 **CLI-Unterstützung**: Bietet eine stufenweise Befehlszeilenschnittstelle, bei der jede Stufe unabhängig ausgeführt wird und strukturierte Ergebnisse ausgibt, mit Unterstützung für stufenspezifische Artefakt-Wiederverwendung.
-
-🧩 **Skills-Sammlung**: Das Verzeichnis `skills/` enthält stufenspezifische Skills, die KI-Agenten direkt nach einem stabilen Vertrag aufrufen können, ohne die CLI-Dokumentation selbst zu analysieren.
 
 🔗 **Pipeline-Orchestrierung**: Verketten Sie mehrere Stufen in einem Befehl und ermöglichen so eine vollständige Automatisierung vom Download bis zum Rendering.
 
@@ -237,15 +235,6 @@ Agent-Integrationsregeln:
 - Fehler nach `error.kind` behandeln: `usage` bedeutet Parameter korrigieren, `retryable` bedeutet erneut versuchen, `dependency` bedeutet `ffmpeg` / `ffprobe` / `yt-dlp` installieren.
 
 Weitere Parameterdetails finden Sie in der [CLI-Funktionsübersicht](../zh/cli.md).
-
-### Agent Skills
-
-Das Repository enthält außerdem sofort nutzbare Agent Skills unter `skills/`, damit Agents die CLI mit stabilen Konventionen aufrufen können:
-
-- [`krillinai-cli`](../../skills/krillinai-cli/SKILL.md): zentrale Routing-Skill zur Auswahl von Untertitel-, TTS-, Render-, Pipeline- oder Cover-Workflows.
-- [`krillinai-subtitle`](../../skills/krillinai-subtitle/SKILL.md), [`krillinai-tts`](../../skills/krillinai-tts/SKILL.md), [`krillinai-render-horizontal`](../../skills/krillinai-render-horizontal/SKILL.md) und [`krillinai-render-vertical`](../../skills/krillinai-render-vertical/SKILL.md): stufenspezifische Betriebsanleitungen.
-- [`krillinai-pipeline`](../../skills/krillinai-pipeline/SKILL.md) und [`krillinai-cover`](../../skills/krillinai-cover/SKILL.md): Planungs-/Reservierungsleitfäden für Pipeline-Orchestrierung und Cover-Erzeugung, bis diese Ausführungspfade vollständig verdrahtet sind.
-- [`cli-contract.md`](../../skills/krillinai-cli/references/cli-contract.md): gemeinsamer Vertrag für JSON, Manifest, Ausgaben und Fehlerbehandlung.
 
 Basierend auf der bereitgestellten Konfigurationsdatei finden Sie hier den aktualisierten Abschnitt "Konfigurationshilfe (Unbedingt lesen)" für Ihre README-Datei:
 
