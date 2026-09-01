@@ -1,7 +1,7 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# أداة ترجمة ودبلجة الفيديو للبشر / وكلاء الذكاء الاصطناعي (مع مجموعة Skills)
+# أداة ترجمة ودبلجة الفيديو للبشر / وكلاء الذكاء الاصطناعي
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -14,7 +14,7 @@
 
 </div>
 
-## مقدمة المشروع ([استكشف Growee Skills](https://github.com/krillinai/growee-skills))
+## مقدمة المشروع
 [**البدء السريع**](#-quick-start)
 
 KrillinAI هو حل متعدد الاستخدامات لتوطين الصوت والفيديو وتعزيزه، طوّره فريق Krillin AI وصُمِّم لكل من المستخدمين البشريين ووكلاء الذكاء الاصطناعي. تغطي الأداة المسار الكامل بما في ذلك تنزيل الفيديو، والنسخ الصوتي، وترجمة الترجمات، والتعليق الصوتي TTS، وتحويل الوضع الرأسي، وتوليد الأغلفة، مع دعم التنسيقات الأفقية والرأسية لضمان عرض مثالي على جميع المنصات الرئيسية (Bilibili، Xiaohongshu، Douyin، WeChat Video، Kuaishou، YouTube، TikTok، إلخ). يمكن للمستخدمين البشريين إنجاز توطين المحتوى من البداية إلى النهاية بنقرة واحدة عبر العميل؛ كما يمكن استدعاء كل قدرة بشكل مستقل عبر CLI، ويمكن لوكلاء الذكاء الاصطناعي تنسيق مرحلة واحدة أو مراحل متعددة حسب الحاجة لتأليف سير عمل آلية مرنة.
@@ -22,8 +22,6 @@ KrillinAI هو حل متعدد الاستخدامات لتوطين الصوت و
 ## الميزات الجديدة
 
 🤖 **دعم CLI**: يوفر واجهة سطر أوامر متدرجة حيث تُنفَّذ كل مرحلة باستقلالية وتُنتج نتائج منظمة، مع دعم إعادة استخدام المخرجات بين المراحل.
-
-🧩 **مجموعة Skills**: يوفر مجلد `skills/` مهارات لكل مرحلة يمكن لوكلاء الذكاء الاصطناعي استدعاؤها مباشرة وفق عقد ثابت، دون الحاجة إلى تحليل وثائق CLI بأنفسهم.
 
 🔗 **تنسيق Pipeline**: ربط مراحل متعددة في أمر واحد، مما يتيح أتمتة كاملة من التنزيل إلى العرض.
 
@@ -237,15 +235,6 @@ go build -o build/krillinai-cli ./cmd/cli
 - عالج الأخطاء حسب `error.kind`: `usage` لتصحيح المعلمات، و`retryable` لإعادة المحاولة، و`dependency` لتثبيت `ffmpeg` / `ffprobe` / `yt-dlp`.
 
 للحصول على شرح أكثر تفصيلًا للمعلمات، راجع [ملخص قدرات CLI](../zh/cli.md).
-
-### Agent Skills
-
-يوفر المستودع أيضًا Skills جاهزة للاستخدام داخل `skills/` حتى تتمكن الوكلاء من استدعاء CLI وفق اتفاقيات مستقرة:
-
-- [`krillinai-cli`](../../skills/krillinai-cli/SKILL.md): skill المدخل العام لاختيار سير عمل الترجمة، TTS، التصيير، pipeline أو الغلاف.
-- [`krillinai-subtitle`](../../skills/krillinai-subtitle/SKILL.md)، [`krillinai-tts`](../../skills/krillinai-tts/SKILL.md)، [`krillinai-render-horizontal`](../../skills/krillinai-render-horizontal/SKILL.md)، و[`krillinai-render-vertical`](../../skills/krillinai-render-vertical/SKILL.md): أدلة تشغيل خاصة بكل مرحلة.
-- [`krillinai-pipeline`](../../skills/krillinai-pipeline/SKILL.md) و[`krillinai-cover`](../../skills/krillinai-cover/SKILL.md): أدلة تخطيط/واجهات محجوزة لتنظيم pipeline وتوليد الغلاف إلى أن يتم توصيل مسارات التنفيذ بالكامل.
-- [`cli-contract.md`](../../skills/krillinai-cli/references/cli-contract.md): عقد JSON وmanifest والمخرجات ومعالجة الأخطاء المشترك.
 
 استنادًا إلى ملف التكوين المقدم، إليك قسم "مساعدة التكوين (يجب قراءته)" المحدث لملف README الخاص بك:
 
