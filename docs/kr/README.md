@@ -1,7 +1,7 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# 인간 / AI 에이전트를 위한 비디오 번역 및 더빙 도구 (Skills 컬렉션 포함)
+# 인간 / AI 에이전트를 위한 비디오 번역 및 더빙 도구
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -14,7 +14,7 @@
 
 </div>
 
-## 프로젝트 소개 ([모든 Growth & Marketing Skills 확인하기](https://github.com/krillinai/growth-skills))
+## 프로젝트 소개
 [**빠른 시작**](#-quick-start)
 
 KrillinAI는 Krillin AI 팀이 개발한 다목적 오디오 및 비디오 현지화 및 향상 솔루션으로, 인간 사용자와 AI 에이전트 모두를 위해 설계되었습니다. 비디오 다운로드, 음성 전사, 자막 번역, TTS 더빙, 세로 변환, 커버 생성 등 완전한 파이프라인을 포괄하며 가로 및 세로 형식을 지원하여 모든 주요 플랫폼(Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok 등)에서 완벽한 프레젠테이션을 보장합니다. 인간 사용자는 클라이언트를 통해 원클릭으로 엔드투엔드 콘텐츠 현지화를 완료할 수 있으며, 각 기능은 CLI를 통해 독립적으로 호출할 수도 있어 AI 에이전트가 단일 또는 여러 단계를 필요에 따라 편성하여 유연한 자동화 워크플로를 구성할 수 있습니다.
@@ -22,8 +22,6 @@ KrillinAI는 Krillin AI 팀이 개발한 다목적 오디오 및 비디오 현�
 ## 새로운 기능
 
 🤖 **CLI 지원**: 각 단계가 독립적으로 실행되고 구조화된 결과를 출력하는 단계별 명령줄 인터페이스를 제공하며, 단계 간 아티팩트 재사용을 지원합니다.
-
-🧩 **Skills 컬렉션**: `skills/` 디렉토리에 AI 에이전트가 안정적인 계약에 따라 직접 호출할 수 있는 각 단계별 Skills가 제공되어 CLI 문서를 직접 파싱할 필요가 없습니다.
 
 🔗 **Pipeline 편성**: 여러 단계를 한 명령으로 연결하여 다운로드부터 렌더링까지 전체 프로세스를 자동화합니다.
 
@@ -238,15 +236,6 @@ Agent 통합 규칙:
 
 더 자세한 매개변수 설명은 [CLI 기능 요약](../zh/cli.md)을 참고하세요.
 
-### Agent Skills
-
-이 저장소는 Agent가 안정적인 규칙으로 CLI를 호출할 수 있도록 `skills/` 아래에 바로 사용할 수 있는 Agent Skills도 제공합니다:
-
-- [`krillinai-cli`](../../skills/krillinai-cli/SKILL.md): 자막, TTS, 렌더링, pipeline 또는 커버 워크플로를 선택하는 최상위 진입 skill입니다.
-- [`krillinai-subtitle`](../../skills/krillinai-subtitle/SKILL.md), [`krillinai-tts`](../../skills/krillinai-tts/SKILL.md), [`krillinai-render-horizontal`](../../skills/krillinai-render-horizontal/SKILL.md), [`krillinai-render-vertical`](../../skills/krillinai-render-vertical/SKILL.md): 단계별 운영 가이드입니다.
-- [`krillinai-pipeline`](../../skills/krillinai-pipeline/SKILL.md) 및 [`krillinai-cover`](../../skills/krillinai-cover/SKILL.md): pipeline 오케스트레이션과 커버 생성을 위한 계획/예약 가이드이며, 해당 실행 경로가 완전히 연결될 때까지 계획 용도로 사용합니다.
-- [`cli-contract.md`](../../skills/krillinai-cli/references/cli-contract.md): JSON, manifest, outputs, 오류 처리에 대한 공통 계약입니다.
-
 제공된 구성 파일을 기반으로, README 파일의 "구성 도움말(반드시 읽어야 함)" 섹션을 업데이트한 내용은 다음과 같습니다:
 
 ### 구성 도움말 (반드시 읽어야 함)
@@ -294,4 +283,4 @@ Agent 통합 규칙:
 
 ## 스타 역사
 
-[![스타 역사 차트](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)
+[![스타 역사 차트](https://star-history.dera.page/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.dera.page/#KrillinAI/KrillinAI&Date)

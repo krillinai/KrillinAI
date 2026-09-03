@@ -1,7 +1,7 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# Outil de traduction et doublage vidéo pour Humains / AI Agent (avec collection de Skills)
+# Outil de traduction et doublage vidéo pour Humains / AI Agent
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -14,7 +14,7 @@
 
 </div>
 
-## Introduction au projet ([Découvrez toutes les Growth & Marketing Skills](https://github.com/krillinai/growth-skills))
+## Introduction au projet
 [**Démarrage rapide**](#-quick-start)
 
 KrillinAI est une solution polyvalente de localisation et d'amélioration audio et vidéo développée par l'équipe Krillin AI, conçue à la fois pour les utilisateurs humains et les AI Agents. L'outil couvre le pipeline complet incluant le téléchargement de vidéos, la transcription vocale, la traduction de sous-titres, le doublage TTS, la conversion portrait et la génération de couvertures, prenant en charge les formats paysage et portrait pour garantir une présentation parfaite sur toutes les principales plateformes (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). Les utilisateurs humains peuvent accomplir la localisation de contenu de bout en bout en un clic via le client ; chaque capacité peut également être invoquée indépendamment via CLI, et les AI Agents peuvent orchestrer une ou plusieurs étapes à la demande pour composer des flux de travail automatisés flexibles.
@@ -22,8 +22,6 @@ KrillinAI est une solution polyvalente de localisation et d'amélioration audio 
 ## Nouvelles Fonctionnalités
 
 🤖 **Support CLI** : Fournit une interface en ligne de commande par phases, chaque étape s'exécutant indépendamment et produisant des résultats structurés, avec prise en charge de la réutilisation des artefacts entre étapes.
-
-🧩 **Collection de Skills** : Le répertoire `skills/` fournit des Skills par étape pour que les AI Agents puissent les invoquer directement selon un contrat stable, sans avoir à analyser la documentation CLI.
 
 🔗 **Orchestration Pipeline** : Enchâînez plusieurs étapes en une seule commande, permettant une automatisation complète du téléchargement au rendu.
 
@@ -238,15 +236,6 @@ Conventions d'intégration pour les agents :
 
 Pour une description plus complète des paramètres, consultez le [résumé des capacités CLI](../zh/cli.md).
 
-### Agent Skills
-
-Le dépôt inclut également des Agent Skills prêts à l'emploi dans `skills/`, afin que les agents puissent appeler la CLI avec des conventions stables :
-
-- [`krillinai-cli`](../../skills/krillinai-cli/SKILL.md) : skill d'entrée principale pour choisir les workflows de sous-titres, TTS, rendu, pipeline ou couverture.
-- [`krillinai-subtitle`](../../skills/krillinai-subtitle/SKILL.md), [`krillinai-tts`](../../skills/krillinai-tts/SKILL.md), [`krillinai-render-horizontal`](../../skills/krillinai-render-horizontal/SKILL.md) et [`krillinai-render-vertical`](../../skills/krillinai-render-vertical/SKILL.md) : guides opérationnels propres à chaque étape.
-- [`krillinai-pipeline`](../../skills/krillinai-pipeline/SKILL.md) et [`krillinai-cover`](../../skills/krillinai-cover/SKILL.md) : guides de planification/réservation pour l'orchestration pipeline et la génération de couverture tant que ces chemins d'exécution ne sont pas entièrement connectés.
-- [`cli-contract.md`](../../skills/krillinai-cli/references/cli-contract.md) : contrat partagé pour JSON, manifest, outputs et gestion des erreurs.
-
 Basé sur le fichier de configuration fourni, voici la section mise à jour "Aide à la configuration (À lire absolument)" pour votre fichier README :
 
 ### Aide à la configuration (À lire absolument)
@@ -294,4 +283,4 @@ Veuillez visiter [Questions Fréquemment Posées](./faq.md)
 
 ## Historique des étoiles
 
-[![Graphique de l'historique des étoiles](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)
+[![Graphique de l'historique des étoiles](https://star-history.dera.page/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.dera.page/#KrillinAI/KrillinAI&Date)

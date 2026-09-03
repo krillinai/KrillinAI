@@ -21,6 +21,9 @@ type fakeStageService struct {
 	lastCoverPrompt   string
 	lastCoverSize     string
 	coverImageB64     string
+	preparedVideoPath string
+	preparedAudioPath string
+	audioProgress     []uint8
 }
 
 func (f *fakeStageService) PrepareMedia(_ context.Context, p *types.SubtitleTaskStepParam) error {
@@ -28,11 +31,20 @@ func (f *fakeStageService) PrepareMedia(_ context.Context, p *types.SubtitleTask
 	f.prepareVTT = append(f.prepareVTT, p.VttSwitch)
 	f.prepareEmbedTypes = append(f.prepareEmbedTypes, p.EmbedSubtitleVideoType)
 	f.lastPrepare = p
+	if f.preparedVideoPath != "" {
+		p.InputVideoPath = f.preparedVideoPath
+	}
+	if f.preparedAudioPath != "" {
+		p.AudioFilePath = f.preparedAudioPath
+	}
 	return nil
 }
 
-func (f *fakeStageService) GenerateSubtitlesFromAudio(context.Context, *types.SubtitleTaskStepParam) error {
+func (f *fakeStageService) GenerateSubtitlesFromAudio(_ context.Context, p *types.SubtitleTaskStepParam) error {
 	f.calls = append(f.calls, "audio")
+	for _, percent := range f.audioProgress {
+		p.TaskPtr.SetProgress(percent)
+	}
 	return nil
 }
 
@@ -51,8 +63,13 @@ func (f *fakeStageService) DownloadYouTubeSubtitle(context.Context, *service.You
 	return "demo.en.vtt", f.downloadErr
 }
 
-func (f *fakeStageService) ProcessYouTubeSubtitle(context.Context, *service.YoutubeSubtitleReq) (string, error) {
+func (f *fakeStageService) ProcessYouTubeSubtitle(_ context.Context, req *service.YoutubeSubtitleReq) (string, error) {
 	f.calls = append(f.calls, "process-youtube")
+	if req.TaskPtr != nil {
+		req.TaskPtr.SetProgress(40)
+		req.TaskPtr.SetProgress(65)
+		req.TaskPtr.SetProgress(90)
+	}
 	return "bilingual_srt.srt", f.processErr
 }
 
@@ -117,6 +134,74 @@ func TestGenerateSubtitlesPassesSubtitleStyleToStepParam(t *testing.T) {
 	if fake.lastPrepare == nil || fake.lastPrepare.SubtitleStyle != style {
 		t.Fatalf("SubtitleStyle was not passed to stepParam")
 	}
+}
+
+func TestGenerateSubtitlesReportsPreparedLocalMediaOutputs(t *testing.T) {
+	dir := t.TempDir()
+	source := dir + "/source.webm"
+	audio := dir + "/origin_audio.mp3"
+	fake := &fakeStageService{
+		preparedVideoPath: source,
+		preparedAudioPath: audio,
+	}
+	req := SubtitleRequest{
+		Input:         "local:" + source,
+		Workdir:       dir,
+		TaskID:        "demo",
+		OriginLang:    "en",
+		TargetLang:    "zh_cn",
+		CaptionSource: CaptionSourceWhisper,
+	}
+
+	resp, err := GenerateSubtitles(context.Background(), fake, req)
+	if err != nil {
+		t.Fatalf("GenerateSubtitles() error = %v", err)
+	}
+	if resp.Outputs.OriginVideo != source {
+		t.Fatalf("OriginVideo = %q, want %q", resp.Outputs.OriginVideo, source)
+	}
+	if resp.Outputs.OriginAudio != audio {
+		t.Fatalf("OriginAudio = %q, want %q", resp.Outputs.OriginAudio, audio)
+	}
+}
+
+func TestGenerateSubtitlesMapsDetailedAudioProgress(t *testing.T) {
+	dir := t.TempDir()
+	fake := &fakeStageService{
+		audioProgress: []uint8{22, 32, 42, 52, 65, 77, 90},
+	}
+	var reported []int
+	req := SubtitleRequest{
+		Input:         "local:demo.mp4",
+		Workdir:       dir,
+		TaskID:        "demo",
+		OriginLang:    "zh_cn",
+		TargetLang:    "en",
+		CaptionSource: CaptionSourceWhisper,
+		ReportProgress: func(_ string, percent int, _ string) {
+			reported = append(reported, percent)
+		},
+	}
+
+	if _, err := GenerateSubtitles(context.Background(), fake, req); err != nil {
+		t.Fatal(err)
+	}
+
+	want := []int{39, 45, 52, 58, 67, 75, 83}
+	for _, percent := range want {
+		if !containsInt(reported, percent) {
+			t.Fatalf("reported progress %v does not contain %d", reported, percent)
+		}
+	}
+}
+
+func containsInt(values []int, target int) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func TestGenerateSubtitlesManualDoesNotFallback(t *testing.T) {
@@ -202,6 +287,44 @@ func TestGenerateSubtitlesYouTubeCaptionsPrepareOriginalMediaForRendering(t *tes
 	}
 }
 
+func TestGenerateSubtitlesReportsPlatformTranslationAndMediaProgress(t *testing.T) {
+	dir := t.TempDir()
+	fake := &fakeStageService{}
+	type update struct {
+		phase   string
+		percent int
+	}
+	updates := []update{}
+	req := SubtitleRequest{
+		Input:         "https://www.youtube.com/watch?v=abc",
+		Workdir:       dir,
+		TaskID:        "demo",
+		OriginLang:    "en",
+		TargetLang:    "zh_cn",
+		CaptionSource: CaptionSourceAny,
+		PrepareVideo:  true,
+		ReportProgress: func(phase string, percent int, _ string) {
+			updates = append(updates, update{phase: phase, percent: percent})
+		},
+	}
+
+	if _, err := GenerateSubtitles(context.Background(), fake, req); err != nil {
+		t.Fatal(err)
+	}
+	assertProgress := func(phase string, percent int) {
+		t.Helper()
+		for _, candidate := range updates {
+			if candidate.phase == phase && candidate.percent == percent {
+				return
+			}
+		}
+		t.Fatalf("missing progress %s/%d in %+v", phase, percent, updates)
+	}
+	assertProgress("translating_subtitles", 57)
+	assertProgress("preparing_original_media", 76)
+	assertProgress("collecting_outputs", 95)
+}
+
 func TestGenerateSubtitlesWhisperSkipsYouTubeDownload(t *testing.T) {
 	dir := t.TempDir()
 	fake := &fakeStageService{}
@@ -225,5 +348,74 @@ func TestGenerateSubtitlesWhisperSkipsYouTubeDownload(t *testing.T) {
 	}
 	if got := fake.prepareVTT; len(got) != 1 || got[0] != false {
 		t.Fatalf("prepare VttSwitch values = %v, want [false]", got)
+	}
+}
+
+func TestGenerateSubtitlesWhisperPreparesVideoWhenRequested(t *testing.T) {
+	dir := t.TempDir()
+	fake := &fakeStageService{}
+	req := SubtitleRequest{
+		Input:         "https://www.youtube.com/watch?v=abc",
+		Workdir:       dir,
+		TaskID:        "demo",
+		OriginLang:    "en",
+		TargetLang:    "zh_cn",
+		CaptionSource: CaptionSourceWhisper,
+		PrepareVideo:  true,
+	}
+
+	resp, err := GenerateSubtitles(context.Background(), fake, req)
+	if err != nil {
+		t.Fatalf("GenerateSubtitles() error = %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("OK = false, want true")
+	}
+	if got := fake.prepareEmbedTypes; len(got) != 1 || got[0] != "all" {
+		t.Fatalf("prepare EmbedSubtitleVideoType values = %v, want [all]", got)
+	}
+}
+
+func TestGenerateSubtitlesFallbackPreparesVideoWhenRequested(t *testing.T) {
+	dir := t.TempDir()
+	fake := &fakeStageService{downloadErr: errors.New("no captions")}
+	req := SubtitleRequest{
+		Input:         "https://www.youtube.com/watch?v=abc",
+		Workdir:       dir,
+		TaskID:        "demo",
+		OriginLang:    "en",
+		TargetLang:    "zh_cn",
+		CaptionSource: CaptionSourceAny,
+		PrepareVideo:  true,
+	}
+
+	resp, err := GenerateSubtitles(context.Background(), fake, req)
+	if err != nil {
+		t.Fatalf("GenerateSubtitles() error = %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("OK = false, want true")
+	}
+	if got := fake.prepareEmbedTypes; len(got) != 2 || got[0] != "none" || got[1] != "all" {
+		t.Fatalf("prepare EmbedSubtitleVideoType values = %v, want [none all]", got)
+	}
+}
+
+func TestIsYouTubeInput(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{input: "https://www.youtube.com/watch?v=demo", want: true},
+		{input: "https://m.youtube.com/watch?v=demo", want: true},
+		{input: "https://youtu.be/demo", want: true},
+		{input: "https://www.youtube-nocookie.com/embed/demo", want: true},
+		{input: "https://youtube.com.example.test/watch?v=demo", want: false},
+		{input: "local:/tmp/video.mp4", want: false},
+	}
+	for _, test := range tests {
+		if got := IsYouTubeInput(test.input); got != test.want {
+			t.Fatalf("IsYouTubeInput(%q) = %v, want %v", test.input, got, test.want)
+		}
 	}
 }

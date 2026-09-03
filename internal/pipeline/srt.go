@@ -3,9 +3,14 @@ package pipeline
 import (
 	"bufio"
 	"fmt"
+	"krillin-ai/internal/service"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 )
+
+var pipelineSRTTimestampPattern = regexp.MustCompile(`^(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s+-->\s+(\d{2}):(\d{2}):(\d{2})[,.](\d{3})$`)
 
 type srtBlock struct {
 	Index     string
@@ -95,4 +100,80 @@ func targetLine(lines []string, mode LineMode) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported line mode: %s", mode)
 	}
+}
+
+func validateExistingSubtitleOutputs(outputs Outputs) error {
+	candidates := []struct {
+		path          string
+		allowOverlaps bool
+	}{
+		{path: outputs.OriginSRT},
+		{path: outputs.TargetSRT},
+		{path: outputs.BilingualSRT},
+		{path: outputs.ShortOriginSRT},
+		{path: outputs.ShortOriginMixedSRT, allowOverlaps: true},
+	}
+	for _, candidate := range candidates {
+		if candidate.path == "" {
+			continue
+		}
+		if _, err := os.Stat(candidate.path); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
+		}
+		if err := service.NormalizeSRTFile(candidate.path, candidate.allowOverlaps); err != nil {
+			return fmt.Errorf("%s: normalize timeline: %w", candidate.path, err)
+		}
+		if err := validateSRTTimelineFile(candidate.path, candidate.allowOverlaps); err != nil {
+			return fmt.Errorf("%s: %w", candidate.path, err)
+		}
+	}
+	return nil
+}
+
+func validateSRTTimelineFile(path string, allowOverlaps bool) error {
+	blocks, err := readSRTBlocks(path)
+	if err != nil {
+		return err
+	}
+	if len(blocks) == 0 {
+		return fmt.Errorf("invalid_srt: empty subtitle")
+	}
+	var previousEnd int64 = -1
+	for index, block := range blocks {
+		start, end, err := parsePipelineSRTTimeline(block.Timestamp)
+		if err != nil {
+			return fmt.Errorf("invalid_srt: cue %d: %w", index+1, err)
+		}
+		if end <= start || (!allowOverlaps && previousEnd >= 0 && start < previousEnd) {
+			return fmt.Errorf("invalid_srt: timeline %d", index+1)
+		}
+		if end > previousEnd {
+			previousEnd = end
+		}
+	}
+	return nil
+}
+
+func parsePipelineSRTTimeline(value string) (int64, int64, error) {
+	match := pipelineSRTTimestampPattern.FindStringSubmatch(value)
+	if match == nil {
+		return 0, 0, fmt.Errorf("invalid timestamp %q", value)
+	}
+	values := make([]int64, 8)
+	for index := range values {
+		parsed, err := strconv.ParseInt(match[index+1], 10, 64)
+		if err != nil {
+			return 0, 0, err
+		}
+		values[index] = parsed
+	}
+	if values[1] >= 60 || values[2] >= 60 || values[5] >= 60 || values[6] >= 60 {
+		return 0, 0, fmt.Errorf("timestamp component out of range")
+	}
+	start := ((values[0]*60+values[1])*60+values[2])*1000 + values[3]
+	end := ((values[4]*60+values[5])*60+values[6])*1000 + values[7]
+	return start, end, nil
 }

@@ -2,13 +2,13 @@ package service
 
 import (
 	"krillin-ai/config"
+	"krillin-ai/internal/ttsprovider"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"krillin-ai/pkg/aliyun"
 	"krillin-ai/pkg/fasterwhisper"
 	pkgimage "krillin-ai/pkg/image"
 	"krillin-ai/pkg/localtts"
-	"krillin-ai/pkg/minimax"
 	"krillin-ai/pkg/openai"
 	"krillin-ai/pkg/whisper"
 	"krillin-ai/pkg/whispercpp"
@@ -55,13 +55,13 @@ func NewService() *Service {
 
 	switch config.Conf.Tts.Provider {
 	case "openai":
-		ttsClient = openai.NewClient(config.Conf.Tts.Openai.BaseUrl, config.Conf.Tts.Openai.ApiKey, config.Conf.App.Proxy)
+		ttsClient, _ = ttsprovider.New("openai")
 	case "aliyun":
-		ttsClient = aliyun.NewTtsClient(config.Conf.Tts.Aliyun.Speech.AccessKeyId, config.Conf.Tts.Aliyun.Speech.AccessKeySecret, config.Conf.Tts.Aliyun.Speech.AppKey)
+		ttsClient, _ = ttsprovider.New("aliyun")
 	case "edge-tts":
 		ttsClient = localtts.NewEdgeTtsClient()
 	case "minimax":
-		ttsClient = minimax.NewTtsClient(config.Conf.Tts.Minimax.BaseUrl, config.Conf.Tts.Minimax.ApiKey, config.Conf.Tts.Minimax.Model)
+		ttsClient, _ = ttsprovider.New("minimax")
 	}
 
 	s := &Service{

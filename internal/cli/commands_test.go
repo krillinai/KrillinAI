@@ -316,8 +316,8 @@ func TestExecuteDryRunVoicesReturnsAliyunVoiceList(t *testing.T) {
 	if len(resp.Voices) == 0 {
 		t.Fatal("Voices is empty, want aliyun voice list")
 	}
-	if !containsVoiceCode(resp.Voices, "longxiaochun_v2") {
-		t.Fatalf("Voices = %#v, want aliyun voice code longxiaochun_v2", resp.Voices)
+	if !containsVoiceCode(resp.Voices, "Cherry") {
+		t.Fatalf("Voices = %#v, want aliyun voice code Cherry", resp.Voices)
 	}
 }
 
@@ -415,11 +415,11 @@ func TestLoadSubtitleStyleFindsRepoDefaultFromDifferentWorkingDir(t *testing.T) 
 	if !ok {
 		t.Fatal("default subtitle style path not found")
 	}
-	t.Cleanup(func() {
+	defer func() {
 		if err := os.Chdir(originalWd); err != nil {
 			t.Fatalf("restore cwd: %v", err)
 		}
-	})
+	}()
 	if err := os.Chdir(t.TempDir()); err != nil {
 		t.Fatal(err)
 	}

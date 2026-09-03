@@ -33,7 +33,7 @@ func (s Service) uploadSubtitles(ctx context.Context, stepParam *types.SubtitleT
 	taskPtr := stepParam.TaskPtr
 	taskPtr.SubtitleInfos = subtitleInfos
 	taskPtr.Status = types.SubtitleTaskStatusSuccess
-	taskPtr.ProcessPct = 100
+	taskPtr.SetProgress(100)
 	// 配音文件
 	if stepParam.TtsResultFilePath != "" {
 		taskPtr.SpeechDownloadUrl = "/api/file/" + stepParam.TtsResultFilePath

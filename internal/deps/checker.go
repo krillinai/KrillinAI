@@ -3,6 +3,7 @@ package deps
 import (
 	"fmt"
 	"krillin-ai/config"
+	"krillin-ai/internal/resourcepath"
 	"krillin-ai/internal/storage"
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
@@ -17,6 +18,19 @@ import (
 )
 
 func CheckDependency() error {
+	if err := CheckCoreDependencies(); err != nil {
+		return err
+	}
+	if err := CheckTranscriptionDependency(); err != nil {
+		return err
+	}
+	return CheckTTSDependency()
+}
+
+func CheckCoreDependencies() error {
+	if resourcepath.Offline() {
+		return configurePackagedCoreDependencies()
+	}
 	err := checkAndDownloadFfmpeg()
 	if err != nil {
 		log.GetLogger().Error("ffmpeg环境准备失败", zap.Error(err))
@@ -32,6 +46,14 @@ func CheckDependency() error {
 		log.GetLogger().Error("yt-dlp环境准备失败", zap.Error(err))
 		return err
 	}
+	return nil
+}
+
+func CheckTranscriptionDependency() error {
+	if resourcepath.Offline() {
+		return configurePackagedTranscriptionDependency()
+	}
+	var err error
 	if config.Conf.Transcribe.Provider == "fasterwhisper" {
 		err = checkFasterWhisper()
 		if err != nil {
@@ -78,13 +100,78 @@ func CheckDependency() error {
 			return err
 		}
 	}
+	return nil
+}
+
+func CheckTTSDependency() error {
 	if config.Conf.Tts.Provider == "edge-tts" {
-		if err = checkEdgeTts(); err != nil {
+		if err := checkEdgeTts(); err != nil {
 			log.GetLogger().Error("edge-tts环境准备失败", zap.Error(err))
+			return err
 		}
 	}
-
 	return nil
+}
+
+func configurePackagedCoreDependencies() error {
+	var err error
+	if storage.FfmpegPath, err = packagedExecutable("ffmpeg"); err != nil {
+		return err
+	}
+	if storage.FfprobePath, err = packagedExecutable("ffprobe"); err != nil {
+		return err
+	}
+	if storage.YtdlpPath, err = packagedExecutable("yt-dlp"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func configurePackagedTranscriptionDependency() error {
+	var err error
+	switch config.Conf.Transcribe.Provider {
+	case "fasterwhisper":
+		name := "faster-whisper"
+		if runtime.GOOS == "windows" {
+			name += ".exe"
+		}
+		if storage.FasterwhisperPath, err = resourcepath.RequireFile("bin", name); err != nil {
+			return err
+		}
+		if _, err = resourcepath.RequireDir("models", "fasterwhisper", fmt.Sprintf("faster-whisper-%s", config.Conf.Transcribe.Fasterwhisper.Model)); err != nil {
+			return err
+		}
+	case "whispercpp":
+		name := "whispercpp"
+		if runtime.GOOS == "windows" {
+			name += ".exe"
+		}
+		if storage.WhispercppPath, err = resourcepath.RequireFile("bin", name); err != nil {
+			return err
+		}
+		if _, err = resourcepath.RequireFile("models", "whispercpp", fmt.Sprintf("ggml-%s.bin", config.Conf.Transcribe.Whispercpp.Model)); err != nil {
+			return err
+		}
+	case "whisperkit":
+		if storage.WhisperKitPath, err = packagedExecutable("whisperkit-cli"); err != nil {
+			return err
+		}
+		if _, err = resourcepath.RequireDir(
+			"models",
+			"whisperkit",
+			fmt.Sprintf("openai_whisper-%s", config.Conf.Transcribe.Whisperkit.Model),
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func packagedExecutable(name string) (string, error) {
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return resourcepath.RequireFile("bin", name)
 }
 
 // 检测并安装ffmpeg

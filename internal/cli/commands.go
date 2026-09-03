@@ -9,6 +9,8 @@ import (
 	"krillin-ai/config"
 	"krillin-ai/internal/pipeline"
 	subtitlestyle "krillin-ai/internal/subtitle_style"
+	"krillin-ai/internal/ttsprovider"
+	"krillin-ai/internal/types"
 	"krillin-ai/internal/updater"
 	"krillin-ai/internal/voices"
 	"os"
@@ -50,6 +52,7 @@ type Command struct {
 	SubtitleStyleFile string
 	Subtitle          pipeline.SubtitleRequest
 	TTS               pipeline.TTSRequest
+	Speech            SpeechRequest
 	Render            pipeline.RenderRequest
 	Cover             pipeline.CoverRequest
 	Pipeline          pipeline.PipelineRequest
@@ -68,6 +71,17 @@ type VoicesRequest struct {
 	Provider string
 }
 
+type SpeechRequest struct {
+	Text         string
+	TextFile     string
+	Output       string
+	Provider     string
+	Voice        string
+	Format       string
+	Speed        float64
+	Instructions string
+}
+
 func Parse(args []string) (Command, error) {
 	if len(args) == 0 {
 		return Command{}, errors.New("missing command")
@@ -81,6 +95,8 @@ func Parse(args []string) (Command, error) {
 		return parseSubtitle(name, args[1:])
 	case "tts":
 		return parseTTS(name, args[1:])
+	case "speech":
+		return parseSpeech(name, args[1:])
 	case "render-horizontal":
 		return parseRender(name, args[1:], true)
 	case "render-vertical":
@@ -115,7 +131,7 @@ Flags:
   --user-lang <lang>         UI language for generated messages
   --workdir <dir>            Task working directory
   --task-id <id>             Optional task id
-  --caption-source <source>  any, manual, auto, or whisper
+  --caption-source <source>  any, platform, manual, auto, or whisper
   --bilingual-top            Put target subtitle on top (default true)
   --max-word-one-line <n>    Max words per subtitle line
   --subtitle-style-file <file>  JSON subtitle style override file
@@ -136,6 +152,22 @@ Flags:
   --voice-clone-source <source>   Optional voice clone source
   --dry-run                       Validate and write manifest without external calls
   -h, --help                      Show this help
+`
+	case "speech":
+		return `Usage:
+  krillinai-cli speech (--text <text> | --text-file <file>) --output <file> [flags]
+
+Flags:
+  --text <text>          Text to synthesize
+  --text-file <file>     UTF-8 text file to synthesize
+  --output <file>        Output audio file
+  --provider <name>      aliyun, openai, or minimax; default current config
+  --voice <voice>        Provider-specific voice
+  --format <format>      wav or mp3; defaults from output extension
+  --speed <value>        Speaking rate from 0.5 to 2.0 (default 1)
+  --instructions <text>  Delivery instructions when supported by the provider
+  --dry-run              Validate command without external calls
+  -h, --help             Show this help
 `
 	case "render-horizontal":
 		return `Usage:
@@ -225,6 +257,7 @@ Status query is a reserved/planned CLI surface in the current implementation.
 Commands:
   subtitle             Generate source, target, bilingual, and short vertical subtitles
   tts                  Generate target-language dubbing from SRT subtitles
+  speech               Generate audio from plain text
   render-horizontal    Render landscape subtitle or dubbed videos
   render-vertical      Render portrait subtitle or dubbed videos
   pipeline             Plan or run multi-stage workflows when supported
@@ -254,6 +287,8 @@ func Execute(ctx context.Context, svc pipeline.StageService, cmd Command) pipeli
 	case "tts":
 		resp, err := pipeline.GenerateTTS(ctx, svc, cmd.TTS)
 		return responseWithError(resp, err)
+	case "speech":
+		return executeSpeech(ctx, cmd.Speech)
 	case "render-horizontal", "render-vertical":
 		style, err := loadSubtitleStyleForCLI(cmd.SubtitleStyleFile)
 		if err != nil {
@@ -308,7 +343,7 @@ func executeVoices(req VoicesRequest) pipeline.Response {
 	if provider == "" {
 		provider = currentTTSProvider()
 	}
-	list, err := voices.List(provider)
+	list, err := voices.List(context.Background(), provider)
 	if err != nil {
 		return pipeline.Response{
 			OK:    false,
@@ -330,6 +365,112 @@ func executeVoices(req VoicesRequest) pipeline.Response {
 			"provider": provider,
 		},
 		Voices: list,
+	}
+}
+
+func parseSpeech(name string, args []string) (Command, error) {
+	if hasHelpArg(args) {
+		return Command{Name: name, Help: true}, nil
+	}
+	fs := newFlagSet(name)
+	text := fs.String("text", "", "text")
+	textFile := fs.String("text-file", "", "text file")
+	output := fs.String("output", "", "output audio")
+	provider := fs.String("provider", "", "tts provider")
+	voice := fs.String("voice", "", "voice")
+	format := fs.String("format", "", "audio format")
+	speed := fs.Float64("speed", 1, "speaking rate")
+	instructions := fs.String("instructions", "", "delivery instructions")
+	dryRun := fs.Bool("dry-run", false, "validate command without running external services")
+	if err := fs.Parse(args); err != nil {
+		return Command{}, err
+	}
+	if fs.NArg() != 0 {
+		return Command{}, errors.New("speech does not accept positional arguments")
+	}
+	if (strings.TrimSpace(*text) == "") == (strings.TrimSpace(*textFile) == "") {
+		return Command{}, errors.New("speech requires exactly one of --text or --text-file")
+	}
+	if strings.TrimSpace(*output) == "" {
+		return Command{}, errors.New("speech requires --output")
+	}
+	if *format != "" && *format != "wav" && *format != "mp3" {
+		return Command{}, errors.New("speech --format must be wav or mp3")
+	}
+	if *speed < 0.5 || *speed > 2 {
+		return Command{}, errors.New("speech --speed must be between 0.5 and 2")
+	}
+	return Command{
+		Name:   name,
+		DryRun: *dryRun,
+		Speech: SpeechRequest{
+			Text:         *text,
+			TextFile:     *textFile,
+			Output:       *output,
+			Provider:     *provider,
+			Voice:        *voice,
+			Format:       *format,
+			Speed:        *speed,
+			Instructions: *instructions,
+		},
+	}, nil
+}
+
+func executeSpeech(ctx context.Context, req SpeechRequest) pipeline.Response {
+	provider := strings.TrimSpace(req.Provider)
+	if provider == "" {
+		provider = currentTTSProvider()
+	}
+	text := req.Text
+	if req.TextFile != "" {
+		data, err := os.ReadFile(req.TextFile)
+		if err != nil {
+			return speechFailure(provider, req.Output, "speech_input_failed", err)
+		}
+		text = string(data)
+	}
+	if strings.TrimSpace(text) == "" {
+		return speechFailure(provider, req.Output, "speech_input_empty", errors.New("speech text is empty"))
+	}
+	client, err := ttsprovider.New(provider)
+	if err != nil {
+		return speechFailure(provider, req.Output, "speech_provider_unsupported", err)
+	}
+	if err := client.Synthesize(ctx, types.TTSSpeechOptions{
+		Text:         text,
+		Voice:        req.Voice,
+		OutputFile:   req.Output,
+		Format:       req.Format,
+		Speed:        req.Speed,
+		Instructions: req.Instructions,
+	}); err != nil {
+		return speechFailure(provider, req.Output, "speech_synthesis_failed", err)
+	}
+	return pipeline.Response{
+		OK:    true,
+		Stage: pipeline.StageSpeech,
+		Inputs: map[string]string{
+			"provider": provider,
+			"voice":    req.Voice,
+		},
+		Outputs: pipeline.Outputs{TTSAudio: req.Output},
+	}
+}
+
+func speechFailure(provider, output, code string, err error) pipeline.Response {
+	return pipeline.Response{
+		OK:    false,
+		Stage: pipeline.StageSpeech,
+		Inputs: map[string]string{
+			"provider": provider,
+			"output":   output,
+		},
+		Error: &pipeline.Error{
+			Kind:      pipeline.ErrorKindRetryable,
+			Code:      code,
+			Message:   err.Error(),
+			Retryable: true,
+		},
 	}
 }
 
@@ -582,6 +723,17 @@ func dryRun(cmd Command) pipeline.Response {
 		return dryRunResponse(pipeline.StageSubtitle, cmd.Subtitle.Workdir, cmd.Subtitle.TaskID)
 	case "tts":
 		return dryRunManifest(cmd.TTS.Workdir, cmd.TTS.TaskID, pipeline.StageTTS, nil)
+	case "speech":
+		return pipeline.Response{
+			OK:    true,
+			Stage: pipeline.StageSpeech,
+			Inputs: map[string]string{
+				"provider": cmd.Speech.Provider,
+				"voice":    cmd.Speech.Voice,
+				"output":   cmd.Speech.Output,
+				"format":   cmd.Speech.Format,
+			},
+		}
 	case "render-horizontal":
 		if _, err := loadSubtitleStyleForCLI(cmd.SubtitleStyleFile); err != nil {
 			return styleLoadFailure(pipeline.StageRenderHorizontal, cmd.Render.Workdir, cmd.Render.TaskID, err)

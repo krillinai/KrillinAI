@@ -73,8 +73,11 @@ type Transcribe struct {
 }
 
 type AliyunTtsConfig struct {
-	Oss    AliyunOssConfig    `toml:"oss"`
-	Speech AliyunSpeechConfig `toml:"speech"`
+	BaseUrl string             `toml:"base_url"`
+	ApiKey  string             `toml:"api_key"`
+	Model   string             `toml:"model"`
+	Oss     AliyunOssConfig    `toml:"oss"`
+	Speech  AliyunSpeechConfig `toml:"speech"`
 }
 
 type Tts struct {
@@ -155,6 +158,14 @@ var Conf = Config{
 		Openai: OpenaiCompatibleConfig{
 			Model: "gpt-4o-mini-tts",
 		},
+		Aliyun: AliyunTtsConfig{
+			BaseUrl: "https://dashscope.aliyuncs.com/api/v1",
+			Model:   "qwen3-tts-flash",
+		},
+		Minimax: OpenaiCompatibleConfig{
+			BaseUrl: "https://api.minimax.io",
+			Model:   "speech-2.8-hd",
+		},
 	},
 	Dubbing: Dubbing{
 		MinSubtitleDuration: 2.5,
@@ -175,8 +186,9 @@ var Conf = Config{
 	},
 }
 
-// 检查必要的配置是否完整
-func validateConfig() error {
+// ValidateTranscriptionConfig checks the selected transcription provider only
+// when a workflow is about to use speech recognition.
+func ValidateTranscriptionConfig() error {
 	// 检查转写服务提供商配置
 	switch Conf.Transcribe.Provider {
 	case "openai":
@@ -200,7 +212,7 @@ func validateConfig() error {
 			log.GetLogger().Error("whispercpp only support windows", zap.String("current os", runtime.GOOS))
 			return fmt.Errorf("whispercpp only support windows")
 		}
-		if Conf.Transcribe.Whispercpp.Model != "large-v2" {
+		if Conf.Transcribe.Whispercpp.Model != "tiny" && Conf.Transcribe.Whispercpp.Model != "medium" && Conf.Transcribe.Whispercpp.Model != "large-v2" {
 			return errors.New("检测到开启了whisper.cpp，但模型选型配置不正确，请检查配置")
 		}
 	case "aliyun":
@@ -211,6 +223,28 @@ func validateConfig() error {
 		return errors.New("不支持的转录提供商")
 	}
 
+	return nil
+}
+
+func ValidateTTSConfig() error {
+	switch Conf.Tts.Provider {
+	case "openai":
+		if Conf.Tts.Openai.ApiKey == "" {
+			return errors.New("使用 OpenAI 配音服务需要配置 API Key")
+		}
+	case "aliyun":
+		if Conf.Tts.Aliyun.ApiKey == "" {
+			return errors.New("使用阿里云百炼配音服务需要配置 API Key")
+		}
+	case "minimax":
+		if Conf.Tts.Minimax.ApiKey == "" {
+			return errors.New("使用 MiniMax 配音服务需要配置 API Key")
+		}
+	case "edge-tts":
+		return nil
+	default:
+		return errors.New("不支持的配音提供商")
+	}
 	return nil
 }
 
@@ -232,13 +266,19 @@ func LoadConfig() bool {
 
 // 验证配置
 func CheckConfig() error {
-	var err error
-	// 解析代理地址
-	Conf.App.ParsedProxy, err = url.Parse(Conf.App.Proxy)
-	if err != nil {
+	if err := CheckBaseConfig(); err != nil {
 		return err
 	}
-	return validateConfig()
+	return ValidateTranscriptionConfig()
+}
+
+// CheckBaseConfig validates configuration shared by all CLI stages. A stage
+// that can finish with platform captions must not require ASR credentials up
+// front.
+func CheckBaseConfig() error {
+	var err error
+	Conf.App.ParsedProxy, err = url.Parse(Conf.App.Proxy)
+	return err
 }
 
 // SaveConfig 保存配置到文件

@@ -3,9 +3,11 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"fmt"
 	"krillin-ai/internal/service"
 	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"krillin-ai/internal/types"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -23,6 +25,8 @@ type SubtitleRequest struct {
 	BilingualTop   bool
 	MaxWordOneLine int
 	SubtitleStyle  *subtitlestyle.StyleSet
+	PrepareVideo   bool
+	ReportProgress func(phase string, percent int, message string)
 }
 
 func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleRequest) (Response, error) {
@@ -44,40 +48,127 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 		return subtitleFailureResponse(req, manifest, ErrorKindInternal, "apply_outputs_failed", err), err
 	}
 
+	reportSubtitleProgress(req, "preparing_source", 10, "正在准备视频来源")
 	stepParam := subtitleStepParam(req)
+	stepParam.TaskPtr.SetProgressReporter(func(percent uint8) {
+		reportSubtitleProgress(req, "preparing_source", 10+minInt(int(percent), 10), "正在准备视频来源")
+	})
 	if err := svc.PrepareMedia(ctx, stepParam); err != nil {
 		return failSubtitleStage(req, manifest, ErrorKindRetryable, "prepare_media_failed", err)
 	}
+	syncPreparedMediaOutputs(manifest, stepParam)
 
-	if isYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper {
+	var platformCaptionErr error
+	if IsYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper {
+		reportSubtitleProgress(req, "reading_platform_captions", 20, "正在获取平台字幕")
+		stepParam.TaskPtr.SetProgressReporter(func(percent uint8) {
+			phase, message, overall := platformSubtitleProgress(percent)
+			reportSubtitleProgress(req, phase, overall, message)
+		})
 		youtubeReq := subtitleYouTubeReq(req, stepParam.TaskPtr)
 		vttFile, err := svc.DownloadYouTubeSubtitle(ctx, youtubeReq)
 		if err == nil {
+			reportSubtitleProgress(req, "processing_platform_captions", 25, "正在解析平台字幕")
 			youtubeReq.VttFile = vttFile
 			_, err = svc.ProcessYouTubeSubtitle(ctx, youtubeReq)
 		}
 		if err == nil {
 			manifest.CaptionSource = "youtube_vtt"
+			reportSubtitleProgress(req, "preparing_original_media", 76, "正在补齐原始视频")
+			stepParam.TaskPtr.SetProgressReporter(func(percent uint8) {
+				overall := 76 + minInt(int(percent), 10)*14/10
+				reportSubtitleProgress(req, "preparing_original_media", overall, "正在补齐原始视频")
+			})
 			if err := prepareOriginalMediaForRendering(ctx, svc, stepParam); err != nil {
 				return failSubtitleStage(req, manifest, ErrorKindRetryable, "prepare_media_for_render_failed", err)
 			}
+			syncPreparedMediaOutputs(manifest, stepParam)
+			reportSubtitleProgress(req, "collecting_outputs", 95, "正在整理字幕和视频产物")
 			return saveSubtitleSuccess(manifest, req, CaptionSource("youtube_vtt"))
 		}
 		if req.CaptionSource != CaptionSourceAny {
 			return failSubtitleStage(req, manifest, ErrorKindRetryable, "platform_caption_failed", err)
 		}
+		platformCaptionErr = err
 		manifest.Warnings = append(manifest.Warnings, "平台字幕不可用，回退到转录")
 		stepParam.VttSwitch = false
-		if err := svc.PrepareMedia(ctx, stepParam); err != nil {
-			return failSubtitleStage(req, manifest, ErrorKindRetryable, "prepare_audio_fallback_failed", err)
+		if req.PrepareVideo {
+			stepParam.EmbedSubtitleVideoType = "all"
 		}
+		reportSubtitleProgress(req, "preparing_audio", 25, "平台字幕不可用，正在准备音频转录")
+		stepParam.TaskPtr.SetProgressReporter(audioSubtitleProgressReporter(req))
+		if err := svc.PrepareMedia(ctx, stepParam); err != nil {
+			return failSubtitleStage(req, manifest, ErrorKindRetryable, "prepare_audio_fallback_failed", fmt.Errorf(
+				"platform caption attempt failed: %v; audio fallback preparation failed: %w",
+				platformCaptionErr,
+				err,
+			))
+		}
+		syncPreparedMediaOutputs(manifest, stepParam)
 	}
 
+	stepParam.TaskPtr.SetProgressReporter(audioSubtitleProgressReporter(req))
+	reportSubtitleProgress(req, "transcribing_audio", 30, "正在转录并翻译音频字幕")
 	if err := svc.GenerateSubtitlesFromAudio(ctx, stepParam); err != nil {
 		return failSubtitleStage(req, manifest, ErrorKindRetryable, "audio_transcription_failed", err)
 	}
 	manifest.CaptionSource = string(CaptionSourceWhisper)
+	reportSubtitleProgress(req, "collecting_outputs", 95, "正在整理字幕产物")
 	return saveSubtitleSuccess(manifest, req, CaptionSourceWhisper)
+}
+
+func reportSubtitleProgress(req SubtitleRequest, phase string, percent int, message string) {
+	if req.ReportProgress == nil {
+		return
+	}
+	req.ReportProgress(phase, percent, message)
+}
+
+func platformSubtitleProgress(percent uint8) (string, string, int) {
+	value := int(percent)
+	if value < 40 {
+		return "processing_platform_captions", "正在解析平台字幕", 25 + value*15/40
+	}
+	if value < 90 {
+		return "translating_subtitles", "正在翻译字幕", 40 + (value-40)*35/50
+	}
+	return "collecting_subtitles", "正在生成双语字幕", 75
+}
+
+func audioSubtitleProgressReporter(req SubtitleRequest) func(uint8) {
+	return func(percent uint8) {
+		value := int(percent)
+		overall := 25 + value*65/100
+		phase := "transcribing_audio"
+		message := "正在转录并翻译音频字幕"
+		if value <= 10 {
+			phase = "preparing_audio"
+			message = "正在准备音频转录"
+		} else if value >= 53 && value < 90 {
+			phase = "translating_subtitles"
+			message = "正在翻译字幕"
+		} else if value >= 90 {
+			phase = "collecting_subtitles"
+			message = "正在生成字幕文件"
+		}
+		reportSubtitleProgress(req, phase, overall, message)
+	}
+}
+
+func minInt(left, right int) int {
+	if left < right {
+		return left
+	}
+	return right
+}
+
+func syncPreparedMediaOutputs(manifest *Manifest, stepParam *types.SubtitleTaskStepParam) {
+	if stepParam.InputVideoPath != "" {
+		manifest.Outputs.OriginVideo = stepParam.InputVideoPath
+	}
+	if stepParam.AudioFilePath != "" {
+		manifest.Outputs.OriginAudio = stepParam.AudioFilePath
+	}
 }
 
 func subtitleManifest(req SubtitleRequest) (*Manifest, error) {
@@ -110,6 +201,11 @@ func subtitleStepParam(req SubtitleRequest) *types.SubtitleTaskStepParam {
 		VideoSrc: req.Input,
 		Status:   types.SubtitleTaskStatusProcessing,
 	}
+	vttSwitch := IsYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper
+	embedSubtitleVideoType := "none"
+	if req.PrepareVideo && !vttSwitch {
+		embedSubtitleVideoType = "all"
+	}
 	return &types.SubtitleTaskStepParam{
 		TaskId:                 req.TaskID,
 		TaskPtr:                taskPtr,
@@ -120,8 +216,8 @@ func subtitleStepParam(req SubtitleRequest) *types.SubtitleTaskStepParam {
 		TargetLanguage:         types.StandardLanguageCode(req.TargetLang),
 		UserUILanguage:         types.StandardLanguageCode(userLang),
 		MaxWordOneLine:         maxWordOneLine,
-		VttSwitch:              isYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper,
-		EmbedSubtitleVideoType: "none",
+		VttSwitch:              vttSwitch,
+		EmbedSubtitleVideoType: embedSubtitleVideoType,
 		SubtitleStyle:          req.SubtitleStyle,
 	}
 }
@@ -145,6 +241,11 @@ func subtitleYouTubeReq(req SubtitleRequest, taskPtr *types.SubtitleTask) *servi
 }
 
 func saveSubtitleSuccess(manifest *Manifest, req SubtitleRequest, captionSource CaptionSource) (Response, error) {
+	if err := validateExistingSubtitleOutputs(manifest.Outputs); err != nil {
+		manifest.MarkStage(StageSubtitle, false, err.Error())
+		_ = manifest.Save()
+		return subtitleFailureResponse(req, manifest, ErrorKindInternal, "invalid_subtitle_timeline", err), err
+	}
 	manifest.MarkStage(StageSubtitle, true, "")
 	if err := manifest.Save(); err != nil {
 		return subtitleFailureResponse(req, manifest, ErrorKindInternal, "save_manifest_failed", err), err
@@ -191,7 +292,15 @@ func subtitleResponse(ok bool, req SubtitleRequest, manifest *Manifest, captionS
 	return resp
 }
 
-func isYouTubeInput(input string) bool {
-	normalized := strings.ToLower(strings.TrimSpace(input))
-	return strings.Contains(normalized, "youtube.com")
+func IsYouTubeInput(input string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(input))
+	if err != nil {
+		return false
+	}
+	hostname := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
+	return hostname == "youtu.be" ||
+		hostname == "youtube.com" ||
+		strings.HasSuffix(hostname, ".youtube.com") ||
+		hostname == "youtube-nocookie.com" ||
+		strings.HasSuffix(hostname, ".youtube-nocookie.com")
 }

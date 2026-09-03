@@ -5,8 +5,10 @@ import "encoding/json"
 type Stage string
 
 const (
+	StageDownload         Stage = "download"
 	StageSubtitle         Stage = "subtitle"
 	StageTTS              Stage = "tts"
+	StageSpeech           Stage = "speech"
 	StageRenderHorizontal Stage = "render-horizontal"
 	StageRenderVertical   Stage = "render-vertical"
 	StageCover            Stage = "cover"
@@ -18,10 +20,11 @@ const (
 type CaptionSource string
 
 const (
-	CaptionSourceAny     CaptionSource = "any"
-	CaptionSourceManual  CaptionSource = "manual"
-	CaptionSourceAuto    CaptionSource = "auto"
-	CaptionSourceWhisper CaptionSource = "whisper"
+	CaptionSourceAny      CaptionSource = "any"
+	CaptionSourceManual   CaptionSource = "manual"
+	CaptionSourceAuto     CaptionSource = "auto"
+	CaptionSourcePlatform CaptionSource = "platform"
+	CaptionSourceWhisper  CaptionSource = "whisper"
 )
 
 type LineMode string
@@ -92,12 +95,15 @@ type Outputs struct {
 }
 
 type Voice struct {
-	Code     string `json:"code"`
-	Name     string `json:"name,omitempty"`
-	Language string `json:"language,omitempty"`
-	Gender   string `json:"gender,omitempty"`
-	Provider string `json:"provider,omitempty"`
-	Scenario string `json:"scenario,omitempty"`
+	Code            string   `json:"code"`
+	Name            string   `json:"name,omitempty"`
+	Language        string   `json:"language,omitempty"`
+	Gender          string   `json:"gender,omitempty"`
+	Provider        string   `json:"provider,omitempty"`
+	Scenario        string   `json:"scenario,omitempty"`
+	Kind            string   `json:"kind,omitempty"`
+	SupportedModels []string `json:"supported_models,omitempty"`
+	Recommended     bool     `json:"recommended,omitempty"`
 }
 
 type Response struct {

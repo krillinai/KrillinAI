@@ -3,18 +3,26 @@ package openai
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	openai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"io"
 	"krillin-ai/config"
 	"krillin-ai/log"
-	"net/http"
-	"os"
 	"strings"
 )
 
 func (c *Client) ChatCompletion(query string) (string, error) {
+	return c.ChatCompletionContext(context.Background(), query)
+}
+
+func (c *Client) ChatCompletionContext(ctx context.Context, query string) (string, error) {
+	if c.requestTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.requestTimeout)
+		defer cancel()
+	}
 	var responseFormat *openai.ChatCompletionResponseFormat
 
 	req := openai.ChatCompletionRequest{
@@ -35,10 +43,10 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 		ResponseFormat: responseFormat,
 	}
 
-	stream, err := c.client.CreateChatCompletionStream(context.Background(), req)
+	stream, err := c.client.CreateChatCompletionStream(ctx, req)
 	if err != nil {
 		log.GetLogger().Error("openai create chat completion stream failed", zap.Error(err))
-		return "", err
+		return "", normalizeChatCompletionError(err)
 	}
 	defer stream.Close()
 
@@ -50,7 +58,7 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 		}
 		if err != nil {
 			log.GetLogger().Error("openai stream receive failed", zap.Error(err))
-			return "", err
+			return "", normalizeChatCompletionError(err)
 		}
 		if len(response.Choices) == 0 {
 			log.GetLogger().Info("openai stream receive no choices", zap.Any("response", response))
@@ -63,54 +71,23 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 	return resContent, nil
 }
 
+func normalizeChatCompletionError(err error) error {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("llm_translation_timeout: %w", err)
+	}
+	if errors.Is(err, context.Canceled) {
+		return fmt.Errorf("llm_translation_canceled: %w", err)
+	}
+	return err
+}
+
 func (c *Client) Text2Speech(text, voice string, outputFile string) error {
-	baseUrl := config.Conf.Tts.Openai.BaseUrl
-	if baseUrl == "" {
-		baseUrl = "https://api.openai.com/v1"
-	}
-	url := baseUrl + "/audio/speech"
-
-	// 创建HTTP请求
-	reqBody := fmt.Sprintf(`{
-		"model": "tts-1",
-		"input": "%s",
-		"voice":"%s",
-		"response_format": "wav"
-	}`, text, voice)
-	req, err := http.NewRequest("POST", url, strings.NewReader(reqBody))
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.Conf.Tts.Openai.ApiKey))
-
-	// 发送HTTP请求
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		log.GetLogger().Error("openai tts failed", zap.Int("status_code", resp.StatusCode), zap.String("body", string(body)))
-		return fmt.Errorf("openai tts none-200 status code: %d", resp.StatusCode)
-	}
-
-	file, err := os.Create(outputFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return NewTtsClient(
+		config.Conf.Tts.Openai.BaseUrl,
+		config.Conf.Tts.Openai.ApiKey,
+		config.Conf.Tts.Openai.Model,
+		config.Conf.App.Proxy,
+	).Text2Speech(text, voice, outputFile)
 }
 
 func parseJSONResponse(jsonStr string) (string, error) {

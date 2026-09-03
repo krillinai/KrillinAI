@@ -36,8 +36,14 @@ func renderAssPath(req RenderVideoRequest) string {
 
 func escapeAssFilterPath(path string) string {
 	p := strings.ReplaceAll(path, "\\", "/")
-	p = strings.ReplaceAll(p, ":", `\:`)
-	return p
+	return strings.NewReplacer(
+		`\`, `\\`,
+		`'`, `\'`,
+		`:`, `\:`,
+		`,`, `\,`,
+		`[`, `\[`,
+		`]`, `\]`,
+	).Replace(p)
 }
 
 func buildEmbedSubtitleArgs(req RenderVideoRequest) ([]string, string) {
@@ -46,7 +52,7 @@ func buildEmbedSubtitleArgs(req RenderVideoRequest) ([]string, string) {
 	return []string{
 		"-y",
 		"-i", req.InputVideo,
-		"-vf", fmt.Sprintf("ass=%s", ass),
+		"-vf", fmt.Sprintf("ass=filename='%s'", ass),
 		"-c:v", "libx264",
 		"-preset", "fast",
 		"-c:a", "aac",

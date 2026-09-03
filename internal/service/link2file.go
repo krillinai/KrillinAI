@@ -10,6 +10,7 @@ import (
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
 	"net/url"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -24,10 +25,11 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 	link := stepParam.Link
 	audioPath := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, types.SubtitleTaskAudioFileName)
 	videoPath := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, types.SubtitleTaskVideoFileName)
-	stepParam.TaskPtr.ProcessPct = 3
-	if strings.Contains(link, "local:") {
+	localVideoPath, isLocal := resolveLocalMediaInput(link)
+	stepParam.TaskPtr.SetProgress(3)
+	if isLocal {
 		// 本地文件
-		videoPath = strings.ReplaceAll(link, "local:", "")
+		videoPath = localVideoPath
 		cmd := exec.Command(storage.FfmpegPath, "-i", videoPath, "-vn", "-ar", "44100", "-ac", "2", "-ab", "192k", "-f", "mp3", audioPath)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
@@ -63,7 +65,7 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 			output, err = cmd.CombinedOutput()
 			if err != nil {
 				log.GetLogger().Error("linkToFile download audio yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
-				return fmt.Errorf("linkToFile download audio yt-dlp error: %w", err)
+				return fmt.Errorf("linkToFile download audio yt-dlp error: %w: %s", err, compactCommandOutput(output))
 			}
 		}
 	} else if strings.Contains(link, "bilibili.com") {
@@ -83,16 +85,16 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			log.GetLogger().Error("linkToFile download audio yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
-			return fmt.Errorf("linkToFile download audio yt-dlp error: %w", err)
+			return fmt.Errorf("linkToFile download audio yt-dlp error: %w: %s", err, compactCommandOutput(output))
 		}
 	} else {
 		log.GetLogger().Info("linkToFile.unsupported link type", zap.Any("step param", stepParam))
 		return errors.New("linkToFile error: unsupported link, only support youtube, bilibili and local file")
 	}
-	stepParam.TaskPtr.ProcessPct = 6
+	stepParam.TaskPtr.SetProgress(6)
 	stepParam.AudioFilePath = audioPath
 
-	if !strings.HasPrefix(link, "local:") && stepParam.EmbedSubtitleVideoType != "none" {
+	if !isLocal && stepParam.EmbedSubtitleVideoType != "none" {
 		// 需要下载原视频
 		cmdArgs := []string{"-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]", "-o", videoPath, stepParam.Link}
 		if config.Conf.App.Proxy != "" {
@@ -105,13 +107,13 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			log.GetLogger().Error("linkToFile download video yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
-			return fmt.Errorf("linkToFile download video yt-dlp error: %w", err)
+			return fmt.Errorf("linkToFile download video yt-dlp error: %w: %s", err, compactCommandOutput(output))
 		}
 	}
 	stepParam.InputVideoPath = videoPath
 
 	// 更新字幕任务信息
-	stepParam.TaskPtr.ProcessPct = 10
+	stepParam.TaskPtr.SetProgress(10)
 	return nil
 }
 
@@ -130,4 +132,25 @@ func normalizeBilibiliVideoURL(link, videoId string) string {
 	query := url.Values{}
 	query.Set("p", page)
 	return videoURL + "?" + query.Encode()
+}
+
+func resolveLocalMediaInput(input string) (string, bool) {
+	value := strings.TrimSpace(input)
+	if strings.HasPrefix(value, "local:") {
+		return strings.TrimPrefix(value, "local:"), true
+	}
+	info, err := os.Stat(value)
+	if err != nil || !info.Mode().IsRegular() {
+		return "", false
+	}
+	return value, true
+}
+
+func compactCommandOutput(output []byte) string {
+	const maximum = 1200
+	value := strings.TrimSpace(string(output))
+	if len(value) <= maximum {
+		return value
+	}
+	return value[len(value)-maximum:]
 }

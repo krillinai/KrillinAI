@@ -627,7 +627,7 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 			// 更新任务进度
 			if taskPtr != nil {
 				progress := float64(currentBatchNum) / float64(totalBatches)
-				taskPtr.ProcessPct = 40 + uint8(progress*50)
+				taskPtr.SetProgress(40 + uint8(progress*50))
 			}
 			continue
 		}
@@ -647,7 +647,7 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 		if taskPtr != nil {
 			progress := float64(currentBatchNum) / float64(totalBatches)
 			// 假设翻译在40%-90%之间
-			taskPtr.ProcessPct = 40 + uint8(progress*50)
+			taskPtr.SetProgress(40 + uint8(progress*50))
 		}
 	}
 

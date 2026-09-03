@@ -40,9 +40,6 @@ func FitTimeline(plan []PlanItem, chunks []Chunk, cfg Config) ([]PlanItem, []Chu
 			report.Warnings = append(report.Warnings, fmt.Sprintf("chunk %d speed %.2f exceeds max %.2f", chunk.ID, speed, cfg.SpeedMax))
 		}
 		appliedSpeed := speed
-		if appliedSpeed > cfg.SpeedMax {
-			appliedSpeed = cfg.SpeedMax
-		}
 		if appliedSpeed < cfg.SpeedMin {
 			appliedSpeed = cfg.SpeedMin
 		}

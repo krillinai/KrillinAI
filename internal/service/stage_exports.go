@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"krillin-ai/config"
+	"krillin-ai/internal/deps"
 	"krillin-ai/internal/types"
 	pkgimage "krillin-ai/pkg/image"
 )
@@ -10,11 +12,37 @@ import (
 var ErrYouTubeSubtitleServiceNotInitialized = errors.New("youtube subtitle service not initialized")
 var ErrImageClientNotInitialized = errors.New("image client not initialized")
 
+type DownloadMediaResult struct {
+	VideoPath string
+	AudioPath string
+}
+
+func (s Service) DownloadMedia(ctx context.Context, input, workdir, taskID string) (DownloadMediaResult, error) {
+	step := &types.SubtitleTaskStepParam{
+		TaskId:                 taskID,
+		TaskPtr:                &types.SubtitleTask{TaskId: taskID, Status: types.SubtitleTaskStatusProcessing},
+		TaskBasePath:           workdir,
+		Link:                   input,
+		VttSwitch:              false,
+		EmbedSubtitleVideoType: "all",
+	}
+	if err := s.PrepareMedia(ctx, step); err != nil {
+		return DownloadMediaResult{}, err
+	}
+	return DownloadMediaResult{VideoPath: step.InputVideoPath, AudioPath: step.AudioFilePath}, nil
+}
+
 func (s Service) PrepareMedia(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
 	return s.linkToFile(ctx, stepParam)
 }
 
 func (s Service) GenerateSubtitlesFromAudio(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
+	if err := config.ValidateTranscriptionConfig(); err != nil {
+		return err
+	}
+	if err := deps.CheckTranscriptionDependency(); err != nil {
+		return err
+	}
 	return s.audioToSubtitle(ctx, stepParam)
 }
 

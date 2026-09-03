@@ -1,9 +1,7 @@
-> **[Growth & Marketing Skills](https://github.com/krillinai/growth-skills)** — All Skills from KrillinAI have been fully integrated into the Growth & Marketing Skills collection.
-
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# Video Translation & Dubbing Tool for Humans / Agents (Skills Included)
+# Video Translation & Dubbing Tool for Humans / Agents
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -16,7 +14,7 @@
 
 </div>
 
-## Project Introduction ([Check all the Growth & Marketing Skills](https://github.com/krillinai/growth-skills))
+## Project Introduction
 [**Quick Start**](#-quick-start)
 
 KrillinAI is a versatile audio and video localization and enhancement solution developed by the Krillin AI team, designed for both human users and AI Agents. The tool covers the complete pipeline including video download, speech transcription, subtitle translation, TTS dubbing, portrait conversion, and cover generation, supporting both landscape and portrait formats to ensure perfect presentation on all major platforms (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, etc.). Human users can complete end-to-end content localization with one click via the client; each capability can also be invoked independently via CLI, and AI Agents can orchestrate single or multiple stages on demand to flexibly compose automated workflows.
@@ -25,9 +23,7 @@ KrillinAI is a versatile audio and video localization and enhancement solution d
 
 🤖 **CLI Support**: Provides a phased command-line interface where each stage executes independently and outputs structured results, supporting cross-stage artifact reuse.
 
-🧩 **Skills Collection**: The `skills/` directory provides per-stage Skills for AI Agents to invoke directly under a stable contract, no need to parse CLI documentation.
-
-🔗 **Pipeline Orchestration**: Chain multiple stages in one command, enabling full automation from download to rendering.
+🔗 **Pipeline Orchestration**: Chain multiple stages in a single command, enabling full automation from download to rendering.
 
 🖼️ **Cover Generation**: Automatically generate platform cover images from the original video thumbnail and a prompt template.
 
@@ -241,15 +237,6 @@ Agent integration conventions:
 
 For a complete parameter reference, see [CLI Capability Summary](./docs/zh/cli.md).
 
-### Agent Skills
-
-The repository also includes ready-to-use Agent Skills under `skills/` so coding agents can call the CLI with stable conventions:
-
-- [`krillinai-cli`](./skills/krillinai-cli/SKILL.md): top-level routing skill for choosing subtitle, TTS, render, pipeline, or cover workflows.
-- [`krillinai-subtitle`](./skills/krillinai-subtitle/SKILL.md), [`krillinai-tts`](./skills/krillinai-tts/SKILL.md), [`krillinai-render-horizontal`](./skills/krillinai-render-horizontal/SKILL.md), and [`krillinai-render-vertical`](./skills/krillinai-render-vertical/SKILL.md): stage-specific operating guides.
-- [`krillinai-pipeline`](./skills/krillinai-pipeline/SKILL.md) and [`krillinai-cover`](./skills/krillinai-cover/SKILL.md): planning/reserved guides for pipeline orchestration and cover generation until those execution paths are fully wired.
-- [`cli-contract.md`](./skills/krillinai-cli/references/cli-contract.md): shared JSON, manifest, outputs, and error-handling contract.
-
 Based on the provided configuration file, here is the updated "Configuration Help (Must Read)" section for your README file:
 
 ### Configuration Help (Must Read)
@@ -304,4 +291,4 @@ Please visit [Frequently Asked Questions](./faq.md)
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.dera.page/#KrillinAI/KrillinAI&Date)

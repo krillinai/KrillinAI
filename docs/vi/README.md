@@ -1,7 +1,7 @@
 <div align="center">
   <img src="/docs/images/logo.jpg" alt="KrillinAI" height="90">
 
-# Công Cụ Dịch và Lồng Ghép Video cho Con Người / AI Agent (Kèm Bộ Skills)
+# Công Cụ Dịch và Lồng Ghép Video cho Con Người / AI Agent
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="KrillinAI%2FKrillinAI | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -14,7 +14,7 @@
 
 </div>
 
-## Giới Thiệu Dự Án ([Xem tất cả Growth & Marketing Skills](https://github.com/krillinai/growth-skills))
+## Giới Thiệu Dự Án
 [**Khởi Đầu Nhanh**](#-quick-start)
 
 KrillinAI là giải pháp đa năng cho việc địa phương hóa và nâng cao âm thanh và video được phát triển bởi nhóm Krillin AI, được thiết kế cho cả người dùng con người và AI Agent. Công cụ bao gồm toàn bộ quy trình bao gồm tải video, chép lại giọng nói, dịch phụ đề, lồng tiếng TTS, chuyển đổi dọc và tạo ảnh bìa, hỗ trợ cả định dạng ngang và dọc để đảm bảo trình bày hoàn hảo trên tất cả các nền tảng chính (Bilibili, Xiaohongshu, Douyin, WeChat Video, Kuaishou, YouTube, TikTok, v.v.). Người dùng con người có thể hoàn thành bản địa hóa nội dung đầu cuối chỉ với một cú nhấp chuột qua client; mỗi khả năng cũng có thể được gọi độc lập qua CLI, và AI Agent có thể điều phối một hoặc nhiều giai đoạn theo nhu cầu để tạo thành các quy trình tự động linh hoạt.
@@ -22,8 +22,6 @@ KrillinAI là giải pháp đa năng cho việc địa phương hóa và nâng c
 ## Tính Năng Mới
 
 🤖 **Hỗ Trợ CLI**: Cung cấp giao diện dòng lệnh theo giai đoạn, mỗi giai đoạn thực thi độc lập và xuất kết quả có cấu trúc, hỗ trợ tái sử dụng sản phẩm giữa các giai đoạn.
-
-🧩 **Bộ Skills**: Thư mục `skills/` cung cấp Skills cho từng giai đoạn để AI Agent có thể gọi trực tiếp theo quy ước ổn định, không cần tự phân tích tài liệu CLI.
 
 🔗 **Phối Hợp Pipeline**: Kết nối nhiều giai đoạn trong một lệnh, cho phép tự động hóa hoàn toàn từ tải xuống đến kết xuất.
 
@@ -285,4 +283,4 @@ Vui lòng truy cập [Câu Hỏi Thường Gặp](./faq.md)
 
 ## Lịch Sử Sao
 
-[![Biểu Đồ Lịch Sử Sao](https://api.star-history.com/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.com/#KrillinAI/KrillinAI&Date)
+[![Biểu Đồ Lịch Sử Sao](https://star-history.dera.page/svg?repos=KrillinAI/KrillinAI&type=Date)](https://star-history.dera.page/#KrillinAI/KrillinAI&Date)

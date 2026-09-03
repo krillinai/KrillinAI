@@ -69,6 +69,16 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 		InputVideo:  stepParam.InputVideoPath,
 		OutputAudio: outputAudio,
 		OutputVideo: outputVideo,
+		ReportProgress: func(completed, total int) {
+			if stepParam.TaskPtr == nil || total <= 0 {
+				return
+			}
+			percent := 20 + int(float64(completed)/float64(total)*70)
+			if percent > 90 {
+				percent = 90
+			}
+			stepParam.TaskPtr.SetProgress(uint8(percent))
+		},
 		Config: dubbing.Config{
 			MinSubtitleDuration: config.Conf.Dubbing.MinSubtitleDuration,
 			MaxChunkSize:        config.Conf.Dubbing.MaxChunkSize,
@@ -88,7 +98,7 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 	stepParam.TtsResultFilePath = result.Audio
 	stepParam.VideoWithTtsFilePath = result.Video
 	if stepParam.TaskPtr != nil {
-		stepParam.TaskPtr.ProcessPct = 98
+		stepParam.TaskPtr.SetProgress(98)
 	}
 	return nil
 }

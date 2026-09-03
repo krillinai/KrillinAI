@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"krillin-ai/config"
 	"krillin-ai/internal/types"
 	"testing"
 )
@@ -20,6 +21,18 @@ var _ stageExporter = Service{}
 
 func TestStageExportMethodsExist(t *testing.T) {
 	var _ stageExporter = Service{}
+}
+
+func TestGenerateSubtitlesFromAudioValidatesTranscriptionWhenUsed(t *testing.T) {
+	previous := config.Conf
+	t.Cleanup(func() { config.Conf = previous })
+	config.Conf.Transcribe.Provider = "openai"
+	config.Conf.Transcribe.Openai.ApiKey = ""
+
+	err := (Service{}).GenerateSubtitlesFromAudio(context.Background(), &types.SubtitleTaskStepParam{})
+	if err == nil {
+		t.Fatal("GenerateSubtitlesFromAudio() error = nil, want missing transcription configuration")
+	}
 }
 
 func TestYouTubeStageExportsReturnErrorWhenServiceMissing(t *testing.T) {

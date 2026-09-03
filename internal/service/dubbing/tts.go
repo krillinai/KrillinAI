@@ -55,7 +55,17 @@ func GenerateRawSegments(ctx context.Context, tts types.Ttser, plan []PlanItem, 
 	return plan, nil
 }
 
-func GenerateRawChunkSegments(ctx context.Context, tts types.Ttser, plan []PlanItem, chunks []Chunk, voice, dir string, run CommandRunner, duration DurationProbe) ([]PlanItem, []Chunk, error) {
+func GenerateRawChunkSegments(
+	ctx context.Context,
+	tts types.Ttser,
+	plan []PlanItem,
+	chunks []Chunk,
+	voice,
+	dir string,
+	run CommandRunner,
+	duration DurationProbe,
+	reportProgress func(completed, total int),
+) ([]PlanItem, []Chunk, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -101,6 +111,9 @@ func GenerateRawChunkSegments(ctx context.Context, tts types.Ttser, plan []PlanI
 			return nil, nil, fmt.Errorf("measure chunk %d duration failed for %s: %w", outChunks[i].ID, output, err)
 		}
 		outChunks[i].ActualDuration = dur
+		if reportProgress != nil {
+			reportProgress(i+1, len(outChunks))
+		}
 	}
 
 	return outPlan, outChunks, nil
