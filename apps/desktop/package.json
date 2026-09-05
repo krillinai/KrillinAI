@@ -1,0 +1,51 @@
+{
+  "name": "@opencreator/desktop",
+  "version": "0.1.3",
+  "private": true,
+  "description": "OpenCreator 本地 Codex Dashboard",
+  "author": "OpenCreator",
+  "type": "module",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "prebuild": "node ../../scripts/build-krillinai.mjs && pnpm --filter @opencreator/protocol build && pnpm --filter @opencreator/config build",
+    "pretypecheck": "pnpm --filter @opencreator/protocol build && pnpm --filter @opencreator/config build",
+    "pretest": "pnpm --filter @opencreator/protocol build && pnpm --filter @opencreator/config build",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:preload": "esbuild src/preload/index.ts --bundle --platform=node --format=cjs --target=node22 --external:electron --outfile=dist/preload/index.cjs",
+    "build:bootstrap": "vite build --config vite.bootstrap.config.ts",
+    "build": "pnpm build:main && pnpm build:preload && pnpm build:bootstrap",
+    "prepare:daemon": "node scripts/prepare-daemon.mjs",
+    "prepare:codex-runtime": "node scripts/prepare-codex-runtime.mjs",
+    "install:creator-runtime-dependencies": "node scripts/install-creator-runtime-dependencies.mjs",
+    "prepare:creator-runtime": "node scripts/prepare-creator-runtime.mjs",
+    "package": "node scripts/package-release.mjs --dir",
+    "package:signed": "node scripts/package-release.mjs --dir --signed",
+    "dist": "node scripts/package-release.mjs --dist",
+    "release": "node scripts/package-release.mjs --release",
+    "verify:release-tag": "node scripts/verify-desktop-release-tag.mjs",
+    "verify:package": "node scripts/verify-package.mjs",
+    "e2e": "playwright test --config playwright.config.ts",
+    "e2e:package": "playwright test --config playwright.config.ts",
+    "e2e:real-codex": "playwright test --config playwright.real.config.ts",
+    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.test.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@opencreator/config": "workspace:*",
+    "electron-updater": "^6.8.9"
+  },
+  "devDependencies": {
+    "@electron/asar": "^3.4.1",
+    "@electron/fuses": "1.8.0",
+    "@iarna/toml": "2.2.5",
+    "@types/node": "^22.10.7",
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.25.0",
+    "node-gyp": "13.0.2",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7",
+    "vitest": "^3.2.7"
+  }
+}

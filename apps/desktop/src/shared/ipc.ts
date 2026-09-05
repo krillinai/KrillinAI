@@ -1,0 +1,21 @@
+export const desktopIpc = {
+  readConnection: 'opencreator:connection:read',
+  connectionChanged: 'opencreator:connection:changed',
+  readBootstrap: 'opencreator:bootstrap:read',
+  bootstrapChanged: 'opencreator:bootstrap:changed',
+  bootstrapRetry: 'opencreator:bootstrap:retry',
+  selectCodex: 'opencreator:codex:select',
+  selectProjectDirectory: 'opencreator:project:select-directory',
+  restartRuntime: 'opencreator:runtime:restart',
+  reloadWorkspace: 'opencreator:workspace:reload',
+  workspaceReady: 'opencreator:workspace:ready',
+  readPreferences: 'opencreator:preferences:read',
+  updatePreferences: 'opencreator:preferences:update',
+  openExternal: 'opencreator:native:open-external',
+  revealPath: 'opencreator:native:reveal-path',
+  notify: 'opencreator:notification:show',
+  configureNotifications: 'opencreator:notification:configure',
+  navigate: 'opencreator:navigation',
+  exportDiagnostics: 'opencreator:diagnostics:export',
+  quit: 'opencreator:app:quit'
+} as const;

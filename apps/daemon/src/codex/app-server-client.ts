@@ -1,0 +1,301 @@
+import {
+  type ChildProcessWithoutNullStreams
+} from 'node:child_process';
+import {
+  spawnCodexProcess,
+  terminateCodexProcess
+} from './process.js';
+import { BoundedFrameBuffer } from './bounded-buffer.js';
+
+export type CodexAppServerRequestClient = {
+  request<Result>(method: string, params: unknown): Promise<Result>;
+  notify?(method: string, params?: unknown): void;
+  restart?(): Promise<void>;
+  close(): Promise<void>;
+};
+
+export type RestartableCodexAppServerRequestClient = CodexAppServerRequestClient & {
+  restart(): Promise<void>;
+};
+
+export type CreateCodexAppServerClientInput = {
+  codexBin: string;
+  codexHome: string;
+  cwd?: string;
+  requestTimeoutMs?: number;
+  env?: Record<string, string>;
+  onNotification?(notification: Record<string, unknown>): void;
+};
+
+type PendingRequest = {
+  timer: NodeJS.Timeout;
+  resolve(value: unknown): void;
+  reject(error: Error): void;
+};
+
+type AppServerProcessState = {
+  child: ChildProcessWithoutNullStreams;
+  pending: Map<string, PendingRequest>;
+  initialize: Promise<void>;
+  nextRequestId: number;
+  stdoutFrames: BoundedFrameBuffer;
+  settled: boolean;
+  closed: boolean;
+  stopWork?: Promise<void>;
+};
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
+const CLOSE_GRACE_MS = 2_000;
+
+export function createCodexAppServerClient(
+  input: CreateCodexAppServerClientInput
+): RestartableCodexAppServerRequestClient {
+  const requestTimeoutMs = input.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  let processState: AppServerProcessState | undefined;
+  let closing = false;
+
+  return {
+    async request<Result>(method: string, params: unknown): Promise<Result> {
+      if (closing) throw new Error('Codex app-server client is closed');
+      const state = ensureProcess();
+      await state.initialize;
+      return sendRequest(state, method, params) as Promise<Result>;
+    },
+
+    notify(method: string, params?: unknown): void {
+      if (closing) throw new Error('Codex app-server client is closed');
+      const state = ensureProcess();
+      void state.initialize.then(() => sendNotification(state, method, params));
+    },
+
+    async restart(): Promise<void> {
+      if (closing) throw new Error('Codex app-server client is closed');
+      await stopProcess();
+    },
+
+    async close(): Promise<void> {
+      closing = true;
+      await stopProcess();
+    }
+  };
+
+  async function stopProcess(): Promise<void> {
+    const state = processState;
+    processState = undefined;
+    if (state === undefined) return;
+    failProcess(state, new Error('Codex app-server stopped'), false);
+    await shutdownProcess(state);
+  }
+
+  function shutdownProcess(state: AppServerProcessState): Promise<void> {
+    if (state.stopWork !== undefined) return state.stopWork;
+    if (state.closed) return Promise.resolve();
+    const hasExited = () => state.child.exitCode !== null || state.child.signalCode !== null;
+    state.stopWork = new Promise<void>((resolve, reject) => {
+      const onClose = () => finish();
+      const finish = (error?: Error) => {
+        clearTimeout(forceKill);
+        clearTimeout(deadline);
+        state.child.removeListener('close', onClose);
+        state.child.stdin.destroy();
+        state.child.stdout.destroy();
+        state.child.stderr.destroy();
+        if (error === undefined) resolve();
+        else reject(error);
+      };
+      const forceKill = setTimeout(() => {
+        if (!hasExited()) void terminateCodexProcess(state.child, 'SIGKILL');
+      }, CLOSE_GRACE_MS);
+      // A descendant can keep inherited pipes open after the Codex parent has exited.
+      const deadline = setTimeout(() => {
+        finish(hasExited()
+          ? undefined
+          : new Error('Codex app-server did not exit after forced termination'));
+      }, CLOSE_GRACE_MS * 2);
+      forceKill.unref();
+      deadline.unref();
+      state.child.once('close', onClose);
+    });
+    if (!hasExited()) void terminateCodexProcess(state.child, 'SIGTERM');
+    return state.stopWork;
+  }
+
+  function ensureProcess(): AppServerProcessState {
+    if (processState !== undefined && !processState.settled) return processState;
+
+    const child = spawnCodexProcess(input.codexBin, ['app-server', '--stdio'], {
+      cwd: input.cwd ?? process.cwd(),
+      env: {
+        ...process.env,
+        ...input.env,
+        CODEX_HOME: input.codexHome
+      },
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    const state: AppServerProcessState = {
+      child,
+      pending: new Map<string, PendingRequest>(),
+      initialize: Promise.resolve(),
+      nextRequestId: 0,
+      stdoutFrames: new BoundedFrameBuffer(1024 * 1024),
+      settled: false,
+      closed: false
+    };
+    processState = state;
+
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk: string) => {
+      for (const line of state.stdoutFrames.push(chunk)) {
+        if (line.trim().length === 0) continue;
+        let message: unknown;
+        try {
+          message = JSON.parse(line);
+        } catch {
+          failProcess(state, new Error('Codex app-server emitted invalid JSON'));
+          return;
+        }
+        handleMessage(state, message);
+      }
+    });
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', () => undefined);
+    child.on('error', error => failProcess(state, error));
+    child.on('exit', (code, signal) => {
+      const reason = code === null ? `signal ${signal ?? 'unknown'}` : `exit code ${code}`;
+      failProcess(state, new Error(`Codex app-server exited with ${reason}`), false);
+      void shutdownProcess(state).catch(error => console.warn(error.message));
+    });
+    child.on('close', (code, signal) => {
+      state.closed = true;
+      const reason = code === null
+        ? `signal ${signal ?? 'unknown'}`
+        : `exit code ${code}`;
+      failProcess(state, new Error(`Codex app-server closed with ${reason}`), false);
+    });
+
+    state.initialize = sendRequest(state, 'initialize', {
+      clientInfo: {
+        name: 'opencreator-agent',
+        title: 'OpenCreator Agent',
+        version: '0.1.0'
+      },
+      capabilities: {
+        experimentalApi: true,
+        requestAttestation: false
+      }
+    }).then(() => {
+      sendNotification(state, 'initialized');
+    });
+    return state;
+  }
+
+  function sendRequest(
+    state: AppServerProcessState,
+    method: string,
+    params: unknown
+  ): Promise<unknown> {
+    if (state.settled || state.child.stdin.destroyed) {
+      return Promise.reject(new Error('Codex app-server is not running'));
+    }
+    const id = `opencreator_sessions_${++state.nextRequestId}`;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        failProcess(
+          state,
+          new Error(`Codex app-server request timed out: ${method}`)
+        );
+      }, requestTimeoutMs);
+      timer.unref();
+      state.pending.set(id, { timer, resolve, reject });
+      state.child.stdin.write(
+        `${JSON.stringify({ id, method, params })}\n`,
+        error => {
+          if (error === null || error === undefined) return;
+          const pending = state.pending.get(id);
+          if (pending === undefined) return;
+          clearTimeout(pending.timer);
+          state.pending.delete(id);
+          pending.reject(error);
+        }
+      );
+    });
+  }
+
+  function sendNotification(
+    state: AppServerProcessState,
+    method: string,
+    params?: unknown
+  ): void {
+    if (state.settled || state.child.stdin.destroyed) return;
+    state.child.stdin.write(`${JSON.stringify({
+      method,
+      ...(params === undefined ? {} : { params })
+    })}\n`);
+  }
+
+  function handleMessage(state: AppServerProcessState, value: unknown): void {
+    if (!isRecord(value)) return;
+    const id = value.id;
+    if ((typeof id !== 'string' && typeof id !== 'number') && typeof value.method === 'string') {
+      input.onNotification?.(value);
+      return;
+    }
+    if (typeof id !== 'string' && typeof id !== 'number') return;
+    const pending = state.pending.get(String(id));
+    if (pending === undefined) {
+      if (typeof value.method === 'string') {
+        state.child.stdin.write(`${JSON.stringify({
+          id,
+          error: {
+            code: -32601,
+            message: `Unsupported server request: ${value.method}`
+          }
+        })}\n`);
+      }
+      return;
+    }
+
+    clearTimeout(pending.timer);
+    state.pending.delete(String(id));
+    if (isRecord(value.error)) {
+      pending.reject(new CodexAppServerResponseError(
+        typeof value.error.message === 'string'
+          ? value.error.message
+          : 'Codex app-server request failed',
+        typeof value.error.code === 'number' ? value.error.code : undefined
+      ));
+      return;
+    }
+    pending.resolve(value.result);
+  }
+
+  function failProcess(
+    state: AppServerProcessState,
+    error: Error,
+    kill = true
+  ): void {
+    if (state.settled) return;
+    state.settled = true;
+    if (processState === state) processState = undefined;
+    for (const pending of state.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    state.pending.clear();
+    if (kill) void shutdownProcess(state).catch(error => console.warn(error.message));
+  }
+}
+
+export class CodexAppServerResponseError extends Error {
+  constructor(
+    message: string,
+    readonly code?: number
+  ) {
+    super(message);
+    this.name = 'CodexAppServerResponseError';
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}

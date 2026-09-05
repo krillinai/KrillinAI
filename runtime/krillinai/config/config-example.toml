@@ -1,0 +1,80 @@
+[app]
+    segment_duration = 5 # 音频切分处理间隔，单位：分钟，建议值：5-10，如果视频中话语较少可以适当提高
+    transcribe_parallel_num = 1 # 并发进行转录的数量上限，建议值：1-3，如果使用了本地模型，最好调成1
+    translate_parallel_num = 3 # 并发进行翻译的数量上限，建议值：3，倍于转录的并发量，如果使用TPM限制严格的API，可以适当调低
+    transcribe_max_attempts = 3 # 转录最大尝试次数，建议值：3
+    translate_max_attempts = 5 # 翻译最大尝试次数，建议值：5，如果模型参数量较少或翻译失败率较高可以适当调高
+    max_sentence_length = 70 # 每句最大字符数，超过这个长度的句子会被拆分，建议值：50-70
+    enable_block_vtt_batch = false # 是否启用块级VTT批量翻译，建议值：false（默认关闭）
+    vtt_batch_size = 10 # VTT批量翻译的批次大小，建议值：10
+    target_language_first = true # 双语字幕中目标语言是否在上方，建议值：true（目标语言在上）
+    short_subtitle_max_chars = 20 # 短字幕英文每行最大字符数，建议值：15-25
+    proxy = "" # 网络代理地址，格式如http://127.0.0.1:7890，可不填
+
+[server]
+    host = "127.0.0.1"
+    port = 8888
+
+# 下方的配置不是都要填，请结合文档说明进行配置
+
+[llm] #支持openai,deepseek,通义千问等所有兼容openai请求格式的模型服务
+    base_url = "" # 自定义base url，可配合转发站密钥使用，留空为openai官方api
+    api_key = "" # API密钥
+    model = "" # 指定模型名，可通过此字段结合base_url使用外部任何与OpenAI API兼容的大模型服务，留空默认为gpt-4o-mini
+    json = false # 所使用的llm接口是否支持json格式，如果支持请设置为true，若不知道这是什么，请保持为false
+
+[transcribe] # 视频转文本支持多种方案，配置时先填provider，再填对应的配置
+    provider = "openai" #语音识别，当前可选值：openai,fasterwhisper,whisperkit,whisper.cpp,aliyun。(fasterwhisper不支持macOS,whisperkit只支持M芯片)
+    enable_gpu_acceleration = false # 给fasterwhisper进行GPU加速选项,50系显卡请务必开启,否则无法正常运行
+    [transcribe.openai]
+        base_url = ""
+        api_key = ""
+        model = "whisper-1"
+    [transcribe.fasterwhisper]
+        model = "medium" # fasterwhisper的本地模型可选值：tiny,medium,large-v2。建议medium及以上
+    [transcribe.whisperkit]
+        model = "large-v2" # whisperkit的本地模型可选值：large-v2
+    [transcribe.whispercpp]
+        model = "tiny" # whispercpp的本地模型可选值：tiny,medium,large-v2
+    [transcribe.aliyun] # provider选aliyun这块就都要填
+        [transcribe.aliyun.oss]
+            access_key_id = ""
+            access_key_secret = ""
+            bucket = ""
+        [transcribe.aliyun.speech]
+            access_key_id = ""
+            access_key_secret = ""
+            app_key= ""
+
+[tts]
+    provider = "aliyun" # 可选值：openai,aliyun,edge-tts,minimax
+    [tts.openai]
+        base_url = ""
+        api_key = ""
+        model = "" # gpt-4o-mini-tts, tts-1, tts-1-hd
+    [tts.minimax] # MiniMax TTS(T2A v2),provider选minimax时填写
+        base_url = "" # 留空默认海外版 https://api.minimax.io，国内可填 https://api.minimaxi.com
+        api_key = "" # MiniMax API密钥
+        model = "" # 留空默认 speech-2.8-hd，可选 speech-2.8-turbo, speech-2.6-hd, speech-2.6-turbo
+    [tts.aliyun] # 阿里云百炼语音合成，仅 API Key 必填
+        base_url = "https://dashscope.aliyuncs.com/api/v1"
+        api_key = ""
+        model = "qwen3-tts-flash"
+
+[dubbing]
+    min_subtitle_duration = 2.5 # 最短配音字幕时长，短句会优先合并
+    max_chunk_size = 5 # 单个配音 chunk 最多合并字幕条数
+    gap_tolerance = 1.5 # 可吸收的相邻字幕空隙，单位秒
+    speed_min = 0.95 # 允许的最慢调速倍率
+    speed_accept = 1.15 # 推荐的最大自然调速倍率
+    speed_max = 1.30 # 硬上限，超过后优先改写文本
+    enable_text_rewrite = true # 是否允许 LLM 改写为自然口播
+    rewrite_max_attempts = 2 # 单条字幕最多改写次数
+    estimator = "statistical" # 估时器，当前支持 statistical
+
+[image] # 封面生图配置
+    provider = "openai-compatible" # 当前支持openai-compatible，使用OpenAI Images API兼容格式
+    [image.openai]
+        base_url = "" # 生图接口base url，留空使用OpenAI官方接口；自定义转发站通常填写以/v1结尾的地址
+        api_key = "" # 生图API密钥
+        model = "gpt-image-1" # 生图模型，例如gpt-image-1，或转发站支持的兼容模型

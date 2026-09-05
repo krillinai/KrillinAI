@@ -1,0 +1,51 @@
+{
+  "name": "opencreator-agent",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "prebuild": "pnpm krillinai:build",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "e2e": "playwright test",
+    "perf:measure": "playwright test apps/web/e2e/scheduled-task-performance.spec.ts",
+    "typecheck": "pnpm -r typecheck",
+    "smoke:ci": "pnpm --filter @opencreator/daemon test -- test/unit/codex-smoke.test.ts",
+    "perf:check": "node scripts/check-performance-baseline.mjs",
+    "release:verify-scheduled-task-upgrade": "pnpm --filter @opencreator/daemon verify:schedule-upgrade",
+    "daemon:dev": "pnpm --filter @opencreator/daemon dev",
+    "web:dev": "pnpm --filter @opencreator/web dev",
+    "harness": "pnpm --filter @opencreator/harness start",
+    "desktop:dev": "pnpm --filter @opencreator/desktop dev",
+    "desktop:build": "pnpm --filter @opencreator/desktop build",
+    "desktop:package": "pnpm --filter @opencreator/desktop package",
+    "desktop:dist": "pnpm --filter @opencreator/desktop dist",
+    "desktop:release": "pnpm --filter @opencreator/desktop release",
+    "desktop:test": "pnpm --filter @opencreator/desktop test",
+    "krillinai:build": "node scripts/build-krillinai.mjs",
+    "krillinai:test": "node scripts/build-krillinai.mjs --test-only"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^22.10.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.2.7"
+  },
+  "pnpm": {
+    "overrides": {
+      "fast-uri@>=3.0.0 <3.1.6": "3.1.6",
+      "ip-address@<=10.3.0": "10.7.0",
+      "undici@>=7.0.0 <7.29.0": "7.29.0",
+      "find-my-way@<=9.6.0": "9.7.0",
+      "postcss@<=8.5.17": "8.5.18",
+      "brace-expansion@<1.1.18": "1.1.18",
+      "brace-expansion@>=2.0.0 <2.1.4": "2.1.4",
+      "brace-expansion@>=4.0.0 <5.0.9": "5.0.9",
+      "browserslist@<=4.28.6": "4.28.7",
+      "js-yaml@>=4.0.0 <4.3.1": "4.3.1",
+      "nanoid@>=3.0.0 <3.3.18": "3.3.18",
+      "tar@>=7.0.0 <=7.5.20": "7.5.21"
+    }
+  }
+}

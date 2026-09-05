@@ -1,0 +1,220 @@
+name: Desktop Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 要验证的 Desktop 平台
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - macos-x64
+          - macos-arm64
+          - windows-x64
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    permissions:
+      actions: read
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.release-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 校验 Desktop 发布标签
+        if: startsWith(github.ref, 'refs/tags/')
+        run: node apps/desktop/scripts/verify-desktop-release-tag.mjs "${{ github.ref_name }}"
+      - name: 校验同一提交的 CI 已通过
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          successful_runs="$(
+            gh run list \
+              --workflow ci.yml \
+              --commit "$GITHUB_SHA" \
+              --event workflow_dispatch \
+              --status success \
+              --limit 1 \
+              --json databaseId \
+              --jq 'length'
+          )"
+          if [[ "$successful_runs" != "1" ]]; then
+            echo "::error::提交 $GITHUB_SHA 尚无成功的手动 CI，请先在 main 上运行 CI 并等待通过，再创建发布标签。"
+            exit 1
+          fi
+      - name: 选择 Desktop 构建平台
+        id: release-matrix
+        shell: bash
+        env:
+          TARGET: ${{ inputs.target || 'all' }}
+        run: |
+          case "$TARGET" in
+            all)
+              matrix='{"include":[{"name":"macos-x64","os":"macos-15-intel","platform":"darwin","arch":"x64","artifact":"opencreator-desktop-macos-x64"},{"name":"macos-arm64","os":"macos-15","platform":"darwin","arch":"arm64","artifact":"opencreator-desktop-macos-arm64"},{"name":"windows-x64","os":"windows-latest","platform":"win32","arch":"x64","artifact":"opencreator-desktop-windows-x64-unsigned"}]}'
+              ;;
+            macos-x64)
+              matrix='{"include":[{"name":"macos-x64","os":"macos-15-intel","platform":"darwin","arch":"x64","artifact":"opencreator-desktop-macos-x64"}]}'
+              ;;
+            macos-arm64)
+              matrix='{"include":[{"name":"macos-arm64","os":"macos-15","platform":"darwin","arch":"arm64","artifact":"opencreator-desktop-macos-arm64"}]}'
+              ;;
+            windows-x64)
+              matrix='{"include":[{"name":"windows-x64","os":"windows-latest","platform":"win32","arch":"x64","artifact":"opencreator-desktop-windows-x64-unsigned"}]}'
+              ;;
+            *)
+              echo "::error::不支持的 Desktop 构建目标：$TARGET"
+              exit 1
+              ;;
+          esac
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  package:
+    needs: verify
+    timeout-minutes: 90
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJSON(needs.verify.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    environment: release
+    env:
+      OPENCREATOR_DESKTOP_CACHE_DIR: ${{ github.workspace }}/apps/desktop/.cache
+      OPENCREATOR_DESKTOP_BUILD_MANIFEST: ${{ github.workspace }}/apps/desktop/release/opencreator-desktop-build-manifest-${{ matrix.platform }}-${{ matrix.arch }}.json
+    steps:
+      - name: 验证 macOS 正式签名凭据
+        if: matrix.platform == 'darwin'
+        shell: bash
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=()
+          for name in \
+            MACOS_CERTIFICATE \
+            MACOS_CERTIFICATE_PASSWORD \
+            APPLE_ID \
+            APPLE_APP_SPECIFIC_PASSWORD \
+            APPLE_TEAM_ID
+          do
+            if [[ -z "${!name}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            echo "::error::release Environment 缺少 macOS 签名 Secret：${missing[*]}"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runtime/krillinai/go.mod
+          cache-dependency-path: runtime/krillinai/go.sum
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: |
+            apps/desktop/.cache/electron
+            apps/desktop/.cache/electron-builder
+            apps/desktop/.cache/codex-runtime
+            apps/desktop/.cache/node-gyp
+            apps/desktop/.cache/npm
+            .runtime/vendor/creator-runtime/${{ matrix.platform }}-${{ matrix.arch }}
+            .runtime/build/krillinai/${{ matrix.platform }}-${{ matrix.arch }}
+          key: desktop-build-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('pnpm-lock.yaml', 'apps/desktop/package.json', 'apps/desktop/packaging/daemon-runtime/pnpm-lock.yaml', 'apps/desktop/scripts/install-creator-runtime-dependencies.mjs', 'apps/desktop/scripts/creator-runtime-releases.mjs', 'scripts/build-krillinai.mjs', 'runtime/krillinai/**', 'resources/codex-runtime/**/manifest.json') }}
+      - name: 生成 macOS 正式签名安装包
+        if: matrix.platform == 'darwin'
+        run: pnpm desktop:release
+        env:
+          OPENCREATOR_DESKTOP_TARGET_PLATFORM: ${{ matrix.platform }}
+          OPENCREATOR_DESKTOP_TARGET_ARCH: ${{ matrix.arch }}
+          CSC_LINK: ${{ secrets.MACOS_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          OPENCREATOR_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - name: 生成 Windows 未签名安装包
+        if: matrix.platform == 'win32'
+        run: pnpm desktop:dist
+        env:
+          OPENCREATOR_DESKTOP_TARGET_PLATFORM: ${{ matrix.platform }}
+          OPENCREATOR_DESKTOP_TARGET_ARCH: ${{ matrix.arch }}
+      - name: 写入 Windows 未签名说明
+        if: matrix.platform == 'win32'
+        shell: pwsh
+        run: |
+          @"
+          OpenCreator Windows x64 installer
+          This installer is not Authenticode signed.
+          Verify the installer with SHA256SUMS.txt before running it.
+          Commit: $env:GITHUB_SHA
+          "@ | Set-Content `
+            -Path apps/desktop/release/WINDOWS-UNSIGNED.txt `
+            -Encoding utf8NoBOM
+      - name: 验证实际打包应用
+        run: pnpm --filter @opencreator/desktop e2e:package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/latest*.yml
+            apps/desktop/release/opencreator-desktop-build-manifest-*.json
+            apps/desktop/release/krillinai-*
+            apps/desktop/release/WINDOWS-UNSIGNED.txt
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: opencreator-desktop-*
+          merge-multiple: true
+      - name: 生成发布校验文件
+        shell: bash
+        run: |
+          (
+            cd artifacts
+            find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 \
+              | LC_ALL=C sort -z \
+              | xargs -0 sha256sum \
+              | sed 's#  \./#  #' \
+              > SHA256SUMS.txt
+          )
+      - name: 发布 GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --generate-notes
+          find artifacts -type f -print0 | xargs -0 gh release upload "$TAG" --clobber

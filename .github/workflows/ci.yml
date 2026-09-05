@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runtime/krillinai/go.mod
+          cache-dependency-path: runtime/krillinai/go.sum
+      - run: pnpm install --frozen-lockfile
+      - name: Audit high severity dependencies
+        run: pnpm audit --audit-level high --ignore-registry-errors
+        timeout-minutes: 5
+      - run: pnpm krillinai:test
+      - run: pnpm test
+      - run: pnpm release:verify-scheduled-task-upgrade
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm smoke:ci
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm perf:measure
+      - run: pnpm perf:check
+        env:
+          OPENCREATOR_PERFORMANCE_RESULTS_REQUIRED: '1'

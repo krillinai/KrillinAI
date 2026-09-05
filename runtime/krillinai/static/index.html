@@ -1,0 +1,2497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1200" />
+    <title>KrillinAI</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Inter:400,600,700&display=swap"
+    />
+    <style>
+      body {
+        margin: 0;
+        font-family: "Inter", Arial, sans-serif;
+        background: linear-gradient(120deg, #f8fafc 0%, #e0e7ef 100%);
+        min-height: 100vh;
+        color: #222;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 12px 0 rgba(30, 41, 59, 0.06);
+        border: 1px solid rgba(209, 213, 219, 0.3);
+      }
+      .card-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0 0 20px 0;
+        display: flex;
+        align-items: center;
+      }
+      .card-title::before {
+        content: "";
+        width: 4px;
+        height: 20px;
+        background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        border-radius: 2px;
+        margin-right: 12px;
+      }
+      .form-group {
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .form-group label {
+        min-width: 200px;
+        text-align: left;
+      }
+      .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 16px;
+      }
+      .form-label {
+        font-weight: 600;
+        color: #374151;
+        min-width: 120px;
+        text-align: right;
+      }
+      .form-input {
+        flex: 1;
+        padding: 10px 14px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        background: #fff;
+      }
+      .form-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+      .form-select {
+        padding: 10px 14px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #fff;
+        cursor: pointer;
+        transition: border-color 0.2s;
+      }
+      .form-select:focus {
+        outline: none;
+        border-color: #3b82f6;
+      }
+      .radio-group {
+        display: flex;
+        gap: 20px;
+      }
+      .radio-item,
+      .checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-weight: 500;
+      }
+      .radio-item input,
+      .checkbox-item input {
+        width: 18px;
+        height: 18px;
+        accent-color: #3b82f6;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .action-area {
+        text-align: center;
+        margin: 32px 0;
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #3b82f6, #60a5fa);
+        color: white;
+        border: none;
+        padding: 14px 32px;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+      }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+      }
+      .btn-primary:active {
+        transform: translateY(1px);
+        box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+        background: linear-gradient(135deg, #2563eb, #4f46e5);
+        transition: all 0.1s;
+      }
+      .btn-primary:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+      .btn-primary.clicked {
+        animation: button-click 0.5s;
+      }
+      @keyframes button-click {
+        0% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(0.95);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      .progress-section {
+        margin-top: 24px;
+        padding: 20px;
+        background: rgba(236, 244, 255, 0.8);
+        border-radius: 12px;
+        border: 1px solid rgba(59, 130, 246, 0.2);
+      }
+      .progress-section h4 {
+        margin: 0 0 12px 0;
+        color: #1e293b;
+        font-weight: 600;
+      }
+      .progress-bar {
+        width: 100%;
+        height: 24px;
+        background: #e5e7eb;
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+      }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #10b981, #059669);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 12px;
+        transition: width 0.3s ease;
+        min-width: 40px;
+      }
+      .download-links {
+        margin-top: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .download-links a {
+        padding: 8px 16px;
+        background: #f8fafc;
+        color: #3b82f6;
+        text-decoration: none;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s;
+      }
+      .download-links a:hover {
+        background: #eff6ff;
+        border-color: #3b82f6;
+        transform: translateY(-1px);
+      }
+      .loading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #059669;
+        font-weight: 500;
+      }
+      .loading::after {
+        content: "";
+        width: 16px;
+        height: 16px;
+        border: 2px solid #059669;
+        border-top: 2px solid transparent;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      .hint {
+        font-size: 12px;
+        color: #6b7280;
+        margin-left: 8px;
+      }
+      .app-container {
+        display: flex;
+        height: 100vh;
+      }
+      .sidebar {
+        width: 300px;
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: 2px 0 16px 0 rgba(30, 41, 59, 0.08);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 32px 0 0 0;
+        border-top-right-radius: 24px;
+        border-bottom-right-radius: 24px;
+        backdrop-filter: blur(12px);
+      }
+      .logo {
+        font-size: 2rem;
+        font-weight: 700;
+        text-align: center;
+        color: #3b82f6;
+        margin-bottom: 16px;
+        letter-spacing: 2px;
+      }
+      .slogan {
+        font-size: 1rem;
+        color: #64748b;
+        margin-bottom: 32px;
+        text-align: center;
+        word-wrap: break-word;
+        line-height: 1.4;
+        padding: 0 16px;
+      }
+      .nav {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: auto;
+      }
+      .nav-btn {
+        width: 90%;
+        margin: 0 auto;
+        padding: 14px 0;
+        border: none;
+        border-radius: 10px;
+        background: none;
+        font-size: 1.1rem;
+        color: #334155;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+      }
+      .nav-btn.active,
+      .nav-btn:hover {
+        background: linear-gradient(90deg, #3b82f6 60%, #60a5fa 100%);
+        color: #fff;
+      }
+      .sidebar-bottom {
+        margin: 32px 0 0 0;
+        width: 100%;
+        text-align: center;
+      }
+      .main-content {
+        flex: 1;
+        padding: 40px 0 0 0;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        background: transparent;
+        overflow: hidden;
+      }
+      .main-inner {
+        max-width: 900px;
+        margin: 0 auto;
+        width: 100%;
+        height: calc(100vh - 120px);
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 18px;
+        box-shadow: 0 4px 32px 0 rgba(30, 41, 59, 0.1);
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        backdrop-filter: blur(8px);
+        overflow: hidden;
+      }
+      #page-workbench,
+      #page-config,
+      #llm-config {
+        flex: 1;
+        padding: 36px 48px 24px 48px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        /* 为状态栏预留空间，避免内容被遮挡 */
+        padding-bottom: 60px;
+      }
+      /* 美化滚动条 */
+      #page-workbench::-webkit-scrollbar,
+      #page-config::-webkit-scrollbar,
+      #llm-config::-webkit-scrollbar {
+        width: 8px;
+      }
+      #page-workbench::-webkit-scrollbar-track,
+      #page-config::-webkit-scrollbar-track,
+      #llm-config::-webkit-scrollbar-track {
+        background: rgba(241, 245, 249, 0.5);
+        border-radius: 4px;
+      }
+      #page-workbench::-webkit-scrollbar-thumb,
+      #page-config::-webkit-scrollbar-thumb,
+      #llm-config::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.5);
+        border-radius: 4px;
+      }
+      #page-workbench::-webkit-scrollbar-thumb:hover,
+      #page-config::-webkit-scrollbar-thumb:hover,
+      #llm-config::-webkit-scrollbar-thumb:hover {
+        background: rgba(100, 116, 139, 0.7);
+      }
+      .status-bar {
+        width: 100%;
+        height: 38px;
+        background: rgba(236, 244, 255, 0.85);
+        color: #64748b;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: first baseline;
+        padding: 0 24px;
+        border-top: 1px solid #e5e7eb;
+        border-bottom-left-radius: 18px;
+        border-bottom-right-radius: 18px;
+        box-shadow: 0 2px 8px 0 rgba(30, 41, 59, 0.04);
+        overflow: visible;
+        white-space: nowrap;
+        min-width: 0;
+        box-sizing: border-box;
+      }
+      @media (max-width: 1200px) {
+        .main-inner {
+          padding: 24px 8px;
+        }
+        .sidebar {
+          width: 180px;
+        }
+        .status-bar {
+          font-size: 0.8rem;
+          padding: 0 20px;
+        }
+        #page-workbench,
+        #page-config {
+          padding-bottom: 50px;
+        }
+      }
+      @media (max-width: 900px) {
+        .main-inner {
+          padding: 8px 2px;
+        }
+        .sidebar {
+          display: none;
+        }
+        .status-bar {
+          font-size: 0.75rem;
+          padding: 0 16px;
+          height: 32px;
+        }
+        #page-workbench,
+        #page-config {
+          padding-bottom: 40px;
+        }
+      }
+      @media (max-width: 600px) {
+        .status-bar {
+          font-size: 0.7rem;
+          padding: 0 12px;
+          height: 28px;
+        }
+        #page-workbench,
+        #page-config {
+          padding-bottom: 35px;
+        }
+      }
+      #bilingual-position {
+        min-width: 350px;
+        width: auto;
+      }
+      #embed-subtitle {
+        min-width: 350px;
+        width: auto;
+      }
+      /* 卡片副标题 */
+      .card-subtitle {
+        color: #6b7280;
+        font-size: 0.9rem;
+        margin: -10px 0 20px 0;
+      }
+
+      /* API 供应商网格 */
+      .provider-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+      }
+
+      /* 供应商卡片 */
+      .provider-card {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 12px;
+        padding: 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .provider-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        border-width: 3px;
+      }
+
+      .provider-card.qwen {
+        border-color: #6336e7;
+      }
+
+      .provider-card.qwen:hover {
+        border-color: #6336e7;
+        background: rgba(99, 54, 231, 0.05);
+      }
+
+      .provider-card.openai {
+        border-color: #74c365;
+      }
+
+      .provider-card.openai:hover {
+        border-color: #74c365;
+        background: rgba(116, 195, 101, 0.05);
+      }
+
+      .provider-card.deepseek {
+        border-color: #4d6bfe;
+      }
+
+      .provider-card.deepseek:hover {
+        border-color: #4d6bfe;
+        background: rgba(77, 107, 254, 0.05);
+      }
+
+      .provider-icon {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 12px;
+        color: #6b7280;
+      }
+
+      .provider-card .provider-icon img {
+        filter: none;
+      }
+
+      .provider-card.openai .provider-icon {
+        color: #74c365;
+      }
+
+      .provider-card.qwen .provider-icon {
+        color: #6336e7;
+      }
+
+      .provider-card.deepseek .provider-icon {
+        color: #4d6bfe;
+      }
+
+      .provider-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 8px;
+        text-align: center;
+      }
+
+      .provider-desc {
+        font-size: 0.9rem;
+        color: #6b7280;
+        text-align: center;
+      }
+
+      /* 使用指南样式 */
+      .guide-content {
+        background: rgba(248, 250, 252, 0.8);
+        border-radius: 8px;
+        padding: 20px;
+        border: 1px solid rgba(209, 213, 219, 0.3);
+      }
+
+      .guide-content h4 {
+        color: #3b82f6;
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 16px 0 8px 0;
+      }
+
+      .guide-content h4:first-child {
+        margin-top: 0;
+      }
+
+      .guide-content ul {
+        margin: 0 0 12px 0;
+        padding-left: 20px;
+      }
+
+      .guide-content li {
+        margin-bottom: 4px;
+        color: #4b5563;
+        line-height: 1.5;
+      }
+
+      .guide-content code {
+        background: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: "Monaco", "Consolas", monospace;
+        font-size: 0.85rem;
+        user-select: all;
+      }
+
+      .guide-content code:hover {
+        background: rgba(59, 130, 246, 0.15);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-container">
+      <div class="sidebar">
+        <div class="logo">KrillinAI</div>
+        <div class="slogan">AI Video Translation & Dubbing by Krillin AI</div>
+        <div class="nav">
+          <button class="nav-btn active" id="nav-workbench">
+            工作台 Dashboard
+          </button>
+          <button class="nav-btn" id="nav-llm-config">
+            LLM 配置 LLM Config
+          </button>
+          <button class="nav-btn" id="nav-config">设置 Settings</button>
+        </div>
+        <div class="sidebar-bottom">
+          <span style="font-size: 13px; color: #94a3b8">v1.0</span>
+        </div>
+      </div>
+      <div class="main-content">
+        <div class="main-inner">
+          <div id="page-workbench">
+            <h1
+              style="
+                text-align: center;
+                font-size: 2.2rem;
+                font-weight: 700;
+                color: #1e293b;
+                margin: 0 0 32px 0;
+              "
+            >
+              视频翻译配音<br />
+              Video Translation & Dubbing
+            </h1>
+
+            <!-- 视频输入区域 -->
+            <div class="card">
+              <h3 class="card-title">1. 视频源设置 Video Source Settings</h3>
+              <div class="form-group">
+                <div class="radio-group">
+                  <label class="radio-item">
+                    <input type="radio" name="inputType" value="url" checked />
+                    <span>输入链接 Paste a link</span>
+                  </label>
+                  <label class="radio-item">
+                    <input type="radio" name="inputType" value="file" />
+                    <span>本地上传 Upload a file</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group" id="urlInputContainer">
+                <label class="form-label">视频地址 Video URL:</label>
+                <input
+                  type="url"
+                  id="urlInput"
+                  placeholder="输入视频链接 Paste a link here"
+                  class="form-input"
+                />
+              </div>
+
+              <div class="form-group hidden" id="fileInputContainer">
+                <label class="form-label">上传视频 Upload Video:</label>
+                <input
+                  type="file"
+                  id="fileInput"
+                  accept="video/*,audio/*"
+                  multiple
+                  class="form-input"
+                />
+                <div id="uploadStatus" class="loading hidden">
+                  正在上传... Uploading...
+                </div>
+              </div>
+            </div>
+
+            <!-- 字幕设置区域 -->
+            <div class="card">
+              <h3 class="card-title">2. 字幕设置 Subtitle Settings</h3>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label"
+                    >源语言<br />Original Language:</label
+                  >
+                  <select id="source-language" class="form-select">
+                    <option value="zh_cn">简体中文</option>
+                    <option value="en">English</option>
+                    <option value="ja">日本語</option>
+                    <option value="tr">Türkçe</option>
+                    <option value="de">Deutsch</option>
+                    <option value="ko">한국어</option>
+                    <option value="ru">Русский язык</option>
+                    <option value="ms">Bahasa Melayu</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">翻译成<br />Translate To:</label>
+                  <select id="target-language" class="form-select">
+                    <option value="zh_cn">简体中文</option>
+                    <option value="zh_tw">繁體中文</option>
+                    <option value="en">English</option>
+                    <option value="ja">日本語</option>
+                    <option value="id">bahasa Indonesia</option>
+                    <option value="ms">Bahasa Melayu</option>
+                    <option value="th">ภาษาไทย</option>
+                    <option value="vi">Tiếng Việt</option>
+                    <option value="fil">Wikang Filipino</option>
+                    <option value="ko">한국어</option>
+                    <option value="ar">اَلْعَرَبِيَّةُ</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
+                    <option value="it">Italiano</option>
+                    <option value="ru">Русский язык</option>
+                    <option value="pt">Português</option>
+                    <option value="es">Español</option>
+                    <option value="hi">हिन्दी</option>
+                    <option value="bn">বাংলা</option>
+                    <option value="he">עברית</option>
+                    <option value="fa">فارسی</option>
+                    <option value="af">Afrikaans</option>
+                    <option value="sv">Svenska</option>
+                    <option value="fi">Suomi</option>
+                    <option value="da">Dansk</option>
+                    <option value="no">Norsk</option>
+                    <option value="nl">Nederlands</option>
+                    <option value="el">Νέα Ελληνικά;</option>
+                    <option value="uk">Українська</option>
+                    <option value="hu">Magyar nyelv</option>
+                    <option value="pl">Polski</option>
+                    <option value="tr">Türkçe</option>
+                    <option value="sr">Српски</option>
+                    <option value="hr">Hrvatski</option>
+                    <option value="cs">čeština</option>
+                    <option value="pinyin">Pin yin</option>
+                    <option value="sw">Kiswahili</option>
+                    <option value="yo">èdè Yorùbá</option>
+                    <option value="ha">هَرْشٜن هَوْس</option>
+                    <option value="am">አማርኛ</option>
+                    <option value="om">afaan Oromoo</option>
+                    <option value="is">Íslenska</option>
+                    <option value="lb">Lëtzebuergesch</option>
+                    <option value="ca">Català</option>
+                    <option value="ro">Românã</option>
+                    <option value="sk">Slovenčina</option>
+                    <option value="bs">Босански</option>
+                    <option value="mk">Македонски</option>
+                    <option value="sl">Slovenščina</option>
+                    <option value="bg">Български</option>
+                    <option value="lv">Latviski</option>
+                    <option value="lt">Lietuviškai</option>
+                    <option value="et">Eesti keel</option>
+                    <option value="mt">Malti</option>
+                    <option value="sq">Shqip</option>
+                    <option value="pa">ਪੰਜਾਬੀ</option>
+                    <option value="jv">ꦧꦱꦗꦮ</option>
+                    <option value="ta">தமிழ்</option>
+                    <option value="ur">اردو</option>
+                    <option value="mr">मराठी</option>
+                    <option value="te">తెలుగు</option>
+                    <option value="ps">پښتو</option>
+                    <option value="ln">Lingála</option>
+                    <option value="ml">മലയാളം</option>
+                    <option value="cnh">客家话</option>
+                    <option value="uz">Oʻzbekcha</option>
+                    <option value="kn">ಕನ್ನಡ</option>
+                    <option value="or">ଓଡ଼ିଆ</option>
+                    <option value="ig">Igbo</option>
+                    <option value="zu">isiZulu</option>
+                    <option value="xh">isiXhosa</option>
+                    <option value="km">ភាសាខ្មែរ</option>
+                    <option value="lo">ພາສາລາວ</option>
+                    <option value="ka">ქართული</option>
+                    <option value="hy">Հայերեն</option>
+                    <option value="tg">Тоҷикӣ</option>
+                    <option value="tk">Türkmençe</option>
+                    <option value="kk">Қазақша</option>
+                    <option value="ky">Кыргызча</option>
+                    <option value="mn">Монгол хэл</option>
+                    <option value="gd">Gàidhlig</option>
+                    <option value="ga">Gaeilge</option>
+                    <option value="cy">Cymraeg</option>
+                    <option value="ba">Башҡортса</option>
+                    <option value="ceb">Bisaya</option>
+                    <option value="ilo">Ilokano</option>
+                    <option value="tt">Татарча</option>
+                    <option value="pi">पाऴि</option>
+                    <option value="rw">Ikinyarwanda</option>
+                    <option value="be">Беларуская</option>
+                    <option value="mg">Malagasy</option>
+                    <option value="tvl">Te Ggana Tuuvalu</option>
+                    <option value="mh">Kajin M̧ajeļ</option>
+                    <option value="ch">Chamoru</option>
+                    <option value="sm">Gagana Samoa</option>
+                    <option value="to">Lea faka-Tonga</option>
+                    <option value="mi">Māori</option>
+                    <option value="tpi">Tok Pisin</option>
+                    <option value="cv">Чӑвашла</option>
+                    <option value="kv">Коми кыв</option>
+                    <option value="gv">Gaelg</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="checkbox-item">
+                  <input type="checkbox" id="bilingual-toggle" checked />
+                  <span>启用双语字幕 Bilingual Subtitles</span>
+                </label>
+                <select
+                  id="bilingual-position"
+                  class="form-select"
+                  style="width: 200px; margin-left: 16px"
+                >
+                  <option value="top">翻译在上 Translation Above</option>
+                  <option value="bottom">翻译在下 Translation Below</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="checkbox-item">
+                  <input type="checkbox" id="filler-filter-toggle" checked />
+                  <span>启用语气词过滤 Tone Word Filtering</span>
+                </label>
+              </div>
+
+              <div class="form-group">
+                <label class="checkbox-item">
+                  <input type="checkbox" id="platform-subtitle-toggle" checked />
+                  <span>优先使用平台字幕 Prefer Platform Subtitles</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 配音设置区域 -->
+            <div class="card">
+              <h3 class="card-title">3. 配音设置 Dubbing Settings</h3>
+              <div class="form-group">
+                <label class="checkbox-item">
+                  <input type="checkbox" id="voiceover-toggle" />
+                  <span>启用配音 Apply Dubbing</span>
+                </label>
+                <input
+                  type="text"
+                  id="voiceover-voice"
+                  placeholder="输入声音代码 Enter Voice Code"
+                  class="form-input"
+                  style="width: 200px; margin-left: 16px"
+                  disabled
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >选择音色克隆样本<br />Select Voice Clone Sample:</label
+                >
+                <input
+                  type="file"
+                  id="voiceFileInput"
+                  accept="audio/*"
+                  class="form-input"
+                  style="width: 300px"
+                />
+                <span class="hint">（Aliyun TTS Supported）</span>
+              </div>
+            </div>
+
+            <!-- 视频合成设置 -->
+            <div class="card">
+              <h3 class="card-title">4. 视频合成设置 Composition Settings</h3>
+              <div class="form-group">
+                <label class="checkbox-item">
+                  <input type="checkbox" id="embed-subtitle-toggle" />
+                  <span>合成 Composite</span>
+                </label>
+                <select
+                  id="embed-subtitle"
+                  class="form-select"
+                  style="width: 200px; margin-left: 16px"
+                  disabled
+                >
+                  <option value="horizontal">
+                    横屏输出 Landscape（16：9）
+                  </option>
+                  <option value="vertical">竖屏输出 Portrait（9:16）</option>
+                  <option value="all">横屏+竖屏 (Landscape+Portrait)</option>
+                </select>
+              </div>
+              <div id="subtitle-text-inputs" class="hidden">
+                <div class="form-group">
+                  <label class="form-label">主标题 Main Title:</label>
+                  <input
+                    type="text"
+                    id="subtitle-text-1"
+                    placeholder="请输入竖屏视频主标题 Please enter main title for vertical video"
+                    class="form-input"
+                  />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">副标题 Subtitle:</label>
+                  <input
+                    type="text"
+                    id="subtitle-text-2"
+                    placeholder="请输入竖屏视频副标题 Please enter subtitle for vertical video"
+                    class="form-input"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- 执行按钮 -->
+            <div class="action-area">
+              <button type="button" id="executeButton" class="btn-primary">
+                开始翻译 Start Translating
+              </button>
+            </div>
+
+            <!-- 进度区域 -->
+            <div id="progressSection" class="progress-section hidden">
+              <h4>任务进度 Task Progress</h4>
+              <div class="progress-bar">
+                <div class="progress-fill" id="progressBar">0%</div>
+              </div>
+              <div id="downloadLinks" class="download-links hidden"></div>
+            </div>
+          </div>
+          <div id="llm-config" style="display: none">
+            <div class="card">
+              <h3 class="card-title">API 供应商</h3>
+              <p class="card-subtitle">点击下方卡片快速跳转到对应平台购买API</p>
+
+              <div class="provider-grid">
+                <div class="provider-card qwen" id="provider-qwen">
+                  <div class="provider-icon">
+                    <img
+                      src="./source/qwen-color.svg"
+                      alt="通义千问"
+                      width="24"
+                      height="24"
+                    />
+                  </div>
+                  <div class="provider-name">通义千问 Qwen</div>
+                  <div class="provider-desc">阿里云大模型服务</div>
+                </div>
+
+                <div class="provider-card openai" id="provider-openai">
+                  <div class="provider-icon">
+                    <img
+                      src="./source/openai.svg"
+                      alt="OpenAI"
+                      width="24"
+                      height="24"
+                    />
+                  </div>
+                  <div class="provider-name">OpenAI</div>
+                  <div class="provider-desc">GPT模型API服务</div>
+                </div>
+
+                <div class="provider-card deepseek" id="provider-deepseek">
+                  <div class="provider-icon">
+                    <img
+                      src="./source/deepseek-color.svg"
+                      alt="DeepSeek"
+                      width="24"
+                      height="24"
+                    />
+                  </div>
+                  <div class="provider-name">DeepSeek</div>
+                  <div class="provider-desc">高性价比AI模型</div>
+                </div>
+
+                <div class="provider-card add" id="provider-add">
+                  <div class="provider-icon">
+                    <span style="font-size: 20px; line-height: 24px">＋</span>
+                  </div>
+                  <div class="provider-name">新增</div>
+                  <div class="provider-desc">添加自定义供应商</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- LLM 配置 -->
+            <div class="card">
+              <h3 class="card-title">LLM 配置 LLM Config</h3>
+              <div class="form-group">
+                <label class="form-label">API Base URL:</label>
+                <input
+                  type="url"
+                  id="llm-base-url"
+                  placeholder="https://api.openai.com/v1"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">API Key:</label>
+                <input
+                  type="password"
+                  id="llm-api-key"
+                  placeholder="sk-..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">模型名称 Model name:</label>
+                <input
+                  type="text"
+                  id="llm-model"
+                  value="gpt-3.5-turbo"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">支持模型 Supported models:</label>
+                <select id="llm-model-suggest" class="form-select">
+                  <option value="">请选择或手动输入</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 使用指南 -->
+            <div class="card">
+              <h3 class="card-title">使用指南</h3>
+              <p class="card-subtitle">LLM API配置说明（可复制文本）</p>
+
+              <div class="guide-content">
+                <h4>1. API Base URL：</h4>
+                <ul>
+                  <li>OpenAI官方：<code>https://api.openai.com/v1</code></li>
+                  <li>
+                    阿里云百炼：<code
+                      >https://dashscope.aliyuncs.com/compatible-mode/v1</code
+                    >
+                  </li>
+                  <li>DeepSeek：<code>https://api.deepseek.com/v1</code></li>
+                </ul>
+
+                <h4>2. API Key：</h4>
+                <ul>
+                  <li>在对应平台的控制台中获取</li>
+                  <li>请妥善保管，避免泄露</li>
+                </ul>
+
+                <h4>3. 模型名称：</h4>
+                <ul>
+                  <li>OpenAI：gpt-3.5-turbo, gpt-4, gpt-4-turbo...</li>
+                  <li>阿里云：qwen-turbo, qwen-plus, qwen-max...</li>
+                  <li>DeepSeek：deepseek-chat, deepseek-coder...</li>
+                </ul>
+
+                <h4>4. 使用建议：</h4>
+                <ul>
+                  <li>根据实际需求选择合适的模型</li>
+                  <li>注意API调用费用</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div id="page-config" style="display: none">
+            <h1
+              style="
+                text-align: center;
+                font-size: 2.2rem;
+                font-weight: 700;
+                color: #1e293b;
+                margin: 0 0 32px 0;
+              "
+            >
+              应用配置 Application Configuration
+            </h1>
+
+            <!-- 应用配置 -->
+            <div class="card">
+              <h3 class="card-title">应用配置 App Config</h3>
+              <div class="form-group">
+                <label class="form-label"
+                  >分段处理时长(分钟) Segment duration (minutes):</label
+                >
+                <input
+                  type="number"
+                  id="segment-duration"
+                  value="5"
+                  min="1"
+                  max="30"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >转录最大并行数量 Transcribe parallel num:</label
+                >
+                <input
+                  type="number"
+                  id="transcribe-parallel"
+                  value="2"
+                  min="1"
+                  max="10"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >翻译最大并行数量 Translate parallel num:</label
+                >
+                <input
+                  type="number"
+                  id="translate-parallel"
+                  value="5"
+                  min="1"
+                  max="20"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >转录最大尝试次数 Transcribe max attempts:</label
+                >
+                <input
+                  type="number"
+                  id="transcribe-max-attempts"
+                  value="3"
+                  min="1"
+                  max="10"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >翻译最大尝试次数 Translate max attempts:</label
+                >
+                <input
+                  type="number"
+                  id="translate-max-attempts"
+                  value="3"
+                  min="1"
+                  max="20"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >每个句子最大字符数 Max sentence length:</label
+                >
+                <input
+                  type="number"
+                  id="max-sentence-length"
+                  value="100"
+                  min="1"
+                  max="200"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">网络代理地址 proxy:</label>
+                <input
+                  type="text"
+                  id="proxy"
+                  placeholder="http://127.0.0.1:7890"
+                  class="form-input"
+                />
+              </div>
+            </div>
+
+            <!-- 服务器配置 -->
+            <div class="card">
+              <h3 class="card-title">服务器配置 Server Config</h3>
+              <div class="form-group">
+                <label class="form-label">服务器地址 Server address:</label>
+                <input
+                  type="text"
+                  id="server-host"
+                  value="127.0.0.1"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">服务器端口 Server port:</label>
+                <input
+                  type="number"
+                  id="server-port"
+                  value="8888"
+                  min="1"
+                  max="65535"
+                  class="form-input"
+                />
+              </div>
+            </div>
+
+            <!-- LLM配置 -->
+            <!-- <div class="card">
+              <h3 class="card-title">LLM 配置 LLM Config</h3>
+              <div class="form-group">
+                <label class="form-label">API Base URL:</label>
+                <input
+                  type="url"
+                  id="llm-base-url"
+                  placeholder="https://api.openai.com/v1"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">API Key:</label>
+                <input
+                  type="password"
+                  id="llm-api-key"
+                  placeholder="sk-..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">模型名称 Model name:</label>
+                <input
+                  type="text"
+                  id="llm-model"
+                  value="gpt-3.5-turbo"
+                  class="form-input"
+                />
+              </div>
+            </div> -->
+
+            <!-- 语音识别配置 -->
+            <div class="card">
+              <h3 class="card-title">语音识别配置 Transcribe Config</h3>
+              <div class="form-group">
+                <label class="form-label">提供商 Provider:</label>
+                <select id="transcribe-provider" class="form-select">
+                  <option value="openai">OpenAI</option>
+                  <option value="fasterwhisper">FasterWhisper</option>
+                  <option value="whisperkit">WhisperKit</option>
+                  <option value="whispercpp">WhisperCpp</option>
+                  <option value="aliyun">阿里云</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">
+                  GPU加速 Enable Gpu Acceleration
+                  <span class="hint"
+                    >仅 FasterWhisper 生效(Only FasterWhisper)</span
+                  >
+                </label>
+                <select id="gpu-acceleration" class="form-select">
+                  <option value="true">是 Yes</option>
+                  <option value="false">否 No</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">OpenAI Base URL:</label>
+                <input
+                  type="url"
+                  id="openai-base-url"
+                  placeholder="https://api.openai.com/v1"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">OpenAI API Key:</label>
+                <input
+                  type="password"
+                  id="openai-api-key"
+                  placeholder="sk-..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">OpenAI 模型 Model:</label>
+                <input
+                  type="text"
+                  id="openai-model"
+                  value="whisper-1"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">FasterWhisper 模型 Model:</label>
+                <input
+                  type="text"
+                  id="fasterwhisper-model"
+                  placeholder="base"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">WhisperKit 模型 Model:</label>
+                <input
+                  type="text"
+                  id="whisperkit-model"
+                  placeholder="base"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">WhisperCpp 模型 Model:</label>
+                <input
+                  type="text"
+                  id="whispercpp-model"
+                  placeholder="base"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云 Aliyun OSS Access Key ID:</label
+                >
+                <input
+                  type="text"
+                  id="aliyun-oss-key-id"
+                  placeholder="LTAI..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云 Aliyun OSS Access Key Secret:</label
+                >
+                <input
+                  type="password"
+                  id="aliyun-oss-key-secret"
+                  placeholder="..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">阿里云 Aliyun OSS Bucket Name:</label>
+                <input
+                  type="text"
+                  id="aliyun-oss-bucket"
+                  placeholder="your-bucket-name"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云语音 Aliyun Speech Access Key ID:</label
+                >
+                <input
+                  type="text"
+                  id="aliyun-speech-key-id"
+                  placeholder="LTAI..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云语音 Aliyun Speech Access Key Secret:</label
+                >
+                <input
+                  type="password"
+                  id="aliyun-speech-key-secret"
+                  placeholder="..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云语音 Aliyun Speech App Key:</label
+                >
+                <input
+                  type="text"
+                  id="aliyun-speech-app-key"
+                  placeholder="..."
+                  class="form-input"
+                />
+              </div>
+            </div>
+
+            <!-- TTS配置 -->
+            <div class="card">
+              <h3 class="card-title">文本转语音配置 TTS Config</h3>
+              <div class="form-group">
+                <label class="form-label">提供商 Provider:</label>
+                <select id="tts-provider" class="form-select">
+                  <option value="openai">OpenAI</option>
+                  <option value="aliyun">阿里云</option>
+                  <option value="edge-tts">Edge TTS</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">OpenAI Base URL:</label>
+                <input
+                  type="url"
+                  id="tts-openai-base-url"
+                  placeholder="https://api.openai.com/v1"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">OpenAI API Key:</label>
+                <input
+                  type="password"
+                  id="tts-openai-api-key"
+                  placeholder="sk-..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">OpenAI 模型 Model:</label>
+                <input
+                  type="text"
+                  id="tts-openai-model"
+                  value="tts-1"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云 Aliyun OSS Access Key ID:</label
+                >
+                <input
+                  type="text"
+                  id="tts-aliyun-oss-key-id"
+                  placeholder="LTAI..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云 Aliyun OSS Access Key Secret:</label
+                >
+                <input
+                  type="password"
+                  id="tts-aliyun-oss-key-secret"
+                  placeholder="..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">阿里云 Aliyun OSS Bucket:</label>
+                <input
+                  type="text"
+                  id="tts-aliyun-oss-bucket"
+                  placeholder="your-bucket-name"
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云 Aliyun Speech Access Key ID:</label
+                >
+                <input
+                  type="text"
+                  id="tts-aliyun-speech-key-id"
+                  placeholder="LTAI..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label"
+                  >阿里云 Aliyun Speech Access Key Secret:</label
+                >
+                <input
+                  type="password"
+                  id="tts-aliyun-speech-key-secret"
+                  placeholder="..."
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">阿里云 Aliyun Speech App Key:</label>
+                <input
+                  type="text"
+                  id="tts-aliyun-speech-app-key"
+                  placeholder="..."
+                  class="form-input"
+                />
+              </div>
+            </div>
+
+            <!-- 保存按钮 -->
+            <div class="action-area">
+              <button type="button" id="saveConfigButton" class="btn-primary">
+                保存配置 Save Configuration
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="status-bar" id="status-bar">就绪 Ready</div>
+      </div>
+    </div>
+
+    <script>
+      // 获取简洁的时间格式 (HH:MM) - 使用用户本地时区
+      function getSimpleTime() {
+        return new Date().toLocaleTimeString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+      }
+
+      // 跟踪当前活跃页面
+      let currentActivePage = "workbench"; // 默认为工作台页面
+
+      // Tab 切换逻辑
+      const navBtns = document.querySelectorAll(".nav-btn");
+      const pageWorkbench = document.getElementById("page-workbench");
+      const pageConfig = document.getElementById("page-config");
+      const pageLLMConfig = document.getElementById("llm-config");
+      navBtns.forEach((btn) => {
+        btn.onclick = async () => {
+          const previousPage = currentActivePage;
+          let newPage;
+          if (btn.id === "nav-workbench") {
+            newPage = "workbench";
+          } else if (btn.id === "nav-llm-config") {
+            newPage = "llm-config";
+          } else if (btn.id === "nav-config") {
+            newPage = "config";
+          }
+
+          // 如果从配置页面切换到工作台页面，自动保存配置
+          if (previousPage === "config" && newPage === "workbench") {
+            console.log(
+              "从配置页面切换到工作台，自动保存配置... Switching from config page to workbench, auto-saving configuration..."
+            );
+            try {
+              await saveConfig(false, true); // 不显示成功提示，标记为自动保存
+            } catch (error) {
+              console.error(
+                "自动保存配置失败 Auto-save configuration failed:",
+                error
+              );
+            }
+          }
+
+          // 更新页面显示
+          navBtns.forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          currentActivePage = newPage;
+
+          pageWorkbench.style.display = "none";
+          pageConfig.style.display = "none";
+          pageLLMConfig.style.display = "none";
+
+          // 显示对应页面
+          if (btn.id === "nav-workbench") {
+            pageWorkbench.style.display = "";
+          } else if (btn.id === "nav-llm-config") {
+            pageLLMConfig.style.display = "";
+            // 进入 LLM 页面时初始化建议下拉为空
+            const suggest = document.getElementById("llm-model-suggest");
+            if (suggest) {
+              suggest.innerHTML = '<option value="">请选择或手动输入</option>';
+            }
+            // 同步获取配置，确保 LLM 表单最新
+            loadConfig();
+          } else if (btn.id === "nav-config") {
+            pageConfig.style.display = "";
+            loadConfig();
+          }
+        };
+      });
+    </script>
+    <script>
+      // 添加按钮点击动画效果
+      function addButtonClickEffect(button) {
+        if (!button) return;
+        button.addEventListener("click", function () {
+          this.classList.add("clicked");
+          setTimeout(() => {
+            this.classList.remove("clicked");
+          }, 500);
+        });
+      }
+
+      // 供应商点击填充逻辑
+      function setProvider(baseUrl, models) {
+        const baseInput = document.getElementById("llm-base-url");
+        const modelInput = document.getElementById("llm-model");
+        const suggest = document.getElementById("llm-model-suggest");
+        if (baseInput) baseInput.value = baseUrl || "";
+        if (suggest) {
+          suggest.innerHTML = '<option value="">请选择或手动输入</option>';
+          (models || []).forEach((m) => {
+            const opt = document.createElement("option");
+            opt.value = m;
+            opt.textContent = m;
+            suggest.appendChild(opt);
+          });
+          if (models && models.length > 0) {
+            suggest.value = models[0];
+            if (modelInput) modelInput.value = models[0];
+          } else if (modelInput) {
+            modelInput.value = "";
+          }
+        }
+      }
+
+      // 模型建议选择时同步到输入框
+      document.addEventListener("DOMContentLoaded", () => {
+        const suggest = document.getElementById("llm-model-suggest");
+        if (suggest) {
+          suggest.addEventListener("change", () => {
+            const modelInput = document.getElementById("llm-model");
+            if (modelInput && suggest.value) {
+              modelInput.value = suggest.value;
+            }
+          });
+        }
+
+        // 供应商卡片点击绑定
+        const qwen = document.getElementById("provider-qwen");
+        const openai = document.getElementById("provider-openai");
+        const deepseek = document.getElementById("provider-deepseek");
+        const add = document.getElementById("provider-add");
+        if (qwen) {
+          qwen.onclick = () =>
+            setProvider("https://dashscope.aliyuncs.com/compatible-mode/v1", [
+              "qwen-turbo",
+              "qwen-plus",
+              "qwen-max",
+            ]);
+        }
+        if (openai) {
+          openai.onclick = () =>
+            setProvider("https://api.openai.com/v1", [
+              "gpt-4o-mini",
+              "gpt-4o",
+              "gpt-4.1-mini",
+              "o3-mini",
+            ]);
+        }
+        if (deepseek) {
+          deepseek.onclick = () =>
+            setProvider("https://api.deepseek.com/v1", [
+              "deepseek-chat",
+              "deepseek-coder",
+              "DeepSeek-V3",
+              "DeepSeek-R1",
+            ]);
+        }
+        if (add) {
+          add.onclick = () => setProvider("", []);
+        }
+      });
+
+      // 加载配置数据
+      async function loadConfig() {
+        try {
+          const response = await fetch("/api/config", {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+          if (response.ok) {
+            const result = await response.json();
+            if (result.error === 0 && result.data) {
+              populateConfigForm(result.data);
+              console.log("配置加载成功 Configuration loaded successfully");
+            }
+          }
+        } catch (error) {
+          console.log(
+            "加载配置失败，使用默认配置 Failed to load configuration, using default config:",
+            error
+          );
+        }
+      }
+
+      // 填充配置表单
+      function populateConfigForm(configData) {
+        // 应用配置
+        if (configData.app) {
+          document.getElementById("segment-duration").value =
+            configData.app.segmentDuration || 5;
+          document.getElementById("transcribe-parallel").value =
+            configData.app.transcribeParallelNum || 2;
+          document.getElementById("translate-parallel").value =
+            configData.app.translateParallelNum || 5;
+          document.getElementById("transcribe-max-attempts").value =
+            configData.app.transcribeMaxAttempts || 3;
+          document.getElementById("translate-max-attempts").value =
+            configData.app.translateMaxAttempts || 3;
+          document.getElementById("max-sentence-length").value =
+            configData.app.maxSentenceLength || 100;
+          document.getElementById("proxy").value = configData.app.proxy || "";
+        }
+
+        // 服务器配置
+        if (configData.server) {
+          document.getElementById("server-host").value =
+            configData.server.host || "127.0.0.1";
+          document.getElementById("server-port").value =
+            configData.server.port || 8888;
+        }
+
+        // LLM配置
+        if (configData.llm) {
+          document.getElementById("llm-base-url").value =
+            configData.llm.baseUrl || "";
+          document.getElementById("llm-api-key").value =
+            configData.llm.apiKey || "";
+          document.getElementById("llm-model").value =
+            configData.llm.model || "gpt-3.5-turbo";
+          // 清空建议模型下拉
+          const suggest = document.getElementById("llm-model-suggest");
+          if (suggest) {
+            suggest.innerHTML = '<option value="">请选择或手动输入</option>';
+          }
+        }
+
+        // 转录配置
+        if (configData.transcribe) {
+          document.getElementById("gpu-acceleration").value =
+            configData.transcribe.enableGpuAcceleration === true
+              ? "true"
+              : "false";
+          document.getElementById("transcribe-provider").value =
+            configData.transcribe.provider || "openai";
+          if (configData.transcribe.openai) {
+            document.getElementById("openai-base-url").value =
+              configData.transcribe.openai.baseUrl || "";
+            document.getElementById("openai-api-key").value =
+              configData.transcribe.openai.apiKey || "";
+            document.getElementById("openai-model").value =
+              configData.transcribe.openai.model || "whisper-1";
+          }
+          if (configData.transcribe.fasterwhisper) {
+            document.getElementById("fasterwhisper-model").value =
+              configData.transcribe.fasterwhisper.model || "";
+          }
+          if (configData.transcribe.whisperkit) {
+            document.getElementById("whisperkit-model").value =
+              configData.transcribe.whisperkit.model || "";
+          }
+          if (configData.transcribe.whispercpp) {
+            document.getElementById("whispercpp-model").value =
+              configData.transcribe.whispercpp.model || "";
+          }
+          if (configData.transcribe.aliyun) {
+            if (configData.transcribe.aliyun.oss) {
+              document.getElementById("aliyun-oss-key-id").value =
+                configData.transcribe.aliyun.oss.accessKeyId || "";
+              document.getElementById("aliyun-oss-key-secret").value =
+                configData.transcribe.aliyun.oss.accessKeySecret || "";
+              document.getElementById("aliyun-oss-bucket").value =
+                configData.transcribe.aliyun.oss.bucket || "";
+            }
+            if (configData.transcribe.aliyun.speech) {
+              document.getElementById("aliyun-speech-key-id").value =
+                configData.transcribe.aliyun.speech.accessKeyId || "";
+              document.getElementById("aliyun-speech-key-secret").value =
+                configData.transcribe.aliyun.speech.accessKeySecret || "";
+              document.getElementById("aliyun-speech-app-key").value =
+                configData.transcribe.aliyun.speech.appKey || "";
+            }
+          }
+        }
+
+        // TTS配置
+        if (configData.tts) {
+          document.getElementById("tts-provider").value =
+            configData.tts.provider || "openai";
+          if (configData.tts.openai) {
+            document.getElementById("tts-openai-base-url").value =
+              configData.tts.openai.baseUrl || "";
+            document.getElementById("tts-openai-api-key").value =
+              configData.tts.openai.apiKey || "";
+            document.getElementById("tts-openai-model").value =
+              configData.tts.openai.model || "tts-1";
+          }
+          if (configData.tts.aliyun) {
+            if (configData.tts.aliyun.oss) {
+              document.getElementById("tts-aliyun-oss-key-id").value =
+                configData.tts.aliyun.oss.accessKeyId || "";
+              document.getElementById("tts-aliyun-oss-key-secret").value =
+                configData.tts.aliyun.oss.accessKeySecret || "";
+              document.getElementById("tts-aliyun-oss-bucket").value =
+                configData.tts.aliyun.oss.bucket || "";
+            }
+            if (configData.tts.aliyun.speech) {
+              document.getElementById("tts-aliyun-speech-key-id").value =
+                configData.tts.aliyun.speech.accessKeyId || "";
+              document.getElementById("tts-aliyun-speech-key-secret").value =
+                configData.tts.aliyun.speech.accessKeySecret || "";
+              document.getElementById("tts-aliyun-speech-app-key").value =
+                configData.tts.aliyun.speech.appKey || "";
+            }
+          }
+        }
+      }
+
+      // 收集配置表单数据的函数
+      function collectConfigData() {
+        return {
+          app: {
+            segmentDuration:
+              parseInt(document.getElementById("segment-duration").value) || 5,
+            transcribeParallelNum:
+              parseInt(document.getElementById("transcribe-parallel").value) ||
+              2,
+            translateParallelNum:
+              parseInt(document.getElementById("translate-parallel").value) ||
+              5,
+            transcribeMaxAttempts:
+              parseInt(
+                document.getElementById("transcribe-max-attempts").value
+              ) || 3,
+            translateMaxAttempts:
+              parseInt(
+                document.getElementById("translate-max-attempts").value
+              ) || 3,
+            maxSentenceLength:
+              parseInt(document.getElementById("max-sentence-length").value) ||
+              100,
+            proxy: document.getElementById("proxy").value,
+          },
+          server: {
+            host: document.getElementById("server-host").value,
+            port:
+              parseInt(document.getElementById("server-port").value) || 8888,
+          },
+          llm: {
+            baseUrl: document.getElementById("llm-base-url").value,
+            apiKey: document.getElementById("llm-api-key").value,
+            model: document.getElementById("llm-model").value,
+          },
+          transcribe: {
+            provider: document.getElementById("transcribe-provider").value,
+            enableGpuAcceleration:
+              document.getElementById("gpu-acceleration").value == true,
+            openai: {
+              baseUrl: document.getElementById("openai-base-url").value,
+              apiKey: document.getElementById("openai-api-key").value,
+              model: document.getElementById("openai-model").value,
+            },
+            fasterwhisper: {
+              model: document.getElementById("fasterwhisper-model").value,
+            },
+            whisperkit: {
+              model: document.getElementById("whisperkit-model").value,
+            },
+            whispercpp: {
+              model: document.getElementById("whispercpp-model").value,
+            },
+            aliyun: {
+              oss: {
+                accessKeyId: document.getElementById("aliyun-oss-key-id").value,
+                accessKeySecret: document.getElementById(
+                  "aliyun-oss-key-secret"
+                ).value,
+                bucket: document.getElementById("aliyun-oss-bucket").value,
+              },
+              speech: {
+                accessKeyId: document.getElementById("aliyun-speech-key-id")
+                  .value,
+                accessKeySecret: document.getElementById(
+                  "aliyun-speech-key-secret"
+                ).value,
+                appKey: document.getElementById("aliyun-speech-app-key").value,
+              },
+            },
+          },
+          tts: {
+            provider: document.getElementById("tts-provider").value,
+            openai: {
+              baseUrl: document.getElementById("tts-openai-base-url").value,
+              apiKey: document.getElementById("tts-openai-api-key").value,
+              model: document.getElementById("tts-openai-model").value,
+            },
+            aliyun: {
+              oss: {
+                accessKeyId: document.getElementById("tts-aliyun-oss-key-id")
+                  .value,
+                accessKeySecret: document.getElementById(
+                  "tts-aliyun-oss-key-secret"
+                ).value,
+                bucket: document.getElementById("tts-aliyun-oss-bucket").value,
+              },
+              speech: {
+                accessKeyId: document.getElementById("tts-aliyun-speech-key-id")
+                  .value,
+                accessKeySecret: document.getElementById(
+                  "tts-aliyun-speech-key-secret"
+                ).value,
+                appKey: document.getElementById("tts-aliyun-speech-app-key")
+                  .value,
+              },
+            },
+          },
+        };
+      }
+
+      // 保存配置的函数
+      function saveConfig(showSuccessAlert = true, isAutoSave = false) {
+        const configData = collectConfigData();
+        const statusPrefix = isAutoSave ? "自动保存 Auto-save" : "保存 Save";
+
+        // 显示保存状态 Show save status
+        document.getElementById("status-bar").textContent =
+          `正在${statusPrefix}配置... Saving configuration... - ` +
+          getSimpleTime();
+
+        return fetch("/api/config", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(configData),
+        })
+          .then((response) => {
+            if (response.ok) {
+              return response.json();
+            }
+            throw new Error("网络请求失败");
+          })
+          .then((data) => {
+            // 检查业务错误码
+            if (data.error === 0) {
+              if (showSuccessAlert) {
+                alert("配置已成功保存！ Configuration saved successfully!");
+              }
+              document.getElementById("status-bar").textContent =
+                `配置已${statusPrefix} Configuration saved - ` +
+                getSimpleTime();
+              return true;
+            } else {
+              // 显示后端返回的具体错误信息 Show specific error message from backend
+              const errorMsg =
+                data.msg || "保存配置失败 Failed to save configuration";
+              if (showSuccessAlert || !isAutoSave) {
+                alert(
+                  `${statusPrefix}配置失败 Configuration failed: ` + errorMsg
+                );
+              }
+              document.getElementById("status-bar").textContent =
+                `配置${statusPrefix}失败 Configuration failed - ` +
+                getSimpleTime();
+              console.error("配置验证失败:", data);
+              return false;
+            }
+          })
+          .catch((error) => {
+            console.error("保存配置错误 Save configuration error:", error);
+            if (showSuccessAlert || !isAutoSave) {
+              alert(
+                `${statusPrefix}配置失败 Configuration failed: Network error or server exception`
+              );
+            }
+            document.getElementById("status-bar").textContent =
+              `配置${statusPrefix}失败 Configuration failed - ` +
+              getSimpleTime();
+            return false;
+          });
+      }
+
+      // 配置页面逻辑
+      const saveConfigButton = document.getElementById("saveConfigButton");
+      if (saveConfigButton) {
+        addButtonClickEffect(saveConfigButton);
+        saveConfigButton.onclick = () => {
+          saveConfig(true, false);
+        };
+      }
+
+      // 表单交互逻辑
+      const voiceoverToggleEl = document.getElementById("voiceover-toggle");
+      if (voiceoverToggleEl) {
+        voiceoverToggleEl.onchange = function () {
+          const voiceInput = document.getElementById("voiceover-voice");
+          if (voiceInput) voiceInput.disabled = !this.checked;
+        };
+      }
+
+      const embedSubtitleToggleEl = document.getElementById(
+        "embed-subtitle-toggle"
+      );
+      if (embedSubtitleToggleEl) {
+        embedSubtitleToggleEl.onchange = function () {
+          const embedSelect = document.getElementById("embed-subtitle");
+          if (embedSelect) embedSelect.disabled = !this.checked;
+        };
+      }
+
+      const embedSubtitleEl = document.getElementById("embed-subtitle");
+      if (embedSubtitleEl) {
+        embedSubtitleEl.onchange = function () {
+          const textInputs = document.getElementById("subtitle-text-inputs");
+          if (textInputs) {
+            if (this.value === "vertical" || this.value === "all") {
+              textInputs.classList.remove("hidden");
+            } else {
+              textInputs.classList.add("hidden");
+            }
+          }
+        };
+      }
+
+      // 输入方式切换
+      document.querySelectorAll('input[name="inputType"]').forEach((radio) => {
+        radio.addEventListener("change", () => {
+          const urlContainer = document.getElementById("urlInputContainer");
+          const fileContainer = document.getElementById("fileInputContainer");
+          const fileInput = document.getElementById("fileInput");
+          const urlInput = document.getElementById("urlInput");
+          const executeButton = document.getElementById("executeButton");
+
+          if (radio.value === "url") {
+            if (urlContainer) urlContainer.classList.remove("hidden");
+            if (fileContainer) fileContainer.classList.add("hidden");
+            if (fileInput) fileInput.required = false;
+            if (urlInput) urlInput.required = true;
+            if (executeButton) executeButton.disabled = false;
+          } else {
+            if (urlContainer) urlContainer.classList.add("hidden");
+            if (fileContainer) fileContainer.classList.remove("hidden");
+            if (urlInput) urlInput.required = false;
+            if (fileInput) fileInput.required = true;
+            if (executeButton) executeButton.disabled = true;
+          }
+        });
+      });
+    </script>
+
+    <script>
+      const urlInputContainer = document.getElementById("urlInputContainer");
+      const fileInputContainer = document.getElementById("fileInputContainer");
+      const urlInput = document.getElementById("urlInput");
+      const fileInput = document.getElementById("fileInput");
+      const uploadStatus = document.getElementById("uploadStatus");
+      const voiceFileInput = document.getElementById("voiceFileInput");
+      const executeButton = document.getElementById("executeButton");
+      const progressSection = document.getElementById("progressSection");
+      const progressBar = document.getElementById("progressBar");
+      const downloadLinks = document.getElementById("downloadLinks");
+
+      // 获取表单元素
+      const translationToggle = document.getElementById("bilingual-toggle");
+      const translationLanguage = document.getElementById("target-language");
+      const bilingualToggle = document.getElementById("bilingual-toggle");
+      const bilingualPosition = document.getElementById("bilingual-position");
+      const platformSubtitleToggle = document.getElementById(
+        "platform-subtitle-toggle"
+      );
+      const voiceoverToggle = document.getElementById("voiceover-toggle");
+      const voiceoverVoice = document.getElementById("voiceover-voice");
+      const embedSubtitleVideoTypeToggle = document.getElementById(
+        "embed-subtitle-toggle"
+      );
+      const embedSubtitleVideoType = document.getElementById("embed-subtitle");
+      const embedSubtitle = document.getElementById("embed-subtitle");
+      const subtitleTextInputs = document.getElementById(
+        "subtitle-text-inputs"
+      );
+      const verticalMajorTitle = document.getElementById("subtitle-text-1");
+      const verticalMinorTitle = document.getElementById("subtitle-text-2");
+
+      const API_SUBMIT_URL = "/api/capability/subtitleTask";
+      const API_PROGRESS_URL = "/api/capability/subtitleTask";
+      const API_UPLOAD_URL = "/api/file";
+
+      let uploadedVideoUrl = null;
+      let uploadedAudioUrl = null;
+
+      // 更新状态（启用或禁用表单项） Update state (enable or disable form items)
+      function updateFormState() {
+        if (translationLanguage && translationToggle)
+          translationLanguage.disabled = !translationToggle.checked;
+        if (translationToggle && !translationToggle.checked) {
+          if (bilingualToggle) bilingualToggle.checked = false;
+          if (voiceoverToggle) voiceoverToggle.checked = false;
+        }
+        if (voiceoverToggle && translationToggle)
+          voiceoverToggle.disabled = !translationToggle.checked;
+        if (bilingualPosition && bilingualToggle)
+          bilingualPosition.disabled = !bilingualToggle.checked;
+        if (voiceoverVoice && voiceoverToggle)
+          voiceoverVoice.disabled = !voiceoverToggle.checked;
+        if (voiceFileInput && voiceoverToggle)
+          voiceFileInput.disabled = !voiceoverToggle.checked;
+        if (platformSubtitleToggle) {
+          const selectedInputType = document.querySelector(
+            'input[name="inputType"]:checked'
+          );
+          platformSubtitleToggle.disabled =
+            selectedInputType && selectedInputType.value !== "url";
+        }
+      }
+
+      // 提交表单参数
+      function getParams() {
+        const formData = {
+          language: "zh_cn",
+          origin_lang: document.getElementById("source-language")
+            ? document.getElementById("source-language").value
+            : "zh_cn",
+          target_lang:
+            translationToggle &&
+            translationToggle.checked &&
+            translationLanguage
+              ? translationLanguage.value
+              : "none",
+          bilingual: bilingualToggle && bilingualToggle.checked ? 1 : 2,
+          translation_subtitle_pos:
+            bilingualPosition && bilingualPosition.value === "top" ? 1 : 2,
+          tts: voiceoverToggle && voiceoverToggle.checked ? 1 : 2,
+          modal_filter:
+            document.getElementById("filler-filter-toggle") &&
+            document.getElementById("filler-filter-toggle").checked
+              ? 1
+              : 2,
+          vtt_switch:
+            platformSubtitleToggle && platformSubtitleToggle.checked
+              ? true
+              : false,
+          embed_subtitle_video_type:
+            embedSubtitleVideoTypeToggle &&
+            embedSubtitleVideoTypeToggle.checked &&
+            embedSubtitleVideoType
+              ? embedSubtitleVideoType.value
+              : "none",
+        };
+
+        if (formData.tts === 1 && voiceoverVoice && voiceoverVoice.value) {
+          formData.tts_voice_code = voiceoverVoice.value;
+          if (uploadedAudioUrl) {
+            formData.tts_voice_clone_src_file_url = Array.isArray(
+              uploadedAudioUrl
+            )
+              ? uploadedAudioUrl[0]
+              : uploadedAudioUrl;
+          }
+        }
+
+        if (formData.target_lang === "ro2") {
+          formData.target_lang = "ro";
+        }
+
+        // 添加字幕文本到请求参数中
+        if (
+          embedSubtitleVideoTypeToggle &&
+          embedSubtitleVideoTypeToggle.checked &&
+          embedSubtitle &&
+          (embedSubtitle.value === "vertical" || embedSubtitle.value === "all")
+        ) {
+          if (verticalMajorTitle)
+            formData.vertical_major_title = verticalMajorTitle.value;
+          if (verticalMinorTitle)
+            formData.vertical_minor_title = verticalMinorTitle.value;
+        }
+
+        console.log("表单数据:", formData);
+        return formData;
+      }
+
+      // 事件监听器
+      if (translationToggle) {
+        translationToggle.addEventListener("change", () => {
+          updateFormState();
+        });
+      }
+
+      if (bilingualToggle) {
+        bilingualToggle.addEventListener("change", () => {
+          if (bilingualPosition)
+            bilingualPosition.disabled = !bilingualToggle.checked;
+        });
+      }
+
+      if (voiceoverToggle) {
+        voiceoverToggle.addEventListener("change", () => {
+          updateFormState();
+        });
+      }
+
+      if (embedSubtitle) {
+        embedSubtitle.addEventListener("change", () => {
+          const selectedValue = embedSubtitle.value;
+          if (subtitleTextInputs) {
+            if (selectedValue === "vertical" || selectedValue === "all") {
+              subtitleTextInputs.classList.remove("hidden");
+            } else {
+              subtitleTextInputs.classList.add("hidden");
+            }
+          }
+        });
+      }
+
+      // 处理视频上传
+      if (fileInput) {
+        fileInput.addEventListener("change", async () => {
+          if (fileInput.files.length === 0) return;
+
+          if (uploadStatus) uploadStatus.classList.remove("hidden");
+          if (executeButton) executeButton.disabled = true;
+
+          const formData = new FormData();
+          for (const file of fileInput.files) {
+            formData.append("file", file);
+          }
+
+          try {
+            const response = await fetch(API_UPLOAD_URL, {
+              method: "POST",
+              body: formData,
+            });
+            if (!response.ok)
+              throw new Error("视频上传失败 Video upload failed");
+            const res = await response.json();
+            const { error, data, msg } = res || {};
+            if (error !== 0 && error !== 200) {
+              throw new Error(
+                msg || "上传失败，请重试 Upload failed, please try again"
+              );
+            }
+            uploadedVideoUrl = data.file_path;
+            if (executeButton) executeButton.disabled = false;
+          } catch (error) {
+            console.error("视频上传失败 Video upload failed:", error);
+            alert(error);
+          } finally {
+            if (uploadStatus) uploadStatus.classList.add("hidden");
+          }
+        });
+      }
+
+      // 处理音频上传
+      if (voiceFileInput) {
+        voiceFileInput.addEventListener("change", async () => {
+          if (voiceFileInput.files.length === 0) return;
+
+          const file = voiceFileInput.files[0];
+          const formData = new FormData();
+          formData.append("file", file);
+
+          try {
+            const response = await fetch(API_UPLOAD_URL, {
+              method: "POST",
+              body: formData,
+            });
+            if (!response.ok) throw new Error("上传失败 Upload failed");
+            const res = await response.json();
+            const { error, data, msg } = res || {};
+            if (error !== 0 && error !== 200) {
+              throw new Error(
+                msg || "上传失败，请重试 Upload failed, please try again"
+              );
+            }
+            uploadedAudioUrl = data.file_path;
+            console.log(
+              "音频上传成功 Audio upload successful:",
+              uploadedAudioUrl
+            );
+          } catch (error) {
+            console.error("音频上传失败 Audio upload failed:", error);
+            alert(error);
+          }
+        });
+      }
+
+      // 请求启动任务接口
+      async function startTask(params) {
+        try {
+          const response = await fetch(API_SUBMIT_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(params),
+          });
+          const data = await response.json();
+          if (+data.error !== 0 && +data.error !== 200) {
+            throw new Error(data.msg || "启动任务失败");
+          }
+          return (data.data || {}).task_id || "";
+        } catch (error) {
+          alert(error);
+          console.error("启动任务失败:", error);
+          return null;
+        }
+      }
+
+      // 轮询任务进度接口
+      async function pollTaskProgress(taskId) {
+        try {
+          let progress = 0;
+          while (progress < 100) {
+            const response = await fetch(
+              `${API_PROGRESS_URL}?taskId=${taskId}`
+            );
+            const data = await response.json();
+            console.log("progress response---:", data);
+            if (+data.error !== 0 && +data.error !== 200) {
+              if (executeButton) executeButton.disabled = false;
+              throw new Error(data.msg || "查询进度失败");
+            }
+            const responseData = data.data || {};
+            progress = responseData.process_percent || 0;
+            if (progressBar) {
+              progressBar.style.width = progress + "%";
+              progressBar.textContent = progress + "%";
+            }
+            if (progress >= 100) {
+              await displayDownloadLinks(
+                responseData.subtitle_info || [],
+                responseData.speech_download_url || "",
+                responseData.task_id || "",
+                embedSubtitleVideoTypeToggle &&
+                  embedSubtitleVideoTypeToggle.checked
+                  ? embedSubtitleVideoType.value
+                  : "none"
+              );
+              if (executeButton) executeButton.disabled = false;
+              // 显示output路径说明
+              if (downloadLinks) {
+                const tips = document.createElement("div");
+                tips.textContent =
+                  "若需要查看合成的视频或者文字稿，请到软件目录下的/tasks/" +
+                  responseData.task_id +
+                  "/output 目录下查看。";
+                tips.style.marginTop = "10px";
+                tips.style.color = "#666";
+                tips.style.fontSize = "14px";
+                downloadLinks.parentNode.appendChild(tips);
+              }
+              return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+          }
+        } catch (error) {
+          alert(error);
+          if (executeButton) executeButton.disabled = false;
+          console.error("查询进度失败:", error);
+        }
+      }
+
+      // 显示下载链接
+      async function displayDownloadLinks(
+        urls,
+        speechUrl,
+        taskId,
+        embedSubtitleType
+      ) {
+        console.log("下载链接:", urls);
+        console.log("嵌入字幕类型:", embedSubtitleType);
+        console.log("任务ID:", taskId);
+        if (!downloadLinks) return;
+
+        downloadLinks.innerHTML = "";
+
+        // 显示字幕下载链接
+        urls.forEach(({ name, download_url }) => {
+          const link = document.createElement("a");
+          link.href = download_url;
+          link.textContent = name;
+          link.download = "";
+          downloadLinks.appendChild(link);
+        });
+
+        // 显示配音下载链接
+        if (speechUrl) {
+          const sArr = speechUrl.split("/");
+          const sName = sArr[sArr.length - 1];
+          const link = document.createElement("a");
+          link.href = speechUrl;
+          link.target = "_blank";
+          link.textContent = `配音：${sName}`;
+          link.download = "";
+          downloadLinks.appendChild(link);
+        }
+
+        // 检查并显示嵌入字幕视频下载链接
+        if (taskId && embedSubtitleType && embedSubtitleType !== "none") {
+          const checkAndAddVideoLink = async (
+            videoType,
+            fileName,
+            displayName
+          ) => {
+            try {
+              const response = await fetch(
+                `/api/file/tasks/${taskId}/output/${fileName}`,
+                {
+                  method: "HEAD",
+                }
+              );
+              if (response.ok) {
+                const link = document.createElement("a");
+                link.href = `/api/file/tasks/${taskId}/output/${fileName}`;
+                link.textContent = displayName;
+                link.download = "";
+                downloadLinks.appendChild(link);
+              } else {
+                // 文件不存在，添加提示信息
+                const tip = document.createElement("div");
+                tip.textContent = `${displayName}： 生成的视频文件不存在，无法生成${videoType}视频`;
+                tip.style.color = "#FF0000";
+                tip.style.fontSize = "12px";
+                tip.style.marginTop = "4px";
+                tip.style.fontStyle = "italic";
+                downloadLinks.appendChild(tip);
+              }
+            } catch (error) {
+              console.error(`检查${fileName}文件失败:`, error);
+              // 发生错误时也添加提示信息
+              const tip = document.createElement("div");
+              tip.textContent = `${displayName}：文件检查失败`;
+              tip.style.color = "#FF0000";
+              tip.style.fontSize = "12px";
+              tip.style.marginTop = "4px";
+              tip.style.fontStyle = "italic";
+              downloadLinks.appendChild(tip);
+            }
+          };
+
+          if (
+            embedSubtitleType === "horizontal" ||
+            embedSubtitleType === "all"
+          ) {
+            await checkAndAddVideoLink(
+              "横屏",
+              "horizontal_embed.mp4",
+              "横屏视频：horizontal_embed.mp4"
+            );
+          }
+
+          if (embedSubtitleType === "vertical" || embedSubtitleType === "all") {
+            await checkAndAddVideoLink(
+              "竖屏",
+              "vertical_embed.mp4",
+              "竖屏视频：vertical_embed.mp4"
+            );
+          }
+        }
+
+        downloadLinks.classList.remove("hidden");
+      }
+
+      // 给执行按钮添加点击动画和事件监听器
+      if (executeButton) {
+        addButtonClickEffect(executeButton);
+
+        executeButton.addEventListener("click", async () => {
+          console.log("开始任务按钮被点击");
+
+          // 更新状态栏
+          const statusBar = document.getElementById("status-bar");
+          if (statusBar) {
+            statusBar.textContent = "正在执行任务... - " + getSimpleTime();
+          }
+
+          // 检查双语字幕和视频合成的逻辑
+          if (
+            bilingualToggle &&
+            !bilingualToggle.checked &&
+            embedSubtitleVideoTypeToggle &&
+            embedSubtitleVideoTypeToggle.checked
+          ) {
+            alert("合成字幕嵌入视频必须打开双语选项");
+            return;
+          }
+
+          // 检查视频URL是否存在
+          const inputType = document.querySelector(
+            'input[name="inputType"]:checked'
+          );
+          if (!inputType) {
+            alert("请选择输入方式");
+            return;
+          }
+
+          let url = "";
+          if (inputType.value === "url") {
+            url = urlInput ? urlInput.value.trim() : "";
+            if (!url) {
+              alert("请输入视频链接");
+              return;
+            }
+          } else if (inputType.value === "file") {
+            if (!uploadedVideoUrl) {
+              alert("请上传视频文件");
+              return;
+            }
+            url = uploadedVideoUrl;
+          }
+
+          if (!url) {
+            alert("请输入视频链接或上传视频文件");
+            return;
+          }
+
+          const params = getParams();
+          console.log("请求参数:", params);
+
+          // 请求启动任务接口
+          if (Array.isArray(url)) {
+            for (const singleUrl of url) {
+              const taskId = await startTask({ ...params, url: singleUrl });
+              if (taskId) {
+                executeButton.disabled = true;
+                if (progressSection) progressSection.classList.remove("hidden");
+                await pollTaskProgress(taskId);
+              }
+            }
+          } else {
+            const taskId = await startTask({ ...params, url });
+            if (taskId) {
+              executeButton.disabled = true;
+              if (progressSection) progressSection.classList.remove("hidden");
+              await pollTaskProgress(taskId);
+            }
+          }
+        });
+      }
+
+      // 初始化时更新表单状态
+      updateFormState();
+
+      // 页面加载完成后执行初始化
+      document.addEventListener("DOMContentLoaded", function () {
+        console.log("页面加载完成，开始初始化配置");
+        // 如果当前在配置页面，则加载配置
+        const configPage = document.getElementById("page-config");
+        if (configPage && configPage.style.display !== "none") {
+          loadConfig();
+        }
+      });
+    </script>
+  </body>
+</html>

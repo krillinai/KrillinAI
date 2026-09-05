@@ -1,0 +1,19 @@
+{
+  "name": "opencreator-daemon-runtime-dependencies",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "dependencies": {
+    "@fastify/cors": "11.2.0",
+    "@iarna/toml": "2.2.5",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "better-sqlite3": "12.11.1",
+    "cron-parser": "5.6.1",
+    "cross-spawn": "7.0.6",
+    "fastify": "5.9.0",
+    "https-proxy-agent": "7.0.6",
+    "nanoid": "5.1.16",
+    "yaml": "2.9.0",
+    "zod": "3.25.76"
+  }
+}
