@@ -18,6 +18,7 @@ import {
   Link2,
   LoaderCircle,
   Music2,
+  PackageOpen,
   Play,
   RefreshCw,
   Settings2,
@@ -32,7 +33,7 @@ import { useOptionalCreatorSession } from './creator-session-store.js';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 
 type DownloadStep = 0 | 1;
-type DownloadResultTab = 'info' | 'formats' | 'history';
+type DownloadResultTab = 'info' | 'formats' | 'outputs';
 type DownloadHistoryItem = {
   option?: DownloadOption;
   stage?: CreatorStageRun;
@@ -91,8 +92,17 @@ export default function VideoDownloadWorkspace(props: {
   const options = useMemo(() => (
     (probe?.options ?? []).filter(option => !legacy || option.mediaType === 'video')
   ), [legacy, probe?.options]);
-  const visibleOptions = options.filter(option => option.mediaType === mediaType);
   const selectedOption = options.find(option => option.id === selectedOptionId);
+  const mediaOptions = options.filter(option => option.mediaType === mediaType);
+  const audioLanguages = availableAudioLanguages(mediaOptions);
+  const selectedAudioLanguage = selectedOption?.mediaType === mediaType
+    && selectedOption.audioLanguage !== undefined
+    && audioLanguages.includes(selectedOption.audioLanguage)
+    ? selectedOption.audioLanguage
+    : audioLanguages[0];
+  const visibleOptions = selectedAudioLanguage === undefined
+    ? mediaOptions
+    : mediaOptions.filter(option => option.audioLanguage === selectedAudioLanguage);
   const downloadArtifacts = useMemo(
     () => (session?.job.artifacts ?? [])
       .filter(artifact => (
@@ -213,7 +223,7 @@ export default function VideoDownloadWorkspace(props: {
   ]);
 
   useEffect(() => {
-    if (resultTab === 'history') return;
+    if (resultTab === 'outputs') return;
     artifactPreviewRequestRef.current += 1;
     releaseArtifactPreviewUrl();
     setArtifactPreview(undefined);
@@ -291,6 +301,18 @@ export default function VideoDownloadWorkspace(props: {
     selectOption(preferred);
   }
 
+  function selectAudioLanguage(next: string) {
+    const candidates = options.filter(option => (
+      option.mediaType === mediaType
+      && option.audioLanguage === next
+    ));
+    const preferred = candidates.find(option => sameDownloadProfile(
+      option,
+      selectedOption
+    )) ?? candidates[0];
+    if (preferred !== undefined) selectOption(preferred);
+  }
+
   function selectOption(option: DownloadOption) {
     setMediaType(option.mediaType);
     setSelectedOptionId(option.id);
@@ -338,7 +360,7 @@ export default function VideoDownloadWorkspace(props: {
             sourceUrl
           }
         });
-        setResultTab('history');
+        setResultTab('outputs');
         setNotice(l(
           '下载任务已加入队列，完成后文件会保存到当前项目',
           'Download queued. The file will be saved to this project.'
@@ -531,7 +553,7 @@ export default function VideoDownloadWorkspace(props: {
         sourceUrl
       }
     });
-    setResultTab('history');
+    setResultTab('outputs');
   }
 
   return (
@@ -715,11 +737,11 @@ export default function VideoDownloadWorkspace(props: {
                 <button
                   type="button"
                   role="tab"
-                  aria-selected={resultTab === 'history'}
-                  onClick={() => setResultTab('history')}
+                  aria-selected={resultTab === 'outputs'}
+                  onClick={() => setResultTab('outputs')}
                 >
-                  <CheckCircle2 size={15} strokeWidth={1.8} aria-hidden="true" />
-                  {l('项目文件', 'Project files')}
+                  <PackageOpen size={15} strokeWidth={1.8} aria-hidden="true" />
+                  {l('生成物', 'Outputs')}
                 </button>
               </div>
             </div>
@@ -799,6 +821,22 @@ export default function VideoDownloadWorkspace(props: {
                       </button>
                     ) : null}
                   </div>
+                  {audioLanguages.length > 1 && selectedAudioLanguage !== undefined ? (
+                    <label className="creator-tool-field video-download-language-field">
+                      <span>{l('音频语言', 'Audio language')}</span>
+                      <select
+                        aria-label={l('音频语言', 'Audio language')}
+                        value={selectedAudioLanguage}
+                        onChange={event => selectAudioLanguage(event.target.value)}
+                      >
+                        {audioLanguages.map(language => (
+                          <option key={language} value={language}>
+                            {audioLanguageLabel(language, l)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
                   {visibleOptions.length > 0 ? (
                     <div className="video-download-options">
                       {visibleOptions.map((option, index) => {
@@ -828,7 +866,7 @@ export default function VideoDownloadWorkspace(props: {
                             />
                             <span>
                               <strong>{optionLabel(option, l)}</strong>
-                              <small>{optionDetail(option)}</small>
+                              <small>{optionDetail(option, l)}</small>
                             </span>
                             {index === 0
                               ? <small>{l('推荐', 'Recommended')}</small>
@@ -876,11 +914,11 @@ export default function VideoDownloadWorkspace(props: {
                 </div>
               ) : null}
 
-              {resultTab === 'history' ? (
+              {resultTab === 'outputs' ? (
                 <div className="video-result-pane">
                   <header className="video-result-pane-heading">
                     <div>
-                      <h2>{l('项目文件', 'Project files')}</h2>
+                      <h2>{l('生成物', 'Outputs')}</h2>
                       <p>
                         {hasActiveDownloads
                           ? l('各规格会按队列依次下载，并在这里显示进度', 'Formats download in order and show progress here')
@@ -1065,7 +1103,7 @@ export default function VideoDownloadWorkspace(props: {
                   ) : (
                     <div className="video-result-empty">
                       <Download size={26} strokeWidth={1.5} aria-hidden="true" />
-                      <strong>{l('还没有项目文件', 'No project files yet')}</strong>
+                      <strong>{l('还没有生成物', 'No outputs yet')}</strong>
                       <button type="button" onClick={() => setResultTab('formats')}>
                         {l('选择下载规格', 'Choose a format')}
                       </button>
@@ -1091,7 +1129,7 @@ export default function VideoDownloadWorkspace(props: {
                       : optionLabel(selectedOption, l)
                   },
                   {
-                    label: l('项目文件', 'Project files'),
+                    label: l('生成物', 'Outputs'),
                     value: String(downloadArtifacts.length)
                   }
                 ]}
@@ -1180,6 +1218,9 @@ function readDownloadOption(value: CreatorJson): DownloadOption | undefined {
     id: value.id,
     mediaType: value.mediaType,
     container: value.container as DownloadOption['container'],
+    ...(readString(value.audioLanguage) === undefined
+      ? {}
+      : { audioLanguage: readString(value.audioLanguage) }),
     ...(readNumber(value.width) === undefined ? {} : { width: readNumber(value.width) }),
     ...(readNumber(value.height) === undefined ? {} : { height: readNumber(value.height) }),
     ...(readNumber(value.fps) === undefined ? {} : { fps: readNumber(value.fps) }),
@@ -1342,7 +1383,7 @@ function downloadStageDescription(
   option: DownloadOption | undefined,
   l: ReturnType<typeof useLocalizedCopy>
 ): string {
-  const detail = option === undefined ? undefined : optionDetail(option);
+  const detail = option === undefined ? undefined : optionDetail(option, l);
   const status = stage === undefined || stage.status === 'queued'
     ? l('等待前面的规格下载完成', 'Waiting for earlier formats')
     : stage.status === 'running'
@@ -1412,12 +1453,18 @@ function optionLabel(
   return l('原始画质', 'Source quality');
 }
 
-function optionDetail(option: DownloadOption): string {
+function optionDetail(
+  option: DownloadOption,
+  l: ReturnType<typeof useLocalizedCopy>
+): string {
   const parts = [option.container.toUpperCase()];
   if (option.width !== undefined && option.height !== undefined) {
     parts.push(`${option.width} x ${option.height}`);
   }
   if (option.fps !== undefined) parts.push(`${Math.round(option.fps)} FPS`);
+  if (option.audioLanguage !== undefined) {
+    parts.push(`${l('音频', 'Audio')}: ${audioLanguageLabel(option.audioLanguage, l)}`);
+  }
   if (option.estimatedBytes !== undefined) parts.push(formatBytes(option.estimatedBytes));
   return parts.join(' · ');
 }
@@ -1435,9 +1482,54 @@ function artifactDescription(
       readNumber(artifact.metadata.width) ?? null,
       readNumber(artifact.metadata.height) ?? null
     ),
+    readString(artifact.metadata.audioLanguage) === undefined
+      ? undefined
+      : `${l('音频', 'Audio')}: ${audioLanguageLabel(
+          readString(artifact.metadata.audioLanguage)!,
+          l
+        )}`,
     l('已保存到项目', 'Saved to project')
   ];
   return parts.filter(Boolean).join(' · ');
+}
+
+function availableAudioLanguages(options: DownloadOption[]): string[] {
+  const languages = new Map<string, string>();
+  for (const option of options) {
+    const language = option.audioLanguage?.trim();
+    if (!language) continue;
+    const key = language.toLocaleLowerCase();
+    if (!languages.has(key)) languages.set(key, language);
+  }
+  return [...languages.values()];
+}
+
+function sameDownloadProfile(
+  left: DownloadOption,
+  right: DownloadOption | undefined
+): boolean {
+  if (right === undefined || left.mediaType !== right.mediaType) return false;
+  return left.mediaType === 'video'
+    ? left.videoFormatId === right.videoFormatId
+    : left.bitrateKbps === right.bitrateKbps;
+}
+
+function audioLanguageLabel(
+  language: string,
+  l: ReturnType<typeof useLocalizedCopy>
+): string {
+  const normalized = language.trim();
+  if (!normalized || normalized.toLocaleLowerCase() === 'und') {
+    return l('未知', 'Unknown');
+  }
+  try {
+    const name = new Intl.DisplayNames([l('zh-CN', 'en-US')], {
+      type: 'language'
+    }).of(normalized);
+    return name === undefined ? normalized : `${name} (${normalized})`;
+  } catch {
+    return normalized;
+  }
 }
 
 function artifactFileName(artifact: CreatorArtifact): string {

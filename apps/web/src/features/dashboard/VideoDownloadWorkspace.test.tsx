@@ -121,7 +121,7 @@ describe('VideoDownloadWorkspace', () => {
     expect(screen.queryByText('OpenCreator 视频示例')).not.toBeInTheDocument();
     expect(screen.queryByText(/Vimeo/)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('tab', { name: '项目文件' }));
+    fireEvent.click(screen.getByRole('tab', { name: '生成物' }));
     expect(screen.getByText('Creator Download.mp4')).toBeInTheDocument();
     expect(screen.getByRole('button', {
       name: '保存到本机 Creator Download.mp4'
@@ -132,6 +132,43 @@ describe('VideoDownloadWorkspace', () => {
     expect(screen.queryByRole('button', {
       name: '发送到自动剪辑 Creator Download.mp4'
     })).not.toBeInTheDocument();
+  });
+
+  it('selects the real audio track when the video language changes', async () => {
+    const current = job({
+      state: {
+        sourceUrl: 'https://www.youtube.com/watch?v=demo',
+        mediaType: 'video',
+        selectedOptionId: 'video-1080-1-audio-en'
+      },
+      artifacts: [multilingualProbeArtifact()]
+    });
+    const applyAction = vi.fn();
+    renderWorkspace(current, { applyAction });
+
+    const language = await screen.findByRole('combobox', {
+      name: '音频语言'
+    });
+    expect(language).toHaveValue('en');
+    expect(screen.getByText(/音频: .*\(en\)/)).toBeInTheDocument();
+
+    fireEvent.change(language, { target: { value: 'es' } });
+
+    expect(language).toHaveValue('es');
+    expect(screen.getByText(/音频: .*\(es\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '下载 1080p' }));
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith(
+      current.id,
+      expect.objectContaining({
+        action: 'run-stage',
+        input: {
+          stageId: 'download',
+          optionId: 'video-1080-1-audio-es',
+          mediaType: 'video',
+          sourceUrl: 'https://www.youtube.com/watch?v=demo'
+        }
+      })
+    ));
   });
 
   it('previews video and audio project files and releases object URLs', async () => {
@@ -161,7 +198,7 @@ describe('VideoDownloadWorkspace', () => {
       openArtifact
     });
 
-    fireEvent.click(await screen.findByRole('tab', { name: '项目文件' }));
+    fireEvent.click(await screen.findByRole('tab', { name: '生成物' }));
     fireEvent.click(screen.getByRole('button', {
       name: '预览视频 Creator Download.mp4'
     }));
@@ -227,7 +264,7 @@ describe('VideoDownloadWorkspace', () => {
       openArtifact
     });
 
-    fireEvent.click(await screen.findByRole('tab', { name: '项目文件' }));
+    fireEvent.click(await screen.findByRole('tab', { name: '生成物' }));
     fireEvent.click(screen.getByRole('button', {
       name: '预览视频 Creator Download.mp4'
     }));
@@ -346,7 +383,7 @@ describe('VideoDownloadWorkspace', () => {
     });
     renderWorkspace(current, { applyAction: vi.fn() });
 
-    fireEvent.click(await screen.findByRole('tab', { name: '项目文件' }));
+    fireEvent.click(await screen.findByRole('tab', { name: '生成物' }));
 
     expect(screen.getByText('准备中')).toBeInTheDocument();
     expect(screen.queryByText('2%')).not.toBeInTheDocument();
@@ -647,6 +684,39 @@ function probeArtifact(): CreatorArtifact {
       }]
     },
     createdAt: '2026-08-30T00:00:01.000Z'
+  };
+}
+
+function multilingualProbeArtifact(): CreatorArtifact {
+  const base = probeArtifact();
+  return {
+    ...base,
+    metadata: {
+      ...base.metadata,
+      options: [{
+        id: 'video-1080-1-audio-en',
+        mediaType: 'video',
+        container: 'mp4',
+        audioLanguage: 'en',
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        estimatedBytes: 88_080_384,
+        videoFormatId: '399',
+        audioFormatId: 'audio-en'
+      }, {
+        id: 'video-1080-1-audio-es',
+        mediaType: 'video',
+        container: 'mp4',
+        audioLanguage: 'es',
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        estimatedBytes: 88_080_384,
+        videoFormatId: '399',
+        audioFormatId: 'audio-es'
+      }]
+    }
   };
 }
 

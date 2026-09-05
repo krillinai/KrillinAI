@@ -3382,6 +3382,11 @@
   border-radius: 8px;
 }
 
+.video-download-language-field {
+  width: min(100%, 280px);
+  margin: -4px 0 16px;
+}
+
 .video-download-options > label {
   min-height: 56px;
   display: grid;

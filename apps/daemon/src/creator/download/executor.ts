@@ -498,6 +498,9 @@ async function outputMetadata(
     optionId: option.id,
     mediaType: option.mediaType,
     container: option.container,
+    ...(option.audioLanguage === undefined
+      ? {}
+      : { audioLanguage: option.audioLanguage }),
     ...(playback.videoCodec === null ? {} : { videoCodec: playback.videoCodec }),
     ...(playback.audioCodec === null ? {} : { audioCodec: playback.audioCodec }),
     ...(playback.pixelFormat === null ? {} : { pixelFormat: playback.pixelFormat }),
