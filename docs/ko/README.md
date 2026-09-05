@@ -492,7 +492,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 OpenCreator의 이전 이름은 KrillinAI였습니다. 이 차트는 이름 변경 전후를 포함한 리포지토리의 전체 기록을 보여 줍니다.
 
-[![OpenCreator Star History](https://star-history.dera.page/svg?repos=krillinai/OpenCreator&type=Date)](https://star-history.dera.page/#krillinai/OpenCreator&Date)
+[![OpenCreator Star History](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
 
 ## 관련 프로젝트
 

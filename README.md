@@ -493,7 +493,7 @@ Thanks to everyone who has taken part through code, documentation, feedback, iss
 
 OpenCreator was formerly named KrillinAI. This chart covers the repository's full history across the rename.
 
-[![OpenCreator Star History](https://star-history.dera.page/svg?repos=krillinai/OpenCreator&type=Date)](https://star-history.dera.page/#krillinai/OpenCreator&Date)
+[![OpenCreator Star History](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
 
 ## Related Projects
 

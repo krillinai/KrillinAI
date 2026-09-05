@@ -493,7 +493,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 OpenCreator 原名 KrillinAI。下图展示仓库在更名前后的完整 Star 历史。
 
-[![OpenCreator Star 趋势](https://star-history.dera.page/svg?repos=krillinai/OpenCreator&type=Date)](https://star-history.dera.page/#krillinai/OpenCreator&Date)
+[![OpenCreator Star 趋势](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
 
 ## 相关项目
 

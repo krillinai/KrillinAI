@@ -492,7 +492,7 @@ Merci à toutes les personnes qui ont contribué par le code, la documentation, 
 
 OpenCreator s'appelait auparavant KrillinAI. Ce graphique couvre l'historique complet du dépôt avant et après le changement de nom.
 
-[![Historique des Stars d'OpenCreator](https://star-history.dera.page/svg?repos=krillinai/OpenCreator&type=Date)](https://star-history.dera.page/#krillinai/OpenCreator&Date)
+[![Historique des Stars d'OpenCreator](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
 
 ## Projets associés
 
