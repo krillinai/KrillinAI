@@ -1,13 +1,19 @@
-# KrillinAI Desktop 发布手册
+# OpenCreator 发布手册
 
 ## 1. 适用范围
 
-本文用于发布 OpenCreator Desktop 的 macOS x64、macOS arm64 和 Windows x64 安装包，暂不发布 Linux。Desktop 安装包包含固定版本的 Codex CLI、KrillinAI CLI、ffmpeg、ffprobe 和 yt-dlp；Whisper CLI 与模型不进入安装包，由 KrillinAI 在功能实际需要时下载到用户数据目录。
+本文用于发布 OpenCreator Desktop 的 macOS x64、macOS arm64 和 Windows x64 安装包，以及 KrillinAI Server 和 CLI 的 macOS、Windows、Linux 独立程序包。Desktop 安装包包含固定版本的 Codex CLI、KrillinAI CLI、ffmpeg、ffprobe 和 yt-dlp；Whisper CLI 与模型不进入安装包，由 KrillinAI 在功能实际需要时下载到用户数据目录。
 
 发布入口：
 
 ```bash
 pnpm desktop:release
+```
+
+单独生成当前目标平台的 KrillinAI Server 和 CLI 发布包：
+
+```bash
+pnpm krillinai:package
 ```
 
 本地仅生成可运行目录、构建清单并执行正式包校验：
@@ -44,7 +50,7 @@ pnpm desktop:package
 示例：
 
 ```bash
-git tag -a v3.0.0 -m "KrillinAI v3.0.0"
+git tag -a v3.0.0 -m "OpenCreator v3.0.0"
 git push origin v3.0.0
 ```
 
@@ -100,23 +106,25 @@ CI secrets：
 ```text
 provider: github
 owner: krillinai
-repo: KrillinAI
+repo: OpenCreator
 ```
 
 生产运行时不依赖 `OPENCREATOR_UPDATE_URL`。测试通过注入 fake updater 隔离，不允许把开发覆盖写入正式包。
 
-GitHub Release 仅发布 11 个附件，另外 2 个源码归档由 GitHub 自动生成：
+GitHub Release 发布 21 个附件，另外 2 个源码归档由 GitHub 自动生成：
 
-1. macOS arm64：`KrillinAI-<version>-mac-arm64.dmg`、对应 ZIP、ZIP blockmap 和 `latest-mac.yml`。
-2. macOS x64：`KrillinAI-<version>-mac-x64.dmg`、对应 ZIP、ZIP blockmap 和 `latest-x64-mac.yml`。
-3. Windows x64：`KrillinAI-<version>-win-x64.exe` 和 `latest.yml`。
-4. 一份 `SHA256SUMS.txt`，覆盖以上 10 个文件。
+1. macOS arm64：`OpenCreator-<version>-mac-arm64.dmg`、对应 ZIP、ZIP blockmap 和 `latest-mac.yml`。
+2. macOS x64：`OpenCreator-<version>-mac-x64.dmg`、对应 ZIP、ZIP blockmap 和 `latest-x64-mac.yml`。
+3. Windows x64：`OpenCreator-<version>-win-x64.exe` 和 `latest.yml`。
+4. KrillinAI Server：macOS arm64、macOS x64、Windows x64、Linux x64 和 Linux arm64 共 5 个独立程序包。
+5. KrillinAI CLI：macOS arm64、macOS x64、Windows x64、Linux x64 和 Linux arm64 共 5 个独立程序包。
+6. 一份 `SHA256SUMS.txt`，覆盖以上 20 个文件。
 
 安装包、更新文件的文件名、版本和 SHA512 保持 Electron Builder 原始输出，不在构建后重命名。macOS 更新使用 ZIP，其 DMG blockmap 不进入发布附件；Windows 当前关闭差分包，不生成独立 blockmap。
 
 打包脚本按本次构建清单检查文件哈希，仅将白名单附件整理到 `apps/desktop/release/publish/<platform>-<arch>/`，该目录还包含本平台校验清单。发布任务合并平台附件后重新生成总校验清单；任何缺失或额外附件都会阻止发布。
 
-Desktop 构建清单、builder 调试配置和 E2E 报告仅保留在 `desktop-build-diagnostics-*` CI Artifact，保存 14 天。独立 CLI/Server 继续在 `.runtime/build/krillinai/` 构建，不复制到桌面发布目录。Windows 未签名说明放在 Release 正文，不再生成独立 TXT 附件。
+Desktop 构建清单、builder 调试配置和 E2E 报告仅保留在 `desktop-build-diagnostics-*` CI Artifact，保存 14 天。KrillinAI Server 和 CLI 分别封装为独立发布包，不合并为工具集；Windows 未签名说明放在 Release 正文，不再生成独立 TXT 附件。
 
 客户端行为：
 

@@ -19,12 +19,14 @@ const scriptPath = fileURLToPath(import.meta.url);
 const rootDir = resolve(dirname(scriptPath), '..');
 const sourceRoot = join(rootDir, 'runtime', 'krillinai');
 const targetPlatform = normalizePlatform(
-  process.env.OPENCREATOR_DESKTOP_TARGET_PLATFORM
+  process.env.OPENCREATOR_KRILLINAI_TARGET_PLATFORM
+    ?? process.env.OPENCREATOR_DESKTOP_TARGET_PLATFORM
     ?? process.env.OPENCREATOR_CREATOR_RUNTIME_PLATFORM
     ?? process.platform
 );
 const targetArch = normalizeArch(
-  process.env.OPENCREATOR_DESKTOP_TARGET_ARCH
+  process.env.OPENCREATOR_KRILLINAI_TARGET_ARCH
+    ?? process.env.OPENCREATOR_DESKTOP_TARGET_ARCH
     ?? process.env.OPENCREATOR_CREATOR_RUNTIME_ARCH
     ?? process.arch
 );

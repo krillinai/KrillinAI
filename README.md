@@ -265,6 +265,7 @@ pnpm desktop:dev
 | `pnpm desktop:dist` | An installer for the current platform |
 | `pnpm desktop:release` | The formal release packaging entry point |
 | `pnpm --filter @opencreator/desktop verify:package` | Verification for an existing Desktop package |
+| `pnpm krillinai:package` | Separate KrillinAI Server and CLI archives for the selected platform |
 
 Desktop packaging rebuilds Web from the current workspace, records the commit, dirty state, platform, architecture, and Web hash, and compares `apps/web/dist` with the resources embedded in the application. Packaging fails if they differ. See the [Desktop release runbook](./docs/operations/opencreator-desktop-release-runbook.md) for signing, notarization, Windows builds, and release requirements.
 
@@ -485,15 +486,15 @@ The root `README.md` is the canonical English document. Maintained translations 
 
 Thanks to everyone who has taken part through code, documentation, feedback, issue reports, Skills, designs, and ideas.
 
-<a href="https://github.com/krillinai/KrillinAI/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=krillinai/KrillinAI&amp;max=500&amp;columns=20" alt="OpenCreator contributors" />
+<a href="https://github.com/krillinai/OpenCreator/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=krillinai/OpenCreator&amp;max=500&amp;columns=20" alt="OpenCreator contributors" />
 </a>
 
 ## Star History
 
 OpenCreator was formerly named KrillinAI. This chart covers the repository's full history across the rename.
 
-[![OpenCreator Star History](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
+[![OpenCreator Star History](https://api.star-history.com/svg?repos=krillinai/OpenCreator&type=Date)](https://star-history.com/#krillinai/OpenCreator&Date)
 
 ## Related Projects
 

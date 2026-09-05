@@ -1,4 +1,4 @@
-name: Desktop Release
+name: OpenCreator Release
 
 on:
   workflow_dispatch:
@@ -163,11 +163,22 @@ jobs:
           OPENCREATOR_DESKTOP_TARGET_ARCH: ${{ matrix.arch }}
       - name: 验证实际打包应用
         run: pnpm --filter @opencreator/desktop e2e:package
+      - name: 生成 KrillinAI Server 与 CLI 独立发布包
+        run: pnpm krillinai:package
+        env:
+          OPENCREATOR_KRILLINAI_TARGET_PLATFORM: ${{ matrix.platform }}
+          OPENCREATOR_KRILLINAI_TARGET_ARCH: ${{ matrix.arch }}
       - name: 上传用户发布附件
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: ${{ env.OPENCREATOR_DESKTOP_RELEASE_ASSETS }}/*
+          if-no-files-found: error
+      - name: 上传 KrillinAI Server 与 CLI 发布附件
+        uses: actions/upload-artifact@v4
+        with:
+          name: krillinai-release-${{ matrix.name }}
+          path: ${{ env.OPENCREATOR_KRILLINAI_RELEASE_ASSETS }}/*
           if-no-files-found: error
       - name: 保留内部构建诊断
         if: always()
@@ -182,9 +193,40 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  krillinai-linux-package:
+    if: startsWith(github.ref, 'refs/tags/') || inputs.target == 'all'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runtime/krillinai/go.mod
+          cache-dependency-path: runtime/krillinai/go.sum
+      - name: 生成 Linux KrillinAI Server 与 CLI 发布包
+        shell: bash
+        run: |
+          for arch in x64 arm64; do
+            OPENCREATOR_KRILLINAI_TARGET_PLATFORM=linux \
+            OPENCREATOR_KRILLINAI_TARGET_ARCH="$arch" \
+              node scripts/package-krillinai-release.mjs
+          done
+      - name: 上传 Linux KrillinAI Server 与 CLI 发布附件
+        uses: actions/upload-artifact@v4
+        with:
+          name: krillinai-release-linux
+          path: .runtime/release/krillinai/*
+          if-no-files-found: error
+
   publish:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: package
+    needs:
+      - package
+      - krillinai-linux-package
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -195,6 +237,11 @@ jobs:
         with:
           path: artifacts
           pattern: opencreator-desktop-*
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: krillinai-release-*
           merge-multiple: true
       - name: 校验发布附件并生成下载说明
         env:
@@ -207,6 +254,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --draft --title "KrillinAI $TAG" --notes-file release-notes.md
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --draft --title "OpenCreator $TAG" --notes-file release-notes.md
           find artifacts -maxdepth 1 -type f -print0 | xargs -0 gh release upload "$TAG" --clobber
-          gh release edit "$TAG" --draft=false --latest --title "KrillinAI $TAG" --notes-file release-notes.md
+          gh release edit "$TAG" --draft=false --latest --title "OpenCreator $TAG" --notes-file release-notes.md

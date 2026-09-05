@@ -9,20 +9,43 @@ const releasePlatforms = [
   { platform: 'win32', arch: 'x64', label: 'Windows x64' }
 ];
 
+const krillinReleasePlatforms = [
+  ...releasePlatforms,
+  { platform: 'linux', arch: 'x64', label: 'Linux x64' },
+  { platform: 'linux', arch: 'arm64', label: 'Linux ARM64' }
+];
+
 export function releaseAssetNames(version, platform, arch) {
-  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
-    throw new Error(`Invalid release version: ${version}`);
-  }
+  assertVersion(version);
   if (!releasePlatforms.some(target => target.platform === platform && target.arch === arch)) {
     throw new Error(`Unsupported release platform: ${platform}-${arch}`);
   }
-  const prefix = `KrillinAI-${version}-${platform === 'darwin' ? 'mac' : 'win'}-${arch}`;
+  const prefix = `OpenCreator-${version}-${platform === 'darwin' ? 'mac' : 'win'}-${arch}`;
   if (platform === 'win32') return [`${prefix}.exe`, 'latest.yml'];
   return [
     `${prefix}.dmg`,
     `${prefix}.zip`,
     `${prefix}.zip.blockmap`,
     arch === 'x64' ? 'latest-x64-mac.yml' : 'latest-mac.yml'
+  ];
+}
+
+export function krillinReleaseAssetNames(version, platform, arch) {
+  assertVersion(version);
+  if (!krillinReleasePlatforms.some(target => (
+    target.platform === platform && target.arch === arch
+  ))) {
+    throw new Error(`Unsupported KrillinAI release platform: ${platform}-${arch}`);
+  }
+  const os = platform === 'darwin'
+    ? 'mac'
+    : platform === 'win32'
+      ? 'win'
+      : 'linux';
+  const extension = platform === 'win32' ? 'zip' : 'tar.gz';
+  return [
+    `KrillinAI-Server-${version}-${os}-${arch}.${extension}`,
+    `KrillinAI-CLI-${version}-${os}-${arch}.${extension}`
   ];
 }
 
@@ -61,7 +84,13 @@ function writeChecksums(directory, names) {
 }
 
 export function finalizeReleaseAssets({ directory, version, repository }) {
-  const expected = releasePlatforms.flatMap(({ platform, arch }) => releaseAssetNames(version, platform, arch));
+  const desktopAssets = releasePlatforms.flatMap(
+    ({ platform, arch }) => releaseAssetNames(version, platform, arch)
+  );
+  const krillinAssets = krillinReleasePlatforms.flatMap(
+    ({ platform, arch }) => krillinReleaseAssetNames(version, platform, arch)
+  );
+  const expected = [...desktopAssets, ...krillinAssets];
   const actual = readdirSync(directory, { withFileTypes: true });
   for (const entry of actual) {
     if (!entry.isFile() || (!expected.includes(entry.name) && entry.name !== 'SHA256SUMS.txt')) {
@@ -73,18 +102,36 @@ export function finalizeReleaseAssets({ directory, version, repository }) {
   }
   writeChecksums(directory, expected);
   const downloadRoot = `https://github.com/${repository}/releases/download/v${version}`;
-  const rows = releasePlatforms.map(({ platform, arch, label }) => {
+  const desktopRows = releasePlatforms.map(({ platform, arch, label }) => {
     const installer = releaseAssetNames(version, platform, arch)[0];
     return `| ${label} | [${installer}](${downloadRoot}/${installer}) |`;
   });
+  const krillinRows = (assetIndex) => krillinReleasePlatforms.map(
+    ({ platform, arch, label }) => {
+      const asset = krillinReleaseAssetNames(version, platform, arch)[assetIndex];
+      return `| ${label} | [${asset}](${downloadRoot}/${asset}) |`;
+    }
+  );
   return [
-    `# KrillinAI v${version}`,
+    `# OpenCreator v${version}`,
     '',
-    '## 下载',
+    '## OpenCreator 桌面端',
     '',
     '| 平台 | 安装包 |',
     '| --- | --- |',
-    ...rows,
+    ...desktopRows,
+    '',
+    '## KrillinAI Server',
+    '',
+    '| 平台 | 服务端程序 |',
+    '| --- | --- |',
+    ...krillinRows(0),
+    '',
+    '## KrillinAI CLI',
+    '',
+    '| 平台 | CLI 程序 |',
+    '| --- | --- |',
+    ...krillinRows(1),
     '',
     `[SHA-256 校验清单](${downloadRoot}/SHA256SUMS.txt)`,
     '',
@@ -94,11 +141,17 @@ export function finalizeReleaseAssets({ directory, version, repository }) {
     '<summary>自动更新附件</summary>',
     '',
     'ZIP、ZIP blockmap 和 latest YAML 供客户端自动更新使用，手动安装只需下载上表对应的安装包。',
-    '构建清单、调试配置和独立 CLI/Server 程序不作为桌面版下载附件发布。',
+    '构建清单和调试配置不作为公开下载附件发布。',
     '',
     '</details>',
     ''
   ].join('\n');
+}
+
+function assertVersion(version) {
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
+    throw new Error(`Invalid release version: ${version}`);
+  }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

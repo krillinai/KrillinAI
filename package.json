@@ -23,6 +23,7 @@
     "desktop:release": "pnpm --filter @opencreator/desktop release",
     "desktop:test": "pnpm --filter @opencreator/desktop test",
     "krillinai:build": "node scripts/build-krillinai.mjs",
+    "krillinai:package": "node scripts/package-krillinai-release.mjs",
     "krillinai:test": "node scripts/build-krillinai.mjs --test-only"
   },
   "devDependencies": {

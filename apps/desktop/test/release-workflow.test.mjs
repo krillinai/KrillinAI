@@ -12,6 +12,12 @@ const ciWorkflow = readFileSync(
 );
 
 describe('Desktop release workflow', () => {
+  it('uses OpenCreator as the release name', () => {
+    expect(releaseWorkflow).toContain('name: OpenCreator Release');
+    expect(releaseWorkflow).toContain('--title "OpenCreator $TAG"');
+    expect(releaseWorkflow).not.toContain('--title "KrillinAI $TAG"');
+  });
+
   it('runs CI on demand and for pull requests without automatic push builds', () => {
     expect(ciWorkflow).toContain('workflow_dispatch:');
     expect(ciWorkflow).toContain('pull_request:');
@@ -91,11 +97,29 @@ describe('Desktop release workflow', () => {
     expect(releaseWorkflow).toContain('merge-multiple: true');
     expect(releaseWorkflow).toContain('name: desktop-build-diagnostics-${{ matrix.name }}');
     expect(releaseWorkflow).toContain('path: ${{ env.OPENCREATOR_DESKTOP_RELEASE_ASSETS }}/*');
+    expect(releaseWorkflow).toContain('pattern: krillinai-release-*');
+    expect(releaseWorkflow).toContain('path: ${{ env.OPENCREATOR_KRILLINAI_RELEASE_ASSETS }}/*');
     expect(releaseWorkflow).toContain('release-assets.mjs artifacts');
     expect(releaseWorkflow).not.toContain('apps/desktop/release/*.exe');
     expect(releaseWorkflow).not.toContain('apps/desktop/release/krillinai-*');
     expect(releaseWorkflow).toContain('--verify-tag --draft');
     expect(releaseWorkflow).toContain('--draft=false --latest');
+  });
+
+  it('publishes separate KrillinAI Server and CLI packages for desktop and Linux targets', () => {
+    expect(releaseWorkflow).toContain('run: pnpm krillinai:package');
+    expect(releaseWorkflow).toContain(
+      'OPENCREATOR_KRILLINAI_TARGET_PLATFORM: ${{ matrix.platform }}'
+    );
+    expect(releaseWorkflow).toContain(
+      'OPENCREATOR_KRILLINAI_TARGET_ARCH: ${{ matrix.arch }}'
+    );
+    expect(releaseWorkflow).toContain('krillinai-linux-package:');
+    expect(releaseWorkflow).toContain('for arch in x64 arm64; do');
+    expect(releaseWorkflow).toContain(
+      'node scripts/package-krillinai-release.mjs'
+    );
+    expect(releaseWorkflow).toContain('name: krillinai-release-linux');
   });
 
   it('invalidates the Desktop cache when Creator Runtime releases change', () => {
