@@ -37,6 +37,7 @@ jobs:
       - run: pnpm build
       - run: pnpm smoke:ci
       - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm e2e apps/web/e2e/web-desktop-parity.spec.ts --project=chromium-desktop
       - run: pnpm perf:measure
       - run: pnpm perf:check
         env:

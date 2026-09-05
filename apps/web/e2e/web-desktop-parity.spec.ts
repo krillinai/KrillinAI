@@ -398,7 +398,7 @@ test('封面生成在桌面和移动视口保持可操作并从项目中心恢�
 
   const workspace = page.getByRole('region', { name: '封面生成 操作区' });
   const prompt = '人物主体清晰，明亮工作室，高对比构图，不生成文字';
-  await workspace.getByRole('textbox', { name: '封面提示词' }).fill(prompt);
+  await workspace.getByRole('textbox', { name: '内容与补充要求' }).fill(prompt);
   await expect(page).toHaveURL(/#\/workbench\?tool=cover-generator&jobId=creator_job_/);
   await workspace.getByRole('button', { name: '继续', exact: true }).click();
   await workspace.getByRole('radio', { name: '9:16', exact: true }).click();
