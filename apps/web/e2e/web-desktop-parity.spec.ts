@@ -1,3 +1,4 @@
+import type { CreatorYtDlpStatusResponse } from '@opencreator/protocol';
 import { test, expect } from './fixtures/runtime.js';
 
 test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runtime 配置', async ({
@@ -232,6 +233,22 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
         `${request.method()} ${url.pathname.replace('/.opencreator/runtime', '')}`
       );
     });
+    await page.route('**/.opencreator/runtime/creator/yt-dlp/status', route => route.fulfill({
+      json: {
+        ytDlp: {
+          channel: 'nightly',
+          source: 'bundled',
+          currentVersion: '2026.08.29.232711',
+          bundledVersion: '2026.08.29.232711',
+          latestVersion: null,
+          updateAvailable: false,
+          checkDue: false,
+          lastCheckedAt: null,
+          lastCheckAttemptAt: null,
+          installedAt: null
+        }
+      } satisfies CreatorYtDlpStatusResponse
+    }));
 
     try {
       await runtime.openApp(page);
@@ -280,6 +297,16 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
 });
 
 test('工作台模板新建 Creator Job，刷新和最近项目精确恢复历史且不启动普通 Codex Run', async ({ page, runtime }) => {
+  await page.route(
+    /^https:\/\/i\.ytimg\.com\/vi\/OpenCreator(?:Demo|Second)\/maxresdefault\.jpg$/,
+    route => route.fulfill({
+      contentType: 'image/png',
+      body: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1sAAAAASUVORK5CYII=',
+        'base64'
+      )
+    })
+  );
   await runtime.openApp(page);
   await page.goto(`${runtime.origin}/#/workbench`);
   await expect(page.getByRole('heading', { name: '工作台' })).toBeVisible();
