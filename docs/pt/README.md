@@ -170,30 +170,21 @@ O projeto gerou o arquivo de legendas abaixo a partir de um vídeo local de 46 m
 
 #### Tradução de legendas
 
-<a href="../videos/examples/video-translation-subtitles.mp4?raw=1">
-  <img src="../images/examples/video-translation-subtitles.jpg" alt="Demonstração de tradução de legendas do OpenCreator" width="100%" />
-</a>
-<p align="center"><a href="../videos/examples/video-translation-subtitles.mp4?raw=1">Ver demonstração</a></p>
+https://github.com/user-attachments/assets/bba1ac0a-fe6b-4947-b58d-ba99306d0339
 
 </td>
 <td width="33%">
 
 #### Dublagem
 
-<a href="../videos/examples/video-translation-dubbing.mp4?raw=1">
-  <img src="../images/examples/video-translation-dubbing.jpg" alt="Demonstração de dublagem do OpenCreator" width="100%" />
-</a>
-<p align="center"><a href="../videos/examples/video-translation-dubbing.mp4?raw=1">Ver demonstração</a></p>
+https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 
 </td>
 <td width="33%">
 
 #### Modo vertical
 
-<a href="../videos/examples/video-translation-portrait.mp4?raw=1">
-  <img src="../images/examples/video-translation-portrait.jpg" alt="Demonstração do modo vertical do OpenCreator" width="100%" />
-</a>
-<p align="center"><a href="../videos/examples/video-translation-portrait.mp4?raw=1">Ver demonstração</a></p>
+https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 </td>
 </tr>

@@ -170,30 +170,21 @@ Dashboard から、動画翻訳、公開動画のダウンロード、サムネ�
 
 #### 字幕翻訳
 
-<a href="../videos/examples/video-translation-subtitles.mp4?raw=1">
-  <img src="../images/examples/video-translation-subtitles.jpg" alt="OpenCreator 字幕翻訳デモ" width="100%" />
-</a>
-<p align="center"><a href="../videos/examples/video-translation-subtitles.mp4?raw=1">デモを見る</a></p>
+https://github.com/user-attachments/assets/bba1ac0a-fe6b-4947-b58d-ba99306d0339
 
 </td>
 <td width="33%">
 
 #### 吹き替え
 
-<a href="../videos/examples/video-translation-dubbing.mp4?raw=1">
-  <img src="../images/examples/video-translation-dubbing.jpg" alt="OpenCreator 吹き替えデモ" width="100%" />
-</a>
-<p align="center"><a href="../videos/examples/video-translation-dubbing.mp4?raw=1">デモを見る</a></p>
+https://github.com/user-attachments/assets/0b32fad3-c3ad-4b6a-abf0-0865f0dd2385
 
 </td>
 <td width="33%">
 
 #### 縦向きモード
 
-<a href="../videos/examples/video-translation-portrait.mp4?raw=1">
-  <img src="../images/examples/video-translation-portrait.jpg" alt="OpenCreator 縦向きモードデモ" width="100%" />
-</a>
-<p align="center"><a href="../videos/examples/video-translation-portrait.mp4?raw=1">デモを見る</a></p>
+https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 </td>
 </tr>
