@@ -192,6 +192,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > Estes exemplos de vídeo e a imagem de alinhamento de legendas foram produzidos quando o OpenCreator ainda usava o nome KrillinAI.
 
+### Download de vídeos
+
+Analise um link de vídeo público, compare os formatos disponíveis e baixe o vídeo ou o áudio diretamente para o projeto.
+
+![Seleção de formatos do downloader de vídeos do OpenCreator](../images/examples/video-downloader-formats-en.png)
+
 ### Animação de bonecos palito (em breve)
 
 > Em breve. Ainda não está integrada à versão atual.

@@ -192,6 +192,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > Contoh video dan gambar penyelarasan subtitel ini dibuat saat OpenCreator masih menggunakan nama KrillinAI.
 
+### Pengunduh Video
+
+Analisis tautan video publik, bandingkan format yang tersedia, lalu unduh video atau audio langsung ke proyek.
+
+![Pemilihan format Pengunduh Video OpenCreator](../images/examples/video-downloader-formats-en.png)
+
 ### Animasi Figur Stik (Segera Hadir)
 
 > Segera hadir. Belum terintegrasi dalam rilis saat ini.

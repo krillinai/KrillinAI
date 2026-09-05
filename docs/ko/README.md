@@ -192,6 +192,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > 이 동영상 사례와 자막 정렬 이미지는 OpenCreator가 KrillinAI라는 이름을 사용하던 시기에 제작되었습니다.
 
+### 비디오 다운로드
+
+공개 동영상 링크를 분석하고 사용 가능한 형식을 비교한 뒤 비디오 또는 오디오를 프로젝트로 직접 다운로드합니다.
+
+![OpenCreator 비디오 다운로더 형식 선택](../images/examples/video-downloader-formats-en.png)
+
 ### 스틱 피겨 애니메이션(출시 예정)
 
 > 출시 예정입니다. 현재 릴리스에는 아직 통합되지 않았습니다.

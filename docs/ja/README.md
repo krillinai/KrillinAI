@@ -192,6 +192,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > これらの動画例と字幕位置合わせ画像は、OpenCreator が KrillinAI という名称を使用していた時期に制作されました。
 
+### 動画ダウンロード
+
+公開動画のリンクを解析し、利用可能な形式を比較して、動画または音声をプロジェクトへ直接ダウンロードできます。
+
+![OpenCreator 動画ダウンロードの形式選択](../images/examples/video-downloader-formats-en.png)
+
 ### スティックフィギュアアニメーション（近日公開）
 
 > 近日公開予定です。現行バージョンにはまだ搭載されていません。

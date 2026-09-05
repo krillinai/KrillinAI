@@ -192,6 +192,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > Diese Videobeispiele und das Bild zur Untertitelausrichtung entstanden, als OpenCreator noch den Namen KrillinAI verwendete.
 
+### Video-Download
+
+Analysiere einen öffentlichen Videolink, vergleiche die verfügbaren Formate und lade Video oder Audio direkt in das Projekt herunter.
+
+![Formatauswahl im OpenCreator Video-Downloader](../images/examples/video-downloader-formats-en.png)
+
 ### Strichmännchen-Animation (demnächst)
 
 > Demnächst verfügbar. In der aktuellen Version noch nicht integriert.

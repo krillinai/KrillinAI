@@ -192,6 +192,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > 这些视频与字幕对齐图片制作于 OpenCreator 仍使用 KrillinAI 名称的阶段。
 
+### 视频下载
+
+解析公开视频链接，比较可用格式，并将视频或音频直接下载到项目中。
+
+![OpenCreator 视频下载格式选择](../images/examples/video-downloader-formats-en.png)
+
 ### 火柴人动画（敬请期待）
 
 > 敬请期待，当前版本尚未接入。

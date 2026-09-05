@@ -192,6 +192,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > These video examples and the subtitle alignment image were produced while OpenCreator still used the KrillinAI name.
 
+### Video Downloader
+
+Analyze a public video link, compare the available formats, and download video or audio directly to the project.
+
+![OpenCreator Video Downloader format selection](./docs/images/examples/video-downloader-formats-en.png)
+
 ### Stick Figure Animation (Coming Soon)
 
 > Coming soon. Not yet integrated in the current release.

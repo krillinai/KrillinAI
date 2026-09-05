@@ -192,6 +192,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > Estos ejemplos de vídeo y la imagen de alineación de subtítulos se produjeron cuando OpenCreator todavía utilizaba el nombre KrillinAI.
 
+### Descarga de vídeos
+
+Analiza un enlace de vídeo público, compara los formatos disponibles y descarga el vídeo o el audio directamente en el proyecto.
+
+![Selección de formatos del descargador de vídeos de OpenCreator](../images/examples/video-downloader-formats-en.png)
+
 ### Animación de figuras de palitos (próximamente)
 
 > Próximamente. Todavía no está integrada en la versión actual.
