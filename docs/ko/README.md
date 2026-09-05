@@ -170,27 +170,30 @@ Agent에게 변경할 내용을 알려 주고 자연어로 결과를 계속 다�
 
 #### 자막 번역
 
-<video controls width="100%" height="200" src="../videos/examples/video-translation-subtitles.mp4?raw=1">
-  <a href="../videos/examples/video-translation-subtitles.mp4">데모 보기</a>
-</video>
+<a href="../videos/examples/video-translation-subtitles.mp4?raw=1">
+  <img src="../images/examples/video-translation-subtitles.jpg" alt="OpenCreator 자막 번역 데모" width="100%" />
+</a>
+<p align="center"><a href="../videos/examples/video-translation-subtitles.mp4?raw=1">데모 보기</a></p>
 
 </td>
 <td width="33%">
 
 #### 더빙
 
-<video controls width="100%" height="200" src="../videos/examples/video-translation-dubbing.mp4?raw=1">
-  <a href="../videos/examples/video-translation-dubbing.mp4">데모 보기</a>
-</video>
+<a href="../videos/examples/video-translation-dubbing.mp4?raw=1">
+  <img src="../images/examples/video-translation-dubbing.jpg" alt="OpenCreator 더빙 데모" width="100%" />
+</a>
+<p align="center"><a href="../videos/examples/video-translation-dubbing.mp4?raw=1">데모 보기</a></p>
 
 </td>
 <td width="33%">
 
 #### 세로 모드
 
-<video controls width="100%" height="200" src="../videos/examples/video-translation-portrait.mp4?raw=1">
-  <a href="../videos/examples/video-translation-portrait.mp4">데모 보기</a>
-</video>
+<a href="../videos/examples/video-translation-portrait.mp4?raw=1">
+  <img src="../images/examples/video-translation-portrait.jpg" alt="OpenCreator 세로 모드 데모" width="100%" />
+</a>
+<p align="center"><a href="../videos/examples/video-translation-portrait.mp4?raw=1">데모 보기</a></p>
 
 </td>
 </tr>

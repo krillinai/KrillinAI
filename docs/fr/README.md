@@ -170,27 +170,30 @@ Le projet a généré le fichier de sous-titres ci-dessous à partir d'une vidé
 
 #### Traduction des sous-titres
 
-<video controls width="100%" height="200" src="../videos/examples/video-translation-subtitles.mp4?raw=1">
-  <a href="../videos/examples/video-translation-subtitles.mp4">Voir la démonstration</a>
-</video>
+<a href="../videos/examples/video-translation-subtitles.mp4?raw=1">
+  <img src="../images/examples/video-translation-subtitles.jpg" alt="Démonstration de traduction des sous-titres OpenCreator" width="100%" />
+</a>
+<p align="center"><a href="../videos/examples/video-translation-subtitles.mp4?raw=1">Voir la démonstration</a></p>
 
 </td>
 <td width="33%">
 
 #### Doublage
 
-<video controls width="100%" height="200" src="../videos/examples/video-translation-dubbing.mp4?raw=1">
-  <a href="../videos/examples/video-translation-dubbing.mp4">Voir la démonstration</a>
-</video>
+<a href="../videos/examples/video-translation-dubbing.mp4?raw=1">
+  <img src="../images/examples/video-translation-dubbing.jpg" alt="Démonstration de doublage OpenCreator" width="100%" />
+</a>
+<p align="center"><a href="../videos/examples/video-translation-dubbing.mp4?raw=1">Voir la démonstration</a></p>
 
 </td>
 <td width="33%">
 
 #### Mode vertical
 
-<video controls width="100%" height="200" src="../videos/examples/video-translation-portrait.mp4?raw=1">
-  <a href="../videos/examples/video-translation-portrait.mp4">Voir la démonstration</a>
-</video>
+<a href="../videos/examples/video-translation-portrait.mp4?raw=1">
+  <img src="../images/examples/video-translation-portrait.jpg" alt="Démonstration du mode vertical OpenCreator" width="100%" />
+</a>
+<p align="center"><a href="../videos/examples/video-translation-portrait.mp4?raw=1">Voir la démonstration</a></p>
 
 </td>
 </tr>

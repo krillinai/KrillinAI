@@ -170,27 +170,30 @@ Proyek ini menghasilkan file subtitel di bawah dari video lokal berdurasi 46 men
 
 #### Terjemahan Subtitel
 
-<video controls width="100%" height="200" src="../videos/examples/video-translation-subtitles.mp4?raw=1">
-  <a href="../videos/examples/video-translation-subtitles.mp4">Tonton demo</a>
-</video>
+<a href="../videos/examples/video-translation-subtitles.mp4?raw=1">
+  <img src="../images/examples/video-translation-subtitles.jpg" alt="Demo terjemahan subtitel OpenCreator" width="100%" />
+</a>
+<p align="center"><a href="../videos/examples/video-translation-subtitles.mp4?raw=1">Tonton demo</a></p>
 
 </td>
 <td width="33%">
 
 #### Sulih Suara
 
-<video controls width="100%" height="200" src="../videos/examples/video-translation-dubbing.mp4?raw=1">
-  <a href="../videos/examples/video-translation-dubbing.mp4">Tonton demo</a>
-</video>
+<a href="../videos/examples/video-translation-dubbing.mp4?raw=1">
+  <img src="../images/examples/video-translation-dubbing.jpg" alt="Demo sulih suara OpenCreator" width="100%" />
+</a>
+<p align="center"><a href="../videos/examples/video-translation-dubbing.mp4?raw=1">Tonton demo</a></p>
 
 </td>
 <td width="33%">
 
 #### Mode Potret
 
-<video controls width="100%" height="200" src="../videos/examples/video-translation-portrait.mp4?raw=1">
-  <a href="../videos/examples/video-translation-portrait.mp4">Tonton demo</a>
-</video>
+<a href="../videos/examples/video-translation-portrait.mp4?raw=1">
+  <img src="../images/examples/video-translation-portrait.jpg" alt="Demo mode potret OpenCreator" width="100%" />
+</a>
+<p align="center"><a href="../videos/examples/video-translation-portrait.mp4?raw=1">Tonton demo</a></p>
 
 </td>
 </tr>

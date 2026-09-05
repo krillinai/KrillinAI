@@ -170,27 +170,30 @@ Das Projekt erzeugte die unten gezeigte Untertiteldatei in einem einzigen Durchl
 
 #### Untertitelübersetzung
 
-<video controls width="100%" height="200" src="../videos/examples/video-translation-subtitles.mp4?raw=1">
-  <a href="../videos/examples/video-translation-subtitles.mp4">Demo ansehen</a>
-</video>
+<a href="../videos/examples/video-translation-subtitles.mp4?raw=1">
+  <img src="../images/examples/video-translation-subtitles.jpg" alt="OpenCreator-Demo zur Untertitelübersetzung" width="100%" />
+</a>
+<p align="center"><a href="../videos/examples/video-translation-subtitles.mp4?raw=1">Demo ansehen</a></p>
 
 </td>
 <td width="33%">
 
 #### Synchronisation
 
-<video controls width="100%" height="200" src="../videos/examples/video-translation-dubbing.mp4?raw=1">
-  <a href="../videos/examples/video-translation-dubbing.mp4">Demo ansehen</a>
-</video>
+<a href="../videos/examples/video-translation-dubbing.mp4?raw=1">
+  <img src="../images/examples/video-translation-dubbing.jpg" alt="OpenCreator-Demo zur Synchronisation" width="100%" />
+</a>
+<p align="center"><a href="../videos/examples/video-translation-dubbing.mp4?raw=1">Demo ansehen</a></p>
 
 </td>
 <td width="33%">
 
 #### Hochformat
 
-<video controls width="100%" height="200" src="../videos/examples/video-translation-portrait.mp4?raw=1">
-  <a href="../videos/examples/video-translation-portrait.mp4">Demo ansehen</a>
-</video>
+<a href="../videos/examples/video-translation-portrait.mp4?raw=1">
+  <img src="../images/examples/video-translation-portrait.jpg" alt="OpenCreator-Demo im Hochformat" width="100%" />
+</a>
+<p align="center"><a href="../videos/examples/video-translation-portrait.mp4?raw=1">Demo ansehen</a></p>
 
 </td>
 </tr>

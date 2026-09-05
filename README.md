@@ -170,27 +170,30 @@ The project generated the subtitle file below from a 46-minute local video in on
 
 #### Subtitle Translation
 
-<video controls width="100%" height="200" src="./docs/videos/examples/video-translation-subtitles.mp4?raw=1">
-  <a href="./docs/videos/examples/video-translation-subtitles.mp4">Watch demo</a>
-</video>
+<a href="./docs/videos/examples/video-translation-subtitles.mp4?raw=1">
+  <img src="./docs/images/examples/video-translation-subtitles.jpg" alt="OpenCreator subtitle translation demo" width="100%" />
+</a>
+<p align="center"><a href="./docs/videos/examples/video-translation-subtitles.mp4?raw=1">Watch demo</a></p>
 
 </td>
 <td width="33%">
 
 #### Dubbing
 
-<video controls width="100%" height="200" src="./docs/videos/examples/video-translation-dubbing.mp4?raw=1">
-  <a href="./docs/videos/examples/video-translation-dubbing.mp4">Watch demo</a>
-</video>
+<a href="./docs/videos/examples/video-translation-dubbing.mp4?raw=1">
+  <img src="./docs/images/examples/video-translation-dubbing.jpg" alt="OpenCreator dubbing demo" width="100%" />
+</a>
+<p align="center"><a href="./docs/videos/examples/video-translation-dubbing.mp4?raw=1">Watch demo</a></p>
 
 </td>
 <td width="33%">
 
 #### Portrait Mode
 
-<video controls width="100%" height="200" src="./docs/videos/examples/video-translation-portrait.mp4?raw=1">
-  <a href="./docs/videos/examples/video-translation-portrait.mp4">Watch demo</a>
-</video>
+<a href="./docs/videos/examples/video-translation-portrait.mp4?raw=1">
+  <img src="./docs/images/examples/video-translation-portrait.jpg" alt="OpenCreator portrait mode demo" width="100%" />
+</a>
+<p align="center"><a href="./docs/videos/examples/video-translation-portrait.mp4?raw=1">Watch demo</a></p>
 
 </td>
 </tr>
