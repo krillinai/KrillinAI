@@ -1,4 +1,4 @@
-# OpenCreator Desktop 发布手册
+# KrillinAI Desktop 发布手册
 
 ## 1. 适用范围
 
@@ -37,15 +37,15 @@ pnpm desktop:package
 
 1. 更新 `apps/desktop/package.json` 的版本。
 2. 确认 GitHub Release 发布权限、签名凭据和目标版本更新元数据流程可用。
-3. 创建并推送 `v<version>` Git tag 触发 `.github/workflows/desktop-release.yml`。标签版本必须与 `apps/desktop/package.json` 完全一致。
-4. CI 先运行全仓验证，再使用 `macos-15-intel`、`macos-15` 和 `windows-latest` 并行构建三个原生目标平台。
-5. 标签构建成功后，CI 将安装包和更新元数据上传到 GitHub Release。
+3. 先推送版本提交到 `master`，手动运行 CI 并等待同一提交验证通过，再创建并推送 `v<version>` Git tag 触发 `.github/workflows/desktop-release.yml`。标签版本必须与 `apps/desktop/package.json` 完全一致。
+4. 发布工作流复用同一提交的 CI 结果，再使用 `macos-15-intel`、`macos-15` 和 `windows-latest` 并行构建三个原生目标平台。
+5. 三个平台的实际打包应用 E2E 通过后，CI 校验附件白名单，生成下载说明与校验清单，上传完成后才公开 GitHub Release。
 
 示例：
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag -a v3.0.0 -m "KrillinAI v3.0.0"
+git push origin v3.0.0
 ```
 
 ## 4. macOS 签名与公证
@@ -100,18 +100,23 @@ CI secrets：
 ```text
 provider: github
 owner: krillinai
-repo: OpenCreator
+repo: KrillinAI
 ```
 
 生产运行时不依赖 `OPENCREATOR_UPDATE_URL`。测试通过注入 fake updater 隔离，不允许把开发覆盖写入正式包。
 
-GitHub Release 至少包含：
+GitHub Release 仅发布 11 个附件，另外 2 个源码归档由 GitHub 自动生成：
 
-1. macOS arm64 的 `latest-mac.yml`、DMG/ZIP 和 blockmap。
-2. macOS x64 的 `latest-x64-mac.yml`、DMG/ZIP 和 blockmap。
-3. Windows x64 的 `latest.yml`、NSIS EXE 和 blockmap。
-4. 每个平台独立命名的 Desktop 构建清单。
-5. 文件名、版本和 SHA512 与 Electron Builder 产物一致。
+1. macOS arm64：`KrillinAI-<version>-mac-arm64.dmg`、对应 ZIP、ZIP blockmap 和 `latest-mac.yml`。
+2. macOS x64：`KrillinAI-<version>-mac-x64.dmg`、对应 ZIP、ZIP blockmap 和 `latest-x64-mac.yml`。
+3. Windows x64：`KrillinAI-<version>-win-x64.exe` 和 `latest.yml`。
+4. 一份 `SHA256SUMS.txt`，覆盖以上 10 个文件。
+
+安装包、更新文件的文件名、版本和 SHA512 保持 Electron Builder 原始输出，不在构建后重命名。macOS 更新使用 ZIP，其 DMG blockmap 不进入发布附件；Windows 当前关闭差分包，不生成独立 blockmap。
+
+打包脚本按本次构建清单检查文件哈希，仅将白名单附件整理到 `apps/desktop/release/publish/<platform>-<arch>/`，该目录还包含本平台校验清单。发布任务合并平台附件后重新生成总校验清单；任何缺失或额外附件都会阻止发布。
+
+Desktop 构建清单、builder 调试配置和 E2E 报告仅保留在 `desktop-build-diagnostics-*` CI Artifact，保存 14 天。独立 CLI/Server 继续在 `.runtime/build/krillinai/` 构建，不复制到桌面发布目录。Windows 未签名说明放在 Release 正文，不再生成独立 TXT 附件。
 
 客户端行为：
 

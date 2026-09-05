@@ -1,5 +1,6 @@
 appId: com.opencreator.desktop
 productName: OpenCreator
+artifactName: KrillinAI-${version}-${os}-${arch}.${ext}
 asar: true
 npmRebuild: false
 electronFuses:
@@ -59,7 +60,7 @@ protocols:
 publish:
   provider: github
   owner: krillinai
-  repo: OpenCreator
+  repo: KrillinAI
 afterPack: ./scripts/sign-creator-runtime-after-pack.mjs
 afterSign: ./scripts/notarize-after-sign.mjs
 mac:

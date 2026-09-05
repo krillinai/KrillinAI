@@ -54,7 +54,7 @@ jobs:
               --jq 'length'
           )"
           if [[ "$successful_runs" != "1" ]]; then
-            echo "::error::提交 $GITHUB_SHA 尚无成功的手动 CI，请先在 main 上运行 CI 并等待通过，再创建发布标签。"
+            echo "::error::提交 $GITHUB_SHA 尚无成功的手动 CI，请先在 master 上运行 CI 并等待通过，再创建发布标签。"
             exit 1
           fi
       - name: 选择 Desktop 构建平台
@@ -161,60 +161,52 @@ jobs:
         env:
           OPENCREATOR_DESKTOP_TARGET_PLATFORM: ${{ matrix.platform }}
           OPENCREATOR_DESKTOP_TARGET_ARCH: ${{ matrix.arch }}
-      - name: 写入 Windows 未签名说明
-        if: matrix.platform == 'win32'
-        shell: pwsh
-        run: |
-          @"
-          OpenCreator Windows x64 installer
-          This installer is not Authenticode signed.
-          Verify the installer with SHA256SUMS.txt before running it.
-          Commit: $env:GITHUB_SHA
-          "@ | Set-Content `
-            -Path apps/desktop/release/WINDOWS-UNSIGNED.txt `
-            -Encoding utf8NoBOM
       - name: 验证实际打包应用
         run: pnpm --filter @opencreator/desktop e2e:package
-      - uses: actions/upload-artifact@v4
+      - name: 上传用户发布附件
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: |
-            apps/desktop/release/*.dmg
-            apps/desktop/release/*.zip
-            apps/desktop/release/*.exe
-            apps/desktop/release/*.blockmap
-            apps/desktop/release/latest*.yml
-            apps/desktop/release/opencreator-desktop-build-manifest-*.json
-            apps/desktop/release/krillinai-*
-            apps/desktop/release/WINDOWS-UNSIGNED.txt
+          path: ${{ env.OPENCREATOR_DESKTOP_RELEASE_ASSETS }}/*
           if-no-files-found: error
+      - name: 保留内部构建诊断
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-build-diagnostics-${{ matrix.name }}
+          path: |
+            apps/desktop/release/opencreator-desktop-build-manifest-*.json
+            apps/desktop/release/builder-debug.yml
+            apps/desktop/release/builder-effective-config.yaml
+            test-results/desktop-playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
 
   publish:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: package
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
           pattern: opencreator-desktop-*
           merge-multiple: true
-      - name: 生成发布校验文件
-        shell: bash
-        run: |
-          (
-            cd artifacts
-            find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 \
-              | LC_ALL=C sort -z \
-              | xargs -0 sha256sum \
-              | sed 's#  \./#  #' \
-              > SHA256SUMS.txt
-          )
+      - name: 校验发布附件并生成下载说明
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_REPO: ${{ github.repository }}
+        run: node apps/desktop/scripts/release-assets.mjs artifacts "$TAG" "$GH_REPO" release-notes.md
       - name: 发布 GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --generate-notes
-          find artifacts -type f -print0 | xargs -0 gh release upload "$TAG" --clobber
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --draft --title "KrillinAI $TAG" --notes-file release-notes.md
+          find artifacts -maxdepth 1 -type f -print0 | xargs -0 gh release upload "$TAG" --clobber
+          gh release edit "$TAG" --draft=false --latest --title "KrillinAI $TAG" --notes-file release-notes.md

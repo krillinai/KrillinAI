@@ -50,14 +50,15 @@ describe('Desktop release workflow', () => {
     expect(releaseWorkflow).toContain(
       '"artifact":"opencreator-desktop-windows-x64-unsigned"'
     );
-    expect(releaseWorkflow).toContain('WINDOWS-UNSIGNED.txt');
+    expect(releaseWorkflow).not.toContain('WINDOWS-UNSIGNED.txt');
   });
 
-  it('reuses the successful main CI instead of repeating all tests', () => {
+  it('reuses the successful master CI instead of repeating all tests', () => {
     expect(releaseWorkflow).toContain('name: 校验同一提交的 CI 已通过');
     expect(releaseWorkflow).toContain('--workflow ci.yml');
     expect(releaseWorkflow).toContain('--event workflow_dispatch');
     expect(releaseWorkflow).toContain('--status success');
+    expect(releaseWorkflow).toContain('先在 master 上运行 CI');
     expect(releaseWorkflow).not.toContain('run: pnpm test');
     expect(releaseWorkflow).not.toContain('run: pnpm typecheck');
     expect(releaseWorkflow).not.toContain('run: pnpm build');
@@ -82,14 +83,19 @@ describe('Desktop release workflow', () => {
     );
   });
 
-  it('publishes unique build manifests and a SHA-256 checksum list', () => {
+  it('keeps build diagnostics separate from validated public release assets', () => {
     expect(releaseWorkflow).toContain(
       'opencreator-desktop-build-manifest-${{ matrix.platform }}-${{ matrix.arch }}.json'
     );
     expect(releaseWorkflow).toContain('pattern: opencreator-desktop-*');
     expect(releaseWorkflow).toContain('merge-multiple: true');
-    expect(releaseWorkflow).toContain('sha256sum');
-    expect(releaseWorkflow).toContain('SHA256SUMS.txt');
+    expect(releaseWorkflow).toContain('name: desktop-build-diagnostics-${{ matrix.name }}');
+    expect(releaseWorkflow).toContain('path: ${{ env.OPENCREATOR_DESKTOP_RELEASE_ASSETS }}/*');
+    expect(releaseWorkflow).toContain('release-assets.mjs artifacts');
+    expect(releaseWorkflow).not.toContain('apps/desktop/release/*.exe');
+    expect(releaseWorkflow).not.toContain('apps/desktop/release/krillinai-*');
+    expect(releaseWorkflow).toContain('--verify-tag --draft');
+    expect(releaseWorkflow).toContain('--draft=false --latest');
   });
 
   it('invalidates the Desktop cache when Creator Runtime releases change', () => {

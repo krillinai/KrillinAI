@@ -1,6 +1,5 @@
 import {
   appendFileSync,
-  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -28,6 +27,7 @@ import {
 import { submitAndWaitForNotarization } from './apple-notarization.mjs';
 import { prepareElectronBuilderCache } from './electron-builder-cache.mjs';
 import { runStage } from './script-utils.mjs';
+import { stageReleaseAssets } from './release-assets.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopDir = resolve(scriptDir, '..');
@@ -76,7 +76,6 @@ await runStage('构建 KrillinAI CLI 与 Server', process.execPath, [
   env,
   timeoutMs: 10 * 60_000
 });
-copyKrillinReleaseArtifacts();
 await runStage('构建 Desktop', 'pnpm', ['--filter', '@opencreator/desktop', 'build'], {
   cwd: rootDir,
   env,
@@ -218,28 +217,21 @@ await runStage('验证桌面包', process.execPath, [
   timeoutMs: 5 * 60_000
 });
 
+if (mode !== 'dir') {
+  const packageJson = JSON.parse(readFileSync(join(desktopDir, 'package.json'), 'utf8'));
+  const assetsDir = join(releaseDir, 'publish', `${platform}-${arch}`);
+  const assets = stageReleaseAssets({ manifest, version: packageJson.version, assetsDir });
+  console.log(`[desktop-package] 发布附件：${assetsDir} (${assets.length} files)`);
+  if (process.env.GITHUB_ENV) {
+    appendFileSync(process.env.GITHUB_ENV, `OPENCREATOR_DESKTOP_RELEASE_ASSETS=${assetsDir}\n`);
+  }
+}
+
 function parseMode(args) {
   if (args.includes('--dir')) return 'dir';
   if (args.includes('--dist')) return 'dist';
   if (args.includes('--release') || args.length === 0) return 'release';
   throw new Error(`Unsupported Desktop package mode: ${args.join(' ')}`);
-}
-
-function copyKrillinReleaseArtifacts() {
-  const buildRoot = resolve(
-    env.OPENCREATOR_KRILLINAI_BUILD_OUTPUT
-      ?? join(rootDir, '.runtime', 'build', 'krillinai', `${platform}-${arch}`)
-  );
-  const buildManifestPath = join(buildRoot, 'manifest.json');
-  const buildManifest = JSON.parse(readFileSync(buildManifestPath, 'utf8'));
-  for (const binary of Object.values(buildManifest.binaries ?? {})) {
-    const source = resolve(buildRoot, binary.artifact);
-    copyFileSync(source, join(releaseDir, basename(source)));
-  }
-  copyFileSync(
-    buildManifestPath,
-    join(releaseDir, `krillinai-build-manifest-${platform}-${arch}.json`)
-  );
 }
 
 function normalizePlatform(value) {
