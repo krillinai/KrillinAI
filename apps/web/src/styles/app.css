@@ -6934,7 +6934,7 @@ html.is-pane-resizing * {
 
 .markdown-prose .md-link-bare:has(.md-link-site-icon) .md-link-label {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .markdown-prose .md-link-site-icon {

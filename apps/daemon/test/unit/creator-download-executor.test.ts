@@ -45,6 +45,7 @@ describe('creator download executor', () => {
         container: 'mp4',
         videoFormatId: '137',
         audioFormatId: '140',
+        audioLanguage: 'und',
         estimatedBytes: 120
       }),
       expect.objectContaining({
@@ -57,11 +58,56 @@ describe('creator download executor', () => {
         mediaType: 'audio',
         bitrateKbps: 320,
         audioFormatId: '140',
+        audioLanguage: 'und',
         transcode: 'mp3'
       }),
       expect.objectContaining({ id: 'audio-mp3-192' }),
       expect.objectContaining({ id: 'audio-mp3-128' })
     ]);
+  });
+
+  it('creates video and MP3 choices for each detected audio language', () => {
+    const probe = multilingualParsedProbe();
+
+    expect(probe.formats).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'audio-en',
+        language: 'en',
+        languagePreference: 10
+      }),
+      expect.objectContaining({
+        id: 'audio-es',
+        language: 'es',
+        languagePreference: 5
+      })
+    ]));
+    expect(probe.options.filter(option => option.mediaType === 'video')).toEqual([
+      expect.objectContaining({
+        id: 'video-1080-1-audio-en',
+        videoFormatId: 'video-1080',
+        audioFormatId: 'audio-en',
+        audioLanguage: 'en'
+      }),
+      expect.objectContaining({
+        id: 'video-1080-1-audio-es',
+        videoFormatId: 'video-1080',
+        audioFormatId: 'audio-es',
+        audioLanguage: 'es'
+      })
+    ]);
+    expect(probe.options.filter(option => option.mediaType === 'audio')).toHaveLength(6);
+    expect(probe.options).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'audio-mp3-192-audio-en',
+        audioFormatId: 'audio-en',
+        audioLanguage: 'en'
+      }),
+      expect.objectContaining({
+        id: 'audio-mp3-192-audio-es',
+        audioFormatId: 'audio-es',
+        audioLanguage: 'es'
+      })
+    ]));
   });
 
   it('offers MP3 extraction when the source only has a combined media format', () => {
@@ -255,6 +301,43 @@ describe('creator download executor', () => {
       status: 'succeeded',
       phase: 'completed',
       percent: 100
+    }));
+  });
+
+  it('downloads the audio track bound to the selected video language', async () => {
+    const binaries = await fakeBinaries();
+    const workdir = join(tempDir, 'multilingual-video-work');
+    await mkdir(workdir, { recursive: true });
+    const probe = multilingualParsedProbe();
+    const option = probe.options.find(candidate => (
+      candidate.mediaType === 'video'
+      && candidate.audioLanguage === 'es'
+    ));
+    expect(option).toBeDefined();
+    const probeArtifact = await writeProbeArtifact(workdir, probe);
+    const executor = createDownloadExecutor(binaries);
+
+    const result = await executor.run(stageInput({
+      workdir,
+      stageId: 'download',
+      state: {
+        sourceUrl: probe.requestedUrl,
+        mediaType: 'video',
+        selectedOptionId: option!.id
+      },
+      inputArtifacts: [probeArtifact]
+    }));
+
+    const args = JSON.parse(
+      await readFile(join(workdir, 'args.json'), 'utf8')
+    ) as string[];
+    expect(args).toEqual(expect.arrayContaining([
+      '-f',
+      'video-1080+audio-es'
+    ]));
+    expect(result.outputs[0]?.metadata).toEqual(expect.objectContaining({
+      optionId: option!.id,
+      audioLanguage: 'es'
     }));
   });
 
@@ -586,6 +669,59 @@ function parsedProbe(): DownloadProbe {
       }
     ]
   }, 'https://www.youtube.com/watch?v=demo');
+}
+
+function multilingualParsedProbe(): DownloadProbe {
+  return parseDownloadProbe({
+    id: 'multilingual-demo',
+    title: 'Multilingual Download',
+    webpage_url: 'https://www.youtube.com/watch?v=multilingual-demo',
+    extractor_key: 'Youtube',
+    duration: 30,
+    formats: [
+      {
+        format_id: 'video-1080',
+        ext: 'mp4',
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        tbr: 4_500,
+        filesize: 100,
+        vcodec: 'avc1',
+        acodec: 'none'
+      },
+      {
+        format_id: 'audio-en-webm',
+        ext: 'webm',
+        abr: 96,
+        filesize: 15,
+        vcodec: 'none',
+        acodec: 'opus',
+        language: 'en',
+        language_preference: 10
+      },
+      {
+        format_id: 'audio-en',
+        ext: 'm4a',
+        abr: 128,
+        filesize: 20,
+        vcodec: 'none',
+        acodec: 'mp4a',
+        language: 'en',
+        language_preference: 10
+      },
+      {
+        format_id: 'audio-es',
+        ext: 'm4a',
+        abr: 128,
+        filesize: 20,
+        vcodec: 'none',
+        acodec: 'mp4a',
+        language: 'es',
+        language_preference: 5
+      }
+    ]
+  }, 'https://www.youtube.com/watch?v=multilingual-demo');
 }
 
 async function fakeBinaries(input?: {

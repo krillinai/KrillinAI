@@ -8,6 +8,7 @@ export type DownloadOption = {
   id: string;
   mediaType: DownloadMediaType;
   container: DownloadContainer;
+  audioLanguage?: string;
   width?: number;
   height?: number;
   fps?: number;
@@ -28,6 +29,8 @@ export type DownloadProbeFormat = {
   fps: number | null;
   bitrateKbps: number | null;
   bytes: number | null;
+  language?: string | null;
+  languagePreference?: number | null;
   hasVideo: boolean;
   hasAudio: boolean;
 };

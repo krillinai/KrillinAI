@@ -16,7 +16,9 @@ const formatSchema = z.object({
   filesize: z.number().nullish(),
   filesize_approx: z.number().nullish(),
   vcodec: z.string().nullish(),
-  acodec: z.string().nullish()
+  acodec: z.string().nullish(),
+  language: z.string().nullish(),
+  language_preference: z.number().nullish()
 }).passthrough();
 
 const probeSchema = z.object({
@@ -30,6 +32,7 @@ const probeSchema = z.object({
   duration: z.number().nonnegative().nullish(),
   width: z.number().nullish(),
   height: z.number().nullish(),
+  language: z.string().nullish(),
   formats: z.array(formatSchema).default([])
 }).passthrough();
 
@@ -49,6 +52,8 @@ export function parseDownloadProbe(
     fps: format.fps ?? null,
     bitrateKbps: format.tbr ?? format.abr ?? null,
     bytes: format.filesize ?? format.filesize_approx ?? null,
+    language: normalizeLanguage(format.language ?? parsed.language),
+    languagePreference: format.language_preference ?? null,
     hasVideo: hasCodec(format.vcodec),
     hasAudio: hasCodec(format.acodec)
   }));
@@ -72,57 +77,94 @@ function createDownloadOptions(
   formats: DownloadProbeFormat[],
   duration: number | null
 ): DownloadOption[] {
-  const audioOnly = formats
-    .filter(format => format.hasAudio && !format.hasVideo)
-    .sort(compareAudioFormats)[0];
-  const audioSource = audioOnly ?? formats
-    .filter(format => format.hasAudio)
-    .sort(compareAudioFormats)[0];
+  const audioOnly = formats.filter(format => format.hasAudio && !format.hasVideo);
+  const audioSources = bestAudioFormatsByLanguage(
+    audioOnly.length > 0
+      ? audioOnly
+      : formats.filter(format => format.hasAudio)
+  );
   const videosByHeight = new Map<string, DownloadProbeFormat>();
   for (const format of formats.filter(candidate => candidate.hasVideo)) {
     const key = `${format.width ?? 0}x${format.height ?? 0}`;
     const current = videosByHeight.get(key);
-    if (current === undefined || compareVideoFormats(format, current) < 0) {
+    const preferSeparateAudio = audioSources.length > 1
+      && current !== undefined
+      && current.hasAudio !== format.hasAudio;
+    if (
+      current === undefined
+      || (preferSeparateAudio
+        ? !format.hasAudio
+        : compareVideoFormats(format, current) < 0)
+    ) {
       videosByHeight.set(key, format);
     }
   }
   const videoOptions = [...videosByHeight.values()]
     .sort(compareVideoFormats)
-    .map((video, index): DownloadOption => {
-      const estimatedBytes = estimatedVideoBytes(
-        video,
-        video.hasAudio ? undefined : audioOnly,
-        duration
-      );
-      return {
-        id: `video-${video.height ?? 'source'}-${index + 1}`,
-        mediaType: 'video',
-        container: 'mp4',
-        ...(video.width === null ? {} : { width: video.width }),
-        ...(video.height === null ? {} : { height: video.height }),
-        ...(video.fps === null ? {} : { fps: video.fps }),
-        ...(video.bitrateKbps === null ? {} : { bitrateKbps: video.bitrateKbps }),
-        ...(estimatedBytes === undefined ? {} : { estimatedBytes }),
-        videoFormatId: video.id,
-        ...(video.hasAudio || audioOnly === undefined
-          ? {}
-          : { audioFormatId: audioOnly.id })
-      };
+    .flatMap((video, index): DownloadOption[] => {
+      const selectedAudioSources = video.hasAudio
+        ? [undefined]
+        : audioSources.length > 0
+          ? audioSources
+          : [undefined];
+      return selectedAudioSources.map(audio => {
+        const estimatedBytes = estimatedVideoBytes(video, audio, duration);
+        const audioLanguage = video.hasAudio
+          ? video.language ?? 'und'
+          : audio === undefined
+            ? undefined
+            : audio.language ?? 'und';
+        const baseId = `video-${video.height ?? 'source'}-${index + 1}`;
+        return {
+          id: audioSources.length > 1 && audio !== undefined
+            ? `${baseId}-${encodeURIComponent(audio.id)}`
+            : baseId,
+          mediaType: 'video',
+          container: 'mp4',
+          ...(audioLanguage === undefined ? {} : { audioLanguage }),
+          ...(video.width === null ? {} : { width: video.width }),
+          ...(video.height === null ? {} : { height: video.height }),
+          ...(video.fps === null ? {} : { fps: video.fps }),
+          ...(video.bitrateKbps === null ? {} : { bitrateKbps: video.bitrateKbps }),
+          ...(estimatedBytes === undefined ? {} : { estimatedBytes }),
+          videoFormatId: video.id,
+          ...(video.hasAudio || audio === undefined
+            ? {}
+            : { audioFormatId: audio.id })
+        };
+      });
     });
-  const audioOptions = audioSource === undefined
-    ? []
-    : [320, 192, 128].map((bitrateKbps): DownloadOption => ({
-        id: `audio-mp3-${bitrateKbps}`,
-        mediaType: 'audio',
-        container: 'mp3',
-        bitrateKbps,
-        ...(duration === null
-          ? {}
-          : { estimatedBytes: Math.round(duration * bitrateKbps * 1_000 / 8) }),
-        audioFormatId: audioSource.id,
-        transcode: 'mp3'
-      }));
+  const audioOptions = [320, 192, 128].flatMap(bitrateKbps => (
+    audioSources.map((audio): DownloadOption => ({
+      id: audioSources.length > 1
+        ? `audio-mp3-${bitrateKbps}-${encodeURIComponent(audio.id)}`
+        : `audio-mp3-${bitrateKbps}`,
+      mediaType: 'audio',
+      container: 'mp3',
+      audioLanguage: audio.language ?? 'und',
+      bitrateKbps,
+      ...(duration === null
+        ? {}
+        : { estimatedBytes: Math.round(duration * bitrateKbps * 1_000 / 8) }),
+      audioFormatId: audio.id,
+      transcode: 'mp3'
+    }))
+  ));
   return [...videoOptions, ...audioOptions];
+}
+
+function bestAudioFormatsByLanguage(
+  formats: DownloadProbeFormat[]
+): DownloadProbeFormat[] {
+  const byLanguage = new Map<string, DownloadProbeFormat>();
+  for (const format of formats) {
+    const key = format.language?.toLocaleLowerCase() ?? 'und';
+    const current = byLanguage.get(key);
+    if (current === undefined || compareAudioFormats(format, current) < 0) {
+      byLanguage.set(key, format);
+    }
+  }
+  return [...byLanguage.values()].sort(compareAudioFormats);
 }
 
 function compareVideoFormats(
@@ -145,11 +187,16 @@ function compareAudioFormats(
   right: DownloadProbeFormat
 ): number {
   return (
-    Number(right.ext === 'm4a' || right.ext === 'mp4')
+    languagePreferenceScore(right) - languagePreferenceScore(left)
+    || Number(right.ext === 'm4a' || right.ext === 'mp4')
       - Number(left.ext === 'm4a' || left.ext === 'mp4')
     || (right.bitrateKbps ?? 0) - (left.bitrateKbps ?? 0)
     || (right.bytes ?? 0) - (left.bytes ?? 0)
   );
+}
+
+function languagePreferenceScore(format: DownloadProbeFormat): number {
+  return format.languagePreference ?? -1_000_000;
 }
 
 function estimatedVideoBytes(
@@ -191,6 +238,16 @@ function largestDimension(
 
 function hasCodec(value: string | null | undefined): boolean {
   return value !== null && value !== undefined && value !== 'none';
+}
+
+function normalizeLanguage(value: string | null | undefined): string | null {
+  const normalized = value?.trim().replaceAll('_', '-') ?? '';
+  if (!normalized) return null;
+  try {
+    return Intl.getCanonicalLocales(normalized)[0] ?? normalized;
+  } catch {
+    return normalized;
+  }
 }
 
 function isH264Codec(value: string | null | undefined): boolean {

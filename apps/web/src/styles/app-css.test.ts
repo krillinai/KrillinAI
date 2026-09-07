@@ -391,6 +391,17 @@ describe('app CSS visual contracts', () => {
     expect(action).toContain('font-size: 12px;');
   });
 
+  it('keeps bare links from collapsing to one character per line', () => {
+    const link = cssBlock('.markdown-prose .md-link-bare:has(.md-link-site-icon)');
+    const label = cssBlock(
+      '.markdown-prose .md-link-bare:has(.md-link-site-icon) .md-link-label'
+    );
+
+    expect(link).toContain('max-width: 100%;');
+    expect(label).toContain('overflow-wrap: break-word;');
+    expect(label).not.toContain('overflow-wrap: anywhere;');
+  });
+
   it('keeps the desktop skill market scrollable inside the fixed app shell', () => {
     expect(skillMarketCss).toMatch(
       /@media \(min-width: 921px\)\s*\{\s*\.skill-market\s*\{[^}]*height:\s*100%;[^}]*min-height:\s*0;[^}]*overflow-x:\s*hidden;[^}]*overflow-y:\s*auto;/
