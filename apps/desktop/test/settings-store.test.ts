@@ -27,7 +27,8 @@ describe('SettingsStore', () => {
 
     expect(store.read()).toMatchObject({
       closeBehavior: 'hide',
-      notificationsEnabled: true
+      notificationsEnabled: true,
+      telemetryEnabled: true
     });
   });
 
@@ -42,7 +43,8 @@ describe('SettingsStore', () => {
           version: 1,
           desktop: {
             closeBehavior: 'hide',
-            notificationsEnabled: true
+            notificationsEnabled: true,
+            telemetryEnabled: true
           }
         },
         configured: {
@@ -54,11 +56,19 @@ describe('SettingsStore', () => {
     };
     const store = createSettingsStore('/virtual/config.toml', persistence);
 
-    store.update({ closeBehavior: 'quit' });
+    store.update({
+      closeBehavior: 'quit',
+      telemetryEnabled: false,
+      telemetryInstallId: '123e4567-e89b-42d3-a456-426614174000'
+    });
 
     expect(update).toHaveBeenCalledOnce();
     const apply = update.mock.calls[0]![1];
     expect(apply({ version: 1 }).desktop?.closeBehavior).toBe('quit');
+    expect(apply({ version: 1 }).desktop).toMatchObject({
+      telemetryEnabled: false,
+      telemetryInstallId: '123e4567-e89b-42d3-a456-426614174000'
+    });
     expect(store.read().closeBehavior).toBe('quit');
   });
 
@@ -76,12 +86,14 @@ describe('SettingsStore', () => {
 
     expect(store.read()).toMatchObject({
       closeBehavior: 'hide',
-      notificationsEnabled: true
+      notificationsEnabled: true,
+      telemetryEnabled: true
     });
     const initialized = update.mock.calls[0]![1]({ version: 1 });
     expect(initialized.desktop).toMatchObject({
       closeBehavior: 'hide',
-      notificationsEnabled: true
+      notificationsEnabled: true,
+      telemetryEnabled: true
     });
     expect(initialized.runtime).toMatchObject({
       codexMode: 'bundled'

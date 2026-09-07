@@ -18,6 +18,8 @@ import {
 } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import {
   expect,
@@ -69,6 +71,60 @@ test('打包 App 将旧 Electron 数据当作无关数据且不迁移', async ()
     )).toContain('codex_mode = "bundled"');
   } finally {
     await closeFixture(fixture);
+  }
+});
+
+test('实际 Desktop 包发送匿名日使用数据且不包含创作内容', async () => {
+  const reports: Array<Record<string, unknown>> = [];
+  const server = createServer((request, response) => {
+    let body = '';
+    request.setEncoding('utf8');
+    request.on('data', chunk => {
+      body += chunk;
+    });
+    request.on('end', () => {
+      reports.push(JSON.parse(body) as Record<string, unknown>);
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end('{"accepted":true}');
+    });
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const address = server.address() as AddressInfo;
+  let fixture: DesktopFixture | undefined;
+
+  try {
+    fixture = await launchPackagedDesktop('success', {
+      telemetryUrl: `http://127.0.0.1:${address.port}/api/v1/public/desktop-usage`
+    });
+    await expect.poll(() => reports.at(-1)).toMatchObject({
+      usage_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      launch_count: 1,
+      active_minutes: 0,
+      app_version: '3.1.0',
+      operating_system: process.platform,
+      architecture: process.arch,
+      install_id: expect.stringMatching(/^[0-9a-f-]{36}$/)
+    });
+    expect(Object.keys(reports.at(-1) ?? {}).sort()).toEqual([
+      'active_minutes',
+      'app_version',
+      'architecture',
+      'install_id',
+      'launch_count',
+      'operating_system',
+      'usage_date'
+    ]);
+    expect(await fixture.page.evaluate(
+      () => window.opencreatorDesktop?.readDesktopPreferences()
+    )).toMatchObject({ telemetryEnabled: true });
+  } finally {
+    if (fixture !== undefined) await closeFixture(fixture);
+    await new Promise<void>((resolve, reject) => {
+      server.close(error => error === undefined ? resolve() : reject(error));
+    });
   }
 });
 
@@ -981,6 +1037,7 @@ async function launchPackagedDesktop(
     runtimeMode?: 'bundled' | 'external';
     seedLegacyData?: boolean;
     writeCurrentConfig?: boolean;
+    telemetryUrl?: string;
   } = {}
 ): Promise<DesktopFixture> {
   const root = mkdtempSync(join(tmpdir(), 'opencreator-desktop-e2e-'));
@@ -1037,6 +1094,9 @@ async function launchPackagedDesktop(
       OPENCREATOR_E2E_FAKE_CODEX_MODE: mode,
       OPENCREATOR_E2E_NODE_BINARY: process.execPath,
       OPENCREATOR_E2E_FAKE_CODEX_SCRIPT: fakeCodexScript,
+      ...(options.telemetryUrl === undefined
+        ? {}
+        : { OPENCREATOR_TELEMETRY_URL: options.telemetryUrl }),
       ...(mode === 'workspace-failure'
         ? {
             OPENCREATOR_E2E_IGNORE_FIRST_WORKSPACE_READY: '1',

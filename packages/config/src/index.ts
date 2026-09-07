@@ -35,6 +35,8 @@ export type OpenCreatorRuntimeChannel = 'production' | 'development';
 export type OpenCreatorDesktopConfig = {
   closeBehavior: 'hide' | 'quit';
   notificationsEnabled: boolean;
+  telemetryEnabled: boolean;
+  telemetryInstallId?: string;
   codexBin?: string;
   successfulCodexBin?: string;
   window?: {
@@ -79,7 +81,8 @@ const defaultUiSettings: OpenCreatorUiSettings = {
 
 const defaultDesktopConfig: OpenCreatorDesktopConfig = {
   closeBehavior: 'hide',
-  notificationsEnabled: true
+  notificationsEnabled: true,
+  telemetryEnabled: true
 };
 
 const defaultRuntimeConfig: OpenCreatorRuntimeConfig = {
@@ -264,6 +267,14 @@ function normalizeDesktopConfig(value: unknown): OpenCreatorDesktopConfig {
   return {
     closeBehavior: (source.closeBehavior ?? source.close_behavior) === 'quit' ? 'quit' : 'hide',
     notificationsEnabled: (source.notificationsEnabled ?? source.notifications_enabled) !== false,
+    telemetryEnabled: (source.telemetryEnabled ?? source.telemetry_enabled) !== false,
+    ...(validUuid(source.telemetryInstallId ?? source.telemetry_install_id) === undefined
+      ? {}
+      : {
+          telemetryInstallId: validUuid(
+            source.telemetryInstallId ?? source.telemetry_install_id
+          )
+        }),
     ...(nonEmptyString(source.codexBin ?? source.codex_bin) === undefined
       ? {}
       : { codexBin: nonEmptyString(source.codexBin ?? source.codex_bin) }),
@@ -328,6 +339,10 @@ function serializeDesktop(value: OpenCreatorDesktopConfig): Record<string, unkno
   return {
     close_behavior: value.closeBehavior,
     notifications_enabled: value.notificationsEnabled,
+    telemetry_enabled: value.telemetryEnabled,
+    ...(value.telemetryInstallId === undefined
+      ? {}
+      : { telemetry_install_id: value.telemetryInstallId }),
     ...(value.codexBin === undefined ? {} : { codex_bin: value.codexBin }),
     ...(value.successfulCodexBin === undefined
       ? {}
@@ -391,6 +406,16 @@ function isFileExists(error: unknown): boolean {
 
 function nonEmptyString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
+}
+
+function validUuid(value: unknown): string | undefined {
+  if (
+    typeof value !== 'string'
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+  ) {
+    return undefined;
+  }
+  return value;
 }
 
 function isRecord(value: unknown): value is Record<string, any> {

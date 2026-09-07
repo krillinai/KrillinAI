@@ -146,6 +146,7 @@ function assertAsarContents() {
   const entries = normalizedAsarEntries();
   const required = [
     '/dist/main/main.js',
+    '/dist/main/telemetry.js',
     '/dist/preload/index.cjs',
     '/dist/bootstrap/index.html',
     '/dist/shared/ipc.js'
