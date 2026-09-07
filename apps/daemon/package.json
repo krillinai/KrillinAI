@@ -6,7 +6,7 @@
     "predev": "pnpm --filter @opencreator/protocol build && pnpm --filter @opencreator/config build && pnpm --filter @opencreator/skill-market build",
     "dev": "node scripts/dev.mjs",
     "prebuild": "pnpm --filter @opencreator/protocol build && pnpm --filter @opencreator/config build && pnpm --filter @opencreator/skill-market build",
-    "build": "tsc -p tsconfig.json",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
     "pretypecheck": "pnpm --filter @opencreator/protocol build && pnpm --filter @opencreator/config build && pnpm --filter @opencreator/skill-market build",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
     "pretest": "pnpm --filter @opencreator/protocol build && pnpm --filter @opencreator/config build && pnpm --filter @opencreator/skill-market build",

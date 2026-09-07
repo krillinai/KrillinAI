@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { resolveOpenCreatorPaths } from '@opencreator/config';
 import {
@@ -10,10 +9,6 @@ import {
 } from 'electron';
 import { BootstrapController } from './bootstrap-controller.js';
 import { DaemonManager } from './daemon-manager.js';
-import {
-  startRuntimeDataImport,
-  type RuntimeDataImportTask
-} from './data-migration.js';
 import {
   startLoginShellEnvironmentRead,
   type LoginShellEnvironmentTask
@@ -29,7 +24,6 @@ import {
   revealPath
 } from './native-actions.js';
 import { NotificationManager } from './notification-manager.js';
-import { migrateProductData } from './product-data-migration.js';
 import { resolveDesktopUserDataPath } from './runtime-profile.js';
 import {
   installProtocolHandler,
@@ -78,7 +72,6 @@ async function launchDesktop(): Promise<void> {
   let workspaceLoadWork: Promise<void> | undefined;
   let shutdownStarted = false;
   let allowQuit = false;
-  let migrationTask: RuntimeDataImportTask | undefined;
   let loginShellTask: LoginShellEnvironmentTask | undefined;
 
   const queueDeepLink = (value: string | undefined) => {
@@ -106,7 +99,6 @@ async function launchDesktop(): Promise<void> {
   const appReadyAt = Date.now();
   const development = DEVELOPMENT;
   const appRoot = app.getAppPath();
-  const electronUserData = app.getPath('userData');
   const paths = resolveOpenCreatorPaths({
     homeDir: app.getPath('home'),
     runtimeChannel: development ? 'development' : 'production'
@@ -116,11 +108,7 @@ async function launchDesktop(): Promise<void> {
     ?? app.getPath('documents');
   const logDir = paths.logsDir;
   const logger = createDesktopLogger(join(logDir, 'desktop-main.log'));
-  const settings = createSettingsStore(
-    paths.configFile,
-    undefined,
-    join(electronUserData, 'desktop-settings.json')
-  );
+  const settings = createSettingsStore(paths.configFile);
   const daemon = new DaemonManager(logger);
   const tray = new TrayManager();
   const daemonEntryPath = development
@@ -280,55 +268,6 @@ async function launchDesktop(): Promise<void> {
   loginShellTask = startLoginShellEnvironmentRead({
     timeoutMs: 5_000
   });
-  const importSource = runtimeImportSource(
-    process.argv,
-    process.env.OPENCREATOR_IMPORT_DATA_DIR
-  ) ?? (
-    existsSync(join(electronUserData, 'daemon'))
-      ? join(electronUserData, 'daemon')
-      : undefined
-  );
-  migrationTask = startRuntimeDataImport({
-    source: importSource,
-    target: dataDir
-  });
-  if (importSource !== undefined && importSource.trim().length > 0) {
-    bootstrap.markMigratingData();
-  }
-  try {
-    const imported = await migrationTask.result;
-    if (imported.imported) {
-      settings.update({ importedRuntimeSource: imported.source });
-      logger.info('Imported existing Runtime data', {
-        source: imported.source,
-        target: imported.target
-      });
-    }
-  } catch (error) {
-    logger.error('Runtime data import failed', {
-      source: importSource,
-      message: error instanceof Error ? error.message : String(error)
-    });
-  }
-  try {
-    const migrations = migrateProductData({
-      paths,
-      legacyElectronUserData: electronUserData
-    });
-    for (const migration of migrations) {
-      if (migration.result.migrated) {
-        logger.info('Migrated OpenCreator product data', {
-          name: migration.name,
-          source: migration.result.source,
-          target: migration.result.target
-        });
-      }
-    }
-  } catch (error) {
-    logger.error('OpenCreator product data migration failed', {
-      message: error instanceof Error ? error.message : String(error)
-    });
-  }
   void bootstrap.start(undefined, loginShellTask);
 
   app.on('activate', () => windowManager?.show());
@@ -346,7 +285,6 @@ async function launchDesktop(): Promise<void> {
     tray.destroy();
     void Promise.all([
       bootstrap?.stop() ?? Promise.resolve(),
-      migrationTask?.cancel() ?? Promise.resolve(),
       loginShellTask?.cancel() ?? Promise.resolve()
     ])
       .catch(error => {
@@ -578,12 +516,6 @@ function registerApplicationProtocol(
     ? app.setAsDefaultProtocolClient('opencreator', process.execPath, [appRoot])
     : app.setAsDefaultProtocolClient('opencreator');
   if (!result) logger.warn('Failed to register opencreator:// protocol');
-}
-
-function runtimeImportSource(argv: string[], environmentValue?: string): string | undefined {
-  const argument = argv.find(value => value.startsWith('--import-runtime='));
-  if (argument !== undefined) return argument.slice('--import-runtime='.length);
-  return environmentValue;
 }
 
 function ok(): DesktopHostResult {

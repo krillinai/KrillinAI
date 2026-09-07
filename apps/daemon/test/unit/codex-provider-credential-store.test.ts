@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -66,21 +66,15 @@ describe('CodexProviderCredentialStore', () => {
     });
   });
 
-  it('migrates the Codex API key into the shared OpenCreator credentials file', async () => {
+  it('stores the Codex API key in the shared OpenCreator credentials file', async () => {
     root = mkdtempSync(join(tmpdir(), 'opencreator-codex-provider-'));
     const credentialsFile = join(root, 'credentials.json');
-    const legacyFile = join(root, 'data', 'config', 'codex-provider.json');
-    await createFileCodexProviderCredentialStore(legacyFile).writeApiKey('sk-legacy-file');
+    const store = createOpenCreatorCodexProviderCredentialStore(credentialsFile);
 
-    const store = createOpenCreatorCodexProviderCredentialStore(
-      credentialsFile,
-      legacyFile
-    );
-
-    await expect(store.readApiKey()).resolves.toBe('sk-legacy-file');
-    expect(existsSync(legacyFile)).toBe(false);
+    await store.writeApiKey('sk-opencreator');
+    await expect(store.readApiKey()).resolves.toBe('sk-opencreator');
     expect(JSON.parse(readFileSync(credentialsFile, 'utf8'))).toMatchObject({
-      codexProvider: { apiKey: 'sk-legacy-file' }
+      codexProvider: { apiKey: 'sk-opencreator' }
     });
   });
 });

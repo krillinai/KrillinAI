@@ -484,7 +484,11 @@ function resultSnapshotDescription(stageId: string, templateId: string): string 
   if (stageId === 'tts') return '生成配音';
   if (stageId === 'render-horizontal') return '合成横屏视频';
   if (stageId === 'render-vertical') return '合成竖屏视频';
-  if (stageId === 'generate') return templateId === 'cover' ? '生成封面' : '生成图片';
+  if (stageId === 'generate') {
+    if (templateId === 'cover') return '生成封面';
+    if (templateId === 'video-generation') return '生成视频';
+    return '生成图片';
+  }
   return `完成 ${stageId}`;
 }
 
@@ -495,8 +499,10 @@ function creatorConfigurationInput(code: string, message: string): Record<string
       ? 'transcription'
       : code === 'creator_tts_config_missing'
         ? 'tts'
-        : code === 'creator_image_config_missing'
+      : code === 'creator_image_config_missing'
           ? 'image'
+        : code === 'creator_video_config_missing'
+          ? 'video'
         : null;
   return section === null ? null : {
     code,

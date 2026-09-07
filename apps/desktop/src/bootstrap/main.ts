@@ -57,7 +57,6 @@ let currentState: BootstrapState | undefined;
 
 const labels: Record<BootstrapState['phase'], [string, string]> = {
   idle: ['正在准备 OpenCreator', '正在初始化桌面环境'],
-  migrating_data: ['正在迁移本地数据', '正在校验并复制现有 OpenCreator Runtime 数据'],
   resolving_codex: ['正在查找本机 Codex', '正在读取终端环境和已保存路径'],
   starting_daemon: ['正在启动本地运行服务', '正在创建独立的 OpenCreator Runtime'],
   probing_codex: ['正在验证 Codex 是否可用', '正在检查本机 Codex 进程'],

@@ -201,6 +201,137 @@ test('视频下载在 Browser/Desktop Bridge 下保持相同界面、请求和�
   expect(results[1]!.state).toEqual(results[0]!.state);
 });
 
+test('视频生成在 Browser/Desktop Bridge 下保持相同界面、请求和持久状态', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-desktop',
+    '一致性规格内部固定创建 Browser/Desktop Chromium 上下文'
+  );
+
+  const results: Array<{
+    text: string;
+    boxes: Record<string, { x: number; y: number; width: number; height: number }>;
+    requests: string[];
+    state: Record<string, unknown>;
+  }> = [];
+
+  for (const platform of ['browser', 'desktop'] as const) {
+    const created = await runtime.api<{
+      job: { id: string; state: Record<string, unknown> };
+    }>('POST', '/creator/jobs', {
+      projectId: runtime.projectId,
+      templateId: 'video-generation',
+      state: {
+        prompt: '雨夜中的未来城市，镜头平稳向前推进',
+        provider: 'seedance',
+        model: 'doubao-seedance-2-0-260128',
+        size: '1280x720',
+        duration: 5,
+        currentStep: 1,
+        furthestStep: 1
+      }
+    });
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      deviceScaleFactor: 1,
+      colorScheme: 'dark',
+      reducedMotion: 'reduce'
+    });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page);
+
+    try {
+      await runtime.openApp(page);
+      const requests: string[] = [];
+      page.on('request', request => {
+        const url = new URL(request.url());
+        if (!url.pathname.includes('/creator/')) return;
+        requests.push(
+          `${request.method()} ${url.pathname
+            .replace('/.opencreator/runtime', '')
+            .replace(created.job.id, '{jobId}')}`
+        );
+      });
+      await page.goto(
+        `${runtime.origin}/#/workbench?tool=video-generation`
+        + `&jobId=${encodeURIComponent(created.job.id)}`
+      );
+
+      const workspace = page.getByRole('region', { name: '视频生成 操作区' });
+      const panel = page.getByRole('complementary', { name: 'OpenCreator' });
+      const provider = workspace.getByRole('combobox', { name: '视频服务' });
+      const model = workspace.getByRole('combobox', { name: '模型版本' });
+      const format = workspace.getByRole('combobox', { name: '画幅' });
+      const duration = workspace.getByRole('combobox', { name: '视频时长' });
+      await expect(provider).toHaveValue('seedance');
+      await expect(model).toHaveValue('doubao-seedance-2-0-260128');
+      await expect(format).toHaveValue('1280x720');
+      await expect(duration).toHaveValue('5');
+      await provider.selectOption('veo');
+      await expect(model).toHaveValue('veo-3.1-generate-preview');
+      await format.selectOption('720x1280');
+      await duration.selectOption('8');
+
+      await expect.poll(async () => (
+        await runtime.api<{
+          job: { state: Record<string, unknown> };
+        }>('GET', `/creator/jobs/${encodeURIComponent(created.job.id)}`)
+      ).job.state).toMatchObject({
+        prompt: '雨夜中的未来城市，镜头平稳向前推进',
+        provider: 'veo',
+        model: 'veo-3.1-generate-preview',
+        size: '720x1280',
+        duration: 8,
+        currentStep: 1,
+        furthestStep: 1
+      });
+      await expect(panel).toContainText('竖屏 · 8s');
+
+      const boxes: Record<
+        string,
+        { x: number; y: number; width: number; height: number }
+      > = {};
+      for (const [name, locator] of [
+        ['workspace', workspace],
+        ['panel', panel],
+        ['provider', provider],
+        ['model', model],
+        ['format', format],
+        ['duration', duration]
+      ] as const) {
+        const box = await locator.boundingBox();
+        expect(box, `${platform} 缺少 ${name} 尺寸目标`).not.toBeNull();
+        boxes[name] = {
+          x: Math.round(box!.x),
+          y: Math.round(box!.y),
+          width: Math.round(box!.width),
+          height: Math.round(box!.height)
+        };
+      }
+      const persisted = await runtime.api<{
+        job: { state: Record<string, unknown> };
+      }>('GET', `/creator/jobs/${encodeURIComponent(created.job.id)}`);
+      results.push({
+        text: normalizeParityText(
+          `${await workspace.innerText()}\n${await panel.innerText()}`
+        ),
+        boxes,
+        requests,
+        state: persisted.job.state
+      });
+    } finally {
+      await context.close();
+    }
+  }
+
+  expect(results[1]!.text).toBe(results[0]!.text);
+  expect(results[1]!.boxes).toEqual(results[0]!.boxes);
+  expect(results[1]!.requests).toEqual(results[0]!.requests);
+  expect(results[1]!.state).toEqual(results[0]!.state);
+});
+
 test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、尺寸和 Runtime 请求', async ({
   browser,
   runtime

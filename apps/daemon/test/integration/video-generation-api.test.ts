@@ -59,19 +59,26 @@ describe('video generation API', () => {
     const created = await server.inject({
       method: 'POST',
       url: '/video-generation/results',
-      payload: { prompt: 'A cinematic city reveal', provider: 'seedance', size: '1280x720', duration: 5 }
+      payload: {
+        prompt: 'A cinematic city reveal',
+        provider: 'seedance',
+        model: 'doubao-seedance-2-0-260128',
+        size: '1280x720',
+        duration: 5
+      }
     });
     expect(created.statusCode).toBe(202);
     expect(created.json().result).toMatchObject({
       id: 'video_result_1234',
       provider: 'seedance',
+      model: 'doubao-seedance-2-0-260128',
       status: 'queued',
       videoSize: '1280x720',
       duration: 5
     });
     const createRequest = fetchImpl.mock.calls[0]?.[1];
     expect(JSON.parse(String(createRequest?.body))).toMatchObject({
-      model: 'doubao-seedance-1-0-pro-250528',
+      model: 'doubao-seedance-2-0-260128',
       content: [{ type: 'text', text: 'A cinematic city reveal' }],
       ratio: '16:9',
       duration: 5
@@ -185,6 +192,10 @@ describe('video generation API', () => {
     });
     expect(created.statusCode).toBe(202);
     expect(created.json().result).toMatchObject({ provider: 'veo', status: 'in_progress', duration: 8 });
+    expect(created.json().result).toMatchObject({
+      progress: 0,
+      progressKnown: false
+    });
     expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).toMatchObject({
       parameters: { aspectRatio: '16:9', durationSeconds: 8, sampleCount: 1 }
     });
@@ -252,6 +263,7 @@ describe('video generation API', () => {
 
     expect(String(fetchImpl.mock.calls[1]?.[0])).toContain('/v1/videos/image2video');
     const seedanceBody = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body));
+    expect(seedanceBody).not.toHaveProperty('ratio');
     expect(seedanceBody.content[1]).toEqual({
       type: 'image_url',
       image_url: { url: `data:image/png;base64,${referenceImage.data}` }

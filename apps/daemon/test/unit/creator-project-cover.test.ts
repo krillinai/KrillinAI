@@ -100,6 +100,23 @@ describe('creator project cover', () => {
     }));
   });
 
+  it('extracts a project cover from generated video artifacts', async () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'creator-project-generated-video-'));
+    const sourcePath = join(tempDir, 'generated.mp4');
+    writeFileSync(sourcePath, 'video');
+    const extractFrame = vi.fn(async (input: { outputPath: string }) => {
+      await writeFile(input.outputPath, 'generated-video-frame');
+    });
+    const service = createCreatorProjectCoverService({ jobsRoot: tempDir, extractFrame });
+
+    const cover = await service.resolve(creatorJob([
+      artifact('generated_video', sourcePath)
+    ]));
+
+    expect(await readFile(cover!.path, 'utf8')).toBe('generated-video-frame');
+    expect(extractFrame).toHaveBeenCalledWith(expect.objectContaining({ sourcePath }));
+  });
+
   it('falls back to the first frame when a video is shorter than five seconds', async () => {
     tempDir = mkdtempSync(join(tmpdir(), 'creator-project-cover-'));
     const sourcePath = join(tempDir, 'short.mp4');

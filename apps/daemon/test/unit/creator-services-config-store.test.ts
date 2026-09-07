@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -77,22 +77,18 @@ describe('CreatorServicesConfigStore', () => {
     root = mkdtempSync(join(tmpdir(), 'opencreator-creator-services-'));
     const configFile = join(root, 'config.toml');
     const credentialsFile = join(root, 'credentials.json');
-    const legacyFile = join(root, 'data', 'config', 'creator-services.json');
-    const legacyStore = createFileCreatorServicesConfigStore(legacyFile);
     const config = createDefaultCreatorServicesConfig();
     config.proxy = 'http://127.0.0.1:7897';
     config.image.provider = 'gemini';
     config.image.gemini.apiKey = 'gemini-private-key';
-    await legacyStore.write(config);
 
     const store = createOpenCreatorCreatorServicesConfigStore({
       configFile,
-      credentialsFile,
-      legacyFile
+      credentialsFile
     });
 
+    await expect(store.write(config)).resolves.toEqual(config);
     await expect(store.read()).resolves.toEqual(config);
-    expect(existsSync(legacyFile)).toBe(false);
     expect(readFileSync(configFile, 'utf8')).toContain('[creator_services.image]');
     expect(readFileSync(configFile, 'utf8')).not.toContain('gemini-private-key');
     expect(JSON.parse(readFileSync(credentialsFile, 'utf8'))).toMatchObject({
@@ -282,7 +278,7 @@ describe('CreatorServicesConfigStore', () => {
       },
       video: {
         provider: 'seedance',
-        seedance: { apiKey: '', model: 'doubao-seedance-1-0-pro-250528' }
+        seedance: { apiKey: '', model: 'doubao-seedance-2-5-260628' }
       }
     });
   });

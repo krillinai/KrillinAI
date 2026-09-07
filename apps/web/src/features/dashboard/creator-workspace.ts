@@ -26,7 +26,8 @@ export const visibleCreatorWorkspaces = [
   'video-download',
   'smart-dubbing',
   'cover-generator',
-  'image-generation'
+  'image-generation',
+  'video-generation'
 ] as const satisfies readonly CreatorWorkspace[];
 
 export const creatorRuntimeWorkspaces = [
@@ -36,7 +37,8 @@ export const creatorRuntimeWorkspaces = [
   'auto-clips',
   'smart-dubbing',
   'cover-generator',
-  'image-generation'
+  'image-generation',
+  'video-generation'
 ] as const satisfies readonly CreatorWorkspace[];
 
 export type CreatorRuntimeWorkspace = typeof creatorRuntimeWorkspaces[number];
@@ -48,7 +50,8 @@ const templateByWorkspace: Record<CreatorRuntimeWorkspace, string> = {
   'auto-clips': 'auto-clip',
   'smart-dubbing': 'smart-dubbing',
   'cover-generator': 'cover',
-  'image-generation': 'image-generation'
+  'image-generation': 'image-generation',
+  'video-generation': 'video-generation'
 };
 
 export function isCreatorWorkspace(value: string): value is CreatorWorkspace {

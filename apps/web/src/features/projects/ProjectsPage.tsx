@@ -24,7 +24,8 @@ const projectCoverArtifactKinds = new Set([
   'dubbed_video',
   'auto_clip_video',
   'stickman_video',
-  'clip_video'
+  'clip_video',
+  'generated_video'
 ]);
 
 type CreatorProject = {
@@ -359,6 +360,19 @@ function creatorDraftDefaults(templateId: string): Record<string, unknown[]> {
       currentStage: [null]
     };
   }
+  if (templateId === 'video-generation') {
+    return {
+      prompt: [''],
+      provider: ['seedance'],
+      size: ['1280x720'],
+      duration: [5],
+      referenceImageArtifactId: [null],
+      currentStep: [0],
+      furthestStep: [0],
+      resultVersion: [null],
+      currentStage: [null]
+    };
+  }
   if (templateId === 'auto-clip') {
     return {
       sourceUrl: [''],
@@ -473,6 +487,7 @@ function templateLabel(templateId: string, l: LocalizeCopy): string | undefined 
   if (templateId === 'auto-clip') return l('自动剪辑', 'Auto clips');
   if (templateId === 'cover') return l('封面生成', 'Thumbnail generation');
   if (templateId === 'image-generation') return l('图像生成', 'Image generation');
+  if (templateId === 'video-generation') return l('视频生成', 'Video generation');
   if (templateId === 'stickman-video') return l('火柴人视频', 'Stick figure video');
   return undefined;
 }
@@ -500,6 +515,7 @@ function projectCover(templateId: string): string {
   }
   if (templateId === 'cover') return '/dashboard/templates/image-generation-project-cover.png';
   if (templateId === 'image-generation') return '/dashboard/templates/image-generation-project-cover.png';
+  if (templateId === 'video-generation') return '/dashboard/templates/animated-story.jpg';
   if (templateId === 'stickman-video') return '/dashboard/templates/ai-video-insane.jpg';
   if (templateId === 'auto-clip') return '/dashboard/templates/animated-story.jpg';
   return '/dashboard/templates/digital-presenter.jpg';

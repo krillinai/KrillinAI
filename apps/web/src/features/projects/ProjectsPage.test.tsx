@@ -73,7 +73,8 @@ describe('ProjectsPage', () => {
 
   it.each([
     ['video-translation', '/dashboard/templates/video-translation-project-cover.png'],
-    ['video-download', '/dashboard/templates/video-download-project-cover.png']
+    ['video-download', '/dashboard/templates/video-download-project-cover.png'],
+    ['video-generation', '/dashboard/templates/animated-story.jpg']
   ])('uses the dedicated fallback cover for %s projects', (templateId, expectedCover) => {
     const job = creatorJob({
       id: `job_${templateId}_fallback`,
@@ -86,6 +87,53 @@ describe('ProjectsPage', () => {
 
     expect(screen.getByRole('button', { name: '打开项目 bilibili.com · BV1test' }).querySelector('img'))
       .toHaveAttribute('src', expectedCover);
+  });
+
+  it('shows a video generation Creator job and requests its generated frame cover', async () => {
+    const createObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+    const revokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => 'blob:generated-video-cover')
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn()
+    });
+    const job = creatorJob({
+      id: 'job_video_generation',
+      templateId: 'video-generation',
+      state: { prompt: '雨夜中的未来城市' },
+      updatedAt: '2026-09-07T08:00:00.000Z',
+      artifacts: [artifact('job_video_generation', 'generated_video', 'generated.mp4')]
+    });
+    const service = {
+      openProjectCover: vi.fn(async () => new Response(
+        new Blob(['jpeg'], { type: 'image/jpeg' })
+      ))
+    };
+
+    const rendered = render(
+      <ProjectsPage
+        jobs={[job]}
+        workspaces={workspaces}
+        service={service}
+        onOpenJob={vi.fn()}
+      />
+    );
+    try {
+      expect(screen.getByText('视频生成')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '打开项目 雨夜中的未来城市' }))
+        .toBeInTheDocument();
+      await waitFor(() => expect(service.openProjectCover).toHaveBeenCalledWith(job.id));
+      await waitFor(() => expect(
+        screen.getByRole('button', { name: '打开项目 雨夜中的未来城市' }).querySelector('img')
+      ).toHaveAttribute('src', 'blob:generated-video-cover'));
+    } finally {
+      rendered.unmount();
+      restoreUrlMethod('createObjectURL', createObjectUrlDescriptor);
+      restoreUrlMethod('revokeObjectURL', revokeObjectUrlDescriptor);
+    }
   });
 
   it('falls back from unavailable platform thumbnails to the authenticated runtime cover', async () => {

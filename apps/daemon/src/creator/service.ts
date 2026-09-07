@@ -332,12 +332,14 @@ export function createCreatorService(input: {
             current.revision
           );
         }
-        const supportsReferenceImage = current.templateVersion >= 2
-          && (current.templateId === 'cover' || current.templateId === 'image-generation');
+        const supportsReferenceImage = (
+          current.templateVersion >= 2
+          && (current.templateId === 'cover' || current.templateId === 'image-generation')
+        ) || current.templateId === 'video-generation';
         if (!supportsReferenceImage) {
           throw new CreatorServiceError(
             'creator_reference_upload_unsupported',
-            'Reference image upload is only supported for current cover and image generation jobs'
+            'Reference image upload is only supported for current cover, image generation, and video generation jobs'
           );
         }
         const duplicate = [...current.artifacts].reverse().find(artifact => (
@@ -383,7 +385,9 @@ export function createCreatorService(input: {
         });
         const referenceImageLabel = current.templateId === 'cover'
           ? '封面参考图'
-          : '图像生成参考图';
+          : current.templateId === 'video-generation'
+            ? '视频生成参考图'
+            : '图像生成参考图';
         repository.insertActivity({
           jobId,
           revision,

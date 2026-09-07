@@ -1,6 +1,5 @@
 export type DesktopBootstrapPhase =
   | 'idle'
-  | 'migrating_data'
   | 'resolving_codex'
   | 'starting_daemon'
   | 'probing_codex'
@@ -63,7 +62,6 @@ export type DesktopSettings = {
     height: number;
     maximized?: boolean;
   };
-  importedRuntimeSource?: string;
 };
 
 export type DesktopPreferences = {

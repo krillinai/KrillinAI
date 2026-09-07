@@ -1,13 +1,10 @@
 import {
   chmodSync,
   closeSync,
-  cpSync,
   existsSync,
-  lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
-  readdirSync,
   renameSync,
   rmSync,
   statSync,
@@ -40,7 +37,6 @@ export type OpenCreatorDesktopConfig = {
   notificationsEnabled: boolean;
   codexBin?: string;
   successfulCodexBin?: string;
-  importedRuntimeSource?: string;
   window?: {
     x?: number;
     y?: number;
@@ -72,10 +68,6 @@ export type OpenCreatorConfigSnapshot = {
     creatorServices: boolean;
   };
 };
-
-export type DirectoryMigrationResult =
-  | { migrated: true; source: string; target: string }
-  | { migrated: false; reason: 'SOURCE_MISSING' | 'TARGET_EXISTS' };
 
 const defaultUiSettings: OpenCreatorUiSettings = {
   language: 'system',
@@ -119,36 +111,6 @@ export function resolveOpenCreatorPaths(input: {
   };
 }
 
-export function migrateDirectoryIfEmpty(
-  sourcePath: string,
-  targetPath: string
-): DirectoryMigrationResult {
-  const source = resolve(sourcePath);
-  const target = resolve(targetPath);
-  if (!existsSync(source)) return { migrated: false, reason: 'SOURCE_MISSING' };
-  if (existsSync(target) && readDirectoryHasEntries(target)) {
-    return { migrated: false, reason: 'TARGET_EXISTS' };
-  }
-  assertPortableDirectory(source);
-  mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
-  const temporary = `${target}.migration-${process.pid}`;
-  rmSync(temporary, { recursive: true, force: true });
-  try {
-    cpSync(source, temporary, {
-      recursive: true,
-      errorOnExist: true,
-      force: false
-    });
-    assertPortableDirectory(temporary);
-    rmSync(target, { recursive: true, force: true });
-    renameSync(temporary, target);
-    return { migrated: true, source, target };
-  } catch (error) {
-    rmSync(temporary, { recursive: true, force: true });
-    throw error;
-  }
-}
-
 export function readOpenCreatorConfig(path: string): OpenCreatorConfigSnapshot {
   return withConfigLock(path, () => readOpenCreatorConfigUnlocked(path));
 }
@@ -180,10 +142,6 @@ function readOpenCreatorConfigUnlocked(path: string): OpenCreatorConfigSnapshot 
   const source = readFileSync(path, 'utf8');
   const parsed = parse(source) as unknown;
   if (!isRecord(parsed)) throw new Error('OPENCREATOR_CONFIG_INVALID');
-  if (isLegacyClaweeConfig(parsed)) {
-    archiveLegacyClaweeConfig(path);
-    return snapshot({ version: 1 });
-  }
   return snapshot(normalizeDocument(parsed));
 }
 
@@ -316,13 +274,6 @@ function normalizeDesktopConfig(value: unknown): OpenCreatorDesktopConfig {
             source.successfulCodexBin ?? source.successful_codex_bin
           )
         }),
-    ...(nonEmptyString(source.importedRuntimeSource ?? source.imported_runtime_source) === undefined
-      ? {}
-      : {
-          importedRuntimeSource: nonEmptyString(
-            source.importedRuntimeSource ?? source.imported_runtime_source
-          )
-        }),
     ...(window === undefined ? {} : { window })
   };
 }
@@ -381,9 +332,6 @@ function serializeDesktop(value: OpenCreatorDesktopConfig): Record<string, unkno
     ...(value.successfulCodexBin === undefined
       ? {}
       : { successful_codex_bin: value.successfulCodexBin }),
-    ...(value.importedRuntimeSource === undefined
-      ? {}
-      : { imported_runtime_source: value.importedRuntimeSource }),
     ...(value.window === undefined ? {} : { window: value.window })
   };
 }
@@ -395,50 +343,6 @@ function serializeRuntime(value: OpenCreatorRuntimeConfig): Record<string, unkno
       ? {}
       : { external_codex_bin: value.externalCodexBin })
   };
-}
-
-function readDirectoryHasEntries(path: string): boolean {
-  const stat = lstatSync(path);
-  if (stat.isSymbolicLink() || !stat.isDirectory()) return true;
-  return readFileSystemEntries(path).length > 0;
-}
-
-function assertPortableDirectory(path: string): void {
-  const stat = lstatSync(path);
-  if (stat.isSymbolicLink() || !stat.isDirectory()) {
-    throw new Error(`OPENCREATOR_MIGRATION_SOURCE_INVALID: ${path}`);
-  }
-  for (const entry of readFileSystemEntries(path)) {
-    const child = join(path, entry);
-    const childStat = lstatSync(child);
-    if (childStat.isSymbolicLink()) {
-      throw new Error(`OPENCREATOR_MIGRATION_SYMLINK_REJECTED: ${child}`);
-    }
-    if (childStat.isDirectory()) assertPortableDirectory(child);
-  }
-}
-
-function readFileSystemEntries(path: string): string[] {
-  return readdirSync(path);
-}
-
-function archiveLegacyClaweeConfig(path: string): void {
-  const legacyDir = join(dirname(path), 'legacy');
-  mkdirSync(legacyDir, { recursive: true, mode: 0o700 });
-  let destination = join(legacyDir, 'clawee-config.toml');
-  let suffix = 2;
-  while (existsSync(destination)) {
-    destination = join(legacyDir, `clawee-config-${suffix}.toml`);
-    suffix += 1;
-  }
-  renameSync(path, destination);
-}
-
-function isLegacyClaweeConfig(value: Record<string, unknown>): boolean {
-  const keys = Object.keys(value);
-  return keys.length > 0
-    && keys.every(key => key === 'gateway' || key === 'agent_id')
-    && (typeof value.gateway === 'string' || typeof value.agent_id === 'string');
 }
 
 function withConfigLock<Result>(path: string, action: () => Result): Result {

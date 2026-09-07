@@ -1,17 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import {
   rename,
   rm,
   writeFile
 } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
-import {
-  migrateDirectoryIfEmpty,
-  readOpenCreatorConfig
-} from '@opencreator/config';
+import { join, resolve } from 'node:path';
+import { readOpenCreatorConfig } from '@opencreator/config';
 import type { CodexAvailabilityProbe } from '@opencreator/protocol';
 import type { FastifyInstance } from 'fastify';
-import { fileURLToPath } from 'node:url';
 import {
   applyCapabilityMatrix,
   collectCodexCapabilityMatrixAsync,
@@ -22,10 +18,6 @@ import {
 } from './codex/capabilities.js';
 import { resolveCodexHome } from './codex/home.js';
 import { createCodexIsolatedHome } from './codex/probe-home.js';
-import {
-  consolidateLegacyConfigData,
-  migrateLegacyDaemonProductData
-} from './config/product-data-migration.js';
 import {
   CODEX_PROBE_TIMEOUT_MS,
   probeCodex
@@ -87,20 +79,10 @@ async function main(): Promise<void> {
   } = paths;
   const codexBin = environment.codexBin ?? 'codex';
   const codexHome = resolveCodexHome({ isolatedHome: paths.codexHome }).path;
-  if (environment.dataDir === undefined) {
-    const legacyDataDir = legacyDevelopmentDataDir();
-    if (!directoryHasEntries(dataDir)) {
-      migrateDirectoryIfEmpty(legacyDataDir, dataDir);
-    }
-  }
-  migrateLegacyDaemonProductData({ dataDir, runtimeDir, creatorDir });
   if (environment.codexHome === undefined && !directoryHasEntries(codexHome)) {
     createCodexIsolatedHome(resolveCodexHome().path, codexHome);
   }
   readOpenCreatorConfig(configFile);
-  const migratedDataConfig = join(dataDir, 'config.toml');
-  if (existsSync(migratedDataConfig)) readOpenCreatorConfig(migratedDataConfig);
-  consolidateLegacyConfigData({ dataDir, appHome });
   mkdirSync(dataDir, { recursive: true });
   mkdirSync(codexHome, { recursive: true });
   releaseRuntimeLock = acquireRuntimeLock(dataDir);
@@ -203,11 +185,11 @@ async function main(): Promise<void> {
 }
 
 function directoryHasEntries(path: string): boolean {
-  return existsSync(path) && readdirSync(path).length > 0;
-}
-
-function legacyDevelopmentDataDir(): string {
-  return resolve(dirname(fileURLToPath(import.meta.url)), '..', '.runtime');
+  try {
+    return statSync(path).isDirectory() && readdirSync(path).length > 0;
+  } catch {
+    return false;
+  }
 }
 
 function requiresProbe(): boolean {

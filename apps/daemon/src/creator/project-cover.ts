@@ -26,7 +26,8 @@ const videoArtifactKinds = [
   'dubbed_video',
   'auto_clip_video',
   'stickman_video',
-  'clip_video'
+  'clip_video',
+  'generated_video'
 ] as const;
 
 export function createCreatorProjectCoverService(input: {

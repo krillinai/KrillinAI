@@ -353,11 +353,87 @@ export const smartDubbingPanelAdapter: CreatorPanelAdapter = {
   }
 };
 
+export const videoGenerationPanelAdapter: CreatorPanelAdapter = {
+  id: 'video-generation',
+  composerPlaceholder: l => l(
+    '询问生成状态，或调整视频内容、服务、模型、画幅和时长',
+    'Ask about progress or adjust the video content, provider, model, format, and duration'
+  ),
+  stageLabel(stageId, l) {
+    if (stageId === 'generate') return l('生成视频', 'Generate video');
+    return l('视频生成任务', 'Video generation task');
+  },
+  phaseLabel(phase, l) {
+    const labels: Record<string, string> = {
+      validating: l('检查视频生成设置', 'Checking video generation settings'),
+      preparing_reference: l('准备视频参考图', 'Preparing the reference image'),
+      submitting: l('提交视频生成任务', 'Submitting the video generation task'),
+      queued: l('等待视频服务开始生成', 'Waiting for the video provider'),
+      generating: l('视频生成中', 'Generating video'),
+      downloading: l('下载生成的视频', 'Downloading the generated video'),
+      collecting_output: l('整理视频文件', 'Collecting the video file'),
+      validating_output: l('检查视频文件', 'Checking the video file'),
+      completed: l('视频已生成', 'Video generated'),
+      provider_failed: l('视频服务生成失败', 'Video provider failed')
+    };
+    return labels[phase] ?? genericPhaseLabel(phase, l);
+  },
+  activityStageId: readActivityStageId,
+  normalizeActivity(activity, l) {
+    return normalizeCommonActivity(
+      activity,
+      l,
+      videoGenerationPanelAdapter,
+      {
+        'register-reference-image': l('上传了视频参考图', 'Uploaded a video reference image')
+      },
+      videoGenerationFieldLabel
+    );
+  },
+  readStageProgress(stage) {
+    const progress = readStandardProgress(stage);
+    if (
+      progress.percent === null
+      && (progress.phase === 'queued' || progress.phase === 'generating')
+    ) {
+      return {
+        ...progress,
+        indeterminate: stage.status === 'running'
+      };
+    }
+    return progress;
+  },
+  runningProgressText(_stage, progress, l) {
+    return progress.phase === null
+      ? null
+      : videoGenerationPanelAdapter.phaseLabel(progress.phase, l);
+  },
+  failedProgressText(stage, l) {
+    if (stage.errorCode === 'creator_video_config_missing') {
+      return l(
+        '请先在设置的 AI 服务中配置视频生成服务',
+        'Configure a video generation provider in AI Services first.'
+      );
+    }
+    if (stage.errorCode === 'creator_video_model_unavailable') {
+      return l(
+        '当前账号未开通所选视频模型，请切换模型版本或前往服务商控制台开通',
+        'The selected video model is not enabled for this account. Switch models or enable it in the provider console.'
+      );
+    }
+    return null;
+  },
+  succeededProgressText(_stage, l) {
+    return l('视频已生成，可以预览或下载', 'The video is ready to preview or download');
+  }
+};
+
 export function creatorPanelAdapterFor(templateId: string): CreatorPanelAdapter {
   if (templateId === 'video-translation') return videoTranslationPanelAdapter;
   if (templateId === 'video-download') return videoDownloadPanelAdapter;
   if (templateId === 'smart-dubbing') return smartDubbingPanelAdapter;
   if (templateId === 'cover') return coverPanelAdapter;
+  if (templateId === 'video-generation') return videoGenerationPanelAdapter;
   return genericAdapter;
 }
 
@@ -483,6 +559,21 @@ function smartDubbingFieldLabel(
     style: l('表达风格', 'Delivery style'),
     speed: l('语速', 'Speaking rate'),
     format: l('音频格式', 'Audio format')
+  };
+  return labels[field] ?? null;
+}
+
+function videoGenerationFieldLabel(
+  field: string,
+  l: CreatorPanelLocalize
+): string | null {
+  const labels: Record<string, string> = {
+    prompt: l('视频描述', 'Video prompt'),
+    provider: l('视频服务', 'Video provider'),
+    model: l('模型版本', 'Model version'),
+    size: l('画幅与分辨率', 'Format and resolution'),
+    duration: l('视频时长', 'Video duration'),
+    referenceImageArtifactId: l('参考图', 'Reference image')
   };
   return labels[field] ?? null;
 }

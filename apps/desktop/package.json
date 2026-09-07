@@ -11,7 +11,7 @@
     "prebuild": "node ../../scripts/build-krillinai.mjs && pnpm --filter @opencreator/protocol build && pnpm --filter @opencreator/config build",
     "pretypecheck": "pnpm --filter @opencreator/protocol build && pnpm --filter @opencreator/config build",
     "pretest": "pnpm --filter @opencreator/protocol build && pnpm --filter @opencreator/config build",
-    "build:main": "tsc -p tsconfig.main.json",
+    "build:main": "node -e \"const fs=require('node:fs'); for (const path of ['dist/main','dist/shared']) fs.rmSync(path,{recursive:true,force:true})\" && tsc -p tsconfig.main.json",
     "build:preload": "esbuild src/preload/index.ts --bundle --platform=node --format=cjs --target=node22 --external:electron --outfile=dist/preload/index.cjs",
     "build:bootstrap": "vite build --config vite.bootstrap.config.ts",
     "build": "pnpm build:main && pnpm build:preload && pnpm build:bootstrap",

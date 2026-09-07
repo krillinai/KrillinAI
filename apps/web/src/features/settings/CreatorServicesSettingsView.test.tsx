@@ -231,11 +231,15 @@ describe('CreatorServicesSettingsView', () => {
 
     await user.click(screen.getByRole('tab', { name: '视频生成' }));
     expect(screen.getByRole('combobox', { name: '服务商' })).toHaveTextContent('Seedance');
-    expect(screen.getByLabelText('模型')).toHaveValue('doubao-seedance-1-0-pro-250528');
+    expect(screen.getByLabelText('默认模型')).toHaveValue('doubao-seedance-2-5-260628');
+    expect(screen.getByLabelText('默认模型')).toHaveAttribute(
+      'list',
+      'video-seedance-model-suggestions'
+    );
     expect(screen.getByLabelText('API Key')).toHaveAttribute('type', 'password');
     await user.click(screen.getByRole('combobox', { name: '服务商' }));
     await user.click(screen.getByRole('option', { name: 'Veo' }));
-    expect(screen.getByLabelText('模型')).toHaveValue('veo-3.1-generate-preview');
+    expect(screen.getByLabelText('默认模型')).toHaveValue('veo-3.1-generate-preview');
   });
 
   it('keeps non-model services available when the model provider cannot be read', async () => {
