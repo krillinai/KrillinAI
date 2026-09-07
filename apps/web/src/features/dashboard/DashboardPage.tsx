@@ -42,7 +42,6 @@ import {
 import type { VideoMetadataService } from '../../services/video-metadata-service.js';
 import type { SmartDubbingService } from '../../services/smart-dubbing-service.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
-import type { VideoGenerationService } from '../../services/video-generation-service.js';
 
 type DashboardCategory = '视频创作' | '图像创作' | '音频处理' | '视频编辑' | '数字人';
 
@@ -138,8 +137,8 @@ const creatorTools: DashboardEntry[] = [
   },
   {
     title: '视频生成',
-    description: '从创意生成完整视频',
-    prompt: '根据我的创意和素材生成一支完整的 AI 视频，请先帮我梳理画面风格、镜头和节奏。',
+    description: '文字或参考图生成视频片段',
+    prompt: '根据我的创意和参考素材生成一段 AI 视频，请先帮我梳理主体动作、镜头和画面风格。',
     category: '视频创作',
     icon: WandSparkles,
     workspace: 'video-generation'
@@ -162,7 +161,7 @@ const creatorTools: DashboardEntry[] = [
   },
 ];
 
-const categories = ['全部', '视频编辑', '图像创作'] as const;
+const categories = ['全部', '视频创作', '视频编辑', '图像创作'] as const;
 type CategoryFilter = typeof categories[number];
 
 const CREATOR_JOB_LOAD_TIMEOUT_MS = 15_000;
@@ -178,7 +177,6 @@ export default function DashboardPage(props: {
   skillLaunch?: CreatorSkillLaunch;
   smartDubbingService?: SmartDubbingService;
   creatorServicesService?: CreatorServicesSettingsService | null;
-  videoGenerationService?: VideoGenerationService;
   videoMetadataService?: VideoMetadataService;
   workspace?: CreatorWorkspace;
   jobId?: string;
@@ -331,13 +329,13 @@ export default function DashboardPage(props: {
   }
 
   if (activeWorkspace === 'video-generation') {
-    return (
+    return renderCreatorWorkspace('video-generation', (
       <VideoGenerationWorkspace
         promptHint={activePromptHint}
-        service={props.videoGenerationService}
+        creatorServicesService={props.creatorServicesService}
         onBack={closeWorkspace}
       />
-    );
+    ));
   }
 
   if (activeWorkspace === 'digital-avatar') {
@@ -816,7 +814,7 @@ const englishDashboardLabels: Record<string, string> = {
   视频翻译: 'Video Translation',
   '字幕、配音与口型同步': 'Subtitles, dubbing, and lip sync',
   视频生成: 'Video Generation',
-  从创意生成完整视频: 'Generate complete videos from an idea',
+  文字或参考图生成视频片段: 'Generate video clips from text or a reference image',
   快速制作专业口播: 'Create professional presenter videos quickly',
   '角色、分镜与完整动画': 'Characters, storyboards, and animation',
   自动剪辑: 'Auto Clips',

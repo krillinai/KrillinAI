@@ -25,7 +25,8 @@ export const visibleCreatorWorkspaces = [
   'video-translation',
   'video-download',
   'cover-generator',
-  'image-generation'
+  'image-generation',
+  'video-generation'
 ] as const satisfies readonly CreatorWorkspace[];
 
 export const creatorRuntimeWorkspaces = [
@@ -34,7 +35,8 @@ export const creatorRuntimeWorkspaces = [
   'stickman-video',
   'auto-clips',
   'cover-generator',
-  'image-generation'
+  'image-generation',
+  'video-generation'
 ] as const satisfies readonly CreatorWorkspace[];
 
 export type CreatorRuntimeWorkspace = typeof creatorRuntimeWorkspaces[number];
@@ -45,7 +47,8 @@ const templateByWorkspace: Record<CreatorRuntimeWorkspace, string> = {
   'stickman-video': 'stickman-video',
   'auto-clips': 'auto-clip',
   'cover-generator': 'cover',
-  'image-generation': 'image-generation'
+  'image-generation': 'image-generation',
+  'video-generation': 'video-generation'
 };
 
 export function isCreatorWorkspace(value: string): value is CreatorWorkspace {

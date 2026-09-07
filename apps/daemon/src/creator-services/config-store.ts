@@ -9,10 +9,7 @@ import {
   readOpenCreatorConfig,
   updateOpenCreatorConfig
 } from '@opencreator/config';
-import {
-  createPrivateJsonDocumentEntry,
-  deletePrivateJsonFile
-} from '../config/private-json-file.js';
+import { createPrivateJsonDocumentEntry } from '../config/private-json-file.js';
 import {
   readOpenCreatorCredentials,
   updateOpenCreatorCredentials
@@ -196,24 +193,12 @@ export function createFileCreatorServicesConfigStore(
 export function createOpenCreatorCreatorServicesConfigStore(input: {
   configFile: string;
   credentialsFile: string;
-  legacyFile?: string;
 }): CreatorServicesConfigStore {
-  const legacyStore = input.legacyFile === undefined
-    ? undefined
-    : createFileCreatorServicesConfigStore(input.legacyFile);
   const store: CreatorServicesConfigStore = {
     async read() {
       const snapshot = readOpenCreatorConfig(input.configFile);
       if (!snapshot.configured.creatorServices) {
-        if (legacyStore === undefined) return createDefaultCreatorServicesConfig();
-        try {
-          const legacy = await legacyStore.read();
-          await store.write(legacy);
-          await deletePrivateJsonFile(input.legacyFile!);
-          return legacy;
-        } catch {
-          return createDefaultCreatorServicesConfig();
-        }
+        return createDefaultCreatorServicesConfig();
       }
       const publicConfig = parseCreatorServicesConfig(
         snapshot.document.creatorServices

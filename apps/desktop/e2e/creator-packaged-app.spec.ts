@@ -506,7 +506,7 @@ async function launchCreatorDesktop(): Promise<{
   const userData = join(root, 'user-data');
   const codexBin = writeCodexShim(binDir);
   const ytDlpBin = writeYtDlpShim(binDir);
-  writeDesktopSettings(userData, codexBin);
+  writeOpenCreatorConfig(join(root, '.opencreator'), codexBin);
 
   const app = await launchPackagedApp({
     executablePath: packagedExecutable(desktopDir),
@@ -774,16 +774,22 @@ function writeYtDlpShim(binDir: string): string {
   return scriptPath;
 }
 
-function writeDesktopSettings(userData: string, codexBin: string): void {
-  mkdirSync(userData, { recursive: true });
+function writeOpenCreatorConfig(productHome: string, codexBin: string): void {
+  mkdirSync(productHome, { recursive: true });
   writeFileSync(
-    join(userData, 'desktop-settings.json'),
-    `${JSON.stringify({
-      closeBehavior: 'quit',
-      notificationsEnabled: false,
-      codexRuntimeMode: 'external',
-      externalCodexBin: codexBin
-    }, null, 2)}\n`
+    join(productHome, 'config.toml'),
+    [
+      'version = 1',
+      '',
+      '[desktop]',
+      'close_behavior = "quit"',
+      'notifications_enabled = false',
+      '',
+      '[runtime]',
+      'codex_mode = "external"',
+      `external_codex_bin = ${JSON.stringify(codexBin)}`,
+      ''
+    ].join('\n')
   );
 }
 

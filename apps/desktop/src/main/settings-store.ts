@@ -1,7 +1,4 @@
 import {
-  readFileSync
-} from 'node:fs';
-import {
   readOpenCreatorConfig,
   resolveDesktopConfig,
   resolveRuntimeConfig,
@@ -28,15 +25,13 @@ export type SettingsPersistence = {
     path: string,
     update: (document: OpenCreatorConfigDocument) => OpenCreatorConfigDocument
   ): OpenCreatorConfigSnapshot;
-  readLegacy(path: string): string;
 };
 
 export function createSettingsStore(
   path: string,
-  persistence: SettingsPersistence = fileSettingsPersistence,
-  legacyPath?: string
+  persistence: SettingsPersistence = fileSettingsPersistence
 ): SettingsStore {
-  let current = readSettings(path, persistence, legacyPath);
+  let current = readSettings(path, persistence);
   return {
     read() {
       return structuredClone(current);
@@ -52,9 +47,6 @@ export function createSettingsStore(
           ...(current.successfulCodexBin === undefined
             ? {}
             : { successfulCodexBin: current.successfulCodexBin }),
-          ...(current.importedRuntimeSource === undefined
-            ? {}
-            : { importedRuntimeSource: current.importedRuntimeSource }),
           ...(current.window === undefined ? {} : { window: current.window })
         },
         runtime: {
@@ -72,42 +64,22 @@ export function createSettingsStore(
 
 function readSettings(
   path: string,
-  persistence: SettingsPersistence,
-  legacyPath?: string
+  persistence: SettingsPersistence
 ): DesktopSettings {
   try {
     const snapshot = persistence.read(path);
     if (!snapshot.configured.desktop && !snapshot.configured.runtime) {
-      let legacy = structuredClone(defaultSettings);
-      if (legacyPath !== undefined) {
-        try {
-          legacy = normalizeSettings(JSON.parse(persistence.readLegacy(legacyPath)) as unknown);
-        } catch {
-          // Persist current OpenCreator defaults when there is no legacy Desktop file.
-        }
-      }
       persistence.update(path, document => ({
         ...document,
         desktop: {
-          closeBehavior: legacy.closeBehavior,
-          notificationsEnabled: legacy.notificationsEnabled,
-          ...(legacy.codexBin === undefined ? {} : { codexBin: legacy.codexBin }),
-          ...(legacy.successfulCodexBin === undefined
-            ? {}
-            : { successfulCodexBin: legacy.successfulCodexBin }),
-          ...(legacy.importedRuntimeSource === undefined
-            ? {}
-            : { importedRuntimeSource: legacy.importedRuntimeSource }),
-          ...(legacy.window === undefined ? {} : { window: legacy.window })
+          closeBehavior: defaultSettings.closeBehavior,
+          notificationsEnabled: defaultSettings.notificationsEnabled
         },
         runtime: {
-          codexMode: legacy.codexRuntimeMode ?? 'bundled',
-          ...(legacy.externalCodexBin === undefined
-            ? {}
-            : { externalCodexBin: legacy.externalCodexBin })
+          codexMode: 'bundled'
         }
       }));
-      return legacy;
+      return structuredClone(defaultSettings);
     }
     return normalizeSettings({
       ...resolveDesktopConfig(snapshot),
@@ -136,9 +108,6 @@ function normalizeSettings(value: unknown): DesktopSettings {
   if (typeof value.externalCodexBin === 'string' && value.externalCodexBin.length > 0) {
     settings.externalCodexBin = value.externalCodexBin;
   }
-  if (typeof value.importedRuntimeSource === 'string' && value.importedRuntimeSource.length > 0) {
-    settings.importedRuntimeSource = value.importedRuntimeSource;
-  }
   if (isRecord(value.window)) {
     const width = numberValue(value.window.width, 1280);
     const height = numberValue(value.window.height, 820);
@@ -155,8 +124,7 @@ function normalizeSettings(value: unknown): DesktopSettings {
 
 const fileSettingsPersistence: SettingsPersistence = {
   read: readOpenCreatorConfig,
-  update: updateOpenCreatorConfig,
-  readLegacy: path => readFileSync(path, 'utf8')
+  update: updateOpenCreatorConfig
 };
 
 function numberValue(value: unknown, fallback: number): number {

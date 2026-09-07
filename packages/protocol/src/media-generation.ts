@@ -60,6 +60,26 @@ export type VideoGenerationDuration = typeof videoGenerationDurations[number];
 export type VideoGenerationStatus = 'queued' | 'in_progress' | 'completed' | 'failed';
 export type VideoGenerationProvider = 'seedance' | 'kling' | 'veo';
 
+export const videoGenerationModelIds = {
+  seedance: [
+    'doubao-seedance-2-5-260628',
+    'doubao-seedance-2-0-260128',
+    'doubao-seedance-2-0-fast-260128',
+    'doubao-seedance-2-0-mini-260615',
+    'doubao-seedance-1-5-pro-251215',
+    'doubao-seedance-1-0-pro-fast-251015',
+    'doubao-seedance-1-0-pro-250528'
+  ],
+  kling: ['kling-v2-1-master'],
+  veo: ['veo-3.1-generate-preview']
+} as const;
+
+export const defaultVideoGenerationModels = {
+  seedance: videoGenerationModelIds.seedance[0],
+  kling: videoGenerationModelIds.kling[0],
+  veo: videoGenerationModelIds.veo[0]
+} satisfies Record<VideoGenerationProvider, string>;
+
 export type VideoGenerationReferenceImage = {
   mime: 'image/jpeg' | 'image/png' | 'image/webp';
   data: string;
@@ -68,6 +88,7 @@ export type VideoGenerationReferenceImage = {
 export type CreateVideoGenerationRequest = {
   prompt: string;
   provider: VideoGenerationProvider;
+  model?: string;
   size: VideoGenerationSize;
   duration: VideoGenerationDuration;
   referenceImage?: VideoGenerationReferenceImage;
@@ -82,6 +103,7 @@ export type VideoGenerationResult = {
   duration: VideoGenerationDuration;
   status: VideoGenerationStatus;
   progress: number;
+  progressKnown?: boolean;
   fileName?: string;
   mime?: 'video/mp4';
   size?: number;

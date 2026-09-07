@@ -219,19 +219,20 @@ export function createDefaultCreatorServicesConfig(): CreatorServicesConfig {
       seedance: {
         baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
         apiKey: '',
-        model: 'doubao-seedance-1-0-pro-250528'
+        model: defaultVideoGenerationModels.seedance
       },
       kling: {
         baseUrl: 'https://api-beijing.klingai.com',
         accessKey: '',
         secretKey: '',
-        model: 'kling-v2-1-master'
+        model: defaultVideoGenerationModels.kling
       },
       veo: {
         baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
         apiKey: '',
-        model: 'veo-3.1-generate-preview'
+        model: defaultVideoGenerationModels.veo
       }
     }
   };
 }
+import { defaultVideoGenerationModels } from './media-generation.js';

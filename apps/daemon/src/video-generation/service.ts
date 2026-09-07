@@ -1,4 +1,5 @@
 import {
+  defaultVideoGenerationModels,
   videoGenerationDurations,
   videoGenerationSizes,
   type CreateVideoGenerationRequest,
@@ -8,7 +9,7 @@ import {
   type VideoGenerationStatus
 } from '@opencreator/protocol';
 import { randomBytes } from 'node:crypto';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { CreatorServicesConfig } from '@opencreator/protocol';
 import type { CreatorServicesConfigStore } from '../creator-services/config-store.js';
@@ -36,11 +37,20 @@ type StoredVideoGeneration = {
   generationMode?: 'text-to-video' | 'image-to-video';
 };
 
+export type VideoGenerationOperationOptions = {
+  signal?: AbortSignal;
+  onDownloadStart?(): void;
+};
+
 export type VideoGenerationService = {
-  create(request: CreateVideoGenerationRequest): Promise<VideoGenerationResult>;
+  create(
+    request: CreateVideoGenerationRequest,
+    options?: VideoGenerationOperationOptions
+  ): Promise<VideoGenerationResult>;
   get(id: string): Promise<VideoGenerationResult>;
-  refresh(id: string): Promise<VideoGenerationResult>;
+  refresh(id: string, options?: VideoGenerationOperationOptions): Promise<VideoGenerationResult>;
   read(id: string): Promise<{ result: VideoGenerationResult; content: Buffer }>;
+  copyTo(id: string, destination: string): Promise<VideoGenerationResult>;
 };
 
 export class VideoGenerationError extends Error {
@@ -98,12 +108,12 @@ export function createVideoGenerationService(input: {
   async function completeFromPayload(
     stored: StoredVideoGeneration,
     payload: Record<string, unknown>,
-    config: CreatorServicesConfig
+    config: CreatorServicesConfig,
+    options: VideoGenerationOperationOptions = {}
   ): Promise<StoredVideoGeneration> {
     const download = resolveVideoDownload(stored, payload, config);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
-    timeout.unref();
+    options.onDownloadStart?.();
+    const operation = operationSignal(options.signal, DOWNLOAD_TIMEOUT_MS);
     let response: Response;
     try {
       response = await fetchCreatorService({
@@ -111,14 +121,14 @@ export function createVideoGenerationService(input: {
         method: 'GET',
         headers: download.headers,
         proxy: config.proxy.trim(),
-        signal: controller.signal,
+        signal: operation.signal,
         maxResponseBytes: MAX_VIDEO_BYTES,
         fetchImpl: input.fetchImpl
       });
     } catch {
       throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'The generated video could not be downloaded', 502);
     } finally {
-      clearTimeout(timeout);
+      operation.cleanup();
     }
     if (!response.ok) {
       throw new VideoGenerationError(
@@ -138,6 +148,7 @@ export function createVideoGenerationService(input: {
       fileName: `OpenCreator-video-${stored.result.id}.mp4`,
       mime: 'video/mp4',
       size: content.length,
+      progressKnown: true,
       error: undefined,
       updatedAt: now().toISOString()
     };
@@ -153,20 +164,18 @@ export function createVideoGenerationService(input: {
   }
 
   return {
-    async create(request) {
+    async create(request, options = {}) {
       validateRequest(request);
       const config = await input.configStore.read();
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-      timeout.unref();
+      const operation = operationSignal(options.signal, REQUEST_TIMEOUT_MS);
       let remote: RemoteVideoJob;
       try {
-        remote = await createRemoteVideoJob(request, config, controller.signal, input.fetchImpl);
+        remote = await createRemoteVideoJob(request, config, operation.signal, input.fetchImpl);
       } catch (error) {
         if (error instanceof VideoGenerationError) throw error;
         throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'The video generation provider could not be reached', 502);
       } finally {
-        clearTimeout(timeout);
+        operation.cleanup();
       }
 
       const id = createId();
@@ -184,6 +193,7 @@ export function createVideoGenerationService(input: {
           duration: request.duration,
           status: remote.status,
           progress: remote.progress,
+          progressKnown: remote.progressKnown,
           error: remote.error,
           createdAt: timestamp,
           updatedAt: timestamp
@@ -192,7 +202,7 @@ export function createVideoGenerationService(input: {
       try {
         await mkdir(resultDir(id), { recursive: true, mode: 0o700 });
         if (remote.status === 'completed') {
-          stored = await completeFromPayload(stored, remote.payload, config);
+          stored = await completeFromPayload(stored, remote.payload, config, options);
         } else {
           await writeStored(stored);
         }
@@ -205,21 +215,19 @@ export function createVideoGenerationService(input: {
     async get(id) {
       return (await readStored(id)).result;
     },
-    async refresh(id) {
+    async refresh(id, options = {}) {
       let stored = await readStored(id);
       if (stored.result.status === 'completed' || stored.result.status === 'failed') return stored.result;
       const config = await input.configStore.read();
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-      timeout.unref();
+      const operation = operationSignal(options.signal, REQUEST_TIMEOUT_MS);
       let remote: RemoteVideoJob;
       try {
-        remote = await refreshRemoteVideoJob(stored, config, controller.signal, input.fetchImpl);
+        remote = await refreshRemoteVideoJob(stored, config, operation.signal, input.fetchImpl);
       } catch (error) {
         if (error instanceof VideoGenerationError) throw error;
         throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'The video generation status could not be refreshed', 502);
       } finally {
-        clearTimeout(timeout);
+        operation.cleanup();
       }
 
       stored = {
@@ -228,12 +236,13 @@ export function createVideoGenerationService(input: {
           ...stored.result,
           status: remote.status,
           progress: remote.progress,
+          progressKnown: remote.progressKnown,
           error: remote.error,
           updatedAt: now().toISOString()
         }
       };
       if (remote.status === 'completed') {
-        stored = await completeFromPayload(stored, remote.payload, config);
+        stored = await completeFromPayload(stored, remote.payload, config, options);
       } else {
         await writeStored(stored);
       }
@@ -251,6 +260,21 @@ export function createVideoGenerationService(input: {
           throw new VideoGenerationError('VIDEO_GENERATION_RESULT_NOT_FOUND', 'Generated video file was not found', 404);
         }
         throw new VideoGenerationError('VIDEO_GENERATION_STORAGE_FAILED', 'Generated video is unavailable', 500);
+      }
+    },
+    async copyTo(id, destination) {
+      const stored = await readStored(id);
+      if (stored.result.status !== 'completed' || !stored.result.fileName || !stored.result.mime) {
+        throw new VideoGenerationError('VIDEO_GENERATION_NOT_READY', 'Generated video is not ready', 409);
+      }
+      try {
+        await copyFile(videoPath(id), destination);
+        return stored.result;
+      } catch (error) {
+        if (isNotFoundError(error)) {
+          throw new VideoGenerationError('VIDEO_GENERATION_RESULT_NOT_FOUND', 'Generated video file was not found', 404);
+        }
+        throw new VideoGenerationError('VIDEO_GENERATION_STORAGE_FAILED', 'Generated video could not be copied', 500);
       }
     }
   };
@@ -274,6 +298,7 @@ type RemoteVideoJob = {
   payload: Record<string, unknown>;
   status: VideoGenerationStatus;
   progress: number;
+  progressKnown: boolean;
   error?: string;
 };
 
@@ -332,7 +357,11 @@ async function createSeedanceVideoJob(
 ) {
   const settings = config.video.seedance;
   requireApiKey(settings.apiKey, 'seedance');
-  const model = settings.model.trim() || 'doubao-seedance-1-0-pro-250528';
+  const model = requestedModel(
+    request.model,
+    settings.model,
+    defaultVideoGenerationModels.seedance
+  );
   const content: Array<Record<string, unknown>> = [
     { type: 'text', text: request.prompt.trim() }
   ];
@@ -351,7 +380,9 @@ async function createSeedanceVideoJob(
     body: JSON.stringify({
       model,
       content,
-      ratio: videoAspectRatio(request.size),
+      ...(request.referenceImage
+        ? {}
+        : { ratio: videoAspectRatio(request.size) }),
       duration: request.duration,
       watermark: false
     }),
@@ -372,7 +403,11 @@ async function createKlingVideoJob(
 ) {
   const settings = config.video.kling;
   requireKlingConfig(settings.accessKey, settings.secretKey, 'kling');
-  const model = settings.model.trim() || 'kling-v2-1-master';
+  const model = requestedModel(
+    request.model,
+    settings.model,
+    defaultVideoGenerationModels.kling
+  );
   const payload = await requestVideoJson({
     endpoint: klingVideoEndpoint(settings.baseUrl, request.referenceImage !== undefined),
     method: 'POST',
@@ -405,7 +440,11 @@ async function createVeoVideoJob(
 ) {
   const settings = config.video.veo;
   requireApiKey(settings.apiKey, 'veo');
-  const model = settings.model.trim() || 'veo-3.1-generate-preview';
+  const model = requestedModel(
+    request.model,
+    settings.model,
+    defaultVideoGenerationModels.veo
+  );
   const instance = {
     prompt: request.prompt.trim(),
     ...(request.referenceImage ? {
@@ -484,18 +523,20 @@ function normalizeRemoteVideoJob(
     progress = readValue(payload, ['data', 'task_progress']);
   } else if (provider === 'veo') {
     rawStatus = isRecord(payload.error) ? 'failed' : payload.done === true ? 'completed' : 'in_progress';
-    progress = payload.done === true ? 100 : 10;
+    progress = payload.done === true ? 100 : undefined;
   } else {
     rawStatus = payload.status;
     progress = payload.progress;
   }
   const status = normalizeStatus(rawStatus);
+  const normalizedProgress = readProgress(progress, status);
   return {
     upstreamId,
     model,
     payload,
     status,
-    progress: readProgress(progress, status),
+    progress: normalizedProgress.value,
+    progressKnown: normalizedProgress.known,
     error: status === 'failed' ? readJobError(payload) : undefined
   };
 }
@@ -568,6 +609,14 @@ function requireKlingConfig(accessKey: string, secretKey: string, provider: stri
   if (!accessKey.trim() || !secretKey.trim()) missingVideoConfig(provider);
 }
 
+function requestedModel(
+  requested: string | undefined,
+  configured: string,
+  fallback: string
+): string {
+  return requested?.trim() || configured.trim() || fallback;
+}
+
 function missingVideoConfig(provider: string): never {
   throw new VideoGenerationError(
     'VIDEO_GENERATION_CONFIG_REQUIRED',
@@ -608,10 +657,21 @@ function normalizeStatus(value: unknown): VideoGenerationStatus {
   return 'queued';
 }
 
-function readProgress(value: unknown, status: VideoGenerationStatus): number {
-  if (status === 'completed') return 100;
-  if (typeof value !== 'number' || !Number.isFinite(value)) return status === 'in_progress' ? 10 : 0;
-  return Math.max(0, Math.min(99, Math.round(value)));
+function readProgress(
+  value: unknown,
+  status: VideoGenerationStatus
+): { value: number; known: boolean } {
+  if (status === 'completed') return { value: 100, known: true };
+  const numeric = typeof value === 'string' && value.trim()
+    ? Number(value)
+    : value;
+  if (typeof numeric !== 'number' || !Number.isFinite(numeric)) {
+    return { value: 0, known: false };
+  }
+  return {
+    value: Math.max(0, Math.min(99, Math.round(numeric))),
+    known: true
+  };
 }
 
 function readJobError(payload: Record<string, unknown>): string {
@@ -632,6 +692,20 @@ function validateRequest(request: CreateVideoGenerationRequest) {
   }
   if (!(videoProviders as readonly unknown[]).includes(request.provider)) {
     throw new VideoGenerationError('VALIDATION_FAILED', 'video provider is invalid', 400);
+  }
+  if (
+    request.model !== undefined
+    && (
+      typeof request.model !== 'string'
+      || !request.model.trim()
+      || [...request.model.trim()].length > 200
+    )
+  ) {
+    throw new VideoGenerationError(
+      'VALIDATION_FAILED',
+      'video model must contain between 1 and 200 characters',
+      400
+    );
   }
   if (!(videoGenerationSizes as readonly unknown[]).includes(request.size)) {
     throw new VideoGenerationError('VALIDATION_FAILED', 'video size is invalid', 400);
@@ -699,10 +773,30 @@ function isVideoGenerationResult(value: unknown): value is VideoGenerationResult
     && (videoGenerationDurations as readonly unknown[]).includes(value.duration)
     && (value.status === 'queued' || value.status === 'in_progress' || value.status === 'completed' || value.status === 'failed')
     && typeof value.progress === 'number'
+    && (value.progressKnown === undefined || typeof value.progressKnown === 'boolean')
     && typeof value.createdAt === 'string'
     && typeof value.updatedAt === 'string';
 }
 
 function isNotFoundError(error: unknown): boolean {
   return isRecord(error) && error.code === 'ENOENT';
+}
+
+function operationSignal(
+  parent: AbortSignal | undefined,
+  timeoutMs: number
+): { signal: AbortSignal; cleanup(): void } {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (parent?.aborted === true) controller.abort();
+  else parent?.addEventListener('abort', abort, { once: true });
+  const timeout = setTimeout(abort, timeoutMs);
+  timeout.unref();
+  return {
+    signal: controller.signal,
+    cleanup() {
+      clearTimeout(timeout);
+      parent?.removeEventListener('abort', abort);
+    }
+  };
 }

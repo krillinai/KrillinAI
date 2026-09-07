@@ -17,6 +17,7 @@ import {
   resolve
 } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import {
   expect,
@@ -38,6 +39,38 @@ const fakeCodexScript = join(e2eDir, 'fixtures', 'fake-codex.mjs');
 const fakeCodexLauncherSource = join(e2eDir, 'fixtures', 'fake-codex-launcher.go');
 
 test.describe.configure({ mode: 'serial' });
+
+test('打包 App 将旧 Electron 数据当作无关数据且不迁移', async () => {
+  const fixture = await launchPackagedDesktop('success', {
+    minimalPath: true,
+    runtimeMode: 'bundled',
+    seedLegacyData: true,
+    writeCurrentConfig: false
+  });
+  try {
+    await waitForRuntimeReady(fixture.page);
+    const state = await fixture.page.evaluate(
+      () => window.opencreatorDesktop?.readBootstrapState()
+    );
+    expect(state).toMatchObject({
+      phase: 'ready',
+      codexBin: packagedCodexExecutablePath(),
+      codexHome: join(fixture.root, '.opencreator', 'runtime', 'codex')
+    });
+    expect(existsSync(
+      join(fixture.root, '.opencreator', 'data', 'legacy-marker.txt')
+    )).toBe(false);
+    expect(existsSync(
+      join(fixture.root, '.opencreator', 'runtime', 'codex', 'legacy-codex-marker.txt')
+    )).toBe(false);
+    expect(readFileSync(
+      join(fixture.root, '.opencreator', 'config.toml'),
+      'utf8'
+    )).toContain('codex_mode = "bundled"');
+  } finally {
+    await closeFixture(fixture);
+  }
+});
 
 test('bundled 模式在最小 PATH 下忽略 nvm 安装的 Codex', async () => {
   const fixture = await launchPackagedDesktop('success', {
@@ -946,6 +979,8 @@ async function launchPackagedDesktop(
     minimalPath?: boolean;
     misleadingCodexWrapper?: boolean;
     runtimeMode?: 'bundled' | 'external';
+    seedLegacyData?: boolean;
+    writeCurrentConfig?: boolean;
   } = {}
 ): Promise<DesktopFixture> {
   const root = mkdtempSync(join(tmpdir(), 'opencreator-desktop-e2e-'));
@@ -959,12 +994,19 @@ async function launchPackagedDesktop(
   const userData = join(root, 'user-data');
   writeCodexShim(binDir);
   mkdirSync(userData, { recursive: true });
-  writeFileSync(join(userData, 'desktop-settings.json'), `${JSON.stringify({
-    closeBehavior: 'hide',
-    notificationsEnabled: true,
-    codexRuntimeMode: options.runtimeMode ?? 'external',
-    externalCodexBin: join(binDir, process.platform === 'win32' ? 'codex.exe' : 'codex')
-  }, null, 2)}\n`);
+  if (options.seedLegacyData === true) {
+    writeLegacyDesktopData(
+      userData,
+      join(binDir, process.platform === 'win32' ? 'codex.exe' : 'codex')
+    );
+  }
+  if (options.writeCurrentConfig !== false) {
+    writeOpenCreatorConfig(
+      join(root, '.opencreator'),
+      join(binDir, process.platform === 'win32' ? 'codex.exe' : 'codex'),
+      options.runtimeMode ?? 'external'
+    );
+  }
   if (options.misleadingCodexWrapper === true) {
     writeMisleadingCodexWrapper(join(root, '.local', 'bin'));
   }
@@ -1005,6 +1047,47 @@ async function launchPackagedDesktop(
     timeoutMs: 30_000
   });
   return { ...app, root, stateDir };
+}
+
+function writeOpenCreatorConfig(
+  productHome: string,
+  codexBin: string,
+  runtimeMode: 'bundled' | 'external'
+): void {
+  mkdirSync(productHome, { recursive: true });
+  writeFileSync(join(productHome, 'config.toml'), [
+    'version = 1',
+    '',
+    '[desktop]',
+    'close_behavior = "hide"',
+    'notifications_enabled = true',
+    '',
+    '[runtime]',
+    `codex_mode = ${JSON.stringify(runtimeMode)}`,
+    `external_codex_bin = ${JSON.stringify(codexBin)}`,
+    ''
+  ].join('\n'));
+}
+
+function writeLegacyDesktopData(userData: string, codexBin: string): void {
+  const daemonDir = join(userData, 'daemon');
+  const legacyCodexHome = join(userData, 'runtime', 'codex', 'home');
+  mkdirSync(daemonDir, { recursive: true });
+  mkdirSync(legacyCodexHome, { recursive: true });
+  const database = new DatabaseSync(join(daemonDir, 'app.sqlite'));
+  database.exec('create table legacy_marker (value text not null)');
+  database.close();
+  writeFileSync(join(daemonDir, 'legacy-marker.txt'), 'must-not-migrate\n');
+  writeFileSync(
+    join(legacyCodexHome, 'legacy-codex-marker.txt'),
+    'must-not-migrate\n'
+  );
+  writeFileSync(join(userData, 'desktop-settings.json'), `${JSON.stringify({
+    closeBehavior: 'quit',
+    notificationsEnabled: false,
+    codexRuntimeMode: 'external',
+    externalCodexBin: codexBin
+  }, null, 2)}\n`);
 }
 
 function minimalSystemPath(): string {

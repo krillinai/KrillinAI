@@ -1,5 +1,4 @@
 import {
-  deletePrivateJsonFile,
   readPrivateJsonFile,
   writePrivateJsonFile
 } from '../config/private-json-file.js';
@@ -64,26 +63,13 @@ export function createFileCodexProviderCredentialStore(
 }
 
 export function createOpenCreatorCodexProviderCredentialStore(
-  path: string,
-  legacyPath?: string
+  path: string
 ): CodexProviderCredentialStore {
-  const legacy = legacyPath === undefined
-    ? undefined
-    : createFileCodexProviderCredentialStore(legacyPath);
   return {
     async readApiKey() {
       const document = await readOpenCreatorCredentials(path);
       const current = document.codexProvider?.apiKey.trim();
-      if (current !== undefined && current.length > 0) return current;
-      const legacyApiKey = await legacy?.readApiKey().catch(() => undefined);
-      if (legacyApiKey !== undefined) {
-        await updateOpenCreatorCredentials(path, value => ({
-          ...value,
-          codexProvider: { apiKey: legacyApiKey }
-        }));
-        await deletePrivateJsonFile(legacyPath!);
-      }
-      return legacyApiKey;
+      return current === undefined || current.length === 0 ? undefined : current;
     },
     async writeApiKey(apiKey) {
       await updateOpenCreatorCredentials(path, value => ({

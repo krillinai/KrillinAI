@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import {
   createDefaultCreatorServicesConfig,
   readCreatorResultSnapshots,
+  type CreatorActionRequest,
   type CreatorArtifact,
   type CreatorJob,
   type CreatorJson,
@@ -648,17 +649,18 @@ describe('DashboardPage', () => {
     expect(within(videoTranslationCard).getByText('HOT')).toBeInTheDocument();
     expect(within(videoTranslationCard).queryByText('NEW')).not.toBeInTheDocument();
     const appCards = Array.from(container.querySelectorAll('.dashboard-app-card'));
-    expect(appCards).toHaveLength(4);
+    expect(appCards).toHaveLength(5);
     expect(appCards.map(card => card.querySelector('strong')?.textContent)).toEqual([
       '视频翻译',
       '视频下载',
       '封面生成',
+      '视频生成',
       '图像生成'
     ]);
     expect(screen.queryByRole('button', { name: /^火柴人动画/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^自动剪辑/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^智能配音/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^视频生成/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^视频生成/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^数字人口播/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^视频转格式/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^画面扩展/ })).not.toBeInTheDocument();
@@ -2038,29 +2040,172 @@ describe('DashboardPage', () => {
       configurable: true,
       value: vi.fn()
     });
-    const result = {
-      id: 'video_result_1234',
-      prompt: '一辆红色跑车沿着海岸公路行驶',
-      provider: 'veo' as const,
-      model: 'veo-3.1-generate-preview',
-      videoSize: '720x1280' as const,
-      duration: 8 as const,
-      status: 'completed' as const,
-      progress: 100,
-      fileName: 'OpenCreator-video.mp4',
-      mime: 'video/mp4' as const,
-      size: 4096,
-      createdAt: '2026-08-20T00:00:00.000Z',
-      updatedAt: '2026-08-20T00:02:00.000Z'
+    const prompt = '一辆红色跑车沿着海岸公路行驶';
+    const createdAt = '2026-09-07T00:00:00.000Z';
+    let job: CreatorJob = {
+      id: 'creator_video_job',
+      projectId: 'project_1',
+      templateId: 'video-generation',
+      templateVersion: 1,
+      status: 'draft',
+      revision: 0,
+      state: {
+        prompt: '',
+        provider: 'seedance',
+        size: '1280x720',
+        duration: 5,
+        referenceImageArtifactId: null,
+        currentStage: null
+      },
+      agentThreadId: null,
+      stages: [],
+      artifacts: [],
+      activities: [],
+      createdAt,
+      updatedAt: createdAt
     };
-    const generate = vi.fn(async () => ({ result }));
-    const get = vi.fn(async () => ({ result }));
-    const openContent = vi.fn(async () => new Response(new Blob(['video'], { type: 'video/mp4' })));
+    const applyAction = vi.fn(async (_jobId: string, request: CreatorActionRequest) => {
+      if (request.action === 'update-settings') {
+        job = {
+          ...job,
+          revision: job.revision + 1,
+          state: {
+            ...job.state,
+            ...(request.input.patch as Record<string, CreatorJson>)
+          }
+        };
+      } else if (request.action === 'run-stage') {
+        const version = 1;
+        const artifact: CreatorArtifact = {
+          id: 'generated_video_v1',
+          jobId: job.id,
+          kind: 'generated_video',
+          version,
+          status: 'completed',
+          path: '/tmp/generated-video-v1.mp4',
+          sourceArtifactIds: job.artifacts
+            .filter(candidate => candidate.kind === 'reference_image')
+            .map(candidate => candidate.id),
+          metadata: {
+            provider: 'veo',
+            model: 'veo-3.1-generate-preview',
+            videoSize: '720x1280',
+            requestedDuration: 8,
+            duration: 8,
+            fileName: 'OpenCreator-video.mp4',
+            mimeType: 'video/mp4',
+            bytes: 4096,
+            resultVersion: version
+          },
+          createdAt
+        };
+        job = {
+          ...job,
+          status: 'completed',
+          revision: job.revision + 2,
+          state: {
+            ...job.state,
+            currentStage: 'generate',
+            resultVersion: version,
+            latestResultVersion: version,
+            resultSnapshots: [{
+              version,
+              createdAt,
+              action: 'stage-succeeded',
+              stageId: 'generate',
+              description: '生成视频',
+              artifactRefs: { generated_video: [artifact.id] },
+              changedArtifactIds: [artifact.id],
+              staleArtifactIds: [],
+              state: {
+                prompt,
+                provider: 'veo',
+                size: '720x1280',
+                duration: 8,
+                referenceImageArtifactId: 'reference_video_1'
+              }
+            }]
+          },
+          stages: [{
+            id: 'stage_video_generate_1',
+            jobId: job.id,
+            stageId: 'generate',
+            executor: 'video',
+            status: 'succeeded',
+            dispatchStatus: 'finished',
+            claimOwner: null,
+            claimExpiresAt: null,
+            attempt: 1,
+            idempotencyKey: null,
+            progress: { status: 'succeeded', phase: 'completed', percent: 100 },
+            errorCode: null,
+            errorMessage: null,
+            startedAt: createdAt,
+            finishedAt: createdAt
+          }],
+          artifacts: [...job.artifacts, artifact]
+        };
+      }
+      return {
+        job,
+        receipt: {
+          actor: 'user' as const,
+          action: request.action,
+          summary: request.action,
+          affectedArtifacts: [],
+          newRevision: job.revision,
+          createdAt
+        }
+      };
+    });
+    const uploadReferenceImage = vi.fn(async (_jobId: string, input: {
+      file: File;
+      expectedRevision: number;
+    }) => {
+      const artifact: CreatorArtifact = {
+        id: 'reference_video_1',
+        jobId: job.id,
+        kind: 'reference_image',
+        version: 1,
+        status: 'completed',
+        path: '/tmp/coast-reference.png',
+        sourceArtifactIds: [],
+        metadata: {
+          fileName: input.file.name,
+          mimeType: input.file.type,
+          size: input.file.size,
+          lastModified: input.file.lastModified
+        },
+        createdAt
+      };
+      job = {
+        ...job,
+        revision: job.revision + 1,
+        state: {
+          ...job.state,
+          referenceImageArtifactId: artifact.id,
+          referenceImageFileName: input.file.name
+        },
+        artifacts: [...job.artifacts, artifact]
+      };
+      return { job, artifact, deduplicated: false };
+    });
+    const openArtifact = vi.fn(async () => new Response(
+      new Blob(['video'], { type: 'video/mp4' })
+    ));
+    const creatorService = {
+      createJob: vi.fn(async () => ({ job })),
+      getJob: vi.fn(async () => ({ job })),
+      applyAction,
+      uploadReferenceImage,
+      openArtifact,
+      runAgentTurn: vi.fn()
+    } as unknown as CreatorWebService;
     render(
       <DashboardPage
         onSelectPrompt={vi.fn()}
         workspace="video-generation"
-        videoGenerationService={{ generate, get, openContent }}
+        creatorService={creatorService}
       />
     );
 
@@ -2068,7 +2213,7 @@ describe('DashboardPage', () => {
     const referenceImageInput = screen.getByLabelText('上传视频参考图');
     expect(referenceImageInput.compareDocumentPosition(promptInput) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     fireEvent.change(promptInput, {
-      target: { value: result.prompt }
+      target: { value: prompt }
     });
     const referenceImage = new File(['reference'], 'coast-reference.png', {
       type: 'image/png'
@@ -2084,17 +2229,21 @@ describe('DashboardPage', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
     const providerSelect = screen.getByRole('combobox', { name: '视频服务' });
+    const modelSelect = screen.getByRole('combobox', { name: '模型版本' });
     const formatSelect = screen.getByRole('combobox', { name: '画幅' });
     const durationSelect = screen.getByRole('combobox', { name: '视频时长' });
     expect(providerSelect).toHaveValue('seedance');
+    expect(modelSelect).toHaveValue('doubao-seedance-2-5-260628');
     fireEvent.change(providerSelect, { target: { value: 'veo' } });
     expect(providerSelect).toHaveValue('veo');
+    expect(modelSelect).toHaveValue('veo-3.1-generate-preview');
     expect(durationSelect).toHaveValue('4');
     fireEvent.change(formatSelect, { target: { value: '720x1280' } });
     fireEvent.change(durationSelect, { target: { value: '8' } });
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
 
     expect(screen.getByLabelText('任务摘要')).toHaveTextContent('竖屏 · 9:16');
+    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('Veo 3.1');
     expect(screen.getByLabelText('任务摘要')).toHaveTextContent('8 秒');
     expect(screen.getByLabelText('任务摘要')).toHaveTextContent('coast-reference.png');
     const generationActions = screen.getByLabelText('视频生成操作');
@@ -2103,18 +2252,18 @@ describe('DashboardPage', () => {
     fireEvent.click(generateButton);
 
     expect(await screen.findByLabelText('生成视频预览')).toHaveAttribute('src', 'blob:generated-video');
-    expect(generate).toHaveBeenCalledWith({
-      prompt: result.prompt,
-      provider: 'veo',
-      size: '720x1280',
-      duration: 8,
-      referenceImage: {
-        mime: 'image/png',
-        data: 'cmVmZXJlbmNl'
-      }
-    });
-    expect(openContent).toHaveBeenCalledWith(result.id);
-    expect(get).not.toHaveBeenCalled();
+    expect(uploadReferenceImage).toHaveBeenCalledWith(
+      job.id,
+      expect.objectContaining({ file: referenceImage })
+    );
+    expect(applyAction).toHaveBeenCalledWith(
+      job.id,
+      expect.objectContaining({
+        action: 'run-stage',
+        input: { stageId: 'generate' }
+      })
+    );
+    expect(openArtifact).toHaveBeenCalledWith(job.id, 'generated_video_v1');
   });
 
   it('builds and confirms a digital avatar production plan from a direct workspace', () => {

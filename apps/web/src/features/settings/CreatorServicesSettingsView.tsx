@@ -1,5 +1,7 @@
 import {
   createDefaultCreatorServicesConfig,
+  defaultVideoGenerationModels,
+  videoGenerationModelIds,
   type CodexProviderConfig,
   type AliyunOssConfig,
   type AliyunSpeechConfig,
@@ -789,7 +791,10 @@ function VideoSettings(props: SettingsGroupProps) {
   return (
     <SettingsFieldset
       title={l('视频生成', 'Video generation')}
-      description={l('配置 Seedance、可灵或 Veo 视频生成服务。', 'Configure Seedance, Kling, or Veo video generation.')}
+      description={l(
+        '配置 Seedance、可灵或 Veo 视频生成服务，以及新任务使用的默认模型。',
+        'Configure Seedance, Kling, or Veo video generation and the default model for new tasks.'
+      )}
     >
       <SelectField
         id="video-provider"
@@ -804,9 +809,9 @@ function VideoSettings(props: SettingsGroupProps) {
           config.video.provider = value as CreatorServicesConfig['video']['provider'];
         })}
       />
-      {provider === 'seedance' ? <OpenAiFields id="video-seedance" credential="video.seedance.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.video.seedance} modelPlaceholder="doubao-seedance-1-0-pro-250528" baseUrlPlaceholder="https://ark.cn-beijing.volces.com/api/v3" onChange={value => props.update(config => { config.video.seedance = value; })} /> : null}
-      {provider === 'kling' ? <KlingFields id="video-kling" accessKeyCredential="video.kling.accessKey" secretKeyCredential="video.kling.secretKey" configuredCredentials={props.configuredCredentials} value={props.config.video.kling} modelPlaceholder="kling-v2-1-master" onChange={value => props.update(config => { config.video.kling = value; })} /> : null}
-      {provider === 'veo' ? <OpenAiFields id="video-veo" credential="video.veo.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.video.veo} modelPlaceholder="veo-3.1-generate-preview" baseUrlPlaceholder="https://generativelanguage.googleapis.com/v1beta" onChange={value => props.update(config => { config.video.veo = value; })} /> : null}
+      {provider === 'seedance' ? <OpenAiFields id="video-seedance" credential="video.seedance.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.video.seedance} modelLabel={l('默认模型', 'Default model')} modelPlaceholder={defaultVideoGenerationModels.seedance} modelSuggestions={videoGenerationModelIds.seedance} baseUrlPlaceholder="https://ark.cn-beijing.volces.com/api/v3" onChange={value => props.update(config => { config.video.seedance = value; })} /> : null}
+      {provider === 'kling' ? <KlingFields id="video-kling" accessKeyCredential="video.kling.accessKey" secretKeyCredential="video.kling.secretKey" configuredCredentials={props.configuredCredentials} value={props.config.video.kling} modelLabel={l('默认模型', 'Default model')} modelPlaceholder={defaultVideoGenerationModels.kling} modelSuggestions={videoGenerationModelIds.kling} onChange={value => props.update(config => { config.video.kling = value; })} /> : null}
+      {provider === 'veo' ? <OpenAiFields id="video-veo" credential="video.veo.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.video.veo} modelLabel={l('默认模型', 'Default model')} modelPlaceholder={defaultVideoGenerationModels.veo} modelSuggestions={videoGenerationModelIds.veo} baseUrlPlaceholder="https://generativelanguage.googleapis.com/v1beta" onChange={value => props.update(config => { config.video.veo = value; })} /> : null}
     </SettingsFieldset>
   );
 }
@@ -834,6 +839,8 @@ function OpenAiFields(props: {
   configuredCredentials: ReadonlySet<CreatorServicesCredentialField>;
   value: OpenAiCompatibleConfig;
   modelPlaceholder: string;
+  modelLabel?: string;
+  modelSuggestions?: readonly string[];
   modelReadonly?: boolean;
   baseUrlPlaceholder?: string;
   onChange(value: OpenAiCompatibleConfig): void;
@@ -857,13 +864,14 @@ function OpenAiFields(props: {
         onChange={apiKey => props.onChange({ ...props.value, apiKey })}
       />
       {props.modelReadonly ? (
-        <ReadonlyModelField label={l('模型', 'Model')} value={props.modelPlaceholder} />
+        <ReadonlyModelField label={props.modelLabel ?? l('模型', 'Model')} value={props.modelPlaceholder} />
       ) : (
         <TextField
           id={`${props.id}-model`}
-          label={l('模型', 'Model')}
+          label={props.modelLabel ?? l('模型', 'Model')}
           value={props.value.model}
           placeholder={props.modelPlaceholder}
+          suggestions={props.modelSuggestions}
           onChange={model => props.onChange({ ...props.value, model })}
         />
       )}
@@ -878,6 +886,8 @@ function KlingFields(props: {
   configuredCredentials: ReadonlySet<CreatorServicesCredentialField>;
   value: KlingAiConfig;
   modelPlaceholder: string;
+  modelLabel?: string;
+  modelSuggestions?: readonly string[];
   onChange(value: KlingAiConfig): void;
 }) {
   return (
@@ -885,7 +895,7 @@ function KlingFields(props: {
       <TextField id={`${props.id}-base-url`} label="Base URL" value={props.value.baseUrl} placeholder="https://api-beijing.klingai.com" onChange={baseUrl => props.onChange({ ...props.value, baseUrl })} wide />
       <PasswordField id={`${props.id}-access-key`} label="Access Key" value={props.value.accessKey} configured={props.configuredCredentials.has(props.accessKeyCredential)} onChange={accessKey => props.onChange({ ...props.value, accessKey })} />
       <PasswordField id={`${props.id}-secret-key`} label="Secret Key" value={props.value.secretKey} configured={props.configuredCredentials.has(props.secretKeyCredential)} onChange={secretKey => props.onChange({ ...props.value, secretKey })} />
-      <TextField id={`${props.id}-model`} label="Model" value={props.value.model} placeholder={props.modelPlaceholder} onChange={model => props.onChange({ ...props.value, model })} />
+      <TextField id={`${props.id}-model`} label={props.modelLabel ?? 'Model'} value={props.value.model} placeholder={props.modelPlaceholder} suggestions={props.modelSuggestions} onChange={model => props.onChange({ ...props.value, model })} />
     </>
   );
 }
@@ -954,6 +964,7 @@ function TextField(props: {
   label: string;
   value: string;
   placeholder?: string;
+  suggestions?: readonly string[];
   wide?: boolean;
   onChange(value: string): void;
 }) {
@@ -965,10 +976,16 @@ function TextField(props: {
         type="text"
         value={props.value}
         placeholder={props.placeholder}
+        list={props.suggestions?.length ? `${props.id}-suggestions` : undefined}
         spellCheck={false}
         autoComplete="off"
         onChange={event => props.onChange(event.target.value)}
       />
+      {props.suggestions?.length ? (
+        <datalist id={`${props.id}-suggestions`}>
+          {props.suggestions.map(value => <option key={value} value={value} />)}
+        </datalist>
+      ) : null}
     </label>
   );
 }

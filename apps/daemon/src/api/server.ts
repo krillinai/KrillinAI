@@ -54,9 +54,11 @@ import {
   createFfmpegCoverImageNormalizer,
   createImageExecutor
 } from '../creator/image/executor.js';
+import { createVideoExecutor } from '../creator/video/executor.js';
 import { createClipExecutor } from '../creator/clip/executor.js';
 import { createStickmanExecutor } from '../creator/stickman/executor.js';
 import { createCreatorProjectCoverService } from '../creator/project-cover.js';
+import { createVideoGenerationService } from '../video-generation/service.js';
 import {
   createCreatorReferenceImageUploadService,
   type CreatorReferenceImageUploadService
@@ -134,7 +136,6 @@ import {
 } from '../codex/skills/source-installer.js';
 import { buildCodexStatusResponse } from '../codex/status.js';
 import { createCleanupService } from '../cleanup/service.js';
-import { removeEmptyLegacyDataDirectories } from '../config/product-data-migration.js';
 import {
   createCreatorServicesConfigStoreWithTextModelFallback,
   createFileCreatorServicesConfigStore,
@@ -192,7 +193,6 @@ import { registerScheduleRoutes } from './routes.schedules.js';
 import { registerSkillMarketRoutes } from './routes.skill-market.js';
 import { registerSkillRoutes } from './routes.skills.js';
 import { registerSmartDubbingRoutes } from './routes.smart-dubbing.js';
-import { registerVideoGenerationRoutes } from './routes.video-generation.js';
 import { registerTaskRoutes } from './routes.tasks.js';
 import { registerThreadRoutes } from './routes.threads.js';
 import { registerWorkspaceFileRoutes } from './routes.workspace-files.js';
@@ -376,8 +376,7 @@ export async function buildServer(input: BuildServerInput) {
           )
         : createOpenCreatorCreatorServicesConfigStore({
             configFile,
-            credentialsFile: input.credentialsFile,
-            legacyFile: join(dataDir, 'config', 'creator-services.json')
+            credentialsFile: input.credentialsFile
           })
     );
   const codexProviderCredentialStore =
@@ -386,18 +385,8 @@ export async function buildServer(input: BuildServerInput) {
         ? createFileCodexProviderCredentialStore(
             join(dataDir, 'config', 'codex-provider.json')
           )
-        : createOpenCreatorCodexProviderCredentialStore(
-            input.credentialsFile,
-            join(dataDir, 'config', 'codex-provider.json')
-        )
+        : createOpenCreatorCodexProviderCredentialStore(input.credentialsFile)
     );
-  if (input.credentialsFile !== undefined) {
-    await Promise.all([
-      storedCreatorServicesConfigStore.read(),
-      codexProviderCredentialStore.readApiKey()
-    ]);
-    removeEmptyLegacyDataDirectories(dataDir);
-  }
   const resolveCodexProviderApiKey = async (provider: {
     baseUrl: string;
     model: string;
@@ -512,6 +501,10 @@ export async function buildServer(input: BuildServerInput) {
     dataDir,
     ttsService: krillinTtsService
   });
+  const videoGenerationService = createVideoGenerationService({
+    dataDir,
+    configStore: creatorServicesConfigStore
+  });
   const creatorExecutors: CreatorExecutor[] = input.creatorExecutors ?? [];
   let creatorFfmpegPath: string | undefined;
   let creatorFfprobePath: string | undefined;
@@ -607,6 +600,12 @@ export async function buildServer(input: BuildServerInput) {
             )
           })
     }));
+    if (creatorFfprobePath !== undefined) {
+      creatorExecutors.push(createVideoExecutor({
+        service: videoGenerationService,
+        probeVideo: path => validateMediaFile(path, creatorFfprobePath!)
+      }));
+    }
   }
   const creatorProjectCoverService = createCreatorProjectCoverService({
     jobsRoot: creatorJobsRoot,

@@ -4,6 +4,7 @@ import {
   createImageGenerationTemplate,
   createCreatorTemplateRegistry,
   createVideoDownloadTemplate,
+  createVideoGenerationTemplate,
   createVideoTranslationTemplate
 } from '../../src/creator/templates/registry.js';
 
@@ -94,6 +95,40 @@ describe('creator template registry', () => {
       }
     ]);
     expect(template.inputSchema.parse({})).not.toHaveProperty('formatId');
+  });
+
+  it('registers video generation as a persisted Creator Runtime template', () => {
+    const template = createVideoGenerationTemplate();
+
+    expect(template).toMatchObject({
+      id: 'video-generation',
+      version: 1,
+      renderer: 'video-generation',
+      stages: [{
+        id: 'generate',
+        executor: 'video',
+        inputArtifacts: [{
+          kind: 'reference_image',
+          selector: 'state-artifact-id',
+          stateKey: 'referenceImageArtifactId',
+          optional: true
+        }],
+        outputArtifacts: [{ kind: 'generated_video', status: 'completed' }]
+      }],
+      outputs: [{ kind: 'generated_video', required: true }]
+    });
+    expect(template.inputSchema.parse({})).toMatchObject({
+      prompt: '',
+      provider: 'seedance',
+      size: '1280x720',
+      duration: 5,
+      referenceImageArtifactId: null
+    });
+    expect(template.inputSchema.parse({
+      model: 'doubao-seedance-2-5-260628'
+    })).toMatchObject({
+      model: 'doubao-seedance-2-5-260628'
+    });
   });
 
   it('resolves the video translation stale graph from target subtitles only', () => {

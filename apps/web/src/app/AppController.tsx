@@ -145,7 +145,6 @@ import { createRuntimeDependencyService } from '../services/runtime-dependency-s
 import { createScheduleService } from '../services/schedule-service.js';
 import { createSearchService } from '../services/search-service.js';
 import { createSmartDubbingService } from '../services/smart-dubbing-service.js';
-import { createVideoGenerationService } from '../services/video-generation-service.js';
 import { createSkillMarketService } from '../services/skill-market-service.js';
 import { createTaskService } from '../services/task-service.js';
 import { createThreadService } from '../services/thread-service.js';
@@ -512,10 +511,6 @@ export function AppController(props: AppControllerProps) {
   );
   const smartDubbingService = useMemo(
     () => runtimeClient === null ? undefined : createSmartDubbingService(runtimeClient),
-    [runtimeClient]
-  );
-  const videoGenerationService = useMemo(
-    () => runtimeClient === null ? undefined : createVideoGenerationService(runtimeClient),
     [runtimeClient]
   );
   const scheduleService = useMemo(

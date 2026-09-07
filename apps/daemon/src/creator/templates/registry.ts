@@ -8,6 +8,7 @@ import {
   createImageGenerationTemplate,
   createLegacyImageGenerationTemplate
 } from './image-generation.js';
+import { createVideoGenerationTemplate } from './video-generation.js';
 import { createAutoClipTemplate } from './auto-clip.js';
 import { createStickmanVideoTemplate } from './stickman-video.js';
 import type {
@@ -21,6 +22,7 @@ export {
   createLegacyCoverTemplate,
   createImageGenerationTemplate,
   createLegacyImageGenerationTemplate,
+  createVideoGenerationTemplate,
   createStickmanVideoTemplate,
   createLegacyVideoDownloadTemplate,
   createVideoDownloadTemplate,
@@ -36,6 +38,7 @@ export function createDefaultCreatorTemplateRegistry(): CreatorTemplateRegistry 
     createCoverTemplate(),
     createLegacyImageGenerationTemplate(),
     createImageGenerationTemplate(),
+    createVideoGenerationTemplate(),
     createAutoClipTemplate(),
     createStickmanVideoTemplate()
   ]);

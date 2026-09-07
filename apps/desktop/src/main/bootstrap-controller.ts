@@ -135,10 +135,6 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
     this.emit('ready');
   }
 
-  markMigratingData(): void {
-    this.updateState({ phase: 'migrating_data', error: undefined });
-  }
-
   markWorkspaceReady(): void {
     this.updateState({ phase: 'ready', error: undefined });
   }

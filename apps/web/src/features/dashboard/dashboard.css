@@ -2007,7 +2007,7 @@
 
 .video-generation-settings-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: end;
   gap: 12px;
 }
@@ -2292,6 +2292,43 @@
   color: var(--muted);
   font-size: 11px;
   font-weight: 600;
+}
+
+@media (max-width: 960px) {
+  .video-generation-workspace-page {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+  }
+
+  .video-generation-workspace-page .creator-workspace-layout {
+    min-width: 0;
+    height: auto;
+    min-height: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .video-generation-workspace-page .creator-workspace-main {
+    overflow: visible;
+    border-right: 0;
+  }
+
+  .video-generation-workspace-page .creator-workspace-content {
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+
+  .video-generation-workspace-page .creator-task-final-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .video-generation-workspace-page .creator-collaboration-panel {
+    min-width: 0;
+    height: auto;
+    min-height: 640px;
+    border-top: 1px solid var(--border-hairline);
+    border-left: 0;
+  }
 }
 
 @media (max-width: 760px) {

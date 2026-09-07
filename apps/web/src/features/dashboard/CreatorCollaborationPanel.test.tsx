@@ -5,7 +5,8 @@ import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import CreatorCollaborationPanel from './CreatorCollaborationPanel.js';
 import {
   coverPanelAdapter,
-  videoDownloadPanelAdapter
+  videoDownloadPanelAdapter,
+  videoGenerationPanelAdapter
 } from './creator-panel-adapters.js';
 import { CreatorSessionProvider } from './creator-session-store.js';
 
@@ -273,6 +274,34 @@ describe('CreatorCollaborationPanel', () => {
     expect(screen.queryByText('2%')).not.toBeInTheDocument();
     expect(screen.queryByRole('progressbar', { name: '下载到项目进度' }))
       .not.toBeInTheDocument();
+  });
+
+  it('视频生成没有可靠百分比时显示同一阶段的不确定进度', () => {
+    const current = videoGenerationJob();
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={current}
+          service={{
+            applyAction: vi.fn(),
+            runAgentTurn: vi.fn()
+          } as never}
+        >
+          <CreatorCollaborationPanel
+            adapter={videoGenerationPanelAdapter}
+            stepLabel="生成视频"
+            contextSummary="Veo · 9:16 · 8 秒"
+          />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    expect(screen.getAllByText('更新了创作设置')).toHaveLength(1);
+    expect(screen.getByText('视频描述、视频时长')).toBeInTheDocument();
+    expect(screen.getByText('视频生成中')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: '生成视频进度' }))
+      .not.toHaveAttribute('aria-valuenow');
+    expect(screen.queryByText(/upstreamId|videoGenerationResultId/)).not.toBeInTheDocument();
   });
 
   it('视频解析阶段显示不确定进度而不是固定 20%', () => {
@@ -571,5 +600,82 @@ function downloadJob(): CreatorJob {
     ],
     createdAt,
     updatedAt: '2026-08-30T08:00:05.000Z'
+  };
+}
+
+function videoGenerationJob(): CreatorJob {
+  const createdAt = '2026-09-07T08:00:00.000Z';
+  return {
+    id: 'video_generation_job',
+    projectId: 'project_1',
+    templateId: 'video-generation',
+    templateVersion: 1,
+    status: 'running',
+    revision: 3,
+    state: {
+      prompt: '雨夜中的赛博朋克街道',
+      provider: 'veo',
+      size: '720x1280',
+      duration: 8,
+      referenceImageArtifactId: null,
+      currentStage: 'generate'
+    },
+    agentThreadId: null,
+    stages: [{
+      id: 'video_generation_stage',
+      jobId: 'video_generation_job',
+      stageId: 'generate',
+      executor: 'video',
+      status: 'running',
+      dispatchStatus: 'claimed',
+      claimOwner: 'scheduler_1',
+      claimExpiresAt: null,
+      attempt: 1,
+      idempotencyKey: 'video-generation-1',
+      progress: {
+        phase: 'generating',
+        message: 'The video provider is generating the video',
+        videoGenerationResultId: 'video_result_1'
+      },
+      errorCode: null,
+      errorMessage: null,
+      startedAt: '2026-09-07T08:00:03.000Z',
+      finishedAt: null
+    }],
+    artifacts: [],
+    activities: [
+      {
+        id: 'video_generation_ui',
+        jobId: 'video_generation_job',
+        revision: 1,
+        actor: 'user',
+        action: 'update-settings:draft',
+        summary: '更新创作设置',
+        details: { objectId: 'currentStep,furthestStep' },
+        createdAt: '2026-09-07T08:00:01.000Z'
+      },
+      {
+        id: 'video_generation_settings',
+        jobId: 'video_generation_job',
+        revision: 2,
+        actor: 'user',
+        action: 'update-settings:draft',
+        summary: '更新创作设置',
+        details: { objectId: 'prompt,duration' },
+        createdAt: '2026-09-07T08:00:02.000Z'
+      },
+      {
+        id: 'video_generation_run',
+        jobId: 'video_generation_job',
+        revision: 3,
+        actor: 'user',
+        action: 'run-stage',
+        summary: '启动阶段 generate',
+        details: { stageId: 'generate' },
+        createdAt: '2026-09-07T08:00:03.000Z'
+      }
+    ],
+    createdAt,
+    updatedAt: '2026-09-07T08:00:04.000Z'
   };
 }
