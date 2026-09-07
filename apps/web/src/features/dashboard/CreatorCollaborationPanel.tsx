@@ -1,5 +1,6 @@
 import type {
   CreatorActivity,
+  CreatorAgentApproval,
   CreatorAgentItem,
   CreatorAgentTurn,
   CreatorJob,
@@ -21,9 +22,11 @@ import OpenCreatorMark from '../../components/brand/OpenCreatorMark.js';
 import { MarkdownRenderer } from '../../components/markdown/MarkdownRenderer.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import ToolAgentComposer, { type ToolAgentPermission } from './ToolAgentComposer.js';
-import type {
-  CreatorPanelAdapter,
-  CreatorStageProgressView
+import {
+  creatorSystemIssueText,
+  type CreatorPanelLocalize,
+  type CreatorPanelAdapter,
+  type CreatorStageProgressView
 } from './creator-panel-adapters.js';
 import { useOptionalCreatorSession } from './creator-session-store.js';
 
@@ -286,20 +289,23 @@ export default function CreatorCollaborationPanel(props: {
               </div>
             ) : null}
 
-            {pendingApprovals.map(approval => (
-              <article className="creator-collaboration-approval" data-status={approval.status} key={approval.id}>
-                <strong>{approval.title}</strong>
-                <p>{approval.summary}</p>
-                <div>
-                  <button type="button" onClick={() => void session.respondAgentApproval(approval.id, 'approved', approval.processGeneration).catch(() => undefined)}>
-                    {l('批准', 'Approve')}
-                  </button>
-                  <button type="button" onClick={() => void session.respondAgentApproval(approval.id, 'rejected', approval.processGeneration).catch(() => undefined)}>
-                    {l('拒绝', 'Reject')}
-                  </button>
-                </div>
-              </article>
-            ))}
+            {pendingApprovals.map(approval => {
+              const copy = approvalDisplayCopy(approval.kind, l);
+              return (
+                <article className="creator-collaboration-approval" data-status={approval.status} key={approval.id}>
+                  <strong>{copy.title}</strong>
+                  <p>{copy.summary}</p>
+                  <div>
+                    <button type="button" onClick={() => void session.respondAgentApproval(approval.id, 'approved', approval.processGeneration).catch(() => undefined)}>
+                      {l('批准', 'Approve')}
+                    </button>
+                    <button type="button" onClick={() => void session.respondAgentApproval(approval.id, 'rejected', approval.processGeneration).catch(() => undefined)}>
+                      {l('拒绝', 'Reject')}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
 
           {(props.quickActions?.length ?? 0) > 0 ? (
@@ -386,7 +392,7 @@ function CollaborationActivityView(props: { event: SyncEvent }) {
           {event.count > 1 ? <small>{event.count} {l('次修改', 'changes')}</small> : null}
         </header>
         <p>{event.label}</p>
-        {event.fields.length > 0 ? <small>{event.fields.join('、')}</small> : null}
+        {event.fields.length > 0 ? <small>{event.fields.join(l('、', ', '))}</small> : null}
       </div>
     </article>
   );
@@ -697,18 +703,57 @@ function stageProgressText(
   }
   if (stage.status === 'failed') {
     return adapter.failedProgressText?.(stage, l)
-      ?? stage.errorMessage
+      ?? creatorSystemIssueText(stage.errorCode, l)
       ?? l('执行失败', 'Failed');
   }
   if (stage.status === 'interrupted') return l('已中断，可继续', 'Interrupted. Ready to resume');
   if (stage.status === 'canceled') return l('已终止，可继续', 'Stopped. Ready to resume');
   const formatted = adapter.runningProgressText?.(stage, progress, l);
   if (formatted) return formatted;
-  if (progress.message) return progress.message;
   if (progress.phase) {
     return adapter.phaseLabel(progress.phase, l) ?? l('执行中', 'Running');
   }
   return l('执行中', 'Running');
+}
+
+function approvalDisplayCopy(
+  kind: CreatorAgentApproval['kind'],
+  l: CreatorPanelLocalize
+): { title: string; summary: string } {
+  if (kind === 'command_execution') {
+    return {
+      title: l('确认命令执行', 'Confirm command execution'),
+      summary: l(
+        'Agent 请求执行命令以继续当前任务。',
+        'The Agent wants to run a command to continue this task.'
+      )
+    };
+  }
+  if (kind === 'file_change') {
+    return {
+      title: l('确认文件修改', 'Confirm file changes'),
+      summary: l(
+        'Agent 请求修改项目文件以继续当前任务。',
+        'The Agent wants to modify project files to continue this task.'
+      )
+    };
+  }
+  if (kind === 'permissions') {
+    return {
+      title: l('确认权限请求', 'Confirm permission request'),
+      summary: l(
+        'Agent 请求额外权限以继续当前任务。',
+        'The Agent is requesting additional permissions to continue this task.'
+      )
+    };
+  }
+  return {
+    title: l('确认工具调用', 'Confirm tool call'),
+    summary: l(
+      'Agent 请求调用工具以继续当前任务。',
+      'The Agent wants to use a tool to continue this task.'
+    )
+  };
 }
 
 function stageProgressAriaText(

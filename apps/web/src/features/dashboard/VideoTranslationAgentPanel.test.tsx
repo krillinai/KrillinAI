@@ -308,6 +308,116 @@ describe('VideoTranslationAgentPanel', () => {
     )).toBeNull();
   });
 
+  it('系统运行信息跟随界面语言，同时保留用户和 Agent 的原始对话语言', async () => {
+    const currentJob = job();
+    currentJob.status = 'running';
+    currentJob.revision = 8;
+    currentJob.activities.push(
+      {
+        id: 'activity_needs_input',
+        jobId: currentJob.id,
+        revision: 5,
+        actor: 'system',
+        action: 'needs-input',
+        summary: '请先完成文本翻译模型配置',
+        details: { code: 'creator_llm_config_missing' },
+        createdAt: '2026-08-21T00:00:04.000Z'
+      },
+      {
+        id: 'activity_unknown_system',
+        jobId: currentJob.id,
+        revision: 6,
+        actor: 'system',
+        action: 'workflow-state-changed',
+        summary: '后台恢复任务状态',
+        details: {},
+        createdAt: '2026-08-21T00:00:05.000Z'
+      }
+    );
+    currentJob.stages.push(
+      {
+        id: 'stage_subtitle_localized',
+        jobId: currentJob.id,
+        stageId: 'subtitle',
+        executor: 'krillinai',
+        status: 'running',
+        dispatchStatus: 'claimed',
+        claimOwner: 'scheduler_1',
+        claimExpiresAt: '2026-08-21T00:01:00.000Z',
+        attempt: 1,
+        idempotencyKey: 'subtitle_localized_1',
+        progress: {
+          phase: 'translating_subtitles',
+          percent: 24,
+          message: '正在翻译字幕'
+        },
+        errorCode: null,
+        errorMessage: null,
+        startedAt: '2026-08-21T00:00:06.000Z',
+        finishedAt: null
+      },
+      {
+        id: 'stage_tts_localized',
+        jobId: currentJob.id,
+        stageId: 'tts',
+        executor: 'krillinai',
+        status: 'failed',
+        dispatchStatus: 'finished',
+        claimOwner: null,
+        claimExpiresAt: null,
+        attempt: 1,
+        idempotencyKey: 'tts_localized_1',
+        progress: {
+          phase: 'generating_voice',
+          percent: 35,
+          message: '正在生成配音'
+        },
+        errorCode: 'voice_provider_failed',
+        errorMessage: '配音服务返回错误',
+        startedAt: '2026-08-21T00:00:07.000Z',
+        finishedAt: '2026-08-21T00:00:08.000Z'
+      }
+    );
+    const currentTimeline = timeline();
+    currentTimeline.approvals = [{
+      ...currentTimeline.approvals[0]!,
+      status: 'pending',
+      title: '确认工具调用',
+      summary: 'Agent 请求执行工具',
+      resolvedAt: null
+    }];
+
+    renderPanel({
+      language: 'en-US',
+      initialJob: currentJob,
+      getAgentTimeline: vi.fn(async () => currentTimeline)
+    });
+
+    expect(await screen.findByText('Confirm tool call')).toBeInTheDocument();
+    expect(screen.getByText('Updated creative settings')).toBeInTheDocument();
+    expect(screen.getByText('Target language, Bilingual subtitles, Dubbing'))
+      .toBeInTheDocument();
+    expect(screen.getByText('Configure the text model to continue')).toBeInTheDocument();
+    expect(screen.getByText('System updated the task status')).toBeInTheDocument();
+    expect(screen.getByText('Translating subtitles')).toBeInTheDocument();
+    expect(screen.getByText('Failed')).toBeInTheDocument();
+    expect(screen.getByText(
+      'The Agent wants to use a tool to continue this task.'
+    )).toBeInTheDocument();
+
+    expect(screen.queryByText('请先完成文本翻译模型配置')).not.toBeInTheDocument();
+    expect(screen.queryByText('后台恢复任务状态')).not.toBeInTheDocument();
+    expect(screen.queryByText('正在翻译字幕')).not.toBeInTheDocument();
+    expect(screen.queryByText('配音服务返回错误')).not.toBeInTheDocument();
+    expect(screen.queryByText('确认工具调用')).not.toBeInTheDocument();
+    expect(screen.queryByText('Agent 请求执行工具')).not.toBeInTheDocument();
+
+    expect(screen.getByText('请检查当前设置')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '设置建议', level: 3 }))
+      .toBeInTheDocument();
+    expect(screen.getByText('先确认目标语言')).toBeInTheDocument();
+  });
+
   it('把工作台操作和 Runtime 真实进度归并为一张 Stage 卡', async () => {
     const runningJob = job();
     runningJob.status = 'running';
@@ -354,7 +464,7 @@ describe('VideoTranslationAgentPanel', () => {
     });
 
     expect(screen.getByText(/工作台 · 字幕翻译/)).toBeInTheDocument();
-    expect(screen.getByText('正在翻译字幕')).toBeInTheDocument();
+    expect(screen.getByText('翻译字幕')).toBeInTheDocument();
     expect(screen.getByText('52%')).toBeInTheDocument();
     expect(screen.getByRole('progressbar', { name: '字幕翻译进度' })).toHaveAttribute('aria-valuenow', '52');
     expect(screen.queryByRole('status', { name: 'Agent 正在工作' })).not.toBeInTheDocument();
@@ -480,7 +590,8 @@ describe('VideoTranslationAgentPanel', () => {
       getAgentTimeline
     });
 
-    expect(screen.getByText('翻译服务返回错误')).toBeInTheDocument();
+    expect(screen.getByText('执行失败')).toBeInTheDocument();
+    expect(screen.queryByText('翻译服务返回错误')).not.toBeInTheDocument();
     expect(screen.getByText('67%')).toBeInTheDocument();
     expect(screen.getByRole('progressbar', { name: '字幕翻译进度' })).toHaveAttribute(
       'aria-valuetext',
@@ -594,13 +705,14 @@ describe('VideoTranslationAgentPanel', () => {
 });
 
 function renderPanel(options: {
+  language?: 'zh-CN' | 'en-US';
   initialJob?: CreatorJob;
   getAgentTimeline: ReturnType<typeof vi.fn>;
   runAgentTurn?: ReturnType<typeof vi.fn>;
   directAction?: ReturnType<typeof vi.fn>;
 }) {
   const result = render(
-    <LanguageProvider initialPreference="zh-CN">
+    <LanguageProvider initialPreference={options.language ?? 'zh-CN'}>
       <CreatorSessionProvider
         initialJob={options.initialJob ?? job()}
         service={{

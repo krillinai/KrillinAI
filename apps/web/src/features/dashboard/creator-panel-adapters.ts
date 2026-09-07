@@ -462,6 +462,16 @@ function normalizeCommonActivity(
       fields
     };
   }
+  if (activity.action === 'needs-input') {
+    return {
+      label: creatorSystemIssueText(readString(activity.details.code), l)
+        ?? l(
+          '任务需要处理后才能继续',
+          'Action is required before the task can continue'
+        ),
+      fields: []
+    };
+  }
   const directLabel = actionLabels[activity.action];
   if (directLabel !== undefined) return { label: directLabel, fields: [] };
   if (activity.action === 'run-stage') {
@@ -483,7 +493,13 @@ function normalizeCommonActivity(
     activity.actor === 'system'
     && activity.summary.trim().length > 0
   ) {
-    return { label: activity.summary, fields: [] };
+    return {
+      label: l(
+        '系统更新了任务状态',
+        'System updated the task status'
+      ),
+      fields: []
+    };
   }
   return null;
 }
@@ -609,6 +625,60 @@ function genericPhaseLabel(
     completed: l('任务已完成', 'Task completed')
   };
   return labels[phase] ?? null;
+}
+
+export function creatorSystemIssueText(
+  code: string | null,
+  l: CreatorPanelLocalize
+): string | null {
+  if (code === null) return null;
+  const labels: Record<string, string> = {
+    creator_llm_config_missing: l(
+      '请先配置文本模型',
+      'Configure the text model to continue'
+    ),
+    creator_transcription_config_missing: l(
+      '请先配置语音转录服务',
+      'Configure speech transcription to continue'
+    ),
+    creator_tts_config_missing: l(
+      '请先配置配音服务',
+      'Configure dubbing to continue'
+    ),
+    creator_image_config_missing: l(
+      '请先配置图像生成服务',
+      'Configure image generation to continue'
+    ),
+    creator_video_config_missing: l(
+      '请先配置视频生成服务',
+      'Configure video generation to continue'
+    ),
+    creator_video_model_unavailable: l(
+      '当前账号未开通所选视频模型',
+      'The selected video model is not enabled for this account'
+    ),
+    unsupported_capability: l(
+      '当前服务不支持所需能力，请更换服务',
+      'The current provider does not support the required capability'
+    ),
+    creator_cover_reference_missing: l(
+      '请先添加封面参考图',
+      'Add a thumbnail reference image to continue'
+    ),
+    creator_stage_input_missing: l(
+      '任务缺少必需输入，请检查设置',
+      'Required task input is missing. Check the settings.'
+    ),
+    network_unavailable: l(
+      '网络连接失败，请检查网络或代理设置后重试',
+      'Network connection failed. Check the network or proxy settings and try again.'
+    ),
+    yt_dlp_update_recommended: l(
+      'yt-dlp 可能已过期，请更新后重试',
+      'yt-dlp may be outdated. Update it and try again.'
+    )
+  };
+  return labels[code] ?? null;
 }
 
 function readRecord(value: CreatorJson | undefined): Record<string, CreatorJson> | null {
