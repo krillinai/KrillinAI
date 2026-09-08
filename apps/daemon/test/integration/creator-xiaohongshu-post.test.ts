@@ -1,10 +1,11 @@
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 import type { FastifyInstance } from 'fastify';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildServer } from '../../src/api/server.js';
+import type { CreatorExecutorInput } from '../../src/creator/executor.js';
 import { createXiaohongshuPostExecutor } from '../../src/creator/xiaohongshu/executor.js';
 
 let server: FastifyInstance | undefined;
@@ -122,6 +123,8 @@ describe('creator xiaohongshu post', () => {
     });
     expect(requestBody.messages[0].content).toContain('分享第一次参与开源项目的过程');
     expect(requestBody.messages[0].content).toContain('不得虚构');
+    expect(requestBody.messages[0].content).toContain('标题不超过 20 个字符');
+    expect(requestBody.messages[0].content).toContain('正文不超过 1000 个字符');
 
     const artifact = completed.artifacts.find((item: { kind: string }) => (
       item.kind === 'xiaohongshu_post'
@@ -151,6 +154,45 @@ describe('creator xiaohongshu post', () => {
       '#开源 #程序员',
       ''
     ].join('\n'));
+  });
+
+  it.each([
+    ['title', '超'.repeat(21), '有效正文'],
+    ['body', '有效标题', '超'.repeat(1_001)]
+  ])('rejects generated %s beyond the Xiaohongshu publishing limit', async (_field, title, body) => {
+    tempDir = await mkdtemp(join(tmpdir(), 'creator-xiaohongshu-post-limit-'));
+    const config = createDefaultCreatorServicesConfig();
+    config.llm.apiKey = 'text-key';
+    config.llm.model = 'test-model';
+    const executor = createXiaohongshuPostExecutor({
+      configStore: {
+        async read() { return structuredClone(config); }
+      },
+      fetchImpl: vi.fn(async () => new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify({ title, body, hashtags: [] }) } }]
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }))
+    });
+
+    await expect(executor.run({
+      job: {
+        state: {
+          topic: '测试发布长度限制',
+          audience: '',
+          style: 'experience',
+          length: 'short',
+          extraRequirements: ''
+        }
+      },
+      workdir: tempDir,
+      signal: new AbortController().signal,
+      reportProgress: vi.fn()
+    } as unknown as CreatorExecutorInput)).rejects.toMatchObject({
+      code: 'creator_llm_upstream_error'
+    });
+    expect(await readdir(tempDir)).toEqual([]);
   });
 });
 

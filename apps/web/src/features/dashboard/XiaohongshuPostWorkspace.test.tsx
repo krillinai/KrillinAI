@@ -185,6 +185,47 @@ describe('XiaohongshuPostWorkspace', () => {
     expect(await screen.findByRole('textbox', { name: '生成的小红书帖子' }))
       .toHaveValue('# 第二版帖子\n');
   });
+
+  it('releases the download URL after the browser starts the download', async () => {
+    const createObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+    const revokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
+    const createObjectURL = vi.fn(() => 'blob:xiaohongshu-post');
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+
+    try {
+      render(
+        <LanguageProvider initialPreference="zh-CN">
+          <CreatorSessionProvider
+            initialJob={completedJob(initialJob())}
+            service={{
+              applyAction: vi.fn(),
+              openArtifact: vi.fn(async () => new Response('# 可下载的帖子\n')),
+              runAgentTurn: vi.fn()
+            }}
+          >
+            <XiaohongshuPostWorkspace onBack={vi.fn()} />
+          </CreatorSessionProvider>
+        </LanguageProvider>
+      );
+
+      expect(await screen.findByRole('textbox', { name: '生成的小红书帖子' }))
+        .toHaveValue('# 可下载的帖子\n');
+      fireEvent.click(screen.getByRole('button', { name: '下载 Markdown' }));
+
+      expect(anchorClick).toHaveBeenCalledOnce();
+      expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+      expect(revokeObjectURL).not.toHaveBeenCalled();
+      await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:xiaohongshu-post'));
+    } finally {
+      anchorClick.mockRestore();
+      restoreUrlMethod('createObjectURL', createObjectUrlDescriptor);
+      restoreUrlMethod('revokeObjectURL', revokeObjectUrlDescriptor);
+    }
+  });
 });
 
 function ApplyRemoteSnapshotButton(props: { job: CreatorJob }) {
@@ -274,4 +315,12 @@ function completedJob(job: CreatorJob): CreatorJob {
     artifacts: [artifact],
     updatedAt: '2026-09-08T08:01:00.000Z'
   };
+}
+
+function restoreUrlMethod(
+  key: 'createObjectURL' | 'revokeObjectURL',
+  descriptor: PropertyDescriptor | undefined
+) {
+  if (descriptor === undefined) delete (URL as unknown as Record<string, unknown>)[key];
+  else Object.defineProperty(URL, key, descriptor);
 }

@@ -12,9 +12,12 @@ import {
 import type { CreatorExecutor } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
 
+const XIAOHONGSHU_TITLE_MAX_LENGTH = 20;
+const XIAOHONGSHU_BODY_MAX_LENGTH = 1_000;
+
 const generatedPostSchema = z.object({
-  title: z.string().trim().min(1).max(80),
-  body: z.string().trim().min(1).max(20_000),
+  title: z.string().trim().min(1).max(XIAOHONGSHU_TITLE_MAX_LENGTH),
+  body: z.string().trim().min(1).max(XIAOHONGSHU_BODY_MAX_LENGTH),
   hashtags: z.array(z.string().trim().min(1).max(40)).max(12).default([])
 }).strict();
 
@@ -159,12 +162,13 @@ function postPrompt(request: ReturnType<typeof readRequest>): string {
   };
   const lengthLabels: Record<XiaohongshuLength, string> = {
     short: '精简，约 300-500 字',
-    medium: '标准，约 600-900 字',
-    long: '详细，约 1000-1500 字'
+    medium: '标准，约 600-800 字',
+    long: '详细，约 800-1000 字'
   };
   return [
     '生成一篇中文小红书帖子，只输出严格 JSON。',
     '格式：{"title":"标题","body":"正文","hashtags":["标签"]}。',
+    `标题不超过 ${XIAOHONGSHU_TITLE_MAX_LENGTH} 个字符，正文不超过 ${XIAOHONGSHU_BODY_MAX_LENGTH} 个字符。`,
     '正文要自然、具体、便于阅读；可以分段和使用少量 emoji，但不要堆砌口号。',
     '标签不要带 #，只保留与内容直接相关的标签。',
     '必须忠于用户提供的素材，不得虚构亲身经历、产品功效、价格、数据或引用。',

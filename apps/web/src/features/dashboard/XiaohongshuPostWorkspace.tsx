@@ -180,7 +180,7 @@ export default function XiaohongshuPostWorkspace(props: {
     link.href = url;
     link.download = result.fileName;
     link.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
     setNotice(l('帖子文件已开始下载', 'The post download has started'));
   }
 
