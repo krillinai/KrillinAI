@@ -1012,6 +1012,7 @@ function creatorArtifactContentType(fileName: string): string {
   if (extension === '.png') return 'image/png';
   if (extension === '.webp') return 'image/webp';
   if (extension === '.srt') return 'application/x-subrip; charset=utf-8';
+  if (extension === '.md') return 'text/markdown; charset=utf-8';
   if (extension === '.mp4') return 'video/mp4';
   if (extension === '.webm') return 'video/webm';
   if (extension === '.mp3') return 'audio/mpeg';

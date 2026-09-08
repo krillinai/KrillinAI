@@ -487,6 +487,7 @@ function resultSnapshotDescription(stageId: string, templateId: string): string 
   if (stageId === 'generate') {
     if (templateId === 'cover') return '生成封面';
     if (templateId === 'video-generation') return '生成视频';
+    if (templateId === 'xiaohongshu-post') return '生成小红书帖子';
     return '生成图片';
   }
   return `完成 ${stageId}`;

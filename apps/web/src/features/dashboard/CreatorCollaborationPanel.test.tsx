@@ -6,6 +6,7 @@ import CreatorCollaborationPanel from './CreatorCollaborationPanel.js';
 import {
   coverPanelAdapter,
   smartDubbingPanelAdapter,
+  xiaohongshuPostPanelAdapter,
   videoDownloadPanelAdapter,
   videoGenerationPanelAdapter
 } from './creator-panel-adapters.js';
@@ -453,7 +454,116 @@ describe('CreatorCollaborationPanel', () => {
     expect(screen.getByRole('button', { name: '终止生成配音' })).toBeInTheDocument();
     expect(container.querySelectorAll('.creator-collaboration-stage')).toHaveLength(1);
   });
+
+  it('语义化并合并小红书设置动态，同时显示真实生成进度', () => {
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={xiaohongshuPostJob()}
+          service={{
+            applyAction: vi.fn(),
+            runAgentTurn: vi.fn()
+          } as never}
+        >
+          <CreatorCollaborationPanel
+            adapter={xiaohongshuPostPanelAdapter}
+            stepLabel="正在生成帖子"
+            contextSummary="教程干货 · 精简"
+          />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    expect(screen.getAllByText('更新了创作设置')).toHaveLength(1);
+    expect(screen.getByText('主题或素材、内容类型')).toBeInTheDocument();
+    expect(screen.getByText('2 次修改')).toBeInTheDocument();
+    expect(screen.queryByText(/currentStep/)).not.toBeInTheDocument();
+    expect(screen.getByText(/系统 · 生成小红书帖子/)).toBeInTheDocument();
+    expect(screen.getByText('生成帖子内容')).toBeInTheDocument();
+    expect(screen.getByText('20%')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: '生成小红书帖子进度' }))
+      .toHaveAttribute('aria-valuenow', '20');
+  });
 });
+
+function xiaohongshuPostJob(): CreatorJob {
+  const createdAt = '2026-09-08T08:00:00.000Z';
+  return {
+    id: 'xiaohongshu_job',
+    projectId: 'project_1',
+    templateId: 'xiaohongshu-post',
+    templateVersion: 1,
+    status: 'running',
+    revision: 4,
+    state: {
+      topic: '第一次参与开源项目',
+      audience: '准备参与开源项目的程序员',
+      style: 'tutorial',
+      length: 'short',
+      extraRequirements: '',
+      currentStage: 'generate'
+    },
+    agentThreadId: null,
+    stages: [{
+      id: 'xiaohongshu_stage',
+      jobId: 'xiaohongshu_job',
+      stageId: 'generate',
+      executor: 'xiaohongshu-post',
+      status: 'running',
+      dispatchStatus: 'claimed',
+      claimOwner: 'scheduler_1',
+      claimExpiresAt: null,
+      attempt: 1,
+      idempotencyKey: 'xiaohongshu-1',
+      progress: {
+        phase: 'generating_post',
+        percent: 20,
+        completed: 0,
+        failed: 0,
+        total: 1
+      },
+      errorCode: null,
+      errorMessage: null,
+      startedAt: '2026-09-08T08:00:03.000Z',
+      finishedAt: null
+    }],
+    artifacts: [],
+    activities: [
+      {
+        id: 'activity_topic_1',
+        jobId: 'xiaohongshu_job',
+        revision: 1,
+        actor: 'user',
+        action: 'update-settings:draft',
+        summary: '更新创作设置',
+        details: { objectId: 'topic,style' },
+        createdAt: '2026-09-08T08:00:01.000Z'
+      },
+      {
+        id: 'activity_topic_2',
+        jobId: 'xiaohongshu_job',
+        revision: 2,
+        actor: 'user',
+        action: 'update-settings:draft',
+        summary: '更新创作设置',
+        details: { objectId: 'topic,style' },
+        createdAt: '2026-09-08T08:00:02.000Z'
+      },
+      {
+        id: 'activity_ui',
+        jobId: 'xiaohongshu_job',
+        revision: 3,
+        actor: 'user',
+        action: 'update-settings:draft',
+        summary: '更新创作设置',
+        details: { objectId: 'currentStep' },
+        createdAt: '2026-09-08T08:00:02.500Z'
+      }
+    ],
+    createdAt,
+    updatedAt: '2026-09-08T08:00:03.000Z'
+  };
+}
 
 function smartDubbingJob(): CreatorJob {
   const createdAt = '2026-09-07T08:00:00.000Z';

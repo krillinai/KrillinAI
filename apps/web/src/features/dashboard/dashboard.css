@@ -2917,6 +2917,131 @@
   border-top: 1px solid var(--border-hairline);
 }
 
+.xiaohongshu-post-fields,
+.xiaohongshu-post-control-group {
+  display: grid;
+  gap: 14px;
+}
+
+.xiaohongshu-post-control-group {
+  gap: 8px;
+}
+
+.xiaohongshu-post-control-group > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 560;
+}
+
+.xiaohongshu-post-control-group .creator-tool-segmented {
+  max-width: 100%;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.xiaohongshu-post-result-panel textarea {
+  min-height: 300px;
+}
+
+.xiaohongshu-post-result-panel .creator-tool-panel-heading > small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--subtle);
+  text-overflow: ellipsis;
+}
+
+.xiaohongshu-post-result-actions {
+  margin-top: 12px;
+}
+
+.xiaohongshu-post-empty {
+  min-height: 300px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 9px;
+  border: 1px dashed var(--border);
+  border-radius: 7px;
+  background: var(--conversation-bg);
+  color: var(--subtle);
+  font-size: 12px;
+}
+
+.xiaohongshu-post-error {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 11px;
+  border-left: 2px solid #c94b4b;
+  background: color-mix(in srgb, #c94b4b 7%, var(--surface));
+  color: #b33d3d;
+  font-size: 12px;
+}
+
+.xiaohongshu-post-error a {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-weight: 620;
+  text-decoration: none;
+}
+
+.xiaohongshu-post-error a:hover {
+  text-decoration: underline;
+}
+
+.xiaohongshu-post-spinner {
+  animation: smart-dubbing-spin 0.9s linear infinite;
+}
+
+@media (max-width: 960px) {
+  .xiaohongshu-post-workspace-page {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+  }
+
+  .xiaohongshu-post-workspace-page .creator-workspace-layout {
+    min-width: 0;
+    height: auto;
+    min-height: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .xiaohongshu-post-workspace-page .creator-workspace-main,
+  .xiaohongshu-post-workspace-page .creator-workspace-content {
+    overflow: visible;
+  }
+
+  .xiaohongshu-post-workspace-page .creator-workspace-main {
+    border-right: 0;
+  }
+
+  .xiaohongshu-post-workspace-page .creator-workspace-content {
+    scrollbar-gutter: auto;
+  }
+
+  .xiaohongshu-post-workspace-page .creator-collaboration-panel {
+    min-width: 0;
+    height: auto;
+    min-height: 640px;
+    border-top: 1px solid var(--border-hairline);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 500px) {
+  .xiaohongshu-post-control-group .creator-tool-segmented button {
+    padding: 0 7px;
+    font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xiaohongshu-post-spinner { animation: none; }
+}
+
 .smart-dubbing-spinner {
   animation: smart-dubbing-spin 0.9s linear infinite;
 }
