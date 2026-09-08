@@ -58,6 +58,7 @@ import { createVideoExecutor } from '../creator/video/executor.js';
 import { createClipExecutor } from '../creator/clip/executor.js';
 import { createStickmanExecutor } from '../creator/stickman/executor.js';
 import { createSmartDubbingExecutor } from '../creator/smart-dubbing/executor.js';
+import { createXiaohongshuPostExecutor } from '../creator/xiaohongshu/executor.js';
 import { createCreatorProjectCoverService } from '../creator/project-cover.js';
 import { createVideoGenerationService } from '../video-generation/service.js';
 import {
@@ -591,6 +592,9 @@ export async function buildServer(input: BuildServerInput) {
     console.warn(`Creator optional runtime executors are unavailable: ${formatError(error)}`);
   }
   if (input.creatorExecutors === undefined) {
+    creatorExecutors.push(createXiaohongshuPostExecutor({
+      configStore: creatorServicesConfigStore
+    }));
     creatorExecutors.push(createSmartDubbingExecutor({
       ttsService: krillinTtsService
     }));

@@ -332,6 +332,112 @@ test('视频生成在 Browser/Desktop Bridge 下保持相同界面、请求和�
   expect(results[1]!.state).toEqual(results[0]!.state);
 });
 
+test('小红书帖子在 Browser/Desktop Bridge 下保持相同界面、请求和持久状态', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-desktop',
+    '一致性规格内部固定创建 Browser/Desktop Chromium 上下文'
+  );
+
+  const results: Array<{
+    text: string;
+    boxes: Record<string, { x: number; y: number; width: number; height: number }>;
+    requests: string[];
+    state: Record<string, unknown>;
+  }> = [];
+
+  for (const platform of ['browser', 'desktop'] as const) {
+    const created = await runtime.api<{
+      job: { id: string };
+    }>('POST', '/creator/jobs', {
+      projectId: runtime.projectId,
+      templateId: 'xiaohongshu-post'
+    });
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      deviceScaleFactor: 1,
+      colorScheme: 'dark',
+      reducedMotion: 'reduce'
+    });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page);
+
+    try {
+      await runtime.openApp(page);
+      const requests: string[] = [];
+      page.on('request', request => {
+        const url = new URL(request.url());
+        if (!url.pathname.includes('/creator/')) return;
+        requests.push(
+          `${request.method()} ${url.pathname
+            .replace('/.opencreator/runtime', '')
+            .replace(created.job.id, '{jobId}')}`
+        );
+      });
+      await page.goto(
+        `${runtime.origin}/#/workbench?tool=xiaohongshu-post`
+        + `&jobId=${encodeURIComponent(created.job.id)}`
+      );
+
+      const workspace = page.getByRole('region', { name: '小红书帖子生成器 操作区' });
+      const panel = page.getByRole('complementary', { name: 'OpenCreator' });
+      const topic = workspace.getByRole('textbox', { name: '小红书帖子主题或素材' });
+      await topic.fill('第一次参与开源项目的真实过程');
+      await workspace.getByRole('radio', { name: '教程干货' }).click();
+      await workspace.getByRole('radio', { name: '精简' }).click();
+
+      await expect.poll(async () => (
+        await runtime.api<{
+          job: { state: Record<string, unknown> };
+        }>('GET', `/creator/jobs/${encodeURIComponent(created.job.id)}`)
+      ).job.state).toMatchObject({
+        topic: '第一次参与开源项目的真实过程',
+        style: 'tutorial',
+        length: 'short'
+      });
+
+      const boxes: Record<
+        string,
+        { x: number; y: number; width: number; height: number }
+      > = {};
+      for (const [name, locator] of [
+        ['workspace', workspace],
+        ['panel', panel],
+        ['topic', topic]
+      ] as const) {
+        const box = await locator.boundingBox();
+        expect(box, `${platform} 缺少 ${name} 尺寸目标`).not.toBeNull();
+        boxes[name] = {
+          x: Math.round(box!.x),
+          y: Math.round(box!.y),
+          width: Math.round(box!.width),
+          height: Math.round(box!.height)
+        };
+      }
+      const persisted = await runtime.api<{
+        job: { state: Record<string, unknown> };
+      }>('GET', `/creator/jobs/${encodeURIComponent(created.job.id)}`);
+      results.push({
+        text: normalizeParityText(
+          `${await workspace.innerText()}\n${await panel.innerText()}`
+        ),
+        boxes,
+        requests,
+        state: persisted.job.state
+      });
+    } finally {
+      await context.close();
+    }
+  }
+
+  expect(results[1]!.text).toBe(results[0]!.text);
+  expect(results[1]!.boxes).toEqual(results[0]!.boxes);
+  expect(results[1]!.requests).toEqual(results[0]!.requests);
+  expect(results[1]!.state).toEqual(results[0]!.state);
+});
+
 test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、尺寸和 Runtime 请求', async ({
   browser,
   runtime
