@@ -62,9 +62,9 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 
 ## 创作工具
 
-当前版本提供四项创作工具。实际可用的模型与服务由本地 Codex 环境和 AI 服务设置共同决定。
+当前版本提供六项创作工具。实际可用的模型与服务由本地 Codex 环境和 AI 服务设置共同决定。
 
-从工作台进入视频翻译、视频下载、封面生成或图像生成。
+从工作台进入视频翻译、视频下载、封面生成、图像生成、智能配音或 Seedance 视频生成。
 
 ![OpenCreator 创作工作台](../images/product/opencreator-dashboard-en.png)
 
@@ -85,8 +85,8 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 <tr><td valign="top">图像生成</td><td valign="top">✅ 已开放</td><td>使用 GPT Image，根据提示词和可选参考图片生成图像，设置画幅与生成数量，并预览和单独下载图片</td></tr>
 <tr><td valign="top">火柴人动画</td><td valign="top">即将接入</td><td>在引导式流程中完成角色、分镜、配音与动画制作</td></tr>
 <tr><td valign="top">自动剪辑</td><td valign="top">开发中</td><td>分析长视频内容、识别高光片段，并将选定内容制作成可复用的短视频</td></tr>
-<tr><td valign="top">智能配音</td><td valign="top">开发中</td><td>将脚本生成为配音，并调整音色、节奏与情绪表达</td></tr>
-<tr><td valign="top">视频生成</td><td valign="top">开发中</td><td>根据提示词和参考图片生成视频，并完成预览与导出</td></tr>
+<tr><td valign="top">智能配音</td><td valign="top">✅ 已开放</td><td>将脚本生成为配音，并调整音色、节奏与情绪表达</td></tr>
+<tr><td valign="top">视频生成</td><td valign="top">✅ 已开放</td><td>使用 Seedance 根据提示词和参考图片生成视频，并预览、重新生成或下载各个版本</td></tr>
 <tr><td valign="top">数字人口播</td><td valign="top">开发中</td><td>组合文案、声音和数字人形象，制作口播视频</td></tr>
 </tbody>
 </table>
@@ -115,7 +115,7 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 
 ## 支持的模型
 
-语言模型由 Codex 模型目录或你配置的 OpenAI 兼容服务提供；图像、语音和转写模型使用 **设置 → AI 服务** 中配置的服务。
+语言模型由 Codex 模型目录或你配置的 OpenAI 兼容服务提供；图像、视频、语音和转写模型使用 **设置 → AI 服务** 中配置的服务。
 
 ### 语言模型
 
@@ -141,6 +141,14 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 <table>
 <tr>
 <td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+</tr>
+</table>
+
+### 视频
+
+<table>
+<tr>
+<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
 </tr>
 </table>
 
@@ -193,6 +201,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </table>
 
 > 这些视频与字幕对齐图片制作于 OpenCreator 仍使用 KrillinAI 名称的阶段。
+
+### 视频生成
+
+使用 Seedance 根据文本提示词或参考图片生成 AI 视频。设置模型、画面比例、分辨率和时长，然后在项目工作区预览、重新生成或下载各个版本。
+
+![OpenCreator Seedance 视频生成](../images/examples/video-generation-seedance-en.png)
 
 ### 视频下载
 

@@ -62,9 +62,9 @@ Web ist die einzige Frontend-Implementierung. Desktop lädt denselben Web-Build 
 
 ## Kreativwerkzeuge
 
-Die aktuelle Version enthält vier Kreativwerkzeuge. Verfügbare Modelle und Dienste hängen von deiner lokalen Codex-Umgebung und den Einstellungen der KI-Dienste ab.
+Die aktuelle Version enthält sechs Kreativwerkzeuge. Verfügbare Modelle und Dienste hängen von deiner lokalen Codex-Umgebung und den Einstellungen der KI-Dienste ab.
 
-Öffne das Dashboard, um Videos zu übersetzen, öffentliche Videos herunterzuladen, Thumbnails zu generieren oder Bilder zu erstellen.
+Öffne das Dashboard, um Videos zu übersetzen oder herunterzuladen, Thumbnails oder Bilder zu generieren, Voiceover mit intelligenter Synchronisation zu erstellen oder Videos mit Seedance zu generieren.
 
 ![OpenCreator Kreativ-Dashboard](../images/product/opencreator-dashboard-en.png)
 
@@ -85,8 +85,8 @@ Die aktuelle Version enthält vier Kreativwerkzeuge. Verfügbare Modelle und Die
 <tr><td valign="top">Bildgenerierung</td><td valign="top">✅ Verfügbar</td><td>Generiere mit GPT Image Bilder aus einem Prompt und einem optionalen Referenzbild, lege Seitenverhältnis und Anzahl der Ergebnisse fest und zeige einzelne Bilder in der Vorschau an oder lade sie herunter</td></tr>
 <tr><td valign="top">Strichmännchen-Animation</td><td valign="top">Demnächst</td><td>Entwickle Figuren, Storyboards, Voiceover und Animation in einem geführten Arbeitsablauf</td></tr>
 <tr><td valign="top">Automatische Clips</td><td valign="top">In Entwicklung</td><td>Analysiere lange Videos, finde Höhepunkte und verwandle ausgewählte Momente in wiederverwendbare kurze Clips</td></tr>
-<tr><td valign="top">Intelligente Synchronisation</td><td valign="top">In Entwicklung</td><td>Verwandle Skripte in Voiceover und wähle Stimme, Tempo und Emotion</td></tr>
-<tr><td valign="top">Videogenerierung</td><td valign="top">In Entwicklung</td><td>Generiere Videos aus Prompts und Referenzbildern, zeige das Ergebnis in der Vorschau an und exportiere es</td></tr>
+<tr><td valign="top">Intelligente Synchronisation</td><td valign="top">✅ Verfügbar</td><td>Verwandle Skripte in Voiceover und wähle Stimme, Tempo und Emotion</td></tr>
+<tr><td valign="top">Videogenerierung</td><td valign="top">✅ Verfügbar</td><td>Generiere mit Seedance Videos aus Prompts und Referenzbildern und zeige jede Version in der Vorschau an, generiere sie erneut oder lade sie herunter</td></tr>
 <tr><td valign="top">Digitaler Avatar</td><td valign="top">In Entwicklung</td><td>Kombiniere Skripte, Stimme und Avatar-Darstellung zu Talking-Head-Videos</td></tr>
 </tbody>
 </table>
@@ -115,7 +115,7 @@ Jede Überarbeitung erstellt eine separate Version, ohne frühere Ergebnisse ode
 
 ## Unterstützte Modelle
 
-Die Verfügbarkeit von Sprachmodellen richtet sich nach dem Codex-Modellkatalog oder deinem OpenAI-kompatiblen Anbieter. Bild-, Sprach- und Transkriptionsmodelle verwenden die unter **Einstellungen → KI-Dienste** konfigurierten Dienste.
+Die Verfügbarkeit von Sprachmodellen richtet sich nach dem Codex-Modellkatalog oder deinem OpenAI-kompatiblen Anbieter. Bild-, Video-, Sprach- und Transkriptionsmodelle verwenden die unter **Einstellungen → KI-Dienste** konfigurierten Dienste.
 
 ### Sprachmodelle
 
@@ -141,6 +141,14 @@ Die Verfügbarkeit von Sprachmodellen richtet sich nach dem Codex-Modellkatalog 
 <table>
 <tr>
 <td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+</tr>
+</table>
+
+### Video
+
+<table>
+<tr>
+<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
 </tr>
 </table>
 
@@ -193,6 +201,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </table>
 
 > Diese Videobeispiele und das Bild zur Untertitelausrichtung entstanden, als OpenCreator noch den Namen KrillinAI verwendete.
+
+### Videogenerierung
+
+Erstelle mit Seedance ein KI-Video aus einem Text-Prompt oder Referenzbild. Konfiguriere Modell, Seitenverhältnis, Auflösung und Dauer. Anschließend kannst du jede Version im Projektarbeitsbereich ansehen, neu generieren oder herunterladen.
+
+![OpenCreator Videogenerierung mit Seedance](../images/examples/video-generation-seedance-en.png)
 
 ### Video-Download
 

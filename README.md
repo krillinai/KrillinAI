@@ -62,9 +62,9 @@ Web is the single frontend implementation. Desktop loads the same Web build and 
 
 ## Creator Tools
 
-The current release includes four creator tools. Available models and services depend on your local Codex environment and AI service settings.
+The current release includes six creator tools. Available models and services depend on your local Codex environment and AI service settings.
 
-Open the Dashboard to translate videos, download public videos, generate thumbnails, or create images.
+Open the Dashboard to translate or download videos, generate thumbnails or images, create voiceovers with Smart Dubbing, or generate videos with Seedance.
 
 ![OpenCreator Creator Dashboard](./docs/images/product/opencreator-dashboard-en.png)
 
@@ -85,8 +85,8 @@ Open the Dashboard to translate videos, download public videos, generate thumbna
 <tr><td valign="top">Image Generation</td><td valign="top">✅ Available</td><td>Generate with GPT Image from a prompt and optional reference image, configure the aspect ratio and output count, then preview and download individual images</td></tr>
 <tr><td valign="top">Stick Figure Animation</td><td valign="top">Coming soon</td><td>Develop characters, storyboards, voiceovers, and animation in a guided workflow</td></tr>
 <tr><td valign="top">Auto Clips</td><td valign="top">In development</td><td>Analyze long videos, identify highlights, and turn selected moments into reusable short clips</td></tr>
-<tr><td valign="top">Smart Dubbing</td><td valign="top">In development</td><td>Turn scripts into voiceovers with selectable voices, pacing, and emotion controls</td></tr>
-<tr><td valign="top">Video Generation</td><td valign="top">In development</td><td>Generate video from prompts and reference images, then preview and export the result</td></tr>
+<tr><td valign="top">Smart Dubbing</td><td valign="top">✅ Available</td><td>Turn scripts into voiceovers with selectable voices, pacing, and emotion controls</td></tr>
+<tr><td valign="top">Video Generation</td><td valign="top">✅ Available</td><td>Generate videos with Seedance from prompts and reference images, then preview, regenerate, and download each version</td></tr>
 <tr><td valign="top">Digital Avatar</td><td valign="top">In development</td><td>Combine scripts, voice, and avatar presentation to produce talking-head videos</td></tr>
 </tbody>
 </table>
@@ -115,7 +115,7 @@ Each revision creates a separate version without overwriting earlier results or 
 
 ## Models Supported
 
-Language model availability follows the Codex model catalog or your OpenAI-compatible provider. Image, voice, and transcription models use the services configured in **Settings → AI Services**.
+Language model availability follows the Codex model catalog or your OpenAI-compatible provider. Image, video, voice, and transcription models use the services configured in **Settings → AI Services**.
 
 ### Language models
 
@@ -141,6 +141,14 @@ Language model availability follows the Codex model catalog or your OpenAI-compa
 <table>
 <tr>
 <td align="center"><img src="./docs/images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+</tr>
+</table>
+
+### Video
+
+<table>
+<tr>
+<td align="center"><img src="./docs/images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
 </tr>
 </table>
 
@@ -193,6 +201,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </table>
 
 > These video examples and the subtitle alignment image were produced while OpenCreator still used the KrillinAI name.
+
+### Video Generation
+
+Generate an AI video from a text prompt or reference image with Seedance. Configure the model, aspect ratio, resolution, and duration, then preview, regenerate, or download each version from the project workspace.
+
+![OpenCreator Video Generation with Seedance](./docs/images/examples/video-generation-seedance-en.png)
 
 ### Video Downloader
 
@@ -489,7 +503,8 @@ The root `README.md` is the canonical English document. Maintained translations 
 Thanks to everyone who has taken part through code, documentation, feedback, issue reports, Skills, designs, and ideas.
 
 <a href="https://github.com/krillinai/OpenCreator/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=krillinai/OpenCreator&amp;max=500&amp;columns=20" alt="OpenCreator contributors" />
+  <!-- contrib.rocks caches contributor history by repository slug; keep the pre-rename slug here. -->
+  <img src="https://contrib.rocks/image?repo=krillinai/KrillinAI&amp;max=500&amp;columns=20" alt="OpenCreator contributors" />
 </a>
 
 ## Star History
