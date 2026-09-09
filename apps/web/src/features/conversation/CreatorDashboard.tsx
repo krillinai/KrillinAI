@@ -367,17 +367,16 @@ function isVisibleCreatorSkill(skill: CreatorSkill): boolean {
 
 export function getCreatorSkillPromptHint(
   skill: CreatorSkill,
-  language: 'zh-CN' | 'en-US'
+  language: 'zh-CN' | 'en-US' | 'sv-SE'
 ): string {
   if (skill.promptHint !== undefined) {
-    return language === 'en-US' ? skill.promptHint.enUS : skill.promptHint.zhCN;
+    return language === 'zh-CN' ? skill.promptHint.zhCN : skill.promptHint.enUS;
   }
-  const title = language === 'en-US'
-    ? englishCreatorLabels[skill.title] ?? skill.title
-    : skill.title;
-  return language === 'en-US'
-    ? `Describe what you want to create with ${title} and any requirements`
-    : `描述你希望用「${title}」完成的内容和要求`;
+  if (language === 'zh-CN') {
+    return `描述你希望用「${skill.title}」完成的内容和要求`;
+  }
+  const title = englishCreatorLabels[skill.title] ?? skill.title;
+  return `Describe what you want to create with ${title} and any requirements`;
 }
 
 const englishCreatorLabels: Record<string, string> = {
