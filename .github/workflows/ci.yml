@@ -26,6 +26,10 @@ jobs:
         with:
           go-version-file: runtime/krillinai/go.mod
           cache-dependency-path: runtime/krillinai/go.sum
+      - name: Install CJK fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends fonts-noto-cjk
       - run: pnpm install --frozen-lockfile
       - name: Validate writing templates
         run: pnpm --filter @opencreator/writing-templates test
