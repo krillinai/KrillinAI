@@ -103,7 +103,7 @@ test('实际 Desktop 包发送匿名日使用数据且不包含创作内容', as
       usage_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       launch_count: 1,
       active_minutes: 0,
-      app_version: '3.1.0',
+      app_version: '3.1.1',
       operating_system: process.platform,
       architecture: process.arch,
       install_id: expect.stringMatching(/^[0-9a-f-]{36}$/)
