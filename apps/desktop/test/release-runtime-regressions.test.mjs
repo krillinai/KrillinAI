@@ -29,13 +29,31 @@ describe('Desktop release runtime regressions', () => {
       new URL('../packaging/daemon-runtime/package.json', import.meta.url),
       'utf8'
     ));
+    const daemonPackage = JSON.parse(readFileSync(
+      new URL('../../daemon/package.json', import.meta.url),
+      'utf8'
+    ));
     const builderConfig = readFileSync(
       new URL('../electron-builder.yml', import.meta.url),
       'utf8'
     );
+    const workspacePackages = [
+      '@opencreator/config',
+      '@opencreator/protocol',
+      '@opencreator/skill-market',
+      '@opencreator/writing-templates'
+    ];
+    const expectedRuntimeDependencies = Object.keys(daemonPackage.dependencies)
+      .filter(name => !workspacePackages.includes(name))
+      .sort();
 
     expect(prepareSource).toContain("'--config.node-linker=hoisted'");
     expect(prepareSource).toContain('assertPortableDependencyTree();');
+    expect(Object.keys(runtimePackage.dependencies).sort())
+      .toEqual(expectedRuntimeDependencies);
+    for (const name of workspacePackages) {
+      expect(prepareSource).toContain(name.replace('@opencreator/', ''));
+    }
     expect(runtimePackage.dependencies).toMatchObject({
       'cross-spawn': '7.0.6',
       fastify: '5.9.0'
