@@ -728,8 +728,9 @@ describe('DashboardPage', () => {
     expect(within(videoTranslationCard).getByText('HOT')).toBeInTheDocument();
     expect(within(videoTranslationCard).queryByText('NEW')).not.toBeInTheDocument();
     const appCards = Array.from(container.querySelectorAll('.dashboard-app-card'));
-    expect(appCards).toHaveLength(7);
+    expect(appCards).toHaveLength(8);
     expect(appCards.map(card => card.querySelector('strong')?.textContent)).toEqual([
+      '文章写作',
       '视频翻译',
       '视频下载',
       '封面生成',
@@ -742,6 +743,9 @@ describe('DashboardPage', () => {
     expect(screen.queryByRole('button', { name: /^自动剪辑/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^智能配音/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^视频生成/ })).toBeInTheDocument();
+    const articleCard = screen.getByRole('button', { name: /^文章写作/ });
+    expect(within(articleCard).getByText('公众号、X 等平台文章')).toBeInTheDocument();
+    expect(within(articleCard).getByText('NEW')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^数字人口播/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^视频转格式/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^画面扩展/ })).not.toBeInTheDocument();
@@ -755,6 +759,19 @@ describe('DashboardPage', () => {
       .toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^封面生成 生成视频与内容封面/ }))
       .toBeInTheDocument();
+  });
+
+  it('opens the WeChat article writer from the app directory', () => {
+    const { container } = render(<DashboardPage onSelectPrompt={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /^文章写作/ }));
+    expect(screen.getByRole('heading', { name: '文章写作' })).toBeInTheDocument();
+    expect(screen.getByText('公众号、X 等平台文章')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: '文章写作流程' })).toBeInTheDocument();
+    expect(screen.getByText('从右侧添加链接或文件。没有资料也可以继续写作。')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '继续' }));
+    expect(screen.getByText('写作模板')).toBeInTheDocument();
+    expect(screen.queryByText('排版模板')).not.toBeInTheDocument();
+    expect(container.querySelector('.wechat-layout-list')).not.toBeInTheDocument();
   });
 
   it('opens the video translation workspace and keeps its result in place', async () => {

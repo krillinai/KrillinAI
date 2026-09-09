@@ -13,6 +13,7 @@ import { createAutoClipTemplate } from './auto-clip.js';
 import { createStickmanVideoTemplate } from './stickman-video.js';
 import { createSmartDubbingTemplate } from './smart-dubbing.js';
 import { createXiaohongshuPostTemplate } from './xiaohongshu-post.js';
+import { createWechatArticleTemplate } from './wechat-article.js';
 import type {
   CreatorTemplateDefinition,
   CreatorTemplateRegistry
@@ -28,6 +29,7 @@ export {
   createStickmanVideoTemplate,
   createSmartDubbingTemplate,
   createXiaohongshuPostTemplate,
+  createWechatArticleTemplate,
   createLegacyVideoDownloadTemplate,
   createVideoDownloadTemplate,
   createVideoTranslationTemplate
@@ -45,6 +47,7 @@ export function createDefaultCreatorTemplateRegistry(): CreatorTemplateRegistry 
     createSmartDubbingTemplate(),
     createXiaohongshuPostTemplate(),
     createVideoGenerationTemplate(),
+    createWechatArticleTemplate(),
     createAutoClipTemplate(),
     createStickmanVideoTemplate()
   ]);

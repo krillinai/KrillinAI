@@ -480,6 +480,13 @@ function errorCode(error: unknown): string {
 }
 
 function resultSnapshotDescription(stageId: string, templateId: string): string {
+  if (templateId === 'wechat-article') {
+    if (stageId === 'sources') return '解析内容灵感';
+    if (stageId === 'topics') return '生成候选选题';
+    if (stageId === 'outline') return '生成文章大纲';
+    if (stageId === 'article') return '撰写公众号文章';
+    if (stageId === 'images') return '生成文章配图';
+  }
   if (stageId === 'subtitle') return '生成字幕';
   if (stageId === 'tts') return '生成配音';
   if (stageId === 'render-horizontal') return '合成横屏视频';

@@ -11,6 +11,7 @@ import {
   Languages,
   Mic2,
   PenLine,
+  Newspaper,
   Search,
   ServerOff,
   Sparkles,
@@ -25,6 +26,7 @@ import DigitalAvatarWorkspace from './DigitalAvatarWorkspace.js';
 import ImageGenerationWorkspace from './ImageGenerationWorkspace.js';
 import SmartDubbingWorkspace from './SmartDubbingWorkspace.js';
 import XiaohongshuPostWorkspace from './XiaohongshuPostWorkspace.js';
+import WechatArticleWorkspace from './WechatArticleWorkspace.js';
 import StickmanVideoWorkspace from './StickmanVideoWorkspace.js';
 import VideoDownloadWorkspace from './VideoDownloadWorkspace.js';
 import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
@@ -87,6 +89,15 @@ const featuredTools: FeaturedEntry[] = [
 ];
 
 const creatorTools: DashboardEntry[] = [
+  {
+    title: '文章写作',
+    description: '公众号、X 等平台文章',
+    prompt: '帮我根据内容灵感写一篇适合公众号、X 等平台发布的文章，先给出选题和大纲，再完成正文。',
+    category: '文案创作',
+    icon: Newspaper,
+    badge: 'NEW',
+    workspace: 'wechat-article'
+  },
   {
     title: '视频翻译',
     description: '字幕、配音与口型同步',
@@ -330,6 +341,15 @@ export default function DashboardPage(props: {
   if (activeWorkspace === 'xiaohongshu-post') {
     return renderCreatorWorkspace('xiaohongshu-post', (
       <XiaohongshuPostWorkspace
+        promptHint={activePromptHint}
+        onBack={closeWorkspace}
+      />
+    ));
+  }
+
+  if (activeWorkspace === 'wechat-article') {
+    return renderCreatorWorkspace('wechat-article', (
+      <WechatArticleWorkspace
         promptHint={activePromptHint}
         onBack={closeWorkspace}
       />
@@ -820,6 +840,7 @@ function createCreationKeySuffix(): string {
 
 const englishDashboardLabels: Record<string, string> = {
   全部: 'All',
+  内容创作: 'Content Creation',
   视频创作: 'Video Creation',
   图像创作: 'Image Creation',
   文案创作: 'Writing',
@@ -830,6 +851,8 @@ const englishDashboardLabels: Record<string, string> = {
   视频翻译配音: 'Translate & Dub Video',
   数字人口播: 'Digital Avatar',
   视频翻译: 'Video Translation',
+  文章写作: 'Article Writer',
+  '公众号、X 等平台文章': 'Articles for WeChat, X, and more',
   '字幕、配音与口型同步': 'Subtitles, dubbing, and lip sync',
   视频生成: 'Video Generation',
   文字或参考图生成视频片段: 'Generate video clips from text or a reference image',

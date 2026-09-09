@@ -6,6 +6,7 @@ import CreatorCollaborationPanel from './CreatorCollaborationPanel.js';
 import {
   coverPanelAdapter,
   smartDubbingPanelAdapter,
+  wechatArticlePanelAdapter,
   xiaohongshuPostPanelAdapter,
   videoDownloadPanelAdapter,
   videoGenerationPanelAdapter
@@ -484,7 +485,125 @@ describe('CreatorCollaborationPanel', () => {
     expect(screen.getByRole('progressbar', { name: '生成小红书帖子进度' }))
       .toHaveAttribute('aria-valuenow', '20');
   });
+
+  it('语义化公众号写作动态，过滤界面状态并显示标准阶段进度', () => {
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={wechatArticleJob()}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <CreatorCollaborationPanel
+            adapter={wechatArticlePanelAdapter}
+            stepLabel="正在生成选题"
+            contextSummary="2 个内容灵感"
+          />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    expect(screen.getAllByText('完善了写作要求')).toHaveLength(1);
+    expect(screen.getByText('写作要求、文章模板')).toBeInTheDocument();
+    expect(screen.getByText('2 次修改')).toBeInTheDocument();
+    expect(screen.queryByText(/currentStep|furthestStep/)).not.toBeInTheDocument();
+    expect(screen.getByText('上传了内容灵感')).toBeInTheDocument();
+    expect(screen.getByText('生成候选选题')).toBeInTheDocument();
+    expect(screen.getByText('55%')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: '生成候选选题进度' }))
+      .toHaveAttribute('aria-valuenow', '55');
+  });
+
+  it('为公众号内容灵感解析阶段提供稳定文案和真实进度', () => {
+    const localize = (zh: string) => zh;
+    const stage = {
+      stageId: 'sources',
+      progress: { phase: 'reading_video', percent: 30, completed: 0, failed: 0, total: 1 }
+    } as never;
+
+    expect(wechatArticlePanelAdapter.stageLabel('sources', localize)).toBe('解析内容灵感');
+    expect(wechatArticlePanelAdapter.phaseLabel('reading_video', localize)).toBe('读取视频内容');
+    expect(wechatArticlePanelAdapter.readStageProgress(stage)).toEqual(expect.objectContaining({ percent: 30 }));
+    expect(wechatArticlePanelAdapter.succeededProgressText?.(stage, localize)).toBe('内容灵感已解析');
+
+    const imageStage = {
+      stageId: 'images',
+      progress: { phase: 'generating_article_images', percent: 68, completed: 3, failed: 0, total: 5 }
+    } as never;
+    expect(wechatArticlePanelAdapter.stageLabel('images', localize)).toBe('生成文章配图');
+    expect(wechatArticlePanelAdapter.phaseLabel('generating_article_images', localize)).toBe('生成文章配图');
+    expect(wechatArticlePanelAdapter.readStageProgress(imageStage)).toEqual(expect.objectContaining({
+      percent: 68,
+      completed: 3,
+      total: 5
+    }));
+    expect(wechatArticlePanelAdapter.succeededProgressText?.(imageStage, localize)).toBe('文章配图已生成');
+
+    expect(wechatArticlePanelAdapter.normalizeActivity({
+      id: 'outline-update',
+      jobId: 'wechat-job',
+      revision: 1,
+      actor: 'user',
+      action: 'update-settings:draft',
+      summary: '更新创作设置',
+      details: { objectId: 'outline' },
+      createdAt: '2026-09-07T09:00:00.000Z'
+    }, localize)).toEqual({ label: '生成了文章大纲', fields: [] });
+    expect(wechatArticlePanelAdapter.normalizeActivity({
+      id: 'image-update',
+      jobId: 'wechat-job',
+      revision: 2,
+      actor: 'user',
+      action: 'update-settings:draft',
+      summary: '更新创作设置',
+      details: { objectId: 'articleImageStyleId,articleImageCount' },
+      createdAt: '2026-09-07T09:00:01.000Z'
+    }, localize)).toEqual({
+      label: '调整了文章配图',
+      fields: ['生图风格', '配图数量']
+    });
+  });
 });
+
+function wechatArticleJob(): CreatorJob {
+  const jobId = 'wechat_article_job';
+  return {
+    id: jobId,
+    projectId: 'project_1',
+    templateId: 'wechat-article',
+    templateVersion: 1,
+    status: 'running',
+    revision: 5,
+    state: { currentStage: 'topics' },
+    agentThreadId: null,
+    stages: [{
+      id: 'wechat_topics_stage',
+      jobId,
+      stageId: 'topics',
+      executor: 'wechat-article',
+      status: 'running',
+      dispatchStatus: 'claimed',
+      claimOwner: 'scheduler_1',
+      claimExpiresAt: null,
+      attempt: 1,
+      idempotencyKey: 'wechat-topics-1',
+      progress: { phase: 'generating_topics', percent: 55, completed: 2, failed: 0, total: 2 },
+      errorCode: null,
+      errorMessage: null,
+      startedAt: '2026-09-07T09:00:05.000Z',
+      finishedAt: null
+    }],
+    artifacts: [],
+    activities: [
+      { id: 'ui', jobId, revision: 1, actor: 'user', action: 'update-settings:draft', summary: '更新创作设置', details: { objectId: 'currentStep,furthestStep' }, createdAt: '2026-09-07T09:00:01.000Z' },
+      { id: 'brief', jobId, revision: 2, actor: 'user', action: 'update-settings:draft', summary: '更新创作设置', details: { objectId: 'writingPrompt' }, createdAt: '2026-09-07T09:00:02.000Z' },
+      { id: 'template', jobId, revision: 3, actor: 'user', action: 'update-settings:draft', summary: '更新创作设置', details: { objectId: 'presetId' }, createdAt: '2026-09-07T09:00:03.000Z' },
+      { id: 'upload', jobId, revision: 4, actor: 'user', action: 'register-source-document', summary: '上传写作来源', details: { objectId: 'source.pdf' }, createdAt: '2026-09-07T09:00:04.000Z' },
+      { id: 'run', jobId, revision: 5, actor: 'user', action: 'run-stage', summary: '启动阶段 topics', details: { stageId: 'topics' }, createdAt: '2026-09-07T09:00:05.000Z' }
+    ],
+    createdAt: '2026-09-07T09:00:00.000Z',
+    updatedAt: '2026-09-07T09:00:05.000Z'
+  };
+}
 
 function xiaohongshuPostJob(): CreatorJob {
   const createdAt = '2026-09-08T08:00:00.000Z';
