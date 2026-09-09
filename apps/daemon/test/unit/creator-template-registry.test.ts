@@ -4,6 +4,7 @@ import {
   createImageGenerationTemplate,
   createCreatorTemplateRegistry,
   createSmartDubbingTemplate,
+  createXiaohongshuPostTemplate,
   createVideoDownloadTemplate,
   createVideoGenerationTemplate,
   createVideoTranslationTemplate
@@ -94,6 +95,30 @@ describe('creator template registry', () => {
       furthestStep: 0
     });
     expect(template.inputSchema.parse({})).not.toHaveProperty('ttsProvider');
+  });
+
+  it('registers Xiaohongshu post generation as a persisted text workflow', () => {
+    const template = createXiaohongshuPostTemplate();
+
+    expect(template).toMatchObject({
+      id: 'xiaohongshu-post',
+      version: 1,
+      renderer: 'xiaohongshu-post',
+      stages: [{
+        id: 'generate',
+        executor: 'xiaohongshu-post',
+        outputArtifacts: [{ kind: 'xiaohongshu_post', status: 'completed' }]
+      }],
+      outputs: [{ kind: 'xiaohongshu_post', required: true }]
+    });
+    expect(template.inputSchema.parse({})).toMatchObject({
+      topic: '',
+      audience: '',
+      style: 'experience',
+      length: 'medium',
+      extraRequirements: '',
+      currentStage: null
+    });
   });
 
   it('registers video download v2 with a non-final probe and controlled choices', () => {

@@ -9,6 +9,7 @@ import type {
   CreatorJobStatus,
   CreatorJson
 } from '@opencreator/protocol';
+import { wechatArticleSourceLimit } from '@opencreator/protocol';
 import { writeFileSync } from 'node:fs';
 import { basename, extname, join, dirname } from 'node:path';
 import type { CreatorRepository } from './repository.js';
@@ -406,6 +407,184 @@ export function createCreatorService(input: {
         };
       });
     },
+    registerArticleImage(jobId: string, input: {
+      expectedRevision: number;
+      path: string;
+      fileName: string;
+      mimeType: string;
+      size: number;
+      sha256: string;
+      lastModified: number | null;
+      format: 'png' | 'jpeg' | 'webp';
+    }): { job: CreatorJob; artifact: CreatorArtifact; deduplicated: boolean } {
+      return repository.transaction(() => {
+        const current = repository.getJob(jobId);
+        if (current === undefined) {
+          throw new CreatorServiceError('creator_job_not_found', 'Creator job not found');
+        }
+        if (current.revision !== input.expectedRevision) {
+          throw new CreatorServiceError(
+            'creator_revision_conflict',
+            'Creator job revision changed',
+            current.revision
+          );
+        }
+        if (current.templateId !== 'wechat-article') {
+          throw new CreatorServiceError(
+            'creator_article_image_upload_unsupported',
+            'Article image upload is only supported for WeChat article jobs'
+          );
+        }
+        const duplicate = [...current.artifacts].reverse().find(artifact => (
+          artifact.kind === 'article_image'
+          && artifact.status === 'completed'
+          && artifact.metadata.source === 'local-upload'
+          && artifact.metadata.sha256 === input.sha256
+        ));
+        const selectedIds = readStringArray(current.state.manualArticleImageArtifactIds);
+        if (duplicate !== undefined && selectedIds.includes(duplicate.id)) {
+          return { job: current, artifact: duplicate, deduplicated: true };
+        }
+        const extension = input.format === 'jpeg' ? 'jpg' : input.format;
+        const articleFileName = `article-upload-${input.sha256.slice(0, 12)}.${extension}`;
+        const artifact = duplicate ?? repository.insertArtifact({
+          jobId,
+          kind: 'article_image',
+          status: 'completed',
+          path: input.path,
+          sourceArtifactIds: [],
+          metadata: {
+            fileName: articleFileName,
+            originalFileName: input.fileName,
+            mimeType: input.mimeType,
+            size: input.size,
+            bytes: input.size,
+            sha256: input.sha256,
+            lastModified: input.lastModified,
+            format: input.format,
+            source: 'local-upload'
+          }
+        });
+        const revision = current.revision + 1;
+        const template = templates.get(current.templateId, current.templateVersion);
+        repository.updateJob({
+          id: jobId,
+          status: current.status,
+          revision,
+          state: template.inputSchema.parse({
+            ...current.state,
+            manualArticleImageArtifactIds: [...new Set([...selectedIds, artifact.id])]
+          }) as Record<string, CreatorJson>
+        });
+        repository.insertActivity({
+          jobId,
+          revision,
+          actor: 'user',
+          action: 'register-article-image',
+          summary: duplicate === undefined ? '上传文章配图' : '重新插入文章配图',
+          details: {
+            objectId: input.fileName,
+            affectedArtifactIds: [artifact.id]
+          }
+        });
+        return {
+          job: repository.getJob(jobId)!,
+          artifact,
+          deduplicated: duplicate !== undefined
+        };
+      });
+    },
+    registerSourceDocument(jobId: string, input: {
+      expectedRevision: number;
+      path: string;
+      fileName: string;
+      mimeType: string;
+      size: number;
+      sha256: string;
+      lastModified: number | null;
+    }): { job: CreatorJob; artifact: CreatorArtifact; deduplicated: boolean } {
+      return repository.transaction(() => {
+        const current = repository.getJob(jobId);
+        if (current === undefined) {
+          throw new CreatorServiceError('creator_job_not_found', 'Creator job not found');
+        }
+        if (current.revision !== input.expectedRevision) {
+          throw new CreatorServiceError(
+            'creator_revision_conflict',
+            'Creator job revision changed',
+            current.revision
+          );
+        }
+        if (current.templateId !== 'wechat-article') {
+          throw new CreatorServiceError(
+            'creator_document_upload_unsupported',
+            'Document upload is only supported for WeChat article jobs'
+          );
+        }
+        const duplicate = [...current.artifacts].reverse().find(artifact => (
+          artifact.kind === 'source_document'
+          && artifact.status === 'completed'
+          && artifact.metadata.sha256 === input.sha256
+        ));
+        const selectedIds = readStringArray(current.state.sourceDocumentArtifactIds);
+        if (duplicate !== undefined && selectedIds.includes(duplicate.id)) {
+          return { job: current, artifact: duplicate, deduplicated: true };
+        }
+        const sourceLinkCount = Array.isArray(current.state.sourceLinks)
+          ? current.state.sourceLinks.length
+          : 0;
+        if (sourceLinkCount + selectedIds.length >= wechatArticleSourceLimit) {
+          throw new CreatorServiceError(
+            'creator_source_limit_exceeded',
+            `A WeChat article can use at most ${wechatArticleSourceLimit} inspiration sources`
+          );
+        }
+        const artifact = duplicate ?? repository.insertArtifact({
+          jobId,
+          kind: 'source_document',
+          status: 'completed',
+          path: input.path,
+          sourceArtifactIds: [],
+          metadata: {
+            fileName: input.fileName,
+            mimeType: input.mimeType,
+            size: input.size,
+            bytes: input.size,
+            sha256: input.sha256,
+            lastModified: input.lastModified,
+            source: 'local-upload'
+          }
+        });
+        const revision = current.revision + 1;
+        const template = templates.get(current.templateId, current.templateVersion);
+        repository.updateJob({
+          id: jobId,
+          status: 'draft',
+          revision,
+          state: template.inputSchema.parse({
+            ...current.state,
+            sourceDocumentArtifactIds: [...new Set([...selectedIds, artifact.id])],
+            currentStage: null
+          }) as Record<string, CreatorJson>
+        });
+        repository.insertActivity({
+          jobId,
+          revision,
+          actor: 'user',
+          action: 'register-source-document',
+          summary: duplicate === undefined ? '上传内容灵感' : '重新选择内容灵感',
+          details: {
+            objectId: input.fileName,
+            affectedArtifactIds: [artifact.id]
+          }
+        });
+        return {
+          job: repository.getJob(jobId)!,
+          artifact,
+          deduplicated: duplicate !== undefined
+        };
+      });
+    },
     bindAgentThread(jobId: string, threadId: string): CreatorJob {
       return repository.transaction(() => {
         const current = repository.getJob(jobId);
@@ -786,6 +965,10 @@ export function createCreatorService(input: {
       });
     }
   };
+}
+
+function readStringArray(value: CreatorJson | undefined): string[] {
+  return Array.isArray(value) ? value.filter(item => typeof item === 'string') : [];
 }
 
 function shouldClearTtsConfigurationRequest(

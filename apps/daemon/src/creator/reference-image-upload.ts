@@ -42,6 +42,7 @@ export function createCreatorReferenceImageUploadService(input: {
       mimeType: string;
       lastModified: number | null;
       source: Readable;
+      purpose?: 'reference' | 'article';
     }): Promise<CreatorSourceUploadResponse> {
       const current = input.creator.getJob(request.jobId);
       if (current === undefined) {
@@ -62,12 +63,13 @@ export function createCreatorReferenceImageUploadService(input: {
       const jobSegment = safeJobSegment(request.jobId);
       const fileName = safeFileName(request.fileName);
       const mimeType = safeMimeType(request.mimeType);
-      const uploadDir = join(jobsRoot, jobSegment, 'references');
+      const purpose = request.purpose ?? 'reference';
+      const uploadDir = join(jobsRoot, jobSegment, purpose === 'article' ? 'article-images' : 'references');
       await mkdir(uploadDir, { recursive: true });
       const token = randomBytes(12).toString('hex');
       const extension = safeExtension(fileName, mimeType);
       const temporaryPath = join(uploadDir, `.${token}.upload`);
-      const finalPath = join(uploadDir, `reference-${token}${extension}`);
+      const finalPath = join(uploadDir, `${purpose === 'article' ? 'article-image' : 'reference'}-${token}${extension}`);
       const hash = createHash('sha256');
       let size = 0;
       const meter = new Transform({
@@ -112,7 +114,10 @@ export function createCreatorReferenceImageUploadService(input: {
         const sha256 = hash.digest('hex');
         await rename(temporaryPath, finalPath);
         try {
-          const response = input.creator.registerReferenceImage(request.jobId, {
+          const register = purpose === 'article'
+            ? input.creator.registerArticleImage
+            : input.creator.registerReferenceImage;
+          const response = register(request.jobId, {
             expectedRevision: request.expectedRevision,
             path: finalPath,
             fileName,

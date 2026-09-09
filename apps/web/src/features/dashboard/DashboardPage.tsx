@@ -10,6 +10,8 @@ import {
   ImagePlus,
   Languages,
   Mic2,
+  PenLine,
+  Newspaper,
   Search,
   ServerOff,
   Sparkles,
@@ -23,6 +25,8 @@ import CoverGeneratorWorkspace from './CoverGeneratorWorkspace.js';
 import DigitalAvatarWorkspace from './DigitalAvatarWorkspace.js';
 import ImageGenerationWorkspace from './ImageGenerationWorkspace.js';
 import SmartDubbingWorkspace from './SmartDubbingWorkspace.js';
+import XiaohongshuPostWorkspace from './XiaohongshuPostWorkspace.js';
+import WechatArticleWorkspace from './WechatArticleWorkspace.js';
 import StickmanVideoWorkspace from './StickmanVideoWorkspace.js';
 import VideoDownloadWorkspace from './VideoDownloadWorkspace.js';
 import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
@@ -42,7 +46,7 @@ import {
 import type { VideoMetadataService } from '../../services/video-metadata-service.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 
-type DashboardCategory = '视频创作' | '图像创作' | '音频处理' | '视频编辑' | '数字人';
+type DashboardCategory = '视频创作' | '图像创作' | '文案创作' | '音频处理' | '视频编辑' | '数字人';
 
 type DashboardEntry = {
   title: string;
@@ -86,6 +90,15 @@ const featuredTools: FeaturedEntry[] = [
 
 const creatorTools: DashboardEntry[] = [
   {
+    title: '文章写作',
+    description: '公众号、X 等平台文章',
+    prompt: '帮我根据内容灵感写一篇适合公众号、X 等平台发布的文章，先给出选题和大纲，再完成正文。',
+    category: '文案创作',
+    icon: Newspaper,
+    badge: 'NEW',
+    workspace: 'wechat-article'
+  },
+  {
     title: '视频翻译',
     description: '字幕、配音与口型同步',
     prompt: '帮我把这段视频翻译成目标语言，保留原片语气，并生成匹配的字幕和配音。',
@@ -127,6 +140,15 @@ const creatorTools: DashboardEntry[] = [
     workspace: 'cover-generator'
   },
   {
+    title: '小红书帖子',
+    description: '从主题和素材生成完整帖子',
+    prompt: '帮我写一篇小红书帖子，请先确认主题、目标读者、内容类型和篇幅。',
+    category: '文案创作',
+    icon: PenLine,
+    badge: 'NEW',
+    workspace: 'xiaohongshu-post'
+  },
+  {
     title: '智能配音',
     description: '自然音色与情绪表达',
     prompt: '帮我为这段内容制作配音，请根据使用场景优化文本、语速、停顿和情绪。',
@@ -160,7 +182,7 @@ const creatorTools: DashboardEntry[] = [
   },
 ];
 
-const categories = ['全部', '视频创作', '视频编辑', '图像创作', '音频处理'] as const;
+const categories = ['全部', '视频创作', '视频编辑', '图像创作', '文案创作', '音频处理'] as const;
 type CategoryFilter = typeof categories[number];
 
 const CREATOR_JOB_LOAD_TIMEOUT_MS = 15_000;
@@ -311,6 +333,24 @@ export default function DashboardPage(props: {
       <SmartDubbingWorkspace
         promptHint={activePromptHint}
         creatorServicesService={props.creatorServicesService}
+        onBack={closeWorkspace}
+      />
+    ));
+  }
+
+  if (activeWorkspace === 'xiaohongshu-post') {
+    return renderCreatorWorkspace('xiaohongshu-post', (
+      <XiaohongshuPostWorkspace
+        promptHint={activePromptHint}
+        onBack={closeWorkspace}
+      />
+    ));
+  }
+
+  if (activeWorkspace === 'wechat-article') {
+    return renderCreatorWorkspace('wechat-article', (
+      <WechatArticleWorkspace
+        promptHint={activePromptHint}
         onBack={closeWorkspace}
       />
     ));
@@ -800,8 +840,10 @@ function createCreationKeySuffix(): string {
 
 const englishDashboardLabels: Record<string, string> = {
   全部: 'All',
+  内容创作: 'Content Creation',
   视频创作: 'Video Creation',
   图像创作: 'Image Creation',
+  文案创作: 'Writing',
   音频处理: 'Audio',
   视频编辑: 'Video Editing',
   数字人: 'Avatars',
@@ -809,6 +851,8 @@ const englishDashboardLabels: Record<string, string> = {
   视频翻译配音: 'Translate & Dub Video',
   数字人口播: 'Digital Avatar',
   视频翻译: 'Video Translation',
+  文章写作: 'Article Writer',
+  '公众号、X 等平台文章': 'Articles for WeChat, X, and more',
   '字幕、配音与口型同步': 'Subtitles, dubbing, and lip sync',
   视频生成: 'Video Generation',
   文字或参考图生成视频片段: 'Generate video clips from text or a reference image',
@@ -817,6 +861,8 @@ const englishDashboardLabels: Record<string, string> = {
   自动剪辑: 'Auto Clips',
   语义识别与高光切片: 'Semantic detection and highlight clips',
   智能配音: 'AI Dubbing',
+  小红书帖子: 'Xiaohongshu Posts',
+  从主题和素材生成完整帖子: 'Turn a topic or source material into a complete post',
   自然音色与情绪表达: 'Natural voices with expressive delivery',
   图像生成: 'Image Generation',
   生成创意图片与视觉素材: 'Generate images and visual assets',

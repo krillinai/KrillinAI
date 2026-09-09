@@ -1,0 +1,20 @@
+{
+  "name": "@opencreator/writing-templates",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build:catalog": "node scripts/build-catalog.mjs",
+    "build": "pnpm build:catalog && tsc -p tsconfig.json",
+    "typecheck": "pnpm build:catalog && tsc -p tsconfig.json --noEmit",
+    "test": "pnpm build:catalog && vitest run --passWithNoTests"
+  }
+}

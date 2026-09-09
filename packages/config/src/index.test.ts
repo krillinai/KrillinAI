@@ -1,5 +1,6 @@
 import {
   mkdtempSync,
+  readFileSync,
   rmSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -7,8 +8,10 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   readOpenCreatorConfig,
+  resolveDesktopConfig,
   resolveOpenCreatorPaths,
   resolveUiSettings,
+  updateOpenCreatorConfig,
   updateOpenCreatorUiSettings
 } from './index.js';
 
@@ -62,5 +65,30 @@ describe('OpenCreator config', () => {
     updateOpenCreatorUiSettings(path, { colorMode: 'light' });
 
     expect(resolveUiSettings(readOpenCreatorConfig(path)).colorMode).toBe('light');
+  });
+
+  it('persists anonymous telemetry preferences and the install identifier', () => {
+    const root = mkdtempSync(join(tmpdir(), 'opencreator-config-'));
+    tempDirs.push(root);
+    const path = join(root, 'config.toml');
+    const telemetryInstallId = '123e4567-e89b-42d3-a456-426614174000';
+
+    updateOpenCreatorConfig(path, document => ({
+      ...document,
+      desktop: {
+        closeBehavior: 'hide',
+        notificationsEnabled: true,
+        telemetryEnabled: false,
+        telemetryInstallId
+      }
+    }));
+
+    const source = readFileSync(path, 'utf8');
+    expect(source).toContain('telemetry_enabled = false');
+    expect(source).toContain(`telemetry_install_id = "${telemetryInstallId}"`);
+    expect(resolveDesktopConfig(readOpenCreatorConfig(path))).toMatchObject({
+      telemetryEnabled: false,
+      telemetryInstallId
+    });
   });
 });

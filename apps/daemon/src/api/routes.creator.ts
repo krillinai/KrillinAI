@@ -60,6 +60,11 @@ import {
   CreatorSourceUploadError,
   type CreatorSourceUploadService
 } from '../creator/source-upload.js';
+import {
+  CREATOR_DOCUMENT_UPLOAD_CONTENT_TYPE,
+  CreatorDocumentUploadError,
+  type CreatorDocumentUploadService
+} from '../creator/document-upload.js';
 
 export async function registerCreatorRoutes(
   server: FastifyInstance,
@@ -73,6 +78,7 @@ export async function registerCreatorRoutes(
     projectCoverService?: CreatorProjectCoverService;
     referenceImageUploadService?: CreatorReferenceImageUploadService;
     sourceUploadService?: CreatorSourceUploadService;
+    documentUploadService?: CreatorDocumentUploadService;
     artifactImportService?: CreatorArtifactImportService;
     jobsRoot: string;
     dispatcher: CreatorCommandDispatcher;
@@ -130,6 +136,78 @@ export async function registerCreatorRoutes(
             throw new TypeError('body must be an image stream');
           }
           const response = await options.referenceImageUploadService!.upload({
+            jobId: id,
+            expectedRevision: readQueryInteger(query.expectedRevision, 'expectedRevision'),
+            fileName: readString(query.fileName, 'fileName'),
+            mimeType: readString(query.mime, 'mime'),
+            lastModified: query.lastModified === undefined
+              ? null
+              : readQueryInteger(query.lastModified, 'lastModified'),
+            source: request.body
+          });
+          events.publish({
+            id: `snapshot:${response.job.revision}`,
+            jobId: response.job.id,
+            revision: response.job.revision,
+            kind: 'snapshot_changed',
+            payload: { revision: response.job.revision }
+          });
+          return reply.code(response.deduplicated ? 200 : 201).send(response);
+        } catch (error) {
+          return sendCreatorError(reply, error);
+        }
+      }
+    );
+    server.post<{ Body: Readable }>(
+      '/creator/jobs/:id/article-image',
+      async (request, reply) => {
+        const { id } = request.params as { id: string };
+        try {
+          const query = readObject(request.query);
+          if (!isReadable(request.body)) {
+            throw new TypeError('body must be an image stream');
+          }
+          const response = await options.referenceImageUploadService!.upload({
+            jobId: id,
+            expectedRevision: readQueryInteger(query.expectedRevision, 'expectedRevision'),
+            fileName: readString(query.fileName, 'fileName'),
+            mimeType: readString(query.mime, 'mime'),
+            lastModified: query.lastModified === undefined
+              ? null
+              : readQueryInteger(query.lastModified, 'lastModified'),
+            source: request.body,
+            purpose: 'article'
+          });
+          events.publish({
+            id: `snapshot:${response.job.revision}`,
+            jobId: response.job.id,
+            revision: response.job.revision,
+            kind: 'snapshot_changed',
+            payload: { revision: response.job.revision }
+          });
+          return reply.code(response.deduplicated ? 200 : 201).send(response);
+        } catch (error) {
+          return sendCreatorError(reply, error);
+        }
+      }
+    );
+  }
+
+  if (options.documentUploadService !== undefined) {
+    server.addContentTypeParser(
+      CREATOR_DOCUMENT_UPLOAD_CONTENT_TYPE,
+      (_request, payload, done) => done(null, payload)
+    );
+    server.post<{ Body: Readable }>(
+      '/creator/jobs/:id/source-document',
+      async (request, reply) => {
+        const { id } = request.params as { id: string };
+        try {
+          const query = readObject(request.query);
+          if (!isReadable(request.body)) {
+            throw new TypeError('body must be a document stream');
+          }
+          const response = await options.documentUploadService!.upload({
             jobId: id,
             expectedRevision: readQueryInteger(query.expectedRevision, 'expectedRevision'),
             fileName: readString(query.fileName, 'fileName'),
@@ -836,6 +914,10 @@ function sendCreatorError(reply: FastifyReply, error: unknown) {
     return reply.code(error.statusCode)
       .send(apiError(error.code as RuntimeErrorCode, error.message));
   }
+  if (error instanceof CreatorDocumentUploadError) {
+    return reply.code(error.statusCode)
+      .send(apiError(error.code as RuntimeErrorCode, error.message));
+  }
   if (error instanceof CreatorCommandError) {
     const status = error.code === 'creator_job_not_found'
       ? 404
@@ -1012,11 +1094,17 @@ function creatorArtifactContentType(fileName: string): string {
   if (extension === '.png') return 'image/png';
   if (extension === '.webp') return 'image/webp';
   if (extension === '.srt') return 'application/x-subrip; charset=utf-8';
+  if (extension === '.md') return 'text/markdown; charset=utf-8';
   if (extension === '.mp4') return 'video/mp4';
   if (extension === '.webm') return 'video/webm';
   if (extension === '.mp3') return 'audio/mpeg';
   if (extension === '.wav') return 'audio/wav';
   if (extension === '.m4a') return 'audio/mp4';
+  if (extension === '.md' || extension === '.markdown') return 'text/markdown; charset=utf-8';
+  if (extension === '.txt') return 'text/plain; charset=utf-8';
+  if (extension === '.json') return 'application/json; charset=utf-8';
+  if (extension === '.pdf') return 'application/pdf';
+  if (extension === '.html' || extension === '.htm') return 'text/html; charset=utf-8';
   return 'application/octet-stream';
 }
 

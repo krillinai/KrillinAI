@@ -7,6 +7,7 @@ import type {
   CreatorAgentSession,
   CreatorAgentTurn,
   CreatorAgentTurnRequest,
+  CreatorArtifact,
   CreatorEventEnvelope,
   CreatorJob,
   CreatorJson,
@@ -42,6 +43,8 @@ type CreatorSessionContextValue = {
   resumeJob(): Promise<void>;
   uploadSourceVideo(file: File): Promise<void>;
   uploadReferenceImage(file: File): Promise<void>;
+  uploadArticleImage(file: File): Promise<CreatorArtifact>;
+  uploadSourceDocument(file: File): Promise<void>;
   openArtifact(artifactId: string): Promise<Response>;
   agentSession: CreatorAgentSession | null;
   turns: CreatorAgentTurn[];
@@ -78,7 +81,9 @@ export function CreatorSessionProvider(props: {
     | 'getJob'
     | 'openArtifact'
     | 'uploadReferenceImage'
+    | 'uploadArticleImage'
     | 'uploadSourceVideo'
+    | 'uploadSourceDocument'
     | 'cancelJob'
     | 'resumeJob'
     | 'subscribeJobEvents'>>;
@@ -395,6 +400,55 @@ export function CreatorSessionProvider(props: {
     }
   }, [ensurePersistedJob, flush, props.service]);
 
+  const uploadArticleImage = useCallback(async (file: File): Promise<CreatorArtifact> => {
+    if (props.service.uploadArticleImage === undefined) {
+      throw new Error('Creator article image upload transport is unavailable');
+    }
+    let requestRevision = confirmedRef.current.revision;
+    try {
+      await flush();
+      await ensurePersistedJob();
+      requestRevision = confirmedRef.current.revision;
+      const response = await props.service.uploadArticleImage(confirmedRef.current.id, {
+        file,
+        expectedRevision: requestRevision
+      });
+      confirmedRef.current = response.job;
+      setConfirmedJob(response.job);
+      setError(null);
+      return response.artifact;
+    } catch (cause) {
+      if (!isSupersededRevisionConflict(cause, requestRevision, confirmedRef.current.revision)) {
+        setError(toSessionError(cause));
+      }
+      throw cause;
+    }
+  }, [ensurePersistedJob, flush, props.service]);
+
+  const uploadSourceDocument = useCallback(async (file: File) => {
+    if (props.service.uploadSourceDocument === undefined) {
+      throw new Error('Creator document upload transport is unavailable');
+    }
+    let requestRevision = confirmedRef.current.revision;
+    try {
+      await flush();
+      await ensurePersistedJob();
+      requestRevision = confirmedRef.current.revision;
+      const response = await props.service.uploadSourceDocument(confirmedRef.current.id, {
+        file,
+        expectedRevision: requestRevision
+      });
+      confirmedRef.current = response.job;
+      setConfirmedJob(response.job);
+      setError(null);
+    } catch (cause) {
+      if (!isSupersededRevisionConflict(cause, requestRevision, confirmedRef.current.revision)) {
+        setError(toSessionError(cause));
+      }
+      throw cause;
+    }
+  }, [ensurePersistedJob, flush, props.service]);
+
   const cancelJob = useCallback(async () => {
     if (props.service.cancelJob === undefined) {
       throw new Error('Creator job cancellation is unavailable');
@@ -549,7 +603,9 @@ export function CreatorSessionProvider(props: {
     cancelJob,
     resumeJob,
     uploadReferenceImage,
+    uploadSourceDocument,
     uploadSourceVideo,
+    uploadArticleImage,
     openArtifact,
     agentSession,
     turns,
@@ -560,7 +616,7 @@ export function CreatorSessionProvider(props: {
     steerAgentTurn,
     interruptAgentTurn,
     respondAgentApproval
-  }), [agentBusy, agentSession, applyAction, applyRemoteSnapshot, approvals, cancelJob, clearError, confirmedJob, conflictedFields, draft, error, flush, interruptAgentTurn, items, openArtifact, respondAgentApproval, resumeJob, runAgentTurn, steerAgentTurn, turns, updateDraft, uploadReferenceImage, uploadSourceVideo]);
+  }), [agentBusy, agentSession, applyAction, applyRemoteSnapshot, approvals, cancelJob, clearError, confirmedJob, conflictedFields, draft, error, flush, interruptAgentTurn, items, openArtifact, respondAgentApproval, resumeJob, runAgentTurn, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
 
   return (
     <CreatorSessionContext.Provider value={value}>

@@ -31,6 +31,8 @@ const CREATOR_SOURCE_UPLOAD_CONTENT_TYPE =
   'application/vnd.opencreator.creator-source';
 const CREATOR_REFERENCE_IMAGE_CONTENT_TYPE =
   'application/vnd.opencreator.creator-reference-image';
+const CREATOR_DOCUMENT_UPLOAD_CONTENT_TYPE =
+  'application/vnd.opencreator.creator-document';
 
 export type CreatorJobControlResponse = {
   job: CreatorJob;
@@ -96,6 +98,44 @@ export function createCreatorService(client: ClientLike) {
         `/creator/jobs/${encodeURIComponent(jobId)}/reference-image?${query.toString()}`,
         input.file,
         CREATOR_REFERENCE_IMAGE_CONTENT_TYPE
+      ) as Promise<CreatorSourceUploadResponse>;
+    },
+    uploadArticleImage(jobId: string, input: {
+      file: File;
+      expectedRevision: number;
+    }): Promise<CreatorSourceUploadResponse> {
+      if (client.postBinary === undefined) {
+        return Promise.reject(new Error('Creator article image upload transport is unavailable'));
+      }
+      const query = new URLSearchParams({
+        expectedRevision: String(input.expectedRevision),
+        fileName: input.file.name,
+        mime: input.file.type || 'application/octet-stream',
+        lastModified: String(input.file.lastModified)
+      });
+      return client.postBinary(
+        `/creator/jobs/${encodeURIComponent(jobId)}/article-image?${query.toString()}`,
+        input.file,
+        CREATOR_REFERENCE_IMAGE_CONTENT_TYPE
+      ) as Promise<CreatorSourceUploadResponse>;
+    },
+    uploadSourceDocument(jobId: string, input: {
+      file: File;
+      expectedRevision: number;
+    }): Promise<CreatorSourceUploadResponse> {
+      if (client.postBinary === undefined) {
+        return Promise.reject(new Error('Creator document upload transport is unavailable'));
+      }
+      const query = new URLSearchParams({
+        expectedRevision: String(input.expectedRevision),
+        fileName: input.file.name,
+        mime: input.file.type || 'application/octet-stream',
+        lastModified: String(input.file.lastModified)
+      });
+      return client.postBinary(
+        `/creator/jobs/${encodeURIComponent(jobId)}/source-document?${query.toString()}`,
+        input.file,
+        CREATOR_DOCUMENT_UPLOAD_CONTENT_TYPE
       ) as Promise<CreatorSourceUploadResponse>;
     },
     importArtifact(

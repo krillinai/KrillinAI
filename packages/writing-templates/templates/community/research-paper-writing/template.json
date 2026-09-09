@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "community.research-paper-writing",
+  "version": "1.0.0",
+  "name": "Research Paper Writing",
+  "description": "用清晰章节、严密论证和审稿人视角组织科研论文与学术内容",
+  "localizations": {
+    "zh-CN": {
+      "name": "科研论文写作",
+      "description": "用清晰章节、严密论证和审稿人视角组织科研论文与学术内容",
+      "tags": ["学术论文", "章节结构", "论点证据", "投稿自审"],
+      "structure": ["研究任务与问题", "相关工作与技术挑战", "方法与核心贡献", "实验与证据", "结论、局限与未来方向"],
+      "instructions": "先明确研究故事、技术问题和核心贡献，再按章节组织论证。每段只传递一个信息，首句说明段落作用，术语前后一致；摘要和引言中的重要主张必须由实验或来源证据支持。成稿后使用审稿人视角检查贡献、表达、实验、评估完整性和方法合理性。"
+    },
+    "en-US": {
+      "name": "Research Paper Writing",
+      "description": "Structure research papers with clear sections, rigorous arguments, and a reviewer's perspective",
+      "tags": ["Academic paper", "Section structure", "Claim and evidence", "Pre-submission review"],
+      "structure": ["Research task and problem", "Related work and challenge", "Method and contribution", "Experiments and evidence", "Conclusion, limits, and future work"],
+      "instructions": "Clarify the research story, technical problem, and core contribution before organizing the argument by section. Give each paragraph one message, state its role in the opening sentence, and keep terminology consistent. Every major claim in the abstract and introduction must be supported by experiments or source evidence. Review the draft for contribution, clarity, experimental strength, evaluation completeness, and method soundness."
+    }
+  },
+  "categoryId": "analysis",
+  "domains": ["research"],
+  "tags": ["学术论文", "章节结构", "论点证据", "投稿自审"],
+  "structure": ["研究任务与问题", "相关工作与技术挑战", "方法与核心贡献", "实验与证据", "结论、局限与未来方向"],
+  "instructions": "先明确研究故事、技术问题和核心贡献，再按章节组织论证。每段只传递一个信息，首句说明段落作用，术语前后一致；摘要和引言中的重要主张必须由实验或来源证据支持。成稿后使用审稿人视角检查贡献、表达、实验、评估完整性和方法合理性。",
+  "author": "Master-cai / OpenCreator adapted",
+  "status": "featured",
+  "sortOrder": 120,
+  "source": {
+    "type": "github",
+    "repository": "Master-cai/Research-Paper-Writing-Skills",
+    "revision": "77e7c2c1ba06f7d71844873147665437a03aac1b",
+    "url": "https://github.com/Master-cai/Research-Paper-Writing-Skills",
+    "license": "MIT"
+  },
+  "skill": {
+    "stageResources": {
+      "topics": ["skill/topics.md"],
+      "outline": ["skill/SKILL.md"],
+      "article": ["skill/SKILL.md", "skill/review.md"],
+      "review": ["skill/review.md"]
+    }
+  }
+}

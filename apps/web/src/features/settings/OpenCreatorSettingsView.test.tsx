@@ -217,6 +217,25 @@ describe('OpenCreatorSettingsView', () => {
     expect(onDesktopCloseBehaviorChange).toHaveBeenCalledWith('quit');
   });
 
+  it('shows the anonymous telemetry scope and allows Desktop users to disable it', () => {
+    const onDesktopTelemetryEnabledChange = vi.fn();
+    render(
+      <OpenCreatorSettingsView
+        runtimeStatus={runtimeStatus}
+        desktopCloseBehavior="hide"
+        desktopTelemetryEnabled
+        onDesktopTelemetryEnabledChange={onDesktopTelemetryEnabledChange}
+        onBack={vi.fn()}
+      />
+    );
+
+    const telemetry = screen.getByRole('switch', { name: /发送匿名使用数据/ });
+    expect(telemetry).toBeChecked();
+    fireEvent.click(telemetry);
+    expect(onDesktopTelemetryEnabledChange).toHaveBeenCalledWith(false);
+    expect(screen.getByText(/不包含项目、文件或对话内容/)).toBeInTheDocument();
+  });
+
   it('does not show Codex CLI version on the initial general tab', () => {
     render(<OpenCreatorSettingsView runtimeStatus={runtimeStatus} onBack={vi.fn()} />);
 

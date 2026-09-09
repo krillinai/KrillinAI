@@ -446,6 +446,48 @@ describe('ProjectsPage', () => {
       .toHaveAttribute('src', '/dashboard/templates/image-generation-project-cover.png');
   });
 
+  it('lists Xiaohongshu posts as writing projects and hides untouched drafts', () => {
+    const empty = creatorJob({
+      id: 'job_xiaohongshu_empty',
+      templateId: 'xiaohongshu-post',
+      state: {
+        topic: '',
+        audience: '',
+        style: 'experience',
+        length: 'medium',
+        extraRequirements: '',
+        currentStage: null
+      },
+      updatedAt: '2026-09-08T08:00:00.000Z'
+    });
+    const generated = creatorJob({
+      id: 'job_xiaohongshu_generated',
+      templateId: 'xiaohongshu-post',
+      state: { ...empty.state, topic: '第一次参与开源项目' },
+      updatedAt: '2026-09-08T08:10:00.000Z',
+      artifacts: [artifact('job_xiaohongshu_generated', 'xiaohongshu_post', 'post.md')]
+    });
+
+    expect(isMeaningfulCreatorJob(empty)).toBe(false);
+    render(
+      <ProjectsPage
+        jobs={[empty, generated]}
+        workspaces={workspaces}
+        onOpenJob={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: '文案创作' }));
+    const project = screen.getByRole('button', { name: '打开项目 第一次参与开源项目' });
+    expect(project).toHaveTextContent('小红书帖子');
+    expect(project.querySelector('img')).toHaveAttribute(
+      'src',
+      '/dashboard/templates/digital-presenter.jpg'
+    );
+    expect(within(screen.getByRole('list', { name: '项目列表' })).getAllByRole('listitem'))
+      .toHaveLength(1);
+  });
+
   it('shows loading and runtime errors explicitly', () => {
     const { rerender } = render(
       <ProjectsPage jobs={[]} workspaces={workspaces} loading onOpenJob={vi.fn()} />
