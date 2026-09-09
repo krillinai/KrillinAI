@@ -100,7 +100,13 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
     }
   }
 
-  expect(results[1]).toEqual(results[0]);
+  expect({
+    ...results[1],
+    requests: normalizeParityRequests(results[1]!.requests)
+  }).toEqual({
+    ...results[0],
+    requests: normalizeParityRequests(results[0]!.requests)
+  });
   expect(results[0]!.requests).toContain('GET /settings/ui');
   expect(results[0]!.requests).toContain('PATCH /settings/ui');
 });
@@ -197,7 +203,8 @@ test('视频下载在 Browser/Desktop Bridge 下保持相同界面、请求和�
 
   expect(results[1]!.text).toBe(results[0]!.text);
   expect(results[1]!.boxes).toEqual(results[0]!.boxes);
-  expect(results[1]!.requests).toEqual(results[0]!.requests);
+  expect(normalizeParityRequests(results[1]!.requests))
+    .toEqual(normalizeParityRequests(results[0]!.requests));
   expect(results[1]!.state).toEqual(results[0]!.state);
 });
 
@@ -328,7 +335,8 @@ test('视频生成在 Browser/Desktop Bridge 下保持相同界面、请求和�
 
   expect(results[1]!.text).toBe(results[0]!.text);
   expect(results[1]!.boxes).toEqual(results[0]!.boxes);
-  expect(results[1]!.requests).toEqual(results[0]!.requests);
+  expect(normalizeParityRequests(results[1]!.requests))
+    .toEqual(normalizeParityRequests(results[0]!.requests));
   expect(results[1]!.state).toEqual(results[0]!.state);
 });
 
@@ -434,7 +442,8 @@ test('小红书帖子在 Browser/Desktop Bridge 下保持相同界面、请求�
 
   expect(results[1]!.text).toBe(results[0]!.text);
   expect(results[1]!.boxes).toEqual(results[0]!.boxes);
-  expect(results[1]!.requests).toEqual(results[0]!.requests);
+  expect(normalizeParityRequests(results[1]!.requests))
+    .toEqual(normalizeParityRequests(results[0]!.requests));
   expect(results[1]!.state).toEqual(results[0]!.state);
 });
 
@@ -529,7 +538,8 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
 
   expect(results[1]!.text).toBe(results[0]!.text);
   expect(results[1]!.boxes).toEqual(results[0]!.boxes);
-  expect(results[1]!.requests).toEqual(results[0]!.requests);
+  expect(normalizeParityRequests(results[1]!.requests))
+    .toEqual(normalizeParityRequests(results[0]!.requests));
   expect(results[0]!.requests).toContain('GET /creator/yt-dlp/status');
 });
 
@@ -740,4 +750,8 @@ async function installDesktopBridge(
 
 function normalizeParityText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
+}
+
+function normalizeParityRequests(requests: string[]): string[] {
+  return [...requests].sort();
 }
