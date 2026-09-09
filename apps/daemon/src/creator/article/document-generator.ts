@@ -23,8 +23,13 @@ type ArticleDocumentInput = {
 };
 
 type PdfFont = {
-  regular: string;
-  bold: string;
+  regular: PdfFontSource;
+  bold: PdfFontSource;
+};
+
+type PdfFontSource = {
+  path: string;
+  family?: string;
 };
 
 const layoutAccents: Record<WechatArticleLayoutStyleId, string> = {
@@ -119,8 +124,8 @@ export async function writeArticlePdf(
     bufferPages: true,
     info: { Title: input.title, Creator: 'OpenCreator' }
   });
-  document.registerFont('ArticleRegular', fonts.regular);
-  document.registerFont('ArticleBold', fonts.bold);
+  document.registerFont('ArticleRegular', fonts.regular.path, fonts.regular.family);
+  document.registerFont('ArticleBold', fonts.bold.path, fonts.bold.family);
   const output = createWriteStream(path, { mode: 0o600 });
   document.pipe(output);
   const accent = layoutAccents[input.layoutStyleId];
@@ -343,26 +348,71 @@ async function imageSources(artifacts: CreatorArtifact[]): Promise<Map<string, A
 function resolvePdfFonts(): PdfFont {
   const candidates: PdfFont[] = process.platform === 'darwin'
     ? [
-        { regular: '/Library/Fonts/RODE Noto Sans CJK SC R.otf', bold: '/Library/Fonts/RODE Noto Sans CJK SC B.otf' },
-        { regular: '/System/Library/Fonts/STHeiti Light.ttc', bold: '/System/Library/Fonts/STHeiti Medium.ttc' }
+        {
+          regular: { path: '/Library/Fonts/RODE Noto Sans CJK SC R.otf' },
+          bold: { path: '/Library/Fonts/RODE Noto Sans CJK SC B.otf' }
+        },
+        {
+          regular: {
+            path: '/System/Library/Fonts/STHeiti Light.ttc',
+            family: 'STHeitiSC-Light'
+          },
+          bold: {
+            path: '/System/Library/Fonts/STHeiti Medium.ttc',
+            family: 'STHeitiSC-Medium'
+          }
+        }
       ]
     : process.platform === 'win32'
       ? [
-          { regular: 'C:\\Windows\\Fonts\\msyh.ttc', bold: 'C:\\Windows\\Fonts\\msyhbd.ttc' },
-          { regular: 'C:\\Windows\\Fonts\\simhei.ttf', bold: 'C:\\Windows\\Fonts\\simhei.ttf' }
+          {
+            regular: {
+              path: 'C:\\Windows\\Fonts\\msyh.ttc',
+              family: 'MicrosoftYaHei'
+            },
+            bold: {
+              path: 'C:\\Windows\\Fonts\\msyhbd.ttc',
+              family: 'MicrosoftYaHei-Bold'
+            }
+          },
+          {
+            regular: { path: 'C:\\Windows\\Fonts\\simhei.ttf' },
+            bold: { path: 'C:\\Windows\\Fonts\\simhei.ttf' }
+          }
         ]
       : [
-          { regular: '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', bold: '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc' },
-          { regular: '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc', bold: '/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc' },
-          { regular: '/usr/share/fonts/opentype/source-han-sans/SourceHanSansSC-Regular.otf', bold: '/usr/share/fonts/opentype/source-han-sans/SourceHanSansSC-Bold.otf' }
+          {
+            regular: {
+              path: '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+              family: 'NotoSansCJKsc-Regular'
+            },
+            bold: {
+              path: '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc',
+              family: 'NotoSansCJKsc-Bold'
+            }
+          },
+          {
+            regular: {
+              path: '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+              family: 'NotoSansCJKsc-Regular'
+            },
+            bold: {
+              path: '/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc',
+              family: 'NotoSansCJKsc-Bold'
+            }
+          },
+          {
+            regular: { path: '/usr/share/fonts/opentype/source-han-sans/SourceHanSansSC-Regular.otf' },
+            bold: { path: '/usr/share/fonts/opentype/source-han-sans/SourceHanSansSC-Bold.otf' }
+          }
         ];
-  const selected = candidates.find(candidate => existsSync(candidate.regular));
+  const selected = candidates.find(candidate => existsSync(candidate.regular.path));
   if (selected === undefined) {
     throw new Error('No CJK font is available for PDF generation');
   }
   return {
     regular: selected.regular,
-    bold: existsSync(selected.bold) ? selected.bold : selected.regular
+    bold: existsSync(selected.bold.path) ? selected.bold : selected.regular
   };
 }
 
