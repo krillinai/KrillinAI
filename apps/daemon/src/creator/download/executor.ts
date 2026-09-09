@@ -866,7 +866,7 @@ function run(
       settled = true;
       rejectPromise(error);
     });
-    child.once('exit', code => {
+    child.once('close', code => {
       if (settled) return;
       settled = true;
       if (stdoutBuffer) onLine?.(stdoutBuffer);

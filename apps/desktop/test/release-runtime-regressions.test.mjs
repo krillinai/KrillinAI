@@ -137,4 +137,17 @@ describe('Desktop release runtime regressions', () => {
     );
     expect(source).not.toContain("join(binDir, 'yt-dlp.cmd')");
   });
+
+  it('waits for yt-dlp stdio to close before parsing JSON output', () => {
+    const sources = [
+      '../../daemon/src/creator/download/executor.ts',
+      '../../daemon/src/creator/cover/executor.ts',
+      '../../daemon/src/creator/article/source-extractor.ts'
+    ].map(path => readFileSync(new URL(path, import.meta.url), 'utf8'));
+
+    for (const source of sources) {
+      expect(source).toContain("child.once('close', code => {");
+      expect(source).not.toContain("child.once('exit', code => {");
+    }
+  });
 });
