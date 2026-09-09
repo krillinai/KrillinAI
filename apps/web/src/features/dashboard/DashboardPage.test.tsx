@@ -728,12 +728,13 @@ describe('DashboardPage', () => {
     expect(within(videoTranslationCard).getByText('HOT')).toBeInTheDocument();
     expect(within(videoTranslationCard).queryByText('NEW')).not.toBeInTheDocument();
     const appCards = Array.from(container.querySelectorAll('.dashboard-app-card'));
-    expect(appCards).toHaveLength(7);
+    expect(appCards).toHaveLength(8);
     expect(appCards.map(card => card.querySelector('strong')?.textContent)).toEqual([
       '视频翻译',
       '视频下载',
       '封面生成',
       '小红书帖子',
+      '短视频脚本',
       '智能配音',
       '视频生成',
       '图像生成'

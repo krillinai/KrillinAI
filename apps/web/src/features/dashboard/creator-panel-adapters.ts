@@ -400,6 +400,53 @@ export const xiaohongshuPostPanelAdapter: CreatorPanelAdapter = {
   }
 };
 
+export const shortVideoScriptPanelAdapter: CreatorPanelAdapter = {
+  id: 'short-video-script',
+  composerPlaceholder: l => l(
+    '询问生成状态，或调整主题、受众、平台、时长和语气',
+    'Ask about progress or adjust the topic, audience, platform, duration, and tone'
+  ),
+  stageLabel(stageId, l) {
+    if (stageId === 'generate') return l('生成短视频脚本', 'Generate short video script');
+    return l('短视频脚本任务', 'Short video script task');
+  },
+  phaseLabel(phase, l) {
+    const labels: Record<string, string> = {
+      validating: l('检查脚本设置', 'Checking script settings'),
+      generating_script: l('生成脚本内容', 'Generating script content'),
+      completed: l('脚本已生成', 'Script generated')
+    };
+    return labels[phase] ?? genericPhaseLabel(phase, l);
+  },
+  activityStageId: readActivityStageId,
+  normalizeActivity(activity, l) {
+    return normalizeCommonActivity(
+      activity,
+      l,
+      shortVideoScriptPanelAdapter,
+      {},
+      shortVideoScriptFieldLabel
+    );
+  },
+  readStageProgress: readStandardProgress,
+  runningProgressText(_stage, progress, l) {
+    return progress.phase === null
+      ? null
+      : shortVideoScriptPanelAdapter.phaseLabel(progress.phase, l);
+  },
+  failedProgressText(stage, l) {
+    return stage.errorCode === 'creator_llm_config_missing'
+      ? l(
+          '请先在设置的 AI 服务中配置文本模型',
+          'Configure a text model in AI Services first.'
+        )
+      : null;
+  },
+  succeededProgressText(_stage, l) {
+    return l('脚本已生成，可以修改、复制或下载', 'The script is ready to edit, copy, or download');
+  }
+};
+
 export const videoGenerationPanelAdapter: CreatorPanelAdapter = {
   id: 'video-generation',
   composerPlaceholder: l => l(
@@ -480,6 +527,7 @@ export function creatorPanelAdapterFor(templateId: string): CreatorPanelAdapter 
   if (templateId === 'video-download') return videoDownloadPanelAdapter;
   if (templateId === 'smart-dubbing') return smartDubbingPanelAdapter;
   if (templateId === 'xiaohongshu-post') return xiaohongshuPostPanelAdapter;
+  if (templateId === 'short-video-script') return shortVideoScriptPanelAdapter;
   if (templateId === 'cover') return coverPanelAdapter;
   if (templateId === 'video-generation') return videoGenerationPanelAdapter;
   return genericAdapter;
@@ -636,6 +684,21 @@ function xiaohongshuPostFieldLabel(
     audience: l('目标读者', 'Audience'),
     style: l('内容类型', 'Post type'),
     length: l('内容篇幅', 'Length'),
+    extraRequirements: l('补充要求', 'Additional requirements')
+  };
+  return labels[field] ?? null;
+}
+
+function shortVideoScriptFieldLabel(
+  field: string,
+  l: CreatorPanelLocalize
+): string | null {
+  const labels: Record<string, string> = {
+    topic: l('主题或素材', 'Topic or source material'),
+    audience: l('目标受众', 'Audience'),
+    platform: l('发布平台或场景', 'Platform or use case'),
+    targetDurationSeconds: l('目标时长', 'Target duration'),
+    tone: l('表达语气', 'Tone'),
     extraRequirements: l('补充要求', 'Additional requirements')
   };
   return labels[field] ?? null;

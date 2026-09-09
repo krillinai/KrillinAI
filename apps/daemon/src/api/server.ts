@@ -59,6 +59,7 @@ import { createClipExecutor } from '../creator/clip/executor.js';
 import { createStickmanExecutor } from '../creator/stickman/executor.js';
 import { createSmartDubbingExecutor } from '../creator/smart-dubbing/executor.js';
 import { createXiaohongshuPostExecutor } from '../creator/xiaohongshu/executor.js';
+import { createShortVideoScriptExecutor } from '../creator/short-video-script/executor.js';
 import { createCreatorProjectCoverService } from '../creator/project-cover.js';
 import { createVideoGenerationService } from '../video-generation/service.js';
 import {
@@ -593,6 +594,9 @@ export async function buildServer(input: BuildServerInput) {
   }
   if (input.creatorExecutors === undefined) {
     creatorExecutors.push(createXiaohongshuPostExecutor({
+      configStore: creatorServicesConfigStore
+    }));
+    creatorExecutors.push(createShortVideoScriptExecutor({
       configStore: creatorServicesConfigStore
     }));
     creatorExecutors.push(createSmartDubbingExecutor({

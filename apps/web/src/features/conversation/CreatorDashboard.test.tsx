@@ -102,8 +102,14 @@ describe('CreatorDashboard', () => {
     fireEvent.click(screen.getByRole('tab', { name: '视频创作' }));
 
     expect(screen.getByRole('tab', { name: '视频创作' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getAllByRole('button', { name: /使用.+模板/ })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /使用.+模板/ })).toHaveLength(3);
     expect(screen.getByRole('button', { name: '使用视频翻译模板' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '使用短视频脚本模板' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '使用短视频脚本模板' }));
+    expect(onSelectSkill).toHaveBeenLastCalledWith(expect.objectContaining({
+      id: 'short-video-script',
+      interaction: { type: 'workspace', workspace: 'short-video-script' }
+    }));
     fireEvent.click(screen.getByRole('button', { name: '使用视频下载模板' }));
     expect(onSelectSkill).toHaveBeenCalledWith(expect.objectContaining({
       id: 'video-download-category',

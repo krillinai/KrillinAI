@@ -488,6 +488,49 @@ describe('ProjectsPage', () => {
       .toHaveLength(1);
   });
 
+  it('lists short video scripts as writing projects and hides untouched drafts', () => {
+    const empty = creatorJob({
+      id: 'job_script_empty',
+      templateId: 'short-video-script',
+      state: {
+        topic: '',
+        audience: '',
+        platform: 'douyin',
+        targetDurationSeconds: 60,
+        tone: 'natural',
+        extraRequirements: '',
+        currentStage: null
+      },
+      updatedAt: '2026-09-08T09:00:00.000Z'
+    });
+    const generated = creatorJob({
+      id: 'job_script_generated',
+      templateId: 'short-video-script',
+      state: { ...empty.state, topic: '第一次参与开源项目' },
+      updatedAt: '2026-09-08T09:10:00.000Z',
+      artifacts: [artifact('job_script_generated', 'short_video_script', 'script.md')]
+    });
+
+    expect(isMeaningfulCreatorJob(empty)).toBe(false);
+    render(
+      <ProjectsPage
+        jobs={[empty, generated]}
+        workspaces={workspaces}
+        onOpenJob={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: '文案创作' }));
+    const project = screen.getByRole('button', { name: '打开项目 第一次参与开源项目' });
+    expect(project).toHaveTextContent('短视频脚本');
+    expect(project.querySelector('img')).toHaveAttribute(
+      'src',
+      '/skill-market/examples/gpt-image-2-info-poster.png'
+    );
+    expect(within(screen.getByRole('list', { name: '项目列表' })).getAllByRole('listitem'))
+      .toHaveLength(1);
+  });
+
   it('shows loading and runtime errors explicitly', () => {
     const { rerender } = render(
       <ProjectsPage jobs={[]} workspaces={workspaces} loading onOpenJob={vi.fn()} />
