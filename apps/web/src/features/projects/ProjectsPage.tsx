@@ -629,15 +629,15 @@ function readString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function formatProjectTime(value: string, language: 'zh-CN' | 'en-US'): string {
+function formatProjectTime(value: string, language: 'zh-CN' | 'en-US' | 'sv-SE'): string {
   const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return language === 'en-US' ? 'Recently updated' : '最近更新';
+  if (!Number.isFinite(timestamp)) return language === 'zh-CN' ? '最近更新' : language === 'sv-SE' ? 'Nyligen uppdaterad' : 'Recently updated';
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
-  if (minutes < 1) return language === 'en-US' ? 'Updated just now' : '刚刚更新';
-  if (minutes < 60) return language === 'en-US' ? `${minutes} min ago` : `${minutes} 分钟前`;
+  if (minutes < 1) return language === 'zh-CN' ? '刚刚更新' : language === 'sv-SE' ? 'Uppdaterades nyss' : 'Updated just now';
+  if (minutes < 60) return language === 'zh-CN' ? `${minutes} 分钟前` : language === 'sv-SE' ? `för ${minutes} min sedan` : `${minutes} min ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return language === 'en-US' ? `${hours} hr ago` : `${hours} 小时前`;
+  if (hours < 24) return language === 'zh-CN' ? `${hours} 小时前` : language === 'sv-SE' ? `för ${hours} tim sedan` : `${hours} hr ago`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return language === 'en-US' ? `${days} days ago` : `${days} 天前`;
+  if (days < 30) return language === 'zh-CN' ? `${days} 天前` : language === 'sv-SE' ? `för ${days} dagar sedan` : `${days} days ago`;
   return new Intl.DateTimeFormat(language, { month: 'short', day: 'numeric' }).format(timestamp);
 }
