@@ -556,16 +556,23 @@ export async function buildServer(input: BuildServerInput) {
     dirname(fileURLToPath(import.meta.url)),
     '../../../../resources/stickman/visual-assets/catalog.json'
   );
-  const stickmanCatalogPath = existsSync(packagedStickmanCatalog)
-    ? packagedStickmanCatalog
-    : existsSync(developmentStickmanCatalog)
-      ? developmentStickmanCatalog
-      : undefined;
-  const stickmanVisualAssets = stickmanCatalogPath !== undefined
-    ? createStickmanVisualAssetRegistry({
+  const developmentStickmanVisualAssetRoot = resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../web/public/dashboard'
+  );
+  const stickmanVisualAssetOptions = existsSync(packagedStickmanCatalog)
+    ? {
         root: stickmanRuntimeRoot,
-        catalogPath: stickmanCatalogPath
-      })
+        catalogPath: packagedStickmanCatalog
+      }
+    : existsSync(developmentStickmanCatalog)
+      ? {
+          root: developmentStickmanVisualAssetRoot,
+          catalogPath: developmentStickmanCatalog
+        }
+      : undefined;
+  const stickmanVisualAssets = stickmanVisualAssetOptions !== undefined
+    ? createStickmanVisualAssetRegistry(stickmanVisualAssetOptions)
     : undefined;
   const creatorTesseractPath = [
     process.env.OPENCREATOR_TESSERACT_PATH,
