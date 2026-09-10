@@ -134,6 +134,10 @@ async function launchDesktop(): Promise<void> {
     ?? (development
       ? join(appRoot, '.pack', 'codex-runtime')
       : join(process.resourcesPath, 'codex-runtime'));
+  const stickmanRuntimeRoot = process.env.OPENCREATOR_STICKMAN_RUNTIME_ROOT
+    ?? (development
+      ? join(appRoot, '.pack', 'stickman-runtime')
+      : join(process.resourcesPath, 'stickman-runtime'));
 
   logger.info('OpenCreator Desktop starting', {
     development,
@@ -151,6 +155,7 @@ async function launchDesktop(): Promise<void> {
     dataDir,
     codexRuntimeRoot,
     creatorRuntimeRoot,
+    stickmanRuntimeRoot,
     defaultProjectRoot,
     development
   });

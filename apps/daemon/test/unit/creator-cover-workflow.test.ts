@@ -93,6 +93,9 @@ describe('cover workflow', () => {
       kind: 'source_keyframe',
       status: 'completed',
       path: join(tempDir, 'youtube-thumbnail.jpg'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: {}
     });
@@ -150,6 +153,9 @@ describe('cover workflow', () => {
       kind: 'source_keyframe',
       status: 'completed',
       path: join(tempDir, 'youtube-thumbnail.jpg'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: {}
     });
@@ -182,6 +188,9 @@ describe('cover workflow', () => {
       kind: 'reference_image',
       status: 'completed',
       path: join(tempDir, 'reference.png'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: {}
     });

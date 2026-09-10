@@ -388,6 +388,8 @@ export default function DashboardPage(props: {
     return renderCreatorWorkspace('stickman-video', (
       <StickmanVideoWorkspace
         promptHint={activePromptHint}
+        creatorServicesService={props.creatorServicesService}
+        creatorService={props.creatorService}
         onBack={closeWorkspace}
       />
     ));
@@ -707,13 +709,14 @@ function createPendingCreatorJob(projectId: string, templateId: string): Creator
     id: `pending:${projectId}:${templateId}`,
     projectId,
     templateId,
-    templateVersion: 1,
+    templateVersion: templateId === 'stickman-video' ? 2 : 1,
     status: 'draft',
     revision: 0,
     state: {},
     agentThreadId: null,
     stages: [],
     artifacts: [],
+    providerRequests: [],
     activities: [],
     createdAt: now,
     updatedAt: now

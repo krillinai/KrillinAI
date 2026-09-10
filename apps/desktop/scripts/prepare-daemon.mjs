@@ -125,6 +125,7 @@ assertExists(resolve(targetDir, 'runtime/opencreator-runtime/manifest.json'));
 assertWorkspaceRuntimePackage('protocol', 'Protocol');
 assertWorkspaceRuntimePackage('config', 'Config');
 assertWorkspaceRuntimePackage('skill-market', 'Skill Market');
+assertWorkspaceRuntimePackage('writing-templates', 'Writing Templates');
 assertMissing(
   resolve(targetDir, 'node_modules/@opencreator/protocol/dist/krillin-opencreator.js'),
   'Desktop Protocol runtime package still contains the removed Krillin sidecar contract'
@@ -171,7 +172,8 @@ function assertRuntimeDependencyManifest() {
   const workspacePackages = new Set([
     '@opencreator/config',
     '@opencreator/protocol',
-    '@opencreator/skill-market'
+    '@opencreator/skill-market',
+    '@opencreator/writing-templates'
   ]);
   const expectedNames = Object.keys(daemonPackage.dependencies)
     .filter(name => !workspacePackages.has(name))
@@ -219,7 +221,7 @@ function prepareDaemonRuntimeFiles() {
 }
 
 function prepareWorkspaceRuntimePackages() {
-  for (const name of ['protocol', 'config', 'skill-market']) {
+  for (const name of ['protocol', 'config', 'skill-market', 'writing-templates']) {
     copyWorkspaceRuntimePackage(name);
   }
 }

@@ -444,6 +444,9 @@ describe('creator service', () => {
       kind: 'target_subtitle',
       status: 'completed',
       path: join(tempDir, 'v1.srt'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { resultVersion: 1 }
     });
@@ -452,6 +455,9 @@ describe('creator service', () => {
       kind: 'dubbed_audio',
       status: 'completed',
       path: join(tempDir, 'v1.mp3'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [subtitleV1.id],
       metadata: { resultVersion: 1 }
     });
@@ -460,6 +466,9 @@ describe('creator service', () => {
       kind: 'target_subtitle',
       status: 'completed',
       path: join(tempDir, 'v2.srt'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { resultVersion: 2 }
     });
@@ -468,6 +477,9 @@ describe('creator service', () => {
       kind: 'dubbed_audio',
       status: 'completed',
       path: join(tempDir, 'v2.mp3'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [subtitleV2.id],
       metadata: { resultVersion: 2 }
     });
@@ -476,6 +488,9 @@ describe('creator service', () => {
       kind: 'horizontal_video',
       status: 'completed',
       path: join(tempDir, 'v2.mp4'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [audioV2.id, subtitleV2.id],
       metadata: { resultVersion: 2 }
     });
@@ -598,6 +613,9 @@ describe('creator service', () => {
       kind: 'horizontal_video',
       status: 'completed',
       path: join(tempDir, 'horizontal.mp4'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { resultVersion: 1 }
     });
@@ -606,6 +624,9 @@ describe('creator service', () => {
       kind: 'vertical_subtitle',
       status: 'completed',
       path: join(tempDir, 'vertical.srt'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { resultVersion: 1 }
     });
@@ -614,6 +635,9 @@ describe('creator service', () => {
       kind: 'vertical_video',
       status: 'completed',
       path: join(tempDir, 'vertical.mp4'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [verticalSubtitle.id],
       metadata: { resultVersion: 1 }
     });
@@ -698,6 +722,9 @@ describe('creator service', () => {
       kind: 'target_subtitle',
       status: 'completed',
       path: join(tempDir, 'subtitle-v1.srt'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { resultVersion: 1 }
     });
@@ -706,6 +733,9 @@ describe('creator service', () => {
       kind: 'horizontal_video',
       status: 'completed',
       path: join(tempDir, 'video-v1.mp4'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [subtitle.id],
       metadata: { resultVersion: 1 }
     });

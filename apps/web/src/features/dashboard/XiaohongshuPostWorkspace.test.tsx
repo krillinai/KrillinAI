@@ -256,6 +256,7 @@ function initialJob(): CreatorJob {
     agentThreadId: null,
     stages: [],
     artifacts: [],
+    providerRequests: [],
     activities: [],
     createdAt: '2026-09-08T08:00:00.000Z',
     updatedAt: '2026-09-08T08:00:00.000Z'
@@ -270,6 +271,9 @@ function completedJob(job: CreatorJob): CreatorJob {
     version: 1,
     status: 'completed',
     path: '/tmp/OpenCreator-xiaohongshu-post.md',
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       fileName: 'OpenCreator-xiaohongshu-post.md',
@@ -299,6 +303,8 @@ function completedJob(job: CreatorJob): CreatorJob {
       claimExpiresAt: null,
       attempt: 1,
       idempotencyKey: null,
+      scopeKey: null,
+      inputFingerprint: null,
       progress: {
         phase: 'completed',
         percent: 100,

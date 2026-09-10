@@ -535,6 +535,9 @@ function outputArtifact(id: string, output: {
     kind: output.kind,
     status: output.status,
     path: output.path,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: output.sourceArtifactIds ?? [],
     metadata: output.metadata ?? {},
     createdAt: '2026-09-07T00:00:00.000Z'

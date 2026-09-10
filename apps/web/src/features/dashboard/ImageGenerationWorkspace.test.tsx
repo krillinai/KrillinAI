@@ -166,6 +166,9 @@ function imageArtifact(jobId: string, resultVersion: number, createdAt: string):
     version: resultVersion,
     status: 'completed',
     path: `/tmp/generated-image-v${resultVersion}.png`,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       candidate: 1,
@@ -224,6 +227,7 @@ function createFixture(options: { pending?: boolean } = {}) {
     agentThreadId: null,
     stages: [],
     artifacts: [],
+    providerRequests: [],
     activities: [],
     createdAt,
     updatedAt: createdAt
@@ -272,6 +276,9 @@ function createFixture(options: { pending?: boolean } = {}) {
       version: 1,
       status: 'completed',
       path: '/tmp/reference.png',
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: {
         fileName: input.file.name,

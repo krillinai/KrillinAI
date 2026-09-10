@@ -373,6 +373,7 @@ function stageInput(
     agentThreadId: null,
     stages: [],
     artifacts: inputArtifacts,
+    providerRequests: [],
     activities: [],
     createdAt,
     updatedAt: createdAt
@@ -404,6 +405,8 @@ function stageRun(
     claimExpiresAt: null,
     attempt: 1,
     idempotencyKey: null,
+    scopeKey: null,
+    inputFingerprint: null,
     progress,
     errorCode: null,
     errorMessage: null,
@@ -424,6 +427,9 @@ function artifact(
     version: 1,
     status: 'completed',
     path,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata,
     createdAt: '2026-09-07T00:00:00.000Z'

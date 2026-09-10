@@ -37,10 +37,17 @@ describe('Desktop release runtime regressions', () => {
     expect(prepareSource).toContain("'--config.node-linker=hoisted'");
     expect(prepareSource).toContain('assertPortableDependencyTree();');
     expect(runtimePackage.dependencies).toMatchObject({
+      '@remotion/renderer': '4.0.473',
       'cross-spawn': '7.0.6',
-      fastify: '5.9.0'
+      fastify: '5.9.0',
+      sharp: '0.34.3',
+      yauzl: '3.4.0'
     });
     expect(runtimePackage.dependencies).not.toHaveProperty('which');
+    expect(prepareSource).toContain("'writing-templates'");
+    expect(prepareSource).toContain(
+      "assertWorkspaceRuntimePackage('writing-templates', 'Writing Templates')"
+    );
     expect(builderConfig).toContain('differentialPackage: false');
     expect(builderConfig).toContain('useZip: true');
   });

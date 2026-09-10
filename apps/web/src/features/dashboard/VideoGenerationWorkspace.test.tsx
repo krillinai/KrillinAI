@@ -83,6 +83,8 @@ describe('VideoGenerationWorkspace', () => {
         claimExpiresAt: null,
         attempt: 1,
         idempotencyKey: null,
+        scopeKey: null,
+        inputFingerprint: null,
         progress: {
           phase: 'provider_failed',
           percent: null
@@ -127,6 +129,8 @@ describe('VideoGenerationWorkspace', () => {
         claimExpiresAt: null,
         attempt: 1,
         idempotencyKey: null,
+        scopeKey: null,
+        inputFingerprint: null,
         progress: {
           phase: 'submitting',
           percent: 8
@@ -174,6 +178,8 @@ describe('VideoGenerationWorkspace', () => {
         claimExpiresAt: null,
         attempt: 1,
         idempotencyKey: null,
+        scopeKey: null,
+        inputFingerprint: null,
         progress: {
           phase: 'generating',
           percent: null,
@@ -380,6 +386,7 @@ function creatorJob(patch: Partial<CreatorJob>): CreatorJob {
     agentThreadId: null,
     stages: [],
     artifacts: [],
+    providerRequests: [],
     activities: [],
     createdAt,
     updatedAt: createdAt,
@@ -395,6 +402,9 @@ function videoArtifact(version: number): CreatorArtifact {
     version,
     status: 'completed',
     path: `/tmp/generated-video-v${version}.mp4`,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       provider: version === 1 ? 'seedance' : 'veo',

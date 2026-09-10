@@ -7,10 +7,39 @@ import {
   createXiaohongshuPostTemplate,
   createVideoDownloadTemplate,
   createVideoGenerationTemplate,
+  createDefaultCreatorTemplateRegistry,
+  createStickmanVideoTemplate,
   createVideoTranslationTemplate
 } from '../../src/creator/templates/registry.js';
 
 describe('creator template registry', () => {
+  it('exposes only stickman-video version 2 and rejects v2 in an old registry fixture', () => {
+    const production = createDefaultCreatorTemplateRegistry();
+    const stickman = production.list().filter(template => template.id === 'stickman-video');
+
+    expect(stickman).toHaveLength(1);
+    expect(stickman[0]).toMatchObject({
+      version: 2,
+      stages: expect.arrayContaining([
+        expect.objectContaining({
+          id: 'images',
+          jobCompletionPolicy: 'continue',
+          invalidateDependentArtifacts: false
+        }),
+        expect.objectContaining({ id: 'package-validation', jobCompletionPolicy: 'complete' })
+      ])
+    });
+    expect(stickman[0]!.actions.map(action => action.id)).toContain('generate-missing-shots');
+    const v2 = createStickmanVideoTemplate();
+    const oldRegistry = createCreatorTemplateRegistry([{
+      ...v2,
+      version: 1,
+      stages: [],
+      actions: []
+    }]);
+    expect(() => oldRegistry.get('stickman-video', 2)).toThrow(/unknown creator template/i);
+  });
+
   it('registers the current cover workflow with real source and artifact stages', () => {
     const template = createCoverTemplate();
 
@@ -217,6 +246,25 @@ describe('creator template registry', () => {
     expect(state).not.toHaveProperty('ttsModel');
     expect(state).not.toHaveProperty('voiceCode');
     expect(state).not.toHaveProperty('voiceName');
+  });
+
+  it('uses the shared TTS settings contract for the single stickman template version', () => {
+    const template = createStickmanVideoTemplate();
+    const state = template.inputSchema.parse({});
+
+    expect(state).not.toHaveProperty('voice');
+    expect(state).not.toHaveProperty('ttsProvider');
+    expect(state).not.toHaveProperty('ttsModel');
+    expect(state).not.toHaveProperty('voiceCode');
+    expect(state).not.toHaveProperty('voiceName');
+    expect(createDefaultCreatorTemplateRegistry().list().filter(template => (
+      template.id === 'stickman-video'
+    ))).toHaveLength(1);
+    expect(template.stages.some(stage => stage.id === 'acquire-source')).toBe(false);
+    expect(template.stages.find(stage => stage.id === 'source-transcript')).toMatchObject({
+      executor: 'krillinai',
+      inputArtifacts: []
+    });
   });
 
   it('passes the dedicated short subtitle into vertical rendering when available', () => {

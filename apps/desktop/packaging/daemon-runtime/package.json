@@ -7,13 +7,21 @@
     "@fastify/cors": "11.2.0",
     "@iarna/toml": "2.2.5",
     "@modelcontextprotocol/sdk": "1.29.0",
+    "@remotion/renderer": "4.0.473",
     "better-sqlite3": "12.11.1",
+    "cheerio": "1.1.2",
     "cron-parser": "5.6.1",
     "cross-spawn": "7.0.6",
     "fastify": "5.9.0",
     "https-proxy-agent": "7.0.6",
+    "marked": "18.0.12",
     "nanoid": "5.1.16",
+    "pdf-parse": "1.1.1",
+    "pdfkit": "0.20.2",
+    "sharp": "0.34.3",
+    "toml": "3.0.0",
     "yaml": "2.9.0",
+    "yauzl": "3.4.0",
     "zod": "3.25.76"
   }
 }

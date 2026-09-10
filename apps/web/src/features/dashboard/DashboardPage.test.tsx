@@ -43,6 +43,7 @@ function createInMemoryCreatorService(): CreatorWebService {
       agentThreadId: null,
       stages: [],
       artifacts: [],
+      providerRequests: [],
       activities: [],
       createdAt: now,
       updatedAt: now
@@ -129,6 +130,9 @@ function completeSmartDubbingStage(current: CreatorJob): CreatorJob {
     version,
     status: 'completed',
     path: `/tmp/${fileName}`,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       resultVersion: version,
@@ -168,6 +172,8 @@ function completeSmartDubbingStage(current: CreatorJob): CreatorJob {
       claimExpiresAt: null,
       attempt: 1,
       idempotencyKey: null,
+      scopeKey: null,
+      inputFingerprint: null,
       progress: {
         phase: 'completed',
         percent: 100,
@@ -410,6 +416,8 @@ function completeTranslationStage(
         claimExpiresAt: null,
         attempt: 1,
         idempotencyKey: null,
+        scopeKey: null,
+        inputFingerprint: null,
         progress: {
           workflow: true,
           resultVersion: version,
@@ -449,6 +457,9 @@ function translationArtifact(
     version: input.artifactVersion ?? input.version,
     status: 'completed',
     path: `/tmp/${input.fileName}`,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       resultVersion: input.version,
@@ -604,6 +615,7 @@ describe('DashboardPage', () => {
         agentThreadId: null,
         stages: [],
         artifacts: [],
+        providerRequests: [],
         activities: [],
         createdAt,
         updatedAt: createdAt
@@ -1996,6 +2008,7 @@ describe('DashboardPage', () => {
       agentThreadId: null,
       stages: [],
       artifacts: [],
+      providerRequests: [],
       activities: [],
       createdAt,
       updatedAt: createdAt
@@ -2024,6 +2037,9 @@ describe('DashboardPage', () => {
           version,
           status: 'completed',
           path: `/tmp/image-${candidate}.png`,
+          scopeKey: null,
+          inputFingerprint: null,
+          sha256: null,
           sourceArtifactIds: [],
           metadata: {
             provider: 'openai',
@@ -2078,6 +2094,8 @@ describe('DashboardPage', () => {
             claimExpiresAt: null,
             attempt: 1,
             idempotencyKey: null,
+            scopeKey: null,
+            inputFingerprint: null,
             progress: { status: 'succeeded' },
             errorCode: null,
             errorMessage: null,
@@ -2189,6 +2207,7 @@ describe('DashboardPage', () => {
       agentThreadId: null,
       stages: [],
       artifacts: [],
+      providerRequests: [],
       activities: [],
       createdAt,
       updatedAt: createdAt
@@ -2212,6 +2231,9 @@ describe('DashboardPage', () => {
           version,
           status: 'completed',
           path: '/tmp/generated-video-v1.mp4',
+          scopeKey: null,
+          inputFingerprint: null,
+          sha256: null,
           sourceArtifactIds: job.artifacts
             .filter(candidate => candidate.kind === 'reference_image')
             .map(candidate => candidate.id),
@@ -2266,6 +2288,8 @@ describe('DashboardPage', () => {
             claimExpiresAt: null,
             attempt: 1,
             idempotencyKey: null,
+            scopeKey: null,
+            inputFingerprint: null,
             progress: { status: 'succeeded', phase: 'completed', percent: 100 },
             errorCode: null,
             errorMessage: null,
@@ -2298,6 +2322,9 @@ describe('DashboardPage', () => {
         version: 1,
         status: 'completed',
         path: '/tmp/coast-reference.png',
+        scopeKey: null,
+        inputFingerprint: null,
+        sha256: null,
         sourceArtifactIds: [],
         metadata: {
           fileName: input.file.name,

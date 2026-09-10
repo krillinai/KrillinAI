@@ -117,6 +117,21 @@ describe('creator project cover', () => {
     expect(extractFrame).toHaveBeenCalledWith(expect.objectContaining({ sourcePath }));
   });
 
+  it('extracts a project cover from the new stickman clean video artifact', async () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'creator-project-stickman-cover-'));
+    const sourcePath = join(tempDir, 'landscape-clean.mp4');
+    writeFileSync(sourcePath, 'video');
+    const extractFrame = vi.fn(async (input: { outputPath: string }) => {
+      await writeFile(input.outputPath, 'stickman-frame');
+    });
+    const service = createCreatorProjectCoverService({ jobsRoot: tempDir, extractFrame });
+
+    const cover = await service.resolve(creatorJob([artifact('clean_video', sourcePath)]));
+
+    expect(await readFile(cover!.path, 'utf8')).toBe('stickman-frame');
+    expect(extractFrame).toHaveBeenCalledWith(expect.objectContaining({ sourcePath }));
+  });
+
   it('falls back to the first frame when a video is shorter than five seconds', async () => {
     tempDir = mkdtempSync(join(tmpdir(), 'creator-project-cover-'));
     const sourcePath = join(tempDir, 'short.mp4');
@@ -148,6 +163,7 @@ function creatorJob(artifacts: CreatorArtifact[]): CreatorJob {
     agentThreadId: null,
     stages: [],
     artifacts,
+    providerRequests: [],
     activities: [],
     createdAt: '2026-08-25T00:00:00.000Z',
     updatedAt: '2026-08-25T00:00:00.000Z'
@@ -166,6 +182,9 @@ function artifact(
     version: 1,
     status: 'completed',
     path,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata,
     createdAt: '2026-08-25T00:00:00.000Z'

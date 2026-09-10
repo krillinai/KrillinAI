@@ -307,6 +307,34 @@ describe('CreatorCollaborationPanel', () => {
     expect(screen.queryByText(/upstreamId|videoGenerationResultId/)).not.toBeInTheDocument();
   });
 
+  it('完成阶段不误报结果已同步到工作台', () => {
+    const current = downloadJob();
+    current.stages[0] = {
+      ...current.stages[0]!,
+      status: 'succeeded',
+      dispatchStatus: 'finished',
+      progress: { phase: 'completed', percent: 100 },
+      finishedAt: '2026-08-30T08:00:06.000Z'
+    };
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={current}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <CreatorCollaborationPanel
+            adapter={videoDownloadPanelAdapter}
+            stepLabel="下载到项目"
+            contextSummary="YouTube · 1080p"
+          />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    expect(screen.getByText('已完成')).toBeInTheDocument();
+    expect(screen.queryByText('已完成，结果已同步到工作台')).not.toBeInTheDocument();
+  });
+
   it('视频解析阶段显示不确定进度而不是固定 20%', () => {
     const current = downloadJob();
     current.state.currentStage = 'probe';
@@ -586,6 +614,8 @@ function wechatArticleJob(): CreatorJob {
       claimExpiresAt: null,
       attempt: 1,
       idempotencyKey: 'wechat-topics-1',
+      scopeKey: null,
+      inputFingerprint: null,
       progress: { phase: 'generating_topics', percent: 55, completed: 2, failed: 0, total: 2 },
       errorCode: null,
       errorMessage: null,
@@ -593,6 +623,7 @@ function wechatArticleJob(): CreatorJob {
       finishedAt: null
     }],
     artifacts: [],
+    providerRequests: [],
     activities: [
       { id: 'ui', jobId, revision: 1, actor: 'user', action: 'update-settings:draft', summary: '更新创作设置', details: { objectId: 'currentStep,furthestStep' }, createdAt: '2026-09-07T09:00:01.000Z' },
       { id: 'brief', jobId, revision: 2, actor: 'user', action: 'update-settings:draft', summary: '更新创作设置', details: { objectId: 'writingPrompt' }, createdAt: '2026-09-07T09:00:02.000Z' },
@@ -634,6 +665,8 @@ function xiaohongshuPostJob(): CreatorJob {
       claimExpiresAt: null,
       attempt: 1,
       idempotencyKey: 'xiaohongshu-1',
+      scopeKey: null,
+      inputFingerprint: null,
       progress: {
         phase: 'generating_post',
         percent: 20,
@@ -647,6 +680,7 @@ function xiaohongshuPostJob(): CreatorJob {
       finishedAt: null
     }],
     artifacts: [],
+    providerRequests: [],
     activities: [
       {
         id: 'activity_topic_1',
@@ -716,6 +750,8 @@ function smartDubbingJob(): CreatorJob {
       claimExpiresAt: null,
       attempt: 1,
       idempotencyKey: 'smart-dubbing-1',
+      scopeKey: null,
+      inputFingerprint: null,
       progress: {
         phase: 'generating_voice',
         percent: 20,
@@ -729,6 +765,7 @@ function smartDubbingJob(): CreatorJob {
       finishedAt: null
     }],
     artifacts: [],
+    providerRequests: [],
     activities: [
       {
         id: 'activity_ui',
@@ -805,6 +842,8 @@ function coverJob(): CreatorJob {
       claimExpiresAt: null,
       attempt: 1,
       idempotencyKey: 'cover-generate-1',
+      scopeKey: null,
+      inputFingerprint: null,
       progress: {
         phase: 'generating_candidates',
         percent: 50,
@@ -818,6 +857,7 @@ function coverJob(): CreatorJob {
       finishedAt: null
     }],
     artifacts: [],
+    providerRequests: [],
     activities: [
       {
         id: 'activity_ui_1',
@@ -902,6 +942,8 @@ function downloadJob(): CreatorJob {
       claimExpiresAt: null,
       attempt: 1,
       idempotencyKey: 'download-1',
+      scopeKey: null,
+      inputFingerprint: null,
       progress: {
         phase: 'downloading',
         percent: 42,
@@ -913,6 +955,7 @@ function downloadJob(): CreatorJob {
       finishedAt: null
     }],
     artifacts: [],
+    providerRequests: [],
     activities: [
       {
         id: 'activity_ui',
@@ -989,6 +1032,8 @@ function videoGenerationJob(): CreatorJob {
       claimExpiresAt: null,
       attempt: 1,
       idempotencyKey: 'video-generation-1',
+      scopeKey: null,
+      inputFingerprint: null,
       progress: {
         phase: 'generating',
         message: 'The video provider is generating the video',
@@ -1000,6 +1045,7 @@ function videoGenerationJob(): CreatorJob {
       finishedAt: null
     }],
     artifacts: [],
+    providerRequests: [],
     activities: [
       {
         id: 'video_generation_ui',
