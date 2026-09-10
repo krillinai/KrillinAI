@@ -23,8 +23,12 @@ export function writeLanguagePreference(preference: AppLanguagePreference): void
 
 export function resolveSystemLanguage(languages?: readonly string[]): AppLanguage {
   const candidates = languages ?? readBrowserLanguages();
-  if (candidates.some(language => language.toLocaleLowerCase().startsWith('zh'))) return 'zh-CN';
-  if (candidates.some(language => language.toLocaleLowerCase().startsWith('sv'))) return 'sv-SE';
+  for (const candidate of candidates) {
+    const language = candidate.toLocaleLowerCase();
+    if (language.startsWith('zh')) return 'zh-CN';
+    if (language.startsWith('sv')) return 'sv-SE';
+    if (language.startsWith('en')) return 'en-US';
+  }
   return 'en-US';
 }
 
