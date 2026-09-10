@@ -232,6 +232,7 @@ export function renderInlineMarkdown(
     variant: MarkdownVariant;
     onLinkClick?: MarkdownLinkClickHandler;
     linkifyWorkspaceFiles?: boolean;
+    resolveImageSrc?(href: string): string | undefined;
   }
 ): ReactNode {
   const output: ReactNode[] = [];
@@ -269,7 +270,10 @@ export function renderInlineMarkdown(
           ));
     } else if (match[3] !== undefined) {
       const alt = match[2]?.trim();
-      output.push(<Fragment key={key++}>{alt ? `${alt} [图片]` : '[图片]'}</Fragment>);
+      const src = options.resolveImageSrc?.(match[3]);
+      output.push(src
+        ? <img key={key++} className="md-image" src={src} alt={alt ?? ''} />
+        : <Fragment key={key++}>{alt ? `${alt} [图片]` : '[图片]'}</Fragment>);
     } else if (match[4] && match[5]) {
       output.push(renderLink(match[5], match[4], key++, {
         allowRelative,

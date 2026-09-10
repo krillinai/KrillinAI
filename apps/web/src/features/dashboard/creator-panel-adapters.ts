@@ -447,6 +447,58 @@ export const shortVideoScriptPanelAdapter: CreatorPanelAdapter = {
   }
 };
 
+export const wechatArticlePanelAdapter: CreatorPanelAdapter = {
+  id: 'wechat-article',
+  composerPlaceholder: l => l(
+    '询问写作进度，或调整选题、结构、正文和配图要求',
+    'Ask about progress or adjust the topic, structure, article, and images'
+  ),
+  stageLabel(stageId, l) {
+    if (stageId === 'sources') return l('解析内容灵感', 'Parse inspiration sources');
+    if (stageId === 'topics') return l('生成候选选题', 'Generate topic options');
+    if (stageId === 'outline') return l('生成文章大纲', 'Generate article outline');
+    if (stageId === 'article') return l('撰写文章正文', 'Write article');
+    if (stageId === 'images') return l('生成文章配图', 'Generate article images');
+    if (stageId === 'document') return l('生成文章文档', 'Generate article document');
+    return l('文章写作', 'Article writing');
+  },
+  phaseLabel(phase, l) {
+    const labels: Record<string, string> = {
+      collecting_sources: l('整理内容灵感', 'Collecting inspiration'),
+      reading_video: l('读取视频内容', 'Reading video content'),
+      reading_webpage: l('读取网页内容', 'Reading webpage content'),
+      reading_document: l('读取文档内容', 'Reading document content'),
+      generating_topics: l('生成候选选题', 'Generating topic options'),
+      generating_outline: l('生成文章大纲', 'Generating the article outline'),
+      writing_article: l('撰写文章正文', 'Writing the article'),
+      planning_article_images: l('规划文章配图', 'Planning article images'),
+      generating_article_images: l('生成文章配图', 'Generating article images'),
+      preparing_document: l('整理文章文档', 'Preparing the article document'),
+      completed: l('内容已生成', 'Content generated')
+    };
+    return labels[phase] ?? genericPhaseLabel(phase, l);
+  },
+  activityStageId: readActivityStageId,
+  normalizeActivity(activity, l) {
+    if (activity.action.startsWith('update-settings')) {
+      return normalizeWechatArticleUpdateActivity(activity, l);
+    }
+    return normalizeCommonActivity(activity, l, wechatArticlePanelAdapter, {
+      'register-source-document': l('上传了内容灵感', 'Uploaded an inspiration source')
+    }, wechatArticleFieldLabel);
+  },
+  readStageProgress: readStandardProgress,
+  succeededProgressText(stage, l) {
+    if (stage.stageId === 'sources') return l('内容灵感已解析', 'Inspiration sources parsed');
+    if (stage.stageId === 'topics') return l('候选选题已生成', 'Topic options generated');
+    if (stage.stageId === 'outline') return l('文章大纲已生成', 'Article outline generated');
+    if (stage.stageId === 'article') return l('文章正文已生成', 'Article generated');
+    if (stage.stageId === 'images') return l('文章配图已生成', 'Article images generated');
+    if (stage.stageId === 'document') return l('文章文档已生成', 'Article document generated');
+    return null;
+  }
+};
+
 export const videoGenerationPanelAdapter: CreatorPanelAdapter = {
   id: 'video-generation',
   composerPlaceholder: l => l(
@@ -528,6 +580,7 @@ export function creatorPanelAdapterFor(templateId: string): CreatorPanelAdapter 
   if (templateId === 'smart-dubbing') return smartDubbingPanelAdapter;
   if (templateId === 'xiaohongshu-post') return xiaohongshuPostPanelAdapter;
   if (templateId === 'short-video-script') return shortVideoScriptPanelAdapter;
+  if (templateId === 'wechat-article') return wechatArticlePanelAdapter;
   if (templateId === 'cover') return coverPanelAdapter;
   if (templateId === 'video-generation') return videoGenerationPanelAdapter;
   return genericAdapter;
@@ -689,6 +742,30 @@ function xiaohongshuPostFieldLabel(
   return labels[field] ?? null;
 }
 
+function wechatArticleFieldLabel(
+  field: string,
+  l: CreatorPanelLocalize
+): string | null {
+  const labels: Record<string, string> = {
+    sourceLinks: l('链接灵感', 'Linked inspiration'),
+    sourceDocumentArtifactIds: l('文档灵感', 'Document inspiration'),
+    writingPrompt: l('写作要求', 'Writing brief'),
+    topicCount: l('选题数量', 'Topic count'),
+    topics: l('候选选题', 'Topic options'),
+    selectedTopicId: l('选定选题', 'Selected topic'),
+    outline: l('文章大纲', 'Article outline'),
+    presetId: l('文章模板', 'Article template'),
+    layoutStyleId: l('排版风格', 'Layout style'),
+    templatePrompt: l('模板要求', 'Template instructions'),
+    articleMarkdown: l('文章正文', 'Article content'),
+    autoGenerateImages: l('文章配图', 'Article images'),
+    articleImageCount: l('配图数量', 'Image count'),
+    articleImageStyleId: l('生图风格', 'Image style'),
+    articleImagePrompt: l('配图要求', 'Image direction')
+  };
+  return labels[field] ?? null;
+}
+
 function shortVideoScriptFieldLabel(
   field: string,
   l: CreatorPanelLocalize
@@ -717,6 +794,55 @@ function videoGenerationFieldLabel(
     referenceImageArtifactId: l('参考图', 'Reference image')
   };
   return labels[field] ?? null;
+}
+
+function normalizeWechatArticleUpdateActivity(
+  activity: CreatorActivity,
+  l: CreatorPanelLocalize
+): NormalizedCreatorActivity | null {
+  const objectId = readString(activity.details.objectId) ?? '';
+  const fieldIds = objectId.split(',').filter(field => wechatArticleFieldLabel(field, l) !== null);
+  if (fieldIds.length === 0) return null;
+  const fieldSet = new Set(fieldIds);
+
+  if (fieldSet.has('selectedTopicId')) {
+    return { label: l('选定了文章选题', 'Selected the article topic'), fields: [] };
+  }
+  if (fieldSet.has('outline')) {
+    return { label: l('生成了文章大纲', 'Generated the article outline'), fields: [] };
+  }
+  if (fieldSet.has('articleMarkdown')) {
+    return { label: l('生成了文章正文', 'Generated the article'), fields: [] };
+  }
+  if (fieldSet.has('topics')) {
+    return { label: l('生成了候选选题', 'Generated topic options'), fields: [] };
+  }
+
+  const fields = [...new Set(fieldIds
+    .map(field => wechatArticleFieldLabel(field, l))
+    .filter((field): field is string => field !== null))];
+  const hasImageSettings = fieldIds.some(field => [
+    'autoGenerateImages',
+    'articleImageCount',
+    'articleImageStyleId',
+    'articleImagePrompt'
+  ].includes(field));
+  if (hasImageSettings) {
+    return { label: l('调整了文章配图', 'Adjusted article images'), fields };
+  }
+  if (fieldSet.has('layoutStyleId')) {
+    return { label: l('选择了排版风格', 'Selected the layout style'), fields };
+  }
+  const hasWritingBrief = fieldIds.some(field => [
+    'writingPrompt',
+    'topicCount',
+    'presetId',
+    'templatePrompt'
+  ].includes(field));
+  if (hasWritingBrief) {
+    return { label: l('完善了写作要求', 'Refined the writing brief'), fields };
+  }
+  return { label: l('更新了内容灵感', 'Updated inspiration sources'), fields };
 }
 
 function readActivityStageId(activity: CreatorActivity): string | null {

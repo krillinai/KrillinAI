@@ -187,6 +187,43 @@ describe('creator short video script', () => {
     ].join('\n'));
   });
 
+  it.each([
+    [15, 13, false], [15, 14, true], [15, 16, true], [15, 17, false],
+    [60, 53, false], [60, 54, true], [60, 66, true], [60, 67, false],
+    [60, 600, false], [600, 539, false], [600, 540, true],
+    [600, 660, true], [600, 661, false]
+  ])('checks target %i seconds against generated %i seconds (accepted: %s)', async (target, actual, accepted) => {
+    tempDir = await mkdtemp(join(tmpdir(), 'creator-script-duration-'));
+    const config = createDefaultCreatorServicesConfig();
+    config.llm.apiKey = 'test-key';
+    const beat = (durationSeconds: number) => ({ narration: '口播', visualSuggestion: '画面', durationSeconds });
+    const remaining = actual - 2;
+    const segments = Array.from({ length: Math.ceil(remaining / 180) }, (_, index) => (
+      beat(Math.min(180, remaining - index * 180))
+    ));
+    const executor = createShortVideoScriptExecutor({
+      configStore: { async read() { return config; } },
+      fetchImpl: vi.fn(async () => new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify({
+          title: '时长边界', hook: beat(1), segments, cta: beat(1)
+        }) } }]
+      })))
+    });
+    const run = executor.run({
+      job: { state: { topic: '测试时长', platform: 'generic', targetDurationSeconds: target, tone: 'natural' } },
+      workdir: tempDir,
+      signal: new AbortController().signal,
+      reportProgress: vi.fn()
+    } as unknown as CreatorExecutorInput);
+    if (accepted) {
+      await expect(run).resolves.toMatchObject({ outputs: [{ metadata: { actualDurationSeconds: actual } }] });
+      expect(await readdir(tempDir)).toEqual(['OpenCreator-short-video-script.md']);
+    } else {
+      await expect(run).rejects.toMatchObject({ code: 'creator_llm_upstream_error', message: expect.stringContaining('偏离目标') });
+      expect(await readdir(tempDir)).toEqual([]);
+    }
+  });
+
   it('rejects an incomplete generated script without writing an artifact', async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'creator-short-video-script-invalid-'));
     const config = createDefaultCreatorServicesConfig();

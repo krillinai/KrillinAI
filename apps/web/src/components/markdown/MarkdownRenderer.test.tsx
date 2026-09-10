@@ -170,6 +170,22 @@ describe('MarkdownRenderer', () => {
     expect(document.querySelector('img')).not.toBeInTheDocument();
   });
 
+  it('renders only image references explicitly resolved by the caller', () => {
+    const { container } = render(
+      <MarkdownRenderer
+        variant="document"
+        text={'![文章配图](./article-image-01.png)\n\n![外部图片](https://example.com/a.png)'}
+        resolveImageSrc={href => href === './article-image-01.png' ? 'blob:article-image-01' : undefined}
+      />
+    );
+
+    expect(screen.getByRole('img', { name: '文章配图' })).toHaveAttribute('src', 'blob:article-image-01');
+    expect(screen.getByRole('img', { name: '文章配图' }).closest('p')).toHaveClass('md-p-image-only');
+    expect(screen.getByText(/外部图片/)).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: '外部图片' })).not.toBeInTheDocument();
+    expect(container.querySelectorAll('.md-p-image-only')).toHaveLength(1);
+  });
+
   it('keeps user variant conservative', () => {
     render(<MarkdownRenderer variant="user" text={'# 不是标题\n1. 不是列表\n*不是斜体*\n`是代码`'} />);
 

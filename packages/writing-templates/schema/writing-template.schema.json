@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opencreator.ai/schemas/writing-template.schema.json",
+  "title": "OpenCreator Writing Template",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "version",
+    "name",
+    "description",
+    "localizations",
+    "categoryId",
+    "domains",
+    "tags",
+    "structure",
+    "instructions",
+    "author",
+    "status",
+    "sortOrder",
+    "source",
+    "skill"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$", "maxLength": 96 },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "description": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "localizations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["zh-CN", "en-US"],
+      "properties": {
+        "zh-CN": { "$ref": "#/$defs/localization" },
+        "en-US": { "$ref": "#/$defs/localization" }
+      }
+    },
+    "categoryId": { "enum": ["analysis", "story", "practical", "news"] },
+    "domains": { "type": "array", "minItems": 1, "maxItems": 6, "uniqueItems": true, "items": { "enum": ["technology", "finance", "emotion", "workplace", "education", "research", "lifestyle"] } },
+    "tags": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "type": "string", "minLength": 1, "maxLength": 24 } },
+    "structure": { "type": "array", "minItems": 2, "maxItems": 12, "items": { "type": "string", "minLength": 1, "maxLength": 80 } },
+    "instructions": { "type": "string", "maxLength": 8000 },
+    "author": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "status": { "enum": ["submitted", "verified", "featured", "deprecated"] },
+    "sortOrder": { "type": "integer", "minimum": 0, "maximum": 10000 },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "license"],
+      "properties": {
+        "type": { "enum": ["official", "github"] },
+        "repository": { "type": "string" },
+        "revision": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "license": { "type": "string", "minLength": 1 }
+      }
+    },
+    "skill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stageResources"],
+      "properties": {
+        "stageResources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["article"],
+          "properties": {
+            "topics": { "$ref": "#/$defs/resources" },
+            "outline": { "$ref": "#/$defs/resources" },
+            "article": { "$ref": "#/$defs/resources" },
+            "review": { "$ref": "#/$defs/resources" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "localization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "description", "tags", "structure", "instructions"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "tags": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "type": "string", "minLength": 1, "maxLength": 24 } },
+        "structure": { "type": "array", "minItems": 2, "maxItems": 12, "items": { "type": "string", "minLength": 1, "maxLength": 80 } },
+        "instructions": { "type": "string", "maxLength": 8000 }
+      }
+    },
+    "resources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+\\.(?:md|txt)$" }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source": {
+            "properties": { "type": { "const": "github" } },
+            "required": ["type"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "required": ["repository", "revision", "url", "license"],
+            "properties": {
+              "revision": { "pattern": "^[a-f0-9]{40}$" }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

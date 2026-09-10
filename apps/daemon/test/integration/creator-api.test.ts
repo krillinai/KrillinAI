@@ -27,6 +27,33 @@ afterEach(async () => {
 });
 
 describe('creator api', () => {
+  it('uploads a persistent inline image for a WeChat article', async () => {
+    await setupServer({});
+    const created = await request('POST', '/creator/jobs', {
+      projectId: 'project_article_image',
+      templateId: 'wechat-article'
+    });
+    const job = created.json().job;
+    const uploaded = await server!.inject({
+      method: 'POST',
+      url: `/creator/jobs/${job.id}/article-image?expectedRevision=${job.revision}&fileName=photo.png&mime=image%2Fpng&lastModified=123`,
+      headers: {
+        authorization: 'Bearer secret',
+        'content-type': 'application/vnd.opencreator.creator-reference-image'
+      },
+      payload: png('article-inline-image')
+    });
+
+    expect(uploaded.statusCode).toBe(201);
+    expect(uploaded.json()).toMatchObject({
+      job: { state: { manualArticleImageArtifactIds: [expect.any(String)] } },
+      artifact: {
+        kind: 'article_image',
+        metadata: { originalFileName: 'photo.png', source: 'local-upload' }
+      }
+    });
+  });
+
   it('deletes an inactive creator job', async () => {
     await setupServer({});
     const created = await request('POST', '/creator/jobs', {
@@ -659,6 +686,13 @@ async function request(
     headers: { authorization: 'Bearer secret' },
     ...(payload === undefined ? {} : { payload })
   }) as unknown as TestResponse;
+}
+
+function png(label: string): Buffer {
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    Buffer.from(label.padEnd(24, '.'))
+  ]);
 }
 
 async function readSseFrames(url: string, expected: number): Promise<Array<{

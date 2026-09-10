@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "community.khazix-writer",
+  "version": "1.0.0",
+  "name": "卡兹克公众号长文写作",
+  "description": "用聊天感、真实体验和层层推进写出有判断力的公众号长文",
+  "localizations": {
+    "zh-CN": {
+      "name": "卡兹克公众号长文写作",
+      "description": "用聊天感、真实体验和层层推进写出有判断力的公众号长文",
+      "tags": ["公众号长文", "口语节奏", "真实体验", "观点叙事"],
+      "structure": ["具体事件开场", "聊天式背景铺垫", "观点与案例推进", "回环或余韵收尾"],
+      "instructions": "从来源支持的具体事件、体验或好奇心切入，以口语化节奏推进观点，用真实案例、明确判断和自然转场维持阅读心流。只使用用户与来源提供的第一手经历，不冒充原作者，不编造个人体验。"
+    },
+    "en-US": {
+      "name": "Khazix Long-form WeChat Writing",
+      "description": "Conversational long-form writing built on real experience and progressive argument",
+      "tags": ["Long-form article", "Conversational rhythm", "Real experience", "Opinion narrative"],
+      "structure": ["Concrete event opening", "Conversational context", "Ideas and examples", "Callback or resonant close"],
+      "instructions": "Begin with a source-supported event, experience, or genuine question. Develop the argument in a conversational rhythm, using real examples, clear judgments, and natural transitions to sustain reading flow. Use first-hand experience only when supplied by the user or sources; do not impersonate the original author or invent personal experience."
+    }
+  },
+  "categoryId": "story",
+  "domains": ["technology", "workplace"],
+  "tags": ["公众号长文", "口语节奏", "真实体验", "观点叙事"],
+  "structure": ["具体事件开场", "聊天式背景铺垫", "观点与案例推进", "回环或余韵收尾"],
+  "instructions": "从来源支持的具体事件、体验或好奇心切入，以口语化节奏推进观点，用真实案例、明确判断和自然转场维持阅读心流。只使用用户与来源提供的第一手经历，不冒充原作者，不编造个人体验。",
+  "author": "数字生命卡兹克",
+  "status": "featured",
+  "sortOrder": 110,
+  "source": {
+    "type": "github",
+    "repository": "KKKKhazix/khazix-skills",
+    "revision": "7a5c4934be4106ac740ffdb95280bb81b3f4b83c",
+    "url": "https://github.com/KKKKhazix/khazix-skills/blob/main/khazix-writer/SKILL.md",
+    "license": "MIT"
+  },
+  "skill": {
+    "stageResources": {
+      "topics": ["skill/topics.md"],
+      "outline": ["skill/SKILL.md"],
+      "article": ["skill/SKILL.md", "skill/review.md"],
+      "review": ["skill/review.md"]
+    }
+  }
+}

@@ -60,6 +60,10 @@ import { createStickmanExecutor } from '../creator/stickman/executor.js';
 import { createSmartDubbingExecutor } from '../creator/smart-dubbing/executor.js';
 import { createXiaohongshuPostExecutor } from '../creator/xiaohongshu/executor.js';
 import { createShortVideoScriptExecutor } from '../creator/short-video-script/executor.js';
+import { createWechatArticleExecutor } from '../creator/article/executor.js';
+import { createArticleImageGenerator } from '../creator/article/image-generator.js';
+import { createArticleSourceExtractor } from '../creator/article/source-extractor.js';
+import { createWechatArticleModel } from '../creator/article/model.js';
 import { createCreatorProjectCoverService } from '../creator/project-cover.js';
 import { createVideoGenerationService } from '../video-generation/service.js';
 import {
@@ -70,6 +74,10 @@ import {
   createCreatorSourceUploadService,
   type CreatorSourceUploadService
 } from '../creator/source-upload.js';
+import {
+  createCreatorDocumentUploadService,
+  type CreatorDocumentUploadService
+} from '../creator/document-upload.js';
 import { createCreatorArtifactImportService } from '../creator/artifact-import.js';
 import { validateMediaFile, type MediaProbe } from '../creator/validators/media.js';
 import {
@@ -242,6 +250,8 @@ export type BuildServerInput = {
   creatorReferenceImageUploadService?: CreatorReferenceImageUploadService;
   creatorReferenceImageMaxSizeBytes?: number;
   creatorSourceUploadService?: CreatorSourceUploadService;
+  creatorDocumentUploadService?: CreatorDocumentUploadService;
+  creatorDocumentMaxSizeBytes?: number;
   creatorSourceMediaProbe?(path: string): Promise<MediaProbe>;
   creatorSourceMaxSizeBytes?: number;
   creatorYtDlpPath?: string;
@@ -512,6 +522,7 @@ export async function buildServer(input: BuildServerInput) {
   let creatorFfmpegPath: string | undefined;
   let creatorFfprobePath: string | undefined;
   let creatorYtDlpUpdateManager = input.creatorYtDlpUpdateManager;
+  let getCreatorYtDlpRuntime: (() => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
   try {
     const runtimeManifest = readKrillinRuntimeManifest(creatorRuntimeRoot);
     verifyKrillinRuntimeManifest(creatorRuntimeRoot, runtimeManifest);
@@ -549,6 +560,7 @@ export async function buildServer(input: BuildServerInput) {
     }
     const getYtDlpRuntime = () =>
       creatorYtDlpUpdateManager?.getRuntime() ?? ytDlp;
+    getCreatorYtDlpRuntime = getYtDlpRuntime;
     if (input.creatorExecutors === undefined) {
       creatorExecutors.push(createKrillinExecutor({
         resourceRoot: creatorRuntimeRoot,
@@ -618,6 +630,14 @@ export async function buildServer(input: BuildServerInput) {
         probeVideo: path => validateMediaFile(path, creatorFfprobePath!)
       }));
     }
+    creatorExecutors.push(createWechatArticleExecutor({
+      sourceExtractor: createArticleSourceExtractor({
+        configStore: creatorServicesConfigStore,
+        getYtDlpRuntime: getCreatorYtDlpRuntime
+      }),
+      model: createWechatArticleModel({ configStore: creatorServicesConfigStore }),
+      imageGenerator: createArticleImageGenerator({ configStore: creatorServicesConfigStore })
+    }));
   }
   const creatorProjectCoverService = createCreatorProjectCoverService({
     jobsRoot: creatorJobsRoot,
@@ -642,6 +662,14 @@ export async function buildServer(input: BuildServerInput) {
         creator: creatorService,
         maxSizeBytes: input.creatorReferenceImageMaxSizeBytes
       });
+  const creatorDocumentUploadService = input.creatorDocumentUploadService
+    ?? createCreatorDocumentUploadService({
+      jobsRoot: creatorJobsRoot,
+      creator: creatorService,
+      ...(input.creatorDocumentMaxSizeBytes === undefined
+        ? {}
+        : { maxSizeBytes: input.creatorDocumentMaxSizeBytes })
+    });
   const creatorArtifactImportService = createCreatorArtifactImportService({
     jobsRoot: creatorJobsRoot,
     creator: creatorService
@@ -1029,6 +1057,7 @@ export async function buildServer(input: BuildServerInput) {
     projectCoverService: creatorProjectCoverService,
     referenceImageUploadService: creatorReferenceImageUploadService,
     sourceUploadService: creatorSourceUploadService,
+    documentUploadService: creatorDocumentUploadService,
     artifactImportService: creatorArtifactImportService,
     dispatcher: creatorCommandDispatcher,
     stageRunner: creatorStageRunner

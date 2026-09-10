@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "tutorial",
+  "version": "1.0.0",
+  "name": "实用教程",
+  "description": "步骤清楚，适合方法论与操作指南",
+  "localizations": {
+    "zh-CN": {
+      "name": "实用教程",
+      "description": "步骤清楚，适合方法论与操作指南",
+      "tags": ["步骤清晰", "方法拆解", "检查清单"],
+      "structure": ["问题与收益", "执行步骤", "注意事项", "完成检查"],
+      "instructions": "先说明读者问题和完成后的收益，再按可执行步骤展开。每一步说明目的、操作和注意事项，必要时使用清单。结尾提供检查表或下一步行动。"
+    },
+    "en-US": {
+      "name": "Practical Tutorial",
+      "description": "Clear steps for methods, workflows, and hands-on guides",
+      "tags": ["Clear steps", "Method breakdown", "Checklist"],
+      "structure": ["Problem and outcome", "Action steps", "Cautions", "Completion check"],
+      "instructions": "Start by explaining the reader's problem and the outcome they can achieve, then proceed through executable steps. For each step, state its purpose, action, and cautions, using checklists where useful. End with a completion checklist or a clear next action."
+    }
+  },
+  "categoryId": "practical",
+  "domains": ["technology", "workplace", "education"],
+  "tags": ["步骤清晰", "方法拆解", "检查清单"],
+  "structure": ["问题与收益", "执行步骤", "注意事项", "完成检查"],
+  "instructions": "先说明读者问题和完成后的收益，再按可执行步骤展开。每一步说明目的、操作和注意事项，必要时使用清单。结尾提供检查表或下一步行动。",
+  "author": "OpenCreator",
+  "status": "verified",
+  "sortOrder": 30,
+  "source": { "type": "official", "license": "OpenCreator project" },
+  "skill": {
+    "stageResources": {
+      "topics": ["skill/SKILL.md"],
+      "outline": ["skill/SKILL.md"],
+      "article": ["skill/SKILL.md"]
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "news-analysis",
+  "version": "1.0.0",
+  "name": "热点解读",
+  "description": "快速交代事件，再解释影响与判断",
+  "localizations": {
+    "zh-CN": {
+      "name": "热点解读",
+      "description": "快速交代事件，再解释影响与判断",
+      "tags": ["事实速览", "影响分析", "趋势判断"],
+      "structure": ["事件概况", "重要背景", "影响对象", "后续信号"],
+      "instructions": "开头用最少篇幅交代发生了什么，随后回答为什么重要、影响谁、接下来关注什么。区分来源事实与作者判断，不夸大结论，不制造未经来源支持的数据。"
+    },
+    "en-US": {
+      "name": "News Analysis",
+      "description": "Explain what happened, then assess its impact and significance",
+      "tags": ["Fact summary", "Impact analysis", "Trend outlook"],
+      "structure": ["What happened", "Essential context", "Who is affected", "Signals to watch"],
+      "instructions": "Use as little space as possible to establish what happened, then explain why it matters, who it affects, and what to watch next. Clearly separate sourced facts from the author's judgment, avoid overstating conclusions, and never invent unsupported data."
+    }
+  },
+  "categoryId": "news",
+  "domains": ["technology", "finance"],
+  "tags": ["事实速览", "影响分析", "趋势判断"],
+  "structure": ["事件概况", "重要背景", "影响对象", "后续信号"],
+  "instructions": "开头用最少篇幅交代发生了什么，随后回答为什么重要、影响谁、接下来关注什么。区分来源事实与作者判断，不夸大结论，不制造未经来源支持的数据。",
+  "author": "OpenCreator",
+  "status": "verified",
+  "sortOrder": 40,
+  "source": { "type": "official", "license": "OpenCreator project" },
+  "skill": {
+    "stageResources": {
+      "topics": ["skill/SKILL.md"],
+      "outline": ["skill/SKILL.md"],
+      "article": ["skill/SKILL.md"]
+    }
+  }
+}

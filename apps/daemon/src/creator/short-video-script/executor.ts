@@ -44,6 +44,8 @@ type ScriptRequest = z.infer<typeof scriptRequestSchema>;
 type GeneratedScript = z.infer<typeof generatedScriptSchema>;
 type ScriptBeat = z.infer<typeof scriptBeatSchema>;
 
+const durationToleranceRatio = 0.1;
+
 const platformLabels: Record<ScriptRequest['platform'], string> = {
   douyin: '抖音',
   xiaohongshu: '小红书',
@@ -106,6 +108,15 @@ export function createShortVideoScriptExecutor(input: {
         const payload = chatCompletionSchema.parse(await response.json() as unknown);
         const rawScript: unknown = JSON.parse(payload.choices[0]!.message.content);
         const script = generatedScriptSchema.parse(rawScript);
+        const actualDurationSeconds = scriptBeats(script)
+          .reduce((total, item) => total + item.beat.durationSeconds, 0);
+        const toleranceSeconds = request.targetDurationSeconds * durationToleranceRatio;
+        if (Math.abs(actualDurationSeconds - request.targetDurationSeconds) > toleranceSeconds) {
+          throw new CreatorExecutorError(
+            'creator_llm_upstream_error',
+            `脚本总时长 ${actualDurationSeconds} 秒偏离目标 ${request.targetDurationSeconds} 秒，允许误差为 ±${toleranceSeconds} 秒，请重新生成。`
+          );
+        }
         const markdown = formatScript(script, request);
         const fileName = 'OpenCreator-short-video-script.md';
         const path = join(stage.workdir, fileName);
@@ -124,8 +135,7 @@ export function createShortVideoScriptExecutor(input: {
               platform: request.platform,
               tone: request.tone,
               targetDurationSeconds: request.targetDurationSeconds,
-              actualDurationSeconds: scriptBeats(script)
-                .reduce((total, item) => total + item.beat.durationSeconds, 0),
+              actualDurationSeconds,
               model: config.llm.model,
               settingsSnapshot: stage.job.state
             }
@@ -168,7 +178,7 @@ function scriptPrompt(request: ScriptRequest): string {
     '生成一份可直接拍摄的短视频脚本，只输出严格 JSON。',
     '格式：{"title":"标题","hook":{"narration":"口播或对白","visualSuggestion":"画面建议","durationSeconds":3},"segments":[{"narration":"口播或对白","visualSuggestion":"画面建议","durationSeconds":10}],"cta":{"narration":"行动引导或收束语","visualSuggestion":"画面建议","durationSeconds":5}}。',
     'hook 必须快速进入主题；segments 要完整承载内容；cta 要自然，不得强行营销。',
-    '各段 durationSeconds 必须是整数，总时长应尽量接近目标时长。',
+    `各段 durationSeconds 必须是整数，总时长与目标时长的偏差不得超过 ${durationToleranceRatio * 100}%。`,
     '口播或对白要自然、可朗读；画面建议要具体，但不要生成图片提示词或视频提示词。',
     '必须忠于用户提供的素材，不得虚构事实、经历、数据、产品功效或引用。',
     '默认使用中文；如果素材明确要求其他语言，则按素材要求输出。',

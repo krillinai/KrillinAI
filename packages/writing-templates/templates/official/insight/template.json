@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "insight",
+  "version": "1.0.0",
+  "name": "深度洞察",
+  "description": "观点鲜明，适合行业观察与趋势分析",
+  "localizations": {
+    "zh-CN": {
+      "name": "深度洞察",
+      "description": "观点鲜明，适合行业观察与趋势分析",
+      "tags": ["观点先行", "行业观察", "层层论证"],
+      "structure": ["核心判断", "背景与问题", "分层论证", "行动建议"],
+      "instructions": "以清晰的问题意识开篇，先给结论再展开论证。使用二到四个层次分明的小标题，结合来源中的事实、数据和案例，避免空泛判断。结尾给出可执行的观察或建议。"
+    },
+    "en-US": {
+      "name": "Deep Insight",
+      "description": "Clear points of view for industry observations and trend analysis",
+      "tags": ["Thesis first", "Industry insight", "Layered argument"],
+      "structure": ["Core judgment", "Context and problem", "Layered argument", "Actionable advice"],
+      "instructions": "Open with a clearly defined problem and state the conclusion before developing the argument. Use two to four well-structured section headings, grounding each point in facts, data, and examples from the sources. Avoid vague claims and close with actionable observations or recommendations."
+    }
+  },
+  "categoryId": "analysis",
+  "domains": ["technology", "finance", "workplace"],
+  "tags": ["观点先行", "行业观察", "层层论证"],
+  "structure": ["核心判断", "背景与问题", "分层论证", "行动建议"],
+  "instructions": "以清晰的问题意识开篇，先给结论再展开论证。使用二到四个层次分明的小标题，结合来源中的事实、数据和案例，避免空泛判断。结尾给出可执行的观察或建议。",
+  "author": "OpenCreator",
+  "status": "verified",
+  "sortOrder": 10,
+  "source": { "type": "official", "license": "OpenCreator project" },
+  "skill": {
+    "stageResources": {
+      "topics": ["skill/SKILL.md"],
+      "outline": ["skill/SKILL.md"],
+      "article": ["skill/SKILL.md"]
+    }
+  }
+}
