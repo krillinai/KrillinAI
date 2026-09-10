@@ -659,6 +659,124 @@ test('短视频脚本在 Browser/Desktop Bridge 下保持相同界面、请求�
   expect(results[1]!.state).toEqual(results[0]!.state);
 });
 
+test('视频切片在 Browser/Desktop Bridge 下保持相同界面、请求和持久状态', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-desktop',
+    '一致性规格内部固定创建 Browser/Desktop Chromium 上下文'
+  );
+
+  const results: Array<{
+    text: string;
+    boxes: Record<string, { x: number; y: number; width: number; height: number }>;
+    requests: string[];
+    state: Record<string, unknown>;
+  }> = [];
+
+  for (const platform of ['browser', 'desktop'] as const) {
+    const created = await runtime.api<{
+      job: { id: string };
+    }>('POST', '/creator/jobs', {
+      projectId: runtime.projectId,
+      templateId: 'auto-clip',
+      state: {
+        sourceUrl: 'https://example.com/watch/opencreator-parity'
+      }
+    });
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      deviceScaleFactor: 1,
+      colorScheme: 'dark',
+      reducedMotion: 'reduce'
+    });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page);
+
+    try {
+      await runtime.openApp(page);
+      const requests: string[] = [];
+      page.on('request', request => {
+        const url = new URL(request.url());
+        if (!url.pathname.includes('/creator/')) return;
+        requests.push(
+          `${request.method()} ${url.pathname
+            .replace('/.opencreator/runtime', '')
+            .replace(encodeURIComponent(created.job.id), ':jobId')}`
+        );
+      });
+      await page.goto(
+        `${runtime.origin}/#/workbench?tool=auto-clips`
+        + `&jobId=${encodeURIComponent(created.job.id)}`
+      );
+
+      const workspace = page.getByRole('region', { name: '视频切片 操作区' });
+      const panel = page.getByRole('complementary', { name: 'OpenCreator' });
+      await expect(workspace.getByRole('button', { name: '下一步：切片设置' }))
+        .toBeEnabled();
+      await workspace.getByRole('button', { name: '下一步：切片设置' }).click();
+      await workspace.getByRole('combobox', { name: '内容重点' }).selectOption('viral');
+      await workspace.getByRole('combobox', { name: '目标时长' }).selectOption('30-60');
+      await workspace.getByRole('spinbutton', { name: '候选数量' }).fill('6');
+      await workspace.getByRole('combobox', { name: '输出画幅' }).selectOption('1:1');
+      await expect(workspace.getByLabel('任务摘要')).toContainText('传播潜力优先');
+      await expect(workspace.getByLabel('任务摘要')).toContainText('候选片段6');
+
+      await expect.poll(async () => (
+        await runtime.api<{
+          job: { state: Record<string, unknown> };
+        }>('GET', `/creator/jobs/${encodeURIComponent(created.job.id)}`)
+      ).job.state).toMatchObject({
+        sourceUrl: 'https://example.com/watch/opencreator-parity',
+        focus: 'viral',
+        duration: '30-60',
+        clipCount: 6,
+        aspectRatio: '1:1'
+      });
+
+      const boxes: Record<
+        string,
+        { x: number; y: number; width: number; height: number }
+      > = {};
+      for (const [name, locator] of [
+        ['workspace', workspace],
+        ['panel', panel],
+        ['focus', workspace.getByRole('combobox', { name: '内容重点' })],
+        ['aspect-ratio', workspace.getByRole('combobox', { name: '输出画幅' })]
+      ] as const) {
+        const box = await locator.boundingBox();
+        expect(box, `${platform} 缺少 ${name} 尺寸目标`).not.toBeNull();
+        boxes[name] = {
+          x: Math.round(box!.x),
+          y: Math.round(box!.y),
+          width: Math.round(box!.width),
+          height: Math.round(box!.height)
+        };
+      }
+      const saved = await runtime.api<{
+        job: { state: Record<string, unknown> };
+      }>('GET', `/creator/jobs/${encodeURIComponent(created.job.id)}`);
+      results.push({
+        text: normalizeParityText(
+          `${await workspace.innerText()}\n${await panel.innerText()}`
+        ),
+        boxes,
+        requests,
+        state: saved.job.state
+      });
+    } finally {
+      await context.close();
+    }
+  }
+
+  expect(results[1]!.text).toBe(results[0]!.text);
+  expect(results[1]!.boxes).toEqual(results[0]!.boxes);
+  expect(results[1]!.requests).toEqual(results[0]!.requests);
+  expect(results[1]!.state).toEqual(results[0]!.state);
+  expect(results[0]!.requests).toContain('POST /creator/jobs/:jobId/actions');
+});
+
 test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、尺寸和 Runtime 请求', async ({
   browser,
   runtime

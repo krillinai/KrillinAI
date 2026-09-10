@@ -31,6 +31,7 @@ export const visibleCreatorWorkspaces = [
   'video-translation',
   'video-download',
   'stickman-video',
+  'auto-clips',
   'smart-dubbing',
   'xiaohongshu-post',
   'short-video-script',

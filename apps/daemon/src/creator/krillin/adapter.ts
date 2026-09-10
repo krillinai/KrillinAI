@@ -39,11 +39,6 @@ export function createKrillinExecutor(input: {
     async run(stage): Promise<CreatorExecutorResult> {
       const configured = await input.configStore.read();
       const preflight = preflightKrillinDependencies(input.resourceRoot, configured);
-      await ensureKrillinTranscriptionDependency(
-        input.dependencyLoader,
-        preflight.config,
-        stage
-      );
       const ffprobe = executablePath(input.resourceRoot, /(?:^|\/)ffprobe(?:\.exe)?$/i);
       const materializedArtifacts = await writeArtifactIndex(input.jobsRoot, stage);
       const options = buildKrillinStageOptions(stage);
@@ -51,11 +46,22 @@ export function createKrillinExecutor(input: {
       try {
         const attempts = createKrillinCliExecutionPlan(
           resolveKrillinStageContract(stage).stageType,
+          {
+            sourceUrl: stringValue(options.sourceUrl),
+            mediaSource: resolveKrillinCliSource(materializedArtifacts, options)
+          },
           options
         );
         let completed: KrillinResultArtifact[] | undefined;
         for (const attempt of attempts) {
           try {
+            if (requiresTranscriptionDependency(stage.stageRun.stageId, attempt.options)) {
+              await ensureKrillinTranscriptionDependency(
+                input.dependencyLoader,
+                preflight.config,
+                stage
+              );
+            }
             completed = await runKrillinCli({
               resourceRoot: input.resourceRoot,
               jobsRoot: input.jobsRoot,
@@ -64,6 +70,7 @@ export function createKrillinExecutor(input: {
               stage,
               config: preflight.config,
               artifacts: materializedArtifacts,
+              source: attempt.source,
               options: attempt.options,
               ytDlpRuntime: input.getYtDlpRuntime?.()
             });
@@ -93,10 +100,14 @@ export function createKrillinExecutor(input: {
         });
         throw new CreatorExecutorError(normalized.code, normalized.message);
       }
+      const relevantArtifacts = stage.job.templateId === 'auto-clip'
+        && stage.stageRun.stageId === 'subtitle'
+        ? artifacts.filter(artifact => artifact.kind === 'target_subtitle')
+        : artifacts;
       const outputs = await validateResultArtifacts({
         stage,
         jobsRoot: input.jobsRoot,
-        artifacts,
+        artifacts: relevantArtifacts,
         ffprobe
       });
       return {
@@ -111,6 +122,13 @@ export function createKrillinExecutor(input: {
       };
     }
   };
+}
+
+function requiresTranscriptionDependency(
+  stageId: string,
+  options: Record<string, unknown>
+): boolean {
+  return stageId === 'subtitle' && options.captionSource !== 'platform';
 }
 
 async function ensureKrillinTranscriptionDependency(
@@ -335,13 +353,21 @@ export function resolveKrillinStageContract(
       requiredOutputKinds: ['bilingual_video']
     };
   }
+  if (input.job.templateId === 'auto-clip' && stageId === 'subtitle') {
+    return {
+      stageType: 'subtitle',
+      allowedOutputKinds: new Set(['target_subtitle']),
+      outputAliases: { target_subtitle: 'target_subtitle' },
+      requiredOutputKinds: ['target_subtitle']
+    };
+  }
   if (stageId === 'subtitle' || stageId === 'tts' || stageId === 'render-horizontal' || stageId === 'render-vertical') {
     const expected = expectedOutputKinds(stageId);
     return {
       stageType: stageId,
       allowedOutputKinds: expected,
       outputAliases: Object.fromEntries([...expected].map(kind => [kind, kind])),
-      requiredOutputKinds: requiredOutputKinds(stageId)
+      requiredOutputKinds: requiredOutputKinds(stageId, input.job.templateId)
     };
   }
   throw new CreatorExecutorError('creator_stage_not_supported', `Unsupported KrillinAI stage ${stageId}`);
@@ -375,7 +401,10 @@ function expectedOutputKinds(stageId: string): Set<string> {
   return new Set();
 }
 
-function requiredOutputKinds(stageId: string): string[] {
+function requiredOutputKinds(stageId: string, templateId?: string): string[] {
+  if (stageId === 'subtitle' && templateId === 'auto-clip') {
+    return ['target_subtitle'];
+  }
   if (stageId === 'subtitle') {
     return ['source_video', 'source_subtitle', 'target_subtitle', 'vertical_subtitle'];
   }
@@ -392,6 +421,10 @@ function isInside(root: string, path: string): boolean {
 
 function compactObject(value: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined));
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 function nonEmptyString(value: CreatorJson | undefined): string | undefined {

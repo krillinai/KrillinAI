@@ -98,7 +98,7 @@ const creatorSkillsByCategory: Record<CreatorSkillCategory, CreatorSkill[]> = {
     },
     {
       id: 'intelligent-clipping',
-      title: '智能剪辑',
+      title: '视频切片',
       category: '视频剪辑',
       image: '/dashboard/templates/intelligent-clipping-cover.png',
       interaction: { type: 'workspace', workspace: 'auto-clips' },
@@ -398,7 +398,7 @@ const englishCreatorLabels: Record<string, string> = {
   数字人口播: 'Digital Avatar',
   火柴人动画: 'Stick Figure Animation',
   动画生成: 'Animation',
-  智能剪辑: 'Intelligent Curation',
+  视频切片: 'Video Clips',
   视频剪辑: 'Video Editing',
   封面生成: 'Cover Generation',
   创意短片策划: 'Creative Short Planning',

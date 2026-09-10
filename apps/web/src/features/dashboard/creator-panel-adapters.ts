@@ -311,6 +311,72 @@ export const videoDownloadPanelAdapter: CreatorPanelAdapter = {
   }
 };
 
+export const autoClipPanelAdapter: CreatorPanelAdapter = {
+  id: 'auto-clip',
+  composerPlaceholder: l => l(
+    '询问分析或导出状态，或调整内容重点、片段时长和输出画幅',
+    'Ask about analysis or export progress, or adjust the focus, clip length, and output format'
+  ),
+  stageLabel(stageId, l) {
+    if (stageId === 'probe') return l('读取视频信息', 'Read video information');
+    if (stageId === 'download') return l('下载源视频', 'Download source video');
+    if (stageId === 'subtitle') return l('生成视频字幕', 'Generate video transcript');
+    if (stageId === 'analyze') return l('识别高光片段', 'Find highlight clips');
+    if (stageId === 'render') return l('导出视频切片', 'Export video clips');
+    return l('视频切片任务', 'Video clips task');
+  },
+  phaseLabel(phase, l) {
+    const labels: Record<string, string> = {
+      validating: l('检查视频与切片设置', 'Checking the video and clip settings'),
+      probing_source: l('读取视频信息', 'Reading video information'),
+      preparing_download: l('准备下载源视频', 'Preparing the source video download'),
+      downloading: l('下载源视频', 'Downloading the source video'),
+      merging_media: l('合并视频与音频', 'Merging video and audio'),
+      normalizing_media: l('转换视频格式', 'Converting the video format'),
+      preparing_source: l('准备视频内容', 'Preparing the video content'),
+      reading_platform_captions: l('获取平台字幕', 'Fetching platform captions'),
+      processing_platform_captions: l('解析平台字幕', 'Processing platform captions'),
+      transcribing_audio: l('转录视频语音', 'Transcribing the video audio'),
+      collecting_subtitles: l('整理视频字幕', 'Collecting the video transcript'),
+      analyzing_clips: l('分析高光与传播潜力', 'Analyzing highlights and social potential'),
+      rendering_clips: l('生成独立视频切片', 'Rendering individual video clips'),
+      completed: l('视频切片已完成', 'Video clips completed')
+    };
+    return labels[phase] ?? genericPhaseLabel(phase, l);
+  },
+  activityStageId: readActivityStageId,
+  normalizeActivity(activity, l) {
+    if (activity.action === 'run-stage') {
+      const stageId = readActivityStageId(activity);
+      return {
+        label: stageId === null
+          ? l('开始视频切片任务', 'Started the video clips task')
+          : l(
+              `开始${autoClipPanelAdapter.stageLabel(stageId, l)}`,
+              `Started ${autoClipPanelAdapter.stageLabel(stageId, l)}`
+            ),
+        fields: []
+      };
+    }
+    return normalizeCommonActivity(activity, l, autoClipPanelAdapter, {}, autoClipFieldLabel);
+  },
+  readStageProgress: readStandardProgress,
+  runningProgressText(_stage, progress, l) {
+    if (progress.total !== null && progress.total > 0 && progress.completed !== null && progress.phase === 'rendering_clips') {
+      return l(`正在导出视频切片 ${progress.completed}/${progress.total}`, `Exporting video clips ${progress.completed}/${progress.total}`);
+    }
+    return progress.phase === null ? null : autoClipPanelAdapter.phaseLabel(progress.phase, l);
+  },
+  succeededProgressText(stage, l) {
+    if (stage.stageId === 'probe') return l('视频信息已读取', 'Video information read');
+    if (stage.stageId === 'download') return l('源视频已下载', 'Source video downloaded');
+    if (stage.stageId === 'subtitle') return l('视频字幕已生成', 'Video transcript generated');
+    if (stage.stageId === 'analyze') return l('高光片段已识别', 'Highlight clips found');
+    if (stage.stageId === 'render') return l('视频切片已导出', 'Video clips exported');
+    return null;
+  }
+};
+
 export const stickmanVideoPanelAdapter: CreatorPanelAdapter = {
   id: 'stickman-video',
   composerPlaceholder: l => l(
@@ -773,6 +839,7 @@ export const videoGenerationPanelAdapter: CreatorPanelAdapter = {
 export function creatorPanelAdapterFor(templateId: string): CreatorPanelAdapter {
   if (templateId === 'video-translation') return videoTranslationPanelAdapter;
   if (templateId === 'video-download') return videoDownloadPanelAdapter;
+  if (templateId === 'auto-clip') return autoClipPanelAdapter;
   if (templateId === 'smart-dubbing') return smartDubbingPanelAdapter;
   if (templateId === 'xiaohongshu-post') return xiaohongshuPostPanelAdapter;
   if (templateId === 'short-video-script') return shortVideoScriptPanelAdapter;
@@ -991,6 +1058,19 @@ function shortVideoScriptFieldLabel(
     targetDurationSeconds: l('目标时长', 'Target duration'),
     tone: l('表达语气', 'Tone'),
     extraRequirements: l('补充要求', 'Additional requirements')
+  };
+  return labels[field] ?? null;
+}
+
+function autoClipFieldLabel(field: string, l: CreatorPanelLocalize): string | null {
+  const labels: Record<string, string> = {
+    sourceType: l('视频来源', 'Video source'),
+    sourceUrl: l('视频链接', 'Video URL'),
+    sourceArtifactId: l('项目视频', 'Project video'),
+    focus: l('内容重点', 'Content focus'),
+    duration: l('目标时长', 'Target duration'),
+    clipCount: l('候选数量', 'Candidate count'),
+    aspectRatio: l('输出画幅', 'Output format')
   };
   return labels[field] ?? null;
 }

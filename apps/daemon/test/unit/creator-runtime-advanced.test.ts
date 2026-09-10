@@ -441,6 +441,78 @@ describe('creator runtime advanced contracts', () => {
     db.close();
   });
 
+  it('creates a new video clip result snapshot for every completed analysis', async () => {
+    const { db, repository, service, templates } = setup();
+    let analysis = 0;
+    const runner = createCreatorStageRunner({
+      repository,
+      templates,
+      executors: [{
+        id: 'clip',
+        async run() {
+          analysis += 1;
+          return {
+            outputs: [{
+              kind: 'clip_candidates',
+              status: 'completed' as const,
+              path: join(tempDir, `clip-candidates-v${analysis}.json`),
+              metadata: { candidates: [{ id: `clip-${analysis}` }] }
+            }]
+          };
+        }
+      }],
+      workRoot: join(tempDir, 'work')
+    });
+    const job = service.createJob({ projectId: 'p1', templateId: 'auto-clip' });
+    const source = repository.insertArtifact({
+      jobId: job.id,
+      kind: 'source_video',
+      status: 'completed',
+      path: join(tempDir, 'source.mp4'),
+      sourceArtifactIds: [],
+      metadata: {}
+    });
+    const subtitle = repository.insertArtifact({
+      jobId: job.id,
+      kind: 'target_subtitle',
+      status: 'completed',
+      path: join(tempDir, 'subtitle.srt'),
+      sourceArtifactIds: [source.id],
+      metadata: {}
+    });
+
+    await runner.run(job.id, 'analyze');
+    await runner.run(job.id, 'analyze');
+
+    const completed = service.getJob(job.id)!;
+    expect(completed.state).toMatchObject({
+      resultVersion: 2,
+      latestResultVersion: 2
+    });
+    expect(completed.state.resultSnapshots).toMatchObject([
+      {
+        version: 1,
+        description: '识别视频高光片段',
+        artifactRefs: {
+          source_video: [source.id],
+          target_subtitle: [subtitle.id],
+          clip_candidates: [expect.any(String)]
+        }
+      },
+      {
+        version: 2,
+        description: '识别视频高光片段',
+        artifactRefs: {
+          source_video: [source.id],
+          target_subtitle: [subtitle.id],
+          clip_candidates: [expect.any(String)]
+        }
+      }
+    ]);
+    await runner.close();
+    db.close();
+  });
+
   it('keeps a video download job in draft after the non-final probe stage', async () => {
     const { db, repository, service, templates } = setup();
     const probePath = join(tempDir, 'probe.json');
@@ -1156,8 +1228,9 @@ describe('creator runtime advanced contracts', () => {
     });
     expect(probe).toMatchObject({ platform: 'bilibili', formats: [{ id: '1080', hasVideo: true, hasAudio: false }] });
     expect(() => parseClipCandidates({ candidates: [{
-      id: 'bad', start: 8, end: 13, reason: '越界',
-      scores: { hook: 8, information: 8, emotion: 8, completeness: 8 }
+      id: 'bad', title: '越界片段', start: 8, end: 13,
+      transcript: '这个片段超过了视频总时长。', reason: '越界',
+      scores: { hook: 80, information: 80, emotion: 80, completeness: 80 }
     }] }, 12)).toThrow(/invalid_clip_range/);
   });
 

@@ -516,12 +516,19 @@ function creatorDraftDefaults(templateId: string): Record<string, unknown[]> {
   }
   if (templateId === 'auto-clip') {
     return {
+      sourceType: ['url'],
       sourceUrl: [''],
+      sourceArtifactId: [null],
+      formatId: ['bestvideo+bestaudio/best'],
+      sourceLanguage: ['auto'],
+      targetLanguage: ['zh-CN'],
+      preferPlatformCaptions: [true],
       focus: ['balanced'],
       duration: ['30-60'],
       clipCount: [10],
-      sourceOrientation: ['landscape'],
-      selectedCandidateIds: [['1', '2', '3']]
+      aspectRatio: ['9:16'],
+      selectedCandidateIds: [[]],
+      currentStage: [null]
     };
   }
   if (templateId === 'xiaohongshu-post') {
@@ -646,7 +653,7 @@ function shorten(value: string, limit: number): string {
 function templateLabel(templateId: string, l: LocalizeCopy): string | undefined {
   if (templateId === 'video-translation') return l('视频翻译', 'Video translation');
   if (templateId === 'video-download') return l('视频下载', 'Video download');
-  if (templateId === 'auto-clip') return l('自动剪辑', 'Auto clips');
+  if (templateId === 'auto-clip') return l('视频切片', 'Video clips');
   if (templateId === 'cover') return l('封面生成', 'Thumbnail generation');
   if (templateId === 'image-generation') return l('图像生成', 'Image generation');
   if (templateId === 'video-generation') return l('视频生成', 'Video generation');
@@ -761,7 +768,7 @@ function projectCover(templateId: string): string {
   if (templateId === 'image-generation') return '/dashboard/templates/image-generation-project-cover.png';
   if (templateId === 'video-generation') return '/dashboard/templates/animated-story.jpg';
   if (templateId === 'stickman-video') return '/dashboard/templates/ai-video-insane.jpg';
-  if (templateId === 'auto-clip') return '/dashboard/templates/animated-story.jpg';
+  if (templateId === 'auto-clip') return '/dashboard/templates/intelligent-clipping-cover.png';
   if (templateId === 'xiaohongshu-post') return '/dashboard/templates/digital-presenter.jpg';
   if (templateId === 'short-video-script') return '/skill-market/examples/gpt-image-2-info-poster.png';
   return '/dashboard/templates/digital-presenter.jpg';

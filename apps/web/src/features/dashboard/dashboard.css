@@ -9046,7 +9046,8 @@
 }
 
 .stickman-video-result img,
-.auto-clip-player img {
+.auto-clip-player img,
+.auto-clip-player video {
   width: 100%;
   height: 100%;
   display: block;
@@ -9422,7 +9423,8 @@
   aspect-ratio: 16 / 9;
 }
 
-.auto-clip-card-media > img {
+.auto-clip-card-media > img,
+.auto-clip-card-media > video {
   width: 100%;
   height: 100%;
   display: block;
@@ -9586,7 +9588,8 @@
   aspect-ratio: 16 / 9;
 }
 
-.auto-clip-list-preview img {
+.auto-clip-list-preview img,
+.auto-clip-list-preview video {
   width: 100%;
   height: 100%;
   display: block;
@@ -9733,6 +9736,83 @@
   width: min(260px, 100%);
   margin: 0 auto;
   aspect-ratio: 9 / 16;
+}
+
+.auto-clip-media-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  color: var(--subtle);
+}
+
+.auto-clip-export-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+.auto-clip-export-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.auto-clip-export-card video,
+.auto-clip-export-loading {
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  display: grid;
+  place-items: center;
+  background: #09090b;
+  color: #fff;
+  object-fit: contain;
+}
+
+.auto-clip-export-card footer {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+}
+
+.auto-clip-export-card footer > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.auto-clip-export-card footer strong,
+.auto-clip-export-card footer span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auto-clip-export-card footer strong {
+  font-size: 12px;
+}
+
+.auto-clip-export-card footer span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.auto-clip-export-card footer button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
 }
 
 .auto-clip-export-list,

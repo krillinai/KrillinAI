@@ -103,6 +103,10 @@ import {
   type VideoTranslationWorkflow
 } from '../creator/templates/video-translation-actions.js';
 import {
+  createAutoClipWorkflow,
+  type AutoClipWorkflow
+} from '../creator/templates/auto-clip-actions.js';
+import {
   createStickmanVideoWorkflow,
   type StickmanVideoWorkflow
 } from '../creator/templates/stickman-video-actions.js';
@@ -790,6 +794,7 @@ export async function buildServer(input: BuildServerInput) {
   let coverWorkflow: CoverWorkflow | undefined;
   let videoTranslationWorkflow: VideoTranslationWorkflow | undefined;
   let stickmanVideoWorkflow: StickmanVideoWorkflow | undefined;
+  let autoClipWorkflow: AutoClipWorkflow | undefined;
   const creatorStageRunner = input.creatorService === undefined
     ? createCreatorStageRunner({
         repository: creatorRepository,
@@ -830,6 +835,9 @@ export async function buildServer(input: BuildServerInput) {
           });
           void stickmanVideoWorkflow?.handleStageChanged(stage).catch(error => {
             console.warn(`Stickman video workflow continuation failed: ${formatError(error)}`);
+          });
+          void autoClipWorkflow?.handleStageChanged(stage).catch(error => {
+            console.warn(`Video clip workflow continuation failed: ${formatError(error)}`);
           });
         }
       })
@@ -911,6 +919,12 @@ export async function buildServer(input: BuildServerInput) {
         repository: creatorRepository,
         providerLedger: creatorProviderRequestLedger
       });
+  autoClipWorkflow = creatorStageRunner === undefined
+    ? undefined
+    : createAutoClipWorkflow({
+        creator: creatorService,
+        dispatcher: creatorCommandDispatcher
+      });
   void coverWorkflow?.recover().catch(error => {
     console.warn(`Cover workflow recovery failed: ${formatError(error)}`);
   });
@@ -919,6 +933,9 @@ export async function buildServer(input: BuildServerInput) {
   });
   void stickmanVideoWorkflow?.recover().catch(error => {
     console.warn(`Stickman video workflow recovery failed: ${formatError(error)}`);
+  });
+  void autoClipWorkflow?.recover().catch(error => {
+    console.warn(`Video clip workflow recovery failed: ${formatError(error)}`);
   });
   const scheduleRunInjector = createAgentScheduleRunInjector({
     capabilities: agentCapabilityTokens,
