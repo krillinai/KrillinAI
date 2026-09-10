@@ -783,10 +783,11 @@ describe('DashboardPage', () => {
     expect(within(videoTranslationCard).getByText('HOT')).toBeInTheDocument();
     expect(within(videoTranslationCard).queryByText('NEW')).not.toBeInTheDocument();
     const appCards = Array.from(container.querySelectorAll('.dashboard-app-card'));
-    expect(appCards).toHaveLength(8);
+    expect(appCards).toHaveLength(9);
     expect(appCards.map(card => card.querySelector('strong')?.textContent)).toEqual([
       '文章写作',
       '视频翻译',
+      '火柴人动画',
       '视频下载',
       '封面生成',
       '小红书帖子',
@@ -794,7 +795,8 @@ describe('DashboardPage', () => {
       '视频生成',
       '图像生成'
     ]);
-    expect(screen.queryByRole('button', { name: /^火柴人动画/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^火柴人动画 角色、分镜与完整动画/ }))
+      .toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^自动剪辑/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^智能配音/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^视频生成/ })).toBeInTheDocument();
@@ -978,11 +980,11 @@ describe('DashboardPage', () => {
     render(
       <DashboardPage
         onSelectPrompt={vi.fn()}
-        workspace="stickman-video"
         creatorService={creatorService}
       />
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /^火柴人动画/ }));
     expect(screen.getByRole('heading', { name: '火柴人动画' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: '火柴人视频制作步骤' })).toBeInTheDocument();
     const characterPresets = screen.getByRole('radiogroup', { name: '角色预设' });

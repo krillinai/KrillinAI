@@ -28,6 +28,7 @@ export const creatorWorkspaces = [
 export const visibleCreatorWorkspaces = [
   'video-translation',
   'video-download',
+  'stickman-video',
   'smart-dubbing',
   'xiaohongshu-post',
   'wechat-article',
