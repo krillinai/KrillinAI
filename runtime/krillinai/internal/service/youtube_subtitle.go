@@ -37,6 +37,7 @@ type YoutubeSubtitleReq struct {
 	TargetLanguage      string
 	VttFile             string
 	TaskPtr             *types.SubtitleTask
+	SourceOnly          bool
 	TargetLanguageFirst bool // 是否将目标语言放在上面（双语字幕）
 }
 
@@ -286,7 +287,12 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 	}
 
 	// 2. 组织成句子
-	sentences := s.groupWordsIntoSentences(vttWords)
+	var sentences []Sentence
+	if req.SourceOnly {
+		sentences = s.groupWordsIntoSentencesWithoutLLM(vttWords)
+	} else {
+		sentences = s.groupWordsIntoSentences(vttWords)
+	}
 	if len(sentences) == 0 {
 		return "", fmt.Errorf("no sentences formed from VTT words")
 	}
@@ -310,6 +316,12 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 	// 更新进度：原始SRT生成完成
 	if req.TaskPtr != nil {
 		req.TaskPtr.SetProgress(40)
+	}
+	if req.SourceOnly {
+		if req.TaskPtr != nil {
+			req.TaskPtr.SetProgress(100)
+		}
+		return originSrtFile, nil
 	}
 
 	// 4. 批量翻译生成目标语言SRT（40%-90%进度）
@@ -1028,6 +1040,25 @@ type Sentence struct {
 	Words     []VttWord // 组成句子的单词
 	StartTime string    // 句子开始时间
 	EndTime   string    // 句子结束时间
+}
+
+func (s *YouTubeSubtitleService) groupWordsIntoSentencesWithoutLLM(words []VttWord) []Sentence {
+	primarySentences := s.splitByPrimarySentencePunctuation(words)
+	deterministicSentences := make([]Sentence, 0, len(primarySentences))
+	for _, sentence := range primarySentences {
+		if util.CountEffectiveChars(sentence.Text) <= config.Conf.App.MaxSentenceLength {
+			deterministicSentences = append(deterministicSentences, sentence)
+			continue
+		}
+		for _, candidate := range s.splitByCommasPunctuation(sentence.Words) {
+			if util.CountEffectiveChars(candidate.Text) > config.Conf.App.MaxSentenceLength {
+				deterministicSentences = append(deterministicSentences, s.splitByFixedLength(candidate.Words)...)
+			} else {
+				deterministicSentences = append(deterministicSentences, candidate)
+			}
+		}
+	}
+	return s.cleanupPunctuationOnlySentences(deterministicSentences)
 }
 
 // groupWordsIntoSentences 根据标点符号将单词分组成完整的句子

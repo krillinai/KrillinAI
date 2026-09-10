@@ -16,6 +16,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -59,6 +60,13 @@ type contextChatCompleter interface {
 }
 
 func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
+	if stepParam.SubtitleResultType == types.SubtitleResultTypeOriginOnly {
+		if err := s.audioToOriginSubtitle(ctx, stepParam); err != nil {
+			return fmt.Errorf("audioToSubtitle audioToOriginSubtitle error: %w", err)
+		}
+		stepParam.TaskPtr.SetProgress(95)
+		return nil
+	}
 	var err error
 	err = s.audioToSrt(ctx, stepParam) // 这里进度更新到90%了
 	if err != nil {
@@ -71,6 +79,236 @@ func (s Service) audioToSubtitle(ctx context.Context, stepParam *types.SubtitleT
 	// 更新字幕任务信息
 	stepParam.TaskPtr.SetProgress(95)
 	return nil
+}
+
+type originSubtitleCue struct {
+	Start float64
+	End   float64
+	Text  string
+}
+
+func (s Service) audioToOriginSubtitle(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
+	timePoints, err := s.getSplitPointsForAudio(stepParam)
+	if err != nil {
+		return err
+	}
+	cues := make([]originSubtitleCue, 0)
+	segmentCount := len(timePoints) - 1
+	for segmentIndex := 0; segmentIndex < segmentCount; segmentIndex++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		audioPath := filepath.Join(stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitAudioFileNamePattern, segmentIndex))
+		if err := ClipAudio(stepParam.AudioFilePath, audioPath, timePoints[segmentIndex], timePoints[segmentIndex+1]); err != nil {
+			return err
+		}
+		var transcription *types.TranscriptionData
+		attempts := config.Conf.App.TranscribeMaxAttempts
+		if attempts < 1 {
+			attempts = 1
+		}
+		for range attempts {
+			transcription, err = s.transcribeAudio(
+				segmentIndex,
+				audioPath,
+				string(stepParam.OriginLanguage),
+				stepParam.TaskBasePath,
+				func(percent int) {
+					completed := float64(segmentIndex) + clampFraction(float64(percent)/100)
+					stepParam.TaskPtr.SetProgress(uint8(15 + completed/float64(segmentCount)*75))
+				},
+			)
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("transcribe audio segment %d: %w", segmentIndex, err)
+		}
+		cues = append(cues, originCuesFromTranscription(
+			transcription,
+			timePoints[segmentIndex],
+			timePoints[segmentIndex+1],
+			stepParam.MaxWordOneLine,
+			stepParam.OriginLanguage,
+		)...)
+		stepParam.TaskPtr.SetProgress(uint8(15 + float64(segmentIndex+1)/float64(segmentCount)*75))
+	}
+	if len(cues) == 0 {
+		return errors.New("transcription produced no subtitle cues")
+	}
+	return writeOriginSubtitleFile(
+		filepath.Join(stepParam.TaskBasePath, types.SubtitleTaskOriginLanguageSrtFileName),
+		cues,
+	)
+}
+
+func originCuesFromTranscription(
+	transcription *types.TranscriptionData,
+	offset float64,
+	segmentEnd float64,
+	maxWords int,
+	language types.StandardLanguageCode,
+) []originSubtitleCue {
+	if transcription == nil {
+		return nil
+	}
+	if maxWords <= 0 {
+		maxWords = 12
+	}
+	words := make([]types.Word, 0, len(transcription.Words))
+	for _, word := range transcription.Words {
+		if strings.TrimSpace(word.Text) != "" {
+			words = append(words, word)
+		}
+	}
+	if len(words) == 0 {
+		text := strings.TrimSpace(transcription.Text)
+		if text == "" {
+			return nil
+		}
+		return []originSubtitleCue{{Start: offset, End: segmentEnd, Text: text}}
+	}
+	if !util.IsAsianLanguage(language) {
+		if alignedWords, ok := alignTranscriptionWords(transcription.Text, words); ok {
+			words = alignedWords
+		}
+	}
+
+	cues := make([]originSubtitleCue, 0, (len(words)+maxWords-1)/maxWords)
+	for start := 0; start < len(words); start += maxWords {
+		end := min(start+maxWords, len(words))
+		parts := make([]string, 0, end-start)
+		for _, word := range words[start:end] {
+			parts = append(parts, strings.TrimSpace(word.Text))
+		}
+		separator := " "
+		if util.IsAsianLanguage(language) {
+			separator = ""
+		}
+		cueStart := offset + words[start].Start
+		cueEnd := offset + words[end-1].End
+		if cueEnd <= cueStart {
+			cueEnd = cueStart + 0.5
+		}
+		cues = append(cues, originSubtitleCue{
+			Start: cueStart,
+			End:   cueEnd,
+			Text:  strings.Join(parts, separator),
+		})
+	}
+	return cues
+}
+
+func alignTranscriptionWords(text string, words []types.Word) ([]types.Word, bool) {
+	textTokens := strings.Fields(text)
+	if len(textTokens) == 0 {
+		return nil, false
+	}
+
+	timedWords := make([]types.Word, 0, len(words))
+	for _, word := range words {
+		if normalizeTranscriptionToken(word.Text) != "" {
+			timedWords = append(timedWords, word)
+		}
+	}
+	if len(timedWords) == 0 {
+		return nil, false
+	}
+
+	aligned := make([]types.Word, 0, len(textTokens))
+	wordIndex := 0
+	prefix := ""
+	for _, textToken := range textTokens {
+		target := normalizeTranscriptionToken(textToken)
+		if target == "" {
+			if len(aligned) == 0 {
+				prefix += textToken + " "
+			} else {
+				aligned[len(aligned)-1].Text += " " + textToken
+			}
+			continue
+		}
+
+		start := wordIndex
+		matched := ""
+		for wordIndex < len(timedWords) && len(matched) < len(target) {
+			matched += normalizeTranscriptionToken(timedWords[wordIndex].Text)
+			wordIndex++
+			if !strings.HasPrefix(target, matched) {
+				return nil, false
+			}
+		}
+		if matched != target {
+			return nil, false
+		}
+		aligned = append(aligned, types.Word{
+			Text:  prefix + textToken,
+			Start: timedWords[start].Start,
+			End:   timedWords[wordIndex-1].End,
+		})
+		prefix = ""
+	}
+	if wordIndex != len(timedWords) {
+		return nil, false
+	}
+	if prefix != "" && len(aligned) > 0 {
+		aligned[len(aligned)-1].Text += " " + strings.TrimSpace(prefix)
+	}
+	return aligned, len(aligned) > 0
+}
+
+func normalizeTranscriptionToken(text string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			return unicode.ToLower(r)
+		}
+		return -1
+	}, text)
+}
+
+func writeOriginSubtitleFile(path string, cues []originSubtitleCue) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	previousEnd := 0.0
+	index := 0
+	for _, cue := range cues {
+		text := strings.TrimSpace(cue.Text)
+		if text == "" {
+			continue
+		}
+		start := cue.Start
+		if start < previousEnd {
+			start = previousEnd
+		}
+		end := cue.End
+		if end <= start {
+			end = start + 0.5
+		}
+		index++
+		if _, err := fmt.Fprintf(
+			file,
+			"%d\n%s --> %s\n%s\n\n",
+			index,
+			util.FormatTime(float32(start)),
+			util.FormatTime(float32(end)),
+			text,
+		); err != nil {
+			return err
+		}
+		previousEnd = end
+	}
+	if index == 0 {
+		return errors.New("transcription produced no subtitle cues")
+	}
+	return file.Sync()
 }
 
 //func splitAudio(stepParam *types.SubtitleTaskStepParam) error {

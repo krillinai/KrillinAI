@@ -19,6 +19,7 @@ type fakeStageService struct {
 	prepareVTT        []bool
 	prepareEmbedTypes []string
 	lastPrepare       *types.SubtitleTaskStepParam
+	lastYouTube       *service.YoutubeSubtitleReq
 	lastSpeech        *types.SubtitleTaskStepParam
 	lastCoverPrompt   string
 	lastCoverSize     string
@@ -76,6 +77,13 @@ func (f *fakeStageService) DownloadYouTubeSubtitle(context.Context, *service.You
 
 func (f *fakeStageService) ProcessYouTubeSubtitle(_ context.Context, req *service.YoutubeSubtitleReq) (string, error) {
 	f.calls = append(f.calls, "process-youtube")
+	f.lastYouTube = req
+	if req.SourceOnly {
+		path := filepath.Join(req.TaskBasePath, types.SubtitleTaskOriginLanguageSrtFileName)
+		if err := os.WriteFile(path, []byte("1\n00:00:00,000 --> 00:00:01,000\nsource\n\n"), 0600); err != nil {
+			return "", err
+		}
+	}
 	if req.TaskPtr != nil {
 		req.TaskPtr.SetProgress(40)
 		req.TaskPtr.SetProgress(65)
@@ -266,6 +274,40 @@ func TestGenerateSubtitlesYouTubeCaptionsDoNotUseAudio(t *testing.T) {
 		if call == "audio" {
 			t.Fatalf("calls = %v, did not expect audio transcription", fake.calls)
 		}
+	}
+}
+
+func TestGenerateSubtitlesSourceOnlySkipsTranslationAndVideoPreparation(t *testing.T) {
+	dir := t.TempDir()
+	fake := &fakeStageService{}
+	req := SubtitleRequest{
+		Input:         "https://www.youtube.com/watch?v=abc",
+		Workdir:       dir,
+		TaskID:        "source-only",
+		OriginLang:    "en",
+		TargetLang:    "zh_cn",
+		CaptionSource: CaptionSourceAny,
+		SourceOnly:    true,
+	}
+
+	resp, err := GenerateSubtitles(context.Background(), fake, req)
+	if err != nil || !resp.OK {
+		t.Fatalf("response = %+v, error = %v", resp, err)
+	}
+	if got := fake.calls; len(got) != 3 || got[0] != "prepare" || got[1] != "download-youtube" || got[2] != "process-youtube" {
+		t.Fatalf("calls = %v, want source preparation and platform captions only", got)
+	}
+	if fake.lastPrepare == nil || fake.lastPrepare.SubtitleResultType != types.SubtitleResultTypeOriginOnly {
+		t.Fatalf("SubtitleResultType = %v, want origin only", fake.lastPrepare.SubtitleResultType)
+	}
+	if fake.lastYouTube == nil || !fake.lastYouTube.SourceOnly {
+		t.Fatal("YouTube request did not preserve SourceOnly")
+	}
+	if resp.Outputs.OriginSRT == "" {
+		t.Fatal("OriginSRT is empty")
+	}
+	if resp.Outputs.TargetSRT != "" || resp.Outputs.BilingualSRT != "" || resp.Outputs.ShortOriginMixedSRT != "" {
+		t.Fatalf("source-only response advertised translated outputs: %+v", resp.Outputs)
 	}
 }
 

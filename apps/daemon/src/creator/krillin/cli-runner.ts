@@ -218,14 +218,15 @@ export function buildKrillinCliCommandArguments(
   if (command === 'subtitle') {
     const source = resolveKrillinCliSource(artifacts, options);
     if (!source) throw new CreatorExecutorError('creator_stage_input_missing', 'Subtitle input video or URL is required');
+    const sourceOnly = booleanOption(options, 'sourceOnly', false);
     return [
       'subtitle',
       source,
-      '--prepare-video',
+      ...(sourceOnly ? [] : ['--prepare-video']),
       '--origin-lang', requiredOption(options, 'originLanguage'),
       '--target-lang', requiredOption(options, 'targetLanguage'),
       '--caption-source', stringOption(options, 'captionSource') ?? 'any',
-      ...(booleanOption(options, 'sourceOnly', false) ? ['--source-only'] : []),
+      ...(sourceOnly ? ['--source-only'] : []),
       `--bilingual-top=${booleanOption(options, 'bilingualTop', true)}`,
       ...common,
       ...styleArgument(stylePath)

@@ -129,6 +129,42 @@ func TestConfigurePackagedTranscriptionDependencyUsesWhisperKitArchiveDirectory(
 	}
 }
 
+func TestConfigurePackagedTranscriptionDependencyUsesWhisperCppInstallerLayout(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv(resourcepath.RootEnv, root)
+
+	executableName := "whisper-cli"
+	if runtime.GOOS == "windows" {
+		executableName += ".exe"
+	}
+	executablePath := filepath.Join(root, "bin", "whispercpp", executableName)
+	modelPath := filepath.Join(root, "models", "whispercpp", "ggml-tiny.bin")
+	for _, path := range []string{executablePath, modelPath} {
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("test"), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	previousTranscribe := config.Conf.Transcribe
+	previousWhisperCppPath := storage.WhispercppPath
+	t.Cleanup(func() {
+		config.Conf.Transcribe = previousTranscribe
+		storage.WhispercppPath = previousWhisperCppPath
+	})
+	config.Conf.Transcribe.Provider = "whispercpp"
+	config.Conf.Transcribe.Whispercpp.Model = "tiny"
+
+	if err := configurePackagedTranscriptionDependency(); err != nil {
+		t.Fatalf("configurePackagedTranscriptionDependency() error = %v", err)
+	}
+	if storage.WhispercppPath != executablePath {
+		t.Fatalf("WhispercppPath = %q, want %q", storage.WhispercppPath, executablePath)
+	}
+}
+
 func TestResolveYtDlpUpdatesExistingBundledBinaryToStableRelease(t *testing.T) {
 	env := testYtDlpEnv(t, "darwin")
 	env.stat = func(path string) (os.FileInfo, error) {

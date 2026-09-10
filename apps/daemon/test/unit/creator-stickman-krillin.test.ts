@@ -68,12 +68,14 @@ describe('stickman KrillinAI mapping', () => {
     };
     const stickmanOptions = buildKrillinStageOptions(sourceTranscript as never);
     expect(stickmanOptions.sourceOnly).toBe(true);
-    expect(buildKrillinCliCommandArguments(
+    const stickmanArgs = buildKrillinCliCommandArguments(
       sourceTranscript as never,
       [],
       stickmanOptions,
       undefined
-    )).toContain('--source-only');
+    );
+    expect(stickmanArgs).toContain('--source-only');
+    expect(stickmanArgs).not.toContain('--prepare-video');
 
     const translationStage = {
       ...sourceTranscript,
@@ -82,12 +84,14 @@ describe('stickman KrillinAI mapping', () => {
     };
     const translationOptions = buildKrillinStageOptions(translationStage as never);
     expect(translationOptions.sourceOnly).toBe(false);
-    expect(buildKrillinCliCommandArguments(
+    const translationArgs = buildKrillinCliCommandArguments(
       translationStage as never,
       [],
       translationOptions,
       undefined
-    )).not.toContain('--source-only');
+    );
+    expect(translationArgs).not.toContain('--source-only');
+    expect(translationArgs).toContain('--prepare-video');
   });
 
   it('rejects undeclared or missing stickman outputs and aliases valid subtitles', async () => {

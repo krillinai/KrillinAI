@@ -4,6 +4,7 @@ import (
 	"context"
 	"krillin-ai/config"
 	"krillin-ai/internal/deps"
+	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"os"
 	"path/filepath"
@@ -83,6 +84,39 @@ func Test_processYouTubeSubtitle(t *testing.T) {
 	_, err := s.YouTubeSubtitleSrv.processYouTubeSubtitle(context.Background(), req)
 	if err != nil {
 		t.Errorf("HandleYouTubeSubtitle() error = %v, want nil", err)
+	}
+}
+
+func TestProcessYouTubeSubtitleSourceOnlySkipsTranslator(t *testing.T) {
+	log.InitLogger()
+	service := NewYouTubeSubtitleService()
+	service.translator = nil
+	workdir := t.TempDir()
+	vttFile := copyTestVtt(t, workdir, "source-only.en.vtt")
+	task := &types.SubtitleTask{}
+	req := &YoutubeSubtitleReq{
+		TaskBasePath:   workdir,
+		TaskId:         "source-only",
+		OriginLanguage: "en",
+		TargetLanguage: "zh_cn",
+		VttFile:        vttFile,
+		TaskPtr:        task,
+		SourceOnly:     true,
+	}
+
+	output, err := service.processYouTubeSubtitle(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(workdir, types.SubtitleTaskOriginLanguageSrtFileName)
+	if output != want {
+		t.Fatalf("output = %q, want %q", output, want)
+	}
+	if task.ProcessPct != 100 {
+		t.Fatalf("progress = %d, want 100", task.ProcessPct)
+	}
+	if _, err := os.Stat(filepath.Join(workdir, types.SubtitleTaskTargetLanguageSrtFileName)); !os.IsNotExist(err) {
+		t.Fatalf("target subtitle should not be generated, stat error = %v", err)
 	}
 }
 
