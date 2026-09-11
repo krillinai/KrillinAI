@@ -5,7 +5,7 @@ import type {
 import { existsSync } from 'node:fs';
 import { createWriteStream } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { extname } from 'node:path';
+import { basename, extname } from 'node:path';
 import { finished } from 'node:stream/promises';
 import { marked, Renderer, type Token, type Tokens } from 'marked';
 import PDFDocument from 'pdfkit';
@@ -119,8 +119,13 @@ export async function writeArticlePdf(
     bufferPages: true,
     info: { Title: input.title, Creator: 'OpenCreator' }
   });
-  document.registerFont('ArticleRegular', fonts.regular);
-  document.registerFont('ArticleBold', fonts.bold);
+  const fontFamily = (path: string) => {
+    if (basename(path) === 'NotoSansCJK-Regular.ttc') return 'NotoSansCJKsc-Regular';
+    if (basename(path) === 'NotoSansCJK-Bold.ttc') return 'NotoSansCJKsc-Bold';
+    return undefined;
+  };
+  document.registerFont('ArticleRegular', fonts.regular, fontFamily(fonts.regular));
+  document.registerFont('ArticleBold', fonts.bold, fontFamily(fonts.bold));
   const output = createWriteStream(path, { mode: 0o600 });
   document.pipe(output);
   const accent = layoutAccents[input.layoutStyleId];

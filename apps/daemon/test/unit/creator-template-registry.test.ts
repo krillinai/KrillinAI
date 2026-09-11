@@ -4,6 +4,7 @@ import {
   createImageGenerationTemplate,
   createCreatorTemplateRegistry,
   createSmartDubbingTemplate,
+  createShortVideoScriptTemplate,
   createXiaohongshuPostTemplate,
   createVideoDownloadTemplate,
   createVideoGenerationTemplate,
@@ -145,6 +146,31 @@ describe('creator template registry', () => {
       audience: '',
       style: 'experience',
       length: 'medium',
+      extraRequirements: '',
+      currentStage: null
+    });
+  });
+
+  it('registers short video script generation as a persisted text workflow', () => {
+    const template = createShortVideoScriptTemplate();
+
+    expect(template).toMatchObject({
+      id: 'short-video-script',
+      version: 1,
+      renderer: 'short-video-script',
+      stages: [{
+        id: 'generate',
+        executor: 'short-video-script',
+        outputArtifacts: [{ kind: 'short_video_script', status: 'completed' }]
+      }],
+      outputs: [{ kind: 'short_video_script', required: true }]
+    });
+    expect(template.inputSchema.parse({})).toMatchObject({
+      topic: '',
+      audience: '',
+      platform: 'douyin',
+      targetDurationSeconds: 60,
+      tone: 'natural',
       extraRequirements: '',
       currentStage: null
     });
