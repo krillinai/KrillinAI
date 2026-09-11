@@ -5,12 +5,13 @@ import type { CreatorExecutor } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
 import { spawnCreatorProcess } from '../process-tree.js';
 import { validateMediaFile } from '../validators/media.js';
-import { analyzeClips, parseClipCandidates } from './analyzer.js';
+import { analyzeClips, parseClipCandidates, type ClipGenre } from './analyzer.js';
 
 export function createClipExecutor(input: {
   configStore: Pick<CreatorServicesConfigStore, 'read'>;
   ffmpegPath: string;
   ffprobePath: string;
+  preferHardwareEncoding?: boolean;
 }): CreatorExecutor {
   return {
     id: 'clip',
@@ -30,6 +31,7 @@ export function createClipExecutor(input: {
         const durationRange = readDurationRange(stage.job.state.duration);
         const focus = readFocus(stage.job.state.focus);
         const count = readClipCount(stage.job.state.clipCount);
+        const genre = readGenre(stage.job.state.genre);
         stage.reportProgress({
           phase: 'analyzing_clips',
           percent: 30,
@@ -42,7 +44,8 @@ export function createClipExecutor(input: {
           focus,
           minDuration: durationRange.min,
           maxDuration: durationRange.max,
-          count
+          count,
+          genre
         });
         const path = join(stage.workdir, 'clip-candidates.json');
         await writeFile(path, `${JSON.stringify({ candidates }, null, 2)}\n`);
@@ -63,6 +66,7 @@ export function createClipExecutor(input: {
             metadata: {
               candidates,
               focus,
+              genre,
               duration: `${durationRange.min}-${durationRange.max}`,
               clipCount: candidates.length
             }
@@ -78,32 +82,74 @@ export function createClipExecutor(input: {
         const sourceMedia = await validateMediaFile(source, input.ffprobePath);
         const duration = sourceMedia.duration;
         const candidates = parseClipCandidates(raw, duration);
-        const selectedIds = Array.isArray(stage.job.state.selectedCandidateIds)
-          ? new Set(stage.job.state.selectedCandidateIds.filter(value => typeof value === 'string'))
-          : new Set<string>();
-        const selected = candidates.filter(candidate => selectedIds.has(candidate.id));
-        if (selected.length === 0) throw new CreatorExecutorError('creator_clip_selection_missing', 'At least one clip must be selected');
+        if (candidates.length === 0) throw new CreatorExecutorError('creator_clip_candidates_missing', 'No clips are available to render');
         const aspectRatio = readAspectRatio(stage.job.state.aspectRatio);
         const outputs = [];
-        for (let index = 0; index < selected.length; index += 1) {
-          const candidate = selected[index]!;
+        let videoEncoder: ClipVideoEncoder = (input.preferHardwareEncoding ?? process.platform === 'darwin')
+          ? 'h264_videotoolbox'
+          : 'libx264';
+        for (let index = 0; index < candidates.length; index += 1) {
+          const candidate = candidates[index]!;
+          const clipDuration = candidate.end - candidate.start;
           const fileName = `${String(index + 1).padStart(2, '0')}-${safeFileName(candidate.title)}.mp4`;
           const output = join(stage.workdir, fileName);
+          let lastReportedPercent = Math.round(index / candidates.length * 100);
           stage.reportProgress({
             phase: 'rendering_clips',
-            percent: Math.round(index / selected.length * 100),
+            percent: lastReportedPercent,
             completed: index,
             failed: 0,
-            total: selected.length,
-            message: `Rendering clip ${index + 1} of ${selected.length}`
+            total: candidates.length,
+            message: `Rendering clip ${index + 1} of ${candidates.length}`
           });
-          await runProcess(input.ffmpegPath, buildClipArguments({
+          const renderInput = {
             source,
             output,
             candidate,
             aspectRatio,
-            hasAudio: sourceMedia.hasAudio
-          }), stage.signal);
+            hasAudio: sourceMedia.hasAudio,
+            videoEncoder
+          };
+          const reportRenderProgress = (renderedSeconds: number) => {
+            const clipProgress = Math.max(0, Math.min(1, renderedSeconds / clipDuration));
+            const percent = Math.min(99, Math.round((index + clipProgress) / candidates.length * 100));
+            if (percent <= lastReportedPercent) return;
+            lastReportedPercent = percent;
+            stage.reportProgress({
+              phase: 'rendering_clips',
+              percent,
+              completed: index,
+              failed: 0,
+              total: candidates.length,
+              message: `Rendering clip ${index + 1} of ${candidates.length}`
+            });
+          };
+          try {
+            await runProcess(
+              input.ffmpegPath,
+              buildClipArguments(renderInput),
+              stage.signal,
+              reportRenderProgress
+            );
+          } catch (error) {
+            if (videoEncoder !== 'h264_videotoolbox' || stage.signal.aborted) throw error;
+            videoEncoder = 'libx264';
+            renderInput.videoEncoder = videoEncoder;
+            stage.reportProgress({
+              phase: 'rendering_clips',
+              percent: lastReportedPercent,
+              completed: index,
+              failed: 0,
+              total: candidates.length,
+              message: 'Hardware encoding unavailable; retrying with software encoding'
+            });
+            await runProcess(
+              input.ffmpegPath,
+              buildClipArguments(renderInput),
+              stage.signal,
+              reportRenderProgress
+            );
+          }
           outputs.push({
             kind: 'auto_clip_video' as const,
             status: 'completed' as const,
@@ -140,6 +186,7 @@ export function createClipExecutor(input: {
 }
 
 type ClipAspectRatio = 'source' | '16:9' | '9:16' | '1:1';
+type ClipVideoEncoder = 'libx264' | 'h264_videotoolbox';
 
 function buildClipArguments(input: {
   source: string;
@@ -147,39 +194,65 @@ function buildClipArguments(input: {
   candidate: ReturnType<typeof parseClipCandidates>[number];
   aspectRatio: ClipAspectRatio;
   hasAudio: boolean;
+  videoEncoder: ClipVideoEncoder;
 }): string[] {
   const format = aspectRatioFilter(input.aspectRatio);
   const videoFilter = [
-    `trim=start=${input.candidate.start}:end=${input.candidate.end}`,
     'setpts=PTS-STARTPTS',
     ...format,
     'format=yuv420p'
   ].join(',');
   const filter = input.hasAudio
-    ? `[0:v]${videoFilter}[outv];[0:a]atrim=start=${input.candidate.start}:end=${input.candidate.end},asetpts=PTS-STARTPTS[outa]`
+    ? `[0:v]${videoFilter}[outv];[0:a]asetpts=PTS-STARTPTS[outa]`
     : `[0:v]${videoFilter}[outv]`;
   return [
     '-y',
+    '-ss', formatFfmpegTime(input.candidate.start),
     '-i', input.source,
+    '-t', formatFfmpegTime(input.candidate.end - input.candidate.start),
     '-filter_complex', filter,
     '-map', '[outv]',
     ...(input.hasAudio ? ['-map', '[outa]', '-c:a', 'aac'] : ['-an']),
-    '-c:v', 'libx264',
-    '-preset', 'medium',
+    ...videoEncoderArguments(input.videoEncoder),
     '-movflags', '+faststart',
+    '-progress', 'pipe:2',
+    '-nostats',
     input.output
   ];
 }
 
 function aspectRatioFilter(value: ClipAspectRatio): string[] {
-  if (value === '16:9') return ['scale=1920:1080:force_original_aspect_ratio=increase', 'crop=1920:1080'];
-  if (value === '9:16') return ['scale=1080:1920:force_original_aspect_ratio=increase', 'crop=1080:1920'];
-  if (value === '1:1') return ['scale=1080:1080:force_original_aspect_ratio=increase', 'crop=1080:1080'];
+  if (value === '16:9') return ["crop='min(iw,ih*16/9)':'min(ih,iw*9/16)'", 'scale=1920:1080:flags=bilinear'];
+  if (value === '9:16') return ["crop='min(iw,ih*9/16)':'min(ih,iw*16/9)'", 'scale=1080:1920:flags=bilinear'];
+  if (value === '1:1') return ["crop='min(iw,ih)':'min(iw,ih)'", 'scale=1080:1080:flags=bilinear'];
   return ['scale=trunc(iw/2)*2:trunc(ih/2)*2'];
+}
+
+function videoEncoderArguments(value: ClipVideoEncoder): string[] {
+  return value === 'h264_videotoolbox'
+    ? ['-c:v', value, '-q:v', '65', '-realtime', 'true', '-prio_speed', 'true']
+    : ['-c:v', value, '-preset', 'veryfast'];
+}
+
+function formatFfmpegTime(value: number): string {
+  return String(Math.max(0, Number(value.toFixed(3))));
 }
 
 function readFocus(value: unknown): 'balanced' | 'viral' | 'knowledge' {
   return value === 'viral' || value === 'knowledge' ? value : 'balanced';
+}
+
+function readGenre(value: unknown): ClipGenre {
+  return value === 'talk'
+    || value === 'podcast'
+    || value === 'tutorial'
+    || value === 'interview'
+    || value === 'entertainment'
+    || value === 'sports'
+    || value === 'gaming'
+    || value === 'news'
+    ? value
+    : 'auto';
 }
 
 function readDurationRange(value: unknown): { min: number; max: number } {
@@ -209,12 +282,35 @@ function safeFileName(value: string): string {
   return normalized || 'video-clip';
 }
 
-function runProcess(binary: string, args: string[], signal: AbortSignal): Promise<void> {
+function runProcess(
+  binary: string,
+  args: string[],
+  signal: AbortSignal,
+  onProgress?: (seconds: number) => void
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawnCreatorProcess(binary, args, { stdio: ['ignore', 'ignore', 'pipe'] }, signal);
     let stderr = '';
-    child.stderr?.on('data', chunk => { stderr += String(chunk); });
+    let progressBuffer = '';
+    child.stderr?.on('data', chunk => {
+      const text = String(chunk);
+      stderr = `${stderr}${text}`.slice(-4000);
+      progressBuffer += text;
+      const lines = progressBuffer.split(/\r?\n/);
+      progressBuffer = lines.pop() ?? '';
+      for (const line of lines) {
+        const seconds = parseFfmpegProgressTime(line);
+        if (seconds !== null) onProgress?.(seconds);
+      }
+    });
     child.once('error', reject);
     child.once('exit', code => code === 0 ? resolve() : reject(new Error(stderr.slice(-2000))));
   });
+}
+
+function parseFfmpegProgressTime(line: string): number | null {
+  const match = /^out_time=(\d+):(\d{2}):(\d{2}(?:\.\d+)?)$/.exec(line.trim());
+  if (!match) return null;
+  const seconds = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+  return Number.isFinite(seconds) ? seconds : null;
 }

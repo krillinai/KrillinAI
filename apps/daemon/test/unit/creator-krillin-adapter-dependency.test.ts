@@ -41,7 +41,11 @@ describe('KrillinAI configured transcription dependency', () => {
     expect(runKrillinCli).toHaveBeenCalledTimes(1);
     expect(runKrillinCli.mock.calls[0]?.[0]).toMatchObject({
       source: 'https://www.youtube.com/watch?v=demo',
-      options: { captionSource: 'platform' }
+      options: {
+        captionSource: 'platform',
+        originLanguage: 'auto',
+        targetLanguage: 'zh_cn'
+      }
     });
   });
 
@@ -64,7 +68,29 @@ describe('KrillinAI configured transcription dependency', () => {
     });
     expect(runKrillinCli.mock.calls[1]?.[0]).toMatchObject({
       source: expect.stringMatching(/^local:/),
-      options: { captionSource: 'whisper' }
+      options: {
+        captionSource: 'whisper',
+        originLanguage: 'auto',
+        targetLanguage: 'zh_cn'
+      }
+    });
+  });
+
+  it('preserves platform caption diagnostics when transcription fallback also fails', async () => {
+    const fixture = setup();
+    runKrillinCli
+      .mockRejectedValueOnce(new KrillinCliError(
+        'platform_caption_failed',
+        'No original YouTube captions are available'
+      ))
+      .mockRejectedValueOnce(new KrillinCliError(
+        'audio_transcription_failed',
+        'whisperkit-cli rejected the language option'
+      ));
+
+    await expect(fixture.executor.run(fixture.stage)).rejects.toMatchObject({
+      code: 'audio_transcription_failed',
+      message: expect.stringMatching(/No original YouTube captions.*whisperkit-cli rejected/)
     });
   });
 });

@@ -53,6 +53,7 @@ export function createKrillinExecutor(input: {
           options
         );
         let completed: KrillinResultArtifact[] | undefined;
+        let deferredFailure: KrillinCliError | undefined;
         for (const attempt of attempts) {
           try {
             if (requiresTranscriptionDependency(stage.stageRun.stageId, attempt.options)) {
@@ -80,7 +81,11 @@ export function createKrillinExecutor(input: {
               error instanceof KrillinCliError
               && error.code === attempt.continueOnErrorCode
             ) {
+              deferredFailure = error;
               continue;
+            }
+            if (deferredFailure !== undefined) {
+              throw combineKrillinFallbackFailures(deferredFailure, error);
             }
             throw error;
           }
@@ -168,8 +173,12 @@ export function buildKrillinStageOptions(input: CreatorExecutorInput): Record<st
   const state = input.job.state;
   return compactObject({
     sourceUrl: typeof state.sourceUrl === 'string' ? state.sourceUrl : undefined,
-    originLanguage: typeof state.sourceLanguage === 'string' ? state.sourceLanguage : undefined,
-    targetLanguage: typeof state.targetLanguage === 'string' ? state.targetLanguage : undefined,
+    originLanguage: normalizeKrillinLanguage(
+      typeof state.sourceLanguage === 'string' ? state.sourceLanguage : undefined
+    ),
+    targetLanguage: normalizeKrillinLanguage(
+      typeof state.targetLanguage === 'string' ? state.targetLanguage : undefined
+    ),
     captionSource: state.preferPlatformCaptions === false ? 'whisper' : 'any',
     sourceOnly: input.job.templateId === 'stickman-video'
       && input.stageRun.stageId === 'source-transcript',
@@ -183,6 +192,35 @@ export function buildKrillinStageOptions(input: CreatorExecutorInput): Record<st
     dubbed: state.dubbing === true || state.dubbed === true,
     subtitleStyle: buildKrillinSubtitleStyle(state.subtitleStyle)
   });
+}
+
+export function normalizeKrillinLanguage(value: string | undefined): string | undefined {
+  const normalized = value?.trim().toLowerCase().replaceAll('_', '-');
+  if (!normalized) return undefined;
+  if (normalized === 'auto') return 'auto';
+  if (['zh-tw', 'zh-hant', 'zh-hk', 'zh-mo'].includes(normalized)) return 'zh_tw';
+  if (['zh', 'zh-cn', 'zh-hans', 'zh-sg'].includes(normalized)) return 'zh_cn';
+  if (normalized === 'iw') return 'he';
+  return normalized.split('-', 1)[0];
+}
+
+function combineKrillinFallbackFailures(platformFailure: KrillinCliError, fallbackFailure: unknown): Error {
+  const fallbackMessage = fallbackFailure instanceof Error
+    ? fallbackFailure.message
+    : 'Unknown audio transcription failure';
+  const message = `Platform captions failed: ${platformFailure.message}; audio transcription fallback failed: ${fallbackMessage}`;
+  if (fallbackFailure instanceof KrillinCliError) {
+    return new KrillinCliError(
+      fallbackFailure.code,
+      message,
+      fallbackFailure.kind,
+      fallbackFailure.retryable
+    );
+  }
+  if (fallbackFailure instanceof CreatorExecutorError) {
+    return new CreatorExecutorError(fallbackFailure.code, message);
+  }
+  return new CreatorExecutorError('krillin_stage_failed', message);
 }
 
 export function buildKrillinSubtitleStyle(value: CreatorJson | undefined): Record<string, unknown> | undefined {

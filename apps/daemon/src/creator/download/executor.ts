@@ -448,6 +448,7 @@ async function downloadLegacy(
       path,
       metadata: {
         ...media,
+        ...sourceMetadata(probe),
         fileName: basename(path),
         size: info.size,
         bytes: info.size,
@@ -602,19 +603,12 @@ async function outputMetadata(
   ]);
   return {
     ...media,
+    ...sourceMetadata(probe),
     fileName: playback.fileName,
     size: info.size,
     bytes: info.size,
     sha256,
     mimeType: mimeTypeFor(path),
-    source: 'video-download',
-    sourceUrl: probe.url || probe.requestedUrl,
-    requestedUrl: probe.requestedUrl,
-    platform: probe.platform,
-    sourceId: probe.id,
-    title: probe.title,
-    uploader: probe.uploader,
-    thumbnailUrl: probe.thumbnailUrl,
     optionId: option.id,
     mediaType: option.mediaType,
     container: option.container,
@@ -636,6 +630,19 @@ async function outputMetadata(
     ...(option.bitrateKbps === undefined
       ? {}
       : { selectedBitrateKbps: option.bitrateKbps })
+  };
+}
+
+function sourceMetadata(probe: DownloadProbe): Record<string, CreatorJson> {
+  return {
+    source: 'video-download',
+    sourceUrl: probe.url || probe.requestedUrl,
+    requestedUrl: probe.requestedUrl,
+    platform: probe.platform,
+    sourceId: probe.id,
+    title: probe.title,
+    uploader: probe.uploader,
+    thumbnailUrl: probe.thumbnailUrl
   };
 }
 

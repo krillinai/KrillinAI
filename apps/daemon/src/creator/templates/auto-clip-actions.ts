@@ -9,7 +9,10 @@ export function createAutoClipWorkflow(input: {
   dispatcher: Pick<CreatorCommandDispatcher, 'dispatch'>;
 }) {
   async function continueFrom(stage: CreatorStageRun): Promise<void> {
-    if (stage.status !== 'succeeded' || stage.progress.workflow !== true) return;
+    if (
+      stage.status !== 'succeeded'
+      || (stage.progress.workflow !== true && stage.stageId !== 'analyze')
+    ) return;
     const job = input.creator.getJob(stage.jobId);
     if (job === undefined || job.templateId !== 'auto-clip') return;
     const nextStageId = nextWorkflowStage(stage.stageId);
@@ -26,7 +29,7 @@ export function createAutoClipWorkflow(input: {
         if (job.templateId !== 'auto-clip') continue;
         const completed = [...job.stages].reverse().find(stage => (
           stage.status === 'succeeded'
-          && stage.progress.workflow === true
+          && (stage.progress.workflow === true || stage.stageId === 'analyze')
           && nextWorkflowStage(stage.stageId) !== undefined
           && !hasLaterWorkflowStage(job, stage)
         ));
@@ -40,6 +43,7 @@ function nextWorkflowStage(stageId: string): string | undefined {
   if (stageId === 'probe') return 'download';
   if (stageId === 'download') return 'subtitle';
   if (stageId === 'subtitle') return 'analyze';
+  if (stageId === 'analyze') return 'render';
   return undefined;
 }
 

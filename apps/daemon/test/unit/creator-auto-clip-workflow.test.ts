@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 describe('auto clip workflow', () => {
-  it('queues URL preparation, transcription, and analysis in order', async () => {
+  it('queues URL preparation, transcription, analysis, and rendering in order', async () => {
     const fixture = setup('url');
     const probe = fixture.dispatcher.dispatch(fixture.jobId, {
       action: 'run-stage',
@@ -36,10 +36,15 @@ describe('auto clip workflow', () => {
     expect(subtitle.stageId).toBe('subtitle');
     const analyze = await succeedAndContinue(fixture, subtitle.id);
     expect(analyze.stageId).toBe('analyze');
-    await succeedAndContinue(fixture, analyze.id);
+    const render = await succeedAndContinue(fixture, analyze.id);
+    expect(render).toMatchObject({
+      stageId: 'render',
+      progress: { workflow: true, workflowParentStageRunId: analyze.id }
+    });
+    await succeedAndContinue(fixture, render.id);
 
     expect(fixture.service.getJob(fixture.jobId)?.stages.map(stage => stage.stageId))
-      .toEqual(['probe', 'download', 'subtitle', 'analyze']);
+      .toEqual(['probe', 'download', 'subtitle', 'analyze', 'render']);
     fixture.db.close();
   });
 
@@ -57,6 +62,29 @@ describe('auto clip workflow', () => {
     expect(analyze).toMatchObject({
       stageId: 'analyze',
       progress: { workflow: true, workflowParentStageRunId: subtitle }
+    });
+    const render = await succeedAndContinue(fixture, analyze.id);
+    expect(render).toMatchObject({
+      stageId: 'render',
+      progress: { workflow: true, workflowParentStageRunId: analyze.id }
+    });
+    fixture.db.close();
+  });
+
+  it('renders after a directly requested analysis without requiring a selection', async () => {
+    const fixture = setup('file');
+    const analyze = fixture.dispatcher.dispatch(fixture.jobId, {
+      action: 'run-stage',
+      expectedRevision: 0,
+      idempotencyKey: 'auto-clip-direct-analysis',
+      input: { stageId: 'analyze' }
+    }, 'user').commandReceipt.stageRunId!;
+
+    const render = await succeedAndContinue(fixture, analyze);
+
+    expect(render).toMatchObject({
+      stageId: 'render',
+      progress: { workflow: true, workflowParentStageRunId: analyze }
     });
     fixture.db.close();
   });

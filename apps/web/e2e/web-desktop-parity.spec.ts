@@ -718,10 +718,10 @@ test('视频切片在 Browser/Desktop Bridge 下保持相同界面、请求和�
       await workspace.getByRole('button', { name: '下一步：切片设置' }).click();
       await workspace.getByRole('combobox', { name: '内容重点' }).selectOption('viral');
       await workspace.getByRole('combobox', { name: '目标时长' }).selectOption('30-60');
-      await workspace.getByRole('spinbutton', { name: '候选数量' }).fill('6');
+      await workspace.getByRole('spinbutton', { name: '切片数量' }).fill('6');
       await workspace.getByRole('combobox', { name: '输出画幅' }).selectOption('1:1');
       await expect(workspace.getByLabel('任务摘要')).toContainText('传播潜力优先');
-      await expect(workspace.getByLabel('任务摘要')).toContainText('候选片段6');
+      await expect(workspace.getByLabel('任务摘要')).toContainText('切片数量6');
 
       await expect.poll(async () => (
         await runtime.api<{

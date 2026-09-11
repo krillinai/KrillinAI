@@ -527,7 +527,6 @@ function creatorDraftDefaults(templateId: string): Record<string, unknown[]> {
       duration: ['30-60'],
       clipCount: [10],
       aspectRatio: ['9:16'],
-      selectedCandidateIds: [[]],
       currentStage: [null]
     };
   }

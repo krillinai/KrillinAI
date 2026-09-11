@@ -13,7 +13,6 @@ export function createLegacyAutoClipTemplate(): CreatorTemplateDefinition {
       sourceLanguage: z.string().default('auto'),
       targetLanguage: z.string().default('zh-CN'),
       preferPlatformCaptions: z.boolean().default(true),
-      selectedCandidateIds: z.array(z.string()).default([]),
       currentStage: z.string().nullable().default(null)
     }).passthrough() as never,
     stages: [
@@ -29,7 +28,7 @@ export function createLegacyAutoClipTemplate(): CreatorTemplateDefinition {
       { id: 'undo-action', inputSchema: record, allowedStages: ['probe', 'download', 'subtitle', 'analyze', 'render'] }
     ],
     outputs: [{ kind: 'auto_clip_video', required: true }],
-    agentGuidance: '先分析并展示四维评分候选，用户选择后再渲染。'
+    agentGuidance: '分析高光片段后自动将全部片段分别渲染为独立视频文件。'
   };
 }
 
@@ -47,10 +46,10 @@ export function createAutoClipTemplate(): CreatorTemplateDefinition {
       targetLanguage: z.string().default('zh-CN'),
       preferPlatformCaptions: z.boolean().default(true),
       focus: z.enum(['balanced', 'viral', 'knowledge']).default('balanced'),
+      genre: z.enum(['auto', 'talk', 'podcast', 'tutorial', 'interview', 'entertainment', 'sports', 'gaming', 'news']).default('auto'),
       duration: z.enum(['15-30', '30-60', '60-90']).default('30-60'),
       clipCount: z.number().int().min(1).max(20).default(10),
       aspectRatio: z.enum(['source', '16:9', '9:16', '1:1']).default('9:16'),
-      selectedCandidateIds: z.array(z.string()).default([]),
       currentStage: z.string().nullable().default(null)
     }).passthrough() as never,
     stages: [
@@ -117,7 +116,7 @@ export function createAutoClipTemplate(): CreatorTemplateDefinition {
     agentGuidance: [
       '这是视频切片模板。',
       'URL 来源从 probe 开始并设置 workflow=true，本地或导入视频从 subtitle 开始并设置 workflow=true。',
-      'analyze 完成后先展示候选片段与评分，用户选择 selectedCandidateIds 后再运行 render。',
+      '工作流必须从 analyze 自动继续到 render，将本次分析出的全部片段直接生成视频。',
       '不得把多个候选片段拼接成一个文件。'
     ].join(' ')
   };

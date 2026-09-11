@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { analyzeClips, parseClipCandidates } from '../../src/creator/clip/analyzer.js';
 
 describe('clip analyzer', () => {
-  it('passes focus, duration, and candidate limits to the model prompt', async () => {
+  it('passes content settings and candidate limits to the model prompt', async () => {
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body)) as {
         messages: Array<{ content: string }>;
@@ -10,6 +10,7 @@ describe('clip analyzer', () => {
       expect(request.messages[0]!.content).toContain('优先寻找开头抓人');
       expect(request.messages[0]!.content).toContain('最多 1 个片段');
       expect(request.messages[0]!.content).toContain('30-60 秒');
+      expect(request.messages[0]!.content).toContain('内容类型：教程或知识讲解');
       return new Response(JSON.stringify({
         choices: [{
           message: {
@@ -32,6 +33,7 @@ describe('clip analyzer', () => {
       transcript: '这是一段用于验证高光识别设置的字幕。',
       duration: 120,
       focus: 'viral',
+      genre: 'tutorial',
       minDuration: 30,
       maxDuration: 60,
       count: 1,

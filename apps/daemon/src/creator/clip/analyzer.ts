@@ -17,6 +17,7 @@ const candidateSchema = z.object({
 
 const responseSchema = z.object({ candidates: z.array(candidateSchema) }).strict();
 export type ClipCandidate = z.infer<typeof candidateSchema>;
+export type ClipGenre = 'auto' | 'talk' | 'podcast' | 'tutorial' | 'interview' | 'entertainment' | 'sports' | 'gaming' | 'news';
 
 export function parseClipCandidates(value: unknown, duration: number): ClipCandidate[] {
   const parsed = responseSchema.parse(value);
@@ -42,6 +43,7 @@ export async function analyzeClips(input: {
   minDuration: number;
   maxDuration: number;
   count: number;
+  genre?: ClipGenre;
   fetchImpl?: typeof fetch;
 }): Promise<ClipCandidate[]> {
   const response = await (input.fetchImpl ?? fetch)(`${input.baseUrl.replace(/\/$/, '') || 'https://api.openai.com/v1'}/chat/completions`, {
@@ -77,15 +79,18 @@ function buildClipAnalysisPrompt(input: {
   minDuration: number;
   maxDuration: number;
   count: number;
+  genre?: ClipGenre;
 }): string {
   const focus = input.focus === 'viral'
     ? '优先寻找开头抓人、情绪明确、适合社交平台独立传播的片段'
     : input.focus === 'knowledge'
       ? '优先寻找观点完整、信息密度高、无需上下文也能理解的知识片段'
       : '平衡开头吸引力、信息价值、情绪强度和观点完整度';
+  const genre = genreInstruction(input.genre ?? 'auto');
   return [
     '你是短视频剪辑分析器。请从字幕中选择互不重叠、脱离原视频也能独立成立的高光片段。',
     `分析偏好：${focus}。`,
+    `内容类型：${genre}。`,
     `返回最多 ${input.count} 个片段，每个片段时长必须在 ${input.minDuration}-${input.maxDuration} 秒之间。`,
     '标题要简洁具体；transcript 必须是该时间范围内可直接展示给用户的完整字幕；reason 解释它为什么适合作为短视频。',
     '四项评分均使用 0-100 的整数：hook 开头吸引力，information 信息价值，emotion 情绪强度，completeness 观点完整度。',
@@ -94,4 +99,16 @@ function buildClipAnalysisPrompt(input: {
     `媒体总时长：${input.duration} 秒。`,
     `字幕：\n${input.transcript}`
   ].join('\n');
+}
+
+function genreInstruction(value: ClipGenre): string {
+  if (value === 'talk') return '演讲或观点表达';
+  if (value === 'podcast') return '播客对谈';
+  if (value === 'tutorial') return '教程或知识讲解';
+  if (value === 'interview') return '人物访谈';
+  if (value === 'entertainment') return '娱乐内容';
+  if (value === 'sports') return '体育内容';
+  if (value === 'gaming') return '游戏内容';
+  if (value === 'news') return '新闻或时事内容';
+  return '自动判断，不预设内容类型';
 }
