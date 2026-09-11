@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { verifyCreatorRuntime } from '../scripts/creator-runtime-contract.mjs';
 import { verifyStickmanRuntime } from '../scripts/stickman-runtime-contract.mjs';
 import {
+  signDaemonRuntimeBundle,
   signCreatorRuntimeBundle,
   signStickmanRuntimeBundle,
   updateManifestHashes
@@ -117,6 +118,42 @@ describe('Creator Runtime Developer ID signing', () => {
       'darwin',
       'arm64'
     )).not.toThrow();
+  });
+
+  it('signs native dependencies in the packaged Daemon', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'opencreator-daemon-signing-'));
+    temporaryDirectories.push(root);
+    const appOutDir = join(root, 'mac-arm64');
+    const daemonRoot = join(
+      appOutDir,
+      'OpenCreator.app',
+      'Contents',
+      'Resources',
+      'daemon'
+    );
+    const binaryPaths = [
+      join(daemonRoot, 'node_modules', '@remotion', 'compositor', 'ffmpeg'),
+      join(daemonRoot, 'node_modules', '@img', 'sharp', 'libvips.dylib')
+    ];
+    for (const path of binaryPaths) {
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, 'binary');
+    }
+    const signBinary = vi.fn();
+
+    await signDaemonRuntimeBundle(createContext(appOutDir), {
+      env: signingEnv(),
+      findIdentity: () => 'Developer ID Application: Junxi YIN (NVRH5R5DJ5)',
+      findBinaries: () => binaryPaths,
+      signBinary
+    });
+
+    expect(signBinary).toHaveBeenCalledTimes(binaryPaths.length);
+    expect(signBinary).toHaveBeenCalledWith(
+      binaryPaths[0],
+      'Developer ID Application: Junxi YIN (NVRH5R5DJ5)',
+      '/tmp/release.keychain'
+    );
   });
 });
 

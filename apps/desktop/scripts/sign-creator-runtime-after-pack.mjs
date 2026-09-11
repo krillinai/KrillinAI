@@ -28,8 +28,18 @@ const machOMagicValues = new Set([
 
 export async function afterPack(context) {
   if (process.env.OPENCREATOR_SIGN_CREATOR_RUNTIME !== '1') return;
+  await signDaemonRuntimeBundle(context);
   await signCreatorRuntimeBundle(context);
   await signStickmanRuntimeBundle(context);
+}
+
+export async function signDaemonRuntimeBundle(context, options = {}) {
+  return signPackagedRuntime(context, options, {
+    name: 'Daemon Runtime',
+    relativeRoot: ['daemon'],
+    verifyRuntime: () => undefined,
+    updateManifest: false
+  });
 }
 
 export async function signCreatorRuntimeBundle(context, options = {}) {
@@ -92,7 +102,9 @@ async function signPackagedRuntime(context, options, runtime) {
   for (const path of binaries) {
     await signBinary(path, identity, keychainFile);
   }
-  updateManifestHashes(runtimeRoot, binaries);
+  if (runtime.updateManifest !== false) {
+    updateManifestHashes(runtimeRoot, binaries);
+  }
   verifyRuntime(runtimeRoot, 'darwin', arch);
   console.log(
     `[desktop-package] Signed ${binaries.length} ${runtime.name} binaries`
@@ -163,7 +175,7 @@ function signMachOBinary(path, identity, keychainFile) {
   if (result.error) throw result.error;
   if (result.status !== 0) {
     throw new Error(
-      `Unable to sign Creator Runtime binary ${path}: `
+      `Unable to sign packaged runtime binary ${path}: `
       + `${result.stderr || result.stdout}`
     );
   }
