@@ -59,8 +59,11 @@ describe('Desktop release runtime regressions', () => {
       'cross-spawn': '7.0.6',
       fastify: '5.9.0',
       sharp: '0.35.4',
+      toml: '4.2.0',
       yauzl: '3.4.0'
     });
+    expect(daemonPackage.dependencies.toml)
+      .toBe(runtimePackage.dependencies.toml);
     expect(runtimePackage.dependencies).not.toHaveProperty('which');
     expect(prepareSource).toContain("'writing-templates'");
     expect(prepareSource).toContain(
