@@ -2,9 +2,9 @@ import { readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { Worker } from 'node:worker_threads';
 import type { CreatorExecutor } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
-import { spawnCreatorProcess } from '../process-tree.js';
 import { validateMediaFile } from '../validators/media.js';
 import { readStickmanRemotionRuntime, type StickmanRemotionRuntime } from './remotion-runtime.js';
 
@@ -114,25 +114,38 @@ function runWorker(
   signal: AbortSignal
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const workerArgs = extname(workerEntrypoint).toLowerCase() === '.ts'
-      ? [
-          '--import',
-          pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href,
-          workerEntrypoint,
-          requestPath,
-          resultPath
-        ]
-      : [workerEntrypoint, requestPath, resultPath];
-    const child = spawnCreatorProcess(
-      process.execPath,
-      workerArgs,
-      { cwd: dirname(requestPath), stdio: ['ignore', 'ignore', 'pipe'] },
-      signal
-    );
+    if (signal.aborted) {
+      reject(new CreatorExecutorError('creator_stage_canceled', 'Creator stage was canceled'));
+      return;
+    }
+    const isTypeScript = extname(workerEntrypoint).toLowerCase() === '.ts';
+    const worker = new Worker(pathToFileURL(workerEntrypoint), {
+      argv: [requestPath, resultPath],
+      execArgv: isTypeScript
+        ? ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href]
+        : [],
+      stderr: true
+    });
     let stderr = '';
-    child.stderr?.on('data', chunk => { stderr += String(chunk); });
-    child.once('error', reject);
-    child.once('exit', code => {
+    let settled = false;
+    worker.stderr.on('data', chunk => { stderr += String(chunk); });
+    const cleanup = () => signal.removeEventListener('abort', abort);
+    const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+    const abort = () => { void worker.terminate(); };
+    signal.addEventListener('abort', abort, { once: true });
+    worker.once('error', error => fail(new CreatorExecutorError(
+      'stickman_remotion_worker_failed',
+      error.message
+    )));
+    worker.once('exit', code => {
+      if (settled) return;
+      settled = true;
+      cleanup();
       if (code === 0) resolve();
       else reject(new CreatorExecutorError(
         'stickman_remotion_worker_failed',

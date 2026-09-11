@@ -43,6 +43,38 @@ describe('stickman Remotion worker isolation', () => {
     });
   });
 
+  it('runs the worker without spawning process.execPath as a Node executable', async () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'creator-stickman-remotion-success-'));
+    const timelinePath = join(tempDir, 'timeline.json');
+    writeFileSync(timelinePath, JSON.stringify({ fps: 30, width: 1280, height: 720, totalFrames: 30, shots: [] }));
+    const successWorker = join(tempDir, 'success-worker.mjs');
+    writeFileSync(successWorker, [
+      "import { readFileSync, writeFileSync } from 'node:fs';",
+      'const request = JSON.parse(readFileSync(process.argv[2], \'utf8\'));',
+      "writeFileSync(request.outputPath, 'fixture-video');",
+      "writeFileSync(process.argv[3], JSON.stringify({ ok: true }));"
+    ].join('\n'));
+    const executor = createStickmanRemotionExecutor({
+      ffprobePath: 'unused',
+      runtimeRoot: tempDir,
+      workerEntrypoint: successWorker,
+      runtime: { root: tempDir, bundlePath: join(tempDir, 'bundle'), browserExecutable: join(tempDir, 'browser') },
+      validateVideo: async () => ({ duration: 1, width: 1280, height: 720, hasVideo: true, hasAudio: true })
+    });
+
+    const result = await executor.run({
+      stageRun: { id: 'stage-success', stageId: 'render-clean' },
+      job: { id: 'job-success' },
+      inputArtifacts: [{ id: 'timeline-1', kind: 'timeline_manifest', status: 'completed', path: timelinePath }],
+      workdir: tempDir,
+      reportProgress() {},
+      signal: new AbortController().signal
+    } as never);
+
+    expect(result.outputs).toHaveLength(1);
+    expect(existsSync(join(tempDir, 'landscape-clean.mp4'))).toBe(true);
+  });
+
   it('isolates worker crashes and cancellation without leaving a clean video', async () => {
     tempDir = mkdtempSync(join(tmpdir(), 'creator-stickman-remotion-'));
     const timelinePath = join(tempDir, 'timeline.json');
