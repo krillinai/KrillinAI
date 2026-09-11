@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto';
 import { join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { verifyCreatorRuntime } from './creator-runtime-contract.mjs';
+import { verifyStickmanRuntime } from './stickman-runtime-contract.mjs';
 import { findDeveloperIdIdentity } from './mac-signing.mjs';
 
 const machOMagicValues = new Set([
@@ -28,9 +29,26 @@ const machOMagicValues = new Set([
 export async function afterPack(context) {
   if (process.env.OPENCREATOR_SIGN_CREATOR_RUNTIME !== '1') return;
   await signCreatorRuntimeBundle(context);
+  await signStickmanRuntimeBundle(context);
 }
 
 export async function signCreatorRuntimeBundle(context, options = {}) {
+  return signPackagedRuntime(context, options, {
+    name: 'Creator Runtime',
+    relativeRoot: ['creator-runtime', 'krillinai'],
+    verifyRuntime: options.verifyRuntime ?? verifyCreatorRuntime
+  });
+}
+
+export async function signStickmanRuntimeBundle(context, options = {}) {
+  return signPackagedRuntime(context, options, {
+    name: 'Stickman Runtime',
+    relativeRoot: ['stickman-runtime'],
+    verifyRuntime: options.verifyRuntime ?? verifyStickmanRuntime
+  });
+}
+
+async function signPackagedRuntime(context, options, runtime) {
   const env = options.env ?? process.env;
   if (context.electronPlatformName !== 'darwin') {
     throw new Error('Creator Runtime Developer ID signing requires macOS');
@@ -51,14 +69,13 @@ export async function signCreatorRuntimeBundle(context, options = {}) {
     `${productFilename}.app`,
     'Contents',
     'Resources',
-    'creator-runtime',
-    'krillinai'
+    ...runtime.relativeRoot
   );
   if (!existsSync(runtimeRoot)) {
-    throw new Error(`Creator Runtime is missing from the app: ${runtimeRoot}`);
+    throw new Error(`${runtime.name} is missing from the app: ${runtimeRoot}`);
   }
 
-  const verifyRuntime = options.verifyRuntime ?? verifyCreatorRuntime;
+  const verifyRuntime = runtime.verifyRuntime;
   verifyRuntime(runtimeRoot, 'darwin', arch);
 
   const signingInfo = await context.packager.codeSigningInfo.value;
@@ -68,7 +85,7 @@ export async function signCreatorRuntimeBundle(context, options = {}) {
   const findBinaries = options.findBinaries ?? findMachOBinaries;
   const binaries = findBinaries(runtimeRoot);
   if (binaries.length === 0) {
-    throw new Error('Creator Runtime does not contain any Mach-O binaries');
+    throw new Error(`${runtime.name} does not contain any Mach-O binaries`);
   }
 
   const signBinary = options.signBinary ?? signMachOBinary;
@@ -78,7 +95,7 @@ export async function signCreatorRuntimeBundle(context, options = {}) {
   updateManifestHashes(runtimeRoot, binaries);
   verifyRuntime(runtimeRoot, 'darwin', arch);
   console.log(
-    `[desktop-package] Signed ${binaries.length} Creator Runtime binaries`
+    `[desktop-package] Signed ${binaries.length} ${runtime.name} binaries`
   );
 }
 
@@ -97,6 +114,9 @@ export function updateManifestHashes(runtimeRoot, signedPaths) {
       );
     }
     resource.sha256 = hashFile(path);
+    if (Number.isSafeInteger(resource.bytes)) {
+      resource.bytes = statSync(path).size;
+    }
   }
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }

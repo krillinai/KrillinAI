@@ -10,8 +10,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { verifyCreatorRuntime } from '../scripts/creator-runtime-contract.mjs';
+import { verifyStickmanRuntime } from '../scripts/stickman-runtime-contract.mjs';
 import {
   signCreatorRuntimeBundle,
+  signStickmanRuntimeBundle,
   updateManifestHashes
 } from '../scripts/sign-creator-runtime-after-pack.mjs';
 
@@ -92,7 +94,51 @@ describe('Creator Runtime Developer ID signing', () => {
       [undeclared]
     )).toThrow(/absent from its manifest/i);
   });
+
+  it('signs the packaged Stickman browser and refreshes its manifest', async () => {
+    const fixture = createStickmanFixture();
+    const signBinary = vi.fn(path => {
+      writeFileSync(path, Buffer.concat([
+        readFileSync(path),
+        Buffer.from('-developer-id-signature')
+      ]));
+    });
+
+    await signStickmanRuntimeBundle(createContext(fixture.appOutDir), {
+      env: signingEnv(),
+      findIdentity: () => 'Developer ID Application: Junxi YIN (NVRH5R5DJ5)',
+      findBinaries: () => fixture.binaryPaths,
+      signBinary
+    });
+
+    expect(signBinary).toHaveBeenCalledTimes(fixture.binaryPaths.length);
+    expect(() => verifyStickmanRuntime(
+      fixture.runtimeRoot,
+      'darwin',
+      'arm64'
+    )).not.toThrow();
+  });
 });
+
+function createContext(appOutDir) {
+  return {
+    electronPlatformName: 'darwin',
+    appOutDir,
+    packager: {
+      appInfo: { productFilename: 'OpenCreator' },
+      codeSigningInfo: {
+        value: Promise.resolve({ keychainFile: '/tmp/release.keychain' })
+      }
+    }
+  };
+}
+
+function signingEnv() {
+  return {
+    OPENCREATOR_APPLE_TEAM_ID: 'NVRH5R5DJ5',
+    OPENCREATOR_DESKTOP_TARGET_ARCH: 'arm64'
+  };
+}
 
 function createFixture() {
   const root = mkdtempSync(join(tmpdir(), 'opencreator-runtime-signing-'));
@@ -153,6 +199,66 @@ function createFixture() {
       join(runtimeRoot, 'bin', 'ffprobe'),
       join(runtimeRoot, 'bin', 'yt-dlp')
     ]
+  };
+}
+
+function createStickmanFixture() {
+  const root = mkdtempSync(join(tmpdir(), 'opencreator-stickman-signing-'));
+  temporaryDirectories.push(root);
+  const appOutDir = join(root, 'mac-arm64');
+  const runtimeRoot = join(
+    appOutDir,
+    'OpenCreator.app',
+    'Contents',
+    'Resources',
+    'stickman-runtime'
+  );
+  const files = {
+    'bundle/site/index.html': '<html></html>',
+    'browser/chrome-headless-shell': 'chromium',
+    'fonts/NotoSans-Bold.woff2': 'font',
+    'fonts/NotoSansSC-Bold.woff2': 'font',
+    'fonts/OFL.txt': 'license',
+    'visual-assets/catalog.json': '{}'
+  };
+  for (const character of [
+    'default', 'tech-guy', 'long-hair', 'short-hair', 'hiphop',
+    'student', 'elder', 'manager', 'chef', 'fitness'
+  ]) {
+    files[`characters/${character}.png`] = character;
+  }
+  for (const [relativePath, contents] of Object.entries(files)) {
+    const path = join(runtimeRoot, relativePath);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, contents);
+  }
+  const resources = Object.keys(files).map(path => ({
+    path,
+    kind: path.startsWith('browser/') ? 'browser'
+      : path.startsWith('bundle/') ? 'bundle'
+        : path.startsWith('fonts/') ? 'font'
+          : path.startsWith('characters/') ? 'character'
+            : 'visual-asset',
+    sha256: hashFile(join(runtimeRoot, path)),
+    bytes: readFileSync(join(runtimeRoot, path)).length,
+    version: 'test',
+    platform: 'darwin',
+    arch: 'arm64'
+  }));
+  writeFileSync(join(runtimeRoot, 'manifest.json'), `${JSON.stringify({
+    version: 1,
+    platform: 'darwin',
+    arch: 'arm64',
+    remotionVersion: '4.0.473',
+    chromiumVersion: '149.0.7790.0',
+    bundlePath: 'bundle/site',
+    browserExecutable: 'browser/chrome-headless-shell',
+    resources
+  }, null, 2)}\n`);
+  return {
+    appOutDir,
+    runtimeRoot,
+    binaryPaths: [join(runtimeRoot, 'browser', 'chrome-headless-shell')]
   };
 }
 
