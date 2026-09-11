@@ -46,6 +46,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends fonts-noto-cjk
           test -f /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
           test -f /usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc
+      - name: Prepare Electron for desktop tests
+        run: pnpm --filter @opencreator/desktop exec electron --version
       - run: pnpm test
       - run: pnpm release:verify-scheduled-task-upgrade
       - run: pnpm typecheck
