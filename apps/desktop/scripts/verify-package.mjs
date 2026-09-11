@@ -431,7 +431,9 @@ function assertStickmanRuntime() {
   if (firstDifferentPath !== undefined) {
     throw new Error(`Packaged Stickman Runtime file list differs from source at: ${firstDifferentPath}`);
   }
-  if (source.hash !== packaged.hash) {
+  const signedMacPackage = targetPlatform === 'darwin'
+    && process.env.OPENCREATOR_REQUIRE_DEVELOPER_ID === '1';
+  if (!signedMacPackage && source.hash !== packaged.hash) {
     throw new Error('Packaged Stickman Runtime contents differ from .pack/stickman-runtime');
   }
   if (
@@ -590,7 +592,7 @@ function verifyMacPackageMetadata() {
   }
   if (process.env.OPENCREATOR_REQUIRE_DEVELOPER_ID === '1') {
     verifyDeveloperIdSignature();
-    verifyEmbeddedCreatorRuntimeSignatures();
+    verifyEmbeddedRuntimeSignatures();
   }
   if (process.env.OPENCREATOR_REQUIRE_NOTARIZED_MAC_APP === '1') {
     if (process.env.OPENCREATOR_REQUIRE_DEVELOPER_ID !== '1') {
@@ -666,13 +668,15 @@ function verifyDeveloperIdSignature() {
   }
 }
 
-function verifyEmbeddedCreatorRuntimeSignatures() {
+function verifyEmbeddedRuntimeSignatures() {
   const embeddedBinaries = [];
-  walk(creatorRuntimeDir, path => {
-    if (isMachOBinary(path)) embeddedBinaries.push(path);
-  });
+  for (const root of [daemonDir, creatorRuntimeDir, stickmanRuntimeDir]) {
+    walk(root, path => {
+      if (isMachOBinary(path)) embeddedBinaries.push(path);
+    });
+  }
   if (embeddedBinaries.length === 0) {
-    throw new Error('Creator Runtime does not contain any macOS binaries');
+    throw new Error('Packaged runtimes do not contain any macOS binaries');
   }
   const expectedTeamId = process.env.OPENCREATOR_APPLE_TEAM_ID?.trim();
   for (const path of embeddedBinaries) {
@@ -696,7 +700,7 @@ function verifyEmbeddedCreatorRuntimeSignatures() {
       )
     ) {
       throw new Error(
-        'Embedded Creator Runtime binary is not signed for distribution: '
+        'Embedded runtime binary is not signed for distribution: '
         + `${relative(packageRoot, path)}`
       );
     }

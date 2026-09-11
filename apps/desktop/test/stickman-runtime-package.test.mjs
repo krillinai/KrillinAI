@@ -77,6 +77,19 @@ describe('Stickman Runtime package contract', () => {
       manifestHash
     )).toThrow(/exact Stickman Runtime/);
   });
+
+  it('keeps signed macOS package verification distinct from source hashes', () => {
+    const source = readFileSync(
+      new URL('../scripts/verify-package.mjs', import.meta.url),
+      'utf8'
+    );
+    expect(source).toContain("targetPlatform === 'darwin'");
+    expect(source).toContain("OPENCREATOR_REQUIRE_DEVELOPER_ID === '1'");
+    expect(source).toContain('!signedMacPackage && source.hash !== packaged.hash');
+    expect(source).toContain(
+      '[daemonDir, creatorRuntimeDir, stickmanRuntimeDir]'
+    );
+  });
 });
 
 function fixture() {
