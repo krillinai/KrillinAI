@@ -50,7 +50,9 @@ describe('Desktop release workflow', () => {
 
   it('builds signed macOS packages and unsigned Windows packages', () => {
     expect(releaseWorkflow).toContain("if: matrix.platform == 'darwin'");
-    expect(releaseWorkflow).toContain('run: pnpm desktop:release');
+    expect(releaseWorkflow).toContain(
+      'pnpm desktop:release 2>&1 | tee desktop-release.log'
+    );
     expect(releaseWorkflow).toContain("if: matrix.platform == 'win32'");
     expect(releaseWorkflow).toContain('run: pnpm desktop:dist');
     expect(releaseWorkflow).not.toContain('secrets.WINDOWS_CERTIFICATE');
@@ -71,8 +73,10 @@ describe('Desktop release workflow', () => {
     expect(releaseWorkflow).not.toContain('run: pnpm build');
   });
 
-  it('cancels remaining platform builds after the first package failure', () => {
-    expect(releaseWorkflow).toContain('fail-fast: true');
+  it('keeps platform diagnostics after one package target fails', () => {
+    expect(releaseWorkflow).toContain('fail-fast: false');
+    expect(releaseWorkflow).toContain('tail -n 80 desktop-release.log');
+    expect(releaseWorkflow).toContain('desktop-release.log');
   });
 
   it('supports single-platform manual validation while tag releases build every platform', () => {

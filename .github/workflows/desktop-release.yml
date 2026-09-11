@@ -87,7 +87,7 @@ jobs:
     needs: verify
     timeout-minutes: 90
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix: ${{ fromJSON(needs.verify.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     environment: release
@@ -145,7 +145,20 @@ jobs:
           key: desktop-build-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('pnpm-lock.yaml', 'apps/desktop/package.json', 'apps/desktop/packaging/daemon-runtime/pnpm-lock.yaml', 'apps/desktop/scripts/install-creator-runtime-dependencies.mjs', 'apps/desktop/scripts/creator-runtime-releases.mjs', 'scripts/build-krillinai.mjs', 'runtime/krillinai/**', 'resources/codex-runtime/**/manifest.json') }}
       - name: 生成 macOS 正式签名安装包
         if: matrix.platform == 'darwin'
-        run: pnpm desktop:release
+        shell: bash
+        run: |
+          set +e
+          pnpm desktop:release 2>&1 | tee desktop-release.log
+          release_status=${PIPESTATUS[0]}
+          if (( release_status != 0 )); then
+            {
+              echo '### macOS release failure tail'
+              echo '```text'
+              tail -n 80 desktop-release.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$release_status"
         env:
           OPENCREATOR_DESKTOP_TARGET_PLATFORM: ${{ matrix.platform }}
           OPENCREATOR_DESKTOP_TARGET_ARCH: ${{ matrix.arch }}
@@ -189,6 +202,7 @@ jobs:
             apps/desktop/release/opencreator-desktop-build-manifest-*.json
             apps/desktop/release/builder-debug.yml
             apps/desktop/release/builder-effective-config.yaml
+            desktop-release.log
             test-results/desktop-playwright-report/
           if-no-files-found: ignore
           retention-days: 14
