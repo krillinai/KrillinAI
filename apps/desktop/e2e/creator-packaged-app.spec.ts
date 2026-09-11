@@ -194,6 +194,9 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
     expect(creatorCapabilities.body.transcription.providers
       .filter(provider => provider.kind === 'local' && provider.available)
       .map(provider => provider.provider)).toEqual(expectedLocalProviders);
+    const availableLocalProvider = creatorCapabilities.body.transcription.providers.find(
+      provider => provider.kind === 'local' && provider.available
+    );
     const ytDlpStatus = await runtimeRequest<{
       ytDlp: {
         channel: string;
@@ -245,11 +248,24 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
     await expect(currentApp.page.getByRole('group', { name: '模型服务' })).toBeVisible();
     await currentApp.page.getByRole('tab', { name: '语音识别' }).click();
     const localWhisper = currentApp.page.getByRole('button', { name: '本地 Whisper' });
-    await expect(localWhisper).toBeEnabled();
-    await localWhisper.click();
-    await expect(currentApp.page.getByRole('combobox', { name: '语音识别服务' }))
-      .toHaveText('Whisper.cpp');
-    await expect(currentApp.page.getByRole('combobox', { name: '本地模型' })).toHaveText('tiny');
+    if (availableLocalProvider === undefined) {
+      await expect(localWhisper).toBeDisabled();
+    } else {
+      await expect(localWhisper).toBeEnabled();
+      await localWhisper.click();
+      const providerLabel = availableLocalProvider.provider === 'whisperkit'
+        ? 'WhisperKit'
+        : 'Whisper.cpp';
+      await expect(currentApp.page.getByRole('combobox', { name: '语音识别服务' }))
+        .toHaveText(providerLabel);
+      const expectedModel = availableLocalProvider.models[0];
+      if (availableLocalProvider.provider === 'whisperkit') {
+        await expect(currentApp.page.getByText(expectedModel, { exact: true })).toBeVisible();
+      } else {
+        await expect(currentApp.page.getByRole('combobox', { name: '本地模型' }))
+          .toHaveText(expectedModel);
+      }
+    }
     await currentApp.page.getByRole('tab', { name: '配音服务' }).click();
     const providerSelect = currentApp.page.getByRole('combobox', { name: '服务商' });
     await expect(providerSelect).toHaveText('OpenAI TTS');
