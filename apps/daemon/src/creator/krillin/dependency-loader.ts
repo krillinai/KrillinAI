@@ -322,7 +322,7 @@ async function installWhisperCppExecutable(
   }, null, 2)}\n`, { mode: 0o600 });
   await mkdir(dirname(executableRoot), { recursive: true });
   await rm(executableRoot, { recursive: true, force: true });
-  await rename(extracted, executableRoot);
+  await promoteDependencyPath(extracted, executableRoot);
 }
 
 async function installWhisperCppModel(
@@ -362,7 +362,7 @@ async function installWhisperCppModel(
   const model = join(modelRoot, `ggml-${input.model}.bin`);
   const marker = join(modelRoot, `.opencreator-${input.model}.json`);
   await rm(model, { force: true });
-  await rename(source, model);
+  await promoteDependencyPath(source, model);
   await writeFile(marker, `${JSON.stringify({
     version: 1,
     model: input.model,
@@ -540,7 +540,7 @@ async function installWhisperKitExecutable(
       throw new Error(`Unexpected WhisperKit CLI version: ${version}`);
     }
     await rm(executable, { force: true });
-    await rename(temporary, executable);
+    await promoteDependencyPath(temporary, executable);
   } finally {
     await rm(temporary, { force: true });
   }
@@ -575,7 +575,7 @@ async function installWhisperKitModel(
   await rm(join(source, '.DS_Store'), { force: true });
   await rm(join(source, 'AudioEncoder.mlmodelc', '.DS_Store'), { force: true });
   await rm(model, { recursive: true, force: true });
-  await rename(source, model);
+  await promoteDependencyPath(source, model);
   await verifyWhisperKitModel(model);
   await writeFile(marker, `${JSON.stringify({
     version: 1,
@@ -733,7 +733,7 @@ function runCommand(
       stderr = boundedAppend(stderr, String(chunk));
     });
     child.once('error', reject);
-    child.once('exit', code => {
+    child.once('close', code => {
       if (input.signal.aborted) {
         reject(new Error('dependency_download_canceled'));
       } else if (code !== 0) {
@@ -743,6 +743,37 @@ function runCommand(
       }
     });
   });
+}
+
+const dependencyRenameRetryDelays = [100, 200, 400, 800, 1_000, 1_000, 1_000] as const;
+
+export async function promoteDependencyPath(
+  source: string,
+  destination: string,
+  input: {
+    renamePath?: (source: string, destination: string) => Promise<void>;
+    wait?: (milliseconds: number) => Promise<void>;
+  } = {}
+): Promise<void> {
+  const renamePath = input.renamePath ?? rename;
+  const wait = input.wait ?? (milliseconds => new Promise(resolvePromise => {
+    setTimeout(resolvePromise, milliseconds);
+  }));
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await renamePath(source, destination);
+      return;
+    } catch (error) {
+      const retryDelay = dependencyRenameRetryDelays[attempt];
+      if (retryDelay === undefined || !isTransientRenameError(error)) throw error;
+      await wait(retryDelay);
+    }
+  }
+}
+
+function isTransientRenameError(error: unknown): boolean {
+  if (!(error instanceof Error) || !('code' in error)) return false;
+  return ['EACCES', 'EBUSY', 'EPERM'].includes(String(error.code));
 }
 
 function dependencyEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {

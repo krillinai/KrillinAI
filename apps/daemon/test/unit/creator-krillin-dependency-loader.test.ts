@@ -1,8 +1,31 @@
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 import { describe, expect, it } from 'vitest';
-import { createKrillinDependencyLoader } from '../../src/creator/krillin/dependency-loader.js';
+import {
+  createKrillinDependencyLoader,
+  promoteDependencyPath
+} from '../../src/creator/krillin/dependency-loader.js';
 
 describe('KrillinAI on-demand dependency loader', () => {
+  it('waits and retries when Windows temporarily locks a downloaded dependency', async () => {
+    let attempts = 0;
+    const delays: number[] = [];
+
+    await promoteDependencyPath('staged', 'installed', {
+      async renamePath() {
+        attempts += 1;
+        if (attempts < 3) {
+          throw Object.assign(new Error('operation not permitted'), { code: 'EPERM' });
+        }
+      },
+      async wait(milliseconds) {
+        delays.push(milliseconds);
+      }
+    });
+
+    expect(attempts).toBe(3);
+    expect(delays).toEqual([100, 200]);
+  });
+
   it('does not enable Windows x64 Whisper.cpp on ARM64', async () => {
     const loader = createKrillinDependencyLoader({ root: '/tmp/whispercpp', platform: 'win32', arch: 'arm64' });
     const config = createDefaultCreatorServicesConfig();
