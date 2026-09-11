@@ -76,6 +76,9 @@ describe('Desktop release workflow', () => {
   it('keeps platform diagnostics after one package target fails', () => {
     expect(releaseWorkflow).toContain('fail-fast: false');
     expect(releaseWorkflow).toContain('tail -n 80 desktop-release.log');
+    expect(releaseWorkflow).toContain(
+      '::error title=macOS release failure details::'
+    );
     expect(releaseWorkflow).toContain('desktop-release.log');
   });
 

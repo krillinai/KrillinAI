@@ -151,6 +151,11 @@ jobs:
           pnpm desktop:release 2>&1 | tee desktop-release.log
           release_status=${PIPESTATUS[0]}
           if (( release_status != 0 )); then
+            failure_tail="$(tail -n 40 desktop-release.log)"
+            failure_tail="${failure_tail//'%'/'%25'}"
+            failure_tail="${failure_tail//$'\r'/'%0D'}"
+            failure_tail="${failure_tail//$'\n'/'%0A'}"
+            echo "::error title=macOS release failure details::$failure_tail"
             {
               echo '### macOS release failure tail'
               echo '```text'
