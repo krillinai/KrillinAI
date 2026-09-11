@@ -47,14 +47,14 @@ jobs:
             gh run list \
               --workflow ci.yml \
               --commit "$GITHUB_SHA" \
-              --event workflow_dispatch \
+              --event push \
               --status success \
               --limit 1 \
               --json databaseId \
               --jq 'length'
           )"
           if [[ "$successful_runs" != "1" ]]; then
-            echo "::error::提交 $GITHUB_SHA 尚无成功的手动 CI，请先在 master 上运行 CI 并等待通过，再创建发布标签。"
+            echo "::error::提交 $GITHUB_SHA 尚无成功的 master push CI，请等待 CI 通过后再创建发布标签。"
             exit 1
           fi
       - name: 选择 Desktop 构建平台
