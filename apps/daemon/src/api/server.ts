@@ -274,6 +274,8 @@ export type BuildServerInput = {
   creatorSourceMaxSizeBytes?: number;
   creatorYtDlpPath?: string;
   creatorYtDlpUpdateManager?: YtDlpUpdateManager;
+  creatorRuntimePlatform?: NodeJS.Platform;
+  creatorRuntimeArch?: string;
   creatorExecutors?: CreatorExecutor[];
   creatorAgentRuntime?: AgentRuntimeAdapter;
   allowedWebOrigins?: string[];
@@ -529,7 +531,11 @@ export async function buildServer(input: BuildServerInput) {
   const creatorRuntimeRoot = process.env.OPENCREATOR_CREATOR_RUNTIME_ROOT
     ?? join(runtimeDir, 'krillinai');
   const krillinDependencyLoader = createKrillinDependencyLoader({
-    root: join(runtimeDir, 'krillinai', 'dependencies')
+    root: join(runtimeDir, 'krillinai', 'dependencies'),
+    ...(input.creatorRuntimePlatform === undefined
+      ? {}
+      : { platform: input.creatorRuntimePlatform }),
+    ...(input.creatorRuntimeArch === undefined ? {} : { arch: input.creatorRuntimeArch })
   });
   const krillinTtsService = createKrillinTtsService({
     resourceRoot: creatorRuntimeRoot,
