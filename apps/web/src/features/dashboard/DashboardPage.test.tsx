@@ -43,6 +43,7 @@ function createInMemoryCreatorService(): CreatorWebService {
       agentThreadId: null,
       stages: [],
       artifacts: [],
+      providerRequests: [],
       activities: [],
       createdAt: now,
       updatedAt: now
@@ -105,6 +106,8 @@ function createInMemoryCreatorService(): CreatorWebService {
   };
   return {
     createJob,
+    listVisualAssets: vi.fn(async () => ({ assets: dashboardVisualAssetCatalog() })),
+    openVisualAssetPreview: vi.fn(async () => new Response(new Blob(['preview']))),
     getJob: async (jobId: string) => {
       const job = jobs.get(jobId);
       if (job === undefined) throw new Error(`Creator job not found: ${jobId}`);
@@ -118,6 +121,47 @@ function createInMemoryCreatorService(): CreatorWebService {
   } as unknown as CreatorWebService;
 }
 
+function dashboardVisualAssetCatalog() {
+  return [{
+    id: 'stickman.character.default',
+    revision: 1,
+    templateId: 'stickman-video',
+    kind: 'character' as const,
+    source: 'builtin' as const,
+    status: 'ready' as const,
+    name: { zhCN: '默认角色', en: 'Default character' },
+    description: { zhCN: '默认火柴人角色', en: 'Default stickman character' },
+    previewUrl: null,
+    referenceCount: 1,
+    recommended: true,
+    tags: []
+  }, {
+    id: 'stickman.style.paper-pencil',
+    revision: 1,
+    templateId: 'stickman-video',
+    kind: 'style' as const,
+    source: 'builtin' as const,
+    status: 'ready' as const,
+    name: { zhCN: '纸面铅笔手绘', en: 'Pencil sketch on paper' },
+    description: { zhCN: '纸面铅笔手绘风格', en: 'Pencil sketch style' },
+    previewUrl: null,
+    referenceCount: 0,
+    recommended: true,
+    tags: [],
+    styleAttributes: {
+      medium: { zhCN: '手绘线条', en: 'Hand-drawn lines' },
+      palette: { zhCN: '黑白灰', en: 'Monochrome' },
+      sceneDensity: { zhCN: '适中', en: 'Medium' },
+      swatch: {
+        background: '#ffffff',
+        foreground: '#171717',
+        accent: '#a3a3a3',
+        texture: 'paper' as const
+      }
+    }
+  }];
+}
+
 function completeSmartDubbingStage(current: CreatorJob): CreatorJob {
   const now = new Date().toISOString();
   const version = current.artifacts.filter(artifact => artifact.kind === 'dubbed_audio').length + 1;
@@ -129,6 +173,9 @@ function completeSmartDubbingStage(current: CreatorJob): CreatorJob {
     version,
     status: 'completed',
     path: `/tmp/${fileName}`,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       resultVersion: version,
@@ -168,6 +215,8 @@ function completeSmartDubbingStage(current: CreatorJob): CreatorJob {
       claimExpiresAt: null,
       attempt: 1,
       idempotencyKey: null,
+      scopeKey: null,
+      inputFingerprint: null,
       progress: {
         phase: 'completed',
         percent: 100,
@@ -410,6 +459,8 @@ function completeTranslationStage(
         claimExpiresAt: null,
         attempt: 1,
         idempotencyKey: null,
+        scopeKey: null,
+        inputFingerprint: null,
         progress: {
           workflow: true,
           resultVersion: version,
@@ -449,6 +500,9 @@ function translationArtifact(
     version: input.artifactVersion ?? input.version,
     status: 'completed',
     path: `/tmp/${input.fileName}`,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       resultVersion: input.version,
@@ -604,6 +658,7 @@ describe('DashboardPage', () => {
         agentThreadId: null,
         stages: [],
         artifacts: [],
+        providerRequests: [],
         activities: [],
         createdAt,
         updatedAt: createdAt
@@ -728,18 +783,21 @@ describe('DashboardPage', () => {
     expect(within(videoTranslationCard).getByText('HOT')).toBeInTheDocument();
     expect(within(videoTranslationCard).queryByText('NEW')).not.toBeInTheDocument();
     const appCards = Array.from(container.querySelectorAll('.dashboard-app-card'));
-    expect(appCards).toHaveLength(8);
+    expect(appCards).toHaveLength(10);
     expect(appCards.map(card => card.querySelector('strong')?.textContent)).toEqual([
       '文章写作',
       '视频翻译',
+      '火柴人动画',
       '视频下载',
       '封面生成',
       '小红书帖子',
+      '短视频脚本',
       '智能配音',
       '视频生成',
       '图像生成'
     ]);
-    expect(screen.queryByRole('button', { name: /^火柴人动画/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^火柴人动画 角色、分镜与完整动画/ }))
+      .toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^自动剪辑/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^智能配音/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^视频生成/ })).toBeInTheDocument();
@@ -918,177 +976,22 @@ describe('DashboardPage', () => {
     expect(screen.queryByRole('tab', { name: '下载规格' })).not.toBeInTheDocument();
   });
 
-  it('generates a stickman character before storyboard and video', () => {
-    render(<DashboardPage onSelectPrompt={vi.fn()} workspace="stickman-video" />);
+  it('opens the runtime-backed stickman workspace from the dashboard', async () => {
+    const creatorService = createInMemoryCreatorService();
+    render(
+      <DashboardPage
+        onSelectPrompt={vi.fn()}
+        creatorService={creatorService}
+      />
+    );
 
+    fireEvent.click(screen.getByRole('button', { name: /^火柴人动画/ }));
     expect(screen.getByRole('heading', { name: '火柴人动画' })).toBeInTheDocument();
-    const stickmanSteps = screen.getByRole('navigation', { name: '火柴人生成流程' });
-    expect(within(stickmanSteps).getByRole('button', { name: '1 选择角色' })).toHaveAttribute('aria-current', 'step');
-    expect(within(stickmanSteps).getByRole('button', { name: '2 故事与分镜' })).toBeDisabled();
-    expect(within(stickmanSteps).getByRole('button', { name: '3 确认分镜' })).toBeDisabled();
-    expect(within(stickmanSteps).getByRole('button', { name: '4 配音与音乐' })).toBeDisabled();
-    expect(screen.getByRole('tab', { name: '默认角色' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: '生成角色' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '上传角色' })).toBeInTheDocument();
-    const characterPresets = screen.getByRole('radiogroup', { name: '默认角色' });
-    expect(within(characterPresets).getAllByRole('radio')).toHaveLength(10);
-    const defaultCharacter = within(characterPresets).getByRole('radio', { name: /默认角色/ });
-    expect(defaultCharacter).toBeChecked();
-    expect(screen.queryByText('简洁造型，适合通用叙事')).not.toBeInTheDocument();
-    const selectedCharacterPreview = screen.getByRole('complementary', { name: '已选角色全身预览' });
-    expect(within(selectedCharacterPreview).getByRole('img', { name: '默认角色' })).toHaveAttribute(
-      'src',
-      '/dashboard/characters/default.png'
-    );
-    expect(within(characterPresets).getByRole('radio', { name: /^健身$/ })).toBeInTheDocument();
-    expect(within(characterPresets).getByRole('radio', { name: /^嘻哈$/ })).toBeInTheDocument();
-    fireEvent.click(within(characterPresets).getByRole('radio', { name: /科技男/ }));
-    expect(within(characterPresets).getByRole('radio', { name: /科技男/ })).toBeChecked();
-    expect(within(selectedCharacterPreview).getByRole('img', { name: '科技男' })).toHaveAttribute(
-      'src',
-      '/dashboard/characters/tech-guy.png'
-    );
-    fireEvent.click(screen.getByRole('tab', { name: '上传角色' }));
-    expect(screen.getByRole('complementary', { name: '角色图片上传建议' })).toHaveTextContent(
-      '人物全身完整可见，背景干净简洁，保持单人清晰且无遮挡。'
-    );
-    fireEvent.click(screen.getByRole('tab', { name: '生成角色' }));
-    const generateCharacterButton = screen.getByRole('button', { name: '生成角色形象' });
-    const characterActions = generateCharacterButton.closest('footer');
-    expect(characterActions).toHaveClass('stickman-wizard-actions');
-    expect(within(characterActions!).getByRole('button', { name: '下一步：故事与分镜' })).toBeEnabled();
-    fireEvent.click(generateCharacterButton);
-    expect(screen.getByRole('img', { name: '生成的火柴人角色形象' })).toHaveAttribute(
-      'src',
-      '/dashboard/characters/default.png'
-    );
-    fireEvent.click(screen.getByRole('tab', { name: '默认角色' }));
-    fireEvent.click(screen.getByRole('radio', { name: /科技男/ }));
-    expect(screen.queryByRole('heading', { name: '生成分镜' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '下一步：故事与分镜' }));
-    expect(screen.queryByRole('heading', { name: '准备主角' })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '生成分镜' })).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: '故事创意' })).toHaveAttribute('rows', '5');
-    fireEvent.click(screen.getByRole('button', { name: '上一步' }));
-    expect(screen.getByRole('heading', { name: '准备主角' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '下一步：故事与分镜' }));
-    fireEvent.click(screen.getByRole('button', { name: '生成分镜图' }));
-    expect(within(stickmanSteps).getByRole('button', { name: /确认分镜$/ })).toHaveAttribute('aria-current', 'step');
-    expect(screen.getByRole('heading', { name: '确认故事分镜' })).toBeInTheDocument();
-    expect(screen.getByText('建立场景')).toBeInTheDocument();
-    expect(screen.getAllByText(/s$/)).toHaveLength(4);
-    const firstSubtitle = screen.getByRole('textbox', { name: '分镜 1 字幕' });
-    expect(firstSubtitle).toHaveValue('灵感来了，就别让它从手中溜走。');
-    fireEvent.change(firstSubtitle, { target: { value: '灵感来了，马上抓住它。' } });
-    fireEvent.click(screen.getByRole('button', { name: '查看分镜 1 提示词' }));
-    const promptDialog = screen.getByRole('dialog', { name: '画面提示词' });
-    const imagePrompt = within(promptDialog).getByRole('textbox', { name: '分镜 1 画面提示词' });
-    const imagePromptValue = (imagePrompt as HTMLTextAreaElement).value;
-    expect(imagePromptValue).toContain('镜头主题：建立场景');
-    expect(imagePromptValue).toContain('主角：科技男');
-    expect(imagePromptValue).toContain('画面比例：16:9');
-    expect(imagePromptValue).toContain('不要在画面中渲染字幕');
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: '画面提示词' })).not.toBeInTheDocument();
-    const regenerateFirstShot = screen.getByRole('button', { name: '重新生成分镜 1 图片' });
-    expect(regenerateFirstShot).toHaveTextContent('重新生成');
-    fireEvent.click(regenerateFirstShot);
-    const regenerateDialog = screen.getByRole('dialog', { name: '重新生成图片' });
-    expect(screen.getByRole('img', { name: '分镜 1：建立场景' })).toHaveAttribute('data-image-version', '0');
-    const editablePrompt = within(regenerateDialog).getByRole('textbox', { name: '分镜 1 画面提示词' });
-    expect(editablePrompt).not.toHaveAttribute('readonly');
-    fireEvent.change(editablePrompt, { target: { value: '自定义镜头提示词：角色在城市天台抓住手稿，不要生成文字。' } });
-    fireEvent.click(within(regenerateDialog).getByRole('button', { name: '确认重新生成' }));
-    expect(screen.queryByRole('dialog', { name: '重新生成图片' })).not.toBeInTheDocument();
-    expect(screen.getByRole('img', { name: '分镜 1：建立场景' })).toHaveAttribute('data-image-version', '1');
-    expect(screen.getByRole('status')).toHaveTextContent('分镜 1 的图片已重新生成');
-    fireEvent.click(screen.getByRole('button', { name: '查看分镜 1 提示词' }));
-    expect(screen.getByRole('textbox', { name: '分镜 1 画面提示词' })).toHaveValue('自定义镜头提示词：角色在城市天台抓住手稿，不要生成文字。');
-    expect(screen.getByRole('textbox', { name: '分镜 1 画面提示词' })).toHaveAttribute('readonly');
-    fireEvent.click(screen.getByRole('button', { name: '关闭提示词' }));
-    expect(screen.queryByLabelText('任务摘要')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '下一步：配音与音乐' }));
-    expect(within(stickmanSteps).getByRole('button', { name: /配音与音乐$/ })).toHaveAttribute('aria-current', 'step');
-    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('角色科技男');
-    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('分镜4 个镜头');
-    expect(screen.getByLabelText('任务摘要')).not.toHaveClass('is-compact');
-    expect(screen.getByLabelText('任务摘要').parentElement).toHaveClass('creator-task-final-grid');
-    expect(screen.getByRole('switch', { name: '生成旁白配音' })).toHaveAttribute('aria-checked', 'true');
-    fireEvent.change(screen.getByRole('combobox', { name: '配音音色' }), { target: { value: 'energetic' } });
-    const backgroundMusic = new File(['music'], 'city-theme.mp3', { type: 'audio/mpeg' });
-    fireEvent.change(screen.getByLabelText('上传背景音乐'), { target: { files: [backgroundMusic] } });
-    fireEvent.change(screen.getByRole('slider', { name: '背景音乐音量' }), { target: { value: '35' } });
-    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('配音自动匹配 · 活力青年');
-    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('背景音乐city-theme.mp3 · 35%');
-    fireEvent.click(screen.getByRole('button', { name: /根据分镜生成视频/ }));
-    expect(screen.getByText('火柴人动画-V1.mp4')).toBeInTheDocument();
-    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('当前版本V1');
-    expect(screen.getByLabelText('任务摘要').parentElement).toHaveClass('creator-result-layout');
-    expect(screen.getByRole('button', { name: '项目 V1' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '成片' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: '分镜' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '角色' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '任务设置' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('tab', { name: '分镜' }));
-    expect(screen.getByRole('heading', { name: '故事分镜' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '调整分镜' })).toBeInTheDocument();
-    expect(screen.getByText('灵感来了，马上抓住它。')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '调整分镜' }));
-    expect(screen.getByRole('textbox', { name: '分镜 1 字幕' })).toHaveValue('灵感来了，马上抓住它。');
-    fireEvent.click(within(stickmanSteps).getByRole('button', { name: /配音与音乐$/ }));
-    fireEvent.click(screen.getByRole('tab', { name: '角色' }));
-    expect(screen.getByRole('img', { name: '科技男' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '更换角色' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('tab', { name: '任务设置' }));
-    expect(screen.getByRole('heading', { name: '当前版本设置' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '调整角色' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '调整故事与画面' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '调整配音与音乐' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: '火柴人项目产出' })).toHaveTextContent('city-theme.mp3 · 35%');
-
-    fireEvent.click(within(stickmanSteps).getByRole('button', { name: /故事与分镜$/ }));
-    fireEvent.change(screen.getByRole('textbox', { name: '故事创意' }), {
-      target: { value: '一个商务角色在会议中用图表解释新产品。' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: '生成分镜图' }));
-    fireEvent.click(screen.getByRole('button', { name: '下一步：配音与音乐' }));
-    expect(screen.getByText('正在基于 V1 调整')).toBeInTheDocument();
-    expect(screen.getByText('原版本的角色、分镜和成片仍可查看')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '生成 V2' }));
-
-    expect(screen.getByText('火柴人动画-V2.mp4')).toBeInTheDocument();
-    expect(screen.getByText('V2 已生成完成，之前的版本仍可查看')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '项目 V2' }));
-    const stickmanVersionMenu = screen.getByRole('menu');
-    expect(within(stickmanVersionMenu).getByText('项目 V1')).toBeInTheDocument();
-    expect(within(stickmanVersionMenu).getByText('项目 V2')).toBeInTheDocument();
-    fireEvent.click(within(stickmanVersionMenu).getByText('项目 V1').closest('button') as HTMLButtonElement);
-    expect(screen.getByText('火柴人动画-V1.mp4')).toBeInTheDocument();
-
-    fireEvent.click(within(screen.getByRole('navigation', { name: '火柴人生成流程' })).getByRole('button', { name: /故事与分镜$/ }));
-    fireEvent.change(screen.getByRole('combobox', { name: '视频比例' }), {
-      target: { value: '9:16' }
-    });
-    fireEvent.click(screen.getByRole('button', { name: '生成分镜图' }));
-    fireEvent.click(screen.getByRole('button', { name: '下一步：配音与音乐' }));
-    fireEvent.click(screen.getByRole('button', { name: '生成 V3' }));
-    expect(screen.getByText('火柴人动画-V3.mp4')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '项目 V3' }));
-    expect(screen.getByRole('menu')).toHaveTextContent('基于 V1 调整，当前查看');
-  });
-
-  it('uses the same transparent stickman artwork in dark and light themes', () => {
-    document.documentElement.dataset.theme = 'dark';
-    render(<DashboardPage onSelectPrompt={vi.fn()} workspace="stickman-video" />);
-
-    const defaultCharacter = screen.getByRole('radio', { name: /默认角色/ });
-    const artwork = defaultCharacter.querySelector<HTMLImageElement>('.stickman-character-artwork');
-    expect(artwork).toHaveAttribute('src', '/dashboard/characters/default.png');
-
-    document.documentElement.dataset.theme = 'light';
-    expect(artwork).toHaveAttribute('src', '/dashboard/characters/default.png');
-    document.documentElement.dataset.theme = 'dark';
+    expect(screen.getByRole('navigation', { name: '火柴人视频制作步骤' })).toBeInTheDocument();
+    const characterPresets = screen.getByRole('radiogroup', { name: '角色预设' });
+    expect(await within(characterPresets).findByRole('radio', { name: '默认角色' }))
+      .toHaveAttribute('aria-checked', 'true');
+    expect(creatorService.listVisualAssets).toHaveBeenCalledWith('stickman-video');
   });
 
   it('previews an Auto Clips video from a link or local upload', async () => {
@@ -1996,6 +1899,7 @@ describe('DashboardPage', () => {
       agentThreadId: null,
       stages: [],
       artifacts: [],
+      providerRequests: [],
       activities: [],
       createdAt,
       updatedAt: createdAt
@@ -2024,6 +1928,9 @@ describe('DashboardPage', () => {
           version,
           status: 'completed',
           path: `/tmp/image-${candidate}.png`,
+          scopeKey: null,
+          inputFingerprint: null,
+          sha256: null,
           sourceArtifactIds: [],
           metadata: {
             provider: 'openai',
@@ -2078,6 +1985,8 @@ describe('DashboardPage', () => {
             claimExpiresAt: null,
             attempt: 1,
             idempotencyKey: null,
+            scopeKey: null,
+            inputFingerprint: null,
             progress: { status: 'succeeded' },
             errorCode: null,
             errorMessage: null,
@@ -2189,6 +2098,7 @@ describe('DashboardPage', () => {
       agentThreadId: null,
       stages: [],
       artifacts: [],
+      providerRequests: [],
       activities: [],
       createdAt,
       updatedAt: createdAt
@@ -2212,6 +2122,9 @@ describe('DashboardPage', () => {
           version,
           status: 'completed',
           path: '/tmp/generated-video-v1.mp4',
+          scopeKey: null,
+          inputFingerprint: null,
+          sha256: null,
           sourceArtifactIds: job.artifacts
             .filter(candidate => candidate.kind === 'reference_image')
             .map(candidate => candidate.id),
@@ -2266,6 +2179,8 @@ describe('DashboardPage', () => {
             claimExpiresAt: null,
             attempt: 1,
             idempotencyKey: null,
+            scopeKey: null,
+            inputFingerprint: null,
             progress: { status: 'succeeded', phase: 'completed', percent: 100 },
             errorCode: null,
             errorMessage: null,
@@ -2298,6 +2213,9 @@ describe('DashboardPage', () => {
         version: 1,
         status: 'completed',
         path: '/tmp/coast-reference.png',
+        scopeKey: null,
+        inputFingerprint: null,
+        sha256: null,
         sourceArtifactIds: [],
         metadata: {
           fileName: input.file.name,

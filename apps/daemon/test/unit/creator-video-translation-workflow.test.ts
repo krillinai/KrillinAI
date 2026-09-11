@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
@@ -199,6 +199,9 @@ describe('video translation workflow', () => {
         id: 'krillinai',
         async run({ stageRun }) {
           if (stageRun.stageId === 'subtitle') {
+            writeFileSync(join(tempDir, 'source.mp4'), 'fixture-video');
+            writeFileSync(join(tempDir, 'target.srt'), 'fixture-target-subtitle');
+            writeFileSync(join(tempDir, 'vertical.srt'), 'fixture-vertical-subtitle');
             return {
               outputs: [
                 { kind: 'source_video', status: 'completed' as const, path: join(tempDir, 'source.mp4') },
@@ -208,6 +211,7 @@ describe('video translation workflow', () => {
             };
           }
           if (stageRun.stageId === 'tts') {
+            writeFileSync(join(tempDir, 'voice.wav'), 'fixture-audio');
             return {
               outputs: [{
                 kind: 'dubbed_audio',
@@ -216,6 +220,7 @@ describe('video translation workflow', () => {
               }]
             };
           }
+          writeFileSync(join(tempDir, `${stageRun.stageId}.mp4`), 'fixture-video');
           return {
             outputs: [{
               kind: stageRun.stageId === 'render-horizontal'

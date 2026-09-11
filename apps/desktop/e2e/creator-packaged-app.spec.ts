@@ -105,6 +105,44 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
       'SKILL.md',
       'manifest.json'
     ]);
+    const stickmanRuntimeRoot = packagedStickmanRuntimeRoot();
+    const stickmanRuntimeManifest = JSON.parse(
+      readFileSync(join(stickmanRuntimeRoot, 'manifest.json'), 'utf8')
+    ) as {
+      platform: string;
+      arch: string;
+      remotionVersion: string;
+      chromiumVersion: string;
+      browserExecutable: string;
+      resources: Array<{ path: string; kind: string; platform: string; arch: string }>;
+    };
+    expect(stickmanRuntimeManifest).toMatchObject({
+      platform: process.platform,
+      arch: process.arch,
+      remotionVersion: '4.0.473',
+      browserExecutable: executableResource('browser/chrome-headless-shell')
+    });
+    expect(stickmanRuntimeManifest.chromiumVersion).toMatch(/^\d+\.\d+\.\d+\.\d+$/);
+    expect(stickmanRuntimeManifest.resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        path: stickmanRuntimeManifest.browserExecutable,
+        kind: 'browser',
+        platform: process.platform,
+        arch: process.arch
+      }),
+      expect.objectContaining({
+        path: 'fonts/NotoSansSC-Bold.woff2',
+        kind: 'font',
+        platform: process.platform,
+        arch: process.arch
+      }),
+      expect.objectContaining({
+        path: 'visual-assets/catalog.json',
+        kind: 'visual-asset',
+        platform: process.platform,
+        arch: process.arch
+      })
+    ]));
 
     const projectDir = join(fixture.root, 'creator-workspace');
     mkdirSync(projectDir, { recursive: true });
@@ -131,6 +169,27 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
         'stickman-video'
       ])
     );
+    const creatorCapabilities = await runtimeRequest<{
+      platform: string;
+      arch: string;
+      transcription: {
+        providers: Array<{ provider: string; available: boolean; models: string[] }>;
+      };
+    }>(currentApp.page, 'GET', '/creator-services/capabilities');
+    expect(creatorCapabilities.status).toBe(200);
+    expect(creatorCapabilities.body).toMatchObject({
+      platform: 'win32',
+      arch: 'x64',
+      transcription: {
+        providers: expect.arrayContaining([
+          expect.objectContaining({
+            provider: 'whisper.cpp',
+            available: true,
+            models: ['tiny', 'medium', 'large-v2']
+          })
+        ])
+      }
+    });
     const ytDlpStatus = await runtimeRequest<{
       ytDlp: {
         channel: string;
@@ -180,6 +239,13 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
     await expect(currentApp.page.getByRole('tab', { name: '模型服务' }))
       .toHaveAttribute('aria-selected', 'true');
     await expect(currentApp.page.getByRole('group', { name: '模型服务' })).toBeVisible();
+    await currentApp.page.getByRole('tab', { name: '语音识别' }).click();
+    const localWhisper = currentApp.page.getByRole('button', { name: '本地 Whisper' });
+    await expect(localWhisper).toBeEnabled();
+    await localWhisper.click();
+    await expect(currentApp.page.getByRole('combobox', { name: '语音识别服务' }))
+      .toHaveText('Whisper.cpp');
+    await expect(currentApp.page.getByRole('combobox', { name: '本地模型' })).toHaveText('tiny');
     await currentApp.page.getByRole('tab', { name: '配音服务' }).click();
     const providerSelect = currentApp.page.getByRole('combobox', { name: '服务商' });
     await expect(providerSelect).toHaveText('OpenAI TTS');
@@ -231,7 +297,7 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
       message: '合成横屏视频',
       sandbox: 'danger-full-access'
     });
-    expect(agentTurn.status).toBe(200);
+    expect(agentTurn.status, JSON.stringify(agentTurn.body)).toBe(200);
     expect(agentTurn.body.turn).toMatchObject({
       role: 'assistant',
       status: 'completed',
@@ -335,6 +401,70 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
         candidateCount: 2
       }
     });
+    const stickmanJob = await runtimeRequest<{
+      job: {
+        id: string;
+        revision: number;
+        templateVersion: number;
+        state: Record<string, unknown>;
+      };
+    }>(currentApp.page, 'POST', '/creator/jobs', {
+      projectId: createdProject.body.project.id,
+      templateId: 'stickman-video',
+      state: {
+        sourceType: 'url',
+        sourceUrl: 'https://www.youtube.com/watch?v=creator-stickman-package-smoke',
+        characterAsset: { assetId: 'stickman.character.default', revision: 1 },
+        styleAsset: { assetId: 'stickman.style.minimal-ink', revision: 1 },
+        ratio: '16:9',
+        targetDurationSeconds: 30,
+        targetLanguage: 'zh-CN',
+        ttsProvider: 'openai',
+        ttsModel: 'gpt-4o-mini-tts',
+        voiceCode: 'marin',
+        voiceName: 'Marin'
+      }
+    });
+    expect(stickmanJob.status).toBe(201);
+    expect(stickmanJob.body.job).toMatchObject({
+      revision: 0,
+      templateVersion: 2,
+      state: {
+        sourceType: 'url',
+        sourceUrl: 'https://www.youtube.com/watch?v=creator-stickman-package-smoke',
+        characterAsset: { assetId: 'stickman.character.default', revision: 1 }
+      }
+    });
+    const updatedStickmanJob = await runtimeRequest<{
+      job: { id: string; revision: number; state: Record<string, unknown> };
+    }>(currentApp.page, 'POST', `/creator/jobs/${stickmanJob.body.job.id}/actions`, {
+      action: 'update-settings',
+      expectedRevision: stickmanJob.body.job.revision,
+      input: {
+        patch: {
+          characterAsset: { assetId: 'stickman.character.tech-guy', revision: 1 },
+          styleAsset: { assetId: 'stickman.style.whiteboard-marker', revision: 1 },
+          targetDurationSeconds: 125,
+          voiceCode: 'nova',
+          voiceName: 'Nova'
+        }
+      }
+    });
+    expect(updatedStickmanJob.status).toBe(200);
+    expect(updatedStickmanJob.body.job).toMatchObject({
+      revision: 1,
+      state: {
+        characterAsset: { assetId: 'stickman.character.tech-guy', revision: 1 },
+        styleAsset: { assetId: 'stickman.style.whiteboard-marker', revision: 1 },
+        targetDurationSeconds: 125,
+        ttsProvider: 'openai',
+        ttsModel: 'gpt-4o-mini-tts',
+        voiceCode: 'nova',
+        voiceName: 'Nova'
+      }
+    });
+    expect(updatedStickmanJob.body.job.state).not.toHaveProperty('characterPrompt');
+    expect(updatedStickmanJob.body.job.state).not.toHaveProperty('voice');
 
     const relaunchInput = {
       executablePath: currentApp.executablePath,
@@ -462,6 +592,50 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
     expect(containsPythonBytecodeCache(
       join(runtimeRoot, 'yt-dlp-runtime', 'python')
     )).toBe(false);
+    const restoredStickmanJob = await runtimeRequest<{
+      job: { id: string; revision: number; templateVersion: number; state: Record<string, unknown> };
+    }>(currentApp.page, 'GET', `/creator/jobs/${stickmanJob.body.job.id}`);
+    expect(restoredStickmanJob.status).toBe(200);
+    expect(restoredStickmanJob.body.job).toMatchObject({
+      id: stickmanJob.body.job.id,
+      templateVersion: 2,
+      state: {
+        sourceType: 'url',
+        sourceUrl: 'https://www.youtube.com/watch?v=creator-stickman-package-smoke',
+        characterAsset: { assetId: 'stickman.character.tech-guy', revision: 1 },
+        styleAsset: { assetId: 'stickman.style.whiteboard-marker', revision: 1 },
+        targetDurationSeconds: 125,
+        ttsProvider: 'openai',
+        ttsModel: 'gpt-4o-mini-tts',
+        voiceCode: 'nova',
+        voiceName: 'Nova'
+      }
+    });
+    expect(restoredStickmanJob.body.job.state).not.toHaveProperty('characterPrompt');
+    expect(restoredStickmanJob.body.job.state).not.toHaveProperty('voice');
+    expect(restoredStickmanJob.body.job.revision)
+      .toBeGreaterThanOrEqual(updatedStickmanJob.body.job.revision);
+    await currentApp.page.getByRole('button', { name: '我的项目' }).click();
+    await currentApp.page.getByRole('button', {
+      name: '打开项目 youtube.com · creator-stickman-package-smoke'
+    }).click();
+    await expect(currentApp.page.getByRole('heading', { name: '火柴人动画' })).toBeVisible();
+    await expect(currentApp.page.getByRole('radio', { name: '科技男' })).toBeChecked();
+    await expect(currentApp.page.getByRole('textbox', { name: '角色描述' })).toHaveCount(0);
+    await expect(currentApp.page.getByRole('combobox', { name: '视觉风格' }))
+      .toHaveValue('stickman.style.whiteboard-marker@1');
+    await expect(currentApp.page.getByRole('combobox', { name: '目标时长' }))
+      .toHaveValue('custom');
+    await expect(currentApp.page.getByRole('spinbutton', { name: '自定义时长（秒）' }))
+      .toHaveValue('125');
+    await expect(currentApp.page.getByRole('combobox', { name: '配音音色' }))
+      .toHaveCount(0);
+    await expect(currentApp.page.getByText('尚未配置配音服务', { exact: true }))
+      .toBeVisible();
+    await expect(currentApp.page.getByRole('link', { name: '前往配音服务配置' }))
+      .toHaveAttribute('href', '#/settings?tab=ai-services&section=tts');
+    await expect(currentApp.page.getByLabel('任务摘要')).toHaveCount(0);
+    await expect(currentApp.page.locator('.creator-collaboration-panel')).toHaveCount(1);
     expect(hasWhisperKitDependency(fixture.root)).toBe(false);
   } finally {
     await closePackagedApp(currentApp).catch(() => undefined);
@@ -638,6 +812,13 @@ function packagedRuntimeRoot(): string {
   return process.platform === 'darwin'
     ? resolve(packageRoot, '..', 'Resources', 'creator-runtime', 'krillinai')
     : join(packageRoot, 'resources', 'creator-runtime', 'krillinai');
+}
+
+function packagedStickmanRuntimeRoot(): string {
+  const packageRoot = dirname(packagedExecutable(desktopDir));
+  return process.platform === 'darwin'
+    ? resolve(packageRoot, '..', 'Resources', 'stickman-runtime')
+    : join(packageRoot, 'resources', 'stickman-runtime');
 }
 
 function executableResource(path: string): string {

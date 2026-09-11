@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type {
   CreatorArtifact,
   CreatorJob,
@@ -83,6 +83,8 @@ describe('VideoGenerationWorkspace', () => {
         claimExpiresAt: null,
         attempt: 1,
         idempotencyKey: null,
+        scopeKey: null,
+        inputFingerprint: null,
         progress: {
           phase: 'provider_failed',
           percent: null
@@ -127,6 +129,8 @@ describe('VideoGenerationWorkspace', () => {
         claimExpiresAt: null,
         attempt: 1,
         idempotencyKey: null,
+        scopeKey: null,
+        inputFingerprint: null,
         progress: {
           phase: 'submitting',
           percent: 8
@@ -174,6 +178,8 @@ describe('VideoGenerationWorkspace', () => {
         claimExpiresAt: null,
         attempt: 1,
         idempotencyKey: null,
+        scopeKey: null,
+        inputFingerprint: null,
         progress: {
           phase: 'generating',
           percent: null,
@@ -246,6 +252,24 @@ describe('VideoGenerationWorkspace', () => {
 
     expect(screen.getByText('Format')).toBeInTheDocument();
     expect(screen.getByText('Output format')).toBeInTheDocument();
+  });
+
+  it('preserves user selections when service defaults arrive late', async () => {
+    let resolveConfig!: (value: CreatorServicesConfigResponse) => void;
+    const pendingConfig = new Promise<CreatorServicesConfigResponse>(resolve => { resolveConfig = resolve; });
+    renderWorkspace(creatorJob({ state: {
+      provider: 'seedance', model: 'doubao-seedance-2-0-260128',
+      duration: 5, currentStep: 1, furthestStep: 1
+    } }), { creatorServicesService: { getConfig: () => pendingConfig } });
+    const provider = screen.getByRole('combobox', { name: '视频服务' });
+    const model = screen.getByRole('combobox', { name: '模型版本' });
+    const duration = screen.getByRole('combobox', { name: '视频时长' });
+    fireEvent.change(provider, { target: { value: 'veo' } });
+    fireEvent.change(duration, { target: { value: '8' } });
+    await act(async () => { resolveConfig({ config: createVideoConfig(), configuredCredentials: [] }); });
+    expect(provider).toHaveValue('veo');
+    expect(model).toHaveValue('veo-3.1-generate-preview');
+    expect(duration).toHaveValue('8');
   });
 
   it('uses the configured default model for a task and allows a task-level override', async () => {
@@ -380,6 +404,7 @@ function creatorJob(patch: Partial<CreatorJob>): CreatorJob {
     agentThreadId: null,
     stages: [],
     artifacts: [],
+    providerRequests: [],
     activities: [],
     createdAt,
     updatedAt: createdAt,
@@ -395,6 +420,9 @@ function videoArtifact(version: number): CreatorArtifact {
     version,
     status: 'completed',
     path: `/tmp/generated-video-v${version}.mp4`,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       provider: version === 1 ? 'seedance' : 'veo',

@@ -137,6 +137,7 @@ describe('CreatorServicesSettingsView', () => {
 
   it('allows selecting and saving local Whisper.cpp on Windows x64', async () => {
     const service = createService([], runtimeCapabilities('win32', 'x64'));
+    const user = userEvent.setup();
     render(
       <ConfirmDialogProvider>
       <CreatorServicesSettingsView
@@ -147,15 +148,16 @@ describe('CreatorServicesSettingsView', () => {
       </ConfirmDialogProvider>
     );
 
-    await userEvent.setup().click(await screen.findByRole('tab', { name: '语音识别' }));
+    await user.click(await screen.findByRole('tab', { name: '语音识别' }));
     expect(screen.getByText('Windows · x64')).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole('button', { name: '本地 Whisper' }));
     expect(screen.getByRole('button', { name: '本地 Whisper' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: '本地 Whisper' }));
+    expect(screen.getByRole('combobox', { name: '语音识别服务' })).toHaveTextContent('Whisper.cpp');
+    expect(screen.getByText('tiny')).toBeInTheDocument();
     expect(screen.queryByText('WhisperKit')).not.toBeInTheDocument();
     expect(screen.queryByText('FasterWhisper')).not.toBeInTheDocument();
-    expect(screen.getByText('Whisper.cpp')).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole('button', { name: '保存配置' }));
-    await userEvent.setup().click(await screen.findByRole('button', { name: '保存并启用' }));
+    await user.click(screen.getByRole('button', { name: '保存配置' }));
+    await user.click(await screen.findByRole('button', { name: '保存并启用' }));
     expect(service.saveConfig).toHaveBeenCalledWith(expect.objectContaining({
       transcription: expect.objectContaining({ provider: 'whisper.cpp' })
     }));
@@ -331,6 +333,7 @@ function runtimeCapabilities(
   arch: string
 ): CreatorServicesCapabilitiesResponse {
   const whisperKitAvailable = platform === 'darwin' && arch === 'arm64';
+  const whisperCppAvailable = platform === 'win32' && arch === 'x64';
   return {
     platform,
     arch,
@@ -364,10 +367,10 @@ function runtimeCapabilities(
         {
           provider: 'whisper.cpp',
           kind: 'local',
-          available: platform === 'win32' && arch === 'x64',
+          available: whisperCppAvailable,
           models: ['tiny', 'medium', 'large-v2'],
           gpuAcceleration: false,
-          ...(platform === 'win32' && arch === 'x64' ? {} : { unavailableReason: 'unsupported_platform' as const })
+          ...(whisperCppAvailable ? {} : { unavailableReason: 'unsupported_platform' as const })
         },
         {
           provider: 'aliyun',

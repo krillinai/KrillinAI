@@ -32,6 +32,7 @@ export type CreatorPanelAdapter = {
     l: CreatorPanelLocalize
   ): NormalizedCreatorActivity | null;
   readStageProgress(stage: CreatorStageRun): CreatorStageProgressView;
+  aggregateStages?(stages: CreatorStageRun[]): CreatorStageRun[];
   runningProgressText?(
     stage: CreatorStageRun,
     progress: CreatorStageProgressView,
@@ -310,6 +311,201 @@ export const videoDownloadPanelAdapter: CreatorPanelAdapter = {
   }
 };
 
+export const stickmanVideoPanelAdapter: CreatorPanelAdapter = {
+  id: 'stickman-video',
+  composerPlaceholder: l => l(
+    '询问状态，或描述要调整的脚本、镜头、角色和成片要求',
+    'Ask about status or describe script, shot, character, and delivery changes'
+  ),
+  stageLabel(stageId, l) {
+    const labels: Record<string, string> = {
+      'ingest-text': l('保存文本来源', 'Save text source'),
+      'source-transcript': l('提取来源字幕', 'Extract source transcript'),
+      'source-brief': l('生成来源摘要', 'Create source brief'),
+      'content-plan': l('规划内容结构', 'Plan content structure'),
+      script: l('生成脚本', 'Generate script'),
+      narration: l('生成旁白', 'Generate narration'),
+      'audio-timing': l('测量旁白时长', 'Measure narration timing'),
+      storyboard: l('生成分镜', 'Generate storyboard'),
+      'style-assets': l('准备角色参考图与风格', 'Prepare character reference and style'),
+      'prompt-pack': l('生成镜头提示词', 'Build shot prompts'),
+      images: l('生成镜头画面', 'Generate shot visuals'),
+      'visual-validation': l('校验画面', 'Validate visuals'),
+      timeline: l('生成时间线与旁白字幕', 'Build timeline and narration subtitles'),
+      'render-clean': l('渲染火柴人动画', 'Render stickman video'),
+      'media-validation': l('校验成片媒体', 'Validate rendered media'),
+      'package-validation': l('整理成片与字幕', 'Prepare video and subtitles')
+    };
+    return labels[stageId] ?? l('火柴人视频任务', 'Stickman video task');
+  },
+  phaseLabel(phase, l) {
+    const labels: Record<string, string> = {
+      validating: l('检查任务输入', 'Checking task input'),
+      preparing_source: l('准备 YouTube 来源', 'Preparing the YouTube source'),
+      reading_platform_captions: l('获取平台字幕', 'Fetching platform captions'),
+      processing_platform_captions: l('解析平台字幕', 'Processing platform captions'),
+      translating_subtitles: l('整理来源字幕', 'Preparing source captions'),
+      preparing_audio: l('平台字幕不可用，准备音频转录', 'Platform captions unavailable; preparing audio transcription'),
+      transcribing_audio: l('使用 Whisper 转录音频', 'Transcribing audio with Whisper'),
+      collecting_outputs: l('整理来源字幕', 'Collecting source captions'),
+      transcribing: l('提取来源字幕', 'Extracting source transcript'),
+      analyzing: l('理解来源内容', 'Analyzing source content'),
+      planning: l('规划内容结构', 'Planning content structure'),
+      writing: l('生成创作内容', 'Writing creative content'),
+      reviewing: l('检查脚本结构与语义', 'Reviewing script structure and meaning'),
+      materializing: l('准备角色参考图与风格合同', 'Preparing character reference and style contract'),
+      submitting: l('提交图像生成服务', 'Submitting to the image provider'),
+      retrying_candidate: l('重新生成当前镜头候选', 'Retrying the current shot candidate'),
+      generating: l('生成镜头画面', 'Generating shot visuals'),
+      synthesizing: l('合成旁白音频', 'Synthesizing narration'),
+      measuring: l('测量真实音频时长', 'Measuring real audio timing'),
+      validating_media: l('检查视频轨、音频轨与抽帧', 'Checking video, audio, and sampled frames'),
+      rendering: l('渲染视频', 'Rendering video'),
+      packaging: l('整理成片与字幕', 'Packaging video and subtitles'),
+      failed: l('阶段执行失败', 'Stage failed'),
+      completed: l('阶段已完成', 'Stage completed')
+    };
+    return labels[phase] ?? genericPhaseLabel(phase, l);
+  },
+  activityStageId: readActivityStageId,
+  normalizeActivity(activity, l) {
+    if (activity.action === 'run-stage') return null;
+    const labels: Record<string, string> = {
+      'approve-script': l('审核通过了脚本', 'Approved the script'),
+      'continue-after-audio': l('确认配音并开始生成分镜画面', 'Continued from audio to storyboard visuals'),
+      'continue-after-visuals': l('确认画面并开始动画合成', 'Continued from visuals to video composition'),
+      'edit-script': l('保存了脚本修改', 'Saved script changes'),
+      'edit-shot': l('保存了镜头修改', 'Saved shot changes'),
+      'regenerate-shot': l('重新生成了单个镜头', 'Regenerated one shot'),
+      'generate-missing-shots': l('继续生成剩余分镜画面', 'Continued generating missing shot visuals'),
+      'retry-stage': l('重试了失败阶段', 'Retried a failed stage'),
+      'commit-version': l('保存了新的交付版本', 'Committed a new delivery version')
+    };
+    if (activity.action === 'resolve-provider-request') {
+      const decision = readString(activity.details.decision);
+      if (decision === 'confirm-resubmit') {
+        return { label: l('用户确认了可能重复计费的重提', 'User confirmed a potentially duplicate billed resubmission'), fields: [] };
+      }
+      if (decision === 'cancel-scope') {
+        return { label: l('用户取消了状态未知的镜头请求', 'User canceled the unresolved shot request'), fields: [] };
+      }
+      return { label: l('查询了状态未知的 Provider 请求', 'Queried an unresolved provider request'), fields: [] };
+    }
+    return normalizeCommonActivity(
+      activity,
+      l,
+      stickmanVideoPanelAdapter,
+      labels,
+      stickmanFieldLabel
+    );
+  },
+  readStageProgress: readStandardProgress,
+  aggregateStages(stages) {
+    const scriptStageIds = new Set<string>([
+      'ingest-text',
+      'source-transcript',
+      'source-brief',
+      'content-plan',
+      'script'
+    ]);
+    const scriptStages = stages.filter(stage => scriptStageIds.has(stage.stageId));
+    const productionStages = stages.filter(stage => (
+      !scriptStageIds.has(stage.stageId) && stage.stageId !== 'acquire-source'
+    ));
+    if (productionStages.length === 0) {
+      const scriptPipeline = aggregateStickmanScriptStages(scriptStages);
+      return scriptPipeline === undefined ? [] : [scriptPipeline];
+    }
+    const representative = currentStickmanStage(productionStages);
+    return representative === undefined ? [] : [representative];
+  },
+  runningProgressText(stage, progress, l) {
+    if (stage.stageId === 'script' && progress.phase !== null) {
+      return stickmanVideoPanelAdapter.phaseLabel(progress.phase, l);
+    }
+    if (stage.stageId !== 'images') return null;
+    if (progress.total === null || progress.completed === null) return null;
+    return l(
+      `镜头完成 ${progress.completed}/${progress.total}${progress.failed ? `，失败 ${progress.failed}` : ''}`,
+      `${progress.completed}/${progress.total} shots completed${progress.failed ? `, ${progress.failed} failed` : ''}`
+    );
+  }
+};
+
+function aggregateStickmanScriptStages(
+  stages: CreatorStageRun[]
+): CreatorStageRun | undefined {
+  if (stages.length === 0) return undefined;
+  const textSource = stages.some(stage => stage.stageId === 'ingest-text');
+  const order = textSource
+    ? ['ingest-text', 'source-brief', 'content-plan', 'script']
+    : ['source-transcript', 'source-brief', 'content-plan', 'script'];
+  const current = order.flatMap(stageId => (
+    stages.find(stage => stage.stageId === stageId) ?? []
+  ));
+  if (current.length === 0) return undefined;
+
+  const active = latestStartedStage(current.filter(stage => stage.status === 'running'))
+    ?? latestStartedStage(current.filter(stage => stage.status === 'queued'));
+  const stopped = latestStartedStage(current.filter(stage => (
+    stage.status === 'failed'
+    || stage.status === 'canceled'
+    || stage.status === 'interrupted'
+  )));
+  const script = current.find(stage => stage.stageId === 'script');
+  const representative = active ?? stopped ?? script ?? latestStartedStage(current)!;
+  const currentIndex = Math.max(0, order.indexOf(representative.stageId));
+  const completed = active === undefined
+    && stopped === undefined
+    && script?.status === 'succeeded';
+  const status = completed
+    ? 'succeeded' as const
+    : active?.status ?? stopped?.status ?? 'running' as const;
+  const stagePercent = representative.status === 'succeeded'
+    ? 100
+    : Math.max(0, Math.min(100, readFiniteNumber(representative.progress.percent) ?? 0));
+  const percent = completed
+    ? 100
+    : Math.round(((currentIndex + stagePercent / 100) / order.length) * 100);
+
+  return {
+    ...representative,
+    stageId: 'script',
+    scopeKey: null,
+    inputFingerprint: null,
+    status,
+    progress: {
+      ...representative.progress,
+      phase: representative.progress.phase ?? null,
+      message: representative.progress.message ?? null,
+      percent,
+      completed: completed ? order.length : currentIndex,
+      failed: stopped?.status === 'failed' ? 1 : 0,
+      total: order.length
+    },
+    startedAt: current[0]?.startedAt ?? null,
+    finishedAt: completed ? script?.finishedAt ?? representative.finishedAt : null
+  };
+}
+
+function currentStickmanStage(stages: CreatorStageRun[]): CreatorStageRun | undefined {
+  return latestStartedStage(stages.filter(stage => stage.status === 'running'))
+    ?? latestStartedStage(stages.filter(stage => stage.status === 'queued'))
+    ?? latestStartedStage(stages.filter(stage => (
+      stage.status === 'failed'
+      || stage.status === 'canceled'
+      || stage.status === 'interrupted'
+    )))
+    ?? latestStartedStage(stages.filter(stage => stage.status === 'succeeded'));
+}
+
+function latestStartedStage(stages: CreatorStageRun[]): CreatorStageRun | undefined {
+  return [...stages].sort((left, right) => (
+    (left.startedAt ?? '').localeCompare(right.startedAt ?? '')
+    || left.id.localeCompare(right.id)
+  )).at(-1);
+}
+
 export const smartDubbingPanelAdapter: CreatorPanelAdapter = {
   id: 'smart-dubbing',
   composerPlaceholder: l => l(
@@ -397,6 +593,53 @@ export const xiaohongshuPostPanelAdapter: CreatorPanelAdapter = {
   },
   succeededProgressText(_stage, l) {
     return l('帖子已生成，可以复制或下载', 'The post is ready to copy or download');
+  }
+};
+
+export const shortVideoScriptPanelAdapter: CreatorPanelAdapter = {
+  id: 'short-video-script',
+  composerPlaceholder: l => l(
+    '询问生成状态，或调整主题、受众、平台、时长和语气',
+    'Ask about progress or adjust the topic, audience, platform, duration, and tone'
+  ),
+  stageLabel(stageId, l) {
+    if (stageId === 'generate') return l('生成短视频脚本', 'Generate short video script');
+    return l('短视频脚本任务', 'Short video script task');
+  },
+  phaseLabel(phase, l) {
+    const labels: Record<string, string> = {
+      validating: l('检查脚本设置', 'Checking script settings'),
+      generating_script: l('生成脚本内容', 'Generating script content'),
+      completed: l('脚本已生成', 'Script generated')
+    };
+    return labels[phase] ?? genericPhaseLabel(phase, l);
+  },
+  activityStageId: readActivityStageId,
+  normalizeActivity(activity, l) {
+    return normalizeCommonActivity(
+      activity,
+      l,
+      shortVideoScriptPanelAdapter,
+      {},
+      shortVideoScriptFieldLabel
+    );
+  },
+  readStageProgress: readStandardProgress,
+  runningProgressText(_stage, progress, l) {
+    return progress.phase === null
+      ? null
+      : shortVideoScriptPanelAdapter.phaseLabel(progress.phase, l);
+  },
+  failedProgressText(stage, l) {
+    return stage.errorCode === 'creator_llm_config_missing'
+      ? l(
+          '请先在设置的 AI 服务中配置文本模型',
+          'Configure a text model in AI Services first.'
+        )
+      : null;
+  },
+  succeededProgressText(_stage, l) {
+    return l('脚本已生成，可以修改、复制或下载', 'The script is ready to edit, copy, or download');
   }
 };
 
@@ -532,9 +775,11 @@ export function creatorPanelAdapterFor(templateId: string): CreatorPanelAdapter 
   if (templateId === 'video-download') return videoDownloadPanelAdapter;
   if (templateId === 'smart-dubbing') return smartDubbingPanelAdapter;
   if (templateId === 'xiaohongshu-post') return xiaohongshuPostPanelAdapter;
+  if (templateId === 'short-video-script') return shortVideoScriptPanelAdapter;
   if (templateId === 'wechat-article') return wechatArticlePanelAdapter;
   if (templateId === 'cover') return coverPanelAdapter;
   if (templateId === 'video-generation') return videoGenerationPanelAdapter;
+  if (templateId === 'stickman-video') return stickmanVideoPanelAdapter;
   return genericAdapter;
 }
 
@@ -663,6 +908,23 @@ function videoDownloadFieldLabel(
   return labels[field] ?? null;
 }
 
+function stickmanFieldLabel(
+  field: string,
+  l: CreatorPanelLocalize
+): string | null {
+  const labels: Record<string, string> = {
+    sourceType: l('内容来源', 'Content source'),
+    sourceUrl: l('YouTube 来源', 'YouTube source'),
+    sourceText: l('文本来源', 'Text source'),
+    characterAsset: l('人物形象', 'Character'),
+    styleAsset: l('视觉风格', 'Visual style'),
+    targetDurationSeconds: l('目标时长', 'Target duration'),
+    targetLanguage: l('目标语言', 'Target language'),
+    voice: l('旁白音色', 'Narration voice')
+  };
+  return labels[field] ?? null;
+}
+
 function smartDubbingFieldLabel(
   field: string,
   l: CreatorPanelLocalize
@@ -714,6 +976,21 @@ function wechatArticleFieldLabel(
     articleImageCount: l('配图数量', 'Image count'),
     articleImageStyleId: l('生图风格', 'Image style'),
     articleImagePrompt: l('配图要求', 'Image direction')
+  };
+  return labels[field] ?? null;
+}
+
+function shortVideoScriptFieldLabel(
+  field: string,
+  l: CreatorPanelLocalize
+): string | null {
+  const labels: Record<string, string> = {
+    topic: l('主题或素材', 'Topic or source material'),
+    audience: l('目标受众', 'Audience'),
+    platform: l('发布平台或场景', 'Platform or use case'),
+    targetDurationSeconds: l('目标时长', 'Target duration'),
+    tone: l('表达语气', 'Tone'),
+    extraRequirements: l('补充要求', 'Additional requirements')
   };
   return labels[field] ?? null;
 }

@@ -34,6 +34,9 @@ describe('creator artifact import', () => {
         kind: 'source_video',
         status: 'completed',
         path: sourcePath,
+        scopeKey: null,
+        inputFingerprint: null,
+        sha256: null,
         sourceArtifactIds: [],
         metadata: {
           fileName: 'Creator Demo.mp4',
@@ -101,6 +104,9 @@ describe('creator artifact import', () => {
       kind: 'source_video',
       status: 'completed',
       path: sourcePath,
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { fileName: 'source.mp4' }
     });
@@ -134,6 +140,9 @@ describe('creator artifact import', () => {
       kind: 'source_video',
       status: 'completed',
       path: sourcePath,
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { fileName: 'source.mp4' }
     });

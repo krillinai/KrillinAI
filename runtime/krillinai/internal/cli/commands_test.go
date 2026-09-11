@@ -53,6 +53,23 @@ func TestParseSubtitlePrepareVideo(t *testing.T) {
 	}
 }
 
+func TestParseSubtitleSourceOnly(t *testing.T) {
+	cmd, err := Parse([]string{
+		"subtitle",
+		"https://www.youtube.com/watch?v=abc",
+		"--source-only",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cmd.Subtitle.SourceOnly {
+		t.Fatal("SourceOnly = false, want true")
+	}
+	if !strings.Contains(Help(Command{Name: "subtitle"}), "--source-only") {
+		t.Fatal("subtitle help does not advertise --source-only")
+	}
+}
+
 func TestParseSubtitleCommandCanPutTargetLanguageOnBottom(t *testing.T) {
 	cmd, err := Parse([]string{
 		"subtitle",

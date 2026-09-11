@@ -237,6 +237,9 @@ function setupDownload() {
     kind: 'download_probe',
     status: 'completed',
     path: join(tempDir, 'probe.json'),
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       id: 'multi-download',

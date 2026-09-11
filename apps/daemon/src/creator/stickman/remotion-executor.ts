@@ -1,0 +1,162 @@
+import { readFile, rm, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { dirname, extname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { Worker } from 'node:worker_threads';
+import type { CreatorExecutor } from '../executor.js';
+import { CreatorExecutorError } from '../executor.js';
+import { validateMediaFile } from '../validators/media.js';
+import { readStickmanRemotionRuntime, type StickmanRemotionRuntime } from './remotion-runtime.js';
+
+type ValidateVideo = (path: string, ffprobePath: string) => Promise<{
+  duration: number;
+  width?: number;
+  height?: number;
+  hasVideo: boolean;
+  hasAudio: boolean;
+}>;
+
+export function createStickmanRemotionExecutor(input: {
+  ffprobePath: string;
+  runtimeRoot: string;
+  workerEntrypoint?: string;
+  runtime?: StickmanRemotionRuntime;
+  validateVideo?: ValidateVideo;
+}): CreatorExecutor {
+  const validateVideo = input.validateVideo ?? validateMediaFile;
+  return {
+    id: 'stickman-remotion',
+    async run(stage) {
+      const timeline = stage.inputArtifacts.find(artifact => artifact.kind === 'timeline_manifest');
+      if (timeline?.path === null || timeline?.path === undefined) {
+        throw new CreatorExecutorError('creator_stage_input_missing', 'Timeline manifest is required');
+      }
+      const runtime = input.runtime ?? readStickmanRemotionRuntime(input.runtimeRoot);
+      const outputPath = join(stage.workdir, 'landscape-clean.mp4');
+      const requestPath = join(stage.workdir, 'remotion-request.json');
+      const resultPath = join(stage.workdir, 'remotion-result.json');
+      await writeFile(requestPath, `${JSON.stringify({
+        timelinePath: timeline.path,
+        outputPath,
+        bundlePath: runtime.bundlePath,
+        browserExecutable: runtime.browserExecutable,
+        workdir: stage.workdir,
+        jobRoot: dirname(stage.workdir),
+        runtimeRoot: runtime.root
+      }, null, 2)}\n`, 'utf8');
+      const workerEntrypoint = input.workerEntrypoint
+        ?? resolveDefaultWorkerEntrypoint();
+      try {
+        await runWorker(workerEntrypoint, requestPath, resultPath, stage.signal);
+        const result = JSON.parse(await readFile(resultPath, 'utf8')) as {
+          ok?: boolean;
+          error?: string;
+        };
+        if (result.ok !== true) {
+          throw new CreatorExecutorError(
+            'stickman_remotion_failed',
+            result.error ?? 'Remotion worker failed'
+          );
+        }
+        const media = await validateVideo(outputPath, input.ffprobePath);
+        const timelineValue = JSON.parse(await readFile(timeline.path, 'utf8')) as {
+          totalFrames?: number;
+          fps?: number;
+        };
+        const expectedDuration = Number(timelineValue.totalFrames) / Number(timelineValue.fps);
+        const durationTolerance = Math.max(0.15, 2 / Number(timelineValue.fps));
+        if (
+          media.width !== 1280
+          || media.height !== 720
+          || !media.hasVideo
+          || !media.hasAudio
+          || !Number.isFinite(expectedDuration)
+          || Math.abs(media.duration - expectedDuration) > durationTolerance
+        ) {
+          throw new CreatorExecutorError(
+            'stickman_render_invalid',
+            'Rendered video must be decodable 1280x720 media with matching audio duration'
+          );
+        }
+        return {
+          outputs: [{
+            kind: 'clean_video',
+            status: 'completed',
+            path: outputPath,
+            sourceArtifactIds: [timeline.id],
+            metadata: {
+              ...media,
+              fileName: 'landscape-clean.mp4',
+              renderEngine: 'remotion',
+              renderKind: 'final',
+              mediaValidation: 'ffprobe'
+            }
+          }]
+        };
+      } catch (error) {
+        await Promise.all([
+          rm(outputPath, { force: true }),
+          rm(resultPath, { force: true })
+        ]);
+        if (stage.signal.aborted) {
+          throw new CreatorExecutorError('creator_stage_canceled', 'Creator stage was canceled');
+        }
+        throw error;
+      }
+    }
+  };
+}
+
+function runWorker(
+  workerEntrypoint: string,
+  requestPath: string,
+  resultPath: string,
+  signal: AbortSignal
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new CreatorExecutorError('creator_stage_canceled', 'Creator stage was canceled'));
+      return;
+    }
+    const isTypeScript = extname(workerEntrypoint).toLowerCase() === '.ts';
+    const worker = new Worker(pathToFileURL(workerEntrypoint), {
+      argv: [requestPath, resultPath],
+      execArgv: isTypeScript
+        ? ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href]
+        : [],
+      stderr: true
+    });
+    let stderr = '';
+    let settled = false;
+    worker.stderr.on('data', chunk => { stderr += String(chunk); });
+    const cleanup = () => signal.removeEventListener('abort', abort);
+    const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+    const abort = () => { void worker.terminate(); };
+    signal.addEventListener('abort', abort, { once: true });
+    worker.once('error', error => fail(new CreatorExecutorError(
+      'stickman_remotion_worker_failed',
+      error.message
+    )));
+    worker.once('exit', code => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (code === 0) resolve();
+      else reject(new CreatorExecutorError(
+        'stickman_remotion_worker_failed',
+        stderr.slice(-2_000) || `Remotion worker exited with code ${code}`
+      ));
+    });
+  });
+}
+
+function resolveDefaultWorkerEntrypoint(): string {
+  const sourceExtension = extname(fileURLToPath(import.meta.url)).toLowerCase();
+  const workerExtension = sourceExtension === '.ts' ? '.ts' : '.js';
+  return fileURLToPath(new URL(`./remotion-worker${workerExtension}`, import.meta.url));
+}

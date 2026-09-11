@@ -6,6 +6,7 @@ import {
   ArrowUpRight,
   Clapperboard,
   Download,
+  FilePenLine,
   Image,
   ImagePlus,
   Languages,
@@ -24,6 +25,7 @@ import AutoClipWorkspace from './AutoClipWorkspace.js';
 import CoverGeneratorWorkspace from './CoverGeneratorWorkspace.js';
 import DigitalAvatarWorkspace from './DigitalAvatarWorkspace.js';
 import ImageGenerationWorkspace from './ImageGenerationWorkspace.js';
+import ShortVideoScriptWorkspace from './ShortVideoScriptWorkspace.js';
 import SmartDubbingWorkspace from './SmartDubbingWorkspace.js';
 import XiaohongshuPostWorkspace from './XiaohongshuPostWorkspace.js';
 import WechatArticleWorkspace from './WechatArticleWorkspace.js';
@@ -147,6 +149,15 @@ const creatorTools: DashboardEntry[] = [
     icon: PenLine,
     badge: 'NEW',
     workspace: 'xiaohongshu-post'
+  },
+  {
+    title: '短视频脚本',
+    description: '生成分段口播与画面建议',
+    prompt: '帮我写一份短视频脚本，请先确认主题、目标受众、发布平台、时长和语气。',
+    category: '文案创作',
+    icon: FilePenLine,
+    badge: 'NEW',
+    workspace: 'short-video-script'
   },
   {
     title: '智能配音',
@@ -356,6 +367,15 @@ export default function DashboardPage(props: {
     ));
   }
 
+  if (activeWorkspace === 'short-video-script') {
+    return renderCreatorWorkspace('short-video-script', (
+      <ShortVideoScriptWorkspace
+        promptHint={activePromptHint}
+        onBack={closeWorkspace}
+      />
+    ));
+  }
+
   if (activeWorkspace === 'image-generation') {
     return renderCreatorWorkspace('image-generation', (
       <ImageGenerationWorkspace
@@ -388,6 +408,8 @@ export default function DashboardPage(props: {
     return renderCreatorWorkspace('stickman-video', (
       <StickmanVideoWorkspace
         promptHint={activePromptHint}
+        creatorServicesService={props.creatorServicesService}
+        creatorService={props.creatorService}
         onBack={closeWorkspace}
       />
     ));
@@ -707,13 +729,14 @@ function createPendingCreatorJob(projectId: string, templateId: string): Creator
     id: `pending:${projectId}:${templateId}`,
     projectId,
     templateId,
-    templateVersion: 1,
+    templateVersion: templateId === 'stickman-video' ? 2 : 1,
     status: 'draft',
     revision: 0,
     state: {},
     agentThreadId: null,
     stages: [],
     artifacts: [],
+    providerRequests: [],
     activities: [],
     createdAt: now,
     updatedAt: now
@@ -860,6 +883,8 @@ const englishDashboardLabels: Record<string, string> = {
   '角色、分镜与完整动画': 'Characters, storyboards, and animation',
   自动剪辑: 'Auto Clips',
   语义识别与高光切片: 'Semantic detection and highlight clips',
+  短视频脚本: 'Short Video Script',
+  生成分段口播与画面建议: 'Generate timed narration and visual suggestions',
   智能配音: 'AI Dubbing',
   小红书帖子: 'Xiaohongshu Posts',
   从主题和素材生成完整帖子: 'Turn a topic or source material into a complete post',

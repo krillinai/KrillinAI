@@ -86,6 +86,7 @@ function stageInput(
     agentThreadId: null,
     stages: [],
     artifacts: [],
+    providerRequests: [],
     activities: [],
     createdAt,
     updatedAt: createdAt
@@ -101,6 +102,8 @@ function stageInput(
     claimExpiresAt: null,
     attempt: 1,
     idempotencyKey: 'cover-analysis-test',
+    scopeKey: null,
+    inputFingerprint: null,
     progress: { workflow: true },
     errorCode: null,
     errorMessage: null,

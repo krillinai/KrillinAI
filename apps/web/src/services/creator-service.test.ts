@@ -76,6 +76,8 @@ describe('creator web service', () => {
     await service.openArtifact('job_1', 'artifact 1');
     await service.deleteJob('job 1');
     await service.deleteJob('job 2', { deleteFiles: true });
+    await service.listVisualAssets('stickman-video', 'style');
+    await service.openVisualAssetPreview('stickman.style.paper-pencil', 2);
 
     expect(client.get).toHaveBeenCalledWith('/creator/jobs?projectId=project%201');
     expect(client.get).toHaveBeenCalledWith('/creator/jobs');
@@ -130,6 +132,10 @@ describe('creator web service', () => {
     expect(client.rawGet).toHaveBeenCalledWith('/creator/jobs/job_1/artifacts/artifact%201/content');
     expect(client.delete).toHaveBeenNthCalledWith(1, '/creator/jobs/job%201');
     expect(client.delete).toHaveBeenNthCalledWith(2, '/creator/jobs/job%202?deleteFiles=true');
+    expect(client.get).toHaveBeenCalledWith('/creator/visual-assets?templateId=stickman-video&kind=style');
+    expect(client.rawGet).toHaveBeenCalledWith(
+      '/creator/visual-assets/stickman.style.paper-pencil/revisions/2/preview'
+    );
   });
 
   it('deduplicates stable SSE ids and reconnects with the last cursor', async () => {

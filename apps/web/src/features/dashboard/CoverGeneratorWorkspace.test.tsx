@@ -356,6 +356,8 @@ describe('CoverGeneratorWorkspace', () => {
         claimExpiresAt: null,
         attempt: 1,
         idempotencyKey: 'cover-stage-running',
+        scopeKey: null,
+        inputFingerprint: null,
         progress: {
           phase: 'generating_candidates',
           percent: 53,
@@ -407,6 +409,8 @@ describe('CoverGeneratorWorkspace', () => {
         claimExpiresAt: null,
         attempt: 1,
         idempotencyKey: 'cover-analysis-running',
+        scopeKey: null,
+        inputFingerprint: null,
         progress: {
           workflow: true,
           phase: 'analyzing_source',
@@ -454,6 +458,8 @@ describe('CoverGeneratorWorkspace', () => {
         claimExpiresAt: null,
         attempt: 1,
         idempotencyKey: 'cover-analysis-retrying',
+        scopeKey: null,
+        inputFingerprint: null,
         progress: {
           workflow: true,
           phase: 'reading_source_retry',
@@ -535,6 +541,7 @@ function createFixture() {
     agentThreadId: null,
     stages: [],
     artifacts: [],
+    providerRequests: [],
     activities: [],
     createdAt,
     updatedAt: createdAt
@@ -644,6 +651,9 @@ function createFixture() {
       version: 1,
       status: 'completed',
       path: '/tmp/reference.png',
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: {
         fileName: input.file.name,
@@ -706,6 +716,9 @@ function coverArtifact(
     version: candidate,
     status: 'completed',
     path: `/tmp/cover-${candidate}.png`,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       candidate,
@@ -731,6 +744,9 @@ function sourceKeyframeArtifact(
     version: 1,
     status: 'completed',
     path: '/tmp/source-thumbnail.jpg',
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       fileName: 'source-thumbnail.jpg',

@@ -2,6 +2,10 @@
   "name": "@opencreator/daemon",
   "version": "0.1.0",
   "type": "module",
+  "files": [
+    "dist",
+    "runtime"
+  ],
   "scripts": {
     "predev": "pnpm --filter @opencreator/protocol build && pnpm --filter @opencreator/config build && pnpm --filter @opencreator/skill-market build && pnpm --filter @opencreator/writing-templates build",
     "dev": "node scripts/dev.mjs",
@@ -22,6 +26,7 @@
     "@opencreator/protocol": "workspace:*",
     "@opencreator/skill-market": "workspace:*",
     "@opencreator/writing-templates": "workspace:*",
+    "@remotion/renderer": "4.0.473",
     "better-sqlite3": "^12.11.1",
     "cheerio": "1.1.2",
     "cron-parser": "^5.6.1",
@@ -32,13 +37,18 @@
     "nanoid": "^5.0.9",
     "pdf-parse": "1.1.1",
     "pdfkit": "^0.20.2",
+    "sharp": "0.34.3",
+    "toml": "^3.0.0",
     "yaml": "^2.8.1",
+    "yauzl": "3.4.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@remotion/bundler": "4.0.473",
     "@types/better-sqlite3": "^7.6.13",
     "@types/cross-spawn": "^6.0.6",
     "@types/pdf-parse": "1.1.5",
-    "@types/pdfkit": "^0.17.6"
+    "@types/pdfkit": "^0.17.6",
+    "@types/yauzl": "3.4.0"
   }
 }

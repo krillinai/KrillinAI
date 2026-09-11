@@ -33,6 +33,9 @@ describe('creator storage', () => {
       kind: 'target_subtitle',
       status: 'completed',
       path: join(tempDir, 'target.srt'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { language: 'en' }
     });
@@ -55,6 +58,7 @@ describe('creator storage', () => {
       revision: 0,
       state: { targetLanguage: 'en' },
       artifacts: [{ kind: 'target_subtitle', version: 1, status: 'completed' }],
+      providerRequests: [],
       activities: [{ action: 'create-job', actor: 'user' }]
     });
   });
@@ -87,6 +91,73 @@ describe('creator storage', () => {
     expect(restored?.status).toBe('needs_input');
   });
 
+  it('persists scoped stage runs and artifacts while rejecting duplicate active identities', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'creator-storage-'));
+    const path = join(tempDir, 'app.sqlite');
+    const firstDb = openRuntimeDatabase(path);
+    const repository = createCreatorRepository(firstDb);
+    const job = repository.createJob({
+      projectId: 'project_1',
+      templateId: 'image-generation',
+      templateVersion: 1,
+      status: 'running',
+      state: { prompt: 'scope persistence' }
+    });
+    const first = repository.createStageRun({
+      jobId: job.id,
+      stageId: 'generate',
+      executor: 'image',
+      status: 'queued',
+      scopeKey: 'shot-01',
+      inputFingerprint: 'a'.repeat(64)
+    });
+
+    expect(() => repository.createStageRun({
+      jobId: job.id,
+      stageId: 'generate',
+      executor: 'image',
+      status: 'running',
+      scopeKey: 'shot-01',
+      inputFingerprint: 'a'.repeat(64)
+    })).toThrow();
+
+    repository.updateStageRun({ id: first.id, status: 'failed' });
+    const retry = repository.createStageRun({
+      jobId: job.id,
+      stageId: 'generate',
+      executor: 'image',
+      status: 'queued',
+      scopeKey: 'shot-01',
+      inputFingerprint: 'a'.repeat(64)
+    });
+    repository.insertArtifact({
+      jobId: job.id,
+      kind: 'shot_image',
+      status: 'completed',
+      path: join(tempDir, 'shot-01.png'),
+      sourceArtifactIds: [],
+      scopeKey: 'shot-01',
+      inputFingerprint: 'a'.repeat(64),
+      sha256: 'b'.repeat(64),
+      metadata: { width: 1280, height: 720 }
+    });
+    firstDb.close();
+
+    const secondDb = openRuntimeDatabase(path);
+    const restored = createCreatorRepository(secondDb).getJob(job.id)!;
+    secondDb.close();
+
+    expect(restored.stages.find(stage => stage.id === retry.id)).toMatchObject({
+      scopeKey: 'shot-01',
+      inputFingerprint: 'a'.repeat(64)
+    });
+    expect(restored.artifacts[0]).toMatchObject({
+      scopeKey: 'shot-01',
+      inputFingerprint: 'a'.repeat(64),
+      sha256: 'b'.repeat(64)
+    });
+  });
+
   it('repairs project snapshots that incorrectly started from the UI placeholder V2', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'creator-storage-'));
     const path = join(tempDir, 'app.sqlite');
@@ -104,6 +175,9 @@ describe('creator storage', () => {
       kind: 'target_subtitle',
       status: 'completed',
       path: join(tempDir, 'target.srt'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { resultVersion: 2 }
     });
@@ -176,6 +250,9 @@ describe('creator storage', () => {
       kind: 'target_subtitle',
       status: 'completed',
       path: targetPath,
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { resultVersion: 1, fileName: 'target_language_srt.srt' }
     });
@@ -210,6 +287,9 @@ describe('creator storage', () => {
       version: 1,
       status: 'completed',
       path: verticalPath,
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [target.id],
       metadata: {
         resultVersion: 1,

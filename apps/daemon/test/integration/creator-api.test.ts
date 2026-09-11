@@ -22,11 +22,41 @@ type TestResponse = { statusCode: number; json(): any };
 afterEach(async () => {
   await server?.close();
   server = undefined;
-  if (tempDir) rmSync(tempDir, { recursive: true, force: true });
+  if (tempDir) rmSync(tempDir, {
+    recursive: true,
+    force: true,
+    maxRetries: 30,
+    retryDelay: 100
+  });
   tempDir = '';
 });
 
 describe('creator api', () => {
+  it('serves built-in stickman visual asset previews in development', async () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'creator-api-'));
+    server = await buildServer({
+      token: 'secret',
+      dataDir: tempDir,
+      codexHome: join(tempDir, 'codex-home')
+    });
+
+    const catalog = await request(
+      'GET',
+      '/creator/visual-assets?templateId=stickman-video'
+    );
+    expect(catalog.statusCode).toBe(200);
+    expect(catalog.json().assets).toHaveLength(14);
+
+    const preview = await server.inject({
+      method: 'GET',
+      url: '/creator/visual-assets/stickman.character.student/revisions/1/preview',
+      headers: { authorization: 'Bearer secret' }
+    });
+    expect(preview.statusCode).toBe(200);
+    expect(preview.headers['content-type']).toContain('image/png');
+    expect(preview.rawPayload.byteLength).toBeGreaterThan(1_000);
+  });
+
   it('uploads a persistent inline image for a WeChat article', async () => {
     await setupServer({});
     const created = await request('POST', '/creator/jobs', {

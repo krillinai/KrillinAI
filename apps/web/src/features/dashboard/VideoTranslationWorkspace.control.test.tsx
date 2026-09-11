@@ -188,6 +188,9 @@ describe('VideoTranslationWorkspace task controls', () => {
       version: 1,
       status: 'completed',
       path: '/tmp/vertical-subtitle-v1.srt',
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: {
         resultVersion: 1,
@@ -696,6 +699,7 @@ function job(input: {
     agentThreadId: null,
     stages: input.stages,
     artifacts: input.artifacts ?? [],
+    providerRequests: [],
     activities: [],
     createdAt: '2026-08-28T06:00:00.000Z',
     updatedAt: '2026-08-28T06:00:00.000Z'
@@ -710,6 +714,9 @@ function subtitleArtifact(resultVersion: number, text: string): CreatorArtifact 
     version: resultVersion,
     status: 'completed',
     path: `/tmp/target-subtitle-v${resultVersion}.srt`,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       resultVersion,
@@ -739,6 +746,9 @@ function textSubtitleArtifact(input: {
     version: input.version,
     status: 'completed',
     path: `/tmp/${input.fileName}`,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       resultVersion: input.version,
@@ -762,6 +772,9 @@ function sourceVideoArtifact(resultVersion: number): CreatorArtifact {
     version: resultVersion,
     status: 'completed',
     path: `/tmp/source-video-v${resultVersion}.mp4`,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       resultVersion,
@@ -800,6 +813,8 @@ function stage(input: {
       : null,
     attempt: input.status === 'queued' ? 0 : 1,
     idempotencyKey: input.id,
+    scopeKey: null,
+    inputFingerprint: null,
     progress: input.progress,
     errorCode: null,
     errorMessage: null,

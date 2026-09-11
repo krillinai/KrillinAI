@@ -5,6 +5,7 @@ export type CreatorWorkspace =
   | 'auto-clips'
   | 'smart-dubbing'
   | 'xiaohongshu-post'
+  | 'short-video-script'
   | 'wechat-article'
   | 'digital-avatar'
   | 'cover-generator'
@@ -18,6 +19,7 @@ export const creatorWorkspaces = [
   'auto-clips',
   'smart-dubbing',
   'xiaohongshu-post',
+  'short-video-script',
   'wechat-article',
   'digital-avatar',
   'cover-generator',
@@ -28,8 +30,10 @@ export const creatorWorkspaces = [
 export const visibleCreatorWorkspaces = [
   'video-translation',
   'video-download',
+  'stickman-video',
   'smart-dubbing',
   'xiaohongshu-post',
+  'short-video-script',
   'wechat-article',
   'cover-generator',
   'image-generation',
@@ -43,6 +47,7 @@ export const creatorRuntimeWorkspaces = [
   'auto-clips',
   'smart-dubbing',
   'xiaohongshu-post',
+  'short-video-script',
   'wechat-article',
   'cover-generator',
   'image-generation',
@@ -58,6 +63,7 @@ const templateByWorkspace: Record<CreatorRuntimeWorkspace, string> = {
   'auto-clips': 'auto-clip',
   'smart-dubbing': 'smart-dubbing',
   'xiaohongshu-post': 'xiaohongshu-post',
+  'short-video-script': 'short-video-script',
   'wechat-article': 'wechat-article',
   'cover-generator': 'cover',
   'image-generation': 'image-generation',

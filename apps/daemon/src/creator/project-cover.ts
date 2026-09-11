@@ -26,6 +26,8 @@ const videoArtifactKinds = [
   'dubbed_video',
   'auto_clip_video',
   'stickman_video',
+  'clean_video',
+  'bilingual_video',
   'clip_video',
   'generated_video'
 ] as const;

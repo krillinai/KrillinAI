@@ -37,6 +37,12 @@ jobs:
         run: pnpm audit --audit-level high --ignore-registry-errors
         timeout-minutes: 5
       - run: pnpm krillinai:test
+      - name: Install CJK fonts for article PDF tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          test -f /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
+          test -f /usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc
       - run: pnpm test
       - run: pnpm release:verify-scheduled-task-upgrade
       - run: pnpm typecheck
