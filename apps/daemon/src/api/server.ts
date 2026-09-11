@@ -59,6 +59,7 @@ import { createClipExecutor } from '../creator/clip/executor.js';
 import { createStickmanExecutor } from '../creator/stickman/executor.js';
 import { createSmartDubbingExecutor } from '../creator/smart-dubbing/executor.js';
 import { createXiaohongshuPostExecutor } from '../creator/xiaohongshu/executor.js';
+import { createShortVideoScriptExecutor } from '../creator/short-video-script/executor.js';
 import { createWechatArticleExecutor } from '../creator/article/executor.js';
 import { createArticleImageGenerator } from '../creator/article/image-generator.js';
 import { createArticleSourceExtractor } from '../creator/article/source-extractor.js';
@@ -605,6 +606,9 @@ export async function buildServer(input: BuildServerInput) {
   }
   if (input.creatorExecutors === undefined) {
     creatorExecutors.push(createXiaohongshuPostExecutor({
+      configStore: creatorServicesConfigStore
+    }));
+    creatorExecutors.push(createShortVideoScriptExecutor({
       configStore: creatorServicesConfigStore
     }));
     creatorExecutors.push(createSmartDubbingExecutor({

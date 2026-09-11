@@ -164,7 +164,12 @@ const creatorSkillsByCategory: Record<CreatorSkillCategory, CreatorSkill[]> = {
       id: 'short-video-script',
       title: '短视频脚本',
       category: '内容策划',
-      image: '/skill-market/examples/gpt-image-2-info-poster.png'
+      image: '/skill-market/examples/gpt-image-2-info-poster.png',
+      interaction: { type: 'workspace', workspace: 'short-video-script' },
+      promptHint: {
+        zhCN: '输入主题或素材，并设置目标受众、发布平台、时长和语气',
+        enUS: 'Enter a topic or source material, then set the audience, platform, duration, and tone'
+      }
     }
   ],
   数字人: [
