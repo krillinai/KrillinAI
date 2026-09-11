@@ -173,23 +173,27 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
       platform: string;
       arch: string;
       transcription: {
-        providers: Array<{ provider: string; available: boolean; models: string[] }>;
+        providers: Array<{
+          provider: string;
+          kind: 'cloud' | 'local';
+          available: boolean;
+          models: string[];
+        }>;
       };
     }>(currentApp.page, 'GET', '/creator-services/capabilities');
     expect(creatorCapabilities.status).toBe(200);
     expect(creatorCapabilities.body).toMatchObject({
       platform: process.platform,
-      arch: process.arch,
-      transcription: {
-        providers: expect.arrayContaining([
-          expect.objectContaining({
-            provider: 'whisper.cpp',
-            available: true,
-            models: ['tiny', 'medium', 'large-v2']
-          })
-        ])
-      }
+      arch: process.arch
     });
+    const expectedLocalProviders = process.platform === 'darwin' && process.arch === 'arm64'
+      ? ['whisperkit']
+      : process.platform === 'win32' && process.arch === 'x64'
+        ? ['whisper.cpp']
+        : [];
+    expect(creatorCapabilities.body.transcription.providers
+      .filter(provider => provider.kind === 'local' && provider.available)
+      .map(provider => provider.provider)).toEqual(expectedLocalProviders);
     const ytDlpStatus = await runtimeRequest<{
       ytDlp: {
         channel: string;
