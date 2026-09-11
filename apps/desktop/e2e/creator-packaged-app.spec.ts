@@ -178,8 +178,8 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
     }>(currentApp.page, 'GET', '/creator-services/capabilities');
     expect(creatorCapabilities.status).toBe(200);
     expect(creatorCapabilities.body).toMatchObject({
-      platform: 'win32',
-      arch: 'x64',
+      platform: process.platform,
+      arch: process.arch,
       transcription: {
         providers: expect.arrayContaining([
           expect.objectContaining({
