@@ -77,6 +77,26 @@ func TestSelectYouTubeSubtitleTrackPrefersMarkedOriginalCaptionForAuto(t *testin
 	}
 }
 
+func TestSelectYouTubeSubtitleTrackPrefersMarkedOriginalCaptionForExplicitLanguage(t *testing.T) {
+	metadata := youtubeSubtitleMetadata{
+		Language: "en",
+		Subtitles: map[string][]youtubeSubtitleFormat{
+			"en": {{URL: "https://example.test/caption?lang=en"}},
+		},
+		AutomaticCaptions: map[string][]youtubeSubtitleFormat{
+			"en-orig": {{URL: "https://example.test/auto?lang=en", Name: "English (Original)"}},
+		},
+	}
+
+	track, err := selectYouTubeSubtitleTrack(metadata, "en")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if track.Language != "en-orig" || !track.Automatic {
+		t.Fatalf("track = %+v, want automatic en-orig", track)
+	}
+}
+
 func TestSelectYouTubeSubtitleTrackFallsBackOnlyForUniqueTrack(t *testing.T) {
 	metadata := youtubeSubtitleMetadata{
 		Subtitles: map[string][]youtubeSubtitleFormat{
@@ -163,6 +183,47 @@ func TestDownloadYouTubeSubtitleAutoIntegration(t *testing.T) {
 	}
 	if !strings.Contains(filepath.Base(path), ".en-orig.") {
 		t.Fatalf("downloaded subtitle = %q, want the en-orig track", path)
+	}
+}
+
+func TestDownloadYouTubeSubtitleExplicitLanguageIntegration(t *testing.T) {
+	if os.Getenv("KRILLIN_RUN_YOUTUBE_SUBTITLE_AUTO_INTEGRATION") != "1" {
+		t.Skip("set KRILLIN_RUN_YOUTUBE_SUBTITLE_AUTO_INTEGRATION=1 to run the YouTube subtitle integration test")
+	}
+	log.InitLogger()
+	ytdlpPath, err := exec.LookPath("yt-dlp")
+	if err != nil {
+		t.Fatalf("find yt-dlp: %v", err)
+	}
+	previousPath, previousPrefix := storage.YtdlpPath, storage.YtdlpPrefixArgs
+	storage.YtdlpPath, storage.YtdlpPrefixArgs = ytdlpPath, nil
+	t.Cleanup(func() {
+		storage.YtdlpPath, storage.YtdlpPrefixArgs = previousPath, previousPrefix
+	})
+
+	req := &YoutubeSubtitleReq{
+		TaskBasePath:   t.TempDir(),
+		TaskId:         "youtube-explicit-origin",
+		OriginLanguage: "en",
+		URL:            "https://www.youtube.com/watch?v=paF--WGA8dU",
+	}
+	service := NewYouTubeSubtitleService()
+	path, err := service.downloadYouTubeSubtitle(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.OriginLanguage != "en" {
+		t.Fatalf("origin language = %q, want en", req.OriginLanguage)
+	}
+	if !strings.Contains(filepath.Base(path), ".en-orig.") {
+		t.Fatalf("downloaded subtitle = %q, want the en-orig track", path)
+	}
+	hasWordTimestamps, err := service.DetectVttFormat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasWordTimestamps {
+		t.Fatalf("downloaded subtitle = %q, want word-level timestamps", path)
 	}
 }
 

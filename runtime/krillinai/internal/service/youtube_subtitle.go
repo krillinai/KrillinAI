@@ -288,6 +288,9 @@ func selectYouTubeSubtitleTrack(metadata youtubeSubtitleMetadata, requestedLangu
 
 	if requestedLanguage != "" && !strings.EqualFold(requestedLanguage, "auto") {
 		youtubeLanguage := util.MapLanguageForYouTube(requestedLanguage)
+		if language, ok := matchMarkedOriginLanguage(youtubeLanguage, markedOriginLanguages); ok {
+			return youtubeSubtitleTrack{Language: language, Automatic: true}, nil
+		}
 		if language, ok := matchAvailableLanguage(youtubeLanguage, manualLanguages); ok {
 			return youtubeSubtitleTrack{Language: language}, nil
 		}
