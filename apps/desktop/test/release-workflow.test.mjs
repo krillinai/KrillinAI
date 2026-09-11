@@ -18,10 +18,11 @@ describe('Desktop release workflow', () => {
     expect(releaseWorkflow).not.toContain('--title "KrillinAI $TAG"');
   });
 
-  it('runs CI on demand and for pull requests without automatic push builds', () => {
+  it('runs CI on demand, for pull requests, and for master pushes', () => {
     expect(ciWorkflow).toContain('workflow_dispatch:');
     expect(ciWorkflow).toContain('pull_request:');
-    expect(ciWorkflow).not.toContain('\n  push:');
+    expect(ciWorkflow).toContain('\n  push:');
+    expect(ciWorkflow).toContain('      - master');
     expect(ciWorkflow).toContain('cancel-in-progress: true');
   });
 
@@ -62,9 +63,9 @@ describe('Desktop release workflow', () => {
   it('reuses the successful master CI instead of repeating all tests', () => {
     expect(releaseWorkflow).toContain('name: 校验同一提交的 CI 已通过');
     expect(releaseWorkflow).toContain('--workflow ci.yml');
-    expect(releaseWorkflow).toContain('--event workflow_dispatch');
+    expect(releaseWorkflow).toContain('--event push');
     expect(releaseWorkflow).toContain('--status success');
-    expect(releaseWorkflow).toContain('先在 master 上运行 CI');
+    expect(releaseWorkflow).toContain('请等待 CI 通过');
     expect(releaseWorkflow).not.toContain('run: pnpm test');
     expect(releaseWorkflow).not.toContain('run: pnpm typecheck');
     expect(releaseWorkflow).not.toContain('run: pnpm build');

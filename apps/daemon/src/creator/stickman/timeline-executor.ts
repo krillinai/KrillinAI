@@ -162,8 +162,9 @@ export function createStickmanTimelineExecutor(): CreatorExecutor {
 }
 
 async function assertInputPath(jobRoot: string, path: string): Promise<void> {
+  const actualJobRoot = await realpath(jobRoot);
   const actual = await realpath(resolve(path));
-  const value = relative(jobRoot, actual);
+  const value = relative(actualJobRoot, actual);
   if (value.startsWith('..') || isAbsolute(value)) {
     throw new CreatorExecutorError('creator_artifact_path_escape', `Artifact path escapes Job root: ${path}`);
   }

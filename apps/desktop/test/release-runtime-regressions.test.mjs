@@ -58,7 +58,7 @@ describe('Desktop release runtime regressions', () => {
       '@remotion/renderer': '4.0.473',
       'cross-spawn': '7.0.6',
       fastify: '5.9.0',
-      sharp: '0.34.3',
+      sharp: '0.35.4',
       yauzl: '3.4.0'
     });
     expect(runtimePackage.dependencies).not.toHaveProperty('which');
