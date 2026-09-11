@@ -231,14 +231,17 @@ function GeneralSettings(props: {
   ];
   const languageName = language === 'zh-CN'
     ? t('settings.language.zh')
-    : t('settings.language.en');
+    : language === 'sv-SE'
+      ? t('settings.language.sv')
+      : t('settings.language.en');
   const languageOptions: Array<{ value: AppLanguagePreference; label: string }> = [
     {
       value: 'system',
       label: t('settings.language.system', { language: languageName })
     },
     { value: 'zh-CN', label: t('settings.language.zh') },
-    { value: 'en-US', label: t('settings.language.en') }
+    { value: 'en-US', label: t('settings.language.en') },
+    { value: 'sv-SE', label: t('settings.language.sv') }
   ];
 
   return (

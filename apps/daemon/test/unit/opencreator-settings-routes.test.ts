@@ -52,7 +52,7 @@ describe('OpenCreator settings routes', () => {
       method: 'PATCH',
       url: '/settings/ui',
       payload: {
-        language: 'zh-CN',
+        language: 'sv-SE',
         colorMode: 'light',
         accentColor: 'red'
       }
@@ -60,7 +60,7 @@ describe('OpenCreator settings routes', () => {
 
     expect(updated.statusCode).toBe(200);
     expect(store.updateUi).toHaveBeenCalledWith({
-      language: 'zh-CN',
+      language: 'sv-SE',
       colorMode: 'light',
       accentColor: 'red'
     });

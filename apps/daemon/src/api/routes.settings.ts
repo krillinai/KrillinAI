@@ -8,7 +8,7 @@ import type { OpenCreatorSettingsStore } from '../settings/store.js';
 import { apiError } from './errors.js';
 
 const updateSchema = z.object({
-  language: z.enum(['system', 'zh-CN', 'en-US']).optional(),
+  language: z.enum(['system', 'zh-CN', 'en-US', 'sv-SE']).optional(),
   colorMode: z.enum(['light', 'dark']).optional(),
   accentColor: z.enum([
     'neutral',

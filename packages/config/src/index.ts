@@ -222,7 +222,7 @@ function normalizeUiSettings(value: unknown): OpenCreatorUiSettings {
   const accentColor = source.accentColor ?? source.accent_color;
   const defaultPermission = source.defaultPermission ?? source.default_permission;
   return {
-    language: source.language === 'zh-CN' || source.language === 'en-US'
+    language: source.language === 'zh-CN' || source.language === 'en-US' || source.language === 'sv-SE'
       ? source.language
       : 'system',
     colorMode: colorMode === 'light' ? 'light' : 'dark',
