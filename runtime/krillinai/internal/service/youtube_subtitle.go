@@ -3,9 +3,14 @@ package service
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -15,8 +20,6 @@ import (
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
-
-	"regexp"
 
 	"go.uber.org/zap"
 )
@@ -45,6 +48,22 @@ type YoutubeSubtitleReq struct {
 type YouTubeSubtitleService struct {
 	translator         *Translator
 	timestampGenerator *TimestampGenerator
+}
+
+type youtubeSubtitleFormat struct {
+	URL  string `json:"url"`
+	Name string `json:"name"`
+}
+
+type youtubeSubtitleMetadata struct {
+	Language          string                             `json:"language"`
+	Subtitles         map[string][]youtubeSubtitleFormat `json:"subtitles"`
+	AutomaticCaptions map[string][]youtubeSubtitleFormat `json:"automatic_captions"`
+}
+
+type youtubeSubtitleTrack struct {
+	Language  string
+	Automatic bool
 }
 
 // NewYouTubeSubtitleService creates a new YouTubeSubtitleService.
@@ -129,32 +148,33 @@ func (s *YouTubeSubtitleService) downloadYouTubeSubtitle(ctx context.Context, re
 	}
 
 	// 确定要下载的字幕语言
-	subtitleLang := util.MapLanguageForYouTube(req.OriginLanguage)
+	track, err := s.resolveYouTubeSubtitleTrack(ctx, req)
+	if err != nil {
+		return "", fmt.Errorf("downloadYouTubeSubtitle: resolve origin subtitle: %w", err)
+	}
+	if strings.EqualFold(strings.TrimSpace(req.OriginLanguage), "auto") {
+		req.OriginLanguage = internalLanguageCodeFromYouTube(track.Language)
+	}
 
 	// 构造yt-dlp命令参数，使用视频ID作为文件名
 	outputPattern := filepath.Join(req.TaskBasePath, videoID+".%(ext)s")
-	cmdArgs := []string{
-		"--write-auto-subs",
-		"--sub-langs", subtitleLang,
-		"--skip-download",
-		"-o", outputPattern,
-		req.URL,
-	}
+	cmdArgs := youtubeSubtitleCommandArgs(track, outputPattern)
 
 	// 添加代理设置
-	if config.Conf.App.Proxy != "" {
-		cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
-	}
+	cmdArgs = appendYouTubeAccessArgs(cmdArgs)
 
 	// 添加cookies（如果存在且格式有效）
-	cmdArgs = appendCookiesArgs(cmdArgs, youtubeCookiesPath)
 
 	// 添加ffmpeg路径
 	if storage.FfmpegPath != "ffmpeg" {
 		cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
 	}
+	cmdArgs = append(cmdArgs, req.URL)
 
-	log.GetLogger().Info("downloadYouTubeSubtitle starting", zap.Any("taskId", req.TaskId), zap.Any("cmdArgs", cmdArgs))
+	log.GetLogger().Info("downloadYouTubeSubtitle starting",
+		zap.String("taskId", req.TaskId),
+		zap.String("subtitleLanguage", track.Language),
+		zap.Bool("automatic", track.Automatic))
 
 	// 添加重试机制
 	maxAttempts := 3
@@ -174,7 +194,7 @@ func (s *YouTubeSubtitleService) downloadYouTubeSubtitle(ctx context.Context, re
 			log.GetLogger().Info("downloadYouTubeSubtitle completed", zap.Any("taskId", req.TaskId), zap.String("output", string(output)))
 
 			// 查找下载的字幕文件
-			subtitleFile, err := s.findDownloadedSubtitleFile(req.TaskBasePath, subtitleLang, videoID)
+			subtitleFile, err := s.findDownloadedSubtitleFile(req.TaskBasePath, track.Language, videoID)
 			if err != nil {
 				log.GetLogger().Error("downloadYouTubeSubtitle findDownloadedSubtitleFile error", zap.Any("stepParam", req), zap.Error(err))
 				return "", fmt.Errorf("downloadYouTubeSubtitle findDownloadedSubtitleFile error: %w", err)
@@ -208,6 +228,237 @@ func (s *YouTubeSubtitleService) downloadYouTubeSubtitle(ctx context.Context, re
 }
 
 // 查找下载的字幕文件
+func (s *YouTubeSubtitleService) resolveYouTubeSubtitleTrack(ctx context.Context, req *YoutubeSubtitleReq) (youtubeSubtitleTrack, error) {
+	if err := ctx.Err(); err != nil {
+		return youtubeSubtitleTrack{}, err
+	}
+
+	cmdArgs := []string{"--dump-single-json", "--skip-download", "--no-playlist"}
+	cmdArgs = appendYouTubeAccessArgs(cmdArgs)
+	cmdArgs = append(cmdArgs, req.URL)
+
+	output, err := storage.YtdlpCommand(cmdArgs...).Output()
+	if err != nil {
+		details := ""
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			details = compactCommandOutput(exitErr.Stderr)
+		}
+		if details != "" {
+			return youtubeSubtitleTrack{}, fmt.Errorf("yt-dlp subtitle metadata error: %w: %s", err, details)
+		}
+		return youtubeSubtitleTrack{}, fmt.Errorf("yt-dlp subtitle metadata error: %w", err)
+	}
+
+	var metadata youtubeSubtitleMetadata
+	if err := json.Unmarshal(output, &metadata); err != nil {
+		return youtubeSubtitleTrack{}, fmt.Errorf("parse yt-dlp subtitle metadata: %w", err)
+	}
+
+	manualLanguages := availableLanguageKeys(metadata.Subtitles)
+	automaticLanguages := automaticOriginLanguageKeys(metadata.AutomaticCaptions)
+	markedOriginLanguages := markedOriginalLanguageKeys(metadata.AutomaticCaptions)
+	track, err := selectYouTubeSubtitleTrack(metadata, req.OriginLanguage)
+	if err != nil {
+		log.GetLogger().Warn("No matching YouTube origin subtitle track",
+			zap.String("taskId", req.TaskId),
+			zap.String("metadataLanguage", metadata.Language),
+			zap.Strings("manualSubtitleLanguages", manualLanguages),
+			zap.Strings("automaticSourceLanguages", automaticLanguages),
+			zap.Strings("markedOriginLanguages", markedOriginLanguages),
+			zap.Error(err))
+		return youtubeSubtitleTrack{}, err
+	}
+
+	log.GetLogger().Info("Resolved YouTube origin subtitle track",
+		zap.String("taskId", req.TaskId),
+		zap.String("metadataLanguage", metadata.Language),
+		zap.Strings("manualSubtitleLanguages", manualLanguages),
+		zap.Strings("automaticSourceLanguages", automaticLanguages),
+		zap.Strings("markedOriginLanguages", markedOriginLanguages),
+		zap.String("selectedLanguage", track.Language),
+		zap.Bool("automatic", track.Automatic))
+	return track, nil
+}
+
+func selectYouTubeSubtitleTrack(metadata youtubeSubtitleMetadata, requestedLanguage string) (youtubeSubtitleTrack, error) {
+	manualLanguages := availableLanguageKeys(metadata.Subtitles)
+	automaticLanguages := automaticOriginLanguageKeys(metadata.AutomaticCaptions)
+	markedOriginLanguages := markedOriginalLanguageKeys(metadata.AutomaticCaptions)
+	requestedLanguage = strings.TrimSpace(requestedLanguage)
+
+	if requestedLanguage != "" && !strings.EqualFold(requestedLanguage, "auto") {
+		youtubeLanguage := util.MapLanguageForYouTube(requestedLanguage)
+		if language, ok := matchAvailableLanguage(youtubeLanguage, manualLanguages); ok {
+			return youtubeSubtitleTrack{Language: language}, nil
+		}
+		if language, ok := matchAvailableLanguage(youtubeLanguage, automaticLanguages); ok {
+			return youtubeSubtitleTrack{Language: language, Automatic: true}, nil
+		}
+		return youtubeSubtitleTrack{}, fmt.Errorf("origin subtitle language %q is unavailable", youtubeLanguage)
+	}
+
+	if metadata.Language != "" {
+		if language, ok := matchMarkedOriginLanguage(metadata.Language, markedOriginLanguages); ok {
+			return youtubeSubtitleTrack{Language: language, Automatic: true}, nil
+		}
+	}
+	if len(markedOriginLanguages) == 1 {
+		return youtubeSubtitleTrack{Language: markedOriginLanguages[0], Automatic: true}, nil
+	}
+
+	if metadata.Language != "" {
+		if language, ok := matchAvailableLanguage(metadata.Language, manualLanguages); ok {
+			return youtubeSubtitleTrack{Language: language}, nil
+		}
+		if language, ok := matchAvailableLanguage(metadata.Language, automaticLanguages); ok {
+			return youtubeSubtitleTrack{Language: language, Automatic: true}, nil
+		}
+	}
+
+	if len(manualLanguages) == 1 {
+		return youtubeSubtitleTrack{Language: manualLanguages[0]}, nil
+	}
+	if len(automaticLanguages) == 1 {
+		return youtubeSubtitleTrack{Language: automaticLanguages[0], Automatic: true}, nil
+	}
+
+	return youtubeSubtitleTrack{}, fmt.Errorf("cannot determine the origin subtitle from available tracks")
+}
+
+func youtubeSubtitleCommandArgs(track youtubeSubtitleTrack, outputPattern string) []string {
+	writeFlag := "--write-subs"
+	if track.Automatic {
+		writeFlag = "--write-auto-subs"
+	}
+	return []string{
+		writeFlag,
+		"--sub-langs", track.Language,
+		"--sub-format", "vtt",
+		"--skip-download",
+		"--no-playlist",
+		"-o", outputPattern,
+	}
+}
+
+func appendYouTubeAccessArgs(cmdArgs []string) []string {
+	if config.Conf.App.Proxy != "" {
+		cmdArgs = append(cmdArgs, "--proxy", config.Conf.App.Proxy)
+	}
+	return appendCookiesArgs(cmdArgs, youtubeCookiesPath)
+}
+
+func availableLanguageKeys(tracks map[string][]youtubeSubtitleFormat) []string {
+	languages := make([]string, 0, len(tracks))
+	for language, formats := range tracks {
+		if strings.TrimSpace(language) != "" && len(formats) > 0 {
+			languages = append(languages, language)
+		}
+	}
+	sort.Strings(languages)
+	return languages
+}
+
+func automaticOriginLanguageKeys(tracks map[string][]youtubeSubtitleFormat) []string {
+	languages := make([]string, 0, len(tracks))
+	for language, formats := range tracks {
+		if strings.TrimSpace(language) != "" && hasUntranslatedCaptionFormat(formats) {
+			languages = append(languages, language)
+		}
+	}
+	sort.Strings(languages)
+	return languages
+}
+
+func markedOriginalLanguageKeys(tracks map[string][]youtubeSubtitleFormat) []string {
+	languages := make([]string, 0, len(tracks))
+	for language, formats := range tracks {
+		if strings.HasSuffix(canonicalYouTubeLanguage(language), "-orig") || hasOriginalCaptionName(formats) {
+			languages = append(languages, language)
+		}
+	}
+	sort.Strings(languages)
+	return languages
+}
+
+func hasOriginalCaptionName(formats []youtubeSubtitleFormat) bool {
+	for _, format := range formats {
+		if strings.Contains(strings.ToLower(format.Name), "original") {
+			return true
+		}
+	}
+	return false
+}
+
+func hasUntranslatedCaptionFormat(formats []youtubeSubtitleFormat) bool {
+	for _, format := range formats {
+		captionURL, err := url.Parse(format.URL)
+		if err == nil && format.URL != "" && !captionURL.Query().Has("tlang") {
+			return true
+		}
+	}
+	return false
+}
+
+func matchAvailableLanguage(requestedLanguage string, availableLanguages []string) (string, bool) {
+	requested := canonicalYouTubeLanguage(requestedLanguage)
+	if requested == "" {
+		return "", false
+	}
+	for _, language := range availableLanguages {
+		if canonicalYouTubeLanguage(language) == requested {
+			return language, true
+		}
+	}
+
+	requestedBase := strings.Split(requested, "-")[0]
+	var baseMatches []string
+	for _, language := range availableLanguages {
+		if strings.Split(canonicalYouTubeLanguage(language), "-")[0] == requestedBase {
+			baseMatches = append(baseMatches, language)
+		}
+	}
+	if len(baseMatches) == 1 {
+		return baseMatches[0], true
+	}
+	return "", false
+}
+
+func matchMarkedOriginLanguage(requestedLanguage string, availableLanguages []string) (string, bool) {
+	normalized := make([]string, 0, len(availableLanguages))
+	for _, language := range availableLanguages {
+		normalized = append(normalized, strings.TrimSuffix(canonicalYouTubeLanguage(language), "-orig"))
+	}
+	matched, ok := matchAvailableLanguage(requestedLanguage, normalized)
+	if !ok {
+		return "", false
+	}
+	for index, language := range normalized {
+		if language == matched {
+			return availableLanguages[index], true
+		}
+	}
+	return "", false
+}
+
+func canonicalYouTubeLanguage(language string) string {
+	language = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(language), "_", "-"))
+	if language == "iw" {
+		return "he"
+	}
+	return language
+}
+
+func internalLanguageCodeFromYouTube(language string) string {
+	canonical := canonicalYouTubeLanguage(language)
+	switch canonical {
+	case "zh-hans", "zh-cn", "zh-sg", "zh":
+		return "zh_cn"
+	case "zh-hant", "zh-tw", "zh-hk", "zh-mo":
+		return "zh_tw"
+	}
+	return strings.Split(canonical, "-")[0]
+}
+
 func (s *YouTubeSubtitleService) findDownloadedSubtitleFile(taskBasePath, language, videoID string) (string, error) {
 	// 支持的字幕文件扩展名
 	extensions := []string{".vtt", ".srt"}

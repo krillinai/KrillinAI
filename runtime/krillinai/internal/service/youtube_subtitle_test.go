@@ -4,12 +4,167 @@ import (
 	"context"
 	"krillin-ai/config"
 	"krillin-ai/internal/deps"
+	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 )
+
+func TestSelectYouTubeSubtitleTrackPrefersManualOriginLanguage(t *testing.T) {
+	metadata := youtubeSubtitleMetadata{
+		Language: "en",
+		Subtitles: map[string][]youtubeSubtitleFormat{
+			"en": {{URL: "https://example.test/caption?lang=en"}},
+			"es": {{URL: "https://example.test/caption?lang=es"}},
+		},
+		AutomaticCaptions: map[string][]youtubeSubtitleFormat{
+			"en": {{URL: "https://example.test/auto?lang=en"}},
+		},
+	}
+
+	track, err := selectYouTubeSubtitleTrack(metadata, "auto")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if track.Language != "en" || track.Automatic {
+		t.Fatalf("track = %+v, want manual en", track)
+	}
+}
+
+func TestSelectYouTubeSubtitleTrackUsesOriginalAutomaticCaption(t *testing.T) {
+	metadata := youtubeSubtitleMetadata{
+		Language: "en",
+		AutomaticCaptions: map[string][]youtubeSubtitleFormat{
+			"en": {{URL: "https://example.test/auto?lang=en"}},
+			"es": {{URL: "https://example.test/auto?lang=en&tlang=es"}},
+		},
+	}
+
+	track, err := selectYouTubeSubtitleTrack(metadata, "auto")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if track.Language != "en" || !track.Automatic {
+		t.Fatalf("track = %+v, want automatic en", track)
+	}
+	if got := automaticOriginLanguageKeys(metadata.AutomaticCaptions); !reflect.DeepEqual(got, []string{"en"}) {
+		t.Fatalf("automatic origin languages = %v, want [en]", got)
+	}
+}
+
+func TestSelectYouTubeSubtitleTrackPrefersMarkedOriginalCaptionForAuto(t *testing.T) {
+	metadata := youtubeSubtitleMetadata{
+		Language: "en",
+		Subtitles: map[string][]youtubeSubtitleFormat{
+			"en": {{URL: "https://example.test/caption?lang=en"}},
+		},
+		AutomaticCaptions: map[string][]youtubeSubtitleFormat{
+			"en-orig": {{URL: "https://example.test/auto?lang=en", Name: "English (Original)"}},
+		},
+	}
+
+	track, err := selectYouTubeSubtitleTrack(metadata, "auto")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if track.Language != "en-orig" || !track.Automatic {
+		t.Fatalf("track = %+v, want automatic en-orig", track)
+	}
+}
+
+func TestSelectYouTubeSubtitleTrackFallsBackOnlyForUniqueTrack(t *testing.T) {
+	metadata := youtubeSubtitleMetadata{
+		Subtitles: map[string][]youtubeSubtitleFormat{
+			"ja": {{URL: "https://example.test/caption?lang=ja"}},
+		},
+	}
+	track, err := selectYouTubeSubtitleTrack(metadata, "auto")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if track.Language != "ja" || track.Automatic {
+		t.Fatalf("track = %+v, want manual ja", track)
+	}
+
+	metadata.Subtitles["en"] = []youtubeSubtitleFormat{{URL: "https://example.test/caption?lang=en"}}
+	if _, err := selectYouTubeSubtitleTrack(metadata, "auto"); err == nil {
+		t.Fatal("selectYouTubeSubtitleTrack() error = nil, want ambiguous origin error")
+	}
+}
+
+func TestSelectYouTubeSubtitleTrackMatchesExplicitLanguage(t *testing.T) {
+	metadata := youtubeSubtitleMetadata{
+		Subtitles: map[string][]youtubeSubtitleFormat{
+			"zh-Hans": {{URL: "https://example.test/caption?lang=zh-Hans"}},
+		},
+	}
+	track, err := selectYouTubeSubtitleTrack(metadata, "zh_cn")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if track.Language != "zh-Hans" || track.Automatic {
+		t.Fatalf("track = %+v, want manual zh-Hans", track)
+	}
+}
+
+func TestYouTubeSubtitleCommandArgsUsesResolvedTrack(t *testing.T) {
+	manualArgs := youtubeSubtitleCommandArgs(youtubeSubtitleTrack{Language: "en"}, "video.%(ext)s")
+	joinedManual := strings.Join(manualArgs, " ")
+	if strings.Contains(joinedManual, "auto") || !strings.Contains(joinedManual, "--write-subs --sub-langs en --sub-format vtt") {
+		t.Fatalf("manual args = %v", manualArgs)
+	}
+
+	automaticArgs := youtubeSubtitleCommandArgs(youtubeSubtitleTrack{Language: "en", Automatic: true}, "video.%(ext)s")
+	joinedAutomatic := strings.Join(automaticArgs, " ")
+	if strings.Contains(joinedAutomatic, "--sub-langs auto") || !strings.Contains(joinedAutomatic, "--write-auto-subs --sub-langs en --sub-format vtt") {
+		t.Fatalf("automatic args = %v", automaticArgs)
+	}
+}
+
+func TestDownloadYouTubeSubtitleAutoIntegration(t *testing.T) {
+	if os.Getenv("KRILLIN_RUN_YOUTUBE_SUBTITLE_AUTO_INTEGRATION") != "1" {
+		t.Skip("set KRILLIN_RUN_YOUTUBE_SUBTITLE_AUTO_INTEGRATION=1 to run the YouTube auto-language integration test")
+	}
+	log.InitLogger()
+	ytdlpPath, err := exec.LookPath("yt-dlp")
+	if err != nil {
+		t.Fatalf("find yt-dlp: %v", err)
+	}
+	previousPath, previousPrefix := storage.YtdlpPath, storage.YtdlpPrefixArgs
+	storage.YtdlpPath, storage.YtdlpPrefixArgs = ytdlpPath, nil
+	t.Cleanup(func() {
+		storage.YtdlpPath, storage.YtdlpPrefixArgs = previousPath, previousPrefix
+	})
+
+	req := &YoutubeSubtitleReq{
+		TaskBasePath:   t.TempDir(),
+		TaskId:         "youtube-auto-origin",
+		OriginLanguage: "auto",
+		URL:            "https://www.youtube.com/watch?v=paF--WGA8dU",
+	}
+	path, err := NewYouTubeSubtitleService().downloadYouTubeSubtitle(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.OriginLanguage != "en" {
+		t.Fatalf("origin language = %q, want en", req.OriginLanguage)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat downloaded subtitle: %v", err)
+	}
+	if info.Size() == 0 {
+		t.Fatal("downloaded subtitle is empty")
+	}
+	if !strings.Contains(filepath.Base(path), ".en-orig.") {
+		t.Fatalf("downloaded subtitle = %q, want the en-orig track", path)
+	}
+}
 
 func Test_YoutubeSubtitle(t *testing.T) {
 	skipYouTubeSubtitleIntegrationTest(t)
