@@ -35,7 +35,7 @@ OpenCreator 面向需要在本机持续完成创作与开发任务的个人和�
 
 产品包含两条可以相互衔接的主线：
 
-- **AI 内容创作**：使用视频翻译、视频下载、封面生成和图像生成四项专用创作工具。
+- **AI 内容创作**：使用视频翻译与下载、图像与视频生成、智能配音、文章与社媒帖子写作、短视频脚本和火柴人动画等专用创作工具。
 - **通用 Agent 工作台**：按项目组织会话，让 Run 在后台持续执行，并统一处理审批、附件、文件、技能、MCP、计划任务、通知、记忆和诊断。
 
 Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，只额外提供目录选择、窗口生命周期、托盘和原生通知等系统能力。因此在相同数据和内容视口下，两端拥有一致的通用界面与 Runtime 行为。
@@ -60,11 +60,13 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 
 - 🔐 **本地安全**：数据、附件和日志默认留在本机，支持权限审批和诊断脱敏。
 
+- 🌐 **多语言界面**：Web 与 Desktop 客户端支持简体中文、英文和瑞典语，可自动跟随系统语言或手动选择。
+
 ## 创作工具
 
-当前版本提供六项创作工具。实际可用的模型与服务由本地 Codex 环境和 AI 服务设置共同决定。
+当前版本提供十项创作工具。实际可用的模型与服务由本地 Codex 环境和 AI 服务设置共同决定。
 
-从工作台进入视频翻译、视频下载、封面生成、图像生成、智能配音或 Seedance 视频生成。
+从工作台进入文章写作、小红书帖子、短视频脚本和火柴人动画，也可进行视频翻译与下载、封面与图像生成、智能配音或 Seedance 视频生成。
 
 ![OpenCreator 创作工作台](../images/product/opencreator-dashboard-en.png)
 
@@ -83,7 +85,10 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 <tr><td valign="top">视频下载</td><td valign="top">✅ 已开放</td><td>解析 YouTube、Bilibili 等平台的公开视频链接，查看可用清晰度和格式，并下载视频或音频供后续创作使用</td></tr>
 <tr><td valign="top">封面生成</td><td valign="top">✅ 已开放</td><td>结合主题、视频链接和可选参考图片生成多版内容封面，并进行对比选择</td></tr>
 <tr><td valign="top">图像生成</td><td valign="top">✅ 已开放</td><td>使用 GPT Image，根据提示词和可选参考图片生成图像，设置画幅与生成数量，并预览和单独下载图片</td></tr>
-<tr><td valign="top">火柴人动画</td><td valign="top">即将接入</td><td>在引导式流程中完成角色、分镜、配音与动画制作</td></tr>
+<tr><td valign="top">文章写作</td><td valign="top">✅ 已开放</td><td>根据主题、链接、视频或参考文档生成可编辑的候选选题、大纲和完整文章，支持添加生成配图，并导出 Markdown、HTML 或 PDF</td></tr>
+<tr><td valign="top">小红书帖子</td><td valign="top">✅ 已开放</td><td>根据主题或素材生成完整的小红书帖子，可设置目标读者、内容类型和篇幅，并复制或下载结果</td></tr>
+<tr><td valign="top">短视频脚本</td><td valign="top">✅ 已开放</td><td>根据主题或素材生成可直接拍摄的分段脚本，并按目标受众、发布平台、时长和语气调整，支持编辑、复制或下载</td></tr>
+<tr><td valign="top">火柴人动画</td><td valign="top">✅ 已开放</td><td>将文本或 YouTube 内容转化为旁白、配音、角色一致的分镜画面、字幕及可下载的火柴人动画</td></tr>
 <tr><td valign="top">自动剪辑</td><td valign="top">开发中</td><td>分析长视频内容、识别高光片段，并将选定内容制作成可复用的短视频</td></tr>
 <tr><td valign="top">智能配音</td><td valign="top">✅ 已开放</td><td>将脚本生成为配音，并调整音色、节奏与情绪表达</td></tr>
 <tr><td valign="top">视频生成</td><td valign="top">✅ 已开放</td><td>使用 Seedance 根据提示词和参考图片生成视频，并预览、重新生成或下载各个版本</td></tr>
@@ -214,15 +219,13 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 ![OpenCreator 视频下载格式选择](../images/examples/video-downloader-formats-en.png)
 
-### 火柴人动画（敬请期待）
+### 火柴人动画
 
-> 敬请期待，当前版本尚未接入。
-
-OpenCreator 与艺术家 [Harbor Hsia](https://www.behance.net/xiaheyuan1) 合作设计了这套原创角色形象，其作品可见 Behance 上的 [Stickman](https://www.behance.net/gallery/254715463/Stickman)。这套风格统一的预设角色正在为后续故事与动画工作流做准备。
+OpenCreator 与艺术家 [Harbor Hsia](https://www.behance.net/xiaheyuan1) 合作设计了这套原创角色形象，其作品可见 Behance 上的 [Stickman](https://www.behance.net/gallery/254715463/Stickman)。内置角色可在整个动画工作流中保持形象一致。
 
 ![OpenCreator 与艺术家合作设计的火柴人角色](../images/examples/stick-figure-characters.webp)
 
-规划中的工作流将从角色与故事创意出发，引导完成分镜生成、镜头审核、配音、音乐和多版本动画输出。
+输入文本或 YouTube 内容后，可在引导式工作流中完成脚本审核、旁白配音、节奏调整、分镜画面、字幕、渲染及成片下载。
 
 ![OpenCreator 火柴人动画画面案例](../images/examples/stick-figure-animation-frame.jpg)
 
