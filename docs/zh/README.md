@@ -504,8 +504,8 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 感谢每一位通过代码、文档、反馈、问题报告、Skills、设计和创意参与 OpenCreator 的贡献者。
 
-<a href="https://github.com/krillinai/KrillinAI/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=krillinai/KrillinAI&amp;max=500&amp;columns=20" alt="OpenCreator 贡献者" />
+<a href="https://github.com/krillinai/OpenCreator/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=KrillinAI/OpenCreator&amp;max=500&amp;columns=20" alt="OpenCreator 贡献者" />
 </a>
 
 ## Star 趋势

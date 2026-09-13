@@ -506,8 +506,7 @@ The root `README.md` is the canonical English document. Maintained translations 
 Thanks to everyone who has taken part through code, documentation, feedback, issue reports, Skills, designs, and ideas.
 
 <a href="https://github.com/krillinai/OpenCreator/graphs/contributors">
-  <!-- contrib.rocks caches contributor history by repository slug; keep the pre-rename slug here. -->
-  <img src="https://contrib.rocks/image?repo=krillinai/KrillinAI&amp;max=500&amp;columns=20" alt="OpenCreator contributors" />
+  <img src="https://contrib.rocks/image?repo=KrillinAI/OpenCreator&amp;max=500&amp;columns=20" alt="OpenCreator contributors" />
 </a>
 
 ## Star History
