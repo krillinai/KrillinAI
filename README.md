@@ -510,7 +510,10 @@ Thanks to everyone who has taken part through code, documentation, feedback, iss
 </a>
 
 <!-- Keep recent contributors visible while contrib.rocks refreshes its cache. -->
-Recent contributor: [XiaHeyuan](https://github.com/xiaheyuan)
+<br />
+<a href="https://github.com/xiaheyuan">
+  <img src="https://github.com/xiaheyuan.png?size=64" width="64" height="64" alt="XiaHeyuan" style="border-radius:50%;" />
+</a>
 
 ## Star History
 
