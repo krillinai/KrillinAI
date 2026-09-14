@@ -512,7 +512,7 @@ Thanks to everyone who has taken part through code, documentation, feedback, iss
 <!-- Keep recent contributors visible while contrib.rocks refreshes its cache. -->
 <br />
 <a href="https://github.com/xiaheyuan">
-  <img src="https://github.com/xiaheyuan.png?size=64" width="64" height="64" alt="XiaHeyuan" style="border-radius:50%;" />
+  <img src="./docs/images/contributors/xiaheyuan.svg" width="64" height="64" alt="XiaHeyuan" />
 </a>
 
 ## Star History

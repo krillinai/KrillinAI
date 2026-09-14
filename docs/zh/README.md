@@ -511,7 +511,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 <!-- contrib.rocks 刷新缓存期间，先显式保留近期贡献者。 -->
 <br />
 <a href="https://github.com/xiaheyuan">
-  <img src="https://github.com/xiaheyuan.png?size=64" width="64" height="64" alt="XiaHeyuan 头像" style="border-radius:50%;" />
+  <img src="../images/contributors/xiaheyuan.svg" width="64" height="64" alt="XiaHeyuan 头像" />
 </a>
 
 ## Star 趋势
