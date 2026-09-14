@@ -221,11 +221,11 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 ### 火柴人动画
 
-OpenCreator 与艺术家 [Harbor Hsia](https://www.behance.net/xiaheyuan1) 合作设计了这套原创角色形象，其作品可见 Behance 上的 [Stickman](https://www.behance.net/gallery/254715463/Stickman)。内置角色可在整个动画工作流中保持形象一致。
+OpenCreator 与艺术家 [Harbor Hsia](https://www.behance.net/xiaheyuan1) 合作设计了这套原创火柴人角色形象，其作品可见 Behance 上的 [Stickman](https://www.behance.net/gallery/254715463/Stickman)。内置角色可在整个动画工作流中保持形象一致。
 
 ![OpenCreator 与艺术家合作设计的火柴人角色](../images/examples/stick-figure-characters.webp)
 
-输入文本或 YouTube 内容后，可在引导式工作流中完成脚本审核、旁白配音、节奏调整、分镜画面、字幕、渲染及成片下载。
+输入文本或YouTube内容源以后，可在引导式工作流中完成脚本审核、旁白配音、节奏调整、分镜画面、字幕、渲染及成片下载。
 
 ![OpenCreator 火柴人动画画面案例](../images/examples/stick-figure-animation-frame.jpg)
 
