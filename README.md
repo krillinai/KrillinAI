@@ -509,6 +509,9 @@ Thanks to everyone who has taken part through code, documentation, feedback, iss
   <img src="https://contrib.rocks/image?repo=KrillinAI/OpenCreator&amp;max=500&amp;columns=20" alt="OpenCreator contributors" />
 </a>
 
+<!-- Keep recent contributors visible while contrib.rocks refreshes its cache. -->
+Recent contributor: [XiaHeyuan](https://github.com/xiaheyuan)
+
 ## Star History
 
 OpenCreator was formerly named KrillinAI. This chart covers the repository's full history across the rename.

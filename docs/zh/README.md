@@ -508,6 +508,9 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
   <img src="https://contrib.rocks/image?repo=KrillinAI/OpenCreator&amp;max=500&amp;columns=20" alt="OpenCreator 贡献者" />
 </a>
 
+<!-- contrib.rocks 刷新缓存期间，先显式保留近期贡献者。 -->
+近期贡献者：[XiaHeyuan](https://github.com/xiaheyuan)
+
 ## Star 趋势
 
 OpenCreator 原名 KrillinAI。下图展示仓库在更名前后的完整 Star 历史。
