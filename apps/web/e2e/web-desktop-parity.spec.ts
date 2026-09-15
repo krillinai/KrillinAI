@@ -502,7 +502,7 @@ test('小红书帖子在 Browser/Desktop Bridge 下保持相同界面、请求�
   expect(results[1]!.state).toEqual(results[0]!.state);
 });
 
-test('Windows 本地 Whisper 在 Browser/Desktop Bridge 下保持相同界面、请求和持久状态', async ({
+test('本地 Whisper 在 Browser/Desktop Bridge 下遵守 Runtime 能力并保持相同持久状态', async ({
   browser,
   runtime
 }, testInfo) => {
@@ -542,6 +542,24 @@ test('Windows 本地 Whisper 在 Browser/Desktop Bridge 下保持相同界面、
         .getByRole('region', { name: 'OpenCreator 工作区' })
         .getByRole('main');
       const localMode = settings.getByRole('button', { name: '本地 Whisper' });
+      if (process.platform !== 'win32' || process.arch !== 'x64') {
+        await expect(localMode).toBeEnabled({ enabled: process.platform === 'darwin' && process.arch === 'arm64' });
+        const box = await localMode.boundingBox();
+        expect(box).not.toBeNull();
+        const persisted = await runtime.api<{
+          config: { transcription: Record<string, unknown> };
+        }>('GET', '/creator-services/config');
+        results.push({
+          text: normalizeParityText(await settings.innerText()),
+          boxes: { 'local-mode': {
+            x: Math.round(box!.x), y: Math.round(box!.y),
+            width: Math.round(box!.width), height: Math.round(box!.height)
+          } },
+          requests,
+          transcription: persisted.config.transcription
+        });
+        continue;
+      }
       await expect(settings.getByText('Windows · x64')).toBeVisible();
       await expect(localMode).toBeEnabled();
       await localMode.click();
@@ -593,6 +611,10 @@ test('Windows 本地 Whisper 在 Browser/Desktop Bridge 下保持相同界面、
   expect(results[1]!.boxes).toEqual(results[0]!.boxes);
   expect(results[1]!.requests).toEqual(results[0]!.requests);
   expect(results[1]!.transcription).toEqual(results[0]!.transcription);
+  if (process.platform !== 'win32' || process.arch !== 'x64') {
+    expect(results[0]!.requests).not.toContain('PATCH /creator-services/config');
+    return;
+  }
   expect(results[0]!.transcription).toMatchObject({
     provider: 'whisper.cpp',
     whisperCpp: { model: 'medium' }
