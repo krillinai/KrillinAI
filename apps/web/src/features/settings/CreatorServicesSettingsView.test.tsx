@@ -108,8 +108,11 @@ describe('CreatorServicesSettingsView', () => {
     await user.click(screen.getByRole('tab', { name: '配音服务' }));
     await user.click(screen.getByRole('combobox', { name: '服务商' }));
     await user.click(screen.getByRole('option', { name: '火山引擎' }));
-    expect(screen.getByLabelText('集群')).toHaveValue('volcano_tts');
+    expect(screen.getByRole('combobox', { name: '接口 / 集群' }))
+      .toHaveTextContent('小模型 TTS（volcano_tts）');
     expect(screen.getByLabelText('Access Token')).toBeInTheDocument();
+    expect(screen.getByLabelText('克隆 / 自定义 Speaker ID')).toBeInTheDocument();
+    expect(screen.getByText(/豆包 2.0 \/ 声音复刻走 V3/)).toBeInTheDocument();
 
     await user.click(screen.getByRole('combobox', { name: '服务商' }));
     await user.click(screen.getByRole('option', { name: 'Edge TTS' }));

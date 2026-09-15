@@ -65,11 +65,11 @@
         base_url = "https://dashscope.aliyuncs.com/api/v1"
         api_key = ""
         model = "qwen3-tts-flash"
-    [tts.volcengine] # 豆包语音合成 HTTP 一次性接口，provider选volcengine时填写
+    [tts.volcengine] # 豆包语音合成。小模型 volcano_tts 走 V1；seed-tts-2.0 / seed-icl-2.0 走 V3
         app_id = ""
         access_token = ""
-        cluster = "volcano_tts"
-        default_voice_id = "BV001_streaming"
+        cluster = "volcano_tts" # volcano_tts | seed-tts-2.0 | seed-tts-1.0 | seed-icl-2.0 | seed-icl-1.0 | volcano_icl
+        default_voice_id = "BV001_streaming" # 2.0 可填 zh_female_gaolengyujie_uranus_bigtts；复刻填 S_ 开头 Speaker ID
         base_url = "https://openspeech.bytedance.com"
 
 [dubbing]

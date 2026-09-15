@@ -299,6 +299,68 @@ describe('KrillinTtsService', () => {
     expect(request.request.operation).toBe('query');
   });
 
+  it('synthesizes Doubao 2.0 and cloned voices through the V3 unidirectional API', async () => {
+    const root = await temporaryRoot();
+    const config = createDefaultCreatorServicesConfig();
+    config.tts.provider = 'volcengine';
+    config.tts.volcengine.appId = 'app-1';
+    config.tts.volcengine.apiKey = 'token-1';
+    const audio = Buffer.from('v3-bytes');
+    const ndjson = [
+      JSON.stringify({ code: 0, data: audio.toString('base64') }),
+      JSON.stringify({ code: 20000000, message: 'OK' })
+    ].join('\n');
+    const fetchMock = vi.fn(async (_url: string | URL, _init?: RequestInit) => (
+      new Response(ndjson, { status: 200 })
+    ));
+    vi.stubGlobal('fetch', fetchMock);
+    const service = createKrillinTtsService({
+      resourceRoot: join(root, 'runtime'),
+      workRoot: join(root, 'work'),
+      configStore: createConfigStore(config),
+      executeUtility: vi.fn()
+    });
+
+    const twoOh = await service.listVoices('volcengine', 'seed-tts-2.0');
+    expect(twoOh.voices).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'zh_female_gaolengyujie_uranus_bigtts',
+        name: '高冷御姐 2.0',
+        gender: 'female'
+      })
+    ]));
+    expect(twoOh.voices.some(voice => voice.id === 'BV019_streaming')).toBe(false);
+
+    const result = await service.synthesize({
+      text: '高冷御姐试听',
+      provider: 'volcengine',
+      voiceId: 'zh_female_gaolengyujie_uranus_bigtts',
+      format: 'mp3'
+    });
+    expect(result.content).toEqual(audio);
+    expect(fetchMock.mock.calls[0]![0]).toBe(
+      'https://openspeech.bytedance.com/api/v3/tts/unidirectional'
+    );
+    expect((fetchMock.mock.calls[0]![1] as RequestInit).headers).toMatchObject({
+      'X-Api-App-Id': 'app-1',
+      'X-Api-Access-Key': 'token-1',
+      'X-Api-Resource-Id': 'seed-tts-2.0'
+    });
+    const request = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body));
+    expect(request.req_params.speaker).toBe('zh_female_gaolengyujie_uranus_bigtts');
+
+    await service.synthesize({
+      text: '克隆音色',
+      provider: 'volcengine',
+      model: 'seed-icl-2.0',
+      voiceId: 'S_cloned_speaker',
+      format: 'mp3'
+    });
+    expect((fetchMock.mock.calls[1]![1] as RequestInit).headers).toMatchObject({
+      'X-Api-Resource-Id': 'seed-icl-2.0'
+    });
+  });
+
   it('requires the configured provider API key before synthesis', async () => {
     const root = await temporaryRoot();
     const service = createKrillinTtsService({

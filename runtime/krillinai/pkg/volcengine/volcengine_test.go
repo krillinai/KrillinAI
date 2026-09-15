@@ -145,14 +145,96 @@ func TestListVoicesIncludesDefaultChineseCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListVoices() error = %v", err)
 	}
-	found := false
+	foundDefault := false
+	foundChongqing := false
+	foundYujie := false
 	for _, voice := range voices {
 		if voice.Code == DefaultTTSVoice && voice.Recommended {
-			found = true
+			foundDefault = true
+		}
+		if voice.Code == "BV019_streaming" {
+			if voice.Name != "重庆小伙" || voice.Gender != "male" {
+				t.Fatalf("BV019 = %#v", voice)
+			}
+			foundChongqing = true
+		}
+		if voice.Code == "zh_female_gaolengyujie_uranus_bigtts" {
+			if voice.Name != "高冷御姐 2.0" || voice.Gender != "female" {
+				t.Fatalf("yujie = %#v", voice)
+			}
+			foundYujie = true
 		}
 	}
-	if !found {
-		t.Fatalf("missing default voice in %#v", voices)
+	if !foundDefault || !foundChongqing || !foundYujie {
+		t.Fatalf("missing catalog voices default=%v chongqing=%v yujie=%v in %#v", foundDefault, foundChongqing, foundYujie, voices)
+	}
+}
+
+func TestResolveTTSRouteSelectsV1AndV3Families(t *testing.T) {
+	cases := []struct {
+		cluster, voice, api, resource string
+	}{
+		{"volcano_tts", "BV001_streaming", "v1", "volcano_tts"},
+		{"volcano_tts", "zh_female_gaolengyujie_uranus_bigtts", "v3", "seed-tts-2.0"},
+		{"volcano_tts", "S_cloned_speaker", "v3", "seed-icl-2.0"},
+		{"volcano_icl", "S_cloned_speaker", "v1", "volcano_icl"},
+		{"seed-icl-2.0", "S_cloned_speaker", "v3", "seed-icl-2.0"},
+		{"seed-tts-1.0", "zh_female_cancan_mars_bigtts", "v3", "seed-tts-1.0"},
+	}
+	for _, tc := range cases {
+		api, resource := resolveTTSRoute(tc.cluster, tc.voice)
+		if api != tc.api || resource != tc.resource {
+			t.Fatalf("route(%q, %q) = %s %s, want %s %s", tc.cluster, tc.voice, api, resource, tc.api, tc.resource)
+		}
+	}
+}
+
+func TestTtsSynthesizeUsesV3ForDoubaoTwoOhVoices(t *testing.T) {
+	output := filepath.Join(t.TempDir(), "speech.mp3")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != ttsV3Path {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Header.Get("X-Api-App-Id") != "app-1" {
+			t.Fatalf("app id = %q", r.Header.Get("X-Api-App-Id"))
+		}
+		if r.Header.Get("X-Api-Access-Key") != "token-1" {
+			t.Fatalf("access key = %q", r.Header.Get("X-Api-Access-Key"))
+		}
+		if r.Header.Get("X-Api-Resource-Id") != "seed-tts-2.0" {
+			t.Fatalf("resource = %q", r.Header.Get("X-Api-Resource-Id"))
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode tts 2.0: %v", err)
+		}
+		params, _ := body["req_params"].(map[string]any)
+		if params["speaker"] != "zh_female_gaolengyujie_uranus_bigtts" {
+			t.Fatalf("speaker = %#v", params["speaker"])
+		}
+		_, _ = w.Write([]byte(strings.Join([]string{
+			`{"code":0,"data":"` + base64.StdEncoding.EncodeToString([]byte("v3-bytes")) + `"}`,
+			`{"code":20000000,"message":"OK"}`,
+		}, "\n")))
+	}))
+	defer server.Close()
+
+	client := NewTtsClient(server.URL, "app-1", "token-1", "volcano_tts", "")
+	if err := client.Synthesize(context.Background(), types.TTSSpeechOptions{
+		Text:       "高冷御姐",
+		Voice:      "zh_female_gaolengyujie_uranus_bigtts",
+		OutputFile: output,
+		Format:     "mp3",
+	}); err != nil {
+		t.Fatalf("Synthesize() error = %v", err)
+	}
+	content, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "v3-bytes" {
+		t.Fatalf("audio = %q", content)
 	}
 }
 

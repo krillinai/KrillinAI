@@ -758,13 +758,17 @@ function TtsSettings(props: SettingsGroupProps) {
             configuredCredentials={props.configuredCredentials}
             value={props.config.tts.volcengine}
             onChange={value => props.update(config => {
+              const previousModel = config.tts.volcengine.model;
               config.tts.volcengine = { ...config.tts.volcengine, ...value };
+              if (value.model !== previousModel) {
+                config.tts.volcengine.defaultVoiceId = defaultVoiceForVolcengineCluster(value.model);
+              }
             })}
           />
           <p className="creator-services-inline-note">
             {l(
-              '使用豆包语音合成 V1 HTTP 一次性接口。App ID、Access Token 可与听写共用；2.0 音色暂不支持。',
-              'Uses the Doubao TTS V1 HTTP one-shot API. App ID and Access Token can be reused from transcription. 2.0 voices are not supported yet.'
+              '小模型走 V1 HTTP；豆包 2.0 / 声音复刻走 V3。可在音色列表选择官方音色，或填写克隆 Speaker ID（S_ 开头）。',
+              'Small-model voices use V1 HTTP. Doubao 2.0 and voice cloning use V3. Pick an official voice or enter a cloned speaker ID starting with S_.'
             )}
           </p>
         </>
@@ -777,6 +781,7 @@ function TtsSettings(props: SettingsGroupProps) {
             model={props.config.tts[provider].model}
             value={props.config.tts[provider].defaultVoiceId}
             service={props.service ?? null}
+            allowCustomVoice={provider === 'volcengine'}
             onChange={voiceId => props.update(config => {
               config.tts[provider].defaultVoiceId = voiceId;
             })}
@@ -1008,11 +1013,11 @@ function VolcengineTtsFields(props: {
         configured={props.configuredCredentials.has('tts.volcengine.apiKey')}
         onChange={apiKey => props.onChange({ ...props.value, apiKey })}
       />
-      <TextField
+      <SelectField
         id="tts-volcengine-cluster"
-        label={l('集群', 'Cluster')}
+        label={l('接口 / 集群', 'API / cluster')}
         value={props.value.model}
-        placeholder="volcano_tts"
+        options={volcengineClusterOptions(l, props.value.model)}
         onChange={model => props.onChange({ ...props.value, model })}
       />
     </>
@@ -1295,6 +1300,43 @@ function ToggleField(props: {
 }
 
 type LocalizedCopy = (zh: string, en: string) => string;
+
+function volcengineClusterOptions(
+  l: LocalizedCopy,
+  current: string
+): Array<[string, string]> {
+  const options: Array<[string, string]> = [
+    ['volcano_tts', l('小模型 TTS（volcano_tts）', 'Small-model TTS (volcano_tts)')],
+    ['seed-tts-2.0', l('豆包语音 2.0（推荐音质）', 'Doubao TTS 2.0 (recommended quality)')],
+    ['seed-tts-1.0', l('豆包语音 1.0', 'Doubao TTS 1.0')],
+    ['seed-icl-2.0', l('声音复刻 2.0', 'Voice clone 2.0')],
+    ['seed-icl-1.0', l('声音复刻 1.0', 'Voice clone 1.0')],
+    ['volcano_icl', l('声音复刻 ICL（V1）', 'Voice clone ICL (V1)')],
+    ['volcano_icl_concurr', l('声音复刻 ICL 并发（V1）', 'Voice clone ICL concurrent (V1)')],
+    ['seed-tts-1.0-concurr', l('豆包语音 1.0 并发', 'Doubao TTS 1.0 concurrent')],
+    ['seed-icl-1.0-concurr', l('声音复刻 1.0 并发', 'Voice clone 1.0 concurrent')],
+    ['volcano_mega', l('声音复刻 MEGA（旧）', 'Voice clone MEGA (legacy)')],
+    ['volcano_mega_concurr', l('声音复刻 MEGA 并发（旧）', 'Voice clone MEGA concurrent (legacy)')]
+  ];
+  if (current && !options.some(([id]) => id === current)) {
+    options.push([current, current]);
+  }
+  return options;
+}
+
+function defaultVoiceForVolcengineCluster(model: string): string {
+  const normalized = model.trim() || 'volcano_tts';
+  if (normalized.startsWith('seed-tts-2')) return 'zh_female_cancan_uranus_bigtts';
+  if (normalized.startsWith('seed-tts-1')) return 'zh_female_tianmeitaozi_mars_bigtts';
+  if (
+    normalized.startsWith('seed-icl')
+    || normalized.startsWith('volcano_icl')
+    || normalized.startsWith('volcano_mega')
+  ) {
+    return '';
+  }
+  return 'BV001_streaming';
+}
 
 function transcriptionCapability(
   capabilities: CreatorServicesCapabilitiesResponse,
