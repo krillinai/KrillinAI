@@ -11,7 +11,9 @@ import {
   type CreatorTranscriptionProvider,
   type CreatorTranscriptionProviderCapability,
   type KlingAiConfig,
-  type OpenAiCompatibleConfig
+  type OpenAiCompatibleConfig,
+  type VolcengineAsrConfig,
+  type VolcengineTtsConfig
 } from '@opencreator/protocol';
 import {
   AudioLines,
@@ -621,6 +623,23 @@ function TranscriptionSettings(props: SettingsGroupProps & {
           })}
         />
       ) : null}
+      {provider === 'volcengine' ? (
+        <>
+          <VolcengineAsrFields
+            configuredCredentials={props.configuredCredentials}
+            value={props.config.transcription.volcengine}
+            onChange={value => props.update(config => {
+              config.transcription.volcengine = value;
+            })}
+          />
+          <p className="creator-services-inline-note">
+            {l(
+              '使用豆包语音控制台的 App ID 和 Access Token。录音文件识别大模型需单独开通。',
+              'Use the App ID and Access Token from the Doubao Voice console. File recognition must be enabled separately.'
+            )}
+          </p>
+        </>
+      ) : null}
       {selectedCapability?.kind === 'local' && selectedCapability.available ? (
         <p className="creator-services-inline-note">
           {l(
@@ -688,6 +707,7 @@ function TtsSettings(props: SettingsGroupProps) {
           ['openai', 'OpenAI TTS'],
           ['minimax', 'MiniMax'],
           ['aliyun', l('阿里云百炼', 'Alibaba Cloud Model Studio')],
+          ['volcengine', l('火山引擎', 'Volcengine')],
           ['edge-tts', 'Edge TTS']
         ]}
         onChange={value => props.update(config => {
@@ -731,6 +751,23 @@ function TtsSettings(props: SettingsGroupProps) {
             config.tts.aliyun = { ...config.tts.aliyun, ...value };
           })}
         />
+      ) : null}
+      {provider === 'volcengine' ? (
+        <>
+          <VolcengineTtsFields
+            configuredCredentials={props.configuredCredentials}
+            value={props.config.tts.volcengine}
+            onChange={value => props.update(config => {
+              config.tts.volcengine = { ...config.tts.volcengine, ...value };
+            })}
+          />
+          <p className="creator-services-inline-note">
+            {l(
+              '使用豆包语音合成 V1 HTTP 一次性接口。App ID、Access Token 可与听写共用；2.0 音色暂不支持。',
+              'Uses the Doubao TTS V1 HTTP one-shot API. App ID and Access Token can be reused from transcription. 2.0 voices are not supported yet.'
+            )}
+          </p>
+        </>
       ) : null}
       {provider !== 'edge-tts' ? (
         <div className="creator-services-tts-voice">
@@ -896,6 +933,88 @@ function KlingFields(props: {
       <PasswordField id={`${props.id}-access-key`} label="Access Key" value={props.value.accessKey} configured={props.configuredCredentials.has(props.accessKeyCredential)} onChange={accessKey => props.onChange({ ...props.value, accessKey })} />
       <PasswordField id={`${props.id}-secret-key`} label="Secret Key" value={props.value.secretKey} configured={props.configuredCredentials.has(props.secretKeyCredential)} onChange={secretKey => props.onChange({ ...props.value, secretKey })} />
       <TextField id={`${props.id}-model`} label={props.modelLabel ?? 'Model'} value={props.value.model} placeholder={props.modelPlaceholder} suggestions={props.modelSuggestions} onChange={model => props.onChange({ ...props.value, model })} />
+    </>
+  );
+}
+
+function VolcengineAsrFields(props: {
+  configuredCredentials: ReadonlySet<CreatorServicesCredentialField>;
+  value: VolcengineAsrConfig;
+  onChange(value: VolcengineAsrConfig): void;
+}) {
+  const l = useLocalizedCopy();
+  return (
+    <>
+      <PasswordField
+        id="transcription-volcengine-app-id"
+        label="App ID"
+        value={props.value.appId}
+        configured={props.configuredCredentials.has('transcription.volcengine.appId')}
+        onChange={appId => props.onChange({ ...props.value, appId })}
+      />
+      <PasswordField
+        id="transcription-volcengine-access-token"
+        label="Access Token"
+        value={props.value.accessToken}
+        configured={props.configuredCredentials.has('transcription.volcengine.accessToken')}
+        onChange={accessToken => props.onChange({ ...props.value, accessToken })}
+      />
+      <TextField
+        id="transcription-volcengine-resource-id"
+        label={l('资源 ID', 'Resource ID')}
+        value={props.value.resourceId}
+        placeholder="volc.seedasr.auc"
+        onChange={resourceId => props.onChange({ ...props.value, resourceId })}
+      />
+      <TextField
+        id="transcription-volcengine-base-url"
+        label="Base URL"
+        value={props.value.baseUrl}
+        placeholder="https://openspeech.bytedance.com"
+        onChange={baseUrl => props.onChange({ ...props.value, baseUrl })}
+        wide
+      />
+    </>
+  );
+}
+
+function VolcengineTtsFields(props: {
+  configuredCredentials: ReadonlySet<CreatorServicesCredentialField>;
+  value: VolcengineTtsConfig;
+  onChange(value: VolcengineTtsConfig): void;
+}) {
+  const l = useLocalizedCopy();
+  return (
+    <>
+      <TextField
+        id="tts-volcengine-base-url"
+        label="Base URL"
+        value={props.value.baseUrl}
+        placeholder="https://openspeech.bytedance.com"
+        onChange={baseUrl => props.onChange({ ...props.value, baseUrl })}
+        wide
+      />
+      <PasswordField
+        id="tts-volcengine-app-id"
+        label="App ID"
+        value={props.value.appId}
+        configured={props.configuredCredentials.has('tts.volcengine.appId')}
+        onChange={appId => props.onChange({ ...props.value, appId })}
+      />
+      <PasswordField
+        id="tts-volcengine-api-key"
+        label="Access Token"
+        value={props.value.apiKey}
+        configured={props.configuredCredentials.has('tts.volcengine.apiKey')}
+        onChange={apiKey => props.onChange({ ...props.value, apiKey })}
+      />
+      <TextField
+        id="tts-volcengine-cluster"
+        label={l('集群', 'Cluster')}
+        value={props.value.model}
+        placeholder="volcano_tts"
+        onChange={model => props.onChange({ ...props.value, model })}
+      />
     </>
   );
 }
@@ -1208,6 +1327,8 @@ function selectedTranscriptionModel(config: CreatorServicesConfig): string {
       return config.transcription.whisperCpp.model;
     case 'aliyun':
       return '';
+    case 'volcengine':
+      return config.transcription.volcengine.resourceId;
   }
 }
 
@@ -1226,6 +1347,8 @@ function transcriptionProviderLabel(
       return 'Whisper.cpp';
     case 'aliyun':
       return l('阿里云百炼', 'Alibaba Cloud Model Studio');
+    case 'volcengine':
+      return l('火山引擎', 'Volcengine');
   }
 }
 

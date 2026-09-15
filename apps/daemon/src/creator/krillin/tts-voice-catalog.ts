@@ -83,12 +83,33 @@ const currentQwen3Voices: AliyunVoiceDefinition[] = [
   { id: 'Kiki', name: '粤语-阿清', language: 'zh-yue', gender: 'female', scenario: '粤语' }
 ];
 
+const volcengineVoices: CreatorTtsVoice[] = [
+  { id: 'BV001_streaming', name: '通用女声', language: 'zh-CN', gender: 'female', provider: 'volcengine', scenario: '解说配音', kind: 'builtin', recommended: true },
+  { id: 'BV002_streaming', name: '通用男声', language: 'zh-CN', gender: 'male', provider: 'volcengine', scenario: '解说配音', kind: 'builtin' },
+  { id: 'BV007_streaming', name: '亲切女声', language: 'zh-CN', gender: 'female', provider: 'volcengine', scenario: '亲切自然', kind: 'builtin' },
+  { id: 'BV009_streaming', name: '知性女声', language: 'zh-CN', gender: 'female', provider: 'volcengine', scenario: '知识讲解', kind: 'builtin' },
+  { id: 'BV019_streaming', name: '霸气御姐', language: 'zh-CN', gender: 'female', provider: 'volcengine', scenario: '有声书', kind: 'builtin' },
+  { id: 'BV033_streaming', name: '温柔女声', language: 'zh-CN', gender: 'female', provider: 'volcengine', scenario: '温柔叙事', kind: 'builtin' },
+  { id: 'BV056_streaming', name: '阳光男声', language: 'zh-CN', gender: 'male', provider: 'volcengine', scenario: '阳光解说', kind: 'builtin' },
+  { id: 'BV102_streaming', name: '儒雅青年', language: 'zh-CN', gender: 'male', provider: 'volcengine', scenario: '沉稳叙事', kind: 'builtin' },
+  { id: 'BV113_streaming', name: '甜宠少御', language: 'zh-CN', gender: 'female', provider: 'volcengine', scenario: '甜宠', kind: 'builtin' },
+  { id: 'BV119_streaming', name: '通用萌娃', language: 'zh-CN', gender: 'female', provider: 'volcengine', scenario: '童声', kind: 'builtin' },
+  { id: 'BV700_streaming', name: '灿灿', language: 'zh-CN', gender: 'female', provider: 'volcengine', scenario: '豆包女声', kind: 'builtin' },
+  { id: 'BV701_streaming', name: '擎苍', language: 'zh-CN', gender: 'male', provider: 'volcengine', scenario: '磁性男声', kind: 'builtin' }
+];
+
 export function listBundledTtsVoices(
   provider: Exclude<CreatorTtsProvider, 'edge-tts'>,
   model: string
 ): CreatorTtsVoice[] | undefined {
   if (provider === 'openai') {
     return openAiVoices.map(voice => ({ ...voice }));
+  }
+  if (provider === 'volcengine') {
+    return volcengineVoices.map(voice => ({
+      ...voice,
+      supportedModels: [model.trim() || 'volcano_tts']
+    }));
   }
   if (provider !== 'aliyun') return undefined;
   const normalizedModel = model.trim().toLowerCase();

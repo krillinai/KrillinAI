@@ -248,6 +248,57 @@ describe('KrillinTtsService', () => {
     );
   });
 
+  it('lists bundled Volcengine voices and synthesizes through the V1 HTTP API', async () => {
+    const root = await temporaryRoot();
+    const config = createDefaultCreatorServicesConfig();
+    config.tts.provider = 'volcengine';
+    config.tts.volcengine.appId = 'app-1';
+    config.tts.volcengine.apiKey = 'token-1';
+    const audio = Buffer.from('mp3-bytes');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      code: 3000,
+      message: 'Success',
+      data: audio.toString('base64')
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const executeUtility = vi.fn();
+    const service = createKrillinTtsService({
+      resourceRoot: join(root, 'runtime'),
+      workRoot: join(root, 'work'),
+      configStore: createConfigStore(config),
+      executeUtility
+    });
+
+    await expect(service.listVoices('volcengine')).resolves.toMatchObject({
+      provider: 'volcengine',
+      model: 'volcano_tts',
+      voices: expect.arrayContaining([
+        expect.objectContaining({ id: 'BV001_streaming', recommended: true })
+      ])
+    });
+    expect(executeUtility).not.toHaveBeenCalled();
+
+    const result = await service.synthesize({
+      text: '你好，火山。',
+      provider: 'volcengine',
+      voiceId: 'BV001_streaming',
+      format: 'mp3'
+    });
+    expect(result.content).toEqual(audio);
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://openspeech.bytedance.com/api/v1/tts');
+    expect((fetchMock.mock.calls[0]![1] as RequestInit).headers).toMatchObject({
+      authorization: 'Bearer;token-1'
+    });
+    const request = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body));
+    expect(request.app).toEqual({
+      appid: 'app-1',
+      token: 'token-1',
+      cluster: 'volcano_tts'
+    });
+    expect(request.audio.voice_type).toBe('BV001_streaming');
+    expect(request.request.operation).toBe('query');
+  });
+
   it('requires the configured provider API key before synthesis', async () => {
     const root = await temporaryRoot();
     const service = createKrillinTtsService({
