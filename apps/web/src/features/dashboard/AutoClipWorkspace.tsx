@@ -7,13 +7,15 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
+  CircleAlert,
   Download,
   FileVideo,
   Grid2X2,
   List as ListIcon,
   LoaderCircle,
   Scissors,
-  Sparkles
+  Sparkles,
+  X
 } from 'lucide-react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { VideoMetadataService } from '../../services/video-metadata-service.js';
@@ -80,6 +82,7 @@ export default function AutoClipWorkspace(props: {
   const [aspectRatio, setAspectRatio] = useState<ClipAspectRatio>(() => readAspectRatio(session?.state.aspectRatio));
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [dismissedErrorKey, setDismissedErrorKey] = useState('');
   const [currentStep, setCurrentStep] = useState<AutoClipStep>(0);
   const [furthestStep, setFurthestStep] = useState<AutoClipStep>(0);
   const [resultVersion, setResultVersion] = useState<number>();
@@ -127,6 +130,14 @@ export default function AutoClipWorkspace(props: {
   const rendering = latestRenderStage?.status === 'queued' || latestRenderStage?.status === 'running';
   const runtimeError = latestFailedStage(session?.job.stages ?? []);
   const visibleError = error || formatClipError(runtimeError ?? session?.error, l);
+  const technicalError = isTechnicalClipError(error || (runtimeError ?? session?.error));
+  const technicalErrorKey = technicalError
+    ? `${error ? 'local' : runtimeError?.id ?? 'session'}:${visibleError}`
+    : '';
+  const persistentError = technicalError ? '' : visibleError;
+  const activeToast = technicalError && technicalErrorKey !== dismissedErrorKey
+    ? { id: -1, message: visibleError }
+    : null;
   const renderedArtifacts = useMemo(
     () => selectedResult === undefined
       ? []
@@ -145,6 +156,18 @@ export default function AutoClipWorkspace(props: {
   useEffect(() => {
     if (latestVersion !== undefined) setResultVersion(latestVersion);
   }, [latestVersion]);
+
+  useEffect(() => {
+    if (activeToast === null) return undefined;
+    const timer = window.setTimeout(() => {
+      setDismissedErrorKey(technicalErrorKey);
+    }, 4_000);
+    return () => window.clearTimeout(timer);
+  }, [activeToast?.id, activeToast?.message, technicalErrorKey]);
+
+  useEffect(() => {
+    if (!technicalErrorKey) setDismissedErrorKey('');
+  }, [technicalErrorKey]);
 
   useEffect(() => {
     if (resultVersions.length === 0) return;
@@ -381,7 +404,7 @@ export default function AutoClipWorkspace(props: {
           : currentStep === 2
             ? l('切片结果', 'Clip results')
             : steps[currentStep]!}
-      currentIssue={visibleError || undefined}
+      currentIssue={persistentError || undefined}
       onCancelTask={analyzing || rendering
         ? () => void session?.cancelJob().catch(cause => setError(formatClipError(cause, l)))
         : undefined}
@@ -390,7 +413,18 @@ export default function AutoClipWorkspace(props: {
         : undefined}
       onBack={props.onBack}
     >
-      <div className="creator-tool-stack">
+      <div className="creator-tool-stack auto-clip-tool-stack">
+        {activeToast ? (
+          <div className="creator-tool-toast" role="alert">
+            <span aria-hidden="true"><CircleAlert size={17} /></span>
+            <div><p>{activeToast.message}</p></div>
+            <button type="button" aria-label={l('关闭提示', 'Dismiss notification')} onClick={() => {
+              setDismissedErrorKey(technicalErrorKey);
+              setError('');
+              session?.clearError();
+            }}><X size={15} /></button>
+          </div>
+        ) : null}
         <nav className="video-translation-steps creator-tool-steps" aria-label={l('视频切片流程', 'Video clip workflow')}>
           <ol>{steps.map((step, index) => {
             const active = index === currentStep;
@@ -1285,4 +1319,20 @@ function formatClipError(
         ? error.message
         : '';
   return message || l('视频切片失败，请稍后重试', 'Video clipping failed. Try again later.');
+}
+
+function isTechnicalClipError(error: unknown): boolean {
+  const message = typeof error === 'string'
+    ? error
+    : error instanceof Error
+      ? error.message
+      : (() => {
+          const candidate = error as { message?: unknown; errorMessage?: unknown } | null | undefined;
+          return typeof candidate?.message === 'string'
+            ? candidate.message
+            : typeof candidate?.errorMessage === 'string'
+              ? candidate.errorMessage
+              : '';
+        })();
+  return /normalize timeline|invalid[_ ]srt(?: timestamp)?|target_language_srt\.srt/i.test(message);
 }

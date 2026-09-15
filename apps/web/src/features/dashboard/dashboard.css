@@ -1421,6 +1421,10 @@
   margin: 0 auto;
 }
 
+.auto-clip-tool-stack {
+  position: relative;
+}
+
 .stickman-workspace-content {
   display: grid;
   min-height: 0;
@@ -2531,6 +2535,7 @@
   row-gap: 0;
 }
 
+.creator-tool-toast,
 .wechat-article-toast {
   position: absolute;
   z-index: 12;
@@ -2552,6 +2557,7 @@
   box-sizing: border-box;
 }
 
+.creator-tool-toast > span,
 .wechat-article-toast > span {
   width: 24px;
   height: 24px;
@@ -2560,16 +2566,19 @@
   color: var(--danger);
 }
 
+.creator-tool-toast[data-tone="success"] > span,
 .wechat-article-toast[data-tone="success"] > span {
   color: var(--success);
 }
 
+.creator-tool-toast > div,
 .wechat-article-toast > div {
   min-width: 0;
   display: grid;
   gap: 3px;
 }
 
+.creator-tool-toast p,
 .wechat-article-toast p {
   min-width: 0;
   color: var(--text);
@@ -2577,6 +2586,7 @@
   line-height: 1.45;
 }
 
+.creator-tool-toast a,
 .wechat-article-toast a {
   width: fit-content;
   color: var(--accent);
@@ -2585,10 +2595,12 @@
   text-decoration: none;
 }
 
+.creator-tool-toast a:hover,
 .wechat-article-toast a:hover {
   text-decoration: underline;
 }
 
+.creator-tool-toast button,
 .wechat-article-toast button {
   width: 28px;
   height: 28px;
@@ -2600,11 +2612,13 @@
   color: var(--muted);
 }
 
+.creator-tool-toast button:hover,
 .wechat-article-toast button:hover {
   background: var(--surface-2);
   color: var(--text);
 }
 
+.creator-tool-toast button:focus-visible,
 .wechat-article-toast button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
