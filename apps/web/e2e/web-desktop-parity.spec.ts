@@ -1,4 +1,5 @@
 import type { CreatorYtDlpStatusResponse } from '@opencreator/protocol';
+import { createKrillinCreatorServicesCapabilities } from '../../daemon/src/creator/krillin/capabilities.js';
 import { test, expect } from './fixtures/runtime.js';
 
 test('本地字幕导入在 Browser/Desktop Bridge 下保持相同命令和界面', async ({ browser, runtime }, testInfo) => {
@@ -491,6 +492,9 @@ test('Windows 本地 Whisper 在 Browser/Desktop Bridge 下保持相同界面、
       reducedMotion: 'reduce'
     });
     const page = await context.newPage();
+    await page.route('**/creator-services/capabilities', route => route.fulfill({
+      json: createKrillinCreatorServicesCapabilities('win32', 'x64')
+    }));
     if (platform === 'desktop') await installDesktopBridge(page);
     const requests: string[] = [];
     page.on('request', request => {
