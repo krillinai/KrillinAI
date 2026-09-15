@@ -1,6 +1,34 @@
 import type { CreatorYtDlpStatusResponse } from '@opencreator/protocol';
 import { test, expect } from './fixtures/runtime.js';
 
+test('本地字幕导入在 Browser/Desktop Bridge 下保持相同命令和界面', async ({ browser, runtime }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop');
+  const results: unknown[] = [];
+  for (const platform of ['browser', 'desktop']) {
+    const created = await runtime.api<{ job: { id: string } }>('POST', '/creator/jobs', {
+      projectId: runtime.projectId, templateId: 'video-translation',
+      state: { sourceUrl: 'https://www.youtube.com/watch?v=import', currentStep: 1, furthestStep: 1 }
+    });
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page);
+    try {
+      await runtime.openApp(page);
+      await page.goto(`${runtime.origin}/#/workbench?tool=video-translation&jobId=${created.job.id}`);
+      const group = page.getByRole('group', { name: '导入已有字幕' });
+      await group.getByRole('combobox', { name: '字幕类型' }).selectOption('target_subtitle');
+      const request = page.waitForRequest(request => request.url().endsWith('/actions') && request.postDataJSON()?.action === 'import-subtitle');
+      await group.getByLabel('UTF-8 SRT 文件').setInputFiles({ name: 'local.srt', mimeType: 'application/x-subrip', buffer: Buffer.from('1\n00:00:00,000 --> 00:00:01,000\nHello\n') });
+      const action = (await request).postDataJSON();
+      await expect(group.getByText(/本地导入 · local.srt/)).toBeVisible();
+      await expect(page.getByRole('heading', { name: '设置翻译语言' })).toBeVisible();
+      const stored = await runtime.api<{ job: { artifacts: Array<{ kind: string; metadata: unknown }> } }>('GET', `/creator/jobs/${created.job.id}`);
+      results.push({ text: await group.innerText(), box: await group.boundingBox(), input: action.input, artifacts: stored.job.artifacts.map(a => ({ kind: a.kind, metadata: a.metadata })) });
+    } finally { await context.close(); }
+  }
+  expect(results[1]).toEqual(results[0]);
+});
+
 test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runtime 配置', async ({
   browser,
   runtime
