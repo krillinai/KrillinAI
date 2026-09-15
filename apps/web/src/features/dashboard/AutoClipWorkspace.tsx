@@ -1109,7 +1109,7 @@ function readDuration(value: CreatorJson | undefined): ClipDuration {
 }
 
 function readAspectRatio(value: CreatorJson | undefined): ClipAspectRatio {
-  return value === 'source' || value === '16:9' || value === '1:1' ? value : '9:16';
+  return value === 'source' || value === '16:9' || value === '9:16' || value === '1:1' ? value : 'source';
 }
 
 function aspectRatioOrientation(value: ClipAspectRatio): VideoOrientation | undefined {
@@ -1120,7 +1120,7 @@ function aspectRatioOrientation(value: ClipAspectRatio): VideoOrientation | unde
 }
 
 function readClipCount(value: CreatorJson | undefined): number {
-  return typeof value === 'number' ? clampClipCount(value) : 10;
+  return typeof value === 'number' ? clampClipCount(value) : 3;
 }
 
 function clampClipCount(value: number): number {

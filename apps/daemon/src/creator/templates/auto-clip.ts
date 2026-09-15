@@ -48,8 +48,8 @@ export function createAutoClipTemplate(): CreatorTemplateDefinition {
       focus: z.enum(['balanced', 'viral', 'knowledge']).default('balanced'),
       genre: z.enum(['auto', 'talk', 'podcast', 'tutorial', 'interview', 'entertainment', 'sports', 'gaming', 'news']).default('auto'),
       duration: z.enum(['15-30', '30-60', '60-90']).default('30-60'),
-      clipCount: z.number().int().min(1).max(20).default(10),
-      aspectRatio: z.enum(['source', '16:9', '9:16', '1:1']).default('9:16'),
+      clipCount: z.number().int().min(1).max(20).default(3),
+      aspectRatio: z.enum(['source', '16:9', '9:16', '1:1']).default('source'),
       currentStage: z.string().nullable().default(null)
     }).passthrough() as never,
     stages: [

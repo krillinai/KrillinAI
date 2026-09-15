@@ -1056,71 +1056,29 @@ describe('DashboardPage', () => {
     expect(screen.getByText('long-interview.mp4')).toBeInTheDocument();
     expect(createObjectURL).toHaveBeenCalledWith(file);
     expect(screen.queryByRole('textbox', { name: '视频链接' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '下一步：分析设置' }));
-    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('输出画幅竖屏');
-    fireEvent.click(screen.getByRole('button', { name: '识别语义并提取片段' }));
-    expect(screen.getByRole('region', { name: '候选片段网格' })).toHaveAttribute('data-orientation', 'portrait');
+    fireEvent.click(screen.getByRole('button', { name: '下一步：切片设置' }));
+    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('输出画幅跟随原视频');
+    expect(screen.getByRole('spinbutton', { name: '切片数量' })).toHaveValue(3);
+    expect(screen.getByRole('combobox', { name: '输出画幅' })).toHaveValue('source');
   });
 
-  it('extracts ten scored clips with subtitles from a long video', () => {
+  it('defaults to three source-format clips for a long video', () => {
     render(<DashboardPage onSelectPrompt={vi.fn()} workspace="auto-clips" />);
 
-    const clipSteps = screen.getByRole('navigation', { name: '自动剪辑流程' });
+    const clipSteps = screen.getByRole('navigation', { name: '视频切片流程' });
     expect(within(clipSteps).getByRole('button', { name: '1 添加视频' })).toHaveAttribute('aria-current', 'step');
-    expect(within(clipSteps).getByRole('button', { name: '2 分析设置' })).toBeDisabled();
-    expect(within(clipSteps).getByRole('button', { name: '3 选择与导出' })).toBeDisabled();
+    expect(within(clipSteps).getByRole('button', { name: '2 切片设置' })).toBeDisabled();
+    expect(within(clipSteps).getByRole('button', { name: '3 切片结果' })).toBeDisabled();
     fireEvent.change(screen.getByRole('textbox', { name: '视频链接' }), {
       target: { value: 'https://www.youtube.com/watch?v=long-video' }
     });
-    fireEvent.click(screen.getByRole('button', { name: '下一步：分析设置' }));
-    expect(screen.getByRole('heading', { name: '设置分析目标' })).toBeInTheDocument();
-    expect(screen.getByRole('spinbutton', { name: '片段数量' })).toHaveValue(10);
-    expect(screen.getByText('将生成 10 个候选片段')).toBeInTheDocument();
-    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('内容偏好综合表现');
-    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('候选片段10');
+    fireEvent.click(screen.getByRole('button', { name: '下一步：切片设置' }));
+    expect(screen.getByRole('heading', { name: '设置切片目标' })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: '切片数量' })).toHaveValue(3);
+    expect(screen.getByRole('combobox', { name: '输出画幅' })).toHaveValue('source');
+    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('内容重点综合表现');
+    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('切片数量3');
     expect(screen.getByLabelText('任务摘要').parentElement).toHaveClass('creator-task-final-grid');
-    fireEvent.click(screen.getByRole('button', { name: '识别语义并提取片段' }));
-
-    expect(screen.getByText('已找到 10 个候选片段')).toBeInTheDocument();
-    expect(screen.queryByLabelText('任务摘要')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '项目 V1' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '候选片段' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: '字幕与评分' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '导出内容' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '任务设置' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '网格视图' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('region', { name: '候选片段网格' })).toHaveAttribute('data-orientation', 'landscape');
-    expect(screen.getAllByRole('button', { name: /^查看片段/ })).toHaveLength(10);
-    fireEvent.click(screen.getByRole('button', { name: '列表视图' }));
-    expect(screen.getByRole('button', { name: '列表视图' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('region', { name: '候选片段列表' })).toBeInTheDocument();
-    expect(screen.getByText(/很多人一开始就急着使用工具/)).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /^下载片段/ })).toHaveLength(10);
-    fireEvent.click(screen.getByRole('button', { name: '网格视图' }));
-    expect(screen.getByRole('region', { name: '候选片段网格' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /^查看片段 1 / }));
-    const detail = screen.getByRole('complementary', { name: '片段 1 详情' });
-    expect(detail).toHaveTextContent('开头吸引力94');
-    expect(detail).toHaveTextContent('语义完整度92');
-    expect(detail).toHaveTextContent('很多人一开始就急着使用工具');
-
-    fireEvent.click(within(clipSteps).getByRole('button', { name: /分析设置$/ }));
-    fireEvent.click(screen.getByRole('button', { name: '识别语义并提取片段' }));
-    expect(screen.getByRole('status')).toHaveTextContent('设置没有变化，继续查看 V1，未创建新版本');
-    expect(screen.queryByRole('button', { name: '项目 V2' })).not.toBeInTheDocument();
-
-    fireEvent.click(within(clipSteps).getByRole('button', { name: /分析设置$/ }));
-    fireEvent.change(screen.getByRole('combobox', { name: '内容偏好' }), { target: { value: 'viral' } });
-    fireEvent.change(screen.getByRole('spinbutton', { name: '片段数量' }), { target: { value: '5' } });
-    expect(screen.getByText('将生成 5 个候选片段')).toBeInTheDocument();
-    expect(screen.getByLabelText('任务摘要')).toHaveTextContent('候选片段5');
-    fireEvent.click(screen.getByRole('button', { name: '重新分析并生成 V2' }));
-    expect(screen.getByRole('button', { name: '项目 V2' })).toBeInTheDocument();
-    expect(screen.getByText('已找到 5 个候选片段')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /^查看片段/ })).toHaveLength(5);
-    expect(screen.queryByLabelText('任务摘要')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '项目 V2' }));
-    expect(screen.getByRole('menu')).toHaveTextContent('项目 V1');
   });
 
   it('opens the three-step cover workflow and configures the output count', () => {

@@ -525,8 +525,8 @@ function creatorDraftDefaults(templateId: string): Record<string, unknown[]> {
       preferPlatformCaptions: [true],
       focus: ['balanced'],
       duration: ['30-60'],
-      clipCount: [10],
-      aspectRatio: ['9:16'],
+      clipCount: [3],
+      aspectRatio: ['source'],
       currentStage: [null]
     };
   }

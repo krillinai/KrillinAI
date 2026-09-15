@@ -10,10 +10,20 @@ import {
   createVideoGenerationTemplate,
   createDefaultCreatorTemplateRegistry,
   createStickmanVideoTemplate,
-  createVideoTranslationTemplate
+  createVideoTranslationTemplate,
+  createAutoClipTemplate
 } from '../../src/creator/templates/registry.js';
 
 describe('creator template registry', () => {
+  it('defaults video clips to three source-format outputs', () => {
+    const template = createAutoClipTemplate();
+
+    expect(template.inputSchema.parse({})).toMatchObject({
+      clipCount: 3,
+      aspectRatio: 'source'
+    });
+  });
+
   it('exposes only stickman-video version 2 and rejects v2 in an old registry fixture', () => {
     const production = createDefaultCreatorTemplateRegistry();
     const stickman = production.list().filter(template => template.id === 'stickman-video');

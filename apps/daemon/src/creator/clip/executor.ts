@@ -264,7 +264,7 @@ function readDurationRange(value: unknown): { min: number; max: number } {
 function readClipCount(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.max(1, Math.min(20, Math.round(value)))
-    : 10;
+    : 3;
 }
 
 function readAspectRatio(value: unknown): ClipAspectRatio {
