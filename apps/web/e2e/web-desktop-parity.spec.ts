@@ -1,5 +1,4 @@
-import type { CreatorYtDlpStatusResponse } from '@opencreator/protocol';
-import { createKrillinCreatorServicesCapabilities } from '../../daemon/src/creator/krillin/capabilities.js';
+import type { CreatorServicesCapabilitiesResponse, CreatorYtDlpStatusResponse } from '@opencreator/protocol';
 import { test, expect } from './fixtures/runtime.js';
 
 test('本地字幕导入在 Browser/Desktop Bridge 下保持相同命令和界面', async ({ browser, runtime }, testInfo) => {
@@ -467,7 +466,7 @@ test('小红书帖子在 Browser/Desktop Bridge 下保持相同界面、请求�
   expect(results[1]!.state).toEqual(results[0]!.state);
 });
 
-test('Windows 本地 Whisper 在 Browser/Desktop Bridge 下保持相同界面、请求和持久状态', async ({
+test('本地 Whisper 在 Browser/Desktop Bridge 下遵守相同 Runtime 能力并保持持久状态', async ({
   browser,
   runtime
 }, testInfo) => {
@@ -483,6 +482,9 @@ test('Windows 本地 Whisper 在 Browser/Desktop Bridge 下保持相同界面、
     transcription: Record<string, unknown>;
   }> = [];
 
+  const capabilities = await runtime.api<CreatorServicesCapabilitiesResponse>('GET', '/creator-services/capabilities');
+  const localProvider = capabilities.transcription.providers.find(provider => provider.kind === 'local' && provider.available);
+
   for (const platform of ['browser', 'desktop'] as const) {
     await runtime.api('DELETE', '/creator-services/config');
     const context = await browser.newContext({
@@ -492,9 +494,6 @@ test('Windows 本地 Whisper 在 Browser/Desktop Bridge 下保持相同界面、
       reducedMotion: 'reduce'
     });
     const page = await context.newPage();
-    await page.route('**/creator-services/capabilities', route => route.fulfill({
-      json: createKrillinCreatorServicesCapabilities('win32', 'x64')
-    }));
     if (platform === 'desktop') await installDesktopBridge(page);
     const requests: string[] = [];
     page.on('request', request => {
@@ -510,19 +509,26 @@ test('Windows 本地 Whisper 在 Browser/Desktop Bridge 下保持相同界面、
         .getByRole('region', { name: 'OpenCreator 工作区' })
         .getByRole('main');
       const localMode = settings.getByRole('button', { name: '本地 Whisper' });
-      await expect(settings.getByText('Windows · x64')).toBeVisible();
-      await expect(localMode).toBeEnabled();
-      await localMode.click();
+      if (localProvider) {
+        await expect(localMode).toBeEnabled();
+        await localMode.click();
+      } else {
+        await expect(localMode).toBeDisabled();
+      }
 
       const provider = settings.getByRole('combobox', { name: '语音识别服务' });
       const model = settings.getByRole('combobox', { name: '本地模型' });
-      await expect(provider).toHaveText('Whisper.cpp');
-      await expect(model).toHaveText('tiny');
-      await model.click();
-      await settings.getByRole('option', { name: 'medium' }).click();
-      await settings.getByRole('button', { name: '保存配置' }).click();
-      await page.getByRole('button', { name: '保存并启用' }).click();
-      await expect(settings.getByText('配置已安全保存')).toBeVisible();
+      if (localProvider) {
+        await expect(provider).toHaveText(localProvider.provider === 'whisper.cpp' ? 'Whisper.cpp' : 'WhisperKit');
+        if (localProvider.provider === 'whisper.cpp') {
+          await expect(model).toHaveText('tiny');
+          await model.click();
+          await settings.getByRole('option', { name: 'medium' }).click();
+        }
+        await settings.getByRole('button', { name: '保存配置' }).click();
+        await page.getByRole('button', { name: '保存并启用' }).click();
+        await expect(settings.getByText('配置已安全保存')).toBeVisible();
+      }
 
       const boxes: Record<
         string,
@@ -532,7 +538,7 @@ test('Windows 本地 Whisper 在 Browser/Desktop Bridge 下保持相同界面、
         ['settings', settings],
         ['local-mode', localMode],
         ['provider', provider],
-        ['model', model]
+        ...(localProvider ? [['model', model] as const] : [])
       ] as const) {
         const box = await locator.boundingBox();
         expect(box, `${platform} 缺少 ${name} 尺寸目标`).not.toBeNull();
@@ -561,11 +567,15 @@ test('Windows 本地 Whisper 在 Browser/Desktop Bridge 下保持相同界面、
   expect(results[1]!.boxes).toEqual(results[0]!.boxes);
   expect(results[1]!.requests).toEqual(results[0]!.requests);
   expect(results[1]!.transcription).toEqual(results[0]!.transcription);
-  expect(results[0]!.transcription).toMatchObject({
-    provider: 'whisper.cpp',
-    whisperCpp: { model: 'medium' }
-  });
-  expect(results[0]!.requests).toContain('PATCH /creator-services/config');
+  if (localProvider) {
+    expect(results[0]!.transcription.provider).toBe(localProvider.provider);
+    if (localProvider.provider === 'whisper.cpp') {
+      expect(results[0]!.transcription).toMatchObject({ whisperCpp: { model: 'medium' } });
+    }
+    expect(results[0]!.requests).toContain('PATCH /creator-services/config');
+  } else {
+    expect(results[0]!.requests).not.toContain('PATCH /creator-services/config');
+  }
 });
 
 test('短视频脚本在 Browser/Desktop Bridge 下保持相同界面、请求和持久状态', async ({
