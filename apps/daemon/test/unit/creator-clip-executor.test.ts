@@ -210,6 +210,9 @@ function artifact(id: string, kind: string, path: string): CreatorArtifact {
     version: 1,
     status: 'completed',
     path,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {},
     createdAt: new Date().toISOString()
@@ -232,6 +235,7 @@ function job(): CreatorJob {
     agentThreadId: null,
     stages: [],
     artifacts: [],
+    providerRequests: [],
     activities: [],
     createdAt: now,
     updatedAt: now
@@ -250,6 +254,8 @@ function stageRun(stageId: 'analyze' | 'render' = 'render'): CreatorStageRun {
     claimExpiresAt: null,
     attempt: 1,
     idempotencyKey: null,
+    scopeKey: null,
+    inputFingerprint: null,
     progress: {},
     errorCode: null,
     errorMessage: null,
