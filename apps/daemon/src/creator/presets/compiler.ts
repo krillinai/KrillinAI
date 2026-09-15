@@ -39,7 +39,9 @@ const MIME_BY_EXTENSION = new Map([
 const MAX_COVER_SIZE = 2 * 1024 * 1024;
 const MAX_PREVIEW_SIZE = 4 * 1024 * 1024;
 const MAX_AUTHOR_AVATAR_SIZE = 512 * 1024;
-const MAX_PREVIEW_VIDEO_SIZE = 48 * 1024 * 1024;
+const MAX_PREVIEW_VIDEO_SIZE = 8 * 1024 * 1024;
+const MAX_PREVIEW_VIDEO_DURATION_SECONDS = 10;
+const MAX_PREVIEW_VIDEO_TOTAL_SIZE = 20 * 1024 * 1024;
 
 export async function validateCreatorPresets(
   options: CreatorPresetCompilerOptions
@@ -50,6 +52,7 @@ export async function validateCreatorPresets(
   const entries = await findTemplateManifests(sourceRoot);
   const presets: CompiledCreatorPreset[] = [];
   const identities = new Set<string>();
+  let previewVideoTotalSize = 0;
 
   for (const entry of entries) {
     const manifest = await readSourceManifest(entry.file, entry.relativeFile);
@@ -86,6 +89,15 @@ export async function validateCreatorPresets(
           manifest.previewVideo,
           entry.relativeFile
         );
+    if (previewVideo !== undefined) {
+      previewVideoTotalSize += previewVideo.size;
+      if (previewVideoTotalSize > MAX_PREVIEW_VIDEO_TOTAL_SIZE) {
+        throw new Error(
+          `${entry.relativeFile}.previewVideo: total preview video size exceeds `
+          + `${MAX_PREVIEW_VIDEO_TOTAL_SIZE / 1024 / 1024} MiB`
+        );
+      }
+    }
     const authorAvatar = manifest.author?.avatar === undefined
       ? undefined
       : await validateAuthorAvatar(
@@ -465,12 +477,78 @@ async function validatePreviewVideo(
   if (bytes.length < 12 || bytes.subarray(4, 8).toString('ascii') !== 'ftyp') {
     throw new Error(`${relativeFile}.previewVideo: video contents do not match MP4`);
   }
+  const duration = readMp4Duration(bytes);
+  if (duration !== undefined && duration > MAX_PREVIEW_VIDEO_DURATION_SECONDS) {
+    throw new Error(
+      `${relativeFile}.previewVideo: duration exceeds ${MAX_PREVIEW_VIDEO_DURATION_SECONDS} seconds`
+    );
+  }
   return {
     ...resource,
     extension: '.mp4',
     mime: 'video/mp4',
     sha256: sha256(bytes)
   };
+}
+
+type Mp4Box = {
+  dataStart: number;
+  end: number;
+};
+
+// Keep preview validation self-contained so builds do not depend on ffprobe.
+function readMp4Duration(bytes: Buffer): number | undefined {
+  const moov = findMp4Box(bytes, 0, bytes.length, 'moov');
+  if (moov === undefined) return undefined;
+  const mvhd = findMp4Box(bytes, moov.dataStart, moov.end, 'mvhd');
+  if (mvhd === undefined || mvhd.dataStart >= mvhd.end) return undefined;
+
+  const version = bytes[mvhd.dataStart];
+  if (version === 0) {
+    if (mvhd.dataStart + 20 > mvhd.end) return undefined;
+    const timescale = bytes.readUInt32BE(mvhd.dataStart + 12);
+    const duration = bytes.readUInt32BE(mvhd.dataStart + 16);
+    return timescale === 0 ? undefined : duration / timescale;
+  }
+  if (version === 1) {
+    if (mvhd.dataStart + 32 > mvhd.end) return undefined;
+    const timescale = bytes.readUInt32BE(mvhd.dataStart + 20);
+    const duration = bytes.readBigUInt64BE(mvhd.dataStart + 24);
+    return timescale === 0 ? undefined : Number(duration) / timescale;
+  }
+  return undefined;
+}
+
+function findMp4Box(
+  bytes: Buffer,
+  start: number,
+  end: number,
+  type: string
+): Mp4Box | undefined {
+  let offset = start;
+  while (offset + 8 <= end) {
+    const size32 = bytes.readUInt32BE(offset);
+    const boxType = bytes.toString('ascii', offset + 4, offset + 8);
+    let headerSize = 8;
+    let boxSize: number;
+    if (size32 === 1) {
+      if (offset + 16 > end) return undefined;
+      const extendedSize = bytes.readBigUInt64BE(offset + 8);
+      if (extendedSize > BigInt(Number.MAX_SAFE_INTEGER)) return undefined;
+      boxSize = Number(extendedSize);
+      headerSize = 16;
+    } else if (size32 === 0) {
+      boxSize = end - offset;
+    } else {
+      boxSize = size32;
+    }
+    if (boxSize < headerSize || offset + boxSize > end) return undefined;
+    if (boxType === type) {
+      return { dataStart: offset + headerSize, end: offset + boxSize };
+    }
+    offset += boxSize;
+  }
+  return undefined;
 }
 
 type ValidatedImageResource = {

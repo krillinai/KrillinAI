@@ -207,6 +207,51 @@ describe('creator preset compiler', () => {
     );
   });
 
+  it('rejects oversized, overlong, and aggregate preview videos', async () => {
+    const fixture = setup();
+    const preset = copyOfficialPreset({
+      sourceRoot: fixture.sourceRoot,
+      module: 'video-generation',
+      sourceId: 'aerial-pullback-rise-reveal'
+    });
+
+    const oversized = Buffer.alloc(8 * 1024 * 1024 + 1);
+    oversized.writeUInt32BE(12, 0);
+    oversized.write('ftyp', 4, 'ascii');
+    writeFileSync(join(preset, 'example.mp4'), oversized);
+    await expect(validateCreatorPresets(fixture)).rejects.toThrow(
+      'previewVideo exceeds 8 MiB'
+    );
+
+    const overlong = createMinimalMp4(11);
+    writeFileSync(join(preset, 'example.mp4'), overlong);
+    await expect(validateCreatorPresets(fixture)).rejects.toThrow(
+      'previewVideo: duration exceeds 10 seconds'
+    );
+
+    const second = copyOfficialPreset({
+      sourceRoot: fixture.sourceRoot,
+      module: 'video-generation',
+      sourceId: 'dolly-zoom-space-warp',
+      id: 'dolly-zoom-space-warp-2'
+    });
+    const third = copyOfficialPreset({
+      sourceRoot: fixture.sourceRoot,
+      module: 'video-generation',
+      sourceId: 'drone-orbit-subject',
+      id: 'drone-orbit-subject-2'
+    });
+    const largePreview = Buffer.alloc(7 * 1024 * 1024);
+    largePreview.writeUInt32BE(12, 0);
+    largePreview.write('ftyp', 4, 'ascii');
+    writeFileSync(join(preset, 'example.mp4'), largePreview);
+    writeFileSync(join(second, 'example.mp4'), largePreview);
+    writeFileSync(join(third, 'example.mp4'), largePreview);
+    await expect(validateCreatorPresets(fixture)).rejects.toThrow(
+      'total preview video size exceeds 20 MiB'
+    );
+  });
+
   it('compiles the English video translation locale with Runtime language ids', async () => {
     const fixture = setup();
     copyOfficialPreset({
@@ -278,3 +323,24 @@ describe('creator preset compiler', () => {
     expect(hashDirectory(fixture.outputRoot)).toBe(before);
   });
 });
+
+function createMinimalMp4(durationSeconds: number): Buffer {
+  const ftyp = Buffer.alloc(12);
+  ftyp.writeUInt32BE(12, 0);
+  ftyp.write('ftyp', 4, 'ascii');
+  ftyp.write('isom', 8, 'ascii');
+
+  const mvhdData = Buffer.alloc(20);
+  mvhdData.writeUInt32BE(1000, 12);
+  mvhdData.writeUInt32BE(durationSeconds * 1000, 16);
+  const mvhd = Buffer.alloc(8 + mvhdData.length);
+  mvhd.writeUInt32BE(mvhd.length, 0);
+  mvhd.write('mvhd', 4, 'ascii');
+  mvhdData.copy(mvhd, 8);
+
+  const moov = Buffer.alloc(8 + mvhd.length);
+  moov.writeUInt32BE(moov.length, 0);
+  moov.write('moov', 4, 'ascii');
+  mvhd.copy(moov, 8);
+  return Buffer.concat([ftyp, moov]);
+}
