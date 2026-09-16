@@ -741,7 +741,7 @@ export default function VideoDownloadWorkspace(props: {
                   onClick={() => setResultTab('outputs')}
                 >
                   <PackageOpen size={15} strokeWidth={1.8} aria-hidden="true" />
-                  {l('生成物', 'Outputs')}
+                  {l('作品', 'Works')}
                 </button>
               </div>
             </div>
@@ -918,7 +918,7 @@ export default function VideoDownloadWorkspace(props: {
                 <div className="video-result-pane">
                   <header className="video-result-pane-heading">
                     <div>
-                      <h2>{l('生成物', 'Outputs')}</h2>
+                      <h2>{l('作品', 'Works')}</h2>
                       <p>
                         {hasActiveDownloads
                           ? l('各规格会按队列依次下载，并在这里显示进度', 'Formats download in order and show progress here')
@@ -1103,7 +1103,7 @@ export default function VideoDownloadWorkspace(props: {
                   ) : (
                     <div className="video-result-empty">
                       <Download size={26} strokeWidth={1.5} aria-hidden="true" />
-                      <strong>{l('还没有生成物', 'No outputs yet')}</strong>
+                      <strong>{l('还没有作品', 'No works yet')}</strong>
                       <button type="button" onClick={() => setResultTab('formats')}>
                         {l('选择下载规格', 'Choose a format')}
                       </button>
@@ -1129,7 +1129,7 @@ export default function VideoDownloadWorkspace(props: {
                       : optionLabel(selectedOption, l)
                   },
                   {
-                    label: l('生成物', 'Outputs'),
+                    label: l('作品', 'Works'),
                     value: String(downloadArtifacts.length)
                   }
                 ]}

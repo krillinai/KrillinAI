@@ -121,7 +121,7 @@ describe('VideoDownloadWorkspace', () => {
     expect(screen.queryByText('OpenCreator 视频示例')).not.toBeInTheDocument();
     expect(screen.queryByText(/Vimeo/)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('tab', { name: '生成物' }));
+    fireEvent.click(screen.getByRole('tab', { name: '作品' }));
     expect(screen.getByText('Creator Download.mp4')).toBeInTheDocument();
     expect(screen.getByRole('button', {
       name: '保存到本机 Creator Download.mp4'
@@ -198,7 +198,7 @@ describe('VideoDownloadWorkspace', () => {
       openArtifact
     });
 
-    fireEvent.click(await screen.findByRole('tab', { name: '生成物' }));
+    fireEvent.click(await screen.findByRole('tab', { name: '作品' }));
     fireEvent.click(screen.getByRole('button', {
       name: '预览视频 Creator Download.mp4'
     }));
@@ -264,7 +264,7 @@ describe('VideoDownloadWorkspace', () => {
       openArtifact
     });
 
-    fireEvent.click(await screen.findByRole('tab', { name: '生成物' }));
+    fireEvent.click(await screen.findByRole('tab', { name: '作品' }));
     fireEvent.click(screen.getByRole('button', {
       name: '预览视频 Creator Download.mp4'
     }));
@@ -383,7 +383,7 @@ describe('VideoDownloadWorkspace', () => {
     });
     renderWorkspace(current, { applyAction: vi.fn() });
 
-    fireEvent.click(await screen.findByRole('tab', { name: '生成物' }));
+    fireEvent.click(await screen.findByRole('tab', { name: '作品' }));
 
     expect(screen.getByText('准备中')).toBeInTheDocument();
     expect(screen.queryByText('2%')).not.toBeInTheDocument();

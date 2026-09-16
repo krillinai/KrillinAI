@@ -112,7 +112,7 @@ describe('WechatArticleWorkspace', () => {
       }));
     });
     expect(screen.queryByRole('navigation', { name: '文章写作流程' })).not.toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '生成物' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: '作品' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('示例文章.md')).toBeInTheDocument();
     expect(screen.getByText('示例文章.html')).toBeInTheDocument();
     expect(screen.getByText('示例文章.pdf')).toBeInTheDocument();

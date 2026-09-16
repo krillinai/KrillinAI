@@ -17,7 +17,9 @@ import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { useLocalizedCopy, type LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
 import { ApiClientError } from '../../runtime/client.js';
 import type { CreatorWebService } from '../../services/creator-service.js';
+import { CreateProjectDropdown } from './CreateProjectDropdown.js';
 import type { OpenCreatorProject } from './project-model.js';
+import type { CreatorProjectType } from './project-types.js';
 import './projects-page.css';
 
 const projectCategories = ['全部', '视频创作', '图像设计', '文案创作'] as const;
@@ -88,7 +90,11 @@ export default function ProjectsPage(props: {
   workspaces: OpenCreatorProject[];
   loading?: boolean;
   error?: string;
-  service?: Pick<CreatorWebService, 'openProjectCover'> | null;
+  service?: Pick<CreatorWebService, 'openProjectCover'>
+    & Partial<Pick<CreatorWebService, 'openArtifact'>>
+    | null;
+  onCreateProject?(projectType: CreatorProjectType): boolean | void | Promise<boolean | void>;
+  createProjectError?: string;
   onOpenJob(job: CreatorJob): void;
   onDeleteJob?(jobId: string, options: { deleteFiles: boolean }): Promise<void>;
 }) {
@@ -102,6 +108,8 @@ export default function ProjectsPage(props: {
   const [deleteProjectFiles, setDeleteProjectFiles] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState<string>();
   const [deleteError, setDeleteError] = useState<string>();
+  const [downloadingOutputId, setDownloadingOutputId] = useState<string>();
+  const [downloadError, setDownloadError] = useState<string>();
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const projects = useMemo(
     () => props.jobs
@@ -137,6 +145,29 @@ export default function ProjectsPage(props: {
     setQuery('');
   }
 
+  async function downloadOutput(output: ProjectOutput) {
+    if (props.service?.openArtifact === undefined || downloadingOutputId !== undefined) return;
+    setDownloadingOutputId(output.id);
+    setDownloadError(undefined);
+    try {
+      const response = await props.service.openArtifact(output.job.id, output.id);
+      if (!response.ok) throw new Error('Artifact download failed');
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = output.name;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      setDownloadError(l('文件下载失败，请重试', 'Unable to download the file. Please try again.'));
+    } finally {
+      setDownloadingOutputId(undefined);
+    }
+  }
+
   return (
     <main className="projects-page">
       <div className="projects-page-inner">
@@ -147,16 +178,24 @@ export default function ProjectsPage(props: {
               ? l('继续最近的创作项目，保留完整设置、进度和历史', 'Continue recent creator projects with their settings, progress, and history')
               : l('集中查看所有创作项目产生的真实文件', 'Review real files generated across creator projects')}</p>
           </div>
-          <label className="projects-search">
-            <Search size={17} strokeWidth={1.8} aria-hidden="true" />
-            <input
-              type="search"
-              value={query}
-              onChange={event => setQuery(event.target.value)}
-              aria-label={view === 'projects' ? l('搜索项目', 'Search projects') : l('搜索产出', 'Search outputs')}
-              placeholder={view === 'projects' ? l('搜索项目', 'Search projects') : l('搜索产出', 'Search outputs')}
-            />
-          </label>
+          <div className="projects-header-actions">
+            {props.onCreateProject ? (
+              <CreateProjectDropdown
+                error={props.createProjectError}
+                onCreate={props.onCreateProject}
+              />
+            ) : null}
+            <label className="projects-search">
+              <Search size={17} strokeWidth={1.8} aria-hidden="true" />
+              <input
+                type="search"
+                value={query}
+                onChange={event => setQuery(event.target.value)}
+                aria-label={view === 'projects' ? l('搜索项目', 'Search projects') : l('搜索产出', 'Search outputs')}
+                placeholder={view === 'projects' ? l('搜索项目', 'Search projects') : l('搜索产出', 'Search outputs')}
+              />
+            </label>
+          </div>
         </header>
 
         <div className="projects-dimension-tabs" role="tablist" aria-label={l('内容维度', 'Content view')}>
@@ -199,6 +238,9 @@ export default function ProjectsPage(props: {
               ? `${visibleProjects.length} ${l('个项目', 'projects')}`
               : `${visibleOutputs.length} ${l('个产出', 'outputs')}`}</span>
           </div>
+          {view === 'outputs' && downloadError !== undefined ? (
+            <p className="projects-download-error" role="alert">{downloadError}</p>
+          ) : null}
 
           {props.error !== undefined ? (
             <div className="projects-empty" role="alert">
@@ -276,8 +318,10 @@ export default function ProjectsPage(props: {
                   <button
                     type="button"
                     className="project-output-open"
-                    aria-label={`${l('在项目中打开产出', 'Open output in project')} ${output.name}`}
-                    onClick={() => props.onOpenJob(output.job)}
+                    aria-label={`${l('下载产出', 'Download output')} ${output.name}`}
+                    aria-busy={downloadingOutputId === output.id}
+                    disabled={downloadingOutputId !== undefined}
+                    onClick={() => void downloadOutput(output)}
                   >
                     <span className="project-output-preview" data-kind={output.kind}>
                       {output.kind === '视频' || output.kind === '图片' ? (

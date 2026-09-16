@@ -728,6 +728,30 @@ describe('DashboardPage', () => {
     expect(screen.queryByText('Digital Avatar')).not.toBeInTheDocument();
   });
 
+  it('creates the selected project type from the dashboard dropdown', async () => {
+    const onCreateProject = vi.fn();
+
+    render(
+      <DashboardPage
+        onSelectPrompt={vi.fn()}
+        onCreateProject={onCreateProject}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '新建项目' }));
+    expect(screen.getByRole('menu', { name: '项目类型' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '创建项目' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('menuitem', { name: /图像生成/ }));
+
+    await waitFor(() => expect(screen.queryByRole('menu', { name: '项目类型' }))
+      .not.toBeInTheDocument());
+    expect(onCreateProject).toHaveBeenCalledOnce();
+    expect(onCreateProject).toHaveBeenCalledWith(
+      expect.objectContaining({ workspace: 'image-generation' })
+    );
+  });
+
   it('keeps the video translation workflow and Agent in English', () => {
     render(
       <LanguageProvider initialPreference="en-US">
@@ -890,7 +914,7 @@ describe('DashboardPage', () => {
 
     expect(onSelectPrompt).not.toHaveBeenCalled();
     expect(screen.getByRole('heading', { name: '视频翻译项目' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '生成物' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: '作品' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('项目 V1')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('tab', { name: '字幕' }));
     expect(screen.getByRole('button', { name: '保存横屏字幕' })).toBeDisabled();

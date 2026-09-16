@@ -880,7 +880,7 @@ describe('App', () => {
       screen.getByRole('region', { name: '视频翻译操作区' })
     ).getByRole('button', { name: '开始翻译' }));
     expect(screen.getByRole('heading', { name: '视频翻译项目' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '生成物' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: '作品' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: '字幕' })).toHaveAttribute('aria-selected', 'false');
     expect(screen.queryByRole('textbox', { name: '输入任务' })).not.toBeInTheDocument();
   });
@@ -4181,14 +4181,60 @@ describe('App', () => {
     expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: '创建项目' }));
 
-    expect(await screen.findByRole('dialog', { name: '创建项目' })).toBeInTheDocument();
-    await user.type(screen.getByRole('textbox', { name: '文件夹名称' }), 'browser-project');
-    await user.click(screen.getByRole('button', { name: '创建' }));
+    expect(screen.queryByRole('dialog', { name: '创建项目' })).not.toBeInTheDocument();
 
-    expect(await screen.findByRole('button', { name: 'browser-project' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '项目' })).toBeInTheDocument();
     const createCall = findPostCall(fetchCalls, '/projects/managed');
     expect(createCall).toBeDefined();
-    expect(readRequestBody(createCall!.init!)).toEqual({ name: 'browser-project' });
+    expect(readRequestBody(createCall!.init!)).toEqual({ name: '项目' });
+  });
+
+  it('creates a typed project from the projects page and opens its workspace', async () => {
+    const user = userEvent.setup();
+    window.location.hash = '#/projects';
+    testRuntimeProjects = [];
+    testCreatorJobs = [];
+    const hostBridge = createHostBridge();
+    hostBridge.readConnectionConfig = async () => ({
+      baseUrl: 'http://127.0.0.1:60764',
+      token: 'runtime-token'
+    });
+    const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
+    const runtimeFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      fetchCalls.push({ url, init });
+      const projectApiResponse = handleDefaultProjectApiRequest(url, init);
+      if (projectApiResponse !== undefined) return projectApiResponse;
+      if (url.endsWith('/healthz')) return jsonResponse({ ok: true });
+      if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
+      if (url.endsWith('/threads?status=active&limit=50')) return jsonResponse({ threads: [] });
+      throw new Error(`Unexpected request ${url}`);
+    };
+
+    render(
+      <App
+        fileService={createFileService()}
+        hostBridge={hostBridge}
+        runtimeFetch={runtimeFetch}
+        subscribeRunEvents={async () => undefined}
+      />
+    );
+
+    expect(await screen.findByRole('heading', { name: '我的项目' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '新建项目' }));
+    expect(screen.getByRole('menu', { name: '项目类型' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '创建项目' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('menuitem', { name: /图像生成/ }));
+
+    expect(await screen.findByRole(
+      'heading',
+      { name: '图像生成' },
+      { timeout: 5_000 }
+    )).toBeInTheDocument();
+    expect(window.location.hash).toBe('#/workbench?tool=image-generation&returnTo=projects');
+    const createCall = findPostCall(fetchCalls, '/projects/managed');
+    expect(createCall).toBeDefined();
+    expect(readRequestBody(createCall!.init!)).toEqual({ name: '图像生成项目' });
   });
 
   it('adds a project by dropping a folder into the desktop workspace', async () => {
@@ -4322,8 +4368,7 @@ describe('App', () => {
 
     expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: '创建项目' }));
-    await user.type(screen.getByRole('textbox', { name: '文件夹名称' }), 'blank-project');
-    await user.click(screen.getByRole('button', { name: '创建' }));
+    expect(screen.queryByRole('dialog', { name: '创建项目' })).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(fetchCalls.map(call => [call.url, call.init?.method])).toContainEqual([
@@ -4332,8 +4377,8 @@ describe('App', () => {
       ]);
     });
     expect(readRequestBody(findPostCall(fetchCalls, '/projects/managed')!.init!))
-      .toEqual({ name: 'blank-project' });
-    expect(await screen.findByRole('button', { name: 'blank-project' }))
+      .toEqual({ name: '项目' });
+    expect(await screen.findByRole('button', { name: '项目' }))
       .toHaveAttribute('data-current-project', 'true');
 
     await user.click(screen.getByRole('button', { name: '管理项目' }));

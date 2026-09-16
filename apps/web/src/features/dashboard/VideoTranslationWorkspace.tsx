@@ -1898,7 +1898,7 @@ export default function VideoTranslationWorkspace(props: {
       : l('横屏字幕', 'Horizontal subtitles');
   const agentContextSummary = workspacePhase === 'result'
     ? `${resultTab === 'video'
-      ? l('生成物', 'Outputs')
+      ? l('作品', 'Works')
       : resultTab === 'subtitles'
         ? selectedSubtitleContextLabel
         : ({ voice: l('配音', 'Dubbing'), settings: l('任务设置', 'Task settings') } as const)[resultTab]} V${resultVersion}`

@@ -76,7 +76,7 @@ const resultTabs: Array<{
   label: string;
   icon: typeof FileVideo;
 }> = [
-  { value: 'video', label: '生成物', icon: PackageOpen },
+  { value: 'video', label: '作品', icon: PackageOpen },
   { value: 'subtitles', label: '字幕', icon: Captions },
   { value: 'voice', label: '配音', icon: Mic2 },
   { value: 'settings', label: '任务设置', icon: Settings2 }
@@ -204,7 +204,7 @@ export default function VideoTranslationResultWorkspace(props: {
         <div className="video-result-pane">
           <header className="video-result-pane-heading">
             <div>
-              <h2>{l('生成物', 'Outputs')}</h2>
+              <h2>{l('作品', 'Works')}</h2>
               <p>{l(
                 `项目 V${props.version} · ${generatedArtifactCount} 个文件`,
                 `Project V${props.version} · ${generatedArtifactCount} file(s)`
@@ -328,7 +328,7 @@ export default function VideoTranslationResultWorkspace(props: {
           ) : (
             <div className="video-result-empty">
               <PackageOpen size={26} strokeWidth={1.5} aria-hidden="true" />
-              <strong>{l('当前项目版本没有生成物', 'This project version has no outputs')}</strong>
+              <strong>{l('当前项目版本没有作品', 'This project version has no works')}</strong>
             </div>
           )}
         </div>
@@ -672,7 +672,7 @@ function subtitleCueDisplayText(
 
 function localizeResultTab(label: string, l: LocalizeCopy): string {
   const labels: Record<string, string> = {
-    '生成物': 'Outputs',
+    '作品': 'Works',
     '字幕': 'Subtitles',
     '配音': 'Dubbing',
     '任务设置': 'Task settings'

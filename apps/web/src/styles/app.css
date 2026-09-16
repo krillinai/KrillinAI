@@ -4756,62 +4756,6 @@ html.is-pane-resizing * {
   color: var(--text);
 }
 
-.composer-project-name-backdrop {
-  position: fixed;
-  z-index: 100;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: color-mix(in srgb, var(--shadow-base) 46%, transparent);
-  backdrop-filter: blur(3px) !important;
-  -webkit-backdrop-filter: blur(3px) !important;
-}
-
-.composer-project-name-dialog {
-  width: min(420px, 100%);
-  display: grid;
-  gap: 18px;
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  box-shadow: 0 28px 80px color-mix(in srgb, var(--shadow-base) 52%, transparent);
-}
-
-.composer-project-name-dialog header,
-.composer-project-name-dialog label {
-  display: grid;
-  gap: 6px;
-}
-
-.composer-project-name-dialog header strong {
-  font-size: 17px;
-}
-
-.composer-project-name-dialog header span,
-.composer-project-name-dialog label span {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.composer-project-name-dialog input {
-  width: 100%;
-  height: 38px;
-  padding: 0 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: var(--surface-2);
-  color: var(--text);
-  font-size: 14px;
-}
-
-.composer-project-name-dialog footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
 .confirm-dialog-backdrop {
   position: fixed;
   z-index: 110;
@@ -7550,7 +7494,6 @@ html.is-pane-resizing * {
 .project-drop-overlay,
 .conversation-toast,
 .schedule-thread-editor-dialog,
-.composer-project-name-dialog,
 .skill-market-modal,
 .skill-market-use-dialog,
 .conversation-summary-dialog,

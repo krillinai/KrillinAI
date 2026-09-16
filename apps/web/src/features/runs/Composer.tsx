@@ -44,7 +44,6 @@ import type {
 import type { OpenCreatorProject, ProjectPermission } from '../projects/project-model.js';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog.js';
 import { useAppLanguage, type Translate } from '../../i18n/LanguageProvider.js';
-import { CreateProjectDialog } from '../projects/CreateProjectDialog.js';
 import {
   AttachmentTray,
   type AttachmentTrayItem
@@ -145,7 +144,7 @@ export function Composer(props: {
   imageInputSupported?: boolean;
   imageInputUnsupportedReason?: string;
   onSelectProject(projectId: string): void;
-  onCreateBlankProject?(name: string): boolean | void | Promise<boolean | void>;
+  onCreateBlankProject?(): boolean | void | Promise<boolean | void>;
   onAddProjectDirectory?(): void | Promise<void>;
   onPermissionChange?(
     permission: ProjectPermission
@@ -186,7 +185,6 @@ export function Composer(props: {
   ];
   const [prompt, setPrompt] = useState('');
   const [projectQuery, setProjectQuery] = useState('');
-  const [projectNameDialogOpen, setProjectNameDialogOpen] = useState(false);
   const [selectedPermission, setSelectedPermission] = useState<ProjectPermission>(
     normalizePermission(props.permission)
   );
@@ -688,11 +686,6 @@ export function Composer(props: {
     void action();
   };
 
-  const openProjectNameDialog = () => {
-    closeProjectMenu();
-    setProjectNameDialogOpen(true);
-  };
-
   const applySlashCommand = (command: ComposerSlashCommand) => {
     if (slashTrigger === null) return;
 
@@ -1157,7 +1150,9 @@ export function Composer(props: {
                       <button
                         className="composer-project-create-trigger"
                         type="button"
-                        onClick={openProjectNameDialog}
+                        onClick={() => runProjectAction(() => {
+                          props.onCreateBlankProject?.();
+                        })}
                       >
                         <Plus aria-hidden="true" size={17} />
                         <span>{t('composer.project.create')}</span>
@@ -1180,11 +1175,6 @@ export function Composer(props: {
           </div>
         </div>
       ) : null}
-      <CreateProjectDialog
-        open={projectNameDialogOpen}
-        onClose={() => setProjectNameDialogOpen(false)}
-        onCreate={name => props.onCreateBlankProject?.(name)}
-      />
       <AttachmentTray
         items={attachmentDrafts}
         onRemove={(localId) => void removeAttachment(localId)}

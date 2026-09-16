@@ -47,6 +47,27 @@ export function createProjectManager(input: CreateProjectManagerInput): ProjectM
     : resolve(expandHome(input.managedProjectRoot, homeDir));
   const createId = input.idFactory ?? (() => `project_${nanoid(10)}`);
 
+  const createManagedProjectDirectory = (): string => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const cwd = join(managedProjectRoot, `project-${nanoid(12)}`);
+      try {
+        mkdirSync(cwd);
+        return cwd;
+      } catch {
+        if (!existsSync(cwd)) {
+          throw new ProjectManagerError(
+            'PROJECT_DIRECTORY_UNAVAILABLE',
+            '无法创建项目目录'
+          );
+        }
+      }
+    }
+    throw new ProjectManagerError(
+      'PROJECT_DIRECTORY_CONFLICT',
+      '无法生成唯一项目目录'
+    );
+  };
+
   return {
     ensureDefaultProject(): ProjectResponse {
       try {
@@ -105,21 +126,7 @@ export function createProjectManager(input: CreateProjectManagerInput): ProjectM
         );
       }
 
-      const cwd = join(managedProjectRoot, name);
-      if (existsSync(cwd)) {
-        throw new ProjectManagerError('PROJECT_DIRECTORY_CONFLICT', '同名项目已存在');
-      }
-      try {
-        mkdirSync(cwd);
-      } catch {
-        if (existsSync(cwd)) {
-          throw new ProjectManagerError('PROJECT_DIRECTORY_CONFLICT', '同名项目已存在');
-        }
-        throw new ProjectManagerError(
-          'PROJECT_DIRECTORY_UNAVAILABLE',
-          '无法创建项目目录'
-        );
-      }
+      const cwd = createManagedProjectDirectory();
 
       try {
         return createProjectRecord({ cwd, name });

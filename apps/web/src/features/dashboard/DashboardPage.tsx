@@ -47,6 +47,8 @@ import {
 } from './creator-workspace.js';
 import type { VideoMetadataService } from '../../services/video-metadata-service.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
+import { CreateProjectDropdown } from '../projects/CreateProjectDropdown.js';
+import type { CreatorProjectType } from '../projects/project-types.js';
 
 type DashboardCategory = '视频创作' | '图像创作' | '文案创作' | '音频处理' | '视频编辑' | '数字人';
 
@@ -215,6 +217,8 @@ export default function DashboardPage(props: {
   creatorService?: CreatorWebService | null;
   runtimeDependencies?: RuntimeDependenciesController;
   onJobCreated?(job: CreatorJob): void;
+  onCreateProject?(projectType: CreatorProjectType): boolean | void | Promise<boolean | void>;
+  createProjectError?: string;
   onOpenRuntimeComponents?(): void;
   onWorkspaceNavigate?(
     workspace: CreatorWorkspace | null,
@@ -223,6 +227,7 @@ export default function DashboardPage(props: {
   ): void;
 }) {
   const { language, t } = useAppLanguage();
+  const l = useLocalizedCopy();
   const [activeWorkspace, setActiveWorkspace] = useState<CreatorWorkspace | null>(
     () => props.skillLaunch?.workspace ?? props.workspace ?? null
   );
@@ -439,6 +444,13 @@ export default function DashboardPage(props: {
       <div className="creator-tools-page-inner">
         <header className="creator-tools-page-header">
           <h1>{t('dashboard.title')}</h1>
+          {props.onCreateProject ? (
+            <CreateProjectDropdown
+              align="end"
+              error={props.createProjectError}
+              onCreate={props.onCreateProject}
+            />
+          ) : null}
         </header>
 
         <section className="dashboard-featured" aria-labelledby="dashboard-featured-title">

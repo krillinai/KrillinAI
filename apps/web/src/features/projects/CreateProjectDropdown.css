@@ -1,0 +1,91 @@
+.create-project-dropdown {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.create-project-trigger {
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 13px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.create-project-trigger:hover {
+  border-color: color-mix(in srgb, var(--accent) 56%, var(--border));
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
+
+.create-project-trigger:focus-visible,
+.create-project-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.create-project-trigger[aria-expanded='true'] {
+  border-color: color-mix(in srgb, var(--accent) 56%, var(--border));
+}
+
+.create-project-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  width: min(340px, calc(100vw - 32px));
+  max-height: 340px;
+  overflow-y: auto;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px color-mix(in srgb, var(--shadow-base) 48%, transparent);
+}
+
+.create-project-menu--end {
+  right: 0;
+  left: auto;
+}
+
+.create-project-option {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.create-project-option:hover,
+.create-project-option:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
+}
+
+.create-project-option strong {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.create-project-option small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.create-project-error {
+  margin: 0;
+  padding: 0 2px 2px;
+  color: var(--danger);
+  font-size: 12px;
+}
