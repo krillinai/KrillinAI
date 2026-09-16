@@ -790,12 +790,13 @@ describe('DashboardPage', () => {
     expect(within(videoTranslationCard).getByText('HOT')).toBeInTheDocument();
     expect(within(videoTranslationCard).queryByText('NEW')).not.toBeInTheDocument();
     const appCards = Array.from(container.querySelectorAll('.dashboard-app-card'));
-    expect(appCards).toHaveLength(10);
+    expect(appCards).toHaveLength(11);
     expect(appCards.map(card => card.querySelector('strong')?.textContent)).toEqual([
       '文章写作',
       '视频翻译',
       '火柴人动画',
       '视频下载',
+      '视频切片',
       '封面生成',
       '小红书帖子',
       '短视频脚本',
