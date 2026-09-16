@@ -1,5 +1,6 @@
 import {
   createDefaultCreatorServicesConfig,
+  type CodexModelListResponse,
   type CreatorServicesCapabilitiesResponse,
   type CreatorServicesCredentialField,
   type CreatorTtsProvider
@@ -67,6 +68,86 @@ describe('CreatorServicesSettingsView', () => {
     expect(apiKey).toHaveValue('');
     expect(apiKey).toHaveAttribute('placeholder', '已配置，留空则保持');
     expect(screen.queryByDisplayValue(/secret/i)).not.toBeInTheDocument();
+  });
+
+  it('applies an LLM provider preset and model suggestions', async () => {
+    const user = userEvent.setup();
+    const modelService = createModelService();
+    render(
+      <CreatorServicesSettingsView
+        connected
+        service={createService()}
+        modelService={modelService}
+      />
+    );
+
+    await screen.findByRole('heading', { name: 'AI 服务' });
+    await user.selectOptions(screen.getByLabelText('供应商'), 'deepseek');
+    expect(screen.getByLabelText('Base URL')).toHaveValue('https://api.deepseek.com');
+    expect(screen.getByLabelText('模型')).toHaveValue('deepseek-v4-pro');
+    expect(screen.getByRole('option', { name: 'deepseek-v4-flash' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'MiniMax-M2.7' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '保存配置' }));
+    await waitFor(() => expect(modelService.updateCodexProvider).toHaveBeenCalledWith({
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-v4-pro'
+    }));
+  });
+
+  it('defaults OpenAI to GPT-5.6 and keeps it in the Runtime model list', async () => {
+    const user = userEvent.setup();
+    render(
+      <CreatorServicesSettingsView
+        connected
+        service={createService()}
+        modelService={createModelService({ runtimeModels: ['gpt-5.6-sol', 'gpt-5.5'] })}
+      />
+    );
+
+    await screen.findByRole('heading', { name: 'AI 服务' });
+    await user.selectOptions(screen.getByLabelText('供应商'), 'openai');
+
+    expect(screen.getByLabelText('Base URL')).toHaveValue('https://api.openai.com/v1');
+    expect(screen.getByLabelText('模型')).toHaveValue('gpt-5.6-sol');
+    expect(screen.getByRole('option', { name: 'gpt-5.5' })).toBeInTheDocument();
+  });
+
+  it('allows switching from a provider model to a custom model', async () => {
+    const user = userEvent.setup();
+    render(
+      <CreatorServicesSettingsView
+        connected
+        service={createService()}
+        modelService={createModelService()}
+      />
+    );
+
+    await screen.findByRole('heading', { name: 'AI 服务' });
+    await user.selectOptions(screen.getByLabelText('供应商'), 'deepseek');
+    await user.selectOptions(screen.getByLabelText('模型'), '__custom__');
+
+    const customModel = screen.getByPlaceholderText('gpt-5.6-sol');
+    await user.clear(customModel);
+    await user.type(customModel, 'my-custom-model');
+    expect(customModel).toHaveValue('my-custom-model');
+  });
+
+  it('keeps MiniMax models separate from the OpenAI Runtime catalog', async () => {
+    const user = userEvent.setup();
+    render(
+      <CreatorServicesSettingsView
+        connected
+        service={createService()}
+        modelService={createModelService({ runtimeModels: ['gpt-5.5'] })}
+      />
+    );
+
+    await screen.findByRole('heading', { name: 'AI 服务' });
+    await user.selectOptions(screen.getByLabelText('供应商'), 'minimax');
+    expect(screen.getByLabelText('模型')).toHaveValue('MiniMax-M2.7');
+    expect(screen.getByRole('option', { name: 'MiniMax-M2.7-highspeed' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'gpt-5.5' })).not.toBeInTheDocument();
   });
 
   it('shows only the fields required by the selected transcription and voice providers', async () => {
@@ -234,10 +315,7 @@ describe('CreatorServicesSettingsView', () => {
     await user.click(screen.getByRole('tab', { name: '视频生成' }));
     expect(screen.getByRole('combobox', { name: '服务商' })).toHaveTextContent('Seedance');
     expect(screen.getByLabelText('默认模型')).toHaveValue('doubao-seedance-2-5-260628');
-    expect(screen.getByLabelText('默认模型')).toHaveAttribute(
-      'list',
-      'video-seedance-model-suggestions'
-    );
+    expect(screen.getByRole('option', { name: 'doubao-seedance-2-5-260628' })).toBeInTheDocument();
     expect(screen.getByLabelText('API Key')).toHaveAttribute('type', 'password');
     await user.click(screen.getByRole('combobox', { name: '服务商' }));
     await user.click(screen.getByRole('option', { name: 'Veo' }));
@@ -306,6 +384,7 @@ function createService(
 function createModelService(options: {
   authentication?: 'none' | 'chatgpt' | 'api_key';
   apiKeyConfigured?: boolean;
+  runtimeModels?: string[];
 } = {}) {
   const provider = {
     baseUrl: 'https://gateway.example.test/v1',
@@ -316,6 +395,18 @@ function createModelService(options: {
   };
   return {
     getCodexProvider: vi.fn(async () => structuredClone(provider)),
+    getCodexModels: vi.fn(async (): Promise<CodexModelListResponse> => ({
+      models: (options.runtimeModels ?? []).map(model => ({
+        id: model,
+        model,
+        displayName: model,
+        description: '',
+        supportedReasoningEfforts: [],
+        defaultReasoningEffort: null,
+        inputModalities: ['text'],
+        isDefault: false
+      }))
+    })),
     updateCodexProvider: vi.fn(async input => ({
       baseUrl: input.baseUrl,
       model: input.model,

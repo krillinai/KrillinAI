@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
+import { useState } from 'react';
 
 export function RuntimeComponentsSettingsView(props: {
   connected: boolean;
@@ -15,6 +16,7 @@ export function RuntimeComponentsSettingsView(props: {
   const { language, t } = useAppLanguage();
   const status = props.controller.ytDlpStatus;
   const busy = props.controller.phase !== 'idle';
+  const [checkNotice, setCheckNotice] = useState<string>();
   const error = props.controller.error === undefined
     ? undefined
     : formatRuntimeDependencyError(props.controller.error, t);
@@ -58,9 +60,6 @@ export function RuntimeComponentsSettingsView(props: {
     );
   }
 
-  const source = status.source === 'managed'
-    ? t('settings.runtimeComponents.sourceManaged')
-    : t('settings.runtimeComponents.sourceBundled');
   const statusLabel = status.updateAvailable
     ? t('settings.runtimeComponents.updateAvailable')
     : t('settings.runtimeComponents.current');
@@ -92,44 +91,36 @@ export function RuntimeComponentsSettingsView(props: {
             <dd>{status.currentVersion}</dd>
           </div>
           <div>
-            <dt>{t('settings.runtimeComponents.bundledVersion')}</dt>
-            <dd>{status.bundledVersion}</dd>
-          </div>
-          <div>
-            <dt>{t('settings.runtimeComponents.source')}</dt>
-            <dd>{source}</dd>
-          </div>
-          <div>
             <dt>{t('settings.runtimeComponents.latestVersion')}</dt>
             <dd>{status.latestVersion ?? t('settings.runtimeComponents.notChecked')}</dd>
           </div>
           <div>
-            <dt>{t('settings.runtimeComponents.lastChecked')}</dt>
-            <dd>{formatDate(status.lastCheckedAt, language, t('settings.runtimeComponents.notChecked'))}</dd>
+            <dt>{t('settings.runtimeComponents.installedAt')}</dt>
+            <dd>{formatDate(status.installedAt, language, t('settings.runtimeComponents.notChecked'))}</dd>
           </div>
-          {status.installedAt !== null ? (
-            <div>
-              <dt>{t('settings.runtimeComponents.installedAt')}</dt>
-              <dd>{formatDate(status.installedAt, language, t('settings.runtimeComponents.notChecked'))}</dd>
-            </div>
-          ) : null}
         </dl>
 
         {error === undefined ? null : (
           <p className="settings-error" role="alert">{error}</p>
         )}
+        {checkNotice === undefined ? null : (
+          <p className="settings-notice" role="status">{checkNotice}</p>
+        )}
 
         <footer className="runtime-component-footer">
-          <div>
-            <strong>{t('settings.runtimeComponents.autoCheck')}</strong>
-            <small>{t('settings.runtimeComponents.fallback')}</small>
-          </div>
           <div className="runtime-component-actions">
             <button
               className="settings-secondary-button"
               type="button"
               disabled={busy}
-              onClick={() => void props.controller.checkYtDlpUpdate(true).catch(() => undefined)}
+              onClick={() => {
+                setCheckNotice(undefined);
+                void props.controller.checkYtDlpUpdate(true)
+                  .then(result => setCheckNotice(result.updateAvailable
+                    ? t('settings.runtimeComponents.updateAvailable')
+                    : t('settings.runtimeComponents.latestNotice')))
+                  .catch(() => undefined);
+              }}
             >
               {props.controller.phase === 'checking'
                 ? <LoaderCircle className="settings-spin" size={15} aria-hidden="true" />

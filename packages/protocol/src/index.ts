@@ -5,6 +5,7 @@ export * from './creator-visual-assets.js';
 export * from './creator-download.js';
 export * from './api.js';
 export * from './creator-services.js';
+export * from './creator-provider-catalog.js';
 export * from './errors.js';
 export * from './events.js';
 export * from './media-generation.js';
