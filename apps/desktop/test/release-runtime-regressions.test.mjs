@@ -29,20 +29,41 @@ describe('Desktop release runtime regressions', () => {
       new URL('../packaging/daemon-runtime/package.json', import.meta.url),
       'utf8'
     ));
+    const daemonPackage = JSON.parse(readFileSync(
+      new URL('../../daemon/package.json', import.meta.url),
+      'utf8'
+    ));
     const builderConfig = readFileSync(
       new URL('../electron-builder.yml', import.meta.url),
       'utf8'
     );
+    const workspacePackages = [
+      '@opencreator/config',
+      '@opencreator/protocol',
+      '@opencreator/skill-market',
+      '@opencreator/writing-templates'
+    ];
+    const expectedRuntimeDependencies = Object.keys(daemonPackage.dependencies)
+      .filter(name => !workspacePackages.includes(name))
+      .sort();
 
     expect(prepareSource).toContain("'--config.node-linker=hoisted'");
     expect(prepareSource).toContain('assertPortableDependencyTree();');
+    expect(Object.keys(runtimePackage.dependencies).sort())
+      .toEqual(expectedRuntimeDependencies);
+    for (const name of workspacePackages) {
+      expect(prepareSource).toContain(name.replace('@opencreator/', ''));
+    }
     expect(runtimePackage.dependencies).toMatchObject({
       '@remotion/renderer': '4.0.473',
       'cross-spawn': '7.0.6',
       fastify: '5.9.0',
-      sharp: '0.34.3',
+      sharp: '0.35.4',
+      toml: '4.2.0',
       yauzl: '3.4.0'
     });
+    expect(daemonPackage.dependencies.toml)
+      .toBe(runtimePackage.dependencies.toml);
     expect(runtimePackage.dependencies).not.toHaveProperty('which');
     expect(prepareSource).toContain("'writing-templates'");
     expect(prepareSource).toContain(
@@ -125,5 +146,18 @@ describe('Desktop release runtime regressions', () => {
       'OPENCREATOR_E2E_FAKE_YT_DLP_SCRIPT: fakeYtDlpScript'
     );
     expect(source).not.toContain("join(binDir, 'yt-dlp.cmd')");
+  });
+
+  it('waits for yt-dlp stdio to close before parsing JSON output', () => {
+    const sources = [
+      '../../daemon/src/creator/download/executor.ts',
+      '../../daemon/src/creator/cover/executor.ts',
+      '../../daemon/src/creator/article/source-extractor.ts'
+    ].map(path => readFileSync(new URL(path, import.meta.url), 'utf8'));
+
+    for (const source of sources) {
+      expect(source).toContain("child.once('close', code => {");
+      expect(source).not.toContain("child.once('exit', code => {");
+    }
   });
 });

@@ -1,9 +1,32 @@
 package whisperkit
 
 import (
+	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"testing"
 )
+
+func TestWhisperKitCommandArgumentsOmitAutoLanguage(t *testing.T) {
+	args := whisperKitCommandArguments("audio.wav", "auto", t.TempDir(), false)
+	if slices.Contains(args, "--language") || slices.Contains(args, "auto") {
+		t.Fatalf("command args = %v, auto detection must omit --language", args)
+	}
+
+	explicitArgs := whisperKitCommandArguments("audio.wav", "en", t.TempDir(), false)
+	languageIndex := slices.Index(explicitArgs, "--language")
+	if languageIndex < 0 || languageIndex+1 >= len(explicitArgs) || explicitArgs[languageIndex+1] != "en" {
+		t.Fatalf("command args = %v, want --language en", explicitArgs)
+	}
+}
+
+func TestWhisperKitCommandErrorIncludesCapturedOutput(t *testing.T) {
+	err := whisperKitCommandError(errors.New("exit status 64"), "Error: Invalid language code \"auto\"\n")
+	if !strings.Contains(err.Error(), "exit status 64") || !strings.Contains(err.Error(), "Invalid language code") {
+		t.Fatalf("error = %q, want exit status and command output", err)
+	}
+}
 
 func TestProgressOutputReportsMonotonicFragmentedPercentages(t *testing.T) {
 	var reported []int

@@ -1,6 +1,9 @@
 package storage
 
-import "os/exec"
+import (
+	"context"
+	"os/exec"
+)
 
 var (
 	FfmpegPath        string
@@ -18,4 +21,9 @@ var (
 func YtdlpCommand(args ...string) *exec.Cmd {
 	commandArgs := append(append([]string{}, YtdlpPrefixArgs...), args...)
 	return exec.Command(YtdlpPath, commandArgs...)
+}
+
+func YtdlpCommandContext(ctx context.Context, args ...string) *exec.Cmd {
+	commandArgs := append(append([]string{}, YtdlpPrefixArgs...), args...)
+	return exec.CommandContext(ctx, YtdlpPath, commandArgs...)
 }

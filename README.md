@@ -35,7 +35,7 @@ OpenCreator is built for individuals and teams who want to keep creative and dev
 
 The product brings together two connected workflows:
 
-- **AI content creation**: use dedicated creator tools for video translation, video downloading, thumbnail generation, and image generation.
+- **AI content creation**: use dedicated creator tools for video translation and downloading, image and video generation, voiceovers, article and social post writing, short-video scripting, and stick figure animation.
 - **General Agent workspace**: organize conversations by project, keep Runs working in the background, and manage approvals, attachments, files, Skills, MCP, schedules, notifications, memory, and diagnostics from one place.
 
 Web is the single frontend implementation. Desktop loads the same Web build and adds only capabilities that require the operating system, such as directory selection, window lifecycle, tray behavior, and native notifications. With the same data and content viewport, both platforms share the same general UI and Runtime behavior.
@@ -60,11 +60,13 @@ Web is the single frontend implementation. Desktop loads the same Web build and 
 
 - 🔐 **Local Security**: Keep data, attachments, and logs local by default, with approvals and redacted diagnostics.
 
+- 🌐 **Localized Interface**: Use the Web or Desktop client in Simplified Chinese, English, or Swedish, with automatic system-language detection or manual selection.
+
 ## Creator Tools
 
-The current release includes four creator tools. Available models and services depend on your local Codex environment and AI service settings.
+The current release includes ten creator tools. Available models and services depend on your local Codex environment and AI service settings.
 
-Open the Dashboard to translate videos, download public videos, generate thumbnails, or create images.
+Open the Dashboard to write articles, Xiaohongshu posts, or short-video scripts; create stick figure animations; translate or download videos; generate thumbnails, images, or videos; and create voiceovers with Smart Dubbing.
 
 ![OpenCreator Creator Dashboard](./docs/images/product/opencreator-dashboard-en.png)
 
@@ -83,10 +85,13 @@ Open the Dashboard to translate videos, download public videos, generate thumbna
 <tr><td valign="top">Video Downloader</td><td valign="top">✅ Available</td><td>Parse YouTube, Bilibili, and other supported public links, inspect available quality and format options, and download video or audio for later workflows</td></tr>
 <tr><td valign="top">Thumbnail Generator</td><td valign="top">✅ Available</td><td>Combine a topic, video link, and optional reference image to generate and compare multiple content-thumbnail variations</td></tr>
 <tr><td valign="top">Image Generation</td><td valign="top">✅ Available</td><td>Generate with GPT Image from a prompt and optional reference image, configure the aspect ratio and output count, then preview and download individual images</td></tr>
-<tr><td valign="top">Stick Figure Animation</td><td valign="top">Coming soon</td><td>Develop characters, storyboards, voiceovers, and animation in a guided workflow</td></tr>
+<tr><td valign="top">Article Writer</td><td valign="top">✅ Available</td><td>Turn a topic, links, videos, or source documents into editable topic options, an outline, and a complete article; add generated images and export Markdown, HTML, or PDF</td></tr>
+<tr><td valign="top">Xiaohongshu Posts</td><td valign="top">✅ Available</td><td>Generate a complete Xiaohongshu post from a topic or source material, with controls for the target audience, post type, and length, then copy or download the result</td></tr>
+<tr><td valign="top">Short Video Script</td><td valign="top">✅ Available</td><td>Create a shoot-ready segmented script from a topic or source material, tailored to the audience, platform, duration, and tone, then edit, copy, or download it</td></tr>
+<tr><td valign="top">Stick Figure Animation</td><td valign="top">✅ Available</td><td>Turn text or YouTube content into narration, voice, consistent-character storyboard visuals, subtitles, and a downloadable stick figure animation</td></tr>
 <tr><td valign="top">Auto Clips</td><td valign="top">In development</td><td>Analyze long videos, identify highlights, and turn selected moments into reusable short clips</td></tr>
-<tr><td valign="top">Smart Dubbing</td><td valign="top">In development</td><td>Turn scripts into voiceovers with selectable voices, pacing, and emotion controls</td></tr>
-<tr><td valign="top">Video Generation</td><td valign="top">In development</td><td>Generate video from prompts and reference images, then preview and export the result</td></tr>
+<tr><td valign="top">Smart Dubbing</td><td valign="top">✅ Available</td><td>Turn scripts into voiceovers with selectable voices, pacing, and emotion controls</td></tr>
+<tr><td valign="top">Video Generation</td><td valign="top">✅ Available</td><td>Generate videos with Seedance from prompts and reference images, then preview, regenerate, and download each version</td></tr>
 <tr><td valign="top">Digital Avatar</td><td valign="top">In development</td><td>Combine scripts, voice, and avatar presentation to produce talking-head videos</td></tr>
 </tbody>
 </table>
@@ -115,7 +120,7 @@ Each revision creates a separate version without overwriting earlier results or 
 
 ## Models Supported
 
-Language model availability follows the Codex model catalog or your OpenAI-compatible provider. Image, voice, and transcription models use the services configured in **Settings → AI Services**.
+Language model availability follows the Codex model catalog or your OpenAI-compatible provider. Image, video, voice, and transcription models use the services configured in **Settings → AI Services**.
 
 ### Language models
 
@@ -141,6 +146,14 @@ Language model availability follows the Codex model catalog or your OpenAI-compa
 <table>
 <tr>
 <td align="center"><img src="./docs/images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+</tr>
+</table>
+
+### Video
+
+<table>
+<tr>
+<td align="center"><img src="./docs/images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
 </tr>
 </table>
 
@@ -194,21 +207,25 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > These video examples and the subtitle alignment image were produced while OpenCreator still used the KrillinAI name.
 
+### Video Generation
+
+Generate an AI video from a text prompt or reference image with Seedance. Configure the model, aspect ratio, resolution, and duration, then preview, regenerate, or download each version from the project workspace.
+
+![OpenCreator Video Generation with Seedance](./docs/images/examples/video-generation-seedance-en.png)
+
 ### Video Downloader
 
 Analyze a public video link, compare the available formats, and download video or audio directly to the project.
 
 ![OpenCreator Video Downloader format selection](./docs/images/examples/video-downloader-formats-en.png)
 
-### Stick Figure Animation (Coming Soon)
+### Stick Figure Animation
 
-> Coming soon. Not yet integrated in the current release.
-
-OpenCreator developed this original character collection in collaboration with artist [Harbor Hsia](https://www.behance.net/xiaheyuan1), creator of [Stickman on Behance](https://www.behance.net/gallery/254715463/Stickman). The preset cast is being prepared for a future story and animation workflow with consistent character identities.
+OpenCreator developed this original character collection in collaboration with artist [Harbor Hsia](https://www.behance.net/xiaheyuan1), creator of [Stickman on Behance](https://www.behance.net/gallery/254715463/Stickman). The built-in cast keeps character identities consistent throughout the animation workflow.
 
 ![OpenCreator stick figure characters developed with artists](./docs/images/examples/stick-figure-characters.webp)
 
-The planned workflow will guide a character and story idea through storyboard generation, shot review, voiceover, music, and versioned animation output.
+Turn text or YouTube content into a complete animation through a guided workflow for script review, narration, timing, storyboard visuals, subtitles, rendering, and downloadable video output.
 
 ![OpenCreator stick figure animation example frame](./docs/images/examples/stick-figure-animation-frame.jpg)
 
@@ -489,14 +506,20 @@ The root `README.md` is the canonical English document. Maintained translations 
 Thanks to everyone who has taken part through code, documentation, feedback, issue reports, Skills, designs, and ideas.
 
 <a href="https://github.com/krillinai/OpenCreator/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=krillinai/OpenCreator&amp;max=500&amp;columns=20" alt="OpenCreator contributors" />
+  <img src="https://contrib.rocks/image?repo=KrillinAI/OpenCreator&amp;max=500&amp;columns=20" alt="OpenCreator contributors" />
+</a>
+
+<!-- Keep recent contributors visible while contrib.rocks refreshes its cache. -->
+<br />
+<a href="https://github.com/xiaheyuan">
+  <img src="./docs/images/contributors/xiaheyuan.svg" width="48" height="48" alt="XiaHeyuan" />
 </a>
 
 ## Star History
 
 OpenCreator was formerly named KrillinAI. This chart covers the repository's full history across the rename.
 
-[![OpenCreator Star History](https://api.star-history.com/svg?repos=krillinai/OpenCreator&type=Date)](https://star-history.com/#krillinai/OpenCreator&Date)
+[![OpenCreator Star History](https://api.star-history.com/svg?repos=krillinai/OpenCreator&type=date)](https://www.star-history.com/?type=date&repos=krillinai%2FOpenCreator)
 
 ## Related Projects
 

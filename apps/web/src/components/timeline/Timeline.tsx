@@ -208,7 +208,7 @@ function getProcessStartedAt(process: ProcessBlock): number | undefined {
 
 function formatDuration(durationMs: number, language: AppLanguage): string {
   const totalSeconds = Math.max(1, Math.round(durationMs / 1000));
-  if (language === 'en-US') {
+  if (language !== 'zh-CN') {
     if (totalSeconds < 60) return `${totalSeconds}s`;
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;

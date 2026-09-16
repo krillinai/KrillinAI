@@ -173,23 +173,30 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
       platform: string;
       arch: string;
       transcription: {
-        providers: Array<{ provider: string; available: boolean; models: string[] }>;
+        providers: Array<{
+          provider: string;
+          kind: 'cloud' | 'local';
+          available: boolean;
+          models: string[];
+        }>;
       };
     }>(currentApp.page, 'GET', '/creator-services/capabilities');
     expect(creatorCapabilities.status).toBe(200);
     expect(creatorCapabilities.body).toMatchObject({
-      platform: 'win32',
-      arch: 'x64',
-      transcription: {
-        providers: expect.arrayContaining([
-          expect.objectContaining({
-            provider: 'whisper.cpp',
-            available: true,
-            models: ['tiny', 'medium', 'large-v2']
-          })
-        ])
-      }
+      platform: process.platform,
+      arch: process.arch
     });
+    const expectedLocalProviders = process.platform === 'darwin' && process.arch === 'arm64'
+      ? ['whisperkit']
+      : process.platform === 'win32' && process.arch === 'x64'
+        ? ['whisper.cpp']
+        : [];
+    expect(creatorCapabilities.body.transcription.providers
+      .filter(provider => provider.kind === 'local' && provider.available)
+      .map(provider => provider.provider)).toEqual(expectedLocalProviders);
+    const availableLocalProvider = creatorCapabilities.body.transcription.providers.find(
+      provider => provider.kind === 'local' && provider.available
+    );
     const ytDlpStatus = await runtimeRequest<{
       ytDlp: {
         channel: string;
@@ -241,11 +248,24 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
     await expect(currentApp.page.getByRole('group', { name: '模型服务' })).toBeVisible();
     await currentApp.page.getByRole('tab', { name: '语音识别' }).click();
     const localWhisper = currentApp.page.getByRole('button', { name: '本地 Whisper' });
-    await expect(localWhisper).toBeEnabled();
-    await localWhisper.click();
-    await expect(currentApp.page.getByRole('combobox', { name: '语音识别服务' }))
-      .toHaveText('Whisper.cpp');
-    await expect(currentApp.page.getByRole('combobox', { name: '本地模型' })).toHaveText('tiny');
+    if (availableLocalProvider === undefined) {
+      await expect(localWhisper).toBeDisabled();
+    } else {
+      await expect(localWhisper).toBeEnabled();
+      await localWhisper.click();
+      const providerLabel = availableLocalProvider.provider === 'whisperkit'
+        ? 'WhisperKit'
+        : 'Whisper.cpp';
+      await expect(currentApp.page.getByRole('combobox', { name: '语音识别服务' }))
+        .toHaveText(providerLabel);
+      const expectedModel = availableLocalProvider.models[0];
+      if (availableLocalProvider.provider === 'whisperkit') {
+        await expect(currentApp.page.getByText(expectedModel, { exact: true })).toBeVisible();
+      } else {
+        await expect(currentApp.page.getByRole('combobox', { name: '本地模型' }))
+          .toHaveText(expectedModel);
+      }
+    }
     await currentApp.page.getByRole('tab', { name: '配音服务' }).click();
     const providerSelect = currentApp.page.getByRole('combobox', { name: '服务商' });
     await expect(providerSelect).toHaveText('OpenAI TTS');
@@ -270,6 +290,36 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
     await currentApp.page.getByRole('button', { name: /^图像生成/ }).click();
     await expect(currentApp.page.getByRole('heading', { name: '图像生成' })).toBeVisible();
     await expect(currentApp.page.getByRole('textbox', { name: '提示词' })).toBeVisible();
+
+    await currentApp.page.getByRole('button', { name: '工作台' }).click();
+    await expect(currentApp.page.getByRole('heading', { name: '工作台' })).toBeVisible();
+    await currentApp.page.getByRole('button', { name: /^视频切片/ }).click();
+    const clipWorkspace = currentApp.page.getByRole('region', { name: '视频切片 操作区' });
+    await expect(clipWorkspace.getByRole('textbox', { name: '视频链接' })).toBeVisible();
+    await clipWorkspace.getByRole('textbox', { name: '视频链接' })
+      .fill('https://example.com/watch/packaged-auto-clip');
+    await clipWorkspace.getByRole('button', { name: '下一步：切片设置' }).click();
+    await clipWorkspace.getByRole('combobox', { name: '内容重点' }).selectOption('knowledge');
+    await clipWorkspace.getByRole('combobox', { name: '目标时长' }).selectOption('30-60');
+    await clipWorkspace.getByRole('spinbutton', { name: '候选数量' }).fill('8');
+    await clipWorkspace.getByRole('combobox', { name: '输出画幅' }).selectOption('9:16');
+    const clipJobId = new URL(currentApp.page.url()).hash.match(/jobId=([^&]+)/)?.[1];
+    expect(clipJobId).toBeTruthy();
+    await expect.poll(async () => (
+      await runtimeRequest<{
+        job: { state: Record<string, unknown> };
+      }>(
+        currentApp.page,
+        'GET',
+        `/creator/jobs/${decodeURIComponent(clipJobId!)}`
+      )
+    ).body.job.state).toMatchObject({
+      sourceUrl: 'https://example.com/watch/packaged-auto-clip',
+      focus: 'knowledge',
+      duration: '30-60',
+      clipCount: 8,
+      aspectRatio: '9:16'
+    });
 
     const createdJob = await runtimeRequest<{
       job: { id: string; revision: number; state: Record<string, unknown> };

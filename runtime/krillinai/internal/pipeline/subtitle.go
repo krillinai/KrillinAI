@@ -74,6 +74,7 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 			_, err = svc.ProcessYouTubeSubtitle(ctx, youtubeReq)
 		}
 		if err == nil {
+			manifest.OriginLanguage = youtubeReq.OriginLanguage
 			manifest.CaptionSource = "youtube_vtt"
 			if !req.SourceOnly || req.PrepareVideo {
 				reportSubtitleProgress(req, "preparing_original_media", 76, "正在补齐原始视频")
@@ -113,6 +114,13 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 	stepParam.TaskPtr.SetProgressReporter(audioSubtitleProgressReporter(req))
 	reportSubtitleProgress(req, "transcribing_audio", 30, "正在转录并翻译音频字幕")
 	if err := svc.GenerateSubtitlesFromAudio(ctx, stepParam); err != nil {
+		if platformCaptionErr != nil {
+			err = fmt.Errorf(
+				"platform caption attempt failed: %v; audio transcription fallback failed: %w",
+				platformCaptionErr,
+				err,
+			)
+		}
 		return failSubtitleStage(req, manifest, ErrorKindRetryable, "audio_transcription_failed", err)
 	}
 	manifest.CaptionSource = string(CaptionSourceWhisper)

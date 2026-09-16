@@ -148,6 +148,7 @@ function cleanBuildOutputs() {
     resolve(rootDir, 'packages/protocol/dist'),
     resolve(rootDir, 'packages/config/dist'),
     resolve(rootDir, 'packages/skill-market/dist'),
+    resolve(rootDir, 'packages/writing-templates/dist'),
     resolve(rootDir, 'apps/daemon/dist'),
     resolve(rootDir, 'apps/web/dist')
   ]) {

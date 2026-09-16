@@ -143,6 +143,15 @@ async function main(): Promise<void> {
     getCodexAvailabilityProbe: () => availabilityProbe,
     persistentAppServerEnabled:
       process.env.OPENCREATOR_PERSISTENT_APP_SERVER !== '0',
+    ...(process.env.OPENCREATOR_E2E_FAKE_CODEX_CONFIG !== undefined
+      && process.env.OPENCREATOR_E2E_CREATOR_RUNTIME_PLATFORM !== undefined
+      && process.env.OPENCREATOR_E2E_CREATOR_RUNTIME_ARCH !== undefined
+      ? {
+          creatorRuntimePlatform:
+            process.env.OPENCREATOR_E2E_CREATOR_RUNTIME_PLATFORM as NodeJS.Platform,
+          creatorRuntimeArch: process.env.OPENCREATOR_E2E_CREATOR_RUNTIME_ARCH
+        }
+      : {}),
     ...environment,
     appHome,
     dataDir,

@@ -150,7 +150,10 @@ export default function WechatArticleWorkspace(props: {
   const l = useLocalizedCopy();
   const { language } = useAppLanguage();
   const wechatArticlePresets = useMemo(
-    () => wechatArticlePresetCatalog.map(preset => localizeWritingTemplate(preset, language)),
+    () => wechatArticlePresetCatalog.map(preset => localizeWritingTemplate(
+      preset,
+      language === 'sv-SE' ? 'en-US' : language
+    )),
     [language]
   );
   const session = useOptionalCreatorSession();

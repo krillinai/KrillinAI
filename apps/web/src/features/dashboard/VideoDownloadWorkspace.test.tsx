@@ -130,7 +130,7 @@ describe('VideoDownloadWorkspace', () => {
       name: '发送到视频翻译 Creator Download.mp4'
     })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', {
-      name: '发送到自动剪辑 Creator Download.mp4'
+      name: '发送到视频切片 Creator Download.mp4'
     })).not.toBeInTheDocument();
   });
 

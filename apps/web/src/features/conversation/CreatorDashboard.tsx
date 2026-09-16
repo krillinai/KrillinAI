@@ -98,7 +98,7 @@ const creatorSkillsByCategory: Record<CreatorSkillCategory, CreatorSkill[]> = {
     },
     {
       id: 'intelligent-clipping',
-      title: '智能剪辑',
+      title: '视频切片',
       category: '视频剪辑',
       image: '/dashboard/templates/intelligent-clipping-cover.png',
       interaction: { type: 'workspace', workspace: 'auto-clips' },
@@ -372,17 +372,16 @@ function isVisibleCreatorSkill(skill: CreatorSkill): boolean {
 
 export function getCreatorSkillPromptHint(
   skill: CreatorSkill,
-  language: 'zh-CN' | 'en-US'
+  language: 'zh-CN' | 'en-US' | 'sv-SE'
 ): string {
   if (skill.promptHint !== undefined) {
-    return language === 'en-US' ? skill.promptHint.enUS : skill.promptHint.zhCN;
+    return language === 'zh-CN' ? skill.promptHint.zhCN : skill.promptHint.enUS;
   }
-  const title = language === 'en-US'
-    ? englishCreatorLabels[skill.title] ?? skill.title
-    : skill.title;
-  return language === 'en-US'
-    ? `Describe what you want to create with ${title} and any requirements`
-    : `描述你希望用「${title}」完成的内容和要求`;
+  if (language === 'zh-CN') {
+    return `描述你希望用「${skill.title}」完成的内容和要求`;
+  }
+  const title = englishCreatorLabels[skill.title] ?? skill.title;
+  return `Describe what you want to create with ${title} and any requirements`;
 }
 
 const englishCreatorLabels: Record<string, string> = {
@@ -399,7 +398,7 @@ const englishCreatorLabels: Record<string, string> = {
   数字人口播: 'Digital Avatar',
   火柴人动画: 'Stick Figure Animation',
   动画生成: 'Animation',
-  智能剪辑: 'Intelligent Curation',
+  视频切片: 'Video Clips',
   视频剪辑: 'Video Editing',
   封面生成: 'Cover Generation',
   创意短片策划: 'Creative Short Planning',

@@ -229,7 +229,7 @@ function runYtDlp(
     child.stdout?.on('data', chunk => { stdout += String(chunk); });
     child.stderr?.on('data', chunk => { stderr += String(chunk); });
     child.once('error', reject);
-    child.once('exit', code => {
+    child.once('close', code => {
       if (code === 0 && stdout.trim()) resolve(stdout);
       else reject(new CreatorExecutorError(
         'creator_source_unavailable',

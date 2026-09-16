@@ -62,9 +62,10 @@ describe('OpenCreator config', () => {
 
     expect(resolveUiSettings(readOpenCreatorConfig(path)).accentColor).toBe('red');
 
-    updateOpenCreatorUiSettings(path, { colorMode: 'light' });
+    updateOpenCreatorUiSettings(path, { colorMode: 'light', language: 'sv-SE' });
 
     expect(resolveUiSettings(readOpenCreatorConfig(path)).colorMode).toBe('light');
+    expect(resolveUiSettings(readOpenCreatorConfig(path)).language).toBe('sv-SE');
   });
 
   it('persists anonymous telemetry preferences and the install identifier', () => {

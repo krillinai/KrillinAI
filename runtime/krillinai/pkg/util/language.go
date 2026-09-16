@@ -1,5 +1,7 @@
 package util
 
+import "strings"
+
 // 将内部语言代码映射为YouTube字幕语言代码
 func MapLanguageForYouTube(language string) string {
 	languageMap := map[string]string{
@@ -103,4 +105,26 @@ func MapLanguageForYouTube(language string) string {
 	}
 
 	return language
+}
+
+// MapLanguageFromYouTube converts YouTube/BCP-47 subtitle track identifiers
+// back to the compact language codes used by KrillinAI.
+func MapLanguageFromYouTube(language string) string {
+	normalized := strings.ToLower(strings.TrimSpace(language))
+	normalized = strings.TrimSuffix(normalized, "-orig")
+	normalized = strings.ReplaceAll(normalized, "_", "-")
+
+	switch normalized {
+	case "zh-hant", "zh-tw", "zh-hk", "zh-mo":
+		return "zh_tw"
+	case "zh", "zh-hans", "zh-cn", "zh-sg":
+		return "zh_cn"
+	case "iw":
+		return "he"
+	}
+
+	if separator := strings.IndexByte(normalized, '-'); separator >= 0 {
+		return normalized[:separator]
+	}
+	return normalized
 }

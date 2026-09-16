@@ -163,7 +163,7 @@ function SettingsHeader() {
 
 function formatDate(
   value: string | null,
-  language: 'zh-CN' | 'en-US',
+  language: 'zh-CN' | 'en-US' | 'sv-SE',
   fallback: string
 ): string {
   if (value === null) return fallback;

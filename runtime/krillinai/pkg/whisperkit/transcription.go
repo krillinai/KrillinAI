@@ -3,6 +3,7 @@ package whisperkit
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
@@ -25,21 +26,7 @@ func (c *WhisperKitProcessor) TranscriptionWithProgress(
 	audioFile, language, workDir string,
 	reportProgress func(percent int),
 ) (*types.TranscriptionData, error) {
-	cmdArgs := []string{
-		"transcribe",
-		"--model-path", "./models/whisperkit/openai_whisper-large-v2",
-		"--audio-encoder-compute-units", "all",
-		"--text-decoder-compute-units", "all",
-		"--language", language,
-		"--report",
-		"--report-path", workDir,
-		"--word-timestamps",
-		"--skip-special-tokens",
-		"--audio-path", audioFile,
-	}
-	if reportProgress != nil {
-		cmdArgs = append(cmdArgs, "--verbose")
-	}
+	cmdArgs := whisperKitCommandArguments(audioFile, language, workDir, reportProgress != nil)
 	cmd := exec.Command(storage.WhisperKitPath, cmdArgs...)
 	log.GetLogger().Info("WhisperKitProcessor转录开始", zap.String("cmd", cmd.String()))
 	output := newProgressOutput(reportProgress)
@@ -48,7 +35,7 @@ func (c *WhisperKitProcessor) TranscriptionWithProgress(
 	err := cmd.Run()
 	if err != nil {
 		log.GetLogger().Error("WhisperKitProcessor  cmd 执行失败", zap.String("output", output.String()), zap.Error(err))
-		return nil, err
+		return nil, whisperKitCommandError(err, output.String())
 	}
 	log.GetLogger().Info("WhisperKitProcessor转录json生成完毕", zap.String("audio file", audioFile))
 
@@ -66,8 +53,10 @@ func (c *WhisperKitProcessor) TranscriptionWithProgress(
 	}
 
 	var (
-		transcriptionData types.TranscriptionData
-		num               int
+		transcriptionData = types.TranscriptionData{
+			Language: util.MapLanguageFromYouTube(result.Language),
+		}
+		num int
 	)
 	for _, segment := range result.Segments {
 		transcriptionData.Text += strings.ReplaceAll(segment.Text, "—", " ") // 连字符处理，因为模型存在很多错误添加到连字符
@@ -104,6 +93,39 @@ func (c *WhisperKitProcessor) TranscriptionWithProgress(
 	}
 	log.GetLogger().Info("WhisperKitProcessor转录成功")
 	return &transcriptionData, nil
+}
+
+func whisperKitCommandArguments(audioFile, language, workDir string, verbose bool) []string {
+	cmdArgs := []string{
+		"transcribe",
+		"--model-path", "./models/whisperkit/openai_whisper-large-v2",
+		"--audio-encoder-compute-units", "all",
+		"--text-decoder-compute-units", "all",
+		"--report",
+		"--report-path", workDir,
+		"--word-timestamps",
+		"--skip-special-tokens",
+		"--audio-path", audioFile,
+	}
+	if normalizedLanguage := strings.TrimSpace(language); normalizedLanguage != "" && !strings.EqualFold(normalizedLanguage, "auto") {
+		cmdArgs = append(cmdArgs, "--language", normalizedLanguage)
+	}
+	if verbose {
+		cmdArgs = append(cmdArgs, "--verbose")
+	}
+	return cmdArgs
+}
+
+func whisperKitCommandError(err error, output string) error {
+	details := strings.Join(strings.Fields(output), " ")
+	const maxDetailsLength = 1000
+	if len(details) > maxDetailsLength {
+		details = details[len(details)-maxDetailsLength:]
+	}
+	if details == "" {
+		return fmt.Errorf("whisperkit-cli transcribe failed: %w", err)
+	}
+	return fmt.Errorf("whisperkit-cli transcribe failed: %w: %s", err, details)
 }
 
 var whisperKitProgressPattern = regexp.MustCompile(`\]\s*([0-9]{1,3})%\s*\|`)
