@@ -1,17 +1,55 @@
 export type KrillinCliExecutionAttempt = {
+  source?: string;
   options: Record<string, unknown>;
   continueOnErrorCode?: string;
 };
 
+export type KrillinCliExecutionSources = {
+  sourceUrl?: string;
+  mediaSource?: string;
+};
+
 export function createKrillinCliExecutionPlan(
   stageId: string,
-  options: Record<string, unknown>
+  sourcesOrOptions: KrillinCliExecutionSources | Record<string, unknown>,
+  maybeOptions?: Record<string, unknown>
 ): KrillinCliExecutionAttempt[] {
-  return [{
-    options: stageId === 'subtitle' && stringOption(options, 'captionSource') === undefined
-      ? { ...options, captionSource: 'any' }
-      : options
-  }];
+  const sources = maybeOptions === undefined ? {} : sourcesOrOptions as KrillinCliExecutionSources;
+  const options = maybeOptions ?? sourcesOrOptions as Record<string, unknown>;
+  if (maybeOptions === undefined) {
+    return [{
+      options: stageId === 'subtitle' && stringOption(options, 'captionSource') === undefined
+        ? { ...options, captionSource: 'any' }
+        : options
+    }];
+  }
+  if (stageId !== 'subtitle') {
+    return [{ options }];
+  }
+
+  const captionSource = stringOption(options, 'captionSource') ?? 'any';
+  const mediaSource = sources.mediaSource ?? sources.sourceUrl;
+  if (!isYouTubeSource(sources.sourceUrl) || captionSource === 'whisper') {
+    return [{ ...(mediaSource === undefined ? {} : { source: mediaSource }), options }];
+  }
+  if (captionSource !== 'any') {
+    return [{
+      ...(sources.sourceUrl === undefined ? {} : { source: sources.sourceUrl }),
+      options
+    }];
+  }
+
+  return [
+    {
+      source: sources.sourceUrl,
+      options: { ...options, captionSource: 'platform' },
+      continueOnErrorCode: 'platform_caption_failed'
+    },
+    {
+      ...(mediaSource === undefined ? {} : { source: mediaSource }),
+      options: { ...options, captionSource: 'whisper' }
+    }
+  ];
 }
 
 export function isYouTubeSource(value: string | undefined): boolean {

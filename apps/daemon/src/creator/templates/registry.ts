@@ -10,7 +10,7 @@ import {
   createLegacyImageGenerationTemplate
 } from './image-generation.js';
 import { createVideoGenerationTemplate } from './video-generation.js';
-import { createAutoClipTemplate } from './auto-clip.js';
+import { createAutoClipTemplate, createLegacyAutoClipTemplate } from './auto-clip.js';
 import { createStickmanVideoTemplate } from './stickman-video.js';
 import { createSmartDubbingTemplate } from './smart-dubbing.js';
 import { createXiaohongshuPostTemplate } from './xiaohongshu-post.js';
@@ -23,6 +23,7 @@ import type {
 
 export {
   createAutoClipTemplate,
+  createLegacyAutoClipTemplate,
   createCoverTemplate,
   createLegacyCoverTemplate,
   createImageGenerationTemplate,
@@ -52,6 +53,7 @@ export function createDefaultCreatorTemplateRegistry(): CreatorTemplateRegistry 
     createVideoGenerationTemplate(),
     createShortVideoScriptTemplate(),
     createWechatArticleTemplate(),
+    createLegacyAutoClipTemplate(),
     createAutoClipTemplate(),
     createStickmanVideoTemplate()
   ]);

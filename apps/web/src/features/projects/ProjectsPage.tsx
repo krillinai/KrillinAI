@@ -516,12 +516,18 @@ function creatorDraftDefaults(templateId: string): Record<string, unknown[]> {
   }
   if (templateId === 'auto-clip') {
     return {
+      sourceType: ['url'],
       sourceUrl: [''],
+      sourceArtifactId: [null],
+      formatId: ['bestvideo+bestaudio/best'],
+      sourceLanguage: ['auto'],
+      targetLanguage: ['zh-CN'],
+      preferPlatformCaptions: [true],
       focus: ['balanced'],
       duration: ['30-60'],
-      clipCount: [10],
-      sourceOrientation: ['landscape'],
-      selectedCandidateIds: [['1', '2', '3']]
+      clipCount: [3],
+      aspectRatio: ['source'],
+      currentStage: [null]
     };
   }
   if (templateId === 'xiaohongshu-post') {
@@ -646,7 +652,7 @@ function shorten(value: string, limit: number): string {
 function templateLabel(templateId: string, l: LocalizeCopy): string | undefined {
   if (templateId === 'video-translation') return l('视频翻译', 'Video translation');
   if (templateId === 'video-download') return l('视频下载', 'Video download');
-  if (templateId === 'auto-clip') return l('自动剪辑', 'Auto clips');
+  if (templateId === 'auto-clip') return l('视频切片', 'Video clips');
   if (templateId === 'cover') return l('封面生成', 'Thumbnail generation');
   if (templateId === 'image-generation') return l('图像生成', 'Image generation');
   if (templateId === 'video-generation') return l('视频生成', 'Video generation');
@@ -761,7 +767,7 @@ function projectCover(templateId: string): string {
   if (templateId === 'image-generation') return '/dashboard/templates/image-generation-project-cover.png';
   if (templateId === 'video-generation') return '/dashboard/templates/animated-story.jpg';
   if (templateId === 'stickman-video') return '/dashboard/templates/ai-video-insane.jpg';
-  if (templateId === 'auto-clip') return '/dashboard/templates/animated-story.jpg';
+  if (templateId === 'auto-clip') return '/dashboard/templates/intelligent-clipping-cover.png';
   if (templateId === 'xiaohongshu-post') return '/dashboard/templates/digital-presenter.jpg';
   if (templateId === 'short-video-script') return '/skill-market/examples/gpt-image-2-info-poster.png';
   return '/dashboard/templates/digital-presenter.jpg';
@@ -860,15 +866,15 @@ function readString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function formatProjectTime(value: string, language: 'zh-CN' | 'en-US'): string {
+function formatProjectTime(value: string, language: 'zh-CN' | 'en-US' | 'sv-SE'): string {
   const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return language === 'en-US' ? 'Recently updated' : '最近更新';
+  if (!Number.isFinite(timestamp)) return language === 'zh-CN' ? '最近更新' : language === 'sv-SE' ? 'Nyligen uppdaterad' : 'Recently updated';
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
-  if (minutes < 1) return language === 'en-US' ? 'Updated just now' : '刚刚更新';
-  if (minutes < 60) return language === 'en-US' ? `${minutes} min ago` : `${minutes} 分钟前`;
+  if (minutes < 1) return language === 'zh-CN' ? '刚刚更新' : language === 'sv-SE' ? 'Uppdaterades nyss' : 'Updated just now';
+  if (minutes < 60) return language === 'zh-CN' ? `${minutes} 分钟前` : language === 'sv-SE' ? `för ${minutes} min sedan` : `${minutes} min ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return language === 'en-US' ? `${hours} hr ago` : `${hours} 小时前`;
+  if (hours < 24) return language === 'zh-CN' ? `${hours} 小时前` : language === 'sv-SE' ? `för ${hours} tim sedan` : `${hours} hr ago`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return language === 'en-US' ? `${days} days ago` : `${days} 天前`;
+  if (days < 30) return language === 'zh-CN' ? `${days} 天前` : language === 'sv-SE' ? `för ${days} dagar sedan` : `${days} days ago`;
   return new Intl.DateTimeFormat(language, { month: 'short', day: 'numeric' }).format(timestamp);
 }

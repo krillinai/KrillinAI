@@ -191,7 +191,8 @@ async function validateSourcePath(jobRoot: string, artifact: CreatorArtifact): P
     );
   }
   const path = await realpath(artifact.path);
-  const value = relative(jobRoot, path);
+  const actualJobRoot = await realpath(jobRoot);
+  const value = relative(actualJobRoot, path);
   if (value.startsWith('..') || isAbsolute(value)) {
     throw new CreatorExecutorError(
       'creator_delivery_path_escape',

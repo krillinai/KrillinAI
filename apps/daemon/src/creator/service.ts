@@ -138,10 +138,13 @@ export function createCreatorService(input: {
             current.revision
           );
         }
-        if (current.templateId !== 'video-translation') {
+        if (
+          current.templateId !== 'video-translation'
+          && current.templateId !== 'auto-clip'
+        ) {
           throw new CreatorServiceError(
             'creator_source_upload_unsupported',
-            'Local source upload is only supported for video translation jobs'
+            'Local source upload is only supported for video translation or video clip jobs'
           );
         }
         const duplicate = [...current.artifacts].reverse().find(artifact => (
@@ -705,7 +708,10 @@ export function createCreatorService(input: {
         } else if (request.action === 'update-settings' || request.action === 'undo-action') {
           const patch = readNonEmptyRecord(parsedInput.patch, 'patch');
           nextState = { ...nextState, ...patch };
-          if (current.templateId === 'video-translation' && nextState.sourceType === 'url') {
+          if (
+            (current.templateId === 'video-translation' || current.templateId === 'auto-clip')
+            && nextState.sourceType === 'url'
+          ) {
             nextState.sourceArtifactId = null;
           }
           if (shouldClearTtsConfigurationRequest(current, nextState)) {

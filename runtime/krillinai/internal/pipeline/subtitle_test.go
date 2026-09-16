@@ -9,6 +9,7 @@ import (
 	pkgimage "krillin-ai/pkg/image"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -27,6 +28,7 @@ type fakeStageService struct {
 	preparedVideoPath string
 	preparedAudioPath string
 	audioProgress     []uint8
+	audioErr          error
 	omitPreparedVideo bool
 }
 
@@ -57,7 +59,7 @@ func (f *fakeStageService) GenerateSubtitlesFromAudio(_ context.Context, p *type
 	for _, percent := range f.audioProgress {
 		p.TaskPtr.SetProgress(percent)
 	}
-	return nil
+	return f.audioErr
 }
 
 func (f *fakeStageService) GenerateSpeechFromSRT(_ context.Context, p *types.SubtitleTaskStepParam) error {
@@ -126,6 +128,33 @@ func TestGenerateSubtitlesFallsBackToAudioWhenAnySourceFails(t *testing.T) {
 	}
 	if got := fake.prepareVTT; len(got) != 2 || got[0] != true || got[1] != false {
 		t.Fatalf("prepare VttSwitch values = %v, want [true false]", got)
+	}
+}
+
+func TestGenerateSubtitlesPreservesPlatformAndAudioFallbackErrors(t *testing.T) {
+	fake := &fakeStageService{
+		downloadErr: errors.New("no original YouTube captions"),
+		audioErr:    errors.New("whisperkit-cli exited with status 64"),
+	}
+	req := SubtitleRequest{
+		Input:         "https://www.youtube.com/watch?v=abc",
+		Workdir:       t.TempDir(),
+		TaskID:        "demo",
+		OriginLang:    "auto",
+		TargetLang:    "zh_cn",
+		CaptionSource: CaptionSourceAny,
+	}
+
+	resp, err := GenerateSubtitles(context.Background(), fake, req)
+	if err == nil {
+		t.Fatal("GenerateSubtitles() error = nil, want fallback error")
+	}
+	if !strings.Contains(err.Error(), "no original YouTube captions") ||
+		!strings.Contains(err.Error(), "whisperkit-cli exited with status 64") {
+		t.Fatalf("GenerateSubtitles() error = %q, want both failure reasons", err)
+	}
+	if resp.Error == nil || resp.Error.Code != "audio_transcription_failed" {
+		t.Fatalf("response error = %+v", resp.Error)
 	}
 }
 

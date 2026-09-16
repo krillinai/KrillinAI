@@ -79,6 +79,7 @@ type RunKrillinCliInput = {
   stage: CreatorExecutorInput;
   config: CreatorServicesConfig;
   artifacts: MaterializedKrillinArtifact[];
+  source?: string;
   options: Record<string, unknown>;
   ytDlpRuntime?: YtDlpRuntime;
 };
@@ -125,7 +126,13 @@ export async function runKrillinCli(input: RunKrillinCliInput): Promise<KrillinR
     await writeInitialManifest(input.stage, input.options);
   }
 
-  const args = buildKrillinCliCommandArguments(input.stage, input.artifacts, input.options, stylePath);
+  const args = buildKrillinCliCommandArguments(
+    input.stage,
+    input.artifacts,
+    input.options,
+    stylePath,
+    input.source
+  );
   input.stage.reportProgress({
     krillinMode: 'cli',
     providerStatus: 'running',
@@ -211,12 +218,13 @@ export function buildKrillinCliCommandArguments(
   stage: CreatorExecutorInput,
   artifacts: MaterializedKrillinArtifact[],
   options: Record<string, unknown>,
-  stylePath: string | undefined
+  stylePath: string | undefined,
+  sourceOverride?: string
 ): string[] {
   const command = krillinCliStageId(stage.stageRun.stageId);
   const common = ['--workdir', stage.workdir, '--task-id', stage.stageRun.id];
   if (command === 'subtitle') {
-    const source = resolveKrillinCliSource(artifacts, options);
+    const source = sourceOverride ?? resolveKrillinCliSource(artifacts, options);
     if (!source) throw new CreatorExecutorError('creator_stage_input_missing', 'Subtitle input video or URL is required');
     const sourceOnly = booleanOption(options, 'sourceOnly', false);
     return [

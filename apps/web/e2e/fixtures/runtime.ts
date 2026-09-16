@@ -174,7 +174,9 @@ export const test = base.extend<TestFixtures>({
           OPENCREATOR_E2E_FAKE_CODEX_CONFIG: configPath,
           OPENCREATOR_E2E_FAKE_CODEX_STATE_DIR: stateDir,
           OPENCREATOR_E2E_NODE_BINARY: process.execPath,
-          OPENCREATOR_E2E_FAKE_CODEX_SCRIPT: fakeCodexScript
+          OPENCREATOR_E2E_FAKE_CODEX_SCRIPT: fakeCodexScript,
+          OPENCREATOR_E2E_CREATOR_RUNTIME_PLATFORM: 'win32',
+          OPENCREATOR_E2E_CREATOR_RUNTIME_ARCH: 'x64'
         },
         stdio: ['ignore', 'pipe', 'pipe']
       }

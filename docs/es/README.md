@@ -62,9 +62,9 @@ Web es la única implementación del frontend. Desktop carga la misma compilaci�
 
 ## Herramientas de creación
 
-La versión actual incluye cuatro herramientas de creación. Los modelos y servicios disponibles dependen del entorno local de Codex y de la configuración de los servicios de IA.
+La versión actual incluye seis herramientas de creación. Los modelos y servicios disponibles dependen del entorno local de Codex y de la configuración de los servicios de IA.
 
-Abre el Dashboard para traducir vídeos, descargar vídeos públicos, generar miniaturas o crear imágenes.
+Abre el Dashboard para traducir o descargar vídeos, generar miniaturas o imágenes, crear voces en off con Doblaje inteligente o generar vídeos con Seedance.
 
 ![Dashboard de creación de OpenCreator](../images/product/opencreator-dashboard-en.png)
 
@@ -85,8 +85,8 @@ Abre el Dashboard para traducir vídeos, descargar vídeos públicos, generar mi
 <tr><td valign="top">Generación de imágenes</td><td valign="top">✅ Disponible</td><td>Genera imágenes con GPT Image a partir de un prompt y una imagen de referencia opcional, configura la relación de aspecto y la cantidad de resultados y, después, previsualiza y descarga cada imagen</td></tr>
 <tr><td valign="top">Animación de figuras de palitos</td><td valign="top">Próximamente</td><td>Desarrolla personajes, guiones gráficos, voces y animación mediante un flujo guiado</td></tr>
 <tr><td valign="top">Clips automáticos</td><td valign="top">En desarrollo</td><td>Analiza vídeos largos, identifica los momentos destacados y convierte las escenas elegidas en clips cortos reutilizables</td></tr>
-<tr><td valign="top">Doblaje inteligente</td><td valign="top">En desarrollo</td><td>Convierte guiones en voces en off con opciones de voz, ritmo y emoción</td></tr>
-<tr><td valign="top">Generación de vídeo</td><td valign="top">En desarrollo</td><td>Genera vídeo a partir de prompts e imágenes de referencia y, después, previsualiza y exporta el resultado</td></tr>
+<tr><td valign="top">Doblaje inteligente</td><td valign="top">✅ Disponible</td><td>Convierte guiones en voces en off con opciones de voz, ritmo y emoción</td></tr>
+<tr><td valign="top">Generación de vídeo</td><td valign="top">✅ Disponible</td><td>Genera vídeos con Seedance a partir de prompts e imágenes de referencia y, después, previsualiza, vuelve a generar o descarga cada versión</td></tr>
 <tr><td valign="top">Avatar digital</td><td valign="top">En desarrollo</td><td>Combina guiones, voz y presentación de avatar para producir vídeos con una persona hablando</td></tr>
 </tbody>
 </table>
@@ -115,7 +115,7 @@ Cada revisión crea una versión separada sin sobrescribir los resultados ni la 
 
 ## Modelos compatibles
 
-La disponibilidad de los modelos de lenguaje depende del catálogo de modelos de Codex o de tu proveedor compatible con OpenAI. Los modelos de imagen, voz y transcripción utilizan los servicios configurados en **Configuración → Servicios de IA**.
+La disponibilidad de los modelos de lenguaje depende del catálogo de modelos de Codex o de tu proveedor compatible con OpenAI. Los modelos de imagen, vídeo, voz y transcripción utilizan los servicios configurados en **Configuración → Servicios de IA**.
 
 ### Modelos de lenguaje
 
@@ -141,6 +141,14 @@ La disponibilidad de los modelos de lenguaje depende del catálogo de modelos de
 <table>
 <tr>
 <td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+</tr>
+</table>
+
+### Vídeo
+
+<table>
+<tr>
+<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
 </tr>
 </table>
 
@@ -193,6 +201,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </table>
 
 > Estos ejemplos de vídeo y la imagen de alineación de subtítulos se produjeron cuando OpenCreator todavía utilizaba el nombre KrillinAI.
+
+### Generación de vídeos
+
+Genera un vídeo con IA a partir de una instrucción de texto o una imagen de referencia con Seedance. Configura el modelo, la relación de aspecto, la resolución y la duración; después, previsualiza, vuelve a generar o descarga cada versión desde el espacio de trabajo del proyecto.
+
+![Generación de vídeos en OpenCreator con Seedance](../images/examples/video-generation-seedance-en.png)
 
 ### Descarga de vídeos
 

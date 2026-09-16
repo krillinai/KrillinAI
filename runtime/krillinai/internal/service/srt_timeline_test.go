@@ -60,6 +60,25 @@ func TestNormalizeSRTFileRepairsMergedTimelineAndPreservesText(t *testing.T) {
 	}
 }
 
+func TestNormalizeSRTFileRepairsTimestampWrittenAfterText(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "shifted.srt")
+	content := "1\n[就像我们这样做。]\n00:00:01,000 --> 00:00:02,000\n\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := NormalizeSRTFile(path, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "1\n00:00:01,000 --> 00:00:02,000\n[就像我们这样做。]"
+	if !strings.Contains(string(data), want) {
+		t.Fatalf("timestamp/text order was not repaired: %q", string(data))
+	}
+}
+
 type fixedTimestampMatcher struct{}
 
 func (fixedTimestampMatcher) GetLanguageType() types.StandardLanguageCode {

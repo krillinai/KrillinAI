@@ -126,9 +126,9 @@ const creatorTools: DashboardEntry[] = [
     workspace: 'video-download'
   },
   {
-    title: '自动剪辑',
-    description: '语义识别与高光切片',
-    prompt: '帮我剪辑这些视频素材，请梳理叙事节奏，给出剪辑方案并生成成片。',
+    title: '视频切片',
+    description: 'AI 识别长视频高光片段',
+    prompt: '帮我从这段长视频中识别适合独立传播的高光片段，并生成多个短视频切片。',
     category: '视频编辑',
     icon: Clapperboard,
     workspace: 'auto-clips'
@@ -885,6 +885,8 @@ const englishDashboardLabels: Record<string, string> = {
   语义识别与高光切片: 'Semantic detection and highlight clips',
   短视频脚本: 'Short Video Script',
   生成分段口播与画面建议: 'Generate timed narration and visual suggestions',
+  视频切片: 'Video Clips',
+  'AI 识别长视频高光片段': 'Find the strongest moments in long videos with AI',
   智能配音: 'AI Dubbing',
   小红书帖子: 'Xiaohongshu Posts',
   从主题和素材生成完整帖子: 'Turn a topic or source material into a complete post',

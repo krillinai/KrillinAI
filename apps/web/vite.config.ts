@@ -115,25 +115,9 @@ function startRuntimeProcess(): RuntimeProcess {
   const creatorRuntimeRoot = resolveDevCreatorRuntimeRoot();
   const codexBin = resolveDevCodexBin();
   const ytDlpPath = resolveDevYtDlpPath();
-  const packageManager = packageManagerCommand(
-    process.env.OPENCREATOR_RUNTIME_DEV_PREPARED === '1'
-      ? [
-          '--filter',
-          '@opencreator/daemon',
-          'exec',
-          'node',
-          '--import',
-          'tsx',
-          'src/main.ts'
-        ]
-      : [
-          '--filter',
-          '@opencreator/daemon',
-          'dev'
-        ]
-  );
-  const child = spawn(packageManager.command, packageManager.args, {
-    cwd: process.cwd(),
+  const daemonDir = resolve(webDir, '../daemon');
+  const child = spawn(process.execPath, ['--import', 'tsx', 'src/main.ts'], {
+    cwd: daemonDir,
     env: {
       ...process.env,
       OPENCREATOR_RUNTIME_CHANNEL: 'development',
@@ -261,29 +245,6 @@ function terminateRuntimeProcess(child: RuntimeProcess['child']): void {
   } catch {
     child.kill('SIGTERM');
   }
-}
-
-function packageManagerCommand(args: string[]): {
-  command: string;
-  args: string[];
-} {
-  const cli = [
-    process.env.npm_execpath,
-    process.platform === 'win32' && process.env.APPDATA !== undefined
-      ? join(process.env.APPDATA, 'npm', 'node_modules', 'pnpm', 'bin', 'pnpm.cjs')
-      : undefined
-  ].find(candidate => (
-    typeof candidate === 'string'
-    && /\.(?:c|m)?js$/i.test(candidate)
-    && existsSync(candidate)
-  ));
-  if (typeof cli === 'string' && /\.(?:c|m)?js$/i.test(cli)) {
-    return { command: process.execPath, args: [cli, ...args] };
-  }
-  return {
-    command: process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
-    args
-  };
 }
 
 function parseRuntimeConfigFromOutput(output: string): RuntimeConfig | null {

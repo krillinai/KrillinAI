@@ -62,9 +62,9 @@ Web adalah satu-satunya implementasi frontend. Desktop memuat build Web yang sam
 
 ## Alat Kreasi
 
-Rilis saat ini mencakup empat alat kreasi. Model dan layanan yang tersedia bergantung pada lingkungan Codex lokal dan pengaturan layanan AI Anda.
+Rilis saat ini mencakup enam alat kreasi. Model dan layanan yang tersedia bergantung pada lingkungan Codex lokal dan pengaturan layanan AI Anda.
 
-Buka Dashboard untuk menerjemahkan video, mengunduh video publik, membuat thumbnail, atau menghasilkan gambar.
+Buka Dashboard untuk menerjemahkan atau mengunduh video, membuat thumbnail atau gambar, menghasilkan sulih suara dengan Sulih Suara Cerdas, atau membuat video dengan Seedance.
 
 ![Dashboard Kreasi OpenCreator](../images/product/opencreator-dashboard-en.png)
 
@@ -85,8 +85,8 @@ Buka Dashboard untuk menerjemahkan video, mengunduh video publik, membuat thumbn
 <tr><td valign="top">Pembuatan Gambar</td><td valign="top">✅ Tersedia</td><td>Buat gambar dengan GPT Image dari prompt dan gambar referensi opsional, atur rasio aspek dan jumlah hasil, lalu pratinjau dan unduh setiap gambar</td></tr>
 <tr><td valign="top">Animasi Figur Stik</td><td valign="top">Segera hadir</td><td>Kembangkan karakter, storyboard, sulih suara, dan animasi dalam alur kerja terpandu</td></tr>
 <tr><td valign="top">Klip Otomatis</td><td valign="top">Dalam pengembangan</td><td>Analisis video panjang, temukan sorotan, dan ubah bagian terpilih menjadi klip pendek yang dapat digunakan kembali</td></tr>
-<tr><td valign="top">Sulih Suara Cerdas</td><td valign="top">Dalam pengembangan</td><td>Ubah naskah menjadi sulih suara dengan pilihan suara, tempo, dan kontrol emosi</td></tr>
-<tr><td valign="top">Pembuatan Video</td><td valign="top">Dalam pengembangan</td><td>Buat video dari prompt dan gambar referensi, lalu pratinjau dan ekspor hasilnya</td></tr>
+<tr><td valign="top">Sulih Suara Cerdas</td><td valign="top">✅ Tersedia</td><td>Ubah naskah menjadi sulih suara dengan pilihan suara, tempo, dan kontrol emosi</td></tr>
+<tr><td valign="top">Pembuatan Video</td><td valign="top">✅ Tersedia</td><td>Buat video dengan Seedance dari prompt dan gambar referensi, lalu pratinjau, buat ulang, atau unduh setiap versi</td></tr>
 <tr><td valign="top">Avatar Digital</td><td valign="top">Dalam pengembangan</td><td>Gabungkan naskah, suara, dan presentasi avatar untuk membuat video berbicara</td></tr>
 </tbody>
 </table>
@@ -115,7 +115,7 @@ Setiap revisi membuat versi terpisah tanpa menimpa hasil atau pengaturan sebelum
 
 ## Model yang Didukung
 
-Ketersediaan model bahasa mengikuti katalog model Codex atau penyedia kompatibel OpenAI yang Anda gunakan. Model gambar, suara, dan transkripsi menggunakan layanan yang dikonfigurasi di **Pengaturan → Layanan AI**.
+Ketersediaan model bahasa mengikuti katalog model Codex atau penyedia kompatibel OpenAI yang Anda gunakan. Model gambar, video, suara, dan transkripsi menggunakan layanan yang dikonfigurasi di **Pengaturan → Layanan AI**.
 
 ### Model bahasa
 
@@ -141,6 +141,14 @@ Ketersediaan model bahasa mengikuti katalog model Codex atau penyedia kompatibel
 <table>
 <tr>
 <td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+</tr>
+</table>
+
+### Video
+
+<table>
+<tr>
+<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
 </tr>
 </table>
 
@@ -193,6 +201,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </table>
 
 > Contoh video dan gambar penyelarasan subtitel ini dibuat saat OpenCreator masih menggunakan nama KrillinAI.
+
+### Pembuatan Video
+
+Buat video AI dari prompt teks atau gambar referensi dengan Seedance. Atur model, rasio aspek, resolusi, dan durasi, lalu pratinjau, buat ulang, atau unduh setiap versi dari ruang kerja proyek.
+
+![Pembuatan Video OpenCreator dengan Seedance](../images/examples/video-generation-seedance-en.png)
 
 ### Pengunduh Video
 

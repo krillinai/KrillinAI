@@ -13,6 +13,7 @@ test-results/
 codex-main/
 open-design-main/
 .gstack/
+.codex/
 .worktrees/
 /.tmp/
 /codex/

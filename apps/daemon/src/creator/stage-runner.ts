@@ -1,7 +1,13 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { CreatorArtifact, CreatorJob, CreatorJson, CreatorStageRun } from '@opencreator/protocol';
+import {
+  readCreatorResultSnapshots,
+  type CreatorArtifact,
+  type CreatorJob,
+  type CreatorJson,
+  type CreatorStageRun
+} from '@opencreator/protocol';
 import type { CreatorExecutor } from './executor.js';
 import { CreatorExecutorError } from './executor.js';
 import type { CreatorRepository } from './repository.js';
@@ -167,7 +173,7 @@ export function createCreatorStageRunner(input: {
         const createsResultVersion = stage.resultVersionPolicy !== 'none';
         const targetResultVersion = readPositiveInteger(stageRun!.progress.targetResultVersion);
         const resultVersion = createsResultVersion
-          ? targetResultVersion ?? nextCreatorResultVersion(beforeOutputs)
+          ? targetResultVersion ?? nextStageResultVersion(beforeOutputs, stageId)
           : undefined;
         const insertedArtifacts: CreatorArtifact[] = [];
         const changedKinds = new Set(result.outputs.map(output => output.kind));
@@ -220,6 +226,9 @@ export function createCreatorStageRunner(input: {
         const latest = requireJob(input.repository, jobId);
         const artifactRefsPatch = {
           ...(job.templateId === 'cover'
+            ? artifactRefsByKind(resolved.artifacts)
+            : {}),
+          ...(job.templateId === 'auto-clip' && stageId === 'analyze'
             ? artifactRefsByKind(resolved.artifacts)
             : {}),
           ...(job.templateId === 'video-translation'
@@ -618,6 +627,10 @@ function resultSnapshotDescription(stageId: string, templateId: string): string 
     if (stageId === 'article') return '撰写公众号文章';
     if (stageId === 'images') return '生成文章配图';
   }
+  if (templateId === 'auto-clip') {
+    if (stageId === 'analyze') return '识别视频高光片段';
+    if (stageId === 'render') return '导出视频切片';
+  }
   if (stageId === 'subtitle') return '生成字幕';
   if (stageId === 'tts') return '生成配音';
   if (stageId === 'render-horizontal') return '合成横屏视频';
@@ -630,6 +643,16 @@ function resultSnapshotDescription(stageId: string, templateId: string): string 
     return '生成图片';
   }
   return `完成 ${stageId}`;
+}
+
+function nextStageResultVersion(job: CreatorJob, stageId: string): number {
+  if (job.templateId !== 'auto-clip' || stageId !== 'analyze') {
+    return nextCreatorResultVersion(job);
+  }
+  const snapshotVersion = readCreatorResultSnapshots(job.state.resultSnapshots)
+    .reduce((highest, snapshot) => Math.max(highest, snapshot.version), 0);
+  const stateVersion = readPositiveInteger(job.state.latestResultVersion) ?? 0;
+  return Math.max(snapshotVersion, stateVersion) + 1;
 }
 
 function creatorConfigurationInput(code: string, message: string): Record<string, CreatorJson> | null {
