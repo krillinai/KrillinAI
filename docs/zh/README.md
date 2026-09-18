@@ -6,10 +6,10 @@
     <img src="../images/OpenCreator_logo_vector.svg" alt="OpenCreator" width="380" />
   </picture>
   <br />
-  面向创作者的开源 AI 工作台
+  面向创作者的开源 AI 工作台与 Skills
 </h1>
 
-<p>从脚本到视频、图像、语音、数字人、翻译与剪辑，Agent 在一个工作空间内推动整个创作流程。</p>
+<p>将可视化创作工具、可复用 Skills 与 Agent 融合在一个工作空间内，完成脚本、视频、图像、语音、数字人、翻译与剪辑。</p>
 
 <p><strong>OpenCreator 原名 KrillinAI。</strong></p>
 
@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[项目特色](#项目特色) · [创作工具](#创作工具) · [对话与工作区](#对话与工作区协同推进) · [支持的模型](#支持的模型) · [案例展示](#案例展示) · [快速开始](#快速开始) · [Desktop](#desktop) · [OpenCreator 系统架构](#opencreator-系统架构) · [开发指南](#开发指南) · [文档](#文档) · [贡献者](#贡献者) · [Star 趋势](#star-趋势)
+[项目特色](#项目特色) · [创作工具](#创作工具) · [Skills 技能](#skills-技能) · [对话与工作区](#对话与工作区协同推进) · [支持的模型](#支持的模型) · [案例展示](#案例展示) · [快速开始](#快速开始) · [Desktop](#desktop) · [OpenCreator 系统架构](#opencreator-系统架构) · [开发指南](#开发指南) · [文档](#文档) · [贡献者](#贡献者) · [Star 趋势](#star-趋势)
 
 </div>
 
@@ -54,7 +54,7 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 
 - 🕘 **版本管理**：每次修正创建新版本，保留历史配置与产出，方便回看和比较。
 
-- 🧩 **技能扩展**：浏览、安装并调用技能，通过 Codex 原生配置管理 MCP。
+- 🧩 **可复用 Skills**：使用项目包含的视频工作流技能，以自己的 Skills 扩展 Agent 能力，并通过 Codex 原生配置管理 MCP。
 
 - 🧠 **记忆摘要**：管理全局、项目和线程记忆，为每次 Run 保存摘要与输入快照。
 
@@ -95,6 +95,28 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 <tr><td valign="top">数字人口播</td><td valign="top">开发中</td><td>组合文案、声音和数字人形象，制作口播视频</td></tr>
 </tbody>
 </table>
+
+## Skills 技能
+
+创作工具提供可视化操作，Skills 则为 Agent 提供可复用的执行指引与工具工作流。OpenCreator 不仅支持管理本地 Codex Skills，还包含仓库中的视频制作技能，让工作流可以复用和扩展。
+
+### 视频工作流 Skills
+
+仓库的 [`skills/`](../../skills/) 目录提供了一组供 Agent 操作内嵌 KrillinAI CLI 的可复用指引。
+
+| Skill | 具体能力 |
+| --- | --- |
+| [KrillinAI CLI](../../skills/krillinai-cli/SKILL.md) | 选择命令、检查配置，并解析进度、产物清单、输出与错误 |
+| [字幕生成](../../skills/krillinai-subtitle/SKILL.md) | 获取平台字幕或转写音视频，翻译并生成双语字幕、竖屏短字幕 |
+| [字幕配音](../../skills/krillinai-tts/SKILL.md) | 根据字幕生成目标语言配音，并可进一步生成配音视频 |
+| [横屏合成](../../skills/krillinai-render-horizontal/SKILL.md) | 合成双语字幕横屏视频，或带目标语言字幕的配音视频 |
+| [竖屏合成](../../skills/krillinai-render-vertical/SKILL.md) | 生成包含标题、双语字幕或配音的竖屏视频 |
+| [封面生成](../../skills/krillinai-cover/SKILL.md) | 根据完整文字提示词生成封面，并保存图片与最终提示词 |
+| [流程规划](../../skills/krillinai-pipeline/SKILL.md) | 以 dry-run 校验多阶段产出计划；实际任务由各阶段 Skill 分别执行 |
+
+### 扩展自己的 Skills
+
+OpenCreator 支持以 `SKILL.md` 定义的本地 Codex Skills，可接入自己的方法与工作流，不必局限于固定创作工具。实际可用技能取决于当前 Codex home 与已安装 Skills；视频工作流技能需要配置 CLI 和相关服务。仓库包含某个 Skill，不代表它已自动安装，也不代表相关外部服务已随应用提供。
 
 ## 对话与工作区，协同推进
 

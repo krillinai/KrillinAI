@@ -6,10 +6,10 @@
     <img src="../images/OpenCreator_logo_vector.svg" alt="OpenCreator" width="380" />
   </picture>
   <br />
-  クリエイターのためのオープンソース AI ワークスペース
+  クリエイターのためのオープンソース AI ワークスペース & Skills
 </h1>
 
-<p>脚本から動画、画像、音声、アバター、翻訳、編集まで、Agent がひとつのワークスペースで制作プロセス全体を前進させます。</p>
+<p>可視化制作ツール、再利用可能な Skills、Agent をひとつのワークスペースに集約し、脚本、動画、画像、音声、アバター、翻訳、編集を進めます。</p>
 
 <p><strong>OpenCreator の旧称は KrillinAI です。</strong></p>
 
@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ グループ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[主な特徴](#主な特徴) · [制作ツール](#制作ツール) · [会話とワークスペース](#会話とワークスペースを連携して進める) · [対応モデル](#対応モデル) · [活用例](#活用例) · [クイックスタート](#クイックスタート) · [Desktop](#desktop) · [システム構成](#opencreator-システム構成) · [開発](#開発) · [ドキュメント](#ドキュメント) · [コントリビューター](#コントリビューター) · [Star 履歴](#star-履歴)
+[主な特徴](#主な特徴) · [制作ツール](#制作ツール) · [Skills](#skills) · [会話とワークスペース](#会話とワークスペースを連携して進める) · [対応モデル](#対応モデル) · [活用例](#活用例) · [クイックスタート](#クイックスタート) · [Desktop](#desktop) · [システム構成](#opencreator-システム構成) · [開発](#開発) · [ドキュメント](#ドキュメント) · [コントリビューター](#コントリビューター) · [Star 履歴](#star-履歴)
 
 </div>
 
@@ -54,7 +54,7 @@ Web が唯一のフロントエンド実装です。Desktop は同じ Web ビル
 
 - 🕘 **バージョン管理**：修正のたびに新しいバージョンを作成し、以前の設定と出力を比較・確認できる状態で保持します。
 
-- 🧩 **Skills と MCP**：Skills を閲覧、インストール、実行し、Codex ネイティブ設定を通じて MCP を管理できます。
+- 🧩 **再利用可能な Skills**：動画ワークフローの Skills を活用し、独自の Skills で Agent を拡張できます。MCP は Codex ネイティブ設定で管理します。
 
 - 🧠 **メモリ**：グローバル、プロジェクト、スレッド単位のメモリを保持し、要約と再現可能な Run 入力スナップショットを保存します。
 
@@ -90,6 +90,28 @@ Dashboard から、動画翻訳やダウンロード、サムネイル・画像�
 <tr><td valign="top">デジタルアバター</td><td valign="top">開発中</td><td>脚本、音声、アバター表現を組み合わせ、トーキングヘッド動画を制作します</td></tr>
 </tbody>
 </table>
+
+## Skills
+
+制作ツールは視覚的な操作を提供し、Skills は Agent に再利用可能な実行指針とツールのワークフローを提供します。OpenCreator はリポジトリに動画制作 Skills を含み、ローカルの Codex Skills の管理にも対応しています。
+
+### 動画ワークフロー Skills
+
+リポジトリの [`skills/`](../../skills/) ディレクトリには、内蔵の KrillinAI CLI を操作する Agent 向けの再利用可能な指針が含まれています。
+
+| Skill | 機能 |
+| --- | --- |
+| [KrillinAI CLI](../../skills/krillinai-cli/SKILL.md) | コマンドの選択、設定の確認、進捗・マニフェスト・出力・エラーの解釈 |
+| [字幕生成](../../skills/krillinai-subtitle/SKILL.md) | プラットフォームの字幕取得またはメディアの文字起こし、字幕翻訳、二言語字幕や縦型動画向け短文字幕の生成 |
+| [TTS](../../skills/krillinai-tts/SKILL.md) | 字幕から対象言語の吹き替えを生成し、必要に応じて吹き替え動画を作成 |
+| [横型レンダリング](../../skills/krillinai-render-horizontal/SKILL.md) | 二言語字幕付き横型動画、または吹き替え音声と対象言語字幕付き動画を生成 |
+| [縦型レンダリング](../../skills/krillinai-render-vertical/SKILL.md) | タイトル、二言語字幕、吹き替えを含む縦型動画を合成 |
+| [カバー生成](../../skills/krillinai-cover/SKILL.md) | 完成したテキストプロンプトからカバー画像を生成し、画像と最終プロンプトを保存 |
+| [パイプライン計画](../../skills/krillinai-pipeline/SKILL.md) | dry-run モードで複数段階の出力計画を検証し、実際の処理は各段階の Skills で個別に実行 |
+
+### 独自の Skills で拡張
+
+OpenCreator は `SKILL.md` で定義されたローカルの Codex Skills に対応しており、固定の制作ツールだけでなく独自の方法やワークフローを追加できます。利用可能な Skills は有効な Codex home とインストール済みの Skills によって異なり、動画ワークフロー Skills には CLI と関連サービスの設定が必要です。リポジトリに含まれていることは、自動インストールやすべての外部サービスの同梱を意味しません。
 
 ## 会話とワークスペースを連携して進める
 
