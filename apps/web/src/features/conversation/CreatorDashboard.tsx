@@ -98,7 +98,7 @@ const creatorSkillsByCategory: Record<CreatorSkillCategory, CreatorSkill[]> = {
     },
     {
       id: 'intelligent-clipping',
-      title: '智能剪辑',
+      title: '视频切片',
       category: '视频剪辑',
       image: '/dashboard/templates/intelligent-clipping-cover.png',
       interaction: { type: 'workspace', workspace: 'auto-clips' },
@@ -164,7 +164,12 @@ const creatorSkillsByCategory: Record<CreatorSkillCategory, CreatorSkill[]> = {
       id: 'short-video-script',
       title: '短视频脚本',
       category: '内容策划',
-      image: '/skill-market/examples/gpt-image-2-info-poster.png'
+      image: '/skill-market/examples/gpt-image-2-info-poster.png',
+      interaction: { type: 'workspace', workspace: 'short-video-script' },
+      promptHint: {
+        zhCN: '输入主题或素材，并设置目标受众、发布平台、时长和语气',
+        enUS: 'Enter a topic or source material, then set the audience, platform, duration, and tone'
+      }
     }
   ],
   数字人: [
@@ -367,17 +372,16 @@ function isVisibleCreatorSkill(skill: CreatorSkill): boolean {
 
 export function getCreatorSkillPromptHint(
   skill: CreatorSkill,
-  language: 'zh-CN' | 'en-US'
+  language: 'zh-CN' | 'en-US' | 'sv-SE'
 ): string {
   if (skill.promptHint !== undefined) {
-    return language === 'en-US' ? skill.promptHint.enUS : skill.promptHint.zhCN;
+    return language === 'zh-CN' ? skill.promptHint.zhCN : skill.promptHint.enUS;
   }
-  const title = language === 'en-US'
-    ? englishCreatorLabels[skill.title] ?? skill.title
-    : skill.title;
-  return language === 'en-US'
-    ? `Describe what you want to create with ${title} and any requirements`
-    : `描述你希望用「${title}」完成的内容和要求`;
+  if (language === 'zh-CN') {
+    return `描述你希望用「${skill.title}」完成的内容和要求`;
+  }
+  const title = englishCreatorLabels[skill.title] ?? skill.title;
+  return `Describe what you want to create with ${title} and any requirements`;
 }
 
 const englishCreatorLabels: Record<string, string> = {
@@ -394,7 +398,7 @@ const englishCreatorLabels: Record<string, string> = {
   数字人口播: 'Digital Avatar',
   火柴人动画: 'Stick Figure Animation',
   动画生成: 'Animation',
-  智能剪辑: 'Intelligent Curation',
+  视频切片: 'Video Clips',
   视频剪辑: 'Video Editing',
   封面生成: 'Cover Generation',
   创意短片策划: 'Creative Short Planning',

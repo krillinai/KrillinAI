@@ -11,6 +11,7 @@ export type MarkdownRendererProps = {
   className?: string;
   onLinkClick?: MarkdownLinkClickHandler;
   linkifyWorkspaceFiles?: boolean;
+  resolveImageSrc?(href: string): string | undefined;
 };
 
 const PRIVATE_CITATION_MARKER = /[ \t]*\uE200(?:cite|filecite|navlist)\uE202[^\uE201]*\uE201/gu;
@@ -79,12 +80,16 @@ function renderBlock(block: MarkdownBlock, key: number, options: MarkdownRendere
   }
 
   switch (block.kind) {
-    case 'paragraph':
+    case 'paragraph': {
+      const imageOnlyMatch = /^!\[[^\]\n]*\]\(([^)\s]+)\)$/u.exec(block.text.trim());
+      const imageOnly = imageOnlyMatch !== null
+        && options.resolveImageSrc?.(imageOnlyMatch[1]!) !== undefined;
       return (
-        <p key={key} className="md-p">
+        <p key={key} className={`md-p${imageOnly ? ' md-p-image-only' : ''}`}>
           {renderInlineMarkdown(block.text, options)}
         </p>
       );
+    }
     case 'heading': {
       const Tag = `h${block.level}` as 'h1' | 'h2' | 'h3' | 'h4';
       return (

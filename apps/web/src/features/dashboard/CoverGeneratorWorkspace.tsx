@@ -76,7 +76,10 @@ export default function CoverGeneratorWorkspace(props: {
     readCoverStyle(session?.state.coverStyle)
   ));
   const [coverTextLanguage, setCoverTextLanguage] = useState<CoverTextLanguage>(() => (
-    readCoverTextLanguagePreference(session?.state.coverTextLanguage, appLanguage)
+    readCoverTextLanguagePreference(
+      session?.state.coverTextLanguage,
+      appLanguage === 'sv-SE' ? 'en-US' : appLanguage
+    )
   ));
   const [customStylePrompt, setCustomStylePrompt] = useState(() => (
     readString(session?.state.customStylePrompt)
@@ -92,7 +95,7 @@ export default function CoverGeneratorWorkspace(props: {
   const [resultTab, setResultTab] = useState<CoverResultTab>(() => (
     readResultTab(session?.state.resultTab)
   ));
-  const [resultVersion, setResultVersion] = useState<number>();
+  const resultVersion = session?.job.state.resultVersion;
   const [artifactUrls, setArtifactUrls] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [taskControlPending, setTaskControlPending] = useState<
@@ -173,7 +176,6 @@ export default function CoverGeneratorWorkspace(props: {
 
   useEffect(() => {
     if (latestResult !== undefined) {
-      setResultVersion(latestResult.value);
       setCurrentStep(2);
       setFurthestStep(2);
       setResultTab('options');
@@ -464,14 +466,12 @@ export default function CoverGeneratorWorkspace(props: {
   }
 
   function selectVersion(version: number) {
-    setResultVersion(version);
     setResultTab('options');
     openStep(2);
   }
 
   function returnToResult() {
     if (selectedResult === undefined) return;
-    setResultVersion(selectedResult.value);
     setResultTab('options');
     openStep(2);
   }

@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenCreator Deploy"
+  short_description: "本地验证、候选构建与正式发布 OpenCreator"
+  default_prompt: "使用 $oc-deploy 完成本地打包验证，并按授权执行候选构建或正式发布。"

@@ -62,9 +62,9 @@ Web은 유일한 프런트엔드 구현입니다. Desktop은 동일한 Web 빌�
 
 ## 제작 도구
 
-현재 릴리스에는 네 가지 제작 도구가 포함되어 있습니다. 사용할 수 있는 모델과 서비스는 로컬 Codex 환경 및 AI 서비스 설정에 따라 달라집니다.
+현재 릴리스에는 여섯 가지 제작 도구가 포함되어 있습니다. 사용할 수 있는 모델과 서비스는 로컬 Codex 환경 및 AI 서비스 설정에 따라 달라집니다.
 
-Dashboard에서 동영상을 번역하고, 공개 동영상을 다운로드하고, 썸네일을 생성하거나 이미지를 만들 수 있습니다.
+Dashboard에서 동영상을 번역하거나 다운로드하고, 썸네일 또는 이미지를 생성하고, 스마트 더빙으로 음성 해설을 만들거나 Seedance로 동영상을 생성할 수 있습니다.
 
 ![OpenCreator 제작 Dashboard](../images/product/opencreator-dashboard-en.png)
 
@@ -85,8 +85,8 @@ Dashboard에서 동영상을 번역하고, 공개 동영상을 다운로드하�
 <tr><td valign="top">이미지 생성</td><td valign="top">✅ 사용 가능</td><td>프롬프트와 선택적 참조 이미지로 GPT Image를 사용해 이미지를 생성하고, 화면 비율과 출력 수를 설정한 뒤 각 이미지를 미리 보고 다운로드할 수 있습니다</td></tr>
 <tr><td valign="top">스틱 피겨 애니메이션</td><td valign="top">출시 예정</td><td>안내형 워크플로에서 캐릭터, 스토리보드, 음성 해설, 애니메이션을 제작합니다</td></tr>
 <tr><td valign="top">자동 클립</td><td valign="top">개발 중</td><td>긴 동영상을 분석하고 주요 장면을 찾아 선택한 순간을 재사용 가능한 짧은 클립으로 만듭니다</td></tr>
-<tr><td valign="top">스마트 더빙</td><td valign="top">개발 중</td><td>음성, 속도, 감정 표현을 선택해 스크립트를 음성 해설로 변환합니다</td></tr>
-<tr><td valign="top">동영상 생성</td><td valign="top">개발 중</td><td>프롬프트와 참조 이미지로 동영상을 생성한 뒤 미리 보고 내보냅니다</td></tr>
+<tr><td valign="top">스마트 더빙</td><td valign="top">✅ 사용 가능</td><td>음성, 속도, 감정 표현을 선택해 스크립트를 음성 해설로 변환합니다</td></tr>
+<tr><td valign="top">동영상 생성</td><td valign="top">✅ 사용 가능</td><td>Seedance를 사용해 프롬프트와 참조 이미지로 동영상을 생성하고 각 버전을 미리 보거나 다시 생성하거나 다운로드할 수 있습니다</td></tr>
 <tr><td valign="top">디지털 아바타</td><td valign="top">개발 중</td><td>스크립트, 음성, 아바타 표현을 결합해 말하는 인물 동영상을 제작합니다</td></tr>
 </tbody>
 </table>
@@ -115,7 +115,7 @@ Agent에게 변경할 내용을 알려 주고 자연어로 결과를 계속 다�
 
 ## 지원 모델
 
-언어 모델은 Codex 모델 카탈로그 또는 설정한 OpenAI 호환 공급자를 따릅니다. 이미지, 음성, 텍스트 변환 모델은 **설정 → AI 서비스**에서 구성한 서비스를 사용합니다.
+언어 모델은 Codex 모델 카탈로그 또는 설정한 OpenAI 호환 공급자를 따릅니다. 이미지, 동영상, 음성, 텍스트 변환 모델은 **설정 → AI 서비스**에서 구성한 서비스를 사용합니다.
 
 ### 언어 모델
 
@@ -141,6 +141,14 @@ Agent에게 변경할 내용을 알려 주고 자연어로 결과를 계속 다�
 <table>
 <tr>
 <td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+</tr>
+</table>
+
+### 동영상
+
+<table>
+<tr>
+<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
 </tr>
 </table>
 
@@ -193,6 +201,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </table>
 
 > 이 동영상 사례와 자막 정렬 이미지는 OpenCreator가 KrillinAI라는 이름을 사용하던 시기에 제작되었습니다.
+
+### 동영상 생성
+
+Seedance를 사용해 텍스트 프롬프트 또는 참조 이미지에서 AI 동영상을 생성합니다. 모델, 화면 비율, 해상도, 길이를 설정한 뒤 프로젝트 작업 공간에서 각 버전을 미리 보거나 다시 생성하거나 다운로드할 수 있습니다.
+
+![OpenCreator Seedance 동영상 생성](../images/examples/video-generation-seedance-en.png)
 
 ### 비디오 다운로드
 

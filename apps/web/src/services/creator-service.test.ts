@@ -52,6 +52,20 @@ describe('creator web service', () => {
       }),
       expectedRevision: 8
     });
+    await service.uploadArticleImage('job_1', {
+      file: new File(['image'], 'article.png', {
+        type: 'image/png',
+        lastModified: 654
+      }),
+      expectedRevision: 9
+    });
+    await service.uploadSourceDocument('job_1', {
+      file: new File(['document'], 'source.pdf', {
+        type: 'application/pdf',
+        lastModified: 789
+      }),
+      expectedRevision: 9
+    });
     await service.importArtifact('job_1', {
       expectedRevision: 9,
       sourceJobId: 'source job',
@@ -62,6 +76,8 @@ describe('creator web service', () => {
     await service.openArtifact('job_1', 'artifact 1');
     await service.deleteJob('job 1');
     await service.deleteJob('job 2', { deleteFiles: true });
+    await service.listVisualAssets('stickman-video', 'style');
+    await service.openVisualAssetPreview('stickman.style.paper-pencil', 2);
 
     expect(client.get).toHaveBeenCalledWith('/creator/jobs?projectId=project%201');
     expect(client.get).toHaveBeenCalledWith('/creator/jobs');
@@ -92,6 +108,16 @@ describe('creator web service', () => {
       expect.any(File),
       'application/vnd.opencreator.creator-reference-image'
     );
+    expect(client.postBinary).toHaveBeenCalledWith(
+      '/creator/jobs/job_1/article-image?expectedRevision=9&fileName=article.png&mime=image%2Fpng&lastModified=654',
+      expect.any(File),
+      'application/vnd.opencreator.creator-reference-image'
+    );
+    expect(client.postBinary).toHaveBeenCalledWith(
+      '/creator/jobs/job_1/source-document?expectedRevision=9&fileName=source.pdf&mime=application%2Fpdf&lastModified=789',
+      expect.any(File),
+      'application/vnd.opencreator.creator-document'
+    );
     expect(client.post).toHaveBeenNthCalledWith(
       9,
       '/creator/jobs/job_1/import-artifact',
@@ -106,6 +132,10 @@ describe('creator web service', () => {
     expect(client.rawGet).toHaveBeenCalledWith('/creator/jobs/job_1/artifacts/artifact%201/content');
     expect(client.delete).toHaveBeenNthCalledWith(1, '/creator/jobs/job%201');
     expect(client.delete).toHaveBeenNthCalledWith(2, '/creator/jobs/job%202?deleteFiles=true');
+    expect(client.get).toHaveBeenCalledWith('/creator/visual-assets?templateId=stickman-video&kind=style');
+    expect(client.rawGet).toHaveBeenCalledWith(
+      '/creator/visual-assets/stickman.style.paper-pencil/revisions/2/preview'
+    );
   });
 
   it('deduplicates stable SSE ids and reconnects with the last cursor', async () => {

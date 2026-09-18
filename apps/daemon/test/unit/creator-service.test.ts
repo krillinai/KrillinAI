@@ -29,6 +29,118 @@ function setup() {
 }
 
 describe('creator service', () => {
+  it('registers and deduplicates manually uploaded article images', () => {
+    const { db, service } = setup();
+    const job = service.createJob({
+      projectId: 'project_1',
+      templateId: 'wechat-article',
+      state: {}
+    });
+    const first = service.registerArticleImage(job.id, {
+      expectedRevision: job.revision,
+      path: join(tempDir, 'article-image.png'),
+      fileName: '配图.png',
+      mimeType: 'image/png',
+      size: 256,
+      sha256: '1234567890abcdef',
+      lastModified: null,
+      format: 'png'
+    });
+    const second = service.registerArticleImage(job.id, {
+      expectedRevision: first.job.revision,
+      path: join(tempDir, 'duplicate.png'),
+      fileName: '配图.png',
+      mimeType: 'image/png',
+      size: 256,
+      sha256: '1234567890abcdef',
+      lastModified: null,
+      format: 'png'
+    });
+
+    expect(first.artifact).toMatchObject({
+      kind: 'article_image',
+      metadata: {
+        fileName: 'article-upload-1234567890ab.png',
+        originalFileName: '配图.png',
+        source: 'local-upload'
+      }
+    });
+    expect(first.job.state.manualArticleImageArtifactIds).toEqual([first.artifact.id]);
+    expect(second.deduplicated).toBe(true);
+    expect(second.job.artifacts.filter(artifact => artifact.kind === 'article_image')).toHaveLength(1);
+    db.close();
+  });
+
+  it('registers and deduplicates source documents for WeChat article jobs', () => {
+    const { db, service } = setup();
+    const job = service.createJob({
+      projectId: 'project_1',
+      templateId: 'wechat-article',
+      state: {}
+    });
+    const first = service.registerSourceDocument(job.id, {
+      expectedRevision: job.revision,
+      path: join(tempDir, 'source.pdf'),
+      fileName: 'source.pdf',
+      mimeType: 'application/pdf',
+      size: 128,
+      sha256: 'same-document',
+      lastModified: null
+    });
+    const second = service.registerSourceDocument(job.id, {
+      expectedRevision: first.job.revision,
+      path: join(tempDir, 'duplicate.pdf'),
+      fileName: 'source.pdf',
+      mimeType: 'application/pdf',
+      size: 128,
+      sha256: 'same-document',
+      lastModified: null
+    });
+
+    expect(first.deduplicated).toBe(false);
+    expect(second.deduplicated).toBe(true);
+    expect(second.job.state.sourceDocumentArtifactIds).toEqual([first.artifact.id]);
+    expect(second.job.artifacts.filter(artifact => artifact.kind === 'source_document')).toHaveLength(1);
+    db.close();
+  });
+
+  it('rejects a source document when links and documents already total 10', () => {
+    const { db, service } = setup();
+    const sourceLinks = Array.from({ length: 9 }, (_, index) => ({
+      id: `source-${index}`,
+      url: `https://example.com/${index}`,
+      kind: 'webpage' as const,
+      label: `Source ${index}`
+    }));
+    const job = service.createJob({
+      projectId: 'project_1',
+      templateId: 'wechat-article',
+      state: { sourceLinks }
+    });
+    const tenth = service.registerSourceDocument(job.id, {
+      expectedRevision: job.revision,
+      path: join(tempDir, 'tenth.pdf'),
+      fileName: 'tenth.pdf',
+      mimeType: 'application/pdf',
+      size: 128,
+      sha256: 'tenth-document',
+      lastModified: null
+    });
+
+    expect(() => service.registerSourceDocument(job.id, {
+      expectedRevision: tenth.job.revision,
+      path: join(tempDir, 'eleventh.pdf'),
+      fileName: 'eleventh.pdf',
+      mimeType: 'application/pdf',
+      size: 128,
+      sha256: 'eleventh-document',
+      lastModified: null
+    })).toThrowError(expect.objectContaining<Partial<CreatorServiceError>>({
+      code: 'creator_source_limit_exceeded'
+    }));
+    db.close();
+  });
+
   it('deletes inactive jobs and rejects jobs with an active stage', () => {
     const { db, service } = setup();
     const inactive = service.createJob({
@@ -332,6 +444,9 @@ describe('creator service', () => {
       kind: 'target_subtitle',
       status: 'completed',
       path: join(tempDir, 'v1.srt'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { resultVersion: 1 }
     });
@@ -340,6 +455,9 @@ describe('creator service', () => {
       kind: 'dubbed_audio',
       status: 'completed',
       path: join(tempDir, 'v1.mp3'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [subtitleV1.id],
       metadata: { resultVersion: 1 }
     });
@@ -348,6 +466,9 @@ describe('creator service', () => {
       kind: 'target_subtitle',
       status: 'completed',
       path: join(tempDir, 'v2.srt'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { resultVersion: 2 }
     });
@@ -356,6 +477,9 @@ describe('creator service', () => {
       kind: 'dubbed_audio',
       status: 'completed',
       path: join(tempDir, 'v2.mp3'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [subtitleV2.id],
       metadata: { resultVersion: 2 }
     });
@@ -364,6 +488,9 @@ describe('creator service', () => {
       kind: 'horizontal_video',
       status: 'completed',
       path: join(tempDir, 'v2.mp4'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [audioV2.id, subtitleV2.id],
       metadata: { resultVersion: 2 }
     });
@@ -486,6 +613,9 @@ describe('creator service', () => {
       kind: 'horizontal_video',
       status: 'completed',
       path: join(tempDir, 'horizontal.mp4'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { resultVersion: 1 }
     });
@@ -494,6 +624,9 @@ describe('creator service', () => {
       kind: 'vertical_subtitle',
       status: 'completed',
       path: join(tempDir, 'vertical.srt'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { resultVersion: 1 }
     });
@@ -502,6 +635,9 @@ describe('creator service', () => {
       kind: 'vertical_video',
       status: 'completed',
       path: join(tempDir, 'vertical.mp4'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [verticalSubtitle.id],
       metadata: { resultVersion: 1 }
     });
@@ -586,6 +722,9 @@ describe('creator service', () => {
       kind: 'target_subtitle',
       status: 'completed',
       path: join(tempDir, 'subtitle-v1.srt'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: { resultVersion: 1 }
     });
@@ -594,6 +733,9 @@ describe('creator service', () => {
       kind: 'horizontal_video',
       status: 'completed',
       path: join(tempDir, 'video-v1.mp4'),
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [subtitle.id],
       metadata: { resultVersion: 1 }
     });

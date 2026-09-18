@@ -2,6 +2,9 @@ name: CI
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - master
   pull_request:
 
 permissions:
@@ -26,11 +29,25 @@ jobs:
         with:
           go-version-file: runtime/krillinai/go.mod
           cache-dependency-path: runtime/krillinai/go.sum
+      - name: Install CJK fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends fonts-noto-cjk
       - run: pnpm install --frozen-lockfile
+      - name: Validate writing templates
+        run: pnpm --filter @opencreator/writing-templates test
       - name: Audit high severity dependencies
         run: pnpm audit --audit-level high --ignore-registry-errors
         timeout-minutes: 5
       - run: pnpm krillinai:test
+      - name: Install CJK fonts for article PDF tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          test -f /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
+          test -f /usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc
+      - name: Prepare Electron for desktop tests
+        run: pnpm --filter @opencreator/desktop exec node -e "require('electron')"
       - run: pnpm test
       - run: pnpm release:verify-scheduled-task-upgrade
       - run: pnpm typecheck

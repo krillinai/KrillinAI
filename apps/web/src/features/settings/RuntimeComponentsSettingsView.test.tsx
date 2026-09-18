@@ -6,7 +6,7 @@ import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import { RuntimeComponentsSettingsView } from './RuntimeComponentsSettingsView.js';
 
 describe('RuntimeComponentsSettingsView', () => {
-  it('shows yt-dlp versions, source, schedule, and installs an available update', async () => {
+  it('shows current, latest, and updated versions, and installs an available update', async () => {
     const updateYtDlp = vi.fn(async () => status({
       source: 'managed',
       currentVersion: '2026.08.31.120000'
@@ -22,9 +22,9 @@ describe('RuntimeComponentsSettingsView', () => {
 
     expect(screen.getByRole('heading', { name: '第三方组件' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'yt-dlp nightly' })).toBeInTheDocument();
-    expect(screen.getAllByText('2026.08.29.232711')).toHaveLength(2);
-    expect(screen.getByText('内置版本')).toBeInTheDocument();
-    expect(screen.getByText('每 7 天自动检查更新，不会自动安装。')).toBeInTheDocument();
+    expect(screen.getAllByText('2026.08.29.232711')).toHaveLength(1);
+    expect(screen.getByText('更新时间')).toBeInTheDocument();
+    expect(screen.getByText('尚未检查')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', {
       name: '更新到 2026.08.31.120000'
@@ -45,8 +45,18 @@ describe('RuntimeComponentsSettingsView', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'yt-dlp 更新校验失败，当前版本仍可继续使用。'
     );
-    expect(screen.getByText('更新失败时，OpenCreator 会继续使用当前可用版本。'))
-      .toBeInTheDocument();
+    expect(screen.queryByText('更新失败时，OpenCreator 会继续使用当前可用版本。'))
+      .not.toBeInTheDocument();
+  });
+
+  it('shows a notice when a manual check finds no update', async () => {
+    const checkYtDlpUpdate = vi.fn(async () => status());
+    renderView({ checkYtDlpUpdate });
+
+    fireEvent.click(screen.getByRole('button', { name: '检查更新' }));
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('已经是最新版本'));
+    expect(checkYtDlpUpdate).toHaveBeenCalledWith(true);
   });
 });
 

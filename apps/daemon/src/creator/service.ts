@@ -9,9 +9,13 @@ import type {
   CreatorJobStatus,
   CreatorJson
 } from '@opencreator/protocol';
-import { writeFileSync } from 'node:fs';
+import { wechatArticleSourceLimit } from '@opencreator/protocol';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { basename, extname, join, dirname } from 'node:path';
 import type { CreatorRepository } from './repository.js';
+import { CreatorProviderRequestLedger } from './provider-requests.js';
+import { handleStickmanAction } from './stickman/action-handler.js';
 import {
   appendCreatorResultSnapshot,
   creatorResultSnapshotForVersion,
@@ -19,6 +23,7 @@ import {
 } from './result-snapshots.js';
 import type { CreatorTemplateRegistry } from './templates/types.js';
 import { videoTranslationArtifactRefsPatch } from './templates/video-translation-results.js';
+import { formatSrtTimestamp, parseSrt } from './validators/srt.js';
 
 export type CreatorService = ReturnType<typeof createCreatorService>;
 
@@ -36,8 +41,12 @@ export class CreatorServiceError extends Error {
 export function createCreatorService(input: {
   repository: CreatorRepository;
   templates: CreatorTemplateRegistry;
+  providerRequestLedger?: CreatorProviderRequestLedger;
+  jobsRoot?: string;
 }) {
   const { repository, templates } = input;
+  const providerRequestLedger = input.providerRequestLedger
+    ?? new CreatorProviderRequestLedger(repository);
 
   const getJob = (id: string): CreatorJob | undefined => repository.getJob(id);
 
@@ -132,10 +141,13 @@ export function createCreatorService(input: {
             current.revision
           );
         }
-        if (current.templateId !== 'video-translation') {
+        if (
+          current.templateId !== 'video-translation'
+          && current.templateId !== 'auto-clip'
+        ) {
           throw new CreatorServiceError(
             'creator_source_upload_unsupported',
-            'Local source upload is only supported for video translation jobs'
+            'Local source upload is only supported for video translation or video clip jobs'
           );
         }
         const duplicate = [...current.artifacts].reverse().find(artifact => (
@@ -406,6 +418,184 @@ export function createCreatorService(input: {
         };
       });
     },
+    registerArticleImage(jobId: string, input: {
+      expectedRevision: number;
+      path: string;
+      fileName: string;
+      mimeType: string;
+      size: number;
+      sha256: string;
+      lastModified: number | null;
+      format: 'png' | 'jpeg' | 'webp';
+    }): { job: CreatorJob; artifact: CreatorArtifact; deduplicated: boolean } {
+      return repository.transaction(() => {
+        const current = repository.getJob(jobId);
+        if (current === undefined) {
+          throw new CreatorServiceError('creator_job_not_found', 'Creator job not found');
+        }
+        if (current.revision !== input.expectedRevision) {
+          throw new CreatorServiceError(
+            'creator_revision_conflict',
+            'Creator job revision changed',
+            current.revision
+          );
+        }
+        if (current.templateId !== 'wechat-article') {
+          throw new CreatorServiceError(
+            'creator_article_image_upload_unsupported',
+            'Article image upload is only supported for WeChat article jobs'
+          );
+        }
+        const duplicate = [...current.artifacts].reverse().find(artifact => (
+          artifact.kind === 'article_image'
+          && artifact.status === 'completed'
+          && artifact.metadata.source === 'local-upload'
+          && artifact.metadata.sha256 === input.sha256
+        ));
+        const selectedIds = readStringArray(current.state.manualArticleImageArtifactIds);
+        if (duplicate !== undefined && selectedIds.includes(duplicate.id)) {
+          return { job: current, artifact: duplicate, deduplicated: true };
+        }
+        const extension = input.format === 'jpeg' ? 'jpg' : input.format;
+        const articleFileName = `article-upload-${input.sha256.slice(0, 12)}.${extension}`;
+        const artifact = duplicate ?? repository.insertArtifact({
+          jobId,
+          kind: 'article_image',
+          status: 'completed',
+          path: input.path,
+          sourceArtifactIds: [],
+          metadata: {
+            fileName: articleFileName,
+            originalFileName: input.fileName,
+            mimeType: input.mimeType,
+            size: input.size,
+            bytes: input.size,
+            sha256: input.sha256,
+            lastModified: input.lastModified,
+            format: input.format,
+            source: 'local-upload'
+          }
+        });
+        const revision = current.revision + 1;
+        const template = templates.get(current.templateId, current.templateVersion);
+        repository.updateJob({
+          id: jobId,
+          status: current.status,
+          revision,
+          state: template.inputSchema.parse({
+            ...current.state,
+            manualArticleImageArtifactIds: [...new Set([...selectedIds, artifact.id])]
+          }) as Record<string, CreatorJson>
+        });
+        repository.insertActivity({
+          jobId,
+          revision,
+          actor: 'user',
+          action: 'register-article-image',
+          summary: duplicate === undefined ? '上传文章配图' : '重新插入文章配图',
+          details: {
+            objectId: input.fileName,
+            affectedArtifactIds: [artifact.id]
+          }
+        });
+        return {
+          job: repository.getJob(jobId)!,
+          artifact,
+          deduplicated: duplicate !== undefined
+        };
+      });
+    },
+    registerSourceDocument(jobId: string, input: {
+      expectedRevision: number;
+      path: string;
+      fileName: string;
+      mimeType: string;
+      size: number;
+      sha256: string;
+      lastModified: number | null;
+    }): { job: CreatorJob; artifact: CreatorArtifact; deduplicated: boolean } {
+      return repository.transaction(() => {
+        const current = repository.getJob(jobId);
+        if (current === undefined) {
+          throw new CreatorServiceError('creator_job_not_found', 'Creator job not found');
+        }
+        if (current.revision !== input.expectedRevision) {
+          throw new CreatorServiceError(
+            'creator_revision_conflict',
+            'Creator job revision changed',
+            current.revision
+          );
+        }
+        if (current.templateId !== 'wechat-article') {
+          throw new CreatorServiceError(
+            'creator_document_upload_unsupported',
+            'Document upload is only supported for WeChat article jobs'
+          );
+        }
+        const duplicate = [...current.artifacts].reverse().find(artifact => (
+          artifact.kind === 'source_document'
+          && artifact.status === 'completed'
+          && artifact.metadata.sha256 === input.sha256
+        ));
+        const selectedIds = readStringArray(current.state.sourceDocumentArtifactIds);
+        if (duplicate !== undefined && selectedIds.includes(duplicate.id)) {
+          return { job: current, artifact: duplicate, deduplicated: true };
+        }
+        const sourceLinkCount = Array.isArray(current.state.sourceLinks)
+          ? current.state.sourceLinks.length
+          : 0;
+        if (sourceLinkCount + selectedIds.length >= wechatArticleSourceLimit) {
+          throw new CreatorServiceError(
+            'creator_source_limit_exceeded',
+            `A WeChat article can use at most ${wechatArticleSourceLimit} inspiration sources`
+          );
+        }
+        const artifact = duplicate ?? repository.insertArtifact({
+          jobId,
+          kind: 'source_document',
+          status: 'completed',
+          path: input.path,
+          sourceArtifactIds: [],
+          metadata: {
+            fileName: input.fileName,
+            mimeType: input.mimeType,
+            size: input.size,
+            bytes: input.size,
+            sha256: input.sha256,
+            lastModified: input.lastModified,
+            source: 'local-upload'
+          }
+        });
+        const revision = current.revision + 1;
+        const template = templates.get(current.templateId, current.templateVersion);
+        repository.updateJob({
+          id: jobId,
+          status: 'draft',
+          revision,
+          state: template.inputSchema.parse({
+            ...current.state,
+            sourceDocumentArtifactIds: [...new Set([...selectedIds, artifact.id])],
+            currentStage: null
+          }) as Record<string, CreatorJson>
+        });
+        repository.insertActivity({
+          jobId,
+          revision,
+          actor: 'user',
+          action: 'register-source-document',
+          summary: duplicate === undefined ? '上传内容灵感' : '重新选择内容灵感',
+          details: {
+            objectId: input.fileName,
+            affectedArtifactIds: [artifact.id]
+          }
+        });
+        return {
+          job: repository.getJob(jobId)!,
+          artifact,
+          deduplicated: duplicate !== undefined
+        };
+      });
+    },
     bindAgentThread(jobId: string, threadId: string): CreatorJob {
       return repository.transaction(() => {
         const current = repository.getJob(jobId);
@@ -426,6 +616,8 @@ export function createCreatorService(input: {
       deepLink?: string;
       resumeStageId?: string;
       workflow?: boolean;
+      reviewKind?: 'approve-script';
+      artifactId?: string;
     }): CreatorJob {
       return repository.transaction(() => {
         const current = repository.getJob(jobId);
@@ -445,6 +637,8 @@ export function createCreatorService(input: {
                 ? {}
                 : { resumeStageId: input.resumeStageId }),
               ...(input.workflow === undefined ? {} : { workflow: input.workflow })
+              , ...(input.reviewKind === undefined ? {} : { kind: input.reviewKind })
+              , ...(input.artifactId === undefined ? {} : { artifactId: input.artifactId })
             }
           }
         });
@@ -487,11 +681,40 @@ export function createCreatorService(input: {
         let nextState = { ...current.state };
         let nextStatus: CreatorJobStatus = current.status;
         const affectedArtifactIds: string[] = [];
+        const stickmanAction = handleStickmanAction({
+          repository,
+          current,
+          action: request.action,
+          parsedInput,
+          actor,
+          newRevision
+        });
+        if (stickmanAction.handled) {
+          nextState = stickmanAction.state;
+          nextStatus = stickmanAction.status;
+          affectedArtifactIds.push(...stickmanAction.affectedArtifactIds);
+        }
 
-        if (request.action === 'update-settings' || request.action === 'undo-action') {
+        if (stickmanAction.handled) {
+          // Template-specific mutations have already produced the authoritative state.
+        } else if (request.action === 'select-result-version') {
+          if (current.status === 'running' || current.stages.some(stage => (
+            stage.status === 'queued' || stage.status === 'running'
+          ))) {
+            throw new CreatorServiceError('creator_job_has_active_run', 'Wait for the active stage before selecting a result version');
+          }
+          const version = readResultVersion(current, parsedInput.version, 'version', true)!;
+          const snapshot = creatorResultSnapshotForVersion(current, version)!;
+          // Selecting a result changes only the existing project selection, never its history or validity.
+          nextState.resultVersion = version;
+          affectedArtifactIds.push(...Object.values(snapshot.artifactRefs).flat());
+        } else if (request.action === 'update-settings' || request.action === 'undo-action') {
           const patch = readNonEmptyRecord(parsedInput.patch, 'patch');
           nextState = { ...nextState, ...patch };
-          if (current.templateId === 'video-translation' && nextState.sourceType === 'url') {
+          if (
+            (current.templateId === 'video-translation' || current.templateId === 'auto-clip')
+            && nextState.sourceType === 'url'
+          ) {
             nextState.sourceArtifactId = null;
           }
           if (shouldClearTtsConfigurationRequest(current, nextState)) {
@@ -502,6 +725,71 @@ export function createCreatorService(input: {
                 : 'draft';
             }
           }
+        } else if (request.action === 'import-subtitle') {
+          if (input.jobsRoot === undefined || current.templateId !== 'video-translation') {
+            throw new CreatorServiceError('creator_action_not_allowed', 'Subtitle import is unavailable');
+          }
+          if (current.stages.some(stage => stage.status === 'queued' || stage.status === 'running')) {
+            throw new CreatorServiceError('creator_job_has_active_run', 'Stop the active task before replacing subtitles');
+          }
+          const fileName = basename(readString(parsedInput.fileName, 'fileName').replaceAll('\\', '/'));
+          const encoded = readString(parsedInput.contentBase64, 'contentBase64');
+          const language = readString(parsedInput.language, 'language');
+          const kind = parsedInput.kind;
+          if (!/\.srt$/i.test(fileName) || !/^[a-zA-Z][a-zA-Z0-9_-]{0,34}$/.test(language)
+            || (kind !== 'source_subtitle' && kind !== 'target_subtitle')
+            || encoded.length > 700_000) {
+            throw new CreatorServiceError('creator_action_invalid', 'Import requires an SRT file (maximum 512 KiB), subtitle type and language');
+          }
+          const bytes = Buffer.from(encoded, 'base64');
+          let content: string;
+          let cues: ReturnType<typeof parseSrt>;
+          try {
+            if (bytes.toString('base64') !== encoded) throw new Error('Invalid base64 file content');
+            if (bytes.length > 512 * 1024) throw new Error('SRT exceeds 512 KiB');
+            content = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+            if (content.includes('\u0000')) throw new Error('SRT must be UTF-8');
+            cues = parseSrt(content);
+          } catch (error) {
+            throw new CreatorServiceError('creator_action_invalid', `Invalid UTF-8 SRT: ${error instanceof Error ? error.message : String(error)}`);
+          }
+          const resultVersion = nextCreatorResultVersion(current);
+          const directory = join(input.jobsRoot, current.id, 'subtitles');
+          mkdirSync(directory, { recursive: true });
+          const path = join(directory, `${kind}-${randomUUID()}.srt`);
+          writeFileSync(path, content.replace(/^\uFEFF/, ''), { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+          const downstreamKinds = new Set(['dubbed_audio', 'dubbed_video', 'horizontal_video', 'vertical_video', 'bilingual_subtitle', 'vertical_subtitle', ...(kind === 'source_subtitle' ? ['target_subtitle'] : [])]);
+          const replaced = current.artifacts.filter(artifact => artifact.kind === kind
+            || (kind === 'source_subtitle' && artifact.kind === 'target_subtitle'));
+          // Older subtitle runs recorded sibling outputs without edges between subtitle variants.
+          const variants = current.artifacts.filter(artifact => (
+            ['bilingual_subtitle', 'vertical_subtitle', ...(kind === 'source_subtitle' ? ['target_subtitle'] : [])].includes(artifact.kind)
+            && typeof artifact.metadata.resultVersion === 'number'
+            && replaced.some(source => source.metadata.resultVersion === artifact.metadata.resultVersion)
+          ));
+          for (const source of [...replaced, ...variants]) {
+            for (const artifact of [...(variants.includes(source) ? [source] : []), ...dependentArtifacts(current.artifacts, source.id)]) {
+              if (artifact.status !== 'completed' || !downstreamKinds.has(artifact.kind) || affectedArtifactIds.includes(artifact.id)) continue;
+              repository.setArtifactStatus(artifact.id, 'stale');
+              affectedArtifactIds.push(artifact.id);
+            }
+          }
+          const artifact = repository.insertArtifact({
+            jobId, kind, status: 'completed', path, sourceArtifactIds: [],
+            metadata: { fileName, source: 'local-upload', language, cueCount: cues.length, size: bytes.length, resultVersion,
+              cues: cues.map(cue => ({ id: cue.index, start: formatSrtTimestamp(cue.startMs), end: formatSrtTimestamp(cue.endMs), text: cue.text })) }
+          });
+          const artifactRefsPatch = Object.fromEntries([...downstreamKinds].map(value => [value, [] as string[]]));
+          if (kind === 'target_subtitle') artifactRefsPatch.source_subtitle = [];
+          nextState = { ...nextState, currentStage: null, needsInput: null,
+            importedSourceSubtitleId: kind === 'source_subtitle' ? artifact.id : null,
+            importedTargetSubtitleId: kind === 'target_subtitle' ? artifact.id : null,
+            [kind === 'source_subtitle' ? 'sourceLanguage' : 'targetLanguage']: language };
+          nextState = { ...nextState, ...appendCreatorResultSnapshot({ job: current, version: resultVersion,
+            changedArtifacts: [artifact], artifactRefsPatch, staleArtifactIds: affectedArtifactIds,
+            action: request.action, description: '导入本地字幕', state: nextState }) };
+          affectedArtifactIds.push(artifact.id);
+          nextStatus = 'draft';
         } else if (request.action === 'edit-subtitle') {
           const artifactId = readString(parsedInput.artifactId, 'artifactId');
           const preserveResultVersion = readOptionalBoolean(
@@ -673,53 +961,6 @@ export function createCreatorService(input: {
               state: nextState
             })
           };
-        } else if (request.action === 'edit-script-segment') {
-          const artifactId = readString(parsedInput.artifactId, 'artifactId');
-          const source = current.artifacts.find(artifact => artifact.id === artifactId);
-          if (source === undefined || source.kind !== 'script_segment') {
-            throw new CreatorServiceError('creator_artifact_not_found', 'Script segment artifact was not found');
-          }
-          const invalidKinds = new Set(
-            templates.resolveInvalidatedArtifactKinds(
-              current.templateId,
-              current.templateVersion,
-              request.action
-            )
-          );
-          const resultVersion = nextCreatorResultVersion(current);
-          for (const artifact of dependentArtifacts(current.artifacts, artifactId)) {
-            if (!invalidKinds.has(artifact.kind) || artifact.status === 'stale') continue;
-            repository.setArtifactStatus(artifact.id, 'stale');
-            affectedArtifactIds.push(artifact.id);
-          }
-          const nextSegment = repository.insertArtifact({
-            jobId,
-            kind: 'script_segment',
-            status: 'completed',
-            path: source.path,
-            sourceArtifactIds: source.sourceArtifactIds,
-            metadata: {
-              ...source.metadata,
-              narration: readString(parsedInput.narration, 'narration'),
-              ...(typeof parsedInput.visualPrompt === 'string'
-                ? { visualPrompt: parsedInput.visualPrompt }
-                : {}),
-              editedFromArtifactId: source.id,
-              resultVersion
-            }
-          });
-          affectedArtifactIds.push(nextSegment.id);
-          nextState = {
-            ...nextState,
-            ...appendCreatorResultSnapshot({
-              job: current,
-              version: resultVersion,
-              changedArtifacts: [nextSegment],
-              staleArtifactIds: affectedArtifactIds.filter(id => id !== nextSegment.id),
-              action: request.action,
-              description: '保存脚本修改'
-            })
-          };
         } else if (request.action === 'commit-version') {
           const baseResultVersion = readResultVersion(
             current,
@@ -753,6 +994,59 @@ export function createCreatorService(input: {
           nextState = { ...nextState, currentStage: stageId };
           delete nextState.needsInput;
           nextStatus = 'running';
+        } else if (request.action === 'retry-stage') {
+          const stageId = readString(parsedInput.stageId, 'stageId');
+          const scopeKey = typeof parsedInput.scopeKey === 'string'
+            ? parsedInput.scopeKey
+            : null;
+          if (providerRequestLedger.unresolvedForStage({ jobId, stageId, scopeKey }).length > 0) {
+            throw new CreatorServiceError(
+              'creator_provider_resolution_required',
+              'Provider request acceptance must be resolved before retrying this stage'
+            );
+          }
+          nextState = { ...nextState, currentStage: stageId };
+          delete nextState.needsInput;
+          nextStatus = 'running';
+        } else if (request.action === 'resolve-provider-request') {
+          const ledgerId = readString(parsedInput.ledgerId, 'ledgerId');
+          const ledger = current.providerRequests.find(item => item.id === ledgerId);
+          if (ledger === undefined) {
+            throw new CreatorServiceError(
+              'creator_provider_request_not_found',
+              'Creator provider request was not found'
+            );
+          }
+          const decision = readString(parsedInput.decision, 'decision');
+          if (decision === 'confirm-resubmit') {
+            if (actor !== 'user' || parsedInput.acceptDuplicateBilling !== true) {
+              throw new CreatorServiceError(
+                'creator_provider_confirmation_required',
+                'Only a user can confirm a potentially duplicate billed request'
+              );
+            }
+            providerRequestLedger.confirmResubmit(ledgerId);
+            nextStatus = 'running';
+            delete nextState.needsInput;
+          } else if (decision === 'cancel-scope') {
+            providerRequestLedger.cancelScope(ledgerId);
+            const stage = current.stages.find(item => item.id === ledger.stageRunId);
+            if (stage !== undefined && !['succeeded', 'failed', 'canceled', 'interrupted'].includes(stage.status)) {
+              repository.updateStageRun({
+                id: stage.id,
+                status: 'canceled',
+                errorCode: 'creator_provider_scope_canceled',
+                errorMessage: 'Provider request scope was canceled by the user'
+              });
+            }
+          } else if (decision === 'query') {
+            nextStatus = 'needs_input';
+          } else {
+            throw new CreatorServiceError(
+              'creator_action_invalid',
+              'Unsupported provider request decision'
+            );
+          }
         }
 
         repository.updateJob({
@@ -788,6 +1082,10 @@ export function createCreatorService(input: {
   };
 }
 
+function readStringArray(value: CreatorJson | undefined): string[] {
+  return Array.isArray(value) ? value.filter(item => typeof item === 'string') : [];
+}
+
 function shouldClearTtsConfigurationRequest(
   job: CreatorJob,
   nextState: Record<string, CreatorJson>
@@ -818,8 +1116,14 @@ function writeActivity(input: {
     objectId: typeof objectId === 'string' ? objectId : '',
     affectedArtifactIds: input.affectedArtifactIds
   };
+  if (input.action === 'select-result-version') details.version = input.input.version!;
   if (input.action === 'run-stage' && typeof input.input.stageId === 'string') {
     details.stageId = input.input.stageId;
+  }
+  if (input.action === 'resolve-provider-request') {
+    details.ledgerId = input.input.ledgerId ?? null;
+    details.decision = input.input.decision ?? null;
+    details.revision = input.input.revision ?? null;
   }
   if (
     input.action === 'update-settings'
@@ -867,6 +1171,13 @@ function activityInputFor(
   action: string,
   input: Record<string, CreatorJson>
 ): Record<string, CreatorJson> {
+  if (action === 'resolve-provider-request') {
+    return {
+      ledgerId: input.ledgerId ?? null,
+      decision: input.decision ?? null,
+      revision: input.revision ?? null
+    };
+  }
   if (action !== 'update-settings') return input;
   const patch = input.patch;
   if (patch === null || Array.isArray(patch) || typeof patch !== 'object') return input;
@@ -1019,12 +1330,17 @@ function dependentArtifacts(artifacts: CreatorArtifact[], sourceId: string): Cre
 }
 
 function summarizeAction(action: string, input: Record<string, CreatorJson>): string {
+  if (action === 'select-result-version') return `选择项目结果 V${String(input.version)}`;
+  if (action === 'import-subtitle') return '导入本地字幕并保留旧版本';
   if (action === 'edit-subtitle') return '更新字幕并保留下游旧版本';
   if (action === 'commit-version') return '保存项目版本设置';
   if (action === 'run-stage') return `启动阶段 ${String(input.stageId ?? '')}`.trim();
+  if (action === 'retry-stage') return `重试阶段 ${String(input.stageId ?? '')}`.trim();
+  if (action === 'resolve-provider-request') return '处置计费服务请求';
   if (action === 'undo-action') return '撤销上一次创作修改';
   return '更新创作设置';
 }
+
 
 function readNonEmptyRecord(value: CreatorJson | undefined, field: string): Record<string, CreatorJson> {
   if (value === null || Array.isArray(value) || typeof value !== 'object') {

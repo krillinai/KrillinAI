@@ -22,7 +22,7 @@ import {
   WandSparkles,
   X
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
@@ -99,6 +99,7 @@ export default function VideoGenerationWorkspace(props: {
   const [referenceImageFile, setReferenceImageFile] = useState<File>();
   const [referenceImageUrl, setReferenceImageUrl] = useState('');
   const initialProvider = readProvider(session?.state.provider);
+  const settingsRevision = useRef(0);
   const [modelDefaults, setModelDefaults] = useState<Record<VideoGenerationProvider, string>>(
     () => ({ ...defaultVideoGenerationModels })
   );
@@ -110,7 +111,7 @@ export default function VideoGenerationWorkspace(props: {
   const [duration, setDuration] = useState<VideoGenerationDuration>(() => (
     readDuration(session?.state.duration, readProvider(session?.state.provider))
   ));
-  const [resultVersion, setResultVersion] = useState<number>();
+  const resultVersion = session?.job.state.resultVersion;
   const [videoUrl, setVideoUrl] = useState('');
   const [previewError, setPreviewError] = useState('');
   const [error, setError] = useState('');
@@ -185,23 +186,21 @@ export default function VideoGenerationWorkspace(props: {
     : videoPhaseLabel(readString(latestStage.progress.phase), l);
 
   useEffect(() => {
-    if (latestVersion !== undefined) setResultVersion(latestVersion);
-  }, [latestVersion]);
-
-  useEffect(() => {
     if (props.creatorServicesService === null || props.creatorServicesService === undefined) {
       return undefined;
     }
     let active = true;
+    const revision = settingsRevision.current;
     void props.creatorServicesService.getConfig()
       .then(response => {
         if (!active) return;
         const defaults = videoModelDefaults(response.config);
+        setModelDefaults(defaults);
+        if (settingsRevision.current !== revision) return;
         const savedProvider = readOptionalProvider(session?.state.provider);
         const nextProvider = savedProvider ?? response.config.video.provider;
         const nextModel = readOptionalModel(session?.state.model) ?? defaults[nextProvider];
         const nextDuration = readDuration(session?.state.duration, nextProvider);
-        setModelDefaults(defaults);
         setProvider(nextProvider);
         setModel(nextModel);
         setDuration(nextDuration);
@@ -306,6 +305,7 @@ export default function VideoGenerationWorkspace(props: {
   }
 
   function updateProvider(nextProvider: VideoGenerationProvider) {
+    settingsRevision.current += 1;
     const nextDurations = providerDurations[nextProvider];
     const nextDuration = nextDurations.includes(duration) ? duration : nextDurations[0]!;
     const nextModel = modelDefaults[nextProvider] || defaultVideoGenerationModels[nextProvider];
@@ -321,6 +321,7 @@ export default function VideoGenerationWorkspace(props: {
   }
 
   function updateModel(nextModel: string) {
+    settingsRevision.current += 1;
     setModel(nextModel);
     session?.updateDraft({ model: nextModel });
     setError('');
@@ -333,6 +334,7 @@ export default function VideoGenerationWorkspace(props: {
   }
 
   function updateDuration(nextDuration: VideoGenerationDuration) {
+    settingsRevision.current += 1;
     setDuration(nextDuration);
     session?.updateDraft({ duration: nextDuration });
     setError('');
@@ -469,7 +471,6 @@ export default function VideoGenerationWorkspace(props: {
   }
 
   function selectVersion(version: number) {
-    setResultVersion(version);
     openStep(2);
     setNotice(l(`正在查看 V${version}`, `Viewing V${version}`));
   }

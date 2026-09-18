@@ -72,6 +72,8 @@ function job(status: CreatorJob['stages'][number]['status'], revision = 1): Crea
       claimExpiresAt: null,
       attempt: 1,
       idempotencyKey: 'stage_1',
+      scopeKey: null,
+      inputFingerprint: null,
       progress: {},
       errorCode: null,
       errorMessage: null,
@@ -79,6 +81,7 @@ function job(status: CreatorJob['stages'][number]['status'], revision = 1): Crea
       finishedAt: status === 'running' ? null : '2026-09-03T00:00:01.000Z'
     }],
     artifacts: [],
+    providerRequests: [],
     activities: [],
     createdAt: '2026-09-03T00:00:00.000Z',
     updatedAt: '2026-09-03T00:00:01.000Z'

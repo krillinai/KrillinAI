@@ -211,7 +211,7 @@ function runYtDlp(
       for (const line of lines) reportYtDlpRetry(line, stage);
     });
     child.once('error', reject);
-    child.once('exit', code => {
+    child.once('close', code => {
       if (pendingStderr) reportYtDlpRetry(pendingStderr, stage);
       if (code === 0 && stdout.trim()) {
         resolve(stdout);

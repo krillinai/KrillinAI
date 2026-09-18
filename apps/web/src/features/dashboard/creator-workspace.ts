@@ -4,6 +4,9 @@ export type CreatorWorkspace =
   | 'stickman-video'
   | 'auto-clips'
   | 'smart-dubbing'
+  | 'xiaohongshu-post'
+  | 'short-video-script'
+  | 'wechat-article'
   | 'digital-avatar'
   | 'cover-generator'
   | 'image-generation'
@@ -15,6 +18,9 @@ export const creatorWorkspaces = [
   'stickman-video',
   'auto-clips',
   'smart-dubbing',
+  'xiaohongshu-post',
+  'short-video-script',
+  'wechat-article',
   'digital-avatar',
   'cover-generator',
   'image-generation',
@@ -24,7 +30,12 @@ export const creatorWorkspaces = [
 export const visibleCreatorWorkspaces = [
   'video-translation',
   'video-download',
+  'stickman-video',
+  'auto-clips',
   'smart-dubbing',
+  'xiaohongshu-post',
+  'short-video-script',
+  'wechat-article',
   'cover-generator',
   'image-generation',
   'video-generation'
@@ -36,6 +47,9 @@ export const creatorRuntimeWorkspaces = [
   'stickman-video',
   'auto-clips',
   'smart-dubbing',
+  'xiaohongshu-post',
+  'short-video-script',
+  'wechat-article',
   'cover-generator',
   'image-generation',
   'video-generation'
@@ -49,6 +63,9 @@ const templateByWorkspace: Record<CreatorRuntimeWorkspace, string> = {
   'stickman-video': 'stickman-video',
   'auto-clips': 'auto-clip',
   'smart-dubbing': 'smart-dubbing',
+  'xiaohongshu-post': 'xiaohongshu-post',
+  'short-video-script': 'short-video-script',
+  'wechat-article': 'wechat-article',
   'cover-generator': 'cover',
   'image-generation': 'image-generation',
   'video-generation': 'video-generation'

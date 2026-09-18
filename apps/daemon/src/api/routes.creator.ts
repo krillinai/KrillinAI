@@ -44,6 +44,11 @@ import {
   VideoTranslationWorkflowError,
   type VideoTranslationWorkflow
 } from '../creator/templates/video-translation-actions.js';
+import type { StickmanVideoWorkflow } from '../creator/templates/stickman-video-actions.js';
+import {
+  StickmanVisualAssetError,
+  type StickmanVisualAssetRegistry
+} from '../creator/stickman/visual-assets.js';
 import type { CreatorProjectCoverService } from '../creator/project-cover.js';
 import type { CreatorStageRunner } from '../creator/stage-runner.js';
 import { CreatorPreflightError, type CreatorPreflight } from '../creator/preflight.js';
@@ -61,6 +66,11 @@ import {
   CreatorSourceUploadError,
   type CreatorSourceUploadService
 } from '../creator/source-upload.js';
+import {
+  CREATOR_DOCUMENT_UPLOAD_CONTENT_TYPE,
+  CreatorDocumentUploadError,
+  type CreatorDocumentUploadService
+} from '../creator/document-upload.js';
 
 export async function registerCreatorRoutes(
   server: FastifyInstance,
@@ -71,16 +81,66 @@ export async function registerCreatorRoutes(
     agentService?: CreatorAgentService;
     coverWorkflow?: CoverWorkflow;
     videoTranslationWorkflow?: VideoTranslationWorkflow;
+    stickmanVideoWorkflow?: StickmanVideoWorkflow;
+    stickmanVisualAssets?: StickmanVisualAssetRegistry;
     projectCoverService?: CreatorProjectCoverService;
     referenceImageUploadService?: CreatorReferenceImageUploadService;
     sourceUploadService?: CreatorSourceUploadService;
+    documentUploadService?: CreatorDocumentUploadService;
     artifactImportService?: CreatorArtifactImportService;
     jobsRoot: string;
     dispatcher: CreatorCommandDispatcher;
     preflight?: Pick<CreatorPreflight, 'check'>;
-    stageRunner?: Pick<CreatorStageRunner, 'cancel'>;
+    stageRunner?: Pick<CreatorStageRunner, 'cancel' | 'cancelJob'>;
   }
 ): Promise<void> {
+  if (options.stickmanVisualAssets !== undefined) {
+    server.get('/creator/visual-assets', async (request, reply) => {
+      try {
+        const query = readObject(request.query);
+        const templateId = readString(query.templateId, 'templateId');
+        if (templateId !== 'stickman-video') {
+          return reply.code(404).send(apiError(
+            'creator_artifact_not_found',
+            'Creator visual asset catalog was not found'
+          ));
+        }
+        const kind = query.kind === undefined ? undefined : readString(query.kind, 'kind');
+        if (kind !== undefined && kind !== 'character' && kind !== 'style') {
+          throw new TypeError('kind must be character or style');
+        }
+        return options.stickmanVisualAssets!.list(kind);
+      } catch (error) {
+        return sendCreatorError(reply, error);
+      }
+    });
+    server.get(
+      '/creator/visual-assets/:id/revisions/:revision/preview',
+      async (request, reply) => {
+        try {
+          const { id, revision } = request.params as { id: string; revision: string };
+          const preview = options.stickmanVisualAssets!.preview({
+            assetId: id,
+            revision: readQueryInteger(revision, 'revision')
+          });
+          if (preview === undefined) {
+            return reply.code(404).send(apiError(
+              'creator_artifact_not_found',
+              'Creator visual asset preview was not found'
+            ));
+          }
+          return reply
+            .type(preview.mimeType)
+            .header('Cache-Control', 'private, max-age=86400, immutable')
+            .header('Content-Disposition', 'inline')
+            .send(preview.stream);
+        } catch (error) {
+          return sendCreatorError(reply, error);
+        }
+      }
+    );
+  }
+
   if (options.sourceUploadService !== undefined) {
     server.addContentTypeParser(
       CREATOR_SOURCE_UPLOAD_CONTENT_TYPE,
@@ -132,6 +192,78 @@ export async function registerCreatorRoutes(
             throw new TypeError('body must be an image stream');
           }
           const response = await options.referenceImageUploadService!.upload({
+            jobId: id,
+            expectedRevision: readQueryInteger(query.expectedRevision, 'expectedRevision'),
+            fileName: readString(query.fileName, 'fileName'),
+            mimeType: readString(query.mime, 'mime'),
+            lastModified: query.lastModified === undefined
+              ? null
+              : readQueryInteger(query.lastModified, 'lastModified'),
+            source: request.body
+          });
+          events.publish({
+            id: `snapshot:${response.job.revision}`,
+            jobId: response.job.id,
+            revision: response.job.revision,
+            kind: 'snapshot_changed',
+            payload: { revision: response.job.revision }
+          });
+          return reply.code(response.deduplicated ? 200 : 201).send(response);
+        } catch (error) {
+          return sendCreatorError(reply, error);
+        }
+      }
+    );
+    server.post<{ Body: Readable }>(
+      '/creator/jobs/:id/article-image',
+      async (request, reply) => {
+        const { id } = request.params as { id: string };
+        try {
+          const query = readObject(request.query);
+          if (!isReadable(request.body)) {
+            throw new TypeError('body must be an image stream');
+          }
+          const response = await options.referenceImageUploadService!.upload({
+            jobId: id,
+            expectedRevision: readQueryInteger(query.expectedRevision, 'expectedRevision'),
+            fileName: readString(query.fileName, 'fileName'),
+            mimeType: readString(query.mime, 'mime'),
+            lastModified: query.lastModified === undefined
+              ? null
+              : readQueryInteger(query.lastModified, 'lastModified'),
+            source: request.body,
+            purpose: 'article'
+          });
+          events.publish({
+            id: `snapshot:${response.job.revision}`,
+            jobId: response.job.id,
+            revision: response.job.revision,
+            kind: 'snapshot_changed',
+            payload: { revision: response.job.revision }
+          });
+          return reply.code(response.deduplicated ? 200 : 201).send(response);
+        } catch (error) {
+          return sendCreatorError(reply, error);
+        }
+      }
+    );
+  }
+
+  if (options.documentUploadService !== undefined) {
+    server.addContentTypeParser(
+      CREATOR_DOCUMENT_UPLOAD_CONTENT_TYPE,
+      (_request, payload, done) => done(null, payload)
+    );
+    server.post<{ Body: Readable }>(
+      '/creator/jobs/:id/source-document',
+      async (request, reply) => {
+        const { id } = request.params as { id: string };
+        try {
+          const query = readObject(request.query);
+          if (!isReadable(request.body)) {
+            throw new TypeError('body must be a document stream');
+          }
+          const response = await options.documentUploadService!.upload({
             jobId: id,
             expectedRevision: readQueryInteger(query.expectedRevision, 'expectedRevision'),
             fileName: readString(query.fileName, 'fileName'),
@@ -299,10 +431,10 @@ export async function registerCreatorRoutes(
         );
       }
       const job = requireCreatorJob(service, id);
-      const activeStage = latestStageMatching(job, stage => (
+      const activeStages = job.stages.filter(stage => (
         stage.status === 'queued' || stage.status === 'running'
       ));
-      if (activeStage === undefined) {
+      if (activeStages.length === 0) {
         const latest = job.stages.at(-1);
         if (latest?.status === 'canceled') {
           return {
@@ -316,7 +448,8 @@ export async function registerCreatorRoutes(
           'Creator job has no active stage'
         );
       }
-      const stage = options.stageRunner.cancel(activeStage.id);
+      const stages = options.stageRunner.cancelJob(id);
+      const stage = stages.at(-1);
       if (stage === undefined) {
         throw new CreatorServiceError(
           'creator_job_not_running',
@@ -328,6 +461,7 @@ export async function registerCreatorRoutes(
       return reply.code(canceling ? 202 : 200).send({
         job: latestJob,
         stage,
+        stages,
         control: canceling ? 'canceling' : 'canceled'
       });
     } catch (error) {
@@ -383,6 +517,15 @@ export async function registerCreatorRoutes(
         }
         job = requireCreatorJob(service, id);
       }
+      if (job.templateId === 'stickman-video' && options.stickmanVideoWorkflow !== undefined) {
+        try {
+          await options.stickmanVideoWorkflow.validateResume(job, latest);
+        } catch (error) {
+          publishSnapshotIfChanged(events, service, job);
+          throw error;
+        }
+        job = requireCreatorJob(service, id);
+      }
       const target = job.stages.at(-1);
       if (target?.id !== latest.id || (target.status !== 'canceled' && target.status !== 'interrupted')) {
         throw new CreatorServiceError(
@@ -396,10 +539,6 @@ export async function registerCreatorRoutes(
         idempotencyKey: `resume:${target.id}`,
         input: {
           stageId: target.stageId,
-          ...(target.progress.workflow === true ? { workflow: true } : {}),
-          ...(typeof target.progress.workflowParentStageRunId === 'string'
-            ? { workflowParentStageRunId: target.progress.workflowParentStageRunId }
-            : {}),
           ...(typeof target.progress.baseResultVersion === 'number'
             ? { baseResultVersion: target.progress.baseResultVersion }
             : {}),
@@ -417,7 +556,14 @@ export async function registerCreatorRoutes(
             : {}),
           resumedFromStageRunId: target.id
         }
-      }, 'user');
+      }, 'user', {
+        scopeKey: target.scopeKey,
+        inputFingerprint: target.inputFingerprint,
+        resumedFromStageRunId: target.id,
+        ...(typeof target.progress.workflowParentStageRunId === 'string'
+          ? { parentStageRunId: target.progress.workflowParentStageRunId }
+          : {})
+      });
       const resumedJob = requireCreatorJob(service, id);
       const resumedStage = result.commandReceipt.stageRunId === null
         ? undefined
@@ -462,7 +608,10 @@ export async function registerCreatorRoutes(
       return reply.code(404).send(apiError('creator_job_not_found', 'Creator job not found'));
     }
     const artifact = job.artifacts.find(candidate => candidate.id === artifactId);
-    if (artifact?.path === null || artifact === undefined || artifact.status === 'stale') {
+    if (
+      artifact?.path === null
+      || artifact === undefined
+    ) {
       return reply.code(404).send(apiError('creator_artifact_not_found', 'Creator artifact not found'));
     }
     try {
@@ -493,7 +642,7 @@ export async function registerCreatorRoutes(
         throw new CreatorServiceError('creator_job_not_found', 'Creator job not found');
       }
       if (
-        action === 'run-stage'
+        (action === 'run-stage' || action === 'retry-stage')
         && jobBeforeAction.templateId === 'video-translation'
         && options.videoTranslationWorkflow !== undefined
       ) {
@@ -527,7 +676,7 @@ export async function registerCreatorRoutes(
         }
       }
       if (
-        action === 'run-stage'
+        (action === 'run-stage' || action === 'retry-stage')
         && jobBeforeAction.templateId === 'cover'
         && options.coverWorkflow !== undefined
       ) {
@@ -555,6 +704,23 @@ export async function registerCreatorRoutes(
         const preflight = await options.preflight.check(jobBeforeAction, stage);
         if (!preflight.canStart) throw new CreatorPreflightError(preflight);
       }
+      if (
+        (action === 'run-stage' || action === 'retry-stage')
+        && jobBeforeAction.templateId === 'stickman-video'
+        && options.stickmanVideoWorkflow !== undefined
+      ) {
+        const stageId = readString(actionInput.stageId, 'stageId');
+        try {
+          await options.stickmanVideoWorkflow.validateStage(
+            jobBeforeAction,
+            stageId,
+            typeof actionInput.scopeKey === 'string' ? actionInput.scopeKey : null
+          );
+        } catch (error) {
+          publishSnapshotIfChanged(events, service, jobBeforeAction);
+          throw error;
+        }
+      }
       const expectedRevision = readInteger(body.expectedRevision, 'expectedRevision');
       const result = options.dispatcher.dispatch(id, {
         idempotencyKey: typeof body.idempotencyKey === 'string'
@@ -564,6 +730,14 @@ export async function registerCreatorRoutes(
         expectedRevision,
         input: actionInput
       }, 'user');
+      if (
+        options.stickmanVideoWorkflow !== undefined
+        && jobBeforeAction.templateId === 'stickman-video'
+        && action === 'retry-stage'
+      ) {
+        await options.stickmanVideoWorkflow.reconcile(result.job);
+        return { ...result, job: service.getJob(id) ?? result.job };
+      }
       if (
         options.videoTranslationWorkflow !== undefined
         && shouldReconcileVideoTranslation(jobBeforeAction, result.job)
@@ -869,6 +1043,10 @@ function readCreatorAgentSandbox(
 }
 
 function sendCreatorError(reply: FastifyReply, error: unknown) {
+  if (error instanceof StickmanVisualAssetError) {
+    const status = error.code.endsWith('_not_found') ? 404 : 422;
+    return reply.code(status).send(apiError(error.code as RuntimeErrorCode, error.message));
+  }
   if (error instanceof CreatorArtifactImportError) {
     return reply.code(error.statusCode)
       .send(apiError(error.code, error.message));
@@ -878,6 +1056,10 @@ function sendCreatorError(reply: FastifyReply, error: unknown) {
       .send(apiError(error.code as RuntimeErrorCode, error.message));
   }
   if (error instanceof CreatorSourceUploadError) {
+    return reply.code(error.statusCode)
+      .send(apiError(error.code as RuntimeErrorCode, error.message));
+  }
+  if (error instanceof CreatorDocumentUploadError) {
     return reply.code(error.statusCode)
       .send(apiError(error.code as RuntimeErrorCode, error.message));
   }
@@ -1057,11 +1239,17 @@ function creatorArtifactContentType(fileName: string): string {
   if (extension === '.png') return 'image/png';
   if (extension === '.webp') return 'image/webp';
   if (extension === '.srt') return 'application/x-subrip; charset=utf-8';
+  if (extension === '.md') return 'text/markdown; charset=utf-8';
   if (extension === '.mp4') return 'video/mp4';
   if (extension === '.webm') return 'video/webm';
   if (extension === '.mp3') return 'audio/mpeg';
   if (extension === '.wav') return 'audio/wav';
   if (extension === '.m4a') return 'audio/mp4';
+  if (extension === '.md' || extension === '.markdown') return 'text/markdown; charset=utf-8';
+  if (extension === '.txt') return 'text/plain; charset=utf-8';
+  if (extension === '.json') return 'application/json; charset=utf-8';
+  if (extension === '.pdf') return 'application/pdf';
+  if (extension === '.html' || extension === '.htm') return 'text/html; charset=utf-8';
   return 'application/octet-stream';
 }
 

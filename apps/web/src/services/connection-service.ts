@@ -3,6 +3,7 @@ import type {
   CodexLoginCancelResponse,
   CodexLoginStartRequest,
   CodexLoginStartResponse,
+  CodexModelListResponse,
   CodexLogoutResponse,
   CodexProviderConfig,
   CodexProviderConfigUpdateRequest,
@@ -38,6 +39,9 @@ export function createConnectionService(client: ClientLike) {
     },
     getCodexProvider(): Promise<CodexProviderConfig> {
       return client.get<CodexProviderConfig>('/codex/provider');
+    },
+    getCodexModels(): Promise<CodexModelListResponse> {
+      return client.get<CodexModelListResponse>('/codex/models');
     },
     updateCodexProvider(
       request: CodexProviderConfigUpdateRequest

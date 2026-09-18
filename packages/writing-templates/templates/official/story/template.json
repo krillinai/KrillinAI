@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "story",
+  "version": "1.0.0",
+  "name": "故事叙事",
+  "description": "从人物或场景切入，强调阅读节奏",
+  "localizations": {
+    "zh-CN": {
+      "name": "故事叙事",
+      "description": "从人物或场景切入，强调阅读节奏",
+      "tags": ["场景开篇", "人物叙事", "情绪节奏"],
+      "structure": ["人物或场景", "矛盾推进", "关键转折", "主题回扣"],
+      "instructions": "用具体人物、场景或冲突开篇，按故事推进承载核心观点。段落短而有节奏，关键转折处设置小标题，避免编造来源中不存在的细节。结尾回扣开头并留下余味。"
+    },
+    "en-US": {
+      "name": "Narrative Storytelling",
+      "description": "Lead with a person or scene and build a strong reading rhythm",
+      "tags": ["Scene opening", "Character story", "Emotional rhythm"],
+      "structure": ["Person or scene", "Rising conflict", "Key turn", "Thematic callback"],
+      "instructions": "Open with a specific person, scene, or conflict, then carry the central idea through the story's progression. Keep paragraphs concise and rhythmic, use headings at meaningful turns, and never invent details absent from the sources. Close by returning to the opening and leave the reader with a lingering thought."
+    }
+  },
+  "categoryId": "story",
+  "domains": ["emotion", "lifestyle"],
+  "tags": ["场景开篇", "人物叙事", "情绪节奏"],
+  "structure": ["人物或场景", "矛盾推进", "关键转折", "主题回扣"],
+  "instructions": "用具体人物、场景或冲突开篇，按故事推进承载核心观点。段落短而有节奏，关键转折处设置小标题，避免编造来源中不存在的细节。结尾回扣开头并留下余味。",
+  "author": "OpenCreator",
+  "status": "verified",
+  "sortOrder": 20,
+  "source": { "type": "official", "license": "OpenCreator project" },
+  "skill": {
+    "stageResources": {
+      "topics": ["skill/SKILL.md"],
+      "outline": ["skill/SKILL.md"],
+      "article": ["skill/SKILL.md"]
+    }
+  }
+}

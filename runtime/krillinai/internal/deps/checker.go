@@ -157,11 +157,11 @@ func configurePackagedTranscriptionDependency() error {
 			return err
 		}
 	case "whispercpp":
-		name := "whispercpp"
+		name := "whisper-cli"
 		if runtime.GOOS == "windows" {
 			name += ".exe"
 		}
-		if storage.WhispercppPath, err = resourcepath.RequireFile("bin", name); err != nil {
+		if storage.WhispercppPath, err = resourcepath.RequireFile("bin", "whispercpp", name); err != nil {
 			return err
 		}
 		if _, err = resourcepath.RequireFile("models", "whispercpp", fmt.Sprintf("ggml-%s.bin", config.Conf.Transcribe.Whispercpp.Model)); err != nil {

@@ -22,11 +22,104 @@ type TestResponse = { statusCode: number; json(): any };
 afterEach(async () => {
   await server?.close();
   server = undefined;
-  if (tempDir) rmSync(tempDir, { recursive: true, force: true });
+  if (tempDir) rmSync(tempDir, {
+    recursive: true,
+    force: true,
+    maxRetries: 30,
+    retryDelay: 100
+  });
   tempDir = '';
 });
 
 describe('creator api', () => {
+  it.each(['source_subtitle', 'target_subtitle'])('imports %s and runs downstream workflow with the persisted input', async kind => {
+    const calls: string[] = [];
+    await setupServer({ llmConfigured: kind === 'source_subtitle', creatorExecutors: [{
+      id: 'krillinai', async run(stage) {
+        calls.push(stage.stageRun.stageId);
+        const path = join(stage.workdir, 'output.srt');
+        writeFileSync(path, '1\n00:00:00,000 --> 00:00:01,000\nHello\n');
+        if (stage.stageRun.stageId === 'subtitle') {
+          expect(stage.inputArtifacts.some(a => a.kind === kind && a.metadata.source === 'local-upload')).toBe(true);
+          return { outputs: ['source_video', 'target_subtitle', 'vertical_subtitle'].map(kind => ({ kind, status: 'completed' as const, path })) };
+        }
+        return { outputs: [{ kind: stage.stageRun.stageId === 'tts' ? 'dubbed_audio' : stage.stageRun.stageId === 'render-horizontal' ? 'horizontal_video' : 'vertical_video', status: 'completed', path }] };
+      }
+    }] });
+    const created = await request('POST', '/creator/jobs', { projectId: 'project_import', templateId: 'video-translation', state: {
+      sourceUrl: 'https://www.youtube.com/watch?v=import', dubbing: true, ttsProvider: 'edge-tts', composeVideo: true, videoFormat: 'all'
+    } });
+    const job = created.json().job;
+    const payload = { action: 'import-subtitle', expectedRevision: 0, input: { kind, language: 'en', fileName: 'captions.srt', contentBase64: Buffer.from('1\n00:00:00,000 --> 00:00:01,000\nHello\n').toString('base64') } };
+    const invalid = await request('POST', `/creator/jobs/${job.id}/actions`, {
+      ...payload, input: { ...payload.input, contentBase64: Buffer.from([0xff, 0xfe, 0x41, 0x00]).toString('base64') }
+    });
+    expect(invalid.statusCode).toBe(400);
+    expect((await request('GET', `/creator/jobs/${job.id}`)).json().job).toMatchObject({ revision: 0, artifacts: [] });
+    const imported = await request('POST', `/creator/jobs/${job.id}/actions`, payload);
+    expect(imported.statusCode).toBe(200);
+    const artifact = imported.json().job.artifacts[0];
+    expect(artifact).toMatchObject({ kind, metadata: { source: 'local-upload', language: 'en', cueCount: 1 } });
+    expect(existsSync(artifact.path)).toBe(true);
+    const started = await request('POST', `/creator/jobs/${job.id}/actions`, { action: 'run-stage', expectedRevision: imported.json().job.revision, input: { stageId: 'subtitle', workflow: true } });
+    expect(started.statusCode).toBe(200);
+    await waitForCreatorJob(job.id, job => job.artifacts.some((a: { kind: string }) => a.kind === 'vertical_video'));
+    expect(calls).toEqual(['subtitle', 'tts', 'render-horizontal', 'render-vertical']);
+    const old = await request('GET', `/creator/jobs/${job.id}/artifacts/${artifact.id}/content`);
+    expect(old.statusCode).toBe(200);
+  });
+  it('serves built-in stickman visual asset previews in development', async () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'creator-api-'));
+    server = await buildServer({
+      token: 'secret',
+      dataDir: tempDir,
+      codexHome: join(tempDir, 'codex-home')
+    });
+
+    const catalog = await request(
+      'GET',
+      '/creator/visual-assets?templateId=stickman-video'
+    );
+    expect(catalog.statusCode).toBe(200);
+    expect(catalog.json().assets).toHaveLength(14);
+
+    const preview = await server.inject({
+      method: 'GET',
+      url: '/creator/visual-assets/stickman.character.student/revisions/1/preview',
+      headers: { authorization: 'Bearer secret' }
+    });
+    expect(preview.statusCode).toBe(200);
+    expect(preview.headers['content-type']).toContain('image/png');
+    expect(preview.rawPayload.byteLength).toBeGreaterThan(1_000);
+  });
+
+  it('uploads a persistent inline image for a WeChat article', async () => {
+    await setupServer({});
+    const created = await request('POST', '/creator/jobs', {
+      projectId: 'project_article_image',
+      templateId: 'wechat-article'
+    });
+    const job = created.json().job;
+    const uploaded = await server!.inject({
+      method: 'POST',
+      url: `/creator/jobs/${job.id}/article-image?expectedRevision=${job.revision}&fileName=photo.png&mime=image%2Fpng&lastModified=123`,
+      headers: {
+        authorization: 'Bearer secret',
+        'content-type': 'application/vnd.opencreator.creator-reference-image'
+      },
+      payload: png('article-inline-image')
+    });
+
+    expect(uploaded.statusCode).toBe(201);
+    expect(uploaded.json()).toMatchObject({
+      job: { state: { manualArticleImageArtifactIds: [expect.any(String)] } },
+      artifact: {
+        kind: 'article_image',
+        metadata: { originalFileName: 'photo.png', source: 'local-upload' }
+      }
+    });
+  });
+
   it('deletes an inactive creator job', async () => {
     await setupServer({});
     const created = await request('POST', '/creator/jobs', {
@@ -671,6 +764,13 @@ async function request(
     headers: { authorization: 'Bearer secret' },
     ...(payload === undefined ? {} : { payload })
   }) as unknown as TestResponse;
+}
+
+function png(label: string): Buffer {
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    Buffer.from(label.padEnd(24, '.'))
+  ]);
 }
 
 async function readSseFrames(url: string, expected: number): Promise<Array<{

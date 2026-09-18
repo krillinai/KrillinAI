@@ -18,10 +18,11 @@ describe('Desktop release workflow', () => {
     expect(releaseWorkflow).not.toContain('--title "KrillinAI $TAG"');
   });
 
-  it('runs CI on demand and for pull requests without automatic push builds', () => {
+  it('runs CI on demand, for pull requests, and for master pushes', () => {
     expect(ciWorkflow).toContain('workflow_dispatch:');
     expect(ciWorkflow).toContain('pull_request:');
-    expect(ciWorkflow).not.toContain('\n  push:');
+    expect(ciWorkflow).toContain('\n  push:');
+    expect(ciWorkflow).toContain('      - master');
     expect(ciWorkflow).toContain('cancel-in-progress: true');
   });
 
@@ -49,7 +50,9 @@ describe('Desktop release workflow', () => {
 
   it('builds signed macOS packages and unsigned Windows packages', () => {
     expect(releaseWorkflow).toContain("if: matrix.platform == 'darwin'");
-    expect(releaseWorkflow).toContain('run: pnpm desktop:release');
+    expect(releaseWorkflow).toContain(
+      'pnpm desktop:release 2>&1 | tee desktop-release.log'
+    );
     expect(releaseWorkflow).toContain("if: matrix.platform == 'win32'");
     expect(releaseWorkflow).toContain('run: pnpm desktop:dist');
     expect(releaseWorkflow).not.toContain('secrets.WINDOWS_CERTIFICATE');
@@ -62,16 +65,21 @@ describe('Desktop release workflow', () => {
   it('reuses the successful master CI instead of repeating all tests', () => {
     expect(releaseWorkflow).toContain('name: 校验同一提交的 CI 已通过');
     expect(releaseWorkflow).toContain('--workflow ci.yml');
-    expect(releaseWorkflow).toContain('--event workflow_dispatch');
+    expect(releaseWorkflow).toContain('--event push');
     expect(releaseWorkflow).toContain('--status success');
-    expect(releaseWorkflow).toContain('先在 master 上运行 CI');
+    expect(releaseWorkflow).toContain('请等待 CI 通过');
     expect(releaseWorkflow).not.toContain('run: pnpm test');
     expect(releaseWorkflow).not.toContain('run: pnpm typecheck');
     expect(releaseWorkflow).not.toContain('run: pnpm build');
   });
 
-  it('cancels remaining platform builds after the first package failure', () => {
-    expect(releaseWorkflow).toContain('fail-fast: true');
+  it('keeps platform diagnostics after one package target fails', () => {
+    expect(releaseWorkflow).toContain('fail-fast: false');
+    expect(releaseWorkflow).toContain('tail -n 80 desktop-release.log');
+    expect(releaseWorkflow).toContain(
+      '::error title=macOS release failure details::'
+    );
+    expect(releaseWorkflow).toContain('desktop-release.log');
   });
 
   it('supports single-platform manual validation while tag releases build every platform', () => {

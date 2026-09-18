@@ -1,74 +1,67 @@
+import {
+  readCreatorResultSnapshots,
+  type CreatorArtifact,
+  type CreatorJson,
+  type CreatorStageRun
+} from '@opencreator/protocol';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Captions, Check, Download, FileVideo, LayoutGrid, List, ListVideo, Play, Scissors, Settings2, SlidersHorizontal, Sparkles } from 'lucide-react';
-import CreatorToolShell from './CreatorToolShell.js';
+import {
+  Check,
+  CircleAlert,
+  Download,
+  FileVideo,
+  Grid2X2,
+  List as ListIcon,
+  LoaderCircle,
+  Scissors,
+  Sparkles,
+  X
+} from 'lucide-react';
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
+import type { VideoMetadataService } from '../../services/video-metadata-service.js';
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
-import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
+import CreatorToolShell from './CreatorToolShell.js';
 import { useOptionalCreatorSession } from './creator-session-store.js';
-import type { VideoMetadataService } from '../../services/video-metadata-service.js';
 import VideoSourceInput from './VideoSourceInput.js';
 
-type ClipCandidate = {
-  id: number;
-  title: string;
-  time: string;
-  duration: string;
-  subtitle: string;
-  scores: { hook: number; semantic: number; emotion: number; viral: number };
-};
 type AutoClipStep = 0 | 1 | 2;
-type AutoClipResultTab = 'candidates' | 'details' | 'export' | 'settings';
-type AutoClipLayout = 'grid' | 'list';
-type VideoOrientation = 'landscape' | 'portrait';
+type VideoOrientation = 'landscape' | 'portrait' | 'square';
 type AnalysisFocus = 'balanced' | 'viral' | 'knowledge';
+type ClipGenre = 'auto' | 'talk' | 'podcast' | 'tutorial' | 'interview' | 'entertainment' | 'sports' | 'gaming' | 'news';
 type ClipDuration = '15-30' | '30-60' | '60-90';
+type ClipAspectRatio = 'source' | '16:9' | '9:16' | '1:1';
+type ClipScoreKey = 'hook' | 'information' | 'emotion' | 'completeness';
+type AutoClipResultView = 'list' | 'grid';
+
+type ClipCandidate = {
+  id: string;
+  title: string;
+  start: number;
+  end: number;
+  transcript: string;
+  reason: string;
+  scores: Record<ClipScoreKey, number>;
+};
+
+type ClipSubtitleCue = {
+  id: string;
+  start: number;
+  end: number;
+  text: string;
+};
+
 type AutoClipResultVersion = {
   value: number;
   description: string;
-  signature: string;
-  videoUrl: string;
-  videoFile: File | null;
-  focus: AnalysisFocus;
-  duration: ClipDuration;
-  clipCount: number;
-  sourceOrientation: VideoOrientation;
-  selectedIds: number[];
+  state: Record<string, CreatorJson>;
+  artifact: CreatorArtifact;
+  sourceArtifact?: CreatorArtifact;
+  subtitleArtifact?: CreatorArtifact;
+  candidates: ClipCandidate[];
 };
 
-const clips: ClipCandidate[] = [
-  { id: 1, title: '创作者最容易忽略的第一步', time: '00:01:12 - 00:01:47', duration: '35s', subtitle: '很多人一开始就急着使用工具，但真正影响结果的是你有没有先定义清楚受众和目标。', scores: { hook: 94, semantic: 92, emotion: 86, viral: 91 } },
-  { id: 2, title: '一个判断内容价值的方法', time: '00:03:08 - 00:03:44', duration: '36s', subtitle: '判断一个选题是否值得做，可以问自己：用户看完以后，会不会立刻改变一个动作？', scores: { hook: 91, semantic: 95, emotion: 82, viral: 90 } },
-  { id: 3, title: '为什么短视频开头不能解释背景', time: '00:05:21 - 00:06:02', duration: '41s', subtitle: '开头先讲背景通常会损失观众。先抛出结果，再补充原因，信息会更容易被留下。', scores: { hook: 96, semantic: 89, emotion: 84, viral: 94 } },
-  { id: 4, title: '从长内容找到高光片段', time: '00:08:15 - 00:08:58', duration: '43s', subtitle: '高光不一定是声音最大的位置，而是观点发生转折、答案突然变得清楚的那一刻。', scores: { hook: 88, semantic: 94, emotion: 89, viral: 87 } },
-  { id: 5, title: '让观点更容易被记住', time: '00:11:04 - 00:11:39', duration: '35s', subtitle: '把抽象观点换成一个具体对比，观众不需要记住你的解释，也会记住那个差异。', scores: { hook: 87, semantic: 93, emotion: 80, viral: 86 } },
-  { id: 6, title: '内容节奏的三个层次', time: '00:14:27 - 00:15:12', duration: '45s', subtitle: '节奏不是单纯加快语速，而是问题、答案和证据之间有没有持续推进。', scores: { hook: 85, semantic: 91, emotion: 83, viral: 84 } },
-  { id: 7, title: '字幕为什么需要按语义断句', time: '00:18:09 - 00:18:46', duration: '37s', subtitle: '字幕跟着字数切会打断理解。按照语义停顿来切，观众能更快抓住每句话的重点。', scores: { hook: 84, semantic: 96, emotion: 78, viral: 83 } },
-  { id: 8, title: '一个反直觉的剪辑建议', time: '00:21:31 - 00:22:03', duration: '32s', subtitle: '不是所有停顿都要删掉。关键观点前的一小段停顿，反而会让观众更注意接下来的内容。', scores: { hook: 92, semantic: 88, emotion: 87, viral: 90 } },
-  { id: 9, title: '如何判断片段能够独立传播', time: '00:25:18 - 00:25:59', duration: '41s', subtitle: '把片段单独拿出来，如果观众不需要知道前文也能理解问题和结论，它才适合独立发布。', scores: { hook: 86, semantic: 97, emotion: 79, viral: 88 } },
-  { id: 10, title: '最后给创作者的行动建议', time: '00:29:42 - 00:30:20', duration: '38s', subtitle: '先发布一个足够清楚的版本，再根据真实反馈调整，不要在没有观众的时候追求完美。', scores: { hook: 89, semantic: 92, emotion: 91, viral: 89 } }
-];
-
-const englishClips: Record<number, { title: string; subtitle: string }> = {
-  1: { title: 'The first step creators often miss', subtitle: 'Many people rush to use tools, but defining the audience and goal first has the greatest impact on the result.' },
-  2: { title: 'A way to judge content value', subtitle: 'Ask whether viewers will immediately change an action after watching to decide whether a topic is worth making.' },
-  3: { title: 'Why short videos should not start with background', subtitle: 'Starting with background loses viewers. Lead with the result, then explain why.' },
-  4: { title: 'Finding highlights in long content', subtitle: 'A highlight is not always the loudest moment. It is where the point turns and the answer suddenly becomes clear.' },
-  5: { title: 'Make an idea easier to remember', subtitle: 'Turn an abstract point into a concrete comparison so viewers remember the difference without memorizing the explanation.' },
-  6: { title: 'Three layers of content pacing', subtitle: 'Pacing is not just speaking faster. It is whether questions, answers, and evidence keep moving forward.' },
-  7: { title: 'Why subtitles need semantic line breaks', subtitle: 'Breaking subtitles by character count interrupts understanding. Semantic pauses help viewers grasp each sentence.' },
-  8: { title: 'A counterintuitive editing tip', subtitle: 'Not every pause should be removed. A brief pause before a key point can focus attention.' },
-  9: { title: 'Can a clip stand on its own?', subtitle: 'A clip is ready to publish independently when viewers can understand the question and conclusion without prior context.' },
-  10: { title: 'A final action for creators', subtitle: 'Publish a clear-enough version, then adjust from real feedback instead of chasing perfection before you have an audience.' }
-};
-
-function totalScore(clip: ClipCandidate) {
-  const values = Object.values(clip.scores);
-  return Math.round(values.reduce((sum, score) => sum + score, 0) / values.length);
-}
-
-function isValidUrl(value: string) {
-  try { return ['http:', 'https:'].includes(new URL(value.trim()).protocol); } catch { return false; }
-}
+const analysisStageIds = new Set(['probe', 'download', 'subtitle', 'analyze']);
 
 export default function AutoClipWorkspace(props: {
   onBack(): void;
@@ -78,84 +71,190 @@ export default function AutoClipWorkspace(props: {
   const l = useLocalizedCopy();
   const session = useOptionalCreatorSession();
   const draftInitializedRef = useRef(false);
-  const [videoUrl, setVideoUrl] = useState(() => typeof session?.state.sourceUrl === 'string' ? session.state.sourceUrl : '');
+  const [videoUrl, setVideoUrl] = useState(() => readString(session?.state.sourceUrl));
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [sourceArtifactId, setSourceArtifactId] = useState(
-    () => typeof session?.state.sourceArtifactId === 'string'
-      ? session.state.sourceArtifactId
-      : ''
-  );
-  const [focus, setFocus] = useState<AnalysisFocus>(() => session?.state.focus === 'viral' || session?.state.focus === 'knowledge' ? session.state.focus : 'balanced');
-  const [duration, setDuration] = useState<ClipDuration>(() => session?.state.duration === '15-30' || session?.state.duration === '60-90' ? session.state.duration : '30-60');
-  const [clipCount, setClipCount] = useState(() => typeof session?.state.clipCount === 'number' ? session.state.clipCount : 10);
-  const [sourceOrientation, setSourceOrientation] = useState<VideoOrientation>(() => session?.state.sourceOrientation === 'portrait' ? 'portrait' : 'landscape');
-  const [activeClip, setActiveClip] = useState(1);
-  const [selected, setSelected] = useState<number[]>([1, 2, 3]);
-  const [sort, setSort] = useState<'score' | 'time'>('score');
-  const [clipLayout, setClipLayout] = useState<AutoClipLayout>('grid');
+  const [sourceArtifactId, setSourceArtifactId] = useState(() => readString(session?.state.sourceArtifactId));
+  const [sourceLanguage, setSourceLanguage] = useState(() => readSourceLanguage(session?.state.sourceLanguage));
+  const [genre, setGenre] = useState<ClipGenre>(() => readGenre(session?.state.genre));
+  const [focus, setFocus] = useState<AnalysisFocus>(() => readFocus(session?.state.focus));
+  const [duration, setDuration] = useState<ClipDuration>(() => readDuration(session?.state.duration));
+  const [clipCount, setClipCount] = useState(() => readClipCount(session?.state.clipCount));
+  const [aspectRatio, setAspectRatio] = useState<ClipAspectRatio>(() => readAspectRatio(session?.state.aspectRatio));
   const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+  const [dismissedErrorKey, setDismissedErrorKey] = useState('');
   const [currentStep, setCurrentStep] = useState<AutoClipStep>(0);
   const [furthestStep, setFurthestStep] = useState<AutoClipStep>(0);
-  const [resultTab, setResultTab] = useState<AutoClipResultTab>('candidates');
-  const [resultVersion, setResultVersion] = useState(0);
-  const [resultVersions, setResultVersions] = useState<AutoClipResultVersion[]>([]);
-  const importedSourceArtifact = session?.job.artifacts.find(artifact => (
-    artifact.id === sourceArtifactId
-    && artifact.kind === 'source_video'
-    && artifact.status === 'completed'
-  ));
-  const importedSourceName = importedSourceArtifact === undefined
-    ? ''
-    : typeof importedSourceArtifact.metadata.fileName === 'string'
-      ? importedSourceArtifact.metadata.fileName
-      : l('项目视频', 'Project video');
+  const [resultVersion, setResultVersion] = useState<number>();
+  const [resultView, setResultView] = useState<AutoClipResultView>('list');
+  const [exportUrls, setExportUrls] = useState<Record<string, string>>({});
+  const resultVersions = useMemo(
+    () => createAutoClipResultVersions(
+      session?.job.artifacts ?? [],
+      session?.state.resultSnapshots
+    ),
+    [session?.job.artifacts, session?.state.resultSnapshots]
+  );
+  const latestVersion = resultVersions.at(-1)?.value;
+  const selectedResult = resultVersions.find(version => version.value === resultVersion)
+    ?? resultVersions.at(-1);
+  const candidates = selectedResult?.candidates ?? [];
+  const importedSourceArtifact = findArtifact(
+    session?.job.artifacts ?? [],
+    sourceArtifactId,
+    'source_video'
+  );
+  const currentSourceArtifact = selectedResult?.sourceArtifact
+    ?? importedSourceArtifact
+    ?? latestCompletedArtifact(session?.job.artifacts ?? [], 'source_video');
+  const currentProbeArtifact = relatedArtifact(
+    session?.job.artifacts ?? [],
+    currentSourceArtifact,
+    'download_probe'
+  );
+  const importedSourceName = artifactFileName(currentSourceArtifact)
+    || l('项目视频', 'Project video');
+  const sourceDisplayName = videoFile?.name
+    ?? (sourceArtifactId
+      ? importedSourceName
+      : readString(currentSourceArtifact?.metadata.title)
+        || readString(currentProbeArtifact?.metadata.title)
+        || videoUrl
+        || importedSourceName);
   const hasSource = importedSourceArtifact !== undefined
     || videoFile !== null
     || isValidUrl(videoUrl);
-  const selectedResult = resultVersions.find(version => version.value === resultVersion);
-  const resultClips = useMemo(
-    () => clips.slice(0, selectedResult?.clipCount ?? clipCount),
-    [clipCount, selectedResult?.clipCount]
+  const latestAnalysisStage = latestStage(session?.job.stages ?? [], analysisStageIds);
+  const latestRenderStage = latestStage(session?.job.stages ?? [], new Set(['render']));
+  const analyzing = latestAnalysisStage?.status === 'queued' || latestAnalysisStage?.status === 'running';
+  const rendering = latestRenderStage?.status === 'queued' || latestRenderStage?.status === 'running';
+  const runtimeError = latestFailedStage(session?.job.stages ?? []);
+  const visibleError = error || formatClipError(runtimeError ?? session?.error, l);
+  const technicalError = isTechnicalClipError(error || (runtimeError ?? session?.error));
+  const technicalErrorKey = technicalError
+    ? `${error ? 'local' : runtimeError?.id ?? 'session'}:${visibleError}`
+    : '';
+  const persistentError = technicalError ? '' : visibleError;
+  const activeToast = technicalError && technicalErrorKey !== dismissedErrorKey
+    ? { id: -1, message: visibleError }
+    : null;
+  const renderedArtifacts = useMemo(
+    () => selectedResult === undefined
+      ? []
+      : latestExportsForCandidateArtifact(
+          session?.job.artifacts ?? [],
+          selectedResult.artifact.id
+        ),
+    [selectedResult?.artifact.id, session?.job.artifacts]
   );
-  const orderedClips = useMemo(() => [...resultClips].sort(sort === 'score' ? (left, right) => totalScore(right) - totalScore(left) : (left, right) => left.id - right.id), [resultClips, sort]);
-  const currentClip = resultClips.find(clip => clip.id === activeClip) ?? resultClips[0] ?? clips[0]!;
-  const signature = createAnalysisSignature({
-    videoUrl,
-    videoFile,
-    sourceArtifactId,
-    focus,
-    duration,
-    clipCount,
-    sourceOrientation
+  const renderedClipItems = renderedArtifacts.flatMap(artifact => {
+    const candidateId = readString(artifact.metadata.candidateId);
+    const clip = candidates.find(candidate => candidate.id === candidateId);
+    return clip === undefined ? [] : [{ artifact, clip }];
   });
-  const hasPendingChanges = selectedResult !== undefined && selectedResult.signature !== signature;
-  const nextVersion = resultVersions.reduce((highest, version) => Math.max(highest, version.value), 0) + 1;
+
+  useEffect(() => {
+    if (latestVersion !== undefined) setResultVersion(latestVersion);
+  }, [latestVersion]);
+
+  useEffect(() => {
+    if (activeToast === null) return undefined;
+    const timer = window.setTimeout(() => {
+      setDismissedErrorKey(technicalErrorKey);
+    }, 4_000);
+    return () => window.clearTimeout(timer);
+  }, [activeToast?.id, activeToast?.message, technicalErrorKey]);
+
+  useEffect(() => {
+    if (!technicalErrorKey) setDismissedErrorKey('');
+  }, [technicalErrorKey]);
+
+  useEffect(() => {
+    if (resultVersions.length === 0) return;
+    setCurrentStep(2);
+    setFurthestStep(2);
+  }, [resultVersions.length]);
 
   useEffect(() => {
     if (session === null) return;
     session.updateDraft({
       sourceUrl: videoUrl,
-      sourceType: sourceArtifactId ? 'file' : videoFile ? 'file' : 'url',
+      sourceType: sourceArtifactId || videoFile ? 'file' : 'url',
       sourceArtifactId: sourceArtifactId || null,
+      sourceLanguage,
+      preferPlatformCaptions: true,
+      genre,
       focus,
       duration,
       clipCount,
-      sourceOrientation,
-      selectedCandidateIds: selected.map(String)
+      aspectRatio
     }, { persist: draftInitializedRef.current });
     draftInitializedRef.current = true;
-  }, [clipCount, duration, focus, selected, session?.updateDraft, sourceArtifactId, sourceOrientation, videoFile, videoUrl]);
+  }, [
+    aspectRatio,
+    clipCount,
+    duration,
+    focus,
+    genre,
+    session?.updateDraft,
+    sourceArtifactId,
+    sourceLanguage,
+    videoFile,
+    videoUrl
+  ]);
 
-  const steps = [l('添加视频', 'Add video'), l('分析设置', 'Analysis settings'), l('选择与导出', 'Select and export')];
+  useEffect(() => {
+    if (renderedArtifacts.length === 0 || session === null) {
+      setExportUrls({});
+      return undefined;
+    }
+    let active = true;
+    const objectUrls: string[] = [];
+    void Promise.all(renderedArtifacts.map(async artifact => {
+      const response = await session.openArtifact(artifact.id);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const objectUrl = URL.createObjectURL(await response.blob());
+      objectUrls.push(objectUrl);
+      return [artifact.id, objectUrl] as const;
+    })).then(entries => {
+      if (active) setExportUrls(Object.fromEntries(entries));
+    }).catch(cause => {
+      if (active) setError(formatClipError(cause, l));
+    });
+    return () => {
+      active = false;
+      objectUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [renderedArtifacts, l, session?.openArtifact]);
+
+  useEffect(() => {
+    if (latestRenderStage?.status === 'succeeded' && renderedArtifacts.length > 0) {
+      setNotice(l(
+        `已自动生成 ${renderedArtifacts.length} 个独立视频切片`,
+        `${renderedArtifacts.length} standalone video clips were generated automatically`
+      ));
+    }
+  }, [renderedArtifacts.length, l, latestRenderStage?.id, latestRenderStage?.status]);
+
+  const steps = [
+    l('添加视频', 'Add video'),
+    l('切片设置', 'Clip settings'),
+    l('切片结果', 'Clip results')
+  ];
+
+  function openStep(step: AutoClipStep) {
+    setCurrentStep(step);
+    setFurthestStep(previous => Math.max(previous, step) as AutoClipStep);
+  }
 
   function continueToSettings() {
     if (!hasSource) {
-      setNotice(l('请先上传视频或填写公开视频链接', 'Upload a video or enter a public video link first'));
+      setError(l('请先上传视频或填写公开视频链接', 'Upload a video or enter a public video link first'));
       return;
     }
-    setCurrentStep(1);
-    setFurthestStep(current => Math.max(current, 1) as AutoClipStep);
+    setError('');
     setNotice('');
+    openStep(1);
   }
 
   function chooseVideo(file: File | null) {
@@ -164,7 +263,7 @@ export default function AutoClipWorkspace(props: {
       setVideoUrl('');
       setSourceArtifactId('');
     }
-    setSourceOrientation('landscape');
+    setError('');
     setNotice('');
   }
 
@@ -172,155 +271,178 @@ export default function AutoClipWorkspace(props: {
     setVideoFile(null);
     setVideoUrl('');
     setSourceArtifactId('');
-    setSourceOrientation('landscape');
+    setError('');
     setNotice('');
   }
 
-  function updateSourceOrientation(width: number, height: number) {
-    setSourceOrientation(height > width ? 'portrait' : 'landscape');
-  }
-
-  function analyze(sourceOverride?: { url: string; file: File | null }) {
-    const nextUrl = sourceOverride?.url ?? videoUrl;
-    const nextFile = sourceOverride?.file ?? videoFile;
-    if (
-      nextFile === null
-      && !isValidUrl(nextUrl)
-      && importedSourceArtifact === undefined
-    ) {
+  async function analyze() {
+    if (analyzing || rendering || session === null) return;
+    if (!hasSource) {
       setCurrentStep(0);
-      setNotice(l('请先上传视频或填写公开视频链接', 'Upload a video or enter a public video link first'));
-      return false;
+      setError(l('请先上传视频或填写公开视频链接', 'Upload a video or enter a public video link first'));
+      return;
     }
-    const nextSignature = createAnalysisSignature({
-      videoUrl: nextUrl,
-      videoFile: nextFile,
-      sourceArtifactId,
-      focus,
-      duration,
-      clipCount,
-      sourceOrientation
-    });
-    if (session !== null) {
-      void session.applyAction({ actor: 'user', action: 'run-stage', input: { stageId: 'analyze' } });
+    setError('');
+    setNotice(l('正在分析视频并自动生成切片', 'Analyzing the video and rendering clips automatically'));
+    try {
+      session.updateDraft({
+        sourceUrl: videoUrl,
+        sourceType: sourceArtifactId || videoFile ? 'file' : 'url',
+        sourceArtifactId: sourceArtifactId || null,
+        sourceLanguage,
+        preferPlatformCaptions: true,
+        genre,
+        focus,
+        duration,
+        clipCount,
+        aspectRatio
+      }, { semantic: true });
+      await session.flush();
+      let stageId: 'probe' | 'subtitle' | 'analyze';
+      if (videoFile !== null) {
+        await session.uploadSourceVideo(videoFile);
+        stageId = 'subtitle';
+        setVideoFile(null);
+      } else {
+        const source = matchingSourceArtifact(
+          session.job.artifacts,
+          sourceArtifactId,
+          videoUrl
+        );
+        const subtitle = source === undefined
+          ? undefined
+          : matchingSubtitleArtifact(session.job.artifacts, source);
+        const sourceLanguageChanged = selectedResult !== undefined
+          && readSourceLanguage(selectedResult.state.sourceLanguage) !== sourceLanguage;
+        stageId = subtitle !== undefined && !sourceLanguageChanged
+          ? 'analyze'
+          : source !== undefined
+            ? 'subtitle'
+            : 'probe';
+      }
+      const updatedJob = await session.applyAction({
+        actor: 'user',
+        action: 'run-stage',
+        input: {
+          stageId,
+          workflow: true
+        }
+      });
+      const completedInResponse = updatedJob.artifacts.some(artifact => (
+        artifact.kind === 'clip_candidates' && artifact.status === 'completed'
+      ));
+      const nextStep: AutoClipStep = completedInResponse ? 2 : 1;
+      setCurrentStep(nextStep);
+      setFurthestStep(previous => Math.max(previous, nextStep) as AutoClipStep);
+    } catch (cause) {
+      setError(formatClipError(cause, l));
     }
-    if (selectedResult?.signature === nextSignature) {
-      setCurrentStep(2);
-      setFurthestStep(2);
-      setResultTab('candidates');
-      setNotice(l(`设置没有变化，继续查看 V${resultVersion}，未创建新版本。`, `Nothing changed. Continuing with V${resultVersion}; no new version was created.`));
-      return true;
-    }
-    const version = nextVersion;
-    const initialSelection = clips.slice(0, Math.min(3, clipCount)).map(clip => clip.id);
-    const nextResult: AutoClipResultVersion = {
-      value: version,
-      description: version === 1 ? l('初次分析', 'Initial analysis') : l(`基于 V${resultVersion} 调整`, `Adjusted from V${resultVersion}`),
-      signature: nextSignature,
-      videoUrl: nextUrl,
-      videoFile: nextFile,
-      focus,
-      duration,
-      clipCount,
-      sourceOrientation,
-      selectedIds: initialSelection
-    };
-    setResultVersions(current => [...current, nextResult]);
-    setResultVersion(version);
-    setSelected(initialSelection);
-    setActiveClip(1);
-    setSort('score');
-    setResultTab('candidates');
-    setCurrentStep(2);
-    setFurthestStep(2);
-    setNotice(version === 1 ? l(`已识别字幕语义并生成 ${clipCount} 个候选片段，V1 已完成`, `Analyzed subtitle semantics and generated ${clipCount} candidates. V1 is ready.`) : l(`V${version} 分析完成，之前的版本仍可查看`, `V${version} analysis is ready. Previous versions remain available.`));
-    return true;
-  }
-
-  function toggleClip(id: number) {
-    setSelected(current => {
-      const next = current.includes(id) ? current.filter(item => item !== id) : [...current, id];
-      setResultVersions(versions => versions.map(version => version.value === resultVersion ? { ...version, selectedIds: next } : version));
-      return next;
-    });
   }
 
   function selectVersion(version: number) {
     const result = resultVersions.find(item => item.value === version);
-    if (!result) return;
-    setResultVersion(result.value);
-    setVideoUrl(result.videoUrl);
-    setVideoFile(result.videoFile);
-    setFocus(result.focus);
-    setDuration(result.duration);
-    setClipCount(result.clipCount);
-    setSourceOrientation(result.sourceOrientation);
-    setSelected(result.selectedIds);
-    setActiveClip(result.selectedIds[0] ?? 1);
+    if (result === undefined) return;
+    setResultVersion(version);
+    setSourceLanguage(readSourceLanguage(result.state.sourceLanguage));
+    setGenre(readGenre(result.state.genre));
+    setFocus(readFocus(result.state.focus));
+    setDuration(readDuration(result.state.duration));
+    setClipCount(readClipCount(result.state.clipCount));
+    setAspectRatio(readAspectRatio(result.state.aspectRatio));
+    setVideoUrl(readString(result.state.sourceUrl));
+    setVideoFile(null);
+    setSourceArtifactId(result.sourceArtifact?.id ?? '');
     setCurrentStep(2);
     setFurthestStep(2);
-    setResultTab('candidates');
-    setNotice(l(`正在查看 V${result.value}`, `Viewing V${result.value}`));
   }
 
-  function exportSelected() {
-    if (selected.length === 0) {
-      setNotice(l('请至少选择一个片段', 'Select at least one clip'));
-      return false;
-    }
-    setResultTab('export');
-    if (session !== null) {
-      void session.applyAction({ actor: 'user', action: 'run-stage', input: { stageId: 'render' } });
-    }
-    setNotice(l(`${selected.length} 个片段已加入导出队列`, `${selected.length} clips were added to the export queue`));
-    return true;
+  function downloadArtifact(artifact: CreatorArtifact) {
+    const url = exportUrls[artifact.id];
+    if (!url) return;
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = artifactFileName(artifact) || `OpenCreator-video-clip-${artifact.version}.mp4`;
+    link.click();
+    setNotice(l('视频切片已开始下载', 'The video clip download has started'));
   }
 
-  function handleCommand(command: string) {
-    const foundUrl = command.match(/https?:\/\/[^\s,，。;；]+/i)?.[0];
-    if (foundUrl) {
-      setVideoUrl(foundUrl);
-      setVideoFile(null);
-      setCurrentStep(0);
-      setFurthestStep(resultVersions.length ? 2 : 0);
-      if (/分析|剪辑|片段|analyze|clip|edit/i.test(command)) {
-        analyze({ url: foundUrl, file: null });
-        return l(`视频分析完成。我根据字幕语义、观点完整度和传播潜力找到了 ${clipCount} 个片段。`, `Video analysis is complete. I found ${clipCount} clips based on subtitle meaning, idea completeness, and sharing potential.`);
-      }
-      return l('视频链接已同步到第一步。你可以确认分析设置后开始提取。', 'The video link is synchronized to step one. Review the analysis settings, then start extracting clips.');
-    }
-    if (/分析|识别|自动剪辑|analyze|auto.?clip/i.test(command)) return analyze() ? l('分析完成，候选片段和四维评分已经同步到结果页。', 'Analysis complete. Candidate clips and four scoring dimensions are now in the results.') : l('请先添加要分析的视频。', 'Add a video to analyze first.');
-    if (/最高|前三|top\s*3/i.test(command)) {
-      const next = [...resultClips].sort((a, b) => totalScore(b) - totalScore(a)).slice(0, 3).map(clip => clip.id);
-      setSelected(next);
-      setSort('score');
-      setResultTab('candidates');
-      setCurrentStep(2);
-      setResultVersions(versions => versions.map(version => version.value === resultVersion ? { ...version, selectedIds: next } : version));
-      return l('已选中综合评分最高的 3 个片段。', 'Selected the top 3 clips by overall score.');
-    }
-    if (/导出|下载|export|download/i.test(command)) {
-      if (!selectedResult || selected.length === 0) return l('请先分析视频并至少选择一个片段。', 'Analyze the video and select at least one clip first.');
-      exportSelected();
-      return l(`已开始导出 ${selected.length} 个片段。`, `Started exporting ${selected.length} clips.`);
-    }
-    return l('你可以发送视频链接，让我分析高光片段、选择评分最高的片段或导出已选内容。', 'Send a video link and ask me to find highlights, select the highest-scoring clips, or export your selection.');
-  }
+  const quickActions = selectedResult === undefined
+    ? [{
+        id: 'analyze-video-clips',
+        label: l('一键自动切片', 'Auto-clip now'),
+        kind: 'action' as const,
+        onAction: () => void analyze(),
+        disabled: !hasSource || analyzing || rendering
+      }]
+    : [];
 
   return (
     <CreatorToolShell
-      title={l('自动剪辑', 'Auto Clips')}
-      subtitle={l('理解字幕语义，从长视频提取可独立传播的片段', 'Understand subtitle semantics and extract standalone clips from long videos')}
-      context={selectedResult ? l(`V${resultVersion}，${selectedResult.clipCount} 个候选，已选 ${selected.length} 个`, `V${resultVersion}, ${selectedResult.clipCount} candidates, ${selected.length} selected`) : l('等待分析长视频', 'Waiting to analyze a long video')}
-      initialMessage={l('上传长视频或发送链接，我会先确认分析目标和片段数量，再提取候选片段，每条都提供四维评分和完整字幕。', 'Upload a long video or send a link. I will confirm the analysis goal and clip count, then extract candidates with four scores and full transcripts.')}
-      suggestions={selectedResult ? [l('选择评分最高的 3 个', 'Select the top 3 clips'), l('导出已选片段', 'Export selected clips')] : [l('开始分析', 'Start analysis')]}
-      placeholder={props.promptHint ?? l('发送视频链接或描述剪辑要求', 'Send a video link or describe your editing requirements')}
+      title={l('视频切片', 'Video Clips')}
+      subtitle={l(
+        '自动识别长视频中的高光时刻，并直接生成独立短视频',
+        'Find the strongest moments in long videos and automatically render standalone clips'
+      )}
+      context={selectedResult
+        ? l(
+            `V${selectedResult.value}，${candidates.length} 个视频切片`,
+            `V${selectedResult.value}, ${candidates.length} video clips`
+          )
+        : analyzing
+          ? l('正在识别视频高光', 'Finding video highlights')
+          : l('等待添加长视频', 'Waiting for a long video')}
+      suggestions={[]}
+      quickActions={quickActions}
+      placeholder={props.promptHint ?? l(
+        '询问切片进度，或描述内容重点、时长和画幅要求',
+        'Ask about progress or describe the focus, duration, and format you need'
+      )}
+      stepLabel={rendering
+        ? l('生成视频切片', 'Rendering video clips')
+        : analyzing
+          ? l('识别视频高光', 'Finding video highlights')
+          : currentStep === 2
+            ? l('切片结果', 'Clip results')
+            : steps[currentStep]!}
+      currentIssue={persistentError || undefined}
+      onCancelTask={analyzing || rendering
+        ? () => void session?.cancelJob().catch(cause => setError(formatClipError(cause, l)))
+        : undefined}
+      onResumeTask={session?.job.status === 'canceled'
+        ? () => void session.resumeJob().catch(cause => setError(formatClipError(cause, l)))
+        : undefined}
       onBack={props.onBack}
-      onCommand={handleCommand}
     >
-      <div className="creator-tool-stack">
-        <nav className="video-translation-steps creator-tool-steps" aria-label={l('自动剪辑流程', 'Auto clip workflow')}>
-          <ol>{steps.map((step, index) => { const active = index === currentStep; const completed = index < currentStep; return <li key={step} data-active={active} data-completed={completed}><button type="button" disabled={index > furthestStep} aria-current={active ? 'step' : undefined} onClick={() => setCurrentStep(index as AutoClipStep)}><span>{completed ? <Check size={13} strokeWidth={2.2} aria-hidden="true" /> : index + 1}</span><strong>{step}</strong></button></li>; })}</ol>
+      <div className="creator-tool-stack auto-clip-tool-stack">
+        {activeToast ? (
+          <div className="creator-tool-toast" role="alert">
+            <span aria-hidden="true"><CircleAlert size={17} /></span>
+            <div><p>{activeToast.message}</p></div>
+            <button type="button" aria-label={l('关闭提示', 'Dismiss notification')} onClick={() => {
+              setDismissedErrorKey(technicalErrorKey);
+              setError('');
+              session?.clearError();
+            }}><X size={15} /></button>
+          </div>
+        ) : null}
+        <nav className="video-translation-steps creator-tool-steps" aria-label={l('视频切片流程', 'Video clip workflow')}>
+          <ol>{steps.map((step, index) => {
+            const active = index === currentStep;
+            const completed = index < currentStep;
+            return (
+              <li key={step} data-active={active} data-completed={completed}>
+                <button
+                  type="button"
+                  disabled={index > furthestStep || analyzing || rendering}
+                  aria-current={active ? 'step' : undefined}
+                  onClick={() => openStep(index as AutoClipStep)}
+                >
+                  <span>{completed ? <Check size={13} strokeWidth={2.2} aria-hidden="true" /> : index + 1}</span>
+                  <strong>{step}</strong>
+                </button>
+              </li>
+            );
+          })}</ol>
         </nav>
 
         {currentStep === 0 ? (
@@ -337,165 +459,880 @@ export default function AutoClipWorkspace(props: {
                   setVideoUrl(url);
                   setVideoFile(null);
                   setSourceArtifactId('');
-                  setSourceOrientation('landscape');
+                  setError('');
                   setNotice('');
                 }}
                 onClear={clearCurrentSource}
-                onDimensions={updateSourceOrientation}
               />
             ) : (
-              <section className="creator-tool-panel" aria-labelledby="auto-clip-imported-source-title">
+              <section className="creator-tool-panel" aria-labelledby="video-clips-imported-source-title">
                 <div className="creator-tool-panel-heading">
                   <div>
-                    <h2 id="auto-clip-imported-source-title">{l('项目视频', 'Project video')}</h2>
-                    <p>{l('已从视频下载任务导入，无需重新访问源网站', 'Imported from a video download job without fetching the source website again')}</p>
+                    <h2 id="video-clips-imported-source-title">{l('项目视频', 'Project video')}</h2>
+                    <p>{l('已从项目产出导入，无需重新下载', 'Imported from a project output without downloading it again')}</p>
                   </div>
                 </div>
                 <div className="video-result-file-row">
                   <span><FileVideo size={18} strokeWidth={1.7} /></span>
                   <div>
                     <strong>{importedSourceName}</strong>
-                    <small>{l('已关联到当前自动剪辑任务', 'Attached to this auto clip job')}</small>
+                    <small>{l('已关联到当前视频切片任务', 'Attached to this video clip job')}</small>
                   </div>
-                  <button type="button" onClick={clearCurrentSource}>
-                    {l('更换', 'Change')}
-                  </button>
+                  <button type="button" onClick={clearCurrentSource}>{l('更换', 'Change')}</button>
                 </div>
               </section>
             )}
-            <div className="creator-tool-actions"><button className="creator-tool-primary" type="button" disabled={!hasSource} onClick={continueToSettings}>{l('下一步：分析设置', 'Next: Analysis settings')}</button></div>
+            <div className="creator-tool-actions">
+              <button className="creator-tool-primary" type="button" disabled={!hasSource} onClick={continueToSettings}>
+                {l('下一步：切片设置', 'Next: Clip settings')}
+              </button>
+            </div>
           </>
         ) : null}
 
         {currentStep === 1 ? (
           <div className="creator-task-final-grid">
-            <section className="creator-tool-panel" aria-labelledby="auto-clip-settings-title">
-              <div className="creator-tool-panel-heading"><div><h2 id="auto-clip-settings-title">{l('设置分析目标', 'Set the analysis goal')}</h2><p>{l('先确定内容偏好、片段时长和数量，再开始识别字幕语义', 'Choose a content focus, clip length, and count before analyzing subtitle meaning')}</p></div></div>
-              <div className="creator-tool-form-row auto-clip-settings-grid">
-                <label className="creator-tool-field"><span>{l('内容偏好', 'Content focus')}</span><select aria-label={l('内容偏好', 'Content focus')} value={focus} onChange={event => setFocus(event.target.value as AnalysisFocus)}><option value="balanced">{l('综合表现', 'Balanced')}</option><option value="viral">{l('传播潜力优先', 'Shareability first')}</option><option value="knowledge">{l('知识完整度优先', 'Knowledge completeness')}</option></select></label>
-                <label className="creator-tool-field"><span>{l('目标时长', 'Target duration')}</span><select aria-label={l('目标时长', 'Target duration')} value={duration} onChange={event => setDuration(event.target.value as ClipDuration)}><option value="15-30">15-30 {l('秒', 'sec')}</option><option value="30-60">30-60 {l('秒', 'sec')}</option><option value="60-90">60-90 {l('秒', 'sec')}</option></select></label>
-                <label className="creator-tool-field"><span>{l('片段数量', 'Number of clips')}</span><input type="number" min="1" max={clips.length} step="1" aria-label={l('片段数量', 'Number of clips')} value={clipCount} onChange={event => setClipCount(clampClipCount(Number(event.target.value)))} /></label>
+            <section className="creator-tool-panel" aria-labelledby="video-clips-settings-title">
+              <div className="creator-tool-panel-heading">
+                <div>
+                  <h2 id="video-clips-settings-title">{l('设置切片目标', 'Set clip goals')}</h2>
+                  <p>{l('AI 会根据内容重点、目标时长和传播完整度寻找最佳片段', 'AI finds the best moments using your focus, duration, and standalone clarity')}</p>
+                </div>
               </div>
-              <div className="auto-clip-analysis-note"><Sparkles size={18} strokeWidth={1.7} /><div><strong>{l(`将生成 ${clipCount} 个候选片段`, `${clipCount} candidate clips will be generated`)}</strong><p>{l('每条包含完整字幕、开头吸引力、语义完整度、情绪强度和传播潜力评分', 'Each includes a full transcript plus hook, completeness, emotion, and shareability scores')}</p></div></div>
-              <div className="creator-tool-actions"><button className="creator-tool-primary" type="button" onClick={() => analyze()}><Sparkles size={16} />{selectedResult && hasPendingChanges ? l(`重新分析并生成 V${nextVersion}`, `Reanalyze as V${nextVersion}`) : l('识别语义并提取片段', 'Analyze and extract clips')}</button></div>
+              <div className="auto-clip-setting-sections">
+                <section className="auto-clip-setting-section" aria-labelledby="auto-clip-content-settings-title">
+                  <header>
+                    <h3 id="auto-clip-content-settings-title">{l('内容识别', 'Content analysis')}</h3>
+                  </header>
+                  <div className="creator-tool-form-row auto-clip-settings-grid">
+                    <label className="creator-tool-field">
+                      <span>{l('原视频语言', 'Source language')}</span>
+                      <select aria-label={l('原视频语言', 'Source language')} value={sourceLanguage} onChange={event => setSourceLanguage(event.target.value)}>
+                        <option value="auto">{l('自动检测（优先平台字幕）', 'Auto detect (prefer platform captions)')}</option>
+                        <option value="zh_cn">{l('简体中文', 'Simplified Chinese')}</option>
+                        <option value="zh_tw">{l('繁體中文', 'Traditional Chinese')}</option>
+                        <option value="en">English</option>
+                        <option value="ja">日本語</option>
+                        <option value="ko">한국어</option>
+                        <option value="es">Español</option>
+                        <option value="fr">Français</option>
+                        <option value="de">Deutsch</option>
+                        <option value="pt">Português</option>
+                        <option value="ru">Русский</option>
+                      </select>
+                    </label>
+                    <label className="creator-tool-field">
+                      <span>{l('内容类型', 'Content type')}</span>
+                      <select aria-label={l('内容类型', 'Content type')} value={genre} onChange={event => setGenre(event.target.value as ClipGenre)}>
+                        <option value="auto">{l('自动判断', 'Auto detect')}</option>
+                        <option value="talk">{l('演讲 / 观点', 'Talk / commentary')}</option>
+                        <option value="podcast">{l('播客对谈', 'Podcast')}</option>
+                        <option value="tutorial">{l('教程 / 知识', 'Tutorial / education')}</option>
+                        <option value="interview">{l('人物访谈', 'Interview')}</option>
+                        <option value="entertainment">{l('娱乐内容', 'Entertainment')}</option>
+                        <option value="sports">{l('体育内容', 'Sports')}</option>
+                        <option value="gaming">{l('游戏内容', 'Gaming')}</option>
+                        <option value="news">{l('新闻 / 时事', 'News / current affairs')}</option>
+                      </select>
+                    </label>
+                    <label className="creator-tool-field">
+                      <span>{l('内容重点', 'Content focus')}</span>
+                      <select aria-label={l('内容重点', 'Content focus')} value={focus} onChange={event => setFocus(event.target.value as AnalysisFocus)}>
+                        <option value="balanced">{l('综合表现', 'Balanced')}</option>
+                        <option value="viral">{l('传播潜力优先', 'Shareability first')}</option>
+                        <option value="knowledge">{l('知识完整度优先', 'Knowledge completeness')}</option>
+                      </select>
+                    </label>
+                  </div>
+                </section>
+
+                <section className="auto-clip-setting-section" aria-labelledby="auto-clip-output-settings-title">
+                  <header>
+                    <h3 id="auto-clip-output-settings-title">{l('切片输出', 'Clip output')}</h3>
+                  </header>
+                  <div className="creator-tool-form-row auto-clip-settings-grid">
+                    <label className="creator-tool-field">
+                      <span>{l('目标时长', 'Target duration')}</span>
+                      <select aria-label={l('目标时长', 'Target duration')} value={duration} onChange={event => setDuration(event.target.value as ClipDuration)}>
+                        <option value="15-30">15-30 {l('秒', 'sec')}</option>
+                        <option value="30-60">30-60 {l('秒', 'sec')}</option>
+                        <option value="60-90">60-90 {l('秒', 'sec')}</option>
+                      </select>
+                    </label>
+                    <label className="creator-tool-field">
+                      <span>{l('切片数量', 'Number of clips')}</span>
+                      <input type="number" min="1" max="20" step="1" aria-label={l('切片数量', 'Number of clips')} value={clipCount} onChange={event => setClipCount(clampClipCount(Number(event.target.value)))} />
+                    </label>
+                    <label className="creator-tool-field">
+                      <span>{l('输出画幅', 'Output format')}</span>
+                      <select aria-label={l('输出画幅', 'Output format')} value={aspectRatio} onChange={event => setAspectRatio(event.target.value as ClipAspectRatio)}>
+                        <option value="9:16">{l('竖屏', 'Portrait')} 9:16</option>
+                        <option value="1:1">{l('方形', 'Square')} 1:1</option>
+                        <option value="16:9">{l('横屏', 'Landscape')} 16:9</option>
+                        <option value="source">{l('跟随原视频', 'Match source')}</option>
+                      </select>
+                    </label>
+                  </div>
+                </section>
+              </div>
+              <div className="auto-clip-analysis-note">
+                <Sparkles size={18} strokeWidth={1.7} />
+                <div>
+                  <strong>{l(`自动生成最多 ${clipCount} 个独立视频切片`, `Automatically render up to ${clipCount} standalone video clips`)}</strong>
+                  <p>{l('分析完成后直接生成全部片段，每条包含完整字幕、推荐理由和四维评分', 'Every analyzed moment is rendered automatically with its transcript, rationale, and four scores')}</p>
+                </div>
+              </div>
+              <div className="creator-tool-actions">
+                <button className="creator-tool-primary" type="button" disabled={analyzing || rendering} onClick={() => void analyze()}>
+                  {analyzing || rendering ? <LoaderCircle className="smart-dubbing-spinner" size={16} /> : <Sparkles size={16} />}
+                  {analyzing
+                    ? l('正在识别高光', 'Finding highlights')
+                    : rendering
+                      ? l('正在生成切片', 'Rendering clips')
+                    : selectedResult
+                      ? l('重新分析并自动生成新版本', 'Reanalyze and render a new version')
+                      : l('开始自动切片', 'Start automatic clipping')}
+                </button>
+              </div>
             </section>
             <CreatorTaskSummary
               sourceIcon={FileVideo}
               sourceLabel={l('视频来源', 'Video source')}
-              sourceValue={videoFile?.name ?? (importedSourceName || videoUrl)}
+              sourceValue={sourceDisplayName}
               items={[
-                { label: l('内容偏好', 'Content focus'), value: focusLabel(focus, l) },
+                { label: l('原视频语言', 'Source language'), value: sourceLanguageLabel(sourceLanguage, l) },
+                { label: l('内容类型', 'Content type'), value: genreLabel(genre, l) },
+                { label: l('内容重点', 'Content focus'), value: focusLabel(focus, l) },
                 { label: l('目标时长', 'Target duration'), value: `${duration} ${l('秒', 'sec')}` },
-                { label: l('候选片段', 'Candidates'), value: String(clipCount) },
-                { label: l('输出画幅', 'Output frame'), value: orientationLabel(sourceOrientation, l) }
+                { label: l('切片数量', 'Clip count'), value: String(clipCount) },
+                { label: l('输出画幅', 'Output format'), value: aspectRatioLabel(aspectRatio, l) }
               ]}
             />
           </div>
         ) : null}
 
         {currentStep === 2 && selectedResult ? (
-          <section className="video-result-workspace auto-clip-result-workspace" aria-label={l('自动剪辑项目产出', 'Auto clip project outputs')}>
+          <section className="video-result-workspace auto-clip-result-workspace" aria-label={l('视频切片项目产出', 'Video clip project outputs')}>
             <div className="video-result-toolbar">
-              <div className="video-result-tabs" role="tablist" aria-label={l('自动剪辑结果类型', 'Auto clip result types')}>
-                <button type="button" role="tab" aria-selected={resultTab === 'candidates'} onClick={() => setResultTab('candidates')}><ListVideo size={15} strokeWidth={1.8} />{l('候选片段', 'Candidates')}</button>
-                <button type="button" role="tab" aria-selected={resultTab === 'details'} onClick={() => setResultTab('details')}><Captions size={15} strokeWidth={1.8} />{l('字幕与评分', 'Transcript and scores')}</button>
-                <button type="button" role="tab" aria-selected={resultTab === 'export'} onClick={() => setResultTab('export')}><Download size={15} strokeWidth={1.8} />{l('导出内容', 'Exports')}</button>
-                <button type="button" role="tab" aria-selected={resultTab === 'settings'} onClick={() => setResultTab('settings')}><Settings2 size={15} strokeWidth={1.8} />{l('任务设置', 'Task settings')}</button>
+              <div className="auto-clip-result-heading">
+                <h2>{l('切片结果', 'Clip results')}</h2>
+                <span>{l(`${renderedClipItems.length} 个切片`, `${renderedClipItems.length} clips`)}</span>
               </div>
-              <CreatorResultVersionMenu version={resultVersion} versions={resultVersions.map(({ value, description }) => ({ value, description }))} onVersionChange={selectVersion} />
+              <div className="auto-clip-result-controls">
+                <div className="auto-clip-view-switch" role="group" aria-label={l('结果视图', 'Result view')}>
+                  <button
+                    type="button"
+                    aria-label={l('列表视图', 'List view')}
+                    aria-pressed={resultView === 'list'}
+                    title={l('列表视图', 'List view')}
+                    onClick={() => setResultView('list')}
+                  >
+                    <ListIcon size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={l('网格视图', 'Grid view')}
+                    aria-pressed={resultView === 'grid'}
+                    title={l('网格视图', 'Grid view')}
+                    onClick={() => setResultView('grid')}
+                  >
+                    <Grid2X2 size={15} />
+                  </button>
+                </div>
+                <CreatorResultVersionMenu
+                  version={selectedResult.value}
+                  versions={resultVersions.map(version => ({ value: version.value, description: version.description }))}
+                  onVersionChange={selectVersion}
+                />
+              </div>
             </div>
-            {hasPendingChanges ? <div className="stickman-version-draft" role="status"><div><strong>{l(`正在基于 V${resultVersion} 调整`, `Adjusting from V${resultVersion}`)}</strong><span>{l('原版本的候选片段、字幕与评分仍可查看', 'The original candidates, transcripts, and scores remain available')}</span></div><button type="button" onClick={() => setCurrentStep(1)}>{l('继续设置', 'Continue settings')}</button></div> : null}
             <div className="auto-clip-result-content">
-
-            {resultTab === 'candidates' ? (
-              <div className="video-result-pane">
-                <header className="video-result-pane-heading"><div><h2>{l(`已找到 ${selectedResult.clipCount} 个候选片段`, `Found ${selectedResult.clipCount} candidate clips`)}</h2><p>{l(`V${resultVersion}，已选 ${selected.length} 个`, `V${resultVersion}, ${selected.length} selected`)}</p></div><div className="auto-clip-result-actions"><div className="auto-clip-layout-switch" role="group" aria-label={l('候选片段布局', 'Candidate clip layout')}><button type="button" aria-pressed={clipLayout === 'grid'} aria-label={l('网格视图', 'Grid view')} title={l('网格视图', 'Grid view')} onClick={() => setClipLayout('grid')}><LayoutGrid size={16} strokeWidth={1.8} /></button><button type="button" aria-pressed={clipLayout === 'list'} aria-label={l('列表视图', 'List view')} title={l('列表视图', 'List view')} onClick={() => setClipLayout('list')}><List size={16} strokeWidth={1.8} /></button></div><label>{l('排序', 'Sort')}<select value={sort} onChange={event => setSort(event.target.value as typeof sort)}><option value="score">{l('综合评分', 'Overall score')}</option><option value="time">{l('原片顺序', 'Source order')}</option></select></label><button type="button" disabled={selected.length === 0} onClick={exportSelected}><Download size={15} />{l('导出已选', 'Export selected')} ({selected.length})</button></div></header>
-                {clipLayout === 'grid' ? (
-                  <section className="auto-clip-candidate-grid" data-orientation={selectedResult.sourceOrientation} aria-label={l('候选片段网格', 'Candidate clip grid')}>
-                    {orderedClips.map(clip => (
-                      <article key={clip.id} data-selected={selected.includes(clip.id)}>
-                        <div className="auto-clip-card-media">
-                          <img src="/dashboard/templates/video-translation-example.png" alt="" />
-                          <span className="auto-clip-card-duration">{clip.duration}</span>
-                          <label><input type="checkbox" checked={selected.includes(clip.id)} onChange={() => toggleClip(clip.id)} aria-label={`${l('选择片段', 'Select clip')} ${clip.id}`} /></label>
-                          <button type="button" onClick={() => { setActiveClip(clip.id); setResultTab('details'); }} aria-label={`${l('播放片段', 'Play clip')} ${clip.id}`}><Play size={18} fill="currentColor" /></button>
-                        </div>
-                        <div className="auto-clip-card-copy"><strong>{localizedClip(clip, l).title}</strong><span>{clip.time}</span></div>
-                        <footer><span>{l('综合评分', 'Score')} <b>{totalScore(clip)}</b></span><div><button type="button" onClick={() => { setActiveClip(clip.id); setResultTab('details'); }} aria-label={`${l('查看片段', 'View clip')} ${clip.id} ${localizedClip(clip, l).title}`} title={l('查看详情', 'View details')}><Captions size={15} /></button><button type="button" onClick={() => setNotice(l(`片段 ${clip.id} 已加入导出队列`, `Clip ${clip.id} was added to the export queue`))} aria-label={`${l('下载片段', 'Download clip')} ${clip.id}`} title={l('下载片段', 'Download clip')}><Download size={15} /></button></div></footer>
-                      </article>
-                    ))}
-                  </section>
+              <div className="video-result-pane" data-view={resultView}>
+                {rendering ? (
+                  <div className="video-result-empty" role="status"><LoaderCircle className="smart-dubbing-spinner" size={26} /><strong>{l('正在自动生成视频切片', 'Rendering video clips automatically')}</strong><span>{readProgressText(latestRenderStage, l)}</span></div>
+                ) : renderedClipItems.length > 0 ? (
+                  resultView === 'grid' ? (
+                    <section className="auto-clip-grid" aria-label={l('视频切片网格', 'Video clip grid')}>
+                      {renderedClipItems.map(({ artifact, clip }, index) => (
+                        <AutoClipGridItem
+                          key={artifact.id}
+                          index={index}
+                          clip={clip}
+                          artifact={artifact}
+                          videoUrl={exportUrls[artifact.id] ?? ''}
+                          onDownload={() => downloadArtifact(artifact)}
+                        />
+                      ))}
+                    </section>
+                  ) : (
+                    <section className="auto-clip-compact-list" aria-label={l('视频切片列表', 'Video clip list')}>
+                      {renderedClipItems.map(({ artifact, clip }, index) => (
+                        <AutoClipResultItem
+                          key={artifact.id}
+                          index={index}
+                          clip={clip}
+                          artifact={artifact}
+                          videoUrl={exportUrls[artifact.id] ?? ''}
+                          subtitleCues={selectedResult.subtitleArtifact?.metadata.cues}
+                          onDownload={() => downloadArtifact(artifact)}
+                        />
+                      ))}
+                    </section>
+                  )
                 ) : (
-                  <section className="auto-clip-candidate-detailed-list" data-orientation={selectedResult.sourceOrientation} aria-label={l('候选片段列表', 'Candidate clip list')}>
-                    {orderedClips.map(clip => (
-                      <article key={clip.id} data-selected={selected.includes(clip.id)}>
-                        <label className="auto-clip-list-select"><input type="checkbox" checked={selected.includes(clip.id)} onChange={() => toggleClip(clip.id)} aria-label={`${l('选择片段', 'Select clip')} ${clip.id}`} /></label>
-                        <button className="auto-clip-list-preview" type="button" onClick={() => { setActiveClip(clip.id); setResultTab('details'); }} aria-label={`${l('播放片段', 'Play clip')} ${clip.id}`}><img src="/dashboard/templates/video-translation-example.png" alt="" /><span>{clip.duration}</span><Play size={18} fill="currentColor" /></button>
-                        <div className="auto-clip-list-content"><header><div><strong>{localizedClip(clip, l).title}</strong><span>{clip.time}</span></div><b>{totalScore(clip)}</b></header><p>{localizedClip(clip, l).subtitle}</p><dl>{Object.entries(clip.scores).map(([key, score]) => <div key={key}><dt>{scoreLabel(key as keyof ClipCandidate['scores'], l)}</dt><dd>{score}</dd></div>)}</dl></div>
-                        <div className="auto-clip-list-actions"><button type="button" onClick={() => { setActiveClip(clip.id); setResultTab('details'); }} aria-label={`${l('查看片段', 'View clip')} ${clip.id} ${localizedClip(clip, l).title}`}><Captions size={15} />{l('查看详情', 'View details')}</button><button type="button" onClick={() => setNotice(l(`片段 ${clip.id} 已加入导出队列`, `Clip ${clip.id} was added to the export queue`))} aria-label={`${l('下载片段', 'Download clip')} ${clip.id}`}><Download size={15} />{l('下载', 'Download')}</button></div>
-                      </article>
-                    ))}
-                  </section>
+                  <div className="video-result-empty"><Scissors size={26} strokeWidth={1.5} /><strong>{l('视频切片尚未生成', 'Video clips are not ready yet')}</strong><span>{l('分析完成后会自动生成全部片段', 'All analyzed moments will be rendered automatically')}</span></div>
                 )}
               </div>
-            ) : null}
 
-            {resultTab === 'details' ? (
-              <div className="video-result-pane">
-                <header className="video-result-pane-heading"><div><h2>{l('字幕与四维评分', 'Transcript and four scores')}</h2><p>{l('检查片段是否能够脱离原视频独立传播', 'Check whether this clip can stand on its own')}</p></div><button type="button" onClick={() => setResultTab('candidates')}>{l('返回候选片段', 'Back to candidates')}</button></header>
-                <aside className="auto-clip-detail auto-clip-detail-result" data-orientation={selectedResult.sourceOrientation} aria-label={`${l('片段', 'Clip')} ${currentClip.id} ${l('详情', 'details')}`}><div className="auto-clip-player"><img src="/dashboard/templates/video-translation-example.png" alt={l('片段预览', 'Clip preview')} /><span><Play size={22} fill="currentColor" /></span></div><header><div><small>{l('片段', 'Clip')} {currentClip.id}</small><h2>{localizedClip(currentClip, l).title}</h2><p>{currentClip.time} · {currentClip.duration}</p></div><strong>{totalScore(currentClip)}</strong></header><dl className="auto-clip-scores"><div><dt>{l('开头吸引力', 'Hook')}</dt><dd>{currentClip.scores.hook}</dd></div><div><dt>{l('语义完整度', 'Completeness')}</dt><dd>{currentClip.scores.semantic}</dd></div><div><dt>{l('情绪强度', 'Emotion')}</dt><dd>{currentClip.scores.emotion}</dd></div><div><dt>{l('传播潜力', 'Shareability')}</dt><dd>{currentClip.scores.viral}</dd></div></dl><section className="auto-clip-subtitle"><h3>{l('片段字幕', 'Clip transcript')}</h3><p>{localizedClip(currentClip, l).subtitle}</p></section><button type="button" onClick={() => toggleClip(currentClip.id)}>{selected.includes(currentClip.id) ? <><Check size={15} />{l('已选择', 'Selected')}</> : l('选择此片段', 'Select this clip')}</button></aside>
-              </div>
-            ) : null}
-
-            {resultTab === 'export' ? (
-              <div className="video-result-pane">
-                <header className="video-result-pane-heading"><div><h2>{l('导出内容', 'Export selection')}</h2><p>{l('选择片段不会创建新版本，重新分析才会保留为新版本', 'Selecting clips does not create a version. Reanalysis does.')}</p></div><button type="button" disabled={selected.length === 0} onClick={exportSelected}><Download size={15} />{l('导出全部已选', 'Export selected')}</button></header>
-                {selected.length ? <div className="auto-clip-export-list">{selected.map(id => { const clip = clips.find(item => item.id === id)!; return <div className="video-result-file-row" key={id}><span><Scissors size={18} strokeWidth={1.7} /></span><div><strong>{String(id).padStart(2, '0')}-{localizedClip(clip, l).title}.mp4</strong><small>{clip.time} · {clip.duration} · {l('综合评分', 'Score')} {totalScore(clip)}</small></div><button type="button" onClick={() => setNotice(l(`片段 ${id} 已加入导出队列`, `Clip ${id} was added to the export queue`))} aria-label={`${l('导出片段', 'Export clip')} ${id}`}><Download size={16} /></button></div>; })}</div> : <div className="video-result-empty"><Scissors size={26} strokeWidth={1.5} /><strong>{l('还没有选择片段', 'No clips selected')}</strong><button type="button" onClick={() => setResultTab('candidates')}>{l('返回选择片段', 'Choose clips')}</button></div>}
-              </div>
-            ) : null}
-
-            {resultTab === 'settings' ? (
-              <div className="video-result-pane">
-                <header className="video-result-pane-heading"><div><h2>{l('当前版本设置', 'Current version settings')}</h2><p>{l('调整视频或分析目标后重新分析，会生成新版本', 'Changing the source or analysis goal and reanalyzing creates a new version')}</p></div><div className="video-result-pane-actions"><button type="button" onClick={() => setCurrentStep(0)}><FileVideo size={15} />{l('更换视频', 'Change video')}</button><button type="button" onClick={() => setCurrentStep(1)}><SlidersHorizontal size={15} />{l('调整分析设置', 'Adjust analysis')}</button></div></header>
-                <dl className="video-result-settings"><div><dt>{l('视频来源', 'Video source')}</dt><dd>{selectedResult.videoFile?.name ?? selectedResult.videoUrl}</dd></div><div><dt>{l('候选数量', 'Candidates')}</dt><dd>{selectedResult.clipCount}</dd></div><div><dt>{l('输出画幅', 'Output frame')}</dt><dd>{orientationLabel(selectedResult.sourceOrientation, l)}</dd></div><div><dt>{l('内容偏好', 'Content focus')}</dt><dd>{focusLabel(selectedResult.focus, l)}</dd></div><div><dt>{l('目标时长', 'Target duration')}</dt><dd>{selectedResult.duration} {l('秒', 'sec')}</dd></div></dl>
-              </div>
-            ) : null}
             </div>
           </section>
         ) : null}
-        {notice ? <p className="creator-tool-notice" role="status">{notice}</p> : null}
+
+        {analyzing && currentStep !== 2 ? (
+          <p className="creator-tool-notice" role="status"><LoaderCircle className="smart-dubbing-spinner" size={14} />{readProgressText(latestAnalysisStage, l)}</p>
+        ) : notice ? <p className="creator-tool-notice" role="status">{notice}</p> : null}
+        {visibleError ? <p className="creator-tool-error" role="alert">{visibleError}</p> : null}
       </div>
     </CreatorToolShell>
   );
 }
 
-function localizedClip(clip: ClipCandidate, l: ReturnType<typeof useLocalizedCopy>) {
-  const english = englishClips[clip.id];
-  return { title: l(clip.title, english?.title ?? clip.title), subtitle: l(clip.subtitle, english?.subtitle ?? clip.subtitle) };
+function AutoClipGridItem(props: {
+  index: number;
+  clip: ClipCandidate;
+  artifact: CreatorArtifact;
+  videoUrl: string;
+  onDownload(): void;
+}) {
+  const l = useLocalizedCopy();
+  const orientation = readOrientation(props.artifact)
+    ?? aspectRatioOrientation(readAspectRatio(props.artifact.metadata.aspectRatio))
+    ?? 'landscape';
+  const sequence = String(props.index + 1).padStart(2, '0');
+  return (
+    <article className="auto-clip-grid-item" aria-label={`${l('网格切片', 'Grid clip')} ${props.index + 1}: ${props.clip.title}`}>
+      <div className="auto-clip-grid-preview" data-orientation={orientation}>
+        {props.videoUrl ? (
+          <video
+            controls
+            playsInline
+            preload="metadata"
+            src={props.videoUrl}
+            aria-label={`${l('网格切片预览', 'Grid clip preview')} ${props.index + 1}`}
+          />
+        ) : <div className="auto-clip-export-loading"><LoaderCircle className="smart-dubbing-spinner" size={22} /></div>}
+      </div>
+      <div className="auto-clip-grid-meta">
+        <div>
+          <strong>{totalScore(props.clip)}<small>/100</small></strong>
+          <span>#{sequence}</span>
+          <button
+            type="button"
+            disabled={!props.videoUrl}
+            onClick={props.onDownload}
+            title={l('下载切片', 'Download clip')}
+            aria-label={`${l('下载视频切片', 'Download video clip')} ${props.clip.title}`}
+          >
+            <Download size={15} />
+          </button>
+        </div>
+        <h3>{props.clip.title}</h3>
+        <p>{formatTimeRange(props.clip)} · {formatDuration(props.clip.end - props.clip.start)}</p>
+      </div>
+    </article>
+  );
 }
 
-function focusLabel(value: AnalysisFocus, l: ReturnType<typeof useLocalizedCopy>) {
+function AutoClipResultItem(props: {
+  index: number;
+  clip: ClipCandidate;
+  artifact: CreatorArtifact;
+  videoUrl: string;
+  subtitleCues: CreatorJson | undefined;
+  onDownload(): void;
+}) {
+  const l = useLocalizedCopy();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const transcriptScrollRef = useRef<HTMLDivElement>(null);
+  const cueRefs = useRef(new Map<string, HTMLElement>());
+  const [playbackTime, setPlaybackTime] = useState(0);
+  const cues = useMemo(
+    () => readClipSubtitleCues(props.subtitleCues, props.clip),
+    [props.clip, props.subtitleCues]
+  );
+  const absoluteTime = props.clip.start + playbackTime;
+  const activeCueIds = new Set(cues
+    .filter(cue => absoluteTime >= cue.start && absoluteTime < cue.end)
+    .map(cue => cue.id));
+  const activeCueKey = [...activeCueIds].join('|');
+  const orientation = readOrientation(props.artifact)
+    ?? aspectRatioOrientation(readAspectRatio(props.artifact.metadata.aspectRatio))
+    ?? 'landscape';
+
+  useEffect(() => {
+    setPlaybackTime(0);
+  }, [props.clip.id, props.videoUrl]);
+
+  useEffect(() => {
+    const activeCueId = activeCueIds.values().next().value;
+    if (typeof activeCueId !== 'string') return;
+    const container = transcriptScrollRef.current;
+    const cue = cueRefs.current.get(activeCueId);
+    if (container === null || cue === undefined) return;
+    const containerRect = container.getBoundingClientRect();
+    const cueRect = cue.getBoundingClientRect();
+    if (cueRect.top < containerRect.top) {
+      container.scrollTop -= containerRect.top - cueRect.top;
+    } else if (cueRect.bottom > containerRect.bottom) {
+      container.scrollTop += cueRect.bottom - containerRect.bottom;
+    }
+  }, [activeCueKey]);
+
+  function seekToCue(cue: ClipSubtitleCue) {
+    const targetTime = Math.max(0, cue.start - props.clip.start);
+    if (videoRef.current !== null) videoRef.current.currentTime = targetTime;
+    setPlaybackTime(targetTime);
+  }
+
+  const sequence = String(props.index + 1).padStart(2, '0');
+  return (
+    <article className="auto-clip-compact-item" aria-label={`${l('切片', 'Clip')} ${props.index + 1}: ${props.clip.title}`}>
+      <header className="auto-clip-compact-header">
+        <span>#{sequence}</span>
+        <div>
+          <h3>{props.clip.title}</h3>
+          <small>{formatTimeRange(props.clip)} · {formatDuration(props.clip.end - props.clip.start)}</small>
+        </div>
+        <button
+          type="button"
+          disabled={!props.videoUrl}
+          onClick={props.onDownload}
+          title={l('下载切片', 'Download clip')}
+          aria-label={`${l('下载视频切片', 'Download video clip')} ${props.clip.title}`}
+        >
+          <Download size={16} />
+        </button>
+      </header>
+      <div className="auto-clip-compact-body">
+        <section className="auto-clip-compact-score" aria-label={`${l('切片评分', 'Clip score')} ${props.index + 1}`}>
+          <span>{l('综合评分', 'Score')}</span>
+          <strong>{totalScore(props.clip)}<small>/100</small></strong>
+          <dl>
+            {Object.entries(props.clip.scores).map(([key, score]) => (
+              <div key={key}><dt>{scoreLabel(key as ClipScoreKey, l)}</dt><dd>{score}</dd></div>
+            ))}
+          </dl>
+        </section>
+        <div className="auto-clip-compact-preview" data-orientation={orientation}>
+          {props.videoUrl ? (
+            <video
+              ref={videoRef}
+              controls
+              playsInline
+              preload="metadata"
+              src={props.videoUrl}
+              onLoadedMetadata={event => setPlaybackTime(event.currentTarget.currentTime)}
+              onSeeked={event => setPlaybackTime(event.currentTarget.currentTime)}
+              onTimeUpdate={event => setPlaybackTime(event.currentTarget.currentTime)}
+              aria-label={`${l('切片预览', 'Clip preview')} ${props.index + 1}`}
+            />
+          ) : <div className="auto-clip-export-loading"><LoaderCircle className="smart-dubbing-spinner" size={22} /></div>}
+        </div>
+        <section className="auto-clip-compact-transcript" aria-label={`${l('切片字幕', 'Clip transcript')} ${props.index + 1}`}>
+          <header><h4>{l('字幕', 'Transcript')}</h4><span>{cues.length} {l('条', 'lines')}</span></header>
+          <div ref={transcriptScrollRef}>
+            {cues.map((cue, cueIndex) => {
+              const active = activeCueIds.has(cue.id);
+              return (
+                <button
+                  type="button"
+                  key={cue.id}
+                  ref={node => {
+                    if (node === null) cueRefs.current.delete(cue.id);
+                    else cueRefs.current.set(cue.id, node);
+                  }}
+                  data-active={active}
+                  data-subtitle-cue="true"
+                  aria-current={active ? 'true' : undefined}
+                  aria-label={l(
+                    `跳转到切片 ${props.index + 1} 字幕 ${cueIndex + 1}，${formatTimestamp(cue.start - props.clip.start)}`,
+                    `Jump to clip ${props.index + 1} transcript ${cueIndex + 1}, ${formatTimestamp(cue.start - props.clip.start)}`
+                  )}
+                  onClick={() => seekToCue(cue)}
+                >
+                  <span>{formatTimestamp(cue.start - props.clip.start)}</span>
+                  <strong>{cue.text}</strong>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+    </article>
+  );
+}
+
+function createAutoClipResultVersions(
+  artifacts: CreatorArtifact[],
+  resultSnapshots: CreatorJson | undefined
+): AutoClipResultVersion[] {
+  const byId = new Map(artifacts.map(artifact => [artifact.id, artifact]));
+  const versions = readCreatorResultSnapshots(resultSnapshots).flatMap(snapshot => {
+    const artifact = (snapshot.artifactRefs.clip_candidates ?? [])
+      .map(id => byId.get(id))
+      .find((candidate): candidate is CreatorArtifact => candidate !== undefined);
+    if (artifact === undefined) return [];
+    const candidates = readCandidates(artifact.metadata.candidates);
+    if (candidates.length === 0) return [];
+    const sourceArtifact = (snapshot.artifactRefs.source_video ?? [])
+      .map(id => byId.get(id))
+      .find((candidate): candidate is CreatorArtifact => candidate !== undefined);
+    const subtitleArtifact = (snapshot.artifactRefs.target_subtitle ?? [])
+      .map(id => byId.get(id))
+      .find((candidate): candidate is CreatorArtifact => candidate !== undefined);
+    return [{
+      value: snapshot.version,
+      description: snapshot.description,
+      state: snapshot.state,
+      artifact,
+      ...(sourceArtifact === undefined ? {} : { sourceArtifact }),
+      ...(subtitleArtifact === undefined ? {} : { subtitleArtifact }),
+      candidates
+    }];
+  });
+  if (versions.length > 0) return versions.sort((left, right) => left.value - right.value);
+  return artifacts
+    .filter(artifact => artifact.kind === 'clip_candidates')
+    .flatMap(artifact => {
+      const candidates = readCandidates(artifact.metadata.candidates);
+      if (candidates.length === 0) return [];
+      return [{
+        value: readPositiveInteger(artifact.metadata.resultVersion) ?? artifact.version,
+        description: '识别视频高光片段',
+        state: {},
+        artifact,
+        sourceArtifact: artifacts.find(candidate => (
+          candidate.kind === 'source_video'
+          && artifact.sourceArtifactIds.includes(candidate.id)
+        )),
+        subtitleArtifact: artifact.sourceArtifactIds
+          .map(id => byId.get(id))
+          .find(candidate => candidate?.kind === 'target_subtitle'),
+        candidates
+      }];
+    })
+    .sort((left, right) => left.value - right.value);
+}
+
+function readCandidates(value: CreatorJson | undefined): ClipCandidate[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap(item => {
+    if (!isRecord(item)) return [];
+    const scores = isRecord(item.scores) ? item.scores : undefined;
+    const id = readString(item.id);
+    const title = readString(item.title);
+    const transcript = readString(item.transcript);
+    const reason = readString(item.reason);
+    const start = readNumber(item.start);
+    const end = readNumber(item.end);
+    if (!id || !title || !transcript || !reason || end <= start || scores === undefined) return [];
+    return [{
+      id,
+      title,
+      transcript,
+      reason,
+      start,
+      end,
+      scores: {
+        hook: scoreValue(scores.hook),
+        information: scoreValue(scores.information),
+        emotion: scoreValue(scores.emotion),
+        completeness: scoreValue(scores.completeness)
+      }
+    }];
+  });
+}
+
+function readClipSubtitleCues(
+  value: CreatorJson | undefined,
+  clip: ClipCandidate
+): ClipSubtitleCue[] {
+  const cues = Array.isArray(value)
+    ? value.flatMap((item, index) => {
+        if (!isRecord(item)) return [];
+        const start = subtitleTimestampSeconds(item.start);
+        const end = subtitleTimestampSeconds(item.end);
+        const text = readString(item.text);
+        if (!text || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
+        const clippedStart = Math.max(clip.start, start);
+        const clippedEnd = Math.min(clip.end, end);
+        if (clippedEnd <= clippedStart) return [];
+        const rawId = typeof item.id === 'string' || typeof item.id === 'number'
+          ? String(item.id)
+          : String(index + 1);
+        return [{
+          id: `${rawId}-${index}`,
+          start: clippedStart,
+          end: clippedEnd,
+          text
+        }];
+      })
+    : [];
+  return cues.length > 0 ? cues : approximateSubtitleCues(clip);
+}
+
+function approximateSubtitleCues(clip: ClipCandidate): ClipSubtitleCue[] {
+  const segments = clip.transcript
+    .match(/[^。！？!?；;\n.]+[。！？!?；;.]?/g)
+    ?.map(text => text.trim())
+    .filter(Boolean) ?? [];
+  if (segments.length === 0) return [];
+  const totalWeight = segments.reduce((total, text) => total + text.length, 0);
+  const duration = clip.end - clip.start;
+  let cursor = clip.start;
+  return segments.map((text, index) => {
+    const start = cursor;
+    const end = index === segments.length - 1
+      ? clip.end
+      : Math.min(clip.end, start + duration * text.length / totalWeight);
+    cursor = end;
+    return { id: `approximate-${index}`, start, end, text };
+  });
+}
+
+function subtitleTimestampSeconds(value: CreatorJson | undefined): number {
+  if (typeof value === 'number') return value;
+  if (typeof value !== 'string') return Number.NaN;
+  const match = /^(\d+):(\d{2}):(\d{2})(?:[,.](\d{1,3}))?$/.exec(value.trim());
+  if (match === null) return Number.NaN;
+  return Number(match[1]) * 3600
+    + Number(match[2]) * 60
+    + Number(match[3])
+    + Number((match[4] ?? '').padEnd(3, '0')) / 1000;
+}
+
+function totalScore(clip: ClipCandidate): number {
+  const values = Object.values(clip.scores);
+  return Math.round(values.reduce((sum, score) => sum + score, 0) / values.length);
+}
+
+function scoreValue(value: CreatorJson | undefined): number {
+  return Math.max(0, Math.min(100, Math.round(readNumber(value))));
+}
+
+function formatTimeRange(clip: ClipCandidate): string {
+  return `${formatTimestamp(clip.start)} - ${formatTimestamp(clip.end)}`;
+}
+
+function formatTimestamp(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor(total % 3600 / 60);
+  const remaining = total % 60;
+  return hours > 0
+    ? [hours, minutes, remaining].map(value => String(value).padStart(2, '0')).join(':')
+    : [minutes, remaining].map(value => String(value).padStart(2, '0')).join(':');
+}
+
+function formatDuration(seconds: number): string {
+  const value = Math.max(0, Math.round(seconds));
+  return value >= 60
+    ? `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`
+    : `${value}s`;
+}
+
+function focusLabel(value: AnalysisFocus, l: ReturnType<typeof useLocalizedCopy>): string {
   if (value === 'viral') return l('传播潜力优先', 'Shareability first');
   if (value === 'knowledge') return l('知识完整度优先', 'Knowledge completeness');
   return l('综合表现', 'Balanced');
 }
 
-function scoreLabel(value: keyof ClipCandidate['scores'], l: ReturnType<typeof useLocalizedCopy>) {
+function genreLabel(value: ClipGenre, l: ReturnType<typeof useLocalizedCopy>): string {
+  if (value === 'talk') return l('演讲 / 观点', 'Talk / commentary');
+  if (value === 'podcast') return l('播客对谈', 'Podcast');
+  if (value === 'tutorial') return l('教程 / 知识', 'Tutorial / education');
+  if (value === 'interview') return l('人物访谈', 'Interview');
+  if (value === 'entertainment') return l('娱乐内容', 'Entertainment');
+  if (value === 'sports') return l('体育内容', 'Sports');
+  if (value === 'gaming') return l('游戏内容', 'Gaming');
+  if (value === 'news') return l('新闻 / 时事', 'News / current affairs');
+  return l('自动判断', 'Auto detect');
+}
+
+function sourceLanguageLabel(value: string, l: ReturnType<typeof useLocalizedCopy>): string {
+  if (value === 'zh_cn') return l('简体中文', 'Simplified Chinese');
+  if (value === 'zh_tw') return l('繁體中文', 'Traditional Chinese');
+  if (value === 'ja') return '日本語';
+  if (value === 'ko') return '한국어';
+  if (value === 'es') return 'Español';
+  if (value === 'fr') return 'Français';
+  if (value === 'de') return 'Deutsch';
+  if (value === 'pt') return 'Português';
+  if (value === 'ru') return 'Русский';
+  if (value === 'en') return 'English';
+  return l('自动检测', 'Auto detect');
+}
+
+function aspectRatioLabel(value: ClipAspectRatio, l: ReturnType<typeof useLocalizedCopy>): string {
+  if (value === '16:9') return l('横屏 16:9', 'Landscape 16:9');
+  if (value === '9:16') return l('竖屏 9:16', 'Portrait 9:16');
+  if (value === '1:1') return l('方形 1:1', 'Square 1:1');
+  return l('跟随原视频', 'Match source');
+}
+
+function scoreLabel(value: ClipScoreKey, l: ReturnType<typeof useLocalizedCopy>): string {
   if (value === 'hook') return l('开头', 'Hook');
-  if (value === 'semantic') return l('语义', 'Meaning');
+  if (value === 'information') return l('信息', 'Information');
   if (value === 'emotion') return l('情绪', 'Emotion');
-  return l('传播', 'Sharing');
+  return l('完整度', 'Completeness');
 }
 
-function orientationLabel(value: VideoOrientation, l: ReturnType<typeof useLocalizedCopy>) {
-  return value === 'portrait' ? l('竖屏', 'Portrait') : l('横屏', 'Landscape');
+function readProgressText(
+  stage: CreatorStageRun | undefined,
+  l: ReturnType<typeof useLocalizedCopy>
+): string {
+  if (stage?.stageId === 'probe') return l('正在读取视频信息', 'Reading video information');
+  if (stage?.stageId === 'download') return l('正在下载源视频', 'Downloading the source video');
+  if (stage?.stageId === 'subtitle') return l('正在生成视频字幕', 'Generating the transcript');
+  if (stage?.stageId === 'analyze') return l('正在识别最适合独立传播的高光片段', 'Finding the strongest standalone moments');
+  if (stage?.stageId === 'render') {
+    const completed = readNumber(stage.progress.completed);
+    const total = readNumber(stage.progress.total);
+    return total > 0
+      ? l(`正在生成切片 ${completed}/${total}`, `Rendering clips ${completed}/${total}`)
+      : l('正在生成视频切片', 'Rendering video clips');
+  }
+  return l('正在准备任务', 'Preparing the task');
 }
 
-function clampClipCount(value: number) {
+function readFocus(value: CreatorJson | undefined): AnalysisFocus {
+  return value === 'viral' || value === 'knowledge' ? value : 'balanced';
+}
+
+function readGenre(value: CreatorJson | undefined): ClipGenre {
+  return value === 'talk'
+    || value === 'podcast'
+    || value === 'tutorial'
+    || value === 'interview'
+    || value === 'entertainment'
+    || value === 'sports'
+    || value === 'gaming'
+    || value === 'news'
+    ? value
+    : 'auto';
+}
+
+function readSourceLanguage(value: CreatorJson | undefined): string {
+  return typeof value === 'string' && [
+    'auto',
+    'zh_cn',
+    'zh_tw',
+    'en',
+    'ja',
+    'ko',
+    'es',
+    'fr',
+    'de',
+    'pt',
+    'ru'
+  ].includes(value) ? value : 'auto';
+}
+
+function readDuration(value: CreatorJson | undefined): ClipDuration {
+  return value === '15-30' || value === '60-90' ? value : '30-60';
+}
+
+function readAspectRatio(value: CreatorJson | undefined): ClipAspectRatio {
+  return value === 'source' || value === '16:9' || value === '9:16' || value === '1:1' ? value : 'source';
+}
+
+function aspectRatioOrientation(value: ClipAspectRatio): VideoOrientation | undefined {
+  if (value === '9:16') return 'portrait';
+  if (value === '16:9') return 'landscape';
+  if (value === '1:1') return 'square';
+  return undefined;
+}
+
+function readClipCount(value: CreatorJson | undefined): number {
+  return typeof value === 'number' ? clampClipCount(value) : 3;
+}
+
+function clampClipCount(value: number): number {
   if (!Number.isFinite(value)) return 1;
-  return Math.min(clips.length, Math.max(1, Math.round(value)));
+  return Math.min(20, Math.max(1, Math.round(value)));
 }
 
-function createAnalysisSignature(input: { videoUrl: string; videoFile: File | null; sourceArtifactId: string; focus: AnalysisFocus; duration: ClipDuration; clipCount: number; sourceOrientation: VideoOrientation }) {
-  return JSON.stringify({ url: input.videoUrl.trim(), sourceArtifactId: input.sourceArtifactId, file: input.videoFile ? { name: input.videoFile.name, size: input.videoFile.size, type: input.videoFile.type, lastModified: input.videoFile.lastModified } : null, focus: input.focus, duration: input.duration, clipCount: input.clipCount, sourceOrientation: input.sourceOrientation });
+function readString(value: CreatorJson | undefined): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function readNumber(value: CreatorJson | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function readPositiveInteger(value: CreatorJson | undefined): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined;
+}
+
+function isRecord(value: CreatorJson | undefined): value is Record<string, CreatorJson> {
+  return value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isValidUrl(value: string): boolean {
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+function findArtifact(
+  artifacts: CreatorArtifact[],
+  artifactId: string,
+  kind: string
+): CreatorArtifact | undefined {
+  return artifacts.find(artifact => (
+    artifact.id === artifactId
+    && artifact.kind === kind
+    && artifact.status === 'completed'
+  ));
+}
+
+function latestCompletedArtifact(
+  artifacts: CreatorArtifact[],
+  kind: string
+): CreatorArtifact | undefined {
+  return [...artifacts].reverse().find(artifact => (
+    artifact.kind === kind && artifact.status === 'completed'
+  ));
+}
+
+function matchingSourceArtifact(
+  artifacts: CreatorArtifact[],
+  artifactId: string,
+  sourceUrl: string
+): CreatorArtifact | undefined {
+  const selected = findArtifact(artifacts, artifactId, 'source_video');
+  if (selected !== undefined) return selected;
+  const normalizedUrl = sourceUrl.trim();
+  return [...artifacts].reverse().find(artifact => {
+    if (
+      artifact.kind !== 'source_video'
+      || artifact.status !== 'completed'
+      || normalizedUrl.length === 0
+    ) return false;
+    const probe = relatedArtifact(artifacts, artifact, 'download_probe');
+    return [
+      artifact.metadata.sourceUrl,
+      artifact.metadata.requestedUrl,
+      artifact.metadata.webpageUrl,
+      probe?.metadata.url,
+      probe?.metadata.requestedUrl
+    ].some(value => typeof value === 'string' && value.trim() === normalizedUrl);
+  });
+}
+
+function matchingSubtitleArtifact(
+  artifacts: CreatorArtifact[],
+  source: CreatorArtifact
+): CreatorArtifact | undefined {
+  return [...artifacts].reverse().find(artifact => (
+    artifact.kind === 'target_subtitle'
+    && artifact.status === 'completed'
+    && artifact.sourceArtifactIds.includes(source.id)
+  ));
+}
+
+function latestStage(stages: CreatorStageRun[], stageIds: Set<string>): CreatorStageRun | undefined {
+  return [...stages].reverse().find(stage => stageIds.has(stage.stageId));
+}
+
+function latestFailedStage(stages: CreatorStageRun[]): CreatorStageRun | undefined {
+  return [...stages].reverse().find(stage => stage.status === 'failed');
+}
+
+function latestExportsForCandidateArtifact(
+  artifacts: CreatorArtifact[],
+  candidateArtifactId: string
+): CreatorArtifact[] {
+  const latestByCandidate = new Map<string, CreatorArtifact>();
+  for (const artifact of artifacts) {
+    if (
+      artifact.kind !== 'auto_clip_video'
+      || artifact.status !== 'completed'
+      || artifact.metadata.candidateArtifactId !== candidateArtifactId
+    ) continue;
+    const candidateId = readString(artifact.metadata.candidateId) || artifact.id;
+    latestByCandidate.set(candidateId, artifact);
+  }
+  return [...latestByCandidate.values()].sort((left, right) => (
+    readNumber(left.metadata.start) - readNumber(right.metadata.start)
+  ));
+}
+
+function artifactFileName(artifact: CreatorArtifact | undefined): string {
+  if (artifact === undefined) return '';
+  const value = artifact.metadata.fileName;
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function relatedArtifact(
+  artifacts: CreatorArtifact[],
+  artifact: CreatorArtifact | undefined,
+  kind: string
+): CreatorArtifact | undefined {
+  if (artifact === undefined) return undefined;
+  const sourceIds = new Set(artifact.sourceArtifactIds);
+  return artifacts.find(candidate => candidate.kind === kind && sourceIds.has(candidate.id));
+}
+
+function readOrientation(artifact: CreatorArtifact | undefined): VideoOrientation | undefined {
+  const width = readNumber(artifact?.metadata.width);
+  const height = readNumber(artifact?.metadata.height);
+  if (width <= 0 || height <= 0) return undefined;
+  if (Math.abs(width - height) / Math.max(width, height) < 0.02) return 'square';
+  return height > width ? 'portrait' : 'landscape';
+}
+
+function formatClipError(
+  error: unknown,
+  l: (zh: string, en: string) => string
+): string {
+  if (error === null || error === undefined) return '';
+  const candidate = error as { code?: unknown; errorCode?: unknown; message?: unknown; errorMessage?: unknown };
+  const code = typeof candidate.code === 'string'
+    ? candidate.code
+    : typeof candidate.errorCode === 'string'
+      ? candidate.errorCode
+      : '';
+  if (code === 'creator_llm_config_missing') return l('请先在设置中配置文本模型', 'Configure the text model in Settings first');
+  if (code === 'creator_transcription_config_missing') return l('请先在设置中配置视频转录服务', 'Configure video transcription in Settings first');
+  if (code === 'unsupported_source') return l('目前仅支持公开视频链接或本地视频文件', 'Use a supported public video URL or a local video file');
+  if (code === 'creator_clip_candidates_missing') return l('没有可生成的视频片段，请重新分析', 'No clips are available. Run the analysis again.');
+  if (code === 'creator_stage_canceled') return l('视频切片任务已取消', 'The video clip task was canceled');
+  const message = typeof candidate.message === 'string'
+    ? candidate.message
+    : typeof candidate.errorMessage === 'string'
+      ? candidate.errorMessage
+      : error instanceof Error
+        ? error.message
+        : '';
+  return message || l('视频切片失败，请稍后重试', 'Video clipping failed. Try again later.');
+}
+
+function isTechnicalClipError(error: unknown): boolean {
+  const message = typeof error === 'string'
+    ? error
+    : error instanceof Error
+      ? error.message
+      : (() => {
+          const candidate = error as { message?: unknown; errorMessage?: unknown } | null | undefined;
+          return typeof candidate?.message === 'string'
+            ? candidate.message
+            : typeof candidate?.errorMessage === 'string'
+              ? candidate.errorMessage
+              : '';
+        })();
+  return /normalize timeline|invalid[_ ]srt(?: timestamp)?|target_language_srt\.srt/i.test(message);
 }

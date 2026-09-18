@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "community.sun-style-writing",
+  "version": "1.0.0",
+  "name": "孙割写作.skill",
+  "description": "用短句、物件、数字和留白承载情绪的非虚构叙事",
+  "localizations": {
+    "zh-CN": {
+      "name": "孙割写作.skill",
+      "description": "用短句、物件、数字和留白承载情绪的非虚构叙事",
+      "tags": ["白描", "短句节奏", "物件叙事", "非虚构"],
+      "structure": ["反差或悬念开场", "场景与时间锚点", "关系或冲突推进", "物件回响"],
+      "instructions": "以可观察的动作、物件和真实数字推进叙事，减少直接心理解释。保持短句节奏，让关键场景充分展开，并用来源中真实存在的细节形成照应。"
+    },
+    "en-US": {
+      "name": "Sun-style Writing Skill",
+      "description": "Nonfiction storytelling shaped by short sentences, objects, numbers, and restraint",
+      "tags": ["Plain description", "Short-sentence rhythm", "Object narrative", "Nonfiction"],
+      "structure": ["Contrast or suspense", "Scene and time anchor", "Relationship or conflict", "Object callback"],
+      "instructions": "Move the narrative through observable actions, concrete objects, and real numbers while limiting direct explanations of inner states. Maintain a short-sentence rhythm, give key scenes room to unfold, and create callbacks with details that genuinely exist in the sources."
+    }
+  },
+  "categoryId": "story",
+  "domains": ["emotion", "lifestyle"],
+  "tags": ["白描", "短句节奏", "物件叙事", "非虚构"],
+  "structure": ["反差或悬念开场", "场景与时间锚点", "关系或冲突推进", "物件回响"],
+  "instructions": "以可观察的动作、物件和真实数字推进叙事，减少直接心理解释。保持短句节奏，让关键场景充分展开，并用来源中真实存在的细节形成照应。",
+  "author": "数字生命卡兹克 / OpenCreator adapted",
+  "status": "featured",
+  "sortOrder": 100,
+  "source": {
+    "type": "github",
+    "repository": "KKKKhazix/sun-style-writing",
+    "revision": "fe970dc15113ea0c3807f19f1d3118f63f9d9079",
+    "url": "https://github.com/KKKKhazix/sun-style-writing",
+    "license": "MIT"
+  },
+  "skill": {
+    "stageResources": {
+      "topics": ["skill/topics.md"],
+      "outline": ["skill/SKILL.md"],
+      "article": ["skill/SKILL.md", "skill/review.md"],
+      "review": ["skill/review.md"]
+    }
+  }
+}

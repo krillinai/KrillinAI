@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3';
 import type { CodexAvailabilityProbe, CodexRuntimeComponentReadiness } from '@opencreator/protocol';
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -56,8 +56,28 @@ import {
 } from '../creator/image/executor.js';
 import { createVideoExecutor } from '../creator/video/executor.js';
 import { createClipExecutor } from '../creator/clip/executor.js';
-import { createStickmanExecutor } from '../creator/stickman/executor.js';
 import { createSmartDubbingExecutor } from '../creator/smart-dubbing/executor.js';
+import { createXiaohongshuPostExecutor } from '../creator/xiaohongshu/executor.js';
+import { createShortVideoScriptExecutor } from '../creator/short-video-script/executor.js';
+import { createWechatArticleExecutor } from '../creator/article/executor.js';
+import { createArticleImageGenerator } from '../creator/article/image-generator.js';
+import { createArticleSourceExtractor } from '../creator/article/source-extractor.js';
+import { createWechatArticleModel } from '../creator/article/model.js';
+import {
+  migrateStickmanVisualAssetState,
+  purgeLegacyStickmanJobs
+} from '../creator/stickman/legacy-migration.js';
+import { createStickmanContentExecutor } from '../creator/stickman/content-executor.js';
+import { createStickmanCodexJsonCompletion } from '../creator/stickman/codex-json-completion.js';
+import { createStickmanAudioExecutor } from '../creator/stickman/audio-executor.js';
+import { createStickmanImageExecutor } from '../creator/stickman/image-executor.js';
+import { createStickmanVisualAssetRegistry } from '../creator/stickman/visual-assets.js';
+import { createStickmanValidationExecutor } from '../creator/stickman/validation-executor.js';
+import { createStickmanTimelineExecutor } from '../creator/stickman/timeline-executor.js';
+import { createStickmanRemotionExecutor } from '../creator/stickman/remotion-executor.js';
+import { createStickmanMediaValidationExecutor } from '../creator/stickman/media-validation-executor.js';
+import { createStickmanDeliveryExecutor } from '../creator/stickman/delivery-executor.js';
+import { CreatorProviderRequestLedger } from '../creator/provider-requests.js';
 import { createCreatorProjectCoverService } from '../creator/project-cover.js';
 import { createVideoGenerationService } from '../video-generation/service.js';
 import {
@@ -68,6 +88,10 @@ import {
   createCreatorSourceUploadService,
   type CreatorSourceUploadService
 } from '../creator/source-upload.js';
+import {
+  createCreatorDocumentUploadService,
+  type CreatorDocumentUploadService
+} from '../creator/document-upload.js';
 import { createCreatorArtifactImportService } from '../creator/artifact-import.js';
 import { createCreatorPreflight } from '../creator/preflight.js';
 import { validateMediaFile, type MediaProbe } from '../creator/validators/media.js';
@@ -79,6 +103,14 @@ import {
   createVideoTranslationWorkflow,
   type VideoTranslationWorkflow
 } from '../creator/templates/video-translation-actions.js';
+import {
+  createAutoClipWorkflow,
+  type AutoClipWorkflow
+} from '../creator/templates/auto-clip-actions.js';
+import {
+  createStickmanVideoWorkflow,
+  type StickmanVideoWorkflow
+} from '../creator/templates/stickman-video-actions.js';
 import {
   registerCreatorMcpRoute,
   registerAgentScheduleMcpRoute
@@ -241,10 +273,14 @@ export type BuildServerInput = {
   creatorReferenceImageUploadService?: CreatorReferenceImageUploadService;
   creatorReferenceImageMaxSizeBytes?: number;
   creatorSourceUploadService?: CreatorSourceUploadService;
+  creatorDocumentUploadService?: CreatorDocumentUploadService;
+  creatorDocumentMaxSizeBytes?: number;
   creatorSourceMediaProbe?(path: string): Promise<MediaProbe>;
   creatorSourceMaxSizeBytes?: number;
   creatorYtDlpPath?: string;
   creatorYtDlpUpdateManager?: YtDlpUpdateManager;
+  creatorRuntimePlatform?: NodeJS.Platform;
+  creatorRuntimeArch?: string;
   creatorExecutors?: CreatorExecutor[];
   creatorAgentRuntime?: AgentRuntimeAdapter;
   allowedWebOrigins?: string[];
@@ -340,12 +376,16 @@ export async function buildServer(input: BuildServerInput) {
     | undefined;
   let appServerRuntimeManager: AppServerRuntimeManager | undefined;
   let creatorAppServerRuntimeManager: AppServerRuntimeManager | undefined;
+  const stickmanContentRuntimeManager = input.creatorExecutors === undefined
+    ? createAppServerRuntimeManager({ codexBin, codexHome })
+    : undefined;
   const invalidatePersistentRuntime = (reason: string): Promise<void> => {
     const work = Promise.all([
       appServerRuntimeManager?.invalidate(reason)
         ?? persistentAppServerExecutor?.invalidate(reason)
         ?? Promise.resolve(),
-      creatorAppServerRuntimeManager?.invalidate(reason) ?? Promise.resolve()
+      creatorAppServerRuntimeManager?.invalidate(reason) ?? Promise.resolve(),
+      stickmanContentRuntimeManager?.invalidate(reason) ?? Promise.resolve()
     ]).then(() => undefined);
     void work.catch(error => {
       console.warn(
@@ -400,15 +440,21 @@ export async function buildServer(input: BuildServerInput) {
     }
   });
   const creatorEvents = createCreatorEventHub();
+  const creatorJobsRoot = join(creatorDir, 'jobs');
+  await purgeLegacyStickmanJobs({ db, jobsRoot: creatorJobsRoot });
+  migrateStickmanVisualAssetState({ db });
   const creatorRepository = createCreatorRepository(db);
+  const creatorProviderRequestLedger = new CreatorProviderRequestLedger(creatorRepository);
   const creatorAgentRepository = createCreatorAgentRepository(db);
   const creatorAgentReconciler = createCreatorAgentReconciler({
     repository: creatorAgentRepository
   });
   creatorAgentReconciler.reconcileAfterDaemonRestart();
   const creatorService = input.creatorService ?? createCreatorService({
+    jobsRoot: creatorJobsRoot,
     repository: creatorRepository,
-    templates: createDefaultCreatorTemplateRegistry()
+    templates: createDefaultCreatorTemplateRegistry(),
+    providerRequestLedger: creatorProviderRequestLedger
   });
   const agentCapabilityTokens =
     input.agentCapabilityTokens ?? createAgentCapabilityTokenStore();
@@ -490,9 +536,12 @@ export async function buildServer(input: BuildServerInput) {
     );
   const creatorRuntimeRoot = process.env.OPENCREATOR_CREATOR_RUNTIME_ROOT
     ?? join(runtimeDir, 'krillinai');
-  const creatorJobsRoot = join(creatorDir, 'jobs');
   const krillinDependencyLoader = createKrillinDependencyLoader({
-    root: join(runtimeDir, 'krillinai', 'dependencies')
+    root: join(runtimeDir, 'krillinai', 'dependencies'),
+    ...(input.creatorRuntimePlatform === undefined
+      ? {}
+      : { platform: input.creatorRuntimePlatform }),
+    ...(input.creatorRuntimeArch === undefined ? {} : { arch: input.creatorRuntimeArch })
   });
   const krillinTtsService = createKrillinTtsService({
     resourceRoot: creatorRuntimeRoot,
@@ -507,11 +556,70 @@ export async function buildServer(input: BuildServerInput) {
     dataDir,
     configStore: creatorServicesConfigStore
   });
+  const developmentStickmanRuntimeRoot = resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../desktop/.pack/stickman-runtime'
+  );
+  const stickmanRuntimeRoot = process.env.OPENCREATOR_STICKMAN_RUNTIME_ROOT
+    ?? (existsSync(developmentStickmanRuntimeRoot)
+      ? developmentStickmanRuntimeRoot
+      : join(dataDir, 'creator-runtime', 'stickman'));
+  const packagedStickmanCatalog = join(stickmanRuntimeRoot, 'visual-assets', 'catalog.json');
+  const developmentStickmanCatalog = resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../resources/stickman/visual-assets/catalog.json'
+  );
+  const developmentStickmanVisualAssetRoot = resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../web/public/dashboard'
+  );
+  const stickmanVisualAssetOptions = existsSync(packagedStickmanCatalog)
+    ? {
+        root: stickmanRuntimeRoot,
+        catalogPath: packagedStickmanCatalog
+      }
+    : existsSync(developmentStickmanCatalog)
+      ? {
+          root: developmentStickmanVisualAssetRoot,
+          catalogPath: developmentStickmanCatalog
+        }
+      : undefined;
+  const stickmanVisualAssets = stickmanVisualAssetOptions !== undefined
+    ? createStickmanVisualAssetRegistry(stickmanVisualAssetOptions)
+    : undefined;
+  const creatorTesseractPath = [
+    process.env.OPENCREATOR_TESSERACT_PATH,
+    process.platform === 'win32' ? 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe' : undefined,
+    process.platform === 'win32' ? 'C:\\Program Files (x86)\\Tesseract-OCR\\tesseract.exe' : undefined
+  ].find(candidate => candidate !== undefined && existsSync(candidate));
   const creatorExecutors: CreatorExecutor[] = input.creatorExecutors ?? [];
+  if (input.creatorExecutors === undefined) {
+    if (stickmanVisualAssets !== undefined) {
+      creatorExecutors.push(createStickmanContentExecutor({
+        configStore: creatorServicesConfigStore,
+        codexCompleteJson: createStickmanCodexJsonCompletion({
+          runtimeManager: stickmanContentRuntimeManager!
+        }),
+        visualAssets: stickmanVisualAssets
+      }));
+      creatorExecutors.push(createStickmanImageExecutor({
+        configStore: creatorServicesConfigStore,
+        ledger: creatorProviderRequestLedger,
+        ...(creatorTesseractPath === undefined ? {} : { tesseractPath: creatorTesseractPath })
+      }));
+    }
+    creatorExecutors.push(
+      createStickmanValidationExecutor({
+        ...(creatorTesseractPath === undefined ? {} : { tesseractPath: creatorTesseractPath })
+      }),
+      createStickmanTimelineExecutor()
+    );
+  }
   let creatorFfmpegPath: string | undefined;
   let creatorFfprobePath: string | undefined;
   let creatorYtDlpUpdateManager = input.creatorYtDlpUpdateManager;
   let getYtDlpRuntime: (() => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
+  let getCreatorYtDlpRuntime: (() => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
   try {
     const runtimeManifest = readKrillinRuntimeManifest(creatorRuntimeRoot);
     verifyKrillinRuntimeManifest(creatorRuntimeRoot, runtimeManifest);
@@ -549,6 +657,7 @@ export async function buildServer(input: BuildServerInput) {
     }
     getYtDlpRuntime = () =>
       creatorYtDlpUpdateManager?.getRuntime() ?? ytDlp;
+    getCreatorYtDlpRuntime = getYtDlpRuntime;
     if (input.creatorExecutors === undefined) {
       creatorExecutors.push(createKrillinExecutor({
         resourceRoot: creatorRuntimeRoot,
@@ -584,15 +693,44 @@ export async function buildServer(input: BuildServerInput) {
       }));
     }
     if (input.creatorExecutors === undefined && creatorFfmpegPath && creatorFfprobePath) {
-      creatorExecutors.push(
-        createClipExecutor({ configStore: creatorServicesConfigStore, ffmpegPath: creatorFfmpegPath, ffprobePath: creatorFfprobePath }),
-        createStickmanExecutor({ configStore: creatorServicesConfigStore, ffmpegPath: creatorFfmpegPath, ffprobePath: creatorFfprobePath })
-      );
+      creatorExecutors.push(createClipExecutor({
+        configStore: creatorServicesConfigStore,
+        ffmpegPath: creatorFfmpegPath,
+        ffprobePath: creatorFfprobePath
+      }));
+    }
+    if (input.creatorExecutors === undefined && creatorFfprobePath) {
+      creatorExecutors.push(createStickmanAudioExecutor({
+        configStore: creatorServicesConfigStore,
+        ttsService: krillinTtsService,
+        ledger: creatorProviderRequestLedger,
+        ffprobePath: creatorFfprobePath
+      }));
+      creatorExecutors.push(createStickmanRemotionExecutor({
+        ffprobePath: creatorFfprobePath,
+        runtimeRoot: stickmanRuntimeRoot
+      }));
+      if (creatorFfmpegPath) {
+        creatorExecutors.push(createStickmanMediaValidationExecutor({
+          ffprobePath: creatorFfprobePath,
+          ffmpegPath: creatorFfmpegPath
+        }));
+      }
+      creatorExecutors.push(createStickmanDeliveryExecutor({
+        ffprobePath: creatorFfprobePath,
+        ffmpegPath: creatorFfmpegPath
+      }));
     }
   } catch (error) {
     console.warn(`Creator optional runtime executors are unavailable: ${formatError(error)}`);
   }
   if (input.creatorExecutors === undefined) {
+    creatorExecutors.push(createXiaohongshuPostExecutor({
+      configStore: creatorServicesConfigStore
+    }));
+    creatorExecutors.push(createShortVideoScriptExecutor({
+      configStore: creatorServicesConfigStore
+    }));
     creatorExecutors.push(createSmartDubbingExecutor({
       ttsService: krillinTtsService
     }));
@@ -612,6 +750,14 @@ export async function buildServer(input: BuildServerInput) {
         probeVideo: path => validateMediaFile(path, creatorFfprobePath!)
       }));
     }
+    creatorExecutors.push(createWechatArticleExecutor({
+      sourceExtractor: createArticleSourceExtractor({
+        configStore: creatorServicesConfigStore,
+        getYtDlpRuntime: getCreatorYtDlpRuntime
+      }),
+      model: createWechatArticleModel({ configStore: creatorServicesConfigStore }),
+      imageGenerator: createArticleImageGenerator({ configStore: creatorServicesConfigStore })
+    }));
   }
   const creatorPreflight = createCreatorPreflight({
     configStore: creatorServicesConfigStore,
@@ -647,12 +793,22 @@ export async function buildServer(input: BuildServerInput) {
         creator: creatorService,
         maxSizeBytes: input.creatorReferenceImageMaxSizeBytes
       });
+  const creatorDocumentUploadService = input.creatorDocumentUploadService
+    ?? createCreatorDocumentUploadService({
+      jobsRoot: creatorJobsRoot,
+      creator: creatorService,
+      ...(input.creatorDocumentMaxSizeBytes === undefined
+        ? {}
+        : { maxSizeBytes: input.creatorDocumentMaxSizeBytes })
+    });
   const creatorArtifactImportService = createCreatorArtifactImportService({
     jobsRoot: creatorJobsRoot,
     creator: creatorService
   });
   let coverWorkflow: CoverWorkflow | undefined;
   let videoTranslationWorkflow: VideoTranslationWorkflow | undefined;
+  let stickmanVideoWorkflow: StickmanVideoWorkflow | undefined;
+  let autoClipWorkflow: AutoClipWorkflow | undefined;
   const creatorStageRunner = input.creatorService === undefined
     ? createCreatorStageRunner({
         repository: creatorRepository,
@@ -678,6 +834,11 @@ export async function buildServer(input: BuildServerInput) {
             kind: 'stage_progress',
             payload: { stage }
           });
+          if (['failed', 'canceled', 'interrupted'].includes(stage.status)) {
+            void stickmanVideoWorkflow?.handleStageChanged(stage).catch(error => {
+              console.warn(`Stickman video workflow reconciliation failed: ${formatError(error)}`);
+            });
+          }
         },
         onStageSucceeded(stage) {
           void coverWorkflow?.handleStageChanged(stage).catch(error => {
@@ -685,6 +846,12 @@ export async function buildServer(input: BuildServerInput) {
           });
           void videoTranslationWorkflow?.handleStageChanged(stage).catch(error => {
             console.warn(`Video translation workflow continuation failed: ${formatError(error)}`);
+          });
+          void stickmanVideoWorkflow?.handleStageChanged(stage).catch(error => {
+            console.warn(`Stickman video workflow continuation failed: ${formatError(error)}`);
+          });
+          void autoClipWorkflow?.handleStageChanged(stage).catch(error => {
+            console.warn(`Video clip workflow continuation failed: ${formatError(error)}`);
           });
         }
       })
@@ -735,6 +902,12 @@ export async function buildServer(input: BuildServerInput) {
         kind: 'snapshot_changed',
         payload: { revision: result.job.revision }
       });
+      void stickmanVideoWorkflow?.handleAction(
+        result.job,
+        result.commandReceipt.command
+      ).catch(error => {
+        console.warn(`Stickman video action continuation failed: ${formatError(error)}`);
+      });
     }
   });
   videoTranslationWorkflow = creatorStageRunner === undefined
@@ -751,11 +924,32 @@ export async function buildServer(input: BuildServerInput) {
         dispatcher: creatorCommandDispatcher,
         configStore: creatorServicesConfigStore
       });
+  stickmanVideoWorkflow = creatorStageRunner === undefined
+    ? undefined
+    : createStickmanVideoWorkflow({
+        creator: creatorService,
+        dispatcher: creatorCommandDispatcher,
+        configStore: creatorServicesConfigStore,
+        repository: creatorRepository,
+        providerLedger: creatorProviderRequestLedger
+      });
+  autoClipWorkflow = creatorStageRunner === undefined
+    ? undefined
+    : createAutoClipWorkflow({
+        creator: creatorService,
+        dispatcher: creatorCommandDispatcher
+      });
   void coverWorkflow?.recover().catch(error => {
     console.warn(`Cover workflow recovery failed: ${formatError(error)}`);
   });
   void videoTranslationWorkflow?.recover().catch(error => {
     console.warn(`Video translation workflow recovery failed: ${formatError(error)}`);
+  });
+  void stickmanVideoWorkflow?.recover().catch(error => {
+    console.warn(`Stickman video workflow recovery failed: ${formatError(error)}`);
+  });
+  void autoClipWorkflow?.recover().catch(error => {
+    console.warn(`Video clip workflow recovery failed: ${formatError(error)}`);
   });
   const scheduleRunInjector = createAgentScheduleRunInjector({
     capabilities: agentCapabilityTokens,
@@ -939,6 +1133,7 @@ export async function buildServer(input: BuildServerInput) {
     await capture(() => runManager.close());
     await capture(() => appServerRuntimeManager?.close());
     await capture(() => creatorAppServerRuntimeManager?.close());
+    await capture(() => stickmanContentRuntimeManager?.close());
     await capture(() => codexSessionProvider.close());
     await capture(() => codexModelCatalog.close());
     await capture(() => codexControlClient.close());
@@ -1022,6 +1217,7 @@ export async function buildServer(input: BuildServerInput) {
     async () => {
       await videoTranslationWorkflow?.resumeConfiguredJobs();
       await coverWorkflow?.resumeConfiguredJobs();
+      await stickmanVideoWorkflow?.resumeConfiguredJobs();
     }
   );
   await registerSmartDubbingRoutes(server, smartDubbingService);
@@ -1032,9 +1228,12 @@ export async function buildServer(input: BuildServerInput) {
     agentService: creatorAgentService,
     coverWorkflow,
     videoTranslationWorkflow,
+    stickmanVideoWorkflow,
+    stickmanVisualAssets,
     projectCoverService: creatorProjectCoverService,
     referenceImageUploadService: creatorReferenceImageUploadService,
     sourceUploadService: creatorSourceUploadService,
+    documentUploadService: creatorDocumentUploadService,
     artifactImportService: creatorArtifactImportService,
     dispatcher: creatorCommandDispatcher,
     preflight: creatorPreflight,

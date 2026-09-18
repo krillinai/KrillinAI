@@ -22,6 +22,11 @@ describe('display language preference', () => {
     expect(resolveAppLanguage('system', ['zh-TW'])).toBe('zh-CN');
   });
 
+  it('respects browser language preference order', () => {
+    expect(resolveSystemLanguage(['en-US', 'sv-SE'])).toBe('en-US');
+    expect(resolveSystemLanguage(['sv-SE', 'zh-CN'])).toBe('sv-SE');
+  });
+
   it('defaults to the system and ignores invalid stored values', () => {
     expect(readLanguagePreference()).toBe(defaultLanguagePreference);
 

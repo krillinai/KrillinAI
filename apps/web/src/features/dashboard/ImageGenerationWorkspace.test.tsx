@@ -68,7 +68,7 @@ describe('ImageGenerationWorkspace', () => {
     expect(screen.queryByRole('textbox', { name: '提示词' })).not.toBeInTheDocument();
   });
 
-  it('opens an existing project on its latest generated version', async () => {
+  it('opens an existing project on its persisted result version', async () => {
     const fixture = createFixture();
     const createdAt = fixture.currentJob().createdAt;
     const versionOne = imageArtifact(fixture.currentJob().id, 1, createdAt);
@@ -93,10 +93,10 @@ describe('ImageGenerationWorkspace', () => {
     renderWorkspace(fixture, initialJob);
 
     expect(await screen.findByRole('heading', { name: '生成结果' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '项目 V2' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '项目 V1' })).toBeInTheDocument();
     await waitFor(() => expect(fixture.openArtifact).toHaveBeenCalledWith(
       initialJob.id,
-      versionTwo.id
+      versionOne.id
     ));
   });
 
@@ -166,6 +166,9 @@ function imageArtifact(jobId: string, resultVersion: number, createdAt: string):
     version: resultVersion,
     status: 'completed',
     path: `/tmp/generated-image-v${resultVersion}.png`,
+    scopeKey: null,
+    inputFingerprint: null,
+    sha256: null,
     sourceArtifactIds: [],
     metadata: {
       candidate: 1,
@@ -224,6 +227,7 @@ function createFixture(options: { pending?: boolean } = {}) {
     agentThreadId: null,
     stages: [],
     artifacts: [],
+    providerRequests: [],
     activities: [],
     createdAt,
     updatedAt: createdAt
@@ -272,6 +276,9 @@ function createFixture(options: { pending?: boolean } = {}) {
       version: 1,
       status: 'completed',
       path: '/tmp/reference.png',
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: {
         fileName: input.file.name,

@@ -62,9 +62,9 @@ Web が唯一のフロントエンド実装です。Desktop は同じ Web ビル
 
 ## 制作ツール
 
-現行リリースには、4つの制作ツールが含まれています。利用可能なモデルとサービスは、ローカルの Codex 環境および AI サービス設定によって異なります。
+現行リリースには、6つの制作ツールが含まれています。利用可能なモデルとサービスは、ローカルの Codex 環境および AI サービス設定によって異なります。
 
-Dashboard から、動画翻訳、公開動画のダウンロード、サムネイル生成、画像生成を開始できます。
+Dashboard から、動画翻訳やダウンロード、サムネイル・画像生成、スマート吹き替えによるナレーション制作、Seedance による動画生成を開始できます。
 
 ![OpenCreator 制作 Dashboard](../images/product/opencreator-dashboard-en.png)
 
@@ -85,8 +85,8 @@ Dashboard から、動画翻訳、公開動画のダウンロード、サムネ�
 <tr><td valign="top">画像生成</td><td valign="top">✅ 利用可能</td><td>プロンプトと任意の参照画像から GPT Image で画像を生成し、アスペクト比と生成枚数を設定して、各画像をプレビュー・ダウンロードできます</td></tr>
 <tr><td valign="top">スティックフィギュアアニメーション</td><td valign="top">近日公開</td><td>ガイド付きワークフローでキャラクター、絵コンテ、ナレーション、アニメーションを制作します</td></tr>
 <tr><td valign="top">自動クリップ</td><td valign="top">開発中</td><td>長尺動画を分析して見どころを特定し、選択した場面を再利用可能な短いクリップに仕上げます</td></tr>
-<tr><td valign="top">スマート吹き替え</td><td valign="top">開発中</td><td>音声、テンポ、感情表現を選び、脚本からナレーションを生成します</td></tr>
-<tr><td valign="top">動画生成</td><td valign="top">開発中</td><td>プロンプトと参照画像から動画を生成し、プレビューして書き出します</td></tr>
+<tr><td valign="top">スマート吹き替え</td><td valign="top">✅ 利用可能</td><td>音声、テンポ、感情表現を選び、脚本からナレーションを生成します</td></tr>
+<tr><td valign="top">動画生成</td><td valign="top">✅ 利用可能</td><td>Seedance を使用してプロンプトと参照画像から動画を生成し、各バージョンをプレビュー、再生成、ダウンロードできます</td></tr>
 <tr><td valign="top">デジタルアバター</td><td valign="top">開発中</td><td>脚本、音声、アバター表現を組み合わせ、トーキングヘッド動画を制作します</td></tr>
 </tbody>
 </table>
@@ -115,7 +115,7 @@ Dashboard から、動画翻訳、公開動画のダウンロード、サムネ�
 
 ## 対応モデル
 
-言語モデルは Codex のモデルカタログ、または設定した OpenAI 互換プロバイダーから利用できます。画像、音声、文字起こしモデルには **設定 → AI サービス** で構成したサービスを使用します。
+言語モデルは Codex のモデルカタログ、または設定した OpenAI 互換プロバイダーから利用できます。画像、動画、音声、文字起こしモデルには **設定 → AI サービス** で構成したサービスを使用します。
 
 ### 言語モデル
 
@@ -141,6 +141,14 @@ Dashboard から、動画翻訳、公開動画のダウンロード、サムネ�
 <table>
 <tr>
 <td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+</tr>
+</table>
+
+### 動画
+
+<table>
+<tr>
+<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
 </tr>
 </table>
 
@@ -193,6 +201,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </table>
 
 > これらの動画例と字幕位置合わせ画像は、OpenCreator が KrillinAI という名称を使用していた時期に制作されました。
+
+### 動画生成
+
+Seedance を使用して、テキストプロンプトまたは参照画像から AI 動画を生成します。モデル、アスペクト比、解像度、長さを設定し、プロジェクトワークスペースで各バージョンのプレビュー、再生成、ダウンロードを行えます。
+
+![OpenCreator の Seedance 動画生成](../images/examples/video-generation-seedance-en.png)
 
 ### 動画ダウンロード
 

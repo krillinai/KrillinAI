@@ -62,9 +62,9 @@ Web é a única implementação do frontend. Desktop carrega a mesma compilaçã
 
 ## Ferramentas de criação
 
-A versão atual inclui quatro ferramentas de criação. Os modelos e serviços disponíveis dependem do seu ambiente local do Codex e das configurações dos serviços de IA.
+A versão atual inclui seis ferramentas de criação. Os modelos e serviços disponíveis dependem do seu ambiente local do Codex e das configurações dos serviços de IA.
 
-Abra o Dashboard para traduzir vídeos, baixar vídeos públicos, gerar miniaturas ou criar imagens.
+Abra o Dashboard para traduzir ou baixar vídeos, gerar miniaturas ou imagens, criar locuções com Dublagem inteligente ou gerar vídeos com Seedance.
 
 ![Dashboard de criação do OpenCreator](../images/product/opencreator-dashboard-en.png)
 
@@ -85,8 +85,8 @@ Abra o Dashboard para traduzir vídeos, baixar vídeos públicos, gerar miniatur
 <tr><td valign="top">Geração de imagens</td><td valign="top">✅ Disponível</td><td>Gere imagens com GPT Image a partir de um prompt e de uma imagem de referência opcional, configure a proporção e a quantidade de resultados e depois visualize e baixe cada imagem</td></tr>
 <tr><td valign="top">Animação de bonecos palito</td><td valign="top">Em breve</td><td>Desenvolva personagens, storyboards, locuções e animações em um fluxo de trabalho guiado</td></tr>
 <tr><td valign="top">Clipes automáticos</td><td valign="top">Em desenvolvimento</td><td>Analise vídeos longos, identifique destaques e transforme os momentos escolhidos em clipes curtos reutilizáveis</td></tr>
-<tr><td valign="top">Dublagem inteligente</td><td valign="top">Em desenvolvimento</td><td>Transforme roteiros em locuções com opções de voz e controles de ritmo e emoção</td></tr>
-<tr><td valign="top">Geração de vídeo</td><td valign="top">Em desenvolvimento</td><td>Gere vídeo a partir de prompts e imagens de referência, visualize e exporte o resultado</td></tr>
+<tr><td valign="top">Dublagem inteligente</td><td valign="top">✅ Disponível</td><td>Transforme roteiros em locuções com opções de voz e controles de ritmo e emoção</td></tr>
+<tr><td valign="top">Geração de vídeo</td><td valign="top">✅ Disponível</td><td>Gere vídeos com Seedance a partir de prompts e imagens de referência e depois visualize, gere novamente ou baixe cada versão</td></tr>
 <tr><td valign="top">Avatar digital</td><td valign="top">Em desenvolvimento</td><td>Combine roteiros, voz e apresentação de avatar para produzir vídeos de pessoas falando</td></tr>
 </tbody>
 </table>
@@ -115,7 +115,7 @@ Cada revisão cria uma versão separada sem sobrescrever resultados ou configura
 
 ## Modelos compatíveis
 
-A disponibilidade dos modelos de linguagem segue o catálogo de modelos do Codex ou o provedor compatível com OpenAI configurado. Modelos de imagem, voz e transcrição usam os serviços configurados em **Configurações → Serviços de IA**.
+A disponibilidade dos modelos de linguagem segue o catálogo de modelos do Codex ou o provedor compatível com OpenAI configurado. Modelos de imagem, vídeo, voz e transcrição usam os serviços configurados em **Configurações → Serviços de IA**.
 
 ### Modelos de linguagem
 
@@ -141,6 +141,14 @@ A disponibilidade dos modelos de linguagem segue o catálogo de modelos do Codex
 <table>
 <tr>
 <td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+</tr>
+</table>
+
+### Vídeo
+
+<table>
+<tr>
+<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
 </tr>
 </table>
 
@@ -193,6 +201,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 </table>
 
 > Estes exemplos de vídeo e a imagem de alinhamento de legendas foram produzidos quando o OpenCreator ainda usava o nome KrillinAI.
+
+### Geração de vídeos
+
+Gere um vídeo com IA a partir de um prompt de texto ou de uma imagem de referência com o Seedance. Configure o modelo, a proporção, a resolução e a duração; depois, visualize, gere novamente ou baixe cada versão no espaço de trabalho do projeto.
+
+![Geração de vídeos no OpenCreator com Seedance](../images/examples/video-generation-seedance-en.png)
 
 ### Download de vídeos
 

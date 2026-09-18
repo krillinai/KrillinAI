@@ -26,6 +26,9 @@ type SubtitleRequest struct {
 	MaxWordOneLine int
 	SubtitleStyle  *subtitlestyle.StyleSet
 	PrepareVideo   bool
+	SourceOnly     bool
+	InputSRT       string
+	SRTTranslated  bool
 	ReportProgress func(phase string, percent int, message string)
 }
 
@@ -57,6 +60,17 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 		return failSubtitleStage(req, manifest, ErrorKindRetryable, "prepare_media_failed", err)
 	}
 	syncPreparedMediaOutputs(manifest, stepParam)
+	if req.InputSRT != "" {
+		reportSubtitleProgress(req, "importing_subtitles", 30, "正在使用本地字幕")
+		if err := importSubtitleFile(ctx, svc, req, stepParam, manifest); err != nil {
+			return failSubtitleStage(req, manifest, ErrorKindRetryable, "subtitle_import_failed", err)
+		}
+		if req.SRTTranslated {
+			manifest.Outputs.OriginSRT = ""
+			manifest.Outputs.BilingualSRT = ""
+		}
+		return saveSubtitleSuccess(manifest, req, CaptionSource("local_srt"))
+	}
 
 	var platformCaptionErr error
 	if IsYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper {
@@ -73,16 +87,19 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 			_, err = svc.ProcessYouTubeSubtitle(ctx, youtubeReq)
 		}
 		if err == nil {
+			manifest.OriginLanguage = youtubeReq.OriginLanguage
 			manifest.CaptionSource = "youtube_vtt"
-			reportSubtitleProgress(req, "preparing_original_media", 76, "正在补齐原始视频")
-			stepParam.TaskPtr.SetProgressReporter(func(percent uint8) {
-				overall := 76 + minInt(int(percent), 10)*14/10
-				reportSubtitleProgress(req, "preparing_original_media", overall, "正在补齐原始视频")
-			})
-			if err := prepareOriginalMediaForRendering(ctx, svc, stepParam); err != nil {
-				return failSubtitleStage(req, manifest, ErrorKindRetryable, "prepare_media_for_render_failed", err)
+			if !req.SourceOnly || req.PrepareVideo {
+				reportSubtitleProgress(req, "preparing_original_media", 76, "正在补齐原始视频")
+				stepParam.TaskPtr.SetProgressReporter(func(percent uint8) {
+					overall := 76 + minInt(int(percent), 10)*14/10
+					reportSubtitleProgress(req, "preparing_original_media", overall, "正在补齐原始视频")
+				})
+				if err := prepareOriginalMediaForRendering(ctx, svc, stepParam); err != nil {
+					return failSubtitleStage(req, manifest, ErrorKindRetryable, "prepare_media_for_render_failed", err)
+				}
+				syncPreparedMediaOutputs(manifest, stepParam)
 			}
-			syncPreparedMediaOutputs(manifest, stepParam)
 			reportSubtitleProgress(req, "collecting_outputs", 95, "正在整理字幕和视频产物")
 			return saveSubtitleSuccess(manifest, req, CaptionSource("youtube_vtt"))
 		}
@@ -110,6 +127,13 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 	stepParam.TaskPtr.SetProgressReporter(audioSubtitleProgressReporter(req))
 	reportSubtitleProgress(req, "transcribing_audio", 30, "正在转录并翻译音频字幕")
 	if err := svc.GenerateSubtitlesFromAudio(ctx, stepParam); err != nil {
+		if platformCaptionErr != nil {
+			err = fmt.Errorf(
+				"platform caption attempt failed: %v; audio transcription fallback failed: %w",
+				platformCaptionErr,
+				err,
+			)
+		}
 		return failSubtitleStage(req, manifest, ErrorKindRetryable, "audio_transcription_failed", err)
 	}
 	manifest.CaptionSource = string(CaptionSourceWhisper)
@@ -141,6 +165,18 @@ func audioSubtitleProgressReporter(req SubtitleRequest) func(uint8) {
 		overall := 25 + value*65/100
 		phase := "transcribing_audio"
 		message := "正在转录并翻译音频字幕"
+		if req.SourceOnly {
+			message = "正在转录音频字幕"
+			if value <= 10 {
+				phase = "preparing_audio"
+				message = "正在准备音频转录"
+			} else if value >= 90 {
+				phase = "collecting_subtitles"
+				message = "正在生成原文字幕"
+			}
+			reportSubtitleProgress(req, phase, overall, message)
+			return
+		}
 		if value <= 10 {
 			phase = "preparing_audio"
 			message = "正在准备音频转录"
@@ -188,7 +224,9 @@ func subtitleStepParam(req SubtitleRequest) *types.SubtitleTaskStepParam {
 		userLang = string(types.LanguageNameSimplifiedChinese)
 	}
 	resultType := types.SubtitleResultTypeBilingualTranslationOnBottom
-	if req.BilingualTop {
+	if req.SourceOnly {
+		resultType = types.SubtitleResultTypeOriginOnly
+	} else if req.BilingualTop {
 		resultType = types.SubtitleResultTypeBilingualTranslationOnTop
 	}
 	maxWordOneLine := req.MaxWordOneLine
@@ -201,7 +239,7 @@ func subtitleStepParam(req SubtitleRequest) *types.SubtitleTaskStepParam {
 		VideoSrc: req.Input,
 		Status:   types.SubtitleTaskStatusProcessing,
 	}
-	vttSwitch := IsYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper
+	vttSwitch := req.InputSRT == "" && IsYouTubeInput(req.Input) && req.CaptionSource != CaptionSourceWhisper
 	embedSubtitleVideoType := "none"
 	if req.PrepareVideo && !vttSwitch {
 		embedSubtitleVideoType = "all"
@@ -236,6 +274,7 @@ func subtitleYouTubeReq(req SubtitleRequest, taskPtr *types.SubtitleTask) *servi
 		OriginLanguage:      req.OriginLang,
 		TargetLanguage:      req.TargetLang,
 		TaskPtr:             taskPtr,
+		SourceOnly:          req.SourceOnly,
 		TargetLanguageFirst: req.BilingualTop,
 	}
 }
@@ -247,6 +286,13 @@ func saveSubtitleSuccess(manifest *Manifest, req SubtitleRequest, captionSource 
 		if req.PrepareVideo {
 			return failSubtitleStage(req, manifest, ErrorKindRetryable, "source_video_missing", errors.New("original video was requested but was not produced"))
 		}
+	}
+	if req.SourceOnly {
+		manifest.Outputs.TargetSRT = ""
+		manifest.Outputs.BilingualSRT = ""
+		manifest.Outputs.ShortOriginSRT = ""
+		manifest.Outputs.ShortOriginMixedSRT = ""
+		manifest.Outputs.TargetText = ""
 	}
 	if err := validateExistingSubtitleOutputs(manifest.Outputs); err != nil {
 		manifest.MarkStage(StageSubtitle, false, err.Error())

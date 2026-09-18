@@ -5,8 +5,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import CreatorCollaborationPanel from './CreatorCollaborationPanel.js';
 import {
+  shortVideoScriptPanelAdapter,
   coverPanelAdapter,
   smartDubbingPanelAdapter,
+  wechatArticlePanelAdapter,
+  xiaohongshuPostPanelAdapter,
   videoDownloadPanelAdapter,
   videoGenerationPanelAdapter
 } from './creator-panel-adapters.js';
@@ -19,6 +22,38 @@ function PreflightHarness(props: { stageId: string }) {
   }, [props.stageId, session]);
   return null;
 }
+
+describe('Short video script panel', () => {
+  it('语义化并合并短视频脚本设置动态，同时显示标准 Stage 状态和真实进度', () => {
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={shortVideoScriptJob()}
+          service={{
+            applyAction: vi.fn(),
+            runAgentTurn: vi.fn()
+          } as never}
+        >
+          <CreatorCollaborationPanel
+            adapter={shortVideoScriptPanelAdapter}
+            stepLabel="正在生成脚本"
+            contextSummary="Bilibili · 60 秒"
+          />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    expect(screen.getAllByText('更新了创作设置')).toHaveLength(1);
+    expect(screen.getByText('主题或素材、发布平台或场景、目标时长')).toBeInTheDocument();
+    expect(screen.getByText('2 次修改')).toBeInTheDocument();
+    expect(screen.queryByText(/currentStep/)).not.toBeInTheDocument();
+    expect(screen.getByText(/系统 · 生成短视频脚本/)).toBeInTheDocument();
+    expect(screen.getByText('生成脚本内容')).toBeInTheDocument();
+    expect(screen.getByText('20%')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: '生成短视频脚本进度' }))
+      .toHaveAttribute('aria-valuenow', '20');
+  });
+});
 
 describe('CreatorCollaborationPanel', () => {
   it('Browser/Desktop 使用同一份 preflight 结果，且不渲染 Desktop-only 修复入口', async () => {
@@ -365,6 +400,34 @@ describe('CreatorCollaborationPanel', () => {
     expect(screen.queryByText(/upstreamId|videoGenerationResultId/)).not.toBeInTheDocument();
   });
 
+  it('完成阶段不误报结果已同步到工作台', () => {
+    const current = downloadJob();
+    current.stages[0] = {
+      ...current.stages[0]!,
+      status: 'succeeded',
+      dispatchStatus: 'finished',
+      progress: { phase: 'completed', percent: 100 },
+      finishedAt: '2026-08-30T08:00:06.000Z'
+    };
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={current}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <CreatorCollaborationPanel
+            adapter={videoDownloadPanelAdapter}
+            stepLabel="下载到项目"
+            contextSummary="YouTube · 1080p"
+          />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    expect(screen.getByText('已完成')).toBeInTheDocument();
+    expect(screen.queryByText('已完成，结果已同步到工作台')).not.toBeInTheDocument();
+  });
+
   it('视频解析阶段显示不确定进度而不是固定 20%', () => {
     const current = downloadJob();
     current.state.currentStage = 'probe';
@@ -513,7 +576,323 @@ describe('CreatorCollaborationPanel', () => {
     expect(screen.getByRole('button', { name: '终止生成配音' })).toBeInTheDocument();
     expect(container.querySelectorAll('.creator-collaboration-stage')).toHaveLength(1);
   });
+
+  it('语义化并合并小红书设置动态，同时显示真实生成进度', () => {
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={xiaohongshuPostJob()}
+          service={{
+            applyAction: vi.fn(),
+            runAgentTurn: vi.fn()
+          } as never}
+        >
+          <CreatorCollaborationPanel
+            adapter={xiaohongshuPostPanelAdapter}
+            stepLabel="正在生成帖子"
+            contextSummary="教程干货 · 精简"
+          />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    expect(screen.getAllByText('更新了创作设置')).toHaveLength(1);
+    expect(screen.getByText('主题或素材、内容类型')).toBeInTheDocument();
+    expect(screen.getByText('2 次修改')).toBeInTheDocument();
+    expect(screen.queryByText(/currentStep/)).not.toBeInTheDocument();
+    expect(screen.getByText(/系统 · 生成小红书帖子/)).toBeInTheDocument();
+    expect(screen.getByText('生成帖子内容')).toBeInTheDocument();
+    expect(screen.getByText('20%')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: '生成小红书帖子进度' }))
+      .toHaveAttribute('aria-valuenow', '20');
+  });
+
+  it('语义化公众号写作动态，过滤界面状态并显示标准阶段进度', () => {
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={wechatArticleJob()}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <CreatorCollaborationPanel
+            adapter={wechatArticlePanelAdapter}
+            stepLabel="正在生成选题"
+            contextSummary="2 个内容灵感"
+          />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    expect(screen.getAllByText('完善了写作要求')).toHaveLength(1);
+    expect(screen.getByText('写作要求、文章模板')).toBeInTheDocument();
+    expect(screen.getByText('2 次修改')).toBeInTheDocument();
+    expect(screen.queryByText(/currentStep|furthestStep/)).not.toBeInTheDocument();
+    expect(screen.getByText('上传了内容灵感')).toBeInTheDocument();
+    expect(screen.getByText('生成候选选题')).toBeInTheDocument();
+    expect(screen.getByText('55%')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: '生成候选选题进度' }))
+      .toHaveAttribute('aria-valuenow', '55');
+  });
+
+  it('为公众号内容灵感解析阶段提供稳定文案和真实进度', () => {
+    const localize = (zh: string) => zh;
+    const stage = {
+      stageId: 'sources',
+      progress: { phase: 'reading_video', percent: 30, completed: 0, failed: 0, total: 1 }
+    } as never;
+
+    expect(wechatArticlePanelAdapter.stageLabel('sources', localize)).toBe('解析内容灵感');
+    expect(wechatArticlePanelAdapter.phaseLabel('reading_video', localize)).toBe('读取视频内容');
+    expect(wechatArticlePanelAdapter.readStageProgress(stage)).toEqual(expect.objectContaining({ percent: 30 }));
+    expect(wechatArticlePanelAdapter.succeededProgressText?.(stage, localize)).toBe('内容灵感已解析');
+
+    const imageStage = {
+      stageId: 'images',
+      progress: { phase: 'generating_article_images', percent: 68, completed: 3, failed: 0, total: 5 }
+    } as never;
+    expect(wechatArticlePanelAdapter.stageLabel('images', localize)).toBe('生成文章配图');
+    expect(wechatArticlePanelAdapter.phaseLabel('generating_article_images', localize)).toBe('生成文章配图');
+    expect(wechatArticlePanelAdapter.readStageProgress(imageStage)).toEqual(expect.objectContaining({
+      percent: 68,
+      completed: 3,
+      total: 5
+    }));
+    expect(wechatArticlePanelAdapter.succeededProgressText?.(imageStage, localize)).toBe('文章配图已生成');
+
+    expect(wechatArticlePanelAdapter.normalizeActivity({
+      id: 'outline-update',
+      jobId: 'wechat-job',
+      revision: 1,
+      actor: 'user',
+      action: 'update-settings:draft',
+      summary: '更新创作设置',
+      details: { objectId: 'outline' },
+      createdAt: '2026-09-07T09:00:00.000Z'
+    }, localize)).toEqual({ label: '生成了文章大纲', fields: [] });
+    expect(wechatArticlePanelAdapter.normalizeActivity({
+      id: 'image-update',
+      jobId: 'wechat-job',
+      revision: 2,
+      actor: 'user',
+      action: 'update-settings:draft',
+      summary: '更新创作设置',
+      details: { objectId: 'articleImageStyleId,articleImageCount' },
+      createdAt: '2026-09-07T09:00:01.000Z'
+    }, localize)).toEqual({
+      label: '调整了文章配图',
+      fields: ['生图风格', '配图数量']
+    });
+  });
 });
+
+function wechatArticleJob(): CreatorJob {
+  const jobId = 'wechat_article_job';
+  return {
+    id: jobId,
+    projectId: 'project_1',
+    templateId: 'wechat-article',
+    templateVersion: 1,
+    status: 'running',
+    revision: 5,
+    state: { currentStage: 'topics' },
+    agentThreadId: null,
+    stages: [{
+      id: 'wechat_topics_stage',
+      jobId,
+      stageId: 'topics',
+      executor: 'wechat-article',
+      status: 'running',
+      dispatchStatus: 'claimed',
+      claimOwner: 'scheduler_1',
+      claimExpiresAt: null,
+      attempt: 1,
+      idempotencyKey: 'wechat-topics-1',
+      scopeKey: null,
+      inputFingerprint: null,
+      progress: { phase: 'generating_topics', percent: 55, completed: 2, failed: 0, total: 2 },
+      errorCode: null,
+      errorMessage: null,
+      startedAt: '2026-09-07T09:00:05.000Z',
+      finishedAt: null
+    }],
+    artifacts: [],
+    providerRequests: [],
+    activities: [
+      { id: 'ui', jobId, revision: 1, actor: 'user', action: 'update-settings:draft', summary: '更新创作设置', details: { objectId: 'currentStep,furthestStep' }, createdAt: '2026-09-07T09:00:01.000Z' },
+      { id: 'brief', jobId, revision: 2, actor: 'user', action: 'update-settings:draft', summary: '更新创作设置', details: { objectId: 'writingPrompt' }, createdAt: '2026-09-07T09:00:02.000Z' },
+      { id: 'template', jobId, revision: 3, actor: 'user', action: 'update-settings:draft', summary: '更新创作设置', details: { objectId: 'presetId' }, createdAt: '2026-09-07T09:00:03.000Z' },
+      { id: 'upload', jobId, revision: 4, actor: 'user', action: 'register-source-document', summary: '上传写作来源', details: { objectId: 'source.pdf' }, createdAt: '2026-09-07T09:00:04.000Z' },
+      { id: 'run', jobId, revision: 5, actor: 'user', action: 'run-stage', summary: '启动阶段 topics', details: { stageId: 'topics' }, createdAt: '2026-09-07T09:00:05.000Z' }
+    ],
+    createdAt: '2026-09-07T09:00:00.000Z',
+    updatedAt: '2026-09-07T09:00:05.000Z'
+  };
+}
+
+function shortVideoScriptJob(): CreatorJob {
+  const createdAt = '2026-09-08T09:00:00.000Z';
+  return {
+    id: 'short_video_script_job',
+    projectId: 'project_1',
+    templateId: 'short-video-script',
+    templateVersion: 1,
+    status: 'running',
+    revision: 4,
+    state: {
+      topic: '第一次参与开源项目',
+      audience: '准备贡献代码的开发者',
+      platform: 'bilibili',
+      targetDurationSeconds: 60,
+      tone: 'professional',
+      extraRequirements: '',
+      currentStage: 'generate'
+    },
+    agentThreadId: null,
+    stages: [{
+      id: 'short_video_script_stage',
+      jobId: 'short_video_script_job',
+      stageId: 'generate',
+      executor: 'short-video-script',
+      status: 'running',
+      dispatchStatus: 'claimed',
+      claimOwner: 'scheduler_1',
+      claimExpiresAt: null,
+      attempt: 1,
+      idempotencyKey: 'short-video-script-1',
+      scopeKey: null,
+      inputFingerprint: null,
+      progress: {
+        phase: 'generating_script',
+        percent: 20,
+        completed: 0,
+        failed: 0,
+        total: 1
+      },
+      errorCode: null,
+      errorMessage: null,
+      startedAt: '2026-09-08T09:00:03.000Z',
+      finishedAt: null
+    }],
+    artifacts: [],
+    providerRequests: [],
+    activities: [
+      {
+        id: 'activity_script_1',
+        jobId: 'short_video_script_job',
+        revision: 1,
+        actor: 'user',
+        action: 'update-settings:draft',
+        summary: '更新创作设置',
+        details: { objectId: 'topic,platform,targetDurationSeconds' },
+        createdAt: '2026-09-08T09:00:01.000Z'
+      },
+      {
+        id: 'activity_script_2',
+        jobId: 'short_video_script_job',
+        revision: 2,
+        actor: 'user',
+        action: 'update-settings:draft',
+        summary: '更新创作设置',
+        details: { objectId: 'topic,platform,targetDurationSeconds' },
+        createdAt: '2026-09-08T09:00:02.000Z'
+      },
+      {
+        id: 'activity_script_ui',
+        jobId: 'short_video_script_job',
+        revision: 3,
+        actor: 'user',
+        action: 'update-settings:draft',
+        summary: '更新创作设置',
+        details: { objectId: 'currentStep' },
+        createdAt: '2026-09-08T09:00:02.500Z'
+      }
+    ],
+    createdAt,
+    updatedAt: '2026-09-08T09:00:03.000Z'
+  };
+}
+
+function xiaohongshuPostJob(): CreatorJob {
+  const createdAt = '2026-09-08T08:00:00.000Z';
+  return {
+    id: 'xiaohongshu_job',
+    projectId: 'project_1',
+    templateId: 'xiaohongshu-post',
+    templateVersion: 1,
+    status: 'running',
+    revision: 4,
+    state: {
+      topic: '第一次参与开源项目',
+      audience: '准备参与开源项目的程序员',
+      style: 'tutorial',
+      length: 'short',
+      extraRequirements: '',
+      currentStage: 'generate'
+    },
+    agentThreadId: null,
+    stages: [{
+      id: 'xiaohongshu_stage',
+      jobId: 'xiaohongshu_job',
+      stageId: 'generate',
+      executor: 'xiaohongshu-post',
+      status: 'running',
+      dispatchStatus: 'claimed',
+      claimOwner: 'scheduler_1',
+      claimExpiresAt: null,
+      attempt: 1,
+      idempotencyKey: 'xiaohongshu-1',
+      scopeKey: null,
+      inputFingerprint: null,
+      progress: {
+        phase: 'generating_post',
+        percent: 20,
+        completed: 0,
+        failed: 0,
+        total: 1
+      },
+      errorCode: null,
+      errorMessage: null,
+      startedAt: '2026-09-08T08:00:03.000Z',
+      finishedAt: null
+    }],
+    artifacts: [],
+    providerRequests: [],
+    activities: [
+      {
+        id: 'activity_topic_1',
+        jobId: 'xiaohongshu_job',
+        revision: 1,
+        actor: 'user',
+        action: 'update-settings:draft',
+        summary: '更新创作设置',
+        details: { objectId: 'topic,style' },
+        createdAt: '2026-09-08T08:00:01.000Z'
+      },
+      {
+        id: 'activity_topic_2',
+        jobId: 'xiaohongshu_job',
+        revision: 2,
+        actor: 'user',
+        action: 'update-settings:draft',
+        summary: '更新创作设置',
+        details: { objectId: 'topic,style' },
+        createdAt: '2026-09-08T08:00:02.000Z'
+      },
+      {
+        id: 'activity_ui',
+        jobId: 'xiaohongshu_job',
+        revision: 3,
+        actor: 'user',
+        action: 'update-settings:draft',
+        summary: '更新创作设置',
+        details: { objectId: 'currentStep' },
+        createdAt: '2026-09-08T08:00:02.500Z'
+      }
+    ],
+    createdAt,
+    updatedAt: '2026-09-08T08:00:03.000Z'
+  };
+}
 
 function smartDubbingJob(): CreatorJob {
   const createdAt = '2026-09-07T08:00:00.000Z';
@@ -547,6 +926,8 @@ function smartDubbingJob(): CreatorJob {
       claimExpiresAt: null,
       attempt: 1,
       idempotencyKey: 'smart-dubbing-1',
+      scopeKey: null,
+      inputFingerprint: null,
       progress: {
         phase: 'generating_voice',
         percent: 20,
@@ -560,6 +941,7 @@ function smartDubbingJob(): CreatorJob {
       finishedAt: null
     }],
     artifacts: [],
+    providerRequests: [],
     activities: [
       {
         id: 'activity_ui',
@@ -636,6 +1018,8 @@ function coverJob(): CreatorJob {
       claimExpiresAt: null,
       attempt: 1,
       idempotencyKey: 'cover-generate-1',
+      scopeKey: null,
+      inputFingerprint: null,
       progress: {
         phase: 'generating_candidates',
         percent: 50,
@@ -649,6 +1033,7 @@ function coverJob(): CreatorJob {
       finishedAt: null
     }],
     artifacts: [],
+    providerRequests: [],
     activities: [
       {
         id: 'activity_ui_1',
@@ -733,6 +1118,8 @@ function downloadJob(): CreatorJob {
       claimExpiresAt: null,
       attempt: 1,
       idempotencyKey: 'download-1',
+      scopeKey: null,
+      inputFingerprint: null,
       progress: {
         phase: 'downloading',
         percent: 42,
@@ -744,6 +1131,7 @@ function downloadJob(): CreatorJob {
       finishedAt: null
     }],
     artifacts: [],
+    providerRequests: [],
     activities: [
       {
         id: 'activity_ui',
@@ -820,6 +1208,8 @@ function videoGenerationJob(): CreatorJob {
       claimExpiresAt: null,
       attempt: 1,
       idempotencyKey: 'video-generation-1',
+      scopeKey: null,
+      inputFingerprint: null,
       progress: {
         phase: 'generating',
         message: 'The video provider is generating the video',
@@ -831,6 +1221,7 @@ function videoGenerationJob(): CreatorJob {
       finishedAt: null
     }],
     artifacts: [],
+    providerRequests: [],
     activities: [
       {
         id: 'video_generation_ui',

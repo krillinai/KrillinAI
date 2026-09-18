@@ -30,6 +30,16 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { verifyCreatorRuntime } from './creator-runtime-contract.mjs';
 import { verifyCodexRuntime } from './codex-runtime-contract.mjs';
+import {
+  hashDirectory as hashStickmanDirectory,
+  hashFile as hashStickmanFile,
+  findFirstDifferentPath as findFirstDifferentStickmanPath,
+  verifyStickmanRuntime
+} from './stickman-runtime-contract.mjs';
+import {
+  findPythonRuntimeMarker,
+  verifyStickmanBuildBinding
+} from './package-content-contract.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopDir = resolve(scriptDir, '..');
@@ -53,11 +63,13 @@ const daemonDir = join(resourcesDir, 'daemon');
 const webDir = join(resourcesDir, 'web');
 const creatorRuntimeDir = join(resourcesDir, 'creator-runtime', 'krillinai');
 const codexRuntimeDir = join(resourcesDir, 'codex-runtime');
+const stickmanRuntimeDir = join(resourcesDir, 'stickman-runtime');
 const sourceWebDir = resolve(desktopDir, '../web/dist');
 const sourceCreatorAgentRuntimeDir = resolve(
   desktopDir,
   '../daemon/runtime/opencreator-runtime'
 );
+const sourceStickmanRuntimeDir = resolve(desktopDir, '.pack', 'stickman-runtime');
 const executable = packagedExecutable(packageRoot);
 const machOMagicValues = new Set([
   'feedface',
@@ -92,9 +104,14 @@ assertDaemonContents();
 assertWebContents();
 assertCreatorRuntime();
 assertCodexRuntime();
+assertStickmanRuntime();
+assertNoUnexpectedPythonRuntime();
 assertNoLocalData();
 assertSize('app.asar', appAsar, 80 * 1024 * 1024);
 assertSize('Daemon resources', daemonDir, 250 * 1024 * 1024);
+assertSize('Creator Runtime', creatorRuntimeDir, 384 * 1024 * 1024);
+assertSize('Codex Runtime', codexRuntimeDir, 450 * 1024 * 1024);
+assertSize('Stickman Runtime', stickmanRuntimeDir, 384 * 1024 * 1024);
 assertSize('Desktop package', packageRoot, 1536 * 1024 * 1024);
 await assertFuseConfiguration();
 verifyMacPackageMetadata();
@@ -146,6 +163,7 @@ function assertAsarContents() {
   const entries = normalizedAsarEntries();
   const required = [
     '/dist/main/main.js',
+    '/dist/main/telemetry.js',
     '/dist/preload/index.cjs',
     '/dist/bootstrap/index.html',
     '/dist/shared/ipc.js'
@@ -400,6 +418,49 @@ function assertCodexRuntime() {
   }
 }
 
+function assertStickmanRuntime() {
+  const runtime = verifyStickmanRuntime(stickmanRuntimeDir, targetPlatform, targetArch);
+  const sourceManifest = verifyStickmanRuntime(
+    sourceStickmanRuntimeDir,
+    targetPlatform,
+    targetArch
+  );
+  const source = hashStickmanDirectory(sourceStickmanRuntimeDir);
+  const packaged = hashStickmanDirectory(stickmanRuntimeDir);
+  const firstDifferentPath = findFirstDifferentStickmanPath(source.files, packaged.files);
+  if (firstDifferentPath !== undefined) {
+    throw new Error(`Packaged Stickman Runtime file list differs from source at: ${firstDifferentPath}`);
+  }
+  const signedMacPackage = targetPlatform === 'darwin'
+    && process.env.OPENCREATOR_REQUIRE_DEVELOPER_ID === '1';
+  if (!signedMacPackage && source.hash !== packaged.hash) {
+    throw new Error('Packaged Stickman Runtime contents differ from .pack/stickman-runtime');
+  }
+  if (
+    runtime.remotionVersion !== sourceManifest.remotionVersion
+    || runtime.chromiumVersion !== sourceManifest.chromiumVersion
+  ) {
+    throw new Error('Packaged Stickman Runtime versions differ from the source manifest');
+  }
+  if (typeof manifest.packageRoot !== 'string') return;
+  verifyStickmanBuildBinding(
+    manifest,
+    source,
+    runtime,
+    hashStickmanFile(join(sourceStickmanRuntimeDir, 'manifest.json'))
+  );
+}
+
+function assertNoUnexpectedPythonRuntime() {
+  const marker = findPythonRuntimeMarker(
+    [daemonDir, stickmanRuntimeDir],
+    normalizedAsarEntries()
+  );
+  if (marker !== undefined) {
+    throw new Error(`Desktop package contains an unexpected Python Runtime marker: ${marker}`);
+  }
+}
+
 function hashDirectory(root) {
   const files = [];
   walk(root, path => {
@@ -531,7 +592,7 @@ function verifyMacPackageMetadata() {
   }
   if (process.env.OPENCREATOR_REQUIRE_DEVELOPER_ID === '1') {
     verifyDeveloperIdSignature();
-    verifyEmbeddedCreatorRuntimeSignatures();
+    verifyEmbeddedRuntimeSignatures();
   }
   if (process.env.OPENCREATOR_REQUIRE_NOTARIZED_MAC_APP === '1') {
     if (process.env.OPENCREATOR_REQUIRE_DEVELOPER_ID !== '1') {
@@ -607,13 +668,15 @@ function verifyDeveloperIdSignature() {
   }
 }
 
-function verifyEmbeddedCreatorRuntimeSignatures() {
+function verifyEmbeddedRuntimeSignatures() {
   const embeddedBinaries = [];
-  walk(creatorRuntimeDir, path => {
-    if (isMachOBinary(path)) embeddedBinaries.push(path);
-  });
+  for (const root of [daemonDir, creatorRuntimeDir, stickmanRuntimeDir]) {
+    walk(root, path => {
+      if (isMachOBinary(path)) embeddedBinaries.push(path);
+    });
+  }
   if (embeddedBinaries.length === 0) {
-    throw new Error('Creator Runtime does not contain any macOS binaries');
+    throw new Error('Packaged runtimes do not contain any macOS binaries');
   }
   const expectedTeamId = process.env.OPENCREATOR_APPLE_TEAM_ID?.trim();
   for (const path of embeddedBinaries) {
@@ -637,7 +700,7 @@ function verifyEmbeddedCreatorRuntimeSignatures() {
       )
     ) {
       throw new Error(
-        'Embedded Creator Runtime binary is not signed for distribution: '
+        'Embedded runtime binary is not signed for distribution: '
         + `${relative(packageRoot, path)}`
       );
     }

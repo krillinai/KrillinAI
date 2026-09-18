@@ -33,6 +33,12 @@ const ytDlpRuntimeSchema = z.discriminatedUnion('mode', [
   }).strict()
 ]);
 
+const cliSourceSchema = z.object({
+  kind: z.enum(['local-source', 'configured-binary', 'vendor-release']),
+  revision: z.string().min(1).optional(),
+  dirty: z.boolean().optional()
+}).strict();
+
 const manifestSchema = z.object({
   version: z.number().int().positive(),
   runtimeMode: z.literal('cli').optional(),
@@ -42,6 +48,8 @@ const manifestSchema = z.object({
   integrationPatchSha256: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
   platform: z.string().min(1),
   arch: z.string().min(1),
+  upstreamCommit: z.string().optional(),
+  cliSource: cliSourceSchema.optional(),
   ytDlp: ytDlpRuntimeSchema.optional(),
   resources: z.array(resourceSchema)
 }).strict();

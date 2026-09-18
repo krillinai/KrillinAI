@@ -1,4 +1,5 @@
 import { createVideoTranslationTemplate } from './video-translation.js';
+import { z } from 'zod';
 import {
   createLegacyVideoDownloadTemplate,
   createVideoDownloadTemplate
@@ -9,9 +10,12 @@ import {
   createLegacyImageGenerationTemplate
 } from './image-generation.js';
 import { createVideoGenerationTemplate } from './video-generation.js';
-import { createAutoClipTemplate } from './auto-clip.js';
+import { createAutoClipTemplate, createLegacyAutoClipTemplate } from './auto-clip.js';
 import { createStickmanVideoTemplate } from './stickman-video.js';
 import { createSmartDubbingTemplate } from './smart-dubbing.js';
+import { createXiaohongshuPostTemplate } from './xiaohongshu-post.js';
+import { createShortVideoScriptTemplate } from './short-video-script.js';
+import { createWechatArticleTemplate } from './wechat-article.js';
 import type {
   CreatorTemplateDefinition,
   CreatorTemplateRegistry
@@ -19,6 +23,7 @@ import type {
 
 export {
   createAutoClipTemplate,
+  createLegacyAutoClipTemplate,
   createCoverTemplate,
   createLegacyCoverTemplate,
   createImageGenerationTemplate,
@@ -26,6 +31,9 @@ export {
   createVideoGenerationTemplate,
   createStickmanVideoTemplate,
   createSmartDubbingTemplate,
+  createXiaohongshuPostTemplate,
+  createShortVideoScriptTemplate,
+  createWechatArticleTemplate,
   createLegacyVideoDownloadTemplate,
   createVideoDownloadTemplate,
   createVideoTranslationTemplate
@@ -41,7 +49,11 @@ export function createDefaultCreatorTemplateRegistry(): CreatorTemplateRegistry 
     createLegacyImageGenerationTemplate(),
     createImageGenerationTemplate(),
     createSmartDubbingTemplate(),
+    createXiaohongshuPostTemplate(),
     createVideoGenerationTemplate(),
+    createShortVideoScriptTemplate(),
+    createWechatArticleTemplate(),
+    createLegacyAutoClipTemplate(),
     createAutoClipTemplate(),
     createStickmanVideoTemplate()
   ]);
@@ -55,7 +67,14 @@ export function createCreatorTemplateRegistry(
     validateTemplate(template);
     const key = templateKey(template.id, template.version);
     if (byKey.has(key)) throw new Error(`Duplicate template: ${key}`);
-    byKey.set(key, template);
+    byKey.set(key, {
+      ...template,
+      actions: [...template.actions, {
+        id: 'select-result-version',
+        inputSchema: z.object({ version: z.number().int().positive() }).strict(),
+        allowedStages: template.stages.map(stage => stage.id)
+      }]
+    });
   }
 
   return {
@@ -97,6 +116,8 @@ function propagateArtifacts(
     visited.add(current);
     for (const stage of template.stages) {
       if (!stage.inputArtifacts.some(input => input.kind === current)) continue;
+      // Reusing a previous version does not make the stage's upstream outputs downstream.
+      if (stage.outputArtifacts.some(output => output.kind === current)) continue;
       for (const output of stage.outputArtifacts) {
         if (!result.has(output.kind)) {
           result.add(output.kind);

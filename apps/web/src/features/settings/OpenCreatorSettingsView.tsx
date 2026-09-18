@@ -57,6 +57,8 @@ export type OpenCreatorSettingsViewProps = {
   onCustomAccentColorChange?(color: string): void;
   desktopCloseBehavior?: 'hide' | 'quit';
   onDesktopCloseBehaviorChange?(behavior: 'hide' | 'quit'): void;
+  desktopTelemetryEnabled?: boolean;
+  onDesktopTelemetryEnabledChange?(enabled: boolean): void;
   profileService?: ProfileSettingsService | null;
   profileData?: CodexProfileListResponse;
   onProfileDataChange?(data: CodexProfileListResponse): void;
@@ -148,6 +150,8 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
             onCustomAccentColorChange={props.onCustomAccentColorChange}
             desktopCloseBehavior={props.desktopCloseBehavior}
             onDesktopCloseBehaviorChange={props.onDesktopCloseBehaviorChange}
+            desktopTelemetryEnabled={props.desktopTelemetryEnabled}
+            onDesktopTelemetryEnabledChange={props.onDesktopTelemetryEnabledChange}
           />
         ) : null}
         {activeTab === 'ai-services' ? (
@@ -212,6 +216,8 @@ function GeneralSettings(props: {
   onCustomAccentColorChange?(color: string): void;
   desktopCloseBehavior?: 'hide' | 'quit';
   onDesktopCloseBehaviorChange?(behavior: 'hide' | 'quit'): void;
+  desktopTelemetryEnabled?: boolean;
+  onDesktopTelemetryEnabledChange?(enabled: boolean): void;
 }) {
   const { language, preference, setPreference, t } = useAppLanguage();
   const confirm = useConfirmDialog();
@@ -225,14 +231,17 @@ function GeneralSettings(props: {
   ];
   const languageName = language === 'zh-CN'
     ? t('settings.language.zh')
-    : t('settings.language.en');
+    : language === 'sv-SE'
+      ? t('settings.language.sv')
+      : t('settings.language.en');
   const languageOptions: Array<{ value: AppLanguagePreference; label: string }> = [
     {
       value: 'system',
       label: t('settings.language.system', { language: languageName })
     },
     { value: 'zh-CN', label: t('settings.language.zh') },
-    { value: 'en-US', label: t('settings.language.en') }
+    { value: 'en-US', label: t('settings.language.en') },
+    { value: 'sv-SE', label: t('settings.language.sv') }
   ];
 
   return (
@@ -296,6 +305,24 @@ function GeneralSettings(props: {
               <option value="hide">{t('settings.hideToMenuBar')}</option>
               <option value="quit">{t('settings.quit')}</option>
             </select>
+          </label>
+        )}
+        {props.desktopTelemetryEnabled === undefined ? null : (
+          <label className="settings-row settings-control-row" htmlFor="settings-desktop-telemetry">
+            <span>
+              {t('settings.telemetry')}
+              <small className="settings-row-description">
+                {t('settings.telemetryDescription')}
+              </small>
+            </span>
+            <input
+              id="settings-desktop-telemetry"
+              className="settings-switch"
+              type="checkbox"
+              role="switch"
+              checked={props.desktopTelemetryEnabled}
+              onChange={event => props.onDesktopTelemetryEnabledChange?.(event.target.checked)}
+            />
           </label>
         )}
       </div>

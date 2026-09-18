@@ -29,6 +29,7 @@ import {
   type CreatorStageProgressView
 } from './creator-panel-adapters.js';
 import { useOptionalCreatorSession } from './creator-session-store.js';
+import CreatorArtifactDetails from './CreatorArtifactDetails.js';
 
 export type CreatorPanelQuickAction = {
   id: string;
@@ -228,6 +229,7 @@ export default function CreatorCollaborationPanel(props: {
           <small>{l('当前任务', 'Current task')}</small>
           <strong>{props.currentIssue ?? props.contextSummary}</strong>
         </span>
+        <CreatorArtifactDetails />
       </div>
 
       {session?.preflight !== null && session?.preflight !== undefined ? (
@@ -566,7 +568,8 @@ function buildCollaborationTimeline(
   events: SyncEvent[],
   adapter: CreatorPanelAdapter
 ): CollaborationTimelineItem[] {
-  const stages = latestStageRuns(job?.stages ?? []);
+  const stages = adapter.aggregateStages?.(latestStageRuns(job?.stages ?? []))
+    ?? latestStageRuns(job?.stages ?? []);
   const representedStageIds = new Set(stages.map(stage => stage.stageId));
   const items: CollaborationTimelineItem[] = messages.map(message => ({
     id: message.id,
@@ -675,9 +678,10 @@ function actorLabel(
 function latestStageRuns(stages: CreatorStageRun[]): CreatorStageRun[] {
   const runsByStage = new Map<string, CreatorStageRun[]>();
   for (const stage of stages) {
-    const runs = runsByStage.get(stage.stageId) ?? [];
+    const key = `${stage.stageId}:${stage.scopeKey ?? ''}`;
+    const runs = runsByStage.get(key) ?? [];
     runs.push(stage);
-    runsByStage.set(stage.stageId, runs);
+    runsByStage.set(key, runs);
   }
   return [...runsByStage.values()].map(runs => {
     const latest = runs.at(-1)!;
@@ -724,7 +728,7 @@ function stageProgressText(
   if (stage.status === 'queued') return l('等待执行', 'Queued');
   if (stage.status === 'succeeded') {
     return adapter.succeededProgressText?.(stage, l)
-      ?? l('已完成，结果已同步到工作台', 'Completed and synced to Workbench');
+      ?? l('已完成', 'Completed');
   }
   if (stage.status === 'failed') {
     return adapter.failedProgressText?.(stage, l)

@@ -184,6 +184,80 @@ func TestAudioProcessPercentUsesDetailedTranscriptionAndTranslationProgress(t *t
 	}
 }
 
+func TestOriginCuesFromTranscriptionUseWordTimingsWithoutTranslation(t *testing.T) {
+	transcription := &types.TranscriptionData{
+		Text: "one two three four",
+		Words: []types.Word{
+			{Text: "one", Start: 0.1, End: 0.4},
+			{Text: "two", Start: 0.5, End: 0.9},
+			{Text: "three", Start: 1.0, End: 1.4},
+			{Text: "four", Start: 1.5, End: 2.0},
+		},
+	}
+	cues := originCuesFromTranscription(transcription, 10, 13, 2, types.LanguageNameEnglish)
+	if len(cues) != 2 {
+		t.Fatalf("cue count = %d, want 2", len(cues))
+	}
+	if cues[0].Text != "one two" || cues[0].Start != 10.1 || cues[0].End != 10.9 {
+		t.Fatalf("first cue = %+v", cues[0])
+	}
+	if cues[1].Text != "three four" || cues[1].Start != 11 || cues[1].End != 12 {
+		t.Fatalf("second cue = %+v", cues[1])
+	}
+
+	path := filepath.Join(t.TempDir(), types.SubtitleTaskOriginLanguageSrtFileName)
+	if err := writeOriginSubtitleFile(path, cues); err != nil {
+		t.Fatal(err)
+	}
+	if err := NormalizeSRTFile(path, false); err != nil {
+		t.Fatalf("generated source subtitle is invalid: %v", err)
+	}
+}
+
+func TestOriginCuesFromTranscriptionAlignsSubwordTokensWithTranscript(t *testing.T) {
+	transcription := &types.TranscriptionData{
+		Text: `"Saying no" isn't social conformity in the 1950s.`,
+		Words: []types.Word{
+			{Text: "S", Start: 0.1, End: 0.2},
+			{Text: "aying", Start: 0.2, End: 0.6},
+			{Text: "no", Start: 0.7, End: 0.9},
+			{Text: "isn", Start: 1.0, End: 1.2},
+			{Text: "t", Start: 1.2, End: 1.3},
+			{Text: "social", Start: 1.4, End: 1.8},
+			{Text: "conform", Start: 1.9, End: 2.4},
+			{Text: "ity", Start: 2.4, End: 2.6},
+			{Text: "in", Start: 2.7, End: 2.8},
+			{Text: "the", Start: 2.9, End: 3.0},
+			{Text: "1950", Start: 3.1, End: 3.5},
+			{Text: "s", Start: 3.5, End: 3.6},
+		},
+	}
+
+	cues := originCuesFromTranscription(transcription, 10, 14, 4, types.LanguageNameEnglish)
+	if len(cues) != 2 {
+		t.Fatalf("cue count = %d, want 2", len(cues))
+	}
+	if cues[0].Text != `"Saying no" isn't social` || cues[0].Start != 10.1 || cues[0].End != 11.8 {
+		t.Fatalf("first cue = %+v", cues[0])
+	}
+	if cues[1].Text != "conformity in the 1950s." || cues[1].Start != 11.9 || cues[1].End != 13.6 {
+		t.Fatalf("second cue = %+v", cues[1])
+	}
+}
+
+func TestOriginCuesFromTranscriptionFallBackToTranscriptText(t *testing.T) {
+	cues := originCuesFromTranscription(
+		&types.TranscriptionData{Text: "fallback transcript"},
+		20,
+		24,
+		12,
+		types.LanguageNameEnglish,
+	)
+	if len(cues) != 1 || cues[0].Text != "fallback transcript" || cues[0].Start != 20 || cues[0].End != 24 {
+		t.Fatalf("cues = %+v", cues)
+	}
+}
+
 type echoBatchCompleter struct {
 	batchSizes []int
 }

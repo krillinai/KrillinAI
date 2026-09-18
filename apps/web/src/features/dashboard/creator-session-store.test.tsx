@@ -19,6 +19,7 @@ function job(revision: number, state: Record<string, any>): CreatorJob {
     agentThreadId: null,
     stages: [],
     artifacts: [],
+    providerRequests: [],
     activities: [],
     createdAt: '2026-08-20T00:00:00.000Z',
     updatedAt: '2026-08-20T00:00:00.000Z'
@@ -644,6 +645,9 @@ describe('CreatorSessionStore', () => {
         version: 1,
         status: 'completed' as const,
         path: '/tmp/source.webm',
+        scopeKey: null,
+        inputFingerprint: null,
+        sha256: null,
         sourceArtifactIds: [],
         metadata: { source: 'local-upload' },
         createdAt: '2026-08-20T00:00:02.000Z'
@@ -725,6 +729,8 @@ describe('CreatorSessionStore', () => {
           claimExpiresAt: null,
           attempt: 1,
           idempotencyKey: 'stage_1',
+          scopeKey: null,
+          inputFingerprint: null,
           progress: { percent: 35 },
           errorCode: null,
           errorMessage: null,

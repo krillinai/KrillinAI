@@ -35,7 +35,7 @@ OpenCreator 面向需要在本机持续完成创作与开发任务的个人和�
 
 产品包含两条可以相互衔接的主线：
 
-- **AI 内容创作**：使用视频翻译、视频下载、封面生成和图像生成四项专用创作工具。
+- **AI 内容创作**：使用视频翻译与下载、图像与视频生成、智能配音、文章与社媒帖子写作、短视频脚本和火柴人动画等专用创作工具。
 - **通用 Agent 工作台**：按项目组织会话，让 Run 在后台持续执行，并统一处理审批、附件、文件、技能、MCP、计划任务、通知、记忆和诊断。
 
 Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，只额外提供目录选择、窗口生命周期、托盘和原生通知等系统能力。因此在相同数据和内容视口下，两端拥有一致的通用界面与 Runtime 行为。
@@ -60,11 +60,13 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 
 - 🔐 **本地安全**：数据、附件和日志默认留在本机，支持权限审批和诊断脱敏。
 
+- 🌐 **多语言界面**：Web 与 Desktop 客户端支持简体中文、英文和瑞典语，可自动跟随系统语言或手动选择。
+
 ## 创作工具
 
-当前版本提供四项创作工具。实际可用的模型与服务由本地 Codex 环境和 AI 服务设置共同决定。
+当前版本提供十项创作工具。实际可用的模型与服务由本地 Codex 环境和 AI 服务设置共同决定。
 
-从工作台进入视频翻译、视频下载、封面生成或图像生成。
+从工作台进入文章写作、小红书帖子、短视频脚本和火柴人动画，也可进行视频翻译与下载、封面与图像生成、智能配音或 Seedance 视频生成。
 
 ![OpenCreator 创作工作台](../images/product/opencreator-dashboard-en.png)
 
@@ -83,10 +85,13 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 <tr><td valign="top">视频下载</td><td valign="top">✅ 已开放</td><td>解析 YouTube、Bilibili 等平台的公开视频链接，查看可用清晰度和格式，并下载视频或音频供后续创作使用</td></tr>
 <tr><td valign="top">封面生成</td><td valign="top">✅ 已开放</td><td>结合主题、视频链接和可选参考图片生成多版内容封面，并进行对比选择</td></tr>
 <tr><td valign="top">图像生成</td><td valign="top">✅ 已开放</td><td>使用 GPT Image，根据提示词和可选参考图片生成图像，设置画幅与生成数量，并预览和单独下载图片</td></tr>
-<tr><td valign="top">火柴人动画</td><td valign="top">即将接入</td><td>在引导式流程中完成角色、分镜、配音与动画制作</td></tr>
+<tr><td valign="top">文章写作</td><td valign="top">✅ 已开放</td><td>根据主题、链接、视频或参考文档生成可编辑的候选选题、大纲和完整文章，支持添加生成配图，并导出 Markdown、HTML 或 PDF</td></tr>
+<tr><td valign="top">小红书帖子</td><td valign="top">✅ 已开放</td><td>根据主题或素材生成完整的小红书帖子，可设置目标读者、内容类型和篇幅，并复制或下载结果</td></tr>
+<tr><td valign="top">短视频脚本</td><td valign="top">✅ 已开放</td><td>根据主题或素材生成可直接拍摄的分段脚本，并按目标受众、发布平台、时长和语气调整，支持编辑、复制或下载</td></tr>
+<tr><td valign="top">火柴人动画</td><td valign="top">✅ 已开放</td><td>将文本或 YouTube 内容转化为旁白、配音、角色一致的分镜画面、字幕及可下载的火柴人动画</td></tr>
 <tr><td valign="top">自动剪辑</td><td valign="top">开发中</td><td>分析长视频内容、识别高光片段，并将选定内容制作成可复用的短视频</td></tr>
-<tr><td valign="top">智能配音</td><td valign="top">开发中</td><td>将脚本生成为配音，并调整音色、节奏与情绪表达</td></tr>
-<tr><td valign="top">视频生成</td><td valign="top">开发中</td><td>根据提示词和参考图片生成视频，并完成预览与导出</td></tr>
+<tr><td valign="top">智能配音</td><td valign="top">✅ 已开放</td><td>将脚本生成为配音，并调整音色、节奏与情绪表达</td></tr>
+<tr><td valign="top">视频生成</td><td valign="top">✅ 已开放</td><td>使用 Seedance 根据提示词和参考图片生成视频，并预览、重新生成或下载各个版本</td></tr>
 <tr><td valign="top">数字人口播</td><td valign="top">开发中</td><td>组合文案、声音和数字人形象，制作口播视频</td></tr>
 </tbody>
 </table>
@@ -115,7 +120,7 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 
 ## 支持的模型
 
-语言模型由 Codex 模型目录或你配置的 OpenAI 兼容服务提供；图像、语音和转写模型使用 **设置 → AI 服务** 中配置的服务。
+语言模型由 Codex 模型目录或你配置的 OpenAI 兼容服务提供；图像、视频、语音和转写模型使用 **设置 → AI 服务** 中配置的服务。
 
 ### 语言模型
 
@@ -141,6 +146,14 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 <table>
 <tr>
 <td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+</tr>
+</table>
+
+### 视频
+
+<table>
+<tr>
+<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
 </tr>
 </table>
 
@@ -194,21 +207,25 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > 这些视频与字幕对齐图片制作于 OpenCreator 仍使用 KrillinAI 名称的阶段。
 
+### 视频生成
+
+使用 Seedance 根据文本提示词或参考图片生成 AI 视频。设置模型、画面比例、分辨率和时长，然后在项目工作区预览、重新生成或下载各个版本。
+
+![OpenCreator Seedance 视频生成](../images/examples/video-generation-seedance-en.png)
+
 ### 视频下载
 
 解析公开视频链接，比较可用格式，并将视频或音频直接下载到项目中。
 
 ![OpenCreator 视频下载格式选择](../images/examples/video-downloader-formats-en.png)
 
-### 火柴人动画（敬请期待）
+### 火柴人动画
 
-> 敬请期待，当前版本尚未接入。
-
-OpenCreator 与艺术家 [Harbor Hsia](https://www.behance.net/xiaheyuan1) 合作设计了这套原创角色形象，其作品可见 Behance 上的 [Stickman](https://www.behance.net/gallery/254715463/Stickman)。这套风格统一的预设角色正在为后续故事与动画工作流做准备。
+OpenCreator 与艺术家 [Harbor Hsia](https://www.behance.net/xiaheyuan1) 合作设计了这套原创火柴人角色形象，其作品可见 Behance 上的 [Stickman](https://www.behance.net/gallery/254715463/Stickman)。内置角色可在整个动画工作流中保持形象一致。
 
 ![OpenCreator 与艺术家合作设计的火柴人角色](../images/examples/stick-figure-characters.webp)
 
-规划中的工作流将从角色与故事创意出发，引导完成分镜生成、镜头审核、配音、音乐和多版本动画输出。
+输入文本或YouTube内容源以后，可在引导式工作流中完成脚本审核、旁白配音、节奏调整、分镜画面、字幕、渲染及成片下载。
 
 ![OpenCreator 火柴人动画画面案例](../images/examples/stick-figure-animation-frame.jpg)
 
@@ -487,15 +504,21 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 感谢每一位通过代码、文档、反馈、问题报告、Skills、设计和创意参与 OpenCreator 的贡献者。
 
-<a href="https://github.com/krillinai/KrillinAI/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=krillinai/KrillinAI&amp;max=500&amp;columns=20" alt="OpenCreator 贡献者" />
+<a href="https://github.com/krillinai/OpenCreator/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=KrillinAI/OpenCreator&amp;max=500&amp;columns=20" alt="OpenCreator 贡献者" />
+</a>
+
+<!-- contrib.rocks 刷新缓存期间，先显式保留近期贡献者。 -->
+<br />
+<a href="https://github.com/xiaheyuan">
+  <img src="../images/contributors/xiaheyuan.svg" width="48" height="48" alt="XiaHeyuan 头像" />
 </a>
 
 ## Star 趋势
 
 OpenCreator 原名 KrillinAI。下图展示仓库在更名前后的完整 Star 历史。
 
-[![OpenCreator Star 趋势](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
+[![OpenCreator Star 趋势](https://api.star-history.com/svg?repos=krillinai/OpenCreator&type=date)](https://www.star-history.com/?type=date&repos=krillinai%2FOpenCreator)
 
 ## 相关项目
 

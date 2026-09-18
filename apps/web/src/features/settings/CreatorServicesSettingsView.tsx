@@ -1,5 +1,7 @@
 import {
   createDefaultCreatorServicesConfig,
+  creatorProviderCatalogById,
+  creatorProviderOfKind,
   defaultVideoGenerationModels,
   videoGenerationModelIds,
   type CodexProviderConfig,
@@ -40,7 +42,9 @@ import type { ConnectionService } from '../../services/connection-service.js';
 import './creator-services-settings.css';
 
 export type CreatorServicesSection = 'text' | 'transcription' | 'tts' | 'image' | 'video';
-type ModelSettingsService = Pick<ConnectionService, 'getCodexProvider' | 'updateCodexProvider'>;
+type ModelSettingsService = Pick<ConnectionService, 'getCodexProvider' | 'updateCodexProvider'> & {
+  getCodexModels?: ConnectionService['getCodexModels'];
+};
 
 export function CreatorServicesSettingsView(props: {
   connected: boolean;
@@ -56,6 +60,8 @@ export function CreatorServicesSettingsView(props: {
   const [config, setConfig] = useState<CreatorServicesConfig>();
   const [capabilities, setCapabilities] = useState<CreatorServicesCapabilitiesResponse>();
   const [modelProvider, setModelProvider] = useState<CodexProviderConfig>();
+  const [modelProviderId, setModelProviderId] = useState('custom');
+  const [runtimeModelIds, setRuntimeModelIds] = useState<string[]>([]);
   const [modelBaseUrl, setModelBaseUrl] = useState('');
   const [modelName, setModelName] = useState('');
   const [modelApiKey, setModelApiKey] = useState('');
@@ -91,8 +97,10 @@ export function CreatorServicesSettingsView(props: {
       props.service.getCapabilities(),
       props.modelService?.getCodexProvider()
         ?? Promise.reject(new Error('Model provider configuration is unavailable'))
+      ,props.modelService?.getCodexModels?.()
+        ?? Promise.reject(new Error('Model catalog is unavailable'))
     ])
-      .then(([configResult, capabilitiesResult, providerResult]) => {
+      .then(([configResult, capabilitiesResult, providerResult, modelsResult]) => {
         if (!active) return;
         if (configResult.status === 'rejected' || capabilitiesResult.status === 'rejected') {
           setConfig(undefined);
@@ -101,6 +109,9 @@ export function CreatorServicesSettingsView(props: {
           return;
         }
         const response = configResult.value;
+        setRuntimeModelIds(modelsResult.status === 'fulfilled'
+          ? modelsResult.value.models.map(model => model.model)
+          : []);
         setConfig(response.config);
         setCapabilities(capabilitiesResult.value);
         setConfiguredCredentials(new Set(response.configuredCredentials));
@@ -109,10 +120,12 @@ export function CreatorServicesSettingsView(props: {
         if (providerResult.status === 'fulfilled') {
           const provider = providerResult.value;
           setModelProvider(provider);
+          setModelProviderId(inferLlmProviderId(provider.baseUrl, provider.model));
           setModelBaseUrl(useLegacyTextModel ? response.config.llm.baseUrl : provider.baseUrl);
           setModelName(useLegacyTextModel ? response.config.llm.model : provider.model);
         } else {
           setModelProvider(undefined);
+          setModelProviderId('custom');
           setModelBaseUrl(response.config.llm.baseUrl);
           setModelName(response.config.llm.model);
           setModelError(l(
@@ -318,6 +331,17 @@ export function CreatorServicesSettingsView(props: {
                 setModelApiKey(value.apiKey);
                 setNotice(undefined);
               }}
+              providerId={modelProviderId}
+              runtimeModelIds={runtimeModelIds}
+              onProviderIdChange={id => {
+                const preset = creatorProviderCatalogById.llm[id];
+                if (preset === undefined) return;
+                setModelProviderId(id);
+                setModelBaseUrl(preset.defaultBaseUrl ?? '');
+                setModelName(preset.models[0]?.id ?? '');
+                setModelApiKey('');
+                setNotice(undefined);
+              }}
             />
           ) : null}
           {activeSection === 'transcription' ? (
@@ -389,6 +413,9 @@ function TextModelSettings(props: SettingsGroupProps & {
   apiKey: string;
   error?: string;
   onProviderChange(value: OpenAiCompatibleConfig): void;
+  providerId: string;
+  runtimeModelIds: readonly string[];
+  onProviderIdChange(value: string): void;
 }) {
   const l = useLocalizedCopy();
   const legacyApiKeyConfigured = props.config.llm.source === 'custom'
@@ -411,6 +438,14 @@ function TextModelSettings(props: SettingsGroupProps & {
           'OpenCreator Agent and text tasks such as translation and script processing share this OpenAI-compatible configuration.'
         )}
       >
+        <label className="creator-services-field">
+          <span>{l('供应商', 'Provider')}</span>
+          <select value={props.providerId} onChange={event => props.onProviderIdChange(event.target.value)}>
+            {Object.values(creatorProviderCatalogById.llm).map(provider => (
+              <option key={provider.id} value={provider.id}>{provider.label}</option>
+            ))}
+          </select>
+        </label>
         <OpenAiFields
           id="llm"
           credential="llm.apiKey"
@@ -420,7 +455,10 @@ function TextModelSettings(props: SettingsGroupProps & {
             apiKey: props.apiKey,
             model: props.model
           }}
-          modelPlaceholder="gpt-4o-mini"
+          modelPlaceholder="gpt-5.6-sol"
+          modelSuggestions={props.providerId === 'openai' && props.runtimeModelIds.length > 0
+            ? props.runtimeModelIds
+            : creatorProviderCatalogById.llm[props.providerId]?.models.map(model => model.id)}
           onChange={props.onProviderChange}
         />
         <div className="creator-services-model-status is-wide" role="status">
@@ -468,6 +506,15 @@ function TextModelSettings(props: SettingsGroupProps & {
       </SettingsFieldset>
     </>
   );
+}
+
+function inferLlmProviderId(baseUrl: string, model: string): string {
+  const normalizedUrl = baseUrl.toLowerCase();
+  const normalizedModel = model.toLowerCase();
+  if (normalizedUrl.includes('deepseek') || normalizedModel.startsWith('deepseek-')) return 'deepseek';
+  if (normalizedUrl.includes('minimax') || normalizedModel.startsWith('minimax-')) return 'minimax';
+  if (normalizedUrl.includes('openai.com')) return 'openai';
+  return 'custom';
 }
 
 function TranscriptionSettings(props: SettingsGroupProps & {
@@ -692,6 +739,12 @@ function TtsSettings(props: SettingsGroupProps) {
         ]}
         onChange={value => props.update(config => {
           config.tts.provider = value as CreatorServicesConfig['tts']['provider'];
+          const preset = creatorProviderOfKind('tts', value);
+          if (preset?.defaultBaseUrl !== undefined && value !== 'edge-tts') {
+            const target = config.tts[value as 'openai' | 'minimax' | 'aliyun'];
+            target.baseUrl = target.baseUrl || preset.defaultBaseUrl;
+            if (!target.model && preset.models[0] !== undefined) target.model = preset.models[0].id;
+          }
         })}
       />
       {provider === 'openai' ? (
@@ -701,6 +754,7 @@ function TtsSettings(props: SettingsGroupProps) {
           configuredCredentials={props.configuredCredentials}
           value={props.config.tts.openai}
           modelPlaceholder="gpt-4o-mini-tts"
+          modelSuggestions={creatorProviderOfKind('tts', 'openai-tts')?.models.map(model => model.id)}
           onChange={value => props.update(config => {
             config.tts.openai = { ...config.tts.openai, ...value };
           })}
@@ -713,6 +767,7 @@ function TtsSettings(props: SettingsGroupProps) {
           configuredCredentials={props.configuredCredentials}
           value={props.config.tts.minimax}
           modelPlaceholder="speech-2.8-hd"
+          modelSuggestions={creatorProviderOfKind('tts', 'minimax-tts')?.models.map(model => model.id)}
           baseUrlPlaceholder="https://api.minimax.io"
           onChange={value => props.update(config => {
             config.tts.minimax = { ...config.tts.minimax, ...value };
@@ -726,6 +781,7 @@ function TtsSettings(props: SettingsGroupProps) {
           configuredCredentials={props.configuredCredentials}
           value={props.config.tts.aliyun}
           modelPlaceholder="qwen3-tts-flash"
+          modelSuggestions={creatorProviderOfKind('tts', 'aliyun-tts')?.models.map(model => model.id)}
           baseUrlPlaceholder="https://dashscope.aliyuncs.com/api/v1"
           onChange={value => props.update(config => {
             config.tts.aliyun = { ...config.tts.aliyun, ...value };
@@ -774,13 +830,18 @@ function ImageSettings(props: SettingsGroupProps) {
           ['gemini', 'Gemini']
         ]}
         onChange={value => props.update(config => {
-          config.image.provider = value as CreatorServicesConfig['image']['provider'];
+          const nextProvider = value as CreatorServicesConfig['image']['provider'];
+          config.image.provider = nextProvider;
+          const preset = creatorProviderOfKind('image', nextProvider);
+          const target = config.image[nextProvider];
+          if (preset?.defaultBaseUrl !== undefined && !target.baseUrl) target.baseUrl = preset.defaultBaseUrl;
+          if (!target.model && preset?.models[0] !== undefined) target.model = preset.models[0].id;
         })}
       />
-      {provider === 'openai' ? <OpenAiFields id="image-openai" credential="image.openai.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.openai} modelPlaceholder="gpt-image-1" onChange={value => props.update(config => { config.image.openai = value; })} /> : null}
-      {provider === 'jimeng' ? <OpenAiFields id="image-jimeng" credential="image.jimeng.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.jimeng} modelPlaceholder="doubao-seedream-4-0-250828" baseUrlPlaceholder="https://ark.cn-beijing.volces.com/api/v3" onChange={value => props.update(config => { config.image.jimeng = value; })} /> : null}
-      {provider === 'kling' ? <KlingFields id="image-kling" accessKeyCredential="image.kling.accessKey" secretKeyCredential="image.kling.secretKey" configuredCredentials={props.configuredCredentials} value={props.config.image.kling} modelPlaceholder="kling-v2-1" onChange={value => props.update(config => { config.image.kling = value; })} /> : null}
-      {provider === 'gemini' ? <OpenAiFields id="image-gemini" credential="image.gemini.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.gemini} modelPlaceholder="gemini-2.5-flash-image" baseUrlPlaceholder="https://generativelanguage.googleapis.com/v1beta" onChange={value => props.update(config => { config.image.gemini = value; })} /> : null}
+      {provider === 'openai' ? <OpenAiFields id="image-openai" credential="image.openai.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.openai} modelPlaceholder="gpt-image-1" modelSuggestions={creatorProviderOfKind('image', 'openai')?.models.map(model => model.id)} onChange={value => props.update(config => { config.image.openai = value; })} /> : null}
+      {provider === 'jimeng' ? <OpenAiFields id="image-jimeng" credential="image.jimeng.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.jimeng} modelPlaceholder="doubao-seedream-4-0-250828" modelSuggestions={creatorProviderOfKind('image', 'jimeng')?.models.map(model => model.id)} baseUrlPlaceholder="https://ark.cn-beijing.volces.com/api/v3" onChange={value => props.update(config => { config.image.jimeng = value; })} /> : null}
+      {provider === 'kling' ? <KlingFields id="image-kling" accessKeyCredential="image.kling.accessKey" secretKeyCredential="image.kling.secretKey" configuredCredentials={props.configuredCredentials} value={props.config.image.kling} modelPlaceholder="kling-v2-1" modelSuggestions={creatorProviderOfKind('image', 'kling')?.models.map(model => model.id)} onChange={value => props.update(config => { config.image.kling = value; })} /> : null}
+      {provider === 'gemini' ? <OpenAiFields id="image-gemini" credential="image.gemini.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.gemini} modelPlaceholder="gemini-2.5-flash-image" modelSuggestions={creatorProviderOfKind('image', 'gemini')?.models.map(model => model.id)} baseUrlPlaceholder="https://generativelanguage.googleapis.com/v1beta" onChange={value => props.update(config => { config.image.gemini = value; })} /> : null}
     </SettingsFieldset>
   );
 }
@@ -806,11 +867,17 @@ function VideoSettings(props: SettingsGroupProps) {
           ['veo', 'Veo']
         ]}
         onChange={value => props.update(config => {
-          config.video.provider = value as CreatorServicesConfig['video']['provider'];
+          const nextProvider = value as CreatorServicesConfig['video']['provider'];
+          config.video.provider = nextProvider;
+          const catalogId = nextProvider === 'kling' ? 'kling-video' : nextProvider;
+          const preset = creatorProviderOfKind('video', catalogId);
+          const target = config.video[nextProvider];
+          if (preset?.defaultBaseUrl !== undefined && !target.baseUrl) target.baseUrl = preset.defaultBaseUrl;
+          if (!target.model && preset?.models[0] !== undefined) target.model = preset.models[0].id;
         })}
       />
       {provider === 'seedance' ? <OpenAiFields id="video-seedance" credential="video.seedance.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.video.seedance} modelLabel={l('默认模型', 'Default model')} modelPlaceholder={defaultVideoGenerationModels.seedance} modelSuggestions={videoGenerationModelIds.seedance} baseUrlPlaceholder="https://ark.cn-beijing.volces.com/api/v3" onChange={value => props.update(config => { config.video.seedance = value; })} /> : null}
-      {provider === 'kling' ? <KlingFields id="video-kling" accessKeyCredential="video.kling.accessKey" secretKeyCredential="video.kling.secretKey" configuredCredentials={props.configuredCredentials} value={props.config.video.kling} modelLabel={l('默认模型', 'Default model')} modelPlaceholder={defaultVideoGenerationModels.kling} modelSuggestions={videoGenerationModelIds.kling} onChange={value => props.update(config => { config.video.kling = value; })} /> : null}
+      {provider === 'kling' ? <KlingFields id="video-kling" accessKeyCredential="video.kling.accessKey" secretKeyCredential="video.kling.secretKey" configuredCredentials={props.configuredCredentials} value={props.config.video.kling} modelLabel={l('默认模型', 'Default model')} modelPlaceholder={defaultVideoGenerationModels.kling} modelSuggestions={creatorProviderOfKind('video', 'kling-video')?.models.map(model => model.id)} onChange={value => props.update(config => { config.video.kling = value; })} /> : null}
       {provider === 'veo' ? <OpenAiFields id="video-veo" credential="video.veo.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.video.veo} modelLabel={l('默认模型', 'Default model')} modelPlaceholder={defaultVideoGenerationModels.veo} modelSuggestions={videoGenerationModelIds.veo} baseUrlPlaceholder="https://generativelanguage.googleapis.com/v1beta" onChange={value => props.update(config => { config.video.veo = value; })} /> : null}
     </SettingsFieldset>
   );
@@ -866,7 +933,7 @@ function OpenAiFields(props: {
       {props.modelReadonly ? (
         <ReadonlyModelField label={props.modelLabel ?? l('模型', 'Model')} value={props.modelPlaceholder} />
       ) : (
-        <TextField
+        <ModelField
           id={`${props.id}-model`}
           label={props.modelLabel ?? l('模型', 'Model')}
           value={props.value.model}
@@ -895,7 +962,7 @@ function KlingFields(props: {
       <TextField id={`${props.id}-base-url`} label="Base URL" value={props.value.baseUrl} placeholder="https://api-beijing.klingai.com" onChange={baseUrl => props.onChange({ ...props.value, baseUrl })} wide />
       <PasswordField id={`${props.id}-access-key`} label="Access Key" value={props.value.accessKey} configured={props.configuredCredentials.has(props.accessKeyCredential)} onChange={accessKey => props.onChange({ ...props.value, accessKey })} />
       <PasswordField id={`${props.id}-secret-key`} label="Secret Key" value={props.value.secretKey} configured={props.configuredCredentials.has(props.secretKeyCredential)} onChange={secretKey => props.onChange({ ...props.value, secretKey })} />
-      <TextField id={`${props.id}-model`} label={props.modelLabel ?? 'Model'} value={props.value.model} placeholder={props.modelPlaceholder} suggestions={props.modelSuggestions} onChange={model => props.onChange({ ...props.value, model })} />
+      <ModelField id={`${props.id}-model`} label={props.modelLabel ?? 'Model'} value={props.value.model} placeholder={props.modelPlaceholder} suggestions={props.modelSuggestions} onChange={model => props.onChange({ ...props.value, model })} />
     </>
   );
 }
@@ -985,6 +1052,56 @@ function TextField(props: {
         <datalist id={`${props.id}-suggestions`}>
           {props.suggestions.map(value => <option key={value} value={value} />)}
         </datalist>
+      ) : null}
+    </label>
+  );
+}
+
+function ModelField(props: {
+  id: string;
+  label: string;
+  value: string;
+  placeholder?: string;
+  suggestions?: readonly string[];
+  onChange(value: string): void;
+}) {
+  const valueIsCustom = props.suggestions?.includes(props.value) !== true;
+  const [customSelected, setCustomSelected] = useState(valueIsCustom);
+  const showCustomInput = customSelected || valueIsCustom;
+  const suggestionKey = props.suggestions?.join('\u0000') ?? '';
+  useEffect(() => {
+    if (props.suggestions?.includes(props.value) === true) setCustomSelected(false);
+  }, [props.value, suggestionKey]);
+  return (
+    <label className="creator-services-field" htmlFor={props.id}>
+      <span>{props.label}</span>
+      {props.suggestions?.length ? (
+        <select
+          aria-label={props.label}
+          value={showCustomInput ? '__custom__' : props.value}
+          onChange={event => {
+            if (event.target.value === '__custom__') {
+              setCustomSelected(true);
+              return;
+            }
+            setCustomSelected(false);
+            props.onChange(event.target.value);
+          }}
+        >
+          {props.suggestions.map(value => <option key={value} value={value}>{value}</option>)}
+          <option value="__custom__">自定义模型 / Custom model</option>
+        </select>
+      ) : null}
+      {(!props.suggestions?.length || showCustomInput) ? (
+        <input
+          id={props.id}
+          type="text"
+          value={props.value}
+          placeholder={props.placeholder}
+          spellCheck={false}
+          autoComplete="off"
+          onChange={event => props.onChange(event.target.value)}
+        />
       ) : null}
     </label>
   );

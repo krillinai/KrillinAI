@@ -84,7 +84,12 @@ func NormalizeSRTFile(path string, allowOverlaps bool) error {
 
 	timeline := make([]*util.SrtBlock, len(blocks))
 	for index, block := range blocks {
-		timeline[index] = &util.SrtBlock{Timestamp: strings.TrimSpace(block[1])}
+		normalized, err := normalizeSRTBlockLayout(block)
+		if err != nil {
+			return fmt.Errorf("cue %d: %w", index+1, err)
+		}
+		blocks[index] = normalized
+		timeline[index] = &util.SrtBlock{Timestamp: strings.TrimSpace(normalized[1])}
 	}
 	if err := normalizeSrtBlocks(timeline, allowOverlaps); err != nil {
 		return err
@@ -96,6 +101,37 @@ func NormalizeSRTFile(path string, allowOverlaps bool) error {
 		output.WriteString("\n\n")
 	}
 	return os.WriteFile(path, []byte(output.String()), 0644)
+}
+
+// normalizeSRTBlockLayout repairs a common producer error where the subtitle
+// text is written before the timestamp. The timestamp must still be a valid
+// SRT timeline; malformed or missing timelines remain errors.
+func normalizeSRTBlockLayout(block []string) ([]string, error) {
+	if len(block) < 3 {
+		return nil, fmt.Errorf("invalid SRT block")
+	}
+	timestampIndex := -1
+	for index := 1; index < len(block); index++ {
+		if srtTimelinePattern.MatchString(strings.TrimSpace(block[index])) {
+			timestampIndex = index
+			break
+		}
+	}
+	if timestampIndex < 0 {
+		return nil, fmt.Errorf("invalid SRT timestamp %q", strings.TrimSpace(block[1]))
+	}
+	if timestampIndex == 1 {
+		return block, nil
+	}
+
+	normalized := make([]string, 0, len(block))
+	normalized = append(normalized, block[0], block[timestampIndex])
+	for index := 1; index < len(block); index++ {
+		if index != timestampIndex {
+			normalized = append(normalized, block[index])
+		}
+	}
+	return normalized, nil
 }
 
 func parseSRTTimeline(value string) (int64, int64, error) {

@@ -17,7 +17,9 @@ import type {
   CreatorPreflightResponse,
   CreatorStageRun,
   CreatorSourceUploadResponse,
-  CreatorTemplateListResponse
+  CreatorTemplateListResponse,
+  CreatorVisualAssetCatalogResponse,
+  CreatorVisualAssetKind
 } from '@opencreator/protocol';
 
 type ClientLike = {
@@ -32,6 +34,8 @@ const CREATOR_SOURCE_UPLOAD_CONTENT_TYPE =
   'application/vnd.opencreator.creator-source';
 const CREATOR_REFERENCE_IMAGE_CONTENT_TYPE =
   'application/vnd.opencreator.creator-reference-image';
+const CREATOR_DOCUMENT_UPLOAD_CONTENT_TYPE =
+  'application/vnd.opencreator.creator-document';
 
 export type CreatorJobControlResponse = {
   job: CreatorJob;
@@ -45,6 +49,24 @@ export function createCreatorService(client: ClientLike) {
   return {
     listTemplates(): Promise<CreatorTemplateListResponse> {
       return client.get('/creator/templates') as Promise<CreatorTemplateListResponse>;
+    },
+    listVisualAssets(
+      templateId: string,
+      kind?: CreatorVisualAssetKind
+    ): Promise<CreatorVisualAssetCatalogResponse> {
+      const query = new URLSearchParams({ templateId });
+      if (kind !== undefined) query.set('kind', kind);
+      return client.get(
+        `/creator/visual-assets?${query.toString()}`
+      ) as Promise<CreatorVisualAssetCatalogResponse>;
+    },
+    openVisualAssetPreview(assetId: string, revision: number): Promise<Response> {
+      if (client.rawGet === undefined) {
+        throw new Error('Creator visual asset preview transport is unavailable');
+      }
+      return client.rawGet(
+        `/creator/visual-assets/${encodeURIComponent(assetId)}/revisions/${revision}/preview`
+      );
     },
     createJob(request: CreateCreatorJobRequest): Promise<{ job: CreatorJob }> {
       return client.post('/creator/jobs', request) as Promise<{ job: CreatorJob }>;
@@ -100,6 +122,44 @@ export function createCreatorService(client: ClientLike) {
         `/creator/jobs/${encodeURIComponent(jobId)}/reference-image?${query.toString()}`,
         input.file,
         CREATOR_REFERENCE_IMAGE_CONTENT_TYPE
+      ) as Promise<CreatorSourceUploadResponse>;
+    },
+    uploadArticleImage(jobId: string, input: {
+      file: File;
+      expectedRevision: number;
+    }): Promise<CreatorSourceUploadResponse> {
+      if (client.postBinary === undefined) {
+        return Promise.reject(new Error('Creator article image upload transport is unavailable'));
+      }
+      const query = new URLSearchParams({
+        expectedRevision: String(input.expectedRevision),
+        fileName: input.file.name,
+        mime: input.file.type || 'application/octet-stream',
+        lastModified: String(input.file.lastModified)
+      });
+      return client.postBinary(
+        `/creator/jobs/${encodeURIComponent(jobId)}/article-image?${query.toString()}`,
+        input.file,
+        CREATOR_REFERENCE_IMAGE_CONTENT_TYPE
+      ) as Promise<CreatorSourceUploadResponse>;
+    },
+    uploadSourceDocument(jobId: string, input: {
+      file: File;
+      expectedRevision: number;
+    }): Promise<CreatorSourceUploadResponse> {
+      if (client.postBinary === undefined) {
+        return Promise.reject(new Error('Creator document upload transport is unavailable'));
+      }
+      const query = new URLSearchParams({
+        expectedRevision: String(input.expectedRevision),
+        fileName: input.file.name,
+        mime: input.file.type || 'application/octet-stream',
+        lastModified: String(input.file.lastModified)
+      });
+      return client.postBinary(
+        `/creator/jobs/${encodeURIComponent(jobId)}/source-document?${query.toString()}`,
+        input.file,
+        CREATOR_DOCUMENT_UPLOAD_CONTENT_TYPE
       ) as Promise<CreatorSourceUploadResponse>;
     },
     importArtifact(
