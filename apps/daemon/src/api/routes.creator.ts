@@ -889,7 +889,10 @@ export async function registerCreatorRoutes(
           payload: { revision: job.revision, reset: true }
         });
       } else {
-        for (const event of persistent.slice(cursorIndex + 1)) writeEvent(event);
+        for (const event of persistent.slice(cursorIndex + 1)) {
+          if (event.revision === job.revision && event.kind !== 'snapshot_changed') continue;
+          writeEvent(event);
+        }
       }
     }
     replaying = false;
@@ -1043,6 +1046,14 @@ function readCreatorAgentSandbox(
 }
 
 function sendCreatorError(reply: FastifyReply, error: unknown) {
+  if (error instanceof CreatorPreflightError) {
+    return reply.code(400).send({
+      error: {
+        ...apiError(error.code as RuntimeErrorCode, error.message).error,
+        preflight: error.result
+      }
+    });
+  }
   if (error instanceof StickmanVisualAssetError) {
     const status = error.code.endsWith('_not_found') ? 404 : 422;
     return reply.code(status).send(apiError(error.code as RuntimeErrorCode, error.message));

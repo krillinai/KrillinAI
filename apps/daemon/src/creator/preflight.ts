@@ -185,7 +185,14 @@ function checkProviderConfig(
 ): void {
   const needs = new Set<string>();
   if (stage.executor === 'krillinai') {
-    if (stage.id === 'subtitle') needs.add('llm');
+    if (
+      stage.id === 'subtitle'
+      && !job.artifacts.some(artifact => (
+        artifact.id === job.state.importedTargetSubtitleId
+        && artifact.kind === 'target_subtitle'
+        && artifact.status === 'completed'
+      ))
+    ) needs.add('llm');
     if (stage.id === 'tts' && job.state.dubbing === true) needs.add('tts');
   }
   if (stage.executor === 'clip' || stage.executor === 'stickman') needs.add('llm');
