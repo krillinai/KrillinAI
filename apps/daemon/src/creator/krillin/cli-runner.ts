@@ -227,6 +227,9 @@ export function buildKrillinCliCommandArguments(
     const source = sourceOverride ?? resolveKrillinCliSource(artifacts, options);
     if (!source) throw new CreatorExecutorError('creator_stage_input_missing', 'Subtitle input video or URL is required');
     const sourceOnly = booleanOption(options, 'sourceOnly', false);
+    const importedTarget = artifactPath(artifacts, 'target_subtitle');
+    const importedSource = artifactPath(artifacts, 'source_subtitle');
+    const imported = importedTarget ?? importedSource;
     return [
       'subtitle',
       source,
@@ -235,6 +238,7 @@ export function buildKrillinCliCommandArguments(
       '--target-lang', requiredOption(options, 'targetLanguage'),
       '--caption-source', stringOption(options, 'captionSource') ?? 'any',
       ...(sourceOnly ? ['--source-only'] : []),
+      ...(imported ? ['--input-srt', imported, `--srt-translated=${importedTarget !== undefined}`] : []),
       `--bilingual-top=${booleanOption(options, 'bilingualTop', true)}`,
       ...common,
       ...styleArgument(stylePath)
@@ -833,7 +837,8 @@ export function resolveKrillinCliSource(
 ): string | undefined {
   const sourceUrl = stringOption(options, 'sourceUrl');
   const captionSource = stringOption(options, 'captionSource') ?? 'any';
-  if (isYouTubeSource(sourceUrl) && captionSource !== 'whisper') {
+  const hasImportedSubtitle = artifacts.some(artifact => artifact.kind === 'source_subtitle' || artifact.kind === 'target_subtitle');
+  if (!hasImportedSubtitle && isYouTubeSource(sourceUrl) && captionSource !== 'whisper') {
     return sourceUrl;
   }
   const localSource = artifactPath(artifacts, 'source_video');
