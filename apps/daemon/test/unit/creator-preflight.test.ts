@@ -72,6 +72,9 @@ describe('creator preflight', () => {
       status: 'completed',
       version: 1,
       path: referencePath,
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
       sourceArtifactIds: [],
       metadata: {},
       createdAt: new Date(0).toISOString()
@@ -103,6 +106,7 @@ function fakeJob(templateId: string, state: Record<string, CreatorJson>): Creato
     agentThreadId: null,
     stages: [],
     artifacts: [],
+    providerRequests: [],
     activities: [],
     createdAt: new Date(0).toISOString(),
     updatedAt: new Date(0).toISOString()
