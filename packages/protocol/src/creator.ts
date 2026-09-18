@@ -118,6 +118,8 @@ export const creatorRuntimeWorkspaces = [
 
 export type CreatorRuntimeWorkspace = typeof creatorRuntimeWorkspaces[number];
 
+export const creatorPromptMaxLength = 16_000;
+
 export type CreatorPresetRef = {
   module: CreatorRuntimeWorkspace;
   id: string;

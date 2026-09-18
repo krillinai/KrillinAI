@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "retro-scrapbook-poster",
+  "version": 1,
+  "module": "image-generation",
+  "runtimeTemplate": {
+    "id": "image-generation",
+    "version": 2
+  },
+  "status": "draft",
+  "featured": false,
+  "sortOrder": 101,
+  "title": {
+    "zh-CN": "复古手账海报排版",
+    "en-US": "Retro Scrapbook Poster Layout"
+  },
+  "description": {
+    "zh-CN": "草稿：以图一为排版参考、图二为插画主体，生成对应主题的复古海报。需要双参考图，当前单图流程不能完整执行。",
+    "en-US": "Draft: combine a layout reference with a subject illustration. Requires two reference images; the current single-image workflow cannot run it faithfully."
+  },
+  "cover": "cover.jpg",
+  "preview": "preview.jpg",
+  "author": {
+    "name": "小洁AI实战",
+    "url": "https://www.douyin.com/video/7624869691328485361"
+  },
+  "tags": [
+    "海报设计",
+    "手绘插画",
+    "nostalgic",
+    "multi-reference",
+    "reference-template"
+  ],
+  "requirements": {
+    "service": "image",
+    "provider": "openai"
+  },
+  "defaults": {
+    "prompt": "",
+    "size": "1024x1536",
+    "quality": "high",
+    "candidateCount": 1
+  },
+  "defaultsByLocale": {
+    "zh-CN": {
+      "prompt": "输入约定：图一为海报排版与文字风格参考，图二为已经完成的复古插画主体。只有图二的主体可以出现在最终海报中，不复制图一的角色、产品、品牌或其他具体素材。\n\n参考图一的标题层级、字形气质、排版节奏、留白比例和装饰图案风格，为图二生成一张新的竖版复古手账海报。严格保持图二主体的身份、轮廓、姿态、关键结构、网点纹理和绘画风格，不重新设计主体。\n\n标题、简短副标题、底部说明和小型装饰围绕图二主题展开，文案与配色根据图二内容对应调整。使用粗体复古展示字、少量手写感辅助字、相关的小图标和纸张印刷纹理。文字清晰可读，不遮挡主体，整体层级明确、留白合理。\n\n如果已提供具体文案，原样使用；否则只生成与图二主题一致的简短描述，不编造功效、价格或商业承诺。不出现图一的品牌、标志或水印，不输出参考图对比、教程字幕或分屏。"
+    },
+    "en-US": {
+      "prompt": "Input roles: image 1 is the poster layout and typography reference; image 2 is the finished retro subject illustration. Only the subject of image 2 may appear in the final poster. Do not copy characters, products, brands, or other concrete assets from image 1.\n\nUse image 1's heading hierarchy, type character, layout rhythm, spacing, and decorative style to create a new portrait retro scrapbook poster for image 2. Preserve image 2's subject identity, silhouette, pose, key structures, halftone texture, and illustration style. Do not redesign the subject.\n\nMake the title, short subtitle, footer copy, and small decorations relevant to image 2. Adapt the copy and colors to its content. Use bold vintage display type, a little handwritten supporting type, relevant small icons, and paper print grain. Keep text legible and away from the subject, with clear hierarchy and balanced whitespace.\n\nUse supplied copy exactly. Otherwise use short subject-relevant descriptions without inventing benefits, prices, or commercial claims. Do not include image 1's branding, logos, watermarks, reference comparisons, tutorial captions, or split screens."
+    }
+  }
+}

@@ -36,6 +36,20 @@ function hexChannels(value: string): number[] {
 }
 
 describe('app CSS visual contracts', () => {
+  it('keeps the video template marker centered, subdued and non-interactive', () => {
+    const marker = cssBlock('.creator-template-play-marker');
+    expect(marker).toContain('--creator-template-play-size: 40px;');
+    expect(marker).toContain('--creator-template-play-background-opacity: 0.28;');
+    expect(marker).toContain('--creator-template-play-icon-opacity: 0.5;');
+    expect(marker).toContain('position: absolute;');
+    expect(marker).toContain('top: 50%;');
+    expect(marker).toContain('left: 50%;');
+    expect(marker).toContain('transform: translate(-50%, -50%);');
+    expect(marker).toContain('pointer-events: none;');
+    expect(marker).not.toMatch(/box-shadow:|border:|transition:|animation:/);
+    expect(cssBlock('.creator-template-play-marker svg')).toContain('width: 40%;');
+  });
+
   it('keeps body copy readable and navigation or status text at 12px or larger', () => {
     const productCss = [appCss, skillMarketCss, schedulesCss, settingsCss, taskCenterCss].join('\n');
 

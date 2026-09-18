@@ -1,4 +1,5 @@
 import {
+  creatorPromptMaxLength,
   defaultVideoGenerationModels,
   readCreatorResultSnapshots,
   videoGenerationModelIds,
@@ -577,11 +578,11 @@ export default function VideoGenerationWorkspace(props: {
                 <div>
                   <h2 id="video-prompt-title">{l('视频描述', 'Video prompt')}</h2>
                   <p>{l(
-                    '写清主体动作、环境、镜头运动、光线和风格，最多 4000 字',
-                    'Describe action, setting, camera movement, lighting, and style, up to 4,000 characters'
+                    `写清主体动作、环境、镜头运动、光线和风格，最多 ${creatorPromptMaxLength} 字`,
+                    `Describe action, setting, camera movement, lighting, and style, up to ${creatorPromptMaxLength.toLocaleString('en-US')} characters`
                   )}</p>
                 </div>
-                <small>{characterCount} / 4000</small>
+                <small>{characterCount} / {creatorPromptMaxLength}</small>
               </div>
               <div className="video-generation-prompt-inputs">
                 <div className="video-reference-field">
@@ -625,7 +626,7 @@ export default function VideoGenerationWorkspace(props: {
                   <span>{l('提示词', 'Prompt')}</span>
                   <textarea
                     rows={12}
-                    maxLength={4000}
+                    maxLength={creatorPromptMaxLength}
                     value={prompt}
                     onChange={event => updatePrompt(event.target.value)}
                     placeholder={l(

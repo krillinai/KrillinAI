@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "id": "images-go-hard-thumbnail",
+  "version": 1,
+  "module": "cover-generator",
+  "runtimeTemplate": {
+    "id": "cover",
+    "version": 2
+  },
+  "status": "published",
+  "featured": true,
+  "sortOrder": 55,
+  "title": {
+    "zh-CN": "Images Go Hard 动作电影缩略图",
+    "en-US": "Images Go Hard Action Thumbnail"
+  },
+  "description": {
+    "zh-CN": "晚霞码头、双人战术角色与左侧三行醒目大字，生成电影感 YouTube 横版封面。",
+    "en-US": "Create a cinematic YouTube thumbnail with a sunset marina, two action characters, and bold three-line typography."
+  },
+  "cover": "cover.jpg",
+  "preview": "preview.jpg",
+  "author": {
+    "name": "@Theoretically Media",
+    "url": "https://x.com/TheoMediaAI/status/2097817049472934162#reversed-0",
+    "avatar": "author-avatar.jpg"
+  },
+  "tags": [
+    "youtube",
+    "cover",
+    "电影感",
+    "文本排版",
+    "reference-template"
+  ],
+  "defaults": {
+    "prompt": "",
+    "coverStyle": "custom",
+    "coverTextLanguage": "en-US",
+    "customStylePrompt": "",
+    "coverHeadline": "images go hard",
+    "coverSubheadline": "",
+    "ratio": "16:9",
+    "candidateCount": 2,
+    "quality": "high"
+  },
+  "defaultsByLocale": {
+    "zh-CN": {
+      "prompt": "创建一张 16:9 宽屏比例的电影感 YouTube 缩略图，采用超精细的写实动作电影风格。场景设定在橙粉色绚丽晚霞下的豪华码头，水面波光粼粼，停泊着白色游艇，背景是虚化的棕榈树和高耸的城市建筑，左上方天空中有一架黑色小直升机。右侧展示两名半身动作角色：一名年轻女性，留着凌乱的金色丸子头并编有两条辫子，画着烟熏妆，佩戴圆环耳环和黑色颈圈，身穿黑色战术背心，肩部和上臂有清晰的花朵与蝴蝶纹身，胸前持有一把黑色手枪；旁边是一位神情严峻的中年男子，留着灰白相间的短发，身穿纯黑色 T 恤和黑色战术肩带。两人均在温暖的夕阳轮廓光照射下，表情严肃地直视镜头。左侧放置大号图形文字堆叠和 Logo：顶部是一个带有厚实白色贴纸轮廓的黑色 OpenAI 结状 Logo；下方依次堆叠三个巨大的白色小写粗体单词：“images”、“go”（白色）以及“hard”（亮霓虹黄色）。文字需使用厚重的圆角粗体无衬线字体，带有浓重的黑色阴影/轮廓和白色外描边，占据图像左半部分。高对比度，色彩饱和，构图极具戏剧性，人物面部清晰，背景景深较浅，无额外文字，无水印。",
+      "customStylePrompt": "超写实动作电影海报风格，橙粉晚霞码头、游艇、棕榈树和城市天际线，右侧恰好两名战术角色，左侧大字区。主标题必须分成三行堆叠，默认从上至下为 images / go / hard；前两行白色，末行亮霓虹黄色，厚重圆角无衬线字、黑色浓阴影与白色外描边。左上仅一个黑白贴纸式 OpenAI 结状标志。保持三行排版，不压缩为两行；暖色轮廓光、清晰面部、浅景深、鲜明对比。手枪不发射，无血腥、无额外人物、无额外文字或水印。"
+    },
+    "en-US": {
+      "prompt": "Goal: Create a cinematic YouTube-style thumbnail for an AI image generation announcement, combining action-movie realism with bold viral thumbnail typography. Canvas: 16:9 widescreen, high-resolution, sharp photorealistic composite with dramatic sunset lighting. The scene is set at a luxury marina waterfront with orange-pink sky, reflective water, yachts, palm trees, a distant city skyline, and one small helicopter in the sky. Layout: Split composition. The left 40% is dominated by large stacked text and the OpenAI knot logo; the right 60% features two intense action characters in the foreground. Keep the text large enough to read at thumbnail size, with thick black outlines and white outer stroke/drop shadow separating it from the background. Text content: Use exactly 3 stacked text lines reading: “images” on top, “go” in the middle, and “hard” on the bottom. Make “images” and “go” white, and make “hard” bright neon yellow. Use a chunky rounded block font similar to bold gaming/YouTube thumbnail lettering. Logo: Place exactly 1 OpenAI-style knot logo above the word “images” on the upper left. It should be black and white, sticker-like, with a thick white border and dark outline. Subject details: Include exactly 2 foreground people. Character 1 is a young punk action woman, messy blonde hair in braided pigtails with loose bangs, wearing a black sleeveless tactical top, black choker, layered necklaces, hoop earrings, and visible tattoos on her shoulder and upper arm, including floral and butterfly designs. She looks directly at the camera with a fierce, slightly open-mouthed expression and holds a black pistol close to her chest. Character 2 is a stern middle-aged action man, short salt-and-pepper hair, strong jaw, black T-shirt, tactical shoulder strap, standing close behind her and looking directly at the viewer with an intense suspicious expression. Visual style: Hyperrealistic cinematic photography, glossy Hollywood action poster energy, warm golden-hour rim light, high contrast, shallow depth of field on the background, detailed skin texture, dramatic reflections on the water, vivid saturated colors. Customizable text: The visible headline should read images go hard. Keep the same 3-line stacked layout even if customized. Constraints: Do not add extra people, extra logos, or extra text. Keep the gun visible but not firing. No gore, no watermark, no UI frame.",
+      "customStylePrompt": "Hyperrealistic action-movie poster at an orange-pink sunset marina with yachts, palms and a city skyline. Exactly two tactical characters on the right; large text on the left. Stack the exact headline in three lines, by default images / go / hard from top to bottom; first two lines white, last line neon yellow. Use chunky rounded block type, thick black shadows and white outer strokes. Place one black-and-white sticker-like OpenAI knot logo above the text. Preserve the three-line layout instead of forcing two lines. Golden rim lighting, sharp faces, shallow background depth of field, saturated high contrast. The pistol is not firing. No gore, extra people, extra text, watermark or UI frame."
+    }
+  }
+}

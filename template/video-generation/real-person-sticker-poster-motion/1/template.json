@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "real-person-sticker-poster-motion",
+  "version": 1,
+  "module": "video-generation",
+  "runtimeTemplate": {
+    "id": "video-generation",
+    "version": 1
+  },
+  "status": "published",
+  "featured": false,
+  "sortOrder": 101,
+  "title": {
+    "zh-CN": "真人贴纸海报动效",
+    "en-US": "Real-Person Sticker Poster Motion"
+  },
+  "description": {
+    "zh-CN": "上传真人贴纸海报，固定镜头与背景，只让真实人物自然活动。默认 4 秒，具体支持跟随所选服务。预览取自原教程，非本工具生成结果。",
+    "en-US": "Animate only the real person; freeze the camera and sticker background. 4 seconds if supported. Preview: source tutorial excerpt, not an OpenCreator result."
+  },
+  "cover": "cover.jpg",
+  "preview": "preview.jpg",
+  "previewVideo": "example.mp4",
+  "author": {
+    "name": "小洁AI实战",
+    "url": "https://www.douyin.com/video/7683887650173032805",
+    "avatar": "author-avatar.jpg"
+  },
+  "tags": [
+    "animation",
+    "image-to-video",
+    "真人贴纸",
+    "固定镜头",
+    "reference-template"
+  ],
+  "defaults": {
+    "prompt": "",
+    "size": "720x1280",
+    "duration": 4
+  },
+  "defaultsByLocale": {
+    "zh-CN": {
+      "prompt": "以上传的完成版真人贴纸海报为首帧参考，生成一段 4 秒动态视频。\n\n严格保留原图构图、布局、人物身份、服装、真实摄影质感，以及背景的原有底色与贴纸风格。除真实人物主体及其原本持有物品的必要交互外，全部背景、文字、极简单线轮廓切模贴纸完全冻结静止。绝对禁止重绘背景，禁止改变任何贴纸轮廓、物体位置、结构或透视关系，不新增场景元素，不将原有黑白或蓝调背景重新染色。\n\n仅让真实人物做幅度克制、自然连贯的肢体动作，根据上传画面的实际姿态与空间选择：例如轻轻放低手中的书、自然抬头、转头或舒展肩膀。仅当原图确实已有桌子、窗台和足够的活动空间时，才可将原有物品轻放到原有桌面、缓缓起身并在原场景中伸一个小幅度懒腰；否则使用原地微动作，不凭空创造桌子、窗户或新的物品。\n\n镜头完全固定不动，不推拉、不摇移、不缩放、不切镜。保持人物真实质感，不将人物贴纸化，不出现肢体崩坏、变形、融化或多余手指。不重构场景，不产生背景动画、文字漂移、画面闪烁或模糊。输出绝对静止的贴纸背景与自然而然的人物动作，不添加转场、水印、教程字幕、配音或音乐。"
+    },
+    "en-US": {
+      "prompt": "Use the uploaded finished real-person sticker poster as the first-frame reference for a 4-second video.\n\nStrictly preserve its composition, layout, person identity, clothing, photographic texture, background base color, and sticker style. Except for the real person and necessary interaction with an already-held item, freeze every background element, text, and minimal single-line die-cut sticker. Never redraw the background or change sticker outlines, object placement, structures, or perspective. Do not add scene elements or recolor an existing monochrome or blue-toned background.\n\nAnimate only the real person with restrained, natural, continuous movements chosen from the actual pose and space: gently lower the existing book, lift or turn the head, or ease the shoulders. Only if a table, window ledge, and sufficient space already exist may the person put the existing item on the existing table, slowly stand, and make a small stretch within the original setting. Otherwise use in-place micro-movements; never invent a table, window, or prop.\n\nLock the camera completely: no dolly, pan, zoom, or cuts. Preserve the person's photographic appearance without stickerization, broken anatomy, warping, melting, or extra fingers. Do not rebuild the scene or animate the background, drift text, flicker, or blur. Output an absolutely still sticker setting with natural human motion, without transitions, watermarks, tutorial captions, narration, or music."
+    }
+  }
+}

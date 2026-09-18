@@ -1,6 +1,7 @@
 import {
   coverStyleIds,
   coverTextLanguages,
+  creatorPromptMaxLength,
   creatorRuntimeWorkspaces,
   imageGenerationSizes,
   videoGenerationDurations,
@@ -14,7 +15,7 @@ import { z } from 'zod';
 import type { CreatorPresetModuleDefinition } from './types.js';
 
 const colorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
-const promptSchema = z.string().max(4000);
+const promptSchema = z.string().max(creatorPromptMaxLength);
 const shortTextSchema = z.string().max(256);
 
 export const creatorSubtitleStyleSchema = z.object({

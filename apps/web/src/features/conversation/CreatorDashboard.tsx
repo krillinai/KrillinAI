@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ExternalLink,
   Maximize2,
+  Play,
   RefreshCw,
   Search,
   WandSparkles,
@@ -566,6 +567,11 @@ export function CreatorDashboard(props: {
                 >
                   <span className="creator-template-media">
                     <img src={preset.coverUrl} alt="" loading="lazy" />
+                    {videoModules.has(preset.module) ? (
+                      <span className="creator-template-play-marker" aria-hidden="true">
+                        <Play size={16} fill="currentColor" strokeWidth={0} />
+                      </span>
+                    ) : null}
                   </span>
                   <span className="creator-template-copy">
                     <strong>{preset.title}</strong>

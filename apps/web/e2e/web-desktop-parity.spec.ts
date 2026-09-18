@@ -660,16 +660,18 @@ test('Creator Preset 在 Browser/Desktop Bridge 下创建相同工作台状态',
         .toHaveAttribute('aria-selected', 'true');
       await expect(page.getByRole('tab', { name: '视频创作' })).toBeVisible();
       await expect(page.getByRole('tab', { name: '图像设计' })).toBeVisible();
+      await page.getByRole('tab', { name: '图像设计' }).click();
       const presetButton = page.getByRole('button', {
-        name: '使用B站双语精翻模板'
+        name: '查看食物爆炸拆解信息图模板详情'
       });
-      await expect(presetButton).toHaveText('B站双语精翻');
+      await expect(presetButton).toHaveText('食物爆炸拆解信息图');
+      await presetButton.scrollIntoViewIfNeeded();
       const cover = presetButton.locator('img');
       await expect.poll(async () => cover.evaluate(image => ({
         complete: image.complete,
         width: image.naturalWidth
       }))).toEqual({ complete: true, width: 1280 });
-      const home = page.locator('.creator-home-wrap');
+      const home = page.locator('.creator-dashboard');
       const boxes: Record<string, { width: number; height: number }> = {};
       for (const [name, locator] of [
         ['categories', page.getByRole('tablist', { name: '创作模板分类' })],
@@ -688,7 +690,8 @@ test('Creator Preset 在 Browser/Desktop Bridge 下创建相同工作台状态',
       };
 
       await presetButton.click();
-      await expect(page).toHaveURL(/#\/workbench\?tool=video-translation&jobId=/);
+      await page.getByRole('button', { name: '使用此模板', exact: true }).click();
+      await expect(page).toHaveURL(/#\/workbench\?tool=image-generation&jobId=/);
       const route = new URL(page.url()).hash.slice(1);
       const jobId = new URL(route, runtime.origin).searchParams.get('jobId');
       expect(jobId).not.toBeNull();
@@ -703,7 +706,7 @@ test('Creator Preset 在 Browser/Desktop Bridge 下创建相同工作台状态',
           stages: unknown[];
         };
       }>('GET', `/creator/jobs/${encodeURIComponent(jobId!)}`);
-      const workspace = page.getByRole('region', { name: '视频翻译操作区' });
+      const workspace = page.getByRole('region', { name: /图像生成\s*操作区/ });
       const panel = page.getByRole('complementary', { name: 'OpenCreator' });
       await expect(workspace).toBeVisible();
       await expect(panel).toBeVisible();
@@ -738,19 +741,19 @@ test('Creator Preset 在 Browser/Desktop Bridge 下创建相同工作台状态',
   expect(results[1]!.text).toBe(results[0]!.text);
   expect(results[1]!.job).toEqual(results[0]!.job);
   expect(results[0]!.job).toMatchObject({
-    templateId: 'video-translation',
+    templateId: 'image-generation',
     templateVersion: 2,
     status: 'draft',
     presetOrigin: {
-      module: 'video-translation',
-      id: 'bilibili-bilingual',
+      module: 'image-generation',
+      id: 'exploded-food-infographic',
       version: 1,
       locale: 'zh-CN',
-      title: 'B站双语精翻'
+      title: '食物爆炸拆解信息图'
     },
     state: {
-      bilingual: true,
-      targetLanguage: 'zh_cn'
+      prompt: expect.stringContaining('创建超写实的塔可'),
+      size: '1024x1024'
     },
     stages: []
   });

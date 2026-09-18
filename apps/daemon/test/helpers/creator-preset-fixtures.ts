@@ -1,5 +1,6 @@
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -13,6 +14,7 @@ import type { CreatorPresetSourceManifest } from '../../src/creator/presets/type
 
 export const repositoryRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 export const officialPresetRoot = join(repositoryRoot, 'template');
+export const testPresetRoot = join(repositoryRoot, 'apps/daemon/test/fixtures/creator-presets');
 
 export function copyOfficialPreset(input: {
   sourceRoot: string;
@@ -25,7 +27,11 @@ export function copyOfficialPreset(input: {
 }): string {
   const id = input.id ?? input.sourceId;
   const version = input.version ?? 1;
-  const source = join(officialPresetRoot, input.module, input.sourceId, '1');
+  // Legacy samples used by tests must stay outside the product catalog.
+  const testSource = join(testPresetRoot, input.module, input.sourceId, '1');
+  const source = existsSync(testSource)
+    ? testSource
+    : join(officialPresetRoot, input.module, input.sourceId, '1');
   const target = join(input.sourceRoot, input.module, id, String(version));
   mkdirSync(dirname(target), { recursive: true });
   cpSync(source, target, { recursive: true });

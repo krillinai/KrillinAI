@@ -1,3 +1,4 @@
+import { creatorPromptMaxLength } from '@opencreator/protocol';
 import { z } from 'zod';
 import type { CreatorTemplateDefinition } from './types.js';
 
@@ -9,7 +10,7 @@ export function createVideoGenerationTemplate(): CreatorTemplateDefinition {
     version: 1,
     renderer: 'video-generation',
     inputSchema: z.object({
-      prompt: z.string().max(4_000).default(''),
+      prompt: z.string().max(creatorPromptMaxLength).default(''),
       provider: z.enum(['seedance', 'kling', 'veo']).default('seedance'),
       model: z.string().trim().min(1).max(200).optional(),
       size: z.enum(['1280x720', '720x1280', '1024x1024']).default('1280x720'),

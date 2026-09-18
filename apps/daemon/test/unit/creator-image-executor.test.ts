@@ -120,6 +120,39 @@ describe('creator image executor', () => {
     });
   });
 
+  it.each([
+    ['custom', 'Stack the headline in exactly three lines.', true],
+    ['custom', '', false],
+    ['personal-growth', 'Stack the headline in exactly three lines.', false]
+  ] as const)('respects explicit line layouts only for %s styles with instructions %s', async (coverStyle, customStylePrompt, preservesLayout) => {
+    tempDir = await mkdtemp(join(tmpdir(), 'creator-cover-text-layout-'));
+    const generate = vi.fn(async () => ({
+      model: 'gpt-image-test',
+      contents: [{ content: png('cover'), mime: 'image/png' as const }]
+    }));
+    const executor = createImageExecutor({
+      configStore: { read: async () => createDefaultCreatorServicesConfig() },
+      generate: generate as never
+    });
+    await executor.run(stageInput({
+      coverStyle,
+      customStylePrompt,
+      coverHeadline: 'images go hard',
+      resolvedCoverTextLanguage: 'en-US'
+    }, { templateId: 'cover', templateVersion: 2 }));
+
+    const prompt = (generate.mock.calls as unknown as Array<[{ prompt: string }]>)[0]![0].prompt;
+    expect(prompt).toContain('Headline: "images go hard"');
+    expect(prompt).toContain('English (en-US)');
+    expect(prompt.includes('preserve any headline line layout explicitly requested')).toBe(preservesLayout);
+    if (preservesLayout) {
+      expect(prompt).toContain(customStylePrompt);
+      expect(prompt).not.toContain('Keep text clear of the main subject, use at most two headline lines');
+    } else {
+      expect(prompt).toContain('Keep text clear of the main subject, use at most two headline lines');
+    }
+  });
+
   it('normalizes cover artifacts to the exact selected ratio', async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'creator-cover-normalize-'));
     const normalizeCoverImage = vi.fn(async (input: {

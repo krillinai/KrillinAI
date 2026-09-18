@@ -106,6 +106,37 @@ describe('CreatorDashboard', () => {
     window.localStorage.clear();
   });
 
+  it.each([
+    ['video-generation', true],
+    ['video-translation', true],
+    ['video-download', true],
+    ['smart-dubbing', true],
+    ['image-generation', false],
+    ['cover-generator', false]
+  ] as const)('adds a decorative video marker for %s: %s', (module, hasMarker) => {
+    const preset = { ...presets[0]!, module };
+    const onSelectPreset = vi.fn();
+    render(<CreatorDashboard presets={[preset]} onSelectPreset={onSelectPreset} />);
+
+    const card = screen.getByRole('button', { name: `查看${preset.title}模板详情` });
+    const media = card.querySelector('.creator-template-media');
+    const marker = media?.querySelector('.creator-template-play-marker');
+    expect(media?.querySelector('img')).toHaveAttribute('src', preset.coverUrl);
+    expect(card.querySelector('button')).toBeNull();
+
+    if (hasMarker) {
+      expect(marker).toHaveAttribute('aria-hidden', 'true');
+      expect(marker?.querySelector('svg')).toHaveAttribute('fill', 'currentColor');
+      fireEvent.click(marker!);
+    } else {
+      expect(marker).toBeNull();
+      fireEvent.click(card);
+    }
+
+    expect(screen.getByRole('heading', { name: preset.title })).toBeInTheDocument();
+    expect(onSelectPreset).not.toHaveBeenCalled();
+  });
+
   it('opens a template detail before creating a project', () => {
     const onSelectPreset = vi.fn();
     render(<CreatorDashboard presets={presets} onSelectPreset={onSelectPreset} />);
@@ -365,6 +396,7 @@ describe('CreatorDashboard', () => {
           ...presets[1]!,
           title: 'Enhanced Product Hero',
           description: 'Loaded from the localized catalog.',
+          prompt: 'Professional product photography with a clear subject and key selling points.',
           tags: ['E-commerce', 'Product']
         }]} />
       </LanguageProvider>
@@ -382,6 +414,10 @@ describe('CreatorDashboard', () => {
     }));
     expect(screen.getByRole('list', { name: 'Template tags' }))
       .toHaveTextContent('E-commerceProduct');
+    expect(document.querySelector('.creator-template-prompt-card'))
+      .toHaveTextContent('Professional product photography with a clear subject and key selling points.');
+    expect(document.querySelector('.creator-template-prompt-card'))
+      .not.toHaveTextContent(presets[1]!.prompt!);
     expect(getCreatorSkillPromptHint({
       id: 'image',
       title: 'Image',

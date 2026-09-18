@@ -8,8 +8,8 @@
     "version": 2
   },
   "status": "published",
-  "featured": false,
-  "sortOrder": 87,
+  "featured": true,
+  "sortOrder": 44,
   "title": {
     "zh-CN": "羊毛毡国家微缩世界",
     "en-US": "Felt Country Miniature World"

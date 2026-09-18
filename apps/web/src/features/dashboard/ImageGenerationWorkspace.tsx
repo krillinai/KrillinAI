@@ -1,4 +1,5 @@
 import {
+  creatorPromptMaxLength,
   readCreatorResultSnapshots,
   type CreatorArtifact,
   type CreatorJson,
@@ -414,9 +415,9 @@ export default function ImageGenerationWorkspace(props: {
               <div className="creator-tool-panel-heading">
                 <div>
                   <h2 id="image-prompt-title">{l('画面描述', 'Image prompt')}</h2>
-                  <p>{l('写清主体、环境、风格、光线与构图，最多 4000 字', 'Describe subject, setting, style, lighting, and composition, up to 4,000 characters')}</p>
+                  <p>{l(`写清主体、环境、风格、光线与构图，最多 ${creatorPromptMaxLength} 字`, `Describe subject, setting, style, lighting, and composition, up to ${creatorPromptMaxLength.toLocaleString('en-US')} characters`)}</p>
                 </div>
-                <small>{characterCount} / 4000</small>
+                <small>{characterCount} / {creatorPromptMaxLength}</small>
               </div>
               <div className="creator-tool-field image-generation-prompt-field">
                 <span id="image-prompt-label">{l('提示词', 'Prompt')}</span>
@@ -459,7 +460,7 @@ export default function ImageGenerationWorkspace(props: {
                   ) : null}
                   <textarea
                     rows={7}
-                    maxLength={4000}
+                    maxLength={creatorPromptMaxLength}
                     value={prompt}
                     onChange={event => updatePrompt(event.target.value)}
                     aria-labelledby="image-prompt-label"

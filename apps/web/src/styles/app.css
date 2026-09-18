@@ -3552,6 +3552,30 @@ html.is-pane-resizing * {
   transition: transform 180ms ease;
 }
 
+.creator-template-play-marker {
+  --creator-template-play-size: 40px;
+  --creator-template-play-background-opacity: 0.28;
+  --creator-template-play-icon-opacity: 0.5;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: var(--creator-template-play-size);
+  height: var(--creator-template-play-size);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, var(--creator-template-play-background-opacity));
+  color: rgba(0, 0, 0, var(--creator-template-play-icon-opacity));
+  pointer-events: none;
+}
+
+.creator-template-play-marker svg {
+  width: 40%;
+  height: 40%;
+  transform: translateX(1px);
+}
+
 .creator-template-card:hover img {
   transform: scale(1.025);
 }

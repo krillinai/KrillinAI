@@ -376,7 +376,9 @@ function coverGenerationPrompt(
       coverStyleInstructions(style, customStyle),
       'COMPOSITION AND OUTPUT:',
       'Make the headline the first visual priority and readable at small thumbnail size.',
-      'Keep text clear of the main subject, use at most two headline lines, and make any subheadline visibly secondary.',
+      style === 'custom' && customStyle
+        ? 'Keep text clear of the main subject, preserve any headline line layout explicitly requested in the custom style, otherwise use at most two headline lines, and make any subheadline visibly secondary.'
+        : 'Keep text clear of the main subject, use at most two headline lines, and make any subheadline visibly secondary.',
       'Integrate typography, reference subject, color, lighting, and composition into one coherent final image.',
       additional
     ].filter(Boolean).join('\n\n'),

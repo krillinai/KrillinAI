@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "id": "retro-halftone-illustration",
+  "version": 1,
+  "module": "image-generation",
+  "runtimeTemplate": {
+    "id": "image-generation",
+    "version": 2
+  },
+  "status": "published",
+  "featured": false,
+  "sortOrder": 100,
+  "title": {
+    "zh-CN": "复古网点插画转绘",
+    "en-US": "Retro Halftone Photo Illustration"
+  },
+  "description": {
+    "zh-CN": "上传原照片，将主体转绘为粗黑轮廓、半色调网点与有限配色的复古插画。预览取自原教程，非本工具生成结果。",
+    "en-US": "Turn an uploaded photo into a bold, limited-color retro halftone illustration. The preview comes from the source tutorial, not an OpenCreator generation."
+  },
+  "cover": "cover.jpg",
+  "preview": "preview.jpg",
+  "author": {
+    "name": "小洁AI实战",
+    "url": "https://www.douyin.com/video/7624869691328485361",
+    "avatar": "author-avatar.jpg"
+  },
+  "tags": [
+    "图片转绘",
+    "手绘插画",
+    "nostalgic",
+    "reference-image",
+    "reference-template"
+  ],
+  "requirements": {
+    "service": "image",
+    "provider": "openai"
+  },
+  "defaults": {
+    "prompt": "",
+    "size": "1024x1024",
+    "quality": "high",
+    "candidateCount": 1
+  },
+  "defaultsByLocale": {
+    "zh-CN": {
+      "prompt": "将上传的原照片转绘为复古网点插画。以照片中的主体为依据，保持主体身份、数量、主要轮廓、姿态、视角和关键结构，不添加无关对象。\n\n采用矢量平面插画般的二维造型、波普艺术、复古漫画与儿童绘本风格，带有怀旧 1950 至 1960 年代印刷艺术质感。轮廓使用粗黑线，线条清晰，造型简洁、可爱俏皮、高对比。使用鲜艳饱和但有限的配色，不使用渐变，通过半色调网点的密度表现明暗，不使用写实光影。\n\n突出点状纹理、粗糙印刷质感和略有不规则的手绘痕迹，不追求机械地完美一致。背景为白色细腻颗粒纹理纸，主体完整、清晰，四周留出适度空白。\n\n仅输出插画，不添加标题、说明文字、标志、水印、海报边框或分屏对比。"
+    },
+    "en-US": {
+      "prompt": "Redraw the uploaded photo as a retro halftone illustration. Use the photo as the subject reference, preserving the subject's identity, count, main silhouette, pose, viewing angle, and key structures. Do not add unrelated objects.\n\nUse vector-like flat 2D shapes, pop art, vintage comics, and playful children's-book illustration with a nostalgic 1950s-to-1960s print aesthetic. Keep outlines bold and black, lines clear, shapes simple, and contrast high. Use vivid, saturated but limited colors. No gradients: represent shading with halftone dot density rather than photorealistic lighting.\n\nEmphasize dotted textures, rough print grain, and slightly irregular hand-drawn marks rather than mechanically perfect lines. Use white, finely grained paper as the background. Keep the entire subject clear and leave modest breathing room.\n\nOutput only the illustration. Do not add headings, captions, logos, watermarks, poster frames, or split-screen comparisons."
+    }
+  }
+}

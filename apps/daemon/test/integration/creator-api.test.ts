@@ -217,15 +217,15 @@ describe('creator api', () => {
     });
     expect(catalog.json().presets).toContainEqual(expect.objectContaining({
       module: 'image-generation',
-      id: 'ecommerce-product',
+      id: 'exploded-food-infographic',
       version: 1,
-      title: 'E-commerce Product Hero',
-      coverUrl: expect.stringMatching(/^\/creator-presets\/[a-f0-9]{64}\.webp$/),
-      prompt: expect.stringContaining('Professional e-commerce product hero image'),
-      tags: ['E-commerce', 'Image', 'Product'],
+      title: 'Exploded Food Infographic',
+      coverUrl: expect.stringMatching(/^\/creator-presets\/[a-f0-9]{64}\.jpg$/),
+      prompt: expect.stringContaining('Create a hyper-realistic exploded vertical infographic'),
+      tags: ['Reference template', 'Product visuals', 'Infographics', 'Food and beverage'],
       highlights: [
-        { text: '1536 × 1024', colors: [] },
-        { text: 'Standard quality', colors: [] },
+        { text: '1024 × 1024', colors: [] },
+        { text: 'High quality', colors: [] },
         { text: '2 images', colors: [] }
       ]
     }));
@@ -273,7 +273,7 @@ describe('creator api', () => {
       projectId: 'project_preset_api',
       preset: {
         module: 'image-generation',
-        id: 'ecommerce-product',
+        id: 'exploded-food-infographic',
         version: 1
       },
       locale: 'en-US',
@@ -286,13 +286,13 @@ describe('creator api', () => {
       status: 'draft',
       presetOrigin: {
         module: 'image-generation',
-        id: 'ecommerce-product',
+        id: 'exploded-food-infographic',
         version: 1,
         locale: 'en-US',
-        title: 'E-commerce Product Hero'
+        title: 'Exploded Food Infographic'
       },
       state: {
-        prompt: expect.stringContaining('Professional e-commerce'),
+        prompt: expect.stringContaining('Create a hyper-realistic exploded vertical infographic'),
         provider: 'openai'
       },
       stages: []

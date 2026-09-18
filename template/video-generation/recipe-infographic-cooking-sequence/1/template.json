@@ -8,7 +8,7 @@
     "version": 1
   },
   "status": "published",
-  "featured": false,
+  "featured": true,
   "sortOrder": 64,
   "title": {
     "zh-CN": "食谱信息图转连续烹饪短片",

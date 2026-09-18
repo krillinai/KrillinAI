@@ -11,15 +11,18 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   canonicalJson,
   compileCreatorPresets,
-  sha256
+  sha256,
+  validateCreatorPresets
 } from '../../src/creator/presets/compiler.js';
 import {
+  createCreatorPresetRegistry,
   loadCreatorPresetCatalog
 } from '../../src/creator/presets/catalog.js';
 import { createCreatorPresetTags } from '../../src/creator/presets/presentation.js';
 import { createDefaultCreatorTemplateRegistry } from '../../src/creator/templates/registry.js';
 import {
-  copyOfficialPreset
+  copyOfficialPreset,
+  officialPresetRoot
 } from '../helpers/creator-preset-fixtures.js';
 
 let tempDir = '';
@@ -38,6 +41,46 @@ function setup() {
 }
 
 describe('creator preset registry', () => {
+  it('excludes development samples and functional shortcuts from the product catalog', async () => {
+    const catalog = await validateCreatorPresets({ sourceRoot: officialPresetRoot });
+    const registry = createCreatorPresetRegistry({
+      catalog,
+      catalogHash: sha256(canonicalJson(catalog))
+    });
+    const removed = [
+      'image-generation/portrait-editorial',
+      'image-generation/ecommerce-product',
+      'image-generation/social-poster',
+      'video-generation/cinematic-story',
+      'video-generation/product-ad',
+      'video-generation/vertical-social',
+      'cover-generator/bilibili-red-blue-white',
+      'cover-generator/personal-growth',
+      'cover-generator/psychology',
+      'cover-generator/wealth-platinum-red',
+      'smart-dubbing/calm-narration',
+      'smart-dubbing/professional-news',
+      'smart-dubbing/warm-storytelling',
+      'video-translation/vertical-knowledge',
+      'video-translation/bilibili-bilingual',
+      'video-translation/youtube-dubbed',
+      'video-download/highest-quality-video',
+      'video-download/audio-download'
+    ];
+    for (const locale of ['zh-CN', 'en-US'] as const) {
+      const identities = registry.listPublished(locale).map(preset => (
+        `${preset.module}/${preset.id}`
+      ));
+      expect(identities).toEqual(expect.arrayContaining([
+        'image-generation/exploded-food-infographic',
+        'video-generation/aerial-pullback-rise-reveal'
+      ]));
+      for (const identity of removed) expect(identities).not.toContain(identity);
+    }
+    const sourceIdentities = catalog.presets.map(preset => `${preset.module}/${preset.id}`);
+    for (const identity of removed) expect(sourceIdentities).not.toContain(identity);
+  });
+
   it('localizes identifier and source-language tags while preserving unknown tags', () => {
     const preset = {
       tags: ['camera-motion', '商业广告', 'reference-template', 'custom-tag']

@@ -30,6 +30,9 @@ export function prepareCreatorPresetE2E(): CreatorPresetE2EEnvironment {
   const initialCatalogRoot = join(root, 'catalog-initial');
   const upgradedCatalogRoot = join(root, 'catalog-upgraded');
   cpSync(join(repositoryRoot, 'template'), initialSourceRoot, { recursive: true });
+  cpSync(join(repositoryRoot, 'apps/daemon/test/fixtures/creator-presets'), initialSourceRoot, {
+    recursive: true
+  });
   addAlternativeImagePreset(initialSourceRoot);
   addVideoTranslationV2(initialSourceRoot);
   addMissingVideoRequirementPreset(initialSourceRoot);

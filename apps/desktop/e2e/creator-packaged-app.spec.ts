@@ -503,14 +503,17 @@ test('Creator Preset 在实际 Desktop 包中创建并重启恢复', async () =>
     expect(catalog.status).toBe(200);
     expect(catalog.body.catalogHash).toMatch(/^[a-f0-9]{64}$/);
     const preset = catalog.body.presets.find(item => (
-      item.module === 'video-translation'
-      && item.id === 'bilibili-bilingual'
+      item.module === 'image-generation'
+      && item.id === 'exploded-food-infographic'
       && item.version === 1
     ));
     expect(preset).toMatchObject({
-      title: 'B站双语精翻',
-      coverUrl: expect.stringMatching(/^\/creator-presets\/[a-f0-9]{64}\.webp$/)
+      title: '食物爆炸拆解信息图',
+      coverUrl: expect.stringMatching(/^\/creator-presets\/[a-f0-9]{64}\.jpg$/)
     });
+    expect(catalog.body.presets.some(item => (
+      item.module === 'video-translation' || item.module === 'video-download'
+    ))).toBe(false);
 
     const staticResources = await currentApp.page.evaluate(async coverUrl => {
       const [cover, font] = await Promise.all([
@@ -532,7 +535,7 @@ test('Creator Preset 在实际 Desktop 包中创建并重启恢复', async () =>
     }, preset!.coverUrl);
     expect(staticResources.cover).toMatchObject({
       status: 200,
-      contentType: 'image/webp'
+      contentType: 'image/jpeg'
     });
     expect(staticResources.cover.bytes).toBeGreaterThan(20_000);
     expect(staticResources.font.status).toBe(200);
@@ -561,8 +564,8 @@ test('Creator Preset 在实际 Desktop 包中创建并重启恢复', async () =>
     }>(currentApp.page, 'POST', '/creator/jobs', {
       projectId: project.body.project.id,
       preset: {
-        module: 'video-translation',
-        id: 'bilibili-bilingual',
+        module: 'image-generation',
+        id: 'exploded-food-infographic',
         version: 1
       },
       locale: 'zh-CN',
@@ -570,18 +573,18 @@ test('Creator Preset 在实际 Desktop 包中创建并重启恢复', async () =>
     });
     expect(created.status).toBe(201);
     expect(created.body.job).toMatchObject({
-      templateId: 'video-translation',
+      templateId: 'image-generation',
       templateVersion: 2,
       state: {
-        bilingual: true,
-        targetLanguage: 'zh_cn'
+        prompt: expect.stringContaining('创建超写实的塔可'),
+        size: '1024x1024'
       },
       presetOrigin: {
-        module: 'video-translation',
-        id: 'bilibili-bilingual',
+        module: 'image-generation',
+        id: 'exploded-food-infographic',
         version: 1,
         locale: 'zh-CN',
-        title: 'B站双语精翻'
+        title: '食物爆炸拆解信息图'
       },
       stages: []
     });
@@ -609,8 +612,8 @@ test('Creator Preset 在实际 Desktop 包中创建并重启恢复', async () =>
     expect(restored.body.job).toMatchObject({
       id: created.body.job.id,
       state: {
-        bilingual: true,
-        targetLanguage: 'zh_cn'
+        prompt: expect.stringContaining('创建超写实的塔可'),
+        size: '1024x1024'
       },
       presetOrigin: created.body.job.presetOrigin
     });

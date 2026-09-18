@@ -1,0 +1,611 @@
+[
+  {
+    "module": "image-generation",
+    "id": "acrylic-hand-painted-split-poster",
+    "version": 1,
+    "zhSha256": "b7ef63e748d67b170f2ed677a424eb12c9783f1924113f80eeaed337219b7a1d",
+    "enSha256": "28dad27668d8e8ac7ca9126809d2272559d8456706419c39a744773bc54f9b49",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "animated-campus-world-reference-board",
+    "version": 1,
+    "zhSha256": "1cc79de10968a51cb861a0f1749a0fc2ee64595a8173a166cef9fa80ebe7406c",
+    "enSha256": "63812574dfd36474c6db20932aa1b5a3f3c37759931b40c242f9eb0e7eebd804",
+    "sourceUrl": "https://youmind.com/en-US/prompts/anime-school-reference-collage-33628",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "architecture-photo-concept-sketch-diptych",
+    "version": 1,
+    "zhSha256": "f18fdf6a4a10e6572cb3e4ca776efaa93a08eeff214afcb5c3429c6231d32ccf",
+    "enSha256": "fcc8ff8e762fb5e0ad8e5508ef2bee576118f37001d5d5df6f02824209ada4ae",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "bento-food-packaging-concept",
+    "version": 1,
+    "zhSha256": "94eae7389c0789996f46c06fdbaaa251d0615ca0ecd2b4bc58be9a4d6edda25b",
+    "enSha256": "791e81870f86981bf51aa2a8121e63c22aca413060cdd4e8ab12eb301cafc2eb",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "berry-smoothie-commercial-photo",
+    "version": 1,
+    "zhSha256": "beaefa72b60684a2f6c19c63d377b239776e00b78259cfaba60fe476c62a8857",
+    "enSha256": "f264cdc028ce7e4fd53c4c025520e26ee01d8ecad6879bca28cf5acff819c589",
+    "sourceUrl": "https://youmind.com/en-US/prompts/commercial-berry-smoothie-photography-33680",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "beverage-food-marketing-hero",
+    "version": 1,
+    "zhSha256": "621885cf1c66f8060886b745e5d69a41ca0f1b5989b8e8cdfde3d1d50b7003d4",
+    "enSha256": "c7d5c612cc0ef33de4fb3944f79cc348e86508e1c1042e42c81d1049e5e81ae3",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "blue-white-dunhuang-embroidery-quadriptych",
+    "version": 1,
+    "zhSha256": "a5de223c96938e6fd5f92a4215ac12169c1ddc09f041f92515f541c6a15905e9",
+    "enSha256": "d7126d27d7573b8c41d3aaa6f8b0240776e6b8c22ce7008e7645ad2327f8021f",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "boutique-ecommerce-product-flatlay-grid",
+    "version": 1,
+    "zhSha256": "efa3f03991ed87deff74f0ad2da943ad0f5a79bde1779bab3f4f6941c3fa1a34",
+    "enSha256": "cdd76b618fcfd1c7e115a288a1b5676cbedd6985c26d3568c4877094617ccb7b",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "chinese-luxury-beauty-poster",
+    "version": 1,
+    "zhSha256": "530098caedef77d74a03aa7f6459eae67e2d8c380a46a1e050cc8f8a7fe0fce9",
+    "enSha256": "17bc791fa32b56768206f47b116aa59e86bf624facd6ca9d8d5cf41f08f1b91f",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "cinematic-action-rpg-screenshot",
+    "version": 1,
+    "zhSha256": "c2d354d73f1e4f0288bce610fa87b909a79f31015f0638840f95b92fcb0956df",
+    "enSha256": "aa5792d46f90506ce735bef76bbae9ee0f955c623e821e97570e7577cd52c200",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "city-corner-3d-billboard-photography",
+    "version": 1,
+    "zhSha256": "1919a5574e94c1ff264e050aea84d0b9cc5a162280797a355da8ca0176f41140",
+    "enSha256": "40559f3ffc58c8a2f610bbb8431ca726c1b0b87d82daead367e6c7678eff2797",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "consistent-interior-multiview-grid",
+    "version": 1,
+    "zhSha256": "ac6dbac174678876f1b799d18ac0dde8622bc56506150e3b961edd6480821a08",
+    "enSha256": "90b9213753b75c8a5fbe3eb6e4931f558a234e1617e964f485bd44289d657e54",
+    "sourceUrl": "https://youmind.com/en-US/prompts/consistent-interior-room-grid-33492",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "cooking-sketch-illustration-story",
+    "version": 1,
+    "zhSha256": "dd8fdd0bb62a840614f5c8e772ea03cf158f32b71972f225e9b5199b63458010",
+    "enSha256": "c88918e38421448682db153aa1bb11e4b3802d364b64420bd42864af15a7f91d",
+    "sourceUrl": "https://youmind.com/en-US/prompts/culinary-sketchbook-illustrated-narrative-33677",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "deep-sea-freediving-adventure-photo",
+    "version": 1,
+    "zhSha256": "63989bbdb2ab8fa924de8deecdb137ef2ed5037893278f467a81bce1a4d1d480",
+    "enSha256": "82cb34344fdc2dd521b7e9a0e61f15c71759fb5c0bc9130991c02bccf87c865a",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "desert-car-wash-documentary-photo",
+    "version": 1,
+    "zhSha256": "09ae6259e4ffedafd3d8760e6fb3c755aa6859e5446fcae6da101b8938e83cc6",
+    "enSha256": "fc1699f63d05dd1269cbf6610589cc3ff881e3c8c3c36d608edf0c9f471c8d27",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "duotone-studio-commercial-portrait",
+    "version": 1,
+    "zhSha256": "c4595fb08a218043a4f5e19ceab727df6a46173960f5a71db7fdc2894a8d7fe6",
+    "enSha256": "9127c5b46c7cb67449467d11b9d47bebbd1926aff7dc889267f967ce1184702e",
+    "sourceUrl": "https://youmind.com/en-US/prompts/dual-tone-studio-fashion-portrait-33799",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "fifteen-step-photorealistic-recipe",
+    "version": 1,
+    "zhSha256": "af00fd7bff2ccd49e076c41912c57cbb5695fce3eb4b1aa01bbdd8df1344bc78",
+    "enSha256": "5e6e9f93a588bc48d2061ede6d76b9037fad5599f2fe5556064c2a2256a5cafe",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "five-panel-cafe-character-collage",
+    "version": 1,
+    "zhSha256": "f012c4685ab5ea868159f5766c9dd932c7fc6ca6a2679c0faa0a92c295f82329",
+    "enSha256": "a5f3848aff4063c16ffb37501309badd4b2a2838c2dd29790a720e271543005e",
+    "sourceUrl": "https://youmind.com/en-US/prompts/cafe-influencer-collage-33862",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "four-panel-milkshake-recipe",
+    "version": 1,
+    "zhSha256": "f959d3f983c952d48b4c5f459c5a1cb0a42fe8c3cb28822fe6e087cb5eee7630",
+    "enSha256": "7cd3d6311ab9ca475ac30e0811f4f45632f82b8e0f8d68b41c079f11523c979e",
+    "sourceUrl": "https://youmind.com/en-US/prompts/banana-smoothie-recipe-collage-33499",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "futuristic-biophilic-atrium",
+    "version": 1,
+    "zhSha256": "202f22c5ea4e967d9b8ce50d520fcce1bb9d8c56b69275706751a782b4cc816c",
+    "enSha256": "cbb130fdf08bab00235f349f36a5b60dd086682eed4d411040cde7e2dd8853ff",
+    "sourceUrl": "https://youmind.com/en-US/prompts/biophilic-atrium-lounge-33843",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "graded-english-magazine-reading-page",
+    "version": 1,
+    "zhSha256": "1c2d7bf1857cc5a2bb678a743f2caa50ec16c59802e63d244b3bafc45ef26f47",
+    "enSha256": "115d9e3da12292429bea9d656670d84e25ca28b781ac4f494e1c98c847fca80f",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "grimm-fairy-tale-woodcut-poster",
+    "version": 1,
+    "zhSha256": "e961fabeaecadcbf4f996b99c8c968d7cb65e6039495f2ffb1bc7a2a4e5387da",
+    "enSha256": "96c2c9255cb490c33a53004138f4c9b3a4aaecee5f41745aede69c8202720ca8",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "hand-torn-paper-poster",
+    "version": 1,
+    "zhSha256": "eb448c2faaa7b63db83aa4827b9d7e4f55fc5c47fab657023c610546912cbf4d",
+    "enSha256": "224349bc1100e53596d43479545c875a5de4b63ea0c8321c8730c8c4ec3976dc",
+    "sourceUrl": "https://youmind.com/en-US/prompts/torn-paper-sticker-poster-31696",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "inside-box-farm-ad-poster",
+    "version": 1,
+    "zhSha256": "bb4d8b51f4cf9dccd670e1e041efcfcb596b21d8aa2f382405a2f9300481e25b",
+    "enSha256": "9e17b653a3aaa6bff3fa121e96ea8f56673a2961b06743ac6bb0d3b30b875583",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "inside-cup-fisheye-summer-drink-ad",
+    "version": 1,
+    "zhSha256": "ece4202024e48dfba7864acd0ca46014256ade83833bc6009a0f95f1d667ed08",
+    "enSha256": "e9dfd5775755d71ef86f840ed3a6335cb5ff98d0d354525ed0dbabc26e1a5692",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "isometric-miniature-kitchen",
+    "version": 1,
+    "zhSha256": "af6160ab292d333a67a20ac7c2043ea91f04629bfc3d8ce3c59564196776f3a3",
+    "enSha256": "ed58ea6e149f90368552520eed308825f3e5d6775c503208ca18d1cc840935e9",
+    "sourceUrl": "https://youmind.com/en-US/prompts/isometric-miniature-kitchen-33652",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "minimal-abstract-geometric-deconstruction-poster",
+    "version": 1,
+    "zhSha256": "82c7cfb02ec952912556f3a54b336168ca7d6e4fc05e106afa258d2684ecd8d8",
+    "enSha256": "001de7ec8da5c06e0e1b62b6153b24d40006297714b2a1f823039d0fb0207220",
+    "sourceUrl": "https://youmind.com/en-US/prompts/minimalist-abstract-geometric-poster-32040",
+    "originalLanguage": "zh",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "minimal-conceptual-line-art-poster",
+    "version": 1,
+    "zhSha256": "11ad39f4c9c1f72a8b769e86403baac408489dbb3ee9223279f9bf422bc7e3a0",
+    "enSha256": "e0c41bae9f7ec5a267bcdc43f11554bcfad407fe40a5ac4127033e0330127be2",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "modern-art-event-flyer",
+    "version": 1,
+    "zhSha256": "655ca68d15f1774706ad78871d914ae05c1401c408b6a29a2382ed8cc412e60a",
+    "enSha256": "5613d5a234d4a7dd9425727b1219397ebf148de0f637d43d3add846ef29f7e78",
+    "sourceUrl": "https://youmind.com/en-US/prompts/minimalist-event-flyer-design-33672",
+    "originalLanguage": "ja",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "paper-relief-neighborhood-grid",
+    "version": 1,
+    "zhSha256": "7f75804a8d74661cd4937ae0cd77fab746ac2dff391034aadd48fea9866395d4",
+    "enSha256": "7ec1389734317820c25d2bca284012a469750805cbc3df844fd6594170c7d3bb",
+    "sourceUrl": "https://youmind.com/en-US/prompts/paper-relief-neighborhood-grid-33489",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "playful-ceramic-ecommerce-hero",
+    "version": 1,
+    "zhSha256": "b9e8dcc13ae39daa658b9b2ed1c23bd217c2788accc5fcd23ba66eb266ebd029",
+    "enSha256": "bba10bfb5017cef80c2c4e6d03bfce7b717d75380a051e0b10d35ca4537ed3a8",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "portrait-lighting-scheme-grid",
+    "version": 1,
+    "zhSha256": "272c31dd6994d7b0a351392707224f87874b6b6c761f5a4ad08e99395eddcdc0",
+    "enSha256": "86d161b57d3911e93a2164a6c7a444488c1523110eafc7452e62db88cee01e86",
+    "sourceUrl": "https://youmind.com/en-US/prompts/portrait-lighting-setup-grid-33488",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "premium-food-commercial-storyboard",
+    "version": 1,
+    "zhSha256": "22cf7838249f44fd0085dc8aae6ae09f50e9ecc8b2f1df1565f075d511329f32",
+    "enSha256": "d46ca5dfdf7967cdd0533f78596f2f249066432153c2956e5275545c4a1eb629",
+    "sourceUrl": "https://youmind.com/en-US/prompts/gourmet-product-commercial-storyboard-33816",
+    "originalLanguage": "en",
+    "adapted": true,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "reflective-ski-gear-landing-page",
+    "version": 1,
+    "zhSha256": "76caff4c6b6269a7974d4d4e2f72dd83d7cf195b77076385d7c80ede741be7da",
+    "enSha256": "dae70585e3f21f0b7424c9ec6f2c3739e81d2281ac1806d46d1aaf88a8b3f5d7",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "social-media-giveaway-banner",
+    "version": 1,
+    "zhSha256": "e72095974dcd1278b48f229d15280c06406c8034a5cf97b0e13b268abe616c53",
+    "enSha256": "c837c51f7b65c4c254492722b6ea6450db9a353c57861b60bfb1ccee24cfa5a0",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "solar-terms-editorial-visual",
+    "version": 1,
+    "zhSha256": "498e7123401058f993f51461b734b36a0ccf95540ab4d2cc65d868f7a5b6d915",
+    "enSha256": "d66220072aa330b6eb030ccdfaa0dd7a4d5aca46277511087eddbc30ae3cfa25",
+    "sourceUrl": "https://youmind.com/en-US/prompts/solar-terms-editorial-visual-31793",
+    "originalLanguage": "zh",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "split-canvas-editorial-art-poster",
+    "version": 1,
+    "zhSha256": "7de90fb5bf776938939b4f6a77d5703e157e5da76e100db4c71ff1076f4606a0",
+    "enSha256": "51e7cbbfda41e48b3552e5bade08f60203dda048381251f2b459083fb61f29f5",
+    "sourceUrl": "https://x.com/saniaspeaks_/status/2097176979497791899",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "street-scroll-backdrop-fashion-editorial",
+    "version": 1,
+    "zhSha256": "a33f5af53ce7083f39b8d67d99dcec9b5f3c1ef14dc6efe78cef2de23551f6f5",
+    "enSha256": "a509bf2d2c192a1e76a2a8f550da945e6a392d7d2be727ef5b2d83719aa720af",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "tech-product-review-thumbnail",
+    "version": 1,
+    "zhSha256": "79d25e9e8998d0f47c2c7ee3b5ecf38f9fff08b12af30ae2bc3150a7878ebdca",
+    "enSha256": "1e02e71286d39cf1f18e957ab54a48dbb964ce2668141c4d238117e6cf8c9909",
+    "sourceUrl": "https://youmind.com/en-US/prompts/sony-headphones-review-thumbnail-32279",
+    "originalLanguage": "en",
+    "adapted": true,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "vintage-scientific-botanical-poster",
+    "version": 1,
+    "zhSha256": "ca5a1799aa02cd29117cc9997f96bfb3c982139ccf7d7e9e15f158d7de7bac2b",
+    "enSha256": "ec755a583dc8973b3383055a25423e3b7a83e880fdf40314d086246007609d84",
+    "sourceUrl": "https://youmind.com/en-US/prompts/forget-me-not-botanical-poster-33434",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "vr-headset-exploded-interface-diagram",
+    "version": 1,
+    "zhSha256": "5920dad88a72defe38e676f8f6a75a0cd0c1846c92ab0822a7cebd374a43f84f",
+    "enSha256": "5920dad88a72defe38e676f8f6a75a0cd0c1846c92ab0822a7cebd374a43f84f",
+    "sharedOriginal": true
+  },
+  {
+    "module": "image-generation",
+    "id": "watercolor-editorial-illustration-poster",
+    "version": 1,
+    "zhSha256": "8e4a6f6ed680176f68a44b5bc51d7e1f8b94b70d2d298d0483ff81e319180c2b",
+    "enSha256": "82bf0138e646fc5394e99e6052fab92e7769dae2717b62618493541963a9e20a",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "weekly-outfit-infographic",
+    "version": 1,
+    "zhSha256": "8ce6cf1954512bd90f5301fb81882558555f2ee10260ea12e0c82f1e71e3fb92",
+    "enSha256": "8ce6cf1954512bd90f5301fb81882558555f2ee10260ea12e0c82f1e71e3fb92",
+    "sharedOriginal": true
+  },
+  {
+    "module": "image-generation",
+    "id": "wuhan-breakfast-food-map-infographic",
+    "version": 1,
+    "zhSha256": "bff2c11971bd66afd4bd47208ae5404eb8eceb29a747c8c55b39d6d0145837f8",
+    "enSha256": "598315a6b4be89425058d50a1f72be88115cac059e0b51660e5765942d3565cc",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "wuhan-vintage-map-poster",
+    "version": 1,
+    "zhSha256": "a277515cdd91b3a1c43192d716e5ac5a8286a8c75bd4f9549702eed01b3ef69e",
+    "enSha256": "9ded1291bf844ba2619690736fc0dd3096aec30cf5d2bd60bdfab226e50f5574",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "y2k-streetwear-mobile-landing-page",
+    "version": 1,
+    "zhSha256": "be5b39d3a0227b289dde25fb6e8268094f9da12b639147d079debf1203524931",
+    "enSha256": "0de7712b100cd935b640419d7d14ff14480925c1ab377443ae398bd7d5e1f335",
+    "sharedOriginal": false
+  },
+  {
+    "module": "image-generation",
+    "id": "y2k-virtual-try-on-game-ui",
+    "version": 1,
+    "zhSha256": "822006d4b48874e58bd573b244c1d58198065b8a993cbcb0f8f752887e0a4296",
+    "enSha256": "f1fab1155f0318b6bddbbf2c928bd9c283bc5b196d9ab5953be37dc0c5c9fa34",
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "anime-skateboard-chase-nyc",
+    "version": 1,
+    "zhSha256": "4802059c3fb348dd573cc8446ab20876f2e1fde8604132f6641a2349cdffbbcf",
+    "enSha256": "7a363d081f5ee9c8e47dfccf24e5838eeefee98d4aa024fba202a8e0d49d5e10",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/anime-skateboarding-new-york-9233",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "beach-stone-stop-motion",
+    "version": 1,
+    "zhSha256": "f0e3063e36444a4ef93b41938bad635d99828f38344098d5a1a3024756665228",
+    "enSha256": "c92a9cdb8043e554959b72f23fb6ba94bcad24981e028f4a100be1302b1bacc3",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/stone-beach-stop-motion-animation-10441",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "bedroom-falling-book-catch",
+    "version": 1,
+    "zhSha256": "eefb55ccc1350f0f24dbe5c65399f56a79bcbfc2a2e62f2dc8c90db4f46cf49c",
+    "enSha256": "44d3b410b5ad2666e1252935feb17791ee6d0e7e84db7bb1eb998e800f4d2607",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/cozy-bedroom-book-catch-10391",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "bioluminescent-lighthouse-keeper",
+    "version": 1,
+    "zhSha256": "91121b80fac66603d000945eacda294acd4757ce8fd71baf056fb0e92611241f",
+    "enSha256": "02598e067bbe586ac4bbafce66e7f1be202ee675d4faf950a0415a292b5de299",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/bioluminescent-ocean-lighthouse-video-prompt-10520",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "brutalist-courtyard-martial-arts",
+    "version": 1,
+    "zhSha256": "e2ecffa52298db042286ffb989440ce8e9bd66c313fcedfaca4ae34225f4c104",
+    "enSha256": "206bc4693034ee4aae76d5cd718bb7ff862bb866a5ee7da4d4d07abf8b9f21ce",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/brutalist-courtyard-martial-arts-action-9155",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "cinematic-roller-skating-action",
+    "version": 1,
+    "zhSha256": "452845435a1d51b11ca04a74e49eca6d7263e9514f6c645c9e44e3e3e8507815",
+    "enSha256": "844a11fd820b3dc2c4529c31042aa2af2c729504ccc8af8d98ddf81f928141cf",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/cinematic-action-roller-skating-chase-9236",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "cinematic-shaolin-action",
+    "version": 1,
+    "zhSha256": "ebd7b668ef49d9d9d262ed7a2775218992de9d139f31f86b8523787d2f512f85",
+    "enSha256": "b4930a7331e387703cc9e1a38185af78720e8d7c90d9c9484f373fe7fd1208bf",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/shaolin-monk-martial-arts-cinematic-8855",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "cliffside-roller-skating",
+    "version": 1,
+    "zhSha256": "c0ed442d86db346085495570dcb484cb213b1c63bd0bf7a1258428c4b8ab792f",
+    "enSha256": "1ba0bf3a33eb934b9b3a81bba697c61ff54845b13362ee43019d8b114c6b6723",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/cliffside-roller-skate-action-thriller-9064",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "first-person-dragon-rider",
+    "version": 1,
+    "zhSha256": "ae57e7302899529fcbf2607f919ef6ff2f2b08b59b7834cb243f61281fa203bb",
+    "enSha256": "dad7c2a8aafb919fab665526d59190fee7d8e33bff3b924809b18f2d664e199e",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/first-person-dragon-rider-cinematic-8859",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "japanese-influencer-get-ready-ugc",
+    "version": 1,
+    "zhSha256": "3fb8136c46b9c2b43c9233d973a0db43cb4cd613b78340556e5e883c2bc8ed8a",
+    "enSha256": "b08d14eb7e03516be37701f121a2f186c3ee3698712d3e03df70b2dd26ff3ca5",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/japanese-influencer-holiday-vlog-ugc-10429",
+    "originalLanguage": "ja",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "luxury-jewelry-unboxing",
+    "version": 1,
+    "zhSha256": "f7da4cc7e03f0e42d0e3c9183c06f50371df9624bb2cb273f91cfdceea861413",
+    "enSha256": "3d3ab9934ce94f6cb89c00a07d46a49c39f4269730db5e18d6e33bf698d0456f",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/luxury-jewelry-commercial-unboxing-10510",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "nyc-parkour-web-swing",
+    "version": 1,
+    "zhSha256": "3f7ddd7805c7119e7b945ba1869e81f673d29979aa4d60afe6ae3cd6a6ba8663",
+    "enSha256": "d1bbaeedbf6ac94d6b2d3d2b18020da9dbbe3b55164902ee06dfcc76631a994b",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/nyc-parkour-web-swinging-9389",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "rainforest-mysterious-light",
+    "version": 1,
+    "zhSha256": "e7d763a1a028b448c8353ca4521c728370a53ea417bfca07515b6ebf1deb345c",
+    "enSha256": "b05ae204277c42ee92e9615b9b93f141242c2d6762b72f557612676c3b956f41",
+    "sourceUrl": "https://x.com/iamahmedfaraz66/status/2095362901326598521",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "sci-fi-motorcycle-action",
+    "version": 1,
+    "zhSha256": "6870afb6da407aef8ac490e95dbedfb8e255c42f690643509e067e14e25e1d8d",
+    "enSha256": "c3df1841e19ee4f826199cf9ce18fc9ed1584214e2ba96a82b7ddb25e369ddd8",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/sci-fi-motorcycle-action-sequence-9060",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "seoul-sunday-dv-home-video",
+    "version": 1,
+    "zhSha256": "448a30deb6035f531e817f7780fe1d6395a73fd6341b8db7bd36b90eb3fc5deb",
+    "enSha256": "1225ab0f5e6dbf343fe4cc5cbda3e6c3f88e28b05e15c331b9ce0cc77bab0f90",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/seoul-sunday-dv-home-video-10456",
+    "originalLanguage": "en",
+    "adapted": false,
+    "sharedOriginal": false
+  },
+  {
+    "module": "video-generation",
+    "id": "watercolor-sketch-parkour-chase",
+    "version": 1,
+    "zhSha256": "b118a93408fa14574f750fef35d829148b7f509324b313ba6cb40ff9c0058302",
+    "enSha256": "350c373d34ed5d5e98cb9f847b43bcfe36b0de447b9ba91d013612b894c7cd15",
+    "sourceUrl": "https://youmind.com/en-US/video-prompts/parkour-chase-watercolor-animation-8830",
+    "originalLanguage": "ja",
+    "adapted": false,
+    "sharedOriginal": false
+  }
+]
