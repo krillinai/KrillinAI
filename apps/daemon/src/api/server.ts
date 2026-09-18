@@ -766,6 +766,7 @@ export async function buildServer(input: BuildServerInput) {
     jobsRoot: creatorJobsRoot,
     ffmpegPath: creatorFfmpegPath,
     ffprobePath: creatorFfprobePath,
+    stickmanRuntimeRoot,
     ...(getYtDlpRuntime === undefined ? {} : { getYtDlpRuntime }),
     executorIds: creatorExecutors.map(executor => executor.id),
     validateRuntimeAssets: input.creatorExecutors === undefined

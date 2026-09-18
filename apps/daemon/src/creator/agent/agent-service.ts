@@ -187,7 +187,11 @@ export function createCreatorAgentService(input: {
                 ? undefined
                 : input.creator.templates.get(latestJob.templateId, latestJob.templateVersion).stages.find(candidate => candidate.id === requestedStage);
               if (latestJob !== undefined && stage !== undefined) {
-                const result = await input.preflight.check(latestJob, stage);
+                const result = await input.preflight.check(latestJob, stage, {
+                  ...(typeof runtimeResult.action.input.inputResultVersion === 'number'
+                    ? { inputResultVersion: runtimeResult.action.input.inputResultVersion }
+                    : {})
+                });
                 if (!result.canStart) throw new CreatorPreflightError(result);
               }
             }

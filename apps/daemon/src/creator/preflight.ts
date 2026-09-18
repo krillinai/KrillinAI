@@ -14,8 +14,15 @@ import type { CreatorServicesConfigStore } from '../creator-services/config-stor
 import { preflightKrillinDependencies } from './krillin/dependency-preflight.js';
 import type { YtDlpRuntime } from './yt-dlp/runtime.js';
 import { supportsReferenceImage } from './templates/cover-actions.js';
+import { creatorResultSnapshotForVersion } from './result-snapshots.js';
+import { resolveCreatorStageInputs } from './stage-runner.js';
+import { readStickmanRemotionRuntime } from './stickman/remotion-runtime.js';
 
 export type CreatorPreflight = ReturnType<typeof createCreatorPreflight>;
+
+export type CreatorPreflightOptions = {
+  inputResultVersion?: number;
+};
 
 export class CreatorPreflightError extends Error {
   constructor(readonly result: CreatorPreflightResponse) {
@@ -47,13 +54,14 @@ export function createCreatorPreflight(input: {
   jobsRoot: string;
   ffmpegPath?: string;
   ffprobePath?: string;
+  stickmanRuntimeRoot?: string;
   getYtDlpRuntime?(): YtDlpRuntime | undefined;
   executorIds?: Iterable<string>;
   validateRuntimeAssets?: boolean;
 }) {
   const executorIds = new Set(input.executorIds ?? []);
 
-  async function check(job: CreatorJob, stage: CreatorTemplateStage): Promise<CreatorPreflightResponse> {
+  async function check(job: CreatorJob, stage: CreatorTemplateStage, options: CreatorPreflightOptions = {}): Promise<CreatorPreflightResponse> {
     const ready: CreatorPreflightCheck[] = [];
     const warning: CreatorPreflightCheck[] = [];
     const blocked: Array<CreatorPreflightCheck & { repair: NonNullable<CreatorPreflightCheck['repair']> }> = [];
@@ -82,7 +90,33 @@ export function createCreatorPreflight(input: {
 
     const config = await input.configStore.read();
     checkProviderConfig(job, stage, config, input.readCapabilities(), add);
-    await checkInputs(job, stage, add);
+    const inputSnapshot = options.inputResultVersion === undefined
+      ? undefined
+      : creatorResultSnapshotForVersion(job, options.inputResultVersion);
+    if (options.inputResultVersion !== undefined && inputSnapshot === undefined) {
+      add('blocked', {
+        id: 'input-result-version',
+        title: '结果版本不存在',
+        message: `找不到结果版本 ${options.inputResultVersion}，无法安全复用历史输入。`,
+        executionMode: 'local'
+      }, { label: '打开诊断', deepLink: '#/settings?tab=diagnostics' });
+    }
+    const inputState = inputSnapshot?.state ?? job.state;
+    if (inputState.sourceType === 'file' && stage.executor === 'krillinai' && typeof inputState.sourceArtifactId !== 'string') {
+      add('blocked', {
+        id: 'input-file',
+        title: '输入文件缺失',
+        message: '请选择要处理的本地视频文件。',
+        executionMode: 'local'
+      }, { label: '选择输入文件', deepLink: '#/settings?tab=diagnostics' });
+    }
+    const resolvedInputs = resolveCreatorStageInputs(
+      job,
+      stage.inputArtifacts,
+      inputSnapshot?.artifactRefs,
+      inputSnapshot?.state
+    );
+    await checkInputs(stage, resolvedInputs.artifacts, resolvedInputs.missing, add);
     await checkRuntimeDependencies(job, stage, config, add);
     await checkManagedDirectory(add);
 
@@ -124,13 +158,12 @@ export function createCreatorPreflight(input: {
     config: CreatorServicesConfig,
     add: (status: 'ready' | 'warning' | 'blocked', item: Omit<CreatorPreflightCheck, 'executionMode'> & { executionMode?: CreatorPreflightExecutionMode }, repair?: CreatorPreflightCheck['repair']) => void
   ) {
-    const needsMediaTools = input.validateRuntimeAssets !== false
-      && (['download', 'clip', 'stickman'].includes(stage.executor) || stage.executor === 'krillinai');
-    if (needsMediaTools) {
-      for (const [id, path, label] of [
-        ['ffmpeg', input.ffmpegPath, 'FFmpeg'],
-        ['ffprobe', input.ffprobePath, 'ffprobe']
-      ] as const) {
+    if (input.validateRuntimeAssets !== false) {
+      const requiredTools = new Map<string, string | undefined>();
+      if (['download', 'clip', 'krillinai', 'stickman-media-validation'].includes(stage.executor)) requiredTools.set('ffmpeg', input.ffmpegPath);
+      if (['download', 'clip', 'krillinai', 'stickman-audio', 'stickman-remotion', 'stickman-media-validation', 'stickman-delivery'].includes(stage.executor)) requiredTools.set('ffprobe', input.ffprobePath);
+      for (const [id, path] of requiredTools) {
+        const label = id === 'ffmpeg' ? 'FFmpeg' : 'ffprobe';
         if (path === undefined) add('blocked', {
           id,
           title: `${label} 不可用`,
@@ -139,8 +172,25 @@ export function createCreatorPreflight(input: {
         }, { label: '打开运行组件设置', deepLink: '#/settings?tab=local-components' });
         else add('ready', { id, title: label, message: `${label} 已就绪。`, executionMode: 'local' });
       }
+      if (stage.executor === 'stickman-delivery' && input.ffmpegPath === undefined) {
+        add('warning', { id: 'ffmpeg', title: 'FFmpeg 不可用', message: '交付校验将跳过视频帧采样。', executionMode: 'local' });
+      }
+      if (stage.executor === 'stickman-remotion') {
+        try {
+          if (input.stickmanRuntimeRoot === undefined) throw new Error('stickman_runtime_unavailable');
+          readStickmanRemotionRuntime(input.stickmanRuntimeRoot);
+          add('ready', { id: 'stickman-runtime', title: 'Stickman 渲染运行时', message: 'Remotion 运行资源校验通过。', executionMode: 'local' });
+        } catch (error) {
+          add('blocked', {
+            id: 'stickman-runtime',
+            title: 'Stickman 渲染运行时不可用',
+            message: error instanceof Error ? error.message : 'Remotion 运行资源校验失败。',
+            executionMode: 'local'
+          }, { label: '打开运行组件设置', deepLink: '#/settings?tab=local-components' });
+        }
+      }
     }
-    if (input.validateRuntimeAssets !== false && (stage.executor === 'download' || (stage.executor === 'krillinai' && job.state.sourceType !== 'file'))) {
+    if (input.validateRuntimeAssets !== false && (stage.executor === 'download' || stage.executor === 'cover-analysis' || (stage.executor === 'krillinai' && job.state.sourceType !== 'file'))) {
       let runtime: YtDlpRuntime | undefined;
       try { runtime = input.getYtDlpRuntime?.(); } catch { runtime = undefined; }
       if (runtime === undefined) add('blocked', {
@@ -195,14 +245,17 @@ function checkProviderConfig(
     ) needs.add('llm');
     if (stage.id === 'tts' && job.state.dubbing === true) needs.add('tts');
   }
-  if (stage.executor === 'clip' || stage.executor === 'stickman') needs.add('llm');
+  if (stage.executor === 'clip') needs.add('llm');
+  if (stage.executor === 'stickman-content' && ['source-brief', 'content-plan', 'script', 'storyboard'].includes(stage.id)) needs.add('llm');
+  if (stage.executor === 'cover-analysis') needs.add('llm');
   if (stage.executor === 'image') {
     needs.add('image');
     if (stage.id === 'analyze-source') needs.add('llm');
   }
   if (stage.executor === 'video') needs.add('video');
   if (stage.executor === 'smart-dubbing') needs.add('tts');
-  if (stage.executor === 'stickman' && stage.id === 'narration') needs.add('tts');
+  if (stage.executor === 'stickman-audio' && stage.id === 'narration') needs.add('tts');
+  if (stage.executor === 'stickman-image') needs.add('image');
 
   if (needs.has('llm')) checkOpenAi(config.llm, 'llm', '文本模型', '#/settings?tab=ai-services&section=text', add);
   if (needs.has('tts')) {
@@ -218,8 +271,9 @@ function checkProviderConfig(
       id: 'image-provider', title: '图像服务配置不完整', message: `请配置 ${provider} 的 Base URL、模型和凭据。`, executionMode: 'remote'
     }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=image' });
     else add('ready', { id: 'image-provider', title: '图像服务', message: `${provider} / ${settings.model} 已配置。`, executionMode: 'remote' });
-    const hasReference = stage.inputArtifacts.some(item => item.kind === 'reference_image')
-      && typeof job.state.referenceImageArtifactId === 'string';
+    const hasReference = stage.executor === 'stickman-image'
+      || (stage.inputArtifacts.some(item => item.kind === 'reference_image')
+        && typeof job.state.referenceImageArtifactId === 'string');
     if (hasReference && !supportsReferenceImage(provider)) add('blocked', {
       id: 'reference-image-capability', title: '参考图能力不匹配', message: `${provider} 不支持当前阶段的参考图编辑。`, executionMode: 'remote'
     }, { label: '选择支持参考图的服务', deepLink: '#/settings?tab=ai-services&section=image' });
@@ -261,23 +315,17 @@ function checkTts(config: CreatorServicesConfig, provider: Exclude<CreatorServic
   else add('ready', { id: 'tts', title: '配音服务', message: `${provider} / ${value.model} 已配置。`, executionMode: 'remote' });
 }
 
-async function checkInputs(job: CreatorJob, stage: CreatorTemplateStage, add: Parameters<typeof checkProviderConfig>[4]): Promise<void> {
-  if (job.state.sourceType === 'file' && stage.executor === 'krillinai' && typeof job.state.sourceArtifactId !== 'string') {
-    add('blocked', { id: 'input-file', title: '输入文件缺失', message: '请选择要处理的本地视频文件。', executionMode: 'local' }, { label: '选择输入文件', deepLink: '#/settings?tab=diagnostics' });
-    return;
+async function checkInputs(
+  stage: CreatorTemplateStage,
+  artifacts: Array<CreatorJob['artifacts'][number]>,
+  missing: string[],
+  add: Parameters<typeof checkProviderConfig>[4]
+): Promise<void> {
+  for (const kind of missing) {
+    add('blocked', { id: `input-artifact:${kind}`, title: '前置产物缺失', message: `请先生成 ${kind}，再启动 ${stage.id}。`, executionMode: 'local' }, { label: '返回上一步', deepLink: '#/settings?tab=diagnostics' });
   }
-  const paths = stage.inputArtifacts.filter(item => item.selector === 'state-artifact-id').map(item => job.state[item.stateKey ?? '']);
-  if (job.state.sourceType === 'file' && stage.executor === 'krillinai') paths.push(job.state.sourceArtifactId);
-  for (const input of stage.inputArtifacts.filter(item => !item.optional && item.selector === 'latest-completed')) {
-    const artifact = [...job.artifacts].reverse().find(candidate => candidate.kind === input.kind && candidate.status === 'completed');
-    if (artifact === undefined) {
-      add('blocked', { id: `input-artifact:${input.kind}`, title: '前置产物缺失', message: `请先生成 ${input.kind}，再启动 ${stage.id}。`, executionMode: 'local' }, { label: '返回上一步', deepLink: '#/settings?tab=diagnostics' });
-    }
-  }
-  for (const value of paths) {
-    if (typeof value !== 'string') continue;
-    const artifact = job.artifacts.find(candidate => candidate.id === value && candidate.status === 'completed');
-    if (artifact?.path === null || artifact === undefined) {
+  for (const artifact of artifacts) {
+    if (artifact.path === null) {
       add('blocked', { id: 'input-file', title: '输入文件不可用', message: '所选输入文件不存在或不可读。', executionMode: 'local' }, { label: '重新选择输入文件', deepLink: '#/settings?tab=diagnostics' });
       continue;
     }
@@ -303,7 +351,13 @@ function readVideoProvider(job: CreatorJob, config: CreatorServicesConfig): Crea
   return value === 'seedance' || value === 'kling' || value === 'veo' ? value : config.video.provider;
 }
 function executionMode(stage: CreatorTemplateStage, job: CreatorJob): CreatorPreflightExecutionMode {
-  if (stage.executor === 'image' || stage.executor === 'video' || stage.executor === 'smart-dubbing') return 'remote';
+  if (stage.executor === 'image' || stage.executor === 'video' || stage.executor === 'smart-dubbing' || stage.executor === 'stickman-image') return 'remote';
+  if (
+    stage.executor === 'cover-analysis'
+    || (stage.executor === 'clip')
+    || (stage.executor === 'stickman-content' && ['source-brief', 'content-plan', 'script', 'storyboard'].includes(stage.id))
+    || (stage.executor === 'stickman-audio' && stage.id === 'narration')
+  ) return 'mixed';
   if (stage.executor === 'krillinai' && job.state.sourceType !== 'file') return 'mixed';
   return 'local';
 }

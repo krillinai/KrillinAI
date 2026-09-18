@@ -6,6 +6,8 @@ import { createDefaultCreatorServicesConfig, type CreatorJob, type CreatorJson }
 import { createCreatorPreflight } from '../../src/creator/preflight.js';
 import { createImageGenerationTemplate } from '../../src/creator/templates/image-generation.js';
 import { createVideoDownloadTemplate } from '../../src/creator/templates/video-download.js';
+import { createStickmanVideoTemplate } from '../../src/creator/templates/stickman-video.js';
+import { createCoverTemplate } from '../../src/creator/templates/cover.js';
 import { createKrillinCreatorServicesCapabilities } from '../../src/creator/krillin/capabilities.js';
 
 let root = '';
@@ -91,6 +93,90 @@ describe('creator preflight', () => {
     expect(result.blocked).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'reference-image-capability' })
     ]));
+  });
+
+  it.each([
+    ['source-brief', 'stickman-content', 'llm'],
+    ['narration', 'stickman-audio', 'tts'],
+    ['images', 'stickman-image', 'image-provider'],
+    ['render-clean', 'stickman-remotion', 'ffprobe']
+  ] as const)('checks the real Stickman %s executor requirements', async (stageId, executor, blockedId) => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const stage = createStickmanVideoTemplate().stages.find(candidate => candidate.id === stageId)!;
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => createDefaultCreatorServicesConfig() },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('win32', 'x64'),
+      resourceRoot: join(root, 'runtime'),
+      jobsRoot: join(root, 'jobs'),
+      executorIds: [executor]
+    }).check(fakeJob('stickman-video', {}), stage);
+
+    expect(result.blocked.map(item => item.id)).toContain(blockedId);
+  });
+
+  it('checks the Cover source analysis executor instead of the image executor', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const stage = createCoverTemplate().stages.find(candidate => candidate.id === 'analyze-source')!;
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => createDefaultCreatorServicesConfig() },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('win32', 'x64'),
+      resourceRoot: join(root, 'runtime'),
+      jobsRoot: join(root, 'jobs'),
+      executorIds: ['cover-analysis']
+    }).check(fakeJob('cover', { sourceType: 'youtube', sourceUrl: 'https://youtu.be/example' }), stage);
+
+    expect(result.blocked.map(item => item.id)).toEqual(expect.arrayContaining(['llm', 'yt-dlp']));
+  });
+
+  it('resolves historical stale inputs the same way as StageRunner', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const referencePath = join(root, 'reference.png');
+    await writeFile(referencePath, 'image');
+    const config = createDefaultCreatorServicesConfig();
+    config.image.openai.apiKey = 'test-key';
+    config.image.openai.baseUrl = 'https://example.test/v1';
+    config.image.openai.model = 'image-model';
+    const job = fakeJob('image-generation', {
+      provider: 'openai',
+      prompt: 'test',
+      referenceImageArtifactId: 'reference-image',
+      resultSnapshots: [{
+        version: 1,
+        createdAt: new Date(0).toISOString(),
+        action: 'generate',
+        stageId: 'generate',
+        description: 'historical',
+        artifactRefs: { reference_image: ['reference-image'] },
+        changedArtifactIds: ['reference-image'],
+        staleArtifactIds: [],
+        state: { referenceImageArtifactId: 'reference-image', provider: 'openai' }
+      }]
+    });
+    job.artifacts.push({
+      id: 'reference-image',
+      jobId: job.id,
+      kind: 'reference_image',
+      status: 'stale',
+      version: 1,
+      path: referencePath,
+      scopeKey: null,
+      inputFingerprint: null,
+      sha256: null,
+      sourceArtifactIds: [],
+      metadata: {},
+      createdAt: new Date(0).toISOString()
+    });
+
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('win32', 'x64'),
+      resourceRoot: join(root, 'runtime'),
+      jobsRoot: join(root, 'jobs'),
+      executorIds: ['image']
+    }).check(job, createImageGenerationTemplate().stages[0]!, { inputResultVersion: 1 });
+
+    expect(result.blocked.map(item => item.id)).not.toContain('input-artifact:reference_image');
+    expect(result.ready.map(item => item.id)).toContain('input-file:reference-image');
   });
 });
 

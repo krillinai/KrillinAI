@@ -329,7 +329,7 @@ export async function registerCreatorRoutes(
     }))
   }));
 
-  server.get<{ Params: { id: string }; Querystring: { stageId?: string } }>(
+  server.get<{ Params: { id: string }; Querystring: { stageId?: string; inputResultVersion?: string } }>(
     '/creator/jobs/:id/preflight',
     async (request, reply) => {
       try {
@@ -340,7 +340,11 @@ export async function registerCreatorRoutes(
         const stageId = readString(request.query.stageId, 'stageId');
         const stage = service.templates.get(job.templateId, job.templateVersion).stages.find(candidate => candidate.id === stageId);
         if (stage === undefined) throw new CreatorServiceError('creator_stage_not_found', 'Creator stage was not found');
-        return options.preflight.check(job, stage);
+        return options.preflight.check(job, stage, {
+          ...(request.query.inputResultVersion === undefined
+            ? {}
+            : { inputResultVersion: readQueryInteger(request.query.inputResultVersion, 'inputResultVersion') })
+        });
       } catch (error) {
         return sendCreatorError(reply, error);
       }
@@ -496,7 +500,11 @@ export async function registerCreatorRoutes(
       if (options.preflight !== undefined) {
         const stage = service.templates.get(job.templateId, job.templateVersion).stages.find(candidate => candidate.id === latest.stageId);
         if (stage === undefined) throw new CreatorServiceError('creator_stage_not_found', 'Creator stage was not found');
-        const preflight = await options.preflight.check(job, stage);
+        const preflight = await options.preflight.check(job, stage, {
+          ...(typeof latest.progress.inputResultVersion === 'number'
+            ? { inputResultVersion: latest.progress.inputResultVersion }
+            : {})
+        });
         if (!preflight.canStart) throw new CreatorPreflightError(preflight);
       }
       if (job.templateId === 'video-translation' && options.videoTranslationWorkflow !== undefined) {
@@ -668,7 +676,11 @@ export async function registerCreatorRoutes(
             const stageId = readString(actionInput.stageId, 'stageId');
             const stage = service.templates.get(jobBeforeAction.templateId, jobBeforeAction.templateVersion).stages.find(candidate => candidate.id === stageId);
             if (stage !== undefined) {
-              const preflight = await options.preflight.check(jobBeforeAction, stage);
+              const preflight = await options.preflight.check(jobBeforeAction, stage, {
+                ...(typeof actionInput.inputResultVersion === 'number'
+                  ? { inputResultVersion: actionInput.inputResultVersion }
+                  : {})
+              });
               if (!preflight.canStart) throw new CreatorPreflightError(preflight);
             }
           }
@@ -701,7 +713,11 @@ export async function registerCreatorRoutes(
         const stageId = readString(actionInput.stageId, 'stageId');
         const stage = service.templates.get(jobBeforeAction.templateId, jobBeforeAction.templateVersion).stages.find(candidate => candidate.id === stageId);
         if (stage === undefined) throw new CreatorServiceError('creator_stage_not_found', 'Creator stage was not found');
-        const preflight = await options.preflight.check(jobBeforeAction, stage);
+        const preflight = await options.preflight.check(jobBeforeAction, stage, {
+          ...(typeof actionInput.inputResultVersion === 'number'
+            ? { inputResultVersion: actionInput.inputResultVersion }
+            : {})
+        });
         if (!preflight.canStart) throw new CreatorPreflightError(preflight);
       }
       if (
