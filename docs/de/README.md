@@ -95,8 +95,6 @@ Die aktuelle Version enthält sechs Kreativwerkzeuge. Verfügbare Modelle und Di
 
 Kreativwerkzeuge bieten visuelle Steuerelemente; Skills geben dem Agent wiederverwendbare Anweisungen und Werkzeug-Workflows. OpenCreator enthält Skills für die Videoproduktion im Repository und unterstützt die Verwaltung lokaler Codex Skills.
 
-### Skills für Video-Workflows
-
 Das Verzeichnis [`skills/`](../../skills/) im Repository enthält wiederverwendbare Anweisungen für Agents, die die eingebettete KrillinAI CLI bedienen.
 
 | Skill | Funktionen |

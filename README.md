@@ -100,8 +100,6 @@ Open the Dashboard to write articles, Xiaohongshu posts, or short-video scripts;
 
 Creator tools provide visual controls; Skills give the Agent reusable instructions and tool workflows. OpenCreator includes video-production Skills in the repository, alongside support for managing local Codex Skills.
 
-### Video Workflow Skills
-
 The repository's [`skills/`](./skills/) directory contains reusable instructions for Agents operating the embedded KrillinAI CLI.
 
 | Skill | Capabilities |

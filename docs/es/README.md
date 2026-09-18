@@ -95,8 +95,6 @@ Abre el Dashboard para traducir o descargar vídeos, generar miniaturas o imáge
 
 Las herramientas de creación ofrecen controles visuales; los Skills proporcionan al Agent instrucciones y flujos de trabajo reutilizables. OpenCreator incluye Skills de producción de vídeo en el repositorio y permite gestionar Skills locales de Codex.
 
-### Skills para flujos de trabajo de vídeo
-
 El directorio [`skills/`](../../skills/) del repositorio contiene instrucciones reutilizables para Agents que utilizan la CLI integrada de KrillinAI.
 
 | Skill | Capacidades |

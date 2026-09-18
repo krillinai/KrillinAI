@@ -100,8 +100,6 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 
 创作工具提供可视化操作，Skills 则为 Agent 提供可复用的执行指引与工具工作流。OpenCreator 不仅支持管理本地 Codex Skills，还包含仓库中的视频制作技能，让工作流可以复用和扩展。
 
-### 视频工作流 Skills
-
 仓库的 [`skills/`](../../skills/) 目录提供了一组供 Agent 操作内嵌 KrillinAI CLI 的可复用指引。
 
 | Skill | 具体能力 |

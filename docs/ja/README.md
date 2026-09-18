@@ -95,8 +95,6 @@ Dashboard から、動画翻訳やダウンロード、サムネイル・画像�
 
 制作ツールは視覚的な操作を提供し、Skills は Agent に再利用可能な実行指針とツールのワークフローを提供します。OpenCreator はリポジトリに動画制作 Skills を含み、ローカルの Codex Skills の管理にも対応しています。
 
-### 動画ワークフロー Skills
-
 リポジトリの [`skills/`](../../skills/) ディレクトリには、内蔵の KrillinAI CLI を操作する Agent 向けの再利用可能な指針が含まれています。
 
 | Skill | 機能 |

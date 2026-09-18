@@ -95,8 +95,6 @@ Buka Dashboard untuk menerjemahkan atau mengunduh video, membuat thumbnail atau 
 
 Alat kreasi menyediakan kontrol visual; Skills memberi Agent instruksi dan alur kerja alat yang dapat digunakan kembali. OpenCreator menyertakan Skills produksi video di repositori serta mendukung pengelolaan Skills lokal Codex.
 
-### Skills alur kerja video
-
 Direktori [`skills/`](../../skills/) di repositori berisi instruksi yang dapat digunakan kembali oleh Agent untuk menjalankan KrillinAI CLI yang terintegrasi.
 
 | Skill | Kemampuan |

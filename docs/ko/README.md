@@ -95,8 +95,6 @@ Dashboard에서 동영상을 번역하거나 다운로드하고, 썸네일 또�
 
 제작 도구는 시각적 제어 기능을 제공하고, Skills는 Agent에 재사용 가능한 실행 지침과 도구 워크플로를 제공합니다. OpenCreator는 저장소에 동영상 제작 Skills를 포함하며 로컬 Codex Skills 관리도 지원합니다.
 
-### 동영상 워크플로 Skills
-
 저장소의 [`skills/`](../../skills/) 디렉터리에는 내장 KrillinAI CLI를 사용하는 Agent를 위한 재사용 가능한 지침이 포함되어 있습니다.
 
 | Skill | 기능 |
