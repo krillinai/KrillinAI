@@ -46,6 +46,7 @@ import {
 } from '../creator/templates/video-translation-actions.js';
 import type { CreatorProjectCoverService } from '../creator/project-cover.js';
 import type { CreatorStageRunner } from '../creator/stage-runner.js';
+import { CreatorPreflightError, type CreatorPreflight } from '../creator/preflight.js';
 import {
   CreatorArtifactImportError,
   type CreatorArtifactImportService
@@ -76,6 +77,7 @@ export async function registerCreatorRoutes(
     artifactImportService?: CreatorArtifactImportService;
     jobsRoot: string;
     dispatcher: CreatorCommandDispatcher;
+    preflight?: Pick<CreatorPreflight, 'check'>;
     stageRunner?: Pick<CreatorStageRunner, 'cancel'>;
   }
 ): Promise<void> {
@@ -194,6 +196,24 @@ export async function registerCreatorRoutes(
       outputs: template.outputs
     }))
   }));
+
+  server.get<{ Params: { id: string }; Querystring: { stageId?: string } }>(
+    '/creator/jobs/:id/preflight',
+    async (request, reply) => {
+      try {
+        const job = requireCreatorJob(service, request.params.id);
+        if (options.preflight === undefined) {
+          return reply.code(503).send(apiError('creator_preflight_unavailable' as RuntimeErrorCode, 'Creator preflight is unavailable'));
+        }
+        const stageId = readString(request.query.stageId, 'stageId');
+        const stage = service.templates.get(job.templateId, job.templateVersion).stages.find(candidate => candidate.id === stageId);
+        if (stage === undefined) throw new CreatorServiceError('creator_stage_not_found', 'Creator stage was not found');
+        return options.preflight.check(job, stage);
+      } catch (error) {
+        return sendCreatorError(reply, error);
+      }
+    }
+  );
 
   server.post<{ Body: unknown }>('/creator/jobs', async (request, reply) => {
     try {
@@ -338,6 +358,12 @@ export async function registerCreatorRoutes(
           'creator_job_not_resumable',
           'Creator job has no canceled or interrupted stage to resume'
         );
+      }
+      if (options.preflight !== undefined) {
+        const stage = service.templates.get(job.templateId, job.templateVersion).stages.find(candidate => candidate.id === latest.stageId);
+        if (stage === undefined) throw new CreatorServiceError('creator_stage_not_found', 'Creator stage was not found');
+        const preflight = await options.preflight.check(job, stage);
+        if (!preflight.canStart) throw new CreatorPreflightError(preflight);
       }
       if (job.templateId === 'video-translation' && options.videoTranslationWorkflow !== undefined) {
         try {
@@ -485,6 +511,18 @@ export async function registerCreatorRoutes(
               payload: { revision: latest.revision }
             });
           }
+          if (
+            options.preflight !== undefined
+            && error instanceof VideoTranslationWorkflowError
+            && (error.code === 'creator_llm_config_missing' || error.code === 'creator_tts_config_missing')
+          ) {
+            const stageId = readString(actionInput.stageId, 'stageId');
+            const stage = service.templates.get(jobBeforeAction.templateId, jobBeforeAction.templateVersion).stages.find(candidate => candidate.id === stageId);
+            if (stage !== undefined) {
+              const preflight = await options.preflight.check(jobBeforeAction, stage);
+              if (!preflight.canStart) throw new CreatorPreflightError(preflight);
+            }
+          }
           throw error;
         }
       }
@@ -509,6 +547,13 @@ export async function registerCreatorRoutes(
           }
           throw error;
         }
+      }
+      if (action === 'run-stage' && options.preflight !== undefined) {
+        const stageId = readString(actionInput.stageId, 'stageId');
+        const stage = service.templates.get(jobBeforeAction.templateId, jobBeforeAction.templateVersion).stages.find(candidate => candidate.id === stageId);
+        if (stage === undefined) throw new CreatorServiceError('creator_stage_not_found', 'Creator stage was not found');
+        const preflight = await options.preflight.check(jobBeforeAction, stage);
+        if (!preflight.canStart) throw new CreatorPreflightError(preflight);
       }
       const expectedRevision = readInteger(body.expectedRevision, 'expectedRevision');
       const result = options.dispatcher.dispatch(id, {
