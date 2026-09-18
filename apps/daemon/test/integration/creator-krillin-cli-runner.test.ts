@@ -112,7 +112,7 @@ describe('KrillinAI CLI runner', () => {
     config.transcription.volcengine.accessToken = 'asr-token';
     config.tts.provider = 'volcengine';
     config.tts.volcengine.appId = 'tts-app';
-    config.tts.volcengine.apiKey = 'tts-token';
+    config.tts.volcengine.accessToken = 'tts-token';
 
     const value = parse(createKrillinConfigToml(config)) as {
       transcribe: { provider: string; volcengine: Record<string, string> };

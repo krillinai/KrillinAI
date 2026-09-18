@@ -245,33 +245,9 @@ func (c *TtsClient) synthesizeV3(ctx context.Context, options types.TTSSpeechOpt
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("volcengine tts 2.0 returned HTTP %d: %s", response.StatusCode, boundedMessage(payload))
 	}
-	var audio []byte
-	for _, line := range strings.Split(string(payload), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		var decoded ttsV3Chunk
-		if err := json.Unmarshal([]byte(line), &decoded); err != nil {
-			continue
-		}
-		if decoded.Code == ttsV3SuccessCode {
-			break
-		}
-		if decoded.Code != 0 {
-			return fmt.Errorf("volcengine tts 2.0 error %d: %s", decoded.Code, decoded.Message)
-		}
-		if decoded.Data == "" {
-			continue
-		}
-		chunk, err := base64.StdEncoding.DecodeString(decoded.Data)
-		if err != nil {
-			return fmt.Errorf("volcengine tts 2.0 decode audio: %w", err)
-		}
-		audio = append(audio, chunk...)
-	}
-	if len(audio) == 0 {
-		return fmt.Errorf("volcengine tts 2.0 response did not include audio")
+	audio, err := parseV3Audio(payload)
+	if err != nil {
+		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(options.OutputFile), 0755); err != nil {
 		return err
@@ -280,9 +256,76 @@ func (c *TtsClient) synthesizeV3(ctx context.Context, options types.TTSSpeechOpt
 }
 
 type ttsV3Chunk struct {
-	Code    int    `json:"code"`
+	Code    *int   `json:"code"`
 	Message string `json:"message"`
 	Data    string `json:"data"`
+}
+
+func parseV3Audio(payload []byte) ([]byte, error) {
+	var audio []byte
+	completed := false
+	for _, line := range strings.Split(string(payload), "\n") {
+		chunk, done, err := parseV3Frame(line)
+		if err != nil {
+			return nil, err
+		}
+		if done {
+			completed = true
+			break
+		}
+		if len(chunk) > 0 {
+			audio = append(audio, chunk...)
+		}
+	}
+	if len(audio) == 0 {
+		if completed {
+			return nil, fmt.Errorf("volcengine tts 2.0 completed without audio")
+		}
+		return nil, fmt.Errorf("volcengine tts 2.0 response did not include audio")
+	}
+	return audio, nil
+}
+
+func parseV3Frame(line string) (chunk []byte, complete bool, err error) {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return nil, false, nil
+	}
+	if strings.HasPrefix(line, "data:") {
+		line = strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if line == "" {
+			return nil, false, nil
+		}
+	}
+	var decoded ttsV3Chunk
+	if unmarshalErr := json.Unmarshal([]byte(line), &decoded); unmarshalErr != nil {
+		return nil, false, fmt.Errorf("volcengine tts 2.0 returned a non-JSON frame: %s", boundedMessage([]byte(line)))
+	}
+	if decoded.Code == nil {
+		return nil, false, fmt.Errorf("volcengine tts 2.0 frame missing code: %s", boundedMessage([]byte(line)))
+	}
+	switch *decoded.Code {
+	case ttsV3SuccessCode:
+		return nil, true, nil
+	case 0:
+		if decoded.Data == "" {
+			return nil, false, nil
+		}
+		audio, decodeErr := base64.StdEncoding.DecodeString(decoded.Data)
+		if decodeErr != nil {
+			return nil, false, fmt.Errorf("volcengine tts 2.0 decode audio: %w", decodeErr)
+		}
+		if len(audio) == 0 {
+			return nil, false, fmt.Errorf("volcengine tts 2.0 returned invalid audio")
+		}
+		return audio, false, nil
+	default:
+		message := strings.TrimSpace(decoded.Message)
+		if message == "" {
+			message = fmt.Sprintf("%d", *decoded.Code)
+		}
+		return nil, false, fmt.Errorf("volcengine tts 2.0 error %d: %s", *decoded.Code, message)
+	}
 }
 
 func resolveTTSRoute(cluster, voice string) (api, resource string) {

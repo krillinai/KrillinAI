@@ -634,8 +634,8 @@ function TranscriptionSettings(props: SettingsGroupProps & {
           />
           <p className="creator-services-inline-note">
             {l(
-              '使用豆包语音控制台的 App ID 和 Access Token。录音文件识别大模型需单独开通。',
-              'Use the App ID and Access Token from the Doubao Voice console. File recognition must be enabled separately.'
+              '使用豆包语音控制台的 App ID 和 Access Token。录音文件识别、TTS V1 与 TTS V3 共用同一套 Access Token，仅请求头字段名不同。',
+              'Use the App ID and Access Token from the Doubao Voice console. File recognition, TTS V1, and TTS V3 share that Access Token; only the HTTP field names differ.'
             )}
           </p>
         </>
@@ -767,8 +767,8 @@ function TtsSettings(props: SettingsGroupProps) {
           />
           <p className="creator-services-inline-note">
             {l(
-              '小模型走 V1 HTTP；豆包 2.0 / 声音复刻走 V3。可在音色列表选择官方音色，或填写克隆 Speaker ID（S_ 开头）。',
-              'Small-model voices use V1 HTTP. Doubao 2.0 and voice cloning use V3. Pick an official voice or enter a cloned speaker ID starting with S_.'
+              '使用与语音识别相同的豆包语音控制台 App ID 和 Access Token。小模型走 V1 HTTP（Bearer Token）；豆包 2.0 / 声音复刻走 V3（X-Api-Access-Key）。可在音色列表选择官方音色，或填写克隆 Speaker ID（S_ 开头）。',
+              'Use the same Doubao Voice console App ID and Access Token as transcription. Small-model voices use V1 HTTP (Bearer token). Doubao 2.0 and voice cloning use V3 (X-Api-Access-Key). Pick an official voice or enter a cloned speaker ID starting with S_.'
             )}
           </p>
         </>
@@ -1007,11 +1007,11 @@ function VolcengineTtsFields(props: {
         onChange={appId => props.onChange({ ...props.value, appId })}
       />
       <PasswordField
-        id="tts-volcengine-api-key"
+        id="tts-volcengine-access-token"
         label="Access Token"
-        value={props.value.apiKey}
-        configured={props.configuredCredentials.has('tts.volcengine.apiKey')}
-        onChange={apiKey => props.onChange({ ...props.value, apiKey })}
+        value={props.value.accessToken}
+        configured={props.configuredCredentials.has('tts.volcengine.accessToken')}
+        onChange={accessToken => props.onChange({ ...props.value, accessToken })}
       />
       <SelectField
         id="tts-volcengine-cluster"

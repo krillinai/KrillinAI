@@ -9,6 +9,7 @@ import {
   createFileCreatorServicesConfigStore,
   createOpenCreatorCreatorServicesConfigStore,
   CreatorServicesConfigStoreError,
+  parseCreatorServicesConfig,
   presentCreatorServicesConfig,
   retainCreatorServicesCredentials,
   type CreatorServicesConfigStore
@@ -118,7 +119,7 @@ describe('CreatorServicesConfigStore', () => {
     expect(config.transcription.volcengine.accessToken).toBe('env-access-token');
     expect(config.tts.provider).toBe('volcengine');
     expect(config.tts.volcengine.appId).toBe('env-app-id');
-    expect(config.tts.volcengine.apiKey).toBe('env-access-token');
+    expect(config.tts.volcengine.accessToken).toBe('env-access-token');
     expect(existsSync(configFile)).toBe(false);
     expect(existsSync(credentialsFile)).toBe(false);
   });
@@ -186,23 +187,44 @@ describe('CreatorServicesConfigStore', () => {
     current.transcription.volcengine.appId = 'asr-app';
     current.transcription.volcengine.accessToken = 'asr-token';
     current.tts.volcengine.appId = 'tts-app';
-    current.tts.volcengine.apiKey = 'tts-token';
+    current.tts.volcengine.accessToken = 'tts-token';
 
     const presented = presentCreatorServicesConfig(current);
     expect(presented.configuredCredentials).toEqual(expect.arrayContaining([
       'transcription.volcengine.appId',
       'transcription.volcengine.accessToken',
       'tts.volcengine.appId',
-      'tts.volcengine.apiKey'
+      'tts.volcengine.accessToken'
     ]));
     expect(presented.config.transcription.volcengine.appId).toBe('');
     expect(presented.config.transcription.volcengine.accessToken).toBe('');
     expect(presented.config.tts.volcengine.appId).toBe('');
-    expect(presented.config.tts.volcengine.apiKey).toBe('');
+    expect(presented.config.tts.volcengine.accessToken).toBe('');
     expect(retainCreatorServicesCredentials(presented.config, current).transcription.volcengine)
       .toEqual(current.transcription.volcengine);
     expect(retainCreatorServicesCredentials(presented.config, current).tts.volcengine)
       .toEqual(current.tts.volcengine);
+  });
+
+  it('migrates legacy tts.volcengine.apiKey into accessToken', () => {
+    const current = createDefaultCreatorServicesConfig();
+    const parsed = parseCreatorServicesConfig({
+      ...current,
+      tts: {
+        ...current.tts,
+        volcengine: {
+          baseUrl: current.tts.volcengine.baseUrl,
+          apiKey: 'legacy-token',
+          model: current.tts.volcengine.model,
+          defaultVoiceId: current.tts.volcengine.defaultVoiceId,
+          appId: 'app-1'
+        }
+      }
+    } as unknown);
+
+    expect(parsed.tts.volcengine.accessToken).toBe('legacy-token');
+    expect(parsed.tts.volcengine.appId).toBe('app-1');
+    expect(parsed.tts.volcengine).not.toHaveProperty('apiKey');
   });
 
   it('uses Codex as fallback until a custom text model is configured', async () => {

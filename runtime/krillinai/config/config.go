@@ -62,6 +62,8 @@ type AliyunTranscribeConfig struct {
 	Speech AliyunSpeechConfig `toml:"speech"`
 }
 
+// VolcengineAsrConfig holds Doubao Voice / OpenSpeech console credentials.
+// AppId and AccessToken are shared with TTS; ASR sends the token as X-Api-Access-Key.
 type VolcengineAsrConfig struct {
 	AppId       string `toml:"app_id"`
 	AccessToken string `toml:"access_token"`
@@ -69,6 +71,9 @@ type VolcengineAsrConfig struct {
 	BaseUrl     string `toml:"base_url"`
 }
 
+// VolcengineTtsConfig uses the same console Access Token as ASR.
+// V1 sends it as Authorization: Bearer;<token> and JSON app.token.
+// V3 sends it as X-Api-Access-Key.
 type VolcengineTtsConfig struct {
 	AppId          string `toml:"app_id"`
 	AccessToken    string `toml:"access_token"`

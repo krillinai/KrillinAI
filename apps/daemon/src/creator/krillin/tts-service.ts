@@ -21,6 +21,7 @@ import {
   resolveVolcengineTtsRoute,
   volcengineSpeechRate
 } from './volcengine-tts-catalog.js';
+import { parseVolcengineV3Audio } from './volcengine-tts-v3.js';
 
 const MAX_OUTPUT_BYTES = 100 * 1024 * 1024;
 const MAX_PROCESS_OUTPUT_BYTES = 4 * 1024 * 1024;
@@ -268,7 +269,7 @@ function ensureCredentials(
   provider: Exclude<CreatorTtsProvider, 'edge-tts'>
 ): void {
   if (provider === 'volcengine') {
-    if (config.tts.volcengine.appId.trim() && config.tts.volcengine.apiKey.trim()) return;
+    if (config.tts.volcengine.appId.trim() && config.tts.volcengine.accessToken.trim()) return;
     throw new KrillinTtsServiceError(
       'creator_tts_config_missing',
       'Configure the Volcengine TTS App ID and Access Token before generating speech',
@@ -348,13 +349,13 @@ async function synthesizeVolcengine(
   const response = await timedFetch(endpoint, {
     method: 'POST',
     headers: {
-      authorization: `Bearer;${provider.apiKey}`,
+      authorization: `Bearer;${provider.accessToken}`,
       'content-type': 'application/json'
     },
     body: JSON.stringify({
       app: {
         appid: provider.appId,
-        token: provider.apiKey,
+        token: provider.accessToken,
         cluster: route.cluster
       },
       user: { uid: 'opencreator' },
@@ -400,7 +401,7 @@ async function synthesizeVolcengineV3(
     headers: {
       'content-type': 'application/json',
       'X-Api-App-Id': provider.appId,
-      'X-Api-Access-Key': provider.apiKey,
+      'X-Api-Access-Key': provider.accessToken,
       'X-Api-Resource-Id': resourceId,
       'X-Api-Request-Id': crypto.randomUUID()
     },
@@ -418,32 +419,8 @@ async function synthesizeVolcengineV3(
     })
   }, input);
   if (!response.ok) await throwProviderHttpError(response);
-  const chunks: Buffer[] = [];
-  const payload = await response.text();
-  for (const line of payload.split(/\r?\n/)) {
-    collectVolcengineV3Audio(line, chunks);
-  }
-  const content = Buffer.concat(chunks);
-  if (content.length === 0) throw new Error('Volcengine TTS 2.0 response did not contain audio');
+  const content = parseVolcengineV3Audio(await response.text());
   return { content, format: detectAudioFormat(content, input.format) };
-}
-
-function collectVolcengineV3Audio(line: string, chunks: Buffer[]): void {
-  const trimmed = line.trim();
-  if (!trimmed) return;
-  let payload: { code?: number; message?: string; data?: string };
-  try {
-    payload = JSON.parse(trimmed) as { code?: number; message?: string; data?: string };
-  } catch {
-    return;
-  }
-  if (payload.code === 20000000) return;
-  if (payload.code !== undefined && payload.code !== 0) {
-    throw new Error(`Volcengine TTS 2.0 failed: ${payload.message || payload.code}`);
-  }
-  if (typeof payload.data === 'string' && payload.data.length > 0) {
-    chunks.push(Buffer.from(payload.data, 'base64'));
-  }
 }
 
 async function synthesizeOpenAi(

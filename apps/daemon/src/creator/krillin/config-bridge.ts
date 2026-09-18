@@ -42,7 +42,7 @@ export function createKrillinConfigToml(config: CreatorServicesConfig): string {
       aliyun: ttsProvider(config.tts.aliyun),
       volcengine: {
         app_id: config.tts.volcengine.appId,
-        access_token: config.tts.volcengine.apiKey,
+        access_token: config.tts.volcengine.accessToken,
         cluster: config.tts.volcengine.model,
         default_voice_id: config.tts.volcengine.defaultVoiceId,
         base_url: config.tts.volcengine.baseUrl

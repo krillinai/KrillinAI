@@ -253,7 +253,7 @@ describe('KrillinTtsService', () => {
     const config = createDefaultCreatorServicesConfig();
     config.tts.provider = 'volcengine';
     config.tts.volcengine.appId = 'app-1';
-    config.tts.volcengine.apiKey = 'token-1';
+    config.tts.volcengine.accessToken = 'token-1';
     const audio = Buffer.from('mp3-bytes');
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       code: 3000,
@@ -304,7 +304,7 @@ describe('KrillinTtsService', () => {
     const config = createDefaultCreatorServicesConfig();
     config.tts.provider = 'volcengine';
     config.tts.volcengine.appId = 'app-1';
-    config.tts.volcengine.apiKey = 'token-1';
+    config.tts.volcengine.accessToken = 'token-1';
     const audio = Buffer.from('v3-bytes');
     const ndjson = [
       JSON.stringify({ code: 0, data: audio.toString('base64') }),

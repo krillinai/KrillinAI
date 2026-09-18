@@ -93,9 +93,20 @@ const legacyVideoConfigSchema = z.object({
 const legacyAliyunTtsSchema = aliyunSchema.transform(() => (
   structuredClone(creatorServicesDefaults.tts.aliyun)
 ));
-const volcengineTtsSchema = ttsProviderSchema(creatorServicesDefaults.tts.volcengine.defaultVoiceId).extend({
+const volcengineTtsSchema = z.object({
+  baseUrl: boundedString(2048),
+  accessToken: boundedString(4096).optional(),
+  apiKey: boundedString(4096).optional(),
+  model: boundedString(128),
+  defaultVoiceId: boundedString(256).default(creatorServicesDefaults.tts.volcengine.defaultVoiceId),
   appId: boundedString(256).default('')
-}).strict();
+}).strict().transform(value => ({
+  baseUrl: value.baseUrl,
+  accessToken: value.accessToken || value.apiKey || '',
+  model: value.model,
+  defaultVoiceId: value.defaultVoiceId,
+  appId: value.appId
+}));
 const ttsConfigSchema = z.object({
   provider: z.enum(['openai', 'aliyun', 'edge-tts', 'minimax', 'volcengine']),
   openai: ttsProviderSchema(creatorServicesDefaults.tts.openai.defaultVoiceId),
@@ -294,7 +305,7 @@ const creatorCredentialPaths = [
   'tts.minimax.apiKey',
   'tts.aliyun.apiKey',
   'tts.volcengine.appId',
-  'tts.volcengine.apiKey',
+  'tts.volcengine.accessToken',
   'image.openai.apiKey',
   'image.jimeng.apiKey',
   'image.kling.accessKey',
@@ -325,11 +336,24 @@ function applyCreatorServiceCredentials(
   credentials: Record<string, string>
 ): CreatorServicesConfig {
   const merged = structuredClone(config);
+  const migrated = migrateVolcengineTtsCredentials(credentials);
   for (const path of creatorCredentialPaths) {
-    const value = credentials[path];
+    const value = migrated[path];
     if (value !== undefined) writePath(merged, path, value);
   }
   return parseCreatorServicesConfig(merged);
+}
+
+function migrateVolcengineTtsCredentials(
+  credentials: Record<string, string>
+): Record<string, string> {
+  if (credentials['tts.volcengine.accessToken'] || !credentials['tts.volcengine.apiKey']) {
+    return credentials;
+  }
+  const next = { ...credentials };
+  next['tts.volcengine.accessToken'] = credentials['tts.volcengine.apiKey'];
+  delete next['tts.volcengine.apiKey'];
+  return next;
 }
 
 function readPath(value: unknown, path: string): unknown {
@@ -379,7 +403,7 @@ export function presentCreatorServicesConfig(
   redact('tts.minimax.apiKey', redacted.tts.minimax.apiKey, () => { redacted.tts.minimax.apiKey = ''; });
   redact('tts.aliyun.apiKey', redacted.tts.aliyun.apiKey, () => { redacted.tts.aliyun.apiKey = ''; });
   redact('tts.volcengine.appId', redacted.tts.volcengine.appId, () => { redacted.tts.volcengine.appId = ''; });
-  redact('tts.volcengine.apiKey', redacted.tts.volcengine.apiKey, () => { redacted.tts.volcengine.apiKey = ''; });
+  redact('tts.volcengine.accessToken', redacted.tts.volcengine.accessToken, () => { redacted.tts.volcengine.accessToken = ''; });
   redact('image.openai.apiKey', redacted.image.openai.apiKey, () => { redacted.image.openai.apiKey = ''; });
   redact('image.jimeng.apiKey', redacted.image.jimeng.apiKey, () => { redacted.image.jimeng.apiKey = ''; });
   redact('image.kling.accessKey', redacted.image.kling.accessKey, () => { redacted.image.kling.accessKey = ''; });
@@ -419,7 +443,7 @@ export function retainCreatorServicesCredentials(
   retainBlank(() => merged.tts.minimax.apiKey, value => { merged.tts.minimax.apiKey = value; }, current.tts.minimax.apiKey);
   retainBlank(() => merged.tts.aliyun.apiKey, value => { merged.tts.aliyun.apiKey = value; }, current.tts.aliyun.apiKey);
   retainBlank(() => merged.tts.volcengine.appId, value => { merged.tts.volcengine.appId = value; }, current.tts.volcengine.appId);
-  retainBlank(() => merged.tts.volcengine.apiKey, value => { merged.tts.volcengine.apiKey = value; }, current.tts.volcengine.apiKey);
+  retainBlank(() => merged.tts.volcengine.accessToken, value => { merged.tts.volcengine.accessToken = value; }, current.tts.volcengine.accessToken);
   retainBlank(() => merged.image.openai.apiKey, value => { merged.image.openai.apiKey = value; }, current.image.openai.apiKey);
   retainBlank(() => merged.image.jimeng.apiKey, value => { merged.image.jimeng.apiKey = value; }, current.image.jimeng.apiKey);
   retainBlank(() => merged.image.kling.accessKey, value => { merged.image.kling.accessKey = value; }, current.image.kling.accessKey);

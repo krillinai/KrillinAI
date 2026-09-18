@@ -373,7 +373,7 @@ function createVideoConfig() {
       aliyun: { baseUrl: '', apiKey: '', model: '', defaultVoiceId: '' },
       volcengine: {
         baseUrl: 'https://openspeech.bytedance.com',
-        apiKey: '',
+        accessToken: '',
         model: 'volcano_tts',
         defaultVoiceId: 'BV001_streaming',
         appId: ''

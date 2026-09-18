@@ -1,12 +1,14 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
-const MAX_WALK_DEPTH = 8;
+export const VOLCENGINE_ENV_KEYS = ['VOLCENGINE_APP_ID', 'VOLCENGINE_ACCESS_TOKEN'] as const;
+export type VolcengineEnvKey = (typeof VOLCENGINE_ENV_KEYS)[number];
+
+export type VolcengineEnvironment = Partial<Record<VolcengineEnvKey, string>>;
 
 export type LocalEnvironmentLoadOptions = {
   env?: NodeJS.ProcessEnv;
-  cwd?: string;
   homeDir?: string | null;
 };
 
@@ -32,50 +34,45 @@ export function parseEnvFile(source: string): Record<string, string> {
   return result;
 }
 
-export function loadLocalEnvironment(
+export function loadVolcengineEnvironment(
   options: LocalEnvironmentLoadOptions = {}
-): string[] {
+): VolcengineEnvironment {
   const env = options.env ?? process.env;
-  const loaded: string[] = [];
-  for (const file of resolveLocalEnvFiles(options)) {
-    applyEnvFile(file, env);
-    loaded.push(file);
+  const fileValues = readWhitelistedVolcengineEnvFile(options);
+  const result: VolcengineEnvironment = {};
+  for (const key of VOLCENGINE_ENV_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(env, key)) {
+      const trimmed = env[key]?.trim() ?? '';
+      if (trimmed) result[key] = trimmed;
+      continue;
+    }
+    const fromFile = fileValues[key]?.trim();
+    if (fromFile) result[key] = fromFile;
   }
-  return loaded;
+  return result;
 }
 
-function resolveLocalEnvFiles(options: LocalEnvironmentLoadOptions): string[] {
+function readWhitelistedVolcengineEnvFile(
+  options: LocalEnvironmentLoadOptions
+): VolcengineEnvironment {
+  const file = resolveVolcengineEnvFile(options);
+  if (file === undefined) return {};
+  const parsed = parseEnvFile(readFileSync(file, 'utf8'));
+  const result: VolcengineEnvironment = {};
+  for (const key of VOLCENGINE_ENV_KEYS) {
+    const value = parsed[key]?.trim();
+    if (value) result[key] = value;
+  }
+  return result;
+}
+
+function resolveVolcengineEnvFile(options: LocalEnvironmentLoadOptions): string | undefined {
   const env = options.env ?? process.env;
   const explicit = env.OPENCREATOR_ENV_FILE?.trim();
   if (explicit) {
-    return existsSync(explicit) ? [resolve(explicit)] : [];
+    return existsSync(explicit) ? resolve(explicit) : undefined;
   }
-
-  const files: string[] = [];
-  if (options.homeDir !== null) {
-    const homeFile = join(options.homeDir ?? homedir(), '.opencreator', '.env.local');
-    if (existsSync(homeFile)) files.push(homeFile);
-  }
-
-  let dir = resolve(options.cwd ?? process.cwd());
-  for (let depth = 0; depth < MAX_WALK_DEPTH; depth += 1) {
-    const candidate = join(dir, '.env.local');
-    if (existsSync(candidate) && !files.includes(candidate)) {
-      files.push(candidate);
-      break;
-    }
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return files;
-}
-
-function applyEnvFile(file: string, env: NodeJS.ProcessEnv): void {
-  const parsed = parseEnvFile(readFileSync(file, 'utf8'));
-  for (const [key, value] of Object.entries(parsed)) {
-    if (env[key] === undefined || env[key] === '') {
-      env[key] = value;
-    }
-  }
+  if (options.homeDir === null) return undefined;
+  const homeFile = join(options.homeDir ?? homedir(), '.opencreator', '.env.local');
+  return existsSync(homeFile) ? homeFile : undefined;
 }

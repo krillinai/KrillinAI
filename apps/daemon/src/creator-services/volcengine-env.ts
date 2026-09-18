@@ -1,13 +1,14 @@
 import type { CreatorServicesConfig } from '@opencreator/protocol';
+import {
+  loadVolcengineEnvironment,
+  type VolcengineEnvironment
+} from '../env-local.js';
 
-export type VolcengineEnvironment = {
-  VOLCENGINE_APP_ID?: string;
-  VOLCENGINE_ACCESS_TOKEN?: string;
-};
+export type { VolcengineEnvironment };
 
 export function applyVolcengineEnvironmentOverrides(
   config: CreatorServicesConfig,
-  env: VolcengineEnvironment = process.env
+  env: VolcengineEnvironment = loadVolcengineEnvironment()
 ): CreatorServicesConfig {
   const appId = env.VOLCENGINE_APP_ID?.trim() ?? '';
   const accessToken = env.VOLCENGINE_ACCESS_TOKEN?.trim() ?? '';
@@ -26,17 +27,19 @@ export function applyVolcengineEnvironmentOverrides(
     if (!next.transcription.volcengine.accessToken.trim()) {
       next.transcription.volcengine.accessToken = accessToken;
     }
-    if (!next.tts.volcengine.apiKey.trim()) {
-      next.tts.volcengine.apiKey = accessToken;
+    if (!next.tts.volcengine.accessToken.trim()) {
+      next.tts.volcengine.accessToken = accessToken;
     }
   }
 
-  const configured = next.transcription.volcengine.appId.trim().length > 0
-    && next.transcription.volcengine.accessToken.trim().length > 0;
-  if (configured && shouldPreferVolcengineTranscription(next)) {
+  const asr = next.transcription.volcengine;
+  const tts = next.tts.volcengine;
+  const asrConfigured = Boolean(asr.appId.trim() && asr.accessToken.trim());
+  const ttsConfigured = Boolean(tts.appId.trim() && tts.accessToken.trim());
+  if (asrConfigured && shouldPreferVolcengineTranscription(next)) {
     next.transcription.provider = 'volcengine';
   }
-  if (configured && shouldPreferVolcengineTts(next)) {
+  if (ttsConfigured && shouldPreferVolcengineTts(next)) {
     next.tts.provider = 'volcengine';
   }
   return next;

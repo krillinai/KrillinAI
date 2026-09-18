@@ -17,13 +17,24 @@ export type CreatorTtsProviderConfig = OpenAiCompatibleConfig & {
   defaultVoiceId: string;
 };
 
-export type VolcengineTtsConfig = CreatorTtsProviderConfig & {
-  appId: string;
-};
-
-export type VolcengineAsrConfig = {
+/**
+ * Doubao Voice / OpenSpeech console credentials.
+ * ASR, TTS V1, and TTS V3 share this Access Token; only the wire names differ:
+ * ASR and TTS V3 send `X-Api-Access-Key`, while TTS V1 sends
+ * `Authorization: Bearer;<token>` and JSON `app.token`.
+ */
+export type VolcengineSpeechCredentials = {
   appId: string;
   accessToken: string;
+};
+
+export type VolcengineTtsConfig = VolcengineSpeechCredentials & {
+  baseUrl: string;
+  model: string;
+  defaultVoiceId: string;
+};
+
+export type VolcengineAsrConfig = VolcengineSpeechCredentials & {
   resourceId: string;
   baseUrl: string;
 };
@@ -165,7 +176,7 @@ export type CreatorServicesCredentialField =
   | 'tts.minimax.apiKey'
   | 'tts.aliyun.apiKey'
   | 'tts.volcengine.appId'
-  | 'tts.volcengine.apiKey'
+  | 'tts.volcengine.accessToken'
   | 'image.openai.apiKey'
   | 'image.jimeng.apiKey'
   | 'image.kling.accessKey'
@@ -235,7 +246,7 @@ export function createDefaultCreatorServicesConfig(): CreatorServicesConfig {
       },
       volcengine: {
         baseUrl: defaultVolcengineSpeechBaseUrl,
-        apiKey: '',
+        accessToken: '',
         model: defaultVolcengineTtsCluster,
         defaultVoiceId: defaultVolcengineTtsVoiceId,
         appId: ''

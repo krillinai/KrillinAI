@@ -238,6 +238,44 @@ func TestTtsSynthesizeUsesV3ForDoubaoTwoOhVoices(t *testing.T) {
 	}
 }
 
+func TestParseV3AudioStrictFrames(t *testing.T) {
+	first := base64.StdEncoding.EncodeToString([]byte("aa"))
+	second := base64.StdEncoding.EncodeToString([]byte("bb"))
+	audio, err := parseV3Audio([]byte(strings.Join([]string{
+		`{"code":0,"data":"` + first + `"}`,
+		`{"code":0,"data":"` + second + `"}`,
+		`{"code":20000000,"message":"OK"}`,
+		`{"code":0,"data":"` + base64.StdEncoding.EncodeToString([]byte("cc")) + `"}`,
+	}, "\n")))
+	if err != nil {
+		t.Fatalf("parseV3Audio() error = %v", err)
+	}
+	if string(audio) != "aabb" {
+		t.Fatalf("audio = %q", audio)
+	}
+
+	sse, err := parseV3Audio([]byte("data: {\"code\":0,\"data\":\"" + first + "\"}\ndata: {\"code\":20000000,\"message\":\"OK\"}\n"))
+	if err != nil {
+		t.Fatalf("SSE parseV3Audio() error = %v", err)
+	}
+	if string(sse) != "aa" {
+		t.Fatalf("sse audio = %q", sse)
+	}
+
+	if _, err := parseV3Audio([]byte("{\"code\":0,\"data\":\"" + first + "\"}\n{not-json}\n")); err == nil || !strings.Contains(err.Error(), "non-JSON frame") {
+		t.Fatalf("malformed frame error = %v", err)
+	}
+	if _, err := parseV3Audio([]byte(`{"message":"oops"}`)); err == nil || !strings.Contains(err.Error(), "missing code") {
+		t.Fatalf("missing code error = %v", err)
+	}
+	if _, err := parseV3Audio([]byte(`{"code":45000000,"message":"quota exceeded"}`)); err == nil || !strings.Contains(err.Error(), "quota exceeded") {
+		t.Fatalf("provider error = %v", err)
+	}
+	if _, err := parseV3Audio([]byte(`{"code":20000000,"message":"OK"}`)); err == nil || !strings.Contains(err.Error(), "completed without audio") {
+		t.Fatalf("empty completion error = %v", err)
+	}
+}
+
 func TestSpeechFormatUsesOutputExtension(t *testing.T) {
 	if got := speechFormat("", "speech.wav"); got != "wav" {
 		t.Fatalf("wav format = %q", got)

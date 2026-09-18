@@ -38,8 +38,6 @@ import {
   installManagedParentWatch,
   parseManagedParentPid
 } from './managed-parent.js';
-import { loadLocalEnvironment } from './env-local.js';
-
 type BootstrapPhase = 'starting_runtime';
 
 let server: FastifyInstance | undefined;
@@ -63,7 +61,6 @@ await main().catch(error => {
 });
 
 async function main(): Promise<void> {
-  loadLocalEnvironment();
   const token = createRuntimeToken();
   const environment = resolveProductionServerEnvironment();
   const paths = resolveProductionRuntimePaths(environment, {

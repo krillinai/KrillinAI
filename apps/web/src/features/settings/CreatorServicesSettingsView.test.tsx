@@ -103,6 +103,7 @@ describe('CreatorServicesSettingsView', () => {
     await user.click(screen.getByRole('option', { name: '火山引擎' }));
     expect(screen.getByLabelText('Access Token')).toBeInTheDocument();
     expect(screen.getByLabelText('资源 ID')).toHaveValue('volc.seedasr.auc');
+    expect(screen.getByText(/共用同一套 Access Token/)).toBeInTheDocument();
     expect(screen.queryByText('OSS 存储')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: '配音服务' }));
@@ -112,6 +113,7 @@ describe('CreatorServicesSettingsView', () => {
       .toHaveTextContent('小模型 TTS（volcano_tts）');
     expect(screen.getByLabelText('Access Token')).toBeInTheDocument();
     expect(screen.getByLabelText('克隆 / 自定义 Speaker ID')).toBeInTheDocument();
+    expect(screen.getByText(/使用与语音识别相同的豆包语音控制台/)).toBeInTheDocument();
     expect(screen.getByText(/豆包 2.0 \/ 声音复刻走 V3/)).toBeInTheDocument();
 
     await user.click(screen.getByRole('combobox', { name: '服务商' }));
