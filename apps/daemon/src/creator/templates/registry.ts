@@ -1,5 +1,8 @@
-import { createVideoTranslationTemplate } from './video-translation.js';
 import { z } from 'zod';
+import {
+  createLegacyVideoTranslationTemplate,
+  createVideoTranslationTemplate
+} from './video-translation.js';
 import {
   createLegacyVideoDownloadTemplate,
   createVideoDownloadTemplate
@@ -36,11 +39,13 @@ export {
   createWechatArticleTemplate,
   createLegacyVideoDownloadTemplate,
   createVideoDownloadTemplate,
+  createLegacyVideoTranslationTemplate,
   createVideoTranslationTemplate
 };
 
 export function createDefaultCreatorTemplateRegistry(): CreatorTemplateRegistry {
   return createCreatorTemplateRegistry([
+    createLegacyVideoTranslationTemplate(),
     createVideoTranslationTemplate(),
     createLegacyVideoDownloadTemplate(),
     createVideoDownloadTemplate(),

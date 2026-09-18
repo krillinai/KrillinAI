@@ -1,3 +1,4 @@
+import { creatorPromptMaxLength } from '@opencreator/protocol';
 import { z } from 'zod';
 import type { CreatorTemplateDefinition } from './types.js';
 
@@ -20,7 +21,7 @@ function createImageGenerationTemplateDefinition(
     version,
     renderer: 'image-generation',
     inputSchema: z.object({
-      prompt: z.string().max(4_000).default(''),
+      prompt: z.string().max(creatorPromptMaxLength).default(''),
       provider: z.enum(['openai', 'jimeng', 'kling', 'gemini']).default('openai'),
       size: z.enum(['1024x1024', '1536x1024', '1024x1536']).default('1024x1024'),
       quality: z.enum(['low', 'medium', 'high']).default('medium'),

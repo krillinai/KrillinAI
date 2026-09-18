@@ -14,6 +14,7 @@ import type {
   CreatorEventEnvelope,
   CreatorJob,
   CreatorJobListResponse,
+  CreatorPresetListResponse,
   CreatorStageRun,
   CreatorSourceUploadResponse,
   CreatorTemplateListResponse,
@@ -48,6 +49,12 @@ export function createCreatorService(client: ClientLike) {
   return {
     listTemplates(): Promise<CreatorTemplateListResponse> {
       return client.get('/creator/templates') as Promise<CreatorTemplateListResponse>;
+    },
+    listPresets(locale: string): Promise<CreatorPresetListResponse> {
+      const presetLocale = locale === 'zh-CN' ? 'zh-CN' : 'en-US';
+      return client.get(
+        `/creator/presets?locale=${encodeURIComponent(presetLocale)}`
+      ) as Promise<CreatorPresetListResponse>;
     },
     listVisualAssets(
       templateId: string,

@@ -516,6 +516,7 @@ function createFixture() {
     templateVersion: 2,
     status: 'draft',
     revision: 0,
+    presetOrigin: null,
     state: {
       sourceType: 'prompt',
       sourceUrl: '',

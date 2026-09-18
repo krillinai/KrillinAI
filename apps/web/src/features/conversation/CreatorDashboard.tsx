@@ -1,12 +1,30 @@
-import { useState } from 'react';
-import { Mic2 } from 'lucide-react';
-import { useAppLanguage } from '../../i18n/LanguageProvider.js';
+import type {
+  CreatorPresetSummary,
+  CreatorRuntimeWorkspace
+} from '@opencreator/protocol';
 import {
-  isVisibleCreatorWorkspace,
-  type CreatorWorkspace
-} from '../dashboard/creator-workspace.js';
-
-type CreatorSkillCategory = '最近' | '推荐' | '视频创作' | '数字人' | '图像设计' | '内容营销';
+  ArrowLeft,
+  ChevronDown,
+  ExternalLink,
+  Maximize2,
+  Play,
+  RefreshCw,
+  Search,
+  WandSparkles,
+  UserRound,
+  X
+} from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
+import { createPortal } from 'react-dom';
+import { useAppLanguage } from '../../i18n/LanguageProvider.js';
+import type { CreatorWorkspace } from '../dashboard/creator-workspace.js';
 
 export type CreatorSkill = {
   id: string;
@@ -23,425 +41,655 @@ export type CreatorSkill = {
   };
 };
 
-const creatorSkillCategories: CreatorSkillCategory[] = [
-  '最近',
-  '推荐',
-  '视频创作',
-  '数字人',
-  '图像设计',
-  '内容营销'
+type CreatorHomeCategory = 'recent' | 'recommended' | 'video' | 'image';
+
+const categoryOrder: CreatorHomeCategory[] = [
+  'recent',
+  'recommended',
+  'video',
+  'image'
 ];
+const videoModules = new Set<CreatorRuntimeWorkspace>([
+  'video-translation',
+  'video-download',
+  'video-generation',
+  'smart-dubbing'
+]);
+const imageModules = new Set<CreatorRuntimeWorkspace>([
+  'image-generation',
+  'cover-generator'
+]);
+const recentPresetStorageKey = 'opencreator.creator-presets.recent.v1';
+const recentPresetLimit = 12;
 
-const creatorSkillsByCategory: Record<CreatorSkillCategory, CreatorSkill[]> = {
-  最近: [],
-  推荐: [
-    {
-      id: 'video-translation-multilingual',
-      title: '多语言视频翻译',
-      category: '视频翻译',
-      image: '/dashboard/templates/video-translation-example.png',
-      interaction: { type: 'workspace', workspace: 'video-translation' },
-      promptHint: {
-        zhCN: '上传视频，或者输入有效的视频链接',
-        enUS: 'Upload a video or enter a valid video link'
-      }
-    },
-    {
-      id: 'video-download',
-      title: '视频下载',
-      category: '视频处理',
-      image: '/dashboard/templates/video-download-cover.png',
-      interaction: { type: 'workspace', workspace: 'video-download' },
-      promptHint: {
-        zhCN: '输入 YouTube、Bilibili 等平台的公开视频链接',
-        enUS: 'Enter a public YouTube, Bilibili, or other supported video link'
-      }
-    },
-    {
-      id: 'avatar-presenter',
-      title: '数字人口播',
-      category: '数字人',
-      image: '/dashboard/templates/digital-presenter.jpg'
-    },
-    {
-      id: 'stickman-animation',
-      title: '火柴人动画',
-      category: '动画生成',
-      image: '/dashboard/templates/ai-video-insane.jpg',
-      interaction: { type: 'workspace', workspace: 'stickman-video' },
-      promptHint: {
-        zhCN: '选择、上传或生成角色，再描述故事和动画要求',
-        enUS: 'Choose, upload, or generate a character, then describe the story'
-      }
-    },
-    {
-      id: 'cover-generation',
-      title: '封面生成',
-      category: '封面设计',
-      image: '/dashboard/templates/peter-openclaw-cover.png',
-      interaction: { type: 'workspace', workspace: 'cover-generator' },
-      promptHint: {
-        zhCN: '描述封面，添加参考图，或者输入有效的 YouTube 链接',
-        enUS: 'Describe the thumbnail, add a reference, or enter a valid YouTube link'
-      }
-    },
-    {
-      id: 'image-generation',
-      title: '图像生成',
-      category: '图像设计',
-      image: '/dashboard/templates/image-generation-cover.png',
-      interaction: { type: 'workspace', workspace: 'image-generation' },
-      promptHint: {
-        zhCN: '描述画面主体、风格、构图和使用场景',
-        enUS: 'Describe the subject, style, composition, and intended use'
-      }
-    },
-    {
-      id: 'intelligent-clipping',
-      title: '视频切片',
-      category: '视频剪辑',
-      image: '/dashboard/templates/intelligent-clipping-cover.png',
-      interaction: { type: 'workspace', workspace: 'auto-clips' },
-      promptHint: {
-        zhCN: '上传长视频，设置内容重点、目标时长和片段数量',
-        enUS: 'Upload a long video, then set the content focus, target duration, and clip count'
-      }
+export function CreatorDashboard(props: {
+  presets?: CreatorPresetSummary[];
+  loading?: boolean;
+  error?: string;
+  onRetry?(): void;
+  onSelectPreset?(preset: CreatorPresetSummary): Promise<void> | void;
+  onSelectSkill?(skill: CreatorSkill): void;
+}) {
+  const { language } = useAppLanguage();
+  const [category, setCategory] = useState<CreatorHomeCategory>('recommended');
+  const [query, setQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [selectedPresetIdentity, setSelectedPresetIdentity] = useState<string>();
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [promptHasOverflow, setPromptHasOverflow] = useState(false);
+  const [promptAtEnd, setPromptAtEnd] = useState(true);
+  const [recentPresetIds, setRecentPresetIds] = useState<string[]>(readRecentPresetIds);
+  const [busyIdentities, setBusyIdentities] = useState<Set<string>>(
+    () => new Set()
+  );
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const detailPageRef = useRef<HTMLDivElement>(null);
+  const previewTriggerRef = useRef<HTMLButtonElement>(null);
+  const previewCloseRef = useRef<HTMLButtonElement>(null);
+  const promptRef = useRef<HTMLParagraphElement>(null);
+  const busyIdentitiesRef = useRef(new Set<string>());
+  const [actionError, setActionError] = useState<string>();
+  const presets = props.presets ?? [];
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const categoryPresets = useMemo(() => {
+    if (category === 'recent') {
+      const presetsById = new Map(presets.map(preset => [presetIdentity(preset), preset]));
+      return recentPresetIds.flatMap(identity => {
+        const preset = presetsById.get(identity);
+        return preset === undefined ? [] : [preset];
+      });
     }
-  ],
-  视频创作: [
-    {
-      id: 'video-translation',
-      title: '视频翻译',
-      category: '视频处理',
-      image: '/dashboard/templates/video-translation-example.png',
-      interaction: { type: 'workspace', workspace: 'video-translation' },
-      promptHint: {
-        zhCN: '上传视频，或者输入有效的视频链接',
-        enUS: 'Upload a video or enter a valid video link'
-      }
-    },
-    {
-      id: 'video-download-category',
-      title: '视频下载',
-      category: '视频处理',
-      image: '/dashboard/templates/video-download-cover.png',
-      interaction: { type: 'workspace', workspace: 'video-download' },
-      promptHint: {
-        zhCN: '输入 YouTube、Bilibili 等平台的公开视频链接',
-        enUS: 'Enter a public YouTube, Bilibili, or other supported video link'
-      }
-    },
-    {
-      id: 'narrative-short-video',
-      title: '剧情短片',
-      category: '故事视频',
-      image: '/dashboard/templates/animated-story.jpg'
-    },
-    {
-      id: 'product-ad-video',
-      title: '商品广告短片',
-      category: '商业视频',
-      image: '/skill-market/examples/seedance-2-video-ad.png'
-    },
-    {
-      id: 'stickman-explainer',
-      title: '火柴人知识动画',
-      category: '动画视频',
-      image: '/dashboard/templates/ai-video-insane.jpg',
-      interaction: { type: 'workspace', workspace: 'stickman-video' },
-      promptHint: {
-        zhCN: '选择角色并输入知识主题，我会先生成分镜',
-        enUS: 'Choose a character and enter a topic to create the storyboard'
-      }
-    },
-    {
-      id: 'tutorial-demo-video',
-      title: '教程演示视频',
-      category: '教程视频',
-      image: '/dashboard/templates/video-localization.jpg'
-    },
-    {
-      id: 'short-video-script',
-      title: '短视频脚本',
-      category: '内容策划',
-      image: '/skill-market/examples/gpt-image-2-info-poster.png',
-      interaction: { type: 'workspace', workspace: 'short-video-script' },
-      promptHint: {
-        zhCN: '输入主题或素材，并设置目标受众、发布平台、时长和语气',
-        enUS: 'Enter a topic or source material, then set the audience, platform, duration, and tone'
-      }
-    }
-  ],
-  数字人: [
-    {
-      id: 'avatar-knowledge-presenter',
-      title: '知识分享口播',
-      category: '知识博主',
-      image: '/dashboard/templates/digital-presenter.jpg'
-    },
-    {
-      id: 'avatar-course-lesson',
-      title: '课程讲解',
-      category: '在线课程',
-      image: '/dashboard/templates/animated-story.jpg'
-    },
-    {
-      id: 'avatar-product-introduction',
-      title: '产品介绍',
-      category: '产品讲解',
-      image: '/skill-market/examples/nano-banana-pro-product-visual.png'
-    },
-    {
-      id: 'avatar-news-presenter',
-      title: '新闻播报',
-      category: '资讯播报',
-      image: '/dashboard/templates/video-translation-example.png'
-    },
-    {
-      id: 'avatar-social-presenter',
-      title: '社媒口播',
-      category: '短视频口播',
-      image: '/skill-market/examples/seedance-2-video-ad.png'
-    }
-  ],
-  图像设计: [
-    {
-      id: 'video-thumbnail',
-      title: '视频封面',
-      category: '封面设计',
-      image: '/dashboard/templates/ai-video-insane.jpg',
-      interaction: { type: 'workspace', workspace: 'cover-generator' },
-      promptHint: {
-        zhCN: '描述封面，添加参考图，或者输入有效的 YouTube 链接',
-        enUS: 'Describe the thumbnail, add a reference, or enter a valid YouTube link'
-      }
-    },
-    {
-      id: 'product-poster',
-      title: '产品海报',
-      category: '商业海报',
-      image: '/skill-market/examples/nano-banana-pro-product-visual.png'
-    },
-    {
-      id: 'image-generation-category',
-      title: '图像生成',
-      category: '图像设计',
-      image: '/dashboard/templates/image-generation-cover.png',
-      interaction: { type: 'workspace', workspace: 'image-generation' },
-      promptHint: {
-        zhCN: '描述画面主体、风格、构图和使用场景',
-        enUS: 'Describe the subject, style, composition, and intended use'
-      }
-    },
-    {
-      id: 'infographic',
-      title: '信息长图',
-      category: '信息设计',
-      image: '/skill-market/examples/gpt-image-2-info-poster.png'
-    },
-    {
-      id: 'social-visuals',
-      title: '社媒配图',
-      category: '社交媒体',
-      image: '/dashboard/templates/animated-story.jpg'
-    },
-    {
-      id: 'portrait-series',
-      title: '人物写真',
-      category: '人物图像',
-      image: '/dashboard/templates/digital-presenter.jpg'
-    }
-  ],
-  内容营销: [
-    {
-      id: 'brand-story',
-      title: '品牌故事',
-      category: '品牌内容',
-      image: '/dashboard/templates/animated-story.jpg'
-    },
-    {
-      id: 'product-recommendation-video',
-      title: '种草短视频',
-      category: '社媒营销',
-      image: '/skill-market/examples/seedance-2-video-ad.png'
-    },
-    {
-      id: 'campaign-promotion',
-      title: '活动推广',
-      category: '活动营销',
-      image: '/skill-market/examples/gpt-image-2-info-poster.png'
-    },
-    {
-      id: 'product-launch',
-      title: '新品发布',
-      category: '产品营销',
-      image: '/skill-market/examples/nano-banana-pro-product-visual.png'
-    },
-    {
-      id: 'creator-weekly',
-      title: '创作者周报',
-      category: '粉丝运营',
-      image: '/dashboard/templates/video-localization.jpg'
-    }
-  ]
-};
+    if (category === 'recommended') return presets.filter(preset => preset.featured);
+    const modules = category === 'video' ? videoModules : imageModules;
+    return presets.filter(preset => modules.has(preset.module));
+  }, [category, presets, recentPresetIds]);
+  const visiblePresets = useMemo(() => categoryPresets.filter(preset => (
+    normalizedQuery === ''
+    || `${preset.title} ${preset.description} ${preset.tags.join(' ')}`
+      .toLocaleLowerCase()
+      .includes(normalizedQuery)
+  )), [categoryPresets, normalizedQuery]);
+  const selectedPreset = selectedPresetIdentity === undefined
+    ? undefined
+    : presets.find(preset => presetIdentity(preset) === selectedPresetIdentity);
+  const closePreview = useCallback(() => {
+    setPreviewOpen(false);
+    window.setTimeout(() => previewTriggerRef.current?.focus(), 0);
+  }, []);
+  const updatePromptOverflow = useCallback(() => {
+    const prompt = promptRef.current;
+    if (prompt === null) return;
+    const hasOverflow = prompt.scrollHeight > prompt.clientHeight + 1;
+    setPromptHasOverflow(hasOverflow);
+    setPromptAtEnd(
+      !hasOverflow
+      || prompt.scrollTop + prompt.clientHeight >= prompt.scrollHeight - 2
+    );
+  }, []);
 
-export function CreatorDashboard(props: { onSelectSkill(skill: CreatorSkill): void }) {
-  const { language, t } = useAppLanguage();
-  const [selectedCategory, setSelectedCategory] = useState<CreatorSkillCategory>('推荐');
-  const [recentSkills, setRecentSkills] = useState<CreatorSkill[]>([]);
-  const skills = selectedCategory === '最近'
-    ? recentSkills
-    : creatorSkillsByCategory[selectedCategory].filter(isVisibleCreatorSkill);
-  const visibleCategories = creatorSkillCategories.filter(category => (
-    category !== '最近'
-    && creatorSkillsByCategory[category].some(isVisibleCreatorSkill)
-  ));
+  useEffect(() => {
+    if (!previewOpen || selectedPreset === undefined) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closePreview();
+      } else if (event.key === 'Tab') {
+        event.preventDefault();
+        previewCloseRef.current?.focus();
+      }
+    };
+    previewCloseRef.current?.focus();
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [closePreview, previewOpen, selectedPreset]);
 
-  function selectSkill(skill: CreatorSkill) {
-    setRecentSkills(current => [
-      skill,
-      ...current.filter(item => item.id !== skill.id)
-    ].slice(0, 5));
-    props.onSelectSkill(skill);
+  useLayoutEffect(() => {
+    if (selectedPresetIdentity === undefined) return;
+    const scrollContainer = detailPageRef.current?.closest<HTMLElement>('.creator-home-wrap');
+    if (scrollContainer !== null && scrollContainer !== undefined) {
+      scrollContainer.scrollTop = 0;
+    }
+  }, [selectedPresetIdentity]);
+
+  useLayoutEffect(() => {
+    const prompt = promptRef.current;
+    if (prompt === null) {
+      setPromptHasOverflow(false);
+      setPromptAtEnd(true);
+      return;
+    }
+    prompt.scrollTop = 0;
+    updatePromptOverflow();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(updatePromptOverflow);
+    observer.observe(prompt);
+    return () => observer.disconnect();
+  }, [selectedPreset?.prompt, updatePromptOverflow]);
+
+  function selectCategory(nextCategory: CreatorHomeCategory) {
+    setCategory(nextCategory);
+    setQuery('');
+    setSearchOpen(false);
+    setActionError(undefined);
+  }
+
+  async function selectPreset(preset: CreatorPresetSummary) {
+    const identity = presetIdentity(preset);
+    if (busyIdentitiesRef.current.has(identity)) return;
+    busyIdentitiesRef.current.add(identity);
+    setBusyIdentities(new Set(busyIdentitiesRef.current));
+    setActionError(undefined);
+    try {
+      await props.onSelectPreset?.(preset);
+      const storedRecentPresetIds = readRecentPresetIds();
+      const nextRecentPresetIds = [
+        identity,
+        ...storedRecentPresetIds.filter(item => item !== identity)
+      ].slice(0, recentPresetLimit);
+      writeRecentPresetIds(nextRecentPresetIds);
+      setRecentPresetIds(nextRecentPresetIds);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      busyIdentitiesRef.current.delete(identity);
+      setBusyIdentities(new Set(busyIdentitiesRef.current));
+    }
+  }
+
+  if (selectedPreset !== undefined) {
+    const identity = presetIdentity(selectedPreset);
+    const busy = busyIdentities.has(identity);
+    const previewUrl = selectedPreset.previewUrl ?? selectedPreset.coverUrl;
+    return (
+      <>
+        <div ref={detailPageRef} className="creator-dashboard creator-template-detail-page">
+        <header className="creator-template-detail-toolbar">
+          <button
+            type="button"
+            className="creator-template-back"
+            onClick={() => {
+              setPreviewOpen(false);
+              setSelectedPresetIdentity(undefined);
+              setActionError(undefined);
+            }}
+          >
+            <ArrowLeft size={16} aria-hidden="true" />
+            {language === 'en-US' ? 'Back to templates' : '返回模板列表'}
+          </button>
+          <span>{moduleLabel(selectedPreset.module, language === 'zh-CN' ? 'zh-CN' : 'en-US')}</span>
+        </header>
+
+        <div className="creator-template-detail-layout">
+          <section
+            className="creator-template-outcome"
+            aria-labelledby="creator-template-outcome-title"
+          >
+            <h2 id="creator-template-outcome-title">
+              {language === 'en-US' ? 'Example result' : '成果预览'}
+            </h2>
+            {selectedPreset.previewVideoUrl === undefined ? (
+              <button
+                ref={previewTriggerRef}
+                type="button"
+                className="creator-template-outcome-media"
+                aria-label={language === 'en-US'
+                  ? `View full ${selectedPreset.title} result`
+                  : `全屏查看${selectedPreset.title}完整作品`}
+                title={language === 'en-US' ? 'View full result' : '查看完整作品'}
+                onClick={() => setPreviewOpen(true)}
+              >
+                <img src={previewUrl} alt={selectedPreset.title} />
+                <span className="creator-template-outcome-expand" aria-hidden="true">
+                  <Maximize2 size={17} />
+                </span>
+              </button>
+            ) : (
+              <div className="creator-template-outcome-media creator-template-outcome-video">
+                <video
+                  src={selectedPreset.previewVideoUrl}
+                  poster={previewUrl}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  aria-label={language === 'en-US'
+                    ? `${selectedPreset.title} example video`
+                    : `${selectedPreset.title}示例视频`}
+                />
+                <button
+                  ref={previewTriggerRef}
+                  type="button"
+                  className="creator-template-outcome-expand"
+                  aria-label={language === 'en-US'
+                    ? `View full ${selectedPreset.title} result`
+                    : `全屏查看${selectedPreset.title}完整作品`}
+                  title={language === 'en-US' ? 'View full result' : '查看完整作品'}
+                  onClick={() => setPreviewOpen(true)}
+                >
+                  <Maximize2 size={17} />
+                </button>
+              </div>
+            )}
+          </section>
+
+          <aside className="creator-template-detail-info">
+            <div className="creator-template-detail-intro">
+              <h1>{selectedPreset.title}</h1>
+              <p>{selectedPreset.description}</p>
+            </div>
+
+            {selectedPreset.author === undefined ? null : (
+              <section
+                className="creator-template-author"
+                aria-label={language === 'en-US' ? 'Template author' : '模板作者'}
+              >
+                <span className="creator-template-author-avatar" aria-hidden="true">
+                  {selectedPreset.author.avatarUrl === undefined ? null : (
+                    <img
+                      src={selectedPreset.author.avatarUrl}
+                      alt=""
+                      onError={event => { event.currentTarget.hidden = true; }}
+                    />
+                  )}
+                  <UserRound size={17} />
+                </span>
+                <span className="creator-template-author-copy">
+                  <small>{language === 'en-US' ? 'Author' : '作者'}</small>
+                  <strong title={selectedPreset.author.name}>{selectedPreset.author.name}</strong>
+                </span>
+                {selectedPreset.author.url === undefined ? null : (
+                  <a
+                    href={selectedPreset.author.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={language === 'en-US'
+                      ? `View original source from ${selectedPreset.author.name}`
+                      : `查看${selectedPreset.author.name}的原始来源`}
+                  >
+                    <span>{language === 'en-US' ? 'Original source' : '原始来源'}</span>
+                    <ExternalLink size={14} aria-hidden="true" />
+                  </a>
+                )}
+              </section>
+            )}
+
+            {selectedPreset.highlights.length > 0 ? (
+              <section className="creator-template-detail-section">
+                <h2>{language === 'en-US' ? 'Template settings' : '模板配置'}</h2>
+                <div className="creator-template-highlights">
+                  {selectedPreset.highlights.map(highlight => (
+                    <span className="creator-template-highlight" key={highlight.text}>
+                      {highlight.colors.length > 0 ? (
+                        <span className="creator-template-swatches" aria-hidden="true">
+                          {highlight.colors.map(color => (
+                            <span key={color} style={{ backgroundColor: color }} />
+                          ))}
+                        </span>
+                      ) : null}
+                      <span>{highlight.text}</span>
+                    </span>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <section className="creator-template-detail-section">
+              <h2>{language === 'en-US' ? 'Tags' : '标签'}</h2>
+              <ul className="creator-template-tags" aria-label={language === 'en-US'
+                ? 'Template tags'
+                : '模板标签'}>
+                {selectedPreset.tags.map(tag => <li key={tag}>{tag}</li>)}
+              </ul>
+            </section>
+
+            {selectedPreset.requirements !== null ? (
+              <p className="creator-template-runtime-requirement">
+                {language === 'en-US' ? 'Requires' : '运行需要'}: {' '}
+                {selectedPreset.requirements.provider}
+                {selectedPreset.requirements.model === undefined
+                  ? ''
+                  : ` / ${selectedPreset.requirements.model}`}
+              </p>
+            ) : null}
+
+            {actionError ? (
+              <p className="creator-template-action-error" role="alert">{actionError}</p>
+            ) : null}
+
+            <button
+              className="creator-template-use-button"
+              type="button"
+              disabled={busy}
+              aria-busy={busy}
+              onClick={() => void selectPreset(selectedPreset)}
+            >
+              <WandSparkles size={17} aria-hidden="true" />
+              {busy
+                ? (language === 'en-US' ? 'Creating...' : '正在创建...')
+                : (language === 'en-US' ? 'Use this template' : '使用此模板')}
+            </button>
+          </aside>
+        </div>
+
+        <section className="creator-template-detail-section creator-template-prompt-section">
+          <h2>{language === 'en-US' ? 'Prompt' : '提示词'}</h2>
+          <div className={`creator-template-prompt-card${promptHasOverflow
+            ? ' is-scrollable'
+            : ''}${promptAtEnd ? ' is-at-end' : ''}`}>
+            <p
+              ref={promptRef}
+              onScroll={updatePromptOverflow}
+              className={selectedPreset.prompt === null
+                ? 'creator-template-detail-empty'
+                : 'creator-template-prompt'}
+            >
+              {selectedPreset.prompt === null
+                ? (language === 'en-US'
+                    ? 'This template uses fixed settings and does not require a preset prompt.'
+                    : '此模板使用固定配置，无需预设提示词。')
+                : renderPromptVariables(selectedPreset.prompt, language === 'zh-CN' ? 'zh-CN' : 'en-US')}
+            </p>
+            <span className="creator-template-prompt-scroll-cue" aria-hidden="true">
+              <ChevronDown size={17} />
+            </span>
+          </div>
+        </section>
+        </div>
+        {!previewOpen ? null : createPortal(
+          <div
+            className="creator-template-preview-backdrop"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) closePreview();
+            }}
+          >
+            <section
+              className="creator-template-preview-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-label={language === 'en-US'
+                ? `${selectedPreset.title} full result`
+                : `${selectedPreset.title}完整作品`}
+            >
+              {selectedPreset.previewVideoUrl === undefined ? (
+                <img src={previewUrl} alt={selectedPreset.title} />
+              ) : (
+                <video
+                  src={selectedPreset.previewVideoUrl}
+                  poster={previewUrl}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  autoPlay
+                  aria-label={language === 'en-US'
+                    ? `${selectedPreset.title} full example video`
+                    : `${selectedPreset.title}完整示例视频`}
+                />
+              )}
+              <button
+                ref={previewCloseRef}
+                type="button"
+                aria-label={language === 'en-US' ? 'Close preview' : '关闭预览'}
+                title={language === 'en-US' ? 'Close preview' : '关闭预览'}
+                onClick={closePreview}
+              >
+                <X size={19} aria-hidden="true" />
+              </button>
+            </section>
+          </div>,
+          document.body
+        )}
+      </>
+    );
   }
 
   return (
-    <div className="creator-dashboard" data-template-count={skills.length}>
-      <div className="creator-template-tabs" role="tablist" aria-label={t('home.skillCategories')}>
-        {visibleCategories.map(category => (
+    <div className="creator-dashboard">
+      <div
+        className="creator-template-tabs"
+        role="tablist"
+        aria-label={language === 'en-US' ? 'Creation template categories' : '创作模板分类'}
+      >
+        {categoryOrder.map(item => (
           <button
             type="button"
             role="tab"
-            aria-selected={selectedCategory === category}
-            key={category}
-            onClick={() => setSelectedCategory(category)}
+            key={item}
+            aria-selected={category === item}
+            aria-controls="creator-template-panel"
+            onClick={() => selectCategory(item)}
           >
-            {language === 'en-US' ? englishCreatorLabels[category] ?? category : category}
+            {categoryLabel(item, language === 'zh-CN' ? 'zh-CN' : 'en-US')}
           </button>
         ))}
       </div>
 
-      <section className="creator-dashboard-section" aria-labelledby="creator-templates-title">
+      <section
+        id="creator-template-panel"
+        className="creator-dashboard-section"
+        role="tabpanel"
+        aria-labelledby="creator-templates-title"
+      >
         <div className="creator-dashboard-heading">
-          <div>
-            <h2 id="creator-templates-title">{t('home.skills')}</h2>
-          </div>
-          <Mic2 size={18} strokeWidth={1.7} aria-hidden="true" />
-        </div>
-        <div className="creator-template-grid">
-          {skills.length === 0 ? (
-            <p className="creator-template-empty">{t('home.noRecentSkills')}</p>
-          ) : null}
-          {skills.map(skill => (
+          <h1 id="creator-templates-title">
+            {language === 'en-US' ? 'Featured Templates' : '精选模板'}
+          </h1>
+          {searchOpen ? (
+            <div className="creator-template-search">
+              <Search size={15} aria-hidden="true" />
+              <input
+                ref={searchInputRef}
+                type="search"
+                value={query}
+                onChange={event => setQuery(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key !== 'Escape') return;
+                  setQuery('');
+                  setSearchOpen(false);
+                }}
+                aria-label={language === 'en-US' ? 'Search templates' : '搜索模板'}
+                placeholder={language === 'en-US' ? 'Search templates' : '搜索模板'}
+              />
+              <button
+                type="button"
+                aria-label={language === 'en-US' ? 'Close template search' : '关闭模板搜索'}
+                title={language === 'en-US' ? 'Close search' : '关闭搜索'}
+                onClick={() => {
+                  setQuery('');
+                  setSearchOpen(false);
+                }}
+              >
+                <X size={15} aria-hidden="true" />
+              </button>
+            </div>
+          ) : (
             <button
-              className="creator-template-card"
+              className="creator-template-search-trigger"
               type="button"
-              key={skill.id}
-              data-skill-id={skill.id}
-              onClick={() => selectSkill(skill)}
-              aria-label={t('home.useSkill', {
-                title: language === 'en-US'
-                  ? englishCreatorLabels[skill.title] ?? skill.title
-                  : skill.title
-              })}
+              aria-label={language === 'en-US' ? 'Search templates' : '搜索模板'}
+              title={language === 'en-US' ? 'Search templates' : '搜索模板'}
+              onClick={() => {
+                setSearchOpen(true);
+                window.requestAnimationFrame(() => searchInputRef.current?.focus());
+              }}
             >
-              <span className="creator-template-media">
-                <img src={skill.image} alt="" loading="lazy" />
-              </span>
-              <span className="creator-template-copy">
-                <small>{language === 'en-US'
-                  ? englishCreatorLabels[skill.category] ?? skill.category
-                  : skill.category}</small>
-                <strong>{language === 'en-US'
-                  ? englishCreatorLabels[skill.title] ?? skill.title
-                  : skill.title}</strong>
-              </span>
+              <Search size={17} aria-hidden="true" />
             </button>
-          ))}
+          )}
         </div>
+
+        {props.loading ? (
+          <div
+            className="creator-template-grid creator-template-loading-grid"
+            role="status"
+            aria-busy="true"
+            aria-label={language === 'en-US' ? 'Loading templates' : '正在加载模板'}
+          >
+            {[0, 1, 2, 3].map(item => (
+              <span className="creator-template-skeleton" aria-hidden="true" key={item}>
+                <span className="creator-template-skeleton-media" />
+                <span className="creator-template-skeleton-copy">
+                  <span />
+                </span>
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {props.error ? (
+          <div className="creator-template-error" role="alert">
+            <span>{props.error}</span>
+            <button type="button" onClick={props.onRetry}>
+              <RefreshCw size={15} aria-hidden="true" />
+              {language === 'en-US' ? 'Retry' : '重试'}
+            </button>
+          </div>
+        ) : null}
+        {actionError ? (
+          <p className="creator-template-action-error" role="alert">{actionError}</p>
+        ) : null}
+
+        {!props.loading && !props.error ? (
+          <div className="creator-template-grid">
+            {visiblePresets.map(preset => {
+              const identity = presetIdentity(preset);
+              return (
+                <button
+                  className="creator-template-card"
+                  type="button"
+                  key={identity}
+                  data-preset-id={identity}
+                  onClick={() => {
+                    setPreviewOpen(false);
+                    setSelectedPresetIdentity(identity);
+                    setActionError(undefined);
+                  }}
+                  aria-label={language === 'en-US'
+                    ? `View ${preset.title} template details`
+                    : `查看${preset.title}模板详情`}
+                >
+                  <span className="creator-template-media">
+                    <img src={preset.coverUrl} alt="" loading="lazy" />
+                    {videoModules.has(preset.module) ? (
+                      <span className="creator-template-play-marker" aria-hidden="true">
+                        <Play size={16} fill="currentColor" strokeWidth={0} />
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="creator-template-copy">
+                    <strong>{preset.title}</strong>
+                  </span>
+                </button>
+              );
+            })}
+            {visiblePresets.length === 0 ? (
+              <p className="creator-template-empty">
+                {normalizedQuery
+                  ? (language === 'en-US' ? 'No matching presets.' : '没有匹配的模板。')
+                  : category === 'recent'
+                    ? (language === 'en-US'
+                        ? 'No recently used templates.'
+                        : '还没有使用过模板。')
+                    : (language === 'en-US'
+                        ? 'No templates are available in this category yet.'
+                        : '该分类暂时没有模板。')}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </section>
     </div>
   );
 }
 
-function isVisibleCreatorSkill(skill: CreatorSkill): boolean {
-  return skill.interaction?.type === 'workspace'
-    && isVisibleCreatorWorkspace(skill.interaction.workspace);
-}
-
 export function getCreatorSkillPromptHint(
   skill: CreatorSkill,
-  language: 'zh-CN' | 'en-US' | 'sv-SE'
+  language: 'zh-CN' | 'en-US'
 ): string {
   if (skill.promptHint !== undefined) {
-    return language === 'zh-CN' ? skill.promptHint.zhCN : skill.promptHint.enUS;
+    return language === 'en-US' ? skill.promptHint.enUS : skill.promptHint.zhCN;
   }
-  if (language === 'zh-CN') {
-    return `描述你希望用「${skill.title}」完成的内容和要求`;
-  }
-  const title = englishCreatorLabels[skill.title] ?? skill.title;
-  return `Describe what you want to create with ${title} and any requirements`;
+  return language === 'en-US'
+    ? `Describe what you want to create with ${skill.title} and any requirements`
+    : `描述你希望用「${skill.title}」完成的内容和要求`;
 }
 
-const englishCreatorLabels: Record<string, string> = {
-  最近: 'Recent',
-  推荐: 'Recommended',
-  视频创作: 'Video',
-  数字人: 'Avatars',
-  图像设计: 'Images',
-  内容营销: 'Marketing',
-  多语言视频翻译: 'Multilingual Video Translation',
-  视频翻译: 'Video Translation',
-  视频下载: 'Video Download',
-  视频处理: 'Video Tools',
-  数字人口播: 'Digital Avatar',
-  火柴人动画: 'Stick Figure Animation',
-  动画生成: 'Animation',
-  视频切片: 'Video Clips',
-  视频剪辑: 'Video Editing',
-  封面生成: 'Cover Generation',
-  创意短片策划: 'Creative Short Planning',
-  产品视觉海报: 'Product Visual Poster',
-  图像生成: 'Image Generation',
-  剧情短片: 'Narrative Short',
-  故事视频: 'Story Video',
-  商品广告短片: 'Product Ad',
-  商业视频: 'Commercial Video',
-  火柴人知识动画: 'Explainer Animation',
-  动画视频: 'Animated Video',
-  教程演示视频: 'Tutorial Video',
-  教程视频: 'Tutorial',
-  短视频脚本: 'Short Video Script',
-  内容策划: 'Content Planning',
-  知识分享口播: 'Knowledge Presenter',
-  知识博主: 'Knowledge Creator',
-  课程讲解: 'Course Lesson',
-  在线课程: 'Online Course',
-  产品介绍: 'Product Introduction',
-  产品讲解: 'Product Demo',
-  新闻播报: 'News Presenter',
-  资讯播报: 'News',
-  社媒口播: 'Social Presenter',
-  短视频口播: 'Short Video Presenter',
-  视频封面: 'Video Thumbnail',
-  封面设计: 'Thumbnail Design',
-  产品海报: 'Product Poster',
-  商业海报: 'Commercial Poster',
-  信息长图: 'Infographic',
-  信息设计: 'Information Design',
-  社媒配图: 'Social Visuals',
-  社交媒体: 'Social Media',
-  人物写真: 'Portrait Series',
-  人物图像: 'Portraits',
-  品牌故事: 'Brand Story',
-  品牌内容: 'Brand Content',
-  种草短视频: 'Product Recommendation Video',
-  社媒营销: 'Social Marketing',
-  活动推广: 'Campaign Promotion',
-  活动营销: 'Campaign Marketing',
-  新品发布: 'Product Launch',
-  产品营销: 'Product Marketing',
-  创作者周报: 'Creator Weekly',
-  粉丝运营: 'Audience Growth'
-};
+function presetIdentity(preset: CreatorPresetSummary): string {
+  return `${preset.module}/${preset.id}/${preset.version}`;
+}
+
+function renderPromptVariables(
+  prompt: string,
+  language: 'zh-CN' | 'en-US'
+) {
+  const variablePattern = /(@Image\d+|\[[^\]\n]{1,80}\]|\{(?!\s*["'])[^{}\n]{1,80}\})/g;
+  const nonVariableLabels = new Set(['结束', 'end']);
+  const isVariable = (part: string): boolean => {
+    if (/^@Image\d+$/.test(part) || /^\{(?!\s*["'])[^{}\n]{1,80}\}$/.test(part)) {
+      return true;
+    }
+    const bracketMatch = part.match(/^\[([^\]\n]{1,80})\]$/);
+    if (bracketMatch === null) return false;
+    const label = bracketMatch[1]?.trim() ?? '';
+    if (nonVariableLabels.has(label.toLowerCase())) return false;
+    if (/(?:强制执行|严格限制|strict (?:rules?|requirements?))/i.test(label)) return false;
+    return !/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(label);
+  };
+  return prompt.split(variablePattern).map((part, index) => (
+    isVariable(part) ? (
+      <mark
+        className="creator-template-prompt-variable"
+        title={language === 'en-US' ? 'Replaceable variable' : '可替换变量'}
+        key={`${index}-${part}`}
+      >
+        {part}
+      </mark>
+    ) : part
+  ));
+}
+
+function categoryLabel(
+  category: CreatorHomeCategory,
+  language: 'zh-CN' | 'en-US'
+): string {
+  const labels: Record<CreatorHomeCategory, { zh: string; en: string }> = {
+    recent: { zh: '最近', en: 'Recent' },
+    recommended: { zh: '推荐', en: 'Recommended' },
+    video: { zh: '视频创作', en: 'Video Creation' },
+    image: { zh: '图像设计', en: 'Image Design' }
+  };
+  return language === 'en-US' ? labels[category].en : labels[category].zh;
+}
+
+function moduleLabel(
+  module: CreatorRuntimeWorkspace,
+  language: 'zh-CN' | 'en-US'
+): string {
+  const labels: Record<CreatorRuntimeWorkspace, { zh: string; en: string }> = {
+    'video-translation': { zh: '视频翻译', en: 'Video translation' },
+    'video-download': { zh: '视频下载', en: 'Video download' },
+    'image-generation': { zh: '图像生成', en: 'Image generation' },
+    'video-generation': { zh: '视频生成', en: 'Video generation' },
+    'cover-generator': { zh: '封面生成', en: 'Cover generation' },
+    'smart-dubbing': { zh: '智能配音', en: 'Smart dubbing' }
+  };
+  return language === 'en-US' ? labels[module].en : labels[module].zh;
+}
+
+function readRecentPresetIds(): string[] {
+  try {
+    const stored = window.localStorage.getItem(recentPresetStorageKey);
+    if (stored === null) return [];
+    const parsed: unknown = JSON.parse(stored);
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentPresetIds(identities: string[]) {
+  try {
+    window.localStorage.setItem(recentPresetStorageKey, JSON.stringify(identities));
+  } catch {
+    // Recent templates are optional when browser storage is unavailable.
+  }
+}

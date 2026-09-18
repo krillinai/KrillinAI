@@ -159,6 +159,7 @@ function creatorJob(artifacts: CreatorArtifact[]): CreatorJob {
     templateVersion: 1,
     status: 'completed',
     revision: 1,
+    presetOrigin: null,
     state: {},
     agentThreadId: null,
     stages: [],

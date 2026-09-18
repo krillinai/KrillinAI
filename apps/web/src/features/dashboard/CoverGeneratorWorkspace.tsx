@@ -1,4 +1,5 @@
 import {
+  creatorPromptMaxLength,
   readCreatorResultSnapshots,
   type CoverStyleId,
   type CoverTextLanguage,
@@ -688,7 +689,7 @@ export default function CoverGeneratorWorkspace(props: {
                   </div>
                   <textarea
                     rows={7}
-                    maxLength={4000}
+                    maxLength={creatorPromptMaxLength}
                     value={prompt}
                     onChange={event => updatePrompt(event.target.value)}
                     aria-labelledby="cover-prompt-label"

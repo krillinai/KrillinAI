@@ -125,6 +125,7 @@ describe('creator api', () => {
     const created = await request('POST', '/creator/jobs', {
       projectId: 'project_delete',
       templateId: 'cover',
+      creationKey: 'delete-kept-files',
       state: { prompt: '待删除封面' }
     });
     const job = created.json().job;
@@ -141,6 +142,7 @@ describe('creator api', () => {
     const createdWithFiles = await request('POST', '/creator/jobs', {
       projectId: 'project_delete_files',
       templateId: 'cover',
+      creationKey: 'delete-with-files',
       state: { prompt: '连同文件删除的封面' }
     });
     const jobWithFiles = createdWithFiles.json().job;
@@ -191,6 +193,7 @@ describe('creator api', () => {
     const created = await request('POST', '/creator/jobs', {
       projectId: 'project_job_control',
       templateId: 'video-translation',
+      creationKey: 'job-control',
       state: {
         sourceType: 'url',
         sourceUrl: 'https://www.youtube.com/watch?v=job-control',
@@ -297,6 +300,142 @@ describe('creator api', () => {
     });
   });
 
+  it('lists localized presets and creates a real preset job', async () => {
+    await setupServer();
+    const catalog = await request('GET', '/creator/presets?locale=en-US');
+    expect(catalog.statusCode).toBe(200);
+    expect(catalog.json()).toMatchObject({
+      locale: 'en-US',
+      catalogHash: expect.stringMatching(/^[a-f0-9]{64}$/)
+    });
+    expect(catalog.json().presets).toContainEqual(expect.objectContaining({
+      module: 'image-generation',
+      id: 'exploded-food-infographic',
+      version: 1,
+      title: 'Exploded Food Infographic',
+      coverUrl: expect.stringMatching(/^\/creator-presets\/[a-f0-9]{64}\.jpg$/),
+      prompt: expect.stringContaining('Create a hyper-realistic exploded vertical infographic'),
+      tags: ['Reference template', 'Product visuals', 'Infographics', 'Food and beverage'],
+      highlights: [
+        { text: '1024 × 1024', colors: [] },
+        { text: 'High quality', colors: [] },
+        { text: '2 images', colors: [] }
+      ]
+    }));
+    const fullPreviewPreset = catalog.json().presets.find(
+      (preset: { id: string }) => preset.id === 'y2k-streetwear-mobile-landing-page'
+    );
+    expect(fullPreviewPreset.previewUrl)
+      .toMatch(/^\/creator-presets\/[a-f0-9]{64}\.webp$/);
+    expect(fullPreviewPreset.previewUrl).not.toBe(fullPreviewPreset.coverUrl);
+    expect(fullPreviewPreset.author).toEqual({
+      name: '@cezanne_cupcake_haze12',
+      url: 'https://higgsfield.ai/publications/0bbfc974-900c-4a1e-8561-3d9ada80177a'
+    });
+    const avatarPreset = catalog.json().presets.find(
+      (preset: { id: string }) => preset.id === 'felt-country-miniature-world'
+    );
+    expect(avatarPreset.author).toEqual({
+      name: '@volkan_iras',
+      url: 'https://x.com/volkan_iras/status/2051403524966141980',
+      avatarUrl: expect.stringMatching(/^\/creator-presets\/[a-f0-9]{64}\.webp$/)
+    });
+    const videoPreset = catalog.json().presets.find(
+      (preset: { id: string }) => preset.id === 'aerial-pullback-rise-reveal'
+    );
+    expect(videoPreset.previewVideoUrl)
+      .toMatch(/^\/creator-presets\/[a-f0-9]{64}\.mp4$/);
+    expect(videoPreset.author).toEqual({
+      name: 'Higgsfield.AI Team',
+      url: 'https://higgsfield.ai/academy/how-to-use/turn-your-video-into-cinema-using-wan-camera-control'
+    });
+    const videoRange = await server!.inject({
+      method: 'GET',
+      url: videoPreset.previewVideoUrl,
+      headers: {
+        authorization: 'Bearer secret',
+        range: 'bytes=0-11'
+      }
+    });
+    expect(videoRange.statusCode).toBe(206);
+    expect(videoRange.headers['content-type']).toContain('video/mp4');
+    expect(videoRange.headers['content-range']).toMatch(/^bytes 0-11\/\d+$/);
+    expect(videoRange.rawPayload).toHaveLength(12);
+
+    const created = await request('POST', '/creator/jobs', {
+      projectId: 'project_preset_api',
+      preset: {
+        module: 'image-generation',
+        id: 'exploded-food-infographic',
+        version: 1
+      },
+      locale: 'en-US',
+      creationKey: 'api-preset-creation'
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().job).toMatchObject({
+      templateId: 'image-generation',
+      templateVersion: 2,
+      status: 'draft',
+      presetOrigin: {
+        module: 'image-generation',
+        id: 'exploded-food-infographic',
+        version: 1,
+        locale: 'en-US',
+        title: 'Exploded Food Infographic'
+      },
+      state: {
+        prompt: expect.stringContaining('Create a hyper-realistic exploded vertical infographic'),
+        provider: 'openai'
+      },
+      stages: []
+    });
+  });
+
+  it('rejects mixed blank and preset creator job requests without creating jobs', async () => {
+    await setupServer();
+    const invalidRequests = [{
+      projectId: 'project_invalid_preset',
+      preset: {
+        module: 'image-generation',
+        id: 'ecommerce-product',
+        version: 1
+      },
+      locale: 'zh-CN',
+      creationKey: 'mixed-state',
+      state: {}
+    }, {
+      projectId: 'project_invalid_preset',
+      preset: {
+        module: 'image-generation',
+        id: 'ecommerce-product',
+        version: 1
+      },
+      locale: 'zh-CN',
+      creationKey: 'mixed-template',
+      templateId: 'image-generation'
+    }, {
+      projectId: 'project_invalid_preset',
+      templateId: 'image-generation',
+      locale: 'en-US',
+      creationKey: 'blank-locale'
+    }];
+
+    for (const body of invalidRequests) {
+      const response = await request('POST', '/creator/jobs', body);
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({
+        error: { code: 'VALIDATION_FAILED' }
+      });
+    }
+
+    const listed = await request(
+      'GET',
+      '/creator/jobs?projectId=project_invalid_preset'
+    );
+    expect(listed.json().jobs).toEqual([]);
+  });
+
   it('creates, lists, reads and mutates creator jobs', async () => {
     tempDir = mkdtempSync(join(tmpdir(), 'creator-api-'));
     server = await buildServer({
@@ -315,6 +454,7 @@ describe('creator api', () => {
     const created = await request('POST', '/creator/jobs', {
       projectId: 'project_1',
       templateId: 'video-translation',
+      creationKey: 'creator-api-mutation',
       state: { targetLanguage: 'en' }
     });
     expect(created.statusCode).toBe(201);
@@ -360,6 +500,7 @@ describe('creator api', () => {
     const created = await request('POST', '/creator/jobs', {
       projectId: 'project_vt5',
       templateId: 'video-translation',
+      creationKey: 'unsupported-video-source',
       state: {
         sourceType: 'url',
         sourceUrl: 'https://example.com/video/unsupported',
@@ -397,6 +538,7 @@ describe('creator api', () => {
     const created = await request('POST', '/creator/jobs', {
       projectId: 'project_local_source',
       templateId: 'video-translation',
+      creationKey: 'local-video-source',
       state: {
         sourceType: 'file',
         targetLanguage: 'en'
@@ -470,6 +612,7 @@ describe('creator api', () => {
     const created = await request('POST', '/creator/jobs', {
       projectId: 'project_vt6',
       templateId: 'video-translation',
+      creationKey: 'subtitle-before-tts',
       state: {
         sourceType: 'url',
         sourceUrl: 'https://www.youtube.com/watch?v=vt6',
@@ -501,6 +644,7 @@ describe('creator api', () => {
     const created = await request('POST', '/creator/jobs', {
       projectId: 'project_llm',
       templateId: 'video-translation',
+      creationKey: 'translation-llm-missing',
       state: {
         sourceType: 'url',
         sourceUrl: 'https://www.youtube.com/watch?v=llm',
@@ -569,7 +713,8 @@ describe('creator api', () => {
     await setupServer({ agentRuntime });
     const created = await request('POST', '/creator/jobs', {
       projectId: 'project_agent_api',
-      templateId: 'video-translation'
+      templateId: 'video-translation',
+      creationKey: 'creator-agent-api'
     });
     const job = created.json().job;
 
@@ -626,7 +771,8 @@ describe('creator api', () => {
     await setupServer();
     const created = await request('POST', '/creator/jobs', {
       projectId: 'project_sse',
-      templateId: 'video-translation'
+      templateId: 'video-translation',
+      creationKey: 'creator-sse'
     });
     const job = created.json().job;
     await server!.listen({ host: '127.0.0.1', port: 0 });

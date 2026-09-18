@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "id": "real-person-die-cut-sticker-poster",
+  "version": 1,
+  "module": "image-generation",
+  "runtimeTemplate": {
+    "id": "image-generation",
+    "version": 2
+  },
+  "status": "published",
+  "featured": true,
+  "sortOrder": 49,
+  "title": {
+    "zh-CN": "真人切模贴纸海报",
+    "en-US": "Real-Person Die-Cut Sticker Poster"
+  },
+  "description": {
+    "zh-CN": "上传人物照片，保留真人摄影质感，将环境改为带白色裁切边的黑白手绘贴纸。预览是原教程的蓝调示例，非本工具生成结果。",
+    "en-US": "Keep the person photographic and turn the background into monochrome die-cut stickers. Preview: blue-toned source tutorial example, not an OpenCreator result."
+  },
+  "cover": "cover.jpg",
+  "preview": "preview.jpg",
+  "author": {
+    "name": "小洁AI实战",
+    "url": "https://www.douyin.com/video/7683887650173032805",
+    "avatar": "author-avatar.jpg"
+  },
+  "tags": [
+    "图片转绘",
+    "海报设计",
+    "拼贴设计",
+    "真人贴纸",
+    "reference-template"
+  ],
+  "requirements": {
+    "service": "image",
+    "provider": "openai"
+  },
+  "defaults": {
+    "prompt": "",
+    "size": "1024x1536",
+    "quality": "high",
+    "candidateCount": 1
+  },
+  "defaultsByLocale": {
+    "zh-CN": {
+      "prompt": "以上传的人物照片为唯一主体与场景参考，生成一张真人与手绘切模贴纸背景结合的复古海报。\n\n原图中的真实人物主体完整保留，严格保持人物身份、五官长相、原有姿态、可见四肢、服装及鞋子细节，以及人物手中拿着的物品。人物始终保留真实、清晰的高清摄影质感，不将人物漫画化、插画化或贴纸化，不改变人数，不补造原图未显示的身体部位。\n\n将原照片中的环境背景，包括人物实际坐着的椅子等非人物元素，转换为极简黑白单线轮廓的切模贴纸：粗黑色轮廓、少量纯黑色块阴影、纯黑白无渐变。背景贴纸自带一圈白色裁切边，呈现手账贴纸叠加效果、扁平极简手绘与 ins 简约涂鸦风。人物边缘可有白色裁切边，但人物内部仍为真实摄影，不绘制成平面人物。\n\n保留原图的主要构图、物体位置与透视关系，让真实人物与二维贴纸背景自然融合。仅转换原场景中已有的环境元素，不新增无关物品、人物、标题、标语、商业主张、水印或教程字幕。人物和物品边界清晰，纸张及裁切边自然，不出现多余肢体、融化或模糊。"
+    },
+    "en-US": {
+      "prompt": "Use the uploaded portrait photo as the sole subject and scene reference. Create a retro poster combining a real photographed person with a hand-drawn die-cut sticker environment.\n\nPreserve the original person completely: identity, facial features, existing pose, visible limbs, clothing and shoes, and any item held in their hands. Keep the person sharp and photorealistic. Do not turn the person into a cartoon, illustration, or flat sticker; change the number of people; or invent body parts absent from the photo.\n\nConvert the original surroundings, including the chair the person is actually sitting on and other non-person elements, into minimal black-and-white single-line die-cut stickers. Use thick black outlines, sparse solid-black shadow shapes, and strictly monochrome colors without gradients. Give the background stickers a white cut border, layered scrapbook-sticker treatment, flat minimal hand drawing, and a simple Instagram doodle aesthetic. A white cut border may surround the person, but their interior must remain photographic.\n\nPreserve the main composition, object placement, and perspective, blending the real person naturally into the 2D sticker setting. Transform only existing surroundings. Do not add unrelated objects, people, headings, slogans, commercial claims, watermarks, or tutorial captions. Keep boundaries clean and paper cut edges natural, without extra limbs, melting, or blur."
+    }
+  }
+}

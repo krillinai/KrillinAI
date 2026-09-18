@@ -574,6 +574,16 @@ export async function prepareCliResourceRoot(input: {
   const overlayBin = join(input.launcherRoot, 'bin');
   await mkdir(overlayBin, { recursive: true });
   await linkDirectoryEntries(join(input.resourceRoot, 'bin'), overlayBin);
+  const sourceFonts = join(input.resourceRoot, 'fonts');
+  try {
+    if ((await stat(sourceFonts)).isDirectory()) {
+      const overlayFonts = join(input.launcherRoot, 'fonts');
+      await mkdir(overlayFonts, { recursive: true });
+      await linkDirectoryEntries(sourceFonts, overlayFonts);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
   if (input.useWhisperCpp === true && input.onDemandTranscriptionProvider === undefined) {
     await linkDirectoryEntries(join(dependencyBin, 'whispercpp'), overlayBin);
   }

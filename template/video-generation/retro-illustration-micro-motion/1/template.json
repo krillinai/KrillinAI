@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "retro-illustration-micro-motion",
+  "version": 1,
+  "module": "video-generation",
+  "runtimeTemplate": {
+    "id": "video-generation",
+    "version": 1
+  },
+  "status": "published",
+  "featured": true,
+  "sortOrder": 48,
+  "title": {
+    "zh-CN": "复古插画微动效",
+    "en-US": "Retro Illustration Micro-Motion"
+  },
+  "description": {
+    "zh-CN": "上传完成的插画或海报，以固定镜头生成轻快的局部微动效，保持主体、文字与布局稳定。预览取自原教程，非本工具生成结果。",
+    "en-US": "Animate an uploaded illustration with playful local motion and a fixed camera. The preview comes from the source tutorial, not an OpenCreator generation."
+  },
+  "cover": "cover.jpg",
+  "preview": "preview.jpg",
+  "previewVideo": "example.mp4",
+  "author": {
+    "name": "小洁AI实战",
+    "url": "https://www.douyin.com/video/7624869691328485361",
+    "avatar": "author-avatar.jpg"
+  },
+  "tags": [
+    "animation",
+    "image-to-video",
+    "nostalgic",
+    "手绘插画",
+    "reference-template"
+  ],
+  "defaults": {
+    "prompt": "",
+    "size": "720x1280",
+    "duration": 5
+  },
+  "defaultsByLocale": {
+    "zh-CN": {
+      "prompt": "将上传的完成版插画或海报作为首帧视觉参考，生成一段轻快、活泼有趣的 MG 动画，也就是平面图形微动效。\n\n全程固定镜头，不推拉、不摇移、不缩放、不切镜。保持参考图的主体身份、轮廓、位置、配色、粗黑线条、半色调网点、纸张纹理和整体排版，不转换为写实摄影或三维渲染。\n\n只让与画面内容相关的少量局部元素做幅度克制的周期性运动，例如音箱中的磁带卷轴缓慢转动、音乐符号轻轻跳动，或插画动物自然眨眼。根据上传画面的实际内容选择动作，不添加原图中不存在的角色、物品或装饰。\n\n标题、字形、文案、文字位置和背景保持静止，文字不能重绘、漂移、扭曲或乱码，主体不能融化变形。动作柔和、节奏轻快，结尾尽量回到接近开头的状态，不添加转场、水印、教程字幕、对白或旁白。"
+    },
+    "en-US": {
+      "prompt": "Use the uploaded finished illustration or poster as the first-frame visual reference. Create a cheerful, playful motion-graphics clip with subtle local animation.\n\nKeep the camera fixed throughout: no dolly, pan, zoom, or cuts. Preserve the reference subject's identity, silhouette, placement, colors, bold black lines, halftone dots, paper texture, and overall layout. Do not switch to photorealism or 3D rendering.\n\nAnimate only a few relevant local elements with restrained periodic movement, such as slowly rotating cassette reels, gently bouncing music symbols, or an illustrated animal blinking. Choose actions from the actual uploaded content. Do not add characters, objects, or decorations absent from the reference.\n\nKeep headings, letterforms, wording, text placement, and the background static. Never redraw, drift, warp, or corrupt text, or melt the subject. Use soft, cheerful motion and end near the starting state where possible. No transitions, watermarks, tutorial captions, dialogue, or narration."
+    }
+  }
+}

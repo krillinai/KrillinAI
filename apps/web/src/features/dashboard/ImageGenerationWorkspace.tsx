@@ -1,4 +1,5 @@
 import {
+  creatorPromptMaxLength,
   readCreatorResultSnapshots,
   type CreatorArtifact,
   type CreatorJson,
@@ -47,7 +48,10 @@ const qualities: Array<{ value: ImageGenerationQuality; zh: string; en: string }
 ];
 
 const providers: Array<{ value: ImageGenerationProvider; zh: string; en: string }> = [
-  { value: 'openai', zh: 'GPT Image', en: 'GPT Image' }
+  { value: 'openai', zh: 'GPT Image', en: 'GPT Image' },
+  { value: 'jimeng', zh: '即梦', en: 'Jimeng' },
+  { value: 'kling', zh: '可灵', en: 'Kling' },
+  { value: 'gemini', zh: 'Gemini', en: 'Gemini' }
 ];
 
 const samplePromptZh = '一间通透的现代创意工作室，清晨自然光从落地窗照入，桌面有相机、手稿和绿植，真实摄影质感，构图干净，细节丰富';
@@ -119,15 +123,6 @@ export default function ImageGenerationWorkspace(props: {
   );
   const currentReferenceName = referenceFile?.name
     ?? readArtifactString(activeReferenceArtifact, 'fileName');
-
-  useEffect(() => {
-    if (session !== null && session.state.provider !== 'openai') {
-      session.updateDraft(
-        { provider: 'openai' },
-        { persist: !session.job.id.startsWith('pending:') }
-      );
-    }
-  }, [session?.job.id, session?.state.provider, session?.updateDraft]);
 
   useEffect(() => {
     if (referenceFile === null) {
@@ -415,9 +410,9 @@ export default function ImageGenerationWorkspace(props: {
               <div className="creator-tool-panel-heading">
                 <div>
                   <h2 id="image-prompt-title">{l('画面描述', 'Image prompt')}</h2>
-                  <p>{l('写清主体、环境、风格、光线与构图，最多 4000 字', 'Describe subject, setting, style, lighting, and composition, up to 4,000 characters')}</p>
+                  <p>{l(`写清主体、环境、风格、光线与构图，最多 ${creatorPromptMaxLength} 字`, `Describe subject, setting, style, lighting, and composition, up to ${creatorPromptMaxLength.toLocaleString('en-US')} characters`)}</p>
                 </div>
-                <small>{characterCount} / 4000</small>
+                <small>{characterCount} / {creatorPromptMaxLength}</small>
               </div>
               <div className="creator-tool-field image-generation-prompt-field">
                 <span id="image-prompt-label">{l('提示词', 'Prompt')}</span>
@@ -460,7 +455,7 @@ export default function ImageGenerationWorkspace(props: {
                   ) : null}
                   <textarea
                     rows={7}
-                    maxLength={4000}
+                    maxLength={creatorPromptMaxLength}
                     value={prompt}
                     onChange={event => updatePrompt(event.target.value)}
                     aria-labelledby="image-prompt-label"
@@ -711,8 +706,10 @@ function readArtifactString(
   return typeof value === 'string' && value.trim() ? value : undefined;
 }
 
-function readProvider(_value: CreatorJson | undefined): ImageGenerationProvider {
-  return 'openai';
+function readProvider(value: CreatorJson | undefined): ImageGenerationProvider {
+  return value === 'jimeng' || value === 'kling' || value === 'gemini'
+    ? value
+    : 'openai';
 }
 
 function readSize(value: CreatorJson | undefined): ImageGenerationSize {

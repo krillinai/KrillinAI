@@ -6,6 +6,7 @@ import CreatorCollaborationPanel from './CreatorCollaborationPanel.js';
 import {
   shortVideoScriptPanelAdapter,
   coverPanelAdapter,
+  creatorPanelAdapterFor,
   smartDubbingPanelAdapter,
   wechatArticlePanelAdapter,
   xiaohongshuPostPanelAdapter,
@@ -47,6 +48,74 @@ describe('Short video script panel', () => {
 });
 
 describe('CreatorCollaborationPanel', () => {
+  it.each([
+    {
+      module: 'image-generation' as const,
+      id: 'real-person-die-cut-sticker-poster',
+      title: '真人切模贴纸海报',
+      version: 2,
+      adapterId: 'generic'
+    },
+    {
+      module: 'video-generation' as const,
+      id: 'real-person-sticker-poster-motion',
+      title: '真人贴纸海报动效',
+      version: 1,
+      adapterId: 'video-generation'
+    }
+  ])('$title 复用现有适配器并过滤动态，去重阶段，展示真实进度', preset => {
+    const job = videoGenerationJob();
+    job.templateId = preset.module;
+    job.templateVersion = preset.version;
+    job.presetOrigin = {
+      module: preset.module,
+      id: preset.id,
+      version: 1,
+      locale: 'zh-CN',
+      title: preset.title,
+      contentHash: 'a'.repeat(64)
+    };
+    job.stages[0]!.executor = preset.module === 'image-generation' ? 'image' : 'video';
+    job.stages[0]!.progress = {
+      phase: 'generating', percent: 50, completed: 1, failed: 0, total: 2
+    };
+    job.activities.splice(2, 0, {
+      ...job.activities[1]!,
+      id: 'sticker_settings_second',
+      revision: 3,
+      createdAt: '2026-09-07T08:00:02.500Z'
+    });
+    job.activities.push({
+      ...job.activities.at(-1)!, id: 'sticker_run_duplicate', revision: 4
+    });
+    const adapter = creatorPanelAdapterFor(job.templateId);
+    expect(adapter.id).toBe(preset.adapterId);
+    expect(adapter.normalizeActivity(job.activities[0]!, (zh: string) => zh)).toBeNull();
+    const { container } = render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={job}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <CreatorCollaborationPanel
+            adapter={adapter}
+            stepLabel={adapter.stageLabel('generate', (zh: string) => zh)}
+            contextSummary={preset.title}
+          />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+    expect(screen.queryByText(/currentStep|furthestStep|启动阶段 generate/))
+      .not.toBeInTheDocument();
+    expect(container.querySelectorAll('.creator-collaboration-stage')).toHaveLength(1);
+    expect(container.querySelector('[data-status="running"]')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '50');
+    if (preset.module === 'video-generation') {
+      expect(screen.getAllByText('更新了创作设置')).toHaveLength(1);
+      expect(screen.getByText('2 次修改')).toBeInTheDocument();
+    }
+  });
+
   it('语义化并合并封面动态，同时显示标准 Stage 进度', () => {
     const job = coverJob();
     const { container } = render(
@@ -843,6 +912,7 @@ function smartDubbingJob(): CreatorJob {
     templateVersion: 1,
     status: 'running',
     revision: 4,
+    presetOrigin: null,
     state: {
       text: '这是一段智能配音文案。',
       ttsProvider: 'openai',
@@ -938,6 +1008,7 @@ function coverJob(): CreatorJob {
     templateVersion: 2,
     status: 'running',
     revision: 5,
+    presetOrigin: null,
     state: {
       sourceType: 'prompt',
       prompt: '电影感人物封面',
@@ -1040,6 +1111,7 @@ function downloadJob(): CreatorJob {
     templateVersion: 2,
     status: 'running',
     revision: 4,
+    presetOrigin: null,
     state: {
       sourceUrl: 'https://www.youtube.com/watch?v=demo',
       mediaType: 'video',
@@ -1128,6 +1200,7 @@ function videoGenerationJob(): CreatorJob {
     templateVersion: 1,
     status: 'running',
     revision: 3,
+    presetOrigin: null,
     state: {
       prompt: '雨夜中的赛博朋克街道',
       provider: 'veo',

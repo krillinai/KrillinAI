@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "miniature-city-map-travel-poster",
+  "version": 1,
+  "module": "image-generation",
+  "runtimeTemplate": {
+    "id": "image-generation",
+    "version": 2
+  },
+  "status": "published",
+  "featured": false,
+  "sortOrder": 55,
+  "title": {
+    "zh-CN": "城市地图微缩旅行海报",
+    "en-US": "Miniature City Map Travel Poster"
+  },
+  "description": {
+    "zh-CN": "把城市地图、弯曲道路、交通工具和地标融合成写实微缩旅行海报。",
+    "en-US": "Create an image with the Miniature City Map Travel Poster reference template."
+  },
+  "cover": "cover.jpg",
+  "preview": "preview.webp",
+  "author": {
+    "name": "@SimplyAnnisa",
+    "url": "https://x.com/SimplyAnnisa/status/2062358269172101240",
+    "avatar": "author-avatar.webp"
+  },
+  "tags": [
+    "海报设计",
+    "旅行城市",
+    "地图视觉",
+    "reference-template"
+  ],
+  "defaults": {
+    "prompt": "",
+    "size": "1024x1024",
+    "quality": "high",
+    "candidateCount": 2
+  },
+  "defaultsByLocale": {
+    "zh-CN": {
+      "prompt": "创建 [城市名称] 的高度详细的电影微型移轴旅行场景，其中包含逼真的 [车辆名称] 沿着蜿蜒的高架道路行驶，该道路从印刷的复古风格城市地图中自然出现。道路应向[城市名称]的背景天际线和地标急剧弯曲，而车辆仍然是前景中的清晰焦点。\n\n将真实城市与插图地图表面无缝融合，使道路看起来与地图本身融为一体。包括与[城市名称]相关的可识别的当地地标、水道、建筑、植被和氛围，但保持构图干净整洁。\n\n显示直接打印在前景地图上的大号粗体字体“[城市名称]”。使用温暖的黄金时段照明、浅景深、逼真的纹理、电影阴影、空中透视和逼真的细节。整体美感应该像是一张高级 Instagram 旅行海报与微型立体模型的混合体。\n\n长宽比 1:1。"
+    },
+    "en-US": {
+      "prompt": "Create a highly detailed cinematic miniature tilt-shift travel scene of [CITY NAME] featuring a realistic [VEHICLE NAME] driving along a winding elevated road that emerges naturally from a printed vintage-style city map. The road should curve dramatically toward the background skyline and landmarks of [CITY NAME], while the vehicle remains the clear focal point in the foreground.\n\nBlend the real city seamlessly with the illustrated map surface so the road appears integrated into the map itself. Include recognizable local landmarks, waterways, architecture, vegetation, and atmosphere associated with [CITY NAME], but keep the composition clean and uncluttered.\n\nShow large bold typography of \"[CITY NAME]\" printed directly on the map in the foreground. Use warm golden-hour lighting, shallow depth of field, realistic textures, cinematic shadows, aerial perspective, and photorealistic detail. The overall aesthetic should feel like a premium Instagram travel poster mixed with a miniature diorama.\n\nAspect ratio 1:1."
+    }
+  }
+}

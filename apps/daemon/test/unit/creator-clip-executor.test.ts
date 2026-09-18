@@ -232,6 +232,7 @@ function job(): CreatorJob {
       aspectRatio: '9:16',
       selectedCandidateIds: ['clip-1']
     },
+    presetOrigin: null,
     agentThreadId: null,
     stages: [],
     artifacts: [],

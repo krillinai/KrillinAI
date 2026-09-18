@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "wuhan-vintage-map-poster",
+  "version": 1,
+  "module": "image-generation",
+  "runtimeTemplate": {
+    "id": "image-generation",
+    "version": 2
+  },
+  "status": "published",
+  "featured": false,
+  "sortOrder": 69,
+  "title": {
+    "zh-CN": "武汉复古地图海报",
+    "en-US": "Wuhan Vintage Map Poster"
+  },
+  "description": {
+    "zh-CN": "生成一张以武汉城市地图、两江交汇和代表性地标为主体的复古羊皮纸线条艺术旅游海报，适合城市文化展示、旅行纪念和地方主题视觉创作。",
+    "en-US": "Create an image with the Wuhan Vintage Map Poster reference template."
+  },
+  "cover": "cover.jpg",
+  "preview": "preview.webp",
+  "author": {
+    "name": "雪瑜（@xueyu1125）",
+    "url": "https://x.com/xueyu1125/status/2094015423775994116",
+    "avatar": "author-avatar.webp"
+  },
+  "tags": [
+    "海报设计",
+    "旅行城市",
+    "地图视觉",
+    "reference-template"
+  ],
+  "defaults": {
+    "prompt": "",
+    "size": "1024x1536",
+    "quality": "high",
+    "candidateCount": 2
+  },
+  "defaultsByLocale": {
+    "zh-CN": {
+      "prompt": "创作一张精致的复古线条艺术旅游海报，竖版 4:5 构图，背景为温暖的陈旧羊皮纸，画面中心为中国武汉的精细手绘轮廓地图。地图应以武汉真实城市地理关系为基础进行优雅的艺术化简化，清晰表现长江由西南向东北穿城而过、汉江从西北汇入长江的两江交汇结构，并让武昌、汉口、汉阳三镇的空间关系可以被辨认，但不作为导航地图使用。\n\n使用纤细的棕褐色墨水线条，搭配极克制的微妙水彩渲染，并留出大量米色空白空间。在地图内部放置 6 个精确、可辨认、互不拥挤的武汉地标插画元素：\n\n1. 武昌蛇山附近的黄鹤楼，采用层叠飞檐、金色琉璃瓦与传统楼阁轮廓，作为地图上方偏右的核心地标。\n2. 横跨长江的武汉长江大桥，以双层钢桁架桥和桥头堡表现，桥梁必须真实跨越地图中的长江水道。\n3. 汉口江岸的江汉关大楼，突出古典钟楼、石质立面与端正的历史建筑比例。\n4. 武汉大学老图书馆与少量樱花，表现绿色琉璃瓦、山地台阶和克制的淡粉色花枝。\n5. 湖北省博物馆的曾侯乙编钟，以小型青铜编钟组作为文化符号，保持精细但不喧宾夺主。\n6. 东湖水域与绿道，以舒展湖岸、淡蓝绿色水面、荷叶和一座小型湖畔亭子表现武汉的湖城气质。\n\n让长江和汉江使用极淡的灰蓝色水彩，东湖使用柔和的青绿色；黄鹤楼屋顶、樱花、编钟和树木只使用少量低饱和金色、粉色、青铜绿和墨绿作为点缀。地图外围可添加极少量细小水纹、芦苇或候鸟线稿，但不要添加无关装饰。\n\n保持构图优雅、极简，呈现博物馆收藏级旅游海报质感，具备精细的建筑细节、淡淡的纸张斑点、自然墨迹变化和轻微印刷颗粒。仅在地标插画内部使用柔和哑光色彩，其余区域保持羊皮纸与棕褐线稿。\n\n在底部中心添加准确清晰的中文标题“中国武汉”，采用字间距较宽的黑色衬线字体；下方添加较小的中文副标题“江城的三镇记忆”。只允许出现这两组中文文字，不添加英文、地标标签或其他说明文字。\n\n画面中不包含人物，不使用现代数字 UI，不使用霓虹、渐变、3D 塑料质感或照片拼贴，无边框，无水印，无品牌标志。确保地图、河流与地标之间层级清楚，武汉长江大桥必须跨越长江，地标不能漂浮在地图轮廓之外。"
+    },
+    "en-US": {
+      "prompt": "Create a refined vintage line-art travel poster in a vertical 4:5 composition. Use warm, aged parchment as the background, with a finely hand-drawn outline map of Wuhan, China, at the center. Elegantly simplify the map based on Wuhan's actual geographical relationships: clearly show the Yangtze flowing through the city from southwest to northeast and the Han joining it from the northwest. Make the spatial relationship between Wuchang, Hankou, and Hanyang recognizable, but do not treat the map as a navigation map.\n\nUse fine sepia ink lines, extremely restrained subtle watercolor washes, and abundant beige whitespace. Place 6 precise, recognizable, uncrowded Wuhan landmark illustrations inside the map:\n\n1. Yellow Crane Tower near Snake Hill in Wuchang, with layered upturned eaves, golden glazed tiles, and a traditional pavilion silhouette, as the key landmark toward the upper-right of the map.\n2. Wuhan Yangtze River Bridge spanning the Yangtze, shown as a double-deck steel-truss bridge with bridgehead towers. It must genuinely cross the map's Yangtze waterway.\n3. Jianghan Customs House on the Hankou riverfront, emphasizing its classical clock tower, stone facade, and balanced historic architectural proportions.\n4. Wuhan University's old library with a few cherry blossoms, showing green glazed tiles, hillside steps, and restrained pale-pink flowering branches.\n5. The bronze chime bells of Marquis Yi of Zeng from Hubei Provincial Museum, represented as a small bell ensemble: finely detailed but not dominant.\n6. East Lake and its greenways, with an expansive shoreline, pale blue-green water, lotus leaves, and a small lakeside pavilion to convey Wuhan's lake-city character.\n\nUse very pale gray-blue watercolor for the Yangtze and Han rivers and soft blue-green for East Lake. Add only small, low-saturation touches of gold, pink, bronze green, and dark green to the Yellow Crane Tower roof, cherry blossoms, chime bells, and trees. A very few fine water-ripple, reed, or migratory-bird drawings may appear around the map, but no unrelated decoration.\n\nKeep the composition elegant and minimal, with the quality of a museum-collection travel poster: fine architectural detail, faint paper speckles, natural ink variation, and light print grain. Use soft matte colors only inside landmark illustrations; keep the rest as parchment and sepia linework.\n\nAt the bottom center, add the exact, clearly legible Chinese title \"中国武汉\" in a black serif typeface with wide spacing, followed by the smaller Chinese subtitle \"江城的三镇记忆\". Only these two Chinese text groups are allowed. Do not add English, landmark labels, or other explanatory text.\n\nNo people, modern digital UI, neon, gradients, 3D plastic textures, or photo collages. No border, watermark, or brand marks. Keep a clear hierarchy between the map, rivers, and landmarks. Wuhan Yangtze River Bridge must cross the Yangtze, and landmarks must not float outside the map outline."
+    }
+  }
+}

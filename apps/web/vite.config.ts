@@ -1,5 +1,14 @@
 import react from '@vitejs/plugin-react';
-import { existsSync } from 'node:fs';
+import {
+  createReadStream,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync
+} from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { spawn, spawnSync, type ChildProcessByStdio } from 'node:child_process';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
@@ -25,9 +34,21 @@ type RuntimeProcess = {
 let runtimeProcess: RuntimeProcess | undefined;
 const MAX_RUNTIME_OUTPUT_BUFFER = 1024 * 1024;
 const webDir = dirname(fileURLToPath(import.meta.url));
+const creatorPresetCatalogRoot = resolve(
+  process.env.OPENCREATOR_PRESET_CATALOG_ROOT
+    ?? join(webDir, '../../.runtime/generated/creator-presets')
+);
+const creatorSubtitleFontRoot = join(
+  webDir,
+  '../../assets/creator-subtitle-fonts/web'
+);
 
 export default defineConfig({
-  plugins: [react(), opencreatorRuntimeDevPlugin()],
+  plugins: [
+    react(),
+    opencreatorStaticResourcesPlugin(),
+    opencreatorRuntimeDevPlugin()
+  ],
   server: {
     host: '127.0.0.1',
     port: 19861,
@@ -38,6 +59,149 @@ export default defineConfig({
     port: 4173
   }
 });
+
+function opencreatorStaticResourcesPlugin(): Plugin {
+  const presetAssetsRoot = join(creatorPresetCatalogRoot, 'assets');
+  const presetBuildRoot = join(webDir, 'dist', 'creator-presets');
+  const fontBuildRoot = join(webDir, 'dist', 'fonts', 'opencreator');
+
+  return {
+    name: 'opencreator-static-resources',
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const pathname = new URL(
+          request.url ?? '/',
+          'http://opencreator.local'
+        ).pathname;
+        const presetMatch = pathname.match(
+          /^\/creator-presets\/([a-f0-9]{64}\.(?:png|jpe?g|webp|mp4))$/
+        );
+        if (presetMatch !== null) {
+          sendStaticFile(
+            request,
+            response,
+            join(presetAssetsRoot, presetMatch[1]!),
+            contentTypeForStaticResource(presetMatch[1]!)
+          );
+          return;
+        }
+        const fontMatch = pathname.match(
+          /^\/fonts\/opencreator\/([A-Za-z0-9-]+\.woff2)$/
+        );
+        if (fontMatch !== null) {
+          sendStaticFile(
+            request,
+            response,
+            join(creatorSubtitleFontRoot, fontMatch[1]!),
+            'font/woff2'
+          );
+          return;
+        }
+        next();
+      });
+    },
+    buildStart() {
+      assertStaticBuildInput(join(creatorPresetCatalogRoot, 'catalog.json'));
+      assertStaticBuildInput(join(creatorPresetCatalogRoot, 'manifest.json'));
+      assertStaticBuildInput(join(
+        webDir,
+        '../../assets/creator-subtitle-fonts/manifest.json'
+      ));
+    },
+    closeBundle() {
+      replaceDirectory(presetAssetsRoot, presetBuildRoot);
+      replaceDirectory(creatorSubtitleFontRoot, fontBuildRoot);
+    }
+  };
+}
+
+function sendStaticFile(
+  request: import('node:http').IncomingMessage,
+  response: import('node:http').ServerResponse,
+  file: string,
+  contentType: string
+): void {
+  const method = request.method;
+  if (method !== 'GET' && method !== 'HEAD') {
+    response.statusCode = 405;
+    response.setHeader('Allow', 'GET, HEAD');
+    response.end();
+    return;
+  }
+  if (!existsSync(file) || !statSync(file).isFile()) {
+    response.statusCode = 404;
+    response.end();
+    return;
+  }
+  const size = statSync(file).size;
+  const range = parseByteRange(request.headers.range, size);
+  if (request.headers.range !== undefined && range === undefined) {
+    response.statusCode = 416;
+    response.setHeader('Content-Range', `bytes */${size}`);
+    response.end();
+    return;
+  }
+  const start = range?.start ?? 0;
+  const end = range?.end ?? size - 1;
+  const length = Math.max(0, end - start + 1);
+  response.statusCode = range === undefined ? 200 : 206;
+  response.setHeader('Accept-Ranges', 'bytes');
+  response.setHeader('Content-Type', contentType);
+  response.setHeader('Content-Length', String(length));
+  if (range !== undefined) {
+    response.statusCode = 206;
+    response.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
+  }
+  response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  if (method === 'HEAD') {
+    response.end();
+    return;
+  }
+  createReadStream(file, { start, end }).pipe(response);
+}
+
+function parseByteRange(
+  value: string | undefined,
+  size: number
+): { start: number; end: number } | undefined {
+  if (value === undefined) return undefined;
+  const match = /^bytes=(\d+)-(\d*)$/.exec(value);
+  if (match === null) return undefined;
+  const start = Number(match[1]);
+  const requestedEnd = match[2] === '' ? size - 1 : Number(match[2]);
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(requestedEnd)) return undefined;
+  if (start < 0 || start >= size || requestedEnd < start) return undefined;
+  return { start, end: Math.min(requestedEnd, size - 1) };
+}
+
+function assertStaticBuildInput(path: string): void {
+  if (!existsSync(path) || !statSync(path).isFile()) {
+    throw new Error(
+      `OpenCreator static build input is missing: ${path}. `
+      + 'Run pnpm templates:compile before building Web.'
+    );
+  }
+}
+
+function replaceDirectory(source: string, destination: string): void {
+  if (!existsSync(source) || !statSync(source).isDirectory()) {
+    throw new Error(`OpenCreator static resource directory is missing: ${source}`);
+  }
+  const entries = readdirSync(source, { withFileTypes: true });
+  if (entries.some(entry => !entry.isFile())) {
+    throw new Error(`OpenCreator static resource directory must contain files only: ${source}`);
+  }
+  rmSync(destination, { recursive: true, force: true });
+  mkdirSync(destination, { recursive: true });
+  cpSync(source, destination, { recursive: true });
+}
+
+function contentTypeForStaticResource(file: string): string {
+  if (file.endsWith('.mp4')) return 'video/mp4';
+  if (file.endsWith('.webp')) return 'image/webp';
+  if (file.endsWith('.png')) return 'image/png';
+  return 'image/jpeg';
+}
 
 function opencreatorRuntimeDevPlugin(): Plugin {
   return {

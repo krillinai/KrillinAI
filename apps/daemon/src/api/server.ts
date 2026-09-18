@@ -183,6 +183,12 @@ import {
 } from '../creator/events.js';
 import { createCreatorRepository } from '../creator/repository.js';
 import { createCreatorService, type CreatorService } from '../creator/service.js';
+import {
+  loadCreatorPresetCatalog,
+  resolveCreatorPresetCatalogRoot
+} from '../creator/presets/catalog.js';
+import { assertCreatorPresetStageRequirement } from '../creator/presets/requirements.js';
+import type { CreatorPresetRegistry } from '../creator/presets/types.js';
 import { createDefaultCreatorTemplateRegistry } from '../creator/templates/registry.js';
 import { createRunManager, type RunManager } from '../runs/manager.js';
 import { createPersistentAppServerExecutor } from '../runs/persistent-app-server-executor-2026-07-28.js';
@@ -269,6 +275,8 @@ export type BuildServerInput = {
   creatorServicesConfigStore?: CreatorServicesConfigStore;
   codexProviderCredentialStore?: CodexProviderCredentialStore;
   creatorService?: CreatorService;
+  creatorPresetRegistry?: CreatorPresetRegistry;
+  creatorPresetCatalogRoot?: string;
   creatorReferenceImageUploadService?: CreatorReferenceImageUploadService;
   creatorReferenceImageMaxSizeBytes?: number;
   creatorSourceUploadService?: CreatorSourceUploadService;
@@ -449,12 +457,15 @@ export async function buildServer(input: BuildServerInput) {
     repository: creatorAgentRepository
   });
   creatorAgentReconciler.reconcileAfterDaemonRestart();
-  const creatorService = input.creatorService ?? createCreatorService({
-    jobsRoot: creatorJobsRoot,
-    repository: creatorRepository,
-    templates: createDefaultCreatorTemplateRegistry(),
-    providerRequestLedger: creatorProviderRequestLedger
-  });
+  const creatorTemplates = createDefaultCreatorTemplateRegistry();
+  const creatorPresetCatalogRoot = resolve(
+    input.creatorPresetCatalogRoot ?? resolveCreatorPresetCatalogRoot()
+  );
+  const creatorPresetRegistry = input.creatorPresetRegistry
+    ?? await loadCreatorPresetCatalog({
+      root: creatorPresetCatalogRoot,
+      templates: creatorTemplates
+    });
   const agentCapabilityTokens =
     input.agentCapabilityTokens ?? createAgentCapabilityTokenStore();
   const runtimeTransport = input.runtimeTransport ?? 'app-server';
@@ -533,6 +544,14 @@ export async function buildServer(input: BuildServerInput) {
         }
       }
     );
+  const creatorService = input.creatorService ?? createCreatorService({
+    jobsRoot: creatorJobsRoot,
+    repository: creatorRepository,
+    templates: creatorTemplates,
+    providerRequestLedger: creatorProviderRequestLedger,
+    presets: creatorPresetRegistry,
+    creatorServicesConfig: creatorServicesConfigStore
+  });
   const creatorRuntimeRoot = process.env.OPENCREATOR_CREATOR_RUNTIME_ROOT
     ?? join(runtimeDir, 'krillinai');
   const krillinDependencyLoader = createKrillinDependencyLoader({
@@ -802,6 +821,13 @@ export async function buildServer(input: BuildServerInput) {
         templates: creatorService.templates,
         workRoot: creatorJobsRoot,
         executors: creatorExecutors,
+        async beforeRun(job, stageId) {
+          assertCreatorPresetStageRequirement({
+            job,
+            stageId,
+            services: await creatorServicesConfigStore.read()
+          });
+        },
         onJobChanged(job) {
           creatorEvents.publish({
             id: `snapshot:${job.revision}`,
@@ -1222,7 +1248,9 @@ export async function buildServer(input: BuildServerInput) {
     documentUploadService: creatorDocumentUploadService,
     artifactImportService: creatorArtifactImportService,
     dispatcher: creatorCommandDispatcher,
-    stageRunner: creatorStageRunner
+    stageRunner: creatorStageRunner,
+    presets: creatorPresetRegistry,
+    presetCatalogRoot: creatorPresetCatalogRoot
   });
   await registerAttachmentRoutes(server, attachmentService, {
     maxSizeBytes: input.attachmentMaxSizeBytes

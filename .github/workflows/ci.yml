@@ -36,6 +36,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Validate writing templates
         run: pnpm --filter @opencreator/writing-templates test
+      - run: pnpm templates:ci
       - name: Audit high severity dependencies
         run: pnpm audit --audit-level high --ignore-registry-errors
         timeout-minutes: 5

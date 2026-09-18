@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "cinematic-shaolin-action",
+  "version": 1,
+  "module": "video-generation",
+  "runtimeTemplate": {
+    "id": "video-generation",
+    "version": 1
+  },
+  "status": "published",
+  "featured": false,
+  "sortOrder": 56,
+  "title": {
+    "zh-CN": "电影级少林武僧动作大片",
+    "en-US": "Cinematic Shaolin Action"
+  },
+  "description": {
+    "zh-CN": "生成少林武僧与石甲生物对决的武侠奇幻动作序列，包含分段动作编排、变速和电光效果。",
+    "en-US": "Create a wuxia fantasy battle between a Shaolin monk and original stone-armored creatures with choreographed action and speed changes."
+  },
+  "cover": "cover.jpg",
+  "tags": [
+    "action",
+    "cinematic",
+    "fantasy",
+    "text-to-video"
+  ],
+  "defaults": {
+    "prompt": "",
+    "size": "1280x720",
+    "duration": 10
+  },
+  "defaultsByLocale": {
+    "zh-CN": {
+      "prompt": "超电影感日间武侠奇幻序列。[主角：身着藏红花色僧袍的健硕少林武僧]，站在[场景：广阔的废弃山间寺庙庭院]内。[对手：四个高耸的原创石甲生物]，长着细长的四肢和发光的眼睛，将他团团围住。 0–4 秒：武僧紧闭双眼的特写镜头。尘埃在阳光中漂浮。他的双眼猛然睁开，蓝白色的电流在他皮肤上游走。缓慢的推拉镜头展现出生物从四面八方冲来。 4–9 秒：时间戏剧性地变慢。生物的利爪从他脸颊旁几毫米处划过的微距特写，僧袍布料在空气中弯曲，细小的尘埃颗粒在他们周围静止。摄像机进行快速的 180 度环绕拍摄，同时武僧向后弯腰，做出一个不可思议但符合解剖学控制的闪避动作。 9–14 秒：瞬间恢复全速。激进的手持跟拍，武僧施展出迅猛的掌击、肘击和旋风踢。每次撞击都切换到史诗级的特写：紧握的拳头、在石头上扭转的脚掌、生物后仰的面部，以及向外迸发的电弧。 14–20 秒：超慢动作侧面轮廓。武僧在两个生物之间跳跃，摄像机围绕他悬空的身体进行 360 度旋转。他将一个生物引向另一个，水平旋转，随后单手着地，圆形的冲击波震散了灰尘和碎石。 20–26 秒：低角度近距离追拍。一个巨大的生物冲锋而来。武僧径直向它冲去，垂直跑上它的躯干，并在其头顶翻身。他双掌汇聚蓝白色能量的特写，随后是一次强有力的向下接触，空气随之扭曲，庭院地面出现同心圆状的裂纹。 26–30 秒：静谧的慢动作高潮。武僧面部的特写，闪电映照在他的眼中。他以深蹲姿势落地；摄像机迅速拉远至极广角的英雄镜头，四个生物环绕在他周围。 逼真的武侠大片，变形宽银幕摄影，高对比度阳光，戏剧性的变速特效，史诗级特写，清晰的动作编排，真实的动量，稳定的解剖结构，正常的比例且无拉伸，沉重的物理撞击声，石块碎裂声，布料撕裂声，雷鸣电闪。"
+    },
+    "en-US": {
+      "prompt": "Ultra-cinematic daylight martial-arts fantasy sequence. An original Shaolin monk with a shaved head, athletic build and weathered saffron robes stands inside a vast ruined mountain temple courtyard. Four towering original creatures with stone armor, elongated limbs and glowing eyes surround him.\n\n0–4s: extreme close-up on the monk’s closed eyes. Dust floats in sunlight. His eyes open sharply; blue-white electricity crawls across his skin. Slow dolly-out reveals the creatures charging from every direction.\n\n4–9s: time slows dramatically. Macro close-ups of a creature’s claw passing millimeters from his cheek, robe fabric bending through the air, individual dust particles frozen around them. The camera performs a fast 180-degree orbit while the monk arches backward in an impossible but anatomically controlled dodge.\n\n9–14s: sudden return to full speed. Aggressive handheld tracking as the monk delivers rapid palm contacts, elbows and spinning kicks. Each impact cuts to an epic close-up: clenched fist, foot twisting against stone, creature’s face recoiling, electrical arcs bursting outward.\n\n14–20s: ultra-slow-motion side profile. The monk jumps between two creatures while the camera circles 360 degrees around his suspended body. He redirects one creature into the other, rotates horizontally, then lands on one hand as a circular pressure wave scatters dust and debris.\n\n20–26s: low-angle close pursuit. A colossal creature charges. The monk sprints directly toward it, runs vertically up its torso, flips above its head. Extreme close-up on his palms gathering blue-white energy, followed by a powerful downward contact that bends the air and cracks the courtyard in concentric rings.\n\n26–30s: silent slow-motion climax. Close-up on the monk’s face as lightning reflects in his eyes. He lands in a deep stance; the camera rapidly pulls back to an extreme-wide hero shot as all four creatures coming around him. \nPhotorealistic martial-arts blockbuster, anamorphic cinematography, high-contrast sunlight, dramatic speed ramps, epic close-ups, readable choreography, realistic momentum, stable anatomy, normal proportions without stretch, heavy physical impact sounds, stone cracks, cloth snaps, electrical thunder."
+    }
+  },
+  "previewVideo": "example.mp4",
+  "author": {
+    "name": "Pierrick Chevallier（@CharaspowerAI）",
+    "url": "https://x.com/CharaspowerAI/status/2086830115527250284",
+    "avatar": "author-avatar.webp"
+  }
+}

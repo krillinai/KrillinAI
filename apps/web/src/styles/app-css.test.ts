@@ -36,6 +36,20 @@ function hexChannels(value: string): number[] {
 }
 
 describe('app CSS visual contracts', () => {
+  it('keeps the video template marker centered, subdued and non-interactive', () => {
+    const marker = cssBlock('.creator-template-play-marker');
+    expect(marker).toContain('--creator-template-play-size: 40px;');
+    expect(marker).toContain('--creator-template-play-background-opacity: 0.28;');
+    expect(marker).toContain('--creator-template-play-icon-opacity: 0.5;');
+    expect(marker).toContain('position: absolute;');
+    expect(marker).toContain('top: 50%;');
+    expect(marker).toContain('left: 50%;');
+    expect(marker).toContain('transform: translate(-50%, -50%);');
+    expect(marker).toContain('pointer-events: none;');
+    expect(marker).not.toMatch(/box-shadow:|border:|transition:|animation:/);
+    expect(cssBlock('.creator-template-play-marker svg')).toContain('width: 40%;');
+  });
+
   it('keeps body copy readable and navigation or status text at 12px or larger', () => {
     const productCss = [appCss, skillMarketCss, schedulesCss, settingsCss, taskCenterCss].join('\n');
 
@@ -695,15 +709,14 @@ describe('app CSS visual contracts', () => {
     expect(emptyComposer).toContain('overflow-y: auto;');
     expect(emptyComposer).toContain('padding: clamp(72px, 13vh, 128px) var(--conversation-gutter) 56px;');
     expect(cssBlock('.conversation-page.is-empty .composer-stack')).toContain('width: min(760px, 100%);');
+    expect(cssBlock('.creator-home-wrap')).toContain('overflow-y: auto;');
+    expect(cssBlock('.creator-home-wrap .creator-dashboard')).toContain('margin: 0 auto;');
+    expect(cssBlock('.creator-template-tabs')).toContain('grid-template-columns: repeat(4, minmax(0, 1fr));');
     expect(cssBlock('.creator-template-tabs')).toContain('width: min(760px, 100%);');
-    expect(cssBlock('.creator-template-tabs')).toContain('grid-template-columns: repeat(3, minmax(max-content, 1fr));');
-    expect(cssBlock('.creator-tool-grid')).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));');
-    expect(cssBlock('.creator-template-grid')).toContain('grid-template-columns: repeat(5, minmax(0, 1fr));');
-    expect(cssBlock('.creator-template-grid')).toContain('gap: 12px;');
-    expect(cssBlock('.creator-template-copy')).toContain('padding: 9px 10px 11px;');
-    expect(appCss).toMatch(
-      /@media \(max-width: 1100px\) and \(min-width: 921px\)\s*\{[\s\S]*?\.creator-template-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);/
-    );
+    expect(cssBlock('.creator-template-grid')).toContain('grid-template-columns: repeat(4, minmax(0, 1fr));');
+    expect(cssBlock('.creator-template-grid')).toContain('gap: 10px;');
+    expect(cssBlock('.creator-template-copy')).toContain('min-height: 40px;');
+    expect(cssBlock('.creator-template-copy')).toContain('padding: 9px 10px;');
     expect(appCss).toMatch(/\.conversation-page\.is-empty \.opencreator-composer textarea\s*\{[^}]*min-height:\s*72px;/);
     expect(appCss).not.toContain('translateY(clamp(-150px, -14vh, -108px))');
     expect(tokensCss).toContain('--border-hairline: rgba(245, 245, 246, 0.08);');

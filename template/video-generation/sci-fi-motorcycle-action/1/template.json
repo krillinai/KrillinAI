@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "sci-fi-motorcycle-action",
+  "version": 1,
+  "module": "video-generation",
+  "runtimeTemplate": {
+    "id": "video-generation",
+    "version": 1
+  },
+  "status": "published",
+  "featured": false,
+  "sortOrder": 57,
+  "title": {
+    "zh-CN": "科幻摩托车动作场面",
+    "en-US": "Sci-Fi Motorcycle Action"
+  },
+  "description": {
+    "zh-CN": "生成未来摩托车追逐、外星母舰爆炸和近身格斗组成的高能电影级科幻动作场面。",
+    "en-US": "Create a high-energy cinematic sequence combining a futuristic motorcycle chase, an alien mothership explosion, and close combat."
+  },
+  "cover": "cover.jpg",
+  "tags": [
+    "action",
+    "cinematic",
+    "sci-fi",
+    "text-to-video"
+  ],
+  "defaults": {
+    "prompt": "",
+    "size": "1280x720",
+    "duration": 10
+  },
+  "defaultsByLocale": {
+    "zh-CN": {
+      "prompt": "一场高能电影感科幻动作场面，背景设定在阴沉压抑的天空下，[场景：被摧毁且烟雾弥漫的高速公路]上。[主角：留着深色卷发、身穿战术服装的运动型女性]，骑着[载具：哑光黑色未来派摩托车]在混乱的车流中穿梭，摩托车配有双前置重型轮胎和发光的白色 LED 前大灯，她灵活地避开燃烧的汽车残骸和剧烈的爆炸。摩托车底盘精准地部署出双联装重型等离子加特林机枪，向上方巨大的悬浮三角形外星母舰开火，直至其在道路上方炸成一团耀眼的火球。摩托车冲上混凝土护栏坡道，在光束背景下完成了一次极具戏剧性的空中慢动作跳跃，落地时发生爆炸，骑手优雅地以超级英雄式的“三点着陆”姿势落在火焰环绕的沥青路面上。她站起身以超人的速度冲向一名身穿黑色皮夹克的金发女性对手，她那带有蓝色 LED 发光线条的未来派机械腿甲清晰可见。两人展开快节奏的武术近身格斗，她踢出强有力的一记动能踢，将对手击飞撞向一辆翻倒的卡车，卡车随即引发剧烈火爆。超写实真人电影美学，8k 分辨率，电影级布光，体积光束，爆炸特效，低角度追踪镜头，快节奏动作，动态运动模糊，35mm 镜头拍摄。"
+    },
+    "en-US": {
+      "prompt": "A high-octane cinematic sci-fi action sequence set on a destroyed, smoke-filled highway under an overcast, moody sky. An athletic woman with curly dark hair wearing an olive green tank top and dark tactical pants rides a matte-black futuristic motorcycle with dual front heavy tires and glowing white LED headlights through chaotic traffic, avoiding burning car wrecks and fiery explosions. Dual heavy plasma gatling guns deploy from the motorcycle chassis with mechanical precision, firing upward at a massive hovering triangular alien mothership until it explodes in a brilliant fireball above the road. The motorcycle launches off a concrete barrier ramp into a dramatic mid-air slow-motion leap against light rays, exploding upon impact as the rider alights and lands gracefully in a three-point superhero landing on the asphalt surrounded by flames. She stands up and sprints at superhuman speed her futuristic cybernetic leg armor featuring glowing blue LED line accents towards a blonde female opponent in a black leather jacket. She engages in fast-paced martial arts hand-to-hand combat, delivering a powerful kinetic kick that sends the opponent flying into an overturned truck that detonates in a massive fire explosion. Hyper-realistic live-action movie aesthetic, 8k resolution, cinematic lighting, volumetric light shafts, explosive FX, low-angle tracking shot, fast action pacing, dynamic motion blur, shot on 35mm lens."
+    }
+  },
+  "previewVideo": "example.mp4",
+  "author": {
+    "name": "Zyrella（@Zyrellix）",
+    "url": "https://x.com/Zyrellix/status/2087846827475239167",
+    "avatar": "author-avatar.webp"
+  }
+}

@@ -217,6 +217,7 @@ test('视频下载在 Browser/Desktop Bridge 下保持相同界面、请求和�
   }>('POST', '/creator/jobs', {
     projectId: runtime.projectId,
     templateId: 'video-download',
+    creationKey: 'parity-video-download',
     state: {
       sourceUrl: 'https://www.youtube.com/watch?v=OpenCreatorParity'
     }
@@ -322,6 +323,7 @@ test('视频生成在 Browser/Desktop Bridge 下保持相同界面、请求和�
     }>('POST', '/creator/jobs', {
       projectId: runtime.projectId,
       templateId: 'video-generation',
+      creationKey: `parity-video-generation-${platform}`,
       state: {
         prompt: '雨夜中的未来城市，镜头平稳向前推进',
         provider: 'seedance',
@@ -979,7 +981,7 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
   expect(results[0]!.requests).toContain('GET /creator/yt-dlp/status');
 });
 
-test('工作台模板新建 Creator Job，刷新和最近项目精确恢复历史且不启动普通 Codex Run', async ({ page, runtime }) => {
+test('工作台模块新建 Creator Job，刷新和最近项目精确恢复历史且不启动普通 Codex Run', async ({ page, runtime }) => {
   await page.route(
     /^https:\/\/i\.ytimg\.com\/vi\/OpenCreator(?:Demo|Second)\/maxresdefault\.jpg$/,
     route => route.fulfill({
@@ -994,7 +996,7 @@ test('工作台模板新建 Creator Job，刷新和最近项目精确恢复历�
   await page.goto(`${runtime.origin}/#/workbench`);
   await expect(page.getByRole('heading', { name: '工作台' })).toBeVisible();
 
-  await page.getByRole('button', { name: /视频下载/ }).last().click();
+  await page.getByRole('button', { name: /^视频下载/ }).click();
   const input = page.getByRole('textbox', { name: '待下载视频链接' });
   await expect(input).toBeVisible();
   await input.fill('https://www.youtube.com/watch?v=OpenCreatorDemo');
@@ -1023,8 +1025,10 @@ test('工作台模板新建 Creator Job，刷新和最近项目精确恢复历�
   await expect(page.getByRole('textbox', { name: '待下载视频链接' }))
     .toHaveValue('https://www.youtube.com/watch?v=OpenCreatorDemo');
 
-  await page.getByRole('button', { name: '返回', exact: true }).click();
-  await page.getByRole('button', { name: /视频下载/ }).last().click();
+  await page.getByRole('region', { name: '视频下载 操作区' })
+    .getByRole('button', { name: '返回', exact: true })
+    .click();
+  await page.getByRole('button', { name: /^视频下载/ }).click();
   await expect(page.getByRole('textbox', { name: '待下载视频链接' })).toHaveValue('');
   await page.getByRole('textbox', { name: '待下载视频链接' })
     .fill('https://www.youtube.com/watch?v=OpenCreatorSecond');
@@ -1149,6 +1153,162 @@ test('封面生成在桌面和移动视口保持可操作并从项目中心恢�
   await expect(page).toHaveURL(new RegExp(`jobId=${jobId}`));
   await expect(page.getByRole('heading', { name: '封面生成' })).toBeVisible();
   await expect(page.getByRole('radio', { name: '9:16', exact: true })).toBeChecked();
+});
+
+test('Creator Preset 在 Browser/Desktop Bridge 下创建相同工作台状态', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-desktop',
+    '一致性规格内部固定创建 Browser/Desktop Chromium 上下文'
+  );
+
+  const results: Array<{
+    home: {
+      text: string;
+      boxes: Record<string, { width: number; height: number }>;
+    };
+    request: Record<string, unknown>;
+    route: string;
+    text: string;
+    job: {
+      templateId: string;
+      templateVersion: number;
+      status: string;
+      state: Record<string, unknown>;
+      presetOrigin: Record<string, unknown> | null;
+      stages: unknown[];
+    };
+  }> = [];
+
+  for (const platform of ['browser', 'desktop'] as const) {
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      deviceScaleFactor: 1,
+      colorScheme: 'dark',
+      reducedMotion: 'reduce'
+    });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page);
+    let createRequest: Record<string, unknown> | undefined;
+    page.on('request', request => {
+      const url = new URL(request.url());
+      if (
+        request.method() === 'POST'
+        && url.pathname.endsWith('/creator/jobs')
+      ) {
+        createRequest = request.postDataJSON() as Record<string, unknown>;
+      }
+    });
+
+    try {
+      await runtime.openApp(page);
+      await page.goto(`${runtime.origin}/#/new`);
+      await expect(page.getByRole('heading', { name: '精选模板' })).toBeVisible();
+      await expect(page.getByText('需要帮你做点什么')).toHaveCount(0);
+      await expect(page.getByRole('textbox', { name: '输入任务' })).toHaveCount(0);
+      await expect(page.getByRole('tab', { name: '推荐' }))
+        .toHaveAttribute('aria-selected', 'true');
+      await expect(page.getByRole('tab', { name: '视频创作' })).toBeVisible();
+      await expect(page.getByRole('tab', { name: '图像设计' })).toBeVisible();
+      await page.getByRole('tab', { name: '图像设计' }).click();
+      const presetButton = page.getByRole('button', {
+        name: '查看食物爆炸拆解信息图模板详情'
+      });
+      await expect(presetButton).toHaveText('食物爆炸拆解信息图');
+      await presetButton.scrollIntoViewIfNeeded();
+      const cover = presetButton.locator('img');
+      await expect.poll(async () => cover.evaluate(image => ({
+        complete: image.complete,
+        width: image.naturalWidth
+      }))).toEqual({ complete: true, width: 1280 });
+      const home = page.locator('.creator-dashboard');
+      const boxes: Record<string, { width: number; height: number }> = {};
+      for (const [name, locator] of [
+        ['categories', page.getByRole('tablist', { name: '创作模板分类' })],
+        ['first-template', presetButton]
+      ] as const) {
+        const box = await locator.boundingBox();
+        expect(box).not.toBeNull();
+        boxes[name] = {
+          width: Math.round(box!.width),
+          height: Math.round(box!.height)
+        };
+      }
+      const homeSnapshot = {
+        text: normalizeParityText(await home.innerText()),
+        boxes
+      };
+
+      await presetButton.click();
+      await page.getByRole('button', { name: '使用此模板', exact: true }).click();
+      await expect(page).toHaveURL(/#\/workbench\?tool=image-generation&jobId=/);
+      const route = new URL(page.url()).hash.slice(1);
+      const jobId = new URL(route, runtime.origin).searchParams.get('jobId');
+      expect(jobId).not.toBeNull();
+      await expect.poll(() => createRequest).toBeDefined();
+      const response = await runtime.api<{
+        job: {
+          templateId: string;
+          templateVersion: number;
+          status: string;
+          state: Record<string, unknown>;
+          presetOrigin: Record<string, unknown> | null;
+          stages: unknown[];
+        };
+      }>('GET', `/creator/jobs/${encodeURIComponent(jobId!)}`);
+      const workspace = page.getByRole('region', { name: /图像生成\s*操作区/ });
+      const panel = page.getByRole('complementary', { name: 'OpenCreator' });
+      await expect(workspace).toBeVisible();
+      await expect(panel).toBeVisible();
+
+      results.push({
+        home: homeSnapshot,
+        request: {
+          ...createRequest!,
+          creationKey: '{creationKey}'
+        },
+        route: route.replace(jobId!, '{jobId}'),
+        text: normalizeParityText(
+          `${await workspace.innerText()}\n${await panel.innerText()}`
+        ),
+        job: {
+          templateId: response.job.templateId,
+          templateVersion: response.job.templateVersion,
+          status: response.job.status,
+          state: response.job.state,
+          presetOrigin: response.job.presetOrigin,
+          stages: response.job.stages
+        }
+      });
+    } finally {
+      await context.close();
+    }
+  }
+
+  expect(results[1]!.home).toEqual(results[0]!.home);
+  expect(results[1]!.request).toEqual(results[0]!.request);
+  expect(results[1]!.route).toBe(results[0]!.route);
+  expect(results[1]!.text).toBe(results[0]!.text);
+  expect(results[1]!.job).toEqual(results[0]!.job);
+  expect(results[0]!.job).toMatchObject({
+    templateId: 'image-generation',
+    templateVersion: 2,
+    status: 'draft',
+    presetOrigin: {
+      module: 'image-generation',
+      id: 'exploded-food-infographic',
+      version: 1,
+      locale: 'zh-CN',
+      title: '食物爆炸拆解信息图'
+    },
+    state: {
+      prompt: expect.stringContaining('创建超写实的塔可'),
+      size: '1024x1024'
+    },
+    stages: []
+  });
 });
 
 async function installDesktopBridge(

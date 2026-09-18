@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "isometric-miniature-kitchen",
+  "version": 1,
+  "module": "image-generation",
+  "runtimeTemplate": {
+    "id": "image-generation",
+    "version": 2
+  },
+  "status": "published",
+  "featured": false,
+  "sortOrder": 83,
+  "title": {
+    "zh-CN": "等轴测微缩厨房",
+    "en-US": "Isometric Miniature Kitchen"
+  },
+  "description": {
+    "zh-CN": "生成等轴测视角的完整微缩厨房空间。",
+    "en-US": "Create an image with the Isometric Miniature Kitchen reference template."
+  },
+  "cover": "cover.jpg",
+  "preview": "preview.webp",
+  "author": {
+    "name": "@Berryxia.AI",
+    "url": "https://x.com/berryxia/status/2096158415894835518#reversed-0",
+    "avatar": "author-avatar.webp"
+  },
+  "tags": [
+    "设计参考",
+    "建筑空间",
+    "等轴测",
+    "reference-template"
+  ],
+  "defaults": {
+    "prompt": "",
+    "size": "1024x1536",
+    "quality": "high",
+    "candidateCount": 2
+  },
+  "defaultsByLocale": {
+    "zh-CN": {
+      "prompt": "创建一个高度精细的等轴测 3D 微缩立体模型，呈现一个温馨的美式厨房角落，如同在 Blender 中渲染出的手工娃娃屋场景，并带有柔和的全局光照。房间为一个开放式立方体，两面米色壁纸墙在角落交汇，底部为凸起的方形瓷砖地板，顶部和护墙板高度处饰有温暖的中棕色木饰条。使用暖米色摄影棚背景，并采用 3/4 俯视角的正交相机。厨房风格怀旧、可爱且略带玩具感，具有圆润的边缘、抛光的木材、逼真的材质和整洁的微缩比例。包含 12 个主要的家具和固定装置元素：左侧 1 台带有 NORD 字样、彩色小圆磁铁和黄铜把手的奶油色复古冰箱；1 台带有黑色炉头和带盖锅具的薄荷绿燃气灶；右侧 1 组长条木质地柜，配有抽屉、镶板橱柜门、黄铜旋钮和水槽；水槽上方 1 扇双开窗，配有挂在银色杆上的米色系带窗帘；2 个壁挂式木质方盒搁板（分别位于炉灶上方和窗户右侧），内放书籍和白色罐子；中心 1 张铺有白绿格纹桌布的方形餐桌；桌边 3 把木椅；左侧墙上 1 幅小框画；以及 1 对带有圆形灯罩和淡粉色球形装饰的黄铜壁灯。添加 10 个清晰可见的桌面或台面配件：1 个放有面包的托盘、1 个木质砧板、1 个绿色小瓶、1 个装有木勺的餐具杯、1 个洗手液泵瓶、餐桌上 1 个蓝色茶壶或水壶、1 个装有红色顶部甜点的玻璃甜点罩、1 个小杯碟、1 个放有食物的小盘子，以及水槽旁 1 块矩形小海绵。材质应包括光泽奶油色珐琅、薄荷绿喷漆金属、清漆木纹、半透明玻璃、柔软织物窗帘、陶瓷砖和拉丝金属。光照应温暖柔和，伴有柔和的阴影和环境光遮蔽，以强调微缩比例和精细细节。配色方案：warm medium brown、奶油色、薄荷绿、米色、淡粉色、柔和的绿色、黄铜色和柔和的灰色瓷砖。画面中不包含人物，无水印，除复古冰箱和炉灶外无现代家电，立方体房间外无杂物。"
+    },
+    "en-US": {
+      "prompt": "Create a highly detailed isometric 3D miniature diorama of a cozy American-style kitchen corner, like a handcrafted dollhouse scene rendered in Blender with soft global illumination. The room is an open cube set with two cream wallpapered walls meeting in a corner, a raised square tiled floor base, and warm medium-brown wood trim along the top and chair-rail height. Use a warm beige studio background and orthographic camera at a 3/4 overhead angle. The kitchen style is nostalgic, cute, and slightly toy-like with rounded edges, polished wood, realistic materials, and clean miniature proportions. Include exactly 12 main furniture and fixture elements: 1 cream retro refrigerator on the left with the word NORD, small colorful round magnets and brass handles; 1 mint-green gas stove with black burners and a lidded pot; 1 long wooden lower cabinet run on the right with drawers, paneled cupboard doors, brass knobs, and a sink; 1 double window above the sink with beige tied curtains on a silver rod; 2 wall-mounted wooden box shelves, one above the stove and one to the right of the window, containing books and white jars; 1 square dining table in the center covered with a white-and-green checkered tablecloth; 3 wooden chairs around the table; 1 small framed picture on the left wall; and 1 pair of brass wall lamps with round shades and pastel pink globe accents. Add exactly 10 visible tabletop or counter accessories: 1 tray with bread loaves, 1 wooden cutting board, 1 small green bottle, 1 utensil cup with wooden spoons, 1 soap pump bottle, 1 blue teapot or kettle on the dining table, 1 glass dessert cloche with red-topped sweets, 1 small cup and saucer, 1 tiny plate with food, and 1 small rectangular sponge near the sink. Materials should include glossy cream enamel, mint painted metal, varnished wood grain, semi-transparent glass, soft fabric curtains, ceramic tiles, and brushed metal. Lighting should be warm and soft, with gentle shadows and ambient occlusion, emphasizing the miniature scale and fine details. Color palette: warm medium brown, cream, mint green, beige, pale pink, muted green, brass, and soft gray tile. No people, no watermark, no modern appliances beyond the retro fridge and stove, no clutter outside the cube room."
+    }
+  }
+}
