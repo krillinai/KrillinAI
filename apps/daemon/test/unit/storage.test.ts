@@ -775,6 +775,8 @@ it('persists threads and codex thread binding', () => {
 
   threads.setCodexThreadId('thread_1', '019f-thread');
   expect(threads.getThread('thread_1')?.codex_thread_id).toBe('019f-thread');
+  threads.setCodexThreadId('thread_1', null);
+  expect(threads.getThread('thread_1')?.codex_thread_id).toBeNull();
 });
 
 it('permanently deletes thread-owned records without deleting project files', () => {

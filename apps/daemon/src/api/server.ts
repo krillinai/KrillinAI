@@ -471,7 +471,7 @@ export async function buildServer(input: BuildServerInput) {
   const runtimeTransport = input.runtimeTransport ?? 'app-server';
   const getAgentToolBaseUrl = () =>
     resolveListeningOrigin(server.server.address());
-  const creatorAgentBootstrap = bootstrapCreatorAgentRuntime({
+  const creatorAgentBootstrapInput = {
     sourceCodexHome: codexHome,
     runtimeRoot: runtimeDir,
     ...(input.appHome === undefined
@@ -484,7 +484,8 @@ export async function buildServer(input: BuildServerInput) {
       'runtime',
       'opencreator-runtime'
     )
-  });
+  };
+  let creatorAgentBootstrap = bootstrapCreatorAgentRuntime(creatorAgentBootstrapInput);
   const codexRuntimeReadiness = createCodexRuntimeReadiness({
     client: codexControlClient,
     mode: process.env.OPENCREATOR_CODEX_RUNTIME_MODE === 'external'
@@ -518,7 +519,7 @@ export async function buildServer(input: BuildServerInput) {
     },
     async onProviderUpdated(provider) {
       if (provider.apiKey !== undefined) {
-        await codexProviderCredentialStore.writeApiKey(provider.apiKey);
+        await codexProviderCredentialStore.writeApiKey(provider.apiKey, provider);
       }
     },
     async onConfigurationChanged() {
@@ -527,6 +528,16 @@ export async function buildServer(input: BuildServerInput) {
         codexSessionProvider.restart?.(),
         invalidatePersistentRuntime('codex_provider_config_changed')
       ]);
+      for (const thread of threadManager.listThreads({
+        status: 'active',
+        purpose: 'creator_agent'
+      })) {
+        threadManager.setCodexThreadId(thread.id, null);
+      }
+      creatorAgentBootstrap = bootstrapCreatorAgentRuntime(creatorAgentBootstrapInput);
+      if (!creatorAgentBootstrap.available) {
+        throw new Error(creatorAgentBootstrap.error ?? 'Creator Agent bootstrap failed');
+      }
     }
   });
   const creatorServicesConfigStore =

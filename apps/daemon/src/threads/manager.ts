@@ -268,8 +268,10 @@ export function createThreadManager(input: CreateThreadManagerInput): ThreadMana
       };
     },
 
-    setCodexThreadId(threadId: string, codexThreadId: string): void {
-      const owner = threads.getThreadByCodexThreadId(codexThreadId);
+    setCodexThreadId(threadId: string, codexThreadId: string | null): void {
+      const owner = codexThreadId === null
+        ? undefined
+        : threads.getThreadByCodexThreadId(codexThreadId);
       if (owner !== undefined && owner.id !== threadId) {
         throw new ThreadManagerError(
           'THREAD_CODEX_ID_CONFLICT',

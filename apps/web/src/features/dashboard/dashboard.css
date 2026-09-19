@@ -814,6 +814,7 @@
 }
 
 .video-translation-toggle-row + .video-translation-toggle-row,
+.video-translation-subtitle-import + .video-translation-toggle-row,
 .video-translation-inline-setting + .video-translation-toggle-row {
   border-top: 1px solid var(--border-hairline);
 }
@@ -837,6 +838,37 @@
 
 .video-translation-toggle-row.is-disabled {
   opacity: 0.55;
+}
+
+.video-translation-subtitle-import-fields {
+  gap: 12px;
+  margin: 0;
+  padding: 14px 14px 16px;
+  border: 1px solid var(--border-hairline);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface-2) 46%, transparent);
+}
+
+.video-translation-subtitle-import-fields label {
+  display: grid;
+  gap: 6px;
+}
+
+.video-translation-subtitle-import-fields label > span,
+.video-translation-subtitle-import-fields p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.video-translation-subtitle-import-fields select {
+  padding: 0 10px;
+}
+
+.video-translation-subtitle-import-fields details {
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .video-translation-switch {

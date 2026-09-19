@@ -8,6 +8,7 @@ export type OpenCreatorCredentialsDocument = {
   creatorServices?: Record<string, string>;
   codexProvider?: {
     apiKey: string;
+    baseUrl?: string;
   };
 };
 
@@ -24,7 +25,12 @@ export async function readOpenCreatorCredentials(
       ? { creatorServices: value.creatorServices }
       : {}),
     ...(isRecord(value.codexProvider) && typeof value.codexProvider.apiKey === 'string'
-      ? { codexProvider: { apiKey: value.codexProvider.apiKey } }
+      ? { codexProvider: {
+          apiKey: value.codexProvider.apiKey,
+          ...(typeof value.codexProvider.baseUrl === 'string'
+            ? { baseUrl: value.codexProvider.baseUrl }
+            : {})
+        } }
       : {})
   };
 }

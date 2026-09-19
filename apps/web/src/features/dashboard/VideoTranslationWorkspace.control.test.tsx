@@ -27,6 +27,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current} service={{ applyAction, runAgentTurn: vi.fn() } as never}>
       <VideoTranslationWorkspace onBack={vi.fn()} />
     </CreatorSessionProvider></LanguageProvider>);
+    fireEvent.click(screen.getByRole('switch', { name: '导入已有字幕' }));
     fireEvent.change(screen.getByRole('combobox', { name: '字幕类型' }), { target: { value: 'target_subtitle' } });
     fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['srt'], 'translated.srt')] } });
     expect(await screen.findByText('本地导入 · translated.srt · zh_cn · 1 条字幕 · v1')).toBeInTheDocument();
@@ -45,6 +46,8 @@ describe('VideoTranslationWorkspace task controls', () => {
     render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={initial} service={{ applyAction, runAgentTurn: vi.fn() } as never}>
       <VideoTranslationWorkspace onBack={vi.fn()} />
     </CreatorSessionProvider></LanguageProvider>);
+    expect(screen.queryByRole('combobox', { name: '字幕类型' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('switch', { name: '导入已有字幕' }));
     fireEvent.change(screen.getByRole('combobox', { name: '字幕类型' }), { target: { value: kind } });
     fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['invalid'], 'local.srt', { type: 'application/x-subrip' })] } });
     await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'import-subtitle', input: {

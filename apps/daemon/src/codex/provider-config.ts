@@ -83,11 +83,7 @@ export function createCodexProviderConfigService(input: {
         '请填写 API Key'
       );
     }
-    if (
-      normalized.baseUrl.length > 0
-      && loginApiKey === undefined
-      && current.authentication !== 'api_key'
-    ) {
+    if (normalized.baseUrl.length > 0 && loginApiKey === undefined) {
       throw new CodexProviderConfigValidationError(
         '自定义 Base URL 需要 API Key 登录'
       );
@@ -96,6 +92,9 @@ export function createCodexProviderConfigService(input: {
     const write = await input.client.request<ConfigWriteResponse>('config/batchWrite', {
       edits: [
         { keyPath: 'model', value: normalized.model, mergeStrategy: 'replace' },
+        ...(current.modelProvider.length > 0 && normalized.baseUrl === current.baseUrl
+          ? []
+          : [{ keyPath: 'model_provider', value: null, mergeStrategy: 'replace' }]),
         {
           keyPath: 'openai_base_url',
           value: normalized.baseUrl.length === 0 ? null : normalized.baseUrl,
@@ -148,7 +147,9 @@ function presentProviderConfig(
   return {
     baseUrl: state.baseUrl,
     model: state.model,
-    apiKeyConfigured: state.authentication === 'api_key' || storedApiKeyConfigured,
+    apiKeyConfigured: state.baseUrl.length > 0
+      ? storedApiKeyConfigured
+      : state.authentication === 'api_key' || storedApiKeyConfigured,
     authentication: state.authentication,
     ...(state.configVersion === undefined ? {} : { configVersion: state.configVersion })
   };
@@ -172,6 +173,7 @@ async function readStoredApiKey(
 async function readProviderState(client: RestartableCodexAppServerRequestClient): Promise<{
   baseUrl: string;
   model: string;
+  modelProvider: string;
   authentication: CodexProviderAuthentication;
   configVersion?: string;
 }> {
@@ -184,9 +186,13 @@ async function readProviderState(client: RestartableCodexAppServerRequestClient)
   ]);
   const config = readRecord(configResponse.config);
   const configVersion = readUserConfigVersion(configResponse.layers);
+  const modelProvider = readString(config, 'model_provider');
+  const configuredProvider = readRecord(readRecord(config?.model_providers)?.[modelProvider]);
+  const providerBaseUrl = readString(configuredProvider, 'base_url');
   return {
-    baseUrl: readString(config, 'openai_base_url'),
+    baseUrl: providerBaseUrl || readString(config, 'openai_base_url'),
     model: readString(config, 'model'),
+    modelProvider,
     authentication: authenticationOf(accountResponse),
     ...(configVersion === undefined ? {} : { configVersion })
   };

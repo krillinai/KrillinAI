@@ -240,7 +240,7 @@ export type ThreadRepository = {
   updateThreadSandbox(input: UpdateThreadSandboxInput): void;
   updateScheduleThread(input: UpdateScheduleThreadRowInput): void;
   setThreadPurpose(input: { id: string; purpose: ThreadPurpose }): void;
-  setCodexThreadId(threadId: string, codexThreadId: string): void;
+  setCodexThreadId(threadId: string, codexThreadId: string | null): void;
   listCodexBindingRepairCandidates(): Array<{
     threadId: string;
     codexThreadId: string;
@@ -853,7 +853,7 @@ export function createThreadRepository(db: Database.Database): ThreadRepository 
     setThreadPurpose(input: { id: string; purpose: ThreadPurpose }): void {
       setPurpose.run(input);
     },
-    setCodexThreadId(threadId: string, codexThreadId: string): void {
+    setCodexThreadId(threadId: string, codexThreadId: string | null): void {
       setCodexThreadId.run({ threadId, codexThreadId });
     },
     listCodexBindingRepairCandidates(): Array<{

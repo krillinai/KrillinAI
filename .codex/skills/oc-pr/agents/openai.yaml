@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenCreator PR"
+  short_description: "评审开放 PR、英文反馈并合并合格改动到 develop"
+  default_prompt: "使用 $oc-pr 处理当前开放 PR，评估功能并将符合条件的改动合并到 develop。"

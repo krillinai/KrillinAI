@@ -231,12 +231,30 @@ function openAiImageEndpoint(
   baseUrl: string,
   operation: 'generations' | 'edits'
 ): URL {
-  const endpoint = openAiCompatibleEndpoint(baseUrl, 'images/generations');
+  const endpoint = openAiCompatibleEndpoint(
+    versionedOpenAiImageBaseUrl(baseUrl),
+    'images/generations'
+  );
   endpoint.pathname = endpoint.pathname.replace(
     /\/images\/generations$/i,
     `/images/${operation}`
   );
   return endpoint;
+}
+
+function versionedOpenAiImageBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim();
+  if (!trimmed) return trimmed;
+  const url = new URL(trimmed);
+  const segments = url.pathname.split('/').filter(Boolean);
+  if (segments.some(segment => /^v\d+(?:[a-z][a-z0-9-]*)?$/i.test(segment))) {
+    return url.toString();
+  }
+  const imagesIndex = segments.findIndex(segment => segment.toLowerCase() === 'images');
+  if (imagesIndex >= 0) segments.splice(imagesIndex, 0, 'v1');
+  else segments.push('v1');
+  url.pathname = `/${segments.join('/')}`;
+  return url.toString();
 }
 
 function createImageEditBody(input: {

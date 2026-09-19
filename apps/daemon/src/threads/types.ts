@@ -124,6 +124,6 @@ export type ThreadManager = {
     repairedThreadIds: string[];
     unresolvedThreadIds: string[];
   };
-  setCodexThreadId(threadId: string, codexThreadId: string): void;
+  setCodexThreadId(threadId: string, codexThreadId: string | null): void;
   touchThread(threadId: string): void;
 };

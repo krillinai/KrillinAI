@@ -712,7 +712,8 @@ describe('CreatorSessionStore', () => {
     );
 
     await waitFor(() => expect(subscribeJobEvents).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(getAgentTimeline).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(getAgentTimeline.mock.calls.length).toBeGreaterThanOrEqual(1));
+    const initialTimelineLoads = getAgentTimeline.mock.calls.length;
     act(() => emit({
       id: 'stage:1',
       jobId: 'job_1',
@@ -744,7 +745,7 @@ describe('CreatorSessionStore', () => {
 
     expect(screen.getByLabelText('stages')).toHaveTextContent('render-horizontal:running');
     expect(getJob).toHaveBeenCalledTimes(1);
-    expect(getAgentTimeline).toHaveBeenCalledTimes(1);
+    expect(getAgentTimeline).toHaveBeenCalledTimes(initialTimelineLoads);
 
     act(() => emit({
       id: 'agent:2',
@@ -754,7 +755,7 @@ describe('CreatorSessionStore', () => {
       payload: {},
       createdAt: '2026-08-21T00:00:03.000Z'
     }));
-    await waitFor(() => expect(getAgentTimeline).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(getAgentTimeline).toHaveBeenCalledTimes(initialTimelineLoads + 1));
     expect(getJob).toHaveBeenCalledTimes(1);
 
     act(() => emit({
@@ -766,6 +767,48 @@ describe('CreatorSessionStore', () => {
       createdAt: '2026-08-21T00:00:04.000Z'
     }));
     await waitFor(() => expect(getJob).toHaveBeenCalledTimes(2));
+  });
+
+  it('reconciles a completed Agent turn after the event stream reconnects', async () => {
+    let disconnect!: () => void;
+    let turnStatus: 'running' | 'completed' = 'running';
+    const getAgentTimeline = vi.fn(async () => timeline({
+      status: turnStatus,
+      content: turnStatus === 'running' ? '正在合成' : '横屏视频已合成完成'
+    }));
+    const subscribeJobEvents = vi.fn((
+      _jobId: string,
+      _onEvent: (event: CreatorEventEnvelope) => void,
+      onDisconnect: () => void
+    ) => {
+      disconnect = onDisconnect;
+      return { close: vi.fn() };
+    });
+    render(
+      <CreatorSessionProvider
+        initialJob={job(0, {})}
+        service={{
+          applyAction: vi.fn(),
+          runAgentTurn: vi.fn(),
+          getJob: vi.fn(async () => ({ job: job(0, {}) })),
+          getAgentTimeline,
+          subscribeJobEvents
+        } as never}
+      >
+        <Harness />
+      </CreatorSessionProvider>
+    );
+
+    await waitFor(() => expect(screen.getByLabelText('busy')).toHaveTextContent('true'));
+    turnStatus = 'completed';
+    act(() => disconnect());
+
+    await waitFor(
+      () => expect(screen.getByLabelText('busy')).toHaveTextContent('false'),
+      { timeout: 1_500 }
+    );
+    expect(screen.getByLabelText('turns')).toHaveTextContent('横屏视频已合成完成');
+    expect(subscribeJobEvents.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
   it('does not add an optimistic local turn before the Runtime timeline confirms it', async () => {

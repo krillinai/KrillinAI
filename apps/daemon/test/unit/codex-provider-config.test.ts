@@ -8,7 +8,14 @@ import {
 describe('Codex provider configuration', () => {
   it('writes provider settings, stores the API key through account login and restarts consumers', async () => {
     const calls: Array<{ method: string; params: unknown }> = [];
-    let config = { model: 'gpt-old', openai_base_url: '' };
+    let config: Record<string, unknown> = {
+      model: 'gpt-old',
+      model_provider: 'legacy-gateway',
+      openai_base_url: '',
+      model_providers: {
+        'legacy-gateway': { base_url: 'https://legacy-gateway.example.test/v1' }
+      }
+    };
     let version = 'v1';
     let account: null | { type: 'apiKey' } = null;
     const restart = vi.fn(async () => undefined);
@@ -33,6 +40,7 @@ describe('Codex provider configuration', () => {
           const body = params as { edits: Array<{ keyPath: string; value: unknown }> };
           config = {
             model: String(body.edits.find(edit => edit.keyPath === 'model')?.value),
+            model_provider: body.edits.find(edit => edit.keyPath === 'model_provider')?.value,
             openai_base_url: String(
               body.edits.find(edit => edit.keyPath === 'openai_base_url')?.value ?? ''
             )
@@ -83,6 +91,7 @@ describe('Codex provider configuration', () => {
     expect(calls.find(call => call.method === 'config/batchWrite')?.params).toEqual({
       edits: [
         { keyPath: 'model', value: 'gpt-custom', mergeStrategy: 'replace' },
+        { keyPath: 'model_provider', value: null, mergeStrategy: 'replace' },
         {
           keyPath: 'openai_base_url',
           value: 'https://gateway.example.test/v1',
@@ -103,6 +112,90 @@ describe('Codex provider configuration', () => {
       apiKey: 'sk-secret'
     });
     expect(JSON.stringify(result)).not.toContain('sk-secret');
+  });
+
+  it('reports the active custom provider URL instead of an ignored OpenAI override', async () => {
+    const client: RestartableCodexAppServerRequestClient = {
+      async request<Result>(method: string): Promise<Result> {
+        if (method === 'config/read') {
+          return {
+            config: {
+              model: 'gateway-model',
+              model_provider: 'gateway',
+              openai_base_url: 'https://ignored.example.test/v1',
+              model_providers: {
+                gateway: { base_url: 'https://active.example.test/v1' }
+              }
+            },
+            layers: [{ name: { type: 'user', profile: null }, version: 'v1' }]
+          } as Result;
+        }
+        if (method === 'account/read') {
+          return { account: { type: 'apiKey' }, requiresOpenaiAuth: false } as Result;
+        }
+        throw new Error(`Unexpected method: ${method}`);
+      },
+      restart: vi.fn(async () => undefined),
+      close: async () => undefined
+    };
+    const service = createCodexProviderConfigService({
+      client,
+      readiness: { refresh: vi.fn() } as never,
+      readStoredApiKey: async () => 'sk-active'
+    });
+
+    await expect(service.read()).resolves.toMatchObject({
+      baseUrl: 'https://active.example.test/v1',
+      model: 'gateway-model'
+    });
+  });
+
+  it('keeps the active custom provider when only its model changes', async () => {
+    const calls: Array<{ method: string; params: unknown }> = [];
+    const client: RestartableCodexAppServerRequestClient = {
+      async request<Result>(method: string, params: unknown): Promise<Result> {
+        calls.push({ method, params });
+        if (method === 'config/read') {
+          return {
+            config: {
+              model: 'gateway-old',
+              model_provider: 'gateway',
+              model_providers: {
+                gateway: { base_url: 'https://active.example.test/v1' }
+              }
+            },
+            layers: [{ name: { type: 'user', profile: null }, version: 'v1' }]
+          } as Result;
+        }
+        if (method === 'account/read') {
+          return { account: { type: 'apiKey' }, requiresOpenaiAuth: false } as Result;
+        }
+        if (method === 'config/batchWrite') {
+          return { status: 'ok', version: 'v2' } as Result;
+        }
+        if (method === 'account/login/start') {
+          return { type: 'apiKey' } as Result;
+        }
+        throw new Error(`Unexpected method: ${method}`);
+      },
+      restart: vi.fn(async () => undefined),
+      close: async () => undefined
+    };
+    const service = createCodexProviderConfigService({
+      client,
+      readiness: { refresh: vi.fn() } as never,
+      readStoredApiKey: async () => 'sk-active'
+    });
+
+    await service.update({
+      baseUrl: 'https://active.example.test/v1',
+      model: 'gateway-new'
+    });
+
+    const write = calls.find(call => call.method === 'config/batchWrite')?.params as {
+      edits: Array<{ keyPath: string }>;
+    };
+    expect(write.edits).not.toContainEqual(expect.objectContaining({ keyPath: 'model_provider' }));
   });
 
   it('rejects an unauthenticated configuration without an API key', async () => {
@@ -129,6 +222,41 @@ describe('Codex provider configuration', () => {
 
     await expect(service.update({ baseUrl: '', model: 'gpt-custom' }))
       .rejects.toBeInstanceOf(CodexProviderConfigValidationError);
+  });
+
+  it('does not reuse the authenticated key when selecting another custom provider', async () => {
+    const client: RestartableCodexAppServerRequestClient = {
+      async request<Result>(method: string): Promise<Result> {
+        if (method === 'config/read') {
+          return {
+            config: {
+              model: 'gpt-custom',
+              openai_base_url: 'https://gateway.example.test/v1'
+            },
+            layers: [{ name: { type: 'user', profile: null }, version: 'v1' }]
+          } as Result;
+        }
+        if (method === 'account/read') {
+          return { account: { type: 'apiKey' }, requiresOpenaiAuth: false } as Result;
+        }
+        throw new Error(`Unexpected method: ${method}`);
+      },
+      restart: vi.fn(async () => undefined),
+      close: async () => undefined
+    };
+    const service = createCodexProviderConfigService({
+      client,
+      readiness: { refresh: vi.fn() } as never,
+      readStoredApiKey: async provider => (
+        provider.baseUrl === 'https://gateway.example.test/v1' ? 'sk-gateway' : undefined
+      )
+    });
+
+    await expect(service.update({
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-chat'
+    })).rejects.toThrow('自定义 Base URL 需要 API Key 登录');
+    expect(client.restart).not.toHaveBeenCalled();
   });
 
   it('reports and reuses the stored Codex API key', async () => {

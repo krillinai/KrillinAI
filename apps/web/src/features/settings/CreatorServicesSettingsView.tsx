@@ -422,7 +422,9 @@ function TextModelSettings(props: SettingsGroupProps & {
     && props.configuredCredentials.has('llm.apiKey');
   const providerApiKeyConfigured = props.provider?.apiKeyConfigured === true;
   const apiKeyConfigured = providerApiKeyConfigured || legacyApiKeyConfigured;
-  const agentAvailable = props.provider?.authentication !== 'none' || providerApiKeyConfigured;
+  const agentAvailable = props.provider?.baseUrl
+    ? providerApiKeyConfigured
+    : props.provider?.authentication !== 'none' || providerApiKeyConfigured;
   const textTasksAvailable = apiKeyConfigured;
   const AgentStatusIcon = agentAvailable ? Check : CircleAlert;
   const TextTaskStatusIcon = textTasksAvailable ? Check : CircleAlert;

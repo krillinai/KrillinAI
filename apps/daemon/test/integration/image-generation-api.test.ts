@@ -77,6 +77,31 @@ describe('image generation API', () => {
       .toEqual(['0.png', 'result.json']);
   });
 
+  it('adds v1 to an OpenAI-compatible image provider path without a version', async () => {
+    const config = createDefaultCreatorServicesConfig();
+    config.image.openai.apiKey = 'sk-image-test';
+    config.image.openai.baseUrl = 'https://images.example.test/draw';
+    config.image.openai.model = 'gpt-image-2';
+    const image = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.from('versioned-image')
+    ]);
+    const fetchImpl = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({
+      data: [{ b64_json: image.toString('base64') }]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    await generateImageContents({
+      prompt: 'A portrait',
+      provider: 'openai',
+      size: '1024x1024',
+      quality: 'high',
+      count: 1
+    }, config, { fetchImpl: fetchImpl as typeof fetch });
+
+    expect(String(fetchImpl.mock.calls[0]?.[0]))
+      .toBe('https://images.example.test/draw/v1/images/generations');
+  });
+
   it('uses the configured Jimeng Ark image model', async () => {
     const config = createDefaultCreatorServicesConfig();
     config.image.jimeng.apiKey = 'ark-test';

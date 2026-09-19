@@ -44,6 +44,7 @@ describe('Short video script panel', () => {
     expect(screen.getByText('20%')).toBeInTheDocument();
     expect(screen.getByRole('progressbar', { name: '生成短视频脚本进度' }))
       .toHaveAttribute('aria-valuenow', '20');
+    expect(screen.queryByText('产物版本与来源')).not.toBeInTheDocument();
   });
 });
 

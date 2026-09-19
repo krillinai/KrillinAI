@@ -1231,15 +1231,19 @@ describe('creator runtime advanced contracts', () => {
     mkdirSync(sourceHome, { recursive: true });
     mkdirSync(bundled, { recursive: true });
     writeFileSync(join(sourceHome, 'auth.json'), '{"token":"sentinel"}');
+    writeFileSync(join(sourceHome, 'config.toml'), 'model = "gpt-before"\nmodel_provider = "legacy"\n[model_providers.legacy]\nbase_url = "https://legacy.test/v1"\n');
     writeFileSync(join(bundled, 'SKILL.md'), '# OpenCreator Runtime\n');
     writeFileSync(join(bundled, 'manifest.json'), '{"version":2}\n');
     const first = bootstrapCreatorAgentRuntime({ sourceCodexHome: sourceHome, runtimeRoot, bundledSkillDir: bundled });
     expect(first).toMatchObject({ available: true, guideVersion: 2 });
     writeFileSync(join(first.skillPath, 'SKILL.md'), 'damaged');
     writeFileSync(join(first.skillPath, '.opencreator-hash'), 'damaged');
+    writeFileSync(join(sourceHome, 'config.toml'), 'model = "gpt-after"\nopenai_base_url = "https://current.test/v1"\n');
     const repaired = bootstrapCreatorAgentRuntime({ sourceCodexHome: sourceHome, runtimeRoot, bundledSkillDir: bundled });
     expect(readFileSync(join(repaired.skillPath, 'SKILL.md'), 'utf8')).toBe('# OpenCreator Runtime\n');
     expect(readFileSync(join(sourceHome, 'auth.json'), 'utf8')).toBe('{"token":"sentinel"}');
+    expect(readFileSync(join(repaired.codexHome, 'config.toml'), 'utf8')).toContain('model = "gpt-after"');
+    expect(readFileSync(join(repaired.codexHome, 'config.toml'), 'utf8')).not.toContain('model_provider');
   });
 
   it('normalizes probe formats and rejects invalid clip ranges before ffmpeg', () => {

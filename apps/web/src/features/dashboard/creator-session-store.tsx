@@ -311,7 +311,12 @@ export function CreatorSessionProvider(props: {
       subscribe: (onEvent, onDisconnect) => (
         props.service.subscribeJobEvents!(jobId, onEvent, onDisconnect)
       ),
-      onSnapshot: applyRemoteSnapshot,
+      onSnapshot(snapshot) {
+        applyRemoteSnapshot(snapshot);
+        // A reconnect can miss the Agent event that completed the active turn.
+        // Reconcile the timeline whenever the authoritative job snapshot reloads.
+        void reloadAgentTimeline().catch(() => undefined);
+      },
       onEvent(event) {
         applyLiveEvent(event);
         if (event.kind.startsWith('agent_')) {

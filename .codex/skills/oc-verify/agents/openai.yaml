@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenCreator Verify"
+  short_description: "验证 develop 增量功能和进入 master 的源码门禁"
+  default_prompt: "使用 $oc-verify 验证当前 develop 的功能和发布前源码门禁。"

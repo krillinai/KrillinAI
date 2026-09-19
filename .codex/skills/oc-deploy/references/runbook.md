@@ -9,7 +9,7 @@ HTTP_PROXY=http://127.0.0.1:7897
 HTTPS_PROXY=http://127.0.0.1:7897
 ```
 
-检查 Node、pnpm 和 `runtime/krillinai/go.mod` 要求的 Go 版本。本机可能使用 `.tools/go-1.22.12/bin/go`，但不要假定它永远存在。不要提交 `.tools/` 或 `.codex/`。
+检查 Node、pnpm 和 `runtime/krillinai/go.mod` 要求的 Go 版本。运行 `command -v go` 和 `go version`，确认 PATH 中的系统 Go 满足 `go.mod` 且兼容当前操作系统；不得把未经验证的 `.tools/go-*` 放在 PATH 前面。项目级 `.codex/skills/oc-*` 可以提交，其他 `.codex` 本地状态和 `.tools/` 不得提交。
 
 ## Diagnose：只读诊断
 
@@ -28,12 +28,15 @@ gh run view <run-id> --repo krillinai/OpenCreator --log-failed
 先按改动影响运行定向测试。发布门禁至少包括当前机器原生架构的实际 App 打包和完整 packaged App E2E。macOS arm64 示例：
 
 ```bash
-PATH="$PWD/.tools/go-1.22.12/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+command -v go
+go version
+
+PATH="/usr/local/bin:$PATH" \
 HTTP_PROXY=http://127.0.0.1:7897 HTTPS_PROXY=http://127.0.0.1:7897 \
 OPENCREATOR_DESKTOP_TARGET_PLATFORM=darwin OPENCREATOR_DESKTOP_TARGET_ARCH=arm64 \
 pnpm desktop:package
 
-PATH="$PWD/.tools/go-1.22.12/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+PATH="/usr/local/bin:$PATH" \
 HTTP_PROXY=http://127.0.0.1:7897 HTTPS_PROXY=http://127.0.0.1:7897 \
 pnpm --filter @opencreator/desktop e2e:package
 ```

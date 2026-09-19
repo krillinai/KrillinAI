@@ -95,6 +95,19 @@ describe('CreatorServicesSettingsView', () => {
     }));
   });
 
+  it('does not report a custom provider ready from an unrelated API key login', async () => {
+    render(
+      <CreatorServicesSettingsView
+        connected
+        service={createService()}
+        modelService={createModelService({ apiKeyConfigured: false })}
+      />
+    );
+
+    expect(await screen.findByText('Agent 尚未配置')).toBeInTheDocument();
+    expect(screen.getByText('文本任务需要 API Key')).toBeInTheDocument();
+  });
+
   it('defaults OpenAI to GPT-5.6 and keeps it in the Runtime model list', async () => {
     const user = userEvent.setup();
     render(

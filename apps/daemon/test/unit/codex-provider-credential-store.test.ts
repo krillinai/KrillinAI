@@ -49,7 +49,10 @@ describe('CodexProviderCredentialStore', () => {
         model: 'gpt-codex'
       })
     })).resolves.toBe('sk-legacy');
-    expect(store.writeApiKey).toHaveBeenCalledWith('sk-legacy');
+    expect(store.writeApiKey).toHaveBeenCalledWith('sk-legacy', {
+      baseUrl: 'https://gateway.example.test/v1',
+      model: 'gpt-codex'
+    });
   });
 
   it('persists the Codex API key in a local JSON configuration file', async () => {
@@ -57,12 +60,23 @@ describe('CodexProviderCredentialStore', () => {
     const path = join(root, 'config', 'codex-provider.json');
     const store = createFileCodexProviderCredentialStore(path);
 
-    await store.writeApiKey('sk-file');
+    await store.writeApiKey('sk-file', {
+      baseUrl: 'https://api.deepseek.com/',
+      model: 'deepseek-chat'
+    });
 
-    await expect(store.readApiKey()).resolves.toBe('sk-file');
+    await expect(store.readApiKey({
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-reasoner'
+    })).resolves.toBe('sk-file');
+    await expect(store.readApiKey({
+      baseUrl: 'https://gateway.example.test/v1',
+      model: 'gpt-custom'
+    })).resolves.toBeUndefined();
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({
       version: 1,
-      apiKey: 'sk-file'
+      apiKey: 'sk-file',
+      baseUrl: 'https://api.deepseek.com'
     });
   });
 
@@ -71,10 +85,35 @@ describe('CodexProviderCredentialStore', () => {
     const credentialsFile = join(root, 'credentials.json');
     const store = createOpenCreatorCodexProviderCredentialStore(credentialsFile);
 
-    await store.writeApiKey('sk-opencreator');
-    await expect(store.readApiKey()).resolves.toBe('sk-opencreator');
-    expect(JSON.parse(readFileSync(credentialsFile, 'utf8'))).toMatchObject({
-      codexProvider: { apiKey: 'sk-opencreator' }
+    await store.writeApiKey('sk-opencreator', {
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-chat'
     });
+    await expect(store.readApiKey({
+      baseUrl: 'https://api.deepseek.com/',
+      model: 'deepseek-reasoner'
+    })).resolves.toBe('sk-opencreator');
+    await expect(store.readApiKey({
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-5'
+    })).resolves.toBeUndefined();
+    expect(JSON.parse(readFileSync(credentialsFile, 'utf8'))).toMatchObject({
+      codexProvider: {
+        apiKey: 'sk-opencreator',
+        baseUrl: 'https://api.deepseek.com'
+      }
+    });
+  });
+
+  it('does not apply an unbound legacy key to a custom provider', async () => {
+    root = mkdtempSync(join(tmpdir(), 'opencreator-codex-provider-'));
+    const credentialsFile = join(root, 'credentials.json');
+    const store = createOpenCreatorCodexProviderCredentialStore(credentialsFile);
+    await store.writeApiKey('sk-legacy-unbound');
+
+    await expect(store.readApiKey({
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-chat'
+    })).resolves.toBeUndefined();
   });
 });

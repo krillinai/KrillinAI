@@ -1,68 +1,22 @@
 import type { CreatorServicesCapabilitiesResponse, CreatorYtDlpStatusResponse } from '@opencreator/protocol';
 import { test, expect } from './fixtures/runtime.js';
-import { dirname, join } from 'node:path';
-import { writeFileSync } from 'node:fs';
-import { openRuntimeDatabase } from '../../daemon/src/storage/database.js';
-import { createCreatorRepository } from '../../daemon/src/creator/repository.js';
-import { appendCreatorResultSnapshot } from '../../daemon/src/creator/result-snapshots.js';
 
-test('Artifact 历史选择和来源在 Browser/Desktop Bridge 下保持一致并可刷新', async ({ browser, runtime }, testInfo) => {
+test('Agent 面板在 Browser/Desktop Bridge 下均不显示产物版本详情', async ({ browser, runtime }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-desktop', '内部使用相同内容视口');
   const created = await runtime.api<{ job: { id: string } }>('POST', '/creator/jobs', {
-    projectId: runtime.projectId, templateId: 'image-generation', state: { prompt: '版本来源验收', currentStep: 2, furthestStep: 2 }
+    projectId: runtime.projectId, templateId: 'image-generation', state: { prompt: 'Agent 面板验收', currentStep: 1, furthestStep: 1 }
   });
-  const db = openRuntimeDatabase(join(dirname(runtime.projectDir), 'runtime', 'app.sqlite'));
-  const repository = createCreatorRepository(db);
-  for (const version of [1, 2]) {
-    const path = join(runtime.projectDir, `history-${version}.png`);
-    writeFileSync(path, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==', 'base64'));
-    const artifact = repository.insertArtifact({ jobId: created.job.id, kind: 'generated_image', path, status: version === 1 ? 'stale' : 'completed', sourceArtifactIds: [], metadata: { fileName: `history-${version}.png`, resultVersion: version } });
-    const job = repository.getJob(created.job.id)!;
-    repository.updateJob({ id: job.id, status: 'completed', revision: job.revision + 1, state: { ...job.state,
-      ...appendCreatorResultSnapshot({ job, version, changedArtifacts: [artifact], action: 'stage-succeeded', stageId: 'generate', description: `生成 ${version}` })
-    } });
-  }
-  const old = repository.getJob(created.job.id)!.artifacts.find(artifact => artifact.metadata.resultVersion === 1)!;
-  db.close();
-  const results = [];
   for (const platform of ['browser', 'desktop'] as const) {
-    const current = await runtime.api<{ job: { revision: number } }>('GET', `/creator/jobs/${created.job.id}`);
-    await runtime.api('POST', `/creator/jobs/${created.job.id}/actions`, { action: 'select-result-version', expectedRevision: current.job.revision, input: { version: 2 } });
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
     const page = await context.newPage();
     if (platform === 'desktop') await installDesktopBridge(page);
     try {
       await runtime.openApp(page);
       await page.goto(`${runtime.origin}/#/workbench?tool=image-generation&jobId=${created.job.id}`);
-      await page.getByText('产物版本与来源', { exact: true }).click();
-      const details = page.getByRole('region', { name: '产物详情' });
-      await details.getByLabel('浏览产物（不改变项目选择）').selectOption(old.id);
-      await expect(details).toContainText('已过期，非当前有效结果');
-      const requests: unknown[] = [];
-      page.on('request', request => {
-        if (request.method() === 'POST' && request.url().endsWith('/actions')) {
-          const body = request.postDataJSON();
-          if (body.action === 'select-result-version') requests.push({ action: body.action, input: body.input });
-        }
-      });
-      await details.getByRole('button', { name: '采用项目版本' }).click();
-      await expect(page.getByRole('button', { name: '项目 V1', exact: true })).toBeVisible();
-      await page.reload();
-      await expect(page.getByRole('button', { name: '项目 V1', exact: true })).toBeVisible();
-      await page.getByText('产物版本与来源', { exact: true }).click();
-      await expect(details).toContainText('已过期，非当前有效结果');
-      const downloadWork = page.waitForEvent('download');
-      await details.getByRole('button', { name: '下载 V1' }).click();
-      expect((await downloadWork).suggestedFilename()).toBe('history-1.png');
-      await details.getByRole('button', { name: '预览 V1' }).click();
-      await expect(details.getByRole('img')).toBeVisible();
-      await details.evaluate(element => { element.scrollTop = 0; });
-      results.push({ text: normalizeParityText(await details.innerText()), box: await details.boundingBox(), requests });
-      await page.screenshot({ path: testInfo.outputPath(`artifact-${platform}.png`) });
+      await expect(page.getByText('当前任务', { exact: true })).toBeVisible();
+      await expect(page.getByText('产物版本与来源', { exact: true })).toHaveCount(0);
     } finally { await context.close(); }
   }
-  expect(results[0]).toEqual(results[1]);
-  expect(results[0]!.requests).toEqual([{ action: 'select-result-version', input: { version: 1 } }]);
 });
 
 test('本地字幕导入在 Browser/Desktop Bridge 下保持相同命令和界面', async ({ browser, runtime }, testInfo) => {
@@ -80,6 +34,7 @@ test('本地字幕导入在 Browser/Desktop Bridge 下保持相同命令和界�
       await runtime.openApp(page);
       await page.goto(`${runtime.origin}/#/workbench?tool=video-translation&jobId=${created.job.id}`);
       const group = page.getByRole('group', { name: '导入已有字幕' });
+      await group.getByRole('switch', { name: '导入已有字幕' }).click();
       await group.getByRole('combobox', { name: '字幕类型' }).selectOption('target_subtitle');
       const request = page.waitForRequest(request => request.url().endsWith('/actions') && request.postDataJSON()?.action === 'import-subtitle');
       await group.getByLabel('UTF-8 SRT 文件').setInputFiles({ name: 'local.srt', mimeType: 'application/x-subrip', buffer: Buffer.from('1\n00:00:00,000 --> 00:00:01,000\nHello\n') });
