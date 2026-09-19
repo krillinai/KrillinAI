@@ -738,6 +738,7 @@ async function syncTree(root: string): Promise<void> {
       await handle.close();
     }
   }
+  if (process.platform === 'win32') return;
   const directory = await open(root, 'r');
   try {
     await directory.sync();
