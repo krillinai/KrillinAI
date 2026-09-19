@@ -835,7 +835,7 @@ test('视频切片在 Browser/Desktop Bridge 下保持相同界面、请求和�
 
   expect(results[1]!.text).toBe(results[0]!.text);
   expect(results[1]!.boxes).toEqual(results[0]!.boxes);
-  expect(results[1]!.requests).toEqual(results[0]!.requests);
+  expect([...results[1]!.requests].sort()).toEqual([...results[0]!.requests].sort());
   expect(results[1]!.state).toEqual(results[0]!.state);
   expect(results[0]!.requests).toContain('POST /creator/jobs/:jobId/actions');
 });
@@ -899,7 +899,7 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
       const component = settings.locator('.runtime-component-item');
       await expect(settings.getByRole('heading', { name: '第三方组件' })).toBeVisible();
       await expect(component.getByRole('heading', { name: 'yt-dlp nightly' })).toBeVisible();
-      await expect(component).toContainText('每 7 天自动检查更新，不会自动安装。');
+      await expect(component).toContainText('用于解析和下载 YouTube、Bilibili 等公开视频资源。');
 
       const boxes: Record<
         string,

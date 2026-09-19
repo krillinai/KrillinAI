@@ -158,37 +158,6 @@ export const test = base.extend<TestFixtures>({
         : undefined
     ].find(candidate => candidate !== undefined && existsSync(candidate));
     prepareDaemonDevelopment(packageManagerScript);
-    const child = spawn(
-      packageManagerScript === undefined ? 'pnpm' : process.execPath,
-      packageManagerScript === undefined
-        ? packageManagerArgs
-        : [packageManagerScript, ...packageManagerArgs],
-      {
-        cwd: repoRoot,
-        detached: process.platform !== 'win32',
-        env: {
-          ...process.env,
-          OPENCREATOR_DATA_DIR: dataDir,
-          OPENCREATOR_CODEX_BIN: wrapperPath,
-          CODEX_HOME: codexHome,
-          OPENCREATOR_CODEX_THREAD_ROTATION_RUN_THRESHOLD: '0',
-          OPENCREATOR_RUNTIME_DEV_PREPARED: '1',
-          OPENCREATOR_E2E_FAKE_CODEX_CONFIG: configPath,
-          OPENCREATOR_E2E_FAKE_CODEX_STATE_DIR: stateDir,
-          OPENCREATOR_E2E_NODE_BINARY: process.execPath,
-          OPENCREATOR_E2E_FAKE_CODEX_SCRIPT: fakeCodexScript,
-          OPENCREATOR_E2E_CREATOR_RUNTIME_PLATFORM: 'win32',
-          OPENCREATOR_E2E_CREATOR_RUNTIME_ARCH: 'x64'
-        },
-        stdio: ['ignore', 'pipe', 'pipe']
-      }
-    );
-    child.stdout?.on('data', chunk => {
-      serverLog += chunk.toString();
-    });
-    child.stderr?.on('data', chunk => {
-      serverLog += chunk.toString();
-    });
     let presetCatalogRoot = process.env.OPENCREATOR_E2E_PRESET_CATALOG_ROOT;
     const startRuntime = () => {
       const next = spawn(
@@ -210,6 +179,8 @@ export const test = base.extend<TestFixtures>({
             OPENCREATOR_E2E_FAKE_CODEX_STATE_DIR: stateDir,
             OPENCREATOR_E2E_NODE_BINARY: process.execPath,
             OPENCREATOR_E2E_FAKE_CODEX_SCRIPT: fakeCodexScript,
+            OPENCREATOR_E2E_CREATOR_RUNTIME_PLATFORM: 'win32',
+            OPENCREATOR_E2E_CREATOR_RUNTIME_ARCH: 'x64',
             ...(presetCatalogRoot === undefined
               ? {}
               : { OPENCREATOR_PRESET_CATALOG_ROOT: presetCatalogRoot })
