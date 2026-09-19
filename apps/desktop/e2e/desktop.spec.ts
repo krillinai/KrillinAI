@@ -667,7 +667,7 @@ test('打包 App 使用 Codex app-server 并持久化项目与会话', async ({}
   try {
     await waitForWorkspace(fixture.page);
     await expect(fixture.page.getByText('本机目录')).toHaveCount(0);
-    await navigateToAppRoute(fixture.page, '#/new');
+    await navigateToAppRoute(fixture.page, '#/chat');
     await expect(fixture.page.getByRole('textbox', { name: '输入任务' })).toBeEnabled();
     expect(existsSync(
       join(fixture.root, 'Documents', 'OpenCreator', 'Default Project')
@@ -818,7 +818,7 @@ test('打包 App 首页 Skills 菜单保持在内容区内', async ({}, testInfo
     }
     await fixture.page.reload({ waitUntil: 'domcontentloaded' });
     await waitForWorkspace(fixture.page);
-    await navigateToAppRoute(fixture.page, '#/new');
+    await navigateToAppRoute(fixture.page, '#/chat');
 
     const textbox = fixture.page.getByRole('textbox', { name: '输入任务' });
     await expect(textbox).toBeEnabled();

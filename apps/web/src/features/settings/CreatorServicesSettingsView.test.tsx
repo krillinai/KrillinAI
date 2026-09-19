@@ -55,6 +55,56 @@ describe('CreatorServicesSettingsView', () => {
     expect(screen.getByText('配置已安全保存')).toBeInTheDocument();
   });
 
+  it('shows validation errors beside the invalid model fields', async () => {
+    const user = userEvent.setup();
+    const modelService = createModelService();
+    render(
+      <CreatorServicesSettingsView
+        connected
+        service={createService()}
+        modelService={modelService}
+      />
+    );
+
+    await screen.findByRole('heading', { name: 'AI 服务' });
+    await user.clear(screen.getByLabelText('Base URL'));
+    await user.type(screen.getByLabelText('Base URL'), 'not-a-url');
+    await user.clear(screen.getByLabelText('模型'));
+    await user.type(screen.getByLabelText('代理地址'), 'socks5://127.0.0.1:1080');
+    await user.click(screen.getByRole('button', { name: '保存配置' }));
+
+    expect(screen.getByLabelText('Base URL')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('请输入有效的 HTTP 或 HTTPS 地址')).toBeInTheDocument();
+    expect(screen.getByLabelText('模型')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('模型不能为空')).toBeInTheDocument();
+    expect(screen.getByLabelText('代理地址')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('请输入有效的 HTTP 或 HTTPS 代理地址')).toBeInTheDocument();
+    expect(modelService.updateCodexProvider).not.toHaveBeenCalled();
+  });
+
+  it('shows the failing save stage and Runtime error message', async () => {
+    const user = userEvent.setup();
+    const modelService = createModelService();
+    vi.mocked(modelService.updateCodexProvider).mockRejectedValue(
+      new Error('Base URL 必须是有效的 HTTP 或 HTTPS 地址')
+    );
+    render(
+      <CreatorServicesSettingsView
+        connected
+        service={createService()}
+        modelService={modelService}
+      />
+    );
+
+    await screen.findByRole('heading', { name: 'AI 服务' });
+    await user.click(screen.getByRole('button', { name: '保存配置' }));
+
+    expect(await screen.findByText(
+      '模型服务保存失败：Base URL 必须是有效的 HTTP 或 HTTPS 地址'
+    )).toBeInTheDocument();
+    expect(screen.getByLabelText('Base URL')).toHaveAttribute('aria-invalid', 'true');
+  });
+
   it('shows configured credentials without loading their secret values', async () => {
     render(
       <CreatorServicesSettingsView

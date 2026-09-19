@@ -61,9 +61,17 @@ export async function registerCreatorServicesRoutes(
       return presentCreatorServicesConfig(saved);
     } catch (error) {
       if (error instanceof ZodError) {
+        const issues = error.issues.map(issue => ({
+          field: issue.path.join('.'),
+          message: issue.message
+        }));
+        const firstIssue = issues[0];
         return reply.code(400).send(apiError(
           'VALIDATION_FAILED',
-          'Creator services configuration is invalid'
+          firstIssue === undefined
+            ? 'Creator services configuration is invalid'
+            : `字段 ${firstIssue.field || 'config'} 无效：${firstIssue.message}`,
+          { fields: issues }
         ));
       }
       return sendStoreError(reply, error);

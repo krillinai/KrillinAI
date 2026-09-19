@@ -241,6 +241,17 @@
   outline-offset: 2px;
 }
 
+.creator-services-field [aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.creator-services-field-error {
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
 .creator-services-select {
   position: relative;
 }

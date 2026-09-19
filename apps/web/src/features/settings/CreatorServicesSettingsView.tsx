@@ -45,6 +45,7 @@ export type CreatorServicesSection = 'text' | 'transcription' | 'tts' | 'image' 
 type ModelSettingsService = Pick<ConnectionService, 'getCodexProvider' | 'updateCodexProvider'> & {
   getCodexModels?: ConnectionService['getCodexModels'];
 };
+type ModelFieldErrors = Partial<Record<'baseUrl' | 'apiKey' | 'model' | 'proxy', string>>;
 
 export function CreatorServicesSettingsView(props: {
   connected: boolean;
@@ -71,6 +72,7 @@ export function CreatorServicesSettingsView(props: {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [modelError, setModelError] = useState<string>();
+  const [modelFieldErrors, setModelFieldErrors] = useState<ModelFieldErrors>({});
   const [notice, setNotice] = useState<string>();
 
   useEffect(() => {
@@ -161,6 +163,8 @@ export function CreatorServicesSettingsView(props: {
       mutator(next);
       return next;
     });
+    setModelFieldErrors({});
+    setError(undefined);
     setNotice(undefined);
   }
 
@@ -191,12 +195,25 @@ export function CreatorServicesSettingsView(props: {
       });
       if (!confirmed) return;
     }
+    if (activeSection === 'text') {
+      const fieldErrors = validateModelFields(modelBaseUrl, modelName, modelApiKey, config.proxy, l);
+      setModelFieldErrors(fieldErrors);
+      if (Object.keys(fieldErrors).length > 0) {
+        setError(l(
+          '模型服务配置有误，请修改标出的字段。',
+          'The model provider settings are invalid. Fix the highlighted fields.'
+        ));
+        return;
+      }
+    }
     setSaving(true);
     setError(undefined);
     setNotice(undefined);
+    let savingStage: 'model' | 'services' = 'services';
     try {
       let nextConfig = structuredClone(config);
       if (activeSection === 'text') {
+        savingStage = 'model';
         if (props.modelService === null || props.modelService === undefined || modelProvider === undefined) {
           throw new Error('Model provider configuration is unavailable');
         }
@@ -217,13 +234,21 @@ export function CreatorServicesSettingsView(props: {
           source: 'codex'
         };
       }
+      savingStage = 'services';
       const response = await props.service.saveConfig(nextConfig);
       setConfig(response.config);
       setConfiguredCredentials(new Set(response.configuredCredentials));
       setSavedTranscriptionSelection(transcriptionSelection(response.config));
       setNotice(l('配置已安全保存', 'Settings saved securely'));
-    } catch {
-      setError(l('保存失败，请检查字段后重试', 'Save failed. Check the fields and try again'));
+    } catch (cause) {
+      const message = readableSaveError(cause, l);
+      const field = modelFieldFromError(message);
+      if (activeSection === 'text' && savingStage === 'model' && field !== undefined) {
+        setModelFieldErrors({ [field]: message });
+      }
+      setError(savingStage === 'model'
+        ? l(`模型服务保存失败：${message}`, `Could not save model provider: ${message}`)
+        : l(`创作服务保存失败：${message}`, `Could not save creator services: ${message}`));
     } finally {
       setSaving(false);
     }
@@ -325,10 +350,13 @@ export function CreatorServicesSettingsView(props: {
               model={modelName}
               apiKey={modelApiKey}
               error={modelError}
+              fieldErrors={modelFieldErrors}
               onProviderChange={value => {
                 setModelBaseUrl(value.baseUrl);
                 setModelName(value.model);
                 setModelApiKey(value.apiKey);
+                setModelFieldErrors({});
+                setError(undefined);
                 setNotice(undefined);
               }}
               providerId={modelProviderId}
@@ -340,6 +368,8 @@ export function CreatorServicesSettingsView(props: {
                 setModelBaseUrl(preset.defaultBaseUrl ?? '');
                 setModelName(preset.models[0]?.id ?? '');
                 setModelApiKey('');
+                setModelFieldErrors({});
+                setError(undefined);
                 setNotice(undefined);
               }}
             />
@@ -388,7 +418,7 @@ export function CreatorServicesSettingsView(props: {
                 saving
                 || (
                   activeSection === 'text'
-                  && (modelProvider === undefined || modelName.trim().length === 0)
+                  && modelProvider === undefined
                 )
               }
             >
@@ -412,6 +442,7 @@ function TextModelSettings(props: SettingsGroupProps & {
   model: string;
   apiKey: string;
   error?: string;
+  fieldErrors: ModelFieldErrors;
   onProviderChange(value: OpenAiCompatibleConfig): void;
   providerId: string;
   runtimeModelIds: readonly string[];
@@ -461,6 +492,7 @@ function TextModelSettings(props: SettingsGroupProps & {
           modelSuggestions={props.providerId === 'openai' && props.runtimeModelIds.length > 0
             ? props.runtimeModelIds
             : creatorProviderCatalogById.llm[props.providerId]?.models.map(model => model.id)}
+          errors={props.fieldErrors}
           onChange={props.onProviderChange}
         />
         <div className="creator-services-model-status is-wide" role="status">
@@ -500,6 +532,7 @@ function TextModelSettings(props: SettingsGroupProps & {
           label={l('代理地址', 'Proxy URL')}
           value={props.config.proxy}
           placeholder="http://127.0.0.1:7890"
+          error={props.fieldErrors.proxy}
           onChange={value => props.update(config => {
             config.proxy = value;
           })}
@@ -517,6 +550,61 @@ function inferLlmProviderId(baseUrl: string, model: string): string {
   if (normalizedUrl.includes('minimax') || normalizedModel.startsWith('minimax-')) return 'minimax';
   if (normalizedUrl.includes('openai.com')) return 'openai';
   return 'custom';
+}
+
+function validateModelFields(
+  baseUrl: string,
+  model: string,
+  apiKey: string,
+  proxy: string,
+  l: (zh: string, en: string) => string
+): ModelFieldErrors {
+  const errors: ModelFieldErrors = {};
+  if (model.trim().length === 0) {
+    errors.model = l('模型不能为空', 'Model is required');
+  }
+  if (baseUrl.trim().length > 0 && !isHttpUrl(baseUrl)) {
+    errors.baseUrl = l(
+      '请输入有效的 HTTP 或 HTTPS 地址',
+      'Enter a valid HTTP or HTTPS URL'
+    );
+  }
+  if (apiKey.length > 0 && apiKey.trim().length === 0) {
+    errors.apiKey = l('API Key 不能只包含空格', 'API Key cannot contain only spaces');
+  }
+  if (proxy.trim().length > 0 && !isHttpUrl(proxy)) {
+    errors.proxy = l(
+      '请输入有效的 HTTP 或 HTTPS 代理地址',
+      'Enter a valid HTTP or HTTPS proxy URL'
+    );
+  }
+  return errors;
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function readableSaveError(
+  cause: unknown,
+  l: (zh: string, en: string) => string
+): string {
+  if (cause instanceof Error && cause.message.trim().length > 0) return cause.message;
+  return l('本地 Runtime 未返回具体原因', 'The local Runtime did not return a reason');
+}
+
+function modelFieldFromError(message: string): keyof ModelFieldErrors | undefined {
+  const normalized = message.toLowerCase();
+  if (normalized.includes('base url') || normalized.includes('baseurl')) return 'baseUrl';
+  if (normalized.includes('api key') || normalized.includes('apikey')) return 'apiKey';
+  if (normalized.includes('proxy') || normalized.includes('代理')) return 'proxy';
+  if (normalized.includes('model') || normalized.includes('模型')) return 'model';
+  return undefined;
 }
 
 function TranscriptionSettings(props: SettingsGroupProps & {
@@ -912,6 +1000,7 @@ function OpenAiFields(props: {
   modelSuggestions?: readonly string[];
   modelReadonly?: boolean;
   baseUrlPlaceholder?: string;
+  errors?: ModelFieldErrors;
   onChange(value: OpenAiCompatibleConfig): void;
 }) {
   const l = useLocalizedCopy();
@@ -922,6 +1011,7 @@ function OpenAiFields(props: {
         label={l('Base URL', 'Base URL')}
         value={props.value.baseUrl}
         placeholder={props.baseUrlPlaceholder ?? 'https://api.openai.com/v1'}
+        error={props.errors?.baseUrl}
         onChange={baseUrl => props.onChange({ ...props.value, baseUrl })}
         wide
       />
@@ -930,6 +1020,7 @@ function OpenAiFields(props: {
         label="API Key"
         value={props.value.apiKey}
         configured={props.configuredCredentials.has(props.credential)}
+        error={props.errors?.apiKey}
         onChange={apiKey => props.onChange({ ...props.value, apiKey })}
       />
       {props.modelReadonly ? (
@@ -941,6 +1032,7 @@ function OpenAiFields(props: {
           value={props.value.model}
           placeholder={props.modelPlaceholder}
           suggestions={props.modelSuggestions}
+          error={props.errors?.model}
           onChange={model => props.onChange({ ...props.value, model })}
         />
       )}
@@ -1035,6 +1127,7 @@ function TextField(props: {
   placeholder?: string;
   suggestions?: readonly string[];
   wide?: boolean;
+  error?: string;
   onChange(value: string): void;
 }) {
   return (
@@ -1042,14 +1135,20 @@ function TextField(props: {
       <span>{props.label}</span>
       <input
         id={props.id}
+        aria-label={props.label}
         type="text"
         value={props.value}
         placeholder={props.placeholder}
         list={props.suggestions?.length ? `${props.id}-suggestions` : undefined}
         spellCheck={false}
         autoComplete="off"
+        aria-invalid={props.error === undefined ? undefined : true}
+        aria-describedby={props.error === undefined ? undefined : `${props.id}-error`}
         onChange={event => props.onChange(event.target.value)}
       />
+      {props.error === undefined ? null : (
+        <span id={`${props.id}-error`} className="creator-services-field-error">{props.error}</span>
+      )}
       {props.suggestions?.length ? (
         <datalist id={`${props.id}-suggestions`}>
           {props.suggestions.map(value => <option key={value} value={value} />)}
@@ -1065,6 +1164,7 @@ function ModelField(props: {
   value: string;
   placeholder?: string;
   suggestions?: readonly string[];
+  error?: string;
   onChange(value: string): void;
 }) {
   const valueIsCustom = props.suggestions?.includes(props.value) !== true;
@@ -1081,6 +1181,8 @@ function ModelField(props: {
         <select
           aria-label={props.label}
           value={showCustomInput ? '__custom__' : props.value}
+          aria-invalid={props.error === undefined ? undefined : true}
+          aria-describedby={props.error === undefined ? undefined : `${props.id}-error`}
           onChange={event => {
             if (event.target.value === '__custom__') {
               setCustomSelected(true);
@@ -1097,14 +1199,20 @@ function ModelField(props: {
       {(!props.suggestions?.length || showCustomInput) ? (
         <input
           id={props.id}
+          aria-label={props.label}
           type="text"
           value={props.value}
           placeholder={props.placeholder}
           spellCheck={false}
           autoComplete="off"
+          aria-invalid={props.error === undefined ? undefined : true}
+          aria-describedby={props.error === undefined ? undefined : `${props.id}-error`}
           onChange={event => props.onChange(event.target.value)}
         />
       ) : null}
+      {props.error === undefined ? null : (
+        <span id={`${props.id}-error`} className="creator-services-field-error">{props.error}</span>
+      )}
     </label>
   );
 }
@@ -1114,6 +1222,7 @@ function PasswordField(props: {
   label: string;
   value: string;
   configured?: boolean;
+  error?: string;
   onChange(value: string): void;
 }) {
   const l = useLocalizedCopy();
@@ -1124,6 +1233,7 @@ function PasswordField(props: {
       <span className="creator-services-secret-input">
         <input
           id={props.id}
+          aria-label={props.label}
           type={visible ? 'text' : 'password'}
           value={props.value}
           placeholder={props.configured
@@ -1131,6 +1241,8 @@ function PasswordField(props: {
             : l('输入密钥', 'Enter key')}
           spellCheck={false}
           autoComplete="new-password"
+          aria-invalid={props.error === undefined ? undefined : true}
+          aria-describedby={props.error === undefined ? undefined : `${props.id}-error`}
           onChange={event => props.onChange(event.target.value)}
         />
         <button
@@ -1142,6 +1254,9 @@ function PasswordField(props: {
           {visible ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
         </button>
       </span>
+      {props.error === undefined ? null : (
+        <span id={`${props.id}-error`} className="creator-services-field-error">{props.error}</span>
+      )}
     </label>
   );
 }

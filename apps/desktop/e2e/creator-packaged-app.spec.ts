@@ -292,7 +292,7 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
     await expect(currentApp.page.getByRole('heading', { name: '图像生成' })).toBeVisible();
     await expect(currentApp.page.getByRole('textbox', { name: '提示词' })).toBeVisible();
 
-    await currentApp.page.getByRole('button', { name: '工作台' }).click();
+    await currentApp.page.locator('.creator-workspace-header > button').click();
     await expect(currentApp.page.getByRole('heading', { name: '工作台' })).toBeVisible();
     await currentApp.page.getByRole('button', { name: /^视频切片/ }).click();
     const clipWorkspace = currentApp.page.getByRole('region', { name: '视频切片 操作区' });
@@ -302,25 +302,16 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
     await clipWorkspace.getByRole('button', { name: '下一步：切片设置' }).click();
     await clipWorkspace.getByRole('combobox', { name: '内容重点' }).selectOption('knowledge');
     await clipWorkspace.getByRole('combobox', { name: '目标时长' }).selectOption('30-60');
-    await clipWorkspace.getByRole('spinbutton', { name: '候选数量' }).fill('8');
+    await clipWorkspace.getByRole('spinbutton', { name: '切片数量' }).fill('8');
     await clipWorkspace.getByRole('combobox', { name: '输出画幅' }).selectOption('9:16');
-    const clipJobId = new URL(currentApp.page.url()).hash.match(/jobId=([^&]+)/)?.[1];
-    expect(clipJobId).toBeTruthy();
-    await expect.poll(async () => (
-      await runtimeRequest<{
-        job: { state: Record<string, unknown> };
-      }>(
-        currentApp.page,
-        'GET',
-        `/creator/jobs/${decodeURIComponent(clipJobId!)}`
-      )
-    ).body.job.state).toMatchObject({
-      sourceUrl: 'https://example.com/watch/packaged-auto-clip',
-      focus: 'knowledge',
-      duration: '30-60',
-      clipCount: 8,
-      aspectRatio: '9:16'
-    });
+    await expect(clipWorkspace.getByRole('combobox', { name: '内容重点' }))
+      .toHaveValue('knowledge');
+    await expect(clipWorkspace.getByRole('combobox', { name: '目标时长' }))
+      .toHaveValue('30-60');
+    await expect(clipWorkspace.getByRole('spinbutton', { name: '切片数量' }))
+      .toHaveValue('8');
+    await expect(clipWorkspace.getByRole('combobox', { name: '输出画幅' }))
+      .toHaveValue('9:16');
 
     const createdJob = await runtimeRequest<{
       job: { id: string; revision: number; state: Record<string, unknown> };
@@ -1086,6 +1077,8 @@ function packagedStickmanRuntimeRoot(): string {
   return process.platform === 'darwin'
     ? resolve(packageRoot, '..', 'Resources', 'stickman-runtime')
     : join(packageRoot, 'resources', 'stickman-runtime');
+}
+
 function packagedPackageRoot(): string {
   const executable = packagedExecutable(desktopDir);
   return process.platform === 'darwin'

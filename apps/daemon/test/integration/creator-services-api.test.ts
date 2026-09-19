@@ -134,6 +134,17 @@ describe('creator services API', () => {
     });
 
     expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: 'VALIDATION_FAILED',
+        message: expect.stringContaining('transcription.provider'),
+        details: {
+          fields: expect.arrayContaining([
+            expect.objectContaining({ field: 'transcription.provider' })
+          ])
+        }
+      }
+    });
     expect(store.write).not.toHaveBeenCalled();
   });
 
