@@ -320,7 +320,7 @@ function assertPortableDaemonDependencies() {
           '@opencreator/config',
           '@opencreator/protocol',
           '@opencreator/skill-market',
-          'image-size',
+          'sharp',
           'nanoid',
           'yaml',
           'zod'

@@ -36,7 +36,6 @@
     "fastify": "^5.2.1",
     "https-proxy-agent": "^7.0.6",
     "marked": "^18.0.12",
-    "image-size": "2.0.2",
     "nanoid": "^5.0.9",
     "pdf-parse": "1.1.1",
     "pdfkit": "^0.20.2",

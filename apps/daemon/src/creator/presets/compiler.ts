@@ -13,7 +13,7 @@ import {
   writeFile
 } from 'node:fs/promises';
 import path from 'node:path';
-import { imageSize } from 'image-size';
+import sharp from 'sharp';
 import { ZodError } from 'zod';
 import { creatorPresetModuleDefinitions, getCreatorPresetModuleDefinition } from './module-schemas.js';
 import { creatorPresetSourceManifestSchema, validatePresetPublicFields } from './schema.js';
@@ -576,7 +576,7 @@ async function validateImageResource(input: {
     throw new Error(`${relativeFile}.${field}: unsupported image extension`);
   }
   const bytes = await readFile(resource.file);
-  const dimensions = imageSize(bytes);
+  const dimensions = await sharp(bytes, { failOn: 'error' }).metadata();
   if (dimensions.width === undefined || dimensions.height === undefined) {
     throw new Error(`${relativeFile}.${field}: image dimensions are unavailable`);
   }
