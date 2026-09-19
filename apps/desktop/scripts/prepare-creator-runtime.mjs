@@ -226,12 +226,18 @@ function prepareSubtitleFonts() {
       throw new Error('Creator subtitle font manifest contains an invalid license entry');
     }
     const source = resolveAssetPath(subtitleFontSourceRoot, entry.file);
-    if (!existsSync(source) || hashFile(source) !== entry.sha256.toLowerCase()) {
+    const content = existsSync(source)
+      ? Buffer.from(readFileSync(source, 'utf8').replace(/\r\n?/g, '\n'), 'utf8')
+      : undefined;
+    if (
+      content === undefined
+      || createHash('sha256').update(content).digest('hex') !== entry.sha256.toLowerCase()
+    ) {
       throw new Error(`Creator subtitle font license hash mismatch: ${entry.file}`);
     }
     const target = join(runtimeLicensesDir, entry.file.split('/').at(-1));
     if (!copiedLicenses.has(target)) {
-      copyFileSync(source, target);
+      writeFileSync(target, content);
       resourcePaths.push(target);
       copiedLicenses.add(target);
     }
