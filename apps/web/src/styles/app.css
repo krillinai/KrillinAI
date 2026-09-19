@@ -3870,7 +3870,7 @@ button.creator-template-outcome-expand:hover {
   place-items: center;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 7px;
+  border-radius: 8px;
   background: rgba(18, 19, 22, 0.9);
   color: #fff;
 }
@@ -3902,7 +3902,7 @@ button.creator-template-outcome-expand:hover {
   margin: 0;
   color: var(--text);
   font-size: 25px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.2;
 }
 
@@ -3933,7 +3933,7 @@ button.creator-template-outcome-expand:hover {
   display: grid;
   place-items: center;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 8px;
   background: var(--surface-3);
   color: var(--muted);
   overflow: hidden;
@@ -3956,7 +3956,7 @@ button.creator-template-outcome-expand:hover {
 
 .creator-template-author-copy small {
   color: var(--subtle);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.2;
 }
 
@@ -4054,7 +4054,7 @@ button.creator-template-outcome-expand:hover {
   border-radius: 4px;
   background: color-mix(in srgb, var(--accent) 15%, var(--surface-3));
   color: var(--text);
-  font-weight: 650;
+  font-weight: 600;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
@@ -4135,7 +4135,7 @@ button.creator-template-outcome-expand:hover {
   margin-top: 2px;
   padding: 9px 16px;
   border: 1px solid color-mix(in srgb, var(--accent) 72%, var(--border));
-  border-radius: 7px;
+  border-radius: 8px;
   background: var(--accent);
   color: var(--on-accent);
   font-size: 13px;

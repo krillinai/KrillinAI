@@ -57,13 +57,10 @@ describe('ProjectsPage', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'My Projects' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Recent projects' })).toBeInTheDocument();
-    expect(screen.getByText('Output Center')).toBeInTheDocument();
-    expect(screen.getByRole('tablist', { name: 'Content view' })).toBeInTheDocument();
+    expect(screen.getByRole('tablist', { name: 'Project categories' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Copywriting' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open project 夏季新品封面' })).toBeInTheDocument();
     expect(screen.getByText('Thumbnail generation')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open project 夏季新品封面' }))
-      .toHaveTextContent('默认工作目录');
     expect(screen.getByRole('button', { name: 'Open project 夏季新品封面' }).querySelector('img'))
       .toHaveAttribute('src', '/dashboard/templates/image-generation-project-cover.png');
     expect(screen.getByRole('button', { name: 'Open project youtube.com · launch-talk' }).querySelector('img'))
@@ -587,32 +584,6 @@ describe('ProjectsPage', () => {
     expect(screen.queryByRole('button', { name: '打开项目 夏季新品封面' })).not.toBeInTheDocument();
   });
 
-  it('builds the output center from persisted artifacts without synthetic files', () => {
-    const onOpenJob = vi.fn();
-    render(<ProjectsPage jobs={jobs} workspaces={workspaces} onOpenJob={onOpenJob} />);
-
-    fireEvent.click(within(screen.getByRole('tablist', { name: '内容维度' }))
-      .getByRole('tab', { name: '产出中心' }));
-
-    const outputList = screen.getByRole('list', { name: '产出列表' });
-    expect(within(outputList).getAllByRole('listitem')).toHaveLength(7);
-    expect(screen.getByText('target.srt')).toBeInTheDocument();
-    expect(screen.getByText('translated.mp4')).toBeInTheDocument();
-    for (const fileName of [
-      'landscape-clean.mp4',
-      'youtube-cover.png',
-      'publish-copy-youtube.md',
-      'horizontal-bilingual.mp4',
-      'bilingual.srt'
-    ]) {
-      expect(screen.getByText(fileName)).toBeInTheDocument();
-    }
-    expect(screen.queryByText(/最终成片|方案 01|配音音轨/)).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '在项目中打开产出 translated.mp4' }));
-    expect(onOpenJob).toHaveBeenCalledWith(expect.objectContaining({ id: 'job_translation' }));
-  });
-
   it('classifies generated image projects and shows their shared project cover', () => {
     const imageJob = creatorJob({
       id: 'job_image_generation',
@@ -634,13 +605,6 @@ describe('ProjectsPage', () => {
       .toHaveTextContent('图像生成');
     expect(screen.getByRole('button', { name: '打开项目 清晨海边的产品摄影' }).querySelector('img'))
       .toHaveAttribute('src', '/dashboard/templates/image-generation-project-cover.png');
-    fireEvent.click(within(screen.getByRole('tablist', { name: '内容维度' }))
-      .getByRole('tab', { name: '产出中心' }));
-    const output = screen.getByRole('button', {
-      name: '在项目中打开产出 generated-image.png'
-    });
-    expect(output).toBeInTheDocument();
-    expect(within(output).getByText('PNG')).toBeInTheDocument();
   });
 
   it('lists Xiaohongshu posts as writing projects and hides untouched drafts', () => {

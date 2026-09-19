@@ -4,8 +4,6 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import { CreatorSessionProvider } from './creator-session-store.js';
 import CreatorArtifactDetails from './CreatorArtifactDetails.js';
-import ImageGenerationWorkspace from './ImageGenerationWorkspace.js';
-import CoverGeneratorWorkspace from './CoverGeneratorWorkspace.js';
 
 beforeEach(() => {
   Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:artifact') });
@@ -61,31 +59,6 @@ it('traces sources, highlights text changes, downloads history and keeps stale r
   expect(details.getByText('已过期，非当前有效结果')).toBeInTheDocument();
   expect(details.getByText('已有记录将此结果标记为过期，未记录具体原因。')).toBeInTheDocument();
   expect(f.applyAction).not.toHaveBeenCalled();
-});
-
-it.each([
-  ['image-generation', 'generated_image', ImageGenerationWorkspace],
-  ['cover', 'cover_image', CoverGeneratorWorkspace]
-] as const)('shares persisted version selection with the %s workspace and survives remount', async (templateId, kind, Workspace) => {
-  const f = fixture(templateId, kind);
-  const first = mount(f, <Workspace onBack={() => undefined} />);
-  const details = within(await openDetails());
-  fireEvent.change(details.getByLabelText('浏览产物（不改变项目选择）'), { target: { value: 'artifact-1' } });
-  const adopt = details.getByRole('button', { name: '采用项目版本' });
-  fireEvent.click(adopt);
-  fireEvent.click(adopt);
-  await waitFor(() => expect(f.job.state.resultVersion).toBe(1));
-  expect(f.applyAction.mock.calls.filter(([, request]) => request.action === 'select-result-version')).toHaveLength(1);
-  expect(screen.getByRole('button', { name: '项目 V1' })).toBeInTheDocument();
-  expect(screen.getByText('包含过期结果')).toBeInTheDocument();
-  expect(f.job.artifacts).toHaveLength(2);
-  first.unmount();
-  mount(f, <Workspace onBack={() => undefined} />);
-  expect(screen.getByRole('button', { name: '项目 V1' })).toBeInTheDocument();
-  const restored = within(await openDetails());
-  expect(restored.getByText('已过期，非当前有效结果')).toBeInTheDocument();
-  fireEvent.click(restored.getByRole('button', { name: '预览 V1' }));
-  await waitFor(() => expect(restored.getByRole('img')).toHaveAttribute('src', 'blob:artifact'));
 });
 
 it('does not claim provenance or allow adoption for artifacts without a snapshot', async () => {

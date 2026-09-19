@@ -15,7 +15,7 @@ import type { CreatorWebService } from '../../services/creator-service.js';
 import type { OpenCreatorProject } from './project-model.js';
 import './projects-page.css';
 
-const projectCategories = ['全部', '视频创作', '图像设计'] as const;
+const projectCategories = ['全部', '视频创作', '图像设计', '文案创作'] as const;
 type ProjectCategory = typeof projectCategories[number];
 const projectCoverArtifactKinds = new Set([
   'cover_image',
@@ -449,7 +449,9 @@ function createCreatorProject(
     title: creatorProjectTitle(job, type),
     category: job.templateId === 'cover' || job.templateId === 'image-generation'
       ? '图像设计'
-      : '视频创作',
+      : job.templateId === 'xiaohongshu-post' || job.templateId === 'short-video-script'
+        ? '文案创作'
+        : '视频创作',
     workspaceName: workspaces.find(workspace => workspace.id === job.projectId)?.name
       ?? l('未知工作目录', 'Unknown workspace'),
     cover: projectCover(job.templateId),
@@ -561,6 +563,27 @@ function creatorDraftDefaults(templateId: string): Record<string, unknown[]> {
       selectedCandidateIds: [['1', '2', '3']]
     };
   }
+  if (templateId === 'xiaohongshu-post') {
+    return {
+      topic: [''],
+      audience: [''],
+      style: ['experience'],
+      length: ['medium'],
+      extraRequirements: [''],
+      currentStage: [null]
+    };
+  }
+  if (templateId === 'short-video-script') {
+    return {
+      topic: [''],
+      audience: [''],
+      platform: ['douyin'],
+      targetDurationSeconds: [60],
+      tone: ['natural'],
+      extraRequirements: [''],
+      currentStage: [null]
+    };
+  }
   if (templateId === 'stickman-video') {
     return {
       topic: [
@@ -668,12 +691,15 @@ function templateLabel(templateId: string, l: LocalizeCopy): string | undefined 
   if (templateId === 'image-generation') return l('图像生成', 'Image generation');
   if (templateId === 'video-generation') return l('视频生成', 'Video generation');
   if (templateId === 'stickman-video') return l('火柴人视频', 'Stick figure video');
+  if (templateId === 'xiaohongshu-post') return l('小红书帖子', 'Xiaohongshu post');
+  if (templateId === 'short-video-script') return l('短视频脚本', 'Short video script');
   return undefined;
 }
 
 function localizeProjectCategory(category: ProjectCategory, l: LocalizeCopy): string {
   if (category === '全部') return l(category, 'All');
   if (category === '图像设计') return l(category, 'Image Design');
+  if (category === '文案创作') return l(category, 'Copywriting');
   return l(category, 'Video Creation');
 }
 
@@ -697,6 +723,7 @@ function projectCover(templateId: string): string {
   if (templateId === 'video-generation') return '/dashboard/templates/animated-story.jpg';
   if (templateId === 'stickman-video') return '/dashboard/templates/ai-video-insane.jpg';
   if (templateId === 'auto-clip') return '/dashboard/templates/animated-story.jpg';
+  if (templateId === 'short-video-script') return '/skill-market/examples/gpt-image-2-info-poster.png';
   return '/dashboard/templates/digital-presenter.jpg';
 }
 
