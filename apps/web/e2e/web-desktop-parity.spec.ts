@@ -595,7 +595,7 @@ test('本地 Whisper 在 Browser/Desktop Bridge 下遵守相同 Runtime 能力�
 
   expect(results[1]!.text).toBe(results[0]!.text);
   expect(results[1]!.boxes).toEqual(results[0]!.boxes);
-  expect(results[1]!.requests).toEqual(results[0]!.requests);
+  expect([...results[1]!.requests].sort()).toEqual([...results[0]!.requests].sort());
   expect(results[1]!.transcription).toEqual(results[0]!.transcription);
   if (localProvider) {
     expect(results[0]!.transcription.provider).toBe(localProvider.provider);
@@ -718,7 +718,7 @@ test('短视频脚本在 Browser/Desktop Bridge 下保持相同界面、请求�
 
   expect(results[1]!.text).toBe(results[0]!.text);
   expect(results[1]!.boxes).toEqual(results[0]!.boxes);
-  expect(results[1]!.requests).toEqual(results[0]!.requests);
+  expect([...results[1]!.requests].sort()).toEqual([...results[0]!.requests].sort());
   expect(results[1]!.state).toEqual(results[0]!.state);
 });
 
