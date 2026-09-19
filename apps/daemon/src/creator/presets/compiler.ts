@@ -729,6 +729,7 @@ async function listOutputFiles(
 }
 
 async function syncTree(root: string): Promise<void> {
+  if (process.platform === 'win32') return;
   const files = await listOutputFiles(root);
   for (const file of files) {
     const handle = await open(path.join(root, file.path), 'r');
@@ -738,7 +739,6 @@ async function syncTree(root: string): Promise<void> {
       await handle.close();
     }
   }
-  if (process.platform === 'win32') return;
   const directory = await open(root, 'r');
   try {
     await directory.sync();
