@@ -68,6 +68,7 @@ afterSign: ./scripts/notarize-after-sign.mjs
 mac:
   category: public.app-category.developer-tools
   extendInfo:
+    CFBundleIconName: OpenCreator
     CFBundleDevelopmentRegion: zh_CN
     CFBundleLocalizations:
       - zh_CN

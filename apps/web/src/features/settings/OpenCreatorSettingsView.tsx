@@ -136,7 +136,7 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
           ))}
         </nav>
       </aside>
-      <main className="settings-content">
+      <main className="opencreator-scroll-page settings-content">
         {activeTab === 'general' ? (
           <GeneralSettings
             defaultPermission={props.defaultPermission ?? 'follow-project'}

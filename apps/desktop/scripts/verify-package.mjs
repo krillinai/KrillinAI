@@ -30,6 +30,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { verifyCreatorRuntime } from './creator-runtime-contract.mjs';
 import { verifyCodexRuntime } from './codex-runtime-contract.mjs';
+import { verifyMacAppIconCatalog } from './mac-app-icon.mjs';
 import {
   hashDirectory as hashStickmanDirectory,
   hashFile as hashStickmanFile,
@@ -206,6 +207,25 @@ function assertBrandingContents() {
 
   if (process.platform === 'darwin') {
     assertExists(join(resourcesDir, 'icon.icns'));
+    assertExists(join(resourcesDir, 'Assets.car'));
+    verifyMacAppIconCatalog(join(resourcesDir, 'Assets.car'));
+    const iconName = spawnSync('plutil', [
+      '-extract', 'CFBundleIconName', 'raw', '-o', '-',
+      join(packageRoot, 'Contents', 'Info.plist')
+    ], { encoding: 'utf8', timeout: 30_000 });
+    if (iconName.status !== 0 || iconName.stdout.trim() !== 'OpenCreator') {
+      throw new Error('Packaged macOS app does not reference the adaptive icon catalog.');
+    }
+    assertSameFile(
+      'macOS adaptive icon definition',
+      join(desktopResourcesDir, 'OpenCreator.icon', 'icon.json'),
+      join(sourceResourcesDir, 'OpenCreator.icon', 'icon.json')
+    );
+    assertSameFile(
+      'macOS adaptive icon brand mark',
+      join(desktopResourcesDir, 'OpenCreator.icon', 'Assets', 'mark.svg'),
+      join(sourceResourcesDir, 'OpenCreator.icon', 'Assets', 'mark.svg')
+    );
   }
 }
 

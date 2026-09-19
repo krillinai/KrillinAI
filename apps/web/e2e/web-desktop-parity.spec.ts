@@ -1,6 +1,567 @@
 import type { CreatorYtDlpStatusResponse } from '@opencreator/protocol';
 import { test, expect } from './fixtures/runtime.js';
 
+test('浅深色基准色与中性灰表面不随强调色变化且 Browser/Desktop 一致', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', '固定桌面内容视口');
+  const results = [];
+  for (const platform of ['browser', 'desktop'] as const) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page);
+    try {
+      await runtime.openApp(page);
+      const colors = [];
+      for (const theme of ['dark', 'light'] as const) {
+        for (const accent of ['red', 'blue', 'custom'] as const) {
+          const values = await page.evaluate(({ theme, accent }) => {
+            const root = document.documentElement;
+            root.dataset.theme = theme;
+            root.dataset.accent = accent;
+            root.style.setProperty('--custom-accent-value', '#3b82f6');
+            const surface = document.createElement('div');
+            surface.style.backgroundColor = 'var(--surface-2)';
+            document.body.append(surface);
+            const result = {
+              theme,
+              accent,
+              page: getComputedStyle(document.body).backgroundColor,
+              text: getComputedStyle(document.body).color,
+              sidebar: getComputedStyle(document.querySelector('.opencreator-sidebar-pane')!).backgroundColor,
+              surface: getComputedStyle(surface).backgroundColor
+            };
+            surface.remove();
+            return result;
+          }, { theme, accent });
+          expect(values.page).toBe(theme === 'dark' ? 'rgb(10, 10, 10)' : 'rgb(229, 229, 229)');
+          expect(values.text).toBe(theme === 'dark' ? 'rgb(229, 229, 229)' : 'rgb(10, 10, 10)');
+          colors.push(values);
+          if (platform === 'browser' && accent === 'red') {
+            await testInfo.attach(`theme-${theme}-red.png`, {
+              body: await page.screenshot({ animations: 'disabled' }),
+              contentType: 'image/png'
+            });
+          }
+        }
+        expect(colors.at(-3)!.sidebar).toBe(colors.at(-2)!.sidebar);
+        expect(colors.at(-3)!.surface).toBe(colors.at(-2)!.surface);
+        expect(colors.at(-2)!.surface).toBe(colors.at(-1)!.surface);
+      }
+      results.push(colors);
+    } finally {
+      await context.close();
+    }
+  }
+  expect(results[1]).toEqual(results[0]);
+});
+
+test('窄视口 Creator 设置区与右侧对话栏在 Browser/Desktop 下并排一致', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', '固定桌面内容视口');
+  test.setTimeout(120_000);
+  for (const [tool, templateId] of [
+    ['video-generation', 'video-generation'],
+    ['video-translation', 'video-translation']
+  ] as const) {
+    const created = await runtime.api<{ job: { id: string } }>('POST', '/creator/jobs', {
+      projectId: runtime.projectId,
+      templateId,
+      state: {}
+    });
+    const layouts = [];
+    for (const platform of ['browser', 'desktop'] as const) {
+      const context = await browser.newContext({ viewport: { width: 980, height: 680 } });
+      const page = await context.newPage();
+      if (platform === 'desktop') await installDesktopBridge(page);
+      try {
+        await runtime.openApp(page);
+        await page.goto(`${runtime.origin}/#/workbench?tool=${tool}&jobId=${created.job.id}`);
+        await expect(page.locator('.creator-collaboration-panel')).toBeVisible();
+        const layout = await page.evaluate(() => {
+          const main = document.querySelector('.creator-workspace-main, .video-translation-wizard-main')!.getBoundingClientRect();
+          const panel = document.querySelector('.creator-collaboration-panel')!.getBoundingClientRect();
+          return {
+            mainRight: Math.round(main.right),
+            panelLeft: Math.round(panel.left),
+            panelRight: Math.round(panel.right),
+            panelBottom: Math.round(panel.bottom)
+          };
+        });
+        expect(layout.panelLeft).toBeGreaterThanOrEqual(layout.mainRight - 1);
+        expect(layout.panelRight).toBeLessThanOrEqual(980);
+        expect(layout.panelBottom).toBe(680);
+        layouts.push(layout);
+      } finally {
+        await context.close();
+      }
+    }
+    expect(layouts[1]).toEqual(layouts[0]);
+  }
+});
+
+test('设置页各项标题在 Browser/Desktop 下与左侧返回行对齐', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', '固定桌面内容视口');
+  const offsets = [];
+  for (const platform of ['browser', 'desktop'] as const) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page, true);
+    try {
+      await runtime.openApp(page);
+      await page.getByRole('button', { name: '设置', exact: true }).click();
+      const headings = [];
+      for (const tab of ['常规', 'AI 服务']) {
+        await page.locator('.settings-nav').getByRole('button', { name: new RegExp(tab) }).click();
+        const title = page.locator('.settings-content h1');
+        await expect(title).toBeVisible();
+        const offset = await page.evaluate(() => {
+          const back = document.querySelector('.settings-back')!.getBoundingClientRect();
+          const heading = document.querySelector('.settings-content h1')!.getBoundingClientRect();
+          return Math.round((heading.top + heading.bottom - back.top - back.bottom) / 2);
+        });
+        expect(Math.abs(offset)).toBeLessThanOrEqual(2);
+        headings.push(offset);
+      }
+      offsets.push(headings);
+    } finally {
+      await context.close();
+    }
+  }
+  expect(offsets[1]).toEqual(offsets[0]);
+});
+
+test('所有设置 Tab 在 Browser/Desktop 下使用相同的页面留白', async ({ browser, runtime }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', '固定桌面内容视口');
+  test.setTimeout(120_000);
+  const platforms = [];
+  for (const platform of ['browser', 'desktop'] as const) {
+    const context = await browser.newContext({ viewport: { width: 1181, height: 985 } });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page, true);
+    try {
+      await runtime.openApp(page);
+      await page.getByRole('button', { name: '设置', exact: true }).click();
+      const nav = page.locator('.settings-nav > button');
+      await expect(nav).toHaveCount(9);
+      const tabs = [];
+      for (let index = 0; index < 9; index += 1) {
+        await nav.nth(index).click();
+        const section = page.locator('.settings-content > .settings-section');
+        await expect(section).toBeVisible();
+        const bounds = await section.evaluate(element => {
+          const content = element.parentElement!;
+          const sectionBox = element.getBoundingClientRect();
+          const contentBox = content.getBoundingClientRect();
+          return {
+            left: Math.round(sectionBox.left - contentBox.left),
+            right: Math.round(contentBox.right - sectionBox.right),
+            gutter: content.offsetWidth - content.clientWidth,
+            width: Math.round(sectionBox.width)
+          };
+        });
+        expect(bounds.left, `${platform}: Tab ${index + 1}`).toBe(24);
+        expect(bounds.right - bounds.gutter, `${platform}: Tab ${index + 1}`).toBe(24);
+        tabs.push(bounds);
+      }
+      expect(tabs.every(bounds => JSON.stringify(bounds) === JSON.stringify(tabs[0]))).toBe(true);
+      platforms.push(tabs);
+    } finally {
+      await context.close();
+    }
+  }
+  expect(platforms[1]).toEqual(platforms[0]);
+});
+
+test('各主页面标题行在 Browser/Desktop 下与左侧品牌行同轴', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', '固定桌面内容视口');
+  test.setTimeout(180_000);
+  const videoGeneration = await runtime.api<{ job: { id: string } }>('POST', '/creator/jobs', {
+    projectId: runtime.projectId,
+    templateId: 'video-generation',
+    state: {}
+  });
+  const videoTranslation = await runtime.api<{ job: { id: string } }>('POST', '/creator/jobs', {
+    projectId: runtime.projectId,
+    templateId: 'video-translation',
+    state: {}
+  });
+  const pages: Array<{ route: string; selector: string; height?: number }> = [
+    { route: '/workbench', selector: '.creator-tools-page-header', height: 42 },
+    { route: '/projects', selector: '.projects-page-header h1', height: 42 },
+    { route: '/settings', selector: '.settings-content h1', height: 42 },
+    { route: '/settings?tab=ai-services', selector: '.settings-content h1', height: 42 },
+    { route: '/tasks', selector: '.task-center__header h1', height: 42 },
+    { route: '/schedules', selector: '.schedules-view__header h1', height: 42 },
+    { route: '/search', selector: '.search-view__input', height: 42 },
+    { route: '/plugins', selector: '.plugin-center-header', height: 68 },
+    { route: `/workbench?tool=video-generation&jobId=${videoGeneration.job.id}`, selector: '.creator-workspace-header', height: 68 },
+    { route: `/workbench?tool=video-translation&jobId=${videoTranslation.job.id}`, selector: '.video-translation-header' }
+  ];
+  const results = [];
+
+  for (const platform of ['browser', 'desktop'] as const) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page, true);
+    try {
+      await runtime.openApp(page);
+      const measurements = [];
+      for (const { route, selector, height } of pages) {
+        await page.evaluate(route => { window.location.hash = route; }, route);
+        await expect(page.locator(selector).first()).toBeVisible();
+        const measured = await page.evaluate(selector => {
+          const brand = document.querySelector('.sidebar-brand')?.getBoundingClientRect();
+          const main = document.querySelector('.opencreator-main-pane')!;
+          const mainBox = main.getBoundingClientRect();
+          const referenceCenter = brand && brand.height > 0
+            ? (brand.top + brand.bottom) / 2
+            : mainBox.top + Number.parseFloat(getComputedStyle(main).paddingTop) + 34;
+          const title = document.querySelector(selector)!.getBoundingClientRect();
+          return {
+            centerOffset: Math.round((title.top + title.bottom) / 2 - referenceCenter),
+            height: Math.round(title.height)
+          };
+        }, selector);
+        expect(Math.abs(measured.centerOffset), `${platform}: ${route}`).toBeLessThanOrEqual(1);
+        if (height !== undefined) expect(measured.height, `${platform}: ${route}`).toBe(height);
+        measurements.push(measured);
+        if (route === '/projects') {
+          await testInfo.attach(`projects-title-${platform}.png`, {
+            body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png'
+          });
+        }
+      }
+      await page.evaluate(() => { window.location.hash = '/projects'; });
+      await expect(page.locator('.projects-page-header h1')).toBeVisible();
+      await page.locator('.sidebar-collapse-button').click();
+      await expect(page.locator('.opencreator-sidebar')).toHaveAttribute('data-collapsed', 'true');
+      const collapsedOffset = await page.evaluate(() => {
+        const brand = document.querySelector('.sidebar-brand')!.getBoundingClientRect();
+        const heading = document.querySelector('.projects-page-header h1')!.getBoundingClientRect();
+        return Math.round((heading.top + heading.bottom - brand.top - brand.bottom) / 2);
+      });
+      expect(Math.abs(collapsedOffset), `${platform}: collapsed projects`).toBeLessThanOrEqual(1);
+      measurements.push({ centerOffset: collapsedOffset, height: 42 });
+      results.push(measurements);
+    } finally {
+      await context.close();
+    }
+  }
+  expect(results[1]).toEqual(results[0]);
+});
+
+test('工作台与我的项目在相同视口下共用内容容器边界', async ({ browser, runtime }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', '比较固定内容视口');
+  test.setTimeout(120_000);
+  const results = [];
+  for (const platform of ['browser', 'desktop'] as const) {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 800 } });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page, true);
+    try {
+      await runtime.openApp(page);
+      const widths = [];
+      for (const width of [1440, 1200, 760, 390]) {
+        await page.setViewportSize({ width, height: 800 });
+        const measurements = [];
+        for (const [route, selector] of [
+          ['/workbench', '.creator-tools-page-inner'],
+          ['/projects', '.projects-page-inner']
+        ] as const) {
+          await page.evaluate(route => { window.location.hash = route; }, route);
+          await expect(page.locator(selector)).toBeVisible();
+          const bounds = await page.locator(selector).evaluate(content => {
+            const box = content.getBoundingClientRect();
+            const parent = content.parentElement!.getBoundingClientRect();
+            const scroller = content.parentElement!;
+            const style = getComputedStyle(content);
+            return {
+              left: Math.round(box.left - parent.left),
+              right: Math.round(parent.right - box.right),
+              gutter: scroller.offsetWidth - scroller.clientWidth,
+              width: Math.round(box.width),
+              paddingTop: style.paddingTop,
+              paddingBottom: style.paddingBottom
+            };
+          });
+          expect(Math.abs(bounds.left + bounds.gutter - bounds.right), `${platform}: ${route} at ${width}px`)
+            .toBeLessThanOrEqual(1);
+          measurements.push(bounds);
+        }
+        expect(measurements[1], `${platform}: ${width}px`).toEqual(measurements[0]);
+        widths.push(measurements[0]);
+      }
+      results.push(widths);
+    } finally {
+      await context.close();
+    }
+  }
+  expect(results[1]).toEqual(results[0]);
+});
+
+test('项目页滚动而工作台未滚动时内容边界仍一致', async ({ browser, runtime }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', '固定桌面内容视口');
+  for (const platform of ['browser', 'desktop'] as const) {
+    const context = await browser.newContext({ viewport: { width: 1273, height: 985 } });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page, true);
+    try {
+      await runtime.openApp(page);
+      await page.evaluate(() => { window.location.hash = '/workbench'; });
+      await expect(page.locator('.creator-tools-page-inner')).toBeVisible();
+      const workbench = await page.locator('.creator-tools-page').evaluate(scroller => ({
+        right: Math.round(scroller.querySelector('.creator-tools-page-inner')!.getBoundingClientRect().right),
+        scrollable: scroller.scrollHeight > scroller.clientHeight,
+        gutter: scroller.offsetWidth - scroller.clientWidth
+      }));
+      expect(workbench.scrollable, `${platform}: workbench`).toBe(false);
+
+      await page.evaluate(() => { window.location.hash = '/projects'; });
+      await expect(page.locator('.projects-page-inner')).toBeVisible();
+      const projects = await page.locator('.projects-page').evaluate(scroller => {
+        const filler = document.createElement('div');
+        filler.style.height = '1600px';
+        scroller.querySelector('.projects-page-inner')!.append(filler);
+        return {
+          right: Math.round(scroller.querySelector('.projects-page-inner')!.getBoundingClientRect().right),
+          scrollable: scroller.scrollHeight > scroller.clientHeight,
+          gutter: scroller.offsetWidth - scroller.clientWidth
+        };
+      });
+      expect(projects.scrollable, `${platform}: projects`).toBe(true);
+      expect(projects.gutter, `${platform}: scrollbar width`).toBe(workbench.gutter);
+      expect(projects.right, `${platform}: page right edge`).toBe(workbench.right);
+    } finally {
+      await context.close();
+    }
+  }
+});
+
+test('我的项目和产出中心分类在 Browser/Desktop 下保持单行', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', '固定桌面内容视口');
+  const results = [];
+  for (const platform of ['browser', 'desktop'] as const) {
+    const context = await browser.newContext({ viewport: { width: 980, height: 680 } });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page, true);
+    try {
+      await runtime.openApp(page);
+      await page.getByRole('button', { name: '我的项目', exact: true }).click();
+      const measurements = [];
+      for (const [view, count] of [['项目', 4], ['产出中心', 6]] as const) {
+        const primary = page.getByRole('tablist', { name: '内容维度' });
+        await primary.getByRole('tab', { name: view }).click();
+        await expect(primary.getByRole('tab', { name: view })).toHaveAttribute('aria-selected', 'true');
+        const tabs = page.locator('.projects-category-tabs');
+        await expect(tabs.getByRole('tab')).toHaveCount(count);
+        const positions = await tabs.getByRole('tab').evaluateAll(elements => elements.map(element => {
+          const rect = element.getBoundingClientRect();
+          return { top: Math.round(rect.top), left: Math.round(rect.left) };
+        }));
+        expect(new Set(positions.map(position => position.top)).size).toBe(1);
+        expect(positions.every((position, index) => index === 0 || position.left > positions[index - 1]!.left)).toBe(true);
+        const styles = await page.evaluate(() => {
+          const row = document.querySelector('.projects-primary-row')!;
+          const primary = document.querySelector('.projects-dimension-tabs')!;
+          const secondary = document.querySelector('.projects-category-tabs')!;
+          const search = row.querySelector('.projects-search')!;
+          const activePrimary = primary.querySelector('button[aria-selected="true"]')!;
+          const activeSecondary = secondary.querySelector('button[aria-selected="true"]')!;
+          const rowBox = row.getBoundingClientRect();
+          const primaryBox = primary.getBoundingClientRect();
+          const searchBox = search.getBoundingClientRect();
+          return {
+            primaryFontSize: getComputedStyle(activePrimary).fontSize,
+            secondaryFontSize: getComputedStyle(activeSecondary).fontSize,
+            primaryRule: getComputedStyle(row).borderBottomWidth,
+            primaryIndicator: getComputedStyle(activePrimary, '::after').height,
+            secondaryBackground: getComputedStyle(secondary).backgroundColor,
+            secondaryBorder: getComputedStyle(secondary).borderTopWidth,
+            activeSecondaryBackground: getComputedStyle(activeSecondary).backgroundColor,
+            rowGap: Math.round(secondary.getBoundingClientRect().top - rowBox.bottom),
+            searchGap: Math.round(searchBox.left - primaryBox.right),
+            searchRight: Math.round(searchBox.right - rowBox.right),
+            searchCenterOffset: Math.round((searchBox.top + searchBox.bottom - primaryBox.top - primaryBox.bottom) / 2)
+          };
+        });
+        expect(styles.primaryFontSize).toBe('14px');
+        expect(styles.secondaryFontSize).toBe('12px');
+        expect(styles.primaryRule).toBe('1px');
+        expect(styles.primaryIndicator).toBe('2px');
+        expect(styles.secondaryBackground).toBe('rgba(0, 0, 0, 0)');
+        expect(styles.secondaryBorder).toBe('0px');
+        expect(styles.activeSecondaryBackground).not.toBe('rgba(0, 0, 0, 0)');
+        expect(styles.rowGap).toBe(12);
+        expect(styles.searchGap).toBeGreaterThanOrEqual(16);
+        expect(styles.searchRight).toBe(0);
+        expect(Math.abs(styles.searchCenterOffset)).toBeLessThanOrEqual(1);
+        await expect(page.locator('.projects-primary-row').getByRole('searchbox', {
+          name: view === '项目' ? '搜索项目' : '搜索产出'
+        })).toBeVisible();
+        measurements.push(styles);
+        await testInfo.attach(`projects-hierarchy-${platform}-${view}.png`, {
+          body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png'
+        });
+        await tabs.getByRole('tab', { name: view === '项目' ? '视频创作' : '视频', exact: true }).click();
+        await expect(tabs.getByRole('tab', { name: view === '项目' ? '视频创作' : '视频', exact: true }))
+          .toHaveAttribute('aria-selected', 'true');
+      }
+      results.push(measurements);
+    } finally {
+      await context.close();
+    }
+  }
+  expect(results[1]).toEqual(results[0]);
+});
+
+test('窄屏产出分类保持单行且末项可选', async ({ browser, runtime }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-mobile', '窄屏布局');
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  try {
+    await runtime.openApp(page);
+    await page.evaluate(() => { window.location.hash = '/projects'; });
+    await page.getByRole('tablist', { name: '内容维度' }).getByRole('tab', { name: '产出中心' }).click();
+    const tabs = page.getByRole('tablist', { name: '产出分类' });
+    await expect(tabs.getByRole('tab')).toHaveCount(6);
+    const tops = await tabs.getByRole('tab').evaluateAll(elements =>
+      elements.map(element => Math.round(element.getBoundingClientRect().top))
+    );
+    expect(new Set(tops).size).toBe(1);
+    await tabs.getByRole('tab', { name: '文档' }).click();
+    await expect(tabs.getByRole('tab', { name: '文档' })).toHaveAttribute('aria-selected', 'true');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    const primaryRow = await page.evaluate(() => {
+      const content = document.querySelector('.projects-page-inner')!.getBoundingClientRect();
+      const tabs = document.querySelector('.projects-dimension-tabs')!.getBoundingClientRect();
+      const search = document.querySelector('.projects-search')!.getBoundingClientRect();
+      return {
+        tabsRight: tabs.right,
+        searchLeft: search.left,
+        searchRight: search.right,
+        contentRight: content.right,
+        centerOffset: (search.top + search.bottom - tabs.top - tabs.bottom) / 2
+      };
+    });
+    expect(primaryRow.searchLeft).toBeGreaterThanOrEqual(primaryRow.tabsRight + 10);
+    expect(primaryRow.searchRight).toBeLessThanOrEqual(primaryRow.contentRight + 1);
+    expect(Math.abs(primaryRow.centerOffset)).toBeLessThanOrEqual(1);
+    await page.setViewportSize({ width: 320, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+    await testInfo.attach('projects-hierarchy-mobile.png', {
+      body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png'
+    });
+  } finally {
+    await context.close();
+  }
+});
+
+test('导航与文章模板图标在 Browser/Desktop 下只保留外层容器', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', '固定桌面内容视口');
+  test.setTimeout(120_000);
+  for (const theme of ['dark', 'light'] as const) {
+    const results = [];
+    for (const platform of ['browser', 'desktop'] as const) {
+      const context = await browser.newContext({
+        viewport: { width: 1440, height: 900 },
+        colorScheme: theme,
+        reducedMotion: 'reduce',
+        deviceScaleFactor: 1
+      });
+      const page = await context.newPage();
+      if (platform === 'desktop') await installDesktopBridge(page);
+      try {
+        await runtime.openApp(page);
+        await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
+        const sidebar = page.locator('.opencreator-sidebar');
+        const measurements = [];
+        for (const collapsed of [false, true]) {
+          if (collapsed) await sidebar.locator('.sidebar-collapse-button').click();
+          await expect(sidebar).toHaveAttribute('data-collapsed', String(collapsed));
+          for (const label of ['工作台', '我的项目', '设置']) {
+            const button = sidebar.getByRole('button', { name: label, exact: true });
+            await button.click();
+            await expect(button).toHaveAttribute('aria-current', 'page');
+            for (const hovered of [false, true]) {
+              if (hovered) await button.hover();
+              else await page.mouse.move(700, 0);
+              await button.evaluate(button => Promise.all(
+                button.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => undefined))
+              ));
+              const styles = await button.evaluate(button => {
+                const icon = button.querySelector('.sidebar-nav-icon')!;
+                const style = getComputedStyle(icon);
+                const box = icon.getBoundingClientRect();
+                return {
+                  iconBackground: style.backgroundColor,
+                  iconBorder: style.borderTopWidth,
+                  iconShadow: style.boxShadow,
+                  iconColor: style.color,
+                  rowBackground: getComputedStyle(button).backgroundColor,
+                  width: box.width,
+                  height: box.height
+                };
+              });
+              expect(styles.iconBackground).toBe('rgba(0, 0, 0, 0)');
+              expect(styles.iconBorder).toBe('0px');
+              expect(styles.iconShadow).toBe('none');
+              expect(styles.rowBackground).not.toBe('rgba(0, 0, 0, 0)');
+              measurements.push({ label, collapsed, hovered, ...styles });
+            }
+          }
+          await testInfo.attach(`single-nav-container-${platform}-${theme}-${collapsed}.png`, {
+            body: await sidebar.screenshot({ animations: 'disabled' }), contentType: 'image/png'
+          });
+        }
+        const created = await runtime.api<{ job: { id: string } }>('POST', '/creator/jobs', {
+          projectId: runtime.projectId,
+          templateId: 'wechat-article',
+          state: { currentStep: 1, furthestStep: 1 }
+        });
+        await page.goto(`${runtime.origin}/#/workbench?tool=wechat-article&jobId=${created.job.id}`);
+        await expect(page.locator('.wechat-template-inline-list > button').first()).toBeVisible();
+        await expectUnframedTemplateIcons(page, '.wechat-template-inline-list > button > span');
+        await page.getByRole('button', { name: '查看全部模板', exact: true }).click();
+        await expect(page.getByRole('dialog', { name: '文章模板库' })).toBeVisible();
+        await page.locator('.wechat-template-grid > button').first().click();
+        await expectUnframedTemplateIcons(page, '.wechat-template-grid > button > span');
+        results.push(measurements);
+      } finally {
+        await context.close();
+      }
+    }
+    expect(results[1]).toEqual(results[0]);
+  }
+});
+
+async function expectUnframedTemplateIcons(page: import('@playwright/test').Page, selector: string): Promise<void> {
+  const icons = page.locator(selector);
+  expect(await icons.count()).toBeGreaterThan(0);
+  const styles = await icons.evaluateAll(icons => icons.map(icon => {
+    const style = getComputedStyle(icon);
+    return { background: style.backgroundColor, border: style.borderTopWidth, shadow: style.boxShadow };
+  }));
+  for (const style of styles) {
+    expect(style).toEqual({ background: 'rgba(0, 0, 0, 0)', border: '0px', shadow: 'none' });
+  }
+}
+
 test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runtime 配置', async ({
   browser,
   runtime
@@ -1046,14 +1607,20 @@ test('封面生成在桌面和移动视口保持可操作并从项目中心恢�
 });
 
 async function installDesktopBridge(
-  page: import('@playwright/test').Page
+  page: import('@playwright/test').Page,
+  integratedTitleBar = false
 ): Promise<void> {
-  await page.addInitScript(() => {
+  await page.addInitScript((integratedTitleBar) => {
     const success = { ok: true as const };
     Object.defineProperty(window, 'opencreatorDesktop', {
       configurable: true,
       value: {
         kind: 'desktop',
+        ...(integratedTitleBar ? { windowChrome: {
+          integratedTitleBar: true,
+          titleBarHeight: 38,
+          trafficLightInset: 76
+        } } : {}),
         readConnectionConfig: async () => ({ baseUrl: '/.opencreator/runtime' }),
         subscribeConnectionConfig: () => () => undefined,
         restartRuntime: async () => success,
@@ -1075,7 +1642,7 @@ async function installDesktopBridge(
         subscribeNavigation: () => () => undefined
       }
     });
-  });
+  }, integratedTitleBar);
 }
 
 function normalizeParityText(value: string): string {

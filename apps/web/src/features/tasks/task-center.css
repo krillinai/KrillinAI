@@ -12,7 +12,7 @@
   align-content: start;
   gap: 18px;
   margin: 0 auto;
-  padding: 28px 30px 44px;
+  padding: var(--page-title-inset) 30px 44px;
 }
 
 .task-center__header {
@@ -29,6 +29,9 @@
 }
 
 .task-center__header h1 {
+  min-height: var(--page-title-row-height);
+  display: flex;
+  align-items: center;
   font-size: 24px;
   line-height: 1.2;
 }
@@ -40,7 +43,9 @@
 }
 
 .task-center__header-actions {
+  min-height: var(--page-title-row-height);
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;

@@ -726,7 +726,29 @@ describe('App', () => {
     expect(shell?.style.getPropertyValue('--opencreator-titlebar-height')).toBe('38px');
     expect(shell?.style.getPropertyValue('--opencreator-traffic-light-inset')).toBe('76px');
     expect(document.querySelector('.desktop-titlebar-drag-region')).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: '窗口控制' })).not.toBeInTheDocument();
     expect(document.querySelector('.opencreator-main-titlebar')).not.toBeInTheDocument();
+  });
+
+  it('shows functional window controls only with the Desktop capability', async () => {
+    const user = userEvent.setup();
+    const hostBridge = createHostBridge();
+    const controlWindow = vi.fn(async () => undefined);
+    hostBridge.windowChrome = {
+      integratedTitleBar: true,
+      titleBarHeight: 38,
+      trafficLightInset: 76
+    };
+    hostBridge.controlWindow = controlWindow;
+
+    render(<App fileService={createFileService()} hostBridge={hostBridge} />);
+
+    await screen.findByRole('button', { name: '工作台' });
+    const controls = screen.getByRole('group', { name: '窗口控制' });
+    await user.click(within(controls).getByRole('button', { name: '缩放窗口' }));
+    await user.click(within(controls).getByRole('button', { name: '最小化窗口' }));
+    await user.click(within(controls).getByRole('button', { name: '关闭窗口' }));
+    expect(controlWindow.mock.calls).toEqual([['zoom'], ['minimize'], ['close']]);
   });
 
   it('moves a desktop conversation title into the integrated titlebar without duplicating it', async () => {
@@ -7107,6 +7129,24 @@ describe('App', () => {
 
     expect(document.documentElement).toHaveAttribute('data-theme', 'light');
     expect(window.localStorage.getItem('opencreator.preferences.colorMode')).toBe('light');
+  });
+
+  it('synchronizes a supported native window when switching color modes', async () => {
+    const user = userEvent.setup();
+    const hostBridge = createHostBridge();
+    hostBridge.windowChrome = {
+      integratedTitleBar: true,
+      titleBarHeight: 38,
+      trafficLightInset: 76
+    };
+    const setWindowColorMode = vi.fn().mockResolvedValue(undefined);
+    hostBridge.setWindowColorMode = setWindowColorMode;
+
+    render(<App fileService={createFileService()} hostBridge={hostBridge} />);
+    await waitFor(() => expect(setWindowColorMode).toHaveBeenCalledWith('dark'));
+    await user.click(await screen.findByRole('button', { name: '设置' }));
+    await user.click(await screen.findByRole('button', { name: '浅色' }));
+    await waitFor(() => expect(setWindowColorMode).toHaveBeenCalledWith('light'));
   });
 
   it('applies and persists the selected accent color', async () => {

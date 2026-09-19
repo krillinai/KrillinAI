@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
+import NativeSelect from '../forms/NativeSelect.js';
 import './tts-voice-picker.css';
 
 export function TtsVoicePicker(props: {
@@ -130,7 +131,7 @@ export function TtsVoicePicker(props: {
     <div className="tts-voice-picker">
       <label htmlFor={props.id}>
         <span>{props.label ?? l('默认音色', 'Default voice')}</span>
-        <select
+        <NativeSelect
           id={props.id}
           value={props.value}
           disabled={props.disabled || loading || props.provider === 'edge-tts'}
@@ -152,7 +153,7 @@ export function TtsVoicePicker(props: {
               {voiceLabel(voice, l)}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </label>
       <div className="tts-voice-picker-actions">
         <button

@@ -31,6 +31,7 @@ import type {
 import { FolderInput } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { AppLayout } from '../components/layout/AppLayout.js';
+import { DesktopWindowControls } from '../components/layout/DesktopWindowControls.js';
 import { beginPaneResize } from '../components/layout/pane-resize-2026-07-29.js';
 import { Timeline, type TimelineHandle } from '../components/timeline/Timeline.js';
 import { eventToTimelineItem, type TimelineItem } from '../components/timeline/timeline-model.js';
@@ -434,7 +435,10 @@ export function AppController(props: AppControllerProps) {
 
   useEffect(() => {
     applyColorMode(colorMode);
-  }, [colorMode]);
+    void hostBridge.setWindowColorMode?.(colorMode).catch(error => {
+      console.error('Failed to synchronize native window color mode', error);
+    });
+  }, [colorMode, hostBridge]);
   useEffect(() => {
     applyAccentColor(accentColor, customAccentColor);
   }, [accentColor, customAccentColor]);
@@ -4519,6 +4523,9 @@ export function AppController(props: AppControllerProps) {
     >
       {integratedTitleBar?.integratedTitleBar === true ? (
         <div className="desktop-titlebar-drag-region" aria-hidden="true" />
+      ) : null}
+      {integratedTitleBar?.integratedTitleBar === true && hostBridge.controlWindow !== undefined ? (
+        <DesktopWindowControls onAction={hostBridge.controlWindow} />
       ) : null}
       <span
         className="app-visually-hidden"

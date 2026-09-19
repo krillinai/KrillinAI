@@ -23,6 +23,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
+import NativeSelect from '../../components/forms/NativeSelect.js';
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
@@ -770,7 +771,7 @@ export default function CoverGeneratorWorkspace(props: {
               <div className="cover-copy-settings">
                 <label className="creator-tool-field">
                   <span>{l('封面文字语言', 'Cover text language')}</span>
-                  <select
+                  <NativeSelect
                     aria-label={l('封面文字语言', 'Cover text language')}
                     value={coverTextLanguage}
                     onChange={event => updateCoverTextLanguage(
@@ -782,7 +783,7 @@ export default function CoverGeneratorWorkspace(props: {
                     <option value="en-US">English</option>
                     <option value="ja-JP">日本語</option>
                     <option value="ko-KR">한국어</option>
-                  </select>
+                  </NativeSelect>
                 </label>
                 <label className="creator-tool-field">
                   <span>{l('主标题', 'Headline')} <small>{l('选填', 'Optional')}</small></span>

@@ -42,6 +42,14 @@ const api: DesktopApi = {
   readDesktopPreferences: () => ipcRenderer.invoke(desktopIpc.readPreferences),
   updateDesktopPreferences: preferences =>
     ipcRenderer.invoke(desktopIpc.updatePreferences, preferences),
+  ...(process.platform === 'darwin'
+    ? {
+        setWindowColorMode: (mode: 'light' | 'dark') =>
+          ipcRenderer.invoke(desktopIpc.setWindowColorMode, mode),
+        controlWindow: (action: 'close' | 'minimize' | 'zoom') =>
+          ipcRenderer.invoke(desktopIpc.controlWindow, action)
+      }
+    : {}),
   openExternal: url => ipcRenderer.invoke(desktopIpc.openExternal, url),
   revealPath: path => ipcRenderer.invoke(desktopIpc.revealPath, path),
   notify: message => ipcRenderer.invoke(desktopIpc.notify, message),

@@ -26,7 +26,11 @@ import './styles/app.css';
 
 const desktopHostBridge = readDesktopHostBridge();
 
-applyColorMode(readColorModePreference());
+const initialColorMode = readColorModePreference();
+applyColorMode(initialColorMode);
+void desktopHostBridge?.setWindowColorMode?.(initialColorMode).catch(error => {
+  console.error('Failed to synchronize native window color mode', error);
+});
 applyAppLanguage(resolveAppLanguage(readLanguagePreference()));
 applyAccentColor(
   readAccentColorPreference(),

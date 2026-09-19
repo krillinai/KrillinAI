@@ -11,7 +11,7 @@
   width: min(980px, 100%);
   min-height: 100%;
   margin: 0 auto;
-  padding: 32px 28px 48px;
+  padding: var(--page-title-inset) 28px 48px;
 }
 
 .schedules-view__header {
@@ -22,6 +22,9 @@
 }
 
 .schedules-view__header h1 {
+  min-height: var(--page-title-row-height);
+  display: flex;
+  align-items: center;
   margin: 0;
   font-size: 28px;
   font-weight: 600;
@@ -34,6 +37,10 @@
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.schedules-view__header > .schedule-button {
+  min-height: var(--page-title-row-height);
 }
 
 .schedule-button,

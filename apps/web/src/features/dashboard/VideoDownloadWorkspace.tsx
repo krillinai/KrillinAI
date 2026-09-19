@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
+import NativeSelect from '../../components/forms/NativeSelect.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
 import { useOptionalCreatorSession } from './creator-session-store.js';
@@ -824,7 +825,7 @@ export default function VideoDownloadWorkspace(props: {
                   {audioLanguages.length > 1 && selectedAudioLanguage !== undefined ? (
                     <label className="creator-tool-field video-download-language-field">
                       <span>{l('音频语言', 'Audio language')}</span>
-                      <select
+                      <NativeSelect
                         aria-label={l('音频语言', 'Audio language')}
                         value={selectedAudioLanguage}
                         onChange={event => selectAudioLanguage(event.target.value)}
@@ -834,7 +835,7 @@ export default function VideoDownloadWorkspace(props: {
                             {audioLanguageLabel(language, l)}
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     </label>
                   ) : null}
                   {visibleOptions.length > 0 ? (

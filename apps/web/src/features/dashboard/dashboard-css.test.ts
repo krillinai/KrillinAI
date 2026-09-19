@@ -18,6 +18,50 @@ function cssBlocks(selector: string): string[] {
 }
 
 describe('dashboard CSS contracts', () => {
+  it('keeps article-template icons unframed inside selectable list items', () => {
+    for (const selector of [
+      '.wechat-template-inline-list > button > span',
+      '.wechat-template-grid > button > span'
+    ]) {
+      const blocks = cssBlocks(selector);
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0]).toContain('background: transparent;');
+      expect(blocks[0]).not.toMatch(/border|box-shadow/);
+    }
+  });
+
+  it('separates Creator form groups and top-aligns fields beside taller previews', () => {
+    const formRow = cssBlocks('.creator-tool-form-row');
+    const characterPicker = cssBlocks('.stickman-character-picker');
+
+    expect(formRow).toHaveLength(1);
+    expect(formRow[0]).toContain('align-items: start;');
+    expect(formRow[0]).toContain('gap: 16px;');
+    expect(formRow[0]).toContain('margin-top: 16px;');
+    expect(characterPicker).toHaveLength(1);
+    expect(characterPicker[0]).toContain('margin-top: 16px;');
+    expect(cssBlocks('.stickman-voice-settings + .stickman-tts-configuration')[0]).toContain('margin-top: 16px;');
+    expect(cssBlocks('.creator-tool-field')[0]).toContain('gap: 8px;');
+    expect(cssBlocks('.video-translation-select-wrap select')[0]).toContain('padding: 0 40px 0 12px;');
+    expect(cssBlocks('.video-translation-select-wrap svg')[0]).toContain('right: 12px;');
+  });
+
+  it('keeps collaboration panels full-height beside the workspace at narrow widths', () => {
+    const sharedPanel = cssBlocks('.creator-collaboration');
+    const workspaceLayout = cssBlocks('.creator-workspace-layout');
+    const translationLayout = cssBlocks('.video-translation-collab-layout');
+
+    expect(sharedPanel).toHaveLength(1);
+    expect(sharedPanel[0]).toContain('height: 100%;');
+    expect(sharedPanel[0]).toContain('min-height: 0;');
+    expect(sharedPanel[0]).toContain('grid-template-rows: auto auto minmax(0, 1fr) auto auto;');
+    expect(workspaceLayout[0]).toContain('min-width: 680px;');
+    expect(workspaceLayout[0]).toContain('grid-template-columns: minmax(0, 3fr) minmax(280px, 1fr);');
+    expect(translationLayout[0]).toContain('min-width: 680px;');
+    expect(translationLayout[0]).toContain('minmax(280px, 1fr);');
+    expect(dashboardCss).not.toMatch(/\.creator-collaboration-panel\s*\{[^}]*height: auto;/);
+  });
+
   it('constrains portrait source previews without forcing a landscape frame', () => {
     const portraitPreview = cssBlocks('.video-source-preview[data-orientation="portrait"]');
 

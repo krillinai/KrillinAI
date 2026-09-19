@@ -36,6 +36,397 @@ const OVERSIZED_WAVE_PCM_BYTES = 10 * 1024 * 1024 + 4096;
 const OVERSIZED_WAVE_FILE_BYTES = OVERSIZED_WAVE_PCM_BYTES + 44;
 test.describe.configure({ mode: 'serial' });
 
+test('工作台与滚动中的项目页保持相同内容边界', async () => {
+  const fixture = await launchCreatorDesktop({ width: 1273, height: 985 });
+  try {
+    await waitForWorkspace(fixture.app.page);
+    const workbench = await fixture.app.page.locator('.creator-tools-page').evaluate(scroller => ({
+      right: Math.round(scroller.querySelector('.creator-tools-page-inner')!.getBoundingClientRect().right),
+      scrollable: scroller.scrollHeight > scroller.clientHeight,
+      gutter: scroller.offsetWidth - scroller.clientWidth
+    }));
+    expect(workbench.scrollable).toBe(false);
+    await fixture.app.page.getByRole('button', { name: '我的项目', exact: true }).click();
+    await expect(fixture.app.page.locator('.projects-page-inner')).toBeVisible();
+    const projects = await fixture.app.page.locator('.projects-page').evaluate(scroller => {
+      const filler = document.createElement('div');
+      filler.style.height = '1600px';
+      scroller.querySelector('.projects-page-inner')!.append(filler);
+      return {
+        right: Math.round(scroller.querySelector('.projects-page-inner')!.getBoundingClientRect().right),
+        scrollable: scroller.scrollHeight > scroller.clientHeight,
+        gutter: scroller.offsetWidth - scroller.clientWidth
+      };
+    });
+    expect(projects.scrollable).toBe(true);
+    expect(projects.gutter).toBe(workbench.gutter);
+    expect(projects.right).toBe(workbench.right);
+  } finally {
+    await closePackagedApp(fixture.app).catch(() => undefined);
+    rmSync(fixture.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+test('打包 App 的每个设置 Tab 与主页面保持相同右侧留白', async ({}, testInfo) => {
+  const fixture = await launchCreatorDesktop({ width: 1181, height: 985 });
+  try {
+    await waitForWorkspace(fixture.app.page);
+    await fixture.app.page.getByRole('button', { name: '设置', exact: true }).click();
+    const nav = fixture.app.page.locator('.settings-nav > button');
+    await expect(nav).toHaveCount(9);
+    const boundsByTab = [];
+    for (let index = 0; index < 9; index += 1) {
+      await nav.nth(index).click();
+      const section = fixture.app.page.locator('.settings-content > .settings-section');
+      await expect(section).toBeVisible();
+      const bounds = await section.evaluate(element => {
+        const content = element.parentElement!;
+        const sectionBox = element.getBoundingClientRect();
+        const contentBox = content.getBoundingClientRect();
+        return {
+          left: Math.round(sectionBox.left - contentBox.left),
+          right: Math.round(contentBox.right - sectionBox.right),
+          gutter: content.offsetWidth - content.clientWidth,
+          width: Math.round(sectionBox.width)
+        };
+      });
+      expect(bounds.left, `Tab ${index + 1}`).toBe(24);
+      expect(bounds.right - bounds.gutter, `Tab ${index + 1}`).toBe(24);
+      boundsByTab.push(bounds);
+      if (index < 2) {
+        await fixture.app.page.screenshot({
+          path: testInfo.outputPath(`settings-layout-${index + 1}.png`),
+          animations: 'disabled'
+        });
+      }
+    }
+    expect(boundsByTab.every(bounds => JSON.stringify(bounds) === JSON.stringify(boundsByTab[0]))).toBe(true);
+  } finally {
+    await closePackagedApp(fixture.app).catch(() => undefined);
+    rmSync(fixture.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+test('打包 App 的浅色窗口按钮区域与设置侧栏连续且保留标题栏拖拽', async ({}, testInfo) => {
+  test.skip(process.platform !== 'darwin', '仅 macOS 使用集成原生标题栏');
+  const fixture = await launchCreatorDesktop({ width: 980, height: 800 });
+  try {
+    await waitForWorkspace(fixture.app.page);
+    expect(await fixture.app.page.evaluate(() => (
+      typeof window.opencreatorDesktop?.setWindowColorMode
+    ))).toBe('function');
+    await expect(fixture.app.page.getByRole('group', { name: '窗口控制' }).getByRole('button')).toHaveCount(3);
+    for (const action of ['close', 'minimize', 'zoom']) {
+      const background = await fixture.app.page.locator(`.desktop-window-control-${action}`).evaluate(element =>
+        getComputedStyle(element).backgroundColor
+      );
+      expect(background).not.toBe('rgba(0, 0, 0, 0)');
+    }
+    await expect.poll(() => fixture.app.page.evaluate(() => {
+      const brand = document.querySelector('.sidebar-logo-lockup')!.getBoundingClientRect();
+      const title = document.querySelector('.creator-tools-page-header h1')!.getBoundingClientRect();
+      return Math.round((brand.top + brand.bottom - title.top - title.bottom) / 2);
+    })).toBeGreaterThanOrEqual(-3);
+    expect(await fixture.app.page.evaluate(() => {
+      const brand = document.querySelector('.sidebar-logo-lockup')!.getBoundingClientRect();
+      const title = document.querySelector('.creator-tools-page-header h1')!.getBoundingClientRect();
+      return Math.round((brand.top + brand.bottom - title.top - title.bottom) / 2);
+    })).toBeLessThanOrEqual(3);
+    await fixture.app.page.getByRole('button', { name: '缩放窗口' }).click();
+    await expect.poll(() => fixture.app.page.evaluate(() => window.innerWidth)).toBeGreaterThan(980);
+    await fixture.app.page.getByRole('button', { name: '缩放窗口' }).click();
+    await expect.poll(() => fixture.app.page.evaluate(() => window.innerWidth)).toBe(980);
+    await fixture.app.page.getByRole('button', { name: '我的项目', exact: true }).click();
+    await expect(fixture.app.page.getByRole('heading', { name: '我的项目' })).toBeVisible();
+    await expect.poll(() => fixture.app.page.evaluate(() => {
+      const brand = document.querySelector('.sidebar-logo-lockup')!.getBoundingClientRect();
+      const title = document.querySelector('.projects-page-header h1')!.getBoundingClientRect();
+      return Math.abs(Math.round((brand.top + brand.bottom - title.top - title.bottom) / 2));
+    })).toBeLessThanOrEqual(3);
+    await fixture.app.page.screenshot({
+      path: testInfo.outputPath('projects-titlebar.png'),
+      animations: 'disabled'
+    });
+    await fixture.app.page.getByRole('button', { name: '设置', exact: true }).click();
+    await expect(fixture.app.page.getByRole('button', { name: '返回应用' })).toBeVisible();
+
+    for (const [theme, label] of [['light', '浅色'], ['dark', '深色']] as const) {
+      await fixture.app.page.getByRole('button', { name: label, exact: true }).click();
+      await expect(fixture.app.page.locator('html')).toHaveAttribute('data-theme', theme);
+      expect(await fixture.app.page.evaluate(() => {
+        const pane = document.querySelector('.opencreator-main-pane')!;
+        const settings = document.querySelector('.settings-page')!;
+        const sidebar = document.querySelector('.settings-sidebar')!;
+        const back = document.querySelector('.settings-back')!;
+        const drag = document.querySelector('.desktop-titlebar-drag-region')!;
+        return {
+          panePaddingTop: getComputedStyle(pane).paddingTop,
+          sidebarTop: Math.round(sidebar.getBoundingClientRect().top - settings.getBoundingClientRect().top),
+          sidebarPaddingTop: getComputedStyle(sidebar).paddingTop,
+          backTop: Math.round(back.getBoundingClientRect().top - settings.getBoundingClientRect().top),
+          dragHeight: Math.round(drag.getBoundingClientRect().height)
+        };
+      })).toEqual({
+        panePaddingTop: '0px',
+        sidebarTop: 0,
+        sidebarPaddingTop: '51px',
+        backTop: 51,
+        dragHeight: 38
+      });
+      await fixture.app.page.screenshot({
+        path: testInfo.outputPath(`settings-titlebar-${theme}.png`),
+        animations: 'disabled'
+      });
+    }
+    await fixture.app.page.getByRole('button', { name: '返回应用' }).click();
+    await expect(fixture.app.page.getByRole('button', { name: '工作台' })).toBeVisible();
+  } finally {
+    await closePackagedApp(fixture.app).catch(() => undefined);
+    rmSync(fixture.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+test('打包 App 的黑白基准色固定且灰色不随强调色变化', async ({}, testInfo) => {
+  const fixture = await launchCreatorDesktop({ width: 1280, height: 800 });
+  try {
+    await waitForWorkspace(fixture.app.page);
+    for (const theme of ['dark', 'light'] as const) {
+      const colors = [];
+      for (const accent of ['red', 'blue', 'custom'] as const) {
+        const values = await fixture.app.page.evaluate(({ theme, accent }) => {
+          const root = document.documentElement;
+          root.dataset.theme = theme;
+          root.dataset.accent = accent;
+          root.style.setProperty('--custom-accent-value', '#3b82f6');
+          const surface = document.createElement('div');
+          surface.style.backgroundColor = 'var(--surface-2)';
+          document.body.append(surface);
+          const result = {
+            page: getComputedStyle(document.body).backgroundColor,
+            text: getComputedStyle(document.body).color,
+            sidebar: getComputedStyle(document.querySelector('.opencreator-sidebar-pane')!).backgroundColor,
+            surface: getComputedStyle(surface).backgroundColor
+          };
+          surface.remove();
+          return result;
+        }, { theme, accent });
+        expect(values.page).toBe(theme === 'dark' ? 'rgb(10, 10, 10)' : 'rgb(229, 229, 229)');
+        expect(values.text).toBe(theme === 'dark' ? 'rgb(229, 229, 229)' : 'rgb(10, 10, 10)');
+        colors.push(values);
+        if (accent === 'red') {
+          await fixture.app.page.screenshot({
+            path: testInfo.outputPath(`accent-red-${theme}.png`),
+            animations: 'disabled'
+          });
+        }
+      }
+      expect(colors[0]!.sidebar).toBe(colors[1]!.sidebar);
+      expect(colors[0]!.surface).toBe(colors[1]!.surface);
+      expect(colors[1]!.surface).toBe(colors[2]!.surface);
+    }
+  } finally {
+    await closePackagedApp(fixture.app).catch(() => undefined);
+    rmSync(fixture.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+test('打包 App 导航和文章模板图标只保留外层容器', async ({}, testInfo) => {
+  const fixture = await launchCreatorDesktop({ width: 1440, height: 900 });
+  try {
+    await waitForWorkspace(fixture.app.page);
+    const sidebar = fixture.app.page.locator('.opencreator-sidebar');
+    for (const collapsed of [false, true]) {
+      if (collapsed) await sidebar.locator('.sidebar-collapse-button').click();
+      await expect(sidebar).toHaveAttribute('data-collapsed', String(collapsed));
+      for (const label of ['工作台', '我的项目', '设置']) {
+        const button = sidebar.getByRole('button', { name: label, exact: true });
+        await button.click();
+        await expect(button).toHaveAttribute('aria-current', 'page');
+        await button.hover();
+        expect(await button.locator('.sidebar-nav-icon').evaluate(icon => {
+          const style = getComputedStyle(icon);
+          return { background: style.backgroundColor, border: style.borderTopWidth, shadow: style.boxShadow };
+        })).toEqual({ background: 'rgba(0, 0, 0, 0)', border: '0px', shadow: 'none' });
+      }
+      await fixture.app.page.screenshot({ path: testInfo.outputPath(`single-nav-container-${collapsed}.png`) });
+    }
+    const projects = await runtimeRequest<{ projects: Array<{ id: string }> }>(fixture.app.page, 'GET', '/projects');
+    const created = await runtimeRequest<{ job: { id: string } }>(fixture.app.page, 'POST', '/creator/jobs', {
+      projectId: projects.body.projects[0]!.id,
+      templateId: 'wechat-article',
+      state: { currentStep: 1, furthestStep: 1 }
+    });
+    expect(created.status).toBe(201);
+    await fixture.app.page.evaluate(jobId => {
+      window.location.hash = `#/workbench?tool=wechat-article&jobId=${jobId}`;
+    }, created.body.job.id);
+    await expect(fixture.app.page.locator('.wechat-template-inline-list > button').first()).toBeVisible();
+    await fixture.app.page.getByRole('button', { name: '查看全部模板', exact: true }).click();
+    await expect(fixture.app.page.getByRole('dialog', { name: '文章模板库' })).toBeVisible();
+    await fixture.app.page.locator('.wechat-template-grid > button').first().click();
+    const icons = fixture.app.page.locator('.wechat-template-grid > button > span');
+    expect(await icons.count()).toBeGreaterThan(0);
+    for (const style of await icons.evaluateAll(icons => icons.map(icon => {
+      const style = getComputedStyle(icon);
+      return { background: style.backgroundColor, border: style.borderTopWidth, shadow: style.boxShadow };
+    }))) {
+      expect(style).toEqual({ background: 'rgba(0, 0, 0, 0)', border: '0px', shadow: 'none' });
+    }
+  } finally {
+    await closePackagedApp(fixture.app).catch(() => undefined);
+    rmSync(fixture.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+test('打包 App 的 Creator 设置页保留组件间距和下拉箭头内边距', async ({}, testInfo) => {
+  const fixture = await launchCreatorDesktop({ width: 980, height: 1014 });
+  try {
+    await waitForWorkspace(fixture.app.page);
+    await expect.poll(async () => (
+      await runtimeRequest<{ projects: Array<{ id: string }> }>(fixture.app.page, 'GET', '/projects')
+    ).body.projects.length).toBeGreaterThan(0);
+    const projects = await runtimeRequest<{ projects: Array<{ id: string }> }>(fixture.app.page, 'GET', '/projects');
+    const created = await runtimeRequest<{ job: { id: string } }>(fixture.app.page, 'POST', '/creator/jobs', {
+      projectId: projects.body.projects[0]!.id,
+      templateId: 'stickman-video',
+      state: { sourceType: 'url' }
+    });
+    expect(created.status).toBe(201);
+    await fixture.app.page.evaluate(jobId => {
+      window.location.hash = `#/workbench?tool=stickman-video&jobId=${jobId}`;
+    }, created.body.job.id);
+    await expect(fixture.app.page.locator('.stickman-style-summary')).toBeVisible();
+    await expect.poll(() => fixture.app.page.locator('.stickman-story-panel').evaluate(panel => {
+      const source = panel.querySelector(':scope > .creator-tool-field')!.getBoundingClientRect();
+      const characters = panel.querySelector('.stickman-character-picker')!.getBoundingClientRect();
+      const style = panel.querySelector('#stickman-visual-style')!.getBoundingClientRect();
+      const duration = panel.querySelector('.stickman-duration-control select')!.getBoundingClientRect();
+      return {
+        sourceCharacterGap: Math.round(characters.top - source.bottom),
+        selectTopDelta: Math.round(duration.top - style.top),
+        arrowInsets: Array.from(panel.querySelectorAll('.native-select select')).map(select => (
+          Math.round(select.getBoundingClientRect().right - select.parentElement!.querySelector('svg')!.getBoundingClientRect().right)
+        )),
+        textInsets: Array.from(panel.querySelectorAll('.native-select select')).map(select => getComputedStyle(select).paddingInlineEnd)
+      };
+    })).toEqual({ sourceCharacterGap: 16, selectTopDelta: 0, arrowInsets: [12, 12], textInsets: ['40px', '40px'] });
+    await fixture.app.page.getByRole('combobox', { name: '目标时长' }).selectOption('60');
+    await expect(fixture.app.page.getByRole('combobox', { name: '目标时长' })).toHaveValue('60');
+    await fixture.app.page.locator('.creator-tool-form-row').scrollIntoViewIfNeeded();
+    await fixture.app.page.screenshot({ path: testInfo.outputPath('creator-settings-spacing-980.png') });
+  } finally {
+    await closePackagedApp(fixture.app).catch(() => undefined);
+    rmSync(fixture.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+test('打包 App 在最小窗口宽度下保持 Creator 对话输入区贴底', async ({}, testInfo) => {
+  test.setTimeout(90_000);
+  for (const height of [1014, 680]) {
+    const fixture = await launchCreatorDesktop({ width: 980, height });
+    try {
+      await waitForWorkspace(fixture.app.page);
+      await expect.poll(async () => (
+        await runtimeRequest<{ projects: Array<{ id: string }> }>(
+          fixture.app.page, 'GET', '/projects'
+        )
+      ).body.projects.length).toBeGreaterThan(0);
+      const projects = await runtimeRequest<{ projects: Array<{ id: string }> }>(
+        fixture.app.page, 'GET', '/projects'
+      );
+      expect(projects.status).toBe(200);
+      expect(projects.body.projects.length).toBeGreaterThan(0);
+      const created = await runtimeRequest<{ job: { id: string } }>(
+        fixture.app.page, 'POST', '/creator/jobs', {
+          projectId: projects.body.projects[0]!.id,
+          templateId: 'stickman-video',
+          state: { sourceType: 'text' }
+        }
+      );
+      expect(created.status).toBe(201);
+      await fixture.app.page.evaluate(jobId => {
+        window.location.hash = `#/workbench?tool=stickman-video&jobId=${jobId}`;
+      }, created.body.job.id);
+      await expect(fixture.app.page.getByRole('heading', { name: '火柴人动画' })).toBeVisible();
+      await expect(fixture.app.page.getByRole('textbox', { name: '告诉 Agent 你的要求' })).toBeVisible();
+      await fixture.app.page.locator('.stickman-step-scroll').evaluate(element => {
+        element.scrollTop = element.scrollHeight;
+      });
+      await expect.poll(() => fixture.app.page.evaluate(() => {
+        const workspace = document.querySelector('.creator-workspace-layout')!.getBoundingClientRect();
+        const main = document.querySelector('.creator-workspace-main')!.getBoundingClientRect();
+        const panel = document.querySelector('.creator-collaboration-panel')!.getBoundingClientRect();
+        const composer = document.querySelector('.creator-collaboration-panel .tool-agent-composer')!;
+        return {
+          width: window.innerWidth,
+          panelRightOfMain: panel.left >= main.right - 1,
+          panelVisible: panel.right <= window.innerWidth + 1,
+          panelBottomDelta: Math.round(panel.bottom - window.innerHeight),
+          panelHeightDelta: Math.round(panel.height - workspace.height),
+          composerBottomDelta: Math.round(
+            composer.getBoundingClientRect().bottom
+            + parseFloat(getComputedStyle(composer).marginBottom) - panel.bottom
+          )
+        };
+      })).toEqual({ width: 980, panelRightOfMain: true, panelVisible: true, panelBottomDelta: 0, panelHeightDelta: 0, composerBottomDelta: 0 });
+      await fixture.app.page.screenshot({
+        path: testInfo.outputPath(`creator-min-width-980-${height}.png`)
+      });
+    } finally {
+      await closePackagedApp(fixture.app).catch(() => undefined);
+      rmSync(fixture.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    }
+  }
+});
+
+test('打包 App 在窄窗口下各 Creator 内页保持对话栏在右侧', async ({}, testInfo) => {
+  test.setTimeout(120_000);
+  const fixture = await launchCreatorDesktop({ width: 980, height: 680 });
+  try {
+    await waitForWorkspace(fixture.app.page);
+    await expect.poll(async () => (
+      await runtimeRequest<{ projects: Array<{ id: string }> }>(fixture.app.page, 'GET', '/projects')
+    ).body.projects.length).toBeGreaterThan(0);
+    const projects = await runtimeRequest<{ projects: Array<{ id: string }> }>(
+      fixture.app.page, 'GET', '/projects'
+    );
+
+    for (const [tool, templateId] of [
+      ['video-translation', 'video-translation'],
+      ['image-generation', 'image-generation'],
+      ['cover-generator', 'cover'],
+      ['video-generation', 'video-generation'],
+      ['short-video-script', 'short-video-script']
+    ] as const) {
+      const created = await runtimeRequest<{ job: { id: string } }>(
+        fixture.app.page, 'POST', '/creator/jobs', {
+          projectId: projects.body.projects[0]!.id,
+          templateId,
+          state: {}
+        }
+      );
+      expect(created.status).toBe(201);
+      await fixture.app.page.evaluate(({ tool, jobId }) => {
+        window.location.hash = `#/workbench?tool=${tool}&jobId=${jobId}`;
+      }, { tool, jobId: created.body.job.id });
+      await expect(fixture.app.page.locator('.creator-collaboration-panel')).toBeVisible();
+      await expect.poll(() => fixture.app.page.evaluate(() => {
+        const main = document.querySelector('.creator-workspace-main, .video-translation-wizard-main')!.getBoundingClientRect();
+        const panel = document.querySelector('.creator-collaboration-panel')!.getBoundingClientRect();
+        return {
+          beside: panel.left >= main.right - 1,
+          visible: panel.right <= window.innerWidth + 1,
+          fullHeight: Math.abs(panel.bottom - window.innerHeight) <= 1
+        };
+      })).toEqual({ beside: true, visible: true, fullHeight: true });
+      await fixture.app.page.screenshot({ path: testInfo.outputPath(`creator-right-panel-${tool}.png`) });
+    }
+  } finally {
+    await closePackagedApp(fixture.app).catch(() => undefined);
+    rmSync(fixture.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
 test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runtime', async () => {
   test.setTimeout(180_000);
   const fixture = await launchCreatorDesktop();
@@ -291,7 +682,7 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
     await expect(currentApp.page.getByRole('heading', { name: '图像生成' })).toBeVisible();
     await expect(currentApp.page.getByRole('textbox', { name: '提示词' })).toBeVisible();
 
-    await currentApp.page.getByRole('button', { name: '工作台' }).click();
+    await currentApp.page.locator('.creator-workspace-header').getByRole('button', { name: '返回' }).click();
     await expect(currentApp.page.getByRole('heading', { name: '工作台' })).toBeVisible();
     await currentApp.page.getByRole('button', { name: /^视频切片/ }).click();
     const clipWorkspace = currentApp.page.getByRole('region', { name: '视频切片 操作区' });
@@ -301,8 +692,9 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
     await clipWorkspace.getByRole('button', { name: '下一步：切片设置' }).click();
     await clipWorkspace.getByRole('combobox', { name: '内容重点' }).selectOption('knowledge');
     await clipWorkspace.getByRole('combobox', { name: '目标时长' }).selectOption('30-60');
-    await clipWorkspace.getByRole('spinbutton', { name: '候选数量' }).fill('8');
+    await clipWorkspace.getByRole('spinbutton', { name: '切片数量' }).fill('8');
     await clipWorkspace.getByRole('combobox', { name: '输出画幅' }).selectOption('9:16');
+    await expect.poll(() => new URL(currentApp.page.url()).hash.match(/jobId=([^&]+)/)?.[1]).toBeTruthy();
     const clipJobId = new URL(currentApp.page.url()).hash.match(/jobId=([^&]+)/)?.[1];
     expect(clipJobId).toBeTruthy();
     await expect.poll(async () => (
@@ -718,7 +1110,7 @@ function hasWhisperKitDependency(root: string): boolean {
     ));
 }
 
-async function launchCreatorDesktop(): Promise<{
+async function launchCreatorDesktop(windowBounds?: { width: number; height: number }): Promise<{
   app: PackagedApp;
   root: string;
   ytDlpBin: string;
@@ -730,7 +1122,7 @@ async function launchCreatorDesktop(): Promise<{
   const userData = join(root, 'user-data');
   const codexBin = writeCodexShim(binDir);
   const ytDlpBin = writeYtDlpShim(binDir);
-  writeOpenCreatorConfig(join(root, '.opencreator'), codexBin);
+  writeOpenCreatorConfig(join(root, '.opencreator'), codexBin, windowBounds);
 
   const app = await launchPackagedApp({
     executablePath: packagedExecutable(desktopDir),
@@ -1005,7 +1397,11 @@ function writeYtDlpShim(binDir: string): string {
   return scriptPath;
 }
 
-function writeOpenCreatorConfig(productHome: string, codexBin: string): void {
+function writeOpenCreatorConfig(
+  productHome: string,
+  codexBin: string,
+  windowBounds?: { width: number; height: number }
+): void {
   mkdirSync(productHome, { recursive: true });
   writeFileSync(
     join(productHome, 'config.toml'),
@@ -1016,6 +1412,12 @@ function writeOpenCreatorConfig(productHome: string, codexBin: string): void {
       'close_behavior = "quit"',
       'notifications_enabled = false',
       '',
+      ...(windowBounds === undefined ? [] : [
+        '[desktop.window]',
+        `width = ${windowBounds.width}`,
+        `height = ${windowBounds.height}`,
+        ''
+      ]),
       '[runtime]',
       'codex_mode = "external"',
       `external_codex_bin = ${JSON.stringify(codexBin)}`,

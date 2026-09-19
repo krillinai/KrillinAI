@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import {
   BrowserWindow,
+  nativeTheme,
   screen,
   shell
 } from 'electron';
@@ -8,6 +9,8 @@ import type { BrowserWindowConstructorOptions } from 'electron';
 import type { SettingsStore } from './settings-store.js';
 import {
   DESKTOP_TITLE_BAR_HEIGHT,
+  type DesktopWindowAction,
+  type DesktopWindowColorMode,
   type DesktopStartupMetrics
 } from '../shared/types.js';
 
@@ -54,6 +57,7 @@ export class DebouncedWindowStateWriter {
 
 export class WindowManager {
   private window: BrowserWindow | undefined;
+  private colorMode: DesktopWindowColorMode = 'dark';
   private quitting = false;
   private workspaceReady:
     | {
@@ -84,6 +88,7 @@ export class WindowManager {
 
   create(): BrowserWindow {
     if (this.window !== undefined && !this.window.isDestroyed()) return this.window;
+    if (process.platform === 'darwin') nativeTheme.themeSource = this.colorMode;
     const settings = this.input.settings.read();
     const bounds = visibleBounds(settings.window);
     const window = new BrowserWindow({
@@ -92,7 +97,7 @@ export class WindowManager {
       minWidth: 980,
       minHeight: 680,
       show: false,
-      backgroundColor: '#f3f4f6',
+      backgroundColor: nativeWindowBackgroundColor(this.colorMode),
       title: 'OpenCreator',
       webPreferences: {
         nodeIntegration: false,
@@ -101,6 +106,7 @@ export class WindowManager {
         preload: this.input.preloadPath
       }
     });
+    if (process.platform === 'darwin') window.setWindowButtonVisibility(false);
     this.startupMetrics.windowCreatedAt ??= Date.now();
     this.window = window;
     if (settings.window?.maximized === true) window.maximize();
@@ -254,6 +260,21 @@ export class WindowManager {
     window.focus();
   }
 
+  setColorMode(mode: DesktopWindowColorMode): void {
+    if (process.platform !== 'darwin') return;
+    this.colorMode = mode;
+    nativeTheme.themeSource = mode;
+    if (this.window !== undefined && !this.window.isDestroyed()) {
+      this.window.setBackgroundColor(nativeWindowBackgroundColor(mode));
+    }
+  }
+
+  controlWindow(action: DesktopWindowAction): void {
+    const window = this.window;
+    if (window === undefined || window.isDestroyed()) return;
+    applyWindowAction(window, action);
+  }
+
   isActive(): boolean {
     return this.window !== undefined
       && !this.window.isDestroyed()
@@ -291,6 +312,16 @@ export class WindowManager {
   }
 }
 
+export function applyWindowAction(
+  window: Pick<BrowserWindow, 'close' | 'minimize' | 'isMaximized' | 'maximize' | 'unmaximize'>,
+  action: DesktopWindowAction
+): void {
+  if (action === 'close') window.close();
+  else if (action === 'minimize') window.minimize();
+  else if (window.isMaximized()) window.unmaximize();
+  else window.maximize();
+}
+
 export function nativeWindowChromeOptions(
   platform: NodeJS.Platform
 ): Pick<
@@ -305,6 +336,10 @@ export function nativeWindowChromeOptions(
       y: Math.floor((DESKTOP_TITLE_BAR_HEIGHT - 14) / 2)
     }
   };
+}
+
+export function nativeWindowBackgroundColor(mode: DesktopWindowColorMode): string {
+  return mode === 'dark' ? '#0a0a0a' : '#e5e5e5';
 }
 
 function visibleBounds(

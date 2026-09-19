@@ -440,8 +440,8 @@ export default function DashboardPage(props: {
   }
 
   return (
-    <main className="creator-tools-page">
-      <div className="creator-tools-page-inner">
+    <main className="opencreator-scroll-page creator-tools-page">
+      <div className="opencreator-page-content creator-tools-page-inner">
         <header className="creator-tools-page-header">
           <h1>{t('dashboard.title')}</h1>
           {props.onCreateProject ? (

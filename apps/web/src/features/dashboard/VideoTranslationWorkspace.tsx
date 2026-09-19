@@ -116,8 +116,8 @@ type LanguageOption = {
 
 const steps = ['添加视频', '翻译设置', '字幕样式', '配音与输出'] as const;
 const subtitleColors = ['#FFFFFF', '#FFE45C', '#7EE7FF', '#A7F3D0'] as const;
-const WORKSPACE_MIN_WIDTH = 780;
-const AGENT_MIN_WIDTH = 320;
+const WORKSPACE_MIN_WIDTH = 390;
+const AGENT_MIN_WIDTH = 280;
 const WORKSPACE_RESIZE_HANDLE_WIDTH = 7;
 const WORKSPACE_RESIZE_KEY_STEP = 32;
 

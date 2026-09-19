@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
+import NativeSelect from '../../components/forms/NativeSelect.js';
 import CreatorToolShell from './CreatorToolShell.js';
 import { useOptionalCreatorSession } from './creator-session-store.js';
 
@@ -294,14 +295,14 @@ export default function ShortVideoScriptWorkspace(props: {
             <div className="short-video-script-options">
               <label className="creator-tool-field">
                 <span>{l('发布平台或场景', 'Platform or use case')}</span>
-                <select
+                <NativeSelect
                   value={platform}
                   onChange={event => updatePlatform(readPlatform(event.target.value))}
                 >
                   {platforms.map(item => (
                     <option key={item.value} value={item.value}>{l(item.zh, item.en)}</option>
                   ))}
-                </select>
+                </NativeSelect>
               </label>
               <label className="creator-tool-field">
                 <span>{l('目标时长（秒）', 'Target duration (seconds)')}</span>
@@ -316,14 +317,14 @@ export default function ShortVideoScriptWorkspace(props: {
               </label>
               <label className="creator-tool-field">
                 <span>{l('表达语气', 'Tone')}</span>
-                <select
+                <NativeSelect
                   value={tone}
                   onChange={event => updateTone(readTone(event.target.value))}
                 >
                   {tones.map(item => (
                     <option key={item.value} value={item.value}>{l(item.zh, item.en)}</option>
                   ))}
-                </select>
+                </NativeSelect>
               </label>
             </div>
             <label className="creator-tool-field">

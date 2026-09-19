@@ -9,6 +9,8 @@ const schedulesCss = readSource('src/features/schedules/schedules-view.css');
 const settingsCss = readSource('src/features/settings/settings-management.css');
 const taskCenterCss = readSource('src/features/tasks/task-center.css');
 const tokensCss = readSource('src/styles/tokens.css');
+const dashboardPageTsx = readSource('src/features/dashboard/DashboardPage.tsx');
+const projectsPageTsx = readSource('src/features/projects/ProjectsPage.tsx');
 
 function cssBlock(selector: string) {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -36,6 +38,41 @@ function hexChannels(value: string): number[] {
 }
 
 describe('app CSS visual contracts', () => {
+  it('uses one content frame for the workbench and projects pages', () => {
+    expect(cssBlock('.opencreator-page-content')).toContain('width: min(1160px, calc(100% - 48px));');
+    expect(cssBlock('.opencreator-page-content')).toContain('margin: 0 auto;');
+    expect(cssBlock('.opencreator-page-content')).toContain('padding: var(--page-title-inset) 0 56px;');
+    expect(cssBlock('.opencreator-scroll-page')).toContain('scrollbar-gutter: stable;');
+    expect(appCss).toMatch(/@media \(max-width: 760px\)\s*\{\s*\.opencreator-page-content\s*\{\s*width: calc\(100% - 28px\);\s*padding: 24px 0 40px;/);
+    expect(dashboardPageTsx).toContain('className="opencreator-scroll-page creator-tools-page"');
+    expect(projectsPageTsx).toContain('className="opencreator-scroll-page projects-page"');
+    expect(dashboardPageTsx).toContain('className="opencreator-page-content creator-tools-page-inner"');
+    expect(projectsPageTsx).toContain('className="opencreator-page-content projects-page-inner"');
+  });
+
+  it('spaces primary navigation rows without changing the project tree spacing', () => {
+    expect(cssBlock('.sidebar-primary')).toContain('gap: 6px;');
+    expect(cssBlock('.sidebar-project-tree')).not.toContain('gap: 6px;');
+    expect(cssBlock('.sidebar-primary .sidebar-row')).toContain('height: var(--control-compact-lg);');
+  });
+
+  it('keeps navigation icons unframed while the selected row owns the highlight', () => {
+    const icon = cssBlock('.sidebar-nav-icon');
+    const selectedRow = cssBlock('.sidebar-primary .sidebar-row[aria-current="page"]');
+    const selectedIcon = cssBlock('.sidebar-primary .sidebar-row[aria-current="page"] .sidebar-nav-icon');
+    const hoveredIcon = cssBlock('.sidebar-primary .sidebar-row:hover .sidebar-nav-icon');
+
+    expect(icon).toContain('background: transparent;');
+    expect(icon).toContain('border: 0;');
+    expect(icon).not.toContain('border-radius:');
+    expect(selectedRow).toContain('background:');
+    expect(selectedRow).toContain('border-color:');
+    expect(selectedIcon).toContain('color: var(--accent-strong);');
+    for (const state of [selectedIcon, hoveredIcon]) {
+      expect(state).not.toMatch(/background|border|box-shadow/);
+    }
+  });
+
   it('keeps body copy readable and navigation or status text at 12px or larger', () => {
     const productCss = [appCss, skillMarketCss, schedulesCss, settingsCss, taskCenterCss].join('\n');
 
@@ -65,7 +102,8 @@ describe('app CSS visual contracts', () => {
     const neutralThemeSources = themeSources
       .replaceAll('#f59e0b', '')
       .replace(/--destructive(?:-hover|-soft)?:\s*[^;]+;/g, '')
-      .replace(/--status-(?:connected|disconnected)(?:-soft)?:\s*[^;]+;/g, '');
+      .replace(/--status-(?:connected|disconnected)(?:-soft)?:\s*[^;]+;/g, '')
+      .replace(/\.desktop-window-control-(?:close|minimize|zoom)\s*\{[^}]*\}/g, '');
     const colorChannels = [
       ...Array.from(neutralThemeSources.matchAll(/#([\da-f]{3}|[\da-f]{6})(?![\da-f])/gi), match =>
         hexChannels(match[1]!)
@@ -81,14 +119,38 @@ describe('app CSS visual contracts', () => {
     expect(tokensCss).toContain('color-scheme: light;');
     expect(tokensCss).toContain('--accent: #d7d7da;');
     expect(tokensCss).toContain('--accent: #303035;');
-    expect(tokensCss).toContain('--surface-page: #fafafa;');
-    expect(tokensCss).toContain('--surface-sidebar: #f3f3f4;');
-    expect(tokensCss).toContain('--surface-input: #ffffff;');
-    expect(tokensCss).toContain('--surface-popover: #ffffff;');
+    expect(tokensCss).toContain('--surface-page: #0a0a0a;');
+    expect(tokensCss).toContain('--text: #e5e5e5;');
+    expect(tokensCss).toContain('--surface-page: #e5e5e5;');
+    expect(tokensCss).toContain('--text: #0a0a0a;');
     expect(tokensCss).toContain('--sidebar: var(--surface-sidebar);');
-    expect(tokensCss).toContain('--sidebar-hover: #e9e9eb;');
     expect(colorChannels.length).toBeGreaterThan(0);
     expect(colorChannels.every(channels => Math.max(...channels) - Math.min(...channels) <= 8)).toBe(true);
+  });
+
+  it('keeps layered gray surfaces neutral regardless of the selected accent', () => {
+    const [dark, light] = tokensCss.split(':root[data-theme="light"]');
+    for (const theme of [dark, light]) {
+      expect(theme).toMatch(/--surface-page: #[\da-f]{6};/);
+      expect(theme).toMatch(/--text: #[\da-f]{6};/);
+      for (const role of ['surface-sidebar', 'surface-input', 'surface-popover', 'sidebar-hover', 'surface', 'surface-2', 'surface-3']) {
+        expect(theme).toMatch(new RegExp(`--${role}: #[\\da-f]{6};`));
+      }
+    }
+  });
+
+  it('aligns page headings and settings controls with the sidebar brand row', () => {
+    const dashboardCss = readSource('src/features/dashboard/dashboard.css');
+    expect(tokensCss).toContain('--page-title-inset: 13px;');
+    expect(tokensCss).toContain('--page-title-row-height: 42px;');
+    expect(tokensCss).toContain('--page-title-band-height: 68px;');
+    expect(cssBlock('.opencreator-page-content')).toContain('padding: var(--page-title-inset) 0 56px;');
+    expect(dashboardCss).toMatch(/\.creator-tools-page-header\s*\{[^}]*min-height: var\(--page-title-row-height\);/);
+    expect(appCss).toMatch(/(?:^|\n)\.opencreator-sidebar\s*\{[^}]*padding: var\(--page-title-inset\) 12px 8px;/);
+    expect(cssBlock('.sidebar-brand')).toContain('min-height: var(--page-title-row-height);');
+    expect(cssBlock('.opencreator-sidebar[data-collapsed="true"]')).toContain('padding: var(--page-title-inset) 8px 12px;');
+    expect(cssBlock('.settings-back')).toContain('min-height: var(--page-title-row-height);');
+    expect(cssBlock('.settings-section h1')).toContain('min-height: var(--page-title-row-height);');
   });
 
   it('assigns page, sidebar, composer, and popover surfaces by semantic role', () => {
@@ -98,6 +160,29 @@ describe('app CSS visual contracts', () => {
     expect(cssBlock('.opencreator-sidebar-pane')).toContain('background: var(--sidebar);');
     expect(cssBlock('.opencreator-composer::after')).toContain('background: var(--composer-input-background);');
     expect(cssBlock('.composer-popover')).toContain('background: var(--popover);');
+  });
+
+  it('extends the desktop settings sidebar behind the title bar without moving its controls', () => {
+    expect(cssBlock('.app-drop-shell[data-integrated-title-bar="true"] .opencreator-main-pane:has(.settings-page)'))
+      .toContain('padding-top: 0;');
+    expect(cssBlock('.app-drop-shell[data-integrated-title-bar="true"] .settings-sidebar'))
+      .toContain('padding-top: calc(var(--page-title-inset) + var(--opencreator-titlebar-height, 38px));');
+    expect(cssBlock('.app-drop-shell[data-integrated-title-bar="true"] .settings-content'))
+      .toContain('padding-top: calc(var(--page-title-inset) + var(--opencreator-titlebar-height, 38px));');
+    expect(appCss).toMatch(/(?:^|\n)\.settings-content\s*\{[^}]*padding: var\(--page-title-inset\) 24px 48px;/);
+    expect(appCss).toMatch(/@media \(max-width: 720px\)\s*\{[\s\S]*?\.app-drop-shell\[data-integrated-title-bar="true"\] \.settings-content\s*\{\s*padding-top: 24px;/);
+    expect(cssBlock('.desktop-titlebar-drag-region')).toContain('display: none;');
+  });
+
+  it('uses the shared page gutter and content width for every settings tab', () => {
+    const settingsView = readSource('src/features/settings/OpenCreatorSettingsView.tsx');
+    const managementCss = readSource('src/features/settings/settings-management.css');
+    const servicesCss = readSource('src/features/settings/creator-services-settings.css');
+    expect(settingsView).toContain('className="opencreator-scroll-page settings-content"');
+    expect(cssBlock('.settings-section')).toContain('width: min(1160px, 100%);');
+    expect(cssBlock('.settings-section')).toContain('margin: 0 auto;');
+    expect(managementCss).not.toMatch(/\.settings-management\s*\{[^}]*width:/);
+    expect(servicesCss).not.toMatch(/\.creator-services-settings\s*\{[^}]*width:/);
   });
 
   it('limits ordinary corner radii to the 4px, 6px, and 8px scale', () => {
@@ -339,8 +424,8 @@ describe('app CSS visual contracts', () => {
     const mainPane = cssBlock('.opencreator-main-pane');
 
     expect(appCss).toMatch(/html,\nbody,\n#root\s*\{[^}]*height:\s*100%;[^}]*min-height:\s*0;[^}]*overflow:\s*hidden;[^}]*background:\s*var\(--bg\);/);
-    expect(tokensCss).toContain('--surface-page: #0c0d0f;');
-    expect(tokensCss).toContain('--surface-page: #fafafa;');
+    expect(tokensCss).toContain('--surface-page: #0a0a0a;');
+    expect(tokensCss).toContain('--surface-page: #e5e5e5;');
     expect(tokensCss).toContain('--bg: var(--surface-page);\n  --conversation-bg: var(--surface-page);');
     expect(mainPane).toContain('background: var(--conversation-bg);');
     expect(mainPane).toContain('overflow: hidden;');
@@ -609,10 +694,10 @@ describe('app CSS visual contracts', () => {
     expect(composer).toContain('gap: 8px;');
     expect(composer).toContain('padding: 10px 18px;');
     expect(composer).toContain('width: 100%;');
-    expect(composer).toContain('--composer-input-background: #1a1b1e;');
-    expect(composer).toContain('--composer-project-background: #232427;');
-    expect(composer).toContain('--composer-border: rgba(245, 245, 246, 0.12);');
-    expect(composer).toContain('--composer-separator: rgba(245, 245, 246, 0.06);');
+    expect(composer).toContain('--composer-input-background: var(--surface-input);');
+    expect(composer).toContain('--composer-project-background: var(--surface-popover);');
+    expect(composer).toContain('--composer-border: rgba(229, 229, 229, 0.12);');
+    expect(composer).toContain('--composer-separator: rgba(229, 229, 229, 0.06);');
     expect(composer).toContain('border: 1px solid var(--composer-border);');
     expect(cssBlock('.opencreator-composer::after')).toContain(
       'background: var(--composer-input-background);'
@@ -640,7 +725,7 @@ describe('app CSS visual contracts', () => {
     expect(cssBlock('.composer-popover')).toContain('background: var(--popover);');
     expect(cssBlock('.composer-popover')).toContain('opacity: 1;');
     expect(cssBlock(':root[data-theme="light"] .composer-popover')).toContain('background: var(--surface-popover);');
-    expect(cssBlock(':root[data-theme="light"] .composer-popover')).toContain('border-color: #dedee1;');
+    expect(cssBlock(':root[data-theme="light"] .composer-popover')).toContain('border-color: var(--border);');
     expect(cssBlock(':root[data-theme="light"] .composer-popover')).toContain('opacity: 1;');
     expect(cssBlock('.composer-menu-item')).toContain('min-height: var(--control-compact-lg);');
     expect(cssBlock('.composer-menu-item strong')).toContain('font-size: 12px;');
@@ -650,10 +735,10 @@ describe('app CSS visual contracts', () => {
     expect(cssBlock('.composer-project-option span')).toContain('font-size: 12px;');
     expect(cssBlock('.composer-project-option span')).toContain('font-weight: 400;');
     expect(cssBlock('.composer-popover.composer-project-popover')).toContain('border: 1px solid #343438;');
-    expect(cssBlock(':root[data-theme="light"] .composer-popover.composer-project-popover')).toContain('border-color: #e8e8ea;');
+    expect(cssBlock(':root[data-theme="light"] .composer-popover.composer-project-popover')).toContain('border-color: var(--border-hairline);');
     expect(cssBlock('.composer-project-search')).toContain('border: 0;');
-    expect(cssBlock(':root[data-theme="light"] .composer-project-search')).toContain('background: #f3f3f4;');
-    expect(cssBlock(':root[data-theme="light"] .composer-project-create')).toContain('border-top-color: #eeeeef;');
+    expect(cssBlock(':root[data-theme="light"] .composer-project-search')).toContain('background: var(--surface);');
+    expect(cssBlock(':root[data-theme="light"] .composer-project-create')).toContain('border-top-color: var(--border-hairline);');
     expect(appCss).toMatch(/\.composer-send\s*\{[^}]*width:\s*38px;[^}]*height:\s*38px;/);
     expect(appCss).toMatch(/\n\.composer-icon-button\s*\{[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/);
     expect(cssBlock('.composer-icon-button:hover')).toContain('color-mix(in srgb, var(--text) 4%, transparent)');
@@ -706,8 +791,8 @@ describe('app CSS visual contracts', () => {
     );
     expect(appCss).toMatch(/\.conversation-page\.is-empty \.opencreator-composer textarea\s*\{[^}]*min-height:\s*72px;/);
     expect(appCss).not.toContain('translateY(clamp(-150px, -14vh, -108px))');
-    expect(tokensCss).toContain('--border-hairline: rgba(245, 245, 246, 0.08);');
-    expect(tokensCss).toContain('--border-hairline: rgba(24, 24, 27, 0.07);');
+    expect(tokensCss).toContain('--border-hairline: rgba(229, 229, 229, 0.08);');
+    expect(tokensCss).toContain('--border-hairline: rgba(10, 10, 10, 0.07);');
     expect(cssBlock('.opencreator-composer')).toContain('border: 1px solid var(--composer-border);');
     expect(cssBlock('.opencreator-composer.without-project-selector')).toContain(
       'background: var(--composer-input-background);'
@@ -715,7 +800,7 @@ describe('app CSS visual contracts', () => {
     expect(cssBlock('.opencreator-composer.without-project-selector::after')).toContain('inset: 0;');
     expect(cssBlock('.opencreator-composer::before')).toContain('border: 0;');
     expect(cssBlock('.opencreator-composer::before')).toContain('z-index: 0;');
-    expect(lightComposer).toContain('--composer-project-background: #eeeeef;');
+    expect(lightComposer).toContain('--composer-project-background: var(--surface);');
     expect(lightComposer).toContain('background: var(--composer-project-background);');
     expect(cssBlock(':root[data-theme="light"] .opencreator-composer::after')).toContain('background: var(--surface-input);');
     expect(lightComposer).toContain('backdrop-filter: none;');
@@ -820,8 +905,8 @@ describe('app CSS visual contracts', () => {
   it('uses a solid conversation background without dynamic background assets', () => {
     const conversationPage = cssBlock('.conversation-page');
 
-    expect(tokensCss).toContain('--surface-page: #0c0d0f;');
-    expect(tokensCss).toContain('--surface-page: #fafafa;');
+    expect(tokensCss).toContain('--surface-page: #0a0a0a;');
+    expect(tokensCss).toContain('--surface-page: #e5e5e5;');
     expect(tokensCss).toContain('--conversation-bg: var(--surface-page);');
     expect(conversationPage).toContain('background: var(--conversation-bg);');
     expect(appCss).not.toContain('.conversation-lightfall-bg');
@@ -964,10 +1049,10 @@ describe('app CSS visual contracts', () => {
       match => match.groups?.body ?? ''
     ).find(block => block.includes('min-height: 40px;')) ?? '';
 
-    expect(composer).toContain('--composer-input-background: #1a1b1e;');
-    expect(composer).toContain('--composer-project-background: #232427;');
-    expect(composer).toContain('--composer-border: rgba(245, 245, 246, 0.12);');
-    expect(composer).toContain('--composer-separator: rgba(245, 245, 246, 0.06);');
+    expect(composer).toContain('--composer-input-background: var(--surface-input);');
+    expect(composer).toContain('--composer-project-background: var(--surface-popover);');
+    expect(composer).toContain('--composer-border: rgba(229, 229, 229, 0.12);');
+    expect(composer).toContain('--composer-separator: rgba(229, 229, 229, 0.06);');
     expect(composer).toContain('border: 1px solid var(--composer-border);');
     expect(composerAfter).toContain('background: var(--composer-input-background);');
     expect(projectContext).toContain('background: var(--composer-project-background);');

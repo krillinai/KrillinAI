@@ -7,6 +7,11 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
+    <div class="desktop-window-controls" role="group" aria-label="窗口控制" hidden>
+      <button type="button" data-action="close" aria-label="关闭窗口" title="关闭窗口"><span aria-hidden="true">×</span></button>
+      <button type="button" data-action="minimize" aria-label="最小化窗口" title="最小化窗口"><span aria-hidden="true">−</span></button>
+      <button type="button" data-action="zoom" aria-label="缩放窗口" title="缩放窗口"><span aria-hidden="true">+</span></button>
+    </div>
     <main class="bootstrap-shell">
       <section class="bootstrap-panel" aria-live="polite">
         <span class="brand-name">OpenCreator</span>

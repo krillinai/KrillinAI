@@ -31,6 +31,8 @@ type DesktopApi = {
     closeBehavior: 'hide' | 'quit';
     telemetryEnabled: boolean;
   }>;
+  setWindowColorMode?(mode: 'light' | 'dark'): Promise<void>;
+  controlWindow?(action: 'close' | 'minimize' | 'zoom'): Promise<void>;
   selectProjectDirectory(): Promise<string | null>;
   resolveDroppedFilePath(file: File): string | null;
   openExternal(url: string): Promise<void>;
@@ -78,6 +80,12 @@ export function readDesktopHostBridge(): DesktopHostBridge | undefined {
     readDesktopPreferences: () => api.readDesktopPreferences(),
     updateDesktopPreferences: preferences =>
       api.updateDesktopPreferences(preferences),
+    ...(windowChrome !== undefined && api.setWindowColorMode !== undefined
+      ? { setWindowColorMode: (mode: 'light' | 'dark') => api.setWindowColorMode!(mode) }
+      : {}),
+    ...(windowChrome !== undefined && api.controlWindow !== undefined
+      ? { controlWindow: (action: 'close' | 'minimize' | 'zoom') => api.controlWindow!(action) }
+      : {}),
     selectProjectDirectory: () => api.selectProjectDirectory(),
     resolveDroppedFilePath: file => api.resolveDroppedFilePath(file),
     openExternal: url => api.openExternal(url),

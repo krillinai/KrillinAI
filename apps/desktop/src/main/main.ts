@@ -412,6 +412,18 @@ function registerIpcHandlers(input: {
       telemetryEnabled: updated.telemetryEnabled
     };
   });
+  handle(desktopIpc.setWindowColorMode, input.development, (_event, mode: unknown) => {
+    if (process.platform !== 'darwin' || (mode !== 'light' && mode !== 'dark')) {
+      throw new Error('Invalid macOS window color mode');
+    }
+    input.windowManager.setColorMode(mode);
+  });
+  handle(desktopIpc.controlWindow, input.development, (_event, action: unknown) => {
+    if (process.platform !== 'darwin' || (action !== 'close' && action !== 'minimize' && action !== 'zoom')) {
+      throw new Error('Invalid macOS window action');
+    }
+    input.windowManager.controlWindow(action as 'close' | 'minimize' | 'zoom');
+  });
   handle(desktopIpc.openExternal, input.development, async (_event, url: unknown) => {
     if (typeof url !== 'string') throw new Error('URL must be a string');
     await openExternal(url);

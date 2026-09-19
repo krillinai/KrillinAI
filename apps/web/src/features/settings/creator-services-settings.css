@@ -1,7 +1,3 @@
-.creator-services-settings {
-  width: min(940px, 100%);
-}
-
 .settings-section .creator-services-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

@@ -169,8 +169,8 @@ export default function ProjectsPage(props: {
   }
 
   return (
-    <main className="projects-page">
-      <div className="projects-page-inner">
+    <main className="opencreator-scroll-page projects-page">
+      <div className="opencreator-page-content projects-page-inner">
         <header className="projects-page-header">
           <div>
             <h1>{l('我的项目', 'My Projects')}</h1>
@@ -185,28 +185,30 @@ export default function ProjectsPage(props: {
                 onCreate={props.onCreateProject}
               />
             ) : null}
-            <label className="projects-search">
-              <Search size={17} strokeWidth={1.8} aria-hidden="true" />
-              <input
-                type="search"
-                value={query}
-                onChange={event => setQuery(event.target.value)}
-                aria-label={view === 'projects' ? l('搜索项目', 'Search projects') : l('搜索产出', 'Search outputs')}
-                placeholder={view === 'projects' ? l('搜索项目', 'Search projects') : l('搜索产出', 'Search outputs')}
-              />
-            </label>
           </div>
         </header>
 
-        <div className="projects-dimension-tabs" role="tablist" aria-label={l('内容维度', 'Content view')}>
-          <button type="button" role="tab" aria-selected={view === 'projects'} onClick={() => selectView('projects')}>
-            <FolderKanban size={16} strokeWidth={1.8} aria-hidden="true" />
-            {l('项目', 'Projects')}
-          </button>
-          <button type="button" role="tab" aria-selected={view === 'outputs'} onClick={() => selectView('outputs')}>
-            <PackageOpen size={16} strokeWidth={1.8} aria-hidden="true" />
-            {l('产出中心', 'Output Center')}
-          </button>
+        <div className="projects-primary-row">
+          <div className="projects-dimension-tabs" role="tablist" aria-label={l('内容维度', 'Content view')}>
+            <button type="button" role="tab" aria-selected={view === 'projects'} onClick={() => selectView('projects')}>
+              <FolderKanban size={16} strokeWidth={1.8} aria-hidden="true" />
+              {l('项目', 'Projects')}
+            </button>
+            <button type="button" role="tab" aria-selected={view === 'outputs'} onClick={() => selectView('outputs')}>
+              <PackageOpen size={16} strokeWidth={1.8} aria-hidden="true" />
+              {l('产出中心', 'Output Center')}
+            </button>
+          </div>
+          <label className="projects-search">
+            <Search size={17} strokeWidth={1.8} aria-hidden="true" />
+            <input
+              type="search"
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              aria-label={view === 'projects' ? l('搜索项目', 'Search projects') : l('搜索产出', 'Search outputs')}
+              placeholder={view === 'projects' ? l('搜索项目', 'Search projects') : l('搜索产出', 'Search outputs')}
+            />
+          </label>
         </div>
 
         <div className={`projects-category-tabs${view === 'outputs' ? ' is-output' : ''}`} role="tablist" aria-label={view === 'projects' ? l('项目分类', 'Project categories') : l('产出分类', 'Output categories')}>
