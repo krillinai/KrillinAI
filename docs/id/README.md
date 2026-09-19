@@ -6,10 +6,10 @@
     <img src="../images/OpenCreator_logo_vector.svg" alt="OpenCreator" width="380" />
   </picture>
   <br />
-  Ruang kerja AI sumber terbuka untuk kreator
+  Ruang kerja AI sumber terbuka & Skills untuk kreator
 </h1>
 
-<p>Dari naskah hingga video, gambar, suara, avatar, penerjemahan, dan penyuntingan, Agent membantu menjalankan seluruh proses kreatif dalam satu ruang kerja.</p>
+<p>Gabungkan alat kreasi visual, Skills yang dapat digunakan kembali, dan Agent untuk naskah, video, gambar, suara, avatar, penerjemahan, dan penyuntingan—semuanya dalam satu ruang kerja.</p>
 
 <p><strong>OpenCreator sebelumnya bernama KrillinAI.</strong></p>
 
@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![Grup QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Sorotan Proyek](#sorotan-proyek) · [Alat Kreasi](#alat-kreasi) · [Percakapan & Ruang Kerja](#percakapan-dan-ruang-kerja-bergerak-bersama) · [Model yang Didukung](#model-yang-didukung) · [Contoh](#contoh) · [Mulai Cepat](#mulai-cepat) · [Desktop](#desktop) · [Struktur Sistem](#struktur-sistem-opencreator) · [Pengembangan](#pengembangan) · [Dokumentasi](#dokumentasi) · [Kontributor](#kontributor) · [Riwayat Star](#riwayat-star)
+[Sorotan Proyek](#sorotan-proyek) · [Alat Kreasi](#alat-kreasi) · [Skills](#skills) · [Percakapan & Ruang Kerja](#percakapan-dan-ruang-kerja-bergerak-bersama) · [Model yang Didukung](#model-yang-didukung) · [Contoh](#contoh) · [Mulai Cepat](#mulai-cepat) · [Desktop](#desktop) · [Struktur Sistem](#struktur-sistem-opencreator) · [Pengembangan](#pengembangan) · [Dokumentasi](#dokumentasi) · [Kontributor](#kontributor) · [Riwayat Star](#riwayat-star)
 
 </div>
 
@@ -54,7 +54,7 @@ Web adalah satu-satunya implementasi frontend. Desktop memuat build Web yang sam
 
 - 🕘 **Pengelolaan Versi**: setiap revisi membuat versi baru sambil mempertahankan pengaturan dan hasil sebelumnya untuk ditinjau dan dibandingkan.
 
-- 🧩 **Skills dan MCP**: telusuri, instal, dan gunakan Skills sambil mengelola MCP melalui konfigurasi native Codex.
+- 🧩 **Skills yang dapat digunakan kembali**: gunakan Skills alur kerja video, perluas kemampuan Agent dengan Skills sendiri, dan kelola MCP melalui konfigurasi native Codex.
 
 - 🧠 **Memori**: simpan memori global, proyek, dan thread beserta ringkasan dan snapshot input Run yang dapat direproduksi.
 
@@ -90,6 +90,26 @@ Buka Dashboard untuk menerjemahkan atau mengunduh video, membuat thumbnail atau 
 <tr><td valign="top">Avatar Digital</td><td valign="top">Dalam pengembangan</td><td>Gabungkan naskah, suara, dan presentasi avatar untuk membuat video berbicara</td></tr>
 </tbody>
 </table>
+
+## Skills
+
+Alat kreasi menyediakan kontrol visual; Skills memberi Agent instruksi dan alur kerja alat yang dapat digunakan kembali. OpenCreator menyertakan Skills produksi video di repositori serta mendukung pengelolaan Skills lokal Codex.
+
+Direktori [`skills/`](../../skills/) di repositori berisi instruksi yang dapat digunakan kembali oleh Agent untuk menjalankan KrillinAI CLI yang terintegrasi.
+
+| Skill | Kemampuan |
+| --- | --- |
+| [KrillinAI CLI](../../skills/krillinai-cli/SKILL.md) | Memilih perintah, memeriksa konfigurasi, serta memahami progres, manifes, keluaran, dan kesalahan |
+| [Subtitle](../../skills/krillinai-subtitle/SKILL.md) | Mengunduh subtitle platform atau mentranskripsikan media, menerjemahkan subtitle, dan menghasilkan subtitle dwibahasa atau subtitle pendek untuk video vertikal |
+| [TTS](../../skills/krillinai-tts/SKILL.md) | Menghasilkan sulih suara bahasa target dari subtitle dan secara opsional membuat video dengan sulih suara |
+| [Render horizontal](../../skills/krillinai-render-horizontal/SKILL.md) | Merender video horizontal dengan subtitle dwibahasa atau audio sulih suara dan subtitle bahasa target |
+| [Render vertikal](../../skills/krillinai-render-vertical/SKILL.md) | Menyusun video vertikal dengan judul, subtitle dwibahasa, atau sulih suara |
+| [Sampul](../../skills/krillinai-cover/SKILL.md) | Menghasilkan gambar sampul dari prompt teks lengkap serta menyimpan gambar dan prompt akhir |
+| [Perencanaan pipeline](../../skills/krillinai-pipeline/SKILL.md) | Memvalidasi rencana keluaran beberapa tahap dalam mode dry-run; menjalankan pekerjaan nyata melalui Skills masing-masing tahap |
+
+### Perluas dengan Skills sendiri
+
+OpenCreator mendukung Skills lokal Codex yang didefinisikan melalui `SKILL.md`, sehingga Anda dapat menambahkan metode dan alur kerja sendiri tanpa hanya bergantung pada alat kreasi tetap. Ketersediaan Skills bergantung pada Codex home yang aktif dan Skills yang terpasang; Skills video memerlukan konfigurasi CLI dan layanan terkait. Adanya Skill di repositori tidak berarti Skill tersebut otomatis terpasang atau semua layanan eksternal disertakan.
 
 ## Percakapan dan ruang kerja, bergerak bersama
 

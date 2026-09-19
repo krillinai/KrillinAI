@@ -6,10 +6,10 @@
     <img src="../images/OpenCreator_logo_vector.svg" alt="OpenCreator" width="380" />
   </picture>
   <br />
-  L'espace de travail IA open source pour les créateurs
+  L'espace de travail IA open source & les Skills pour les créateurs
 </h1>
 
-<p>Des scripts à la vidéo, aux images, à la voix, aux avatars, à la traduction et au montage, les Agents font avancer tout le processus créatif dans un seul espace de travail.</p>
+<p>Réunissez outils de création visuels, Skills réutilisables et Agents pour les scripts, la vidéo, les images, la voix, les avatars, la traduction et le montage, dans un seul espace de travail.</p>
 
 <p><strong>OpenCreator s'appelait auparavant KrillinAI.</strong></p>
 
@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![Groupe QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Points forts](#points-forts) · [Outils de création](#outils-de-création) · [Conversation et espace de travail](#conversation-et-espace-de-travail-avancent-ensemble) · [Modèles pris en charge](#modèles-pris-en-charge) · [Exemples](#exemples) · [Démarrage rapide](#démarrage-rapide) · [Desktop](#desktop) · [Structure du système](#structure-du-système-opencreator) · [Développement](#développement) · [Documentation](#documentation) · [Contributeurs](#contributeurs) · [Historique des Stars](#historique-des-stars)
+[Points forts](#points-forts) · [Outils de création](#outils-de-création) · [Skills](#skills) · [Conversation et espace de travail](#conversation-et-espace-de-travail-avancent-ensemble) · [Modèles pris en charge](#modèles-pris-en-charge) · [Exemples](#exemples) · [Démarrage rapide](#démarrage-rapide) · [Desktop](#desktop) · [Structure du système](#structure-du-système-opencreator) · [Développement](#développement) · [Documentation](#documentation) · [Contributeurs](#contributeurs) · [Historique des Stars](#historique-des-stars)
 
 </div>
 
@@ -54,7 +54,7 @@ Web constitue l'unique implémentation du frontend. Desktop charge la même comp
 
 - 🕘 **Gestion des versions** : chaque révision crée une nouvelle version tout en conservant les réglages et les résultats précédents pour les consulter et les comparer.
 
-- 🧩 **Skills et MCP** : parcourez, installez et utilisez des Skills tout en gérant MCP par l'intermédiaire de la configuration native de Codex.
+- 🧩 **Skills réutilisables** : utilisez les Skills de production vidéo, enrichissez votre Agent avec vos propres Skills et gérez MCP via la configuration native de Codex.
 
 - 🧠 **Mémoire** : conservez une mémoire globale, par projet et par fil, avec des résumés et des instantanés reproductibles des entrées de Run.
 
@@ -90,6 +90,26 @@ Ouvrez le Dashboard pour traduire ou télécharger des vidéos, générer des mi
 <tr><td valign="top">Avatar numérique</td><td valign="top">En développement</td><td>Combinez scripts, voix et présentation d'avatar pour produire des vidéos face caméra</td></tr>
 </tbody>
 </table>
+
+## Skills
+
+Les outils de création offrent des commandes visuelles ; les Skills fournissent à l'Agent des instructions et des workflows réutilisables. OpenCreator inclut des Skills de production vidéo dans le dépôt et permet de gérer les Skills locaux de Codex.
+
+Le répertoire [`skills/`](../../skills/) du dépôt contient des instructions réutilisables pour les Agents qui utilisent la CLI KrillinAI intégrée.
+
+| Skill | Fonctionnalités |
+| --- | --- |
+| [KrillinAI CLI](../../skills/krillinai-cli/SKILL.md) | Choisir les commandes, vérifier la configuration et interpréter la progression, les manifestes, les sorties et les erreurs |
+| [Sous-titres](../../skills/krillinai-subtitle/SKILL.md) | Télécharger les sous-titres des plateformes ou transcrire les médias, traduire les sous-titres et produire des sous-titres bilingues ou courts pour les vidéos verticales |
+| [TTS](../../skills/krillinai-tts/SKILL.md) | Générer un doublage dans la langue cible à partir de sous-titres et, si nécessaire, produire une vidéo doublée |
+| [Rendu paysage](../../skills/krillinai-render-horizontal/SKILL.md) | Produire des vidéos au format paysage avec des sous-titres bilingues ou un audio doublé et des sous-titres dans la langue cible |
+| [Rendu portrait](../../skills/krillinai-render-vertical/SKILL.md) | Composer des vidéos verticales avec des titres, des sous-titres bilingues ou un doublage |
+| [Couverture](../../skills/krillinai-cover/SKILL.md) | Générer une image de couverture à partir d’un prompt textuel complet et enregistrer l’image et le prompt final |
+| [Planification du pipeline](../../skills/krillinai-pipeline/SKILL.md) | Valider un plan de sorties en plusieurs étapes en mode dry-run ; exécuter le travail réel avec les Skills de chaque étape |
+
+### Ajoutez vos propres Skills
+
+OpenCreator prend en charge les Skills locaux de Codex définis par `SKILL.md`, pour ajouter vos propres méthodes et workflows sans vous limiter aux outils de création prédéfinis. Leur disponibilité dépend du Codex home actif et des Skills installés ; les Skills vidéo nécessitent la configuration de la CLI et des services concernés. La présence d’un Skill dans le dépôt ne signifie pas qu’il est installé automatiquement ni que tous les services externes sont inclus.
 
 ## Conversation et espace de travail avancent ensemble
 

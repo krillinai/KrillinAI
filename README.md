@@ -6,10 +6,10 @@
     <img src="./docs/images/OpenCreator_logo_vector.svg" alt="OpenCreator" width="380" />
   </picture>
   <br />
-  The open-source AI workspace for creators
+  The open-source AI workspace & Skills for creators
 </h1>
 
-<p>From scripts to video, images, voice, avatars, translation, and editing, Agents move the whole creative process forward in one workspace.</p>
+<p>Bring visual creator tools, reusable Skills, and Agents together for scripts, video, images, voice, avatars, translation, and editing—all in one workspace.</p>
 
 <p><strong>OpenCreator was formerly known as KrillinAI.</strong></p>
 
@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Project Highlights](#project-highlights) · [Creator Tools](#creator-tools) · [Conversation & Workspace](#conversation-and-workspace-moving-together) · [Models Supported](#models-supported) · [Examples](#examples) · [Quick Start](#quick-start) · [Desktop](#desktop) · [OpenCreator System Architecture](#opencreator-system-architecture) · [Development](#development) · [Documentation](#documentation) · [Contributors](#contributors) · [Star History](#star-history)
+[Project Highlights](#project-highlights) · [Creator Tools](#creator-tools) · [Skills](#skills) · [Conversation & Workspace](#conversation-and-workspace-moving-together) · [Models Supported](#models-supported) · [Examples](#examples) · [Quick Start](#quick-start) · [Desktop](#desktop) · [OpenCreator System Architecture](#opencreator-system-architecture) · [Development](#development) · [Documentation](#documentation) · [Contributors](#contributors) · [Star History](#star-history)
 
 </div>
 
@@ -54,7 +54,7 @@ Web is the single frontend implementation. Desktop loads the same Web build and 
 
 - 🕘 **Versioning**: Every revision creates a new version while preserving earlier settings and outputs for review and comparison.
 
-- 🧩 **Skills and MCP**: Browse, install, and invoke Skills while managing MCP through Codex-native configuration.
+- 🧩 **Reusable Skills**: Use video workflow Skills, extend the Agent with your own Skills, and manage MCP through Codex-native configuration.
 
 - 🧠 **Memory**: Keep global, project, and thread memory with summaries and reproducible Run input snapshots.
 
@@ -95,6 +95,26 @@ Open the Dashboard to write articles, Xiaohongshu posts, or short-video scripts;
 <tr><td valign="top">Digital Avatar</td><td valign="top">In development</td><td>Combine scripts, voice, and avatar presentation to produce talking-head videos</td></tr>
 </tbody>
 </table>
+
+## Skills
+
+Creator tools provide visual controls; Skills give the Agent reusable instructions and tool workflows. OpenCreator includes video-production Skills in the repository, alongside support for managing local Codex Skills.
+
+The repository's [`skills/`](./skills/) directory contains reusable instructions for Agents operating the embedded KrillinAI CLI.
+
+| Skill | Capabilities |
+| --- | --- |
+| [KrillinAI CLI](./skills/krillinai-cli/SKILL.md) | Choose commands, check configuration, and interpret progress, manifests, outputs, and errors |
+| [Subtitle](./skills/krillinai-subtitle/SKILL.md) | Download platform captions or transcribe media, translate subtitles, and produce bilingual or short portrait subtitles |
+| [TTS](./skills/krillinai-tts/SKILL.md) | Generate target-language dubbing from subtitles and optionally produce a dubbed video |
+| [Landscape Render](./skills/krillinai-render-horizontal/SKILL.md) | Render landscape videos with bilingual subtitles or dubbed audio and target-language subtitles |
+| [Portrait Render](./skills/krillinai-render-vertical/SKILL.md) | Compose portrait videos with titles, bilingual subtitles, or dubbing |
+| [Cover](./skills/krillinai-cover/SKILL.md) | Generate a cover image from a complete text prompt and save the image and final prompt |
+| [Pipeline Plan](./skills/krillinai-pipeline/SKILL.md) | Validate a multi-stage output plan in dry-run mode; execute actual work through the individual stage Skills |
+
+### Extend with Your Own Skills
+
+OpenCreator supports local Codex Skills defined by `SKILL.md`, so you can add your own methods and workflows rather than relying only on fixed creator tools. Skill availability depends on the active Codex home and installed Skills; video workflow Skills require the CLI and relevant services to be configured. Inclusion in the repository does not mean every Skill is automatically installed or every external service is bundled.
 
 ## Conversation and workspace, moving together
 
