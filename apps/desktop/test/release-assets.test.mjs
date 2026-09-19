@@ -100,7 +100,8 @@ describe('Desktop release assets', () => {
     const notes = finalizeReleaseAssets({
       directory: data.directory,
       version,
-      repository: 'krillinai/OpenCreator'
+      repository: 'krillinai/OpenCreator',
+      highlights: '## 更新内容\n\n- 新增 Creator 工作流'
     });
     expect(readdirSync(data.directory)).toHaveLength(21);
     expect(readFileSync(join(data.directory, 'SHA256SUMS.txt'), 'utf8').trim().split('\n')).toHaveLength(20);
@@ -109,6 +110,7 @@ describe('Desktop release assets', () => {
     expect(notes).toContain('KrillinAI-CLI-3.0.0-mac-arm64.tar.gz');
     expect(notes).toContain('macOS Apple Silicon');
     expect(notes).toContain('Authenticode');
+    expect(notes).toContain('## 更新内容\n\n- 新增 Creator 工作流');
     writeFileSync(join(data.directory, 'builder-debug.yml'), 'private diagnostic');
     expect(() => finalizeReleaseAssets({
       directory: data.directory,

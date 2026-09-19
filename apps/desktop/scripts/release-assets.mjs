@@ -83,7 +83,7 @@ function writeChecksums(directory, names) {
   writeFileSync(join(directory, 'SHA256SUMS.txt'), `${lines.join('\n')}\n`);
 }
 
-export function finalizeReleaseAssets({ directory, version, repository }) {
+export function finalizeReleaseAssets({ directory, version, repository, highlights = '' }) {
   const desktopAssets = releasePlatforms.flatMap(
     ({ platform, arch }) => releaseAssetNames(version, platform, arch)
   );
@@ -112,9 +112,11 @@ export function finalizeReleaseAssets({ directory, version, repository }) {
       return `| ${label} | [${asset}](${downloadRoot}/${asset}) |`;
     }
   );
+  const normalizedHighlights = highlights.trim();
   return [
     `# OpenCreator v${version}`,
     '',
+    ...(normalizedHighlights.length === 0 ? [] : [normalizedHighlights, '']),
     '## OpenCreator 桌面端',
     '',
     '| 平台 | 安装包 |',
@@ -160,7 +162,15 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     if (!directory || !tag?.startsWith('v') || !repository || !notesPath) {
       throw new Error('Usage: node release-assets.mjs <assets-directory> <vVERSION> <owner/repo> <notes-file>');
     }
-    const notes = finalizeReleaseAssets({ directory, version: tag.slice(1), repository });
+    const version = tag.slice(1);
+    const highlightsPath = resolve(desktopDir, 'release-notes', `${tag}.md`);
+    let highlights = '';
+    try {
+      highlights = readFileSync(highlightsPath, 'utf8');
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    const notes = finalizeReleaseAssets({ directory, version, repository, highlights });
     writeFileSync(notesPath, notes);
     console.log(`Verified ${readdirSync(directory).length} public release assets for ${tag}`);
   } catch (error) {
