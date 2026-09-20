@@ -86,6 +86,31 @@ func TestExtractJSON(t *testing.T) {
 			response: `{"short_sentences":[{"text":"a"}`,
 			want:     `{"short_sentences":[{"text":"a"}`,
 		},
+		{
+			name:     "空对象",
+			response: "{}",
+			want:     "{}",
+		},
+		{
+			name:     "空数组",
+			response: "[]",
+			want:     "[]",
+		},
+		{
+			name:     "嵌套结构的多处尾随逗号",
+			response: `{"a":{"b":[{"c":1},]},}`,
+			want:     `{"a":{"b":[{"c":1}]}}`,
+		},
+		{
+			name:     "连续逗号一并去除",
+			response: `{"a":1,,}`,
+			want:     `{"a":1}`,
+		},
+		{
+			name:     "结束符不匹配时不做猜测",
+			response: "[}",
+			want:     "[}",
+		},
 	}
 
 	for _, tt := range tests {
