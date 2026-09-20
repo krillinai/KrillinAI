@@ -1370,7 +1370,7 @@ export default function WechatArticleWorkspace(props: {
               <div className="video-result-tabs" role="tablist" aria-label={l('文章结果类型', 'Article result types')}>
                 <button type="button" role="tab" aria-selected={resultTab === 'outputs'} onClick={() => setResultTab('outputs')}>
                   <PackageOpen size={15} strokeWidth={1.8} aria-hidden="true" />
-                  {l('生成物', 'Outputs')}
+                  {l('作品', 'Works')}
                 </button>
                 <button type="button" role="tab" aria-selected={resultTab === 'images'} onClick={() => setResultTab('images')}>
                   <ImageIcon size={15} strokeWidth={1.8} aria-hidden="true" />

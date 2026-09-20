@@ -84,6 +84,9 @@ export type DesktopWindowChrome =
       trafficLightInset: number;
     };
 
+export type DesktopWindowColorMode = 'light' | 'dark';
+export type DesktopWindowAction = 'close' | 'minimize' | 'zoom';
+
 export type DesktopHostResult =
   | { ok: true }
   | { ok: false; code: 'UNSUPPORTED' | 'FAILED'; message: string };
@@ -116,6 +119,8 @@ export type DesktopApi = {
   updateDesktopPreferences(
     preferences: Partial<DesktopPreferences>
   ): Promise<DesktopPreferences>;
+  setWindowColorMode?(mode: DesktopWindowColorMode): Promise<void>;
+  controlWindow?(action: DesktopWindowAction): Promise<void>;
   openExternal(url: string): Promise<void>;
   revealPath(path: string): Promise<DesktopHostResult>;
   notify(message: DesktopHostNotification): Promise<void>;

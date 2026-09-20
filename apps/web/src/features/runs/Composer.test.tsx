@@ -187,12 +187,7 @@ describe('Composer', () => {
 
     expect(screen.getByText('没有匹配的项目')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '新建项目' }));
-    const createProjectDialog = screen.getByRole('dialog', { name: '创建项目' });
-    expect(createProjectDialog).toBeInTheDocument();
-    expect(createProjectDialog.parentElement?.parentElement).toBe(document.body);
-    await user.type(screen.getByRole('textbox', { name: '文件夹名称' }), '我的项目');
-    await user.click(screen.getByRole('button', { name: '创建' }));
-    expect(onCreateBlankProject).toHaveBeenCalledWith('我的项目');
+    expect(onCreateBlankProject).toHaveBeenCalledOnce();
     expect(screen.queryByRole('dialog', { name: '创建项目' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '选择项目 未选择项目' }));

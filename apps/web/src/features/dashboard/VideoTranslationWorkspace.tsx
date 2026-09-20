@@ -160,8 +160,8 @@ const defaultSubtitleStyle: SubtitleStyleSettings = {
   subtitleShadowOffsetY: 1.5,
   subtitleShadowBlur: 0.5
 };
-const WORKSPACE_MIN_WIDTH = 780;
-const AGENT_MIN_WIDTH = 320;
+const WORKSPACE_MIN_WIDTH = 390;
+const AGENT_MIN_WIDTH = 280;
 const WORKSPACE_RESIZE_HANDLE_WIDTH = 7;
 const WORKSPACE_RESIZE_KEY_STEP = 32;
 
@@ -2088,7 +2088,7 @@ export default function VideoTranslationWorkspace(props: {
       : l('横屏字幕', 'Horizontal subtitles');
   const agentContextSummary = workspacePhase === 'result'
     ? `${resultTab === 'video'
-      ? l('生成物', 'Outputs')
+      ? l('作品', 'Works')
       : resultTab === 'subtitles'
         ? selectedSubtitleContextLabel
         : ({ voice: l('配音', 'Dubbing'), settings: l('任务设置', 'Task settings') } as const)[resultTab]} V${resultVersion}`

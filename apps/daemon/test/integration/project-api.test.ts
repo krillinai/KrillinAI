@@ -51,21 +51,22 @@ describe('project API', () => {
     const created = await request('POST', '/projects/managed', { name: ' 浏览器项目 ' });
 
     expect(created.statusCode).toBe(201);
+    const createdProject = created.json().project as { cwd: string; name: string };
     expect(created.json().project).toMatchObject({
       name: '浏览器项目',
-      cwd: join(tempDir, 'OpenCreator', '浏览器项目'),
+      cwd: expect.stringMatching(join(tempDir, 'OpenCreator', 'project-')),
       directoryState: 'available'
     });
-    expect(realpathSync(join(tempDir, 'OpenCreator', '浏览器项目')))
-      .toBe(created.json().project.canonicalCwd);
+    expect(realpathSync(createdProject.cwd)).toBe(created.json().project.canonicalCwd);
 
     const invalid = await request('POST', '/projects/managed', { name: '../escape' });
     expect(invalid.statusCode).toBe(400);
     expect(invalid.json().error.code).toBe('PROJECT_NAME_INVALID');
 
     const duplicate = await request('POST', '/projects/managed', { name: '浏览器项目' });
-    expect(duplicate.statusCode).toBe(409);
-    expect(duplicate.json().error.code).toBe('PROJECT_DIRECTORY_CONFLICT');
+    expect(duplicate.statusCode).toBe(201);
+    expect(duplicate.json().project).toMatchObject({ name: '浏览器项目' });
+    expect(duplicate.json().project.cwd).not.toBe(createdProject.cwd);
   });
 
   it('manages projects without deleting threads and replaces execution directories atomically', async () => {

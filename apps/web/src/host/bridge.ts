@@ -1,4 +1,5 @@
 import type { ConnectionConfig } from '../runtime/types.js';
+import type { ColorMode } from '../styles/color-mode.js';
 
 export type HostBridgeResult = { ok: true } | { ok: false; code: 'UNSUPPORTED' | 'FAILED'; message: string };
 
@@ -44,6 +45,8 @@ export type HostBridge = {
   updateDesktopPreferences?(
     preferences: Partial<DesktopPreferences>
   ): Promise<DesktopPreferences>;
+  setWindowColorMode?(mode: ColorMode): Promise<void>;
+  controlWindow?(action: 'close' | 'minimize' | 'zoom'): Promise<void>;
   selectProjectDirectory?(): Promise<string | null>;
   resolveDroppedFilePath?(file: File): string | null;
 };

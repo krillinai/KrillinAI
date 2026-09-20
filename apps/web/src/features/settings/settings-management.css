@@ -1,7 +1,3 @@
-.settings-management {
-  width: min(920px, 100%);
-}
-
 .settings-management__header {
   min-width: 0;
   display: flex !important;

@@ -1,0 +1,25 @@
+{
+  "fill-specializations": [
+    { "value": { "solid": "srgb:1.00000,1.00000,1.00000,1.00000" } },
+    { "appearance": "dark", "value": { "solid": "srgb:0.06667,0.06667,0.07451,1.00000" } }
+  ],
+  "groups": [
+    {
+      "layers": [
+        {
+          "name": "OpenCreator",
+          "image-name": "mark.svg",
+          "glass": false,
+          "fill-specializations": [
+            { "value": { "solid": "srgb:0.06667,0.06667,0.07451,1.00000" } },
+            { "appearance": "dark", "value": { "solid": "srgb:1.00000,1.00000,1.00000,1.00000" } }
+          ]
+        }
+      ],
+      "shadow": { "kind": "neutral", "opacity": 0 },
+      "specular": false,
+      "translucency": { "enabled": false, "value": 0 }
+    }
+  ],
+  "supported-platforms": { "squares": ["macOS"] }
+}

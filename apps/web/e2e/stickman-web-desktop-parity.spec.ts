@@ -34,6 +34,162 @@ const viewports = [
   { name: 'mobile', width: 390, height: 844 }
 ] as const;
 
+test('Creator 设置页组件间距和下拉箭头在 Browser/Desktop 下保持一致', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', '内部覆盖桌面和移动内容视口');
+  test.setTimeout(120_000);
+  for (const viewport of [
+    { width: 980, height: 1014, theme: 'dark' },
+    { width: 1440, height: 900, theme: 'light' },
+    { width: 390, height: 844, theme: 'dark' }
+  ] as const) {
+    const results = [];
+    for (const platform of ['browser', 'desktop'] as const) {
+      const fakeDaemon = new FakeStickmanDaemon(runtime.projectId);
+      const context = await browser.newContext({
+        viewport,
+        colorScheme: viewport.theme,
+        deviceScaleFactor: 1,
+        reducedMotion: 'reduce',
+        locale: 'zh-CN'
+      });
+      const page = await context.newPage();
+      await fakeDaemon.attach(page);
+      await installPlatformEnvironment(page, platform);
+      try {
+        await runtime.openApp(page, { currentProjectId: fakeDaemon.projectId });
+        await page.goto(`${runtime.origin}/#/workbench?tool=stickman-video&jobId=${fakeDaemon.jobId}`);
+        await page.locator('.stickman-steps button').first().click();
+        await expect(page.locator('.stickman-style-summary')).toBeVisible();
+        await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, viewport.theme);
+        for (const source of ['输入文本', 'YouTube']) {
+          await page.getByRole('tab', { name: source, exact: true }).click();
+          await expect(page.getByRole('textbox', { name: source === 'YouTube' ? 'YouTube 链接' : '文本内容' })).toBeVisible();
+          const geometry = await page.locator('.stickman-story-panel').evaluate(panel => {
+            const source = panel.querySelector(':scope > .creator-tool-field')!.getBoundingClientRect();
+            const characters = panel.querySelector('.stickman-character-picker')!.getBoundingClientRect();
+            const style = panel.querySelector('#stickman-visual-style')!.getBoundingClientRect();
+            const duration = panel.querySelector('.stickman-duration-control select')!.getBoundingClientRect();
+            const voiceSettings = panel.querySelector('.stickman-voice-settings')!.getBoundingClientRect();
+            const imageNotice = panel.querySelector(':scope > .stickman-tts-configuration')!.getBoundingClientRect();
+            return {
+              sourceCharacterGap: Math.round(characters.top - source.bottom),
+              serviceNoticeGap: Math.round(imageNotice.top - voiceSettings.bottom),
+              selectTopDelta: Math.round(duration.top - style.top),
+              rowGap: getComputedStyle(panel.querySelector('.creator-tool-form-row')!).gap,
+              selects: Array.from(panel.querySelectorAll('.native-select select')).map(select => {
+                const arrow = select.parentElement!.querySelector('svg')!.getBoundingClientRect();
+                return {
+                  arrowInset: Math.round(select.getBoundingClientRect().right - arrow.right),
+                  textInset: getComputedStyle(select).paddingInlineEnd,
+                  appearance: getComputedStyle(select).appearance
+                };
+              })
+            };
+          });
+          expect(geometry.sourceCharacterGap).toBe(16);
+          expect(geometry.serviceNoticeGap).toBe(16);
+          expect(geometry.rowGap).toBe('16px');
+          if (viewport.width >= 700) expect(geometry.selectTopDelta).toBe(0);
+          expect(geometry.selects.length).toBeGreaterThanOrEqual(2);
+          for (const select of geometry.selects) {
+            expect(select).toEqual({ arrowInset: 12, textInset: '40px', appearance: 'none' });
+          }
+          results.push(geometry);
+        }
+        await page.getByRole('combobox', { name: '目标时长' }).selectOption('60');
+        await expect.poll(() => fakeDaemon.snapshot().state.targetDurationSeconds).toBe(60);
+        await page.locator('.creator-tool-form-row').scrollIntoViewIfNeeded();
+        await testInfo.attach(`creator-settings-${platform}-${viewport.width}-${viewport.theme}.png`, {
+          body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png'
+        });
+        expect(fakeDaemon.unknownRequestPaths()).toEqual([]);
+      } finally {
+        await context.close();
+      }
+    }
+    expect(results.slice(2)).toEqual(results.slice(0, 2));
+  }
+});
+
+test('最小桌面宽度下 Browser/Desktop 协作输入区在缩放和滚动后保持贴底', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', '本规格固定验证桌面内容视口');
+  const checkpoints: Checkpoint[] = [];
+  const snapshots: FakeStickmanSnapshot[] = [];
+
+  for (const platform of ['browser', 'desktop'] as const) {
+    const fakeDaemon = new FakeStickmanDaemon(runtime.projectId);
+    const context = await browser.newContext({
+      viewport: { width: 980, height: 1014 },
+      deviceScaleFactor: 1,
+      colorScheme: 'dark',
+      reducedMotion: 'reduce',
+      locale: 'zh-CN'
+    });
+    const page = await context.newPage();
+    await fakeDaemon.attach(page);
+    await installPlatformEnvironment(page, platform);
+    try {
+      await runtime.openApp(page, { currentProjectId: fakeDaemon.projectId });
+      await page.goto(`${runtime.origin}/#/workbench?tool=stickman-video&jobId=${fakeDaemon.jobId}`);
+      await expect(page.getByRole('heading', { name: '火柴人动画' })).toBeVisible();
+      await page.locator('.stickman-steps button').first().click();
+      await expect(page.getByRole('heading', { name: '来源与角色', exact: true })).toBeVisible();
+
+      for (const viewport of [
+        { width: 980, height: 1014 },
+        { width: 980, height: 680 },
+        { width: 1120, height: 900 },
+        { width: 1121, height: 900 },
+        { width: 1440, height: 900 },
+        { width: 980, height: 1014 }
+      ]) {
+        await page.setViewportSize(viewport);
+        await expectCollaborationComposerAtBottom(page);
+        await page.locator('.stickman-step-scroll').evaluate(element => {
+          element.scrollTop = element.scrollHeight;
+        });
+        await expectCollaborationComposerAtBottom(page);
+      }
+      const checkpoint = await captureCheckpoint(page);
+      checkpoints.push(checkpoint);
+      snapshots.push(fakeDaemon.snapshot());
+      await testInfo.attach(`stickman-min-width-${platform}.png`, {
+        body: checkpoint.screenshot, contentType: 'image/png'
+      });
+      expect(fakeDaemon.unknownRequestPaths()).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  }
+  expect(checkpoints[1]!.text).toBe(checkpoints[0]!.text);
+  expect(checkpoints[1]!.boxes).toEqual(checkpoints[0]!.boxes);
+  expect(snapshots[1]).toEqual(snapshots[0]);
+  const pixelDiff = await compareScreenshots(browser, checkpoints[0]!.screenshot, checkpoints[1]!.screenshot);
+  expect(pixelDiff.maxChannelDelta).toBeLessThanOrEqual(1);
+  expect(pixelDiff.differentPixels).toBeLessThanOrEqual(100);
+});
+
+async function expectCollaborationComposerAtBottom(page: Page): Promise<void> {
+  await expect(page.getByRole('textbox', { name: '告诉 Agent 你的要求' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => {
+    const workspace = document.querySelector('.creator-workspace-layout')!.getBoundingClientRect();
+    const panel = document.querySelector('.creator-collaboration-panel')!.getBoundingClientRect();
+    const composer = document.querySelector('.creator-collaboration-panel .tool-agent-composer')!;
+    const marginBottom = parseFloat(getComputedStyle(composer).marginBottom);
+    return {
+      panelBottomDelta: Math.round(panel.bottom - workspace.bottom),
+      panelHeightDelta: Math.round(panel.height - workspace.height),
+      composerBottomDelta: Math.round(composer.getBoundingClientRect().bottom + marginBottom - panel.bottom)
+    };
+  })).toEqual({ panelBottomDelta: 0, panelHeightDelta: 0, composerBottomDelta: 0 });
+}
+
 test('火柴人工作台在 Browser/Desktop Bridge 下保持同构并持久化同一结果', async ({
   browser,
   runtime
@@ -365,9 +521,12 @@ async function captureCheckpoint(page: Page): Promise<Checkpoint> {
     '.creator-task-workspace',
     '.stickman-delivery-content',
     '.creator-collaboration-panel',
+    '.creator-collaboration-panel .tool-agent-composer',
     '.creator-result-files'
   ]) {
-    const box = await page.locator(selector).first().boundingBox();
+    const element = page.locator(selector).first();
+    if (await element.count() === 0) continue;
+    const box = await element.boundingBox();
     if (box !== null) {
       boxes[selector] = {
         x: Math.round(box.x),

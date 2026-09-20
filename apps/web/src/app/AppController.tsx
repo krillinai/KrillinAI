@@ -32,6 +32,7 @@ import type {
 import { FolderInput } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { AppLayout } from '../components/layout/AppLayout.js';
+import { DesktopWindowControls } from '../components/layout/DesktopWindowControls.js';
 import { beginPaneResize } from '../components/layout/pane-resize-2026-07-29.js';
 import { Timeline, type TimelineHandle } from '../components/timeline/Timeline.js';
 import { eventToTimelineItem, type TimelineItem } from '../components/timeline/timeline-model.js';
@@ -72,8 +73,10 @@ import {
   type OpenCreatorProject,
   type ProjectPermission
 } from '../features/projects/project-model.js';
-import { CreateProjectDialog } from '../features/projects/CreateProjectDialog.js';
 import { ProjectManagementDialog } from '../features/projects/ProjectManagementDialog.js';
+import {
+  type CreatorProjectType
+} from '../features/projects/project-types.js';
 import {
   Composer,
   type ComposerAttachment,
@@ -323,7 +326,7 @@ export function AppController(props: AppControllerProps) {
   const [runtimeWorkspaceReady, setRuntimeWorkspaceReady] = useState(false);
   const [threadLoadError, setThreadLoadError] = useState<string>();
   const [projectLoadError, setProjectLoadError] = useState<string>();
-  const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  const [createProjectError, setCreateProjectError] = useState<string>();
   const [projectManagementOpen, setProjectManagementOpen] = useState(false);
   const [projectManagementProjectId, setProjectManagementProjectId] = useState<string>();
   const [projectMutationBusy, setProjectMutationBusy] = useState(false);
@@ -440,7 +443,10 @@ export function AppController(props: AppControllerProps) {
 
   useEffect(() => {
     applyColorMode(colorMode);
-  }, [colorMode]);
+    void hostBridge.setWindowColorMode?.(colorMode).catch(error => {
+      console.error('Failed to synchronize native window color mode', error);
+    });
+  }, [colorMode, hostBridge]);
   useEffect(() => {
     applyAccentColor(accentColor, customAccentColor);
   }, [accentColor, customAccentColor]);
@@ -2458,20 +2464,39 @@ export function AppController(props: AppControllerProps) {
     }
   }
 
-  async function createBlankProject(name: string): Promise<boolean> {
+  async function createProject(
+    projectType?: CreatorProjectType,
+    returnTo?: 'projects'
+  ): Promise<boolean> {
     if (
       projectService === null
       || projectDirectoryDialogInFlightRef.current
     ) return false;
+    const projectName = projectType === undefined
+      ? (language === 'en-US' ? 'Project' : '项目')
+      : language === 'en-US'
+        ? `${projectType.englishTitle} Project`
+        : `${projectType.title}项目`;
     projectDirectoryDialogInFlightRef.current = true;
     try {
-      const response = await projectService.createManagedProject({ name });
+      const response = await projectService.createManagedProject({ name: projectName });
       setProjects(current => upsertProject(current, response.project));
-      selectProject(response.project.id);
+      selectProject(response.project.id, { updateRoute: projectType === undefined });
+      if (projectType !== undefined) {
+        dispatch({ type: 'set_active_view', activeView: 'dashboard' });
+        navigateToRoute({
+          view: 'workbench',
+          tool: projectType.workspace,
+          ...(returnTo === 'projects' ? { returnTo: 'projects' } : {})
+        });
+      }
       setProjectLoadError(undefined);
+      setCreateProjectError(undefined);
       return true;
     } catch (error) {
-      setProjectLoadError(getRuntimeErrorMessage(error, '新建项目失败，请重试'));
+      const message = getRuntimeErrorMessage(error, '新建项目失败，请重试');
+      setProjectLoadError(message);
+      setCreateProjectError(message);
       return false;
     } finally {
       projectDirectoryDialogInFlightRef.current = false;
@@ -4264,7 +4289,7 @@ export function AppController(props: AppControllerProps) {
       onCreateBlankProject={
         projectService === null
           ? undefined
-          : createBlankProject
+          : () => createProject()
       }
       onAddProjectDirectory={
         projectService === null || hostBridge.selectProjectDirectory === undefined
@@ -4465,6 +4490,12 @@ export function AppController(props: AppControllerProps) {
       loading={creatorJobsLoading}
       error={creatorJobsError}
       service={creatorService}
+      onCreateProject={
+        projectService === null
+          ? undefined
+          : projectType => createProject(projectType, 'projects')
+      }
+      createProjectError={createProjectError}
       onOpenJob={openCreatorJob}
       onDeleteJob={creatorService === null ? undefined : deleteCreatorJob}
     />
@@ -4481,6 +4512,12 @@ export function AppController(props: AppControllerProps) {
       workspace={props.route.view === 'workbench' ? props.route.tool : undefined}
       jobId={props.route.view === 'workbench' ? props.route.jobId : undefined}
       onJobCreated={rememberCreatorJob}
+      onCreateProject={
+        projectService === null
+          ? undefined
+          : projectType => createProject(projectType)
+      }
+      createProjectError={createProjectError}
       onOpenRuntimeComponents={() => {
         dispatch({ type: 'open_settings' });
         navigateToRoute({ view: 'settings', tab: 'local-components' });
@@ -4665,6 +4702,9 @@ export function AppController(props: AppControllerProps) {
       {integratedTitleBar?.integratedTitleBar === true ? (
         <div className="desktop-titlebar-drag-region" aria-hidden="true" />
       ) : null}
+      {integratedTitleBar?.integratedTitleBar === true && hostBridge.controlWindow !== undefined ? (
+        <DesktopWindowControls onAction={hostBridge.controlWindow} />
+      ) : null}
       <span
         className="app-visually-hidden"
         role="status"
@@ -4699,10 +4739,7 @@ export function AppController(props: AppControllerProps) {
           onAddProject={
             projectService === null
               ? undefined
-              : () => {
-                  setProjectLoadError(undefined);
-                  setCreateProjectOpen(true);
-                }
+              : () => void createProject()
           }
           onManageProjects={() => void openProjectManagement()}
           onEditProject={projectId => void openProjectManagement(projectId)}
@@ -4750,12 +4787,6 @@ export function AppController(props: AppControllerProps) {
           <strong>松开以添加项目文件夹</strong>
         </div>
       ) : null}
-      <CreateProjectDialog
-        open={createProjectOpen}
-        error={createProjectOpen ? projectLoadError : undefined}
-        onClose={() => setCreateProjectOpen(false)}
-        onCreate={createBlankProject}
-      />
       <ProjectManagementDialog
         open={projectManagementOpen}
         projects={projects}
@@ -4782,8 +4813,7 @@ export function AppController(props: AppControllerProps) {
             ? undefined
             : () => {
                 setProjectManagementOpen(false);
-                setProjectLoadError(undefined);
-                setCreateProjectOpen(true);
+                void createProject();
               }
         }
         onAddProjectDirectory={

@@ -18,6 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
+import NativeSelect from '../../components/forms/NativeSelect.js';
 import type { VideoMetadataService } from '../../services/video-metadata-service.js';
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
@@ -507,7 +508,7 @@ export default function AutoClipWorkspace(props: {
                   <div className="creator-tool-form-row auto-clip-settings-grid">
                     <label className="creator-tool-field">
                       <span>{l('原视频语言', 'Source language')}</span>
-                      <select aria-label={l('原视频语言', 'Source language')} value={sourceLanguage} onChange={event => setSourceLanguage(event.target.value)}>
+                      <NativeSelect aria-label={l('原视频语言', 'Source language')} value={sourceLanguage} onChange={event => setSourceLanguage(event.target.value)}>
                         <option value="auto">{l('自动检测（优先平台字幕）', 'Auto detect (prefer platform captions)')}</option>
                         <option value="zh_cn">{l('简体中文', 'Simplified Chinese')}</option>
                         <option value="zh_tw">{l('繁體中文', 'Traditional Chinese')}</option>
@@ -519,11 +520,11 @@ export default function AutoClipWorkspace(props: {
                         <option value="de">Deutsch</option>
                         <option value="pt">Português</option>
                         <option value="ru">Русский</option>
-                      </select>
+                      </NativeSelect>
                     </label>
                     <label className="creator-tool-field">
                       <span>{l('内容类型', 'Content type')}</span>
-                      <select aria-label={l('内容类型', 'Content type')} value={genre} onChange={event => setGenre(event.target.value as ClipGenre)}>
+                      <NativeSelect aria-label={l('内容类型', 'Content type')} value={genre} onChange={event => setGenre(event.target.value as ClipGenre)}>
                         <option value="auto">{l('自动判断', 'Auto detect')}</option>
                         <option value="talk">{l('演讲 / 观点', 'Talk / commentary')}</option>
                         <option value="podcast">{l('播客对谈', 'Podcast')}</option>
@@ -533,15 +534,15 @@ export default function AutoClipWorkspace(props: {
                         <option value="sports">{l('体育内容', 'Sports')}</option>
                         <option value="gaming">{l('游戏内容', 'Gaming')}</option>
                         <option value="news">{l('新闻 / 时事', 'News / current affairs')}</option>
-                      </select>
+                      </NativeSelect>
                     </label>
                     <label className="creator-tool-field">
                       <span>{l('内容重点', 'Content focus')}</span>
-                      <select aria-label={l('内容重点', 'Content focus')} value={focus} onChange={event => setFocus(event.target.value as AnalysisFocus)}>
+                      <NativeSelect aria-label={l('内容重点', 'Content focus')} value={focus} onChange={event => setFocus(event.target.value as AnalysisFocus)}>
                         <option value="balanced">{l('综合表现', 'Balanced')}</option>
                         <option value="viral">{l('传播潜力优先', 'Shareability first')}</option>
                         <option value="knowledge">{l('知识完整度优先', 'Knowledge completeness')}</option>
-                      </select>
+                      </NativeSelect>
                     </label>
                   </div>
                 </section>
@@ -553,11 +554,11 @@ export default function AutoClipWorkspace(props: {
                   <div className="creator-tool-form-row auto-clip-settings-grid">
                     <label className="creator-tool-field">
                       <span>{l('目标时长', 'Target duration')}</span>
-                      <select aria-label={l('目标时长', 'Target duration')} value={duration} onChange={event => setDuration(event.target.value as ClipDuration)}>
+                      <NativeSelect aria-label={l('目标时长', 'Target duration')} value={duration} onChange={event => setDuration(event.target.value as ClipDuration)}>
                         <option value="15-30">15-30 {l('秒', 'sec')}</option>
                         <option value="30-60">30-60 {l('秒', 'sec')}</option>
                         <option value="60-90">60-90 {l('秒', 'sec')}</option>
-                      </select>
+                      </NativeSelect>
                     </label>
                     <label className="creator-tool-field">
                       <span>{l('切片数量', 'Number of clips')}</span>
@@ -565,12 +566,12 @@ export default function AutoClipWorkspace(props: {
                     </label>
                     <label className="creator-tool-field">
                       <span>{l('输出画幅', 'Output format')}</span>
-                      <select aria-label={l('输出画幅', 'Output format')} value={aspectRatio} onChange={event => setAspectRatio(event.target.value as ClipAspectRatio)}>
+                      <NativeSelect aria-label={l('输出画幅', 'Output format')} value={aspectRatio} onChange={event => setAspectRatio(event.target.value as ClipAspectRatio)}>
                         <option value="9:16">{l('竖屏', 'Portrait')} 9:16</option>
                         <option value="1:1">{l('方形', 'Square')} 1:1</option>
                         <option value="16:9">{l('横屏', 'Landscape')} 16:9</option>
                         <option value="source">{l('跟随原视频', 'Match source')}</option>
-                      </select>
+                      </NativeSelect>
                     </label>
                   </div>
                 </section>

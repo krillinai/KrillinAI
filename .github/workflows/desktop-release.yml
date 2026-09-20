@@ -123,6 +123,11 @@ jobs:
             exit 1
           fi
       - uses: actions/checkout@v4
+      - name: 选择支持自适应图标的 Xcode
+        if: matrix.platform == 'darwin'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:

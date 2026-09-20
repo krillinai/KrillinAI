@@ -151,6 +151,14 @@ export class FakeStickmanDaemon {
         }]
       });
     }
+    if (method === 'GET' && pathWithoutQuery === '/creator/presets') {
+      const locale = url.searchParams.get('locale') === 'en-US' ? 'en-US' : 'zh-CN';
+      return json(route, {
+        locale,
+        catalogHash: '0'.repeat(64),
+        presets: []
+      });
+    }
     if (method === 'GET' && pathWithoutQuery === '/creator/visual-assets') {
       return json(route, { assets: fakeVisualAssets() });
     }

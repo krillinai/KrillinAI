@@ -14,12 +14,12 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 18px;
-  padding: 30px 24px 0;
+  padding: var(--page-title-inset) 24px 0;
 }
 
 .search-view__input {
   min-width: 0;
-  height: 46px;
+  height: var(--page-title-row-height);
   display: flex;
   align-items: center;
   gap: 10px;

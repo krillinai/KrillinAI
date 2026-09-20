@@ -1,9 +1,16 @@
-import type { CreatorJob } from '@opencreator/protocol';
+import type { CreatorArtifact, CreatorJob } from '@opencreator/protocol';
 import {
+  Captions,
+  CirclePlay,
+  FileText,
   FolderKanban,
+  Image as ImageIcon,
   ListChecks,
+  Music2,
+  PackageOpen,
   Search,
   Trash2,
+  Video,
   X
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -12,11 +19,49 @@ import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { useLocalizedCopy, type LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
 import { ApiClientError } from '../../runtime/client.js';
 import type { CreatorWebService } from '../../services/creator-service.js';
+import { CreateProjectDropdown } from './CreateProjectDropdown.js';
 import type { OpenCreatorProject } from './project-model.js';
+import type { CreatorProjectType } from './project-types.js';
 import './projects-page.css';
 
 const projectCategories = ['全部', '视频创作', '图像设计', '文案创作'] as const;
 type ProjectCategory = typeof projectCategories[number];
+const outputCategories = ['全部', '视频', '图片', '音频', '字幕', '文档'] as const;
+type OutputCategory = typeof outputCategories[number];
+type ProjectsView = 'projects' | 'outputs';
+type ProjectOutputKind = Exclude<OutputCategory, '全部'>;
+
+type ProjectOutput = {
+  id: string;
+  job: CreatorJob;
+  projectName: string;
+  name: string;
+  kind: ProjectOutputKind;
+  format: string;
+  detail: string;
+  cover: string;
+  youtubeCovers: string[];
+  updatedAt: string;
+};
+
+const projectArtifactKinds = new Set([
+  'source_video',
+  'source_subtitle',
+  'target_subtitle',
+  'bilingual_subtitle',
+  'dubbed_audio',
+  'horizontal_video',
+  'vertical_video',
+  'auto_clip_video',
+  'clean_video',
+  'bilingual_video',
+  'cover_image',
+  'generated_image',
+  'publish_copy',
+  'script_manifest',
+  'shot_image',
+  'clip_candidates'
+]);
 const projectCoverArtifactKinds = new Set([
   'cover_image',
   'generated_image',
@@ -45,14 +90,20 @@ export default function ProjectsPage(props: {
   workspaces: OpenCreatorProject[];
   loading?: boolean;
   error?: string;
-  service?: Pick<CreatorWebService, 'openProjectCover'> | null;
+  service?: Pick<CreatorWebService, 'openProjectCover'>
+    & Partial<Pick<CreatorWebService, 'openArtifact'>>
+    | null;
+  onCreateProject?(projectType: CreatorProjectType): boolean | void | Promise<boolean | void>;
+  createProjectError?: string;
   onOpenJob(job: CreatorJob): void;
   onDeleteJob?(jobId: string, options: { deleteFiles: boolean }): Promise<void>;
 }) {
   const { language } = useAppLanguage();
   const l = useLocalizedCopy();
+  const [view, setView] = useState<ProjectsView>('projects');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<ProjectCategory>('全部');
+  const [outputCategory, setOutputCategory] = useState<OutputCategory>('全部');
   const [projectPendingDeletion, setProjectPendingDeletion] = useState<CreatorProject>();
   const [batchMode, setBatchMode] = useState(false);
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(() => new Set());
@@ -61,6 +112,8 @@ export default function ProjectsPage(props: {
   const [deletingProjectId, setDeletingProjectId] = useState<string>();
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string>();
+  const [downloadingOutputId, setDownloadingOutputId] = useState<string>();
+  const [downloadError, setDownloadError] = useState<string>();
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const projects = useMemo(
     () => props.jobs
@@ -79,10 +132,26 @@ export default function ProjectsPage(props: {
     ].join(' ').toLocaleLowerCase().includes(normalizedQuery))
     .sort((left, right) => right.job.updatedAt.localeCompare(left.job.updatedAt)),
   [category, normalizedQuery, projects]);
+  const outputs = useMemo(
+    () => projects.flatMap(project => createProjectOutputs(project, l)),
+    [l, projects]
+  );
+  const visibleOutputs = useMemo(() => outputs
+    .filter(output => outputCategory === '全部' || output.kind === outputCategory)
+    .filter(output => normalizedQuery.length === 0 || `${output.name} ${output.projectName} ${output.format}`
+      .toLocaleLowerCase()
+      .includes(normalizedQuery))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
+  [normalizedQuery, outputCategory, outputs]);
   const selectedProjectCount = selectedProjectIds.size;
   const allVisibleProjectsSelected = visibleProjects.length > 0
     && visibleProjects.every(project => selectedProjectIds.has(project.job.id));
   const deleting = deletingProjectId !== undefined || batchDeleting;
+
+  function selectView(nextView: ProjectsView) {
+    setView(nextView);
+    setQuery('');
+  }
 
   useEffect(() => {
     const availableProjectIds = new Set(projects.map(project => project.job.id));
@@ -111,13 +180,59 @@ export default function ProjectsPage(props: {
     setDeleteError(undefined);
   };
 
+  async function downloadOutput(output: ProjectOutput) {
+    if (props.service?.openArtifact === undefined || downloadingOutputId !== undefined) return;
+    setDownloadingOutputId(output.id);
+    setDownloadError(undefined);
+    try {
+      const response = await props.service.openArtifact(output.job.id, output.id);
+      if (!response.ok) throw new Error('Artifact download failed');
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = output.name;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      setDownloadError(l('文件下载失败，请重试', 'Unable to download the file. Please try again.'));
+    } finally {
+      setDownloadingOutputId(undefined);
+    }
+  }
+
   return (
-    <main className="projects-page">
-      <div className="projects-page-inner">
+    <main className="opencreator-scroll-page projects-page">
+      <div className="opencreator-page-content projects-page-inner">
         <header className="projects-page-header">
           <div>
             <h1>{l('我的项目', 'My Projects')}</h1>
-            <p>{l('继续最近的创作项目，保留完整设置、进度和历史', 'Continue recent creator projects with their settings, progress, and history')}</p>
+            <p>{view === 'projects'
+              ? l('继续最近的创作项目，保留完整设置、进度和历史', 'Continue recent creator projects with their settings, progress, and history')
+              : l('集中查看所有创作项目产生的真实文件', 'Review real files generated across creator projects')}</p>
+          </div>
+          <div className="projects-header-actions">
+            {props.onCreateProject ? (
+              <CreateProjectDropdown
+                error={props.createProjectError}
+                onCreate={props.onCreateProject}
+              />
+            ) : null}
+          </div>
+        </header>
+
+        <div className="projects-primary-row">
+          <div className="projects-dimension-tabs" role="tablist" aria-label={l('内容维度', 'Content view')}>
+            <button type="button" role="tab" aria-selected={view === 'projects'} onClick={() => selectView('projects')}>
+              <FolderKanban size={16} strokeWidth={1.8} aria-hidden="true" />
+              {l('项目', 'Projects')}
+            </button>
+            <button type="button" role="tab" aria-selected={view === 'outputs'} onClick={() => selectView('outputs')}>
+              <PackageOpen size={16} strokeWidth={1.8} aria-hidden="true" />
+              {l('产出中心', 'Output Center')}
+            </button>
           </div>
           <label className="projects-search">
             <Search size={17} strokeWidth={1.8} aria-hidden="true" />
@@ -125,35 +240,43 @@ export default function ProjectsPage(props: {
               type="search"
               value={query}
               onChange={event => setQuery(event.target.value)}
-              aria-label={l('搜索项目', 'Search projects')}
-              placeholder={l('搜索项目', 'Search projects')}
+              aria-label={view === 'projects' ? l('搜索项目', 'Search projects') : l('搜索产出', 'Search outputs')}
+              placeholder={view === 'projects' ? l('搜索项目', 'Search projects') : l('搜索产出', 'Search outputs')}
             />
           </label>
-        </header>
+        </div>
 
-        <div className="projects-category-tabs" role="tablist" aria-label={l('项目分类', 'Project categories')}>
-          {projectCategories.map(item => (
+        <div className={`projects-category-tabs${view === 'outputs' ? ' is-output' : ''}`} role="tablist" aria-label={view === 'projects' ? l('项目分类', 'Project categories') : l('产出分类', 'Output categories')}>
+          {(view === 'projects' ? projectCategories : outputCategories).map(item => (
             <button
               type="button"
               role="tab"
               key={item}
-              aria-selected={category === item}
-              onClick={() => setCategory(item)}
+              aria-selected={view === 'projects' ? category === item : outputCategory === item}
+              onClick={() => view === 'projects'
+                ? setCategory(item as ProjectCategory)
+                : setOutputCategory(item as OutputCategory)}
             >
-              {localizeProjectCategory(item, l)}
+              {view === 'projects'
+                ? localizeProjectCategory(item as ProjectCategory, l)
+                : localizeOutputCategory(item as OutputCategory, l)}
             </button>
           ))}
         </div>
 
-        <section className="projects-library" aria-label={l('项目列表', 'Project list')}>
+        <section className="projects-library" aria-label={view === 'projects' ? l('项目列表', 'Project list') : l('产出列表', 'Output list')}>
           <div className="projects-library-heading">
             <div className="projects-library-summary">
-              {category === '全部' ? null : (
-                <h2>{localizeProjectCategory(category, l)}</h2>
+              {(view === 'projects' ? category : outputCategory) === '全部' ? null : (
+                <h2>{view === 'projects'
+                  ? localizeProjectCategory(category, l)
+                  : localizeOutputCategory(outputCategory, l)}</h2>
               )}
-              <span>{`${visibleProjects.length} ${l('个项目', 'projects')}`}</span>
+              <span>{view === 'projects'
+                ? `${visibleProjects.length} ${l('个项目', 'projects')}`
+                : `${visibleOutputs.length} ${l('个产出', 'outputs')}`}</span>
             </div>
-            {props.onDeleteJob !== undefined && projects.length > 0 ? (
+            {view === 'projects' && props.onDeleteJob !== undefined && projects.length > 0 ? (
               batchMode ? (
                 <div className="projects-batch-actions">
                   <span className="projects-selected-count">
@@ -217,6 +340,9 @@ export default function ProjectsPage(props: {
               )
             ) : null}
           </div>
+          {view === 'outputs' && downloadError !== undefined ? (
+            <p className="projects-download-error" role="alert">{downloadError}</p>
+          ) : null}
 
           {props.error !== undefined ? (
             <div className="projects-empty" role="alert">
@@ -229,7 +355,7 @@ export default function ProjectsPage(props: {
               <FolderKanban size={28} strokeWidth={1.5} aria-hidden="true" />
               <strong>{l('正在加载最近项目', 'Loading recent projects')}</strong>
             </div>
-          ) : visibleProjects.length > 0 ? (
+          ) : view === 'projects' ? visibleProjects.length > 0 ? (
             <div className="projects-card-grid" role="list" aria-label={l('项目列表', 'Project list')}>
               {visibleProjects.map(project => {
                 const selected = selectedProjectIds.has(project.job.id);
@@ -312,6 +438,63 @@ export default function ProjectsPage(props: {
                 : normalizedQuery.length > 0
                   ? l('换个名称重新搜索。', 'Try searching with another name.')
                   : l('完成对应类型的创作后，项目会显示在这里。', 'Projects of this type will appear here after you create them.')}</p>
+            </div>
+          ) : visibleOutputs.length > 0 ? (
+            <div className="project-output-grid" role="list" aria-label={l('产出列表', 'Output list')}>
+              {visibleOutputs.map(output => (
+                <article className="project-output-card" role="listitem" key={output.id}>
+                  <button
+                    type="button"
+                    className="project-output-open"
+                    aria-label={`${l('下载产出', 'Download output')} ${output.name}`}
+                    aria-busy={downloadingOutputId === output.id}
+                    disabled={downloadingOutputId !== undefined}
+                    onClick={() => void downloadOutput(output)}
+                  >
+                    <span className="project-output-preview" data-kind={output.kind}>
+                      {output.kind === '视频' || output.kind === '图片' ? (
+                        <ProjectCoverImage
+                          job={output.job}
+                          youtubeCovers={output.youtubeCovers}
+                          fallback={output.cover}
+                          service={props.service}
+                        />
+                      ) : (
+                        <span className="project-output-file-icon" aria-hidden="true">
+                          {outputKindIcon(output.kind, 28)}
+                        </span>
+                      )}
+                      {output.kind === '视频' ? (
+                        <span className="project-output-play" aria-hidden="true">
+                          <CirclePlay size={28} strokeWidth={1.6} />
+                        </span>
+                      ) : null}
+                      <small>{output.format}</small>
+                    </span>
+                    <span className="project-output-copy">
+                      <span className="project-output-kind">
+                        {outputKindIcon(output.kind, 13)}
+                        {localizeOutputCategory(output.kind, l)}
+                      </span>
+                      <strong>{output.name}</strong>
+                      <span>{output.projectName}</span>
+                      <small>{output.detail} · {formatProjectTime(output.updatedAt, language)}</small>
+                    </span>
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="projects-empty" role="status">
+              <PackageOpen size={28} strokeWidth={1.5} aria-hidden="true" />
+              <strong>{normalizedQuery.length > 0
+                ? l('没有找到匹配的产出', 'No matching outputs')
+                : outputCategory === '全部'
+                  ? l('还没有产出', 'No outputs yet')
+                  : l('这个分类还没有产出', 'No outputs in this category')}</strong>
+              <p>{normalizedQuery.length > 0
+                ? l('换个名称重新搜索。', 'Try searching with another name.')
+                : l('创作项目生成真实文件后，会集中显示在这里。', 'Files generated by creator projects will appear here.')}</p>
             </div>
           )}
         </section>
@@ -711,6 +894,86 @@ function localizeJobStatus(status: CreatorJob['status'], l: LocalizeCopy): strin
   return l('草稿', 'Draft');
 }
 
+function outputKindIcon(kind: ProjectOutputKind, size: number) {
+  if (kind === '视频') return <Video size={size} strokeWidth={1.8} aria-hidden="true" />;
+  if (kind === '图片') return <ImageIcon size={size} strokeWidth={1.8} aria-hidden="true" />;
+  if (kind === '音频') return <Music2 size={size} strokeWidth={1.8} aria-hidden="true" />;
+  if (kind === '字幕') return <Captions size={size} strokeWidth={1.8} aria-hidden="true" />;
+  return <FileText size={size} strokeWidth={1.8} aria-hidden="true" />;
+}
+
+function createProjectOutputs(project: CreatorProject, l: LocalizeCopy): ProjectOutput[] {
+  return project.job.artifacts
+    .filter(artifact => (
+      artifact.path !== null
+      && artifact.status !== 'stale'
+      && projectArtifactKinds.has(artifact.kind)
+    ))
+    .map(artifact => ({
+      id: artifact.id,
+      job: project.job,
+      projectName: project.title,
+      name: artifactName(artifact, l),
+      kind: artifactKind(artifact.kind),
+      format: artifactFormat(artifact),
+      detail: artifact.status === 'technical_preview'
+        ? l(`技术预览 · V${artifact.version}`, `Technical preview · V${artifact.version}`)
+        : `V${artifact.version}`,
+      cover: project.cover,
+      youtubeCovers: project.youtubeCovers,
+      updatedAt: artifact.createdAt
+    }));
+}
+
+function artifactName(artifact: CreatorArtifact, l: LocalizeCopy): string {
+  const fileName = artifact.metadata.fileName;
+  if (typeof fileName === 'string' && fileName.trim().length > 0) return fileName;
+  const pathName = artifact.path?.split(/[\\/]/).at(-1);
+  if (pathName !== undefined && pathName.length > 0) return pathName;
+  const labels: Record<string, string> = {
+    source_video: l('原始视频', 'Source video'),
+    target_subtitle: l('目标语言字幕', 'Translated subtitles'),
+    source_subtitle: l('原文字幕', 'Source subtitles'),
+    bilingual_subtitle: l('双语字幕', 'Bilingual subtitles'),
+    dubbed_audio: l('配音音轨', 'Dubbed audio'),
+    horizontal_video: l('横屏成片', 'Landscape video'),
+    vertical_video: l('竖屏成片', 'Portrait video'),
+    auto_clip_video: l('剪辑成片', 'Edited video'),
+    cover_image: l('封面图片', 'Thumbnail'),
+    generated_image: l('生成图片', 'Generated image'),
+    clean_video: l('火柴人纯净视频', 'Stickman clean video'),
+    bilingual_video: l('火柴人双语视频', 'Stickman bilingual video'),
+    publish_copy: l('发布文案', 'Publish copy'),
+    shot_image: l('火柴人镜头画面', 'Stickman shot visual')
+  };
+  return labels[artifact.kind] ?? artifact.kind;
+}
+
+function artifactKind(kind: string): ProjectOutputKind {
+  if (/video/i.test(kind)) return '视频';
+  if (/image|cover|storyboard/i.test(kind)) return '图片';
+  if (/audio|narration|voice/i.test(kind)) return '音频';
+  if (/subtitle|caption/i.test(kind)) return '字幕';
+  return '文档';
+}
+
+function artifactFormat(artifact: CreatorArtifact): string {
+  const fileName = typeof artifact.metadata.fileName === 'string'
+    ? artifact.metadata.fileName
+    : artifact.path?.split(/[\\/]/).at(-1);
+  const extension = fileName?.split('.').at(-1);
+  return extension === undefined || extension === fileName ? 'FILE' : extension.toUpperCase();
+}
+
+function localizeOutputCategory(category: OutputCategory, l: LocalizeCopy): string {
+  if (category === '全部') return l(category, 'All');
+  if (category === '视频') return l(category, 'Videos');
+  if (category === '图片') return l(category, 'Images');
+  if (category === '音频') return l(category, 'Audio');
+  if (category === '字幕') return l(category, 'Subtitles');
+  return l(category, 'Documents');
+}
+
 function projectCover(templateId: string): string {
   if (templateId === 'video-translation') {
     return '/dashboard/templates/video-translation-project-cover.png';
@@ -820,15 +1083,15 @@ function readString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function formatProjectTime(value: string, language: 'zh-CN' | 'en-US'): string {
+function formatProjectTime(value: string, language: 'zh-CN' | 'en-US' | 'sv-SE'): string {
   const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return language === 'en-US' ? 'Recently updated' : '最近更新';
+  if (!Number.isFinite(timestamp)) return language === 'zh-CN' ? '最近更新' : language === 'sv-SE' ? 'Nyligen uppdaterad' : 'Recently updated';
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
-  if (minutes < 1) return language === 'en-US' ? 'Updated just now' : '刚刚更新';
-  if (minutes < 60) return language === 'en-US' ? `${minutes} min ago` : `${minutes} 分钟前`;
+  if (minutes < 1) return language === 'zh-CN' ? '刚刚更新' : language === 'sv-SE' ? 'Uppdaterades nyss' : 'Updated just now';
+  if (minutes < 60) return language === 'zh-CN' ? `${minutes} 分钟前` : language === 'sv-SE' ? `för ${minutes} min sedan` : `${minutes} min ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return language === 'en-US' ? `${hours} hr ago` : `${hours} 小时前`;
+  if (hours < 24) return language === 'zh-CN' ? `${hours} 小时前` : language === 'sv-SE' ? `för ${hours} tim sedan` : `${hours} hr ago`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return language === 'en-US' ? `${days} days ago` : `${days} 天前`;
+  if (days < 30) return language === 'zh-CN' ? `${days} 天前` : language === 'sv-SE' ? `för ${days} dagar sedan` : `${days} days ago`;
   return new Intl.DateTimeFormat(language, { month: 'short', day: 'numeric' }).format(timestamp);
 }

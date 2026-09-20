@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -46,7 +46,7 @@ describe('project manager', () => {
     ).toEqual({ count: 1 });
   });
 
-  it('creates named projects inside the managed OpenCreator directory', () => {
+  it('creates named projects with generated directories inside the managed OpenCreator directory', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'opencreator-managed-project-'));
     const managedProjectRoot = join(tempDir, 'Documents', 'OpenCreator');
     db = openRuntimeDatabase(join(tempDir, 'app.sqlite'));
@@ -61,15 +61,15 @@ describe('project manager', () => {
     expect(created).toMatchObject({
       id: 'project_managed',
       name: '产品官网',
-      cwd: join(managedProjectRoot, '产品官网'),
+      cwd: expect.stringMatching(join(managedProjectRoot, 'project-')),
       directoryState: 'available'
     });
-    expect(existsSync(join(managedProjectRoot, '产品官网'))).toBe(true);
+    expect(existsSync(created.cwd)).toBe(true);
   });
 
   it('removes a newly created empty directory when registration fails', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'opencreator-managed-project-'));
-    const projectDir = join(tempDir, 'Documents', 'OpenCreator', '未注册项目');
+    const managedProjectRoot = join(tempDir, 'Documents', 'OpenCreator');
     db = openRuntimeDatabase(join(tempDir, 'app.sqlite'));
     const manager = createProjectManager({
       db,
@@ -79,10 +79,10 @@ describe('project manager', () => {
 
     expect(() => manager.createManagedProject({ name: '未注册项目' }))
       .toThrow('Unable to allocate a unique project id');
-    expect(existsSync(projectDir)).toBe(false);
+    expect(readdirSync(managedProjectRoot)).toEqual([]);
   });
 
-  it('rejects invalid or duplicate managed project names', () => {
+  it('rejects invalid managed project names and generates unique directories for duplicates', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'opencreator-managed-project-'));
     const managedProjectRoot = join(tempDir, 'Documents', 'OpenCreator');
     db = openRuntimeDatabase(join(tempDir, 'app.sqlite'));
@@ -94,10 +94,14 @@ describe('project manager', () => {
       );
     }
 
-    manager.createManagedProject({ name: '重复项目' });
-    expect(() => manager.createManagedProject({ name: '重复项目' })).toThrowError(
-      expect.objectContaining({ code: 'PROJECT_DIRECTORY_CONFLICT' })
-    );
+    const first = manager.createManagedProject({ name: '重复项目' });
+    const second = manager.createManagedProject({ name: '重复项目' });
+
+    expect(first.name).toBe('重复项目');
+    expect(second.name).toBe('重复项目');
+    expect(first.cwd).not.toBe(second.cwd);
+    expect(existsSync(first.cwd)).toBe(true);
+    expect(existsSync(second.cwd)).toBe(true);
   });
 
   it('persists projects and preserves a missing migrated directory', () => {

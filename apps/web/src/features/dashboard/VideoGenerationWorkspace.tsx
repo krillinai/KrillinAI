@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
+import NativeSelect from '../../components/forms/NativeSelect.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
@@ -655,21 +656,21 @@ export default function VideoGenerationWorkspace(props: {
               <div className="video-generation-settings-grid">
                 <label className="creator-tool-field">
                   <span>{l('视频服务', 'Video provider')}</span>
-                  <select value={provider} onChange={event => updateProvider(event.target.value as VideoGenerationProvider)}>
+                  <NativeSelect value={provider} onChange={event => updateProvider(event.target.value as VideoGenerationProvider)}>
                     {providers.map(item => <option key={item.value} value={item.value}>{l(item.zh, item.en)}</option>)}
-                  </select>
+                  </NativeSelect>
                 </label>
                 <label className="creator-tool-field">
                   <span>{l('模型版本', 'Model version')}</span>
-                  <select value={model} onChange={event => updateModel(event.target.value)}>
+                  <NativeSelect value={model} onChange={event => updateModel(event.target.value)}>
                     {modelOptions.map(item => (
                       <option key={item.value} value={item.value}>{item.label}</option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </label>
                 <label className="creator-tool-field">
                   <span>{l('画幅', 'Format')}</span>
-                  <select
+                  <NativeSelect
                     value={size}
                     disabled={followsReferenceRatio}
                     title={followsReferenceRatio
@@ -680,13 +681,13 @@ export default function VideoGenerationWorkspace(props: {
                     {followsReferenceRatio ? (
                       <option value={size}>{l('跟随参考图', 'Match reference image')}</option>
                     ) : sizes.map(item => <option key={item.value} value={item.value}>{l(item.zh, item.en)} · {item.ratio} · {item.value}</option>)}
-                  </select>
+                  </NativeSelect>
                 </label>
                 <label className="creator-tool-field">
                   <span>{l('视频时长', 'Video duration')}</span>
-                  <select value={duration} onChange={event => updateDuration(Number(event.target.value) as VideoGenerationDuration)}>
+                  <NativeSelect value={duration} onChange={event => updateDuration(Number(event.target.value) as VideoGenerationDuration)}>
                     {durations.map(value => <option key={value} value={value}>{value} {l('秒', 'seconds')}</option>)}
-                  </select>
+                  </NativeSelect>
                 </label>
               </div>
               <div className="media-generation-setting-note">

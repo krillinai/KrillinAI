@@ -15,6 +15,7 @@ type BootstrapApi = {
   restartRuntime(): Promise<unknown>;
   exportDiagnostics(): Promise<unknown>;
   quit(): Promise<void>;
+  controlWindow?(action: 'close' | 'minimize' | 'zoom'): Promise<void>;
 };
 
 declare global {
@@ -39,6 +40,17 @@ if (
     '--opencreator-traffic-light-inset',
     `${api.windowChrome.trafficLightInset}px`
   );
+  if (api.controlWindow !== undefined) {
+    const controls = document.querySelector<HTMLElement>('.desktop-window-controls')!;
+    controls.hidden = false;
+    controls.addEventListener('click', event => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-action]');
+      const action = button?.dataset.action;
+      if (action === 'close' || action === 'minimize' || action === 'zoom') {
+        void api.controlWindow!(action).catch(error => console.error('Failed to control desktop window', error));
+      }
+    });
+  }
 }
 
 const title = element('status-title');

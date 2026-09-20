@@ -1,0 +1,27 @@
+.native-select {
+  position: relative;
+  min-width: 0;
+}
+
+.native-select > .native-select-control {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  appearance: none;
+  padding-inline-end: 40px;
+}
+
+.native-select > svg {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--muted);
+}
+
+.native-select > select:disabled + svg {
+  opacity: 0.5;
+}

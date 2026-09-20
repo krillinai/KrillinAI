@@ -11,6 +11,8 @@ export const desktopIpc = {
   workspaceReady: 'opencreator:workspace:ready',
   readPreferences: 'opencreator:preferences:read',
   updatePreferences: 'opencreator:preferences:update',
+  setWindowColorMode: 'opencreator:window:color-mode',
+  controlWindow: 'opencreator:window:control',
   openExternal: 'opencreator:native:open-external',
   revealPath: 'opencreator:native:reveal-path',
   notify: 'opencreator:notification:show',

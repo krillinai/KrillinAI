@@ -47,6 +47,38 @@ button {
   user-select: none;
 }
 
+.desktop-window-controls {
+  position: fixed;
+  z-index: 20;
+  top: 0;
+  left: 10px;
+  height: var(--opencreator-titlebar-height, 38px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  -webkit-app-region: no-drag;
+}
+
+.desktop-window-controls button {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 50%;
+  color: rgba(0, 0, 0, 0.65);
+  cursor: default;
+  -webkit-app-region: no-drag;
+}
+
+.desktop-window-controls button span { opacity: 0; font-size: 12px; line-height: 1; }
+.desktop-window-controls:hover button span,
+.desktop-window-controls button:focus-visible span { opacity: 1; }
+.desktop-window-controls button[data-action="close"] { background: #ff5f57; }
+.desktop-window-controls button[data-action="minimize"] { background: #febc2e; }
+.desktop-window-controls button[data-action="zoom"] { background: #28c840; }
+
 .bootstrap-panel {
   display: flex;
   width: min(520px, 100%);

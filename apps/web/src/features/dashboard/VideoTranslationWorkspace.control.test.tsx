@@ -631,7 +631,7 @@ describe('VideoTranslationWorkspace task controls', () => {
 
     expect(await screen.findByRole('heading', { name: '视频翻译项目' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '项目 V1' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '生成物' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: '作品' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('target-subtitle-v1.srt')).toBeInTheDocument();
     expect(screen.queryByText('正在基于 V1 调整')).not.toBeInTheDocument();
 

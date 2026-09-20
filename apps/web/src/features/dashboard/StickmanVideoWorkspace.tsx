@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { TtsVoicePicker } from '../../components/tts/TtsVoicePicker.js';
+import NativeSelect from '../../components/forms/NativeSelect.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import type { CreatorWebService } from '../../services/creator-service.js';
@@ -916,7 +917,7 @@ function SourceAndCharacterStep(props: {
         <div className="creator-tool-field">
           <span id="stickman-target-duration-label">{props.l('目标时长', 'Target duration')}</span>
           <div className="stickman-duration-control">
-            <select
+            <NativeSelect
               aria-labelledby="stickman-target-duration-label"
               value={targetDurationPreset(props.targetDurationSeconds)}
               onChange={event => props.onPatch({
@@ -930,7 +931,7 @@ function SourceAndCharacterStep(props: {
               <option value="300">{props.l('5 分钟', '5 minutes')}</option>
               <option value="600">{props.l('10 分钟', '10 minutes')}</option>
               <option value="custom">{props.l('自定义', 'Custom')}</option>
-            </select>
+            </NativeSelect>
             {targetDurationPreset(props.targetDurationSeconds) === 'custom' ? (
               <span className="stickman-custom-duration">
                 <input
@@ -1072,7 +1073,7 @@ function VisualStylePicker(props: {
   return (
     <div className="creator-tool-field stickman-style-field">
       <label htmlFor="stickman-visual-style">{props.l('视觉风格', 'Visual style')}</label>
-      <select
+      <NativeSelect
         id="stickman-visual-style"
         value={selectedAsset === undefined ? '' : assetRefKey(selectedAsset)}
         disabled={props.assets.length === 0}
@@ -1087,7 +1088,7 @@ function VisualStylePicker(props: {
             {props.l(asset.name.zhCN, asset.name.en)}
           </option>
         ))}
-      </select>
+      </NativeSelect>
       {selectedAsset?.styleAttributes !== undefined ? (
         <div className="stickman-style-summary">
           <span
@@ -1729,7 +1730,7 @@ function StoryboardShotRow(props: {
         ) : null}
         <label className="stickman-storyboard-motion">
           <span>{props.l('镜头运动', 'Motion')}</span>
-          <select
+          <NativeSelect
             aria-label={props.l(`第 ${props.index + 1} 个镜头运动`, `Motion for shot ${props.index + 1}`)}
             value={motion}
             disabled={props.saving || generating}
@@ -1740,7 +1741,7 @@ function StoryboardShotRow(props: {
             <option value="zoom-out">{props.l('拉远', 'Zoom out')}</option>
             <option value="pan-left">{props.l('向左平移', 'Pan left')}</option>
             <option value="pan-right">{props.l('向右平移', 'Pan right')}</option>
-          </select>
+          </NativeSelect>
         </label>
         <div className="stickman-storyboard-actions">
           {dirty ? (

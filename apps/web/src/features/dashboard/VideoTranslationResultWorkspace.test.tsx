@@ -49,8 +49,8 @@ describe('VideoTranslationResultWorkspace', () => {
       />
     );
 
-    expect(screen.getByRole('tab', { name: '生成物' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('heading', { name: '生成物' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '作品' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { name: '作品' })).toBeInTheDocument();
     expect(screen.getByText('项目 V1 · 1 个文件')).toBeInTheDocument();
     expect(screen.getByText('horizontal.srt')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '下载横屏字幕' }));
