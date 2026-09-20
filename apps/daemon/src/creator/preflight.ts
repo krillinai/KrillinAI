@@ -294,6 +294,8 @@ function checkProviderConfig(
       checkOpenAi(config.transcription.openai, 'transcription', '语音识别', '#/settings?tab=ai-services&section=transcription', add);
     } else if (config.transcription.provider === 'aliyun' && (!config.transcription.aliyun.speech.accessKeyId.trim() || !config.transcription.aliyun.speech.accessKeySecret.trim() || !config.transcription.aliyun.speech.appKey.trim())) {
       add('blocked', { id: 'transcription-config', title: '语音识别凭据缺失', message: '请补全阿里云语音识别凭据。', executionMode: 'remote' }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=transcription' });
+    } else if (config.transcription.provider === 'volcengine' && (!config.transcription.volcengine.appId.trim() || !config.transcription.volcengine.accessToken.trim())) {
+      add('blocked', { id: 'transcription-config', title: '语音识别凭据缺失', message: '请补全火山引擎 App ID 和 Access Token。', executionMode: 'remote' }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=transcription' });
     } else add('ready', { id: 'transcription-config', title: '语音识别', message: `${config.transcription.provider} 已配置。`, executionMode: provider.kind === 'local' ? 'local' : 'remote' });
   }
 }
@@ -310,8 +312,11 @@ function checkOpenAi(
 }
 
 function checkTts(config: CreatorServicesConfig, provider: Exclude<CreatorServicesConfig['tts']['provider'], 'edge-tts'>, add: Parameters<typeof checkProviderConfig>[4]) {
+  const credentialsReady = provider === 'volcengine'
+    ? Boolean(config.tts.volcengine.appId.trim() && config.tts.volcengine.accessToken.trim())
+    : Boolean(config.tts[provider].apiKey.trim());
   const value = config.tts[provider];
-  if (!value.baseUrl.trim() || !value.model.trim() || !value.apiKey.trim()) add('blocked', { id: 'tts', title: '配音服务配置不完整', message: `请补全 ${provider} 的 Base URL、模型和 API Key。`, executionMode: 'remote' }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=tts' });
+  if (!value.baseUrl.trim() || !value.model.trim() || !credentialsReady) add('blocked', { id: 'tts', title: '配音服务配置不完整', message: `请补全 ${provider} 的 Base URL、模型和凭据。`, executionMode: 'remote' }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=tts' });
   else add('ready', { id: 'tts', title: '配音服务', message: `${provider} / ${value.model} 已配置。`, executionMode: 'remote' });
 }
 
@@ -340,7 +345,7 @@ async function checkInputs(
 
 function readTtsProvider(job: CreatorJob, config: CreatorServicesConfig): CreatorServicesConfig['tts']['provider'] {
   const value = job.state.ttsProvider;
-  return value === 'openai' || value === 'aliyun' || value === 'edge-tts' || value === 'minimax' ? value : config.tts.provider;
+  return value === 'openai' || value === 'aliyun' || value === 'edge-tts' || value === 'minimax' || value === 'volcengine' ? value : config.tts.provider;
 }
 function readImageProvider(job: CreatorJob, config: CreatorServicesConfig): CreatorServicesConfig['image']['provider'] {
   const value = job.state.provider;

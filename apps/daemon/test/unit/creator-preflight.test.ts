@@ -8,6 +8,8 @@ import { createImageGenerationTemplate } from '../../src/creator/templates/image
 import { createVideoDownloadTemplate } from '../../src/creator/templates/video-download.js';
 import { createStickmanVideoTemplate } from '../../src/creator/templates/stickman-video.js';
 import { createCoverTemplate } from '../../src/creator/templates/cover.js';
+import { createSmartDubbingTemplate } from '../../src/creator/templates/smart-dubbing.js';
+import { createVideoTranslationTemplate } from '../../src/creator/templates/video-translation.js';
 import { createKrillinCreatorServicesCapabilities } from '../../src/creator/krillin/capabilities.js';
 
 let root = '';
@@ -126,6 +128,49 @@ describe('creator preflight', () => {
     }).check(fakeJob('cover', { sourceType: 'youtube', sourceUrl: 'https://youtu.be/example' }), stage);
 
     expect(result.blocked.map(item => item.id)).toEqual(expect.arrayContaining(['llm', 'yt-dlp']));
+  });
+
+  it('validates Volcengine TTS with App ID and Access Token credentials', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const config = createDefaultCreatorServicesConfig();
+    config.tts.provider = 'volcengine';
+    const stage = createSmartDubbingTemplate().stages.find(candidate => candidate.id === 'tts')!;
+    const preflight = createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('win32', 'x64'),
+      resourceRoot: join(root, 'runtime'),
+      jobsRoot: join(root, 'jobs'),
+      executorIds: ['smart-dubbing'],
+      validateRuntimeAssets: false
+    });
+
+    const blocked = await preflight.check(fakeJob('smart-dubbing', { ttsProvider: 'volcengine' }), stage);
+    expect(blocked.blocked.map(item => item.id)).toContain('tts');
+
+    config.tts.volcengine.appId = 'app-id';
+    config.tts.volcengine.accessToken = 'access-token';
+    const ready = await preflight.check(fakeJob('smart-dubbing', { ttsProvider: 'volcengine' }), stage);
+    expect(ready.blocked.map(item => item.id)).not.toContain('tts');
+  });
+
+  it('blocks Volcengine transcription when its shared credentials are missing', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const config = createDefaultCreatorServicesConfig();
+    config.transcription.provider = 'volcengine';
+    const stage = createVideoTranslationTemplate().stages.find(candidate => candidate.id === 'subtitle')!;
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('win32', 'x64'),
+      resourceRoot: join(root, 'runtime'),
+      jobsRoot: join(root, 'jobs'),
+      executorIds: ['krillinai'],
+      validateRuntimeAssets: false
+    }).check(fakeJob('video-translation', {
+      sourceType: 'file',
+      sourceArtifactId: 'missing-source'
+    }), stage);
+
+    expect(result.blocked.map(item => item.id)).toContain('transcription-config');
   });
 
   it('resolves historical stale inputs the same way as StageRunner', async () => {

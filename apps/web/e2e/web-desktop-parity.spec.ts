@@ -608,6 +608,73 @@ test('本地 Whisper 在 Browser/Desktop Bridge 下遵守相同 Runtime 能力�
   }
 });
 
+test('火山引擎语音识别设置在 Browser/Desktop Bridge 下保持相同请求和持久状态', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-desktop',
+    '一致性规格内部固定创建 Browser/Desktop Chromium 上下文'
+  );
+
+  const results: Array<{ text: string; requests: string[]; configuredCredentials: string[] }> = [];
+  for (const platform of ['browser', 'desktop'] as const) {
+    await runtime.api('DELETE', '/creator-services/config');
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      deviceScaleFactor: 1,
+      colorScheme: 'dark',
+      reducedMotion: 'reduce'
+    });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page);
+    const requests: string[] = [];
+    page.on('request', request => {
+      const url = new URL(request.url());
+      if (!url.pathname.includes('/creator-services/')) return;
+      requests.push(`${request.method()} ${url.pathname.replace('/.opencreator/runtime', '')}`);
+    });
+
+    try {
+      await runtime.openApp(page);
+      await page.goto(`${runtime.origin}/#/settings?tab=ai-services&section=transcription`);
+      await page.getByRole('combobox', { name: '语音识别服务' }).click();
+      await page.getByRole('option', { name: '火山引擎' }).click();
+      await page.getByLabel('App ID').fill('parity-volcengine-app');
+      await page.getByLabel('Access Token').fill('parity-volcengine-token');
+      await page.getByRole('button', { name: '保存配置' }).click();
+      await expect(page.getByText('配置已安全保存')).toBeVisible();
+
+      const saved = await runtime.api<{
+        config: { transcription: { provider: string; volcengine: { appId: string; accessToken: string } } };
+        configuredCredentials: string[];
+      }>('GET', '/creator-services/config');
+      results.push({
+        text: await page.getByRole('tabpanel').innerText(),
+        requests,
+        configuredCredentials: saved.configuredCredentials
+      });
+      expect(saved.config.transcription).toMatchObject({
+        provider: 'volcengine',
+        volcengine: { appId: '', accessToken: '' }
+      });
+    } finally {
+      await context.close();
+    }
+  }
+
+  expect(results[1]!.text).toBe(results[0]!.text);
+  expect(normalizeParityRequests(results[1]!.requests))
+    .toEqual(normalizeParityRequests(results[0]!.requests));
+  expect(results[1]!.configuredCredentials.sort())
+    .toEqual(results[0]!.configuredCredentials.sort());
+  expect(results[0]!.requests).toContain('PATCH /creator-services/config');
+  expect(results[0]!.configuredCredentials).toEqual(expect.arrayContaining([
+    'transcription.volcengine.appId',
+    'transcription.volcengine.accessToken'
+  ]));
+});
+
 test('短视频脚本在 Browser/Desktop Bridge 下保持相同界面、请求和持久状态', async ({
   browser,
   runtime
