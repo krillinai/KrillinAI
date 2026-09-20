@@ -274,7 +274,7 @@ jobs:
           CANDIDATE_REPOSITORY: ${{ github.repository }}
           CANDIDATE_BUILD_INPUT_DIGEST: ${{ steps.build-input.outputs.digest }}
         run: |
-          node -e '
+          node <<'NODE'
             const fs = require("node:fs");
             const candidate = {
               schemaVersion: 2,
@@ -286,7 +286,7 @@ jobs:
               target: "all"
             };
             fs.writeFileSync("release-candidate.json", `${JSON.stringify(candidate, null, 2)}\n`);
-          '
+          NODE
       - name: 上传候选包身份凭据
         uses: actions/upload-artifact@v4
         with:
@@ -342,9 +342,11 @@ jobs:
             echo "::error::候选构建 $candidate_run_id 的来源或祖先关系无效。"
             exit 1
           fi
-          echo "run-id=$candidate_run_id" >> "$GITHUB_OUTPUT"
-          echo "sha=$candidate_sha" >> "$GITHUB_OUTPUT"
-          echo "name=$CANDIDATE_NAME" >> "$GITHUB_OUTPUT"
+          {
+            echo "run-id=$candidate_run_id"
+            echo "sha=$candidate_sha"
+            echo "name=$CANDIDATE_NAME"
+          } >> "$GITHUB_OUTPUT"
           echo "使用已验证候选构建：$candidate_run_id ($candidate_sha)"
       - uses: actions/download-artifact@v4
         with:
@@ -373,7 +375,7 @@ jobs:
           EXPECTED_REPOSITORY: ${{ github.repository }}
           EXPECTED_BUILD_INPUT_DIGEST: ${{ steps.build-input.outputs.digest }}
         run: |
-          node -e '
+          node <<'NODE'
             const fs = require("node:fs");
             const candidate = JSON.parse(fs.readFileSync("candidate/release-candidate.json", "utf8"));
             const valid = candidate.schemaVersion === 2
@@ -384,7 +386,7 @@ jobs:
               && candidate.event === "workflow_dispatch"
               && candidate.target === "all";
             if (!valid) throw new Error("Release candidate provenance does not match this tag");
-          '
+          NODE
       - name: 校验发布附件并生成下载说明
         env:
           TAG: ${{ github.ref_name }}
