@@ -501,3 +501,70 @@ func TestSplitLongSentenceToleratesConversationalPrefix(t *testing.T) {
 		t.Fatalf("unexpected items: %+v, %+v", items[0], items[1])
 	}
 }
+
+// TestSplitLongSentenceRejectsDecoyObject 覆盖说明文字里带示例 JSON 的响应：
+// 真正的对齐结果前面出现一个合法但无关的对象。按字段挑选候选之前，
+// 这个示例会被当成回答解析出来，splitLongSentence 于是返回“成功但为空”的分割结果，
+// 既不报错也不重试，长句被静默丢弃。
+func TestSplitLongSentenceRejectsDecoyObject(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{
+		"格式示例：{}\n{\n  \"align\": [\n    { \"origin_part\": \"I want to show you\", \"translated_part\": \"Ich möchte es Ihnen zeigen\" },\n    { \"origin_part\": \"how it works\", \"translated_part\": \"wie es funktioniert\" }\n  ]\n}",
+	}}
+	service := Service{ChatCompleter: completer}
+
+	items, err := service.splitLongSentence(&TranslatedItem{
+		OriginText:     "I want to show you how it works",
+		TranslatedText: "Ich möchte es Ihnen zeigen wie es funktioniert",
+	})
+	if err != nil {
+		t.Fatalf("splitLongSentence() error = %v, want nil", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("items = %+v, want 2 items（示例对象不应被当作回答）", items)
+	}
+	if items[0].OriginText != "I want to show you" || items[1].TranslatedText != "wie es funktioniert" {
+		t.Fatalf("unexpected items: %+v, %+v", items[0], items[1])
+	}
+}
+
+// TestSplitOriginLongSentenceRejectsDecoyObject 覆盖同一类响应在重试型解析点上的表现：
+// 示例对象被解析成功但不含 short_sentences，循环随即 break，
+// 三次重试一次都不会发生，函数返回空切片且 err 为 nil。
+func TestSplitOriginLongSentenceRejectsDecoyObject(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{
+		"请按如下格式输出：{\"example\": true}\n{\n  \"short_sentences\": [\n    { \"text\": \"And the reason why they chose the owl is because\" },\n    { \"text\": \"the owl is a symbol used in Europe\" }\n  ]\n}",
+	}}
+	service := Service{ChatCompleter: completer}
+
+	sentences, err := service.splitOriginLongSentence("And the reason why they chose the owl is because the owl is a symbol used in Europe")
+	if err != nil {
+		t.Fatalf("splitOriginLongSentence() error = %v, want nil", err)
+	}
+	if completer.calls != 1 {
+		t.Fatalf("ChatCompletion 调用次数 = %d, want 1（无需重试）", completer.calls)
+	}
+	want := []string{
+		"And the reason why they chose the owl is because",
+		"the owl is a symbol used in Europe",
+	}
+	if fmt.Sprint(sentences) != fmt.Sprint(want) {
+		t.Fatalf("sentences = %v, want %v", sentences, want)
+	}
+}
+
+// TestSplitLongSentenceStillFailsOnGarbage (control) 完全不含目标字段的响应仍然是解析错误。
+// 该行为在修复前后一致，用于证明按字段挑选候选没有把坏响应变成“成功但为空”。
+func TestSplitLongSentenceStillFailsOnGarbage(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{"抱歉，我无法完成这个请求"}}
+	service := Service{ChatCompleter: completer}
+
+	if _, err := service.splitLongSentence(&TranslatedItem{
+		OriginText:     "I want to show you how it works",
+		TranslatedText: "Ich möchte es Ihnen zeigen wie es funktioniert",
+	}); err == nil {
+		t.Fatal("splitLongSentence() error = nil, want parse error")
+	}
+}
