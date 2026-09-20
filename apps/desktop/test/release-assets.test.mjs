@@ -102,7 +102,7 @@ describe('Desktop release assets', () => {
       directory: data.directory,
       version,
       repository: 'krillinai/OpenCreator',
-      highlights: '## 更新内容\n\n- 新增 Creator 工作流'
+      highlights: '## What\'s New\n\n- Added Creator workflows.'
     });
     expect(readdirSync(data.directory)).toHaveLength(21);
     expect(readFileSync(join(data.directory, 'SHA256SUMS.txt'), 'utf8').trim().split('\n')).toHaveLength(20);
@@ -111,7 +111,12 @@ describe('Desktop release assets', () => {
     expect(notes).toContain('KrillinAI-CLI-3.0.0-mac-arm64.tar.gz');
     expect(notes).toContain('macOS Apple Silicon');
     expect(notes).toContain('Authenticode');
-    expect(notes).toContain('## 更新内容\n\n- 新增 Creator 工作流');
+    expect(notes).toContain('## What\'s New\n\n- Added Creator workflows.');
+    expect(notes).toContain('## OpenCreator Desktop');
+    expect(notes).toContain('| Platform | Installer |');
+    expect(notes).toContain('[SHA-256 Checksums]');
+    expect(notes).toContain('<summary>Automatic Update Assets</summary>');
+    expect(notes).not.toMatch(/[\u3400-\u9fff]/u);
     writeFileSync(join(data.directory, 'builder-debug.yml'), 'private diagnostic');
     expect(() => finalizeReleaseAssets({
       directory: data.directory,

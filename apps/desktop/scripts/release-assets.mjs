@@ -104,6 +104,11 @@ export function finalizeReleaseAssets({ directory, version, repository, highligh
     if (!actual.some(entry => entry.name === name)) throw new Error(`Missing release asset: ${name}`);
   }
   writeChecksums(directory, expected);
+  return renderReleaseNotes({ version, repository, highlights });
+}
+
+export function renderReleaseNotes({ version, repository, highlights = '' }) {
+  assertVersion(version);
   const downloadRoot = `https://github.com/${repository}/releases/download/v${version}`;
   const desktopRows = releasePlatforms.map(({ platform, arch, label }) => {
     const installer = releaseAssetNames(version, platform, arch)[0];
@@ -120,33 +125,33 @@ export function finalizeReleaseAssets({ directory, version, repository, highligh
     `# OpenCreator v${version}`,
     '',
     ...(normalizedHighlights.length === 0 ? [] : [normalizedHighlights, '']),
-    '## OpenCreator 桌面端',
+    '## OpenCreator Desktop',
     '',
-    '| 平台 | 安装包 |',
+    '| Platform | Installer |',
     '| --- | --- |',
     ...desktopRows,
     '',
     '## KrillinAI Server',
     '',
-    '| 平台 | 服务端程序 |',
+    '| Platform | Server Binary |',
     '| --- | --- |',
     ...krillinRows(0),
     '',
     '## KrillinAI CLI',
     '',
-    '| 平台 | CLI 程序 |',
+    '| Platform | CLI Binary |',
     '| --- | --- |',
     ...krillinRows(1),
     '',
-    `[SHA-256 校验清单](${downloadRoot}/SHA256SUMS.txt)`,
+    `[SHA-256 Checksums](${downloadRoot}/SHA256SUMS.txt)`,
     '',
-    'macOS 安装包已签名并公证。Windows 安装包暂未进行 Authenticode 签名，安装前可核对 SHA-256。',
+    'The macOS installers are signed and notarized. The Windows installer is currently not Authenticode-signed; verify its SHA-256 checksum before installation.',
     '',
     '<details>',
-    '<summary>自动更新附件</summary>',
+    '<summary>Automatic Update Assets</summary>',
     '',
-    'ZIP、ZIP blockmap 和 latest YAML 供客户端自动更新使用，手动安装只需下载上表对应的安装包。',
-    '构建清单和调试配置不作为公开下载附件发布。',
+    'ZIP archives, ZIP blockmaps, and latest YAML files are used by the automatic updater. For manual installation, download only the installer listed above.',
+    'Build manifests and debug configuration files are not included as public release assets.',
     '',
     '</details>',
     ''
