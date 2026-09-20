@@ -183,7 +183,7 @@ function validateModuleRequirement(
     if (requirement.service !== 'image') {
       throw new Error(`${module}: requirement service must be image`);
     }
-    if (!['openai', 'jimeng', 'kling', 'gemini'].includes(requirement.provider)) {
+    if (!['openai', 'jimeng', 'kling', 'gemini', 'codex-native'].includes(requirement.provider)) {
       throw new Error(`${module}: unsupported image provider ${requirement.provider}`);
     }
     if (requirement.model !== undefined) {

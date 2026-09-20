@@ -907,7 +907,7 @@ function ImageSettings(props: SettingsGroupProps) {
   return (
     <SettingsFieldset
       title={l('图像生成', 'Image generation')}
-      description={l('配置 GPT Image、即梦、可灵或 Gemini 图像服务。', 'Configure GPT Image, Jimeng, Kling, or Gemini image generation.')}
+      description={l('配置 GPT Image、即梦、可灵、Gemini 或本地 Codex 订阅图像生成。', 'Configure GPT Image, Jimeng, Kling, Gemini, or local Codex subscription image generation.')}
     >
       <SelectField
         id="image-provider"
@@ -917,11 +917,13 @@ function ImageSettings(props: SettingsGroupProps) {
           ['openai', 'GPT Image'],
           ['jimeng', l('即梦', 'Jimeng')],
           ['kling', l('可灵', 'Kling')],
-          ['gemini', 'Gemini']
+          ['gemini', 'Gemini'],
+          ['codex-native', l('Codex (assinatura)', 'Codex (subscription)')]
         ]}
         onChange={value => props.update(config => {
           const nextProvider = value as CreatorServicesConfig['image']['provider'];
           config.image.provider = nextProvider;
+          if (nextProvider === 'codex-native') return;
           const preset = creatorProviderOfKind('image', nextProvider);
           const target = config.image[nextProvider];
           if (preset?.defaultBaseUrl !== undefined && !target.baseUrl) target.baseUrl = preset.defaultBaseUrl;
@@ -932,6 +934,14 @@ function ImageSettings(props: SettingsGroupProps) {
       {provider === 'jimeng' ? <OpenAiFields id="image-jimeng" credential="image.jimeng.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.jimeng} modelPlaceholder="doubao-seedream-4-0-250828" modelSuggestions={creatorProviderOfKind('image', 'jimeng')?.models.map(model => model.id)} baseUrlPlaceholder="https://ark.cn-beijing.volces.com/api/v3" onChange={value => props.update(config => { config.image.jimeng = value; })} /> : null}
       {provider === 'kling' ? <KlingFields id="image-kling" accessKeyCredential="image.kling.accessKey" secretKeyCredential="image.kling.secretKey" configuredCredentials={props.configuredCredentials} value={props.config.image.kling} modelPlaceholder="kling-v2-1" modelSuggestions={creatorProviderOfKind('image', 'kling')?.models.map(model => model.id)} onChange={value => props.update(config => { config.image.kling = value; })} /> : null}
       {provider === 'gemini' ? <OpenAiFields id="image-gemini" credential="image.gemini.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.gemini} modelPlaceholder="gemini-2.5-flash-image" modelSuggestions={creatorProviderOfKind('image', 'gemini')?.models.map(model => model.id)} baseUrlPlaceholder="https://generativelanguage.googleapis.com/v1beta" onChange={value => props.update(config => { config.image.gemini = value; })} /> : null}
+      {provider === 'codex-native' ? (
+        <p className="creator-services-inline-note">
+          {l(
+            '无需 API Key。运行时会通过已登录的 Codex 订阅生成图像，不会调用付费图像 API。',
+            'No API key required. The local Runtime uses the signed-in Codex subscription and never calls a paid image API.'
+          )}
+        </p>
+      ) : null}
     </SettingsFieldset>
   );
 }

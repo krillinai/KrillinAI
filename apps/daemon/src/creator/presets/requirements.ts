@@ -222,6 +222,7 @@ function hasImageCredentials(
   services: CreatorServicesConfig,
   provider: string
 ): boolean {
+  if (provider === 'codex-native') return true;
   if (provider === 'kling') {
     return services.image.kling.accessKey.trim() !== ''
       && services.image.kling.secretKey.trim() !== '';

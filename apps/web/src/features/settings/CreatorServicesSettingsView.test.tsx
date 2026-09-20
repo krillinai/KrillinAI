@@ -385,6 +385,29 @@ describe('CreatorServicesSettingsView', () => {
     expect(screen.getByLabelText('默认模型')).toHaveValue('veo-3.1-generate-preview');
   });
 
+  it('exposes Codex subscription images without API credential controls', async () => {
+    const user = userEvent.setup();
+    render(
+      <CreatorServicesSettingsView
+        connected
+        service={createService()}
+        modelService={createModelService()}
+      />
+    );
+    await screen.findByRole('tabpanel');
+
+    await user.click(screen.getByRole('tab', { name: '图像生成' }));
+    await user.click(screen.getByRole('combobox', { name: '服务商' }));
+    await user.click(screen.getByRole('option', { name: 'Codex (assinatura)' }));
+
+    expect(screen.getByText(
+      '无需 API Key。运行时会通过已登录的 Codex 订阅生成图像，不会调用付费图像 API。'
+    )).toBeInTheDocument();
+    expect(screen.queryByLabelText('API Key')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('模型')).not.toBeInTheDocument();
+  });
+
   it('keeps non-model services available when the model provider cannot be read', async () => {
     const modelService = createModelService();
     vi.mocked(modelService.getCodexProvider).mockRejectedValue(

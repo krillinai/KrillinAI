@@ -1,10 +1,15 @@
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerImageGenerationRoutes } from '../../src/api/routes.image-generation.js';
+import type {
+  CodexAppServerHost,
+  CodexAppServerResult,
+  CodexAppServerTurnInput
+} from '../../src/codex/app-server-host-2026-07-28.js';
 import type { CreatorServicesConfigStore } from '../../src/creator-services/config-store.js';
 import { generateImageContents } from '../../src/image-generation/provider.js';
 import { createImageGenerationService } from '../../src/image-generation/service.js';
@@ -75,6 +80,53 @@ describe('image generation API', () => {
     expect(content.rawPayload).toEqual(image);
     expect(await readdir(join(dataDir, 'image-generation', 'image_result_1234')))
       .toEqual(['0.png', 'result.json']);
+  });
+
+  it('generates and stores a Codex native image without using a remote fetcher', async () => {
+    const config = createDefaultCreatorServicesConfig();
+    config.image.provider = 'codex-native';
+    const codexHome = join(dataDir, 'codex-home');
+    const savedPath = join(codexHome, 'generated_images', 'native.png');
+    const image = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.from('codex-native-image')
+    ]);
+    await mkdir(join(codexHome, 'generated_images'), { recursive: true });
+    await writeFile(savedPath, image);
+    const createHost = fakeNativeHost(savedPath);
+    const fetchImpl = vi.fn() as typeof fetch;
+    await registerImageGenerationRoutes(server, createImageGenerationService({
+      dataDir,
+      configStore: createConfigStore(config),
+      fetchImpl,
+      codexNative: {
+        codexBin: 'codex',
+        codexHome,
+        cwd: dataDir,
+        createHost
+      },
+      createId: () => 'codex_native_1234'
+    }));
+
+    const generated = await server.inject({
+      method: 'POST',
+      url: '/image-generation/results',
+      payload: { prompt: 'An original orange cat', provider: 'codex-native', size: '1024x1024', quality: 'medium', count: 1 }
+    });
+
+    expect(generated.statusCode).toBe(201);
+    expect(generated.json().result).toMatchObject({
+      provider: 'codex-native',
+      model: 'codex-native',
+      images: [{ mime: 'image/png', size: image.length }]
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    const content = await server.inject({
+      method: 'GET',
+      url: '/image-generation/results/codex_native_1234/content/0'
+    });
+    expect(content.statusCode).toBe(200);
+    expect(content.rawPayload).toEqual(image);
   });
 
   it('adds v1 to an OpenAI-compatible image provider path without a version', async () => {
@@ -339,3 +391,41 @@ function createConfigStore(config: ReturnType<typeof createDefaultCreatorService
     reset: vi.fn(async () => createDefaultCreatorServicesConfig())
   };
 }
+
+function fakeNativeHost(savedPath: string) {
+  return vi.fn((): CodexAppServerHost => ({
+    pid: 123,
+    started: Promise.resolve(123),
+    run: vi.fn((input: CodexAppServerTurnInput) => ({
+      cancel: vi.fn(),
+      result: (async () => {
+        await input.onNotification?.({
+          method: 'item/completed',
+          params: {
+            item: {
+              type: 'imageGeneration',
+              status: 'completed',
+              failure: null,
+              savedPath
+            }
+          }
+        });
+        return nativeCompletedResult;
+      })()
+    })),
+    isReusable: vi.fn(() => false),
+    close: vi.fn(async () => undefined)
+  }));
+}
+
+const nativeCompletedResult: CodexAppServerResult = {
+  threadId: 'thread-1',
+  turnId: 'turn-1',
+  turnStatus: 'completed',
+  stderr: '',
+  terminationReason: 'completed',
+  outputTruncation: {
+    stderr: { truncated: false, droppedBytes: 0, droppedItems: 0 },
+    frames: { truncated: false, droppedBytes: 0, droppedItems: 0 }
+  }
+};

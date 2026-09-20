@@ -427,7 +427,7 @@ export function createStickmanVideoWorkflow(input: {
     const provider = config.image.provider;
     return {
       provider,
-      model: config.image[provider].model,
+      model: provider === 'codex-native' ? 'codex-native' : config.image[provider].model,
       quality: typeof job.state.quality === 'string' ? job.state.quality : 'medium'
     };
   }

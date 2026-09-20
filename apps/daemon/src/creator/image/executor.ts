@@ -12,7 +12,8 @@ import { join } from 'node:path';
 import type { CreatorServicesConfigStore } from '../../creator-services/config-store.js';
 import {
   generateImageContents,
-  ImageGenerationProviderError
+  ImageGenerationProviderError,
+  type CodexNativeImageRuntime
 } from '../../image-generation/provider.js';
 import type { CreatorExecutor, CreatorExecutorInput, CreatorExecutorOutput } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
@@ -55,6 +56,7 @@ type CoverImageNormalizer = (input: {
 export function createImageExecutor(input: {
   configStore: Pick<CreatorServicesConfigStore, 'read'>;
   generate?: GenerateImageContents;
+  codexNative?: CodexNativeImageRuntime;
   normalizeCoverImage?: CoverImageNormalizer;
 }): CreatorExecutor {
   const generate = input.generate ?? generateImageContents;
@@ -82,6 +84,12 @@ export function createImageExecutor(input: {
       const { request } = requestContext;
       if (!request.prompt) {
         throw new CreatorExecutorError('creator_stage_input_missing', 'Image prompt is required');
+      }
+      if (request.provider === 'codex-native' && request.count !== 1) {
+        throw new CreatorExecutorError(
+          'unsupported_capability',
+          'Codex subscription image generation supports exactly one candidate per task'
+        );
       }
 
       const outputKind = stage.job.templateId === 'image-generation'
@@ -111,7 +119,10 @@ export function createImageExecutor(input: {
                       content: referenceImage.content,
                       mime: referenceImage.mime
                     }
-                  })
+                  }),
+              ...(input.codexNative === undefined
+                ? {}
+                : { codexNative: { ...input.codexNative, cwd: stage.workdir } })
             }
           )
             .then(async result => {
@@ -423,7 +434,11 @@ function readProvider(
   value: unknown,
   fallback: CreatorServicesConfig['image']['provider']
 ): ImageGenerationProvider {
-  return value === 'openai' || value === 'jimeng' || value === 'kling' || value === 'gemini'
+  return value === 'openai'
+    || value === 'jimeng'
+    || value === 'kling'
+    || value === 'gemini'
+    || value === 'codex-native'
     ? value
     : fallback;
 }

@@ -3,6 +3,11 @@ import type {
   CreatorServicesConfig,
   ImageGenerationAsset
 } from '@opencreator/protocol';
+import {
+  CodexNativeImageError,
+  generateCodexNativeImage,
+  type CodexNativeImageInput
+} from './codex-native.js';
 import { createKlingAuthorization } from '../creator-services/kling-auth.js';
 import {
   appendEndpointPath,
@@ -21,6 +26,11 @@ export type GeneratedImageContent = {
   content: Buffer;
   mime: ImageGenerationAsset['mime'];
 };
+
+export type CodexNativeImageRuntime = Pick<
+  CodexNativeImageInput,
+  'codexBin' | 'codexHome' | 'cwd' | 'createHost'
+>;
 
 export type ImageGenerationCapabilities = {
   supportsReferenceImage: boolean;
@@ -54,6 +64,7 @@ export async function generateImageContents(
     signal?: AbortSignal;
     referenceImage?: GeneratedImageContent;
     referenceImages?: GeneratedImageContent[];
+    codexNative?: CodexNativeImageRuntime;
   } = {}
 ): Promise<{ model: string; contents: GeneratedImageContent[] }> {
   const referenceImages = options.referenceImages
@@ -75,6 +86,35 @@ export async function generateImageContents(
           ? `The ${request.provider} image provider supports at most ${capabilities.maxReferenceImages} reference images`
           : `The ${request.provider} image provider does not support reference images`
       );
+    }
+    if (request.provider === 'codex-native') {
+      if (request.count !== 1) {
+        throw new ImageGenerationProviderError(
+          'unsupported_capability',
+          'The codex-native image provider supports exactly one image per request'
+        );
+      }
+      if (options.codexNative === undefined) {
+        throw new ImageGenerationProviderError(
+          'config_missing',
+          'Configure the local Codex executable and CODEX_HOME before generating images'
+        );
+      }
+      try {
+        const generated = await generateCodexNativeImage({
+          ...options.codexNative,
+          prompt: request.prompt,
+          size: request.size,
+          quality: request.quality,
+          signal: controller.signal
+        });
+        return { model: generated.model, contents: [generated] };
+      } catch (error) {
+        if (error instanceof CodexNativeImageError) {
+          throw new ImageGenerationProviderError(error.code, error.message);
+        }
+        throw error;
+      }
     }
     if (request.provider === 'gemini') {
       return await generateGeminiImages(

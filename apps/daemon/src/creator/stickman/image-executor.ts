@@ -7,7 +7,8 @@ import sharp from 'sharp';
 import type { CreatorServicesConfigStore } from '../../creator-services/config-store.js';
 import {
   generateImageContents,
-  imageGenerationCapabilities
+  imageGenerationCapabilities,
+  type CodexNativeImageRuntime
 } from '../../image-generation/provider.js';
 import type { CreatorExecutor } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
@@ -34,6 +35,7 @@ export function createStickmanImageExecutor(input: {
   configStore: Pick<CreatorServicesConfigStore, 'read'>;
   ledger: CreatorProviderRequestLedger;
   generate?: typeof generateImageContents;
+  codexNative?: CodexNativeImageRuntime;
   tesseractPath?: string;
   validateCandidate?: (path: string) => Promise<StickmanImageCandidateQuality>;
 }): CreatorExecutor {
@@ -228,7 +230,7 @@ export function createStickmanImageExecutor(input: {
       const provider = config.image.provider;
       const quality = readQuality(stage.job.state.quality);
       assertReferenceImageSupport(provider, referenceImages.length);
-      const model = config.image[provider].model;
+      const model = provider === 'codex-native' ? 'codex-native' : config.image[provider].model;
       if (
         promptPackArtifact.metadata.contract !== STICKMAN_IMAGE_PROMPT_CONTRACT
         || promptPack.characterReferenceArtifactId !== characterReference.id
@@ -303,7 +305,10 @@ export function createStickmanImageExecutor(input: {
             referenceImages: referenceImages.map(reference => ({
               content: reference.content,
               mime: reference.mime
-            }))
+            })),
+            ...(input.codexNative === undefined
+              ? {}
+              : { codexNative: { ...input.codexNative, cwd: stage.workdir } })
           });
           input.ledger.markSucceeded(ledger.id);
         } catch (error) {

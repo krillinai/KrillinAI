@@ -634,6 +634,7 @@ export async function buildServer(input: BuildServerInput) {
       creatorExecutors.push(createStickmanImageExecutor({
         configStore: creatorServicesConfigStore,
         ledger: creatorProviderRequestLedger,
+        codexNative: { codexBin, codexHome, cwd: defaultCwd },
         ...(creatorTesseractPath === undefined ? {} : { tesseractPath: creatorTesseractPath })
       }));
     }
@@ -764,6 +765,7 @@ export async function buildServer(input: BuildServerInput) {
     }));
     creatorExecutors.push(createImageExecutor({
       configStore: creatorServicesConfigStore,
+      codexNative: { codexBin, codexHome, cwd: defaultCwd },
       ...(creatorFfmpegPath === undefined
         ? {}
         : {
@@ -784,7 +786,10 @@ export async function buildServer(input: BuildServerInput) {
         getYtDlpRuntime: getCreatorYtDlpRuntime
       }),
       model: createWechatArticleModel({ configStore: creatorServicesConfigStore }),
-      imageGenerator: createArticleImageGenerator({ configStore: creatorServicesConfigStore })
+      imageGenerator: createArticleImageGenerator({
+        configStore: creatorServicesConfigStore,
+        codexNative: { codexBin, codexHome, cwd: defaultCwd }
+      })
     }));
   }
   const creatorProjectCoverService = createCreatorProjectCoverService({

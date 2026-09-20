@@ -51,7 +51,8 @@ const providers: Array<{ value: ImageGenerationProvider; zh: string; en: string 
   { value: 'openai', zh: 'GPT Image', en: 'GPT Image' },
   { value: 'jimeng', zh: '即梦', en: 'Jimeng' },
   { value: 'kling', zh: '可灵', en: 'Kling' },
-  { value: 'gemini', zh: 'Gemini', en: 'Gemini' }
+  { value: 'gemini', zh: 'Gemini', en: 'Gemini' },
+  { value: 'codex-native', zh: 'Codex (订阅)', en: 'Codex (subscription)' }
 ];
 
 const samplePromptZh = '一间通透的现代创意工作室，清晨自然光从落地窗照入，桌面有相机、手稿和绿植，真实摄影质感，构图干净，细节丰富';
@@ -217,7 +218,9 @@ export default function ImageGenerationWorkspace(props: {
 
   function updateProvider(value: ImageGenerationProvider) {
     setProvider(value);
-    session?.updateDraft({ provider: value });
+    const nextCount = value === 'codex-native' ? 1 : count;
+    if (nextCount !== count) setCount(nextCount);
+    session?.updateDraft({ provider: value, candidateCount: nextCount });
     setError('');
   }
 
@@ -234,6 +237,7 @@ export default function ImageGenerationWorkspace(props: {
   }
 
   function updateCount(value: number) {
+    if (provider === 'codex-native' && value !== 1) return;
     setCount(value);
     session?.updateDraft({ candidateCount: value });
     setError('');
@@ -487,6 +491,14 @@ export default function ImageGenerationWorkspace(props: {
                     </button>
                   ))}
                 </div>
+                {provider === 'codex-native' ? (
+                  <p className="creator-services-inline-note">
+                    {l(
+                      'Codex 订阅模式使用本机已登录的 Codex 生成图像，不调用付费图像 API；每次任务生成 1 张。',
+                      'Codex subscription mode uses the signed-in local Codex session, never a paid image API, and generates one image per task.'
+                    )}
+                  </p>
+                ) : null}
               </div>
               <div className="media-generation-control">
                 <span>{l('画幅', 'Format')}</span>
@@ -513,7 +525,7 @@ export default function ImageGenerationWorkspace(props: {
               <div className="media-generation-control">
                 <span>{l('生成数量', 'Number of images')}</span>
                 <div className="creator-tool-segmented" role="radiogroup" aria-label={l('生成数量', 'Number of images')}>
-                  {[1, 2, 4].map(value => (
+                  {(provider === 'codex-native' ? [1] : [1, 2, 4]).map(value => (
                     <button type="button" role="radio" aria-checked={count === value} aria-selected={count === value} key={value} onClick={() => updateCount(value)}>
                       {value} {l('张', value === 1 ? 'image' : 'images')}
                     </button>
@@ -707,7 +719,7 @@ function readArtifactString(
 }
 
 function readProvider(value: CreatorJson | undefined): ImageGenerationProvider {
-  return value === 'jimeng' || value === 'kling' || value === 'gemini'
+  return value === 'jimeng' || value === 'kling' || value === 'gemini' || value === 'codex-native'
     ? value
     : 'openai';
 }

@@ -92,6 +92,49 @@ describe('creator image executor', () => {
     }
   );
 
+  it('runs exactly one candidate for codex-native', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'creator-image-executor-codex-native-'));
+    const config = createDefaultCreatorServicesConfig();
+    const generate = vi.fn(async (request: { provider: ImageGenerationProvider }) => ({
+      model: `${request.provider}-model`,
+      contents: [{ content: png('image-codex-native'), mime: 'image/png' as const }]
+    }));
+    const executor = createImageExecutor({
+      configStore: { read: async () => config },
+      generate: generate as never
+    });
+
+    const result = await executor.run(stageInput({
+      provider: 'codex-native',
+      candidateCount: 1
+    }));
+
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'codex-native', count: 1 }),
+      config,
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+    expect(result.outputs).toHaveLength(1);
+  });
+
+  it('rejects multiple candidates for codex-native before starting a host', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'creator-image-executor-codex-native-many-'));
+    const generate = vi.fn();
+    const executor = createImageExecutor({
+      configStore: { read: async () => createDefaultCreatorServicesConfig() },
+      generate: generate as never
+    });
+
+    await expect(executor.run(stageInput({
+      provider: 'codex-native',
+      candidateCount: 2
+    }))).rejects.toMatchObject({
+      code: 'unsupported_capability'
+    });
+    expect(generate).not.toHaveBeenCalled();
+  });
+
   it('keeps successful candidates when another candidate fails', async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'creator-image-executor-partial-'));
     let candidate = 0;

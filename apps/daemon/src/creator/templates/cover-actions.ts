@@ -247,6 +247,7 @@ function hasImageCredentials(
   config: Awaited<ReturnType<CreatorServicesConfigStore['read']>>,
   provider: ImageGenerationProvider
 ): boolean {
+  if (provider === 'codex-native') return true;
   if (provider === 'kling') {
     return config.image.kling.accessKey.trim().length > 0
       && config.image.kling.secretKey.trim().length > 0;
@@ -258,7 +259,11 @@ function readProvider(
   value: unknown,
   fallback: ImageGenerationProvider
 ): ImageGenerationProvider {
-  return value === 'openai' || value === 'jimeng' || value === 'kling' || value === 'gemini'
+  return value === 'openai'
+    || value === 'jimeng'
+    || value === 'kling'
+    || value === 'gemini'
+    || value === 'codex-native'
     ? value
     : fallback;
 }

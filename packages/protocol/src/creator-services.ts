@@ -86,11 +86,12 @@ export type CreatorServicesConfig = {
     aliyun: CreatorTtsProviderConfig;
   };
   image: {
-    provider: 'openai' | 'jimeng' | 'kling' | 'gemini';
+    provider: 'openai' | 'jimeng' | 'kling' | 'gemini' | 'codex-native';
     openai: OpenAiCompatibleConfig;
     jimeng: OpenAiCompatibleConfig;
     kling: KlingAiConfig;
     gemini: OpenAiCompatibleConfig;
+    codexNative: Record<never, never>;
   };
   video: {
     provider: 'seedance' | 'kling' | 'veo';
@@ -212,7 +213,8 @@ export function createDefaultCreatorServicesConfig(): CreatorServicesConfig {
         baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
         apiKey: '',
         model: 'gemini-2.5-flash-image'
-      }
+      },
+      codexNative: {}
     },
     video: {
       provider: 'seedance',
