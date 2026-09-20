@@ -30,6 +30,9 @@ describe('Desktop release workflow', () => {
     expect(ciWorkflow).toContain('compile:');
     expect(ciWorkflow).toContain('web-parity:');
     expect(ciWorkflow).toContain("needs.classify.outputs.release-only == 'true'");
+    expect(ciWorkflow).toContain('--status success');
+    expect(ciWorkflow).toContain("--jq '.[0].headSha // empty'");
+    expect(ciWorkflow).toContain('name: Prepare generated build inputs');
   });
 
   it('runs the network audit before expensive verification steps', () => {
