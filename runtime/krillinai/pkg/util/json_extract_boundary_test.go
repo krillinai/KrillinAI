@@ -100,12 +100,6 @@ func TestExtractJSONObjectSkipsDecoyValues(t *testing.T) {
 			key:      "short_sentences",
 			want:     `{"short_sentences":[{"text":"a"}]}`,
 		},
-		{
-			name:     "同名字段嵌套在下层时不算命中",
-			response: `{"data":{"align":[{"origin_part":"a"}]}}`,
-			key:      "align",
-			want:     `{"data":{"align":[{"origin_part":"a"}]}}`,
-		},
 	}
 
 	for _, tt := range tests {
@@ -119,8 +113,8 @@ func TestExtractJSONObjectSkipsDecoyValues(t *testing.T) {
 
 // TestExtractJSONObjectLeavesUnparsableInputAlone (control) 结构损坏或没有合适候选时
 // 函数不做猜测，修复前后都原样返回去除首尾空白的输入，调用方因此仍能拿到真实的解析错误。
-// 与表驱动用例中的 "[}" 互为反向：这里覆盖相反的括号顺序，以及字符串未闭合
-// （结尾是孤立反斜杠）这一条不同的代码路径。
+// 与表驱动用例中的 "[}" 互为反向：这里覆盖相反的括号顺序、字符串未闭合
+// （结尾是孤立反斜杠），以及所有候选都不含目标字段这几条不同的代码路径。
 func TestExtractJSONObjectLeavesUnparsableInputAlone(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -152,6 +146,12 @@ func TestExtractJSONObjectLeavesUnparsableInputAlone(t *testing.T) {
 			key:      "align",
 			want:     `{"note":"x"} {"other":1}`,
 		},
+		{
+			name:     "同名字段只嵌套在下层时不算命中",
+			response: `{"data":{"align":[{"origin_part":"a"}]}}`,
+			key:      "align",
+			want:     `{"data":{"align":[{"origin_part":"a"}]}}`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -163,8 +163,10 @@ func TestExtractJSONObjectLeavesUnparsableInputAlone(t *testing.T) {
 	}
 }
 
-// TestExtractJSONObjectAcceptsPresentButEmptyField 说明字段存在即视为命中：
-// 模型明确回答了一个空列表或 null 时不再继续往后扫描，这与"找不到字段"是两回事。
+// TestExtractJSONObjectAcceptsPresentButEmptyField (control) 说明字段存在即视为命中：
+// 模型明确回答了一个空列表或 null 时不再继续往后扫描，这与“找不到字段”是两回事。
+// 这两条在修复前后都通过（输入本身就是目标对象），用于固定“存在即命中”的判定，
+// 防止日后把空值误判成没有回答而继续扫描后面的内容。
 func TestExtractJSONObjectAcceptsPresentButEmptyField(t *testing.T) {
 	tests := []struct {
 		name     string
