@@ -115,6 +115,8 @@ func TestExtractJSONObjectSkipsDecoyValues(t *testing.T) {
 // 函数不做猜测，修复前后都原样返回去除首尾空白的输入，调用方因此仍能拿到真实的解析错误。
 // 与表驱动用例中的 "[}" 互为反向：这里覆盖相反的括号顺序、字符串未闭合
 // （结尾是孤立反斜杠），以及所有候选都不含目标字段这几条不同的代码路径。
+// 其中"大小写不一致"一条固定了取候选时按字段名精确匹配：encoding/json 解码字段是
+// 不区分大小写的，这里更严格，命不中就退回原样返回，由调用方按原有逻辑报错重试。
 func TestExtractJSONObjectLeavesUnparsableInputAlone(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -151,6 +153,12 @@ func TestExtractJSONObjectLeavesUnparsableInputAlone(t *testing.T) {
 			response: `{"data":{"align":[{"origin_part":"a"}]}}`,
 			key:      "align",
 			want:     `{"data":{"align":[{"origin_part":"a"}]}}`,
+		},
+		{
+			name:     "字段名大小写不一致时不算命中",
+			response: `{"Align":[{"origin_part":"a"}]}`,
+			key:      "align",
+			want:     `{"Align":[{"origin_part":"a"}]}`,
 		},
 	}
 
