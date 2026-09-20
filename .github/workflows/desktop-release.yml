@@ -289,35 +289,71 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: 查找同一提交的完整候选构建
+      - name: 查找可复用的完整候选构建
         id: candidate
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          CANDIDATE_NAME: opencreator-release-candidate-${{ github.sha }}
         shell: bash
         run: |
-          run_id="$(
-            gh api --method GET "repos/$GH_REPO/actions/artifacts" \
-              -f name="$CANDIDATE_NAME" \
-              --jq '.artifacts | map(select(.expired == false)) | sort_by(.created_at) | reverse | .[0].workflow_run.id // empty'
-          )"
-          if [[ -z "$run_id" ]]; then
-            echo "::error::提交 $GITHUB_SHA 没有通过 target=all 的完整候选构建。请先从 master 手动运行 OpenCreator Release。"
-            exit 1
-          fi
+          candidate_run_id=''
+          candidate_sha=''
+          while IFS=$'\t' read -r run_id run_sha; do
+            candidate_name="opencreator-release-candidate-$run_sha"
+            artifact_count="$(
+              gh api --method GET "repos/$GH_REPO/actions/runs/$run_id/artifacts" \
+                -f name="$candidate_name" \
+                --jq '[.artifacts[] | select(.expired == false)] | length'
+            )"
+            [[ "$artifact_count" == "1" ]] || continue
 
-          run="$(gh api "repos/$GH_REPO/actions/runs/$run_id")"
-          if [[ "$(jq -r '.event' <<< "$run")" != "workflow_dispatch" \
-            || "$(jq -r '.head_branch' <<< "$run")" != "master" \
-            || "$(jq -r '.head_sha' <<< "$run")" != "$GITHUB_SHA" \
-            || "$(jq -r '.conclusion' <<< "$run")" != "success" \
-            || "$(jq -r '.path' <<< "$run")" != ".github/workflows/desktop-release.yml" ]]; then
-            echo "::error::候选构建 $run_id 与当前 tag 的提交或发布工作流不匹配。"
+            comparison="$(gh api "repos/$GH_REPO/compare/$run_sha...$GITHUB_SHA")"
+            comparison_status="$(jq -r '.status' <<< "$comparison")"
+            [[ "$comparison_status" == "identical" || "$comparison_status" == "ahead" ]] || continue
+            changed_files="$(jq -r '.files | length' <<< "$comparison")"
+            reported_files="$(jq -r '.changed_files' <<< "$comparison")"
+            [[ "$changed_files" == "$reported_files" ]] || continue
+
+            invalid_files="$(
+              jq -r '.files[].filename' <<< "$comparison" | while IFS= read -r path; do
+                case "$path" in
+                  .github/workflows/desktop-release.yml|\
+                  apps/desktop/scripts/release-assets.mjs|\
+                  apps/desktop/test/release-assets.test.mjs|\
+                  apps/desktop/test/release-workflow.test.mjs|\
+                  apps/desktop/release-notes/*|\
+                  docs/operations/opencreator-desktop-release-runbook.md|\
+                  .codex/skills/oc-deploy/SKILL.md|\
+                  .codex/skills/oc-deploy/references/runbook.md)
+                    ;;
+                  *) printf '%s\n' "$path" ;;
+                esac
+              done
+            )"
+            [[ -z "$invalid_files" ]] || continue
+
+            candidate_run_id="$run_id"
+            candidate_sha="$run_sha"
+            break
+          done < <(
+            gh run list \
+              --workflow desktop-release.yml \
+              --branch master \
+              --event workflow_dispatch \
+              --status success \
+              --limit 50 \
+              --json databaseId,headSha \
+              --jq '.[] | [.databaseId, .headSha] | @tsv'
+          )
+
+          if [[ -z "$candidate_run_id" ]]; then
+            echo "::error::当前 tag 没有可复用的完整候选构建。应用构建输入发生变化时，请先从 master 运行 target=all。"
             exit 1
           fi
-          echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
-          echo "使用已验证候选构建：$run_id"
+          echo "run-id=$candidate_run_id" >> "$GITHUB_OUTPUT"
+          echo "sha=$candidate_sha" >> "$GITHUB_OUTPUT"
+          echo "name=opencreator-release-candidate-$candidate_sha" >> "$GITHUB_OUTPUT"
+          echo "使用已验证候选构建：$candidate_run_id ($candidate_sha)"
       - uses: actions/download-artifact@v4
         with:
           github-token: ${{ github.token }}
@@ -336,11 +372,11 @@ jobs:
         with:
           github-token: ${{ github.token }}
           run-id: ${{ steps.candidate.outputs.run-id }}
-          name: opencreator-release-candidate-${{ github.sha }}
+          name: ${{ steps.candidate.outputs.name }}
           path: candidate
       - name: 校验候选包身份凭据
         env:
-          EXPECTED_SHA: ${{ github.sha }}
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
           EXPECTED_RUN_ID: ${{ steps.candidate.outputs.run-id }}
           EXPECTED_REPOSITORY: ${{ github.repository }}
         run: |

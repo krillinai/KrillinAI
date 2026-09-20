@@ -100,11 +100,15 @@ describe('Desktop release workflow', () => {
 
   it('promotes an immutable successful master candidate instead of rebuilding a tag', () => {
     expect(releaseWorkflow).toContain("if: github.event_name == 'workflow_dispatch'");
-    expect(releaseWorkflow).toContain('name: 查找同一提交的完整候选构建');
-    expect(releaseWorkflow).toContain("jq -r '.head_branch'");
-    expect(releaseWorkflow).toContain("jq -r '.head_sha'");
-    expect(releaseWorkflow).toContain("jq -r '.conclusion'");
+    expect(releaseWorkflow).toContain('name: 查找可复用的完整候选构建');
+    expect(releaseWorkflow).toContain('repos/$GH_REPO/compare/$run_sha...$GITHUB_SHA');
+    expect(releaseWorkflow).toContain('comparison_status');
+    expect(releaseWorkflow).toContain('changed_files');
+    expect(releaseWorkflow).toContain('apps/desktop/scripts/release-assets.mjs');
+    expect(releaseWorkflow).toContain('当前 tag 没有可复用的完整候选构建');
     expect(releaseWorkflow).toContain('run-id: ${{ steps.candidate.outputs.run-id }}');
+    expect(releaseWorkflow).toContain('name: ${{ steps.candidate.outputs.name }}');
+    expect(releaseWorkflow).toContain('EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}');
     expect(releaseWorkflow).toContain('name: 校验候选包身份凭据');
     expect(releaseWorkflow).toContain('needs: verify');
     expect(releaseWorkflow).not.toContain("startsWith(github.ref, 'refs/tags/') || inputs.target == 'all'");

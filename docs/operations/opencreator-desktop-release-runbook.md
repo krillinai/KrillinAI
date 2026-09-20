@@ -46,8 +46,8 @@ pnpm desktop:package
 3. 先推送版本提交到 `master`，等待同一提交的 CI 通过，再从 `master` 手动运行 `.github/workflows/desktop-release.yml`，并选择 `target=all`。
 4. 完整候选工作流使用 `macos-15-intel`、`macos-15` 和 `windows-latest` 并行构建三个原生目标平台。macOS 使用正式 Developer ID 签名和 Apple 公证；每个平台都必须通过实际打包应用 E2E。单平台运行只用于诊断，不能用于正式发布。
 5. 三个平台和 Linux KrillinAI 附件全部成功后，工作流写入绑定 Git commit、workflow run 和仓库的候选身份凭据。候选附件保存于该 workflow run，不允许构建后替换。
-6. 候选全绿后才创建并推送 `v<version>` Git tag。标签版本必须与 `apps/desktop/package.json` 完全一致，且 tag 必须指向候选使用的同一 commit。
-7. tag 工作流不再重复构建、签名、公证或 E2E；它只查找同一 commit 的成功 `target=all` 候选，复核 run 与身份凭据，下载已验证附件，校验附件白名单并发布 GitHub Release。找不到精确候选时必须失败。
+6. 候选全绿后才创建并推送 `v<version>` Git tag。标签版本必须与 `apps/desktop/package.json` 完全一致。通常 tag 指向候选 commit；候选后只有发布 workflow、Release 附件整理脚本、对应测试或发布文档变化时，可以复用原候选。
+7. tag 工作流不再重复构建、签名、公证或 E2E；它查找最新的成功 `target=all` 候选，并通过 GitHub compare 确认候选是 tag 的祖先、差异列表完整且全部属于严格的发布基础设施白名单。任何 App、Runtime、依赖或打包输入变化都会拒绝复用并要求新候选。随后工作流复核 run 与候选身份凭据，下载已验证附件，校验附件白名单并发布 GitHub Release。
 
 示例：
 

@@ -76,7 +76,7 @@ release 是独立授权边界。用户必须明确指定版本并要求发布：
 
 1. 确认版本、目标 commit、工作区、`origin/master`、同 commit 本地 preflight 和 master push CI。
 2. 确认 tag 不存在；已存在时由用户明确决定，不自行覆盖。
-3. 确认完整 candidate run 已生成与目标 commit 绑定的身份凭据和全部附件。
+3. 确认完整 candidate run 已生成身份凭据和全部附件。通常 candidate 与 tag commit 相同；若只有发布基础设施变化，确认 candidate 是 tag 的祖先，GitHub compare 完整且差异严格限于 workflow、Release 附件整理、对应测试和发布文档白名单。
 4. 创建并推送一次 tag，监控由 tag 触发的唯一 promotion run。tag workflow 只能下载并校验该 candidate 的 artifacts，不得重新打包、签名、公证或运行 packaged App E2E。
 5. promotion 失败时读取候选解析、身份凭据或附件校验错误，不通过移动 tag 或重新付费打包绕过。
 6. 成功后验证 Release 非 draft、附件完整、命名和下载说明正确，并记录被提升的 candidate run。
