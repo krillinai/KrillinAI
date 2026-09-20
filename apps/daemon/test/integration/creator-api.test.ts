@@ -600,11 +600,11 @@ describe('creator api', () => {
       expectedRevision: 1,
       input: { stageId: 'subtitle' }
     });
-    expect(started.statusCode).toBe(200);
-    expect(started.json().job.artifacts).toContainEqual(expect.objectContaining({
-      kind: 'source_video',
-      status: 'completed'
-    }));
+    expect(started.statusCode).toBe(400);
+    expect(started.json()).toMatchObject({
+      error: { preflight: { canStart: false } }
+    });
+    expect((await request('GET', `/creator/jobs/${job.id}`)).json().job.stages).toEqual([]);
   });
 
   it('starts subtitles without requiring TTS configuration up front', async () => {
@@ -627,16 +627,11 @@ describe('creator api', () => {
       expectedRevision: 0,
       input: { stageId: 'subtitle' }
     });
-    expect(started.statusCode).toBe(200);
+    expect(started.statusCode).toBe(400);
     expect(started.json()).toMatchObject({
-      commandReceipt: {
-        stageRunId: expect.any(String)
-      },
-      job: {
-      revision: 1,
-        status: 'running'
-      }
+      error: { preflight: { canStart: false } }
     });
+    expect((await request('GET', `/creator/jobs/${job.id}`)).json().job.stages).toEqual([]);
   });
 
   it('requires text translation configuration before starting subtitles', async () => {
@@ -653,6 +648,18 @@ describe('creator api', () => {
     });
     const job = created.json().job;
 
+    const preflight = await request('GET', `/creator/jobs/${job.id}/preflight?stageId=subtitle`);
+    expect(preflight.statusCode).toBe(200);
+    expect(preflight.json()).toMatchObject({
+      canStart: false,
+      blocked: expect.arrayContaining([expect.objectContaining({
+        id: 'llm',
+        repair: expect.objectContaining({
+          deepLink: '#/settings?tab=ai-services&section=text'
+        })
+      })])
+    });
+
     const started = await request('POST', `/creator/jobs/${job.id}/actions`, {
       action: 'run-stage',
       expectedRevision: 0,
@@ -661,8 +668,12 @@ describe('creator api', () => {
 
     expect(started.statusCode).toBe(400);
     expect(started.json()).toMatchObject({
-      error: { code: 'creator_llm_config_missing' }
+      error: {
+        code: 'creator_llm_config_missing',
+        preflight: { canStart: false }
+      }
     });
+    expect((await request('GET', `/creator/jobs/${job.id}`)).json().job.stages).toEqual([]);
   });
 
   it('returns the persisted Agent timeline and resolves approvals by generation', async () => {
@@ -838,6 +849,7 @@ async function setupServer(options: {
   tempDir = mkdtempSync(join(tmpdir(), 'creator-api-'));
   const config = createDefaultCreatorServicesConfig();
   if (options.llmConfigured !== false) {
+    config.llm.baseUrl = 'https://api.openai.com/v1';
     config.llm.apiKey = 'test-llm-key';
     config.llm.source = 'custom';
   }
