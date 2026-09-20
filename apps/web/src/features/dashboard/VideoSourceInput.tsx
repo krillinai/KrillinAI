@@ -93,7 +93,10 @@ export default function VideoSourceInput(props: {
                 type="url"
                 value={props.url}
                 onChange={event => props.onUrlChange(event.target.value)}
-                placeholder={l('粘贴 YouTube、Bilibili 或其他视频链接', 'Paste a YouTube, Bilibili, or other video link')}
+                placeholder={l(
+                  '粘贴 YouTube 标准链接、youtu.be 分享链接或 Bilibili 链接',
+                  'Paste a YouTube URL, youtu.be share link, or Bilibili URL'
+                )}
                 aria-invalid={props.invalid}
               />
             </div>

@@ -20,6 +20,24 @@ afterEach(() => {
 });
 
 describe('video translation workflow', () => {
+  it.each([
+    'https://www.youtube.com/watch?v=xVWS7yHdzCU',
+    'https://youtu.be/tAkC-ZdaqWs?si=6LcL-jgzdBaZ1IFD'
+  ])('accepts the supported YouTube URL form: %s', async sourceUrl => {
+    const fixture = setup({ sourceUrl });
+    const config = createDefaultCreatorServicesConfig();
+    config.llm.apiKey = 'llm-key';
+    const workflow = createVideoTranslationWorkflow({
+      creator: fixture.service,
+      dispatcher: fixture.dispatcher,
+      configStore: { read: vi.fn(async () => config) }
+    });
+
+    await expect(workflow.validateStage(fixture.service.getJob(fixture.jobId)!, 'subtitle'))
+      .resolves.toBeUndefined();
+    fixture.db.close();
+  });
+
   it('queues the selected stages in order through the command dispatcher', async () => {
     const fixture = setup({ dubbing: true, composeVideo: true, videoFormat: 'all' });
     const config = createDefaultCreatorServicesConfig();

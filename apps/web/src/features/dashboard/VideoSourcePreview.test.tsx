@@ -121,7 +121,7 @@ describe('VideoSourcePreview', () => {
       <VideoSourcePreview
         file={null}
         sourceType="url"
-        url="https://youtu.be/preview-two"
+        url="https://youtu.be/preview-two?si=share-token"
         onChooseFile={vi.fn()}
         onClear={vi.fn()}
         metadataService={{ getVideoMetadata }}
@@ -133,6 +133,7 @@ describe('VideoSourcePreview', () => {
     );
     expect(await screen.findByText('Second video title')).toBeInTheDocument();
     expect(screen.queryByTitle('YouTube 视频预览')).not.toBeInTheDocument();
+    expect(getVideoMetadata).toHaveBeenLastCalledWith('https://youtu.be/preview-two?si=share-token');
   });
 
   it('recognizes Bilibili and direct video links', () => {

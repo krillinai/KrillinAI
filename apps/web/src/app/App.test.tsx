@@ -7417,8 +7417,9 @@ describe('App', () => {
     });
   });
 
-  it('opens settings and returns to the app', async () => {
+  it('returns from settings to the same composer-free Home', async () => {
     const user = userEvent.setup();
+    window.history.replaceState(null, '', '#/new');
 
     render(<App fileService={createFileService()} />);
 
@@ -7429,7 +7430,32 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: '返回应用' }));
 
     expect(screen.queryByRole('heading', { name: '新对话' })).not.toBeInTheDocument();
+    expect(screen.queryByText('需要帮你做点什么')).not.toBeInTheDocument();
+    expect(await screen.findByText('精选模板')).toBeInTheDocument();
+    expect(window.location.hash).toBe('#/new');
+  });
+
+  it('returns from settings to the empty chat when settings were opened there', async () => {
+    const user = userEvent.setup();
+
+    render(<App fileService={createFileService()} />);
+    await user.click(await screen.findByRole('button', { name: '设置' }));
+    await user.click(screen.getByRole('button', { name: '返回应用' }));
+
     expect(await screen.findByText('需要帮你做点什么')).toBeInTheDocument();
+    expect(window.location.hash).toBe('#/chat');
+  });
+
+  it('returns a directly opened settings page to Home', async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, '', '#/settings');
+
+    render(<App fileService={createFileService()} />);
+    await user.click(await screen.findByRole('button', { name: '返回应用' }));
+
+    expect(await screen.findByText('精选模板')).toBeInTheDocument();
+    expect(screen.queryByText('需要帮你做点什么')).not.toBeInTheDocument();
+    expect(window.location.hash).toBe('#/new');
   });
 
   it('uses a solid conversation background without a dynamic background setting', async () => {

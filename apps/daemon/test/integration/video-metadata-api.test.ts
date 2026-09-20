@@ -30,7 +30,7 @@ describe('video metadata API', () => {
 
     const response = await server.inject({
       method: 'GET',
-      url: '/video-metadata?url=https%3A%2F%2Fyoutu.be%2Fvideo_123'
+      url: '/video-metadata?url=https%3A%2F%2Fyoutu.be%2Fvideo_123%3Fsi%3Dshare-token'
     });
 
     expect(response.statusCode).toBe(200);

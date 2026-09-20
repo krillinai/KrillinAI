@@ -456,6 +456,9 @@ export function AppController(props: AppControllerProps) {
   const restoredThreadIdRef = useRef(initialState.selectedThreadId);
   const initialRouteKeyRef = useRef(formatRoute(props.route));
   const pendingRouteKeyRef = useRef<string>();
+  const settingsReturnRouteRef = useRef<AppRoute>(
+    props.route.view === 'settings' ? { view: 'home' } : props.route
+  );
   const skipNextHistoryLoadForThreadRef = useRef<string>();
   const skillMarketMutationInFlightRef = useRef(false);
   const skillMarketUseInFlightRef = useRef(false);
@@ -4519,6 +4522,7 @@ export function AppController(props: AppControllerProps) {
       }
       createProjectError={createProjectError}
       onOpenRuntimeComponents={() => {
+        settingsReturnRouteRef.current = props.route;
         dispatch({ type: 'open_settings' });
         navigateToRoute({ view: 'settings', tab: 'local-components' });
       }}
@@ -4644,8 +4648,9 @@ export function AppController(props: AppControllerProps) {
       initialTab={props.route.view === 'settings' ? props.route.tab : undefined}
       initialSection={props.route.view === 'settings' ? props.route.section : undefined}
       onBack={() => {
-        dispatch({ type: 'back_to_app' });
-        navigateToRoute(routeForConversation(state.selectedThreadId));
+        const returnRoute = settingsReturnRouteRef.current;
+        applyRouteFromLocation(returnRoute);
+        navigateToRoute(returnRoute);
       }}
     />
   ) : state.activeView === 'plugins' ? (
@@ -4759,6 +4764,7 @@ export function AppController(props: AppControllerProps) {
           onDeleteTask={task => deleteSidebarTask(task)}
           onOpenSettings={() => {
             closeMobileSidebar();
+            settingsReturnRouteRef.current = props.route;
             dispatch({ type: 'open_settings' });
             navigateToRoute({ view: 'settings' });
           }}
