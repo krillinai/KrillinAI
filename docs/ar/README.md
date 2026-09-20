@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![مجموعة QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[أبرز ميزات المشروع](#أبرز-ميزات-المشروع) · [أدوات الإنشاء](#أدوات-الإنشاء) · [Skills](#skills) · [المحادثة ومساحة العمل](#المحادثة-ومساحة-العمل-تتقدمان-معًا) · [النماذج المدعومة](#النماذج-المدعومة) · [أمثلة](#أمثلة) · [البدء السريع](#البدء-السريع) · [Desktop](#desktop) · [بنية النظام](#بنية-نظام-opencreator) · [التطوير](#التطوير) · [الوثائق](#الوثائق) · [المساهمون](#المساهمون) · [سجل Stars](#سجل-stars)
+[أبرز ميزات المشروع](#أبرز-ميزات-المشروع) · [أدوات الإنشاء](#أدوات-الإنشاء) · [قوالب الإنشاء](#قوالب-الإنشاء) · [Skills](#skills) · [المحادثة ومساحة العمل](#المحادثة-ومساحة-العمل-تتقدمان-معًا) · [النماذج المدعومة](#النماذج-المدعومة) · [أمثلة](#أمثلة) · [البدء السريع](#البدء-السريع) · [Desktop](#desktop) · [بنية النظام](#بنية-نظام-opencreator) · [التطوير](#التطوير) · [الوثائق](#الوثائق) · [المساهمة](#المساهمة) · [المساهمون](#المساهمون) · [سجل Stars](#سجل-stars)
 
 </div>
 
@@ -49,6 +49,8 @@
 - 🔄 **مكونات Runtime مُدارة**: اعرض إصدارات yt-dlp المضمّنة والنشطة والأحدث، وتحقق دوريًا من التحديثات وحدّث يدويًا، مع إبقاء الإصدار الحالي العامل متاحًا إذا فشل التحديث.
 
 - 🎨 **إنشاء متعدد الوسائط**: أنشئ الفيديو والصور والصوت والترجمات والوثائق وأدرها ضمن مسار عمل واحد مترابط.
+
+- 🧩 **قوالب الإنشاء**: أنشئ الصور والفيديوهات باستخدام قوالب قابلة لإعادة الاستخدام دون إعداد الأوصاف والإعدادات من الصفر.
 
 - 🔗 **مسار عمل بوضعين**: اعمل من مساحة العمل المرئية أو من محادثة Agent، بينما تحافظ آلة حالات مشتركة على مزامنة الخطوات والتقدم والنتائج.
 
@@ -91,6 +93,18 @@
 </tbody>
 </table>
 
+## قوالب الإنشاء
+
+ابدأ الإنشاء مباشرةً من قالب بدلًا من كتابة كل وصف وضبط كل إعداد من البداية. تصفّح القوالب المميزة حسب الفئة، بما في ذلك إنشاء الفيديو وتصميم الصور.
+
+تجمع المكتبة بين القوالب الأصلية من OpenCreator وقوالب المبدعين المستقلين. وتذكر صفحة تفاصيل قوالب الجهات الخارجية اسم المؤلف ورابط المصدر الأصلي.
+
+![معرض قوالب الإنشاء المميزة للفيديو والصور](../images/product/creation-templates-gallery-en.png)
+
+افتح القالب لمعاينة مثال للنتيجة والاطلاع على الوصف والإعدادات والوسوم والمؤلف والمصدر الأصلي. اختر **استخدم هذا القالب** لبدء الإنشاء منه، ثم عدّل المدخلات بما يناسب عملك.
+
+![تفاصيل قالب إنشاء الصور مع مثال للنتيجة والإعدادات والوصف](../images/product/creation-templates-detail-en.png)
+
 ## Skills
 
 توفر أدوات الإنشاء عناصر تحكم مرئية، بينما تمنح Skills تعليمات وسير عمل قابلين لإعادة الاستخدام لـAgent. يتضمن مستودع OpenCreator Skills لإنتاج الفيديو، إلى جانب دعم إدارة Skills المحلية في Codex.
@@ -115,7 +129,7 @@
 
 صِف المهام بلغة طبيعية، ثم انتقل إلى الأدوات المرئية عندما تحتاج إلى تحكم دقيق.
 
-![تعمل المحادثة ومساحة العمل المرئية في OpenCreator معًا](../images/examples/opencreator-auto-clips-en.png)
+المزوّدون والنماذج المعروضة أمثلة؛ ويتوقف التوفر الفعلي على بيانات الاعتماد وصلاحيات الحساب والمنصة.
 
 ### عناصر تحكم دقيقة في مساحة العمل
 
@@ -137,6 +151,8 @@
 
 يعتمد توفر النماذج اللغوية على كتالوج نماذج Codex أو مزود متوافق مع OpenAI قمت بإعداده. تستخدم نماذج الصور والفيديو والصوت والنسخ الخدمات المُعدّة في **الإعدادات ← خدمات الذكاء الاصطناعي**.
 
+تعرض الجداول إعدادات المزوّدين المدمجة والنماذج الموصى بها؛ ويتوقف التوفر الفعلي على بيانات الاعتماد وصلاحيات الحساب والمنصة.
+
 ### النماذج اللغوية
 
 <table>
@@ -152,7 +168,7 @@
 <td align="center" width="20%"><img src="../images/models/doubao.svg" alt="Doubao" width="40" height="40" /><br /><strong>Doubao</strong></td>
 <td align="center" width="20%"><img src="../images/models/ernie.png" alt="ERNIE" width="40" height="40" /><br /><strong>ERNIE</strong></td>
 <td align="center" width="20%"><img src="https://github.com/Tencent-Hunyuan.png?size=80" alt="Tencent Hunyuan" width="40" height="40" /><br /><strong>Hunyuan</strong></td>
-<td width="20%"></td>
+<td align="center" width="20%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
 </tr>
 </table>
 
@@ -160,7 +176,10 @@
 
 <table>
 <tr>
-<td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="../images/models/jimeng.png" alt="Jimeng" width="40" height="40" /><br /><strong>Seedream 4.0</strong><br />Jimeng</td>
+<td align="center" width="25%"><img src="../images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1</strong><br />Kling Image</td>
+<td align="center" width="25%"><img src="../images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Nano Banana</strong><br />Gemini 2.5 Flash Image</td>
 </tr>
 </table>
 
@@ -168,7 +187,9 @@
 
 <table>
 <tr>
-<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
+<td align="center" width="33%"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance 2.5</strong></td>
+<td align="center" width="33%"><img src="../images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1 Master</strong></td>
+<td align="center" width="33%"><img src="../images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Veo 3.1</strong></td>
 </tr>
 </table>
 
@@ -183,6 +204,8 @@
 <td align="center" width="20%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
 </tr>
 </table>
+
+تدعم الكتابة الصوتية المحلية أيضًا faster-whisper وWhisperKit وwhisper.cpp على المنصات المتوافقة.
 
 ## أمثلة
 
@@ -510,11 +533,28 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## المساهمة
 
+يمكنك المساهمة في OpenCreator بطرق عديدة، وليس عبر الشفرة فقط:
+
+| النوع | ماذا تقدم | كيف تجهزها | أين تقدمها |
+| --- | --- | --- | --- |
+| الشفرة | إصلاحات وأدوات إنشاء وميزات مشتركة | تغيير محدد مع عرض أو خطوات إعادة الإنتاج واختبارات | [Issue][contribute-issue] ثم [PR][contribute-pr]؛ `apps/web/` أو `apps/daemon/` |
+| Skills | سير عمل Agent قابلة لإعادة الاستخدام | `SKILL.md` مع المتطلبات والأمثلة | [Issue][contribute-issue] ثم [PR][contribute-pr] في `skills/` |
+| قوالب الإنشاء | قوالب قابلة لإعادة الاستخدام للصور والفيديو والأغلفة | `template.json` وملفات الغلاف والمعاينة والوصف والإعدادات ونسب العمل وحقوق الاستخدام | قدّم [PR][contribute-pr] في [`template/`](../../template/)؛ ناقش الصيغ الجديدة في [Issue][contribute-issue] |
+| الرسوم والتصميم | رسوم وأيقونات وواجهات أصلية | معاينة وملفات مصدر قابلة للتعديل وترخيص | [Issue][contribute-issue] ثم [PR][contribute-pr] في موقع الأصول المتفق عليه |
+| تكامل خدمات الجهات الخارجية | دعم خدمات الذكاء الاصطناعي أو الوسائط | حالة استخدام وإعدادات ومعالجة الأخطاء وحماية بيانات الاعتماد واختبارات | [Issue][contribute-issue] ثم [PR][contribute-pr] في وحدات Web / Daemon |
+
+ضع كل قالب مع ملفاته في `template/<module>/<id>/<version>/template.json`. الوحدات الحالية هي `image-generation` و`video-generation` و`cover-generator`. قدّم العنوان والوصف بالصينية والإنجليزية، وشغّل `pnpm templates:validate` قبل إرسال PR.
+
+كيفية المساهمة:
+
 1. صِف المشكلة وحالة الاستخدام والسلوك المتوقع في [Issues](https://github.com/krillinai/OpenCreator/issues).
 2. أنشئ فرعًا محددًا للميزة أو الإصلاح انطلاقًا من أحدث فرع تطوير.
 3. اتبع البنية الحالية: نفّذ إمكانات المنتج العامة مرة واحدة في Web وDaemon، واعزل الاختلافات الأصلية خلف capabilities صريحة.
 4. أضف تغطية مناسبة باختبارات الوحدة أو التكامل أو الاختبارات الشاملة لتغييرات السلوك، واذكر في Pull Request عمليات التحقق المكتملة والمتجاوزة.
 5. لا تضف مطلقًا `.runtime/` أو بيانات الاعتماد المحلية أو جلسات Codex أو ذاكرات البناء المؤقتة أو بيانات المستخدم الأخرى إلى commit.
+
+[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
+[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
 ## المساهمون
 

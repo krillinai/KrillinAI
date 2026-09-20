@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Project Highlights](#project-highlights) · [Creator Tools](#creator-tools) · [Skills](#skills) · [Conversation & Workspace](#conversation-and-workspace-moving-together) · [Models Supported](#models-supported) · [Examples](#examples) · [Quick Start](#quick-start) · [Desktop](#desktop) · [OpenCreator System Architecture](#opencreator-system-architecture) · [Development](#development) · [Documentation](#documentation) · [Contributors](#contributors) · [Star History](#star-history)
+[Project Highlights](#project-highlights) · [Creator Tools](#creator-tools) · [Creation Templates](#creation-templates) · [Skills](#skills) · [Conversation & Workspace](#conversation-and-workspace-moving-together) · [Models Supported](#models-supported) · [Examples](#examples) · [Quick Start](#quick-start) · [Desktop](#desktop) · [OpenCreator System Architecture](#opencreator-system-architecture) · [Development](#development) · [Documentation](#documentation) · [Contributing](#contributing) · [Contributors](#contributors) · [Star History](#star-history)
 
 </div>
 
@@ -49,6 +49,8 @@ Web is the single frontend implementation. Desktop loads the same Web build and 
 - 🔄 **Managed Runtime Components**: Inspect bundled, active, and latest yt-dlp versions, check for updates periodically, and update manually while keeping the current working version available if an update fails.
 
 - 🎨 **Multimodal Creation**: Create and manage video, images, audio, subtitles, and documents through one connected workflow.
+
+- 🧩 **Creation Templates**: Start creating images and videos from reusable templates without setting up prompts and settings from scratch.
 
 - 🔗 **Dual-Mode Workflow**: Work through either the visual workspace or Agent conversation while one shared state machine keeps steps, progress, and results synchronized.
 
@@ -96,6 +98,18 @@ Open the Dashboard to write articles, Xiaohongshu posts, or short-video scripts;
 </tbody>
 </table>
 
+## Creation Templates
+
+Start creating from a template instead of building every prompt and setting from scratch. Browse featured templates by category, including video creation and image design, to find a starting point for your idea.
+
+The collection brings together templates created by OpenCreator and by independent creators. Third-party templates credit their creators and link to the original source on the template detail page.
+
+![Featured creation templates across video and image categories](./docs/images/product/creation-templates-gallery-en.png)
+
+Open a template to preview its example result and inspect its prompt, settings, tags, author, and original source. Select **Use this template** to start creating with it, then adjust the inputs for your own work.
+
+![Image creation template detail with example result, settings, and prompt](./docs/images/product/creation-templates-detail-en.png)
+
 ## Skills
 
 Creator tools provide visual controls; Skills give the Agent reusable instructions and tool workflows. OpenCreator includes video-production Skills in the repository, alongside support for managing local Codex Skills.
@@ -142,6 +156,8 @@ Each revision creates a separate version without overwriting earlier results or 
 
 Language model availability follows the Codex model catalog or your OpenAI-compatible provider. Image, video, voice, and transcription models use the services configured in **Settings → AI Services**.
 
+The providers and models shown are examples; actual availability depends on your credentials, provider account access, and platform.
+
 ### Language models
 
 <table>
@@ -157,7 +173,7 @@ Language model availability follows the Codex model catalog or your OpenAI-compa
 <td align="center" width="20%"><img src="./docs/images/models/doubao.svg" alt="Doubao" width="40" height="40" /><br /><strong>Doubao</strong></td>
 <td align="center" width="20%"><img src="./docs/images/models/ernie.png" alt="ERNIE" width="40" height="40" /><br /><strong>ERNIE</strong></td>
 <td align="center" width="20%"><img src="https://github.com/Tencent-Hunyuan.png?size=80" alt="Tencent Hunyuan" width="40" height="40" /><br /><strong>Hunyuan</strong></td>
-<td width="20%"></td>
+<td align="center" width="20%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
 </tr>
 </table>
 
@@ -165,7 +181,10 @@ Language model availability follows the Codex model catalog or your OpenAI-compa
 
 <table>
 <tr>
-<td align="center"><img src="./docs/images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="./docs/images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="./docs/images/models/jimeng.png" alt="Jimeng" width="40" height="40" /><br /><strong>Seedream 4.0</strong><br />Jimeng</td>
+<td align="center" width="25%"><img src="./docs/images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1</strong><br />Kling Image</td>
+<td align="center" width="25%"><img src="./docs/images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Nano Banana</strong><br />Gemini 2.5 Flash Image</td>
 </tr>
 </table>
 
@@ -173,7 +192,9 @@ Language model availability follows the Codex model catalog or your OpenAI-compa
 
 <table>
 <tr>
-<td align="center"><img src="./docs/images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
+<td align="center" width="33%"><img src="./docs/images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance 2.5</strong></td>
+<td align="center" width="33%"><img src="./docs/images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1 Master</strong></td>
+<td align="center" width="33%"><img src="./docs/images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Veo 3.1</strong></td>
 </tr>
 </table>
 
@@ -188,6 +209,8 @@ Language model availability follows the Codex model catalog or your OpenAI-compa
 <td align="center" width="20%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
 </tr>
 </table>
+
+Local transcription also supports faster-whisper, WhisperKit, and whisper.cpp where available.
 
 ## Examples
 
@@ -515,11 +538,28 @@ The root `README.md` is the canonical English document. Maintained translations 
 
 ## Contributing
 
+Contributions are welcome in these areas:
+
+| Type | What to contribute | How to prepare | Where to contribute |
+| --- | --- | --- | --- |
+| Code | Bug fixes, creator workflows, shared features | A focused change, demo or reproduction, and relevant tests | [Issue][contribute-issue] → [PR][contribute-pr]; `apps/web/` or `apps/daemon/` |
+| Skills | Reusable Agent workflows | `SKILL.md`, prerequisites, and usage examples | [Issue][contribute-issue] → [PR][contribute-pr] in `skills/` |
+| Creation templates | Reusable image, video, or cover templates | `template.json`, cover and example assets, prompts, settings, attribution, and usage rights | [PR][contribute-pr] in [`template/`](./template/); discuss new formats in an [Issue][contribute-issue] |
+| Illustration and design | Original illustrations, icons, or UI designs | Preview, editable source files, and license or permission | [Issue][contribute-issue] → [PR][contribute-pr] in an agreed asset location |
+| Third-party service integrations | AI or media provider support | Use case, setup, error handling, credential safety, and tests | [Issue][contribute-issue] → [PR][contribute-pr] in relevant Web or Daemon modules |
+
+Place each creation template at `template/<module>/<id>/<version>/template.json` with its local assets. The current modules are `image-generation`, `video-generation`, and `cover-generator`. Include Chinese and English titles and descriptions, and run `pnpm templates:validate` before submitting a PR.
+
+How to contribute:
+
 1. Describe the problem, use case, and expected behavior in [Issues](https://github.com/krillinai/OpenCreator/issues).
 2. Create a focused feature or fix branch from the latest development branch.
 3. Follow the existing architecture: implement general product capabilities once in Web and Daemon, and isolate native differences behind explicit capabilities.
 4. Add appropriate unit, integration, or E2E coverage for behavior changes, and list both completed and skipped verification in the Pull Request.
 5. Never commit `.runtime/`, local credentials, Codex sessions, build caches, or other user data.
+
+[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
+[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
 ## Contributors
 

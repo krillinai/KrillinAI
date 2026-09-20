@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ 그룹](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[주요 특징](#주요-특징) · [제작 도구](#제작-도구) · [Skills](#skills) · [대화와 워크스페이스](#대화와-워크스페이스를-함께-진행) · [지원 모델](#지원-모델) · [활용 사례](#활용-사례) · [빠른 시작](#빠른-시작) · [Desktop](#desktop) · [시스템 구조](#opencreator-시스템-구조) · [개발](#개발) · [문서](#문서) · [기여자](#기여자) · [Star 기록](#star-기록)
+[주요 특징](#주요-특징) · [제작 도구](#제작-도구) · [제작 템플릿](#제작-템플릿) · [Skills](#skills) · [대화와 워크스페이스](#대화와-워크스페이스를-함께-진행) · [지원 모델](#지원-모델) · [활용 사례](#활용-사례) · [빠른 시작](#빠른-시작) · [Desktop](#desktop) · [시스템 구조](#opencreator-시스템-구조) · [개발](#개발) · [문서](#문서) · [기여하기](#기여하기) · [기여자](#기여자) · [Star 기록](#star-기록)
 
 </div>
 
@@ -49,6 +49,8 @@ Web은 유일한 프런트엔드 구현입니다. Desktop은 동일한 Web 빌�
 - 🔄 **관리형 Runtime 구성 요소**: 번들, 사용 중, 최신 yt-dlp 버전을 확인하고 주기적으로 업데이트를 검사한 뒤 수동으로 업데이트할 수 있습니다. 업데이트가 실패해도 현재 작동 중인 버전은 유지됩니다.
 
 - 🎨 **멀티모달 제작**: 동영상, 이미지, 오디오, 자막, 문서를 하나의 연결된 워크플로에서 제작하고 관리합니다.
+
+- 🧩 **제작 템플릿**: 프롬프트와 설정을 처음부터 준비하지 않고 재사용 가능한 템플릿으로 이미지와 동영상 제작을 시작할 수 있습니다.
 
 - 🔗 **듀얼 모드 워크플로**: 시각적 워크스페이스와 Agent 대화 중 어느 쪽에서도 작업할 수 있으며, 하나의 공유 상태 머신이 단계, 진행 상황, 결과를 동기화합니다.
 
@@ -91,6 +93,18 @@ Dashboard에서 동영상을 번역하거나 다운로드하고, 썸네일 또�
 </tbody>
 </table>
 
+## 제작 템플릿
+
+프롬프트와 설정을 처음부터 만들지 않고 템플릿으로 바로 제작을 시작할 수 있습니다. 동영상 제작과 이미지 디자인 등 카테고리별 추천 템플릿을 둘러보세요.
+
+제작 템플릿에는 OpenCreator의 오리지널 템플릿과 외부 크리에이터의 템플릿이 함께 제공됩니다. 외부 템플릿의 상세 화면에는 제작자와 원본 출처 링크가 표시됩니다.
+
+![동영상 제작과 이미지 디자인 등의 추천 제작 템플릿 목록](../images/product/creation-templates-gallery-en.png)
+
+템플릿을 열면 예시 결과와 프롬프트, 설정, 태그, 제작자 및 원본 출처를 확인할 수 있습니다. **이 템플릿 사용**을 선택해 제작을 시작하고 필요한 입력을 조정하세요.
+
+![예시 결과, 설정, 프롬프트가 있는 이미지 제작 템플릿 상세 화면](../images/product/creation-templates-detail-en.png)
+
 ## Skills
 
 제작 도구는 시각적 제어 기능을 제공하고, Skills는 Agent에 재사용 가능한 실행 지침과 도구 워크플로를 제공합니다. OpenCreator는 저장소에 동영상 제작 Skills를 포함하며 로컬 Codex Skills 관리도 지원합니다.
@@ -115,7 +129,7 @@ OpenCreator는 `SKILL.md`로 정의된 로컬 Codex Skills를 지원하므로 �
 
 작업을 자연어로 설명하고 정밀한 제어가 필요할 때 시각적 도구로 전환하세요.
 
-![OpenCreator 대화와 시각적 워크스페이스의 연동](../images/examples/opencreator-auto-clips-en.png)
+아래 서비스와 모델은 예시입니다. 실제 사용 가능 여부는 인증 정보, 서비스 계정 권한, 플랫폼에 따라 달라집니다.
 
 ### 세밀한 워크스페이스 제어
 
@@ -137,6 +151,8 @@ Agent에게 변경할 내용을 알려 주고 자연어로 결과를 계속 다�
 
 언어 모델은 Codex 모델 카탈로그 또는 설정한 OpenAI 호환 공급자를 따릅니다. 이미지, 동영상, 음성, 텍스트 변환 모델은 **설정 → AI 서비스**에서 구성한 서비스를 사용합니다.
 
+아래 표는 기본 제공 서비스 설정과 추천 모델을 보여 줍니다. 실제 사용 가능 여부는 인증 정보, 서비스 계정 권한, 플랫폼에 따라 달라집니다.
+
 ### 언어 모델
 
 <table>
@@ -152,7 +168,7 @@ Agent에게 변경할 내용을 알려 주고 자연어로 결과를 계속 다�
 <td align="center" width="20%"><img src="../images/models/doubao.svg" alt="Doubao" width="40" height="40" /><br /><strong>Doubao</strong></td>
 <td align="center" width="20%"><img src="../images/models/ernie.png" alt="ERNIE" width="40" height="40" /><br /><strong>ERNIE</strong></td>
 <td align="center" width="20%"><img src="https://github.com/Tencent-Hunyuan.png?size=80" alt="Tencent Hunyuan" width="40" height="40" /><br /><strong>Hunyuan</strong></td>
-<td width="20%"></td>
+<td align="center" width="20%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
 </tr>
 </table>
 
@@ -160,7 +176,10 @@ Agent에게 변경할 내용을 알려 주고 자연어로 결과를 계속 다�
 
 <table>
 <tr>
-<td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="../images/models/jimeng.png" alt="Jimeng" width="40" height="40" /><br /><strong>Seedream 4.0</strong><br />Jimeng</td>
+<td align="center" width="25%"><img src="../images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1</strong><br />Kling Image</td>
+<td align="center" width="25%"><img src="../images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Nano Banana</strong><br />Gemini 2.5 Flash Image</td>
 </tr>
 </table>
 
@@ -168,7 +187,9 @@ Agent에게 변경할 내용을 알려 주고 자연어로 결과를 계속 다�
 
 <table>
 <tr>
-<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
+<td align="center" width="33%"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance 2.5</strong></td>
+<td align="center" width="33%"><img src="../images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1 Master</strong></td>
+<td align="center" width="33%"><img src="../images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Veo 3.1</strong></td>
 </tr>
 </table>
 
@@ -183,6 +204,8 @@ Agent에게 변경할 내용을 알려 주고 자연어로 결과를 계속 다�
 <td align="center" width="20%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
 </tr>
 </table>
+
+로컬 음성 전사에는 지원 환경에서 faster-whisper, WhisperKit, whisper.cpp도 사용할 수 있습니다.
 
 ## 활용 사례
 
@@ -510,11 +533,28 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## 기여하기
 
+코드뿐 아니라 다양한 방법으로 OpenCreator에 기여할 수 있습니다:
+
+| 유형 | 기여 내용 | 준비할 자료 | 제출 위치 |
+| --- | --- | --- | --- |
+| 코드 | 버그 수정, 제작 워크플로와 공통 기능 개선 | 범위가 명확한 변경, 시연 또는 재현 방법, 관련 테스트 | [Issue][contribute-issue] → [PR][contribute-pr]; `apps/web/` 또는 `apps/daemon/` |
+| Skills | 재사용 가능한 Agent 워크플로 | `SKILL.md`, 필수 조건, 사용 예시 | [Issue][contribute-issue] → `skills/`에 [PR][contribute-pr] |
+| 제작 템플릿 | 재사용 가능한 이미지·동영상·커버 템플릿 | `template.json`, 커버·예시 자료, 프롬프트, 설정, 출처 및 사용 권한 | [`template/`](../../template/)에 [PR][contribute-pr] 제출; 새 형식은 [Issue][contribute-issue]에서 논의 |
+| 일러스트·디자인 | 오리지널 일러스트, 아이콘, UI | 미리보기, 편집 가능한 원본, 라이선스 | [Issue][contribute-issue] → 자료 위치 협의 후 [PR][contribute-pr] |
+| 외부 서비스 연동 | AI·미디어 서비스 지원 | 용도, 설정, 오류 처리, 자격 증명 보호, 테스트 | [Issue][contribute-issue] → Web / Daemon 모듈에 [PR][contribute-pr] |
+
+각 템플릿과 자료는 `template/<module>/<id>/<version>/template.json`에 배치합니다. 현재 모듈은 `image-generation`, `video-generation`, `cover-generator`입니다. 제목과 설명은 중국어와 영어로 작성하고 PR 전에 `pnpm templates:validate`를 실행하세요.
+
+참여 방법:
+
 1. [Issues](https://github.com/krillinai/OpenCreator/issues)에 문제, 사용 사례, 기대 동작을 설명합니다.
 2. 최신 개발 브랜치에서 목적이 명확한 기능 또는 수정 브랜치를 만듭니다.
 3. 기존 아키텍처를 따릅니다. 범용 제품 기능은 Web과 Daemon에 한 번만 구현하고 네이티브 차이는 명시적인 capability 뒤에 격리합니다.
 4. 동작 변경에 적합한 단위, 통합 또는 E2E 테스트를 추가하고 Pull Request에 완료한 검증과 생략한 검증을 모두 기재합니다.
 5. `.runtime/`, 로컬 자격 증명, Codex 세션, 빌드 캐시 또는 기타 사용자 데이터를 commit하지 마세요.
+
+[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
+[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
 ## 기여자
 

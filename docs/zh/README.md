@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[项目特色](#项目特色) · [创作工具](#创作工具) · [Skills 技能](#skills-技能) · [对话与工作区](#对话与工作区协同推进) · [支持的模型](#支持的模型) · [案例展示](#案例展示) · [快速开始](#快速开始) · [Desktop](#desktop) · [OpenCreator 系统架构](#opencreator-系统架构) · [开发指南](#开发指南) · [文档](#文档) · [贡献者](#贡献者) · [Star 趋势](#star-趋势)
+[项目特色](#项目特色) · [创作工具](#创作工具) · [创作模板](#创作模板) · [Skills 技能](#skills-技能) · [对话与工作区](#对话与工作区协同推进) · [支持的模型](#支持的模型) · [案例展示](#案例展示) · [快速开始](#快速开始) · [Desktop](#desktop) · [OpenCreator 系统架构](#opencreator-系统架构) · [开发指南](#开发指南) · [文档](#文档) · [参与贡献](#参与贡献) · [贡献者](#贡献者) · [Star 趋势](#star-趋势)
 
 </div>
 
@@ -49,6 +49,8 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 - 🔄 **运行组件管理**：查看 yt-dlp 的内置版本、当前版本与最新版本，定期检查并由用户手动更新；更新失败时继续保留当前可用版本。
 
 - 🎨 **多模态创作**：在同一套流程中创作和管理视频、图像、音频、字幕与文档。
+
+- 🧩 **创作模板**：使用可复用模板直接创作图像和视频，无需从零编写提示词或配置参数。
 
 - 🔗 **双模协同**：既可操作可视化工作台，也可通过 Agent 对话创作，同一状态机让步骤、进度和结果始终同步。
 
@@ -96,6 +98,18 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 </tbody>
 </table>
 
+## 创作模板
+
+无需从零编写提示词或设置参数：按分类浏览精选创作模板，探索视频创作和图像设计等方向，找到适合自己创意的起点。
+
+创作模板库汇集 OpenCreator 原创及第三方创作者的模板。涉及第三方作品时，模板详情会注明作者并提供原始来源链接，方便了解创意出处。
+
+![按视频创作和图像设计等分类展示的精选创作模板](../images/product/creation-templates-gallery-en.png)
+
+打开模板可以预览案例效果，查看提示词、模板设置、标签、作者与原始来源。点击 **使用这个模板** 即可基于模板直接创作，并按需调整输入内容。
+
+![图像创作模板详情，包括案例效果、模板设置和提示词](../images/product/creation-templates-detail-en.png)
+
 ## Skills 技能
 
 创作工具提供可视化操作，Skills 则为 Agent 提供可复用的执行指引与工具工作流。OpenCreator 不仅支持管理本地 Codex Skills，还包含仓库中的视频制作技能，让工作流可以复用和扩展。
@@ -142,6 +156,8 @@ OpenCreator 支持以 `SKILL.md` 定义的本地 Codex Skills，可接入自己�
 
 语言模型由 Codex 模型目录或你配置的 OpenAI 兼容服务提供；图像、视频、语音和转写模型使用 **设置 → AI 服务** 中配置的服务。
 
+以下服务商与模型仅为示例；实际可用性取决于密钥配置、服务商账号权限及运行平台。
+
 ### 语言模型
 
 <table>
@@ -157,7 +173,7 @@ OpenCreator 支持以 `SKILL.md` 定义的本地 Codex Skills，可接入自己�
 <td align="center" width="20%"><img src="../images/models/doubao.svg" alt="Doubao" width="40" height="40" /><br /><strong>Doubao</strong></td>
 <td align="center" width="20%"><img src="../images/models/ernie.png" alt="ERNIE" width="40" height="40" /><br /><strong>ERNIE</strong></td>
 <td align="center" width="20%"><img src="https://github.com/Tencent-Hunyuan.png?size=80" alt="Tencent Hunyuan" width="40" height="40" /><br /><strong>Hunyuan</strong></td>
-<td width="20%"></td>
+<td align="center" width="20%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
 </tr>
 </table>
 
@@ -165,7 +181,10 @@ OpenCreator 支持以 `SKILL.md` 定义的本地 Codex Skills，可接入自己�
 
 <table>
 <tr>
-<td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="../images/models/jimeng.png" alt="Jimeng" width="40" height="40" /><br /><strong>Seedream 4.0</strong><br />Jimeng</td>
+<td align="center" width="25%"><img src="../images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1</strong><br />Kling Image</td>
+<td align="center" width="25%"><img src="../images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Nano Banana</strong><br />Gemini 2.5 Flash Image</td>
 </tr>
 </table>
 
@@ -173,7 +192,9 @@ OpenCreator 支持以 `SKILL.md` 定义的本地 Codex Skills，可接入自己�
 
 <table>
 <tr>
-<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
+<td align="center" width="33%"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance 2.5</strong></td>
+<td align="center" width="33%"><img src="../images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1 Master</strong></td>
+<td align="center" width="33%"><img src="../images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Veo 3.1</strong></td>
 </tr>
 </table>
 
@@ -188,6 +209,8 @@ OpenCreator 支持以 `SKILL.md` 定义的本地 Codex Skills，可接入自己�
 <td align="center" width="20%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
 </tr>
 </table>
+
+本地语音转写还支持 faster-whisper、WhisperKit 和 whisper.cpp，具体可用性取决于运行平台。
 
 ## 案例展示
 
@@ -514,11 +537,28 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## 参与贡献
 
+欢迎以多种方式参与 OpenCreator，不限于代码：
+
+| 类型 | 可以贡献什么 | 如何准备 | 在哪里提交 |
+| --- | --- | --- | --- |
+| 代码 | 修复问题、改进创作流程或通用能力 | 明确改动范围，附演示或复现方式与相关测试 | [Issue][contribute-issue] 讨论 → [PR][contribute-pr]；`apps/web/` 或 `apps/daemon/` |
+| Skill | 可复用的 Agent 工作流 | 提供 `SKILL.md`、依赖条件和使用示例 | [Issue][contribute-issue] 讨论 → [PR][contribute-pr]，提交至 `skills/` |
+| 创作模板 | 可复用的图像、视频或封面模板 | 提供 `template.json`、封面与案例素材、提示词、设置、来源归属和使用授权 | 在 [`template/`](../../template/) 提交 [PR][contribute-pr]；新格式先通过 [Issue][contribute-issue] 讨论 |
+| 插画设计 | 原创插画、图标或界面设计 | 提供预览、可编辑源文件及许可说明 | [Issue][contribute-issue] 讨论 → [PR][contribute-pr]，素材位置先确认 |
+| 第三方服务接入 | AI 或媒体服务提供方 | 说明场景、配置、错误处理、密钥安全及测试 | [Issue][contribute-issue] 讨论 → [PR][contribute-pr]，修改对应 Web / Daemon 模块 |
+
+创作模板按 `template/<module>/<id>/<version>/template.json` 组织，并将引用的素材放在同一版本目录。目前支持 `image-generation`、`video-generation` 和 `cover-generator`；标题与简介需同时提供中文和英文。提交 PR 前运行 `pnpm templates:validate`。
+
+如何参与：
+
 1. 在 [Issues](https://github.com/krillinai/OpenCreator/issues) 中描述问题、使用场景和预期行为。
 2. 从最新分支创建范围清晰的功能或修复分支。
 3. 遵循仓库现有架构，通用产品能力只在 Web + Daemon 实现一次，原生差异通过 capability 隔离。
 4. 为行为变化补充相应的单元、集成或 E2E 测试，并在 Pull Request 中写明已运行和未运行的验证。
 5. 不提交 `.runtime/`、本机凭据、Codex 会话、构建缓存或其他用户数据。
+
+[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
+[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
 ## 贡献者
 

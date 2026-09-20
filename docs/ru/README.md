@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![Группа QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Возможности проекта](#возможности-проекта) · [Инструменты для творчества](#инструменты-для-творчества) · [Skills](#skills) · [Диалог и рабочее пространство](#диалог-и-рабочее-пространство-движутся-вместе) · [Поддерживаемые модели](#поддерживаемые-модели) · [Примеры](#примеры) · [Быстрый старт](#быстрый-старт) · [Desktop](#desktop) · [Структура системы](#структура-системы-opencreator) · [Разработка](#разработка) · [Документация](#документация) · [Участники](#участники) · [История Stars](#история-stars)
+[Возможности проекта](#возможности-проекта) · [Инструменты для творчества](#инструменты-для-творчества) · [Шаблоны для творчества](#шаблоны-для-творчества) · [Skills](#skills) · [Диалог и рабочее пространство](#диалог-и-рабочее-пространство-движутся-вместе) · [Поддерживаемые модели](#поддерживаемые-модели) · [Примеры](#примеры) · [Быстрый старт](#быстрый-старт) · [Desktop](#desktop) · [Структура системы](#структура-системы-opencreator) · [Разработка](#разработка) · [Документация](#документация) · [Участие в разработке](#участие-в-разработке) · [Участники](#участники) · [История Stars](#история-stars)
 
 </div>
 
@@ -49,6 +49,8 @@ Web — единственная реализация фронтенда. Deskto
 - 🔄 **Управляемые компоненты Runtime**: просматривайте встроенную, активную и последнюю версии yt-dlp, периодически проверяйте обновления и устанавливайте их вручную. При сбое обновления текущая рабочая версия останется доступной.
 
 - 🎨 **Мультимодальное творчество**: создавайте видео, изображения, аудио, субтитры и документы и управляйте ими в едином связанном рабочем процессе.
+
+- 🧩 **Шаблоны для творчества**: создавайте изображения и видео на основе готовых шаблонов, не настраивая промпты и параметры с нуля.
 
 - 🔗 **Два режима работы**: работайте через визуальное рабочее пространство или диалог с Agent, а общая машина состояний будет синхронизировать этапы, прогресс и результаты.
 
@@ -91,6 +93,18 @@ Web — единственная реализация фронтенда. Deskto
 </tbody>
 </table>
 
+## Шаблоны для творчества
+
+Начните работу по шаблону вместо того, чтобы составлять промпт и настраивать всё с нуля. Просматривайте подборку шаблонов по категориям, включая создание видео и дизайн изображений.
+
+В коллекции представлены шаблоны OpenCreator и независимых авторов. Для сторонних шаблонов на странице сведений указаны автор и ссылка на первоисточник.
+
+![Галерея шаблонов для создания видео и изображений](../images/product/creation-templates-gallery-en.png)
+
+Откройте шаблон, чтобы увидеть пример результата, промпт, настройки, теги, автора и первоисточник. Выберите **Использовать шаблон**, чтобы сразу начать работу, а затем измените входные данные под свою задачу.
+
+![Страница шаблона для изображений с примером результата, настройками и промптом](../images/product/creation-templates-detail-en.png)
+
 ## Skills
 
 Инструменты для творчества предоставляют визуальные элементы управления, а Skills — повторно используемые инструкции и рабочие процессы для Agent. Репозиторий OpenCreator содержит Skills для видеопроизводства; также поддерживается управление локальными Skills Codex.
@@ -115,7 +129,7 @@ OpenCreator поддерживает локальные Skills Codex, опред
 
 Описывайте задачи естественным языком и переходите к визуальным инструментам, когда требуется точное управление.
 
-![Диалог и визуальное рабочее пространство OpenCreator работают вместе](../images/examples/opencreator-auto-clips-en.png)
+Указанные поставщики и модели приведены в качестве примеров; фактическая доступность зависит от учётных данных, доступа аккаунта и платформы.
 
 ### Точные элементы управления
 
@@ -137,6 +151,8 @@ OpenCreator поддерживает локальные Skills Codex, опред
 
 Доступность языковых моделей определяется каталогом моделей Codex или настроенным OpenAI-совместимым провайдером. Модели изображений, видео, голоса и распознавания речи используют сервисы из раздела **Настройки → Сервисы ИИ**.
 
+В таблицах показаны встроенные профили поставщиков и рекомендуемые модели; фактическая доступность зависит от учётных данных, доступа аккаунта и платформы.
+
 ### Языковые модели
 
 <table>
@@ -152,7 +168,7 @@ OpenCreator поддерживает локальные Skills Codex, опред
 <td align="center" width="20%"><img src="../images/models/doubao.svg" alt="Doubao" width="40" height="40" /><br /><strong>Doubao</strong></td>
 <td align="center" width="20%"><img src="../images/models/ernie.png" alt="ERNIE" width="40" height="40" /><br /><strong>ERNIE</strong></td>
 <td align="center" width="20%"><img src="https://github.com/Tencent-Hunyuan.png?size=80" alt="Tencent Hunyuan" width="40" height="40" /><br /><strong>Hunyuan</strong></td>
-<td width="20%"></td>
+<td align="center" width="20%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
 </tr>
 </table>
 
@@ -160,7 +176,10 @@ OpenCreator поддерживает локальные Skills Codex, опред
 
 <table>
 <tr>
-<td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="../images/models/jimeng.png" alt="Jimeng" width="40" height="40" /><br /><strong>Seedream 4.0</strong><br />Jimeng</td>
+<td align="center" width="25%"><img src="../images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1</strong><br />Kling Image</td>
+<td align="center" width="25%"><img src="../images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Nano Banana</strong><br />Gemini 2.5 Flash Image</td>
 </tr>
 </table>
 
@@ -168,7 +187,9 @@ OpenCreator поддерживает локальные Skills Codex, опред
 
 <table>
 <tr>
-<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
+<td align="center" width="33%"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance 2.5</strong></td>
+<td align="center" width="33%"><img src="../images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1 Master</strong></td>
+<td align="center" width="33%"><img src="../images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Veo 3.1</strong></td>
 </tr>
 </table>
 
@@ -183,6 +204,8 @@ OpenCreator поддерживает локальные Skills Codex, опред
 <td align="center" width="20%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
 </tr>
 </table>
+
+Для локальной расшифровки речи на поддерживаемых платформах также доступны faster-whisper, WhisperKit и whisper.cpp.
 
 ## Примеры
 
@@ -510,11 +533,28 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## Участие в разработке
 
+Помочь OpenCreator можно не только кодом:
+
+| Тип | Что предложить | Что подготовить | Куда отправить |
+| --- | --- | --- | --- |
+| Код | Исправления, творческие сценарии, общие функции | Ограниченное изменение, демонстрация или воспроизведение, тесты | [Issue][contribute-issue] → [PR][contribute-pr]; `apps/web/` или `apps/daemon/` |
+| Skills | Повторно используемые процессы Agent | `SKILL.md`, требования и примеры | [Issue][contribute-issue] → [PR][contribute-pr] в `skills/` |
+| Шаблоны для творчества | Шаблоны для изображений, видео или обложек | `template.json`, обложка и примеры, промпт, настройки, авторство и права использования | [PR][contribute-pr] в [`template/`](../../template/); новые форматы обсудите в [Issue][contribute-issue] |
+| Иллюстрации и дизайн | Оригинальные иллюстрации, значки или интерфейсы | Предпросмотр, редактируемые исходники и лицензия | [Issue][contribute-issue] → [PR][contribute-pr] в согласованный каталог |
+| Интеграции сторонних сервисов | Поддержка ИИ- или медиасервисов | Сценарий, настройка, обработка ошибок, защита данных доступа и тесты | [Issue][contribute-issue] → [PR][contribute-pr] в модули Web / Daemon |
+
+Размещайте шаблон и связанные файлы в `template/<module>/<id>/<version>/template.json`. Доступные модули: `image-generation`, `video-generation` и `cover-generator`. Укажите название и описание на китайском и английском языках и запустите `pnpm templates:validate` перед отправкой PR.
+
+Как внести вклад:
+
 1. Опишите проблему, сценарий использования и ожидаемое поведение в [Issues](https://github.com/krillinai/OpenCreator/issues).
 2. Создайте отдельную ветку для функции или исправления от последней ветки разработки.
 3. Следуйте существующей архитектуре: реализуйте общие возможности продукта один раз в Web и Daemon, а нативные различия изолируйте за явными capabilities.
 4. Добавьте подходящие модульные, интеграционные или E2E-тесты для изменений поведения и перечислите в Pull Request как выполненные, так и пропущенные проверки.
 5. Никогда не добавляйте в commit `.runtime/`, локальные учетные данные, сессии Codex, кеши сборки и другие пользовательские данные.
+
+[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
+[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
 ## Участники
 
