@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -131,5 +132,38 @@ describe('Desktop release assets', () => {
     expect(config).toContain('artifactName: OpenCreator-${version}-${os}-${arch}.${ext}');
     expect(config).toContain('repo: OpenCreator');
     expect(config).not.toContain('repo: KrillinAI');
+  });
+
+  it('runs the release finalizer through the same CLI used by the promotion workflow', () => {
+    const data = fixture();
+    for (const [platform, arch] of [['darwin', 'x64'], ['win32', 'x64']]) {
+      for (const name of releaseAssetNames(version, platform, arch)) {
+        writeFileSync(join(data.directory, name), name);
+      }
+    }
+    for (const [platform, arch] of [
+      ['darwin', 'arm64'],
+      ['darwin', 'x64'],
+      ['win32', 'x64'],
+      ['linux', 'x64'],
+      ['linux', 'arm64']
+    ]) {
+      for (const name of krillinReleaseAssetNames(version, platform, arch)) {
+        writeFileSync(join(data.directory, name), name);
+      }
+    }
+    const notesPath = join(data.directory, '..', 'release-notes.md');
+    const result = spawnSync(process.execPath, [
+      resolve(process.cwd(), 'scripts/release-assets.mjs'),
+      data.directory,
+      `v${version}`,
+      'krillinai/OpenCreator',
+      notesPath
+    ], { encoding: 'utf8' });
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain(`Verified 21 public release assets for v${version}`);
+    expect(readFileSync(notesPath, 'utf8')).toContain(`# OpenCreator v${version}`);
+    rmSync(notesPath);
   });
 });

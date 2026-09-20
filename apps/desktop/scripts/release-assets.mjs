@@ -3,6 +3,9 @@ import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, w
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const scriptDir = resolve(fileURLToPath(new URL('.', import.meta.url)));
+const desktopDir = resolve(scriptDir, '..');
+
 const releasePlatforms = [
   { platform: 'darwin', arch: 'arm64', label: 'macOS Apple Silicon' },
   { platform: 'darwin', arch: 'x64', label: 'macOS Intel' },
