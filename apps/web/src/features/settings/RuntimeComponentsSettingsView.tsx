@@ -7,7 +7,9 @@ import {
 } from 'lucide-react';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+type LiveCheckState = 'pending' | 'checking' | 'ready' | 'failed';
 
 export function RuntimeComponentsSettingsView(props: {
   connected: boolean;
@@ -17,9 +19,31 @@ export function RuntimeComponentsSettingsView(props: {
   const status = props.controller.ytDlpStatus;
   const busy = props.controller.phase !== 'idle';
   const [checkNotice, setCheckNotice] = useState<string>();
+  const [liveCheckState, setLiveCheckState] = useState<LiveCheckState>('pending');
+  const liveCheckStarted = useRef(false);
   const error = props.controller.error === undefined
     ? undefined
     : formatRuntimeDependencyError(props.controller.error, t);
+
+  useEffect(() => {
+    if (
+      !props.connected
+      || status === undefined
+      || props.controller.phase !== 'idle'
+      || liveCheckStarted.current
+    ) return;
+
+    liveCheckStarted.current = true;
+    setLiveCheckState('checking');
+    void Promise.resolve(props.controller.checkYtDlpUpdate(true))
+      .then(() => setLiveCheckState('ready'))
+      .catch(() => setLiveCheckState('failed'));
+  }, [
+    props.connected,
+    props.controller,
+    props.controller.phase,
+    status
+  ]);
 
   if (!props.connected) {
     return (
@@ -60,9 +84,18 @@ export function RuntimeComponentsSettingsView(props: {
     );
   }
 
-  const statusLabel = status.updateAvailable
-    ? t('settings.runtimeComponents.updateAvailable')
-    : t('settings.runtimeComponents.current');
+  const checking = liveCheckState === 'pending' || liveCheckState === 'checking';
+  const fresh = liveCheckState === 'ready';
+  const statusLabel = checking
+    ? t('settings.runtimeComponents.checking')
+    : liveCheckState === 'failed'
+      ? t('settings.runtimeComponents.checkFailed')
+      : status.updateAvailable
+        ? t('settings.runtimeComponents.updateAvailable')
+        : t('settings.runtimeComponents.current');
+  const statusKind = checking || liveCheckState === 'failed'
+    ? 'checking'
+    : status.updateAvailable ? 'update' : 'current';
 
   return (
     <section className="settings-section settings-management" aria-labelledby="runtime-components-title">
@@ -72,7 +105,7 @@ export function RuntimeComponentsSettingsView(props: {
           <div>
             <div className="runtime-component-title">
               <h2>yt-dlp nightly</h2>
-              <span data-status={status.updateAvailable ? 'update' : 'current'}>
+              <span data-status={statusKind}>
                 {statusLabel}
               </span>
             </div>
@@ -83,7 +116,7 @@ export function RuntimeComponentsSettingsView(props: {
           <CheckCircle2
             size={19}
             aria-hidden="true"
-            data-status={status.updateAvailable ? 'update' : 'current'}
+            data-status={statusKind}
           />
         </div>
 
@@ -93,8 +126,16 @@ export function RuntimeComponentsSettingsView(props: {
             <dd>{status.currentVersion}</dd>
           </div>
           <div>
-            <dt>{t('settings.runtimeComponents.latestVersion')}</dt>
-            <dd>{status.latestVersion ?? t('settings.runtimeComponents.notChecked')}</dd>
+            <dt>{fresh
+              ? t('settings.runtimeComponents.latestVersion')
+              : t('settings.runtimeComponents.lastKnownVersion')}</dt>
+            <dd>{checking
+              ? t('settings.runtimeComponents.checking')
+              : status.latestVersion ?? t('settings.runtimeComponents.notChecked')}</dd>
+          </div>
+          <div>
+            <dt>{t('settings.runtimeComponents.lastChecked')}</dt>
+            <dd>{formatDate(status.lastCheckedAt, language, t('settings.runtimeComponents.notChecked'))}</dd>
           </div>
           <div>
             <dt>{t('settings.runtimeComponents.installedAt')}</dt>
@@ -129,7 +170,7 @@ export function RuntimeComponentsSettingsView(props: {
                 : <RefreshCw size={15} aria-hidden="true" />}
               {t('settings.runtimeComponents.check')}
             </button>
-            {status.updateAvailable && status.latestVersion !== null ? (
+            {fresh && status.updateAvailable && status.latestVersion !== null ? (
               <button
                 className="settings-primary-button"
                 type="button"

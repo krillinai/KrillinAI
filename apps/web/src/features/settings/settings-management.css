@@ -354,6 +354,10 @@
   color: var(--accent);
 }
 
+.runtime-component-heading > svg[data-status="checking"] {
+  color: var(--muted);
+}
+
 .runtime-component-title {
   min-width: 0;
   display: flex;
@@ -383,6 +387,11 @@
 .runtime-component-title span[data-status="update"] {
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
   color: var(--accent);
+}
+
+.runtime-component-title span[data-status="checking"] {
+  border-color: var(--border);
+  color: var(--muted);
 }
 
 .runtime-component-details {

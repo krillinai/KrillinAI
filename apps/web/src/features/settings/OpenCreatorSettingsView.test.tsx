@@ -256,27 +256,28 @@ describe('OpenCreatorSettingsView', () => {
     expect(screen.getByText('本地能力已就绪')).toBeInTheDocument();
   });
 
-  it('opens third-party components directly and marks an available yt-dlp update', () => {
+  it('opens third-party components directly and marks an available yt-dlp update', async () => {
+    const ytDlpStatus = {
+      channel: 'nightly' as const,
+      source: 'bundled' as const,
+      currentVersion: '2026.08.29.232711',
+      bundledVersion: '2026.08.29.232711',
+      latestVersion: '2026.08.31.120000',
+      updateAvailable: true,
+      checkDue: false,
+      lastCheckedAt: '2026-08-31T00:00:00.000Z',
+      lastCheckAttemptAt: '2026-08-31T00:00:00.000Z',
+      installedAt: null
+    };
     render(
       <LanguageProvider initialPreference="zh-CN">
         <OpenCreatorSettingsView
           runtimeStatus={runtimeStatus}
           initialTab="local-components"
           runtimeDependencies={{
-            ytDlpStatus: {
-              channel: 'nightly',
-              source: 'bundled',
-              currentVersion: '2026.08.29.232711',
-              bundledVersion: '2026.08.29.232711',
-              latestVersion: '2026.08.31.120000',
-              updateAvailable: true,
-              checkDue: false,
-              lastCheckedAt: '2026-08-31T00:00:00.000Z',
-              lastCheckAttemptAt: '2026-08-31T00:00:00.000Z',
-              installedAt: null
-            },
+            ytDlpStatus,
             phase: 'idle',
-            checkYtDlpUpdate: vi.fn(),
+            checkYtDlpUpdate: vi.fn(async () => ytDlpStatus),
             updateYtDlp: vi.fn()
           }}
           onBack={vi.fn()}
@@ -289,7 +290,7 @@ describe('OpenCreatorSettingsView', () => {
     expect(within(thirdPartyComponents).getByLabelText('有可用更新').parentElement)
       .toHaveClass('settings-nav-label');
     expect(screen.getByRole('heading', { name: 'yt-dlp nightly' })).toBeInTheDocument();
-    expect(screen.getAllByLabelText('有可用更新')).not.toHaveLength(0);
+    await waitFor(() => expect(screen.getAllByLabelText('有可用更新')).not.toHaveLength(0));
   });
 
   it('shows Codex CLI details only in the about advanced information section', () => {

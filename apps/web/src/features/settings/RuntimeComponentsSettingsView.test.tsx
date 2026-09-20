@@ -26,14 +26,14 @@ describe('RuntimeComponentsSettingsView', () => {
     expect(screen.getByText('更新时间')).toBeInTheDocument();
     expect(screen.getByText('尚未检查')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', {
+    fireEvent.click(await screen.findByRole('button', {
       name: '更新到 2026.08.31.120000'
     }));
 
     await waitFor(() => expect(updateYtDlp).toHaveBeenCalledOnce());
   });
 
-  it('keeps the current version active when update verification fails', () => {
+  it('keeps the current version active when update verification fails', async () => {
     renderView({
       ytDlpStatus: status({
         latestVersion: '2026.08.31.120000',
@@ -47,6 +47,46 @@ describe('RuntimeComponentsSettingsView', () => {
     );
     expect(screen.queryByText('更新失败时，OpenCreator 会继续使用当前可用版本。'))
       .not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('有可用更新')).toBeInTheDocument());
+  });
+
+  it('checks live before claiming that a cached version is current', async () => {
+    let resolveCheck!: (value: CreatorYtDlpStatus) => void;
+    const checkYtDlpUpdate = vi.fn(() => new Promise<CreatorYtDlpStatus>(resolve => {
+      resolveCheck = resolve;
+    }));
+    renderView({
+      ytDlpStatus: status({
+        latestVersion: '2026.08.29.232711',
+        lastCheckedAt: '2026-08-31T00:00:00.000Z'
+      }),
+      checkYtDlpUpdate
+    });
+
+    expect(screen.getAllByText('正在检查')).not.toHaveLength(0);
+    expect(screen.queryByText('已是最新')).not.toBeInTheDocument();
+    expect(screen.getByText('上次检查版本')).toBeInTheDocument();
+    expect(checkYtDlpUpdate).toHaveBeenCalledWith(true);
+
+    resolveCheck(status({
+      latestVersion: '2026.09.16.232951',
+      updateAvailable: true
+    }));
+    await waitFor(() => expect(screen.queryByText('正在检查')).not.toBeInTheDocument());
+  });
+
+  it('marks cached release information as stale when the live check fails', async () => {
+    const checkYtDlpUpdate = vi.fn(async () => {
+      throw new Error('network unavailable');
+    });
+    renderView({
+      ytDlpStatus: status({ latestVersion: '2026.08.29.232711' }),
+      checkYtDlpUpdate
+    });
+
+    await waitFor(() => expect(screen.getByText('检查失败')).toBeInTheDocument());
+    expect(screen.getByText('上次检查版本')).toBeInTheDocument();
+    expect(screen.queryByText('已是最新')).not.toBeInTheDocument();
   });
 
   it('shows a notice when a manual check finds no update', async () => {
