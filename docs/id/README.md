@@ -568,7 +568,7 @@ Terima kasih kepada semua orang yang telah berkontribusi melalui kode, dokumenta
 
 OpenCreator sebelumnya bernama KrillinAI. Grafik ini mencakup seluruh riwayat repositori sebelum dan sesudah perubahan nama.
 
-[![Riwayat Star OpenCreator](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
+[![Riwayat Star OpenCreator](https://api.star-history.com/svg?repos=krillinai/OpenCreator&type=date)](https://www.star-history.com/?type=date&repos=krillinai%2FOpenCreator)
 
 ## Proyek Terkait
 

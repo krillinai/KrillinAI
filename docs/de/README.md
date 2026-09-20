@@ -568,7 +568,7 @@ Vielen Dank an alle, die mit Code, Dokumentation, Feedback, Fehlerberichten, Ski
 
 OpenCreator hieß früher KrillinAI. Dieses Diagramm zeigt den vollständigen Verlauf des Repositorys vor und nach der Umbenennung.
 
-[![OpenCreator Star-Verlauf](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
+[![OpenCreator Star-Verlauf](https://api.star-history.com/svg?repos=krillinai/OpenCreator&type=date)](https://www.star-history.com/?type=date&repos=krillinai%2FOpenCreator)
 
 ## Verwandte Projekte
 

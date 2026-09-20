@@ -568,7 +568,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 كان OpenCreator يُعرف سابقًا باسم KrillinAI. يغطي هذا المخطط سجل المستودع كاملًا قبل تغيير الاسم وبعده.
 
-[![سجل Stars في OpenCreator](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
+[![سجل Stars في OpenCreator](https://api.star-history.com/svg?repos=krillinai/OpenCreator&type=date)](https://www.star-history.com/?type=date&repos=krillinai%2FOpenCreator)
 
 ## المشاريع ذات الصلة
 
