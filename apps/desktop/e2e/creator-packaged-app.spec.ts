@@ -170,6 +170,68 @@ test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runt
         'stickman-video'
       ])
     );
+    const presets = await runtimeRequest<{
+      presets: Array<{ previewVideoUrl?: string }>;
+    }>(currentApp.page, 'GET', '/creator/presets?locale=zh-CN');
+    const previewVideoUrl = presets.body.presets.find(
+      preset => preset.previewVideoUrl !== undefined
+    )?.previewVideoUrl;
+    expect(previewVideoUrl).toMatch(/^\/creator-presets\/[a-f0-9]{64}\.mp4$/);
+    const packagedVideo = await currentApp.page.evaluate(async videoUrl => {
+      const rangeResponse = await fetch(videoUrl, {
+        headers: { Range: 'bytes=0-31' }
+      });
+      const range = {
+        status: rangeResponse.status,
+        contentType: rangeResponse.headers.get('content-type'),
+        acceptRanges: rangeResponse.headers.get('accept-ranges'),
+        contentRange: rangeResponse.headers.get('content-range'),
+        bytes: (await rangeResponse.arrayBuffer()).byteLength
+      };
+      const video = document.createElement('video');
+      video.muted = true;
+      video.preload = 'auto';
+      video.src = videoUrl;
+      document.body.append(video);
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const timeout = window.setTimeout(
+            () => reject(new Error('Timed out loading packaged preset video')),
+            15_000
+          );
+          video.addEventListener('canplay', () => {
+            window.clearTimeout(timeout);
+            resolve();
+          }, { once: true });
+          video.addEventListener('error', () => {
+            window.clearTimeout(timeout);
+            reject(new Error(`Packaged preset video failed with code ${video.error?.code ?? 0}`));
+          }, { once: true });
+          video.load();
+        });
+        await video.play();
+        await new Promise(resolve => window.setTimeout(resolve, 250));
+        return {
+          range,
+          duration: video.duration,
+          currentTime: video.currentTime,
+          paused: video.paused
+        };
+      } finally {
+        video.pause();
+        video.remove();
+      }
+    }, previewVideoUrl!);
+    expect(packagedVideo.range).toMatchObject({
+      status: 206,
+      contentType: 'video/mp4',
+      acceptRanges: 'bytes',
+      bytes: 32
+    });
+    expect(packagedVideo.range.contentRange).toMatch(/^bytes 0-31\/\d+$/);
+    expect(packagedVideo.duration).toBeGreaterThan(0);
+    expect(packagedVideo.currentTime).toBeGreaterThan(0);
+    expect(packagedVideo.paused).toBe(false);
     const creatorCapabilities = await runtimeRequest<{
       platform: string;
       arch: string;
