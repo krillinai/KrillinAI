@@ -85,6 +85,8 @@ describe('Stickman Runtime package contract', () => {
     );
     expect(source).toContain("targetPlatform === 'darwin'");
     expect(source).toContain("OPENCREATOR_REQUIRE_DEVELOPER_ID === '1'");
+    expect(source).toContain("manifest.macSigningMode === 'developer-id'");
+    expect(source).toContain('requiresDeveloperIdSignature()');
     expect(source).toContain('!signedMacPackage && source.hash !== packaged.hash');
     expect(source).toContain(
       '[daemonDir, creatorRuntimeDir, stickmanRuntimeDir]'

@@ -609,8 +609,7 @@ function assertStickmanRuntime() {
   if (firstDifferentPath !== undefined) {
     throw new Error(`Packaged Stickman Runtime file list differs from source at: ${firstDifferentPath}`);
   }
-  const signedMacPackage = targetPlatform === 'darwin'
-    && process.env.OPENCREATOR_REQUIRE_DEVELOPER_ID === '1';
+  const signedMacPackage = requiresDeveloperIdSignature();
   if (!signedMacPackage && source.hash !== packaged.hash) {
     throw new Error('Packaged Stickman Runtime contents differ from .pack/stickman-runtime');
   }
@@ -814,12 +813,12 @@ function verifyMacPackageMetadata() {
       + `${signature.stderr || signature.stdout}`
     );
   }
-  if (process.env.OPENCREATOR_REQUIRE_DEVELOPER_ID === '1') {
+  if (requiresDeveloperIdSignature()) {
     verifyDeveloperIdSignature();
     verifyEmbeddedRuntimeSignatures();
   }
   if (process.env.OPENCREATOR_REQUIRE_NOTARIZED_MAC_APP === '1') {
-    if (process.env.OPENCREATOR_REQUIRE_DEVELOPER_ID !== '1') {
+    if (!requiresDeveloperIdSignature()) {
       throw new Error(
         'A notarized macOS package must also require Developer ID verification'
       );
@@ -876,7 +875,7 @@ function verifyDeveloperIdSignature() {
     );
   }
   const output = `${details.stdout}\n${details.stderr}`;
-  const expectedTeamId = process.env.OPENCREATOR_APPLE_TEAM_ID?.trim();
+  const expectedTeamId = expectedAppleTeamId();
   if (
     !output.includes('Authority=Developer ID Application:')
     || !output.includes('Timestamp=')
@@ -902,7 +901,7 @@ function verifyEmbeddedRuntimeSignatures() {
   if (embeddedBinaries.length === 0) {
     throw new Error('Packaged runtimes do not contain any macOS binaries');
   }
-  const expectedTeamId = process.env.OPENCREATOR_APPLE_TEAM_ID?.trim();
+  const expectedTeamId = expectedAppleTeamId();
   for (const path of embeddedBinaries) {
     const details = spawnSync('codesign', [
       '--display',
@@ -929,6 +928,21 @@ function verifyEmbeddedRuntimeSignatures() {
       );
     }
   }
+}
+
+function requiresDeveloperIdSignature() {
+  return targetPlatform === 'darwin'
+    && (
+      process.env.OPENCREATOR_REQUIRE_DEVELOPER_ID === '1'
+      || manifest.macSigningMode === 'developer-id'
+    );
+}
+
+function expectedAppleTeamId() {
+  return process.env.OPENCREATOR_APPLE_TEAM_ID?.trim()
+    || (typeof manifest.appleTeamId === 'string'
+      ? manifest.appleTeamId.trim()
+      : undefined);
 }
 
 function isMachOBinary(path) {
