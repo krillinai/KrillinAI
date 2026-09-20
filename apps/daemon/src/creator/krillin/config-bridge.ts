@@ -18,9 +18,10 @@ export function createKrillinConfigToml(config: CreatorServicesConfig): string {
       whisperkit: config.transcription.whisperKit,
       whispercpp: {
         ...config.transcription.whisperCpp,
-        // KrillinAI 2.1 validates this label even though whisper.cpp reads the
-        // selected model from the compatible file mounted by the CLI runner.
+        // Preserve the KrillinAI 2.1 compatibility bridge for legacy models,
+        // while large-v3-turbo is supported by name end to end.
         model: config.transcription.provider === 'whisper.cpp'
+          && config.transcription.whisperCpp.model !== 'large-v3-turbo'
           ? 'large-v2'
           : config.transcription.whisperCpp.model
       },

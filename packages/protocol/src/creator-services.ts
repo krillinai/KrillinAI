@@ -111,7 +111,7 @@ export type CreatorServicesConfig = {
     openai: OpenAiCompatibleConfig;
     fasterWhisper: { model: 'tiny' | 'medium' | 'large-v2' };
     whisperKit: { model: 'large-v2' };
-    whisperCpp: { model: 'tiny' | 'medium' | 'large-v2' };
+    whisperCpp: { model: 'tiny' | 'medium' | 'large-v2' | 'large-v3-turbo' };
     aliyun: {
       oss: AliyunOssConfig;
       speech: AliyunSpeechConfig;
@@ -150,6 +150,7 @@ export type CreatorTranscriptionProviderCapability = {
   kind: 'cloud' | 'local';
   available: boolean;
   models: string[];
+  modelDetails?: Record<string, { diskBytes: number }>;
   gpuAcceleration: boolean;
   unavailableReason?: 'unsupported_platform' | 'installer_unavailable';
 };

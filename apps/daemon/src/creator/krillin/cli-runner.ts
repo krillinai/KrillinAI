@@ -540,7 +540,7 @@ export async function prepareCliResourceRoot(input: {
   dependencyRoot: string;
   launcherRoot: string;
   onDemandTranscriptionProvider?: 'whisperkit' | 'whisper.cpp';
-  onDemandTranscriptionModel?: 'tiny' | 'medium' | 'large-v2';
+  onDemandTranscriptionModel?: 'tiny' | 'medium' | 'large-v2' | 'large-v3-turbo';
   useOnDemandTranscription?: boolean;
   useWhisperCpp?: boolean;
   ytDlpRuntime?: YtDlpRuntime;
@@ -562,7 +562,7 @@ export async function prepareCliResourceRoot(input: {
     const mountedModels = join(input.launcherRoot, 'models', 'whispercpp');
     await mkdir(mountedModels, { recursive: true });
     await linkDirectoryEntries(sourceModels, mountedModels);
-    if (model !== 'large-v2') {
+    if (model !== 'large-v2' && model !== 'large-v3-turbo') {
       await linkFile(
         join(sourceModels, `ggml-${model}.bin`),
         join(mountedModels, 'ggml-large-v2.bin'),
