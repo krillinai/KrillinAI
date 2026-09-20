@@ -43,13 +43,17 @@ pnpm desktop:package
 
 1. 更新 `apps/desktop/package.json` 的版本。
 2. 确认 GitHub Release 发布权限、签名凭据和目标版本更新元数据流程可用。
-3. 先推送版本提交到 `master`，手动运行 CI 并等待同一提交验证通过，再创建并推送 `v<version>` Git tag 触发 `.github/workflows/desktop-release.yml`。标签版本必须与 `apps/desktop/package.json` 完全一致。
-4. 发布工作流复用同一提交的 CI 结果，再使用 `macos-15-intel`、`macos-15` 和 `windows-latest` 并行构建三个原生目标平台。
-5. 三个平台的实际打包应用 E2E 通过后，CI 校验附件白名单，生成下载说明与校验清单，上传完成后才公开 GitHub Release。
+3. 先推送版本提交到 `master`，等待同一提交的 CI 通过，再从 `master` 手动运行 `.github/workflows/desktop-release.yml`，并选择 `target=all`。
+4. 完整候选工作流使用 `macos-15-intel`、`macos-15` 和 `windows-latest` 并行构建三个原生目标平台。macOS 使用正式 Developer ID 签名和 Apple 公证；每个平台都必须通过实际打包应用 E2E。单平台运行只用于诊断，不能用于正式发布。
+5. 三个平台和 Linux KrillinAI 附件全部成功后，工作流写入绑定 Git commit、workflow run 和仓库的候选身份凭据。候选附件保存于该 workflow run，不允许构建后替换。
+6. 候选全绿后才创建并推送 `v<version>` Git tag。标签版本必须与 `apps/desktop/package.json` 完全一致，且 tag 必须指向候选使用的同一 commit。
+7. tag 工作流不再重复构建、签名、公证或 E2E；它只查找同一 commit 的成功 `target=all` 候选，复核 run 与身份凭据，下载已验证附件，校验附件白名单并发布 GitHub Release。找不到精确候选时必须失败。
 
 示例：
 
 ```bash
+gh workflow run desktop-release.yml --ref master -f target=all
+# 等待候选工作流全部通过后再创建 tag
 git tag -a v3.0.0 -m "OpenCreator v3.0.0"
 git push origin v3.0.0
 ```

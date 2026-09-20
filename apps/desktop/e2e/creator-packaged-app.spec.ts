@@ -850,25 +850,30 @@ test('Creator Preset verifier 拒绝损坏和陈旧的打包资源', () => {
   const sourceRoot = packagedPackageRoot();
   const fixtureRoot = mkdtempSync(join(tmpdir(), 'opencreator-preset-verifier-'));
   const packageRoot = join(fixtureRoot, basename(sourceRoot));
-  clonePackageRoot(sourceRoot, packageRoot);
-  const resources = packagedResourcesRoot(packageRoot);
-  const presetRoot = join(resources, 'daemon', 'runtime', 'creator-presets');
-  const manifestPath = join(presetRoot, 'manifest.json');
-  const catalogPath = join(presetRoot, 'catalog.json');
-  const manifestBytes = readFileSync(manifestPath);
-  const catalogBytes = readFileSync(catalogPath);
-  const presetManifest = JSON.parse(manifestBytes.toString('utf8')) as {
-    files: Array<{ path: string }>;
-  };
-  const coverName = basename(
-    presetManifest.files.find(file => file.path.startsWith('assets/'))!.path
-  );
-  const coverPath = join(resources, 'web', 'creator-presets', coverName);
-  const coverBytes = readFileSync(coverPath);
-  const stalePath = join(resources, 'web', 'creator-presets', 'stale.webp');
 
   try {
-    expect(runPackagedVerifier(packageRoot).status).toBe(0);
+    const baseline = runPackagedVerifier(sourceRoot);
+    expect(
+      baseline.status,
+      `Packaged verifier failed:\n${baseline.stdout}\n${baseline.stderr}`
+    ).toBe(0);
+
+    clonePackageRoot(sourceRoot, packageRoot);
+    const resources = packagedResourcesRoot(packageRoot);
+    const presetRoot = join(resources, 'daemon', 'runtime', 'creator-presets');
+    const manifestPath = join(presetRoot, 'manifest.json');
+    const catalogPath = join(presetRoot, 'catalog.json');
+    const manifestBytes = readFileSync(manifestPath);
+    const catalogBytes = readFileSync(catalogPath);
+    const presetManifest = JSON.parse(manifestBytes.toString('utf8')) as {
+      files: Array<{ path: string }>;
+    };
+    const coverName = basename(
+      presetManifest.files.find(file => file.path.startsWith('assets/'))!.path
+    );
+    const coverPath = join(resources, 'web', 'creator-presets', coverName);
+    const coverBytes = readFileSync(coverPath);
+    const stalePath = join(resources, 'web', 'creator-presets', 'stale.webp');
 
     rmSync(catalogPath);
     expectVerifierFailure(

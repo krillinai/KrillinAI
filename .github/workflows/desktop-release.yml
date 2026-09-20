@@ -84,6 +84,7 @@ jobs:
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   package:
+    if: github.event_name == 'workflow_dispatch'
     needs: verify
     timeout-minutes: 90
     strategy:
@@ -213,7 +214,7 @@ jobs:
           retention-days: 14
 
   krillinai-linux-package:
-    if: startsWith(github.ref, 'refs/tags/') || inputs.target == 'all'
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'all'
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -241,27 +242,119 @@ jobs:
           path: .runtime/release/krillinai/*
           if-no-files-found: error
 
-  publish:
-    if: startsWith(github.ref, 'refs/tags/v')
+  candidate-ready:
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'all'
     needs:
       - package
       - krillinai-linux-package
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 记录可提升候选包
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+          CANDIDATE_RUN_ID: ${{ github.run_id }}
+          CANDIDATE_REPOSITORY: ${{ github.repository }}
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const candidate = {
+              schemaVersion: 1,
+              commit: process.env.CANDIDATE_SHA,
+              runId: Number(process.env.CANDIDATE_RUN_ID),
+              repository: process.env.CANDIDATE_REPOSITORY,
+              event: "workflow_dispatch",
+              target: "all"
+            };
+            fs.writeFileSync("release-candidate.json", `${JSON.stringify(candidate, null, 2)}\n`);
+          '
+      - name: 上传候选包身份凭据
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencreator-release-candidate-${{ github.sha }}
+          path: release-candidate.json
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: 查找同一提交的完整候选构建
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CANDIDATE_NAME: opencreator-release-candidate-${{ github.sha }}
+        shell: bash
+        run: |
+          run_id="$(
+            gh api --method GET "repos/$GH_REPO/actions/artifacts" \
+              -f name="$CANDIDATE_NAME" \
+              --jq '.artifacts | map(select(.expired == false)) | sort_by(.created_at) | reverse | .[0].workflow_run.id // empty'
+          )"
+          if [[ -z "$run_id" ]]; then
+            echo "::error::提交 $GITHUB_SHA 没有通过 target=all 的完整候选构建。请先从 master 手动运行 OpenCreator Release。"
+            exit 1
+          fi
+
+          run="$(gh api "repos/$GH_REPO/actions/runs/$run_id")"
+          if [[ "$(jq -r '.event' <<< "$run")" != "workflow_dispatch" \
+            || "$(jq -r '.head_branch' <<< "$run")" != "master" \
+            || "$(jq -r '.head_sha' <<< "$run")" != "$GITHUB_SHA" \
+            || "$(jq -r '.conclusion' <<< "$run")" != "success" \
+            || "$(jq -r '.path' <<< "$run")" != ".github/workflows/desktop-release.yml" ]]; then
+            echo "::error::候选构建 $run_id 与当前 tag 的提交或发布工作流不匹配。"
+            exit 1
+          fi
+          echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "使用已验证候选构建：$run_id"
       - uses: actions/download-artifact@v4
         with:
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.candidate.outputs.run-id }}
           path: artifacts
           pattern: opencreator-desktop-*
           merge-multiple: true
       - uses: actions/download-artifact@v4
         with:
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.candidate.outputs.run-id }}
           path: artifacts
           pattern: krillinai-release-*
           merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.candidate.outputs.run-id }}
+          name: opencreator-release-candidate-${{ github.sha }}
+          path: candidate
+      - name: 校验候选包身份凭据
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          EXPECTED_RUN_ID: ${{ steps.candidate.outputs.run-id }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const candidate = JSON.parse(fs.readFileSync("candidate/release-candidate.json", "utf8"));
+            const valid = candidate.schemaVersion === 1
+              && candidate.commit === process.env.EXPECTED_SHA
+              && String(candidate.runId) === process.env.EXPECTED_RUN_ID
+              && candidate.repository === process.env.EXPECTED_REPOSITORY
+              && candidate.event === "workflow_dispatch"
+              && candidate.target === "all";
+            if (!valid) throw new Error("Release candidate provenance does not match this tag");
+          '
       - name: 校验发布附件并生成下载说明
         env:
           TAG: ${{ github.ref_name }}

@@ -82,19 +82,32 @@ describe('Desktop release workflow', () => {
     expect(releaseWorkflow).toContain('desktop-release.log');
   });
 
-  it('supports single-platform manual validation while tag releases build every platform', () => {
+  it('supports single-platform validation and only marks complete all-platform candidates', () => {
     expect(releaseWorkflow).toContain('target:');
     expect(releaseWorkflow).toContain('default: all');
     expect(releaseWorkflow).toContain("TARGET: ${{ inputs.target || 'all' }}");
-    expect(releaseWorkflow).toContain(
-      'matrix: ${{ fromJSON(needs.verify.outputs.matrix) }}'
-    );
+    expect(releaseWorkflow).toContain('matrix: ${{ fromJSON(needs.verify.outputs.matrix) }}');
     expect(releaseWorkflow).toContain(
       '{"include":[{"name":"macos-x64"'
     );
     expect(releaseWorkflow).toContain(
       '{"include":[{"name":"windows-x64"'
     );
+    expect(releaseWorkflow).toContain("candidate-ready:");
+    expect(releaseWorkflow).toContain("inputs.target == 'all'");
+    expect(releaseWorkflow).toContain('opencreator-release-candidate-${{ github.sha }}');
+  });
+
+  it('promotes an immutable successful master candidate instead of rebuilding a tag', () => {
+    expect(releaseWorkflow).toContain("if: github.event_name == 'workflow_dispatch'");
+    expect(releaseWorkflow).toContain('name: 查找同一提交的完整候选构建');
+    expect(releaseWorkflow).toContain("jq -r '.head_branch'");
+    expect(releaseWorkflow).toContain("jq -r '.head_sha'");
+    expect(releaseWorkflow).toContain("jq -r '.conclusion'");
+    expect(releaseWorkflow).toContain('run-id: ${{ steps.candidate.outputs.run-id }}');
+    expect(releaseWorkflow).toContain('name: 校验候选包身份凭据');
+    expect(releaseWorkflow).toContain('needs: verify');
+    expect(releaseWorkflow).not.toContain("startsWith(github.ref, 'refs/tags/') || inputs.target == 'all'");
   });
 
   it('keeps build diagnostics separate from validated public release assets', () => {
