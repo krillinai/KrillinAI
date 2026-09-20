@@ -311,8 +311,9 @@ jobs:
             comparison_status="$(jq -r '.status' <<< "$comparison")"
             [[ "$comparison_status" == "identical" || "$comparison_status" == "ahead" ]] || continue
             changed_files="$(jq -r '.files | length' <<< "$comparison")"
-            reported_files="$(jq -r '.changed_files' <<< "$comparison")"
-            [[ "$changed_files" == "$reported_files" ]] || continue
+            # GitHub caps compare responses at 300 files. Reject that boundary so
+            # an incomplete diff can never pass the release-only allowlist.
+            (( changed_files < 300 )) || continue
 
             invalid_files="$(
               jq -r '.files[].filename' <<< "$comparison" | while IFS= read -r path; do
