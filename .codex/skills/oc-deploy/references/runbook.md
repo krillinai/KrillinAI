@@ -41,7 +41,7 @@ HTTP_PROXY=http://127.0.0.1:7897 HTTPS_PROXY=http://127.0.0.1:7897 \
 pnpm --filter @opencreator/desktop e2e:package
 ```
 
-记录实际 `.app` 路径和测试总数。当前完整套件预期 16 项；以仓库当时清单为准，但 skipped/failed 必须说明。发布实现有变化时补充：
+记录实际 `.app` 路径和测试总数。当前完整套件预期 18 项；以仓库当时清单为准，但 skipped/failed 必须说明。发布实现有变化时补充：
 
 ```bash
 pnpm --filter @opencreator/web test -- src/features/settings/CreatorServicesSettingsView.test.tsx
@@ -66,9 +66,9 @@ gh workflow run desktop-release.yml --repo krillinai/OpenCreator --ref master -f
 ```
 
 5. 任一 package job 首次失败，立即 `gh run cancel <run-id>`，再读取失败日志；不要自动重跑。
-6. 成功标准：verify、目标 package jobs 和 Linux package 成功；用户附件与 KrillinAI 附件存在；publish skipped；tag 和 Release 未变化。
+6. `target=all` 的成功标准：verify、三个 package jobs、Linux package 和 `candidate-ready` 成功；macOS arm64 运行完整 packaged App E2E，macOS x64 与 Windows x64 运行包含 Runtime、平台能力、代理、恢复、安全和进程回收的 smoke 套件；用户附件、KrillinAI 附件及 `opencreator-release-candidate-<build-input-digest>` 身份凭据存在；publish skipped；tag 和 Release 未变化。
 
-只验证某个已知平台问题时，可在用户同意后选单平台 target 以节省费用；完整跨平台候选验收使用 `all`。
+只验证某个已知平台问题时，可在用户同意后选单平台 target 以节省费用；单平台结果不能用于正式发布，完整跨平台候选验收必须使用 `all`。
 
 ## Release：正式 tag 发布
 
@@ -76,9 +76,10 @@ release 是独立授权边界。用户必须明确指定版本并要求发布：
 
 1. 确认版本、目标 commit、工作区、`origin/master`、同 commit 本地 preflight 和 master push CI。
 2. 确认 tag 不存在；已存在时由用户明确决定，不自行覆盖。
-3. 创建并推送一次 tag，监控由 tag 触发的唯一 Release run。
-4. 首次失败立即取消其他付费 jobs并诊断，不 rerun，不先移动 tag。
-5. 成功后验证 Release 非 draft、附件完整、命名和下载说明正确。
+3. 确认完整 candidate run 已生成身份凭据和全部附件。通常 candidate 与 tag commit 相同；若只有发布基础设施变化，确认 candidate 是 tag 的祖先，且 tag 与 candidate 的应用构建输入 SHA-256 相同。
+4. 创建并推送一次 tag，监控由 tag 触发的唯一 promotion run。tag workflow 只能下载并校验该 candidate 的 artifacts，不得重新打包、签名、公证或运行 packaged App E2E。
+5. promotion 失败时读取候选解析、身份凭据或附件校验错误，不通过移动 tag 或重新付费打包绕过。
+6. 成功后验证 Release 非 draft、附件完整、命名和下载说明正确，并记录被提升的 candidate run。
 
 ## 故障分类与已知陷阱
 

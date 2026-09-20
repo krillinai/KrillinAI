@@ -24,6 +24,15 @@ describe('Desktop release workflow', () => {
     expect(ciWorkflow).toContain('\n  push:');
     expect(ciWorkflow).toContain('      - master');
     expect(ciWorkflow).toContain('cancel-in-progress: true');
+    expect(ciWorkflow).toContain('classify:');
+    expect(ciWorkflow).toContain('release-checks:');
+    expect(ciWorkflow).toContain('unit:');
+    expect(ciWorkflow).toContain('compile:');
+    expect(ciWorkflow).toContain('web-parity:');
+    expect(ciWorkflow).toContain("needs.classify.outputs.release-only == 'true'");
+    expect(ciWorkflow).toContain('--status success');
+    expect(ciWorkflow).toContain("--jq '.[0].headSha // empty'");
+    expect(ciWorkflow).toContain('name: Prepare generated build inputs');
   });
 
   it('runs the network audit before expensive verification steps', () => {
@@ -73,8 +82,8 @@ describe('Desktop release workflow', () => {
     expect(releaseWorkflow).not.toContain('run: pnpm build');
   });
 
-  it('keeps platform diagnostics after one package target fails', () => {
-    expect(releaseWorkflow).toContain('fail-fast: false');
+  it('cancels sibling package jobs while preserving failure diagnostics', () => {
+    expect(releaseWorkflow).toContain('fail-fast: true');
     expect(releaseWorkflow).toContain('tail -n 80 desktop-release.log');
     expect(releaseWorkflow).toContain(
       '::error title=macOS release failure details::'
@@ -82,19 +91,40 @@ describe('Desktop release workflow', () => {
     expect(releaseWorkflow).toContain('desktop-release.log');
   });
 
-  it('supports single-platform manual validation while tag releases build every platform', () => {
+  it('supports single-platform validation and only marks complete all-platform candidates', () => {
     expect(releaseWorkflow).toContain('target:');
     expect(releaseWorkflow).toContain('default: all');
     expect(releaseWorkflow).toContain("TARGET: ${{ inputs.target || 'all' }}");
-    expect(releaseWorkflow).toContain(
-      'matrix: ${{ fromJSON(needs.verify.outputs.matrix) }}'
-    );
+    expect(releaseWorkflow).toContain('matrix: ${{ fromJSON(needs.verify.outputs.matrix) }}');
     expect(releaseWorkflow).toContain(
       '{"include":[{"name":"macos-x64"'
     );
     expect(releaseWorkflow).toContain(
       '{"include":[{"name":"windows-x64"'
     );
+    expect(releaseWorkflow).toContain("candidate-ready:");
+    expect(releaseWorkflow).toContain("inputs.target == 'all'");
+    expect(releaseWorkflow).toContain('e2e:package:smoke');
+    expect(releaseWorkflow).toContain("matrix.name == 'macos-arm64'");
+    expect(releaseWorkflow).toContain('opencreator-release-candidate-${{ steps.build-input.outputs.digest }}');
+  });
+
+  it('promotes an immutable successful master candidate instead of rebuilding a tag', () => {
+    expect(releaseWorkflow).toContain("if: github.event_name == 'workflow_dispatch'");
+    expect(releaseWorkflow).toContain('name: 查找可复用的完整候选构建');
+    expect(releaseWorkflow).toContain('release-build-input.mjs digest');
+    expect(releaseWorkflow).toContain('repos/$GH_REPO/compare/$candidate_sha...$GITHUB_SHA');
+    expect(releaseWorkflow).toContain('comparison_status');
+    expect(releaseWorkflow).toContain('CANDIDATE_BUILD_INPUT_DIGEST');
+    expect(releaseWorkflow).toContain('candidate.schemaVersion === 2');
+    expect(releaseWorkflow).toContain('candidate.buildInputDigest');
+    expect(releaseWorkflow).toContain('当前 tag 没有可复用的完整候选构建');
+    expect(releaseWorkflow).toContain('run-id: ${{ steps.candidate.outputs.run-id }}');
+    expect(releaseWorkflow).toContain('name: ${{ steps.candidate.outputs.name }}');
+    expect(releaseWorkflow).toContain('EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}');
+    expect(releaseWorkflow).toContain('name: 校验候选包身份凭据');
+    expect(releaseWorkflow).toContain('needs: verify');
+    expect(releaseWorkflow).not.toContain("startsWith(github.ref, 'refs/tags/') || inputs.target == 'all'");
   });
 
   it('keeps build diagnostics separate from validated public release assets', () => {

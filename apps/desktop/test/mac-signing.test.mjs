@@ -214,6 +214,8 @@ describe('macOS directory signing', () => {
     expect(verifier).toContain(
       "process.env.OPENCREATOR_REQUIRE_NOTARIZED_MAC_APP === '1'"
     );
+    expect(verifier).toContain("manifest.macSigningMode === 'developer-id'");
+    expect(verifier).toContain('const expectedTeamId = expectedAppleTeamId();');
   });
 
   it('keeps Electron cookie encryption disabled to avoid macOS Safe Storage access', () => {

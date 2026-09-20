@@ -24,9 +24,9 @@ description: 验证、诊断和发布 OpenCreator Desktop，包括本地实际 A
 4. 任何 GitHub 构建前，确认精确提交已有成功的 `master` push CI；确认 workflow 的 `publish` 仍只允许 tag ref。
 5. GitHub 下载和 `gh` 命令设置 `HTTP_PROXY` 与 `HTTPS_PROXY` 为 `http://127.0.0.1:7897`，并先用 `gh auth status` 确认认证身份。GitHub 保存的签名 secrets 会跨 workflow 运行持续存在，不要要求重复上传。
 6. 不用付费 Release 构建逐次发现问题。一次远端运行首次出现 package、E2E、签名、公证或上传失败时，立即取消仍在运行的付费 sibling jobs，读取该 run 的已生成日志和 artifacts；不得为了拿日志直接 rerun。
-7. candidate 只能通过 `workflow_dispatch` 从 `master` 运行。结束后确认 `publish` skipped、artifacts 已生成，并确认 tag 和 Release 均未变化。
-8. release 只能对已经通过上述门禁的精确 commit 创建 tag。不得在失败后盲目移动 tag；先本地修复、重新通过门禁和 master CI，再按用户明确授权处理 tag。
+7. candidate 只能通过 `workflow_dispatch` 从 `master` 运行。正式发布候选必须选择 `target=all`；结束后确认候选身份凭据和全部 artifacts 已生成、`publish` skipped，并确认 tag 和 Release 均未变化。单平台 candidate 只用于诊断，不能提升为 Release。
+8. release 通常只对已经通过上述门禁和完整 candidate 的精确 commit 创建 tag。候选之后若只有 workflow、Release 附件整理、对应测试或发布文档变化，可由 tag workflow 通过祖先关系和应用构建输入 SHA-256 复用不可变 artifacts；任何 App、Runtime、依赖或打包输入变化都必须重新通过完整 candidate。tag workflow 不得重新执行付费打包。
 
 ## 完成标准
 
-报告精确 commit、本地打包平台、本地 App 路径、包校验与 E2E 结果、master CI、GitHub run URL、各 job 结果及 artifacts。candidate 明确说明未创建 tag/Release；release 列出 tag 和发布附件。任何未执行门禁都必须说明原因和残余风险，不得声称可发布。
+报告精确 commit、本地打包平台、本地 App 路径、包校验与 E2E 结果、master CI、candidate run URL、各 job 结果、候选身份凭据及 artifacts。candidate 明确说明未创建 tag/Release；release 同时列出被提升的 candidate run、tag 和发布附件。任何未执行门禁都必须说明原因和残余风险，不得声称可发布。
