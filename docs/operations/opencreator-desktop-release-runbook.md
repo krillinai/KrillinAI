@@ -43,11 +43,11 @@ pnpm desktop:package
 
 1. 更新 `apps/desktop/package.json` 的版本。
 2. 确认 GitHub Release 发布权限、签名凭据和目标版本更新元数据流程可用。
-3. 先推送版本提交到 `master`，等待同一提交的 CI 通过，再从 `master` 手动运行 `.github/workflows/desktop-release.yml`，并选择 `target=all`。
-4. 完整候选工作流使用 `macos-15-intel`、`macos-15` 和 `windows-latest` 并行构建三个原生目标平台。macOS 使用正式 Developer ID 签名和 Apple 公证；每个平台都必须通过实际打包应用 E2E。单平台运行只用于诊断，不能用于正式发布。
-5. 三个平台和 Linux KrillinAI 附件全部成功后，工作流写入绑定 Git commit、workflow run 和仓库的候选身份凭据。候选附件保存于该 workflow run，不允许构建后替换。
-6. 候选全绿后才创建并推送 `v<version>` Git tag。标签版本必须与 `apps/desktop/package.json` 完全一致。通常 tag 指向候选 commit；候选后只有发布 workflow、Release 附件整理脚本、对应测试或发布文档变化时，可以复用原候选。
-7. tag 工作流不再重复构建、签名、公证或 E2E；它查找最新的成功 `target=all` 候选，并通过 GitHub compare 确认候选是 tag 的祖先、差异列表完整且全部属于严格的发布基础设施白名单。任何 App、Runtime、依赖或打包输入变化都会拒绝复用并要求新候选。随后工作流复核 run 与候选身份凭据，下载已验证附件，校验附件白名单并发布 GitHub Release。
+3. 先推送版本提交到 `master`，等待同一提交的 CI 通过，再从 `master` 手动运行 `.github/workflows/desktop-release.yml`，并选择 `target=all`。CI 会把纯发布基础设施改动分流到 release checks；产品改动并行执行 unit、compile 和 Web/Desktop parity。
+4. 完整候选工作流使用 `macos-15-intel`、`macos-15` 和 `windows-latest` 并行构建三个原生目标平台，任一 matrix job 失败会自动取消 sibling jobs。macOS 使用正式 Developer ID 签名和 Apple 公证。macOS arm64 运行完整 packaged App E2E；macOS x64 和 Windows x64 运行真实 App smoke 与平台能力套件。单平台运行只用于诊断，不能用于正式发布。
+5. 三个平台和 Linux KrillinAI 附件全部成功后，工作流计算排除发布专用文件的应用构建输入 SHA-256，并写入绑定该指纹、Git commit、workflow run 和仓库的候选身份凭据。候选附件保存于该 workflow run，不允许构建后替换。
+6. 候选全绿后才创建并推送 `v<version>` Git tag。标签版本必须与 `apps/desktop/package.json` 完全一致。通常 tag 指向候选 commit；候选后只有发布基础设施变化且应用构建输入 SHA-256 不变时，可以复用原候选。
+7. tag 工作流不再重复构建、签名、公证或 E2E；它按应用构建输入 SHA-256 查找成功的 `target=all` 候选，并确认候选 commit 是 tag commit 的祖先。任何 App、Runtime、依赖或打包输入变化都会产生不同指纹并要求新候选。随后工作流复核 run 与候选身份凭据，下载已验证附件，校验附件白名单并发布 GitHub Release。
 
 示例：
 

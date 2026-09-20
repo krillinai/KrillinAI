@@ -122,7 +122,7 @@ Get-AuthenticodeSignature ".\OpenCreator Setup <version>.exe" | Format-List
 1. `pnpm test`。
 2. `pnpm typecheck`。
 3. `pnpm desktop:release` 生成 NSIS、blockmap、`latest.yml` 和构建清单。
-4. `pnpm --filter @opencreator/desktop e2e:package`。
+4. `pnpm --filter @opencreator/desktop e2e:package:smoke`，覆盖真实 App Runtime、平台能力、代理、恢复、安全和进程回收；完整共享套件由 macOS arm64 候选执行。
 5. `pnpm --filter @opencreator/desktop verify:package`，由打包脚本自动调用。
 6. 上传安装包、更新元数据和构建清单。
 

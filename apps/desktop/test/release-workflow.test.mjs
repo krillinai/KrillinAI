@@ -24,6 +24,12 @@ describe('Desktop release workflow', () => {
     expect(ciWorkflow).toContain('\n  push:');
     expect(ciWorkflow).toContain('      - master');
     expect(ciWorkflow).toContain('cancel-in-progress: true');
+    expect(ciWorkflow).toContain('classify:');
+    expect(ciWorkflow).toContain('release-checks:');
+    expect(ciWorkflow).toContain('unit:');
+    expect(ciWorkflow).toContain('compile:');
+    expect(ciWorkflow).toContain('web-parity:');
+    expect(ciWorkflow).toContain("needs.classify.outputs.release-only == 'true'");
   });
 
   it('runs the network audit before expensive verification steps', () => {
@@ -73,8 +79,8 @@ describe('Desktop release workflow', () => {
     expect(releaseWorkflow).not.toContain('run: pnpm build');
   });
 
-  it('keeps platform diagnostics after one package target fails', () => {
-    expect(releaseWorkflow).toContain('fail-fast: false');
+  it('cancels sibling package jobs while preserving failure diagnostics', () => {
+    expect(releaseWorkflow).toContain('fail-fast: true');
     expect(releaseWorkflow).toContain('tail -n 80 desktop-release.log');
     expect(releaseWorkflow).toContain(
       '::error title=macOS release failure details::'
@@ -95,16 +101,20 @@ describe('Desktop release workflow', () => {
     );
     expect(releaseWorkflow).toContain("candidate-ready:");
     expect(releaseWorkflow).toContain("inputs.target == 'all'");
-    expect(releaseWorkflow).toContain('opencreator-release-candidate-${{ github.sha }}');
+    expect(releaseWorkflow).toContain('e2e:package:smoke');
+    expect(releaseWorkflow).toContain("matrix.name == 'macos-arm64'");
+    expect(releaseWorkflow).toContain('opencreator-release-candidate-${{ steps.build-input.outputs.digest }}');
   });
 
   it('promotes an immutable successful master candidate instead of rebuilding a tag', () => {
     expect(releaseWorkflow).toContain("if: github.event_name == 'workflow_dispatch'");
     expect(releaseWorkflow).toContain('name: 查找可复用的完整候选构建');
-    expect(releaseWorkflow).toContain('repos/$GH_REPO/compare/$run_sha...$GITHUB_SHA');
+    expect(releaseWorkflow).toContain('release-build-input.mjs digest');
+    expect(releaseWorkflow).toContain('repos/$GH_REPO/compare/$candidate_sha...$GITHUB_SHA');
     expect(releaseWorkflow).toContain('comparison_status');
-    expect(releaseWorkflow).toContain('changed_files');
-    expect(releaseWorkflow).toContain('apps/desktop/scripts/release-assets.mjs');
+    expect(releaseWorkflow).toContain('CANDIDATE_BUILD_INPUT_DIGEST');
+    expect(releaseWorkflow).toContain('candidate.schemaVersion === 2');
+    expect(releaseWorkflow).toContain('candidate.buildInputDigest');
     expect(releaseWorkflow).toContain('当前 tag 没有可复用的完整候选构建');
     expect(releaseWorkflow).toContain('run-id: ${{ steps.candidate.outputs.run-id }}');
     expect(releaseWorkflow).toContain('name: ${{ steps.candidate.outputs.name }}');

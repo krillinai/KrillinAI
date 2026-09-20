@@ -15,9 +15,58 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
+  classify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
+    outputs:
+      release-only: ${{ steps.scope.outputs.release-only }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Classify changed files
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          release_only="$(
+            node apps/desktop/scripts/release-build-input.mjs \
+              release-only "$BASE_SHA" "$GITHUB_SHA"
+          )"
+          echo "release-only=$release_only" >> "$GITHUB_OUTPUT"
+          echo "Release-only change: $release_only"
+
+  release-checks:
+    if: needs.classify.outputs.release-only == 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+      - run: pnpm install --frozen-lockfile
+      - name: Validate release workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+      - name: Test release tooling
+        run: >-
+          pnpm --filter @opencreator/desktop test --
+          test/release-assets.test.mjs
+          test/release-build-input.test.mjs
+          test/release-workflow.test.mjs
+          test/desktop-release-tag.test.mjs
+
+  unit:
+    if: needs.classify.outputs.release-only != 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -33,27 +82,54 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends fonts-noto-cjk
+          test -f /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
+          test -f /usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc
       - run: pnpm install --frozen-lockfile
-      - name: Validate writing templates
-        run: pnpm --filter @opencreator/writing-templates test
-      - run: pnpm templates:ci
       - name: Audit high severity dependencies
         run: pnpm audit --audit-level high --ignore-registry-errors
         timeout-minutes: 5
+      - run: pnpm templates:ci
       - run: pnpm krillinai:test
-      - name: Install CJK fonts for article PDF tests
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
-          test -f /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
-          test -f /usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc
       - name: Prepare Electron for desktop tests
         run: pnpm --filter @opencreator/desktop exec node -e "require('electron')"
       - run: pnpm test
       - run: pnpm release:verify-scheduled-task-upgrade
+
+  compile:
+    if: needs.classify.outputs.release-only != 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runtime/krillinai/go.mod
+          cache-dependency-path: runtime/krillinai/go.sum
+      - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm build
       - run: pnpm smoke:ci
+
+  web-parity:
+    if: needs.classify.outputs.release-only != 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @opencreator/web build
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm e2e apps/web/e2e/web-desktop-parity.spec.ts --project=chromium-desktop
       - run: pnpm perf:measure

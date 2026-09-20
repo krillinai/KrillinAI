@@ -37,7 +37,7 @@ const OVERSIZED_WAVE_PCM_BYTES = 10 * 1024 * 1024 + 4096;
 const OVERSIZED_WAVE_FILE_BYTES = OVERSIZED_WAVE_PCM_BYTES + 44;
 test.describe.configure({ mode: 'serial' });
 
-test('实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runtime', async () => {
+test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runtime', async () => {
   test.setTimeout(180_000);
   const fixture = await launchCreatorDesktop();
   let currentApp: PackagedApp = fixture.app;

@@ -88,7 +88,7 @@ jobs:
     needs: verify
     timeout-minutes: 90
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix: ${{ fromJSON(needs.verify.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     environment: release
@@ -138,12 +138,23 @@ jobs:
           path: |
             apps/desktop/.cache/electron
             apps/desktop/.cache/electron-builder
-            apps/desktop/.cache/codex-runtime
             apps/desktop/.cache/node-gyp
             apps/desktop/.cache/npm
+          key: desktop-tools-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('pnpm-lock.yaml', 'apps/desktop/package.json', 'apps/desktop/packaging/daemon-runtime/pnpm-lock.yaml') }}
+      - uses: actions/cache@v4
+        with:
+          path: apps/desktop/.cache/codex-runtime
+          key: codex-runtime-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('apps/desktop/scripts/prepare-codex-runtime.mjs', 'apps/desktop/scripts/codex-runtime-contract.mjs', 'resources/codex-runtime/**') }}
+      - uses: actions/cache@v4
+        with:
+          path: |
             .runtime/vendor/creator-runtime/${{ matrix.platform }}-${{ matrix.arch }}
+          key: creator-runtime-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('apps/desktop/scripts/install-creator-runtime-dependencies.mjs', 'apps/desktop/scripts/creator-runtime-releases.mjs', 'apps/desktop/scripts/prepare-creator-runtime.mjs') }}
+      - uses: actions/cache@v4
+        with:
+          path: |
             .runtime/build/krillinai/${{ matrix.platform }}-${{ matrix.arch }}
-          key: desktop-build-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('pnpm-lock.yaml', 'apps/desktop/package.json', 'apps/desktop/packaging/daemon-runtime/pnpm-lock.yaml', 'apps/desktop/scripts/install-creator-runtime-dependencies.mjs', 'apps/desktop/scripts/creator-runtime-releases.mjs', 'scripts/build-krillinai.mjs', 'runtime/krillinai/**', 'resources/codex-runtime/**/manifest.json') }}
+          key: krillinai-build-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('scripts/build-krillinai.mjs', 'runtime/krillinai/**') }}
       - name: 生成 macOS 正式签名安装包
         if: matrix.platform == 'darwin'
         shell: bash
@@ -181,7 +192,9 @@ jobs:
           OPENCREATOR_DESKTOP_TARGET_PLATFORM: ${{ matrix.platform }}
           OPENCREATOR_DESKTOP_TARGET_ARCH: ${{ matrix.arch }}
       - name: 验证实际打包应用
-        run: pnpm --filter @opencreator/desktop e2e:package
+        run: >-
+          pnpm --filter @opencreator/desktop
+          ${{ matrix.name == 'macos-arm64' && 'e2e:package' || 'e2e:package:smoke' }}
       - name: 生成 KrillinAI Server 与 CLI 独立发布包
         run: pnpm krillinai:package
         env:
@@ -250,17 +263,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
+      - name: 计算应用构建输入指纹
+        id: build-input
+        run: echo "digest=$(node apps/desktop/scripts/release-build-input.mjs digest)" >> "$GITHUB_OUTPUT"
       - name: 记录可提升候选包
         env:
           CANDIDATE_SHA: ${{ github.sha }}
           CANDIDATE_RUN_ID: ${{ github.run_id }}
           CANDIDATE_REPOSITORY: ${{ github.repository }}
+          CANDIDATE_BUILD_INPUT_DIGEST: ${{ steps.build-input.outputs.digest }}
         run: |
           node -e '
             const fs = require("node:fs");
             const candidate = {
-              schemaVersion: 1,
+              schemaVersion: 2,
               commit: process.env.CANDIDATE_SHA,
+              buildInputDigest: process.env.CANDIDATE_BUILD_INPUT_DIGEST,
               runId: Number(process.env.CANDIDATE_RUN_ID),
               repository: process.env.CANDIDATE_REPOSITORY,
               event: "workflow_dispatch",
@@ -271,7 +290,7 @@ jobs:
       - name: 上传候选包身份凭据
         uses: actions/upload-artifact@v4
         with:
-          name: opencreator-release-candidate-${{ github.sha }}
+          name: opencreator-release-candidate-${{ steps.build-input.outputs.digest }}
           path: release-candidate.json
           if-no-files-found: error
           retention-days: 90
@@ -289,71 +308,43 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: 计算应用构建输入指纹
+        id: build-input
+        run: echo "digest=$(node apps/desktop/scripts/release-build-input.mjs digest)" >> "$GITHUB_OUTPUT"
       - name: 查找可复用的完整候选构建
         id: candidate
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          CANDIDATE_NAME: opencreator-release-candidate-${{ steps.build-input.outputs.digest }}
         shell: bash
         run: |
-          candidate_run_id=''
-          candidate_sha=''
-          while IFS=$'\t' read -r run_id run_sha; do
-            candidate_name="opencreator-release-candidate-$run_sha"
-            artifact_count="$(
-              gh api --method GET "repos/$GH_REPO/actions/runs/$run_id/artifacts" \
-                -f name="$candidate_name" \
-                --jq '[.artifacts[] | select(.expired == false)] | length'
-            )"
-            [[ "$artifact_count" == "1" ]] || continue
-
-            comparison="$(gh api "repos/$GH_REPO/compare/$run_sha...$GITHUB_SHA")"
-            comparison_status="$(jq -r '.status' <<< "$comparison")"
-            [[ "$comparison_status" == "identical" || "$comparison_status" == "ahead" ]] || continue
-            changed_files="$(jq -r '.files | length' <<< "$comparison")"
-            # GitHub caps compare responses at 300 files. Reject that boundary so
-            # an incomplete diff can never pass the release-only allowlist.
-            (( changed_files < 300 )) || continue
-
-            invalid_files="$(
-              jq -r '.files[].filename' <<< "$comparison" | while IFS= read -r path; do
-                case "$path" in
-                  .github/workflows/desktop-release.yml|\
-                  apps/desktop/scripts/release-assets.mjs|\
-                  apps/desktop/test/release-assets.test.mjs|\
-                  apps/desktop/test/release-workflow.test.mjs|\
-                  apps/desktop/release-notes/*|\
-                  docs/operations/opencreator-desktop-release-runbook.md|\
-                  .codex/skills/oc-deploy/SKILL.md|\
-                  .codex/skills/oc-deploy/references/runbook.md)
-                    ;;
-                  *) printf '%s\n' "$path" ;;
-                esac
-              done
-            )"
-            [[ -z "$invalid_files" ]] || continue
-
-            candidate_run_id="$run_id"
-            candidate_sha="$run_sha"
-            break
-          done < <(
-            gh run list \
-              --workflow desktop-release.yml \
-              --branch master \
-              --event workflow_dispatch \
-              --status success \
-              --limit 50 \
-              --json databaseId,headSha \
-              --jq '.[] | [.databaseId, .headSha] | @tsv'
-          )
-
+          candidate_run_id="$(
+            gh api --method GET "repos/$GH_REPO/actions/artifacts" \
+              -f name="$CANDIDATE_NAME" \
+              --jq '.artifacts | map(select(.expired == false)) | sort_by(.created_at) | reverse | .[0].workflow_run.id // empty'
+          )"
           if [[ -z "$candidate_run_id" ]]; then
             echo "::error::当前 tag 没有可复用的完整候选构建。应用构建输入发生变化时，请先从 master 运行 target=all。"
             exit 1
           fi
+
+          run="$(gh api "repos/$GH_REPO/actions/runs/$candidate_run_id")"
+          candidate_sha="$(jq -r '.head_sha' <<< "$run")"
+          comparison_status="$(
+            gh api "repos/$GH_REPO/compare/$candidate_sha...$GITHUB_SHA" --jq '.status'
+          )"
+          if [[ "$(jq -r '.event' <<< "$run")" != "workflow_dispatch" \
+            || "$(jq -r '.head_branch' <<< "$run")" != "master" \
+            || "$(jq -r '.conclusion' <<< "$run")" != "success" \
+            || "$(jq -r '.path' <<< "$run")" != ".github/workflows/desktop-release.yml" \
+            || ( "$comparison_status" != "identical" && "$comparison_status" != "ahead" ) ]]; then
+            echo "::error::候选构建 $candidate_run_id 的来源或祖先关系无效。"
+            exit 1
+          fi
           echo "run-id=$candidate_run_id" >> "$GITHUB_OUTPUT"
           echo "sha=$candidate_sha" >> "$GITHUB_OUTPUT"
-          echo "name=opencreator-release-candidate-$candidate_sha" >> "$GITHUB_OUTPUT"
+          echo "name=$CANDIDATE_NAME" >> "$GITHUB_OUTPUT"
           echo "使用已验证候选构建：$candidate_run_id ($candidate_sha)"
       - uses: actions/download-artifact@v4
         with:
@@ -380,12 +371,14 @@ jobs:
           EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
           EXPECTED_RUN_ID: ${{ steps.candidate.outputs.run-id }}
           EXPECTED_REPOSITORY: ${{ github.repository }}
+          EXPECTED_BUILD_INPUT_DIGEST: ${{ steps.build-input.outputs.digest }}
         run: |
           node -e '
             const fs = require("node:fs");
             const candidate = JSON.parse(fs.readFileSync("candidate/release-candidate.json", "utf8"));
-            const valid = candidate.schemaVersion === 1
+            const valid = candidate.schemaVersion === 2
               && candidate.commit === process.env.EXPECTED_SHA
+              && candidate.buildInputDigest === process.env.EXPECTED_BUILD_INPUT_DIGEST
               && String(candidate.runId) === process.env.EXPECTED_RUN_ID
               && candidate.repository === process.env.EXPECTED_REPOSITORY
               && candidate.event === "workflow_dispatch"

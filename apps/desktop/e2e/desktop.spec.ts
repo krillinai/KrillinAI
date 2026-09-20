@@ -173,7 +173,7 @@ test('bundled 模式在最小 PATH 下忽略 ChatGPT 应用内置的 Codex', asy
   }
 });
 
-test('成功 Probe 后进入 Dashboard，刷新不重复 Probe，并代理 JSON、二进制和 SSE', async ({}, testInfo) => {
+test('@package-smoke 成功 Probe 后进入 Dashboard，刷新不重复 Probe，并代理 JSON、二进制和 SSE', async ({}, testInfo) => {
   const fixture = await launchPackagedDesktop('success');
   try {
     await waitForWorkspace(fixture.page);
@@ -911,7 +911,7 @@ test('Dashboard 握手超时后显示本地错误页并可无 Probe 重载', asy
   }
 });
 
-test('Daemon 异常退出后自动恢复且不重复 Probe', async () => {
+test('@package-smoke Daemon 异常退出后自动恢复且不重复 Probe', async () => {
   const fixture = await launchPackagedDesktop('success');
   try {
     await waitForWorkspace(fixture.page);
@@ -955,7 +955,7 @@ test('Daemon 异常退出后自动恢复且不重复 Probe', async () => {
   }
 });
 
-test('IPC 拒绝非 OpenCreator 页面来源', async () => {
+test('@package-smoke IPC 拒绝非 OpenCreator 页面来源', async () => {
   const fixture = await launchPackagedDesktop('success');
   try {
     await waitForWorkspace(fixture.page);
@@ -997,7 +997,7 @@ test('启动页使用 OpenCreator 文字品牌', async ({}, testInfo) => {
   }
 });
 
-test('退出期间会回收仍在 Probe 中的 Codex 子进程', async () => {
+test('@package-smoke 退出期间会回收仍在 Probe 中的 Codex 子进程', async () => {
   test.setTimeout(120_000);
   const fixture = await launchPackagedDesktop('probe-hang');
   const pidPath = join(fixture.stateDir, 'probe-pid.txt');
