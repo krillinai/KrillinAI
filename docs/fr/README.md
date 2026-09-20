@@ -33,10 +33,10 @@
 
 OpenCreator s'adresse aux personnes et aux équipes qui souhaitent exécuter localement leurs activités créatives et de développement. Plutôt que de réimplémenter une boucle Agent, il utilise Codex CLI comme moteur d'exécution et lui ajoute un Runtime local stable, un espace de travail visuel et un hôte Desktop.
 
-Le produit réunit deux flux de travail connectés :
+OpenCreator propose deux façons de travailler qui se complètent :
 
-- **Création de contenu par IA** : utilisez des outils de création dédiés à la traduction de vidéos, au téléchargement de vidéos, à la génération de miniatures et à la génération d'images.
-- **Espace de travail Agent généraliste** : organisez les conversations par projet, laissez les Runs s'exécuter en arrière-plan et gérez les approbations, les pièces jointes, les fichiers, les Skills, MCP, les planifications, les notifications, la mémoire et les diagnostics depuis un seul endroit.
+- **Espace de travail pour le contenu** : utilisez des outils visuels et des modèles de création pour traduire et télécharger des vidéos, générer des miniatures et des images, et réaliser d'autres créations.
+- **Conversation avec l'Agent** : lancez et guidez des tâches créatives ou de développement en langage naturel, organisez les conversations par projet, laissez les Runs s'exécuter en arrière-plan et gérez les approbations, les pièces jointes, les fichiers, les Skills, MCP, les planifications, les notifications, la mémoire et les diagnostics depuis un seul endroit.
 
 Web constitue l'unique implémentation du frontend. Desktop charge la même compilation Web et ajoute uniquement les capacités qui nécessitent le système d'exploitation, telles que la sélection de répertoires, le cycle de vie des fenêtres, le comportement de la zone de notification et les notifications natives. Avec les mêmes données et la même zone d'affichage du contenu, les deux plateformes partagent la même interface générale et le même comportement du Runtime.
 

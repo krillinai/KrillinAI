@@ -33,10 +33,10 @@
 
 OpenCreator dibuat untuk individu dan tim yang ingin menjalankan pekerjaan kreatif dan pengembangan secara lokal. Alih-alih mengimplementasikan ulang loop Agent, OpenCreator menggunakan Codex CLI sebagai mesin eksekusi dan menambahkan Runtime lokal yang stabil, ruang kerja visual, serta host Desktop di sekelilingnya.
 
-Produk ini menyatukan dua alur kerja yang saling terhubung:
+OpenCreator menyediakan dua cara kerja yang saling terhubung:
 
-- **Pembuatan konten AI**: gunakan alat kreasi khusus untuk penerjemahan video, pengunduhan video, pembuatan thumbnail, dan pembuatan gambar.
-- **Ruang kerja Agent umum**: atur percakapan berdasarkan proyek, biarkan Runs tetap berjalan di latar belakang, dan kelola persetujuan, lampiran, file, Skills, MCP, jadwal, notifikasi, memori, serta diagnostik dari satu tempat.
+- **Ruang kerja konten**: gunakan alat visual dan templat kreasi untuk menerjemahkan dan mengunduh video, membuat thumbnail dan gambar, serta mengerjakan kreasi lainnya.
+- **Percakapan Agent**: mulai dan arahkan tugas kreatif atau pengembangan dengan bahasa alami, atur percakapan berdasarkan proyek, biarkan Runs tetap berjalan di latar belakang, dan kelola persetujuan, lampiran, file, Skills, MCP, jadwal, notifikasi, memori, serta diagnostik dari satu tempat.
 
 Web adalah satu-satunya implementasi frontend. Desktop memuat build Web yang sama dan hanya menambahkan kemampuan yang memerlukan sistem operasi, seperti pemilihan direktori, siklus hidup jendela, perilaku baki sistem, dan notifikasi native. Dengan data dan viewport konten yang sama, kedua platform menggunakan UI umum dan perilaku Runtime yang sama.
 
