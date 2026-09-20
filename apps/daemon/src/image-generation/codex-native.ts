@@ -43,6 +43,7 @@ export type CodexNativeImageInput = {
   cwd: string;
   codexBin: string;
   codexHome: string;
+  imagePaths?: string[];
   signal?: AbortSignal;
   timeoutMs?: number;
   createHost?: (input: CodexAppServerHostInput) => CodexAppServerHost;
@@ -68,6 +69,7 @@ export async function generateCodexNativeImage(
   input: CodexNativeImageInput
 ): Promise<CodexNativeImageResult> {
   await assertLocalConfiguration(input);
+  await assertLocalInputImages(input);
   if (input.signal?.aborted) {
     throw new CodexNativeImageError('upstream_error', 'Codex native image generation was canceled');
   }
@@ -91,9 +93,11 @@ export async function generateCodexNativeImage(
       prompt: buildImagePrompt(input),
       developerInstructions: [
         'Use the native image_generation tool for exactly one original image.',
+        'The attached local images are reference images; preserve their responsibilities and do not invent replacement references.',
         'Do not call an external image API, use an API key, or return a remote URL.',
         'The completed image must be saved as the imageGeneration savedPath artifact.'
       ].join(' '),
+      ...(input.imagePaths === undefined ? {} : { imagePaths: input.imagePaths }),
       timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
       inactivityTimeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
       onThreadStarted(threadId) {
@@ -162,6 +166,51 @@ async function assertLocalConfiguration(input: CodexNativeImageInput): Promise<v
       throw new CodexNativeImageError(
         'config_missing',
         `Codex executable was not found at ${executablePath}`
+      );
+    }
+  }
+}
+
+async function assertLocalInputImages(input: Pick<CodexNativeImageInput, 'cwd' | 'imagePaths'>): Promise<void> {
+  const imagePaths = input.imagePaths ?? [];
+  if (imagePaths.length > 8) {
+    throw new CodexNativeImageError(
+      'config_missing',
+      'Codex native image generation supports at most eight local reference images'
+    );
+  }
+  if (imagePaths.length === 0) return;
+  const workspaceRoot = await realpath(input.cwd).catch(() => undefined);
+  if (workspaceRoot === undefined) {
+    throw new CodexNativeImageError('config_missing', 'Codex native image workspace is unavailable');
+  }
+  for (const imagePath of imagePaths) {
+    if (!isAbsolute(imagePath) || imagePath.startsWith('file:') || imagePath.includes('\0')) {
+      throw new CodexNativeImageError(
+        'config_missing',
+        'Codex native reference images must be absolute local filesystem paths'
+      );
+    }
+    const canonical = await realpath(imagePath).catch(() => undefined);
+    const metadata = canonical === undefined ? undefined : await stat(canonical).catch(() => undefined);
+    if (
+      canonical === undefined
+      || metadata === undefined
+      || !metadata.isFile()
+      || !isPathInside(workspaceRoot, canonical)
+      || metadata.size <= 0
+      || metadata.size > MAX_IMAGE_BYTES
+    ) {
+      throw new CodexNativeImageError(
+        'config_missing',
+        `Codex native reference image is missing or outside the workspace: ${imagePath}`
+      );
+    }
+    const mime = detectImageMime(await readFile(canonical));
+    if (mime === undefined) {
+      throw new CodexNativeImageError(
+        'config_missing',
+        `Codex native reference image has an unsupported signature: ${imagePath}`
       );
     }
   }
@@ -358,11 +407,13 @@ function discoveryRoots(
         path: resolve(generatedRoot, codexThreadId),
         boundary: codexHomeRoot,
         recursive: true
-      },
-      { path: generatedRoot, boundary: codexHomeRoot, recursive: false }
+      }
     ];
   }
-  return [{ path: generatedRoot, boundary: codexHomeRoot, recursive: true }];
+  // A Codex build that does not report a thread can only be trusted for the
+  // legacy flat layout. Never scan other thread directories without a thread
+  // identity, because a concurrent turn could otherwise be mistaken for ours.
+  return [{ path: generatedRoot, boundary: codexHomeRoot, recursive: false }];
 }
 
 async function listLocalArtifactFiles(roots: LocalArtifactScanRoot[]): Promise<string[]> {

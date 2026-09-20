@@ -28,8 +28,10 @@ describe('Codex native image adapter', () => {
     const root = await tempRoot();
     const codexHome = join(root, 'codex-home');
     const savedPath = join(codexHome, 'generated_images', 'result.png');
+    const referencePath = join(root, 'reference.png');
     await mkdir(join(codexHome, 'generated_images'), { recursive: true });
     await writeFile(savedPath, png);
+    await writeFile(referencePath, png);
     const createHost = fakeHost({ savedPath });
 
     const result = await generateCodexNativeImage({
@@ -39,6 +41,7 @@ describe('Codex native image adapter', () => {
       cwd: root,
       codexBin: 'codex',
       codexHome,
+      imagePaths: [referencePath],
       createHost
     });
 
@@ -55,7 +58,8 @@ describe('Codex native image adapter', () => {
       cwd: root,
       sandbox: 'workspace-write',
       prompt: expect.stringContaining('an original orange cat'),
-      developerInstructions: expect.stringContaining('native image_generation')
+      developerInstructions: expect.stringContaining('native image_generation'),
+      imagePaths: [referencePath]
     }));
     expect(host.close).toHaveBeenCalledTimes(1);
   });
@@ -66,6 +70,7 @@ describe('Codex native image adapter', () => {
     const savedPath = join(codexHome, 'generated_images', 'thread-1', 'result.png');
     await mkdir(codexHome, { recursive: true });
     const createHost = fakeHost({
+      threadId: 'thread-1',
       emitImageItem: false,
       createArtifact: async () => {
         await mkdir(join(codexHome, 'generated_images', 'thread-1'), { recursive: true });
@@ -92,6 +97,7 @@ describe('Codex native image adapter', () => {
     const savedPath = join(codexHome, 'generated_images', 'result.png');
     await mkdir(codexHome, { recursive: true });
     const createHost = fakeHost({
+      threadId: null,
       emitImageItem: false,
       createArtifact: async () => {
         await mkdir(join(codexHome, 'generated_images'), { recursive: true });
@@ -342,7 +348,7 @@ async function tempRoot(): Promise<string> {
 
 function fakeHost(input: {
   savedPath?: string;
-  threadId?: string;
+  threadId?: string | null;
   failure?: { message: string };
   neverCompletes?: boolean;
   emitImageItem?: boolean;
@@ -356,7 +362,9 @@ function fakeHost(input: {
       const result = input.neverCompletes
         ? new Promise<CodexAppServerResult>(() => undefined)
         : (async () => {
-            await turnInput.onThreadStarted?.(input.threadId ?? 'thread-1');
+            if (input.threadId !== null) {
+              await turnInput.onThreadStarted?.(input.threadId ?? 'thread-1');
+            }
             await input.createArtifact?.();
             if (input.emitImageItem !== false) {
               await turnInput.onNotification?.({

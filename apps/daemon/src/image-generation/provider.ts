@@ -41,8 +41,8 @@ export function imageGenerationCapabilities(
   provider: CreateImageGenerationRequest['provider']
 ): ImageGenerationCapabilities {
   return {
-    supportsReferenceImage: provider === 'openai' || provider === 'gemini',
-    maxReferenceImages: provider === 'openai' || provider === 'gemini' ? 8 : 0
+    supportsReferenceImage: provider === 'openai' || provider === 'gemini' || provider === 'codex-native',
+    maxReferenceImages: provider === 'openai' || provider === 'gemini' || provider === 'codex-native' ? 8 : 0
   };
 }
 
@@ -64,6 +64,7 @@ export async function generateImageContents(
     signal?: AbortSignal;
     referenceImage?: GeneratedImageContent;
     referenceImages?: GeneratedImageContent[];
+    codexNativeImagePaths?: string[];
     codexNative?: CodexNativeImageRuntime;
   } = {}
 ): Promise<{ model: string; contents: GeneratedImageContent[] }> {
@@ -106,6 +107,9 @@ export async function generateImageContents(
           prompt: request.prompt,
           size: request.size,
           quality: request.quality,
+          ...(options.codexNativeImagePaths === undefined
+            ? {}
+            : { imagePaths: options.codexNativeImagePaths }),
           signal: controller.signal
         });
         return { model: generated.model, contents: [generated] };
