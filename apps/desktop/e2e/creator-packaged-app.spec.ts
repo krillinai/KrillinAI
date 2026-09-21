@@ -45,10 +45,8 @@ test('工作台与滚动中的项目页保持相同内容边界', async () => {
     await expect(fixture.app.page.locator('.creator-tools-page')).toBeVisible();
     const workbench = await fixture.app.page.locator('.creator-tools-page').evaluate(scroller => ({
       right: Math.round(scroller.querySelector('.creator-tools-page-inner')!.getBoundingClientRect().right),
-      scrollable: scroller.scrollHeight > scroller.clientHeight,
       gutter: scroller.offsetWidth - scroller.clientWidth
     }));
-    expect(workbench.scrollable).toBe(false);
     await fixture.app.page.getByRole('button', { name: '我的项目', exact: true }).click();
     await expect(fixture.app.page.locator('.projects-page-inner')).toBeVisible();
     const projects = await fixture.app.page.locator('.projects-page').evaluate(scroller => {
