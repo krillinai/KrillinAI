@@ -13,6 +13,7 @@ coverage/
 test-results/
 .superpowers/
 /docs/superpowers/
+/docs/specs/
 codex-main/
 open-design-main/
 .gstack/
