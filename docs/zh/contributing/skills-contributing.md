@@ -1,8 +1,8 @@
 # 贡献一个 Skill（简体中文）
 
-> [English](./skills-contributing.md) | 简体中文
+> [English](../../contributing/skills-contributing.md) | 简体中文
 
-Skill 是 [`skills/`](../../skills/) 下的一个文件夹，根目录包含一个 `SKILL.md`，遵循 [`SKILL.md` 约定](https://agentskills.io)。它封装一个可复用的 Agent 工作流：何时使用、调用什么命令或工具、如何解读输出。本指南说明如何新增一个 Skill。
+Skill 是 [`skills/`](../../../skills/) 下的一个文件夹，根目录包含一个 `SKILL.md`，遵循 [`SKILL.md` 约定](https://agentskills.io)。它封装一个可复用的 Agent 工作流：何时使用、调用什么命令或工具、如何解读输出。本指南说明如何新增一个 Skill。
 
 ---
 

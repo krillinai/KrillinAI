@@ -1,6 +1,6 @@
 # Contributing a Skill
 
-> English | [简体中文](./skills-contributing.zh-CN.md)
+> English | [简体中文](../zh/contributing/skills-contributing.md)
 
 A Skill is a folder under [`skills/`](../../skills/) with a `SKILL.md` at its root, following the [`SKILL.md` convention](https://agentskills.io). It packages a reusable Agent workflow: when to use it, what commands or tools to call, and how to interpret outputs. This guide walks through adding one.
 

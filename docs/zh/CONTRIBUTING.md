@@ -1,6 +1,6 @@
 # 贡献指南（简体中文）
 
-> [English](./CONTRIBUTING.md) | 简体中文
+> [English](../../CONTRIBUTING.md) | 简体中文
 
 感谢你愿意为 OpenCreator 做贡献。OpenCreator 是一个基于 Codex Agent 循环的本地优先创作工作区，项目的大部分价值来自小而聚焦的补充：一个 Skill 文件夹、一个创作模板、一个边界清晰的修复。本指南说明每类贡献应该放在哪里，以及 PR 需要达到什么标准才能合并。
 
@@ -11,8 +11,8 @@
 | 如果你想…… | 你实际在添加的是 | 位置 | 交付规模 |
 |---|---|---|---|
 | 修复 Bug 或改进工作流 | 代码 | `apps/web/`、`apps/daemon/` | 一个聚焦的 PR，附测试 |
-| 添加可复用的 Agent 工作流 | **Skill** | [`skills/<your-skill>/`](skills/) | 一个文件夹，含 `SKILL.md` 和可选的 references → [指南](docs/contributing/skills-contributing.zh-CN.md) |
-| 添加可复用的图像、视频或封面预设 | **创作模板** | [`template/<module>/<id>/<version>/`](template/) | 一个文件夹，含 `template.json` 和素材 → [指南](docs/contributing/templates-contributing.zh-CN.md) |
+| 添加可复用的 Agent 工作流 | **Skill** | [`skills/<your-skill>/`](../../skills/) | 一个文件夹，含 `SKILL.md` 和可选的 references → [指南](./contributing/skills-contributing.md) |
+| 添加可复用的图像、视频或封面预设 | **创作模板** | [`template/<module>/<id>/<version>/`](../../template/) | 一个文件夹，含 `template.json` 和素材 → [指南](./contributing/templates-contributing.md) |
 | 贡献插画、图标或 UI 设计 | 设计资产 | 约定的资产位置 | 一个 PR，附预览、源文件和授权说明 |
 | 接入 AI 或媒体服务 | **服务集成** | 相关 Web 或 Daemon 模块 | 一个 PR，含错误处理、凭证安全和测试 |
 | 改进文档或翻译 | 文档 | `README.md`、`docs/`、`docs/<locale>/README.md` | 一个 PR |
@@ -23,7 +23,7 @@
 
 ## 本地开发环境
 
-完整的环境准备见 [README 快速开始](./README.md#quick-start)。贡献者只需要记住：
+完整的环境准备见 [README 快速开始](../../README.md#quick-start)。贡献者只需要记住：
 
 ```bash
 git clone https://github.com/krillinai/OpenCreator.git

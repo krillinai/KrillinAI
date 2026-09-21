@@ -1,6 +1,6 @@
 # Contributing a Creation Template
 
-> English | [简体中文](./templates-contributing.zh-CN.md)
+> English | [简体中文](../zh/contributing/templates-contributing.md)
 
 A creation template is a folder under [`template/<module>/<id>/<version>/`](../../template/) with a `template.json` and its local assets. Templates power the visual pickers for image generation, video generation, and cover generation — users start from your preset instead of a blank prompt. This guide walks through adding one.
 

@@ -1,6 +1,6 @@
 # Contributing to OpenCreator
 
-> English | [简体中文](./CONTRIBUTING.zh-CN.md)
+> English | [简体中文](./docs/zh/CONTRIBUTING.md)
 
 Thanks for thinking about contributing. OpenCreator is a local-first creator workspace built on the Codex agent loop, and most of its value lives in focused additions: one Skill folder, one creation template, one well-scoped fix. This guide tells you where each type of contribution lives and what bar a PR has to clear before we merge it.
 
