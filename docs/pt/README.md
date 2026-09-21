@@ -560,9 +560,28 @@ Como participar:
 
 Agradecemos a todas as pessoas que participaram com código, documentação, feedback, relatos de problemas, Skills, design e ideias.
 
-<a href="https://github.com/krillinai/KrillinAI/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=krillinai/KrillinAI&amp;max=500&amp;columns=20" alt="OpenCreator Colaboradores" />
-</a>
+<div>
+  <a href="https://github.com/maranello-o"><img src="https://github.com/maranello-o.png?size=48" width="48" height="48" alt="maranello-o" /></a>
+  <a href="https://github.com/wulien"><img src="https://github.com/wulien.png?size=48" width="48" height="48" alt="wulien" /></a>
+  <a href="https://github.com/puji4810"><img src="https://github.com/puji4810.png?size=48" width="48" height="48" alt="puji4810" /></a>
+  <a href="https://github.com/krillinai"><img src="https://github.com/krillinai.png?size=48" width="48" height="48" alt="krillinai" /></a>
+  <a href="https://github.com/PairZhu"><img src="https://github.com/PairZhu.png?size=48" width="48" height="48" alt="PairZhu" /></a>
+  <a href="https://github.com/Mijaelx"><img src="https://github.com/Mijaelx.png?size=48" width="48" height="48" alt="Mijaelx" /></a>
+  <a href="https://github.com/OutisLi"><img src="https://github.com/OutisLi.png?size=48" width="48" height="48" alt="OutisLi" /></a>
+  <a href="https://github.com/yeager"><img src="https://github.com/yeager.png?size=48" width="48" height="48" alt="yeager" /></a>
+  <a href="https://github.com/catwithtudou"><img src="https://github.com/catwithtudou.png?size=48" width="48" height="48" alt="catwithtudou" /></a>
+  <a href="https://github.com/newdee"><img src="https://github.com/newdee.png?size=48" width="48" height="48" alt="newdee" /></a>
+  <a href="https://github.com/scwf"><img src="https://github.com/scwf.png?size=48" width="48" height="48" alt="scwf" /></a>
+  <a href="https://github.com/xiaheyuan"><img src="https://github.com/xiaheyuan.png?size=48" width="48" height="48" alt="xiaheyuan" /></a>
+  <a href="https://github.com/hbxugang"><img src="https://github.com/hbxugang.png?size=48" width="48" height="48" alt="hbxugang" /></a>
+  <a href="https://github.com/kapil971390"><img src="https://github.com/kapil971390.png?size=48" width="48" height="48" alt="kapil971390" /></a>
+  <a href="https://github.com/octo-patch"><img src="https://github.com/octo-patch.png?size=48" width="48" height="48" alt="octo-patch" /></a>
+  <a href="https://github.com/yuanjinghh"><img src="https://github.com/yuanjinghh.png?size=48" width="48" height="48" alt="yuanjinghh" /></a>
+  <a href="https://github.com/DLe-kb"><img src="https://github.com/DLe-kb.png?size=48" width="48" height="48" alt="DLe-kb" /></a>
+  <a href="https://github.com/liupig"><img src="https://github.com/liupig.png?size=48" width="48" height="48" alt="liupig" /></a>
+</div>
+
+<a href="https://github.com/krillinai/OpenCreator/graphs/contributors">GitHub</a>
 
 ## Histórico de Stars
 
