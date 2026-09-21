@@ -35,6 +35,7 @@ import './settings-management.css';
 
 export type RuntimeStatus = {
   connected: boolean;
+  appVersion?: string;
   runtimeVersion?: string;
   codexVersion?: string;
   codexPath?: string;
@@ -539,7 +540,10 @@ function AboutSettings(props: { runtimeStatus: RuntimeStatus }) {
         <p>{t('settings.about.description')}</p>
       </header>
       <div className="settings-card">
-        <SettingsRow label={t('settings.about.version')} value="0.1.0" />
+        <SettingsRow
+          label={t('settings.about.version')}
+          value={props.runtimeStatus.appVersion ?? t('settings.unknown')}
+        />
         <SettingsRow
           label={t('settings.about.runtimeVersion')}
           value={props.runtimeStatus.runtimeVersion ?? t('settings.unknown')}

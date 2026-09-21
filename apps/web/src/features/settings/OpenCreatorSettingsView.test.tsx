@@ -8,6 +8,7 @@ import { OpenCreatorSettingsView } from './OpenCreatorSettingsView.js';
 
 const runtimeStatus = {
   connected: true,
+  appVersion: '3.2.1',
   runtimeVersion: '0.9.1',
   codexVersion: 'codex-cli 1.2.3',
   codexPath: '/opt/homebrew/bin/codex',
@@ -299,6 +300,7 @@ describe('OpenCreatorSettingsView', () => {
     fireEvent.click(screen.getByRole('button', { name: '关于 OpenCreator' }));
 
     expect(screen.getByText('OpenCreator 版本')).toBeInTheDocument();
+    expect(screen.getByText(runtimeStatus.appVersion)).toBeInTheDocument();
     expect(screen.getByText('Runtime 版本')).toBeInTheDocument();
     expect(screen.getByText('数据目录')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '检查更新' })).not.toBeInTheDocument();

@@ -31,6 +31,9 @@ describe('品牌资源', () => {
     expect(trayManager).toContain('height: size');
     expect(existsSync(resolve(desktopRoot, 'resources/tray.png'))).toBe(true);
     expect(existsSync(resolve(desktopRoot, 'resources/icon.png'))).toBe(true);
+
+    const icon = readPngMetadata(resolve(desktopRoot, 'resources/icon.png'));
+    expect(icon).toEqual({ width: 1024, height: 1024, colorType: 6 });
   });
 
   it('Desktop 图标、托盘和 Web 使用同一枚双链品牌图形', () => {
@@ -103,4 +106,15 @@ describe('品牌资源', () => {
 
 function hash(path: string): string {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
+
+function readPngMetadata(path: string): { width: number; height: number; colorType: number } {
+  const bytes = readFileSync(path);
+  expect(bytes.subarray(1, 4).toString('ascii')).toBe('PNG');
+  expect(bytes.subarray(12, 16).toString('ascii')).toBe('IHDR');
+  return {
+    width: bytes.readUInt32BE(16),
+    height: bytes.readUInt32BE(20),
+    colorType: bytes.readUInt8(25)
+  };
 }

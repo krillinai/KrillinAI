@@ -12,6 +12,7 @@ type DesktopApi = {
     titleBarHeight?: number;
     trafficLightInset?: number;
   };
+  readAppVersion(): Promise<string>;
   readConnectionConfig(): Promise<ConnectionConfig | null>;
   subscribeConnectionConfig(
     listener: (connection: ConnectionConfig | null) => void
@@ -73,6 +74,7 @@ export function readDesktopHostBridge(): DesktopHostBridge | undefined {
   return {
     kind: 'desktop',
     ...(windowChrome === undefined ? {} : { windowChrome }),
+    readAppVersion: () => api.readAppVersion(),
     readConnectionConfig: () => api.readConnectionConfig(),
     subscribeConnectionConfig: listener => api.subscribeConnectionConfig(listener),
     restartRuntime: () => api.restartRuntime(),

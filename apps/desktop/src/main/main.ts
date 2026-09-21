@@ -335,6 +335,7 @@ function registerIpcHandlers(input: {
   quit(): void;
   reloadWorkspace(): Promise<void>;
 }): void {
+  handle(desktopIpc.readAppVersion, input.development, () => app.getVersion());
   handle(desktopIpc.readConnection, input.development, () =>
     input.bootstrap.rendererConnection());
   handle(desktopIpc.readBootstrap, input.development, () =>

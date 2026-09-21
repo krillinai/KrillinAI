@@ -102,6 +102,7 @@ export type DesktopHostNotification = {
 export type DesktopApi = {
   kind: 'desktop';
   windowChrome?: DesktopWindowChrome;
+  readAppVersion(): Promise<string>;
   readConnectionConfig(): Promise<DesktopConnectionConfig | null>;
   subscribeConnectionConfig(
     listener: (connection: DesktopConnectionConfig | null) => void

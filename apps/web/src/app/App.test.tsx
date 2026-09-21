@@ -7458,6 +7458,19 @@ describe('App', () => {
     expect(window.location.hash).toBe('#/new');
   });
 
+  it('shows the application version reported by the host bridge', async () => {
+    const user = userEvent.setup();
+    const hostBridge = createHostBridge();
+    hostBridge.readAppVersion = vi.fn(async () => '3.2.1');
+
+    render(<App fileService={createFileService()} hostBridge={hostBridge} />);
+    await user.click(await screen.findByRole('button', { name: '设置' }));
+    await user.click(screen.getByRole('button', { name: '关于 OpenCreator' }));
+
+    expect(await screen.findByText('3.2.1')).toBeInTheDocument();
+    expect(hostBridge.readAppVersion).toHaveBeenCalledOnce();
+  });
+
   it('uses a solid conversation background without a dynamic background setting', async () => {
     const user = userEvent.setup();
 

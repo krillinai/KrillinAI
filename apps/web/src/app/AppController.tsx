@@ -303,6 +303,7 @@ export function AppController(props: AppControllerProps) {
   const defaultFileService = useMemo(() => createUnavailableFileService(), []);
   const fileService = props.fileService ?? defaultFileService;
   const hostBridge = props.hostBridge ?? browserBridge;
+  const [appVersion, setAppVersion] = useState<string>();
   const integratedTitleBar = hostBridge.windowChrome;
   const appShellStyle = integratedTitleBar === undefined
     ? undefined
@@ -970,6 +971,28 @@ export function AppController(props: AppControllerProps) {
     setNotificationSettings(notificationService.getSettings());
     setUnreadTaskIds(notificationService.getUnreadIds());
   }, [notificationService]);
+
+  useEffect(() => {
+    let active = true;
+    const readAppVersion = hostBridge.readAppVersion;
+    if (readAppVersion === undefined) {
+      setAppVersion(undefined);
+      return () => {
+        active = false;
+      };
+    }
+    void readAppVersion()
+      .then(version => {
+        const normalized = version.trim();
+        if (active) setAppVersion(normalized.length > 0 ? normalized : undefined);
+      })
+      .catch(() => {
+        if (active) setAppVersion(undefined);
+      });
+    return () => {
+      active = false;
+    };
+  }, [hostBridge]);
 
   useEffect(() => {
     let active = true;
@@ -2047,7 +2070,7 @@ export function AppController(props: AppControllerProps) {
   const currentRunCanceling = selectedActiveRun === undefined
     ? selectedPendingRunStart?.cancelRequested === true
     : getRunCancelState(runRegistry, selectedActiveRun.id) === 'requested';
-  const runtimeStatus = mapRuntimeStatus(connectionState);
+  const runtimeStatus = mapRuntimeStatus(connectionState, appVersion);
   const slashCommands = useMemo(
     () => buildComposerSlashCommands(codexSkills, codexMcp),
     [codexMcp, codexSkills]
@@ -5676,10 +5699,14 @@ function clampPaneWidth(value: number, min: number, max: number): number {
   return Math.round(Math.min(Math.max(value, min), max));
 }
 
-function mapRuntimeStatus(connectionState: ConnectionState): RuntimeStatus {
+function mapRuntimeStatus(
+  connectionState: ConnectionState,
+  appVersion: string | undefined
+): RuntimeStatus {
   if (connectionState.status !== 'connected') {
     return {
       connected: false,
+      ...(appVersion === undefined ? {} : { appVersion }),
       runtimeVersion: '0.1.0',
       lastCheckedAt: '2026-07-07 10:00'
     };
@@ -5687,6 +5714,7 @@ function mapRuntimeStatus(connectionState: ConnectionState): RuntimeStatus {
 
   return {
     connected: true,
+    ...(appVersion === undefined ? {} : { appVersion }),
     runtimeVersion: '0.1.0',
     codexVersion: connectionState.codexStatus.codexVersion,
     codexPath: connectionState.codexStatus.codexBin,

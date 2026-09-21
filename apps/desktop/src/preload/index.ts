@@ -21,6 +21,7 @@ const api: DesktopApi = {
     : {
         integratedTitleBar: false
       },
+  readAppVersion: () => ipcRenderer.invoke(desktopIpc.readAppVersion),
   readConnectionConfig: () => ipcRenderer.invoke(desktopIpc.readConnection),
   subscribeConnectionConfig(listener) {
     return subscribe(desktopIpc.connectionChanged, listener);

@@ -29,6 +29,7 @@ export type HostWindowChrome = {
 export type HostBridge = {
   kind: 'browser' | 'desktop';
   windowChrome?: HostWindowChrome;
+  readAppVersion?(): Promise<string>;
   readConnectionConfig(): Promise<ConnectionConfig | null>;
   openExternal(url: string): Promise<void>;
   revealPath(path: string): Promise<HostBridgeResult>;

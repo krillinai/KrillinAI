@@ -1,4 +1,5 @@
 export const desktopIpc = {
+  readAppVersion: 'opencreator:app:version',
   readConnection: 'opencreator:connection:read',
   connectionChanged: 'opencreator:connection:changed',
   readBootstrap: 'opencreator:bootstrap:read',
