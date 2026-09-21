@@ -58,6 +58,7 @@ const packageRoot = process.env.OPENCREATOR_DESKTOP_PACKAGE_ROOT
   ? resolve(process.env.OPENCREATOR_DESKTOP_PACKAGE_ROOT)
   : resolve(manifest.packageRoot);
 const resourcesDir = platformResourcesDir(packageRoot);
+const buildProfilePath = join(resourcesDir, 'desktop-build-profile.json');
 const appAsar = join(resourcesDir, 'app.asar');
 const daemonDir = join(resourcesDir, 'daemon');
 const webDir = join(resourcesDir, 'web');
@@ -92,6 +93,7 @@ const machOMagicValues = new Set([
 assertExists(packageRoot);
 assertExists(executable);
 assertExists(appAsar);
+assertBuildProfile();
 assertExists(join(daemonDir, 'dist', 'main.js'));
 assertExists(join(
   daemonDir,
@@ -159,6 +161,20 @@ function platformResourcesDir(root) {
   return process.platform === 'darwin'
     ? join(root, 'Contents', 'Resources')
     : join(root, 'resources');
+}
+
+function assertBuildProfile() {
+  assertExists(buildProfilePath);
+  const profile = JSON.parse(readFileSync(buildProfilePath, 'utf8'));
+  if (typeof profile?.officialBuild !== 'boolean') {
+    throw new Error('Packaged Desktop build profile has an invalid officialBuild marker');
+  }
+  if (
+    typeof manifest.officialBuild === 'boolean'
+    && profile.officialBuild !== manifest.officialBuild
+  ) {
+    throw new Error('Packaged Desktop build profile does not match the build manifest');
+  }
 }
 
 function packagedExecutable(root) {

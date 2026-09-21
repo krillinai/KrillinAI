@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { resolveOpenCreatorPaths } from '@opencreator/config';
 import {
@@ -174,7 +175,7 @@ async function launchDesktop(): Promise<void> {
     settings,
     logger,
     appVersion: app.getVersion(),
-    isPackaged: app.isPackaged,
+    isOfficialBuild: app.isPackaged && readOfficialBuildMarker(process.resourcesPath),
     isWindowActive: () => windowManager?.isActive() === true,
     endpointOverride: process.env.OPENCREATOR_TELEMETRY_URL
   });
@@ -320,6 +321,17 @@ async function launchDesktop(): Promise<void> {
         });
       });
   });
+}
+
+function readOfficialBuildMarker(resourcesPath: string): boolean {
+  try {
+    const profile = JSON.parse(
+      readFileSync(join(resourcesPath, 'desktop-build-profile.json'), 'utf8')
+    ) as unknown;
+    return isRecord(profile) && profile.officialBuild === true;
+  } catch {
+    return false;
+  }
 }
 
 function registerIpcHandlers(input: {

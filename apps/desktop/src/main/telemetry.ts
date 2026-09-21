@@ -35,7 +35,7 @@ export function startDesktopTelemetry(input: {
   settings: SettingsStore;
   logger: DesktopLogger;
   appVersion: string;
-  isPackaged: boolean;
+  isOfficialBuild: boolean;
   isWindowActive(): boolean;
   endpointOverride?: string;
   platform?: NodeJS.Platform;
@@ -48,7 +48,7 @@ export function startDesktopTelemetry(input: {
 }): DesktopTelemetryController {
   const now = input.now ?? (() => new Date());
   const store = createTelemetryStore(input.path, input.persistence);
-  const endpoint = resolveTelemetryEndpoint(input.endpointOverride, input.isPackaged);
+  const endpoint = resolveTelemetryEndpoint(input.endpointOverride, input.isOfficialBuild);
   const fetchImpl = input.fetchImpl ?? fetch;
   let launchRecorded = false;
   let stopped = false;
@@ -153,9 +153,9 @@ export function startDesktopTelemetry(input: {
 
 export function resolveTelemetryEndpoint(
   override: string | undefined,
-  isPackaged: boolean
+  isOfficialBuild: boolean
 ): string | undefined {
-  const value = override?.trim() || (isPackaged ? DEFAULT_TELEMETRY_URL : '');
+  const value = override?.trim() || (isOfficialBuild ? DEFAULT_TELEMETRY_URL : '');
   if (value === '') return undefined;
   try {
     const url = new URL(value);

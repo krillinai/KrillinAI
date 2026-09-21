@@ -95,6 +95,7 @@ jobs:
     env:
       OPENCREATOR_DESKTOP_CACHE_DIR: ${{ github.workspace }}/apps/desktop/.cache
       OPENCREATOR_DESKTOP_BUILD_MANIFEST: ${{ github.workspace }}/apps/desktop/release/opencreator-desktop-build-manifest-${{ matrix.platform }}-${{ matrix.arch }}.json
+      OPENCREATOR_DESKTOP_OFFICIAL_BUILD: '1'
     steps:
       - name: 验证 macOS 正式签名凭据
         if: matrix.platform == 'darwin'

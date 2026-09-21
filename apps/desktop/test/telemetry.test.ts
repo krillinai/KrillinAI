@@ -89,7 +89,7 @@ describe('desktop telemetry', () => {
       settings,
       logger: logger(),
       appVersion: '3.0.1',
-      isPackaged: false,
+      isOfficialBuild: false,
       endpointOverride: 'http://127.0.0.1:8790/api/v1/public/desktop-usage',
       platform: 'darwin',
       architecture: 'arm64',
@@ -120,7 +120,7 @@ describe('desktop telemetry', () => {
     expect(requests.at(-1)?.body).not.toHaveProperty('conversation');
   });
 
-  it('only permits HTTPS and local HTTP endpoints', () => {
+  it('uses the production endpoint only for official builds', () => {
     expect(resolveTelemetryEndpoint('https://admin.example.com/report', false))
       .toBe('https://admin.example.com/report');
     expect(resolveTelemetryEndpoint('http://127.0.0.1:8790/report', false))
@@ -157,7 +157,7 @@ describe('desktop telemetry', () => {
       settings: memorySettings(),
       logger: logger(),
       appVersion: '3.0.1',
-      isPackaged: false,
+      isOfficialBuild: false,
       endpointOverride: `http://127.0.0.1:${address.port}/api/v1/public/desktop-usage`,
       now: () => new Date('2026-09-07T02:00:00Z'),
       isWindowActive: () => false,
@@ -190,7 +190,7 @@ describe('desktop telemetry', () => {
       settings,
       logger: logger(),
       appVersion: '3.0.1',
-      isPackaged: true,
+        isOfficialBuild: true,
       isWindowActive: () => true,
       fetchImpl,
       persistence: telemetryMemory.persistence as TelemetryPersistence
@@ -217,7 +217,7 @@ describe('desktop telemetry', () => {
       settings: memorySettings(),
       logger: logger(),
       appVersion: '3.0.1',
-      isPackaged: true,
+      isOfficialBuild: true,
       now: () => new Date('2026-09-07T02:00:00Z'),
       isWindowActive: () => false,
       fetchImpl: async (_url, init) => {
@@ -251,7 +251,7 @@ describe('desktop telemetry', () => {
         settings: memorySettings(),
         logger: logger(),
         appVersion: '3.0.1',
-        isPackaged: true,
+      isOfficialBuild: true,
         isWindowActive: () => true,
         now: () => new Date('2026-09-07T02:00:00Z'),
         fetchImpl: async (_url, init) => {
