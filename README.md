@@ -525,6 +525,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## Documentation
 
+- [Contributing guide](./CONTRIBUTING.md) · [Contributing a Skill](./docs/contributing/skills-contributing.md) · [Contributing a creation template](./docs/contributing/templates-contributing.md)
 - [User guide and troubleshooting](./docs/opencreator-user-guide-and-troubleshooting.md)
 - [Runtime API v1](./docs/runtime-api-for-ui-v1.md)
 - [Codex-native Runtime design](./docs/2026-07-03-codex-native-agent-runtime-design.md)
@@ -538,28 +539,7 @@ The root `README.md` is the canonical English document. Maintained translations 
 
 ## Contributing
 
-Contributions are welcome in these areas:
-
-| Type | What to contribute | How to prepare | Where to contribute |
-| --- | --- | --- | --- |
-| Code | Bug fixes, creator workflows, shared features | A focused change, demo or reproduction, and relevant tests | [Issue][contribute-issue] → [PR][contribute-pr]; `apps/web/` or `apps/daemon/` |
-| Skills | Reusable Agent workflows | `SKILL.md`, prerequisites, and usage examples | [Issue][contribute-issue] → [PR][contribute-pr] in `skills/` |
-| Creation templates | Reusable image, video, or cover templates | `template.json`, cover and example assets, prompts, settings, attribution, and usage rights | [PR][contribute-pr] in [`template/`](./template/); discuss new formats in an [Issue][contribute-issue] |
-| Illustration and design | Original illustrations, icons, or UI designs | Preview, editable source files, and license or permission | [Issue][contribute-issue] → [PR][contribute-pr] in an agreed asset location |
-| Third-party service integrations | AI or media provider support | Use case, setup, error handling, credential safety, and tests | [Issue][contribute-issue] → [PR][contribute-pr] in relevant Web or Daemon modules |
-
-Place each creation template at `template/<module>/<id>/<version>/template.json` with its local assets. The current modules are `image-generation`, `video-generation`, and `cover-generator`. Include Chinese and English titles and descriptions, and run `pnpm templates:validate` before submitting a PR.
-
-How to contribute:
-
-1. Describe the problem, use case, and expected behavior in [Issues](https://github.com/krillinai/OpenCreator/issues).
-2. Create a focused feature or fix branch from the latest development branch.
-3. Follow the existing architecture: implement general product capabilities once in Web and Daemon, and isolate native differences behind explicit capabilities.
-4. Add appropriate unit, integration, or E2E coverage for behavior changes, and list both completed and skipped verification in the Pull Request.
-5. Never commit `.runtime/`, local credentials, Codex sessions, build caches, or other user data.
-
-[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
-[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
+Contributions are welcome across code, Skills, creation templates, design, third-party integrations, and docs. The full guide — including the contribution map, local setup, review criteria, and common rejection patterns — lives in [CONTRIBUTING.md](./CONTRIBUTING.md), with deep-dive guides for [Skills](./docs/contributing/skills-contributing.md) and [creation templates](./docs/contributing/templates-contributing.md).
 
 ## Contributors
 
