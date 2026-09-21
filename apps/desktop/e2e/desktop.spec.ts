@@ -37,6 +37,9 @@ import {
 } from './packaged-app.js';
 const e2eDir = dirname(fileURLToPath(import.meta.url));
 const desktopDir = resolve(e2eDir, '..');
+const desktopVersion = (JSON.parse(
+  readFileSync(join(desktopDir, 'package.json'), 'utf8')
+) as { version: string }).version;
 const fakeCodexScript = join(e2eDir, 'fixtures', 'fake-codex.mjs');
 const fakeCodexLauncherSource = join(e2eDir, 'fixtures', 'fake-codex-launcher.go');
 
@@ -103,7 +106,7 @@ test('实际 Desktop 包发送匿名日使用数据且不包含创作内容', as
       usage_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       launch_count: 1,
       active_minutes: 0,
-      app_version: '3.2.1',
+      app_version: desktopVersion,
       operating_system: process.platform,
       architecture: process.arch,
       install_id: expect.stringMatching(/^[0-9a-f-]{36}$/)

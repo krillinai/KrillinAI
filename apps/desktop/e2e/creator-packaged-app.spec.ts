@@ -115,6 +115,8 @@ test('打包 App 的浅色窗口按钮区域与设置侧栏连续且保留标题
   const fixture = await launchCreatorDesktop({ width: 980, height: 800 });
   try {
     await waitForWorkspace(fixture.app.page);
+    await fixture.app.page.getByRole('button', { name: '工作台', exact: true }).click();
+    await expect(fixture.app.page.locator('.creator-tools-page')).toBeVisible();
     expect(await fixture.app.page.evaluate(() => (
       typeof window.opencreatorDesktop?.setWindowColorMode
     ))).toBe('function');
