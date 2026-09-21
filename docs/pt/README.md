@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![Grupo QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Destaques do projeto](#destaques-do-projeto) · [Ferramentas de criação](#ferramentas-de-criação) · [Skills](#skills) · [Conversa e espaço de trabalho](#conversa-e-espaço-de-trabalho-avançam-juntos) · [Modelos compatíveis](#modelos-compatíveis) · [Exemplos](#exemplos) · [Início rápido](#início-rápido) · [Desktop](#desktop) · [Estrutura do sistema](#estrutura-do-sistema-opencreator) · [Desenvolvimento](#desenvolvimento) · [Documentação](#documentação) · [Colaboradores](#colaboradores) · [Histórico de Stars](#histórico-de-stars)
+[Destaques do projeto](#destaques-do-projeto) · [Ferramentas de criação](#ferramentas-de-criação) · [Modelos de criação](#modelos-de-criação) · [Skills](#skills) · [Conversa e espaço de trabalho](#conversa-e-espaço-de-trabalho-avançam-juntos) · [Modelos compatíveis](#modelos-compatíveis) · [Exemplos](#exemplos) · [Início rápido](#início-rápido) · [Desktop](#desktop) · [Estrutura do sistema](#estrutura-do-sistema-opencreator) · [Desenvolvimento](#desenvolvimento) · [Documentação](#documentação) · [Como contribuir](#como-contribuir) · [Colaboradores](#colaboradores) · [Histórico de Stars](#histórico-de-stars)
 
 </div>
 
@@ -33,10 +33,10 @@
 
 O OpenCreator foi criado para pessoas e equipes que desejam manter o trabalho criativo e de desenvolvimento em execução local. Em vez de reimplementar um loop de Agent, ele usa o Codex CLI como mecanismo de execução e acrescenta um Runtime local estável, um espaço de trabalho visual e um host Desktop.
 
-O produto reúne dois fluxos de trabalho conectados:
+O OpenCreator oferece duas formas de trabalho conectadas:
 
-- **Criação de conteúdo com IA**: use ferramentas de criação dedicadas para tradução de vídeos, download de vídeos, geração de miniaturas e geração de imagens.
-- **Espaço de trabalho Agent geral**: organize conversas por projeto, mantenha Runs em segundo plano e gerencie aprovações, anexos, arquivos, Skills, MCP, agendamentos, notificações, memória e diagnósticos em um só lugar.
+- **Espaço de trabalho de conteúdo**: use ferramentas visuais e modelos de criação para traduzir e baixar vídeos, gerar miniaturas e imagens e realizar outras tarefas criativas.
+- **Conversa com o Agent**: inicie e conduza tarefas criativas ou de desenvolvimento em linguagem natural, organize conversas por projeto, mantenha Runs em segundo plano e gerencie aprovações, anexos, arquivos, Skills, MCP, agendamentos, notificações, memória e diagnósticos em um só lugar.
 
 Web é a única implementação do frontend. Desktop carrega a mesma compilação Web e adiciona somente os recursos que exigem o sistema operacional, como seleção de diretórios, ciclo de vida das janelas, comportamento da bandeja e notificações nativas. Com os mesmos dados e o mesmo viewport de conteúdo, as duas plataformas compartilham a mesma interface geral e o mesmo comportamento do Runtime.
 
@@ -49,6 +49,8 @@ Web é a única implementação do frontend. Desktop carrega a mesma compilaçã
 - 🔄 **Componentes de Runtime gerenciados**: consulte as versões incluída, ativa e mais recente do yt-dlp, verifique atualizações periodicamente e atualize manualmente, mantendo a versão atual disponível se uma atualização falhar.
 
 - 🎨 **Criação multimodal**: crie e gerencie vídeos, imagens, áudio, legendas e documentos por meio de um único fluxo de trabalho conectado.
+
+- 🧩 **Modelos de criação**: crie imagens e vídeos a partir de modelos reutilizáveis sem preparar prompts e configurações do zero.
 
 - 🔗 **Fluxo de trabalho em dois modos**: trabalhe pelo espaço de trabalho visual ou por uma conversa com o Agent, enquanto uma máquina de estados compartilhada mantém etapas, progresso e resultados sincronizados.
 
@@ -91,6 +93,18 @@ Abra o Dashboard para traduzir ou baixar vídeos, gerar miniaturas ou imagens, c
 </tbody>
 </table>
 
+## Modelos de criação
+
+Comece a criar a partir de um modelo, sem precisar preparar cada prompt e configuração do zero. Explore os modelos em destaque por categoria, incluindo criação de vídeos e design de imagens.
+
+A coleção reúne modelos originais do OpenCreator e de criadores independentes. Para modelos de terceiros, a página de detalhes identifica o autor e inclui um link para a fonte original.
+
+![Galeria de modelos de criação em destaque para vídeos e imagens](../images/product/creation-templates-gallery-en.png)
+
+Abra um modelo para visualizar um resultado de exemplo e consultar prompt, configurações, tags, autor e fonte original. Selecione **Usar este modelo** para começar a criar e ajuste as entradas para o seu projeto.
+
+![Detalhes de um modelo de imagem com resultado de exemplo, configurações e prompt](../images/product/creation-templates-detail-en.png)
+
 ## Skills
 
 As ferramentas de criação oferecem controles visuais; os Skills fornecem ao Agent instruções e fluxos de trabalho reutilizáveis. O OpenCreator inclui Skills de produção de vídeo no repositório e oferece suporte ao gerenciamento de Skills locais do Codex.
@@ -115,7 +129,7 @@ O OpenCreator oferece suporte a Skills locais do Codex definidos por `SKILL.md`,
 
 Descreva as tarefas naturalmente e passe para as ferramentas visuais sempre que precisar de controle preciso.
 
-![A conversa e o espaço de trabalho visual do OpenCreator funcionam juntos](../images/examples/opencreator-auto-clips-en.png)
+Os provedores e modelos mostrados são exemplos; a disponibilidade real depende de credenciais, acesso da conta e plataforma.
 
 ### Controles detalhados do espaço de trabalho
 
@@ -137,6 +151,8 @@ Cada revisão cria uma versão separada sem sobrescrever resultados ou configura
 
 A disponibilidade dos modelos de linguagem segue o catálogo de modelos do Codex ou o provedor compatível com OpenAI configurado. Modelos de imagem, vídeo, voz e transcrição usam os serviços configurados em **Configurações → Serviços de IA**.
 
+As tabelas mostram provedores integrados e modelos recomendados; a disponibilidade real depende de credenciais, acesso da conta e plataforma.
+
 ### Modelos de linguagem
 
 <table>
@@ -152,7 +168,7 @@ A disponibilidade dos modelos de linguagem segue o catálogo de modelos do Codex
 <td align="center" width="20%"><img src="../images/models/doubao.svg" alt="Doubao" width="40" height="40" /><br /><strong>Doubao</strong></td>
 <td align="center" width="20%"><img src="../images/models/ernie.png" alt="ERNIE" width="40" height="40" /><br /><strong>ERNIE</strong></td>
 <td align="center" width="20%"><img src="https://github.com/Tencent-Hunyuan.png?size=80" alt="Tencent Hunyuan" width="40" height="40" /><br /><strong>Hunyuan</strong></td>
-<td width="20%"></td>
+<td align="center" width="20%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
 </tr>
 </table>
 
@@ -160,7 +176,10 @@ A disponibilidade dos modelos de linguagem segue o catálogo de modelos do Codex
 
 <table>
 <tr>
-<td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="../images/models/jimeng.png" alt="Jimeng" width="40" height="40" /><br /><strong>Seedream 4.0</strong><br />Jimeng</td>
+<td align="center" width="25%"><img src="../images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1</strong><br />Kling Image</td>
+<td align="center" width="25%"><img src="../images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Nano Banana</strong><br />Gemini 2.5 Flash Image</td>
 </tr>
 </table>
 
@@ -168,7 +187,9 @@ A disponibilidade dos modelos de linguagem segue o catálogo de modelos do Codex
 
 <table>
 <tr>
-<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
+<td align="center" width="33%"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance 2.5</strong></td>
+<td align="center" width="33%"><img src="../images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1 Master</strong></td>
+<td align="center" width="33%"><img src="../images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Veo 3.1</strong></td>
 </tr>
 </table>
 
@@ -183,6 +204,8 @@ A disponibilidade dos modelos de linguagem segue o catálogo de modelos do Codex
 <td align="center" width="20%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
 </tr>
 </table>
+
+A transcrição local também oferece faster-whisper, WhisperKit e whisper.cpp nas plataformas compatíveis.
 
 ## Exemplos
 
@@ -510,11 +533,28 @@ O arquivo `README.md` na raiz é o documento canônico em inglês. As traduçõe
 
 ## Como contribuir
 
+Você pode contribuir com o OpenCreator de várias maneiras, não apenas com código:
+
+| Tipo | O que contribuir | Como preparar | Onde enviar |
+| --- | --- | --- | --- |
+| Código | Correções, fluxos de criação, recursos compartilhados | Mudança focada, demonstração ou reprodução, testes | [Issue][contribute-issue] → [PR][contribute-pr]; `apps/web/` ou `apps/daemon/` |
+| Skills | Fluxos reutilizáveis para Agents | `SKILL.md`, pré-requisitos e exemplos | [Issue][contribute-issue] → [PR][contribute-pr] em `skills/` |
+| Modelos de criação | Modelos reutilizáveis de imagem, vídeo ou capa | `template.json`, capa e exemplos, prompts, configurações, atribuição e direitos de uso | [PR][contribute-pr] em [`template/`](../../template/); discuta novos formatos em uma [Issue][contribute-issue] |
+| Ilustração e design | Ilustrações, ícones ou interfaces originais | Prévia, arquivos-fonte editáveis e licença | [Issue][contribute-issue] → [PR][contribute-pr] no local de recursos acordado |
+| Integrações de serviços de terceiros | Serviços de IA ou mídia | Caso de uso, configuração, erros, segurança das credenciais e testes | [Issue][contribute-issue] → [PR][contribute-pr] nos módulos Web / Daemon |
+
+Coloque cada modelo e seus arquivos em `template/<module>/<id>/<version>/template.json`. Os módulos atuais são `image-generation`, `video-generation` e `cover-generator`. Inclua título e descrição em chinês e inglês e execute `pnpm templates:validate` antes de enviar um PR.
+
+Como participar:
+
 1. Descreva o problema, o caso de uso e o comportamento esperado em [Issues](https://github.com/krillinai/OpenCreator/issues).
 2. Crie uma branch específica de recurso ou correção a partir da branch de desenvolvimento mais recente.
 3. Siga a arquitetura existente: implemente os recursos gerais do produto uma única vez em Web e Daemon e isole as diferenças nativas atrás de capabilities explícitas.
 4. Adicione cobertura unitária, de integração ou E2E adequada para alterações de comportamento e liste no Pull Request tanto as verificações concluídas quanto as ignoradas.
 5. Nunca inclua em um commit `.runtime/`, credenciais locais, sessões do Codex, caches de compilação ou outros dados do usuário.
+
+[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
+[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
 ## Colaboradores
 
@@ -528,7 +568,7 @@ Agradecemos a todas as pessoas que participaram com código, documentação, fee
 
 O OpenCreator se chamava anteriormente KrillinAI. Este gráfico abrange todo o histórico do repositório antes e depois da mudança de nome.
 
-[![Histórico de Stars do OpenCreator](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
+[![Histórico de Stars do OpenCreator](https://api.star-history.com/svg?repos=krillinai/OpenCreator&type=date)](https://www.star-history.com/?type=date&repos=krillinai%2FOpenCreator)
 
 ## Projetos relacionados
 

@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![Grup QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Sorotan Proyek](#sorotan-proyek) · [Alat Kreasi](#alat-kreasi) · [Skills](#skills) · [Percakapan & Ruang Kerja](#percakapan-dan-ruang-kerja-bergerak-bersama) · [Model yang Didukung](#model-yang-didukung) · [Contoh](#contoh) · [Mulai Cepat](#mulai-cepat) · [Desktop](#desktop) · [Struktur Sistem](#struktur-sistem-opencreator) · [Pengembangan](#pengembangan) · [Dokumentasi](#dokumentasi) · [Kontributor](#kontributor) · [Riwayat Star](#riwayat-star)
+[Sorotan Proyek](#sorotan-proyek) · [Alat Kreasi](#alat-kreasi) · [Templat Kreasi](#templat-kreasi) · [Skills](#skills) · [Percakapan & Ruang Kerja](#percakapan-dan-ruang-kerja-bergerak-bersama) · [Model yang Didukung](#model-yang-didukung) · [Contoh](#contoh) · [Mulai Cepat](#mulai-cepat) · [Desktop](#desktop) · [Struktur Sistem](#struktur-sistem-opencreator) · [Pengembangan](#pengembangan) · [Dokumentasi](#dokumentasi) · [Berkontribusi](#berkontribusi) · [Kontributor](#kontributor) · [Riwayat Star](#riwayat-star)
 
 </div>
 
@@ -33,10 +33,10 @@
 
 OpenCreator dibuat untuk individu dan tim yang ingin menjalankan pekerjaan kreatif dan pengembangan secara lokal. Alih-alih mengimplementasikan ulang loop Agent, OpenCreator menggunakan Codex CLI sebagai mesin eksekusi dan menambahkan Runtime lokal yang stabil, ruang kerja visual, serta host Desktop di sekelilingnya.
 
-Produk ini menyatukan dua alur kerja yang saling terhubung:
+OpenCreator menyediakan dua cara kerja yang saling terhubung:
 
-- **Pembuatan konten AI**: gunakan alat kreasi khusus untuk penerjemahan video, pengunduhan video, pembuatan thumbnail, dan pembuatan gambar.
-- **Ruang kerja Agent umum**: atur percakapan berdasarkan proyek, biarkan Runs tetap berjalan di latar belakang, dan kelola persetujuan, lampiran, file, Skills, MCP, jadwal, notifikasi, memori, serta diagnostik dari satu tempat.
+- **Ruang kerja konten**: gunakan alat visual dan templat kreasi untuk menerjemahkan dan mengunduh video, membuat thumbnail dan gambar, serta mengerjakan kreasi lainnya.
+- **Percakapan Agent**: mulai dan arahkan tugas kreatif atau pengembangan dengan bahasa alami, atur percakapan berdasarkan proyek, biarkan Runs tetap berjalan di latar belakang, dan kelola persetujuan, lampiran, file, Skills, MCP, jadwal, notifikasi, memori, serta diagnostik dari satu tempat.
 
 Web adalah satu-satunya implementasi frontend. Desktop memuat build Web yang sama dan hanya menambahkan kemampuan yang memerlukan sistem operasi, seperti pemilihan direktori, siklus hidup jendela, perilaku baki sistem, dan notifikasi native. Dengan data dan viewport konten yang sama, kedua platform menggunakan UI umum dan perilaku Runtime yang sama.
 
@@ -49,6 +49,8 @@ Web adalah satu-satunya implementasi frontend. Desktop memuat build Web yang sam
 - 🔄 **Komponen Runtime Terkelola**: lihat versi yt-dlp bawaan, aktif, dan terbaru, periksa pembaruan secara berkala, lalu perbarui secara manual sambil mempertahankan versi yang sedang berfungsi jika pembaruan gagal.
 
 - 🎨 **Kreasi Multimodal**: buat dan kelola video, gambar, audio, subtitel, dan dokumen melalui satu alur kerja yang terhubung.
+
+- 🧩 **Templat Kreasi**: buat gambar dan video dari templat yang dapat digunakan kembali tanpa menyiapkan prompt dan pengaturan dari awal.
 
 - 🔗 **Alur Kerja Dua Mode**: bekerja melalui ruang kerja visual atau percakapan Agent, sementara satu mesin status bersama menjaga langkah, progres, dan hasil tetap tersinkronisasi.
 
@@ -91,6 +93,18 @@ Buka Dashboard untuk menerjemahkan atau mengunduh video, membuat thumbnail atau 
 </tbody>
 </table>
 
+## Templat Kreasi
+
+Mulai berkarya dari templat tanpa harus menyusun prompt dan pengaturan dari awal. Jelajahi templat unggulan berdasarkan kategori, termasuk kreasi video dan desain gambar.
+
+Koleksi ini memadukan templat buatan OpenCreator dan kreator independen. Untuk templat dari pihak ketiga, halaman detail mencantumkan pembuat dan tautan ke sumber aslinya.
+
+![Galeri templat kreasi unggulan untuk kategori video dan gambar](../images/product/creation-templates-gallery-en.png)
+
+Buka templat untuk melihat contoh hasil, prompt, pengaturan, tag, pembuat, dan sumber aslinya. Pilih **Gunakan templat ini** untuk langsung memulai kreasi, lalu sesuaikan input sesuai kebutuhan.
+
+![Detail templat kreasi gambar dengan contoh hasil, pengaturan, dan prompt](../images/product/creation-templates-detail-en.png)
+
 ## Skills
 
 Alat kreasi menyediakan kontrol visual; Skills memberi Agent instruksi dan alur kerja alat yang dapat digunakan kembali. OpenCreator menyertakan Skills produksi video di repositori serta mendukung pengelolaan Skills lokal Codex.
@@ -115,7 +129,7 @@ OpenCreator mendukung Skills lokal Codex yang didefinisikan melalui `SKILL.md`, 
 
 Jelaskan tugas secara alami, lalu beralih ke alat visual saat Anda memerlukan kontrol yang presisi.
 
-![Percakapan dan ruang kerja visual OpenCreator yang saling terhubung](../images/examples/opencreator-auto-clips-en.png)
+Penyedia dan model yang ditampilkan adalah contoh; ketersediaan nyata bergantung pada kredensial, akses akun penyedia, dan platform.
 
 ### Kontrol ruang kerja yang terperinci
 
@@ -137,6 +151,8 @@ Setiap revisi membuat versi terpisah tanpa menimpa hasil atau pengaturan sebelum
 
 Ketersediaan model bahasa mengikuti katalog model Codex atau penyedia kompatibel OpenAI yang Anda gunakan. Model gambar, video, suara, dan transkripsi menggunakan layanan yang dikonfigurasi di **Pengaturan → Layanan AI**.
 
+Tabel berikut menampilkan preset penyedia dan model yang direkomendasikan; ketersediaan nyata bergantung pada kredensial, akses akun penyedia, dan platform.
+
 ### Model bahasa
 
 <table>
@@ -152,7 +168,7 @@ Ketersediaan model bahasa mengikuti katalog model Codex atau penyedia kompatibel
 <td align="center" width="20%"><img src="../images/models/doubao.svg" alt="Doubao" width="40" height="40" /><br /><strong>Doubao</strong></td>
 <td align="center" width="20%"><img src="../images/models/ernie.png" alt="ERNIE" width="40" height="40" /><br /><strong>ERNIE</strong></td>
 <td align="center" width="20%"><img src="https://github.com/Tencent-Hunyuan.png?size=80" alt="Tencent Hunyuan" width="40" height="40" /><br /><strong>Hunyuan</strong></td>
-<td width="20%"></td>
+<td align="center" width="20%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
 </tr>
 </table>
 
@@ -160,7 +176,10 @@ Ketersediaan model bahasa mengikuti katalog model Codex atau penyedia kompatibel
 
 <table>
 <tr>
-<td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="../images/models/jimeng.png" alt="Jimeng" width="40" height="40" /><br /><strong>Seedream 4.0</strong><br />Jimeng</td>
+<td align="center" width="25%"><img src="../images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1</strong><br />Kling Image</td>
+<td align="center" width="25%"><img src="../images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Nano Banana</strong><br />Gemini 2.5 Flash Image</td>
 </tr>
 </table>
 
@@ -168,7 +187,9 @@ Ketersediaan model bahasa mengikuti katalog model Codex atau penyedia kompatibel
 
 <table>
 <tr>
-<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
+<td align="center" width="33%"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance 2.5</strong></td>
+<td align="center" width="33%"><img src="../images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1 Master</strong></td>
+<td align="center" width="33%"><img src="../images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Veo 3.1</strong></td>
 </tr>
 </table>
 
@@ -183,6 +204,8 @@ Ketersediaan model bahasa mengikuti katalog model Codex atau penyedia kompatibel
 <td align="center" width="20%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
 </tr>
 </table>
+
+Transkripsi lokal juga mendukung faster-whisper, WhisperKit, dan whisper.cpp pada platform yang sesuai.
 
 ## Contoh
 
@@ -510,11 +533,28 @@ File `README.md` di root adalah dokumen bahasa Inggris kanonis. Terjemahan yang 
 
 ## Berkontribusi
 
+Anda dapat berkontribusi ke OpenCreator dengan berbagai cara, tidak hanya lewat kode:
+
+| Jenis | Kontribusi | Yang perlu disiapkan | Tempat mengirim |
+| --- | --- | --- | --- |
+| Kode | Perbaikan bug, alur kreasi, fitur bersama | Perubahan terfokus, demo atau langkah reproduksi, pengujian | [Issue][contribute-issue] → [PR][contribute-pr]; `apps/web/` atau `apps/daemon/` |
+| Skills | Alur kerja Agent yang dapat digunakan kembali | `SKILL.md`, prasyarat, dan contoh penggunaan | [Issue][contribute-issue] → [PR][contribute-pr] di `skills/` |
+| Templat kreasi | Templat gambar, video, atau sampul yang dapat digunakan kembali | `template.json`, sampul dan contoh, prompt, pengaturan, atribusi, dan hak penggunaan | [PR][contribute-pr] di [`template/`](../../template/); diskusikan format baru di [Issue][contribute-issue] |
+| Ilustrasi dan desain | Ilustrasi, ikon, atau UI orisinal | Pratinjau, berkas sumber yang dapat diedit, dan lisensi | [Issue][contribute-issue] → [PR][contribute-pr] di lokasi aset yang disepakati |
+| Integrasi layanan pihak ketiga | Dukungan layanan AI atau media | Kegunaan, pengaturan, penanganan kesalahan, keamanan kredensial, pengujian | [Issue][contribute-issue] → [PR][contribute-pr] di modul Web / Daemon |
+
+Simpan setiap templat dan asetnya di `template/<module>/<id>/<version>/template.json`. Modul yang tersedia saat ini ialah `image-generation`, `video-generation`, dan `cover-generator`. Sertakan judul serta deskripsi berbahasa Mandarin dan Inggris, lalu jalankan `pnpm templates:validate` sebelum mengirim PR.
+
+Cara berkontribusi:
+
 1. Jelaskan masalah, kasus penggunaan, dan perilaku yang diharapkan di [Issues](https://github.com/krillinai/OpenCreator/issues).
 2. Buat branch fitur atau perbaikan yang terfokus dari branch pengembangan terbaru.
 3. Ikuti arsitektur yang ada: implementasikan kemampuan produk umum satu kali di Web dan Daemon, lalu pisahkan perbedaan native di balik capabilities yang eksplisit.
 4. Tambahkan cakupan unit, integrasi, atau E2E yang sesuai untuk perubahan perilaku, dan cantumkan verifikasi yang diselesaikan maupun dilewati dalam Pull Request.
 5. Jangan pernah memasukkan `.runtime/`, kredensial lokal, sesi Codex, cache build, atau data pengguna lainnya ke dalam commit.
+
+[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
+[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
 ## Kontributor
 
@@ -528,7 +568,7 @@ Terima kasih kepada semua orang yang telah berkontribusi melalui kode, dokumenta
 
 OpenCreator sebelumnya bernama KrillinAI. Grafik ini mencakup seluruh riwayat repositori sebelum dan sesudah perubahan nama.
 
-[![Riwayat Star OpenCreator](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
+[![Riwayat Star OpenCreator](https://api.star-history.com/svg?repos=krillinai/OpenCreator&type=date)](https://www.star-history.com/?type=date&repos=krillinai%2FOpenCreator)
 
 ## Proyek Terkait
 

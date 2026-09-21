@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ グループ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[主な特徴](#主な特徴) · [制作ツール](#制作ツール) · [Skills](#skills) · [会話とワークスペース](#会話とワークスペースを連携して進める) · [対応モデル](#対応モデル) · [活用例](#活用例) · [クイックスタート](#クイックスタート) · [Desktop](#desktop) · [システム構成](#opencreator-システム構成) · [開発](#開発) · [ドキュメント](#ドキュメント) · [コントリビューター](#コントリビューター) · [Star 履歴](#star-履歴)
+[主な特徴](#主な特徴) · [制作ツール](#制作ツール) · [制作テンプレート](#制作テンプレート) · [Skills](#skills) · [会話とワークスペース](#会話とワークスペースを連携して進める) · [対応モデル](#対応モデル) · [活用例](#活用例) · [クイックスタート](#クイックスタート) · [Desktop](#desktop) · [システム構成](#opencreator-システム構成) · [開発](#開発) · [ドキュメント](#ドキュメント) · [コントリビューション](#コントリビューション) · [コントリビューター](#コントリビューター) · [Star 履歴](#star-履歴)
 
 </div>
 
@@ -33,10 +33,10 @@
 
 OpenCreator は、制作や開発の作業をローカル環境で継続的に進めたい個人やチーム向けに設計されています。独自の Agent ループを再実装するのではなく、Codex CLI を実行エンジンとして利用し、その上に安定したローカル Runtime、ビジュアルワークスペース、Desktop ホストを提供します。
 
-本製品は、相互に連携する2つのワークフローを統合しています。
+OpenCreator には、連携して使える2つの操作方法があります。
 
-- **AI コンテンツ制作**：動画翻訳、動画ダウンロード、サムネイル生成、画像生成の専用制作ツールを利用できます。
-- **汎用 Agent ワークスペース**：会話をプロジェクト単位で整理し、Run をバックグラウンドで継続しながら、承認、添付ファイル、ファイル、Skills、MCP、スケジュール、通知、メモリ、診断を一元管理できます。
+- **コンテンツワークスペース**：ビジュアルツールと制作テンプレートを使って、動画翻訳、動画ダウンロード、サムネイル生成、画像生成などの制作を進められます。
+- **Agent との対話**：自然言語で制作や開発のタスクを開始・進行し、会話をプロジェクト単位で整理できます。Run をバックグラウンドで継続しながら、承認、添付ファイル、ファイル、Skills、MCP、スケジュール、通知、メモリ、診断を一元管理できます。
 
 Web が唯一のフロントエンド実装です。Desktop は同じ Web ビルドを読み込み、ディレクトリ選択、ウィンドウのライフサイクル、トレイ、ネイティブ通知など、OS が必要な機能だけを追加します。同じデータとコンテンツビューポートを使用する場合、両プラットフォームで共通の UI と Runtime の動作が一致します。
 
@@ -49,6 +49,8 @@ Web が唯一のフロントエンド実装です。Desktop は同じ Web ビル
 - 🔄 **管理された Runtime コンポーネント**：同梱中、使用中、最新版の yt-dlp を確認し、定期的な更新チェックと手動更新を行えます。更新に失敗した場合も、現在動作しているバージョンを保持します。
 
 - 🎨 **マルチモーダル制作**：動画、画像、音声、字幕、ドキュメントを1つの連携したワークフローで制作・管理できます。
+
+- 🧩 **制作テンプレート**：プロンプトや設定をゼロから用意せずに、再利用できるテンプレートから画像や動画の制作を始められます。
 
 - 🔗 **2つの操作モード**：ビジュアルワークスペースと Agent 会話のどちらからでも作業でき、共通のステートマシンが手順、進捗、結果を同期します。
 
@@ -91,6 +93,18 @@ Dashboard から、動画翻訳やダウンロード、サムネイル・画像�
 </tbody>
 </table>
 
+## 制作テンプレート
+
+プロンプトや設定をゼロから作る代わりに、テンプレートから制作を始められます。動画制作や画像デザインなど、カテゴリ別におすすめのテンプレートを探せます。
+
+制作テンプレートには、OpenCreator のオリジナル作品と外部クリエイターの作品が含まれます。第三者のテンプレートには作者を明記し、詳細ページから元の公開元に移動できます。
+
+![動画制作や画像デザインなどのカテゴリ別制作テンプレート一覧](../images/product/creation-templates-gallery-en.png)
+
+テンプレートを開くと、制作例に加えてプロンプト、設定、タグ、作者、元の公開元を確認できます。**このテンプレートを使用** を選んで制作を始め、必要に応じて入力を調整できます。
+
+![制作例・設定・プロンプトを含む画像制作テンプレートの詳細](../images/product/creation-templates-detail-en.png)
+
 ## Skills
 
 制作ツールは視覚的な操作を提供し、Skills は Agent に再利用可能な実行指針とツールのワークフローを提供します。OpenCreator はリポジトリに動画制作 Skills を含み、ローカルの Codex Skills の管理にも対応しています。
@@ -115,7 +129,7 @@ OpenCreator は `SKILL.md` で定義されたローカルの Codex Skills に対
 
 タスクを自然な言葉で伝え、細かな調整が必要になったらビジュアルツールへ移れます。
 
-![OpenCreator の会話とビジュアルワークスペースの連携](../images/examples/opencreator-auto-clips-en.png)
+以下のサービスとモデルは一例です。実際の利用可否は認証情報、サービスのアカウント権限、プラットフォームによって異なります。
 
 ### 細かなワークスペース操作
 
@@ -137,6 +151,8 @@ OpenCreator は `SKILL.md` で定義されたローカルの Codex Skills に対
 
 言語モデルは Codex のモデルカタログ、または設定した OpenAI 互換プロバイダーから利用できます。画像、動画、音声、文字起こしモデルには **設定 → AI サービス** で構成したサービスを使用します。
 
+以下は組み込みのサービス設定と推奨モデルです。実際の利用可否は認証情報、サービスのアカウント権限、プラットフォームによって異なります。
+
 ### 言語モデル
 
 <table>
@@ -152,7 +168,7 @@ OpenCreator は `SKILL.md` で定義されたローカルの Codex Skills に対
 <td align="center" width="20%"><img src="../images/models/doubao.svg" alt="Doubao" width="40" height="40" /><br /><strong>Doubao</strong></td>
 <td align="center" width="20%"><img src="../images/models/ernie.png" alt="ERNIE" width="40" height="40" /><br /><strong>ERNIE</strong></td>
 <td align="center" width="20%"><img src="https://github.com/Tencent-Hunyuan.png?size=80" alt="Tencent Hunyuan" width="40" height="40" /><br /><strong>Hunyuan</strong></td>
-<td width="20%"></td>
+<td align="center" width="20%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
 </tr>
 </table>
 
@@ -160,7 +176,10 @@ OpenCreator は `SKILL.md` で定義されたローカルの Codex Skills に対
 
 <table>
 <tr>
-<td align="center"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>GPT Image</strong></td>
+<td align="center" width="25%"><img src="../images/models/jimeng.png" alt="Jimeng" width="40" height="40" /><br /><strong>Seedream 4.0</strong><br />Jimeng</td>
+<td align="center" width="25%"><img src="../images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1</strong><br />Kling Image</td>
+<td align="center" width="25%"><img src="../images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Nano Banana</strong><br />Gemini 2.5 Flash Image</td>
 </tr>
 </table>
 
@@ -168,7 +187,9 @@ OpenCreator は `SKILL.md` で定義されたローカルの Codex Skills に対
 
 <table>
 <tr>
-<td align="center"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance</strong></td>
+<td align="center" width="33%"><img src="../images/models/seedance.png" alt="Seedance" width="40" height="40" /><br /><strong>Seedance 2.5</strong></td>
+<td align="center" width="33%"><img src="../images/models/kling.png" alt="Kling" width="40" height="40" /><br /><strong>Kling v2.1 Master</strong></td>
+<td align="center" width="33%"><img src="../images/models/gemini.png" alt="Gemini" width="40" height="40" /><br /><strong>Veo 3.1</strong></td>
 </tr>
 </table>
 
@@ -183,6 +204,8 @@ OpenCreator は `SKILL.md` で定義されたローカルの Codex Skills に対
 <td align="center" width="20%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
 </tr>
 </table>
+
+ローカル文字起こしには、対応環境で faster-whisper、WhisperKit、whisper.cpp も使用できます。
 
 ## 活用例
 
@@ -510,11 +533,28 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## コントリビューション
 
+コード以外にも、さまざまな形で OpenCreator に貢献できます：
+
+| 種類 | 貢献内容 | 準備するもの | 提出先 |
+| --- | --- | --- | --- |
+| コード | 不具合修正、制作フローや共通機能の改善 | 対象を絞った変更、デモまたは再現手順、関連テスト | [Issue][contribute-issue] → [PR][contribute-pr]；`apps/web/` または `apps/daemon/` |
+| Skills | 再利用可能な Agent ワークフロー | `SKILL.md`、前提条件、使用例 | [Issue][contribute-issue] → `skills/` の [PR][contribute-pr] |
+| 制作テンプレート | 再利用可能な画像・動画・カバーテンプレート | `template.json`、カバーと制作例の素材、プロンプト、設定、出典、使用権 | [`template/`](../../template/) に [PR][contribute-pr] を提出。新形式は [Issue][contribute-issue] で相談 |
+| イラスト・デザイン | オリジナルのイラスト、アイコン、UI | プレビュー、編集可能な元データ、ライセンス | [Issue][contribute-issue] → 保存先を決めて [PR][contribute-pr] |
+| 外部サービス連携 | AI・メディアサービスの対応 | 用途、設定、エラー処理、認証情報の保護、テスト | [Issue][contribute-issue] → Web / Daemon の [PR][contribute-pr] |
+
+各テンプレートと素材は `template/<module>/<id>/<version>/template.json` に配置します。現在のモジュールは `image-generation`、`video-generation`、`cover-generator` です。タイトルと説明は中国語・英語の両方を用意し、PR 前に `pnpm templates:validate` を実行してください。
+
+参加方法：
+
 1. [Issues](https://github.com/krillinai/OpenCreator/issues) に問題、ユースケース、期待する動作を記載してください。
 2. 最新の開発ブランチから、目的を絞った機能追加または修正ブランチを作成してください。
 3. 既存のアーキテクチャに従い、汎用製品機能は Web と Daemon に一度だけ実装し、ネイティブ固有の差異は明示的な capability の背後へ分離してください。
 4. 動作変更に応じたユニット、統合、E2E テストを追加し、Pull Request に実施済みと未実施の検証を明記してください。
 5. `.runtime/`、ローカル認証情報、Codex セッション、ビルドキャッシュ、その他のユーザーデータをコミットしないでください。
+
+[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
+[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
 ## コントリビューター
 
@@ -528,7 +568,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 OpenCreator の旧称は KrillinAI です。このグラフには、名称変更前後を含むリポジトリ全体の履歴が表示されます。
 
-[![OpenCreator Star 履歴](https://api.star-history.com/svg?repos=krillinai/KrillinAI&type=Date)](https://star-history.com/#krillinai/KrillinAI&Date)
+[![OpenCreator Star 履歴](https://api.star-history.com/svg?repos=krillinai/OpenCreator&type=date)](https://www.star-history.com/?type=date&repos=krillinai%2FOpenCreator)
 
 ## 関連プロジェクト
 
