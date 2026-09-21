@@ -41,6 +41,8 @@ test('工作台与滚动中的项目页保持相同内容边界', async () => {
   const fixture = await launchCreatorDesktop({ width: 1273, height: 985 });
   try {
     await waitForWorkspace(fixture.app.page);
+    await fixture.app.page.getByRole('button', { name: '工作台', exact: true }).click();
+    await expect(fixture.app.page.locator('.creator-tools-page')).toBeVisible();
     const workbench = await fixture.app.page.locator('.creator-tools-page').evaluate(scroller => ({
       right: Math.round(scroller.querySelector('.creator-tools-page-inner')!.getBoundingClientRect().right),
       scrollable: scroller.scrollHeight > scroller.clientHeight,
