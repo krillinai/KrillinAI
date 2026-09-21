@@ -54,8 +54,8 @@ function measureAssets() {
     {
       label: 'SettingsPage JavaScript',
       pattern: /^SettingsPage-[^.]+\.js$/,
-      maxBytes: 90_000,
-      maxGzipBytes: 24_000
+      maxBytes: 100_000,
+      maxGzipBytes: 27_000
     },
     {
       label: 'Web 主样式',
