@@ -1,6 +1,6 @@
 # 贡献一个创作模板（简体中文）
 
-> [English](../../contributing/templates-contributing.md) | 简体中文
+> [English](../../contributing/templates-contributing.md) | **简体中文** | [日本語](../../ja/contributing/templates-contributing.md) | [한국어](../../ko/contributing/templates-contributing.md) | [Bahasa Indonesia](../../id/contributing/templates-contributing.md) | [Español](../../es/contributing/templates-contributing.md) | [Français](../../fr/contributing/templates-contributing.md) | [Deutsch](../../de/contributing/templates-contributing.md) | [Português](../../pt/contributing/templates-contributing.md) | [Русский](../../ru/contributing/templates-contributing.md) | [العربية](../../ar/contributing/templates-contributing.md)
 
 创作模板是 [`template/<module>/<id>/<version>/`](../../../template/) 下的一个文件夹，包含 `template.json` 和本地素材。模板为图像生成、视频生成和封面生成的可视化选择器提供预设——用户从你的预设开始创作，而不是面对空白 prompt。本指南说明如何新增一个模板。
 

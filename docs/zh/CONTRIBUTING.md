@@ -1,6 +1,6 @@
 # 贡献指南（简体中文）
 
-> [English](../../CONTRIBUTING.md) | 简体中文
+> [English](../../CONTRIBUTING.md) | **简体中文** | [日本語](../ja/CONTRIBUTING.md) | [한국어](../ko/CONTRIBUTING.md) | [Bahasa Indonesia](../id/CONTRIBUTING.md) | [Español](../es/CONTRIBUTING.md) | [Français](../fr/CONTRIBUTING.md) | [Deutsch](../de/CONTRIBUTING.md) | [Português](../pt/CONTRIBUTING.md) | [Русский](../ru/CONTRIBUTING.md) | [العربية](../ar/CONTRIBUTING.md)
 
 感谢你愿意为 OpenCreator 做贡献。OpenCreator 是一个基于 Codex Agent 循环的本地优先创作工作区，项目的大部分价值来自小而聚焦的补充：一个 Skill 文件夹、一个创作模板、一个边界清晰的修复。本指南说明每类贡献应该放在哪里，以及 PR 需要达到什么标准才能合并。
 

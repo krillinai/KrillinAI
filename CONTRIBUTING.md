@@ -1,6 +1,6 @@
 # Contributing to OpenCreator
 
-> English | [简体中文](./docs/zh/CONTRIBUTING.md)
+> English | [简体中文](./docs/zh/CONTRIBUTING.md) | [日本語](./docs/ja/CONTRIBUTING.md) | [한국어](./docs/ko/CONTRIBUTING.md) | [Bahasa Indonesia](./docs/id/CONTRIBUTING.md) | [Español](./docs/es/CONTRIBUTING.md) | [Français](./docs/fr/CONTRIBUTING.md) | [Deutsch](./docs/de/CONTRIBUTING.md) | [Português](./docs/pt/CONTRIBUTING.md) | [Русский](./docs/ru/CONTRIBUTING.md) | [العربية](./docs/ar/CONTRIBUTING.md)
 
 Thanks for thinking about contributing. OpenCreator is a local-first creator workspace built on the Codex agent loop, and most of its value lives in focused additions: one Skill folder, one creation template, one well-scoped fix. This guide tells you where each type of contribution lives and what bar a PR has to clear before we merge it.
 

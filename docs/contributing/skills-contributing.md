@@ -1,6 +1,6 @@
 # Contributing a Skill
 
-> English | [简体中文](../zh/contributing/skills-contributing.md)
+> English | [简体中文](../zh/contributing/skills-contributing.md) | [日本語](../ja/contributing/skills-contributing.md) | [한국어](../ko/contributing/skills-contributing.md) | [Bahasa Indonesia](../id/contributing/skills-contributing.md) | [Español](../es/contributing/skills-contributing.md) | [Français](../fr/contributing/skills-contributing.md) | [Deutsch](../de/contributing/skills-contributing.md) | [Português](../pt/contributing/skills-contributing.md) | [Русский](../ru/contributing/skills-contributing.md) | [العربية](../ar/contributing/skills-contributing.md)
 
 A Skill is a folder under [`skills/`](../../skills/) with a `SKILL.md` at its root, following the [`SKILL.md` convention](https://agentskills.io). It packages a reusable Agent workflow: when to use it, what commands or tools to call, and how to interpret outputs. This guide walks through adding one.
 
