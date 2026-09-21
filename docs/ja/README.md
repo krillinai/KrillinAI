@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ グループ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[主な特徴](#主な特徴) · [制作ツール](#制作ツール) · [制作テンプレート](#制作テンプレート) · [Skills](#skills) · [会話とワークスペース](#会話とワークスペースを連携して進める) · [対応モデル](#対応モデル) · [活用例](#活用例) · [クイックスタート](#クイックスタート) · [Desktop](#desktop) · [システム構成](#opencreator-システム構成) · [開発](#開発) · [ドキュメント](#ドキュメント) · [コントリビューション](#コントリビューション) · [コントリビューター](#コントリビューター) · [Star 履歴](#star-履歴)
+[主な特徴](#主な特徴) · [制作ツール](#制作ツール) · [制作テンプレート](#制作テンプレート) · [Skills](#skills) · [会話とワークスペース](#会話とワークスペースを連携して進める) · [対応モデル](#対応モデル) · [活用例](#活用例) · [クイックスタート](#クイックスタート) · [Desktop](#desktop) · [システム構成](#opencreator-システム構成) · [開発](#開発) · [ドキュメント](#ドキュメント) · [チーム](#チーム) · [コントリビューション](#コントリビューション) · [コントリビューター](#コントリビューター) · [Star 履歴](#star-履歴)
 
 </div>
 
@@ -85,7 +85,10 @@ Dashboard から、動画翻訳やダウンロード、サムネイル・画像�
 <tr><td valign="top">動画ダウンロード</td><td valign="top">✅ 利用可能</td><td>YouTube、Bilibili など、対応する公開リンクを解析し、利用可能な画質と形式を確認して、後続の制作に使用する動画または音声をダウンロードできます</td></tr>
 <tr><td valign="top">サムネイル生成</td><td valign="top">✅ 利用可能</td><td>テーマ、動画リンク、任意の参照画像を組み合わせ、複数のコンテンツ用サムネイル案を生成して比較できます</td></tr>
 <tr><td valign="top">画像生成</td><td valign="top">✅ 利用可能</td><td>プロンプトと任意の参照画像から GPT Image で画像を生成し、アスペクト比と生成枚数を設定して、各画像をプレビュー・ダウンロードできます</td></tr>
-<tr><td valign="top">スティックフィギュアアニメーション</td><td valign="top">近日公開</td><td>ガイド付きワークフローでキャラクター、絵コンテ、ナレーション、アニメーションを制作します</td></tr>
+<tr><td valign="top">記事作成</td><td valign="top">✅ 利用可能</td><td>トピック、リンク、動画、資料から編集可能なテーマ、構成、記事を作成し、画像を追加して Markdown、HTML、PDF に書き出します。</td></tr>
+<tr><td valign="top">小紅書投稿</td><td valign="top">✅ 利用可能</td><td>トピックや資料から、対象読者、投稿形式、長さを指定して投稿を作成し、コピーまたはダウンロードできます。</td></tr>
+<tr><td valign="top">ショート動画台本</td><td valign="top">✅ 利用可能</td><td>トピックや資料から、読者、プラットフォーム、長さ、トーンに合わせた撮影用の分割台本を作成・編集・出力できます。</td></tr>
+<tr><td valign="top">スティックフィギュアアニメーション</td><td valign="top">✅ 利用可能</td><td>テキストまたは YouTube のコンテンツから、ナレーション、音声、一貫したキャラクターの絵コンテ、字幕、ダウンロード可能なアニメーションを制作できます。</td></tr>
 <tr><td valign="top">自動クリップ</td><td valign="top">開発中</td><td>長尺動画を分析して見どころを特定し、選択した場面を再利用可能な短いクリップに仕上げます</td></tr>
 <tr><td valign="top">スマート吹き替え</td><td valign="top">✅ 利用可能</td><td>音声、テンポ、感情表現を選び、脚本からナレーションを生成します</td></tr>
 <tr><td valign="top">動画生成</td><td valign="top">✅ 利用可能</td><td>Seedance を使用してプロンプトと参照画像から動画を生成し、各バージョンをプレビュー、再生成、ダウンロードできます</td></tr>
@@ -257,21 +260,27 @@ Seedance を使用して、テキストプロンプトまたは参照画像か�
 
 ![OpenCreator 動画ダウンロードの形式選択](../images/examples/video-downloader-formats-en.png)
 
-### スティックフィギュアアニメーション（近日公開）
+### スティックフィギュアアニメーション
 
-> 近日公開予定です。現行バージョンにはまだ搭載されていません。
-
-OpenCreator は、[Stickman on Behance](https://www.behance.net/gallery/254715463/Stickman) の作者であるアーティスト [Harbor Hsia](https://www.behance.net/xiaheyuan1) と共同で、このオリジナルキャラクターコレクションを開発しました。統一されたキャラクター表現を持つ、将来のストーリー・アニメーション制作ワークフローに向けて準備を進めています。
+OpenCreator は、[Stickman on Behance](https://www.behance.net/gallery/254715463/Stickman) の作者であるアーティスト [Harbor Hsia](https://www.behance.net/xiaheyuan1) と共同で、このオリジナルキャラクターコレクションを開発しました。内蔵のキャラクターにより、アニメーション制作を通じて一貫した人物像を保てます。
 
 ![アーティストと共同開発した OpenCreator のスティックフィギュアキャラクター](../images/examples/stick-figure-characters.webp)
 
-計画中のワークフローでは、キャラクターとストーリーのアイデアから、絵コンテ生成、ショット確認、ナレーション、音楽、バージョン管理されたアニメーション出力までを案内します。
+テキストや YouTube コンテンツから、脚本の確認、ナレーション、タイミング調整、絵コンテ、字幕、レンダリングを経て、ダウンロードできるアニメーションを制作します。
 
 ![OpenCreator スティックフィギュアアニメーションのサンプルフレーム](../images/examples/stick-figure-animation-frame.jpg)
 
 ## クイックスタート
 
-### 必要環境
+### Desktop アプリをインストール
+
+[最新リリース](https://github.com/krillinai/OpenCreator/releases/latest)から macOS Apple Silicon、macOS Intel、Windows x64 用のインストーラーをダウンロードしてください。Desktop アプリに Node.js と pnpm は不要で、Codex CLI が同梱されています。実際のモデルタスクには有効な Codex ログインが必要です。
+
+初回起動時にローカル Runtime が起動してデフォルトプロジェクトが準備されます。接続後、入力欄からタスクを開始できます。問題がある場合は[ユーザーガイド](../opencreator-user-guide-and-troubleshooting.md)を参照してください。
+
+### ソースから Web を起動
+
+開発またはブラウザで使用するには、以下を用意してください。
 
 - Node.js 22 以降
 - リポジトリの `packageManager` フィールドで固定されている pnpm 9.15.0
@@ -285,8 +294,6 @@ node --version
 pnpm --version
 codex --version
 ```
-
-### ソースから Web を起動
 
 ```bash
 git clone https://github.com/krillinai/OpenCreator.git
@@ -501,13 +508,7 @@ Codex のセッションと設定は引き続き `$CODEX_HOME` に保存され�
 | `pnpm smoke:ci` | fake Codex Runtime スモークテストを実行 |
 | `pnpm perf:check` | 記録済みのパフォーマンス基準を確認 |
 
-変更を提出する前に、少なくとも次を実行してください。
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
+提出前に[貢献ガイド](../../CONTRIBUTING.md#what-reviewers-check)に従い影響範囲に応じた検証を選択してください。文書・文言・スタイルの変更は関連する確認のみ、共通処理や Runtime の変更は対象モジュールのテストと型チェックが必要です。全体テストやビルドは必要な場合に実行し、実施した検証を PR に記載してください。
 
 Desktop、Host Bridge、Runtime プロキシ、または共通フロントエンドワークフローを変更した場合は、Web/Desktop 整合性テスト、パッケージ済みアプリの E2E、Web ビルドハッシュの検証も必要です。Web のユニットテストに合格しただけでは、Desktop をリリースできることの証明にはなりません。
 
@@ -520,16 +521,26 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## ドキュメント
 
-- [ユーザーガイドとトラブルシューティング](../opencreator-user-guide-and-troubleshooting.md)
-- [Runtime API v1](../runtime-api-for-ui-v1.md)
-- [Codex ネイティブ Runtime 設計](../2026-07-03-codex-native-agent-runtime-design.md)
-- [Desktop リリース運用ガイド](../operations/opencreator-desktop-release-runbook.md)
-- [Windows Desktop リリースガイド](../operations/opencreator-desktop-windows-release.md)
-- [ビジュアルコンポーネントガイドライン](../visual-component-guidelines.md)
+- **OpenCreator を使う:** [クイックスタート](#クイックスタート) · [ユーザーガイドとトラブルシューティング](../opencreator-user-guide-and-troubleshooting.md)
+- **開発と拡張:** [貢献ガイド](../../CONTRIBUTING.md) · [Skill の追加](../contributing/skills-contributing.md) · [制作テンプレートの追加](../contributing/templates-contributing.md) · [Runtime API v1](../runtime-api-for-ui-v1.md) · [ビジュアルコンポーネントガイドライン](../visual-component-guidelines.md)
+- **保守とリリース:** [Codex ネイティブ Runtime 設計](../2026-07-03-codex-native-agent-runtime-design.md) · [Desktop リリース運用ガイド](../operations/opencreator-desktop-release-runbook.md) · [Windows Desktop リリースガイド](../operations/opencreator-desktop-windows-release.md)
 
 ## 翻訳方針
 
 ルートの `README.md` を正本となる英語ドキュメントとします。保守対象の翻訳は `docs/<locale>/README.md` に配置します。英語版と同じ構成ですべての内容を翻訳・同期した後にのみ、言語切り替えへ追加してください。
+
+## チーム
+
+各メンバーは担当領域の基準、貢献のレビューとマージ、コミュニティサポートを担います。
+
+<table border="1" cellpadding="12">
+  <tr>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/wulien.svg" width="64" height="64" alt="wulien avatar" /><br /><a href="https://github.com/wulien">wulien</a><br />コードとバグ修正</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/dle-kb.svg" width="64" height="64" alt="DLe-kb avatar" /><br /><a href="https://github.com/DLe-kb">DLe-kb</a><br />制作テンプレート</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/xiaheyuan.svg" width="64" height="64" alt="xiaheyuan avatar" /><br /><a href="https://github.com/xiaheyuan">xiaheyuan</a><br />デザインと素材</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/krillinai.svg" width="64" height="64" alt="krillinai avatar" /><br /><a href="https://github.com/krillinai">krillinai</a><br />Skills と文書</td>
+  </tr>
+</table>
 
 ## コントリビューション
 

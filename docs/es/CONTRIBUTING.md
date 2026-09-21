@@ -17,7 +17,9 @@ Gracias por querer contribuir a OpenCreator. OpenCreator es un espacio de trabaj
 | Integrar un servicio de IA o de medios | una **integración de servicio** | módulo Web o Daemon correspondiente | un PR con manejo de errores, seguridad de credenciales y pruebas |
 | Mejorar documentación o traducciones | docs | `README.md`, `docs/`, `docs/<locale>/README.md` | un PR |
 
-Si no sabes en qué categoría encaja tu idea, [abre primero un issue](https://github.com/krillinai/OpenCreator/issues/new) y te indicaremos el lugar correcto.
+## Dónde preguntar y quién revisa
+
+Abre una [incidencia](https://github.com/krillinai/OpenCreator/issues/new) para comentar una idea o preguntar dónde encaja. Al enviar un PR, menciona al integrante de [El equipo](../../README.md#the-crew) correspondiente a código y errores, plantillas, diseño y recursos o Skills y documentación. El equipo ayuda con las normas, las revisiones y las preguntas de la comunidad; la fusión depende de los permisos y comprobaciones obligatorias.
 
 ---
 

@@ -17,7 +17,9 @@ Danke, dass du zu OpenCreator beitragen möchtest. OpenCreator ist ein Local-Fir
 | einen KI- oder Mediendienst anbinden möchtest | eine **Service-Integration** | relevantes Web- oder Daemon-Modul | ein PR mit Fehlerbehandlung, Credential-Sicherheit und Tests |
 | Dokumentation oder Übersetzungen verbessern möchtest | Docs | `README.md`, `docs/`, `docs/<locale>/README.md` | ein PR |
 
-Wenn du nicht sicher bist, in welche Kategorie deine Idee fällt, [öffne zuerst ein Issue](https://github.com/krillinai/OpenCreator/issues/new) — wir zeigen dir die richtige Anlaufstelle.
+## Fragen und Reviews
+
+Eröffne ein [Issue](https://github.com/krillinai/OpenCreator/issues/new), um eine Idee zu besprechen oder den richtigen Bereich zu finden. Erwähne bei einem PR das zuständige Mitglied des [Teams](../../README.md#the-crew) für Code und Fehlerbehebungen, Vorlagen, Design und Assets oder Skills und Dokumentation. Das Team hilft bei Standards, Reviews und Community-Fragen; für die Zusammenführung gelten die Berechtigungen und erforderlichen Prüfungen des Repositorys.
 
 ---
 

@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ 그룹](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[주요 특징](#주요-특징) · [제작 도구](#제작-도구) · [제작 템플릿](#제작-템플릿) · [Skills](#skills) · [대화와 워크스페이스](#대화와-워크스페이스를-함께-진행) · [지원 모델](#지원-모델) · [활용 사례](#활용-사례) · [빠른 시작](#빠른-시작) · [Desktop](#desktop) · [시스템 구조](#opencreator-시스템-구조) · [개발](#개발) · [문서](#문서) · [기여하기](#기여하기) · [기여자](#기여자) · [Star 기록](#star-기록)
+[주요 특징](#주요-특징) · [제작 도구](#제작-도구) · [제작 템플릿](#제작-템플릿) · [Skills](#skills) · [대화와 워크스페이스](#대화와-워크스페이스를-함께-진행) · [지원 모델](#지원-모델) · [활용 사례](#활용-사례) · [빠른 시작](#빠른-시작) · [Desktop](#desktop) · [시스템 구조](#opencreator-시스템-구조) · [개발](#개발) · [문서](#문서) · [운영 팀](#운영-팀) · [기여하기](#기여하기) · [기여자](#기여자) · [Star 기록](#star-기록)
 
 </div>
 
@@ -85,7 +85,10 @@ Dashboard에서 동영상을 번역하거나 다운로드하고, 썸네일 또�
 <tr><td valign="top">동영상 다운로드</td><td valign="top">✅ 사용 가능</td><td>YouTube, Bilibili 등 지원되는 공개 링크를 분석하고 이용 가능한 화질과 형식을 확인한 뒤 후속 작업에 사용할 동영상 또는 오디오를 다운로드할 수 있습니다</td></tr>
 <tr><td valign="top">썸네일 생성</td><td valign="top">✅ 사용 가능</td><td>주제, 동영상 링크, 선택적 참조 이미지를 조합해 여러 콘텐츠 썸네일 시안을 생성하고 비교할 수 있습니다</td></tr>
 <tr><td valign="top">이미지 생성</td><td valign="top">✅ 사용 가능</td><td>프롬프트와 선택적 참조 이미지로 GPT Image를 사용해 이미지를 생성하고, 화면 비율과 출력 수를 설정한 뒤 각 이미지를 미리 보고 다운로드할 수 있습니다</td></tr>
-<tr><td valign="top">스틱 피겨 애니메이션</td><td valign="top">출시 예정</td><td>안내형 워크플로에서 캐릭터, 스토리보드, 음성 해설, 애니메이션을 제작합니다</td></tr>
+<tr><td valign="top">기사 작성</td><td valign="top">✅ 사용 가능</td><td>주제, 링크, 동영상 또는 자료에서 편집 가능한 주제와 개요 및 기사를 만들고 이미지를 추가해 Markdown, HTML 또는 PDF로 내보냅니다.</td></tr>
+<tr><td valign="top">샤오홍슈 게시물</td><td valign="top">✅ 사용 가능</td><td>주제나 자료에서 대상 독자, 게시물 유형, 길이를 지정해 게시물을 만들고 복사하거나 다운로드합니다.</td></tr>
+<tr><td valign="top">쇼트 동영상 대본</td><td valign="top">✅ 사용 가능</td><td>주제나 자료를 대상, 플랫폼, 길이, 분위기에 맞는 촬영용 장면별 대본으로 만들고 편집하거나 내보냅니다.</td></tr>
+<tr><td valign="top">스틱 피겨 애니메이션</td><td valign="top">✅ 사용 가능</td><td>텍스트나 YouTube 콘텐츠에서 내레이션, 음성, 일관된 캐릭터의 스토리보드, 자막 및 다운로드 가능한 스틱 피겨 애니메이션을 만듭니다.</td></tr>
 <tr><td valign="top">자동 클립</td><td valign="top">개발 중</td><td>긴 동영상을 분석하고 주요 장면을 찾아 선택한 순간을 재사용 가능한 짧은 클립으로 만듭니다</td></tr>
 <tr><td valign="top">스마트 더빙</td><td valign="top">✅ 사용 가능</td><td>음성, 속도, 감정 표현을 선택해 스크립트를 음성 해설로 변환합니다</td></tr>
 <tr><td valign="top">동영상 생성</td><td valign="top">✅ 사용 가능</td><td>Seedance를 사용해 프롬프트와 참조 이미지로 동영상을 생성하고 각 버전을 미리 보거나 다시 생성하거나 다운로드할 수 있습니다</td></tr>
@@ -257,21 +260,27 @@ Seedance를 사용해 텍스트 프롬프트 또는 참조 이미지에서 AI �
 
 ![OpenCreator 비디오 다운로더 형식 선택](../images/examples/video-downloader-formats-en.png)
 
-### 스틱 피겨 애니메이션(출시 예정)
+### 스틱 피겨 애니메이션
 
-> 출시 예정입니다. 현재 릴리스에는 아직 통합되지 않았습니다.
-
-OpenCreator는 [Behance의 Stickman](https://www.behance.net/gallery/254715463/Stickman)을 제작한 아티스트 [Harbor Hsia](https://www.behance.net/xiaheyuan1)와 협업하여 이 오리지널 캐릭터 컬렉션을 개발했습니다. 일관된 캐릭터 정체성을 유지하는 향후 스토리 및 애니메이션 워크플로를 위해 프리셋 캐릭터를 준비하고 있습니다.
+OpenCreator는 [Behance의 Stickman](https://www.behance.net/gallery/254715463/Stickman)을 제작한 아티스트 [Harbor Hsia](https://www.behance.net/xiaheyuan1)와 협업하여 이 오리지널 캐릭터 컬렉션을 개발했습니다. 내장 캐릭터는 애니메이션 제작 과정에서 일관된 정체성을 유지합니다.
 
 ![아티스트와 함께 개발한 OpenCreator 스틱 피겨 캐릭터](../images/examples/stick-figure-characters.webp)
 
-계획된 워크플로는 캐릭터와 스토리 아이디어를 스토리보드 생성, 장면 검토, 보이스오버, 음악, 버전별 애니메이션 출력까지 안내합니다.
+텍스트나 YouTube 콘텐츠에서 대본 검토, 내레이션, 타이밍, 스토리보드, 자막, 렌더링을 거쳐 다운로드 가능한 애니메이션을 만듭니다.
 
 ![OpenCreator 스틱 피겨 애니메이션 예시 프레임](../images/examples/stick-figure-animation-frame.jpg)
 
 ## 빠른 시작
 
-### 사전 요구 사항
+### Desktop 앱 설치
+
+[최신 릴리스](https://github.com/krillinai/OpenCreator/releases/latest)에서 macOS Apple Silicon, macOS Intel 또는 Windows x64용 설치 파일을 다운로드하세요. Desktop 앱에는 Node.js나 pnpm이 필요하지 않으며 Codex CLI가 포함됩니다. 실제 모델 작업에는 유효한 Codex 로그인이 필요합니다.
+
+처음 실행하면 로컬 Runtime과 기본 프로젝트가 준비됩니다. 연결된 뒤 입력창에서 작업을 시작하세요. 문제가 있다면 [사용자 가이드](../opencreator-user-guide-and-troubleshooting.md)를 확인하세요.
+
+### 소스에서 Web 실행
+
+개발하거나 브라우저에서 사용하려면 다음을 준비하세요.
 
 - Node.js 22 이상
 - 리포지토리의 `packageManager` 필드에 고정된 pnpm 9.15.0
@@ -285,8 +294,6 @@ node --version
 pnpm --version
 codex --version
 ```
-
-### 소스에서 Web 실행
 
 ```bash
 git clone https://github.com/krillinai/OpenCreator.git
@@ -501,13 +508,7 @@ Codex 세션과 설정은 `$CODEX_HOME`에 유지되며 `.runtime/`과 별도로
 | `pnpm smoke:ci` | fake Codex Runtime 스모크 테스트 실행 |
 | `pnpm perf:check` | 기록된 성능 기준 확인 |
 
-변경 사항을 제출하기 전에 최소한 다음 명령을 실행하세요.
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
+제출 전에 [기여 가이드](../../CONTRIBUTING.md#what-reviewers-check)에 따라 영향 범위에 맞는 검증을 선택하세요. 문서, 문구 및 스타일은 관련 확인만 필요하며, 공통 동작과 Runtime 변경에는 대상 모듈 테스트와 타입 검사가 필요합니다. 전체 테스트와 빌드는 필요한 경우에만 실행하고 실제 검증을 PR에 기록하세요.
 
 Desktop, Host Bridge, Runtime 프록시 또는 공유 프런트엔드 워크플로를 변경한 경우 Web/Desktop 일관성 테스트, 패키징된 애플리케이션 E2E, Web 빌드 해시 검증도 필요합니다. Web 단위 테스트 통과만으로 Desktop 릴리스 준비가 완료되었다고 볼 수 없습니다.
 
@@ -520,16 +521,26 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## 문서
 
-- [사용자 가이드 및 문제 해결](../opencreator-user-guide-and-troubleshooting.md)
-- [Runtime API v1](../runtime-api-for-ui-v1.md)
-- [Codex 네이티브 Runtime 설계](../2026-07-03-codex-native-agent-runtime-design.md)
-- [Desktop 릴리스 운영 가이드](../operations/opencreator-desktop-release-runbook.md)
-- [Windows Desktop 릴리스 가이드](../operations/opencreator-desktop-windows-release.md)
-- [시각적 컴포넌트 가이드라인](../visual-component-guidelines.md)
+- **OpenCreator 사용:** [빠른 시작](#빠른-시작) · [사용자 가이드 및 문제 해결](../opencreator-user-guide-and-troubleshooting.md)
+- **개발 및 확장:** [기여 가이드](../../CONTRIBUTING.md) · [Skill 기여](../contributing/skills-contributing.md) · [제작 템플릿 기여](../contributing/templates-contributing.md) · [Runtime API v1](../runtime-api-for-ui-v1.md) · [시각적 컴포넌트 가이드라인](../visual-component-guidelines.md)
+- **유지 관리 및 릴리스:** [Codex 네이티브 Runtime 설계](../2026-07-03-codex-native-agent-runtime-design.md) · [Desktop 릴리스 운영 가이드](../operations/opencreator-desktop-release-runbook.md) · [Windows Desktop 릴리스 가이드](../operations/opencreator-desktop-windows-release.md)
 
 ## 번역 원칙
 
 루트의 `README.md`가 기준 영문 문서입니다. 유지 관리되는 번역은 `docs/<locale>/README.md`에 저장합니다. 전체 문서의 번역을 완료하고 영문 구조와 동기화한 뒤에만 언어 선택기에 해당 언어를 추가합니다.
+
+## 운영 팀
+
+각 팀원은 담당 영역의 기준, 기여 검토와 병합 및 커뮤니티 지원을 맡습니다.
+
+<table border="1" cellpadding="12">
+  <tr>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/wulien.svg" width="64" height="64" alt="wulien avatar" /><br /><a href="https://github.com/wulien">wulien</a><br />코드 및 버그 수정</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/dle-kb.svg" width="64" height="64" alt="DLe-kb avatar" /><br /><a href="https://github.com/DLe-kb">DLe-kb</a><br />제작 템플릿</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/xiaheyuan.svg" width="64" height="64" alt="xiaheyuan avatar" /><br /><a href="https://github.com/xiaheyuan">xiaheyuan</a><br />디자인 및 에셋</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/krillinai.svg" width="64" height="64" alt="krillinai avatar" /><br /><a href="https://github.com/krillinai">krillinai</a><br />Skills 및 문서</td>
+  </tr>
+</table>
 
 ## 기여하기
 

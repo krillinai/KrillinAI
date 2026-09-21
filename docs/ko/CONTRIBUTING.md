@@ -17,7 +17,9 @@ OpenCreator에 기여해 주셔서 감사합니다. OpenCreator는 Codex 에이�
 | AI 또는 미디어 서비스 연동 | **서비스 통합** | 관련 Web 또는 Daemon 모듈 | 오류 처리, 자격 증명 보안, 테스트가 포함된 PR 1개 |
 | 문서 또는 번역 개선 | 문서 | `README.md`, `docs/`, `docs/<locale>/README.md` | PR 1개 |
 
-아이디어가 어느 분류에 해당하는지 확실하지 않다면, 먼저 [이슈를 열어](https://github.com/krillinai/OpenCreator/issues/new) 주세요. 적절한 위치를 안내해 드리겠습니다.
+## 질문과 검토 담당
+
+아이디어를 논의하거나 적절한 영역을 모르면 [Issue](https://github.com/krillinai/OpenCreator/issues/new)를 여세요. PR을 제출할 때 코드 및 버그 수정, 제작 템플릿, 디자인 및 에셋, Skills 및 문서에 맞는 [운영 팀](../../README.md#the-crew) 담당자를 언급하세요. 팀은 기여 기준, 검토 및 커뮤니티 질문을 지원하며 병합은 저장소 권한과 필수 검사에 따릅니다.
 
 ---
 

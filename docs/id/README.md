@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![Grup QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Sorotan Proyek](#sorotan-proyek) · [Alat Kreasi](#alat-kreasi) · [Templat Kreasi](#templat-kreasi) · [Skills](#skills) · [Percakapan & Ruang Kerja](#percakapan-dan-ruang-kerja-bergerak-bersama) · [Model yang Didukung](#model-yang-didukung) · [Contoh](#contoh) · [Mulai Cepat](#mulai-cepat) · [Desktop](#desktop) · [Struktur Sistem](#struktur-sistem-opencreator) · [Pengembangan](#pengembangan) · [Dokumentasi](#dokumentasi) · [Berkontribusi](#berkontribusi) · [Kontributor](#kontributor) · [Riwayat Star](#riwayat-star)
+[Sorotan Proyek](#sorotan-proyek) · [Alat Kreasi](#alat-kreasi) · [Templat Kreasi](#templat-kreasi) · [Skills](#skills) · [Percakapan & Ruang Kerja](#percakapan-dan-ruang-kerja-bergerak-bersama) · [Model yang Didukung](#model-yang-didukung) · [Contoh](#contoh) · [Mulai Cepat](#mulai-cepat) · [Desktop](#desktop) · [Struktur Sistem](#struktur-sistem-opencreator) · [Pengembangan](#pengembangan) · [Dokumentasi](#dokumentasi) · [Tim Inti](#tim-inti) · [Berkontribusi](#berkontribusi) · [Kontributor](#kontributor) · [Riwayat Star](#riwayat-star)
 
 </div>
 
@@ -85,7 +85,10 @@ Buka Dashboard untuk menerjemahkan atau mengunduh video, membuat thumbnail atau 
 <tr><td valign="top">Pengunduh Video</td><td valign="top">✅ Tersedia</td><td>Uraikan tautan publik yang didukung dari YouTube, Bilibili, dan layanan lain, periksa pilihan kualitas dan format yang tersedia, lalu unduh video atau audio untuk alur kerja berikutnya</td></tr>
 <tr><td valign="top">Pembuatan Thumbnail</td><td valign="top">✅ Tersedia</td><td>Gabungkan topik, tautan video, dan gambar referensi opsional untuk membuat dan membandingkan beberapa variasi thumbnail konten</td></tr>
 <tr><td valign="top">Pembuatan Gambar</td><td valign="top">✅ Tersedia</td><td>Buat gambar dengan GPT Image dari prompt dan gambar referensi opsional, atur rasio aspek dan jumlah hasil, lalu pratinjau dan unduh setiap gambar</td></tr>
-<tr><td valign="top">Animasi Figur Stik</td><td valign="top">Segera hadir</td><td>Kembangkan karakter, storyboard, sulih suara, dan animasi dalam alur kerja terpandu</td></tr>
+<tr><td valign="top">Penulis Artikel</td><td valign="top">✅ Tersedia</td><td>Ubah topik, tautan, video, atau dokumen menjadi pilihan tema, kerangka, dan artikel yang dapat diedit; tambahkan gambar dan ekspor Markdown, HTML, atau PDF.</td></tr>
+<tr><td valign="top">Posting Xiaohongshu</td><td valign="top">✅ Tersedia</td><td>Buat posting dari topik atau bahan sumber dengan pilihan audiens, jenis posting, dan panjang, lalu salin atau unduh hasilnya.</td></tr>
+<tr><td valign="top">Naskah Video Pendek</td><td valign="top">✅ Tersedia</td><td>Buat naskah per segmen siap produksi dari topik atau bahan sumber sesuai audiens, platform, durasi, dan gaya; edit atau ekspor hasilnya.</td></tr>
+<tr><td valign="top">Animasi Figur Stik</td><td valign="top">✅ Tersedia</td><td>Ubah teks atau konten YouTube menjadi narasi, suara, visual storyboard dengan karakter konsisten, subtitle, dan animasi figur stik yang dapat diunduh.</td></tr>
 <tr><td valign="top">Klip Otomatis</td><td valign="top">Dalam pengembangan</td><td>Analisis video panjang, temukan sorotan, dan ubah bagian terpilih menjadi klip pendek yang dapat digunakan kembali</td></tr>
 <tr><td valign="top">Sulih Suara Cerdas</td><td valign="top">✅ Tersedia</td><td>Ubah naskah menjadi sulih suara dengan pilihan suara, tempo, dan kontrol emosi</td></tr>
 <tr><td valign="top">Pembuatan Video</td><td valign="top">✅ Tersedia</td><td>Buat video dengan Seedance dari prompt dan gambar referensi, lalu pratinjau, buat ulang, atau unduh setiap versi</td></tr>
@@ -257,21 +260,27 @@ Analisis tautan video publik, bandingkan format yang tersedia, lalu unduh video 
 
 ![Pemilihan format Pengunduh Video OpenCreator](../images/examples/video-downloader-formats-en.png)
 
-### Animasi Figur Stik (Segera Hadir)
+### Animasi Figur Stik
 
-> Segera hadir. Belum terintegrasi dalam rilis saat ini.
-
-OpenCreator mengembangkan koleksi karakter orisinal ini bersama seniman [Harbor Hsia](https://www.behance.net/xiaheyuan1), kreator [Stickman di Behance](https://www.behance.net/gallery/254715463/Stickman). Kumpulan karakter bawaan ini sedang disiapkan untuk alur kerja cerita dan animasi mendatang dengan identitas karakter yang konsisten.
+OpenCreator mengembangkan koleksi karakter orisinal ini bersama seniman [Harbor Hsia](https://www.behance.net/xiaheyuan1), kreator [Stickman di Behance](https://www.behance.net/gallery/254715463/Stickman). Karakter bawaan menjaga identitas karakter tetap konsisten selama pembuatan animasi.
 
 ![Karakter figur stik OpenCreator yang dikembangkan bersama seniman](../images/examples/stick-figure-characters.webp)
 
-Alur kerja yang direncanakan akan membawa ide karakter dan cerita melalui pembuatan storyboard, peninjauan adegan, narasi suara, musik, dan keluaran animasi berversi.
+Ubah teks atau konten YouTube menjadi animasi melalui peninjauan naskah, narasi, pengaturan waktu, storyboard, subtitle, rendering, dan unduhan video.
 
 ![Contoh frame animasi figur stik OpenCreator](../images/examples/stick-figure-animation-frame.jpg)
 
 ## Mulai Cepat
 
-### Prasyarat
+### Pasang Aplikasi Desktop
+
+Unduh penginstal macOS Apple Silicon, macOS Intel, atau Windows x64 dari [rilis terbaru](https://github.com/krillinai/OpenCreator/releases/latest). Aplikasi Desktop tidak memerlukan Node.js atau pnpm dan sudah menyertakan Codex CLI. Tugas model yang nyata memerlukan login Codex yang valid.
+
+Saat pertama dibuka, Runtime lokal berjalan dan proyek default disiapkan. Setelah tersambung, masukkan permintaan untuk memulai tugas. Jika ada masalah, lihat [panduan pengguna](../opencreator-user-guide-and-troubleshooting.md).
+
+### Menjalankan Web dari Kode Sumber
+
+Untuk pengembangan atau penggunaan di browser, siapkan:
 
 - Node.js 22 atau yang lebih baru
 - pnpm 9.15.0, ditetapkan melalui kolom `packageManager` repositori
@@ -285,8 +294,6 @@ node --version
 pnpm --version
 codex --version
 ```
-
-### Menjalankan Web dari Kode Sumber
 
 ```bash
 git clone https://github.com/krillinai/OpenCreator.git
@@ -501,13 +508,7 @@ Lihat [panduan pengguna dan pemecahan masalah](../opencreator-user-guide-and-tro
 | `pnpm smoke:ci` | Menjalankan smoke test Runtime dengan Codex palsu |
 | `pnpm perf:check` | Memeriksa baseline performa yang tercatat |
 
-Sebelum mengirim perubahan, jalankan setidaknya:
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
+Sebelum mengirim perubahan, pilih verifikasi sesuai dampaknya seperti dijelaskan dalam [panduan kontribusi](../../CONTRIBUTING.md#what-reviewers-check). Dokumentasi, teks, dan gaya hanya perlu pemeriksaan terkait; perilaku bersama dan Runtime memerlukan pengujian modul terkait serta pemeriksaan tipe. Jalankan pengujian atau build seluruh workspace hanya jika diperlukan dan laporkan yang benar-benar dijalankan di PR.
 
 Perubahan pada Desktop, Host Bridge, proxy Runtime, atau alur kerja frontend bersama juga memerlukan pengujian konsistensi Web/Desktop, E2E aplikasi terkemas, dan verifikasi hash build Web. Lulus pengujian unit Web saja tidak membuktikan bahwa rilis Desktop telah siap.
 
@@ -520,16 +521,26 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## Dokumentasi
 
-- [Panduan pengguna dan pemecahan masalah](../opencreator-user-guide-and-troubleshooting.md)
-- [Runtime API v1](../runtime-api-for-ui-v1.md)
-- [Desain Runtime native Codex](../2026-07-03-codex-native-agent-runtime-design.md)
-- [Panduan operasional rilis Desktop](../operations/opencreator-desktop-release-runbook.md)
-- [Panduan rilis Desktop untuk Windows](../operations/opencreator-desktop-windows-release.md)
-- [Pedoman komponen visual](../visual-component-guidelines.md)
+- **Menggunakan OpenCreator:** [Mulai Cepat](#mulai-cepat) · [Panduan pengguna dan pemecahan masalah](../opencreator-user-guide-and-troubleshooting.md)
+- **Mengembangkan dan memperluas:** [Panduan kontribusi](../../CONTRIBUTING.md) · [Kontribusi Skill](../contributing/skills-contributing.md) · [Kontribusi template kreasi](../contributing/templates-contributing.md) · [Runtime API v1](../runtime-api-for-ui-v1.md) · [Pedoman komponen visual](../visual-component-guidelines.md)
+- **Pemeliharaan dan rilis:** [Desain Runtime native Codex](../2026-07-03-codex-native-agent-runtime-design.md) · [Panduan operasional rilis Desktop](../operations/opencreator-desktop-release-runbook.md) · [Panduan rilis Desktop untuk Windows](../operations/opencreator-desktop-windows-release.md)
 
 ## Konvensi Penerjemahan
 
 File `README.md` di root adalah dokumen bahasa Inggris kanonis. Terjemahan yang dipelihara berada di `docs/<locale>/README.md`. Tambahkan bahasa ke pemilih hanya setelah seluruh dokumen diterjemahkan dan disinkronkan dengan struktur bahasa Inggris.
+
+## Tim Inti
+
+Setiap anggota bertanggung jawab atas standar, peninjauan dan penggabungan kontribusi, serta dukungan komunitas di bidangnya.
+
+<table border="1" cellpadding="12">
+  <tr>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/wulien.svg" width="64" height="64" alt="wulien avatar" /><br /><a href="https://github.com/wulien">wulien</a><br />Kode &amp; perbaikan bug</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/dle-kb.svg" width="64" height="64" alt="DLe-kb avatar" /><br /><a href="https://github.com/DLe-kb">DLe-kb</a><br />Template kreasi</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/xiaheyuan.svg" width="64" height="64" alt="xiaheyuan avatar" /><br /><a href="https://github.com/xiaheyuan">xiaheyuan</a><br />Desain &amp; aset</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/krillinai.svg" width="64" height="64" alt="krillinai avatar" /><br /><a href="https://github.com/krillinai">krillinai</a><br />Skills &amp; dokumentasi</td>
+  </tr>
+</table>
 
 ## Berkontribusi
 

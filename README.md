@@ -274,7 +274,15 @@ Turn text or YouTube content into a complete animation through a guided workflow
 
 ## Quick Start
 
-### Prerequisites
+### Install the Desktop App
+
+Download the installer for your platform from the [latest OpenCreator release](https://github.com/krillinai/OpenCreator/releases/latest) (macOS Apple Silicon, macOS Intel, or Windows x64). Install and open the app; you do not need Node.js or pnpm to use the Desktop app. The Desktop package includes Codex CLI, but real model tasks require a valid Codex login.
+
+On first launch, OpenCreator starts the local Runtime and prepares a default project. Once connected, enter your request in the composer to start a task. If you run into trouble, see the [user guide and troubleshooting](./docs/opencreator-user-guide-and-troubleshooting.md).
+
+### Run Web from Source
+
+For development or browser-based use, install:
 
 - Node.js 22 or later
 - pnpm 9.15.0, pinned through the repository's `packageManager` field
@@ -288,8 +296,6 @@ node --version
 pnpm --version
 codex --version
 ```
-
-### Run Web from Source
 
 ```bash
 git clone https://github.com/krillinai/OpenCreator.git
@@ -506,13 +512,7 @@ See the [user guide and troubleshooting reference](./docs/opencreator-user-guide
 | `pnpm smoke:ci` | Run the fake-Codex Runtime smoke test |
 | `pnpm perf:check` | Check the recorded performance baseline |
 
-Before submitting a change, run at least:
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
+Before submitting a change, choose verification that matches its impact, as described in the [contributing guide](./CONTRIBUTING.md#what-reviewers-check). Docs, copy, and style changes need only relevant checks; shared behavior and Runtime changes need targeted module tests and typechecks. Run full workspace tests or builds when the affected scope requires them, and report what you ran in the PR.
 
 Changes to Desktop, Host Bridge, the Runtime proxy, or shared frontend workflows also require Web/Desktop consistency tests, packaged application E2E, and Web build hash verification. Passing Web unit tests alone does not establish Desktop release readiness.
 
@@ -525,13 +525,9 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## Documentation
 
-- [Contributing guide](./CONTRIBUTING.md) · [Contributing a Skill](./docs/contributing/skills-contributing.md) · [Contributing a creation template](./docs/contributing/templates-contributing.md)
-- [User guide and troubleshooting](./docs/opencreator-user-guide-and-troubleshooting.md)
-- [Runtime API v1](./docs/runtime-api-for-ui-v1.md)
-- [Codex-native Runtime design](./docs/2026-07-03-codex-native-agent-runtime-design.md)
-- [Desktop release runbook](./docs/operations/opencreator-desktop-release-runbook.md)
-- [Windows Desktop release guide](./docs/operations/opencreator-desktop-windows-release.md)
-- [Visual component guidelines](./docs/visual-component-guidelines.md)
+- **Use OpenCreator:** [Quick Start](#quick-start) · [User guide and troubleshooting](./docs/opencreator-user-guide-and-troubleshooting.md)
+- **Develop and extend:** [Contributing guide](./CONTRIBUTING.md) · [Contributing a Skill](./docs/contributing/skills-contributing.md) · [Contributing a creation template](./docs/contributing/templates-contributing.md) · [Runtime API v1](./docs/runtime-api-for-ui-v1.md) · [Visual component guidelines](./docs/visual-component-guidelines.md)
+- **Maintain and release:** [Codex-native Runtime design](./docs/2026-07-03-codex-native-agent-runtime-design.md) · [Desktop release runbook](./docs/operations/opencreator-desktop-release-runbook.md) · [Windows Desktop release guide](./docs/operations/opencreator-desktop-windows-release.md)
 
 ## Translation Convention
 

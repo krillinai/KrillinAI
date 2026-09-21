@@ -17,7 +17,9 @@ Thanks for thinking about contributing. OpenCreator is a local-first creator wor
 | Add an AI or media provider | a **service integration** | relevant Web or Daemon module | one PR with error handling, credential safety, and tests |
 | Improve docs or translations | docs | `README.md`, `docs/`, `docs/<locale>/README.md` | one PR |
 
-If you're not sure which bucket your idea is in, [open an issue first](https://github.com/krillinai/OpenCreator/issues/new) and we'll point you at the right surface.
+## Where to ask and who reviews
+
+Use an [issue](https://github.com/krillinai/OpenCreator/issues/new) to discuss an idea or ask where it belongs; we'll point you to the right area. When submitting a PR, mention the relevant member of [The Crew](./README.md#the-crew) for code and bug fixes, creation templates, design and assets, or Skills and docs. The crew helps with contribution standards, reviews, and community questions; merging follows repository permissions and required checks.
 
 ---
 

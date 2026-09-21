@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ-Gruppe](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Projekt-Highlights](#projekt-highlights) · [Kreativwerkzeuge](#kreativwerkzeuge) · [Kreativvorlagen](#kreativvorlagen) · [Skills](#skills) · [Unterhaltung & Arbeitsbereich](#unterhaltung-und-arbeitsbereich-gemeinsam-voran) · [Unterstützte Modelle](#unterstützte-modelle) · [Beispiele](#beispiele) · [Schnellstart](#schnellstart) · [Desktop](#desktop) · [Systemstruktur](#opencreator-systemstruktur) · [Entwicklung](#entwicklung) · [Dokumentation](#dokumentation) · [Mitwirken](#mitwirken) · [Mitwirkende](#mitwirkende) · [Star-Verlauf](#star-verlauf)
+[Projekt-Highlights](#projekt-highlights) · [Kreativwerkzeuge](#kreativwerkzeuge) · [Kreativvorlagen](#kreativvorlagen) · [Skills](#skills) · [Unterhaltung & Arbeitsbereich](#unterhaltung-und-arbeitsbereich-gemeinsam-voran) · [Unterstützte Modelle](#unterstützte-modelle) · [Beispiele](#beispiele) · [Schnellstart](#schnellstart) · [Desktop](#desktop) · [Systemstruktur](#opencreator-systemstruktur) · [Entwicklung](#entwicklung) · [Dokumentation](#dokumentation) · [Das Team](#das-team) · [Mitwirken](#mitwirken) · [Mitwirkende](#mitwirkende) · [Star-Verlauf](#star-verlauf)
 
 </div>
 
@@ -85,7 +85,10 @@ Die aktuelle Version enthält sechs Kreativwerkzeuge. Verfügbare Modelle und Di
 <tr><td valign="top">Video-Downloader</td><td valign="top">✅ Verfügbar</td><td>Analysiere unterstützte öffentliche Links von YouTube, Bilibili und anderen Quellen, prüfe verfügbare Qualitäts- und Formatoptionen und lade Video oder Audio für nachfolgende Arbeitsabläufe herunter</td></tr>
 <tr><td valign="top">Thumbnail-Generierung</td><td valign="top">✅ Verfügbar</td><td>Kombiniere ein Thema, einen Videolink und optional ein Referenzbild, um mehrere Varianten von Content-Thumbnails zu generieren und zu vergleichen</td></tr>
 <tr><td valign="top">Bildgenerierung</td><td valign="top">✅ Verfügbar</td><td>Generiere mit GPT Image Bilder aus einem Prompt und einem optionalen Referenzbild, lege Seitenverhältnis und Anzahl der Ergebnisse fest und zeige einzelne Bilder in der Vorschau an oder lade sie herunter</td></tr>
-<tr><td valign="top">Strichmännchen-Animation</td><td valign="top">Demnächst</td><td>Entwickle Figuren, Storyboards, Voiceover und Animation in einem geführten Arbeitsablauf</td></tr>
+<tr><td valign="top">Artikel verfassen</td><td valign="top">✅ Verfügbar</td><td>Erstelle aus Themen, Links, Videos oder Dokumenten editierbare Themenvorschläge, Gliederungen und Artikel; ergänze Bilder und exportiere Markdown, HTML oder PDF.</td></tr>
+<tr><td valign="top">Xiaohongshu-Beiträge</td><td valign="top">✅ Verfügbar</td><td>Erstelle Beiträge aus einem Thema oder Ausgangsmaterial mit Auswahl von Zielgruppe, Beitragstyp und Länge; kopiere oder lade das Ergebnis herunter.</td></tr>
+<tr><td valign="top">Kurzvideo-Drehbuch</td><td valign="top">✅ Verfügbar</td><td>Erstelle aus Thema oder Material ein drehfertiges Szenenskript für Zielgruppe, Plattform, Dauer und Ton; bearbeite oder exportiere es.</td></tr>
+<tr><td valign="top">Strichmännchen-Animation</td><td valign="top">✅ Verfügbar</td><td>Erstelle aus Text oder YouTube-Inhalten Erzählung, Stimme, Storyboard-Bilder mit konsistenten Figuren, Untertitel und eine herunterladbare Animation.</td></tr>
 <tr><td valign="top">Automatische Clips</td><td valign="top">In Entwicklung</td><td>Analysiere lange Videos, finde Höhepunkte und verwandle ausgewählte Momente in wiederverwendbare kurze Clips</td></tr>
 <tr><td valign="top">Intelligente Synchronisation</td><td valign="top">✅ Verfügbar</td><td>Verwandle Skripte in Voiceover und wähle Stimme, Tempo und Emotion</td></tr>
 <tr><td valign="top">Videogenerierung</td><td valign="top">✅ Verfügbar</td><td>Generiere mit Seedance Videos aus Prompts und Referenzbildern und zeige jede Version in der Vorschau an, generiere sie erneut oder lade sie herunter</td></tr>
@@ -257,21 +260,27 @@ Analysiere einen öffentlichen Videolink, vergleiche die verfügbaren Formate un
 
 ![Formatauswahl im OpenCreator Video-Downloader](../images/examples/video-downloader-formats-en.png)
 
-### Strichmännchen-Animation (demnächst)
+### Strichmännchen-Animation
 
-> Demnächst verfügbar. In der aktuellen Version noch nicht integriert.
-
-OpenCreator hat diese Sammlung eigener Figuren gemeinsam mit dem Künstler [Harbor Hsia](https://www.behance.net/xiaheyuan1), dem Schöpfer von [Stickman auf Behance](https://www.behance.net/gallery/254715463/Stickman), entwickelt. Die vordefinierten Figuren werden für einen künftigen Story- und Animationsablauf mit konsistenten Charakteridentitäten vorbereitet.
+OpenCreator hat diese Sammlung eigener Figuren gemeinsam mit dem Künstler [Harbor Hsia](https://www.behance.net/xiaheyuan1), dem Schöpfer von [Stickman auf Behance](https://www.behance.net/gallery/254715463/Stickman), entwickelt. Die integrierten Figuren bleiben während der Animation konsistent.
 
 ![Gemeinsam mit Künstlern entwickelte OpenCreator Strichmännchen](../images/examples/stick-figure-characters.webp)
 
-Der geplante Arbeitsablauf führt eine Figuren- und Storyidee durch Storyboard-Generierung, Szenenprüfung, Voice-over, Musik und versionierte Animationsausgabe.
+Erstelle aus Text oder YouTube-Inhalten eine Animation mit Skriptprüfung, Erzählung, Timing, Storyboard, Untertiteln, Rendering und herunterladbarem Video.
 
 ![Beispielbild einer OpenCreator Strichmännchen-Animation](../images/examples/stick-figure-animation-frame.jpg)
 
 ## Schnellstart
 
-### Voraussetzungen
+### Desktop-App installieren
+
+Lade den Installer für macOS Apple Silicon, macOS Intel oder Windows x64 aus dem [neuesten Release](https://github.com/krillinai/OpenCreator/releases/latest) herunter. Desktop benötigt weder Node.js noch pnpm und enthält Codex CLI. Für echte Modellaufgaben ist eine gültige Codex-Anmeldung nötig.
+
+Beim ersten Start werden die lokale Runtime und ein Standardprojekt vorbereitet. Nach dem Verbindungsaufbau kannst du im Eingabefeld eine Aufgabe starten. Bei Problemen hilft das [Benutzerhandbuch](../opencreator-user-guide-and-troubleshooting.md).
+
+### Web aus dem Quellcode ausführen
+
+Für Entwicklung oder Nutzung von Web aus dem Quellcode benötigst du:
 
 - Node.js 22 oder neuer
 - pnpm 9.15.0, festgelegt über das Feld `packageManager` des Repositorys
@@ -285,8 +294,6 @@ node --version
 pnpm --version
 codex --version
 ```
-
-### Web aus dem Quellcode ausführen
 
 ```bash
 git clone https://github.com/krillinai/OpenCreator.git
@@ -501,13 +508,7 @@ Vollständige Anleitungen zu Sicherung, Wiederherstellung, Bereinigung und Zurü
 | `pnpm smoke:ci` | Runtime-Smoke-Test mit einem simulierten Codex ausführen |
 | `pnpm perf:check` | Aufgezeichneten Leistungsreferenzwert prüfen |
 
-Führe vor dem Einreichen einer Änderung mindestens Folgendes aus:
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
+Wähle vor einer Änderung Prüfungen passend zu ihren Auswirkungen, wie im [Beitragsleitfaden](../../CONTRIBUTING.md#what-reviewers-check) beschrieben. Änderungen an Dokumentation, Text und Stil benötigen nur passende Prüfungen; gemeinsames Verhalten und Runtime erfordern gezielte Modultests und Typprüfungen. Führe vollständige Tests oder Builds nur bei Bedarf aus und dokumentiere die tatsächlich durchgeführten Prüfungen im PR.
 
 Änderungen an Desktop, Host Bridge, Runtime-Proxy oder gemeinsam genutzten Frontend-Arbeitsabläufen erfordern außerdem Web/Desktop-Konsistenztests, E2E-Tests der paketierten Anwendung und eine Überprüfung des Web-Build-Hashs. Das Bestehen der Web-Unit-Tests allein belegt nicht, dass Desktop veröffentlichungsbereit ist.
 
@@ -520,16 +521,26 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## Dokumentation
 
-- [Benutzerhandbuch und Fehlerbehebung](../opencreator-user-guide-and-troubleshooting.md)
-- [Runtime API v1](../runtime-api-for-ui-v1.md)
-- [Design der Codex-nativen Runtime](../2026-07-03-codex-native-agent-runtime-design.md)
-- [Desktop-Release-Runbook](../operations/opencreator-desktop-release-runbook.md)
-- [Leitfaden für Windows-Desktop-Releases](../operations/opencreator-desktop-windows-release.md)
-- [Richtlinien für visuelle Komponenten](../visual-component-guidelines.md)
+- **OpenCreator nutzen:** [Schnellstart](#schnellstart) · [Benutzerhandbuch und Fehlerbehebung](../opencreator-user-guide-and-troubleshooting.md)
+- **Entwickeln und erweitern:** [Beitragsleitfaden](../../CONTRIBUTING.md) · [Skill beitragen](../contributing/skills-contributing.md) · [Erstellungsvorlage beitragen](../contributing/templates-contributing.md) · [Runtime API v1](../runtime-api-for-ui-v1.md) · [Richtlinien für visuelle Komponenten](../visual-component-guidelines.md)
+- **Warten und veröffentlichen:** [Design der Codex-nativen Runtime](../2026-07-03-codex-native-agent-runtime-design.md) · [Desktop-Release-Runbook](../operations/opencreator-desktop-release-runbook.md) · [Leitfaden für Windows-Desktop-Releases](../operations/opencreator-desktop-windows-release.md)
 
 ## Übersetzungskonvention
 
 Die Datei `README.md` im Stammverzeichnis ist das maßgebliche englische Dokument. Gepflegte Übersetzungen befinden sich unter `docs/<locale>/README.md`. Füge eine Sprache erst dann zur Sprachauswahl hinzu, wenn das vollständige Dokument übersetzt und mit der englischen Struktur synchronisiert wurde.
+
+## Das Team
+
+Jedes Mitglied verantwortet in seinem Bereich Standards, Prüfung und Zusammenführung von Beiträgen sowie Unterstützung der Community.
+
+<table border="1" cellpadding="12">
+  <tr>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/wulien.svg" width="64" height="64" alt="wulien avatar" /><br /><a href="https://github.com/wulien">wulien</a><br />Code und Fehlerbehebungen</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/dle-kb.svg" width="64" height="64" alt="DLe-kb avatar" /><br /><a href="https://github.com/DLe-kb">DLe-kb</a><br />Erstellungsvorlagen</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/xiaheyuan.svg" width="64" height="64" alt="xiaheyuan avatar" /><br /><a href="https://github.com/xiaheyuan">xiaheyuan</a><br />Design und Assets</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/krillinai.svg" width="64" height="64" alt="krillinai avatar" /><br /><a href="https://github.com/krillinai">krillinai</a><br />Skills und Dokumentation</td>
+  </tr>
+</table>
 
 ## Mitwirken
 

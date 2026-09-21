@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[项目特色](#项目特色) · [创作工具](#创作工具) · [创作模板](#创作模板) · [Skills 技能](#skills-技能) · [对话与工作区](#对话与工作区协同推进) · [支持的模型](#支持的模型) · [案例展示](#案例展示) · [快速开始](#快速开始) · [Desktop](#desktop) · [OpenCreator 系统架构](#opencreator-系统架构) · [开发指南](#开发指南) · [文档](#文档) · [参与贡献](#参与贡献) · [贡献者](#贡献者) · [Star 趋势](#star-趋势)
+[项目特色](#项目特色) · [创作工具](#创作工具) · [创作模板](#创作模板) · [Skills 技能](#skills-技能) · [对话与工作区](#对话与工作区协同推进) · [支持的模型](#支持的模型) · [案例展示](#案例展示) · [快速开始](#快速开始) · [Desktop](#desktop) · [OpenCreator 系统架构](#opencreator-系统架构) · [开发指南](#开发指南) · [文档](#文档) · [核心团队](#核心团队) · [参与贡献](#参与贡献) · [贡献者](#贡献者) · [Star 趋势](#star-趋势)
 
 </div>
 
@@ -274,7 +274,15 @@ OpenCreator 与艺术家 [Harbor Hsia](https://www.behance.net/xiaheyuan1) 合�
 
 ## 快速开始
 
-### 环境要求
+### 下载桌面版
+
+从 [最新版本](https://github.com/krillinai/OpenCreator/releases/latest)下载适用于 macOS Apple Silicon、macOS Intel 或 Windows x64 的安装包。安装并打开应用；桌面版无需 Node.js 或 pnpm，且内置 Codex CLI。真实模型任务需要有效的 Codex 登录。
+
+首次启动时，本地 Runtime 会自动启动并准备默认项目。连接后在输入框中输入需求即可开始。如遇问题，请参阅[用户指南与故障排查](../opencreator-user-guide-and-troubleshooting.md)。
+
+### 从源码启动 Web
+
+开发或通过浏览器使用时，需要：
 
 - Node.js 22 或更高版本
 - pnpm 9.15.0（仓库已在 `packageManager` 中锁定版本）
@@ -288,8 +296,6 @@ node --version
 pnpm --version
 codex --version
 ```
-
-### 从源码启动 Web
 
 ```bash
 git clone https://github.com/krillinai/OpenCreator.git
@@ -505,13 +511,7 @@ Codex 自身的会话与配置仍位于 `$CODEX_HOME`，备份时需要与 `.run
 | `pnpm smoke:ci` | 运行 fake Codex Runtime smoke |
 | `pnpm perf:check` | 检查已记录的性能基线 |
 
-提交前至少运行：
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
+提交前请根据改动影响选择验证范围，详见[贡献指南](../../CONTRIBUTING.md#what-reviewers-check)。文档、文案和样式改动只需相关检查；共享行为与 Runtime 改动需要定向模块测试和类型检查。仅在影响范围需要时运行全仓测试或构建，并在 PR 中说明实际执行的验证。
 
 涉及 Desktop、Host Bridge、Runtime 代理或通用前端流程时，还必须完成 Web/Desktop 一致性测试、实际打包 App E2E，以及 Web 构建产物哈希校验；只通过 Web 单测不能证明 Desktop 可发布。
 
@@ -524,16 +524,26 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## 文档
 
-- [用户指南与故障排查](../opencreator-user-guide-and-troubleshooting.md)
-- [Runtime API v1](../runtime-api-for-ui-v1.md)
-- [Codex-native Runtime 技术方案](../2026-07-03-codex-native-agent-runtime-design.md)
-- [Desktop 发布手册](../operations/opencreator-desktop-release-runbook.md)
-- [Windows Desktop 发布说明](../operations/opencreator-desktop-windows-release.md)
-- [视觉组件规范](../visual-component-guidelines.md)
+- **使用 OpenCreator:** [快速开始](#快速开始) · [用户指南与故障排查](../opencreator-user-guide-and-troubleshooting.md)
+- **开发与扩展:** [贡献指南](../../CONTRIBUTING.md) · [贡献 Skill](../contributing/skills-contributing.md) · [贡献创作模板](../contributing/templates-contributing.md) · [Runtime API v1](../runtime-api-for-ui-v1.md) · [视觉组件规范](../visual-component-guidelines.md)
+- **维护与发布:** [Codex-native Runtime 技术方案](../2026-07-03-codex-native-agent-runtime-design.md) · [Desktop 发布手册](../operations/opencreator-desktop-release-runbook.md) · [Windows Desktop 发布说明](../operations/opencreator-desktop-windows-release.md)
 
 ## 翻译约定
 
 根目录 `README.md` 是内容基准英文版，持续维护的翻译统一放在 `docs/<locale>/README.md`。只有完成全文翻译并与英文结构同步后，才把对应语言加入顶部切换栏。
+
+## 核心团队
+
+每位成员负责各自领域的规范、贡献审核与合并，以及社区支持。
+
+<table border="1" cellpadding="12">
+  <tr>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/wulien.svg" width="64" height="64" alt="wulien avatar" /><br /><a href="https://github.com/wulien">wulien</a><br />代码与问题修复</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/dle-kb.svg" width="64" height="64" alt="DLe-kb avatar" /><br /><a href="https://github.com/DLe-kb">DLe-kb</a><br />创作模板</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/xiaheyuan.svg" width="64" height="64" alt="xiaheyuan avatar" /><br /><a href="https://github.com/xiaheyuan">xiaheyuan</a><br />设计与素材</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/krillinai.svg" width="64" height="64" alt="krillinai avatar" /><br /><a href="https://github.com/krillinai">krillinai</a><br />Skills 与文档</td>
+  </tr>
+</table>
 
 ## 参与贡献
 

@@ -17,7 +17,9 @@
 | 接入 AI 或媒体服务 | **服务集成** | 相关 Web 或 Daemon 模块 | 一个 PR，含错误处理、凭证安全和测试 |
 | 改进文档或翻译 | 文档 | `README.md`、`docs/`、`docs/<locale>/README.md` | 一个 PR |
 
-如果你不确定自己的想法属于哪一类，先[提一个 Issue](https://github.com/krillinai/OpenCreator/issues/new)，我们会告诉你应该从哪个入口入手。
+## 在哪里提问、由谁审核
+
+请通过 [Issue](https://github.com/krillinai/OpenCreator/issues/new) 讨论想法或询问所属领域，我们会指引合适的方向。提交 PR 时，请联系[核心团队](../../README.md#the-crew)中负责代码与问题修复、创作模板、设计与素材或 Skills 与文档的成员。团队负责贡献规范、审核和社区答疑；合并须遵守仓库权限及必要检查。
 
 ---
 

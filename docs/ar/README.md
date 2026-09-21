@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![مجموعة QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[أبرز ميزات المشروع](#أبرز-ميزات-المشروع) · [أدوات الإنشاء](#أدوات-الإنشاء) · [قوالب الإنشاء](#قوالب-الإنشاء) · [Skills](#skills) · [المحادثة ومساحة العمل](#المحادثة-ومساحة-العمل-تتقدمان-معًا) · [النماذج المدعومة](#النماذج-المدعومة) · [أمثلة](#أمثلة) · [البدء السريع](#البدء-السريع) · [Desktop](#desktop) · [بنية النظام](#بنية-نظام-opencreator) · [التطوير](#التطوير) · [الوثائق](#الوثائق) · [المساهمة](#المساهمة) · [المساهمون](#المساهمون) · [سجل Stars](#سجل-stars)
+[أبرز ميزات المشروع](#أبرز-ميزات-المشروع) · [أدوات الإنشاء](#أدوات-الإنشاء) · [قوالب الإنشاء](#قوالب-الإنشاء) · [Skills](#skills) · [المحادثة ومساحة العمل](#المحادثة-ومساحة-العمل-تتقدمان-معًا) · [النماذج المدعومة](#النماذج-المدعومة) · [أمثلة](#أمثلة) · [البدء السريع](#البدء-السريع) · [Desktop](#desktop) · [بنية النظام](#بنية-نظام-opencreator) · [التطوير](#التطوير) · [الوثائق](#الوثائق) · [الفريق](#الفريق) · [المساهمة](#المساهمة) · [المساهمون](#المساهمون) · [سجل Stars](#سجل-stars)
 
 </div>
 
@@ -85,7 +85,10 @@
 <tr><td valign="top">تنزيل الفيديو</td><td valign="top">✅ متاح</td><td>حلّل الروابط العامة المدعومة من YouTube وBilibili والخدمات الأخرى، واستعرض خيارات الجودة والتنسيق المتاحة، ثم نزّل الفيديو أو الصوت لاستخدامه في مسارات العمل اللاحقة</td></tr>
 <tr><td valign="top">إنشاء الصور المصغرة</td><td valign="top">✅ متاح</td><td>ادمج موضوعًا ورابط فيديو وصورة مرجعية اختيارية لإنشاء عدة خيارات من الصور المصغرة للمحتوى ومقارنتها</td></tr>
 <tr><td valign="top">توليد الصور</td><td valign="top">✅ متاح</td><td>أنشئ صورًا باستخدام GPT Image انطلاقًا من prompt وصورة مرجعية اختيارية، واضبط نسبة العرض إلى الارتفاع وعدد النتائج، ثم عاين كل صورة ونزّلها</td></tr>
-<tr><td valign="top">رسوم شخصيات العصا المتحركة</td><td valign="top">قريبًا</td><td>طوّر الشخصيات والقصص المصورة والتعليق الصوتي والرسوم المتحركة ضمن مسار عمل موجه</td></tr>
+<tr><td valign="top">كتابة المقالات</td><td valign="top">✅ متاح</td><td>حوّل موضوعًا أو روابط أو فيديوهات أو مستندات إلى أفكار ومخطط ومقال قابل للتحرير؛ أضف صورًا وصدّر بصيغ Markdown أو HTML أو PDF.</td></tr>
+<tr><td valign="top">منشورات Xiaohongshu</td><td valign="top">✅ متاح</td><td>أنشئ منشورًا من موضوع أو مصدر مع ضبط الجمهور ونوع المنشور وطوله، ثم انسخ النتيجة أو نزّلها.</td></tr>
+<tr><td valign="top">نص فيديو قصير</td><td valign="top">✅ متاح</td><td>أنشئ نصًا مقسمًا جاهزًا للتصوير من موضوع أو مادة مصدر، مناسبًا للجمهور والمنصة والمدة والنبرة؛ عدّله أو صدّره.</td></tr>
+<tr><td valign="top">رسوم شخصيات العصا المتحركة</td><td valign="top">✅ متاح</td><td>حوّل النص أو محتوى YouTube إلى سرد وصوت ولوحات قصصية بشخصيات متسقة وترجمات ورسوم متحركة قابلة للتنزيل.</td></tr>
 <tr><td valign="top">المقاطع التلقائية</td><td valign="top">قيد التطوير</td><td>حلّل مقاطع الفيديو الطويلة وحدد أبرز اللحظات وحوّل المقاطع المختارة إلى مقاطع قصيرة قابلة لإعادة الاستخدام</td></tr>
 <tr><td valign="top">الدبلجة الذكية</td><td valign="top">✅ متاح</td><td>حوّل النصوص إلى تعليق صوتي مع اختيار الصوت وضبط الإيقاع والعاطفة</td></tr>
 <tr><td valign="top">توليد الفيديو</td><td valign="top">✅ متاح</td><td>أنشئ فيديو باستخدام Seedance من الأوامر النصية والصور المرجعية، ثم عاين كل إصدار وأعد إنشاءه ونزّله</td></tr>
@@ -257,21 +260,27 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 ![اختيار تنسيق تنزيل الفيديو في OpenCreator](../images/examples/video-downloader-formats-en.png)
 
-### رسوم شخصيات العصا المتحركة (قريبًا)
+### رسوم شخصيات العصا المتحركة
 
-> قريبًا. لم تُدمج هذه الميزة بعد في الإصدار الحالي.
-
-طوّر OpenCreator هذه المجموعة الأصلية من الشخصيات بالتعاون مع الفنان [Harbor Hsia](https://www.behance.net/xiaheyuan1)، مبتكر [Stickman على Behance](https://www.behance.net/gallery/254715463/Stickman). ويجري إعداد مجموعة الشخصيات المسبقة لمسار عمل مستقبلي للقصص والرسوم المتحركة بهويات متسقة للشخصيات.
+طوّر OpenCreator هذه المجموعة الأصلية من الشخصيات بالتعاون مع الفنان [Harbor Hsia](https://www.behance.net/xiaheyuan1)، مبتكر [Stickman على Behance](https://www.behance.net/gallery/254715463/Stickman). تحافظ الشخصيات المدمجة على هويتها طوال إنتاج الرسوم المتحركة.
 
 ![شخصيات العصا في OpenCreator التي طُورت بالتعاون مع فنانين](../images/examples/stick-figure-characters.webp)
 
-سيقود مسار العمل المخطط له فكرة الشخصية والقصة عبر إنشاء لوحة القصة ومراجعة اللقطات والتعليق الصوتي والموسيقى وإخراج نسخ متعددة من الرسوم المتحركة.
+حوّل النص أو محتوى YouTube إلى رسوم متحركة عبر مراجعة النص والسرد وضبط التوقيت واللوحات القصصية والترجمات والتصيير وتنزيل الفيديو.
 
 ![إطار نموذجي لرسوم شخصيات العصا المتحركة في OpenCreator](../images/examples/stick-figure-animation-frame.jpg)
 
 ## البدء السريع
 
-### المتطلبات الأساسية
+### تثبيت تطبيق Desktop
+
+نزّل المثبّت لنظام macOS Apple Silicon أو macOS Intel أو Windows x64 من [أحدث إصدار](https://github.com/krillinai/OpenCreator/releases/latest). لا يحتاج Desktop إلى Node.js أو pnpm، ويتضمن Codex CLI. تتطلب مهام النماذج الفعلية تسجيل دخول صالحًا إلى Codex.
+
+عند التشغيل لأول مرة، يُجهز Runtime المحلي ومشروع افتراضي. بعد الاتصال، أدخل طلبك لبدء مهمة. عند مواجهة مشكلة، راجع [دليل المستخدم](../opencreator-user-guide-and-troubleshooting.md).
+
+### تشغيل Web من الشفرة المصدرية
+
+للتطوير أو استخدام Web من الشفرة المصدرية، جهّز ما يلي:
 
 - Node.js 22 أو أحدث
 - pnpm 9.15.0، المثبّت عبر حقل `packageManager` في المستودع
@@ -285,8 +294,6 @@ node --version
 pnpm --version
 codex --version
 ```
-
-### تشغيل Web من الشفرة المصدرية
 
 ```bash
 git clone https://github.com/krillinai/OpenCreator.git
@@ -501,13 +508,7 @@ pnpm web:dev
 | `pnpm smoke:ci` | تشغيل اختبار smoke لـ Runtime باستخدام Codex محاكى |
 | `pnpm perf:check` | فحص خط الأداء الأساسي المسجل |
 
-قبل إرسال أي تغيير، شغّل على الأقل:
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
+قبل إرسال أي تغيير، اختر التحقق المناسب لأثره وفق [دليل المساهمة](../../CONTRIBUTING.md#what-reviewers-check). تغييرات التوثيق والنصوص والتنسيق تحتاج فحوصًا ذات صلة فقط؛ والسلوك المشترك أو Runtime يحتاج اختبارات موجهة وفحص الأنواع. شغّل الاختبارات أو البناء الكامل عند الحاجة فقط واذكر في طلب الدمج ما تحققته فعليًا.
 
 تتطلب التغييرات في Desktop أو Host Bridge أو وكيل Runtime أو مسارات العمل المشتركة للواجهة الأمامية أيضًا اختبارات اتساق Web/Desktop واختبارات شاملة للتطبيق المحزّم والتحقق من hash بناء Web. لا يكفي اجتياز اختبارات الوحدة في Web وحدها لإثبات جاهزية إصدار Desktop.
 
@@ -520,16 +521,26 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## الوثائق
 
-- [دليل المستخدم واستكشاف الأخطاء وإصلاحها](../opencreator-user-guide-and-troubleshooting.md)
-- [Runtime API v1](../runtime-api-for-ui-v1.md)
-- [تصميم Runtime الأصلي لـ Codex](../2026-07-03-codex-native-agent-runtime-design.md)
-- [دليل تشغيل إصدارات Desktop](../operations/opencreator-desktop-release-runbook.md)
-- [دليل إصدار Desktop لنظام Windows](../operations/opencreator-desktop-windows-release.md)
-- [إرشادات المكونات المرئية](../visual-component-guidelines.md)
+- **استخدام OpenCreator:** [البدء السريع](#البدء-السريع) · [دليل المستخدم واستكشاف الأخطاء وإصلاحها](../opencreator-user-guide-and-troubleshooting.md)
+- **التطوير والتوسعة:** [دليل المساهمة](../../CONTRIBUTING.md) · [المساهمة بمهارة Skill](../contributing/skills-contributing.md) · [المساهمة بقالب إنشاء](../contributing/templates-contributing.md) · [Runtime API v1](../runtime-api-for-ui-v1.md) · [إرشادات المكونات المرئية](../visual-component-guidelines.md)
+- **الصيانة والإصدار:** [تصميم Runtime الأصلي لـ Codex](../2026-07-03-codex-native-agent-runtime-design.md) · [دليل تشغيل إصدارات Desktop](../operations/opencreator-desktop-release-runbook.md) · [دليل إصدار Desktop لنظام Windows](../operations/opencreator-desktop-windows-release.md)
 
 ## قواعد الترجمة
 
 يمثل ملف `README.md` في الجذر المستند الإنجليزي الأساسي. توجد الترجمات المُصانة في `docs/<locale>/README.md`. لا تضف لغة إلى أداة التبديل إلا بعد ترجمة مستندها كاملًا ومزامنته مع بنية النسخة الإنجليزية.
+
+## الفريق
+
+يتولى كل عضو معايير مجاله ومراجعة المساهمات ودمجها ودعم المجتمع.
+
+<table border="1" cellpadding="12">
+  <tr>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/wulien.svg" width="64" height="64" alt="wulien avatar" /><br /><a href="https://github.com/wulien">wulien</a><br />الشفرة وإصلاح الأخطاء</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/dle-kb.svg" width="64" height="64" alt="DLe-kb avatar" /><br /><a href="https://github.com/DLe-kb">DLe-kb</a><br />قوالب الإنشاء</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/xiaheyuan.svg" width="64" height="64" alt="xiaheyuan avatar" /><br /><a href="https://github.com/xiaheyuan">xiaheyuan</a><br />التصميم والأصول</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/krillinai.svg" width="64" height="64" alt="krillinai avatar" /><br /><a href="https://github.com/krillinai">krillinai</a><br />Skills والوثائق</td>
+  </tr>
+</table>
 
 ## المساهمة
 

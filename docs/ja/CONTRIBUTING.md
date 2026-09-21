@@ -17,7 +17,9 @@ OpenCreator への貢献を検討していただきありがとうございま�
 | AI またはメディアサービスの接続 | **サービス連携** | 該当する Web または Daemon モジュール | エラーハンドリング、認証情報の安全性、テストを含む PR 1 件 |
 | ドキュメントや翻訳の改善 | ドキュメント | `README.md`、`docs/`、`docs/<locale>/README.md` | PR 1 件 |
 
-自分のアイデアがどの分類に該当するか不明な場合は、まず [Issue を作成](https://github.com/krillinai/OpenCreator/issues/new)してください。適切な場所を案内します。
+## 質問先とレビュー担当
+
+アイデアの相談や担当領域が不明な場合は [Issue](https://github.com/krillinai/OpenCreator/issues/new) を作成してください。PR 提出時にはコードとバグ修正、制作テンプレート、デザインと素材、Skills と文書に応じて[チーム](../../README.md#the-crew)の担当者に知らせてください。チームは貢献基準、レビュー、コミュニティの質問に対応します。マージはリポジトリの権限と必須チェックに従います。
 
 ---
 

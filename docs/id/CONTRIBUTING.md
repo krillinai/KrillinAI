@@ -17,7 +17,9 @@ Terima kasih telah mempertimbangkan untuk berkontribusi. OpenCreator adalah work
 | Menghubungkan layanan AI atau media | sebuah **integrasi layanan** | modul Web atau Daemon terkait | satu PR dengan penanganan error, keamanan kredensial, dan pengujian |
 | Meningkatkan dokumentasi atau terjemahan | dokumen | `README.md`, `docs/`, `docs/<locale>/README.md` | satu PR |
 
-Jika Anda tidak yakin ide Anda termasuk kategori mana, [buka issue terlebih dahulu](https://github.com/krillinai/OpenCreator/issues/new) dan kami akan mengarahkan Anda ke tempat yang tepat.
+## Tempat bertanya dan peninjau
+
+Gunakan [Issue](https://github.com/krillinai/OpenCreator/issues/new) untuk membahas ide atau menanyakan bidang yang sesuai. Saat mengirim PR, sebutkan anggota [Tim Inti](../../README.md#the-crew) yang terkait dengan kode dan bug, template kreasi, desain dan aset, atau Skills dan dokumentasi. Tim membantu standar kontribusi, peninjauan, dan pertanyaan komunitas; penggabungan mengikuti izin repositori dan pemeriksaan wajib.
 
 ---
 

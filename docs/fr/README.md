@@ -23,7 +23,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![Groupe QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Points forts](#points-forts) · [Outils de création](#outils-de-création) · [Modèles de création](#modèles-de-création) · [Skills](#skills) · [Conversation et espace de travail](#conversation-et-espace-de-travail-avancent-ensemble) · [Modèles pris en charge](#modèles-pris-en-charge) · [Exemples](#exemples) · [Démarrage rapide](#démarrage-rapide) · [Desktop](#desktop) · [Structure du système](#structure-du-système-opencreator) · [Développement](#développement) · [Documentation](#documentation) · [Contribuer](#contribuer) · [Contributeurs](#contributeurs) · [Historique des Stars](#historique-des-stars)
+[Points forts](#points-forts) · [Outils de création](#outils-de-création) · [Modèles de création](#modèles-de-création) · [Skills](#skills) · [Conversation et espace de travail](#conversation-et-espace-de-travail-avancent-ensemble) · [Modèles pris en charge](#modèles-pris-en-charge) · [Exemples](#exemples) · [Démarrage rapide](#démarrage-rapide) · [Desktop](#desktop) · [Structure du système](#structure-du-système-opencreator) · [Développement](#développement) · [Documentation](#documentation) · [L’équipe](#léquipe) · [Contribuer](#contribuer) · [Contributeurs](#contributeurs) · [Historique des Stars](#historique-des-stars)
 
 </div>
 
@@ -85,7 +85,10 @@ Ouvrez le Dashboard pour traduire ou télécharger des vidéos, générer des mi
 <tr><td valign="top">Téléchargement de vidéos</td><td valign="top">✅ Disponible</td><td>Analysez des liens publics compatibles de YouTube, Bilibili et d'autres services, consultez les options de qualité et de format disponibles, puis téléchargez la vidéo ou l'audio pour les flux de travail suivants</td></tr>
 <tr><td valign="top">Génération de miniatures</td><td valign="top">✅ Disponible</td><td>Combinez un sujet, un lien vidéo et une image de référence facultative pour générer et comparer plusieurs variantes de miniatures de contenu</td></tr>
 <tr><td valign="top">Génération d'images</td><td valign="top">✅ Disponible</td><td>Générez des images avec GPT Image à partir d'un prompt et d'une image de référence facultative, configurez le format et le nombre de résultats, puis prévisualisez et téléchargez chaque image</td></tr>
-<tr><td valign="top">Animation de bonshommes allumettes</td><td valign="top">Prochainement</td><td>Créez des personnages, des storyboards, des voix off et des animations dans un flux de travail guidé</td></tr>
+<tr><td valign="top">Rédaction d’articles</td><td valign="top">✅ Disponible</td><td>Transformez un sujet, des liens, des vidéos ou des documents en choix de sujets, plan et article modifiables ; ajoutez des images et exportez en Markdown, HTML ou PDF.</td></tr>
+<tr><td valign="top">Publications Xiaohongshu</td><td valign="top">✅ Disponible</td><td>Générez une publication à partir d’un sujet ou de sources en choisissant le public, le type et la longueur, puis copiez ou téléchargez le résultat.</td></tr>
+<tr><td valign="top">Script de vidéo courte</td><td valign="top">✅ Disponible</td><td>Créez un script découpé prêt au tournage à partir d’un sujet ou de sources, adapté au public, à la plateforme, à la durée et au ton ; modifiez-le ou exportez-le.</td></tr>
+<tr><td valign="top">Animation de bonshommes allumettes</td><td valign="top">✅ Disponible</td><td>Transformez du texte ou du contenu YouTube en narration, voix, images de storyboard aux personnages cohérents, sous-titres et animation téléchargeable.</td></tr>
 <tr><td valign="top">Clips automatiques</td><td valign="top">En développement</td><td>Analysez de longues vidéos, identifiez les temps forts et transformez les moments choisis en clips courts réutilisables</td></tr>
 <tr><td valign="top">Doublage intelligent</td><td valign="top">✅ Disponible</td><td>Transformez des scripts en voix off avec un choix de voix et des réglages de rythme et d'émotion</td></tr>
 <tr><td valign="top">Génération vidéo</td><td valign="top">✅ Disponible</td><td>Générez des vidéos avec Seedance à partir de prompts et d'images de référence, puis prévisualisez, régénérez ou téléchargez chaque version</td></tr>
@@ -257,21 +260,27 @@ Analysez un lien vidéo public, comparez les formats disponibles, puis télécha
 
 ![Sélection du format dans l'outil de téléchargement vidéo OpenCreator](../images/examples/video-downloader-formats-en.png)
 
-### Animation de bonshommes allumettes (prochainement)
+### Animation de bonshommes allumettes
 
-> Prochainement. Cette fonctionnalité n'est pas encore intégrée à la version actuelle.
-
-OpenCreator a développé cette collection de personnages originaux en collaboration avec l'artiste [Harbor Hsia](https://www.behance.net/xiaheyuan1), créateur de [Stickman sur Behance](https://www.behance.net/gallery/254715463/Stickman). Cette galerie de personnages prédéfinis est en préparation pour un futur flux de création d'histoires et d'animations aux identités cohérentes.
+OpenCreator a développé cette collection de personnages originaux avec l’artiste [Harbor Hsia](https://www.behance.net/xiaheyuan1), créateur de [Stickman sur Behance](https://www.behance.net/gallery/254715463/Stickman). Les personnages intégrés conservent une identité cohérente tout au long de la création.
 
 ![Personnages bonshommes allumettes d'OpenCreator développés avec des artistes](../images/examples/stick-figure-characters.webp)
 
-Le flux de travail prévu accompagnera une idée de personnage et d'histoire à travers la génération du storyboard, la révision des plans, la voix off, la musique et la production d'animations versionnées.
+Transformez du texte ou du contenu YouTube en animation grâce à la révision du scénario, la narration, le minutage, le storyboard, les sous-titres, le rendu et le téléchargement de la vidéo.
 
 ![Exemple d'image d'animation de bonshommes allumettes OpenCreator](../images/examples/stick-figure-animation-frame.jpg)
 
 ## Démarrage rapide
 
-### Prérequis
+### Installer l’application Desktop
+
+Téléchargez l’installateur macOS Apple Silicon, macOS Intel ou Windows x64 depuis la [dernière version](https://github.com/krillinai/OpenCreator/releases/latest). Desktop ne nécessite ni Node.js ni pnpm et inclut Codex CLI. Les tâches utilisant un modèle exigent une connexion Codex valide.
+
+Au premier lancement, le Runtime local démarre et un projet par défaut est préparé. Une fois connecté, saisissez une demande pour lancer une tâche. En cas de problème, consultez le [guide utilisateur](../opencreator-user-guide-and-troubleshooting.md).
+
+### Exécuter Web depuis le code source
+
+Pour développer ou utiliser Web depuis les sources, préparez :
 
 - Node.js 22 ou version ultérieure
 - pnpm 9.15.0, épinglé dans le champ `packageManager` du dépôt
@@ -285,8 +294,6 @@ node --version
 pnpm --version
 codex --version
 ```
-
-### Exécuter Web depuis le code source
 
 ```bash
 git clone https://github.com/krillinai/OpenCreator.git
@@ -501,13 +508,7 @@ Consultez le [guide de l'utilisateur et de dépannage](../opencreator-user-guide
 | `pnpm smoke:ci` | Exécuter le test de fumée du Runtime avec un faux Codex |
 | `pnpm perf:check` | Vérifier la référence de performance enregistrée |
 
-Avant de soumettre une modification, exécutez au minimum :
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
+Avant de soumettre une modification, choisissez les vérifications adaptées à son impact selon le [guide de contribution](../../CONTRIBUTING.md#what-reviewers-check). Les changements de documentation, de texte et de style demandent seulement des contrôles ciblés ; le comportement partagé et Runtime exigent des tests ciblés et une vérification de types. N’exécutez les tests ou builds complets que si nécessaire et indiquez les vérifications effectuées dans la PR.
 
 Les modifications apportées à Desktop, à Host Bridge, au proxy du Runtime ou aux flux frontend partagés nécessitent également des tests de cohérence Web/Desktop, des tests E2E de l'application empaquetée et une vérification du hash de la compilation Web. La réussite des seuls tests unitaires Web ne suffit pas à établir qu'une version Desktop est prête à être publiée.
 
@@ -520,16 +521,26 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## Documentation
 
-- [Guide de l'utilisateur et de dépannage](../opencreator-user-guide-and-troubleshooting.md)
-- [Runtime API v1](../runtime-api-for-ui-v1.md)
-- [Conception du Runtime natif Codex](../2026-07-03-codex-native-agent-runtime-design.md)
-- [Guide opérationnel des versions Desktop](../operations/opencreator-desktop-release-runbook.md)
-- [Guide des versions Desktop pour Windows](../operations/opencreator-desktop-windows-release.md)
-- [Directives relatives aux composants visuels](../visual-component-guidelines.md)
+- **Utiliser OpenCreator:** [Démarrage rapide](#démarrage-rapide) · [Guide de l'utilisateur et de dépannage](../opencreator-user-guide-and-troubleshooting.md)
+- **Développer et étendre:** [Guide de contribution](../../CONTRIBUTING.md) · [Contribuer à un Skill](../contributing/skills-contributing.md) · [Contribuer à un modèle de création](../contributing/templates-contributing.md) · [Runtime API v1](../runtime-api-for-ui-v1.md) · [Directives relatives aux composants visuels](../visual-component-guidelines.md)
+- **Maintenir et publier:** [Conception du Runtime natif Codex](../2026-07-03-codex-native-agent-runtime-design.md) · [Guide opérationnel des versions Desktop](../operations/opencreator-desktop-release-runbook.md) · [Guide des versions Desktop pour Windows](../operations/opencreator-desktop-windows-release.md)
 
 ## Convention de traduction
 
 Le fichier `README.md` situé à la racine est le document anglais de référence. Les traductions maintenues se trouvent dans `docs/<locale>/README.md`. N'ajoutez une langue au sélecteur qu'une fois l'intégralité du document traduite et synchronisée avec la structure anglaise.
+
+## L’équipe
+
+Chaque membre est responsable des règles, de la revue et de la fusion des contributions et du soutien à la communauté dans son domaine.
+
+<table border="1" cellpadding="12">
+  <tr>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/wulien.svg" width="64" height="64" alt="wulien avatar" /><br /><a href="https://github.com/wulien">wulien</a><br />Code et corrections de bugs</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/dle-kb.svg" width="64" height="64" alt="DLe-kb avatar" /><br /><a href="https://github.com/DLe-kb">DLe-kb</a><br />Modèles de création</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/xiaheyuan.svg" width="64" height="64" alt="xiaheyuan avatar" /><br /><a href="https://github.com/xiaheyuan">xiaheyuan</a><br />Design et ressources</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/krillinai.svg" width="64" height="64" alt="krillinai avatar" /><br /><a href="https://github.com/krillinai">krillinai</a><br />Skills et documentation</td>
+  </tr>
+</table>
 
 ## Contribuer
 
