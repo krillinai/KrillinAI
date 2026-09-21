@@ -539,7 +539,18 @@ The root `README.md` is the canonical English document. Maintained translations 
 
 ## Contributing
 
-Contributions are welcome across code, Skills, creation templates, design, third-party integrations, and docs. The full guide — including the contribution map, local setup, review criteria, and common rejection patterns — lives in [CONTRIBUTING.md](./CONTRIBUTING.md), with deep-dive guides for [Skills](./docs/contributing/skills-contributing.md) and [creation templates](./docs/contributing/templates-contributing.md).
+Contributions are welcome in these areas:
+
+| Type | What to contribute | Where it lives | Ship size |
+| --- | --- | --- | --- |
+| Code | Bug fixes, creator workflows, shared features | `apps/web/`, `apps/daemon/` | One focused PR with tests |
+| Skills | Reusable Agent workflows | [`skills/`](./skills/) | One folder with `SKILL.md` and optional references → [guide](./docs/contributing/skills-contributing.md) |
+| Creation templates | Reusable image, video, or cover presets | [`template/`](./template/) | One folder with `template.json` plus assets → [guide](./docs/contributing/templates-contributing.md) |
+| Illustration and design | Original illustrations, icons, or UI designs | An agreed asset location | One PR with previews, source files, and license |
+| Third-party service integrations | AI or media provider support | Relevant Web or Daemon modules | One PR with error handling, credential safety, and tests |
+| Documentation and translations | Docs improvements or new locales | `README.md`, `docs/`, `docs/<locale>/` | One PR |
+
+The full guide — including local setup, review criteria, and common rejection patterns — lives in [CONTRIBUTING.md](./CONTRIBUTING.md) (available in [10 languages](./docs/zh/CONTRIBUTING.md)).
 
 ## Contributors
 
