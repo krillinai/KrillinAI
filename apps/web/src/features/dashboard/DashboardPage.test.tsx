@@ -780,7 +780,7 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('heading', { name: 'Drop a video here' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Video link' })).toHaveAttribute(
       'placeholder',
-      'Paste a YouTube, Bilibili, or other video link'
+      'Paste a YouTube URL, youtu.be share link, or Bilibili URL'
     );
     expect(screen.getByText('No collaboration activity yet')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ask Agent to review settings' })).toBeInTheDocument();
@@ -1051,7 +1051,7 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('button', { name: '选择本地视频' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: '视频链接' })).toHaveAttribute(
       'placeholder',
-      '粘贴 YouTube、Bilibili 或其他视频链接'
+      '粘贴 YouTube 标准链接、youtu.be 分享链接或 Bilibili 链接'
     );
     fireEvent.change(screen.getByRole('textbox', { name: '视频链接' }), {
       target: { value: 'https://www.youtube.com/watch?v=auto-clips' }

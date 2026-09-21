@@ -417,6 +417,7 @@ async function installPlatformEnvironment(page: Page, platform: Platform): Promi
       configurable: true,
       value: {
         kind: 'desktop',
+        readAppVersion: async () => '3.2.2',
         readConnectionConfig: async () => ({ baseUrl: '/.opencreator/runtime' }),
         subscribeConnectionConfig: () => () => undefined,
         restartRuntime: async () => success,

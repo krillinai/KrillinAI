@@ -1892,6 +1892,7 @@ async function installDesktopBridge(
           titleBarHeight: 38,
           trafficLightInset: 76
         } } : {}),
+        readAppVersion: async () => '3.2.2',
         readConnectionConfig: async () => ({ baseUrl: '/.opencreator/runtime' }),
         subscribeConnectionConfig: () => () => undefined,
         restartRuntime: async () => success,

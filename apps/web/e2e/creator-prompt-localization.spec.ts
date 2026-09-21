@@ -17,6 +17,7 @@ test('模板提示词在 Browser/Desktop Bridge 下按语言显示并完整带�
           configurable: true,
           value: {
             kind: 'desktop',
+            readAppVersion: async () => '3.2.2',
             readConnectionConfig: async () => ({ baseUrl: '/.opencreator/runtime' }),
             subscribeConnectionConfig: () => () => undefined,
             restartRuntime: async () => success,
