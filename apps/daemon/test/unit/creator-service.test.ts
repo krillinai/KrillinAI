@@ -191,7 +191,7 @@ describe('creator service', () => {
       status: 'draft',
       state: {
         prompt: 'English product image',
-        provider: 'openai',
+        provider: 'codex-native',
         size: '1536x1024',
         quality: 'medium',
         candidateCount: 2
