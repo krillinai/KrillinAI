@@ -260,7 +260,7 @@ describe('Composer', () => {
     const stopButton = screen.getByRole('button', { name: '停止任务' });
     expect(stopButton).toBeDisabled();
     expect(stopButton).toHaveAttribute('title', '停止任务');
-    expect(stopButton.querySelector('.lucide-square')).toBeInTheDocument();
+    expect(stopButton.querySelector('.lucide-square')).toHaveAttribute('fill', 'currentColor');
     expect(screen.queryByRole('button', { name: '排队发送' })).not.toBeInTheDocument();
   });
 

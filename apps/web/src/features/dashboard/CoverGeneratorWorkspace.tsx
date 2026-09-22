@@ -9,7 +9,6 @@ import {
 } from '@opencreator/protocol';
 import {
   Check,
-  CircleStop,
   Download,
   ImagePlus,
   Images,
@@ -18,6 +17,7 @@ import {
   RotateCcw,
   Settings2,
   Sparkles,
+  Square,
   UploadCloud,
   X
 } from 'lucide-react';
@@ -1142,7 +1142,7 @@ export default function CoverGeneratorWorkspace(props: {
             ) : null}
             {currentStep === 2 && generating ? (
               <button className="video-translation-primary-action" data-intent="danger" type="button" disabled={taskControlPending !== undefined} onClick={() => void cancelTask()}>
-                <CircleStop size={16} />
+                <Square size={16} fill="currentColor" aria-hidden="true" />
                 {taskControlPending === 'canceling' ? l('正在终止...', 'Stopping...') : l('终止任务', 'Stop task')}
               </button>
             ) : null}

@@ -1,6 +1,6 @@
 import type { CreatorJob } from '@opencreator/protocol';
 import { useEffect } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import CreatorCollaborationPanel from './CreatorCollaborationPanel.js';
@@ -22,6 +22,30 @@ function PreflightHarness(props: { stageId: string }) {
     void session.runPreflight(props.stageId).catch(() => undefined);
   }, [props.stageId, session]);
   return null;
+}
+
+function TimelineUpdateHarness() {
+  const session = useCreatorSession();
+  return (
+    <button type="button" onClick={() => {
+      const nextRevision = session.job.revision + 1;
+      session.applyRemoteSnapshot({
+        ...session.job,
+        revision: nextRevision,
+        updatedAt: `2026-09-07T08:00:0${nextRevision}.000Z`,
+        activities: [...session.job.activities, {
+          id: `new_activity_${nextRevision}`,
+          jobId: session.job.id,
+          revision: nextRevision,
+          actor: 'user',
+          action: 'update-settings:draft',
+          summary: '更新创作设置',
+          details: { objectId: 'prompt' },
+          createdAt: `2026-09-07T08:00:0${nextRevision}.000Z`
+        }]
+      });
+    }}>Update timeline</button>
+  );
 }
 
 describe('Short video script panel', () => {
@@ -58,6 +82,41 @@ describe('Short video script panel', () => {
 });
 
 describe('CreatorCollaborationPanel', () => {
+  it('keeps entries in top-down order and follows new activity only while reading the latest entries', () => {
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={videoGenerationJob()}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <CreatorCollaborationPanel
+            adapter={videoGenerationPanelAdapter}
+            stepLabel="生成视频"
+            contextSummary="Veo"
+          />
+          <TimelineUpdateHarness />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+    const log = screen.getByRole('log', { name: '协作时间线' });
+    expect(log.firstElementChild).toHaveClass('creator-collaboration-activity');
+    expect(log.lastElementChild).toHaveClass('creator-collaboration-stage');
+    Object.defineProperties(log, {
+      clientHeight: { configurable: true, value: 100 },
+      scrollHeight: { configurable: true, value: 500 }
+    });
+
+    log.scrollTop = 0;
+    fireEvent.scroll(log);
+    fireEvent.click(screen.getByRole('button', { name: 'Update timeline' }));
+    expect(log.scrollTop).toBe(0);
+
+    log.scrollTop = 400;
+    fireEvent.scroll(log);
+    fireEvent.click(screen.getByRole('button', { name: 'Update timeline' }));
+    expect(log.scrollTop).toBe(500);
+  });
+
   it.each([
     {
       module: 'image-generation' as const,
@@ -643,7 +702,8 @@ describe('CreatorCollaborationPanel', () => {
     expect(screen.getByText('20%')).toBeInTheDocument();
     expect(screen.getByRole('progressbar', { name: '生成配音进度' }))
       .toHaveAttribute('aria-valuenow', '20');
-    expect(screen.getByRole('button', { name: '终止生成配音' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '终止生成配音' }).querySelector('.lucide-square'))
+      .toHaveAttribute('fill', 'currentColor');
     expect(container.querySelectorAll('.creator-collaboration-stage')).toHaveLength(1);
   });
 

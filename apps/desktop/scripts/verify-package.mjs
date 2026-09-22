@@ -40,6 +40,7 @@ import {
   findPythonRuntimeMarker,
   verifyStickmanBuildBinding
 } from './package-content-contract.mjs';
+import { verifyMacAppIconCatalog } from './mac-app-icon.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopDir = resolve(scriptDir, '..');
@@ -229,8 +230,18 @@ function assertBrandingContents() {
     throw new Error('Packaged Desktop bootstrap branding is missing OpenCreator');
   }
 
-  if (process.platform === 'darwin') {
+  if (targetPlatform === 'darwin') {
     assertExists(join(resourcesDir, 'icon.icns'));
+    const catalog = join(resourcesDir, 'Assets.car');
+    assertExists(catalog);
+    verifyMacAppIconCatalog(catalog);
+    const iconName = spawnSync('plutil', [
+      '-extract', 'CFBundleIconName', 'raw', '-o', '-',
+      join(packageRoot, 'Contents', 'Info.plist')
+    ], { encoding: 'utf8' });
+    if (iconName.status !== 0 || iconName.stdout.trim() !== 'OpenCreator') {
+      throw new Error('Packaged macOS app does not reference the icon appearance catalog.');
+    }
   }
 }
 

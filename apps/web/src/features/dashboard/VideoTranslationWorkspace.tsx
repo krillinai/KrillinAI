@@ -11,14 +11,14 @@ import {
   Captions,
   Check,
   ChevronDown,
-  CircleStop,
   FileVideo,
   History,
   Languages,
   Mic2,
   MonitorPlay,
   Play,
-  Sparkles
+  Sparkles,
+  Square
 } from 'lucide-react';
 import { TtsVoicePicker } from '../../components/tts/TtsVoicePicker.js';
 import { useLocalizedCopy, type LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
@@ -2519,7 +2519,7 @@ export default function VideoTranslationWorkspace(props: {
           disabled={taskControlPending !== undefined || cancelRequested}
           onClick={requestCancelTask}
         >
-          <CircleStop size={16} strokeWidth={1.9} aria-hidden="true" />
+          <Square size={16} fill="currentColor" aria-hidden="true" />
           {taskControlPending === 'canceling' || cancelRequested
             ? l('正在终止...', 'Stopping...')
             : l('终止任务', 'Stop task')}
@@ -3318,7 +3318,7 @@ export default function VideoTranslationWorkspace(props: {
             aria-labelledby="video-translation-cancel-title"
           >
             <header>
-              <span aria-hidden="true"><CircleStop size={18} strokeWidth={1.9} /></span>
+              <span aria-hidden="true"><Square size={18} fill="currentColor" /></span>
               <div>
                 <h2 id="video-translation-cancel-title">{l('终止翻译任务？', 'Stop translation task?')}</h2>
                 <p>
@@ -3340,7 +3340,7 @@ export default function VideoTranslationWorkspace(props: {
                 data-intent="danger"
                 onClick={() => void cancelTask()}
               >
-                <CircleStop size={15} strokeWidth={1.9} aria-hidden="true" />
+                <Square size={15} fill="currentColor" aria-hidden="true" />
                 {l('终止任务', 'Stop task')}
               </button>
             </footer>

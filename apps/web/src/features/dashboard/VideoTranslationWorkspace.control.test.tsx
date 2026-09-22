@@ -768,12 +768,16 @@ describe('VideoTranslationWorkspace task controls', () => {
     );
 
     const workspace = screen.getByRole('region', { name: '视频翻译操作区' });
-    expect(await within(workspace).findByRole('button', { name: '终止任务' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '终止字幕翻译' })).toBeInTheDocument();
+    const stopButton = await within(workspace).findByRole('button', { name: '终止任务' });
+    expect(stopButton.querySelector('.lucide-square')).toHaveAttribute('fill', 'currentColor');
+    expect(screen.getByRole('button', { name: '终止字幕翻译' }).querySelector('.lucide-square'))
+      .toHaveAttribute('fill', 'currentColor');
     expect(within(workspace).queryByRole('button', { name: '开始翻译' })).not.toBeInTheDocument();
 
     fireEvent.click(within(workspace).getByRole('button', { name: '终止任务' }));
     const dialog = screen.getByRole('dialog', { name: '终止翻译任务？' });
+    expect(within(dialog).getByRole('button', { name: '终止任务' }).querySelector('.lucide-square'))
+      .toHaveAttribute('fill', 'currentColor');
     expect(dialog).toHaveTextContent('当前正在执行“字幕翻译”，进度 4%');
     expect(dialog).toHaveTextContent('当前 4% 的阶段内进度不会保留');
     expect(within(dialog).getByRole('button', { name: '取消' })).toBeInTheDocument();
@@ -784,6 +788,8 @@ describe('VideoTranslationWorkspace task controls', () => {
     await waitFor(() => expect(resumeButton).toBeEnabled());
     expect(screen.getByRole('button', { name: '继续字幕翻译' })).toBeInTheDocument();
     expect(screen.getByText('已终止，可继续')).toBeInTheDocument();
+    expect(screen.getByText('已终止，可继续').closest('[data-status="canceled"]')?.querySelector('.lucide-square'))
+      .toHaveAttribute('fill', 'currentColor');
 
     fireEvent.click(resumeButton);
     await waitFor(() => expect(resumeJob).toHaveBeenCalledWith('job_control'));

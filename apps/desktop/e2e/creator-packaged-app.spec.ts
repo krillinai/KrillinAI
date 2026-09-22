@@ -37,6 +37,37 @@ const OVERSIZED_WAVE_PCM_BYTES = 10 * 1024 * 1024 + 4096;
 const OVERSIZED_WAVE_FILE_BYTES = OVERSIZED_WAVE_PCM_BYTES + 44;
 test.describe.configure({ mode: 'serial' });
 
+test('打包 App 的 YouTube 视频嵌入请求带有有效 HTTP 来源标识', async () => {
+  const fixture = await launchCreatorDesktop({ width: 1180, height: 850 });
+  try {
+    await waitForWorkspace(fixture.app.page);
+    const cdp = await fixture.app.page.context().newCDPSession(fixture.app.page);
+    await cdp.send('Network.enable');
+    const embedRequests = new Set<string>();
+    let referer = '';
+    cdp.on('Network.requestWillBeSent', event => {
+      if (event.request.url.startsWith('https://www.youtube-nocookie.com/embed/')) {
+        embedRequests.add(event.requestId);
+      }
+    });
+    cdp.on('Network.requestWillBeSentExtraInfo', event => {
+      if (embedRequests.has(event.requestId)) {
+        referer = String(event.headers.Referer ?? event.headers.referer ?? '');
+      }
+    });
+    await fixture.app.page.evaluate(() => {
+      const frame = document.createElement('iframe');
+      frame.title = 'YouTube embed verification';
+      frame.src = 'https://www.youtube-nocookie.com/embed/M7lc1UVf-VE';
+      document.body.append(frame);
+    });
+    await expect.poll(() => referer).toBe('https://github.com/krillinai/OpenCreator/');
+  } finally {
+    await closePackagedApp(fixture.app).catch(() => undefined);
+    rmSync(fixture.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
 test('工作台与滚动中的项目页保持相同内容边界', async () => {
   const fixture = await launchCreatorDesktop({ width: 1273, height: 985 });
   try {
@@ -352,6 +383,35 @@ test('打包 App 在最小窗口宽度下保持 Creator 对话输入区贴底', 
       }, created.body.job.id);
       await expect(fixture.app.page.getByRole('heading', { name: '火柴人动画' })).toBeVisible();
       await expect(fixture.app.page.getByRole('textbox', { name: '告诉 Agent 你的要求' })).toBeVisible();
+      const preflightLayout = await fixture.app.page.evaluate(() => {
+        const panel = document.querySelector('.creator-collaboration-panel')!;
+        const list = panel.querySelector('.creator-collaboration-messages')!;
+        const preflight = document.createElement('section');
+        preflight.className = 'creator-collaboration-preflight';
+        preflight.textContent = '启动前体检已通过，可以启动阶段。';
+        panel.insertBefore(preflight, list);
+        const gap = Math.round(list.getBoundingClientRect().top - preflight.getBoundingClientRect().bottom);
+        const entryOffset = Math.round(list.firstElementChild!.getBoundingClientRect().top - list.getBoundingClientRect().top);
+        preflight.remove();
+        const message = document.createElement('article');
+        message.className = 'creator-collaboration-message';
+        message.dataset.role = 'user';
+        const bubble = document.createElement('div');
+        bubble.className = 'creator-collaboration-bubble';
+        bubble.textContent = '测试消息';
+        message.append(bubble);
+        list.append(message);
+        const outerBackground = getComputedStyle(message).backgroundColor;
+        const outerPadding = getComputedStyle(message).padding;
+        const bubbleBorder = getComputedStyle(bubble).borderStyle;
+        message.remove();
+        return { gap, entryOffset, outerBackground, outerPadding, bubbleBorder };
+      });
+      expect(preflightLayout.gap).toBeLessThanOrEqual(1);
+      expect(preflightLayout.entryOffset).toBeLessThanOrEqual(24);
+      expect(preflightLayout.outerBackground).toBe('rgba(0, 0, 0, 0)');
+      expect(preflightLayout.outerPadding).toBe('0px');
+      expect(preflightLayout.bubbleBorder).toBe('solid');
       await fixture.app.page.locator('.stickman-step-scroll').evaluate(element => {
         element.scrollTop = element.scrollHeight;
       });

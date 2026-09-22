@@ -6,6 +6,7 @@ test('Agent 面板在 Browser/Desktop Bridge 下均不显示产物版本详情',
   const created = await runtime.api<{ job: { id: string } }>('POST', '/creator/jobs', {
     projectId: runtime.projectId, templateId: 'image-generation', state: { prompt: 'Agent 面板验收', currentStep: 1, furthestStep: 1 }
   });
+  const layouts = [];
   for (const platform of ['browser', 'desktop'] as const) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
     const page = await context.newPage();
@@ -15,8 +16,24 @@ test('Agent 面板在 Browser/Desktop Bridge 下均不显示产物版本详情',
       await page.goto(`${runtime.origin}/#/workbench?tool=image-generation&jobId=${created.job.id}`);
       await expect(page.getByText('当前任务', { exact: true })).toBeVisible();
       await expect(page.getByText('产物版本与来源', { exact: true })).toHaveCount(0);
+      const layout = await page.evaluate(() => {
+        const panel = document.querySelector('.creator-collaboration-panel')!;
+        const list = panel.querySelector('.creator-collaboration-messages')!;
+        const preflight = document.createElement('section');
+        preflight.className = 'creator-collaboration-preflight';
+        preflight.textContent = '启动前体检已通过，可以启动阶段。';
+        panel.insertBefore(preflight, list);
+        const gap = Math.round(list.getBoundingClientRect().top - preflight.getBoundingClientRect().bottom);
+        const entryOffset = Math.round(list.firstElementChild!.getBoundingClientRect().top - list.getBoundingClientRect().top);
+        preflight.remove();
+        return { gap, entryOffset };
+      });
+      expect(layout.gap).toBeLessThanOrEqual(1);
+      expect(layout.entryOffset).toBeLessThanOrEqual(24);
+      layouts.push(layout);
     } finally { await context.close(); }
   }
+  expect(layouts[1]).toEqual(layouts[0]);
 });
 
 test('本地字幕导入在 Browser/Desktop Bridge 下保持相同命令和界面', async ({ browser, runtime }, testInfo) => {

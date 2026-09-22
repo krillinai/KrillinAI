@@ -9,15 +9,15 @@ import type {
 import {
   CheckCircle2,
   CircleDot,
-  CircleStop,
   LoaderCircle,
   MessageSquareText,
   Play,
   ServerOff,
   Sparkles,
+  Square,
   XCircle
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import OpenCreatorMark from '../../components/brand/OpenCreatorMark.js';
 import { MarkdownRenderer } from '../../components/markdown/MarkdownRenderer.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
@@ -100,6 +100,7 @@ export default function CreatorCollaborationPanel(props: {
   const sendingRef = useRef(false);
   const permissionSessionRef = useRef<string | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
+  const followTimelineRef = useRef(true);
   const agentTurns = useMemo(() => session?.turns.filter(turn => (
     (turn.role === 'user' || turn.role === 'assistant')
     && (turn.content.trim().length > 0 || ['queued', 'running', 'waiting_approval'].includes(turn.status))
@@ -153,14 +154,11 @@ export default function CreatorCollaborationPanel(props: {
     if (sandbox === 'workspace-write') setPermission('approval');
   }, [session?.agentSession?.id, session?.agentSession?.sandbox]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const list = messageListRef.current;
-    if (list !== null) list.scrollTop = list.scrollHeight;
+    if (list !== null && followTimelineRef.current) list.scrollTop = list.scrollHeight;
   }, [
-    conversationMessages.at(-1)?.content,
-    conversationMessages.at(-1)?.status,
-    session?.job.updatedAt,
-    timelineItems.at(-1)?.id,
+    timelineItems,
     pendingApprovals.length,
     session?.agentBusy,
     showAgentWorking
@@ -217,7 +215,7 @@ export default function CreatorCollaborationPanel(props: {
             aria-label={l('停止 Agent 对话', 'Stop Agent conversation')}
             title={l('停止 Agent 对话', 'Stop Agent conversation')}
           >
-            <CircleStop size={15} strokeWidth={1.9} aria-hidden="true" />
+            <Square size={15} fill="currentColor" aria-hidden="true" />
           </button>
         ) : null}
       </header>
@@ -265,6 +263,10 @@ export default function CreatorCollaborationPanel(props: {
           <div
             ref={messageListRef}
             className="creator-collaboration-messages"
+            onScroll={event => {
+              const list = event.currentTarget;
+              followTimelineRef.current = list.scrollHeight - list.clientHeight - list.scrollTop <= 24;
+            }}
             role="log"
             aria-label={l('协作时间线', 'Collaboration timeline')}
             aria-live="polite"
@@ -467,7 +469,7 @@ function CollaborationStageView(props: {
               aria-label={l(`终止${label}`, `Stop ${label}`)}
               title={l('终止当前阶段', 'Stop current stage')}
             >
-              <CircleStop size={14} strokeWidth={1.9} aria-hidden="true" />
+              <Square size={14} fill="currentColor" aria-hidden="true" />
             </button>
           ) : props.onResume !== undefined ? (
             <button
@@ -802,7 +804,7 @@ function stageStatusIcon(stage: CreatorStageRun) {
     return <LoaderCircle className="creator-collaboration-spin" size={15} strokeWidth={1.8} />;
   }
   if (stage.status === 'canceled' || stage.status === 'interrupted') {
-    return <CircleStop size={14} strokeWidth={1.8} />;
+    return <Square size={14} fill="currentColor" />;
   }
   return <CheckCircle2 size={15} strokeWidth={1.8} />;
 }

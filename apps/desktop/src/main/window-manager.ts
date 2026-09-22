@@ -110,6 +110,15 @@ export class WindowManager {
     this.startupMetrics.windowCreatedAt ??= Date.now();
     this.window = window;
     if (settings.window?.maximized === true) window.maximize();
+    window.webContents.session.webRequest.onBeforeSendHeaders(
+      { urls: ['https://www.youtube-nocookie.com/embed/*'] },
+      (details, callback) => {
+        callback({ requestHeaders: details.webContentsId === window.webContents.id
+          && window.webContents.getURL().startsWith('opencreator-app://app/')
+          ? youtubeEmbedRequestHeaders(details)
+          : details.requestHeaders });
+      }
+    );
     window.webContents.setWindowOpenHandler(({ url }) => {
       if (isAllowedExternalUrl(url)) void shell.openExternal(url);
       return { action: 'deny' };
@@ -310,6 +319,19 @@ export class WindowManager {
     this.workspaceReady = undefined;
     pending.reject(error);
   }
+}
+
+export function youtubeEmbedRequestHeaders(details: {
+  url: string;
+  resourceType: string;
+  requestHeaders: Record<string, string>;
+}): Record<string, string> {
+  if (details.resourceType !== 'subFrame'
+    || !/^https:\/\/www\.youtube-nocookie\.com\/embed\/[^/?#]+(?:[?#]|$)/.test(details.url)) {
+    return details.requestHeaders;
+  }
+  // A custom-scheme document cannot supply the HTTP Referer required by YouTube embeds (error 153).
+  return { ...details.requestHeaders, Referer: 'https://github.com/krillinai/OpenCreator/' };
 }
 
 export function applyWindowAction(

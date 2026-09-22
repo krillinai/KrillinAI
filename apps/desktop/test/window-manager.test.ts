@@ -3,7 +3,8 @@ import {
   applyWindowAction,
   DebouncedWindowStateWriter,
   nativeWindowBackgroundColor,
-  nativeWindowChromeOptions
+  nativeWindowChromeOptions,
+  youtubeEmbedRequestHeaders
 } from '../src/main/window-manager.js';
 
 describe('Window state debounce', () => {
@@ -25,6 +26,23 @@ describe('Window state debounce', () => {
 });
 
 describe('Native window chrome', () => {
+  it('identifies only YouTube embed navigations from the desktop app', () => {
+    const requestHeaders = { Accept: 'text/html' };
+    expect(youtubeEmbedRequestHeaders({
+      url: 'https://www.youtube-nocookie.com/embed/M7lc1UVf-VE',
+      resourceType: 'subFrame',
+      requestHeaders
+    })).toEqual({ ...requestHeaders, Referer: 'https://github.com/krillinai/OpenCreator/' });
+    for (const [url, resourceType] of [
+      ['https://www.youtube-nocookie.com/embed/M7lc1UVf-VE', 'mainFrame'],
+      ['https://www.youtube-nocookie.com/youtubei/v1/player', 'xhr'],
+      ['https://example.com/embed/M7lc1UVf-VE', 'subFrame']
+    ]) {
+      expect(youtubeEmbedRequestHeaders({ url: url!, resourceType: resourceType!, requestHeaders }))
+        .toBe(requestHeaders);
+    }
+  });
+
   it('keeps close behavior and toggles native minimize and zoom actions', () => {
     const window = {
       close: vi.fn(),

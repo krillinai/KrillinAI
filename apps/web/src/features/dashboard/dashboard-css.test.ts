@@ -91,7 +91,8 @@ describe('dashboard CSS contracts', () => {
     expect(sharedPanel).toHaveLength(1);
     expect(sharedPanel[0]).toContain('height: 100%;');
     expect(sharedPanel[0]).toContain('min-height: 0;');
-    expect(sharedPanel[0]).toContain('grid-template-rows: auto auto minmax(0, 1fr) auto auto;');
+    expect(sharedPanel[0]).toContain('display: flex;');
+    expect(sharedPanel[0]).toContain('flex-direction: column;');
     const resizableLayout = cssBlocks('.creator-resizable-layout');
     expect(resizableLayout[0]).toContain('min-width: 680px;');
     expect(resizableLayout[0]).toContain('minmax(280px, 1fr);');
@@ -116,11 +117,42 @@ describe('dashboard CSS contracts', () => {
     expect(disabledFormat[0]).toContain('opacity: 0.45;');
   });
 
-  it('renders the subtitle preview in the selected vertical output ratio', () => {
+  it('keeps subtitle style previews at their output aspect ratio instead of stretching with the form', () => {
+    const layout = cssBlocks('.video-translation-subtitle-style-layout');
+    const preview = cssBlocks('.video-translation-subtitle-preview');
+    const player = cssBlocks('.video-translation-subtitle-preview > div');
     const verticalPreview = cssBlocks('.video-translation-subtitle-preview[data-ratio="9:16"] > div');
 
+    expect(layout[0]).toContain('align-items: start;');
+    expect(preview[0]).toContain('grid-template-rows: auto auto;');
+    expect(preview[0]).toContain('align-content: start;');
+    expect(player[0]).toContain('aspect-ratio: 16 / 9;');
     expect(verticalPreview).toHaveLength(1);
     expect(verticalPreview[0]).toContain('aspect-ratio: 9 / 16;');
+  });
+
+  it('fits subtitle previews to the available pane while keeping cues in one scrollable list', () => {
+    const layout = cssBlocks('.video-result-subtitle-preview-layout');
+    const pane = cssBlocks('.video-result-subtitle-pane');
+    const video = cssBlocks('.video-result-subtitle-video');
+    const list = cssBlocks('.video-result-subtitle-preview-layout .video-subtitle-editor');
+    const portrait = cssBlocks('.video-result-subtitle-video .video-result-player-frame[data-ratio="9:16"]');
+    const cue = cssBlocks('.video-result-subtitle-preview-layout .video-subtitle-cue');
+    const editor = cssBlocks('.video-result-subtitle-preview-layout .video-subtitle-editor textarea');
+
+    expect(layout[0]).toContain('grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);');
+    expect(pane[0]).toContain('grid-template-rows: auto minmax(0, 1fr);');
+    expect(pane[0]).toContain('container-name: video-result-subtitles;');
+    expect(video[0]).toContain('container-type: size;');
+    expect(video[0]).toContain('align-content: start;');
+    expect(list[0]).toContain('min-height: 0;');
+    expect(list[0]).toContain('overflow-y: auto;');
+    expect(list[0]).not.toContain('max-height:');
+    expect(portrait[0]).toContain('width: min(100%, calc((100cqh - 28px) * 0.5625));');
+    expect(portrait[1]).toContain('width: min(100%, 440px);');
+    expect(cue[0]).toContain('grid-template-columns: 100px minmax(0, 1fr);');
+    expect(editor[0]).toContain('field-sizing: content;');
+    expect(dashboardCss).toMatch(/@container video-result-subtitles \(max-width: 600px\) \{\s*\.video-result-subtitle-preview-layout/);
   });
 
   it('keeps video result controls separate from the Agent panel layout', () => {
