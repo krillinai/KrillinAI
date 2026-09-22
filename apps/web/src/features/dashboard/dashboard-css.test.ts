@@ -30,6 +30,43 @@ describe('dashboard CSS contracts', () => {
     }
   });
 
+  it('uses the available article brief height for long writing instructions', () => {
+    const scroll = cssBlocks('.wechat-article-scroll[data-step="1"]')[0];
+    const grid = cssBlocks('.wechat-brief-grid')[0];
+    const field = cssBlocks(
+      '.wechat-writing-brief-panel > .creator-tool-field:first-of-type'
+    )[0];
+    const textarea = cssBlocks(
+      '.wechat-writing-brief-panel > .creator-tool-field:first-of-type textarea'
+    )[0];
+
+    expect(scroll).toContain('grid-template-rows: minmax(0, 1fr);');
+    expect(scroll).toContain('overflow: hidden;');
+    expect(grid).toContain('height: 100%;');
+    expect(field).toContain('grid-template-rows: auto minmax(0, 1fr);');
+    expect(textarea).toContain('height: 100%;');
+    expect(textarea).toContain('min-height: 0;');
+  });
+
+  it('uses the available outline step height for long article outlines', () => {
+    const scroll = cssBlocks('.wechat-article-scroll[data-step="3"]')[0];
+    const panel = cssBlocks(
+      '.wechat-article-scroll[data-step="3"] > .wechat-outline-panel'
+    )[0];
+    const field = cssBlocks('.wechat-outline-panel > .creator-tool-field')[0];
+    const textarea = cssBlocks(
+      '.wechat-outline-panel .creator-tool-field > .wechat-outline-editor'
+    )[0];
+
+    expect(scroll).toContain('grid-template-rows: minmax(0, 1fr);');
+    expect(scroll).toContain('overflow: hidden;');
+    expect(panel).toContain('height: 100%;');
+    expect(panel).toContain('grid-template-rows: auto minmax(0, 1fr);');
+    expect(field).toContain('grid-template-rows: minmax(0, 1fr);');
+    expect(textarea).toContain('height: 100%;');
+    expect(textarea).toContain('min-height: 0;');
+  });
+
   it('separates Creator form groups and top-aligns fields beside taller previews', () => {
     const formRow = cssBlocks('.creator-tool-form-row');
     const characterPicker = cssBlocks('.stickman-character-picker');
@@ -55,10 +92,11 @@ describe('dashboard CSS contracts', () => {
     expect(sharedPanel[0]).toContain('height: 100%;');
     expect(sharedPanel[0]).toContain('min-height: 0;');
     expect(sharedPanel[0]).toContain('grid-template-rows: auto auto minmax(0, 1fr) auto auto;');
-    expect(workspaceLayout[0]).toContain('min-width: 680px;');
-    expect(workspaceLayout[0]).toContain('grid-template-columns: minmax(0, 3fr) minmax(280px, 1fr);');
-    expect(translationLayout[0]).toContain('min-width: 680px;');
-    expect(translationLayout[0]).toContain('minmax(280px, 1fr);');
+    const resizableLayout = cssBlocks('.creator-resizable-layout');
+    expect(resizableLayout[0]).toContain('min-width: 680px;');
+    expect(resizableLayout[0]).toContain('minmax(280px, 1fr);');
+    expect(workspaceLayout[0]).toContain('height: 100%;');
+    expect(translationLayout[0]).toContain('height: 100%;');
     expect(dashboardCss).not.toMatch(/\.creator-collaboration-panel\s*\{[^}]*height: auto;/);
   });
 

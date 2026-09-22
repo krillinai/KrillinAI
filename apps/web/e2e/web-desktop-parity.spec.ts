@@ -377,6 +377,127 @@ test('项目页滚动而工作台未滚动时内容边界仍一致', async ({ br
   }
 });
 
+test('文章写作长提示词在 Browser/Desktop 下填满可用编辑高度', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', '固定桌面内容视口');
+  const created = await runtime.api<{ job: { id: string } }>('POST', '/creator/jobs', {
+    projectId: runtime.projectId,
+    templateId: 'wechat-article',
+    creationKey: 'parity-wechat-writing-brief-height',
+    state: {
+      currentStep: 1,
+      furthestStep: 1,
+      writingPrompt: Array.from(
+        { length: 24 },
+        (_, index) => `第 ${index + 1} 条写作要求：覆盖目标读者、核心观点与事实依据。`
+      ).join('\n')
+    }
+  });
+  const results = [];
+
+  for (const platform of ['browser', 'desktop'] as const) {
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 900 },
+      deviceScaleFactor: 1,
+      reducedMotion: 'reduce'
+    });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page);
+    try {
+      await runtime.openApp(page);
+      await page.goto(
+        `${runtime.origin}/#/workbench?tool=wechat-article&jobId=${created.job.id}`
+      );
+      const textarea = page.getByRole('textbox', { name: '提示词' });
+      await expect(textarea).toBeVisible();
+      const measurements = await textarea.evaluate(element => {
+        const textareaBox = element.getBoundingClientRect();
+        const field = element.closest('.creator-tool-field')!;
+        const fieldBox = field.getBoundingClientRect();
+        const gridBox = element.closest('.wechat-brief-grid')!.getBoundingClientRect();
+        const scrollBox = element.closest('.wechat-article-scroll')!.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return {
+          textareaHeight: Math.round(textareaBox.height),
+          fieldBottomGap: Math.round(fieldBox.bottom - textareaBox.bottom),
+          gridHeight: Math.round(gridBox.height),
+          scrollHeight: Math.round(scrollBox.height),
+          resize: style.resize,
+          overflowY: style.overflowY
+        };
+      });
+      expect(measurements.textareaHeight).toBeGreaterThanOrEqual(300);
+      expect(measurements.fieldBottomGap).toBeLessThanOrEqual(1);
+      expect(measurements.scrollHeight - measurements.gridHeight).toBe(4);
+      expect(measurements.resize).toBe('none');
+      expect(measurements.overflowY).toBe('auto');
+      results.push(measurements);
+    } finally {
+      await context.close();
+    }
+  }
+
+  expect(results[1]).toEqual(results[0]);
+});
+
+test('文章写作长大纲填满确认大纲步骤的可用编辑高度', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', '固定桌面内容视口');
+  const created = await runtime.api<{ job: { id: string } }>('POST', '/creator/jobs', {
+    projectId: runtime.projectId,
+    templateId: 'wechat-article',
+    creationKey: 'wechat-outline-editor-height',
+    state: {
+      currentStep: 3,
+      furthestStep: 3,
+      outline: Array.from(
+        { length: 30 },
+        (_, index) => `## ${index + 1}. 大纲章节\n\n- 论点\n- 事实依据\n- 行动建议`
+      ).join('\n\n')
+    }
+  });
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
+    reducedMotion: 'reduce'
+  });
+  const page = await context.newPage();
+  try {
+    await runtime.openApp(page);
+    await page.goto(
+      `${runtime.origin}/#/workbench?tool=wechat-article&jobId=${created.job.id}`
+    );
+    const textarea = page.getByRole('textbox', { name: '文章大纲编辑器' });
+    await expect(textarea).toBeVisible();
+    const measurements = await textarea.evaluate(element => {
+      const textareaBox = element.getBoundingClientRect();
+      const fieldBox = element.closest('.creator-tool-field')!.getBoundingClientRect();
+      const panelBox = element.closest('.wechat-outline-panel')!.getBoundingClientRect();
+      const scrollBox = element.closest('.wechat-article-scroll')!.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        textareaHeight: Math.round(textareaBox.height),
+        fieldBottomGap: Math.round(fieldBox.bottom - textareaBox.bottom),
+        panelHeight: Math.round(panelBox.height),
+        scrollHeight: Math.round(scrollBox.height),
+        resize: style.resize,
+        overflowY: style.overflowY
+      };
+    });
+    expect(measurements.textareaHeight).toBeGreaterThanOrEqual(400);
+    expect(measurements.fieldBottomGap).toBeLessThanOrEqual(1);
+    expect(measurements.scrollHeight - measurements.panelHeight).toBe(4);
+    expect(measurements.resize).toBe('none');
+    expect(measurements.overflowY).toBe('auto');
+  } finally {
+    await context.close();
+  }
+});
+
 test('我的项目和产出中心分类在 Browser/Desktop 下保持单行', async ({
   browser,
   runtime
@@ -607,6 +728,8 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
     lightSelected: string | null;
     permission: string;
     language: string;
+    storagePaths: string[];
+    storagePickerCount: number;
     boxes: Record<string, { x: number; y: number; width: number; height: number }>;
     requests: string[];
   }> = [];
@@ -619,6 +742,10 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
       customAccentColor: '#3b82f6',
       defaultPermission: 'workspace-write'
     });
+    await runtime.api('PATCH', '/settings/storage', {
+      defaultProjectRoot: '/tmp/opencreator-parity/projects',
+      outputRoot: '/tmp/opencreator-parity/exports'
+    });
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       deviceScaleFactor: 1,
@@ -630,7 +757,8 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
     const requests: string[] = [];
     page.on('request', request => {
       const url = new URL(request.url());
-      if (!url.pathname.endsWith('/settings/ui')) return;
+      if (!url.pathname.endsWith('/settings/ui')
+        && !url.pathname.endsWith('/settings/storage')) return;
       requests.push(
         `${request.method()} ${url.pathname.replace('/.opencreator/runtime', '')}`
       );
@@ -646,11 +774,36 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
       const lightButton = settings.getByRole('button', { name: '浅色' });
       const permission = settings.getByRole('combobox', { name: '默认权限' });
       const language = settings.getByRole('combobox', { name: '显示语言' });
+      const storagePaths = settings.locator('.settings-directory-input');
       await expect(lightButton).toHaveAttribute('aria-pressed', 'true');
       await expect(permission).toHaveValue('workspace-write');
       await expect(language).toHaveValue('zh-CN');
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
       await expect(page.locator('html')).toHaveAttribute('data-accent', 'red');
+      const readStoragePaths = () => storagePaths.evaluateAll(inputs => (
+        inputs.map(input => (input as HTMLInputElement).value)
+      ));
+      await expect.poll(readStoragePaths).toEqual([
+        '/tmp/opencreator-parity/projects',
+        '/tmp/opencreator-parity/exports'
+      ]);
+      const outputPath = settings.getByRole('textbox', { name: '完成产物位置' });
+      await outputPath.fill('/tmp/opencreator-parity/saved-exports');
+      await settings.getByRole('button', { name: '保存完成产物位置' }).click();
+      await expect(outputPath).toHaveValue('/tmp/opencreator-parity/saved-exports');
+      await expect.poll(async () => (
+        await runtime.api<{ settings: { outputRoot: string } }>('GET', '/settings/storage')
+      ).settings.outputRoot).toBe('/tmp/opencreator-parity/saved-exports');
+      const storagePickerCount = await settings.getByRole('button', {
+        name: /选择(?:默认项目位置|完成产物位置)/
+      }).count();
+      expect(storagePickerCount).toBe(platform === 'desktop' ? 2 : 0);
+      if (platform === 'desktop') {
+        await settings.getByRole('button', { name: '选择完成产物位置' }).click();
+        await expect.poll(() => page.evaluate(() => (
+          window as unknown as { __directorySelectionPurpose?: string }
+        ).__directorySelectionPurpose)).toBe('output-root');
+      }
       await settings.getByRole('button', { name: '深色' }).click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
       await expect.poll(async () => (
@@ -683,6 +836,8 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
         lightSelected: await lightButton.getAttribute('aria-pressed'),
         permission: await permission.inputValue(),
         language: await language.inputValue(),
+        storagePaths: await readStoragePaths(),
+        storagePickerCount,
         boxes,
         requests
       });
@@ -692,14 +847,24 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
   }
 
   expect({
-    ...results[1],
+    ...results[1], storagePickerCount: 0, boxes: undefined,
     requests: normalizeParityRequests(results[1]!.requests)
   }).toEqual({
-    ...results[0],
+    ...results[0], boxes: undefined,
     requests: normalizeParityRequests(results[0]!.requests)
   });
+  for (const name of Object.keys(results[0]!.boxes)) {
+    const browserBox = results[0]!.boxes[name]!;
+    const desktopBox = results[1]!.boxes[name]!;
+    expect(desktopBox.width).toBe(browserBox.width);
+    expect(desktopBox.height).toBe(browserBox.height);
+    expect(Math.abs(desktopBox.x - browserBox.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(desktopBox.y - browserBox.y)).toBeLessThanOrEqual(1);
+  }
   expect(results[0]!.requests).toContain('GET /settings/ui');
   expect(results[0]!.requests).toContain('PATCH /settings/ui');
+  expect(results[0]!.requests).toContain('GET /settings/storage');
+  expect(results[0]!.requests).toContain('PATCH /settings/storage');
 });
 
 test('视频下载在 Browser/Desktop Bridge 下保持相同界面、请求和持久状态', async ({
@@ -1905,7 +2070,11 @@ async function installDesktopBridge(
         updateDesktopPreferences: async () => ({
           closeBehavior: 'hide' as const
         }),
-        selectProjectDirectory: async () => null,
+        selectProjectDirectory: async (purpose?: string) => {
+          (window as unknown as { __directorySelectionPurpose?: string })
+            .__directorySelectionPurpose = purpose;
+          return null;
+        },
         resolveDroppedFilePath: () => null,
         openExternal: async () => undefined,
         revealPath: async () => success,

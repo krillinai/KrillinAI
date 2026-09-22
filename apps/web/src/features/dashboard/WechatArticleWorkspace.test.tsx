@@ -119,6 +119,7 @@ describe('WechatArticleWorkspace', () => {
     expect(screen.getByRole('tab', { name: '配图' })).toBeInTheDocument();
     expect(container.querySelector('.wechat-result-preview')).not.toBeInTheDocument();
     expect(container.querySelector('.creator-collaboration-panel')).toBeInTheDocument();
+    expect(screen.getByRole('separator', { name: '调整操作区和对话区宽度' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '下载 Markdown 文档' }));
     await waitFor(() => expect(openArtifact).toHaveBeenCalledWith(job.id, 'article-document-1'));
@@ -562,6 +563,43 @@ describe('WechatArticleWorkspace', () => {
 
     expect(screen.queryByRole('dialog', { name: '文章模板库' })).not.toBeInTheDocument();
     expect(screen.getByText('故事叙事')).toBeInTheDocument();
+  });
+
+  it('allows editing the topic count and enforces its range when committed', async () => {
+    const job = inspirationJob();
+    job.state.currentStep = 1;
+    job.state.furthestStep = 1;
+    const applyAction = vi.fn(async (_jobId: string, request: CreatorActionRequest) => {
+      if (request.action === 'update-settings') Object.assign(job.state, readPatch(request));
+      job.revision += 1;
+      return actionResponse(job, request.action);
+    });
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={job}
+          service={{ applyAction, runAgentTurn: vi.fn() } as never}
+        >
+          <WechatArticleWorkspace onBack={vi.fn()} />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    const input = screen.getByRole('spinbutton', { name: '候选选题数量' });
+    expect(input).toHaveValue(5);
+
+    fireEvent.change(input, { target: { value: '' } });
+    expect(input).toHaveValue(null);
+
+    fireEvent.change(input, { target: { value: '2' } });
+    fireEvent.blur(input);
+    expect(input).toHaveValue(3);
+    await waitFor(() => expect(job.state.topicCount).toBe(3));
+
+    fireEvent.change(input, { target: { value: '7' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(input).toHaveValue(7);
+    await waitFor(() => expect(job.state.topicCount).toBe(7));
   });
 
   it('starts without a selected template and exposes the template list', () => {

@@ -2480,7 +2480,7 @@ export function AppController(props: AppControllerProps) {
     ) return;
     projectDirectoryDialogInFlightRef.current = true;
     try {
-      const path = await selectDirectory();
+      const path = await selectDirectory('project');
       if (path === null) return;
       await registerProjectDirectory(path);
     } catch (error) {
@@ -2685,7 +2685,7 @@ export function AppController(props: AppControllerProps) {
 
   async function replaceManagedProjectDirectory(projectId: string) {
     if (projectService === null || hostBridge.selectProjectDirectory === undefined) return;
-    const cwd = await hostBridge.selectProjectDirectory();
+    const cwd = await hostBridge.selectProjectDirectory('project');
     if (cwd === null) return;
     setProjectMutationBusy(true);
     try {
@@ -4637,6 +4637,8 @@ export function AppController(props: AppControllerProps) {
       onAccentColorChange={handleAccentColorChange}
       customAccentColor={customAccentColor}
       onCustomAccentColorChange={handleCustomAccentColorChange}
+      storageSettingsService={openCreatorSettingsService}
+      onSelectStorageDirectory={hostBridge.selectProjectDirectory}
       desktopCloseBehavior={desktopCloseBehavior}
       onDesktopCloseBehaviorChange={(behavior: 'hide' | 'quit') => {
         const update = hostBridge.updateDesktopPreferences;

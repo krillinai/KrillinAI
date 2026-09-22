@@ -1448,9 +1448,30 @@
 
 .creator-workspace-layout {
   height: 100%;
+}
+
+.creator-resizable-layout {
   min-width: 680px;
+  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(280px, 1fr);
+  grid-template-columns:
+    minmax(
+      0,
+      min(
+        var(--creator-workspace-pane-width, calc(75% - 3.5px)),
+        calc(100% - 287px)
+      )
+    )
+    7px
+    minmax(280px, 1fr);
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.creator-pane-resize {
+  z-index: 2;
+  height: 100%;
+  background: var(--conversation-bg);
 }
 
 .creator-workspace-main {
@@ -2841,6 +2862,20 @@
   scrollbar-gutter: auto;
 }
 
+.wechat-article-scroll[data-step="1"] {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
+.wechat-article-scroll[data-step="3"] {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
 .wechat-article-scroll[data-step="4"] > .wechat-article-panel {
   height: 100%;
   min-height: 0;
@@ -3182,6 +3217,8 @@
 }
 
 .wechat-brief-grid {
+  min-height: 0;
+  height: 100%;
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
   align-items: stretch;
@@ -3190,7 +3227,9 @@
 
 .wechat-writing-brief-panel,
 .wechat-template-selection-panel {
-  min-height: 480px;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
 }
 
 .wechat-writing-brief-panel {
@@ -3199,11 +3238,15 @@
 }
 
 .wechat-writing-brief-panel > .creator-tool-field:first-of-type {
+  min-height: 0;
   flex: 1 1 auto;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .wechat-writing-brief-panel > .creator-tool-field:first-of-type textarea {
-  min-height: 330px;
+  min-height: 0;
+  height: 100%;
+  resize: none;
 }
 
 .wechat-template-selection-panel {
@@ -4602,12 +4645,25 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 5%, transparent);
 }
 
-.wechat-outline-editor {
-  min-height: 430px;
+.wechat-outline-panel .creator-tool-field > .wechat-outline-editor {
+  min-height: 0;
+  height: 100%;
   resize: none;
   overflow-y: auto;
   font-family: var(--font-mono);
   line-height: 1.65;
+}
+
+.wechat-article-scroll[data-step="3"] > .wechat-outline-panel {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.wechat-outline-panel > .creator-tool-field {
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .wechat-article-edit-workbench {
@@ -5667,8 +5723,45 @@
 }
 
 @media (max-width: 900px) {
+  .wechat-article-scroll[data-step="1"] {
+    display: block;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
+  .wechat-article-scroll[data-step="3"] {
+    display: block;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
   .wechat-brief-grid {
+    height: auto;
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wechat-writing-brief-panel,
+  .wechat-template-selection-panel {
+    min-height: 480px;
+    height: auto;
+    overflow: visible;
+  }
+
+  .wechat-writing-brief-panel > .creator-tool-field:first-of-type textarea {
+    min-height: 330px;
+    height: auto;
+    resize: vertical;
+  }
+
+  .wechat-article-scroll[data-step="3"] > .wechat-outline-panel {
+    height: auto;
+    display: block;
+  }
+
+  .wechat-outline-panel .creator-tool-field > .wechat-outline-editor {
+    min-height: 430px;
+    height: auto;
+    resize: vertical;
   }
 
   .wechat-inspiration-workbench {
@@ -11580,21 +11673,7 @@
 
 .video-translation-collab-layout {
   height: 100%;
-  min-width: 680px;
-  min-height: 0;
-  display: grid;
-  grid-template-columns:
-    minmax(
-      0px,
-      min(
-        var(--video-translation-pane-width, calc(68% - 3.5px)),
-        calc(100% - 287px)
-      )
-    )
-    7px
-    minmax(280px, 1fr);
-  align-items: stretch;
-  overflow: hidden;
+  --creator-workspace-pane-width: min(calc(68% - 3.5px), calc(100% - 287px));
 }
 
 .video-translation-wizard-main {
@@ -11794,12 +11873,6 @@
   width: min(720px, 100%);
   margin-right: auto;
   margin-left: auto;
-}
-
-.video-translation-pane-resize {
-  z-index: 2;
-  height: 100%;
-  background: var(--conversation-bg);
 }
 
 .creator-collaboration {
@@ -12183,12 +12256,6 @@
 
 .video-translation-actions-stack {
   min-width: 0;
-}
-
-.video-translation-pane-resize {
-  z-index: 2;
-  height: 100%;
-  background: var(--conversation-bg);
 }
 
 .video-result-workspace {

@@ -373,10 +373,14 @@ function registerIpcHandlers(input: {
       ? ok()
       : failed(input.bootstrap.currentState.error?.message ?? 'Codex 检测失败');
   });
-  handle(desktopIpc.selectProjectDirectory, input.development, async () => {
+  handle(desktopIpc.selectProjectDirectory, input.development, async (_event, purpose: unknown) => {
+    const labels = purpose === 'default-project-root'
+      ? { title: '选择默认项目位置', buttonLabel: '使用此位置' }
+      : purpose === 'output-root'
+        ? { title: '选择完成产物位置', buttonLabel: '使用此位置' }
+        : { title: '添加项目文件夹', buttonLabel: '添加项目' };
     const result = await dialog.showOpenDialog({
-      title: '添加项目文件夹',
-      buttonLabel: '添加项目',
+      ...labels,
       properties: ['openDirectory']
     });
     if (result.canceled) return null;

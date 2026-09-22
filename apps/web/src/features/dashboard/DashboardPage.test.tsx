@@ -1566,16 +1566,16 @@ describe('DashboardPage', () => {
     fireEvent.mouseDown(separator, { button: 0, clientX: 800 });
     fireEvent.mouseMove(window, { clientX: 720 });
     fireEvent.mouseUp(window);
-    expect(layout).toHaveStyle({ '--video-translation-pane-width': '720px' });
+    expect(layout).toHaveStyle({ '--creator-workspace-pane-width': '720px' });
 
     fireEvent.keyDown(separator, { key: 'ArrowLeft' });
-    expect(layout).toHaveStyle({ '--video-translation-pane-width': '688px' });
+    expect(layout).toHaveStyle({ '--creator-workspace-pane-width': '688px' });
     fireEvent.keyDown(separator, { key: 'ArrowRight' });
-    expect(layout).toHaveStyle({ '--video-translation-pane-width': '720px' });
+    expect(layout).toHaveStyle({ '--creator-workspace-pane-width': '720px' });
     fireEvent.keyDown(separator, { key: 'ArrowLeft' });
-    expect(layout).toHaveStyle({ '--video-translation-pane-width': '688px' });
+    expect(layout).toHaveStyle({ '--creator-workspace-pane-width': '688px' });
     fireEvent.doubleClick(separator);
-    expect(layout.style.getPropertyValue('--video-translation-pane-width')).toBe('');
+    expect(layout.style.getPropertyValue('--creator-workspace-pane-width')).toBe('');
   });
 
   it('supports local video, dubbing and vertical output options', async () => {

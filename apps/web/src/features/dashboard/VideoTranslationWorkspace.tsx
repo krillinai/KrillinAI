@@ -3,9 +3,7 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent
+  type CSSProperties
 } from 'react';
 import {
   ArrowLeft,
@@ -22,12 +20,12 @@ import {
   Play,
   Sparkles
 } from 'lucide-react';
-import { beginPaneResize } from '../../components/layout/pane-resize-2026-07-29.js';
 import { TtsVoicePicker } from '../../components/tts/TtsVoicePicker.js';
 import { useLocalizedCopy, type LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import type { VideoMetadataService } from '../../services/video-metadata-service.js';
 import VideoTranslationAgentPanel from './VideoTranslationAgentPanel.js';
+import CreatorResizableLayout from './CreatorResizableLayout.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import VideoSourceInput from './VideoSourceInput.js';
 import VideoSourcePreview from './VideoSourcePreview.js';
@@ -160,11 +158,6 @@ const defaultSubtitleStyle: SubtitleStyleSettings = {
   subtitleShadowOffsetY: 1.5,
   subtitleShadowBlur: 0.5
 };
-const WORKSPACE_MIN_WIDTH = 390;
-const AGENT_MIN_WIDTH = 280;
-const WORKSPACE_RESIZE_HANDLE_WIDTH = 7;
-const WORKSPACE_RESIZE_KEY_STEP = 32;
-
 const sourceLanguages: LanguageOption[] = [
   { value: 'zh_cn', label: '简体中文' },
   { value: 'en', label: 'English' },
@@ -1391,7 +1384,6 @@ export default function VideoTranslationWorkspace(props: {
   const l = useLocalizedCopy();
   const creatorSession = useOptionalCreatorSession();
   const videoInputRef = useRef<HTMLInputElement>(null);
-  const collabLayoutRef = useRef<HTMLDivElement>(null);
   const agentFocusTimeoutRef = useRef<number>();
   const skipPersistRef = useRef(false);
   const restoredResultNavigationRef = useRef<{
@@ -1438,7 +1430,6 @@ export default function VideoTranslationWorkspace(props: {
   const [verticalTitle, setVerticalTitle] = useState('');
   const [verticalSubtitle, setVerticalSubtitle] = useState('');
   const [attemptedContinue, setAttemptedContinue] = useState(false);
-  const [workspacePaneWidth, setWorkspacePaneWidth] = useState<number>();
   const [resultTab, setResultTab] = useState<VideoTranslationResultTab>('video');
   const [resultVersion, setResultVersion] = useState(1);
   const [resultVersions, setResultVersions] = useState<TranslationResultVersion[]>([]);
@@ -2679,69 +2670,12 @@ export default function VideoTranslationWorkspace(props: {
     }
   }
 
-  function paneWidthBounds() {
-    const rect = collabLayoutRef.current?.getBoundingClientRect();
-    const fallbackWidth = 900;
-    return {
-      fallback: rect ? Math.round(rect.width * 0.68) : fallbackWidth,
-      max: rect
-        ? Math.max(
-            WORKSPACE_MIN_WIDTH,
-            rect.width - AGENT_MIN_WIDTH - WORKSPACE_RESIZE_HANDLE_WIDTH
-          )
-        : fallbackWidth
-    };
-  }
-
-  function updateWorkspacePaneWidth(clientX: number) {
-    const rect = collabLayoutRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setWorkspacePaneWidth(clampPaneWidth(
-      clientX - rect.left,
-      WORKSPACE_MIN_WIDTH,
-      Math.max(
-        WORKSPACE_MIN_WIDTH,
-        rect.width - AGENT_MIN_WIDTH - WORKSPACE_RESIZE_HANDLE_WIDTH
-      )
-    ));
-  }
-
-  function adjustWorkspacePaneWidth(delta: number) {
-    const bounds = paneWidthBounds();
-    setWorkspacePaneWidth(previous => clampPaneWidth(
-      (previous ?? bounds.fallback) + delta,
-      WORKSPACE_MIN_WIDTH,
-      bounds.max
-    ));
-  }
-
-  function handlePaneResizeMouseDown(event: ReactMouseEvent<HTMLDivElement>) {
-    beginPaneResize(event, updateWorkspacePaneWidth);
-  }
-
-  function handlePaneResizeKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      adjustWorkspacePaneWidth(-WORKSPACE_RESIZE_KEY_STEP);
-    } else if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      adjustWorkspacePaneWidth(WORKSPACE_RESIZE_KEY_STEP);
-    }
-  }
-
-  const collabLayoutStyle = workspacePaneWidth === undefined
-    ? undefined
-    : ({ '--video-translation-pane-width': `${workspacePaneWidth}px` } as CSSProperties);
-
   return (
     <main className="video-translation-page">
       <div className="video-translation-page-inner video-translation-wizard">
-        <div
+        <CreatorResizableLayout
           className="video-translation-collab-layout"
-          ref={collabLayoutRef}
-          style={collabLayoutStyle}
-        >
-          <div
+          workspace={<div
             className="video-translation-wizard-main"
             data-step={currentStep}
             data-phase={workspacePhase}
@@ -3322,26 +3256,8 @@ export default function VideoTranslationWorkspace(props: {
             {renderTaskControlButton()}
           </footer>
         ) : null}
-          </div>
-
-          <div
-            className="pane-resize-handle video-translation-pane-resize"
-            role="separator"
-            aria-label={l('调整操作区和对话区宽度', 'Resize workspace and conversation panels')}
-            aria-orientation="vertical"
-            aria-valuemin={WORKSPACE_MIN_WIDTH}
-            aria-valuenow={workspacePaneWidth}
-            aria-valuetext={workspacePaneWidth === undefined
-              ? l('默认宽度', 'Default width')
-              : l(`操作区宽度 ${workspacePaneWidth} 像素`, `Workspace width ${workspacePaneWidth} pixels`)}
-            tabIndex={0}
-            title={l('拖动调整宽度，双击恢复默认', 'Drag to resize. Double-click to restore the default.')}
-            onDoubleClick={() => setWorkspacePaneWidth(undefined)}
-            onMouseDown={handlePaneResizeMouseDown}
-            onKeyDown={handlePaneResizeKeyDown}
-          />
-
-          <VideoTranslationAgentPanel
+          </div>}
+          agentPanel={<VideoTranslationAgentPanel
             stepLabel={workspacePhase === 'result' ? l('项目结果', 'Project results') : localizeStep(steps[currentStep], l)}
             contextSummary={agentContextSummary}
             promptHint={props.promptHint}
@@ -3384,8 +3300,8 @@ export default function VideoTranslationWorkspace(props: {
             onCancelTask={requestCancelTask}
             onResumeTask={() => void resumeTask()}
             taskControlPending={taskControlPending}
-          />
-        </div>
+          />}
+        />
       </div>
       {cancelDialogOpen && activeStage !== undefined ? (
         <div
@@ -3449,10 +3365,6 @@ function sourceArtifactMatchesFile(artifact: CreatorArtifact, file: File): boole
   return readArtifactString(artifact, 'fileName') === file.name
     && readArtifactNumber(artifact, 'size') === file.size
     && readArtifactNumber(artifact, 'lastModified') === file.lastModified;
-}
-
-function clampPaneWidth(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
 }
 
 function creatorErrorMessage(cause: unknown, l: LocalizeCopy): string {

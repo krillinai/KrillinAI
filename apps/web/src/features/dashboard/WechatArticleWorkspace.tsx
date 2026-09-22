@@ -172,6 +172,7 @@ export default function WechatArticleWorkspace(props: {
   const [urlInput, setUrlInput] = useState('');
   const [writingPrompt, setWritingPrompt] = useState(() => readString(session?.state.writingPrompt));
   const [topicCount, setTopicCount] = useState(() => readTopicCount(session?.state.topicCount));
+  const [topicCountDraft, setTopicCountDraft] = useState(() => String(readTopicCount(session?.state.topicCount)));
   const [topics, setTopics] = useState<WechatArticleTopic[]>(() => readTopics(session?.state.topics));
   const [selectedTopicId, setSelectedTopicId] = useState(() => readString(session?.state.selectedTopicId));
   const [outline, setOutline] = useState(() => readString(session?.state.outline));
@@ -207,6 +208,16 @@ export default function WechatArticleWorkspace(props: {
   const [toast, setToast] = useState<ArticleToast | null>(null);
   const [dismissedErrorKey, setDismissedErrorKey] = useState('');
   const [taskControlPending, setTaskControlPending] = useState<'canceling' | 'resuming'>();
+
+  function commitTopicCount() {
+    const parsed = Number(topicCountDraft);
+    const value = topicCountDraft.trim() && Number.isFinite(parsed)
+      ? Math.max(3, Math.min(10, Math.trunc(parsed)))
+      : topicCount;
+    setTopicCount(value);
+    setTopicCountDraft(String(value));
+    session?.updateDraft({ topicCount: value });
+  }
 
   const selectedDocumentIds = useMemo(
     () => readStringArray(session?.state.sourceDocumentArtifactIds),
@@ -1197,7 +1208,7 @@ export default function WechatArticleWorkspace(props: {
               <section className="creator-tool-panel wechat-writing-brief-panel">
                 <div className="creator-tool-panel-heading"><div><h2>{l('写作要求', 'Writing brief')}</h2><p>{l('说明主题、目标读者、篇幅、语气和必须覆盖的观点', 'Describe the topic, audience, length, tone, and required points.')}</p></div></div>
                 <label className="creator-tool-field"><span>{l('提示词', 'Instructions')}</span><textarea rows={15} value={writingPrompt} onChange={event => { setWritingPrompt(event.target.value); session?.updateDraft({ writingPrompt: event.target.value }); }} placeholder={l('例如：面向 AI 产品经理，写一篇 2000 字左右的深度分析，重点讨论实际落地中的三个误区。', 'For example: Write a 2,000-word analysis for AI product managers, focusing on three common implementation mistakes.')} /></label>
-                <label className="creator-tool-field wechat-topic-count"><span>{l('候选选题数量', 'Topic options')}</span><input type="number" min={3} max={10} value={topicCount} onChange={event => { const value = Math.max(3, Math.min(10, Number(event.target.value) || 5)); setTopicCount(value); session?.updateDraft({ topicCount: value }); }} /></label>
+                <label className="creator-tool-field wechat-topic-count"><span>{l('候选选题数量', 'Topic options')}</span><input type="number" min={3} max={10} value={topicCountDraft} onChange={event => setTopicCountDraft(event.target.value)} onBlur={commitTopicCount} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); commitTopicCount(); } }} /></label>
               </section>
               <section className="creator-tool-panel wechat-template-selection-panel">
                 <div className="creator-tool-panel-heading"><div><h2>{l('写作模板', 'Writing template')}</h2><p>{l('模板负责文章结构，写作要求仍以左侧提示词为准', 'The template guides structure while the writing brief remains primary.')}</p></div></div>

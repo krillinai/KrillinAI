@@ -3,6 +3,7 @@ import type { CodexAvailabilityProbe, CodexRuntimeComponentReadiness } from '@op
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -36,6 +37,7 @@ import {
 import { bootstrapCreatorAgentRuntime } from '../creator/agent/bootstrap.js';
 import { createCodexCreatorAdapter } from '../creator/agent/codex-adapter.js';
 import { createCreatorStageRunner } from '../creator/stage-runner.js';
+import { publishCreatorArtifacts } from '../creator/artifact-publisher.js';
 import { createCreatorStageScheduler } from '../creator/stage-scheduler.js';
 import { createCreatorCommandDispatcher } from '../creator/command-dispatcher.js';
 import type { CreatorExecutor } from '../creator/executor.js';
@@ -318,6 +320,14 @@ export async function buildServer(input: BuildServerInput) {
   const configFile = resolve(input.configFile ?? join(appHome, 'config.toml'));
   const runtimeDir = resolve(input.runtimeDir ?? join(dataDir, 'creator-runtime'));
   const creatorDir = resolve(input.creatorDir ?? join(dataDir, 'creator'));
+  const defaultManagedProjectRoot = join(
+    input.defaultProjectRoot ?? join(homedir(), 'Documents'),
+    'OpenCreator'
+  );
+  const openCreatorSettingsStore = createOpenCreatorSettingsStore(configFile, {
+    defaultProjectRoot: defaultManagedProjectRoot,
+    outputRoot: join(defaultManagedProjectRoot, 'Exports')
+  });
   const codexBin = input.codexBin ?? 'codex';
   const defaultCwd = input.defaultCwd ?? process.cwd();
   const resolvedCodexHome =
@@ -344,9 +354,10 @@ export async function buildServer(input: BuildServerInput) {
   const scheduleRepository = new ScheduleRepository(db);
   const projectManager = createProjectManager({
     db,
-    managedProjectRoot: input.defaultProjectRoot === undefined
-      ? undefined
-      : join(input.defaultProjectRoot, 'OpenCreator')
+    managedProjectRoot: defaultManagedProjectRoot,
+    resolveManagedProjectRoot: () => (
+      openCreatorSettingsStore.readStorage().settings.defaultProjectRoot
+    )
   });
   const threadManager = createThreadManager({ db, dataDir, projectManager });
   const codexControlClient = createCodexAppServerClient({
@@ -417,7 +428,6 @@ export async function buildServer(input: BuildServerInput) {
     }
   });
   const memoryService = createMemoryService({ db });
-  const openCreatorSettingsStore = createOpenCreatorSettingsStore(configFile);
   const storedCreatorServicesConfigStore =
     input.creatorServicesConfigStore ?? (
       input.credentialsFile === undefined
@@ -879,6 +889,19 @@ export async function buildServer(input: BuildServerInput) {
           }
         },
         onStageSucceeded(stage) {
+          const completedJob = creatorService.getJob(stage.jobId);
+          if (completedJob !== undefined) {
+            const project = projectManager.getProject(completedJob.projectId);
+            if (project !== undefined) {
+              void publishCreatorArtifacts({
+                job: completedJob,
+                project,
+                outputRoot: openCreatorSettingsStore.readStorage().settings.outputRoot
+              }).catch(error => {
+                console.warn(`Creator artifact publication failed: ${formatError(error)}`);
+              });
+            }
+          }
           void coverWorkflow?.handleStageChanged(stage).catch(error => {
             console.warn(`Cover workflow continuation failed: ${formatError(error)}`);
           });
