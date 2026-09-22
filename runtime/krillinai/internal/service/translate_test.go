@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// TestTranslatorSplitOriginLongSentenceToleratesLLMNoise 覆盖 Translator 上与
-// Service 同形的解析点（translate.go），确保 issue #291 的两类响应在这里同样被容忍。
+// TestTranslatorSplitOriginLongSentenceToleratesLLMNoise Translator 上与 Service 同形的
+// 解析点（translate.go）同样容忍这两类带噪声的响应。
 func TestTranslatorSplitOriginLongSentenceToleratesLLMNoise(t *testing.T) {
 	log.InitLogger()
 	tests := []struct {
@@ -48,8 +48,8 @@ func TestTranslatorSplitOriginLongSentenceToleratesLLMNoise(t *testing.T) {
 	}
 }
 
-// TestBatchTranslateTextsToleratesConversationalPrefix 覆盖批量翻译的解析点，
-// 该路径在解析失败时会丢掉整批译文。
+// TestBatchTranslateTextsToleratesConversationalPrefix 批量翻译的解析点在带对话式前缀的
+// 响应上仍然拿到整批译文。
 func TestBatchTranslateTextsToleratesConversationalPrefix(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{
@@ -74,9 +74,8 @@ func TestBatchTranslateTextsToleratesConversationalPrefix(t *testing.T) {
 	}
 }
 
-// TestTranslatorSplitOriginLongSentenceRejectsDecoyObject 覆盖 Translator 上同形的解析点：
-// 说明文字里的示例对象在按字段挑选候选之前会被当成回答，
-// 循环 break 后返回空切片且 err 为 nil，整句拆分被静默跳过。
+// TestTranslatorSplitOriginLongSentenceRejectsDecoyObject Translator 上同形的解析点也跳过
+// 说明文字里的示例对象，拿到真正的短句列表。
 func TestTranslatorSplitOriginLongSentenceRejectsDecoyObject(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{
@@ -100,9 +99,8 @@ func TestTranslatorSplitOriginLongSentenceRejectsDecoyObject(t *testing.T) {
 	}
 }
 
-// TestBatchTranslateTextsRejectsDecoyObject 覆盖批量翻译的解析点：
-// 示例对象被当作回答时 translations 为空，数量校验失败，
-// 该请求会白白重试三次并最终丢掉整批译文。
+// TestBatchTranslateTextsRejectsDecoyObject 批量翻译的解析点跳过输出格式示例对象，
+// 拿到整批译文。
 func TestBatchTranslateTextsRejectsDecoyObject(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{

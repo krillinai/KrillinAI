@@ -436,9 +436,8 @@ func TestSplitTranslateItemReportsLongSentenceProgress(t *testing.T) {
 	}
 }
 
-// TestSplitOriginLongSentenceToleratesLLMNoise 覆盖 issue #291 的两类真实响应：
+// TestSplitOriginLongSentenceToleratesLLMNoise 覆盖两类带噪声的响应：
 // 结束符前的尾随逗号，以及 JSON 之前的中文对话式说明。
-// 两者在修复前都会让 json.Unmarshal 失败，三次重试耗尽后返回空结果。
 func TestSplitOriginLongSentenceToleratesLLMNoise(t *testing.T) {
 	log.InitLogger()
 	tests := []struct {
@@ -478,8 +477,7 @@ func TestSplitOriginLongSentenceToleratesLLMNoise(t *testing.T) {
 	}
 }
 
-// TestSplitLongSentenceToleratesConversationalPrefix 覆盖 issue #291 日志中
-// splitLongSentence 的失败响应：LLM 在对齐结果前输出中文说明。
+// TestSplitLongSentenceToleratesConversationalPrefix LLM 在对齐结果前输出中文说明时仍能拿到对齐结果。
 func TestSplitLongSentenceToleratesConversationalPrefix(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{
@@ -502,10 +500,8 @@ func TestSplitLongSentenceToleratesConversationalPrefix(t *testing.T) {
 	}
 }
 
-// TestSplitLongSentenceRejectsDecoyObject 覆盖说明文字里带示例 JSON 的响应：
-// 真正的对齐结果前面出现一个合法但无关的对象。按字段挑选候选之前，
-// 这个示例会被当成回答解析出来，splitLongSentence 于是返回“成功但为空”的分割结果，
-// 既不报错也不重试，长句被静默丢弃。
+// TestSplitLongSentenceRejectsDecoyObject 真正的对齐结果前面出现一个合法但无关的示例对象时，
+// 长句仍照应拆分，而不是拿到一个空的分割结果。
 func TestSplitLongSentenceRejectsDecoyObject(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{
@@ -528,9 +524,8 @@ func TestSplitLongSentenceRejectsDecoyObject(t *testing.T) {
 	}
 }
 
-// TestSplitOriginLongSentenceRejectsDecoyObject 覆盖同一类响应在重试型解析点上的表现：
-// 示例对象被解析成功但不含 short_sentences，循环随即 break，
-// 三次重试一次都不会发生，函数返回空切片且 err 为 nil。
+// TestSplitOriginLongSentenceRejectsDecoyObject 同一类响应在重试型解析点上也应拿到
+// 真正的短句列表，而不是空切片。
 func TestSplitOriginLongSentenceRejectsDecoyObject(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{
@@ -554,8 +549,7 @@ func TestSplitOriginLongSentenceRejectsDecoyObject(t *testing.T) {
 	}
 }
 
-// TestSplitLongSentenceStillFailsOnGarbage (control) 完全不含目标字段的响应仍然是解析错误。
-// 该行为在修复前后一致，用于证明按字段挑选候选没有把坏响应变成“成功但为空”。
+// TestSplitLongSentenceStillFailsOnGarbage 完全不含目标字段的响应仍然是解析错误。
 func TestSplitLongSentenceStillFailsOnGarbage(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{"抱歉，我无法完成这个请求"}}
