@@ -128,7 +128,7 @@ export const creatorServicesConfigSchema = z.object({
     openai: openAiCompatibleSchema,
     fasterWhisper: z.object({ model: z.enum(['tiny', 'medium', 'large-v2']) }).strict(),
     whisperKit: z.object({ model: z.literal('large-v2') }).strict(),
-    whisperCpp: z.object({ model: z.enum(['tiny', 'medium', 'large-v2']) }).strict(),
+    whisperCpp: z.object({ model: z.enum(['tiny', 'medium', 'large-v2', 'large-v3-turbo']) }).strict(),
     aliyun: aliyunSchema,
     volcengine: volcengineAsrSchema.default(creatorServicesDefaults.transcription.volcengine)
   }).strict(),
