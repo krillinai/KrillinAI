@@ -63,11 +63,12 @@ const llmConfigSchema = openAiCompatibleSchema.extend({
   source: value.source ?? inferLegacyTextModelSource(value)
 }));
 const imageConfigSchema = z.object({
-  provider: z.enum(['openai', 'jimeng', 'kling', 'gemini']),
+  provider: z.enum(['openai', 'jimeng', 'kling', 'gemini', 'codex-native']),
   openai: openAiCompatibleSchema,
   jimeng: openAiCompatibleSchema,
   kling: klingAiSchema,
-  gemini: openAiCompatibleSchema
+  gemini: openAiCompatibleSchema,
+  codexNative: z.object({}).strict().default({})
 }).strict();
 const legacyImageConfigSchema = z.object({
   provider: z.literal('openai-compatible'),

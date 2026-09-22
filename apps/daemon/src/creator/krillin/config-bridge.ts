@@ -1,13 +1,17 @@
 import { stringify } from '@iarna/toml';
 import type { CreatorServicesConfig } from '@opencreator/protocol';
 
-export function createKrillinConfigToml(config: CreatorServicesConfig): string {
+export function createKrillinConfigToml(
+  config: CreatorServicesConfig,
+  llmOverride?: { baseUrl: string; apiKey: string; model: string }
+): string {
+  const llm = llmOverride ?? config.llm;
   const document = compact({
     app: { proxy: config.proxy },
     llm: {
-      base_url: config.llm.baseUrl,
-      api_key: config.llm.apiKey,
-      model: config.llm.model,
+      base_url: llm.baseUrl,
+      api_key: llm.apiKey,
+      model: llm.model,
       json: config.llm.jsonMode
     },
     transcribe: {

@@ -82,6 +82,7 @@ type RunKrillinCliInput = {
   source?: string;
   options: Record<string, unknown>;
   ytDlpRuntime?: YtDlpRuntime;
+  llmOverride?: { baseUrl: string; apiKey: string; model: string };
 };
 
 export async function runKrillinCli(input: RunKrillinCliInput): Promise<KrillinResultArtifact[]> {
@@ -112,7 +113,7 @@ export async function runKrillinCli(input: RunKrillinCliInput): Promise<KrillinR
   const cliConfig = stageConfig(input.config, krillinCliStageId(input.stage.stageRun.stageId), input.options);
   await writeFile(
     join(configDir, 'config.toml'),
-    createKrillinConfigToml(cliConfig),
+    createKrillinConfigToml(cliConfig, input.llmOverride),
     { mode: 0o600 }
   );
   await writeFile(join(dependencyBin, '.yt-dlp-last-check'), new Date().toISOString(), { mode: 0o600 });
