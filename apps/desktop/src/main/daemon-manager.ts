@@ -29,6 +29,8 @@ export type DaemonStartInput = {
   appHome: string;
   codexBin: string;
   codexHome: string;
+  codexVersion: string;
+  codexCommit: string | null;
   dataDir: string;
   creatorRuntimeRoot?: string;
   stickmanRuntimeRoot?: string;
@@ -92,6 +94,7 @@ export class DaemonManager extends EventEmitter<DaemonManagerEvents> {
 
   private startInternal(input: DaemonStartInput): Promise<DaemonConnection> {
     return new Promise((resolve, reject) => {
+      const startedAt = Date.now();
       let settled = false;
       let stdoutState: DaemonOutputState = {
         buffer: '',
@@ -127,6 +130,10 @@ export class DaemonManager extends EventEmitter<DaemonManagerEvents> {
         clearTimeout(timeout);
         this.connection = connection;
         this.emit('connection', connection);
+        this.logger.info('Daemon Utility Process ready', {
+          durationMs: Date.now() - startedAt,
+          pid: child.pid
+        });
         resolve(connection);
       };
       const handleBootstrapEvent = (event: DaemonBootstrapEvent) => {
@@ -304,6 +311,10 @@ export function buildDaemonEnvironment(
     OPENCREATOR_HOME: input.appHome,
     OPENCREATOR_MANAGED_PARENT_PID: String(process.pid),
     OPENCREATOR_CODEX_BIN: input.codexBin,
+    OPENCREATOR_CODEX_VERSION: input.codexVersion,
+    ...(input.codexCommit === null
+      ? {}
+      : { OPENCREATOR_CODEX_COMMIT: input.codexCommit }),
     CODEX_HOME: input.codexHome,
     OPENCREATOR_DATA_DIR: input.dataDir,
     ...(input.creatorRuntimeRoot === undefined

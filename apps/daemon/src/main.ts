@@ -13,6 +13,7 @@ import {
   collectCodexCapabilityMatrixAsync,
   collectStartupCapabilityMatrixAsync,
   probeCodexVersionAsync,
+  resolveBundledCodexStartupSnapshot,
   withRuntimeSkillCapabilities,
   type RuntimeCapabilityMatrix
 } from './codex/capabilities.js';
@@ -23,7 +24,10 @@ import {
   probeCodex
 } from './codex/probe.js';
 import { createRuntimeToken } from './security/token.js';
-import { installGracefulShutdown } from './shutdown.js';
+import {
+  installGracefulShutdown,
+  installParentPortShutdown
+} from './shutdown.js';
 import {
   createProductionServerInput,
   parseRuntimeChannel,
@@ -101,10 +105,20 @@ async function main(): Promise<void> {
     }
   });
 
-  const versionProbe = await probeCodexVersionAsync({
-    codexBin,
-    timeoutMs: 3_000
+  const bundledStartup = resolveBundledCodexStartupSnapshot({
+    mode: process.env.OPENCREATOR_CODEX_RUNTIME_MODE,
+    version: process.env.OPENCREATOR_CODEX_VERSION,
+    commit: process.env.OPENCREATOR_CODEX_COMMIT
   });
+  const versionProbe = bundledStartup === undefined
+    ? await probeCodexVersionAsync({
+        codexBin,
+        timeoutMs: 3_000
+      })
+    : {
+        ready: true,
+        version: bundledStartup.version
+      };
   if (!versionProbe.ready) {
     emitBootstrapError({
       code: 'CODEX_VERSION_CHECK_FAILED',
@@ -129,11 +143,16 @@ async function main(): Promise<void> {
       };
 
   emitBootstrap('starting_runtime');
-  const capabilityResolution = await resolveCapabilities(
-    codexBin,
-    dataDir,
-    versionProbe.version
-  );
+  const capabilityResolution = bundledStartup === undefined
+    ? await resolveCapabilities(
+        codexBin,
+        dataDir,
+        versionProbe.version
+      )
+    : {
+        state: bundledStartup.capabilities,
+        startBackgroundRefresh() {}
+      };
   const capabilities = capabilityResolution.state;
   const { buildServer } = await import('./api/server.js');
   server = await buildServer(createProductionServerInput({
@@ -170,7 +189,13 @@ async function main(): Promise<void> {
       process.exitCode = 1;
     }
   });
-  installParentPortShutdown();
+  installParentPortShutdown({
+    close: closeServer,
+    exit: code => process.exit(code),
+    onError(error) {
+      console.error(`Failed to close daemon after parent request: ${String(error)}`);
+    }
+  });
   emitParentMessage({
     type: 'opencreator_daemon_ready',
     address,
@@ -212,24 +237,6 @@ async function closeServer(): Promise<void> {
   closeWork ??= server?.close() ?? Promise.resolve();
   await closeWork;
   releaseRuntimeLock?.();
-}
-
-function installParentPortShutdown(): void {
-  const parentPort = (
-    process as NodeJS.Process & {
-      parentPort?: {
-        on(event: 'message', listener: (event: { data?: unknown } | unknown) => void): void;
-      };
-    }
-  ).parentPort;
-  parentPort?.on('message', event => {
-    const payload = isRecord(event) && 'data' in event ? event.data : event;
-    if (!isRecord(payload) || payload.type !== 'shutdown') return;
-    void closeServer().catch(error => {
-      console.error(`Failed to close daemon after parent request: ${String(error)}`);
-      process.exitCode = 1;
-    });
-  });
 }
 
 async function resolveCapabilities(

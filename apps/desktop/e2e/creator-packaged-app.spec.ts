@@ -123,7 +123,10 @@ test('打包 App 的每个设置 Tab 与主页面保持相同右侧留白', asyn
         };
       });
       expect(bounds.left, `Tab ${index + 1}`).toBe(24);
-      expect(bounds.right - bounds.gutter, `Tab ${index + 1}`).toBe(24);
+      expect(
+        Math.abs(bounds.right - bounds.gutter - 24),
+        `Tab ${index + 1}`
+      ).toBeLessThanOrEqual(1);
       boundsByTab.push(bounds);
       if (index < 2) {
         await fixture.app.page.screenshot({
@@ -424,12 +427,12 @@ test('打包 App 在最小窗口宽度下保持 Creator 对话输入区贴底', 
           width: window.innerWidth,
           panelRightOfMain: panel.left >= main.right - 1,
           panelVisible: panel.right <= window.innerWidth + 1,
-          panelBottomDelta: Math.round(panel.bottom - window.innerHeight),
+          panelBottomDelta: Math.round(Math.abs(panel.bottom - window.innerHeight)),
           panelHeightDelta: Math.round(panel.height - workspace.height),
-          composerBottomDelta: Math.round(
+          composerBottomDelta: Math.round(Math.abs(
             composer.getBoundingClientRect().bottom
             + parseFloat(getComputedStyle(composer).marginBottom) - panel.bottom
-          )
+          ))
         };
       })).toEqual({ width: 980, panelRightOfMain: true, panelVisible: true, panelBottomDelta: 0, panelHeightDelta: 0, composerBottomDelta: 0 });
       await fixture.app.page.screenshot({

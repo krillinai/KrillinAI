@@ -116,14 +116,23 @@ export function createKrillinTtsService(input: {
   workRoot: string;
   configStore: Pick<CreatorServicesConfigStore, 'read'>;
   timeoutMs?: number;
+  verificationCachePath?: string;
+  ensureRuntimeReady?(): Promise<void>;
   executeUtility?: (input: ExecuteUtilityInput) => Promise<KrillinUtilityResponse>;
   executeSynthesis?: (input: ExecuteSynthesisInput) => Promise<ExecuteSynthesisResult>;
 }) {
-  const executeUtility = input.executeUtility ?? (utility => executePackagedKrillinUtility({
-    ...utility,
-    resourceRoot: input.resourceRoot,
-    timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS
-  }));
+  const runUtility = input.executeUtility ?? (async utility => {
+    return await executePackagedKrillinUtility({
+      ...utility,
+      resourceRoot: input.resourceRoot,
+      timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      verificationCachePath: input.verificationCachePath
+    });
+  });
+  const executeUtility = async (utility: ExecuteUtilityInput) => {
+    await input.ensureRuntimeReady?.();
+    return await runUtility(utility);
+  };
   const executeSynthesis = input.executeSynthesis ?? (request => executeProviderSynthesis({
     ...request,
     timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS
@@ -656,6 +665,7 @@ async function createLauncherRoot(workRoot: string): Promise<string> {
 async function executePackagedKrillinUtility(input: ExecuteUtilityInput & {
   resourceRoot: string;
   timeoutMs: number;
+  verificationCachePath?: string;
 }): Promise<KrillinUtilityResponse> {
   if (input.signal?.aborted) {
     throw new KrillinTtsServiceError(
@@ -667,7 +677,9 @@ async function executePackagedKrillinUtility(input: ExecuteUtilityInput & {
   let manifest;
   try {
     manifest = readKrillinRuntimeManifest(input.resourceRoot);
-    verifyKrillinRuntimeManifest(input.resourceRoot, manifest);
+    verifyKrillinRuntimeManifest(input.resourceRoot, manifest, {
+      cachePath: input.verificationCachePath
+    });
   } catch (error) {
     throw new KrillinTtsServiceError(
       'creator_tts_runtime_unavailable',

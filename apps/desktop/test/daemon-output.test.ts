@@ -116,6 +116,8 @@ describe('Daemon stdout parser', () => {
       appHome: '/Users/demo/.opencreator',
       codexBin: '/app/codex',
       codexHome: '/Users/demo/.opencreator/runtime/codex',
+      codexVersion: '0.149.0',
+      codexCommit: 'bundled-commit',
       dataDir: '/Users/demo/.opencreator/data',
       defaultCwd: '/Users/demo',
       defaultProjectRoot: '/Users/demo/Documents',
@@ -127,6 +129,8 @@ describe('Daemon stdout parser', () => {
       OPENCREATOR_HOME: '/Users/demo/.opencreator',
       OPENCREATOR_DATA_DIR: '/Users/demo/.opencreator/data',
       CODEX_HOME: '/Users/demo/.opencreator/runtime/codex',
+      OPENCREATOR_CODEX_VERSION: '0.149.0',
+      OPENCREATOR_CODEX_COMMIT: 'bundled-commit',
       OPENCREATOR_MANAGED_PARENT_PID: String(process.pid)
     });
   });

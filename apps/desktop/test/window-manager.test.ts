@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   applyWindowAction,
+  closeWindowForQuit,
+  contentWindowBounds,
   DebouncedWindowStateWriter,
   nativeWindowBackgroundColor,
   nativeWindowChromeOptions,
@@ -41,6 +43,45 @@ describe('Native window chrome', () => {
       expect(youtubeEmbedRequestHeaders({ url: url!, resourceType: resourceType!, requestHeaders }))
         .toBe(requestHeaders);
     }
+  });
+
+  it.each(['win32', 'darwin'] as const)(
+    'hides and destroys the renderer immediately while quitting on %s',
+    () => {
+      const window = {
+        destroy: vi.fn(),
+        hide: vi.fn(),
+        isDestroyed: vi.fn(() => false)
+      };
+
+      closeWindowForQuit(window);
+
+      expect(window.hide).toHaveBeenCalledOnce();
+      expect(window.destroy).toHaveBeenCalledOnce();
+      expect(window.hide.mock.invocationCallOrder[0]).toBeLessThan(
+        window.destroy.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER
+      );
+    }
+  );
+
+  it('does nothing when the renderer is already destroyed', () => {
+    const window = {
+      destroy: vi.fn(),
+      hide: vi.fn(),
+      isDestroyed: vi.fn(() => true)
+    };
+
+    closeWindowForQuit(window);
+
+    expect(window.hide).not.toHaveBeenCalled();
+    expect(window.destroy).not.toHaveBeenCalled();
+  });
+
+  it('persists outer position with content viewport dimensions', () => {
+    expect(contentWindowBounds({
+      getBounds: () => ({ x: 40, y: 60, width: 993, height: 719 }),
+      getContentBounds: () => ({ x: 47, y: 92, width: 980, height: 680 })
+    })).toEqual({ x: 40, y: 60, width: 980, height: 680 });
   });
 
   it('keeps close behavior and toggles native minimize and zoom actions', () => {

@@ -20,6 +20,13 @@ import type {
   UpdateOpenCreatorUiSettingsRequest
 } from '@opencreator/protocol';
 
+export {
+  sha256Text,
+  verifyFileIntegrityWithCache,
+  type FileIntegrityVerificationResult,
+  type IntegrityFile
+} from './file-integrity-cache.js';
+
 export type OpenCreatorPaths = {
   root: string;
   configFile: string;

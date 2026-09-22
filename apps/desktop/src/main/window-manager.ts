@@ -106,9 +106,11 @@ export class WindowManager {
         preload: this.input.preloadPath
       }
     });
+    window.setContentSize(bounds.width, bounds.height);
     if (process.platform === 'darwin') window.setWindowButtonVisibility(false);
     this.startupMetrics.windowCreatedAt ??= Date.now();
     this.window = window;
+    let normalBounds = contentWindowBounds(window);
     if (settings.window?.maximized === true) window.maximize();
     window.webContents.session.webRequest.onBeforeSendHeaders(
       { urls: ['https://www.youtube-nocookie.com/embed/*'] },
@@ -146,19 +148,23 @@ export class WindowManager {
     });
     const saveBounds = () => {
       if (window.isDestroyed() || window.isMinimized()) return;
-      const current = window.isMaximized()
-        ? window.getNormalBounds()
-        : window.getBounds();
+      if (!window.isMaximized()) normalBounds = contentWindowBounds(window);
       this.input.settings.update({
         window: {
-          ...current,
+          ...normalBounds,
           maximized: window.isMaximized()
         }
       });
     };
     this.windowStateWriter = new DebouncedWindowStateWriter(saveBounds);
-    window.on('resize', () => this.windowStateWriter?.schedule());
-    window.on('move', () => this.windowStateWriter?.schedule());
+    const scheduleWindowStateWrite = () => {
+      if (!window.isMaximized() && !window.isMinimized()) {
+        normalBounds = contentWindowBounds(window);
+      }
+      this.windowStateWriter?.schedule();
+    };
+    window.on('resize', scheduleWindowStateWrite);
+    window.on('move', scheduleWindowStateWrite);
     window.on('hide', () => this.windowStateWriter?.flush());
     return window;
   }
@@ -300,6 +306,7 @@ export class WindowManager {
     this.quitting = true;
     this.windowStateWriter?.flush();
     this.cancelWorkspaceLoad(new Error('Application is quitting'));
+    closeWindowForQuit(this.window);
   }
 
   flushState(): void {
@@ -362,6 +369,27 @@ export function nativeWindowChromeOptions(
 
 export function nativeWindowBackgroundColor(mode: DesktopWindowColorMode): string {
   return mode === 'dark' ? '#0a0a0a' : '#e5e5e5';
+}
+
+export function contentWindowBounds(
+  window: Pick<BrowserWindow, 'getBounds' | 'getContentBounds'>
+): { x: number; y: number; width: number; height: number } {
+  const outer = window.getBounds();
+  const content = window.getContentBounds();
+  return {
+    x: outer.x,
+    y: outer.y,
+    width: content.width,
+    height: content.height
+  };
+}
+
+export function closeWindowForQuit(
+  window: Pick<BrowserWindow, 'destroy' | 'hide' | 'isDestroyed'> | undefined
+): void {
+  if (window === undefined || window.isDestroyed()) return;
+  window.hide();
+  window.destroy();
 }
 
 function visibleBounds(

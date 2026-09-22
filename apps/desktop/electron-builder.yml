@@ -91,7 +91,7 @@ dmg:
 win:
   target:
     - nsis
-  icon: resources/icon.png
+  icon: resources/icon-win.png
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true

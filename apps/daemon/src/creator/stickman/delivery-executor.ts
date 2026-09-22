@@ -12,7 +12,6 @@ import {
   writeFile
 } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
-import sharp from 'sharp';
 import type { CreatorArtifact } from '@opencreator/protocol';
 import type { CreatorExecutor, CreatorExecutorOutput } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
@@ -25,6 +24,7 @@ import {
   stickmanTimelineSchema,
   stickmanVisualValidationSchema
 } from './contracts.js';
+import { loadSharp } from './sharp-loader.js';
 
 const deliveryFiles = [
   { kind: 'clean_video', name: 'stickman-video.mp4', mime: 'video/mp4' },
@@ -358,6 +358,7 @@ async function sampleFramesWithFfmpeg(input: {
     input.duration / 2,
     Math.max(0, input.duration - Math.min(0.2, input.duration / 4))
   ];
+  const sharp = await loadSharp();
   for (const [index, timestamp] of timestamps.entries()) {
     const target = join(input.workdir, `frame-${index + 1}.png`);
     await execFileAsync(input.ffmpegPath, [

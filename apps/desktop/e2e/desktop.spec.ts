@@ -1028,6 +1028,29 @@ test('@package-smoke 退出期间会回收仍在 Probe 中的 Codex 子进程', 
   }
 });
 
+test('@package-smoke 启动 Codex app-server 后在 3 秒内退出', async () => {
+  const fixture = await launchPackagedDesktop('success');
+  try {
+    await waitForWorkspace(fixture.page);
+    const models = await runtimeRequest<{ models: unknown[] }>(
+      fixture.page,
+      'GET',
+      '/codex/models'
+    );
+    expect(models.status).toBe(200);
+
+    const startedAt = Date.now();
+    await fixture.page.evaluate(() => {
+      void window.opencreatorDesktop?.quit();
+    });
+
+    expect(await waitForProcessExit(fixture.process, 3_000)).toBe(true);
+    expect(Date.now() - startedAt).toBeLessThan(3_000);
+  } finally {
+    await closeFixture(fixture);
+  }
+});
+
 type DesktopFixture = PackagedApp & {
   root: string;
   stateDir: string;

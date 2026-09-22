@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { copyFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import sharp from 'sharp';
+import type { Metadata, Stats } from 'sharp';
 import type { CreatorServicesConfigStore } from '../../creator-services/config-store.js';
 import {
   generateImageContents,
@@ -24,6 +24,7 @@ import {
   shouldUsePreviousShotReference
 } from './image-prompt.js';
 import { previousStickmanShotImage } from './lineage.js';
+import { loadSharp } from './sharp-loader.js';
 import {
   DEFAULT_STICKMAN_CHARACTER_ASSET,
   DEFAULT_STICKMAN_STYLE_ASSET,
@@ -318,6 +319,7 @@ export function createStickmanImageExecutor(input: {
         }
         const extension = image.mime === 'image/jpeg' ? 'jpg' : image.mime === 'image/webp' ? 'webp' : 'png';
         const candidatePath = join(stage.workdir, `${scopeKey}-candidate-${candidateAttempt}.${extension}`);
+        const sharp = await loadSharp();
         await sharp(image.content)
           .resize(1280, 720, { fit: 'cover', position: 'centre' })
           .toFile(candidatePath);
@@ -410,9 +412,10 @@ async function inspectStickmanImageCandidate(
   path: string,
   tesseractPath?: string
 ): Promise<StickmanImageCandidateQuality> {
-  let metadata: Awaited<ReturnType<typeof sharp.prototype.metadata>>;
-  let stats: Awaited<ReturnType<typeof sharp.prototype.stats>>;
+  let metadata: Metadata;
+  let stats: Stats;
   try {
+    const sharp = await loadSharp();
     [metadata, stats] = await Promise.all([
       sharp(path).metadata(),
       sharp(path).greyscale().stats()

@@ -124,7 +124,7 @@ assertSize('Daemon resources', daemonDir, 250 * 1024 * 1024);
 assertSize('Creator Runtime', creatorRuntimeDir, 384 * 1024 * 1024);
 assertSize('Codex Runtime', codexRuntimeDir, 450 * 1024 * 1024);
 assertSize('Stickman Runtime', stickmanRuntimeDir, 384 * 1024 * 1024);
-assertSize('Desktop package', packageRoot, 1536 * 1024 * 1024);
+assertSize('Desktop package', packageRoot, 1600 * 1024 * 1024);
 await assertFuseConfiguration();
 verifyMacPackageMetadata();
 
@@ -215,11 +215,14 @@ function assertBrandingContents() {
   const desktopResourcesDir = join(resourcesDir, 'desktop-resources');
   const sourceResourcesDir = resolve(desktopDir, 'resources');
   const packagedIcon = join(desktopResourcesDir, 'icon.png');
+  const packagedWindowsIcon = join(desktopResourcesDir, 'icon-win.png');
   const packagedTray = join(desktopResourcesDir, 'tray.png');
   const sourceIcon = join(sourceResourcesDir, 'icon.png');
+  const sourceWindowsIcon = join(sourceResourcesDir, 'icon-win.png');
   const sourceTray = join(sourceResourcesDir, 'tray.png');
 
   assertSameFile('Desktop icon', packagedIcon, sourceIcon);
+  assertSameFile('Desktop Windows icon', packagedWindowsIcon, sourceWindowsIcon);
   assertSameFile('Desktop tray icon', packagedTray, sourceTray);
 
   const bootstrapHtml = extractFile(

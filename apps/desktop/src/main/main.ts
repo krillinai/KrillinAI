@@ -75,6 +75,7 @@ async function launchDesktop(): Promise<void> {
   let bootstrap: BootstrapController | undefined;
   let workspaceLoaded = false;
   let workspaceLoadWork: Promise<void> | undefined;
+  let bootstrapSurfaceReady: Promise<void> = Promise.resolve();
   let shutdownStarted = false;
   let allowQuit = false;
   let loginShellTask: LoginShellEnvironmentTask | undefined;
@@ -198,9 +199,13 @@ async function launchDesktop(): Promise<void> {
     workspaceLoadWork = (async () => {
       workspaceLoaded = false;
       try {
+        await bootstrapSurfaceReady;
         await windowManager?.loadWorkspace();
         workspaceLoaded = true;
         bootstrap?.markWorkspaceReady();
+        logger.info('OpenCreator workspace ready', {
+          durationMs: Date.now() - APP_ENTRY_AT
+        });
         windowManager?.show();
         for (const route of pendingRoutes.splice(0)) {
           windowManager?.send(desktopIpc.navigate, route);
@@ -255,13 +260,23 @@ async function launchDesktop(): Promise<void> {
     void loadWorkspace();
   });
 
-  await windowManager.loadBootstrap();
+  bootstrapSurfaceReady = windowManager.loadBootstrap();
+  loginShellTask = startLoginShellEnvironmentRead({
+    timeoutMs: 5_000
+  });
+  void bootstrap.start(undefined, loginShellTask);
+  await bootstrapSurfaceReady;
   bootstrap.setStartupMetrics({
     ...windowManager.metrics,
     appReadyAt
   });
+  const trayIconName = process.platform === 'darwin'
+    ? 'tray.png'
+    : process.platform === 'win32'
+      ? 'icon-win.png'
+      : 'icon.png';
   tray.create({
-    iconPath: join(resourceRoot, process.platform === 'darwin' ? 'tray.png' : 'icon.png'),
+    iconPath: join(resourceRoot, trayIconName),
     open: () => windowManager?.show(),
     navigate,
     quit: () => app.quit()
@@ -286,11 +301,6 @@ async function launchDesktop(): Promise<void> {
     }
   });
   queueDeepLink(findDeepLink(process.argv));
-  loginShellTask = startLoginShellEnvironmentRead({
-    timeoutMs: 5_000
-  });
-  void bootstrap.start(undefined, loginShellTask);
-
   app.on('activate', () => windowManager?.show());
   app.on('window-all-closed', () => {
     // The tray and Runtime intentionally remain active.
