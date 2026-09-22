@@ -290,6 +290,12 @@ func TestExtractJSONObjectLeavesUnparsableInputAlone(t *testing.T) {
 			want:     `{"note":"x"} {"other":1}`,
 		},
 		{
+			name:     "围栏内没有候选含目标字段时返回去围栏后的文本",
+			response: "```json\n{\"note\":\"x\"}\n```",
+			key:      "align",
+			want:     `{"note":"x"}`,
+		},
+		{
 			name:     "同名字段只嵌套在下层时不算命中",
 			response: `{"data":{"align":[{"origin_part":"a"}]}}`,
 			key:      "align",
