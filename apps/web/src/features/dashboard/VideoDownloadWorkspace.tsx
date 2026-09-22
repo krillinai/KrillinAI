@@ -6,6 +6,7 @@ import type {
   DownloadOption,
   DownloadProbe
 } from '@opencreator/protocol';
+import { extractDouyinShareUrl } from '@opencreator/protocol';
 import {
   AlertCircle,
   Check,
@@ -169,7 +170,13 @@ export default function VideoDownloadWorkspace(props: {
     ? platformFor(url, l)
     : probe.platform === 'bilibili'
       ? 'Bilibili'
-      : 'YouTube';
+      : probe.platform === 'x' ? 'X'
+        : probe.platform === 'tiktok' ? 'TikTok'
+          : probe.platform === 'instagram' ? 'Instagram'
+            : probe.platform === 'douyin' ? l('抖音', 'Douyin')
+              : probe.platform === 'facebook' ? 'Facebook'
+                : probe.platform === 'xiaohongshu' ? l('小红书', 'Xiaohongshu')
+                  : probe.platform === 'pinterest' ? 'Pinterest' : 'YouTube';
   const context = probe === undefined
     ? validUrl
       ? `${platform} · ${probing ? l('正在解析', 'Analyzing') : l('待解析', 'Waiting to analyze')}`
@@ -246,14 +253,15 @@ export default function VideoDownloadWorkspace(props: {
   ]);
 
   function updateUrl(value: string) {
-    setUrl(value);
+    const sourceUrl = extractDouyinShareUrl(value);
+    setUrl(sourceUrl);
     setSelectedOptionId('');
     setCurrentStep(0);
     setResultTab('formats');
     setNotice('');
     setError('');
     session?.updateDraft({
-      sourceUrl: value,
+      sourceUrl,
       selectedOptionId: null
     });
   }
@@ -262,8 +270,8 @@ export default function VideoDownloadWorkspace(props: {
     if (probing || hasActiveDownloads) return;
     if (!validUrl) {
       setError(l(
-        '请输入有效的 YouTube 或 Bilibili 公公开视频链接',
-        'Enter a valid public YouTube or Bilibili video URL'
+        '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书或 Pinterest 公开视频链接',
+        'Enter a valid public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, or Pinterest video URL'
       ));
       return;
     }
@@ -569,8 +577,8 @@ export default function VideoDownloadWorkspace(props: {
         ? [l('这个链接支持哪些规格', 'Which formats are available?')]
         : [l('下载最高画质视频', 'Download the highest-quality video'), l('提取 MP3 音频', 'Extract MP3 audio')]}
       placeholder={props.promptHint ?? l(
-        '粘贴 YouTube 或 Bilibili 公公开视频链接',
-        'Paste a public YouTube or Bilibili video URL'
+        '粘贴 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书或 Pinterest 公开视频链接',
+        'Paste a public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, or Pinterest video URL'
       )}
       stepLabel={activeStage?.stageId === 'probe'
         ? l('解析视频信息', 'Analyze video information')
@@ -677,10 +685,19 @@ export default function VideoDownloadWorkspace(props: {
                 </h2>
                 <p>
                   {l(
-                    '当前支持 YouTube 和 Bilibili 单个公开视频',
-                    'Supports individual public YouTube and Bilibili videos'
+                    '支持以下平台的单个公开视频',
+                    'Supports individual public videos from these platforms'
                   )}
                 </p>
+                <div className="video-download-platforms" aria-label={l('支持的平台', 'Supported platforms')}>
+                  {([
+                    ['youtube', 'YouTube'], ['bilibili', 'Bilibili'], ['x', 'X'],
+                    ['tiktok', 'TikTok'], ['instagram', 'Instagram'], ['douyin', l('抖音', 'Douyin')],
+                    ['facebook', 'Facebook'], ['xiaohongshu', l('小红书', 'Xiaohongshu')], ['pinterest', 'Pinterest']
+                  ] as const).map(([platformName, name]) => (
+                    <img key={platformName} src={`/platforms/${platformName}.png`} alt={name} title={name} width="16" height="16" />
+                  ))}
+                </div>
               </div>
             </div>
             <label className="creator-tool-url-input">
@@ -1179,7 +1196,7 @@ function readDownloadProbe(
     || typeof metadata.title !== 'string'
     || typeof metadata.requestedUrl !== 'string'
     || typeof metadata.url !== 'string'
-    || (metadata.platform !== 'youtube' && metadata.platform !== 'bilibili')
+    || (metadata.platform !== 'youtube' && metadata.platform !== 'bilibili' && metadata.platform !== 'x' && metadata.platform !== 'tiktok' && metadata.platform !== 'instagram' && metadata.platform !== 'douyin' && metadata.platform !== 'facebook' && metadata.platform !== 'xiaohongshu' && metadata.platform !== 'pinterest')
     || !Array.isArray(metadata.formats)
     || !Array.isArray(metadata.options)
   ) {
@@ -1237,6 +1254,9 @@ function readDownloadOption(value: CreatorJson): DownloadOption | undefined {
     ...(readString(value.audioFormatId) === undefined
       ? {}
       : { audioFormatId: readString(value.audioFormatId) }),
+    ...(Number.isSafeInteger(value.playlistIndex) && Number(value.playlistIndex) > 0
+      ? { playlistIndex: Number(value.playlistIndex) }
+      : {}),
     ...(value.transcode === 'mp3' ? { transcode: 'mp3' as const } : {})
   };
 }
@@ -1447,11 +1467,14 @@ function optionLabel(
   option: DownloadOption,
   l: ReturnType<typeof useLocalizedCopy>
 ): string {
+  const prefix = option.playlistIndex === undefined
+    ? ''
+    : `${l('视频', 'Video')} ${option.playlistIndex} · `;
   if (option.mediaType === 'audio') {
-    return `${option.bitrateKbps ?? 192}kbps`;
+    return `${prefix}${option.bitrateKbps ?? 192}kbps`;
   }
-  if (option.height !== undefined) return `${option.height}p`;
-  return l('原始画质', 'Source quality');
+  if (option.height !== undefined) return `${prefix}${option.height}p`;
+  return `${prefix}${l('原始画质', 'Source quality')}`;
 }
 
 function optionDetail(
@@ -1579,10 +1602,73 @@ function isSupportedUrl(value: string): boolean {
         || host === 'b23.tv'
         || host === 'bilibili.com'
         || host.endsWith('.bilibili.com')
+        || host === 'x.com'
+        || host.endsWith('.x.com')
+        || host === 'twitter.com'
+        || host.endsWith('.twitter.com')
+        || isTikTokVideoUrl(parsed)
+        || isInstagramVideoUrl(parsed)
+        || isDouyinVideoUrl(parsed)
+        || isFacebookVideoUrl(parsed)
+        || isXiaohongshuVideoUrl(parsed)
+        || isPinterestVideoUrl(parsed)
       );
   } catch {
     return false;
   }
+}
+
+function isTikTokVideoUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  if (host === 'vm.tiktok.com' || host === 'vt.tiktok.com') {
+    return /^\/[\w-]+\/?$/.test(url.pathname);
+  }
+  return (host === 'tiktok.com' || host.endsWith('.tiktok.com'))
+    && /^\/@[^/]+\/video\/\d+\/?$/.test(url.pathname);
+}
+
+function isInstagramVideoUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  return (host === 'instagram.com' || host === 'www.instagram.com')
+    && /^\/(?:reel|p|tv)\/[\w-]+\/?$/.test(url.pathname);
+}
+
+function isDouyinVideoUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  if (host === 'v.douyin.com') {
+    return /^\/[\w-]+\/?$/.test(url.pathname);
+  }
+  return (host === 'douyin.com' || host === 'www.douyin.com')
+    && (
+      /^\/video\/\d+\/?$/.test(url.pathname)
+      || (url.pathname === '/jingxuan'
+        && /^\d+$/.test(url.searchParams.get('modal_id') ?? ''))
+    );
+}
+
+function isFacebookVideoUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  if (host === 'fb.watch') {
+    return /^\/[\w-]+\/?$/.test(url.pathname);
+  }
+  if (!['facebook.com', 'www.facebook.com', 'm.facebook.com'].includes(host)) {
+    return false;
+  }
+  return /^\/watch\/?$/.test(url.pathname)
+    ? /^\d+$/.test(url.searchParams.get('v') ?? '')
+    : /^\/(?:reel\/\d+|videos\/\d+|[^/]+\/videos\/\d+)\/?$/.test(url.pathname);
+}
+
+function isXiaohongshuVideoUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  return (host === 'xiaohongshu.com' || host === 'www.xiaohongshu.com')
+    && /^\/explore\/[0-9a-f]{24}\/?$/i.test(url.pathname);
+}
+
+function isPinterestVideoUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  return (host === 'pinterest.com' || host === 'www.pinterest.com')
+    && /^\/pin\/\d+\/?$/.test(url.pathname);
 }
 
 function platformFor(
@@ -1591,6 +1677,13 @@ function platformFor(
 ): string {
   if (/youtu(?:\.be|be\.com)/i.test(value)) return 'YouTube';
   if (/bilibili\.com|b23\.tv/i.test(value)) return 'Bilibili';
+  if (/^https:\/\/(?:[^/]+\.)?(?:x|twitter)\.com\//i.test(value)) return 'X';
+  if (/^https:\/\/(?:[^/]+\.)?tiktok\.com\//i.test(value)) return 'TikTok';
+  if (/^https:\/\/(?:www\.)?instagram\.com\//i.test(value)) return 'Instagram';
+  if (/^https:\/\/(?:v|www)\.douyin\.com\//i.test(value)) return l('抖音', 'Douyin');
+  if (/^https:\/\/(?:www\.|m\.)?facebook\.com\//i.test(value) || /^https:\/\/fb\.watch\//i.test(value)) return 'Facebook';
+  if (/^https:\/\/(?:www\.)?xiaohongshu\.com\//i.test(value)) return l('小红书', 'Xiaohongshu');
+  if (/^https:\/\/(?:www\.)?pinterest\.com\//i.test(value)) return 'Pinterest';
   return l('公开视频', 'Public video');
 }
 
@@ -1609,8 +1702,8 @@ function formatDownloadError(
   const message = caught instanceof Error ? caught.message : String(caught);
   if (/unsupported_source/i.test(message)) {
     return l(
-      '当前仅支持 YouTube 和 Bilibili 公公开视频',
-      'Only public YouTube and Bilibili videos are supported'
+      '当前仅支持 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书和 Pinterest 公开视频',
+      'Only public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, and Pinterest videos are supported'
     );
   }
   if (/download_probe_stale/i.test(message)) {
@@ -1623,7 +1716,7 @@ function formatDownloadError(
     return l('该规格已经下载完成', 'This format has already been downloaded.');
   }
   if (/login_required/i.test(message)) {
-    return l('该视频需要登录后访问，当前无法下载', 'This video requires a signed-in session.');
+    return l('平台要求登录或有效 Cookie，当前无法下载', 'This video requires sign-in or fresh platform cookies.');
   }
   if (/region_or_copyright_restricted/i.test(message)) {
     return l('该视频受地区或版权限制，当前无法下载', 'This video is region or copyright restricted.');

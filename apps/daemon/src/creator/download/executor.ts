@@ -7,6 +7,7 @@ import type {
   DownloadOption,
   DownloadProbe
 } from '@opencreator/protocol';
+import { extractDouyinShareUrl } from '@opencreator/protocol';
 import type {
   CreatorExecutor,
   CreatorExecutorInput,
@@ -54,7 +55,7 @@ export function createDownloadExecutor(
       if (!isSupported(url)) {
         throw new CreatorExecutorError(
           'unsupported_source',
-          'Only public YouTube and Bilibili URLs are supported'
+          'Only public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, and Pinterest video URLs are supported'
         );
       }
       const proxy = (await input.configStore.read()).proxy.trim();
@@ -110,7 +111,7 @@ async function probe(
       ...withYtDlpProxy([
         '--dump-single-json',
         '--no-playlist',
-        url
+        normalizeSourceUrl(url)
       ], proxy)
     ],
     stage,
@@ -204,9 +205,10 @@ async function downloadSelectedOption(
     stage.workdir,
     'OpenCreator-%(title).120B-%(id)s.%(ext)s'
   );
+  const downloadUrl = normalizeSourceUrl(url);
   const args = option.mediaType === 'audio'
-    ? audioDownloadArgs(input.ffmpegPath, option, outputTemplate, url, proxy)
-    : videoDownloadArgs(input.ffmpegPath, option, outputTemplate, url, proxy);
+    ? audioDownloadArgs(input.ffmpegPath, option, outputTemplate, downloadUrl, proxy)
+    : videoDownloadArgs(input.ffmpegPath, option, outputTemplate, downloadUrl, proxy);
   const reportProgress = createDownloadProgressReporter(
     stage,
     option.mediaType,
@@ -420,7 +422,7 @@ async function downloadLegacy(
         formatId,
         '-o',
         outputTemplate,
-        url
+        normalizeSourceUrl(url)
       ], proxy)
     ],
     stage,
@@ -488,6 +490,9 @@ function downloadPartWeights(
     : [option.audioFormatId];
   const selectedFormatIds = formatIds
     .filter((id): id is string => id !== undefined);
+  if (option.playlistIndex !== undefined) {
+    return Array.from({ length: Math.max(1, selectedFormatIds.length) }, () => 1);
+  }
   const weights = selectedFormatIds
     .map(id => estimatedProbeFormatBytes(probe, id));
   return weights.length > 0 && weights.every(weight => weight > 0)
@@ -528,6 +533,7 @@ function audioDownloadArgs(
   }
   return withYtDlpProxy([
     '--no-playlist',
+    ...(option.playlistIndex === undefined ? [] : ['--playlist-items', String(option.playlistIndex)]),
     '--newline',
     '--windows-filenames',
     '--ffmpeg-location',
@@ -568,6 +574,7 @@ function videoDownloadArgs(
     : `${option.videoFormatId}+${option.audioFormatId}`;
   return withYtDlpProxy([
     '--no-playlist',
+    ...(option.playlistIndex === undefined ? [] : ['--playlist-items', String(option.playlistIndex)]),
     '--newline',
     '--windows-filenames',
     '--ffmpeg-location',
@@ -1042,7 +1049,7 @@ function classifyDownloadError(stderr: string): CreatorExecutorError {
   ) {
     return new CreatorExecutorError(
       'login_required',
-      'Platform login is required'
+      'Platform login or fresh cookies are required'
     );
   }
   if (
@@ -1091,11 +1098,20 @@ function readSourceUrl(stage: CreatorExecutorInput): string {
     && typeof stage.stageRun.progress.sourceUrl === 'string'
     ? stage.stageRun.progress.sourceUrl
     : stage.job.state.sourceUrl;
-  return typeof sourceUrl === 'string' ? sourceUrl.trim() : '';
+  return typeof sourceUrl === 'string' ? extractDouyinShareUrl(sourceUrl) : '';
 }
 
 function normalizeSourceUrl(value: string): string {
-  return value.trim();
+  const trimmed = extractDouyinShareUrl(value);
+  try {
+    const parsed = new URL(trimmed);
+    if (isDouyinFeaturedVideoUrl(parsed)) {
+      return `https://www.douyin.com/video/${parsed.searchParams.get('modal_id')}`;
+    }
+  } catch {
+    return trimmed;
+  }
+  return trimmed;
 }
 
 function mimeTypeFor(path: string): string {
@@ -1128,10 +1144,75 @@ function isSupported(value: string): boolean {
         || host === 'b23.tv'
         || host === 'bilibili.com'
         || host.endsWith('.bilibili.com')
+        || host === 'x.com'
+        || host.endsWith('.x.com')
+        || host === 'twitter.com'
+        || host.endsWith('.twitter.com')
+        || isTikTokVideoUrl(parsed)
+        || isInstagramVideoUrl(parsed)
+        || isDouyinVideoUrl(parsed)
+        || isFacebookVideoUrl(parsed)
+        || isXiaohongshuVideoUrl(parsed)
+        || isPinterestVideoUrl(parsed)
       );
   } catch {
     return false;
   }
+}
+
+function isTikTokVideoUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  if (host === 'vm.tiktok.com' || host === 'vt.tiktok.com') {
+    return /^\/[\w-]+\/?$/.test(url.pathname);
+  }
+  return (host === 'tiktok.com' || host.endsWith('.tiktok.com'))
+    && /^\/@[^/]+\/video\/\d+\/?$/.test(url.pathname);
+}
+
+function isInstagramVideoUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  return (host === 'instagram.com' || host === 'www.instagram.com')
+    && /^\/(?:reel|p|tv)\/[\w-]+\/?$/.test(url.pathname);
+}
+
+function isDouyinVideoUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  if (host === 'v.douyin.com') {
+    return /^\/[\w-]+\/?$/.test(url.pathname);
+  }
+  return (host === 'douyin.com' || host === 'www.douyin.com')
+    && (/^\/video\/\d+\/?$/.test(url.pathname) || isDouyinFeaturedVideoUrl(url));
+}
+
+function isDouyinFeaturedVideoUrl(url: URL): boolean {
+  return (url.hostname === 'douyin.com' || url.hostname === 'www.douyin.com')
+    && url.pathname === '/jingxuan'
+    && /^\d+$/.test(url.searchParams.get('modal_id') ?? '');
+}
+
+function isFacebookVideoUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  if (host === 'fb.watch') {
+    return /^\/[\w-]+\/?$/.test(url.pathname);
+  }
+  if (!['facebook.com', 'www.facebook.com', 'm.facebook.com'].includes(host)) {
+    return false;
+  }
+  return /^\/watch\/?$/.test(url.pathname)
+    ? /^\d+$/.test(url.searchParams.get('v') ?? '')
+    : /^\/(?:reel\/\d+|videos\/\d+|[^/]+\/videos\/\d+)\/?$/.test(url.pathname);
+}
+
+function isXiaohongshuVideoUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  return (host === 'xiaohongshu.com' || host === 'www.xiaohongshu.com')
+    && /^\/explore\/[0-9a-f]{24}\/?$/i.test(url.pathname);
+}
+
+function isPinterestVideoUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  return (host === 'pinterest.com' || host === 'www.pinterest.com')
+    && /^\/pin\/\d+\/?$/.test(url.pathname);
 }
 
 function isYoutube(value: string): boolean {

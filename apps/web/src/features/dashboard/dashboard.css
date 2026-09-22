@@ -1692,6 +1692,21 @@
   line-height: 1.45;
 }
 
+.video-download-platforms {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 10px;
+}
+
+.video-download-platforms img {
+  display: block;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
 .creator-tool-panel-heading > small {
   display: inline-flex;
   align-items: center;
