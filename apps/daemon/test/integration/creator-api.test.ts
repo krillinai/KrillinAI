@@ -385,7 +385,7 @@ describe('creator api', () => {
       },
       state: {
         prompt: imagePreset.prompt,
-        provider: 'openai'
+        provider: 'codex-native'
       },
       stages: []
     });
@@ -927,10 +927,10 @@ async function setupServer(options: {
 } = {}): Promise<void> {
   tempDir = mkdtempSync(join(tmpdir(), 'creator-api-'));
   const config = createDefaultCreatorServicesConfig();
+  config.llm.source = 'custom';
   if (options.llmConfigured !== false) {
     config.llm.baseUrl = 'https://api.openai.com/v1';
     config.llm.apiKey = 'test-llm-key';
-    config.llm.source = 'custom';
   }
   server = await buildServer({
     token: 'secret',

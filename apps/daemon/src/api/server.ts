@@ -49,6 +49,10 @@ import {
   startKrillinRuntimeVerification
 } from '../creator/krillin/runtime-verifier.js';
 import { createKrillinTtsService } from '../creator/krillin/tts-service.js';
+import {
+  createKrillinCodexLlmGateway,
+  KRILLIN_LLM_ROUTE_PREFIX
+} from '../creator/krillin/codex-llm-gateway.js';
 import { createDownloadExecutor } from '../creator/download/executor.js';
 import { resolveYtDlpRuntime } from '../creator/yt-dlp/runtime.js';
 import {
@@ -86,6 +90,7 @@ import { createStickmanDeliveryExecutor } from '../creator/stickman/delivery-exe
 import { CreatorProviderRequestLedger } from '../creator/provider-requests.js';
 import { createCreatorProjectCoverService } from '../creator/project-cover.js';
 import { createVideoGenerationService } from '../video-generation/service.js';
+import { createImageGenerationService } from '../image-generation/service.js';
 import {
   createCreatorReferenceImageUploadService,
   type CreatorReferenceImageUploadService
@@ -151,6 +156,7 @@ import {
   isCodexCredentialStoreConfigurationDiagnostic
 } from '../codex/credential-storage.js';
 import { resolveCodexHome } from '../codex/home.js';
+import { createCodexIsolatedHome } from '../codex/probe-home.js';
 import {
   createCodexModelCatalog,
   type CodexModelCatalog
@@ -229,6 +235,7 @@ import { registerCreatorServicesRoutes } from './routes.creator-services.js';
 import { registerCreatorRoutes } from './routes.creator.js';
 import { registerCreatorRuntimeRoutes } from './routes.creator-runtime.js';
 import { registerDiagnosticsRoutes } from './routes.diagnostics.js';
+import { registerImageGenerationRoutes } from './routes.image-generation.js';
 import { registerMcpRoutes } from './routes.mcp.js';
 import { registerMemoryRoutes } from './routes.memory.js';
 import { registerNotificationRoutes } from './routes.notifications.js';
@@ -257,6 +264,7 @@ export type BuildServerInput = {
   db?: Database.Database;
   codexBin?: string;
   codexHome?: string;
+  localCodexHome?: string;
   defaultCwd?: string;
   defaultProjectRoot?: string;
   runManager?: RunManager;
@@ -345,6 +353,14 @@ export async function buildServer(input: BuildServerInput) {
       ? resolveCodexHome()
       : resolveCodexHome({ isolatedHome: input.codexHome });
   const codexHome = resolvedCodexHome.path;
+  const localCodexHome = resolve(input.localCodexHome ?? codexHome);
+  if (
+    input.localCodexHome !== undefined
+    && resolvedCodexHome.mode === 'isolated'
+    && localCodexHome !== codexHome
+  ) {
+    createCodexIsolatedHome(localCodexHome, codexHome);
+  }
   try {
     await ensureCodexFileCredentialStore(codexHome);
   } catch (error) {
@@ -515,8 +531,13 @@ export async function buildServer(input: BuildServerInput) {
   const runtimeTransport = input.runtimeTransport ?? 'app-server';
   const getAgentToolBaseUrl = () =>
     resolveListeningOrigin(server.server.address());
+  const krillinCodexLlmGateway = createKrillinCodexLlmGateway({
+    codexBin,
+    codexHome,
+    cwd: dataDir
+  });
   const creatorAgentBootstrapInput = {
-    sourceCodexHome: codexHome,
+    sourceCodexHome: localCodexHome,
     runtimeRoot: runtimeDir,
     ...(input.appHome === undefined
       ? {}
@@ -639,6 +660,11 @@ export async function buildServer(input: BuildServerInput) {
     dataDir,
     configStore: creatorServicesConfigStore
   });
+  const imageGenerationService = createImageGenerationService({
+    dataDir,
+    configStore: creatorServicesConfigStore,
+    codexNative: { codexHome }
+  });
   const developmentStickmanRuntimeRoot = resolve(
     dirname(fileURLToPath(import.meta.url)),
     '../../../desktop/.pack/stickman-runtime'
@@ -688,6 +714,7 @@ export async function buildServer(input: BuildServerInput) {
       creatorExecutors.push(createStickmanImageExecutor({
         configStore: creatorServicesConfigStore,
         ledger: creatorProviderRequestLedger,
+        codexNative: { codexHome },
         ...(creatorTesseractPath === undefined ? {} : { tesseractPath: creatorTesseractPath })
       }));
     }
@@ -768,7 +795,11 @@ export async function buildServer(input: BuildServerInput) {
         configStore: creatorServicesConfigStore,
         getYtDlpRuntime,
         verificationCachePath: krillinVerificationCachePath,
-        ensureRuntimeReady: () => ensureKrillinRuntimeReady()
+        ensureRuntimeReady: () => ensureKrillinRuntimeReady(),
+        getCodexLlmConfig() {
+          const baseUrl = resolveListeningOrigin(server.server.address());
+          return baseUrl === undefined ? undefined : krillinCodexLlmGateway.config(baseUrl);
+        }
       }));
     }
     if (
@@ -840,6 +871,7 @@ export async function buildServer(input: BuildServerInput) {
     }));
     creatorExecutors.push(createImageExecutor({
       configStore: creatorServicesConfigStore,
+      codexNative: { codexHome },
       ...(creatorFfmpegPath === undefined
         ? {}
         : {
@@ -860,7 +892,10 @@ export async function buildServer(input: BuildServerInput) {
         getYtDlpRuntime: getCreatorYtDlpRuntime
       }),
       model: createWechatArticleModel({ configStore: creatorServicesConfigStore }),
-      imageGenerator: createArticleImageGenerator({ configStore: creatorServicesConfigStore })
+      imageGenerator: createArticleImageGenerator({
+        configStore: creatorServicesConfigStore,
+        codexNative: { codexHome }
+      })
     }));
   }
   const creatorPreflight = createCreatorPreflight({
@@ -1287,6 +1322,7 @@ export async function buildServer(input: BuildServerInput) {
     await capture(() => appServerRuntimeManager?.close());
     await capture(() => creatorAppServerRuntimeManager?.close());
     await capture(() => stickmanContentRuntimeManager?.close());
+    await capture(() => krillinCodexLlmGateway.close());
     await capture(() => codexSessionProvider.close());
     await capture(() => codexModelCatalog.close());
     await capture(() => codexControlClient.close());
@@ -1306,6 +1342,7 @@ export async function buildServer(input: BuildServerInput) {
   server.addHook('preHandler', async (request, reply) => {
     if (request.url === '/healthz') return;
     if (isAgentToolInternalRequest(request.url)) return;
+    if (request.url.startsWith(`${KRILLIN_LLM_ROUTE_PREFIX}/`)) return;
     await auth(request, reply);
   });
 
@@ -1350,6 +1387,7 @@ export async function buildServer(input: BuildServerInput) {
       contextBuilder: creatorAgentContextBuilder
     })
   });
+  await krillinCodexLlmGateway.register(server);
   if (input.agentToolsEnabled === true) {
     await registerAgentScheduleMcpRoute(server, {
       capabilities: agentCapabilityTokens,
@@ -1375,6 +1413,7 @@ export async function buildServer(input: BuildServerInput) {
   );
   await registerSmartDubbingRoutes(server, smartDubbingService);
   await registerCreatorRuntimeRoutes(server, creatorYtDlpUpdateManager);
+  await registerImageGenerationRoutes(server, imageGenerationService);
   await registerCreatorRoutes(server, creatorService, creatorEvents, {
     sseHeartbeatMs: input.sseHeartbeatMs,
     jobsRoot: creatorJobsRoot,

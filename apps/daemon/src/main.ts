@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, statSync } from 'node:fs';
 import {
   rename,
   rm,
@@ -82,8 +82,11 @@ async function main(): Promise<void> {
   } = paths;
   const codexBin = environment.codexBin ?? 'codex';
   const codexHome = resolveCodexHome({ isolatedHome: paths.codexHome }).path;
-  if (environment.codexHome === undefined && !directoryHasEntries(codexHome)) {
-    createCodexIsolatedHome(resolveCodexHome().path, codexHome);
+  const localCodexHome = environment.codexHome === undefined
+    ? resolveCodexHome().path
+    : codexHome;
+  if (environment.codexHome === undefined) {
+    createCodexIsolatedHome(localCodexHome, codexHome);
   }
   readOpenCreatorConfig(configFile);
   mkdirSync(dataDir, { recursive: true });
@@ -177,7 +180,8 @@ async function main(): Promise<void> {
     credentialsFile,
     runtimeDir,
     creatorDir,
-    codexHome
+    codexHome,
+    localCodexHome
   }));
   const address = await server.listen({ host: '127.0.0.1', port: 0 });
   capabilityResolution.startBackgroundRefresh();
@@ -214,14 +218,6 @@ async function main(): Promise<void> {
         availabilityProbe = next;
       }
     });
-  }
-}
-
-function directoryHasEntries(path: string): boolean {
-  try {
-    return statSync(path).isDirectory() && readdirSync(path).length > 0;
-  } catch {
-    return false;
   }
 }
 

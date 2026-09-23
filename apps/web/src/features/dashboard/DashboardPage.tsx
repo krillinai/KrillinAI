@@ -404,6 +404,7 @@ export default function DashboardPage(props: {
     return renderCreatorWorkspace('image-generation', (
       <ImageGenerationWorkspace
         promptHint={activePromptHint}
+        creatorServicesService={props.creatorServicesService}
         onBack={closeWorkspace}
       />
     ));
