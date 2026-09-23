@@ -17,13 +17,14 @@
 
 [English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | **Español** | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md)
 
-[![GitHub Stars](https://img.shields.io/github/stars/krillinai/OpenCreator?style=flat&logo=github&label=Stars&color=gold)](https://github.com/krillinai/OpenCreator/stargazers)
+[![GitHub Stars](https://badgen.net/github/stars/krillinai/OpenCreator?icon=github&label=Stars&color=EAB308)](https://github.com/krillinai/OpenCreator/stargazers)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%E7%B2%89%E4%B8%9D&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
+[![AtomGit G-Star](https://img.shields.io/badge/AtomGit-G--Star-DA203E?style=flat)](https://atomgit.com/krillinai/OpenCreator)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![Grupo de QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Características principales](#características-principales) · [Herramientas de creación](#herramientas-de-creación) · [Plantillas de creación](#plantillas-de-creación) · [Skills](#skills) · [Conversación y espacio de trabajo](#conversación-y-espacio-de-trabajo-avanzan-juntos) · [Modelos compatibles](#modelos-compatibles) · [Ejemplos](#ejemplos) · [Inicio rápido](#inicio-rápido) · [Desktop](#desktop) · [Estructura del sistema](#estructura-del-sistema-opencreator) · [Desarrollo](#desarrollo) · [Documentación](#documentación) · [El equipo](#el-equipo) · [Contribuir](#contribuir) · [Colaboradores](#colaboradores) · [Historial de Stars](#historial-de-stars)
+[Destacados](#características-principales) · [Herramientas](#herramientas-de-creación) · [Skills](#skills) · [Ejemplos](#ejemplos) · [Inicio](#inicio-rápido) · [Desktop](#desktop) · [Docs](#documentación)
 
 </div>
 

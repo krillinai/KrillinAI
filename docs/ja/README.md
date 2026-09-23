@@ -17,13 +17,14 @@
 
 [English](../../README.md) | [简体中文](../zh/README.md) | **日本語** | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md)
 
-[![GitHub Stars](https://img.shields.io/github/stars/krillinai/OpenCreator?style=flat&logo=github&label=Stars&color=gold)](https://github.com/krillinai/OpenCreator/stargazers)
+[![GitHub Stars](https://badgen.net/github/stars/krillinai/OpenCreator?icon=github&label=Stars&color=EAB308)](https://github.com/krillinai/OpenCreator/stargazers)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%E7%B2%89%E4%B8%9D&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
+[![AtomGit G-Star](https://img.shields.io/badge/AtomGit-G--Star-DA203E?style=flat)](https://atomgit.com/krillinai/OpenCreator)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ グループ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[主な特徴](#主な特徴) · [制作ツール](#制作ツール) · [制作テンプレート](#制作テンプレート) · [Skills](#skills) · [会話とワークスペース](#会話とワークスペースを連携して進める) · [対応モデル](#対応モデル) · [活用例](#活用例) · [クイックスタート](#クイックスタート) · [Desktop](#desktop) · [システム構成](#opencreator-システム構成) · [開発](#開発) · [ドキュメント](#ドキュメント) · [チーム](#チーム) · [コントリビューション](#コントリビューション) · [コントリビューター](#コントリビューター) · [Star 履歴](#star-履歴)
+[特徴](#主な特徴) · [ツール](#制作ツール) · [Skills](#skills) · [活用例](#活用例) · [はじめに](#クイックスタート) · [Desktop](#desktop) · [文書](#ドキュメント)
 
 </div>
 
