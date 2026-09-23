@@ -653,6 +653,7 @@ async function styleAssets(
   );
   const character = visualAssets.character(characterRef);
   const style = visualAssets.style(styleRef);
+  const ratio = stage.job.state.ratio === '9:16' ? '9:16' : '16:9';
   const characterReferences = visualAssets.referenceFiles(character);
   const styleReferences = visualAssets.referenceFiles(style);
   const primaryCharacter = characterReferences[0];
@@ -676,7 +677,7 @@ async function styleAssets(
   await writeFile(characterPath, content);
   const styleContract = stickmanStyleContractSchema.parse({
     contract: 'stickman-visual-profile-v2',
-    ratio: '16:9',
+    ratio,
     character: {
       assetId: character.id,
       revision: character.revision,
@@ -772,6 +773,7 @@ async function promptPack(stage: CreatorExecutorInput) {
       prompt: buildStickmanImagePrompt({
         visualProfile,
         shot,
+        ratio: visualProfile.ratio,
         hasStyleReference: styleReference !== undefined,
         hasPreviousShotReference: shouldUsePreviousShotReference(shot, shotIndex)
       })

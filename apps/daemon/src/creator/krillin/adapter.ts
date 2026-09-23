@@ -36,6 +36,7 @@ export function createKrillinExecutor(input: {
   getYtDlpRuntime?(): YtDlpRuntime | undefined;
   verificationCachePath?: string;
   ensureRuntimeReady?(): Promise<void>;
+  getCodexLlmConfig?(): { baseUrl: string; apiKey: string; model: string } | undefined;
 }): CreatorExecutor {
   return {
     id: 'krillinai',
@@ -79,7 +80,10 @@ export function createKrillinExecutor(input: {
               artifacts: materializedArtifacts,
               source: attempt.source,
               options: attempt.options,
-              ytDlpRuntime: input.getYtDlpRuntime?.()
+              ytDlpRuntime: input.getYtDlpRuntime?.(),
+              llmOverride: preflight.config.llm.source === 'codex'
+                ? input.getCodexLlmConfig?.()
+                : undefined
             });
             break;
           } catch (error) {
