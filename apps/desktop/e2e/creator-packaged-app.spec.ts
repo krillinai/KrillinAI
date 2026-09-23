@@ -1276,7 +1276,8 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
     expect(restoredStickmanJob.body.job.state).not.toHaveProperty('voice');
     expect(restoredStickmanJob.body.job.revision)
       .toBeGreaterThanOrEqual(updatedStickmanJob.body.job.revision);
-    await currentApp.page.getByRole('button', { name: '我的项目' }).click();
+    await currentApp.page.getByRole('button', { name: '返回', exact: true }).click();
+    await currentApp.page.getByRole('button', { name: '我的项目', exact: true }).click();
     await currentApp.page.getByRole('button', {
       name: '打开项目 youtube.com · creator-stickman-package-smoke'
     }).click();
