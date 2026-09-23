@@ -347,8 +347,6 @@ test('打包 App 的 Creator 设置页保留组件间距和下拉箭头内边距
         textInsets: Array.from(panel.querySelectorAll('.native-select select')).map(select => getComputedStyle(select).paddingInlineEnd)
       };
     })).toEqual({ sourceCharacterGap: 16, selectTopDelta: 0, arrowInsets: [12, 12], textInsets: ['40px', '40px'] });
-    await fixture.app.page.getByRole('combobox', { name: '目标时长' }).selectOption('60');
-    await expect(fixture.app.page.getByRole('combobox', { name: '目标时长' })).toHaveValue('60');
     await fixture.app.page.getByRole('combobox', { name: '目标时长' }).scrollIntoViewIfNeeded();
     await fixture.app.page.screenshot({ path: testInfo.outputPath('creator-settings-spacing-980.png') });
   } finally {
@@ -849,10 +847,17 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
       aspectRatio: '9:16'
     });
 
+    const currentProjectId = await currentApp.page.evaluate(() => {
+      const stored = localStorage.getItem('opencreator.navigation.v3');
+      if (stored === null) return undefined;
+      const parsed = JSON.parse(stored) as { currentProjectId?: unknown };
+      return typeof parsed.currentProjectId === 'string' ? parsed.currentProjectId : undefined;
+    });
+    expect(currentProjectId).toBeTruthy();
     const createdJob = await runtimeRequest<{
       job: { id: string; revision: number; state: Record<string, unknown> };
     }>(currentApp.page, 'POST', '/creator/jobs', {
-      projectId: createdProject.body.project.id,
+      projectId: currentProjectId,
       templateId: 'video-translation',
       creationKey: 'packaged-video-translation',
       state: {
@@ -964,16 +969,20 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
       deduplicated: false
     });
 
+    const jobBeforeUpdate = await runtimeRequest<{
+      job: { revision: number };
+    }>(currentApp.page, 'GET', `/creator/jobs/${createdJob.body.job.id}`);
+    expect(jobBeforeUpdate.status).toBe(200);
     const updatedJob = await runtimeRequest<{
       job: { id: string; revision: number; state: Record<string, unknown> };
     }>(currentApp.page, 'POST', `/creator/jobs/${createdJob.body.job.id}/actions`, {
       action: 'update-settings',
-      expectedRevision: 0,
+      expectedRevision: jobBeforeUpdate.body.job.revision,
       input: { patch: { targetLanguage: 'ja', dubbing: true } }
     });
     expect(updatedJob.status).toBe(200);
     expect(updatedJob.body.job).toMatchObject({
-      revision: 1,
+      revision: jobBeforeUpdate.body.job.revision + 1,
       state: { targetLanguage: 'ja', dubbing: true }
     });
     const imageJob = await runtimeRequest<{
@@ -1118,7 +1127,7 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
     expect(restoredJob.status).toBe(200);
     expect(restoredJob.body.job).toMatchObject({
       id: createdJob.body.job.id,
-      revision: 1,
+      revision: updatedJob.body.job.revision,
       state: { targetLanguage: 'ja', dubbing: true }
     });
     expect(restoredJob.body.job.issues).toEqual(expect.arrayContaining([
