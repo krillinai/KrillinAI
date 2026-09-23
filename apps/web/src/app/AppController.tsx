@@ -4575,6 +4575,7 @@ export function AppController(props: AppControllerProps) {
       creatorService={creatorService}
       runtimeDependencies={runtimeDependencies}
       creatorServicesService={creatorServicesService}
+      videoMetadataService={videoMetadataService}
       workspace={props.route.view === 'workbench' ? props.route.tool : undefined}
       jobId={props.route.view === 'workbench' ? props.route.jobId : undefined}
       onJobCreated={rememberCreatorJob}
