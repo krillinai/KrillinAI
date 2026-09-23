@@ -737,7 +737,7 @@ function TranscriptionSettings(props: SettingsGroupProps & {
           value={props.config.transcription.whisperCpp.model}
           options={(selectedCapability?.models ?? []).map(model => [model, model])}
           onChange={value => props.update(config => {
-            config.transcription.whisperCpp.model = value as 'tiny' | 'medium' | 'large-v2';
+            config.transcription.whisperCpp.model = value as 'tiny' | 'medium' | 'large-v2' | 'large-v3-turbo';
           })}
         />
       ) : null}
@@ -781,6 +781,9 @@ function TranscriptionSettings(props: SettingsGroupProps & {
           )}
         </p>
       ) : null}
+      {selectedCapability?.kind === 'local' && selectedCapability.available
+        ? <TranscriptionModelDetails capability={selectedCapability} model={selectedTranscriptionModel(props.config)} />
+        : null}
     </SettingsFieldset>
   );
 }
@@ -1507,6 +1510,25 @@ function ReadonlyModelField(props: { label: string; value: string }) {
       <output>{props.value}</output>
     </div>
   );
+}
+
+function TranscriptionModelDetails(props: {
+  capability: CreatorTranscriptionProviderCapability;
+  model: string;
+}) {
+  const l = useLocalizedCopy();
+  const diskBytes = props.capability.modelDetails?.[props.model]?.diskBytes;
+  if (diskBytes === undefined) return null;
+  return (
+    <p className="creator-services-inline-note">
+      {l(`本地执行 · 预计占用磁盘 ${formatDiskSize(diskBytes)}`, `Local execution · estimated disk usage ${formatDiskSize(diskBytes)}`)}
+    </p>
+  );
+}
+
+function formatDiskSize(bytes: number): string {
+  const gibibytes = bytes / (1024 ** 3);
+  return gibibytes >= 1 ? `${gibibytes.toFixed(2)} GiB` : `${(bytes / (1024 ** 2)).toFixed(0)} MiB`;
 }
 
 function ToggleField(props: {

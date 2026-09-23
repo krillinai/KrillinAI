@@ -347,6 +347,7 @@ describe('CreatorServicesSettingsView', () => {
     await user.click(screen.getByRole('button', { name: '本地 Whisper' }));
     expect(screen.getByRole('combobox', { name: '语音识别服务' })).toHaveTextContent('Whisper.cpp');
     expect(screen.getByText('tiny')).toBeInTheDocument();
+    expect(screen.getByText(/预计占用磁盘 74 MiB/)).toBeInTheDocument();
     expect(screen.queryByText('WhisperKit')).not.toBeInTheDocument();
     expect(screen.queryByText('FasterWhisper')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '保存配置' }));
@@ -595,7 +596,13 @@ function runtimeCapabilities(
           provider: 'whisper.cpp',
           kind: 'local',
           available: whisperCppAvailable,
-          models: ['tiny', 'medium', 'large-v2'],
+          models: ['tiny', 'medium', 'large-v2', 'large-v3-turbo'],
+          modelDetails: {
+            tiny: { diskBytes: 77691713 },
+            medium: { diskBytes: 1533763059 },
+            'large-v2': { diskBytes: 3094623691 },
+            'large-v3-turbo': { diskBytes: 1624555275 }
+          },
           gpuAcceleration: false,
           ...(whisperCppAvailable ? {} : { unavailableReason: 'unsupported_platform' as const })
         },
