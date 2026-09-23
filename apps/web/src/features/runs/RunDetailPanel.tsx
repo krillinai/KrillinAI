@@ -7,6 +7,8 @@ import type {
 import { AlertTriangle, Download, Image, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { downloadRunDiagnosticsBundle } from './run-diagnostics-export.js';
+import { IssueList } from '../issues/IssuePresenter.js';
+import { usePageIssueState } from '../issues/page-issue-state.js';
 
 function stringifyDiagnosticValue(value: unknown): string {
   try {
@@ -25,6 +27,7 @@ export function RunDetailPanel(props: {
 }) {
   const [confirmingExport, setConfirmingExport] = useState(false);
   const [exportError, setExportError] = useState<string>();
+  const pageIssues = usePageIssueState('run-detail');
 
   if (props.runId === undefined) {
     return (
@@ -52,9 +55,11 @@ export function RunDetailPanel(props: {
     setExportError(undefined);
     try {
       await (props.onExport ?? downloadRunDiagnosticsBundle)(props.diagnostics);
+      pageIssues.resolveOperation('run-detail.export');
       setConfirmingExport(false);
     } catch (reason) {
-      setExportError(reason instanceof Error ? reason.message : '诊断包导出失败');
+      setExportError('诊断包导出失败');
+      pageIssues.captureOperationFailure('run-detail.export', reason, '诊断包导出失败，请重试。', { retryable: true });
     }
   }
 
@@ -76,6 +81,12 @@ export function RunDetailPanel(props: {
           </button>
         </header>
         {exportError ? <p className="settings-error" role="alert">{exportError}</p> : null}
+        <IssueList
+          issues={pageIssues.issues}
+          actions={{ retryOperations: { 'run-detail.export': exportDiagnostics } }}
+          onDismiss={pageIssues.dismissIssue}
+          compact
+        />
         {confirmingExport ? (
           <section className="run-diagnostics-confirm" role="region" aria-label="确认导出诊断">
             <ShieldCheck aria-hidden="true" size={18} />

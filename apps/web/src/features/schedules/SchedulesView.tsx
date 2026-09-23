@@ -31,6 +31,8 @@ import {
 import { useConfirmDialog } from '../../components/dialogs/ConfirmDialogProvider.js';
 import { ApiClientError } from '../../runtime/errors.js';
 import type { OpenCreatorProject } from '../projects/project-model.js';
+import { IssueList } from '../issues/IssuePresenter.js';
+import { usePageIssueState } from '../issues/page-issue-state.js';
 import {
   createScheduleRequest,
   createScheduleUpdate,
@@ -104,6 +106,7 @@ export function SchedulesView(props: SchedulesViewProps) {
   const [filter, setFilter] = useState<ScheduleFilter>('all');
   const requestGenerationRef = useRef(0);
   const openedExternalEditIdRef = useRef<string>();
+  const pageIssues = usePageIssueState('schedules');
 
   const currentProject = useMemo(
     () => props.projects.find(project => project.id === props.currentProjectId) ?? props.projects[0],
@@ -119,9 +122,11 @@ export function SchedulesView(props: SchedulesViewProps) {
       const response = await props.service.listSchedules();
       if (generation !== requestGenerationRef.current) return;
       setSchedules(response.schedules);
-    } catch {
+      pageIssues.resolveOperation('schedules.load');
+    } catch (cause) {
       if (generation !== requestGenerationRef.current) return;
       setLoadError('无法加载定时任务');
+      pageIssues.captureOperationFailure('schedules.load', cause, '无法加载定时任务，请重试。', { retryable: true });
     } finally {
       if (generation === requestGenerationRef.current && showLoading) setLoading(false);
     }
@@ -235,6 +240,7 @@ export function SchedulesView(props: SchedulesViewProps) {
       ));
     } catch (error) {
       setEditorErrors({ form: errorMessage(error, '无法加载计划详情') });
+      pageIssues.captureOperationFailure('schedules.load-detail', error, '无法加载计划详情，请重试。');
       setEditor(current => (
         current?.mode === 'edit' && current.scheduleId === schedule.id
           ? { ...current, loading: false }
@@ -261,8 +267,10 @@ export function SchedulesView(props: SchedulesViewProps) {
       setEditorErrors({});
       setSchedules(current => upsertSchedule(current, saved));
       props.onScheduleChanged(saved);
+      pageIssues.resolveOperation('schedules.save');
     } catch (error) {
       setEditorErrors(mapScheduleError(error));
+      pageIssues.captureOperationFailure('schedules.save', error, '无法保存计划任务，请检查后重试。');
     } finally {
       setSaving(false);
     }
@@ -278,9 +286,11 @@ export function SchedulesView(props: SchedulesViewProps) {
       const updated = await props.service.updateSchedule(schedule.id, { enabled });
       setSchedules(current => replaceSchedule(current, updated));
       props.onScheduleChanged(updated);
+      pageIssues.resolveOperation('schedules.toggle');
     } catch (error) {
       setSchedules(current => replaceSchedule(current, schedule));
       setActionError(schedule.id, errorMessage(error, '无法更新任务状态'));
+      pageIssues.captureOperationFailure('schedules.toggle', error, '无法更新任务状态，请重试。');
     } finally {
       setBusy(schedule.id, false);
     }
@@ -292,8 +302,10 @@ export function SchedulesView(props: SchedulesViewProps) {
     clearActionError(schedule.id);
     try {
       await props.onRunNow(schedule);
+      pageIssues.resolveOperation('schedules.run-now');
     } catch (error) {
       setActionError(schedule.id, errorMessage(error, '无法立即运行任务'));
+      pageIssues.captureOperationFailure('schedules.run-now', error, '无法立即运行任务，请重试。');
     } finally {
       setBusy(schedule.id, false);
     }
@@ -315,11 +327,13 @@ export function SchedulesView(props: SchedulesViewProps) {
       await props.service.deleteSchedule(schedule.id);
       setSchedules(current => current.filter(item => item.id !== schedule.id));
       props.onScheduleDeleted(schedule);
+      pageIssues.resolveOperation('schedules.delete');
       if (editor?.mode === 'edit' && editor.scheduleId === schedule.id) {
         setEditor(undefined);
       }
     } catch (error) {
       setActionError(schedule.id, errorMessage(error, '无法删除任务'));
+      pageIssues.captureOperationFailure('schedules.delete', error, '无法删除任务，请重试。');
     } finally {
       setBusy(schedule.id, false);
     }
@@ -365,6 +379,13 @@ export function SchedulesView(props: SchedulesViewProps) {
                 创建
               </button>
             </header>
+            <IssueList
+              issues={pageIssues.issues}
+              actions={{ retryOperations: {
+                'schedules.load': () => loadSchedules(true)
+              } }}
+              onDismiss={pageIssues.dismissIssue}
+            />
 
             <label className="schedules-search">
               <Search size={17} aria-hidden="true" />
@@ -397,8 +418,8 @@ export function SchedulesView(props: SchedulesViewProps) {
                 正在加载定时任务
               </div>
             ) : loadError ? (
-              <div className="schedules-state schedules-state--error" role="alert">
-                <p>{loadError}</p>
+              <div className="schedules-state schedules-state--error" role="status">
+                <p>任务列表暂不可用，请使用上方问题卡重试。</p>
                 <button
                   className="schedule-button schedule-button--secondary"
                   type="button"
@@ -474,7 +495,7 @@ export function SchedulesView(props: SchedulesViewProps) {
                         ) : null}
                         {actionErrorById[schedule.id] ? (
                           <p className="schedule-row__error" role="status">
-                            {actionErrorById[schedule.id]}
+                            操作未完成，请查看上方问题卡。
                           </p>
                         ) : null}
                       </div>

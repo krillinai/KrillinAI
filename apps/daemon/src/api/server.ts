@@ -186,9 +186,11 @@ import { createSmartDubbingService } from '../smart-dubbing/service.js';
 import {
   createCreatorEventHub,
   creatorAgentEventKind,
+  creatorIssueEventId,
   creatorStageEventId
 } from '../creator/events.js';
 import { createCreatorRepository } from '../creator/repository.js';
+import { createCreatorIssueService } from '../creator/issues.js';
 import { createCreatorService, type CreatorService } from '../creator/service.js';
 import {
   loadCreatorPresetCatalog,
@@ -470,7 +472,25 @@ export async function buildServer(input: BuildServerInput) {
   await purgeLegacyStickmanJobs({ db, jobsRoot: creatorJobsRoot });
   migrateStickmanVisualAssetState({ db });
   const creatorRepository = createCreatorRepository(db);
-  const creatorProviderRequestLedger = new CreatorProviderRequestLedger(creatorRepository);
+  const creatorIssueService = createCreatorIssueService(creatorRepository, {
+    onChanged(issue) {
+      if (issue.scope.kind !== 'creator-job') return;
+      const job = creatorRepository.getJob(issue.scope.jobId);
+      if (job === undefined) return;
+      creatorEvents.publish({
+        id: creatorIssueEventId(issue),
+        jobId: job.id,
+        revision: job.revision,
+        kind: 'issue_changed',
+        payload: JSON.parse(JSON.stringify({ issue })) as Record<string, import('@opencreator/protocol').CreatorJson>,
+        createdAt: issue.lastOccurredAt
+      });
+    }
+  });
+  const creatorProviderRequestLedger = new CreatorProviderRequestLedger(
+    creatorRepository,
+    creatorIssueService
+  );
   const creatorAgentRepository = createCreatorAgentRepository(db);
   const creatorAgentReconciler = createCreatorAgentReconciler({
     repository: creatorAgentRepository
@@ -903,6 +923,7 @@ export async function buildServer(input: BuildServerInput) {
   const creatorStageRunner = input.creatorService === undefined
     ? createCreatorStageRunner({
         repository: creatorRepository,
+        issueService: creatorIssueService,
         templates: creatorService.templates,
         workRoot: creatorJobsRoot,
         executors: creatorExecutors,
@@ -1105,6 +1126,7 @@ export async function buildServer(input: BuildServerInput) {
     threads: threadManager,
     contextBuilder: creatorAgentContextBuilder,
     runtime: creatorAgentRuntime,
+    issueService: creatorIssueService,
     preflight: creatorPreflight,
     onEvent(event) {
       const job = creatorService.getJob(event.jobId);
@@ -1370,7 +1392,8 @@ export async function buildServer(input: BuildServerInput) {
     stageRunner: creatorStageRunner,
     presets: creatorPresetRegistry,
     presetCatalogRoot: creatorPresetCatalogRoot,
-    preflight: creatorPreflight
+    preflight: creatorPreflight,
+    issueService: creatorIssueService
   });
   await registerAttachmentRoutes(server, attachmentService, {
     maxSizeBytes: input.attachmentMaxSizeBytes

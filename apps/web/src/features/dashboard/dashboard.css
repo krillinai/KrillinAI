@@ -12265,6 +12265,38 @@
   overflow-wrap: anywhere;
 }
 
+.creator-collaboration-focused-issue {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 14px 8px;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.creator-collaboration-focused-issue span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.creator-collaboration-focused-issue button {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--muted);
+}
+
 .video-translation-wizard-main[data-phase="result"] {
   grid-template-rows: auto minmax(0, 1fr);
 }
@@ -12673,6 +12705,14 @@
   border: 1px solid var(--border-hairline);
   border-radius: 7px;
   background: var(--conversation-bg);
+}
+
+.creator-collaboration-issue {
+  min-width: 0;
+}
+
+.creator-collaboration-issue .issue-presenter {
+  margin: 0;
 }
 
 .creator-collaboration-stage[data-compact="true"] {

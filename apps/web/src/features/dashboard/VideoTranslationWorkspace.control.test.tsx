@@ -37,7 +37,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.click(within(screen.getByRole('region', { name: '视频翻译操作区' })).getByRole('button', { name: '开始翻译' }));
     await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'run-stage', input: { stageId: 'subtitle', workflow: true } })));
   });
-  it.each(['source_subtitle', 'target_subtitle'])('uploads %s through the shared action and displays daemon validation errors', async kind => {
+  it.each(['source_subtitle', 'target_subtitle'])('uploads %s through the shared action and hides raw daemon validation errors', async kind => {
     const initial = job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 1, furthestStep: 1 } });
     const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
       if (request.action === 'import-subtitle') throw new Error('Invalid UTF-8 SRT: timeline 2');
@@ -53,7 +53,12 @@ describe('VideoTranslationWorkspace task controls', () => {
     await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'import-subtitle', input: {
       kind, fileName: 'local.srt', language: kind === 'source_subtitle' ? 'en' : 'zh_cn', contentBase64: btoa('invalid')
     } })));
-    expect(await within(screen.getByRole('group', { name: '导入已有字幕' })).findByText('Invalid UTF-8 SRT: timeline 2')).toBeInTheDocument();
+    expect(await within(screen.getByRole('group', { name: '导入已有字幕' })).findByText(
+      '字幕文件读取或导入失败，请在 Agent 区域查看诊断。'
+    )).toBeInTheDocument();
+    expect(screen.queryByText('Invalid UTF-8 SRT: timeline 2')).not.toBeInTheDocument();
+    expect(await screen.findByText('操作未完成，请在 Agent 区域查看诊断。')).toBeInTheDocument();
+    expect(screen.getByText(/诊断编号：OC-/)).toBeInTheDocument();
     expect(screen.getByLabelText('UTF-8 SRT 文件')).not.toBeDisabled();
   });
   it('restores a video translation v1 job from legacy subtitle fields', () => {

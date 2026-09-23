@@ -787,20 +787,23 @@ describe('FileWorkspaceView', () => {
     await user.keyboard('A');
     await user.click(screen.getByRole('button', { name: '保存' }));
 
-    const alert = await screen.findByRole('alert');
-    expect(within(alert).getByText('文件内容与最新版本冲突。')).toBeInTheDocument();
+    const issue = await screen.findByRole('alert');
+    expect(issue).toHaveTextContent('文件已在其他位置更新，请确认是否覆盖。');
+    expect(issue).toHaveTextContent(/诊断编号：OC-/);
+    const conflictStatus = screen.getByText('文件内容与最新版本冲突。').closest('[role="status"]');
+    expect(conflictStatus).not.toBeNull();
 
     const metaCallsBeforeReload = service.getMeta.mock.calls.length;
     const textCallsBeforeReload = service.openText.mock.calls.length;
-    await user.click(within(alert).getByRole('button', { name: '重新加载' }));
+    await user.click(within(conflictStatus as HTMLElement).getByRole('button', { name: '重新加载' }));
     await waitFor(() => expect(service.getMeta.mock.calls.length).toBe(metaCallsBeforeReload + 1));
     await waitFor(() => expect(service.openText.mock.calls.length).toBe(textCallsBeforeReload + 1));
 
     await user.click(await openFileEditor(user, 'notes.txt'));
     await user.keyboard('B');
     await user.click(screen.getByRole('button', { name: '保存' }));
-    const conflictAlert = await screen.findByRole('alert');
-    await user.click(within(conflictAlert).getByRole('button', { name: '覆盖保存' }));
+    const conflict = screen.getByText('文件内容与最新版本冲突。').closest('[role="status"]');
+    await user.click(within(conflict as HTMLElement).getByRole('button', { name: '覆盖保存' }));
 
     await waitFor(() => {
       expect(service.saveText).toHaveBeenLastCalledWith({
@@ -815,10 +818,11 @@ describe('FileWorkspaceView', () => {
     await user.click(await openFileEditor(user, 'notes.txt'));
     await user.keyboard('C');
     await user.click(screen.getByRole('button', { name: '保存' }));
-    const closeAlert = await screen.findByRole('alert');
-    await user.click(within(closeAlert).getByRole('button', { name: '取消' }));
+    const closeConflict = screen.getByText('文件内容与最新版本冲突。').closest('[role="status"]');
+    await user.click(within(closeConflict as HTMLElement).getByRole('button', { name: '取消' }));
 
-    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText('文件内容与最新版本冲突。')).not.toBeInTheDocument());
+    expect(screen.getByRole('alert')).toHaveTextContent('文件已在其他位置更新，请确认是否覆盖。');
   });
 
   it('read-only thread 显示只读提示且不能保存', async () => {

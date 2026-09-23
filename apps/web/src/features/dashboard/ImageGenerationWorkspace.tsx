@@ -25,7 +25,11 @@ import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
-import { useOptionalCreatorSession } from './creator-session-store.js';
+import {
+  captureCreatorClientFailure,
+  createCreatorArtifactObjectUrl,
+  useOptionalCreatorSession
+} from './creator-session-store.js';
 
 type ImageStep = 0 | 1 | 2;
 type ImageResultVersion = {
@@ -132,10 +136,14 @@ export default function ImageGenerationWorkspace(props: {
       }
       let active = true;
       let objectUrl = '';
-      void session.openArtifact(activeReferenceArtifact.id)
-        .then(async response => {
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          objectUrl = URL.createObjectURL(await response.blob());
+      void createCreatorArtifactObjectUrl(
+        session,
+        activeReferenceArtifact.id,
+        'image-generation.load-reference-preview',
+        l('参考图预览加载失败，请稍后重试。', 'The reference preview failed to load. Try again later.')
+      )
+        .then(url => {
+          objectUrl = url;
           if (active) setReferencePreview(objectUrl);
         })
         .catch(() => {
@@ -146,10 +154,18 @@ export default function ImageGenerationWorkspace(props: {
         if (objectUrl) URL.revokeObjectURL(objectUrl);
       };
     }
-    const objectUrl = URL.createObjectURL(referenceFile);
-    setReferencePreview(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [activeReferenceArtifact?.id, referenceFile, session?.openArtifact]);
+    let objectUrl = '';
+    void captureCreatorClientFailure(
+      session,
+      'image-generation.load-local-reference-preview',
+      l('参考图预览加载失败，请重新选择图片。', 'The reference preview failed to load. Select the image again.'),
+      () => URL.createObjectURL(referenceFile)
+    ).then(url => {
+      objectUrl = url;
+      setReferencePreview(url);
+    }).catch(() => setReferencePreview(''));
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [activeReferenceArtifact?.id, l, referenceFile, session?.captureCreatorFailure, session?.openArtifact]);
 
   useEffect(() => {
     const artifacts = selectedResult?.artifacts ?? [];
@@ -163,9 +179,12 @@ export default function ImageGenerationWorkspace(props: {
     setImageUrls({});
     setPreviewError('');
     void Promise.all(artifacts.map(async artifact => {
-      const response = await session.openArtifact(artifact.id);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const url = URL.createObjectURL(await response.blob());
+      const url = await createCreatorArtifactObjectUrl(
+        session,
+        artifact.id,
+        'image-generation.load-result-preview',
+        l('图片预览加载失败，可以稍后重试或重新生成。', 'Image previews failed to load. Retry later or generate them again.')
+      );
       objectUrls.push(url);
       return [artifact.id, url] as const;
     })).then(entries => {
@@ -174,7 +193,7 @@ export default function ImageGenerationWorkspace(props: {
       if (active) {
         setPreviewError(l(
           '图片预览加载失败，可以稍后重试或重新生成',
-          `Image previews failed to load: ${cause instanceof Error ? cause.message : String(cause)}`
+          'Image previews failed to load. Retry later or generate them again.'
         ));
       }
     });
@@ -182,7 +201,7 @@ export default function ImageGenerationWorkspace(props: {
       active = false;
       objectUrls.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [l, selectedResult?.artifacts, session?.openArtifact]);
+  }, [l, selectedResult?.artifacts, session?.captureCreatorFailure, session?.openArtifact]);
 
   useEffect(() => {
     if (latestVersion !== undefined && !generating) {
@@ -297,9 +316,12 @@ export default function ImageGenerationWorkspace(props: {
       const existingUrl = imageUrls[artifact.id];
       let temporaryUrl: string | undefined;
       if (existingUrl === undefined) {
-        const response = await session.openArtifact(artifact.id);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        temporaryUrl = URL.createObjectURL(await response.blob());
+        temporaryUrl = await createCreatorArtifactObjectUrl(
+          session,
+          artifact.id,
+          'image-generation.download-result',
+          l('图片下载失败，请稍后重试。', 'The image download failed. Try again later.')
+        );
       }
       const link = document.createElement('a');
       link.href = existingUrl ?? temporaryUrl!;
@@ -766,9 +788,5 @@ function formatImageError(error: unknown, l: (zh: string, en: string) => string)
   if (code === 'creator_stage_canceled') {
     return l('图像生成任务已取消', 'Image generation was canceled');
   }
-  return typeof candidate?.message === 'string'
-    ? candidate.message
-    : error instanceof Error
-      ? error.message
-      : l('图片生成失败，请稍后重试', 'Image generation failed. Try again later.');
+  return l('图片生成失败，请在 Agent 区域查看诊断后重试', 'Image generation failed. Review the diagnosis in the Agent panel and retry.');
 }

@@ -494,7 +494,7 @@ test('打包 App 在窄窗口下各 Creator 内页保持对话栏在右侧', asy
 });
 
 test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且使用内嵌 Runtime', async () => {
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
   const fixture = await launchCreatorDesktop();
   let currentApp: PackagedApp = fixture.app;
 
@@ -882,6 +882,53 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
       status: 'completed',
       content: 'desktop e2e run completed'
     });
+    const reportedIssue = await runtimeRequest<{
+      clientIssueId: string;
+      issue: {
+        id: string;
+        diagnosticId: string;
+        fallbackMessage: string;
+        status: string;
+      };
+    }>(currentApp.page, 'POST', `/creator/jobs/${createdJob.body.job.id}/issues/report`, {
+      clientIssueId: 'packaged-creator-issue',
+      code: 'creator_packaged_e2e_failure',
+      source: 'client',
+      operation: 'creator.packaged-e2e',
+      fallbackMessage: '操作未完成，请在 Agent 区域查看诊断。'
+    });
+    expect(reportedIssue.status).toBe(201);
+    expect(reportedIssue.body.issue).toMatchObject({
+      status: 'open',
+      fallbackMessage: '操作未完成，请在 Agent 区域查看诊断。'
+    });
+    await currentApp.page.evaluate(jobId => {
+      window.location.hash = `#/workbench?tool=video-translation&jobId=${encodeURIComponent(jobId)}`;
+    }, createdJob.body.job.id);
+    const issueCard = currentApp.page.locator('.creator-collaboration-issue').filter({
+      hasText: reportedIssue.body.issue.diagnosticId
+    });
+    await expect(issueCard).toContainText('操作未完成，请在 Agent 区域查看诊断。');
+    await expect(issueCard).toContainText(`诊断编号：${reportedIssue.body.issue.diagnosticId}`);
+    await issueCard.getByRole('button', { name: '询问 Agent' }).click();
+    const issueComposer = currentApp.page.getByRole('textbox', { name: '告诉 Agent 你的要求' });
+    await expect(issueComposer)
+      .toHaveValue('请说明这个问题的已确认事实、可能原因和下一步修复方法。');
+    const focusedAgentResponse = currentApp.page.waitForResponse(response => (
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith(
+        `/creator/jobs/${createdJob.body.job.id}/agent-turns`
+      )
+    ), { timeout: 45_000 });
+    await currentApp.page.getByRole('button', { name: '发送给 Agent' }).click();
+    const focusedAgentRequest = (await focusedAgentResponse).request().postDataJSON() as {
+      focusedIssueId?: string;
+      message?: string;
+    };
+    expect(focusedAgentRequest).toMatchObject({
+      focusedIssueId: reportedIssue.body.issue.id,
+      message: '请说明这个问题的已确认事实、可能原因和下一步修复方法。'
+    });
 
     const localSourceJob = await runtimeRequest<{
       job: { id: string; revision: number };
@@ -1061,7 +1108,12 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
     await waitForWorkspace(currentApp.page);
 
     const restoredJob = await runtimeRequest<{
-      job: { id: string; revision: number; state: Record<string, unknown> };
+      job: {
+        id: string;
+        revision: number;
+        state: Record<string, unknown>;
+        issues: Array<{ id: string; diagnosticId: string; status: string }>;
+      };
     }>(currentApp.page, 'GET', `/creator/jobs/${createdJob.body.job.id}`);
     expect(restoredJob.status).toBe(200);
     expect(restoredJob.body.job).toMatchObject({
@@ -1069,6 +1121,23 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
       revision: 1,
       state: { targetLanguage: 'ja', dubbing: true }
     });
+    expect(restoredJob.body.job.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: reportedIssue.body.issue.id,
+        diagnosticId: reportedIssue.body.issue.diagnosticId,
+        status: 'open'
+      })
+    ]));
+    await currentApp.page.evaluate(jobId => {
+      window.location.hash = `#/workbench?tool=video-translation&jobId=${encodeURIComponent(jobId)}`;
+    }, createdJob.body.job.id);
+    const restoredIssueCard = currentApp.page.locator('.creator-collaboration-issue').filter({
+      hasText: reportedIssue.body.issue.diagnosticId
+    });
+    await expect(restoredIssueCard).toContainText('操作未完成，请在 Agent 区域查看诊断。');
+    await expect(restoredIssueCard).toContainText(
+      `诊断编号：${reportedIssue.body.issue.diagnosticId}`
+    );
     const restoredImageJob = await runtimeRequest<{
       job: { id: string; revision: number; state: Record<string, unknown> };
     }>(currentApp.page, 'GET', `/creator/jobs/${imageJob.body.job.id}`);

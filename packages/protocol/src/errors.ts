@@ -1,3 +1,5 @@
+import type { OpenCreatorIssue } from './issues.js';
+
 export type RuntimeErrorCode =
   | 'VALIDATION_FAILED'
   | 'UNAUTHORIZED'
@@ -164,5 +166,6 @@ export type ApiError = {
     code: RuntimeErrorCode;
     message: string;
     details?: Record<string, unknown>;
+    issue?: OpenCreatorIssue;
   };
 };

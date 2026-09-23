@@ -41,6 +41,8 @@ import { TtsVoicePicker } from '../../components/tts/TtsVoicePicker.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import type { ConnectionService } from '../../services/connection-service.js';
+import { IssueList } from '../issues/IssuePresenter.js';
+import { usePageIssueState } from '../issues/page-issue-state.js';
 import './creator-services-settings.css';
 
 export type CreatorServicesSection = 'text' | 'transcription' | 'tts' | 'image' | 'video';
@@ -72,10 +74,11 @@ export function CreatorServicesSettingsView(props: {
   const [savedTranscriptionSelection, setSavedTranscriptionSelection] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string>();
-  const [modelError, setModelError] = useState<string>();
+  const [validationError, setValidationError] = useState<string>();
   const [modelFieldErrors, setModelFieldErrors] = useState<ModelFieldErrors>({});
   const [notice, setNotice] = useState<string>();
+  const [reloadToken, setReloadToken] = useState(0);
+  const pageIssues = usePageIssueState('settings-creator-services');
 
   useEffect(() => {
     if (props.initialSection !== undefined) setActiveSection(props.initialSection);
@@ -88,14 +91,13 @@ export function CreatorServicesSettingsView(props: {
       setConfig(undefined);
       setCapabilities(undefined);
       setModelProvider(undefined);
-      setModelError(undefined);
+      pageIssues.clearIssues();
       return () => {
         active = false;
       };
     }
     setLoading(true);
-    setError(undefined);
-    setModelError(undefined);
+    setValidationError(undefined);
     void Promise.allSettled([
       props.service.getConfig(),
       props.service.getCapabilities(),
@@ -109,9 +111,19 @@ export function CreatorServicesSettingsView(props: {
         if (configResult.status === 'rejected' || capabilitiesResult.status === 'rejected') {
           setConfig(undefined);
           setCapabilities(undefined);
-          setError(l('无法读取 AI 服务配置', 'Could not load AI service settings'));
+          pageIssues.captureOperationFailure(
+            'settings.creator-services.load',
+            configResult.status === 'rejected'
+              ? configResult.reason
+              : capabilitiesResult.status === 'rejected'
+                ? capabilitiesResult.reason
+                : undefined,
+            l('无法读取 AI 服务配置，请重试。', 'Could not load AI service settings. Try again.'),
+            { retryable: true }
+          );
           return;
         }
+        pageIssues.resolveOperation('settings.creator-services.load');
         const response = configResult.value;
         setRuntimeModelIds(modelsResult.status === 'fulfilled'
           ? modelsResult.value.models.map(model => model.model)
@@ -127,15 +139,33 @@ export function CreatorServicesSettingsView(props: {
           setModelProviderId(inferLlmProviderId(provider.baseUrl, provider.model));
           setModelBaseUrl(useLegacyTextModel ? response.config.llm.baseUrl : provider.baseUrl);
           setModelName(useLegacyTextModel ? response.config.llm.model : provider.model);
+          pageIssues.resolveOperation('settings.creator-services.load-model-provider');
         } else {
           setModelProvider(undefined);
           setModelProviderId('custom');
           setModelBaseUrl(response.config.llm.baseUrl);
           setModelName(response.config.llm.model);
-          setModelError(l(
-            '模型服务暂不可用，语音、图像和视频服务仍可正常配置。',
-            'The model provider is unavailable. Speech, image, and video services can still be configured.'
-          ));
+          if (props.modelService !== null && props.modelService !== undefined) {
+            pageIssues.captureOperationFailure(
+              'settings.creator-services.load-model-provider',
+              providerResult.reason,
+              l(
+                '模型服务暂不可用，语音、图像和视频服务仍可正常配置。',
+                'The model provider is unavailable. Speech, image, and video services can still be configured.'
+              ),
+              { retryable: true }
+            );
+          }
+        }
+        if (modelsResult.status === 'fulfilled') {
+          pageIssues.resolveOperation('settings.creator-services.load-models');
+        } else if (props.modelService?.getCodexModels !== undefined) {
+          pageIssues.captureOperationFailure(
+            'settings.creator-services.load-models',
+            modelsResult.reason,
+            l('无法读取模型列表，仍可手动填写模型。', 'Could not load the model list. You can still enter a model manually.'),
+            { retryable: true }
+          );
         }
         setModelApiKey('');
       })
@@ -145,7 +175,15 @@ export function CreatorServicesSettingsView(props: {
     return () => {
       active = false;
     };
-  }, [props.connected, props.modelService, props.service]);
+  }, [
+    pageIssues.captureOperationFailure,
+    pageIssues.clearIssues,
+    pageIssues.resolveOperation,
+    props.connected,
+    props.modelService,
+    props.service,
+    reloadToken
+  ]);
 
   const sections: Array<{
     id: CreatorServicesSection;
@@ -166,7 +204,7 @@ export function CreatorServicesSettingsView(props: {
       return next;
     });
     setModelFieldErrors({});
-    setError(undefined);
+    setValidationError(undefined);
     setNotice(undefined);
   }
 
@@ -177,7 +215,7 @@ export function CreatorServicesSettingsView(props: {
       config.transcription.provider
     );
     if (selectedCapability?.available !== true) {
-      setError(l(
+      setValidationError(l(
         '当前 Runtime 不支持已选语音识别服务，请重新选择后保存。',
         'The selected transcription provider is unavailable on this Runtime. Choose another provider before saving.'
       ));
@@ -201,7 +239,7 @@ export function CreatorServicesSettingsView(props: {
       const fieldErrors = validateModelFields(modelBaseUrl, modelName, modelApiKey, config.proxy, l);
       setModelFieldErrors(fieldErrors);
       if (Object.keys(fieldErrors).length > 0) {
-        setError(l(
+        setValidationError(l(
           '模型服务配置有误，请修改标出的字段。',
           'The model provider settings are invalid. Fix the highlighted fields.'
         ));
@@ -209,7 +247,7 @@ export function CreatorServicesSettingsView(props: {
       }
     }
     setSaving(true);
-    setError(undefined);
+    setValidationError(undefined);
     setNotice(undefined);
     let savingStage: 'model' | 'services' = 'services';
     try {
@@ -241,16 +279,22 @@ export function CreatorServicesSettingsView(props: {
       setConfig(response.config);
       setConfiguredCredentials(new Set(response.configuredCredentials));
       setSavedTranscriptionSelection(transcriptionSelection(response.config));
+      pageIssues.resolveOperation('settings.creator-services.save');
       setNotice(l('配置已安全保存', 'Settings saved securely'));
     } catch (cause) {
       const message = readableSaveError(cause, l);
       const field = modelFieldFromError(message);
       if (activeSection === 'text' && savingStage === 'model' && field !== undefined) {
-        setModelFieldErrors({ [field]: message });
+        setModelFieldErrors({ [field]: modelFieldFailure(field, l) });
       }
-      setError(savingStage === 'model'
-        ? l(`模型服务保存失败：${message}`, `Could not save model provider: ${message}`)
-        : l(`创作服务保存失败：${message}`, `Could not save creator services: ${message}`));
+      pageIssues.captureOperationFailure(
+        'settings.creator-services.save',
+        cause,
+        savingStage === 'model'
+          ? l('模型服务保存失败，请检查标出的字段后重试。', 'Could not save the model provider. Check the highlighted fields and retry.')
+          : l('创作服务保存失败，请检查配置后重试。', 'Could not save creator services. Check the settings and retry.'),
+        { retryable: true }
+      );
     } finally {
       setSaving(false);
     }
@@ -269,16 +313,21 @@ export function CreatorServicesSettingsView(props: {
     });
     if (!confirmed) return;
     setSaving(true);
-    setError(undefined);
+    setValidationError(undefined);
     setNotice(undefined);
     try {
       const response = await props.service.resetConfig();
       setConfig(response.config);
       setConfiguredCredentials(new Set(response.configuredCredentials));
       setSavedTranscriptionSelection(transcriptionSelection(response.config));
+      pageIssues.resolveOperation('settings.creator-services.reset');
       setNotice(l('已恢复默认配置', 'Default settings restored'));
-    } catch {
-      setError(l('无法恢复默认配置', 'Could not restore default settings'));
+    } catch (cause) {
+      pageIssues.captureOperationFailure(
+        'settings.creator-services.reset',
+        cause,
+        l('无法恢复默认配置，请重试。', 'Could not restore default settings. Try again.')
+      );
     } finally {
       setSaving(false);
     }
@@ -329,8 +378,8 @@ export function CreatorServicesSettingsView(props: {
           {l('连接本地 Runtime 后即可管理 AI 服务配置。', 'Connect the local Runtime to manage AI service settings.')}
         </div>
       ) : config === undefined || capabilities === undefined ? (
-        <div className="creator-services-state" role="alert">
-          {error ?? l('配置暂不可用', 'Settings are unavailable')}
+        <div className="creator-services-state">
+          {l('配置暂不可用', 'Settings are unavailable')}
         </div>
       ) : (
         <form
@@ -351,14 +400,13 @@ export function CreatorServicesSettingsView(props: {
               baseUrl={modelBaseUrl}
               model={modelName}
               apiKey={modelApiKey}
-              error={modelError}
               fieldErrors={modelFieldErrors}
               onProviderChange={value => {
                 setModelBaseUrl(value.baseUrl);
                 setModelName(value.model);
                 setModelApiKey(value.apiKey);
                 setModelFieldErrors({});
-                setError(undefined);
+                setValidationError(undefined);
                 setNotice(undefined);
               }}
               providerId={modelProviderId}
@@ -371,7 +419,7 @@ export function CreatorServicesSettingsView(props: {
                 setModelName(preset.models[0]?.id ?? '');
                 setModelApiKey('');
                 setModelFieldErrors({});
-                setError(undefined);
+                setValidationError(undefined);
                 setNotice(undefined);
               }}
             />
@@ -401,7 +449,7 @@ export function CreatorServicesSettingsView(props: {
 
           <footer className="creator-services-actions">
             <div aria-live="polite">
-              {error ? <p className="settings-error" role="alert">{error}</p> : null}
+              {validationError ? <p className="settings-error" role="alert">{validationError}</p> : null}
               {notice ? <p className="settings-notice">{notice}</p> : null}
             </div>
             <button
@@ -434,6 +482,16 @@ export function CreatorServicesSettingsView(props: {
           </footer>
         </form>
       )}
+      <IssueList
+        issues={pageIssues.issues}
+        actions={{ retryOperations: {
+          'settings.creator-services.load': () => setReloadToken(value => value + 1),
+          'settings.creator-services.load-model-provider': () => setReloadToken(value => value + 1),
+          'settings.creator-services.load-models': () => setReloadToken(value => value + 1),
+          'settings.creator-services.save': save
+        } }}
+        onDismiss={pageIssues.dismissIssue}
+      />
     </section>
   );
 }
@@ -607,6 +665,16 @@ function modelFieldFromError(message: string): keyof ModelFieldErrors | undefine
   if (normalized.includes('proxy') || normalized.includes('代理')) return 'proxy';
   if (normalized.includes('model') || normalized.includes('模型')) return 'model';
   return undefined;
+}
+
+function modelFieldFailure(
+  field: keyof ModelFieldErrors,
+  l: (zh: string, en: string) => string
+): string {
+  if (field === 'baseUrl') return l('请检查 Base URL。', 'Check the Base URL.');
+  if (field === 'apiKey') return l('请检查 API Key。', 'Check the API key.');
+  if (field === 'proxy') return l('请检查代理地址。', 'Check the proxy URL.');
+  return l('请检查模型名称。', 'Check the model name.');
 }
 
 function TranscriptionSettings(props: SettingsGroupProps & {

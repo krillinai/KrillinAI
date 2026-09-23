@@ -31,7 +31,10 @@ import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import NativeSelect from '../../components/forms/NativeSelect.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
-import { useOptionalCreatorSession } from './creator-session-store.js';
+import {
+  createCreatorArtifactObjectUrl,
+  useOptionalCreatorSession
+} from './creator-session-store.js';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 
 type DownloadStep = 0 | 1;
@@ -388,9 +391,12 @@ export default function VideoDownloadWorkspace(props: {
   async function downloadArtifact(artifact: CreatorArtifact) {
     if (session === null) return;
     try {
-      const response = await session.openArtifact(artifact.id);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const objectUrl = URL.createObjectURL(await response.blob());
+      const objectUrl = await createCreatorArtifactObjectUrl(
+        session,
+        artifact.id,
+        'video-download.download-artifact',
+        l('文件下载失败，请稍后重试。', 'The file download failed. Try again later.')
+      );
       const link = document.createElement('a');
       link.href = objectUrl;
       link.download = artifactFileName(artifact);
@@ -430,9 +436,12 @@ export default function VideoDownloadWorkspace(props: {
       return;
     }
     try {
-      const response = await session.openArtifact(artifact.id);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const objectUrl = URL.createObjectURL(await response.blob());
+      const objectUrl = await createCreatorArtifactObjectUrl(
+        session,
+        artifact.id,
+        'video-download.load-artifact-preview',
+        l('文件预览加载失败，请稍后重试。', 'The file preview failed to load. Try again later.')
+      );
       if (artifactPreviewRequestRef.current !== requestId) {
         URL.revokeObjectURL(objectUrl);
         return;
@@ -1742,7 +1751,7 @@ function formatDownloadError(
       'The video platform may have changed. Update yt-dlp and try again.'
     );
   }
-  return message;
+  return l('视频下载失败，请在 Agent 区域查看诊断后重试', 'Video download failed. Review the diagnosis in the Agent panel and retry.');
 }
 
 function shouldSuggestYtDlpUpdate(stage: CreatorStageRun | undefined): boolean {

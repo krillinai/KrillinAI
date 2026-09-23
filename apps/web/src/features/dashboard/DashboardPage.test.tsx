@@ -1736,7 +1736,10 @@ describe('DashboardPage', () => {
     await waitFor(() => {
       expect(composer).toHaveValue('检查当前翻译设置');
     });
-    expect(await screen.findByRole('alert')).toHaveTextContent('Creator Agent unavailable');
+    const issue = await screen.findByRole('alert');
+    expect(issue).toHaveTextContent('Agent 未能完成诊断，请查看问题详情后重试。');
+    expect(issue).toHaveTextContent(/诊断编号：OC-/);
+    expect(issue).not.toHaveTextContent('Creator Agent unavailable');
   });
 
   it('returns from the video translation workspace to the app directory', () => {
@@ -2271,7 +2274,7 @@ describe('DashboardPage', () => {
     fireEvent.change(referenceImageInput, {
       target: { files: [referenceImage] }
     });
-    expect(screen.getByRole('img', { name: '视频参考图预览' })).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: '视频参考图预览' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '移除参考图' }));
     expect(screen.queryByRole('img', { name: '视频参考图预览' })).not.toBeInTheDocument();
     fireEvent.change(referenceImageInput, {

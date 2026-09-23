@@ -50,6 +50,8 @@ import type { VideoMetadataService } from '../../services/video-metadata-service
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import { CreateProjectDropdown } from '../projects/CreateProjectDropdown.js';
 import type { CreatorProjectType } from '../projects/project-types.js';
+import { IssueList } from '../issues/IssuePresenter.js';
+import { usePageIssueState } from '../issues/page-issue-state.js';
 
 type DashboardCategory = '视频创作' | '图像创作' | '文案创作' | '音频处理' | '视频编辑' | '数字人';
 
@@ -229,6 +231,7 @@ export default function DashboardPage(props: {
 }) {
   const { language, t } = useAppLanguage();
   const l = useLocalizedCopy();
+  const launchIssues = usePageIssueState('creator-launch');
   const [activeWorkspace, setActiveWorkspace] = useState<CreatorWorkspace | null>(
     () => props.skillLaunch?.workspace ?? props.workspace ?? null
   );
@@ -254,6 +257,20 @@ export default function DashboardPage(props: {
         .includes(normalizedQuery);
     return matchesCategory && matchesQuery;
   }), [category, language, normalizedQuery]);
+
+  useEffect(() => {
+    if (props.createProjectError === undefined) launchIssues.resolveOperation('creator-launch.create-project');
+    else launchIssues.captureOperationFailure(
+      'creator-launch.create-project',
+      new Error(props.createProjectError),
+      l('新建项目失败，请重试。', 'Could not create the project. Try again.')
+    );
+  }, [
+    l,
+    launchIssues.captureOperationFailure,
+    launchIssues.resolveOperation,
+    props.createProjectError
+  ]);
 
   useEffect(() => {
     props.onWorkspaceModeChange?.(activeWorkspace !== null);
@@ -449,11 +466,11 @@ export default function DashboardPage(props: {
           {props.onCreateProject ? (
             <CreateProjectDropdown
               align="end"
-              error={props.createProjectError}
               onCreate={props.onCreateProject}
             />
           ) : null}
         </header>
+        <IssueList issues={launchIssues.issues} onDismiss={launchIssues.dismissIssue} />
 
         <section className="dashboard-featured" aria-labelledby="dashboard-featured-title">
           <h2 id="dashboard-featured-title">{t('dashboard.featured')}</h2>
@@ -595,8 +612,8 @@ function CreatorWorkspaceSession(props: {
   const [job, setJob] = useState<CreatorJob | undefined>(() => props.jobId === undefined
     ? createPendingCreatorJob(props.projectId, props.templateId, props.templateVersion)
     : undefined);
-  const [error, setError] = useState<string>();
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const pageIssues = usePageIssueState('creator-launch');
   const jobRef = useRef(job);
   const mountedRef = useRef(false);
   const onJobCreatedRef = useRef(props.onJobCreated);
@@ -660,7 +677,18 @@ function CreatorWorkspaceSession(props: {
       });
     }
 
-    const next = await request;
+    let next: CreatorJob;
+    try {
+      next = await request;
+      pageIssues.resolveOperation('creator-launch.create-job');
+    } catch (cause) {
+      pageIssues.captureOperationFailure(
+        'creator-launch.create-job',
+        cause,
+        l('无法创建创作项目，请检查 Runtime 连接后再次启动。', 'Could not create the creator project. Check the Runtime connection and start it again.')
+      );
+      throw cause;
+    }
     if (next.projectId !== props.projectId) {
       throw new Error('Creator job does not belong to the active project');
     }
@@ -682,12 +710,20 @@ function CreatorWorkspaceSession(props: {
       onJobCreatedRef.current(next);
     }
     return next;
-  }, [props.projectId, props.service, props.templateId, props.templateVersion]);
+  }, [
+    l,
+    pageIssues.captureOperationFailure,
+    pageIssues.resolveOperation,
+    props.projectId,
+    props.service,
+    props.templateId,
+    props.templateVersion
+  ]);
 
   useEffect(() => {
     let canceled = false;
     if (props.jobId === undefined) {
-      setError(undefined);
+      pageIssues.resolveOperation('creator-launch.restore-job');
       setJob(current => (
         current !== undefined
         && isPendingCreatorJob(current)
@@ -706,11 +742,15 @@ function CreatorWorkspaceSession(props: {
 
     if (props.jobId !== createdJobIdRef.current) createdJobIdRef.current = undefined;
     const request = props.service.getJob(props.jobId).then(response => response.job);
-    setError(undefined);
     setJob(current => current?.id === props.jobId ? current : undefined);
     const timeout = window.setTimeout(() => {
       if (canceled) return;
-      setError(l('恢复创作项目超时，请重试', 'Restoring the creator project timed out. Try again.'));
+      pageIssues.captureOperationFailure(
+        'creator-launch.restore-job',
+        new Error('creator_job_restore_timeout'),
+        l('恢复创作项目超时，请重试。', 'Restoring the creator project timed out. Try again.'),
+        { retryable: true }
+      );
     }, CREATOR_JOB_LOAD_TIMEOUT_MS);
     void request.then(next => {
       if (next.projectId !== props.projectId) {
@@ -721,12 +761,17 @@ function CreatorWorkspaceSession(props: {
       }
       if (canceled) return;
       window.clearTimeout(timeout);
-      setError(undefined);
+      pageIssues.resolveOperation('creator-launch.restore-job');
       setJob(next);
     }).catch(reason => {
       if (canceled) return;
       window.clearTimeout(timeout);
-      setError(reason instanceof Error ? reason.message : String(reason));
+      pageIssues.captureOperationFailure(
+        'creator-launch.restore-job',
+        reason,
+        l('无法恢复创作项目，请重试。', 'Could not restore the creator project. Try again.'),
+        { retryable: true }
+      );
     });
     return () => {
       canceled = true;
@@ -735,6 +780,8 @@ function CreatorWorkspaceSession(props: {
   }, [
     l,
     loadAttempt,
+    pageIssues.captureOperationFailure,
+    pageIssues.resolveOperation,
     props.jobId,
     props.projectId,
     props.service,
@@ -742,14 +789,18 @@ function CreatorWorkspaceSession(props: {
     props.templateVersion
   ]);
 
-  if (error) {
+  const restoreIssue = pageIssues.issues.some(issue => issue.operation === 'creator-launch.restore-job');
+  if (restoreIssue) {
     return (
-      <main className="creator-workspace-loading" role="alert">
-        <p>{error}</p>
+      <main className="creator-workspace-loading">
+        <IssueList
+          issues={pageIssues.issues}
+          actions={{ retryOperations: {
+            'creator-launch.restore-job': () => setLoadAttempt(attempt => attempt + 1)
+          } }}
+          onDismiss={pageIssues.dismissIssue}
+        />
         <div className="creator-workspace-loading-actions">
-          <button type="button" onClick={() => setLoadAttempt(attempt => attempt + 1)}>
-            {l('重试', 'Retry')}
-          </button>
           <button type="button" onClick={props.onBack}>{l('返回工作台', 'Back to Dashboard')}</button>
         </div>
       </main>
@@ -772,7 +823,15 @@ function CreatorWorkspaceSession(props: {
       initialJob={job}
       service={props.service}
       ensureJob={ensureJob}
+      onPreJobFailure={(operation, cause, fallbackMessage) => {
+        pageIssues.captureOperationFailure(operation, cause, fallbackMessage);
+      }}
     >
+      <IssueList
+        issues={pageIssues.issues}
+        onDismiss={pageIssues.dismissIssue}
+        compact
+      />
       {props.children}
     </CreatorSessionProvider>
   );

@@ -40,7 +40,10 @@ import VideoTranslationResultWorkspace, {
   type VideoTranslationResultTab,
   type VoiceResultOutput
 } from './VideoTranslationResultWorkspace.js';
-import { useOptionalCreatorSession } from './creator-session-store.js';
+import {
+  createCreatorArtifactObjectUrl,
+  useOptionalCreatorSession
+} from './creator-session-store.js';
 import {
   readCreatorResultSnapshots,
   type CreatorArtifact,
@@ -1567,7 +1570,15 @@ export default function VideoTranslationWorkspace(props: {
           setVoiceName(providerConfig.defaultVoiceId);
         }
       })
-      .catch(() => undefined);
+      .catch(cause => {
+        if (!active) return;
+        creatorSession?.captureCreatorFailure(
+          'video-translation.load-service-config',
+          cause,
+          l('无法读取配音服务配置，请稍后重试。', 'Could not load dubbing settings. Try again later.'),
+          'client'
+        );
+      });
     return () => {
       active = false;
     };
@@ -1895,13 +1906,13 @@ export default function VideoTranslationWorkspace(props: {
       { loading: true }
     ])));
     for (const artifact of artifacts) {
-      void openArtifact(artifact.id)
-        .then(response => {
-          if (!response.ok) throw new Error(`Creator artifact HTTP ${response.status}`);
-          return response.blob();
-        })
-        .then(blob => {
-          const objectUrl = URL.createObjectURL(blob);
+      void createCreatorArtifactObjectUrl(
+        creatorSession!,
+        artifact.id,
+        'video-translation.load-video-preview',
+        l('视频预览加载失败，请稍后重试。', 'The video preview failed to load. Try again later.')
+      )
+        .then(objectUrl => {
           if (canceled) {
             URL.revokeObjectURL(objectUrl);
             return;
@@ -1924,7 +1935,7 @@ export default function VideoTranslationWorkspace(props: {
       canceled = true;
       for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
     };
-  }, [l, openArtifact, selectedVideoArtifactIds]);
+  }, [creatorSession?.captureCreatorFailure, l, openArtifact, selectedVideoArtifactIds]);
   const [voicePreview, setVoicePreview] = useState<{
     src?: string;
     loading: boolean;
@@ -1943,13 +1954,14 @@ export default function VideoTranslationWorkspace(props: {
     let canceled = false;
     let objectUrl: string | undefined;
     setVoicePreview({ loading: true });
-    void openArtifact(selectedVoiceArtifactId)
-      .then(response => {
-        if (!response.ok) throw new Error(`Creator artifact HTTP ${response.status}`);
-        return response.blob();
-      })
-      .then(blob => {
-        objectUrl = URL.createObjectURL(blob);
+    void createCreatorArtifactObjectUrl(
+      creatorSession!,
+      selectedVoiceArtifactId,
+      'video-translation.load-voice-preview',
+      l('配音预览加载失败，请稍后重试。', 'The dubbing preview failed to load. Try again later.')
+    )
+      .then(url => {
+        objectUrl = url;
         if (canceled) {
           URL.revokeObjectURL(objectUrl);
           return;
@@ -1967,7 +1979,7 @@ export default function VideoTranslationWorkspace(props: {
       canceled = true;
       if (objectUrl !== undefined) URL.revokeObjectURL(objectUrl);
     };
-  }, [l, openArtifact, resultTab, selectedVoiceArtifactId, voicePreviewReload]);
+  }, [creatorSession?.captureCreatorFailure, l, openArtifact, resultTab, selectedVoiceArtifactId, voicePreviewReload]);
   const selectedResultSource = selectedResult?.source;
   const selectedSubtitleCues = selectedResult?.subtitleCues ?? [];
   const horizontalSubtitleDraftKey = subtitleDraftKey(resultVersion, 'horizontal');
@@ -2586,9 +2598,12 @@ export default function VideoTranslationWorkspace(props: {
         return;
       }
       try {
-        const response = await creatorSession.openArtifact(artifact.id);
-        if (!response.ok) throw new Error(`Creator artifact HTTP ${response.status}`);
-        const url = URL.createObjectURL(await response.blob());
+        const url = await createCreatorArtifactObjectUrl(
+          creatorSession,
+          artifact.id,
+          'video-translation.download-artifact',
+          l('产物下载失败，请稍后重试。', 'The artifact download failed. Try again later.')
+        );
         const link = document.createElement('a');
         link.href = url;
         link.download = artifactFileName(artifact) ?? `OpenCreator-${artifact.kind}-V${resultVersion}`;
@@ -3406,8 +3421,7 @@ function creatorErrorMessage(cause: unknown, l: LocalizeCopy): string {
   if (code === 'unsupported_source') {
     return l('当前仅支持 YouTube、Bilibili 公共链接或已上传的本地视频。', 'Only public YouTube/Bilibili links or uploaded local videos are supported.');
   }
-  const message = typeof candidate?.message === 'string' ? candidate.message : '';
-  return message || l('启动翻译失败，请检查配置后重试。', 'Failed to start translation. Check the configuration and retry.');
+  return l('启动翻译失败，请在 Agent 区域查看诊断后重试。', 'Failed to start translation. Review the diagnosis in the Agent panel and retry.');
 }
 
 function translationStageLabel(stageId: string, l: LocalizeCopy): string {
@@ -3464,15 +3478,9 @@ function stageResumeDescription(
 function creatorStageProgressPercent(
   stage: import('@opencreator/protocol').CreatorStageRun
 ): number | null {
-  const payload = stage.progress.krillinEventPayload;
-  const nested = payload !== null && typeof payload === 'object' && !Array.isArray(payload)
-    ? payload as Record<string, unknown>
-    : null;
   const value = typeof stage.progress.percent === 'number'
     ? stage.progress.percent
-    : typeof nested?.percent === 'number'
-      ? nested.percent
-      : null;
+    : null;
   return value === null || !Number.isFinite(value)
     ? null
     : Math.max(0, Math.min(100, Math.round(value)));
@@ -3484,7 +3492,7 @@ function stageErrorMessage(code: string | null, message: string | null, l: Local
   if (code === 'dependency_not_packaged') {
     return l('当前安装包缺少所选语音识别能力，请更换服务或重新安装完整运行时。', 'The selected transcription runtime is not packaged. Choose another service or reinstall the full runtime.');
   }
-  return message || l('翻译阶段执行失败，请检查创作动态和服务配置。', 'The translation stage failed. Check activity and service configuration.');
+  return l('翻译阶段执行失败，请在 Agent 区域查看诊断和服务配置。', 'The translation stage failed. Review the diagnosis in the Agent panel and service configuration.');
 }
 
 function normalizeStageConfigurationError(code: string | null | undefined, message: string | null | undefined): string | null {

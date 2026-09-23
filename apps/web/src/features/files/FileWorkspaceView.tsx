@@ -15,6 +15,8 @@ import { defaultModeForMeta, FileEditorPane, isPreviewable, type FileEditorMode 
 import { FileTopBar } from './FileTopBar.js';
 import { ProjectFileTree } from './ProjectFileTree.js';
 import { chooseSuggestedPath, mergeDirectoryNodes, parentDirectories, workspaceKey } from './file-view-state.js';
+import { IssueList } from '../issues/IssuePresenter.js';
+import { usePageIssueState } from '../issues/page-issue-state.js';
 
 export type WorkspaceFileService = {
   listDirectory(threadId: string, path: string): Promise<WorkspaceDirectoryResponse>;
@@ -65,12 +67,15 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
   const [treeCollapsed, setTreeCollapsed] = useState(true);
   const [treeWidth, setTreeWidth] = useState(280);
   const [fileMode, setFileMode] = useState<FileEditorMode>('preview');
+  const pageIssues = usePageIssueState('files');
   const objectUrlRef = useRef<string>();
   const workspaceBodyRef = useRef<HTMLDivElement | null>(null);
   const loadedPathsRef = useRef(new Set<string>());
   const openRequestIdRef = useRef(0);
   const mountedRef = useRef(true);
   const selectedPathRef = useRef(props.selectedPath);
+  const lastOpenPathRef = useRef<string>();
+  const lastDirectoryPathRef = useRef<string>();
   selectedPathRef.current = props.selectedPath;
 
   const thread = props.selectedThread;
@@ -164,6 +169,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
         setNodes(directory.nodes);
         setTruncatedPaths(directory.truncated ? [''] : []);
         setWorkspaceMessage(directory.warnings[0]);
+        pageIssues.resolveOperation('files.load-workspace');
 
         const requestedPath = selectedPathRef.current?.trim();
         const recentPath = recentPathStorageKey ? readRecentPath(recentPathStorageKey) : undefined;
@@ -180,6 +186,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
         }
 
         setWorkspaceMessage(humanizeError(error, '无法加载文件工作区'));
+        pageIssues.captureOperationFailure('files.load-workspace', error, '无法加载文件工作区，请重试。', { retryable: true });
       });
 
     return () => {
@@ -269,6 +276,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
       return;
     }
 
+    lastOpenPathRef.current = path;
     openRequestIdRef.current += 1;
     const requestId = openRequestIdRef.current;
     setLoading(true);
@@ -311,11 +319,13 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
         writeRecentPath(recentPathStorageKey, path);
       }
       props.onSelectPath?.(path);
+      pageIssues.resolveOperation('files.open');
     } catch (error) {
       if (!mountedRef.current || requestId !== openRequestIdRef.current) {
         return;
       }
       setLoadError(humanizeError(error, '无法打开文件'));
+      pageIssues.captureOperationFailure('files.open', error, '无法打开文件，请重试。', { retryable: true });
     } finally {
       if (mountedRef.current && requestId === openRequestIdRef.current) {
         setLoading(false);
@@ -356,11 +366,13 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
         return [...next];
       });
       setWorkspaceMessage(directory.warnings[0]);
+      pageIssues.resolveOperation('files.list-directory');
     } catch (error) {
       if (!mountedRef.current) {
         return;
       }
       setWorkspaceMessage(humanizeError(error, '无法加载目录'));
+      pageIssues.captureOperationFailure('files.list-directory', error, '无法加载目录，请重试。', { retryable: true });
     }
   }
 
@@ -390,6 +402,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
       setSavedContent(draftContent);
       setDraftContent(draftContent);
       setConflictOpen(false);
+      pageIssues.resolveOperation('files.save');
     } catch (error) {
       if (!mountedRef.current) {
         return;
@@ -398,8 +411,13 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
       if (error instanceof ApiClientError && error.status === 409 && error.code === 'FILE_CONFLICT') {
         setConflictOpen(true);
         setSaveError('文件已在其他位置更新，请选择处理方式。');
+        pageIssues.captureOperationFailure('files.save', error, '文件已在其他位置更新，请确认是否覆盖。', {
+          retryable: true,
+          risk: 'overwrite'
+        });
       } else {
         setSaveError(humanizeError(error, '保存失败'));
+        pageIssues.captureOperationFailure('files.save', error, '文件保存失败，请重试。', { retryable: true });
       }
     } finally {
       if (mountedRef.current) {
@@ -414,10 +432,13 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
     }
 
     setWorkspaceMessage(undefined);
+    lastDirectoryPathRef.current = activePath;
     try {
       await service.reveal({ threadId: thread.id, path: activePath, mode: 'file' });
+      pageIssues.resolveOperation('files.reveal');
     } catch (error) {
       setWorkspaceMessage(humanizeError(error, '无法打开文件'));
+      pageIssues.captureOperationFailure('files.reveal', error, '无法在系统中打开文件，请重试。', { retryable: true });
     }
   }
 
@@ -512,10 +533,39 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
         style={fileWorkspaceBodyStyle}
       >
         <div className="file-workspace-editor">
+          <IssueList
+            issues={pageIssues.issues}
+            actions={{ retryOperations: {
+              'files.load-workspace': async () => {
+                if (!thread || !service) return;
+                const directory = await service.listDirectory(thread.id, '');
+                setRootName(directory.rootName);
+                setRootPathLabel(directory.rootPathLabel);
+                setNodes(directory.nodes);
+                setTruncatedPaths(directory.truncated ? [''] : []);
+                pageIssues.resolveOperation('files.load-workspace');
+              },
+              'files.open': () => lastOpenPathRef.current === undefined
+                ? undefined
+                : openFilePath(lastOpenPathRef.current, { skipDirtyConfirm: true }),
+              'files.list-directory': async () => {
+                const path = lastDirectoryPathRef.current;
+                if (path === undefined || !thread || !service) return;
+                const directory = await service.listDirectory(thread.id, path);
+                loadedPathsRef.current.add(path);
+                setNodes(previous => mergeDirectoryNodes(previous, path, directory.nodes));
+                pageIssues.resolveOperation('files.list-directory');
+              },
+              'files.save': () => handleSave(conflictOpen),
+              'files.reveal': handleOpenFile
+            } }}
+            onDismiss={pageIssues.dismissIssue}
+            compact
+          />
           {threadReadonly ? <div className="file-workspace-notice">当前会话为只读模式，不能保存文件</div> : null}
           {workspaceMessage ? <div className="file-workspace-notice">{workspaceMessage}</div> : null}
           {conflictOpen ? (
-            <div className="file-workspace-conflict" role="alert">
+            <div className="file-workspace-conflict" role="status">
               <span>文件内容与最新版本冲突。</span>
               <div className="file-workspace-conflict-actions">
                 <button className="button-secondary" type="button" onClick={() => void openFilePath(meta?.path ?? '', { skipDirtyConfirm: true })}>
@@ -632,14 +682,7 @@ function resolveDirectoryFilePath(
 }
 
 function humanizeError(error: unknown, fallback: string): string {
-  if (error instanceof ApiClientError) {
-    return error.message;
-  }
-
-  if (error instanceof Error && error.message.length > 0) {
-    return error.message;
-  }
-
+  void error;
   return fallback;
 }
 

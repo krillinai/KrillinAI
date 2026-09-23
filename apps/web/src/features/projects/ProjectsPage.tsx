@@ -13,7 +13,7 @@ import {
   Video,
   X
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog.js';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { useLocalizedCopy, type LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
@@ -22,6 +22,8 @@ import type { CreatorWebService } from '../../services/creator-service.js';
 import { CreateProjectDropdown } from './CreateProjectDropdown.js';
 import type { OpenCreatorProject } from './project-model.js';
 import type { CreatorProjectType } from './project-types.js';
+import { IssueList } from '../issues/IssuePresenter.js';
+import { usePageIssueState } from '../issues/page-issue-state.js';
 import './projects-page.css';
 
 const projectCategories = ['全部', '视频创作', '图像设计', '文案创作'] as const;
@@ -114,7 +116,25 @@ export default function ProjectsPage(props: {
   const [deleteError, setDeleteError] = useState<string>();
   const [downloadingOutputId, setDownloadingOutputId] = useState<string>();
   const [downloadError, setDownloadError] = useState<string>();
+  const pageIssues = usePageIssueState('projects');
+  const lastDownloadOutputRef = useRef<ProjectOutput>();
   const normalizedQuery = query.trim().toLocaleLowerCase();
+  useEffect(() => {
+    if (props.error === undefined) pageIssues.resolveOperation('projects.load');
+    else pageIssues.captureOperationFailure(
+      'projects.load',
+      new Error(props.error),
+      l('无法加载最近项目，请稍后重试。', 'Unable to load recent projects. Try again later.')
+    );
+  }, [l, pageIssues.captureOperationFailure, pageIssues.resolveOperation, props.error]);
+  useEffect(() => {
+    if (props.createProjectError === undefined) pageIssues.resolveOperation('projects.create');
+    else pageIssues.captureOperationFailure(
+      'projects.create',
+      new Error(props.createProjectError),
+      l('新建项目失败，请重试。', 'Could not create the project. Try again.')
+    );
+  }, [l, pageIssues.captureOperationFailure, pageIssues.resolveOperation, props.createProjectError]);
   const projects = useMemo(
     () => props.jobs
       .filter(isMeaningfulCreatorJob)
@@ -183,6 +203,7 @@ export default function ProjectsPage(props: {
   async function downloadOutput(output: ProjectOutput) {
     if (props.service?.openArtifact === undefined || downloadingOutputId !== undefined) return;
     setDownloadingOutputId(output.id);
+    lastDownloadOutputRef.current = output;
     setDownloadError(undefined);
     try {
       const response = await props.service.openArtifact(output.job.id, output.id);
@@ -196,8 +217,10 @@ export default function ProjectsPage(props: {
       link.click();
       link.remove();
       URL.revokeObjectURL(objectUrl);
-    } catch {
+      pageIssues.resolveOperation('projects.download-output');
+    } catch (cause) {
       setDownloadError(l('文件下载失败，请重试', 'Unable to download the file. Please try again.'));
+      pageIssues.captureOperationFailure('projects.download-output', cause, l('文件下载失败，请重试。', 'Unable to download the file. Please try again.'), { retryable: true });
     } finally {
       setDownloadingOutputId(undefined);
     }
@@ -216,12 +239,21 @@ export default function ProjectsPage(props: {
           <div className="projects-header-actions">
             {props.onCreateProject ? (
               <CreateProjectDropdown
-                error={props.createProjectError}
                 onCreate={props.onCreateProject}
               />
             ) : null}
           </div>
         </header>
+        <IssueList
+          issues={pageIssues.issues}
+          actions={{ retryOperations: {
+            'projects.download-output': () => {
+              const output = lastDownloadOutputRef.current;
+              return output === undefined ? undefined : downloadOutput(output);
+            }
+          } }}
+          onDismiss={pageIssues.dismissIssue}
+        />
 
         <div className="projects-primary-row">
           <div className="projects-dimension-tabs" role="tablist" aria-label={l('内容维度', 'Content view')}>
@@ -341,14 +373,14 @@ export default function ProjectsPage(props: {
             ) : null}
           </div>
           {view === 'outputs' && downloadError !== undefined ? (
-            <p className="projects-download-error" role="alert">{downloadError}</p>
+            <p className="projects-download-error" role="status">{downloadError}</p>
           ) : null}
 
           {props.error !== undefined ? (
-            <div className="projects-empty" role="alert">
+            <div className="projects-empty" role="status">
               <FolderKanban size={28} strokeWidth={1.5} aria-hidden="true" />
               <strong>{l('无法加载最近项目', 'Unable to load recent projects')}</strong>
-              <p>{props.error}</p>
+              <p>{l('请查看上方诊断信息。', 'Review the diagnosis above.')}</p>
             </div>
           ) : props.loading && projects.length === 0 ? (
             <div className="projects-empty" role="status" aria-busy="true">
@@ -536,7 +568,7 @@ export default function ProjectsPage(props: {
               </span>
             </label>
             {deleteError === undefined ? null : (
-              <span className="project-delete-error" role="alert">{deleteError}</span>
+              <span className="project-delete-error" role="status">{deleteError}</span>
             )}
           </span>
         )}
@@ -566,6 +598,7 @@ export default function ProjectsPage(props: {
                   await deleteJob(project.job.id, { deleteFiles: deleteProjectFiles });
                 } catch (error) {
                   failedProjectIds.add(project.job.id);
+                  pageIssues.captureOperationFailure('projects.delete', error, l('项目删除失败，请重试。', 'Unable to delete the project. Please try again.'));
                   if (error instanceof ApiClientError && error.code === 'creator_job_has_active_run') {
                     activeFailureCount += 1;
                   }
@@ -575,6 +608,7 @@ export default function ProjectsPage(props: {
               const deletedCount = selectedProjects.length - failedProjectIds.size;
               setSelectedProjectIds(failedProjectIds);
               if (failedProjectIds.size === 0) {
+                pageIssues.resolveOperation('projects.delete');
                 setBatchPendingDeletion(false);
                 setBatchMode(false);
                 setDeleteProjectFiles(false);
@@ -602,10 +636,12 @@ export default function ProjectsPage(props: {
           setDeleteError(undefined);
           void props.onDeleteJob(projectId, { deleteFiles: deleteProjectFiles })
             .then(() => {
+              pageIssues.resolveOperation('projects.delete');
               setDeleteProjectFiles(false);
               setProjectPendingDeletion(undefined);
             })
             .catch(error => {
+              pageIssues.captureOperationFailure('projects.delete', error, l('项目删除失败，请重试。', 'Unable to delete the project. Please try again.'));
               setDeleteError(
                 error instanceof ApiClientError && error.code === 'creator_job_has_active_run'
                   ? l('项目仍在运行，请先停止任务后再删除。', 'This project is still running. Stop it before deleting.')

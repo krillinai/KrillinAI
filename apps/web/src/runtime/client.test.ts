@@ -163,6 +163,70 @@ describe('RuntimeClient', () => {
     });
   });
 
+  it('preserves a server issue and normalizes legacy network and parse failures', async () => {
+    const serverIssue = {
+      id: 'issue-1',
+      diagnosticId: 'OC-12345678',
+      code: 'creator_upload_failed',
+      scope: { kind: 'creator-job' as const, jobId: 'job-1' },
+      source: 'upload' as const,
+      category: 'execution' as const,
+      severity: 'error' as const,
+      status: 'open' as const,
+      operation: 'creator.upload-source',
+      summaryKey: 'issue.upload_failed',
+      summaryParams: {},
+      fallbackMessage: 'Upload failed.',
+      retryable: false,
+      repairActions: [],
+      fingerprint: 'sha256-demo',
+      occurrenceCount: 1,
+      occurredAt: '2026-09-23T00:00:00.000Z',
+      lastOccurredAt: '2026-09-23T00:00:00.000Z'
+    };
+    const serverClient = new RuntimeClient({
+      baseUrl: 'http://127.0.0.1:60855',
+      fetchImpl: vi.fn(async () => new Response(JSON.stringify({
+        error: { code: 'INTERNAL_ERROR', message: 'secret upstream body', issue: serverIssue }
+      }), { status: 500 }))
+    });
+    await expect(serverClient.get('/creator/jobs/job-1')).rejects.toMatchObject({ issue: serverIssue });
+
+    const parseClient = new RuntimeClient({
+      baseUrl: 'http://127.0.0.1:60855',
+      fetchImpl: vi.fn(async () => new Response('{not-json', { status: 200 }))
+    });
+    await expect(parseClient.get('/projects')).rejects.toMatchObject({
+      code: 'INVALID_JSON_RESPONSE',
+      issue: expect.objectContaining({
+        scope: { kind: 'page', surface: 'projects' },
+        fallbackMessage: expect.not.stringContaining('not-json')
+      })
+    });
+
+    const networkClient = new RuntimeClient({
+      baseUrl: 'http://127.0.0.1:60855',
+      fetchImpl: vi.fn(async () => { throw new TypeError('Authorization: Bearer secret'); })
+    });
+    await expect(networkClient.get('/projects')).rejects.toMatchObject({
+      code: 'NETWORK_ERROR',
+      issue: expect.objectContaining({ source: 'network' })
+    });
+  });
+
+  it('does not turn a caller abort into an issue', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const abort = new DOMException('aborted', 'AbortError');
+    const client = new RuntimeClient({
+      baseUrl: 'http://127.0.0.1:60855',
+      fetchImpl: vi.fn(async () => { throw abort; })
+    });
+
+    await expect(client.rawGet('/creator/jobs/job-1/events', { signal: controller.signal }))
+      .rejects.toBe(abort);
+  });
+
   it('request sends JSON body through rawRequest-compatible fetch behavior', async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true }), {
       status: 200,

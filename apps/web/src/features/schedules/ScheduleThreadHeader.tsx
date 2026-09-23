@@ -21,6 +21,8 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { OpenCreatorProject } from '../projects/project-model.js';
 import type { ScheduleSidebarTaskStatus } from '../shell/sidebar-task-model.js';
+import { IssueList } from '../issues/IssuePresenter.js';
+import { usePageIssueState } from '../issues/page-issue-state.js';
 import {
   createScheduleUpdate,
   ScheduleEditor,
@@ -55,6 +57,7 @@ export function ScheduleThreadHeader(props: {
   const [editorErrors, setEditorErrors] = useState<ScheduleEditorErrors>({});
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const editorDialogRef = useRef<HTMLElement>(null);
+  const pageIssues = usePageIssueState('schedule-thread');
   const visual = statusVisual(props.status);
   const StatusIcon = visual.icon;
   const actionsBusy = operation !== undefined;
@@ -93,8 +96,10 @@ export function ScheduleThreadHeader(props: {
     setActionError(undefined);
     try {
       await props.onRunNow(props.schedule);
+      pageIssues.resolveOperation('schedule-thread.run-now');
     } catch (error) {
       setActionError(errorMessage(error, '无法立即运行任务'));
+      pageIssues.captureOperationFailure('schedule-thread.run-now', error, '无法立即运行任务，请重试。', { retryable: true });
     } finally {
       setOperation(undefined);
     }
@@ -109,8 +114,10 @@ export function ScheduleThreadHeader(props: {
         enabled: !props.schedule.enabled,
       });
       props.onScheduleChanged(updated);
+      pageIssues.resolveOperation('schedule-thread.toggle');
     } catch (error) {
       setActionError(errorMessage(error, '无法更新任务状态'));
+      pageIssues.captureOperationFailure('schedule-thread.toggle', error, '无法更新任务状态，请重试。', { retryable: true });
     } finally {
       setOperation(undefined);
     }
@@ -125,8 +132,10 @@ export function ScheduleThreadHeader(props: {
     try {
       const schedule = await props.service.getSchedule(props.schedule.id);
       setEditorValues(scheduleResponseToEditorValues(schedule));
+      pageIssues.resolveOperation('schedule-thread.load-editor');
     } catch (error) {
       setEditorErrors({ form: errorMessage(error, '无法加载计划详情') });
+      pageIssues.captureOperationFailure('schedule-thread.load-editor', error, '无法加载计划详情，请重试。', { retryable: true });
     } finally {
       setOperation(undefined);
     }
@@ -147,9 +156,11 @@ export function ScheduleThreadHeader(props: {
         createScheduleUpdate(values)
       );
       props.onScheduleChanged(updated);
+      pageIssues.resolveOperation('schedule-thread.save-editor');
       closeEditor();
     } catch (error) {
       setEditorErrors({ form: errorMessage(error, '无法保存计划任务') });
+      pageIssues.captureOperationFailure('schedule-thread.save-editor', error, '无法保存计划任务，请重试。', { retryable: true });
     } finally {
       setOperation(undefined);
     }
@@ -231,8 +242,19 @@ export function ScheduleThreadHeader(props: {
           </button>
         </div>
         {actionError ? (
-          <p className="schedule-thread-error" role="alert">{actionError}</p>
+          <p className="schedule-thread-error" role="status">操作未完成，请查看下方问题卡。</p>
         ) : null}
+        <IssueList
+          issues={pageIssues.issues}
+          actions={{ retryOperations: {
+            'schedule-thread.run-now': runNow,
+            'schedule-thread.toggle': toggleEnabled,
+            'schedule-thread.load-editor': openEditor,
+            'schedule-thread.save-editor': () => editorValues === undefined ? undefined : saveEditor(editorValues)
+          } }}
+          onDismiss={pageIssues.dismissIssue}
+          compact
+        />
       </section>
 
       {editorOpen ? createPortal((

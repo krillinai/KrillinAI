@@ -101,7 +101,8 @@ describe('VideoGenerationWorkspace', () => {
     expect(screen.getByRole('heading', { name: '生成视频' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /项目 V/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '开始生成' })).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('The provider rejected the prompt');
+    expect(screen.getByRole('alert')).toHaveTextContent('视频生成失败，请在 Agent 区域查看诊断后重试');
+    expect(screen.queryByText('The provider rejected the prompt')).not.toBeInTheDocument();
   });
 
   it('shows an actionable message when the selected model is not enabled', () => {

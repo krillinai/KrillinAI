@@ -4,6 +4,7 @@ import type {
   CreatorAgentItem,
   CreatorAgentTurn,
   CreatorJob,
+  OpenCreatorIssue,
   CreatorStageRun
 } from '@opencreator/protocol';
 import {
@@ -21,6 +22,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import OpenCreatorMark from '../../components/brand/OpenCreatorMark.js';
 import { MarkdownRenderer } from '../../components/markdown/MarkdownRenderer.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
+import { IssuePresenter } from '../issues/IssuePresenter.js';
 import ToolAgentComposer, { type ToolAgentPermission } from './ToolAgentComposer.js';
 import {
   creatorSystemIssueText,
@@ -78,6 +80,12 @@ type CollaborationTimelineItem =
       createdAt: string;
       stage: CreatorStageRun;
       actor: CreatorActivity['actor'];
+    }
+  | {
+      id: string;
+      kind: 'issue';
+      createdAt: string;
+      issue: OpenCreatorIssue;
     };
 
 export default function CreatorCollaborationPanel(props: {
@@ -95,7 +103,6 @@ export default function CreatorCollaborationPanel(props: {
   const session = useOptionalCreatorSession();
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
-  const [submitError, setSubmitError] = useState('');
   const [permission, setPermission] = useState<ToolAgentPermission>('full-access');
   const sendingRef = useRef(false);
   const permissionSessionRef = useRef<string | null>(null);
@@ -116,11 +123,12 @@ export default function CreatorCollaborationPanel(props: {
   const timelineItems = useMemo(
     () => buildCollaborationTimeline(
       session?.job,
+      session?.issues ?? [],
       conversationMessages,
       syncEvents,
       props.adapter
     ),
-    [conversationMessages, props.adapter, session?.job, syncEvents]
+    [conversationMessages, props.adapter, session?.issues, session?.job, syncEvents]
   );
   const pendingApprovals = useMemo(
     () => session?.approvals.filter(approval => approval.status === 'pending') ?? [],
@@ -169,7 +177,6 @@ export default function CreatorCollaborationPanel(props: {
     if (!content || session === null || sendingRef.current) return;
     sendingRef.current = true;
     session.clearError();
-    setSubmitError('');
     setInput('');
     setSending(true);
     try {
@@ -179,7 +186,6 @@ export default function CreatorCollaborationPanel(props: {
         permission === 'full-access' ? 'danger-full-access' : 'workspace-write'
       );
     } catch (cause) {
-      setSubmitError(cause instanceof Error ? cause.message : String(cause));
       session.clearError();
       setInput(current => current.trim().length > 0 ? current : content);
       throw cause;
@@ -283,6 +289,22 @@ export default function CreatorCollaborationPanel(props: {
               if (item.kind === 'activity') {
                 return <CollaborationActivityView key={item.id} event={item.event} />;
               }
+              if (item.kind === 'issue') {
+                return (
+                  <CollaborationIssueView
+                    key={item.id}
+                    issue={item.issue}
+                    onRetry={() => session.repairIssue(item.issue)}
+                    onFocus={() => {
+                      session.focusIssue(item.issue);
+                      setInput(l(
+                        '请说明这个问题的已确认事实、可能原因和下一步修复方法。',
+                        'Explain the confirmed facts, possible causes, and next repair steps for this issue.'
+                      ));
+                    }}
+                  />
+                );
+              }
               return (
                 <CollaborationStageView
                   key={item.id}
@@ -351,10 +373,17 @@ export default function CreatorCollaborationPanel(props: {
             </div>
           ) : null}
 
-          {submitError ? (
-            <div className="creator-collaboration-submit-error" role="alert">
-              <XCircle size={15} strokeWidth={1.8} aria-hidden="true" />
-              <span>{submitError}</span>
+          {session.focusedIssue !== null ? (
+            <div className="creator-collaboration-focused-issue" role="status">
+              <span>{l('正在聚焦', 'Focused')}: {session.focusedIssue.diagnosticId}</span>
+              <button
+                type="button"
+                onClick={() => session.focusIssue(null)}
+                aria-label={l('取消聚焦问题', 'Clear focused issue')}
+                title={l('取消聚焦问题', 'Clear focused issue')}
+              >
+                <XCircle size={14} aria-hidden="true" />
+              </button>
             </div>
           ) : null}
 
@@ -377,6 +406,32 @@ export default function CreatorCollaborationPanel(props: {
         </>
       )}
     </aside>
+  );
+}
+
+function CollaborationIssueView(props: {
+  issue: OpenCreatorIssue;
+  onRetry(): Promise<void>;
+  onFocus(): void;
+}) {
+  const retryable = props.issue.stageId !== undefined
+    && props.issue.repairActions.some(action => (
+      action.kind === 'retry-operation'
+      && action.operationId === 'creator.retry-stage'
+    ));
+  return (
+    <article className="creator-collaboration-issue" data-status={props.issue.status}>
+      <IssuePresenter
+        issue={props.issue}
+        compact
+        actions={{
+          ...(retryable
+            ? { retryOperations: { 'creator.retry-stage': props.onRetry } }
+            : {}),
+          onFocusAgent: props.onFocus
+        }}
+      />
+    </article>
   );
 }
 
@@ -564,6 +619,7 @@ function buildCollaborationMessages(
 
 function buildCollaborationTimeline(
   job: CreatorJob | undefined,
+  issues: OpenCreatorIssue[],
   messages: CollaborationMessage[],
   events: SyncEvent[],
   adapter: CreatorPanelAdapter
@@ -601,6 +657,14 @@ function buildCollaborationTimeline(
       actor: stageActor(stage, job?.activities ?? [], adapter)
     });
   }
+  for (const issue of issues) {
+    items.push({
+      id: `issue:${issue.id}`,
+      kind: 'issue',
+      createdAt: issue.lastOccurredAt,
+      issue
+    });
+  }
   return items
     .sort((left, right) => (
       left.createdAt.localeCompare(right.createdAt)
@@ -613,6 +677,7 @@ function buildCollaborationTimeline(
 function timelineItemOrder(item: CollaborationTimelineItem): number {
   if (item.kind === 'message') return item.message.role === 'user' ? 0 : 3;
   if (item.kind === 'activity') return 1;
+  if (item.kind === 'issue') return 3;
   return 2;
 }
 

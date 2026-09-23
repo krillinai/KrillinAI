@@ -1,15 +1,17 @@
-import type { ApiError, RuntimeErrorCode } from '@opencreator/protocol';
+import type { ApiError, OpenCreatorIssue, RuntimeErrorCode } from '@opencreator/protocol';
 
 export function apiError(
   code: RuntimeErrorCode,
   message: string,
-  details?: Record<string, unknown>
+  details?: Record<string, unknown>,
+  issue?: OpenCreatorIssue
 ): ApiError {
   return {
     error: {
       code,
       message,
-      ...(details !== undefined ? { details } : {})
+      ...(details !== undefined ? { details } : {}),
+      ...(issue !== undefined ? { issue } : {})
     }
   };
 }

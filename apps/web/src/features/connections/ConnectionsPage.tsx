@@ -25,6 +25,8 @@ import {
 } from '../settings/McpSettingsView.js';
 import '../settings/settings-management.css';
 import './connections.css';
+import { IssueList } from '../issues/IssuePresenter.js';
+import { usePageIssueState } from '../issues/page-issue-state.js';
 
 type ConnectionFilter = 'all' | 'enabled' | 'disabled';
 
@@ -46,6 +48,7 @@ export function ConnectionsPage(props: ConnectionsPageProps) {
   const [filter, setFilter] = useState<ConnectionFilter>('all');
   const [busyKey, setBusyKey] = useState<string>();
   const [editorOpen, setEditorOpen] = useState(false);
+  const pageIssues = usePageIssueState('connections');
 
   useEffect(() => {
     setData(props.mcpData);
@@ -77,7 +80,10 @@ export function ConnectionsPage(props: ConnectionsPageProps) {
     setLoadError(undefined);
     try {
       const response = await props.mcpService.listServers();
-      if (!isCanceled()) updateData(response);
+      if (!isCanceled()) {
+        updateData(response);
+        pageIssues.resolveOperation('connections.load');
+      }
     } catch (error) {
       if (!isCanceled()) {
         setLoadError(formatConnectionError(
@@ -85,6 +91,7 @@ export function ConnectionsPage(props: ConnectionsPageProps) {
           l('无法加载 Codex MCP', 'Could not load Codex MCP servers'),
           l
         ));
+        pageIssues.captureOperationFailure('connections.load', error, l('无法加载 MCP 连接，请重试。', 'Could not load MCP connections. Try again.'), { retryable: true });
       }
     } finally {
       if (!isCanceled()) setLoading(false);
@@ -172,12 +179,14 @@ export function ConnectionsPage(props: ConnectionsPageProps) {
         await props.mcpService.removeServer(server.name, confirmed);
       }
       await loadConnections();
+      pageIssues.resolveOperation('connections.action');
     } catch (error) {
       setLoadError(formatConnectionError(
         error,
         `${l('无法更新', 'Could not update')} ${server.name}`,
         l
       ));
+      pageIssues.captureOperationFailure('connections.action', error, l('MCP 操作未完成，请重试。', 'The MCP operation did not complete. Try again.'));
     } finally {
       setBusyKey(undefined);
     }
@@ -245,6 +254,12 @@ export function ConnectionsPage(props: ConnectionsPageProps) {
           </div>
         </header>
 
+        <IssueList
+          issues={pageIssues.issues}
+          actions={{ retryOperations: { 'connections.load': () => loadConnections() } }}
+          onDismiss={pageIssues.dismissIssue}
+        />
+
         {loadError !== undefined ? (
           <div className="connections-banner connections-banner--error" role="alert">
             {loadError}
@@ -272,6 +287,7 @@ export function ConnectionsPage(props: ConnectionsPageProps) {
                     : {})
                 });
                 await loadConnections();
+                pageIssues.resolveOperation('connections.save');
                 setEditorOpen(false);
               } catch (error) {
                 setLoadError(formatConnectionError(
@@ -279,6 +295,7 @@ export function ConnectionsPage(props: ConnectionsPageProps) {
                   l('无法新增 MCP', 'Could not add the MCP server'),
                   l
                 ));
+                pageIssues.captureOperationFailure('connections.save', error, l('MCP 配置保存失败，请重试。', 'Could not save the MCP configuration. Try again.'));
               }
             }}
           />

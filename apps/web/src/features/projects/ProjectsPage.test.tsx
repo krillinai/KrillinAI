@@ -428,9 +428,10 @@ describe('ProjectsPage', () => {
     ).getByRole('button', { name: '删除 2 个项目' }));
 
     await waitFor(() => expect(onDeleteJob).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(
-      '已删除 1 个项目，另有 1 个项目仍在运行'
-    ));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('项目删除失败，请重试。'));
+    expect(screen.getByRole('alert')).toHaveTextContent(/诊断编号：OC-/);
+    expect(screen.getByText(/已删除 1 个项目，另有 1 个项目仍在运行|Deleted 1 project.*1 are still running/))
+      .toBeInTheDocument();
     expect(screen.getByText('已选择 1 个')).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: '选择项目 夏季新品封面' })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: '选择项目 如何建立内容创作流程' })).not.toBeChecked();
@@ -772,7 +773,9 @@ describe('ProjectsPage', () => {
     rerender(
       <ProjectsPage jobs={[]} workspaces={workspaces} error="Creator Runtime unavailable" onOpenJob={vi.fn()} />
     );
-    expect(screen.getByRole('alert')).toHaveTextContent('Creator Runtime unavailable');
+    expect(screen.getByRole('alert')).toHaveTextContent('无法加载最近项目，请稍后重试。');
+    expect(screen.getByRole('alert')).toHaveTextContent(/诊断编号：OC-/);
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Creator Runtime unavailable');
   });
 });
 

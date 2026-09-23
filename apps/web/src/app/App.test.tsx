@@ -959,9 +959,10 @@ describe('App', () => {
       name: '查看电商商品主图增强版模板详情'
     }));
     await user.click(screen.getByRole('button', { name: '使用此模板' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      '模板任务创建超时，请重试。'
-    );
+    const timeoutIssue = await findIssueByDescription('无法启动此模板，请查看诊断后重试。');
+    expect(timeoutIssue).toHaveTextContent('无法启动此模板，请查看诊断后重试。');
+    expect(timeoutIssue).toHaveTextContent(/诊断编号：OC-/);
+    expect(timeoutIssue).not.toHaveTextContent('模板任务创建超时');
     expect(creatorPresetCreationStorageKeys()).toHaveLength(1);
 
     await user.click(screen.getByRole('button', { name: '使用此模板' }));
@@ -1027,9 +1028,10 @@ describe('App', () => {
     }));
     await user.click(screen.getByRole('button', { name: '使用此模板' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      '该模板已不可用，模板目录已刷新。'
-    );
+    const missingPresetIssue = await findIssueByDescription('无法启动此模板，请查看诊断后重试。');
+    expect(missingPresetIssue).toHaveTextContent('无法启动此模板，请查看诊断后重试。');
+    expect(missingPresetIssue).toHaveTextContent(/诊断编号：OC-/);
+    expect(missingPresetIssue).not.toHaveTextContent('Creator preset asset not found');
     await waitFor(() => expect(catalogRequests).toBeGreaterThanOrEqual(2));
     expect(creatorPresetCreationStorageKeys()).toHaveLength(0);
   });
@@ -3069,7 +3071,8 @@ describe('App', () => {
     navigateToTestRoute('#/plugins');
     await waitFor(() => expect(screen.getAllByTestId('skill-market-card')).toHaveLength(12));
     await showSkillMarketCard(user, 'frontend-slides');
-    expect(screen.getByRole('alert')).toHaveTextContent('安装记录加载失败');
+    const marketIssue = await findIssueByDescription('无法加载技能市场，请重试。');
+    expect(marketIssue).toHaveTextContent(/诊断编号：OC-/);
     const card = getSkillMarketCard('frontend-slides');
     expect(within(card).queryByText('版本未知')).not.toBeInTheDocument();
     expect(within(card).getByRole('button', { name: '使用' })).toBeEnabled();
@@ -3112,7 +3115,8 @@ describe('App', () => {
     navigateToTestRoute('#/plugins');
     await waitFor(() => expect(screen.getAllByTestId('skill-market-card')).toHaveLength(12));
     await showSkillMarketCard(user, 'frontend-slides');
-    expect(screen.getByRole('alert')).toHaveTextContent('技能状态加载失败');
+    const marketIssue = await findIssueByDescription('无法加载技能市场，请重试。');
+    expect(marketIssue).toHaveTextContent(/诊断编号：OC-/);
     const action = within(getSkillMarketCard('frontend-slides')).getByRole('button', {
       name: '状态未知'
     });
@@ -3170,14 +3174,17 @@ describe('App', () => {
     await user.click(within(dialog).getByRole('button', { name: '使用' }));
     await user.click(screen.getByRole('button', { name: '在 content-design' }));
 
-    expect(await screen.findAllByText('使用失败：创建对话失败')).toHaveLength(1);
+    const useIssue = await findIssueByDescription('无法使用该技能，请重试。');
+    expect(useIssue).toHaveTextContent('无法使用该技能，请重试。');
+    expect(useIssue).toHaveTextContent(/诊断编号：OC-/);
+    expect(screen.queryByText(/创建对话失败/)).not.toBeInTheDocument();
     await user.click(
       within(getSkillMarketCard('frontend-slides')).getByRole('button', {
         name: /打开 .*详情/
       })
     );
     const retryDialog = screen.getByRole('dialog');
-    expect(within(retryDialog).getByText('使用失败：创建对话失败')).toBeInTheDocument();
+    expect(within(retryDialog).queryByText(/创建对话失败/)).not.toBeInTheDocument();
     await user.click(within(retryDialog).getByRole('button', { name: '使用' }));
     await user.click(screen.getByRole('button', { name: '在 content-design' }));
     await waitFor(() => {
@@ -3480,7 +3487,7 @@ describe('App', () => {
     await showSkillMarketCard(user, 'frontend-slides');
     await user.click(await within(getSkillMarketCard('frontend-slides')).findByRole('button', { name: '安装' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('安装记录刷新失败');
+    expect(await findIssueByDescription('无法加载技能市场，请重试。')).toHaveTextContent(/诊断编号：OC-/);
     expect(within(getSkillMarketCard('frontend-slides')).queryByText('版本未知')).not.toBeInTheDocument();
     expect(within(getSkillMarketCard('frontend-slides')).getByRole('button', { name: '使用' })).toBeEnabled();
     expect(screen.queryByText('安装失败，请重试')).not.toBeInTheDocument();
@@ -3544,7 +3551,7 @@ describe('App', () => {
     await showSkillMarketCard(user, 'frontend-slides');
     await user.click(await within(getSkillMarketCard('frontend-slides')).findByRole('button', { name: '更新' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('技能状态刷新失败');
+    expect(await findIssueByDescription('无法加载技能市场，请重试。')).toHaveTextContent(/诊断编号：OC-/);
     const action = within(getSkillMarketCard('frontend-slides')).getByRole('button', {
       name: '状态未知'
     });
@@ -7078,7 +7085,10 @@ describe('App', () => {
       name: '选择模型 默认模型'
     }));
 
-    expect(await screen.findByText('无法加载模型列表')).toBeInTheDocument();
+    const modelsIssue = await findIssueByDescription('无法加载模型列表，请重试。');
+    expect(modelsIssue).toHaveTextContent('无法加载模型列表，请重试。');
+    expect(modelsIssue).toHaveTextContent(/诊断编号：OC-/);
+    expect(modelsIssue).not.toHaveTextContent('model catalog unavailable');
     expect(screen.queryByText('暂无可用模型')).not.toBeInTheDocument();
   });
 
@@ -7846,8 +7856,10 @@ describe('App', () => {
     await user.click(screen.getByRole('menuitemradio', { name: /完全访问权限/ }));
     await user.click(screen.getByRole('button', { name: '开启' }));
 
-    expect(await screen.findByText('任务运行期间不能修改访问权限，请等待当前任务结束'))
-      .toBeInTheDocument();
+    const permissionIssue = await findIssueByDescription('会话配置未更新，请重试。');
+    expect(permissionIssue).toHaveTextContent('会话配置未更新，请重试。');
+    expect(permissionIssue).toHaveTextContent(/诊断编号：OC-/);
+    expect(permissionIssue).not.toHaveTextContent('Thread has active run');
     expect(screen.getByRole('button', { name: '选择访问权限 请求批准' }))
       .toBeInTheDocument();
     expect(findPatchCall(fetchCalls, '/threads/thread_permission_race')).toBeDefined();
@@ -8797,6 +8809,13 @@ async function findTimelineUserMessage(text: string) {
     if (match === undefined) throw new Error(`Expected timeline user message: ${text}`);
     return match;
   });
+}
+
+async function findIssueByDescription(description: string | RegExp): Promise<HTMLElement> {
+  const message = await screen.findByText(description);
+  const issue = message.closest<HTMLElement>('[data-issue-id]');
+  if (issue === null) throw new Error(`Expected issue for description: ${String(description)}`);
+  return issue;
 }
 
 function createRuntimeEvent<Type extends AgentEventEnvelope['type']>(
