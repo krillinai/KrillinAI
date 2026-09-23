@@ -349,7 +349,7 @@ test('打包 App 的 Creator 设置页保留组件间距和下拉箭头内边距
     })).toEqual({ sourceCharacterGap: 16, selectTopDelta: 0, arrowInsets: [12, 12], textInsets: ['40px', '40px'] });
     await fixture.app.page.getByRole('combobox', { name: '目标时长' }).selectOption('60');
     await expect(fixture.app.page.getByRole('combobox', { name: '目标时长' })).toHaveValue('60');
-    await fixture.app.page.locator('.creator-tool-form-row').scrollIntoViewIfNeeded();
+    await fixture.app.page.getByRole('combobox', { name: '目标时长' }).scrollIntoViewIfNeeded();
     await fixture.app.page.screenshot({ path: testInfo.outputPath('creator-settings-spacing-980.png') });
   } finally {
     await closePackagedApp(fixture.app).catch(() => undefined);
