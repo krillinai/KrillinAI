@@ -40,7 +40,7 @@ import {
   findPythonRuntimeMarker,
   verifyStickmanBuildBinding
 } from './package-content-contract.mjs';
-import { verifyMacAppIconCatalog } from './mac-app-icon.mjs';
+import { verifyMacAppIcon } from './mac-app-icon.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopDir = resolve(scriptDir, '..');
@@ -109,7 +109,7 @@ assertExists(join(daemonDir, 'runtime', 'opencreator-runtime', 'SKILL.md'));
 assertExists(join(daemonDir, 'runtime', 'opencreator-runtime', 'manifest.json'));
 
 assertAsarContents();
-assertBrandingContents();
+await assertBrandingContents();
 assertDaemonContents();
 assertCreatorPresetContents();
 assertWebContents();
@@ -211,7 +211,7 @@ function assertAsarContents() {
   }
 }
 
-function assertBrandingContents() {
+async function assertBrandingContents() {
   const desktopResourcesDir = join(resourcesDir, 'desktop-resources');
   const sourceResourcesDir = resolve(desktopDir, 'resources');
   const packagedIcon = join(desktopResourcesDir, 'icon.png');
@@ -234,16 +234,15 @@ function assertBrandingContents() {
   }
 
   if (targetPlatform === 'darwin') {
-    assertExists(join(resourcesDir, 'icon.icns'));
-    const catalog = join(resourcesDir, 'Assets.car');
-    assertExists(catalog);
-    verifyMacAppIconCatalog(catalog);
-    const iconName = spawnSync('plutil', [
-      '-extract', 'CFBundleIconName', 'raw', '-o', '-',
+    const icon = join(resourcesDir, 'icon.icns');
+    assertExists(icon);
+    await verifyMacAppIcon(icon, sourceIcon);
+    const iconFile = spawnSync('plutil', [
+      '-extract', 'CFBundleIconFile', 'raw', '-o', '-',
       join(packageRoot, 'Contents', 'Info.plist')
     ], { encoding: 'utf8' });
-    if (iconName.status !== 0 || iconName.stdout.trim() !== 'OpenCreator') {
-      throw new Error('Packaged macOS app does not reference the icon appearance catalog.');
+    if (iconFile.status !== 0 || iconFile.stdout.trim() !== 'icon.icns') {
+      throw new Error('Packaged macOS app does not reference the verified icon.icns.');
     }
   }
 }

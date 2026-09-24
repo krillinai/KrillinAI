@@ -73,6 +73,8 @@ export type OpenCreatorSettingsViewProps = {
   cleanupService?: CleanupSettingsService | null;
   creatorServicesService?: CreatorServicesSettingsService | null;
   codexRuntimeService?: CodexRuntimeSettingsService | null;
+  agentSetupNeeded?: boolean;
+  onOpenAgentSetup?(): void;
   memoryService?: MemorySettingsService | null;
   memoryProjects?: MemoryScopeOption[];
   memoryThreads?: MemoryScopeOption[];
@@ -168,16 +170,27 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
           />
         ) : null}
         {activeTab === 'ai-services' ? (
-          <Suspense fallback={
-            <p role="status">{l('正在加载 AI 服务设置…', 'Loading AI service settings…')}</p>
-          }>
-            <CreatorServicesSettingsView
-              connected={props.runtimeStatus.connected}
-              service={props.creatorServicesService ?? null}
-              modelService={props.codexRuntimeService ?? null}
-              initialSection={props.initialSection}
-            />
-          </Suspense>
+          <>
+            {props.agentSetupNeeded && props.onOpenAgentSetup !== undefined ? (
+              <div className="settings-inline-warning" role="status">
+                {l('Agent 尚未配置，无法发送任务。', 'Agent is not configured; tasks cannot be sent.')}
+                {' '}
+                <button className="settings-secondary-button" type="button" onClick={props.onOpenAgentSetup}>
+                  {l('配置 Agent', 'Set up Agent')}
+                </button>
+              </div>
+            ) : null}
+            <Suspense fallback={
+              <p role="status">{l('正在加载 AI 服务设置…', 'Loading AI service settings…')}</p>
+            }>
+              <CreatorServicesSettingsView
+                connected={props.runtimeStatus.connected}
+                service={props.creatorServicesService ?? null}
+                modelService={props.codexRuntimeService ?? null}
+                initialSection={props.initialSection}
+              />
+            </Suspense>
+          </>
         ) : null}
         {activeTab === 'local-components' && props.runtimeDependencies !== undefined ? (
           <RuntimeComponentsSettingsView

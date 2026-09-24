@@ -43,6 +43,7 @@ import type { CreatorServicesSettingsService } from '../../services/creator-serv
 import type { ConnectionService } from '../../services/connection-service.js';
 import { IssueList } from '../issues/IssuePresenter.js';
 import { usePageIssueState } from '../issues/page-issue-state.js';
+import { inferLlmProviderId, llmProviderOptions } from './llm-provider-selection.js';
 import './creator-services-settings.css';
 
 export type CreatorServicesSection = 'text' | 'transcription' | 'tts' | 'image' | 'video';
@@ -550,7 +551,7 @@ function TextModelSettings(props: SettingsGroupProps & {
         {props.mode === 'custom' ? <label className="creator-services-field is-wide">
           <span>{l('供应商', 'Provider')}</span>
           <select value={props.providerId} onChange={event => props.onProviderIdChange(event.target.value)}>
-            {Object.values(creatorProviderCatalogById.llm).map(provider => (
+            {llmProviderOptions.map(provider => (
               <option key={provider.id} value={provider.id}>{provider.label}</option>
             ))}
           </select>
@@ -613,15 +614,6 @@ function TextModelSettings(props: SettingsGroupProps & {
       </SettingsFieldset>
     </>
   );
-}
-
-function inferLlmProviderId(baseUrl: string, model: string): string {
-  const normalizedUrl = baseUrl.toLowerCase();
-  const normalizedModel = model.toLowerCase();
-  if (normalizedUrl.includes('deepseek') || normalizedModel.startsWith('deepseek-')) return 'deepseek';
-  if (normalizedUrl.includes('minimax') || normalizedModel.startsWith('minimax-')) return 'minimax';
-  if (normalizedUrl.includes('openai.com')) return 'openai';
-  return 'custom';
 }
 
 function validateModelFields(

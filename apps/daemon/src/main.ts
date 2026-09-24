@@ -18,7 +18,7 @@ import {
   type RuntimeCapabilityMatrix
 } from './codex/capabilities.js';
 import { resolveCodexHome } from './codex/home.js';
-import { createCodexIsolatedHome } from './codex/probe-home.js';
+import { createCodexIsolatedHome, importLocalCodexConfiguration } from './codex/probe-home.js';
 import {
   CODEX_PROBE_TIMEOUT_MS,
   probeCodex
@@ -87,6 +87,8 @@ async function main(): Promise<void> {
     : codexHome;
   if (environment.codexHome === undefined) {
     createCodexIsolatedHome(localCodexHome, codexHome);
+  } else if (process.env.OPENCREATOR_LOCAL_CODEX_HOME) {
+    importLocalCodexConfiguration(process.env.OPENCREATOR_LOCAL_CODEX_HOME, codexHome);
   }
   readOpenCreatorConfig(configFile);
   mkdirSync(dataDir, { recursive: true });

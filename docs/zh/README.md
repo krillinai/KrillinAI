@@ -323,7 +323,7 @@ pnpm web:dev
 
 打开 `http://127.0.0.1:19861/`。开发服务器会按需启动本地 daemon，并通过同源代理注入临时 Runtime token，不需要手工复制连接信息。
 
-首次启动时，Runtime 会准备默认项目；连接完成后输入框即可直接使用。如果只需要调试 daemon：
+首次启动时，Runtime 会准备默认项目，并检查本机 Codex 配置。已有可用登录态或 API Key 时，确认使用本机 Codex 即可；否则在引导页选择供应商并填写模型、Base URL（使用 OpenAI 默认地址时可留空）和 API Key。配置完成后即可使用输入框。如果只需要调试 daemon：
 
 ```bash
 pnpm daemon:dev

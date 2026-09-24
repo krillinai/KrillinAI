@@ -1,5 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { spawn } from 'node:child_process';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { utilityProcess, type UtilityProcess } from 'electron';
 import type {
   DaemonBootstrapEvent,
@@ -316,6 +318,8 @@ export function buildDaemonEnvironment(
       ? {}
       : { OPENCREATOR_CODEX_COMMIT: input.codexCommit }),
     CODEX_HOME: input.codexHome,
+    OPENCREATOR_LOCAL_CODEX_HOME: process.env.CODEX_HOME?.trim()
+      || join(input.env.HOME || input.env.USERPROFILE || homedir(), '.codex'),
     OPENCREATOR_DATA_DIR: input.dataDir,
     ...(input.creatorRuntimeRoot === undefined
       ? {}

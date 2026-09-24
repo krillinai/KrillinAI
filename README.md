@@ -323,7 +323,7 @@ pnpm web:dev
 
 Open `http://127.0.0.1:19861/`. The development server starts the local daemon on demand and injects a temporary Runtime token through a same-origin proxy, so no connection token needs to be copied manually.
 
-On first launch, the Runtime prepares a default project. The composer is ready as soon as the connection completes. To work on the daemon only:
+On first launch, the Runtime prepares a default project and checks local Codex settings. Confirm an existing ChatGPT sign-in or API key to use local Codex, or select a provider and enter its model, endpoint, and API key. The composer is ready after setup. To work on the daemon only:
 
 ```bash
 pnpm daemon:dev

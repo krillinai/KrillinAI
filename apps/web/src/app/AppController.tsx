@@ -112,6 +112,13 @@ import type {
   DefaultPermissionPreference,
   RuntimeStatus
 } from '../features/settings/OpenCreatorSettingsView.js';
+import {
+  confirmAgentSetup,
+  isAgentSetupConfirmed,
+  StartupAgentSetup,
+  type AgentSetupSnapshot
+} from '../features/settings/StartupAgentSetup.js';
+import { useLocalizedCopy } from '../i18n/useLocalizedCopy.js';
 import type { McpCapabilities } from '../features/settings/McpSettingsView.js';
 import { OpenCreatorSidebar } from '../features/shell/OpenCreatorSidebar.js';
 import {
@@ -287,6 +294,7 @@ export function AppController(props: AppControllerProps) {
     t
   } = useAppLanguage();
   const appIssues = usePageIssueState('app-controller');
+  const l = useLocalizedCopy();
   const persistedNavigation = useMemo(readPersistedNavigation, []);
   const initialState = useMemo(
     () => createInitialState(props.route, persistedNavigation),
@@ -348,6 +356,8 @@ export function AppController(props: AppControllerProps) {
     status: 'disconnected',
     message: '正在等待本地服务'
   });
+  const [agentSetup, setAgentSetup] = useState<'checking' | 'ready' | 'needed' | 'skipped'>('checking');
+  const [agentSetupSnapshot, setAgentSetupSnapshot] = useState<AgentSetupSnapshot>();
   const [runDiagnosticsById, setRunDiagnosticsById] = useState<Record<string, RunDiagnosticsResponse | undefined>>({});
   const [runAttachmentsById, setRunAttachmentsById] = useState<Record<string, AttachmentResponse[] | undefined>>({});
   const [runContextById, setRunContextById] = useState<Record<string, RunContextResponse | undefined>>({});
@@ -1281,6 +1291,22 @@ export function AppController(props: AppControllerProps) {
       canceled = true;
     };
   }, [connectionService]);
+
+  useEffect(() => {
+    if (connectionState.status !== 'connected' || connectionService === null || agentSetup !== 'checking') return;
+    let canceled = false;
+    void Promise.all([
+      connectionService.getCodexReadiness(), connectionService.getCodexProvider()
+    ]).then(([readiness, provider]) => {
+      if (canceled) return;
+      const snapshot = { readiness, provider };
+      setAgentSetupSnapshot(snapshot);
+      setAgentSetup(isAgentSetupConfirmed(snapshot) ? 'ready' : 'needed');
+    }).catch(() => {
+      if (!canceled) setAgentSetup('needed');
+    });
+    return () => { canceled = true; };
+  }, [agentSetup, connectionService, connectionState.status]);
 
   const availabilityProbeStatus = connectionState.status === 'connected'
     ? connectionState.codexStatus.availabilityProbe?.status
@@ -4233,9 +4259,12 @@ export function AppController(props: AppControllerProps) {
   )
     || selectedPendingRunStart !== undefined
     || selectedRunsLoading
-    || connectionState.status !== 'connected';
+    || connectionState.status !== 'connected'
+    || agentSetup === 'skipped';
   const composerDisabledReason = connectionState.status !== 'connected'
     ? t('conversation.connectingRuntime')
+    : agentSetup === 'skipped'
+      ? l('请先配置 Agent 模型服务', 'Configure the Agent model service first')
     : projectLoadError !== undefined
       ? t('conversation.checkingTask')
       : conversationNeedsProject && currentProject === undefined
@@ -4524,6 +4553,14 @@ export function AppController(props: AppControllerProps) {
               onDismiss={() => setPendingMemorySuggestion(undefined)}
             />
           ) : null}
+          {agentSetup === 'skipped' ? (
+            <div className="startup-agent-banner" role="status">
+              {l('Agent 尚未配置，暂时无法发送任务。', 'Agent is not configured; you cannot send tasks yet.')}
+              <button type="button" onClick={() => setAgentSetup('needed')}>
+                {l('配置 Agent', 'Set up Agent')}
+              </button>
+            </div>
+          ) : null}
           {conversationComposer}
           {showConversationEmptyState ? creatorDashboard : null}
         </div>
@@ -4745,6 +4782,8 @@ export function AppController(props: AppControllerProps) {
       cleanupService={cleanupService}
       creatorServicesService={creatorServicesService}
       codexRuntimeService={connectionService}
+      agentSetupNeeded={agentSetup === 'skipped'}
+      onOpenAgentSetup={() => setAgentSetup('needed')}
       memoryService={memoryService}
       memoryProjects={memoryProjectOptions}
       memoryThreads={memoryThreadOptions}
@@ -4823,7 +4862,7 @@ export function AppController(props: AppControllerProps) {
         }
         aria-live="polite"
       />
-      <AppLayout
+      {agentSetup === 'needed' ? null : <AppLayout
       sidebar={
         <OpenCreatorSidebar
           projects={projects}
@@ -4896,7 +4935,25 @@ export function AppController(props: AppControllerProps) {
       mobileSidebarOpen={mobileSidebarOpen}
       onOpenMobileSidebar={openMobileSidebar}
       onCloseMobileSidebar={dismissMobileSidebar}
-      />
+      />}
+      {agentSetup === 'checking' && connectionState.status === 'connected' ? (
+        <main className="startup-agent-setup" role="status">
+          {l('正在检查 Agent 配置…', 'Checking Agent configuration…')}
+        </main>
+      ) : null}
+      {agentSetup === 'needed' && connectionService !== null ? (
+        <StartupAgentSetup
+          service={connectionService}
+          initialSnapshot={agentSetupSnapshot}
+          onReady={snapshot => {
+            confirmAgentSetup(snapshot);
+            setAgentSetupSnapshot(snapshot);
+            setAgentSetup('ready');
+            startNewConversation({ destination: 'home' });
+          }}
+          onSkip={() => setAgentSetup('skipped')}
+        />
+      ) : null}
       {projectDropActive ? (
         <div className="project-drop-overlay" role="status" aria-live="polite">
           <FolderInput aria-hidden="true" size={30} />

@@ -1602,6 +1602,15 @@ async function waitForWorkspace(page: Page): Promise<void> {
   await expect.poll(async () => (
     await page.evaluate(() => window.opencreatorDesktop?.readBootstrapState())
   )?.phase).toBe('ready');
+  const confirmed = await page.evaluate(() => window.localStorage.getItem('opencreator.agent-setup-confirmed.v1') !== null);
+  if (!confirmed) {
+    const setup = page.getByRole('heading', { name: '开始使用 Agent' });
+    await setup.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => undefined);
+    if (await setup.isVisible()) {
+      await page.getByRole('button', { name: '使用本机 Codex，继续' }).click();
+      await expect(setup).toBeHidden();
+    }
+  }
   await expect(page.locator('.opencreator-shell')).toBeVisible();
 }
 
