@@ -47,12 +47,12 @@ export function useRuntimeDependencies(input: {
         setYtDlpStatus(response.ytDlp);
         pageIssues.resolveOperation('runtime.load-yt-dlp');
         if (!response.ytDlp.checkDue) return;
-        operationId = 'runtime.check-yt-dlp';
+        operationId = 'runtime.auto-check-yt-dlp';
         setPhase('checking');
         const checked = await input.service?.checkYtDlpUpdate(false);
         if (active && checked !== undefined) {
           setYtDlpStatus(checked.ytDlp);
-          pageIssues.resolveOperation('runtime.check-yt-dlp');
+          pageIssues.resolveOperation('runtime.auto-check-yt-dlp');
         }
       })
       .catch(caught => {
@@ -89,6 +89,7 @@ export function useRuntimeDependencies(input: {
       const response = await input.service.checkYtDlpUpdate(force);
       setYtDlpStatus(response.ytDlp);
       pageIssues.resolveOperation('runtime.check-yt-dlp');
+      pageIssues.resolveOperation('runtime.auto-check-yt-dlp');
       pageIssues.resolveOperation('runtime.load-yt-dlp');
       return response.ytDlp;
     } catch (caught) {

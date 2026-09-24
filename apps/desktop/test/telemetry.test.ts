@@ -299,7 +299,8 @@ describe('desktop telemetry', () => {
             reject(new DOMException('Aborted', 'AbortError'));
           }, { once: true });
         });
-      })
+      }),
+      persistence: memoryPersistence().persistence as TelemetryPersistence
     });
 
     await requestStarted;

@@ -16,6 +16,7 @@ import './agent-diagnostics.css';
 
 export default function AgentDiagnosticsPanel(props: {
   hiddenCreatorIssues?: boolean;
+  hiddenBackgroundRuntimeIssues?: boolean;
   onAskIssue(issue: OpenCreatorIssue, question: string): void;
 }) {
   const { language } = useAppLanguage();
@@ -23,10 +24,9 @@ export default function AgentDiagnosticsPanel(props: {
   const allIssues = useSyncExternalStore(subscribePageIssues, getPageIssues, getPageIssues);
   const actionsByIssueId = useSyncExternalStore(subscribePageIssueActions, getPageIssueActionsSnapshot, getPageIssueActionsSnapshot);
   const issues = useMemo(() => allIssues.filter(issue => (
-    !props.hiddenCreatorIssues
-    || issue.scope.kind !== 'page'
-    || issue.scope.surface !== 'creator-launch'
-  )), [allIssues, props.hiddenCreatorIssues]);
+    !(props.hiddenCreatorIssues && issue.scope.kind === 'page' && issue.scope.surface === 'creator-launch')
+    && !(props.hiddenBackgroundRuntimeIssues && isBackgroundRuntimeIssue(issue))
+  )), [allIssues, props.hiddenCreatorIssues, props.hiddenBackgroundRuntimeIssues]);
   const [open, setOpen] = useState(false);
   const [focusedIssueId, setFocusedIssueId] = useState<string | null>(null);
   const [input, setInput] = useState('');
@@ -36,9 +36,10 @@ export default function AgentDiagnosticsPanel(props: {
   useEffect(() => {
     const latest = issues.at(-1);
     const key = latest === undefined ? undefined : `${latest.id}:${latest.occurrenceCount}`;
-    if (key !== undefined && key !== latestIssueRef.current) setOpen(true);
+    if (latest !== undefined && key !== latestIssueRef.current
+      && !isBackgroundRuntimeIssue(latest)) setOpen(true);
     latestIssueRef.current = key;
-  }, [allIssues]);
+  }, [issues]);
   useEffect(() => () => clearPageIssues(), []);
 
   if (issues.length === 0) return null;
@@ -91,6 +92,11 @@ export default function AgentDiagnosticsPanel(props: {
       </form>
     </aside>
   );
+}
+
+function isBackgroundRuntimeIssue(issue: OpenCreatorIssue): boolean {
+  return issue.scope.kind === 'page' && issue.scope.surface === 'runtime'
+    && (issue.operation === 'runtime.load-yt-dlp' || issue.operation === 'runtime.auto-check-yt-dlp');
 }
 
 function DiagnosticMessage(props: {

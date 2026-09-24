@@ -4999,6 +4999,7 @@ export function AppController(props: AppControllerProps) {
       />
       <AgentDiagnosticsPanel
         hiddenCreatorIssues={immersiveWorkspace && props.route.view === 'workbench' && props.route.jobId === undefined}
+        hiddenBackgroundRuntimeIssues={immersiveWorkspace && props.route.view === 'workbench'}
         onAskIssue={askAgentAboutIssue}
       />
     </div></PageIssueRoutingProvider>

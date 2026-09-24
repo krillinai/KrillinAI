@@ -1,10 +1,11 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import { ApiClientError } from '../../runtime/client.js';
 import AgentDiagnosticsPanel from './AgentDiagnosticsPanel.js';
 import { IssueList, PageIssueRoutingProvider } from './IssuePresenter.js';
-import { clearPageIssues } from './page-issue-hub.js';
-import { usePageIssueState } from './page-issue-state.js';
+import { clearPageIssues, publishPageIssue } from './page-issue-hub.js';
+import { normalizePageIssue, usePageIssueState } from './page-issue-state.js';
 
 afterEach(() => act(() => clearPageIssues()));
 
@@ -24,6 +25,32 @@ function Harness(props: {
 }
 
 describe('AgentDiagnosticsPanel', () => {
+  it('keeps background runtime failures accessible without blocking Creator workflows', () => {
+    const onAskIssue = vi.fn();
+    const { rerender } = render(<LanguageProvider initialPreference="zh-CN"><AgentDiagnosticsPanel hiddenBackgroundRuntimeIssues onAskIssue={onAskIssue} /></LanguageProvider>);
+    act(() => {
+      publishPageIssue(normalizePageIssue(
+        'runtime',
+        'runtime.load-yt-dlp',
+        new ApiClientError({ status: 503, code: 'creator_yt_dlp_update_unavailable', message: 'yt-dlp updates are unavailable' }),
+        '无法读取运行组件。'
+      ));
+      publishPageIssue(normalizePageIssue(
+        'runtime',
+        'runtime.auto-check-yt-dlp',
+        new ApiClientError({ status: 502, code: 'creator_yt_dlp_update_check_failed', message: 'yt-dlp update check failed' }),
+        '自动检查运行组件失败。'
+      ));
+    });
+
+    expect(screen.queryByRole('complementary', { name: 'Agent 诊断' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '打开 Agent 诊断' })).not.toBeInTheDocument();
+    rerender(<LanguageProvider initialPreference="zh-CN"><AgentDiagnosticsPanel onAskIssue={onAskIssue} /></LanguageProvider>);
+    fireEvent.click(screen.getByRole('button', { name: '打开 Agent 诊断' }));
+    expect(screen.getByRole('complementary', { name: 'Agent 诊断' })).toHaveTextContent('creator_yt_dlp_update_unavailable');
+    expect(screen.getByRole('complementary', { name: 'Agent 诊断' })).toHaveTextContent('creator_yt_dlp_update_check_failed');
+  });
+
   it('routes page failures into one conversation, deduplicates retries and follows the selected issue', () => {
     const onAskIssue = vi.fn();
     const onRetry = vi.fn();

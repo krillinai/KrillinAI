@@ -71,6 +71,7 @@ export function RuntimeComponentsSettingsView(props: {
             issues={issues}
             actions={{ retryOperations: {
               'runtime.load-yt-dlp': async () => { await props.controller.checkYtDlpUpdate(true); },
+              'runtime.auto-check-yt-dlp': async () => { await props.controller.checkYtDlpUpdate(true); },
               'runtime.check-yt-dlp': async () => { await props.controller.checkYtDlpUpdate(true); },
               'runtime.update-yt-dlp': async () => { await props.controller.updateYtDlp(); }
             } }}
@@ -144,6 +145,7 @@ export function RuntimeComponentsSettingsView(props: {
           issues={issues}
           actions={{ retryOperations: {
             'runtime.load-yt-dlp': async () => { await props.controller.checkYtDlpUpdate(true); },
+            'runtime.auto-check-yt-dlp': async () => { await props.controller.checkYtDlpUpdate(true); },
             'runtime.check-yt-dlp': async () => { await props.controller.checkYtDlpUpdate(true); },
             'runtime.update-yt-dlp': async () => { await props.controller.updateYtDlp(); }
           } }}

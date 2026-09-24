@@ -188,6 +188,10 @@ test('打包 App 的浅色窗口按钮区域与设置侧栏连续且保留标题
     await expect(fixture.app.page.getByRole('button', { name: '返回应用' })).toBeVisible();
 
     for (const [theme, label] of [['light', '浅色'], ['dark', '深色']] as const) {
+      const diagnostics = fixture.app.page.getByRole('complementary', { name: 'Agent 诊断' });
+      if (await diagnostics.isVisible()) {
+        await diagnostics.getByRole('button', { name: '收起诊断' }).click();
+      }
       await fixture.app.page.getByRole('button', { name: label, exact: true }).click();
       await expect(fixture.app.page.locator('html')).toHaveAttribute('data-theme', theme);
       expect(await fixture.app.page.evaluate(() => {
