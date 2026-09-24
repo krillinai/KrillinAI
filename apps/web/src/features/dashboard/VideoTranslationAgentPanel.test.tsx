@@ -105,7 +105,7 @@ describe('VideoTranslationAgentPanel', () => {
     fireEvent.change(composer, { target: { value: '合成横屏视频' } });
     fireEvent.click(screen.getByRole('button', { name: '发送给 Agent' }));
 
-    expect(await screen.findByText('Agent 未能完成诊断，请查看问题详情后重试。')).toBeInTheDocument();
+    expect(await screen.findByText(/Agent 未能完成诊断，请查看问题详情后重试。 错误码：CLIENT_OPERATION_FAILED。/)).toBeInTheDocument();
     expect(screen.queryByText('Creator Agent is not ready')).not.toBeInTheDocument();
     expect(composer).toHaveValue('合成横屏视频');
   });

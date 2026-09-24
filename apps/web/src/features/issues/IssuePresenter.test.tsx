@@ -53,8 +53,9 @@ describe('IssuePresenter', () => {
         </PageIssueRoutingProvider>
       </LanguageProvider>
     );
-    expect(screen.getAllByText('上传未完成，请重试。')).toHaveLength(1);
-    expect(screen.getAllByText('上传未完成，请重试。')[0]!.closest('[data-issue-id]')).toHaveAttribute('data-issue-id', 'creator-1');
+    const descriptions = screen.getAllByText(/上传未完成，请重试。 错误码：creator_upload_failed。/);
+    expect(descriptions).toHaveLength(1);
+    expect(descriptions[0]!.closest('[data-issue-id]')).toHaveAttribute('data-issue-id', 'creator-1');
   });
 
 });
