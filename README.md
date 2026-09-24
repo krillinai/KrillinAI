@@ -549,7 +549,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 ## Documentation
 
 - **Use OpenCreator:** [Quick Start](#quick-start) · [User guide and troubleshooting](./docs/opencreator-user-guide-and-troubleshooting.md)
-- **Develop and extend:** [Contributing guide](./CONTRIBUTING.md) · [Contributing a Skill](./docs/contributing/skills-contributing.md) · [Contributing a creation template](./docs/contributing/templates-contributing.md) · [Runtime API v1](./docs/runtime-api-for-ui-v1.md) · [Visual component guidelines](./docs/visual-component-guidelines.md)
+- **Develop and extend:** [Contributing guide](./CONTRIBUTING.md) · [Code of Conduct](./CODE_OF_CONDUCT.md) · [Contributing a Skill](./docs/contributing/skills-contributing.md) · [Contributing a creation template](./docs/contributing/templates-contributing.md) · [Runtime API v1](./docs/runtime-api-for-ui-v1.md) · [Visual component guidelines](./docs/visual-component-guidelines.md)
 - **Maintain and release:** [Codex-native Runtime design](./docs/2026-07-03-codex-native-agent-runtime-design.md) · [Desktop release runbook](./docs/operations/opencreator-desktop-release-runbook.md) · [Windows Desktop release guide](./docs/operations/opencreator-desktop-windows-release.md)
 
 ## Translation Convention

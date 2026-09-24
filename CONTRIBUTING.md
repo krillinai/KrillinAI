@@ -21,6 +21,8 @@ Thanks for thinking about contributing. OpenCreator is a local-first creator wor
 
 Use an [issue](https://github.com/krillinai/OpenCreator/issues/new) to discuss an idea or ask where it belongs; we'll point you to the right area. When submitting a PR, mention the relevant member of [The Crew](./README.md#the-crew) for code and bug fixes, creation templates, design and assets, or Skills and docs. The crew helps with contribution standards, reviews, and community questions; merging follows repository permissions and required checks.
 
+All participants in project spaces are expected to follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
+
 ---
 
 ## Local setup
