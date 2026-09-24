@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, statSync } from 'node:fs';
 import {
   rename,
   rm,
@@ -13,17 +13,21 @@ import {
   collectCodexCapabilityMatrixAsync,
   collectStartupCapabilityMatrixAsync,
   probeCodexVersionAsync,
+  resolveBundledCodexStartupSnapshot,
   withRuntimeSkillCapabilities,
   type RuntimeCapabilityMatrix
 } from './codex/capabilities.js';
 import { resolveCodexHome } from './codex/home.js';
-import { createCodexIsolatedHome } from './codex/probe-home.js';
+import { createCodexIsolatedHome, importLocalCodexConfiguration } from './codex/probe-home.js';
 import {
   CODEX_PROBE_TIMEOUT_MS,
   probeCodex
 } from './codex/probe.js';
 import { createRuntimeToken } from './security/token.js';
-import { installGracefulShutdown } from './shutdown.js';
+import {
+  installGracefulShutdown,
+  installParentPortShutdown
+} from './shutdown.js';
 import {
   createProductionServerInput,
   parseRuntimeChannel,
@@ -78,8 +82,13 @@ async function main(): Promise<void> {
   } = paths;
   const codexBin = environment.codexBin ?? 'codex';
   const codexHome = resolveCodexHome({ isolatedHome: paths.codexHome }).path;
-  if (environment.codexHome === undefined && !directoryHasEntries(codexHome)) {
-    createCodexIsolatedHome(resolveCodexHome().path, codexHome);
+  const localCodexHome = environment.codexHome === undefined
+    ? resolveCodexHome().path
+    : codexHome;
+  if (environment.codexHome === undefined) {
+    createCodexIsolatedHome(localCodexHome, codexHome);
+  } else if (process.env.OPENCREATOR_LOCAL_CODEX_HOME) {
+    importLocalCodexConfiguration(process.env.OPENCREATOR_LOCAL_CODEX_HOME, codexHome);
   }
   readOpenCreatorConfig(configFile);
   mkdirSync(dataDir, { recursive: true });
@@ -101,10 +110,20 @@ async function main(): Promise<void> {
     }
   });
 
-  const versionProbe = await probeCodexVersionAsync({
-    codexBin,
-    timeoutMs: 3_000
+  const bundledStartup = resolveBundledCodexStartupSnapshot({
+    mode: process.env.OPENCREATOR_CODEX_RUNTIME_MODE,
+    version: process.env.OPENCREATOR_CODEX_VERSION,
+    commit: process.env.OPENCREATOR_CODEX_COMMIT
   });
+  const versionProbe = bundledStartup === undefined
+    ? await probeCodexVersionAsync({
+        codexBin,
+        timeoutMs: 3_000
+      })
+    : {
+        ready: true,
+        version: bundledStartup.version
+      };
   if (!versionProbe.ready) {
     emitBootstrapError({
       code: 'CODEX_VERSION_CHECK_FAILED',
@@ -129,11 +148,16 @@ async function main(): Promise<void> {
       };
 
   emitBootstrap('starting_runtime');
-  const capabilityResolution = await resolveCapabilities(
-    codexBin,
-    dataDir,
-    versionProbe.version
-  );
+  const capabilityResolution = bundledStartup === undefined
+    ? await resolveCapabilities(
+        codexBin,
+        dataDir,
+        versionProbe.version
+      )
+    : {
+        state: bundledStartup.capabilities,
+        startBackgroundRefresh() {}
+      };
   const capabilities = capabilityResolution.state;
   const { buildServer } = await import('./api/server.js');
   server = await buildServer(createProductionServerInput({
@@ -158,7 +182,8 @@ async function main(): Promise<void> {
     credentialsFile,
     runtimeDir,
     creatorDir,
-    codexHome
+    codexHome,
+    localCodexHome
   }));
   const address = await server.listen({ host: '127.0.0.1', port: 0 });
   capabilityResolution.startBackgroundRefresh();
@@ -170,7 +195,13 @@ async function main(): Promise<void> {
       process.exitCode = 1;
     }
   });
-  installParentPortShutdown();
+  installParentPortShutdown({
+    close: closeServer,
+    exit: code => process.exit(code),
+    onError(error) {
+      console.error(`Failed to close daemon after parent request: ${String(error)}`);
+    }
+  });
   emitParentMessage({
     type: 'opencreator_daemon_ready',
     address,
@@ -192,14 +223,6 @@ async function main(): Promise<void> {
   }
 }
 
-function directoryHasEntries(path: string): boolean {
-  try {
-    return statSync(path).isDirectory() && readdirSync(path).length > 0;
-  } catch {
-    return false;
-  }
-}
-
 function requiresProbe(): boolean {
   return process.env.OPENCREATOR_REQUIRE_CODEX_PROBE === '1';
 }
@@ -212,24 +235,6 @@ async function closeServer(): Promise<void> {
   closeWork ??= server?.close() ?? Promise.resolve();
   await closeWork;
   releaseRuntimeLock?.();
-}
-
-function installParentPortShutdown(): void {
-  const parentPort = (
-    process as NodeJS.Process & {
-      parentPort?: {
-        on(event: 'message', listener: (event: { data?: unknown } | unknown) => void): void;
-      };
-    }
-  ).parentPort;
-  parentPort?.on('message', event => {
-    const payload = isRecord(event) && 'data' in event ? event.data : event;
-    if (!isRecord(payload) || payload.type !== 'shutdown') return;
-    void closeServer().catch(error => {
-      console.error(`Failed to close daemon after parent request: ${String(error)}`);
-      process.exitCode = 1;
-    });
-  });
 }
 
 async function resolveCapabilities(

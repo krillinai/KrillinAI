@@ -25,7 +25,13 @@ import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
-import { useOptionalCreatorSession } from './creator-session-store.js';
+import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
+import {
+  captureCreatorClientFailure,
+  createCreatorArtifactObjectUrl,
+  CreatorPreflightBlockedError,
+  useOptionalCreatorSession
+} from './creator-session-store.js';
 
 type ImageStep = 0 | 1 | 2;
 type ImageResultVersion = {
@@ -48,6 +54,7 @@ const qualities: Array<{ value: ImageGenerationQuality; zh: string; en: string }
 ];
 
 const providers: Array<{ value: ImageGenerationProvider; zh: string; en: string }> = [
+  { value: 'codex-native', zh: '本机 Codex 生图', en: 'Local Codex image generation' },
   { value: 'openai', zh: 'GPT Image', en: 'GPT Image' },
   { value: 'jimeng', zh: '即梦', en: 'Jimeng' },
   { value: 'kling', zh: '可灵', en: 'Kling' },
@@ -60,6 +67,7 @@ const samplePromptEn = 'A bright modern creative studio at sunrise, natural ligh
 export default function ImageGenerationWorkspace(props: {
   onBack(): void;
   promptHint?: string;
+  creatorServicesService?: CreatorServicesSettingsService | null;
 }) {
   const l = useLocalizedCopy();
   const session = useOptionalCreatorSession();
@@ -123,6 +131,37 @@ export default function ImageGenerationWorkspace(props: {
   );
   const currentReferenceName = referenceFile?.name
     ?? readArtifactString(activeReferenceArtifact, 'fileName');
+  const shouldLoadDefaultProvider = session !== null
+    && (
+      session.state.provider === undefined
+      || (
+        session.state.providerSource === undefined
+        && session.job.presetOrigin === null
+        && session.job.stages.length === 0
+        && session.job.artifacts.length === 0
+      )
+    );
+
+  useEffect(() => {
+    if (session === null || !shouldLoadDefaultProvider) return;
+    let active = true;
+    void props.creatorServicesService?.getConfig().then(response => {
+      if (!active) return;
+      const nextProvider = response.config.image.provider;
+      const nextCount = nextProvider === 'codex-native' ? 1 : count;
+      setProvider(nextProvider);
+      setCount(nextCount);
+      session.updateDraft(
+        {
+          provider: nextProvider,
+          providerSource: 'default',
+          candidateCount: nextCount
+        },
+        { persist: false }
+      );
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [count, props.creatorServicesService, session, shouldLoadDefaultProvider]);
 
   useEffect(() => {
     if (referenceFile === null) {
@@ -132,10 +171,14 @@ export default function ImageGenerationWorkspace(props: {
       }
       let active = true;
       let objectUrl = '';
-      void session.openArtifact(activeReferenceArtifact.id)
-        .then(async response => {
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          objectUrl = URL.createObjectURL(await response.blob());
+      void createCreatorArtifactObjectUrl(
+        session,
+        activeReferenceArtifact.id,
+        'image-generation.load-reference-preview',
+        l('参考图预览加载失败，请稍后重试。', 'The reference preview failed to load. Try again later.')
+      )
+        .then(url => {
+          objectUrl = url;
           if (active) setReferencePreview(objectUrl);
         })
         .catch(() => {
@@ -146,10 +189,18 @@ export default function ImageGenerationWorkspace(props: {
         if (objectUrl) URL.revokeObjectURL(objectUrl);
       };
     }
-    const objectUrl = URL.createObjectURL(referenceFile);
-    setReferencePreview(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [activeReferenceArtifact?.id, referenceFile, session?.openArtifact]);
+    let objectUrl = '';
+    void captureCreatorClientFailure(
+      session,
+      'image-generation.load-local-reference-preview',
+      l('参考图预览加载失败，请重新选择图片。', 'The reference preview failed to load. Select the image again.'),
+      () => URL.createObjectURL(referenceFile)
+    ).then(url => {
+      objectUrl = url;
+      setReferencePreview(url);
+    }).catch(() => setReferencePreview(''));
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [activeReferenceArtifact?.id, l, referenceFile, session?.captureCreatorFailure, session?.openArtifact]);
 
   useEffect(() => {
     const artifacts = selectedResult?.artifacts ?? [];
@@ -163,9 +214,12 @@ export default function ImageGenerationWorkspace(props: {
     setImageUrls({});
     setPreviewError('');
     void Promise.all(artifacts.map(async artifact => {
-      const response = await session.openArtifact(artifact.id);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const url = URL.createObjectURL(await response.blob());
+      const url = await createCreatorArtifactObjectUrl(
+        session,
+        artifact.id,
+        'image-generation.load-result-preview',
+        l('图片预览加载失败，可以稍后重试或重新生成。', 'Image previews failed to load. Retry later or generate them again.')
+      );
       objectUrls.push(url);
       return [artifact.id, url] as const;
     })).then(entries => {
@@ -174,7 +228,7 @@ export default function ImageGenerationWorkspace(props: {
       if (active) {
         setPreviewError(l(
           '图片预览加载失败，可以稍后重试或重新生成',
-          `Image previews failed to load: ${cause instanceof Error ? cause.message : String(cause)}`
+          'Image previews failed to load. Retry later or generate them again.'
         ));
       }
     });
@@ -182,7 +236,7 @@ export default function ImageGenerationWorkspace(props: {
       active = false;
       objectUrls.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [l, selectedResult?.artifacts, session?.openArtifact]);
+  }, [l, selectedResult?.artifacts, session?.captureCreatorFailure, session?.openArtifact]);
 
   useEffect(() => {
     if (latestVersion !== undefined && !generating) {
@@ -217,7 +271,13 @@ export default function ImageGenerationWorkspace(props: {
 
   function updateProvider(value: ImageGenerationProvider) {
     setProvider(value);
-    session?.updateDraft({ provider: value });
+    const nextCount = value === 'codex-native' ? 1 : count;
+    if (nextCount !== count) setCount(nextCount);
+    session?.updateDraft({
+      provider: value,
+      providerSource: 'user',
+      candidateCount: nextCount
+    });
     setError('');
   }
 
@@ -234,6 +294,7 @@ export default function ImageGenerationWorkspace(props: {
   }
 
   function updateCount(value: number) {
+    if (provider === 'codex-native' && value !== 1) return;
     setCount(value);
     session?.updateDraft({ candidateCount: value });
     setError('');
@@ -286,9 +347,7 @@ export default function ImageGenerationWorkspace(props: {
         input: { stageId: 'generate' }
       });
       setNotice(l('生成任务已提交，完成后会自动显示结果', 'Generation started. Results will appear automatically.'));
-    } catch (caught) {
-      setError(formatImageError(caught, l));
-    }
+    } catch {}
   }
 
   async function download(artifact: CreatorArtifact, index: number) {
@@ -297,9 +356,12 @@ export default function ImageGenerationWorkspace(props: {
       const existingUrl = imageUrls[artifact.id];
       let temporaryUrl: string | undefined;
       if (existingUrl === undefined) {
-        const response = await session.openArtifact(artifact.id);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        temporaryUrl = URL.createObjectURL(await response.blob());
+        temporaryUrl = await createCreatorArtifactObjectUrl(
+          session,
+          artifact.id,
+          'image-generation.download-result',
+          l('图片下载失败，请稍后重试。', 'The image download failed. Try again later.')
+        );
       }
       const link = document.createElement('a');
       link.href = existingUrl ?? temporaryUrl!;
@@ -308,7 +370,12 @@ export default function ImageGenerationWorkspace(props: {
       if (temporaryUrl !== undefined) window.setTimeout(() => URL.revokeObjectURL(temporaryUrl), 0);
       setNotice(l(`图片 ${index + 1} 已开始下载`, `Image ${index + 1} download started`));
     } catch (caught) {
-      setError(formatImageError(caught, l));
+      session.captureCreatorFailure(
+        'image-generation.download-result',
+        caught,
+        l('图片下载失败，请稍后重试。', 'The image download failed. Try again later.'),
+        'client'
+      );
     }
   }
 
@@ -374,6 +441,7 @@ export default function ImageGenerationWorkspace(props: {
               ? l('正在生成', 'Generating')
               : l('等待生成', 'Ready to generate')}
       initialMessage={l('描述你想生成的画面，我会帮你整理画幅、质量和输出数量。', 'Describe the image you want, then set its format, quality, and output count.')}
+      currentIssue={visibleError || undefined}
       suggestions={[l('填入示例提示词', 'Use a sample prompt'), l('生成横向图片', 'Create a landscape image')]}
       placeholder={props.promptHint ?? l('描述需要生成的图片', 'Describe the image to generate')}
       onBack={props.onBack}
@@ -487,6 +555,14 @@ export default function ImageGenerationWorkspace(props: {
                     </button>
                   ))}
                 </div>
+                {provider === 'codex-native' ? (
+                  <p className="creator-services-inline-note">
+                    {l(
+                      '使用本机 Codex 生成图像，无需额外配置；每次任务生成 1 张。',
+                      'Use local Codex to generate images with no additional configuration; each task generates 1 image.'
+                    )}
+                  </p>
+                ) : null}
               </div>
               <div className="media-generation-control">
                 <span>{l('画幅', 'Format')}</span>
@@ -513,7 +589,7 @@ export default function ImageGenerationWorkspace(props: {
               <div className="media-generation-control">
                 <span>{l('生成数量', 'Number of images')}</span>
                 <div className="creator-tool-segmented" role="radiogroup" aria-label={l('生成数量', 'Number of images')}>
-                  {[1, 2, 4].map(value => (
+                  {(provider === 'codex-native' ? [1] : [1, 2, 4]).map(value => (
                     <button type="button" role="radio" aria-checked={count === value} aria-selected={count === value} key={value} onClick={() => updateCount(value)}>
                       {value} {l('张', value === 1 ? 'image' : 'images')}
                     </button>
@@ -611,7 +687,7 @@ export default function ImageGenerationWorkspace(props: {
               />
             </div>
           ) : null}
-          {visibleError ? <p className="creator-tool-error" role="alert">{visibleError}</p> : null}
+          {error ? <p className="creator-tool-error" role="alert">{error}</p> : null}
           {notice ? <p className="creator-tool-notice" role="status">{notice}</p> : null}
         </div>
 
@@ -707,7 +783,7 @@ function readArtifactString(
 }
 
 function readProvider(value: CreatorJson | undefined): ImageGenerationProvider {
-  return value === 'jimeng' || value === 'kling' || value === 'gemini'
+  return value === 'jimeng' || value === 'kling' || value === 'gemini' || value === 'codex-native'
     ? value
     : 'openai';
 }
@@ -755,6 +831,10 @@ function formatBytes(size: number) {
 }
 
 function formatImageError(error: unknown, l: (zh: string, en: string) => string) {
+  if (error instanceof CreatorPreflightBlockedError) {
+    const message = error.result.blocked.map(item => item.message).filter(Boolean).join('；');
+    return message || l('启动前检查未通过，请检查任务配置', 'Preflight checks failed. Review the task settings.');
+  }
   const candidate = error as { code?: unknown; message?: unknown };
   const code = typeof candidate?.code === 'string' ? candidate.code : '';
   if (code === 'creator_image_config_missing') {
@@ -766,9 +846,5 @@ function formatImageError(error: unknown, l: (zh: string, en: string) => string)
   if (code === 'creator_stage_canceled') {
     return l('图像生成任务已取消', 'Image generation was canceled');
   }
-  return typeof candidate?.message === 'string'
-    ? candidate.message
-    : error instanceof Error
-      ? error.message
-      : l('图片生成失败，请稍后重试', 'Image generation failed. Try again later.');
+  return l('图片生成未完成，请检查图像服务配置后重试', 'Image generation did not complete. Check the image provider settings, then retry.');
 }

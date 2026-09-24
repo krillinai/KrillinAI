@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDefaultCreatorServicesConfig, type CreatorJob, type CreatorJson } from '@opencreator/protocol';
 import { createCreatorPreflight } from '../../src/creator/preflight.js';
 import { createImageGenerationTemplate } from '../../src/creator/templates/image-generation.js';
@@ -58,6 +58,36 @@ describe('creator preflight', () => {
     expect(result.blocked.every(item => item.repair.label.length > 0)).toBe(true);
   });
 
+  it('waits for Runtime verification before checking Runtime-backed stages', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const stage = createVideoDownloadTemplate().stages[0]!;
+    let releaseVerification!: () => void;
+    const ensureRuntimeReady = vi.fn(() => new Promise<void>(resolve => {
+      releaseVerification = resolve;
+    }));
+    let settled = false;
+    const checking = createCreatorPreflight({
+      configStore: { read: async () => createDefaultCreatorServicesConfig() },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('win32', 'x64'),
+      resourceRoot: join(root, 'runtime'),
+      jobsRoot: join(root, 'jobs'),
+      executorIds: ['download'],
+      validateRuntimeAssets: true,
+      ensureRuntimeReady
+    }).check(fakeJob('video-download', { sourceUrl: 'https://youtu.be/example' }), stage)
+      .then(result => {
+        settled = true;
+        return result;
+      });
+
+    await vi.waitFor(() => expect(ensureRuntimeReady).toHaveBeenCalledOnce());
+    expect(settled).toBe(false);
+    releaseVerification();
+    const result = await checking;
+
+    expect(result.blocked.map(item => item.id)).toEqual(expect.arrayContaining(['ffmpeg', 'ffprobe', 'yt-dlp']));
+  });
+
   it('blocks a reference image when the configured provider cannot edit images', async () => {
     root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
     const referencePath = join(root, 'reference.png');
@@ -97,6 +127,26 @@ describe('creator preflight', () => {
     ]));
   });
 
+  it('accepts Codex subscription image generation without API credentials', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const config = createDefaultCreatorServicesConfig();
+    config.image.provider = 'codex-native';
+    const stage = createStickmanVideoTemplate().stages.find(candidate => candidate.id === 'images')!;
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('win32', 'x64'),
+      resourceRoot: join(root, 'runtime'),
+      jobsRoot: join(root, 'jobs'),
+      executorIds: ['stickman-image'],
+      validateRuntimeAssets: false
+    }).check(fakeJob('stickman-video', { provider: 'codex-native' }), stage);
+
+    expect(result.blocked.map(item => item.id)).not.toContain('image-provider');
+    expect(result.ready).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'image-provider', executionMode: 'local' })
+    ]));
+  });
+
   it.each([
     ['source-brief', 'stickman-content', 'llm'],
     ['narration', 'stickman-audio', 'tts'],
@@ -105,8 +155,10 @@ describe('creator preflight', () => {
   ] as const)('checks the real Stickman %s executor requirements', async (stageId, executor, blockedId) => {
     root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
     const stage = createStickmanVideoTemplate().stages.find(candidate => candidate.id === stageId)!;
+    const config = createDefaultCreatorServicesConfig();
+    if (blockedId === 'image-provider') config.image.provider = 'openai';
     const result = await createCreatorPreflight({
-      configStore: { read: async () => createDefaultCreatorServicesConfig() },
+      configStore: { read: async () => config },
       readCapabilities: () => createKrillinCreatorServicesCapabilities('win32', 'x64'),
       resourceRoot: join(root, 'runtime'),
       jobsRoot: join(root, 'jobs'),
@@ -171,6 +223,31 @@ describe('creator preflight', () => {
     }), stage);
 
     expect(result.blocked.map(item => item.id)).toContain('transcription-config');
+  });
+
+  it('accepts the Codex runtime for Krillin subtitle translation without a creator API key', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const config = createDefaultCreatorServicesConfig();
+    config.llm.source = 'codex';
+    config.llm.apiKey = '';
+    config.llm.model = 'gpt-5.6-sol';
+    const stage = createVideoTranslationTemplate().stages.find(candidate => candidate.id === 'subtitle')!;
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: join(root, 'runtime'),
+      jobsRoot: join(root, 'jobs'),
+      executorIds: ['krillinai'],
+      validateRuntimeAssets: false
+    }).check(fakeJob('video-translation', {
+      sourceType: 'url',
+      sourceUrl: 'https://youtu.be/example'
+    }), stage);
+
+    expect(result.blocked.map(item => item.id)).not.toContain('llm');
+    expect(result.ready).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'llm', executionMode: 'local' })
+    ]));
   });
 
   it('resolves historical stale inputs the same way as StageRunner', async () => {

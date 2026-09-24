@@ -3,15 +3,22 @@ import type {
   CreatorServicesConfig,
   ImageGenerationAsset
 } from '@opencreator/protocol';
+import type { PublicErrorFacts } from '@opencreator/protocol';
+import {
+  LocalCodexProviderError,
+  readLocalCodexProvider,
+  type LocalCodexProvider
+} from '../codex/local-provider.js';
 import { createKlingAuthorization } from '../creator-services/kling-auth.js';
 import {
   appendEndpointPath,
   creatorProviderEndpoint,
-  creatorServiceErrorMessage,
+  creatorServiceErrorInfo,
   fetchCreatorService,
   isRecord,
   openAiCompatibleEndpoint
 } from '../creator-services/upstream-fetch.js';
+import { publicFactsFromFailure } from '../creator/public-error-facts.js';
 
 const MAX_IMAGE_BYTES = 30 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 120 * 1024 * 1024;
@@ -20,6 +27,11 @@ const REQUEST_TIMEOUT_MS = 180_000;
 export type GeneratedImageContent = {
   content: Buffer;
   mime: ImageGenerationAsset['mime'];
+};
+
+export type CodexNativeImageRuntime = {
+  codexHome: string;
+  readProvider?: () => Promise<LocalCodexProvider>;
 };
 
 export type ImageGenerationCapabilities = {
@@ -31,17 +43,19 @@ export function imageGenerationCapabilities(
   provider: CreateImageGenerationRequest['provider']
 ): ImageGenerationCapabilities {
   return {
-    supportsReferenceImage: provider === 'openai' || provider === 'gemini',
-    maxReferenceImages: provider === 'openai' || provider === 'gemini' ? 8 : 0
+    supportsReferenceImage: provider === 'openai' || provider === 'gemini' || provider === 'codex-native',
+    maxReferenceImages: provider === 'openai' || provider === 'gemini' || provider === 'codex-native' ? 8 : 0
   };
 }
 
 export class ImageGenerationProviderError extends Error {
   constructor(
     readonly code: 'config_missing' | 'upstream_error' | 'unsupported_capability',
-    message: string
+    message: string,
+    readonly publicFacts?: PublicErrorFacts,
+    options?: ErrorOptions
   ) {
-    super(message);
+    super(message, options);
     this.name = 'ImageGenerationProviderError';
   }
 }
@@ -54,6 +68,7 @@ export async function generateImageContents(
     signal?: AbortSignal;
     referenceImage?: GeneratedImageContent;
     referenceImages?: GeneratedImageContent[];
+    codexNative?: CodexNativeImageRuntime;
   } = {}
 ): Promise<{ model: string; contents: GeneratedImageContent[] }> {
   const referenceImages = options.referenceImages
@@ -75,6 +90,39 @@ export async function generateImageContents(
           ? `The ${request.provider} image provider supports at most ${capabilities.maxReferenceImages} reference images`
           : `The ${request.provider} image provider does not support reference images`
       );
+    }
+    if (request.provider === 'codex-native') {
+      if (request.count !== 1) {
+        throw new ImageGenerationProviderError(
+          'unsupported_capability',
+          'The codex-native image provider supports exactly one image per request'
+        );
+      }
+      if (options.codexNative === undefined) {
+        throw new ImageGenerationProviderError(
+          'config_missing',
+          'Configure the local Codex executable and CODEX_HOME before generating images'
+        );
+      }
+      try {
+        const provider = await (
+          options.codexNative.readProvider?.()
+          ?? readLocalCodexProvider({ codexHome: options.codexNative.codexHome })
+        );
+        return await generateOpenAiImages(
+          request,
+          config,
+          controller.signal,
+          referenceImages,
+          options.fetchImpl,
+          provider
+        );
+      } catch (error) {
+        if (error instanceof LocalCodexProviderError) {
+          throw new ImageGenerationProviderError('config_missing', error.message);
+        }
+        throw error;
+      }
     }
     if (request.provider === 'gemini') {
       return await generateGeminiImages(
@@ -100,7 +148,11 @@ export async function generateImageContents(
     if (options.signal?.aborted) throw error;
     throw new ImageGenerationProviderError(
       'upstream_error',
-      'The image generation provider could not be reached'
+      'The image generation provider could not be reached',
+      publicFactsFromFailure(error, request.provider, {
+        timedOut: controller.signal.aborted && options.signal?.aborted !== true
+      }),
+      { cause: error }
     );
   } finally {
     clearTimeout(timeout);
@@ -113,9 +165,11 @@ async function generateOpenAiImages(
   config: CreatorServicesConfig,
   signal: AbortSignal,
   referenceImages: GeneratedImageContent[],
-  fetchImpl?: typeof fetch
+  fetchImpl?: typeof fetch,
+  providerOverride?: LocalCodexProvider
 ) {
-  const provider = request.provider === 'jimeng' ? config.image.jimeng : config.image.openai;
+  const provider = providerOverride
+    ?? (request.provider === 'jimeng' ? config.image.jimeng : config.image.openai);
   if (!provider.apiKey.trim()) missingConfig(request.provider);
   const model = provider.model.trim()
     || (request.provider === 'jimeng' ? 'doubao-seedream-4-0-250828' : 'gpt-image-1');
@@ -144,7 +198,7 @@ async function generateOpenAiImages(
         model,
         prompt: request.prompt.trim(),
         size: request.size,
-        ...(request.provider === 'openai' ? { quality: request.quality } : {}),
+        ...(request.provider === 'jimeng' ? {} : { quality: request.quality }),
         n: request.count
       }),
     proxy: config.proxy.trim(),
@@ -153,9 +207,11 @@ async function generateOpenAiImages(
     fetchImpl
   });
   if (!response.ok) {
+    const failure = await creatorServiceErrorInfo(response, 'Image generation', request.provider);
     throw new ImageGenerationProviderError(
       'upstream_error',
-      await creatorServiceErrorMessage(response, 'Image generation')
+      failure.message,
+      failure.publicFacts
     );
   }
   const contents = await readGeneratedImages(await response.json() as unknown, {
@@ -211,9 +267,11 @@ async function generateGeminiImages(
       fetchImpl
     });
     if (!response.ok) {
+      const failure = await creatorServiceErrorInfo(response, 'Gemini image', request.provider);
       throw new ImageGenerationProviderError(
         'upstream_error',
-        await creatorServiceErrorMessage(response, 'Gemini image')
+        failure.message,
+        failure.publicFacts
       );
     }
     const part = findGeminiImagePart(await response.json() as unknown);
@@ -333,9 +391,11 @@ async function generateKlingImages(
     fetchImpl
   });
   if (!response.ok) {
+    const failure = await creatorServiceErrorInfo(response, 'Kling image', request.provider);
     throw new ImageGenerationProviderError(
       'upstream_error',
-      await creatorServiceErrorMessage(response, 'Kling image')
+      failure.message,
+      failure.publicFacts
     );
   }
   let payload = await response.json() as unknown;
@@ -360,9 +420,11 @@ async function generateKlingImages(
       fetchImpl
     });
     if (!statusResponse.ok) {
+      const failure = await creatorServiceErrorInfo(statusResponse, 'Kling image', request.provider);
       throw new ImageGenerationProviderError(
         'upstream_error',
-        await creatorServiceErrorMessage(statusResponse, 'Kling image')
+        failure.message,
+        failure.publicFacts
       );
     }
     payload = await statusResponse.json() as unknown;

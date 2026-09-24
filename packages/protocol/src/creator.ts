@@ -1,4 +1,5 @@
 import type { SandboxMode } from './api.js';
+import type { OpenCreatorIssue } from './issues.js';
 
 export const creatorJobStatuses = [
   'draft',
@@ -48,7 +49,8 @@ export const creatorEventKinds = [
   'stage_progress',
   'agent_turn_changed',
   'agent_item_changed',
-  'agent_approval_changed'
+  'agent_approval_changed',
+  'issue_changed'
 ] as const;
 
 export const creatorAgentSessionStatuses = [
@@ -138,10 +140,21 @@ export type CreatorPresetRef = {
   version: number;
 };
 
+export const creatorPresetCapabilities = [
+  'text-to-image',
+  'reference-image',
+  'image-edit',
+  'text-to-video',
+  'image-to-video',
+  'speech-generation',
+  'voice-preview'
+] as const;
+
+export type CreatorPresetCapability = typeof creatorPresetCapabilities[number];
+
 export type CreatorPresetRequirements = {
   service: 'tts' | 'image' | 'video';
-  provider: string;
-  model?: string;
+  capabilities: CreatorPresetCapability[];
 };
 
 export type CreatorPresetHighlight = {
@@ -272,6 +285,7 @@ export type CreatorJob = {
   artifacts: CreatorArtifact[];
   providerRequests: CreatorProviderRequest[];
   activities: CreatorActivity[];
+  issues?: OpenCreatorIssue[];
   createdAt: string;
   updatedAt: string;
 };
@@ -288,6 +302,8 @@ export type CreatorActionRequest = {
   expectedRevision: number;
   actor?: CreatorActor;
   input: Record<string, CreatorJson>;
+  repairIssueId?: string;
+  resolutionAttemptId?: string;
 };
 
 export type CreatorCommandRequest = CreatorActionRequest & {
@@ -425,6 +441,8 @@ export type AgentContextEnvelope = {
     createdAt: string;
   }>;
   allowedActions: string[];
+  focusedIssue: OpenCreatorIssue | null;
+  issues: OpenCreatorIssue[];
 };
 
 export type CreatorHostScope = {
@@ -541,6 +559,7 @@ export type CreatorAgentTurnRequest = {
   clientMessageId?: string;
   selection?: CreatorSelection | null;
   sandbox?: Extract<SandboxMode, 'workspace-write' | 'danger-full-access'>;
+  focusedIssueId?: string;
 };
 
 export type CreatorAgentSessionResponse = {

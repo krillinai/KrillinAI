@@ -8,7 +8,6 @@ import {
   ExternalLink,
   Maximize2,
   Play,
-  RefreshCw,
   Search,
   WandSparkles,
   UserRound,
@@ -25,6 +24,8 @@ import {
 import { createPortal } from 'react-dom';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import type { CreatorWorkspace } from '../dashboard/creator-workspace.js';
+import { IssueList } from '../issues/IssuePresenter.js';
+import { usePageIssueState } from '../issues/page-issue-state.js';
 
 export type CreatorSkill = {
   id: string;
@@ -88,7 +89,7 @@ export function CreatorDashboard(props: {
   const previewCloseRef = useRef<HTMLButtonElement>(null);
   const promptRef = useRef<HTMLParagraphElement>(null);
   const busyIdentitiesRef = useRef(new Set<string>());
-  const [actionError, setActionError] = useState<string>();
+  const pageIssues = usePageIssueState('creator-launch');
   const presets = props.presets ?? [];
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const categoryPresets = useMemo(() => {
@@ -116,6 +117,26 @@ export function CreatorDashboard(props: {
     setPreviewOpen(false);
     window.setTimeout(() => previewTriggerRef.current?.focus(), 0);
   }, []);
+  useEffect(() => {
+    if (props.error === undefined) {
+      pageIssues.resolveOperation('creator-launch.load-presets');
+      return;
+    }
+    pageIssues.captureOperationFailure(
+      'creator-launch.load-presets',
+      new Error(props.error),
+      language === 'en-US'
+        ? 'Could not load creator templates. Check the Runtime connection and retry.'
+        : '无法加载创作模板，请检查 Runtime 连接后重试。',
+      { retryable: props.onRetry !== undefined }
+    );
+  }, [
+    language,
+    pageIssues.captureOperationFailure,
+    pageIssues.resolveOperation,
+    props.error,
+    props.onRetry
+  ]);
   const updatePromptOverflow = useCallback(() => {
     const prompt = promptRef.current;
     if (prompt === null) return;
@@ -170,7 +191,6 @@ export function CreatorDashboard(props: {
     setCategory(nextCategory);
     setQuery('');
     setSearchOpen(false);
-    setActionError(undefined);
   }
 
   async function selectPreset(preset: CreatorPresetSummary) {
@@ -178,9 +198,9 @@ export function CreatorDashboard(props: {
     if (busyIdentitiesRef.current.has(identity)) return;
     busyIdentitiesRef.current.add(identity);
     setBusyIdentities(new Set(busyIdentitiesRef.current));
-    setActionError(undefined);
     try {
       await props.onSelectPreset?.(preset);
+      pageIssues.resolveOperation('creator-launch.select-preset');
       const storedRecentPresetIds = readRecentPresetIds();
       const nextRecentPresetIds = [
         identity,
@@ -189,7 +209,14 @@ export function CreatorDashboard(props: {
       writeRecentPresetIds(nextRecentPresetIds);
       setRecentPresetIds(nextRecentPresetIds);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : String(error));
+      pageIssues.captureOperationFailure(
+        'creator-launch.select-preset',
+        error,
+        language === 'en-US'
+          ? 'Could not start this template. Check the diagnosis and retry.'
+          : '无法启动此模板，请查看诊断后重试。',
+        { retryable: true }
+      );
     } finally {
       busyIdentitiesRef.current.delete(identity);
       setBusyIdentities(new Set(busyIdentitiesRef.current));
@@ -210,7 +237,6 @@ export function CreatorDashboard(props: {
             onClick={() => {
               setPreviewOpen(false);
               setSelectedPresetIdentity(undefined);
-              setActionError(undefined);
             }}
           >
             <ArrowLeft size={16} aria-hidden="true" />
@@ -344,16 +370,19 @@ export function CreatorDashboard(props: {
             {selectedPreset.requirements !== null ? (
               <p className="creator-template-runtime-requirement">
                 {language === 'en-US' ? 'Requires' : '运行需要'}: {' '}
-                {selectedPreset.requirements.provider}
-                {selectedPreset.requirements.model === undefined
-                  ? ''
-                  : ` / ${selectedPreset.requirements.model}`}
+                {selectedPreset.requirements.capabilities.join(', ')}
               </p>
             ) : null}
 
-            {actionError ? (
-              <p className="creator-template-action-error" role="alert">{actionError}</p>
-            ) : null}
+            <IssueList
+              issues={pageIssues.issues}
+              actions={{ retryOperations: {
+                'creator-launch.load-presets': () => props.onRetry?.(),
+                'creator-launch.select-preset': () => selectPreset(selectedPreset)
+              } }}
+              onDismiss={pageIssues.dismissIssue}
+              compact
+            />
 
             <button
               className="creator-template-use-button"
@@ -533,18 +562,13 @@ export function CreatorDashboard(props: {
             ))}
           </div>
         ) : null}
-        {props.error ? (
-          <div className="creator-template-error" role="alert">
-            <span>{props.error}</span>
-            <button type="button" onClick={props.onRetry}>
-              <RefreshCw size={15} aria-hidden="true" />
-              {language === 'en-US' ? 'Retry' : '重试'}
-            </button>
-          </div>
-        ) : null}
-        {actionError ? (
-          <p className="creator-template-action-error" role="alert">{actionError}</p>
-        ) : null}
+        <IssueList
+          issues={pageIssues.issues}
+          actions={{ retryOperations: {
+            'creator-launch.load-presets': () => props.onRetry?.()
+          } }}
+          onDismiss={pageIssues.dismissIssue}
+        />
 
         {!props.loading && !props.error ? (
           <div className="creator-template-grid">
@@ -559,7 +583,6 @@ export function CreatorDashboard(props: {
                   onClick={() => {
                     setPreviewOpen(false);
                     setSelectedPresetIdentity(identity);
-                    setActionError(undefined);
                   }}
                   aria-label={language === 'en-US'
                     ? `View ${preset.title} template details`

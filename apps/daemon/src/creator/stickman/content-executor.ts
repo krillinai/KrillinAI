@@ -1,6 +1,5 @@
 import { readFile, rename, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
-import sharp from 'sharp';
 import { z } from 'zod';
 import type { CreatorServicesConfigStore } from '../../creator-services/config-store.js';
 import type { CreatorArtifact, CreatorJson } from '@opencreator/protocol';
@@ -27,6 +26,7 @@ import {
   type ResolvedVisualAssetFile,
   type StickmanVisualAssetRegistry
 } from './visual-assets.js';
+import { loadSharp } from './sharp-loader.js';
 
 type CompleteJson = (input: {
   stageId: string;
@@ -653,6 +653,7 @@ async function styleAssets(
   );
   const character = visualAssets.character(characterRef);
   const style = visualAssets.style(styleRef);
+  const ratio = stage.job.state.ratio === '9:16' ? '9:16' : '16:9';
   const characterReferences = visualAssets.referenceFiles(character);
   const styleReferences = visualAssets.referenceFiles(style);
   const primaryCharacter = characterReferences[0];
@@ -663,6 +664,7 @@ async function styleAssets(
     );
   }
   const content = await readFile(primaryCharacter.path);
+  const sharp = await loadSharp();
   const dimensions = await sharp(content).metadata();
   if (!dimensions.width || !dimensions.height) {
     throw new CreatorExecutorError(
@@ -675,7 +677,7 @@ async function styleAssets(
   await writeFile(characterPath, content);
   const styleContract = stickmanStyleContractSchema.parse({
     contract: 'stickman-visual-profile-v2',
-    ratio: '16:9',
+    ratio,
     character: {
       assetId: character.id,
       revision: character.revision,
@@ -771,6 +773,7 @@ async function promptPack(stage: CreatorExecutorInput) {
       prompt: buildStickmanImagePrompt({
         visualProfile,
         shot,
+        ratio: visualProfile.ratio,
         hasStyleReference: styleReference !== undefined,
         hasPreviousShotReference: shouldUsePreviousShotReference(shot, shotIndex)
       })

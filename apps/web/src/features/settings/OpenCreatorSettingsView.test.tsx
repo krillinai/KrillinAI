@@ -68,6 +68,35 @@ describe('OpenCreatorSettingsView', () => {
     window.localStorage.removeItem(languagePreferenceStorageKey);
   });
 
+  it('opens AI services on demand and can return to general settings', async () => {
+    render(<OpenCreatorSettingsView runtimeStatus={runtimeStatus} onBack={vi.fn()} />);
+
+    expect(screen.queryByRole('heading', { name: 'AI 服务' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'AI 服务 必需' }));
+    expect(await screen.findByRole('heading', { name: 'AI 服务' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '模型服务' })).toHaveAttribute('aria-selected', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: '常规' }));
+    expect(screen.getByRole('combobox', { name: '默认权限' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'AI 服务' })).not.toBeInTheDocument();
+  });
+
+  it('preserves the requested AI service section when opened directly', async () => {
+    render(
+      <OpenCreatorSettingsView
+        runtimeStatus={runtimeStatus}
+        initialTab="ai-services"
+        initialSection="transcription"
+        onBack={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByRole('tab', { name: '语音识别' }))
+      .toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('button', { name: 'AI 服务 必需' }))
+      .toHaveAttribute('aria-current', 'page');
+  });
+
   it('notifies when the global default permission changes', async () => {
     const user = userEvent.setup();
     const onDefaultPermissionChange = vi.fn();
@@ -216,6 +245,83 @@ describe('OpenCreatorSettingsView', () => {
     expect(behavior).toHaveValue('hide');
     fireEvent.change(behavior, { target: { value: 'quit' } });
     expect(onDesktopCloseBehaviorChange).toHaveBeenCalledWith('quit');
+  });
+
+  it('shows storage paths and updates a selected completed output location', async () => {
+    const user = userEvent.setup();
+    const updateStorageSettings = vi.fn(async () => ({
+      configured: true,
+      settings: {
+        defaultProjectRoot: '/Users/demo/Projects',
+        outputRoot: '/Users/demo/Exports'
+      }
+    }));
+    const onSelectStorageDirectory = vi.fn(async () => '/Users/demo/Exports');
+    render(
+      <OpenCreatorSettingsView
+        runtimeStatus={runtimeStatus}
+        storageSettingsService={{
+          getStorageSettings: async () => ({
+            configured: false,
+            settings: {
+              defaultProjectRoot: '/Users/demo/Documents/OpenCreator',
+              outputRoot: '/Users/demo/Documents/OpenCreator/Exports'
+            }
+          }),
+          updateStorageSettings
+        }}
+        onSelectStorageDirectory={onSelectStorageDirectory}
+        onBack={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByRole('textbox', { name: '默认项目位置' }))
+      .toHaveValue('/Users/demo/Documents/OpenCreator');
+    await user.click(screen.getByRole('button', { name: '选择完成产物位置' }));
+    expect(onSelectStorageDirectory).toHaveBeenCalledWith('output-root');
+    expect(updateStorageSettings).toHaveBeenCalledWith({
+      outputRoot: '/Users/demo/Exports'
+    });
+    expect(screen.getByRole('textbox', { name: '完成产物位置' }))
+      .toHaveValue('/Users/demo/Exports');
+  });
+
+  it('allows Browser users to enter and save an absolute storage path', async () => {
+    const user = userEvent.setup();
+    const updateStorageSettings = vi.fn(async (update: { outputRoot?: string }) => ({
+      configured: true,
+      settings: {
+        defaultProjectRoot: '/Users/demo/Documents/OpenCreator',
+        outputRoot: update.outputRoot ?? '/Users/demo/Documents/OpenCreator/Exports'
+      }
+    }));
+    render(
+      <OpenCreatorSettingsView
+        runtimeStatus={runtimeStatus}
+        storageSettingsService={{
+          getStorageSettings: async () => ({
+            configured: false,
+            settings: {
+              defaultProjectRoot: '/Users/demo/Documents/OpenCreator',
+              outputRoot: '/Users/demo/Documents/OpenCreator/Exports'
+            }
+          }),
+          updateStorageSettings
+        }}
+        onBack={vi.fn()}
+      />
+    );
+
+    const output = await screen.findByRole('textbox', { name: '完成产物位置' });
+    await user.clear(output);
+    await user.type(output, '/Users/demo/Custom Exports');
+    await user.click(screen.getByRole('button', { name: '保存完成产物位置' }));
+
+    expect(updateStorageSettings).toHaveBeenCalledWith({
+      outputRoot: '/Users/demo/Custom Exports'
+    });
+    expect(output).toHaveValue('/Users/demo/Custom Exports');
+    expect(screen.queryByRole('button', { name: '选择完成产物位置' })).not.toBeInTheDocument();
   });
 
   it('shows the anonymous telemetry scope and allows Desktop users to disable it', () => {

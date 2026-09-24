@@ -167,6 +167,9 @@ importers:
       node-gyp:
         specifier: 13.0.2
         version: 13.0.2
+      sharp:
+        specifier: 0.35.4
+        version: 0.35.4(@types/node@22.20.0)
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
@@ -296,6 +299,9 @@ importers:
 
   packages/stickman-remotion:
     dependencies:
+      '@opencreator/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       react:
         specifier: 18.3.1
         version: 18.3.1

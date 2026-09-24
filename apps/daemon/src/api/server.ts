@@ -3,6 +3,7 @@ import type { CodexAvailabilityProbe, CodexRuntimeComponentReadiness } from '@op
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -36,13 +37,22 @@ import {
 import { bootstrapCreatorAgentRuntime } from '../creator/agent/bootstrap.js';
 import { createCodexCreatorAdapter } from '../creator/agent/codex-adapter.js';
 import { createCreatorStageRunner } from '../creator/stage-runner.js';
+import { publishCreatorArtifacts } from '../creator/artifact-publisher.js';
 import { createCreatorStageScheduler } from '../creator/stage-scheduler.js';
 import { createCreatorCommandDispatcher } from '../creator/command-dispatcher.js';
 import type { CreatorExecutor } from '../creator/executor.js';
 import { createKrillinExecutor } from '../creator/krillin/adapter.js';
 import { createKrillinDependencyLoader } from '../creator/krillin/dependency-loader.js';
-import { readKrillinRuntimeManifest, resolveInside, verifyKrillinRuntimeManifest } from '../creator/krillin/manifest.js';
+import { readKrillinRuntimeManifest, resolveInside } from '../creator/krillin/manifest.js';
+import {
+  hasKrillinRuntimeVerificationWorker,
+  startKrillinRuntimeVerification
+} from '../creator/krillin/runtime-verifier.js';
 import { createKrillinTtsService } from '../creator/krillin/tts-service.js';
+import {
+  createKrillinCodexLlmGateway,
+  KRILLIN_LLM_ROUTE_PREFIX
+} from '../creator/krillin/codex-llm-gateway.js';
 import { createDownloadExecutor } from '../creator/download/executor.js';
 import { resolveYtDlpRuntime } from '../creator/yt-dlp/runtime.js';
 import {
@@ -80,6 +90,7 @@ import { createStickmanDeliveryExecutor } from '../creator/stickman/delivery-exe
 import { CreatorProviderRequestLedger } from '../creator/provider-requests.js';
 import { createCreatorProjectCoverService } from '../creator/project-cover.js';
 import { createVideoGenerationService } from '../video-generation/service.js';
+import { createImageGenerationService } from '../image-generation/service.js';
 import {
   createCreatorReferenceImageUploadService,
   type CreatorReferenceImageUploadService
@@ -145,6 +156,7 @@ import {
   isCodexCredentialStoreConfigurationDiagnostic
 } from '../codex/credential-storage.js';
 import { resolveCodexHome } from '../codex/home.js';
+import { createCodexIsolatedHome } from '../codex/probe-home.js';
 import {
   createCodexModelCatalog,
   type CodexModelCatalog
@@ -180,9 +192,11 @@ import { createSmartDubbingService } from '../smart-dubbing/service.js';
 import {
   createCreatorEventHub,
   creatorAgentEventKind,
+  creatorIssueEventId,
   creatorStageEventId
 } from '../creator/events.js';
 import { createCreatorRepository } from '../creator/repository.js';
+import { createCreatorIssueService } from '../creator/issues.js';
 import { createCreatorService, type CreatorService } from '../creator/service.js';
 import {
   loadCreatorPresetCatalog,
@@ -221,6 +235,7 @@ import { registerCreatorServicesRoutes } from './routes.creator-services.js';
 import { registerCreatorRoutes } from './routes.creator.js';
 import { registerCreatorRuntimeRoutes } from './routes.creator-runtime.js';
 import { registerDiagnosticsRoutes } from './routes.diagnostics.js';
+import { registerImageGenerationRoutes } from './routes.image-generation.js';
 import { registerMcpRoutes } from './routes.mcp.js';
 import { registerMemoryRoutes } from './routes.memory.js';
 import { registerNotificationRoutes } from './routes.notifications.js';
@@ -249,6 +264,7 @@ export type BuildServerInput = {
   db?: Database.Database;
   codexBin?: string;
   codexHome?: string;
+  localCodexHome?: string;
   defaultCwd?: string;
   defaultProjectRoot?: string;
   runManager?: RunManager;
@@ -295,9 +311,13 @@ export type BuildServerInput = {
 };
 
 const ATTACHMENT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+const KRILLIN_VERIFICATION_BACKGROUND_DELAY_MS = 500;
 
 export async function buildServer(input: BuildServerInput) {
-  const server = Fastify({ logger: false });
+  const server = Fastify({
+    logger: false,
+    forceCloseConnections: true
+  });
   const allowedWebOrigins = new Set(
     input.allowedWebOrigins ?? ['http://127.0.0.1:19861']
   );
@@ -318,6 +338,14 @@ export async function buildServer(input: BuildServerInput) {
   const configFile = resolve(input.configFile ?? join(appHome, 'config.toml'));
   const runtimeDir = resolve(input.runtimeDir ?? join(dataDir, 'creator-runtime'));
   const creatorDir = resolve(input.creatorDir ?? join(dataDir, 'creator'));
+  const defaultManagedProjectRoot = join(
+    input.defaultProjectRoot ?? join(homedir(), 'Documents'),
+    'OpenCreator'
+  );
+  const openCreatorSettingsStore = createOpenCreatorSettingsStore(configFile, {
+    defaultProjectRoot: defaultManagedProjectRoot,
+    outputRoot: join(defaultManagedProjectRoot, 'Exports')
+  });
   const codexBin = input.codexBin ?? 'codex';
   const defaultCwd = input.defaultCwd ?? process.cwd();
   const resolvedCodexHome =
@@ -325,6 +353,14 @@ export async function buildServer(input: BuildServerInput) {
       ? resolveCodexHome()
       : resolveCodexHome({ isolatedHome: input.codexHome });
   const codexHome = resolvedCodexHome.path;
+  const localCodexHome = resolve(input.localCodexHome ?? codexHome);
+  if (
+    input.localCodexHome !== undefined
+    && resolvedCodexHome.mode === 'isolated'
+    && localCodexHome !== codexHome
+  ) {
+    createCodexIsolatedHome(localCodexHome, codexHome);
+  }
   try {
     await ensureCodexFileCredentialStore(codexHome);
   } catch (error) {
@@ -344,9 +380,10 @@ export async function buildServer(input: BuildServerInput) {
   const scheduleRepository = new ScheduleRepository(db);
   const projectManager = createProjectManager({
     db,
-    managedProjectRoot: input.defaultProjectRoot === undefined
-      ? undefined
-      : join(input.defaultProjectRoot, 'OpenCreator')
+    managedProjectRoot: defaultManagedProjectRoot,
+    resolveManagedProjectRoot: () => (
+      openCreatorSettingsStore.readStorage().settings.defaultProjectRoot
+    )
   });
   const threadManager = createThreadManager({ db, dataDir, projectManager });
   const codexControlClient = createCodexAppServerClient({
@@ -417,7 +454,6 @@ export async function buildServer(input: BuildServerInput) {
     }
   });
   const memoryService = createMemoryService({ db });
-  const openCreatorSettingsStore = createOpenCreatorSettingsStore(configFile);
   const storedCreatorServicesConfigStore =
     input.creatorServicesConfigStore ?? (
       input.credentialsFile === undefined
@@ -452,7 +488,25 @@ export async function buildServer(input: BuildServerInput) {
   await purgeLegacyStickmanJobs({ db, jobsRoot: creatorJobsRoot });
   migrateStickmanVisualAssetState({ db });
   const creatorRepository = createCreatorRepository(db);
-  const creatorProviderRequestLedger = new CreatorProviderRequestLedger(creatorRepository);
+  const creatorIssueService = createCreatorIssueService(creatorRepository, {
+    onChanged(issue) {
+      if (issue.scope.kind !== 'creator-job') return;
+      const job = creatorRepository.getJob(issue.scope.jobId);
+      if (job === undefined) return;
+      creatorEvents.publish({
+        id: creatorIssueEventId(issue),
+        jobId: job.id,
+        revision: job.revision,
+        kind: 'issue_changed',
+        payload: JSON.parse(JSON.stringify({ issue })) as Record<string, import('@opencreator/protocol').CreatorJson>,
+        createdAt: issue.lastOccurredAt
+      });
+    }
+  });
+  const creatorProviderRequestLedger = new CreatorProviderRequestLedger(
+    creatorRepository,
+    creatorIssueService
+  );
   const creatorAgentRepository = createCreatorAgentRepository(db);
   const creatorAgentReconciler = createCreatorAgentReconciler({
     repository: creatorAgentRepository
@@ -465,15 +519,25 @@ export async function buildServer(input: BuildServerInput) {
   const creatorPresetRegistry = input.creatorPresetRegistry
     ?? await loadCreatorPresetCatalog({
       root: creatorPresetCatalogRoot,
-      templates: creatorTemplates
+      templates: creatorTemplates,
+      verificationCachePath: join(
+        dataDir,
+        'runtime-verification',
+        'creator-presets.json'
+      )
     });
   const agentCapabilityTokens =
     input.agentCapabilityTokens ?? createAgentCapabilityTokenStore();
   const runtimeTransport = input.runtimeTransport ?? 'app-server';
   const getAgentToolBaseUrl = () =>
     resolveListeningOrigin(server.server.address());
+  const krillinCodexLlmGateway = createKrillinCodexLlmGateway({
+    codexBin,
+    codexHome,
+    cwd: dataDir
+  });
   const creatorAgentBootstrapInput = {
-    sourceCodexHome: codexHome,
+    sourceCodexHome: localCodexHome,
     runtimeRoot: runtimeDir,
     ...(input.appHome === undefined
       ? {}
@@ -566,6 +630,14 @@ export async function buildServer(input: BuildServerInput) {
   });
   const creatorRuntimeRoot = process.env.OPENCREATOR_CREATOR_RUNTIME_ROOT
     ?? join(runtimeDir, 'krillinai');
+  const krillinVerificationCachePath = join(
+    dataDir,
+    'runtime-verification',
+    'krillinai.json'
+  );
+  let krillinVerificationTimer: NodeJS.Timeout | undefined;
+  let startKrillinVerification: (() => ReturnType<typeof startKrillinRuntimeVerification>) | undefined;
+  let ensureKrillinRuntimeReady = async () => {};
   const krillinDependencyLoader = createKrillinDependencyLoader({
     root: join(runtimeDir, 'krillinai', 'dependencies'),
     ...(input.creatorRuntimePlatform === undefined
@@ -576,7 +648,9 @@ export async function buildServer(input: BuildServerInput) {
   const krillinTtsService = createKrillinTtsService({
     resourceRoot: creatorRuntimeRoot,
     workRoot: join(creatorJobsRoot, '.tts'),
-    configStore: creatorServicesConfigStore
+    configStore: creatorServicesConfigStore,
+    verificationCachePath: krillinVerificationCachePath,
+    ensureRuntimeReady: () => ensureKrillinRuntimeReady()
   });
   const smartDubbingService = createSmartDubbingService({
     dataDir,
@@ -585,6 +659,11 @@ export async function buildServer(input: BuildServerInput) {
   const videoGenerationService = createVideoGenerationService({
     dataDir,
     configStore: creatorServicesConfigStore
+  });
+  const imageGenerationService = createImageGenerationService({
+    dataDir,
+    configStore: creatorServicesConfigStore,
+    codexNative: { codexHome }
   });
   const developmentStickmanRuntimeRoot = resolve(
     dirname(fileURLToPath(import.meta.url)),
@@ -635,6 +714,7 @@ export async function buildServer(input: BuildServerInput) {
       creatorExecutors.push(createStickmanImageExecutor({
         configStore: creatorServicesConfigStore,
         ledger: creatorProviderRequestLedger,
+        codexNative: { codexHome },
         ...(creatorTesseractPath === undefined ? {} : { tesseractPath: creatorTesseractPath })
       }));
     }
@@ -652,7 +732,26 @@ export async function buildServer(input: BuildServerInput) {
   let getCreatorYtDlpRuntime: (() => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
   try {
     const runtimeManifest = readKrillinRuntimeManifest(creatorRuntimeRoot);
-    verifyKrillinRuntimeManifest(creatorRuntimeRoot, runtimeManifest);
+    let runtimeVerification: ReturnType<typeof startKrillinRuntimeVerification> | undefined;
+    startKrillinVerification = () => {
+      if (krillinVerificationTimer !== undefined) {
+        clearTimeout(krillinVerificationTimer);
+        krillinVerificationTimer = undefined;
+      }
+      if (runtimeVerification === undefined) {
+        runtimeVerification = startKrillinRuntimeVerification({
+          resourceRoot: creatorRuntimeRoot,
+          cachePath: krillinVerificationCachePath
+        });
+        void runtimeVerification.catch(error => {
+          console.warn(`Creator runtime verification failed: ${formatError(error)}`);
+        });
+      }
+      return runtimeVerification;
+    };
+    ensureKrillinRuntimeReady = async () => {
+      await startKrillinVerification!();
+    };
     const executable = (pattern: RegExp) => {
       const resource = runtimeManifest.resources.find(candidate => (
         candidate.kind === 'executable' && pattern.test(candidate.path)
@@ -694,7 +793,13 @@ export async function buildServer(input: BuildServerInput) {
         jobsRoot: creatorJobsRoot,
         dependencyLoader: krillinDependencyLoader,
         configStore: creatorServicesConfigStore,
-        getYtDlpRuntime
+        getYtDlpRuntime,
+        verificationCachePath: krillinVerificationCachePath,
+        ensureRuntimeReady: () => ensureKrillinRuntimeReady(),
+        getCodexLlmConfig() {
+          const baseUrl = resolveListeningOrigin(server.server.address());
+          return baseUrl === undefined ? undefined : krillinCodexLlmGateway.config(baseUrl);
+        }
       }));
     }
     if (
@@ -766,6 +871,7 @@ export async function buildServer(input: BuildServerInput) {
     }));
     creatorExecutors.push(createImageExecutor({
       configStore: creatorServicesConfigStore,
+      codexNative: { codexHome },
       ...(creatorFfmpegPath === undefined
         ? {}
         : {
@@ -786,7 +892,10 @@ export async function buildServer(input: BuildServerInput) {
         getYtDlpRuntime: getCreatorYtDlpRuntime
       }),
       model: createWechatArticleModel({ configStore: creatorServicesConfigStore }),
-      imageGenerator: createArticleImageGenerator({ configStore: creatorServicesConfigStore })
+      imageGenerator: createArticleImageGenerator({
+        configStore: creatorServicesConfigStore,
+        codexNative: { codexHome }
+      })
     }));
   }
   const creatorPreflight = createCreatorPreflight({
@@ -798,17 +907,23 @@ export async function buildServer(input: BuildServerInput) {
     ffprobePath: creatorFfprobePath,
     stickmanRuntimeRoot,
     ...(getYtDlpRuntime === undefined ? {} : { getYtDlpRuntime }),
+    runtimeVerificationCachePath: krillinVerificationCachePath,
+    ensureRuntimeReady: () => ensureKrillinRuntimeReady(),
     executorIds: creatorExecutors.map(executor => executor.id),
     validateRuntimeAssets: input.creatorExecutors === undefined
   });
   const creatorProjectCoverService = createCreatorProjectCoverService({
     jobsRoot: creatorJobsRoot,
+    ensureRuntimeReady: () => ensureKrillinRuntimeReady(),
     ...(creatorFfmpegPath === undefined ? {} : { ffmpegPath: creatorFfmpegPath })
   });
   const creatorSourceMediaProbe = input.creatorSourceMediaProbe
     ?? (creatorFfprobePath === undefined
       ? undefined
-      : (path: string) => validateMediaFile(path, creatorFfprobePath!));
+      : async (path: string) => {
+          await ensureKrillinRuntimeReady();
+          return await validateMediaFile(path, creatorFfprobePath!);
+        });
   const creatorSourceUploadService = input.creatorSourceUploadService
     ?? (creatorSourceMediaProbe === undefined
       ? undefined
@@ -843,6 +958,7 @@ export async function buildServer(input: BuildServerInput) {
   const creatorStageRunner = input.creatorService === undefined
     ? createCreatorStageRunner({
         repository: creatorRepository,
+        issueService: creatorIssueService,
         templates: creatorService.templates,
         workRoot: creatorJobsRoot,
         executors: creatorExecutors,
@@ -879,6 +995,19 @@ export async function buildServer(input: BuildServerInput) {
           }
         },
         onStageSucceeded(stage) {
+          const completedJob = creatorService.getJob(stage.jobId);
+          if (completedJob !== undefined) {
+            const project = projectManager.getProject(completedJob.projectId);
+            if (project !== undefined) {
+              void publishCreatorArtifacts({
+                job: completedJob,
+                project,
+                outputRoot: openCreatorSettingsStore.readStorage().settings.outputRoot
+              }).catch(error => {
+                console.warn(`Creator artifact publication failed: ${formatError(error)}`);
+              });
+            }
+          }
           void coverWorkflow?.handleStageChanged(stage).catch(error => {
             console.warn(`Cover workflow continuation failed: ${formatError(error)}`);
           });
@@ -1032,6 +1161,7 @@ export async function buildServer(input: BuildServerInput) {
     threads: threadManager,
     contextBuilder: creatorAgentContextBuilder,
     runtime: creatorAgentRuntime,
+    issueService: creatorIssueService,
     preflight: creatorPreflight,
     onEvent(event) {
       const job = creatorService.getJob(event.jobId);
@@ -1133,7 +1263,11 @@ export async function buildServer(input: BuildServerInput) {
     maxSizeBytes: input.attachmentMaxSizeBytes ?? ATTACHMENT_MAX_SIZE_BYTES,
     draftTtlMs: input.attachmentDraftTtlMs ?? ATTACHMENT_DRAFT_TTL_MS
   });
-  await attachmentService.cleanupExpiredDrafts();
+  const initialAttachmentCleanup = attachmentService.cleanupExpiredDrafts()
+    .then(() => undefined)
+    .catch(error => {
+      console.warn(`Initial attachment cleanup failed: ${formatError(error)}`);
+    });
   const attachmentCleanupTimer = setInterval(() => {
     void attachmentService.cleanupExpiredDrafts().catch(error => {
       console.warn(`Attachment cleanup failed: ${formatError(error)}`);
@@ -1155,6 +1289,18 @@ export async function buildServer(input: BuildServerInput) {
     throw error;
   });
 
+  server.addHook('onListen', () => {
+    if (
+      startKrillinVerification === undefined
+      || !hasKrillinRuntimeVerificationWorker()
+    ) return;
+    krillinVerificationTimer = setTimeout(() => {
+      krillinVerificationTimer = undefined;
+      void startKrillinVerification?.();
+    }, KRILLIN_VERIFICATION_BACKGROUND_DELAY_MS);
+    krillinVerificationTimer.unref();
+  });
+
   server.addHook('onClose', async () => {
     let firstError: unknown;
     const capture = async (operation: () => void | Promise<void>) => {
@@ -1166,12 +1312,17 @@ export async function buildServer(input: BuildServerInput) {
     };
 
     await capture(() => clearInterval(attachmentCleanupTimer));
+    await capture(() => {
+      if (krillinVerificationTimer !== undefined) clearTimeout(krillinVerificationTimer);
+    });
+    await capture(() => initialAttachmentCleanup);
     await capture(() => unsubscribeApprovalNotifications());
     await capture(() => scheduler.stop());
     await capture(() => runManager.close());
     await capture(() => appServerRuntimeManager?.close());
     await capture(() => creatorAppServerRuntimeManager?.close());
     await capture(() => stickmanContentRuntimeManager?.close());
+    await capture(() => krillinCodexLlmGateway.close());
     await capture(() => codexSessionProvider.close());
     await capture(() => codexModelCatalog.close());
     await capture(() => codexControlClient.close());
@@ -1191,6 +1342,7 @@ export async function buildServer(input: BuildServerInput) {
   server.addHook('preHandler', async (request, reply) => {
     if (request.url === '/healthz') return;
     if (isAgentToolInternalRequest(request.url)) return;
+    if (request.url.startsWith(`${KRILLIN_LLM_ROUTE_PREFIX}/`)) return;
     await auth(request, reply);
   });
 
@@ -1235,6 +1387,7 @@ export async function buildServer(input: BuildServerInput) {
       contextBuilder: creatorAgentContextBuilder
     })
   });
+  await krillinCodexLlmGateway.register(server);
   if (input.agentToolsEnabled === true) {
     await registerAgentScheduleMcpRoute(server, {
       capabilities: agentCapabilityTokens,
@@ -1260,6 +1413,7 @@ export async function buildServer(input: BuildServerInput) {
   );
   await registerSmartDubbingRoutes(server, smartDubbingService);
   await registerCreatorRuntimeRoutes(server, creatorYtDlpUpdateManager);
+  await registerImageGenerationRoutes(server, imageGenerationService);
   await registerCreatorRoutes(server, creatorService, creatorEvents, {
     sseHeartbeatMs: input.sseHeartbeatMs,
     jobsRoot: creatorJobsRoot,
@@ -1277,7 +1431,8 @@ export async function buildServer(input: BuildServerInput) {
     stageRunner: creatorStageRunner,
     presets: creatorPresetRegistry,
     presetCatalogRoot: creatorPresetCatalogRoot,
-    preflight: creatorPreflight
+    preflight: creatorPreflight,
+    issueService: creatorIssueService
   });
   await registerAttachmentRoutes(server, attachmentService, {
     maxSizeBytes: input.attachmentMaxSizeBytes
