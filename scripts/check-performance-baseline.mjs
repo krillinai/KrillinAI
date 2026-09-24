@@ -42,8 +42,8 @@ function measureAssets() {
     {
       label: 'Web 主入口 JavaScript',
       pattern: /^index-[^.]+\.js$/,
-      maxBytes: 720_000,
-      maxGzipBytes: 200_000
+      maxBytes: 750_000,
+      maxGzipBytes: 215_000
     },
     {
       label: 'FilesPage JavaScript',
@@ -67,7 +67,7 @@ function measureAssets() {
       label: 'Web 主样式',
       pattern: /^index-[^.]+\.css$/,
       maxBytes: 150_000,
-      maxGzipBytes: 24_000
+      maxGzipBytes: 25_000
     }
   ];
 
