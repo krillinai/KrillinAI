@@ -70,6 +70,12 @@ func TestExtractJSONObject(t *testing.T) {
 			want:     `{"align":[]}`,
 		},
 		{
+			name:     "null value",
+			response: `{"align":null} {"align":[{"origin_part":"a"}]}`,
+			key:      "align",
+			want:     `{"align":null}`,
+		},
+		{
 			name:     "key case",
 			response: `{"Align":[{"origin_part":"a"}]} {"align":[{"origin_part":"b"}]}`,
 			key:      "align",

@@ -436,8 +436,6 @@ func TestSplitTranslateItemReportsLongSentenceProgress(t *testing.T) {
 	}
 }
 
-// TestSplitOriginLongSentenceToleratesLLMNoise 覆盖两类带噪声的响应：
-// 结束符前的尾随逗号，以及 JSON 之前的中文对话式说明。
 func TestSplitOriginLongSentenceToleratesLLMNoise(t *testing.T) {
 	log.InitLogger()
 	tests := []struct {
@@ -477,7 +475,6 @@ func TestSplitOriginLongSentenceToleratesLLMNoise(t *testing.T) {
 	}
 }
 
-// TestSplitLongSentenceToleratesConversationalPrefix LLM 在对齐结果前输出中文说明时仍能拿到对齐结果。
 func TestSplitLongSentenceToleratesConversationalPrefix(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{
@@ -500,8 +497,6 @@ func TestSplitLongSentenceToleratesConversationalPrefix(t *testing.T) {
 	}
 }
 
-// TestSplitLongSentenceRejectsDecoyObject 真正的对齐结果前面出现一个合法但无关的示例对象时，
-// 长句仍照应拆分，而不是拿到一个空的分割结果。
 func TestSplitLongSentenceRejectsDecoyObject(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{
@@ -524,8 +519,6 @@ func TestSplitLongSentenceRejectsDecoyObject(t *testing.T) {
 	}
 }
 
-// TestSplitOriginLongSentenceRejectsDecoyObject 同一类响应在重试型解析点上也应拿到
-// 真正的短句列表，而不是空切片。
 func TestSplitOriginLongSentenceRejectsDecoyObject(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{
@@ -549,7 +542,6 @@ func TestSplitOriginLongSentenceRejectsDecoyObject(t *testing.T) {
 	}
 }
 
-// TestSplitLongSentenceStillFailsOnGarbage 完全不含目标字段的响应仍然是解析错误。
 func TestSplitLongSentenceStillFailsOnGarbage(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{"抱歉，我无法完成这个请求"}}

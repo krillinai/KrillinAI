@@ -7,8 +7,6 @@ import (
 	"testing"
 )
 
-// TestTranslatorSplitOriginLongSentenceToleratesLLMNoise Translator 上与 Service 同形的
-// 解析点（translate.go）同样容忍这两类带噪声的响应。
 func TestTranslatorSplitOriginLongSentenceToleratesLLMNoise(t *testing.T) {
 	log.InitLogger()
 	tests := []struct {
@@ -48,8 +46,6 @@ func TestTranslatorSplitOriginLongSentenceToleratesLLMNoise(t *testing.T) {
 	}
 }
 
-// TestBatchTranslateTextsToleratesConversationalPrefix 批量翻译的解析点在带对话式前缀的
-// 响应上仍然拿到整批译文。
 func TestBatchTranslateTextsToleratesConversationalPrefix(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{
@@ -74,8 +70,6 @@ func TestBatchTranslateTextsToleratesConversationalPrefix(t *testing.T) {
 	}
 }
 
-// TestTranslatorSplitOriginLongSentenceRejectsDecoyObject Translator 上同形的解析点也跳过
-// 说明文字里的示例对象，拿到真正的短句列表。
 func TestTranslatorSplitOriginLongSentenceRejectsDecoyObject(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{
@@ -99,8 +93,6 @@ func TestTranslatorSplitOriginLongSentenceRejectsDecoyObject(t *testing.T) {
 	}
 }
 
-// TestBatchTranslateTextsRejectsDecoyObject 批量翻译的解析点跳过输出格式示例对象，
-// 拿到整批译文。
 func TestBatchTranslateTextsRejectsDecoyObject(t *testing.T) {
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{
