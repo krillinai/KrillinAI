@@ -1,5 +1,10 @@
 <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
   <title>alextavares</title>
-  <circle cx="32" cy="32" r="31" fill="#176b73" />
-  <text x="32" y="43" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="32" font-weight="700">A</text>
+  <defs>
+    <clipPath id="avatar-clip">
+      <circle cx="32" cy="32" r="31" />
+    </clipPath>
+  </defs>
+  <image x="1" y="1" width="62" height="62" preserveAspectRatio="xMidYMid slice" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAQKADAAQAAAABAAAAQAAAAABGUUKwAAADw0lEQVRoBe1a3W7TMBS20zai3a9GVaFt0rhAQmjccYsEvABcIx4F8Q7AY3CJBOwt2MQNDO2GAZ0Q0EwbXVNam88pXR3HTupMXRrJVqW6js/x952T+JwTlwZBQMrcvDKDF9gdgaI9WFUAUI/QKiVcGZ6Pn8A1xCcGLkYA6Pud4elBj3h0PiDHUTBe3/Tr12qcTcbjBCr05CDcf3Hk1eaRAAv51pNm49EqDydOiBEALzgB6OeTAGECntISA8r1uf/pCBTtIucB54ELWqD0t5AaBzLtwQdcDoTK/P+ZiDIq/UQigHTA2BCFkMjYNDsCQN96sLx0s45OchVaod3DsL0TUEMmAqnm3aWV2w29uEfPjvrf3wTUhoIlAUaAvnVvifU1BBC/g91K+52xQoLrFm9cMYkjiTz5eAYCSdOkjNgRgCIYD+i1BJDDMp1n5OVTxCkj7K/GLrJ4sl/6h9gRSDr1ckecBy7X3snVSu8B620U0UrUa7rtDuO4qhTdss1waVTxacURB8T7BMtmRwDLI9Z2div6UIpI/CWsr/ugoYUBqfDnoPO+qyU5CuRawZRBSwJV2t45br8NiA4hYAH99tMNanARIH563v72upNSc5vImzjYEYAWUVYbUh1xtUKBPoWAmBB9TIBsx60JZC+Ax2P0SU7VPTnJWVYjpd+FHAErf89gsvPADIxqpbL0HlC3UVR9eAmsDfWZhhHVVlZJhQm59UMwGcKpfMiHINX7MTj+0M158sRJdcFbu7NoFKck2Ov2fw2ME9KNFJXUC9d9+b1GjADEwcEUR9OVi6vIL7LqWpFE4LbNF9GQQw5ST2iAAbeQfHyQDdpyRuY9Zqkvpy9tV5nh/NLvQo7ADO+OqVQ7D0xlphlOUiMx9nIPhfkFVtSWy+f6RDmmfyVwPsXYQZjhTH25HydAyeCU9dp9bclrVCxd8HyvsekbxSnpfg2Hf3DeK8lM3+XEb9b8tQrC5XmLEcDhwsnn3v7LI8/PswJs39jwt5+Zi3qPHr763dnr5tPPenzr8dX1h6simxq3GIHRoMgm8uCP/ruTKUijbCVz2hif/C3eJyQE3S4km6iIvvNAEVaX13QekK1RRL/0HlDjQFTUoy7MQ4wPmf74VfJMVNTn1M9ClizqYwRwubFZw//STEftEhJNl3NeW8T5hzHXQSbTur+8sl3PqX/Il2+pfxLQFvUw/yRWa5AahwDdcAY+FomKeoTTnPqRrShOiHkAq0RFvZQrjRee7jsbVlTUZ08zLKcRzHOvG7QXM+wIFGP3yar/ANl4Wy9dM222AAAAAElFTkSuQmCC" clip-path="url(#avatar-clip)" />
+  <circle cx="32" cy="32" r="31" fill="none" stroke="#c0c0c0" stroke-width="1" />
 </svg>
