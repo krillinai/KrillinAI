@@ -582,6 +582,7 @@ export default function VideoDownloadWorkspace(props: {
   return (
     <CreatorToolShell
       title={l('视频下载', 'Video Downloader')}
+      pageClassName="video-download-workspace-page"
       subtitle={l(
         '解析公开链接并把视频或音频保存到项目',
         'Analyze a public link and save video or audio to the project'
@@ -660,22 +661,22 @@ export default function VideoDownloadWorkspace(props: {
                 <h2 id="video-download-source-title">
                   {l('公开视频链接', 'Public video link')}
                 </h2>
-                <p>
-                  {l(
-                    '支持以下平台的单个公开视频',
-                    'Supports individual public videos from these platforms'
-                  )}
-                </p>
-                <div className="video-download-platforms" aria-label={l('支持的平台', 'Supported platforms')}>
-                  {([
-                    ['youtube', 'YouTube'], ['bilibili', 'Bilibili'], ['x', 'X'],
-                    ['tiktok', 'TikTok'], ['instagram', 'Instagram'], ['douyin', l('抖音', 'Douyin')],
-                    ['facebook', 'Facebook'], ['xiaohongshu', l('小红书', 'Xiaohongshu')], ['pinterest', 'Pinterest']
-                  ] as const).map(([platformName, name]) => (
-                    <img key={platformName} src={`/platforms/${platformName}.png`} alt={name} title={name} width="16" height="16" />
-                  ))}
-                </div>
               </div>
+            </div>
+            <div className="video-download-platform-section">
+              <span>{l('支持的视频来源（支持单个公开视频链接）', 'Supported video sources (one public video link)')}</span>
+              <ul className="video-download-platforms" aria-label={l('支持的平台', 'Supported platforms')}>
+                {([
+                  ['youtube', 'YouTube'], ['bilibili', 'Bilibili'], ['x', 'X'],
+                  ['tiktok', 'TikTok'], ['instagram', 'Instagram'], ['douyin', l('抖音', 'Douyin')],
+                  ['facebook', 'Facebook'], ['xiaohongshu', l('小红书', 'Xiaohongshu')], ['pinterest', 'Pinterest']
+                ] as const).map(([platformName, name]) => (
+                  <li key={platformName}>
+                    <img src={`/platforms/${platformName}.png`} alt="" width="32" height="32" />
+                    <span>{name}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
             <label className="creator-tool-url-input">
               <Link2 size={17} strokeWidth={1.8} aria-hidden="true" />

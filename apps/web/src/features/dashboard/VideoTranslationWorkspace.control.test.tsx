@@ -87,6 +87,210 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(screen.getByRole('button', { name: '#7EE7FF' })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('uses the same preset and custom color controls for original, outline, and shadow', () => {
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 2, furthestStep: 2 } })}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <VideoTranslationWorkspace onBack={vi.fn()} />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    for (const label of ['原文颜色', '描边颜色', '阴影颜色']) {
+      const preset = screen.getByRole('button', { name: `${label} #7EE7FF` });
+      fireEvent.click(preset);
+      expect(preset).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByLabelText(label)).toHaveValue('#7ee7ff');
+    }
+    expect(screen.getAllByText('自定义')).toHaveLength(4);
+  });
+
+  it('uses the platform poster and actual dimensions when metadata provides them', async () => {
+    const getVideoMetadata = vi.fn(async () => ({
+      platform: 'bilibili' as const,
+      title: '4:3 source',
+      thumbnailUrl: 'https://images.example.test/source.jpg',
+      width: 1024,
+      height: 768
+    }));
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={job({
+            status: 'draft', revision: 0, stages: [],
+            state: { currentStep: 2, furthestStep: 2, sourceUrl: 'https://www.bilibili.com/video/BV1abc' }
+          })}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <VideoTranslationWorkspace onBack={vi.fn()} videoMetadataService={{ getVideoMetadata }} />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    const preview = screen.getByRole('region', { name: '字幕样式预览' });
+    await waitFor(() => expect(preview).toHaveAttribute('data-ratio', '4:3'));
+    expect(preview.querySelector('img.video-translation-subtitle-preview-media')).toHaveAttribute(
+      'src', 'https://images.example.test/source.jpg'
+    );
+    expect(preview.querySelector(':scope > div')).toHaveStyle({ '--subtitle-preview-aspect-ratio': '1024 / 768' });
+    expect(getVideoMetadata).toHaveBeenCalledWith('https://www.bilibili.com/video/BV1abc');
+  });
+
+  it('shows a YouTube Shorts poster in a portrait frame without video metadata', () => {
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={job({
+            status: 'draft', revision: 0, stages: [],
+            state: { currentStep: 2, furthestStep: 2, sourceUrl: 'https://www.youtube.com/shorts/portrait123' }
+          })}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <VideoTranslationWorkspace onBack={vi.fn()} />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    const preview = screen.getByRole('region', { name: '字幕样式预览' });
+    expect(preview).toHaveAttribute('data-ratio', '9:16');
+    expect(preview.querySelector('img.video-translation-subtitle-preview-media')).toHaveAttribute(
+      'src', 'https://i.ytimg.com/vi/portrait123/hqdefault.jpg'
+    );
+  });
+
+  it('seeks a playable source to a still frame and uses its nonstandard aspect ratio', () => {
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={job({
+            status: 'draft', revision: 0, stages: [],
+            state: { currentStep: 2, furthestStep: 2, sourceUrl: 'https://video.example.test/source.mp4' }
+          })}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <VideoTranslationWorkspace onBack={vi.fn()} />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    const preview = screen.getByRole('region', { name: '字幕样式预览' });
+    const video = preview.querySelector('video');
+    expect(video).toHaveAttribute('src', 'https://video.example.test/source.mp4');
+    Object.defineProperties(video!, {
+      videoWidth: { configurable: true, value: 1440 },
+      videoHeight: { configurable: true, value: 1080 },
+      duration: { configurable: true, value: 100 }
+    });
+    fireEvent.loadedMetadata(video!);
+    fireEvent.seeked(video!);
+
+    expect(video).toHaveProperty('currentTime', 5);
+    expect(video).toHaveAttribute('data-ready', 'true');
+    expect(preview).toHaveAttribute('data-ratio', '4:3');
+    expect(preview.querySelector(':scope > div')).toHaveStyle({ '--subtitle-preview-aspect-ratio': '1440 / 1080' });
+
+    fireEvent.click(screen.getByRole('button', { name: '继续' }));
+    fireEvent.click(screen.getByRole('switch', { name: '合成字幕视频' }));
+    fireEvent.click(screen.getByRole('radio', { name: /9:16/ }));
+    fireEvent.click(within(screen.getByRole('navigation', { name: '翻译流程' })).getByRole('button', {
+      name: /字幕样式$/
+    }));
+    expect(screen.getByRole('region', { name: '字幕样式预览' })).toHaveAttribute('data-ratio', '9:16');
+    expect(screen.getByRole('region', { name: '字幕样式预览' })).toHaveAttribute('data-converted', 'true');
+  });
+
+  it('uses a local video still and preserves its portrait 3:4 ratio', () => {
+    const createObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+    const revokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
+    const createObjectURL = vi.fn()
+      .mockReturnValueOnce('blob:source-video')
+      .mockReturnValueOnce('blob:subtitle-preview');
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
+    let view: ReturnType<typeof render> | undefined;
+
+    try {
+      view = render(
+        <LanguageProvider initialPreference="zh-CN">
+          <CreatorSessionProvider
+            initialJob={job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 0, furthestStep: 0 } })}
+            service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+          >
+            <VideoTranslationWorkspace onBack={vi.fn()} />
+          </CreatorSessionProvider>
+        </LanguageProvider>
+      );
+      const file = new File(['video'], 'portrait.mp4', { type: 'video/mp4' });
+      fireEvent.change(screen.getByLabelText('上传本地视频'), { target: { files: [file] } });
+      const sourceVideo = screen.getByLabelText('本地视频预览');
+      Object.defineProperties(sourceVideo, {
+        videoWidth: { configurable: true, value: 1080 },
+        videoHeight: { configurable: true, value: 1440 }
+      });
+      fireEvent.loadedMetadata(sourceVideo);
+      fireEvent.click(screen.getByRole('button', { name: '继续' }));
+      fireEvent.click(screen.getByRole('button', { name: '继续' }));
+
+      const preview = screen.getByRole('region', { name: '字幕样式预览' });
+      expect(preview).toHaveAttribute('data-ratio', '3:4');
+      expect(preview.querySelector('video')).toHaveAttribute('src', 'blob:subtitle-preview');
+      expect(createObjectURL).toHaveBeenCalledTimes(2);
+    } finally {
+      view?.unmount();
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:source-video');
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:subtitle-preview');
+      restoreUrlMethod('createObjectURL', createObjectUrlDescriptor);
+      restoreUrlMethod('revokeObjectURL', revokeObjectUrlDescriptor);
+    }
+  });
+
+  it('loads the saved source video for a resumed subtitle-style preview', async () => {
+    const createObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+    const revokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
+    const createObjectURL = vi.fn(() => 'blob:saved-source');
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
+    const source = sourceVideoArtifact(1);
+    const openArtifact = vi.fn(async () => new Response(new Blob(['video'], { type: 'video/mp4' })));
+    const view = render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={job({
+            status: 'draft', revision: 0, stages: [], artifacts: [source],
+            state: {
+              currentStep: 2,
+              furthestStep: 2,
+              sourceType: 'file',
+              sourceUrl: '',
+              sourceFileName: 'saved.mp4',
+              sourceArtifactId: source.id
+            }
+          })}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn(), openArtifact } as never}
+        >
+          <VideoTranslationWorkspace onBack={vi.fn()} />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    try {
+      const preview = screen.getByRole('region', { name: '字幕样式预览' });
+      expect(preview).toHaveAttribute('data-ratio', '16:9');
+      await waitFor(() => expect(preview.querySelector('video')).toHaveAttribute('src', 'blob:saved-source'));
+      expect(openArtifact).toHaveBeenCalledWith('job_control', source.id);
+    } finally {
+      view.unmount();
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:saved-source');
+      restoreUrlMethod('createObjectURL', createObjectUrlDescriptor);
+      restoreUrlMethod('revokeObjectURL', revokeObjectUrlDescriptor);
+    }
+  });
+
   it('edits every subtitle style field and persists one structured patch', async () => {
     let currentJob = job({
       status: 'draft',
