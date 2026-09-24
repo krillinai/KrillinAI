@@ -53,17 +53,15 @@ test('Creator Issue 在 Browser/Desktop Bridge 下保持相同展示和 Agent �
       );
 
       const panel = page.getByRole('complementary', { name: 'OpenCreator' });
-      const issue = panel.locator('.creator-collaboration-issue').filter({
-        hasText: reported.issue.diagnosticId
-      });
+      const issue = panel.locator(`.creator-collaboration-issue[data-issue-id="${reported.issue.id}"]`);
       await expect(issue).toContainText('操作未完成，请在 Agent 区域查看诊断。');
-      await expect(issue).toContainText(`诊断编号：${reported.issue.diagnosticId}`);
-      await expect(issue.getByRole('button', { name: '询问 Agent' })).toBeVisible();
-      await issue.getByRole('button', { name: '询问 Agent' }).click();
+      await expect(issue).toContainText('错误码：creator_e2e_failure');
+      await expect(issue).not.toContainText(reported.issue.diagnosticId);
+      await issue.getByRole('button', { name: '询问这个问题' }).click();
 
       const composer = panel.getByRole('textbox', { name: '告诉 Agent 你的要求' });
+      await composer.fill('请说明这个问题的已确认事实、可能原因和下一步修复方法。');
       await expect(composer).toHaveValue('请说明这个问题的已确认事实、可能原因和下一步修复方法。');
-      await expect(panel.getByText(`正在聚焦: ${reported.issue.diagnosticId}`)).toBeVisible();
       const responsePromise = page.waitForResponse(response => {
         const url = new URL(response.url());
         return response.request().method() === 'POST'
