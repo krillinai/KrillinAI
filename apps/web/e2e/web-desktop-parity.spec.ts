@@ -1,6 +1,115 @@
 import type { CreatorServicesCapabilitiesResponse, CreatorYtDlpStatusResponse } from '@opencreator/protocol';
 import { test, expect } from './fixtures/runtime.js';
 
+test('Creator Issue 在 Browser/Desktop Bridge 下保持相同展示和 Agent 聚焦请求', async ({
+  browser,
+  runtime
+}, testInfo) => {
+  test.setTimeout(120_000);
+  test.skip(
+    testInfo.project.name !== 'chromium-desktop',
+    '一致性规格内部固定创建 Browser/Desktop Chromium 上下文'
+  );
+
+  const created = await runtime.api<{ job: { id: string } }>('POST', '/creator/jobs', {
+    projectId: runtime.projectId,
+    templateId: 'image-generation',
+    state: { prompt: 'Creator Issue parity' }
+  });
+  const reported = await runtime.api<{
+    clientIssueId: string;
+    issue: { id: string; diagnosticId: string; fallbackMessage: string };
+  }>('POST', `/creator/jobs/${encodeURIComponent(created.job.id)}/issues/report`, {
+    clientIssueId: 'e2e-creator-issue-parity',
+    code: 'creator_e2e_failure',
+    source: 'client',
+    operation: 'creator.e2e',
+    fallbackMessage: '操作未完成，请在 Agent 区域查看诊断。'
+  });
+  runtime.configureInvocations([
+    { message: '已完成 Browser 诊断。' },
+    { message: '已完成 Desktop 诊断。' }
+  ]);
+
+  const results: Array<{
+    issueText: string;
+    boxes: Record<string, { x: number; y: number; width: number; height: number }>;
+    request: Record<string, unknown>;
+  }> = [];
+  for (const platform of ['browser', 'desktop'] as const) {
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 900 },
+      deviceScaleFactor: 1,
+      colorScheme: 'dark',
+      reducedMotion: 'reduce'
+    });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page);
+    try {
+      await runtime.openApp(page);
+      await page.goto(
+        `${runtime.origin}/#/workbench?tool=image-generation`
+        + `&jobId=${encodeURIComponent(created.job.id)}`
+      );
+
+      const panel = page.getByRole('complementary', { name: 'OpenCreator' });
+      const issue = panel.locator('.creator-collaboration-issue').filter({
+        hasText: reported.issue.diagnosticId
+      });
+      await expect(issue).toContainText('操作未完成，请在 Agent 区域查看诊断。');
+      await expect(issue).toContainText(`诊断编号：${reported.issue.diagnosticId}`);
+      await expect(issue.getByRole('button', { name: '询问 Agent' })).toBeVisible();
+      await issue.getByRole('button', { name: '询问 Agent' }).click();
+
+      const composer = panel.getByRole('textbox', { name: '告诉 Agent 你的要求' });
+      await expect(composer).toHaveValue('请说明这个问题的已确认事实、可能原因和下一步修复方法。');
+      await expect(panel.getByText(`正在聚焦: ${reported.issue.diagnosticId}`)).toBeVisible();
+      const responsePromise = page.waitForResponse(response => {
+        const url = new URL(response.url());
+        return response.request().method() === 'POST'
+          && url.pathname.endsWith(`/creator/jobs/${created.job.id}/agent-turns`);
+      }, { timeout: 45_000 });
+      await panel.getByRole('button', { name: '发送给 Agent' }).click();
+      const response = await responsePromise;
+      expect(response.ok()).toBe(true);
+      const request = response.request().postDataJSON() as Record<string, unknown>;
+      expect(request).toMatchObject({
+        message: '请说明这个问题的已确认事实、可能原因和下一步修复方法。',
+        sandbox: 'danger-full-access',
+        focusedIssueId: reported.issue.id
+      });
+
+      const boxes: Record<string, { x: number; y: number; width: number; height: number }> = {};
+      for (const [name, locator] of [
+        ['panel', panel],
+        ['issue', issue],
+        ['composer', panel.locator('.tool-agent-composer')]
+      ] as const) {
+        const box = await locator.boundingBox();
+        expect(box, `${platform} 缺少 ${name} 尺寸目标`).not.toBeNull();
+        boxes[name] = {
+          x: Math.round(box!.x),
+          y: Math.round(box!.y),
+          width: Math.round(box!.width),
+          height: Math.round(box!.height)
+        };
+      }
+      const { clientMessageId: _clientMessageId, ...stableRequest } = request;
+      results.push({
+        issueText: normalizeParityText(await issue.innerText()),
+        boxes,
+        request: stableRequest
+      });
+    } finally {
+      await context.close();
+    }
+  }
+
+  expect(results[1]!.issueText).toBe(results[0]!.issueText);
+  expect(results[1]!.boxes).toEqual(results[0]!.boxes);
+  expect(results[1]!.request).toEqual(results[0]!.request);
+});
+
 test('Agent 面板在 Browser/Desktop Bridge 下均不显示产物版本详情', async ({ browser, runtime }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-desktop', '内部使用相同内容视口');
   const created = await runtime.api<{ job: { id: string } }>('POST', '/creator/jobs', {
@@ -738,6 +847,15 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
     testInfo.project.name !== 'chromium-desktop',
     '一致性规格内部固定创建 Browser/Desktop Chromium 上下文'
   );
+  const projectRoot = process.platform === 'win32'
+    ? 'D:\\tmp\\opencreator-parity\\projects'
+    : '/tmp/opencreator-parity/projects';
+  const outputRoot = process.platform === 'win32'
+    ? 'D:\\tmp\\opencreator-parity\\exports'
+    : '/tmp/opencreator-parity/exports';
+  const savedOutputRoot = process.platform === 'win32'
+    ? 'D:\\tmp\\opencreator-parity\\saved-exports'
+    : '/tmp/opencreator-parity/saved-exports';
 
   const results: Array<{
     theme: string | undefined;
@@ -760,8 +878,8 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
       defaultPermission: 'workspace-write'
     });
     await runtime.api('PATCH', '/settings/storage', {
-      defaultProjectRoot: '/tmp/opencreator-parity/projects',
-      outputRoot: '/tmp/opencreator-parity/exports'
+      defaultProjectRoot: projectRoot,
+      outputRoot
     });
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
@@ -801,16 +919,16 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
         inputs.map(input => (input as HTMLInputElement).value)
       ));
       await expect.poll(readStoragePaths).toEqual([
-        '/tmp/opencreator-parity/projects',
-        '/tmp/opencreator-parity/exports'
+        projectRoot,
+        outputRoot
       ]);
       const outputPath = settings.getByRole('textbox', { name: '完成产物位置' });
-      await outputPath.fill('/tmp/opencreator-parity/saved-exports');
+      await outputPath.fill(savedOutputRoot);
       await settings.getByRole('button', { name: '保存完成产物位置' }).click();
-      await expect(outputPath).toHaveValue('/tmp/opencreator-parity/saved-exports');
+      await expect(outputPath).toHaveValue(savedOutputRoot);
       await expect.poll(async () => (
         await runtime.api<{ settings: { outputRoot: string } }>('GET', '/settings/storage')
-      ).settings.outputRoot).toBe('/tmp/opencreator-parity/saved-exports');
+      ).settings.outputRoot).toBe(savedOutputRoot);
       const storagePickerCount = await settings.getByRole('button', {
         name: /选择(?:默认项目位置|完成产物位置)/
       }).count();

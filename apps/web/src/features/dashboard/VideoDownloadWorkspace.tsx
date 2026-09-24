@@ -31,7 +31,10 @@ import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import NativeSelect from '../../components/forms/NativeSelect.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
-import { useOptionalCreatorSession } from './creator-session-store.js';
+import {
+  createCreatorArtifactObjectUrl,
+  useOptionalCreatorSession
+} from './creator-session-store.js';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 
 type DownloadStep = 0 | 1;
@@ -388,9 +391,12 @@ export default function VideoDownloadWorkspace(props: {
   async function downloadArtifact(artifact: CreatorArtifact) {
     if (session === null) return;
     try {
-      const response = await session.openArtifact(artifact.id);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const objectUrl = URL.createObjectURL(await response.blob());
+      const objectUrl = await createCreatorArtifactObjectUrl(
+        session,
+        artifact.id,
+        'video-download.download-artifact',
+        l('文件下载失败，请稍后重试。', 'The file download failed. Try again later.')
+      );
       const link = document.createElement('a');
       link.href = objectUrl;
       link.download = artifactFileName(artifact);
@@ -430,9 +436,12 @@ export default function VideoDownloadWorkspace(props: {
       return;
     }
     try {
-      const response = await session.openArtifact(artifact.id);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const objectUrl = URL.createObjectURL(await response.blob());
+      const objectUrl = await createCreatorArtifactObjectUrl(
+        session,
+        artifact.id,
+        'video-download.load-artifact-preview',
+        l('文件预览加载失败，请稍后重试。', 'The file preview failed to load. Try again later.')
+      );
       if (artifactPreviewRequestRef.current !== requestId) {
         URL.revokeObjectURL(objectUrl);
         return;
@@ -568,6 +577,7 @@ export default function VideoDownloadWorkspace(props: {
   return (
     <CreatorToolShell
       title={l('视频下载', 'Video Downloader')}
+      pageClassName="video-download-workspace-page"
       subtitle={l(
         '解析公开链接并把视频或音频保存到项目',
         'Analyze a public link and save video or audio to the project'
@@ -683,22 +693,22 @@ export default function VideoDownloadWorkspace(props: {
                 <h2 id="video-download-source-title">
                   {l('公开视频链接', 'Public video link')}
                 </h2>
-                <p>
-                  {l(
-                    '支持以下平台的单个公开视频',
-                    'Supports individual public videos from these platforms'
-                  )}
-                </p>
-                <div className="video-download-platforms" aria-label={l('支持的平台', 'Supported platforms')}>
-                  {([
-                    ['youtube', 'YouTube'], ['bilibili', 'Bilibili'], ['x', 'X'],
-                    ['tiktok', 'TikTok'], ['instagram', 'Instagram'], ['douyin', l('抖音', 'Douyin')],
-                    ['facebook', 'Facebook'], ['xiaohongshu', l('小红书', 'Xiaohongshu')], ['pinterest', 'Pinterest']
-                  ] as const).map(([platformName, name]) => (
-                    <img key={platformName} src={`/platforms/${platformName}.png`} alt={name} title={name} width="16" height="16" />
-                  ))}
-                </div>
               </div>
+            </div>
+            <div className="video-download-platform-section">
+              <span>{l('支持的视频来源（支持单个公开视频链接）', 'Supported video sources (one public video link)')}</span>
+              <ul className="video-download-platforms" aria-label={l('支持的平台', 'Supported platforms')}>
+                {([
+                  ['youtube', 'YouTube'], ['bilibili', 'Bilibili'], ['x', 'X'],
+                  ['tiktok', 'TikTok'], ['instagram', 'Instagram'], ['douyin', l('抖音', 'Douyin')],
+                  ['facebook', 'Facebook'], ['xiaohongshu', l('小红书', 'Xiaohongshu')], ['pinterest', 'Pinterest']
+                ] as const).map(([platformName, name]) => (
+                  <li key={platformName}>
+                    <img src={`/platforms/${platformName}.png`} alt="" width="32" height="32" />
+                    <span>{name}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
             <label className="creator-tool-url-input">
               <Link2 size={17} strokeWidth={1.8} aria-hidden="true" />
@@ -1742,7 +1752,7 @@ function formatDownloadError(
       'The video platform may have changed. Update yt-dlp and try again.'
     );
   }
-  return message;
+  return l('视频下载失败，请在 Agent 区域查看诊断后重试', 'Video download failed. Review the diagnosis in the Agent panel and retry.');
 }
 
 function shouldSuggestYtDlpUpdate(stage: CreatorStageRun | undefined): boolean {

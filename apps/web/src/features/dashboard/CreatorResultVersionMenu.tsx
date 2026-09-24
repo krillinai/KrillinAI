@@ -39,7 +39,7 @@ export default function CreatorResultVersionMenu(props: {
       props.onVersionChange(version);
       setHistoryOpen(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(l('无法切换项目版本，请在 Agent 区域查看诊断。', 'Could not switch project versions. Review the diagnosis in the Agent panel.'));
     } finally {
       pendingRef.current = false;
       setPending(false);

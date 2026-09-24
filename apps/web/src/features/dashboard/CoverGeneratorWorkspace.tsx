@@ -29,7 +29,11 @@ import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
 import { coverPanelAdapter } from './creator-panel-adapters.js';
-import { useOptionalCreatorSession } from './creator-session-store.js';
+import {
+  captureCreatorClientFailure,
+  createCreatorArtifactObjectUrl,
+  useOptionalCreatorSession
+} from './creator-session-store.js';
 
 type CoverRatio = '16:9' | '1:1' | '9:16';
 type CoverCandidateCount = 1 | 2 | 3 | 4;
@@ -192,10 +196,14 @@ export default function CoverGeneratorWorkspace(props: {
       }
       let active = true;
       let objectUrl = '';
-      void session.openArtifact(activeReferenceArtifact.id)
-        .then(async response => {
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          objectUrl = URL.createObjectURL(await response.blob());
+      void createCreatorArtifactObjectUrl(
+        session,
+        activeReferenceArtifact.id,
+        'cover.load-reference-preview',
+        l('参考图预览加载失败，请稍后重试。', 'The reference preview failed to load. Try again later.')
+      )
+        .then(url => {
+          objectUrl = url;
           if (active) setReferencePreview(objectUrl);
         })
         .catch(() => {
@@ -206,10 +214,18 @@ export default function CoverGeneratorWorkspace(props: {
         if (objectUrl) URL.revokeObjectURL(objectUrl);
       };
     }
-    const objectUrl = URL.createObjectURL(referenceFile);
-    setReferencePreview(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [activeReferenceArtifact?.id, referenceFile, session?.openArtifact]);
+    let objectUrl = '';
+    void captureCreatorClientFailure(
+      session,
+      'cover.load-local-reference-preview',
+      l('参考图预览加载失败，请重新选择图片。', 'The reference preview failed to load. Select the image again.'),
+      () => URL.createObjectURL(referenceFile)
+    ).then(url => {
+      objectUrl = url;
+      setReferencePreview(url);
+    }).catch(() => setReferencePreview(''));
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [activeReferenceArtifact?.id, l, referenceFile, session?.captureCreatorFailure, session?.openArtifact]);
 
   useEffect(() => {
     const artifacts = uniqueArtifacts([
@@ -225,9 +241,12 @@ export default function CoverGeneratorWorkspace(props: {
     const objectUrls: string[] = [];
     setArtifactUrls({});
     void Promise.all(artifacts.map(async artifact => {
-      const response = await session.openArtifact(artifact.id);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const objectUrl = URL.createObjectURL(await response.blob());
+      const objectUrl = await createCreatorArtifactObjectUrl(
+        session,
+        artifact.id,
+        'cover.load-result-preview',
+        l('封面预览加载失败，请稍后重试。', 'Thumbnail previews failed to load. Try again later.')
+      );
       objectUrls.push(objectUrl);
       return [artifact.id, objectUrl] as const;
     })).then(entries => {
@@ -243,6 +262,8 @@ export default function CoverGeneratorWorkspace(props: {
     selectedKeyframeArtifact?.id,
     selectedReferenceArtifact?.id,
     selectedResult?.artifacts,
+    l,
+    session?.captureCreatorFailure,
     session?.openArtifact
   ]);
 
@@ -451,9 +472,12 @@ export default function CoverGeneratorWorkspace(props: {
       let url = artifactUrls[artifact.id];
       let temporaryUrl = '';
       if (!url) {
-        const response = await session.openArtifact(artifact.id);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        temporaryUrl = URL.createObjectURL(await response.blob());
+        temporaryUrl = await createCreatorArtifactObjectUrl(
+          session,
+          artifact.id,
+          'cover.download-result',
+          l('封面下载失败，请稍后重试。', 'The thumbnail download failed. Try again later.')
+        );
         url = temporaryUrl;
       }
       const link = document.createElement('a');
@@ -1284,11 +1308,7 @@ function formatCoverError(error: unknown, l: (zh: string, en: string) => string)
   if (code === 'creator_stage_canceled') {
     return l('封面生成任务已终止', 'Thumbnail generation was stopped');
   }
-  return typeof candidate?.message === 'string'
-    ? candidate.message
-    : error instanceof Error
-      ? error.message
-      : l('封面生成失败，请稍后重试', 'Thumbnail generation failed. Try again later.');
+  return l('封面生成失败，请在 Agent 区域查看诊断后重试', 'Thumbnail generation failed. Review the diagnosis in the Agent panel and retry.');
 }
 
 function stageLabel(

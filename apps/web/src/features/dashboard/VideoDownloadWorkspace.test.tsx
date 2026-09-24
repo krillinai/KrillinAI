@@ -7,7 +7,7 @@ import type {
   CreatorStageRun,
   CreatorYtDlpStatus
 } from '@opencreator/protocol';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import { CreatorSessionProvider } from './creator-session-store.js';
@@ -45,12 +45,17 @@ afterEach(() => {
 });
 
 describe('VideoDownloadWorkspace', () => {
-  it('shows compact icons for every supported platform', () => {
+  it('shows labeled icons for every supported platform', () => {
     renderWorkspace(job(), { applyAction: vi.fn() });
-    const platforms = screen.getByLabelText('支持的平台');
-    expect(platforms.querySelectorAll('img')).toHaveLength(9);
-    for (const name of ['YouTube', 'Bilibili', 'X', 'TikTok', 'Instagram', '抖音', 'Facebook', '小红书', 'Pinterest']) {
-      expect(screen.getByAltText(name)).toHaveAttribute('src', expect.stringMatching(/^\/platforms\//));
+    expect(screen.getByText('支持的视频来源（支持单个公开视频链接）')).toBeInTheDocument();
+    expect(screen.getAllByText(/支持单个公开视频链接/)).toHaveLength(1);
+    const platforms = screen.getByRole('list', { name: '支持的平台' });
+    const items = within(platforms).getAllByRole('listitem');
+    expect(items).toHaveLength(9);
+    for (const [index, name] of ['YouTube', 'Bilibili', 'X', 'TikTok', 'Instagram', '抖音', 'Facebook', '小红书', 'Pinterest'].entries()) {
+      const item = items[index]!;
+      expect(item).toHaveTextContent(name);
+      expect(item.querySelector('img')).toHaveAttribute('src', expect.stringMatching(/^\/platforms\//));
     }
   });
 
@@ -324,9 +329,10 @@ describe('VideoDownloadWorkspace', () => {
       name: '预览视频 Creator Download.mp4'
     }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      '预览加载失败，可重试或直接保存到本机'
-    );
+    expect(await screen.findByText('预览加载失败，可重试或直接保存到本机'))
+      .toBeInTheDocument();
+    expect(screen.getByText(/诊断编号：OC-/)).toBeInTheDocument();
+    expect(screen.queryByText('preview unavailable')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '重新加载' }));
 
     expect(await screen.findByLabelText('视频预览 Creator Download.mp4'))
@@ -335,9 +341,8 @@ describe('VideoDownloadWorkspace', () => {
     await waitFor(() => expect(mediaPlay).toHaveBeenCalledOnce());
 
     fireEvent.error(screen.getByLabelText('视频预览 Creator Download.mp4'));
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      '预览加载失败，可重试或直接保存到本机'
-    );
+    expect(await screen.findByText('预览加载失败，可重试或直接保存到本机'))
+      .toBeInTheDocument();
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:video-preview');
   });
 

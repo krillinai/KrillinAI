@@ -11,7 +11,11 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import CreatorToolShell from './CreatorToolShell.js';
-import { useOptionalCreatorSession } from './creator-session-store.js';
+import {
+  captureCreatorClientFailure,
+  readCreatorArtifactText,
+  useOptionalCreatorSession
+} from './creator-session-store.js';
 
 type PostStyle = 'experience' | 'tutorial' | 'recommendation' | 'review';
 type PostLength = 'short' | 'medium' | 'long';
@@ -84,20 +88,23 @@ export default function XiaohongshuPostWorkspace(props: {
       return;
     }
     let active = true;
-    void session.openArtifact(result.artifact.id)
-      .then(async response => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const text = await response.text();
+    void readCreatorArtifactText(
+      session,
+      result.artifact.id,
+      'xiaohongshu.load-result',
+      l('帖子内容加载失败，可以稍后重试或重新生成。', 'The post failed to load. Retry later or generate it again.')
+    )
+      .then(text => {
         if (active) setResultText(text);
       })
       .catch(cause => {
         if (active) setError(l(
           '帖子内容加载失败，可以稍后重试或重新生成',
-          `The post failed to load: ${cause instanceof Error ? cause.message : String(cause)}`
+          'The post failed to load. Retry later or generate it again.'
         ));
       });
     return () => { active = false; };
-  }, [l, result?.artifact.id, session?.openArtifact]);
+  }, [l, result?.artifact.id, session?.captureCreatorFailure, session?.openArtifact]);
 
   useEffect(() => {
     if (result === undefined) return;
@@ -181,20 +188,33 @@ export default function XiaohongshuPostWorkspace(props: {
     try {
       await navigator.clipboard.writeText(resultText);
       setNotice(l('帖子已复制到剪贴板', 'Post copied to the clipboard'));
-    } catch {
+    } catch (cause) {
+      session?.captureCreatorFailure(
+        'xiaohongshu.copy-result',
+        cause,
+        l('复制失败，请手动选择帖子内容。', 'Copy failed. Select the post manually.'),
+        'client'
+      );
       setError(l('复制失败，请手动选择帖子内容', 'Copy failed. Select the post manually.'));
     }
   }
 
   function downloadResult() {
-    if (!result || !resultText) return;
-    const url = URL.createObjectURL(new Blob([resultText], { type: 'text/markdown;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = result.fileName;
-    link.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
-    setNotice(l('帖子文件已开始下载', 'The post download has started'));
+    if (!result || !resultText || session === null) return;
+    void captureCreatorClientFailure(
+      session,
+      'xiaohongshu.download-result',
+      l('帖子下载失败，请稍后重试。', 'The post download failed. Try again later.'),
+      () => {
+        const url = URL.createObjectURL(new Blob([resultText], { type: 'text/markdown;charset=utf-8' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = result.fileName;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      }
+    ).then(() => setNotice(l('帖子文件已开始下载', 'The post download has started')))
+      .catch(() => setError(l('帖子下载失败，请在 Agent 区域查看诊断。', 'The post download failed. Review the diagnosis in the Agent panel.')));
   }
 
   async function cancelTask() {
@@ -444,7 +464,7 @@ function readString(value: CreatorJson | undefined): string {
 
 function generationError(
   code: string | null,
-  message: string | null,
+  _message: string | null,
   l: (zh: string, en: string) => string
 ): string {
   if (code === 'creator_llm_config_missing') {
@@ -456,5 +476,5 @@ function generationError(
   if (code === 'creator_stage_input_missing') {
     return l('请检查创作主题和生成设置', 'Check the topic and generation settings');
   }
-  return message || l('帖子生成失败，请稍后重试', 'Post generation failed. Try again later.');
+  return l('帖子生成失败，请在 Agent 区域查看诊断后重试', 'Post generation failed. Review the diagnosis in the Agent panel and retry.');
 }

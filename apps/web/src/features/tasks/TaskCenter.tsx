@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { NotificationSettings } from '../../services/notification-service.js';
+import { IssueList } from '../issues/IssuePresenter.js';
+import { usePageIssueState } from '../issues/page-issue-state.js';
 import './task-center.css';
 
 type TaskService = {
@@ -63,6 +65,7 @@ export function TaskCenter(props: {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string>();
   const [resolvingIds, setResolvingIds] = useState<Set<string>>(() => new Set());
+  const pageIssues = usePageIssueState('tasks');
 
   useEffect(() => {
     void loadTasks(true);
@@ -86,8 +89,10 @@ export function TaskCenter(props: {
       setTasks(current => reset ? response.tasks : mergeTasks(current, response.tasks));
       setCursor(response.nextCursor);
       setHasMore(response.hasMore);
+      pageIssues.resolveOperation('tasks.load');
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : '无法加载任务');
+      setError('无法加载任务');
+      pageIssues.captureOperationFailure('tasks.load', loadError, '无法加载任务，请重试。', { retryable: true });
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -120,7 +125,8 @@ export function TaskCenter(props: {
       )));
       await loadTasks(true);
     } catch (approvalError) {
-      setError(approvalError instanceof Error ? approvalError.message : '审批操作失败');
+      setError('审批操作失败');
+      pageIssues.captureOperationFailure('tasks.approval', approvalError, '审批操作未完成，请重试。');
     } finally {
       setResolvingIds(current => {
         const next = new Set(current);
@@ -137,7 +143,8 @@ export function TaskCenter(props: {
       await props.onPauseSchedule(scheduleId);
       await loadTasks(true);
     } catch (pauseError) {
-      setError(pauseError instanceof Error ? pauseError.message : '无法暂停任务');
+      setError('无法暂停任务');
+      pageIssues.captureOperationFailure('tasks.pause-schedule', pauseError, '无法暂停任务，请重试。');
     }
   }
 
@@ -196,7 +203,12 @@ export function TaskCenter(props: {
           ))}
         </div>
 
-        {error ? <p className="task-center__error" role="alert">{error}</p> : null}
+        <IssueList
+          issues={pageIssues.issues}
+          actions={{ retryOperations: { 'tasks.load': () => loadTasks(true) } }}
+          onDismiss={pageIssues.dismissIssue}
+        />
+        {error && pageIssues.issues.length === 0 ? <p className="task-center__error" role="alert">{error}</p> : null}
         {loading ? (
           <div className="task-center__state" role="status">
             <LoaderCircle className="task-center__spin" size={22} />

@@ -86,6 +86,8 @@ import {
   type ComposerSlashCommand
 } from '../features/runs/Composer.js';
 import { RunDetailPanel } from '../features/runs/RunDetailPanel.js';
+import { IssueList } from '../features/issues/IssuePresenter.js';
+import { usePageIssueState } from '../features/issues/page-issue-state.js';
 import { createScheduleTaskSummaries } from '../features/schedules/schedule-task-model.js';
 import {
   getRunCancelState,
@@ -281,6 +283,7 @@ export function AppController(props: AppControllerProps) {
     setPreference: setLanguagePreference,
     t
   } = useAppLanguage();
+  const appIssues = usePageIssueState('app-controller');
   const persistedNavigation = useMemo(readPersistedNavigation, []);
   const initialState = useMemo(
     () => createInitialState(props.route, persistedNavigation),
@@ -368,13 +371,6 @@ export function AppController(props: AppControllerProps) {
   const [pendingComposerFocusRequestId, setPendingComposerFocusRequestId] = useState<number>();
   const [homeSkillPromptHint, setHomeSkillPromptHint] = useState<string>();
   const [creatorSkillLaunch, setCreatorSkillLaunch] = useState<CreatorSkillLaunch>();
-  useEffect(() => {
-    if (threadConfigUpdateError === undefined) return;
-    const timeoutId = window.setTimeout(() => {
-      setThreadConfigUpdateError(undefined);
-    }, 4200);
-    return () => window.clearTimeout(timeoutId);
-  }, [threadConfigUpdateError]);
   const [capabilitiesLoading, setCapabilitiesLoading] = useState(false);
   const [capabilitiesLoadError, setCapabilitiesLoadError] = useState<string>();
   const [pendingRunStartsById, setPendingRunStartsById] = useState<PendingRunStartsById>({});
@@ -392,6 +388,38 @@ export function AppController(props: AppControllerProps) {
   const [immersiveWorkspace, setImmersiveWorkspace] = useState(false);
   const [defaultPermission, setDefaultPermission] = useState(readDefaultPermissionPreference);
   const [defaultPermissionSyncError, setDefaultPermissionSyncError] = useState<string>();
+  const appIssueSignalsRef = useRef<Record<string, string | undefined>>({});
+  useEffect(() => {
+    const signals = [
+      ['app.load-files', treeLoadError, '无法加载文件列表，请重试。'],
+      ['app.project-operation', projectLoadError, '项目操作未完成，请查看诊断后重试。'],
+      ['app.thread-operation', threadLoadError, '会话操作未完成，请查看诊断后重试。'],
+      ['app.load-thread-history', threadHistoryLoadError, '无法加载会话历史，请重试。'],
+      ['app.update-thread-config', threadConfigUpdateError, '会话配置未更新，请重试。'],
+      ['app.load-skill-market', skillMarketLoadError, '无法加载技能市场，请重试。'],
+      ['app.mutate-skill-market', skillMarketOperation?.error, '技能安装或更新未完成，请重试。'],
+      ['app.use-skill', skillMarketUseError?.error, '无法使用该技能，请重试。'],
+      ['app.sync-default-permission', defaultPermissionSyncError, '默认权限同步失败，重新打开相关会话后会重试。']
+    ] as const;
+    for (const [operationId, error, fallback] of signals) {
+      if (appIssueSignalsRef.current[operationId] === error) continue;
+      appIssueSignalsRef.current[operationId] = error;
+      if (error === undefined) appIssues.resolveOperation(operationId);
+      else appIssues.captureOperationFailure(operationId, new Error(error), fallback);
+    }
+  }, [
+    appIssues.captureOperationFailure,
+    appIssues.resolveOperation,
+    defaultPermissionSyncError,
+    projectLoadError,
+    skillMarketLoadError,
+    skillMarketOperation?.error,
+    skillMarketUseError?.error,
+    threadConfigUpdateError,
+    threadHistoryLoadError,
+    threadLoadError,
+    treeLoadError
+  ]);
   const [colorMode, setColorMode] = useState(readColorModePreference);
   const [accentColor, setAccentColor] = useState(readAccentColorPreference);
   const [customAccentColor, setCustomAccentColor] = useState(
@@ -2186,10 +2214,16 @@ export function AppController(props: AppControllerProps) {
         ? await approvalService.approve(id)
         : await approvalService.reject(id);
       replaceApproval(response);
+      appIssues.resolveOperation(`app.approval:${id}`);
     } catch (error) {
+      appIssues.captureOperationFailure(
+        `app.approval:${id}`,
+        error,
+        '审批操作未完成，请查看诊断后重试。'
+      );
       setApprovalErrors(previous => ({
         ...previous,
-        [id]: error instanceof Error ? error.message : '审批操作失败'
+        [id]: '审批操作未完成，请重试。'
       }));
     } finally {
       setResolvingApprovalIds(previous => {
@@ -2285,7 +2319,12 @@ export function AppController(props: AppControllerProps) {
     applyColorMode(mode);
     writeColorModePreference(mode);
     void openCreatorSettingsService?.updateUiSettings({ colorMode: mode })
-      .catch(() => undefined);
+      .then(() => appIssues.resolveOperation('app.save-color-mode'))
+      .catch(cause => appIssues.captureOperationFailure(
+        'app.save-color-mode',
+        cause,
+        '外观设置未同步到本地 Runtime，请重试。'
+      ));
   }
 
   function handleAccentColorChange(color: AccentColor) {
@@ -2293,7 +2332,12 @@ export function AppController(props: AppControllerProps) {
     applyAccentColor(color, customAccentColor);
     writeAccentColorPreference(color);
     void openCreatorSettingsService?.updateUiSettings({ accentColor: color })
-      .catch(() => undefined);
+      .then(() => appIssues.resolveOperation('app.save-accent-color'))
+      .catch(cause => appIssues.captureOperationFailure(
+        'app.save-accent-color',
+        cause,
+        '强调色设置未同步到本地 Runtime，请重试。'
+      ));
   }
 
   function handleCustomAccentColorChange(color: string) {
@@ -2307,7 +2351,12 @@ export function AppController(props: AppControllerProps) {
     void openCreatorSettingsService?.updateUiSettings({
       accentColor: 'custom',
       customAccentColor: normalized
-    }).catch(() => undefined);
+    }).then(() => appIssues.resolveOperation('app.save-accent-color'))
+      .catch(cause => appIssues.captureOperationFailure(
+        'app.save-accent-color',
+        cause,
+        '强调色设置未同步到本地 Runtime，请重试。'
+      ));
   }
 
   function handleDefaultPermissionChange(permission: DefaultPermissionPreference) {
@@ -4170,7 +4219,7 @@ export function AppController(props: AppControllerProps) {
   const composerDisabledReason = connectionState.status !== 'connected'
     ? t('conversation.connectingRuntime')
     : projectLoadError !== undefined
-      ? projectLoadError
+      ? t('conversation.checkingTask')
       : conversationNeedsProject && currentProject === undefined
         ? t('conversation.addProjectFirst')
         : currentRunCanceling
@@ -4375,15 +4424,6 @@ export function AppController(props: AppControllerProps) {
       ) : null}
       {showCreatorHome ? null : (
         <div className="conversation-body">
-          {treeLoadError ? <p className="inline-error">{treeLoadError}</p> : null}
-          {projectLoadError ? <p className="inline-error">{projectLoadError}</p> : null}
-          {threadLoadError ? <p className="inline-error">{threadLoadError}</p> : null}
-          {threadHistoryLoadError ? <p className="inline-error">{threadHistoryLoadError}</p> : null}
-          {threadConfigUpdateError ? (
-            <div className="conversation-toast" role="alert">
-              {threadConfigUpdateError}
-            </div>
-          ) : null}
           {showConversationEmptyState ? null : (
             <Timeline
               ref={timelineRef}
@@ -4535,6 +4575,7 @@ export function AppController(props: AppControllerProps) {
       creatorService={creatorService}
       runtimeDependencies={runtimeDependencies}
       creatorServicesService={creatorServicesService}
+      videoMetadataService={videoMetadataService}
       workspace={props.route.view === 'workbench' ? props.route.tool : undefined}
       jobId={props.route.view === 'workbench' ? props.route.jobId : undefined}
       onJobCreated={rememberCreatorJob}
@@ -4646,8 +4687,18 @@ export function AppController(props: AppControllerProps) {
         const previous = desktopCloseBehavior;
         setDesktopCloseBehavior(behavior);
         void update({ closeBehavior: behavior })
-          .then(preferences => setDesktopCloseBehavior(preferences.closeBehavior))
-          .catch(() => setDesktopCloseBehavior(previous));
+          .then(preferences => {
+            setDesktopCloseBehavior(preferences.closeBehavior);
+            appIssues.resolveOperation('app.save-desktop-close-behavior');
+          })
+          .catch(cause => {
+            setDesktopCloseBehavior(previous);
+            appIssues.captureOperationFailure(
+              'app.save-desktop-close-behavior',
+              cause,
+              '窗口关闭行为未保存，请重试。'
+            );
+          });
       }}
       desktopTelemetryEnabled={desktopTelemetryEnabled}
       onDesktopTelemetryEnabledChange={(enabled: boolean) => {
@@ -4656,8 +4707,18 @@ export function AppController(props: AppControllerProps) {
         const previous = desktopTelemetryEnabled;
         setDesktopTelemetryEnabled(enabled);
         void update({ telemetryEnabled: enabled })
-          .then(preferences => setDesktopTelemetryEnabled(preferences.telemetryEnabled))
-          .catch(() => setDesktopTelemetryEnabled(previous));
+          .then(preferences => {
+            setDesktopTelemetryEnabled(preferences.telemetryEnabled);
+            appIssues.resolveOperation('app.save-desktop-telemetry');
+          })
+          .catch(cause => {
+            setDesktopTelemetryEnabled(previous);
+            appIssues.captureOperationFailure(
+              'app.save-desktop-telemetry',
+              cause,
+              '诊断数据偏好未保存，请重试。'
+            );
+          });
       }}
       profileService={profileService}
       profileData={codexProfiles}
@@ -4701,9 +4762,7 @@ export function AppController(props: AppControllerProps) {
       skills={codexSkills}
       installRecords={skillMarketInstallRecords}
       loading={skillMarketLoading}
-      loadError={skillMarketLoadError}
-      operation={skillMarketOperation}
-      useError={skillMarketUseError}
+      operation={skillMarketOperation?.error === undefined ? skillMarketOperation : undefined}
       projects={projects}
       currentProjectId={currentProject?.id ?? ''}
       onInstall={skillId => void installMarketSkill(skillId)}
@@ -4800,9 +4859,16 @@ export function AppController(props: AppControllerProps) {
         useIntegratedConversationTitleBar ? conversationHeader : undefined
       }
       main={(
-        <Suspense fallback={<PageLoading />}>
-          {main}
-        </Suspense>
+        <>
+          <IssueList
+            issues={appIssues.issues}
+            onDismiss={appIssues.dismissIssue}
+            compact
+          />
+          <Suspense fallback={<PageLoading />}>
+            {main}
+          </Suspense>
+        </>
       )}
       detail={detailPanel}
       detailOpen={detailPanel !== null && state.activeView === 'conversation'}

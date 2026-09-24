@@ -39,7 +39,11 @@ import type { CreatorServicesSettingsService } from '../../services/creator-serv
 import type { CreatorWebService } from '../../services/creator-service.js';
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import CreatorToolShell from './CreatorToolShell.js';
-import { useCreatorSession } from './creator-session-store.js';
+import {
+  createCreatorArtifactObjectUrl,
+  useCreatorSession,
+  type CreatorSessionContextValue
+} from './creator-session-store.js';
 
 type ScriptManifest = {
   contract: 'stickman-narration-script-v2';
@@ -256,6 +260,7 @@ export default function StickmanVideoWorkspace(props: {
             ? []
             : [service.openVisualAssetPreview(asset.id, asset.revision)
                 .then(async preview => {
+                  if (!preview.ok) throw new Error(`Visual asset preview request failed: ${preview.status}`);
                   const url = URL.createObjectURL(await preview.blob());
                   objectUrls.push(url);
                   return [assetRefKey(asset), url] as const;
@@ -265,8 +270,16 @@ export default function StickmanVideoWorkspace(props: {
         setVisualAssetPreviewUrls(Object.fromEntries(previews));
         setVisualAssetCatalogStatus('ready');
       })
-      .catch(() => {
-        if (active) setVisualAssetCatalogStatus('error');
+      .catch(cause => {
+        if (active) {
+          session.captureCreatorFailure(
+            'stickman.load-visual-assets',
+            cause,
+            l('无法读取角色和风格素材，请稍后重试。', 'Could not load character and style assets. Try again later.'),
+            'client'
+          );
+          setVisualAssetCatalogStatus('error');
+        }
       });
     return () => {
       active = false;
@@ -315,8 +328,14 @@ export default function StickmanVideoWorkspace(props: {
           voiceName: configured ? providerConfig?.defaultVoiceId ?? '' : ''
         });
       })
-      .catch(() => {
+      .catch(cause => {
         if (active) {
+          session.captureCreatorFailure(
+            'stickman.load-service-config',
+            cause,
+            l('无法读取配音和图像服务配置，请稍后重试。', 'Could not load voice and image settings. Try again later.'),
+            'client'
+          );
           setTtsConfigurationStatus('unavailable');
           setImageConfigurationStatus('unavailable');
         }
@@ -410,7 +429,7 @@ export default function StickmanVideoWorkspace(props: {
     try {
       await session.applyAction({ actor: 'user', action, input: input as never });
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : String(error));
+      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
     }
   }
 
@@ -510,7 +529,7 @@ export default function StickmanVideoWorkspace(props: {
       });
       setActiveStep(2);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : String(error));
+      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
     } finally {
       setScriptSubmitting(false);
     }
@@ -529,7 +548,7 @@ export default function StickmanVideoWorkspace(props: {
       });
       setActiveStep(3);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : String(error));
+      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
     } finally {
       setTransitionPending(undefined);
     }
@@ -548,7 +567,7 @@ export default function StickmanVideoWorkspace(props: {
       });
       setActiveStep(readCreatorResultSnapshots(nextJob.state.resultSnapshots).length > 0 ? 5 : 4);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : String(error));
+      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
     } finally {
       setTransitionPending(undefined);
     }
@@ -604,7 +623,7 @@ export default function StickmanVideoWorkspace(props: {
         delete next[shotId];
         return next;
       });
-      setNotice(error instanceof Error ? error.message : String(error));
+      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
     } finally {
       setSavingShotId(undefined);
     }
@@ -636,7 +655,7 @@ export default function StickmanVideoWorkspace(props: {
         delete next[shotId];
         return next;
       });
-      setNotice(error instanceof Error ? error.message : String(error));
+      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
     }
   }
 
@@ -654,7 +673,7 @@ export default function StickmanVideoWorkspace(props: {
       });
     } catch (error) {
       setBatchGenerationPending(false);
-      setNotice(error instanceof Error ? error.message : String(error));
+      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
     }
   }
 
@@ -664,7 +683,7 @@ export default function StickmanVideoWorkspace(props: {
       if (kind === 'canceling') await session.cancelJob();
       else await session.resumeJob();
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : String(error));
+      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
     } finally {
       setControlPending(undefined);
     }
@@ -744,7 +763,9 @@ export default function StickmanVideoWorkspace(props: {
 
           {notice || session.error ? (
             <div className="creator-tool-notice" role="alert">
-              <span>{notice || session.error?.message}</span>
+              <span>{notice || (session.error
+                ? l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.')
+                : '')}</span>
               <button type="button" onClick={() => { setNotice(''); session.clearError(); }} aria-label={l('关闭提示', 'Dismiss')}><X size={15} /></button>
             </div>
           ) : null}
@@ -871,8 +892,8 @@ export default function StickmanVideoWorkspace(props: {
                 manifest={deliveryManifest}
                 l={l}
                 onVersionChange={() => setActiveStep(5)}
-                onOpen={artifact => void openArtifact(session.openArtifact, artifact)}
-                onDownload={artifact => void downloadArtifact(session.openArtifact, artifact)}
+                onOpen={artifact => void openArtifact(session, artifact).catch(() => undefined)}
+                onDownload={artifact => void downloadArtifact(session, artifact).catch(() => undefined)}
                 onBack={() => setActiveStep(4)}
               />
             ) : null}
@@ -2263,9 +2284,13 @@ function useArtifactUrl(artifactId?: string): string {
     let canceled = false;
     setUrl('');
     if (artifactId === undefined) return () => { canceled = true; };
-    void session.openArtifact(artifactId).then(async response => {
-      if (!response.ok) return;
-      objectUrl = URL.createObjectURL(await response.blob());
+    void createCreatorArtifactObjectUrl(
+      session,
+      artifactId,
+      'stickman.load-artifact-preview',
+      '创作产物预览加载失败，请稍后重试。'
+    ).then(url => {
+      objectUrl = url;
       if (!canceled) setUrl(objectUrl);
     }).catch(() => undefined);
     return () => { canceled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
@@ -2410,18 +2435,24 @@ function artifactFileDetail(
   return [duration, dimensions].filter(Boolean).join(' · ') || l('文件已就绪', 'File ready');
 }
 
-async function openArtifact(open: (id: string) => Promise<Response>, artifact: CreatorArtifact) {
-  const response = await open(artifact.id);
-  if (!response.ok) return;
-  const url = URL.createObjectURL(await response.blob());
+async function openArtifact(session: CreatorSessionContextValue, artifact: CreatorArtifact) {
+  const url = await createCreatorArtifactObjectUrl(
+    session,
+    artifact.id,
+    'stickman.open-artifact',
+    '无法打开创作产物，请稍后重试。'
+  );
   window.open(url, '_blank', 'noopener,noreferrer');
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-async function downloadArtifact(open: (id: string) => Promise<Response>, artifact: CreatorArtifact) {
-  const response = await open(artifact.id);
-  if (!response.ok) return;
-  const url = URL.createObjectURL(await response.blob());
+async function downloadArtifact(session: CreatorSessionContextValue, artifact: CreatorArtifact) {
+  const url = await createCreatorArtifactObjectUrl(
+    session,
+    artifact.id,
+    'stickman.download-artifact',
+    '创作产物下载失败，请稍后重试。'
+  );
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = typeof artifact.metadata.fileName === 'string' ? artifact.metadata.fileName : artifact.kind;

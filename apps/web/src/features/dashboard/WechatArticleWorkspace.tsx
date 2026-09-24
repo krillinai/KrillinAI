@@ -49,7 +49,11 @@ import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
-import { useOptionalCreatorSession } from './creator-session-store.js';
+import {
+  createCreatorArtifactObjectUrl,
+  readCreatorArtifactText,
+  useOptionalCreatorSession
+} from './creator-session-store.js';
 
 type ArticleStep = 0 | 1 | 2 | 3 | 4 | 5;
 type ArticleWorkspacePhase = 'compose' | 'result';
@@ -395,9 +399,12 @@ export default function WechatArticleWorkspace(props: {
     let active = true;
     const objectUrls: string[] = [];
     void Promise.all(articleImageArtifacts.map(async artifact => {
-      const response = await session.openArtifact(artifact.id);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const url = URL.createObjectURL(await response.blob());
+      const url = await createCreatorArtifactObjectUrl(
+        session,
+        artifact.id,
+        'wechat-article.load-image-preview',
+        l('文章配图加载失败，请稍后重试。', 'Article images failed to load. Try again later.')
+      );
       objectUrls.push(url);
       return [artifact.id, url] as const;
     })).then(entries => {
@@ -409,7 +416,7 @@ export default function WechatArticleWorkspace(props: {
       active = false;
       objectUrls.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [articleImageArtifacts, session?.openArtifact]);
+  }, [articleImageArtifacts, l, session?.captureCreatorFailure, session?.openArtifact]);
 
   useEffect(() => {
     if (!presetValidationError || !session?.error?.message) return;
@@ -509,19 +516,22 @@ export default function WechatArticleWorkspace(props: {
       return;
     }
     let active = true;
-    void session.openArtifact(articleArtifact.id)
-      .then(async response => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const markdown = await response.text();
+    void readCreatorArtifactText(
+      session,
+      articleArtifact.id,
+      'wechat-article.load-result',
+      l('文章内容加载失败，请在 Agent 区域查看诊断。', 'The article failed to load. Review the diagnosis in the Agent panel.')
+    )
+      .then(markdown => {
         if (!active) return;
         setArticleMarkdown(markdown.trim());
         advanceTo(4);
       })
-      .catch(cause => {
-        if (active) setError(cause instanceof Error ? cause.message : String(cause));
+      .catch(() => {
+        if (active) setError(l('文章内容加载失败，请在 Agent 区域查看诊断。', 'The article failed to load. Review the diagnosis in the Agent panel.'));
       });
     return () => { active = false; };
-  }, [articleArtifact?.id]);
+  }, [articleArtifact?.id, l, session?.captureCreatorFailure, session?.openArtifact]);
 
   useEffect(() => {
     if (!articleImageSetKey || !articleMarkdown.trim() || placedArticleImageSetRef.current === articleImageSetKey) return;
@@ -801,8 +811,8 @@ export default function WechatArticleWorkspace(props: {
       await session.flush();
       await session.applyAction({ actor: 'user', action: 'run-stage', input: { stageId } });
       return true;
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+    } catch {
+      setError(l('生成操作失败，请在 Agent 区域查看诊断。', 'Generation failed. Review the diagnosis in the Agent panel.'));
       return false;
     }
   }
@@ -977,8 +987,22 @@ export default function WechatArticleWorkspace(props: {
       } else if (result === 'plain') {
         showToast(l('当前浏览器不支持复制图文，已复制 Markdown', 'Rich copy is unavailable; Markdown was copied instead.'), 'success');
       } else {
+        session?.captureCreatorFailure(
+          'wechat-article.copy-result',
+          new Error('clipboard_copy_failed'),
+          l('复制失败，请手动选择正文。', 'Copy failed. Select the article manually.'),
+          'client'
+        );
         showToast(l('复制失败，请手动选择正文', 'Copy failed. Select the article manually.'), 'error');
       }
+    } catch (cause) {
+      session?.captureCreatorFailure(
+        'wechat-article.copy-result',
+        cause,
+        l('复制失败，请手动选择正文。', 'Copy failed. Select the article manually.'),
+        'client'
+      );
+      showToast(l('复制失败，请手动选择正文', 'Copy failed. Select the article manually.'), 'error');
     } finally {
       setCopyingArticle(false);
     }
@@ -1001,9 +1025,12 @@ export default function WechatArticleWorkspace(props: {
     if (session === null || typeof URL.createObjectURL !== 'function') return;
     setError('');
     try {
-      const response = await session.openArtifact(artifact.id);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const url = URL.createObjectURL(await response.blob());
+      const url = await createCreatorArtifactObjectUrl(
+        session,
+        artifact.id,
+        'wechat-article.download-document',
+        l('文档下载失败，请在 Agent 区域查看诊断。', 'The document download failed. Review the diagnosis in the Agent panel.')
+      );
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download = readString(artifact.metadata.fileName)
@@ -1011,8 +1038,8 @@ export default function WechatArticleWorkspace(props: {
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
       showToast(l('文档已开始下载', 'The document download has started.'), 'success');
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+    } catch {
+      setError(l('文档下载失败，请在 Agent 区域查看诊断。', 'The document download failed. Review the diagnosis in the Agent panel.'));
     }
   }
 
@@ -1022,17 +1049,20 @@ export default function WechatArticleWorkspace(props: {
       const existingUrl = articleImageUrls[artifact.id];
       let temporaryUrl = '';
       if (!existingUrl) {
-        const response = await session.openArtifact(artifact.id);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        temporaryUrl = URL.createObjectURL(await response.blob());
+        temporaryUrl = await createCreatorArtifactObjectUrl(
+          session,
+          artifact.id,
+          'wechat-article.download-image',
+          l('配图下载失败，请在 Agent 区域查看诊断。', 'The image download failed. Review the diagnosis in the Agent panel.')
+        );
       }
       const anchor = document.createElement('a');
       anchor.href = existingUrl || temporaryUrl;
       anchor.download = readString(artifact.metadata.fileName) || `article-image-${readNumber(artifact.metadata.imageIndex) || 1}.png`;
       anchor.click();
       if (temporaryUrl) window.setTimeout(() => URL.revokeObjectURL(temporaryUrl), 0);
-    } catch (cause) {
-      showToast(cause instanceof Error ? cause.message : String(cause), 'error');
+    } catch {
+      showToast(l('配图下载失败，请在 Agent 区域查看诊断。', 'The image download failed. Review the diagnosis in the Agent panel.'), 'error');
     }
   }
 
@@ -1048,14 +1078,14 @@ export default function WechatArticleWorkspace(props: {
   async function cancelTask() {
     if (session === null || taskControlPending !== undefined) return;
     setTaskControlPending('canceling');
-    try { await session.cancelJob(); } catch (cause) { setError(String(cause)); }
+    try { await session.cancelJob(); } catch { setError(l('停止任务失败，请在 Agent 区域查看诊断。', 'Could not stop the task. Review the diagnosis in the Agent panel.')); }
     finally { setTaskControlPending(undefined); }
   }
 
   async function resumeTask() {
     if (session === null || taskControlPending !== undefined) return;
     setTaskControlPending('resuming');
-    try { await session.resumeJob(); } catch (cause) { setError(String(cause)); }
+    try { await session.resumeJob(); } catch { setError(l('继续任务失败，请在 Agent 区域查看诊断。', 'Could not resume the task. Review the diagnosis in the Agent panel.')); }
     finally { setTaskControlPending(undefined); }
   }
 
@@ -2036,7 +2066,7 @@ function formatDocumentUploadError(
   if (code === 'creator_document_type_unsupported') {
     return l('仅支持 PDF、Markdown、TXT 和 HTML 文件', 'Only PDF, Markdown, TXT, and HTML files are supported.');
   }
-  return message || l('文件上传失败，请重试', 'File upload failed. Try again.');
+  return l('文件上传失败，请在 Agent 区域查看诊断后重试', 'File upload failed. Review the diagnosis in the Agent panel and retry.');
 }
 
 function formatArticleImageUploadError(
@@ -2053,7 +2083,7 @@ function formatArticleImageUploadError(
   if (code === 'creator_reference_invalid' || code === 'creator_reference_type_unsupported') {
     return l('仅支持 PNG、JPG 和 WebP 图片', 'Only PNG, JPG, and WebP images are supported.');
   }
-  return message || l('图片上传失败，请重试', 'Image upload failed. Try again.');
+  return l('图片上传失败，请在 Agent 区域查看诊断后重试', 'Image upload failed. Review the diagnosis in the Agent panel and retry.');
 }
 
 function formatArticleStageError(
@@ -2081,7 +2111,7 @@ function formatArticleStageError(
   if (code === 'image_generation_failed') {
     return l('文章配图生成失败，请检查图像服务后重试', 'Article image generation failed. Check the image service and try again.');
   }
-  return message || l('生成失败，请检查写作模型配置后重试', 'Generation failed. Check the text model settings and try again.');
+  return l('生成失败，请在 Agent 区域查看诊断后重试', 'Generation failed. Review the diagnosis in the Agent panel and retry.');
 }
 
 function formatArticleSessionError(
@@ -2096,7 +2126,7 @@ function formatArticleSessionError(
   if (code === 'creator_revision_conflict') {
     return l('文章已在其他位置更新，请刷新后继续', 'The article changed elsewhere. Refresh before continuing.');
   }
-  return message;
+  return l('文章操作失败，请在 Agent 区域查看诊断后重试', 'The article operation failed. Review the diagnosis in the Agent panel and retry.');
 }
 
 function isPresetValidationError(message: string): boolean {

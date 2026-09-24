@@ -119,16 +119,52 @@ describe('dashboard CSS contracts', () => {
 
   it('keeps subtitle style previews at their output aspect ratio instead of stretching with the form', () => {
     const layout = cssBlocks('.video-translation-subtitle-style-layout');
+    const outlineFields = cssBlocks('.video-translation-outline-fields');
+    const colorOptions = cssBlocks('.video-translation-color-options');
     const preview = cssBlocks('.video-translation-subtitle-preview');
     const player = cssBlocks('.video-translation-subtitle-preview > div');
-    const verticalPreview = cssBlocks('.video-translation-subtitle-preview[data-ratio="9:16"] > div');
+    const overlay = cssBlocks('.video-translation-subtitle-preview > div::after');
+    const media = cssBlocks('.video-translation-subtitle-preview-media');
+    const cues = cssBlocks('.video-translation-subtitle-preview-cues');
+    const verticalPreview = cssBlocks('.video-translation-subtitle-preview[data-orientation="portrait"] > div');
 
     expect(layout[0]).toContain('align-items: start;');
+    expect(layout[0]).toContain('minmax(350px, 1.2fr) minmax(260px, 1fr)');
+    expect(outlineFields[0]).toContain('grid-template-columns: minmax(0, 1fr) 88px;');
+    expect(colorOptions[0]).toContain('flex-wrap: wrap;');
+    expect(dashboardCss).toMatch(/@container video-translation-workspace \(max-width: 760px\) \{\s*\.video-translation-subtitle-style-layout/);
     expect(preview[0]).toContain('grid-template-rows: auto auto;');
     expect(preview[0]).toContain('align-content: start;');
-    expect(player[0]).toContain('aspect-ratio: 16 / 9;');
+    expect(player[0]).toContain('aspect-ratio: var(--subtitle-preview-aspect-ratio, 16 / 9);');
+    expect(overlay[0]).toContain('background: rgb(0 0 0 / 55%);');
+    expect(overlay[0]).toContain('z-index: 1;');
+    expect(media[0]).toContain('object-fit: cover;');
+    expect(cues[0]).toContain('position: absolute;');
+    expect(cues[0]).toContain('z-index: 2;');
     expect(verticalPreview).toHaveLength(1);
-    expect(verticalPreview[0]).toContain('aspect-ratio: 9 / 16;');
+    expect(verticalPreview[0]).toContain('width: min(236px, 100%);');
+  });
+
+  it('widens the translation settings consistently and keeps smaller color swatches', () => {
+    for (const selector of [
+      '.video-translation-source-step',
+      '.video-translation-configure-top',
+      '.video-translation-wizard-main .video-translation-wizard-body',
+      '.video-translation-wizard-main .video-translation-wizard-actions',
+      '.video-translation-run-notice'
+    ]) {
+      expect(cssBlocks(selector)[0]).toContain('width: min(960px, 100%);');
+    }
+    expect(cssBlocks('.video-translation-color-options > button')[0]).toContain('width: 26px;');
+    expect(cssBlocks('.video-translation-custom-color input')[0]).toContain('width: 26px;');
+  });
+
+  it('matches video download settings width to translation and centers labeled platforms', () => {
+    expect(cssBlocks('.video-download-workspace-page .creator-tool-stack')[0]).toContain('width: min(960px, 100%);');
+    expect(cssBlocks('.video-download-platforms')[0]).toContain('justify-content: center;');
+    expect(cssBlocks('.video-download-platforms')[0]).toContain('flex-wrap: wrap;');
+    expect(cssBlocks('.video-download-platforms img')[0]).toContain('width: 32px;');
+    expect(cssBlocks('.video-download-platforms li')[0]).toContain('text-align: center;');
   });
 
   it('fits subtitle previews to the available pane while keeping cues in one scrollable list', () => {

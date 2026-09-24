@@ -23,7 +23,10 @@ import type { VideoMetadataService } from '../../services/video-metadata-service
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
-import { useOptionalCreatorSession } from './creator-session-store.js';
+import {
+  createCreatorArtifactObjectUrl,
+  useOptionalCreatorSession
+} from './creator-session-store.js';
 import VideoSourceInput from './VideoSourceInput.js';
 
 type AutoClipStep = 0 | 1 | 2;
@@ -212,9 +215,12 @@ export default function AutoClipWorkspace(props: {
     let active = true;
     const objectUrls: string[] = [];
     void Promise.all(renderedArtifacts.map(async artifact => {
-      const response = await session.openArtifact(artifact.id);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const objectUrl = URL.createObjectURL(await response.blob());
+      const objectUrl = await createCreatorArtifactObjectUrl(
+        session,
+        artifact.id,
+        'auto-clip.load-result-preview',
+        l('视频切片预览加载失败，请稍后重试。', 'Clip previews failed to load. Try again later.')
+      );
       objectUrls.push(objectUrl);
       return [artifact.id, objectUrl] as const;
     })).then(entries => {
@@ -226,7 +232,7 @@ export default function AutoClipWorkspace(props: {
       active = false;
       objectUrls.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [renderedArtifacts, l, session?.openArtifact]);
+  }, [renderedArtifacts, l, session?.captureCreatorFailure, session?.openArtifact]);
 
   useEffect(() => {
     if (latestRenderStage?.status === 'succeeded' && renderedArtifacts.length > 0) {
@@ -1312,14 +1318,7 @@ function formatClipError(
   if (code === 'unsupported_source') return l('目前仅支持公开视频链接或本地视频文件', 'Use a supported public video URL or a local video file');
   if (code === 'creator_clip_candidates_missing') return l('没有可生成的视频片段，请重新分析', 'No clips are available. Run the analysis again.');
   if (code === 'creator_stage_canceled') return l('视频切片任务已取消', 'The video clip task was canceled');
-  const message = typeof candidate.message === 'string'
-    ? candidate.message
-    : typeof candidate.errorMessage === 'string'
-      ? candidate.errorMessage
-      : error instanceof Error
-        ? error.message
-        : '';
-  return message || l('视频切片失败，请稍后重试', 'Video clipping failed. Try again later.');
+  return l('视频切片失败，请在 Agent 区域查看诊断后重试', 'Video clipping failed. Review the diagnosis in the Agent panel and retry.');
 }
 
 function isTechnicalClipError(error: unknown): boolean {

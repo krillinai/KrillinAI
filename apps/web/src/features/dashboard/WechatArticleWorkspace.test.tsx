@@ -709,12 +709,14 @@ describe('WechatArticleWorkspace', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(350);
     });
-    expect(screen.getByRole('alert')).toHaveTextContent('文章模板状态已更新，请刷新页面后重新选择');
-    expect(screen.getByRole('alert')).not.toHaveTextContent('invalid_enum_value');
+    expect(screen.getByText('文章模板状态已更新，请刷新页面后重新选择')).toBeInTheDocument();
+    expect(screen.queryByText(/invalid_enum_value/)).not.toBeInTheDocument();
+    expect(screen.getByText(/诊断编号：OC-/)).toBeInTheDocument();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(4_000);
     });
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('文章模板状态已更新，请刷新页面后重新选择')).not.toBeInTheDocument();
+    expect(screen.getByText(/诊断编号：OC-/)).toBeInTheDocument();
   });
 
   it('opens jobs that use the previous community template id with the renamed template selected', () => {

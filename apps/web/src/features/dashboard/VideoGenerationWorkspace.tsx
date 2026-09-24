@@ -30,7 +30,11 @@ import type { CreatorServicesSettingsService } from '../../services/creator-serv
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
-import { useOptionalCreatorSession } from './creator-session-store.js';
+import {
+  captureCreatorClientFailure,
+  createCreatorArtifactObjectUrl,
+  useOptionalCreatorSession
+} from './creator-session-store.js';
 
 type VideoStep = 0 | 1 | 2;
 type VideoResultVersion = {
@@ -212,7 +216,15 @@ export default function VideoGenerationWorkspace(props: {
           duration: nextDuration
         }, { persist: false });
       })
-      .catch(() => undefined);
+      .catch(cause => {
+        if (!active) return;
+        session?.captureCreatorFailure(
+          'video-generation.load-service-config',
+          cause,
+          l('无法读取视频生成服务配置，请稍后重试。', 'Could not load video generation settings. Try again later.'),
+          'client'
+        );
+      });
     return () => {
       active = false;
     };
@@ -220,9 +232,17 @@ export default function VideoGenerationWorkspace(props: {
 
   useEffect(() => {
     if (referenceImageFile !== undefined) {
-      const url = URL.createObjectURL(referenceImageFile);
-      setReferenceImageUrl(url);
-      return () => URL.revokeObjectURL(url);
+      let objectUrl = '';
+      void captureCreatorClientFailure(
+        session,
+        'video-generation.load-local-reference-preview',
+        l('参考图预览加载失败，请重新选择图片。', 'The reference preview failed to load. Select the image again.'),
+        () => URL.createObjectURL(referenceImageFile)
+      ).then(url => {
+        objectUrl = url;
+        setReferenceImageUrl(url);
+      }).catch(() => setReferenceImageUrl(''));
+      return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
     }
     if (activeReferenceArtifact === undefined || session === null) {
       setReferenceImageUrl('');
@@ -230,10 +250,14 @@ export default function VideoGenerationWorkspace(props: {
     }
     let active = true;
     let objectUrl = '';
-    void session.openArtifact(activeReferenceArtifact.id)
-      .then(async response => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        objectUrl = URL.createObjectURL(await response.blob());
+    void createCreatorArtifactObjectUrl(
+      session,
+      activeReferenceArtifact.id,
+      'video-generation.load-reference-preview',
+      l('参考图预览加载失败，请稍后重试。', 'The reference preview failed to load. Try again later.')
+    )
+      .then(url => {
+        objectUrl = url;
         if (active) setReferenceImageUrl(objectUrl);
       })
       .catch(() => {
@@ -243,7 +267,7 @@ export default function VideoGenerationWorkspace(props: {
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [activeReferenceArtifact?.id, referenceImageFile, session?.openArtifact]);
+  }, [activeReferenceArtifact?.id, l, referenceImageFile, session?.captureCreatorFailure, session?.openArtifact]);
 
   useEffect(() => {
     if (selectedResult === undefined || session === null) {
@@ -255,17 +279,21 @@ export default function VideoGenerationWorkspace(props: {
     let objectUrl = '';
     setVideoUrl('');
     setPreviewError('');
-    void session.openArtifact(selectedResult.artifact.id)
-      .then(async response => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        objectUrl = URL.createObjectURL(await response.blob());
+    void createCreatorArtifactObjectUrl(
+      session,
+      selectedResult.artifact.id,
+      'video-generation.load-result-preview',
+      l('视频预览加载失败，可以稍后重试或直接下载。', 'The video preview failed to load. Retry later or download the file.')
+    )
+      .then(url => {
+        objectUrl = url;
         if (active) setVideoUrl(objectUrl);
       })
       .catch(cause => {
         if (active) {
           setPreviewError(l(
             '视频预览加载失败，可以稍后重试或直接下载',
-            `The video preview failed to load: ${cause instanceof Error ? cause.message : String(cause)}`
+            'The video preview failed to load. Retry later or download the file.'
           ));
         }
       });
@@ -273,7 +301,7 @@ export default function VideoGenerationWorkspace(props: {
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [l, selectedResult?.artifact.id, session?.openArtifact]);
+  }, [l, selectedResult?.artifact.id, session?.captureCreatorFailure, session?.openArtifact]);
 
   useEffect(() => {
     if (latestVersion !== undefined && !generating) {
@@ -419,9 +447,12 @@ export default function VideoGenerationWorkspace(props: {
     try {
       let temporaryUrl: string | undefined;
       if (!videoUrl) {
-        const response = await session.openArtifact(selectedResult.artifact.id);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        temporaryUrl = URL.createObjectURL(await response.blob());
+        temporaryUrl = await createCreatorArtifactObjectUrl(
+          session,
+          selectedResult.artifact.id,
+          'video-generation.download-result',
+          l('视频下载失败，请稍后重试。', 'The video download failed. Try again later.')
+        );
       }
       const link = document.createElement('a');
       link.href = videoUrl || temporaryUrl!;
@@ -1142,7 +1173,7 @@ function formatVideoError(
       'Video generation failed. Check the provider configuration and network, then retry.'
     );
   }
-  return message || l('视频生成失败，请稍后重试', 'Video generation failed. Try again later.');
+  return l('视频生成失败，请在 Agent 区域查看诊断后重试', 'Video generation failed. Review the diagnosis in the Agent panel and retry.');
 }
 
 function isUnavailableModelMessage(message: string): boolean {

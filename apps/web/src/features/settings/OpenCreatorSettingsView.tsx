@@ -32,6 +32,8 @@ import type { RuntimeDependenciesController } from '../../app/use-runtime-depend
 import { RuntimeComponentsSettingsView } from './RuntimeComponentsSettingsView.js';
 import './settings-management.css';
 import type { OpenCreatorSettingsService } from '../../services/opencreator-settings-service.js';
+import { IssueList } from '../issues/IssuePresenter.js';
+import { usePageIssueState } from '../issues/page-issue-state.js';
 
 const CreatorServicesSettingsView = lazy(async () => {
   const module = await import('./CreatorServicesSettingsView.js');
@@ -241,8 +243,26 @@ function GeneralSettings(props: {
   const l = useLocalizedCopy();
   const [storage, setStorage] = useState<OpenCreatorStorageSettings>();
   const [storageDraft, setStorageDraft] = useState<OpenCreatorStorageSettings>();
-  const [storageError, setStorageError] = useState<string>();
   const [storageBusy, setStorageBusy] = useState(false);
+  const [storageReloadToken, setStorageReloadToken] = useState(0);
+  const pageIssues = usePageIssueState('settings-general');
+
+  useEffect(() => {
+    if (props.defaultPermissionError === undefined) {
+      pageIssues.resolveOperation('settings.default-permission.sync');
+      return;
+    }
+    pageIssues.captureOperationFailure(
+      'settings.default-permission.sync',
+      new Error(props.defaultPermissionError),
+      l('默认权限同步失败，重新打开相关会话后会重试。', 'Default permission sync failed. Reopen the affected session to retry.')
+    );
+  }, [
+    l,
+    pageIssues.captureOperationFailure,
+    pageIssues.resolveOperation,
+    props.defaultPermissionError
+  ]);
 
   useEffect(() => {
     let canceled = false;
@@ -251,13 +271,25 @@ function GeneralSettings(props: {
         if (!canceled) {
           setStorage(response.settings);
           setStorageDraft(response.settings);
+          pageIssues.resolveOperation('settings.storage.load');
         }
       })
-      .catch(() => {
-        if (!canceled) setStorageError(l('无法读取存储位置', 'Unable to load storage locations'));
+      .catch(cause => {
+        if (!canceled) pageIssues.captureOperationFailure(
+          'settings.storage.load',
+          cause,
+          l('无法读取存储位置，请重试。', 'Unable to load storage locations. Try again.'),
+          { retryable: true }
+        );
       });
     return () => { canceled = true; };
-  }, [props.storageSettingsService]);
+  }, [
+    l,
+    pageIssues.captureOperationFailure,
+    pageIssues.resolveOperation,
+    props.storageSettingsService,
+    storageReloadToken
+  ]);
 
   async function saveStorageDirectory(
     key: keyof OpenCreatorStorageSettings,
@@ -267,16 +299,22 @@ function GeneralSettings(props: {
     const value = (selectedValue ?? storageDraft?.[key] ?? '').trim();
     if (value.length === 0 || value === storage?.[key]) return;
     setStorageBusy(true);
-    setStorageError(undefined);
+    const operationId = `settings.storage.save:${key}`;
     try {
       const response = await props.storageSettingsService.updateStorageSettings({ [key]: value });
       setStorage(response.settings);
       setStorageDraft(response.settings);
-    } catch {
-      setStorageError(l(
-        '无法保存：请输入可创建且可写的绝对目录路径',
-        'Unable to save: enter an absolute directory path that can be created and written'
-      ));
+      pageIssues.resolveOperation(operationId);
+    } catch (cause) {
+      pageIssues.captureOperationFailure(
+        operationId,
+        cause,
+        l(
+          '无法保存存储位置，请填写可创建且可写的绝对目录后重试。',
+          'Unable to save the storage location. Enter a writable absolute path and retry.'
+        ),
+        { retryable: true }
+      );
     } finally {
       setStorageBusy(false);
     }
@@ -286,12 +324,22 @@ function GeneralSettings(props: {
     if (
       props.onSelectStorageDirectory === undefined
     ) return;
-    const selected = await props.onSelectStorageDirectory(
-      key === 'defaultProjectRoot' ? 'default-project-root' : 'output-root'
-    );
-    if (selected === null) return;
-    setStorageDraft(current => current === undefined ? current : { ...current, [key]: selected });
-    await saveStorageDirectory(key, selected);
+    const operationId = `settings.storage.select:${key}`;
+    try {
+      const selected = await props.onSelectStorageDirectory(
+        key === 'defaultProjectRoot' ? 'default-project-root' : 'output-root'
+      );
+      if (selected === null) return;
+      pageIssues.resolveOperation(operationId);
+      setStorageDraft(current => current === undefined ? current : { ...current, [key]: selected });
+      await saveStorageDirectory(key, selected);
+    } catch (cause) {
+      pageIssues.captureOperationFailure(
+        operationId,
+        cause,
+        l('无法选择存储目录，请重试。', 'Unable to select a storage directory. Try again.')
+      );
+    }
   }
   const defaultPermissionOptions: Array<{
     value: DefaultPermissionPreference;
@@ -430,10 +478,15 @@ function GeneralSettings(props: {
           </label>
         )}
       </div>
-      {props.defaultPermissionError ? (
-        <p className="settings-error" role="alert">{props.defaultPermissionError}</p>
-      ) : null}
-      {storageError ? <p className="settings-error" role="alert">{storageError}</p> : null}
+      <IssueList
+        issues={pageIssues.issues}
+        actions={{ retryOperations: {
+          'settings.storage.load': () => setStorageReloadToken(value => value + 1),
+          'settings.storage.save:defaultProjectRoot': () => saveStorageDirectory('defaultProjectRoot'),
+          'settings.storage.save:outputRoot': () => saveStorageDirectory('outputRoot')
+        } }}
+        onDismiss={pageIssues.dismissIssue}
+      />
     </section>
   );
 }

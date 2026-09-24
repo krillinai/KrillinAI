@@ -1,3 +1,5 @@
+import type { OpenCreatorIssue } from '@opencreator/protocol';
+
 export type ConnectionConfig = {
   baseUrl: string;
   token?: string;
@@ -8,5 +10,6 @@ export type ApiErrorPayload = {
     code: string;
     message: string;
     details?: Record<string, unknown>;
+    issue?: OpenCreatorIssue;
   };
 };
