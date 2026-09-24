@@ -613,6 +613,9 @@ Vielen Dank an alle, die mit Code, Dokumentation, Feedback, Fehlerberichten, Ski
   <a href="https://github.com/yuanjinghh"><img src="../images/contributors/yuanjinghh.svg" width="48" height="48" alt="yuanjinghh" /></a>
   <a href="https://github.com/DLe-kb"><img src="../images/contributors/dle-kb.svg" width="48" height="48" alt="DLe-kb" /></a>
   <a href="https://github.com/liupig"><img src="../images/contributors/liupig.svg" width="48" height="48" alt="liupig" /></a>
+  <a href="https://github.com/alextavares" title="alextavares"><img src="../images/contributors/alextavares.svg" width="48" height="48" alt="alextavares" /></a>
+  <a href="https://github.com/krillinai/OpenCreator/commit/a89cff0ac5d91540f03e361af50b286ee57691ae" title="卡皮巴拉"><img src="../images/contributors/kapibala.svg" width="48" height="48" alt="卡皮巴拉" /></a>
+  <a href="https://github.com/krillinai/OpenCreator/commit/d41c22634562f70753d9e739148a3adf54befa20" title="米饭二两"><img src="../images/contributors/mifanerliang.svg" width="48" height="48" alt="米饭二两" /></a>
 </div>
 
 
