@@ -23,13 +23,13 @@ func TestExtractJSONObject(t *testing.T) {
 		},
 		{
 			name:     "object trailing comma",
-			response: "{\n\"short_sentences\":[{\n\"text\": \"the owl is a symbol\",\n}] \n}",
+			response: "{\n\"short_sentences\":[{\n\"text\": \"the owl is a symbol\",\n\t}] \n}",
 			key:      "short_sentences",
 			want:     "{\n\"short_sentences\":[{\n\"text\": \"the owl is a symbol\"}] \n}",
 		},
 		{
 			name:     "array trailing comma",
-			response: `{"short_sentences":[{"text":"a"},{"text":"b"},]}`,
+			response: `{"short_sentences":[{"text":"a"},{"text":"b"}, ]}`,
 			key:      "short_sentences",
 			want:     `{"short_sentences":[{"text":"a"},{"text":"b"}]}`,
 		},
@@ -94,10 +94,10 @@ func TestExtractJSONObject(t *testing.T) {
 			want:     `{"align":[{"origin_part":"a"}]}`,
 		},
 		{
-			name:     "escaped quote",
-			response: `{"text":"he said \"} \" and left",}`,
+			name:     "escapes in string",
+			response: `{"text":"he said \"} \" then \\",}`,
 			key:      "text",
-			want:     `{"text":"he said \"} \" and left"}`,
+			want:     `{"text":"he said \"} \" then \\"}`,
 		},
 		{
 			name:     "comma in string",
