@@ -910,15 +910,14 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
     await currentApp.page.evaluate(jobId => {
       window.location.hash = `#/workbench?tool=video-translation&jobId=${encodeURIComponent(jobId)}`;
     }, createdJob.body.job.id);
-    const issueCard = currentApp.page.locator('.creator-collaboration-issue').filter({
-      hasText: reportedIssue.body.issue.diagnosticId
-    });
+    const issueCard = currentApp.page.locator(
+      `.creator-collaboration-issue[data-issue-id="${reportedIssue.body.issue.id}"]`
+    );
     await expect(issueCard).toContainText('操作未完成，请在 Agent 区域查看诊断。');
-    await expect(issueCard).toContainText(`诊断编号：${reportedIssue.body.issue.diagnosticId}`);
-    await issueCard.getByRole('button', { name: '询问 Agent' }).click();
+    await expect(issueCard).toContainText('错误码：creator_packaged_e2e_failure');
+    await issueCard.getByRole('button', { name: '询问这个问题' }).click();
     const issueComposer = currentApp.page.getByRole('textbox', { name: '告诉 Agent 你的要求' });
-    await expect(issueComposer)
-      .toHaveValue('请说明这个问题的已确认事实、可能原因和下一步修复方法。');
+    await issueComposer.fill('请说明这个问题的已确认事实、可能原因和下一步修复方法。');
     const focusedAgentResponse = currentApp.page.waitForResponse(response => (
       response.request().method() === 'POST'
       && new URL(response.url()).pathname.endsWith(
@@ -1140,13 +1139,11 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
     await currentApp.page.evaluate(jobId => {
       window.location.hash = `#/workbench?tool=video-translation&jobId=${encodeURIComponent(jobId)}`;
     }, createdJob.body.job.id);
-    const restoredIssueCard = currentApp.page.locator('.creator-collaboration-issue').filter({
-      hasText: reportedIssue.body.issue.diagnosticId
-    });
-    await expect(restoredIssueCard).toContainText('操作未完成，请在 Agent 区域查看诊断。');
-    await expect(restoredIssueCard).toContainText(
-      `诊断编号：${reportedIssue.body.issue.diagnosticId}`
+    const restoredIssueCard = currentApp.page.locator(
+      `.creator-collaboration-issue[data-issue-id="${reportedIssue.body.issue.id}"]`
     );
+    await expect(restoredIssueCard).toContainText('操作未完成，请在 Agent 区域查看诊断。');
+    await expect(restoredIssueCard).toContainText('错误码：creator_packaged_e2e_failure');
     const restoredImageJob = await runtimeRequest<{
       job: { id: string; revision: number; state: Record<string, unknown> };
     }>(currentApp.page, 'GET', `/creator/jobs/${imageJob.body.job.id}`);
