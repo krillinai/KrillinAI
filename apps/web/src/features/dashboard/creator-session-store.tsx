@@ -29,6 +29,7 @@ import {
 import type { CreatorWebService } from '../../services/creator-service.js';
 import { createCreatorSnapshotSubscription } from '../../runtime/creator-sse.js';
 import { normalizePageIssue } from '../issues/page-issue-state.js';
+import { presentIssue } from '../issues/issue-catalog.js';
 
 export type CreatorSessionContextValue = {
   job: CreatorJob;
@@ -53,6 +54,7 @@ export type CreatorSessionContextValue = {
   ): OpenCreatorIssue;
   repairIssue(issue: OpenCreatorIssue): Promise<void>;
   focusIssue(issue: OpenCreatorIssue | null): void;
+  askPendingIssue(question: string, issue: OpenCreatorIssue): void;
   applyRemoteSnapshot(job: CreatorJob): void;
   applyAction(request: Omit<CreatorActionRequest, 'expectedRevision'>): Promise<CreatorJob>;
   cancelJob(): Promise<void>;
@@ -141,6 +143,8 @@ export function CreatorSessionProvider(props: {
   initialJob: CreatorJob;
   ensureJob?: (state: Record<string, CreatorJson>) => Promise<CreatorJob>;
   onPreJobFailure?(operation: string, cause: unknown, fallbackMessage: string): void;
+  onAskPendingIssue?(issue: OpenCreatorIssue, question: string): void;
+  externalIssues?: OpenCreatorIssue[];
   service: Pick<CreatorWebService, 'applyAction' | 'runAgentTurn'> & Partial<Pick<CreatorWebService,
     | 'startAgentTurn'
     | 'steerAgentTurn'
@@ -428,8 +432,13 @@ export function CreatorSessionProvider(props: {
   captureFailureRef.current = captureCreatorFailure;
 
   const focusIssue = useCallback((issue: OpenCreatorIssue | null) => {
-    setFocusedIssueId(issue?.id ?? null);
+    setFocusedIssueId(issue?.id ?? '');
   }, []);
+
+  const askPendingIssue = useCallback((question: string, issue: OpenCreatorIssue) => {
+    if (props.onAskPendingIssue === undefined) throw new Error('Agent inquiry is unavailable before task creation');
+    props.onAskPendingIssue(issue, question);
+  }, [props.onAskPendingIssue]);
 
   const runPreflight = useCallback(async (stageId: string) => {
     if (props.service.preflight === undefined) {
@@ -808,11 +817,22 @@ export function CreatorSessionProvider(props: {
       requestRevision = confirmedRef.current.revision;
       const clientMessageId = createClientMessageId();
       const start = props.service.startAgentTurn ?? props.service.runAgentTurn;
+      const openIssues = [...(confirmedRef.current.issues ?? []), ...localIssuesRef.current]
+        .filter(issue => issue.status === 'open');
+      const focused = openIssues.find(issue => issue.id === focusedIssueId)
+        ?? (focusedIssueId === null ? openIssues.at(-1) : undefined);
+      const authoritativeIssueId = focused?.scope.kind === 'creator-job'
+        && confirmedRef.current.issues?.some(issue => issue.id === focused.id)
+        ? focused.id
+        : undefined;
+      const contextualMessage = focused !== undefined && authoritativeIssueId === undefined
+        ? `${content}\n\n相关错误：${presentIssue(focused).description}`
+        : content;
       const response = await start(confirmedRef.current.id, {
-        message: content,
+        message: contextualMessage,
         clientMessageId,
         ...(sandbox === undefined ? {} : { sandbox }),
-        ...(focusedIssueId === null ? {} : { focusedIssueId })
+        ...(authoritativeIssueId === undefined ? {} : { focusedIssueId: authoritativeIssueId })
       });
       if (response.action !== undefined) {
         confirmedRef.current = response.action.job;
@@ -898,10 +918,10 @@ export function CreatorSessionProvider(props: {
   ));
   const issues = useMemo(() => mergeVisibleIssues(
     confirmedJob.issues ?? [],
-    localIssues
-  ), [confirmedJob.issues, localIssues]);
+    [...localIssues, ...(props.externalIssues ?? [])]
+  ), [confirmedJob.issues, localIssues, props.externalIssues]);
   const focusedIssue = focusedIssueId === null
-    ? null
+    ? issues.filter(issue => issue.status === 'open').at(-1) ?? null
     : issues.find(issue => issue.id === focusedIssueId) ?? null;
 
   const value = useMemo<CreatorSessionContextValue>(() => ({
@@ -919,6 +939,7 @@ export function CreatorSessionProvider(props: {
     captureCreatorFailure,
     repairIssue,
     focusIssue,
+    askPendingIssue,
     applyRemoteSnapshot,
     applyAction,
     cancelJob,
@@ -938,7 +959,7 @@ export function CreatorSessionProvider(props: {
     steerAgentTurn,
     interruptAgentTurn,
     respondAgentApproval
-  }), [agentBusy, agentSession, applyAction, applyRemoteSnapshot, approvals, cancelJob, captureCreatorFailure, clearError, confirmedJob, conflictedFields, draft, error, flush, focusIssue, focusedIssue, interruptAgentTurn, issues, items, openArtifact, openArtifactJson, preflight, repairIssue, respondAgentApproval, resumeJob, runAgentTurn, runPreflight, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
+  }), [agentBusy, agentSession, askPendingIssue, applyAction, applyRemoteSnapshot, approvals, cancelJob, captureCreatorFailure, clearError, confirmedJob, conflictedFields, draft, error, flush, focusIssue, focusedIssue, interruptAgentTurn, issues, items, openArtifact, openArtifactJson, preflight, repairIssue, respondAgentApproval, resumeJob, runAgentTurn, runPreflight, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
 
   return (
     <CreatorSessionContext.Provider value={value}>
@@ -1004,11 +1025,11 @@ function mergeVisibleIssues(
   authoritative: OpenCreatorIssue[],
   local: OpenCreatorIssue[]
 ): OpenCreatorIssue[] {
-  const authoritativeFingerprints = new Set(authoritative.map(issue => issue.fingerprint));
-  return [
-    ...authoritative,
-    ...local.filter(issue => !authoritativeFingerprints.has(issue.fingerprint))
-  ].sort((left, right) => (
+  const unique = new Map<string, OpenCreatorIssue>();
+  for (const issue of [...authoritative, ...local]) {
+    if (!unique.has(issue.fingerprint)) unique.set(issue.fingerprint, issue);
+  }
+  return [...unique.values()].sort((left, right) => (
     left.lastOccurredAt.localeCompare(right.lastOccurredAt)
     || left.id.localeCompare(right.id)
   )).slice(-60);

@@ -341,7 +341,7 @@ export function createStickmanImageExecutor(input: {
           });
           input.ledger.markSucceeded(ledger.id);
         } catch (error) {
-          input.ledger.markFailed(ledger.id);
+          input.ledger.markFailed(ledger.id, error);
           throw error;
         }
         const image = result.contents[0];

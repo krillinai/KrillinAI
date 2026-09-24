@@ -53,12 +53,10 @@ describe('VideoTranslationWorkspace task controls', () => {
     await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'import-subtitle', input: {
       kind, fileName: 'local.srt', language: kind === 'source_subtitle' ? 'en' : 'zh_cn', contentBase64: btoa('invalid')
     } })));
-    expect(await within(screen.getByRole('group', { name: '导入已有字幕' })).findByText(
-      '字幕文件读取或导入失败，请在 Agent 区域查看诊断。'
-    )).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: '导入已有字幕' })).queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByText('Invalid UTF-8 SRT: timeline 2')).not.toBeInTheDocument();
-    expect(await screen.findByText('操作未完成，请在 Agent 区域查看诊断。')).toBeInTheDocument();
-    expect(screen.getByText(/诊断编号：OC-/)).toBeInTheDocument();
+    expect(await screen.findByText(/操作未完成，请在 Agent 区域查看诊断。/)).toBeInTheDocument();
+    expect(screen.queryByText(/诊断编号：OC-/)).not.toBeInTheDocument();
     expect(screen.getByLabelText('UTF-8 SRT 文件')).not.toBeDisabled();
   });
   it('restores a video translation v1 job from legacy subtitle fields', () => {

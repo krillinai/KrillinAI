@@ -1,5 +1,5 @@
-import type { IssueCategory, IssueSource, OpenCreatorIssue } from '@opencreator/protocol';
-import { isOpenCreatorIssue } from '@opencreator/protocol';
+import type { IssueCategory, IssueSource, OpenCreatorIssue, PublicErrorFacts } from '@opencreator/protocol';
+import { isOpenCreatorIssue, isPublicErrorFacts, publicErrorKindForCode, safePublicErrorCode } from '@opencreator/protocol';
 import { ApiClientError } from './errors.js';
 import type { ApiErrorPayload, ConnectionConfig } from './types.js';
 import { isRecord } from './validators.js';
@@ -102,12 +102,14 @@ export class RuntimeClient {
         status: 0,
         code,
         message: timeout ? 'Runtime request timed out' : 'Runtime request failed',
+        publicFacts: { kind: timeout ? 'timeout' : 'unknown' },
         issue: createPageIssue({
           path,
           code,
           source: 'network',
           category: 'network',
-          fallbackMessage: timeout ? '请求超时，请检查连接后重试。' : '无法连接本地服务，请检查服务状态后重试。'
+          fallbackMessage: timeout ? '请求超时，请检查连接后重试。' : '无法连接本地服务，请检查服务状态后重试。',
+          publicFacts: { kind: timeout ? 'timeout' : 'unknown' }
         })
       });
     }
@@ -120,6 +122,7 @@ export class RuntimeClient {
         code: error.error.code,
         message: error.error.message,
         details: error.error.details,
+        publicFacts: error.error.publicFacts,
         issue: error.error.issue
       });
     }
@@ -142,12 +145,14 @@ async function readSuccessfulJson(response: Response, path: string): Promise<unk
       status: response.status,
       code: 'INVALID_JSON_RESPONSE',
       message: 'Runtime returned an invalid JSON response',
+      publicFacts: { kind: 'invalid-response' },
       issue: createPageIssue({
         path,
         code: 'INVALID_JSON_RESPONSE',
         source: 'api',
         category: 'execution',
-        fallbackMessage: '本地服务返回了无法读取的结果，请重试。'
+        fallbackMessage: '本地服务返回了无法读取的结果，请重试。',
+        publicFacts: { kind: 'invalid-response' }
       })
     });
   }
@@ -158,6 +163,7 @@ async function readSuccessfulJson(response: Response, path: string): Promise<unk
     code: error.error.code,
     message: error.error.message,
     details: error.error.details,
+    publicFacts: error.error.publicFacts,
     issue: error.error.issue
   });
 }
@@ -175,25 +181,32 @@ function parseApiError(payload: unknown, path: string, status: number): ApiError
     return legacyApiError(path, status, 'HTTP_ERROR', 'Runtime request failed');
   }
   if (!isRecord(payload.error)) {
-    const code = typeof payload.code === 'string' ? payload.code : 'HTTP_ERROR';
+    const code = safePublicErrorCode(payload.code) ?? 'HTTP_ERROR';
     const message = typeof payload.message === 'string'
       ? payload.message
       : 'Runtime request failed';
     return legacyApiError(path, status, code, message);
   }
-  const code = typeof payload.error.code === 'string' ? payload.error.code : 'HTTP_ERROR';
+  const code = safePublicErrorCode(payload.error.code) ?? 'HTTP_ERROR';
   const message = typeof payload.error.message === 'string' ? payload.error.message : 'Runtime request failed';
   const details = isRecord(payload.error.details) ? payload.error.details : undefined;
+  const suppliedPublicFacts = isPublicErrorFacts(payload.error.publicFacts)
+    ? payload.error.publicFacts
+    : undefined;
+  const publicFacts = suppliedPublicFacts ?? publicFactsForApiError(code, status);
   const issue = isOpenCreatorIssue(payload.error.issue)
-    ? payload.error.issue
+    ? payload.error.issue.publicFacts === undefined && suppliedPublicFacts !== undefined
+      ? { ...payload.error.issue, publicFacts: suppliedPublicFacts }
+      : payload.error.issue
     : createPageIssue({
         path,
         code,
         source: 'api',
         category: categoryForStatus(status),
-        fallbackMessage: fallbackForStatus(status)
+        fallbackMessage: fallbackForApiError(code, status),
+        publicFacts
       });
-  return { error: { code, message, details, issue } };
+  return { error: { code, message, details, publicFacts, issue } };
 }
 
 async function readErrorPayload(response: Response): Promise<unknown> {
@@ -214,7 +227,8 @@ function legacyApiError(path: string, status: number, code: string, message: str
         code,
         source: 'api',
         category: categoryForStatus(status),
-        fallbackMessage: fallbackForStatus(status)
+        fallbackMessage: fallbackForApiError(code, status),
+        publicFacts: publicFactsForApiError(code, status)
       })
     }
   };
@@ -226,6 +240,7 @@ function createPageIssue(input: {
   source: IssueSource;
   category: IssueCategory;
   fallbackMessage: string;
+  publicFacts?: PublicErrorFacts;
 }): OpenCreatorIssue {
   const now = new Date().toISOString();
   const operation = sanitizeOperation(input.path);
@@ -233,8 +248,8 @@ function createPageIssue(input: {
   const randomId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return {
     id: `page:${randomId}`,
-    diagnosticId: `OC-${fingerprint.slice(0, 8).toUpperCase()}`,
-    code: input.code.slice(0, 160) || 'UNKNOWN_ERROR',
+    diagnosticId: `OC-${fingerprint.slice(-8).toUpperCase()}`,
+    code: safePublicErrorCode(input.code) ?? 'UNKNOWN_ERROR',
     scope: { kind: 'page', surface: surfaceFromPath(operation) },
     source: input.source,
     category: input.category,
@@ -244,6 +259,7 @@ function createPageIssue(input: {
     summaryKey: `issue.${input.category}`,
     summaryParams: {},
     fallbackMessage: input.fallbackMessage,
+    ...(input.publicFacts === undefined ? {} : { publicFacts: input.publicFacts }),
     retryable: false,
     repairActions: [],
     fingerprint,
@@ -287,6 +303,27 @@ function fallbackForStatus(status: number): string {
   if (status === 404) return '请求的内容不存在或已被移除。';
   if (status === 409) return '当前状态已发生变化，请刷新后重试。';
   return '操作未完成，请稍后重试。';
+}
+
+function publicFactsForApiError(code: string, status: number): PublicErrorFacts {
+  return {
+    kind: publicErrorKindForCode(code)
+      ?? (status === 429 ? 'rate-limited'
+      : status === 401 || status === 403 ? 'unauthorized'
+      : 'unknown'),
+    ...(status >= 100 && status <= 599 ? { httpStatus: status } : {})
+  };
+}
+
+function fallbackForApiError(code: string, status: number): string {
+  const kind = publicErrorKindForCode(code);
+  if (kind === 'configuration') return '缺少或无法读取此操作所需的配置，请检查相关服务设置。';
+  if (kind === 'validation') return '输入或参数未通过校验，请检查后重试。';
+  if (kind === 'not-found') return '请求的资源不存在或已被移除。';
+  if (kind === 'conflict') return '当前状态与此操作冲突，请刷新状态后重试。';
+  if (kind === 'unsupported') return '当前环境或服务不支持此操作。';
+  if (kind === 'storage') return '本地文件或结果未能写入，请检查存储状态。';
+  return fallbackForStatus(status);
 }
 
 function isUserAbort(cause: unknown, signal: AbortSignal | undefined): boolean {

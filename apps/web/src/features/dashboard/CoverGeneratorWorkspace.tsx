@@ -173,9 +173,7 @@ export default function CoverGeneratorWorkspace(props: {
       : l('未使用', 'Not used');
   const issue = readIssue(session, latestStage, l);
   const canContinue = prompt.trim().length > 0 || isYoutubeUrl(youtubeUrl);
-  const showRunNotice = Boolean(
-    issue.message || error || (currentStep !== 2 && notice)
-  );
+  const showRunNotice = Boolean(error || (currentStep !== 2 && notice && !issue.message));
   const currentReferenceName = referenceFile?.name
     ?? readArtifactString(activeReferenceArtifact, 'fileName');
   const resolvedCoverTextLanguage = coverTextLanguage;
@@ -251,9 +249,7 @@ export default function CoverGeneratorWorkspace(props: {
       return [artifact.id, objectUrl] as const;
     })).then(entries => {
       if (active) setArtifactUrls(Object.fromEntries(entries));
-    }).catch(cause => {
-      if (active) setError(formatCoverError(cause, l));
-    });
+    }).catch(() => undefined);
     return () => {
       active = false;
       objectUrls.forEach(url => URL.revokeObjectURL(url));
@@ -434,7 +430,7 @@ export default function CoverGeneratorWorkspace(props: {
           : l('封面生成任务已提交，结果会自动显示', 'Thumbnail generation started. Results will appear automatically.'));
       }
     } catch (cause) {
-      setError(formatCoverError(cause, l));
+      session.captureCreatorFailure('cover.generate', cause, formatCoverError(cause, l));
     } finally {
       setSubmitting(false);
     }
@@ -447,7 +443,7 @@ export default function CoverGeneratorWorkspace(props: {
       await session.cancelJob();
       setNotice(l('任务终止请求已发送', 'The stop request was sent'));
     } catch (cause) {
-      setError(formatCoverError(cause, l));
+      session.captureCreatorFailure('cover.cancel', cause, formatCoverError(cause, l));
     } finally {
       setTaskControlPending(undefined);
     }
@@ -460,7 +456,7 @@ export default function CoverGeneratorWorkspace(props: {
       await session.resumeJob();
       setNotice(l('任务已继续', 'The task resumed'));
     } catch (cause) {
-      setError(formatCoverError(cause, l));
+      session.captureCreatorFailure('cover.resume', cause, formatCoverError(cause, l));
     } finally {
       setTaskControlPending(undefined);
     }
@@ -487,7 +483,7 @@ export default function CoverGeneratorWorkspace(props: {
       if (temporaryUrl) window.setTimeout(() => URL.revokeObjectURL(temporaryUrl), 0);
       setNotice(l(`封面方案 ${index + 1} 已开始下载`, `Thumbnail option ${index + 1} download started`));
     } catch (cause) {
-      setError(formatCoverError(cause, l));
+      session.captureCreatorFailure('cover.download', cause, formatCoverError(cause, l));
     }
   }
 
@@ -567,6 +563,12 @@ export default function CoverGeneratorWorkspace(props: {
           ? l('配置封面参数', 'Configure thumbnail settings')
           : l('确定封面内容', 'Define thumbnail content');
   const panelQuickActions = [
+    ...(issue.deepLink ? [{
+      id: 'cover-open-ai-services',
+      label: l('打开 AI 服务设置', 'Open AI service settings'),
+      kind: 'action' as const,
+      onAction: () => { window.location.hash = issue.deepLink; }
+    }] : []),
     {
       id: 'cover-adjust',
       label: l('调整设置', 'Adjust settings'),
@@ -1131,9 +1133,8 @@ export default function CoverGeneratorWorkspace(props: {
           ) : null}
 
           {showRunNotice ? (
-            <div className={`video-translation-run-notice${issue.message || error ? ' is-error' : ''}`} role={issue.message || error ? 'alert' : 'status'}>
-              <span>{error || issue.message || notice}</span>
-              {issue.deepLink ? <a href={issue.deepLink}>{l('打开 AI 服务设置', 'Open AI service settings')}</a> : null}
+            <div className={`video-translation-run-notice${error ? ' is-error' : ''}`} role={error ? 'alert' : 'status'}>
+              <span>{error || notice}</span>
             </div>
           ) : null}
         </div>

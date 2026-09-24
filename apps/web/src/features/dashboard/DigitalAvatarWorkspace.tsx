@@ -87,7 +87,6 @@ export default function DigitalAvatarWorkspace(props: { onBack(): void; promptHi
     }).catch(() => {
       if (active) {
         setAvatarUrl('');
-        setError(l('人物照片预览失败，请在 Agent 区域查看诊断。', 'The presenter preview failed. Review the diagnosis in the Agent panel.'));
       }
     });
     return () => {

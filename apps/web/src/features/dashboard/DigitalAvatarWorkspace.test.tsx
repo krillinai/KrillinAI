@@ -38,9 +38,8 @@ describe('DigitalAvatarWorkspace', () => {
       target: { files: [new File(['image'], 'avatar.png', { type: 'image/png' })] }
     });
 
-    expect(await screen.findByText('人物照片预览失败，请在 Agent 区域查看诊断。')).toBeInTheDocument();
-    expect(await screen.findByText('人物照片预览失败，请重新选择图片。')).toBeInTheDocument();
-    expect(screen.getByText(/诊断编号：OC-/)).toBeInTheDocument();
+    expect(await screen.findByText(/人物照片预览失败，请重新选择图片。/)).toBeInTheDocument();
+    expect(screen.queryByText(/诊断编号：OC-/)).not.toBeInTheDocument();
     expect(screen.queryByText('raw object URL failure')).not.toBeInTheDocument();
   });
 });

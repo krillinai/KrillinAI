@@ -9,10 +9,17 @@ import {
   Settings,
   X
 } from 'lucide-react';
-import { useState } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { presentIssue } from './issue-catalog.js';
+import { registerPageIssueActions } from './page-issue-action-hub.js';
 import './issue-presenter.css';
+
+const PageIssueRoutingContext = createContext(false);
+
+export function PageIssueRoutingProvider(props: { children: ReactNode }) {
+  return <PageIssueRoutingContext.Provider value>{props.children}</PageIssueRoutingContext.Provider>;
+}
 
 export type IssueActionRegistry = {
   retryOperations?: Record<string, () => void | Promise<void>>;
@@ -29,8 +36,6 @@ export function IssuePresenter(props: {
 }) {
   const { language } = useAppLanguage();
   const copy = presentIssue(props.issue, language === 'en-US' ? 'en-US' : 'zh-CN');
-  const [pendingAction, setPendingAction] = useState('');
-  const actions = props.issue.repairActions.filter(action => canHandle(action, props.actions));
   const StatusIcon = props.issue.status === 'resolved'
     ? CheckCircle2
     : props.issue.status === 'resolving'
@@ -50,22 +55,7 @@ export function IssuePresenter(props: {
           <span>{copy.statusLabel}</span>
         </div>
         <p>{copy.description}</p>
-        <small>{copy.diagnosticLabel}</small>
-        {actions.length > 0 ? (
-          <div className="issue-presenter-actions">
-            {actions.map(action => (
-              <button
-                key={actionKey(action)}
-                type="button"
-                disabled={pendingAction.length > 0 || props.issue.status === 'resolving'}
-                onClick={() => void runAction(action, props.issue, props.actions!, setPendingAction)}
-              >
-                <ActionIcon action={action} />
-                {actionLabel(action, language === 'en-US')}
-              </button>
-            ))}
-          </div>
-        ) : null}
+        <IssueActionButtons issue={props.issue} actions={props.actions} />
       </div>
       {props.onDismiss !== undefined ? (
         <button
@@ -88,13 +78,51 @@ export function IssueList(props: {
   onDismiss?(issueId: string): void;
   compact?: boolean;
 }) {
-  return props.issues.length > 0 ? (
+  const routeToAgent = useContext(PageIssueRoutingContext);
+  const pageIssueIds = props.issues.filter(issue => issue.scope.kind === 'page').map(issue => issue.id).join('|');
+  useEffect(() => {
+    if (!routeToAgent || props.actions === undefined) return;
+    return registerPageIssueActions(pageIssueIds.split('|').filter(Boolean), props.actions);
+  }, [pageIssueIds, props.actions, routeToAgent]);
+  const visibleIssues = routeToAgent
+    ? props.issues.filter(issue => issue.scope.kind !== 'page')
+    : props.issues;
+  return visibleIssues.length > 0 ? (
     <div className="issue-presenter-list">
-      {props.issues.map(issue => (
+      {visibleIssues.map(issue => (
         <IssuePresenter key={issue.id} issue={issue} actions={props.actions} onDismiss={props.onDismiss} compact={props.compact} />
       ))}
     </div>
   ) : null;
+}
+
+export function IssueActionButtons(props: {
+  issue: OpenCreatorIssue;
+  actions?: IssueActionRegistry;
+  includeFocusAgent?: boolean;
+}) {
+  const { language } = useAppLanguage();
+  const [pendingAction, setPendingAction] = useState('');
+  const actions = props.issue.repairActions.filter(action => (
+    (props.includeFocusAgent !== false || action.kind !== 'focus-agent')
+    && canHandle(action, props.actions)
+  ));
+  if (actions.length === 0) return null;
+  return (
+    <div className="issue-presenter-actions">
+      {actions.map(action => (
+        <button
+          key={actionKey(action)}
+          type="button"
+          disabled={pendingAction.length > 0 || props.issue.status === 'resolving'}
+          onClick={() => void runAction(action, props.issue, props.actions!, setPendingAction).catch(() => undefined)}
+        >
+          <ActionIcon action={action} />
+          {actionLabel(action, language === 'en-US')}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function canHandle(action: CreatorRepairAction, registry: IssueActionRegistry | undefined): boolean {

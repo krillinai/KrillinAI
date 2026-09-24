@@ -698,7 +698,7 @@ describe('Composer', () => {
 
     const issue = await screen.findByRole('alert');
     expect(issue).toHaveTextContent('连接器目录加载失败');
-    expect(issue).toHaveTextContent(/诊断编号：OC-/);
+    expect(issue).not.toHaveTextContent(/诊断编号：OC-/);
     expect(issue).not.toHaveTextContent('企业连接服务暂时不可用');
     await user.click(screen.getByRole('menuitem', { name: /github.*已配置/ }));
     expect(screen.getByRole('textbox', { name: '输入任务' })).toHaveValue('使用 MCP：github ');

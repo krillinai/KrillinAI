@@ -12,7 +12,6 @@ export default function CreatorArtifactDetails() {
   const [artifactId, setArtifactId] = useState('');
   const [compareId, setCompareId] = useState('');
   const [texts, setTexts] = useState<string[] | null>(null);
-  const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
   const job = session?.job;
@@ -39,7 +38,6 @@ export default function CreatorArtifactDetails() {
 
   useEffect(() => {
     setTexts(null);
-    setError('');
     if (!open || !artifact || !comparison || !session || !isText(artifact) || !isText(comparison)) return;
     let active = true;
     void Promise.all([artifact, comparison].map(async item => {
@@ -56,7 +54,7 @@ export default function CreatorArtifactDetails() {
     })).then(values => { if (active) setTexts(values); })
       .catch(cause => {
         if (!active) return;
-        setError(l('无法加载产物对比，请在 Agent 区域查看诊断。', 'Could not load the artifact comparison. Review the diagnosis in the Agent panel.'));
+        session.captureCreatorFailure('creator.compare-artifacts', cause, l('无法加载产物对比，请稍后重试。', 'Could not load the artifact comparison. Try again later.'));
       });
     return () => { active = false; };
   }, [open, artifact?.id, comparison?.id, session?.captureCreatorFailure, session?.openArtifact, l]);
@@ -69,11 +67,10 @@ export default function CreatorArtifactDetails() {
     if (!session || !selectedProject || pendingRef.current) return;
     pendingRef.current = true;
     setPending(true);
-    setError('');
     try {
       await session.applyAction({ action: 'select-result-version', input: { version: selectedProject.version } });
     } catch (cause) {
-      setError(l('无法采用项目版本，请在 Agent 区域查看诊断。', 'Could not use the project version. Review the diagnosis in the Agent panel.'));
+      session.captureCreatorFailure('creator.select-result-version', cause, l('无法采用项目版本，请稍后重试。', 'Could not use the project version. Try again later.'));
     } finally {
       pendingRef.current = false;
       setPending(false);
@@ -82,7 +79,6 @@ export default function CreatorArtifactDetails() {
 
   async function download(item: CreatorArtifact) {
     if (!session) return;
-    setError('');
     try {
       const response = await session.openArtifact(item.id);
       try {
@@ -98,7 +94,7 @@ export default function CreatorArtifactDetails() {
         throw cause;
       }
     } catch (cause) {
-      setError(l('无法下载产物，请在 Agent 区域查看诊断。', 'Could not download the artifact. Review the diagnosis in the Agent panel.'));
+      session.captureCreatorFailure('creator.download-artifact', cause, l('无法下载创作产物，请稍后重试。', 'Could not download the artifact. Try again later.'));
     }
   }
 
@@ -158,7 +154,6 @@ export default function CreatorArtifactDetails() {
         {comparison ? <p>{isText(artifact) && isText(comparison)
           ? l('按行号并排高亮不同文本，最多显示 2000 行；完整内容请下载。', 'Highlights differences at the same line number, up to 2,000 lines. Download for full content.')
           : l('媒体版本可并排预览或下载，不进行内容比较。', 'Preview or download media versions side by side; no content comparison.')}</p> : null}
-        {error ? <p role="alert">{error}</p> : null}
       </section> : null}
     </details>
   );
@@ -169,7 +164,6 @@ function ArtifactMediaPreview({ artifact }: { artifact: CreatorArtifact }) {
   const l = useLocalizedCopy();
   const [requested, setRequested] = useState(false);
   const [url, setUrl] = useState('');
-  const [error, setError] = useState('');
   const extension = fileName(artifact).split('.').at(-1)?.toLowerCase() ?? '';
   const kind = /^(png|jpe?g|webp|gif|avif)$/.test(extension) ? 'image'
     : /^(mp3|wav|m4a|ogg|flac)$/.test(extension) ? 'audio'
@@ -189,9 +183,9 @@ function ArtifactMediaPreview({ artifact }: { artifact: CreatorArtifact }) {
         session.captureCreatorFailure('creator.preview-artifact', cause, '无法预览创作产物，请稍后重试。', 'client');
         throw cause;
       }
-    }).catch(cause => {
+    }).catch(() => {
       if (!active) return;
-      setError(l('预览加载失败，请在 Agent 区域查看诊断。', 'Preview failed to load. Review the diagnosis in the Agent panel.'));
+      setRequested(false);
     });
     return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [requested, artifact.id, session?.captureCreatorFailure, session?.openArtifact, l]);
@@ -201,7 +195,6 @@ function ArtifactMediaPreview({ artifact }: { artifact: CreatorArtifact }) {
     {url && kind === 'image' ? <img src={url} alt={fileName(artifact)} /> : null}
     {url && kind === 'audio' ? <audio src={url} controls aria-label={fileName(artifact)} /> : null}
     {url && kind === 'video' ? <video src={url} controls aria-label={fileName(artifact)} /> : null}
-    {error ? <p role="alert">{error}</p> : null}
   </>;
 }
 

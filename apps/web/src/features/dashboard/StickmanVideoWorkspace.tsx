@@ -409,12 +409,6 @@ export default function StickmanVideoWorkspace(props: {
     }
   }, [batchGenerationPending, job.stages, visualValidationArtifact]);
 
-  useEffect(() => {
-    if (session.error?.code === 'creator_revision_conflict') {
-      setNotice(l('任务已被其他入口更新，已刷新到最新版本，请重新操作', 'The task changed elsewhere. The latest revision has been loaded; retry your action.'));
-    }
-  }, [l, session.error?.code]);
-
   const currentVideo = artifactFromSnapshot(job.artifacts, currentSnapshot?.artifactRefs.clean_video);
   const currentDeliveryManifest = artifactFromSnapshot(
     job.artifacts,
@@ -429,7 +423,7 @@ export default function StickmanVideoWorkspace(props: {
     try {
       await session.applyAction({ actor: 'user', action, input: input as never });
     } catch (error) {
-      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
+      session.captureCreatorFailure(`stickman.${action}`, error, l('操作未完成，请重试。', 'The operation did not complete. Try again.'));
     }
   }
 
@@ -529,7 +523,7 @@ export default function StickmanVideoWorkspace(props: {
       });
       setActiveStep(2);
     } catch (error) {
-      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
+      session.captureCreatorFailure('stickman.continue-script', error, l('脚本操作未完成，请重试。', 'The script operation did not complete. Try again.'));
     } finally {
       setScriptSubmitting(false);
     }
@@ -548,7 +542,7 @@ export default function StickmanVideoWorkspace(props: {
       });
       setActiveStep(3);
     } catch (error) {
-      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
+      session.captureCreatorFailure('stickman.continue-audio', error, l('配音步骤未完成，请重试。', 'The audio step did not complete. Try again.'));
     } finally {
       setTransitionPending(undefined);
     }
@@ -567,7 +561,7 @@ export default function StickmanVideoWorkspace(props: {
       });
       setActiveStep(readCreatorResultSnapshots(nextJob.state.resultSnapshots).length > 0 ? 5 : 4);
     } catch (error) {
-      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
+      session.captureCreatorFailure('stickman.continue-visuals', error, l('画面步骤未完成，请重试。', 'The visual step did not complete. Try again.'));
     } finally {
       setTransitionPending(undefined);
     }
@@ -623,7 +617,7 @@ export default function StickmanVideoWorkspace(props: {
         delete next[shotId];
         return next;
       });
-      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
+      session.captureCreatorFailure('stickman.save-shot', error, l('镜头保存未完成，请重试。', 'The shot could not be saved. Try again.'));
     } finally {
       setSavingShotId(undefined);
     }
@@ -655,7 +649,7 @@ export default function StickmanVideoWorkspace(props: {
         delete next[shotId];
         return next;
       });
-      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
+      session.captureCreatorFailure('stickman.regenerate-shot', error, l('镜头重生成未完成，请重试。', 'The shot could not be regenerated. Try again.'));
     }
   }
 
@@ -673,7 +667,7 @@ export default function StickmanVideoWorkspace(props: {
       });
     } catch (error) {
       setBatchGenerationPending(false);
-      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
+      session.captureCreatorFailure('stickman.generate-missing-shots', error, l('画面生成未完成，请重试。', 'The visuals could not be generated. Try again.'));
     }
   }
 
@@ -683,7 +677,7 @@ export default function StickmanVideoWorkspace(props: {
       if (kind === 'canceling') await session.cancelJob();
       else await session.resumeJob();
     } catch (error) {
-      setNotice(l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.'));
+      session.captureCreatorFailure(`stickman.${kind}`, error, l('任务控制未完成，请重试。', 'The task control did not complete. Try again.'));
     } finally {
       setControlPending(undefined);
     }
@@ -761,11 +755,9 @@ export default function StickmanVideoWorkspace(props: {
             </ol>
           </nav>
 
-          {notice || session.error ? (
+          {notice ? (
             <div className="creator-tool-notice" role="alert">
-              <span>{notice || (session.error
-                ? l('操作失败，请在 Agent 区域查看诊断。', 'The operation failed. Review the diagnosis in the Agent panel.')
-                : '')}</span>
+              <span>{notice}</span>
               <button type="button" onClick={() => { setNotice(''); session.clearError(); }} aria-label={l('关闭提示', 'Dismiss')}><X size={15} /></button>
             </div>
           ) : null}
@@ -958,7 +950,7 @@ function SourceAndCharacterStep(props: {
           );})}
         </div>
         {props.visualAssetCatalogStatus === 'loading' ? <div className="stickman-asset-catalog-state" role="status"><LoaderCircle className="creator-collaboration-spin" size={17} />{props.l('正在读取视觉资产', 'Loading visual assets')}</div> : null}
-        {props.visualAssetCatalogStatus === 'error' || props.visualAssetCatalogStatus === 'unavailable' ? <div className="stickman-asset-catalog-state is-error" role="alert"><ImageIcon size={17} />{props.l('人物与视觉风格目录不可用', 'The character and visual style catalog is unavailable')}</div> : null}
+        {props.visualAssetCatalogStatus === 'error' || props.visualAssetCatalogStatus === 'unavailable' ? <div className="stickman-asset-catalog-state" role="status"><ImageIcon size={17} />{props.l('暂无可选素材', 'No assets available')}</div> : null}
       </div>
       <div className="creator-tool-form-row">
         <VisualStylePicker
@@ -1455,15 +1447,12 @@ function ScriptPlaceholderPanel(props: {
         <span><FileText size={18} /></span>
         <div className="stickman-script-placeholder-heading">
           <h2>{props.l('脚本内容', 'Script')}</h2>
-          <p role="status">{failed ? props.l('生成失败', 'Generation failed') : props.l('正在生成', 'Generating')}</p>
+          <p role="status">{failed ? props.l('等待重新生成', 'Ready to regenerate') : props.l('正在生成', 'Generating')}</p>
         </div>
         {!failed ? <LoaderCircle className="creator-collaboration-spin" size={17} aria-hidden="true" /> : null}
       </header>
       {failed ? (
-        <div className="stickman-script-placeholder-error" role="alert">
-          <span><FileText size={20} /></span>
-          <strong>{props.l('脚本生成失败', 'Script generation failed')}</strong>
-          <p>{props.stage?.errorMessage ?? props.l('生成脚本时出现问题，请重新生成', 'Something went wrong while generating the script.')}</p>
+        <div className="stickman-script-placeholder-actions">
           <button
             className="video-translation-secondary-action"
             type="button"
@@ -1773,7 +1762,7 @@ function StoryboardShotRow(props: {
             `Generating visual${percent === undefined ? '' : ` · ${percent}%`}`
           )
         : props.stage?.status === 'failed'
-          ? props.stage.errorMessage ?? props.l('画面生成失败', 'Visual generation failed.')
+          ? props.l('等待重新生成', 'Ready to regenerate.')
           : '';
 
   return (

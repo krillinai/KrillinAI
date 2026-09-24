@@ -347,9 +347,7 @@ export default function ImageGenerationWorkspace(props: {
         input: { stageId: 'generate' }
       });
       setNotice(l('生成任务已提交，完成后会自动显示结果', 'Generation started. Results will appear automatically.'));
-    } catch (caught) {
-      setError(formatImageError(caught, l));
-    }
+    } catch {}
   }
 
   async function download(artifact: CreatorArtifact, index: number) {
@@ -372,7 +370,12 @@ export default function ImageGenerationWorkspace(props: {
       if (temporaryUrl !== undefined) window.setTimeout(() => URL.revokeObjectURL(temporaryUrl), 0);
       setNotice(l(`图片 ${index + 1} 已开始下载`, `Image ${index + 1} download started`));
     } catch (caught) {
-      setError(formatImageError(caught, l));
+      session.captureCreatorFailure(
+        'image-generation.download-result',
+        caught,
+        l('图片下载失败，请稍后重试。', 'The image download failed. Try again later.'),
+        'client'
+      );
     }
   }
 
@@ -438,6 +441,7 @@ export default function ImageGenerationWorkspace(props: {
               ? l('正在生成', 'Generating')
               : l('等待生成', 'Ready to generate')}
       initialMessage={l('描述你想生成的画面，我会帮你整理画幅、质量和输出数量。', 'Describe the image you want, then set its format, quality, and output count.')}
+      currentIssue={visibleError || undefined}
       suggestions={[l('填入示例提示词', 'Use a sample prompt'), l('生成横向图片', 'Create a landscape image')]}
       placeholder={props.promptHint ?? l('描述需要生成的图片', 'Describe the image to generate')}
       onBack={props.onBack}
@@ -683,7 +687,7 @@ export default function ImageGenerationWorkspace(props: {
               />
             </div>
           ) : null}
-          {visibleError ? <p className="creator-tool-error" role="alert">{visibleError}</p> : null}
+          {error ? <p className="creator-tool-error" role="alert">{error}</p> : null}
           {notice ? <p className="creator-tool-notice" role="status">{notice}</p> : null}
         </div>
 
@@ -842,5 +846,5 @@ function formatImageError(error: unknown, l: (zh: string, en: string) => string)
   if (code === 'creator_stage_canceled') {
     return l('图像生成任务已取消', 'Image generation was canceled');
   }
-  return l('图片生成失败，请在 Agent 区域查看诊断后重试', 'Image generation failed. Review the diagnosis in the Agent panel and retry.');
+  return l('图片生成未完成，请检查图像服务配置后重试', 'Image generation did not complete. Check the image provider settings, then retry.');
 }

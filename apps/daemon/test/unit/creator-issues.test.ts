@@ -19,6 +19,35 @@ afterEach(() => {
 });
 
 describe('creator issues', () => {
+  it('persists safe facts without carrying an old cause into a new occurrence', () => {
+    const { db, repository } = createFixture();
+    const service = createCreatorIssueService(repository);
+    const first = service.capture({
+      jobId: 'job-1', code: 'creator_provider_request_failed', source: 'provider',
+      publicFacts: { kind: 'rate-limited', provider: 'openai', httpStatus: 429, upstreamCode: 'rate_limit_exceeded' }
+    });
+    expect(service.get('job-1', first.id)?.publicFacts).toEqual({
+      kind: 'rate-limited', provider: 'openai', httpStatus: 429, upstreamCode: 'rate_limit_exceeded'
+    });
+
+    const repeated = service.capture({
+      jobId: 'job-1', code: 'creator_provider_request_failed', source: 'provider'
+    });
+    expect(repeated.id).toBe(first.id);
+    expect(repeated.publicFacts).toBeUndefined();
+    db.close();
+  });
+
+  it('drops token-like provider identifiers before persisting an issue', () => {
+    const { db, repository } = createFixture();
+    const issue = createCreatorIssueService(repository).capture({
+      jobId: 'job-1', code: 'creator_provider_request_failed', source: 'provider',
+      publicFacts: { kind: 'unknown', provider: 'sk-private-secret', upstreamCode: 'sk-private-secret' }
+    });
+    expect(issue.publicFacts).toEqual({ kind: 'unknown' });
+    db.close();
+  });
+
   it('keeps one id through occurrence, resolution and reopen', () => {
     const { db, repository } = createFixture();
     const service = createCreatorIssueService(repository);
@@ -236,7 +265,7 @@ function runRaceWorker(input: {
         code: 'creator_race', source: 'api', category: 'execution', severity: 'error',
         operation: 'creator.race', stageId: null, stageRunId: null, scopeKey: null,
         summaryKey: 'issue.execution', summaryParamsJson: '{}',
-        fallbackMessage: 'Operation failed.', technicalDetail: null, retryable: 0,
+        fallbackMessage: 'Operation failed.', publicFactsJson: null, technicalDetail: null, retryable: 0,
         repairActionsJson: '[]', fingerprint: 'same-fingerprint', timestamp: workerData.timestamp
       });
       db.prepare('INSERT INTO creator_issue_events (id, issue_id, kind, retry_result, created_at) VALUES (?, ?, ?, ?, ?)')

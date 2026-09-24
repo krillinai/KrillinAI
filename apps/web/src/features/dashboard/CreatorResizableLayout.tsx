@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -8,6 +9,7 @@ import {
 } from 'react';
 import { beginPaneResize } from '../../components/layout/pane-resize-2026-07-29.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
+import { useOptionalCreatorSession } from './creator-session-store.js';
 
 const WORKSPACE_MIN_WIDTH = 390;
 const AGENT_MIN_WIDTH = 280;
@@ -22,6 +24,13 @@ export default function CreatorResizableLayout(props: {
   const l = useLocalizedCopy();
   const layoutRef = useRef<HTMLDivElement>(null);
   const [workspaceWidth, setWorkspaceWidth] = useState<number>();
+  const [mobilePane, setMobilePane] = useState<'workspace' | 'agent'>('workspace');
+  const session = useOptionalCreatorSession();
+  const latestIssueId = session?.issues.filter(issue => issue.status === 'open').at(-1)?.id;
+
+  useEffect(() => {
+    if (latestIssueId !== undefined) setMobilePane('agent');
+  }, [latestIssueId]);
 
   function widthBounds() {
     const rect = layoutRef.current?.getBoundingClientRect();
@@ -74,7 +83,12 @@ export default function CreatorResizableLayout(props: {
       className={`creator-resizable-layout${props.className ? ` ${props.className}` : ''}`}
       ref={layoutRef}
       style={style}
+      data-mobile-pane={mobilePane}
     >
+      <div className="creator-mobile-tabs" role="tablist" aria-label={l('创作视图', 'Creator views')}>
+        <button type="button" role="tab" aria-selected={mobilePane === 'workspace'} onClick={() => setMobilePane('workspace')}>{l('创作', 'Workspace')}</button>
+        <button type="button" role="tab" aria-selected={mobilePane === 'agent'} onClick={() => setMobilePane('agent')}>Agent</button>
+      </div>
       {props.workspace}
       <div
         className="pane-resize-handle creator-pane-resize"

@@ -26,6 +26,7 @@ import { createCreatorAgentReconciler } from './reconciler.js';
 import type { CreatorAgentRepository } from './repository.js';
 import type { AgentRuntimeAdapter } from './runtime-adapter.js';
 import type { CreatorIssueService } from '../issues.js';
+import { publicFactsFromFailure } from '../public-error-facts.js';
 
 export type CreatorAgentService = ReturnType<typeof createCreatorAgentService>;
 
@@ -294,6 +295,7 @@ export function createCreatorAgentService(input: {
       source: 'agent',
       operation: 'creator.agent-turn',
       fallbackMessage: 'Agent 未能完成本次诊断，请查看问题详情后重试。',
+      publicFacts: publicFactsFromFailure(error),
       technicalDetail: error.message,
       repairActions: [{ kind: 'focus-agent' }]
     });

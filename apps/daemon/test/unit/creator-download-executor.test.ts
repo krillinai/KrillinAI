@@ -666,6 +666,8 @@ describe('creator download executor', () => {
       await readFile(join(workdir, 'args.json'), 'utf8')
     ) as string[];
     expect(args).toEqual(expect.arrayContaining([
+      '--encoding',
+      'utf-8',
       '--proxy',
       'http://127.0.0.1:7897',
       '--ffmpeg-location',
@@ -1001,7 +1003,7 @@ describe('creator download executor', () => {
     }));
   });
 
-  it('classifies platform connection timeouts without exposing raw yt-dlp logs', async () => {
+  it('reports the yt-dlp timeout cause and safe public facts', async () => {
     const binaries = await fakeBinaries({
       failure: "ERROR: Unable to download API page: Connection to www.youtube.com timed out."
     });
@@ -1017,8 +1019,146 @@ describe('creator download executor', () => {
       }
     }))).rejects.toMatchObject({
       code: 'network_unavailable',
-      message: 'Unable to connect to the video platform. Check the network or proxy settings.'
+      message: 'yt-dlp connection to the video platform timed out. Check the network or proxy settings.',
+      publicFacts: { kind: 'timeout', provider: 'yt-dlp' }
     });
+  });
+
+  it('preserves a non-ASCII output filename split across stdout chunks', async () => {
+    const fileName = 'clip-\u2019-test.mp4';
+    const binaries = await fakeBinaries({ outputName: fileName, splitOutputUtf8: true });
+    const workdir = join(tempDir, 'unicode-output-work');
+    await mkdir(workdir, { recursive: true });
+    const probe = parsedProbe();
+    const executor = createDownloadExecutor(binaries);
+    const result = await executor.run(stageInput({
+      workdir,
+      stageId: 'download',
+      state: {
+        sourceUrl: probe.requestedUrl,
+        mediaType: 'video',
+        selectedOptionId: 'video-360-2'
+      },
+      inputArtifacts: [await writeProbeArtifact(workdir, probe)]
+    }));
+
+    expect(result.outputs[0]?.path).toBe(join(workdir, fileName));
+    expect(result.outputs[0]?.metadata?.fileName).toBe(fileName);
+    expect(JSON.parse(await readFile(join(workdir, 'args.json'), 'utf8')))
+      .toEqual(expect.arrayContaining(['--encoding', 'utf-8']));
+  });
+
+  it('identifies a damaged reported filename rather than returning a generic ENOENT', async () => {
+    const binaries = await fakeBinaries({
+      outputName: 'clip-\u2019-test.mp4',
+      reportedOutputName: 'clip-\uFFFD\uFFFD-test.mp4'
+    });
+    const workdir = join(tempDir, 'damaged-output-work');
+    await mkdir(workdir, { recursive: true });
+    const probe = parsedProbe();
+    const executor = createDownloadExecutor(binaries);
+
+    await expect(executor.run(stageInput({
+      workdir,
+      stageId: 'download',
+      state: {
+        sourceUrl: probe.requestedUrl,
+        mediaType: 'video',
+        selectedOptionId: 'video-360-2'
+      },
+      inputArtifacts: [await writeProbeArtifact(workdir, probe)]
+    }))).rejects.toMatchObject({
+      code: 'download_output_encoding_invalid',
+      publicFacts: { kind: 'invalid-response', provider: 'yt-dlp' }
+    });
+  });
+
+  it('reports a missing yt-dlp output with a download-specific error', async () => {
+    const binaries = await fakeBinaries({ reportedOutputName: 'other.mp4' });
+    const workdir = join(tempDir, 'missing-output-work');
+    await mkdir(workdir, { recursive: true });
+    const probe = parsedProbe();
+    const executor = createDownloadExecutor(binaries);
+
+    await expect(executor.run(stageInput({
+      workdir,
+      stageId: 'download',
+      state: {
+        sourceUrl: probe.requestedUrl,
+        mediaType: 'video',
+        selectedOptionId: 'video-360-2'
+      },
+      inputArtifacts: [await writeProbeArtifact(workdir, probe)]
+    }))).rejects.toMatchObject({
+      code: 'download_output_missing',
+      publicFacts: { kind: 'not-found', provider: 'yt-dlp' }
+    });
+  });
+
+  it('reports proxy refusal separately from a platform timeout', async () => {
+    const binaries = await fakeBinaries({
+      failure: 'ERROR: ProxyError: connection refused at http://user:secret@127.0.0.1:7897'
+    });
+    const workdir = join(tempDir, 'proxy-failure-work');
+    await mkdir(workdir, { recursive: true });
+    const executor = createDownloadExecutor(binaries);
+
+    await expect(executor.run(stageInput({
+      workdir,
+      stageId: 'probe',
+      state: { sourceUrl: 'https://www.youtube.com/watch?v=demo' }
+    }))).rejects.toMatchObject({
+      code: 'network_unavailable',
+      message: expect.stringContaining('proxy connection was refused'),
+      publicFacts: { kind: 'connection-refused', provider: 'yt-dlp' }
+    });
+  });
+
+  it('reports an upstream HTTP status without leaking the request URL', async () => {
+    const binaries = await fakeBinaries({
+      failure: 'ERROR: Unable to download webpage: HTTP Error 403: Forbidden https://example.com/?token=secret'
+    });
+    const workdir = join(tempDir, 'http-failure-work');
+    await mkdir(workdir, { recursive: true });
+    const executor = createDownloadExecutor(binaries);
+
+    await expect(executor.run(stageInput({
+      workdir,
+      stageId: 'probe',
+      state: { sourceUrl: 'https://www.youtube.com/watch?v=demo' }
+    }))).rejects.toMatchObject({
+      code: 'download_http_error',
+      message: 'The video platform returned HTTP 403 to yt-dlp.',
+      publicFacts: { kind: 'unauthorized', provider: 'yt-dlp', httpStatus: 403 }
+    });
+  });
+
+  it('keeps an unclassified yt-dlp cause while redacting links and tokens', async () => {
+    const binaries = await fakeBinaries({
+      failure: 'ERROR: Extractor returned an unexpected challenge at https://example.com/?token=secret token=private'
+    });
+    const workdir = join(tempDir, 'unknown-failure-work');
+    await mkdir(workdir, { recursive: true });
+    const executor = createDownloadExecutor(binaries);
+
+    try {
+      await executor.run(stageInput({
+        workdir,
+        stageId: 'probe',
+        state: { sourceUrl: 'https://www.youtube.com/watch?v=demo' }
+      }));
+      throw new Error('Expected yt-dlp to fail');
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'download_failed',
+        publicFacts: { kind: 'unknown', provider: 'yt-dlp' }
+      });
+      const message = (error as Error).message;
+      expect(message).toContain('unexpected challenge');
+      expect(message).not.toContain('example.com');
+      expect(message).not.toContain('private');
+      expect(message).not.toContain('secret');
+    }
   });
 
   it('recommends updating yt-dlp when the platform extractor is outdated', async () => {
@@ -1037,7 +1177,8 @@ describe('creator download executor', () => {
       }
     }))).rejects.toMatchObject({
       code: 'yt_dlp_update_recommended',
-      message: 'The video platform extractor may be outdated'
+      message: 'yt-dlp could not extract this video; its platform extractor may be outdated.',
+      publicFacts: { kind: 'unsupported', provider: 'yt-dlp' }
     });
   });
 
@@ -1203,6 +1344,9 @@ async function fakeBinaries(input?: {
   failure?: string;
   videoCodec?: string;
   portableRuntime?: boolean;
+  outputName?: string;
+  reportedOutputName?: string;
+  splitOutputUtf8?: boolean;
 }): Promise<{
   configStore: {
     read(): Promise<ReturnType<typeof createDefaultCreatorServicesConfig>>;
@@ -1248,7 +1392,8 @@ if (args.includes('--dump-single-json')) {
   process.exit(0);
 }
 const audio = args.includes('--extract-audio');
-const output = join(process.cwd(), audio ? 'download.mp3' : 'download.mp4');
+const output = join(process.cwd(), ${JSON.stringify(input?.outputName ?? null)} ?? (audio ? 'download.mp3' : 'download.mp4'));
+const reportedOutput = join(process.cwd(), ${JSON.stringify(input?.reportedOutputName ?? null)} ?? ${JSON.stringify(input?.outputName ?? null)} ?? (audio ? 'download.mp3' : 'download.mp4'));
 writeFileSync(output, audio ? 'download-audio' : 'download-video');
 if (args.includes('--progress')) {
   process.stderr.write('[download] 42.0% of 100B\\n');
@@ -1258,7 +1403,14 @@ if (args.includes('--progress')) {
   }
 }
 process.stderr.write(audio ? '[ExtractAudio] Destination\\n' : '[Merger] Merging formats\\n');
-process.stdout.write(output + '\\n');
+const outputBytes = Buffer.from(reportedOutput + '\\n', 'utf8');
+if (${input?.splitOutputUtf8 === true}) {
+  const split = outputBytes.indexOf(0xe2) + 1;
+  process.stdout.write(outputBytes.subarray(0, split));
+  setTimeout(() => process.stdout.write(outputBytes.subarray(split)), 10);
+} else {
+  process.stdout.write(outputBytes);
+}
 `);
   await writeExecutable(ffmpegScriptPath, `#!/usr/bin/env node
 import { copyFileSync, writeFileSync } from 'node:fs';

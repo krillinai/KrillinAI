@@ -13,6 +13,7 @@ import {
   LoaderCircle,
   MessageSquareText,
   Play,
+  RefreshCw,
   ServerOff,
   Sparkles,
   Square,
@@ -22,7 +23,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import OpenCreatorMark from '../../components/brand/OpenCreatorMark.js';
 import { MarkdownRenderer } from '../../components/markdown/MarkdownRenderer.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
-import { IssuePresenter } from '../issues/IssuePresenter.js';
+import { issueConversationText } from '../issues/issue-catalog.js';
 import ToolAgentComposer, { type ToolAgentPermission } from './ToolAgentComposer.js';
 import {
   creatorSystemIssueText,
@@ -54,11 +55,11 @@ type SyncEvent = {
 
 type CollaborationMessage = {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   status: CreatorAgentTurn['status'] | CreatorAgentItem['status'];
   createdAt: string;
-  source: 'agent';
+  source: 'agent' | 'diagnostic';
 };
 
 type CollaborationTimelineItem =
@@ -180,7 +181,9 @@ export default function CreatorCollaborationPanel(props: {
     setInput('');
     setSending(true);
     try {
-      if (session.agentBusy) await session.steerAgentTurn(content);
+      if (session.job.id.startsWith('pending:') && session.focusedIssue !== null) {
+        session.askPendingIssue(content, session.focusedIssue);
+      } else if (session.agentBusy) await session.steerAgentTurn(content);
       else await session.runAgentTurn(
         content,
         permission === 'full-access' ? 'danger-full-access' : 'workspace-write'
@@ -297,10 +300,6 @@ export default function CreatorCollaborationPanel(props: {
                     onRetry={() => session.repairIssue(item.issue)}
                     onFocus={() => {
                       session.focusIssue(item.issue);
-                      setInput(l(
-                        '请说明这个问题的已确认事实、可能原因和下一步修复方法。',
-                        'Explain the confirmed facts, possible causes, and next repair steps for this issue.'
-                      ));
                     }}
                   />
                 );
@@ -373,20 +372,6 @@ export default function CreatorCollaborationPanel(props: {
             </div>
           ) : null}
 
-          {session.focusedIssue !== null ? (
-            <div className="creator-collaboration-focused-issue" role="status">
-              <span>{l('正在聚焦', 'Focused')}: {session.focusedIssue.diagnosticId}</span>
-              <button
-                type="button"
-                onClick={() => session.focusIssue(null)}
-                aria-label={l('取消聚焦问题', 'Clear focused issue')}
-                title={l('取消聚焦问题', 'Clear focused issue')}
-              >
-                <XCircle size={14} aria-hidden="true" />
-              </button>
-            </div>
-          ) : null}
-
           <ToolAgentComposer
             value={input}
             onChange={setInput}
@@ -414,23 +399,33 @@ function CollaborationIssueView(props: {
   onRetry(): Promise<void>;
   onFocus(): void;
 }) {
+  const l = useLocalizedCopy();
+  const copy = issueConversationText(props.issue, l('zh-CN', 'en-US') as 'zh-CN' | 'en-US');
   const retryable = props.issue.stageId !== undefined
     && props.issue.repairActions.some(action => (
       action.kind === 'retry-operation'
       && action.operationId === 'creator.retry-stage'
     ));
   return (
-    <article className="creator-collaboration-issue" data-status={props.issue.status}>
-      <IssuePresenter
-        issue={props.issue}
-        compact
-        actions={{
-          ...(retryable
-            ? { retryOperations: { 'creator.retry-stage': props.onRetry } }
-            : {}),
-          onFocusAgent: props.onFocus
-        }}
-      />
+    <article className="creator-collaboration-message creator-collaboration-issue" data-role="system" data-source="diagnostic" data-status={props.issue.status} data-issue-id={props.issue.id}>
+      <header>
+        <span aria-hidden="true"><OpenCreatorMark size={14} /></span>
+        <strong>OpenCreator</strong>
+        <small>{l('系统诊断', 'System diagnosis')}</small>
+      </header>
+      <div className="creator-collaboration-bubble">
+        <p>{copy.message}</p>
+        {props.issue.status === 'resolving' ? <p>{l('正在检查修复结果。', 'Checking the repair result.')}</p> : null}
+        {props.issue.status === 'resolved' ? <p>{l('这个问题已解决。', 'This issue has been resolved.')}</p> : null}
+      </div>
+      {props.issue.status === 'open' ? (
+        <div className="creator-collaboration-issue-actions">
+          <button type="button" onClick={props.onFocus} title={l('询问这个问题', 'Ask about this issue')} aria-label={l('询问这个问题', 'Ask about this issue')}>
+            <MessageSquareText size={15} aria-hidden="true" />
+          </button>
+          {retryable ? <button type="button" onClick={() => void props.onRetry().catch(() => undefined)} title={l('重试当前步骤', 'Retry this stage')} aria-label={l('重试当前步骤', 'Retry this stage')}><RefreshCw size={15} aria-hidden="true" /></button> : null}
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -445,11 +440,11 @@ function CollaborationMessageView(props: { message: CollaborationMessage }) {
       data-source={message.source}
       data-status={message.status}
     >
-      {message.role === 'assistant' ? (
+      {message.role !== 'user' ? (
         <header>
           <span aria-hidden="true"><OpenCreatorMark size={14} /></span>
           <strong>OpenCreator</strong>
-          <small>{l('Agent 回复', 'Agent reply')}</small>
+          <small>{message.role === 'system' ? l('系统诊断', 'System diagnosis') : l('Agent 回复', 'Agent reply')}</small>
         </header>
       ) : null}
       <div className="creator-collaboration-bubble">

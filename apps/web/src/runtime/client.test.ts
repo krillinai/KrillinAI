@@ -163,6 +163,22 @@ describe('RuntimeClient', () => {
     });
   });
 
+  it('classifies a local configuration conflict without claiming an upstream rejection', async () => {
+    const client = new RuntimeClient({
+      baseUrl: 'http://127.0.0.1:60855',
+      fetchImpl: vi.fn(async () => new Response(JSON.stringify({
+        error: { code: 'IMAGE_GENERATION_CONFIG_REQUIRED', message: 'private config path' }
+      }), { status: 409 }))
+    });
+    await expect(client.get('/image-generation/results')).rejects.toMatchObject({
+      code: 'IMAGE_GENERATION_CONFIG_REQUIRED',
+      issue: {
+        publicFacts: { kind: 'configuration', httpStatus: 409 },
+        fallbackMessage: expect.stringContaining('配置')
+      }
+    });
+  });
+
   it('preserves a server issue and normalizes legacy network and parse failures', async () => {
     const serverIssue = {
       id: 'issue-1',
@@ -192,6 +208,20 @@ describe('RuntimeClient', () => {
     });
     await expect(serverClient.get('/creator/jobs/job-1')).rejects.toMatchObject({ issue: serverIssue });
 
+    const factsClient = new RuntimeClient({
+      baseUrl: 'http://127.0.0.1:60855',
+      fetchImpl: vi.fn(async () => new Response(JSON.stringify({
+        error: {
+          code: 'IMAGE_GENERATION_UPSTREAM_ERROR', message: 'private provider response',
+          issue: serverIssue,
+          publicFacts: { kind: 'rate-limited', provider: 'openai', httpStatus: 429 }
+        }
+      }), { status: 502 }))
+    });
+    await expect(factsClient.get('/creator/jobs/job-1')).rejects.toMatchObject({
+      issue: { ...serverIssue, publicFacts: { kind: 'rate-limited', provider: 'openai', httpStatus: 429 } }
+    });
+
     const parseClient = new RuntimeClient({
       baseUrl: 'http://127.0.0.1:60855',
       fetchImpl: vi.fn(async () => new Response('{not-json', { status: 200 }))
@@ -200,6 +230,7 @@ describe('RuntimeClient', () => {
       code: 'INVALID_JSON_RESPONSE',
       issue: expect.objectContaining({
         scope: { kind: 'page', surface: 'projects' },
+        diagnosticId: expect.not.stringContaining('FNV1A'),
         fallbackMessage: expect.not.stringContaining('not-json')
       })
     });

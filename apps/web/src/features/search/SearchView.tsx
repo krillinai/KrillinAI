@@ -209,7 +209,7 @@ export function SearchView(props: {
               </ConversationSection>
             )
           ) : state.error !== undefined ? (
-            <SearchStatus title={l('搜索暂不可用，请使用上方问题卡重试', 'Search is unavailable. Retry from the issue above.')} />
+            <SearchStatus title={l('当前没有可显示的搜索结果', 'No search results to display')} />
           ) : state.loading ? (
             <SearchStatus title={l('正在搜索', 'Searching')} loading />
           ) : state.results.length === 0 ? (

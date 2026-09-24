@@ -961,7 +961,7 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: '使用此模板' }));
     const timeoutIssue = await findIssueByDescription('无法启动此模板，请查看诊断后重试。');
     expect(timeoutIssue).toHaveTextContent('无法启动此模板，请查看诊断后重试。');
-    expect(timeoutIssue).toHaveTextContent(/诊断编号：OC-/);
+    expect(timeoutIssue).not.toHaveTextContent(/诊断编号：OC-/);
     expect(timeoutIssue).not.toHaveTextContent('模板任务创建超时');
     expect(creatorPresetCreationStorageKeys()).toHaveLength(1);
 
@@ -1030,7 +1030,7 @@ describe('App', () => {
 
     const missingPresetIssue = await findIssueByDescription('无法启动此模板，请查看诊断后重试。');
     expect(missingPresetIssue).toHaveTextContent('无法启动此模板，请查看诊断后重试。');
-    expect(missingPresetIssue).toHaveTextContent(/诊断编号：OC-/);
+    expect(missingPresetIssue).not.toHaveTextContent(/诊断编号：OC-/);
     expect(missingPresetIssue).not.toHaveTextContent('Creator preset asset not found');
     await waitFor(() => expect(catalogRequests).toBeGreaterThanOrEqual(2));
     expect(creatorPresetCreationStorageKeys()).toHaveLength(0);
@@ -3072,7 +3072,7 @@ describe('App', () => {
     await waitFor(() => expect(screen.getAllByTestId('skill-market-card')).toHaveLength(12));
     await showSkillMarketCard(user, 'frontend-slides');
     const marketIssue = await findIssueByDescription('无法加载技能市场，请重试。');
-    expect(marketIssue).toHaveTextContent(/诊断编号：OC-/);
+    expect(marketIssue).not.toHaveTextContent(/诊断编号：OC-/);
     const card = getSkillMarketCard('frontend-slides');
     expect(within(card).queryByText('版本未知')).not.toBeInTheDocument();
     expect(within(card).getByRole('button', { name: '使用' })).toBeEnabled();
@@ -3116,7 +3116,7 @@ describe('App', () => {
     await waitFor(() => expect(screen.getAllByTestId('skill-market-card')).toHaveLength(12));
     await showSkillMarketCard(user, 'frontend-slides');
     const marketIssue = await findIssueByDescription('无法加载技能市场，请重试。');
-    expect(marketIssue).toHaveTextContent(/诊断编号：OC-/);
+    expect(marketIssue).not.toHaveTextContent(/诊断编号：OC-/);
     const action = within(getSkillMarketCard('frontend-slides')).getByRole('button', {
       name: '状态未知'
     });
@@ -3176,7 +3176,7 @@ describe('App', () => {
 
     const useIssue = await findIssueByDescription('无法使用该技能，请重试。');
     expect(useIssue).toHaveTextContent('无法使用该技能，请重试。');
-    expect(useIssue).toHaveTextContent(/诊断编号：OC-/);
+    expect(useIssue).not.toHaveTextContent(/诊断编号：OC-/);
     expect(screen.queryByText(/创建对话失败/)).not.toBeInTheDocument();
     await user.click(
       within(getSkillMarketCard('frontend-slides')).getByRole('button', {
@@ -3487,7 +3487,7 @@ describe('App', () => {
     await showSkillMarketCard(user, 'frontend-slides');
     await user.click(await within(getSkillMarketCard('frontend-slides')).findByRole('button', { name: '安装' }));
 
-    expect(await findIssueByDescription('无法加载技能市场，请重试。')).toHaveTextContent(/诊断编号：OC-/);
+    expect(await findIssueByDescription('无法加载技能市场，请重试。')).not.toHaveTextContent(/诊断编号：OC-/);
     expect(within(getSkillMarketCard('frontend-slides')).queryByText('版本未知')).not.toBeInTheDocument();
     expect(within(getSkillMarketCard('frontend-slides')).getByRole('button', { name: '使用' })).toBeEnabled();
     expect(screen.queryByText('安装失败，请重试')).not.toBeInTheDocument();
@@ -3551,7 +3551,7 @@ describe('App', () => {
     await showSkillMarketCard(user, 'frontend-slides');
     await user.click(await within(getSkillMarketCard('frontend-slides')).findByRole('button', { name: '更新' }));
 
-    expect(await findIssueByDescription('无法加载技能市场，请重试。')).toHaveTextContent(/诊断编号：OC-/);
+    expect(await findIssueByDescription('无法加载技能市场，请重试。')).not.toHaveTextContent(/诊断编号：OC-/);
     const action = within(getSkillMarketCard('frontend-slides')).getByRole('button', {
       name: '状态未知'
     });
@@ -7057,15 +7057,23 @@ describe('App', () => {
       baseUrl: 'http://127.0.0.1:60764',
       token: 'runtime-token'
     });
+    const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
     const runtimeFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const projectApiResponse = handleDefaultProjectApiRequest(url, init);
       if (projectApiResponse !== undefined) return projectApiResponse;
+      fetchCalls.push({ url, init });
       if (url.endsWith('/healthz')) return jsonResponse({ ok: true });
       if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
       if (url.endsWith('/codex/models')) throw new Error('model catalog unavailable');
       if (url.endsWith('/threads?status=active&limit=50')) {
         return jsonResponse({ threads: [] });
+      }
+      if (url.endsWith('/threads') && init?.method === 'POST') {
+        return jsonResponse({ thread: createThreadResponse({ id: 'thread_issue', title: '排查模型错误' }) }, { status: 201 });
+      }
+      if (url.endsWith('/runs') && init?.method === 'POST') {
+        return jsonResponse({ id: 'run_issue', threadId: 'thread_issue', status: 'running' }, { status: 202 });
       }
       throw new Error(`Unexpected request ${url}`);
     };
@@ -7087,9 +7095,20 @@ describe('App', () => {
 
     const modelsIssue = await findIssueByDescription('无法加载模型列表，请重试。');
     expect(modelsIssue).toHaveTextContent('无法加载模型列表，请重试。');
-    expect(modelsIssue).toHaveTextContent(/诊断编号：OC-/);
+    expect(modelsIssue).not.toHaveTextContent(/诊断编号：OC-/);
     expect(modelsIssue).not.toHaveTextContent('model catalog unavailable');
     expect(screen.queryByText('暂无可用模型')).not.toBeInTheDocument();
+
+    fireEvent.click(within(modelsIssue).getByRole('button', { name: '询问这条问题' }));
+    fireEvent.change(screen.getByRole('textbox', { name: '询问错误原因或修复办法' }), {
+      target: { value: '为什么模型列表失败？' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: '发送问题' }));
+    await waitFor(() => expect(findPostCall(fetchCalls, '/runs')).toBeDefined());
+    const request = JSON.parse(String(findPostCall(fetchCalls, '/runs')?.init?.body)) as { prompt: string };
+    expect(request.prompt).toContain('无法加载模型列表，请重试。');
+    expect(request.prompt).toContain('为什么模型列表失败？');
+    expect(request.prompt).not.toContain('model catalog unavailable');
   });
 
   it('restores the recent model config for a new conversation', async () => {
@@ -7858,7 +7877,7 @@ describe('App', () => {
 
     const permissionIssue = await findIssueByDescription('会话配置未更新，请重试。');
     expect(permissionIssue).toHaveTextContent('会话配置未更新，请重试。');
-    expect(permissionIssue).toHaveTextContent(/诊断编号：OC-/);
+    expect(permissionIssue).not.toHaveTextContent(/诊断编号：OC-/);
     expect(permissionIssue).not.toHaveTextContent('Thread has active run');
     expect(screen.getByRole('button', { name: '选择访问权限 请求批准' }))
       .toBeInTheDocument();

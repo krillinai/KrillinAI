@@ -39,8 +39,8 @@ export function VideoTranslationSubtitleImport(props: { sourceLanguage: string; 
         fileName: file.name, contentBase64, kind,
         language: kind === 'source_subtitle' ? props.sourceLanguage : props.targetLanguage
       } });
-    } catch (cause) {
-      setError(l('字幕文件读取或导入失败，请在 Agent 区域查看诊断。', 'The subtitle could not be read or imported. Review the diagnosis in the Agent panel.'));
+    } catch {
+      // The session records runtime and file-read failures in the shared Agent panel.
     } finally {
       setBusy(false);
     }

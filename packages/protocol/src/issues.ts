@@ -1,3 +1,5 @@
+import { safePublicErrorCode } from './errors.js';
+
 export const issueSources = [
   'api',
   'network',
@@ -37,6 +39,42 @@ export type IssueCategory = typeof issueCategories[number];
 export type IssueStatus = typeof issueStatuses[number];
 export type IssueRetryResult = typeof issueRetryResults[number];
 
+export const publicErrorKinds = [
+  'timeout',
+  'dns',
+  'connection-refused',
+  'connection-reset',
+  'tls',
+  'http-rejected',
+  'rate-limited',
+  'unauthorized',
+  'invalid-response',
+  'configuration',
+  'validation',
+  'not-found',
+  'conflict',
+  'unsupported',
+  'storage',
+  'unavailable',
+  'unknown'
+] as const;
+
+export type PublicErrorFacts = {
+  kind: typeof publicErrorKinds[number];
+  provider?: string;
+  upstreamCode?: string;
+  httpStatus?: number;
+};
+
+export function isPublicErrorFacts(value: unknown): value is PublicErrorFacts {
+  if (!isRecord(value) || !includes(publicErrorKinds, value.kind)) return false;
+  return (value.provider === undefined || (typeof value.provider === 'string'
+      && value.provider.length <= 80 && safePublicErrorCode(value.provider) !== undefined))
+    && (value.upstreamCode === undefined || safePublicErrorCode(value.upstreamCode) !== undefined)
+    && (value.httpStatus === undefined
+      || (Number.isInteger(value.httpStatus) && Number(value.httpStatus) >= 100 && Number(value.httpStatus) <= 599));
+}
+
 export type IssueScope =
   | { kind: 'creator-job'; jobId: string }
   | { kind: 'page'; surface: string };
@@ -68,6 +106,7 @@ export type OpenCreatorIssue = {
   summaryKey: string;
   summaryParams: Record<string, string | number>;
   fallbackMessage: string;
+  publicFacts?: PublicErrorFacts;
   technicalDetail?: string;
   retryable: boolean;
   repairActions: CreatorRepairAction[];
@@ -145,6 +184,7 @@ export function isOpenCreatorIssue(value: unknown): value is OpenCreatorIssue {
     || !isBoundedString(value.summaryKey, 1, 160)
     || !isSummaryParams(value.summaryParams)
     || !isBoundedString(value.fallbackMessage, 1, 1_000)
+    || (value.publicFacts !== undefined && !isPublicErrorFacts(value.publicFacts))
     || !isOptionalBoundedString(value.technicalDetail, 2_000)
     || typeof value.retryable !== 'boolean'
     || !Array.isArray(value.repairActions)

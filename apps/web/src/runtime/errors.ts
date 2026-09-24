@@ -1,9 +1,10 @@
-import type { OpenCreatorIssue } from '@opencreator/protocol';
+import type { OpenCreatorIssue, PublicErrorFacts } from '@opencreator/protocol';
 
 export class ApiClientError extends Error {
   readonly status: number;
   readonly code: string;
   readonly details?: Record<string, unknown>;
+  readonly publicFacts?: PublicErrorFacts;
   readonly issue?: OpenCreatorIssue;
 
   constructor(input: {
@@ -11,6 +12,7 @@ export class ApiClientError extends Error {
     code: string;
     message: string;
     details?: Record<string, unknown>;
+    publicFacts?: PublicErrorFacts;
     issue?: OpenCreatorIssue;
   }) {
     super(input.message);
@@ -18,6 +20,7 @@ export class ApiClientError extends Error {
     this.status = input.status;
     this.code = input.code;
     this.details = input.details;
+    this.publicFacts = input.publicFacts;
     this.issue = input.issue;
   }
 }

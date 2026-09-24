@@ -2240,15 +2240,14 @@ select:focus-visible {
   font-weight: 600;
 }
 
-.file-error-bar {
+.file-loading-bar {
   min-height: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 8px 12px;
   padding: 8px 14px;
-  border-bottom: 1px solid color-mix(in srgb, var(--danger) 28%, var(--border));
-  background: var(--danger-soft);
-  color: var(--danger);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -3136,7 +3135,7 @@ html.is-pane-resizing * {
 }
 
 .file-workspace-conflict {
-  background: var(--warning-soft);
+  background: var(--surface);
   color: var(--text);
 }
 

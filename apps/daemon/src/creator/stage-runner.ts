@@ -3,6 +3,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   readCreatorResultSnapshots,
+  publicErrorKindForCode,
   type CreatorArtifact,
   type CreatorJob,
   type CreatorJson,
@@ -13,6 +14,7 @@ import { CreatorExecutorError } from './executor.js';
 import type { CreatorRepository } from './repository.js';
 import type { CreatorIssueService } from './issues.js';
 import { CreatorProviderRequestError } from './provider-requests.js';
+import { publicFactsFromFailure } from './public-error-facts.js';
 import {
   appendCreatorResultSnapshot,
   creatorResultSnapshotForVersion,
@@ -414,6 +416,8 @@ export function createCreatorStageRunner(input: {
                     : 'stage',
                 category: outputValidation
                   ? 'output-validation'
+                  : configurationInput !== null
+                    ? 'configuration'
                   : providerFailure
                     ? 'provider'
                     : undefined,
@@ -426,12 +430,20 @@ export function createCreatorStageRunner(input: {
                   : undefined,
                 fallbackMessage: outputValidation
                   ? failureMessage
+                  : configurationInput !== null
+                    ? '缺少执行当前步骤所需的服务配置，请检查相关服务设置。'
                   : unknownProviderAcceptance
                     ? '外部服务是否已接收请求尚不明确，请先查询状态或确认后再继续。'
+                    : error instanceof CreatorExecutorError
+                      && error.publicFacts?.provider === 'yt-dlp'
+                      ? failureMessage
                     : providerFailure
                       ? '外部服务调用失败，可以重试或询问 Agent。'
                       : '创作步骤执行失败，可以重试或询问 Agent。',
                 technicalDetail: failureMessage,
+                publicFacts: configurationInput !== null
+                  ? { kind: 'configuration' }
+                  : stageFailureFacts(error, failureCode),
                 retryable: !unknownProviderAcceptance,
                 repairActions: [
                   ...(!unknownProviderAcceptance
@@ -832,4 +844,12 @@ function creatorConfigurationInput(
     message,
     deepLink: `#/settings?tab=ai-services&section=${section === 'llm' ? 'text' : section}`
   };
+}
+
+function stageFailureFacts(error: unknown, code: string) {
+  const facts = publicFactsFromFailure(error);
+  const codeKind = publicErrorKindForCode(code);
+  return facts.kind === 'unknown' && codeKind !== undefined
+    ? { ...facts, kind: codeKind }
+    : facts;
 }

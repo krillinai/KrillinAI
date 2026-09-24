@@ -35,6 +35,7 @@ import {
   type CreatorService
 } from '../creator/service.js';
 import { CreatorRepositoryDataError } from '../creator/repository.js';
+import { publicFactsFromFailure } from '../creator/public-error-facts.js';
 import { formatSseEvent } from './sse.js';
 import { apiError } from './errors.js';
 import type { CreatorAgentService } from '../creator/agent/agent-service.js';
@@ -1468,6 +1469,7 @@ function captureIssueForError(
       stageId: context.stageId,
       scopeKey: context.scopeKey,
       fallbackMessage: fallbackForIssueSource(context.source),
+      publicFacts: publicFactsFromFailure(error),
       technicalDetail: error instanceof Error ? error.message : undefined,
       retryable: retryOperation.length > 0,
       repairActions: [...retryOperation, { kind: 'focus-agent' }]

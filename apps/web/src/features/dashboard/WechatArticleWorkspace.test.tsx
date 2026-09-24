@@ -679,7 +679,7 @@ describe('WechatArticleWorkspace', () => {
     expect((screen.getByRole('textbox', { name: 'Template instructions' }) as HTMLTextAreaElement).value).toContain('Begin with a source-supported event');
   });
 
-  it('turns legacy template validation failures into a readable toast', async () => {
+  it('keeps legacy template validation failures readable in Agent', async () => {
     vi.useFakeTimers();
     const job = inspirationJob();
     job.state.currentStep = 1;
@@ -709,14 +709,15 @@ describe('WechatArticleWorkspace', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(350);
     });
-    expect(screen.getByText('文章模板状态已更新，请刷新页面后重新选择')).toBeInTheDocument();
+    const agent = screen.getByRole('complementary', { name: 'OpenCreator' });
+    expect(agent).toHaveTextContent('文章模板状态已更新，请刷新页面后重新选择');
     expect(screen.queryByText(/invalid_enum_value/)).not.toBeInTheDocument();
-    expect(screen.getByText(/诊断编号：OC-/)).toBeInTheDocument();
+    expect(screen.queryByText(/诊断编号：OC-/)).not.toBeInTheDocument();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(4_000);
     });
-    expect(screen.queryByText('文章模板状态已更新，请刷新页面后重新选择')).not.toBeInTheDocument();
-    expect(screen.getByText(/诊断编号：OC-/)).toBeInTheDocument();
+    expect(agent).toHaveTextContent('文章模板状态已更新，请刷新页面后重新选择');
+    expect(screen.queryByText(/诊断编号：OC-/)).not.toBeInTheDocument();
   });
 
   it('opens jobs that use the previous community template id with the renamed template selected', () => {
@@ -740,7 +741,7 @@ describe('WechatArticleWorkspace', () => {
     expect(screen.queryByRole('group', { name: '文章模板列表' })).not.toBeInTheDocument();
   });
 
-  it('stays on inspiration and shows a toast when a video has no subtitles', async () => {
+  it('stays on inspiration and reports missing subtitles in Agent', async () => {
     const job = inspirationJob(1);
     job.state.sourceLinks = [{
       id: 'video-1',
@@ -770,12 +771,12 @@ describe('WechatArticleWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '解析灵感并继续' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('没有找到可用的视频字幕：youtube.com');
+    await waitFor(() => expect(screen.getByRole('complementary', { name: 'OpenCreator' })).toHaveTextContent('没有找到可用的视频字幕：youtube.com'));
     expect(screen.getByRole('heading', { name: '添加内容灵感' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '写作要求' })).not.toBeInTheDocument();
   });
 
-  it('automatically dismisses non-configuration stage errors', async () => {
+  it('keeps stage errors in Agent instead of dismissing them', async () => {
     vi.useFakeTimers();
     const job = inspirationJob(1);
     job.stages.push(sourceStage('failed'));
@@ -791,14 +792,16 @@ describe('WechatArticleWorkspace', () => {
       </LanguageProvider>
     );
 
-    expect(screen.getByRole('alert')).toHaveTextContent('没有找到可用的视频字幕：youtube.com');
+    const agent = screen.getByRole('complementary', { name: 'OpenCreator' });
+    expect(agent).toHaveTextContent('没有找到可用的视频字幕：youtube.com');
     await act(async () => {
       await vi.advanceTimersByTimeAsync(4_000);
     });
+    expect(agent).toHaveTextContent('没有找到可用的视频字幕：youtube.com');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('shows document upload failures in a centered toast instead of the page footer', async () => {
+  it('reports document upload failures in Agent without a workspace toast', async () => {
     const job = inspirationJob();
     const uploadError = Object.assign(
       new Error('Document exceeds the 26214400 byte limit'),
@@ -822,7 +825,8 @@ describe('WechatArticleWorkspace', () => {
     });
 
     await waitFor(() => {
-      expect(container.querySelector('.wechat-article-toast')).toHaveTextContent('文件不能超过 25 MB');
+      expect(screen.getByRole('complementary', { name: 'OpenCreator' }).querySelector('.creator-collaboration-issue')).toBeInTheDocument();
+      expect(container.querySelector('.wechat-article-toast')).not.toBeInTheDocument();
       expect(container.querySelector('.creator-tool-error')).not.toBeInTheDocument();
     });
   });
@@ -846,7 +850,7 @@ describe('WechatArticleWorkspace', () => {
     expect(screen.getByText('已达到 10 个内容灵感上限')).toBeInTheDocument();
   });
 
-  it('renders form errors in the shared toast instead of below the workspace', async () => {
+  it('shows form validation in Agent without an error toast', async () => {
     const { container } = render(
       <LanguageProvider initialPreference="zh-CN">
         <CreatorSessionProvider
@@ -860,12 +864,12 @@ describe('WechatArticleWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '添加' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('请输入有效的网页或视频链接');
-    expect(container.querySelector('.wechat-article-toast')).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: 'OpenCreator' })).toHaveTextContent('请输入有效的网页或视频链接');
+    expect(container.querySelector('.wechat-article-toast')).not.toBeInTheDocument();
     expect(container.querySelector('.creator-tool-error')).not.toBeInTheDocument();
   });
 
-  it('shows missing image service configuration below the editor with a settings link', () => {
+  it('shows missing image service configuration only in Agent', () => {
     const job = articleJob();
     job.stages.push({
       id: 'images-stage-failed',
@@ -898,15 +902,10 @@ describe('WechatArticleWorkspace', () => {
       </LanguageProvider>
     );
 
-    const notice = screen.getByRole('alert');
-    expect(notice).toHaveClass('video-translation-run-notice', 'is-error');
-    expect(notice).toHaveTextContent('请先配置图像生成服务');
-    expect(screen.getByRole('link', { name: '打开图像生成设置' })).toHaveAttribute(
-      'href',
-      '#/settings?tab=ai-services&section=image'
-    );
+    expect(screen.getByRole('complementary', { name: 'OpenCreator' })).toHaveTextContent('请先配置图像生成服务');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(container.querySelector('.wechat-article-toast')).not.toBeInTheDocument();
-    expect(container.querySelector('.wechat-article-footer-stack > .wechat-article-run-notice + .wechat-article-actions')).toBeInTheDocument();
+    expect(container.querySelector('.wechat-article-footer-stack > .wechat-article-actions')).toBeInTheDocument();
   });
 });
 

@@ -7,15 +7,13 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
-  CircleAlert,
   Download,
   FileVideo,
   Grid2X2,
   List as ListIcon,
   LoaderCircle,
   Scissors,
-  Sparkles,
-  X
+  Sparkles
 } from 'lucide-react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import NativeSelect from '../../components/forms/NativeSelect.js';
@@ -86,7 +84,6 @@ export default function AutoClipWorkspace(props: {
   const [aspectRatio, setAspectRatio] = useState<ClipAspectRatio>(() => readAspectRatio(session?.state.aspectRatio));
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
-  const [dismissedErrorKey, setDismissedErrorKey] = useState('');
   const [currentStep, setCurrentStep] = useState<AutoClipStep>(0);
   const [furthestStep, setFurthestStep] = useState<AutoClipStep>(0);
   const [resultVersion, setResultVersion] = useState<number>();
@@ -134,14 +131,6 @@ export default function AutoClipWorkspace(props: {
   const rendering = latestRenderStage?.status === 'queued' || latestRenderStage?.status === 'running';
   const runtimeError = latestFailedStage(session?.job.stages ?? []);
   const visibleError = error || formatClipError(runtimeError ?? session?.error, l);
-  const technicalError = isTechnicalClipError(error || (runtimeError ?? session?.error));
-  const technicalErrorKey = technicalError
-    ? `${error ? 'local' : runtimeError?.id ?? 'session'}:${visibleError}`
-    : '';
-  const persistentError = technicalError ? '' : visibleError;
-  const activeToast = technicalError && technicalErrorKey !== dismissedErrorKey
-    ? { id: -1, message: visibleError }
-    : null;
   const renderedArtifacts = useMemo(
     () => selectedResult === undefined
       ? []
@@ -160,18 +149,6 @@ export default function AutoClipWorkspace(props: {
   useEffect(() => {
     if (latestVersion !== undefined) setResultVersion(latestVersion);
   }, [latestVersion]);
-
-  useEffect(() => {
-    if (activeToast === null) return undefined;
-    const timer = window.setTimeout(() => {
-      setDismissedErrorKey(technicalErrorKey);
-    }, 4_000);
-    return () => window.clearTimeout(timer);
-  }, [activeToast?.id, activeToast?.message, technicalErrorKey]);
-
-  useEffect(() => {
-    if (!technicalErrorKey) setDismissedErrorKey('');
-  }, [technicalErrorKey]);
 
   useEffect(() => {
     if (resultVersions.length === 0) return;
@@ -225,9 +202,7 @@ export default function AutoClipWorkspace(props: {
       return [artifact.id, objectUrl] as const;
     })).then(entries => {
       if (active) setExportUrls(Object.fromEntries(entries));
-    }).catch(cause => {
-      if (active) setError(formatClipError(cause, l));
-    });
+    }).catch(() => undefined);
     return () => {
       active = false;
       objectUrls.forEach(url => URL.revokeObjectURL(url));
@@ -341,9 +316,7 @@ export default function AutoClipWorkspace(props: {
       const nextStep: AutoClipStep = completedInResponse ? 2 : 1;
       setCurrentStep(nextStep);
       setFurthestStep(previous => Math.max(previous, nextStep) as AutoClipStep);
-    } catch (cause) {
-      setError(formatClipError(cause, l));
-    }
+    } catch {}
   }
 
   function selectVersion(version: number) {
@@ -411,27 +384,16 @@ export default function AutoClipWorkspace(props: {
           : currentStep === 2
             ? l('切片结果', 'Clip results')
             : steps[currentStep]!}
-      currentIssue={persistentError || undefined}
+      currentIssue={visibleError || undefined}
       onCancelTask={analyzing || rendering
-        ? () => void session?.cancelJob().catch(cause => setError(formatClipError(cause, l)))
+        ? () => void session?.cancelJob().catch(() => undefined)
         : undefined}
       onResumeTask={session?.job.status === 'canceled'
-        ? () => void session.resumeJob().catch(cause => setError(formatClipError(cause, l)))
+        ? () => void session.resumeJob().catch(() => undefined)
         : undefined}
       onBack={props.onBack}
     >
       <div className="creator-tool-stack auto-clip-tool-stack">
-        {activeToast ? (
-          <div className="creator-tool-toast" role="alert">
-            <span aria-hidden="true"><CircleAlert size={17} /></span>
-            <div><p>{activeToast.message}</p></div>
-            <button type="button" aria-label={l('关闭提示', 'Dismiss notification')} onClick={() => {
-              setDismissedErrorKey(technicalErrorKey);
-              setError('');
-              session?.clearError();
-            }}><X size={15} /></button>
-          </div>
-        ) : null}
         <nav className="video-translation-steps creator-tool-steps" aria-label={l('视频切片流程', 'Video clip workflow')}>
           <ol>{steps.map((step, index) => {
             const active = index === currentStep;
@@ -698,7 +660,7 @@ export default function AutoClipWorkspace(props: {
         {analyzing && currentStep !== 2 ? (
           <p className="creator-tool-notice" role="status"><LoaderCircle className="smart-dubbing-spinner" size={14} />{readProgressText(latestAnalysisStage, l)}</p>
         ) : notice ? <p className="creator-tool-notice" role="status">{notice}</p> : null}
-        {visibleError ? <p className="creator-tool-error" role="alert">{visibleError}</p> : null}
+        {error ? <p className="creator-tool-error" role="alert">{error}</p> : null}
       </div>
     </CreatorToolShell>
   );
@@ -1318,21 +1280,5 @@ function formatClipError(
   if (code === 'unsupported_source') return l('目前仅支持公开视频链接或本地视频文件', 'Use a supported public video URL or a local video file');
   if (code === 'creator_clip_candidates_missing') return l('没有可生成的视频片段，请重新分析', 'No clips are available. Run the analysis again.');
   if (code === 'creator_stage_canceled') return l('视频切片任务已取消', 'The video clip task was canceled');
-  return l('视频切片失败，请在 Agent 区域查看诊断后重试', 'Video clipping failed. Review the diagnosis in the Agent panel and retry.');
-}
-
-function isTechnicalClipError(error: unknown): boolean {
-  const message = typeof error === 'string'
-    ? error
-    : error instanceof Error
-      ? error.message
-      : (() => {
-          const candidate = error as { message?: unknown; errorMessage?: unknown } | null | undefined;
-          return typeof candidate?.message === 'string'
-            ? candidate.message
-            : typeof candidate?.errorMessage === 'string'
-              ? candidate.errorMessage
-              : '';
-        })();
-  return /normalize timeline|invalid[_ ]srt(?: timestamp)?|target_language_srt\.srt/i.test(message);
+  return l('视频切片未完成，请检查来源与服务配置后重试', 'Video clipping did not complete. Check the source and service settings, then retry.');
 }

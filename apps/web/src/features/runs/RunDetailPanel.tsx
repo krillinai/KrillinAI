@@ -26,7 +26,6 @@ export function RunDetailPanel(props: {
   onExport?(diagnostics: RunDiagnosticsResponse): void | Promise<void>;
 }) {
   const [confirmingExport, setConfirmingExport] = useState(false);
-  const [exportError, setExportError] = useState<string>();
   const pageIssues = usePageIssueState('run-detail');
 
   if (props.runId === undefined) {
@@ -52,13 +51,11 @@ export function RunDetailPanel(props: {
 
   async function exportDiagnostics() {
     if (props.diagnostics === undefined) return;
-    setExportError(undefined);
     try {
       await (props.onExport ?? downloadRunDiagnosticsBundle)(props.diagnostics);
       pageIssues.resolveOperation('run-detail.export');
       setConfirmingExport(false);
     } catch (reason) {
-      setExportError('诊断包导出失败');
       pageIssues.captureOperationFailure('run-detail.export', reason, '诊断包导出失败，请重试。', { retryable: true });
     }
   }
@@ -80,7 +77,6 @@ export function RunDetailPanel(props: {
             <span>导出脱敏诊断包</span>
           </button>
         </header>
-        {exportError ? <p className="settings-error" role="alert">{exportError}</p> : null}
         <IssueList
           issues={pageIssues.issues}
           actions={{ retryOperations: { 'run-detail.export': exportDiagnostics } }}

@@ -4,7 +4,9 @@ import type {
   CreatorProviderRequest,
   CreatorProviderRequestStatus
 } from '@opencreator/protocol';
-import type { CreatorIssueService } from './issues.js';
+import { isPublicErrorFacts } from '@opencreator/protocol';
+import { sanitizeIssueDetail, type CreatorIssueService } from './issues.js';
+import { publicFactsFromFailure } from './public-error-facts.js';
 import type { CreatorRepository } from './repository.js';
 
 export type CreatorProviderLookupResult =
@@ -123,9 +125,9 @@ export class CreatorProviderRequestLedger {
     return request;
   }
 
-  markFailed(id: string): CreatorProviderRequest {
+  markFailed(id: string, error?: unknown): CreatorProviderRequest {
     const request = this.transition(id, ['submitting', 'waiting_remote'], 'failed');
-    if (!this.finishProviderIssue(request, 'failed')) this.captureProviderIssue(request, false);
+    if (!this.finishProviderIssue(request, 'failed', error)) this.captureProviderIssue(request, false, error);
     return request;
   }
 
@@ -264,7 +266,8 @@ export class CreatorProviderRequestLedger {
 
   private captureProviderIssue(
     request: CreatorProviderRequest,
-    unknownRemoteAcceptance: boolean
+    unknownRemoteAcceptance: boolean,
+    error?: unknown
   ): void {
     const stage = this.repository.getStageRun(request.stageRunId);
     this.issueService?.capture({
@@ -281,6 +284,8 @@ export class CreatorProviderRequestLedger {
       fallbackMessage: unknownRemoteAcceptance
         ? '外部服务是否已接收请求尚不明确，请先查询状态或确认后再继续。'
         : '外部服务调用失败，可以重试或询问 Agent。',
+      publicFacts: factsForProvider(error, request.provider),
+      ...(error instanceof Error ? { technicalDetail: sanitizeIssueDetail(error.message) } : {}),
       retryable: !unknownRemoteAcceptance,
       repairActions: [
         ...(!unknownRemoteAcceptance
@@ -311,7 +316,8 @@ export class CreatorProviderRequestLedger {
 
   private finishProviderIssue(
     request: CreatorProviderRequest,
-    result: 'succeeded' | 'failed' | 'canceled' | 'unknown'
+    result: 'succeeded' | 'failed' | 'canceled' | 'unknown',
+    error?: unknown
   ): boolean {
     const issue = this.findProviderIssue(request, 'resolving');
     if (issue === undefined) return false;
@@ -319,7 +325,11 @@ export class CreatorProviderRequestLedger {
       jobId: request.jobId,
       issueId: issue.id,
       resolutionAttemptId: request.id,
-      result
+      result,
+      ...(result === 'failed' && error !== undefined ? {
+        publicFacts: factsForProvider(error, request.provider),
+        ...(error instanceof Error ? { technicalDetail: sanitizeIssueDetail(error.message) } : {})
+      } : {})
     });
     return true;
   }
@@ -363,6 +373,15 @@ export class CreatorProviderRequestLedger {
     }
     return request;
   }
+}
+
+function factsForProvider(error: unknown, provider: string) {
+  const provided = typeof error === 'object' && error !== null
+    ? (error as { publicFacts?: unknown }).publicFacts
+    : undefined;
+  return isPublicErrorFacts(provided)
+    ? { ...provided, provider }
+    : publicFactsFromFailure(error, provider);
 }
 
 function hashRequest(value: Record<string, CreatorJson>): string {

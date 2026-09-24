@@ -113,9 +113,8 @@ export default function ProjectsPage(props: {
   const [deleteProjectFiles, setDeleteProjectFiles] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState<string>();
   const [batchDeleting, setBatchDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string>();
+  const [batchDeletedCount, setBatchDeletedCount] = useState(0);
   const [downloadingOutputId, setDownloadingOutputId] = useState<string>();
-  const [downloadError, setDownloadError] = useState<string>();
   const pageIssues = usePageIssueState('projects');
   const lastDownloadOutputRef = useRef<ProjectOutput>();
   const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -197,14 +196,12 @@ export default function ProjectsPage(props: {
     setBatchPendingDeletion(false);
     setSelectedProjectIds(new Set());
     setDeleteProjectFiles(false);
-    setDeleteError(undefined);
   };
 
   async function downloadOutput(output: ProjectOutput) {
     if (props.service?.openArtifact === undefined || downloadingOutputId !== undefined) return;
     setDownloadingOutputId(output.id);
     lastDownloadOutputRef.current = output;
-    setDownloadError(undefined);
     try {
       const response = await props.service.openArtifact(output.job.id, output.id);
       if (!response.ok) throw new Error('Artifact download failed');
@@ -219,7 +216,6 @@ export default function ProjectsPage(props: {
       URL.revokeObjectURL(objectUrl);
       pageIssues.resolveOperation('projects.download-output');
     } catch (cause) {
-      setDownloadError(l('文件下载失败，请重试', 'Unable to download the file. Please try again.'));
       pageIssues.captureOperationFailure('projects.download-output', cause, l('文件下载失败，请重试。', 'Unable to download the file. Please try again.'), { retryable: true });
     } finally {
       setDownloadingOutputId(undefined);
@@ -347,10 +343,10 @@ export default function ProjectsPage(props: {
                     type="button"
                     className="projects-batch-button is-destructive"
                     disabled={selectedProjectCount === 0 || batchDeleting}
-                    onClick={() => {
-                      setDeleteError(undefined);
-                      setDeleteProjectFiles(false);
-                      setBatchPendingDeletion(true);
+                  onClick={() => {
+                    setBatchDeletedCount(0);
+                    setDeleteProjectFiles(false);
+                    setBatchPendingDeletion(true);
                     }}
                   >
                     <Trash2 size={15} strokeWidth={1.8} aria-hidden="true" />
@@ -362,7 +358,6 @@ export default function ProjectsPage(props: {
                   type="button"
                   className="projects-batch-button"
                   onClick={() => {
-                    setDeleteError(undefined);
                     setBatchMode(true);
                   }}
                 >
@@ -372,15 +367,11 @@ export default function ProjectsPage(props: {
               )
             ) : null}
           </div>
-          {view === 'outputs' && downloadError !== undefined ? (
-            <p className="projects-download-error" role="status">{downloadError}</p>
-          ) : null}
 
           {props.error !== undefined ? (
             <div className="projects-empty" role="status">
               <FolderKanban size={28} strokeWidth={1.5} aria-hidden="true" />
-              <strong>{l('无法加载最近项目', 'Unable to load recent projects')}</strong>
-              <p>{l('请查看上方诊断信息。', 'Review the diagnosis above.')}</p>
+              <strong>{l('当前没有可显示的项目', 'No projects to display')}</strong>
             </div>
           ) : props.loading && projects.length === 0 ? (
             <div className="projects-empty" role="status" aria-busy="true">
@@ -445,7 +436,6 @@ export default function ProjectsPage(props: {
                       title={l('删除项目', 'Delete project')}
                       disabled={deletingProjectId === project.job.id}
                       onClick={() => {
-                        setDeleteError(undefined);
                         setDeleteProjectFiles(false);
                         setProjectPendingDeletion(project);
                       }}
@@ -567,9 +557,9 @@ export default function ProjectsPage(props: {
                 )}</small>
               </span>
             </label>
-            {deleteError === undefined ? null : (
-              <span className="project-delete-error" role="status">{deleteError}</span>
-            )}
+            {batchPendingDeletion && batchDeletedCount > 0 ? (
+              <span role="status">{l(`已删除 ${batchDeletedCount} 个项目`, `Deleted ${batchDeletedCount} projects`)}</span>
+            ) : null}
           </span>
         )}
         confirmLabel={batchPendingDeletion
@@ -578,7 +568,7 @@ export default function ProjectsPage(props: {
         destructive
         busy={deleting}
         onCancel={() => {
-          setDeleteError(undefined);
+          setBatchDeletedCount(0);
           setDeleteProjectFiles(false);
           setProjectPendingDeletion(undefined);
           setBatchPendingDeletion(false);
@@ -589,23 +579,22 @@ export default function ProjectsPage(props: {
             const deleteJob = props.onDeleteJob;
             const selectedProjects = projects.filter(project => selectedProjectIds.has(project.job.id));
             setBatchDeleting(true);
-            setDeleteError(undefined);
+            setBatchDeletedCount(0);
             void (async () => {
               const failedProjectIds = new Set<string>();
-              let activeFailureCount = 0;
               for (const project of selectedProjects) {
                 try {
                   await deleteJob(project.job.id, { deleteFiles: deleteProjectFiles });
                 } catch (error) {
                   failedProjectIds.add(project.job.id);
-                  pageIssues.captureOperationFailure('projects.delete', error, l('项目删除失败，请重试。', 'Unable to delete the project. Please try again.'));
-                  if (error instanceof ApiClientError && error.code === 'creator_job_has_active_run') {
-                    activeFailureCount += 1;
-                  }
+                  pageIssues.captureOperationFailure('projects.delete', error,
+                    error instanceof ApiClientError && error.code === 'creator_job_has_active_run'
+                      ? l('项目仍在运行，请先停止任务后再删除。', 'This project is still running. Stop it before deleting.')
+                      : l('项目删除失败，请重试。', 'Unable to delete the project. Please try again.'));
                 }
               }
 
-              const deletedCount = selectedProjects.length - failedProjectIds.size;
+              setBatchDeletedCount(selectedProjects.length - failedProjectIds.size);
               setSelectedProjectIds(failedProjectIds);
               if (failedProjectIds.size === 0) {
                 pageIssues.resolveOperation('projects.delete');
@@ -614,15 +603,6 @@ export default function ProjectsPage(props: {
                 setDeleteProjectFiles(false);
                 return;
               }
-              setDeleteError(activeFailureCount === failedProjectIds.size
-                ? l(
-                    `已删除 ${deletedCount} 个项目，另有 ${failedProjectIds.size} 个项目仍在运行，请停止任务后重试。`,
-                    `Deleted ${deletedCount} projects. ${failedProjectIds.size} are still running; stop them and try again.`
-                  )
-                : l(
-                    `已删除 ${deletedCount} 个项目，另有 ${failedProjectIds.size} 个删除失败，请重试。`,
-                    `Deleted ${deletedCount} projects. ${failedProjectIds.size} could not be deleted; please try again.`
-                  ));
             })().finally(() => setBatchDeleting(false));
             return;
           }
@@ -633,7 +613,6 @@ export default function ProjectsPage(props: {
           ) return;
           const projectId = projectPendingDeletion.job.id;
           setDeletingProjectId(projectId);
-          setDeleteError(undefined);
           void props.onDeleteJob(projectId, { deleteFiles: deleteProjectFiles })
             .then(() => {
               pageIssues.resolveOperation('projects.delete');
@@ -641,12 +620,10 @@ export default function ProjectsPage(props: {
               setProjectPendingDeletion(undefined);
             })
             .catch(error => {
-              pageIssues.captureOperationFailure('projects.delete', error, l('项目删除失败，请重试。', 'Unable to delete the project. Please try again.'));
-              setDeleteError(
+              pageIssues.captureOperationFailure('projects.delete', error,
                 error instanceof ApiClientError && error.code === 'creator_job_has_active_run'
                   ? l('项目仍在运行，请先停止任务后再删除。', 'This project is still running. Stop it before deleting.')
-                  : l('删除项目失败，请重试。', 'Unable to delete the project. Please try again.')
-              );
+                  : l('项目删除失败，请重试。', 'Unable to delete the project. Please try again.'));
             })
             .finally(() => setDeletingProjectId(undefined));
         }}

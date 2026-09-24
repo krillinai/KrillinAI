@@ -106,7 +106,7 @@ describe('ProfileSettingsView', () => {
 
     const issue = await screen.findByRole('alert');
     expect(issue).toHaveTextContent('无法删除 Profile，请检查占用情况后重试。');
-    expect(issue).toHaveTextContent(/诊断编号：OC-/);
+    expect(issue).not.toHaveTextContent(/诊断编号：OC-/);
     expect(issue).not.toHaveTextContent('Profile is still referenced');
     expect(screen.getByRole('heading', { name: 'review' })).toBeInTheDocument();
   });

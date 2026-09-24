@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { CreatorJob, CreatorJson } from '@opencreator/protocol';
+import type { CreatorJob, CreatorJson, OpenCreatorIssue } from '@opencreator/protocol';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import {
@@ -34,6 +34,7 @@ import VideoDownloadWorkspace from './VideoDownloadWorkspace.js';
 import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
 import VideoGenerationWorkspace from './VideoGenerationWorkspace.js';
 import type { CreatorWebService } from '../../services/creator-service.js';
+import { ApiClientError } from '../../runtime/errors.js';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 import { CreatorSessionProvider } from './creator-session-store.js';
 import type {
@@ -220,6 +221,7 @@ export default function DashboardPage(props: {
   creatorService?: CreatorWebService | null;
   runtimeDependencies?: RuntimeDependenciesController;
   onJobCreated?(job: CreatorJob): void;
+  onAskIssue?(issue: OpenCreatorIssue, question: string): void;
   onCreateProject?(projectType: CreatorProjectType): boolean | void | Promise<boolean | void>;
   createProjectError?: string;
   onOpenRuntimeComponents?(): void;
@@ -334,6 +336,7 @@ export default function DashboardPage(props: {
         templateVersion={creatorTemplateVersionForWorkspace(workspace)}
         jobId={activeJobId}
         onJobCreated={job => handleJobCreated(workspace, job)}
+        onAskIssue={props.onAskIssue}
         onBack={closeWorkspace}
       >
         {content}
@@ -607,6 +610,7 @@ function CreatorWorkspaceSession(props: {
   jobId?: string;
   children: ReactNode;
   onJobCreated(job: CreatorJob): void;
+  onAskIssue?(issue: OpenCreatorIssue, question: string): void;
   onBack(): void;
 }) {
   const l = useLocalizedCopy();
@@ -619,6 +623,7 @@ function CreatorWorkspaceSession(props: {
   const mountedRef = useRef(false);
   const onJobCreatedRef = useRef(props.onJobCreated);
   const creationRequestsRef = useRef(new Map<string, Promise<CreatorJob>>());
+  const capturedCreationFailureRef = useRef(new WeakSet<object>());
   const announcedCreatedJobIdsRef = useRef(new Set<string>());
   const creationIdentityRef = useRef<{ scope: string; key: string }>();
   const createdJobIdRef = useRef<string>();
@@ -683,6 +688,7 @@ function CreatorWorkspaceSession(props: {
       next = await request;
       pageIssues.resolveOperation('creator-launch.create-job');
     } catch (cause) {
+      if (typeof cause === 'object' && cause !== null) capturedCreationFailureRef.current.add(cause);
       pageIssues.captureOperationFailure(
         'creator-launch.create-job',
         cause,
@@ -824,15 +830,13 @@ function CreatorWorkspaceSession(props: {
       initialJob={job}
       service={props.service}
       ensureJob={ensureJob}
+      externalIssues={pageIssues.issues}
+      onAskPendingIssue={props.onAskIssue}
       onPreJobFailure={(operation, cause, fallbackMessage) => {
+        if (typeof cause === 'object' && cause !== null && capturedCreationFailureRef.current.has(cause)) return;
         pageIssues.captureOperationFailure(operation, cause, fallbackMessage);
       }}
     >
-      <IssueList
-        issues={pageIssues.issues}
-        onDismiss={pageIssues.dismissIssue}
-        compact
-      />
       {props.children}
     </CreatorSessionProvider>
   );
@@ -889,6 +893,7 @@ export async function createCreatorJobWithRecovery(
       );
     } catch (error) {
       lastError = error;
+      if (error instanceof ApiClientError && error.status !== 0) throw error;
       if (attempt + 1 < CREATOR_JOB_CREATE_ATTEMPTS) {
         await waitForRetry(250 * (attempt + 1));
       }

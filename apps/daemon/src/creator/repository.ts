@@ -23,7 +23,7 @@ import type {
   IssueRetryResult,
   OpenCreatorIssue
 } from '@opencreator/protocol';
-import { isOpenCreatorIssue } from '@opencreator/protocol';
+import { isOpenCreatorIssue, isPublicErrorFacts } from '@opencreator/protocol';
 import type {
   CreatorIssueAssociationKind,
   NormalizedCreatorIssueInput
@@ -39,7 +39,7 @@ export const CREATOR_ISSUE_UPSERT_SQL = `
   INSERT INTO creator_issues (
     id, job_id, diagnostic_id, code, source, category, severity, status,
     operation, stage_id, stage_run_id, scope_key, summary_key,
-    summary_params_json, fallback_message, technical_detail, retryable,
+    summary_params_json, fallback_message, public_facts_json, technical_detail, retryable,
     repair_actions_json, fingerprint, occurrence_count,
     resolution_attempt_id, association_kind, association_id,
     last_retry_result, last_event_kind,
@@ -47,7 +47,7 @@ export const CREATOR_ISSUE_UPSERT_SQL = `
   ) VALUES (
     @id, @jobId, @diagnosticId, @code, @source, @category, @severity, 'open',
     @operation, @stageId, @stageRunId, @scopeKey, @summaryKey,
-    @summaryParamsJson, @fallbackMessage, @technicalDetail, @retryable,
+    @summaryParamsJson, @fallbackMessage, @publicFactsJson, @technicalDetail, @retryable,
     @repairActionsJson, @fingerprint, 1,
     NULL, NULL, NULL, 'none', 'occurrence',
     @timestamp, @timestamp, NULL, @timestamp
@@ -65,6 +65,7 @@ export const CREATOR_ISSUE_UPSERT_SQL = `
     summary_key = excluded.summary_key,
     summary_params_json = excluded.summary_params_json,
     fallback_message = excluded.fallback_message,
+    public_facts_json = excluded.public_facts_json,
     technical_detail = excluded.technical_detail,
     retryable = excluded.retryable,
     repair_actions_json = excluded.repair_actions_json,
@@ -219,6 +220,8 @@ export type CreatorRepository = {
     issueId: string;
     resolutionAttemptId: string;
     result: Exclude<IssueRetryResult, 'none'>;
+    publicFacts?: OpenCreatorIssue['publicFacts'];
+    technicalDetail?: string;
   }): OpenCreatorIssue;
   aggregateIssueStats(
     jobId: string,
@@ -773,6 +776,7 @@ export function createCreatorRepository(
           summaryKey: input.summaryKey,
           summaryParamsJson: JSON.stringify(input.summaryParams),
           fallbackMessage: input.fallbackMessage,
+          publicFactsJson: input.publicFacts === undefined ? null : JSON.stringify(input.publicFacts),
           technicalDetail: input.technicalDetail ?? null,
           retryable: input.retryable ? 1 : 0,
           repairActionsJson: JSON.stringify(input.repairActions),
@@ -864,6 +868,8 @@ export function createCreatorRepository(
         db.prepare(`
           UPDATE creator_issues
           SET status = ?, last_retry_result = ?, repair_actions_json = ?,
+              public_facts_json = COALESCE(?, public_facts_json),
+              technical_detail = COALESCE(?, technical_detail),
               occurrence_count = occurrence_count + ?,
               last_occurred_at = CASE WHEN ? = 1 THEN ? ELSE last_occurred_at END,
               resolved_at = ?, updated_at = ?
@@ -872,6 +878,8 @@ export function createCreatorRepository(
           succeeded ? 'resolved' : 'open',
           input.result,
           JSON.stringify(actions),
+          input.publicFacts === undefined ? null : JSON.stringify(input.publicFacts),
+          input.technicalDetail ?? null,
           failedOccurrence ? 1 : 0,
           failedOccurrence ? 1 : 0,
           timestamp,
@@ -1201,6 +1209,7 @@ function hydrateIssue(row: IssueRow): OpenCreatorIssue {
     summaryKey: row.summary_key,
     summaryParams: parseIssueSummaryParams(row.summary_params_json),
     fallbackMessage: row.fallback_message,
+    ...(row.public_facts_json === null ? {} : { publicFacts: parseIssuePublicFacts(row.public_facts_json) }),
     ...(row.technical_detail === null ? {} : { technicalDetail: row.technical_detail }),
     retryable: row.retryable === 1,
     repairActions: safeRepairActions(row.repair_actions_json),
@@ -1243,6 +1252,19 @@ function parseIssueSummaryParams(value: string): Record<string, string | number>
     throw new CreatorRepositoryDataError('Creator issue summary params are invalid');
   }
   return parsed as Record<string, string | number>;
+}
+
+function parseIssuePublicFacts(value: string): NonNullable<OpenCreatorIssue['publicFacts']> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new CreatorRepositoryDataError('Creator issue public facts are invalid JSON');
+  }
+  if (!isPublicErrorFacts(parsed)) {
+    throw new CreatorRepositoryDataError('Creator issue public facts are invalid');
+  }
+  return parsed;
 }
 
 function safeRepairActions(value: string): CreatorRepairAction[] {
@@ -1400,6 +1422,7 @@ type IssueRow = {
   summary_key: string;
   summary_params_json: string;
   fallback_message: string;
+  public_facts_json: string | null;
   technical_detail: string | null;
   retryable: 0 | 1;
   repair_actions_json: string;

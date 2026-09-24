@@ -18,7 +18,6 @@ import {
   type WritingTemplateDomainId
 } from '@opencreator/writing-templates';
 import {
-  CircleAlert,
   Check,
   Clipboard,
   ChevronDown,
@@ -58,7 +57,7 @@ import {
 type ArticleStep = 0 | 1 | 2 | 3 | 4 | 5;
 type ArticleWorkspacePhase = 'compose' | 'result';
 type ArticleResultTab = 'outputs' | 'images' | 'settings';
-type ArticleToast = { id: number; message: string; tone: 'error' | 'success' };
+type ArticleToast = { id: number; message: string };
 type ArticleEditorPart =
   | { kind: 'text'; markdown: string }
   | { kind: 'image'; markdown: string; alt: string; href: string; src: string; artifactId: string };
@@ -210,7 +209,6 @@ export default function WechatArticleWorkspace(props: {
   const [sourceDragActive, setSourceDragActive] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<ArticleToast | null>(null);
-  const [dismissedErrorKey, setDismissedErrorKey] = useState('');
   const [taskControlPending, setTaskControlPending] = useState<'canceling' | 'resuming'>();
 
   function commitTopicCount() {
@@ -306,36 +304,10 @@ export default function WechatArticleWorkspace(props: {
   const running = latestStage?.status === 'queued' || latestStage?.status === 'running';
   const documentRunning = running && latestStage?.stageId === 'document';
   const imageRunning = running && latestStage?.stageId === 'images';
-  const presetValidationError = isPresetValidationError(session?.error?.message ?? '');
-  const sessionErrorMessage = uploading || toast !== null || presetValidationError
-    ? ''
-    : formatArticleSessionError(session?.error?.code, session?.error?.message, l);
+  const sessionErrorMessage = formatArticleSessionError(session?.error?.code, session?.error?.message, l);
   const visibleError = error || (latestStage?.status === 'failed'
     ? formatArticleStageError(latestStage.errorCode, latestStage.errorMessage, readString(latestStage.progress.message), l)
     : sessionErrorMessage);
-  const visibleErrorKey = visibleError
-    ? error
-      ? `local:${visibleError}`
-      : latestStage?.status === 'failed'
-        ? `stage:${latestStage.id}:${visibleError}`
-        : `session:${session?.error?.code ?? ''}:${visibleError}`
-    : '';
-  const configurationIssue = latestStage?.status === 'failed'
-    ? latestStage.errorCode === 'creator_llm_config_missing'
-      ? {
-          href: '#/settings?tab=ai-services&section=text',
-          label: l('打开文本模型设置', 'Open text model settings')
-        }
-      : latestStage.errorCode === 'creator_image_config_missing'
-        ? {
-            href: '#/settings?tab=ai-services&section=image',
-            label: l('打开图像生成设置', 'Open image generation settings')
-          }
-        : null
-    : null;
-  const activeToast = toast ?? (visibleError && configurationIssue === null && visibleErrorKey !== dismissedErrorKey
-    ? { id: -1, message: visibleError, tone: 'error' as const }
-    : null);
   const selectedTopic = topics.find(topic => topic.id === selectedTopicId);
   const selectedPreset = wechatArticlePresets.find(preset => preset.id === presetId);
   const selectedLayout = wechatArticleLayoutStyles.find(style => style.id === layoutStyleId);
@@ -363,20 +335,12 @@ export default function WechatArticleWorkspace(props: {
   const previewPreset = filteredPresets.find(preset => preset.id === previewPresetId) ?? filteredPresets[0];
 
   useEffect(() => {
-    if (activeToast === null) return;
+    if (toast === null) return;
     const timer = window.setTimeout(() => {
-      if (toast !== null) {
-        setToast(current => current?.id === toast.id ? null : current);
-        return;
-      }
-      setDismissedErrorKey(visibleErrorKey);
+      setToast(current => current?.id === toast.id ? null : current);
     }, 4_000);
     return () => window.clearTimeout(timer);
-  }, [activeToast?.id, activeToast?.message, toast?.id, visibleErrorKey]);
-
-  useEffect(() => {
-    if (!visibleErrorKey) setDismissedErrorKey('');
-  }, [visibleErrorKey]);
+  }, [toast?.id]);
 
   useEffect(() => {
     const catalogPreset = wechatArticlePresetCatalog.find(preset => preset.id === presetId);
@@ -417,12 +381,6 @@ export default function WechatArticleWorkspace(props: {
       objectUrls.forEach(url => URL.revokeObjectURL(url));
     };
   }, [articleImageArtifacts, l, session?.captureCreatorFailure, session?.openArtifact]);
-
-  useEffect(() => {
-    if (!presetValidationError || !session?.error?.message) return;
-    showToast(formatArticleSessionError(session.error.code, session.error.message, l), 'error');
-    session.clearError();
-  }, [presetValidationError, session?.error?.code, session?.error?.message]);
 
   useEffect(() => {
     if (!templateLibraryOpen) return;
@@ -527,9 +485,7 @@ export default function WechatArticleWorkspace(props: {
         setArticleMarkdown(markdown.trim());
         advanceTo(4);
       })
-      .catch(() => {
-        if (active) setError(l('文章内容加载失败，请在 Agent 区域查看诊断。', 'The article failed to load. Review the diagnosis in the Agent panel.'));
-      });
+      .catch(() => undefined);
     return () => { active = false; };
   }, [articleArtifact?.id, l, session?.captureCreatorFailure, session?.openArtifact]);
 
@@ -636,7 +592,7 @@ export default function WechatArticleWorkspace(props: {
         ? l('图片已替换', 'Image replaced.')
         : l('图片已插入正文', 'Image inserted into the article.'), 'success');
     } catch (cause) {
-      showToast(formatArticleImageUploadError(cause, l), 'error');
+      session.captureCreatorFailure('wechat-article.upload-image', cause, formatArticleImageUploadError(cause, l), 'upload');
     } finally {
       setUploadingArticleImage(false);
       articleImageUploadIntentRef.current = undefined;
@@ -731,9 +687,9 @@ export default function WechatArticleWorkspace(props: {
     if (session === null || files === null || files.length === 0) return;
     const selectedFiles = Array.from(files);
     if (selectedFiles.length > remainingSourceCount) {
-      showToast(remainingSourceCount === 0
+      setError(remainingSourceCount === 0
         ? l(`内容灵感最多添加 ${wechatArticleSourceLimit} 个`, `You can add up to ${wechatArticleSourceLimit} inspiration sources.`)
-        : l(`还可以添加 ${remainingSourceCount} 个内容灵感，请减少本次选择的文件`, `You can add ${remainingSourceCount} more inspiration sources. Select fewer files.`), 'error');
+        : l(`还可以添加 ${remainingSourceCount} 个内容灵感，请减少本次选择的文件`, `You can add ${remainingSourceCount} more inspiration sources. Select fewer files.`));
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -744,8 +700,7 @@ export default function WechatArticleWorkspace(props: {
       for (const file of selectedFiles) await session.uploadSourceDocument(file);
       showToast(l('文件已加入内容灵感', 'Files added to inspiration.'), 'success');
     } catch (cause) {
-      session.clearError();
-      showToast(formatDocumentUploadError(cause, l), 'error');
+      session.captureCreatorFailure('wechat-article.upload-document', cause, formatDocumentUploadError(cause, l), 'upload');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -758,9 +713,9 @@ export default function WechatArticleWorkspace(props: {
     fileInputRef.current.click();
   }
 
-  function showToast(message: string, tone: ArticleToast['tone']) {
+  function showToast(message: string, _tone: 'success') {
     toastIdRef.current += 1;
-    setToast({ id: toastIdRef.current, message, tone });
+    setToast({ id: toastIdRef.current, message });
   }
 
   async function continueFromInspiration() {
@@ -812,7 +767,6 @@ export default function WechatArticleWorkspace(props: {
       await session.applyAction({ actor: 'user', action: 'run-stage', input: { stageId } });
       return true;
     } catch {
-      setError(l('生成操作失败，请在 Agent 区域查看诊断。', 'Generation failed. Review the diagnosis in the Agent panel.'));
       return false;
     }
   }
@@ -993,7 +947,6 @@ export default function WechatArticleWorkspace(props: {
           l('复制失败，请手动选择正文。', 'Copy failed. Select the article manually.'),
           'client'
         );
-        showToast(l('复制失败，请手动选择正文', 'Copy failed. Select the article manually.'), 'error');
       }
     } catch (cause) {
       session?.captureCreatorFailure(
@@ -1002,7 +955,6 @@ export default function WechatArticleWorkspace(props: {
         l('复制失败，请手动选择正文。', 'Copy failed. Select the article manually.'),
         'client'
       );
-      showToast(l('复制失败，请手动选择正文', 'Copy failed. Select the article manually.'), 'error');
     } finally {
       setCopyingArticle(false);
     }
@@ -1038,8 +990,8 @@ export default function WechatArticleWorkspace(props: {
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
       showToast(l('文档已开始下载', 'The document download has started.'), 'success');
-    } catch {
-      setError(l('文档下载失败，请在 Agent 区域查看诊断。', 'The document download failed. Review the diagnosis in the Agent panel.'));
+    } catch (cause) {
+      session.captureCreatorFailure('wechat-article.download-document', cause, l('文档下载失败，请重试。', 'The document download failed. Try again.'));
     }
   }
 
@@ -1061,8 +1013,8 @@ export default function WechatArticleWorkspace(props: {
       anchor.download = readString(artifact.metadata.fileName) || `article-image-${readNumber(artifact.metadata.imageIndex) || 1}.png`;
       anchor.click();
       if (temporaryUrl) window.setTimeout(() => URL.revokeObjectURL(temporaryUrl), 0);
-    } catch {
-      showToast(l('配图下载失败，请在 Agent 区域查看诊断。', 'The image download failed. Review the diagnosis in the Agent panel.'), 'error');
+    } catch (cause) {
+      session.captureCreatorFailure('wechat-article.download-image', cause, l('配图下载失败，请重试。', 'The image download failed. Try again.'));
     }
   }
 
@@ -1078,14 +1030,14 @@ export default function WechatArticleWorkspace(props: {
   async function cancelTask() {
     if (session === null || taskControlPending !== undefined) return;
     setTaskControlPending('canceling');
-    try { await session.cancelJob(); } catch { setError(l('停止任务失败，请在 Agent 区域查看诊断。', 'Could not stop the task. Review the diagnosis in the Agent panel.')); }
+    try { await session.cancelJob(); } catch { /* The session reports the failure to Agent. */ }
     finally { setTaskControlPending(undefined); }
   }
 
   async function resumeTask() {
     if (session === null || taskControlPending !== undefined) return;
     setTaskControlPending('resuming');
-    try { await session.resumeJob(); } catch { setError(l('继续任务失败，请在 Agent 区域查看诊断。', 'Could not resume the task. Review the diagnosis in the Agent panel.')); }
+    try { await session.resumeJob(); } catch { /* The session reports the failure to Agent. */ }
     finally { setTaskControlPending(undefined); }
   }
 
@@ -1118,6 +1070,19 @@ export default function WechatArticleWorkspace(props: {
           ? l('正在生成内容', 'Generating content')
           : l(stepLabels[currentStep]![0], stepLabels[currentStep]![1])}
       currentIssue={visibleError || undefined}
+      quickActions={latestStage?.status === 'failed' && (
+        latestStage.errorCode === 'creator_llm_config_missing'
+        || latestStage.errorCode === 'creator_image_config_missing'
+      ) ? [{
+        id: 'open-ai-services',
+        label: latestStage.errorCode === 'creator_llm_config_missing'
+          ? l('打开文本模型设置', 'Open text model settings')
+          : l('打开图像生成设置', 'Open image generation settings'),
+        kind: 'action',
+        onAction: () => { window.location.hash = latestStage.errorCode === 'creator_llm_config_missing'
+          ? '#/settings?tab=ai-services&section=text'
+          : '#/settings?tab=ai-services&section=image'; }
+      }] : undefined}
       suggestions={[l('选题更有观点一些', 'Make the topics more opinionated'), l('让文章更简洁', 'Make the article more concise')]}
       placeholder={props.promptHint ?? l('描述文章主题、读者和表达要求', 'Describe the topic, audience, and writing style')}
       onBack={props.onBack}
@@ -1127,17 +1092,14 @@ export default function WechatArticleWorkspace(props: {
       contentClassName="wechat-article-workspace-content"
     >
       <div className="creator-tool-stack wechat-article-stack" data-phase={workspacePhase} data-step={currentStep}>
-        {activeToast ? (
-          <div className="wechat-article-toast" data-tone={activeToast.tone} role={activeToast.tone === 'error' ? 'alert' : 'status'}>
-            <span>{activeToast.tone === 'error' ? <CircleAlert size={17} /> : <Check size={17} />}</span>
+        {toast ? (
+          <div className="wechat-article-toast" data-tone="success" role="status">
+            <span><Check size={17} /></span>
             <div>
-              <p>{activeToast.message}</p>
+              <p>{toast.message}</p>
             </div>
             <button type="button" aria-label={l('关闭提示', 'Dismiss notification')} onClick={() => {
               setToast(null);
-              setDismissedErrorKey(visibleErrorKey);
-              setError('');
-              session?.clearError();
             }}><X size={15} /></button>
           </div>
         ) : null}
@@ -1473,7 +1435,7 @@ export default function WechatArticleWorkspace(props: {
                         <strong>{documentRunning ? l('正在生成文章文档', 'Generating the article document') : l('尚未生成文章文档', 'No article document yet')}</strong>
                         <p>{documentRunning
                           ? l('完成后会自动显示 Markdown、HTML 和 PDF 文档', 'Markdown, HTML, and PDF will appear automatically when ready.')
-                          : visibleError || l('返回调整文章后可以重新生成', 'Return to the article and generate it again.')}</p>
+                          : l('返回调整文章后可以重新生成', 'Return to the article and generate it again.')}</p>
                       </div>
                     )}
                   </>
@@ -1593,12 +1555,6 @@ export default function WechatArticleWorkspace(props: {
         ) : null}
 
         {workspacePhase === 'compose' ? <div className="wechat-article-footer-stack">
-          {configurationIssue && visibleError ? (
-            <div className="video-translation-run-notice is-error wechat-article-run-notice" role="alert">
-              <span>{visibleError}</span>
-              <a href={configurationIssue.href}>{configurationIssue.label}</a>
-            </div>
-          ) : null}
           <footer className="video-translation-wizard-actions wechat-article-actions">
             <button className="video-translation-secondary-action" type="button" onClick={() => currentStep === 0 ? props.onBack() : openStep((currentStep - 1) as ArticleStep)}>{currentStep === 0 ? l('返回', 'Back') : l('上一步', 'Back')}</button>
             {currentStep === 0 ? <button className="video-translation-primary-action" type="button" disabled={running || uploading} onClick={() => void continueFromInspiration()}>{running && latestStage?.stageId === 'sources' ? <LoaderCircle className="smart-dubbing-spinner" size={15} /> : null}{sourceCount > 0 ? l('解析灵感并继续', 'Parse inspiration and continue') : l('继续', 'Continue')}</button> : null}

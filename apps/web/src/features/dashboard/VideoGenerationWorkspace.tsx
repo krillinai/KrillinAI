@@ -437,9 +437,7 @@ export default function VideoGenerationWorkspace(props: {
         '视频生成任务已提交，可以离开当前页面，完成后会保留在项目中',
         'Video generation started. You can leave this page and return to the saved result later.'
       ));
-    } catch (caught) {
-      setError(formatVideoError(caught, l, selectedModelLabel, provider));
-    }
+    } catch {}
   }
 
   async function download() {
@@ -463,7 +461,12 @@ export default function VideoGenerationWorkspace(props: {
       }
       setNotice(l('视频已开始下载', 'Video download started'));
     } catch (caught) {
-      setError(formatVideoError(caught, l, selectedModelLabel, provider));
+      session.captureCreatorFailure(
+        'video-generation.download-result',
+        caught,
+        l('视频下载失败，请稍后重试。', 'The video download failed. Try again later.'),
+        'client'
+      );
     }
   }
 
@@ -474,9 +477,7 @@ export default function VideoGenerationWorkspace(props: {
     try {
       await session.cancelJob();
       setNotice(l('已停止跟踪当前视频生成任务', 'Stopped tracking the current video generation task'));
-    } catch (caught) {
-      setError(formatVideoError(caught, l, selectedModelLabel, provider));
-    } finally {
+    } catch {} finally {
       setTaskControlPending(undefined);
     }
   }
@@ -496,9 +497,7 @@ export default function VideoGenerationWorkspace(props: {
         await session.resumeJob();
       }
       setNotice(l('正在继续查询原视频生成任务', 'Resuming the existing video generation task'));
-    } catch (caught) {
-      setError(formatVideoError(caught, l, selectedModelLabel, provider));
-    } finally {
+    } catch {} finally {
       setTaskControlPending(undefined);
     }
   }
@@ -858,9 +857,9 @@ export default function VideoGenerationWorkspace(props: {
               />
             </div>
           ) : null}
-          {visibleError ? (
+          {error ? (
             <p className="creator-tool-error" role="alert">
-              {visibleError}
+              {error}
               {settingsDeepLink ? (
                 <>
                   {' '}
@@ -1173,7 +1172,7 @@ function formatVideoError(
       'Video generation failed. Check the provider configuration and network, then retry.'
     );
   }
-  return l('视频生成失败，请在 Agent 区域查看诊断后重试', 'Video generation failed. Review the diagnosis in the Agent panel and retry.');
+  return l('视频生成未完成，请检查模型服务配置后重试', 'Video generation did not complete. Check the provider settings, then retry.');
 }
 
 function isUnavailableModelMessage(message: string): boolean {

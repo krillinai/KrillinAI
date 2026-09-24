@@ -11,6 +11,7 @@ import {
 import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import { ApiClientError } from '../../runtime/errors.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import type { CreatorWebService } from '../../services/creator-service.js';
 import DashboardPageView, {
@@ -658,6 +659,21 @@ function completedAgentTurn(jobId: string, content: string) {
 }
 
 describe('DashboardPage', () => {
+  it('does not retry a deterministic job creation response', async () => {
+    const error = new ApiClientError({
+      status: 500,
+      code: 'INTERNAL_ERROR',
+      message: 'Unknown creator template: stickman-video@1'
+    });
+    const createJob = vi.fn(async () => { throw error; });
+
+    await expect(createCreatorJobWithRecovery(
+      { createJob } as unknown as CreatorWebService,
+      { projectId: 'project_1', templateId: 'stickman-video', templateVersion: 2 }
+    )).rejects.toBe(error);
+    expect(createJob).toHaveBeenCalledTimes(1);
+  });
+
   it('accepts a late creator job response after all short retry windows expire', async () => {
     vi.useFakeTimers();
     try {
@@ -1736,9 +1752,9 @@ describe('DashboardPage', () => {
     await waitFor(() => {
       expect(composer).toHaveValue('检查当前翻译设置');
     });
-    const issue = await screen.findByRole('alert');
-    expect(issue).toHaveTextContent('Agent 未能完成诊断，请查看问题详情后重试。');
-    expect(issue).toHaveTextContent(/诊断编号：OC-/);
+    const issue = await screen.findByText(/Agent 未能完成诊断，请查看问题详情后重试。/);
+    expect(issue.closest('[data-source="diagnostic"]')).toBeInTheDocument();
+    expect(screen.queryByText(/诊断编号：OC-/)).not.toBeInTheDocument();
     expect(issue).not.toHaveTextContent('Creator Agent unavailable');
   });
 
@@ -1875,12 +1891,9 @@ describe('DashboardPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
     fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
 
-    expect(await screen.findAllByText('请先在设置的配音服务中配置当前服务商的 API Key'))
-      .toHaveLength(2);
-    expect(screen.getByRole('link', { name: '打开配音服务设置' })).toHaveAttribute(
-      'href',
-      '#/settings?tab=ai-services&section=tts'
-    );
+    expect(await screen.findByText('请先在设置的配音服务中配置当前服务商的 API Key'))
+      .toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: 'OpenCreator' })).toHaveTextContent('请先在设置的配音服务中配置当前服务商的 API Key');
   });
 
   it('generates image assets through the Creator Runtime', async () => {

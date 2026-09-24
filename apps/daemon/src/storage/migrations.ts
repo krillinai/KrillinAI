@@ -548,6 +548,7 @@ export function migrate(db: Database.Database): void {
       summary_key TEXT NOT NULL,
       summary_params_json TEXT NOT NULL DEFAULT '{}',
       fallback_message TEXT NOT NULL,
+      public_facts_json TEXT,
       technical_detail TEXT,
       retryable INTEGER NOT NULL DEFAULT 0,
       repair_actions_json TEXT NOT NULL DEFAULT '[]',
@@ -723,6 +724,7 @@ export function migrate(db: Database.Database): void {
     'preset_origin_json TEXT CHECK (preset_origin_json IS NULL OR json_valid(preset_origin_json))'
   );
   ensureColumn(db, 'creator_jobs', 'creation_fingerprint', 'creation_fingerprint TEXT');
+  ensureColumn(db, 'creator_issues', 'public_facts_json', 'public_facts_json TEXT');
   backfillCreatorCreationFingerprints(db);
   db.prepare(`
     UPDATE schedules

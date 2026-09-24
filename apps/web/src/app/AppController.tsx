@@ -8,6 +8,7 @@ import type {
   CodexSkillMarketInstallRecordResponse,
   ConversationSearchResult,
   CreatorJob,
+  OpenCreatorIssue,
   CreatorPresetSummary,
   CreateMemoryRequest,
   CreateThreadRequest,
@@ -86,7 +87,9 @@ import {
   type ComposerSlashCommand
 } from '../features/runs/Composer.js';
 import { RunDetailPanel } from '../features/runs/RunDetailPanel.js';
-import { IssueList } from '../features/issues/IssuePresenter.js';
+import { IssueList, PageIssueRoutingProvider } from '../features/issues/IssuePresenter.js';
+import AgentDiagnosticsPanel from '../features/issues/AgentDiagnosticsPanel.js';
+import { buildIssueAgentPrompt } from '../features/issues/issue-catalog.js';
 import { usePageIssueState } from '../features/issues/page-issue-state.js';
 import { createScheduleTaskSummaries } from '../features/schedules/schedule-task-model.js';
 import {
@@ -290,6 +293,7 @@ export function AppController(props: AppControllerProps) {
     []
   );
   const [state, dispatch] = useReducer(reduceAppState, initialState);
+  const [pendingIssueInquiry, setPendingIssueInquiry] = useState<string | null>(null);
   const [runRegistry, dispatchRunRegistry] = useReducer(
     runRegistryReducer,
     initialRunRegistryState
@@ -2473,6 +2477,20 @@ export function AppController(props: AppControllerProps) {
     }
   }
 
+  function askAgentAboutIssue(issue: OpenCreatorIssue, question: string) {
+    const prompt = buildIssueAgentPrompt(issue, question, language === 'en-US' ? 'en-US' : 'zh-CN');
+    startNewConversation();
+    setPendingIssueInquiry(prompt);
+  }
+
+  useEffect(() => {
+    if (pendingIssueInquiry === null || state.activeView !== 'conversation') return;
+    const prompt = pendingIssueInquiry;
+    setPendingIssueInquiry(null);
+    if (connectionState.status === 'connected') void submitPrompt(prompt);
+    else queueComposerPrompt(prompt, undefined);
+  }, [connectionState.status, pendingIssueInquiry, queueComposerPrompt, state.activeView]);
+
   function startCreatorTool(text: string) {
     startNewConversation();
     queueComposerPrompt(text, undefined);
@@ -4578,6 +4596,7 @@ export function AppController(props: AppControllerProps) {
       workspace={props.route.view === 'workbench' ? props.route.tool : undefined}
       jobId={props.route.view === 'workbench' ? props.route.jobId : undefined}
       onJobCreated={rememberCreatorJob}
+      onAskIssue={askAgentAboutIssue}
       onCreateProject={
         projectService === null
           ? undefined
@@ -4775,7 +4794,7 @@ export function AppController(props: AppControllerProps) {
   );
 
   return (
-    <div
+    <PageIssueRoutingProvider><div
       className="app-drop-shell"
       data-integrated-title-bar={
         integratedTitleBar?.integratedTitleBar === true ? 'true' : undefined
@@ -4890,7 +4909,6 @@ export function AppController(props: AppControllerProps) {
         unassignedThreads={unassignedThreads}
         initialProjectId={projectManagementProjectId}
         busy={projectMutationBusy}
-        error={projectManagementOpen ? projectLoadError : undefined}
         onClose={() => {
           setProjectManagementOpen(false);
           setProjectManagementProjectId(undefined);
@@ -4921,7 +4939,11 @@ export function AppController(props: AppControllerProps) {
               }
         }
       />
-    </div>
+      <AgentDiagnosticsPanel
+        hiddenCreatorIssues={immersiveWorkspace && props.route.view === 'workbench' && props.route.jobId === undefined}
+        onAskIssue={askAgentAboutIssue}
+      />
+    </div></PageIssueRoutingProvider>
   );
 
   function createDetailPanel() {

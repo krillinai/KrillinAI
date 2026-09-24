@@ -97,12 +97,7 @@ export default function XiaohongshuPostWorkspace(props: {
       .then(text => {
         if (active) setResultText(text);
       })
-      .catch(cause => {
-        if (active) setError(l(
-          '帖子内容加载失败，可以稍后重试或重新生成',
-          'The post failed to load. Retry later or generate it again.'
-        ));
-      });
+      .catch(() => undefined);
     return () => { active = false; };
   }, [l, result?.artifact.id, session?.captureCreatorFailure, session?.openArtifact]);
 
@@ -177,10 +172,7 @@ export default function XiaohongshuPostWorkspace(props: {
         '生成任务已提交，完成后会自动显示帖子',
         'Generation started. The post will appear automatically.'
       ));
-    } catch (caught) {
-      const value = caught as { code?: string; message?: string };
-      setError(generationError(value.code ?? null, value.message ?? null, l));
-    }
+    } catch {}
   }
 
   async function copyResult() {
@@ -195,7 +187,6 @@ export default function XiaohongshuPostWorkspace(props: {
         l('复制失败，请手动选择帖子内容。', 'Copy failed. Select the post manually.'),
         'client'
       );
-      setError(l('复制失败，请手动选择帖子内容', 'Copy failed. Select the post manually.'));
     }
   }
 
@@ -214,7 +205,7 @@ export default function XiaohongshuPostWorkspace(props: {
         window.setTimeout(() => URL.revokeObjectURL(url), 0);
       }
     ).then(() => setNotice(l('帖子文件已开始下载', 'The post download has started')))
-      .catch(() => setError(l('帖子下载失败，请在 Agent 区域查看诊断。', 'The post download failed. Review the diagnosis in the Agent panel.')));
+      .catch(() => undefined);
   }
 
   async function cancelTask() {
@@ -222,10 +213,7 @@ export default function XiaohongshuPostWorkspace(props: {
     setTaskControlPending('canceling');
     try {
       await session.cancelJob();
-    } catch (caught) {
-      const value = caught as { code?: string; message?: string };
-      setError(generationError(value.code ?? null, value.message ?? null, l));
-    } finally {
+    } catch {} finally {
       setTaskControlPending(undefined);
     }
   }
@@ -235,10 +223,7 @@ export default function XiaohongshuPostWorkspace(props: {
     setTaskControlPending('resuming');
     try {
       await session.resumeJob();
-    } catch (caught) {
-      const value = caught as { code?: string; message?: string };
-      setError(generationError(value.code ?? null, value.message ?? null, l));
-    } finally {
+    } catch {} finally {
       setTaskControlPending(undefined);
     }
   }
@@ -398,12 +383,9 @@ export default function XiaohongshuPostWorkspace(props: {
           )}
         </section> : null}
 
-        {visibleError ? (
+        {error ? (
           <div className="xiaohongshu-post-error" role="alert">
-            <span>{visibleError}</span>
-            {latestStage?.errorCode === 'creator_llm_config_missing' || session?.error?.code === 'creator_llm_config_missing'
-              ? <a href="#/settings?tab=ai-services&section=text">{l('打开文本模型设置', 'Open text model settings')}</a>
-              : null}
+            <span>{error}</span>
           </div>
         ) : null}
         {notice ? <p className="creator-tool-notice" role="status">{notice}</p> : null}

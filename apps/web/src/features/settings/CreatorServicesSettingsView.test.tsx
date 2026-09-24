@@ -137,7 +137,7 @@ describe('CreatorServicesSettingsView', () => {
 
     const issue = await screen.findByRole('alert');
     expect(issue).toHaveTextContent('模型服务保存失败，请检查标出的字段后重试。');
-    expect(issue).toHaveTextContent(/诊断编号：OC-/);
+    expect(issue).not.toHaveTextContent(/诊断编号：OC-/);
     expect(issue).not.toHaveTextContent('Base URL 必须是有效的 HTTP 或 HTTPS 地址');
     expect(screen.getByLabelText('Base URL')).toHaveAttribute('aria-invalid', 'true');
   });

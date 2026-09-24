@@ -3244,24 +3244,8 @@ export default function VideoTranslationWorkspace(props: {
             </button>
           )}
         </footer>
-        {sessionError !== null || needsInput !== null || stageFailure !== undefined || resultNotice ? (
-          <div
-            className={`video-translation-run-notice${sessionError !== null || needsInput !== null || stageFailure !== undefined ? ' is-error' : ''}`}
-            role={sessionError !== null || needsInput !== null || stageFailure !== undefined ? 'alert' : 'status'}
-          >
-            <span>
-              {runIssueMessage || resultNotice}
-            </span>
-            {needsCreatorServicesConfiguration(sessionError?.code, needsInput?.code, stageConfigurationCode) ? (
-              <a href={creatorServicesSettingsHref(
-                sessionError?.code,
-                needsInput?.code,
-                stageConfigurationCode
-              )}>
-                {l('打开 AI 服务设置', 'Open AI service settings')}
-              </a>
-            ) : null}
-          </div>
+        {resultNotice && !runIssueMessage ? (
+          <div className="video-translation-run-notice" role="status">{resultNotice}</div>
         ) : null}
         </div>
         ) : null}
@@ -3278,6 +3262,12 @@ export default function VideoTranslationWorkspace(props: {
             promptHint={props.promptHint}
             currentIssue={runIssueMessage || undefined}
             quickActions={[
+              ...(needsCreatorServicesConfiguration(sessionError?.code, needsInput?.code, stageConfigurationCode) ? [{
+                id: 'open-ai-services',
+                label: l('打开 AI 服务设置', 'Open AI service settings'),
+                kind: 'action' as const,
+                onAction: () => { window.location.hash = creatorServicesSettingsHref(sessionError?.code, needsInput?.code, stageConfigurationCode); }
+              }] : []),
               {
                 id: 'open-settings',
                 label: workspacePhase === 'result'

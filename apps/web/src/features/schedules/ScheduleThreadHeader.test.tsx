@@ -111,7 +111,7 @@ describe('ScheduleThreadHeader', () => {
     expect(updateSchedule).toHaveBeenCalledWith('schedule-1', { enabled: true });
     const issue = await screen.findByRole('alert');
     expect(issue).toHaveTextContent('无法更新任务状态，请重试。');
-    expect(issue).toHaveTextContent(/诊断编号：OC-/);
+    expect(issue).not.toHaveTextContent(/诊断编号：OC-/);
     expect(issue).not.toHaveTextContent('更新失败');
     expect(screen.getByRole('button', { name: '恢复任务' })).toBeEnabled();
   });

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
-import { IssuePresenter } from './IssuePresenter.js';
+import { IssueList, IssuePresenter, PageIssueRoutingProvider } from './IssuePresenter.js';
 
 const issue = {
   id: 'issue-1',
@@ -38,10 +38,23 @@ describe('IssuePresenter', () => {
       </LanguageProvider>
     );
 
-    expect(screen.getByText('诊断编号：OC-12345678')).toBeInTheDocument();
+    expect(screen.queryByText('诊断编号：OC-12345678')).not.toBeInTheDocument();
     expect(screen.queryByText('打开设置')).not.toBeInTheDocument();
     expect(screen.queryByText('询问 Agent')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '重试' }));
     expect(retry).toHaveBeenCalledTimes(1);
   });
+
+  it('does not show page errors as cards when a list also contains a creator error', () => {
+    render(
+      <LanguageProvider>
+        <PageIssueRoutingProvider>
+          <IssueList issues={[issue, { ...issue, id: 'creator-1', scope: { kind: 'creator-job', jobId: 'job-1' } }]} />
+        </PageIssueRoutingProvider>
+      </LanguageProvider>
+    );
+    expect(screen.getAllByText('上传未完成，请重试。')).toHaveLength(1);
+    expect(screen.getAllByText('上传未完成，请重试。')[0]!.closest('[data-issue-id]')).toHaveAttribute('data-issue-id', 'creator-1');
+  });
+
 });

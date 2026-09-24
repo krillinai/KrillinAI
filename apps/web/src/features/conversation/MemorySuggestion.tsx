@@ -54,7 +54,6 @@ export function MemorySuggestion(props: {
       ) {
         setConfirmingSensitive(true);
       } else {
-        setError('保存记忆失败');
         pageIssues.captureOperationFailure('memory-suggestion.save', reason, '保存记忆失败，请重试。', { retryable: true });
       }
     } finally {

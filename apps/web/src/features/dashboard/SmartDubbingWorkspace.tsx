@@ -136,7 +136,6 @@ export default function SmartDubbingWorkspace(props: {
           l('无法读取配音服务配置，请稍后重试。', 'Could not load TTS settings. Try again later.'),
           'client'
         );
-        setError(l('无法读取配音服务配置', 'Could not load TTS settings'));
       });
     return () => { active = false; };
   }, [props.creatorServicesService, session?.job.id]);
@@ -161,12 +160,7 @@ export default function SmartDubbingWorkspace(props: {
         objectUrl = url;
         if (active) setAudioUrl(objectUrl);
       })
-      .catch(cause => {
-        if (active) setError(l(
-          '配音音频加载失败，可以稍后重试或重新生成',
-          'Dubbing audio failed to load. Retry later or generate it again.'
-        ));
-      });
+      .catch(() => undefined);
     return () => {
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
@@ -269,9 +263,7 @@ export default function SmartDubbingWorkspace(props: {
         input: { stageId: 'tts' }
       });
       setNotice(l('配音任务已提交，完成后会自动显示音频', 'Dubbing started. The audio will appear automatically.'));
-    } catch (caught) {
-      setError(formatGenerationError(caught, l));
-    }
+    } catch {}
   }
 
   function download() {
@@ -288,9 +280,7 @@ export default function SmartDubbingWorkspace(props: {
     setTaskControlPending('canceling');
     try {
       await session.cancelJob();
-    } catch (caught) {
-      setError(formatGenerationError(caught, l));
-    } finally {
+    } catch {} finally {
       setTaskControlPending(undefined);
     }
   }
@@ -300,9 +290,7 @@ export default function SmartDubbingWorkspace(props: {
     setTaskControlPending('resuming');
     try {
       await session.resumeJob();
-    } catch (caught) {
-      setError(formatGenerationError(caught, l));
-    } finally {
+    } catch {} finally {
       setTaskControlPending(undefined);
     }
   }
@@ -513,9 +501,9 @@ export default function SmartDubbingWorkspace(props: {
               {summary}
             </div>
           ) : null}
-          {visibleError ? (
+          {error ? (
             <div className="creator-tool-error smart-dubbing-error" role="alert">
-              <span>{visibleError}</span>
+              <span>{error}</span>
               {settingsHref ? (
                 <a href={settingsHref}>{l('打开配音服务设置', 'Open voice service settings')}</a>
               ) : null}

@@ -100,12 +100,7 @@ export default function ShortVideoScriptWorkspace(props: {
       .then(text => {
         if (active) setResultText(text);
       })
-      .catch(cause => {
-        if (active) setError(l(
-          '脚本内容加载失败，可以稍后重试或重新生成',
-          'The script failed to load. Retry later or generate it again.'
-        ));
-      });
+      .catch(() => undefined);
     return () => { active = false; };
   }, [l, result?.artifact.id, session?.captureCreatorFailure, session?.openArtifact]);
 
@@ -191,10 +186,7 @@ export default function ShortVideoScriptWorkspace(props: {
         '生成任务已提交，完成后会自动显示脚本',
         'Generation started. The script will appear automatically.'
       ));
-    } catch (caught) {
-      const value = caught as { code?: string; message?: string };
-      setError(generationError(value.code ?? null, value.message ?? null, l));
-    }
+    } catch {}
   }
 
   async function copyResult() {
@@ -209,7 +201,6 @@ export default function ShortVideoScriptWorkspace(props: {
         l('复制失败，请手动选择脚本内容。', 'Copy failed. Select the script manually.'),
         'client'
       );
-      setError(l('复制失败，请手动选择脚本内容', 'Copy failed. Select the script manually.'));
     }
   }
 
@@ -228,7 +219,7 @@ export default function ShortVideoScriptWorkspace(props: {
         window.setTimeout(() => URL.revokeObjectURL(url), 0);
       }
     ).then(() => setNotice(l('脚本文件已开始下载', 'The script download has started')))
-      .catch(() => setError(l('脚本下载失败，请在 Agent 区域查看诊断。', 'The script download failed. Review the diagnosis in the Agent panel.')));
+      .catch(() => undefined);
   }
 
   async function cancelTask() {
@@ -236,10 +227,7 @@ export default function ShortVideoScriptWorkspace(props: {
     setTaskControlPending('canceling');
     try {
       await session.cancelJob();
-    } catch (caught) {
-      const value = caught as { code?: string; message?: string };
-      setError(generationError(value.code ?? null, value.message ?? null, l));
-    } finally {
+    } catch {} finally {
       setTaskControlPending(undefined);
     }
   }
@@ -249,10 +237,7 @@ export default function ShortVideoScriptWorkspace(props: {
     setTaskControlPending('resuming');
     try {
       await session.resumeJob();
-    } catch (caught) {
-      const value = caught as { code?: string; message?: string };
-      setError(generationError(value.code ?? null, value.message ?? null, l));
-    } finally {
+    } catch {} finally {
       setTaskControlPending(undefined);
     }
   }
@@ -419,12 +404,9 @@ export default function ShortVideoScriptWorkspace(props: {
           )}
         </section>
 
-        {visibleError ? (
+        {error ? (
           <div className="short-video-script-error" role="alert">
-            <span>{visibleError}</span>
-            {latestStage?.errorCode === 'creator_llm_config_missing' || session?.error?.code === 'creator_llm_config_missing'
-              ? <a href="#/settings?tab=ai-services&section=text">{l('打开文本模型设置', 'Open text model settings')}</a>
-              : null}
+            <span>{error}</span>
           </div>
         ) : null}
         {notice ? <p className="creator-tool-notice" role="status">{notice}</p> : null}

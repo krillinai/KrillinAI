@@ -3,6 +3,7 @@ import type {
   CreatorServicesConfig,
   ImageGenerationAsset
 } from '@opencreator/protocol';
+import type { PublicErrorFacts } from '@opencreator/protocol';
 import {
   LocalCodexProviderError,
   readLocalCodexProvider,
@@ -12,11 +13,12 @@ import { createKlingAuthorization } from '../creator-services/kling-auth.js';
 import {
   appendEndpointPath,
   creatorProviderEndpoint,
-  creatorServiceErrorMessage,
+  creatorServiceErrorInfo,
   fetchCreatorService,
   isRecord,
   openAiCompatibleEndpoint
 } from '../creator-services/upstream-fetch.js';
+import { publicFactsFromFailure } from '../creator/public-error-facts.js';
 
 const MAX_IMAGE_BYTES = 30 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 120 * 1024 * 1024;
@@ -49,9 +51,11 @@ export function imageGenerationCapabilities(
 export class ImageGenerationProviderError extends Error {
   constructor(
     readonly code: 'config_missing' | 'upstream_error' | 'unsupported_capability',
-    message: string
+    message: string,
+    readonly publicFacts?: PublicErrorFacts,
+    options?: ErrorOptions
   ) {
-    super(message);
+    super(message, options);
     this.name = 'ImageGenerationProviderError';
   }
 }
@@ -144,7 +148,11 @@ export async function generateImageContents(
     if (options.signal?.aborted) throw error;
     throw new ImageGenerationProviderError(
       'upstream_error',
-      'The image generation provider could not be reached'
+      'The image generation provider could not be reached',
+      publicFactsFromFailure(error, request.provider, {
+        timedOut: controller.signal.aborted && options.signal?.aborted !== true
+      }),
+      { cause: error }
     );
   } finally {
     clearTimeout(timeout);
@@ -199,9 +207,11 @@ async function generateOpenAiImages(
     fetchImpl
   });
   if (!response.ok) {
+    const failure = await creatorServiceErrorInfo(response, 'Image generation', request.provider);
     throw new ImageGenerationProviderError(
       'upstream_error',
-      await creatorServiceErrorMessage(response, 'Image generation')
+      failure.message,
+      failure.publicFacts
     );
   }
   const contents = await readGeneratedImages(await response.json() as unknown, {
@@ -257,9 +267,11 @@ async function generateGeminiImages(
       fetchImpl
     });
     if (!response.ok) {
+      const failure = await creatorServiceErrorInfo(response, 'Gemini image', request.provider);
       throw new ImageGenerationProviderError(
         'upstream_error',
-        await creatorServiceErrorMessage(response, 'Gemini image')
+        failure.message,
+        failure.publicFacts
       );
     }
     const part = findGeminiImagePart(await response.json() as unknown);
@@ -379,9 +391,11 @@ async function generateKlingImages(
     fetchImpl
   });
   if (!response.ok) {
+    const failure = await creatorServiceErrorInfo(response, 'Kling image', request.provider);
     throw new ImageGenerationProviderError(
       'upstream_error',
-      await creatorServiceErrorMessage(response, 'Kling image')
+      failure.message,
+      failure.publicFacts
     );
   }
   let payload = await response.json() as unknown;
@@ -406,9 +420,11 @@ async function generateKlingImages(
       fetchImpl
     });
     if (!statusResponse.ok) {
+      const failure = await creatorServiceErrorInfo(statusResponse, 'Kling image', request.provider);
       throw new ImageGenerationProviderError(
         'upstream_error',
-        await creatorServiceErrorMessage(statusResponse, 'Kling image')
+        failure.message,
+        failure.publicFacts
       );
     }
     payload = await statusResponse.json() as unknown;

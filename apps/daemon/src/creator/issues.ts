@@ -4,8 +4,10 @@ import type {
   IssueCategory,
   IssueRetryResult,
   IssueSource,
-  OpenCreatorIssue
+  OpenCreatorIssue,
+  PublicErrorFacts
 } from '@opencreator/protocol';
+import { safePublicErrorCode } from '@opencreator/protocol';
 import { createHash } from 'node:crypto';
 import type { CreatorRepository } from './repository.js';
 
@@ -22,6 +24,7 @@ export type CreatorIssueCaptureInput = {
   summaryKey?: string;
   summaryParams?: Record<string, string | number>;
   fallbackMessage?: string;
+  publicFacts?: PublicErrorFacts;
   technicalDetail?: string;
   retryable?: boolean;
   repairActions?: CreatorRepairAction[];
@@ -49,6 +52,8 @@ export type CreatorIssueService = {
     issueId: string;
     resolutionAttemptId: string;
     result: Exclude<IssueRetryResult, 'none'>;
+    publicFacts?: PublicErrorFacts;
+    technicalDetail?: string;
   }): OpenCreatorIssue;
   stats(jobId: string, range: { from: string; to: string }): CreatorIssueStatsResponse['rows'];
   list(jobId: string): OpenCreatorIssue[];
@@ -74,7 +79,13 @@ export function createCreatorIssueService(
       return changed(repository.beginIssueResolution(input));
     },
     finishResolution(input) {
-      return changed(repository.finishIssueResolution(input));
+      return changed(repository.finishIssueResolution({
+        ...input,
+        ...(input.publicFacts === undefined ? {} : { publicFacts: sanitizePublicFacts(input.publicFacts) }),
+        ...(input.technicalDetail === undefined ? {} : {
+          technicalDetail: sanitizeIssueDetail(input.technicalDetail)
+        })
+      }));
     },
     stats(jobId, range) {
       return repository.aggregateIssueStats(jobId, range);
@@ -101,6 +112,7 @@ export function normalizeCreatorIssue(input: CreatorIssueCaptureInput): Normaliz
   const technicalDetail = input.technicalDetail === undefined
     ? undefined
     : sanitizeDisplayText(input.technicalDetail, 1_000);
+  const publicFacts = input.publicFacts === undefined ? undefined : sanitizePublicFacts(input.publicFacts);
   const repairActions = sanitizeRepairActions(input.repairActions ?? []);
   const retryable = input.retryable === true
     && repairActions.some(action => action.kind === 'retry-operation');
@@ -127,6 +139,7 @@ export function normalizeCreatorIssue(input: CreatorIssueCaptureInput): Normaliz
     summaryKey: sanitizeIdentifier(input.summaryKey ?? `issue.${category}`, 'issue.unknown'),
     summaryParams: sanitizeSummaryParams(input.summaryParams ?? {}),
     fallbackMessage,
+    ...(publicFacts === undefined ? {} : { publicFacts }),
     ...(technicalDetail === undefined ? {} : { technicalDetail }),
     retryable,
     repairActions,
@@ -154,6 +167,17 @@ export function creatorIssueFingerprint(input: {
 
 export function sanitizeIssueDetail(value: string, max = 1_000): string {
   return sanitizeDisplayText(value, max);
+}
+
+function sanitizePublicFacts(input: PublicErrorFacts): PublicErrorFacts {
+  const provider = input.provider === undefined ? undefined : sanitizeIdentifier(input.provider, 'unknown', 80);
+  const upstreamCode = input.upstreamCode === undefined ? undefined : sanitizeIdentifier(input.upstreamCode, 'unknown');
+  return {
+    kind: input.kind,
+    ...(provider !== undefined && safePublicErrorCode(provider) !== undefined ? { provider } : {}),
+    ...(upstreamCode !== undefined && safePublicErrorCode(upstreamCode) !== undefined ? { upstreamCode } : {}),
+    ...(input.httpStatus === undefined ? {} : { httpStatus: input.httpStatus })
+  };
 }
 
 function sanitizeDisplayText(value: string, max: number): string {

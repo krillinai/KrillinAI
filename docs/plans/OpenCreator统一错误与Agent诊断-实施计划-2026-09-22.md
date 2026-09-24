@@ -1,5 +1,7 @@
 # OpenCreator 统一错误与 Agent 诊断实施计划
 
+> 交互修订（2026-09-23）：用户要求所有运行错误只在 Agent 区域以文字展示，并取消独立错误卡和可见诊断编号。本计划中冲突的 FR-1、FR-7、DEC-2、TASK-8、AC-1 等展示断言，以[错误仅在 Agent 区展示方案](OpenCreator错误仅在Agent区展示-交互修订-2026-09-23.md)为准；原有协议、持久化和输出校验门禁不因此豁免。
+
 > 状态：审核完成，等待执行授权
 > 体量判断：复杂。执行同时跨协议、Runtime 错误边界、SQLite 迁移、Creator 状态机、SSE、共享 Panel、Agent Context、模板输出校验、全产品页面迁移和 Desktop 发布门禁；各部分共享同一 Issue 身份与生命周期，不能独立发布，因此保持单一 Plan。
 > 来源方案：[OpenCreator统一错误与Agent诊断方案-2026-09-22.md](../specs/OpenCreator统一错误与Agent诊断方案-2026-09-22.md)

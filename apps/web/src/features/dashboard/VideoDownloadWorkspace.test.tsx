@@ -324,9 +324,10 @@ describe('VideoDownloadWorkspace', () => {
       name: '预览视频 Creator Download.mp4'
     }));
 
-    expect(await screen.findByText('预览加载失败，可重试或直接保存到本机'))
+    expect(await screen.findByText('可重新加载预览或保存到本机'))
       .toBeInTheDocument();
-    expect(screen.getByText(/诊断编号：OC-/)).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: 'OpenCreator' }).querySelector('.creator-collaboration-issue')).toBeInTheDocument();
+    expect(screen.queryByText(/诊断编号：OC-/)).not.toBeInTheDocument();
     expect(screen.queryByText('preview unavailable')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '重新加载' }));
 
@@ -336,7 +337,7 @@ describe('VideoDownloadWorkspace', () => {
     await waitFor(() => expect(mediaPlay).toHaveBeenCalledOnce());
 
     fireEvent.error(screen.getByLabelText('视频预览 Creator Download.mp4'));
-    expect(await screen.findByText('预览加载失败，可重试或直接保存到本机'))
+    expect(await screen.findByText('可重新加载预览或保存到本机'))
       .toBeInTheDocument();
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:video-preview');
   });

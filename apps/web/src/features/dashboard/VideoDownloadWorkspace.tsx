@@ -22,7 +22,6 @@ import {
   PackageOpen,
   Play,
   RefreshCw,
-  Settings2,
   Video,
   XCircle
 } from 'lucide-react';
@@ -471,6 +470,11 @@ export default function VideoDownloadWorkspace(props: {
 
   function handleArtifactPreviewError(artifactId: string) {
     if (artifactPreview?.artifactId !== artifactId) return;
+    session?.captureCreatorFailure(
+      'video-download.play-artifact-preview',
+      new Error('artifact_preview_playback_failed'),
+      l('文件预览播放失败，可重新加载或保存到本机。', 'The preview could not play. Reload it or save the file locally.')
+    );
     artifactPreviewRequestRef.current += 1;
     releaseArtifactPreviewUrl();
     setArtifactPreview({
@@ -532,6 +536,7 @@ export default function VideoDownloadWorkspace(props: {
             'yt-dlp is current and the task was retried'
           ));
     } catch (caught) {
+      session?.captureCreatorFailure('video-download.update-yt-dlp', caught, formatYtDlpUpdateError(caught, l));
       setYtDlpRecoveryError(formatYtDlpUpdateError(caught, l));
     }
   }
@@ -595,6 +600,19 @@ export default function VideoDownloadWorkspace(props: {
           ? l('下载到项目', 'Download to project')
           : l('视频下载', 'Video download')}
       currentIssue={currentIssue}
+      quickActions={ytDlpUpdateSuggested ? [{
+        id: 'update-yt-dlp',
+        label: ytDlpRecoveryError ? l('重试更新', 'Retry update') : l('更新并重试', 'Update and retry'),
+        kind: 'action',
+        onAction: () => void updateYtDlpAndRetry(),
+        disabled: props.runtimeDependencies?.phase !== 'idle'
+      }, {
+        id: 'open-runtime-components',
+        label: l('前往第三方组件', 'Open third-party components'),
+        kind: 'action',
+        onAction: props.onOpenRuntimeComponents,
+        disabled: props.onOpenRuntimeComponents === undefined
+      }] : undefined}
       onCancelTask={activeStage === undefined ? undefined : cancelTask}
       onResumeTask={resumableStage === undefined ? undefined : resumeTask}
       taskControlPending={taskControlPending}
@@ -631,56 +649,6 @@ export default function VideoDownloadWorkspace(props: {
           </ol>
         </nav>
 
-        {ytDlpUpdateSuggested ? (
-          <div
-            className="video-download-runtime-notice"
-            data-tone={ytDlpRecoveryError ? 'danger' : 'warning'}
-            role={ytDlpRecoveryError ? 'alert' : 'status'}
-          >
-            <span aria-hidden="true">
-              {props.runtimeDependencies?.phase === 'updating'
-                ? <LoaderCircle className="smart-dubbing-spinner" size={17} />
-                : <AlertCircle size={17} strokeWidth={1.8} />}
-            </span>
-            <div>
-              <strong>{l(
-                '视频平台规则可能已变化',
-                'The video platform may have changed'
-              )}</strong>
-              <small>
-                {ytDlpRecoveryError || l(
-                  '建议更新解析器后重新执行刚才的任务',
-                  'Update the extractor and retry the failed task'
-                )}
-              </small>
-            </div>
-            <div className="video-download-runtime-actions">
-              <button
-                type="button"
-                disabled={
-                  props.runtimeDependencies === undefined
-                  || props.runtimeDependencies.phase !== 'idle'
-                }
-                onClick={() => void updateYtDlpAndRetry()}
-              >
-                {props.runtimeDependencies?.phase === 'updating'
-                  ? <LoaderCircle className="smart-dubbing-spinner" size={15} />
-                  : <RefreshCw size={15} strokeWidth={1.8} />}
-                {ytDlpRecoveryError
-                  ? l('重试更新', 'Retry update')
-                  : l('更新并重试', 'Update and retry')}
-              </button>
-              <button
-                type="button"
-                onClick={props.onOpenRuntimeComponents}
-                disabled={props.onOpenRuntimeComponents === undefined}
-              >
-                <Settings2 size={15} strokeWidth={1.8} />
-                {l('前往第三方组件', 'Open third-party components')}
-              </button>
-            </div>
-          </div>
-        ) : null}
 
         {currentStep === 0 ? (
           <section
@@ -1077,15 +1045,11 @@ export default function VideoDownloadWorkspace(props: {
                                     </span>
                                   </div>
                                 ) : artifactPreview.status === 'failed' ? (
-                                  <div
-                                    className="video-download-media-status"
-                                    data-tone="danger"
-                                    role="alert"
-                                  >
+                                  <div className="video-download-media-status" role="status">
                                     <span>
                                       {l(
-                                        '预览加载失败，可重试或直接保存到本机',
-                                        'Preview failed to load. Retry or save the file locally.'
+                                        '可重新加载预览或保存到本机',
+                                        'Reload the preview or save the file locally.'
                                       )}
                                     </span>
                                     <button
@@ -1171,12 +1135,7 @@ export default function VideoDownloadWorkspace(props: {
             {notice}
           </p>
         ) : null}
-        {error ? (
-          <p className="creator-tool-notice" data-tone="danger" role="alert">
-            <AlertCircle size={15} strokeWidth={1.9} />
-            {error}
-          </p>
-        ) : null}
+        {error && !validUrl ? <p className="creator-tool-notice" role="alert">{error}</p> : null}
       </div>
     </CreatorToolShell>
   );
@@ -1421,10 +1380,7 @@ function downloadStageDescription(
       : stage.status === 'succeeded'
         ? l('已保存到项目', 'Saved to project')
         : stage.status === 'failed'
-          ? formatDownloadError(
-              new Error(`${stage.errorCode ?? ''}: ${stage.errorMessage ?? ''}`),
-              l
-            )
+          ? l('下载未完成', 'Download did not complete')
           : stage.status === 'canceled'
             ? l('下载已取消，可返回规格列表重新提交', 'Canceled. Submit it again from formats.')
             : l('下载已中断，可返回规格列表重新提交', 'Interrupted. Submit it again from formats.');
