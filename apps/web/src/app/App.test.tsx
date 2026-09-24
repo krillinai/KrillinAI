@@ -8831,7 +8831,13 @@ async function findTimelineUserMessage(text: string) {
 }
 
 async function findIssueByDescription(description: string | RegExp): Promise<HTMLElement> {
-  const message = await screen.findByText(description);
+  const message = await screen.findByText((content, element) => (
+    element !== null
+    && element.closest('[data-issue-id]') !== null
+    && (typeof description === 'string'
+      ? content.includes(description)
+      : description.test(content))
+  ));
   const issue = message.closest<HTMLElement>('[data-issue-id]');
   if (issue === null) throw new Error(`Expected issue for description: ${String(description)}`);
   return issue;
