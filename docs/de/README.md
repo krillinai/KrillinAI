@@ -24,11 +24,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ-Gruppe](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-<p>GitHub-Nutzer aus <strong>mindestens 99 Ländern und Regionen</strong> haben OpenCreator mit einem Star ausgezeichnet.</p>
-
-<img src="../images/star-coverage-map.svg" alt="Weltkarte mit Ländern und Regionen, aus denen GitHub-Nutzer OpenCreator einen Star gegeben haben" width="760" />
-
-[Highlights](#projekt-highlights) · [Werkzeuge](#kreativwerkzeuge) · [Skills](#skills) · [Beispiele](#beispiele) · [Start](#schnellstart) · [Desktop](#desktop) · [Doku](#dokumentation)
+[Highlights](#projekt-highlights) · [Werkzeuge](#kreativwerkzeuge) · [Skills](#skills) · [Beispiele](#beispiele) · [Start](#schnellstart) · [Desktop](#desktop) · [Doku](#dokumentation) · [Community](#community)
 
 </div>
 
@@ -556,7 +552,13 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 Die Datei `README.md` im Stammverzeichnis ist das maßgebliche englische Dokument. Gepflegte Übersetzungen befinden sich unter `docs/<locale>/README.md`. Füge eine Sprache erst dann zur Sprachauswahl hinzu, wenn das vollständige Dokument übersetzt und mit der englischen Struktur synchronisiert wurde.
 
-## Das Team
+## Community
+
+<p>GitHub-Nutzer aus <strong>mindestens 99 Ländern und Regionen</strong> haben OpenCreator mit einem Star ausgezeichnet.</p>
+
+<img src="../images/star-coverage-map.svg" alt="Weltkarte mit Ländern und Regionen, aus denen GitHub-Nutzer OpenCreator einen Star gegeben haben" width="760" />
+
+### Das Team
 
 Jedes Mitglied verantwortet in seinem Bereich Standards, Prüfung und Zusammenführung von Beiträgen sowie Unterstützung der Community.
 
@@ -569,7 +571,7 @@ Jedes Mitglied verantwortet in seinem Bereich Standards, Prüfung und Zusammenf�
   </tr>
 </table>
 
-## Mitwirken
+### Mitwirken
 
 Du kannst auf viele Arten zu OpenCreator beitragen, nicht nur mit Code:
 
@@ -594,7 +596,7 @@ So trägst du bei:
 [contribute-issue]: https://github.com/krillinai/OpenCreator/issues
 [contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
-## Mitwirkende
+### Mitwirkende
 
 Vielen Dank an alle, die mit Code, Dokumentation, Feedback, Fehlerberichten, Skills, Designs und Ideen beigetragen haben.
 

@@ -24,11 +24,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-<p>GitHub users from <strong>at least 99 countries and regions</strong> have starred OpenCreator.</p>
-
-<img src="./docs/images/star-coverage-map.svg" alt="World map highlighting countries and regions with OpenCreator GitHub Stars" width="760" />
-
-[Highlights](#project-highlights) · [Creator Tools](#creator-tools) · [Skills](#skills) · [Examples](#examples) · [Quick Start](#quick-start) · [Desktop](#desktop) · [Docs](#documentation)
+[Highlights](#project-highlights) · [Creator Tools](#creator-tools) · [Skills](#skills) · [Examples](#examples) · [Quick Start](#quick-start) · [Desktop](#desktop) · [Docs](#documentation) · [Community](#community)
 
 </div>
 
@@ -560,7 +556,13 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 The root `README.md` is the canonical English document. Maintained translations live at `docs/<locale>/README.md`. Add a language to the switcher only after its full document has been translated and synchronized with the English structure.
 
-## The Crew
+## Community
+
+<p>GitHub users from <strong>at least 99 countries and regions</strong> have starred OpenCreator.</p>
+
+<img src="./docs/images/star-coverage-map.svg" alt="World map highlighting countries and regions with OpenCreator GitHub Stars" width="760" />
+
+### The Crew
 
 Each crew member is responsible for their area, including its standards, contribution reviews and merges, and community support.
 
@@ -573,7 +575,7 @@ Each crew member is responsible for their area, including its standards, contrib
   </tr>
 </table>
 
-## Contributing
+### Contributing
 
 Contributions are welcome in these areas:
 
@@ -588,7 +590,7 @@ Contributions are welcome in these areas:
 
 The full guide — including local setup, review criteria, and common rejection patterns — lives in [CONTRIBUTING.md](./CONTRIBUTING.md) (available in [10 languages](./docs/zh/CONTRIBUTING.md)).
 
-## Contributors
+### Contributors
 
 Thanks to everyone who has taken part through code, documentation, feedback, issue reports, Skills, designs, and ideas.
 

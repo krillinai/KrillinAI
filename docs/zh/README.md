@@ -24,11 +24,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-<p>来自<strong>至少 99 个国家和地区</strong>的 GitHub 用户为 OpenCreator 点亮了 Star。</p>
-
-<img src="../images/star-coverage-map.svg" alt="世界地图：标出有 GitHub 用户为 OpenCreator 点亮 Star 的国家和地区" width="760" />
-
-[项目特色](#项目特色) · [创作工具](#创作工具) · [Skills](#skills-技能) · [案例](#案例展示) · [快速开始](#快速开始) · [Desktop](#desktop) · [文档](#文档)
+[项目特色](#项目特色) · [创作工具](#创作工具) · [Skills](#skills-技能) · [案例](#案例展示) · [快速开始](#快速开始) · [Desktop](#desktop) · [文档](#文档) · [社区](#社区)
 
 </div>
 
@@ -559,7 +555,13 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 根目录 `README.md` 是内容基准英文版，持续维护的翻译统一放在 `docs/<locale>/README.md`。只有完成全文翻译并与英文结构同步后，才把对应语言加入顶部切换栏。
 
-## 核心团队
+## 社区
+
+<p>来自<strong>至少 99 个国家和地区</strong>的 GitHub 用户为 OpenCreator 点亮了 Star。</p>
+
+<img src="../images/star-coverage-map.svg" alt="世界地图：标出有 GitHub 用户为 OpenCreator 点亮 Star 的国家和地区" width="760" />
+
+### 核心团队
 
 每位成员负责各自领域的规范、贡献审核与合并，以及社区支持。
 
@@ -572,7 +574,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
   </tr>
 </table>
 
-## 参与贡献
+### 参与贡献
 
 欢迎以多种方式参与 OpenCreator，不限于代码：
 
@@ -597,7 +599,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 [contribute-issue]: https://github.com/krillinai/OpenCreator/issues
 [contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
-## 贡献者
+### 贡献者
 
 感谢每一位通过代码、文档、反馈、问题报告、Skills、设计和创意参与 OpenCreator 的贡献者。
 

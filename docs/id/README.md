@@ -24,11 +24,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![Grup QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-<p>Pengguna GitHub dari <strong>setidaknya 99 negara dan wilayah</strong> telah memberi Star kepada OpenCreator.</p>
-
-<img src="../images/star-coverage-map.svg" alt="Peta dunia yang menandai negara dan wilayah pengguna GitHub yang memberi Star pada OpenCreator" width="760" />
-
-[Sorotan](#sorotan-proyek) · [Alat](#alat-kreasi) · [Skills](#skills) · [Contoh](#contoh) · [Mulai](#mulai-cepat) · [Desktop](#desktop) · [Dokumen](#dokumentasi)
+[Sorotan](#sorotan-proyek) · [Alat](#alat-kreasi) · [Skills](#skills) · [Contoh](#contoh) · [Mulai](#mulai-cepat) · [Desktop](#desktop) · [Dokumen](#dokumentasi) · [Komunitas](#komunitas)
 
 </div>
 
@@ -556,7 +552,13 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 File `README.md` di root adalah dokumen bahasa Inggris kanonis. Terjemahan yang dipelihara berada di `docs/<locale>/README.md`. Tambahkan bahasa ke pemilih hanya setelah seluruh dokumen diterjemahkan dan disinkronkan dengan struktur bahasa Inggris.
 
-## Tim Inti
+## Komunitas
+
+<p>Pengguna GitHub dari <strong>setidaknya 99 negara dan wilayah</strong> telah memberi Star kepada OpenCreator.</p>
+
+<img src="../images/star-coverage-map.svg" alt="Peta dunia yang menandai negara dan wilayah pengguna GitHub yang memberi Star pada OpenCreator" width="760" />
+
+### Tim Inti
 
 Setiap anggota bertanggung jawab atas standar, peninjauan dan penggabungan kontribusi, serta dukungan komunitas di bidangnya.
 
@@ -569,7 +571,7 @@ Setiap anggota bertanggung jawab atas standar, peninjauan dan penggabungan kontr
   </tr>
 </table>
 
-## Berkontribusi
+### Berkontribusi
 
 Anda dapat berkontribusi ke OpenCreator dengan berbagai cara, tidak hanya lewat kode:
 
@@ -594,7 +596,7 @@ Cara berkontribusi:
 [contribute-issue]: https://github.com/krillinai/OpenCreator/issues
 [contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
-## Kontributor
+### Kontributor
 
 Terima kasih kepada semua orang yang telah berkontribusi melalui kode, dokumentasi, umpan balik, laporan masalah, Skills, desain, dan ide.
 

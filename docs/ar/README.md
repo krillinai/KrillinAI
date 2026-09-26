@@ -24,11 +24,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![مجموعة QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-<p>منح مستخدمو GitHub من <strong>99 دولة ومنطقة على الأقل</strong> مشروع OpenCreator نجمة.</p>
-
-<img src="../images/star-coverage-map.svg" alt="خريطة عالمية تُبرز بلدان ومناطق مستخدمي GitHub الذين منحوا OpenCreator نجمة" width="760" />
-
-[الميزات](#أبرز-ميزات-المشروع) · [الأدوات](#أدوات-الإنشاء) · [Skills](#skills) · [أمثلة](#أمثلة) · [البدء](#البدء-السريع) · [Desktop](#desktop) · [الوثائق](#الوثائق)
+[الميزات](#أبرز-ميزات-المشروع) · [الأدوات](#أدوات-الإنشاء) · [Skills](#skills) · [أمثلة](#أمثلة) · [البدء](#البدء-السريع) · [Desktop](#desktop) · [الوثائق](#الوثائق) · [المجتمع](#المجتمع)
 
 </div>
 
@@ -556,7 +552,13 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 يمثل ملف `README.md` في الجذر المستند الإنجليزي الأساسي. توجد الترجمات المُصانة في `docs/<locale>/README.md`. لا تضف لغة إلى أداة التبديل إلا بعد ترجمة مستندها كاملًا ومزامنته مع بنية النسخة الإنجليزية.
 
-## الفريق
+## المجتمع
+
+<p>منح مستخدمو GitHub من <strong>99 دولة ومنطقة على الأقل</strong> مشروع OpenCreator نجمة.</p>
+
+<img src="../images/star-coverage-map.svg" alt="خريطة عالمية تُبرز بلدان ومناطق مستخدمي GitHub الذين منحوا OpenCreator نجمة" width="760" />
+
+### الفريق
 
 يتولى كل عضو معايير مجاله ومراجعة المساهمات ودمجها ودعم المجتمع.
 
@@ -569,7 +571,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
   </tr>
 </table>
 
-## المساهمة
+### المساهمة
 
 يمكنك المساهمة في OpenCreator بطرق عديدة، وليس عبر الشفرة فقط:
 
@@ -594,7 +596,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 [contribute-issue]: https://github.com/krillinai/OpenCreator/issues
 [contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
-## المساهمون
+### المساهمون
 
 شكرًا لكل من شارك عبر الشفرة والوثائق والملاحظات وتقارير المشكلات وSkills والتصميمات والأفكار.
 

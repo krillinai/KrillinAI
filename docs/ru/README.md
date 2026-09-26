@@ -24,11 +24,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![Группа QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-<p>Пользователи GitHub как минимум из <strong>99 стран и регионов</strong> поставили OpenCreator звезду.</p>
-
-<img src="../images/star-coverage-map.svg" alt="Карта мира с отмеченными странами и регионами пользователей GitHub, поставивших звезду OpenCreator" width="760" />
-
-[Возможности](#возможности-проекта) · [Инструменты](#инструменты-для-творчества) · [Skills](#skills) · [Примеры](#примеры) · [Начало](#быстрый-старт) · [Desktop](#desktop) · [Документы](#документация)
+[Возможности](#возможности-проекта) · [Инструменты](#инструменты-для-творчества) · [Skills](#skills) · [Примеры](#примеры) · [Начало](#быстрый-старт) · [Desktop](#desktop) · [Документы](#документация) · [Сообщество](#сообщество)
 
 </div>
 
@@ -556,7 +552,13 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 Корневой файл `README.md` является основным документом на английском языке. Поддерживаемые переводы находятся в `docs/<locale>/README.md`. Добавляйте язык в переключатель только после полного перевода документа и его синхронизации со структурой английской версии.
 
-## Команда
+## Сообщество
+
+<p>Пользователи GitHub как минимум из <strong>99 стран и регионов</strong> поставили OpenCreator звезду.</p>
+
+<img src="../images/star-coverage-map.svg" alt="Карта мира с отмеченными странами и регионами пользователей GitHub, поставивших звезду OpenCreator" width="760" />
+
+### Команда
 
 Каждый участник отвечает за стандарты, проверку и слияние вкладов, а также поддержку сообщества в своей области.
 
@@ -569,7 +571,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
   </tr>
 </table>
 
-## Участие в разработке
+### Участие в разработке
 
 Помочь OpenCreator можно не только кодом:
 
@@ -594,7 +596,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 [contribute-issue]: https://github.com/krillinai/OpenCreator/issues
 [contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
-## Участники
+### Участники
 
 Спасибо всем, кто участвовал в проекте кодом, документацией, отзывами, сообщениями о проблемах, Skills, дизайном и идеями.
 

@@ -24,11 +24,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ グループ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-<p>OpenCreator は<strong>少なくとも99の国と地域</strong>の GitHub ユーザーから Star を獲得しています。</p>
-
-<img src="../images/star-coverage-map.svg" alt="OpenCreator に Star を付けた GitHub ユーザーの国と地域を示す世界地図" width="760" />
-
-[特徴](#主な特徴) · [ツール](#制作ツール) · [Skills](#skills) · [活用例](#活用例) · [はじめに](#クイックスタート) · [Desktop](#desktop) · [文書](#ドキュメント)
+[特徴](#主な特徴) · [ツール](#制作ツール) · [Skills](#skills) · [活用例](#活用例) · [はじめに](#クイックスタート) · [Desktop](#desktop) · [文書](#ドキュメント) · [コミュニティ](#コミュニティ)
 
 </div>
 
@@ -556,7 +552,13 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ルートの `README.md` を正本となる英語ドキュメントとします。保守対象の翻訳は `docs/<locale>/README.md` に配置します。英語版と同じ構成ですべての内容を翻訳・同期した後にのみ、言語切り替えへ追加してください。
 
-## チーム
+## コミュニティ
+
+<p>OpenCreator は<strong>少なくとも99の国と地域</strong>の GitHub ユーザーから Star を獲得しています。</p>
+
+<img src="../images/star-coverage-map.svg" alt="OpenCreator に Star を付けた GitHub ユーザーの国と地域を示す世界地図" width="760" />
+
+### チーム
 
 各メンバーは担当領域の基準、貢献のレビューとマージ、コミュニティサポートを担います。
 
@@ -569,7 +571,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
   </tr>
 </table>
 
-## コントリビューション
+### コントリビューション
 
 コード以外にも、さまざまな形で OpenCreator に貢献できます：
 
@@ -594,7 +596,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 [contribute-issue]: https://github.com/krillinai/OpenCreator/issues
 [contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
-## コントリビューター
+### コントリビューター
 
 本プロジェクトにコード、ドキュメント、フィードバック、Issue、Skills、デザイン、アイデアで参加してくださったすべての方に感謝します。
 

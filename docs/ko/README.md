@@ -24,11 +24,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ 그룹](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-<p>OpenCreator는 <strong>최소 99개 국가 및 지역</strong>의 GitHub 사용자에게서 Star를 받았습니다.</p>
-
-<img src="../images/star-coverage-map.svg" alt="OpenCreator에 Star를 준 GitHub 사용자의 국가와 지역을 표시한 세계 지도" width="760" />
-
-[특징](#주요-특징) · [도구](#제작-도구) · [Skills](#skills) · [사례](#활용-사례) · [시작](#빠른-시작) · [Desktop](#desktop) · [문서](#문서)
+[특징](#주요-특징) · [도구](#제작-도구) · [Skills](#skills) · [사례](#활용-사례) · [시작](#빠른-시작) · [Desktop](#desktop) · [문서](#문서) · [커뮤니티](#커뮤니티)
 
 </div>
 
@@ -556,7 +552,13 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 루트의 `README.md`가 기준 영문 문서입니다. 유지 관리되는 번역은 `docs/<locale>/README.md`에 저장합니다. 전체 문서의 번역을 완료하고 영문 구조와 동기화한 뒤에만 언어 선택기에 해당 언어를 추가합니다.
 
-## 운영 팀
+## 커뮤니티
+
+<p>OpenCreator는 <strong>최소 99개 국가 및 지역</strong>의 GitHub 사용자에게서 Star를 받았습니다.</p>
+
+<img src="../images/star-coverage-map.svg" alt="OpenCreator에 Star를 준 GitHub 사용자의 국가와 지역을 표시한 세계 지도" width="760" />
+
+### 운영 팀
 
 각 팀원은 담당 영역의 기준, 기여 검토와 병합 및 커뮤니티 지원을 맡습니다.
 
@@ -569,7 +571,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
   </tr>
 </table>
 
-## 기여하기
+### 기여하기
 
 코드뿐 아니라 다양한 방법으로 OpenCreator에 기여할 수 있습니다:
 
@@ -594,7 +596,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 [contribute-issue]: https://github.com/krillinai/OpenCreator/issues
 [contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
-## 기여자
+### 기여자
 
 코드, 문서, 피드백, 이슈 보고, Skills, 디자인, 아이디어로 함께한 모든 분께 감사드립니다.
 

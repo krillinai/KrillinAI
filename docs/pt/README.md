@@ -24,11 +24,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![Grupo QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-<p>Usuários do GitHub de <strong>pelo menos 99 países e regiões</strong> deram uma estrela ao OpenCreator.</p>
-
-<img src="../images/star-coverage-map.svg" alt="Mapa-múndi com países e regiões de usuários do GitHub que deram uma estrela ao OpenCreator" width="760" />
-
-[Destaques](#destaques-do-projeto) · [Ferramentas](#ferramentas-de-criação) · [Skills](#skills) · [Exemplos](#exemplos) · [Começar](#início-rápido) · [Desktop](#desktop) · [Docs](#documentação)
+[Destaques](#destaques-do-projeto) · [Ferramentas](#ferramentas-de-criação) · [Skills](#skills) · [Exemplos](#exemplos) · [Começar](#início-rápido) · [Desktop](#desktop) · [Docs](#documentação) · [Comunidade](#comunidade)
 
 </div>
 
@@ -556,7 +552,13 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 O arquivo `README.md` na raiz é o documento canônico em inglês. As traduções mantidas ficam em `docs/<locale>/README.md`. Adicione um idioma ao seletor somente depois que o documento completo tiver sido traduzido e sincronizado com a estrutura em inglês.
 
-## A equipe
+## Comunidade
+
+<p>Usuários do GitHub de <strong>pelo menos 99 países e regiões</strong> deram uma estrela ao OpenCreator.</p>
+
+<img src="../images/star-coverage-map.svg" alt="Mapa-múndi com países e regiões de usuários do GitHub que deram uma estrela ao OpenCreator" width="760" />
+
+### A equipe
 
 Cada integrante é responsável pelos padrões, pela revisão e integração de contribuições e pelo suporte à comunidade em sua área.
 
@@ -569,7 +571,7 @@ Cada integrante é responsável pelos padrões, pela revisão e integração de 
   </tr>
 </table>
 
-## Como contribuir
+### Como contribuir
 
 Você pode contribuir com o OpenCreator de várias maneiras, não apenas com código:
 
@@ -594,7 +596,7 @@ Como participar:
 [contribute-issue]: https://github.com/krillinai/OpenCreator/issues
 [contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
-## Colaboradores
+### Colaboradores
 
 Agradecemos a todas as pessoas que participaram com código, documentação, feedback, relatos de problemas, Skills, design e ideias.
 
