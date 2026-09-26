@@ -571,31 +571,6 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
   </tr>
 </table>
 
-### المساهمة
-
-يمكنك المساهمة في OpenCreator بطرق عديدة، وليس عبر الشفرة فقط:
-
-| النوع | ماذا تقدم | كيف تجهزها | أين تقدمها |
-| --- | --- | --- | --- |
-| الشفرة | إصلاحات وأدوات إنشاء وميزات مشتركة | تغيير محدد مع عرض أو خطوات إعادة الإنتاج واختبارات | [Issue][contribute-issue] ثم [PR][contribute-pr]؛ `apps/web/` أو `apps/daemon/` |
-| Skills | سير عمل Agent قابلة لإعادة الاستخدام | `SKILL.md` مع المتطلبات والأمثلة | [Issue][contribute-issue] ثم [PR][contribute-pr] في `skills/` |
-| قوالب الإنشاء | قوالب قابلة لإعادة الاستخدام للصور والفيديو والأغلفة | `template.json` وملفات الغلاف والمعاينة والوصف والإعدادات ونسب العمل وحقوق الاستخدام | قدّم [PR][contribute-pr] في [`template/`](../../template/)؛ ناقش الصيغ الجديدة في [Issue][contribute-issue] |
-| الرسوم والتصميم | رسوم وأيقونات وواجهات أصلية | معاينة وملفات مصدر قابلة للتعديل وترخيص | [Issue][contribute-issue] ثم [PR][contribute-pr] في موقع الأصول المتفق عليه |
-| تكامل خدمات الجهات الخارجية | دعم خدمات الذكاء الاصطناعي أو الوسائط | حالة استخدام وإعدادات ومعالجة الأخطاء وحماية بيانات الاعتماد واختبارات | [Issue][contribute-issue] ثم [PR][contribute-pr] في وحدات Web / Daemon |
-
-ضع كل قالب مع ملفاته في `template/<module>/<id>/<version>/template.json`. الوحدات الحالية هي `image-generation` و`video-generation` و`cover-generator`. قدّم العنوان والوصف بالصينية والإنجليزية، وشغّل `pnpm templates:validate` قبل إرسال PR.
-
-كيفية المساهمة:
-
-1. صِف المشكلة وحالة الاستخدام والسلوك المتوقع في [Issues](https://github.com/krillinai/OpenCreator/issues).
-2. أنشئ فرعًا محددًا للميزة أو الإصلاح انطلاقًا من أحدث فرع تطوير.
-3. اتبع البنية الحالية: نفّذ إمكانات المنتج العامة مرة واحدة في Web وDaemon، واعزل الاختلافات الأصلية خلف capabilities صريحة.
-4. أضف تغطية مناسبة باختبارات الوحدة أو التكامل أو الاختبارات الشاملة لتغييرات السلوك، واذكر في Pull Request عمليات التحقق المكتملة والمتجاوزة.
-5. لا تضف مطلقًا `.runtime/` أو بيانات الاعتماد المحلية أو جلسات Codex أو ذاكرات البناء المؤقتة أو بيانات المستخدم الأخرى إلى commit.
-
-[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
-[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
-
 ### المساهمون
 
 شكرًا لكل من شارك عبر الشفرة والوثائق والملاحظات وتقارير المشكلات وSkills والتصميمات والأفكار.
@@ -624,6 +599,30 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
   <a href="https://github.com/mifan100g" title="mifan100g (米饭二两)"><img src="../images/contributors/mifan100g.svg" width="48" height="48" alt="mifan100g (米饭二两)" /></a>
 </div>
 
+### المساهمة
+
+يمكنك المساهمة في OpenCreator بطرق عديدة، وليس عبر الشفرة فقط:
+
+| النوع | ماذا تقدم | كيف تجهزها | أين تقدمها |
+| --- | --- | --- | --- |
+| الشفرة | إصلاحات وأدوات إنشاء وميزات مشتركة | تغيير محدد مع عرض أو خطوات إعادة الإنتاج واختبارات | [Issue][contribute-issue] ثم [PR][contribute-pr]؛ `apps/web/` أو `apps/daemon/` |
+| Skills | سير عمل Agent قابلة لإعادة الاستخدام | `SKILL.md` مع المتطلبات والأمثلة | [Issue][contribute-issue] ثم [PR][contribute-pr] في `skills/` |
+| قوالب الإنشاء | قوالب قابلة لإعادة الاستخدام للصور والفيديو والأغلفة | `template.json` وملفات الغلاف والمعاينة والوصف والإعدادات ونسب العمل وحقوق الاستخدام | قدّم [PR][contribute-pr] في [`template/`](../../template/)؛ ناقش الصيغ الجديدة في [Issue][contribute-issue] |
+| الرسوم والتصميم | رسوم وأيقونات وواجهات أصلية | معاينة وملفات مصدر قابلة للتعديل وترخيص | [Issue][contribute-issue] ثم [PR][contribute-pr] في موقع الأصول المتفق عليه |
+| تكامل خدمات الجهات الخارجية | دعم خدمات الذكاء الاصطناعي أو الوسائط | حالة استخدام وإعدادات ومعالجة الأخطاء وحماية بيانات الاعتماد واختبارات | [Issue][contribute-issue] ثم [PR][contribute-pr] في وحدات Web / Daemon |
+
+ضع كل قالب مع ملفاته في `template/<module>/<id>/<version>/template.json`. الوحدات الحالية هي `image-generation` و`video-generation` و`cover-generator`. قدّم العنوان والوصف بالصينية والإنجليزية، وشغّل `pnpm templates:validate` قبل إرسال PR.
+
+كيفية المساهمة:
+
+1. صِف المشكلة وحالة الاستخدام والسلوك المتوقع في [Issues](https://github.com/krillinai/OpenCreator/issues).
+2. أنشئ فرعًا محددًا للميزة أو الإصلاح انطلاقًا من أحدث فرع تطوير.
+3. اتبع البنية الحالية: نفّذ إمكانات المنتج العامة مرة واحدة في Web وDaemon، واعزل الاختلافات الأصلية خلف capabilities صريحة.
+4. أضف تغطية مناسبة باختبارات الوحدة أو التكامل أو الاختبارات الشاملة لتغييرات السلوك، واذكر في Pull Request عمليات التحقق المكتملة والمتجاوزة.
+5. لا تضف مطلقًا `.runtime/` أو بيانات الاعتماد المحلية أو جلسات Codex أو ذاكرات البناء المؤقتة أو بيانات المستخدم الأخرى إلى commit.
+
+[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
+[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
 ## سجل Stars
 

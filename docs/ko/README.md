@@ -571,31 +571,6 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
   </tr>
 </table>
 
-### 기여하기
-
-코드뿐 아니라 다양한 방법으로 OpenCreator에 기여할 수 있습니다:
-
-| 유형 | 기여 내용 | 준비할 자료 | 제출 위치 |
-| --- | --- | --- | --- |
-| 코드 | 버그 수정, 제작 워크플로와 공통 기능 개선 | 범위가 명확한 변경, 시연 또는 재현 방법, 관련 테스트 | [Issue][contribute-issue] → [PR][contribute-pr]; `apps/web/` 또는 `apps/daemon/` |
-| Skills | 재사용 가능한 Agent 워크플로 | `SKILL.md`, 필수 조건, 사용 예시 | [Issue][contribute-issue] → `skills/`에 [PR][contribute-pr] |
-| 제작 템플릿 | 재사용 가능한 이미지·동영상·커버 템플릿 | `template.json`, 커버·예시 자료, 프롬프트, 설정, 출처 및 사용 권한 | [`template/`](../../template/)에 [PR][contribute-pr] 제출; 새 형식은 [Issue][contribute-issue]에서 논의 |
-| 일러스트·디자인 | 오리지널 일러스트, 아이콘, UI | 미리보기, 편집 가능한 원본, 라이선스 | [Issue][contribute-issue] → 자료 위치 협의 후 [PR][contribute-pr] |
-| 외부 서비스 연동 | AI·미디어 서비스 지원 | 용도, 설정, 오류 처리, 자격 증명 보호, 테스트 | [Issue][contribute-issue] → Web / Daemon 모듈에 [PR][contribute-pr] |
-
-각 템플릿과 자료는 `template/<module>/<id>/<version>/template.json`에 배치합니다. 현재 모듈은 `image-generation`, `video-generation`, `cover-generator`입니다. 제목과 설명은 중국어와 영어로 작성하고 PR 전에 `pnpm templates:validate`를 실행하세요.
-
-참여 방법:
-
-1. [Issues](https://github.com/krillinai/OpenCreator/issues)에 문제, 사용 사례, 기대 동작을 설명합니다.
-2. 최신 개발 브랜치에서 목적이 명확한 기능 또는 수정 브랜치를 만듭니다.
-3. 기존 아키텍처를 따릅니다. 범용 제품 기능은 Web과 Daemon에 한 번만 구현하고 네이티브 차이는 명시적인 capability 뒤에 격리합니다.
-4. 동작 변경에 적합한 단위, 통합 또는 E2E 테스트를 추가하고 Pull Request에 완료한 검증과 생략한 검증을 모두 기재합니다.
-5. `.runtime/`, 로컬 자격 증명, Codex 세션, 빌드 캐시 또는 기타 사용자 데이터를 commit하지 마세요.
-
-[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
-[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
-
 ### 기여자
 
 코드, 문서, 피드백, 이슈 보고, Skills, 디자인, 아이디어로 함께한 모든 분께 감사드립니다.
@@ -624,6 +599,30 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
   <a href="https://github.com/mifan100g" title="mifan100g (米饭二两)"><img src="../images/contributors/mifan100g.svg" width="48" height="48" alt="mifan100g (米饭二两)" /></a>
 </div>
 
+### 기여하기
+
+코드뿐 아니라 다양한 방법으로 OpenCreator에 기여할 수 있습니다:
+
+| 유형 | 기여 내용 | 준비할 자료 | 제출 위치 |
+| --- | --- | --- | --- |
+| 코드 | 버그 수정, 제작 워크플로와 공통 기능 개선 | 범위가 명확한 변경, 시연 또는 재현 방법, 관련 테스트 | [Issue][contribute-issue] → [PR][contribute-pr]; `apps/web/` 또는 `apps/daemon/` |
+| Skills | 재사용 가능한 Agent 워크플로 | `SKILL.md`, 필수 조건, 사용 예시 | [Issue][contribute-issue] → `skills/`에 [PR][contribute-pr] |
+| 제작 템플릿 | 재사용 가능한 이미지·동영상·커버 템플릿 | `template.json`, 커버·예시 자료, 프롬프트, 설정, 출처 및 사용 권한 | [`template/`](../../template/)에 [PR][contribute-pr] 제출; 새 형식은 [Issue][contribute-issue]에서 논의 |
+| 일러스트·디자인 | 오리지널 일러스트, 아이콘, UI | 미리보기, 편집 가능한 원본, 라이선스 | [Issue][contribute-issue] → 자료 위치 협의 후 [PR][contribute-pr] |
+| 외부 서비스 연동 | AI·미디어 서비스 지원 | 용도, 설정, 오류 처리, 자격 증명 보호, 테스트 | [Issue][contribute-issue] → Web / Daemon 모듈에 [PR][contribute-pr] |
+
+각 템플릿과 자료는 `template/<module>/<id>/<version>/template.json`에 배치합니다. 현재 모듈은 `image-generation`, `video-generation`, `cover-generator`입니다. 제목과 설명은 중국어와 영어로 작성하고 PR 전에 `pnpm templates:validate`를 실행하세요.
+
+참여 방법:
+
+1. [Issues](https://github.com/krillinai/OpenCreator/issues)에 문제, 사용 사례, 기대 동작을 설명합니다.
+2. 최신 개발 브랜치에서 목적이 명확한 기능 또는 수정 브랜치를 만듭니다.
+3. 기존 아키텍처를 따릅니다. 범용 제품 기능은 Web과 Daemon에 한 번만 구현하고 네이티브 차이는 명시적인 capability 뒤에 격리합니다.
+4. 동작 변경에 적합한 단위, 통합 또는 E2E 테스트를 추가하고 Pull Request에 완료한 검증과 생략한 검증을 모두 기재합니다.
+5. `.runtime/`, 로컬 자격 증명, Codex 세션, 빌드 캐시 또는 기타 사용자 데이터를 commit하지 마세요.
+
+[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
+[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
 ## Star 기록
 

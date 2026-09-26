@@ -574,31 +574,6 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
   </tr>
 </table>
 
-### 参与贡献
-
-欢迎以多种方式参与 OpenCreator，不限于代码：
-
-| 类型 | 可以贡献什么 | 如何准备 | 在哪里提交 |
-| --- | --- | --- | --- |
-| 代码 | 修复问题、改进创作流程或通用能力 | 明确改动范围，附演示或复现方式与相关测试 | [Issue][contribute-issue] 讨论 → [PR][contribute-pr]；`apps/web/` 或 `apps/daemon/` |
-| Skill | 可复用的 Agent 工作流 | 提供 `SKILL.md`、依赖条件和使用示例 | [Issue][contribute-issue] 讨论 → [PR][contribute-pr]，提交至 `skills/` |
-| 创作模板 | 可复用的图像、视频或封面模板 | 提供 `template.json`、封面与案例素材、提示词、设置、来源归属和使用授权 | 在 [`template/`](../../template/) 提交 [PR][contribute-pr]；新格式先通过 [Issue][contribute-issue] 讨论 |
-| 插画设计 | 原创插画、图标或界面设计 | 提供预览、可编辑源文件及许可说明 | [Issue][contribute-issue] 讨论 → [PR][contribute-pr]，素材位置先确认 |
-| 第三方服务接入 | AI 或媒体服务提供方 | 说明场景、配置、错误处理、密钥安全及测试 | [Issue][contribute-issue] 讨论 → [PR][contribute-pr]，修改对应 Web / Daemon 模块 |
-
-创作模板按 `template/<module>/<id>/<version>/template.json` 组织，并将引用的素材放在同一版本目录。目前支持 `image-generation`、`video-generation` 和 `cover-generator`；标题与简介需同时提供中文和英文。提交 PR 前运行 `pnpm templates:validate`。
-
-如何参与：
-
-1. 在 [Issues](https://github.com/krillinai/OpenCreator/issues) 中描述问题、使用场景和预期行为。
-2. 从最新分支创建范围清晰的功能或修复分支。
-3. 遵循仓库现有架构，通用产品能力只在 Web + Daemon 实现一次，原生差异通过 capability 隔离。
-4. 为行为变化补充相应的单元、集成或 E2E 测试，并在 Pull Request 中写明已运行和未运行的验证。
-5. 不提交 `.runtime/`、本机凭据、Codex 会话、构建缓存或其他用户数据。
-
-[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
-[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
-
 ### 贡献者
 
 感谢每一位通过代码、文档、反馈、问题报告、Skills、设计和创意参与 OpenCreator 的贡献者。
@@ -627,6 +602,30 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
   <a href="https://github.com/mifan100g" title="mifan100g (米饭二两)"><img src="../images/contributors/mifan100g.svg" width="48" height="48" alt="mifan100g (米饭二两)" /></a>
 </div>
 
+### 参与贡献
+
+欢迎以多种方式参与 OpenCreator，不限于代码：
+
+| 类型 | 可以贡献什么 | 如何准备 | 在哪里提交 |
+| --- | --- | --- | --- |
+| 代码 | 修复问题、改进创作流程或通用能力 | 明确改动范围，附演示或复现方式与相关测试 | [Issue][contribute-issue] 讨论 → [PR][contribute-pr]；`apps/web/` 或 `apps/daemon/` |
+| Skill | 可复用的 Agent 工作流 | 提供 `SKILL.md`、依赖条件和使用示例 | [Issue][contribute-issue] 讨论 → [PR][contribute-pr]，提交至 `skills/` |
+| 创作模板 | 可复用的图像、视频或封面模板 | 提供 `template.json`、封面与案例素材、提示词、设置、来源归属和使用授权 | 在 [`template/`](../../template/) 提交 [PR][contribute-pr]；新格式先通过 [Issue][contribute-issue] 讨论 |
+| 插画设计 | 原创插画、图标或界面设计 | 提供预览、可编辑源文件及许可说明 | [Issue][contribute-issue] 讨论 → [PR][contribute-pr]，素材位置先确认 |
+| 第三方服务接入 | AI 或媒体服务提供方 | 说明场景、配置、错误处理、密钥安全及测试 | [Issue][contribute-issue] 讨论 → [PR][contribute-pr]，修改对应 Web / Daemon 模块 |
+
+创作模板按 `template/<module>/<id>/<version>/template.json` 组织，并将引用的素材放在同一版本目录。目前支持 `image-generation`、`video-generation` 和 `cover-generator`；标题与简介需同时提供中文和英文。提交 PR 前运行 `pnpm templates:validate`。
+
+如何参与：
+
+1. 在 [Issues](https://github.com/krillinai/OpenCreator/issues) 中描述问题、使用场景和预期行为。
+2. 从最新分支创建范围清晰的功能或修复分支。
+3. 遵循仓库现有架构，通用产品能力只在 Web + Daemon 实现一次，原生差异通过 capability 隔离。
+4. 为行为变化补充相应的单元、集成或 E2E 测试，并在 Pull Request 中写明已运行和未运行的验证。
+5. 不提交 `.runtime/`、本机凭据、Codex 会话、构建缓存或其他用户数据。
+
+[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
+[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
 ## Star 趋势
 

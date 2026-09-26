@@ -571,31 +571,6 @@ Setiap anggota bertanggung jawab atas standar, peninjauan dan penggabungan kontr
   </tr>
 </table>
 
-### Berkontribusi
-
-Anda dapat berkontribusi ke OpenCreator dengan berbagai cara, tidak hanya lewat kode:
-
-| Jenis | Kontribusi | Yang perlu disiapkan | Tempat mengirim |
-| --- | --- | --- | --- |
-| Kode | Perbaikan bug, alur kreasi, fitur bersama | Perubahan terfokus, demo atau langkah reproduksi, pengujian | [Issue][contribute-issue] → [PR][contribute-pr]; `apps/web/` atau `apps/daemon/` |
-| Skills | Alur kerja Agent yang dapat digunakan kembali | `SKILL.md`, prasyarat, dan contoh penggunaan | [Issue][contribute-issue] → [PR][contribute-pr] di `skills/` |
-| Templat kreasi | Templat gambar, video, atau sampul yang dapat digunakan kembali | `template.json`, sampul dan contoh, prompt, pengaturan, atribusi, dan hak penggunaan | [PR][contribute-pr] di [`template/`](../../template/); diskusikan format baru di [Issue][contribute-issue] |
-| Ilustrasi dan desain | Ilustrasi, ikon, atau UI orisinal | Pratinjau, berkas sumber yang dapat diedit, dan lisensi | [Issue][contribute-issue] → [PR][contribute-pr] di lokasi aset yang disepakati |
-| Integrasi layanan pihak ketiga | Dukungan layanan AI atau media | Kegunaan, pengaturan, penanganan kesalahan, keamanan kredensial, pengujian | [Issue][contribute-issue] → [PR][contribute-pr] di modul Web / Daemon |
-
-Simpan setiap templat dan asetnya di `template/<module>/<id>/<version>/template.json`. Modul yang tersedia saat ini ialah `image-generation`, `video-generation`, dan `cover-generator`. Sertakan judul serta deskripsi berbahasa Mandarin dan Inggris, lalu jalankan `pnpm templates:validate` sebelum mengirim PR.
-
-Cara berkontribusi:
-
-1. Jelaskan masalah, kasus penggunaan, dan perilaku yang diharapkan di [Issues](https://github.com/krillinai/OpenCreator/issues).
-2. Buat branch fitur atau perbaikan yang terfokus dari branch pengembangan terbaru.
-3. Ikuti arsitektur yang ada: implementasikan kemampuan produk umum satu kali di Web dan Daemon, lalu pisahkan perbedaan native di balik capabilities yang eksplisit.
-4. Tambahkan cakupan unit, integrasi, atau E2E yang sesuai untuk perubahan perilaku, dan cantumkan verifikasi yang diselesaikan maupun dilewati dalam Pull Request.
-5. Jangan pernah memasukkan `.runtime/`, kredensial lokal, sesi Codex, cache build, atau data pengguna lainnya ke dalam commit.
-
-[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
-[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
-
 ### Kontributor
 
 Terima kasih kepada semua orang yang telah berkontribusi melalui kode, dokumentasi, umpan balik, laporan masalah, Skills, desain, dan ide.
@@ -624,6 +599,30 @@ Terima kasih kepada semua orang yang telah berkontribusi melalui kode, dokumenta
   <a href="https://github.com/mifan100g" title="mifan100g (米饭二两)"><img src="../images/contributors/mifan100g.svg" width="48" height="48" alt="mifan100g (米饭二两)" /></a>
 </div>
 
+### Berkontribusi
+
+Anda dapat berkontribusi ke OpenCreator dengan berbagai cara, tidak hanya lewat kode:
+
+| Jenis | Kontribusi | Yang perlu disiapkan | Tempat mengirim |
+| --- | --- | --- | --- |
+| Kode | Perbaikan bug, alur kreasi, fitur bersama | Perubahan terfokus, demo atau langkah reproduksi, pengujian | [Issue][contribute-issue] → [PR][contribute-pr]; `apps/web/` atau `apps/daemon/` |
+| Skills | Alur kerja Agent yang dapat digunakan kembali | `SKILL.md`, prasyarat, dan contoh penggunaan | [Issue][contribute-issue] → [PR][contribute-pr] di `skills/` |
+| Templat kreasi | Templat gambar, video, atau sampul yang dapat digunakan kembali | `template.json`, sampul dan contoh, prompt, pengaturan, atribusi, dan hak penggunaan | [PR][contribute-pr] di [`template/`](../../template/); diskusikan format baru di [Issue][contribute-issue] |
+| Ilustrasi dan desain | Ilustrasi, ikon, atau UI orisinal | Pratinjau, berkas sumber yang dapat diedit, dan lisensi | [Issue][contribute-issue] → [PR][contribute-pr] di lokasi aset yang disepakati |
+| Integrasi layanan pihak ketiga | Dukungan layanan AI atau media | Kegunaan, pengaturan, penanganan kesalahan, keamanan kredensial, pengujian | [Issue][contribute-issue] → [PR][contribute-pr] di modul Web / Daemon |
+
+Simpan setiap templat dan asetnya di `template/<module>/<id>/<version>/template.json`. Modul yang tersedia saat ini ialah `image-generation`, `video-generation`, dan `cover-generator`. Sertakan judul serta deskripsi berbahasa Mandarin dan Inggris, lalu jalankan `pnpm templates:validate` sebelum mengirim PR.
+
+Cara berkontribusi:
+
+1. Jelaskan masalah, kasus penggunaan, dan perilaku yang diharapkan di [Issues](https://github.com/krillinai/OpenCreator/issues).
+2. Buat branch fitur atau perbaikan yang terfokus dari branch pengembangan terbaru.
+3. Ikuti arsitektur yang ada: implementasikan kemampuan produk umum satu kali di Web dan Daemon, lalu pisahkan perbedaan native di balik capabilities yang eksplisit.
+4. Tambahkan cakupan unit, integrasi, atau E2E yang sesuai untuk perubahan perilaku, dan cantumkan verifikasi yang diselesaikan maupun dilewati dalam Pull Request.
+5. Jangan pernah memasukkan `.runtime/`, kredensial lokal, sesi Codex, cache build, atau data pengguna lainnya ke dalam commit.
+
+[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
+[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
 ## Riwayat Star
 

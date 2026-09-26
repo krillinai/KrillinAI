@@ -575,21 +575,6 @@ Each crew member is responsible for their area, including its standards, contrib
   </tr>
 </table>
 
-### Contributing
-
-Contributions are welcome in these areas:
-
-| Type | What to contribute | Where it lives | Ship size |
-| --- | --- | --- | --- |
-| Code | Bug fixes, creator workflows, shared features | `apps/web/`, `apps/daemon/` | One focused PR with tests |
-| Skills | Reusable Agent workflows | [`skills/`](./skills/) | One folder with `SKILL.md` and optional references → [guide](./docs/contributing/skills-contributing.md) |
-| Creation templates | Reusable image, video, or cover presets | [`template/`](./template/) | One folder with `template.json` plus assets → [guide](./docs/contributing/templates-contributing.md) |
-| Illustration and design | Original illustrations, icons, or UI designs | An agreed asset location | One PR with previews, source files, and license |
-| Third-party service integrations | AI or media provider support | Relevant Web or Daemon modules | One PR with error handling, credential safety, and tests |
-| Documentation and translations | Docs improvements or new locales | `README.md`, `docs/`, `docs/<locale>/` | One PR |
-
-The full guide — including local setup, review criteria, and common rejection patterns — lives in [CONTRIBUTING.md](./CONTRIBUTING.md) (available in [10 languages](./docs/zh/CONTRIBUTING.md)).
-
 ### Contributors
 
 Thanks to everyone who has taken part through code, documentation, feedback, issue reports, Skills, designs, and ideas.
@@ -618,6 +603,20 @@ Thanks to everyone who has taken part through code, documentation, feedback, iss
   <a href="https://github.com/mifan100g" title="mifan100g (米饭二两)"><img src="./docs/images/contributors/mifan100g.svg" width="48" height="48" alt="mifan100g (米饭二两)" /></a>
 </div>
 
+### Contributing
+
+Contributions are welcome in these areas:
+
+| Type | What to contribute | Where it lives | Ship size |
+| --- | --- | --- | --- |
+| Code | Bug fixes, creator workflows, shared features | `apps/web/`, `apps/daemon/` | One focused PR with tests |
+| Skills | Reusable Agent workflows | [`skills/`](./skills/) | One folder with `SKILL.md` and optional references → [guide](./docs/contributing/skills-contributing.md) |
+| Creation templates | Reusable image, video, or cover presets | [`template/`](./template/) | One folder with `template.json` plus assets → [guide](./docs/contributing/templates-contributing.md) |
+| Illustration and design | Original illustrations, icons, or UI designs | An agreed asset location | One PR with previews, source files, and license |
+| Third-party service integrations | AI or media provider support | Relevant Web or Daemon modules | One PR with error handling, credential safety, and tests |
+| Documentation and translations | Docs improvements or new locales | `README.md`, `docs/`, `docs/<locale>/` | One PR |
+
+The full guide — including local setup, review criteria, and common rejection patterns — lives in [CONTRIBUTING.md](./CONTRIBUTING.md) (available in [10 languages](./docs/zh/CONTRIBUTING.md)).
 
 ## Star History
 

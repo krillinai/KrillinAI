@@ -571,31 +571,6 @@ Cada integrante é responsável pelos padrões, pela revisão e integração de 
   </tr>
 </table>
 
-### Como contribuir
-
-Você pode contribuir com o OpenCreator de várias maneiras, não apenas com código:
-
-| Tipo | O que contribuir | Como preparar | Onde enviar |
-| --- | --- | --- | --- |
-| Código | Correções, fluxos de criação, recursos compartilhados | Mudança focada, demonstração ou reprodução, testes | [Issue][contribute-issue] → [PR][contribute-pr]; `apps/web/` ou `apps/daemon/` |
-| Skills | Fluxos reutilizáveis para Agents | `SKILL.md`, pré-requisitos e exemplos | [Issue][contribute-issue] → [PR][contribute-pr] em `skills/` |
-| Modelos de criação | Modelos reutilizáveis de imagem, vídeo ou capa | `template.json`, capa e exemplos, prompts, configurações, atribuição e direitos de uso | [PR][contribute-pr] em [`template/`](../../template/); discuta novos formatos em uma [Issue][contribute-issue] |
-| Ilustração e design | Ilustrações, ícones ou interfaces originais | Prévia, arquivos-fonte editáveis e licença | [Issue][contribute-issue] → [PR][contribute-pr] no local de recursos acordado |
-| Integrações de serviços de terceiros | Serviços de IA ou mídia | Caso de uso, configuração, erros, segurança das credenciais e testes | [Issue][contribute-issue] → [PR][contribute-pr] nos módulos Web / Daemon |
-
-Coloque cada modelo e seus arquivos em `template/<module>/<id>/<version>/template.json`. Os módulos atuais são `image-generation`, `video-generation` e `cover-generator`. Inclua título e descrição em chinês e inglês e execute `pnpm templates:validate` antes de enviar um PR.
-
-Como participar:
-
-1. Descreva o problema, o caso de uso e o comportamento esperado em [Issues](https://github.com/krillinai/OpenCreator/issues).
-2. Crie uma branch específica de recurso ou correção a partir da branch de desenvolvimento mais recente.
-3. Siga a arquitetura existente: implemente os recursos gerais do produto uma única vez em Web e Daemon e isole as diferenças nativas atrás de capabilities explícitas.
-4. Adicione cobertura unitária, de integração ou E2E adequada para alterações de comportamento e liste no Pull Request tanto as verificações concluídas quanto as ignoradas.
-5. Nunca inclua em um commit `.runtime/`, credenciais locais, sessões do Codex, caches de compilação ou outros dados do usuário.
-
-[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
-[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
-
 ### Colaboradores
 
 Agradecemos a todas as pessoas que participaram com código, documentação, feedback, relatos de problemas, Skills, design e ideias.
@@ -624,6 +599,30 @@ Agradecemos a todas as pessoas que participaram com código, documentação, fee
   <a href="https://github.com/mifan100g" title="mifan100g (米饭二两)"><img src="../images/contributors/mifan100g.svg" width="48" height="48" alt="mifan100g (米饭二两)" /></a>
 </div>
 
+### Como contribuir
+
+Você pode contribuir com o OpenCreator de várias maneiras, não apenas com código:
+
+| Tipo | O que contribuir | Como preparar | Onde enviar |
+| --- | --- | --- | --- |
+| Código | Correções, fluxos de criação, recursos compartilhados | Mudança focada, demonstração ou reprodução, testes | [Issue][contribute-issue] → [PR][contribute-pr]; `apps/web/` ou `apps/daemon/` |
+| Skills | Fluxos reutilizáveis para Agents | `SKILL.md`, pré-requisitos e exemplos | [Issue][contribute-issue] → [PR][contribute-pr] em `skills/` |
+| Modelos de criação | Modelos reutilizáveis de imagem, vídeo ou capa | `template.json`, capa e exemplos, prompts, configurações, atribuição e direitos de uso | [PR][contribute-pr] em [`template/`](../../template/); discuta novos formatos em uma [Issue][contribute-issue] |
+| Ilustração e design | Ilustrações, ícones ou interfaces originais | Prévia, arquivos-fonte editáveis e licença | [Issue][contribute-issue] → [PR][contribute-pr] no local de recursos acordado |
+| Integrações de serviços de terceiros | Serviços de IA ou mídia | Caso de uso, configuração, erros, segurança das credenciais e testes | [Issue][contribute-issue] → [PR][contribute-pr] nos módulos Web / Daemon |
+
+Coloque cada modelo e seus arquivos em `template/<module>/<id>/<version>/template.json`. Os módulos atuais são `image-generation`, `video-generation` e `cover-generator`. Inclua título e descrição em chinês e inglês e execute `pnpm templates:validate` antes de enviar um PR.
+
+Como participar:
+
+1. Descreva o problema, o caso de uso e o comportamento esperado em [Issues](https://github.com/krillinai/OpenCreator/issues).
+2. Crie uma branch específica de recurso ou correção a partir da branch de desenvolvimento mais recente.
+3. Siga a arquitetura existente: implemente os recursos gerais do produto uma única vez em Web e Daemon e isole as diferenças nativas atrás de capabilities explícitas.
+4. Adicione cobertura unitária, de integração ou E2E adequada para alterações de comportamento e liste no Pull Request tanto as verificações concluídas quanto as ignoradas.
+5. Nunca inclua em um commit `.runtime/`, credenciais locais, sessões do Codex, caches de compilação ou outros dados do usuário.
+
+[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
+[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
 ## Histórico de Stars
 

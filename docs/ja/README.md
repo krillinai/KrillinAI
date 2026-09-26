@@ -571,31 +571,6 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
   </tr>
 </table>
 
-### コントリビューション
-
-コード以外にも、さまざまな形で OpenCreator に貢献できます：
-
-| 種類 | 貢献内容 | 準備するもの | 提出先 |
-| --- | --- | --- | --- |
-| コード | 不具合修正、制作フローや共通機能の改善 | 対象を絞った変更、デモまたは再現手順、関連テスト | [Issue][contribute-issue] → [PR][contribute-pr]；`apps/web/` または `apps/daemon/` |
-| Skills | 再利用可能な Agent ワークフロー | `SKILL.md`、前提条件、使用例 | [Issue][contribute-issue] → `skills/` の [PR][contribute-pr] |
-| 制作テンプレート | 再利用可能な画像・動画・カバーテンプレート | `template.json`、カバーと制作例の素材、プロンプト、設定、出典、使用権 | [`template/`](../../template/) に [PR][contribute-pr] を提出。新形式は [Issue][contribute-issue] で相談 |
-| イラスト・デザイン | オリジナルのイラスト、アイコン、UI | プレビュー、編集可能な元データ、ライセンス | [Issue][contribute-issue] → 保存先を決めて [PR][contribute-pr] |
-| 外部サービス連携 | AI・メディアサービスの対応 | 用途、設定、エラー処理、認証情報の保護、テスト | [Issue][contribute-issue] → Web / Daemon の [PR][contribute-pr] |
-
-各テンプレートと素材は `template/<module>/<id>/<version>/template.json` に配置します。現在のモジュールは `image-generation`、`video-generation`、`cover-generator` です。タイトルと説明は中国語・英語の両方を用意し、PR 前に `pnpm templates:validate` を実行してください。
-
-参加方法：
-
-1. [Issues](https://github.com/krillinai/OpenCreator/issues) に問題、ユースケース、期待する動作を記載してください。
-2. 最新の開発ブランチから、目的を絞った機能追加または修正ブランチを作成してください。
-3. 既存のアーキテクチャに従い、汎用製品機能は Web と Daemon に一度だけ実装し、ネイティブ固有の差異は明示的な capability の背後へ分離してください。
-4. 動作変更に応じたユニット、統合、E2E テストを追加し、Pull Request に実施済みと未実施の検証を明記してください。
-5. `.runtime/`、ローカル認証情報、Codex セッション、ビルドキャッシュ、その他のユーザーデータをコミットしないでください。
-
-[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
-[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
-
 ### コントリビューター
 
 本プロジェクトにコード、ドキュメント、フィードバック、Issue、Skills、デザイン、アイデアで参加してくださったすべての方に感謝します。
@@ -624,6 +599,30 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
   <a href="https://github.com/mifan100g" title="mifan100g (米饭二两)"><img src="../images/contributors/mifan100g.svg" width="48" height="48" alt="mifan100g (米饭二两)" /></a>
 </div>
 
+### コントリビューション
+
+コード以外にも、さまざまな形で OpenCreator に貢献できます：
+
+| 種類 | 貢献内容 | 準備するもの | 提出先 |
+| --- | --- | --- | --- |
+| コード | 不具合修正、制作フローや共通機能の改善 | 対象を絞った変更、デモまたは再現手順、関連テスト | [Issue][contribute-issue] → [PR][contribute-pr]；`apps/web/` または `apps/daemon/` |
+| Skills | 再利用可能な Agent ワークフロー | `SKILL.md`、前提条件、使用例 | [Issue][contribute-issue] → `skills/` の [PR][contribute-pr] |
+| 制作テンプレート | 再利用可能な画像・動画・カバーテンプレート | `template.json`、カバーと制作例の素材、プロンプト、設定、出典、使用権 | [`template/`](../../template/) に [PR][contribute-pr] を提出。新形式は [Issue][contribute-issue] で相談 |
+| イラスト・デザイン | オリジナルのイラスト、アイコン、UI | プレビュー、編集可能な元データ、ライセンス | [Issue][contribute-issue] → 保存先を決めて [PR][contribute-pr] |
+| 外部サービス連携 | AI・メディアサービスの対応 | 用途、設定、エラー処理、認証情報の保護、テスト | [Issue][contribute-issue] → Web / Daemon の [PR][contribute-pr] |
+
+各テンプレートと素材は `template/<module>/<id>/<version>/template.json` に配置します。現在のモジュールは `image-generation`、`video-generation`、`cover-generator` です。タイトルと説明は中国語・英語の両方を用意し、PR 前に `pnpm templates:validate` を実行してください。
+
+参加方法：
+
+1. [Issues](https://github.com/krillinai/OpenCreator/issues) に問題、ユースケース、期待する動作を記載してください。
+2. 最新の開発ブランチから、目的を絞った機能追加または修正ブランチを作成してください。
+3. 既存のアーキテクチャに従い、汎用製品機能は Web と Daemon に一度だけ実装し、ネイティブ固有の差異は明示的な capability の背後へ分離してください。
+4. 動作変更に応じたユニット、統合、E2E テストを追加し、Pull Request に実施済みと未実施の検証を明記してください。
+5. `.runtime/`、ローカル認証情報、Codex セッション、ビルドキャッシュ、その他のユーザーデータをコミットしないでください。
+
+[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
+[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
 
 ## Star 履歴
 
