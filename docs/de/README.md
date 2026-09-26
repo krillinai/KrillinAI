@@ -73,6 +73,8 @@ Die aktuelle Version enthält sechs Kreativwerkzeuge. Verfügbare Modelle und Di
 
 > Weitere Kreativwerkzeuge werden fortlaufend ergänzt.
 
+**Die Videoübersetzung unterstützt 101 Zielsprachen.**
+
 <table width="100%">
 <thead>
 <tr>

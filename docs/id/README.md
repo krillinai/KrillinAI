@@ -73,6 +73,8 @@ Buka Dashboard untuk menerjemahkan atau mengunduh video, membuat thumbnail atau 
 
 > Alat kreasi baru terus ditambahkan.
 
+**Terjemahan video mendukung 101 bahasa sasaran.**
+
 <table width="100%">
 <thead>
 <tr>

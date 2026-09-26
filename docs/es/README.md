@@ -73,6 +73,8 @@ Abre el Dashboard para traducir o descargar vídeos, generar miniaturas o imáge
 
 > Continuamente se añaden nuevas herramientas de creación.
 
+**La traducción de vídeos admite 101 idiomas de destino.**
+
 <table width="100%">
 <thead>
 <tr>

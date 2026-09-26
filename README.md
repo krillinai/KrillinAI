@@ -75,6 +75,8 @@ Open the Dashboard to write articles, Xiaohongshu posts, or short-video scripts;
 
 > More creator tools are continuously being added.
 
+**Video Translation supports 101 target languages.**
+
 <table width="100%">
 <thead>
 <tr>

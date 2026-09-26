@@ -73,6 +73,8 @@ Ouvrez le Dashboard pour traduire ou télécharger des vidéos, générer des mi
 
 > De nouveaux outils de création sont ajoutés en continu.
 
+**La traduction vidéo prend en charge 101 langues cibles.**
+
 <table width="100%">
 <thead>
 <tr>
