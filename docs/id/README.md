@@ -24,6 +24,8 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![Grup QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
+<p>Pengguna GitHub dari <strong>setidaknya 99 negara dan wilayah</strong> telah memberi Star kepada OpenCreator.</p>
+
 [Sorotan](#sorotan-proyek) · [Alat](#alat-kreasi) · [Skills](#skills) · [Contoh](#contoh) · [Mulai](#mulai-cepat) · [Desktop](#desktop) · [Dokumen](#dokumentasi)
 
 </div>

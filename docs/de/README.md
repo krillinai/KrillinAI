@@ -24,6 +24,8 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ-Gruppe](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
+<p>GitHub-Nutzer aus <strong>mindestens 99 Ländern und Regionen</strong> haben OpenCreator mit einem Star ausgezeichnet.</p>
+
 [Highlights](#projekt-highlights) · [Werkzeuge](#kreativwerkzeuge) · [Skills](#skills) · [Beispiele](#beispiele) · [Start](#schnellstart) · [Desktop](#desktop) · [Doku](#dokumentation)
 
 </div>

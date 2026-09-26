@@ -24,6 +24,8 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ グループ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
+<p>OpenCreator は<strong>少なくとも99の国と地域</strong>の GitHub ユーザーから Star を獲得しています。</p>
+
 [特徴](#主な特徴) · [ツール](#制作ツール) · [Skills](#skills) · [活用例](#活用例) · [はじめに](#クイックスタート) · [Desktop](#desktop) · [文書](#ドキュメント)
 
 </div>

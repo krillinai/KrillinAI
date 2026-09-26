@@ -24,6 +24,8 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![مجموعة QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
+<p>منح مستخدمو GitHub من <strong>99 دولة ومنطقة على الأقل</strong> مشروع OpenCreator نجمة.</p>
+
 [الميزات](#أبرز-ميزات-المشروع) · [الأدوات](#أدوات-الإنشاء) · [Skills](#skills) · [أمثلة](#أمثلة) · [البدء](#البدء-السريع) · [Desktop](#desktop) · [الوثائق](#الوثائق)
 
 </div>

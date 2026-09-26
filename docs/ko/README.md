@@ -24,6 +24,8 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ 그룹](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
+<p>OpenCreator는 <strong>최소 99개 국가 및 지역</strong>의 GitHub 사용자에게서 Star를 받았습니다.</p>
+
 [특징](#주요-특징) · [도구](#제작-도구) · [Skills](#skills) · [사례](#활용-사례) · [시작](#빠른-시작) · [Desktop](#desktop) · [문서](#문서)
 
 </div>

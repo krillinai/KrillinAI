@@ -24,6 +24,8 @@
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
+<p>来自<strong>至少 99 个国家和地区</strong>的 GitHub 用户为 OpenCreator 点亮了 Star。</p>
+
 [项目特色](#项目特色) · [创作工具](#创作工具) · [Skills](#skills-技能) · [案例](#案例展示) · [快速开始](#快速开始) · [Desktop](#desktop) · [文档](#文档)
 
 </div>
