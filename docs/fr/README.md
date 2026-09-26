@@ -26,6 +26,8 @@
 
 <p>OpenCreator a reçu des étoiles d’utilisateurs GitHub dans <strong>au moins 99 pays et régions</strong>.</p>
 
+<img src="../images/star-coverage-map.svg" alt="Carte du monde indiquant les pays et régions des utilisateurs GitHub ayant attribué une étoile à OpenCreator" width="760" />
+
 [Points forts](#points-forts) · [Outils](#outils-de-création) · [Skills](#skills) · [Exemples](#exemples) · [Démarrer](#démarrage-rapide) · [Desktop](#desktop) · [Docs](#documentation)
 
 </div>

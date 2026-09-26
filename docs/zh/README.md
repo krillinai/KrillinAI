@@ -26,6 +26,8 @@
 
 <p>来自<strong>至少 99 个国家和地区</strong>的 GitHub 用户为 OpenCreator 点亮了 Star。</p>
 
+<img src="../images/star-coverage-map.svg" alt="世界地图：标出有 GitHub 用户为 OpenCreator 点亮 Star 的国家和地区" width="760" />
+
 [项目特色](#项目特色) · [创作工具](#创作工具) · [Skills](#skills-技能) · [案例](#案例展示) · [快速开始](#快速开始) · [Desktop](#desktop) · [文档](#文档)
 
 </div>

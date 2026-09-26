@@ -26,6 +26,8 @@
 
 <p>Pengguna GitHub dari <strong>setidaknya 99 negara dan wilayah</strong> telah memberi Star kepada OpenCreator.</p>
 
+<img src="../images/star-coverage-map.svg" alt="Peta dunia yang menandai negara dan wilayah pengguna GitHub yang memberi Star pada OpenCreator" width="760" />
+
 [Sorotan](#sorotan-proyek) · [Alat](#alat-kreasi) · [Skills](#skills) · [Contoh](#contoh) · [Mulai](#mulai-cepat) · [Desktop](#desktop) · [Dokumen](#dokumentasi)
 
 </div>

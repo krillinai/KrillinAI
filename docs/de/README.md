@@ -26,6 +26,8 @@
 
 <p>GitHub-Nutzer aus <strong>mindestens 99 Ländern und Regionen</strong> haben OpenCreator mit einem Star ausgezeichnet.</p>
 
+<img src="../images/star-coverage-map.svg" alt="Weltkarte mit Ländern und Regionen, aus denen GitHub-Nutzer OpenCreator einen Star gegeben haben" width="760" />
+
 [Highlights](#projekt-highlights) · [Werkzeuge](#kreativwerkzeuge) · [Skills](#skills) · [Beispiele](#beispiele) · [Start](#schnellstart) · [Desktop](#desktop) · [Doku](#dokumentation)
 
 </div>

@@ -26,6 +26,8 @@
 
 <p>OpenCreator は<strong>少なくとも99の国と地域</strong>の GitHub ユーザーから Star を獲得しています。</p>
 
+<img src="../images/star-coverage-map.svg" alt="OpenCreator に Star を付けた GitHub ユーザーの国と地域を示す世界地図" width="760" />
+
 [特徴](#主な特徴) · [ツール](#制作ツール) · [Skills](#skills) · [活用例](#活用例) · [はじめに](#クイックスタート) · [Desktop](#desktop) · [文書](#ドキュメント)
 
 </div>

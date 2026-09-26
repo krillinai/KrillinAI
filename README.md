@@ -26,6 +26,8 @@
 
 <p>GitHub users from <strong>at least 99 countries and regions</strong> have starred OpenCreator.</p>
 
+<img src="./docs/images/star-coverage-map.svg" alt="World map highlighting countries and regions with OpenCreator GitHub Stars" width="760" />
+
 [Highlights](#project-highlights) · [Creator Tools](#creator-tools) · [Skills](#skills) · [Examples](#examples) · [Quick Start](#quick-start) · [Desktop](#desktop) · [Docs](#documentation)
 
 </div>
