@@ -78,6 +78,22 @@ export async function registerCreatorServicesRoutes(
     }
   });
 
+  server.post<{ Body: unknown }>('/creator-services/transcription/test', async (request, reply) => {
+    try {
+      const body = request.body as { baseUrl?: string; apiKey?: string; model?: string; timeoutMs?: number };
+      const baseUrl = typeof body.baseUrl === 'string' ? body.baseUrl.replace(/\/+$/, '') : '';
+      const model = typeof body.model === 'string' ? body.model.trim() : '';
+      if (!/^https?:\/\//i.test(baseUrl) || !model) return reply.code(400).send(apiError('VALIDATION_FAILED', 'FunASR Base URL and model are required'));
+      const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), Math.min(Math.max(body.timeoutMs ?? 10000, 1000), 60000));
+      try {
+        const response = await fetch(`${baseUrl}/models`, { headers: typeof body.apiKey === 'string' && body.apiKey ? { Authorization: `Bearer ${body.apiKey}` } : {}, signal: controller.signal });
+        const payload = await response.json().catch(() => undefined) as { data?: Array<{ id?: string }> } | undefined;
+        if (!response.ok) return reply.code(502).send(apiError('SMART_DUBBING_UPSTREAM_ERROR', `FunASR connection failed (HTTP ${response.status})`));
+        return { connected: true, model, models: payload?.data?.map(item => item.id).filter((id): id is string => typeof id === 'string') ?? [], capabilities: ['audio.transcriptions'] };
+      } finally { clearTimeout(timer); }
+    } catch (error) { return reply.code(502).send(apiError('SMART_DUBBING_UPSTREAM_ERROR', error instanceof Error && error.name === 'AbortError' ? 'FunASR connection timed out' : 'FunASR connection failed')); }
+  });
+
   server.delete('/creator-services/config', async (_request, reply) => {
     try {
       return presentCreatorServicesConfig(await store.reset());

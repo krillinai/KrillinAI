@@ -501,6 +501,7 @@ function createService(
     getConfig: vi.fn(async () => ({ config: structuredClone(config), configuredCredentials })),
     saveConfig: vi.fn(async next => ({ config: structuredClone(next), configuredCredentials })),
     resetConfig: vi.fn(async () => ({ config: createDefaultCreatorServicesConfig(), configuredCredentials: [] })),
+    testTranscriptionConnection: vi.fn(async () => ({ connected: true, model: 'sensevoice', models: ['sensevoice'], capabilities: ['audio.transcriptions'] })),
     getTtsVoices: vi.fn(async (provider: CreatorTtsProvider) => ({
       provider,
       model: config.tts[provider === 'edge-tts' ? 'openai' : provider].model,

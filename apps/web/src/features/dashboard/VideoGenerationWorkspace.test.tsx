@@ -370,7 +370,8 @@ function createVideoConfig() {
         accessToken: '',
         resourceId: 'volc.seedasr.auc',
         baseUrl: 'https://openspeech.bytedance.com'
-      }
+      },
+      funasr: { baseUrl: 'http://127.0.0.1:8000/v1', apiKey: '', model: 'sensevoice', timeoutMs: 120000 }
     },
     tts: {
       provider: 'openai' as const,

@@ -46,6 +46,7 @@ const aliyunSchema = z.object({
   oss: aliyunOssSchema,
   speech: aliyunSpeechSchema
 }).strict();
+const funasrSchema = openAiCompatibleSchema.extend({ timeoutMs: z.number().int().min(1000).max(3600000) }).strict();
 const volcengineAsrSchema = z.object({
   appId: boundedString(256),
   accessToken: boundedString(4096),
@@ -123,14 +124,15 @@ export const creatorServicesConfigSchema = z.object({
   proxy: boundedString(2048),
   llm: llmConfigSchema,
   transcription: z.object({
-    provider: z.enum(['openai', 'faster-whisper', 'whisperkit', 'whisper.cpp', 'aliyun', 'volcengine']),
+    provider: z.enum(['openai', 'faster-whisper', 'whisperkit', 'whisper.cpp', 'aliyun', 'volcengine', 'funasr']),
     enableGpuAcceleration: z.boolean(),
     openai: openAiCompatibleSchema,
     fasterWhisper: z.object({ model: z.enum(['tiny', 'medium', 'large-v2']) }).strict(),
     whisperKit: z.object({ model: z.literal('large-v2') }).strict(),
     whisperCpp: z.object({ model: z.enum(['tiny', 'medium', 'large-v2', 'large-v3-turbo']) }).strict(),
     aliyun: aliyunSchema,
-    volcengine: volcengineAsrSchema.default(creatorServicesDefaults.transcription.volcengine)
+    volcengine: volcengineAsrSchema.default(creatorServicesDefaults.transcription.volcengine),
+    funasr: funasrSchema.default(creatorServicesDefaults.transcription.funasr)
   }).strict(),
   tts: ttsConfigSchema,
   image: z.union([imageConfigSchema, legacyImageConfigSchema]),
@@ -302,6 +304,7 @@ const creatorCredentialPaths = [
   'transcription.aliyun.speech.appKey',
   'transcription.volcengine.appId',
   'transcription.volcengine.accessToken',
+  'transcription.funasr.apiKey',
   'tts.openai.apiKey',
   'tts.minimax.apiKey',
   'tts.aliyun.apiKey',
