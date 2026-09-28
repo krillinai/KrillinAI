@@ -611,6 +611,8 @@ Thanks to everyone who has taken part through code, documentation, feedback, iss
   <a href="https://github.com/alextavares" title="alextavares"><img src="./docs/images/contributors/alextavares.svg" width="48" height="48" alt="alextavares" /></a>
   <a href="https://github.com/krillinai/OpenCreator/commit/a89cff0ac5d91540f03e361af50b286ee57691ae" title="卡皮巴拉"><img src="./docs/images/contributors/kapibala.svg" width="48" height="48" alt="卡皮巴拉" /></a>
   <a href="https://github.com/mifan100g" title="mifan100g (米饭二两)"><img src="./docs/images/contributors/mifan100g.svg" width="48" height="48" alt="mifan100g (米饭二两)" /></a>
+  <a href="https://github.com/askalf"><img src="./docs/images/contributors/askalf.svg" width="48" height="48" alt="askalf" /></a>
+  <a href="https://github.com/Yi-111-a"><img src="./docs/images/contributors/yi-111-a.svg" width="48" height="48" alt="Yi-111-a" /></a>
 </div>
 
 ### Contributing
