@@ -2,20 +2,11 @@ import { readFileSync, writeFileSync } from 'node:fs';
 
 // Natural Earth 1:50m admin-0 countries (public domain), pinned at:
 // https://github.com/nvkelso/natural-earth-vector/tree/ca96624a56bd078437bca8184e78163e5039ad19
-// Coverage: September 21, 2026 website snapshot, plus Senegal (starred September 22).
-const starredCodes = new Set(`
-  ARE ARG ARM AUS AUT AZE BEL BGD BGR BIH BLR BRA CAN CHE CHL CHN CIV
-  COL CRI CYP CZE DEU DNK DOM DZA ECU EGY ESP EST FIN FRA GAB GBR GEO
-  GHA GRC HKG HUN IDN IND IRL IRN ISL ISR ITA JOR JPN KAZ KEN KHM
-  KOR KWT LKA LTU LVA MAC MAR MEX MLT MMR MNG MYS NGA NIC NLD NOR
-  NPL NZL PAK PER PHL POL PRI PRT PRY PSE QAT ROU RUS SAU SEN SGP
-  SOM SRB SVK SWE THA TUN TUR TWN TZA UGA UKR USA UZB VNM YEM ZAF
-  XKX
-`.trim().split(/\s+/));
+const starredCodes = new Set(JSON.parse(readFileSync('docs/star-coverage.json', 'utf8')).codes);
 
 const sourcePath = process.argv[2];
 if (!sourcePath) throw new Error('Usage: node scripts/generate-star-coverage-map.mjs <Natural Earth GeoJSON>');
-if (starredCodes.size !== 99) throw new Error(`Expected 99 regions, found ${starredCodes.size}`);
+if (starredCodes.size < 99) throw new Error(`Coverage cannot fall below the 99-region baseline: ${starredCodes.size}`);
 
 const { features } = JSON.parse(readFileSync(sourcePath, 'utf8'));
 const width = 1120;
@@ -101,7 +92,7 @@ const markers = [
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="title desc">
   <title id="title">OpenCreator Star coverage around the world</title>
-  <desc id="desc">At least 99 countries and regions with GitHub users who have starred OpenCreator are highlighted.</desc>
+  <desc id="desc">At least ${starredCodes.size} countries and regions with GitHub users who have starred OpenCreator are highlighted.</desc>
   <rect width="${width}" height="${height}" rx="12" fill="#edf5f4"/>
   <g fill="none" stroke="#d8e9e6" stroke-width="1">
     ${grid}

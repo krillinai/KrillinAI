@@ -1,0 +1,46 @@
+name: Weekly Star Coverage
+
+on:
+  schedule:
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-star-coverage
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download pinned Natural Earth map data
+        run: >-
+          curl -fsSL --retry 3
+          -o "$RUNNER_TEMP/natural-earth-countries.geojson"
+          https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_50m_admin_0_countries.geojson
+      - name: Refresh coverage from public GitHub profile locations
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/update-star-coverage.mjs "$RUNNER_TEMP/natural-earth-countries.geojson"
+          node scripts/generate-star-coverage-map.mjs "$RUNNER_TEMP/natural-earth-countries.geojson"
+      - name: Commit changes when coverage grows
+        run: |
+          git add README.md docs/*/README.md docs/star-coverage.json docs/images/star-coverage-map.svg
+          if git diff --cached --quiet; then
+            echo 'No new countries or regions.'
+            exit 0
+          fi
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs: refresh star coverage'
+          git push
