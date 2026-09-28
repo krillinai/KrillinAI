@@ -156,7 +156,7 @@ func TestStripJSONTrailingCommas(t *testing.T) {
 
 // 大模型经常在 ```json 代码块前后附加说明文字，并偶尔输出结尾多余逗号，
 // 两者都会让 json.Unmarshal 失败，见 issue #291
-func TestCleanLLMJSON(t *testing.T) {
+func TestExtractJSONObjectSanitizesFencedReply(t *testing.T) {
 	response := "以下是分割后的结果：\n\n```json\n{\n  \"align\": [\n    {\"origin_part\": \"a\", \"translated_part\": \"A\",},\n  ],\n}\n```\n\n希望有帮助。"
 
 	var splitResult struct {
@@ -165,8 +165,9 @@ func TestCleanLLMJSON(t *testing.T) {
 			TranslatedPart string `json:"translated_part"`
 		} `json:"align"`
 	}
-	if err := json.Unmarshal([]byte(CleanLLMJSON(response)), &splitResult); err != nil {
-		t.Fatalf("CleanLLMJSON() produced unparsable JSON %q: %v", CleanLLMJSON(response), err)
+	cleaned := ExtractJSONObject(response, "align")
+	if err := json.Unmarshal([]byte(cleaned), &splitResult); err != nil {
+		t.Fatalf("ExtractJSONObject() produced unparsable JSON %q: %v", cleaned, err)
 	}
 	if len(splitResult.Align) != 1 {
 		t.Fatalf("expected 1 aligned part, got %d", len(splitResult.Align))

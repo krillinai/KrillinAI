@@ -554,3 +554,46 @@ func TestSplitLongSentenceStillFailsOnGarbage(t *testing.T) {
 		t.Fatal("splitLongSentence() error = nil, want parse error")
 	}
 }
+
+func TestSplitLongSentenceSelectsAnswerAfterEmptyExample(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{
+		"示例格式：{\"align\":[]}\n实际结果：{\"align\":[{\"origin_part\":\"hello\",\"translated_part\":\"你好\"}]}",
+	}}
+	service := Service{ChatCompleter: completer}
+	items, err := service.splitLongSentence(&TranslatedItem{OriginText: "hello", TranslatedText: "你好"})
+	if err != nil || len(items) != 1 || items[0].TranslatedText != "你好" {
+		t.Fatalf("split result = %+v, error = %v; want the actual translation", items, err)
+	}
+}
+
+func TestSplitLongSentenceRejectsEmptyAnswer(t *testing.T) {
+	log.InitLogger()
+	service := Service{ChatCompleter: &scriptedCompleter{responses: []string{`{"align":[]}`}}}
+	if items, err := service.splitLongSentence(&TranslatedItem{OriginText: "hello", TranslatedText: "你好"}); err == nil {
+		t.Fatalf("empty split silently succeeded: %+v", items)
+	}
+}
+
+func TestSplitOriginLongSentenceRetriesEmptyAnswer(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{
+		`{"short_sentences":null}`,
+		`{"short_sentences":[{"text":"hello"}]}`,
+	}}
+	service := Service{ChatCompleter: completer}
+	sentences, err := service.splitOriginLongSentence("hello world")
+	if err != nil || len(sentences) != 1 || sentences[0] != "hello" || completer.calls != 2 {
+		t.Fatalf("split = %v, calls = %d, error = %v", sentences, completer.calls, err)
+	}
+}
+
+func TestSplitLongSentenceRejectsAmbiguousAnswers(t *testing.T) {
+	log.InitLogger()
+	service := Service{ChatCompleter: &scriptedCompleter{responses: []string{
+		`{"align":[{"origin_part":"hello","translated_part":"你好"}]} {"align":[{"origin_part":"other","translated_part":"别的"}]}`,
+	}}}
+	if items, err := service.splitLongSentence(&TranslatedItem{OriginText: "hello", TranslatedText: "你好"}); err == nil {
+		t.Fatalf("ambiguous split silently succeeded: %+v", items)
+	}
+}

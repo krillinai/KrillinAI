@@ -144,14 +144,24 @@ func (t *Translator) splitOriginLongSentence(sentence string) ([]string, error) 
 			log.GetLogger().Error("splitOriginLongSentence parse split result error", zap.Error(err), zap.Any("response", response))
 			continue
 		}
+		if len(splitResult.ShortSentences) == 0 {
+			err = fmt.Errorf("splitOriginLongSentence returned no sentences")
+			continue
+		}
 
+		shortSentences = shortSentences[:0]
 		for _, shortSentence := range splitResult.ShortSentences {
 			// 清理文本，移除多余的引号
 			cleanText := strings.TrimSpace(shortSentence.Text)
 			cleanText = strings.Trim(cleanText, `"'`)
-			if cleanText != "" {
-				shortSentences = append(shortSentences, cleanText)
+			if cleanText == "" {
+				err = fmt.Errorf("splitOriginLongSentence returned an empty sentence")
+				break
 			}
+			shortSentences = append(shortSentences, cleanText)
+		}
+		if err != nil {
+			continue
 		}
 		break
 	}
@@ -760,10 +770,17 @@ Required JSON format (output ONLY this structure):
 
 		// 提取翻译结果
 		translations := make([]string, len(texts))
+		var invalidResultErr error
 		for _, trans := range result.Translations {
-			if trans.Index > 0 && trans.Index <= len(texts) {
-				translations[trans.Index-1] = strings.TrimSpace(trans.Text)
+			if trans.Index <= 0 || trans.Index > len(texts) || translations[trans.Index-1] != "" || strings.TrimSpace(trans.Text) == "" {
+				invalidResultErr = fmt.Errorf("翻译结果包含无效索引或空文本: %d", trans.Index)
+				break
 			}
+			translations[trans.Index-1] = strings.TrimSpace(trans.Text)
+		}
+		if invalidResultErr != nil {
+			lastErr = invalidResultErr
+			continue
 		}
 
 		return translations, nil

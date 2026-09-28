@@ -116,3 +116,46 @@ func TestBatchTranslateTextsRejectsDecoyObject(t *testing.T) {
 		t.Fatalf("translations = %v, want %v", translations, want)
 	}
 }
+
+func TestTranslatorSplitOriginLongSentenceRetriesEmptyAnswer(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{
+		`{"short_sentences":[]}`,
+		`{"short_sentences":[{"text":"hello"}]}`,
+	}}
+	translator := &Translator{chatCompleter: completer}
+	sentences, err := translator.splitOriginLongSentence("hello world")
+	if err != nil || len(sentences) != 1 || sentences[0] != "hello" || completer.calls != 2 {
+		t.Fatalf("split = %v, calls = %d, error = %v", sentences, completer.calls, err)
+	}
+}
+
+func TestBatchTranslateTextsRejectsEmptyExampleAndRetriesEmptyText(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{
+		`{"translations":[]} actual: {"translations":[{"index":1,"text":""}]}`,
+		`{"translations":[{"index":1,"text":"你好"}]}`,
+	}}
+	translator := &Translator{chatCompleter: completer}
+	translations, err := translator.batchTranslateTexts(
+		[]string{"hello"}, types.StandardLanguageCode("en"), types.StandardLanguageCode("zh_cn"),
+	)
+	if err != nil || len(translations) != 1 || translations[0] != "你好" || completer.calls != 2 {
+		t.Fatalf("translations = %v, calls = %d, error = %v", translations, completer.calls, err)
+	}
+}
+
+func TestBatchTranslateTextsRetriesDuplicateIndex(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{
+		`{"translations":[{"index":1,"text":"一"},{"index":1,"text":"二"}]}`,
+		`{"translations":[{"index":1,"text":"一"},{"index":2,"text":"二"}]}`,
+	}}
+	translator := &Translator{chatCompleter: completer}
+	translations, err := translator.batchTranslateTexts(
+		[]string{"one", "two"}, types.StandardLanguageCode("en"), types.StandardLanguageCode("zh_cn"),
+	)
+	if err != nil || len(translations) != 2 || translations[0] != "一" || translations[1] != "二" || completer.calls != 2 {
+		t.Fatalf("translations = %v, calls = %d, error = %v", translations, completer.calls, err)
+	}
+}

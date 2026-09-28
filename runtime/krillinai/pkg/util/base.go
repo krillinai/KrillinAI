@@ -356,11 +356,6 @@ func unwrapFenceInfo(line string) string {
 	return info
 }
 
-// CleanLLMJSON 清理大模型返回的 JSON 文本：取围栏代码块的内容，并移除结尾多余逗号
-func CleanLLMJSON(response string) string {
-	return StripJSONTrailingCommas(CleanMarkdownCodeBlock(response))
-}
-
 // StripJSONTrailingCommas 移除 JSON 中对象或数组结尾的多余逗号，如 {"a": 1,} -> {"a": 1}
 // 字符串字面量内部的逗号会被保留
 func StripJSONTrailingCommas(jsonText string) string {
@@ -402,7 +397,7 @@ func StripJSONTrailingCommas(jsonText string) string {
 func closesAfterWhitespace(jsonText string, from int) bool {
 	for i := from; i < len(jsonText); i++ {
 		switch jsonText[i] {
-		case ' ', '\t', '\n', '\r':
+		case ' ', '\t', '\n', '\r', ',':
 			continue
 		case '}', ']':
 			return true

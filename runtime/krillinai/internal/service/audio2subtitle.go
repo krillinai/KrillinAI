@@ -1876,10 +1876,16 @@ func (s Service) splitLongSentence(item *TranslatedItem) ([]*TranslatedItem, err
 		log.GetLogger().Error("splitLongSentence parse split result error", zap.Error(err), zap.Any("response", response))
 		return nil, fmt.Errorf("parse split result error: %w", err)
 	}
+	if len(splitResult.Align) == 0 {
+		return nil, fmt.Errorf("splitLongSentence returned no aligned segments")
+	}
 
 	// 转换为TranslatedItem切片
 	var splitItems []*TranslatedItem
 	for _, part := range splitResult.Align {
+		if strings.TrimSpace(part.OriginPart) == "" || strings.TrimSpace(part.TranslatedPart) == "" {
+			return nil, fmt.Errorf("splitLongSentence returned an empty aligned segment")
+		}
 		splitItems = append(splitItems, &TranslatedItem{
 			OriginText:     part.OriginPart,
 			TranslatedText: part.TranslatedPart,
@@ -1916,9 +1922,21 @@ func (s Service) splitOriginLongSentence(sentence string) ([]string, error) {
 			log.GetLogger().Error("splitOriginLongSentence parse split result error", zap.Error(err), zap.Any("response", response))
 			continue
 		}
+		if len(splitResult.ShortSentences) == 0 {
+			err = fmt.Errorf("splitOriginLongSentence returned no sentences")
+			continue
+		}
 
+		shortSentences = shortSentences[:0]
 		for _, shortSentence := range splitResult.ShortSentences {
+			if strings.TrimSpace(shortSentence.Text) == "" {
+				err = fmt.Errorf("splitOriginLongSentence returned an empty sentence")
+				break
+			}
 			shortSentences = append(shortSentences, shortSentence.Text)
+		}
+		if err != nil {
+			continue
 		}
 		break
 	}
