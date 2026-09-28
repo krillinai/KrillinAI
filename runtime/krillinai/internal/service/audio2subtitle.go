@@ -1526,11 +1526,23 @@ func generateSrtWithTimestamps(srtBlocks []*util.SrtBlock, tsOffset float64, wor
 		srtBlocks[index].Timestamp = newSrtBlocks[index].Timestamp
 	}
 
-	for _, srtBlock := range srtBlocks {
+	for blockIndex, srtBlock := range srtBlocks {
 		if srtBlock.OriginLanguageSentence == "" {
 			continue
 		}
-		sentenceTs, sentenceWords, ts, err := getSentenceTimestamps(words, srtBlock.OriginLanguageSentence, lastTs, stepParam.OriginLanguage)
+		var sentenceTs types.SrtSentence
+		var sentenceWords []types.Word
+		var ts float64
+		if stepParam.OriginLanguage == types.LanguageNameThai {
+			sentenceTs, sentenceWords, ts, err = getSentenceTimestampsFromGeneratedBlock(
+				words,
+				newSrtBlocks[blockIndex].Timestamp,
+				lastTs,
+				tsOffset,
+			)
+		} else {
+			sentenceTs, sentenceWords, ts, err = getSentenceTimestamps(words, srtBlock.OriginLanguageSentence, lastTs, stepParam.OriginLanguage)
+		}
 		if err != nil || ts < lastTs {
 			continue
 		}
@@ -1700,6 +1712,39 @@ func generateSrtWithTimestamps(srtBlocks []*util.SrtBlock, tsOffset float64, wor
 	}
 
 	return nil
+}
+
+func getSentenceTimestampsFromGeneratedBlock(
+	words []types.Word,
+	timestamp string,
+	lastTs float64,
+	tsOffset float64,
+) (types.SrtSentence, []types.Word, float64, error) {
+	startMillis, endMillis, err := parseSRTTimeline(timestamp)
+	if err != nil {
+		return types.SrtSentence{}, nil, 0, err
+	}
+	start := float64(startMillis)/1000 - tsOffset
+	end := float64(endMillis)/1000 - tsOffset
+	if start < lastTs {
+		start = lastTs
+	}
+	if end <= start {
+		return types.SrtSentence{}, nil, 0, fmt.Errorf("generated subtitle timestamp is not increasing: %s", timestamp)
+	}
+
+	matchedWords := make([]types.Word, 0)
+	for _, word := range words {
+		if strings.TrimSpace(word.Text) == "" || word.End <= start || word.Start >= end {
+			continue
+		}
+		matchedWords = append(matchedWords, word)
+	}
+	if len(matchedWords) == 0 {
+		return types.SrtSentence{}, nil, 0, fmt.Errorf("generated subtitle timestamp has no matching words: %s", timestamp)
+	}
+
+	return types.SrtSentence{Start: start, End: end}, matchedWords, end, nil
 }
 
 func parseAndCheckContent(splitContent, originalText string) ([]*TranslatedItem, error) {
