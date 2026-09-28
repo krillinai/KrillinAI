@@ -47,6 +47,8 @@ Web ist die einzige Frontend-Implementierung. Desktop lädt denselben Web-Build 
 
 - 🚀 **Sofort einsatzbereite Desktop-App**: Starte OpenCreator direkt über die Desktop-App mit integriertem Codex CLI. Der lokale Runtime startet bei Bedarf und bereitet automatisch ein Standardprojekt vor.
 
+- ⚙️ **Lokale Codex-Konfiguration erkennen**: Beim ersten Start prüft Desktop die vorhandene Codex-Konfiguration und bietet an, eine nutzbare ChatGPT-Anmeldung oder einen API-Schlüssel zu übernehmen. Andere Modellanbieter lassen sich im Einrichtungsdialog konfigurieren.
+
 - 🔄 **Verwaltete Runtime-Komponenten**: Prüfe die mitgelieferte, aktive und neueste yt-dlp-Version, suche regelmäßig nach Updates und aktualisiere manuell. Falls ein Update fehlschlägt, bleibt die aktuell funktionierende Version verfügbar.
 
 - 🎨 **Multimodale Erstellung**: Erstelle und verwalte Videos, Bilder, Audio, Untertitel und Dokumente in einem zusammenhängenden Arbeitsablauf.
@@ -299,9 +301,13 @@ Erstelle aus Text oder YouTube-Inhalten eine Animation mit Skriptprüfung, Erzä
 
 ### Desktop-App installieren
 
-Lade den Installer für macOS Apple Silicon, macOS Intel oder Windows x64 aus dem [neuesten Release](https://github.com/krillinai/OpenCreator/releases/latest) herunter. Desktop benötigt weder Node.js noch pnpm und enthält Codex CLI. Für echte Modellaufgaben ist eine gültige Codex-Anmeldung nötig.
+Lade den Installer für macOS Apple Silicon, macOS Intel oder Windows x64 aus dem [neuesten Release](https://github.com/krillinai/OpenCreator/releases/latest) herunter. Desktop benötigt weder Node.js noch pnpm und enthält Codex CLI. Für echte Modellaufgaben ist eine nutzbare ChatGPT-Anmeldung oder API-Schlüssel-Konfiguration nötig.
 
-Beim ersten Start werden die lokale Runtime und ein Standardprojekt vorbereitet. Nach dem Verbindungsaufbau kannst du im Eingabefeld eine Aufgabe starten. Bei Problemen hilft das [Benutzerhandbuch](../opencreator-user-guide-and-troubleshooting.md).
+Beim ersten Start startet Desktop die lokale Runtime, bereitet ein Standardprojekt vor und prüft die lokale Codex-Konfiguration. Falls eine nutzbare Anmeldung oder ein API-Schlüssel samt Modelleinstellungen gefunden wird, wähle **Lokales Codex verwenden und fortfahren**, um sie zu übernehmen. Im selben Einrichtungsdialog kannst du auch einen anderen Modellanbieter konfigurieren.
+
+![Einrichtung des Modellanbieters beim ersten Start von OpenCreator Desktop](../images/product/opencreator-codex-setup.png)
+
+Nach der Einrichtung kannst du im Eingabefeld eine Aufgabe starten. Bei Problemen hilft das [Benutzerhandbuch](../opencreator-user-guide-and-troubleshooting.md).
 
 ### Web aus dem Quellcode ausführen
 

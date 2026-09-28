@@ -47,6 +47,8 @@ Web adalah satu-satunya implementasi frontend. Desktop memuat build Web yang sam
 
 - 🚀 **Aplikasi Desktop Siap Pakai**: jalankan OpenCreator langsung dari aplikasi Desktop yang sudah menyertakan Codex CLI; Runtime lokal dimulai sesuai kebutuhan dan menyiapkan proyek default secara otomatis.
 
+- ⚙️ **Deteksi Konfigurasi Codex Lokal**: saat Desktop pertama kali dibuka, konfigurasi Codex yang ada diperiksa agar login ChatGPT atau API key yang siap digunakan dapat dipakai kembali. Penyedia model lain juga dapat diatur melalui panduan awal.
+
 - 🔄 **Komponen Runtime Terkelola**: lihat versi yt-dlp bawaan, aktif, dan terbaru, periksa pembaruan secara berkala, lalu perbarui secara manual sambil mempertahankan versi yang sedang berfungsi jika pembaruan gagal.
 
 - 🎨 **Kreasi Multimodal**: buat dan kelola video, gambar, audio, subtitel, dan dokumen melalui satu alur kerja yang terhubung.
@@ -299,9 +301,13 @@ Ubah teks atau konten YouTube menjadi animasi melalui peninjauan naskah, narasi,
 
 ### Pasang Aplikasi Desktop
 
-Unduh penginstal macOS Apple Silicon, macOS Intel, atau Windows x64 dari [rilis terbaru](https://github.com/krillinai/OpenCreator/releases/latest). Aplikasi Desktop tidak memerlukan Node.js atau pnpm dan sudah menyertakan Codex CLI. Tugas model yang nyata memerlukan login Codex yang valid.
+Unduh penginstal macOS Apple Silicon, macOS Intel, atau Windows x64 dari [rilis terbaru](https://github.com/krillinai/OpenCreator/releases/latest). Aplikasi Desktop tidak memerlukan Node.js atau pnpm dan sudah menyertakan Codex CLI. Tugas model yang nyata memerlukan login ChatGPT atau konfigurasi API key yang dapat digunakan.
 
-Saat pertama dibuka, Runtime lokal berjalan dan proyek default disiapkan. Setelah tersambung, masukkan permintaan untuk memulai tugas. Jika ada masalah, lihat [panduan pengguna](../opencreator-user-guide-and-troubleshooting.md).
+Saat pertama dibuka, Desktop memulai Runtime lokal, menyiapkan proyek default, dan memeriksa konfigurasi Codex di komputer Anda. Jika login atau API key serta pengaturan model yang dapat digunakan ditemukan, pilih **Gunakan Codex lokal dan lanjutkan** untuk memakainya kembali. Anda juga dapat mengatur penyedia model lain dalam panduan awal yang sama.
+
+![Pengaturan penyedia model saat pertama kali menjalankan OpenCreator Desktop](../images/product/opencreator-codex-setup.png)
+
+Setelah pengaturan selesai, masukkan permintaan untuk memulai tugas. Jika ada masalah, lihat [panduan pengguna](../opencreator-user-guide-and-troubleshooting.md).
 
 ### Menjalankan Web dari Kode Sumber
 

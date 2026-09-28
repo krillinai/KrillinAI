@@ -47,6 +47,8 @@ Web es la única implementación del frontend. Desktop carga la misma compilaci�
 
 - 🚀 **Aplicación Desktop lista para usar**: inicia OpenCreator directamente desde la aplicación Desktop, que incluye Codex CLI; el Runtime local se inicia cuando es necesario y prepara automáticamente un proyecto predeterminado.
 
+- ⚙️ **Detección de la configuración local de Codex**: al abrir Desktop por primera vez, comprueba la configuración existente y permite reutilizar un inicio de sesión de ChatGPT o una API key válida. También puedes configurar otro proveedor de modelos desde el asistente inicial.
+
 - 🔄 **Componentes del Runtime gestionados**: consulta las versiones incluida, activa y más reciente de yt-dlp, busca actualizaciones periódicamente y actualiza manualmente, manteniendo disponible la versión actual si una actualización falla.
 
 - 🎨 **Creación multimodal**: crea y gestiona vídeos, imágenes, audio, subtítulos y documentos mediante un único flujo de trabajo conectado.
@@ -299,9 +301,13 @@ Convierte texto o contenido de YouTube en una animación mediante revisión del 
 
 ### Instalar la aplicación de escritorio
 
-Descarga el instalador para macOS Apple Silicon, macOS Intel o Windows x64 de la [última versión](https://github.com/krillinai/OpenCreator/releases/latest). Desktop no requiere Node.js ni pnpm e incluye Codex CLI. Las tareas reales con modelos requieren una sesión válida de Codex.
+Descarga el instalador para macOS Apple Silicon, macOS Intel o Windows x64 de la [última versión](https://github.com/krillinai/OpenCreator/releases/latest). Desktop no requiere Node.js ni pnpm e incluye Codex CLI. Las tareas reales con modelos requieren un inicio de sesión de ChatGPT o una configuración de API key válida.
 
-Al iniciar por primera vez, arranca el Runtime local y se prepara un proyecto predeterminado. Tras conectarte, escribe tu petición para iniciar una tarea. Si tienes problemas, consulta la [guía de usuario](../opencreator-user-guide-and-troubleshooting.md).
+Al iniciar por primera vez, Desktop arranca el Runtime local, prepara un proyecto predeterminado y comprueba la configuración local de Codex. Si encuentra un inicio de sesión o una API key y ajustes de modelo utilizables, selecciona **Usar Codex local y continuar** para reutilizarlos. También puedes configurar otro proveedor de modelos en el mismo asistente inicial.
+
+![Configuración del proveedor de modelos al iniciar OpenCreator Desktop por primera vez](../images/product/opencreator-codex-setup.png)
+
+Tras la configuración, escribe tu petición para iniciar una tarea. Si tienes problemas, consulta la [guía de usuario](../opencreator-user-guide-and-troubleshooting.md).
 
 ### Ejecutar Web desde el código fuente
 

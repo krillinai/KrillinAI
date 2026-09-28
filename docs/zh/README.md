@@ -47,6 +47,8 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 
 - 🚀 **桌面端开箱即用**：通过桌面应用直接启动 OpenCreator，默认内置 Codex CLI；本地 Runtime 按需拉起并自动准备默认项目。
 
+- ⚙️ **桌面端自动识别 Codex 配置**：首次启动扫描本机 Codex 配置，可直接确认复用已有的 ChatGPT 登录态或 API Key；也能通过引导页配置其他模型服务商。
+
 - 🔄 **运行组件管理**：查看 yt-dlp 的内置版本、当前版本与最新版本，定期检查并由用户手动更新；更新失败时继续保留当前可用版本。
 
 - 🎨 **多模态创作**：在同一套流程中创作和管理视频、图像、音频、字幕与文档。
@@ -301,9 +303,13 @@ OpenCreator 与艺术家 [Harbor Hsia](https://www.behance.net/xiaheyuan1) 合�
 
 ### 下载桌面版
 
-从 [最新版本](https://github.com/krillinai/OpenCreator/releases/latest)下载适用于 macOS Apple Silicon、macOS Intel 或 Windows x64 的安装包。安装并打开应用；桌面版无需 Node.js 或 pnpm，且内置 Codex CLI。真实模型任务需要有效的 Codex 登录。
+从 [最新版本](https://github.com/krillinai/OpenCreator/releases/latest)下载适用于 macOS Apple Silicon、macOS Intel 或 Windows x64 的安装包。安装并打开应用；桌面版无需 Node.js 或 pnpm，且内置 Codex CLI。真实模型任务需要可用的 ChatGPT 登录态或 API Key 配置。
 
-首次启动时，本地 Runtime 会自动启动并准备默认项目。连接后在输入框中输入需求即可开始。如遇问题，请参阅[用户指南与故障排查](../opencreator-user-guide-and-troubleshooting.md)。
+桌面端首次启动会拉起本地 Runtime、准备默认项目，并检查本机 Codex 配置。检测到可用的登录态或 API Key 与模型配置后，确认 **使用本机 Codex，继续** 即可复用；也可以在同一启动引导中配置其他模型服务商：
+
+![OpenCreator 桌面端首次启动时的模型服务配置界面](../images/product/opencreator-codex-setup.png)
+
+配置完成后，在输入框中输入需求即可开始。如遇问题，请参阅[用户指南与故障排查](../opencreator-user-guide-and-troubleshooting.md)。
 
 ### 从源码启动 Web
 

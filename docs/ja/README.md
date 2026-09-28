@@ -47,6 +47,8 @@ Web が唯一のフロントエンド実装です。Desktop は同じ Web ビル
 
 - 🚀 **すぐに使える Desktop アプリ**：Codex CLI を同梱した Desktop アプリから OpenCreator を直接起動できます。ローカル Runtime は必要に応じて起動し、デフォルトプロジェクトを自動的に準備します。
 
+- ⚙️ **ローカル Codex 設定を認識**：Desktop の初回起動時に既存の Codex 設定を確認し、利用可能な ChatGPT ログインや API キーを引き継げます。別のモデルプロバイダーもガイドに従って設定できます。
+
 - 🔄 **管理された Runtime コンポーネント**：同梱中、使用中、最新版の yt-dlp を確認し、定期的な更新チェックと手動更新を行えます。更新に失敗した場合も、現在動作しているバージョンを保持します。
 
 - 🎨 **マルチモーダル制作**：動画、画像、音声、字幕、ドキュメントを1つの連携したワークフローで制作・管理できます。
@@ -299,9 +301,13 @@ OpenCreator は、[Stickman on Behance](https://www.behance.net/gallery/25471546
 
 ### Desktop アプリをインストール
 
-[最新リリース](https://github.com/krillinai/OpenCreator/releases/latest)から macOS Apple Silicon、macOS Intel、Windows x64 用のインストーラーをダウンロードしてください。Desktop アプリに Node.js と pnpm は不要で、Codex CLI が同梱されています。実際のモデルタスクには有効な Codex ログインが必要です。
+[最新リリース](https://github.com/krillinai/OpenCreator/releases/latest)から macOS Apple Silicon、macOS Intel、Windows x64 用のインストーラーをダウンロードしてください。Desktop アプリに Node.js と pnpm は不要で、Codex CLI が同梱されています。実際のモデルタスクには利用可能な ChatGPT ログインまたは API キー設定が必要です。
 
-初回起動時にローカル Runtime が起動してデフォルトプロジェクトが準備されます。接続後、入力欄からタスクを開始できます。問題がある場合は[ユーザーガイド](../opencreator-user-guide-and-troubleshooting.md)を参照してください。
+初回起動時にローカル Runtime が起動し、デフォルトプロジェクトを準備して、ローカルの Codex 設定を確認します。利用可能なログイン情報または API キーとモデル設定が見つかった場合は、**ローカル Codex を使用して続行**を選んで引き継げます。同じ初期設定画面で別のモデルプロバイダーを設定することもできます。
+
+![OpenCreator Desktop の初回起動時のモデルプロバイダー設定](../images/product/opencreator-codex-setup.png)
+
+設定後、入力欄からタスクを開始できます。問題がある場合は[ユーザーガイド](../opencreator-user-guide-and-troubleshooting.md)を参照してください。
 
 ### ソースから Web を起動
 

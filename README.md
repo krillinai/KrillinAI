@@ -47,6 +47,8 @@ Web is the single frontend implementation. Desktop loads the same Web build and 
 
 - 🚀 **Ready-to-Use Desktop App**: Launch OpenCreator directly from the desktop app with Codex CLI included; the local Runtime starts on demand and prepares a default project automatically.
 
+- ⚙️ **Desktop Setup That Reuses Codex**: On first launch, scan your local Codex configuration and offer to reuse a working ChatGPT sign-in or API key setup. A guided form is available for other model providers.
+
 - 🔄 **Managed Runtime Components**: Inspect bundled, active, and latest yt-dlp versions, check for updates periodically, and update manually while keeping the current working version available if an update fails.
 
 - 🎨 **Multimodal Creation**: Create and manage video, images, audio, subtitles, and documents through one connected workflow.
@@ -301,9 +303,13 @@ Turn text or YouTube content into a complete animation through a guided workflow
 
 ### Install the Desktop App
 
-Download the installer for your platform from the [latest OpenCreator release](https://github.com/krillinai/OpenCreator/releases/latest) (macOS Apple Silicon, macOS Intel, or Windows x64). Install and open the app; you do not need Node.js or pnpm to use the Desktop app. The Desktop package includes Codex CLI, but real model tasks require a valid Codex login.
+Download the installer for your platform from the [latest OpenCreator release](https://github.com/krillinai/OpenCreator/releases/latest) (macOS Apple Silicon, macOS Intel, or Windows x64). Install and open the app; you do not need Node.js or pnpm to use the Desktop app. The Desktop package includes Codex CLI; real model tasks require a usable ChatGPT sign-in or API key setup.
 
-On first launch, OpenCreator starts the local Runtime and prepares a default project. Once connected, enter your request in the composer to start a task. If you run into trouble, see the [user guide and troubleshooting](./docs/opencreator-user-guide-and-troubleshooting.md).
+On first launch, Desktop starts the local Runtime, prepares a default project, and checks your local Codex configuration. If it finds a usable sign-in or API key and model settings, confirm **Use local Codex and continue** to reuse them. You can also configure another provider in the same startup flow:
+
+![OpenCreator Desktop first-launch model provider setup](./docs/images/product/opencreator-codex-setup.png)
+
+After setup, enter your request in the composer to start a task. If you run into trouble, see the [user guide and troubleshooting](./docs/opencreator-user-guide-and-troubleshooting.md).
 
 ### Run Web from Source
 

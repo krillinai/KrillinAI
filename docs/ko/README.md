@@ -47,6 +47,8 @@ Web은 유일한 프런트엔드 구현입니다. Desktop은 동일한 Web 빌�
 
 - 🚀 **바로 사용할 수 있는 Desktop 앱**: Codex CLI가 포함된 Desktop 앱에서 OpenCreator를 직접 실행할 수 있습니다. 로컬 Runtime은 필요할 때 시작되고 기본 프로젝트를 자동으로 준비합니다.
 
+- ⚙️ **로컬 Codex 설정 자동 감지**: Desktop을 처음 실행할 때 기존 Codex 설정을 확인하고 사용 가능한 ChatGPT 로그인 또는 API 키를 재사용할 수 있습니다. 다른 모델 제공업체도 안내 화면에서 설정할 수 있습니다.
+
 - 🔄 **관리형 Runtime 구성 요소**: 번들, 사용 중, 최신 yt-dlp 버전을 확인하고 주기적으로 업데이트를 검사한 뒤 수동으로 업데이트할 수 있습니다. 업데이트가 실패해도 현재 작동 중인 버전은 유지됩니다.
 
 - 🎨 **멀티모달 제작**: 동영상, 이미지, 오디오, 자막, 문서를 하나의 연결된 워크플로에서 제작하고 관리합니다.
@@ -299,9 +301,13 @@ OpenCreator는 [Behance의 Stickman](https://www.behance.net/gallery/254715463/S
 
 ### Desktop 앱 설치
 
-[최신 릴리스](https://github.com/krillinai/OpenCreator/releases/latest)에서 macOS Apple Silicon, macOS Intel 또는 Windows x64용 설치 파일을 다운로드하세요. Desktop 앱에는 Node.js나 pnpm이 필요하지 않으며 Codex CLI가 포함됩니다. 실제 모델 작업에는 유효한 Codex 로그인이 필요합니다.
+[최신 릴리스](https://github.com/krillinai/OpenCreator/releases/latest)에서 macOS Apple Silicon, macOS Intel 또는 Windows x64용 설치 파일을 다운로드하세요. Desktop 앱에는 Node.js나 pnpm이 필요하지 않으며 Codex CLI가 포함됩니다. 실제 모델 작업에는 사용 가능한 ChatGPT 로그인 또는 API 키 설정이 필요합니다.
 
-처음 실행하면 로컬 Runtime과 기본 프로젝트가 준비됩니다. 연결된 뒤 입력창에서 작업을 시작하세요. 문제가 있다면 [사용자 가이드](../opencreator-user-guide-and-troubleshooting.md)를 확인하세요.
+처음 실행하면 로컬 Runtime을 시작하고 기본 프로젝트를 준비한 뒤 로컬 Codex 설정을 확인합니다. 사용 가능한 로그인 또는 API 키와 모델 설정이 발견되면 **로컬 Codex 사용하고 계속**을 선택해 재사용할 수 있습니다. 같은 시작 화면에서 다른 모델 제공업체를 설정할 수도 있습니다.
+
+![OpenCreator Desktop 첫 실행 시 모델 제공업체 설정](../images/product/opencreator-codex-setup.png)
+
+설정 후 입력창에서 작업을 시작하세요. 문제가 있다면 [사용자 가이드](../opencreator-user-guide-and-troubleshooting.md)를 확인하세요.
 
 ### 소스에서 Web 실행
 
