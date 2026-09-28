@@ -39,11 +39,8 @@ import { Timeline, type TimelineHandle } from '../components/timeline/Timeline.j
 import { eventToTimelineItem, type TimelineItem } from '../components/timeline/timeline-model.js';
 import type { CapabilitiesViewProps } from '../features/capabilities/CapabilitiesView.js';
 import { ConversationEmptyState } from '../features/conversation/ConversationEmptyState.js';
-import {
-  CreatorDashboard,
-  getCreatorSkillPromptHint,
-  type CreatorSkill
-} from '../features/conversation/CreatorDashboard.js';
+import type { CreatorSkill } from '../features/conversation/CreatorDashboard.js';
+import { getCreatorSkillPromptHint } from '../features/conversation/creator-skill-prompt-hint.js';
 import {
   creatorWorkspaceForTemplate,
   type CreatorSkillLaunch
@@ -261,6 +258,10 @@ const FilesPage = lazy(() => import('../features/files/FilesPage.js'));
 const ProjectsPage = lazy(() => import('../features/projects/ProjectsPage.js'));
 const PluginsPage = lazy(() => import('../features/plugins/PluginsPage.js'));
 const DashboardPage = lazy(() => import('../features/dashboard/DashboardPage.js'));
+const CreatorDashboard = lazy(async () => {
+  const module = await import('../features/conversation/CreatorDashboard.js');
+  return { default: module.CreatorDashboard };
+});
 const ScheduleThreadHeader = lazy(async () => {
   const module = await import('../features/schedules/ScheduleThreadHeader.js');
   return { default: module.ScheduleThreadHeader };
@@ -4360,14 +4361,16 @@ export function AppController(props: AppControllerProps) {
     item.kind === 'approval' && item.approval.status === 'pending'
   ));
   const creatorDashboard = (
-    <CreatorDashboard
-      presets={creatorPresets}
-      loading={creatorPresetsLoading}
-      error={creatorPresetsError}
-      onRetry={() => setCreatorPresetsReloadKey(value => value + 1)}
-      onSelectPreset={applyDashboardPreset}
-      onSelectSkill={applyDashboardSkill}
-    />
+    <Suspense fallback={<div role="status">{language === 'en-US' ? 'Loading templates...' : '正在加载模板...'}</div>}>
+      <CreatorDashboard
+        presets={creatorPresets}
+        loading={creatorPresetsLoading}
+        error={creatorPresetsError}
+        onRetry={() => setCreatorPresetsReloadKey(value => value + 1)}
+        onSelectPreset={applyDashboardPreset}
+        onSelectSkill={applyDashboardSkill}
+      />
+    </Suspense>
   );
   const conversationComposer = (
     <Composer

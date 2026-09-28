@@ -319,8 +319,10 @@ describe('creator api', () => {
       coverUrl: expect.stringMatching(/^\/creator-presets\/[a-f0-9]{64}\.(?:jpg|png|webp)$/),
       prompt: expect.any(String),
       tags: expect.any(Array),
+      tagIds: expect.any(Array),
       highlights: expect.any(Array)
     });
+    expect(imagePreset.tagIds).toHaveLength(imagePreset.tags.length);
     const fullPreviewPreset = catalog.json().presets.find(
       (preset: { id: string }) => preset.id === 'y2k-streetwear-mobile-landing-page'
     );
