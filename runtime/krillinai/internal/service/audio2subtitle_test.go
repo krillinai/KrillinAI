@@ -17,6 +17,12 @@ import (
 	"go.uber.org/zap"
 )
 
+func TestThaiUsesNonSpaceTextSplitting(t *testing.T) {
+	if !IsSplitUseSpace(types.LanguageNameThai) {
+		t.Fatal("Thai must use the non-space text splitting path")
+	}
+}
+
 func Test_isValidSplitContent(t *testing.T) {
 	dir := t.TempDir()
 	splitContentFile := filepath.Join(dir, "srt_no_ts_1.srt")
