@@ -3371,7 +3371,7 @@ export default function VideoTranslationWorkspace(props: {
                               setVideoFormat(value);
                             }}
                           >
-                            <span>{ratio}</span>
+                            <span>{value === 'all' ? l('双画幅', '16:9 + 9:16') : ratio}</span>
                             <small>{localizeFormatLabel(label, l)}</small>
                             {videoFormat === value ? <Check size={14} strokeWidth={2} aria-hidden="true" /> : null}
                           </button>

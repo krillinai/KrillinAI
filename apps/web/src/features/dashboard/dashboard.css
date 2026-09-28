@@ -849,6 +849,7 @@
 }
 
 .video-translation-subtitle-import-fields label > span,
+.video-translation-subtitle-file-field > label,
 .video-translation-subtitle-import-fields p {
   margin: 0;
   color: var(--muted);
@@ -858,6 +859,53 @@
 
 .video-translation-subtitle-import-fields select {
   padding: 0 10px;
+}
+
+.video-translation-subtitle-file-field {
+  display: grid;
+  gap: 6px;
+}
+
+.video-translation-subtitle-file-picker {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+}
+
+.video-translation-subtitle-file-picker input.app-visually-hidden {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+}
+
+.video-translation-subtitle-file-picker button {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.video-translation-subtitle-file-picker button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.video-translation-subtitle-file-picker > span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .video-translation-subtitle-import-fields details {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import {
   captureCreatorClientFailure,
@@ -12,6 +12,9 @@ export function VideoTranslationSubtitleImport(props: { sourceLanguage: string; 
   const [kind, setKind] = useState('source_subtitle');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [selectedFileName, setSelectedFileName] = useState('');
+  const fileInputId = useId();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   if (session === null) return null;
   const imports = session.job.artifacts.filter(artifact => artifact.metadata.source === 'local-upload' && artifact.kind.endsWith('_subtitle'));
 
@@ -71,13 +74,21 @@ export function VideoTranslationSubtitleImport(props: { sourceLanguage: string; 
           <option value="target_subtitle">{l('已翻译字幕（跳过识别和翻译）', 'Translated subtitles (skip transcription and translation)')}</option>
         </select>
       </label>
-      <label><span>{l('UTF-8 SRT 文件', 'UTF-8 SRT file')}</span>
-        <input type="file" accept=".srt" onChange={event => {
-          const file = event.target.files?.[0];
-          event.target.value = '';
-          if (file) void importFile(file);
-        }} />
-      </label>
+      <div className="video-translation-subtitle-file-field">
+        <label htmlFor={fileInputId}>{l('UTF-8 SRT 文件', 'UTF-8 SRT file')}</label>
+        <div className="video-translation-subtitle-file-picker">
+          <input ref={fileInputRef} id={fileInputId} className="app-visually-hidden" tabIndex={-1} type="file" accept=".srt" onChange={event => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (file) {
+              setSelectedFileName(file.name);
+              void importFile(file);
+            }
+          }} />
+          <button type="button" onClick={() => fileInputRef.current?.click()}>{l('选择文件', 'Choose file')}</button>
+          <span aria-live="polite">{selectedFileName || l('未选择文件', 'No file selected')}</span>
+        </div>
+      </div>
       <p>{l('语言沿用上方选择。仅有译文时不会生成双语字幕。', 'Uses the language selected above. A translated-only import does not generate bilingual subtitles.')}</p>
       {busy ? <p role="status">{l('正在导入字幕…', 'Importing subtitles…')}</p> : null}
       {error ? <p role="alert">{error}</p> : null}

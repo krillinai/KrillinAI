@@ -12,6 +12,23 @@ import { CreatorSessionProvider, useCreatorSession } from './creator-session-sto
 import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
 
 describe('VideoTranslationWorkspace task controls', () => {
+  it('shows English file picker and output format labels', () => {
+    render(<LanguageProvider initialPreference="en-US"><CreatorSessionProvider
+      initialJob={job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 1, composeVideo: true } })}
+      service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+    ><VideoTranslationWorkspace onBack={vi.fn()} /></CreatorSessionProvider></LanguageProvider>);
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Import existing subtitles' }));
+    expect(screen.getByRole('button', { name: 'Choose file' })).toBeInTheDocument();
+    expect(screen.getByText('No file selected')).toBeInTheDocument();
+    expect(screen.getByLabelText('UTF-8 SRT file')).toHaveAttribute('type', 'file');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByRole('radio', { name: '16:9 + 9:16 Both' })).toBeInTheDocument();
+    expect(screen.queryByText('双画幅')).not.toBeInTheDocument();
+  });
+
   it('keeps an imported translation in configuration and shows its persisted metadata', async () => {
     let current = job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 1, furthestStep: 1 } });
     const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
