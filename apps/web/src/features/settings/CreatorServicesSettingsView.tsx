@@ -1275,20 +1275,16 @@ function AliyunFields(props: {
   return (
     <>
       <h3 className="creator-services-subheading">{l('OSS 存储', 'OSS storage')}</h3>
-      <PasswordField
-        id={`${props.id}-oss-access-key-id`}
-        label="Access Key ID"
-        value={props.oss.accessKeyId}
-        configured={props.configuredCredentials.has(`${props.credentialPrefix}.oss.accessKeyId` as CreatorServicesCredentialField)}
-        onChange={accessKeyId => props.onOssChange({ ...props.oss, accessKeyId })}
-      />
-      <PasswordField
-        id={`${props.id}-oss-access-key-secret`}
-        label="Access Key Secret"
-        value={props.oss.accessKeySecret}
-        configured={props.configuredCredentials.has(`${props.credentialPrefix}.oss.accessKeySecret` as CreatorServicesCredentialField)}
-        onChange={accessKeySecret => props.onOssChange({ ...props.oss, accessKeySecret })}
-      />
+      {(['accessKeyId', 'accessKeySecret'] as const).map(field => (
+        <PasswordField
+          key={field}
+          id={`${props.id}-oss-${field === 'accessKeyId' ? 'access-key-id' : 'access-key-secret'}`}
+          label={field === 'accessKeyId' ? 'Access Key ID' : 'Access Key Secret'}
+          value={props.oss[field]}
+          configured={props.configuredCredentials.has(`${props.credentialPrefix}.oss.${field}` as CreatorServicesCredentialField)}
+          onChange={value => props.onOssChange({ ...props.oss, [field]: value })}
+        />
+      ))}
       <PasswordField
         id={`${props.id}-oss-bucket`}
         label="Bucket"
@@ -1314,27 +1310,16 @@ function AliyunFields(props: {
         'Use the bucket region. Leave endpoint blank for its public endpoint, or enter a public service endpoint without the bucket name so the speech service can read the audio.'
       )}</p>
       <h3 className="creator-services-subheading">{l('语音服务', 'Speech service')}</h3>
-      <PasswordField
-        id={`${props.id}-speech-access-key-id`}
-        label="Access Key ID"
-        value={props.speech.accessKeyId}
-        configured={props.configuredCredentials.has(`${props.credentialPrefix}.speech.accessKeyId` as CreatorServicesCredentialField)}
-        onChange={accessKeyId => props.onSpeechChange({ ...props.speech, accessKeyId })}
-      />
-      <PasswordField
-        id={`${props.id}-speech-access-key-secret`}
-        label="Access Key Secret"
-        value={props.speech.accessKeySecret}
-        configured={props.configuredCredentials.has(`${props.credentialPrefix}.speech.accessKeySecret` as CreatorServicesCredentialField)}
-        onChange={accessKeySecret => props.onSpeechChange({ ...props.speech, accessKeySecret })}
-      />
-      <PasswordField
-        id={`${props.id}-speech-app-key`}
-        label="App Key"
-        value={props.speech.appKey}
-        configured={props.configuredCredentials.has(`${props.credentialPrefix}.speech.appKey` as CreatorServicesCredentialField)}
-        onChange={appKey => props.onSpeechChange({ ...props.speech, appKey })}
-      />
+      {(['accessKeyId', 'accessKeySecret', 'appKey'] as const).map(field => (
+        <PasswordField
+          key={field}
+          id={`${props.id}-speech-${field === 'appKey' ? 'app-key' : field === 'accessKeyId' ? 'access-key-id' : 'access-key-secret'}`}
+          label={field === 'appKey' ? 'App Key' : field === 'accessKeyId' ? 'Access Key ID' : 'Access Key Secret'}
+          value={props.speech[field]}
+          configured={props.configuredCredentials.has(`${props.credentialPrefix}.speech.${field}` as CreatorServicesCredentialField)}
+          onChange={value => props.onSpeechChange({ ...props.speech, [field]: value })}
+        />
+      ))}
     </>
   );
 }
