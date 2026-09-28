@@ -165,6 +165,7 @@ const defaultSubtitleStyle: SubtitleStyleSettings = {
 const sourceLanguages: LanguageOption[] = [
   { value: 'zh_cn', label: '简体中文' },
   { value: 'en', label: 'English' },
+  { value: 'fr', label: 'Français' },
   { value: 'ja', label: '日本語' },
   { value: 'ko', label: '한국어' },
   { value: 'de', label: 'Deutsch' },
