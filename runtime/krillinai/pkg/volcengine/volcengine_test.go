@@ -52,6 +52,9 @@ func TestAsrTranscriptionSubmitsBase64AudioAndMapsUtterances(t *testing.T) {
 			if body.Audio.Format != "mp3" {
 				t.Fatalf("format = %q", body.Audio.Format)
 			}
+			if body.Audio.Language != "en-US" {
+				t.Fatalf("language = %q", body.Audio.Language)
+			}
 			w.Header().Set("X-Api-Status-Code", statusSuccess)
 			_, _ = w.Write([]byte("{}"))
 		case queryPath:
@@ -90,6 +93,22 @@ func TestAsrTranscriptionSubmitsBase64AudioAndMapsUtterances(t *testing.T) {
 	}
 	if len(requestIDs) < 2 || requestIDs[0] == "" || requestIDs[0] != requestIDs[1] {
 		t.Fatalf("request ids = %#v", requestIDs)
+	}
+}
+
+func TestVolcengineLanguageMapsCompactSourceCodes(t *testing.T) {
+	tests := map[string]string{
+		"es":   "es-MX",
+		"it":   "it-IT",
+		"pt":   "pt-BR",
+		"id":   "id-ID",
+		"th":   "th-TH",
+		"auto": "",
+	}
+	for input, want := range tests {
+		if got := volcengineLanguage(input); got != want {
+			t.Fatalf("volcengineLanguage(%q) = %q, want %q", input, got, want)
+		}
 	}
 }
 

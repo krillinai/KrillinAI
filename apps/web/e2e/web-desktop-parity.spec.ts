@@ -37,13 +37,13 @@ test('OSS 地域配置在 Browser/Desktop 下保存并重新加载一致', async
   } finally { await runtime.api('DELETE', '/creator-services/config'); }
 });
 
-test('法语源语言与中法双语设置在 Browser/Desktop 下保存并重载一致', async ({ browser, runtime }, testInfo) => {
+test('扩展源语言与巴西葡萄牙语设置在 Browser/Desktop 下保存并重载一致', async ({ browser, runtime }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-desktop');
   const results: unknown[] = [];
   for (const platform of ['browser', 'desktop']) {
     const created = await runtime.api<{ job: { id: string } }>('POST', '/creator/jobs', {
       projectId: runtime.projectId, templateId: 'video-translation',
-      state: { sourceUrl: 'https://www.youtube.com/watch?v=french', sourceLanguage: 'en',
+      state: { sourceUrl: 'https://www.youtube.com/watch?v=multilingual', sourceLanguage: 'en',
         targetLanguage: 'zh_cn', bilingual: true, currentStep: 1, furthestStep: 1 }
     });
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
@@ -53,17 +53,21 @@ test('法语源语言与中法双语设置在 Browser/Desktop 下保存并重载
       await runtime.openApp(page);
       await page.goto(`${runtime.origin}/#/workbench?tool=video-translation&jobId=${created.job.id}`);
       const request = page.waitForRequest(req => req.url().endsWith('/actions')
-        && req.postDataJSON()?.input?.patch?.sourceLanguage === 'fr');
-      await page.getByRole('combobox', { name: '源语言', exact: true }).selectOption('fr');
+        && req.postDataJSON()?.input?.patch?.sourceLanguage === 'pt');
+      const source = page.getByRole('combobox', { name: '源语言', exact: true });
+      await expect(source.locator('option')).toHaveCount(14);
+      for (const value of ['es', 'fr', 'it', 'pt', 'id', 'th']) {
+        await expect(source.locator(`option[value="${value}"]`)).toHaveCount(1);
+      }
+      await source.selectOption('pt');
       const action = (await request).postDataJSON();
       const readSettings = async () => {
         const { job } = await runtime.api<{ job: { state: { sourceLanguage: string; targetLanguage: string; bilingual: boolean } } }>('GET', `/creator/jobs/${created.job.id}`);
         return { sourceLanguage: job.state.sourceLanguage, targetLanguage: job.state.targetLanguage, bilingual: job.state.bilingual };
       };
-      await expect.poll(readSettings).toEqual({ sourceLanguage: 'fr', targetLanguage: 'zh_cn', bilingual: true });
+      await expect.poll(readSettings).toEqual({ sourceLanguage: 'pt', targetLanguage: 'zh_cn', bilingual: true });
       await page.reload();
-      const source = page.getByRole('combobox', { name: '源语言', exact: true });
-      await expect(source).toHaveValue('fr');
+      await expect(source).toHaveValue('pt');
       await expect(page.getByRole('combobox', { name: '翻译为' })).toHaveValue('zh_cn');
       await expect(page.getByRole('switch', { name: '双语字幕' })).toBeChecked();
       results.push({ action: action.action, settings: await readSettings(),

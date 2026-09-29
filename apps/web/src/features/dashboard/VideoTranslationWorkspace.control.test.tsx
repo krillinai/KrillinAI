@@ -440,7 +440,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(persistedPatch).not.toHaveProperty('subtitleColor');
   });
 
-  it('offers French as a source language alongside the complete target language catalog', () => {
+  it('offers the expanded source language catalog alongside the complete target language catalog', () => {
     render(
       <LanguageProvider initialPreference="zh-CN">
         <CreatorSessionProvider
@@ -463,8 +463,17 @@ describe('VideoTranslationWorkspace task controls', () => {
     const targetOptions = within(targetSelect).getAllByRole('option');
     const targetValues = targetOptions.map(option => (option as HTMLOptionElement).value);
 
-    expect(sourceOptions).toHaveLength(9);
-    expect(within(sourceSelect).getByRole('option', { name: 'Français' })).toHaveAttribute('value', 'fr');
+    expect(sourceOptions).toHaveLength(14);
+    for (const [name, value] of [
+      ['Español', 'es'],
+      ['Français', 'fr'],
+      ['Italiano', 'it'],
+      ['Português (Brasil)', 'pt'],
+      ['Bahasa Indonesia', 'id'],
+      ['ภาษาไทย', 'th']
+    ]) {
+      expect(within(sourceSelect).getByRole('option', { name })).toHaveAttribute('value', value);
+    }
     expect(targetOptions).toHaveLength(101);
     expect(new Set(targetValues).size).toBe(101);
     expect(within(targetSelect).getByRole('option', { name: 'বাংলা' })).toHaveAttribute('value', 'bn');

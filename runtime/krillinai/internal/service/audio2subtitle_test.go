@@ -8,6 +8,7 @@ import (
 	"krillin-ai/config"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
+	"krillin-ai/pkg/util"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,48 @@ import (
 	"github.com/BurntSushi/toml"
 	"go.uber.org/zap"
 )
+
+func TestThaiUsesNonSpaceTextSplitting(t *testing.T) {
+	if !IsSplitUseSpace(types.LanguageNameThai) {
+		t.Fatal("Thai must use the non-space text splitting path")
+	}
+}
+
+func TestGenerateSrtWithTimestampsWritesThaiShortSubtitle(t *testing.T) {
+	dir := t.TempDir()
+	blocks := []*util.SrtBlock{
+		{
+			Index:                  1,
+			OriginLanguageSentence: "สวัสดี",
+			TargetLanguageSentence: "你好",
+		},
+	}
+	words := []types.Word{
+		{Num: 0, Text: "สวัสดี", Start: 0, End: 0.447},
+	}
+	stepParam := &types.SubtitleTaskStepParam{
+		TaskBasePath:       dir,
+		OriginLanguage:     types.LanguageNameThai,
+		MaxWordOneLine:     10,
+		SubtitleResultType: types.SubtitleResultTypeBilingualTranslationOnTop,
+	}
+
+	if err := generateSrtWithTimestamps(blocks, 0, words, 0, stepParam); err != nil {
+		t.Fatal(err)
+	}
+
+	shortPath := filepath.Join(dir, fmt.Sprintf(types.SubtitleTaskSplitShortOriginSrtFileNamePattern, 0))
+	if err := NormalizeSRTFile(shortPath, false); err != nil {
+		t.Fatalf("generated Thai short subtitle is invalid: %v", err)
+	}
+	content, err := os.ReadFile(shortPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), "สวัสดี") {
+		t.Fatalf("Thai short subtitle does not contain source text: %q", string(content))
+	}
+}
 
 func Test_isValidSplitContent(t *testing.T) {
 	dir := t.TempDir()

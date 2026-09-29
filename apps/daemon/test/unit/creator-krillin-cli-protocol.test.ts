@@ -31,6 +31,27 @@ describe('KrillinAI CLI protocol', () => {
     expect(args).not.toContain('--source-only');
   });
 
+  it.each([
+    ['Spanish', 'es'],
+    ['Italian', 'it'],
+    ['Brazilian Portuguese', 'pt'],
+    ['Indonesian', 'id'],
+    ['Thai', 'th']
+  ])('preserves %s source language through the adapter and CLI', (_name, sourceLanguage) => {
+    const stage = {
+      job: { templateId: 'video-translation', state: {
+        sourceUrl: 'https://youtu.be/multilingual', sourceLanguage, targetLanguage: 'zh_cn',
+        bilingual: true, subtitlePosition: 'top', preferPlatformCaptions: false
+      } },
+      stageRun: { stageId: 'subtitle', id: 'stage' }, workdir: '/job/stage'
+    };
+    const options = buildKrillinStageOptions(stage as never);
+    expect(options.originLanguage).toBe(sourceLanguage);
+    const args = buildKrillinCliCommandArguments(stage as never, [], options, undefined);
+    expect(args.slice(args.indexOf('--origin-lang'), args.indexOf('--origin-lang') + 4))
+      .toEqual(['--origin-lang', sourceLanguage, '--target-lang', 'zh_cn']);
+  });
+
   it.each(['source_subtitle', 'target_subtitle'])('passes %s as an explicit CLI input', kind => {
     const args = buildKrillinCliCommandArguments({ stageRun: { stageId: 'subtitle', id: 'stage' }, workdir: '/job/stage' } as never,
       [{ id: 'srt', kind, path: '/job/local.srt' }], { sourceUrl: 'https://youtu.be/test', originLanguage: 'en', targetLanguage: 'zh_cn' }, undefined);
