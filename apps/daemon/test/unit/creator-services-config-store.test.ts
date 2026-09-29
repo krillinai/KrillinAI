@@ -261,6 +261,22 @@ describe('CreatorServicesConfigStore', () => {
       .toEqual(current.tts.volcengine);
   });
 
+  it('redacts and retains a configured FunASR API key', () => {
+    const current = createDefaultCreatorServicesConfig();
+    current.transcription.funasr.apiKey = 'funasr-secret';
+
+    const presented = presentCreatorServicesConfig(current);
+    expect(presented.configuredCredentials).toContain('transcription.funasr.apiKey');
+    expect(presented.config.transcription.funasr.apiKey).toBe('');
+    expect(retainCreatorServicesCredentials(presented.config, current).transcription.funasr.apiKey)
+      .toBe('funasr-secret');
+
+    const changedEndpoint = structuredClone(presented.config);
+    changedEndpoint.transcription.funasr.baseUrl = 'https://another-asr.example/v1';
+    expect(retainCreatorServicesCredentials(changedEndpoint, current).transcription.funasr.apiKey)
+      .toBe('');
+  });
+
   it('migrates legacy tts.volcengine.apiKey into accessToken', () => {
     const current = createDefaultCreatorServicesConfig();
     const parsed = parseCreatorServicesConfig({

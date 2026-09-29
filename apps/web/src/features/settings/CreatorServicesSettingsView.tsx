@@ -686,6 +686,7 @@ function TranscriptionSettings(props: SettingsGroupProps & {
 }) {
   const l = useLocalizedCopy();
   const provider = props.config.transcription.provider;
+  const [funasrTest, setFunasrTest] = useState<string>();
   const selectedCapability = transcriptionCapability(props.capabilities, provider);
   const mode = selectedCapability?.kind
     ?? (isLocalTranscriptionProvider(provider) ? 'local' : 'cloud');
@@ -832,6 +833,11 @@ function TranscriptionSettings(props: SettingsGroupProps & {
           })}
         />
       ) : null}
+      {provider === 'funasr' ? (
+        <OpenAiFields id="transcription-funasr" credential="transcription.funasr.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.transcription.funasr} modelPlaceholder="sensevoice" onChange={value => props.update(config => { config.transcription.funasr = { ...value, timeoutMs: config.transcription.funasr.timeoutMs }; })} />
+      ) : null}
+      {provider === 'funasr' ? <button type="button" className="secondary" onClick={() => { setFunasrTest('Testing…'); void props.service?.testTranscriptionConnection?.(props.config.transcription.funasr).then(result => setFunasrTest(`Connected · ${result.models.join(', ') || result.model}`)).catch(error => setFunasrTest(error instanceof Error ? error.message : 'Connection failed')); }}>Test connection</button> : null}
+      {funasrTest ? <p className="creator-services-inline-note" role="status">{funasrTest}</p> : null}
       {provider === 'volcengine' ? (
         <>
           <VolcengineAsrFields
@@ -1702,6 +1708,8 @@ function selectedTranscriptionModel(config: CreatorServicesConfig): string {
       return config.transcription.whisperCpp.model;
     case 'aliyun':
       return '';
+    case 'funasr':
+      return config.transcription.funasr.model;
     case 'volcengine':
       return config.transcription.volcengine.resourceId;
   }
@@ -1722,6 +1730,8 @@ function transcriptionProviderLabel(
       return 'Whisper.cpp';
     case 'aliyun':
       return l('阿里云百炼', 'Alibaba Cloud Model Studio');
+    case 'funasr':
+      return l('FunASR / SenseVoice', 'FunASR / SenseVoice');
     case 'volcengine':
       return l('火山引擎', 'Volcengine');
   }

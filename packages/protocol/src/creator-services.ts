@@ -91,7 +91,8 @@ export const creatorTranscriptionProviders = [
   'whisperkit',
   'whisper.cpp',
   'aliyun',
-  'volcengine'
+  'volcengine',
+  'funasr'
 ] as const;
 export type CreatorTranscriptionProvider = (typeof creatorTranscriptionProviders)[number];
 
@@ -119,6 +120,7 @@ export type CreatorServicesConfig = {
       speech: AliyunSpeechConfig;
     };
     volcengine: VolcengineAsrConfig;
+    funasr: OpenAiCompatibleConfig & { timeoutMs: number };
   };
   tts: {
     provider: CreatorTtsProvider;
@@ -204,6 +206,7 @@ export type CreatorServicesCredentialField =
   | 'transcription.aliyun.speech.appKey'
   | 'transcription.volcengine.appId'
   | 'transcription.volcengine.accessToken'
+  | 'transcription.funasr.apiKey'
   | 'tts.openai.apiKey'
   | 'tts.minimax.apiKey'
   | 'tts.aliyun.apiKey'
@@ -249,6 +252,7 @@ export function createDefaultCreatorServicesConfig(): CreatorServicesConfig {
         oss: { accessKeyId: '', accessKeySecret: '', bucket: '', region: 'cn-shanghai', endpoint: '' },
         speech: { accessKeyId: '', accessKeySecret: '', appKey: '' }
       },
+      funasr: { baseUrl: 'http://127.0.0.1:8000/v1', apiKey: '', model: 'sensevoice', timeoutMs: 120000 },
       volcengine: {
         appId: '',
         accessToken: '',

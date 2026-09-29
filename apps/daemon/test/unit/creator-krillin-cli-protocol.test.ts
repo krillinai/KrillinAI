@@ -1,4 +1,5 @@
 import { dirname } from 'node:path';
+import { parse } from '@iarna/toml';
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 import { describe, expect, it } from 'vitest';
 import {
@@ -126,5 +127,23 @@ describe('KrillinAI CLI protocol', () => {
     config.transcription.whisperCpp.model = 'large-v3-turbo';
 
     expect(createKrillinConfigToml(config)).toContain('model = "large-v3-turbo"');
+  });
+
+  it('passes the configured FunASR endpoint, model and timeout to KrillinAI', () => {
+    const config = createDefaultCreatorServicesConfig();
+    config.transcription.provider = 'funasr';
+    config.transcription.funasr = {
+      baseUrl: 'http://127.0.0.1:8000/v1', apiKey: 'funasr-secret', model: 'sensevoice', timeoutMs: 60000
+    };
+
+    const document = parse(createKrillinConfigToml(config)) as {
+      transcribe: { provider: string; funasr: Record<string, string | number> };
+    };
+    expect(document.transcribe).toMatchObject({
+      provider: 'funasr',
+      funasr: {
+        base_url: 'http://127.0.0.1:8000/v1', api_key: 'funasr-secret', model: 'sensevoice', timeout_ms: 60000
+      }
+    });
   });
 });

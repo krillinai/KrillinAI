@@ -33,6 +33,7 @@ export function createKrillinConfigToml(
         oss: snakeAliyunOss(config.transcription.aliyun.oss),
         speech: snakeAliyunSpeech(config.transcription.aliyun.speech)
       },
+      funasr: { base_url: config.transcription.funasr.baseUrl, api_key: config.transcription.funasr.apiKey, model: config.transcription.funasr.model, timeout_ms: config.transcription.funasr.timeoutMs },
       volcengine: {
         app_id: config.transcription.volcengine.appId,
         access_token: config.transcription.volcengine.accessToken,
@@ -86,6 +87,7 @@ function snakeAliyunSpeech(value: { accessKeyId: string; accessKeySecret: string
 function normalizeTranscriptionProvider(value: CreatorServicesConfig['transcription']['provider']): string {
   if (value === 'faster-whisper') return 'fasterwhisper';
   if (value === 'whisper.cpp') return 'whispercpp';
+  if (value === 'funasr') return 'funasr';
   return value;
 }
 

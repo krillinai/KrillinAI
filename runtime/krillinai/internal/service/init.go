@@ -7,6 +7,7 @@ import (
 	"krillin-ai/log"
 	"krillin-ai/pkg/aliyun"
 	"krillin-ai/pkg/fasterwhisper"
+	"krillin-ai/pkg/funasr"
 	pkgimage "krillin-ai/pkg/image"
 	"krillin-ai/pkg/localtts"
 	"krillin-ai/pkg/openai"
@@ -36,6 +37,8 @@ func NewService() *Service {
 	switch config.Conf.Transcribe.Provider {
 	case "openai":
 		transcriber = whisper.NewClient(config.Conf.Transcribe.Openai.BaseUrl, config.Conf.Transcribe.Openai.ApiKey, config.Conf.App.Proxy)
+	case "funasr":
+		transcriber = funasr.NewClient(config.Conf.Transcribe.FunASR.BaseUrl, config.Conf.Transcribe.FunASR.ApiKey, config.Conf.Transcribe.FunASR.Model, config.Conf.Transcribe.FunASR.TimeoutMs, config.Conf.App.Proxy)
 	case "fasterwhisper":
 		transcriber = fasterwhisper.NewFastwhisperProcessor(config.Conf.Transcribe.Fasterwhisper.Model)
 	case "whispercpp":

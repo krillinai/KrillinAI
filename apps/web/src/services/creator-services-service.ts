@@ -23,6 +23,7 @@ export function createCreatorServicesService(client: ClientLike) {
     saveConfig(config: CreatorServicesConfig): Promise<CreatorServicesConfigResponse> {
       return client.patch('/creator-services/config', config);
     },
+    testTranscriptionConnection(config: CreatorServicesConfig['transcription']['funasr']): Promise<{ connected: boolean; model: string; models: string[]; capabilities: string[] }> { return client.rawRequest('/creator-services/transcription/test', { method: 'POST', body: config }).then(response => response.json()); },
     resetConfig(): Promise<CreatorServicesConfigResponse> {
       return client.delete('/creator-services/config');
     },

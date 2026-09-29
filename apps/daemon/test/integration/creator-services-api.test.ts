@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import { createServer } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createDefaultCreatorServicesConfig,
@@ -102,6 +103,66 @@ describe('creator services API', () => {
       proxy: 'http://127.0.0.1:7897',
       llm: expect.objectContaining({ apiKey: 'initial-secret' })
     }));
+  });
+
+  it('does not return the FunASR API key from settings reads or saves', async () => {
+    const config = createDefaultCreatorServicesConfig();
+    config.transcription.funasr.apiKey = 'funasr-secret';
+    vi.mocked(store.read).mockResolvedValue(config);
+
+    const read = await server.inject({ method: 'GET', url: '/creator-services/config' });
+    expect(read.statusCode).toBe(200);
+    expect(read.body).not.toContain('funasr-secret');
+    expect(read.json().configuredCredentials).toContain('transcription.funasr.apiKey');
+
+    const saved = await server.inject({
+      method: 'PATCH', url: '/creator-services/config', payload: read.json().config
+    });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.body).not.toContain('funasr-secret');
+    expect(store.write).toHaveBeenCalledWith(expect.objectContaining({
+      transcription: expect.objectContaining({
+        funasr: expect.objectContaining({ apiKey: 'funasr-secret' })
+      })
+    }));
+  });
+
+  it('tests the configured FunASR model with the retained credential', async () => {
+    let authorization: string | undefined;
+    const endpoint = createServer((request, response) => {
+      authorization = request.headers.authorization;
+      response.setHeader('Content-Type', 'application/json');
+      response.end(JSON.stringify({ data: [{ id: 'sensevoice' }] }));
+    });
+    await new Promise<void>(resolve => endpoint.listen(0, '127.0.0.1', resolve));
+    try {
+      const address = endpoint.address();
+      if (address === null || typeof address === 'string') throw new Error('Missing endpoint address');
+      const baseUrl = `http://127.0.0.1:${address.port}/v1`;
+      const config = createDefaultCreatorServicesConfig();
+      config.transcription.funasr.baseUrl = baseUrl;
+      config.transcription.funasr.apiKey = 'funasr-secret';
+      vi.mocked(store.read).mockResolvedValue(config);
+
+      const payload = { baseUrl, model: 'sensevoice', apiKey: '', timeoutMs: 1000 };
+      const connected = await server.inject({ method: 'POST', url: '/creator-services/transcription/test', payload });
+      expect(connected.statusCode).toBe(200);
+      expect(connected.json().connected).toBe(true);
+      expect(authorization).toBe('Bearer funasr-secret');
+
+      const missing = await server.inject({ method: 'POST', url: '/creator-services/transcription/test',
+        payload: { ...payload, model: 'unknown-model' } });
+      expect(missing.statusCode).toBe(502);
+      expect(missing.json().error.message).toContain('unknown-model');
+
+      authorization = undefined;
+      const otherEndpoint = await server.inject({ method: 'POST', url: '/creator-services/transcription/test',
+        payload: { ...payload, baseUrl: `${baseUrl}/other` } });
+      expect(otherEndpoint.statusCode).toBe(200);
+      expect(authorization).toBeUndefined();
+    } finally {
+      endpoint.close();
+    }
   });
 
   it('accepts the default OpenAI provider with an empty API key', async () => {

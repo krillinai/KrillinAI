@@ -84,6 +84,13 @@ type VolcengineTtsConfig struct {
 	BaseUrl        string `toml:"base_url"`
 }
 
+type FunASRConfig struct {
+	BaseUrl   string `toml:"base_url"`
+	ApiKey    string `toml:"api_key"`
+	Model     string `toml:"model"`
+	TimeoutMs int    `toml:"timeout_ms"`
+}
+
 type Transcribe struct {
 	Provider              string                 `toml:"provider"`
 	EnableGpuAcceleration bool                   `toml:"enable_gpu_acceleration"`
@@ -93,6 +100,7 @@ type Transcribe struct {
 	Whispercpp            LocalModelConfig       `toml:"whispercpp"`
 	Aliyun                AliyunTranscribeConfig `toml:"aliyun"`
 	Volcengine            VolcengineAsrConfig    `toml:"volcengine"`
+	FunASR                FunASRConfig           `toml:"funasr"`
 }
 
 type AliyunTtsConfig struct {
@@ -176,6 +184,7 @@ var Conf = Config{
 		Whispercpp: LocalModelConfig{
 			Model: "large-v2",
 		},
+		FunASR: FunASRConfig{BaseUrl: "http://127.0.0.1:8000/v1", Model: "sensevoice", TimeoutMs: 120000},
 		Volcengine: VolcengineAsrConfig{
 			ResourceId: "volc.seedasr.auc",
 			BaseUrl:    "https://openspeech.bytedance.com",
@@ -251,6 +260,10 @@ func ValidateTranscriptionConfig() error {
 	case "aliyun":
 		if Conf.Transcribe.Aliyun.Speech.AccessKeyId == "" || Conf.Transcribe.Aliyun.Speech.AccessKeySecret == "" || Conf.Transcribe.Aliyun.Speech.AppKey == "" {
 			return errors.New("使用阿里云语音服务需要配置相关密钥")
+		}
+	case "funasr":
+		if Conf.Transcribe.FunASR.BaseUrl == "" || Conf.Transcribe.FunASR.Model == "" {
+			return errors.New("使用 FunASR 需要配置 Base URL 和模型")
 		}
 	case "volcengine":
 		if Conf.Transcribe.Volcengine.AppId == "" || Conf.Transcribe.Volcengine.AccessToken == "" {
