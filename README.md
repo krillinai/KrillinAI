@@ -77,7 +77,7 @@ Open the Dashboard to write articles, Xiaohongshu posts, or short-video scripts;
 
 > More creator tools are continuously being added.
 
-**Video Translation supports 101 target languages.**
+**Video Translation supports 14 source languages and 101 target languages.** The source languages are Simplified Chinese, English, Spanish, French, Italian, Brazilian Portuguese, Indonesian, Thai, Japanese, Korean, German, Turkish, Russian, and Malay.
 
 <table width="100%">
 <thead>
