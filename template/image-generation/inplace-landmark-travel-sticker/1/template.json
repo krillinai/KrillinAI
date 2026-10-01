@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "id": "inplace-landmark-travel-sticker",
+  "version": 1,
+  "module": "image-generation",
+  "runtimeTemplate": {
+    "id": "image-generation",
+    "version": 2
+  },
+  "status": "draft",
+  "featured": false,
+  "sortOrder": 200,
+  "title": {
+    "zh-CN": "实景建筑原位贴纸",
+    "en-US": "In-Place Landmark Travel Sticker"
+  },
+  "description": {
+    "zh-CN": "上传一张建筑实景照片，仅将核心建筑原位转绘成旅行贴纸。来源预览；效果及授权待核实。",
+    "en-US": "Upload one landmark photo; turn only its main building into an in-place travel sticker. Source preview; output and rights unverified."
+  },
+  "cover": "cover.jpg",
+  "preview": "preview.jpg",
+  "author": {
+    "name": "数字生命卡兹克 (@Khazix0918)",
+    "url": "https://x.com/Khazix0918/status/2104401048324743646"
+  },
+  "tags": [
+    "旅行城市",
+    "图片转绘",
+    "reference-image",
+    "reference-template"
+  ],
+  "defaults": {
+    "prompt": "",
+    "size": "1024x1536",
+    "quality": "high",
+    "candidateCount": 2
+  },
+  "defaultsByLocale": {
+    "zh-CN": {
+      "prompt": "在上传的实景照片中，找到最具辨识度的一座核心建筑，只处理这一处。保留它的轮廓、比例和标志性细节，重绘成手绘旅行贴纸：粗黑手绘线条、明快平涂色块、少量复古印刷纹理，以及沿外轮廓连续而宽的白色模切边。让贴纸在原位置覆盖建筑并略微放大，避免原建筑边缘外露。周围的街道、天空、人物、光线和照片质感全部保持原样；贴纸与真实环境的尺度和遮挡关系自然。不添加文字，也不要把整张照片插画化。"
+    },
+    "en-US": {
+      "prompt": "In the uploaded real-world photograph, identify the single most recognizable landmark building and edit only that area. Preserve its silhouette, proportions and defining details while redrawing it as a hand-drawn travel sticker: thick black ink contours, bright flat-color fills, a little vintage print texture and one continuous broad white die-cut border. Overlay the sticker exactly where the building stood and enlarge it slightly so no original building edges remain visible. Keep the surrounding street, sky, people, lighting and photographic texture unchanged; integrate the sticker's scale and occlusion naturally. Add no text and do not turn the whole photograph into an illustration."
+    }
+  },
+  "requirements": {
+    "service": "image",
+    "capabilities": [
+      "reference-image",
+      "image-edit"
+    ]
+  }
+}

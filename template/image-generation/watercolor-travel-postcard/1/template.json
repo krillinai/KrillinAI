@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "id": "watercolor-travel-postcard",
+  "version": 1,
+  "module": "image-generation",
+  "runtimeTemplate": {
+    "id": "image-generation",
+    "version": 2
+  },
+  "status": "draft",
+  "featured": false,
+  "sortOrder": 200,
+  "title": {
+    "zh-CN": "水彩旅行手账明信片",
+    "en-US": "Watercolor Travel Postcard"
+  },
+  "description": {
+    "zh-CN": "上传一张景点照片，转绘为保留原地点和视角的横版水彩明信片。来源预览；效果及授权待核实。",
+    "en-US": "Upload one travel photo; preserve its location and viewpoint in a horizontal watercolor postcard. Source preview; output and rights unverified."
+  },
+  "cover": "cover.jpg",
+  "preview": "preview.jpg",
+  "author": {
+    "name": "数字生命卡兹克 (@Khazix0918)",
+    "url": "https://x.com/Khazix0918/status/2104401048324743646"
+  },
+  "tags": [
+    "旅行城市",
+    "watercolor",
+    "reference-image",
+    "reference-template"
+  ],
+  "defaults": {
+    "prompt": "",
+    "size": "1536x1024",
+    "quality": "high",
+    "candidateCount": 2
+  },
+  "defaultsByLocale": {
+    "zh-CN": {
+      "prompt": "使用一张有权使用、没有第三方水印的景点照片，保留地点主体与拍摄视角，将它设计成复古旅行手账风的横版明信片平面图。右侧约 60% 区域把原景转绘成清透水彩插画，保留可辨识的建筑、山水和空间关系；使用自然晕染、纸张颗粒、不规则笔触边缘，让插画柔和融入暖米白纸面。插画略微收小，四周有宽纸边，上下留出呼吸感，笔触不延伸到画布边缘。左侧疏朗排版：小编号、简短英文主题标题、LOCATION 与 DATE 标签及空白横线；底部放三枚从照片提取的手绘色块。标题用复古衬线字体，整体清新、舒展、有旅行收藏感。只输出平整的明信片设计本身，不要桌面、手持、相框、透视变形、界面元素或水印。"
+    },
+    "en-US": {
+      "prompt": "Use a travel photograph that you have rights to use and that contains no third-party watermark. Preserve its recognizable landmark and viewpoint, and turn it into a flat horizontal vintage travel-journal postcard design. On the right, use about 60% of the canvas for a transparent watercolor rendition of the original scene, preserving distinctive architecture, landscape and spatial relationships. Add natural pigment bleeds, paper grain and irregular brush edges fading softly into warm off-white paper. Scale the illustration down slightly with broad paper margins and breathing room above and below; keep the brushwork away from the canvas edges. On the left, arrange a small number, a short English subject title, LOCATION and DATE labels with blank ruled lines; place three hand-painted color swatches sampled from the scene at the bottom. Use a vintage serif title. Keep it fresh, spacious and collectible. Output only the flat finished postcard, not a tabletop, hand-held card, frame, perspective mockup, UI elements or watermark."
+    }
+  },
+  "requirements": {
+    "service": "image",
+    "capabilities": [
+      "reference-image",
+      "image-edit"
+    ]
+  }
+}
