@@ -1,5 +1,88 @@
-import type { CreatorServicesCapabilitiesResponse, CreatorYtDlpStatusResponse } from '@opencreator/protocol';
+import { createDefaultCreatorServicesConfig, type CreatorServicesCapabilitiesResponse, type CreatorYtDlpStatusResponse } from '@opencreator/protocol';
 import { test, expect } from './fixtures/runtime.js';
+
+test('项目管理资源不随通用项目页面提前加载且 Browser/Desktop 布局一致', async ({ browser, runtime }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop');
+  const results: unknown[] = [];
+  for (const platform of ['browser', 'desktop']) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    const resources: string[] = [];
+    page.on('request', request => {
+      if (/ProjectManagementDialog|project-management\.css/.test(request.url())) resources.push(request.url());
+    });
+    if (platform === 'desktop') await installDesktopBridge(page);
+    try {
+      await runtime.openApp(page);
+      expect(resources).toHaveLength(0);
+      await page.getByRole('button', { name: '我的项目', exact: true }).click();
+      const workspace = page.getByRole('region', { name: 'OpenCreator 工作区' });
+      const heading = workspace.getByRole('heading', { name: '我的项目', exact: true });
+      await expect(heading).toBeVisible();
+      expect(resources).toHaveLength(0);
+      const styles = await workspace.evaluate(element => {
+        const style = getComputedStyle(element);
+        return { width: style.width, display: style.display, padding: style.padding, background: style.backgroundColor };
+      });
+      results.push({
+        title: await heading.innerText(),
+        headingBox: await heading.boundingBox(),
+        styles
+      });
+      await page.getByRole('button', { name: '首页', exact: true }).click();
+      await expect(page.getByRole('tab', { name: '推荐', exact: true })).toBeVisible();
+      expect(resources).toHaveLength(0);
+    } finally { await context.close(); }
+  }
+  expect(results[1]).toEqual(results[0]);
+});
+
+test('Codex 生图状态仅在选择本机服务时按需加载且 Browser/Desktop 一致', async ({ browser, runtime }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop');
+  const config = createDefaultCreatorServicesConfig();
+  config.image.provider = 'openai';
+  await runtime.api('PATCH', '/creator-services/config', config);
+  const results: unknown[] = [];
+  try {
+    for (const platform of ['browser', 'desktop']) {
+      const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+      const page = await context.newPage();
+      const resources: string[] = [];
+      const statusRequests: string[] = [];
+      page.on('request', request => {
+        if (/CodexImageStatusNotice/.test(request.url())) resources.push(request.url());
+      });
+      await page.route('**/creator-services/image/codex/status', async route => {
+        statusRequests.push(route.request().method());
+        await route.fulfill({ json: { authentication: 'chatgpt', ready: true, executionMode: 'native', message: 'raw backend status' } });
+      });
+      if (platform === 'desktop') await installDesktopBridge(page);
+      try {
+        await runtime.openApp(page);
+        await page.goto(`${runtime.origin}/#/settings?tab=ai-services&section=image`);
+        const provider = page.getByRole('tabpanel').getByRole('combobox', { name: '服务商', exact: true });
+        await expect(provider).toContainText('GPT Image');
+        expect(resources).toHaveLength(0);
+        expect(statusRequests).toHaveLength(0);
+        await provider.click();
+        await page.getByRole('option', { name: '本机 Codex 生图' }).click();
+        const notice = page.locator('.creator-services-inline-note[role="status"]').filter({ hasText: 'ChatGPT 登录态 · 原生生图' });
+        await expect(notice).toBeVisible();
+        await expect(notice).toContainText('无需额外配置图片 API Key');
+        await expect(page.getByText('raw backend status')).toHaveCount(0);
+        expect(resources.length).toBeGreaterThan(0);
+        expect(statusRequests.length).toBeGreaterThan(0);
+        expect(statusRequests.every(method => method === 'GET')).toBe(true);
+        const checksBeforeRefresh = statusRequests.length;
+        await notice.getByRole('button', { name: '刷新状态' }).click();
+        await expect(notice).toBeVisible();
+        await expect.poll(() => statusRequests.length).toBe(checksBeforeRefresh + 1);
+        results.push({ text: await notice.innerText(), requests: statusRequests, box: await notice.boundingBox() });
+      } finally { await context.close(); }
+    }
+    expect(results[1]).toEqual(results[0]);
+  } finally { await runtime.api('DELETE', '/creator-services/config'); }
+});
 
 test('OSS 地域配置在 Browser/Desktop 下保存并重新加载一致', async ({ browser, runtime }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-desktop');

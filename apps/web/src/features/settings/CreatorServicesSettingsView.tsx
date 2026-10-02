@@ -35,7 +35,7 @@ import {
   RotateCcw,
   Save
 } from 'lucide-react';
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useConfirmDialog } from '../../components/dialogs/ConfirmDialogProvider.js';
 import { TtsVoicePicker } from '../../components/tts/TtsVoicePicker.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
@@ -44,8 +44,12 @@ import type { ConnectionService } from '../../services/connection-service.js';
 import { IssueList } from '../issues/IssuePresenter.js';
 import { usePageIssueState } from '../issues/page-issue-state.js';
 import { inferLlmProviderId, llmProviderOptions } from './llm-provider-selection.js';
-import { CodexImageStatusNotice } from './CodexImageStatusNotice.js';
 import './creator-services-settings.css';
+
+const CodexImageStatusNotice = lazy(async () => {
+  const module = await import('./CodexImageStatusNotice.js');
+  return { default: module.CodexImageStatusNotice };
+});
 
 export type CreatorServicesSection = 'text' | 'transcription' | 'tts' | 'image' | 'video';
 type ModelSettingsService = Pick<ConnectionService, 'getCodexProvider' | 'updateCodexProvider'> & {
@@ -1058,7 +1062,11 @@ function ImageSettings(props: SettingsGroupProps & {
           if (!target.model && preset?.models[0] !== undefined) target.model = preset.models[0].id;
         })}
       />
-      {provider === 'codex-native' ? <CodexImageStatusNotice service={props.service} onOpenAgentSetup={props.onOpenAgentSetup} /> : null}
+      {provider === 'codex-native' ? (
+        <Suspense fallback={<div className="creator-services-inline-note" role="status">{l('正在检查 Codex 生图配置…', 'Checking Codex image configuration…', 'Kontrollerar bildinställningar för Codex…')}</div>}>
+          <CodexImageStatusNotice service={props.service} onOpenAgentSetup={props.onOpenAgentSetup} />
+        </Suspense>
+      ) : null}
       {provider === 'openai' ? <OpenAiFields id="image-openai" credential="image.openai.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.openai} modelPlaceholder="gpt-image-1" modelSuggestions={creatorProviderOfKind('image', 'openai')?.models.map(model => model.id)} onChange={value => props.update(config => { config.image.openai = value; })} /> : null}
       {provider === 'jimeng' ? <OpenAiFields id="image-jimeng" credential="image.jimeng.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.jimeng} modelPlaceholder="doubao-seedream-4-0-250828" modelSuggestions={creatorProviderOfKind('image', 'jimeng')?.models.map(model => model.id)} baseUrlPlaceholder="https://ark.cn-beijing.volces.com/api/v3" onChange={value => props.update(config => { config.image.jimeng = value; })} /> : null}
       {provider === 'kling' ? <KlingFields id="image-kling" accessKeyCredential="image.kling.accessKey" secretKeyCredential="image.kling.secretKey" configuredCredentials={props.configuredCredentials} value={props.config.image.kling} modelPlaceholder="kling-v2-1" modelSuggestions={creatorProviderOfKind('image', 'kling')?.models.map(model => model.id)} onChange={value => props.update(config => { config.image.kling = value; })} /> : null}

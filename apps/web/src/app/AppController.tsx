@@ -71,7 +71,6 @@ import {
   type OpenCreatorProject,
   type ProjectPermission
 } from '../features/projects/project-model.js';
-import { ProjectManagementDialog } from '../features/projects/ProjectManagementDialog.js';
 import {
   type CreatorProjectType
 } from '../features/projects/project-types.js';
@@ -272,6 +271,10 @@ const SchedulesPage = lazy(() => import('../features/schedules/SchedulesPage.js'
 const SearchPage = lazy(() => import('../features/search/SearchPage.js'));
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage.js'));
 const TaskCenterPage = lazy(() => import('../features/tasks/TaskCenterPage.js'));
+const ProjectManagementDialog = lazy(async () => {
+  const module = await import('../features/projects/ProjectManagementDialog.js');
+  return { default: module.ProjectManagementDialog };
+});
 
 type PersistedNavigation = {
   currentProjectId?: string;
@@ -4861,43 +4864,47 @@ export function AppController(props: AppControllerProps) {
           <strong>松开以添加项目文件夹</strong>
         </div>
       ) : null}
-      <ProjectManagementDialog
-        open={projectManagementOpen}
-        projects={projects}
-        archivedProjects={archivedProjects}
-        unassignedThreads={unassignedThreads}
-        initialProjectId={projectManagementProjectId}
-        busy={projectMutationBusy}
-        onClose={() => {
-          setProjectManagementOpen(false);
-          setProjectManagementProjectId(undefined);
-        }}
-        onUpdate={updateManagedProject}
-        onArchive={archiveProject}
-        onRestore={restoreManagedProject}
-        onReplaceDirectory={
-          hostBridge.selectProjectDirectory === undefined
-            ? undefined
-            : replaceManagedProjectDirectory
-        }
-        onAssignThread={assignManagedThread}
-        onAddProject={
-          projectService === null
-            ? undefined
-            : () => {
-                setProjectManagementOpen(false);
-                void createProject();
-              }
-        }
-        onAddProjectDirectory={
-          hostBridge.selectProjectDirectory === undefined
-            ? undefined
-            : async () => {
-                await addProjectDirectory();
-                setProjectManagementOpen(true);
-              }
-        }
-      />
+      {projectManagementOpen ? (
+        <Suspense fallback={<div className="conversation-toast" role="status">{l('正在加载项目管理…', 'Loading project management…', 'Läser in projekthantering…')}</div>}>
+          <ProjectManagementDialog
+            open={projectManagementOpen}
+            projects={projects}
+            archivedProjects={archivedProjects}
+            unassignedThreads={unassignedThreads}
+            initialProjectId={projectManagementProjectId}
+            busy={projectMutationBusy}
+            onClose={() => {
+              setProjectManagementOpen(false);
+              setProjectManagementProjectId(undefined);
+            }}
+            onUpdate={updateManagedProject}
+            onArchive={archiveProject}
+            onRestore={restoreManagedProject}
+            onReplaceDirectory={
+              hostBridge.selectProjectDirectory === undefined
+                ? undefined
+                : replaceManagedProjectDirectory
+            }
+            onAssignThread={assignManagedThread}
+            onAddProject={
+              projectService === null
+                ? undefined
+                : () => {
+                    setProjectManagementOpen(false);
+                    void createProject();
+                  }
+            }
+            onAddProjectDirectory={
+              hostBridge.selectProjectDirectory === undefined
+                ? undefined
+                : async () => {
+                    await addProjectDirectory();
+                    setProjectManagementOpen(true);
+                  }
+            }
+          />
+        </Suspense>
+      ) : null}
       <AgentDiagnosticsPanel
         hiddenCreatorIssues={immersiveWorkspace && props.route.view === 'workbench' && props.route.jobId === undefined}
         hiddenBackgroundRuntimeIssues={immersiveWorkspace && props.route.view === 'workbench'}

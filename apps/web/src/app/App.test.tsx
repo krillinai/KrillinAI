@@ -4656,7 +4656,7 @@ describe('App', () => {
     expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'legacy-project' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '管理项目' }));
-    await user.click(screen.getByRole('button', { name: '使用现有文件夹' }));
+    await user.click(await screen.findByRole('button', { name: '使用现有文件夹' }));
     expect(hostBridge.selectProjectDirectory).toHaveBeenCalledTimes(1);
     await waitFor(() => {
       expect(fetchCalls.map(call => [call.url, call.init?.method])).toContainEqual([
@@ -4855,7 +4855,7 @@ describe('App', () => {
 
     expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '管理项目' }));
-    await user.click(screen.getByRole('button', { name: '使用现有文件夹' }));
+    await user.click(await screen.findByRole('button', { name: '使用现有文件夹' }));
     await user.click(screen.getByRole('button', { name: '使用现有文件夹' }));
 
     expect(hostBridge.selectProjectDirectory).toHaveBeenCalledTimes(1);
@@ -4916,7 +4916,7 @@ describe('App', () => {
       .toHaveAttribute('data-current-project', 'true');
 
     await user.click(screen.getByRole('button', { name: '管理项目' }));
-    await user.click(screen.getByRole('button', { name: '使用现有文件夹' }));
+    await user.click(await screen.findByRole('button', { name: '使用现有文件夹' }));
 
     expect(hostBridge.selectProjectDirectory).toHaveBeenCalledTimes(1);
     expect(await screen.findByRole('button', { name: 'existing-project' }))
