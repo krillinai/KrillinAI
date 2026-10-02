@@ -1,5 +1,6 @@
 import type { CreatorActivity, CreatorStageRun } from '@opencreator/protocol';
 import { describe, expect, it } from 'vitest';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
 import {
   videoTranslationPanelAdapter,
   creatorPanelAdapterFor,
@@ -16,16 +17,60 @@ describe('shared native image progress', () => {
     expect(adapter.phaseLabel('preparing_native_image', zh)).toContain('ChatGPT');
     expect(adapter.phaseLabel('generating_image', en)).toBe('Generating image');
     const running = { ...stage('native', '', 'running', null, 'generate'), progress: { phase: 'generating_image', message: '正在生成图片，请稍候', completed: 0, failed: 0, total: 1 } };
-    expect(adapter.readStageProgress(running)).toMatchObject({ phase: 'generating_image', message: '正在生成图片，请稍候', percent: null });
+    expect(adapter.readStageProgress(running, zh)).toMatchObject({ phase: 'generating_image', message: '正在生成图片，请稍候', percent: null });
   });
 });
 
 describe('video translation component progress', () => {
+  it.each(['zh-CN', 'en-US', 'sv-SE'] as const)('localizes dependency and preview preparation with real progress in %s', language => {
+    const localize = createLocalizedCopy(language);
+    const raw = '后台原文：正在准备本地模型';
+    const running = { ...stage('prepare', '', 'running', null, 'subtitle'), progress: {
+      phase: 'downloading_dependencies', percent: 5, dependencyPercent: 50, message: raw,
+      downloadedBytes: 1024 ** 3, totalBytes: 2 * 1024 ** 3
+    } };
+    const progress = videoTranslationPanelAdapter.readStageProgress(running, localize);
+    expect(progress).toMatchObject({ percent: 50, indeterminate: false, message: expect.stringContaining('1.00 GiB / 2.00 GiB') });
+    expect(progress.message).not.toContain(raw);
+    expect(progress.detailsHref).toContain('tab=local-components');
+    for (const phase of ['verifying_dependencies', 'extracting_dependencies', 'dependencies_ready']) {
+      const waiting = videoTranslationPanelAdapter.readStageProgress({ ...running, progress: { ...running.progress, phase } }, localize);
+      expect(waiting).toMatchObject({ percent: null, indeterminate: true });
+      expect(waiting.message).not.toContain(raw);
+      if (language !== 'zh-CN') expect(waiting.message).not.toMatch(/\p{Script=Han}/u);
+    }
+    const preview = videoTranslationPanelAdapter.readStageProgress({ ...running, stageId: 'prepare-source-video',
+      progress: { phase: 'downloading', percent: 40, downloadedBytes: 4 * 1024 ** 2, totalBytes: 10 * 1024 ** 2, message: raw }
+    }, localize);
+    expect(preview).toMatchObject({ percent: 40, indeterminate: false, message: expect.stringContaining('4.0 MiB / 10.0 MiB') });
+    if (language !== 'zh-CN') {
+      expect(progress.message).not.toMatch(/\p{Script=Han}/u);
+      expect(preview.message).not.toMatch(/\p{Script=Han}/u);
+    }
+    const unknown = videoTranslationPanelAdapter.readStageProgress({ ...running, progress: { phase: 'downloading_dependencies', downloadedBytes: 1024 ** 3 } }, localize);
+    expect(unknown).toMatchObject({ percent: null, indeterminate: true });
+    expect(unknown.message).toContain('1.00 GiB');
+    expect(unknown.message).not.toContain('%');
+  });
+  it('normalizes preview stages, activities, and localized real download progress', () => {
+    const running = { ...stage('preview', '', 'running', null, 'prepare-source-video'),
+      progress: { phase: 'downloading', percent: 40, downloadedBytes: 4 * 1024 ** 2, totalBytes: 10 * 1024 ** 2 } };
+    expect(videoTranslationPanelAdapter.stageLabel(running.stageId, zh)).toBe('原视频预览准备');
+    expect(videoTranslationPanelAdapter.succeededProgressText?.({ ...running, status: 'succeeded' }, zh)).toContain('字幕保持不变');
+    expect(videoTranslationPanelAdapter.failedProgressText?.({ ...running, status: 'failed' }, zh)).toContain('字幕未受影响');
+    expect(videoTranslationPanelAdapter.readStageProgress(running, zh)).toMatchObject({ percent: 40, indeterminate: false, message: expect.stringContaining('4.0 MiB / 10.0 MiB') });
+    expect(videoTranslationPanelAdapter.readStageProgress(running, en).message).toContain('subtitles will not be translated again');
+    expect(videoTranslationPanelAdapter.readStageProgress({ ...running, progress: { phase: 'downloading', percent: null } }, zh)).toMatchObject({ percent: null, indeterminate: true });
+    expect(videoTranslationPanelAdapter.readStageProgress({ ...running, progress: { phase: 'normalizing_media', percent: 98 } }, zh)).toMatchObject({ percent: null, indeterminate: true });
+    expect(videoTranslationPanelAdapter.normalizeActivity(activity('run-stage', { stageId: 'prepare-source-video' }), zh))
+      .toEqual({ label: '开始准备原视频预览，保留已有字幕', fields: [] });
+  });
+
   it('shows download progress separately from task progress, without inventing unknown percentages', () => {
     const running = { ...stage('download', '', 'running', null, 'subtitle', 2, 'downloading_dependencies'), progress: { phase: 'downloading_dependencies', percent: 2, dependencyPercent: 50, downloadedBytes: 1024 ** 3, totalBytes: 2 * 1024 ** 3, message: '模型文件较大，下载完成后自动继续' } };
-    expect(videoTranslationPanelAdapter.readStageProgress(running)).toMatchObject({ percent: 50, message: expect.stringContaining('1.00 GiB / 2.00 GiB'), detailsHref: expect.stringContaining('returnPath=') });
+    expect(videoTranslationPanelAdapter.readStageProgress(running, zh)).toMatchObject({ percent: 50, message: expect.stringContaining('1.00 GiB / 2.00 GiB'), detailsHref: expect.stringContaining('returnPath=') });
     expect(videoTranslationPanelAdapter.phaseLabel('downloading_dependencies', zh)).toContain('尚未开始转录');
-    expect(videoTranslationPanelAdapter.readStageProgress({ ...running, progress: { phase: 'downloading_dependencies', percent: 2 } })).toMatchObject({ percent: null, indeterminate: true });
+    expect(videoTranslationPanelAdapter.readStageProgress({ ...running, progress: { phase: 'downloading_dependencies', percent: 2 } }, zh)).toMatchObject({ percent: null, indeterminate: true });
   });
 });
 
@@ -88,7 +133,7 @@ describe('stickmanVideoPanelAdapter', () => {
         total: 4
       }
     });
-    const progress = stickmanVideoPanelAdapter.readStageProgress(aggregated![0]!);
+    const progress = stickmanVideoPanelAdapter.readStageProgress(aggregated![0]!, zh);
     expect(stickmanVideoPanelAdapter.runningProgressText?.(aggregated![0]!, progress, zh))
       .toBe('生成创作内容');
   });
@@ -128,7 +173,7 @@ describe('stickmanVideoPanelAdapter', () => {
     });
     expect(stickmanVideoPanelAdapter.phaseLabel('reading_platform_captions', zh))
       .toBe('获取平台字幕');
-    const progress = stickmanVideoPanelAdapter.readStageProgress(aggregated![0]!);
+    const progress = stickmanVideoPanelAdapter.readStageProgress(aggregated![0]!, zh);
     expect(stickmanVideoPanelAdapter.runningProgressText?.(aggregated![0]!, progress, zh))
       .toBe('获取平台字幕');
   });

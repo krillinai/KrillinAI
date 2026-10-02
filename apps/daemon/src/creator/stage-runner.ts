@@ -17,6 +17,7 @@ import { CreatorProviderRequestError } from './provider-requests.js';
 import { publicFactsFromFailure } from './public-error-facts.js';
 import {
   appendCreatorResultSnapshot,
+  attachCreatorResultArtifacts,
   creatorResultSnapshotForVersion,
   nextCreatorResultVersion
 } from './result-snapshots.js';
@@ -113,6 +114,9 @@ export function createCreatorStageRunner(input: {
       const inputSnapshot = inputResultVersion === undefined
         ? undefined
         : creatorResultSnapshotForVersion(job, inputResultVersion);
+      if (stage.resultVersionPolicy === 'attach' && inputSnapshot === undefined) {
+        throw new CreatorExecutorError('creator_result_version_not_found', 'A saved result version is required to prepare preview media');
+      }
       if (inputResultVersion !== undefined && inputSnapshot === undefined) {
         throw new CreatorExecutorError(
           'creator_result_version_not_found',
@@ -136,7 +140,7 @@ export function createCreatorStageRunner(input: {
             errorCode: 'creator_stage_input_missing',
             errorMessage: `Missing completed inputs: ${resolved.missing.join(', ')}`
           });
-          updateJob(input.repository, job, 'needs_input', { currentStage: stageId }, input.onJobChanged);
+          updateJob(input.repository, job, stage.jobCompletionPolicy === 'preserve' ? job.status : 'needs_input', { currentStage: stageId }, input.onJobChanged);
           const resolution = finishStageIssueResolution(jobId, stageRun!.id, 'failed');
           if (resolution === undefined) {
             input.issueService?.capture({
@@ -164,7 +168,7 @@ export function createCreatorStageRunner(input: {
         throw new CreatorExecutorError('creator_stage_canceled', 'Creator stage was canceled');
       }
       updateStageRun({ id: stageRun.id, status: 'running' });
-      updateJob(input.repository, job, 'running', { currentStage: stageId }, input.onJobChanged);
+      updateJob(input.repository, job, stage.jobCompletionPolicy === 'preserve' ? job.status : 'running', { currentStage: stageId }, input.onJobChanged);
       const result = await executor.run({
         stageRun: input.repository.listStageRuns(jobId).find(candidate => candidate.id === stageRun!.id)!,
         job: input.repository.getJob(jobId)!,
@@ -210,8 +214,9 @@ export function createCreatorStageRunner(input: {
         const beforeOutputs = requireJob(input.repository, jobId);
         const createsResultVersion = stage.resultVersionPolicy !== 'none';
         const targetResultVersion = readPositiveInteger(stageRun!.progress.targetResultVersion);
-        const resultVersion = createsResultVersion
-          ? targetResultVersion ?? nextStageResultVersion(beforeOutputs, stageId)
+        const resultVersion = stage.resultVersionPolicy === 'attach'
+          ? inputResultVersion
+          : createsResultVersion ? targetResultVersion ?? nextStageResultVersion(beforeOutputs, stageId)
           : undefined;
         const insertedArtifacts: CreatorArtifact[] = [];
         const changedKinds = new Set(result.outputs.map(output => output.kind));
@@ -283,7 +288,9 @@ export function createCreatorStageRunner(input: {
         const baseResultVersion = readPositiveInteger(stageRun!.progress.baseResultVersion);
         const snapshotPatch = insertedArtifacts.length === 0 || resultVersion === undefined
           ? {}
-          : appendCreatorResultSnapshot({
+          : stage.resultVersionPolicy === 'attach'
+            ? attachCreatorResultArtifacts(latest, resultVersion, insertedArtifacts)
+            : appendCreatorResultSnapshot({
               job: latest,
               version: resultVersion,
               ...(baseResultVersion === undefined ? {} : { baseResultVersion }),
@@ -300,7 +307,9 @@ export function createCreatorStageRunner(input: {
         updateJob(
           input.repository,
           latest,
-          unresolvedScopedFailure
+          stage.jobCompletionPolicy === 'preserve'
+            ? latest.status
+            : unresolvedScopedFailure
             ? 'needs_input'
             : stage.jobCompletionPolicy === 'continue'
               ? 'running'
@@ -358,19 +367,21 @@ export function createCreatorStageRunner(input: {
           });
           const job = input.repository.getJob(jobId);
           if (job !== undefined) {
+            const preserveJob = input.templates.get(job.templateId, job.templateVersion).stages
+              .find(candidate => candidate.id === stageId)?.jobCompletionPolicy === 'preserve';
             const outputValidation = error instanceof CreatorOutputValidationError;
             const scopedFailure = stageRun!.scopeKey !== null && !canceled;
             updateJob(
               input.repository,
               job,
-              canceled
+              preserveJob ? job.status : canceled
                 ? 'canceled'
                 : outputValidation || scopedFailure || configurationInput !== null
                   ? 'needs_input'
                   : 'failed',
               {
                 currentStage: stageId,
-                ...(outputValidation
+                ...(!preserveJob && outputValidation
                   ? {
                       needsInput: {
                         code: failureCode,
@@ -378,9 +389,9 @@ export function createCreatorStageRunner(input: {
                         stageId
                       }
                     }
-                  : configurationInput !== null
+                  : !preserveJob && configurationInput !== null
                   ? { needsInput: configurationInput }
-                  : scopedFailure
+                  : !preserveJob && scopedFailure
                     ? {
                         needsInput: {
                           code: failureCode,
@@ -561,10 +572,12 @@ export function createCreatorStageRunner(input: {
         });
         const job = input.repository.getJob(current.jobId);
         if (job !== undefined) {
+          const preserveJob = input.templates.get(job.templateId, job.templateVersion).stages
+            .find(candidate => candidate.id === current.stageId)?.jobCompletionPolicy === 'preserve';
           updateJob(
             input.repository,
             job,
-            'canceled',
+            preserveJob ? job.status : 'canceled',
             { currentStage: current.stageId },
             input.onJobChanged
           );

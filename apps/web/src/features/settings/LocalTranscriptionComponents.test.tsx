@@ -1,10 +1,16 @@
 import type { CreatorLocalComponent, CreatorRuntimeComponentsResponse } from '@opencreator/protocol';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import { languagePreferenceStorageKey } from '../../i18n/language.js';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 import { LocalTranscriptionComponents } from './LocalTranscriptionComponents.js';
 import { LocalTranscriptionNotice } from '../dashboard/LocalTranscriptionNotice.js';
+import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
+import { localComponentPreparationMessage } from './local-component-copy.js';
+
+beforeEach(() => window.localStorage.removeItem(languagePreferenceStorageKey));
 
 function componentFixture(patch: Partial<CreatorLocalComponent> = {}): CreatorLocalComponent {
   return { id: 'whisperkit', name: 'WhisperKit', available: true, version: null, supportedVersion: '1.1.0', installedAt: null,
@@ -19,6 +25,35 @@ function controllerFixture(patch: Partial<CreatorLocalComponent> = {}, provider 
 }
 
 describe('local transcription component management', () => {
+  it.each(['downloading', 'verifying', 'extracting'] as const)('switches %s progress copy without restarting component preparation', state => {
+    const rawMessage = '后台原文：正在校验转录模型';
+    const controller = controllerFixture({ state, percent: 50, downloadedBytes: 1024 ** 3, totalBytes: 2 * 1024 ** 3, message: rawMessage });
+    render(<LanguageProvider initialPreference="zh-CN"><LanguageSwitchControls /><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
+    for (const language of ['zh-CN', 'en-US', 'sv-SE'] as const) {
+      fireEvent.click(screen.getByRole('button', { name: language }));
+      const expected = localComponentPreparationMessage(state, createLocalizedCopy(language));
+      expect(screen.getByText(expected)).toBeVisible();
+      if (language !== 'zh-CN') expect(expected).not.toMatch(/\p{Script=Han}/u);
+      if (state === 'downloading') expect(screen.getByRole('progressbar')).toHaveAttribute('value', '50');
+      else expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(rawMessage)).not.toBeInTheDocument();
+    expect(controller.refreshComponents).toHaveBeenCalledOnce();
+    expect(controller.downloadComponents).not.toHaveBeenCalled();
+  });
+
+  it('localizes a failed component while keeping its original error in a collapsed disclosure', () => {
+    const raw = '下载模型失败：连接被拒绝';
+    render(<LanguageProvider initialPreference="en-US"><LanguageSwitchControls /><LocalTranscriptionComponents controller={controllerFixture({ state: 'failed', error: raw })} /></LanguageProvider>);
+    expect(screen.getByText(/Local transcription preparation failed/)).toBeVisible();
+    expect(screen.getByText(raw)).not.toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+    expect(screen.getByText(/Förberedelsen av lokal transkription misslyckades/)).toBeVisible();
+    expect(screen.getByText(raw)).not.toBeVisible();
+    fireEvent.click(screen.getByText('Visa ursprunglig diagnostik'));
+    expect(screen.getByText(raw)).toBeVisible();
+  });
+
   it('shows engine and model information and starts a manual download', async () => {
     const controller = controllerFixture();
     render(<LanguageProvider><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
@@ -74,7 +109,7 @@ describe('local transcription component management', () => {
 
   it('shows a failed status check without claiming success or starting a download', async () => {
     const controller = controllerFixture({ state: 'ready', version: '1.1.0' });
-    render(<LanguageProvider><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
+    render(<LanguageProvider><LanguageSwitchControls /><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
     vi.mocked(controller.refreshComponents!).mockRejectedValueOnce(new Error('status unavailable'));
 
     fireEvent.click(screen.getByRole('button', { name: '检查状态' }));
@@ -83,6 +118,14 @@ describe('local transcription component management', () => {
     expect(screen.queryByText('检查完成，本地组件已就绪。')).not.toBeInTheDocument();
     expect(controller.downloadComponents).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: '检查状态' })).not.toBeDisabled();
+    expect(screen.getByText('status unavailable')).not.toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'en-US' }));
+    expect(screen.getByText('Component status check failed. Check the service connection and retry.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+    expect(screen.getByText('Kontrollen av komponentstatus misslyckades. Kontrollera anslutningen till tjänsten och försök igen.')).toBeVisible();
+    expect(screen.getByText('status unavailable')).not.toBeVisible();
+    expect(controller.refreshComponents).toHaveBeenCalledTimes(2);
+    expect(controller.downloadComponents).not.toHaveBeenCalled();
   });
 
   it('keeps detailed component information available in a collapsed disclosure', () => {
@@ -127,7 +170,7 @@ describe('local transcription component management', () => {
   ])('keeps $state progress visible outside the folded details', ({ state, label }) => {
     render(<LanguageProvider><LocalTranscriptionComponents controller={controllerFixture({ state })} /></LanguageProvider>);
     expect(screen.getByText(label)).toBeVisible();
-    expect(screen.getByText(/当前尚未开始转录/)).toBeVisible();
+    expect(screen.getByText(localComponentPreparationMessage(state, createLocalizedCopy('zh-CN')))).toBeVisible();
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
@@ -177,11 +220,21 @@ describe('video translation component notice', () => {
   it('explains conditional transcription and preserves context before navigating', () => {
     const beforeNavigate = vi.fn();
     window.location.hash = '#/workbench?tool=video-translation&jobId=job_1';
-    render(<LanguageProvider><LocalTranscriptionNotice controller={controllerFixture()} platformCaptions importedSubtitle={false} beforeNavigate={beforeNavigate} /></LanguageProvider>);
+    const controller = controllerFixture();
+    render(<LanguageProvider><LanguageSwitchControls /><LocalTranscriptionNotice controller={controller} platformCaptions importedSubtitle={false} beforeNavigate={beforeNavigate} /></LanguageProvider>);
     expect(screen.getByText(/没有可用字幕时才需要本地转录/)).toBeInTheDocument();
     const link = screen.getByRole('link', { name: '前往组件下载' });
     expect(link.getAttribute('href')).toContain('component=whisperkit');
     expect(link.getAttribute('href')).toContain('returnPath=');
+    const href = link.getAttribute('href');
+    fireEvent.click(screen.getByRole('button', { name: 'en-US' }));
+    expect(screen.getByText(/Local transcription is needed only when captions are unavailable/)).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Go to component downloads' })).toHaveAttribute('href', href);
+    fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+    expect(screen.getByText(/Lokal transkription behövs endast när undertexter saknas/)).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Gå till komponentnedladdningar' })).toHaveAttribute('href', href);
+    expect(beforeNavigate).not.toHaveBeenCalled();
+    expect(controller.downloadComponents).not.toHaveBeenCalled();
     fireEvent.click(link);
     expect(beforeNavigate).toHaveBeenCalledOnce();
   });

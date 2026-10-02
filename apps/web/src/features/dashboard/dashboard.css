@@ -11320,6 +11320,24 @@
   line-height: 1.5;
 }
 
+.video-result-preview-empty {
+  display: grid;
+  gap: 12px;
+  max-width: 340px;
+  margin: auto;
+  padding: 24px;
+  text-align: center;
+}
+
+.video-result-preview-empty p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.video-result-preview-empty button {
+  justify-self: center;
+}
+
 .video-translation-dropzone {
   position: relative;
   width: min(592px, 100%);

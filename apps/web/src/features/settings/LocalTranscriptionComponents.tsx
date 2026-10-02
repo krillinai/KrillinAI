@@ -3,6 +3,9 @@ import { ChevronDown, Download, LoaderCircle, RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
+import { useAppLanguage } from '../../i18n/LanguageProvider.js';
+import { OriginalErrorDetails } from '../issues/OriginalErrorDetails.js';
+import { localComponentPreparationMessage } from './local-component-copy.js';
 import './local-transcription.css';
 
 export function componentProgressText(component: Pick<CreatorLocalComponent, 'downloadedBytes' | 'totalBytes' | 'bytesPerSecond' | 'remainingSeconds'>): string {
@@ -16,9 +19,10 @@ export function LocalTranscriptionComponents({ controller, componentId, onReturn
   onReturn?(): void;
 }) {
   const localize = useLocalizedCopy();
+  const { language } = useAppLanguage();
   const [action, setAction] = useState<{ componentId: string; kind: 'check' | 'download' }>();
   const [checkedComponentId, setCheckedComponentId] = useState<string>();
-  const [actionError, setActionError] = useState<string>();
+  const [actionError, setActionError] = useState<{ kind: 'check' | 'download'; detail: string }>();
   const status = controller.componentsStatus;
   const refreshComponents = controller.refreshComponents;
   const downloadComponents = controller.downloadComponents;
@@ -38,7 +42,7 @@ export function LocalTranscriptionComponents({ controller, componentId, onReturn
       await run();
       if (kind === 'check') setCheckedComponentId(id);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : String(error));
+      setActionError({ kind, detail: error instanceof Error ? error.message : String(error) });
     } finally {
       setAction(undefined);
     }
@@ -46,8 +50,10 @@ export function LocalTranscriptionComponents({ controller, componentId, onReturn
 
   return <div className="local-transcription-components">
     {onReturn ? <button type="button" className="settings-secondary-button" onClick={onReturn}>{localize('返回视频翻译', 'Return to video translation')}</button> : null}
-    {controller.componentError ? <p role="alert">{localize('无法读取或下载本地转录组件：', 'Cannot read or download local components: ')}{controller.componentError} <button type="button" onClick={() => void controller.refreshComponents?.()}>{localize('重试', 'Retry')}</button></p> : null}
-    {actionError ? <p role="alert">{actionError}</p> : null}
+    {controller.componentError ? <div role="alert"><p>{localize('无法读取本地转录组件状态，请检查服务连接后重试。', 'Cannot read local transcription component status. Check the service connection and retry.', 'Det går inte att läsa status för lokala transkriptionskomponenter. Kontrollera anslutningen till tjänsten och försök igen.')} <button type="button" onClick={() => void controller.refreshComponents?.()}>{localize('重试', 'Retry')}</button></p><OriginalErrorDetails detail={controller.componentError} /></div> : null}
+    {actionError ? <div role="alert"><p>{actionError.kind === 'check'
+      ? localize('组件状态检查失败，请检查服务连接后重试。', 'Component status check failed. Check the service connection and retry.', 'Kontrollen av komponentstatus misslyckades. Kontrollera anslutningen till tjänsten och försök igen.')
+      : localize('无法启动组件下载，请检查服务连接后重试。', 'Could not start the component download. Check the service connection and retry.', 'Det gick inte att starta komponentnedladdningen. Kontrollera anslutningen till tjänsten och försök igen.')}</p><OriginalErrorDetails detail={actionError.detail} /></div> : null}
     {!status && !controller.componentError && controller.refreshComponents ? <p role="status">{localize('正在检查本地转录组件', 'Checking local transcription components')}</p> : null}
     {status?.components.filter(component => component.available).map(component => {
       const selected = component.id === status.selectedProvider;
@@ -87,20 +93,20 @@ export function LocalTranscriptionComponents({ controller, componentId, onReturn
             <div><dt>{localize('Runtime 平台', 'Runtime platform')}</dt><dd>{status.platform} / {status.arch}</dd></div>
             <div><dt>{localize('安装位置', 'Install location')}</dt><dd>{component.path}</dd></div>
             <div><dt>{localize('资源来源与校验', 'Source and verification')}</dt><dd>{component.source}</dd></div>
-            <div><dt>{localize('安装时间', 'Installed at')}</dt><dd>{component.installedAt ? new Date(component.installedAt).toLocaleString() : '—'}</dd></div>
+            <div><dt>{localize('安装时间', 'Installed at')}</dt><dd>{component.installedAt ? new Date(component.installedAt).toLocaleString(language) : '—'}</dd></div>
             <div><dt>{localize('模型列表', 'Models')}</dt><dd><ul className="local-component-models">{component.models.map(model => <li key={model.id}>{model.id} · {model.installed ? localize('已安装并通过检查', 'Installed and checked') : localize('未安装', 'Not installed')}{model.bytes === null ? '' : ` · ${(model.bytes / 1024 ** 3).toFixed(2)} GiB`}</li>)}</ul></dd></div>
           </dl>
         </details>
         {busy ? <div className="local-component-progress" role="status">
           <strong>{component.item ?? (component.state === 'verifying' ? localize('正在检查本地组件', 'Checking local components') : localize('正在连接下载服务器', 'Connecting to download server'))}</strong>
-          {component.message ? <p>{component.message}</p> : null}
+          <p>{localComponentPreparationMessage(component.state, localize)}</p>
           {component.state === 'downloading' ? <>
             <progress max={100} value={component.percent ?? undefined} aria-label={localize('组件下载进度', 'Component download progress')} />
             <span>{component.percent === null ? '' : `${Math.floor(component.percent)}% · `}{componentProgressText(component)}</span>
           </> : null}
           <p>{localize('模型文件较大，可能需要较长时间。当前尚未开始转录；准备完成后将自动继续，无需重新开始任务。', 'Models are large and may take time to prepare. Transcription has not started yet; the task continues automatically after preparation.')}</p>
         </div> : null}
-        {component.error ? <p role="alert">{component.error}</p> : null}
+        {component.error ? <div role="alert"><p>{localize('本地转录组件准备失败。已有字幕不受影响，可检查诊断信息后重试下载。', 'Local transcription preparation failed. Existing subtitles are unchanged; check the diagnostics and retry the download.', 'Förberedelsen av lokal transkription misslyckades. Befintliga undertexter är oförändrade; kontrollera diagnostiken och försök ladda ned igen.')}</p><OriginalErrorDetails detail={component.error} /></div> : null}
         {checkedComponentId === component.id && !controller.componentError && !actionError && !busy ? <p className="local-component-check-notice" role="status">{component.state === 'ready' ? localize('检查完成，本地组件已就绪。', 'Check complete. Local components are ready.') : localize('组件状态已刷新，尚未开始下载。', 'Component status refreshed. No downloads have started.')}</p> : null}
         {!busy && canDownload ? <p>{localize('将准备所需资源：', 'Resources to prepare: ')}{requiredResources || localize('当前转录引擎和模型', 'the current transcription engine and model')}{localize('。', '.')}</p> : null}
         {!busy ? <footer className="runtime-component-footer">

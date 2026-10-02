@@ -3,8 +3,10 @@ import type {
   CreatorJson,
   CreatorStageRun
 } from '@opencreator/protocol';
+import type { LocalizeCopy } from '../../i18n/localized-copy.js';
+import { localComponentPreparationMessage } from '../settings/local-component-copy.js';
 
-export type CreatorPanelLocalize = (zh: string, en: string) => string;
+export type CreatorPanelLocalize = LocalizeCopy;
 
 export type NormalizedCreatorActivity = {
   label: string;
@@ -13,6 +15,7 @@ export type NormalizedCreatorActivity = {
 
 export type CreatorStageProgressView = {
   detailsHref?: string;
+  showMessage?: boolean;
   percent: number | null;
   indeterminate?: boolean;
   phase: string | null;
@@ -32,7 +35,7 @@ export type CreatorPanelAdapter = {
     activity: CreatorActivity,
     l: CreatorPanelLocalize
   ): NormalizedCreatorActivity | null;
-  readStageProgress(stage: CreatorStageRun): CreatorStageProgressView;
+  readStageProgress(stage: CreatorStageRun, localize: CreatorPanelLocalize): CreatorStageProgressView;
   aggregateStages?(stages: CreatorStageRun[]): CreatorStageRun[];
   runningProgressText?(
     stage: CreatorStageRun,
@@ -70,8 +73,14 @@ const genericAdapter: CreatorPanelAdapter = {
 export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
   id: 'video-translation',
   failedProgressText(stage, l) {
+    if (stage.stageId === 'prepare-source-video') return l('原视频准备失败，已有字幕未受影响，可重试', 'Source video preparation failed; subtitles are preserved. You can retry.');
     return stage.errorCode === 'creator_dependency_prepare_failed'
       ? l('本地转录组件准备失败，可前往组件页查看原因并重试', 'Local transcription preparation failed. View the component page and retry.')
+      : null;
+  },
+  succeededProgressText(stage, localize) {
+    return stage.stageId === 'prepare-source-video'
+      ? localize('原视频已就绪，已有字幕保持不变', 'Source video ready; existing subtitles are unchanged')
       : null;
   },
   composerPlaceholder: l => l(
@@ -80,6 +89,7 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
   ),
   stageLabel(stageId, l) {
     if (stageId === 'subtitle') return l('字幕翻译', 'Subtitle translation');
+    if (stageId === 'prepare-source-video') return l('原视频预览准备', 'Source video preview preparation');
     if (stageId === 'tts') return l('配音生成', 'Dubbing');
     if (stageId === 'render-horizontal') return l('横屏成片', 'Landscape render');
     if (stageId === 'render-vertical') return l('竖屏成片', 'Portrait render');
@@ -94,6 +104,12 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
       translating_subtitles: l('翻译字幕', 'Translating subtitles'),
       collecting_subtitles: l('生成双语字幕', 'Generating bilingual subtitles'),
       preparing_original_media: l('准备原始视频', 'Preparing the original video'),
+      preparing_download: l('连接原视频来源', 'Connecting to the source video'),
+      downloading: l('下载原视频资源', 'Downloading original-video resources'),
+      merging_media: l('合并视频和音轨', 'Merging video and audio'),
+      validating_output: l('校验预览视频', 'Checking the preview video'),
+      normalizing_media: l('转换为可播放格式', 'Converting for playback'),
+      completed: l('处理完成', 'Processing complete'),
       preparing_audio: l('准备音频转录', 'Preparing audio transcription'),
       downloading_dependencies: l('下载本地转录组件（尚未开始转录）', 'Downloading local components (transcription has not started)'),
       verifying_dependencies: l('校验本地转录组件', 'Verifying local transcription components'),
@@ -110,6 +126,7 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
   normalizeActivity(activity, l) {
     if (activity.action === 'run-stage') {
       const stageId = readActivityStageId(activity);
+      if (stageId === 'prepare-source-video') return { label: l('开始准备原视频预览，保留已有字幕', 'Started preparing source video preview; existing subtitles are preserved'), fields: [] };
       return {
         label: stageId === null
           ? l('启动了视频翻译任务', 'Started a video translation task')
@@ -124,9 +141,21 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
       editSubtitle: l('保存了字幕修改', 'Saved subtitle changes')
     }, videoTranslationFieldLabel);
   },
-  readStageProgress(stage) {
+  readStageProgress(stage, localize) {
     const standard = readStandardProgress(stage);
-    if (standard.phase?.endsWith('_dependencies')) {
+    if (stage.stageId === 'prepare-source-video') {
+      const bytes = readFiniteNumber(stage.progress.downloadedBytes) ?? 0;
+      const total = readFiniteNumber(stage.progress.totalBytes);
+      const amount = `${(bytes / 1024 ** 2).toFixed(1)} MiB${total === null ? '' : ` / ${(total / 1024 ** 2).toFixed(1)} MiB`}`;
+      return { ...standard,
+        showMessage: true,
+        percent: standard.phase === 'downloading' || standard.phase === 'completed' ? standard.percent : null,
+        indeterminate: standard.phase !== 'completed' && (standard.phase !== 'downloading' || standard.percent === null),
+        message: standard.phase === 'downloading'
+          ? localize(`正在下载当前视频资源：${amount}。仅用于预览，不会重新翻译。`, `Downloading the current video resource: ${amount}. Preview only; subtitles will not be translated again.`, `Laddar ned den aktuella videoresursen: ${amount}. Endast för förhandsvisning; undertexterna översätts inte igen.`)
+          : localize('正在准备原视频预览，已完成的字幕会保留，不会重新翻译。', 'Preparing source video preview. Existing subtitles are preserved and will not be translated again.') };
+    }
+    if (standard.phase?.endsWith('_dependencies') || standard.phase === 'dependencies_ready') {
       const downloaded = readFiniteNumber(stage.progress.downloadedBytes) ?? 0;
       const total = readFiniteNumber(stage.progress.totalBytes);
       const speed = readFiniteNumber(stage.progress.bytesPerSecond);
@@ -134,9 +163,12 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
       const format = (bytes: number) => bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(2)} GiB` : `${(bytes / 1024 ** 2).toFixed(1)} MiB`;
       const bytes = `${format(downloaded)}${total === null ? '' : ` / ${format(total)}`}${speed ? ` · ${format(speed)}/s` : ''}${remaining === null ? '' : ` · ~${Math.ceil(remaining / 60)} min`}`;
       return { ...standard,
+        showMessage: true,
         percent: standard.phase === 'downloading_dependencies' ? readFiniteNumber(stage.progress.dependencyPercent) : null,
         indeterminate: standard.phase !== 'downloading_dependencies' || readFiniteNumber(stage.progress.dependencyPercent) === null,
-        message: `${standard.message ?? ''}${standard.phase === 'downloading_dependencies' ? ` ${bytes}` : ''}`,
+        message: `${standard.phase === 'dependencies_ready'
+          ? localize('本地转录组件已准备完成，正在开始语音转录', 'Local transcription components are ready; starting transcription.', 'De lokala transkriptionskomponenterna är redo; startar transkriptionen.')
+          : localComponentPreparationMessage(standard.phase === 'verifying_dependencies' ? 'verifying' : standard.phase === 'extracting_dependencies' ? 'extracting' : 'downloading', localize)}${standard.phase === 'downloading_dependencies' ? ` ${bytes}` : ''}`,
         detailsHref: `#/settings?tab=local-components&from=video-translation&returnPath=${encodeURIComponent(`#/workbench?tool=video-translation&jobId=${encodeURIComponent(stage.jobId)}`)}`
       };
     }

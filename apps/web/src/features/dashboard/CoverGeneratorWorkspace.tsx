@@ -534,7 +534,7 @@ export default function CoverGeneratorWorkspace(props: {
         failed: null,
         total: null
       }
-    : coverPanelAdapter.readStageProgress(activeStage);
+    : coverPanelAdapter.readStageProgress(activeStage, l);
   const progressStatus = activeStage === undefined
     ? ''
     : coverPanelAdapter.runningProgressText?.(activeStage, workflowProgress, l)

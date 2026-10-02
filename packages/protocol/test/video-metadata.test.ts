@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseBilibiliVideoSource } from '../src/video-metadata.js';
+import { parseBilibiliVideoSource, videoSourceIdentity } from '../src/video-metadata.js';
 
 describe('Bilibili video sources', () => {
   it('preserves the selected part while removing tracking parameters', () => {
@@ -20,5 +20,24 @@ describe('Bilibili video sources', () => {
 
   it('rejects lookalike hosts', () => {
     expect(parseBilibiliVideoSource('https://notbilibili.com/video/BV18E421w7bf?p=3')).toBeNull();
+  });
+});
+
+describe('video source identity', () => {
+  it('ignores tracking but keeps Bilibili parts distinct', () => {
+    const source = 'https://www.bilibili.com/video/BV18E421w7bf';
+    expect(videoSourceIdentity(`${source}/?spm_id_from=share&p=3`)).toBe(videoSourceIdentity(`${source}?p=3&vd_source=other`));
+    expect(videoSourceIdentity(`${source}?p=3`)).not.toBe(videoSourceIdentity(`${source}?p=2`));
+    expect(videoSourceIdentity(source)).toBe(videoSourceIdentity(`${source}?p=1`));
+    expect(videoSourceIdentity(`${source}?p=invalid`)).toBeNull();
+  });
+
+  it.each(['https://youtu.be/demo?si=share', 'https://www.youtube.com/watch?v=demo&t=30',
+    'https://www.youtube.com/shorts/demo', 'https://www.youtube.com/embed/demo', 'https://www.youtube.com/live/demo'])('recognizes the same YouTube video: %s', source => {
+    expect(videoSourceIdentity(source)).toBe('youtube:demo');
+  });
+
+  it.each(['https://notyoutube.com/watch?v=demo', 'https://notbilibili.com/video/BV18E421w7bf', 'file:///tmp/video.mp4', 'not a URL'])('rejects unsupported sources: %s', source => {
+    expect(videoSourceIdentity(source)).toBeNull();
   });
 });

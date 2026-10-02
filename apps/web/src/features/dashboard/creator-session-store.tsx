@@ -30,7 +30,9 @@ import { createCreatorSnapshotSubscription, type CreatorConnectionState } from '
 import { useRuntimeRecovery } from '../../runtime/runtime-recovery.js';
 import { CreatorSessionContext } from './creator-session-context.js';
 import { normalizePageIssue } from '../issues/page-issue-state.js';
-import { presentIssue } from '../issues/issue-catalog.js';
+import { issueDiagnosticText, presentIssue } from '../issues/issue-catalog.js';
+import { useAppLanguage } from '../../i18n/LanguageProvider.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
 
 export type CreatorSessionContextValue = {
   connection?: CreatorConnectionState;
@@ -42,7 +44,7 @@ export type CreatorSessionContextValue = {
   issues: OpenCreatorIssue[];
   focusedIssue: OpenCreatorIssue | null;
   preflight: CreatorPreflightResponse | null;
-  runPreflight(stageId: string): Promise<CreatorPreflightResponse>;
+  runPreflight(stageId: string, options?: { inputResultVersion?: number }): Promise<CreatorPreflightResponse>;
   updateDraft(
     patch: Record<string, CreatorJson>,
     options?: { semantic?: boolean; persist?: boolean }
@@ -167,6 +169,7 @@ export function CreatorSessionProvider(props: {
     | 'subscribeJobEvents'>>;
   children: ReactNode;
 }) {
+  const { language } = useAppLanguage();
   const [confirmedJob, setConfirmedJob] = useState(props.initialJob);
   const [connection, setConnection] = useState<CreatorConnectionState>({ status: 'connecting', attempt: 0 });
   const subscriptionRef = useRef<ReturnType<typeof createCreatorSnapshotSubscription<CreatorJob, CreatorEventEnvelope>>>();
@@ -445,7 +448,7 @@ export function CreatorSessionProvider(props: {
     props.onAskPendingIssue(issue, question);
   }, [props.onAskPendingIssue]);
 
-  const runPreflight = useCallback(async (stageId: string) => {
+  const runPreflight = useCallback(async (stageId: string, options?: { inputResultVersion?: number }) => {
     if (props.service.preflight === undefined) {
       const cause = new Error('Creator preflight is unavailable');
       captureCreatorFailure('creator.preflight', cause, '启动条件检查暂不可用，请稍后重试。', 'preflight');
@@ -454,7 +457,9 @@ export function CreatorSessionProvider(props: {
     await flush();
     await ensurePersistedJob();
     try {
-      const result = await props.service.preflight(confirmedRef.current.id, stageId);
+      const result = options?.inputResultVersion === undefined
+        ? await props.service.preflight(confirmedRef.current.id, stageId)
+        : await props.service.preflight(confirmedRef.current.id, stageId, options);
       setPreflight(result);
       if (!result.canStart) throw new CreatorPreflightBlockedError(result);
       return result;
@@ -591,7 +596,8 @@ export function CreatorSessionProvider(props: {
       requestRevision = confirmedRef.current.revision;
       if (request.action === 'run-stage' && props.service.preflight !== undefined) {
         const stageId = request.input.stageId;
-        if (typeof stageId === 'string') await runPreflight(stageId);
+        if (typeof stageId === 'string') await runPreflight(stageId,
+          typeof request.input.inputResultVersion === 'number' ? { inputResultVersion: request.input.inputResultVersion } : undefined);
       }
       const response = await props.service.applyAction(confirmedRef.current.id, {
         ...request,
@@ -624,9 +630,11 @@ export function CreatorSessionProvider(props: {
       && candidate.operationId === 'creator.retry-stage'
     ));
     if (action === undefined || issue.stageId === undefined || issue.status !== 'open') return;
+    const failedStage = confirmedRef.current.stages.find(stage => stage.id === issue.stageRunId);
+    const inputResultVersion = failedStage?.progress.inputResultVersion;
     await applyAction({
       action: 'run-stage',
-      input: { stageId: issue.stageId },
+      input: { stageId: issue.stageId, ...(typeof inputResultVersion === 'number' ? { inputResultVersion } : {}) },
       repairIssueId: issue.id
     });
   }, [applyAction]);
@@ -840,7 +848,7 @@ export function CreatorSessionProvider(props: {
         ? focused.id
         : undefined;
       const contextualMessage = focused !== undefined && authoritativeIssueId === undefined
-        ? `${content}\n\n相关错误：${presentIssue(focused).description}`
+        ? `${content}\n\n${createLocalizedCopy(language)('相关错误：', 'Related error: ', 'Relaterat fel: ')}${presentIssue(focused, language).description}\n${issueDiagnosticText(focused, language)}`
         : content;
       const response = await start(confirmedRef.current.id, {
         message: contextualMessage,
@@ -862,7 +870,7 @@ export function CreatorSessionProvider(props: {
     } finally {
       await reloadAgentTimeline().catch(() => undefined);
     }
-  }, [captureCreatorFailure, ensurePersistedJob, flush, focusedIssueId, props.service, reloadAgentTimeline]);
+  }, [captureCreatorFailure, ensurePersistedJob, flush, focusedIssueId, language, props.service, reloadAgentTimeline]);
 
   const steerAgentTurn = useCallback(async (message: string) => {
     const content = message.trim();

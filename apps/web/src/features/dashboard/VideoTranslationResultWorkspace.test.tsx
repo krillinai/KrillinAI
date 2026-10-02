@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import VideoTranslationResultWorkspace from './VideoTranslationResultWorkspace.js';
+import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
 const baseProps = {
   version: 1,
@@ -39,6 +41,64 @@ const baseProps = {
 };
 
 describe('VideoTranslationResultWorkspace', () => {
+  it('localizes preview loading failures without modifying subtitles or automatically retrying', () => {
+    const raw = '后台原文：原视频读取失败';
+    const onPrepareSourceVideo = vi.fn();
+    render(<LanguageProvider initialPreference="zh-CN"><LanguageSwitchControls /><VideoTranslationResultWorkspace
+      {...baseProps} activeTab="subtitles" onPrepareSourceVideo={onPrepareSourceVideo}
+      subtitleVideoPreviews={{ horizontal: { artifactId: 'source', previewError: raw, source: true } }}
+    /></LanguageProvider>);
+    expect(screen.getByText('视频预览加载失败，请检查诊断信息后重试。')).toBeVisible();
+    expect(screen.getByText(raw)).not.toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'en-US' }));
+    expect(screen.getByText('Video preview failed to load. Check the diagnostics and retry.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+    expect(screen.getByText('Det gick inte att läsa in videoförhandsvisningen. Kontrollera diagnostiken och försök igen.')).toBeVisible();
+    expect(screen.getByText('真实字幕')).toBeVisible();
+    expect(screen.getByText(raw)).not.toBeVisible();
+    expect(onPrepareSourceVideo).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Visa ursprunglig diagnostik'));
+    expect(screen.getByText(raw)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Försök ladda ned originalvideon igen' }));
+    expect(onPrepareSourceVideo).toHaveBeenCalledOnce();
+  });
+  it('offers a user-triggered source download for subtitle preview', () => {
+    const onPrepareSourceVideo = vi.fn();
+    render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" onPrepareSourceVideo={onPrepareSourceVideo} />);
+    expect(screen.getByText('字幕已翻译完成')).toBeInTheDocument();
+    expect(onPrepareSourceVideo).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '下载原视频并预览' }));
+    expect(onPrepareSourceVideo).toHaveBeenCalledOnce();
+    expect(screen.getByText('真实字幕')).toBeInTheDocument();
+  });
+
+  it('disables duplicate downloads and directs users to the shared task panel', () => {
+    render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" onPrepareSourceVideo={vi.fn()} previewPreparation={{ pending: true }} />);
+    expect(screen.getByRole('button', { name: /正在准备/ })).toBeDisabled();
+    expect(screen.getByText(/右侧任务面板/)).toBeInTheDocument();
+  });
+
+  it('offers retry after failure without blocking subtitle editing', () => {
+    const onPrepareSourceVideo = vi.fn();
+    render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" onPrepareSourceVideo={onPrepareSourceVideo} previewPreparation={{ pending: false, error: '下载失败，字幕仍可编辑' }} />);
+    fireEvent.click(screen.getByRole('button', { name: '重试下载原视频' }));
+    expect(onPrepareSourceVideo).toHaveBeenCalledOnce();
+    expect(screen.getByText('下载失败，字幕仍可编辑')).toBeInTheDocument();
+    expect(screen.getByText('真实字幕')).toBeInTheDocument();
+  });
+
+  it('does not show a fake download entry when no source preparation capability is provided', () => {
+    render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" />);
+    expect(screen.queryByRole('button', { name: '下载原视频并预览' })).not.toBeInTheDocument();
+  });
+
+  it('does not redownload when a playable source already exists', () => {
+    render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" onPrepareSourceVideo={vi.fn()}
+      subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }} />);
+    expect(screen.getByLabelText('横屏字幕视频预览')).toHaveAttribute('src', 'blob:source');
+    expect(screen.queryByRole('button', { name: '下载原视频并预览' })).not.toBeInTheDocument();
+  });
+
   it('shows subtitle-only output in an always-visible outputs tab', () => {
     const onExport = vi.fn();
     render(

@@ -23,7 +23,10 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import OpenCreatorMark from '../../components/brand/OpenCreatorMark.js';
 import { MarkdownRenderer } from '../../components/markdown/MarkdownRenderer.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
-import { issueConversationText } from '../issues/issue-catalog.js';
+import { useAppLanguage } from '../../i18n/LanguageProvider.js';
+import { issueConversationText, issueDiagnosticText } from '../issues/issue-catalog.js';
+import { OriginalErrorDetails } from '../issues/OriginalErrorDetails.js';
+import { creatorPreflightMessage } from './creator-preflight-copy.js';
 import ToolAgentComposer, { type ToolAgentPermission } from './ToolAgentComposer.js';
 import {
   creatorSystemIssueText,
@@ -253,9 +256,10 @@ export default function CreatorCollaborationPanel(props: {
             <ul>
               {session.preflight.blocked.map(item => (
                 <li key={item.id}>
-                  <span>{item.message}</span>
+                  <span>{creatorPreflightMessage(item.id, l)}</span>
+                  <OriginalErrorDetails detail={`${item.title}: ${item.message}`} />
                   {item.repair.deepLink === undefined ? null : (
-                    <a href={item.repair.deepLink}>{item.repair.label}</a>
+                    <a href={item.repair.deepLink}>{item.repair.deepLink.startsWith('#/settings') ? l('打开设置', 'Open settings') : l('查看详情', 'View details', 'Visa detaljer')}</a>
                   )}
                 </li>
               ))}
@@ -406,7 +410,8 @@ function CollaborationIssueView(props: {
   onFocus(): void;
 }) {
   const l = useLocalizedCopy();
-  const copy = issueConversationText(props.issue, l('zh-CN', 'en-US') as 'zh-CN' | 'en-US');
+  const { language } = useAppLanguage();
+  const copy = issueConversationText(props.issue, language);
   const retryable = props.issue.stageId !== undefined
     && props.issue.repairActions.some(action => (
       action.kind === 'retry-operation'
@@ -421,6 +426,7 @@ function CollaborationIssueView(props: {
       </header>
       <div className="creator-collaboration-bubble">
         <p>{copy.message}</p>
+        <OriginalErrorDetails detail={issueDiagnosticText(props.issue, language)} />
         {props.issue.status === 'resolving' ? <p>{l('正在检查修复结果。', 'Checking the repair result.')}</p> : null}
         {props.issue.status === 'resolved' ? <p>{l('这个问题已解决。', 'This issue has been resolved.')}</p> : null}
       </div>
@@ -492,7 +498,7 @@ function CollaborationStageView(props: {
   const l = useLocalizedCopy();
   const { stage, actor, adapter } = props;
   const label = adapter.stageLabel(stage.stageId, l);
-  const progress = adapter.readStageProgress(stage);
+  const progress = adapter.readStageProgress(stage, l);
   const percent = progress.percent === null
     ? null
     : Math.max(0, Math.min(100, Math.round(progress.percent)));
@@ -558,7 +564,7 @@ function CollaborationStageView(props: {
           <span style={percent === null ? undefined : { width: `${percent}%` }} />
         </div>
       ) : null}
-      {stage.status === 'running' && progress.detailsHref && progress.message ? <p className="creator-collaboration-stage-message" role="status">{progress.message}</p> : null}
+      {stage.status === 'running' && progress.showMessage && progress.message ? <p className="creator-collaboration-stage-message" role="status">{progress.message}</p> : null}
       {(stage.status === 'running' || stage.status === 'failed') && progress.detailsHref ? <a href={progress.detailsHref}>{l('查看组件下载详情', 'View component download details')}</a> : null}
     </article>
   );

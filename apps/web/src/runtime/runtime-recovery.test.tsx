@@ -2,8 +2,28 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { RuntimeRecoveryContext, RuntimeRecoveryNotice } from './runtime-recovery.js';
 import type { RuntimeRecovery } from './use-runtime-connection.js';
+import { LanguageProvider } from '../i18n/LanguageProvider.js';
+import { LanguageSwitchControls } from '../test/LanguageSwitchControls.js';
 
 describe('Runtime recovery controls', () => {
+  it('updates recovery copy without reconnecting or restarting when the language changes', () => {
+    const retry = vi.fn(async () => undefined);
+    const restart = vi.fn(async () => undefined);
+    const recovery: RuntimeRecovery = { state: { status: 'disconnected', message: '后台原文：服务断开' }, phase: 'reconnecting', attempt: 2, epoch: 1, retry, restart };
+    render(<LanguageProvider initialPreference="zh-CN"><LanguageSwitchControls /><RuntimeRecoveryContext.Provider value={recovery}><RuntimeRecoveryNotice /></RuntimeRecoveryContext.Provider></LanguageProvider>);
+    expect(screen.getByText(/正在自动重连/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'en-US' }));
+    expect(screen.getByText(/Reconnecting automatically/)).toBeVisible();
+    expect(screen.getByText(/does not restart tasks/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+    expect(screen.getByText(/Ansluter automatiskt igen/)).toBeVisible();
+    expect(screen.getByText(/startar inte om uppgifter/)).toBeVisible();
+    expect(screen.queryByText('后台原文：服务断开')).not.toBeInTheDocument();
+    expect(retry).not.toHaveBeenCalled();
+    expect(restart).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Anslut igen' }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
   it('shows automatic recovery and invokes the real supported restart after confirmation', async () => {
     const retry = vi.fn(async () => undefined);
     const restart = vi.fn(async () => undefined);

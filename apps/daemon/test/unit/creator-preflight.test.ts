@@ -20,6 +20,30 @@ afterEach(async () => {
 });
 
 describe('creator preflight', () => {
+  it('prepares preview from the saved Bilibili source without translation or Whisper credentials', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const config = createDefaultCreatorServicesConfig();
+    const job = fakeJob('video-translation', {
+      sourceType: 'url', sourceUrl: 'https://www.bilibili.com/video/BV18E421w7bf?p=99',
+      resultSnapshots: [{ version: 1, createdAt: '2026-10-02T00:00:00.000Z', action: 'stage-succeeded',
+        stageId: 'subtitle', description: 'Subtitles', artifactRefs: {}, changedArtifactIds: [], staleArtifactIds: [],
+        state: { sourceType: 'url', sourceUrl: 'https://www.bilibili.com/video/BV18E421w7bf?p=3' }
+      }]
+    });
+    const get = vi.fn(async () => ({ platform: 'bilibili' as const, title: 'Course',
+      parts: [1, 2, 3].map(index => ({ index, title: `Lesson ${index}` })) }));
+    const preflight = createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: join(root, 'runtime'), jobsRoot: join(root, 'jobs'),
+      executorIds: ['download'], validateRuntimeAssets: false, videoMetadataService: { get }
+    });
+    const stage = createVideoTranslationTemplate().stages.find(candidate => candidate.id === 'prepare-source-video')!;
+    expect((await preflight.check(job, stage, { inputResultVersion: 1 })).canStart).toBe(true);
+    expect(get).toHaveBeenCalledWith('https://www.bilibili.com/video/BV18E421w7bf?p=3');
+    expect((await preflight.check(job, stage)).blocked).toContainEqual(expect.objectContaining({ id: 'input-result-version' }));
+  });
+
   it.each([undefined, 3])('checks Bilibili selection for Agent stage requests: %s', async part => {
     root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
     const config = createDefaultCreatorServicesConfig();

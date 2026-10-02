@@ -109,14 +109,17 @@ describe('KrillinAI configured transcription dependency', () => {
     expect(fixture.ensure).not.toHaveBeenCalled();
   });
 
-  it.each(['different-url', 'unknown'])('does not reuse a source video with %s provenance when rendering a URL', async provenance => {
+  it.each(['different-url', 'different-part', 'unknown'])('does not reuse a source video with %s provenance when rendering a URL', async provenance => {
     const fixture = setup();
     const stage = fixture.stage as CreatorExecutorInput;
     stage.job.templateId = 'video-translation';
     stage.stageRun.stageId = 'render-horizontal';
+    if (provenance === 'different-part') stage.job.state.sourceUrl = 'https://www.bilibili.com/video/BV18E421w7bf?p=3';
     const previousVideo = stage.inputArtifacts[0]!;
     previousVideo.metadata = provenance === 'different-url'
       ? { settingsSnapshot: { sourceUrl: 'https://www.youtube.com/watch?v=previous' } }
+      : provenance === 'different-part'
+        ? { settingsSnapshot: { sourceUrl: 'https://www.bilibili.com/video/BV18E421w7bf?p=2' } }
       : {};
     const subtitle = writeTargetSubtitle(tempDir);
     stage.inputArtifacts.push({ id: 'target-subtitle', kind: 'target_subtitle', path: join(tempDir, subtitle.relativePath) } as never);
@@ -146,14 +149,17 @@ describe('KrillinAI configured transcription dependency', () => {
     expect(fixture.ensure).not.toHaveBeenCalled();
   });
 
-  it.each(['matching-url', 'local-file'])('retains a source video with %s provenance', async provenance => {
+  it.each(['matching-url', 'matching-part', 'local-file'])('retains a source video with %s provenance', async provenance => {
     const fixture = setup();
     const stage = fixture.stage as CreatorExecutorInput;
     stage.job.templateId = 'video-translation';
     stage.stageRun.stageId = 'tts';
     stage.job.state.sourceType = provenance === 'local-file' ? 'file' : 'url';
+    if (provenance === 'matching-part') stage.job.state.sourceUrl = 'https://www.bilibili.com/video/BV18E421w7bf?p=3&spm_id_from=share';
     stage.inputArtifacts[0]!.metadata = provenance === 'matching-url'
       ? { settingsSnapshot: { sourceUrl: stage.job.state.sourceUrl! } }
+      : provenance === 'matching-part'
+        ? { settingsSnapshot: { sourceUrl: 'https://www.bilibili.com/video/BV18E421w7bf/?p=3&vd_source=other' } }
       : {};
     runKrillinCli.mockImplementation(async input => {
       const outputDir = join(input.jobsRoot, stage.job.id, 'outputs');

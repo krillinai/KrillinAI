@@ -46,3 +46,21 @@ export function parseBilibiliVideoSource(value: string): {
     return null;
   }
 }
+
+export function videoSourceIdentity(value: string): string | null {
+  const bilibili = parseBilibiliVideoSource(value);
+  if (bilibili !== null) return `bilibili:${bilibili.videoId}:p${bilibili.partIndex ?? 1}`;
+  try {
+    const source = new URL(value.trim());
+    if (source.protocol !== 'http:' && source.protocol !== 'https:') return null;
+    const host = source.hostname.toLowerCase();
+    const videoId = host === 'youtu.be'
+      ? source.pathname.split('/').filter(Boolean)[0]
+      : host === 'youtube.com' || host.endsWith('.youtube.com')
+        ? source.searchParams.get('v') || source.pathname.match(/^\/(?:shorts|embed|live)\/([^/]+)\/?$/)?.[1]
+        : undefined;
+    return videoId && /^[A-Za-z0-9_-]+$/.test(videoId) ? `youtube:${videoId}` : null;
+  } catch {
+    return null;
+  }
+}

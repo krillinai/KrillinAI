@@ -8,7 +8,8 @@ import type {
   DownloadOption,
   DownloadProbe
 } from '@opencreator/protocol';
-import { extractDouyinShareUrl } from '@opencreator/protocol';
+import { extractDouyinShareUrl, parseBilibiliVideoSource, videoSourceIdentity } from '@opencreator/protocol';
+import { creatorResultSnapshotForVersion } from '../result-snapshots.js';
 import type {
   CreatorExecutor,
   CreatorExecutorInput,
@@ -55,6 +56,9 @@ export function createDownloadExecutor(
   return {
     id: 'download',
     async run(stage) {
+      if (stage.job.templateId === 'video-translation' && stage.stageRun.stageId === 'prepare-source-video') {
+        return preparePreviewSource(input, stage);
+      }
       const url = readSourceUrl(stage);
       if (!isSupported(url)) {
         throw new CreatorExecutorError(
@@ -79,7 +83,7 @@ export function createDownloadExecutor(
             'Stickman video accepts public YouTube URLs only'
           );
         }
-        return downloadStickmanSource(input, url, proxy, stage);
+        return downloadPlaybackSource(input, url, proxy, stage);
       }
       throw new CreatorExecutorError(
         'creator_stage_not_supported',
@@ -285,17 +289,94 @@ async function downloadSelectedOption(
   };
 }
 
-async function downloadStickmanSource(
+async function preparePreviewSource(
+  input: DownloadExecutorOptions,
+  stage: CreatorExecutorInput
+): Promise<CreatorExecutorResult> {
+  const version = stage.stageRun.progress.inputResultVersion;
+  const snapshot = typeof version === 'number'
+    ? creatorResultSnapshotForVersion(stage.job, version)
+    : undefined;
+  const sourceUrl = snapshot?.state.sourceUrl;
+  const identity = typeof sourceUrl === 'string' ? videoSourceIdentity(sourceUrl) : null;
+  if (snapshot === undefined || snapshot.state.sourceType === 'file' || typeof sourceUrl !== 'string' || identity === null) {
+    throw new CreatorExecutorError(
+      'creator_action_input_invalid',
+      'A saved YouTube or Bilibili result source is required for preview'
+    );
+  }
+  const resolvedStage = { ...stage, job: { ...stage.job, state: snapshot.state } };
+  const candidates = [...stage.job.artifacts].reverse().filter(artifact => {
+    if (artifact.kind !== 'source_video' || artifact.status !== 'completed' || artifact.path === null) return false;
+    const settings = artifact.metadata.settingsSnapshot;
+    const cachedUrl = settings !== null && typeof settings === 'object' && !Array.isArray(settings)
+      ? settings.sourceUrl ?? artifact.metadata.sourceUrl
+      : artifact.metadata.sourceUrl;
+    return typeof cachedUrl === 'string' && videoSourceIdentity(cachedUrl) === identity;
+  });
+  for (const cached of candidates) {
+    try {
+      const info = await stat(cached.path!);
+      if (!info.isFile() || info.size === 0) continue;
+      const output = await normalizeVideoForPlayback(cached.path!, input, resolvedStage, null);
+      const [media, outputInfo, sha256] = await Promise.all([
+        validateMediaFile(output.path, input.ffprobePath, input.ffprobePrefixArgs),
+        stat(output.path),
+        sha256File(output.path)
+      ]);
+      return {
+        outputs: [{
+          kind: 'source_video',
+          status: 'completed',
+          path: output.path,
+          sourceArtifactIds: [cached.id],
+          metadata: {
+            ...cached.metadata,
+            ...media,
+            fileName: output.fileName,
+            size: outputInfo.size,
+            bytes: outputInfo.size,
+            sha256,
+            mimeType: mimeTypeFor(output.path),
+            videoCodec: output.videoCodec,
+            audioCodec: output.audioCodec,
+            pixelFormat: output.pixelFormat,
+            settingsSnapshot: snapshot.state,
+            cacheReused: true,
+            playbackCompatible: true,
+            normalizedForPlayback: output.normalizedForPlayback
+          }
+        }],
+        progress: {
+          phase: 'completed',
+          percent: 100,
+          message: 'Source video is ready; existing subtitles are preserved'
+        }
+      };
+    } catch (error) {
+      if (stage.signal.aborted) throw error;
+    }
+  }
+  const bilibili = parseBilibiliVideoSource(sourceUrl);
+  const url = bilibili === null
+    ? sourceUrl
+    : `https://www.bilibili.com/video/${bilibili.videoId}?p=${bilibili.partIndex ?? 1}`;
+  const proxy = (await input.configStore.read()).proxy.trim();
+  return downloadPlaybackSource(input, url, proxy, resolvedStage);
+}
+
+async function downloadPlaybackSource(
   input: DownloadExecutorOptions,
   url: string,
   proxy: string,
   stage: CreatorExecutorInput
 ): Promise<CreatorExecutorResult> {
+  const preview = stage.stageRun.stageId === 'prepare-source-video';
   stage.reportProgress({
     status: 'running',
     phase: 'preparing_download',
-    percent: 2,
-    message: 'Preparing the YouTube source'
+    percent: preview ? null : 2,
+    message: preview ? 'Connecting to the original video source; existing subtitles are preserved' : 'Preparing the YouTube source'
   });
   const outputTemplate = join(stage.workdir, 'source.%(ext)s');
   const ytDlp = currentYtDlpRuntime(input);
@@ -315,8 +396,9 @@ async function downloadStickmanSource(
         '--progress',
         '--progress-delta',
         '0.5',
+        ...(preview ? ['--progress-template', 'download:oc-preview:%(progress)j'] : []),
         '-f',
-        'bestvideo+bestaudio/best',
+        preview ? 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]/best' : 'bestvideo+bestaudio/best',
         '--merge-output-format',
         'mp4',
         '--remux-video',
@@ -327,7 +409,7 @@ async function downloadStickmanSource(
       ], proxy)
     ],
     stage,
-    createDownloadProgressReporter(stage, 'video', [1]),
+    preview ? createPreviewProgressReporter(stage) : createDownloadProgressReporter(stage, 'video', [1]),
     ytDlp.env
   );
   const reportedPath = printedOutputPath(stdout);
@@ -343,8 +425,8 @@ async function downloadStickmanSource(
   stage.reportProgress({
     status: 'running',
     phase: 'validating_output',
-    percent: 97,
-    message: 'Checking the YouTube source'
+    percent: preview ? null : 97,
+    message: preview ? 'Checking the video for subtitle preview' : 'Checking the YouTube source'
   });
   const output = await normalizeVideoForPlayback(
     downloadedPath,
@@ -365,7 +447,7 @@ async function downloadStickmanSource(
     status: 'succeeded',
     phase: 'completed',
     percent: 100,
-    message: 'YouTube source downloaded'
+    message: preview ? 'Source video is ready; existing subtitles are preserved' : 'YouTube source downloaded'
   };
   stage.reportProgress(progress);
   return {
@@ -373,6 +455,7 @@ async function downloadStickmanSource(
       kind: 'source_video',
       status: 'completed',
       path: output.path,
+      ...(preview ? { sourceArtifactIds: [] } : {}),
       metadata: {
         ...media,
         fileName: output.fileName,
@@ -380,8 +463,9 @@ async function downloadStickmanSource(
         bytes: info.size,
         sha256,
         mimeType: mimeTypeFor(output.path),
-        source: 'stickman-video',
+        source: preview ? 'video-translation-preview' : 'stickman-video',
         sourceUrl: url,
+        ...(preview ? { settingsSnapshot: stage.job.state } : {}),
         videoCodec: output.videoCodec,
         audioCodec: output.audioCodec,
         pixelFormat: output.pixelFormat,
@@ -390,6 +474,36 @@ async function downloadStickmanSource(
       }
     }],
     progress
+  };
+}
+
+function createPreviewProgressReporter(stage: CreatorExecutorInput): (line: string) => void {
+  return line => {
+    const marker = line.indexOf('oc-preview:');
+    if (marker >= 0) {
+      try {
+        const data = JSON.parse(line.slice(marker + 'oc-preview:'.length)) as Record<string, unknown>;
+        const bytes = typeof data.downloaded_bytes === 'number' && Number.isFinite(data.downloaded_bytes)
+          ? Math.max(0, data.downloaded_bytes)
+          : 0;
+        const total = typeof data.total_bytes === 'number' && Number.isFinite(data.total_bytes) && data.total_bytes > 0
+          ? data.total_bytes
+          : typeof data.total_bytes_estimate === 'number' && Number.isFinite(data.total_bytes_estimate) && data.total_bytes_estimate > 0
+            ? data.total_bytes_estimate
+            : null;
+        stage.reportProgress({
+          phase: 'downloading',
+          percent: total === null ? null : Math.min(100, Math.max(0, bytes / total * 100)),
+          message: 'Downloading the current original-video resource; existing subtitles are preserved',
+          downloadedBytes: bytes,
+          totalBytes: total
+        });
+      } catch {}
+      return;
+    }
+    if (/\[(?:Merger|VideoRemuxer)\]/.test(line)) {
+      stage.reportProgress({ phase: 'merging_media', percent: null, message: 'Merging video and audio for subtitle preview' });
+    }
   };
 }
 
@@ -692,7 +806,7 @@ async function normalizeVideoForPlayback(
   stage.reportProgress({
     status: 'running',
     phase: 'normalizing_media',
-    percent: 98,
+    percent: stage.stageRun.stageId === 'prepare-source-video' ? null : 98,
     message: 'Converting video for local playback'
   });
   const outputPath = playbackOutputPath(path);
@@ -764,7 +878,7 @@ function reportPlaybackConversionProgress(
   line: string,
   duration: number | null
 ): void {
-  if (duration === null || duration <= 0) return;
+  if (duration === null || duration <= 0 || stage.stageRun.stageId === 'prepare-source-video') return;
   const match = line.match(/^out_time=(\d+):(\d+):([\d.]+)$/);
   if (match === null) return;
   const elapsed = (

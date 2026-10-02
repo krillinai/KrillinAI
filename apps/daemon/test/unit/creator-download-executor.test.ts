@@ -29,6 +29,59 @@ afterEach(async () => {
 });
 
 describe('creator download executor', () => {
+  it('prepares the saved Bilibili part without translating or using the current draft source', async () => {
+    const executor = createDownloadExecutor(await fakeBinaries());
+    const workdir = join(tempDir, 'preview');
+    await mkdir(workdir);
+    const reportProgress = vi.fn();
+    const sourceUrl = 'https://www.bilibili.com/video/BV18E421w7bf/?spm_id_from=share&p=3';
+    const result = await executor.run(previewInput({ workdir, sourceUrl, reportProgress }));
+    const args = JSON.parse(await readFile(join(workdir, 'args.json'), 'utf8')) as string[];
+    expect(args).toContain('https://www.bilibili.com/video/BV18E421w7bf?p=3');
+    expect(args).toContain('--no-playlist');
+    expect(args).toContain('download:oc-preview:%(progress)j');
+    expect(args).not.toContain('--extract-audio');
+    expect(result.outputs).toEqual([expect.objectContaining({
+      kind: 'source_video', status: 'completed', sourceArtifactIds: [],
+      metadata: expect.objectContaining({ settingsSnapshot: expect.objectContaining({ sourceUrl }), playbackCompatible: true })
+    })]);
+    expect(reportProgress).toHaveBeenCalledWith(expect.objectContaining({ phase: 'downloading', percent: 42, downloadedBytes: 42, totalBytes: 100 }));
+    expect(reportProgress).toHaveBeenCalledWith(expect.objectContaining({ phase: 'downloading', percent: null, downloadedBytes: 10, totalBytes: null }));
+    expect(reportProgress).toHaveBeenCalledWith(expect.objectContaining({ phase: 'merging_media', percent: null }));
+  });
+
+  it.each(['matching', 'different-part', 'missing', 'invalid'])('handles %s preview cache without mixing Bilibili parts', async cache => {
+    const executor = createDownloadExecutor(await fakeBinaries({ videoCodec: 'vp9' }));
+    const workdir = join(tempDir, 'preview');
+    await mkdir(workdir);
+    const cachedPath = join(tempDir, 'cached.mp4');
+    if (cache !== 'missing') await writeFile(cachedPath, cache === 'invalid' ? '' : 'cached-video');
+    const sourceUrl = 'https://www.bilibili.com/video/BV18E421w7bf?p=3';
+    const artifact: CreatorArtifact = {
+      id: 'source-cached', jobId: 'download_job', kind: 'source_video', version: 1,
+      status: 'completed', path: cachedPath, scopeKey: null, inputFingerprint: null,
+      sha256: null, sourceArtifactIds: [], createdAt: '2026-10-02T00:00:00.000Z',
+      metadata: { settingsSnapshot: { sourceUrl: `${sourceUrl.replace('p=3', cache === 'different-part' ? 'p=2' : 'p=3')}&vd_source=other` } }
+    };
+    const result = await executor.run(previewInput({ workdir, sourceUrl, inputArtifacts: [artifact] }));
+    if (cache === 'matching') {
+      expect(result.outputs[0]).toMatchObject({ sourceArtifactIds: [artifact.id], metadata: { cacheReused: true, normalizedForPlayback: true } });
+      await expect(readFile(join(workdir, 'args.json'))).rejects.toMatchObject({ code: 'ENOENT' });
+    } else {
+      expect(result.outputs[0]?.metadata?.cacheReused).toBeUndefined();
+      expect(JSON.parse(await readFile(join(workdir, 'args.json'), 'utf8'))).toContain(sourceUrl);
+    }
+  });
+
+  it('requires a saved remote source for preview', async () => {
+    const executor = createDownloadExecutor(await fakeBinaries());
+    const stage = previewInput({ workdir: tempDir, sourceUrl: 'https://youtu.be/demo' });
+    stage.stageRun.progress = {};
+    await expect(executor.run(stage)).rejects.toMatchObject({ code: 'creator_action_input_invalid' });
+    const local = previewInput({ workdir: tempDir, sourceUrl: 'file:///tmp/source.mp4' });
+    await expect(executor.run(local)).rejects.toMatchObject({ code: 'creator_action_input_invalid' });
+  });
+
   it('recognizes a Pinterest video Pin and rejects non-Pin URLs', async () => {
     const sourceUrl = 'https://www.pinterest.com/pin/6544361954284154/';
     const probe = parseDownloadProbe({
@@ -1396,6 +1449,10 @@ const output = join(process.cwd(), ${JSON.stringify(input?.outputName ?? null)} 
 const reportedOutput = join(process.cwd(), ${JSON.stringify(input?.reportedOutputName ?? null)} ?? ${JSON.stringify(input?.outputName ?? null)} ?? (audio ? 'download.mp3' : 'download.mp4'));
 writeFileSync(output, audio ? 'download-audio' : 'download-video');
 if (args.includes('--progress')) {
+  if (args.includes('--progress-template')) {
+    process.stderr.write('oc-preview:{"downloaded_bytes":42,"total_bytes":100}\\n');
+    process.stderr.write('oc-preview:{"downloaded_bytes":10}\\n');
+  }
   process.stderr.write('[download] 42.0% of 100B\\n');
   if (!audio) {
     process.stderr.write('[download] 100% of 100B\\n');
@@ -1546,4 +1603,25 @@ function stageInput(input: {
     signal: new AbortController().signal,
     reportProgress: input.reportProgress ?? vi.fn()
   };
+}
+
+function previewInput(input: {
+  workdir: string;
+  sourceUrl: string;
+  inputArtifacts?: CreatorArtifact[];
+  reportProgress?: CreatorExecutorInput['reportProgress'];
+}): CreatorExecutorInput {
+  const stage = stageInput({
+    ...input, stageId: 'acquire-source',
+    state: { sourceType: 'url', sourceUrl: 'https://www.bilibili.com/video/BV18E421w7bf?p=2' },
+    progress: { inputResultVersion: 1 }
+  });
+  stage.job.templateId = 'video-translation';
+  stage.stageRun.stageId = 'prepare-source-video';
+  stage.job.state.resultSnapshots = [{
+    version: 1, createdAt: stage.job.createdAt, action: 'stage-succeeded', stageId: 'subtitle',
+    description: 'Original subtitles', artifactRefs: {}, changedArtifactIds: [], staleArtifactIds: [],
+    state: { sourceType: 'url', sourceUrl: input.sourceUrl, composeVideo: false }
+  }];
+  return stage;
 }

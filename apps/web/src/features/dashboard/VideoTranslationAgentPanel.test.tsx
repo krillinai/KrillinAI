@@ -4,8 +4,31 @@ import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import { CreatorSessionProvider } from './creator-session-store.js';
 import VideoTranslationAgentPanel from './VideoTranslationAgentPanel.js';
+import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
 describe('VideoTranslationAgentPanel', () => {
+  it.each([30, null])('shows source-video download bytes and %s percent without requiring a component link', async percent => {
+    const current = job();
+    current.status = 'completed';
+    current.stages.push({
+      id: 'source-download', jobId: current.id, stageId: 'prepare-source-video', executor: 'download', status: 'running', dispatchStatus: 'claimed',
+      claimOwner: 'scheduler', claimExpiresAt: null, attempt: 1, idempotencyKey: 'source-download', scopeKey: null, inputFingerprint: null,
+      progress: { phase: 'downloading', percent, downloadedBytes: 6 * 1024 ** 2, totalBytes: percent === null ? null : 20 * 1024 ** 2,
+        message: '原始下载器信息，不直接作为界面文案' },
+      errorCode: null, errorMessage: null, startedAt: '2026-10-02T00:00:00.000Z', finishedAt: null
+    });
+    renderPanel({ initialJob: current, getAgentTimeline: vi.fn(async () => emptyTimeline()), languageSwitch: true });
+    expect(await screen.findByText(/正在下载当前视频资源：6.0 MiB/)).toBeVisible();
+    const progress = screen.getByRole('progressbar');
+    if (percent === null) expect(progress).not.toHaveAttribute('aria-valuenow');
+    else expect(progress).toHaveAttribute('aria-valuenow', String(percent));
+    expect(screen.queryByRole('link', { name: '查看组件下载详情' })).not.toBeInTheDocument();
+    expect(screen.queryByText('原始下载器信息，不直接作为界面文案')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'en-US' }));
+    expect(screen.getByText(/Downloading the current video resource: 6.0 MiB/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+    expect(screen.getByText(/Laddar ned den aktuella videoresursen: 6.0 MiB/)).toBeVisible();
+  });
   it('明确显示长时间模型下载的原因、真实进度和自动继续提示', async () => {
     const current = job();
     current.status = 'running';
@@ -16,12 +39,24 @@ describe('VideoTranslationAgentPanel', () => {
         message: '未找到可用的原始字幕，正在下载本地模型。模型文件较大，下载并校验完成后将自动继续，无需重新开始。' },
       errorCode: null, errorMessage: null, startedAt: '2026-10-01T00:00:00.000Z', finishedAt: null
     });
-    renderPanel({ initialJob: current, getAgentTimeline: vi.fn(async () => emptyTimeline()) });
+    const getAgentTimeline = vi.fn(async () => emptyTimeline());
+    const runAgentTurn = vi.fn();
+    renderPanel({ initialJob: current, getAgentTimeline, runAgentTurn, languageSwitch: true });
     expect(await screen.findByText('下载本地转录组件（尚未开始转录）')).toBeInTheDocument();
-    expect(screen.getByText(/下载并校验完成后将自动继续/)).toBeInTheDocument();
+    expect(screen.getByText(/下载并校验完成后会自动继续/)).toBeInTheDocument();
     expect(screen.getByText(/512.0 MiB \/ 2.00 GiB/)).toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '25');
     expect(screen.getByRole('link', { name: '查看组件下载详情' })).toHaveAttribute('href', expect.stringContaining('returnPath='));
+    fireEvent.click(screen.getByRole('button', { name: 'en-US' }));
+    expect(screen.getByText('Downloading local components (transcription has not started)')).toBeVisible();
+    expect(screen.getByText(/the task continues automatically after download and verification/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+    expect(screen.getByText('Laddar ned lokala komponenter (transkriptionen har inte startat)')).toBeVisible();
+    expect(screen.getByText(/uppgiften fortsätter automatiskt efter nedladdning och verifiering/)).toBeVisible();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '25');
+    expect(screen.getByRole('link', { name: 'Visa information om komponentnedladdningen' })).toHaveAttribute('href', expect.stringContaining('returnPath='));
+    expect(getAgentTimeline).toHaveBeenCalledOnce();
+    expect(runAgentTurn).not.toHaveBeenCalled();
   });
   it('只展示标准对话和协作事件，不泄露内部工具上下文', async () => {
     const { container } = renderPanel({
@@ -734,6 +769,7 @@ describe('VideoTranslationAgentPanel', () => {
 
 function renderPanel(options: {
   language?: 'zh-CN' | 'en-US';
+  languageSwitch?: boolean;
   initialJob?: CreatorJob;
   getAgentTimeline: ReturnType<typeof vi.fn>;
   runAgentTurn?: ReturnType<typeof vi.fn>;
@@ -741,6 +777,7 @@ function renderPanel(options: {
 }) {
   const result = render(
     <LanguageProvider initialPreference={options.language ?? 'zh-CN'}>
+      {options.languageSwitch ? <LanguageSwitchControls /> : null}
       <CreatorSessionProvider
         initialJob={options.initialJob ?? job()}
         service={{

@@ -6,6 +6,7 @@ import AgentDiagnosticsPanel from './AgentDiagnosticsPanel.js';
 import { IssueList, PageIssueRoutingProvider } from './IssuePresenter.js';
 import { clearPageIssues, publishPageIssue } from './page-issue-hub.js';
 import { normalizePageIssue, usePageIssueState } from './page-issue-state.js';
+import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
 afterEach(() => act(() => clearPageIssues()));
 
@@ -25,6 +26,22 @@ function Harness(props: {
 }
 
 describe('AgentDiagnosticsPanel', () => {
+  it('updates diagnosis guidance and preserves the typed question across language changes', () => {
+    const raw = '后台原文：本地 Whisper 下载失败';
+    act(() => publishPageIssue({ ...normalizePageIssue('runtime', 'creator.prepare', new Error(raw), raw), code: 'creator_dependency_prepare_failed' }));
+    const onAskIssue = vi.fn();
+    render(<LanguageProvider initialPreference="en-US"><LanguageSwitchControls /><AgentDiagnosticsPanel onAskIssue={onAskIssue} /></LanguageProvider>);
+    expect(screen.getByText(/Local transcription preparation failed/)).toBeVisible();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Ask about this error' }), { target: { value: '我的问题不应该被翻译' } });
+    fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+    expect(screen.getByRole('complementary', { name: 'Agent-diagnostik' })).toBeVisible();
+    expect(screen.getByText(/Förberedelsen av lokal transkription misslyckades/)).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'Fråga om det här felet' })).toHaveValue('我的问题不应该被翻译');
+    expect(screen.getByText(raw)).not.toBeVisible();
+    expect(onAskIssue).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Skicka fråga' }));
+    expect(onAskIssue).toHaveBeenCalledWith(expect.objectContaining({ code: 'creator_dependency_prepare_failed' }), '我的问题不应该被翻译');
+  });
   it('keeps background runtime failures accessible without blocking Creator workflows', () => {
     const onAskIssue = vi.fn();
     const { rerender } = render(<LanguageProvider initialPreference="zh-CN"><AgentDiagnosticsPanel hiddenBackgroundRuntimeIssues onAskIssue={onAskIssue} /></LanguageProvider>);
@@ -60,13 +77,14 @@ describe('AgentDiagnosticsPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '归档项目' }));
 
     const panel = screen.getByRole('complementary', { name: 'Agent 诊断' });
-    expect(within(panel).getByText(/项目创建失败。 错误码：CLIENT_OPERATION_FAILED/)).toBeInTheDocument();
-    expect(within(panel).getByText(/项目归档失败。 错误码：CLIENT_OPERATION_FAILED/)).toBeInTheDocument();
+    expect(within(panel).getAllByText(/操作未完成 错误码：CLIENT_OPERATION_FAILED/)).toHaveLength(2);
+    expect(within(panel).getByText('项目创建失败。')).not.toBeVisible();
+    expect(within(panel).getByText('项目归档失败。')).not.toBeVisible();
     expect(container.querySelectorAll('[data-issue-id]')).toHaveLength(2);
     expect(container.querySelector('.issue-presenter')).not.toBeInTheDocument();
     expect(within(panel).queryByText(/诊断编号：OC-/)).not.toBeInTheDocument();
 
-    const createIssue = screen.getByText(/项目创建失败。 错误码：CLIENT_OPERATION_FAILED/).closest<HTMLElement>('[data-issue-id]')!;
+    const createIssue = screen.getByText('项目创建失败。').closest<HTMLElement>('[data-issue-id]')!;
     fireEvent.click(within(createIssue).getByRole('button', { name: '重试' }));
     expect(onRetry).toHaveBeenCalledTimes(1);
     fireEvent.click(within(createIssue).getByRole('button', { name: '询问这条问题' }));

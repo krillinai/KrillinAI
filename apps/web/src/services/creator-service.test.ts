@@ -16,6 +16,9 @@ describe('creator web service', () => {
     };
     const service = createCreatorService(client);
 
+    await service.preflight('job 1', 'prepare-source-video', { inputResultVersion: 2 });
+    expect(client.get).toHaveBeenCalledWith('/creator/jobs/job%201/preflight?stageId=prepare-source-video&inputResultVersion=2');
+
     await service.listPresets('en-US');
     await service.listJobs('project 1');
     await service.listJobs();

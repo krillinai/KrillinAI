@@ -1,8 +1,12 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import { languagePreferenceStorageKey } from '../../i18n/language.js';
 import { IssueList, IssuePresenter, PageIssueRoutingProvider } from './IssuePresenter.js';
+import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
+
+beforeEach(() => window.localStorage.removeItem(languagePreferenceStorageKey));
 
 const issue = {
   id: 'issue-1',
@@ -30,6 +34,26 @@ const issue = {
 };
 
 describe('IssuePresenter', () => {
+  it('switches the summary and actions while preserving collapsed original diagnostics', async () => {
+    const raw = '后台原文：下载 Whisper 模型失败';
+    const retry = vi.fn();
+    render(<LanguageProvider initialPreference="zh-CN"><LanguageSwitchControls /><IssuePresenter
+      issue={{ ...issue, code: 'creator_dependency_prepare_failed', fallbackMessage: raw }}
+      actions={{ retryOperations: { 'files.upload': retry } }}
+    /></LanguageProvider>);
+    expect(screen.getByText(/本地转录组件准备失败，请前往组件页面检查并重试。/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'en-US' }));
+    expect(screen.getByText(/Local transcription preparation failed/)).toBeVisible();
+    expect(screen.getByText(raw)).not.toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+    expect(screen.getByText(/Förberedelsen av lokal transkription misslyckades/)).toBeVisible();
+    expect(screen.getByText(raw)).not.toBeVisible();
+    expect(retry).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('Visa ursprunglig diagnostik'));
+    expect(screen.getByText(raw)).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Försök igen' }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
   it('hides unregistered actions and executes a registered retry', async () => {
     const retry = vi.fn();
     render(

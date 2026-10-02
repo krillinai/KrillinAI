@@ -1,4 +1,5 @@
 import { copyFile, link, lstat, mkdir, realpath, rename, writeFile } from 'node:fs/promises';
+import { videoSourceIdentity } from '@opencreator/protocol';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type {
   CreatorArtifact,
@@ -153,7 +154,9 @@ function filterObsoleteSourceVideo(input: CreatorExecutorInput): CreatorExecutor
     if (artifact.kind !== 'source_video') return true;
     const snapshot = artifact.metadata?.settingsSnapshot;
     return snapshot !== null && typeof snapshot === 'object' && !Array.isArray(snapshot)
-      && snapshot.sourceType !== 'file' && stringValue(snapshot.sourceUrl) === sourceUrl;
+      && snapshot.sourceType !== 'file' && typeof snapshot.sourceUrl === 'string'
+      && videoSourceIdentity(snapshot.sourceUrl) !== null
+      && videoSourceIdentity(snapshot.sourceUrl) === videoSourceIdentity(sourceUrl);
   });
   return inputArtifacts.length === input.inputArtifacts.length ? input : { ...input, inputArtifacts };
 }

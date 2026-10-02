@@ -2397,7 +2397,7 @@ export function AppController(props: AppControllerProps) {
   }
 
   function askAgentAboutIssue(issue: OpenCreatorIssue, question: string) {
-    const prompt = buildIssueAgentPrompt(issue, question, language === 'en-US' ? 'en-US' : 'zh-CN');
+    const prompt = buildIssueAgentPrompt(issue, question, language);
     startNewConversation();
     setPendingIssueInquiry(prompt);
   }

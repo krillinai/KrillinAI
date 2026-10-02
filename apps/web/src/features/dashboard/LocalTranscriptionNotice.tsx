@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import { componentProgressText } from '../settings/LocalTranscriptionComponents.js';
+import { OriginalErrorDetails } from '../issues/OriginalErrorDetails.js';
 
 export function LocalTranscriptionNotice({ controller, platformCaptions, importedSubtitle, beforeNavigate }: {
   controller?: RuntimeDependenciesController;
@@ -28,7 +29,7 @@ export function LocalTranscriptionNotice({ controller, platformCaptions, importe
       <small>{component.name} · {status.selectedModel}</small>
       {!ready || importedSubtitle ? <p>{importedSubtitle ? localize('当前任务使用导入字幕，无需本地语音转录。', 'This task uses imported subtitles and does not need transcription.') : platformCaptions ? localize('将优先使用视频原始字幕；没有可用字幕时才需要本地转录。可提前下载组件，避免任务中等待。', 'Original video captions are used first. Local transcription is needed only when captions are unavailable; prepare components now to avoid waiting during the task.') : localize('此任务需要本地语音转录。模型文件较大，首次执行会自动下载，也可提前准备；下载并校验完成后任务会自动继续。', 'This task requires local transcription. Large models are downloaded automatically when needed, or can be prepared in advance. The task continues automatically after verification.')}</p> : null}
       {busy ? <p>{component.item} {component.state === 'downloading' ? componentProgressText(component) : localize('正在校验或安装，请稍候', 'Verifying or installing; please wait')}</p> : null}
-      {component.error ? <p>{component.error}</p> : null}
+      {component.error ? <OriginalErrorDetails detail={component.error} /> : null}
     </div>
     <div className="local-transcription-notice-actions">
       {component.available ? <a href={`#/settings?${query}`} onClick={beforeNavigate}>{ready ? localize('管理组件', 'Manage components') : busy ? localize('查看下载进度', 'View download progress') : component.state === 'failed' ? localize('前往重试', 'Retry download') : localize('前往组件下载', 'Go to component downloads')}</a> : null}

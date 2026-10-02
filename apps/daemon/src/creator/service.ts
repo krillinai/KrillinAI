@@ -1144,15 +1144,24 @@ export function createCreatorService(input: {
           nextStatus = 'completed';
         } else if (request.action === 'run-stage') {
           const stageId = readString(parsedInput.stageId, 'stageId');
-          if (!template.stages.some(stage => stage.id === stageId)) {
+          const stage = template.stages.find(candidate => candidate.id === stageId);
+          if (stage === undefined) {
             throw new CreatorServiceError('creator_stage_not_found', 'Creator stage was not found');
           }
           for (const field of ['baseResultVersion', 'inputResultVersion', 'targetResultVersion'] as const) {
             readResultVersion(current, parsedInput[field], field);
           }
+          if (stage.resultVersionPolicy === 'attach' && parsedInput.inputResultVersion === undefined) {
+            throw new CreatorServiceError('creator_action_input_invalid', 'A result version is required to prepare preview media');
+          }
+          if (stage.resultVersionPolicy === 'attach' && current.stages.some(run => run.status === 'queued' || run.status === 'running')) {
+            throw new CreatorServiceError('creator_stage_already_running', 'Wait for the current stage to finish before preparing preview media');
+          }
           nextState = { ...nextState, currentStage: stageId };
-          delete nextState.needsInput;
-          nextStatus = 'running';
+          if (stage.jobCompletionPolicy !== 'preserve') {
+            delete nextState.needsInput;
+            nextStatus = 'running';
+          }
         } else if (request.action === 'retry-stage') {
           const stageId = readString(parsedInput.stageId, 'stageId');
           const scopeKey = typeof parsedInput.scopeKey === 'string'
@@ -1165,8 +1174,10 @@ export function createCreatorService(input: {
             );
           }
           nextState = { ...nextState, currentStage: stageId };
-          delete nextState.needsInput;
-          nextStatus = 'running';
+          if (template.stages.find(stage => stage.id === stageId)?.jobCompletionPolicy !== 'preserve') {
+            delete nextState.needsInput;
+            nextStatus = 'running';
+          }
         } else if (request.action === 'resolve-provider-request') {
           const ledgerId = readString(parsedInput.ledgerId, 'ledgerId');
           const ledger = current.providerRequests.find(item => item.id === ledgerId);

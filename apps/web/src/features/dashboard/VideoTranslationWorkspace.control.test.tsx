@@ -10,8 +10,171 @@ import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import { CreatorSessionProvider, useCreatorSession } from './creator-session-store.js';
 import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
+import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
 describe('VideoTranslationWorkspace task controls', () => {
+  it('keeps the same playable video and URL across snapshots, diagnostic callback changes, and language switches', async () => {
+    const objectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+    const revokeDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
+    let objectUrlSequence = 0;
+    const createObjectURL = vi.fn(() => `blob:stable-preview-${++objectUrlSequence}`);
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
+    const source = sourceVideoArtifact(1);
+    const subtitle = subtitleArtifact(1, '播放期间保留的字幕');
+    let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [source, subtitle] });
+    const openArtifact = vi.fn(async () => new Response(new Blob(['video'], { type: 'video/mp4' })));
+    const service = { openArtifact, applyAction: vi.fn(), runAgentTurn: vi.fn() };
+    let session: ReturnType<typeof useCreatorSession>;
+    function Capture() { session = useCreatorSession(); return null; }
+    function renderWorkspace() {
+      return <LanguageProvider initialPreference="zh-CN"><LanguageSwitchControls /><CreatorSessionProvider
+        initialJob={current} service={service as never} onPreJobFailure={() => undefined}>
+        <Capture /><VideoTranslationWorkspace onBack={vi.fn()} />
+      </CreatorSessionProvider></LanguageProvider>;
+    }
+    const view = render(renderWorkspace());
+    try {
+      fireEvent.click(screen.getByRole('tab', { name: '字幕' }));
+      const video = await screen.findByLabelText<HTMLVideoElement>('横屏字幕视频预览');
+      expect(video).toHaveAttribute('src', 'blob:stable-preview-1');
+      video.currentTime = 0.5;
+      fireEvent.timeUpdate(video);
+      fireEvent.change(screen.getByRole('textbox', { name: '横屏字幕 1' }), { target: { value: '未保存修改' } });
+      for (let revision = 2; revision <= 4; revision += 1) {
+        current = { ...current, revision, artifacts: current.artifacts.map(artifact => ({ ...artifact })) };
+        act(() => session!.applyRemoteSnapshot(current));
+        await act(async () => { view.rerender(renderWorkspace()); });
+        expect(view.container.querySelector('.video-result-subtitle-video video')).toBe(video);
+        expect(video).toHaveAttribute('src', 'blob:stable-preview-1');
+        expect(video.currentTime).toBe(0.5);
+      }
+      for (const language of ['en-US', 'sv-SE']) {
+        fireEvent.click(screen.getByRole('button', { name: language }));
+        await act(async () => undefined);
+        expect(view.container.querySelector('.video-result-subtitle-video video')).toBe(video);
+        expect(video.currentTime).toBe(0.5);
+      }
+      expect(screen.getByDisplayValue('未保存修改')).toBeVisible();
+      expect(openArtifact).toHaveBeenCalledOnce();
+      expect(createObjectURL).toHaveBeenCalledOnce();
+      expect(revokeObjectURL).not.toHaveBeenCalled();
+      view.unmount();
+      expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:stable-preview-1');
+    } finally {
+      view.unmount();
+      restoreUrlMethod('createObjectURL', objectUrlDescriptor);
+      restoreUrlMethod('revokeObjectURL', revokeDescriptor);
+    }
+  });
+  it('updates preview startup errors after a language switch without repeating the request or losing subtitle edits', async () => {
+    const subtitle = subtitleArtifact(1, '已有字幕');
+    const sourceUrl = 'https://www.bilibili.com/video/BV18E421w7bf?p=3';
+    const initialJob = job({ status: 'completed', revision: 1, stages: [], artifacts: [subtitle], state: {
+      sourceUrl, resultVersion: 1, latestResultVersion: 1,
+      resultSnapshots: [{ version: 1, createdAt: subtitle.createdAt, action: 'stage-succeeded', stageId: 'subtitle',
+        description: '用户保存的字幕', artifactRefs: { target_subtitle: [subtitle.id] }, changedArtifactIds: [subtitle.id], staleArtifactIds: [],
+        state: { sourceType: 'url', sourceUrl, composeVideo: false, bilingual: false }
+      }]
+    } });
+    const raw = '后台原文：无法连接视频下载服务';
+    let current = initialJob;
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
+      if (request.action === 'run-stage') throw new Error(raw);
+      current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
+      return { job: current };
+    });
+    const preflight = vi.fn(async () => ({ canStart: true, ready: [], blocked: [], warning: [] }));
+    render(<LanguageProvider initialPreference="zh-CN"><LanguageSwitchControls /><CreatorSessionProvider initialJob={initialJob}
+      service={{ applyAction, preflight, runAgentTurn: vi.fn() } as never}><VideoTranslationWorkspace onBack={vi.fn()} /></CreatorSessionProvider></LanguageProvider>);
+    fireEvent.click(screen.getByRole('tab', { name: '字幕' }));
+    fireEvent.change(screen.getByRole('textbox', { name: '横屏字幕 1' }), { target: { value: '保留未保存字幕' } });
+    fireEvent.click(screen.getByRole('button', { name: '下载原视频并预览' }));
+    expect(await screen.findByText('无法启动原视频准备，请检查诊断信息后重试。')).toBeVisible();
+    expect(screen.getByText(raw)).not.toBeVisible();
+    const requestsBeforeSwitch = applyAction.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'en-US' }));
+    expect(screen.getByText('Could not start source video preparation. Check the diagnostics and retry.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+    expect(screen.getByText('Det gick inte att starta förberedelsen av originalvideon. Kontrollera diagnostiken och försök igen.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Försök ladda ned originalvideon igen' })).toBeEnabled();
+    expect(screen.getByRole('textbox', { name: /subtitles 1$/ })).toHaveValue('保留未保存字幕');
+    expect(screen.getByRole('button', { name: /V1/ })).toBeInTheDocument();
+    expect(screen.getByText(raw)).not.toBeVisible();
+    expect(applyAction).toHaveBeenCalledTimes(requestsBeforeSwitch);
+    expect(applyAction.mock.calls.filter(([, request]) => request.action === 'run-stage')).toHaveLength(1);
+    expect(preflight).toHaveBeenCalledOnce();
+    expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'run-stage', input: { stageId: 'prepare-source-video', inputResultVersion: 1 } }));
+  });
+  it('downloads only the selected result source and preserves unsaved subtitles when preview becomes ready', async () => {
+    const objectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+    const revokeDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:downloaded-preview') });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+    const subtitles = [subtitleArtifact(1, '版本一字幕'), subtitleArtifact(2, '版本二字幕')];
+    let current = job({ status: 'completed', revision: 2, stages: [], artifacts: subtitles,
+      state: { sourceUrl: 'https://www.bilibili.com/video/BV18E421w7bf?p=2', resultVersion: 1, latestResultVersion: 2,
+        resultSnapshots: subtitles.map((artifact, index) => ({
+          version: index + 1, createdAt: artifact.createdAt, action: 'stage-succeeded', stageId: 'subtitle',
+          description: `字幕版本 ${index + 1}`, artifactRefs: { target_subtitle: [artifact.id] },
+          changedArtifactIds: [artifact.id], staleArtifactIds: [],
+          state: { sourceType: 'url', sourceUrl: `https://www.bilibili.com/video/BV18E421w7bf?p=${index === 0 ? 3 : 2}`, composeVideo: false, bilingual: false }
+        }))
+      }
+    });
+    let session: ReturnType<typeof useCreatorSession>;
+    function Capture() { session = useCreatorSession(); return null; }
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
+      if (request.action === 'run-stage') {
+        current = { ...current, revision: current.revision + 1,
+          stages: [{ ...stage({ id: 'preview', status: 'running', dispatchStatus: 'claimed',
+            progress: { inputResultVersion: request.input.inputResultVersion!, phase: 'downloading', percent: 40 } }),
+            stageId: 'prepare-source-video', executor: 'download' }]
+        };
+      } else current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
+      return { job: current };
+    });
+    const openArtifact = vi.fn(async () => new Response(new Blob(['video'], { type: 'video/mp4' })));
+    const preflight = vi.fn(async () => ({ canStart: true, ready: [], blocked: [], warning: [] }));
+    const view = render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
+      service={{ applyAction, openArtifact, preflight, runAgentTurn: vi.fn() } as never}>
+      <Capture /><VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    try {
+      fireEvent.click(screen.getByRole('tab', { name: '字幕' }));
+      fireEvent.change(screen.getByRole('textbox', { name: '横屏字幕 1' }), { target: { value: '尚未保存的修改' } });
+      expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
+      fireEvent.click(screen.getByRole('button', { name: '下载原视频并预览' }));
+      await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({
+        action: 'run-stage', input: { stageId: 'prepare-source-video', inputResultVersion: 1 }
+      })));
+      expect(preflight).toHaveBeenCalledWith('job_control', 'prepare-source-video', { inputResultVersion: 1 });
+      expect(screen.getByRole('button', { name: /正在准备/ })).toBeDisabled();
+      expect(screen.getByRole('textbox', { name: '横屏字幕 1' })).toHaveValue('尚未保存的修改');
+      const video = sourceVideoArtifact(1);
+      const snapshots = readCreatorResultSnapshots(current.state.resultSnapshots);
+      current = { ...current, revision: current.revision + 1, artifacts: [...current.artifacts, video],
+        stages: current.stages.map(candidate => ({ ...candidate, status: 'succeeded', dispatchStatus: 'finished' })),
+        state: { ...current.state, resultSnapshots: snapshots.map(snapshot => snapshot.version === 1
+          ? { ...snapshot, artifactRefs: { ...snapshot.artifactRefs, source_video: [video.id] } } : snapshot) as CreatorJson }
+      };
+      act(() => session!.applyRemoteSnapshot(current));
+      expect(await screen.findByLabelText('横屏字幕视频预览')).toHaveAttribute('src', 'blob:downloaded-preview');
+      expect(screen.getByRole('button', { name: '项目 V1' })).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: '横屏字幕 1' })).toHaveValue('尚未保存的修改');
+      expect(screen.getByRole('button', { name: '保存横屏字幕' })).toBeEnabled();
+      expect(current.state.sourceUrl).toBe('https://www.bilibili.com/video/BV18E421w7bf?p=2');
+      expect(current.state.composeVideo).toBe(false);
+      expect(readCreatorResultSnapshots(current.state.resultSnapshots)).toHaveLength(2);
+      expect(applyAction.mock.calls.filter(([, request]) => request.action === 'run-stage')).toHaveLength(1);
+    } finally {
+      view.unmount();
+      restoreUrlMethod('createObjectURL', objectUrlDescriptor);
+      restoreUrlMethod('revokeObjectURL', revokeDescriptor);
+    }
+  });
+
   it('shows English file picker and output format labels', () => {
     render(<LanguageProvider initialPreference="en-US"><CreatorSessionProvider
       initialJob={job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 1, composeVideo: true } })}

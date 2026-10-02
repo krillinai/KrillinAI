@@ -16,6 +16,7 @@ import {
 } from './creator-panel-adapters.js';
 import { CreatorSessionProvider, useCreatorSession } from './creator-session-store.js';
 import { normalizePageIssue } from '../issues/page-issue-state.js';
+import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
 function PreflightHarness(props: { stageId: string }) {
   const session = useCreatorSession();
@@ -259,6 +260,7 @@ describe('CreatorCollaborationPanel', () => {
     for (let platform = 0; platform < 2; platform += 1) {
       const view = render(
         <LanguageProvider initialPreference="zh-CN">
+          <LanguageSwitchControls />
           <CreatorSessionProvider initialJob={coverJob()} service={service as never}>
             <PreflightHarness stageId="generate" />
             <CreatorCollaborationPanel
@@ -269,14 +271,24 @@ describe('CreatorCollaborationPanel', () => {
           </CreatorSessionProvider>
         </LanguageProvider>
       );
-      await waitFor(() => expect(screen.getByText('请配置图像服务。')).toBeInTheDocument());
-      results.push(screen.getByRole('region', { name: '启动前体检' }).textContent ?? '');
+      await waitFor(() => expect(screen.getByText('图像生成尚未就绪，请检查登录、服务配置及 Runtime 工具支持。')).toBeVisible());
+      expect(screen.getByText(/请配置图像服务。/)).not.toBeVisible();
+      fireEvent.click(screen.getByRole('button', { name: 'en-US' }));
+      expect(screen.getByText('Image generation is not ready. Check sign-in, service configuration, and Runtime tool support.')).toBeVisible();
+      expect(screen.getByRole('link', { name: 'Open settings' })).toHaveAttribute('href', '#/settings?tab=ai-services&section=image');
+      fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+      expect(screen.getByText('Bildgenerering är inte redo. Kontrollera inloggningen, tjänsteinställningarna och verktygsstödet i Runtime.')).toBeVisible();
+      expect(screen.getByRole('link', { name: 'Öppna inställningar' })).toHaveAttribute('href', '#/settings?tab=ai-services&section=image');
+      expect(screen.getByText(/请配置图像服务。/)).not.toBeVisible();
+      results.push(screen.getByRole('region', { name: 'Kontroll före start' }).textContent ?? '');
       expect(screen.queryByText(/Desktop-only|原生/)).not.toBeInTheDocument();
       view.unmount();
     }
 
     expect(results[0]).toBe(results[1]);
     expect(service.preflight).toHaveBeenCalledWith('cover_job', 'generate');
+    expect(service.preflight).toHaveBeenCalledTimes(2);
+    expect(service.applyAction).not.toHaveBeenCalled();
   });
 
   it('语义化并合并封面动态，同时显示标准 Stage 进度', () => {
@@ -816,7 +828,7 @@ describe('CreatorCollaborationPanel', () => {
 
     expect(wechatArticlePanelAdapter.stageLabel('sources', localize)).toBe('解析内容灵感');
     expect(wechatArticlePanelAdapter.phaseLabel('reading_video', localize)).toBe('读取视频内容');
-    expect(wechatArticlePanelAdapter.readStageProgress(stage)).toEqual(expect.objectContaining({ percent: 30 }));
+    expect(wechatArticlePanelAdapter.readStageProgress(stage, localize)).toEqual(expect.objectContaining({ percent: 30 }));
     expect(wechatArticlePanelAdapter.succeededProgressText?.(stage, localize)).toBe('内容灵感已解析');
 
     const imageStage = {
@@ -825,7 +837,7 @@ describe('CreatorCollaborationPanel', () => {
     } as never;
     expect(wechatArticlePanelAdapter.stageLabel('images', localize)).toBe('生成文章配图');
     expect(wechatArticlePanelAdapter.phaseLabel('generating_article_images', localize)).toBe('生成文章配图');
-    expect(wechatArticlePanelAdapter.readStageProgress(imageStage)).toEqual(expect.objectContaining({
+    expect(wechatArticlePanelAdapter.readStageProgress(imageStage, localize)).toEqual(expect.objectContaining({
       percent: 68,
       completed: 3,
       total: 5

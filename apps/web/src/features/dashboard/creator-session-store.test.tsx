@@ -2,6 +2,8 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CreatorEventEnvelope, CreatorJob, OpenCreatorIssue } from '@opencreator/protocol';
+import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 import {
   CreatorSessionProvider,
   useCreatorSession
@@ -1095,10 +1097,11 @@ describe('CreatorSessionStore', () => {
     expect(session!.issues[0]!.occurrenceCount).toBe(3);
   });
 
-  it('waits for daemon state after retrying an issue and forwards the focused issue id to Agent', async () => {
+  it.each(['subtitle', 'prepare-source-video'])('waits for daemon state after retrying %s and preserves the input version', async stageId => {
     let session: ReturnType<typeof useCreatorSession> | undefined;
     const openIssue = creatorIssue({
-      stageId: 'subtitle',
+      stageId,
+      stageRunId: 'failed-stage',
       repairActions: [{
         kind: 'retry-operation',
         operationId: 'creator.retry-stage',
@@ -1106,7 +1109,12 @@ describe('CreatorSessionStore', () => {
         risk: 'normal'
       }]
     });
-    const initialJob = { ...job(0, {}), issues: [openIssue] };
+    const initialJob = { ...job(0, {}), issues: [openIssue], stages: stageId === 'prepare-source-video'
+      ? [{ id: 'failed-stage', jobId: 'job_1', stageId, executor: 'download', status: 'failed',
+        dispatchStatus: 'finished', claimOwner: null, claimExpiresAt: null, attempt: 1,
+        idempotencyKey: null, scopeKey: null, inputFingerprint: null, progress: { inputResultVersion: 1 },
+        errorCode: 'network_unavailable', errorMessage: 'Download failed', startedAt: null, finishedAt: null
+      } satisfies CreatorJob['stages'][number]] : [] };
     const applyAction = vi.fn(async () => ({ job: initialJob }));
     const startAgentTurn = vi.fn(async () => ({ turn: undefined as never }));
     render(
@@ -1121,7 +1129,7 @@ describe('CreatorSessionStore', () => {
     await act(async () => session!.repairIssue(openIssue));
     expect(applyAction).toHaveBeenCalledWith('job_1', expect.objectContaining({
       action: 'run-stage',
-      input: { stageId: 'subtitle' },
+      input: { stageId, ...(stageId === 'prepare-source-video' ? { inputResultVersion: 1 } : {}) },
       repairIssueId: openIssue.id
     }));
     expect(session!.issues[0]!.status).toBe('open');
@@ -1202,6 +1210,28 @@ describe('CreatorSessionStore', () => {
       source: 'preflight'
     }));
     expect(session!.issues).toHaveLength(1);
+  });
+
+  it('uses the current display language and original evidence when asking about a local issue', async () => {
+    let session: ReturnType<typeof useCreatorSession> | undefined;
+    const raw = '后台原文：本地模型准备失败';
+    const startAgentTurn = vi.fn(async (_jobId: string, _request: { message: string; focusedIssueId?: string }) => ({ turn: undefined as never }));
+    render(<LanguageProvider initialPreference="zh-CN"><LanguageSwitchControls /><CreatorSessionProvider initialJob={job(0, {})}
+      service={{ applyAction: vi.fn(), runAgentTurn: startAgentTurn, startAgentTurn } as never}>
+      <SessionCaptureHarness onSession={value => { session = value; }} />
+    </CreatorSessionProvider></LanguageProvider>);
+    act(() => session!.captureCreatorFailure('creator.prepare', new Error(raw), raw));
+    await waitFor(() => expect(session!.issues).toHaveLength(1));
+    fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+    expect(startAgentTurn).not.toHaveBeenCalled();
+    await act(async () => session!.runAgentTurn('用户问题保持原文'));
+    expect(startAgentTurn).toHaveBeenCalledOnce();
+    const request = startAgentTurn.mock.calls[0]![1];
+    expect(request.message).toContain('用户问题保持原文');
+    expect(request.message).toContain('Relaterat fel: ');
+    expect(request.message).toContain('Felkod: CLIENT_OPERATION_FAILED');
+    expect(request.message).toContain(raw);
+    expect(request.focusedIssueId).toBeUndefined();
   });
 
   it('reconciles a focused local issue from a daemon snapshot without reporting another occurrence', async () => {

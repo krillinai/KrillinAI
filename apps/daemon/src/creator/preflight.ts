@@ -112,7 +112,10 @@ export function createCreatorPreflight(input: {
       }, { label: '打开诊断', deepLink: '#/settings?tab=diagnostics' });
     }
     const inputState = inputSnapshot?.state ?? job.state;
-    if (job.templateId === 'video-translation' && stage.id === 'subtitle') {
+    if (stage.resultVersionPolicy === 'attach' && inputSnapshot === undefined) {
+      add('blocked', { id: 'input-result-version', title: '请先选择项目版本', message: '准备预览视频需要明确的已保存项目版本。', executionMode: 'local' });
+    }
+    if (job.templateId === 'video-translation' && (stage.id === 'subtitle' || stage.id === 'prepare-source-video')) {
       try {
         await validateBilibiliSource({ ...job, state: inputState }, input.videoMetadataService);
       } catch (error) {

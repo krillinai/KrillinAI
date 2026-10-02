@@ -28,8 +28,8 @@ export type CreatorTemplateStage = {
   dependsOn?: string[];
   optional?: boolean;
   completesJob?: boolean;
-  resultVersionPolicy?: 'snapshot' | 'none';
-  jobCompletionPolicy?: 'complete' | 'continue';
+  resultVersionPolicy?: 'snapshot' | 'none' | 'attach';
+  jobCompletionPolicy?: 'complete' | 'continue' | 'preserve';
   invalidateDependentArtifacts?: boolean;
   replaceOutputArtifactsInScope?: boolean;
   outputValidators?: CreatorStageOutputValidator[];

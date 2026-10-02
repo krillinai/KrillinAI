@@ -11,7 +11,9 @@ import {
 } from 'lucide-react';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
-import { presentIssue } from './issue-catalog.js';
+import { issueDiagnosticText, presentIssue } from './issue-catalog.js';
+import { useLocalizedCopy, type LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
+import { OriginalErrorDetails } from './OriginalErrorDetails.js';
 import { registerPageIssueActions } from './page-issue-action-hub.js';
 import './issue-presenter.css';
 
@@ -35,7 +37,8 @@ export function IssuePresenter(props: {
   compact?: boolean;
 }) {
   const { language } = useAppLanguage();
-  const copy = presentIssue(props.issue, language === 'en-US' ? 'en-US' : 'zh-CN');
+  const localize = useLocalizedCopy();
+  const copy = presentIssue(props.issue, language);
   const StatusIcon = props.issue.status === 'resolved'
     ? CheckCircle2
     : props.issue.status === 'resolving'
@@ -55,14 +58,15 @@ export function IssuePresenter(props: {
           <span>{copy.statusLabel}</span>
         </div>
         <p>{copy.description}</p>
+        <OriginalErrorDetails detail={issueDiagnosticText(props.issue, language)} />
         <IssueActionButtons issue={props.issue} actions={props.actions} />
       </div>
       {props.onDismiss !== undefined ? (
         <button
           type="button"
           className="issue-presenter-dismiss"
-          aria-label={language === 'en-US' ? 'Dismiss issue' : '关闭问题'}
-          title={language === 'en-US' ? 'Dismiss issue' : '关闭问题'}
+          aria-label={localize('关闭问题', 'Dismiss issue')}
+          title={localize('关闭问题', 'Dismiss issue')}
           onClick={() => props.onDismiss?.(props.issue.id)}
         >
           <X aria-hidden="true" size={16} />
@@ -101,7 +105,7 @@ export function IssueActionButtons(props: {
   actions?: IssueActionRegistry;
   includeFocusAgent?: boolean;
 }) {
-  const { language } = useAppLanguage();
+  const localize = useLocalizedCopy();
   const [pendingAction, setPendingAction] = useState('');
   const actions = props.issue.repairActions.filter(action => (
     (props.includeFocusAgent !== false || action.kind !== 'focus-agent')
@@ -118,7 +122,7 @@ export function IssueActionButtons(props: {
           onClick={() => void runAction(action, props.issue, props.actions!, setPendingAction).catch(() => undefined)}
         >
           <ActionIcon action={action} />
-          {actionLabel(action, language === 'en-US')}
+          {actionLabel(action, localize)}
         </button>
       ))}
     </div>
@@ -175,9 +179,9 @@ function actionKey(action: CreatorRepairAction): string {
   return action.kind;
 }
 
-function actionLabel(action: CreatorRepairAction, english: boolean): string {
-  if (action.kind === 'retry-operation') return english ? 'Retry' : '重试';
-  if (action.kind === 'open-settings') return english ? 'Open settings' : '打开设置';
-  if (action.kind === 'select-input') return english ? 'Select input' : '重新选择输入';
-  return english ? 'Ask Agent' : '询问 Agent';
+function actionLabel(action: CreatorRepairAction, localize: LocalizeCopy): string {
+  if (action.kind === 'retry-operation') return localize('重试', 'Retry');
+  if (action.kind === 'open-settings') return localize('打开设置', 'Open settings');
+  if (action.kind === 'select-input') return localize('重新选择输入', 'Select input');
+  return localize('询问 Agent', 'Ask Agent');
 }
