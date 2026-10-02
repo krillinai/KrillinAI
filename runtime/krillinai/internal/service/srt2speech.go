@@ -67,6 +67,7 @@ func (s Service) srtFileToSpeech(ctx context.Context, stepParam *types.SubtitleT
 		Workdir:     stepParam.TaskBasePath,
 		InputSRT:    stepParam.TtsSourceFilePath,
 		InputVideo:  stepParam.InputVideoPath,
+		AudioOnly:   stepParam.TtsAudioOnly,
 		OutputAudio: outputAudio,
 		OutputVideo: outputVideo,
 		ReportProgress: func(completed, total int) {

@@ -3,11 +3,13 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerImageGenerationRoutes } from '../../src/api/routes.image-generation.js';
 import type { CreatorServicesConfigStore } from '../../src/creator-services/config-store.js';
 import { generateImageContents } from '../../src/image-generation/provider.js';
 import { createImageGenerationService } from '../../src/image-generation/service.js';
+import { startCodexExec } from '../../src/codex/runner.js';
 
 describe('image generation API', () => {
   let server: FastifyInstance;
@@ -21,6 +23,31 @@ describe('image generation API', () => {
   afterEach(async () => {
     await server.close();
     await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it('generates and serves native ChatGPT artifacts through the existing image API without HTTP fallback', async () => {
+    const home = join(dataDir, 'codex');
+    await mkdir(home);
+    await writeFile(join(home, 'auth.json'), JSON.stringify({ auth_mode: 'chatgpt', tokens: { access_token: 'private-oauth-secret' } }));
+    const fixture = fileURLToPath(new URL('../fixtures/fake-codex-image.mjs', import.meta.url));
+    const fetchImpl = vi.fn();
+    await registerImageGenerationRoutes(server, createImageGenerationService({
+      dataDir, configStore: createConfigStore(createDefaultCreatorServicesConfig()), fetchImpl,
+      codexNative: {
+        codexHome: home, codexBin: process.execPath,
+        checkNativeCapability: async () => ({ supported: true }),
+        startExec: input => startCodexExec({ ...input, args: [fixture, ...input.args] })
+      }
+    }));
+    const response = await server.inject({ method: 'POST', url: '/image-generation/results', payload: { prompt: 'An orange cat', provider: 'codex-native', size: '1024x1024', quality: 'medium', count: 1 } });
+    expect(response.statusCode).toBe(201);
+    expect(response.json().result).toMatchObject({ provider: 'codex-native', model: 'codex-native', count: 1 });
+    const content = await server.inject({ method: 'GET', url: `/image-generation/results/${response.json().result.id}/content/0` });
+    expect(content.statusCode).toBe(200);
+    expect(content.headers['content-type']).toBe('image/png');
+    expect(content.rawPayload.subarray(0, 4).toString('hex')).toBe('89504e47');
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(response.body).not.toContain('private-oauth-secret');
   });
 
   it('returns a safe upstream code and HTTP status without exposing provider text', async () => {

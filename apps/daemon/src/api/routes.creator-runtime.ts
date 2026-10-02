@@ -2,13 +2,17 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { YtDlpUpdateManager } from '../creator/yt-dlp/update-manager.js';
 import { YtDlpUpdateError } from '../creator/yt-dlp/update-manager.js';
 import { apiError } from './errors.js';
+import type { CreatorServicesConfig } from '@opencreator/protocol';
+import type { createKrillinDependencyLoader } from '../creator/krillin/dependency-loader.js';
 
 export async function registerCreatorRuntimeRoutes(
   server: FastifyInstance,
-  ytDlp: YtDlpUpdateManager | undefined
+  ytDlp: YtDlpUpdateManager | undefined,
+  local?: { loader: ReturnType<typeof createKrillinDependencyLoader>; readConfig(): Promise<CreatorServicesConfig> }
 ): Promise<void> {
   server.addHook('preClose', () => {
     ytDlp?.close();
+    local?.loader.close();
   });
 
   server.get('/creator/yt-dlp/status', async (_request, reply) => {
@@ -32,6 +36,19 @@ export async function registerCreatorRuntimeRoutes(
       return { ytDlp: await ytDlp.update() };
     } catch (error) {
       return sendUpdateError(reply, error);
+    }
+  });
+
+  server.get('/creator/components/status', async (_request, reply) => {
+    if (local === undefined) return reply.code(503).send(apiError('creator_components_unavailable', 'Local components are unavailable'));
+    return local.loader.status(await local.readConfig());
+  });
+  server.post('/creator/components/download', async (_request, reply) => {
+    if (local === undefined) return reply.code(503).send(apiError('creator_components_unavailable', 'Local components are unavailable'));
+    try {
+      return await local.loader.download(await local.readConfig());
+    } catch (error) {
+      return reply.code(400).send(apiError('creator_component_download_unavailable', error instanceof Error ? error.message : 'Component download unavailable'));
     }
   });
 }

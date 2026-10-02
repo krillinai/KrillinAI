@@ -91,6 +91,7 @@ import { CreatorProviderRequestLedger } from '../creator/provider-requests.js';
 import { createCreatorProjectCoverService } from '../creator/project-cover.js';
 import { createVideoGenerationService } from '../video-generation/service.js';
 import { createImageGenerationService } from '../image-generation/service.js';
+import { inspectCodexImageRuntime } from '../image-generation/codex-runtime.js';
 import {
   createCreatorReferenceImageUploadService,
   type CreatorReferenceImageUploadService
@@ -290,6 +291,7 @@ export type BuildServerInput = {
   getCodexAvailabilityProbe?(): CodexAvailabilityProbe | undefined;
   memoryHistoryReader?(threadId: string): { items: import('@opencreator/protocol').ThreadHistoryItem[] } | undefined;
   creatorServicesConfigStore?: CreatorServicesConfigStore;
+  videoMetadataService?: VideoMetadataService;
   codexProviderCredentialStore?: CodexProviderCredentialStore;
   creatorService?: CreatorService;
   creatorPresetRegistry?: CreatorPresetRegistry;
@@ -620,6 +622,9 @@ export async function buildServer(input: BuildServerInput) {
         }
       }
     );
+  const videoMetadataService = input.videoMetadataService ?? createVideoMetadataService({
+    getProxy: async () => (await creatorServicesConfigStore.read()).proxy.trim()
+  });
   const creatorService = input.creatorService ?? createCreatorService({
     jobsRoot: creatorJobsRoot,
     repository: creatorRepository,
@@ -660,10 +665,12 @@ export async function buildServer(input: BuildServerInput) {
     dataDir,
     configStore: creatorServicesConfigStore
   });
+  const codexImageRuntime = { codexHome, codexBin };
+  const readCodexImageStatus = () => inspectCodexImageRuntime(codexImageRuntime);
   const imageGenerationService = createImageGenerationService({
     dataDir,
     configStore: creatorServicesConfigStore,
-    codexNative: { codexHome }
+    codexNative: codexImageRuntime
   });
   const developmentStickmanRuntimeRoot = resolve(
     dirname(fileURLToPath(import.meta.url)),
@@ -714,7 +721,7 @@ export async function buildServer(input: BuildServerInput) {
       creatorExecutors.push(createStickmanImageExecutor({
         configStore: creatorServicesConfigStore,
         ledger: creatorProviderRequestLedger,
-        codexNative: { codexHome },
+        codexNative: codexImageRuntime,
         ...(creatorTesseractPath === undefined ? {} : { tesseractPath: creatorTesseractPath })
       }));
     }
@@ -871,7 +878,7 @@ export async function buildServer(input: BuildServerInput) {
     }));
     creatorExecutors.push(createImageExecutor({
       configStore: creatorServicesConfigStore,
-      codexNative: { codexHome },
+      codexNative: codexImageRuntime,
       ...(creatorFfmpegPath === undefined
         ? {}
         : {
@@ -894,11 +901,13 @@ export async function buildServer(input: BuildServerInput) {
       model: createWechatArticleModel({ configStore: creatorServicesConfigStore }),
       imageGenerator: createArticleImageGenerator({
         configStore: creatorServicesConfigStore,
-        codexNative: { codexHome }
+        codexNative: codexImageRuntime
       })
     }));
   }
   const creatorPreflight = createCreatorPreflight({
+    readCodexImageStatus,
+    videoMetadataService,
     configStore: creatorServicesConfigStore,
     readCapabilities: () => krillinDependencyLoader.capabilities(),
     resourceRoot: creatorRuntimeRoot,
@@ -1082,7 +1091,8 @@ export async function buildServer(input: BuildServerInput) {
     : createVideoTranslationWorkflow({
         creator: creatorService,
         dispatcher: creatorCommandDispatcher,
-        configStore: creatorServicesConfigStore
+        configStore: creatorServicesConfigStore,
+        videoMetadataService
       });
   coverWorkflow = creatorStageRunner === undefined
     ? undefined
@@ -1365,6 +1375,7 @@ export async function buildServer(input: BuildServerInput) {
       };
     }
   });
+  await registerVideoMetadataRoutes(server, videoMetadataService);
   await registerProjectRoutes(server, projectManager, runManager);
   await registerSkillRoutes(server, { skillManager });
   await registerSkillMarketRoutes(server, { skillMarketManager });
@@ -1409,10 +1420,14 @@ export async function buildServer(input: BuildServerInput) {
       await videoTranslationWorkflow?.resumeConfiguredJobs();
       await coverWorkflow?.resumeConfiguredJobs();
       await stickmanVideoWorkflow?.resumeConfiguredJobs();
-    }
+    },
+    readCodexImageStatus
   );
   await registerSmartDubbingRoutes(server, smartDubbingService);
-  await registerCreatorRuntimeRoutes(server, creatorYtDlpUpdateManager);
+  await registerCreatorRuntimeRoutes(server, creatorYtDlpUpdateManager, {
+    loader: krillinDependencyLoader,
+    readConfig: () => creatorServicesConfigStore.read()
+  });
   await registerImageGenerationRoutes(server, imageGenerationService);
   await registerCreatorRoutes(server, creatorService, creatorEvents, {
     sseHeartbeatMs: input.sseHeartbeatMs,

@@ -11,27 +11,44 @@ import type {
   CodexStatusResponse
 } from '@opencreator/protocol';
 import { ApiClientError, type RuntimeClient } from '../runtime/client.js';
+import { createRequestDeadline } from '../runtime/request-deadline.js';
 
 export type ConnectionState =
   | { status: 'disconnected'; message: string }
-  | { status: 'connected'; codexStatus: CodexStatusResponse }
+  | { status: 'connected'; codexStatus?: CodexStatusResponse; codexStatusError?: string }
   | { status: 'invalid_token'; message: string };
 
 type ClientLike = Pick<RuntimeClient, 'get' | 'post' | 'patch'>;
 
 export function createConnectionService(client: ClientLike) {
   return {
-    async check(): Promise<ConnectionState> {
+    async check(options: { signal?: AbortSignal } = {}): Promise<ConnectionState> {
+      const read = async <T,>(path: string): Promise<T> => {
+        const deadline = createRequestDeadline(4_000, options.signal);
+        try {
+          return await client.get<T>(path, { signal: deadline.signal });
+        } finally {
+          deadline.dispose();
+        }
+      };
       try {
-        await client.get('/healthz');
-        const codexStatus = await client.get<CodexStatusResponse>('/codex/status');
-        return { status: 'connected', codexStatus };
+        await read('/healthz');
       } catch (error) {
         const message = errorMessage(error);
         if (error instanceof ApiClientError && (error.status === 401 || error.status === 403)) {
           return { status: 'invalid_token', message };
         }
         return { status: 'disconnected', message };
+      }
+      try {
+        const codexStatus = await read<CodexStatusResponse>('/codex/status');
+        return { status: 'connected', codexStatus };
+      } catch (error) {
+        const message = errorMessage(error);
+        if (error instanceof ApiClientError && (error.status === 401 || error.status === 403)) {
+          return { status: 'invalid_token', message };
+        }
+        return { status: 'connected', codexStatusError: message };
       }
     },
     getCodexReadiness(): Promise<CodexRuntimeReadiness> {

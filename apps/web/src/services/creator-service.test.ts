@@ -214,6 +214,6 @@ function subscribeUntilDisconnect(
   onEvent: Parameters<ReturnType<typeof createCreatorService>['subscribeJobEvents']>[1]
 ): Promise<void> {
   return new Promise(resolve => {
-    service.subscribeJobEvents(jobId, onEvent, resolve);
+    service.subscribeJobEvents(jobId, onEvent, () => resolve());
   });
 }

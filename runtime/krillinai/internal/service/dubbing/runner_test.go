@@ -29,6 +29,28 @@ func fakeRunnerWritingOutputsWithoutMkdir() CommandRunner {
 	}
 }
 
+func TestAudioOnlyRunnerDoesNotRequireOrMuxVideo(t *testing.T) {
+	root := t.TempDir()
+	input := filepath.Join(root, "input.srt")
+	if err := os.WriteFile(input, []byte("1\n00:00:00,000 --> 00:00:01,000\n你好\n\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	result, err := NewRunner(Dependencies{
+		TTS: &fakeTTS{writeOnReturn: true}, Language: "zh_cn", Voice: "voice", Workdir: root, InputSRT: input, AudioOnly: true,
+		OutputAudio: filepath.Join(root, "output.wav"), Config: DefaultConfig(),
+		FFmpeg: func(args []string) error {
+			if strings.HasSuffix(args[len(args)-1], ".mp4") {
+				t.Fatal("audio-only runner attempted video muxing")
+			}
+			return fakeRunnerWritingOutputs(root)(args)
+		},
+		Duration: func(string) (float64, error) { return 0.8, nil },
+	}).Run(context.Background())
+	if err != nil || result.Audio == "" || result.Video != "" {
+		t.Fatalf("result = %+v, error = %v", result, err)
+	}
+}
+
 func TestRunWritesDubbingArtifactsWithFakeTTS(t *testing.T) {
 	dir := t.TempDir()
 	input := filepath.Join(dir, "input.srt")

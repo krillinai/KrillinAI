@@ -3,6 +3,7 @@ import type {
   CodexStatusResponse
 } from '@opencreator/protocol';
 import { AlertTriangle, CheckCircle2, HardDrive, SquareTerminal } from 'lucide-react';
+import { RuntimeRecoveryNotice } from '../../runtime/runtime-recovery.js';
 
 export type DiagnosticsSettingsViewProps = {
   connected: boolean;
@@ -26,6 +27,7 @@ export function DiagnosticsSettingsView(props: DiagnosticsSettingsViewProps) {
       {!props.connected ? (
         <p className="settings-notice">本地服务未连接，诊断状态可能已过期。</p>
       ) : null}
+      <RuntimeRecoveryNotice diagnostics />
 
       <div className="diagnostics-overview">
         <section>

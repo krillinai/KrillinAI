@@ -10,11 +10,30 @@ export type LocalCodexProvider = {
   model: string;
 };
 
+export type LocalCodexImageConfiguration =
+  | { authentication: 'api_key'; provider: LocalCodexProvider }
+  | { authentication: 'chatgpt' };
+
 export class LocalCodexProviderError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'LocalCodexProviderError';
   }
+}
+
+export async function readLocalCodexImageConfiguration(input: {
+  codexHome: string;
+  env?: NodeJS.ProcessEnv;
+}): Promise<LocalCodexImageConfiguration> {
+  const auth = await readJson(join(input.codexHome, 'auth.json'), true);
+  const tokens = readRecord(auth?.tokens);
+  if (auth?.auth_mode !== 'apikey' && (auth?.auth_mode === 'chatgpt' || readString(tokens?.access_token))) {
+    if (!readString(tokens?.access_token)) {
+      throw new LocalCodexProviderError('ChatGPT 登录凭据不完整，请在 Agent 设置中重新登录');
+    }
+    return { authentication: 'chatgpt' };
+  }
+  return { authentication: 'api_key', provider: await readLocalCodexProvider(input) };
 }
 
 export async function readLocalCodexProvider(input: {
@@ -42,7 +61,7 @@ export async function readLocalCodexProvider(input: {
   }
   if (!apiKey) {
     throw new LocalCodexProviderError(
-      '本机 Codex 当前只有 ChatGPT 登录态，未配置图像接口可用的 API Key'
+      '本机 Codex 未配置图像接口可用的 API Key，请检查 Agent 配置'
     );
   }
   return {
@@ -63,12 +82,15 @@ async function readToml(path: string): Promise<Record<string, TomlValue>> {
   }
 }
 
-async function readJson(path: string): Promise<Record<string, unknown> | undefined> {
+async function readJson(path: string, strict = false): Promise<Record<string, unknown> | undefined> {
   try {
     const value = JSON.parse(await readFile(path, 'utf8')) as unknown;
-    return readRecord(value);
+    const record = readRecord(value);
+    if (strict && record === undefined) throw new Error('Invalid auth document');
+    return record;
   } catch (error) {
     if (isNotFound(error)) return undefined;
+    if (strict) throw new LocalCodexProviderError('无法读取本机 Codex 登录凭据，请在 Agent 设置中重新登录或配置 API Key');
     return undefined;
   }
 }

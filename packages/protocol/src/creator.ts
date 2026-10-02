@@ -379,6 +379,36 @@ export type CreatorYtDlpStatusResponse = {
   ytDlp: CreatorYtDlpStatus;
 };
 
+export type CreatorLocalComponent = {
+  id: 'whisperkit' | 'whisper.cpp' | 'faster-whisper';
+  name: string;
+  available: boolean;
+  version: string | null;
+  supportedVersion: string | null;
+  installedAt: string | null;
+  path: string;
+  source: string;
+  models: Array<{ id: string; installed: boolean; bytes: number | null }>;
+  state: 'not_installed' | 'partial' | 'downloading' | 'verifying' | 'extracting' | 'ready' | 'failed' | 'unsupported';
+  model: string | null;
+  item: string | null;
+  downloadedBytes: number;
+  totalBytes: number | null;
+  percent: number | null;
+  bytesPerSecond: number | null;
+  remainingSeconds: number | null;
+  error: string | null;
+  message?: string;
+};
+
+export type CreatorRuntimeComponentsResponse = {
+  platform: string;
+  arch: string;
+  selectedProvider: string;
+  selectedModel: string | null;
+  components: CreatorLocalComponent[];
+};
+
 export type CreatorSelection = {
   kind: string;
   id?: string;

@@ -981,12 +981,17 @@ test('Dashboard 握手超时后显示本地错误页并可无 Probe 重载', asy
   }
 });
 
-test('@package-smoke Daemon 异常退出后自动恢复且不重复 Probe', async () => {
+test('@package-smoke Daemon 连续退出保留 Creator 草稿，自动恢复耗尽后可手动重启', async () => {
   const fixture = await launchPackagedDesktop('success');
   try {
     await waitForWorkspace(fixture.page);
     await expect.poll(() => readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
     const mainPid = requiredPid(fixture.process.pid);
+    await fixture.page.getByRole('button', { name: '工作台', exact: true }).click();
+    await fixture.page.getByRole('button', { name: /^视频翻译/ }).click();
+    const composer = fixture.page.getByRole('textbox', { name: '告诉 Agent 你的要求' });
+    await composer.fill('保留这段尚未提交的翻译要求');
+    await fixture.page.evaluate(() => { document.body.dataset.runtimeRecoveryMarker = 'retain-renderer'; });
     const firstDaemonPid = await waitForDaemonUtilityPid(mainPid);
     process.kill(firstDaemonPid, 'SIGKILL');
 
@@ -1004,8 +1009,15 @@ test('@package-smoke Daemon 异常退出后自动恢复且不重复 Probe', asyn
       health: undefined
     })), { timeout: 30_000 }).toEqual({ phase: 'ready', health: 200 });
     await expect.poll(() => readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
-
-    process.kill(replacementPid, 'SIGKILL');
+    await expect(composer).toHaveValue('保留这段尚未提交的翻译要求');
+    let currentPid = replacementPid;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      process.kill(currentPid, 'SIGKILL');
+      currentPid = await waitForDaemonUtilityPid(mainPid, currentPid);
+      await expect.poll(async () => (await fixture.page.evaluate(() => window.opencreatorDesktop?.readBootstrapState()))?.phase).toBe('ready');
+      await expect(composer).toHaveValue('保留这段尚未提交的翻译要求');
+    }
+    process.kill(currentPid, 'SIGKILL');
     await expect.poll(async () => await fixture.page.evaluate(async () => {
       const state = await window.opencreatorDesktop?.readBootstrapState();
       return {
@@ -1019,6 +1031,13 @@ test('@package-smoke Daemon 异常退出后自动恢复且不重复 Probe', asyn
       phase: 'failed',
       code: 'DAEMON_RESTART_EXHAUSTED'
     });
+    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
+    await expect(fixture.page.getByRole('button', { name: '重启本地服务', exact: true })).toBeVisible();
+    fixture.page.once('dialog', dialog => void dialog.accept());
+    await fixture.page.getByRole('button', { name: '重启本地服务', exact: true }).click();
+    await expect.poll(async () => (await fixture.page.evaluate(() => window.opencreatorDesktop?.readBootstrapState()))?.phase).toBe('ready');
+    await expect(composer).toHaveValue('保留这段尚未提交的翻译要求');
+    expect(await fixture.page.evaluate(() => document.body.dataset.runtimeRecoveryMarker)).toBe('retain-renderer');
     expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
   } finally {
     await closeFixture(fixture);

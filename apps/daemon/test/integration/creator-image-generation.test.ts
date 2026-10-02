@@ -1,8 +1,9 @@
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 import type { FastifyInstance } from 'fastify';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildServer } from '../../src/api/server.js';
 
@@ -15,9 +16,48 @@ afterEach(async () => {
   if (tempDir) await rm(tempDir, { recursive: true, force: true });
   tempDir = '';
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe('creator image generation', () => {
+  it('runs native ChatGPT generation with checked capability, visible progress and saved Creator artifacts', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'creator-native-image-api-'));
+    const home = join(tempDir, 'codex-home');
+    await mkdir(home);
+    await writeFile(join(home, 'auth.json'), JSON.stringify({ auth_mode: 'chatgpt', tokens: { access_token: 'private-oauth-secret' } }));
+    const fixture = fileURLToPath(new URL('../fixtures/fake-codex-image.mjs', import.meta.url));
+    const bin = join(tempDir, 'fake-codex-image.mjs');
+    await writeFile(bin, `#!/usr/bin/env node\nawait import(${JSON.stringify(fixture)});\n`);
+    await chmod(bin, 0o755);
+    const fetchImpl = vi.fn();
+    vi.stubGlobal('fetch', fetchImpl);
+    vi.stubEnv('TEST_CODEX_IMAGE_DELAY_MS', '250');
+    const config = createDefaultCreatorServicesConfig();
+    server = await buildServer({ token: 'secret', dataDir: tempDir, codexHome: home, codexBin: bin, creatorServicesConfigStore: {
+      async read() { return structuredClone(config); }, async write(next) { return structuredClone(next); }, async reset() { return structuredClone(config); }
+    } });
+    const status = await request('GET', '/creator-services/image/codex/status');
+    expect(status.json()).toMatchObject({ authentication: 'chatgpt', ready: true, executionMode: 'native', version: 'codex-test 0.149.0' });
+    const created = await request('POST', '/creator/jobs', { projectId: 'project_image', templateId: 'image-generation', creationKey: 'native-generation-flow' });
+    const initial = created.json().job;
+    const updated = await request('POST', `/creator/jobs/${initial.id}/actions`, { action: 'update-settings', expectedRevision: initial.revision, input: { patch: { prompt: 'One orange cat', provider: 'codex-native', candidateCount: 1 } } });
+    const started = await request('POST', `/creator/jobs/${initial.id}/actions`, { action: 'run-stage', expectedRevision: updated.json().job.revision, input: { stageId: 'generate' } });
+    expect(started.statusCode).toBe(200);
+    await vi.waitFor(async () => {
+      const running = (await request('GET', `/creator/jobs/${initial.id}`)).json().job;
+      expect(running.stages).toContainEqual(expect.objectContaining({ status: 'running', progress: expect.objectContaining({ phase: 'generating_image', message: expect.stringContaining('ChatGPT'), completed: 0, total: 1 }) }));
+    });
+    const completed = await waitForCompletedJob(initial.id);
+    expect(completed.artifacts).toContainEqual(expect.objectContaining({ kind: 'generated_image', status: 'completed', metadata: expect.objectContaining({ provider: 'codex-native', model: 'codex-native' }) }));
+    expect(completed.state.latestResultVersion).toBe(1);
+    const artifact = completed.artifacts.find((item: { kind: string }) => item.kind === 'generated_image');
+    const content = await request('GET', `/creator/jobs/${initial.id}/artifacts/${artifact.id}/content`);
+    expect(content.statusCode).toBe(200);
+    expect(content.rawPayload.subarray(0, 4).toString('hex')).toBe('89504e47');
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(status.rawPayload.toString()).not.toContain('private-oauth-secret');
+  });
+
   it('runs image generation through Creator Job, Stage, Artifact and ResultSnapshot', async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'creator-image-api-'));
     const config = createDefaultCreatorServicesConfig();

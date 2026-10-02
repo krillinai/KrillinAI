@@ -12,6 +12,7 @@ export type NormalizedCreatorActivity = {
 };
 
 export type CreatorStageProgressView = {
+  detailsHref?: string;
   percent: number | null;
   indeterminate?: boolean;
   phase: string | null;
@@ -68,6 +69,11 @@ const genericAdapter: CreatorPanelAdapter = {
 
 export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
   id: 'video-translation',
+  failedProgressText(stage, l) {
+    return stage.errorCode === 'creator_dependency_prepare_failed'
+      ? l('本地转录组件准备失败，可前往组件页查看原因并重试', 'Local transcription preparation failed. View the component page and retry.')
+      : null;
+  },
   composerPlaceholder: l => l(
     '询问状态，或描述要调整的语言、字幕、配音和成片要求',
     'Ask about status or describe language, subtitle, dubbing, and video changes'
@@ -89,6 +95,10 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
       collecting_subtitles: l('生成双语字幕', 'Generating bilingual subtitles'),
       preparing_original_media: l('准备原始视频', 'Preparing the original video'),
       preparing_audio: l('准备音频转录', 'Preparing audio transcription'),
+      downloading_dependencies: l('下载本地转录组件（尚未开始转录）', 'Downloading local components (transcription has not started)'),
+      verifying_dependencies: l('校验本地转录组件', 'Verifying local transcription components'),
+      extracting_dependencies: l('安装本地转录组件', 'Installing local transcription components'),
+      dependencies_ready: l('组件已就绪，开始转录', 'Components ready; starting transcription'),
       transcribing_audio: l('转录并翻译音频', 'Transcribing and translating audio'),
       collecting_outputs: l('整理输出文件', 'Collecting outputs'),
       generating_voice: l('生成配音', 'Generating dubbing'),
@@ -116,6 +126,20 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
   },
   readStageProgress(stage) {
     const standard = readStandardProgress(stage);
+    if (standard.phase?.endsWith('_dependencies')) {
+      const downloaded = readFiniteNumber(stage.progress.downloadedBytes) ?? 0;
+      const total = readFiniteNumber(stage.progress.totalBytes);
+      const speed = readFiniteNumber(stage.progress.bytesPerSecond);
+      const remaining = readFiniteNumber(stage.progress.remainingSeconds);
+      const format = (bytes: number) => bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(2)} GiB` : `${(bytes / 1024 ** 2).toFixed(1)} MiB`;
+      const bytes = `${format(downloaded)}${total === null ? '' : ` / ${format(total)}`}${speed ? ` · ${format(speed)}/s` : ''}${remaining === null ? '' : ` · ~${Math.ceil(remaining / 60)} min`}`;
+      return { ...standard,
+        percent: standard.phase === 'downloading_dependencies' ? readFiniteNumber(stage.progress.dependencyPercent) : null,
+        indeterminate: standard.phase !== 'downloading_dependencies' || readFiniteNumber(stage.progress.dependencyPercent) === null,
+        message: `${standard.message ?? ''}${standard.phase === 'downloading_dependencies' ? ` ${bytes}` : ''}`,
+        detailsHref: `#/settings?tab=local-components&from=video-translation&returnPath=${encodeURIComponent(`#/workbench?tool=video-translation&jobId=${encodeURIComponent(stage.jobId)}`)}`
+      };
+    }
     const legacy = readRecord(stage.progress.krillinEventPayload);
     return {
       percent: standard.percent ?? readFiniteNumber(legacy?.percent),
@@ -1168,6 +1192,8 @@ function genericPhaseLabel(
     validating: l('检查任务设置', 'Checking task settings'),
     preparing_source: l('准备任务素材', 'Preparing source material'),
     requesting_provider: l('提交生成服务', 'Submitting to the provider'),
+    preparing_native_image: l('准备 ChatGPT 登录态生图', 'Preparing ChatGPT image generation'),
+    generating_image: l('生成图片', 'Generating image'),
     collecting_outputs: l('整理输出文件', 'Collecting outputs'),
     finalizing_outputs: l('整理创作结果', 'Finalizing outputs'),
     completed: l('任务已完成', 'Task completed')

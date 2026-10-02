@@ -469,6 +469,13 @@
   background: var(--surface-2);
 }
 
+.creator-services-codex-image-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .creator-services-inline-note.is-warning {
   border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
   background: color-mix(in srgb, var(--warning) 8%, var(--surface));

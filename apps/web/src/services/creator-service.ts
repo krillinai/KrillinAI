@@ -27,7 +27,7 @@ import type {
 } from '@opencreator/protocol';
 
 type ClientLike = {
-  get(path: string): Promise<unknown>;
+  get(path: string, options?: { signal?: AbortSignal }): Promise<unknown>;
   post(path: string, body?: unknown): Promise<unknown>;
   delete(path: string): Promise<unknown>;
   postBinary?(path: string, body: BodyInit, contentType?: string): Promise<unknown>;
@@ -86,8 +86,8 @@ export function createCreatorService(client: ClientLike) {
         ? '/creator/jobs'
         : `/creator/jobs?projectId=${encodeURIComponent(projectId)}`) as Promise<CreatorJobListResponse>;
     },
-    getJob(jobId: string): Promise<{ job: CreatorJob }> {
-      return client.get(`/creator/jobs/${encodeURIComponent(jobId)}`) as Promise<{ job: CreatorJob }>;
+    getJob(jobId: string, options?: { signal?: AbortSignal }): Promise<{ job: CreatorJob }> {
+      return client.get(`/creator/jobs/${encodeURIComponent(jobId)}`, options) as Promise<{ job: CreatorJob }>;
     },
     preflight(jobId: string, stageId: string): Promise<CreatorPreflightResponse> {
       return client.get(`/creator/jobs/${encodeURIComponent(jobId)}/preflight?stageId=${encodeURIComponent(stageId)}`) as Promise<CreatorPreflightResponse>;
@@ -254,7 +254,7 @@ export function createCreatorService(client: ClientLike) {
     subscribeJobEvents(
       jobId: string,
       onEvent: (event: CreatorEventEnvelope) => void,
-      onDisconnect: () => void
+      onDisconnect: (error?: unknown) => void
     ): { close(): void } {
       const controller = new AbortController();
       void (async () => {
@@ -267,7 +267,7 @@ export function createCreatorService(client: ClientLike) {
           { signal: controller.signal }
         );
         const reader = response.body?.getReader();
-        if (reader === undefined) return;
+        if (reader === undefined) throw new Error('Creator event stream is unavailable');
         const decoder = new TextDecoder();
         let buffered = '';
         while (!controller.signal.aborted) {
@@ -292,8 +292,8 @@ export function createCreatorService(client: ClientLike) {
           }
         }
         if (!controller.signal.aborted) onDisconnect();
-      })().catch(() => {
-        if (!controller.signal.aborted) onDisconnect();
+      })().catch(error => {
+        if (!controller.signal.aborted) onDisconnect(error);
       });
       return { close: () => controller.abort() };
     }

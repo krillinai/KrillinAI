@@ -57,6 +57,28 @@ describe('creator services API', () => {
     await server.close();
   });
 
+  it('reports unavailable capability instead of assuming native image generation is enabled', async () => {
+    const response = await server.inject({ method: 'GET', url: '/creator-services/image/codex/status' });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ ready: false, authentication: 'none', executionMode: null });
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(store.write).not.toHaveBeenCalled();
+  });
+
+  it('exposes the checked authentication mode without mutating configuration', async () => {
+    await server.close();
+    server = Fastify({ logger: false });
+    const readStatus = vi.fn(async () => ({ authentication: 'chatgpt' as const, ready: true, executionMode: 'native' as const, version: 'codex-test', message: '原生工具已就绪' }));
+    await registerCreatorServicesRoutes(server, store, undefined, ttsService, undefined, readStatus);
+    const response = await server.inject({ method: 'GET', url: '/creator-services/image/codex/status' });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ authentication: 'chatgpt', ready: true, executionMode: 'native', version: 'codex-test' });
+    expect(response.body).not.toContain('initial-secret');
+    expect(readStatus).toHaveBeenCalledOnce();
+    expect(store.write).not.toHaveBeenCalled();
+    expect(store.reset).not.toHaveBeenCalled();
+  });
+
   it('supports legacy independent text-model fields during migration', async () => {
     const read = await server.inject({ method: 'GET', url: '/creator-services/config' });
     expect(read.statusCode).toBe(200);

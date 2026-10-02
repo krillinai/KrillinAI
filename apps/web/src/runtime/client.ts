@@ -25,8 +25,8 @@ export class RuntimeClient {
     this.fetchImpl = input.fetchImpl ?? fetch;
   }
 
-  async get<T = unknown>(path: string): Promise<T> {
-    return this.request<T>(path, { method: 'GET' });
+  async get<T = unknown>(path: string, options: RuntimeRequestOptions = {}): Promise<T> {
+    return this.request<T>(path, { method: 'GET', signal: options.signal });
   }
 
   async rawGet(path: string, options: RuntimeRequestOptions = {}): Promise<Response> {
@@ -58,7 +58,7 @@ export class RuntimeClient {
     return this.request<T>(path, { method: 'DELETE' });
   }
 
-  async request<T>(path: string, input: { method: string; body?: unknown }): Promise<T> {
+  async request<T>(path: string, input: { method: string; body?: unknown; signal?: AbortSignal }): Promise<T> {
     const response = await this.rawRequest(path, input);
     const payload = await readSuccessfulJson(response, path);
     return payload as T;

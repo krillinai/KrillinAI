@@ -34,6 +34,23 @@ function openBlankWorkspace(moduleName: string, _blankName: string) {
   }));
 }
 
+describe('Creator initial session recovery', () => {
+  it('automatically opens an existing project after the first snapshot fails', async () => {
+    const service = createInMemoryCreatorService();
+    const { job } = await service.createJob({ projectId: 'project_1', templateId: 'video-translation' });
+    const getJob = vi.spyOn(service, 'getJob');
+    getJob.mockRejectedValueOnce(new TypeError('offline'));
+    const applyAction = vi.spyOn(service, 'applyAction');
+    const runAgentTurn = vi.spyOn(service, 'runAgentTurn');
+    render(<DashboardPage onSelectPrompt={vi.fn()} workspace="video-translation" jobId={job.id} creatorService={service} />);
+    expect(await screen.findByText('正在恢复项目会话与任务状态…')).toBeVisible();
+    expect(await screen.findByRole('heading', { name: '视频翻译配音' })).toBeVisible();
+    expect(getJob).toHaveBeenCalledTimes(2);
+    expect(applyAction).not.toHaveBeenCalled();
+    expect(runAgentTurn).not.toHaveBeenCalled();
+  });
+});
+
 function createInMemoryCreatorService(): CreatorWebService {
   const jobs = new Map<string, CreatorJob>();
   let sequence = 0;
@@ -874,6 +891,61 @@ describe('DashboardPage', () => {
     expect(screen.getByText('写作模板')).toBeInTheDocument();
     expect(screen.queryByText('排版模板')).not.toBeInTheDocument();
     expect(container.querySelector('.wechat-layout-list')).not.toBeInTheDocument();
+  });
+
+  it('requires a Bilibili part selection and persists it without duplicate metadata requests', async () => {
+    const creatorService = createInMemoryCreatorService();
+    const applyAction = vi.spyOn(creatorService, 'applyAction');
+    const parts = [1, 2, 3].map(index => ({ index, title: `课程 ${index}`, cid: 1000 + index, width: 1920, height: 1080 }));
+    const getVideoMetadata = vi.fn(async () => ({ platform: 'bilibili' as const, title: '课程合集', parts }));
+    render(<DashboardPage onSelectPrompt={vi.fn()} workspace="video-translation" creatorService={creatorService}
+      videoMetadataService={{ getVideoMetadata }} />);
+    fireEvent.change(screen.getByRole('textbox', { name: '视频链接' }), {
+      target: { value: 'https://www.bilibili.com/video/BV18E421w7bf/?spm_id_from=share' }
+    });
+    expect(screen.getByText('正在读取 B 站分集信息，请稍候…')).toBeInTheDocument();
+    const selector = await screen.findByRole('combobox', { name: '选择要翻译的分集' });
+    expect(selector).toHaveValue('');
+    expect(screen.queryByTitle('Bilibili 视频预览')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '继续' }));
+    expect(screen.getByText('请确认链接有效，并选择要翻译的分集后继续')).toBeInTheDocument();
+    fireEvent.change(selector, { target: { value: '3' } });
+    expect(new URL(screen.getByTitle('Bilibili 视频预览').getAttribute('src')!).searchParams.get('p')).toBe('3');
+    expect(screen.getByText('课程合集 · P3 课程 3')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '继续' }));
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+      action: 'update-settings', input: expect.objectContaining({ patch: expect.objectContaining({ sourceUrl: 'https://www.bilibili.com/video/BV18E421w7bf?p=3' }) })
+    })));
+    expect(getVideoMetadata).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([1, 2, 3])('preselects an explicit Bilibili P%s link', async index => {
+    const parts = [1, 2, 3].map(index => ({ index, title: `课程 ${index}` }));
+    render(<DashboardPage onSelectPrompt={vi.fn()} workspace="video-translation"
+      videoMetadataService={{ getVideoMetadata: vi.fn(async () => ({ platform: 'bilibili' as const, title: '课程合集', parts, selectedPart: parts[index - 1]! })) }} />);
+    fireEvent.change(screen.getByRole('textbox', { name: '视频链接' }), {
+      target: { value: `https://www.bilibili.com/video/BV18E421w7bf?p=${index}` }
+    });
+    expect(await screen.findByRole('combobox', { name: '选择要翻译的分集' })).toHaveValue(String(index));
+    expect(new URL(screen.getByTitle('Bilibili 视频预览').getAttribute('src')!).searchParams.get('p')).toBe(String(index));
+    fireEvent.click(screen.getByRole('button', { name: '继续' }));
+    expect(screen.queryByRole('combobox', { name: '选择要翻译的分集' })).not.toBeInTheDocument();
+  });
+
+  it('shows a recoverable Bilibili lookup error rather than silently translating P1', async () => {
+    const getVideoMetadata = vi.fn()
+      .mockRejectedValueOnce(new Error('无法读取 B 站分集信息，请重试'))
+      .mockResolvedValueOnce({ platform: 'bilibili', title: '课程合集', parts: [{ index: 1, title: '课程 1' }, { index: 2, title: '课程 2' }] });
+    render(<DashboardPage onSelectPrompt={vi.fn()} workspace="video-translation" videoMetadataService={{ getVideoMetadata }} />);
+    fireEvent.change(screen.getByRole('textbox', { name: '视频链接' }), {
+      target: { value: 'https://www.bilibili.com/video/BV18E421w7bf' }
+    });
+    expect(await screen.findByText('无法读取 B 站分集信息，请重试')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '继续' }));
+    expect(screen.getByText('请确认链接有效，并选择要翻译的分集后继续')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '重新读取分集' }));
+    expect(await screen.findByRole('combobox', { name: '选择要翻译的分集' })).toHaveValue('');
+    expect(getVideoMetadata).toHaveBeenCalledTimes(2);
   });
 
   it('opens the video translation workspace and keeps its result in place', async () => {

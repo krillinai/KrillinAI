@@ -11,16 +11,19 @@ import (
 )
 
 type RenderRequest struct {
-	Workdir       string
-	TaskID        string
-	Video         string
-	Audio         string
-	Subtitle      string
-	Horizontal    bool
-	Dubbed        bool
-	MajorTitle    string
-	MinorTitle    string
-	SubtitleStyle *subtitlestyle.StyleSet
+	Workdir        string
+	TaskID         string
+	Video          string
+	SourceURL      string
+	MediaWorkdir   string
+	ReportProgress func(string, int, string)
+	Audio          string
+	Subtitle       string
+	Horizontal     bool
+	Dubbed         bool
+	MajorTitle     string
+	MinorTitle     string
+	SubtitleStyle  *subtitlestyle.StyleSet
 }
 
 func Render(ctx context.Context, svc StageService, req RenderRequest) (Response, error) {
@@ -37,6 +40,12 @@ func Render(ctx context.Context, svc StageService, req RenderRequest) (Response,
 	restoreOutputs(manifest, existingOutputs)
 
 	inputVideo := renderInputVideo(req, manifest)
+	if req.Video == "" && req.SourceURL != "" {
+		inputVideo, err = ensureSourceVideo(ctx, svc, manifest, req.SourceURL, req.MediaWorkdir, req.ReportProgress)
+		if err != nil {
+			return failRenderStage(req, manifest, renderStage(req), "prepare_media_for_render_failed", err)
+		}
+	}
 	subtitle := renderSubtitle(req, manifest)
 	output := renderOutput(req)
 	stepParam := &types.SubtitleTaskStepParam{
@@ -53,6 +62,7 @@ func Render(ctx context.Context, svc StageService, req RenderRequest) (Response,
 	rendered, err := svc.RenderVideo(ctx, service.RenderVideoRequest{
 		Workdir:      req.Workdir,
 		InputVideo:   inputVideo,
+		AudioFile:    req.Audio,
 		SubtitleFile: subtitle,
 		OutputFile:   output,
 		Horizontal:   req.Horizontal,

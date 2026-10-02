@@ -1,4 +1,4 @@
-import type { VideoMetadataResponse } from '@opencreator/protocol';
+import { parseBilibiliVideoSource, type VideoMetadataResponse, type VideoSourcePart } from '@opencreator/protocol';
 import { request as httpsRequest } from 'node:https';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
@@ -6,7 +6,7 @@ const METADATA_TIMEOUT_MS = 5_000;
 
 export class VideoMetadataError extends Error {
   constructor(
-    readonly code: 'UNSUPPORTED_SOURCE' | 'UPSTREAM_ERROR',
+    readonly code: 'UNSUPPORTED_SOURCE' | 'INVALID_PART' | 'UPSTREAM_ERROR',
     message: string
   ) {
     super(message);
@@ -21,10 +21,15 @@ export function createVideoMetadataService(input: {
   fetchImpl?: typeof fetch;
   getProxy?(): string | Promise<string>;
 } = {}): VideoMetadataService {
+  const cache = new Map<string, { payload: unknown; expiresAt: number }>();
   return {
     async get(value: string): Promise<VideoMetadataResponse> {
       const source = parseVideoSource(value);
       const endpoint = createMetadataEndpoint(source);
+      const cached = cache.get(endpoint.href);
+      if (source.platform === 'bilibili' && cached !== undefined && cached.expiresAt > Date.now()) {
+        return parseMetadataPayload(source, cached.payload);
+      }
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), METADATA_TIMEOUT_MS);
@@ -41,7 +46,15 @@ export function createVideoMetadataService(input: {
           throw new VideoMetadataError('UPSTREAM_ERROR', 'Video metadata request failed');
         }
         const payload = await response.json() as unknown;
-        return parseMetadataPayload(source, payload);
+        const metadata = parseMetadataPayload(source, payload);
+        if (source.platform === 'bilibili') {
+          for (const [key, entry] of cache) {
+            if (entry.expiresAt <= Date.now()) cache.delete(key);
+          }
+          if (cache.size >= 64) cache.delete(cache.keys().next().value!);
+          cache.set(endpoint.href, { payload, expiresAt: Date.now() + 30_000 });
+        }
+        return metadata;
       } catch (error) {
         if (error instanceof VideoMetadataError) throw error;
         throw new VideoMetadataError('UPSTREAM_ERROR', 'Video metadata request failed');
@@ -109,7 +122,7 @@ async function fetchMetadata(
 
 type ParsedVideoSource =
   | { platform: 'youtube'; videoId: string }
-  | { platform: 'bilibili'; videoId: string };
+  | { platform: 'bilibili'; videoId: string; partIndex?: number };
 
 function parseVideoSource(value: string): ParsedVideoSource {
   let url: URL;
@@ -134,10 +147,13 @@ function parseVideoSource(value: string): ParsedVideoSource {
   }
 
   if (!videoId || videoId.length > 128 || !/^[A-Za-z0-9_-]+$/.test(videoId)) {
-    const bilibiliId = (hostname === 'bilibili.com' || hostname.endsWith('.bilibili.com'))
-      ? url.pathname.match(/\/(BV[A-Za-z0-9]+|av\d+)(?:[/?#]|$)/i)?.[1]
-      : undefined;
-    if (bilibiliId) return { platform: 'bilibili', videoId: bilibiliId };
+    if (hostname === 'bilibili.com' || hostname.endsWith('.bilibili.com')) {
+      const bilibili = parseBilibiliVideoSource(value);
+      if (bilibili === null) {
+        throw new VideoMetadataError('UNSUPPORTED_SOURCE', 'B 站链接无效，请检查视频地址和分 P 参数（p 必须为正整数）');
+      }
+      return { platform: 'bilibili', videoId: bilibili.videoId, ...(bilibili.partIndex === undefined ? {} : { partIndex: bilibili.partIndex }) };
+    }
     throw new VideoMetadataError('UNSUPPORTED_SOURCE', 'Only YouTube and Bilibili video metadata is supported');
   }
   return { platform: 'youtube', videoId };
@@ -183,20 +199,52 @@ function parseMetadataPayload(source: ParsedVideoSource, payload: unknown): Vide
   const owner = isRecord(payload.data.owner) ? payload.data.owner : undefined;
   const authorName = boundedText(owner?.name, 160);
   const thumbnailUrl = boundedText(payload.data.pic, 2048);
-  const dimension = isRecord(payload.data.dimension) ? payload.data.dimension : undefined;
+  const parts = Array.isArray(payload.data.pages) ? payload.data.pages.map(parseBilibiliPart) : undefined;
+  if (parts?.length === 0) {
+    throw new VideoMetadataError('UPSTREAM_ERROR', '无法读取 B 站视频分集信息，请重试');
+  }
+  const partIndex = source.partIndex ?? (parts?.length === 1 ? parts[0]?.index : undefined);
+  const selectedPart = parts?.find(part => part.index === partIndex);
+  if (source.partIndex !== undefined && (parts === undefined ? source.partIndex !== 1 : selectedPart === undefined)) {
+    throw new VideoMetadataError('INVALID_PART', `分 P ${source.partIndex} 不存在，请重新选择视频分集`);
+  }
+  const dimension = selectedPart ?? (parts !== undefined && parts.length > 1 ? undefined : payload.data.dimension);
+  const dimensions = parseDimensions(dimension);
+  return {
+    platform: 'bilibili',
+    title,
+    ...(authorName === undefined ? {} : { authorName }),
+    ...(thumbnailUrl === undefined ? {} : { thumbnailUrl }),
+    ...(parts === undefined ? {} : { parts }),
+    ...(selectedPart === undefined ? {} : { selectedPart }),
+    ...dimensions
+  };
+}
+
+function parseBilibiliPart(value: unknown): VideoSourcePart {
+  if (!isRecord(value) || typeof value.page !== 'number' || !Number.isSafeInteger(value.page) || value.page < 1) {
+    throw new VideoMetadataError('UPSTREAM_ERROR', '无法读取 B 站视频分集信息，请重试');
+  }
+  const cid = typeof value.cid === 'number' && Number.isSafeInteger(value.cid) && value.cid > 0 ? value.cid : undefined;
+  const durationSeconds = typeof value.duration === 'number' && value.duration >= 0 ? value.duration : undefined;
+  return {
+    index: value.page,
+    title: boundedText(value.part, 300) ?? `P${value.page}`,
+    ...(cid === undefined ? {} : { cid }),
+    ...(durationSeconds === undefined ? {} : { durationSeconds }),
+    ...parseDimensions(value.dimension)
+  };
+}
+
+function parseDimensions(value: unknown): { width?: number; height?: number } {
+  const dimension = isRecord(value) ? value : undefined;
   let width = boundedDimension(dimension?.width);
   let height = boundedDimension(dimension?.height);
   const rotation = boundedRotation(dimension?.rotate);
   if (width !== undefined && height !== undefined && (rotation === 90 || rotation === 270)) {
     [width, height] = [height, width];
   }
-  return {
-    platform: 'bilibili',
-    title,
-    ...(authorName === undefined ? {} : { authorName }),
-    ...(thumbnailUrl === undefined ? {} : { thumbnailUrl }),
-    ...(width === undefined || height === undefined ? {} : { width, height })
-  };
+  return width === undefined || height === undefined ? {} : { width, height };
 }
 
 function boundedText(value: unknown, maximum: number): string | undefined {

@@ -14,6 +14,17 @@ import type { CreatorServicesSettingsService } from '../../services/creator-serv
 import { CreatorServicesSettingsView } from './CreatorServicesSettingsView.js';
 
 describe('CreatorServicesSettingsView', () => {
+  it('loads the real Codex image status only in the native image settings section', async () => {
+    const service = createService();
+    service.getCodexImageStatus = vi.fn(async () => ({ authentication: 'chatgpt' as const, ready: true, executionMode: 'native' as const, message: '本地登录凭据已就绪' }));
+    const onOpenAgentSetup = vi.fn();
+    render(<CreatorServicesSettingsView connected service={service} modelService={createModelService()} onOpenAgentSetup={onOpenAgentSetup} />);
+    expect(service.getCodexImageStatus).not.toHaveBeenCalled();
+    await userEvent.click(await screen.findByRole('tab', { name: '图像生成' }));
+    expect(await screen.findByText('本地登录凭据已就绪')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '配置 Agent' }));
+    expect(onOpenAgentSetup).toHaveBeenCalledOnce();
+  });
   it('saves an OSS region and optional endpoint in the shared settings form', async () => {
     const user = userEvent.setup();
     const service = createService([

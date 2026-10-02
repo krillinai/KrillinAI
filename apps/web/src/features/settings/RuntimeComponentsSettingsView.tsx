@@ -9,12 +9,15 @@ import type { RuntimeDependenciesController } from '../../app/use-runtime-depend
 import { IssueList } from '../issues/IssuePresenter.js';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { useEffect, useRef, useState } from 'react';
+import { LocalTranscriptionComponents } from './LocalTranscriptionComponents.js';
 
 type LiveCheckState = 'pending' | 'checking' | 'ready' | 'failed';
 
 export function RuntimeComponentsSettingsView(props: {
   connected: boolean;
   controller: RuntimeDependenciesController;
+  componentId?: string;
+  onReturn?(): void;
 }) {
   const { language, t } = useAppLanguage();
   const status = props.controller.ytDlpStatus;
@@ -61,6 +64,7 @@ export function RuntimeComponentsSettingsView(props: {
     return (
       <section className="settings-section settings-management" aria-labelledby="runtime-components-title">
         <SettingsHeader />
+        <LocalTranscriptionComponents controller={props.controller} componentId={props.componentId} onReturn={props.onReturn} />
         {!hasIssue ? (
           <div className="settings-state">
             <LoaderCircle className="settings-spin" size={17} aria-hidden="true" />
@@ -98,6 +102,7 @@ export function RuntimeComponentsSettingsView(props: {
   return (
     <section className="settings-section settings-management" aria-labelledby="runtime-components-title">
       <SettingsHeader />
+      <LocalTranscriptionComponents controller={props.controller} componentId={props.componentId} onReturn={props.onReturn} />
       <article className="runtime-component-item">
         <div className="runtime-component-heading">
           <div>

@@ -95,6 +95,7 @@ type Dependencies struct {
 	Workdir        string
 	InputSRT       string
 	InputVideo     string
+	AudioOnly      bool
 	OutputAudio    string
 	OutputVideo    string
 	Config         Config

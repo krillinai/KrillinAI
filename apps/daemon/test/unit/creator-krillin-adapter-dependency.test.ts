@@ -1,4 +1,5 @@
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
+import type { CreatorExecutorInput } from '../../src/creator/executor.js';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
@@ -9,6 +10,10 @@ const runKrillinCli = vi.hoisted(() => vi.fn());
 
 vi.mock('../../src/creator/krillin/dependency-preflight.js', () => ({
   preflightKrillinDependencies
+}));
+
+vi.mock('../../src/creator/validators/media.js', () => ({
+  validateMediaFile: vi.fn(async () => ({ duration: 1, hasVideo: true, hasAudio: true }))
 }));
 
 vi.mock('../../src/creator/krillin/cli-runner.js', async importOriginal => {
@@ -92,6 +97,78 @@ describe('KrillinAI configured transcription dependency', () => {
       code: 'audio_transcription_failed',
       message: expect.stringMatching(/No original YouTube captions.*whisperkit-cli rejected/)
     });
+  });
+
+  it.each(['platform_caption_access_failed', 'platform_caption_processing_failed'])('does not download transcription components after %s', async code => {
+    const fixture = setup();
+    runKrillinCli.mockRejectedValueOnce(new KrillinCliError(code, 'Platform request failed'));
+
+    await expect(fixture.executor.run(fixture.stage)).rejects.toMatchObject({ code });
+
+    expect(runKrillinCli).toHaveBeenCalledTimes(1);
+    expect(fixture.ensure).not.toHaveBeenCalled();
+  });
+
+  it.each(['different-url', 'unknown'])('does not reuse a source video with %s provenance when rendering a URL', async provenance => {
+    const fixture = setup();
+    const stage = fixture.stage as CreatorExecutorInput;
+    stage.job.templateId = 'video-translation';
+    stage.stageRun.stageId = 'render-horizontal';
+    const previousVideo = stage.inputArtifacts[0]!;
+    previousVideo.metadata = provenance === 'different-url'
+      ? { settingsSnapshot: { sourceUrl: 'https://www.youtube.com/watch?v=previous' } }
+      : {};
+    const subtitle = writeTargetSubtitle(tempDir);
+    stage.inputArtifacts.push({ id: 'target-subtitle', kind: 'target_subtitle', path: join(tempDir, subtitle.relativePath) } as never);
+    runKrillinCli.mockImplementation(async input => {
+      const outputDir = join(input.jobsRoot, stage.job.id, 'outputs');
+      mkdirSync(outputDir, { recursive: true });
+      const sourcePath = join(outputDir, 'new-source.mp4');
+      const renderPath = join(outputDir, 'horizontal.mp4');
+      writeFileSync(sourcePath, 'new source');
+      writeFileSync(renderPath, 'render');
+      return [
+        { kind: 'source_video', relativePath: relative(input.jobsRoot, sourcePath), size: 10 },
+        { kind: 'horizontal_video', relativePath: relative(input.jobsRoot, renderPath), size: 6 }
+      ];
+    });
+
+    const result = await fixture.executor.run(stage);
+
+    expect(runKrillinCli.mock.calls[0]?.[0].artifacts).toEqual([
+      expect.objectContaining({ id: 'target-subtitle', kind: 'target_subtitle' })
+    ]);
+    expect(runKrillinCli.mock.calls[0]?.[0].options.sourceUrl).toBe(stage.job.state.sourceUrl);
+    expect(result.outputs).toEqual([
+      expect.objectContaining({ kind: 'source_video', sourceArtifactIds: [] }),
+      expect.objectContaining({ kind: 'horizontal_video', sourceArtifactIds: ['target-subtitle'] })
+    ]);
+    expect(fixture.ensure).not.toHaveBeenCalled();
+  });
+
+  it.each(['matching-url', 'local-file'])('retains a source video with %s provenance', async provenance => {
+    const fixture = setup();
+    const stage = fixture.stage as CreatorExecutorInput;
+    stage.job.templateId = 'video-translation';
+    stage.stageRun.stageId = 'tts';
+    stage.job.state.sourceType = provenance === 'local-file' ? 'file' : 'url';
+    stage.inputArtifacts[0]!.metadata = provenance === 'matching-url'
+      ? { settingsSnapshot: { sourceUrl: stage.job.state.sourceUrl! } }
+      : {};
+    runKrillinCli.mockImplementation(async input => {
+      const outputDir = join(input.jobsRoot, stage.job.id, 'outputs');
+      mkdirSync(outputDir, { recursive: true });
+      const outputPath = join(outputDir, 'dubbed.wav');
+      writeFileSync(outputPath, 'audio');
+      return [{ kind: 'dubbed_audio', relativePath: relative(input.jobsRoot, outputPath), size: 5 }];
+    });
+
+    await fixture.executor.run(stage);
+
+    expect(runKrillinCli.mock.calls[0]?.[0].artifacts).toEqual([
+      expect.objectContaining({ id: 'source-video', kind: 'source_video' })
+    ]);
+    expect(fixture.ensure).not.toHaveBeenCalled();
   });
 });
 

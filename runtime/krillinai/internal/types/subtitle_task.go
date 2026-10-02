@@ -335,6 +335,8 @@ type SubtitleTaskStepParam struct {
 	SubtitleResultType          SubtitleResultType
 	EnableModalFilter           bool
 	EnableTts                   bool
+	TtsAudioOnly                bool
+	SkipAudio                   bool
 	TtsVoiceCode                string // 人声语音编码
 	VoiceCloneAudioUrl          string // 音色克隆的源音频oss地址
 	ReplaceWordsMap             map[string]string

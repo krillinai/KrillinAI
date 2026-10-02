@@ -11303,6 +11303,23 @@
   box-sizing: border-box;
 }
 
+.video-translation-bilibili-parts {
+  width: min(960px, 100%);
+  margin: 0 auto;
+  padding: 0 24px 24px;
+  box-sizing: border-box;
+}
+
+.video-translation-bilibili-parts select {
+  padding: 0 12px;
+}
+
+.video-translation-bilibili-parts p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .video-translation-dropzone {
   position: relative;
   width: min(592px, 100%);

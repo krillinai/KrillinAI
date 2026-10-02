@@ -43,6 +43,8 @@ function Harness() {
       <output aria-label="dubbing">{String(session.state.dubbing)}</output>
       <output aria-label="conflicts">{session.conflictedFields.join(',')}</output>
       <output aria-label="error">{session.error?.code ?? ''}</output>
+      <output aria-label="connection">{session.connection?.status ?? ''}</output>
+      <button type="button" onClick={() => session.updateDraft({ targetLanguage: 'ja' }, { persist: false })}>change-local</button>
       <output aria-label="turns">{session.turns.map(turn => turn.content).join('|')}</output>
       <output aria-label="busy">{String(session.agentBusy)}</output>
       <output aria-label="stages">{session.job.stages.map(stage => `${stage.stageId}:${stage.status}`).join('|')}</output>
@@ -84,6 +86,23 @@ function PendingHarness() {
 }
 
 describe('CreatorSessionStore', () => {
+  it('recovers an initial snapshot failure while retaining local state without submitting tasks', async () => {
+    const getJob = vi.fn().mockRejectedValueOnce(new TypeError('offline'))
+      .mockResolvedValue({ job: job(2, { targetLanguage: 'en' }) });
+    const applyAction = vi.fn();
+    const runAgentTurn = vi.fn();
+    const subscribeJobEvents = vi.fn(() => ({ close: vi.fn() }));
+    const view = render(<CreatorSessionProvider initialJob={job(1, { targetLanguage: 'en' })}
+      service={{ getJob, subscribeJobEvents, applyAction, runAgentTurn }}><Harness /></CreatorSessionProvider>);
+    await waitFor(() => expect(screen.getByLabelText('connection')).toHaveTextContent('reconnecting'));
+    fireEvent.click(screen.getByRole('button', { name: 'change-local' }));
+    await waitFor(() => expect(screen.getByLabelText('connection')).toHaveTextContent('connected'));
+    expect(screen.getByLabelText('language')).toHaveTextContent('ja');
+    expect(subscribeJobEvents).toHaveBeenCalledTimes(1);
+    expect(applyAction).not.toHaveBeenCalled();
+    expect(runAgentTurn).not.toHaveBeenCalled();
+    view.unmount();
+  });
   it('updates the confirmed job after canceling and resuming a task', async () => {
     let session: ReturnType<typeof useCreatorSession> | undefined;
     function ControlHarness() {

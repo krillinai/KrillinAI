@@ -21,6 +21,8 @@ import {
   Square
 } from 'lucide-react';
 import { TtsVoicePicker } from '../../components/tts/TtsVoicePicker.js';
+import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
+import { LocalTranscriptionNotice } from './LocalTranscriptionNotice.js';
 import { useLocalizedCopy, type LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import type { VideoMetadataService } from '../../services/video-metadata-service.js';
@@ -28,6 +30,7 @@ import VideoTranslationAgentPanel from './VideoTranslationAgentPanel.js';
 import CreatorResizableLayout from './CreatorResizableLayout.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import VideoSourceInput from './VideoSourceInput.js';
+import { BilibiliPartSelector } from './BilibiliPartSelector.js';
 import { parseVideoSource } from './VideoSourcePreview.js';
 import { VideoTranslationSubtitleImport } from './VideoTranslationSubtitleImport.js';
 import VideoTranslationResultWorkspace, {
@@ -46,6 +49,7 @@ import {
 } from './creator-session-store.js';
 import {
   readCreatorResultSnapshots,
+  parseBilibiliVideoSource,
   type CreatorArtifact,
   type CreatorJson,
   type CreatorResultSnapshot,
@@ -146,6 +150,7 @@ type LanguageOption = {
 };
 
 const steps = ['添加视频', '翻译设置', '字幕样式', '配音与输出'] as const;
+let componentNavigationDraft: { jobId: string | null; settings: TranslationSettingsSnapshot; source: TranslationSourceSnapshot; currentStep: WizardStep; furthestStep: WizardStep; workspacePhase: WorkspacePhase } | undefined;
 const subtitleColors = ['#FFFFFF', '#FFE45C', '#7EE7FF', '#A7F3D0'] as const;
 const defaultSubtitleStyle: SubtitleStyleSettings = {
   subtitleFont: 'sans',
@@ -1483,6 +1488,7 @@ export default function VideoTranslationWorkspace(props: {
   promptHint?: string;
   videoMetadataService?: VideoMetadataService;
   creatorServicesService?: CreatorServicesSettingsService | null;
+  runtimeDependencies?: RuntimeDependenciesController;
 }) {
   const l = useLocalizedCopy();
   const creatorSession = useOptionalCreatorSession();
@@ -1502,6 +1508,8 @@ export default function VideoTranslationWorkspace(props: {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [sourceDimensions, setSourceDimensions] = useState<{ width: number; height: number }>();
   const [urlMetadata, setUrlMetadata] = useState<{ url: string; value: VideoMetadataResponse }>();
+  const [bilibiliMetadataError, setBilibiliMetadataError] = useState<{ url: string; message: string }>();
+  const [metadataRetry, setMetadataRetry] = useState(0);
   const [localPreviewUrl, setLocalPreviewUrl] = useState<{ file: File; url: string }>();
   const [videoFileName, setVideoFileName] = useState<string | null>(null);
   const [videoFileSize, setVideoFileSize] = useState<number | null>(null);
@@ -1553,7 +1561,10 @@ export default function VideoTranslationWorkspace(props: {
   const [agentFocus, setAgentFocus] = useState<AgentFocus>();
   const cancelConfirmRef = useRef<HTMLButtonElement>(null);
   const parsedVideoSource = useMemo(() => parseVideoSource(videoUrl), [videoUrl]);
-  const currentUrlMetadata = urlMetadata?.url === videoUrl ? urlMetadata.value : undefined;
+  const currentUrlMetadata = sourceType === 'url' && urlMetadata?.url === videoUrl ? urlMetadata.value : undefined;
+  const sourceSelectionReady = sourceType !== 'url' || (parsedVideoSource.kind !== 'invalid'
+    && (parsedVideoSource.kind !== 'bilibili' || (currentUrlMetadata !== undefined
+      && ((currentUrlMetadata.parts?.length ?? 0) < 2 || currentUrlMetadata.selectedPart !== undefined))));
 
   useEffect(() => {
     if (workspacePhase !== 'configure' || currentStep !== 2 || sourceType !== 'file'
@@ -1568,19 +1579,29 @@ export default function VideoTranslationWorkspace(props: {
   }, [workspacePhase, currentStep, sourceType, videoFile]);
 
   useEffect(() => {
-    if (currentStep === 0 || sourceType !== 'url' || !isValidVideoUrl(videoUrl)
+    if (sourceType !== 'url' || !isValidVideoUrl(videoUrl)
       || props.videoMetadataService === undefined || currentUrlMetadata !== undefined
+      || (currentStep === 0 && parsedVideoSource.kind !== 'bilibili')
       || (parsedVideoSource.kind !== 'youtube' && parsedVideoSource.kind !== 'bilibili')) return;
     let canceled = false;
-    void props.videoMetadataService.getVideoMetadata(videoUrl).then(metadata => {
-      if (canceled) return;
-      setUrlMetadata({ url: videoUrl, value: metadata });
-      if (metadata.width !== undefined && metadata.height !== undefined) {
-        updateSourceOrientation(metadata.width, metadata.height);
-      }
-    }).catch(() => undefined);
-    return () => { canceled = true; };
-  }, [currentStep, sourceType, videoUrl, props.videoMetadataService, currentUrlMetadata, parsedVideoSource.kind]);
+    if (parsedVideoSource.kind === 'bilibili') setBilibiliMetadataError(undefined);
+    const timeout = setTimeout(() => {
+      void props.videoMetadataService!.getVideoMetadata(videoUrl).then(metadata => {
+        if (canceled) return;
+        setUrlMetadata({ url: videoUrl, value: metadata });
+        setBilibiliMetadataError(undefined);
+        if (metadata.width !== undefined && metadata.height !== undefined) {
+          updateSourceOrientation(metadata.width, metadata.height);
+        }
+      }).catch(error => {
+        if (!canceled && parsedVideoSource.kind === 'bilibili') {
+          setBilibiliMetadataError({ url: videoUrl, message: error instanceof Error
+            ? error.message : l('无法读取 B 站分集信息，请重试', 'Could not load Bilibili parts. Please retry.') });
+        }
+      });
+    }, parsedVideoSource.kind === 'bilibili' ? 350 : 0);
+    return () => { canceled = true; clearTimeout(timeout); };
+  }, [currentStep, sourceType, videoUrl, props.videoMetadataService, currentUrlMetadata, parsedVideoSource.kind, metadataRetry]);
 
   useEffect(() => {
     if (creatorSession === null) return;
@@ -2305,6 +2326,11 @@ export default function VideoTranslationWorkspace(props: {
           ? subtitleStyleLabel
           : `${dubbing ? l('配音开启', 'Dubbing on') : l('无配音', 'No dubbing')}, ${outputLabel}`;
   function openWizardStep(step: WizardStep) {
+    if (step > 0 && !sourceSelectionReady) {
+      setCurrentStep(0);
+      setAttemptedContinue(true);
+      return;
+    }
     setCurrentStep(step);
     setFurthestStep(previous => Math.max(previous, step) as WizardStep);
   }
@@ -2421,6 +2447,21 @@ export default function VideoTranslationWorkspace(props: {
 
   const draftSettingsSnapshot = currentDraftSettings();
   const draftSourceSnapshot = currentDraftSource();
+  const navigationDraftRef = useRef(componentNavigationDraft);
+  useEffect(() => {
+    const draft = navigationDraftRef.current;
+    if (!draft || draft.jobId !== (creatorSession?.job.id ?? null)) return;
+    navigationDraftRef.current = undefined;
+    componentNavigationDraft = undefined;
+    applySettingsSnapshot(draft.settings);
+    applySourceSnapshot(draft.source);
+    setCurrentStep(draft.currentStep);
+    setFurthestStep(draft.furthestStep);
+    setWorkspacePhase(draft.workspacePhase);
+  }, [creatorSession?.job.id]);
+  function preserveComponentNavigationDraft() {
+    componentNavigationDraft = { jobId: creatorSession?.job.id ?? null, settings: currentDraftSettings(), source: currentDraftSource(), currentStep, furthestStep, workspacePhase };
+  }
   const draftAppliesToSelectedResult = selectedResult !== undefined
     && draftBaseVersion === selectedResult.value;
   const hasConfigDraftChanges = draftAppliesToSelectedResult
@@ -2459,6 +2500,22 @@ export default function VideoTranslationWorkspace(props: {
     } else {
       setSourceType('url');
     }
+    setAttemptedContinue(false);
+  }
+
+  function selectBilibiliPart(index: number) {
+    const source = parseBilibiliVideoSource(videoUrl);
+    const part = currentUrlMetadata?.parts?.find(candidate => candidate.index === index);
+    if (source === null || part === undefined || currentUrlMetadata === undefined) return;
+    const url = `https://www.bilibili.com/video/${source.videoId}?p=${index}`;
+    setUrlMetadata({
+      url,
+      value: { ...currentUrlMetadata, selectedPart: part, width: part.width, height: part.height }
+    });
+    setVideoUrl(url);
+    setSourceDimensions(undefined);
+    setSourceOrientation('landscape');
+    if (part.width !== undefined && part.height !== undefined) updateSourceOrientation(part.width, part.height);
     setAttemptedContinue(false);
   }
 
@@ -2559,7 +2616,7 @@ export default function VideoTranslationWorkspace(props: {
 
   function continueToSettings() {
     setAttemptedContinue(true);
-    if (!hasSource) return;
+    if (!hasSource || !sourceSelectionReady) return;
     openWizardStep(1);
   }
 
@@ -2602,7 +2659,7 @@ export default function VideoTranslationWorkspace(props: {
   }
 
   async function submit() {
-    if (!hasSource) {
+    if (!hasSource || !sourceSelectionReady) {
       setCurrentStep(0);
       setAttemptedContinue(true);
       return;
@@ -2917,6 +2974,10 @@ export default function VideoTranslationWorkspace(props: {
 
         {workspacePhase === 'configure' ? (
           <div className="video-translation-configure-top">
+            <LocalTranscriptionNotice controller={props.runtimeDependencies}
+              platformCaptions={sourceType === 'url' && (videoUrl.trim() === '' || parseVideoSource(videoUrl).kind === 'youtube') && preferPlatformCaptions}
+              importedSubtitle={typeof creatorSession?.state.importedSourceSubtitleId === 'string' || typeof creatorSession?.state.importedTargetSubtitleId === 'string'}
+              beforeNavigate={preserveComponentNavigationDraft} />
             {draftBaseVersion !== undefined ? (
               <div className="video-translation-draft-bar" role="status">
                 <History size={16} strokeWidth={1.8} aria-hidden="true" />
@@ -2997,6 +3058,7 @@ export default function VideoTranslationWorkspace(props: {
           ) : null}
 
           {workspacePhase === 'configure' && currentStep === 0 ? (
+            <>
             <VideoSourceInput
               file={videoFile}
               registeredFile={registeredSourceFile}
@@ -3004,7 +3066,9 @@ export default function VideoTranslationWorkspace(props: {
               url={videoUrl}
               hasSource={hasSource}
               invalid={attemptedContinue && !hasSource}
-              metadataService={props.videoMetadataService}
+              metadataService={parsedVideoSource.kind === 'bilibili' ? undefined : props.videoMetadataService}
+              metadata={currentUrlMetadata}
+              previewEnabled={sourceSelectionReady}
               onFileChange={chooseVideo}
               onUrlChange={url => {
                 setVideoUrl(url);
@@ -3020,6 +3084,19 @@ export default function VideoTranslationWorkspace(props: {
                 setUrlMetadata({ url, value: metadata });
               }}
             />
+            {sourceType === 'url' && parsedVideoSource.kind === 'bilibili' ? (
+              <BilibiliPartSelector
+                metadata={currentUrlMetadata}
+                error={bilibiliMetadataError?.url === videoUrl ? bilibiliMetadataError.message : props.videoMetadataService === undefined
+                  ? l('分集信息服务不可用，请确认 Creator Runtime 已连接', 'The parts service is unavailable. Check the Creator Runtime connection.') : undefined}
+                onRetry={props.videoMetadataService === undefined ? undefined : () => {
+                  setBilibiliMetadataError(undefined);
+                  setMetadataRetry(value => value + 1);
+                }}
+                onSelect={selectBilibiliPart}
+              />
+            ) : null}
+            </>
           ) : null}
 
           {workspacePhase === 'configure' && currentStep === 1 ? (
@@ -3427,6 +3504,9 @@ export default function VideoTranslationWorkspace(props: {
             <div className="video-translation-action-group">
               {attemptedContinue && !hasSource ? (
                 <p className="video-translation-error" role="alert">{l('请先添加需要翻译的视频', 'Add a video to translate first')}</p>
+              ) : null}
+              {attemptedContinue && hasSource && !sourceSelectionReady ? (
+                <p className="video-translation-error" role="alert">{l('请确认链接有效，并选择要翻译的分集后继续', 'Check the link and choose a part before continuing')}</p>
               ) : null}
               <button className="video-translation-primary-action" type="button" onClick={continueToSettings}>
                 {l('继续', 'Continue')}

@@ -1,5 +1,5 @@
-import type { CreatorYtDlpStatus, OpenCreatorIssue } from '@opencreator/protocol';
-import { useCallback, useEffect, useState } from 'react';
+import type { CreatorRuntimeComponentsResponse, CreatorYtDlpStatus, OpenCreatorIssue } from '@opencreator/protocol';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePageIssueState } from '../features/issues/page-issue-state.js';
 import type { RuntimeDependencyService } from '../services/runtime-dependency-service.js';
 
@@ -10,6 +10,10 @@ export type RuntimeDependencyPhase =
   | 'updating';
 
 export type RuntimeDependenciesController = {
+  componentsStatus?: CreatorRuntimeComponentsResponse;
+  componentError?: string;
+  refreshComponents?(): Promise<void>;
+  downloadComponents?(): Promise<void>;
   ytDlpStatus?: CreatorYtDlpStatus;
   phase: RuntimeDependencyPhase;
   /** @deprecated Runtime failures are exposed through issues. */
@@ -25,8 +29,46 @@ export function useRuntimeDependencies(input: {
   service: RuntimeDependencyService | null;
 }): RuntimeDependenciesController {
   const [ytDlpStatus, setYtDlpStatus] = useState<CreatorYtDlpStatus>();
+  const [componentsStatus, setComponentsStatus] = useState<CreatorRuntimeComponentsResponse>();
+  const [componentError, setComponentError] = useState<string>();
+  const componentsRef = useRef<CreatorRuntimeComponentsResponse>();
+  const componentDownloadActive = componentsStatus?.components.some(component => ['downloading', 'verifying', 'extracting'].includes(component.state)) ?? false;
   const [phase, setPhase] = useState<RuntimeDependencyPhase>('idle');
   const pageIssues = usePageIssueState('runtime');
+  const refreshComponents = useCallback(async () => {
+    if (!input.connected || !input.service?.getComponentsStatus) return;
+    try {
+      const status = await input.service.getComponentsStatus();
+      componentsRef.current = status;
+      setComponentsStatus(status);
+      setComponentError(undefined);
+    } catch (error) {
+      setComponentError(error instanceof Error ? error.message : 'Unable to read local components');
+    }
+  }, [input.connected, input.service]);
+
+  useEffect(() => {
+    if (!input.connected) { setComponentsStatus(undefined); return; }
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      await refreshComponents();
+      const busy = componentsRef.current?.components.some(component => ['downloading', 'verifying', 'extracting'].includes(component.state));
+      if (!stopped) timer = setTimeout(() => { void poll(); }, busy ? 1000 : 15_000);
+    };
+    void poll();
+    return () => { stopped = true; clearTimeout(timer); };
+  }, [input.connected, refreshComponents, componentDownloadActive]);
+
+  const downloadComponents = useCallback(async () => {
+    if (!input.connected || !input.service?.downloadComponents) return;
+    try {
+      setComponentsStatus(await input.service.downloadComponents());
+      setComponentError(undefined);
+    } catch (error) {
+      setComponentError(error instanceof Error ? error.message : 'Unable to download local components');
+    }
+  }, [input.connected, input.service]);
 
   useEffect(() => {
     let active = true;
@@ -129,6 +171,7 @@ export function useRuntimeDependencies(input: {
   }, [input.connected, input.service, pageIssues.captureOperationFailure, pageIssues.resolveOperation]);
 
   return {
+    componentsStatus, componentError, refreshComponents, downloadComponents,
     ytDlpStatus,
     phase,
     issues: pageIssues.issues,

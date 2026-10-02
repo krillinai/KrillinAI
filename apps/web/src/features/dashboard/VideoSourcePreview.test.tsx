@@ -167,6 +167,23 @@ describe('VideoSourcePreview', () => {
     );
   });
 
+  it('previews the selected Bilibili part instead of always P1', () => {
+    render(<VideoSourcePreview file={null} sourceType="url"
+      url="https://www.bilibili.com/video/BV18E421w7bf/?spm_id_from=share&p=3"
+      onChooseFile={vi.fn()} onClear={vi.fn()} />);
+    const player = new URL(screen.getByTitle('Bilibili 视频预览').getAttribute('src')!);
+    expect(player.searchParams.get('p')).toBe('3');
+    expect(player.searchParams.has('page')).toBe(false);
+  });
+
+  it('does not show a misleading P1 preview when a multipart source needs a selection', () => {
+    render(<VideoSourcePreview file={null} sourceType="url"
+      url="https://www.bilibili.com/video/BV18E421w7bf" onChooseFile={vi.fn()} onClear={vi.fn()}
+      metadata={{ platform: 'bilibili', title: '课程', parts: [{ index: 1, title: '第一课' }, { index: 2, title: '第二课' }] }} />);
+    expect(screen.queryByTitle('Bilibili 视频预览')).not.toBeInTheDocument();
+    expect(screen.getByText('选择分集后预览视频')).toBeInTheDocument();
+  });
+
   it('keeps the original platform link available when embedded playback fails', () => {
     render(
       <VideoSourcePreview

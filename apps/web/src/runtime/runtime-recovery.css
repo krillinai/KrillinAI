@@ -1,0 +1,32 @@
+.runtime-recovery-notice {
+  margin: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.runtime-recovery-notice p {
+  margin: 0 0 6px;
+}
+
+.runtime-recovery-notice small {
+  display: block;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.runtime-recovery-notice > div {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.runtime-recovery-notice button {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: inherit;
+  cursor: pointer;
+}

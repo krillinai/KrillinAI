@@ -1,7 +1,58 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createCreatorSnapshotSubscription } from './creator-sse.js';
+import { ApiClientError } from './client.js';
 
 describe('creator snapshot subscription', () => {
+  it('recovers automatically after the first snapshot fails', async () => {
+    vi.useFakeTimers();
+    const loadSnapshot = vi.fn().mockRejectedValueOnce(new TypeError('offline'))
+      .mockResolvedValue({ revision: 2 });
+    const subscribe = vi.fn(() => ({ close: vi.fn() }));
+    const onState = vi.fn();
+    const subscription = createCreatorSnapshotSubscription({
+      loadSnapshot, subscribe, onSnapshot: vi.fn(), onState, reconnectDelays: [10]
+    });
+    await subscription.start();
+    expect(onState).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'reconnecting', attempt: 1 }));
+    await vi.advanceTimersByTimeAsync(10);
+    await subscription.whenIdle();
+    expect(subscribe).toHaveBeenCalledTimes(1);
+    expect(onState).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'connected' }));
+    subscription.close();
+  });
+
+  it.each([401, 403, 404])('does not retry terminal HTTP %s until explicitly requested', async status => {
+    vi.useFakeTimers();
+    const loadSnapshot = vi.fn().mockRejectedValueOnce(new ApiClientError({ status, code: 'FAILED', message: 'unavailable' }))
+      .mockResolvedValue({ revision: 2 });
+    const onState = vi.fn();
+    const subscription = createCreatorSnapshotSubscription({
+      loadSnapshot, subscribe: () => ({ close: vi.fn() }), onSnapshot: vi.fn(), onState
+    });
+    await subscription.start();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(loadSnapshot).toHaveBeenCalledTimes(1);
+    expect(onState).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'failed' }));
+    await subscription.retry();
+    expect(loadSnapshot).toHaveBeenCalledTimes(2);
+    subscription.close();
+  });
+
+  it('aborts an initial snapshot and cancels recovery when closed', async () => {
+    vi.useFakeTimers();
+    let signal: AbortSignal | undefined;
+    const loadSnapshot = vi.fn((options: { signal: AbortSignal }) => new Promise<never>((_resolve, reject) => {
+      signal = options.signal;
+      signal.addEventListener('abort', () => reject(signal?.reason));
+    }));
+    const subscription = createCreatorSnapshotSubscription({ loadSnapshot, subscribe: vi.fn(), onSnapshot: vi.fn() });
+    const started = subscription.start();
+    subscription.close();
+    await started;
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(signal?.aborted).toBe(true);
+    expect(loadSnapshot).toHaveBeenCalledTimes(1);
+  });
   afterEach(() => {
     vi.useRealTimers();
   });

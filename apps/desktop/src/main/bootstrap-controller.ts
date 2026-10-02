@@ -34,6 +34,9 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
   private verifiedFingerprint: string | undefined;
   private automaticRestarts = 0;
   private stableTimer: NodeJS.Timeout | undefined;
+  private recoveryWork: Promise<void> | undefined;
+  private recoveryController: AbortController | undefined;
+  private stopped = false;
 
   constructor(private readonly input: {
     daemon: DaemonManager;
@@ -47,6 +50,7 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
     stickmanRuntimeRoot: string;
     defaultProjectRoot: string;
     development: boolean;
+    automaticRestartDelays?: readonly number[];
   }) {
     super();
     input.daemon.on('bootstrap', event => {
@@ -76,8 +80,11 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
       this.emit('connection', connection === null ? null : this.rendererConnection());
     });
     input.daemon.on('exit', event => {
-      if (event.reason !== 'unexpected' || this.state.phase === 'failed') return;
-      void this.recoverUnexpectedExit();
+      if (event.reason !== 'unexpected' || this.state.phase === 'failed' || this.stopped) return;
+      if (this.recoveryWork !== undefined || this.runWork !== undefined) return;
+      this.recoveryWork = this.recoverUnexpectedExit().finally(() => {
+        this.recoveryWork = undefined;
+      });
     });
   }
 
@@ -95,6 +102,7 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
     selectedCodexBin?: string,
     loginShellTask?: LoginShellEnvironmentTask
   ): Promise<void> {
+    this.stopped = false;
     if (this.runWork !== undefined) return this.runWork;
     this.runWork = this.startInternal(selectedCodexBin, loginShellTask).finally(() => {
       this.runWork = undefined;
@@ -123,17 +131,32 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
   }
 
   async restartRuntime(): Promise<void> {
+    if (this.runWork !== undefined) return this.runWork;
+    this.recoveryController?.abort();
+    if (this.recoveryWork !== undefined) await this.input.daemon.stop();
+    await this.recoveryWork;
+    if (this.runWork !== undefined) return this.runWork;
+    this.stopped = false;
     if (this.resolvedEnvironment === undefined) {
       await this.start();
+      if (this.state.phase === 'failed') throw new Error(this.state.error?.message ?? '本地服务启动失败');
       return;
     }
-    await this.input.daemon.restart(this.daemonStartInput(
-      this.resolvedEnvironment,
-      false,
-      true
-    ));
-    this.updateState({ phase: 'starting_runtime', error: undefined });
-    this.emit('ready');
+    const environment = this.resolvedEnvironment;
+    this.updateState({ phase: 'starting_daemon', error: undefined });
+    this.runWork = (async () => {
+      try {
+        await this.input.daemon.restart(this.daemonStartInput(environment, false, true));
+        this.automaticRestarts = 0;
+        this.updateState({ phase: 'starting_runtime', error: undefined });
+        this.emit('ready');
+        this.armStableTimer();
+      } catch (error) {
+        this.updateState({ phase: 'failed', error: parseBootstrapError(error) });
+        throw error;
+      }
+    })().finally(() => { this.runWork = undefined; });
+    await this.runWork;
   }
 
   markWorkspaceReady(): void {
@@ -161,8 +184,11 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
   }
 
   async stop(): Promise<void> {
+    this.stopped = true;
+    this.recoveryController?.abort();
     if (this.stableTimer !== undefined) clearTimeout(this.stableTimer);
     await this.input.daemon.stop();
+    await this.recoveryWork;
   }
 
   private async startInternal(
@@ -277,32 +303,34 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
 
   private async recoverUnexpectedExit(): Promise<void> {
     const environment = this.resolvedEnvironment;
-    if (environment === undefined || this.automaticRestarts >= 1) {
-      this.updateState({
-        phase: 'failed',
-        error: {
-          code: 'DAEMON_RESTART_EXHAUSTED',
-          message: '本地运行服务连续退出，请导出诊断后重新检测'
-        }
-      });
-      return;
+    const delays = this.input.automaticRestartDelays ?? [500, 1_500, 3_000];
+    const controller = new AbortController();
+    this.recoveryController = controller;
+    if (this.stableTimer !== undefined) clearTimeout(this.stableTimer);
+    while (environment !== undefined && this.automaticRestarts < delays.length && !this.stopped) {
+      const delay = delays[this.automaticRestarts] ?? 3_000;
+      this.automaticRestarts += 1;
+      this.updateState({ phase: 'starting_daemon', error: undefined });
+      this.input.logger.info('Recovering local Runtime', { attempt: this.automaticRestarts, delayMs: delay });
+      await waitForRecovery(delay, controller.signal);
+      if (controller.signal.aborted || this.stopped) return;
+      try {
+        await this.input.daemon.start(this.daemonStartInput(environment, false, true));
+        if (controller.signal.aborted || this.stopped) return;
+        this.updateState({ phase: 'starting_runtime', error: undefined });
+        this.emit('ready');
+        this.armStableTimer();
+        return;
+      } catch (error) {
+        if (controller.signal.aborted || this.stopped) return;
+        this.input.logger.error('Local Runtime recovery failed', { message: error instanceof Error ? error.message : String(error) });
+      }
     }
-    this.automaticRestarts += 1;
+    if (controller.signal.aborted || this.stopped) return;
     this.updateState({
-      phase: 'starting_daemon',
-      error: undefined
+      phase: 'failed',
+      error: { code: 'DAEMON_RESTART_EXHAUSTED', message: '本地服务多次恢复失败，请在连接提示或设置 → 诊断中重启本地服务。' }
     });
-    try {
-      await this.input.daemon.start(this.daemonStartInput(environment, false, true));
-      this.updateState({ phase: 'starting_runtime' });
-      this.emit('ready');
-      this.armStableTimer();
-    } catch (error) {
-      this.updateState({
-        phase: 'failed',
-        error: parseBootstrapError(error)
-      });
-    }
   }
 
   private daemonStartInput(
@@ -348,6 +376,18 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
     }, 5 * 60 * 1_000);
     this.stableTimer.unref();
   }
+}
+
+function waitForRecovery(delay: number, signal: AbortSignal): Promise<void> {
+  return new Promise(resolve => {
+    const finish = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', finish);
+      resolve();
+    };
+    const timer = setTimeout(finish, delay);
+    signal.addEventListener('abort', finish, { once: true });
+  });
 }
 
 function isWorkspaceError(

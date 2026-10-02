@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink, FileVideo, Link2, Play, RotateCcw, Trash2 } from 'lucide-react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
-import type { VideoMetadataResponse } from '@opencreator/protocol';
+import { parseBilibiliVideoSource, type VideoMetadataResponse } from '@opencreator/protocol';
 import type { VideoMetadataService } from '../../services/video-metadata-service.js';
 
 type VideoSource =
   | { kind: 'youtube'; embedUrl: string; thumbnailUrl: string; url: string; label: string }
-  | { kind: 'bilibili'; embedUrl: string; url: string; label: string }
+  | { kind: 'bilibili'; embedUrl: string; url: string; label: string; partIndex?: number }
   | { kind: 'direct'; url: string; label: string }
   | { kind: 'link'; url: string; hostname: string; label: string }
   | { kind: 'invalid'; label: string };
@@ -43,18 +43,21 @@ export function parseVideoSource(value: string): VideoSource {
     }
 
     if (hostname === 'bilibili.com' || hostname.endsWith('.bilibili.com')) {
-      const videoId = url.pathname.match(/\/(BV[\w]+|av\d+)(?:[/?#]|$)/i)?.[1];
-      if (videoId) {
+      const bilibili = parseBilibiliVideoSource(trimmed);
+      if (bilibili) {
+        const { videoId, partIndex } = bilibili;
         const idParam = videoId.toLowerCase().startsWith('av')
           ? `aid=${encodeURIComponent(videoId.slice(2))}`
           : `bvid=${encodeURIComponent(videoId)}`;
         return {
           kind: 'bilibili',
-          embedUrl: `https://player.bilibili.com/player.html?${idParam}&page=1&high_quality=1&danmaku=0`,
-          url: url.toString(),
-          label: 'Bilibili 视频'
+          embedUrl: `https://player.bilibili.com/player.html?${idParam}&p=${partIndex ?? 1}&high_quality=1&danmaku=0`,
+          url: bilibili.url,
+          label: 'Bilibili 视频',
+          ...(partIndex === undefined ? {} : { partIndex })
         };
       }
+      return { kind: 'invalid', label: trimmed };
     }
 
     if (/\.(?:mp4|webm|mov|m4v)(?:$|[?#])/i.test(`${url.pathname}${url.search}${url.hash}`)) {
@@ -122,12 +125,15 @@ export default function VideoSourcePreview(props: {
   displayLabel?: string;
   displayDetail?: string;
   metadataService?: VideoMetadataService;
+  metadata?: VideoMetadataResponse;
+  previewEnabled?: boolean;
   onDimensions?(width: number, height: number): void;
   onMetadata?(url: string, metadata: VideoMetadataResponse): void;
 }) {
   const l = useLocalizedCopy();
   const [showYouTubePlayer, setShowYouTubePlayer] = useState(false);
-  const [metadata, setMetadata] = useState<VideoMetadataResponse>();
+  const [fetchedMetadata, setFetchedMetadata] = useState<{ url: string; value: VideoMetadataResponse }>();
+  const metadata = props.metadata ?? (fetchedMetadata?.url === props.url ? fetchedMetadata.value : undefined);
   const [mediaDimensions, setMediaDimensions] = useState<{ width: number; height: number }>();
   const source = useMemo(() => parseVideoSource(props.url), [props.url]);
   const localFile = props.sourceType === 'file' ? props.file : null;
@@ -143,7 +149,9 @@ export default function VideoSourcePreview(props: {
           ? l('视频链接', 'Video link')
           : source.label;
   const sourceLabel = props.displayLabel ?? (
-    localFile?.name ?? registeredFile?.name ?? metadata?.title ?? localizedLabel
+    localFile?.name ?? registeredFile?.name ?? (metadata?.selectedPart && (metadata.parts?.length ?? 0) > 1
+      ? `${metadata.title} · P${metadata.selectedPart.index} ${metadata.selectedPart.title}`
+      : metadata?.title) ?? localizedLabel
   );
   const sourceDetail = props.displayDetail ?? (localFile
     ? `${localFile.type.startsWith('audio/') ? l('本地音频', 'Local audio') : l('本地视频', 'Local video')} · ${formatFileSize(localFile.size)}`
@@ -173,11 +181,10 @@ export default function VideoSourcePreview(props: {
 
   useEffect(() => {
     let active = true;
-    setMetadata(undefined);
     if ((source.kind !== 'youtube' && source.kind !== 'bilibili') || props.metadataService === undefined) return undefined;
     void props.metadataService.getVideoMetadata(props.url).then(result => {
       if (!active) return;
-      setMetadata(result);
+      setFetchedMetadata({ url: props.url, value: result });
       props.onMetadata?.(props.url, result);
       if (result.width !== undefined && result.height !== undefined) {
         updateMediaDimensions(result.width, result.height);
@@ -187,6 +194,15 @@ export default function VideoSourcePreview(props: {
       active = false;
     };
   }, [props.metadataService, props.url, source.kind]);
+
+  useEffect(() => {
+    if (props.metadata?.width !== undefined && props.metadata.height !== undefined) {
+      updateMediaDimensions(props.metadata.width, props.metadata.height);
+    }
+  }, [props.metadata]);
+
+  const needsPartSelection = source.kind === 'bilibili'
+    && (props.previewEnabled === false || ((metadata?.parts?.length ?? 0) > 1 && metadata?.selectedPart === undefined));
 
   return (
     <div
@@ -218,7 +234,14 @@ export default function VideoSourcePreview(props: {
             <span aria-hidden="true"><Play size={24} fill="currentColor" /></span>
           </button>
         ) : null}
-        {!isLocal && ((source.kind === 'youtube' && showYouTubePlayer) || source.kind === 'bilibili') ? (
+        {!isLocal && needsPartSelection ? (
+          <div className="video-source-link-preview">
+            <strong>{metadata === undefined
+              ? l('正在确认视频分集', 'Checking the selected video part')
+              : l('选择分集后预览视频', 'Select a part to preview the video')}</strong>
+          </div>
+        ) : null}
+        {!isLocal && ((source.kind === 'youtube' && showYouTubePlayer) || (source.kind === 'bilibili' && !needsPartSelection)) ? (
           <iframe
             src={source.embedUrl}
             title={l(`${localizedLabel}预览`, `${localizedLabel} preview`)}

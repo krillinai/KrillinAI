@@ -17,7 +17,6 @@ import {
   CreatorStageRun
 } from '@opencreator/protocol';
 import {
-  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -27,11 +26,15 @@ import {
   type ReactNode
 } from 'react';
 import type { CreatorWebService } from '../../services/creator-service.js';
-import { createCreatorSnapshotSubscription } from '../../runtime/creator-sse.js';
+import { createCreatorSnapshotSubscription, type CreatorConnectionState } from '../../runtime/creator-sse.js';
+import { useRuntimeRecovery } from '../../runtime/runtime-recovery.js';
+import { CreatorSessionContext } from './creator-session-context.js';
 import { normalizePageIssue } from '../issues/page-issue-state.js';
 import { presentIssue } from '../issues/issue-catalog.js';
 
 export type CreatorSessionContextValue = {
+  connection?: CreatorConnectionState;
+  reconnect?(): Promise<void>;
   job: CreatorJob;
   state: Record<string, CreatorJson>;
   conflictedFields: string[];
@@ -137,8 +140,6 @@ export class CreatorPreflightBlockedError extends Error {
   }
 }
 
-const CreatorSessionContext = createContext<CreatorSessionContextValue | null>(null);
-
 export function CreatorSessionProvider(props: {
   initialJob: CreatorJob;
   ensureJob?: (state: Record<string, CreatorJson>) => Promise<CreatorJob>;
@@ -167,6 +168,10 @@ export function CreatorSessionProvider(props: {
   children: ReactNode;
 }) {
   const [confirmedJob, setConfirmedJob] = useState(props.initialJob);
+  const [connection, setConnection] = useState<CreatorConnectionState>({ status: 'connecting', attempt: 0 });
+  const subscriptionRef = useRef<ReturnType<typeof createCreatorSnapshotSubscription<CreatorJob, CreatorEventEnvelope>>>();
+  const runtimeEpoch = useRuntimeRecovery()?.epoch ?? 0;
+  const reconnect = useCallback(async () => { await subscriptionRef.current?.retry(); }, []);
   const [draft, setDraft] = useState<Record<string, CreatorJson>>({});
   const [dirtyFields, setDirtyFields] = useState<Set<string>>(() => new Set());
   const [conflictedFields, setConflictedFields] = useState<string[]>([]);
@@ -522,11 +527,17 @@ export function CreatorSessionProvider(props: {
   }, [acceptAuthoritativeIssue]);
 
   useEffect(() => {
-    if (props.service.getJob === undefined || props.service.subscribeJobEvents === undefined) return;
-    if (isPendingCreatorJob(confirmedJob)) return;
+    if (props.service.getJob === undefined || props.service.subscribeJobEvents === undefined) {
+      setConnection({ status: 'connected', attempt: 0 });
+      return;
+    }
+    if (isPendingCreatorJob(confirmedJob)) {
+      setConnection({ status: 'connected', attempt: 0 });
+      return;
+    }
     const jobId = confirmedJob.id;
     const subscription = createCreatorSnapshotSubscription<CreatorJob, CreatorEventEnvelope>({
-      loadSnapshot: async () => (await props.service.getJob!(jobId)).job,
+      loadSnapshot: async options => (await props.service.getJob!(jobId, options)).job,
       subscribe: (onEvent, onDisconnect) => (
         props.service.subscribeJobEvents!(jobId, onEvent, onDisconnect)
       ),
@@ -548,15 +559,18 @@ export function CreatorSessionProvider(props: {
           void reloadAgentTimeline().catch(() => undefined);
         }
       },
+      onState: setConnection,
       shouldReloadSnapshot(event) {
         return event.kind === 'snapshot_changed';
       }
     });
-    void subscription.start().catch(() => undefined);
+    subscriptionRef.current = subscription;
+    void subscription.start();
     return () => {
       subscription.close();
+      if (subscriptionRef.current === subscription) subscriptionRef.current = undefined;
     };
-  }, [applyLiveEvent, applyRemoteSnapshot, confirmedJob.id, props.service, reloadAgentTimeline, reportLocalIssue]);
+  }, [applyLiveEvent, applyRemoteSnapshot, confirmedJob.id, props.service, reloadAgentTimeline, reportLocalIssue, runtimeEpoch]);
 
   useEffect(() => {
     if (
@@ -925,6 +939,8 @@ export function CreatorSessionProvider(props: {
     : issues.find(issue => issue.id === focusedIssueId) ?? null;
 
   const value = useMemo<CreatorSessionContextValue>(() => ({
+    connection,
+    reconnect,
     job: confirmedJob,
     state: { ...confirmedJob.state, ...draft },
     conflictedFields,
@@ -959,7 +975,7 @@ export function CreatorSessionProvider(props: {
     steerAgentTurn,
     interruptAgentTurn,
     respondAgentApproval
-  }), [agentBusy, agentSession, askPendingIssue, applyAction, applyRemoteSnapshot, approvals, cancelJob, captureCreatorFailure, clearError, confirmedJob, conflictedFields, draft, error, flush, focusIssue, focusedIssue, interruptAgentTurn, issues, items, openArtifact, openArtifactJson, preflight, repairIssue, respondAgentApproval, resumeJob, runAgentTurn, runPreflight, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
+  }), [connection, reconnect, agentBusy, agentSession, askPendingIssue, applyAction, applyRemoteSnapshot, approvals, cancelJob, captureCreatorFailure, clearError, confirmedJob, conflictedFields, draft, error, flush, focusIssue, focusedIssue, interruptAgentTurn, issues, items, openArtifact, openArtifactJson, preflight, repairIssue, respondAgentApproval, resumeJob, runAgentTurn, runPreflight, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
 
   return (
     <CreatorSessionContext.Provider value={value}>

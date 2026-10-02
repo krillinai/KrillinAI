@@ -40,7 +40,8 @@ export function createKrillinExecutor(input: {
 }): CreatorExecutor {
   return {
     id: 'krillinai',
-    async run(stage): Promise<CreatorExecutorResult> {
+    async run(stageInput): Promise<CreatorExecutorResult> {
+      const stage = filterObsoleteSourceVideo(stageInput);
       await input.ensureRuntimeReady?.();
       const configured = await input.configStore.read();
       const preflight = preflightKrillinDependencies(input.resourceRoot, configured, {
@@ -67,7 +68,8 @@ export function createKrillinExecutor(input: {
               await ensureKrillinTranscriptionDependency(
                 input.dependencyLoader,
                 preflight.config,
-                stage
+                stage,
+                deferredFailure !== undefined
               );
             }
             completed = await runKrillinCli({
@@ -126,7 +128,10 @@ export function createKrillinExecutor(input: {
         ffprobe
       });
       return {
-        outputs,
+        outputs: stage === stageInput ? outputs : outputs.map(output => ({
+          ...output,
+          sourceArtifactIds: output.sourceArtifactIds ?? stage.inputArtifacts.map(artifact => artifact.id)
+        })),
         progress: {
           ...stage.stageRun.progress,
           krillinMode: 'cli',
@@ -139,6 +144,20 @@ export function createKrillinExecutor(input: {
   };
 }
 
+function filterObsoleteSourceVideo(input: CreatorExecutorInput): CreatorExecutorInput {
+  const sourceUrl = stringValue(input.job.state.sourceUrl);
+  if (input.job.templateId !== 'video-translation' || input.job.state.sourceType === 'file' || !sourceUrl) {
+    return input;
+  }
+  const inputArtifacts = input.inputArtifacts.filter(artifact => {
+    if (artifact.kind !== 'source_video') return true;
+    const snapshot = artifact.metadata?.settingsSnapshot;
+    return snapshot !== null && typeof snapshot === 'object' && !Array.isArray(snapshot)
+      && snapshot.sourceType !== 'file' && stringValue(snapshot.sourceUrl) === sourceUrl;
+  });
+  return inputArtifacts.length === input.inputArtifacts.length ? input : { ...input, inputArtifacts };
+}
+
 function requiresTranscriptionDependency(
   stageId: string,
   options: Record<string, unknown>
@@ -149,7 +168,8 @@ function requiresTranscriptionDependency(
 async function ensureKrillinTranscriptionDependency(
   loader: KrillinDependencyLoader,
   config: CreatorServicesConfig,
-  stage: CreatorExecutorInput
+  stage: CreatorExecutorInput,
+  platformFallback = false
 ): Promise<void> {
   if (stage.job.templateId === 'video-translation' && (
     stage.stageRun.stageId === 'subtitle'
@@ -160,7 +180,11 @@ async function ensureKrillinTranscriptionDependency(
     config,
     signal: stage.signal,
     reportProgress(progress) {
-      stage.reportProgress({ ...stage.stageRun.progress, ...progress });
+      stage.reportProgress({ ...stage.stageRun.progress, ...progress,
+        ...(platformFallback && typeof progress.message === 'string'
+          ? { message: `未找到可用的原始字幕，已切换到本地语音转录。${progress.message}` }
+          : {})
+      });
     }
   });
 }
@@ -204,6 +228,8 @@ export function buildKrillinStageOptions(input: CreatorExecutorInput): Record<st
     captionSource: state.preferPlatformCaptions === false ? 'whisper' : 'any',
     sourceOnly: input.job.templateId === 'stickman-video'
       && input.stageRun.stageId === 'source-transcript',
+    prepareVideo: input.job.templateId !== 'video-translation',
+    audioOnly: input.job.templateId === 'video-translation' && state.composeVideo !== true,
     bilingual: input.stageRun.stageId === 'subtitles' || state.bilingual === true,
     bilingualTop: state.subtitlePosition === 'top',
     ttsProvider: typeof state.ttsProvider === 'string' ? state.ttsProvider : undefined,
@@ -436,7 +462,9 @@ export async function validateResultArtifacts(input: {
     } else {
       metadata = { ...metadata, ...(await validateMediaFile(path, input.ffprobe)) };
     }
-    outputs.push({ kind: outputKind, status: 'completed', path, metadata });
+    outputs.push({ kind: outputKind, status: 'completed', path, metadata,
+      ...(outputKind === 'source_video' && input.stage.stageRun.stageId !== 'subtitle' ? { sourceArtifactIds: [] } : {})
+    });
   }
   for (const required of contract.requiredOutputKinds) {
     if (required === 'source_subtitle' && input.stage.inputArtifacts.some(artifact => artifact.kind === 'target_subtitle')) continue;
@@ -533,9 +561,9 @@ function expectedOutputKinds(stageId: string): Set<string> {
     'bilingual_subtitle',
     'vertical_subtitle'
   ]);
-  if (stageId === 'tts') return new Set(['dubbed_audio', 'dubbed_video']);
-  if (stageId === 'render-horizontal') return new Set(['horizontal_video']);
-  if (stageId === 'render-vertical') return new Set(['vertical_video']);
+  if (stageId === 'tts') return new Set(['source_video', 'dubbed_audio', 'dubbed_video']);
+  if (stageId === 'render-horizontal') return new Set(['source_video', 'horizontal_video']);
+  if (stageId === 'render-vertical') return new Set(['source_video', 'vertical_video']);
   return new Set();
 }
 
@@ -544,7 +572,7 @@ function requiredOutputKinds(stageId: string, templateId?: string): string[] {
     return ['target_subtitle'];
   }
   if (stageId === 'subtitle') {
-    return ['source_video', 'source_subtitle', 'target_subtitle', 'vertical_subtitle'];
+    return [...(templateId === 'video-translation' ? [] : ['source_video']), 'source_subtitle', 'target_subtitle', 'vertical_subtitle'];
   }
   if (stageId === 'tts') return ['dubbed_audio'];
   if (stageId === 'render-horizontal') return ['horizontal_video'];

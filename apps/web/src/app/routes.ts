@@ -27,6 +27,9 @@ export type AppRoute =
       view: 'settings';
       tab?: SettingsRouteTab;
       section?: AiServicesSection;
+      component?: 'whisperkit' | 'whisper.cpp' | 'faster-whisper';
+      from?: 'video-translation';
+      returnPath?: string;
     }
   | { view: 'files'; threadId?: string; path?: string };
 
@@ -87,6 +90,8 @@ export function parseRoute(hash: string): AppRoute {
     const params = new URLSearchParams(query);
     const tab = params.get('tab');
     const section = parseAiServicesSection(params.get('section'));
+    const component = params.get('component');
+    const returnPath = params.get('returnPath');
     if (tab === 'codex-agent') {
       return { view: 'settings', tab: 'ai-services', section: 'text' };
     }
@@ -97,7 +102,10 @@ export function parseRoute(hash: string): AppRoute {
         : tab === 'ai-services' || section !== undefined
           ? { tab: 'ai-services' as const }
           : {}),
-      ...(section === undefined ? {} : { section })
+      ...(section === undefined ? {} : { section }),
+      ...(component === 'whisperkit' || component === 'whisper.cpp' || component === 'faster-whisper' ? { component } : {}),
+      ...(params.get('from') === 'video-translation' ? { from: 'video-translation' as const } : {}),
+      ...(returnPath && /^#\/(?:workbench|dashboard)(?:\?|$)/.test(returnPath) && returnPath.length < 2000 ? { returnPath } : {})
     };
   }
   if (path === '#/files') {
@@ -158,6 +166,9 @@ export function formatRoute(route: AppRoute): string {
       if (route.tab === undefined) return '#/settings';
       const query = new URLSearchParams({ tab: route.tab });
       if (route.section !== undefined) query.set('section', route.section);
+      if (route.component !== undefined) query.set('component', route.component);
+      if (route.from !== undefined) query.set('from', route.from);
+      if (route.returnPath !== undefined) query.set('returnPath', route.returnPath);
       return `#/settings?${query.toString()}`;
     }
     case 'files': {

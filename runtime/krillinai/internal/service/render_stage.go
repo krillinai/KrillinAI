@@ -18,6 +18,7 @@ import (
 type RenderVideoRequest struct {
 	Workdir      string
 	InputVideo   string
+	AudioFile    string
 	SubtitleFile string
 	OutputFile   string
 	Horizontal   bool
@@ -54,16 +55,21 @@ func escapeAssFilterPath(path string) string {
 func buildEmbedSubtitleArgs(req RenderVideoRequest) ([]string, string) {
 	assPath := renderAssPath(req)
 	filter := buildAssFilterExpression(assPath, packagedSubtitleFontsDir())
-	return []string{
+	args := []string{
 		"-y",
 		"-i", req.InputVideo,
+	}
+	if req.AudioFile != "" {
+		args = append(args, "-i", req.AudioFile, "-map", "0:v:0", "-map", "1:a:0", "-shortest")
+	}
+	return append(args,
 		"-vf", filter,
 		"-c:v", "libx264",
 		"-preset", "fast",
 		"-c:a", "aac",
 		"-b:a", "192k",
 		req.OutputFile,
-	}, assPath
+	), assPath
 }
 
 func buildAssFilterExpression(assPath, fontsDir string) string {

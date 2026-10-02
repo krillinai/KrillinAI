@@ -13,6 +13,25 @@ import { createKrillinConfigToml } from '../../src/creator/krillin/config-bridge
 import { buildKrillinStageOptions } from '../../src/creator/krillin/adapter.js';
 
 describe('KrillinAI CLI protocol', () => {
+  it.each([true, false])('never prepares video in the translation subtitle stage, even when composeVideo=%s', composeVideo => {
+    const stage = { job: { templateId: 'video-translation', state: { sourceUrl: 'https://youtu.be/demo', sourceLanguage: 'en', targetLanguage: 'zh_cn', composeVideo } }, stageRun: { stageId: 'subtitle', id: 'stage' }, workdir: '/job/stage' };
+    const options = buildKrillinStageOptions(stage as never);
+    expect(buildKrillinCliCommandArguments(stage as never, [], options, undefined)).not.toContain('--prepare-video');
+  });
+
+  it('generates audio-only dubbing without a video, and lazily composes that audio later', () => {
+    const state = { sourceUrl: 'https://youtu.be/demo', dubbing: true, composeVideo: false };
+    const stage = { job: { templateId: 'video-translation', state }, stageRun: { stageId: 'tts', id: 'tts' }, workdir: '/job/tts' };
+    const subtitle = { id: 'subtitle', kind: 'target_subtitle', path: '/job/target.srt' };
+    const tts = buildKrillinCliCommandArguments(stage as never, [subtitle], buildKrillinStageOptions(stage as never), undefined);
+    expect(tts).toContain('--audio-only');
+    expect(tts).not.toContain('--source-url');
+    const render = { ...stage, job: { ...stage.job, state: { ...state, composeVideo: true } }, stageRun: { stageId: 'render-horizontal', id: 'render' } };
+    const args = buildKrillinCliCommandArguments(render as never, [subtitle, { id: 'audio', kind: 'dubbed_audio', path: '/job/dubbed.wav' }], buildKrillinStageOptions(render as never), undefined);
+    expect(args).toContain('--source-url');
+    expect(args).toContain('--media-workdir');
+    expect(args.slice(args.indexOf('--audio'), args.indexOf('--audio') + 2)).toEqual(['--audio', '/job/dubbed.wav']);
+  });
   it.each([true, false])('preserves French-to-Chinese settings through the adapter and CLI with platform captions=%s', preferPlatformCaptions => {
     const stage = {
       job: { templateId: 'video-translation', state: {

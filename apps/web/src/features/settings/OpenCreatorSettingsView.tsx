@@ -84,6 +84,8 @@ export type OpenCreatorSettingsViewProps = {
   codexStatus?: CodexStatusResponse;
   initialTab?: 'general' | 'ai-services' | 'local-components';
   initialSection?: CreatorServicesSection;
+  componentId?: string;
+  returnToTranslation?: boolean;
   onBack(): void;
 };
 
@@ -188,12 +190,15 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
                 service={props.creatorServicesService ?? null}
                 modelService={props.codexRuntimeService ?? null}
                 initialSection={props.initialSection}
+                onOpenAgentSetup={props.onOpenAgentSetup}
               />
             </Suspense>
           </>
         ) : null}
         {activeTab === 'local-components' && props.runtimeDependencies !== undefined ? (
           <RuntimeComponentsSettingsView
+            componentId={props.componentId}
+            onReturn={props.returnToTranslation ? props.onBack : undefined}
             connected={props.runtimeStatus.connected}
             controller={props.runtimeDependencies}
           />

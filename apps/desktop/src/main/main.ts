@@ -257,7 +257,8 @@ async function launchDesktop(): Promise<void> {
     windowManager?.send(desktopIpc.connectionChanged, connection);
   });
   bootstrap.on('ready', () => {
-    void loadWorkspace();
+    if (workspaceLoaded) bootstrap?.markWorkspaceReady();
+    else void loadWorkspace();
   });
 
   bootstrapSurfaceReady = windowManager.loadBootstrap();

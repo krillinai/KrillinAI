@@ -32,6 +32,7 @@ import {
   type CreatorStageProgressView
 } from './creator-panel-adapters.js';
 import { useOptionalCreatorSession } from './creator-session-store.js';
+import { RuntimeRecoveryNotice, useRuntimeRecovery } from '../../runtime/runtime-recovery.js';
 
 export type CreatorPanelQuickAction = {
   id: string;
@@ -102,6 +103,9 @@ export default function CreatorCollaborationPanel(props: {
 }) {
   const l = useLocalizedCopy();
   const session = useOptionalCreatorSession();
+  const runtimeRecovery = useRuntimeRecovery();
+  const connectionUnavailable = runtimeRecovery !== null && runtimeRecovery.state.status !== 'connected'
+    || session?.connection !== undefined && session.connection.status !== 'connected';
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [permission, setPermission] = useState<ToolAgentPermission>('full-access');
@@ -175,7 +179,7 @@ export default function CreatorCollaborationPanel(props: {
 
   async function send(message: string) {
     const content = message.trim();
-    if (!content || session === null || sendingRef.current) return;
+    if (!content || session === null || sendingRef.current || connectionUnavailable) return;
     sendingRef.current = true;
     session.clearError();
     setInput('');
@@ -262,10 +266,11 @@ export default function CreatorCollaborationPanel(props: {
         </section>
       ) : null}
 
+      <RuntimeRecoveryNotice session={session?.connection} onRetrySession={session?.reconnect} />
       {session === null ? (
         <div className="creator-collaboration-unavailable" role="alert">
           <ServerOff size={16} aria-hidden="true" />
-          <p>{l('Creator Runtime 未连接，Agent 不会生成替代回复。', 'Creator Runtime is disconnected. The Agent will not generate substitute responses.')}</p>
+          <p>{l('项目会话尚未初始化，请重新打开项目；这不代表本地服务已断开。', 'The project session is not initialized. Reopen the project; this does not mean the local Runtime is disconnected.')}</p>
         </div>
       ) : (
         <>
@@ -383,6 +388,7 @@ export default function CreatorCollaborationPanel(props: {
             permissionDisabled={session.agentBusy}
             onPermissionChange={setPermission}
             submitting={sending}
+            disabled={connectionUnavailable}
             ariaLabel={l('告诉 Agent 你的要求', 'Tell the Agent your requirements')}
             placeholder={session.agentBusy
               ? l('补充当前任务的要求', 'Add guidance to the active task')
@@ -552,6 +558,8 @@ function CollaborationStageView(props: {
           <span style={percent === null ? undefined : { width: `${percent}%` }} />
         </div>
       ) : null}
+      {stage.status === 'running' && progress.detailsHref && progress.message ? <p className="creator-collaboration-stage-message" role="status">{progress.message}</p> : null}
+      {(stage.status === 'running' || stage.status === 'failed') && progress.detailsHref ? <a href={progress.detailsHref}>{l('查看组件下载详情', 'View component download details')}</a> : null}
     </article>
   );
 }

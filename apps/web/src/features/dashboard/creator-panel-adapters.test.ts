@@ -1,6 +1,7 @@
 import type { CreatorActivity, CreatorStageRun } from '@opencreator/protocol';
 import { describe, expect, it } from 'vitest';
 import {
+  videoTranslationPanelAdapter,
   creatorPanelAdapterFor,
   stickmanVideoPanelAdapter,
   type CreatorPanelLocalize
@@ -8,6 +9,25 @@ import {
 
 const zh: CreatorPanelLocalize = value => value;
 const en: CreatorPanelLocalize = (_zh, value) => value;
+
+describe('shared native image progress', () => {
+  it.each(['image-generation', 'cover', 'stickman-video', 'wechat-article'])('shows native preparation and generation phases without fake percentages (%s)', template => {
+    const adapter = creatorPanelAdapterFor(template);
+    expect(adapter.phaseLabel('preparing_native_image', zh)).toContain('ChatGPT');
+    expect(adapter.phaseLabel('generating_image', en)).toBe('Generating image');
+    const running = { ...stage('native', '', 'running', null, 'generate'), progress: { phase: 'generating_image', message: '正在生成图片，请稍候', completed: 0, failed: 0, total: 1 } };
+    expect(adapter.readStageProgress(running)).toMatchObject({ phase: 'generating_image', message: '正在生成图片，请稍候', percent: null });
+  });
+});
+
+describe('video translation component progress', () => {
+  it('shows download progress separately from task progress, without inventing unknown percentages', () => {
+    const running = { ...stage('download', '', 'running', null, 'subtitle', 2, 'downloading_dependencies'), progress: { phase: 'downloading_dependencies', percent: 2, dependencyPercent: 50, downloadedBytes: 1024 ** 3, totalBytes: 2 * 1024 ** 3, message: '模型文件较大，下载完成后自动继续' } };
+    expect(videoTranslationPanelAdapter.readStageProgress(running)).toMatchObject({ percent: 50, message: expect.stringContaining('1.00 GiB / 2.00 GiB'), detailsHref: expect.stringContaining('returnPath=') });
+    expect(videoTranslationPanelAdapter.phaseLabel('downloading_dependencies', zh)).toContain('尚未开始转录');
+    expect(videoTranslationPanelAdapter.readStageProgress({ ...running, progress: { phase: 'downloading_dependencies', percent: 2 } })).toMatchObject({ percent: null, indeterminate: true });
+  });
+});
 
 const stages = [
   'ingest-text', 'source-transcript', 'source-brief', 'content-plan', 'script',

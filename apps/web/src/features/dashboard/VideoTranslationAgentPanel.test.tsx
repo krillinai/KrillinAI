@@ -6,6 +6,23 @@ import { CreatorSessionProvider } from './creator-session-store.js';
 import VideoTranslationAgentPanel from './VideoTranslationAgentPanel.js';
 
 describe('VideoTranslationAgentPanel', () => {
+  it('明确显示长时间模型下载的原因、真实进度和自动继续提示', async () => {
+    const current = job();
+    current.status = 'running';
+    current.stages.push({
+      id: 'component-download', jobId: current.id, stageId: 'subtitle', executor: 'krillinai', status: 'running', dispatchStatus: 'claimed',
+      claimOwner: 'scheduler', claimExpiresAt: null, attempt: 1, idempotencyKey: 'component-download', scopeKey: null, inputFingerprint: null,
+      progress: { phase: 'downloading_dependencies', percent: 2, dependencyPercent: 25, downloadedBytes: 512 * 1024 ** 2, totalBytes: 2 * 1024 ** 3,
+        message: '未找到可用的原始字幕，正在下载本地模型。模型文件较大，下载并校验完成后将自动继续，无需重新开始。' },
+      errorCode: null, errorMessage: null, startedAt: '2026-10-01T00:00:00.000Z', finishedAt: null
+    });
+    renderPanel({ initialJob: current, getAgentTimeline: vi.fn(async () => emptyTimeline()) });
+    expect(await screen.findByText('下载本地转录组件（尚未开始转录）')).toBeInTheDocument();
+    expect(screen.getByText(/下载并校验完成后将自动继续/)).toBeInTheDocument();
+    expect(screen.getByText(/512.0 MiB \/ 2.00 GiB/)).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '25');
+    expect(screen.getByRole('link', { name: '查看组件下载详情' })).toHaveAttribute('href', expect.stringContaining('returnPath='));
+  });
   it('只展示标准对话和协作事件，不泄露内部工具上下文', async () => {
     const { container } = renderPanel({
       getAgentTimeline: vi.fn(async () => timeline())

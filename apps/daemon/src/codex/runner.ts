@@ -25,7 +25,7 @@ export type RunCodexExecInput = {
   inactivityTimeoutMs?: number;
   forceKillGraceMs?: number;
   finalKillSettleMs?: number;
-  env?: Record<string, string>;
+  env?: NodeJS.ProcessEnv;
   beforeSpawn?: () => Promise<void>;
   onStdoutLine?: (line: string) => Promise<void> | void;
   onStderrChunk?: (chunk: string) => Promise<void> | void;

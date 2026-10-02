@@ -111,6 +111,9 @@ export function createImageExecutor(input: {
             config,
             {
               signal: stage.signal,
+              onProgress: progress => stage.reportProgress({
+                ...progress, completed, failed, total: request.count
+              }),
               ...(referenceImage === undefined
                 ? {}
                 : {

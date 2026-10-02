@@ -6,9 +6,11 @@ import type {
 import type { PublicErrorFacts } from '@opencreator/protocol';
 import {
   LocalCodexProviderError,
-  readLocalCodexProvider,
   type LocalCodexProvider
 } from '../codex/local-provider.js';
+import type { startCodexExec } from '../codex/runner.js';
+import { generateCodexNativeImage, type NativeImageProgress } from './codex-native.js';
+import { inspectCodexImageRuntime, readCodexImageConfiguration } from './codex-runtime.js';
 import { createKlingAuthorization } from '../creator-services/kling-auth.js';
 import {
   appendEndpointPath,
@@ -31,7 +33,10 @@ export type GeneratedImageContent = {
 
 export type CodexNativeImageRuntime = {
   codexHome: string;
+  codexBin?: string;
   readProvider?: () => Promise<LocalCodexProvider>;
+  checkNativeCapability?: () => Promise<{ supported: boolean; version?: string }>;
+  startExec?: typeof startCodexExec;
 };
 
 export type ImageGenerationCapabilities = {
@@ -69,18 +74,21 @@ export async function generateImageContents(
     referenceImage?: GeneratedImageContent;
     referenceImages?: GeneratedImageContent[];
     codexNative?: CodexNativeImageRuntime;
+    onProgress?(progress: NativeImageProgress): void;
   } = {}
 ): Promise<{ model: string; contents: GeneratedImageContent[] }> {
   const referenceImages = options.referenceImages
     ?? (options.referenceImage === undefined ? [] : [options.referenceImage]);
   const capabilities = imageGenerationCapabilities(request.provider);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(new DOMException('图片生成超时，请重试', 'TimeoutError')), REQUEST_TIMEOUT_MS);
   const abort = () => controller.abort(options.signal?.reason);
   timeout.unref();
   if (options.signal?.aborted) abort();
   else options.signal?.addEventListener('abort', abort, { once: true });
+  let nativeExecution = false;
   try {
+    controller.signal.throwIfAborted();
     if (
       referenceImages.length > capabilities.maxReferenceImages
     ) {
@@ -105,17 +113,29 @@ export async function generateImageContents(
         );
       }
       try {
-        const provider = await (
-          options.codexNative.readProvider?.()
-          ?? readLocalCodexProvider({ codexHome: options.codexNative.codexHome })
-        );
+        const configuration = await readCodexImageConfiguration(options.codexNative);
+        if (configuration.authentication === 'chatgpt') {
+          nativeExecution = true;
+          options.onProgress?.({ phase: 'preparing_native_image', message: '正在检查 ChatGPT 登录态和 Codex 原生生图能力…' });
+          const status = await inspectCodexImageRuntime(options.codexNative);
+          if (!status.ready) throw new ImageGenerationProviderError('config_missing', status.message);
+          if (status.executionMode !== 'native') throw new ImageGenerationProviderError('config_missing', 'Codex 认证模式已变化，请刷新状态后重试');
+          const image = await generateCodexNativeImage({
+            runtime: options.codexNative,
+            request,
+            referenceImages,
+            signal: controller.signal,
+            onProgress: options.onProgress
+          });
+          return { model: 'codex-native', contents: [image] };
+        }
         return await generateOpenAiImages(
           request,
           config,
           controller.signal,
           referenceImages,
           options.fetchImpl,
-          provider
+          configuration.provider
         );
       } catch (error) {
         if (error instanceof LocalCodexProviderError) {
@@ -146,6 +166,12 @@ export async function generateImageContents(
   } catch (error) {
     if (error instanceof ImageGenerationProviderError) throw error;
     if (options.signal?.aborted) throw error;
+    if (controller.signal.reason instanceof DOMException && controller.signal.reason.name === 'TimeoutError') {
+      throw new ImageGenerationProviderError('upstream_error', '图片生成超时，请稍后重试');
+    }
+    if (nativeExecution && error instanceof Error) {
+      throw new ImageGenerationProviderError('upstream_error', error.message);
+    }
     throw new ImageGenerationProviderError(
       'upstream_error',
       'The image generation provider could not be reached',

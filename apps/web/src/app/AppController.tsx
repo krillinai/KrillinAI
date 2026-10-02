@@ -127,6 +127,8 @@ import { browserBridge } from '../host/browser-bridge.js';
 import type { HostBridge } from '../host/bridge.js';
 import { useAppLanguage } from '../i18n/LanguageProvider.js';
 import { ApiClientError, RuntimeClient } from '../runtime/client.js';
+import { useRuntimeConnection } from '../runtime/use-runtime-connection.js';
+import { RuntimeRecoveryContext } from '../runtime/runtime-recovery.js';
 import { createFrameBatcher, type FrameBatcher } from '../runtime/frame-batcher.js';
 import { subscribeRunEvents as defaultSubscribeRunEvents, type SubscribeRunEventsInput } from '../runtime/sse.js';
 import type { ConnectionConfig } from '../runtime/types.js';
@@ -179,7 +181,7 @@ import {
   writeColorModePreference
 } from '../styles/color-mode.js';
 import { initialAppState, reduceAppState, type ActiveView, type AppState } from './app-state.js';
-import { formatRoute, type AppRoute } from './routes.js';
+import { formatRoute, parseRoute, type AppRoute } from './routes.js';
 import { useRuntimeDependencies } from './use-runtime-dependencies.js';
 
 type AppFileService = {
@@ -336,7 +338,7 @@ export function AppController(props: AppControllerProps) {
     () => new Set()
   );
   const [approvalErrors, setApprovalErrors] = useState<Record<string, string | undefined>>({});
-  const [connectionConfig, setConnectionConfig] = useState<ConnectionConfig | null>(null);
+  const { config: connectionConfig, state: connectionState, recovery: runtimeRecovery } = useRuntimeConnection(hostBridge, runtimeFetch);
   const [runtimeThreads, setRuntimeThreads] = useState<ThreadResponse[]>([]);
   const [runtimeSchedules, setRuntimeSchedules] = useState<ScheduleResponse[]>([]);
   const [runtimeTasks, setRuntimeTasks] = useState<TaskItem[]>([]);
@@ -353,10 +355,6 @@ export function AppController(props: AppControllerProps) {
   const [historyLoadingThreadId, setHistoryLoadingThreadId] = useState<string>();
   const [historyLoadedThreadId, setHistoryLoadedThreadId] = useState<string>();
   const [threadConfigUpdateError, setThreadConfigUpdateError] = useState<string>();
-  const [connectionState, setConnectionState] = useState<ConnectionState>({
-    status: 'disconnected',
-    message: '正在等待本地服务'
-  });
   const [agentSetup, setAgentSetup] = useState<'checking' | 'ready' | 'needed' | 'skipped'>('checking');
   const [agentSetupSnapshot, setAgentSetupSnapshot] = useState<AgentSetupSnapshot>();
   const [runDiagnosticsById, setRunDiagnosticsById] = useState<Record<string, RunDiagnosticsResponse | undefined>>({});
@@ -473,7 +471,6 @@ export function AppController(props: AppControllerProps) {
   const fileRevisionByPathRef = useRef<Record<string, number>>({});
   const savingFilePathsRef = useRef(new Set<string>());
   const connectionConfigRef = useRef<ConnectionConfig | null>(null);
-  const connectionConfigVersionRef = useRef(0);
   const runEventControllersRef = useRef(new Map<string, ActiveRunEventController>());
   const replayedTargetRunKeyRef = useRef<string>();
   const timelineEventBatchersByThreadIdRef = useRef(new Map<string, FrameBatcher<TimelineItem>>());
@@ -1229,26 +1226,6 @@ export function AppController(props: AppControllerProps) {
 
   useEffect(() => {
     let canceled = false;
-    const loadVersion = connectionConfigVersionRef.current;
-
-    readHostRuntimeConfig(loadVersion, () => canceled);
-    const unsubscribe = hostBridge.subscribeConnectionConfig?.(config => {
-      if (canceled) return;
-      connectionConfigVersionRef.current += 1;
-      setConnectionConfig(config);
-      if (config === null) {
-        setConnectionState({ status: 'disconnected', message: '正在恢复本地服务连接' });
-      }
-    });
-
-    return () => {
-      canceled = true;
-      unsubscribe?.();
-    };
-  }, [hostBridge]);
-
-  useEffect(() => {
-    let canceled = false;
 
     fileService
       .listTree()
@@ -1268,32 +1245,6 @@ export function AppController(props: AppControllerProps) {
   }, [fileService]);
 
   useEffect(() => {
-    let canceled = false;
-
-    if (connectionService === null) {
-      setConnectionState({ status: 'disconnected', message: '正在等待本地服务' });
-      return () => {
-        canceled = true;
-      };
-    }
-
-    connectionService
-      .check()
-      .then(nextState => {
-        if (canceled) return;
-        setConnectionState(nextState);
-      })
-      .catch(() => {
-        if (canceled) return;
-        setConnectionState({ status: 'disconnected', message: '本地服务连接失败' });
-      });
-
-    return () => {
-      canceled = true;
-    };
-  }, [connectionService]);
-
-  useEffect(() => {
     if (connectionState.status !== 'connected' || connectionService === null || agentSetup !== 'checking') return;
     let canceled = false;
     void Promise.all([
@@ -1309,37 +1260,6 @@ export function AppController(props: AppControllerProps) {
     return () => { canceled = true; };
   }, [agentSetup, connectionService, connectionState.status]);
 
-  const availabilityProbeStatus = connectionState.status === 'connected'
-    ? connectionState.codexStatus.availabilityProbe?.status
-    : undefined;
-
-  useEffect(() => {
-    if (
-      connectionService === null
-      || connectionState.status !== 'connected'
-      || availabilityProbeStatus !== 'pending'
-    ) {
-      return;
-    }
-    let canceled = false;
-    const refresh = () => {
-      void connectionService.check()
-        .then(nextState => {
-          if (!canceled) setConnectionState(nextState);
-        })
-        .catch(() => undefined);
-    };
-    const timer = window.setInterval(refresh, 1_500);
-    return () => {
-      canceled = true;
-      window.clearInterval(timer);
-    };
-  }, [
-    availabilityProbeStatus,
-    connectionService,
-    connectionState.status
-  ]);
-
   useEffect(() => {
     let canceled = false;
 
@@ -1349,11 +1269,6 @@ export function AppController(props: AppControllerProps) {
       || threadService === null
     ) {
       setRuntimeWorkspaceReady(false);
-      if (connectionState.status !== 'connected') {
-        setProjects([]);
-        setArchivedProjects([]);
-        setRuntimeThreads([]);
-      }
       return () => {
         canceled = true;
       };
@@ -1441,10 +1356,6 @@ export function AppController(props: AppControllerProps) {
         }
       } catch {
         if (canceled) return;
-        setProjects([]);
-        setArchivedProjects([]);
-        setRuntimeThreads([]);
-        dispatch({ type: 'set_current_project', projectId: undefined });
         setProjectLoadError('无法迁移或加载项目，请稍后重试');
         setThreadLoadError(undefined);
       } finally {
@@ -2324,25 +2235,6 @@ export function AppController(props: AppControllerProps) {
     delete updated[id];
     pendingRunStartsByIdRef.current = updated;
     if (mountedRef.current) setPendingRunStartsById(updated);
-  }
-
-  function readHostRuntimeConfig(loadVersion: number, isCanceled: () => boolean) {
-    hostBridge
-      .readConnectionConfig()
-      .then(config => {
-        if (!isCanceled() && connectionConfigVersionRef.current === loadVersion) setConnectionConfig(config);
-      })
-      .catch(() => {
-        if (!isCanceled() && connectionConfigVersionRef.current === loadVersion) setConnectionConfig(null);
-      });
-  }
-
-  function retryRuntimeConnection() {
-    connectionConfigVersionRef.current += 1;
-    const loadVersion = connectionConfigVersionRef.current;
-    setConnectionConfig(null);
-    setConnectionState({ status: 'disconnected', message: '正在等待本地服务' });
-    readHostRuntimeConfig(loadVersion, () => false);
   }
 
   function handleColorModeChange(mode: ColorMode) {
@@ -4794,8 +4686,14 @@ export function AppController(props: AppControllerProps) {
       codexStatus={connectionState.status === 'connected' ? connectionState.codexStatus : undefined}
       initialTab={props.route.view === 'settings' ? props.route.tab : undefined}
       initialSection={props.route.view === 'settings' ? props.route.section : undefined}
+      componentId={props.route.view === 'settings' ? props.route.component : undefined}
+      returnToTranslation={props.route.view === 'settings' && props.route.from === 'video-translation'}
       onBack={() => {
-        const returnRoute = settingsReturnRouteRef.current;
+        const returnRoute = props.route.view === 'settings' && props.route.returnPath
+          ? parseRoute(props.route.returnPath)
+          : props.route.view === 'settings' && props.route.from === 'video-translation'
+            ? { view: 'workbench' as const, tool: 'video-translation' as const }
+            : settingsReturnRouteRef.current;
         applyRouteFromLocation(returnRoute);
         navigateToRoute(returnRoute);
       }}
@@ -4837,7 +4735,7 @@ export function AppController(props: AppControllerProps) {
   );
 
   return (
-    <PageIssueRoutingProvider><div
+    <RuntimeRecoveryContext.Provider value={runtimeRecovery}><PageIssueRoutingProvider><div
       className="app-drop-shell"
       data-integrated-title-bar={
         integratedTitleBar?.integratedTitleBar === true ? 'true' : undefined
@@ -5005,7 +4903,7 @@ export function AppController(props: AppControllerProps) {
         hiddenBackgroundRuntimeIssues={immersiveWorkspace && props.route.view === 'workbench'}
         onAskIssue={askAgentAboutIssue}
       />
-    </div></PageIssueRoutingProvider>
+    </div></PageIssueRoutingProvider></RuntimeRecoveryContext.Provider>
   );
 
   function createDetailPanel() {
@@ -5577,7 +5475,7 @@ function readImageInputSupported(
   thread?: ThreadResponse
 ): boolean {
   if (connectionState.status !== 'connected') return false;
-  const capabilities = connectionState.codexStatus.capabilities;
+  const capabilities = connectionState.codexStatus?.capabilities;
   if (typeof capabilities !== 'object' || capabilities === null || Array.isArray(capabilities)) {
     return false;
   }
@@ -5591,7 +5489,7 @@ function readImageInputSupported(
 
 function readMcpCapabilities(connectionState: ConnectionState): McpCapabilities | undefined {
   if (connectionState.status !== 'connected') return undefined;
-  const capabilities = connectionState.codexStatus.capabilities;
+  const capabilities = connectionState.codexStatus?.capabilities;
   if (typeof capabilities !== 'object' || capabilities === null || Array.isArray(capabilities)) {
     return undefined;
   }
@@ -5867,9 +5765,9 @@ function mapRuntimeStatus(
     connected: true,
     ...(appVersion === undefined ? {} : { appVersion }),
     runtimeVersion: '0.1.0',
-    codexVersion: connectionState.codexStatus.codexVersion,
-    codexPath: connectionState.codexStatus.codexBin,
-    codexHome: connectionState.codexStatus.codexHome,
+    codexVersion: connectionState.codexStatus?.codexVersion,
+    codexPath: connectionState.codexStatus?.codexBin,
+    codexHome: connectionState.codexStatus?.codexHome,
     lastCheckedAt: '2026-07-07 10:00'
   };
 }

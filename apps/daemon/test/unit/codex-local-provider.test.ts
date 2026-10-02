@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   LocalCodexProviderError,
-  readLocalCodexProvider
+  readLocalCodexProvider,
+  readLocalCodexImageConfiguration
 } from '../../src/codex/local-provider.js';
 
 describe('local Codex provider', () => {
@@ -13,6 +14,40 @@ describe('local Codex provider', () => {
   afterEach(async () => {
     if (root) await rm(root, { recursive: true, force: true });
     root = '';
+  });
+
+  it('preserves API key image configuration', async () => {
+    root = await codexHome(['openai_base_url = "https://api.example.test/v1"']);
+    await writeFile(join(root, 'auth.json'), JSON.stringify({ auth_mode: 'apikey', OPENAI_API_KEY: 'api-secret' }));
+    await expect(readLocalCodexImageConfiguration({ codexHome: root })).resolves.toMatchObject({
+      authentication: 'api_key', provider: { apiKey: 'api-secret', model: 'gpt-image-1' }
+    });
+  });
+
+  it('honors an explicitly selected API mode even if an old OAuth token remains', async () => {
+    root = await codexHome(['openai_base_url = "https://api.example.test/v1"']);
+    await writeFile(join(root, 'auth.json'), JSON.stringify({ auth_mode: 'apikey', OPENAI_API_KEY: 'api-secret', tokens: { access_token: 'old-oauth-secret' } }));
+    await expect(readLocalCodexImageConfiguration({ codexHome: root })).resolves.toMatchObject({ authentication: 'api_key', provider: { apiKey: 'api-secret' } });
+  });
+
+  it('does not silently route corrupted authentication to a configured API provider', async () => {
+    root = await codexHome(['openai_base_url = "https://api.example.test/v1"']);
+    await writeFile(join(root, 'auth.json'), '{corrupt');
+    await expect(readLocalCodexImageConfiguration({ codexHome: root })).rejects.toThrow('无法读取本机 Codex 登录凭据');
+  });
+
+  it.each(['chatgpt', undefined])('recognizes OAuth credentials without treating them as API keys (%s)', async authMode => {
+    root = await codexHome([]);
+    await writeFile(join(root, 'auth.json'), JSON.stringify({ auth_mode: authMode, tokens: { access_token: 'oauth-secret' }, OPENAI_API_KEY: 'old-secret' }));
+    const configuration = await readLocalCodexImageConfiguration({ codexHome: root });
+    expect(configuration).toEqual({ authentication: 'chatgpt' });
+    expect(JSON.stringify(configuration)).not.toContain('secret');
+  });
+
+  it('does not fall back to an old key when the selected ChatGPT login is incomplete', async () => {
+    root = await codexHome(['openai_base_url = "https://api.example.test/v1"']);
+    await writeFile(join(root, 'auth.json'), JSON.stringify({ auth_mode: 'chatgpt', OPENAI_API_KEY: 'old-secret' }));
+    await expect(readLocalCodexImageConfiguration({ codexHome: root })).rejects.toThrow('重新登录');
   });
 
   it('reads the selected provider base URL and bearer token', async () => {

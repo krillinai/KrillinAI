@@ -33,6 +33,14 @@ func TestBuildEmbedSubtitleArgsUsesRequestedSubtitleAndOutput(t *testing.T) {
 	}
 }
 
+func TestRenderCanComposePreviouslyGeneratedAudioWithoutRepeatingTTS(t *testing.T) {
+	args, _ := buildEmbedSubtitleArgs(RenderVideoRequest{InputVideo: "origin.mp4", AudioFile: "dubbed.wav", SubtitleFile: "target.srt", OutputFile: "dubbed.mp4"})
+	command := strings.Join(args, " ")
+	if !strings.Contains(command, "-i origin.mp4 -i dubbed.wav -map 0:v:0 -map 1:a:0") {
+		t.Fatalf("audio mapping missing: %v", args)
+	}
+}
+
 func TestRenderAssPathDerivesFromOutputFile(t *testing.T) {
 	req := RenderVideoRequest{
 		Workdir:    "tasks/demo",

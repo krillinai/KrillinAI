@@ -19,6 +19,7 @@ describe('useRuntimeDependencies', () => {
       })
     }));
     const service = {
+      getComponentsStatus: vi.fn(), downloadComponents: vi.fn(),
       getYtDlpStatus,
       checkYtDlpUpdate,
       updateYtDlp: vi.fn()
@@ -44,6 +45,7 @@ describe('useRuntimeDependencies', () => {
       })
     }));
     const service = {
+      getComponentsStatus: vi.fn(), downloadComponents: vi.fn(),
       getYtDlpStatus: vi.fn(async () => ({ ytDlp: status() })),
       checkYtDlpUpdate: vi.fn(),
       updateYtDlp
@@ -72,6 +74,7 @@ describe('useRuntimeDependencies', () => {
       });
     });
     const service = {
+      getComponentsStatus: vi.fn(), downloadComponents: vi.fn(),
       getYtDlpStatus: vi.fn(async () => ({ ytDlp: status() })),
       checkYtDlpUpdate: vi.fn(),
       updateYtDlp

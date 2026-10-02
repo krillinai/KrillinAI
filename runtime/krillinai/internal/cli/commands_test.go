@@ -37,6 +37,17 @@ func TestParseSubtitleCommand(t *testing.T) {
 	}
 }
 
+func TestParseDeferredMediaAndAudioOnlyOptions(t *testing.T) {
+	cmd, err := Parse([]string{"tts", "--input-srt", "target.srt", "--audio-only", "--source-url", "https://www.youtube.com/watch?v=demo", "--media-workdir", "source-cache"})
+	if err != nil || !cmd.TTS.AudioOnly || cmd.TTS.SourceURL == "" || cmd.TTS.MediaWorkdir != "source-cache" {
+		t.Fatalf("TTS command = %+v, error = %v", cmd, err)
+	}
+	cmd, err = Parse([]string{"render-horizontal", "--source-url", "https://www.youtube.com/watch?v=demo", "--media-workdir", "source-cache", "--subtitle", "target.srt", "--audio", "dubbed.wav"})
+	if err != nil || cmd.Render.SourceURL == "" || cmd.Render.MediaWorkdir != "source-cache" || cmd.Render.Audio != "dubbed.wav" {
+		t.Fatalf("render command = %+v, error = %v", cmd, err)
+	}
+}
+
 func TestParseSubtitlePrepareVideo(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		args := []string{"subtitle", "https://www.youtube.com/watch?v=abc"}

@@ -1,4 +1,5 @@
 import type {
+  CodexImageStatus,
   CreatorJob,
   CreatorPreflightCheck,
   CreatorPreflightExecutionMode,
@@ -20,6 +21,8 @@ import {
 import { creatorResultSnapshotForVersion } from './result-snapshots.js';
 import { resolveCreatorStageInputs } from './stage-runner.js';
 import { readStickmanRemotionRuntime } from './stickman/remotion-runtime.js';
+import { validateBilibiliSource } from './templates/video-translation-actions.js';
+import type { VideoMetadataService } from '../video-metadata/service.js';
 
 export type CreatorPreflight = ReturnType<typeof createCreatorPreflight>;
 
@@ -63,6 +66,8 @@ export function createCreatorPreflight(input: {
   ensureRuntimeReady?(): Promise<void>;
   executorIds?: Iterable<string>;
   validateRuntimeAssets?: boolean;
+  readCodexImageStatus?(): Promise<CodexImageStatus>;
+  videoMetadataService?: VideoMetadataService;
 }) {
   const executorIds = new Set(input.executorIds ?? []);
 
@@ -94,7 +99,7 @@ export function createCreatorPreflight(input: {
     }
 
     const config = await input.configStore.read();
-    checkProviderConfig(job, stage, config, input.readCapabilities(), add);
+    await checkProviderConfig(job, stage, config, input.readCapabilities(), add, input.readCodexImageStatus);
     const inputSnapshot = options.inputResultVersion === undefined
       ? undefined
       : creatorResultSnapshotForVersion(job, options.inputResultVersion);
@@ -107,6 +112,17 @@ export function createCreatorPreflight(input: {
       }, { label: '打开诊断', deepLink: '#/settings?tab=diagnostics' });
     }
     const inputState = inputSnapshot?.state ?? job.state;
+    if (job.templateId === 'video-translation' && stage.id === 'subtitle') {
+      try {
+        await validateBilibiliSource({ ...job, state: inputState }, input.videoMetadataService);
+      } catch (error) {
+        add('blocked', {
+          id: 'bilibili-part', title: '请确认 B 站分集',
+          message: error instanceof Error ? error.message : '无法确认 B 站分集，请重新选择视频来源。',
+          executionMode: 'remote'
+        }, { label: '选择视频分集', deepLink: `#/workbench?tool=video-translation&jobId=${encodeURIComponent(job.id)}` });
+      }
+    }
     if (inputState.sourceType === 'file' && stage.executor === 'krillinai' && typeof inputState.sourceArtifactId !== 'string') {
       add('blocked', {
         id: 'input-file',
@@ -263,13 +279,14 @@ function runtimeBackedExecutor(executorId: string): boolean {
   ].includes(executorId);
 }
 
-function checkProviderConfig(
+async function checkProviderConfig(
   job: CreatorJob,
   stage: CreatorTemplateStage,
   config: CreatorServicesConfig,
   capabilities: CreatorServicesCapabilitiesResponse,
-  add: (status: 'ready' | 'warning' | 'blocked', item: Omit<CreatorPreflightCheck, 'executionMode'> & { executionMode?: CreatorPreflightExecutionMode }, repair?: CreatorPreflightCheck['repair']) => void
-): void {
+  add: (status: 'ready' | 'warning' | 'blocked', item: Omit<CreatorPreflightCheck, 'executionMode'> & { executionMode?: CreatorPreflightExecutionMode }, repair?: CreatorPreflightCheck['repair']) => void,
+  readCodexImageStatus?: () => Promise<CodexImageStatus>
+): Promise<void> {
   const needs = new Set<string>();
   if (stage.executor === 'krillinai') {
     if (
@@ -293,6 +310,7 @@ function checkProviderConfig(
   if (stage.executor === 'smart-dubbing') needs.add('tts');
   if (stage.executor === 'stickman-audio' && stage.id === 'narration') needs.add('tts');
   if (stage.executor === 'stickman-image') needs.add('image');
+  if (stage.executor === 'wechat-article' && stage.id === 'images') needs.add('image');
 
   if (needs.has('llm')) {
     if (config.llm.source === 'codex' && stage.executor === 'krillinai') {
@@ -320,13 +338,19 @@ function checkProviderConfig(
       maxCandidateCount: job.templateId === 'image-generation' ? 4 : 8
     });
     const { provider } = settings;
-    if (imageProviderConfigured(config, provider)) {
+    if (provider === 'codex-native') {
+      let status: CodexImageStatus | undefined;
+      try { status = await readCodexImageStatus?.(); } catch { status = undefined; }
+      add(status?.ready ? 'ready' : 'blocked', {
+        id: 'image-provider', title: '本机 Codex 生图',
+        message: status?.message ?? '无法检查 Codex 生图认证和 Runtime 能力，请检查 Agent 配置。',
+        executionMode: status?.executionMode === 'api' ? 'remote' : 'local'
+      }, { label: '检查生图设置', deepLink: '#/settings?tab=ai-services&section=image' });
+    } else if (imageProviderConfigured(config, provider)) {
       add('ready', {
         id: 'image-provider',
         title: '图像服务',
-        message: provider === 'codex-native'
-          ? '本机 Codex 生图已启用。'
-          : `${provider} / ${settings.model} 已配置。`,
+        message: `${provider} / ${settings.model} 已配置。`,
         executionMode: settings.executionMode
       });
     } else {

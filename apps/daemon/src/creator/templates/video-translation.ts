@@ -85,6 +85,7 @@ function createVideoTranslationTemplateDefinition(version: 1 | 2): CreatorTempla
           optional: true
         }],
         outputArtifacts: [
+          { kind: 'source_video', status: 'completed' },
           { kind: 'dubbed_audio', status: 'completed' },
           { kind: 'dubbed_video', status: 'completed' }
         ]
@@ -96,13 +97,13 @@ function createVideoTranslationTemplateDefinition(version: 1 | 2): CreatorTempla
         optional: true,
         allowedJobStatuses: ['draft', 'running', 'needs_input', 'failed'],
         inputArtifacts: [
-          { kind: 'source_video', selector: 'latest-completed' },
+          { kind: 'source_video', selector: 'latest-completed', optional: true },
           { kind: 'target_subtitle', selector: 'latest-completed' },
           { kind: 'bilingual_subtitle', selector: 'latest-completed', optional: true },
           { kind: 'dubbed_audio', selector: 'latest-completed', optional: true },
           { kind: 'dubbed_video', selector: 'latest-completed', optional: true }
         ],
-        outputArtifacts: [{ kind: 'horizontal_video', status: 'completed' }]
+        outputArtifacts: [{ kind: 'source_video', status: 'completed' }, { kind: 'horizontal_video', status: 'completed' }]
       },
       {
         id: 'render-vertical',
@@ -111,14 +112,14 @@ function createVideoTranslationTemplateDefinition(version: 1 | 2): CreatorTempla
         optional: true,
         allowedJobStatuses: ['draft', 'running', 'needs_input', 'failed'],
         inputArtifacts: [
-          { kind: 'source_video', selector: 'latest-completed' },
+          { kind: 'source_video', selector: 'latest-completed', optional: true },
           { kind: 'vertical_subtitle', selector: 'latest-completed', optional: true },
           { kind: 'target_subtitle', selector: 'latest-completed' },
           { kind: 'bilingual_subtitle', selector: 'latest-completed', optional: true },
           { kind: 'dubbed_audio', selector: 'latest-completed', optional: true },
           { kind: 'dubbed_video', selector: 'latest-completed', optional: true }
         ],
-        outputArtifacts: [{ kind: 'vertical_video', status: 'completed' }]
+        outputArtifacts: [{ kind: 'source_video', status: 'completed' }, { kind: 'vertical_video', status: 'completed' }]
       }
     ],
     actions: [

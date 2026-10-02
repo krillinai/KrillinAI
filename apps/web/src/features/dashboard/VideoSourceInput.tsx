@@ -13,6 +13,8 @@ export default function VideoSourceInput(props: {
   hasSource: boolean;
   invalid?: boolean;
   metadataService?: VideoMetadataService;
+  metadata?: VideoMetadataResponse;
+  previewEnabled?: boolean;
   onFileChange(file: File | null): void;
   onUrlChange(url: string): void;
   onClear(): void;
@@ -65,6 +67,8 @@ export default function VideoSourceInput(props: {
             sourceType={props.sourceType}
             url={props.url}
             metadataService={props.metadataService}
+            metadata={props.metadata}
+            previewEnabled={props.previewEnabled}
             onChooseFile={openFilePicker}
             onClear={props.onClear}
             onDimensions={props.onDimensions}

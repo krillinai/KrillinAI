@@ -336,7 +336,7 @@
 }
 
 .runtime-component-heading > div,
-.runtime-component-footer > div:first-child {
+.runtime-component-footer > div:first-child:not(.runtime-component-actions) {
   min-width: 0;
   display: grid;
   gap: 5px;

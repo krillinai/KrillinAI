@@ -35,6 +35,8 @@ import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
 import VideoGenerationWorkspace from './VideoGenerationWorkspace.js';
 import type { CreatorWebService } from '../../services/creator-service.js';
 import { ApiClientError } from '../../runtime/errors.js';
+import { createCreatorSnapshotSubscription, type CreatorConnectionState } from '../../runtime/creator-sse.js';
+import { RuntimeRecoveryNotice } from '../../runtime/runtime-recovery.js';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 import { CreatorSessionProvider } from './creator-session-store.js';
 import type {
@@ -202,7 +204,6 @@ const creatorTools: DashboardEntry[] = [
 const categories = ['全部', '视频创作', '视频编辑', '图像创作', '文案创作', '音频处理'] as const;
 type CategoryFilter = typeof categories[number];
 
-const CREATOR_JOB_LOAD_TIMEOUT_MS = 15_000;
 const CREATOR_JOB_CREATE_ATTEMPT_TIMEOUT_MS = 4_000;
 const CREATOR_JOB_CREATE_ATTEMPTS = 3;
 const CREATOR_JOB_CREATE_RECOVERY_TIMEOUT_MS = 30_000;
@@ -347,6 +348,7 @@ export default function DashboardPage(props: {
   if (activeWorkspace === 'video-translation') {
     return renderCreatorWorkspace('video-translation', (
       <VideoTranslationWorkspace
+        runtimeDependencies={props.runtimeDependencies}
         promptHint={activePromptHint}
         videoMetadataService={props.videoMetadataService}
         creatorServicesService={props.creatorServicesService}
@@ -618,6 +620,7 @@ function CreatorWorkspaceSession(props: {
     ? createPendingCreatorJob(props.projectId, props.templateId, props.templateVersion)
     : undefined);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [restoreConnection, setRestoreConnection] = useState<CreatorConnectionState>({ status: 'connecting', attempt: 0 });
   const pageIssues = usePageIssueState('creator-launch');
   const jobRef = useRef(job);
   const mountedRef = useRef(false);
@@ -748,41 +751,40 @@ function CreatorWorkspaceSession(props: {
     }
 
     if (props.jobId !== createdJobIdRef.current) createdJobIdRef.current = undefined;
-    const request = props.service.getJob(props.jobId).then(response => response.job);
+    if (jobRef.current?.id === props.jobId) return;
+    const jobId = props.jobId;
     setJob(current => current?.id === props.jobId ? current : undefined);
-    const timeout = window.setTimeout(() => {
-      if (canceled) return;
-      pageIssues.captureOperationFailure(
-        'creator-launch.restore-job',
-        new Error('creator_job_restore_timeout'),
-        l('恢复创作项目超时，请重试。', 'Restoring the creator project timed out. Try again.'),
-        { retryable: true }
-      );
-    }, CREATOR_JOB_LOAD_TIMEOUT_MS);
-    void request.then(next => {
-      if (next.projectId !== props.projectId) {
-        throw new Error('该创作项目不属于当前工作目录');
+    const subscription = createCreatorSnapshotSubscription<CreatorJob>({
+      loadSnapshot: async options => {
+        const next = (await props.service.getJob(jobId, options)).job;
+        if (next.projectId !== props.projectId || next.templateId !== props.templateId) {
+          throw new ApiClientError({ status: 409, code: 'CREATOR_SESSION_MISMATCH', message: '该创作项目与当前工作目录或模板不匹配' });
+        }
+        return next;
+      },
+      subscribe: () => ({ close() {} }),
+      onSnapshot(next) {
+        if (canceled) return;
+        pageIssues.resolveOperation('creator-launch.restore-job');
+        setJob(next);
+        subscription.close();
+      },
+      onState(next) {
+        if (canceled) return;
+        setRestoreConnection(next);
+        if (next.status === 'failed') {
+          pageIssues.captureOperationFailure(
+            'creator-launch.restore-job', next.error,
+            l('无法恢复创作项目，请重试。', 'Could not restore the creator project. Try again.'),
+            { retryable: true }
+          );
+        }
       }
-      if (next.templateId !== props.templateId) {
-        throw new Error('该创作项目与当前模板不匹配');
-      }
-      if (canceled) return;
-      window.clearTimeout(timeout);
-      pageIssues.resolveOperation('creator-launch.restore-job');
-      setJob(next);
-    }).catch(reason => {
-      if (canceled) return;
-      window.clearTimeout(timeout);
-      pageIssues.captureOperationFailure(
-        'creator-launch.restore-job',
-        reason,
-        l('无法恢复创作项目，请重试。', 'Could not restore the creator project. Try again.'),
-        { retryable: true }
-      );
     });
+    void subscription.start();
     return () => {
       canceled = true;
-      window.clearTimeout(timeout);
+      subscription.close();
     };
   }, [
     l,
@@ -800,6 +802,7 @@ function CreatorWorkspaceSession(props: {
   if (restoreIssue) {
     return (
       <main className="creator-workspace-loading">
+        <RuntimeRecoveryNotice session={restoreConnection} onRetrySession={async () => setLoadAttempt(attempt => attempt + 1)} />
         <IssueList
           issues={pageIssues.issues}
           actions={{ retryOperations: {
@@ -817,6 +820,7 @@ function CreatorWorkspaceSession(props: {
     return (
       <main className="creator-workspace-loading" aria-busy="true">
         {l('正在恢复创作项目', 'Restoring creator project')}
+        <RuntimeRecoveryNotice session={restoreConnection} onRetrySession={async () => setLoadAttempt(attempt => attempt + 1)} />
       </main>
     );
   }

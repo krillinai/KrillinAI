@@ -225,6 +225,8 @@ export function buildKrillinCliCommandArguments(
 ): string[] {
   const command = krillinCliStageId(stage.stageRun.stageId);
   const common = ['--workdir', stage.workdir, '--task-id', stage.stageRun.id];
+  const sourceUrl = stringOption(options, 'sourceUrl');
+  const mediaCache = sourceUrl ? ['--media-workdir', join(dirname(stage.workdir), 'source-media', createHash('sha256').update(sourceUrl).digest('hex').slice(0, 16))] : [];
   if (command === 'subtitle') {
     const source = sourceOverride ?? resolveKrillinCliSource(artifacts, options);
     if (!source) throw new CreatorExecutorError('creator_stage_input_missing', 'Subtitle input video or URL is required');
@@ -235,7 +237,7 @@ export function buildKrillinCliCommandArguments(
     return [
       'subtitle',
       source,
-      ...(sourceOnly ? [] : ['--prepare-video']),
+      ...(!sourceOnly && booleanOption(options, 'prepareVideo', true) ? ['--prepare-video'] : []),
       '--origin-lang', requiredOption(options, 'originLanguage'),
       '--target-lang', requiredOption(options, 'targetLanguage'),
       '--caption-source', stringOption(options, 'captionSource') ?? 'any',
@@ -263,6 +265,9 @@ export function buildKrillinCliCommandArguments(
       ...common,
       '--input-srt', subtitle,
       '--line-mode', lineMode,
+      ...mediaCache,
+      ...(booleanOption(options, 'audioOnly', false) ? ['--audio-only'] : []),
+      ...(!video && !booleanOption(options, 'audioOnly', false) ? optionalArgument('--source-url', stringOption(options, 'sourceUrl')) : []),
       ...(video ? ['--video', video] : []),
       ...(voice ? ['--voice', voice] : [])
     ];
@@ -270,14 +275,15 @@ export function buildKrillinCliCommandArguments(
   if (command === 'render-horizontal' || command === 'render-vertical') {
     const sourceVideo = artifactPath(artifacts, 'source_video');
     const dubbedVideo = artifactPath(artifacts, 'dubbed_video');
+    const dubbedAudio = artifactPath(artifacts, 'dubbed_audio');
     const dubbed = booleanOption(options, 'dubbed', false);
-    if (dubbed && !dubbedVideo) {
+    if (dubbed && !dubbedVideo && !dubbedAudio) {
       throw new CreatorExecutorError(
         'krillin_dubbed_video_missing',
         'Generate the dubbed video before rendering a dubbed output'
       );
     }
-    const video = dubbed ? dubbedVideo : sourceVideo;
+    const video = dubbed ? dubbedVideo ?? sourceVideo : sourceVideo;
     const vertical = artifactPath(artifacts, 'vertical_subtitle');
     const target = artifactPath(artifacts, 'target_subtitle');
     const bilingual = artifactPath(artifacts, 'bilingual_subtitle');
@@ -286,14 +292,16 @@ export function buildKrillinCliCommandArguments(
       : booleanOption(options, 'bilingual', false) && bilingual
         ? bilingual
         : target ?? bilingual;
-    if (!video || !subtitle) {
+    if ((!video && !sourceUrl) || !subtitle) {
       throw new CreatorExecutorError('creator_stage_input_missing', 'Render video and subtitle inputs are required');
     }
     return [
       command,
       ...common,
-      '--video', video,
+      ...mediaCache,
+      ...(video ? ['--video', video] : ['--source-url', sourceUrl!]),
       '--subtitle', subtitle,
+      ...(dubbed && !dubbedVideo && dubbedAudio ? ['--audio', dubbedAudio] : []),
       ...(dubbed ? ['--dubbed'] : []),
       ...(command === 'render-vertical'
         ? [
@@ -394,6 +402,7 @@ async function collectArtifacts(
   const result: KrillinResultArtifact[] = [];
   const jobRoot = await realpath(resolve(input.jobsRoot, input.stage.job.id));
   for (const [field, kind] of mappings) {
+    if (kind === 'source_video' && input.stage.stageRun.stageId !== 'subtitle' && input.artifacts.some(artifact => artifact.kind === 'source_video')) continue;
     const reported = response.outputs?.[field];
     if (!reported) continue;
     const candidate = isAbsolute(reported) ? reported : resolve(input.stage.workdir, reported);
@@ -434,9 +443,9 @@ export function outputMappings(stageId: string): Array<[string, string]> {
       ['short_origin_mixed_srt', 'vertical_subtitle']
     ];
   }
-  if (stageId === 'tts') return [['tts_audio', 'dubbed_audio'], ['video_with_tts', 'dubbed_video']];
-  if (stageId === 'render-horizontal') return [['horizontal_video', 'horizontal_video']];
-  if (stageId === 'render-vertical') return [['vertical_video', 'vertical_video']];
+  if (stageId === 'tts') return [['origin_video', 'source_video'], ['tts_audio', 'dubbed_audio'], ['video_with_tts', 'dubbed_video']];
+  if (stageId === 'render-horizontal') return [['origin_video', 'source_video'], ['horizontal_video', 'horizontal_video']];
+  if (stageId === 'render-vertical') return [['origin_video', 'source_video'], ['vertical_video', 'vertical_video']];
   return [];
 }
 

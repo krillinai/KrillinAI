@@ -20,6 +20,28 @@ afterEach(async () => {
 });
 
 describe('creator preflight', () => {
+  it.each([undefined, 3])('checks Bilibili selection for Agent stage requests: %s', async part => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const config = createDefaultCreatorServicesConfig();
+    config.llm.source = 'codex';
+    const job = fakeJob('video-translation', { sourceType: 'url',
+      sourceUrl: `https://www.bilibili.com/video/BV18E421w7bf${part === undefined ? '' : `?p=${part}`}` });
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: join(root, 'runtime'), jobsRoot: join(root, 'jobs'),
+      executorIds: ['krillinai'], validateRuntimeAssets: false,
+      videoMetadataService: { get: async () => ({ platform: 'bilibili', title: 'Course',
+        parts: [1, 2, 3].map(index => ({ index, title: `Lesson ${index}` })) }) }
+    }).check(job, createVideoTranslationTemplate().stages.find(stage => stage.id === 'subtitle')!);
+    if (part === undefined) {
+      expect(result.canStart).toBe(false);
+      expect(result.blocked).toContainEqual(expect.objectContaining({ id: 'bilibili-part', message: expect.stringContaining('选择要翻译的分集') }));
+    } else {
+      expect(result.blocked.map(item => item.id)).not.toContain('bilibili-part');
+    }
+  });
+
   it('blocks a stage with missing provider credentials and provides a settings repair', async () => {
     root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
     const config = createDefaultCreatorServicesConfig();
@@ -127,7 +149,7 @@ describe('creator preflight', () => {
     ]));
   });
 
-  it('accepts Codex subscription image generation without API credentials', async () => {
+  it('accepts Codex subscription image generation only with checked native capability', async () => {
     root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
     const config = createDefaultCreatorServicesConfig();
     config.image.provider = 'codex-native';
@@ -138,13 +160,40 @@ describe('creator preflight', () => {
       resourceRoot: join(root, 'runtime'),
       jobsRoot: join(root, 'jobs'),
       executorIds: ['stickman-image'],
-      validateRuntimeAssets: false
+      validateRuntimeAssets: false,
+      readCodexImageStatus: async () => ({ authentication: 'chatgpt', ready: true, executionMode: 'native', message: '原生工具已就绪' })
     }).check(fakeJob('stickman-video', { provider: 'codex-native' }), stage);
 
     expect(result.blocked.map(item => item.id)).not.toContain('image-provider');
     expect(result.ready).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'image-provider', executionMode: 'local' })
     ]));
+  });
+
+  it.each([undefined, false])('blocks unchecked or unsupported Codex image capability (%s)', async available => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const config = createDefaultCreatorServicesConfig();
+    config.image.provider = 'codex-native';
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: root, jobsRoot: join(root, 'jobs'), validateRuntimeAssets: false,
+      ...(available === undefined ? {} : { readCodexImageStatus: async () => ({ authentication: 'chatgpt' as const, ready: false, executionMode: null, message: 'Runtime 不支持原生生图' }) })
+    }).check(fakeJob('image-generation', { provider: 'codex-native', prompt: 'test' }), createImageGenerationTemplate().stages[0]!);
+    expect(result.canStart).toBe(false);
+    expect(result.blocked).toContainEqual(expect.objectContaining({ id: 'image-provider' }));
+  });
+
+  it('reports Codex API mode separately from local native generation', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const config = createDefaultCreatorServicesConfig();
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: root, jobsRoot: join(root, 'jobs'), validateRuntimeAssets: false,
+      readCodexImageStatus: async () => ({ authentication: 'api_key', ready: true, executionMode: 'api', message: '接口需支持图片生成' })
+    }).check(fakeJob('image-generation', { provider: 'codex-native', prompt: 'test' }), createImageGenerationTemplate().stages[0]!);
+    expect(result.ready).toContainEqual(expect.objectContaining({ id: 'image-provider', executionMode: 'remote', message: '接口需支持图片生成' }));
   });
 
   it.each([

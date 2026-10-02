@@ -20,6 +20,42 @@ afterEach(() => {
 });
 
 describe('video translation workflow', () => {
+  it.each([
+    { suffix: '', error: 'creator_source_part_required' },
+    { suffix: '?p=0', error: 'creator_source_invalid_part' },
+    { suffix: '?p=4', error: 'creator_source_invalid_part' },
+    { suffix: '?p=3', error: undefined }
+  ])('validates Bilibili selection before starting: $suffix', async ({ suffix, error }) => {
+    const fixture = setup({ sourceUrl: `https://www.bilibili.com/video/BV18E421w7bf${suffix}` });
+    const config = createDefaultCreatorServicesConfig();
+    config.llm.source = 'codex';
+    const get = vi.fn(async () => ({ platform: 'bilibili' as const, title: 'Course',
+      parts: [1, 2, 3].map(index => ({ index, title: `Lesson ${index}` })) }));
+    const workflow = createVideoTranslationWorkflow({ creator: fixture.service, dispatcher: fixture.dispatcher,
+      configStore: { read: async () => config }, videoMetadataService: { get } });
+    try {
+      const validated = workflow.validateStage(fixture.service.getJob(fixture.jobId)!, 'subtitle');
+      if (error) await expect(validated).rejects.toMatchObject({ code: error });
+      else {
+        await expect(validated).resolves.toBeUndefined();
+        expect(get).toHaveBeenCalledWith('https://www.bilibili.com/video/BV18E421w7bf?p=3');
+      }
+      expect(fixture.service.getJob(fixture.jobId)!.stages).toHaveLength(0);
+    } finally { fixture.db.close(); }
+  });
+
+  it('does not download a Bilibili collection when part lookup fails', async () => {
+    const fixture = setup({ sourceUrl: 'https://www.bilibili.com/video/BV18E421w7bf' });
+    const workflow = createVideoTranslationWorkflow({ creator: fixture.service, dispatcher: fixture.dispatcher,
+      configStore: { read: async () => createDefaultCreatorServicesConfig() },
+      videoMetadataService: { get: async () => { throw new Error('network unavailable'); } } });
+    try {
+      await expect(workflow.validateStage(fixture.service.getJob(fixture.jobId)!, 'subtitle'))
+        .rejects.toMatchObject({ code: 'creator_source_metadata_unavailable', message: expect.stringContaining('未启动下载或翻译') });
+      expect(fixture.service.getJob(fixture.jobId)!.stages).toHaveLength(0);
+    } finally { fixture.db.close(); }
+  });
+
   it('accepts Codex runtime translation without a creator API key', async () => {
     const fixture = setup({});
     const config = createDefaultCreatorServicesConfig();

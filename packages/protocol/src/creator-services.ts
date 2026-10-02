@@ -168,6 +168,15 @@ export type CreatorServicesCapabilitiesResponse = {
   };
 };
 
+export type CodexImageStatus = {
+  authentication: 'api_key' | 'chatgpt' | 'none';
+  ready: boolean;
+  executionMode: 'api' | 'native' | null;
+  message: string;
+  model?: string;
+  version?: string;
+};
+
 export type CreatorPreflightExecutionMode = 'local' | 'remote' | 'mixed';
 
 export type CreatorPreflightRepair = {

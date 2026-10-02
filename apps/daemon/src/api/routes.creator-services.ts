@@ -1,4 +1,5 @@
 import type {
+  CodexImageStatus,
   CreatorServicesCapabilitiesResponse,
   CreatorServicesConfig,
   CreatorTtsPreviewRequest,
@@ -26,9 +27,17 @@ export async function registerCreatorServicesRoutes(
   readCapabilities: () => CreatorServicesCapabilitiesResponse =
     createKrillinCreatorServicesCapabilities,
   ttsService?: Pick<KrillinTtsService, 'listVoices' | 'preview'>,
-  onConfigurationChanged?: () => Promise<void> | void
+  onConfigurationChanged?: () => Promise<void> | void,
+  readCodexImageStatus?: () => Promise<CodexImageStatus>
 ): Promise<void> {
   server.get('/creator-services/capabilities', async () => readCapabilities());
+  server.get('/creator-services/image/codex/status', async (_request, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    return readCodexImageStatus ? await readCodexImageStatus() : {
+      authentication: 'none', ready: false, executionMode: null,
+      message: '当前 Runtime 未配置 Codex 生图能力检查，请更新或检查 Runtime'
+    } satisfies CodexImageStatus;
+  });
 
   server.get('/creator-services/config', async (_request, reply) => {
     try {

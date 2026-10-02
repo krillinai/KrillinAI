@@ -423,6 +423,50 @@ describe('App', () => {
     );
   });
 
+  it.each(['browser', 'desktop'] as const)('retains Creator and composer drafts across Runtime recovery in the %s host', async hostKind => {
+    window.location.hash = '#/workbench?tool=cover-generator';
+    const hostBridge = createHostBridge();
+    hostBridge.kind = hostKind;
+    let online = true;
+    let announce: ((config: { baseUrl: string; token?: string } | null) => void) | undefined;
+    const config = { baseUrl: 'http://127.0.0.1:60764', token: 'runtime-token' };
+    hostBridge.readConnectionConfig = async () => online ? { ...config } : null;
+    hostBridge.subscribeConnectionConfig = listener => {
+      announce = listener;
+      return () => { announce = undefined; };
+    };
+    let taskRequests = 0;
+    const runtimeFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!online) throw new TypeError('offline');
+      if (init?.method === 'POST' && /\/agent-(turns|turn)|\/stages\//.test(url)) taskRequests += 1;
+      const projectApiResponse = handleDefaultProjectApiRequest(url, init);
+      if (projectApiResponse !== undefined) return projectApiResponse;
+      if (url.endsWith('/healthz')) return jsonResponse({ ok: true });
+      if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
+      if (url.includes('/threads?')) return jsonResponse({ threads: [] });
+      throw new Error(`Unexpected request ${url}`);
+    };
+    render(<App fileService={createFileService()} hostBridge={hostBridge} runtimeFetch={runtimeFetch} subscribeRunEvents={async () => undefined} />);
+    const draft = await screen.findByRole('textbox', { name: '内容与补充要求' });
+    fireEvent.change(draft, { target: { value: '封面业务草稿' } });
+    await waitFor(() => expect(testCreatorJobs).toHaveLength(1));
+    const composer = screen.getByRole('textbox', { name: '告诉 Agent 你的要求' });
+    fireEvent.change(composer, { target: { value: '尚未提交的 Agent 要求' } });
+    online = false;
+    act(() => announce?.(null));
+    expect(await screen.findByText(/本地服务暂未连接，正在自动重连/)).toBeVisible();
+    expect(draft).toHaveValue('封面业务草稿');
+    expect(composer).toHaveValue('尚未提交的 Agent 要求');
+    online = true;
+    act(() => announce?.(config));
+    await waitFor(() => expect(screen.queryByText(/本地服务暂未连接，正在自动重连/)).not.toBeInTheDocument());
+    expect(screen.getByRole('textbox', { name: '内容与补充要求' })).toHaveValue('封面业务草稿');
+    expect(screen.getByRole('textbox', { name: '告诉 Agent 你的要求' })).toHaveValue('尚未提交的 Agent 要求');
+    expect(testCreatorJobs).toHaveLength(1);
+    expect(taskRequests).toBe(0);
+  });
+
   it('restores the project library directly from its URL', async () => {
     window.location.hash = '#/projects';
     render(<App projectNavigationMode="library" />);

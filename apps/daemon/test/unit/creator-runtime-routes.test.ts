@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
-import type { CreatorYtDlpStatus } from '@opencreator/protocol';
+import { createDefaultCreatorServicesConfig, type CreatorYtDlpStatus } from '@opencreator/protocol';
+import { createKrillinDependencyLoader } from '../../src/creator/krillin/dependency-loader.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerCreatorRuntimeRoutes } from '../../src/api/routes.creator-runtime.js';
 import {
@@ -15,6 +16,23 @@ afterEach(async () => {
 });
 
 describe('creator yt-dlp runtime routes', () => {
+  it('reports local engine inventory and starts downloads independently of yt-dlp', async () => {
+    const config = createDefaultCreatorServicesConfig();
+    config.transcription.provider = 'whisperkit';
+    let installed = false;
+    const install = vi.fn(async () => { installed = true; });
+    const loader = createKrillinDependencyLoader({ root: '/tmp/opencreator-components-route', platform: 'darwin', arch: 'arm64', whisperKitInstaller: { isInstalled: async () => installed, install } });
+    server = Fastify();
+    await registerCreatorRuntimeRoutes(server, undefined, { loader, readConfig: async () => config });
+    const before = await server.inject({ method: 'GET', url: '/creator/components/status' });
+    expect(before.statusCode).toBe(200);
+    expect(before.json()).toMatchObject({ selectedProvider: 'whisperkit', selectedModel: 'large-v2', components: expect.arrayContaining([expect.objectContaining({ id: 'whisperkit', state: 'not_installed' })]) });
+    const download = await server.inject({ method: 'POST', url: '/creator/components/download' });
+    expect(download.statusCode).toBe(200);
+    await vi.waitFor(() => expect(install).toHaveBeenCalledOnce());
+    const after = await server.inject({ method: 'GET', url: '/creator/components/status' });
+    expect(after.json().components.find((component: { id: string }) => component.id === 'whisperkit').state).toBe('ready');
+  });
   it('exposes status, periodic checks, and manual updates', async () => {
     const current = status();
     const checked = status({

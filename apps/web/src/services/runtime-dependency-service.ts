@@ -1,4 +1,4 @@
-import type { CreatorYtDlpStatusResponse } from '@opencreator/protocol';
+import type { CreatorRuntimeComponentsResponse, CreatorYtDlpStatusResponse } from '@opencreator/protocol';
 
 type ClientLike = {
   get(path: string): Promise<unknown>;
@@ -7,6 +7,12 @@ type ClientLike = {
 
 export function createRuntimeDependencyService(client: ClientLike) {
   return {
+    getComponentsStatus(): Promise<CreatorRuntimeComponentsResponse> {
+      return client.get('/creator/components/status') as Promise<CreatorRuntimeComponentsResponse>;
+    },
+    downloadComponents(): Promise<CreatorRuntimeComponentsResponse> {
+      return client.post('/creator/components/download') as Promise<CreatorRuntimeComponentsResponse>;
+    },
     getYtDlpStatus(): Promise<CreatorYtDlpStatusResponse> {
       return client.get('/creator/yt-dlp/status') as Promise<CreatorYtDlpStatusResponse>;
     },

@@ -19,7 +19,7 @@ export async function registerVideoMetadataRoutes(
       return await service.get(url);
     } catch (error) {
       if (error instanceof VideoMetadataError) {
-        if (error.code === 'UNSUPPORTED_SOURCE') {
+        if (error.code === 'UNSUPPORTED_SOURCE' || error.code === 'INVALID_PART') {
           return reply.code(400).send(apiError('VALIDATION_FAILED', error.message));
         }
         return reply.code(502).send(apiError('VIDEO_METADATA_UNAVAILABLE', error.message));
