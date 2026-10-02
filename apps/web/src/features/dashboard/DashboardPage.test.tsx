@@ -1824,8 +1824,11 @@ describe('DashboardPage', () => {
     await waitFor(() => {
       expect(composer).toHaveValue('检查当前翻译设置');
     });
-    const issue = await screen.findByText(/Agent 未能完成诊断，请查看问题详情后重试。/);
+    const issue = await screen.findByText(/Agent 未能完成诊断，请查看问题详情后重试。/, {
+      selector: '[data-source="diagnostic"] .creator-collaboration-bubble > p'
+    });
     expect(issue.closest('[data-source="diagnostic"]')).toBeInTheDocument();
+    expect(issue).toBeVisible();
     expect(screen.queryByText(/诊断编号：OC-/)).not.toBeInTheDocument();
     expect(issue).not.toHaveTextContent('Creator Agent unavailable');
   });

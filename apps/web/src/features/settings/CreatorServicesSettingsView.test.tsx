@@ -21,7 +21,10 @@ describe('CreatorServicesSettingsView', () => {
     render(<CreatorServicesSettingsView connected service={service} modelService={createModelService()} onOpenAgentSetup={onOpenAgentSetup} />);
     expect(service.getCodexImageStatus).not.toHaveBeenCalled();
     await userEvent.click(await screen.findByRole('tab', { name: '图像生成' }));
-    expect(await screen.findByText('本地登录凭据已就绪')).toBeInTheDocument();
+    expect(await screen.findByText('ChatGPT 登录态 · 原生生图')).toBeInTheDocument();
+    expect(screen.getByText(/已检测到本地 ChatGPT 登录凭据和原生生图工具/)).toBeInTheDocument();
+    expect(screen.queryByText('本地登录凭据已就绪')).not.toBeInTheDocument();
+    expect(service.getCodexImageStatus).toHaveBeenCalledOnce();
     await userEvent.click(screen.getByRole('button', { name: '配置 Agent' }));
     expect(onOpenAgentSetup).toHaveBeenCalledOnce();
   });
