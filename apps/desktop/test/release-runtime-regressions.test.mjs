@@ -58,13 +58,15 @@ describe('Desktop release runtime regressions', () => {
       '@iarna/toml': '2.2.5',
       '@remotion/renderer': '4.0.473',
       'cross-spawn': '7.0.6',
-      fastify: '5.9.0',
+      fastify: '5.12.2',
       sharp: '0.35.4',
       toml: '4.2.0',
       yauzl: '3.4.0'
     });
     expect(daemonPackage.dependencies['@iarna/toml'])
       .toBe(runtimePackage.dependencies['@iarna/toml']);
+    expect(daemonPackage.dependencies.fastify)
+      .toBe(runtimePackage.dependencies.fastify);
     expect(runtimePackage.dependencies).not.toHaveProperty('which');
     expect(prepareSource).toContain("'writing-templates'");
     expect(prepareSource).toContain(
