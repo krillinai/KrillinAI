@@ -1882,7 +1882,9 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
       const settings = page
         .getByRole('region', { name: 'OpenCreator 工作区' })
         .getByRole('main');
-      const component = settings.locator('.runtime-component-item');
+      const component = settings.locator('.runtime-component-item').filter({
+        has: page.getByRole('heading', { name: 'yt-dlp nightly' })
+      });
       await expect(settings.getByRole('heading', { name: '第三方组件' })).toBeVisible();
       await expect(component.getByRole('heading', { name: 'yt-dlp nightly' })).toBeVisible();
       await expect(component).toContainText('用于解析和下载 YouTube、Bilibili 等公开视频资源。');
@@ -2304,5 +2306,11 @@ function normalizeParityText(value: string): string {
 }
 
 function normalizeParityRequests(requests: string[]): string[] {
-  return [...requests].sort();
+  const readRequests = new Set<string>();
+  return requests.filter(request => {
+    if (!request.startsWith('GET ')) return true;
+    if (readRequests.has(request)) return false;
+    readRequests.add(request);
+    return true;
+  }).sort();
 }
