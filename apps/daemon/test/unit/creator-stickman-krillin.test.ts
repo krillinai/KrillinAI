@@ -91,7 +91,7 @@ describe('stickman KrillinAI mapping', () => {
       undefined
     );
     expect(translationArgs).not.toContain('--source-only');
-    expect(translationArgs).toContain('--prepare-video');
+    expect(translationArgs).not.toContain('--prepare-video');
   });
 
   it('rejects undeclared or missing stickman outputs and aliases valid subtitles', async () => {

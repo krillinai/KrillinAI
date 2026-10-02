@@ -28,7 +28,7 @@ describe('creator agent context', () => {
       },
       stateTruncated: true,
       templateGuidance: expect.stringContaining('input.patch'),
-      availableStageIds: ['subtitle', 'tts', 'render-horizontal', 'render-vertical'],
+      availableStageIds: ['subtitle', 'tts', 'render-horizontal', 'render-vertical', 'prepare-source-video'],
       stages: [
         {
           stageId: 'subtitle',

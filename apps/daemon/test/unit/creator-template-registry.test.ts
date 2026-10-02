@@ -250,10 +250,33 @@ describe('creator template registry', () => {
     });
   });
 
-  it('resolves the video translation stale graph from target subtitles only', () => {
-    const registry = createCreatorTemplateRegistry([
-      createVideoTranslationTemplate()
+  it.each([1, 2])('resolves the video translation v%s stale graph from target subtitles only', version => {
+    const registry = createDefaultCreatorTemplateRegistry();
+
+    expect(registry.resolveInvalidatedArtifactKinds(
+      'video-translation',
+      version,
+      'edit-subtitle'
+    )).toEqual([
+      'dubbed_audio',
+      'dubbed_video',
+      'horizontal_video',
+      'vertical_video'
     ]);
+  });
+
+  it('does not invalidate source-only consumers when subtitles change', () => {
+    const template = createVideoTranslationTemplate();
+    const registry = createCreatorTemplateRegistry([{
+      ...template,
+      stages: [...template.stages, {
+        id: 'source-preview',
+        executor: 'download',
+        allowedJobStatuses: ['completed'],
+        inputArtifacts: [{ kind: 'source_video', selector: 'latest-completed' }],
+        outputArtifacts: [{ kind: 'source_preview', status: 'completed' }]
+      }]
+    }]);
 
     expect(registry.resolveInvalidatedArtifactKinds(
       'video-translation',
