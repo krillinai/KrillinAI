@@ -116,6 +116,9 @@ export default function VideoDownloadWorkspace(props: {
       .sort(compareArtifactFreshness),
     [session?.job.artifacts]
   );
+  const seenDownloadArtifactIdsRef = useRef(
+    new Set(downloadArtifacts.map(artifact => artifact.id))
+  );
   const downloadedOptionIds = useMemo(
     () => downloadedOptionsForProbe(
       downloadArtifacts,
@@ -195,7 +198,7 @@ export default function VideoDownloadWorkspace(props: {
 
   useEffect(() => {
     const sourceUrl = readString(session?.state.sourceUrl);
-    if (sourceUrl !== undefined && sourceUrl !== url && !url.trim()) {
+    if (sourceUrl !== undefined && sourceUrl !== url) {
       setUrl(sourceUrl);
     }
   }, [session?.state.sourceUrl, url]);
@@ -205,6 +208,20 @@ export default function VideoDownloadWorkspace(props: {
     setCurrentStep(1);
     setResultTab('formats');
   }, [probeArtifact?.id]);
+
+  useEffect(() => {
+    if (probe === undefined || probeArtifact === undefined) return;
+    const newArtifacts = downloadArtifacts.filter(artifact => (
+      !seenDownloadArtifactIdsRef.current.has(artifact.id)
+      && artifactMatchesProbe(artifact, probeArtifact, probe)
+    ));
+    if (newArtifacts.length === 0) return;
+    for (const artifact of newArtifacts) {
+      seenDownloadArtifactIdsRef.current.add(artifact.id);
+    }
+    setCurrentStep(1);
+    setResultTab('outputs');
+  }, [downloadArtifacts, probe, probeArtifact]);
 
   useEffect(() => {
     if (probe === undefined) return;

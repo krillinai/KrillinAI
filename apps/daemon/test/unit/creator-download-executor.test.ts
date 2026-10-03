@@ -127,7 +127,12 @@ describe('creator download executor', () => {
       platform: 'xiaohongshu', requestedUrl: sourceUrl, duration: 173.454
     });
     expect(probe.options).toEqual(expect.arrayContaining([
-      expect.objectContaining({ mediaType: 'video', videoFormatId: '0' })
+      expect.objectContaining({ mediaType: 'video', videoFormatId: '0' }),
+      expect.objectContaining({
+        mediaType: 'audio',
+        audioFormatId: '0',
+        transcode: 'mp3'
+      })
     ]));
   });
 
@@ -150,6 +155,28 @@ describe('creator download executor', () => {
     }));
     args = JSON.parse(await readFile(join(workdir, 'args.json'), 'utf8')) as string[];
     expect(args).toContain(sourceUrl);
+
+    const audioProbe = parseDownloadProbe({
+      id: '6a9149f3000000001f01d20a',
+      title: 'Public video note',
+      extractor_key: 'XiaoHongShu',
+      webpage_url: sourceUrl,
+      formats: [{
+        format_id: '0', ext: 'mp4', width: 1388, height: 720,
+        vcodec: 'h264', acodec: 'aac'
+      }]
+    }, sourceUrl);
+    const audioProbeArtifact = await writeProbeArtifact(workdir, audioProbe);
+    const audio = await executor.run(stageInput({
+      workdir, stageId: 'download',
+      state: { sourceUrl, mediaType: 'audio', selectedOptionId: 'audio-mp3-192' },
+      inputArtifacts: [audioProbeArtifact]
+    }));
+    args = JSON.parse(await readFile(join(workdir, 'args.json'), 'utf8')) as string[];
+    expect(args).toEqual(expect.arrayContaining([
+      '-f', '0', '--extract-audio', '--audio-format', 'mp3', sourceUrl
+    ]));
+    expect(audio.outputs).toEqual([expect.objectContaining({ kind: 'source_audio' })]);
 
     for (const invalidUrl of [
       'https://www.xiaohongshu.com/user/profile/6a9149f3000000001f01d20a',

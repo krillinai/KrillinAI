@@ -84,9 +84,9 @@ export function createVideoDownloadTemplate(): CreatorTemplateDefinition {
       { kind: 'source_audio', required: false }
     ],
     agentGuidance: [
-      '仅支持公开的 YouTube 和 Bilibili 链接。',
-      '先运行 probe，再从 download_probe.options 中选择 option.id。',
-      '更新 selectedOptionId 和 mediaType 后运行 download；不得自行构造或写入 formatId。'
+      '支持公开的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书和 Pinterest 视频链接，可下载视频或提取音频。',
+      '先设置 sourceUrl 并运行 probe，再读取最新 download_probe.options；只选择其中与用户请求的 video 或 audio 对应的 option.id。',
+      '更新 selectedOptionId 和 mediaType 后运行 download；不得自行构造或写入 formatId。若 probe 没有对应选项，再说明该链接无法提供所需媒体。'
     ].join(' ')
   };
 }
