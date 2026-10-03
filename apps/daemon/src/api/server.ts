@@ -1446,6 +1446,8 @@ export async function buildServer(input: BuildServerInput) {
     stageRunner: creatorStageRunner,
     presets: creatorPresetRegistry,
     presetCatalogRoot: creatorPresetCatalogRoot,
+    readServicesConfig: () => creatorServicesConfigStore.read(),
+    codexImageRuntime,
     preflight: creatorPreflight,
     issueService: creatorIssueService
   });

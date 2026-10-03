@@ -857,17 +857,17 @@ describe('DashboardPage', () => {
     const appCards = Array.from(container.querySelectorAll('.dashboard-app-card'));
     expect(appCards).toHaveLength(11);
     expect(appCards.map(card => card.querySelector('strong')?.textContent)).toEqual([
-      '文章写作',
-      '视频翻译',
-      '火柴人动画',
       '视频下载',
+      '视频翻译',
+      '视频生成',
+      '图像生成',
+      '文章写作',
+      '火柴人动画',
       '视频切片',
       '封面生成',
       '小红书帖子',
       '短视频脚本',
-      '智能配音',
-      '视频生成',
-      '图像生成'
+      '智能配音'
     ]);
     expect(screen.getByRole('button', { name: /^火柴人动画 角色、分镜与完整动画/ }))
       .toBeInTheDocument();

@@ -323,6 +323,9 @@ describe('creator api', () => {
       highlights: expect.any(Array)
     });
     expect(imagePreset.tagIds).toHaveLength(imagePreset.tags.length);
+    expect(imagePreset.details).toEqual(expect.arrayContaining([
+      { label: 'Model', text: 'Codex native image generation', colors: [] }
+    ]));
     const fullPreviewPreset = catalog.json().presets.find(
       (preset: { id: string }) => preset.id === 'y2k-streetwear-mobile-landing-page'
     );

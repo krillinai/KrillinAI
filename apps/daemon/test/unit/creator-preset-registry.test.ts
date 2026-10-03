@@ -8,6 +8,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 import {
   canonicalJson,
   compileCreatorPresets,
@@ -18,7 +19,7 @@ import {
   createCreatorPresetRegistry,
   loadCreatorPresetCatalog
 } from '../../src/creator/presets/catalog.js';
-import { createCreatorPresetTags } from '../../src/creator/presets/presentation.js';
+import { createCreatorPresetDetails, createCreatorPresetTags } from '../../src/creator/presets/presentation.js';
 import { createDefaultCreatorTemplateRegistry } from '../../src/creator/templates/registry.js';
 import {
   copyOfficialPreset,
@@ -41,6 +42,52 @@ function setup() {
 }
 
 describe('creator preset registry', () => {
+  it('resolves model details from the selected service and localized template defaults', async () => {
+    const fixture = setup();
+    for (const [module, sourceId] of [
+      ['image-generation', 'ecommerce-product'],
+      ['cover-generator', 'personal-growth'],
+      ['video-generation', 'product-ad'],
+      ['smart-dubbing', 'calm-narration']
+    ] as const) copyOfficialPreset({ sourceRoot: fixture.sourceRoot, module, sourceId });
+    const catalog = await validateCreatorPresets({ sourceRoot: fixture.sourceRoot });
+    const config = createDefaultCreatorServicesConfig();
+    const image = catalog.presets.find(preset => preset.module === 'image-generation')!;
+    const cover = catalog.presets.find(preset => preset.module === 'cover-generator')!;
+    const video = catalog.presets.find(preset => preset.module === 'video-generation')!;
+    const dubbing = catalog.presets.find(preset => preset.module === 'smart-dubbing')!;
+    const model = (preset: typeof image, locale: 'zh-CN' | 'en-US' = 'zh-CN', nativeModel?: string) => (
+      createCreatorPresetDetails(preset, locale, config, nativeModel)[0]?.text
+    );
+
+    expect(model(image)).toBe('Codex 原生生图');
+    expect(model(image, 'en-US')).toBe('Codex native image generation');
+    expect(model(image, 'zh-CN', 'gpt-image-2')).toBe('gpt-image-2');
+    config.image.provider = 'gemini';
+    config.image.gemini.model = 'custom-image-model';
+    expect(model(image)).toBe('custom-image-model');
+    expect(model(cover)).toBe('custom-image-model');
+    image.defaults.provider = 'jimeng';
+    image.defaults.model = 'ignored-image-model';
+    expect(model(image)).toBe(config.image.jimeng.model);
+    image.defaultsByLocale = { 'en-US': { provider: 'openai' } };
+    expect(model(image, 'en-US')).toBe(config.image.openai.model);
+
+    video.defaults.provider = 'veo';
+    delete video.defaults.model;
+    expect(model(video)).toBe(config.video.veo.model);
+    video.defaults.model = 'template-video-model';
+    expect(model(video)).toBe('template-video-model');
+    video.defaultsByLocale = { 'en-US': { model: 'localized-video-model' } };
+    expect(model(video, 'en-US')).toBe('localized-video-model');
+
+    expect(model(dubbing)).toBe(config.tts.openai.model);
+    dubbing.defaults.ttsProvider = 'minimax';
+    expect(model(dubbing)).toBe(config.tts.minimax.model);
+    dubbing.defaults.ttsModel = 'template-tts-model';
+    expect(model(dubbing)).toBe('template-tts-model');
+  });
+
   it('excludes development samples and functional shortcuts from the product catalog', async () => {
     const catalog = await validateCreatorPresets({ sourceRoot: officialPresetRoot });
     const registry = createCreatorPresetRegistry({
@@ -254,6 +301,18 @@ describe('creator preset registry', () => {
       { text: 'Standard quality', colors: [] },
       { text: '2 images', colors: [] }
     ]);
+    expect(zhPresets[0]?.details).toEqual([
+      { label: '模型', text: '按当前服务配置', colors: [] },
+      { label: '尺寸', text: '1536 × 1024', colors: [] },
+      { label: '质量', text: '标准质量', colors: [] },
+      { label: '数量', text: '2 张', colors: [] }
+    ]);
+    expect(enPresets[0]?.details).toEqual([
+      { label: 'Model', text: 'Current service configuration', colors: [] },
+      { label: 'Size', text: '1536 × 1024', colors: [] },
+      { label: 'Quality', text: 'Standard quality', colors: [] },
+      { label: 'Count', text: '2 images', colors: [] }
+    ]);
     expect(registry.get({
       module: 'image-generation',
       id: 'hidden-one',
@@ -325,6 +384,14 @@ describe('creator preset registry', () => {
     });
 
     const preset = registry.listPublished('zh-CN')[0];
+    expect(preset?.details).toEqual([
+      { label: '模型', text: '按当前服务配置', colors: [] },
+      { label: '尺寸', text: '1280 × 720', colors: [] },
+      { label: '时长', text: '8 秒', colors: [] }
+    ]);
+    const compiled = registry.get(preset!);
+    expect(createCreatorPresetDetails({ ...compiled, defaults: { ...compiled.defaults, model: 'Fixed model' } }, 'en-US')[0])
+      .toEqual({ label: 'Model', text: 'Fixed model', colors: [] });
     expect(preset?.previewVideoUrl)
       .toMatch(/^\/creator-presets\/[a-f0-9]{64}\.mp4$/);
     expect(preset?.author).toEqual({
