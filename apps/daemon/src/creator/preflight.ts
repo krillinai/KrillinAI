@@ -21,6 +21,7 @@ import {
 import { creatorResultSnapshotForVersion } from './result-snapshots.js';
 import { resolveCreatorStageInputs } from './stage-runner.js';
 import { readStickmanRemotionRuntime } from './stickman/remotion-runtime.js';
+import type { RemotionComponentManager } from './stickman/remotion-component.js';
 import { validateBilibiliSource } from './templates/video-translation-actions.js';
 import type { VideoMetadataService } from '../video-metadata/service.js';
 
@@ -61,6 +62,7 @@ export function createCreatorPreflight(input: {
   ffmpegPath?: string;
   ffprobePath?: string;
   stickmanRuntimeRoot?: string;
+  remotionComponent?: Pick<RemotionComponentManager, 'status'>;
   getYtDlpRuntime?(): YtDlpRuntime | undefined;
   runtimeVerificationCachePath?: string;
   ensureRuntimeReady?(): Promise<void>;
@@ -218,16 +220,25 @@ export function createCreatorPreflight(input: {
       }
       if (stage.executor === 'stickman-remotion') {
         try {
-          if (input.stickmanRuntimeRoot === undefined) throw new Error('stickman_runtime_unavailable');
-          readStickmanRemotionRuntime(input.stickmanRuntimeRoot);
-          add('ready', { id: 'stickman-runtime', title: 'Stickman 渲染运行时', message: 'Remotion 运行资源校验通过。', executionMode: 'local' });
+          if (input.remotionComponent) {
+            const component = await input.remotionComponent.status();
+            if (!component.available) throw new Error(component.error ?? 'remotion_component_unavailable');
+            add(component.state === 'ready' ? 'ready' : 'warning', {
+              id: 'stickman-runtime', title: 'Remotion 渲染组件',
+              message: component.state === 'ready' ? 'Remotion 渲染组件已就绪。' : '执行渲染时将按需准备 Remotion 组件，完成后自动继续。', executionMode: 'local'
+            });
+          } else {
+            if (input.stickmanRuntimeRoot === undefined) throw new Error('stickman_runtime_unavailable');
+            readStickmanRemotionRuntime(input.stickmanRuntimeRoot);
+            add('ready', { id: 'stickman-runtime', title: 'Stickman 渲染运行时', message: 'Remotion 运行资源校验通过。', executionMode: 'local' });
+          }
         } catch (error) {
           add('blocked', {
             id: 'stickman-runtime',
             title: 'Stickman 渲染运行时不可用',
             message: error instanceof Error ? error.message : 'Remotion 运行资源校验失败。',
             executionMode: 'local'
-          }, { label: '打开运行组件设置', deepLink: '#/settings?tab=local-components' });
+          }, { label: '打开运行组件设置', deepLink: '#/settings?tab=local-components&component=remotion' });
         }
       }
     }

@@ -1,14 +1,15 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import {
   createDefaultCreatorServicesConfig,
+  readCreatorResultSnapshots,
   type CreatorArtifact,
   type CreatorJob,
   type CreatorStageRun
 } from '@opencreator/protocol';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
-import { CreatorSessionProvider } from './creator-session-store.js';
+import { CreatorSessionProvider, useCreatorSession } from './creator-session-store.js';
 import StickmanVideoWorkspace from './StickmanVideoWorkspace.js';
 
 beforeEach(() => {
@@ -82,8 +83,64 @@ describe('StickmanVideoWorkspace', () => {
     fireEvent.change(duration, { target: { value: 'custom' } });
     const custom = screen.getByRole('spinbutton', { name: '自定义时长（秒）' });
     expect(custom).toHaveValue(90);
+    fireEvent.change(custom, { target: { value: '' } });
+    expect(custom).toHaveValue(null);
+    fireEvent.change(custom, { target: { value: '1' } });
+    expect(custom).toHaveValue(1);
+    fireEvent.change(custom, { target: { value: '12' } });
+    expect(custom).toHaveValue(12);
     fireEvent.change(custom, { target: { value: '125' } });
     expect(custom).toHaveValue(125);
+  });
+
+  it.each([30, 60, 300, 600])('keeps custom input visible when the typed duration matches the %s-second preset', durationSeconds => {
+    renderWorkspace(job());
+    const duration = screen.getByRole('combobox', { name: '目标时长' });
+    fireEvent.change(duration, { target: { value: 'custom' } });
+    const custom = screen.getByRole('spinbutton', { name: '自定义时长（秒）' });
+    fireEvent.change(custom, { target: { value: String(durationSeconds) } });
+    fireEvent.blur(custom);
+    expect(duration).toHaveValue('custom');
+    expect(custom).toHaveValue(durationSeconds);
+    expect(custom).toBeInTheDocument();
+    fireEvent.change(duration, { target: { value: '300' } });
+    expect(duration).toHaveValue('300');
+    expect(screen.queryByRole('spinbutton', { name: '自定义时长（秒）' })).not.toBeInTheDocument();
+  });
+
+  it.each(['', '9', '601'])('allows the temporary draft "%s" and restores the last valid duration on blur', draft => {
+    renderWorkspace(job({ state: { targetDurationSeconds: 125 } }));
+    const custom = screen.getByRole('spinbutton', { name: '自定义时长（秒）' });
+    fireEvent.change(custom, { target: { value: draft } });
+    expect(custom).toHaveValue(draft === '' ? null : Number(draft));
+    fireEvent.blur(custom);
+    expect(custom).toHaveValue(125);
+    expect(screen.getByRole('combobox', { name: '目标时长' })).toHaveValue('custom');
+  });
+
+  it('persists a manually typed duration as a number without saving incomplete input', async () => {
+    let persisted = job();
+    const applyAction = vi.fn(async (_jobId: string, request: Record<string, unknown>) => {
+      const input = request.input as { patch?: Record<string, number> };
+      persisted = { ...persisted, revision: persisted.revision + 1, state: { ...persisted.state, ...input.patch } };
+      return {
+        job: persisted,
+        receipt: { actor: 'user' as const, action: String(request.action), summary: '', affectedArtifacts: [], newRevision: persisted.revision, createdAt: persisted.updatedAt }
+      };
+    });
+    renderWorkspace(persisted, new Map(), applyAction);
+    fireEvent.change(screen.getByRole('combobox', { name: '目标时长' }), { target: { value: 'custom' } });
+    const custom = screen.getByRole('spinbutton', { name: '自定义时长（秒）' });
+    for (const value of ['', '1', '12', '125']) fireEvent.change(custom, { target: { value } });
+    await waitFor(() => expect(persisted.state.targetDurationSeconds).toBe(125));
+    expect(custom).toHaveValue(125);
+    const durationPatches = applyAction.mock.calls.flatMap(([, request]) => {
+      const input = request.input as { patch?: Record<string, unknown> };
+      return input.patch?.targetDurationSeconds === undefined ? [] : [input.patch.targetDurationSeconds];
+    });
+    expect(durationPatches).toContain(125);
+    expect(durationPatches).not.toContain(1);
+    expect(durationPatches).not.toContain('');
   });
 
   it('inherits the shared TTS configuration and persists the selected voice fields', async () => {
@@ -560,6 +617,61 @@ describe('StickmanVideoWorkspace', () => {
     expect(screen.getByRole('button', { name: '下一步' })).toBeDisabled();
   });
 
+  it('stops the storyboard spinner on failure and retries only the storyboard', async () => {
+    const persisted = audioReadyJob();
+    const failedStage = {
+      ...stage('storyboard', 'failed'),
+      errorCode: 'creator_storyboard_validation_failed',
+      errorMessage: '分镜在 3 次整稿生成后仍未通过校验：画面描述缺少语义锚点'
+    };
+    const failedJob: CreatorJob = {
+      ...persisted.job,
+      status: 'failed',
+      stages: [...persisted.job.stages, failedStage],
+      state: { ...persisted.job.state, workflowTarget: 'visuals_ready', currentStage: 'storyboard' }
+    };
+    const retryJob: CreatorJob = {
+      ...failedJob,
+      status: 'running',
+      revision: failedJob.revision + 1,
+      stages: [...failedJob.stages, { ...stage('storyboard', 'queued'), id: 'storyboard-retry' }]
+    };
+    const applyAction = vi.fn(async (_jobId: string, request: Record<string, unknown>) => ({
+      job: retryJob,
+      receipt: {
+        actor: 'user' as const,
+        action: String(request.action),
+        summary: String(request.action),
+        affectedArtifacts: [],
+        newRevision: retryJob.revision,
+        createdAt: retryJob.updatedAt
+      }
+    }));
+    const { container } = renderWorkspace(failedJob, persisted.contents, applyAction);
+
+    expect(await screen.findByRole('heading', { name: '分镜与画面' })).toBeInTheDocument();
+    const placeholder = container.querySelector('.stickman-storyboard-placeholder') as HTMLElement;
+    expect(placeholder).toHaveAttribute('aria-busy', 'false');
+    expect(placeholder).toHaveAttribute('data-state', 'failed');
+    expect(within(placeholder).getByRole('alert')).toHaveTextContent(failedStage.errorMessage);
+    expect(placeholder.querySelector('.creator-collaboration-spin')).toBeNull();
+    expect(placeholder.querySelector('.stickman-storyboard-loading-row')).toBeNull();
+    expect(screen.getByRole('button', { name: '下一步' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '重试分镜' }));
+
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith(
+      failedJob.id,
+      expect.objectContaining({ action: 'retry-stage', input: { stageId: 'storyboard' } })
+    ));
+    expect(applyAction).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(placeholder).toHaveAttribute('aria-busy', 'true'));
+    expect(placeholder).toHaveAttribute('data-state', 'loading');
+    expect(within(placeholder).queryByRole('alert')).not.toBeInTheDocument();
+    expect(within(placeholder).queryByRole('button', { name: '重试分镜' })).not.toBeInTheDocument();
+    expect(placeholder.querySelector('.creator-collaboration-spin')).not.toBeNull();
+    expect(await within(placeholder).findByText('正在规划 1 个镜头的画面描述')).toBeInTheDocument();
+  });
+
   it('retries only audio timing after a measurement failure without discarding narration', async () => {
     const persisted = audioReadyJob();
     const failedTiming = stage('audio-timing', 'failed');
@@ -627,6 +739,144 @@ describe('StickmanVideoWorkspace', () => {
     expect(container.querySelector('.stickman-delivery-step > footer')).not.toBeNull();
     expect(screen.getByRole('button', { name: '上一步' })).toBeVisible();
     expect(screen.queryByRole('button', { name: '完成' })).not.toBeInTheDocument();
+  });
+
+  it('preserves the video and playback position when task snapshots and session callbacks change', async () => {
+    const persisted = completedJob();
+    const openArtifact = vi.fn(async (_jobId: string, artifactId: string) => {
+      const content = persisted.contents.get(artifactId);
+      return content === undefined
+        ? new Response(new Blob(['video']))
+        : new Response(JSON.stringify(content), { headers: { 'Content-Type': 'application/json' } });
+    });
+    const view = renderWorkspace(persisted.job, persisted.contents, undefined, null, {
+      openArtifact,
+      children: <PreviewRefreshControl />
+    });
+    const video = await screen.findByLabelText<HTMLVideoElement>('火柴人动画预览');
+    const source = video.src;
+    video.currentTime = 2;
+
+    for (let update = 0; update < 3; update += 1) {
+      fireEvent.click(screen.getByRole('button', { name: '刷新任务' }));
+      view.rerenderWorkspace();
+      await act(async () => undefined);
+      expect(screen.getByLabelText('火柴人动画预览')).toBe(video);
+      expect(video.src).toBe(source);
+      expect(video.currentTime).toBe(2);
+    }
+
+    for (const artifactId of ['script', 'audio-timing', 'shots', 'manifest', 'clean']) {
+      expect(openArtifact.mock.calls.filter(([, openedId]) => openedId === artifactId)).toHaveLength(1);
+    }
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+    view.unmount();
+    expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith(source);
+  });
+
+  it('preserves narration playback when session callbacks change', async () => {
+    const persisted = audioReadyJob();
+    const openArtifact = vi.fn(async (_jobId: string, artifactId: string) => (
+      new Response(persisted.contents.has(artifactId)
+        ? JSON.stringify(persisted.contents.get(artifactId))
+        : new Blob(['narration']))
+    ));
+    const view = renderWorkspace(persisted.job, persisted.contents, undefined, null, { openArtifact });
+    await waitFor(() => expect(view.container.querySelector('.stickman-audio-control audio'))
+      .toHaveAttribute('src', 'blob:stickman-artifact'));
+    const audio = view.container.querySelector<HTMLAudioElement>('.stickman-audio-control audio')!;
+    audio.currentTime = 1;
+
+    view.rerenderWorkspace();
+    await act(async () => undefined);
+
+    expect(view.container.querySelector('.stickman-audio-control audio')).toBe(audio);
+    expect(audio.currentTime).toBe(1);
+    expect(openArtifact.mock.calls.filter(([, artifactId]) => artifactId === 'narration-01')).toHaveLength(1);
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+  });
+
+  it('uses the latest artifact transport only when the selected video version changes', async () => {
+    const persisted = versionedDeliveryJob();
+    const initialTransport = vi.fn(async (_jobId: string, artifactId: string) => (
+      new Response(persisted.contents.has(artifactId)
+        ? JSON.stringify(persisted.contents.get(artifactId))
+        : new Blob(['initial video']))
+    ));
+    const latestTransport = vi.fn(async () => new Response(new Blob(['latest video'])));
+    let objectUrlCount = 0;
+    vi.mocked(URL.createObjectURL).mockImplementation(() => `blob:stickman-version-${++objectUrlCount}`);
+    const view = renderWorkspace(persisted.job, persisted.contents, persisted.applyAction, null, {
+      openArtifact: initialTransport
+    });
+    const video = await screen.findByLabelText<HTMLVideoElement>('火柴人动画预览');
+    const source = video.src;
+
+    view.rerenderWorkspace({ openArtifact: latestTransport });
+    await act(async () => undefined);
+    expect(latestTransport).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('火柴人动画预览')).toBe(video);
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: '项目 V2' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /项目 V1/ }));
+    await waitFor(() => expect(latestTransport).toHaveBeenCalledWith(persisted.job.id, 'clean'));
+    await waitFor(() => expect(screen.getByLabelText('火柴人动画预览')).not.toHaveAttribute('src', source));
+    expect(latestTransport).toHaveBeenCalledTimes(1);
+    expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith(source);
+  });
+
+  it('discards and releases a preview that completes after selecting another video version', async () => {
+    const persisted = versionedDeliveryJob();
+    let resolvePreview!: (response: Response) => void;
+    const pendingPreview = new Promise<Response>(resolve => { resolvePreview = resolve; });
+    const openArtifact = vi.fn(async (_jobId: string, artifactId: string) => (
+      artifactId === 'clean-v2'
+        ? pendingPreview
+        : new Response(persisted.contents.has(artifactId)
+          ? JSON.stringify(persisted.contents.get(artifactId))
+          : new Blob(['current video']))
+    ));
+    let objectUrlCount = 0;
+    vi.mocked(URL.createObjectURL).mockImplementation(() => `blob:stickman-version-${++objectUrlCount}`);
+    const view = renderWorkspace(persisted.job, persisted.contents, persisted.applyAction, null, { openArtifact });
+    await waitFor(() => expect(openArtifact).toHaveBeenCalledWith(persisted.job.id, 'clean-v2'));
+    fireEvent.click(screen.getByRole('button', { name: '项目 V2' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /项目 V1/ }));
+    const video = await screen.findByLabelText<HTMLVideoElement>('火柴人动画预览');
+    const source = video.src;
+
+    await act(async () => { resolvePreview(new Response(new Blob(['outdated video']))); });
+
+    expect(screen.getByLabelText('火柴人动画预览')).toBe(video);
+    expect(video.src).toBe(source);
+    const outdatedSource = vi.mocked(URL.createObjectURL).mock.results.at(-1)!.value;
+    expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith(outdatedSource);
+    view.unmount();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(source);
+    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2);
+  });
+
+  it('releases a pending video preview after the workspace is unmounted', async () => {
+    const persisted = completedJob();
+    let resolvePreview!: (response: Response) => void;
+    const pendingPreview = new Promise<Response>(resolve => { resolvePreview = resolve; });
+    const openArtifact = vi.fn(async (_jobId: string, artifactId: string) => (
+      artifactId === 'clean'
+        ? pendingPreview
+        : new Response(JSON.stringify(persisted.contents.get(artifactId)))
+    ));
+    const view = renderWorkspace(persisted.job, persisted.contents, undefined, null, { openArtifact });
+    await waitFor(() => expect(openArtifact).toHaveBeenCalledWith(persisted.job.id, 'clean'));
+    view.unmount();
+
+    await act(async () => { resolvePreview(new Response(new Blob(['video']))); });
+
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith(
+      vi.mocked(URL.createObjectURL).mock.results[0]!.value
+    );
   });
 
   it('scrolls only storyboard content and keeps back and next actions visible', async () => {
@@ -947,21 +1197,27 @@ function renderWorkspace(
       createdAt: initialJob.updatedAt
     }
   })),
-  creatorServicesService: ComponentProps<typeof StickmanVideoWorkspace>['creatorServicesService'] = null
+  creatorServicesService: ComponentProps<typeof StickmanVideoWorkspace>['creatorServicesService'] = null,
+  options: {
+    openArtifact?: (jobId: string, artifactId: string) => Promise<Response>;
+    children?: ReactNode;
+  } = {}
 ) {
-  return render(
+  const defaultOpenArtifact = vi.fn(async (_jobId: string, artifactId: string) => {
+    const value = contents.get(artifactId);
+    return value === undefined
+      ? new Response(new Blob(['media'], { type: 'application/octet-stream' }))
+      : new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } });
+  });
+  const workspace = (previewOptions: typeof options) => (
     <LanguageProvider initialPreference="zh-CN">
       <CreatorSessionProvider
         initialJob={initialJob}
+        onPreJobFailure={() => undefined}
         service={{
           applyAction,
           runAgentTurn: vi.fn(),
-          openArtifact: vi.fn(async (_jobId: string, artifactId: string) => {
-            const value = contents.get(artifactId);
-            return value === undefined
-              ? new Response(new Blob(['media'], { type: 'application/octet-stream' }))
-              : new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } });
-          })
+          openArtifact: previewOptions.openArtifact ?? defaultOpenArtifact
         } as never}
       >
         <StickmanVideoWorkspace
@@ -972,9 +1228,60 @@ function renderWorkspace(
           } as never}
           onBack={vi.fn()}
         />
+        {previewOptions.children}
       </CreatorSessionProvider>
     </LanguageProvider>
   );
+  const view = render(workspace(options));
+  let previewOptions = options;
+  return {
+    ...view,
+    rerenderWorkspace(patch: typeof options = {}) {
+      previewOptions = { ...previewOptions, ...patch };
+      view.rerender(workspace(previewOptions));
+    }
+  };
+}
+
+function PreviewRefreshControl() {
+  const session = useCreatorSession();
+  return <button type="button" onClick={() => session.applyRemoteSnapshot({
+    ...session.job,
+    revision: session.job.revision + 1,
+    artifacts: session.job.artifacts.map(artifact => ({ ...artifact })),
+    state: { ...session.state }
+  })}>刷新任务</button>;
+}
+
+function versionedDeliveryJob() {
+  const persisted = completedJob();
+  const original = readCreatorResultSnapshots(persisted.job.state.resultSnapshots)[0]!;
+  const video = { ...artifact('clean-v2', 'clean_video'), version: 2 };
+  const currentJob: CreatorJob = {
+    ...persisted.job,
+    artifacts: [...persisted.job.artifacts, video],
+    state: {
+      ...persisted.job.state,
+      resultVersion: 2,
+      resultSnapshots: [original, {
+        ...original,
+        version: 2,
+        artifactRefs: { ...original.artifactRefs, clean_video: [video.id] }
+      }]
+    }
+  };
+  const applyAction = vi.fn(async (_jobId: string, request: Record<string, unknown>) => ({
+    job: { ...currentJob, state: { ...currentJob.state, resultVersion: (request.input as { version: number }).version } },
+    receipt: {
+      actor: 'user' as const,
+      action: String(request.action),
+      summary: String(request.action),
+      affectedArtifacts: [],
+      newRevision: currentJob.revision,
+      createdAt: currentJob.updatedAt
+    }
+  }));
+  return { ...persisted, job: currentJob, applyAction };
 }
 
 function configuredTtsService() {

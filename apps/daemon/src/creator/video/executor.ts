@@ -119,7 +119,9 @@ export function createVideoExecutor(input: {
         if (result.status === 'failed') {
           throw new CreatorExecutorError(
             'creator_video_generation_failed',
-            result.error || 'The video provider failed to generate a video'
+            result.error || 'The video provider failed to generate a video',
+            {},
+            result.publicFacts
           );
         }
 
@@ -310,28 +312,29 @@ function creatorVideoError(error: unknown): CreatorExecutorError {
   if (error instanceof CreatorExecutorError) return error;
   if (error instanceof VideoGenerationError) {
     if (error.code === 'VIDEO_GENERATION_CONFIG_REQUIRED') {
-      return new CreatorExecutorError('creator_video_config_missing', error.message);
+      return CreatorExecutorError.from('creator_video_config_missing', error);
     }
     if (error.code === 'VALIDATION_FAILED') {
-      return new CreatorExecutorError('creator_video_input_invalid', error.message);
+      return CreatorExecutorError.from('creator_video_input_invalid', error);
     }
     if (error.code === 'VIDEO_GENERATION_NOT_READY') {
-      return new CreatorExecutorError('creator_video_not_ready', error.message);
+      return CreatorExecutorError.from('creator_video_not_ready', error);
     }
     if (
       error.code === 'VIDEO_GENERATION_UPSTREAM_ERROR'
       && isUnavailableModelError(error.message)
     ) {
-      return new CreatorExecutorError('creator_video_model_unavailable', error.message);
+      return CreatorExecutorError.from('creator_video_model_unavailable', error);
     }
-    return new CreatorExecutorError('creator_video_upstream_error', error.message);
+    return CreatorExecutorError.from('creator_video_upstream_error', error);
   }
   if (isAbortError(error)) {
     return new CreatorExecutorError('creator_stage_canceled', 'Creator stage was canceled');
   }
-  return new CreatorExecutorError(
+  return CreatorExecutorError.from(
     'creator_video_generation_failed',
-    error instanceof Error ? error.message : 'Video generation failed'
+    error,
+    'Video generation failed'
   );
 }
 

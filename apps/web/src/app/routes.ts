@@ -27,7 +27,7 @@ export type AppRoute =
       view: 'settings';
       tab?: SettingsRouteTab;
       section?: AiServicesSection;
-      component?: 'whisperkit' | 'whisper.cpp' | 'faster-whisper';
+      component?: 'whisperkit' | 'whisper.cpp' | 'faster-whisper' | 'remotion';
       from?: 'video-translation';
       returnPath?: string;
     }
@@ -103,7 +103,7 @@ export function parseRoute(hash: string): AppRoute {
           ? { tab: 'ai-services' as const }
           : {}),
       ...(section === undefined ? {} : { section }),
-      ...(component === 'whisperkit' || component === 'whisper.cpp' || component === 'faster-whisper' ? { component } : {}),
+      ...(component === 'whisperkit' || component === 'whisper.cpp' || component === 'faster-whisper' || component === 'remotion' ? { component } : {}),
       ...(params.get('from') === 'video-translation' ? { from: 'video-translation' as const } : {}),
       ...(returnPath && /^#\/(?:workbench|dashboard)(?:\?|$)/.test(returnPath) && returnPath.length < 2000 ? { returnPath } : {})
     };

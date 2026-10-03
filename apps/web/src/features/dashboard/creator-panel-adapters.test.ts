@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createLocalizedCopy } from '../../i18n/localized-copy.js';
 import {
   videoTranslationPanelAdapter,
+  videoGenerationPanelAdapter,
   creatorPanelAdapterFor,
   stickmanVideoPanelAdapter,
   type CreatorPanelLocalize
@@ -10,6 +11,65 @@ import {
 
 const zh: CreatorPanelLocalize = value => value;
 const en: CreatorPanelLocalize = (_zh, value) => value;
+
+describe('Remotion preparation progress', () => {
+  it('uses the shared stickman adapter without exposing transcription or internal dependency fields', () => {
+    const running = { ...stage('render', 'render-clean', 'running', null, 'render-clean'), stageId: 'render-clean', progress: { phase: 'preparing_dependencies', percent: 3, message: 'internal', dependencyItem: 'private archive' } };
+    const progress = stickmanVideoPanelAdapter.readStageProgress(running, en);
+    expect(progress).toMatchObject({ phase: 'preparing_dependencies', percent: 3 });
+    expect(stickmanVideoPanelAdapter.runningProgressText?.(running, progress, en)).toBe('Preparing Remotion rendering components');
+    expect(stickmanVideoPanelAdapter.phaseLabel('dependencies_ready', zh)).toBe('渲染组件已就绪');
+  });
+});
+
+describe('video generation progress', () => {
+  it.each(['zh-CN', 'en-US', 'sv-SE'] as const)('explains unknown progress and retries in %s', language => {
+    const localize = createLocalizedCopy(language);
+    const running = { ...stage('generate', '', 'running', null, 'generate'), progress: {
+      phase: 'generating', percent: null, message: 'The video provider is generating the video'
+    } };
+    const progress = videoGenerationPanelAdapter.readStageProgress(running, localize);
+    expect(progress).toMatchObject({ percent: null, indeterminate: true, showMessage: true, showTiming: true });
+    expect(progress.message).not.toContain('The video provider is generating the video');
+    expect(progress.message).not.toContain('%');
+    const retrying = videoGenerationPanelAdapter.readStageProgress({ ...running, progress: {
+      ...running.progress, refreshRetry: 2, message: 'The provider status connection was interrupted and will be retried'
+    } }, localize);
+    expect(retrying.message).toContain('2');
+    expect(retrying.message).not.toContain('interrupted and will be retried');
+    if (language !== 'zh-CN') {
+      expect(progress.message).not.toMatch(/\p{Script=Han}/u);
+      expect(retrying.message).not.toMatch(/\p{Script=Han}/u);
+    }
+    const recovered = videoGenerationPanelAdapter.readStageProgress({ ...running, progress: {
+      ...running.progress, refreshRetry: 2
+    } }, localize);
+    expect(recovered.message).toBe(progress.message);
+    const downloading = videoGenerationPanelAdapter.readStageProgress({ ...running, progress: {
+      phase: 'downloading', percent: 90, refreshRetry: 2,
+      message: 'The provider status connection was interrupted and will be retried'
+    } }, localize);
+    expect(downloading).toMatchObject({ showMessage: false, percent: 90, indeterminate: false });
+  });
+
+  it('preserves a real percentage and leaves finished tasks compact', () => {
+    const running = { ...stage('generate', '', 'running', null, 'generate'), progress: { phase: 'generating', percent: 54 } };
+    expect(videoGenerationPanelAdapter.readStageProgress(running, en)).toMatchObject({
+      percent: 54, indeterminate: false, showMessage: false, showTiming: true
+    });
+    expect(videoGenerationPanelAdapter.readStageProgress({ ...running, status: 'succeeded' }, en)).toMatchObject({
+      showTiming: false, indeterminate: false, showMessage: false
+    });
+  });
+
+  it('keeps queued tasks indeterminate without inventing a queue position', () => {
+    const queued = { ...stage('generate', '', 'queued', null, 'generate'), progress: { phase: 'queued', percent: null } };
+    expect(videoGenerationPanelAdapter.readStageProgress(queued, en)).toMatchObject({
+      percent: null, indeterminate: true, showMessage: true, showTiming: true,
+      message: expect.stringContaining('Queue position and exact progress are not available')
+    });
+  });
+});
 
 describe('shared native image progress', () => {
   it.each(['image-generation', 'cover', 'stickman-video', 'wechat-article'])('shows native preparation and generation phases without fake percentages (%s)', template => {

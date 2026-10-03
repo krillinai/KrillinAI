@@ -28,6 +28,7 @@ export type DesktopTelemetryController = {
   enable(): Promise<void>;
   reportNow(): Promise<void>;
   stop(): Promise<void>;
+  resume(): void;
   dispose(): void;
 };
 
@@ -55,6 +56,8 @@ export function startDesktopTelemetry(input: {
   let stopped = false;
   let reportQueue = Promise.resolve();
   let activeReport: AbortController | undefined;
+  let activeTimer: NodeJS.Timeout | undefined;
+  let reportTimer: NodeJS.Timeout | undefined;
 
   const installId = () => {
     const existing = input.settings.read().telemetryInstallId;
@@ -129,17 +132,22 @@ export function startDesktopTelemetry(input: {
   const clearTimers = () => {
     clearInterval(activeTimer);
     clearInterval(reportTimer);
+    activeTimer = undefined;
+    reportTimer = undefined;
+  };
+  const startTimers = () => {
+    activeTimer = setInterval(() => {
+      if (!input.settings.read().telemetryEnabled || !input.isWindowActive()) return;
+      store.incrementActiveMinute(usageDate(now()));
+    }, input.activeIntervalMs ?? ACTIVE_INTERVAL_MS);
+    activeTimer.unref();
+    reportTimer = setInterval(() => void reportNow(), input.reportIntervalMs ?? REPORT_INTERVAL_MS);
+    reportTimer.unref();
   };
 
   recordLaunch();
   void reportNow();
-  const activeTimer = setInterval(() => {
-    if (!input.settings.read().telemetryEnabled || !input.isWindowActive()) return;
-    store.incrementActiveMinute(usageDate(now()));
-  }, input.activeIntervalMs ?? ACTIVE_INTERVAL_MS);
-  activeTimer.unref();
-  const reportTimer = setInterval(() => void reportNow(), input.reportIntervalMs ?? REPORT_INTERVAL_MS);
-  reportTimer.unref();
+  startTimers();
 
   return {
     async enable() {
@@ -153,6 +161,11 @@ export function startDesktopTelemetry(input: {
         clearTimers();
         activeReport?.abort();
       }
+    },
+    resume() {
+      if (!stopped) return;
+      stopped = false;
+      startTimers();
     },
     dispose() {
       if (stopped) return;

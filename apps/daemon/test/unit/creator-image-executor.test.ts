@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CreatorExecutorInput } from '../../src/creator/executor.js';
 import { createImageExecutor } from '../../src/creator/image/executor.js';
+import { ImageGenerationProviderError } from '../../src/image-generation/provider.js';
 
 let tempDir = '';
 
@@ -19,6 +20,19 @@ afterEach(async () => {
 });
 
 describe('creator image executor', () => {
+  it('preserves provider diagnostics when all image candidates fail', async () => {
+    const publicFacts = { kind: 'http-rejected' as const, provider: 'openai', httpStatus: 400,
+      upstreamCode: 'invalid_image', upstreamMessage: 'Reference image is invalid', requestId: 'request-123' };
+    const cause = new ImageGenerationProviderError('upstream_error', 'Reference image is invalid', publicFacts);
+    const executor = createImageExecutor({
+      configStore: { read: async () => createDefaultCreatorServicesConfig() },
+      generate: vi.fn(async () => { throw cause; })
+    });
+    await expect(executor.run(stageInput({ candidateCount: 1 }))).rejects.toMatchObject({
+      code: 'image_generation_failed', publicFacts, cause
+    });
+  });
+
   it.each(['openai', 'jimeng', 'kling', 'gemini'] as const)(
     'creates generated_image artifacts with %s metadata',
     async provider => {

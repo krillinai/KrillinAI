@@ -1,18 +1,25 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { z } from 'zod';
 import type { YtDlpUpdateManager } from '../creator/yt-dlp/update-manager.js';
 import { YtDlpUpdateError } from '../creator/yt-dlp/update-manager.js';
 import { apiError } from './errors.js';
 import type { CreatorServicesConfig } from '@opencreator/protocol';
 import type { createKrillinDependencyLoader } from '../creator/krillin/dependency-loader.js';
+import type { RemotionComponentManager } from '../creator/stickman/remotion-component.js';
+
+const componentDownloadSchema = z.object({
+  componentId: z.enum(['whisperkit', 'whisper.cpp', 'faster-whisper', 'remotion']).optional()
+}).optional();
 
 export async function registerCreatorRuntimeRoutes(
   server: FastifyInstance,
   ytDlp: YtDlpUpdateManager | undefined,
-  local?: { loader: ReturnType<typeof createKrillinDependencyLoader>; readConfig(): Promise<CreatorServicesConfig> }
+  local?: { loader: ReturnType<typeof createKrillinDependencyLoader>; readConfig(): Promise<CreatorServicesConfig>; remotion?: RemotionComponentManager }
 ): Promise<void> {
   server.addHook('preClose', () => {
     ytDlp?.close();
     local?.loader.close();
+    local?.remotion?.close();
   });
 
   server.get('/creator/yt-dlp/status', async (_request, reply) => {
@@ -41,12 +48,24 @@ export async function registerCreatorRuntimeRoutes(
 
   server.get('/creator/components/status', async (_request, reply) => {
     if (local === undefined) return reply.code(503).send(apiError('creator_components_unavailable', 'Local components are unavailable'));
-    return local.loader.status(await local.readConfig());
+    const status = await local.loader.status(await local.readConfig());
+    if (local.remotion) status.components.push(await local.remotion.status());
+    return status;
   });
-  server.post('/creator/components/download', async (_request, reply) => {
+  server.post('/creator/components/download', async (request, reply) => {
     if (local === undefined) return reply.code(503).send(apiError('creator_components_unavailable', 'Local components are unavailable'));
     try {
-      return await local.loader.download(await local.readConfig());
+      const body = componentDownloadSchema.parse(request.body);
+      const config = await local.readConfig();
+      if (body?.componentId === 'remotion') {
+        if (!local.remotion) throw new Error('Remotion components are unavailable');
+        await local.remotion.download();
+      } else {
+        await local.loader.download(config, body?.componentId);
+      }
+      const status = await local.loader.status(config);
+      if (local.remotion) status.components.push(await local.remotion.status());
+      return status;
     } catch (error) {
       return reply.code(400).send(apiError('creator_component_download_unavailable', error instanceof Error ? error.message : 'Component download unavailable'));
     }

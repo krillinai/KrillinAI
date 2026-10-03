@@ -1,4 +1,4 @@
-import { isPublicErrorFacts, publicErrorKindForCode, type PublicErrorFacts } from '@opencreator/protocol';
+import { isPublicErrorFacts, publicErrorKindForCode, sanitizePublicErrorFacts, type PublicErrorFacts } from '@opencreator/protocol';
 
 const NETWORK_CODES: Record<string, PublicErrorFacts['kind']> = {
   ENOTFOUND: 'dns',
@@ -51,7 +51,10 @@ function findPublicFacts(error: unknown): PublicErrorFacts | undefined {
     if (seen.has(current)) break;
     seen.add(current);
     const facts = (current as { publicFacts?: unknown }).publicFacts;
-    if (isPublicErrorFacts(facts)) return facts;
+    if (facts !== null && typeof facts === 'object') {
+      const sanitized = sanitizePublicErrorFacts(facts as PublicErrorFacts);
+      if (isPublicErrorFacts(sanitized)) return sanitized;
+    }
     current = (current as { cause?: unknown }).cause;
   }
   return undefined;

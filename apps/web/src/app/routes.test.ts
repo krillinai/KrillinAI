@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { formatRoute, parseRoute } from './routes.js';
 
 describe('app routes', () => {
+  it('round-trips a Remotion component settings target', () => {
+    const route = { view: 'settings' as const, tab: 'local-components' as const, component: 'remotion' as const };
+    expect(parseRoute(formatRoute(route))).toEqual(route);
+  });
   it('round-trips a component download target and a safe video-translation return route', () => {
     const route = { view: 'settings' as const, tab: 'local-components' as const, component: 'whisperkit' as const, from: 'video-translation' as const, returnPath: '#/workbench?tool=video-translation&jobId=job_1' };
     expect(parseRoute(formatRoute(route))).toEqual(route);

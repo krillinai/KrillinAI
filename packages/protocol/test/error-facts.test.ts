@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { publicErrorKindForCode, safePublicErrorCode } from '../src/errors.js';
-import { isPublicErrorFacts } from '../src/issues.js';
+import { publicErrorKindForCode, safePublicErrorCode, safePublicErrorMessage, safePublicRequestId } from '../src/errors.js';
+import { isPublicErrorFacts, sanitizePublicErrorFacts } from '../src/issues.js';
 
 describe('public error kind for business code', () => {
   it.each([
@@ -24,4 +24,37 @@ it('rejects token-like business codes before Agent output', () => {
   expect(safePublicErrorCode('sk-private-long-secret-value')).toBeUndefined();
   expect(safePublicErrorCode('a'.repeat(40))).toBeUndefined();
   expect(isPublicErrorFacts({ kind: 'unknown', upstreamCode: 'sk-private-secret' })).toBe(false);
+});
+
+it('preserves long structured provider codes without accepting opaque credentials', () => {
+  const code = 'InputImageSensitiveContentDetected.SensitiveContent';
+  expect(safePublicErrorCode(code)).toBe(code);
+  expect(isPublicErrorFacts({ kind: 'http-rejected', provider: 'seedance', upstreamCode: code, httpStatus: 400 })).toBe(true);
+  expect(safePublicErrorCode('0123456789abcdef'.repeat(3))).toBeUndefined();
+  expect(safePublicErrorCode('opaqueCredentialValue1234567890ABCDE')).toBeUndefined();
+});
+
+it('retains useful provider explanations while redacting credentials and media data', () => {
+  const message = safePublicErrorMessage('Input image was rejected. "api_key": "private-key" Bearer private-token https://example.test/?token=private-url /Users/private-user/file.jpg data:image/png;base64,cHJpdmF0ZQ==');
+  expect(message).toContain('Input image was rejected.');
+  expect(message).not.toContain('private');
+  expect(message).not.toContain('cHJpdmF0ZQ');
+  expect(safePublicErrorMessage(message)).toBe(message);
+  expect(safePublicErrorMessage('token=private')).toBeUndefined();
+  expect(safePublicErrorMessage('Bearer private')).toBeUndefined();
+  expect(safePublicErrorMessage('Too long '.repeat(600))).toBeUndefined();
+  expect(safePublicErrorMessage('Reason '.repeat(100))!.length).toBeLessThanOrEqual(500);
+});
+
+it('sanitizes public diagnostic fields and validates the sanitized result', () => {
+  const facts = sanitizePublicErrorFacts({
+    kind: 'provider-failed', provider: 'seedance', upstreamCode: 'InputImageSensitiveContentDetected.SensitiveContent',
+    upstreamMessage: 'Reference rejected. token=private', requestId: '0123456789abcdef'.repeat(2), httpStatus: 900
+  });
+  expect(facts).toMatchObject({ upstreamMessage: 'Reference rejected. [redacted]', requestId: '0123456789abcdef'.repeat(2) });
+  expect(facts.httpStatus).toBeUndefined();
+  expect(isPublicErrorFacts(facts)).toBe(true);
+  expect(isPublicErrorFacts({ ...facts, upstreamMessage: 'token=private' })).toBe(false);
+  expect(safePublicRequestId('sk-private-key')).toBeUndefined();
+  expect(safePublicRequestId('https://private.test')).toBeUndefined();
 });

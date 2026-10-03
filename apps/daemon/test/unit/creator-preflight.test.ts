@@ -20,6 +20,21 @@ afterEach(async () => {
 });
 
 describe('creator preflight', () => {
+  it('allows rendering to prepare an installable Remotion component without downloading during preflight', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-remotion-'));
+    const status = vi.fn(async () => ({ id: 'remotion' as const, name: 'Remotion', available: true, version: null, supportedVersion: '4.0.473', installedAt: null, path: root, source: 'release', models: [], model: null, state: 'not_installed' as const, item: null, downloadedBytes: 0, totalBytes: null, percent: null, bytesPerSecond: null, remainingSeconds: null, error: null }));
+    const stage = createStickmanVideoTemplate().stages.find(candidate => candidate.id === 'render-clean')!;
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => createDefaultCreatorServicesConfig() },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: root, jobsRoot: join(root, 'jobs'), ffprobePath: '/fixture/ffprobe',
+      executorIds: ['stickman-remotion'], remotionComponent: { status }
+    }).check(fakeJob('stickman-video', {}), stage);
+    expect(status).toHaveBeenCalledOnce();
+    expect(result.blocked.map(item => item.id)).not.toContain('stickman-runtime');
+    expect(result.warning).toContainEqual(expect.objectContaining({ id: 'stickman-runtime', message: expect.stringContaining('按需准备') }));
+  });
+
   it('prepares preview from the saved Bilibili source without translation or Whisper credentials', async () => {
     root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
     const config = createDefaultCreatorServicesConfig();

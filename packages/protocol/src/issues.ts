@@ -1,4 +1,4 @@
-import { safePublicErrorCode } from './errors.js';
+import { safePublicErrorCode, safePublicErrorMessage, safePublicRequestId } from './errors.js';
 
 export const issueSources = [
   'api',
@@ -46,6 +46,7 @@ export const publicErrorKinds = [
   'connection-reset',
   'tls',
   'http-rejected',
+  'provider-failed',
   'rate-limited',
   'unauthorized',
   'invalid-response',
@@ -63,6 +64,8 @@ export type PublicErrorFacts = {
   kind: typeof publicErrorKinds[number];
   provider?: string;
   upstreamCode?: string;
+  upstreamMessage?: string;
+  requestId?: string;
   httpStatus?: number;
 };
 
@@ -71,8 +74,27 @@ export function isPublicErrorFacts(value: unknown): value is PublicErrorFacts {
   return (value.provider === undefined || (typeof value.provider === 'string'
       && value.provider.length <= 80 && safePublicErrorCode(value.provider) !== undefined))
     && (value.upstreamCode === undefined || safePublicErrorCode(value.upstreamCode) !== undefined)
+    && (value.upstreamMessage === undefined || (typeof value.upstreamMessage === 'string'
+      && safePublicErrorMessage(value.upstreamMessage) === value.upstreamMessage))
+    && (value.requestId === undefined || safePublicRequestId(value.requestId) !== undefined)
     && (value.httpStatus === undefined
       || (Number.isInteger(value.httpStatus) && Number(value.httpStatus) >= 100 && Number(value.httpStatus) <= 599));
+}
+
+export function sanitizePublicErrorFacts(input: PublicErrorFacts): PublicErrorFacts {
+  const provider = safePublicErrorCode(input.provider);
+  const upstreamCode = safePublicErrorCode(input.upstreamCode);
+  const upstreamMessage = safePublicErrorMessage(input.upstreamMessage);
+  const requestId = safePublicRequestId(input.requestId);
+  return {
+    kind: input.kind,
+    ...(provider === undefined || provider.length > 80 ? {} : { provider }),
+    ...(upstreamCode === undefined ? {} : { upstreamCode }),
+    ...(upstreamMessage === undefined ? {} : { upstreamMessage }),
+    ...(requestId === undefined ? {} : { requestId }),
+    ...(Number.isInteger(input.httpStatus) && input.httpStatus! >= 100 && input.httpStatus! <= 599
+      ? { httpStatus: input.httpStatus } : {})
+  };
 }
 
 export type IssueScope =

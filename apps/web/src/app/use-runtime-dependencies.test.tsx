@@ -1,4 +1,4 @@
-import type { CreatorYtDlpStatus } from '@opencreator/protocol';
+import type { CreatorRuntimeComponentsResponse, CreatorYtDlpStatus } from '@opencreator/protocol';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiClientError } from '../runtime/client.js';
@@ -6,6 +6,25 @@ import type { RuntimeDependencyService } from '../services/runtime-dependency-se
 import { useRuntimeDependencies } from './use-runtime-dependencies.js';
 
 describe('useRuntimeDependencies', () => {
+  it('forwards a component download independently of the selected transcription provider', async () => {
+    const componentsStatus: CreatorRuntimeComponentsResponse = {
+      platform: 'darwin', arch: 'arm64', selectedProvider: 'openai', selectedModel: null, components: []
+    };
+    const service: RuntimeDependencyService = {
+      getComponentsStatus: vi.fn(async () => componentsStatus),
+      downloadComponents: vi.fn(async () => componentsStatus),
+      getYtDlpStatus: vi.fn(async () => ({ ytDlp: status() })),
+      checkYtDlpUpdate: vi.fn(), updateYtDlp: vi.fn()
+    };
+    const { result } = renderHook(() => useRuntimeDependencies({ connected: true, service }));
+    await waitFor(() => expect(result.current.componentsStatus).toEqual(componentsStatus));
+
+    await act(async () => { await result.current.downloadComponents?.('whisperkit'); });
+
+    expect(service.downloadComponents).toHaveBeenCalledWith('whisperkit');
+    expect(result.current.componentsStatus?.selectedProvider).toBe('openai');
+  });
+
   it('checks yt-dlp once the Runtime connects and the saved interval is due', async () => {
     const getYtDlpStatus = vi.fn(async () => ({
       ytDlp: status({ checkDue: true })

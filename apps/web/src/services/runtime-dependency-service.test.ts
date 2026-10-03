@@ -2,6 +2,21 @@ import { describe, expect, it, vi } from 'vitest';
 import { createRuntimeDependencyService } from './runtime-dependency-service.js';
 
 describe('runtime dependency service', () => {
+  it('passes the requested component to the shared Runtime endpoint', async () => {
+    const client = { get: vi.fn(), post: vi.fn(async () => ({})) };
+    const service = createRuntimeDependencyService(client);
+
+    await service.downloadComponents('whisperkit');
+    await service.downloadComponents('whisper.cpp');
+    await service.downloadComponents();
+    await service.downloadComponents('remotion');
+
+    expect(client.post).toHaveBeenNthCalledWith(1, '/creator/components/download', { componentId: 'whisperkit' });
+    expect(client.post).toHaveBeenNthCalledWith(2, '/creator/components/download', { componentId: 'whisper.cpp' });
+    expect(client.post).toHaveBeenNthCalledWith(3, '/creator/components/download', undefined);
+    expect(client.post).toHaveBeenNthCalledWith(4, '/creator/components/download', { componentId: 'remotion' });
+  });
+
   it('uses the shared Runtime dependency endpoints', async () => {
     const client = {
       get: vi.fn(async () => ({ ytDlp: {} })),

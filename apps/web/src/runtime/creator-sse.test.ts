@@ -3,6 +3,63 @@ import { createCreatorSnapshotSubscription } from './creator-sse.js';
 import { ApiClientError } from './client.js';
 
 describe('creator snapshot subscription', () => {
+  it('reconciles an active task even when its terminal event is lost, then stops loading', async () => {
+    vi.useFakeTimers();
+    let active = true;
+    const loadSnapshot = vi.fn().mockResolvedValueOnce({ status: 'running' }).mockResolvedValue({ status: 'failed' });
+    const close = vi.fn();
+    const subscribe = vi.fn(() => ({ close }));
+    const subscription = createCreatorSnapshotSubscription<{ status: string }>({
+      loadSnapshot, subscribe,
+      onSnapshot(snapshot) { active = snapshot.status === 'running'; },
+      shouldReconcileSnapshot: () => active
+    });
+    try {
+      await subscription.start();
+      await vi.advanceTimersByTimeAsync(5_000);
+      await subscription.whenIdle();
+      expect(loadSnapshot).toHaveBeenCalledTimes(2);
+      expect(active).toBe(false);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(loadSnapshot).toHaveBeenCalledTimes(2);
+      expect(subscribe).toHaveBeenCalledTimes(1);
+      subscription.close();
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(loadSnapshot).toHaveBeenCalledTimes(2);
+      expect(close).toHaveBeenCalledTimes(1);
+    } finally {
+      subscription.close();
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not overlap periodic snapshot requests or poll a terminal HTTP failure', async () => {
+    vi.useFakeTimers();
+    const pending = deferred<{ status: string }>();
+    const loadSnapshot = vi.fn().mockResolvedValueOnce({ status: 'running' }).mockImplementationOnce(() => pending.promise)
+      .mockRejectedValue(new ApiClientError({ status: 403, code: 'FORBIDDEN', message: 'Denied' }));
+    const onState = vi.fn();
+    const subscription = createCreatorSnapshotSubscription({
+      loadSnapshot, subscribe: () => ({ close: vi.fn() }), onSnapshot: vi.fn(), onState,
+      shouldReconcileSnapshot: () => true
+    });
+    try {
+      await subscription.start();
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(loadSnapshot).toHaveBeenCalledTimes(2);
+      pending.resolve({ status: 'running' });
+      await subscription.whenIdle();
+      await vi.advanceTimersByTimeAsync(5_000);
+      await subscription.whenIdle();
+      expect(onState).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'failed' }));
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(loadSnapshot).toHaveBeenCalledTimes(3);
+    } finally {
+      subscription.close();
+      vi.useRealTimers();
+    }
+  });
+
   it('recovers automatically after the first snapshot fails', async () => {
     vi.useFakeTimers();
     const loadSnapshot = vi.fn().mockRejectedValueOnce(new TypeError('offline'))

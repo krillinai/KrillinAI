@@ -186,8 +186,37 @@ export function safePublicErrorCode(value: unknown): string | undefined {
   return typeof value === 'string'
     && /^[a-zA-Z0-9._:/-]{1,160}$/.test(value)
     && !/^sk[-_]/i.test(value)
-    && !/[a-zA-Z0-9]{32,}/.test(value)
+    && !value.split(/[._:/-]/).some(part => part.length >= 32
+      && !/^[A-Z][a-z]+(?:[A-Z][a-z]+){2,}$/.test(part))
     ? value
+    : undefined;
+}
+
+export function safePublicRequestId(value: unknown): string | undefined {
+  return typeof value === 'string'
+    && /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,159}$/.test(value)
+    && !/^(?:sk[-_]|AIza|AKIA|ASIA|gh[pousr]_|github_pat_|eyJ)/i.test(value)
+    ? value
+    : undefined;
+}
+
+export function safePublicErrorMessage(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.length > 4_000) return undefined;
+  const sanitized = value
+    .replace(/\b(?:authorization|api[-_ ]?key|(?:access[-_ ]?|refresh[-_ ]?)?token|secret|password)["']?\s*[:=]\s*(?:"[^"]*"|'[^']*'|(?:Bearer|Basic)\s+[^\s,;]+|[^\s,;]+)/gi, '[redacted]')
+    .replace(/\b(?:Bearer|Basic)\s+[^\s,;]+/gi, '[redacted]')
+    .replace(/\b(?:sk[-_]|AIza|AKIA|ASIA|gh[pousr]_|github_pat_|eyJ)[a-zA-Z0-9._-]+/gi, '[redacted]')
+    .replace(/data:[^\s,]+,[a-zA-Z0-9+/=]+/gi, '[redacted]')
+    .replace(/\b(?:https?|file):\/\/[^\s<>"']+/gi, '[redacted]')
+    .replace(/[a-zA-Z]:\\Users\\[^\s"']+|\/(?:Users|home)\/[^\s"']+/g, '[redacted]')
+    .replace(/^\s*at\s+[^\n]+$/gm, '')
+    .replace(/\b[a-zA-Z0-9+/=_-]{32,}\b/g, part => safePublicErrorCode(part) === undefined ? '[redacted]' : part)
+    .replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 500);
+  return sanitized.replace(/\[redacted\]/g, '').replace(/[^\p{L}\p{N}]/gu, '').length > 0
+    ? sanitized
     : undefined;
 }
 

@@ -513,9 +513,11 @@ async function storyboard(stage: CreatorExecutorInput, complete: CompleteJson) {
     }
     failures = finalized.failures;
     stage.reportProgress({
-      phase: 'planning',
+      phase: attempt < 2 ? 'planning' : 'failed',
       percent: 40 + attempt * 25,
-      message: `分镜第 ${attempt + 1} 次生成未通过语义契约，正在整稿重生成`,
+      message: attempt < 2
+        ? `分镜第 ${attempt + 1} 次生成未通过语义契约，正在整稿重生成`
+        : '分镜连续 3 次生成未通过校验，已停止，请重试',
       completed: 0,
       failed: 1,
       total: 1
@@ -564,7 +566,8 @@ function storyboardPrompt(input: {
     ? ''
     : `\n上一份完整分镜：${JSON.stringify(input.draftToRepair)}\n校验失败原因：${JSON.stringify(input.validationFailures)}\n请重新生成整份分镜。`;
   return `你负责把已经审核并完成真实配音的旁白转换成语义分镜，只返回严格 JSON，不要 Markdown。
-每个 sourceSegmentId 必须且只能出现一次，并保持输入顺序。每个旁白单元生成一张图，严格采用提供的真实起止时间，不得合并或拆分时间。
+每个 sourceSegmentId 必须且只能出现一次，并保持输入顺序。每个旁白单元生成一张图，不得合并或拆分旁白单元。
+真实起止时间仅供理解节奏，由系统根据配音统一绑定。输出只允许示例中的字段，禁止返回 startSeconds、endSeconds、durationSeconds，不得生成或修改时间。
 visualDescription 是真正用于生图的画面描述：只写当前画面中的主体关系、动作、环境和可见物，不写旁白原文，不写角色长相，不写绘画风格，不要求任何文字、数字、字幕、标题、标签、Logo、界面或分屏。
 semanticAnchor 概括画面必须传达的唯一含义；compositionAndAction 描述主体位置、视线、动作方向和空间关系；keyObjects 只列支撑含义的必要物体；continuityReason 说明与前后镜头如何连续，没有要求时返回空字符串。
 motion 必须由构图和叙事意图选择：静态说明用 static，聚焦主体用 push-in，揭示全局用 zoom-out，只有存在明确横向关注移动时才使用 pan-left 或 pan-right。motionReason 必须说明选择原因，不能按序号轮换。
@@ -1018,16 +1021,24 @@ function normalizeGeneratedJson(stageId: string, value: unknown): unknown {
   if (stageId === 'storyboard') {
     const root = remapGeneratedKeys(value, { '分镜': 'shots', '镜头': 'shots' });
     if (isJsonRecord(root) && Array.isArray(root.shots)) {
-      root.shots = root.shots.map(shot => remapGeneratedKeys(shot, {
-        '来源段落': 'sourceSegmentId',
-        '语义锚点': 'semanticAnchor',
-        '画面描述': 'visualDescription',
-        '构图与动作': 'compositionAndAction',
-        '关键物体': 'keyObjects',
-        '连续性说明': 'continuityReason',
-        '运镜': 'motion',
-        '运镜理由': 'motionReason'
-      }));
+      root.shots = root.shots.map(shot => {
+        const normalizedShot = remapGeneratedKeys(shot, {
+          '来源段落': 'sourceSegmentId',
+          '语义锚点': 'semanticAnchor',
+          '画面描述': 'visualDescription',
+          '构图与动作': 'compositionAndAction',
+          '关键物体': 'keyObjects',
+          '连续性说明': 'continuityReason',
+          '运镜': 'motion',
+          '运镜理由': 'motionReason'
+        });
+        if (isJsonRecord(normalizedShot)) {
+          for (const field of ['startSeconds', 'endSeconds', 'durationSeconds']) {
+            delete normalizedShot[field];
+          }
+        }
+        return normalizedShot;
+      });
     }
     return root;
   }

@@ -56,7 +56,6 @@ describe('Desktop release runtime regressions', () => {
     }
     expect(runtimePackage.dependencies).toMatchObject({
       '@iarna/toml': '2.2.5',
-      '@remotion/renderer': '4.0.473',
       'cross-spawn': '7.0.6',
       fastify: '5.12.2',
       sharp: '0.35.4',
@@ -67,6 +66,7 @@ describe('Desktop release runtime regressions', () => {
       .toBe(runtimePackage.dependencies['@iarna/toml']);
     expect(daemonPackage.dependencies.fastify)
       .toBe(runtimePackage.dependencies.fastify);
+    expect(runtimePackage.dependencies).not.toHaveProperty('@remotion/renderer');
     expect(runtimePackage.dependencies).not.toHaveProperty('which');
     expect(prepareSource).toContain("'writing-templates'");
     expect(prepareSource).toContain(

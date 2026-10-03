@@ -10,6 +10,7 @@ import {
 } from 'electron';
 import { BootstrapController } from './bootstrap-controller.js';
 import { DaemonManager } from './daemon-manager.js';
+import { fetchDesktopRequest } from './desktop-network.js';
 import {
   startLoginShellEnvironmentRead,
   type LoginShellEnvironmentTask
@@ -137,9 +138,7 @@ async function launchDesktop(): Promise<void> {
       ? join(appRoot, '.pack', 'codex-runtime')
       : join(process.resourcesPath, 'codex-runtime'));
   const stickmanRuntimeRoot = process.env.OPENCREATOR_STICKMAN_RUNTIME_ROOT
-    ?? (development
-      ? join(appRoot, '.pack', 'stickman-runtime')
-      : join(process.resourcesPath, 'stickman-runtime'));
+    ?? join(dataDir, 'creator-runtime', 'stickman');
 
   logger.info('OpenCreator Desktop starting', {
     development,
@@ -178,6 +177,7 @@ async function launchDesktop(): Promise<void> {
     appVersion: app.getVersion(),
     isOfficialBuild: app.isPackaged && readOfficialBuildMarker(process.resourcesPath),
     isWindowActive: () => windowManager?.isActive() === true,
+    fetchImpl: fetchDesktopRequest,
     endpointOverride: process.env.OPENCREATOR_TELEMETRY_URL
   });
   const navigate = (route: string) => {
@@ -192,6 +192,7 @@ async function launchDesktop(): Promise<void> {
     getConnection: () => daemon.currentConnection,
     settings,
     logger,
+    fetch: fetchDesktopRequest,
     navigate
   });
   const loadWorkspace = (): Promise<void> => {
@@ -224,7 +225,7 @@ async function launchDesktop(): Promise<void> {
     return workspaceLoadWork;
   };
 
-  await installProtocolHandler({
+  const protocolController = await installProtocolHandler({
     webRoot,
     bootstrapRoot,
     getConnection: () => daemon.currentConnection,
@@ -286,15 +287,18 @@ async function launchDesktop(): Promise<void> {
   const updater = startUpdater({
     logger,
     async prepareInstall() {
-      notifications.stop();
       windowManager?.flushState();
       settings.flush();
-      await telemetry.reportNow();
-      await logger.flush();
+      protocolController.suspendRuntime();
+      notifications.stop();
+      await telemetry.stop();
       await bootstrap?.stop();
+      await logger.flush();
     },
     async recoverAfterInstallFailure() {
       await bootstrap?.restartRuntime();
+      protocolController.resumeRuntime();
+      telemetry.resume();
       notifications.start();
     },
     setAllowQuit(value) {
@@ -312,6 +316,7 @@ async function launchDesktop(): Promise<void> {
     if (shutdownStarted) return;
     shutdownStarted = true;
     windowManager?.beginQuit();
+    protocolController.suspendRuntime();
     notifications.stop();
     updater.dispose();
     tray.destroy();

@@ -16,6 +16,7 @@ export type NormalizedCreatorActivity = {
 export type CreatorStageProgressView = {
   detailsHref?: string;
   showMessage?: boolean;
+  showTiming?: boolean;
   percent: number | null;
   indeterminate?: boolean;
   phase: string | null;
@@ -483,6 +484,8 @@ export const stickmanVideoPanelAdapter: CreatorPanelAdapter = {
       measuring: l('测量真实音频时长', 'Measuring real audio timing'),
       validating_media: l('检查视频轨、音频轨与抽帧', 'Checking video, audio, and sampled frames'),
       rendering: l('渲染视频', 'Rendering video'),
+      preparing_dependencies: l('准备 Remotion 渲染组件', 'Preparing Remotion rendering components'),
+      dependencies_ready: l('渲染组件已就绪', 'Rendering components are ready'),
       packaging: l('整理成片与字幕', 'Packaging video and subtitles'),
       failed: l('阶段执行失败', 'Stage failed'),
       completed: l('阶段已完成', 'Stage completed')
@@ -542,6 +545,9 @@ export const stickmanVideoPanelAdapter: CreatorPanelAdapter = {
     return representative === undefined ? [] : [representative];
   },
   runningProgressText(stage, progress, l) {
+    if (stage.stageId === 'render-clean' && (progress.phase === 'preparing_dependencies' || progress.phase === 'dependencies_ready')) {
+      return stickmanVideoPanelAdapter.phaseLabel(progress.phase, l);
+    }
     if (stage.stageId === 'script' && progress.phase !== null) {
       return stickmanVideoPanelAdapter.phaseLabel(progress.phase, l);
     }
@@ -854,18 +860,38 @@ export const videoGenerationPanelAdapter: CreatorPanelAdapter = {
       videoGenerationFieldLabel
     );
   },
-  readStageProgress(stage) {
+  readStageProgress(stage, localize) {
     const progress = readStandardProgress(stage);
-    if (
-      progress.percent === null
-      && (progress.phase === 'queued' || progress.phase === 'generating')
-    ) {
-      return {
-        ...progress,
-        indeterminate: stage.status === 'running'
-      };
+    const active = stage.status === 'queued' || stage.status === 'running';
+    const retry = readFiniteNumber(stage.progress.refreshRetry);
+    let message: string | null = null;
+    if (active && progress.phase === 'generating' && retry !== null && retry > 0
+      && progress.message === 'The provider status connection was interrupted and will be retried') {
+      message = localize(
+        `视频服务状态查询暂时失败，正在自动重试（第 ${retry} 次）。不会重复提交生成任务。`,
+        `The provider status check failed temporarily. Retrying automatically (attempt ${retry}) without submitting another generation task.`,
+        `Kontrollen av leverantörens status misslyckades tillfälligt. Försöker automatiskt igen (försök ${retry}) utan att skicka en ny genereringsuppgift.`
+      );
+    } else if (active && progress.phase === 'queued') {
+      message = localize(
+        '任务正在服务商队列中，服务商未提供排队位置或精确进度。',
+        'The task is queued with the provider. Queue position and exact progress are not available.',
+        'Uppgiften ligger i kö hos leverantören. Köposition och exakt förlopp är inte tillgängliga.'
+      );
+    } else if (active && progress.phase === 'generating' && progress.percent === null) {
+      message = localize(
+        '服务商未提供精确进度；后台正在持续查询生成状态，完成后会自动下载视频。',
+        'The provider does not report exact progress. Status checks continue in the background, and the video will download automatically when ready.',
+        'Leverantören rapporterar inte exakt förlopp. Statuskontroller fortsätter i bakgrunden och videon laddas ner automatiskt när den är klar.'
+      );
     }
-    return progress;
+    return {
+      ...progress,
+      indeterminate: active && progress.percent === null,
+      showTiming: active,
+      showMessage: message !== null,
+      message: message ?? progress.message
+    };
   },
   runningProgressText(_stage, progress, l) {
     return progress.phase === null

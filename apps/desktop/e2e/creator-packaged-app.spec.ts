@@ -1,6 +1,8 @@
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createServer } from 'node:http';
 import {
   chmodSync,
+  createReadStream,
   cpSync,
   copyFileSync,
   existsSync,
@@ -14,7 +16,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, delimiter, dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { packagedExecutable } from './package-artifact.js';
 import {
@@ -36,6 +38,103 @@ const fakeYtDlpLauncherSource = join(
 const OVERSIZED_WAVE_PCM_BYTES = 10 * 1024 * 1024 + 4096;
 const OVERSIZED_WAVE_FILE_BYTES = OVERSIZED_WAVE_PCM_BYTES + 44;
 test.describe.configure({ mode: 'serial' });
+
+test('Remotion 组件不随 App 内嵌，首次渲染按需下载后自动继续，更新不重复下载', async () => {
+  test.setTimeout(180_000);
+  const release = JSON.parse(readFileSync(join(desktopDir, '.pack', 'components', 'remotion-component.json'), 'utf8'));
+  const archivePath = join(desktopDir, '.pack', 'components', release.fileName);
+  const metadataRoot = mkdtempSync(join(tmpdir(), 'remotion-release-e2e-'));
+  let downloads = 0;
+  const server = createServer((_request, response) => {
+    downloads += 1;
+    response.writeHead(200, { 'Content-Length': statSync(archivePath).size });
+    createReadStream(archivePath).pipe(response);
+  });
+  await new Promise<void>(resolvePromise => server.listen(0, '127.0.0.1', resolvePromise));
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Expected component HTTP server');
+  const descriptorPath = join(metadataRoot, 'component.json');
+  writeFileSync(descriptorPath, JSON.stringify({ ...release, archiveUrl: `http://127.0.0.1:${address.port}/${release.fileName}` }));
+  let fixture: Awaited<ReturnType<typeof launchCreatorDesktop>> | undefined;
+  try {
+    fixture = await launchCreatorDesktop(undefined, { OPENCREATOR_REMOTION_COMPONENT_MANIFEST: descriptorPath, OPENCREATOR_REMOTION_COMPONENT_ARCHIVE: '' });
+    await waitForWorkspace(fixture.app.page);
+    expect(existsSync(packagedStickmanRuntimeRoot())).toBe(false);
+    const before = await runtimeRequest<{ components: Array<{ id: string; state: string }> }>(fixture.app.page, 'GET', '/creator/components/status');
+    expect(before.body.components.find(component => component.id === 'remotion')?.state).toBe('not_installed');
+    const catalog = await runtimeRequest<{ assets: unknown[] }>(fixture.app.page, 'GET', '/creator/visual-assets?templateId=stickman-video');
+    expect(catalog.status).toBe(200);
+    expect(catalog.body.assets.length).toBeGreaterThan(0);
+    expect(downloads).toBe(0);
+    await fixture.app.page.evaluate(() => { window.location.hash = '#/settings?tab=local-components&component=remotion'; });
+    const card = fixture.app.page.locator('#component-remotion');
+    await expect(card.getByRole('heading', { name: 'Remotion' })).toBeVisible();
+    await expect(card.getByRole('button', { name: '下载组件' })).toBeVisible();
+
+    const projectRoot = join(fixture.root, 'render-project');
+    mkdirSync(projectRoot, { recursive: true });
+    const project = await runtimeRequest<{ project: { id: string } }>(fixture.app.page, 'POST', '/projects', { cwd: projectRoot, name: 'Remotion E2E', sandbox: 'workspace-write' });
+    const created = await runtimeRequest<{ job: { id: string; revision: number } }>(fixture.app.page, 'POST', '/creator/jobs', { projectId: project.body.project.id, templateId: 'stickman-video', state: { sourceMode: 'text', sourceText: 'Render component fixture', ratio: '16:9' } });
+    expect(created.status).toBe(201);
+    const jobId = created.body.job.id;
+    const dataDir = join(fixture.root, '.opencreator', 'data');
+    const workRoot = join(fixture.root, '.opencreator', 'creator', 'jobs', jobId, 'fixtures');
+    mkdirSync(workRoot, { recursive: true });
+    const imagePath = join(workRoot, 'image.png');
+    const audioPath = join(workRoot, 'audio.wav');
+    const ffmpeg = join(packagedRuntimeRoot(), 'bin', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
+    execFileSync(ffmpeg, ['-y', '-f', 'lavfi', '-i', 'color=c=white:s=1280x720', '-frames:v', '1', imagePath], { stdio: 'ignore', windowsHide: true });
+    execFileSync(ffmpeg, ['-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1', audioPath], { stdio: 'ignore', windowsHide: true });
+    const timelinePath = join(workRoot, 'timeline.json');
+    writeFileSync(timelinePath, JSON.stringify({ ratio: '16:9', fps: 30, width: 1280, height: 720, totalFrames: 30,
+      shots: [{ shotId: 'shot-1', startFrame: 0, endFrame: 30, imageArtifactId: 'image-1', audioArtifactId: 'audio-1', imagePath, audioPath, motion: 'static', imageSha256: '1'.repeat(64), audioSha256: '2'.repeat(64) }],
+      captions: [{ segmentId: 'segment-1', startFrame: 0, endFrame: 30, text: 'Remotion component' }] }));
+    const databaseModule = pathToFileURL(resolve(desktopDir, '../daemon/src/storage/database.ts')).href;
+    const repositoryModule = pathToFileURL(resolve(desktopDir, '../daemon/src/creator/repository.ts')).href;
+    execFileSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', `
+      const { openRuntimeDatabase } = await import(${JSON.stringify(databaseModule)});
+      const { createCreatorRepository } = await import(${JSON.stringify(repositoryModule)});
+      const db = openRuntimeDatabase(${JSON.stringify(join(dataDir, 'app.sqlite'))});
+      const repository = createCreatorRepository(db);
+      const job = repository.getJob(${JSON.stringify(jobId)});
+      const script = repository.insertArtifact({ jobId: job.id, kind: 'script_manifest', status: 'completed', path: null, sourceArtifactIds: [], metadata: {} });
+      repository.insertArtifact({ jobId: job.id, kind: 'shot_spec', status: 'completed', path: null, sourceArtifactIds: [], metadata: {} });
+      repository.insertArtifact({ jobId: job.id, kind: 'timeline_manifest', status: 'completed', path: ${JSON.stringify(timelinePath)}, sourceArtifactIds: [], metadata: {} });
+      repository.createStageRun({ jobId: job.id, stageId: 'timeline', executor: 'stickman-timeline', status: 'succeeded' });
+      repository.updateJob({ id: job.id, status: job.status, revision: job.revision + 1, state: { ...job.state, workflowTarget: 'delivery_ready', approvedScriptArtifactId: script.id } });
+      db.close();
+    `], { cwd: rootDirForFixture(), stdio: 'pipe', windowsHide: true });
+    const current = await runtimeRequest<{ job: { revision: number } }>(fixture.app.page, 'GET', `/creator/jobs/${jobId}`);
+    const started = await runtimeRequest<{ error?: unknown }>(fixture.app.page, 'POST', `/creator/jobs/${jobId}/actions`, { action: 'run-stage', expectedRevision: current.body.job.revision, input: { stageId: 'render-clean' } });
+    expect(started.status, JSON.stringify(started.body)).toBe(200);
+    await expect.poll(async () => {
+      const response = await runtimeRequest<{ job: { stages: Array<{ stageId: string; status: string; error?: unknown }> } }>(fixture.app.page, 'GET', `/creator/jobs/${jobId}`);
+      const stage = response.body.job.stages.find(candidate => candidate.stageId === 'render-clean');
+      if (stage?.status === 'failed') throw new Error(JSON.stringify(stage));
+      return stage?.status;
+    }, { timeout: 120_000 }).toBe('succeeded');
+    expect(downloads).toBe(1);
+    const result = await runtimeRequest<{ job: { artifacts: Array<{ kind: string; path: string; metadata: { hasVideo?: boolean; hasAudio?: boolean } }> } }>(fixture.app.page, 'GET', `/creator/jobs/${jobId}`);
+    const video = result.body.job.artifacts.find(artifact => artifact.kind === 'clean_video');
+    expect(video).toBeDefined();
+    expect(existsSync(video!.path)).toBe(true);
+    const ffprobe = join(packagedRuntimeRoot(), 'bin', process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe');
+    const media = JSON.parse(execFileSync(ffprobe, ['-v', 'error', '-show_streams', '-of', 'json', video!.path], { encoding: 'utf8', windowsHide: true }));
+    expect(media.streams.map((stream: { codec_type: string }) => stream.codec_type)).toEqual(expect.arrayContaining(['video', 'audio']));
+    await expect(card.locator('.settings-primary-button')).toHaveCount(0);
+    await card.getByRole('button', { name: '检查更新' }).click();
+    await expect(card.locator('.settings-primary-button')).toHaveCount(0);
+    expect(downloads).toBe(1);
+  } finally {
+    if (fixture) await closePackagedApp(fixture.app).catch(() => undefined);
+    server.closeAllConnections();
+    await new Promise<void>(resolvePromise => server.close(() => resolvePromise()));
+    if (fixture) rmSync(fixture.root, { recursive: true, force: true });
+    rmSync(metadataRoot, { recursive: true, force: true });
+  }
+});
+
+function rootDirForFixture(): string { return resolve(desktopDir, '../..'); }
 
 test('打包 App 的 YouTube 视频嵌入请求带有有效 HTTP 来源标识', async () => {
   const fixture = await launchCreatorDesktop({ width: 1180, height: 850 });
@@ -564,44 +663,12 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
       'SKILL.md',
       'manifest.json'
     ]);
-    const stickmanRuntimeRoot = packagedStickmanRuntimeRoot();
-    const stickmanRuntimeManifest = JSON.parse(
-      readFileSync(join(stickmanRuntimeRoot, 'manifest.json'), 'utf8')
-    ) as {
-      platform: string;
-      arch: string;
-      remotionVersion: string;
-      chromiumVersion: string;
-      browserExecutable: string;
-      resources: Array<{ path: string; kind: string; platform: string; arch: string }>;
-    };
-    expect(stickmanRuntimeManifest).toMatchObject({
-      platform: process.platform,
-      arch: process.arch,
-      remotionVersion: '4.0.473',
-      browserExecutable: executableResource('browser/chrome-headless-shell')
-    });
-    expect(stickmanRuntimeManifest.chromiumVersion).toMatch(/^\d+\.\d+\.\d+\.\d+$/);
-    expect(stickmanRuntimeManifest.resources).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        path: stickmanRuntimeManifest.browserExecutable,
-        kind: 'browser',
-        platform: process.platform,
-        arch: process.arch
-      }),
-      expect.objectContaining({
-        path: 'fonts/NotoSansSC-Bold.woff2',
-        kind: 'font',
-        platform: process.platform,
-        arch: process.arch
-      }),
-      expect.objectContaining({
-        path: 'visual-assets/catalog.json',
-        kind: 'visual-asset',
-        platform: process.platform,
-        arch: process.arch
-      })
-    ]));
+    expect(existsSync(packagedStickmanRuntimeRoot())).toBe(false);
+    const resourcesRoot = dirname(packagedStickmanRuntimeRoot());
+    const component = JSON.parse(readFileSync(join(resourcesRoot, 'daemon', 'runtime', 'remotion-component.json'), 'utf8'));
+    expect(component).toMatchObject({ id: 'remotion', platform: process.platform, arch: process.arch, remotionVersion: '4.0.473' });
+    expect(component.archiveSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(existsSync(join(resourcesRoot, 'daemon', 'runtime', 'stickman-assets', 'visual-assets', 'catalog.json'))).toBe(true);
 
     const projectDir = join(fixture.root, 'creator-workspace');
     mkdirSync(projectDir, { recursive: true });
@@ -1547,7 +1614,7 @@ function hasWhisperKitDependency(root: string): boolean {
     ));
 }
 
-async function launchCreatorDesktop(windowBounds?: { width: number; height: number }): Promise<{
+async function launchCreatorDesktop(windowBounds?: { width: number; height: number }, overrides: NodeJS.ProcessEnv = {}): Promise<{
   app: PackagedApp;
   root: string;
   ytDlpBin: string;
@@ -1581,7 +1648,8 @@ async function launchCreatorDesktop(windowBounds?: { width: number; height: numb
       OPENCREATOR_E2E_FAKE_CODEX_MODE: 'success',
       OPENCREATOR_E2E_NODE_BINARY: process.execPath,
       OPENCREATOR_E2E_FAKE_CODEX_SCRIPT: fakeCodexScript,
-      OPENCREATOR_E2E_FAKE_YT_DLP_SCRIPT: fakeYtDlpScript
+      OPENCREATOR_E2E_FAKE_YT_DLP_SCRIPT: fakeYtDlpScript,
+      ...overrides
     },
     timeoutMs: 45_000
   });

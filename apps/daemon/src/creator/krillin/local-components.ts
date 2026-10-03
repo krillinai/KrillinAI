@@ -6,7 +6,7 @@ type Operation = { controller: AbortController; promise: Promise<void>; listener
 
 export function manageLocalComponents(input: {
   loader: KrillinDependencyLoader;
-  inspect(): Promise<Omit<CreatorRuntimeComponentsResponse, 'selectedProvider' | 'selectedModel'>>;
+  inspect(): Promise<Omit<CreatorRuntimeComponentsResponse, 'selectedProvider' | 'selectedModel' | 'components'> & { components: CreatorLocalComponent[] }>;
 }) {
   const operations = new Map<string, Operation>();
   const states = new Map<string, Partial<CreatorLocalComponent>>();
@@ -26,7 +26,7 @@ export function manageLocalComponents(input: {
       selectedProvider: config.transcription.provider,
       selectedModel,
       components: inspection.components.map(component => {
-        const model = component.id === config.transcription.provider ? selectedModel : component.models[0]?.id ?? null;
+        const model = localModel(config, component.id);
         const state = states.get(`${component.id}:${model}`);
         const active = [...operations.keys()].find(key => key.startsWith(`${component.id}:`));
         const activeState = active === undefined ? undefined : states.get(active);
@@ -100,23 +100,25 @@ export function manageLocalComponents(input: {
     ...input.loader,
     ensure,
     status,
-    async download(config: CreatorServicesConfig): Promise<CreatorRuntimeComponentsResponse> {
-      if (localModel(config) === null) throw new Error('A local transcription provider must be selected');
+    async download(config: CreatorServicesConfig, componentId?: CreatorLocalComponent['id']): Promise<CreatorRuntimeComponentsResponse> {
+      const downloadConfig = structuredClone(config);
+      if (componentId !== undefined) downloadConfig.transcription.provider = componentId;
+      if (localModel(downloadConfig) === null) throw new Error('A local transcription provider must be selected');
       const current = await status(config);
-      if (!current.components.find(component => component.id === config.transcription.provider)?.available) {
+      if (!current.components.find(component => component.id === downloadConfig.transcription.provider)?.available) {
         throw new Error('The selected local transcription component is unavailable on this platform');
       }
-      void ensure({ config, signal: new AbortController().signal, reportProgress() {} }).catch(() => {});
+      void ensure({ config: downloadConfig, signal: new AbortController().signal, reportProgress() {} }).catch(() => {});
       return status(config);
     },
     close() { for (const operation of operations.values()) operation.controller.abort(); }
   };
 }
 
-function localModel(config: CreatorServicesConfig): string | null {
-  if (config.transcription.provider === 'whisperkit') return config.transcription.whisperKit.model;
-  if (config.transcription.provider === 'whisper.cpp') return config.transcription.whisperCpp.model;
-  if (config.transcription.provider === 'faster-whisper') return config.transcription.fasterWhisper.model;
+function localModel(config: CreatorServicesConfig, provider = config.transcription.provider): string | null {
+  if (provider === 'whisperkit') return config.transcription.whisperKit.model;
+  if (provider === 'whisper.cpp') return config.transcription.whisperCpp.model;
+  if (provider === 'faster-whisper') return config.transcription.fasterWhisper.model;
   return null;
 }
 

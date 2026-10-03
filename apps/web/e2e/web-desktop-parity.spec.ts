@@ -1,4 +1,4 @@
-import { createDefaultCreatorServicesConfig, type CreatorServicesCapabilitiesResponse, type CreatorYtDlpStatusResponse } from '@opencreator/protocol';
+import { createDefaultCreatorServicesConfig, type CreatorRuntimeComponentsResponse, type CreatorServicesCapabilitiesResponse, type CreatorYtDlpStatusResponse } from '@opencreator/protocol';
 import { test, expect } from './fixtures/runtime.js';
 
 test('项目管理资源不随通用项目页面提前加载且 Browser/Desktop 布局一致', async ({ browser, runtime }, testInfo) => {
@@ -1922,6 +1922,7 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
     text: string;
     boxes: Record<string, { x: number; y: number; width: number; height: number }>;
     requests: string[];
+    downloads: unknown[];
   }> = [];
 
   for (const platform of ['browser', 'desktop'] as const) {
@@ -1934,14 +1935,31 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
     const page = await context.newPage();
     if (platform === 'desktop') await installDesktopBridge(page);
     const requests: string[] = [];
+    const downloads: unknown[] = [];
+    const components: CreatorRuntimeComponentsResponse = {
+      platform: 'darwin', arch: 'arm64', selectedProvider: 'bailian', selectedModel: null,
+      components: [{
+        id: 'remotion', name: 'Remotion', available: true, version: null, supportedVersion: '4.0.473',
+        installedAt: null, path: '/runtime/stickman', source: 'OpenCreator release · SHA-256 verified',
+        models: [], model: null, state: 'not_installed', item: null, downloadedBytes: 0,
+        totalBytes: null, percent: null, bytesPerSecond: null, remainingSeconds: null, error: null
+      }]
+    };
     page.on('request', request => {
       const url = new URL(request.url());
-      if (!url.pathname.includes('/creator/yt-dlp/')) return;
+      if (!url.pathname.includes('/creator/yt-dlp/') && !url.pathname.includes('/creator/components/')) return;
       requests.push(
         `${request.method()} ${url.pathname.replace('/.opencreator/runtime', '')}`
       );
     });
-    await page.route('**/.opencreator/runtime/creator/yt-dlp/status', route => route.fulfill({
+    await page.route('**/.opencreator/runtime/creator/components/status', route => route.fulfill({ json: components }));
+    await page.route('**/.opencreator/runtime/creator/components/download', route => {
+      downloads.push(route.request().postDataJSON());
+      components.components[0]!.state = 'ready';
+      components.components[0]!.version = components.components[0]!.supportedVersion;
+      return route.fulfill({ json: components });
+    });
+    await page.route('**/.opencreator/runtime/creator/yt-dlp/{status,check}', route => route.fulfill({
       json: {
         ytDlp: {
           channel: 'nightly',
@@ -1968,9 +1986,30 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
       const component = settings.locator('.runtime-component-item').filter({
         has: page.getByRole('heading', { name: 'yt-dlp nightly' })
       });
+      const remotion = settings.locator('#component-remotion');
       await expect(settings.getByRole('heading', { name: '第三方组件' })).toBeVisible();
       await expect(component.getByRole('heading', { name: 'yt-dlp nightly' })).toBeVisible();
       await expect(component).toContainText('用于解析和下载 YouTube、Bilibili 等公开视频资源。');
+      await expect(component).not.toContainText('正在检查');
+      await expect(remotion.getByRole('heading', { name: 'Remotion' })).toBeVisible();
+      await expect(remotion).not.toContainText('当前使用');
+      await expect(remotion.getByRole('link', { name: '调整转录设置' })).toHaveCount(0);
+      expect(downloads).toEqual([]);
+      await remotion.getByRole('button', { name: '下载组件' }).click();
+      await expect(remotion.getByRole('status')).toHaveText('已就绪');
+      await expect(remotion.locator('.settings-primary-button')).toHaveCount(0);
+      await remotion.getByRole('button', { name: '检查更新' }).click();
+      await expect(remotion.locator('.settings-primary-button')).toHaveCount(0);
+      expect(downloads).toEqual([{ componentId: 'remotion' }]);
+      components.components[0]!.supportedVersion = '4.0.474';
+      await remotion.getByRole('button', { name: '检查更新' }).click();
+      await expect(remotion.getByRole('button', { name: '更新到 4.0.474' })).toBeEnabled();
+      expect(downloads).toEqual([{ componentId: 'remotion' }]);
+      await remotion.getByRole('button', { name: '更新到 4.0.474' }).click();
+      await expect(remotion.locator('.settings-primary-button')).toHaveCount(0);
+      expect(downloads).toEqual([{ componentId: 'remotion' }, { componentId: 'remotion' }]);
+      expect(components.selectedProvider).toBe('bailian');
+      expect(components.selectedModel).toBeNull();
 
       const boxes: Record<
         string,
@@ -1978,6 +2017,8 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
       > = {};
       for (const [name, locator] of [
         ['settings', settings],
+        ['remotion', remotion],
+        ['remotion-check', remotion.getByRole('button', { name: '检查更新' })],
         ['component', component],
         ['check-button', component.getByRole('button', { name: '检查更新' })]
       ] as const) {
@@ -1993,7 +2034,8 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
       results.push({
         text: normalizeParityText(await settings.innerText()),
         boxes,
-        requests
+        requests,
+        downloads
       });
     } finally {
       await context.close();
@@ -2002,9 +2044,12 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
 
   expect(results[1]!.text).toBe(results[0]!.text);
   expect(results[1]!.boxes).toEqual(results[0]!.boxes);
+  expect(results[1]!.downloads).toEqual(results[0]!.downloads);
   expect(normalizeParityRequests(results[1]!.requests))
     .toEqual(normalizeParityRequests(results[0]!.requests));
   expect(results[0]!.requests).toContain('GET /creator/yt-dlp/status');
+  expect(results[0]!.requests).toContain('GET /creator/components/status');
+  expect(results[0]!.requests).toContain('POST /creator/components/download');
 });
 
 test('工作台模块新建 Creator Job，刷新和最近项目精确恢复历史且不启动普通 Codex Run', async ({ page, runtime }) => {

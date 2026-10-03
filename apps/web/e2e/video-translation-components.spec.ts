@@ -34,12 +34,12 @@ test('本地转录提示可跳转下载、显示真实进度并返回原视频�
   Object.assign(status.components[0]!, { state: 'ready', version: '1.1.0', percent: 100 });
   status.components[0]!.models[0]!.installed = true;
   const component = page.locator('#component-whisperkit');
-  const checkStatus = component.getByRole('button', { name: '检查状态' });
+  const checkStatus = component.getByRole('button', { name: '检查更新' });
   await expect(checkStatus).toBeVisible();
   await expect(component.locator('.settings-primary-button')).toHaveCount(0);
   await expect(component.getByText('/runtime/dependencies')).toBeHidden();
   await checkStatus.click();
-  await expect(component.getByText('检查完成，本地组件已就绪。')).toBeVisible();
+  await expect(component.getByText('检查完成，当前组件无需更新。')).toBeVisible();
   expect(downloadRequests).toBe(1);
   await component.getByText('组件详情', { exact: true }).click();
   await expect(component.getByText('/runtime/dependencies')).toBeVisible();

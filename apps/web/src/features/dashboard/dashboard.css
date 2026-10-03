@@ -6123,6 +6123,29 @@
   object-fit: contain;
 }
 
+.video-generation-preview {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.video-generation-preview figcaption {
+  order: -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.video-generation-preview output {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .video-generation-result[data-ratio="16:9"] video {
   aspect-ratio: 16 / 9;
 }
@@ -6182,54 +6205,54 @@
   color: var(--on-accent);
 }
 
-.video-generation-progress {
-  min-height: 240px;
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 9px;
-  text-align: center;
-}
-
-.video-generation-progress > span:first-child {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
-  color: var(--accent);
-}
-
-.video-generation-progress strong {
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.video-generation-progress p {
-  max-width: 340px;
+.video-generation-background-note {
+  margin: 12px 0 0;
   color: var(--muted);
   font-size: 11px;
   line-height: 1.5;
 }
 
-.video-generation-progress > div {
-  width: min(360px, 86%);
-  height: 6px;
-  overflow: hidden;
-  border-radius: 3px;
-  background: var(--surface-2);
+.creator-task-progress-notice {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
 }
 
-.video-generation-progress > div > span {
-  height: 100%;
-  display: block;
-  border-radius: inherit;
-  background: var(--accent);
-  transition: width 180ms ease;
+.creator-task-progress-notice-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 12px;
 }
 
-.video-generation-progress > small {
+.creator-task-progress-notice-heading > svg {
+  flex: 0 0 auto;
+}
+
+.creator-collaboration-stage-details {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.creator-collaboration-stage-message {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.creator-collaboration-stage-timing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
   color: var(--subtle);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
@@ -8231,6 +8254,15 @@
 .stickman-storyboard-placeholder > .creator-tool-panel-heading > .creator-collaboration-spin {
   flex: 0 0 auto;
   color: var(--accent);
+}
+
+.stickman-storyboard-placeholder[data-state="failed"] .stickman-storyboard-editor {
+  align-content: start;
+  gap: 12px;
+}
+
+.stickman-storyboard-placeholder[data-state="failed"] .video-translation-secondary-action {
+  justify-self: start;
 }
 
 .stickman-storyboard-loading-row {

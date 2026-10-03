@@ -33,7 +33,6 @@ import { verifyCodexRuntime } from './codex-runtime-contract.mjs';
 import {
   hashDirectory as hashStickmanDirectory,
   hashFile as hashStickmanFile,
-  findFirstDifferentPath as findFirstDifferentStickmanPath,
   verifyStickmanRuntime
 } from './stickman-runtime-contract.mjs';
 import {
@@ -123,7 +122,7 @@ assertSize('app.asar', appAsar, 80 * 1024 * 1024);
 assertSize('Daemon resources', daemonDir, 250 * 1024 * 1024);
 assertSize('Creator Runtime', creatorRuntimeDir, 384 * 1024 * 1024);
 assertSize('Codex Runtime', codexRuntimeDir, 450 * 1024 * 1024);
-assertSize('Stickman Runtime', stickmanRuntimeDir, 384 * 1024 * 1024);
+assertSize('Stickman assets', join(daemonDir, 'runtime', 'stickman-assets'), 16 * 1024 * 1024);
 assertSize('Desktop package', packageRoot, 1600 * 1024 * 1024);
 await assertFuseConfiguration();
 verifyMacPackageMetadata();
@@ -626,40 +625,35 @@ function assertCodexRuntime() {
 }
 
 function assertStickmanRuntime() {
-  const runtime = verifyStickmanRuntime(stickmanRuntimeDir, targetPlatform, targetArch);
   const sourceManifest = verifyStickmanRuntime(
     sourceStickmanRuntimeDir,
     targetPlatform,
     targetArch
   );
   const source = hashStickmanDirectory(sourceStickmanRuntimeDir);
-  const packaged = hashStickmanDirectory(stickmanRuntimeDir);
-  const firstDifferentPath = findFirstDifferentStickmanPath(source.files, packaged.files);
-  if (firstDifferentPath !== undefined) {
-    throw new Error(`Packaged Stickman Runtime file list differs from source at: ${firstDifferentPath}`);
-  }
-  const signedMacPackage = requiresDeveloperIdSignature();
-  if (!signedMacPackage && source.hash !== packaged.hash) {
-    throw new Error('Packaged Stickman Runtime contents differ from .pack/stickman-runtime');
-  }
-  if (
-    runtime.remotionVersion !== sourceManifest.remotionVersion
-    || runtime.chromiumVersion !== sourceManifest.chromiumVersion
-  ) {
-    throw new Error('Packaged Stickman Runtime versions differ from the source manifest');
-  }
+  if (existsSync(stickmanRuntimeDir) || existsSync(join(daemonDir, 'node_modules', '@remotion')) || existsSync(join(daemonDir, 'node_modules', 'remotion'))) throw new Error('Optional Remotion rendering resources must not be embedded in the App');
+  const descriptorPath = join(desktopDir, '.pack', 'components', 'remotion-component.json');
+  const packagedDescriptorPath = join(daemonDir, 'runtime', 'remotion-component.json');
+  if (hashStickmanFile(descriptorPath) !== hashStickmanFile(packagedDescriptorPath)) throw new Error('Packaged Remotion component descriptor differs from this build');
+  const descriptor = JSON.parse(readFileSync(descriptorPath, 'utf8'));
+  if (JSON.stringify(manifest.remotionComponent) !== JSON.stringify(descriptor)) throw new Error('Desktop build manifest is not bound to the Remotion component');
+  const archivePath = join(desktopDir, '.pack', 'components', descriptor.fileName);
+  if (hashStickmanFile(archivePath) !== descriptor.archiveSha256 || statSync(archivePath).size !== descriptor.bytes || hashStickmanFile(join(sourceStickmanRuntimeDir, 'manifest.json')) !== descriptor.manifestSha256) throw new Error('Remotion component archive failed its release checksum');
+  const sourceAssets = hashStickmanDirectory(join(desktopDir, '.pack', 'stickman-assets'));
+  const packagedAssets = hashStickmanDirectory(join(daemonDir, 'runtime', 'stickman-assets'));
+  if (sourceAssets.hash !== packagedAssets.hash || sourceAssets.fileCount !== packagedAssets.fileCount) throw new Error('Packaged Stickman assets differ from this build');
   if (typeof manifest.packageRoot !== 'string') return;
   verifyStickmanBuildBinding(
     manifest,
     source,
-    runtime,
+    sourceManifest,
     hashStickmanFile(join(sourceStickmanRuntimeDir, 'manifest.json'))
   );
 }
 
 function assertNoUnexpectedPythonRuntime() {
   const marker = findPythonRuntimeMarker(
-    [daemonDir, stickmanRuntimeDir],
+    [daemonDir],
     normalizedAsarEntries()
   );
   if (marker !== undefined) {
@@ -922,7 +916,7 @@ function verifyDeveloperIdSignature() {
 
 function verifyEmbeddedRuntimeSignatures() {
   const embeddedBinaries = [];
-  for (const root of [daemonDir, creatorRuntimeDir, stickmanRuntimeDir]) {
+  for (const root of [daemonDir, creatorRuntimeDir, sourceStickmanRuntimeDir]) {
     walk(root, path => {
       if (isMachOBinary(path)) embeddedBinaries.push(path);
     });

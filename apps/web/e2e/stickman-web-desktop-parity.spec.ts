@@ -114,6 +114,54 @@ test('Creator 设置页组件间距和下拉箭头在 Browser/Desktop 下保持�
   }
 });
 
+test('自定义时长在 Browser/Desktop 下支持逐位输入并保持自定义模式', async ({ browser, runtime }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', '内部覆盖桌面和移动内容视口');
+  for (const viewport of viewports) {
+    for (const platform of ['browser', 'desktop'] as const) {
+      const fakeDaemon = new FakeStickmanDaemon(runtime.projectId);
+      const context = await browser.newContext({ viewport, locale: 'zh-CN' });
+      const page = await context.newPage();
+      await fakeDaemon.attach(page);
+      await page.route('**/.opencreator/runtime/creator/components/status', route => route.fulfill({
+        json: { platform: 'darwin', arch: 'arm64', selectedProvider: 'openai', selectedModel: null, components: [] }
+      }));
+      await installPlatformEnvironment(page, platform);
+      try {
+        await runtime.openApp(page, { currentProjectId: fakeDaemon.projectId });
+        await page.goto(`${runtime.origin}/#/workbench?tool=stickman-video&jobId=${fakeDaemon.jobId}`);
+        await page.locator('.stickman-steps button').first().click();
+        const duration = page.getByRole('combobox', { name: '目标时长' });
+        await duration.selectOption('custom');
+        const customDuration = page.getByRole('spinbutton', { name: '自定义时长（秒）' });
+        await expect(customDuration).toHaveValue('90');
+        await expect.poll(() => fakeDaemon.snapshot().state.targetDurationSeconds).toBe(90);
+        await customDuration.fill('');
+        await expect(customDuration).toHaveValue('');
+        await customDuration.pressSequentially('125', { delay: 30 });
+        await expect(customDuration).toHaveValue('125');
+        await expect.poll(() => fakeDaemon.snapshot().state.targetDurationSeconds).toBe(125);
+        for (const draft of ['', '9', '601']) {
+          await customDuration.fill(draft);
+          await expect(customDuration).toHaveValue(draft);
+          expect(fakeDaemon.snapshot().state.targetDurationSeconds).toBe(125);
+          await customDuration.press('Tab');
+          await expect(customDuration).toHaveValue('125');
+        }
+        await customDuration.fill('60');
+        await expect(customDuration).toHaveValue('60');
+        await expect(duration).toHaveValue('custom');
+        await expect.poll(() => fakeDaemon.snapshot().state.targetDurationSeconds).toBe(60);
+        await duration.selectOption('300');
+        await expect(customDuration).toHaveCount(0);
+        await expect.poll(() => fakeDaemon.snapshot().state.targetDurationSeconds).toBe(300);
+        expect(fakeDaemon.unknownRequestPaths()).toEqual([]);
+      } finally {
+        await context.close();
+      }
+    }
+  }
+});
+
 test('最小桌面宽度下 Browser/Desktop 协作输入区在缩放和滚动后保持贴底', async ({
   browser,
   runtime

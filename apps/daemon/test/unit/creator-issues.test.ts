@@ -19,6 +19,24 @@ afterEach(() => {
 });
 
 describe('creator issues', () => {
+  it('round-trips the original provider code, sanitized explanation and request ID', () => {
+    const { db, repository } = createFixture();
+    const service = createCreatorIssueService(repository);
+    const issue = service.capture({
+      jobId: 'job-1', code: 'creator_video_upstream_error', source: 'stage',
+      publicFacts: { kind: 'http-rejected', provider: 'seedance', httpStatus: 400,
+        upstreamCode: 'InputImageSensitiveContentDetected.SensitiveContent',
+        upstreamMessage: 'Input image was rejected. Bearer private-token', requestId: 'request-123' }
+    });
+    expect(service.get('job-1', issue.id)?.publicFacts).toEqual({
+      kind: 'http-rejected', provider: 'seedance', httpStatus: 400,
+      upstreamCode: 'InputImageSensitiveContentDetected.SensitiveContent',
+      upstreamMessage: 'Input image was rejected. [redacted]', requestId: 'request-123'
+    });
+    expect(JSON.stringify(repository.getJob('job-1'))).not.toContain('private-token');
+    db.close();
+  });
+
   it('persists safe facts without carrying an old cause into a new occurrence', () => {
     const { db, repository } = createFixture();
     const service = createCreatorIssueService(repository);
