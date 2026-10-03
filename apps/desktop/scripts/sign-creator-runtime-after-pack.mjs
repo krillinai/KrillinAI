@@ -32,7 +32,17 @@ export async function afterPack(context) {
   if (process.env.OPENCREATOR_SIGN_CREATOR_RUNTIME !== '1') return;
   await signDaemonRuntimeBundle(context);
   await signCreatorRuntimeBundle(context);
-  await signStickmanRuntimeBundle(context);
+}
+
+export async function signRemotionComponent(runtimeRoot, env = process.env) {
+  if (env.OPENCREATOR_SIGN_CREATOR_RUNTIME !== '1') return;
+  if (process.platform !== 'darwin') throw new Error('Remotion Developer ID signing requires macOS');
+  const identity = env.OPENCREATOR_REMOTION_SIGNING_IDENTITY?.trim()
+    || findSigningIdentity(env.OPENCREATOR_APPLE_TEAM_ID, env.APPLE_KEYCHAIN ?? null);
+  const binaries = findMachOBinaries(runtimeRoot);
+  if (binaries.length === 0) throw new Error('Remotion component has no native binaries');
+  for (const path of binaries) signMachOBinary(path, identity, env.APPLE_KEYCHAIN ?? null);
+  updateManifestHashes(runtimeRoot, binaries);
 }
 
 export async function signDaemonRuntimeBundle(context, options = {}) {

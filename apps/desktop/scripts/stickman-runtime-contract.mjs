@@ -55,7 +55,7 @@ export function verifyStickmanRuntime(rootPath, platform, arch) {
   for (const resource of manifest.resources) {
     if (
       typeof resource?.path !== 'string'
-      || !['bundle', 'browser', 'font', 'character', 'visual-asset'].includes(resource.kind)
+      || !['bundle', 'browser', 'renderer', 'font', 'character', 'visual-asset'].includes(resource.kind)
       || !/^[a-f0-9]{64}$/i.test(resource.sha256 ?? '')
       || !Number.isSafeInteger(resource.bytes)
       || resource.bytes < 0
@@ -106,15 +106,18 @@ export function verifyStickmanRuntime(rootPath, platform, arch) {
       throw new Error(`Stickman Runtime font is missing: ${path}`);
     }
   }
-  for (const path of requiredCharacters) {
+  for (const path of manifest.rendererEntry ? [] : requiredCharacters) {
     if (!manifest.resources.some(resource => resource.kind === 'character' && resource.path === path)) {
       throw new Error(`Stickman Runtime character is missing: ${path}`);
     }
   }
-  for (const path of requiredVisualAssets) {
+  for (const path of manifest.rendererEntry ? [] : requiredVisualAssets) {
     if (!manifest.resources.some(resource => resource.kind === 'visual-asset' && resource.path === path)) {
       throw new Error(`Stickman Runtime visual asset is missing: ${path}`);
     }
+  }
+  if (manifest.rendererEntry && !manifest.resources.some(resource => resource.kind === 'renderer' && resource.path === manifest.rendererEntry)) {
+    throw new Error('Remotion Renderer entry is not bound to its component manifest');
   }
   return manifest;
 }

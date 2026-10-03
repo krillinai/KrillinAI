@@ -1,5 +1,5 @@
 import Fastify, { type FastifyInstance } from 'fastify';
-import { createDefaultCreatorServicesConfig, type CreatorYtDlpStatus } from '@opencreator/protocol';
+import { createDefaultCreatorServicesConfig, type CreatorRuntimeComponent, type CreatorYtDlpStatus } from '@opencreator/protocol';
 import { createKrillinDependencyLoader } from '../../src/creator/krillin/dependency-loader.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerCreatorRuntimeRoutes } from '../../src/api/routes.creator-runtime.js';
@@ -16,6 +16,25 @@ afterEach(async () => {
 });
 
 describe('creator yt-dlp runtime routes', () => {
+  it('includes and downloads Remotion through the shared component API without changing transcription', async () => {
+    const config = createDefaultCreatorServicesConfig();
+    const component: CreatorRuntimeComponent = { id: 'remotion', name: 'Remotion', available: true, version: null, supportedVersion: '4.0.473', installedAt: null, path: '/runtime/remotion', source: 'verified release', models: [], model: null, state: 'not_installed', item: null, downloadedBytes: 0, totalBytes: null, percent: null, bytesPerSecond: null, remainingSeconds: null, error: null };
+    const remotion = { status: vi.fn(async () => component), download: vi.fn(async () => component), ensure: vi.fn(), close: vi.fn() };
+    const loader = createKrillinDependencyLoader({ root: '/tmp/opencreator-remotion-api', platform: 'darwin', arch: 'arm64', whisperKitInstaller: { isInstalled: async () => false, install: vi.fn() } });
+    const download = vi.spyOn(loader, 'download');
+    server = Fastify();
+    await registerCreatorRuntimeRoutes(server, undefined, { loader, readConfig: async () => config, remotion });
+    const before = await server.inject({ method: 'GET', url: '/creator/components/status' });
+    expect(before.json().components).toContainEqual(component);
+    expect(remotion.download).not.toHaveBeenCalled();
+    const response = await server.inject({ method: 'POST', url: '/creator/components/download', payload: { componentId: 'remotion' } });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().selectedProvider).toBe('openai');
+    expect(remotion.download).toHaveBeenCalledOnce();
+    expect(download).not.toHaveBeenCalled();
+    expect(config.transcription.provider).toBe('openai');
+  });
+
   it('downloads the requested component without changing the saved cloud provider', async () => {
     const config = createDefaultCreatorServicesConfig();
     config.transcription.provider = 'openai';

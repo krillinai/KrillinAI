@@ -12,6 +12,16 @@ import {
 const zh: CreatorPanelLocalize = value => value;
 const en: CreatorPanelLocalize = (_zh, value) => value;
 
+describe('Remotion preparation progress', () => {
+  it('uses the shared stickman adapter without exposing transcription or internal dependency fields', () => {
+    const running = { ...stage('render', 'render-clean', 'running', null, 'render-clean'), stageId: 'render-clean', progress: { phase: 'preparing_dependencies', percent: 3, message: 'internal', dependencyItem: 'private archive' } };
+    const progress = stickmanVideoPanelAdapter.readStageProgress(running, en);
+    expect(progress).toMatchObject({ phase: 'preparing_dependencies', percent: 3 });
+    expect(stickmanVideoPanelAdapter.runningProgressText?.(running, progress, en)).toBe('Preparing Remotion rendering components');
+    expect(stickmanVideoPanelAdapter.phaseLabel('dependencies_ready', zh)).toBe('渲染组件已就绪');
+  });
+});
+
 describe('video generation progress', () => {
   it.each(['zh-CN', 'en-US', 'sv-SE'] as const)('explains unknown progress and retries in %s', language => {
     const localize = createLocalizedCopy(language);

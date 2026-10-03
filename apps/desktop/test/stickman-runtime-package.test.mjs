@@ -78,7 +78,7 @@ describe('Stickman Runtime package contract', () => {
     )).toThrow(/exact Stickman Runtime/);
   });
 
-  it('keeps signed macOS package verification distinct from source hashes', () => {
+  it('verifies signatures and exact external component bindings without embedding Remotion', () => {
     const source = readFileSync(
       new URL('../scripts/verify-package.mjs', import.meta.url),
       'utf8'
@@ -87,9 +87,11 @@ describe('Stickman Runtime package contract', () => {
     expect(source).toContain("OPENCREATOR_REQUIRE_DEVELOPER_ID === '1'");
     expect(source).toContain("manifest.macSigningMode === 'developer-id'");
     expect(source).toContain('requiresDeveloperIdSignature()');
-    expect(source).toContain('!signedMacPackage && source.hash !== packaged.hash');
+    expect(source).toContain('Optional Remotion rendering resources must not be embedded in the App');
+    expect(source).toContain('descriptor.archiveSha256');
+    expect(source).toContain('descriptor.manifestSha256');
     expect(source).toContain(
-      '[daemonDir, creatorRuntimeDir, stickmanRuntimeDir]'
+      '[daemonDir, creatorRuntimeDir, sourceStickmanRuntimeDir]'
     );
   });
 });

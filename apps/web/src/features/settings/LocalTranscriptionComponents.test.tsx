@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import { languagePreferenceStorageKey } from '../../i18n/language.js';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
-import { LocalTranscriptionComponents } from './LocalTranscriptionComponents.js';
+import { RuntimeManagedComponents as LocalTranscriptionComponents } from './RuntimeManagedComponents.js';
 import { LocalTranscriptionNotice } from '../dashboard/LocalTranscriptionNotice.js';
 import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 import { createLocalizedCopy } from '../../i18n/localized-copy.js';
@@ -24,7 +24,35 @@ function controllerFixture(patch: Partial<CreatorLocalComponent> = {}, provider 
   return controller;
 }
 
+const managedComponents = [
+  { id: 'whisperkit', name: 'WhisperKit', version: '1.1.0', previousVersion: '1.0.0' },
+  { id: 'remotion', name: 'Remotion', version: '4.0.473', previousVersion: '4.0.472' }
+] as const;
+
 describe('local transcription component management', () => {
+  it('offers independent Remotion installation without transcription model fields', async () => {
+    const controller = controllerFixture({}, 'openai');
+    controller.componentsStatus!.components = [{ ...componentFixture(), id: 'remotion', name: 'Remotion', model: null, models: [], supportedVersion: '4.0.473' }];
+    render(<LanguageProvider><LocalTranscriptionComponents controller={controller} componentId="remotion" /></LanguageProvider>);
+    expect(screen.getByRole('heading', { name: 'Remotion' })).toBeVisible();
+    expect(screen.getByText(/仅在执行渲染时按需下载/)).toBeVisible();
+    expect(screen.queryByText('当前模型')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '调整转录设置' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '下载组件' }));
+    expect(controller.downloadComponents).toHaveBeenCalledWith('remotion');
+    await waitFor(() => expect(screen.getByRole('button', { name: '下载组件' })).toBeEnabled());
+  });
+
+  it('keeps Remotion progress visible and does not describe it as transcription', () => {
+    const controller = controllerFixture({}, 'openai');
+    controller.componentsStatus!.components = [{ ...componentFixture({ state: 'downloading', percent: 50, downloadedBytes: 1024 ** 2, totalBytes: 2 * 1024 ** 2 }), id: 'remotion', name: 'Remotion', model: null, models: [] }];
+    render(<LanguageProvider><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
+    expect(screen.getByText('正在下载 Remotion 渲染组件')).toBeVisible();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('value', '50');
+    expect(screen.queryByText(/当前尚未开始转录/)).not.toBeInTheDocument();
+    expect(controller.downloadComponents).not.toHaveBeenCalled();
+  });
+
   it.each(['downloading', 'verifying', 'extracting'] as const)('switches %s progress copy without restarting component preparation', state => {
     const rawMessage = '后台原文：正在校验转录模型';
     const controller = controllerFixture({ state, percent: 50, downloadedBytes: 1024 ** 3, totalBytes: 2 * 1024 ** 3, message: rawMessage });
@@ -79,39 +107,62 @@ describe('local transcription component management', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: '下载组件' })).not.toBeDisabled());
   });
 
-  it('keeps status checks read-only and offers an independent update for a ready component', async () => {
+  it.each(managedComponents)('hides updates for current $name and keeps checks read-only', async component => {
     const controller = controllerFixture({ state: 'ready', version: '1.1.0' });
+    controller.componentsStatus!.components = [{ ...componentFixture({ state: 'ready' }), id: component.id, name: component.name, version: component.version, supportedVersion: component.version }];
     render(<LanguageProvider><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
     expect(controller.refreshComponents).toHaveBeenCalledOnce();
-    const button = screen.getByRole('button', { name: '检查状态' });
+    const button = screen.getByRole('button', { name: '检查更新' });
     expect(button).toHaveClass('settings-secondary-button');
     expect(button.closest('.runtime-component-actions')).not.toBeNull();
-    expect(screen.getByRole('button', { name: '检查并更新' })).toBeEnabled();
+    expect(screen.getByRole('status')).toHaveTextContent('已就绪');
+    expect(screen.queryByRole('button', { name: /更新到|已是受支持版本|下载组件/ })).not.toBeInTheDocument();
+    expect(controller.downloadComponents).not.toHaveBeenCalled();
 
     fireEvent.click(button);
 
-    await waitFor(() => expect(screen.getByText('检查完成，本地组件已就绪。')).toBeVisible());
+    await waitFor(() => expect(screen.getByText('检查完成，当前组件无需更新。')).toBeVisible());
+    expect(screen.queryByRole('button', { name: /更新到|已是受支持版本|下载组件/ })).not.toBeInTheDocument();
     expect(controller.refreshComponents).toHaveBeenCalledTimes(2);
     expect(controller.downloadComponents).not.toHaveBeenCalled();
   });
 
-  it('checks and updates a ready component without selecting it for transcription', async () => {
-    const controller = controllerFixture({ state: 'ready', version: '1.1.0' }, 'openai');
-    render(<LanguageProvider><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
+  it.each(managedComponents)('updates outdated $name without selecting it for transcription, then hides updates', async component => {
+    const controller = controllerFixture({}, 'openai');
+    controller.componentsStatus!.components = [{ ...componentFixture({ state: 'ready' }), id: component.id, name: component.name, version: component.previousVersion, supportedVersion: component.version }];
+    const { rerender } = render(<LanguageProvider><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
 
-    expect(screen.getByText(/已通过校验的引擎和模型不会重复下载/)).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: '检查并更新' }));
+    expect(screen.getByRole('status')).toHaveTextContent('有可用更新');
+    const update = screen.getByRole('button', { name: `更新到 ${component.version}` });
+    expect(update).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: '检查更新' }));
+    await waitFor(() => expect(screen.getByText(`检查完成，可更新到受支持版本 ${component.version}。`)).toBeVisible());
+    expect(controller.downloadComponents).not.toHaveBeenCalled();
+    fireEvent.click(update);
 
-    expect(controller.downloadComponents).toHaveBeenCalledWith('whisperkit');
+    expect(controller.downloadComponents).toHaveBeenCalledWith(component.id);
     expect(controller.componentsStatus?.selectedProvider).toBe('openai');
-    await waitFor(() => expect(screen.getByRole('button', { name: '检查并更新' })).not.toBeDisabled());
+    await waitFor(() => expect(update).toBeEnabled());
+    controller.componentsStatus = { ...controller.componentsStatus!, components: controller.componentsStatus!.components.map(installed => ({ ...installed, version: installed.supportedVersion })) };
+    rerender(<LanguageProvider><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
+    expect(screen.queryByRole('button', { name: /更新到|已是受支持版本|下载组件/ })).not.toBeInTheDocument();
+    expect(controller.downloadComponents).toHaveBeenCalledOnce();
+  });
+
+  it('does not offer an update when the supported version is unknown', () => {
+    const controller = controllerFixture({ state: 'ready', version: '1.1.0', supportedVersion: null });
+    render(<LanguageProvider><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
+    expect(screen.getByRole('status')).toHaveTextContent('已就绪');
+    expect(screen.queryByRole('button', { name: '已就绪' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /更新到/ })).not.toBeInTheDocument();
+    expect(controller.downloadComponents).not.toHaveBeenCalled();
   });
 
   it('keeps checks read-only even when components are missing', async () => {
     const controller = controllerFixture();
     render(<LanguageProvider><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
 
-    fireEvent.click(screen.getByRole('button', { name: '检查状态' }));
+    fireEvent.click(screen.getByRole('button', { name: '检查更新' }));
 
     await waitFor(() => expect(screen.getByText('组件状态已刷新，尚未开始下载。')).toBeVisible());
     expect(controller.downloadComponents).not.toHaveBeenCalled();
@@ -124,12 +175,12 @@ describe('local transcription component management', () => {
     render(<LanguageProvider><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
     vi.mocked(controller.refreshComponents!).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
 
-    fireEvent.click(screen.getByRole('button', { name: '检查状态' }));
+    fireEvent.click(screen.getByRole('button', { name: '检查更新' }));
 
     expect(screen.getByRole('button', { name: '正在检查' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '下载组件' })).toBeDisabled();
     await act(async () => { finish(); });
-    expect(screen.getByRole('button', { name: '检查状态' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: '检查更新' })).not.toBeDisabled();
   });
 
   it('shows a failed status check without claiming success or starting a download', async () => {
@@ -137,12 +188,12 @@ describe('local transcription component management', () => {
     render(<LanguageProvider><LanguageSwitchControls /><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
     vi.mocked(controller.refreshComponents!).mockRejectedValueOnce(new Error('status unavailable'));
 
-    fireEvent.click(screen.getByRole('button', { name: '检查状态' }));
+    fireEvent.click(screen.getByRole('button', { name: '检查更新' }));
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('status unavailable'));
-    expect(screen.queryByText('检查完成，本地组件已就绪。')).not.toBeInTheDocument();
+    expect(screen.queryByText('检查完成，当前组件无需更新。')).not.toBeInTheDocument();
     expect(controller.downloadComponents).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: '检查状态' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: '检查更新' })).not.toBeDisabled();
     expect(screen.getByText('status unavailable')).not.toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'en-US' }));
     expect(screen.getByText('Component status check failed. Check the service connection and retry.')).toBeVisible();

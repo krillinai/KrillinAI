@@ -85,6 +85,7 @@ import { createStickmanVisualAssetRegistry } from '../creator/stickman/visual-as
 import { createStickmanValidationExecutor } from '../creator/stickman/validation-executor.js';
 import { createStickmanTimelineExecutor } from '../creator/stickman/timeline-executor.js';
 import { createStickmanRemotionExecutor } from '../creator/stickman/remotion-executor.js';
+import { createRemotionComponentManager } from '../creator/stickman/remotion-component.js';
 import { createStickmanMediaValidationExecutor } from '../creator/stickman/media-validation-executor.js';
 import { createStickmanDeliveryExecutor } from '../creator/stickman/delivery-executor.js';
 import { CreatorProviderRequestLedger } from '../creator/provider-requests.js';
@@ -672,15 +673,25 @@ export async function buildServer(input: BuildServerInput) {
     configStore: creatorServicesConfigStore,
     codexNative: codexImageRuntime
   });
-  const developmentStickmanRuntimeRoot = resolve(
+  const packagedRemotionReleasePath = resolve(
     dirname(fileURLToPath(import.meta.url)),
-    '../../../desktop/.pack/stickman-runtime'
+    '../../runtime/remotion-component.json'
   );
   const stickmanRuntimeRoot = process.env.OPENCREATOR_STICKMAN_RUNTIME_ROOT
-    ?? (existsSync(developmentStickmanRuntimeRoot)
-      ? developmentStickmanRuntimeRoot
-      : join(dataDir, 'creator-runtime', 'stickman'));
-  const packagedStickmanCatalog = join(stickmanRuntimeRoot, 'visual-assets', 'catalog.json');
+    ?? join(dataDir, 'creator-runtime', 'stickman');
+  const developmentRemotionReleasePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../desktop/.pack/components/remotion-component.json');
+  const remotionReleasePath = process.env.OPENCREATOR_REMOTION_COMPONENT_MANIFEST
+    ?? (existsSync(packagedRemotionReleasePath) ? packagedRemotionReleasePath : developmentRemotionReleasePath);
+  const remotionComponent = createRemotionComponentManager({
+    root: stickmanRuntimeRoot,
+    releasePath: remotionReleasePath,
+    archivePath: process.env.OPENCREATOR_REMOTION_COMPONENT_ARCHIVE,
+    developmentArchiveRoot: !existsSync(packagedRemotionReleasePath) && process.env.OPENCREATOR_RUNTIME_CHANNEL === 'development' ? dirname(remotionReleasePath) : undefined,
+    readProxy: async () => (await creatorServicesConfigStore.read()).proxy.trim()
+  });
+  const packagedStickmanAssetsRoot = process.env.OPENCREATOR_STICKMAN_ASSETS_ROOT
+    ?? resolve(dirname(fileURLToPath(import.meta.url)), '../../runtime/stickman-assets');
+  const packagedStickmanCatalog = join(packagedStickmanAssetsRoot, 'visual-assets', 'catalog.json');
   const developmentStickmanCatalog = resolve(
     dirname(fileURLToPath(import.meta.url)),
     '../../../../resources/stickman/visual-assets/catalog.json'
@@ -691,7 +702,7 @@ export async function buildServer(input: BuildServerInput) {
   );
   const stickmanVisualAssetOptions = existsSync(packagedStickmanCatalog)
     ? {
-        root: stickmanRuntimeRoot,
+        root: packagedStickmanAssetsRoot,
         catalogPath: packagedStickmanCatalog
       }
     : existsSync(developmentStickmanCatalog)
@@ -850,7 +861,8 @@ export async function buildServer(input: BuildServerInput) {
       }));
       creatorExecutors.push(createStickmanRemotionExecutor({
         ffprobePath: creatorFfprobePath,
-        runtimeRoot: stickmanRuntimeRoot
+        runtimeRoot: stickmanRuntimeRoot,
+        ensureRuntime: stage => remotionComponent.ensure(stage)
       }));
       if (creatorFfmpegPath) {
         creatorExecutors.push(createStickmanMediaValidationExecutor({
@@ -915,6 +927,7 @@ export async function buildServer(input: BuildServerInput) {
     ffmpegPath: creatorFfmpegPath,
     ffprobePath: creatorFfprobePath,
     stickmanRuntimeRoot,
+    remotionComponent,
     ...(getYtDlpRuntime === undefined ? {} : { getYtDlpRuntime }),
     runtimeVerificationCachePath: krillinVerificationCachePath,
     ensureRuntimeReady: () => ensureKrillinRuntimeReady(),
@@ -1426,6 +1439,7 @@ export async function buildServer(input: BuildServerInput) {
   await registerSmartDubbingRoutes(server, smartDubbingService);
   await registerCreatorRuntimeRoutes(server, creatorYtDlpUpdateManager, {
     loader: krillinDependencyLoader,
+    remotion: remotionComponent,
     readConfig: () => creatorServicesConfigStore.read()
   });
   await registerImageGenerationRoutes(server, imageGenerationService);

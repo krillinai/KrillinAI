@@ -2,6 +2,7 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { extname, isAbsolute, relative, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 type WorkerRequest = {
   timelinePath: string;
@@ -11,6 +12,7 @@ type WorkerRequest = {
   workdir: string;
   jobRoot: string;
   runtimeRoot: string;
+  rendererEntry?: string;
 };
 
 async function main(): Promise<void> {
@@ -28,6 +30,7 @@ async function main(): Promise<void> {
     assertInside(workdir, resultPath, 'result');
     assertInside(runtimeRoot, request.bundlePath, 'bundle');
     assertInside(runtimeRoot, request.browserExecutable, 'browser');
+    if (request.rendererEntry) assertInside(runtimeRoot, request.rendererEntry, 'renderer');
     if (!existsSync(resolve(request.bundlePath)) || !statSync(resolve(request.bundlePath)).isDirectory()) {
       throw new Error('stickman_worker_bundle_missing');
     }
@@ -58,7 +61,7 @@ async function main(): Promise<void> {
           audioPath: `${assetServer.url}/media/${index}/audio${extname(shot.audioPath!)}`
         }))
       };
-      const renderer = await import('@remotion/renderer');
+      const renderer = await import(request.rendererEntry ? pathToFileURL(request.rendererEntry).href : '@remotion/renderer') as typeof import('@remotion/renderer');
       const composition = await renderer.selectComposition({
         serveUrl: assetServer.url,
         id: timeline.ratio === '9:16' ? 'StickmanPortrait' : 'StickmanLandscape',

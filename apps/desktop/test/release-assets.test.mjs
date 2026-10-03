@@ -8,6 +8,7 @@ import {
   finalizeReleaseAssets,
   krillinReleaseAssetNames,
   releaseAssetNames,
+  remotionReleaseAssetName,
   stageReleaseAssets
 } from '../scripts/release-assets.mjs';
 
@@ -87,6 +88,10 @@ describe('Desktop release assets', () => {
     for (const [platform, arch] of [['darwin', 'x64'], ['win32', 'x64']]) {
       for (const name of releaseAssetNames(version, platform, arch)) writeFileSync(join(data.directory, name), name);
     }
+    for (const [platform, arch] of [['darwin', 'arm64'], ['darwin', 'x64'], ['win32', 'x64']]) {
+      const name = remotionReleaseAssetName(version, platform, arch);
+      writeFileSync(join(data.directory, name), name);
+    }
     for (const [platform, arch] of [
       ['darwin', 'arm64'],
       ['darwin', 'x64'],
@@ -104,8 +109,8 @@ describe('Desktop release assets', () => {
       repository: 'krillinai/OpenCreator',
       highlights: '## What\'s New\n\n- Added Creator workflows.'
     });
-    expect(readdirSync(data.directory)).toHaveLength(21);
-    expect(readFileSync(join(data.directory, 'SHA256SUMS.txt'), 'utf8').trim().split('\n')).toHaveLength(20);
+    expect(readdirSync(data.directory)).toHaveLength(24);
+    expect(readFileSync(join(data.directory, 'SHA256SUMS.txt'), 'utf8').trim().split('\n')).toHaveLength(23);
     expect(notes).toContain('https://github.com/krillinai/OpenCreator/releases/download/v3.0.0/OpenCreator-3.0.0-win-x64.exe');
     expect(notes).toContain('KrillinAI-Server-3.0.0-linux-x64.tar.gz');
     expect(notes).toContain('KrillinAI-CLI-3.0.0-mac-arm64.tar.gz');
@@ -141,6 +146,10 @@ describe('Desktop release assets', () => {
 
   it('runs the release finalizer through the same CLI used by the promotion workflow', () => {
     const data = fixture();
+    for (const [platform, arch] of [['darwin', 'arm64'], ['darwin', 'x64'], ['win32', 'x64']]) {
+      const name = remotionReleaseAssetName(version, platform, arch);
+      writeFileSync(join(data.directory, name), name);
+    }
     for (const [platform, arch] of [['darwin', 'x64'], ['win32', 'x64']]) {
       for (const name of releaseAssetNames(version, platform, arch)) {
         writeFileSync(join(data.directory, name), name);
@@ -167,7 +176,7 @@ describe('Desktop release assets', () => {
     ], { encoding: 'utf8' });
 
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain(`Verified 21 public release assets for v${version}`);
+    expect(result.stdout).toContain(`Verified 24 public release assets for v${version}`);
     expect(readFileSync(notesPath, 'utf8')).toContain(`# OpenCreator v${version}`);
     rmSync(notesPath);
   });

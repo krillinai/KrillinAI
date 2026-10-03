@@ -1,4 +1,4 @@
-import type { CreatorLocalComponent, CreatorRuntimeComponentsResponse, CreatorYtDlpStatus, OpenCreatorIssue } from '@opencreator/protocol';
+import type { CreatorRuntimeComponent, CreatorRuntimeComponentsResponse, CreatorYtDlpStatus, OpenCreatorIssue } from '@opencreator/protocol';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePageIssueState } from '../features/issues/page-issue-state.js';
 import type { RuntimeDependencyService } from '../services/runtime-dependency-service.js';
@@ -13,7 +13,7 @@ export type RuntimeDependenciesController = {
   componentsStatus?: CreatorRuntimeComponentsResponse;
   componentError?: string;
   refreshComponents?(): Promise<void>;
-  downloadComponents?(componentId?: CreatorLocalComponent['id']): Promise<void>;
+  downloadComponents?(componentId?: CreatorRuntimeComponent['id']): Promise<void>;
   ytDlpStatus?: CreatorYtDlpStatus;
   phase: RuntimeDependencyPhase;
   /** @deprecated Runtime failures are exposed through issues. */
@@ -60,7 +60,7 @@ export function useRuntimeDependencies(input: {
     return () => { stopped = true; clearTimeout(timer); };
   }, [input.connected, refreshComponents, componentDownloadActive]);
 
-  const downloadComponents = useCallback(async (componentId?: CreatorLocalComponent['id']) => {
+  const downloadComponents = useCallback(async (componentId?: CreatorRuntimeComponent['id']) => {
     if (!input.connected || !input.service?.downloadComponents) return;
     try {
       const status = await input.service.downloadComponents(componentId);

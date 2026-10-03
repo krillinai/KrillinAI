@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
-import { componentProgressText } from '../settings/LocalTranscriptionComponents.js';
+import { componentProgressText } from '../settings/RuntimeManagedComponents.js';
 import { OriginalErrorDetails } from '../issues/OriginalErrorDetails.js';
 
 export function LocalTranscriptionNotice({ controller, platformCaptions, importedSubtitle, beforeNavigate }: {

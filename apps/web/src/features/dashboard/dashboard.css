@@ -8256,6 +8256,15 @@
   color: var(--accent);
 }
 
+.stickman-storyboard-placeholder[data-state="failed"] .stickman-storyboard-editor {
+  align-content: start;
+  gap: 12px;
+}
+
+.stickman-storyboard-placeholder[data-state="failed"] .video-translation-secondary-action {
+  justify-self: start;
+}
+
 .stickman-storyboard-loading-row {
   pointer-events: none;
 }

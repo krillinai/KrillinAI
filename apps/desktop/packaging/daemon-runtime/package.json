@@ -7,7 +7,6 @@
     "@fastify/cors": "11.2.0",
     "@iarna/toml": "2.2.5",
     "@modelcontextprotocol/sdk": "1.29.0",
-    "@remotion/renderer": "4.0.473",
     "better-sqlite3": "12.11.1",
     "cheerio": "1.1.2",
     "cron-parser": "5.6.1",

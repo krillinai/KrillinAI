@@ -106,13 +106,6 @@ await runStage('准备 Creator Runtime', process.execPath, [
   env,
   timeoutMs: 25 * 60_000
 });
-await runStage('准备 Stickman Runtime', process.execPath, [
-  resolve(scriptDir, 'prepare-stickman-runtime.mjs')
-], {
-  cwd: rootDir,
-  env,
-  timeoutMs: 25 * 60_000
-});
 await runStage('准备 Codex Runtime', process.execPath, [
   resolve(scriptDir, 'prepare-codex-runtime.mjs')
 ], {
@@ -134,6 +127,16 @@ const {
     ?? process.env.APPLE_TEAM_ID
 });
 const packageStartedAt = Date.now();
+await runStage('构建独立 Remotion 组件与轻量角色资源', process.execPath, [
+  resolve(scriptDir, 'prepare-stickman-runtime.mjs')
+], { cwd: rootDir, env: builderEnv, timeoutMs: 25 * 60_000 });
+if (macSigning.mode === 'developer-id' && mode === 'release') {
+  const componentNotaryArchive = resolve(desktopDir, '.pack', 'remotion-notarization.zip');
+  try {
+    await runStage('准备 Remotion 组件公证', 'ditto', ['-c', '-k', '--keepParent', resolve(desktopDir, '.pack', 'stickman-runtime'), componentNotaryArchive], { cwd: rootDir, env: builderEnv });
+    await submitAndWaitForNotarization(componentNotaryArchive, notarizationArgs);
+  } finally { rmSync(componentNotaryArchive, { force: true }); }
+}
 await runStage(
   mode === 'dir' ? '生成可运行目录' : '生成桌面安装包',
   'electron-builder',
@@ -147,6 +150,8 @@ await runStage(
 
 const packageRoot = findFreshPackageRoot(candidates);
 const artifacts = findFreshArtifacts(packageStartedAt, mode, platform);
+const remotionComponent = JSON.parse(readFileSync(resolve(desktopDir, '.pack', 'components', 'remotion-component.json'), 'utf8'));
+const componentArchive = resolve(desktopDir, '.pack', 'components', remotionComponent.fileName);
 if (macSigning.mode === 'developer-id' && mode === 'release') {
   await finalizeMacReleaseArtifacts(
     artifacts.filter(path => path.endsWith('.dmg')),
@@ -241,6 +246,7 @@ const manifest = {
   stickmanRuntimeManifestSha256,
   remotionVersion: stickmanRuntimeManifest.remotionVersion,
   chromiumVersion: stickmanRuntimeManifest.chromiumVersion,
+  remotionComponent,
   creatorPresetCatalogHash: creatorPresetManifest.catalogHash,
   creatorPresetAssetSetHash: creatorPresetManifest.assetSetHash,
   creatorPresetResourceCount: creatorPresetManifest.files.length,
@@ -265,7 +271,7 @@ const manifest = {
   ytDlpPythonVersion: creatorRuntimeManifest.ytDlp?.pythonVersion,
   macSigningMode: macSigning.mode,
   appleTeamId: macSigning.teamId ?? null,
-  artifacts: artifacts.map(path => ({
+  artifacts: [...artifacts, componentArchive].map(path => ({
     path,
     relativePath: relative(rootDir, path),
     bytes: statSync(path).size,

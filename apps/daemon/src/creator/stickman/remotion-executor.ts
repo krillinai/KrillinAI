@@ -22,6 +22,7 @@ export function createStickmanRemotionExecutor(input: {
   runtimeRoot: string;
   workerEntrypoint?: string;
   runtime?: StickmanRemotionRuntime;
+  ensureRuntime?(stage: Parameters<CreatorExecutor['run']>[0]): Promise<StickmanRemotionRuntime>;
   validateVideo?: ValidateVideo;
 }): CreatorExecutor {
   const validateVideo = input.validateVideo ?? validateMediaFile;
@@ -39,7 +40,9 @@ export function createStickmanRemotionExecutor(input: {
       };
       const ratio = readStickmanRatio(timelineValue.ratio);
       const canvas = stickmanCanvasForRatio(ratio);
-      const runtime = input.runtime ?? readStickmanRemotionRuntime(input.runtimeRoot);
+      const runtime = input.runtime ?? (input.ensureRuntime
+        ? await input.ensureRuntime(stage)
+        : readStickmanRemotionRuntime(input.runtimeRoot));
       const outputPath = join(
         stage.workdir,
         ratio === '9:16' ? 'portrait-clean.mp4' : 'landscape-clean.mp4'
@@ -51,6 +54,7 @@ export function createStickmanRemotionExecutor(input: {
         outputPath,
         bundlePath: runtime.bundlePath,
         browserExecutable: runtime.browserExecutable,
+        rendererEntry: runtime.rendererEntry,
         workdir: stage.workdir,
         jobRoot: dirname(stage.workdir),
         runtimeRoot: runtime.root
@@ -58,6 +62,7 @@ export function createStickmanRemotionExecutor(input: {
       const workerEntrypoint = input.workerEntrypoint
         ?? resolveDefaultWorkerEntrypoint();
       try {
+        stage.reportProgress({ phase: 'rendering', percent: 5, message: '正在渲染火柴人动画。' });
         await runWorker(workerEntrypoint, requestPath, resultPath, stage.signal);
         const result = JSON.parse(await readFile(resultPath, 'utf8')) as {
           ok?: boolean;
@@ -150,15 +155,20 @@ function runWorker(
       'stickman_remotion_worker_failed',
       error.message
     )));
-    worker.once('exit', code => {
+    worker.once('exit', async code => {
       if (settled) return;
       settled = true;
       cleanup();
       if (code === 0) resolve();
-      else reject(new CreatorExecutorError(
-        'stickman_remotion_worker_failed',
-        stderr.slice(-2_000) || `Remotion worker exited with code ${code}`
-      ));
+      else {
+        const result = await readFile(resultPath, 'utf8')
+          .then(contents => JSON.parse(contents) as { ok?: boolean; error?: string })
+          .catch(() => null);
+        reject(new CreatorExecutorError(
+          result?.ok === false ? 'stickman_remotion_failed' : 'stickman_remotion_worker_failed',
+          result?.error || stderr.slice(-2_000) || `Remotion worker exited with code ${code}`
+        ));
+      }
     });
   });
 }

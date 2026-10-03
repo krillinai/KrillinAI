@@ -6,7 +6,7 @@ type Operation = { controller: AbortController; promise: Promise<void>; listener
 
 export function manageLocalComponents(input: {
   loader: KrillinDependencyLoader;
-  inspect(): Promise<Omit<CreatorRuntimeComponentsResponse, 'selectedProvider' | 'selectedModel'>>;
+  inspect(): Promise<Omit<CreatorRuntimeComponentsResponse, 'selectedProvider' | 'selectedModel' | 'components'> & { components: CreatorLocalComponent[] }>;
 }) {
   const operations = new Map<string, Operation>();
   const states = new Map<string, Partial<CreatorLocalComponent>>();

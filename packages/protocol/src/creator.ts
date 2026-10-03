@@ -379,8 +379,8 @@ export type CreatorYtDlpStatusResponse = {
   ytDlp: CreatorYtDlpStatus;
 };
 
-export type CreatorLocalComponent = {
-  id: 'whisperkit' | 'whisper.cpp' | 'faster-whisper';
+export type CreatorRuntimeComponent = {
+  id: 'whisperkit' | 'whisper.cpp' | 'faster-whisper' | 'remotion';
   name: string;
   available: boolean;
   version: string | null;
@@ -401,12 +401,16 @@ export type CreatorLocalComponent = {
   message?: string;
 };
 
+export type CreatorLocalComponent = Omit<CreatorRuntimeComponent, 'id'> & {
+  id: Exclude<CreatorRuntimeComponent['id'], 'remotion'>;
+};
+
 export type CreatorRuntimeComponentsResponse = {
   platform: string;
   arch: string;
   selectedProvider: string;
   selectedModel: string | null;
-  components: CreatorLocalComponent[];
+  components: CreatorRuntimeComponent[];
 };
 
 export type CreatorSelection = {

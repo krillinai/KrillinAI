@@ -484,6 +484,8 @@ export const stickmanVideoPanelAdapter: CreatorPanelAdapter = {
       measuring: l('测量真实音频时长', 'Measuring real audio timing'),
       validating_media: l('检查视频轨、音频轨与抽帧', 'Checking video, audio, and sampled frames'),
       rendering: l('渲染视频', 'Rendering video'),
+      preparing_dependencies: l('准备 Remotion 渲染组件', 'Preparing Remotion rendering components'),
+      dependencies_ready: l('渲染组件已就绪', 'Rendering components are ready'),
       packaging: l('整理成片与字幕', 'Packaging video and subtitles'),
       failed: l('阶段执行失败', 'Stage failed'),
       completed: l('阶段已完成', 'Stage completed')
@@ -543,6 +545,9 @@ export const stickmanVideoPanelAdapter: CreatorPanelAdapter = {
     return representative === undefined ? [] : [representative];
   },
   runningProgressText(stage, progress, l) {
+    if (stage.stageId === 'render-clean' && (progress.phase === 'preparing_dependencies' || progress.phase === 'dependencies_ready')) {
+      return stickmanVideoPanelAdapter.phaseLabel(progress.phase, l);
+    }
     if (stage.stageId === 'script' && progress.phase !== null) {
       return stickmanVideoPanelAdapter.phaseLabel(progress.phase, l);
     }
