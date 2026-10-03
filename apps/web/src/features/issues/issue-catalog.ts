@@ -1,4 +1,4 @@
-import { safePublicErrorCode, type OpenCreatorIssue, type PublicErrorFacts } from '@opencreator/protocol';
+import { safePublicErrorCode, sanitizePublicErrorFacts, type OpenCreatorIssue, type PublicErrorFacts } from '@opencreator/protocol';
 import type { AppLanguage } from '../../i18n/language.js';
 import { createLocalizedCopy, type LocalizeCopy } from '../../i18n/localized-copy.js';
 
@@ -59,15 +59,17 @@ function localizedIssueSummary(issue: OpenCreatorIssue, localize: LocalizeCopy):
   return localize(entry.zh, entry.en);
 }
 
-function publicErrorReason(facts: PublicErrorFacts, language: AppLanguage): string {
-  const localize = createLocalizedCopy(language);
-  const reasons: Record<PublicErrorFacts['kind'], { zh: string; en: string }> = {
+export function publicErrorReason(input: PublicErrorFacts, language: AppLanguage | LocalizeCopy): string {
+  const facts = sanitizePublicErrorFacts(input);
+  const localize = typeof language === 'function' ? language : createLocalizedCopy(language);
+  const reasons: Record<PublicErrorFacts['kind'], { zh: string; en: string; sv?: string }> = {
     timeout: { zh: '请求超时', en: 'The request timed out' },
     dns: { zh: '域名解析失败', en: 'DNS resolution failed' },
     'connection-refused': { zh: '连接被拒绝', en: 'The connection was refused' },
     'connection-reset': { zh: '连接被中断', en: 'The connection was reset' },
     tls: { zh: '安全连接建立失败', en: 'The secure connection failed' },
     'http-rejected': { zh: '服务拒绝了请求', en: 'The service rejected the request' },
+    'provider-failed': { zh: '外部服务报告任务失败', en: 'The provider reported that the task failed', sv: 'Leverantören rapporterade att uppgiften misslyckades' },
     'rate-limited': { zh: '请求频率受限', en: 'The request was rate-limited' },
     unauthorized: { zh: '服务未授权或权限不足', en: 'Service authorization failed or access was denied' },
     'invalid-response': { zh: '服务返回了无法处理的结果', en: 'The service returned an invalid response' },
@@ -82,13 +84,19 @@ function publicErrorReason(facts: PublicErrorFacts, language: AppLanguage): stri
   };
   const parts = facts.kind === 'unknown'
     ? []
-    : [localize(reasons[facts.kind].zh, reasons[facts.kind].en)];
+    : [localize(reasons[facts.kind].zh, reasons[facts.kind].en, reasons[facts.kind].sv)];
   if (facts.provider !== undefined && safePublicErrorCode(facts.provider) !== undefined) {
     parts.push(`provider: ${safeIdentifier(facts.provider)}`);
   }
   if (facts.httpStatus !== undefined) parts.push(`HTTP ${facts.httpStatus}`);
   if (facts.upstreamCode !== undefined && safePublicErrorCode(facts.upstreamCode) !== undefined) {
     parts.push(`upstream: ${safeIdentifier(facts.upstreamCode)}`);
+  }
+  if (facts.upstreamMessage !== undefined) {
+    parts.push(localize(`服务说明：${facts.upstreamMessage}`, `Provider message: ${facts.upstreamMessage}`, `Leverantörens meddelande: ${facts.upstreamMessage}`));
+  }
+  if (facts.requestId !== undefined) {
+    parts.push(localize(`请求编号：${facts.requestId}`, `Request ID: ${facts.requestId}`, `Begärans-ID: ${facts.requestId}`));
   }
   if (facts.kind === 'unknown') {
     return localize(
@@ -112,6 +120,12 @@ export function issueConversationText(
   const localize = createLocalizedCopy(language);
   const nextStep = issue.code === 'creator_template_version_mismatch'
     ? localize('请刷新页面以加载当前模板版本；如果仍然失败，请重新启动本地服务。', 'Refresh the page to load the current template version. If the problem persists, restart the local service.', 'Uppdatera sidan för att läsa in den aktuella mallversionen. Om problemet kvarstår, starta om den lokala tjänsten.')
+    : issue.publicFacts?.kind === 'http-rejected' || issue.publicFacts?.kind === 'provider-failed'
+      ? localize('请根据服务返回的原因调整输入或请求参数后重试；仍有疑问时，可提供请求编号向服务方查询。', 'Review the provider reason and adjust the input or request parameters before retrying. Use the request ID to ask the provider for details if needed.', 'Läs leverantörens felorsak och justera indata eller parametrarna innan du försöker igen. Använd begärans-ID för att fråga leverantören vid behov.')
+    : issue.publicFacts?.kind === 'unauthorized'
+      ? localize('请检查服务凭据和模型访问权限后重试。', 'Check the provider credentials and model access permissions before retrying.', 'Kontrollera leverantörens autentiseringsuppgifter och modellbehörigheter innan du försöker igen.')
+    : issue.publicFacts?.kind === 'rate-limited'
+      ? localize('请检查服务配额或稍后重试。', 'Check the provider quota or retry later.', 'Kontrollera leverantörens kvot eller försök igen senare.')
     : issue.category === 'network'
     ? localize('请检查本地服务连接，然后重试。', 'Check the local service connection, then retry.', 'Kontrollera anslutningen till den lokala tjänsten och försök igen.')
     : issue.category === 'configuration'

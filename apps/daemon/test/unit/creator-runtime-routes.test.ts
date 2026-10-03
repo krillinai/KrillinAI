@@ -16,6 +16,50 @@ afterEach(async () => {
 });
 
 describe('creator yt-dlp runtime routes', () => {
+  it('downloads the requested component without changing the saved cloud provider', async () => {
+    const config = createDefaultCreatorServicesConfig();
+    config.transcription.provider = 'openai';
+    const saved = structuredClone(config);
+    let installed = false;
+    const install = vi.fn(async () => { installed = true; });
+    const loader = createKrillinDependencyLoader({ root: '/tmp/opencreator-independent-components-route', platform: 'darwin', arch: 'arm64', whisperKitInstaller: { isInstalled: async () => installed, install } });
+    server = Fastify();
+    await registerCreatorRuntimeRoutes(server, undefined, { loader, readConfig: async () => config });
+
+    const download = await server.inject({ method: 'POST', url: '/creator/components/download', payload: { componentId: 'whisperkit' } });
+
+    expect(download.statusCode).toBe(200);
+    expect(download.json()).toMatchObject({ selectedProvider: 'openai', selectedModel: null });
+    await vi.waitFor(() => expect(install).toHaveBeenCalledOnce());
+    const after = await server.inject({ method: 'GET', url: '/creator/components/status' });
+    expect(after.json()).toMatchObject({ selectedProvider: 'openai', components: expect.arrayContaining([expect.objectContaining({ id: 'whisperkit', state: 'ready' })]) });
+    expect(config).toEqual(saved);
+  });
+
+  it.each([{ componentId: 'openai' }, { componentId: 123 }, { componentId: null }, ['whisperkit']])('rejects an invalid component request %j without downloading', async payload => {
+    const install = vi.fn();
+    const loader = createKrillinDependencyLoader({ root: '/tmp/opencreator-invalid-components-route', platform: 'darwin', arch: 'arm64', whisperKitInstaller: { isInstalled: async () => false, install } });
+    server = Fastify();
+    await registerCreatorRuntimeRoutes(server, undefined, { loader, readConfig: async () => createDefaultCreatorServicesConfig() });
+
+    const response = await server.inject({ method: 'POST', url: '/creator/components/download', payload });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ error: { code: 'creator_component_download_unavailable' } });
+    expect(install).not.toHaveBeenCalled();
+  });
+
+  it('rejects components unsupported by the Runtime platform even with a cloud provider', async () => {
+    const loader = createKrillinDependencyLoader({ root: '/tmp/opencreator-unsupported-components-route', platform: 'linux', arch: 'x64' });
+    server = Fastify();
+    await registerCreatorRuntimeRoutes(server, undefined, { loader, readConfig: async () => createDefaultCreatorServicesConfig() });
+
+    const response = await server.inject({ method: 'POST', url: '/creator/components/download', payload: { componentId: 'whisperkit' } });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ error: { code: 'creator_component_download_unavailable', message: expect.stringContaining('unavailable on this platform') } });
+  });
+
   it('reports local engine inventory and starts downloads independently of yt-dlp', async () => {
     const config = createDefaultCreatorServicesConfig();
     config.transcription.provider = 'whisperkit';

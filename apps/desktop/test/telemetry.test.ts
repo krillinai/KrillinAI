@@ -277,6 +277,46 @@ describe('desktop telemetry', () => {
     }
   });
 
+  it('resumes timers after a failed update without counting another launch or reporting on exit', async () => {
+    vi.useFakeTimers();
+    const telemetryMemory = memoryPersistence();
+    const fetchImpl = vi.fn(async () => new Response('{}'));
+    const controller = startDesktopTelemetry({
+      path: '/virtual/telemetry.json',
+      settings: memorySettings(),
+      logger: logger(),
+      appVersion: '3.0.1',
+      isOfficialBuild: true,
+      isWindowActive: () => true,
+      now: () => new Date('2026-09-07T02:00:00Z'),
+      fetchImpl,
+      persistence: telemetryMemory.persistence as TelemetryPersistence,
+      activeIntervalMs: 10,
+      reportIntervalMs: 100_000
+    });
+    try {
+      await controller.reportNow();
+      await vi.advanceTimersByTimeAsync(10);
+      fetchImpl.mockClear();
+
+      await controller.stop();
+      await controller.reportNow();
+      await vi.advanceTimersByTimeAsync(100);
+      expect(fetchImpl).not.toHaveBeenCalled();
+
+      controller.resume();
+      controller.resume();
+      await vi.advanceTimersByTimeAsync(20);
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(JSON.parse(telemetryMemory.read())).toEqual({
+        days: [{ date: '2026-09-07', launchCount: 1, activeMinutes: 3 }]
+      });
+    } finally {
+      controller.dispose();
+      vi.useRealTimers();
+    }
+  });
+
   it('aborts an in-flight report without waiting for the network while stopping', async () => {
     let requestSignal: AbortSignal | undefined;
     let markRequestStarted: () => void = () => undefined;

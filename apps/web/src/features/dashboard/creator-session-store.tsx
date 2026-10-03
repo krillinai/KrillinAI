@@ -470,6 +470,13 @@ export function CreatorSessionProvider(props: {
   }, [captureCreatorFailure, ensurePersistedJob, flush, props.service]);
 
   const applyRemoteSnapshot = useCallback((next: CreatorJob) => {
+    const current = confirmedRef.current;
+    if (next.id === current.id && (next.revision < current.revision
+      || next.revision === current.revision && next.stages.some(stage => {
+        const previous = current.stages.find(candidate => candidate.id === stage.id);
+        return previous !== undefined && terminalCreatorStage(previous.status)
+          && (stage.status === 'queued' || stage.status === 'running');
+      }))) return;
     const conflicts = [...dirtyRef.current].filter(field => (
       JSON.stringify(next.state[field]) !== JSON.stringify(draftRef.current[field])
     ));
@@ -566,7 +573,13 @@ export function CreatorSessionProvider(props: {
       },
       onState: setConnection,
       shouldReloadSnapshot(event) {
-        return event.kind === 'snapshot_changed';
+        return event.kind === 'snapshot_changed'
+          || event.kind === 'stage_progress' && isRecord(event.payload.stage)
+            && typeof event.payload.stage.status === 'string' && terminalCreatorStage(event.payload.stage.status);
+      },
+      shouldReconcileSnapshot() {
+        const job = confirmedRef.current;
+        return job.status === 'running' || job.stages.some(stage => stage.status === 'running' || stage.status === 'queued');
       }
     });
     subscriptionRef.current = subscription;
@@ -603,10 +616,9 @@ export function CreatorSessionProvider(props: {
         ...request,
         expectedRevision: requestRevision
       });
-      confirmedRef.current = response.job;
-      setConfirmedJob(response.job);
+      applyRemoteSnapshot(response.job);
       setError(null);
-      return response.job;
+      return confirmedRef.current;
     } catch (cause) {
       const nextError = toSessionError(cause);
       if (!isSupersededRevisionConflict(cause, requestRevision, confirmedRef.current.revision)) {
@@ -1004,6 +1016,9 @@ function mergeCreatorEvent(job: CreatorJob, event: CreatorEventEnvelope): Creato
     const stage = readCreatorStage(event.payload.stage, job.id);
     if (stage === null) return job;
     const index = job.stages.findIndex(candidate => candidate.id === stage.id);
+    const previous = job.stages[index];
+    if (previous !== undefined && terminalCreatorStage(previous.status)
+      && (stage.status === 'queued' || stage.status === 'running') && event.revision <= job.revision) return job;
     const stages = index < 0
       ? [...job.stages, stage]
       : job.stages.map(candidate => candidate.id === stage.id ? stage : candidate);
@@ -1032,6 +1047,10 @@ function mergeCreatorEvent(job: CreatorJob, event: CreatorEventEnvelope): Creato
     return mergeIssueIntoJob(job, issue);
   }
   return job;
+}
+
+function terminalCreatorStage(status: string): boolean {
+  return ['succeeded', 'failed', 'canceled', 'interrupted'].includes(status);
 }
 
 function mergeIssueIntoJob(job: CreatorJob, issue: OpenCreatorIssue): CreatorJob {

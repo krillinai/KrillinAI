@@ -13,6 +13,8 @@ export function createCreatorSnapshotSubscription<T, Event = unknown>(input: {
   onSnapshot(snapshot: T): void;
   onEvent?(event: Event): void;
   shouldReloadSnapshot?(event: Event): boolean;
+  shouldReconcileSnapshot?(): boolean;
+  reconcileIntervalMs?: number;
   onError?(error: unknown): void;
   onState?(state: CreatorConnectionState): void;
   reconnectDelays?: readonly number[];
@@ -25,6 +27,7 @@ export function createCreatorSnapshotSubscription<T, Event = unknown>(input: {
   let reloadScheduled = false;
   let reconnectAttempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  let reconcileTimer: ReturnType<typeof setInterval> | undefined;
   const controller = new AbortController();
   let lastError: unknown;
 
@@ -56,6 +59,13 @@ export function createCreatorSnapshotSubscription<T, Event = unknown>(input: {
       error => error === undefined ? scheduleReconnect() : handleFailure(error)
     );
     input.onState?.({ status: 'connected', attempt: 0 });
+    if (input.shouldReconcileSnapshot !== undefined && reconcileTimer === undefined) {
+      reconcileTimer = setInterval(() => {
+        if (!closed && connection !== undefined && !reloadScheduled && input.shouldReconcileSnapshot?.()) {
+          scheduleReload();
+        }
+      }, Math.max(1_000, input.reconcileIntervalMs ?? 5_000));
+    }
   };
 
   const scheduleReload = () => {
@@ -137,6 +147,10 @@ export function createCreatorSnapshotSubscription<T, Event = unknown>(input: {
       if (reconnectTimer !== undefined) {
         clearTimeout(reconnectTimer);
         reconnectTimer = undefined;
+      }
+      if (reconcileTimer !== undefined) {
+        clearInterval(reconcileTimer);
+        reconcileTimer = undefined;
       }
       connection?.close();
       connection = undefined;

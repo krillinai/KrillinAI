@@ -18,6 +18,13 @@ function cssBlocks(selector: string): string[] {
 }
 
 describe('dashboard CSS contracts', () => {
+  it('keeps playback duration above tall generated videos and readable on narrow screens', () => {
+    const caption = cssBlocks('.video-generation-preview figcaption')[0];
+    expect(caption).toContain('order: -1;');
+    expect(caption).toContain('flex-wrap: wrap;');
+    expect(cssBlocks('.video-generation-preview output')[0]).toContain('font-variant-numeric: tabular-nums;');
+  });
+
   it('keeps article-template icons unframed inside selectable list items', () => {
     for (const selector of [
       '.wechat-template-inline-list > button > span',

@@ -6,6 +6,25 @@ const raw = '后台原文：操作无法完成';
 const issue = normalizePageIssue('runtime', 'creator.prepare', new Error(raw), raw);
 
 describe('localized issue copy', () => {
+  it.each(['zh-CN', 'en-US', 'sv-SE'] as const)('shows the actual upstream reason and request ID in %s', language => {
+    const next = { ...issue, code: 'creator_video_upstream_error', publicFacts: {
+      kind: 'http-rejected' as const, provider: 'seedance', httpStatus: 400,
+      upstreamCode: 'InputImageSensitiveContentDetected.SensitiveContent',
+      upstreamMessage: 'Reference image was rejected. token=private', requestId: 'request-123'
+    } };
+    const text = presentIssue(next, language).description;
+    expect(text).toContain('HTTP 400');
+    expect(text).toContain(next.publicFacts.upstreamCode);
+    expect(text).toContain('Reference image was rejected.');
+    expect(text).toContain('request-123');
+    expect(text).not.toContain('private');
+    expect(text).not.toContain('尚未确认更细的原因');
+    const conversation = issueConversationText(next, language);
+    expect(conversation.nextStep).not.toContain('当前任务状态');
+    expect(buildIssueAgentPrompt(next, 'Why?', language)).toContain(next.publicFacts.upstreamCode);
+    expect(buildIssueAgentPrompt(next, 'Why?', language)).not.toContain('private');
+  });
+
   it.each([
     ['creator_dependency_prepare_failed', 'Förberedelsen av lokal transkription misslyckades'],
     ['creator_source_part_required', 'Kontrollera Bilibili-länken'],

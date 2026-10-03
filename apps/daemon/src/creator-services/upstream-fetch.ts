@@ -1,6 +1,6 @@
 import { request as httpsRequest } from 'node:https';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-import { safePublicErrorCode, type PublicErrorFacts } from '@opencreator/protocol';
+import { safePublicRequestId, sanitizePublicErrorFacts, type PublicErrorFacts } from '@opencreator/protocol';
 import { publicFactsFromHttpResponse } from '../creator/public-error-facts.js';
 
 export async function fetchCreatorService(input: {
@@ -93,26 +93,45 @@ export async function creatorServiceErrorInfo(
   label: string,
   provider?: string
 ): Promise<{ message: string; publicFacts: PublicErrorFacts }> {
-  let upstreamCode: string | undefined;
+  let payload: unknown;
   try {
-    const payload = await response.json() as unknown;
-    if (isRecord(payload)) {
-      const detail = isRecord(payload.error) ? payload.error : payload;
-      const candidate = detail.code ?? detail.error_code ?? detail.type;
-      const code = typeof candidate === 'number' && Number.isSafeInteger(candidate)
-        ? String(candidate)
-        : candidate;
-      if (typeof code === 'string' && code.length <= 80 && safePublicErrorCode(code) !== undefined) {
-        upstreamCode = code;
-      }
-    }
-  } catch {
-    // Some providers return an HTML or empty error response.
-  }
+    payload = await response.json() as unknown;
+  } catch {}
+  const publicFacts = creatorServiceFailureFacts(payload, provider, {
+    httpStatus: response.status,
+    requestId: response.headers.get('x-request-id') ?? response.headers.get('x-tt-logid') ?? undefined
+  });
   return {
-    message: `${label} provider rejected the request with status ${response.status}`,
-    publicFacts: publicFactsFromHttpResponse(response.status, provider, upstreamCode)
+    message: `${label} provider rejected the request with status ${response.status}`
+      + (publicFacts.upstreamCode === undefined ? '' : ` (${publicFacts.upstreamCode})`)
+      + (publicFacts.upstreamMessage === undefined ? '' : `: ${publicFacts.upstreamMessage}`),
+    publicFacts
   };
+}
+
+export function creatorServiceFailureFacts(
+  payload: unknown,
+  provider?: string,
+  options: { httpStatus?: number; requestId?: string } = {}
+): PublicErrorFacts {
+  const root = isRecord(payload) ? payload : {};
+  const data = isRecord(root.data) ? root.data : {};
+  const detail = isRecord(root.error) ? root.error : isRecord(data.error) ? data.error : isRecord(root.data) ? data : root;
+  const code = detail.code ?? detail.error_code ?? detail.type
+    ?? (options.httpStatus === undefined ? undefined : root.code ?? root.error_code);
+  const message = detail.task_status_msg ?? detail.message ?? detail.error_msg ?? detail.msg
+    ?? root.message ?? root.error_msg ?? (typeof root.error === 'string' ? root.error : undefined);
+  const requestId = [detail.request_id, detail.requestId, root.request_id, root.requestId, options.requestId]
+    .map(safePublicRequestId).find(candidate => candidate !== undefined);
+  return sanitizePublicErrorFacts({
+    ...(options.httpStatus === undefined
+      ? { kind: 'provider-failed' as const, ...(provider === undefined ? {} : { provider }) }
+      : publicFactsFromHttpResponse(options.httpStatus, provider)),
+    upstreamCode: typeof code === 'number' && Number.isSafeInteger(code) ? String(code)
+      : typeof code === 'string' ? code : undefined,
+    upstreamMessage: typeof message === 'string' ? message : undefined,
+    requestId
+  });
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

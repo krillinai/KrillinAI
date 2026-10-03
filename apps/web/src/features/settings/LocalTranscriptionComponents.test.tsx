@@ -63,23 +63,48 @@ describe('local transcription component management', () => {
     expect(screen.getByText('/runtime/dependencies')).not.toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: '下载组件' }));
     expect(controller.downloadComponents).toHaveBeenCalledOnce();
+    expect(controller.downloadComponents).toHaveBeenCalledWith('whisperkit');
     await waitFor(() => expect(screen.getByRole('button', { name: '下载组件' })).not.toBeDisabled());
   });
 
-  it('checks a ready component without downloading or showing a primary maintenance action', async () => {
+  it.each(['openai', 'aliyun', 'funasr'])('downloads an unselected component while using %s transcription', async provider => {
+    const controller = controllerFixture({}, provider);
+    render(<LanguageProvider><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
+
+    expect(screen.queryByText('当前使用')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '下载组件' }));
+
+    expect(controller.downloadComponents).toHaveBeenCalledWith('whisperkit');
+    expect(controller.componentsStatus?.selectedProvider).toBe(provider);
+    await waitFor(() => expect(screen.getByRole('button', { name: '下载组件' })).not.toBeDisabled());
+  });
+
+  it('keeps status checks read-only and offers an independent update for a ready component', async () => {
     const controller = controllerFixture({ state: 'ready', version: '1.1.0' });
     render(<LanguageProvider><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
     expect(controller.refreshComponents).toHaveBeenCalledOnce();
     const button = screen.getByRole('button', { name: '检查状态' });
     expect(button).toHaveClass('settings-secondary-button');
     expect(button.closest('.runtime-component-actions')).not.toBeNull();
-    expect(screen.queryByRole('button', { name: /下载|修复|更新/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '检查并更新' })).toBeEnabled();
 
     fireEvent.click(button);
 
     await waitFor(() => expect(screen.getByText('检查完成，本地组件已就绪。')).toBeVisible());
     expect(controller.refreshComponents).toHaveBeenCalledTimes(2);
     expect(controller.downloadComponents).not.toHaveBeenCalled();
+  });
+
+  it('checks and updates a ready component without selecting it for transcription', async () => {
+    const controller = controllerFixture({ state: 'ready', version: '1.1.0' }, 'openai');
+    render(<LanguageProvider><LocalTranscriptionComponents controller={controller} /></LanguageProvider>);
+
+    expect(screen.getByText(/已通过校验的引擎和模型不会重复下载/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '检查并更新' }));
+
+    expect(controller.downloadComponents).toHaveBeenCalledWith('whisperkit');
+    expect(controller.componentsStatus?.selectedProvider).toBe('openai');
+    await waitFor(() => expect(screen.getByRole('button', { name: '检查并更新' })).not.toBeDisabled());
   });
 
   it('keeps checks read-only even when components are missing', async () => {

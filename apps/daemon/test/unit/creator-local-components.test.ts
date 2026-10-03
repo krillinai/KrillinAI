@@ -18,6 +18,62 @@ function fixture() {
 }
 
 describe('shared local transcription components', () => {
+  it.each(['openai', 'aliyun', 'funasr'] as const)('prepares WhisperKit independently of the selected %s provider and shares it with tasks', async provider => {
+    const test = fixture();
+    test.config.transcription.provider = provider;
+    const saved = structuredClone(test.config);
+    const status = await test.loader.download(test.config, 'whisperkit');
+    expect(status).toMatchObject({ selectedProvider: provider, selectedModel: null });
+    await vi.waitFor(() => expect(test.install).toHaveBeenCalledOnce());
+
+    const taskConfig = structuredClone(test.config);
+    taskConfig.transcription.provider = 'whisperkit';
+    const task = test.loader.ensure({ config: taskConfig, signal: new AbortController().signal, reportProgress() {} });
+    test.finish();
+    await task;
+
+    expect(test.config).toEqual(saved);
+    expect(test.install).toHaveBeenCalledOnce();
+    expect((await test.loader.status(test.config)).components.find(component => component.id === 'whisperkit')).toMatchObject({ state: 'ready', model: 'large-v2' });
+    test.loader.close();
+  });
+
+  it('uses the requested component model and proxy without changing transcription settings', async () => {
+    let installed = false;
+    const install = vi.fn(async () => { installed = true; });
+    const loader = createKrillinDependencyLoader({ root: '/tmp/opencreator-independent-whispercpp', platform: 'win32', arch: 'x64', whisperCppInstaller: { isInstalled: async () => installed, install } });
+    const config = createDefaultCreatorServicesConfig();
+    config.transcription.provider = 'openai';
+    config.transcription.whisperCpp.model = 'large-v3-turbo';
+    config.proxy = 'http://127.0.0.1:7890';
+    const saved = structuredClone(config);
+
+    expect((await loader.status(config)).components.find(component => component.id === 'whisper.cpp')?.model).toBe('large-v3-turbo');
+    await loader.download(config, 'whisper.cpp');
+    await vi.waitFor(() => expect(install).toHaveBeenCalledWith(expect.objectContaining({ model: 'large-v3-turbo', proxy: config.proxy })));
+    await vi.waitFor(async () => expect((await loader.status(config)).components.find(component => component.id === 'whisper.cpp')?.state).toBe('ready'));
+
+    expect(config).toEqual(saved);
+    loader.close();
+  });
+
+  it('checks a ready component without downloading valid resources again', async () => {
+    const install = vi.fn();
+    const isInstalled = vi.fn(async () => true);
+    const loader = createKrillinDependencyLoader({ root: '/tmp/opencreator-ready-whisperkit', platform: 'darwin', arch: 'arm64', whisperKitInstaller: { isInstalled, install } });
+    const config = createDefaultCreatorServicesConfig();
+    expect((await loader.status(config)).components.find(component => component.id === 'whisperkit')?.state).toBe('ready');
+    const checksBefore = isInstalled.mock.calls.length;
+
+    await loader.download(config, 'whisperkit');
+    await vi.waitFor(() => expect(isInstalled.mock.calls.length).toBeGreaterThan(checksBefore));
+    await vi.waitFor(async () => expect((await loader.status(config)).components.find(component => component.id === 'whisperkit')?.state).toBe('ready'));
+
+    expect(install).not.toHaveBeenCalled();
+    expect(config.transcription.provider).toBe('openai');
+    loader.close();
+  });
+
   it('exposes a failed installation and lets users retry the same component', async () => {
     let installed = false;
     const install = vi.fn().mockRejectedValueOnce(new Error('download connection failed')).mockImplementationOnce(async () => { installed = true; });
@@ -69,6 +125,8 @@ describe('shared local transcription components', () => {
     config.transcription.provider = 'whisperkit';
     expect((await loader.status(config)).components.find(component => component.id === 'whisperkit')?.state).toBe('unsupported');
     await expect(loader.download(config)).rejects.toThrow('unavailable');
+    config.transcription.provider = 'openai';
+    await expect(loader.download(config, 'whisperkit')).rejects.toThrow('unavailable');
     loader.close();
   });
 });

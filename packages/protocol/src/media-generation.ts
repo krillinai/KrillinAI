@@ -1,3 +1,5 @@
+import type { PublicErrorFacts } from './issues.js';
+
 export const imageGenerationSizes = ['1024x1024', '1536x1024', '1024x1536'] as const;
 export type ImageGenerationSize = typeof imageGenerationSizes[number];
 export type ImageGenerationQuality = 'low' | 'medium' | 'high';
@@ -108,6 +110,7 @@ export type VideoGenerationResult = {
   mime?: 'video/mp4';
   size?: number;
   error?: string;
+  publicFacts?: PublicErrorFacts;
   createdAt: string;
   updatedAt: string;
 };

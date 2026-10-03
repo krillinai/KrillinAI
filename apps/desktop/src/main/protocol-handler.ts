@@ -1,6 +1,7 @@
 import { open, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { protocol } from 'electron';
+import { fetchDesktopRequest } from './desktop-network.js';
 import type { DaemonConnection } from '../shared/types.js';
 import type { DesktopLogger } from './logger.js';
 import {
@@ -28,16 +29,35 @@ export function registerPrivilegedSchemes(): void {
   ]);
 }
 
+export type ProtocolHandlerController = {
+  suspendRuntime(): void;
+  resumeRuntime(): void;
+};
+
 export async function installProtocolHandler(input: {
   webRoot: string;
   bootstrapRoot: string;
   getConnection(): DaemonConnection | undefined;
   logger: DesktopLogger;
-}): Promise<void> {
+}): Promise<ProtocolHandlerController> {
+  let runtimeSuspended = false;
+  const activeRequests = new Set<AbortController>();
   await protocol.handle('opencreator-app', async request => {
     const url = new URL(request.url);
     if (isRuntimeRequestUrl(url)) {
-      return await proxyRuntimeRequest(request, url, input.getConnection(), input.logger);
+      if (runtimeSuspended) {
+        return jsonError(503, 'RUNTIME_SHUTTING_DOWN', 'OpenCreator Runtime is stopping');
+      }
+      const controller = new AbortController();
+      activeRequests.add(controller);
+      return await proxyRuntimeRequest(
+        request,
+        url,
+        input.getConnection(),
+        input.logger,
+        AbortSignal.any([request.signal, controller.signal]),
+        () => activeRequests.delete(controller)
+      );
     }
     if (url.hostname === 'app') {
       return await staticResponse(input.webRoot, request, true);
@@ -47,15 +67,28 @@ export async function installProtocolHandler(input: {
     }
     return new Response('Not found', { status: 404 });
   });
+  return {
+    suspendRuntime() {
+      runtimeSuspended = true;
+      for (const controller of activeRequests) controller.abort();
+      activeRequests.clear();
+    },
+    resumeRuntime() {
+      runtimeSuspended = false;
+    }
+  };
 }
 
 async function proxyRuntimeRequest(
   request: Request,
   url: URL,
   connection: DaemonConnection | undefined,
-  logger: DesktopLogger
+  logger: DesktopLogger,
+  signal: AbortSignal,
+  onComplete: () => void
 ): Promise<Response> {
   if (connection === undefined) {
+    onComplete();
     return jsonError(503, 'RUNTIME_UNAVAILABLE', 'OpenCreator Runtime is not ready');
   }
   try {
@@ -72,12 +105,17 @@ async function proxyRuntimeRequest(
       headers,
       body,
       redirect: 'manual',
-      signal: request.signal
+      signal
     };
     if (streamsUpload && body !== undefined) upstreamRequest.duplex = 'half';
-    const upstream = await fetch(target.toString(), upstreamRequest);
-    return relayRuntimeResponse(upstream, logger);
+    signal.throwIfAborted();
+    const upstream = await fetchDesktopRequest(target.toString(), upstreamRequest);
+    return relayRuntimeResponse(upstream, logger, signal, onComplete);
   } catch (error) {
+    onComplete();
+    if (signal.aborted) {
+      return jsonError(503, 'RUNTIME_REQUEST_ABORTED', 'Runtime request was cancelled');
+    }
     if (error instanceof RuntimeProxyError) {
       return jsonError(error.status, error.code, error.message);
     }
@@ -91,7 +129,9 @@ async function proxyRuntimeRequest(
 
 function relayRuntimeResponse(
   upstream: Response,
-  logger: DesktopLogger
+  logger: DesktopLogger,
+  signal: AbortSignal,
+  onComplete: () => void
 ): Response {
   const headers = new Headers(upstream.headers);
   for (const name of [
@@ -108,6 +148,7 @@ function relayRuntimeResponse(
   }
   const source = upstream.body;
   if (source === null) {
+    onComplete();
     return new Response(null, {
       status: upstream.status,
       statusText: upstream.statusText,
@@ -120,11 +161,13 @@ function relayRuntimeResponse(
     if (released) return;
     released = true;
     reader.releaseLock();
+    onComplete();
   };
   const body = new ReadableStream<Uint8Array>({
     async pull(controller) {
       try {
         const result = await reader.read();
+        if (released) return;
         if (result.done) {
           release();
           controller.close();
@@ -132,16 +175,20 @@ function relayRuntimeResponse(
         }
         controller.enqueue(result.value);
       } catch (error) {
+        if (released) return;
         release();
-        logger.warn('Runtime proxy response stream failed', {
-          message: error instanceof Error ? error.message : String(error)
-        });
+        if (!signal.aborted) {
+          logger.warn('Runtime proxy response stream failed', {
+            message: error instanceof Error ? error.message : String(error)
+          });
+        }
         controller.error(error);
       }
     },
     async cancel(reason) {
-      await reader.cancel(reason).catch(() => undefined);
+      const cancellation = reader.cancel(reason);
       release();
+      await cancellation.catch(() => undefined);
     }
   });
   return new Response(body, {

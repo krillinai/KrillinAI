@@ -1,9 +1,14 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { z } from 'zod';
 import type { YtDlpUpdateManager } from '../creator/yt-dlp/update-manager.js';
 import { YtDlpUpdateError } from '../creator/yt-dlp/update-manager.js';
 import { apiError } from './errors.js';
 import type { CreatorServicesConfig } from '@opencreator/protocol';
 import type { createKrillinDependencyLoader } from '../creator/krillin/dependency-loader.js';
+
+const componentDownloadSchema = z.object({
+  componentId: z.enum(['whisperkit', 'whisper.cpp', 'faster-whisper']).optional()
+}).optional();
 
 export async function registerCreatorRuntimeRoutes(
   server: FastifyInstance,
@@ -43,10 +48,11 @@ export async function registerCreatorRuntimeRoutes(
     if (local === undefined) return reply.code(503).send(apiError('creator_components_unavailable', 'Local components are unavailable'));
     return local.loader.status(await local.readConfig());
   });
-  server.post('/creator/components/download', async (_request, reply) => {
+  server.post('/creator/components/download', async (request, reply) => {
     if (local === undefined) return reply.code(503).send(apiError('creator_components_unavailable', 'Local components are unavailable'));
     try {
-      return await local.loader.download(await local.readConfig());
+      const body = componentDownloadSchema.parse(request.body);
+      return await local.loader.download(await local.readConfig(), body?.componentId);
     } catch (error) {
       return reply.code(400).send(apiError('creator_component_download_unavailable', error instanceof Error ? error.message : 'Component download unavailable'));
     }

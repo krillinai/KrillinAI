@@ -60,7 +60,7 @@ export function LocalTranscriptionComponents({ controller, componentId, onReturn
       const busy = ['downloading', 'verifying', 'extracting'].includes(component.state);
       const checking = action?.componentId === component.id && action.kind === 'check';
       const startingDownload = action?.componentId === component.id && action.kind === 'download';
-      const canDownload = selected && downloadComponents && component.state !== 'ready';
+      const canDownload = downloadComponents !== undefined;
       const requiredResources = [
         component.version === null ? localize('转录引擎', 'transcription engine') : undefined,
         component.models.find(model => model.id === component.model)?.installed !== true
@@ -108,16 +108,18 @@ export function LocalTranscriptionComponents({ controller, componentId, onReturn
         </div> : null}
         {component.error ? <div role="alert"><p>{localize('本地转录组件准备失败。已有字幕不受影响，可检查诊断信息后重试下载。', 'Local transcription preparation failed. Existing subtitles are unchanged; check the diagnostics and retry the download.', 'Förberedelsen av lokal transkription misslyckades. Befintliga undertexter är oförändrade; kontrollera diagnostiken och försök ladda ned igen.')}</p><OriginalErrorDetails detail={component.error} /></div> : null}
         {checkedComponentId === component.id && !controller.componentError && !actionError && !busy ? <p className="local-component-check-notice" role="status">{component.state === 'ready' ? localize('检查完成，本地组件已就绪。', 'Check complete. Local components are ready.') : localize('组件状态已刷新，尚未开始下载。', 'Component status refreshed. No downloads have started.')}</p> : null}
-        {!busy && canDownload ? <p>{localize('将准备所需资源：', 'Resources to prepare: ')}{requiredResources || localize('当前转录引擎和模型', 'the current transcription engine and model')}{localize('。', '.')}</p> : null}
+        {!busy && canDownload ? <p>{component.state === 'ready'
+          ? localize('将检查并按需更新至受支持版本，已通过校验的引擎和模型不会重复下载。', 'Checks and updates to the supported version as needed. Verified engines and models will not be downloaded again.')
+          : <>{localize('将准备所需资源：', 'Resources to prepare: ')}{requiredResources || localize('当前转录引擎和模型', 'the current transcription engine and model')}{localize('。', '.')}</>}</p> : null}
         {!busy ? <footer className="runtime-component-footer">
           <div className="runtime-component-actions">
             {refreshComponents ? <button type="button" className="settings-secondary-button" disabled={action !== undefined} onClick={() => void performAction(component.id, 'check', refreshComponents)}>
               {checking ? <LoaderCircle className="settings-spin" size={15} aria-hidden="true" /> : <RefreshCw size={15} aria-hidden="true" />}
               {checking ? localize('正在检查', 'Checking') : localize('检查状态', 'Check status')}
             </button> : null}
-            {canDownload ? <button type="button" className="settings-primary-button" disabled={action !== undefined} onClick={() => void performAction(component.id, 'download', downloadComponents)}>
+            {downloadComponents ? <button type="button" className="settings-primary-button" disabled={action !== undefined} onClick={() => void performAction(component.id, 'download', () => downloadComponents(component.id))}>
               {startingDownload ? <LoaderCircle className="settings-spin" size={15} aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
-              {startingDownload ? localize('正在准备', 'Preparing') : component.state === 'failed' ? localize('重试下载', 'Retry download') : component.state === 'partial' ? localize('补齐组件', 'Complete installation') : localize('下载组件', 'Download components')}
+              {startingDownload ? localize('正在准备', 'Preparing') : component.state === 'ready' ? localize('检查并更新', 'Check and update') : component.state === 'failed' ? localize('重试下载', 'Retry download') : component.state === 'partial' ? localize('补齐组件', 'Complete installation') : localize('下载组件', 'Download components')}
             </button> : null}
           </div>
           {!selected ? <a href="#/settings?tab=ai-services&section=transcription">{localize('调整转录设置', 'Change transcription settings')}</a> : null}

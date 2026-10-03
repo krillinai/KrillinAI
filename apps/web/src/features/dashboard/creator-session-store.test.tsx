@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import type { CreatorEventEnvelope, CreatorJob, OpenCreatorIssue } from '@opencreator/protocol';
+import type { CreatorEventEnvelope, CreatorJob, CreatorStageRun, OpenCreatorIssue } from '@opencreator/protocol';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 import {
@@ -88,6 +88,53 @@ function PendingHarness() {
 }
 
 describe('CreatorSessionStore', () => {
+  it('does not overwrite a failed job with a delayed successful action response', async () => {
+    let resolveAction!: (value: { job: CreatorJob }) => void;
+    const applyAction = vi.fn(() => new Promise<{ job: CreatorJob }>(resolve => { resolveAction = resolve; }));
+    let session!: ReturnType<typeof useCreatorSession>;
+    function SnapshotHarness() {
+      session = useCreatorSession();
+      return <Harness />;
+    }
+    render(<CreatorSessionProvider initialJob={job(0, {})} service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+      <SnapshotHarness />
+    </CreatorSessionProvider>);
+    let actionWork!: Promise<CreatorJob>;
+    await act(async () => { actionWork = session.applyAction({ action: 'run-stage', input: { stageId: 'subtitle' } }); });
+    expect(applyAction).toHaveBeenCalledTimes(1);
+    const failed = { ...job(2, {}), status: 'failed' as const };
+    act(() => session.applyRemoteSnapshot(failed));
+    await act(async () => { resolveAction({ job: { ...job(1, {}), status: 'running' } }); await actionWork; });
+    expect(session.job).toBe(failed);
+    expect((await actionWork).status).toBe('failed');
+    expect(screen.getByLabelText('error')).toBeEmptyDOMElement();
+  });
+
+  it('ignores snapshots and replayed events that regress the same stage from failed to running', async () => {
+    const failedStage: CreatorStageRun = {
+      id: 'stage_failure', jobId: 'job_1', stageId: 'subtitle', executor: 'krillinai', status: 'failed',
+      dispatchStatus: 'finished', claimOwner: null, claimExpiresAt: null, attempt: 1, idempotencyKey: null,
+      scopeKey: null, inputFingerprint: null, progress: { percent: 8, status: 'running' },
+      errorCode: 'creator_stage_failed', errorMessage: 'Failed', startedAt: null, finishedAt: '2026-08-21T00:00:01.000Z'
+    };
+    const failed = { ...job(2, {}), status: 'failed' as const, stages: [failedStage] };
+    let session!: ReturnType<typeof useCreatorSession>;
+    let emit!: (event: CreatorEventEnvelope) => void;
+    const getJob = vi.fn(async () => ({ job: failed }));
+    const subscribeJobEvents = vi.fn((_id, onEvent) => { emit = onEvent; return { close: vi.fn() }; });
+    function SnapshotHarness() { session = useCreatorSession(); return <Harness />; }
+    render(<CreatorSessionProvider initialJob={failed} service={{ applyAction: vi.fn(), runAgentTurn: vi.fn(), getJob, subscribeJobEvents } as never}>
+      <SnapshotHarness />
+    </CreatorSessionProvider>);
+    await waitFor(() => expect(subscribeJobEvents).toHaveBeenCalledTimes(1));
+    const runningStage = { ...failedStage, status: 'running' as const, finishedAt: null };
+    act(() => session.applyRemoteSnapshot({ ...failed, status: 'running', stages: [runningStage] }));
+    act(() => emit({ id: 'stale-stage', jobId: failed.id, revision: 2, kind: 'stage_progress', payload: { stage: runningStage as never }, createdAt: '2026-08-21T00:00:00.000Z' }));
+    expect(screen.getByLabelText('stages')).toHaveTextContent('subtitle:failed');
+    act(() => session.applyRemoteSnapshot({ ...failed, revision: 3, status: 'running', stages: [{ ...runningStage, id: 'new_stage' }] }));
+    expect(screen.getByLabelText('stages')).toHaveTextContent('subtitle:running');
+  });
+
   it('recovers an initial snapshot failure while retaining local state without submitting tasks', async () => {
     const getJob = vi.fn().mockRejectedValueOnce(new TypeError('offline'))
       .mockResolvedValue({ job: job(2, { targetLanguage: 'en' }) });

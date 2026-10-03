@@ -489,17 +489,18 @@ function extensionForMime(mime: 'image/png' | 'image/jpeg' | 'image/webp') {
 function creatorImageError(error: unknown): CreatorExecutorError {
   if (error instanceof ImageGenerationProviderError) {
     return error.code === 'config_missing'
-      ? new CreatorExecutorError('creator_image_config_missing', error.message)
+      ? CreatorExecutorError.from('creator_image_config_missing', error)
       : error.code === 'unsupported_capability'
-        ? new CreatorExecutorError('unsupported_capability', error.message)
-      : new CreatorExecutorError('image_generation_failed', error.message);
+        ? CreatorExecutorError.from('unsupported_capability', error)
+      : CreatorExecutorError.from('image_generation_failed', error);
   }
   if (error instanceof DOMException && error.name === 'AbortError') {
     return new CreatorExecutorError('creator_stage_canceled', 'Creator stage was canceled');
   }
-  return new CreatorExecutorError(
+  return CreatorExecutorError.from(
     'image_generation_failed',
-    error instanceof Error ? error.message : 'Image generation failed'
+    error,
+    'Image generation failed'
   );
 }
 
