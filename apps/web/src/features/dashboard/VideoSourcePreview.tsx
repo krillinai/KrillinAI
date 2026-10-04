@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, FileVideo, Link2, Play, RotateCcw, Trash2 } from 'lucide-react';
+import { Download, ExternalLink, FileVideo, Link2, LoaderCircle, Play, RotateCcw, Trash2 } from 'lucide-react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
-import { parseBilibiliVideoSource, type VideoMetadataResponse } from '@opencreator/protocol';
+import { supportedVideoSourcePlatform, parseBilibiliVideoSource, type VideoMetadataResponse } from '@opencreator/protocol';
 import type { VideoMetadataService } from '../../services/video-metadata-service.js';
 
 type VideoSource =
@@ -10,6 +10,14 @@ type VideoSource =
   | { kind: 'direct'; url: string; label: string }
   | { kind: 'link'; url: string; hostname: string; label: string }
   | { kind: 'invalid'; label: string };
+
+export type SourcePlaybackPreview = {
+  src?: string;
+  pending: boolean;
+  blocked?: boolean;
+  error?: string;
+  onPrepare?(): void;
+};
 
 export function parseVideoSource(value: string): VideoSource {
   const trimmed = value.trim();
@@ -94,13 +102,18 @@ function LocalVideoPreview(props: { file: File; onDimensions?(width: number, hei
   );
 }
 
-function PreviewVideo(props: { src: string; label: string; onDimensions?(width: number, height: number): void }) {
+function PreviewVideo(props: { src: string; label: string; poster?: string; onReady?(): void; onError?(): void; onDimensions?(width: number, height: number): void }) {
   const [aspectRatio, setAspectRatio] = useState<string>();
 
   return (
     <video
       controls
+      playsInline
+      preload="metadata"
       src={props.src}
+      poster={props.poster}
+      onError={props.onError}
+      onLoadedData={props.onReady}
       aria-label={props.label}
       style={aspectRatio ? { aspectRatio } : undefined}
       onLoadedMetadata={event => {
@@ -127,6 +140,7 @@ export default function VideoSourcePreview(props: {
   metadataService?: VideoMetadataService;
   metadata?: VideoMetadataResponse;
   previewEnabled?: boolean;
+  playbackPreview?: SourcePlaybackPreview;
   onDimensions?(width: number, height: number): void;
   onMetadata?(url: string, metadata: VideoMetadataResponse): void;
 }) {
@@ -135,10 +149,20 @@ export default function VideoSourcePreview(props: {
   const [fetchedMetadata, setFetchedMetadata] = useState<{ url: string; value: VideoMetadataResponse }>();
   const metadata = props.metadata ?? (fetchedMetadata?.url === props.url ? fetchedMetadata.value : undefined);
   const [mediaDimensions, setMediaDimensions] = useState<{ width: number; height: number }>();
+  const [onlinePreviewState, setOnlinePreviewState] = useState<{ url: string; pending: boolean }>();
+  const [onlinePreviewReload, setOnlinePreviewReload] = useState(0);
+  const [failedPlayback, setFailedPlayback] = useState<{ url: string; src: string }>();
+  const [readyPlayback, setReadyPlayback] = useState<{ url: string; src: string }>();
   const source = useMemo(() => parseVideoSource(props.url), [props.url]);
   const localFile = props.sourceType === 'file' ? props.file : null;
   const registeredFile = props.sourceType === 'file' ? props.registeredFile : undefined;
   const isLocal = localFile !== null || registeredFile !== undefined;
+  const canResolveOnline = !isLocal && source.kind === 'link'
+    && !props.playbackPreview?.src && supportedVideoSourcePlatform(props.url) !== null && props.metadataService !== undefined;
+  const onlinePreviewPending = canResolveOnline && !props.playbackPreview?.src && !props.playbackPreview?.pending
+    && (onlinePreviewState?.url !== props.url || onlinePreviewState.pending);
+  const linkPlaybackSrc = props.playbackPreview?.src ?? metadata?.previewUrl;
+  const playbackFailed = failedPlayback?.url === props.url && failedPlayback.src === linkPlaybackSrc;
   const localizedLabel = source.kind === 'youtube'
     ? l('YouTube 视频', 'YouTube video')
     : source.kind === 'bilibili'
@@ -168,11 +192,40 @@ export default function VideoSourcePreview(props: {
   useEffect(() => {
     setShowYouTubePlayer(false);
     setMediaDimensions(undefined);
+    setFailedPlayback(undefined);
+    setReadyPlayback(undefined);
+    setOnlinePreviewReload(0);
   }, [props.sourceType, props.url]);
 
   useEffect(() => {
     setMediaDimensions(undefined);
   }, [localFile]);
+
+  useEffect(() => {
+    if (source.kind !== 'link' || !linkPlaybackSrc || props.playbackPreview?.src || playbackFailed
+      || readyPlayback?.url === props.url && readyPlayback.src === linkPlaybackSrc) return;
+    const timeout = setTimeout(() => setFailedPlayback({ url: props.url, src: linkPlaybackSrc }), 15_000);
+    return () => clearTimeout(timeout);
+  }, [source.kind, props.url, linkPlaybackSrc, props.playbackPreview?.src, playbackFailed, readyPlayback]);
+
+  useEffect(() => {
+    if (!canResolveOnline || props.playbackPreview?.src || props.playbackPreview?.pending) return;
+    let active = true;
+    setOnlinePreviewState({ url: props.url, pending: true });
+    const timeout = setTimeout(() => {
+      void props.metadataService!.getVideoMetadata(props.url).then(result => {
+        if (!active) return;
+        setFailedPlayback(undefined);
+        setFetchedMetadata({ url: props.url, value: result });
+        props.onMetadata?.(props.url, result);
+        setOnlinePreviewState({ url: props.url, pending: false });
+        if (result.width !== undefined && result.height !== undefined) updateMediaDimensions(result.width, result.height);
+      }).catch(() => {
+        if (active) setOnlinePreviewState({ url: props.url, pending: false });
+      });
+    }, 250);
+    return () => { active = false; clearTimeout(timeout); };
+  }, [canResolveOnline, props.metadataService, props.url, props.playbackPreview?.src, props.playbackPreview?.pending, onlinePreviewReload]);
 
   function updateMediaDimensions(width: number, height: number) {
     setMediaDimensions({ width, height });
@@ -253,11 +306,49 @@ export default function VideoSourcePreview(props: {
         {!isLocal && source.kind === 'direct' ? (
           <PreviewVideo key={source.url} src={source.url} label={l('视频链接预览', 'Video link preview')} onDimensions={updateMediaDimensions} />
         ) : null}
-        {!isLocal && (source.kind === 'link' || source.kind === 'invalid') ? (
+        {!isLocal && source.kind === 'link' && linkPlaybackSrc && !playbackFailed ? (
+          <PreviewVideo key={linkPlaybackSrc} src={linkPlaybackSrc} poster={metadata?.thumbnailUrl}
+            label={props.playbackPreview?.src ? l('原视频预览', 'Source video preview') : l('在线视频预览', 'Online video preview')}
+            onReady={() => setReadyPlayback({ url: props.url, src: linkPlaybackSrc })}
+            onError={() => setFailedPlayback({ url: props.url, src: linkPlaybackSrc })} onDimensions={updateMediaDimensions} />
+        ) : null}
+        {!isLocal && ((source.kind === 'link' && (!linkPlaybackSrc || playbackFailed)) || source.kind === 'invalid') ? (
           <div className="video-source-link-preview">
-            <span><Link2 size={26} strokeWidth={1.6} aria-hidden="true" /></span>
-            <strong>{source.kind === 'invalid' ? l('暂时无法预览此链接', 'This link cannot be previewed') : l('此平台暂不支持内嵌预览', 'Embedded preview is not supported for this platform')}</strong>
+            {!props.playbackPreview?.pending && !onlinePreviewPending && metadata?.thumbnailUrl ? (
+              <img className="video-source-preview-thumbnail" src={metadata.thumbnailUrl} alt={l('视频封面', 'Video poster')} />
+            ) : <span>{props.playbackPreview?.pending || onlinePreviewPending ? <LoaderCircle className="video-source-preview-spinner" size={26} aria-hidden="true" /> : <Link2 size={26} strokeWidth={1.6} aria-hidden="true" />}</span>}
+            <strong role={props.playbackPreview?.pending || onlinePreviewPending ? 'status' : undefined}>{source.kind === 'invalid'
+              ? l('暂时无法预览此链接', 'This link cannot be previewed')
+              : onlinePreviewPending
+                ? l('正在获取视频预览', 'Loading online video preview')
+              : props.playbackPreview?.pending
+                ? l('正在准备视频预览', 'Preparing video preview')
+                : props.playbackPreview?.error
+                  ? l('视频预览准备失败', 'Video preview preparation failed')
+                  : canResolveOnline || playbackFailed
+                    ? l('在线播放暂不可用', 'Online playback is unavailable')
+                  : props.playbackPreview?.onPrepare
+                    ? l('原视频预览', 'Source video preview')
+                    : l('此平台暂不支持内嵌预览', 'Embedded preview is not supported for this platform')}</strong>
             <p>{sourceDetail}</p>
+            {source.kind === 'link' && props.playbackPreview?.error ? <p className="video-source-preview-error" role="alert">{props.playbackPreview.error}</p> : null}
+            {source.kind === 'link' && props.playbackPreview?.onPrepare && !onlinePreviewPending ? (
+              <button type="button" className="video-source-prepare-preview" disabled={props.playbackPreview.pending || props.playbackPreview.blocked} onClick={props.playbackPreview.onPrepare}>
+                <Download size={14} aria-hidden="true" />
+                {props.playbackPreview.pending ? l('正在准备…', 'Preparing…') : props.playbackPreview.error ? l('重试视频预览', 'Retry video preview') : l('下载并预览', 'Download and preview')}
+              </button>
+            ) : null}
+            {source.kind === 'link' && canResolveOnline && !onlinePreviewPending && !props.playbackPreview?.pending ? (
+              <button type="button" className="video-source-retry-online" title={l('重试在线播放', 'Retry online playback')} aria-label={l('重试在线播放', 'Retry online playback')}
+                onClick={() => {
+                  setFetchedMetadata(undefined);
+                  setReadyPlayback(undefined);
+                  setOnlinePreviewState({ url: props.url, pending: true });
+                  setOnlinePreviewReload(value => value + 1);
+                }}>
+                <RotateCcw size={15} aria-hidden="true" />
+              </button>
+            ) : null}
             {source.kind === 'link' ? (
               <a href={source.url} target="_blank" rel="noreferrer">
                 {l('打开原始链接', 'Open original link')}
@@ -278,7 +369,7 @@ export default function VideoSourcePreview(props: {
         </span>
         {!props.readOnly ? (
           <div className="video-source-preview-actions">
-            {!isLocal && (source.kind === 'youtube' || source.kind === 'bilibili') ? (
+            {!isLocal && (source.kind === 'youtube' || source.kind === 'bilibili' || (source.kind === 'link' && linkPlaybackSrc && !playbackFailed)) ? (
               <a
                 href={source.url}
                 target="_blank"

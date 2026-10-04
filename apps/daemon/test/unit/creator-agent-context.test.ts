@@ -4,6 +4,27 @@ import { createAgentContextBuilder } from '../../src/creator/agent/context-build
 import { createDefaultCreatorTemplateRegistry } from '../../src/creator/templates/registry.js';
 
 describe('creator agent context', () => {
+  it('tells the video download Agent to handle video and audio across supported platforms', () => {
+    const builder = createAgentContextBuilder({
+      templates: createDefaultCreatorTemplateRegistry()
+    });
+    const context = builder.build({
+      ...job(),
+      templateId: 'video-download',
+      templateVersion: 2
+    });
+
+    for (const platform of [
+      'YouTube', 'Bilibili', 'X', 'TikTok', 'Instagram',
+      '抖音', 'Facebook', '小红书', 'Pinterest'
+    ]) {
+      expect(context.templateGuidance).toContain(platform);
+    }
+    expect(context.templateGuidance).toContain('可下载视频或提取音频');
+    expect(context.templateGuidance).toContain('download_probe.options');
+    expect(context.templateGuidance).not.toContain('仅支持公开的 YouTube 和 Bilibili');
+  });
+
   it('projects settings, stage state and safe artifact summaries without paths or large subtitle content', () => {
     const builder = createAgentContextBuilder({
       templates: createDefaultCreatorTemplateRegistry(),

@@ -100,13 +100,12 @@ const featuredTools: FeaturedEntry[] = [
 
 const creatorTools: DashboardEntry[] = [
   {
-    title: '文章写作',
-    description: '公众号、X 等平台文章',
-    prompt: '帮我根据内容灵感写一篇适合公众号、X 等平台发布的文章，先给出选题和大纲，再完成正文。',
-    category: '文案创作',
-    icon: Newspaper,
-    badge: 'NEW',
-    workspace: 'wechat-article'
+    title: '视频下载',
+    description: '下载公开视频，或提取 MP3 音频',
+    prompt: '帮我下载这个视频链接，支持 YouTube、Bilibili 等平台，并保存为可用的视频文件。',
+    category: '视频编辑',
+    icon: Download,
+    workspace: 'video-download'
   },
   {
     title: '视频翻译',
@@ -118,20 +117,37 @@ const creatorTools: DashboardEntry[] = [
     workspace: 'video-translation'
   },
   {
+    title: '视频生成',
+    description: '文字或参考图生成视频片段',
+    prompt: '根据我的创意和参考素材生成一段 AI 视频，请先帮我梳理主体动作、镜头和画面风格。',
+    category: '视频创作',
+    icon: WandSparkles,
+    workspace: 'video-generation'
+  },
+  {
+    title: '图像生成',
+    description: '生成创意图片与视觉素材',
+    prompt: '根据我的创意生成一组图片，请先确认画面主体、风格、构图和使用场景。',
+    category: '图像创作',
+    icon: Image,
+    workspace: 'image-generation'
+  },
+  {
+    title: '文章写作',
+    description: '公众号、X 等平台文章',
+    prompt: '帮我根据内容灵感写一篇适合公众号、X 等平台发布的文章，先给出选题和大纲，再完成正文。',
+    category: '文案创作',
+    icon: Newspaper,
+    badge: 'NEW',
+    workspace: 'wechat-article'
+  },
+  {
     title: '火柴人动画',
     description: '角色、分镜与完整动画',
     prompt: '根据我的创意生成一支动画短片，请先帮我完善故事、角色和分镜。',
     category: '视频创作',
     icon: Sparkles,
     workspace: 'stickman-video'
-  },
-  {
-    title: '视频下载',
-    description: '支持YouTube，Bilibili等',
-    prompt: '帮我下载这个视频链接，支持 YouTube、Bilibili 等平台，并保存为可用的视频文件。',
-    category: '视频编辑',
-    icon: Download,
-    workspace: 'video-download'
   },
   {
     title: '视频切片',
@@ -176,28 +192,12 @@ const creatorTools: DashboardEntry[] = [
     workspace: 'smart-dubbing'
   },
   {
-    title: '视频生成',
-    description: '文字或参考图生成视频片段',
-    prompt: '根据我的创意和参考素材生成一段 AI 视频，请先帮我梳理主体动作、镜头和画面风格。',
-    category: '视频创作',
-    icon: WandSparkles,
-    workspace: 'video-generation'
-  },
-  {
     title: '数字人口播',
     description: '快速制作专业口播',
     prompt: '帮我制作一支数字人口播视频，请先优化文案，再规划人物、声音和画面。',
     category: '数字人',
     icon: UserRound,
     workspace: 'digital-avatar'
-  },
-  {
-    title: '图像生成',
-    description: '生成创意图片与视觉素材',
-    prompt: '根据我的创意生成一组图片，请先确认画面主体、风格、构图和使用场景。',
-    category: '图像创作',
-    icon: Image,
-    workspace: 'image-generation'
   }
 ];
 
@@ -1041,5 +1041,5 @@ const englishDashboardLabels: Record<string, string> = {
   封面生成: 'Thumbnail Generator',
   生成视频与内容封面: 'Create thumbnails for videos and content',
   视频下载: 'Video Downloader',
-  '支持YouTube，Bilibili等': 'Supports YouTube, Bilibili, and more'
+  '下载公开视频，或提取 MP3 音频': 'Download public videos or extract MP3 audio'
 };

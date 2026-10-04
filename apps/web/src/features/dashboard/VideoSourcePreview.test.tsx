@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import VideoSourcePreview from './VideoSourcePreview.js';
@@ -24,6 +24,87 @@ afterEach(() => {
 });
 
 describe('VideoSourcePreview', () => {
+  it('offers download when an online video never loads and clears the timeout after playback is ready', async () => {
+    vi.useFakeTimers();
+    const onPrepare = vi.fn();
+    const getVideoMetadata = vi.fn(async () => ({ platform: 'douyin' as const, title: 'Slow source', previewUrl: 'https://media.example.com/slow.mp4' }));
+    const view = render(<VideoSourcePreview file={null} sourceType="url" url="https://v.douyin.com/example/" onChooseFile={vi.fn()} onClear={vi.fn()}
+      metadataService={{ getVideoMetadata }} playbackPreview={{ pending: false, onPrepare }} />);
+    try {
+      await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+      expect(screen.getByLabelText('在线视频预览')).toBeVisible();
+      await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+      expect(screen.getByRole('button', { name: '下载并预览' })).toBeEnabled();
+      expect(onPrepare).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: '重试在线播放' }));
+      await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+      fireEvent.loadedData(screen.getByLabelText('在线视频预览'));
+      await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+      expect(screen.getByLabelText('在线视频预览')).toBeVisible();
+      expect(screen.queryByRole('button', { name: '下载并预览' })).not.toBeInTheDocument();
+    } finally { view.unmount(); vi.useRealTimers(); }
+  });
+  it('previews a Douyin URL online first and exposes download only after playback fails', async () => {
+    const onPrepare = vi.fn();
+    const getVideoMetadata = vi.fn(async () => ({ platform: 'douyin' as const, title: 'Douyin video', previewUrl: 'https://media.example.com/online.mp4', thumbnailUrl: 'https://media.example.com/cover.jpg' }));
+    render(<VideoSourcePreview file={null} sourceType="url" url="https://v.douyin.com/example/" onChooseFile={vi.fn()} onClear={vi.fn()}
+      metadataService={{ getVideoMetadata }} playbackPreview={{ pending: false, onPrepare }} />);
+    expect(screen.getByRole('status')).toHaveTextContent('正在获取视频预览');
+    expect(screen.queryByRole('button', { name: '下载并预览' })).not.toBeInTheDocument();
+    const video = await screen.findByLabelText('在线视频预览');
+    expect(video).toHaveAttribute('src', 'https://media.example.com/online.mp4');
+    expect(video).toHaveAttribute('preload', 'metadata');
+    expect(onPrepare).not.toHaveBeenCalled();
+    fireEvent.error(video);
+    expect(screen.getByText('在线播放暂不可用')).toBeVisible();
+    expect(screen.getByRole('button', { name: '下载并预览' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: '重试在线播放' }));
+    expect(screen.queryByRole('button', { name: '下载并预览' })).not.toBeInTheDocument();
+    expect(await screen.findByLabelText('在线视频预览')).toBeVisible();
+    expect(getVideoMetadata).toHaveBeenCalledTimes(2);
+    expect(onPrepare).not.toHaveBeenCalled();
+  });
+
+  it('falls back to an explicit download action when online resolution fails', async () => {
+    const onPrepare = vi.fn();
+    render(<VideoSourcePreview file={null} sourceType="url" url="https://v.douyin.com/example/" onChooseFile={vi.fn()} onClear={vi.fn()}
+      metadataService={{ getVideoMetadata: vi.fn(async () => { throw new Error('Login required'); }) }} playbackPreview={{ pending: false, onPrepare }} />);
+    expect(await screen.findByRole('button', { name: '下载并预览' })).toBeEnabled();
+    expect(onPrepare).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '下载并预览' }));
+    expect(onPrepare).toHaveBeenCalledOnce();
+  });
+
+  it('ignores an old online response after switching the source URL', async () => {
+    let resolveOld!: (value: { platform: 'douyin'; title: string; previewUrl: string }) => void;
+    const getVideoMetadata = vi.fn((url: string) => url.includes('first')
+      ? new Promise<{ platform: 'douyin'; title: string; previewUrl: string }>(resolve => { resolveOld = resolve; })
+      : Promise.resolve({ platform: 'douyin' as const, title: 'Second video', previewUrl: 'https://media.example.com/second.mp4' }));
+    const base = { file: null, sourceType: 'url' as const, onChooseFile: vi.fn(), onClear: vi.fn(), metadataService: { getVideoMetadata } };
+    const view = render(<VideoSourcePreview {...base} url="https://v.douyin.com/first/" />);
+    await waitFor(() => expect(getVideoMetadata).toHaveBeenCalledOnce());
+    view.rerender(<VideoSourcePreview {...base} url="https://v.douyin.com/second/" />);
+    expect(await screen.findByLabelText('在线视频预览')).toHaveAttribute('src', 'https://media.example.com/second.mp4');
+    resolveOld({ platform: 'douyin', title: 'First video', previewUrl: 'https://media.example.com/first.mp4' });
+    await waitFor(() => expect(screen.getByLabelText('在线视频预览')).toHaveAttribute('src', 'https://media.example.com/second.mp4'));
+  });
+  it('offers downloading for an external source, prevents duplicate requests, and plays the prepared file', () => {
+    const onPrepare = vi.fn();
+    const base = { file: null, sourceType: 'url' as const, url: 'https://v.douyin.com/example/', onChooseFile: vi.fn(), onClear: vi.fn() };
+    const view = render(<VideoSourcePreview {...base} playbackPreview={{ pending: false, onPrepare }} />);
+    fireEvent.click(screen.getByRole('button', { name: '下载并预览' }));
+    expect(onPrepare).toHaveBeenCalledOnce();
+    view.rerender(<VideoSourcePreview {...base} playbackPreview={{ pending: true, onPrepare }} />);
+    expect(screen.getByRole('status')).toHaveTextContent('正在准备视频预览');
+    expect(screen.getByRole('button', { name: '正在准备…' })).toBeDisabled();
+    view.rerender(<VideoSourcePreview {...base} playbackPreview={{ pending: false, error: '此视频需要登录', onPrepare }} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('此视频需要登录');
+    expect(screen.getByRole('button', { name: '重试视频预览' })).toBeEnabled();
+    view.rerender(<VideoSourcePreview {...base} playbackPreview={{ pending: false, src: 'blob:downloaded' }} />);
+    expect(screen.getByLabelText('原视频预览')).toHaveAttribute('src', 'blob:downloaded');
+    expect(screen.queryByRole('button', { name: '下载并预览' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '在浏览器中打开原视频' })).toHaveAttribute('href', base.url);
+  });
   it('previews a local file and releases its object URL', () => {
     const file = new File(['video'], 'local.mp4', { type: 'video/mp4' });
     const { unmount } = render(

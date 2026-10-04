@@ -162,6 +162,10 @@ export type CreatorPresetHighlight = {
   colors: string[];
 };
 
+export type CreatorPresetDetail = CreatorPresetHighlight & {
+  label: string;
+};
+
 export type CreatorPresetAuthor = {
   name: string;
   url?: string;
@@ -182,6 +186,7 @@ export type CreatorPresetSummary = CreatorPresetRef & {
   sortOrder: number;
   requirements: CreatorPresetRequirements | null;
   highlights: CreatorPresetHighlight[];
+  details?: CreatorPresetDetail[];
 };
 
 export type CreatorPresetListResponse = {

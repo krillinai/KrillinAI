@@ -8,7 +8,7 @@ import type {
   DownloadOption,
   DownloadProbe
 } from '@opencreator/protocol';
-import { extractDouyinShareUrl, parseBilibiliVideoSource, videoSourceIdentity } from '@opencreator/protocol';
+import { extractDouyinShareUrl, normalizeVideoSourceUrl, supportedVideoSourcePlatform, parseBilibiliVideoSource, videoSourceIdentity } from '@opencreator/protocol';
 import { creatorResultSnapshotForVersion } from '../result-snapshots.js';
 import type {
   CreatorExecutor,
@@ -50,13 +50,17 @@ type PlaybackOutput = PlaybackCodecs & {
 
 const YT_DLP_UTF8_ARGS = ['--encoding', 'utf-8'];
 
+function isPreviewStage(stage: CreatorExecutorInput): boolean {
+  return stage.stageRun.stageId === 'prepare-source-video' || stage.stageRun.stageId === 'preview-source-video';
+}
+
 export function createDownloadExecutor(
   input: DownloadExecutorOptions
 ): CreatorExecutor {
   return {
     id: 'download',
     async run(stage) {
-      if (stage.job.templateId === 'video-translation' && stage.stageRun.stageId === 'prepare-source-video') {
+      if (stage.job.templateId === 'video-translation' && isPreviewStage(stage)) {
         return preparePreviewSource(input, stage);
       }
       const url = readSourceUrl(stage);
@@ -297,15 +301,19 @@ async function preparePreviewSource(
   const snapshot = typeof version === 'number'
     ? creatorResultSnapshotForVersion(stage.job, version)
     : undefined;
-  const sourceUrl = snapshot?.state.sourceUrl;
+  const draftPreview = stage.stageRun.stageId === 'preview-source-video';
+  const sourceState = draftPreview
+    ? { ...stage.job.state, sourceType: 'url', sourceUrl: stage.stageRun.progress.previewSourceUrl ?? null }
+    : snapshot?.state;
+  const sourceUrl = sourceState?.sourceUrl;
   const identity = typeof sourceUrl === 'string' ? videoSourceIdentity(sourceUrl) : null;
-  if (snapshot === undefined || snapshot.state.sourceType === 'file' || typeof sourceUrl !== 'string' || identity === null) {
+  if (sourceState === undefined || sourceState.sourceType === 'file' || typeof sourceUrl !== 'string' || identity === null) {
     throw new CreatorExecutorError(
       'creator_action_input_invalid',
-      'A saved YouTube or Bilibili result source is required for preview'
+      'A saved supported public video result source is required for preview'
     );
   }
-  const resolvedStage = { ...stage, job: { ...stage.job, state: snapshot.state } };
+  const resolvedStage = { ...stage, job: { ...stage.job, state: sourceState } };
   const candidates = [...stage.job.artifacts].reverse().filter(artifact => {
     if (artifact.kind !== 'source_video' || artifact.status !== 'completed' || artifact.path === null) return false;
     const settings = artifact.metadata.settingsSnapshot;
@@ -341,7 +349,8 @@ async function preparePreviewSource(
             videoCodec: output.videoCodec,
             audioCodec: output.audioCodec,
             pixelFormat: output.pixelFormat,
-            settingsSnapshot: snapshot.state,
+            settingsSnapshot: sourceState,
+            previewOnly: draftPreview,
             cacheReused: true,
             playbackCompatible: true,
             normalizedForPlayback: output.normalizedForPlayback
@@ -359,7 +368,7 @@ async function preparePreviewSource(
   }
   const bilibili = parseBilibiliVideoSource(sourceUrl);
   const url = bilibili === null
-    ? sourceUrl
+    ? normalizeVideoSourceUrl(sourceUrl)
     : `https://www.bilibili.com/video/${bilibili.videoId}?p=${bilibili.partIndex ?? 1}`;
   const proxy = (await input.configStore.read()).proxy.trim();
   return downloadPlaybackSource(input, url, proxy, resolvedStage);
@@ -371,7 +380,7 @@ async function downloadPlaybackSource(
   proxy: string,
   stage: CreatorExecutorInput
 ): Promise<CreatorExecutorResult> {
-  const preview = stage.stageRun.stageId === 'prepare-source-video';
+  const preview = isPreviewStage(stage);
   stage.reportProgress({
     status: 'running',
     phase: 'preparing_download',
@@ -466,6 +475,7 @@ async function downloadPlaybackSource(
         source: preview ? 'video-translation-preview' : 'stickman-video',
         sourceUrl: url,
         ...(preview ? { settingsSnapshot: stage.job.state } : {}),
+        ...(stage.stageRun.stageId === 'preview-source-video' ? { previewOnly: true } : {}),
         videoCodec: output.videoCodec,
         audioCodec: output.audioCodec,
         pixelFormat: output.pixelFormat,
@@ -806,7 +816,7 @@ async function normalizeVideoForPlayback(
   stage.reportProgress({
     status: 'running',
     phase: 'normalizing_media',
-    percent: stage.stageRun.stageId === 'prepare-source-video' ? null : 98,
+    percent: isPreviewStage(stage) ? null : 98,
     message: 'Converting video for local playback'
   });
   const outputPath = playbackOutputPath(path);
@@ -878,7 +888,7 @@ function reportPlaybackConversionProgress(
   line: string,
   duration: number | null
 ): void {
-  if (duration === null || duration <= 0 || stage.stageRun.stageId === 'prepare-source-video') return;
+  if (duration === null || duration <= 0 || isPreviewStage(stage)) return;
   const match = line.match(/^out_time=(\d+):(\d+):([\d.]+)$/);
   if (match === null) return;
   const elapsed = (
@@ -1292,16 +1302,7 @@ function readSourceUrl(stage: CreatorExecutorInput): string {
 }
 
 function normalizeSourceUrl(value: string): string {
-  const trimmed = extractDouyinShareUrl(value);
-  try {
-    const parsed = new URL(trimmed);
-    if (isDouyinFeaturedVideoUrl(parsed)) {
-      return `https://www.douyin.com/video/${parsed.searchParams.get('modal_id')}`;
-    }
-  } catch {
-    return trimmed;
-  }
-  return trimmed;
+  return normalizeVideoSourceUrl(value);
 }
 
 function mimeTypeFor(path: string): string {
@@ -1323,86 +1324,7 @@ function sha256File(path: string): Promise<string> {
 }
 
 function isSupported(value: string): boolean {
-  try {
-    const parsed = new URL(value);
-    const host = parsed.hostname.toLowerCase();
-    return parsed.protocol === 'https:'
-      && (
-        host === 'youtu.be'
-        || host === 'youtube.com'
-        || host.endsWith('.youtube.com')
-        || host === 'b23.tv'
-        || host === 'bilibili.com'
-        || host.endsWith('.bilibili.com')
-        || host === 'x.com'
-        || host.endsWith('.x.com')
-        || host === 'twitter.com'
-        || host.endsWith('.twitter.com')
-        || isTikTokVideoUrl(parsed)
-        || isInstagramVideoUrl(parsed)
-        || isDouyinVideoUrl(parsed)
-        || isFacebookVideoUrl(parsed)
-        || isXiaohongshuVideoUrl(parsed)
-        || isPinterestVideoUrl(parsed)
-      );
-  } catch {
-    return false;
-  }
-}
-
-function isTikTokVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  if (host === 'vm.tiktok.com' || host === 'vt.tiktok.com') {
-    return /^\/[\w-]+\/?$/.test(url.pathname);
-  }
-  return (host === 'tiktok.com' || host.endsWith('.tiktok.com'))
-    && /^\/@[^/]+\/video\/\d+\/?$/.test(url.pathname);
-}
-
-function isInstagramVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  return (host === 'instagram.com' || host === 'www.instagram.com')
-    && /^\/(?:reel|p|tv)\/[\w-]+\/?$/.test(url.pathname);
-}
-
-function isDouyinVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  if (host === 'v.douyin.com') {
-    return /^\/[\w-]+\/?$/.test(url.pathname);
-  }
-  return (host === 'douyin.com' || host === 'www.douyin.com')
-    && (/^\/video\/\d+\/?$/.test(url.pathname) || isDouyinFeaturedVideoUrl(url));
-}
-
-function isDouyinFeaturedVideoUrl(url: URL): boolean {
-  return (url.hostname === 'douyin.com' || url.hostname === 'www.douyin.com')
-    && url.pathname === '/jingxuan'
-    && /^\d+$/.test(url.searchParams.get('modal_id') ?? '');
-}
-
-function isFacebookVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  if (host === 'fb.watch') {
-    return /^\/[\w-]+\/?$/.test(url.pathname);
-  }
-  if (!['facebook.com', 'www.facebook.com', 'm.facebook.com'].includes(host)) {
-    return false;
-  }
-  return /^\/watch\/?$/.test(url.pathname)
-    ? /^\d+$/.test(url.searchParams.get('v') ?? '')
-    : /^\/(?:reel\/\d+|videos\/\d+|[^/]+\/videos\/\d+)\/?$/.test(url.pathname);
-}
-
-function isXiaohongshuVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  return (host === 'xiaohongshu.com' || host === 'www.xiaohongshu.com')
-    && /^\/explore\/[0-9a-f]{24}\/?$/i.test(url.pathname);
-}
-
-function isPinterestVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  return (host === 'pinterest.com' || host === 'www.pinterest.com')
-    && /^\/pin\/\d+\/?$/.test(url.pathname);
+  return supportedVideoSourcePlatform(value) !== null;
 }
 
 function isYoutube(value: string): boolean {

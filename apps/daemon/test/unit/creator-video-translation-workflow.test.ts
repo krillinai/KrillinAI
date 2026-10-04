@@ -90,8 +90,16 @@ describe('video translation workflow', () => {
 
   it.each([
     'https://www.youtube.com/watch?v=xVWS7yHdzCU',
-    'https://youtu.be/tAkC-ZdaqWs?si=6LcL-jgzdBaZ1IFD'
-  ])('accepts the supported YouTube URL form: %s', async sourceUrl => {
+    'https://youtu.be/tAkC-ZdaqWs?si=6LcL-jgzdBaZ1IFD',
+    'https://x.com/creator/status/123',
+    'https://www.tiktok.com/@creator/video/123',
+    'https://www.instagram.com/reel/abc123/',
+    '分享视频 https://v.douyin.com/abc123/ 复制打开抖音',
+    'https://www.douyin.com/jingxuan?modal_id=123',
+    'https://www.facebook.com/watch/?v=123',
+    'https://www.xiaohongshu.com/explore/6a9149f3000000001f01d20a?xsec_token=sample%3D',
+    'https://www.pinterest.com/pin/123/'
+  ])('accepts the supported public video URL form: %s', async sourceUrl => {
     const fixture = setup({ sourceUrl });
     const config = createDefaultCreatorServicesConfig();
     config.llm.apiKey = 'llm-key';
@@ -104,6 +112,17 @@ describe('video translation workflow', () => {
     await expect(workflow.validateStage(fixture.service.getJob(fixture.jobId)!, 'subtitle'))
       .resolves.toBeUndefined();
     fixture.db.close();
+  });
+
+  it.each(['https://www.instagram.com/creator/', 'https://www.pinterest.com/creator/',
+    'https://notxiaohongshu.com/explore/6a9149f3000000001f01d20a'])('rejects unsupported translation sources: %s', async sourceUrl => {
+    const fixture = setup({ sourceUrl });
+    const workflow = createVideoTranslationWorkflow({ creator: fixture.service, dispatcher: fixture.dispatcher,
+      configStore: { read: async () => createDefaultCreatorServicesConfig() } });
+    try {
+      await expect(workflow.validateStage(fixture.service.getJob(fixture.jobId)!, 'subtitle'))
+        .rejects.toMatchObject({ code: 'unsupported_source' });
+    } finally { fixture.db.close(); }
   });
 
   it('queues the selected stages in order through the command dispatcher', async () => {

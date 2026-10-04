@@ -5,10 +5,10 @@ import type {
 import {
   ChevronDown,
   Copy,
-  ExternalLink,
-  Maximize2,
+  Info,
   Play,
   Search,
+  Tags,
   WandSparkles,
   UserRound,
   X
@@ -155,7 +155,8 @@ export function CreatorDashboard(props: {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
   const [promptHasOverflow, setPromptHasOverflow] = useState(false);
-  const [promptAtEnd, setPromptAtEnd] = useState(true);
+  const [promptExpanded, setPromptExpanded] = useState(false);
+  const [detailsExpanded, setDetailsExpanded] = useState(true);
   const [recentPresetIds, setRecentPresetIds] = useState<string[]>(readRecentPresetIds);
   const [busyIdentities, setBusyIdentities] = useState<Set<string>>(
     () => new Set()
@@ -166,6 +167,7 @@ export function CreatorDashboard(props: {
   const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
   const previewTriggerRef = useRef<HTMLButtonElement>(null);
   const previewCloseRef = useRef<HTMLButtonElement>(null);
+  const backdropRef = useRef<HTMLCanvasElement>(null);
   const promptRef = useRef<HTMLParagraphElement>(null);
   const tagsFilterRef = useRef<HTMLDivElement>(null);
   const tagsMeasureRef = useRef<HTMLDivElement>(null);
@@ -218,7 +220,25 @@ export function CreatorDashboard(props: {
   const selectedPreset = selectedPresetIdentity === undefined
     ? undefined
     : presets.find(preset => presetIdentity(preset) === selectedPresetIdentity);
-  useEffect(() => { setPromptCopied(false); }, [selectedPresetIdentity]);
+  const selectedPreviewUrl = selectedPreset?.previewUrl ?? selectedPreset?.coverUrl;
+  useEffect(() => {
+    const canvas = backdropRef.current;
+    if (canvas === null || selectedPreviewUrl === undefined) return;
+    canvas.width = 4;
+    const image = new window.Image();
+    image.onload = () => {
+      const context = canvas.getContext('2d');
+      if (context === null) return;
+      context.drawImage(image, 0, 0, 4, 4);
+    };
+    image.src = selectedPreviewUrl;
+    return () => { image.onload = null; };
+  }, [selectedPreviewUrl]);
+  useEffect(() => {
+    setPromptCopied(false);
+    setPromptExpanded(false);
+    setDetailsExpanded(true);
+  }, [selectedPresetIdentity]);
   useLayoutEffect(() => {
     const filter = tagsFilterRef.current;
     const measure = tagsMeasureRef.current;
@@ -289,10 +309,6 @@ export function CreatorDashboard(props: {
     if (prompt === null) return;
     const hasOverflow = prompt.scrollHeight > prompt.clientHeight + 1;
     setPromptHasOverflow(hasOverflow);
-    setPromptAtEnd(
-      !hasOverflow
-      || prompt.scrollTop + prompt.clientHeight >= prompt.scrollHeight - 2
-    );
   }, []);
 
   useEffect(() => {
@@ -362,16 +378,14 @@ export function CreatorDashboard(props: {
     const prompt = promptRef.current;
     if (prompt === null) {
       setPromptHasOverflow(false);
-      setPromptAtEnd(true);
       return;
     }
-    prompt.scrollTop = 0;
     updatePromptOverflow();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(updatePromptOverflow);
     observer.observe(prompt);
     return () => observer.disconnect();
-  }, [selectedPreset?.prompt, updatePromptOverflow]);
+  }, [selectedPreset?.prompt, promptExpanded, updatePromptOverflow]);
 
   function selectCategory(nextCategory: CreatorHomeCategory) {
     setCategory(nextCategory);
@@ -412,39 +426,45 @@ export function CreatorDashboard(props: {
   }
 
   const detail = selectedPreset === undefined ? null : (() => {
+    const closeDetails = () => {
+      setPreviewOpen(false);
+      setSelectedPresetIdentity(undefined);
+    };
     const identity = presetIdentity(selectedPreset);
     const busy = busyIdentities.has(identity);
     const previewUrl = selectedPreset.previewUrl ?? selectedPreset.coverUrl;
+    const detailRows = selectedPreset.details ?? selectedPreset.highlights.map((highlight, index) => ({
+      ...highlight,
+      label: language === 'en-US' ? `Setting ${index + 1}` : `配置 ${index + 1}`
+    }));
+    const authorAvatar = selectedPreset.author === undefined ? null : (
+      <>
+        {selectedPreset.author.avatarUrl === undefined ? null : (
+          <img src={selectedPreset.author.avatarUrl} alt="" onError={event => { event.currentTarget.hidden = true; }} />
+        )}
+        <UserRound size={17} aria-hidden="true" />
+      </>
+    );
+    const authorLinkLabel = language === 'en-US'
+      ? `View original source from ${selectedPreset.author?.name}`
+      : `查看${selectedPreset.author?.name}的原始来源`;
     return (
       <>
         <div className="creator-template-detail-backdrop" onMouseDown={event => {
           if (event.target === event.currentTarget) {
-            setPreviewOpen(false);
-            setSelectedPresetIdentity(undefined);
+            closeDetails();
           }
         }}>
         <div ref={detailPageRef} className="creator-dashboard creator-template-detail-page" role="dialog" aria-modal="true" aria-label={selectedPreset.title}>
-        <header className="creator-template-detail-toolbar">
-          <div className="creator-template-detail-heading">
-            <h1>{selectedPreset.title}</h1>
-            <p>{selectedPreset.description}</p>
-          </div>
-          <div className="creator-template-detail-actions">
-            <button className="creator-template-use-button" type="button" disabled={busy} aria-busy={busy} onClick={() => void selectPreset(selectedPreset)}>
-              <WandSparkles size={17} aria-hidden="true" />
-              {busy ? (language === 'en-US' ? 'Creating...' : '正在创建...') : (language === 'en-US' ? 'Use this template' : '使用此模板')}
-            </button>
-            <button ref={detailCloseRef} type="button" className="creator-template-back" aria-label={language === 'en-US' ? 'Back to templates' : '返回模板列表'} title={language === 'en-US' ? 'Back to templates' : '返回模板列表'} onClick={() => { setPreviewOpen(false); setSelectedPresetIdentity(undefined); }}>
-              <X size={18} aria-hidden="true" />
-            </button>
-          </div>
-        </header>
-
         <div className="creator-template-detail-layout">
           <section
             className="creator-template-outcome"
             aria-label={language === 'en-US' ? 'Example result' : '示例图片'}
+            onClick={event => {
+              if (event.target instanceof Element && event.target.closest('img, video') === null) closeDetails();
+            }}
           >
+            <canvas ref={backdropRef} className="creator-template-outcome-backdrop" width="4" height="4" aria-hidden="true" />
             {selectedPreset.previewVideoUrl === undefined ? (
               <button
                 ref={previewTriggerRef}
@@ -454,12 +474,14 @@ export function CreatorDashboard(props: {
                   ? `View full ${selectedPreset.title} result`
                   : `全屏查看${selectedPreset.title}完整作品`}
                 title={language === 'en-US' ? 'View full result' : '查看完整作品'}
-                onClick={() => setPreviewOpen(true)}
+                onClick={event => {
+                  // Keyboard activation has detail 0; pointer clicks on empty space dismiss.
+                  if (event.target === event.currentTarget && event.detail !== 0) return;
+                  event.stopPropagation();
+                  setPreviewOpen(true);
+                }}
               >
                 <img src={previewUrl} alt={selectedPreset.title} />
-                <span className="creator-template-outcome-expand" aria-hidden="true">
-                  <Maximize2 size={17} />
-                </span>
               </button>
             ) : (
               <div className="creator-template-outcome-media creator-template-outcome-video">
@@ -469,117 +491,99 @@ export function CreatorDashboard(props: {
                   controls
                   playsInline
                   preload="metadata"
+                  autoPlay
+                  loop
                   aria-label={language === 'en-US'
                     ? `${selectedPreset.title} example video`
                     : `${selectedPreset.title}示例视频`}
                 />
-                <button
-                  ref={previewTriggerRef}
-                  type="button"
-                  className="creator-template-outcome-expand"
-                  aria-label={language === 'en-US'
-                    ? `View full ${selectedPreset.title} result`
-                    : `全屏查看${selectedPreset.title}完整作品`}
-                  title={language === 'en-US' ? 'View full result' : '查看完整作品'}
-                  onClick={() => setPreviewOpen(true)}
-                >
-                  <Maximize2 size={17} />
-                </button>
               </div>
             )}
           </section>
 
           <aside className="creator-template-detail-info">
+            <header className="creator-template-detail-toolbar">
+              <div className="creator-template-detail-heading">
+                <h1 className={selectedPreset.author === undefined ? undefined : 'creator-template-visually-hidden'}>{selectedPreset.title}</h1>
+                <p className={selectedPreset.author === undefined ? undefined : 'creator-template-visually-hidden'}>{selectedPreset.description}</p>
+                {selectedPreset.author === undefined ? null : (
+                  <div className="creator-template-author" aria-label={language === 'en-US' ? 'Template author' : '模板作者'}>
+                    {selectedPreset.author.url === undefined ? (
+                      <span className="creator-template-author-avatar" aria-hidden="true">{authorAvatar}</span>
+                    ) : (
+                      <a className="creator-template-author-avatar" href={selectedPreset.author.url} target="_blank" rel="noreferrer" aria-label={authorLinkLabel} title={authorLinkLabel}>
+                        {authorAvatar}
+                      </a>
+                    )}
+                    <span className="creator-template-author-copy">
+                      <strong title={selectedPreset.author.name}>{selectedPreset.author.name}</strong>
+                      <small>{language === 'en-US' ? 'Author' : '作者'}</small>
+                    </span>
+                  </div>
+                )}
+              </div>
+              <button ref={detailCloseRef} type="button" className="creator-template-back" aria-label={language === 'en-US' ? 'Back to templates' : '返回模板列表'} title={language === 'en-US' ? 'Back to templates' : '返回模板列表'} onClick={closeDetails}>
+                <X size={18} aria-hidden="true" />
+              </button>
+            </header>
+
             <section className="creator-template-detail-section creator-template-prompt-section">
-              <div className={`creator-template-prompt-card${promptHasOverflow ? ' is-scrollable' : ''}${promptAtEnd ? ' is-at-end' : ''}`}>
+              <div className="creator-template-prompt-card">
                 <div className="creator-template-prompt-heading">
-                  <h2>{language === 'en-US' ? 'PROMPT' : 'PROMPT 正文'}</h2>
+                  <h2>{language === 'en-US' ? 'Prompt' : '提示词'}</h2>
                   <button type="button" disabled={selectedPreset.prompt === null} onClick={() => {
                     if (selectedPreset.prompt === null) return;
                     void navigator.clipboard.writeText(selectedPreset.prompt).then(() => setPromptCopied(true)).catch(() => setPromptCopied(false));
                   }}>
                     <Copy size={16} aria-hidden="true" />
-                    {promptCopied ? (language === 'en-US' ? 'Copied' : '已复制') : (language === 'en-US' ? 'Copy prompt' : '复制 Prompt')}
+                    {promptCopied ? (language === 'en-US' ? 'Copied' : '已复制') : (language === 'en-US' ? 'Copy' : '复制 Prompt')}
                   </button>
                 </div>
-                <p ref={promptRef} onScroll={updatePromptOverflow} className={selectedPreset.prompt === null ? 'creator-template-detail-empty' : 'creator-template-prompt'}>
+                <p ref={promptRef} className={`${selectedPreset.prompt === null ? 'creator-template-detail-empty' : 'creator-template-prompt'}${promptExpanded ? ' is-expanded' : ''}`}>
                   {selectedPreset.prompt === null
                     ? (language === 'en-US' ? 'This template uses fixed settings and does not require a preset prompt.' : '此模板使用固定配置，无需预设提示词。')
                     : renderPromptVariables(selectedPreset.prompt, language === 'zh-CN' ? 'zh-CN' : 'en-US')}
                 </p>
-                <span className="creator-template-prompt-scroll-cue" aria-hidden="true"><ChevronDown size={17} /></span>
+                {promptHasOverflow || promptExpanded ? (
+                  <button className="creator-template-prompt-expand" type="button" aria-expanded={promptExpanded} onClick={() => setPromptExpanded(value => !value)}>
+                    {promptExpanded ? (language === 'en-US' ? 'Show less' : '收起') : (language === 'en-US' ? 'See all' : '查看全部')}
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </button>
+                ) : null}
               </div>
             </section>
 
-            {selectedPreset.author === undefined ? null : (
-              <section
-                className="creator-template-author"
-                aria-label={language === 'en-US' ? 'Template author' : '模板作者'}
-              >
-                <span className="creator-template-author-avatar" aria-hidden="true">
-                  {selectedPreset.author.avatarUrl === undefined ? null : (
-                    <img
-                      src={selectedPreset.author.avatarUrl}
-                      alt=""
-                      onError={event => { event.currentTarget.hidden = true; }}
-                    />
-                  )}
-                  <UserRound size={17} />
-                </span>
-                <span className="creator-template-author-copy">
-                  <small>{language === 'en-US' ? 'Author' : '作者'}</small>
-                  <strong title={selectedPreset.author.name}>{selectedPreset.author.name}</strong>
-                </span>
-                {selectedPreset.author.url === undefined ? null : (
-                  <a
-                    href={selectedPreset.author.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={language === 'en-US'
-                      ? `View original source from ${selectedPreset.author.name}`
-                      : `查看${selectedPreset.author.name}的原始来源`}
-                  >
-                    <span>{language === 'en-US' ? 'Original source' : '原始来源'}</span>
-                    <ExternalLink size={14} aria-hidden="true" />
-                  </a>
-                )}
-              </section>
-            )}
-
-            {selectedPreset.highlights.length > 0 ? (
-              <section className="creator-template-detail-section">
-                <h2>{language === 'en-US' ? 'Template settings' : '模板配置'}</h2>
-                <div className="creator-template-highlights">
-                  {selectedPreset.highlights.map(highlight => (
-                    <span className="creator-template-highlight" key={highlight.text}>
-                      {highlight.colors.length > 0 ? (
-                        <span className="creator-template-swatches" aria-hidden="true">
-                          {highlight.colors.map(color => (
-                            <span key={color} style={{ backgroundColor: color }} />
-                          ))}
-                        </span>
-                      ) : null}
-                      <span>{highlight.text}</span>
-                    </span>
+            <section className="creator-template-detail-section creator-template-specs-section">
+              <button className="creator-template-specs-toggle" type="button" aria-expanded={detailsExpanded} onClick={() => setDetailsExpanded(value => !value)}>
+                <Info size={16} aria-hidden="true" />
+                <span>{language === 'en-US' ? 'Details' : '详情'}</span>
+                <ChevronDown size={16} aria-hidden="true" />
+              </button>
+              {detailsExpanded ? (
+                <dl className="creator-template-specs">
+                  {detailRows.map((detail, index) => (
+                    <div key={`${detail.label}-${index}`}>
+                      <dt>{detail.label}</dt>
+                      <dd>
+                        {detail.colors.length > 0 ? <span className="creator-template-swatches" aria-hidden="true">{detail.colors.map(color => <span key={color} style={{ backgroundColor: color }} />)}</span> : null}
+                        {detail.text}
+                      </dd>
+                    </div>
                   ))}
-                </div>
-              </section>
-            ) : null}
-
-            <section className="creator-template-detail-section">
-              <h2>{language === 'en-US' ? 'Tags' : '标签'}</h2>
-              <ul className="creator-template-tags" aria-label={language === 'en-US'
-                ? 'Template tags'
-                : '模板标签'}>
-                {selectedPreset.tags.map(tag => <li key={tag}>{tag}</li>)}
-              </ul>
+                  {selectedPreset.requirements !== null ? (
+                    <div><dt>{language === 'en-US' ? 'Requires' : '运行需要'}</dt><dd>{selectedPreset.requirements.capabilities.join(', ')}</dd></div>
+                  ) : null}
+                </dl>
+              ) : null}
             </section>
 
-            {selectedPreset.requirements !== null ? (
-              <p className="creator-template-runtime-requirement">
-                {language === 'en-US' ? 'Requires' : '运行需要'}: {' '}
-                {selectedPreset.requirements.capabilities.join(', ')}
-              </p>
+            {selectedPreset.tags.length > 0 ? (
+              <section className="creator-template-detail-section creator-template-tags-section" aria-label={language === 'en-US' ? 'Tags' : '标签'}>
+                <h2><Tags size={16} aria-hidden="true" />{language === 'en-US' ? 'Tags' : '标签'}</h2>
+                <ul className="creator-template-tags" aria-label={language === 'en-US' ? 'Template tags' : '模板标签'}>
+                  {selectedPreset.tags.map(tag => <li key={tag}>{tag}</li>)}
+                </ul>
+              </section>
             ) : null}
 
             <IssueList
@@ -591,6 +595,13 @@ export function CreatorDashboard(props: {
               onDismiss={pageIssues.dismissIssue}
               compact
             />
+
+            <div className="creator-template-detail-footer">
+              <button className="creator-template-use-button" type="button" disabled={busy} aria-busy={busy} onClick={() => void selectPreset(selectedPreset)}>
+                <WandSparkles size={18} aria-hidden="true" />
+                {busy ? (language === 'en-US' ? 'Creating...' : '正在创建...') : (language === 'en-US' ? 'Use this template' : '使用此模板')}
+              </button>
+            </div>
 
           </aside>
         </div>
@@ -621,6 +632,7 @@ export function CreatorDashboard(props: {
                   playsInline
                   preload="metadata"
                   autoPlay
+                  loop
                   aria-label={language === 'en-US'
                     ? `${selectedPreset.title} full example video`
                     : `${selectedPreset.title}完整示例视频`}

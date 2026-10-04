@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { videoSourceIdentity } from '@opencreator/protocol';
 import type {
   CreatorActionResponse,
   CreatorActor,
@@ -296,6 +297,13 @@ function stageRequestProgress(
   stageId: string,
   input: Record<string, CreatorJson>
 ): Record<string, CreatorJson> {
+  if (job.templateId === 'video-translation' && stageId === 'preview-source-video') {
+    const sourceUrl = job.state.sourceUrl;
+    if (job.state.sourceType === 'file' || typeof sourceUrl !== 'string' || videoSourceIdentity(sourceUrl) === null) {
+      throw new CreatorCommandError('unsupported_source', 'A supported public video URL is required for preview');
+    }
+    return { previewSourceUrl: sourceUrl };
+  }
   if (
     job.templateId !== 'video-download'
     || job.templateVersion < 2

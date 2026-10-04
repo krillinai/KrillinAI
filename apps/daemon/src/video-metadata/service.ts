@@ -1,6 +1,8 @@
-import { parseBilibiliVideoSource, type VideoMetadataResponse, type VideoSourcePart } from '@opencreator/protocol';
+import { normalizeVideoSourceUrl, supportedVideoSourcePlatform, parseBilibiliVideoSource, type VideoMetadataResponse, type VideoSourcePart } from '@opencreator/protocol';
 import { request as httpsRequest } from 'node:https';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import type { YtDlpRuntime } from '../creator/yt-dlp/runtime.js';
+import { resolveOnlineVideoMetadata } from './online-preview.js';
 
 const METADATA_TIMEOUT_MS = 5_000;
 
@@ -20,10 +22,22 @@ export type VideoMetadataService = {
 export function createVideoMetadataService(input: {
   fetchImpl?: typeof fetch;
   getProxy?(): string | Promise<string>;
+  getYtDlpRuntime?(): YtDlpRuntime | undefined;
 } = {}): VideoMetadataService {
   const cache = new Map<string, { payload: unknown; expiresAt: number }>();
   return {
     async get(value: string): Promise<VideoMetadataResponse> {
+      const normalized = normalizeVideoSourceUrl(value);
+      const platform = supportedVideoSourcePlatform(normalized);
+      if (platform !== null && platform !== 'youtube' && platform !== 'bilibili') {
+        const runtime = input.getYtDlpRuntime?.();
+        if (runtime === undefined) throw new VideoMetadataError('UPSTREAM_ERROR', 'Online video preview resolver is unavailable');
+        try {
+          return await resolveOnlineVideoMetadata({ url: normalized, platform, runtime, proxy: await resolveProxy(input.getProxy) });
+        } catch {
+          throw new VideoMetadataError('UPSTREAM_ERROR', 'Online video preview is unavailable for this source');
+        }
+      }
       const source = parseVideoSource(value);
       const endpoint = createMetadataEndpoint(source);
       const cached = cache.get(endpoint.href);

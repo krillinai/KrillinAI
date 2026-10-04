@@ -33,6 +33,28 @@ afterEach(() => {
 });
 
 describe('KrillinAI configured transcription dependency', () => {
+  it.each([
+    ['分享视频 https://v.douyin.com/abc123/ 复制打开抖音', 'https://v.douyin.com/abc123/'],
+    ['https://www.douyin.com/jingxuan?modal_id=123', 'https://www.douyin.com/video/123'],
+    ['https://www.xiaohongshu.com/explore/6a9149f3000000001f01d20a?xsec_token=sample%3D',
+      'https://www.xiaohongshu.com/explore/6a9149f3000000001f01d20a?xsec_token=sample%3D']
+  ])('transcribes added translation sources with normalized URLs and preserved tokens: %s', async (sourceUrl, expected) => {
+    const fixture = setup();
+    const stage = fixture.stage as CreatorExecutorInput;
+    stage.job.templateId = 'video-translation';
+    stage.job.state.sourceType = 'url';
+    stage.job.state.sourceUrl = sourceUrl;
+    stage.inputArtifacts = [];
+    runKrillinCli.mockImplementation(async input => {
+      const subtitle = writeTargetSubtitle(input.jobsRoot);
+      return ['source_subtitle', 'target_subtitle', 'vertical_subtitle'].map(kind => ({ ...subtitle, kind }));
+    });
+    await fixture.executor.run(stage);
+    expect(fixture.ensure).toHaveBeenCalledTimes(1);
+    expect(runKrillinCli).toHaveBeenCalledTimes(1);
+    expect(runKrillinCli.mock.calls[0]?.[0]).toMatchObject({ source: expected, options: { sourceUrl: expected } });
+    expect(runKrillinCli.mock.calls[0]?.[0].options.captionSource).not.toBe('platform');
+  });
   it('uses the original YouTube URL without preparing transcription when platform captions succeed', async () => {
     const fixture = setup();
     runKrillinCli.mockImplementation(async input => [writeTargetSubtitle(input.jobsRoot)]);

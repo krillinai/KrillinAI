@@ -12,6 +12,7 @@ import type {
   CreatorJob,
   CreatorJson,
   CreatorStageRun,
+  CreatorServicesConfig,
   IssueSource,
   OpenCreatorIssue,
   RuntimeErrorCode
@@ -83,6 +84,9 @@ import {
   resolveCreatorPresetAsset
 } from '../creator/presets/catalog.js';
 import type { CreatorPresetRegistry } from '../creator/presets/types.js';
+import { createCreatorPresetDetails } from '../creator/presets/presentation.js';
+import { readCodexImageConfiguration } from '../image-generation/codex-runtime.js';
+import type { CodexNativeImageRuntime } from '../image-generation/provider.js';
 import type { CreatorIssueService } from '../creator/issues.js';
 
 export async function registerCreatorRoutes(
@@ -107,6 +111,8 @@ export async function registerCreatorRoutes(
     stageRunner?: Pick<CreatorStageRunner, 'cancel' | 'cancelJob'>;
     presets?: CreatorPresetRegistry;
     presetCatalogRoot?: string;
+    readServicesConfig?(): Promise<CreatorServicesConfig>;
+    codexImageRuntime?: CodexNativeImageRuntime;
     issueService?: CreatorIssueService;
   }
 ): Promise<void> {
@@ -161,10 +167,29 @@ export async function registerCreatorRoutes(
     const presetCatalogRoot = options.presetCatalogRoot;
     server.get('/creator/presets', async request => {
     const locale = normalizeCreatorPresetLocale(readObject(request.query).locale);
+    const config = await options.readServicesConfig?.();
+    const published = presets.listPublished(locale);
+    let codexImageModel: string | undefined;
+    if (config !== undefined && options.codexImageRuntime !== undefined && published.some(preset => {
+      if (preset.module !== 'image-generation' && preset.module !== 'cover-generator') return false;
+      const source = presets.get(preset);
+      const provider = source.defaultsByLocale?.[locale]?.provider ?? source.defaults.provider ?? config.image.provider;
+      return provider === 'codex-native';
+    })) {
+      try {
+        const imageConfig = await readCodexImageConfiguration(options.codexImageRuntime);
+        if (imageConfig.authentication === 'api_key') codexImageModel = imageConfig.provider.model;
+      } catch {
+        // Unconfigured local credentials must not prevent browsing templates.
+      }
+    }
     return {
       locale,
       catalogHash: presets.catalogHash,
-      presets: presets.listPublished(locale)
+      presets: config === undefined ? published : published.map(preset => ({
+        ...preset,
+        details: createCreatorPresetDetails(presets.get(preset), locale, config, codexImageModel)
+      }))
     };
     });
 

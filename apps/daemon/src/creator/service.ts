@@ -1154,7 +1154,9 @@ export function createCreatorService(input: {
           if (stage.resultVersionPolicy === 'attach' && parsedInput.inputResultVersion === undefined) {
             throw new CreatorServiceError('creator_action_input_invalid', 'A result version is required to prepare preview media');
           }
-          if (stage.resultVersionPolicy === 'attach' && current.stages.some(run => run.status === 'queued' || run.status === 'running')) {
+          if ((stage.resultVersionPolicy === 'attach' || stage.id === 'preview-source-video'
+            || current.stages.some(run => run.stageId === 'preview-source-video' && (run.status === 'queued' || run.status === 'running')))
+            && current.stages.some(run => run.status === 'queued' || run.status === 'running')) {
             throw new CreatorServiceError('creator_stage_already_running', 'Wait for the current stage to finish before preparing preview media');
           }
           nextState = { ...nextState, currentStage: stageId };

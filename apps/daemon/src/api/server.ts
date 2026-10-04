@@ -623,8 +623,10 @@ export async function buildServer(input: BuildServerInput) {
       storedCreatorServicesConfigStore,
       localCodexTextModelDefaults
     );
+  let getCreatorYtDlpRuntime: (() => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
   const videoMetadataService = input.videoMetadataService ?? createVideoMetadataService({
-    getProxy: async () => (await creatorServicesConfigStore.read()).proxy.trim()
+    getProxy: async () => (await creatorServicesConfigStore.read()).proxy.trim(),
+    getYtDlpRuntime: () => getCreatorYtDlpRuntime?.()
   });
   const creatorService = input.creatorService ?? createCreatorService({
     jobsRoot: creatorJobsRoot,
@@ -748,7 +750,6 @@ export async function buildServer(input: BuildServerInput) {
   let creatorFfprobePath: string | undefined;
   let creatorYtDlpUpdateManager = input.creatorYtDlpUpdateManager;
   let getYtDlpRuntime: (() => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
-  let getCreatorYtDlpRuntime: (() => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
   try {
     const runtimeManifest = readKrillinRuntimeManifest(creatorRuntimeRoot);
     let runtimeVerification: ReturnType<typeof startKrillinRuntimeVerification> | undefined;
@@ -1458,6 +1459,8 @@ export async function buildServer(input: BuildServerInput) {
     stageRunner: creatorStageRunner,
     presets: creatorPresetRegistry,
     presetCatalogRoot: creatorPresetCatalogRoot,
+    readServicesConfig: () => creatorServicesConfigStore.read(),
+    codexImageRuntime,
     preflight: creatorPreflight,
     issueService: creatorIssueService
   });

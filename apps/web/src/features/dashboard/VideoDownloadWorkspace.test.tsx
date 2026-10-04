@@ -7,10 +7,11 @@ import type {
   CreatorStageRun,
   CreatorYtDlpStatus
 } from '@opencreator/protocol';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useEffect } from 'react';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
-import { CreatorSessionProvider } from './creator-session-store.js';
+import { CreatorSessionProvider, useOptionalCreatorSession } from './creator-session-store.js';
 import VideoDownloadWorkspace from './VideoDownloadWorkspace.js';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 
@@ -192,6 +193,81 @@ describe('VideoDownloadWorkspace', () => {
     expect(screen.queryByRole('button', {
       name: '发送到视频切片 Creator Download.mp4'
     })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['video', videoArtifact(), 'Creator Download.mp4'],
+    ['audio', audioArtifact(), 'Creator Download.mp3']
+  ])('opens Works when an Agent download completes as %s', async (_type, artifact, fileName) => {
+    const initial = job({
+      state: { sourceUrl: 'https://www.youtube.com/watch?v=demo' },
+      artifacts: [probeArtifact()]
+    });
+    let applySnapshot: ((next: CreatorJob) => void) | undefined;
+    renderWorkspace(initial, {
+      applyAction: vi.fn(),
+      onSnapshot: callback => { applySnapshot = callback; }
+    });
+
+    const worksTab = await screen.findByRole('tab', { name: '作品' });
+    expect(worksTab).toHaveAttribute('aria-selected', 'false');
+    act(() => applySnapshot?.(job({
+      ...initial,
+      revision: 1,
+      stages: [downloadStage('agent_download', String(artifact.metadata.optionId), 'running', 50)]
+    })));
+    expect(worksTab).toHaveAttribute('aria-selected', 'false');
+
+    act(() => applySnapshot?.(job({
+      ...initial,
+      revision: 2,
+      artifacts: [probeArtifact(), artifact],
+      stages: [downloadStage('agent_download', String(artifact.metadata.optionId), 'succeeded', 100)]
+    })));
+    expect(worksTab).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText(fileName)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: '下载规格' }));
+    expect(worksTab).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('follows a new Agent link and opens its completed audio in Works', async () => {
+    const initial = job({
+      state: { sourceUrl: 'https://www.youtube.com/watch?v=demo' },
+      artifacts: [probeArtifact()]
+    });
+    let applySnapshot: ((next: CreatorJob) => void) | undefined;
+    renderWorkspace(initial, {
+      applyAction: vi.fn(),
+      onSnapshot: callback => { applySnapshot = callback; }
+    });
+    await screen.findByRole('tab', { name: '作品' });
+
+    const nextUrl = 'https://www.youtube.com/watch?v=another';
+    const nextProbe = {
+      ...probeArtifact(),
+      id: 'next_probe',
+      metadata: {
+        ...probeArtifact().metadata,
+        requestedUrl: nextUrl,
+        url: nextUrl
+      }
+    };
+    const nextAudio = {
+      ...audioArtifact(),
+      id: 'next_audio',
+      sourceArtifactIds: [nextProbe.id],
+      metadata: { ...audioArtifact().metadata, requestedUrl: nextUrl }
+    };
+    act(() => applySnapshot?.(job({
+      ...initial,
+      revision: 1,
+      state: { sourceUrl: nextUrl },
+      artifacts: [probeArtifact(), nextProbe, nextAudio]
+    })));
+
+    expect(screen.getByRole('tab', { name: '作品' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Creator Download.mp3')).toBeInTheDocument();
   });
 
   it('selects the real audio track when the video language changes', async () => {
@@ -742,6 +818,7 @@ function renderWorkspace(
     openArtifact?: ReturnType<typeof vi.fn>;
     runtimeDependencies?: Partial<RuntimeDependenciesController>;
     onOpenRuntimeComponents?: () => void;
+    onSnapshot?: (callback: (next: CreatorJob) => void) => void;
   }
 ) {
   const runtimeDependencies = input.runtimeDependencies === undefined
@@ -762,6 +839,9 @@ function renderWorkspace(
           runAgentTurn: vi.fn()
         } as never}
       >
+        {input.onSnapshot === undefined ? null : (
+          <SnapshotObserver onSnapshot={input.onSnapshot} />
+        )}
         <VideoDownloadWorkspace
           onBack={vi.fn()}
           runtimeDependencies={runtimeDependencies}
@@ -770,6 +850,16 @@ function renderWorkspace(
       </CreatorSessionProvider>
     </LanguageProvider>
   );
+}
+
+function SnapshotObserver(props: {
+  onSnapshot(callback: (next: CreatorJob) => void): void;
+}) {
+  const session = useOptionalCreatorSession();
+  useEffect(() => {
+    if (session !== null) props.onSnapshot(session.applyRemoteSnapshot);
+  }, [props.onSnapshot, session?.applyRemoteSnapshot]);
+  return null;
 }
 
 function ytDlpStatus(
