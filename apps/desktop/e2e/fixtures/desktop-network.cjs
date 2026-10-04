@@ -1,10 +1,12 @@
-import assert from 'node:assert/strict';
-import { writeFileSync } from 'node:fs';
-import { Socket } from 'node:net';
-import { app } from 'electron';
+const assert = require('node:assert/strict');
+const { writeFileSync } = require('node:fs');
+const { Socket } = require('node:net');
+const { app } = require('electron');
 
 let phase = 'initialization';
 const report = result => writeFileSync(process.env.OPENCREATOR_DESKTOP_NETWORK_TEST_RESULT, `${JSON.stringify({ phase, ...result }, null, 2)}\n`);
+
+report({ ok: false, pending: true });
 
 void (async () => {
   app.setPath('userData', process.argv[4]);
