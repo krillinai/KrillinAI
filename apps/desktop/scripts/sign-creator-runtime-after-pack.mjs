@@ -13,7 +13,7 @@ import { join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { verifyCreatorRuntime } from './creator-runtime-contract.mjs';
 import { verifyStickmanRuntime } from './stickman-runtime-contract.mjs';
-import { findDeveloperIdIdentity } from './mac-signing.mjs';
+import { findDeveloperIdIdentity, withMacSigningKeychain } from './mac-signing.mjs';
 import { prepareMacAppIcon } from './mac-app-icon.mjs';
 
 const machOMagicValues = new Set([
@@ -34,15 +34,18 @@ export async function afterPack(context) {
   await signCreatorRuntimeBundle(context);
 }
 
-export async function signRemotionComponent(runtimeRoot, env = process.env) {
+export async function signRemotionComponent(runtimeRoot, env = process.env, options = {}) {
   if (env.OPENCREATOR_SIGN_CREATOR_RUNTIME !== '1') return;
-  if (process.platform !== 'darwin') throw new Error('Remotion Developer ID signing requires macOS');
-  const identity = env.OPENCREATOR_REMOTION_SIGNING_IDENTITY?.trim()
-    || findSigningIdentity(env.OPENCREATOR_APPLE_TEAM_ID, env.APPLE_KEYCHAIN ?? null);
-  const binaries = findMachOBinaries(runtimeRoot);
-  if (binaries.length === 0) throw new Error('Remotion component has no native binaries');
-  for (const path of binaries) signMachOBinary(path, identity, env.APPLE_KEYCHAIN ?? null);
-  updateManifestHashes(runtimeRoot, binaries);
+  if ((options.platform ?? process.platform) !== 'darwin') throw new Error('Remotion Developer ID signing requires macOS');
+  await (options.withKeychain ?? withMacSigningKeychain)(env, async signingEnv => {
+    const keychainFile = signingEnv.APPLE_KEYCHAIN ?? null;
+    const identity = signingEnv.OPENCREATOR_REMOTION_SIGNING_IDENTITY?.trim()
+      || (options.findIdentity ?? findSigningIdentity)(signingEnv.OPENCREATOR_APPLE_TEAM_ID, keychainFile);
+    const binaries = (options.findBinaries ?? findMachOBinaries)(runtimeRoot);
+    if (binaries.length === 0) throw new Error('Remotion component has no native binaries');
+    for (const path of binaries) await (options.signBinary ?? signMachOBinary)(path, identity, keychainFile);
+    updateManifestHashes(runtimeRoot, binaries);
+  });
 }
 
 export async function signDaemonRuntimeBundle(context, options = {}) {

@@ -22,7 +22,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   configureMacDirectorySigning,
-  configureMacReleaseSigning
+  configureMacReleaseSigning,
+  withMacSigningKeychain
 } from './mac-signing.mjs';
 import { submitAndWaitForNotarization } from './apple-notarization.mjs';
 import { prepareElectronBuilderCache } from './electron-builder-cache.mjs';
@@ -126,198 +127,205 @@ const {
   appleTeamId: process.env.OPENCREATOR_APPLE_TEAM_ID
     ?? process.env.APPLE_TEAM_ID
 });
-const packageStartedAt = Date.now();
-await runStage('构建独立 Remotion 组件与轻量角色资源', process.execPath, [
-  resolve(scriptDir, 'prepare-stickman-runtime.mjs')
-], { cwd: rootDir, env: builderEnv, timeoutMs: 25 * 60_000 });
-if (macSigning.mode === 'developer-id' && mode === 'release') {
-  const componentNotaryArchive = resolve(desktopDir, '.pack', 'remotion-notarization.zip');
-  try {
-    await runStage('准备 Remotion 组件公证', 'ditto', ['-c', '-k', '--keepParent', resolve(desktopDir, '.pack', 'stickman-runtime'), componentNotaryArchive], { cwd: rootDir, env: builderEnv });
-    await submitAndWaitForNotarization(componentNotaryArchive, notarizationArgs);
-  } finally { rmSync(componentNotaryArchive, { force: true }); }
-}
-await runStage(
-  mode === 'dir' ? '生成可运行目录' : '生成桌面安装包',
-  'electron-builder',
-  args,
-  {
-    cwd: desktopDir,
-    env: builderEnv,
-    timeoutMs: mode === 'dir' ? 20 * 60_000 : 50 * 60_000
+const packageWithSigningEnvironment = async builderEnv => {
+  const packageStartedAt = Date.now();
+  await runStage('构建独立 Remotion 组件与轻量角色资源', process.execPath, [
+    resolve(scriptDir, 'prepare-stickman-runtime.mjs')
+  ], { cwd: rootDir, env: builderEnv, timeoutMs: 25 * 60_000 });
+  if (macSigning.mode === 'developer-id' && mode === 'release') {
+    const componentNotaryArchive = resolve(desktopDir, '.pack', 'remotion-notarization.zip');
+    try {
+      await runStage('准备 Remotion 组件公证', 'ditto', ['-c', '-k', '--keepParent', resolve(desktopDir, '.pack', 'stickman-runtime'), componentNotaryArchive], { cwd: rootDir, env: builderEnv });
+      await submitAndWaitForNotarization(componentNotaryArchive, notarizationArgs);
+    } finally { rmSync(componentNotaryArchive, { force: true }); }
   }
-);
-
-const packageRoot = findFreshPackageRoot(candidates);
-const artifacts = findFreshArtifacts(packageStartedAt, mode, platform);
-const remotionComponent = JSON.parse(readFileSync(resolve(desktopDir, '.pack', 'components', 'remotion-component.json'), 'utf8'));
-const componentArchive = resolve(desktopDir, '.pack', 'components', remotionComponent.fileName);
-if (macSigning.mode === 'developer-id' && mode === 'release') {
-  await finalizeMacReleaseArtifacts(
-    artifacts.filter(path => path.endsWith('.dmg')),
-    notarizationArgs
+  await runStage(
+    mode === 'dir' ? '生成可运行目录' : '生成桌面安装包',
+    'electron-builder',
+    args,
+    {
+      cwd: desktopDir,
+      env: builderEnv,
+      timeoutMs: mode === 'dir' ? 20 * 60_000 : 50 * 60_000
+    }
   );
-}
-const webBuild = hashDirectory(resolve(rootDir, 'apps/web/dist'));
-const creatorAgentRuntime = hashDirectory(resolve(
-  desktopDir,
-  '.pack',
-  'daemon',
-  'runtime',
-  'opencreator-runtime'
-));
-const codexRuntimeManifest = JSON.parse(readFileSync(
-  resolve(desktopDir, '.pack', 'codex-runtime', 'manifest.json'),
-  'utf8'
-));
-const creatorRuntimeManifest = JSON.parse(readFileSync(
-  resolve(desktopDir, '.pack', 'creator-runtime', 'krillinai', 'manifest.json'),
-  'utf8'
-));
-const stickmanRuntimeRoot = resolve(desktopDir, '.pack', 'stickman-runtime');
-const stickmanRuntimeManifest = verifyStickmanRuntime(
-  stickmanRuntimeRoot,
-  platform,
-  arch
-);
-const stickmanRuntime = hashStickmanDirectory(stickmanRuntimeRoot);
-const stickmanRuntimeManifestSha256 = hashStickmanFile(
-  resolve(stickmanRuntimeRoot, 'manifest.json')
-);
-const creatorSubtitleFontSourceManifest = JSON.parse(readFileSync(
-  resolve(rootDir, 'assets', 'creator-subtitle-fonts', 'manifest.json'),
-  'utf8'
-));
-const creatorPresetManifest = JSON.parse(readFileSync(
-  resolve(
+
+  const packageRoot = findFreshPackageRoot(candidates);
+  const artifacts = findFreshArtifacts(packageStartedAt, mode, platform);
+  const remotionComponent = JSON.parse(readFileSync(resolve(desktopDir, '.pack', 'components', 'remotion-component.json'), 'utf8'));
+  const componentArchive = resolve(desktopDir, '.pack', 'components', remotionComponent.fileName);
+  if (macSigning.mode === 'developer-id' && mode === 'release') {
+    await finalizeMacReleaseArtifacts(
+      artifacts.filter(path => path.endsWith('.dmg')),
+      notarizationArgs
+    );
+  }
+  const webBuild = hashDirectory(resolve(rootDir, 'apps/web/dist'));
+  const creatorAgentRuntime = hashDirectory(resolve(
     desktopDir,
     '.pack',
     'daemon',
     'runtime',
-    'creator-presets',
-    'manifest.json'
-  ),
-  'utf8'
-));
-const creatorSubtitleFontResources = creatorRuntimeManifest.resources
-  .filter(resource => (
-    resource.path.startsWith('fonts/')
-    || resource.path.startsWith('licenses/fonts/')
+    'opencreator-runtime'
   ));
-const creatorSubtitleWebFontResources = creatorSubtitleFontSourceManifest.fonts
-  .map(font => {
-    if (
-      typeof font?.webFile !== 'string'
-      || typeof font?.webSha256 !== 'string'
-      || !/^[a-f0-9]{64}$/i.test(font.webSha256)
-    ) {
-      throw new Error('Creator subtitle Web font manifest is invalid');
-    }
-    const source = resolve(rootDir, 'assets', 'creator-subtitle-fonts', font.webFile);
-    const built = resolve(rootDir, 'apps', 'web', 'dist', 'fonts', 'opencreator', basename(font.webFile));
-    if (!existsSync(source) || hashFile(source) !== font.webSha256.toLowerCase()) {
-      throw new Error(`Creator subtitle Web source font hash mismatch: ${font.webFile}`);
-    }
-    if (!existsSync(built) || hashFile(built) !== font.webSha256.toLowerCase()) {
-      throw new Error(`Creator subtitle Web build font hash mismatch: ${built}`);
-    }
-    return {
-      path: `fonts/opencreator/${basename(font.webFile)}`,
-      sha256: font.webSha256.toLowerCase()
-    };
-  });
-const manifest = {
-  version: 1,
-  commit: gitOutput(['rev-parse', 'HEAD']) || 'unknown',
-  dirty: gitOutput(['status', '--porcelain', '--untracked-files=normal']).length > 0,
-  generatedAt: new Date().toISOString(),
-  platform,
-  arch,
-  mode,
-  officialBuild,
-  packageRoot,
-  packageRootRelative: relative(rootDir, packageRoot),
-  webBuildHash: webBuild.hash,
-  webFileCount: webBuild.fileCount,
-  creatorAgentRuntimeHash: creatorAgentRuntime.hash,
-  creatorAgentRuntimeFileCount: creatorAgentRuntime.fileCount,
-  stickmanRuntimeHash: stickmanRuntime.hash,
-  stickmanRuntimeFileCount: stickmanRuntime.fileCount,
-  stickmanRuntimeManifestSha256,
-  remotionVersion: stickmanRuntimeManifest.remotionVersion,
-  chromiumVersion: stickmanRuntimeManifest.chromiumVersion,
-  remotionComponent,
-  creatorPresetCatalogHash: creatorPresetManifest.catalogHash,
-  creatorPresetAssetSetHash: creatorPresetManifest.assetSetHash,
-  creatorPresetResourceCount: creatorPresetManifest.files.length,
-  creatorSubtitleFontSetHash: hashResourceDescriptors(
-    creatorSubtitleFontResources
-  ),
-  creatorSubtitleFontResourceCount: creatorSubtitleFontResources.length,
-  creatorSubtitleWebFontSetHash: hashResourceDescriptors(
-    creatorSubtitleWebFontResources
-  ),
-  creatorSubtitleWebFontResourceCount: creatorSubtitleWebFontResources.length,
-  codexRuntimeVersion: codexRuntimeManifest.version,
-  codexRuntimeCommit: codexRuntimeManifest.commit,
-  codexRuntimeBinarySha256: codexRuntimeManifest.binary.sha256,
-  codexAppServerProtocolSha256: codexRuntimeManifest.appServerProtocol.schemaSha256,
-  krillinCliVersion: creatorRuntimeManifest.cliVersion,
-  krillinSourceCommit: creatorRuntimeManifest.sourceCommit,
-  krillinSourceSha256: creatorRuntimeManifest.sourceSha256,
-  krillinIntegrationPatchSha256: creatorRuntimeManifest.integrationPatchSha256,
-  ytDlpRuntimeMode: creatorRuntimeManifest.ytDlp?.mode,
-  ytDlpVersion: creatorRuntimeManifest.ytDlp?.version,
-  ytDlpPythonVersion: creatorRuntimeManifest.ytDlp?.pythonVersion,
-  macSigningMode: macSigning.mode,
-  appleTeamId: macSigning.teamId ?? null,
-  artifacts: [...artifacts, componentArchive].map(path => ({
-    path,
-    relativePath: relative(rootDir, path),
-    bytes: statSync(path).size,
-    sha256: hashFile(path)
-  }))
-};
-writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-console.log(`[desktop-package] 构建清单：${manifestPath}`);
-console.log(`[desktop-package] 包根目录：${packageRoot}`);
-if (process.env.GITHUB_ENV) {
-  appendFileSync(
-    process.env.GITHUB_ENV,
-    `OPENCREATOR_DESKTOP_BUILD_MANIFEST=${manifestPath}\n`
-    + `OPENCREATOR_DESKTOP_PACKAGE_ROOT=${packageRoot}\n`
+  const codexRuntimeManifest = JSON.parse(readFileSync(
+    resolve(desktopDir, '.pack', 'codex-runtime', 'manifest.json'),
+    'utf8'
+  ));
+  const creatorRuntimeManifest = JSON.parse(readFileSync(
+    resolve(desktopDir, '.pack', 'creator-runtime', 'krillinai', 'manifest.json'),
+    'utf8'
+  ));
+  const stickmanRuntimeRoot = resolve(desktopDir, '.pack', 'stickman-runtime');
+  const stickmanRuntimeManifest = verifyStickmanRuntime(
+    stickmanRuntimeRoot,
+    platform,
+    arch
   );
-}
-
-await runStage('验证桌面包', process.execPath, [
-  resolve(scriptDir, 'verify-package.mjs')
-], {
-  cwd: rootDir,
-  env: {
-    ...builderEnv,
-    OPENCREATOR_DESKTOP_BUILD_MANIFEST: manifestPath,
-    OPENCREATOR_DESKTOP_PACKAGE_ROOT: packageRoot,
-    ...(macSigning.mode === 'developer-id'
-      ? {
-          OPENCREATOR_REQUIRE_DEVELOPER_ID: '1',
-          OPENCREATOR_APPLE_TEAM_ID: macSigning.teamId,
-          ...(mode === 'release'
-            ? { OPENCREATOR_REQUIRE_NOTARIZED_MAC_APP: '1' }
-            : {})
-        }
-      : {})
-  },
-  timeoutMs: 5 * 60_000
-});
-
-if (mode !== 'dir') {
-  const packageJson = JSON.parse(readFileSync(join(desktopDir, 'package.json'), 'utf8'));
-  const assetsDir = join(releaseDir, 'publish', `${platform}-${arch}`);
-  const assets = stageReleaseAssets({ manifest, version: packageJson.version, assetsDir });
-  console.log(`[desktop-package] 发布附件：${assetsDir} (${assets.length} files)`);
+  const stickmanRuntime = hashStickmanDirectory(stickmanRuntimeRoot);
+  const stickmanRuntimeManifestSha256 = hashStickmanFile(
+    resolve(stickmanRuntimeRoot, 'manifest.json')
+  );
+  const creatorSubtitleFontSourceManifest = JSON.parse(readFileSync(
+    resolve(rootDir, 'assets', 'creator-subtitle-fonts', 'manifest.json'),
+    'utf8'
+  ));
+  const creatorPresetManifest = JSON.parse(readFileSync(
+    resolve(
+      desktopDir,
+      '.pack',
+      'daemon',
+      'runtime',
+      'creator-presets',
+      'manifest.json'
+    ),
+    'utf8'
+  ));
+  const creatorSubtitleFontResources = creatorRuntimeManifest.resources
+    .filter(resource => (
+      resource.path.startsWith('fonts/')
+      || resource.path.startsWith('licenses/fonts/')
+    ));
+  const creatorSubtitleWebFontResources = creatorSubtitleFontSourceManifest.fonts
+    .map(font => {
+      if (
+        typeof font?.webFile !== 'string'
+        || typeof font?.webSha256 !== 'string'
+        || !/^[a-f0-9]{64}$/i.test(font.webSha256)
+      ) {
+        throw new Error('Creator subtitle Web font manifest is invalid');
+      }
+      const source = resolve(rootDir, 'assets', 'creator-subtitle-fonts', font.webFile);
+      const built = resolve(rootDir, 'apps', 'web', 'dist', 'fonts', 'opencreator', basename(font.webFile));
+      if (!existsSync(source) || hashFile(source) !== font.webSha256.toLowerCase()) {
+        throw new Error(`Creator subtitle Web source font hash mismatch: ${font.webFile}`);
+      }
+      if (!existsSync(built) || hashFile(built) !== font.webSha256.toLowerCase()) {
+        throw new Error(`Creator subtitle Web build font hash mismatch: ${built}`);
+      }
+      return {
+        path: `fonts/opencreator/${basename(font.webFile)}`,
+        sha256: font.webSha256.toLowerCase()
+      };
+    });
+  const manifest = {
+    version: 1,
+    commit: gitOutput(['rev-parse', 'HEAD']) || 'unknown',
+    dirty: gitOutput(['status', '--porcelain', '--untracked-files=normal']).length > 0,
+    generatedAt: new Date().toISOString(),
+    platform,
+    arch,
+    mode,
+    officialBuild,
+    packageRoot,
+    packageRootRelative: relative(rootDir, packageRoot),
+    webBuildHash: webBuild.hash,
+    webFileCount: webBuild.fileCount,
+    creatorAgentRuntimeHash: creatorAgentRuntime.hash,
+    creatorAgentRuntimeFileCount: creatorAgentRuntime.fileCount,
+    stickmanRuntimeHash: stickmanRuntime.hash,
+    stickmanRuntimeFileCount: stickmanRuntime.fileCount,
+    stickmanRuntimeManifestSha256,
+    remotionVersion: stickmanRuntimeManifest.remotionVersion,
+    chromiumVersion: stickmanRuntimeManifest.chromiumVersion,
+    remotionComponent,
+    creatorPresetCatalogHash: creatorPresetManifest.catalogHash,
+    creatorPresetAssetSetHash: creatorPresetManifest.assetSetHash,
+    creatorPresetResourceCount: creatorPresetManifest.files.length,
+    creatorSubtitleFontSetHash: hashResourceDescriptors(
+      creatorSubtitleFontResources
+    ),
+    creatorSubtitleFontResourceCount: creatorSubtitleFontResources.length,
+    creatorSubtitleWebFontSetHash: hashResourceDescriptors(
+      creatorSubtitleWebFontResources
+    ),
+    creatorSubtitleWebFontResourceCount: creatorSubtitleWebFontResources.length,
+    codexRuntimeVersion: codexRuntimeManifest.version,
+    codexRuntimeCommit: codexRuntimeManifest.commit,
+    codexRuntimeBinarySha256: codexRuntimeManifest.binary.sha256,
+    codexAppServerProtocolSha256: codexRuntimeManifest.appServerProtocol.schemaSha256,
+    krillinCliVersion: creatorRuntimeManifest.cliVersion,
+    krillinSourceCommit: creatorRuntimeManifest.sourceCommit,
+    krillinSourceSha256: creatorRuntimeManifest.sourceSha256,
+    krillinIntegrationPatchSha256: creatorRuntimeManifest.integrationPatchSha256,
+    ytDlpRuntimeMode: creatorRuntimeManifest.ytDlp?.mode,
+    ytDlpVersion: creatorRuntimeManifest.ytDlp?.version,
+    ytDlpPythonVersion: creatorRuntimeManifest.ytDlp?.pythonVersion,
+    macSigningMode: macSigning.mode,
+    appleTeamId: macSigning.teamId ?? null,
+    artifacts: [...artifacts, componentArchive].map(path => ({
+      path,
+      relativePath: relative(rootDir, path),
+      bytes: statSync(path).size,
+      sha256: hashFile(path)
+    }))
+  };
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  console.log(`[desktop-package] 构建清单：${manifestPath}`);
+  console.log(`[desktop-package] 包根目录：${packageRoot}`);
   if (process.env.GITHUB_ENV) {
-    appendFileSync(process.env.GITHUB_ENV, `OPENCREATOR_DESKTOP_RELEASE_ASSETS=${assetsDir}\n`);
+    appendFileSync(
+      process.env.GITHUB_ENV,
+      `OPENCREATOR_DESKTOP_BUILD_MANIFEST=${manifestPath}\n`
+      + `OPENCREATOR_DESKTOP_PACKAGE_ROOT=${packageRoot}\n`
+    );
   }
+
+  await runStage('验证桌面包', process.execPath, [
+    resolve(scriptDir, 'verify-package.mjs')
+  ], {
+    cwd: rootDir,
+    env: {
+      ...builderEnv,
+      OPENCREATOR_DESKTOP_BUILD_MANIFEST: manifestPath,
+      OPENCREATOR_DESKTOP_PACKAGE_ROOT: packageRoot,
+      ...(macSigning.mode === 'developer-id'
+        ? {
+            OPENCREATOR_REQUIRE_DEVELOPER_ID: '1',
+            OPENCREATOR_APPLE_TEAM_ID: macSigning.teamId,
+            ...(mode === 'release'
+              ? { OPENCREATOR_REQUIRE_NOTARIZED_MAC_APP: '1' }
+              : {})
+          }
+        : {})
+    },
+    timeoutMs: 5 * 60_000
+  });
+
+  if (mode !== 'dir') {
+    const packageJson = JSON.parse(readFileSync(join(desktopDir, 'package.json'), 'utf8'));
+    const assetsDir = join(releaseDir, 'publish', `${platform}-${arch}`);
+    const assets = stageReleaseAssets({ manifest, version: packageJson.version, assetsDir });
+    console.log(`[desktop-package] 发布附件：${assetsDir} (${assets.length} files)`);
+    if (process.env.GITHUB_ENV) {
+      appendFileSync(process.env.GITHUB_ENV, `OPENCREATOR_DESKTOP_RELEASE_ASSETS=${assetsDir}\n`);
+    }
+  }
+};
+if (macSigning.mode === 'developer-id') {
+  await withMacSigningKeychain(builderEnv, packageWithSigningEnvironment);
+} else {
+  await packageWithSigningEnvironment(builderEnv);
 }
 
 function parseMode(args) {

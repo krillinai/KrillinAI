@@ -15,6 +15,7 @@ import {
   signDaemonRuntimeBundle,
   signCreatorRuntimeBundle,
   signStickmanRuntimeBundle,
+  signRemotionComponent,
   updateManifestHashes
 } from '../scripts/sign-creator-runtime-after-pack.mjs';
 
@@ -27,6 +28,22 @@ afterEach(() => {
 });
 
 describe('Creator Runtime Developer ID signing', () => {
+  it('signs the independent Remotion component using its prepared keychain and refreshes final hashes', async () => {
+    const fixture = createStickmanFixture();
+    const findIdentity = vi.fn(() => 'Developer ID Application: Junxi YIN (NVRH5R5DJ5)');
+    const signBinary = vi.fn(path => writeFileSync(path, Buffer.concat([
+      readFileSync(path), Buffer.from('-component-signature')
+    ])));
+    const withKeychain = vi.fn(async (env, action) => action({ ...env, APPLE_KEYCHAIN: '/tmp/component-test.keychain' }));
+    await signRemotionComponent(fixture.runtimeRoot, {
+      ...signingEnv(), OPENCREATOR_SIGN_CREATOR_RUNTIME: '1', CSC_LINK: 'test-p12', CSC_KEY_PASSWORD: 'test-password'
+    }, { platform: 'darwin', withKeychain, findIdentity, findBinaries: () => fixture.binaryPaths, signBinary });
+    expect(withKeychain).toHaveBeenCalledTimes(1);
+    expect(findIdentity).toHaveBeenCalledWith('NVRH5R5DJ5', '/tmp/component-test.keychain');
+    expect(signBinary).toHaveBeenCalledWith(fixture.binaryPaths[0], 'Developer ID Application: Junxi YIN (NVRH5R5DJ5)', '/tmp/component-test.keychain');
+    expect(() => verifyStickmanRuntime(fixture.runtimeRoot, 'darwin', 'arm64')).not.toThrow();
+  });
+
   it('verifies the input, signs binaries and records their final hashes', async () => {
     const fixture = createFixture();
     const verifyRuntime = vi.fn(verifyCreatorRuntime);
