@@ -6,7 +6,7 @@ import { swedishInlineCopy } from './swedish-inline-copy.js';
 
 describe('new Creator inline copy coverage', () => {
   it.each([
-    'features/settings/LocalTranscriptionComponents.tsx',
+    'features/settings/RuntimeManagedComponents.tsx',
     'features/settings/CodexImageStatusNotice.tsx',
     'features/dashboard/LocalTranscriptionNotice.tsx',
     'features/dashboard/BilibiliPartSelector.tsx',

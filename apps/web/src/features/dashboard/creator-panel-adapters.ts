@@ -74,14 +74,14 @@ const genericAdapter: CreatorPanelAdapter = {
 export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
   id: 'video-translation',
   failedProgressText(stage, l) {
-    if (stage.stageId === 'preview-source-video') return l('原视频预览准备失败，可重试', 'Source video preview preparation failed. You can retry.');
+    if (stage.stageId === 'preview-source-video') return l('原视频预览准备失败，可重试', 'Source video preview preparation failed. You can retry.', 'Förberedelsen av originalvideons förhandsvisning misslyckades. Du kan försöka igen.');
     if (stage.stageId === 'prepare-source-video') return l('原视频准备失败，已有字幕未受影响，可重试', 'Source video preparation failed; subtitles are preserved. You can retry.');
     return stage.errorCode === 'creator_dependency_prepare_failed'
       ? l('本地转录组件准备失败，可前往组件页查看原因并重试', 'Local transcription preparation failed. View the component page and retry.')
       : null;
   },
   succeededProgressText(stage, localize) {
-    if (stage.stageId === 'preview-source-video') return localize('原视频预览已就绪', 'Source video preview ready');
+    if (stage.stageId === 'preview-source-video') return localize('原视频预览已就绪', 'Source video preview ready', 'Originalvideons förhandsvisning är redo');
     return stage.stageId === 'prepare-source-video'
       ? localize('原视频已就绪，已有字幕保持不变', 'Source video ready; existing subtitles are unchanged')
       : null;
@@ -129,7 +129,7 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
   normalizeActivity(activity, l) {
     if (activity.action === 'run-stage') {
       const stageId = readActivityStageId(activity);
-      if (stageId === 'preview-source-video') return { label: l('开始下载原视频预览', 'Started downloading the source video preview'), fields: [] };
+      if (stageId === 'preview-source-video') return { label: l('开始下载原视频预览', 'Started downloading the source video preview', 'Nedladdningen av originalvideons förhandsvisning har startat'), fields: [] };
       if (stageId === 'prepare-source-video') return { label: l('开始准备原视频预览，保留已有字幕', 'Started preparing source video preview; existing subtitles are preserved'), fields: [] };
       return {
         label: stageId === null
@@ -156,8 +156,8 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
         percent: standard.phase === 'downloading' || standard.phase === 'completed' ? standard.percent : null,
         indeterminate: standard.phase !== 'completed' && (standard.phase !== 'downloading' || standard.percent === null),
         message: standard.phase === 'downloading'
-          ? localize(`正在下载原视频：${amount}`, `Downloading the source video: ${amount}`)
-          : localize('正在准备原视频预览', 'Preparing the source video preview') };
+          ? localize(`正在下载原视频：${amount}`, `Downloading the source video: ${amount}`, `Laddar ned originalvideon: ${amount}`)
+          : localize('正在准备原视频预览', 'Preparing the source video preview', 'Förbereder originalvideons förhandsvisning') };
       return { ...standard,
         showMessage: true,
         percent: standard.phase === 'downloading' || standard.phase === 'completed' ? standard.percent : null,

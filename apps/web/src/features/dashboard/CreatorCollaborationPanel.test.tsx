@@ -357,14 +357,14 @@ describe('CreatorCollaborationPanel', () => {
         </LanguageProvider>
       );
       await waitFor(() => expect(screen.getByText('图像生成尚未就绪，请检查登录、服务配置及 Runtime 工具支持。')).toBeVisible());
-      expect(screen.getByText(/请配置图像服务。/)).not.toBeVisible();
+      expect(screen.getByText('图像服务配置不完整: 请配置图像服务。')).not.toBeVisible();
       fireEvent.click(screen.getByRole('button', { name: 'en-US' }));
       expect(screen.getByText('Image generation is not ready. Check sign-in, service configuration, and Runtime tool support.')).toBeVisible();
       expect(screen.getByRole('link', { name: 'Open settings' })).toHaveAttribute('href', '#/settings?tab=ai-services&section=image');
       fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
       expect(screen.getByText('Bildgenerering är inte redo. Kontrollera inloggningen, tjänsteinställningarna och verktygsstödet i Runtime.')).toBeVisible();
       expect(screen.getByRole('link', { name: 'Öppna inställningar' })).toHaveAttribute('href', '#/settings?tab=ai-services&section=image');
-      expect(screen.getByText(/请配置图像服务。/)).not.toBeVisible();
+      expect(screen.getByText('图像服务配置不完整: 请配置图像服务。')).not.toBeVisible();
       results.push(screen.getByRole('region', { name: 'Kontroll före start' }).textContent ?? '');
       expect(screen.queryByText(/Desktop-only|原生/)).not.toBeInTheDocument();
       view.unmount();

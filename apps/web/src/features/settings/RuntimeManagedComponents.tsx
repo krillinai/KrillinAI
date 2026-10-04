@@ -54,7 +54,7 @@ export function RuntimeManagedComponents({ controller, componentId, onReturn }: 
     {actionError ? <div role="alert"><p>{actionError.kind === 'check'
       ? localize('组件状态检查失败，请检查服务连接后重试。', 'Component status check failed. Check the service connection and retry.', 'Kontrollen av komponentstatus misslyckades. Kontrollera anslutningen till tjänsten och försök igen.')
       : localize('无法启动组件下载，请检查服务连接后重试。', 'Could not start the component download. Check the service connection and retry.', 'Det gick inte att starta komponentnedladdningen. Kontrollera anslutningen till tjänsten och försök igen.')}</p><OriginalErrorDetails detail={actionError.detail} /></div> : null}
-    {!status && !controller.componentError && controller.refreshComponents ? <p role="status">{localize('正在检查第三方组件', 'Checking third-party components')}</p> : null}
+    {!status && !controller.componentError && controller.refreshComponents ? <p role="status">{localize('正在检查第三方组件', 'Checking third-party components', 'Kontrollerar tredjepartskomponenter')}</p> : null}
     {status?.components.filter(component => component.available || component.id === 'remotion').map(component => {
       const rendering = component.id === 'remotion';
       const selected = component.id === status.selectedProvider;
@@ -66,14 +66,14 @@ export function RuntimeManagedComponents({ controller, componentId, onReturn }: 
       const current = component.state === 'ready' && !updateAvailable;
       const updateLabel = localize(`更新到 ${component.supportedVersion}`, `Update to ${component.supportedVersion}`, `Uppdatera till ${component.supportedVersion}`);
       const requiredResources = [
-        component.version === null || updateAvailable ? rendering ? localize('渲染引擎、浏览器和模板资源', 'rendering engine, browser, and template resources') : localize('转录引擎', 'transcription engine') : undefined,
+        component.version === null || updateAvailable ? rendering ? localize('渲染引擎、浏览器和模板资源', 'rendering engine, browser, and template resources', 'renderingsmotor, webbläsare och mallresurser') : localize('转录引擎', 'transcription engine') : undefined,
         !rendering && component.models.find(model => model.id === component.model)?.installed !== true
           ? `${component.model ?? ''} ${localize('模型', 'model')}`.trim() : undefined
       ].filter(Boolean).join(localize('、', ', '));
       const labels = {
         not_installed: localize('尚未安装', 'Not installed'), partial: localize('模型尚未就绪', 'Model not ready'),
         downloading: localize('正在下载', 'Downloading'), verifying: localize('正在校验', 'Verifying'), extracting: localize('正在解压安装', 'Extracting'),
-        ready: localize('已就绪', 'Ready'), failed: localize('下载失败', 'Download failed'), unsupported: rendering ? localize('暂无兼容组件包', 'Compatible component package unavailable') : localize('当前平台不支持受控安装', 'Managed installation unavailable on this platform')
+        ready: localize('已就绪', 'Ready'), failed: localize('下载失败', 'Download failed'), unsupported: rendering ? localize('暂无兼容组件包', 'Compatible component package unavailable', 'Inget kompatibelt komponentpaket är tillgängligt') : localize('当前平台不支持受控安装', 'Managed installation unavailable on this platform')
       };
       return <article key={component.id} id={`component-${component.id}`} className="runtime-component-item local-component-item" data-highlight={component.id === componentId || undefined}>
         <div className="runtime-component-heading">
@@ -83,7 +83,7 @@ export function RuntimeManagedComponents({ controller, componentId, onReturn }: 
               <span role="status" data-status={updateAvailable || component.state === 'failed' ? 'update' : component.state === 'ready' ? 'current' : 'checking'}>{updateAvailable && !busy ? localize('有可用更新', 'Update available', 'Uppdatering tillgänglig') : labels[component.state]}</span>
               {selected ? <span>{localize('当前使用', 'Selected')}</span> : null}
             </div>
-            <p>{rendering ? localize('用于火柴人动画本地渲染，仅在执行渲染时按需下载，也可提前安装。不影响脚本、角色预览和图片生成。', 'Used for local stickman animation rendering. Downloads only when rendering is requested, or can be installed in advance. Scripts, character previews, and image generation remain available.') : localize('用于本地语音转录，仅在实际需要转录时使用。', 'Used for local speech transcription only when transcription is needed.')}</p>
+            <p>{rendering ? localize('用于火柴人动画本地渲染，仅在执行渲染时按需下载，也可提前安装。不影响脚本、角色预览和图片生成。', 'Used for local stickman animation rendering. Downloads only when rendering is requested, or can be installed in advance. Scripts, character previews, and image generation remain available.', 'Används för lokal rendering av streckgubbsanimationer. Laddas ned när rendering begärs eller kan installeras i förväg. Manus, förhandsvisning av figurer och bildgenerering är fortfarande tillgängliga.') : localize('用于本地语音转录，仅在实际需要转录时使用。', 'Used for local speech transcription only when transcription is needed.')}</p>
           </div>
         </div>
         <dl className="runtime-component-details">
@@ -103,14 +103,14 @@ export function RuntimeManagedComponents({ controller, componentId, onReturn }: 
         </details>
         {busy ? <div className="local-component-progress" role="status">
           <strong>{component.item ?? (component.state === 'verifying' ? localize('正在检查本地组件', 'Checking local components') : localize('正在连接下载服务器', 'Connecting to download server'))}</strong>
-          <p>{rendering ? component.state === 'downloading' ? localize('正在下载 Remotion 渲染组件', 'Downloading Remotion rendering components') : localize('正在校验或安装 Remotion 渲染资源', 'Verifying or installing Remotion rendering resources') : localComponentPreparationMessage(component.state, localize)}</p>
+          <p>{rendering ? component.state === 'downloading' ? localize('正在下载 Remotion 渲染组件', 'Downloading Remotion rendering components', 'Laddar ned renderingskomponenter för Remotion') : localize('正在校验或安装 Remotion 渲染资源', 'Verifying or installing Remotion rendering resources', 'Verifierar eller installerar renderingsresurser för Remotion') : localComponentPreparationMessage(component.state, localize)}</p>
           {component.state === 'downloading' ? <>
             <progress max={100} value={component.percent ?? undefined} aria-label={localize('组件下载进度', 'Component download progress')} />
             <span>{component.percent === null ? '' : `${Math.floor(component.percent)}% · `}{componentProgressText(component)}</span>
           </> : null}
-          <p>{rendering ? localize('正在准备渲染组件；准备完成后任务会自动继续，无需重新生成脚本或图片。', 'Preparing rendering components. The task continues automatically; scripts and images do not need to be regenerated.') : localize('模型文件较大，可能需要较长时间。当前尚未开始转录；准备完成后将自动继续，无需重新开始任务。', 'Models are large and may take time to prepare. Transcription has not started yet; the task continues automatically after preparation.')}</p>
+          <p>{rendering ? localize('正在准备渲染组件；准备完成后任务会自动继续，无需重新生成脚本或图片。', 'Preparing rendering components. The task continues automatically; scripts and images do not need to be regenerated.', 'Förbereder renderingskomponenter. Uppgiften fortsätter automatiskt; manus och bilder behöver inte skapas på nytt.') : localize('模型文件较大，可能需要较长时间。当前尚未开始转录；准备完成后将自动继续，无需重新开始任务。', 'Models are large and may take time to prepare. Transcription has not started yet; the task continues automatically after preparation.')}</p>
         </div> : null}
-        {component.error ? <div role="alert"><p>{rendering ? localize('渲染组件尚未就绪，已有脚本和图片不受影响。请检查诊断信息后重试。', 'Rendering components are not ready. Existing scripts and images are unchanged. Check the diagnostics and retry.') : localize('本地转录组件准备失败。已有字幕不受影响，可检查诊断信息后重试下载。', 'Local transcription preparation failed. Existing subtitles are unchanged; check the diagnostics and retry the download.', 'Förberedelsen av lokal transkription misslyckades. Befintliga undertexter är oförändrade; kontrollera diagnostiken och försök ladda ned igen.')}</p><OriginalErrorDetails detail={component.error} /></div> : null}
+        {component.error ? <div role="alert"><p>{rendering ? localize('渲染组件尚未就绪，已有脚本和图片不受影响。请检查诊断信息后重试。', 'Rendering components are not ready. Existing scripts and images are unchanged. Check the diagnostics and retry.', 'Renderingskomponenterna är inte redo. Befintliga manus och bilder är oförändrade. Kontrollera diagnostiken och försök igen.') : localize('本地转录组件准备失败。已有字幕不受影响，可检查诊断信息后重试下载。', 'Local transcription preparation failed. Existing subtitles are unchanged; check the diagnostics and retry the download.', 'Förberedelsen av lokal transkription misslyckades. Befintliga undertexter är oförändrade; kontrollera diagnostiken och försök ladda ned igen.')}</p><OriginalErrorDetails detail={component.error} /></div> : null}
         {checkedComponentId === component.id && !controller.componentError && !actionError && !busy ? <p className="local-component-check-notice" role="status">{updateAvailable
           ? localize(`检查完成，可更新到受支持版本 ${component.supportedVersion}。`, `Check complete. You can update to the supported version ${component.supportedVersion}.`, `Kontrollen är klar. Du kan uppdatera till den version som stöds: ${component.supportedVersion}.`)
           : current ? localize('检查完成，当前组件无需更新。', 'Check complete. No component update is needed.', 'Kontrollen är klar. Ingen komponentuppdatering behövs.')
