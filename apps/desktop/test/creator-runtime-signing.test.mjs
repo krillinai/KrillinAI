@@ -40,7 +40,29 @@ describe('Creator Runtime Developer ID signing', () => {
     }, { platform: 'darwin', withKeychain, findIdentity, findBinaries: () => fixture.binaryPaths, signBinary });
     expect(withKeychain).toHaveBeenCalledTimes(1);
     expect(findIdentity).toHaveBeenCalledWith('NVRH5R5DJ5', '/tmp/component-test.keychain');
-    expect(signBinary).toHaveBeenCalledWith(fixture.binaryPaths[0], 'Developer ID Application: Junxi YIN (NVRH5R5DJ5)', '/tmp/component-test.keychain');
+    const browserCall = signBinary.mock.calls.find(([path]) => path === fixture.binaryPaths[0]);
+    expect(browserCall.slice(0, 3)).toEqual([fixture.binaryPaths[0], 'Developer ID Application: Junxi YIN (NVRH5R5DJ5)', '/tmp/component-test.keychain']);
+    const entitlements = readFileSync(browserCall[3], 'utf8');
+    expect(entitlements).toMatch(/com\.apple\.security\.cs\.allow-jit<\/key>\s*<true\/>/);
+    expect(entitlements).toMatch(/com\.apple\.security\.cs\.allow-unsigned-executable-memory<\/key>\s*<true\/>/);
+    expect(entitlements).toMatch(/com\.apple\.security\.cs\.disable-library-validation<\/key>\s*<false\/>/);
+    expect(() => verifyStickmanRuntime(fixture.runtimeRoot, 'darwin', 'arm64')).not.toThrow();
+  });
+
+  it('does not grant browser JIT permissions to other Remotion native binaries', async () => {
+    const fixture = createStickmanFixture();
+    const compositor = join(fixture.runtimeRoot, 'node_modules', 'compositor', 'ffmpeg');
+    mkdirSync(dirname(compositor), { recursive: true });
+    writeFileSync(compositor, 'ffmpeg');
+    const manifestPath = join(fixture.runtimeRoot, 'manifest.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    manifest.resources.push({ ...manifest.resources.find(resource => resource.kind === 'browser'), path: relative(fixture.runtimeRoot, compositor).replaceAll('\\', '/'), kind: 'renderer', sha256: hashFile(compositor), bytes: readFileSync(compositor).length });
+    writeFileSync(manifestPath, JSON.stringify(manifest));
+    const signBinary = vi.fn();
+    await signRemotionComponent(fixture.runtimeRoot, {
+      ...signingEnv(), OPENCREATOR_SIGN_CREATOR_RUNTIME: '1', APPLE_KEYCHAIN: '/tmp/component-test.keychain'
+    }, { platform: 'darwin', findIdentity: () => 'test-identity', findBinaries: () => [...fixture.binaryPaths, compositor], signBinary });
+    expect(signBinary).toHaveBeenCalledWith(compositor, 'test-identity', '/tmp/component-test.keychain');
     expect(() => verifyStickmanRuntime(fixture.runtimeRoot, 'darwin', 'arm64')).not.toThrow();
   });
 

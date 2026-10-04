@@ -9,7 +9,8 @@ import {
   writeFileSync
 } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, relative } from 'node:path';
+import { join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { verifyCreatorRuntime } from './creator-runtime-contract.mjs';
 import { verifyStickmanRuntime } from './stickman-runtime-contract.mjs';
@@ -27,6 +28,10 @@ const machOMagicValues = new Set([
   'bfbafeca'
 ]);
 
+const remotionBrowserEntitlements = fileURLToPath(
+  new URL('../resources/entitlements.mac.plist', import.meta.url)
+);
+
 export async function afterPack(context) {
   await prepareMacAppIcon(context);
   if (process.env.OPENCREATOR_SIGN_CREATOR_RUNTIME !== '1') return;
@@ -43,7 +48,18 @@ export async function signRemotionComponent(runtimeRoot, env = process.env, opti
       || (options.findIdentity ?? findSigningIdentity)(signingEnv.OPENCREATOR_APPLE_TEAM_ID, keychainFile);
     const binaries = (options.findBinaries ?? findMachOBinaries)(runtimeRoot);
     if (binaries.length === 0) throw new Error('Remotion component has no native binaries');
-    for (const path of binaries) await (options.signBinary ?? signMachOBinary)(path, identity, keychainFile);
+    const manifest = JSON.parse(readFileSync(join(runtimeRoot, 'manifest.json'), 'utf8'));
+    const browserExecutable = resolve(runtimeRoot, manifest.browserExecutable);
+    const signBinary = options.signBinary ?? signMachOBinary;
+    for (const path of binaries) {
+      // Chromium's V8 needs JIT permissions when hardened runtime is enabled.
+      // Keep these permissions scoped to the browser executable.
+      if (resolve(path) === browserExecutable) {
+        await signBinary(path, identity, keychainFile, remotionBrowserEntitlements);
+      } else {
+        await signBinary(path, identity, keychainFile);
+      }
+    }
     updateManifestHashes(runtimeRoot, binaries);
   });
 }
@@ -172,7 +188,7 @@ function listSigningIdentities(keychainFile) {
   return result.stdout;
 }
 
-function signMachOBinary(path, identity, keychainFile) {
+function signMachOBinary(path, identity, keychainFile, entitlementsPath) {
   const args = [
     '--force',
     '--timestamp',
@@ -182,6 +198,7 @@ function signMachOBinary(path, identity, keychainFile) {
     identity
   ];
   if (keychainFile) args.push('--keychain', keychainFile);
+  if (entitlementsPath) args.push('--entitlements', entitlementsPath);
   args.push(path);
   const result = spawnSync('codesign', args, {
     encoding: 'utf8',

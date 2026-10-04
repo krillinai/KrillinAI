@@ -32,6 +32,7 @@ import {
   launchPackagedApp,
   launchSecondInstance,
   relaunchPackagedApp,
+  requestPackagedAppQuit,
   waitForProcessExit,
   type PackagedApp
 } from './packaged-app.js';
@@ -1104,10 +1105,9 @@ test('@package-smoke 退出期间会回收仍在 Probe 中的 Codex 子进程', 
     const codexPid = Number(readFileSync(pidPath, 'utf8'));
     expect(isProcessAlive(codexPid)).toBe(true);
 
-    await fixture.page.evaluate(() => {
-      void window.opencreatorDesktop?.quit();
-    });
+    await requestPackagedAppQuit(fixture);
     expect(await waitForProcessExit(fixture.process, 15_000)).toBe(true);
+    expect(fixture.process.exitCode).toBe(0);
     await expect.poll(() => isProcessAlive(codexPid), { timeout: 15_000 }).toBe(false);
   } finally {
     await closeFixture(fixture);
@@ -1126,11 +1126,10 @@ test('@package-smoke 启动 Codex app-server 后在 3 秒内退出', async () =>
     expect(models.status).toBe(200);
 
     const startedAt = Date.now();
-    await fixture.page.evaluate(() => {
-      void window.opencreatorDesktop?.quit();
-    });
+    await requestPackagedAppQuit(fixture);
 
     expect(await waitForProcessExit(fixture.process, 3_000)).toBe(true);
+    expect(fixture.process.exitCode).toBe(0);
     expect(Date.now() - startedAt).toBeLessThan(3_000);
   } finally {
     await closeFixture(fixture);
