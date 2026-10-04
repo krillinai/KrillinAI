@@ -50,6 +50,7 @@ import {
 import {
   readCreatorResultSnapshots,
   parseBilibiliVideoSource,
+  normalizeVideoSourceUrl,
   videoSourceIdentity,
   type CreatorArtifact,
   type CreatorJson,
@@ -757,6 +758,7 @@ function legacyResultVersionsFromArtifacts(
   for (const artifact of artifacts) {
     if (
       artifact.status !== 'completed'
+      || artifact.metadata.previewOnly === true
       || (artifact.kind !== 'target_subtitle' && !isVideoArtifactKind(artifact.kind))
     ) continue;
     const version = artifactResultVersion(artifact);
@@ -1897,6 +1899,54 @@ export default function VideoTranslationWorkspace(props: {
   }, [cancelDialogOpen]);
 
   const jobArtifacts = creatorSession?.job.artifacts ?? [];
+  const currentSourceIdentity = sourceType === 'url' ? videoSourceIdentity(videoUrl) : null;
+  const currentSourcePreviewArtifact = currentSourceIdentity === null ? undefined : [...jobArtifacts].reverse().find(artifact => {
+    if (artifact.kind !== 'source_video' || artifact.status !== 'completed') return false;
+    const settings = artifact.metadata.settingsSnapshot;
+    const url = settings !== null && typeof settings === 'object' && !Array.isArray(settings)
+      ? settings.sourceUrl : artifact.metadata.sourceUrl;
+    return typeof url === 'string' && videoSourceIdentity(url) === currentSourceIdentity;
+  });
+  const [draftPreviewRequest, setDraftPreviewRequest] = useState<{ url: string; pending: boolean; error?: string }>();
+  const [draftSourcePreview, setDraftSourcePreview] = useState<{ artifactId: string; src?: string; loading: boolean; error?: string }>();
+  const [draftPreviewReload, setDraftPreviewReload] = useState(0);
+  const currentSourcePreviewArtifactId = currentSourcePreviewArtifact?.id;
+  useEffect(() => {
+    const { session, localize } = mediaPreviewContextRef.current;
+    if (workspacePhase !== 'configure' || currentSourcePreviewArtifactId === undefined || session === null || !canOpenMediaPreview) {
+      setDraftSourcePreview(undefined);
+      return;
+    }
+    let canceled = false;
+    let objectUrl: string | undefined;
+    setDraftSourcePreview({ artifactId: currentSourcePreviewArtifactId, loading: true });
+    void createCreatorArtifactObjectUrl(session, currentSourcePreviewArtifactId,
+      'video-translation.load-source-preview', localize('原视频预览加载失败，请重试。', 'Source video preview failed to load. Try again.'))
+      .then(src => {
+        objectUrl = src;
+        if (canceled) { URL.revokeObjectURL(src); return; }
+        setDraftSourcePreview({ artifactId: currentSourcePreviewArtifactId, src, loading: false });
+      }).catch(() => {
+        if (!canceled) setDraftSourcePreview({ artifactId: currentSourcePreviewArtifactId, loading: false, error: 'load' });
+      });
+    return () => {
+      canceled = true;
+      if (objectUrl !== undefined) URL.revokeObjectURL(objectUrl);
+    };
+  }, [workspacePhase, currentSourcePreviewArtifactId, canOpenMediaPreview, mediaPreviewJobId, draftPreviewReload]);
+  const currentDraftSourcePreview = draftSourcePreview?.artifactId === currentSourcePreviewArtifactId ? draftSourcePreview : undefined;
+  const draftPreviewStage = [...(creatorSession?.job.stages ?? [])].reverse().find(stage =>
+    stage.stageId === 'preview-source-video' && stage.progress.previewSourceUrl === videoUrl);
+  const draftPreviewPending = (draftPreviewRequest?.url === videoUrl && draftPreviewRequest.pending)
+    || draftPreviewStage?.status === 'queued' || draftPreviewStage?.status === 'running' || currentDraftSourcePreview?.loading === true;
+  const draftPreviewError = draftPreviewRequest?.url === videoUrl && draftPreviewRequest.error
+    ? draftPreviewRequest.error
+    : currentDraftSourcePreview?.error
+      ? l('原视频预览加载失败，请重试。', 'Source video preview failed to load. Try again.')
+      : draftPreviewStage?.status === 'failed'
+        ? draftPreviewStage.errorMessage ?? l('视频下载失败，请重试。', 'Video download failed. Try again.')
+        : draftPreviewStage?.status === 'canceled' || draftPreviewStage?.status === 'interrupted'
+          ? l('视频预览准备已停止，可以重试。', 'Video preview preparation stopped. You can retry.') : undefined;
   const registeredSourceArtifactId = creatorSession?.state.sourceArtifactId;
   const registeredSourceArtifact = (
     typeof registeredSourceArtifactId === 'string'
@@ -1950,7 +2000,7 @@ export default function VideoTranslationWorkspace(props: {
       ? localPreviewUrl?.file === videoFile ? localPreviewUrl.url : undefined
       : artifactPreviewUrl !== undefined && artifactPreviewUrl.artifactId === registeredSourceArtifact?.id
         ? artifactPreviewUrl.url : undefined
-    : parsedVideoSource.kind === 'direct' ? parsedVideoSource.url : undefined;
+    : parsedVideoSource.kind === 'direct' ? parsedVideoSource.url : currentDraftSourcePreview?.src;
   const previewPosterUrl = sourceType === 'url'
     ? currentUrlMetadata?.thumbnailUrl
       ?? (parsedVideoSource.kind === 'youtube' ? parsedVideoSource.thumbnailUrl : undefined)
@@ -2781,6 +2831,23 @@ export default function VideoTranslationWorkspace(props: {
     }
   }
 
+  async function prepareDraftSourcePreview() {
+    if (creatorSession === null || currentSourceIdentity === null || activeStage !== undefined || draftPreviewPending) return;
+    if (currentSourcePreviewArtifact !== undefined) {
+      setDraftPreviewReload(value => value + 1);
+      return;
+    }
+    const url = videoUrl;
+    creatorSession.clearError();
+    setDraftPreviewRequest({ url, pending: true });
+    try {
+      await creatorSession.applyAction({ action: 'run-stage', input: { stageId: 'preview-source-video' } });
+      setDraftPreviewRequest({ url, pending: false });
+    } catch (cause) {
+      setDraftPreviewRequest({ url, pending: false, error: creatorErrorMessage(cause, l) });
+    }
+  }
+
   async function cancelTask() {
     if (creatorSession === null || activeStage === undefined || taskControlPending !== undefined) return;
     setCancelDialogOpen(false);
@@ -3098,6 +3165,7 @@ export default function VideoTranslationWorkspace(props: {
           {workspacePhase === 'configure' && currentStep === 0 ? (
             <>
             <VideoSourceInput
+              showSupportedPlatforms
               file={videoFile}
               registeredFile={registeredSourceFile}
               sourceType={sourceType}
@@ -3107,9 +3175,16 @@ export default function VideoTranslationWorkspace(props: {
               metadataService={parsedVideoSource.kind === 'bilibili' ? undefined : props.videoMetadataService}
               metadata={currentUrlMetadata}
               previewEnabled={sourceSelectionReady}
+              playbackPreview={sourceType === 'url' && parsedVideoSource.kind === 'link' ? {
+                src: currentDraftSourcePreview?.src,
+                pending: Boolean(draftPreviewPending),
+                blocked: activeStage !== undefined,
+                error: draftPreviewError,
+                onPrepare: creatorSession !== null && currentSourceIdentity !== null ? () => void prepareDraftSourcePreview() : undefined
+              } : undefined}
               onFileChange={chooseVideo}
               onUrlChange={url => {
-                setVideoUrl(url);
+                setVideoUrl(normalizeVideoSourceUrl(url));
                 setSourceType('url');
                 setVideoFile(null);
                 setSourceDimensions(undefined);
@@ -3740,7 +3815,7 @@ function creatorErrorMessage(cause: unknown, l: LocalizeCopy): string {
     return l('已开启配音，请先配置配音服务。', 'Dubbing is enabled. Configure a TTS service first.');
   }
   if (code === 'unsupported_source') {
-    return l('当前仅支持 YouTube、Bilibili 公共链接或已上传的本地视频。', 'Only public YouTube/Bilibili links or uploaded local videos are supported.');
+    return l('请使用 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 的单个公开视频链接或已上传的本地视频。', 'Use a single public video link from YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, or Pinterest, or an uploaded local video.');
   }
   return l('启动翻译失败，请在 Agent 区域查看诊断后重试。', 'Failed to start translation. Review the diagnosis in the Agent panel and retry.');
 }

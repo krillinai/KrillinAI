@@ -13,6 +13,49 @@ import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
 import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
 describe('VideoTranslationWorkspace task controls', () => {
+  it('downloads and previews a draft Douyin source without entering results and clears playback when the source changes', async () => {
+    const objectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+    const revokeDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
+    const revoke = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:draft-douyin') });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revoke });
+    const url = 'https://v.douyin.com/example/';
+    let current = job({ status: 'draft', revision: 1, stages: [], state: { sourceUrl: url, currentStep: 0, furthestStep: 0 } });
+    const openArtifact = vi.fn(async () => new Response(new Blob(['video'], { type: 'video/mp4' })));
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
+      if (request.action === 'run-stage') {
+        const source = { ...sourceVideoArtifact(1), metadata: { sourceUrl: url, settingsSnapshot: { sourceType: 'url', sourceUrl: url }, previewOnly: true } };
+        current = { ...current, revision: current.revision + 1, artifacts: [source] };
+      } else {
+        current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
+      }
+      return { job: current };
+    });
+    let session: ReturnType<typeof useCreatorSession>;
+    function Capture() { session = useCreatorSession(); return null; }
+    const view = render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
+      service={{ applyAction, openArtifact, runAgentTurn: vi.fn(), preflight: vi.fn(async () => ({ canStart: true, ready: [], blocked: [], warning: [] })) } as never}>
+      <Capture /><VideoTranslationWorkspace onBack={vi.fn()} /></CreatorSessionProvider></LanguageProvider>);
+    try {
+      fireEvent.click(screen.getByRole('button', { name: '下载并预览' }));
+      expect(await screen.findByLabelText('原视频预览')).toHaveAttribute('src', 'blob:draft-douyin');
+      expect(screen.getByRole('region', { name: '视频预览' })).toBeVisible();
+      expect(screen.queryByRole('tab', { name: '字幕' })).not.toBeInTheDocument();
+      expect(applyAction.mock.calls.filter(([, request]) => request.action === 'run-stage')).toEqual([
+        ['job_control', expect.objectContaining({ action: 'run-stage', input: { stageId: 'preview-source-video' } })]
+      ]);
+      const secondUrl = 'https://v.douyin.com/second/';
+      act(() => session!.applyRemoteSnapshot({ ...current, revision: current.revision + 1, state: { ...current.state, sourceUrl: secondUrl } }));
+      await waitFor(() => expect(screen.queryByLabelText('原视频预览')).not.toBeInTheDocument());
+      expect(screen.getByRole('button', { name: '下载并预览' })).toBeEnabled();
+      expect(revoke).toHaveBeenCalledWith('blob:draft-douyin');
+      expect(openArtifact).toHaveBeenCalledOnce();
+    } finally {
+      view.unmount();
+      restoreUrlMethod('createObjectURL', objectUrlDescriptor);
+      restoreUrlMethod('revokeObjectURL', revokeDescriptor);
+    }
+  });
   it('keeps the same playable video and URL across snapshots, diagnostic callback changes, and language switches', async () => {
     const objectUrlDescriptor = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
     const revokeDescriptor = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');

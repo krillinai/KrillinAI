@@ -9,6 +9,51 @@ import { createCreatorService } from '../../src/creator/service.js';
 import { createDefaultCreatorTemplateRegistry } from '../../src/creator/templates/registry.js';
 import { openRuntimeDatabase } from '../../src/storage/database.js';
 
+it('preflights and serves a draft Douyin preview without translation configuration or result versions', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'creator-draft-preview-api-'));
+  const db = openRuntimeDatabase(join(directory, 'runtime.sqlite'));
+  const repository = createCreatorRepository(db);
+  const service = createCreatorService({ repository, templates: createDefaultCreatorTemplateRegistry() });
+  const sourceUrl = 'https://v.douyin.com/example/';
+  const initial = service.createJob({ projectId: 'preview-project', templateId: 'video-translation', state: { sourceType: 'url', sourceUrl } });
+  const server = await buildServer({ db, token: 'secret', dataDir: directory, codexHome: join(directory, 'codex-home'),
+    creatorExecutors: [{ id: 'download', async run({ stageRun, workdir, reportProgress }) {
+      expect(stageRun.stageId).toBe('preview-source-video');
+      expect(stageRun.progress.previewSourceUrl).toBe(sourceUrl);
+      reportProgress({ phase: 'downloading', percent: 25, downloadedBytes: 25, totalBytes: 100, message: 'Downloading preview' });
+      const path = join(workdir, 'preview.mp4');
+      writeFileSync(path, 'draft-preview-video');
+      return { outputs: [{ kind: 'source_video', path, status: 'completed', sourceArtifactIds: [],
+        metadata: { sourceUrl, settingsSnapshot: { sourceType: 'url', sourceUrl }, previewOnly: true, playbackCompatible: true } }] };
+    } }]
+  });
+  const headers = { authorization: 'Bearer secret' };
+  const route = `/creator/jobs/${initial.id}`;
+  try {
+    const preflight = await server.inject({ method: 'GET', url: `${route}/preflight?stageId=preview-source-video`, headers });
+    expect(preflight.statusCode).toBe(200);
+    expect(preflight.json().canStart).toBe(true);
+    const started = await server.inject({ method: 'POST', url: `${route}/actions`, headers, payload: {
+      action: 'run-stage', expectedRevision: initial.revision, idempotencyKey: 'draft-preview', input: { stageId: 'preview-source-video' }
+    } });
+    expect(started.statusCode).toBe(200);
+    await expect.poll(() => repository.getJob(initial.id)!.stages.at(-1)!.status).toBe('succeeded');
+    const after = repository.getJob(initial.id)!;
+    expect(after.status).toBe('draft');
+    expect(after.state.resultVersion).toBeUndefined();
+    expect(readCreatorResultSnapshots(after.state.resultSnapshots)).toEqual([]);
+    const source = after.artifacts[0]!;
+    const content = await server.inject({ method: 'GET', url: `${route}/artifacts/${source.id}/content`, headers });
+    expect(content.statusCode).toBe(200);
+    expect(content.headers['content-type']).toContain('video/mp4');
+    expect(content.body).toBe('draft-preview-video');
+  } finally {
+    await server.close();
+    if (db.open) db.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 it('preflights, cancels, resumes, and serves preview media for a completed historical result without retranslation', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'creator-video-preview-api-'));
   const db = openRuntimeDatabase(join(directory, 'runtime.sqlite'));

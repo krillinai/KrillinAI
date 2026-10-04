@@ -22,6 +22,17 @@ describe('shared native image progress', () => {
 });
 
 describe('video translation component progress', () => {
+  it('labels draft preview activity and reports real progress without translation claims', () => {
+    const running = { ...stage('draft-preview', '', 'running', null, 'preview-source-video'),
+      progress: { phase: 'downloading', percent: 40, downloadedBytes: 4 * 1024 ** 2, totalBytes: 10 * 1024 ** 2 } };
+    expect(videoTranslationPanelAdapter.stageLabel(running.stageId, zh)).toBe('原视频预览准备');
+    expect(videoTranslationPanelAdapter.normalizeActivity(activity('run-stage', { stageId: running.stageId }), zh))
+      .toEqual({ label: '开始下载原视频预览', fields: [] });
+    expect(videoTranslationPanelAdapter.readStageProgress(running, en)).toMatchObject({ percent: 40, indeterminate: false, message: 'Downloading the source video: 4.0 MiB / 10.0 MiB' });
+    expect(videoTranslationPanelAdapter.readStageProgress({ ...running, progress: { phase: 'normalizing_media', percent: 98 } }, zh)).toMatchObject({ percent: null, indeterminate: true });
+    expect(videoTranslationPanelAdapter.failedProgressText?.(running, zh)).toContain('可重试');
+    expect(videoTranslationPanelAdapter.succeededProgressText?.(running, zh)).toContain('已就绪');
+  });
   it.each(['zh-CN', 'en-US', 'sv-SE'] as const)('localizes dependency and preview preparation with real progress in %s', language => {
     const localize = createLocalizedCopy(language);
     const raw = '后台原文：正在准备本地模型';

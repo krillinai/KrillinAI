@@ -6,7 +6,7 @@ import type {
   DownloadOption,
   DownloadProbe
 } from '@opencreator/protocol';
-import { extractDouyinShareUrl } from '@opencreator/protocol';
+import { extractDouyinShareUrl, supportedVideoSourcePlatform } from '@opencreator/protocol';
 import {
   AlertCircle,
   Check,
@@ -30,6 +30,7 @@ import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import NativeSelect from '../../components/forms/NativeSelect.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
+import SupportedVideoSources from './SupportedVideoSources.js';
 import {
   createCreatorArtifactObjectUrl,
   useOptionalCreatorSession
@@ -680,21 +681,7 @@ export default function VideoDownloadWorkspace(props: {
                 </h2>
               </div>
             </div>
-            <div className="video-download-platform-section">
-              <span>{l('支持的视频来源（支持单个公开视频链接）', 'Supported video sources (one public video link)')}</span>
-              <ul className="video-download-platforms" aria-label={l('支持的平台', 'Supported platforms')}>
-                {([
-                  ['youtube', 'YouTube'], ['bilibili', 'Bilibili'], ['x', 'X'],
-                  ['tiktok', 'TikTok'], ['instagram', 'Instagram'], ['douyin', l('抖音', 'Douyin')],
-                  ['facebook', 'Facebook'], ['xiaohongshu', l('小红书', 'Xiaohongshu')], ['pinterest', 'Pinterest']
-                ] as const).map(([platformName, name]) => (
-                  <li key={platformName}>
-                    <img src={`/platforms/${platformName}.png`} alt="" width="32" height="32" />
-                    <span>{name}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <SupportedVideoSources />
             <label className="creator-tool-url-input">
               <Link2 size={17} strokeWidth={1.8} aria-hidden="true" />
               <input
@@ -1574,84 +1561,7 @@ function formatBytes(bytes: number): string {
 }
 
 function isSupportedUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value.trim());
-    const host = parsed.hostname.toLowerCase();
-    return parsed.protocol === 'https:'
-      && (
-        host === 'youtu.be'
-        || host === 'youtube.com'
-        || host.endsWith('.youtube.com')
-        || host === 'b23.tv'
-        || host === 'bilibili.com'
-        || host.endsWith('.bilibili.com')
-        || host === 'x.com'
-        || host.endsWith('.x.com')
-        || host === 'twitter.com'
-        || host.endsWith('.twitter.com')
-        || isTikTokVideoUrl(parsed)
-        || isInstagramVideoUrl(parsed)
-        || isDouyinVideoUrl(parsed)
-        || isFacebookVideoUrl(parsed)
-        || isXiaohongshuVideoUrl(parsed)
-        || isPinterestVideoUrl(parsed)
-      );
-  } catch {
-    return false;
-  }
-}
-
-function isTikTokVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  if (host === 'vm.tiktok.com' || host === 'vt.tiktok.com') {
-    return /^\/[\w-]+\/?$/.test(url.pathname);
-  }
-  return (host === 'tiktok.com' || host.endsWith('.tiktok.com'))
-    && /^\/@[^/]+\/video\/\d+\/?$/.test(url.pathname);
-}
-
-function isInstagramVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  return (host === 'instagram.com' || host === 'www.instagram.com')
-    && /^\/(?:reel|p|tv)\/[\w-]+\/?$/.test(url.pathname);
-}
-
-function isDouyinVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  if (host === 'v.douyin.com') {
-    return /^\/[\w-]+\/?$/.test(url.pathname);
-  }
-  return (host === 'douyin.com' || host === 'www.douyin.com')
-    && (
-      /^\/video\/\d+\/?$/.test(url.pathname)
-      || (url.pathname === '/jingxuan'
-        && /^\d+$/.test(url.searchParams.get('modal_id') ?? ''))
-    );
-}
-
-function isFacebookVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  if (host === 'fb.watch') {
-    return /^\/[\w-]+\/?$/.test(url.pathname);
-  }
-  if (!['facebook.com', 'www.facebook.com', 'm.facebook.com'].includes(host)) {
-    return false;
-  }
-  return /^\/watch\/?$/.test(url.pathname)
-    ? /^\d+$/.test(url.searchParams.get('v') ?? '')
-    : /^\/(?:reel\/\d+|videos\/\d+|[^/]+\/videos\/\d+)\/?$/.test(url.pathname);
-}
-
-function isXiaohongshuVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  return (host === 'xiaohongshu.com' || host === 'www.xiaohongshu.com')
-    && /^\/explore\/[0-9a-f]{24}\/?$/i.test(url.pathname);
-}
-
-function isPinterestVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  return (host === 'pinterest.com' || host === 'www.pinterest.com')
-    && /^\/pin\/\d+\/?$/.test(url.pathname);
+  return supportedVideoSourcePlatform(value) !== null;
 }
 
 function platformFor(

@@ -115,7 +115,7 @@ export function createCreatorPreflight(input: {
     if (stage.resultVersionPolicy === 'attach' && inputSnapshot === undefined) {
       add('blocked', { id: 'input-result-version', title: '请先选择项目版本', message: '准备预览视频需要明确的已保存项目版本。', executionMode: 'local' });
     }
-    if (job.templateId === 'video-translation' && (stage.id === 'subtitle' || stage.id === 'prepare-source-video')) {
+    if (job.templateId === 'video-translation' && (stage.id === 'subtitle' || stage.id === 'prepare-source-video' || stage.id === 'preview-source-video')) {
       try {
         await validateBilibiliSource({ ...job, state: inputState }, input.videoMetadataService);
       } catch (error) {

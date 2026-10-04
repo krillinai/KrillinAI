@@ -1,5 +1,5 @@
 import { copyFile, link, lstat, mkdir, realpath, rename, writeFile } from 'node:fs/promises';
-import { videoSourceIdentity } from '@opencreator/protocol';
+import { normalizeVideoSourceUrl, videoSourceIdentity } from '@opencreator/protocol';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type {
   CreatorArtifact,
@@ -221,7 +221,7 @@ export function normalizeKrillinFailure(error: { code?: string; message?: string
 export function buildKrillinStageOptions(input: CreatorExecutorInput): Record<string, unknown> {
   const state = input.job.state;
   return compactObject({
-    sourceUrl: typeof state.sourceUrl === 'string' ? state.sourceUrl : undefined,
+    sourceUrl: typeof state.sourceUrl === 'string' ? normalizeVideoSourceUrl(state.sourceUrl) : undefined,
     originLanguage: normalizeKrillinLanguage(
       typeof state.sourceLanguage === 'string' ? state.sourceLanguage : undefined
     ),

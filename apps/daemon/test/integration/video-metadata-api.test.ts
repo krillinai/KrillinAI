@@ -67,6 +67,17 @@ describe('video metadata API', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
+  it('resolves a Douyin share link into metadata and an online video URL without downloading', async () => {
+    const payload = { title: 'Douyin preview', thumbnail: 'https://media.example.com/cover.jpg',
+      formats: [{ url: 'https://media.example.com/video.mp4', ext: 'mp4', protocol: 'https', vcodec: 'h264', acodec: 'aac', width: 1080, height: 1920 }] };
+    await registerVideoMetadataRoutes(server, createVideoMetadataService({ getProxy: () => '', getYtDlpRuntime: () => ({
+      version: 'test', executable: process.execPath, prefixArgs: ['-e', `if(!process.argv.includes('--skip-download'))process.exit(1);process.stdout.write(${JSON.stringify(JSON.stringify(payload))})`, '--'], env: {}
+    }) }));
+    const response = await server.inject({ method: 'GET', url: `/video-metadata?${new URLSearchParams({ url: 'https://v.douyin.com/example/' })}` });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ platform: 'douyin', title: 'Douyin preview', previewUrl: 'https://media.example.com/video.mp4', width: 1080, height: 1920 });
+  });
+
   it('returns title information for a Bilibili video', async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({
       code: 0,

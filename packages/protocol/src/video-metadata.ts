@@ -1,4 +1,6 @@
-export type VideoMetadataPlatform = 'youtube' | 'bilibili';
+import { normalizeVideoSourceUrl, supportedVideoSourcePlatform, type DownloadPlatform } from './creator-download.js';
+
+export type VideoMetadataPlatform = DownloadPlatform;
 
 export type VideoSourcePart = {
   index: number;
@@ -14,6 +16,7 @@ export type VideoMetadataResponse = {
   title: string;
   authorName?: string;
   thumbnailUrl?: string;
+  previewUrl?: string;
   width?: number;
   height?: number;
   parts?: VideoSourcePart[];
@@ -51,7 +54,7 @@ export function videoSourceIdentity(value: string): string | null {
   const bilibili = parseBilibiliVideoSource(value);
   if (bilibili !== null) return `bilibili:${bilibili.videoId}:p${bilibili.partIndex ?? 1}`;
   try {
-    const source = new URL(value.trim());
+    const source = new URL(normalizeVideoSourceUrl(value));
     if (source.protocol !== 'http:' && source.protocol !== 'https:') return null;
     const host = source.hostname.toLowerCase();
     const videoId = host === 'youtu.be'
@@ -59,7 +62,12 @@ export function videoSourceIdentity(value: string): string | null {
       : host === 'youtube.com' || host.endsWith('.youtube.com')
         ? source.searchParams.get('v') || source.pathname.match(/^\/(?:shorts|embed|live)\/([^/]+)\/?$/)?.[1]
         : undefined;
-    return videoId && /^[A-Za-z0-9_-]+$/.test(videoId) ? `youtube:${videoId}` : null;
+    if (videoId && /^[A-Za-z0-9_-]+$/.test(videoId)) return `youtube:${videoId}`;
+    const platform = supportedVideoSourcePlatform(source.toString());
+    if (platform === null || (platform === 'youtube')
+      || (platform === 'bilibili' && host !== 'b23.tv')) return null;
+    source.hash = '';
+    return `${platform}:${source.toString()}`;
   } catch {
     return null;
   }

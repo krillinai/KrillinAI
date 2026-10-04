@@ -1,5 +1,6 @@
 import {
   parseBilibiliVideoSource,
+  supportedVideoSourcePlatform,
   type CreatorJob,
   type CreatorStageRun,
   type CreatorTtsProvider
@@ -165,20 +166,22 @@ function validateSource(job: CreatorJob): void {
   }
   const value = job.state.sourceUrl;
   if (typeof value !== 'string' || !isSupportedVideoUrl(value)) {
-    throw new VideoTranslationWorkflowError('unsupported_source', 'Only YouTube and Bilibili public URLs are supported');
+    throw new VideoTranslationWorkflowError('unsupported_source', 'Only public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, and Pinterest video URLs are supported');
   }
 }
 
 function isSupportedVideoUrl(value: string): boolean {
   try {
-    const source = new URL(value);
-    const host = source.hostname.toLowerCase();
-    const protocol = source.protocol;
-    return (protocol === 'http:' || protocol === 'https:')
-      && (host === 'youtu.be' || host === 'youtube.com' || host.endsWith('.youtube.com')
-        || host === 'b23.tv' || host === 'bilibili.com' || host.endsWith('.bilibili.com'));
+    const source = new URL(value.trim());
+    // Existing translation jobs may use HTTP YouTube or Bilibili links.
+    if (source.protocol === 'http:') {
+      source.protocol = 'https:';
+      const platform = supportedVideoSourcePlatform(source.toString());
+      return platform === 'youtube' || platform === 'bilibili';
+    }
+    return supportedVideoSourcePlatform(value) !== null;
   } catch {
-    return false;
+    return supportedVideoSourcePlatform(value) !== null;
   }
 }
 

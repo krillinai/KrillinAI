@@ -29,6 +29,38 @@ afterEach(async () => {
 });
 
 describe('creator download executor', () => {
+  it('downloads the queued draft source even if the URL changes before execution', async () => {
+    const executor = createDownloadExecutor(await fakeBinaries());
+    const workdir = join(tempDir, 'draft-preview');
+    await mkdir(workdir);
+    const sourceUrl = 'https://www.douyin.com/video/7490000000000000001';
+    const reportProgress = vi.fn();
+    const stage = previewInput({ workdir, sourceUrl, reportProgress });
+    stage.stageRun.stageId = 'preview-source-video';
+    stage.stageRun.progress = { previewSourceUrl: sourceUrl };
+    stage.job.state.resultSnapshots = [];
+    const result = await executor.run(stage);
+    expect(JSON.parse(await readFile(join(workdir, 'args.json'), 'utf8'))).toContain(sourceUrl);
+    expect(result.outputs[0]).toMatchObject({ kind: 'source_video', metadata: {
+      previewOnly: true, playbackCompatible: true, settingsSnapshot: { sourceType: 'url', sourceUrl }
+    } });
+    expect(reportProgress).toHaveBeenCalledWith(expect.objectContaining({ phase: 'downloading', percent: 42 }));
+  });
+  it.each([
+    'https://x.com/creator/status/123', 'https://www.tiktok.com/@creator/video/123',
+    'https://www.instagram.com/reel/abc123/', 'https://www.douyin.com/video/123',
+    'https://www.facebook.com/watch/?v=123',
+    'https://www.xiaohongshu.com/explore/6a9149f3000000001f01d20a?xsec_token=sample%3D',
+    'https://www.pinterest.com/pin/123/'
+  ])('prepares saved translation previews from the added platform: %s', async sourceUrl => {
+    const executor = createDownloadExecutor(await fakeBinaries());
+    const workdir = join(tempDir, 'preview');
+    await mkdir(workdir);
+    const result = await executor.run(previewInput({ workdir, sourceUrl }));
+    expect(JSON.parse(await readFile(join(workdir, 'args.json'), 'utf8'))).toContain(sourceUrl);
+    expect(result.outputs[0]).toMatchObject({ kind: 'source_video', status: 'completed',
+      metadata: { playbackCompatible: true, settingsSnapshot: { sourceUrl } } });
+  });
   it('prepares the saved Bilibili part without translating or using the current draft source', async () => {
     const executor = createDownloadExecutor(await fakeBinaries());
     const workdir = join(tempDir, 'preview');

@@ -3,7 +3,8 @@ import { Link2, UploadCloud } from 'lucide-react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { VideoMetadataResponse } from '@opencreator/protocol';
 import type { VideoMetadataService } from '../../services/video-metadata-service.js';
-import VideoSourcePreview from './VideoSourcePreview.js';
+import VideoSourcePreview, { type SourcePlaybackPreview } from './VideoSourcePreview.js';
+import SupportedVideoSources from './SupportedVideoSources.js';
 
 export default function VideoSourceInput(props: {
   file: File | null;
@@ -12,9 +13,11 @@ export default function VideoSourceInput(props: {
   url: string;
   hasSource: boolean;
   invalid?: boolean;
+  showSupportedPlatforms?: boolean;
   metadataService?: VideoMetadataService;
   metadata?: VideoMetadataResponse;
   previewEnabled?: boolean;
+  playbackPreview?: SourcePlaybackPreview;
   onFileChange(file: File | null): void;
   onUrlChange(url: string): void;
   onClear(): void;
@@ -69,6 +72,7 @@ export default function VideoSourceInput(props: {
             metadataService={props.metadataService}
             metadata={props.metadata}
             previewEnabled={props.previewEnabled}
+            playbackPreview={props.playbackPreview}
             onChooseFile={openFilePicker}
             onClear={props.onClear}
             onDimensions={props.onDimensions}
@@ -100,7 +104,7 @@ export default function VideoSourceInput(props: {
                 type="url"
                 value={props.url}
                 onChange={event => props.onUrlChange(event.target.value)}
-                placeholder={l(
+                placeholder={props.showSupportedPlatforms ? l('粘贴视频链接', 'Paste a video URL') : l(
                   '粘贴 YouTube 标准链接、youtu.be 分享链接或 Bilibili 链接',
                   'Paste a YouTube URL, youtu.be share link, or Bilibili URL'
                 )}
@@ -108,6 +112,7 @@ export default function VideoSourceInput(props: {
               />
             </div>
           </label>
+          {props.showSupportedPlatforms ? <SupportedVideoSources compact /> : null}
         </>
       ) : null}
     </section>

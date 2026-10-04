@@ -50,6 +50,50 @@ function setup(executor: CreatorExecutor, templateVersion = 2) {
 }
 
 describe('video translation preview preparation', () => {
+  it.each([1, 2])('previews a draft URL without creating a result or changing job status (template v%s)', async templateVersion => {
+    const url = 'https://www.douyin.com/video/7490000000000000001';
+    const context = setup({ id: 'download', async run(stage) {
+      expect(stage.stageRun.progress.previewSourceUrl).toBe(url);
+      const path = join(stage.workdir, 'preview.mp4');
+      writeFileSync(path, 'preview');
+      return { outputs: [{ kind: 'source_video', path, status: 'completed', sourceArtifactIds: [], metadata: { sourceUrl: url, previewOnly: true } }] };
+    } }, templateVersion);
+    try {
+      const draft = context.service.createJob({ projectId: 'preview-project', templateId: 'video-translation', templateVersion,
+        state: { sourceType: 'url', sourceUrl: url } });
+      const started = context.dispatcher.dispatch(draft.id, { action: 'run-stage', expectedRevision: draft.revision, idempotencyKey: 'draft-preview',
+        input: { stageId: 'preview-source-video' } }, 'user');
+      expect(() => context.dispatcher.dispatch(draft.id, { action: 'run-stage', expectedRevision: started.job.revision, idempotencyKey: 'duplicate-preview',
+        input: { stageId: 'preview-source-video' } }, 'user')).toThrow();
+      expect(() => context.dispatcher.dispatch(draft.id, { action: 'run-stage', expectedRevision: started.job.revision, idempotencyKey: 'translation-during-preview',
+        input: { stageId: 'subtitle' } }, 'user')).toThrow();
+      expect((await context.runner.runStageRun(started.commandReceipt.stageRunId!)).status).toBe('succeeded');
+      const after = context.service.getJob(draft.id)!;
+      expect(after.status).toBe('draft');
+      expect(after.state.resultVersion).toBeUndefined();
+      expect(readCreatorResultSnapshots(after.state.resultSnapshots)).toEqual([]);
+      expect(after.artifacts).toHaveLength(1);
+      expect(after.artifacts[0]!.metadata.resultVersion).toBeUndefined();
+    } finally { await context.close(); }
+  });
+
+  it('preserves draft status on preview failure and rejects unsupported sources', async () => {
+    const context = setup({ id: 'download', async run() { throw new CreatorExecutorError('network_unavailable', 'Preview download failed'); } });
+    try {
+      const draft = context.service.createJob({ projectId: 'preview-project', templateId: 'video-translation', templateVersion: 2,
+        state: { sourceType: 'url', sourceUrl: 'https://v.douyin.com/example/' } });
+      const started = context.dispatcher.dispatch(draft.id, { action: 'run-stage', expectedRevision: draft.revision, idempotencyKey: 'failure-preview',
+        input: { stageId: 'preview-source-video' } }, 'user');
+      expect((await context.runner.runStageRun(started.commandReceipt.stageRunId!)).status).toBe('failed');
+      expect(context.service.getJob(draft.id)!.status).toBe('draft');
+      const invalid = context.service.createJob({ projectId: 'preview-project', templateId: 'video-translation', templateVersion: 2,
+        state: { sourceType: 'url', sourceUrl: 'https://example.com/video' } });
+      expect(() => context.dispatcher.dispatch(invalid.id, { action: 'run-stage', expectedRevision: invalid.revision, idempotencyKey: 'invalid-preview',
+        input: { stageId: 'preview-source-video' } }, 'user')).toThrow();
+      expect(context.service.getJob(invalid.id)!.revision).toBe(invalid.revision);
+    } finally { await context.close(); }
+  });
+
   it.each([1, 2])('attaches video to the selected result without creating versions or changing subtitles (template v%s)', async templateVersion => {
     const context = setup({ id: 'download', async run(stage) {
       expect(stage.stageRun.progress.inputResultVersion).toBe(1);
