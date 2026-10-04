@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import type { AddressInfo } from 'node:net';
@@ -13,7 +13,7 @@ const run = promisify(execFile);
 const e2eDir = dirname(fileURLToPath(import.meta.url));
 const electronExecutable = createRequire(import.meta.url)('electron') as string;
 
-test('@package-smoke Desktop 网络在 Socket QoS 抛出 EINVAL 时仍可请求、上传和取消', async () => {
+test('@package-smoke Desktop 网络在 Socket QoS 抛出 EINVAL 时仍可请求、上传和取消', async ({}, testInfo) => {
   const userData = mkdtempSync(join(tmpdir(), 'opencreator-desktop-network-'));
   const server = createServer((request, response) => {
     if (request.url === '/wait') return;
@@ -38,17 +38,27 @@ test('@package-smoke Desktop 网络在 Socket QoS 抛出 EINVAL 时仍可请求�
   });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
-    const env = { ...process.env };
+    const resultPath = join(userData, 'network-test-result.json');
+    const env: NodeJS.ProcessEnv = { ...process.env, OPENCREATOR_DESKTOP_NETWORK_TEST_RESULT: resultPath };
     delete env.ELECTRON_RUN_AS_NODE;
-    const result = await run(electronExecutable, [
-      resolve(e2eDir, 'fixtures/desktop-network.mjs'),
-      pathToFileURL(resolve(e2eDir, '../dist/main/desktop-network.js')).href,
-      `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
-      userData
-    ], { env, timeout: 30_000, windowsHide: true });
-
-    expect(result.stdout).toContain('DESKTOP_NETWORK_QOS_REGRESSION_PASSED');
-    expect(result.stderr).not.toContain('setTypeOfService EINVAL');
+    let processFailure: unknown;
+    let stderr = '';
+    try {
+      const result = await run(electronExecutable, [
+        resolve(e2eDir, 'fixtures/desktop-network.mjs'),
+        pathToFileURL(resolve(e2eDir, '../dist/main/desktop-network.js')).href,
+        `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+        userData
+      ], { env, timeout: 30_000, windowsHide: true });
+      stderr = result.stderr;
+    } catch (error) { processFailure = error; }
+    // GUI executables do not reliably expose console output on Windows.
+    const report = existsSync(resultPath) ? readFileSync(resultPath, 'utf8') : 'No network test result file';
+    await testInfo.attach('desktop-network-result', { body: report, contentType: 'application/json' });
+    expect(processFailure, report).toBeUndefined();
+    expect(existsSync(resultPath), report).toBe(true);
+    expect(JSON.parse(report)).toMatchObject({ ok: true, phase: 'complete' });
+    expect(stderr).not.toContain('setTypeOfService EINVAL');
   } finally {
     server.closeAllConnections();
     await new Promise<void>(resolve => server.close(() => resolve()));
