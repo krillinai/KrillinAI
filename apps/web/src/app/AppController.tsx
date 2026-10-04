@@ -46,10 +46,8 @@ import {
   type CreatorSkillLaunch
 } from '../features/dashboard/creator-workspace.js';
 import { ConversationHeader } from '../features/conversation/ConversationHeader.js';
-import { MemorySuggestion } from '../features/conversation/MemorySuggestion.js';
 import { ApprovalPanel } from '../features/approvals/ApprovalPanel.js';
 import { useThreadHistory } from '../features/conversation/use-thread-history.js';
-import { DetailPanel } from '../features/details/DetailPanel.js';
 import { getSkillMarketDisplayTitle } from '../features/plugins/skill-market-model.js';
 import {
   collectTaskTransitions,
@@ -82,7 +80,6 @@ import {
   type ComposerRunConfig,
   type ComposerSlashCommand
 } from '../features/runs/Composer.js';
-import { RunDetailPanel } from '../features/runs/RunDetailPanel.js';
 import { IssueList, PageIssueRoutingProvider } from '../features/issues/IssuePresenter.js';
 import AgentDiagnosticsPanel from '../features/issues/AgentDiagnosticsPanel.js';
 import { buildIssueAgentPrompt } from '../features/issues/issue-catalog.js';
@@ -271,6 +268,18 @@ const SchedulesPage = lazy(() => import('../features/schedules/SchedulesPage.js'
 const SearchPage = lazy(() => import('../features/search/SearchPage.js'));
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage.js'));
 const TaskCenterPage = lazy(() => import('../features/tasks/TaskCenterPage.js'));
+const DetailPanel = lazy(async () => {
+  const module = await import('../features/details/DetailPanel.js');
+  return { default: module.DetailPanel };
+});
+const RunDetailPanel = lazy(async () => {
+  const module = await import('../features/runs/RunDetailPanel.js');
+  return { default: module.RunDetailPanel };
+});
+const MemorySuggestion = lazy(async () => {
+  const module = await import('../features/conversation/MemorySuggestion.js');
+  return { default: module.MemorySuggestion };
+});
 const ProjectManagementDialog = lazy(async () => {
   const module = await import('../features/projects/ProjectManagementDialog.js');
   return { default: module.ProjectManagementDialog };
@@ -4145,7 +4154,12 @@ export function AppController(props: AppControllerProps) {
     }
   }
 
-  const detailPanel = createDetailPanel();
+  const detailContent = createDetailPanel();
+  const detailPanel = detailContent === null ? null : (
+    <Suspense fallback={<div className="settings-state" role="status">{l('正在加载详情…', 'Loading details…', 'Läser in detaljer…')}</div>}>
+      {detailContent}
+    </Suspense>
+  );
   const selectedRunsLoading = runsLoadingThreadId !== undefined
     && runsLoadingThreadId === state.selectedThreadId;
   const conversationNeedsProject =
@@ -4442,14 +4456,16 @@ export function AppController(props: AppControllerProps) {
             </div>
           ) : null}
           {pendingMemorySuggestion !== undefined && memoryService !== null ? (
-            <MemorySuggestion
-              key={pendingMemorySuggestion.id}
-              content={pendingMemorySuggestion.content}
-              projectKey={currentMemoryProjectKey}
-              threadKey={state.selectedThreadId}
-              onSave={saveMemorySuggestion}
-              onDismiss={() => setPendingMemorySuggestion(undefined)}
-            />
+            <Suspense fallback={null}>
+              <MemorySuggestion
+                key={pendingMemorySuggestion.id}
+                content={pendingMemorySuggestion.content}
+                projectKey={currentMemoryProjectKey}
+                threadKey={state.selectedThreadId}
+                onSave={saveMemorySuggestion}
+                onDismiss={() => setPendingMemorySuggestion(undefined)}
+              />
+            </Suspense>
           ) : null}
           {agentSetup === 'skipped' ? (
             <div className="startup-agent-banner" role="status">
