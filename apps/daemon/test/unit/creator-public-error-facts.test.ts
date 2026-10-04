@@ -4,6 +4,12 @@ import { creatorServiceErrorInfo, creatorServiceFailureFacts } from '../../src/c
 import { CreatorExecutorError } from '../../src/creator/executor.js';
 
 describe('public error facts', () => {
+  it('keeps the filesystem code through wrapped artifact collection failures', () => {
+    const bottom = Object.assign(new Error('File size (4014655674) is greater than 2 GiB'), { code: 'ERR_FS_FILE_TOO_LARGE' });
+    expect(publicFactsFromFailure(new Error('Output collection failed', { cause: bottom }))).toEqual({
+      kind: 'storage', upstreamCode: 'ERR_FS_FILE_TOO_LARGE'
+    });
+  });
   it('classifies only known network codes through nested causes', () => {
     const error = new Error('Authorization: Bearer secret', {
       cause: Object.assign(new Error('private endpoint'), { code: 'ENOTFOUND' })

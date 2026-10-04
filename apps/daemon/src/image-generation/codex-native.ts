@@ -1,4 +1,4 @@
-import type { CreateImageGenerationRequest } from '@opencreator/protocol';
+import { safePublicErrorMessage, type CreateImageGenerationRequest, type PublicErrorFacts } from '@opencreator/protocol';
 import { mkdtemp, mkdir, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, sep } from 'node:path';
@@ -11,6 +11,19 @@ const MAX_IMAGE_BYTES = 30 * 1024 * 1024;
 const TIMEOUT_MS = 180_000;
 export type NativeImageProgress = { phase: string; message: string };
 
+class CodexNativeImageError extends Error {
+  readonly publicFacts: PublicErrorFacts;
+  constructor(message: string, kind: PublicErrorFacts['kind'], detail = message, upstreamCode?: string) {
+    super(message);
+    this.name = 'CodexNativeImageError';
+    this.publicFacts = {
+      kind, provider: 'codex-native',
+      upstreamMessage: safePublicErrorMessage((detail === message ? message : `${message}。${detail}`).slice(0, 4_000)) ?? message,
+      ...(upstreamCode === undefined ? {} : { upstreamCode })
+    };
+  }
+}
+
 export async function generateCodexNativeImage(input: {
   runtime: CodexNativeImageRuntime;
   request: CreateImageGenerationRequest;
@@ -19,15 +32,16 @@ export async function generateCodexNativeImage(input: {
   onProgress?(progress: NativeImageProgress): void;
 }): Promise<GeneratedImageContent> {
   input.signal.throwIfAborted();
-  if (!input.runtime.codexBin) throw new Error('当前 Runtime 缺少 Codex 可执行程序');
+  if (!input.runtime.codexBin) throw new CodexNativeImageError('当前 Runtime 缺少 Codex 可执行程序', 'configuration');
   const workdir = await mkdtemp(join(tmpdir(), 'opencreator-codex-image-'));
   const outputDir = join(workdir, 'output');
   let process: CodexExecProcess | undefined;
   const abort = () => process?.cancel();
   let threadId: string | undefined;
   let savedPath: string | undefined;
-  let failure: string | undefined;
-  let streamError: string | undefined;
+  let failure: CodexNativeImageError | undefined;
+  let streamError: CodexNativeImageError | undefined;
+  let lastAgentMessage = '';
   let turnFailed = false;
   const report = (phase: string, message: string) => {
     if (!input.signal.aborted) input.onProgress?.({ phase, message });
@@ -69,18 +83,21 @@ export async function generateCodexNativeImage(input: {
         if (event.type === 'turn.started') report('generating_image', '正在通过 ChatGPT 登录态生成图片，请稍候。');
         if (event.type === 'turn.failed' || event.type === 'error') {
           const error = isRecord(event.error) ? event.error : event;
-          if (typeof error.message === 'string') streamError = nativeFailureMessage(error.message);
+          if (typeof error.message === 'string') streamError = nativeFailure(error.message);
           if (event.type === 'turn.failed') turnFailed = true;
         }
         const item = isRecord(event.item) ? event.item : undefined;
+        if (event.type === 'item.completed' && item?.type === 'agent_message' && typeof item.text === 'string') {
+          lastAgentMessage = item.text.slice(0, 4_000);
+        }
         if (item && (item.type === 'image_generation' || item.type === 'imageGeneration')) {
           report('generating_image', 'Codex 原生生图工具正在处理图片，请稍候。');
           const path = item.saved_path ?? item.savedPath;
           if (typeof path === 'string') savedPath = path;
           if (item.status === 'failed' || item.failure) {
             const error = isRecord(item.failure) ? item.failure : item;
-            failure = typeof error.message === 'string' ? nativeFailureMessage(error.message)
-              : typeof error.type === 'string' ? nativeFailureMessage(error.type) : 'Codex 原生生图工具执行失败';
+            failure = nativeFailure(typeof error.message === 'string' ? error.message
+              : typeof error.type === 'string' ? error.type : 'Codex 原生生图工具执行失败');
           } else if (item.status === 'completed') failure = undefined;
         }
       }
@@ -91,17 +108,17 @@ export async function generateCodexNativeImage(input: {
       input.signal.throwIfAborted();
       if (error instanceof CodexExecError) {
         if (['timeout', 'inactivity_timeout', 'spawn_timeout'].includes(error.terminationReason)) {
-          throw new Error('Codex 原生生图超时，请稍后重试');
+          throw new CodexNativeImageError('Codex 原生生图超时，请稍后重试', 'timeout');
         }
-        throw new Error(nativeFailureMessage(error.message));
+        throw nativeFailure(error.stderr || error.message);
       }
-      throw new Error('无法启动或执行 Codex 原生生图，请检查 Runtime');
+      throw new CodexNativeImageError('无法启动或执行 Codex 原生生图，请检查 Runtime', 'unavailable');
     });
     input.signal.throwIfAborted();
     if (result.terminationReason !== 'completed' || result.exitCode !== 0 || turnFailed || failure) {
-      throw new Error(failure ?? streamError ?? nativeFailureMessage(result.stderr));
+      throw failure ?? streamError ?? nativeFailure(result.stderr || lastAgentMessage);
     }
-    report('collecting_outputs', '图片已生成，正在检查并保存本地产物。');
+    report('collecting_outputs', 'Codex 执行已结束，正在检查是否生成有效图片并保存产物。');
     const roots = [await realpath(workdir)];
     const references = new Set(await Promise.all(imagePaths.map(path => realpath(path))));
     if (threadId && /^[A-Za-z0-9_-]+$/.test(threadId)) {
@@ -130,28 +147,59 @@ export async function generateCodexNativeImage(input: {
       if (!mime) throw new Error('Codex 图片产物不是受支持的 PNG、JPEG 或 WebP 图片');
       images.push({ content, mime });
     }
-    if (images.length !== 1) throw new Error(`Codex 没有返回唯一的新图片产物（${images.length} 张），不能将文字回复视为生图成功`);
+    if (images.length !== 1) {
+      let diagnostic = nativeFailure(lastAgentMessage || result.stderr);
+      if (diagnostic.publicFacts.kind === 'provider-failed' && result.stderr) diagnostic = nativeFailure(result.stderr);
+      // exec --json can omit image tool events and exit successfully after a tool refusal.
+      if (images.length === 0 && diagnostic.publicFacts.kind !== 'provider-failed') throw diagnostic;
+      const message = `Codex 没有返回唯一的新图片产物（${images.length} 张），不能将文字回复视为生图成功`;
+      throw new CodexNativeImageError(message, 'invalid-response',
+        `${message}。${lastAgentMessage ? `Codex 最后回复：${lastAgentMessage}` : 'Codex 未返回图片或更具体的失败说明，请重试；持续失败时检查本机 Codex 登录、网络和原生生图能力。'}`,
+        'IMAGE_OUTPUT_MISSING');
+    }
     return images[0]!;
+  } catch (error) {
+    input.signal.throwIfAborted();
+    if (error instanceof CodexNativeImageError) throw error;
+    if (error instanceof Error) throw new CodexNativeImageError(
+      safePublicErrorMessage(error.message) ?? 'Codex 图片产物检查失败', 'invalid-response'
+    );
+    throw error;
   } finally {
     input.signal.removeEventListener('abort', abort);
     await rm(workdir, { recursive: true, force: true });
   }
 }
 
-function nativeFailureMessage(message: string): string {
-  if (/unauthorized|401|token.*expired|refresh.*token|not.*logged|authentication|login|sign.?in/i.test(message)) {
-    return 'ChatGPT 登录已失效或无法验证，请在 Agent 设置中重新登录后重试';
+function nativeFailure(message: string): CodexNativeImageError {
+  if (/requested the last \d+ conversation images, but only 0 were available|no (?:available |uploaded |attached |reference )*(?:images?|photos?|pictures?)|(?:没有|缺少|未上传|未提供|找不到|不可用)[^。\n]{0,30}(?:人物照片|参考图|上传[^。\n]{0,10}(?:图片|照片))|(?:参考图|人物照片)[^。\n]{0,15}(?:缺失|未上传|不可用)/i.test(message)) {
+    return new CodexNativeImageError('Codex 无法获取所需的参考图，请先上传图片后重试。', 'validation', message, 'IMAGE_REFERENCE_MISSING');
   }
-  if (/usage.?limit|rate.?limit|quota|429|limit.?exceeded/i.test(message)) {
-    return 'ChatGPT 生图额度或请求频率受限，请稍后重试';
+  if (/unauthorized|\b401\b|token.*expired|refresh.*token|not.*logged|authentication|login|sign.?in/i.test(message)) {
+    return new CodexNativeImageError('本机 Codex 的 ChatGPT 登录已失效或无法验证，请在本机 Codex 中重新登录后重试', 'unauthorized', message);
   }
-  if (/unsupported|not.*support|not.*available|403|access.*denied/i.test(message)) {
-    return '当前 ChatGPT 账号或 Codex Runtime 无法使用原生生图，请检查账号权限或更新 Runtime';
+  if (/usage.?limit|rate.?limit|quota|\b429\b|limit.?exceeded/i.test(message)) {
+    return new CodexNativeImageError('ChatGPT 生图额度或请求频率受限，请稍后重试', 'rate-limited', message);
+  }
+  if (/unsupported|not.*support|not.*available|\b403\b|access.*denied/i.test(message)) {
+    return new CodexNativeImageError('当前 ChatGPT 账号或 Codex Runtime 无法使用原生生图，请检查账号权限或更新 Runtime', 'unsupported', message);
   }
   if (/policy|moderation|safety|content_filter/i.test(message)) {
-    return '图片请求被安全策略拒绝，请调整描述后重试';
+    return new CodexNativeImageError('图片请求被安全策略拒绝，请调整描述后重试', 'http-rejected', message);
   }
-  return 'Codex 原生生图失败，请检查登录状态、网络或 Runtime 后重试';
+  if (/timed?\s*out|timeout/i.test(message)) {
+    return new CodexNativeImageError('Codex 原生生图请求超时，请稍后重试', 'timeout', message);
+  }
+  if (/ENOTFOUND|EAI_AGAIN/i.test(message)) {
+    return new CodexNativeImageError('Codex 生图服务域名解析失败，请检查网络后重试', 'dns', message);
+  }
+  if (/ECONNREFUSED/i.test(message)) {
+    return new CodexNativeImageError('Codex 生图服务连接被拒绝，请检查网络或代理', 'connection-refused', message);
+  }
+  if (/ECONNRESET|connection.*reset/i.test(message)) {
+    return new CodexNativeImageError('Codex 生图服务连接中断，请检查网络后重试', 'connection-reset', message);
+  }
+  return new CodexNativeImageError('Codex 原生生图失败，请查看服务说明后重试', 'provider-failed', message);
 }
 
 async function imageFiles(root: string, depth = 0): Promise<string[]> {

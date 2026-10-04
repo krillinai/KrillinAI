@@ -5,8 +5,10 @@ import type {
   CreatorPreflightExecutionMode,
   CreatorPreflightResponse,
   CreatorServicesCapabilitiesResponse,
-  CreatorServicesConfig
+  CreatorServicesConfig,
+  PublicErrorFacts
 } from '@opencreator/protocol';
+import { creatorPreflightFailure, imagePromptRequiresReference } from '@opencreator/protocol';
 import { access, mkdir } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { join } from 'node:path';
@@ -32,25 +34,14 @@ export type CreatorPreflightOptions = {
 };
 
 export class CreatorPreflightError extends Error {
+  readonly code: string;
+  readonly publicFacts: PublicErrorFacts;
   constructor(readonly result: CreatorPreflightResponse) {
-    super('Creator preflight blocked this stage');
+    const failure = creatorPreflightFailure(result);
+    super(failure.message);
     this.name = 'CreatorPreflightError';
-  }
-
-  get code(): string {
-    const ids = new Set(this.result.blocked.map(item => item.id));
-    const id = ids.has('llm') ? 'llm'
-      : ids.has('tts') ? 'tts'
-        : ids.has('image-provider') ? 'image-provider'
-          : ids.has('video-provider') ? 'video-provider'
-            : ids.has('reference-image-capability') ? 'reference-image-capability'
-              : this.result.blocked[0]?.id;
-    if (id === 'llm') return 'creator_llm_config_missing';
-    if (id === 'tts') return 'creator_tts_config_missing';
-    if (id === 'image-provider') return 'creator_image_config_missing';
-    if (id === 'video-provider') return 'VIDEO_GENERATION_CONFIG_REQUIRED';
-    if (id === 'reference-image-capability') return 'unsupported_capability';
-    return 'creator_preflight_blocked';
+    this.code = failure.code;
+    this.publicFacts = failure.publicFacts;
   }
 }
 
@@ -142,6 +133,16 @@ export function createCreatorPreflight(input: {
       inputSnapshot?.artifactRefs,
       inputSnapshot?.state
     );
+    if (job.templateId === 'image-generation' && stage.id === 'generate'
+      && typeof inputState.prompt === 'string' && imagePromptRequiresReference(inputState.prompt)
+      && !resolvedInputs.artifacts.some(artifact => artifact.kind === 'reference_image'
+        && artifact.status === 'completed' && artifact.path !== null)) {
+      add('blocked', {
+        id: 'reference-image-required', title: '缺少参考图',
+        message: '当前提示词需要基于已有图片生成，请先上传参考图；如需纯文字生图，请移除对上传图片或原图的要求。',
+        executionMode: 'local'
+      }, { label: '上传参考图', deepLink: `#/workbench?tool=image-generation&jobId=${encodeURIComponent(job.id)}` });
+    }
     await checkInputs(stage, resolvedInputs.artifacts, resolvedInputs.missing, add);
     await checkRuntimeDependencies(job, stage, config, add);
     await checkManagedDirectory(add);
@@ -327,7 +328,7 @@ async function checkProviderConfig(
   if (stage.executor === 'wechat-article' && stage.id === 'images') needs.add('image');
 
   if (needs.has('llm')) {
-    if (config.llm.source === 'codex' && stage.executor === 'krillinai') {
+    if (config.llm.source === 'codex' && stage.executor === 'krillinai' && config.llm.apiKey.trim()) {
       add('ready', {
         id: 'llm',
         title: '文本模型',
@@ -357,7 +358,7 @@ async function checkProviderConfig(
       try { status = await readCodexImageStatus?.(); } catch { status = undefined; }
       add(status?.ready ? 'ready' : 'blocked', {
         id: 'image-provider', title: '本机 Codex 生图',
-        message: status?.message ?? '无法检查 Codex 生图认证和 Runtime 能力，请检查 Agent 配置。',
+        message: status?.message ?? '无法检查 Codex 生图认证和 Runtime 能力，请检查本机 Codex 登录和配置。',
         executionMode: status?.executionMode === 'api' ? 'remote' : 'local'
       }, { label: '检查生图设置', deepLink: '#/settings?tab=ai-services&section=image' });
     } else if (imageProviderConfigured(config, provider)) {

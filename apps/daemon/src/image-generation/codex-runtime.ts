@@ -11,7 +11,7 @@ export async function readCodexImageConfiguration(runtime: CodexNativeImageRunti
 export async function inspectCodexImageRuntime(runtime: CodexNativeImageRuntime | undefined): Promise<CodexImageStatus> {
   let authentication: CodexImageStatus['authentication'] = 'none';
   try {
-    if (!runtime) throw new Error('当前 Runtime 未配置 Codex 生图，请检查 Agent 设置');
+    if (!runtime) throw new Error('当前 Runtime 未配置本机 Codex 生图，请检查 Runtime 配置');
     const configuration = await readCodexImageConfiguration(runtime);
     authentication = configuration.authentication;
     if (configuration.authentication === 'api_key') return {

@@ -20,6 +20,14 @@ afterEach(async () => {
 });
 
 describe('creator image executor', () => {
+  it.each(['openai', 'codex-native'] as const)('rejects a missing required image before invoking %s', async provider => {
+    const generate = vi.fn();
+    const executor = createImageExecutor({ configStore: { read: async () => createDefaultCreatorServicesConfig() }, generate });
+    await expect(executor.run(stageInput({ provider, prompt: '以上传的人物照片为唯一主体，生成复古海报。' }))).rejects.toMatchObject({
+      code: 'creator_stage_input_missing', publicFacts: { kind: 'validation', upstreamCode: 'IMAGE_REFERENCE_MISSING' }
+    });
+    expect(generate).not.toHaveBeenCalled();
+  });
   it('preserves provider diagnostics when all image candidates fail', async () => {
     const publicFacts = { kind: 'http-rejected' as const, provider: 'openai', httpStatus: 400,
       upstreamCode: 'invalid_image', upstreamMessage: 'Reference image is invalid', requestId: 'request-123' };

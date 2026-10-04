@@ -63,7 +63,6 @@ export function CreatorServicesSettingsView(props: {
   service: CreatorServicesSettingsService | null;
   modelService?: ModelSettingsService | null;
   initialSection?: CreatorServicesSection;
-  onOpenAgentSetup?(): void;
 }) {
   const l = useLocalizedCopy();
   const confirm = useConfirmDialog();
@@ -71,6 +70,7 @@ export function CreatorServicesSettingsView(props: {
     props.initialSection ?? 'text'
   );
   const [config, setConfig] = useState<CreatorServicesConfig>();
+  const [savedImageProvider, setSavedImageProvider] = useState<CreatorServicesConfig['image']['provider']>();
   const [capabilities, setCapabilities] = useState<CreatorServicesCapabilitiesResponse>();
   const [modelProvider, setModelProvider] = useState<CodexProviderConfig>();
   const [textModelMode, setTextModelMode] = useState<TextModelMode>('codex');
@@ -110,7 +110,7 @@ export function CreatorServicesSettingsView(props: {
     void Promise.allSettled([
       props.service.getConfig(),
       props.service.getCapabilities(),
-      props.modelService?.getCodexProvider()
+      props.service.getCodexModelStatus?.() ?? props.modelService?.getCodexProvider()
         ?? Promise.reject(new Error('Model provider configuration is unavailable'))
       ,props.modelService?.getCodexModels?.()
         ?? Promise.reject(new Error('Model catalog is unavailable'))
@@ -138,6 +138,7 @@ export function CreatorServicesSettingsView(props: {
           ? modelsResult.value.models.map(model => model.model)
           : []);
         setConfig(response.config);
+        setSavedImageProvider(response.config.image.provider);
         setTextModelMode(response.config.llm.source);
         setCapabilities(capabilitiesResult.value);
         setConfiguredCredentials(new Set(response.configuredCredentials));
@@ -146,7 +147,10 @@ export function CreatorServicesSettingsView(props: {
         if (providerResult.status === 'fulfilled') {
           const provider = providerResult.value;
           setModelProvider(provider);
-          setModelProviderId(inferLlmProviderId(provider.baseUrl, provider.model));
+          setModelProviderId(inferLlmProviderId(
+            useLegacyTextModel ? response.config.llm.baseUrl : provider.baseUrl,
+            useLegacyTextModel ? response.config.llm.model : provider.model
+          ));
           setModelBaseUrl(useLegacyTextModel ? response.config.llm.baseUrl : provider.baseUrl);
           setModelName(useLegacyTextModel ? response.config.llm.model : provider.model);
           pageIssues.resolveOperation('settings.creator-services.load-model-provider');
@@ -155,7 +159,7 @@ export function CreatorServicesSettingsView(props: {
           setModelProviderId('custom');
           setModelBaseUrl(response.config.llm.baseUrl);
           setModelName(response.config.llm.model);
-          if (props.modelService !== null && props.modelService !== undefined) {
+          if (props.service?.getCodexModelStatus !== undefined || props.modelService != null) {
             pageIssues.captureOperationFailure(
               'settings.creator-services.load-model-provider',
               providerResult.reason,
@@ -279,6 +283,7 @@ export function CreatorServicesSettingsView(props: {
       }
       const response = await props.service.saveConfig(nextConfig);
       setConfig(response.config);
+      setSavedImageProvider(response.config.image.provider);
       setConfiguredCredentials(new Set(response.configuredCredentials));
       setSavedTranscriptionSelection(transcriptionSelection(response.config));
       pageIssues.resolveOperation('settings.creator-services.save');
@@ -320,6 +325,7 @@ export function CreatorServicesSettingsView(props: {
     try {
       const response = await props.service.resetConfig();
       setConfig(response.config);
+      setSavedImageProvider(response.config.image.provider);
       setConfiguredCredentials(new Set(response.configuredCredentials));
       setSavedTranscriptionSelection(transcriptionSelection(response.config));
       pageIssues.resolveOperation('settings.creator-services.reset');
@@ -445,7 +451,7 @@ export function CreatorServicesSettingsView(props: {
             />
           ) : null}
           {activeSection === 'image' ? (
-            <ImageSettings config={config} update={updateConfig} configuredCredentials={configuredCredentials} service={props.service} onOpenAgentSetup={props.onOpenAgentSetup} />
+            <ImageSettings config={config} update={updateConfig} configuredCredentials={configuredCredentials} service={props.service} enabled={savedImageProvider === config.image.provider} />
           ) : null}
           {activeSection === 'video' ? (
             <VideoSettings config={config} update={updateConfig} configuredCredentials={configuredCredentials} />
@@ -596,6 +602,13 @@ function TextModelSettings(props: SettingsGroupProps & {
                 : l('文本任务需要 API Key', 'Text tasks require an API key')}
           </span>
         </div>
+        {props.mode === 'codex' && props.config.llm.source === 'codex' && codexAvailable ? (
+          <p className="creator-services-inline-note">{l(
+            '已自动启用本机 Codex，无需保存即可使用。手动更改服务后，请保存配置。',
+            'Local Codex is enabled automatically and ready without saving. Save settings after changing the service.',
+            'Lokala Codex aktiveras automatiskt och kan användas utan att spara. Spara inställningarna efter att du bytt tjänst.'
+          )}</p>
+        ) : null}
         {props.error === undefined ? null : (
           <p className="creator-services-inline-note is-warning" role="alert">
             {props.error}
@@ -1032,7 +1045,7 @@ function TtsSettings(props: SettingsGroupProps) {
 
 function ImageSettings(props: SettingsGroupProps & {
   service: CreatorServicesSettingsService | null;
-  onOpenAgentSetup?(): void;
+  enabled: boolean;
 }) {
   const l = useLocalizedCopy();
   const provider = props.config.image.provider;
@@ -1064,7 +1077,7 @@ function ImageSettings(props: SettingsGroupProps & {
       />
       {provider === 'codex-native' ? (
         <Suspense fallback={<div className="creator-services-inline-note" role="status">{l('正在检查 Codex 生图配置…', 'Checking Codex image configuration…', 'Kontrollerar bildinställningar för Codex…')}</div>}>
-          <CodexImageStatusNotice service={props.service} onOpenAgentSetup={props.onOpenAgentSetup} />
+          <CodexImageStatusNotice service={props.service} enabled={props.enabled} />
         </Suspense>
       ) : null}
       {provider === 'openai' ? <OpenAiFields id="image-openai" credential="image.openai.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.openai} modelPlaceholder="gpt-image-1" modelSuggestions={creatorProviderOfKind('image', 'openai')?.models.map(model => model.id)} onChange={value => props.update(config => { config.image.openai = value; })} /> : null}

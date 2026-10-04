@@ -12,6 +12,7 @@ import { parseClipCandidates } from '../../src/creator/clip/analyzer.js';
 import { createCreatorCommandDispatcher } from '../../src/creator/command-dispatcher.js';
 import { parseDownloadProbe } from '../../src/creator/download/probe-parser.js';
 import { CreatorExecutorError, type CreatorExecutor } from '../../src/creator/executor.js';
+import { createCreatorIssueService } from '../../src/creator/issues.js';
 import { createCreatorRepository } from '../../src/creator/repository.js';
 import { createCreatorService } from '../../src/creator/service.js';
 import { createCreatorStageRunner } from '../../src/creator/stage-runner.js';
@@ -41,6 +42,23 @@ function setup() {
 }
 
 describe('creator runtime advanced contracts', () => {
+  it.each(['direct', 'wrapped'])('preserves a bottom-level error code and reason in stage and issue records (%s)', async mode => {
+    const { db, repository, service, templates } = setup();
+    const issueService = createCreatorIssueService(repository);
+    const bottom = Object.assign(new Error('File size (4014655674) is greater than 2 GiB token=private'), { code: 'ERR_FS_FILE_TOO_LARGE' });
+    const runner = createCreatorStageRunner({ repository, templates, issueService,
+      executors: [{ id: 'krillinai', async run() { throw mode === 'direct' ? bottom : new Error('Output collection failed', { cause: bottom }); } }],
+      workRoot: join(tempDir, 'work') });
+    const job = service.createJob({ projectId: 'p1', templateId: 'video-translation',
+      state: { sourceType: 'url', sourceUrl: 'https://youtube.com/watch?v=test', sourceLanguage: 'en', targetLanguage: 'zh_cn' } });
+    const stage = await runner.run(job.id, 'subtitle');
+    expect(stage).toMatchObject({ status: 'failed', errorCode: 'ERR_FS_FILE_TOO_LARGE' });
+    const issue = issueService.list(job.id)[0]!;
+    expect(issue).toMatchObject({ code: 'ERR_FS_FILE_TOO_LARGE', publicFacts: { kind: 'storage', upstreamCode: 'ERR_FS_FILE_TOO_LARGE', upstreamMessage: expect.stringContaining('File size (4014655674)') } });
+    expect(JSON.stringify(issue.publicFacts)).not.toContain('private');
+    await runner.close();
+    db.close();
+  });
   it('does not treat generated subtitles from an older result snapshot as imported subtitles', async () => {
     const { db, repository, service, templates, dispatcher } = setup();
     const runner = createCreatorStageRunner({ repository, templates, workRoot: join(tempDir, 'work'), executors: [{

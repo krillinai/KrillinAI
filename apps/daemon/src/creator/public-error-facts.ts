@@ -1,6 +1,8 @@
 import { isPublicErrorFacts, publicErrorKindForCode, sanitizePublicErrorFacts, type PublicErrorFacts } from '@opencreator/protocol';
 
-const NETWORK_CODES: Record<string, PublicErrorFacts['kind']> = {
+const ERROR_KINDS: Record<string, PublicErrorFacts['kind']> = {
+  ERR_FS_FILE_TOO_LARGE: 'storage',
+  EFBIG: 'storage',
   ENOTFOUND: 'dns',
   EAI_AGAIN: 'dns',
   ECONNREFUSED: 'connection-refused',
@@ -29,7 +31,7 @@ export function publicFactsFromFailure(
     ? 'timeout'
     : code === undefined
       ? publicErrorKindForCode(errorCode(error) ?? '') ?? 'unknown'
-      : NETWORK_CODES[code]!;
+      : ERROR_KINDS[code]!;
   return {
     kind,
     ...(provider === undefined ? {} : { provider }),
@@ -87,7 +89,7 @@ function findKnownErrorCode(error: unknown): string | undefined {
     if (seen.has(current)) break;
     seen.add(current);
     const code = (current as { code?: unknown }).code;
-    if (typeof code === 'string' && NETWORK_CODES[code] !== undefined) return code;
+    if (typeof code === 'string' && ERROR_KINDS[code] !== undefined) return code;
     current = (current as { cause?: unknown }).cause;
   }
   return undefined;

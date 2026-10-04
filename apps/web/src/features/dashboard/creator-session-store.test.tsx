@@ -1233,7 +1233,7 @@ describe('CreatorSessionStore', () => {
             ready: [],
             warning: [],
             blocked: [{
-              id: 'provider',
+              id: 'llm',
               title: '服务未配置',
               message: '请先配置服务。',
               executionMode: 'remote'
@@ -1257,6 +1257,8 @@ describe('CreatorSessionStore', () => {
       source: 'preflight'
     }));
     expect(session!.issues).toHaveLength(1);
+    expect(session!.issues[0]).toMatchObject({ code: 'creator_llm_config_missing',
+      category: 'configuration', publicFacts: { kind: 'configuration', upstreamMessage: '请先配置服务。' } });
   });
 
   it('uses the current display language and original evidence when asking about a local issue', async () => {

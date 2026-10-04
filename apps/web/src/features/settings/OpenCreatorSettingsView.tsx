@@ -190,7 +190,6 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
                 service={props.creatorServicesService ?? null}
                 modelService={props.codexRuntimeService ?? null}
                 initialSection={props.initialSection}
-                onOpenAgentSetup={props.onOpenAgentSetup}
               />
             </Suspense>
           </>

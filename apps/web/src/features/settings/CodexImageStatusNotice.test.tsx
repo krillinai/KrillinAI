@@ -29,10 +29,10 @@ describe('Codex image status notice', () => {
   it('switches a not-ready explanation and keeps the raw reason in diagnostics', async () => {
     const raw = '当前 Codex Runtime 不支持原生生图';
     render(<LanguageProvider initialPreference="en-US"><LanguageSwitchControls /><CodexImageStatusNotice service={service(async () => ({ authentication: 'chatgpt', ready: false, executionMode: null, message: raw }))} /></LanguageProvider>);
-    expect(await screen.findByText(/Check Agent sign-in, configuration, and Runtime tool support/)).toBeVisible();
+    expect(await screen.findByText(/Check local Codex sign-in, configuration, and Runtime tool support/)).toBeVisible();
     expect(screen.getByText(raw)).not.toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
-    expect(screen.getByText(/Kontrollera Agent-inloggningen/)).toBeVisible();
+    expect(screen.getByText(/Kontrollera den lokala Codex-inloggningen/)).toBeVisible();
     fireEvent.click(screen.getByText('Visa ursprunglig diagnostik'));
     expect(screen.getByText(raw)).toBeVisible();
   });
@@ -49,13 +49,12 @@ describe('Codex image status notice', () => {
     expect(screen.queryByText(api.message)).not.toBeInTheDocument();
   });
 
-  it('offers the real Agent setup callback when login or capability is unavailable', async () => {
-    const onOpenAgentSetup = vi.fn();
-    render(<CodexImageStatusNotice service={service(async () => ({ authentication: 'chatgpt', ready: false, executionMode: null, message: '请重新登录' }))} onOpenAgentSetup={onOpenAgentSetup} />);
-    expect(await screen.findByText(/请检查 Agent 登录、配置和 Runtime 工具支持/)).toBeVisible();
+  it('directs unavailable image login to local Codex configuration', async () => {
+    render(<CodexImageStatusNotice service={service(async () => ({ authentication: 'chatgpt', ready: false, executionMode: null, message: '请重新登录' }))} />);
+    expect(await screen.findByText(/请检查本机 Codex 的登录、配置和 Runtime 工具支持/)).toBeVisible();
     expect(screen.getByText('请重新登录')).not.toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: '配置 Agent' }));
-    expect(onOpenAgentSetup).toHaveBeenCalledOnce();
+    expect(screen.getByText(/生图方式跟随本机 Codex 的登录和配置/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: '配置 Agent' })).not.toBeInTheDocument();
     expect(screen.queryByText(/以实际生成结果为准/)).not.toBeInTheDocument();
   });
 

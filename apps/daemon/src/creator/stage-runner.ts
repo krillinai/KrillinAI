@@ -1,9 +1,10 @@
-import { createHash } from 'node:crypto';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   readCreatorResultSnapshots,
   publicErrorKindForCode,
+  publicErrorCodeFromFailure,
+  publicErrorMessageFromFailure,
   type CreatorArtifact,
   type CreatorJob,
   type CreatorJson,
@@ -15,6 +16,7 @@ import type { CreatorRepository } from './repository.js';
 import type { CreatorIssueService } from './issues.js';
 import { CreatorProviderRequestError } from './provider-requests.js';
 import { publicFactsFromFailure } from './public-error-facts.js';
+import { sha256CreatorFile } from './file-hash.js';
 import {
   appendCreatorResultSnapshot,
   attachCreatorResultArtifacts,
@@ -208,7 +210,7 @@ export function createCreatorStageRunner(input: {
         throw new CreatorOutputValidationError(blockingFinding);
       }
       const outputHashes = await Promise.all(result.outputs.map(async output => (
-        output.path === null ? null : sha256File(output.path)
+        output.path === null ? null : sha256CreatorFile(output.path, controller.signal)
       )));
       input.repository.transaction(() => {
         const beforeOutputs = requireJob(input.repository, jobId);
@@ -341,9 +343,7 @@ export function createCreatorStageRunner(input: {
         const failureCode = canceled ? 'creator_stage_canceled' : errorCode(error);
         const failureMessage = canceled
           ? 'Creator stage was canceled'
-          : error instanceof Error
-            ? error.message
-            : 'Creator stage failed';
+          : publicErrorMessageFromFailure(error) ?? 'Creator stage failed';
         const configurationInput = creatorConfigurationInput(
           error,
           failureCode,
@@ -453,7 +453,7 @@ export function createCreatorStageRunner(input: {
                       : '创作步骤执行失败，可以重试或询问 Agent。',
                 technicalDetail: failureMessage,
                 publicFacts: configurationInput !== null
-                  ? { kind: 'configuration' }
+                  ? { ...stageFailureFacts(error, failureCode), kind: 'configuration' }
                   : stageFailureFacts(error, failureCode),
                 retryable: !unknownProviderAcceptance,
                 repairActions: [
@@ -599,11 +599,6 @@ export function createCreatorStageRunner(input: {
     running -= 1;
     waiters.shift()?.();
   }
-}
-
-async function sha256File(path: string): Promise<string> {
-  const content = await readFile(path);
-  return createHash('sha256').update(content).digest('hex');
 }
 
 function subtitleOutputSources(kind: string, outputs: CreatorArtifact[], inputs: CreatorArtifact[]): string[] {
@@ -788,7 +783,7 @@ function errorCode(error: unknown): string {
     || error instanceof CreatorProviderRequestError
     || error instanceof CreatorOutputValidationError
     ? error.code
-    : 'creator_stage_failed';
+    : publicErrorCodeFromFailure(error) ?? 'creator_stage_failed';
 }
 
 function resultSnapshotDescription(stageId: string, templateId: string): string {
@@ -862,7 +857,10 @@ function creatorConfigurationInput(
 function stageFailureFacts(error: unknown, code: string) {
   const facts = publicFactsFromFailure(error);
   const codeKind = publicErrorKindForCode(code);
-  return facts.kind === 'unknown' && codeKind !== undefined
-    ? { ...facts, kind: codeKind }
-    : facts;
+  const message = publicErrorMessageFromFailure(error);
+  return {
+    ...facts,
+    ...(facts.kind === 'unknown' && codeKind !== undefined ? { kind: codeKind } : {}),
+    ...(facts.upstreamMessage === undefined && message !== undefined ? { upstreamMessage: message } : {})
+  };
 }

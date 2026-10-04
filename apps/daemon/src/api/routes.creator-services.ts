@@ -1,5 +1,6 @@
 import type {
   CodexImageStatus,
+  CodexProviderConfig,
   CreatorServicesCapabilitiesResponse,
   CreatorServicesConfig,
   CreatorTtsPreviewRequest,
@@ -28,9 +29,20 @@ export async function registerCreatorServicesRoutes(
     createKrillinCreatorServicesCapabilities,
   ttsService?: Pick<KrillinTtsService, 'listVoices' | 'preview'>,
   onConfigurationChanged?: () => Promise<void> | void,
-  readCodexImageStatus?: () => Promise<CodexImageStatus>
+  readCodexImageStatus?: () => Promise<CodexImageStatus>,
+  readCodexModelStatus?: () => Promise<CodexProviderConfig>
 ): Promise<void> {
   server.get('/creator-services/capabilities', async () => readCapabilities());
+  server.get('/creator-services/model/codex/status', async (_request, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    try {
+      return await readCodexModelStatus?.() ?? {
+        authentication: 'none', apiKeyConfigured: false, baseUrl: '', model: ''
+      } satisfies CodexProviderConfig;
+    } catch {
+      return { authentication: 'none', apiKeyConfigured: false, baseUrl: '', model: '' } satisfies CodexProviderConfig;
+    }
+  });
   server.get('/creator-services/image/codex/status', async (_request, reply) => {
     reply.header('Cache-Control', 'no-store');
     return readCodexImageStatus ? await readCodexImageStatus() : {

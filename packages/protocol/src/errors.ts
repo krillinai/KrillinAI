@@ -172,6 +172,7 @@ export function publicErrorKindForCode(code: string): PublicErrorFacts['kind'] |
   if (normalized === 'ECONNREFUSED') return 'connection-refused';
   if (normalized === 'ECONNRESET' || normalized === 'EPIPE') return 'connection-reset';
   if (normalized === 'ETIMEDOUT' || normalized.startsWith('UND_ERR_') && normalized.endsWith('_TIMEOUT')) return 'timeout';
+  if (normalized === 'ERR_FS_FILE_TOO_LARGE' || normalized === 'EFBIG') return 'storage';
   if (/(?:^|_)CONFIG(?:_[A-Z]+)*_(?:REQUIRED|MISSING|INVALID|UNAVAILABLE)$/.test(normalized)) return 'configuration';
   if (normalized === 'UNAUTHORIZED' || /(?:^|_)(?:AUTH_FAILED|PERMISSION_DENIED|ACCESS_DENIED)$/.test(normalized)) return 'unauthorized';
   if (/(?:^|_)VALIDATION_FAILED$/.test(normalized) || /(?:^|_)(?:INPUT_)?INVALID$/.test(normalized)) return 'validation';
@@ -190,6 +191,31 @@ export function safePublicErrorCode(value: unknown): string | undefined {
       && !/^[A-Z][a-z]+(?:[A-Z][a-z]+){2,}$/.test(part))
     ? value
     : undefined;
+}
+
+export function publicErrorCodeFromFailure(error: unknown): string | undefined {
+  const seen = new Set<unknown>();
+  for (let depth = 0; depth < 4 && error !== null && typeof error === 'object'; depth += 1) {
+    if (seen.has(error)) break;
+    seen.add(error);
+    const code = safePublicErrorCode((error as { code?: unknown }).code);
+    if (code !== undefined) return code;
+    error = (error as { cause?: unknown }).cause;
+  }
+  return undefined;
+}
+
+export function publicErrorMessageFromFailure(error: unknown): string | undefined {
+  const seen = new Set<unknown>();
+  const messages: string[] = [];
+  for (let depth = 0; depth < 4 && error !== null && typeof error === 'object'; depth += 1) {
+    if (seen.has(error)) break;
+    seen.add(error);
+    const message = safePublicErrorMessage((error as { message?: unknown }).message);
+    if (message !== undefined && !messages.includes(message)) messages.unshift(message);
+    error = (error as { cause?: unknown }).cause;
+  }
+  return safePublicErrorMessage(messages.join('；'));
 }
 
 export function safePublicRequestId(value: unknown): string | undefined {

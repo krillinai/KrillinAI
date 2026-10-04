@@ -1,4 +1,4 @@
-import { copyFile, link, mkdir, readFile, readdir, realpath, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { copyFile, link, mkdir, readdir, realpath, rename, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type {
@@ -7,6 +7,8 @@ import type {
 } from '@opencreator/protocol';
 import type { CreatorExecutorInput } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
+import { sha256CreatorFile } from '../file-hash.js';
+import { publicErrorKindForCode, sanitizePublicErrorFacts, type PublicErrorFacts } from '@opencreator/protocol';
 import { spawnCreatorProcess } from '../process-tree.js';
 import { createKrillinConfigToml } from './config-bridge.js';
 import { isYouTubeSource } from './execution-plan.js';
@@ -60,14 +62,20 @@ type RunProcess = (input: {
 }) => Promise<void>;
 
 export class KrillinCliError extends Error {
+  readonly publicFacts: PublicErrorFacts;
   constructor(
     readonly code: string,
     message: string,
     readonly kind?: string,
-    readonly retryable = false
+    readonly retryable = false,
+    options?: ErrorOptions
   ) {
-    super(message);
+    super(message, options);
     this.name = 'KrillinCliError';
+    this.publicFacts = sanitizePublicErrorFacts({
+      kind: publicErrorKindForCode(code) ?? 'unknown', provider: 'krillinai',
+      upstreamCode: code, upstreamMessage: message
+    });
   }
 }
 
@@ -423,7 +431,7 @@ async function collectArtifacts(
       relativePath: relative(input.jobsRoot, path).replaceAll('\\', '/'),
       mimeType: mimeType(path),
       size: info.size,
-      sha256: createHash('sha256').update(await readFile(path)).digest('hex')
+      sha256: await sha256CreatorFile(path, input.stage.signal)
     });
   }
   return result;

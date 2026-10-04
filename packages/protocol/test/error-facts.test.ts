@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { publicErrorKindForCode, safePublicErrorCode, safePublicErrorMessage, safePublicRequestId } from '../src/errors.js';
+import { publicErrorCodeFromFailure, publicErrorMessageFromFailure, publicErrorKindForCode, safePublicErrorCode, safePublicErrorMessage, safePublicRequestId } from '../src/errors.js';
 import { isPublicErrorFacts, sanitizePublicErrorFacts } from '../src/issues.js';
 
 describe('public error kind for business code', () => {
@@ -13,10 +13,24 @@ describe('public error kind for business code', () => {
     ['IMAGE_GENERATION_STORAGE_FAILED', 'storage'],
     ['krillin_auth_failed', 'unauthorized'],
     ['ENOTFOUND', 'dns'],
+    ['ERR_FS_FILE_TOO_LARGE', 'storage'],
     ['creator_provider_request_failed', undefined]
   ])('classifies %s conservatively', (code, expected) => {
     expect(publicErrorKindForCode(code)).toBe(expected);
   });
+});
+
+it('preserves a nested filesystem code and reason with bounded, sanitized cause traversal', () => {
+  const bottom = Object.assign(new Error('File size (4014655674) is greater than 2 GiB token=private'), { code: 'ERR_FS_FILE_TOO_LARGE' });
+  const error = new Error('Output collection failed', { cause: bottom });
+  expect(publicErrorCodeFromFailure(error)).toBe('ERR_FS_FILE_TOO_LARGE');
+  expect(publicErrorMessageFromFailure(error)).toContain('File size (4014655674)');
+  expect(publicErrorMessageFromFailure(error)).not.toContain('private');
+  expect(publicErrorCodeFromFailure({ code: 'sk-private-secret' })).toBeUndefined();
+  const cycle: { message: string; cause?: unknown } = { message: 'Cyclic failure' };
+  cycle.cause = cycle;
+  expect(publicErrorCodeFromFailure(cycle)).toBeUndefined();
+  expect(publicErrorMessageFromFailure(cycle)).toBe('Cyclic failure');
 });
 
 it('rejects token-like business codes before Agent output', () => {

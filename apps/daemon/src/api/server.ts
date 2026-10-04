@@ -158,7 +158,7 @@ import {
   isCodexCredentialStoreConfigurationDiagnostic
 } from '../codex/credential-storage.js';
 import { resolveCodexHome } from '../codex/home.js';
-import { createCodexIsolatedHome } from '../codex/probe-home.js';
+import { createFollowingLocalCodexHome, importLocalCodexConfiguration } from '../codex/probe-home.js';
 import {
   createCodexModelCatalog,
   type CodexModelCatalog
@@ -190,6 +190,7 @@ import {
   createOpenCreatorCreatorServicesConfigStore,
   type CreatorServicesConfigStore
 } from '../creator-services/config-store.js';
+import { createLocalCodexTextModelDefaults } from '../creator-services/local-codex-defaults.js';
 import { createSmartDubbingService } from '../smart-dubbing/service.js';
 import {
   createCreatorEventHub,
@@ -362,7 +363,7 @@ export async function buildServer(input: BuildServerInput) {
     && resolvedCodexHome.mode === 'isolated'
     && localCodexHome !== codexHome
   ) {
-    createCodexIsolatedHome(localCodexHome, codexHome);
+    importLocalCodexConfiguration(localCodexHome, codexHome);
   }
   try {
     await ensureCodexFileCredentialStore(codexHome);
@@ -537,7 +538,9 @@ export async function buildServer(input: BuildServerInput) {
   const krillinCodexLlmGateway = createKrillinCodexLlmGateway({
     codexBin,
     codexHome,
-    cwd: dataDir
+    cwd: dataDir,
+    readConfiguration: createFollowingLocalCodexHome(localCodexHome,
+      join(runtimeDir, 'creator-text-codex'))
   });
   const creatorAgentBootstrapInput = {
     sourceCodexHome: localCodexHome,
@@ -608,20 +611,17 @@ export async function buildServer(input: BuildServerInput) {
       }
     }
   });
+  const localCodexTextModelDefaults = createLocalCodexTextModelDefaults({
+    codexHome: localCodexHome,
+    readGatewayConfig() {
+      const baseUrl = resolveListeningOrigin(server.server.address());
+      return baseUrl === undefined ? undefined : krillinCodexLlmGateway.config(baseUrl);
+    }
+  });
   const creatorServicesConfigStore =
     createCreatorServicesConfigStoreWithTextModelFallback(
       storedCreatorServicesConfigStore,
-      {
-        async read() {
-          const provider = await codexProviderConfig.read();
-          const apiKey = await resolveCodexProviderApiKey(provider);
-          return {
-            baseUrl: provider.baseUrl,
-            model: provider.model,
-            ...(apiKey === undefined ? {} : { apiKey })
-          };
-        }
-      }
+      localCodexTextModelDefaults
     );
   const videoMetadataService = input.videoMetadataService ?? createVideoMetadataService({
     getProxy: async () => (await creatorServicesConfigStore.read()).proxy.trim()
@@ -666,7 +666,8 @@ export async function buildServer(input: BuildServerInput) {
     dataDir,
     configStore: creatorServicesConfigStore
   });
-  const codexImageRuntime = { codexHome, codexBin };
+  // Image generation follows the user's local Codex login, independently of Agent settings.
+  const codexImageRuntime = { codexHome: localCodexHome, codexBin };
   const readCodexImageStatus = () => inspectCodexImageRuntime(codexImageRuntime);
   const imageGenerationService = createImageGenerationService({
     dataDir,
@@ -813,11 +814,7 @@ export async function buildServer(input: BuildServerInput) {
         configStore: creatorServicesConfigStore,
         getYtDlpRuntime,
         verificationCachePath: krillinVerificationCachePath,
-        ensureRuntimeReady: () => ensureKrillinRuntimeReady(),
-        getCodexLlmConfig() {
-          const baseUrl = resolveListeningOrigin(server.server.address());
-          return baseUrl === undefined ? undefined : krillinCodexLlmGateway.config(baseUrl);
-        }
+        ensureRuntimeReady: () => ensureKrillinRuntimeReady()
       }));
     }
     if (
@@ -1434,7 +1431,8 @@ export async function buildServer(input: BuildServerInput) {
       await coverWorkflow?.resumeConfiguredJobs();
       await stickmanVideoWorkflow?.resumeConfiguredJobs();
     },
-    readCodexImageStatus
+    readCodexImageStatus,
+    () => localCodexTextModelDefaults.readStatus()
   );
   await registerSmartDubbingRoutes(server, smartDubbingService);
   await registerCreatorRuntimeRoutes(server, creatorYtDlpUpdateManager, {

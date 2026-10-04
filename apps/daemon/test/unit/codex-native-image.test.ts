@@ -46,6 +46,19 @@ describe('ChatGPT native image execution', () => {
     await expect(generateCodexNativeImage({ runtime: runtime('recovered'), request, referenceImages: [], signal: new AbortController().signal })).resolves.toMatchObject({ mime: 'image/png' });
   });
 
+  it('discovers output when the CLI omits image tool events', async () => {
+    await expect(generateCodexNativeImage({ runtime: runtime('cli-only'), request, referenceImages: [], signal: new AbortController().signal })).resolves.toMatchObject({ mime: 'image/png' });
+  });
+
+  it.each(['missing-reference', 'missing-reference-stderr'])('keeps tool refusal details despite successful process exit (%s)', async mode => {
+    const error = await generateImageContents(request, createDefaultCreatorServicesConfig(), { codexNative: runtime(mode) }).catch(error => error);
+    expect(error).toMatchObject({ code: 'upstream_error', publicFacts: {
+      kind: 'validation', provider: 'codex-native', upstreamCode: 'IMAGE_REFERENCE_MISSING',
+      upstreamMessage: expect.stringContaining('参考图')
+    } });
+    expect(JSON.stringify(error.publicFacts)).not.toContain('private-oauth-secret');
+  });
+
   it('keeps reference images attached and does not mistake them for generated images', async () => {
     const base = runtime('text-only');
     const reference = Buffer.from('reference-image');

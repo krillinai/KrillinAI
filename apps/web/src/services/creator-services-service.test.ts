@@ -50,6 +50,7 @@ describe('creator services service', () => {
     await service.resetConfig();
     await service.getTtsVoices('aliyun', 'qwen3-tts-flash');
     await service.getCodexImageStatus();
+    await service.getCodexModelStatus();
     await service.previewTtsVoice({
       provider: 'aliyun',
       model: 'qwen3-tts-flash',
@@ -65,6 +66,7 @@ describe('creator services service', () => {
       '/creator-services/tts/voices?provider=aliyun&model=qwen3-tts-flash'
     );
     expect(get).toHaveBeenNthCalledWith(4, '/creator-services/image/codex/status');
+    expect(get).toHaveBeenNthCalledWith(5, '/creator-services/model/codex/status');
     expect(rawRequest).toHaveBeenCalledWith('/creator-services/tts/preview', {
       method: 'POST',
       body: {

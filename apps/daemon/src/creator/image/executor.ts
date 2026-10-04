@@ -5,6 +5,7 @@ import type {
   ImageGenerationQuality,
   ImageGenerationSize
 } from '@opencreator/protocol';
+import { imagePromptRequiresReference } from '@opencreator/protocol';
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CreatorServicesConfigStore } from '../../creator-services/config-store.js';
@@ -83,6 +84,13 @@ export function createImageExecutor(input: {
       const { request } = requestContext;
       if (!request.prompt) {
         throw new CreatorExecutorError('creator_stage_input_missing', 'Image prompt is required');
+      }
+      if (stage.job.templateId === 'image-generation' && referenceImage === undefined
+        && imagePromptRequiresReference(request.prompt)) {
+        const message = '当前提示词需要参考图，但任务没有可用的参考图片。请先上传图片，或移除提示词中对上传图片或原图的要求。';
+        throw new CreatorExecutorError('creator_stage_input_missing', message, {}, {
+          kind: 'validation', upstreamCode: 'IMAGE_REFERENCE_MISSING', upstreamMessage: message
+        });
       }
       if (request.provider === 'codex-native' && request.count !== 1) {
         throw new CreatorExecutorError(

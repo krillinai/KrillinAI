@@ -1,6 +1,8 @@
 import {
   isOpenCreatorIssue,
+  creatorPreflightFailure,
   type OpenCreatorIssue,
+  type PublicErrorFacts,
   CreatorActionRequest,
   CreatorActivity,
   CreatorAgentApproval,
@@ -136,9 +138,14 @@ export type CreatorSessionError = {
 };
 
 export class CreatorPreflightBlockedError extends Error {
+  readonly code: string;
+  readonly publicFacts: PublicErrorFacts;
   constructor(readonly result: CreatorPreflightResponse) {
-    super('Creator preflight blocked this stage');
+    const failure = creatorPreflightFailure(result);
+    super(failure.message);
     this.name = 'CreatorPreflightBlockedError';
+    this.code = failure.code;
+    this.publicFacts = failure.publicFacts;
   }
 }
 

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDefaultCreatorServicesConfig, type CreatorJob, type CreatorJson } from '@opencreator/protocol';
-import { createCreatorPreflight } from '../../src/creator/preflight.js';
+import { createCreatorPreflight, CreatorPreflightError } from '../../src/creator/preflight.js';
 import { createImageGenerationTemplate } from '../../src/creator/templates/image-generation.js';
 import { createVideoDownloadTemplate } from '../../src/creator/templates/video-download.js';
 import { createStickmanVideoTemplate } from '../../src/creator/templates/stickman-video.js';
@@ -20,6 +20,19 @@ afterEach(async () => {
 });
 
 describe('creator preflight', () => {
+  it.each(['openai', 'codex-native'])('blocks missing reference input for %s before starting a task', async provider => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-reference-'));
+    const check = createCreatorPreflight({
+      configStore: { read: async () => createDefaultCreatorServicesConfig() },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: root, jobsRoot: join(root, 'jobs'), executorIds: ['image'], validateRuntimeAssets: false
+    });
+    const job = fakeJob('image-generation', { provider, prompt: '以上传的人物照片为唯一主体，生成复古海报', referenceImageArtifactId: 'missing-artifact' });
+    const result = await check.check(job, createImageGenerationTemplate().stages[0]!);
+    expect(result.canStart).toBe(false);
+    expect(result.blocked).toContainEqual(expect.objectContaining({ id: 'reference-image-required', message: expect.stringContaining('上传参考图') }));
+    expect(new CreatorPreflightError(result)).toMatchObject({ code: 'creator_stage_input_missing', publicFacts: { kind: 'validation', upstreamCode: 'IMAGE_REFERENCE_MISSING' } });
+  });
   it('allows rendering to prepare an installable Remotion component without downloading during preflight', async () => {
     root = await mkdtemp(join(tmpdir(), 'creator-preflight-remotion-'));
     const status = vi.fn(async () => ({ id: 'remotion' as const, name: 'Remotion', available: true, version: null, supportedVersion: '4.0.473', installedAt: null, path: root, source: 'release', models: [], model: null, state: 'not_installed' as const, item: null, downloadedBytes: 0, totalBytes: null, percent: null, bytesPerSecond: null, remainingSeconds: null, error: null }));
@@ -313,11 +326,11 @@ describe('creator preflight', () => {
     expect(result.blocked.map(item => item.id)).toContain('transcription-config');
   });
 
-  it('accepts the Codex runtime for Krillin subtitle translation without a creator API key', async () => {
+  it('accepts automatically resolved Codex credentials for subtitle translation', async () => {
     root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
     const config = createDefaultCreatorServicesConfig();
     config.llm.source = 'codex';
-    config.llm.apiKey = '';
+    config.llm.apiKey = 'internal-bridge-key';
     config.llm.model = 'gpt-5.6-sol';
     const stage = createVideoTranslationTemplate().stages.find(candidate => candidate.id === 'subtitle')!;
     const result = await createCreatorPreflight({

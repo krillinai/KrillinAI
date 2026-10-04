@@ -177,6 +177,19 @@ export default function CoverGeneratorWorkspace(props: {
   const currentReferenceName = referenceFile?.name
     ?? readArtifactString(activeReferenceArtifact, 'fileName');
   const resolvedCoverTextLanguage = coverTextLanguage;
+  const previewContext = useRef({ session, l });
+  previewContext.current = { session, l };
+  // Job snapshots replace arrays even when the preview files are unchanged.
+  const resultPreviewKey = JSON.stringify({
+    jobId: session?.job.id,
+    artifacts: uniqueArtifacts([
+      ...(selectedResult?.artifacts ?? []),
+      ...(selectedReferenceArtifact === undefined ? [] : [selectedReferenceArtifact]),
+      ...(selectedKeyframeArtifact === undefined ? [] : [selectedKeyframeArtifact])
+    ]).map(artifact => [artifact.id, artifact.version, artifact.sha256, artifact.path])
+  });
+  const referencePreviewKey = JSON.stringify([session?.job.id, activeReferenceArtifact?.id,
+    activeReferenceArtifact?.version, activeReferenceArtifact?.sha256, activeReferenceArtifact?.path]);
 
   useEffect(() => {
     if (latestResult !== undefined) {
@@ -187,8 +200,10 @@ export default function CoverGeneratorWorkspace(props: {
   }, [latestResult?.value]);
 
   useEffect(() => {
+    const { session, l } = previewContext.current;
+    const [, artifactId] = JSON.parse(referencePreviewKey) as Array<string | number | null>;
     if (referenceFile === null) {
-      if (activeReferenceArtifact === undefined || session === null) {
+      if (typeof artifactId !== 'string' || session === null) {
         setReferencePreview('');
         return undefined;
       }
@@ -196,13 +211,14 @@ export default function CoverGeneratorWorkspace(props: {
       let objectUrl = '';
       void createCreatorArtifactObjectUrl(
         session,
-        activeReferenceArtifact.id,
+        artifactId,
         'cover.load-reference-preview',
         l('参考图预览加载失败，请稍后重试。', 'The reference preview failed to load. Try again later.')
       )
         .then(url => {
           objectUrl = url;
           if (active) setReferencePreview(objectUrl);
+          else URL.revokeObjectURL(url);
         })
         .catch(() => {
           if (active) setReferencePreview('');
@@ -212,6 +228,7 @@ export default function CoverGeneratorWorkspace(props: {
         if (objectUrl) URL.revokeObjectURL(objectUrl);
       };
     }
+    let active = true;
     let objectUrl = '';
     void captureCreatorClientFailure(
       session,
@@ -220,17 +237,15 @@ export default function CoverGeneratorWorkspace(props: {
       () => URL.createObjectURL(referenceFile)
     ).then(url => {
       objectUrl = url;
-      setReferencePreview(url);
-    }).catch(() => setReferencePreview(''));
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [activeReferenceArtifact?.id, l, referenceFile, session?.captureCreatorFailure, session?.openArtifact]);
+      if (active) setReferencePreview(url);
+      else URL.revokeObjectURL(url);
+    }).catch(() => { if (active) setReferencePreview(''); });
+    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [referencePreviewKey, referenceFile]);
 
   useEffect(() => {
-    const artifacts = uniqueArtifacts([
-      ...(selectedResult?.artifacts ?? []),
-      ...(selectedReferenceArtifact === undefined ? [] : [selectedReferenceArtifact]),
-      ...(selectedKeyframeArtifact === undefined ? [] : [selectedKeyframeArtifact])
-    ]);
+    const { session, l } = previewContext.current;
+    const { artifacts } = JSON.parse(resultPreviewKey) as { artifacts: Array<[string, number, string | null, string | null]> };
     if (session === null || artifacts.length === 0) {
       setArtifactUrls({});
       return undefined;
@@ -238,15 +253,16 @@ export default function CoverGeneratorWorkspace(props: {
     let active = true;
     const objectUrls: string[] = [];
     setArtifactUrls({});
-    void Promise.all(artifacts.map(async artifact => {
+    void Promise.all(artifacts.map(async ([artifactId]) => {
       const objectUrl = await createCreatorArtifactObjectUrl(
         session,
-        artifact.id,
+        artifactId,
         'cover.load-result-preview',
         l('封面预览加载失败，请稍后重试。', 'Thumbnail previews failed to load. Try again later.')
       );
-      objectUrls.push(objectUrl);
-      return [artifact.id, objectUrl] as const;
+      if (active) objectUrls.push(objectUrl);
+      else URL.revokeObjectURL(objectUrl);
+      return [artifactId, objectUrl] as const;
     })).then(entries => {
       if (active) setArtifactUrls(Object.fromEntries(entries));
     }).catch(() => undefined);
@@ -254,14 +270,7 @@ export default function CoverGeneratorWorkspace(props: {
       active = false;
       objectUrls.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [
-    selectedKeyframeArtifact?.id,
-    selectedReferenceArtifact?.id,
-    selectedResult?.artifacts,
-    l,
-    session?.captureCreatorFailure,
-    session?.openArtifact
-  ]);
+  }, [resultPreviewKey]);
 
   function openStep(step: CoverStep) {
     const nextFurthest = Math.max(reachableFurthestStep, step) as CoverStep;

@@ -1,5 +1,5 @@
 import { copyFile, link, lstat, mkdir, realpath, rename, writeFile } from 'node:fs/promises';
-import { videoSourceIdentity } from '@opencreator/protocol';
+import { publicErrorCodeFromFailure, videoSourceIdentity } from '@opencreator/protocol';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type {
   CreatorArtifact,
@@ -14,6 +14,7 @@ import type {
   CreatorExecutorResult
 } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
+import { publicFactsFromFailure } from '../public-error-facts.js';
 import { creatorSubtitleStyleSchema } from '../presets/module-schemas.js';
 import { validateMediaFile } from '../validators/media.js';
 import { formatSrtTimestamp, validateSrtFile } from '../validators/srt.js';
@@ -116,7 +117,7 @@ export function createKrillinExecutor(input: {
           code: error.kind === 'usage' ? 'usage' : error.code,
           message: error.message
         });
-        throw new CreatorExecutorError(normalized.code, normalized.message);
+        throw CreatorExecutorError.from(normalized.code, error, normalized.message);
       }
       const relevantArtifacts = stage.job.templateId === 'auto-clip'
         && stage.stageRun.stageId === 'subtitle'
@@ -265,13 +266,16 @@ function combineKrillinFallbackFailures(platformFailure: KrillinCliError, fallba
       fallbackFailure.code,
       message,
       fallbackFailure.kind,
-      fallbackFailure.retryable
+      fallbackFailure.retryable,
+      { cause: fallbackFailure }
     );
   }
   if (fallbackFailure instanceof CreatorExecutorError) {
-    return new CreatorExecutorError(fallbackFailure.code, message);
+    return new CreatorExecutorError(fallbackFailure.code, message, {},
+      fallbackFailure.publicFacts, { cause: fallbackFailure });
   }
-  return new CreatorExecutorError('krillin_stage_failed', message);
+  return new CreatorExecutorError(publicErrorCodeFromFailure(fallbackFailure) ?? 'krillin_stage_failed',
+    message, {}, publicFactsFromFailure(fallbackFailure), { cause: fallbackFailure });
 }
 
 export function buildKrillinSubtitleStyle(value: CreatorJson | undefined): Record<string, unknown> | undefined {

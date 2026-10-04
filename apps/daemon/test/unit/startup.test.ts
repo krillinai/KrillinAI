@@ -45,6 +45,7 @@ describe('daemon production startup', () => {
       OPENCREATOR_DATA_DIR: ' /tmp/opencreator-data ',
       OPENCREATOR_CODEX_BIN: ' /tmp/fake-codex ',
       CODEX_HOME: ' /tmp/opencreator-codex-home ',
+      OPENCREATOR_LOCAL_CODEX_HOME: ' /tmp/local-codex-home ',
       OPENCREATOR_DEFAULT_CWD: ' /tmp/default-workspace ',
       OPENCREATOR_DEFAULT_PROJECT_ROOT: ' /tmp/Documents ',
       OPENCREATOR_YT_DLP_PATH: ' /tmp/yt-dlp '
@@ -52,6 +53,7 @@ describe('daemon production startup', () => {
       dataDir: '/tmp/opencreator-data',
       codexBin: '/tmp/fake-codex',
       codexHome: '/tmp/opencreator-codex-home',
+      localCodexHome: '/tmp/local-codex-home',
       defaultCwd: '/tmp/default-workspace',
       defaultProjectRoot: '/tmp/Documents',
       creatorYtDlpPath: '/tmp/yt-dlp'
@@ -61,6 +63,7 @@ describe('daemon production startup', () => {
       OPENCREATOR_DATA_DIR: ' ',
       OPENCREATOR_CODEX_BIN: '',
       CODEX_HOME: '\t',
+      OPENCREATOR_LOCAL_CODEX_HOME: ' ',
       OPENCREATOR_DEFAULT_CWD: '\n',
       OPENCREATOR_DEFAULT_PROJECT_ROOT: ' ',
       OPENCREATOR_YT_DLP_PATH: ''

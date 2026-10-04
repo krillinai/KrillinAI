@@ -3,8 +3,22 @@ import { describe, expect, it } from 'vitest';
 import { ApiClientError } from '../../runtime/errors.js';
 import { buildIssueAgentPrompt, issueConversationText } from './issue-catalog.js';
 import { normalizePageIssue, usePageIssueState } from './page-issue-state.js';
+import { CreatorPreflightBlockedError } from '../dashboard/creator-session-store.js';
 
 describe('usePageIssueState', () => {
+  it('keeps a client-side preflight blocker code and sanitized reason in the Agent message', () => {
+    const error = new CreatorPreflightBlockedError({ templateId: 'video-translation', templateVersion: 2,
+      stageId: 'subtitle', executionMode: 'local', canStart: false, ready: [], warning: [],
+      blocked: [{ id: 'transcription-config', title: '转录服务', message: '请配置 OpenAI 转录凭据。 token=private', executionMode: 'remote', repair: { label: '配置' } }], checkedAt: '' });
+    const issue = normalizePageIssue('creator-session', 'creator.preflight', error, '启动检查未通过。');
+    expect(issue).toMatchObject({ code: 'creator_transcription_config_missing', category: 'configuration',
+      publicFacts: { kind: 'configuration', upstreamMessage: expect.stringContaining('请配置 OpenAI 转录凭据') } });
+    const text = issueConversationText(issue).message;
+    expect(text).toContain('creator_transcription_config_missing');
+    expect(text).toContain('请配置 OpenAI 转录凭据');
+    expect(text).not.toContain('CLIENT_OPERATION_FAILED');
+    expect(text).not.toContain('private');
+  });
   it('explains a confirmed template version mismatch without exposing an arbitrary server response', () => {
     const issue = normalizePageIssue(
       'creator-launch',

@@ -1,5 +1,6 @@
 import type {
   CodexImageStatus,
+  CodexProviderConfig,
   CreatorServicesCapabilitiesResponse,
   CreatorServicesConfig,
   CreatorServicesConfigResponse,
@@ -11,12 +12,16 @@ import type { RuntimeClient } from '../runtime/client.js';
 
 type ClientLike = Pick<RuntimeClient, 'get' | 'patch' | 'delete' | 'rawRequest'>;
 
-export type CreatorServicesSettingsService = Omit<ReturnType<typeof createCreatorServicesService>, 'getCodexImageStatus'> & {
+export type CreatorServicesSettingsService = Omit<ReturnType<typeof createCreatorServicesService>, 'getCodexImageStatus' | 'getCodexModelStatus'> & {
   getCodexImageStatus?: () => Promise<CodexImageStatus>;
+  getCodexModelStatus?: () => Promise<CodexProviderConfig>;
 };
 
 export function createCreatorServicesService(client: ClientLike) {
   return {
+    getCodexModelStatus(): Promise<CodexProviderConfig> {
+      return client.get('/creator-services/model/codex/status');
+    },
     getCodexImageStatus(): Promise<CodexImageStatus> {
       return client.get('/creator-services/image/codex/status');
     },

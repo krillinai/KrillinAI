@@ -14,19 +14,50 @@ import type { CreatorServicesSettingsService } from '../../services/creator-serv
 import { CreatorServicesSettingsView } from './CreatorServicesSettingsView.js';
 
 describe('CreatorServicesSettingsView', () => {
+  it('keeps the saved image service active until a detected local service is manually saved', async () => {
+    const user = userEvent.setup();
+    const service = createService();
+    const originalRead = service.getConfig;
+    service.getConfig = vi.fn(async () => {
+      const response = await originalRead();
+      return { ...response, config: { ...response.config, image: { ...response.config.image, provider: 'openai' as const } } };
+    });
+    service.getCodexImageStatus = vi.fn(async () => ({ authentication: 'chatgpt' as const, ready: true, executionMode: 'native' as const, message: 'ready' }));
+    render(<CreatorServicesSettingsView connected service={service} modelService={createModelService()} initialSection="image" />);
+    await user.click(await screen.findByRole('combobox', { name: '服务商' }));
+    await user.click(screen.getByRole('option', { name: '本机 Codex 生图' }));
+    expect(await screen.findByText('ChatGPT 登录态 · 原生生图')).toBeVisible();
+    expect(screen.queryByText(/本机 Codex 生图已生效/)).not.toBeInTheDocument();
+    expect(service.saveConfig).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: '保存配置' }));
+    expect(await screen.findByText(/本机 Codex 生图已生效，无需保存即可使用/)).toBeVisible();
+    expect(service.saveConfig).toHaveBeenCalledOnce();
+  });
+  it.each(['chatgpt', 'api_key'] as const)('uses detected %s defaults without asking for a settings save', async authentication => {
+    const service = createService([], runtimeCapabilities('darwin', 'arm64'), 'codex');
+    service.getCodexModelStatus = vi.fn(async () => ({ authentication, apiKeyConfigured: authentication === 'api_key', baseUrl: '', model: 'local-model' }));
+    service.getCodexImageStatus = vi.fn(async () => ({ authentication, ready: true, executionMode: authentication === 'chatgpt' ? 'native' as const : 'api' as const, message: 'ready' }));
+    const modelService = createModelService();
+    render(<CreatorServicesSettingsView connected service={service} modelService={modelService} />);
+    expect(await screen.findByText(/已自动启用本机 Codex，无需保存即可使用/)).toBeVisible();
+    expect(modelService.getCodexProvider).not.toHaveBeenCalled();
+    expect(service.saveConfig).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('tab', { name: '图像生成' }));
+    expect(await screen.findByText(/本机 Codex 生图已生效，无需保存即可使用/)).toBeVisible();
+    expect(service.saveConfig).not.toHaveBeenCalled();
+  });
   it('loads the real Codex image status only in the native image settings section', async () => {
     const service = createService();
     service.getCodexImageStatus = vi.fn(async () => ({ authentication: 'chatgpt' as const, ready: true, executionMode: 'native' as const, message: '本地登录凭据已就绪' }));
-    const onOpenAgentSetup = vi.fn();
-    render(<CreatorServicesSettingsView connected service={service} modelService={createModelService()} onOpenAgentSetup={onOpenAgentSetup} />);
+    render(<CreatorServicesSettingsView connected service={service} modelService={createModelService()} />);
     expect(service.getCodexImageStatus).not.toHaveBeenCalled();
     await userEvent.click(await screen.findByRole('tab', { name: '图像生成' }));
     expect(await screen.findByText('ChatGPT 登录态 · 原生生图')).toBeInTheDocument();
     expect(screen.getByText(/已检测到本地 ChatGPT 登录凭据和原生生图工具/)).toBeInTheDocument();
     expect(screen.queryByText('本地登录凭据已就绪')).not.toBeInTheDocument();
     expect(service.getCodexImageStatus).toHaveBeenCalledOnce();
-    await userEvent.click(screen.getByRole('button', { name: '配置 Agent' }));
-    expect(onOpenAgentSetup).toHaveBeenCalledOnce();
+    expect(screen.getByText(/生图方式跟随本机 Codex 的登录和配置/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: '配置 Agent' })).not.toBeInTheDocument();
   });
   it('saves an OSS region and optional endpoint in the shared settings form', async () => {
     const user = userEvent.setup();

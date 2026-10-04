@@ -4,6 +4,7 @@ import type {
   ImageGenerationAsset
 } from '@opencreator/protocol';
 import type { PublicErrorFacts } from '@opencreator/protocol';
+import { publicErrorKindForCode, sanitizePublicErrorFacts } from '@opencreator/protocol';
 import {
   LocalCodexProviderError,
   type LocalCodexProvider
@@ -54,14 +55,19 @@ export function imageGenerationCapabilities(
 }
 
 export class ImageGenerationProviderError extends Error {
+  readonly publicFacts: PublicErrorFacts;
   constructor(
     readonly code: 'config_missing' | 'upstream_error' | 'unsupported_capability',
     message: string,
-    readonly publicFacts?: PublicErrorFacts,
+    publicFacts?: PublicErrorFacts,
     options?: ErrorOptions
   ) {
     super(message, options);
     this.name = 'ImageGenerationProviderError';
+    this.publicFacts = sanitizePublicErrorFacts({
+      ...(publicFacts ?? { kind: publicErrorKindForCode(code) ?? 'unknown' }),
+      upstreamMessage: publicFacts?.upstreamMessage ?? message
+    });
   }
 }
 
@@ -167,10 +173,12 @@ export async function generateImageContents(
     if (error instanceof ImageGenerationProviderError) throw error;
     if (options.signal?.aborted) throw error;
     if (controller.signal.reason instanceof DOMException && controller.signal.reason.name === 'TimeoutError') {
-      throw new ImageGenerationProviderError('upstream_error', '图片生成超时，请稍后重试');
+      throw new ImageGenerationProviderError('upstream_error', '图片生成超时，请稍后重试',
+        { kind: 'timeout', provider: request.provider, upstreamMessage: '图片生成超过等待时间，请稍后重试。' }, { cause: error });
     }
     if (nativeExecution && error instanceof Error) {
-      throw new ImageGenerationProviderError('upstream_error', error.message);
+      throw new ImageGenerationProviderError('upstream_error', error.message,
+        publicFactsFromFailure(error, request.provider), { cause: error });
     }
     throw new ImageGenerationProviderError(
       'upstream_error',

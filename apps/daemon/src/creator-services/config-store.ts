@@ -292,7 +292,11 @@ export function createCreatorServicesConfigStoreWithTextModelFallback(
     },
     async write(config) {
       const persisted = structuredClone(config);
-      if (persisted.llm.source === 'codex') persisted.llm.apiKey = '';
+      if (persisted.llm.source === 'codex') {
+        const defaults = createDefaultCreatorServicesConfig().llm;
+        persisted.llm = { ...persisted.llm, baseUrl: defaults.baseUrl,
+          apiKey: '', model: defaults.model };
+      }
       const saved = await store.write(persisted);
       return resolveTextModelFallback(saved, fallback);
     },

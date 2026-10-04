@@ -5,11 +5,20 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   LocalCodexProviderError,
   readLocalCodexProvider,
-  readLocalCodexImageConfiguration
+  readLocalCodexImageConfiguration,
+  readLocalCodexModelConfiguration
 } from '../../src/codex/local-provider.js';
 
 describe('local Codex provider', () => {
   let root = '';
+
+  it('uses the standard API endpoint with a local key and preserves the text model', async () => {
+    root = await codexHome(['model = "local-text-model"']);
+    await writeFile(join(root, 'auth.json'), JSON.stringify({ auth_mode: 'apikey', OPENAI_API_KEY: 'local-key' }));
+    await expect(readLocalCodexModelConfiguration({ codexHome: root, env: {} })).resolves.toEqual({
+      authentication: 'api_key', provider: { baseUrl: 'https://api.openai.com/v1', apiKey: 'local-key', model: 'local-text-model' }
+    });
+  });
 
   afterEach(async () => {
     if (root) await rm(root, { recursive: true, force: true });

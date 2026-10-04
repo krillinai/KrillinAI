@@ -1,4 +1,6 @@
 import { defaultVideoGenerationModels } from './media-generation.js';
+import { publicErrorKindForCode, safePublicErrorMessage } from './errors.js';
+import type { PublicErrorFacts } from './issues.js';
 
 export type OpenAiCompatibleConfig = {
   baseUrl: string;
@@ -204,6 +206,31 @@ export type CreatorPreflightResponse = {
   blocked: Array<CreatorPreflightCheck & { repair: CreatorPreflightRepair }>;
   checkedAt: string;
 };
+
+/** Keep client-side and daemon-side preflight failures identical. */
+export function creatorPreflightFailure(result: CreatorPreflightResponse): {
+  code: string; message: string; publicFacts: PublicErrorFacts;
+} {
+  const codes: Record<string, string> = {
+    'reference-image-required': 'creator_stage_input_missing',
+    llm: 'creator_llm_config_missing',
+    tts: 'creator_tts_config_missing',
+    'image-provider': 'creator_image_config_missing',
+    'video-provider': 'VIDEO_GENERATION_CONFIG_REQUIRED',
+    'reference-image-capability': 'unsupported_capability',
+    'transcription-config': 'creator_transcription_config_missing',
+    'input-file': 'creator_stage_input_missing',
+    'managed-directory': 'creator_storage_failed'
+  };
+  const id = Object.keys(codes).find(id => result.blocked.some(item => item.id === id));
+  const code = id === undefined ? 'creator_preflight_blocked' : codes[id]!;
+  const message = safePublicErrorMessage(result.blocked.map(item => item.message).join('；'))
+    ?? '启动条件检查未通过，请检查任务配置。';
+  return { code, message, publicFacts: {
+    kind: publicErrorKindForCode(code) ?? 'validation', upstreamMessage: message,
+    ...(id === 'reference-image-required' ? { upstreamCode: 'IMAGE_REFERENCE_MISSING' } : {})
+  } };
+}
 
 export type CreatorServicesCredentialField =
   | 'llm.apiKey'

@@ -14,6 +14,22 @@ export type LocalCodexImageConfiguration =
   | { authentication: 'api_key'; provider: LocalCodexProvider }
   | { authentication: 'chatgpt' };
 
+export type LocalCodexModelConfiguration =
+  | { authentication: 'api_key'; provider: LocalCodexProvider }
+  | { authentication: 'chatgpt'; model: string };
+
+export async function readLocalCodexModelConfiguration(input: {
+  codexHome: string;
+  env?: NodeJS.ProcessEnv;
+}): Promise<LocalCodexModelConfiguration> {
+  const image = await readLocalCodexImageConfiguration(input);
+  const config = await readToml(join(input.codexHome, 'config.toml'), true);
+  const model = readString(config.model) || 'codex';
+  return image.authentication === 'chatgpt'
+    ? { authentication: 'chatgpt', model }
+    : { authentication: 'api_key', provider: { ...image.provider, model } };
+}
+
 export class LocalCodexProviderError extends Error {
   constructor(message: string) {
     super(message);
@@ -29,7 +45,7 @@ export async function readLocalCodexImageConfiguration(input: {
   const tokens = readRecord(auth?.tokens);
   if (auth?.auth_mode !== 'apikey' && (auth?.auth_mode === 'chatgpt' || readString(tokens?.access_token))) {
     if (!readString(tokens?.access_token)) {
-      throw new LocalCodexProviderError('ChatGPT 登录凭据不完整，请在 Agent 设置中重新登录');
+      throw new LocalCodexProviderError('本机 Codex 的 ChatGPT 登录凭据不完整，请在本机 Codex 中重新登录');
     }
     return { authentication: 'chatgpt' };
   }
@@ -41,17 +57,20 @@ export async function readLocalCodexProvider(input: {
   env?: NodeJS.ProcessEnv;
 }): Promise<LocalCodexProvider> {
   const env = input.env ?? process.env;
-  const config = await readToml(join(input.codexHome, 'config.toml'));
+  const config = await readToml(join(input.codexHome, 'config.toml'), true);
   const providerId = readString(config.model_provider);
   const providers = readRecord(config.model_providers);
   const provider = providerId.length === 0
     ? undefined
     : readRecord(providers?.[providerId]);
-  const baseUrl = readString(provider?.base_url) || readString(config.openai_base_url);
+  const baseUrl = readString(provider?.base_url) || readString(config.openai_base_url)
+    || ((!providerId || providerId === 'openai') ? 'https://api.openai.com/v1' : '');
   const model = readString(config.model);
   const providerToken = readString(provider?.experimental_bearer_token);
   const envKey = readString(provider?.env_key);
-  const envToken = envKey.length === 0 ? '' : (env[envKey]?.trim() ?? '');
+  const envToken = envKey.length === 0
+    ? ((!providerId || providerId === 'openai') ? env.OPENAI_API_KEY?.trim() ?? '' : '')
+    : (env[envKey]?.trim() ?? '');
   const auth = await readJson(join(input.codexHome, 'auth.json'));
   const authToken = readString(auth?.OPENAI_API_KEY);
   const apiKey = providerToken || envToken || authToken;
@@ -61,7 +80,7 @@ export async function readLocalCodexProvider(input: {
   }
   if (!apiKey) {
     throw new LocalCodexProviderError(
-      '本机 Codex 未配置图像接口可用的 API Key，请检查 Agent 配置'
+      '本机 Codex 未配置图像接口可用的 API Key，请检查本机 Codex 配置'
     );
   }
   return {
@@ -71,11 +90,12 @@ export async function readLocalCodexProvider(input: {
   };
 }
 
-async function readToml(path: string): Promise<Record<string, TomlValue>> {
+async function readToml(path: string, optional = false): Promise<Record<string, TomlValue>> {
   try {
     return parse(await readFile(path, 'utf8'));
   } catch (error) {
     if (isNotFound(error)) {
+      if (optional) return {};
       throw new LocalCodexProviderError('未找到本机 Codex 配置');
     }
     throw new LocalCodexProviderError('无法读取本机 Codex 配置');
@@ -90,7 +110,7 @@ async function readJson(path: string, strict = false): Promise<Record<string, un
     return record;
   } catch (error) {
     if (isNotFound(error)) return undefined;
-    if (strict) throw new LocalCodexProviderError('无法读取本机 Codex 登录凭据，请在 Agent 设置中重新登录或配置 API Key');
+    if (strict) throw new LocalCodexProviderError('无法读取本机 Codex 登录凭据，请在本机 Codex 中重新登录或配置 API Key');
     return undefined;
   }
 }

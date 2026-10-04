@@ -1,4 +1,4 @@
-import { publicErrorKindForCode, safePublicErrorCode, type OpenCreatorIssue } from '@opencreator/protocol';
+import { isPublicErrorFacts, publicErrorCodeFromFailure, publicErrorKindForCode, safePublicErrorCode, sanitizePublicErrorFacts, type PublicErrorFacts, type OpenCreatorIssue } from '@opencreator/protocol';
 import { useCallback, useMemo, useState } from 'react';
 import { ApiClientError } from '../../runtime/errors.js';
 import {
@@ -115,8 +115,15 @@ export function normalizePageIssue(
   const now = new Date().toISOString();
   const code = readCode(cause);
   const kind = publicErrorKindForCode(code);
+  const suppliedFacts = cause !== null && typeof cause === 'object'
+    ? (cause as { publicFacts?: PublicErrorFacts }).publicFacts : undefined;
+  const facts = suppliedFacts !== undefined && suppliedFacts !== null && typeof suppliedFacts === 'object'
+    ? sanitizePublicErrorFacts(suppliedFacts) : undefined;
   const network = kind === 'dns' || kind === 'connection-refused'
     || kind === 'connection-reset' || kind === 'timeout';
+  const confirmedKind = facts !== undefined && isPublicErrorFacts(facts) ? facts.kind : kind;
+  const category = network ? 'network' : confirmedKind === 'configuration' ? 'configuration'
+    : confirmedKind === 'validation' ? 'input' : 'execution';
   const key = stableKey(`${surface}:${operationId}:${code}`);
   return {
     id: `page:${createId()}`,
@@ -124,15 +131,15 @@ export function normalizePageIssue(
     code,
     scope: { kind: 'page', surface },
     source: network ? 'network' : 'client',
-    category: network ? 'network' : 'execution',
+    category,
     severity: 'error',
     status: 'open',
     operation: operationId,
-    summaryKey: 'issue.execution',
+    summaryKey: `issue.${category}`,
     summaryParams: {},
     fallbackMessage,
-    ...(cause instanceof ApiClientError && cause.publicFacts !== undefined
-      ? { publicFacts: cause.publicFacts }
+    ...(facts !== undefined && isPublicErrorFacts(facts)
+      ? { publicFacts: facts }
       : kind === undefined ? {} : { publicFacts: { kind } }),
     retryable: false,
     repairActions: [],
@@ -156,12 +163,7 @@ function mergeOccurrence(previous: OpenCreatorIssue | undefined, next: OpenCreat
 
 function readCode(cause: unknown): string {
   if (cause instanceof ApiClientError) return safePublicErrorCode(cause.code) ?? 'CLIENT_OPERATION_FAILED';
-  if (cause !== null && typeof cause === 'object' && 'code' in cause) {
-    const code = (cause as { code?: unknown }).code;
-    const safeCode = safePublicErrorCode(code);
-    if (safeCode !== undefined) return safeCode;
-  }
-  return 'CLIENT_OPERATION_FAILED';
+  return publicErrorCodeFromFailure(cause) ?? 'CLIENT_OPERATION_FAILED';
 }
 
 function createId(): string {
