@@ -9,7 +9,7 @@ import {
   writeFileSync
 } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { verifyCreatorRuntime } from './creator-runtime-contract.mjs';
@@ -52,6 +52,7 @@ export async function signRemotionComponent(runtimeRoot, env = process.env, opti
     const browserExecutable = resolve(runtimeRoot, manifest.browserExecutable);
     const signBinary = options.signBinary ?? signMachOBinary;
     for (const path of binaries) {
+      if (isMachOBinary(path)) normalizeRemotionLibraryPaths(path, runtimeRoot);
       // Chromium's V8 needs JIT permissions when hardened runtime is enabled.
       // Keep these permissions scoped to the browser executable.
       if (resolve(path) === browserExecutable) {
@@ -62,6 +63,31 @@ export async function signRemotionComponent(runtimeRoot, env = process.env, opti
     }
     updateManifestHashes(runtimeRoot, binaries);
   });
+}
+
+export function normalizeRemotionLibraryPaths(path, runtimeRoot, options = {}) {
+  const runTool = options.runTool ?? ((command, args) => {
+    const result = spawnSync(command, args, { encoding: 'utf8', timeout: 60_000 });
+    if (result.error || result.status !== 0) {
+      throw new Error(`Unable to prepare Remotion library paths for ${path}: ${result.stderr || result.error?.message}`);
+    }
+    return result.stdout;
+  });
+  const dependencies = runTool('otool', ['-L', path]);
+  for (const match of dependencies.matchAll(/^\s+(.+?) \(compatibility version .+\)$/gm)) {
+    const dependency = match[1];
+    if (dependency.startsWith('@') || isAbsolute(dependency)) continue;
+    const library = resolve(dirname(path), dependency);
+    const inside = relative(resolve(runtimeRoot), library);
+    if (inside === '..' || inside.startsWith(`..${sep}`) || isAbsolute(inside) || !existsSync(library)) {
+      throw new Error(`Remotion relative library is not bundled: ${dependency}`);
+    }
+    // Hardened runtime rejects bare relative library names, even when signed.
+    const replacement = `@loader_path/${dependency}`;
+    runTool('install_name_tool', library === resolve(path)
+      ? ['-id', replacement, path]
+      : ['-change', dependency, replacement, path]);
+  }
 }
 
 export async function signDaemonRuntimeBundle(context, options = {}) {

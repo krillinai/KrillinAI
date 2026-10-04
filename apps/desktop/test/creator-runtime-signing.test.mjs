@@ -16,6 +16,7 @@ import {
   signCreatorRuntimeBundle,
   signStickmanRuntimeBundle,
   signRemotionComponent,
+  normalizeRemotionLibraryPaths,
   updateManifestHashes
 } from '../scripts/sign-creator-runtime-after-pack.mjs';
 
@@ -28,6 +29,35 @@ afterEach(() => {
 });
 
 describe('Creator Runtime Developer ID signing', () => {
+  it('binds relative Remotion libraries to their packaged loader directory', () => {
+    const fixture = createStickmanFixture();
+    const browser = fixture.binaryPaths[0];
+    const library = join(dirname(browser), 'libavdevice.dylib');
+    writeFileSync(library, 'library');
+    const runTool = vi.fn(() => `${browser}:\n\tlibavdevice.dylib (compatibility version 61.0.0, current version 61.3.100)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)\n\t@rpath/libother.dylib (compatibility version 1.0.0, current version 1.0.0)\n`);
+    normalizeRemotionLibraryPaths(browser, fixture.runtimeRoot, { runTool });
+    expect(runTool.mock.calls).toEqual([
+      ['otool', ['-L', browser]],
+      ['install_name_tool', ['-change', 'libavdevice.dylib', '@loader_path/libavdevice.dylib', browser]]
+    ]);
+  });
+
+  it('normalizes the install name of a bundled Remotion dynamic library', () => {
+    const fixture = createStickmanFixture();
+    const library = join(dirname(fixture.binaryPaths[0]), 'libavdevice.dylib');
+    writeFileSync(library, 'library');
+    const runTool = vi.fn(() => `${library}:\n\tlibavdevice.dylib (compatibility version 61.0.0, current version 61.3.100)\n`);
+    normalizeRemotionLibraryPaths(library, fixture.runtimeRoot, { runTool });
+    expect(runTool).toHaveBeenCalledWith('install_name_tool', ['-id', '@loader_path/libavdevice.dylib', library]);
+  });
+
+  it('rejects relative Remotion libraries missing from the bundle', () => {
+    const fixture = createStickmanFixture();
+    const runTool = vi.fn(() => '\tmissing.dylib (compatibility version 1.0.0, current version 1.0.0)\n');
+    expect(() => normalizeRemotionLibraryPaths(fixture.binaryPaths[0], fixture.runtimeRoot, { runTool })).toThrow('Remotion relative library is not bundled: missing.dylib');
+    expect(runTool).toHaveBeenCalledTimes(1);
+  });
+
   it('signs the independent Remotion component using its prepared keychain and refreshes final hashes', async () => {
     const fixture = createStickmanFixture();
     const findIdentity = vi.fn(() => 'Developer ID Application: Junxi YIN (NVRH5R5DJ5)');
