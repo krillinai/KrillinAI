@@ -1,7 +1,7 @@
-const assert = require('node:assert/strict');
-const { writeFileSync } = require('node:fs');
-const { Socket } = require('node:net');
-const { app } = require('electron');
+import assert from 'node:assert/strict';
+import { writeFileSync } from 'node:fs';
+import { Socket } from 'node:net';
+import { app } from 'electron';
 
 let phase = 'initialization';
 const report = result => writeFileSync(process.env.OPENCREATOR_DESKTOP_NETWORK_TEST_RESULT, `${JSON.stringify({ phase, ...result }, null, 2)}\n`);
@@ -9,7 +9,7 @@ const report = result => writeFileSync(process.env.OPENCREATOR_DESKTOP_NETWORK_T
 report({ ok: false, pending: true });
 
 void (async () => {
-  app.setPath('userData', process.argv[4]);
+  app.setPath('userData', process.env.OPENCREATOR_DESKTOP_NETWORK_TEST_USER_DATA);
   Socket.prototype.setTypeOfService = () => {
     throw Object.assign(new Error('setTypeOfService EINVAL'), { code: 'EINVAL' });
   };
@@ -18,8 +18,8 @@ void (async () => {
   };
   await app.whenReady();
   phase = 'load network module';
-  const { fetchDesktopRequest } = await import(process.argv[2]);
-  const origin = process.argv[3];
+  const { fetchDesktopRequest } = await import(process.env.OPENCREATOR_DESKTOP_NETWORK_TEST_MODULE);
+  const origin = process.env.OPENCREATOR_DESKTOP_NETWORK_TEST_ORIGIN;
   phase = 'JSON request';
   const json = await fetchDesktopRequest(`${origin}/json`);
   assert.deepEqual(await json.json(), { ok: true });

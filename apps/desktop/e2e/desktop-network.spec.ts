@@ -43,6 +43,9 @@ test('@package-smoke Desktop 网络在 Socket QoS 抛出 EINVAL 时仍可请求�
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       OPENCREATOR_DESKTOP_NETWORK_TEST_RESULT: resultPath,
+      OPENCREATOR_DESKTOP_NETWORK_TEST_USER_DATA: userData,
+      OPENCREATOR_DESKTOP_NETWORK_TEST_MODULE: pathToFileURL(resolve(e2eDir, '../dist/main/desktop-network.js')).href,
+      OPENCREATOR_DESKTOP_NETWORK_TEST_ORIGIN: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
       ELECTRON_ENABLE_LOGGING: '1',
       ELECTRON_LOG_FILE: electronLogPath
     };
@@ -50,11 +53,10 @@ test('@package-smoke Desktop 网络在 Socket QoS 抛出 EINVAL 时仍可请求�
     let processFailure: unknown;
     let stderr = '';
     try {
+      // Electron rejects URL arguments followed by more arguments on Windows.
+      // Pass test configuration through the environment on every platform.
       const result = await run(electronExecutable, [
-        resolve(e2eDir, 'fixtures/desktop-network.cjs'),
-        pathToFileURL(resolve(e2eDir, '../dist/main/desktop-network.js')).href,
-        `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
-        userData
+        resolve(e2eDir, 'fixtures/desktop-network.mjs')
       ], { env, timeout: 30_000, windowsHide: true });
       stderr = result.stderr;
     } catch (error) { processFailure = error; }
