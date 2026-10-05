@@ -563,7 +563,7 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## Сообщество
 
-<p>Пользователи GitHub как минимум из <strong>99 стран и регионов</strong> поставили OpenCreator звезду.</p>
+<p>Пользователи GitHub как минимум из <strong>100 стран и регионов</strong> поставили OpenCreator звезду.</p>
 
 <img src="../images/star-coverage-map.svg" alt="Карта мира с отмеченными странами и регионами пользователей GitHub, поставивших звезду OpenCreator" width="760" />
 

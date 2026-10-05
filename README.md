@@ -567,7 +567,7 @@ The root `README.md` is the canonical English document. Maintained translations 
 
 ## Community
 
-<p>GitHub users from <strong>at least 99 countries and regions</strong> have starred OpenCreator.</p>
+<p>GitHub users from <strong>at least 100 countries and regions</strong> have starred OpenCreator.</p>
 
 <img src="./docs/images/star-coverage-map.svg" alt="World map highlighting countries and regions with OpenCreator GitHub Stars" width="760" />
 
