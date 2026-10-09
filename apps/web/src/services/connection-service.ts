@@ -23,8 +23,11 @@ export function createConnectionService(client: ClientLike) {
   return {
     async check(): Promise<ConnectionState> {
       try {
-        await client.get('/healthz');
-        const codexStatus = await client.get<CodexStatusResponse>('/codex/status');
+        await client.get('/healthz', { signal: AbortSignal.timeout(2_000) });
+        const codexStatus = await client.get<CodexStatusResponse>(
+          '/codex/status',
+          { signal: AbortSignal.timeout(2_000) }
+        );
         return { status: 'connected', codexStatus };
       } catch (error) {
         const message = errorMessage(error);

@@ -9,7 +9,8 @@ import {
   createRuntimeProxyTarget,
   isStreamingRuntimeUploadRequest,
   isRuntimeRequestUrl,
-  readBoundedRequestBody
+  readBoundedRequestBody,
+  runtimeProxyErrorDetails
 } from './runtime-proxy.js';
 
 export function registerPrivilegedSchemes(): void {
@@ -32,12 +33,13 @@ export async function installProtocolHandler(input: {
   webRoot: string;
   bootstrapRoot: string;
   getConnection(): DaemonConnection | undefined;
+  onTransportFailure?(connection: DaemonConnection): void;
   logger: DesktopLogger;
 }): Promise<void> {
   await protocol.handle('opencreator-app', async request => {
     const url = new URL(request.url);
     if (isRuntimeRequestUrl(url)) {
-      return await proxyRuntimeRequest(request, url, input.getConnection(), input.logger);
+      return await proxyRuntimeRequest(request, url, input.getConnection(), input.logger, input.onTransportFailure);
     }
     if (url.hostname === 'app') {
       return await staticResponse(input.webRoot, request, true);
@@ -53,15 +55,26 @@ async function proxyRuntimeRequest(
   request: Request,
   url: URL,
   connection: DaemonConnection | undefined,
-  logger: DesktopLogger
+  logger: DesktopLogger,
+  onTransportFailure?: (connection: DaemonConnection) => void
 ): Promise<Response> {
   if (connection === undefined) {
+    logger.warnRateLimited('runtime-proxy-unavailable', 'Runtime proxy connection unavailable', {
+      method: request.method,
+      path: url.pathname
+    }, 5_000);
     return jsonError(503, 'RUNTIME_UNAVAILABLE', 'OpenCreator Runtime is not ready');
   }
+  const startedAt = performance.now();
+  let phase = 'target';
+  let daemonPort: string | undefined;
   try {
     const target = createRuntimeProxyTarget(url, connection.address);
+    daemonPort = target.port;
+    phase = 'headers';
     const headers = createRuntimeProxyHeaders(request.headers, connection.token);
     const streamsUpload = isStreamingRuntimeUploadRequest(target, request);
+    phase = 'body';
     const body = request.method === 'GET' || request.method === 'HEAD'
       ? undefined
       : streamsUpload
@@ -75,23 +88,44 @@ async function proxyRuntimeRequest(
       signal: request.signal
     };
     if (streamsUpload && body !== undefined) upstreamRequest.duplex = 'half';
+    phase = 'fetch';
     const upstream = await fetch(target.toString(), upstreamRequest);
-    return relayRuntimeResponse(upstream, logger);
+    return relayRuntimeResponse(upstream, logger, {
+      method: request.method,
+      path: url.pathname,
+      daemonPort,
+      startedAt,
+      connection,
+      onTransportFailure
+    });
   } catch (error) {
     if (error instanceof RuntimeProxyError) {
       return jsonError(error.status, error.code, error.message);
     }
     logger.warn('Runtime proxy request failed', {
+      method: request.method,
       path: url.pathname,
-      message: error instanceof Error ? error.message : String(error)
+      phase,
+      durationMs: Math.round(performance.now() - startedAt),
+      daemonPort,
+      errors: runtimeProxyErrorDetails(error)
     });
+    if (phase === 'fetch' && !request.signal.aborted) onTransportFailure?.(connection);
     return jsonError(502, 'RUNTIME_PROXY_FAILED', 'Runtime request failed');
   }
 }
 
 function relayRuntimeResponse(
   upstream: Response,
-  logger: DesktopLogger
+  logger: DesktopLogger,
+  context: {
+    method: string;
+    path: string;
+    daemonPort: string;
+    startedAt: number;
+    connection: DaemonConnection;
+    onTransportFailure?: (connection: DaemonConnection) => void;
+  }
 ): Response {
   const headers = new Headers(upstream.headers);
   for (const name of [
@@ -134,8 +168,14 @@ function relayRuntimeResponse(
       } catch (error) {
         release();
         logger.warn('Runtime proxy response stream failed', {
-          message: error instanceof Error ? error.message : String(error)
+          method: context.method,
+          path: context.path,
+          phase: 'response-stream',
+          durationMs: Math.round(performance.now() - context.startedAt),
+          daemonPort: context.daemonPort,
+          errors: runtimeProxyErrorDetails(error)
         });
+        context.onTransportFailure?.(context.connection);
         controller.error(error);
       }
     },

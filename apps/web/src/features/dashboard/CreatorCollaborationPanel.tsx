@@ -23,6 +23,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import OpenCreatorMark from '../../components/brand/OpenCreatorMark.js';
 import { MarkdownRenderer } from '../../components/markdown/MarkdownRenderer.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
+import { RuntimeConnectionNotice } from '../../app/runtime-connection-context.js';
 import { issueConversationText } from '../issues/issue-catalog.js';
 import ToolAgentComposer, { type ToolAgentPermission } from './ToolAgentComposer.js';
 import {
@@ -263,10 +264,13 @@ export default function CreatorCollaborationPanel(props: {
       ) : null}
 
       {session === null ? (
-        <div className="creator-collaboration-unavailable" role="alert">
-          <ServerOff size={16} aria-hidden="true" />
-          <p>{l('Creator Runtime 未连接，Agent 不会生成替代回复。', 'Creator Runtime is disconnected. The Agent will not generate substitute responses.')}</p>
-        </div>
+        <>
+          <div className="creator-collaboration-unavailable" role="alert">
+            <ServerOff size={16} aria-hidden="true" />
+            <p>{l('Creator Runtime 未连接，Agent 不会生成替代回复。', 'Creator Runtime is disconnected. The Agent will not generate substitute responses.')}</p>
+          </div>
+          <RuntimeConnectionNotice />
+        </>
       ) : (
         <>
           <div
@@ -320,6 +324,8 @@ export default function CreatorCollaborationPanel(props: {
                 />
               );
             })}
+
+            <RuntimeConnectionNotice />
 
             {showAgentWorking ? (
               <div
