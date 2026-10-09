@@ -33,6 +33,7 @@ import type {
 import { FolderInput } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { AppLayout } from '../components/layout/AppLayout.js';
+import { RuntimeConnectionNotice, RuntimeConnectionProvider } from './runtime-connection-context.js';
 import { DesktopWindowControls } from '../components/layout/DesktopWindowControls.js';
 import { beginPaneResize } from '../components/layout/pane-resize-2026-07-29.js';
 import { Timeline, type TimelineHandle } from '../components/timeline/Timeline.js';
@@ -348,6 +349,8 @@ export function AppController(props: AppControllerProps) {
     status: 'disconnected',
     message: '正在等待本地服务'
   });
+  const [runtimeRestarting, setRuntimeRestarting] = useState(false);
+  const [runtimeRestartError, setRuntimeRestartError] = useState<string>();
   const [runDiagnosticsById, setRunDiagnosticsById] = useState<Record<string, RunDiagnosticsResponse | undefined>>({});
   const [runAttachmentsById, setRunAttachmentsById] = useState<Record<string, AttachmentResponse[] | undefined>>({});
   const [runContextById, setRunContextById] = useState<Record<string, RunContextResponse | undefined>>({});
@@ -1086,7 +1089,6 @@ export function AppController(props: AppControllerProps) {
     taskBaselineReadyRef.current = false;
 
     if (connectionState.status !== 'connected' || taskService === null) {
-      setRuntimeTasks([]);
       return () => {
         canceled = true;
       };
@@ -1162,8 +1164,7 @@ export function AppController(props: AppControllerProps) {
 
   useEffect(() => {
     if (connectionState.status === 'connected') return;
-    stopAllRunEventSubscriptions(false);
-    dispatchRunRegistry({ type: 'reset' });
+    stopAllRunEventSubscriptions();
     setRunsLoadingThreadId(undefined);
     setRunsLoadedThreadId(undefined);
   }, [connectionState.status]);
@@ -1224,9 +1225,11 @@ export function AppController(props: AppControllerProps) {
     const unsubscribe = hostBridge.subscribeConnectionConfig?.(config => {
       if (canceled) return;
       connectionConfigVersionRef.current += 1;
-      setConnectionConfig(config);
       if (config === null) {
+        setConnectionConfig(current => current === null ? null : { ...current });
         setConnectionState({ status: 'disconnected', message: '正在恢复本地服务连接' });
+      } else {
+        setConnectionConfig(config);
       }
     });
 
@@ -1235,6 +1238,18 @@ export function AppController(props: AppControllerProps) {
       unsubscribe?.();
     };
   }, [hostBridge]);
+
+  useEffect(() => {
+    if (connectionConfig !== null) return;
+    let canceled = false;
+    const timer = window.setInterval(() => {
+      readHostRuntimeConfig(connectionConfigVersionRef.current, () => canceled);
+    }, 2_000);
+    return () => {
+      canceled = true;
+      window.clearInterval(timer);
+    };
+  }, [connectionConfig, hostBridge]);
 
   useEffect(() => {
     let canceled = false;
@@ -1258,6 +1273,7 @@ export function AppController(props: AppControllerProps) {
 
   useEffect(() => {
     let canceled = false;
+    let timer: number | undefined;
 
     if (connectionService === null) {
       setConnectionState({ status: 'disconnected', message: '正在等待本地服务' });
@@ -1266,19 +1282,24 @@ export function AppController(props: AppControllerProps) {
       };
     }
 
-    connectionService
-      .check()
-      .then(nextState => {
-        if (canceled) return;
-        setConnectionState(nextState);
-      })
-      .catch(() => {
-        if (canceled) return;
-        setConnectionState({ status: 'disconnected', message: '本地服务连接失败' });
-      });
+    const check = async () => {
+      let nextState: ConnectionState;
+      try {
+        nextState = await connectionService.check();
+      } catch {
+        nextState = { status: 'disconnected', message: '本地服务连接失败' };
+      }
+      if (canceled) return;
+      setConnectionState(nextState);
+      if (nextState.status !== 'invalid_token') {
+        timer = window.setTimeout(check, nextState.status === 'connected' ? 5_000 : 2_000);
+      }
+    };
+    void check();
 
     return () => {
       canceled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [connectionService]);
 
@@ -1322,11 +1343,6 @@ export function AppController(props: AppControllerProps) {
       || threadService === null
     ) {
       setRuntimeWorkspaceReady(false);
-      if (connectionState.status !== 'connected') {
-        setProjects([]);
-        setArchivedProjects([]);
-        setRuntimeThreads([]);
-      }
       return () => {
         canceled = true;
       };
@@ -1336,6 +1352,7 @@ export function AppController(props: AppControllerProps) {
     const activeProjectService = projectService;
     const activeThreadService = threadService;
     async function loadRuntimeWorkspace() {
+      let loaded = false;
       try {
         const legacyProjects = parseLegacyLocalStorageProjects(
           readJsonFromStorage<unknown>(PROJECTS_STORAGE_KEY)
@@ -1388,6 +1405,7 @@ export function AppController(props: AppControllerProps) {
         if (canceled) return;
         setRuntimeThreads(response.threads);
         setThreadLoadError(undefined);
+        loaded = true;
 
         const restoredThreadId = restoredThreadIdRef.current;
         restoredThreadIdRef.current = undefined;
@@ -1414,14 +1432,10 @@ export function AppController(props: AppControllerProps) {
         }
       } catch {
         if (canceled) return;
-        setProjects([]);
-        setArchivedProjects([]);
-        setRuntimeThreads([]);
-        dispatch({ type: 'set_current_project', projectId: undefined });
         setProjectLoadError('无法迁移或加载项目，请稍后重试');
         setThreadLoadError(undefined);
       } finally {
-        if (!canceled) setRuntimeWorkspaceReady(true);
+        if (!canceled) setRuntimeWorkspaceReady(loaded);
       }
     }
 
@@ -1435,8 +1449,6 @@ export function AppController(props: AppControllerProps) {
   useEffect(() => {
     let canceled = false;
     if (connectionState.status !== 'connected' || creatorService === null) {
-      setCreatorPresets([]);
-      setCreatorPresetsError(undefined);
       setCreatorPresetsLoading(false);
       return () => {
         canceled = true;
@@ -1476,10 +1488,6 @@ export function AppController(props: AppControllerProps) {
   useEffect(() => {
     let canceled = false;
     if (connectionState.status !== 'connected' || creatorService === null) {
-      if (connectionState.status !== 'connected') {
-        setCreatorJobs([]);
-        setCreatorJobsError(undefined);
-      }
       setCreatorJobsLoading(false);
       return () => {
         canceled = true;
@@ -1515,7 +1523,6 @@ export function AppController(props: AppControllerProps) {
     let canceled = false;
 
     if (connectionState.status !== 'connected' || scheduleService === null) {
-      if (connectionState.status !== 'connected') setRuntimeSchedules([]);
       return () => {
         canceled = true;
       };
@@ -1526,9 +1533,7 @@ export function AppController(props: AppControllerProps) {
       .then(response => {
         if (!canceled) setRuntimeSchedules(response.schedules);
       })
-      .catch(() => {
-        if (!canceled) setRuntimeSchedules([]);
-      });
+      .catch(() => undefined);
 
     return () => {
       canceled = true;
@@ -1844,7 +1849,9 @@ export function AppController(props: AppControllerProps) {
       setThreadHistoryLoadError(undefined);
       setHistoryLoadingThreadId(selectedThreadId);
       setHistoryLoadedThreadId(undefined);
-      showTimelineForThread(selectedThreadId, [], false);
+      if (timelineThreadIdRef.current !== selectedThreadId) {
+        showTimelineForThread(selectedThreadId, [], false);
+      }
       return;
     }
 
@@ -2303,19 +2310,40 @@ export function AppController(props: AppControllerProps) {
     hostBridge
       .readConnectionConfig()
       .then(config => {
-        if (!isCanceled() && connectionConfigVersionRef.current === loadVersion) setConnectionConfig(config);
+        if (!isCanceled() && connectionConfigVersionRef.current === loadVersion) {
+          setConnectionConfig(current => config ?? current);
+        }
       })
       .catch(() => {
-        if (!isCanceled() && connectionConfigVersionRef.current === loadVersion) setConnectionConfig(null);
+        // Keep the last valid service while the host connection is unavailable.
       });
   }
 
   function retryRuntimeConnection() {
+    setRuntimeRestartError(undefined);
     connectionConfigVersionRef.current += 1;
     const loadVersion = connectionConfigVersionRef.current;
-    setConnectionConfig(null);
+    setConnectionConfig(current => current === null ? null : { ...current });
     setConnectionState({ status: 'disconnected', message: '正在等待本地服务' });
     readHostRuntimeConfig(loadVersion, () => false);
+  }
+
+  async function restartLocalRuntime() {
+    if (hostBridge.restartRuntime === undefined || runtimeRestarting) return;
+    setRuntimeRestarting(true);
+    setRuntimeRestartError(undefined);
+    try {
+      const result = await hostBridge.restartRuntime();
+      if (!result.ok) {
+        setRuntimeRestartError(result.message);
+        return;
+      }
+      retryRuntimeConnection();
+    } catch (error) {
+      setRuntimeRestartError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setRuntimeRestarting(false);
+    }
   }
 
   function handleColorModeChange(mode: ColorMode) {
@@ -4233,6 +4261,7 @@ export function AppController(props: AppControllerProps) {
   )
     || selectedPendingRunStart !== undefined
     || selectedRunsLoading
+    || !runtimeWorkspaceReady
     || connectionState.status !== 'connected';
   const composerDisabledReason = connectionState.status !== 'connected'
     ? t('conversation.connectingRuntime')
@@ -4493,6 +4522,7 @@ export function AppController(props: AppControllerProps) {
         </div>
       ) : (
         <div className="composer-wrap" onWheel={handleComposerWheel}>
+          <RuntimeConnectionNotice />
           {showConversationEmptyState ? (
             <ConversationEmptyState />
           ) : null}
@@ -4795,7 +4825,16 @@ export function AppController(props: AppControllerProps) {
   );
 
   return (
-    <PageIssueRoutingProvider><div
+    <PageIssueRoutingProvider><RuntimeConnectionProvider value={{
+      status: connectionState.status,
+      waitingForConfig: connectionConfig === null,
+      restarting: runtimeRestarting,
+      restartError: runtimeRestartError,
+      retry: retryRuntimeConnection,
+      ...(hostBridge.restartRuntime === undefined
+        ? {}
+        : { restart: () => void restartLocalRuntime() })
+    }}><div
       className="app-drop-shell"
       data-integrated-title-bar={
         integratedTitleBar?.integratedTitleBar === true ? 'true' : undefined
@@ -4944,7 +4983,7 @@ export function AppController(props: AppControllerProps) {
         hiddenCreatorIssues={immersiveWorkspace && props.route.view === 'workbench' && props.route.jobId === undefined}
         onAskIssue={askAgentAboutIssue}
       />
-    </div></PageIssueRoutingProvider>
+    </div></RuntimeConnectionProvider></PageIssueRoutingProvider>
   );
 
   function createDetailPanel() {

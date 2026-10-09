@@ -3,7 +3,8 @@ import { EventEmitter } from 'node:events';
 import { resolve } from 'node:path';
 import type {
   DesktopBootstrapState,
-  DesktopConnectionConfig
+  DesktopConnectionConfig,
+  DaemonConnection
 } from '../shared/types.js';
 import {
   CodexResolutionError,
@@ -34,6 +35,9 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
   private verifiedFingerprint: string | undefined;
   private automaticRestarts = 0;
   private stableTimer: NodeJS.Timeout | undefined;
+  private healthCheckWork: Promise<void> | undefined;
+  private recoveryWork: Promise<void> | undefined;
+  private stopping = false;
 
   constructor(private readonly input: {
     daemon: DaemonManager;
@@ -47,6 +51,7 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
     stickmanRuntimeRoot: string;
     defaultProjectRoot: string;
     development: boolean;
+    probeHealth?(connection: DaemonConnection): Promise<boolean>;
   }) {
     super();
     input.daemon.on('bootstrap', event => {
@@ -76,8 +81,13 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
       this.emit('connection', connection === null ? null : this.rendererConnection());
     });
     input.daemon.on('exit', event => {
-      if (event.reason !== 'unexpected' || this.state.phase === 'failed') return;
-      void this.recoverUnexpectedExit();
+      if (
+        event.reason !== 'unexpected'
+        || this.stopping
+        || this.runWork !== undefined
+        || this.state.phase === 'failed'
+      ) return;
+      void this.recoverRuntime('exit');
     });
   }
 
@@ -96,6 +106,7 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
     loginShellTask?: LoginShellEnvironmentTask
   ): Promise<void> {
     if (this.runWork !== undefined) return this.runWork;
+    this.stopping = false;
     this.runWork = this.startInternal(selectedCodexBin, loginShellTask).finally(() => {
       this.runWork = undefined;
     });
@@ -123,17 +134,25 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
   }
 
   async restartRuntime(): Promise<void> {
+    this.stopping = false;
     if (this.resolvedEnvironment === undefined) {
       await this.start();
       return;
     }
-    await this.input.daemon.restart(this.daemonStartInput(
-      this.resolvedEnvironment,
-      false,
-      true
-    ));
-    this.updateState({ phase: 'starting_runtime', error: undefined });
-    this.emit('ready');
+    await this.recoverRuntime('manual');
+  }
+
+  reportProxyFailure(connection: DaemonConnection): void {
+    if (
+      this.stopping
+      || this.state.phase !== 'ready'
+      || this.input.daemon.currentConnection !== connection
+      || this.healthCheckWork !== undefined
+      || this.recoveryWork !== undefined
+    ) return;
+    this.healthCheckWork = this.checkRuntimeHealth(connection).finally(() => {
+      this.healthCheckWork = undefined;
+    });
   }
 
   markWorkspaceReady(): void {
@@ -161,6 +180,7 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
   }
 
   async stop(): Promise<void> {
+    this.stopping = true;
     if (this.stableTimer !== undefined) clearTimeout(this.stableTimer);
     await this.input.daemon.stop();
   }
@@ -275,33 +295,72 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
     }
   }
 
-  private async recoverUnexpectedExit(): Promise<void> {
+  private async checkRuntimeHealth(connection: DaemonConnection): Promise<void> {
+    const probe = this.input.probeHealth ?? probeDaemonHealth;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (this.stopping || this.input.daemon.currentConnection !== connection) return;
+      const healthy = await probe(connection).catch(() => false);
+      if (healthy) {
+        this.input.logger.info('Runtime proxy failure health probe succeeded', { attempt: attempt + 1 });
+        return;
+      }
+      if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 750));
+    }
+    if (this.stopping || this.input.daemon.currentConnection !== connection) return;
+    this.input.logger.warn('Runtime health probes failed', { pid: this.input.daemon.pid });
+    await this.recoverRuntime('health');
+  }
+
+  private recoverRuntime(reason: 'exit' | 'health' | 'manual'): Promise<void> {
+    if (this.recoveryWork !== undefined) return this.recoveryWork;
+    this.recoveryWork = this.recoverRuntimeInternal(reason).finally(() => {
+      this.recoveryWork = undefined;
+    });
+    return this.recoveryWork;
+  }
+
+  private async recoverRuntimeInternal(reason: 'exit' | 'health' | 'manual'): Promise<void> {
+    if (this.stopping) return;
     const environment = this.resolvedEnvironment;
-    if (environment === undefined || this.automaticRestarts >= 1) {
+    if (environment === undefined || (reason !== 'manual' && this.automaticRestarts >= 2)) {
       this.updateState({
         phase: 'failed',
         error: {
           code: 'DAEMON_RESTART_EXHAUSTED',
-          message: '本地运行服务连续退出，请导出诊断后重新检测'
+          message: '本地运行服务未能自动恢复，请手动重启运行服务。'
         }
       });
       return;
     }
-    this.automaticRestarts += 1;
+    if (reason === 'manual') this.automaticRestarts = 0;
+    else this.automaticRestarts += 1;
+    this.input.logger.warn('Runtime recovery started', {
+      reason,
+      attempt: this.automaticRestarts,
+      pid: this.input.daemon.pid
+    });
     this.updateState({
       phase: 'starting_daemon',
       error: undefined
     });
     try {
-      await this.input.daemon.start(this.daemonStartInput(environment, false, true));
+      const input = this.daemonStartInput(environment, false, true);
+      if (reason === 'exit') await this.input.daemon.start(input);
+      else await this.input.daemon.restart(input);
       this.updateState({ phase: 'starting_runtime' });
       this.emit('ready');
       this.armStableTimer();
+      this.input.logger.info('Runtime recovery completed', { reason, pid: this.input.daemon.pid });
     } catch (error) {
+      this.input.logger.error('Runtime recovery failed', {
+        reason,
+        message: error instanceof Error ? error.message : String(error)
+      });
       this.updateState({
         phase: 'failed',
         error: parseBootstrapError(error)
       });
+      if (reason === 'manual') throw error;
     }
   }
 
@@ -347,6 +406,23 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
       this.automaticRestarts = 0;
     }, 5 * 60 * 1_000);
     this.stableTimer.unref();
+  }
+}
+
+async function probeDaemonHealth(connection: DaemonConnection): Promise<boolean> {
+  try {
+    const response = await fetch(`${connection.address}/healthz`, {
+      signal: AbortSignal.timeout(1_500),
+      cache: 'no-store'
+    });
+    if (!response.ok) return false;
+    const payload: unknown = await response.json();
+    return typeof payload === 'object'
+      && payload !== null
+      && 'ok' in payload
+      && payload.ok === true;
+  } catch {
+    return false;
   }
 }
 

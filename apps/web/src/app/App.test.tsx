@@ -7111,6 +7111,68 @@ describe('App', () => {
     expect(request.prompt).not.toContain('model catalog unavailable');
   });
 
+  it('keeps the current conversation and draft while reconnecting without a page reload', async () => {
+    const hostBridge = createHostBridge();
+    hostBridge.kind = 'desktop';
+    let available = true;
+    let notifyConnection: ((config: { baseUrl: string; token: string } | null) => void) | undefined;
+    const config = { baseUrl: 'http://127.0.0.1:60764', token: 'runtime-token' };
+    hostBridge.readConnectionConfig = async () => available ? config : null;
+    hostBridge.subscribeConnectionConfig = listener => {
+      notifyConnection = listener;
+      return () => { notifyConnection = undefined; };
+    };
+    hostBridge.restartRuntime = vi.fn(async () => ({ ok: true as const }));
+    let failedHealthChecks = 0;
+    const runtimeFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const projectResponse = handleDefaultProjectApiRequest(url, init);
+      if (projectResponse !== undefined) return projectResponse;
+      if (url.endsWith('/healthz')) {
+        if (!available) {
+          failedHealthChecks += 1;
+          return jsonResponse({ error: { code: 'RUNTIME_UNAVAILABLE', message: 'offline' } }, { status: 503 });
+        }
+        return jsonResponse({ ok: true });
+      }
+      if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
+      if (url.endsWith('/schedules')) return jsonResponse({ schedules: [] });
+      if (url.endsWith('/tasks?status=all&limit=50')) return jsonResponse({ tasks: [], hasMore: false });
+      if (url.endsWith('/threads?status=active&limit=50')) {
+        return jsonResponse({ threads: [createThreadResponse({ id: 'thread_kept', title: '保留的会话' })] });
+      }
+      if (url.endsWith('/threads/thread_kept/history?limit=50')) {
+        return jsonResponse({ threadId: 'thread_kept', codexThreadId: null, items: [] });
+      }
+      if (url.endsWith('/threads/thread_kept/runs?limit=50')) return jsonResponse({ runs: [] });
+      if (url.endsWith('/threads/thread_kept')) {
+        return jsonResponse({ thread: createThreadResponse({ id: 'thread_kept', title: '保留的会话' }) });
+      }
+      return jsonResponse({});
+    };
+
+    render(<App fileService={createFileService()} hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
+    await screen.findByRole('status', { name: '本地运行内核正常' });
+    const conversation = await screen.findByRole('button', { name: /保留的会话/ });
+    fireEvent.click(conversation);
+    const composer = await screen.findByRole('textbox', { name: '输入任务' });
+    fireEvent.change(composer, { target: { value: '恢复后继续这段草稿' } });
+
+    available = false;
+    act(() => notifyConnection?.(null));
+    expect(screen.getByRole('button', { name: /保留的会话/ })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '输入任务' })).toHaveValue('恢复后继续这段草稿');
+    expect(screen.getByRole('button', { name: '重启本地服务' })).toBeInTheDocument();
+    await waitFor(() => expect(failedHealthChecks).toBeGreaterThan(0));
+
+    available = true;
+    await waitFor(() => expect(screen.getByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument(), {
+      timeout: 4_000
+    });
+    expect(screen.getByRole('textbox', { name: '输入任务' })).toHaveValue('恢复后继续这段草稿');
+    expect(screen.getByRole('button', { name: /保留的会话/ })).toBeInTheDocument();
+  });
+
   it('restores the recent model config for a new conversation', async () => {
     const user = userEvent.setup();
     writeRecentModelConfig({
