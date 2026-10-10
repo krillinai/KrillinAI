@@ -509,6 +509,14 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 	if req.VttFile == "" {
 		return "", fmt.Errorf("processYouTubeSubtitle: no original subtitle file found")
 	}
+	hasWordTimestamps, err := s.DetectVttFormat(req.VttFile)
+	if err != nil {
+		return "", fmt.Errorf("字幕格式检测失败: %w", err)
+	}
+	if !hasWordTimestamps {
+		return s.ProcessBlockLevelVtt(ctx, req)
+	}
+	log.GetLogger().Info("使用word-level VTT处理流程", zap.String("taskId", req.TaskId))
 
 	log.GetLogger().Info("processYouTubeSubtitle start",
 		zap.String("taskId", req.TaskId),
@@ -566,6 +574,9 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 	log.GetLogger().Info("生成原始语言SRT完成",
 		zap.String("文件", originSrtFile),
 		zap.Int("块数", len(srtBlocks)))
+	if err := s.validateYouTubeSubtitleBlocks(srtBlocks, false); err != nil {
+		return "", err
+	}
 
 	// 更新进度：原始SRT生成完成
 	if req.TaskPtr != nil {
@@ -584,6 +595,9 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 		return "", fmt.Errorf("failed to batch translate: %w", err)
 	}
 	log.GetLogger().Info("批量翻译完成", zap.Int("块数", len(srtBlocks)))
+	if err := s.validateYouTubeSubtitleBlocks(srtBlocks, true); err != nil {
+		return "", err
+	}
 
 	// 更新进度：翻译完成
 	if req.TaskPtr != nil {
@@ -632,20 +646,8 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 	}
 
 	// 8. 生成纯文本文件到output目录
-	outputDir := filepath.Join(req.TaskBasePath, "output")
-	err = os.MkdirAll(outputDir, 0755)
-	if err != nil {
-		log.GetLogger().Warn("创建output目录失败", zap.Error(err))
-	}
-	originTxtFile := filepath.Join(outputDir, "origin_language.txt")
-	targetTxtFile := filepath.Join(outputDir, "target_language.txt")
-	err = s.generateTextFiles(srtBlocks, originTxtFile, targetTxtFile, req.TargetLanguage)
-	if err != nil {
-		log.GetLogger().Warn("生成文本文件失败", zap.Error(err))
-	} else {
-		log.GetLogger().Info("生成文本文件完成",
-			zap.String("原文", originTxtFile),
-			zap.String("译文", targetTxtFile))
+	if err := s.writeYouTubeSubtitleTextFiles(srtBlocks, req); err != nil {
+		return "", err
 	}
 
 	// 更新进度：完成
@@ -3454,12 +3456,9 @@ func (s *YouTubeSubtitleService) DetectVttFormat(vttFile string) (bool, error) {
 	// 匹配单词级行内时间戳的正则表达式
 	wordTimeRegex := regexp.MustCompile(`<(\d{2}:\d{2}:\d{2}\.\d{3})>`)
 
-	lineCount := 0
-	maxLinesToCheck := 100 // 检查前100行即可判断格式
-
-	for scanner.Scan() && lineCount < maxLinesToCheck {
+	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+	for scanner.Scan() {
 		line := scanner.Text()
-		lineCount++
 
 		// 如果发现行内时间戳，说明是word-level格式
 		if wordTimeRegex.MatchString(line) {
@@ -3481,6 +3480,7 @@ func (s *YouTubeSubtitleService) DetectVttFormat(vttFile string) (bool, error) {
 // ProcessBlockLevelVtt 处理块级时间戳的VTT文件（无单词级时间戳）
 // 流程: VTT → SRT → 批量翻译 → 双语字幕
 func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *YoutubeSubtitleReq) (string, error) {
+	log.GetLogger().Info("使用block-level VTT处理流程", zap.String("taskId", req.TaskId))
 	log.GetLogger().Info("开始处理block-level VTT字幕",
 		zap.String("taskId", req.TaskId),
 		zap.String("vttFile", req.VttFile))
@@ -3526,7 +3526,17 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 	if err != nil {
 		return "", fmt.Errorf("解析SRT文件失败: %w", err)
 	}
+	if err := s.validateYouTubeSubtitleBlocks(srtBlocks, false); err != nil {
+		return "", err
+	}
 	log.GetLogger().Info("解析SRT完成", zap.Int("字幕块数", len(srtBlocks)))
+	if req.SourceOnly {
+		if req.TaskPtr != nil {
+			req.TaskPtr.SetProgress(100)
+		}
+		_ = os.Remove(tempSrtFile)
+		return originSrtFile, nil
+	}
 
 	// 4. 批量翻译（40%-90%的进度在BatchTranslateSrtBlocks内部更新）
 	err = s.translator.BatchTranslateSrtBlocks(srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr)
@@ -3534,6 +3544,9 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 		return "", fmt.Errorf("批量翻译失败: %w", err)
 	}
 	log.GetLogger().Info("批量翻译完成", zap.Int("翻译块数", len(srtBlocks)))
+	if err := s.validateYouTubeSubtitleBlocks(srtBlocks, true); err != nil {
+		return "", err
+	}
 
 	// 更新进度：翻译完成
 	if req.TaskPtr != nil {
@@ -3555,11 +3568,14 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 
 	// 6. 生成双语字幕文件（bilingual_srt.srt）
 	bilingualSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskBilingualSrtFileName)
-	err = s.writeSrtBlocksToFile(srtBlocks, bilingualSrtFile)
+	err = s.writeBilingualSrtFile(srtBlocks, bilingualSrtFile, req.TargetLanguageFirst)
 	if err != nil {
 		return "", fmt.Errorf("写入双语字幕失败: %w", err)
 	}
 	log.GetLogger().Info("生成双语字幕完成", zap.String("bilingualSrtFile", bilingualSrtFile))
+	if err := s.writeYouTubeSubtitleTextFiles(srtBlocks, req); err != nil {
+		return "", err
+	}
 
 	// 更新进度：完成
 	if req.TaskPtr != nil {
@@ -3574,6 +3590,38 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 	os.Remove(tempSrtFile)
 
 	return bilingualSrtFile, nil
+}
+
+func (s *YouTubeSubtitleService) validateYouTubeSubtitleBlocks(blocks []*util.SrtBlock, translated bool) error {
+	if len(blocks) == 0 {
+		return fmt.Errorf("字幕质量检查失败: 未生成有效字幕")
+	}
+	for index, block := range blocks {
+		if block == nil || strings.TrimSpace(block.OriginLanguageSentence) == "" {
+			return fmt.Errorf("字幕质量检查失败: 第%d条缺少原文", index+1)
+		}
+		start, end, err := s.parseSrtTimestamp(block.Timestamp)
+		if err != nil || start < 0 || end <= start {
+			return fmt.Errorf("字幕质量检查失败: 第%d条时间区间无效", index+1)
+		}
+		if translated && strings.TrimSpace(block.TargetLanguageSentence) == "" {
+			return fmt.Errorf("字幕质量检查失败: 第%d条缺少译文", index+1)
+		}
+	}
+	return nil
+}
+
+func (s *YouTubeSubtitleService) writeYouTubeSubtitleTextFiles(blocks []*util.SrtBlock, req *YoutubeSubtitleReq) error {
+	outputDir := filepath.Join(req.TaskBasePath, "output")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return fmt.Errorf("创建字幕文本目录失败: %w", err)
+	}
+	originTxtFile := filepath.Join(outputDir, "origin_language.txt")
+	targetTxtFile := filepath.Join(outputDir, "target_language.txt")
+	if err := s.generateTextFiles(blocks, originTxtFile, targetTxtFile, req.TargetLanguage); err != nil {
+		return fmt.Errorf("生成字幕文本文件失败: %w", err)
+	}
+	return nil
 }
 
 // groupWordsByCharLength 按字符长度将 VTT 单词分组
