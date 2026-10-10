@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <title>Yi-111-a</title>
+  <defs>
+    <clipPath id="avatar-clip">
+      <circle cx="32" cy="32" r="31" />
+    </clipPath>
+  </defs>
+  <image x="1" y="1" width="62" height="62" preserveAspectRatio="xMidYMid slice" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAQKADAAQAAAABAAAAQAAAAABGUUKwAAACdElEQVRoBe1ZS0/CQBDuloctD6OI8RFCovFsoneP/hF/nj/E6F/QeOBCNMTYICIIdB2Khy3bXZi0E0oyPW13ZufxfZudfYggCJxt/txtDn4eOyewaQaLywEI+ArLnfn5l6GUoRpOPAEhZpOv0bArHKEq5aQtHVn2Dks7B46SQywBwH487L517oWI9eclgXDSPLndO7pRSdADhSlUzGcCjpCOWF51lv9zAvb6YXAC62NFo8kM0OC6vlVmYH2saDT1OrDCj5SzqBAmlur5Om3fiaQcrgeHSwDc7zau/VpbhjPdlhDuePQe9J6goUuhB4bX9y8r9XPT8N/xR9B7cDAbGVwCEIJfbdcbVzKc6CFC/S70n4Peoy7675GhV2mZhxd+Bp0oAaMBXYBMIEIRok9MAEr9fIZYP1AwD4ed5tQ6OkGYzHWCYl67OIFNM8MMMAMpEUAvo6v8wUoKh+7EOg1VBERylQWcPNsEpHDLZa9p2k1ABXALXrY5ZJkAFCmvctq6uLNgCLsMGaKrlcVglglEbuZ3AhZ/2cIPjuzOrJEYhRnPcqOfSMB1wI4PvZQZoMfY7oEZsONDL9WWUbiAh+MiXKMmfVCD1JvhJJWUfWAeDquGnQicBJWL9YUnEXvkE+50/DkcvBqfnmTo185KXuyGPmXIynAxmw6++y9KT7wJR+pqq+wfq+8D8QRAf9W9iAOHWg2GuJ80f7DV0CaFak/zrmlrbzjqcPr2Ygoh/PAqhACLRJUZIIEVYZQZQIBFosoMkMCKMMoMIMAiUWUGSGBFGGUGEGCRqDIDJLAijDIDCLBIVJkBElgRRpkBBFgkqswACawIo3+ZQsqT7Gjh7AAAAABJRU5ErkJggg==" clip-path="url(#avatar-clip)" />
+  <circle cx="32" cy="32" r="31" fill="none" stroke="#c0c0c0" stroke-width="1" />
+</svg>

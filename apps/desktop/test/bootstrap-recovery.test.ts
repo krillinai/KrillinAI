@@ -60,6 +60,7 @@ function setup(probeHealth: (connection: DaemonConnection) => Promise<boolean>) 
     stickmanRuntimeRoot: '.',
     defaultProjectRoot: '.',
     development: true,
+    automaticRestartDelays: [0, 0],
     probeHealth
   });
   controller.on('ready', () => controller.markWorkspaceReady());
@@ -74,7 +75,8 @@ describe('Desktop Runtime recovery', () => {
 
     controller.reportProxyFailure(daemon.currentConnection!);
     await vi.waitFor(() => expect(probeHealth).toHaveBeenCalledTimes(1));
-    expect(daemon.restart).not.toHaveBeenCalled();
+    expect(daemon.stop).not.toHaveBeenCalled();
+    expect(daemon.start).toHaveBeenCalledTimes(1);
     expect(controller.currentState.phase).toBe('ready');
     await controller.stop();
   });
@@ -87,7 +89,8 @@ describe('Desktop Runtime recovery', () => {
     const connection = daemon.currentConnection!;
     controller.reportProxyFailure(connection);
     controller.reportProxyFailure(connection);
-    await vi.waitFor(() => expect(daemon.restart).toHaveBeenCalledTimes(1), { timeout: 2_000 });
+    await vi.waitFor(() => expect(daemon.start).toHaveBeenCalledTimes(2), { timeout: 2_000 });
+    expect(daemon.stop).toHaveBeenCalledTimes(1);
     expect(probeHealth).toHaveBeenCalledTimes(2);
     expect(controller.currentState.phase).toBe('ready');
     await controller.stop();
@@ -109,7 +112,8 @@ describe('Desktop Runtime recovery', () => {
     expect(controller.currentState.error?.code).toBe('DAEMON_RESTART_EXHAUSTED');
 
     await controller.restartRuntime();
-    expect(daemon.restart).toHaveBeenCalledTimes(1);
+    expect(daemon.stop).toHaveBeenCalledTimes(1);
+    expect(daemon.start).toHaveBeenCalledTimes(4);
     expect(controller.currentState.phase).toBe('ready');
     await controller.stop();
   });

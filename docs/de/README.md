@@ -15,15 +15,16 @@
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="OpenCreator (ehemals KrillinAI): Platz 1 der Repositories des Tages auf Trendshift" width="250" height="55" /></a>
 
-[English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | [Français](../fr/README.md) | **Deutsch** | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md)
+[English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | [Français](../fr/README.md) | **Deutsch** | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md) | [ภาษาไทย](../th/README.md)
 
-[![GitHub Stars](https://img.shields.io/github/stars/krillinai/OpenCreator?style=flat&logo=github&label=Stars&color=gold)](https://github.com/krillinai/OpenCreator/stargazers)
+[![GitHub Stars](https://badgen.net/github/stars/krillinai/OpenCreator?icon=github&label=Stars&color=EAB308)](https://github.com/krillinai/OpenCreator/stargazers)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%E7%B2%89%E4%B8%9D&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
+[![AtomGit G-Star](https://img.shields.io/badge/AtomGit-G--Star-DA203E?style=flat)](https://atomgit.com/krillinai/OpenCreator)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ-Gruppe](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Projekt-Highlights](#projekt-highlights) · [Kreativwerkzeuge](#kreativwerkzeuge) · [Kreativvorlagen](#kreativvorlagen) · [Skills](#skills) · [Unterhaltung & Arbeitsbereich](#unterhaltung-und-arbeitsbereich-gemeinsam-voran) · [Unterstützte Modelle](#unterstützte-modelle) · [Beispiele](#beispiele) · [Schnellstart](#schnellstart) · [Desktop](#desktop) · [Systemstruktur](#opencreator-systemstruktur) · [Entwicklung](#entwicklung) · [Dokumentation](#dokumentation) · [Mitwirken](#mitwirken) · [Mitwirkende](#mitwirkende) · [Star-Verlauf](#star-verlauf)
+[Highlights](#projekt-highlights) · [Werkzeuge](#kreativwerkzeuge) · [Skills](#skills) · [Beispiele](#beispiele) · [Start](#schnellstart) · [Desktop](#desktop) · [Doku](#dokumentation) · [Community](#community)
 
 </div>
 
@@ -45,6 +46,8 @@ Web ist die einzige Frontend-Implementierung. Desktop lädt denselben Web-Build 
 - 🤖 **Codex-nativ**: Nutze die Agent-Schleife, Modelle, Schlussfolgerungen, Werkzeugaufrufe, Unterhaltungen, Skills und MCP von Codex, ohne eine zweite Ausführungs-Engine pflegen zu müssen.
 
 - 🚀 **Sofort einsatzbereite Desktop-App**: Starte OpenCreator direkt über die Desktop-App mit integriertem Codex CLI. Der lokale Runtime startet bei Bedarf und bereitet automatisch ein Standardprojekt vor.
+
+- ⚙️ **Lokale Codex-Konfiguration erkennen**: Beim ersten Start prüft Desktop die vorhandene Codex-Konfiguration und bietet an, eine nutzbare ChatGPT-Anmeldung oder einen API-Schlüssel zu übernehmen. Andere Modellanbieter lassen sich im Einrichtungsdialog konfigurieren.
 
 - 🔄 **Verwaltete Runtime-Komponenten**: Prüfe die mitgelieferte, aktive und neueste yt-dlp-Version, suche regelmäßig nach Updates und aktualisiere manuell. Falls ein Update fehlschlägt, bleibt die aktuell funktionierende Version verfügbar.
 
@@ -72,6 +75,8 @@ Die aktuelle Version enthält sechs Kreativwerkzeuge. Verfügbare Modelle und Di
 
 > Weitere Kreativwerkzeuge werden fortlaufend ergänzt.
 
+**Die Videoübersetzung unterstützt 101 Zielsprachen.**
+
 <table width="100%">
 <thead>
 <tr>
@@ -85,7 +90,10 @@ Die aktuelle Version enthält sechs Kreativwerkzeuge. Verfügbare Modelle und Di
 <tr><td valign="top">Video-Downloader</td><td valign="top">✅ Verfügbar</td><td>Analysiere einzelne öffentliche Videos von YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu und Pinterest, vergleiche verfügbare Formate und lade Video oder Audio herunter. Manche Plattformen benötigen Cookies</td></tr>
 <tr><td valign="top">Thumbnail-Generierung</td><td valign="top">✅ Verfügbar</td><td>Kombiniere ein Thema, einen Videolink und optional ein Referenzbild, um mehrere Varianten von Content-Thumbnails zu generieren und zu vergleichen</td></tr>
 <tr><td valign="top">Bildgenerierung</td><td valign="top">✅ Verfügbar</td><td>Generiere mit GPT Image Bilder aus einem Prompt und einem optionalen Referenzbild, lege Seitenverhältnis und Anzahl der Ergebnisse fest und zeige einzelne Bilder in der Vorschau an oder lade sie herunter</td></tr>
-<tr><td valign="top">Strichmännchen-Animation</td><td valign="top">Demnächst</td><td>Entwickle Figuren, Storyboards, Voiceover und Animation in einem geführten Arbeitsablauf</td></tr>
+<tr><td valign="top">Artikel verfassen</td><td valign="top">✅ Verfügbar</td><td>Erstelle aus Themen, Links, Videos oder Dokumenten editierbare Themenvorschläge, Gliederungen und Artikel; ergänze Bilder und exportiere Markdown, HTML oder PDF.</td></tr>
+<tr><td valign="top">Xiaohongshu-Beiträge</td><td valign="top">✅ Verfügbar</td><td>Erstelle Beiträge aus einem Thema oder Ausgangsmaterial mit Auswahl von Zielgruppe, Beitragstyp und Länge; kopiere oder lade das Ergebnis herunter.</td></tr>
+<tr><td valign="top">Kurzvideo-Drehbuch</td><td valign="top">✅ Verfügbar</td><td>Erstelle aus Thema oder Material ein drehfertiges Szenenskript für Zielgruppe, Plattform, Dauer und Ton; bearbeite oder exportiere es.</td></tr>
+<tr><td valign="top">Strichmännchen-Animation</td><td valign="top">✅ Verfügbar</td><td>Erstelle aus Text oder YouTube-Inhalten Erzählung, Stimme, Storyboard-Bilder mit konsistenten Figuren, Untertitel und eine herunterladbare Animation.</td></tr>
 <tr><td valign="top">Automatische Clips</td><td valign="top">In Entwicklung</td><td>Analysiere lange Videos, finde Höhepunkte und verwandle ausgewählte Momente in wiederverwendbare kurze Clips</td></tr>
 <tr><td valign="top">Intelligente Synchronisation</td><td valign="top">✅ Verfügbar</td><td>Verwandle Skripte in Voiceover und wähle Stimme, Tempo und Emotion</td></tr>
 <tr><td valign="top">Videogenerierung</td><td valign="top">✅ Verfügbar</td><td>Generiere mit Seedance Videos aus Prompts und Referenzbildern und zeige jede Version in der Vorschau an, generiere sie erneut oder lade sie herunter</td></tr>
@@ -197,11 +205,12 @@ Die Tabellen zeigen integrierte Anbieterprofile und empfohlene Modelle. Die tats
 
 <table>
 <tr>
-<td align="center" width="20%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>Whisper</strong></td>
-<td align="center" width="20%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>OpenAI TTS</strong></td>
-<td align="center" width="20%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
-<td align="center" width="20%"><img src="https://github.com/microsoft.png?size=80" alt="Microsoft" width="40" height="40" /><br /><strong>Edge TTS</strong></td>
-<td align="center" width="20%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
+<td align="center" width="16%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>Whisper</strong></td>
+<td align="center" width="16%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>OpenAI TTS</strong></td>
+<td align="center" width="16%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
+<td align="center" width="16%"><img src="https://github.com/microsoft.png?size=80" alt="Microsoft" width="40" height="40" /><br /><strong>Edge TTS</strong></td>
+<td align="center" width="16%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
+<td align="center" width="16%"><img src="https://github.com/volcengine.png?size=80" alt="Volcengine" width="40" height="40" /><br /><strong>Volcengine Speech</strong></td>
 </tr>
 </table>
 
@@ -279,21 +288,31 @@ Die Verfügbarkeit hängt vom Video und der Region ab; manche Quellen können Pl
 
 ![Formatauswahl im OpenCreator Video-Downloader](../images/examples/video-downloader-formats-en.png)
 
-### Strichmännchen-Animation (demnächst)
+### Strichmännchen-Animation
 
-> Demnächst verfügbar. In der aktuellen Version noch nicht integriert.
-
-OpenCreator hat diese Sammlung eigener Figuren gemeinsam mit dem Künstler [Harbor Hsia](https://www.behance.net/xiaheyuan1), dem Schöpfer von [Stickman auf Behance](https://www.behance.net/gallery/254715463/Stickman), entwickelt. Die vordefinierten Figuren werden für einen künftigen Story- und Animationsablauf mit konsistenten Charakteridentitäten vorbereitet.
+OpenCreator hat diese Sammlung eigener Figuren gemeinsam mit dem Künstler [Harbor Hsia](https://www.behance.net/xiaheyuan1), dem Schöpfer von [Stickman auf Behance](https://www.behance.net/gallery/254715463/Stickman), entwickelt. Die integrierten Figuren bleiben während der Animation konsistent.
 
 ![Gemeinsam mit Künstlern entwickelte OpenCreator Strichmännchen](../images/examples/stick-figure-characters.webp)
 
-Der geplante Arbeitsablauf führt eine Figuren- und Storyidee durch Storyboard-Generierung, Szenenprüfung, Voice-over, Musik und versionierte Animationsausgabe.
+Erstelle aus Text oder YouTube-Inhalten eine Animation mit Skriptprüfung, Erzählung, Timing, Storyboard, Untertiteln, Rendering und herunterladbarem Video.
 
 ![Beispielbild einer OpenCreator Strichmännchen-Animation](../images/examples/stick-figure-animation-frame.jpg)
 
 ## Schnellstart
 
-### Voraussetzungen
+### Desktop-App installieren
+
+Lade den Installer für macOS Apple Silicon, macOS Intel oder Windows x64 aus dem [neuesten Release](https://github.com/krillinai/OpenCreator/releases/latest) herunter. Desktop benötigt weder Node.js noch pnpm und enthält Codex CLI. Für echte Modellaufgaben ist eine nutzbare ChatGPT-Anmeldung oder API-Schlüssel-Konfiguration nötig.
+
+Beim ersten Start startet Desktop die lokale Runtime, bereitet ein Standardprojekt vor und prüft die lokale Codex-Konfiguration. Falls eine nutzbare Anmeldung oder ein API-Schlüssel samt Modelleinstellungen gefunden wird, wähle **Lokales Codex verwenden und fortfahren**, um sie zu übernehmen. Im selben Einrichtungsdialog kannst du auch einen anderen Modellanbieter konfigurieren.
+
+![Einrichtung des Modellanbieters beim ersten Start von OpenCreator Desktop](../images/product/opencreator-codex-setup.png)
+
+Nach der Einrichtung kannst du im Eingabefeld eine Aufgabe starten. Bei Problemen hilft das [Benutzerhandbuch](../opencreator-user-guide-and-troubleshooting.md).
+
+### Web aus dem Quellcode ausführen
+
+Für Entwicklung oder Nutzung von Web aus dem Quellcode benötigst du:
 
 - Node.js 22 oder neuer
 - pnpm 9.15.0, festgelegt über das Feld `packageManager` des Repositorys
@@ -307,8 +326,6 @@ node --version
 pnpm --version
 codex --version
 ```
-
-### Web aus dem Quellcode ausführen
 
 ```bash
 git clone https://github.com/krillinai/OpenCreator.git
@@ -523,13 +540,7 @@ Vollständige Anleitungen zu Sicherung, Wiederherstellung, Bereinigung und Zurü
 | `pnpm smoke:ci` | Runtime-Smoke-Test mit einem simulierten Codex ausführen |
 | `pnpm perf:check` | Aufgezeichneten Leistungsreferenzwert prüfen |
 
-Führe vor dem Einreichen einer Änderung mindestens Folgendes aus:
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
+Wähle vor einer Änderung Prüfungen passend zu ihren Auswirkungen, wie im [Beitragsleitfaden](../../CONTRIBUTING.md#what-reviewers-check) beschrieben. Änderungen an Dokumentation, Text und Stil benötigen nur passende Prüfungen; gemeinsames Verhalten und Runtime erfordern gezielte Modultests und Typprüfungen. Führe vollständige Tests oder Builds nur bei Bedarf aus und dokumentiere die tatsächlich durchgeführten Prüfungen im PR.
 
 Änderungen an Desktop, Host Bridge, Runtime-Proxy oder gemeinsam genutzten Frontend-Arbeitsabläufen erfordern außerdem Web/Desktop-Konsistenztests, E2E-Tests der paketierten Anwendung und eine Überprüfung des Web-Build-Hashs. Das Bestehen der Web-Unit-Tests allein belegt nicht, dass Desktop veröffentlichungsbereit ist.
 
@@ -542,18 +553,65 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## Dokumentation
 
-- [Benutzerhandbuch und Fehlerbehebung](../opencreator-user-guide-and-troubleshooting.md)
-- [Runtime API v1](../runtime-api-for-ui-v1.md)
-- [Design der Codex-nativen Runtime](../2026-07-03-codex-native-agent-runtime-design.md)
-- [Desktop-Release-Runbook](../operations/opencreator-desktop-release-runbook.md)
-- [Leitfaden für Windows-Desktop-Releases](../operations/opencreator-desktop-windows-release.md)
-- [Richtlinien für visuelle Komponenten](../visual-component-guidelines.md)
+- **OpenCreator nutzen:** [Schnellstart](#schnellstart) · [Benutzerhandbuch und Fehlerbehebung](../opencreator-user-guide-and-troubleshooting.md)
+- **Entwickeln und erweitern:** [Beitragsleitfaden](../../CONTRIBUTING.md) · [Skill beitragen](../contributing/skills-contributing.md) · [Erstellungsvorlage beitragen](../contributing/templates-contributing.md) · [Runtime API v1](../runtime-api-for-ui-v1.md) · [Richtlinien für visuelle Komponenten](../visual-component-guidelines.md)
+- **Warten und veröffentlichen:** [Design der Codex-nativen Runtime](../2026-07-03-codex-native-agent-runtime-design.md) · [Desktop-Release-Runbook](../operations/opencreator-desktop-release-runbook.md) · [Leitfaden für Windows-Desktop-Releases](../operations/opencreator-desktop-windows-release.md)
 
 ## Übersetzungskonvention
 
 Die Datei `README.md` im Stammverzeichnis ist das maßgebliche englische Dokument. Gepflegte Übersetzungen befinden sich unter `docs/<locale>/README.md`. Füge eine Sprache erst dann zur Sprachauswahl hinzu, wenn das vollständige Dokument übersetzt und mit der englischen Struktur synchronisiert wurde.
 
-## Mitwirken
+## Community
+
+<p>GitHub-Nutzer aus <strong>mindestens 100 Ländern und Regionen</strong> haben OpenCreator mit einem Star ausgezeichnet.</p>
+
+<img src="../images/star-coverage-map.svg" alt="Weltkarte mit Ländern und Regionen, aus denen GitHub-Nutzer OpenCreator einen Star gegeben haben" width="760" />
+
+### Das Team
+
+Jedes Mitglied verantwortet in seinem Bereich Standards, Prüfung und Zusammenführung von Beiträgen sowie Unterstützung der Community.
+
+<table border="1" cellpadding="12">
+  <tr>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/wulien.svg" width="64" height="64" alt="wulien avatar" /><br /><a href="https://github.com/wulien">wulien</a><br />Code und Fehlerbehebungen</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/dle-kb.svg" width="64" height="64" alt="DLe-kb avatar" /><br /><a href="https://github.com/DLe-kb">DLe-kb</a><br />Erstellungsvorlagen</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/xiaheyuan.svg" width="64" height="64" alt="xiaheyuan avatar" /><br /><a href="https://github.com/xiaheyuan">xiaheyuan</a><br />Design und Assets</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/krillinai.svg" width="64" height="64" alt="krillinai avatar" /><br /><a href="https://github.com/krillinai">krillinai</a><br />Skills und Dokumentation</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/hbxugang.svg" width="64" height="64" alt="hbxugang avatar" /><br /><a href="https://github.com/hbxugang">hbxugang</a><br />Bereitstellung für Unternehmen</td>
+  </tr>
+</table>
+
+### Mitwirkende
+
+Vielen Dank an alle, die mit Code, Dokumentation, Feedback, Fehlerberichten, Skills, Designs und Ideen beigetragen haben.
+
+<div>
+  <a href="https://github.com/maranello-o"><img src="../images/contributors/maranello-o.svg" width="48" height="48" alt="maranello-o" /></a>
+  <a href="https://github.com/wulien"><img src="../images/contributors/wulien.svg" width="48" height="48" alt="wulien" /></a>
+  <a href="https://github.com/puji4810"><img src="../images/contributors/puji4810.svg" width="48" height="48" alt="puji4810" /></a>
+  <a href="https://github.com/krillinai"><img src="../images/contributors/krillinai.svg" width="48" height="48" alt="krillinai" /></a>
+  <a href="https://github.com/PairZhu"><img src="../images/contributors/pairzhu.svg" width="48" height="48" alt="PairZhu" /></a>
+  <a href="https://github.com/Mijaelx"><img src="../images/contributors/mijaelx.svg" width="48" height="48" alt="Mijaelx" /></a>
+  <a href="https://github.com/OutisLi"><img src="../images/contributors/outisli.svg" width="48" height="48" alt="OutisLi" /></a>
+  <a href="https://github.com/yeager"><img src="../images/contributors/yeager.svg" width="48" height="48" alt="yeager" /></a>
+  <a href="https://github.com/catwithtudou"><img src="../images/contributors/catwithtudou.svg" width="48" height="48" alt="catwithtudou" /></a>
+  <a href="https://github.com/newdee"><img src="../images/contributors/newdee.svg" width="48" height="48" alt="newdee" /></a>
+  <a href="https://github.com/scwf"><img src="../images/contributors/scwf.svg" width="48" height="48" alt="scwf" /></a>
+  <a href="https://github.com/xiaheyuan"><img src="../images/contributors/xiaheyuan.svg" width="48" height="48" alt="xiaheyuan" /></a>
+  <a href="https://github.com/hbxugang"><img src="../images/contributors/hbxugang.svg" width="48" height="48" alt="hbxugang" /></a>
+  <a href="https://github.com/kapil971390"><img src="../images/contributors/kapil971390.svg" width="48" height="48" alt="kapil971390" /></a>
+  <a href="https://github.com/octo-patch"><img src="../images/contributors/octo-patch.svg" width="48" height="48" alt="octo-patch" /></a>
+  <a href="https://github.com/yuanjinghh"><img src="../images/contributors/yuanjinghh.svg" width="48" height="48" alt="yuanjinghh" /></a>
+  <a href="https://github.com/DLe-kb"><img src="../images/contributors/dle-kb.svg" width="48" height="48" alt="DLe-kb" /></a>
+  <a href="https://github.com/liupig"><img src="../images/contributors/liupig.svg" width="48" height="48" alt="liupig" /></a>
+  <a href="https://github.com/alextavares" title="alextavares"><img src="../images/contributors/alextavares.svg" width="48" height="48" alt="alextavares" /></a>
+  <a href="https://github.com/krillinai/OpenCreator/commit/a89cff0ac5d91540f03e361af50b286ee57691ae" title="卡皮巴拉"><img src="../images/contributors/kapibala.svg" width="48" height="48" alt="卡皮巴拉" /></a>
+  <a href="https://github.com/mifan100g" title="mifan100g (米饭二两)"><img src="../images/contributors/mifan100g.svg" width="48" height="48" alt="mifan100g (米饭二两)" /></a>
+  <a href="https://github.com/askalf"><img src="../images/contributors/askalf.svg" width="48" height="48" alt="askalf" /></a>
+  <a href="https://github.com/Yi-111-a"><img src="../images/contributors/yi-111-a.svg" width="48" height="48" alt="Yi-111-a" /></a>
+</div>
+
+### Mitwirken
 
 Du kannst auf viele Arten zu OpenCreator beitragen, nicht nur mit Code:
 
@@ -577,14 +635,6 @@ So trägst du bei:
 
 [contribute-issue]: https://github.com/krillinai/OpenCreator/issues
 [contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
-
-## Mitwirkende
-
-Vielen Dank an alle, die mit Code, Dokumentation, Feedback, Fehlerberichten, Skills, Designs und Ideen beigetragen haben.
-
-<a href="https://github.com/krillinai/KrillinAI/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=krillinai/KrillinAI&amp;max=500&amp;columns=20" alt="OpenCreator Mitwirkende" />
-</a>
 
 ## Star-Verlauf
 

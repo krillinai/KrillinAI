@@ -37,6 +37,7 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
   private stableTimer: NodeJS.Timeout | undefined;
   private healthCheckWork: Promise<void> | undefined;
   private recoveryWork: Promise<void> | undefined;
+  private recoveryController: AbortController | undefined;
   private stopping = false;
 
   constructor(private readonly input: {
@@ -52,6 +53,7 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
     defaultProjectRoot: string;
     development: boolean;
     probeHealth?(connection: DaemonConnection): Promise<boolean>;
+    automaticRestartDelays?: readonly number[];
   }) {
     super();
     input.daemon.on('bootstrap', event => {
@@ -85,6 +87,7 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
         event.reason !== 'unexpected'
         || this.stopping
         || this.runWork !== undefined
+        || this.recoveryWork !== undefined
         || this.state.phase === 'failed'
       ) return;
       void this.recoverRuntime('exit');
@@ -134,9 +137,15 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
   }
 
   async restartRuntime(): Promise<void> {
+    if (this.runWork !== undefined) return this.runWork;
+    this.recoveryController?.abort();
+    if (this.recoveryWork !== undefined) await this.input.daemon.stop();
+    await this.recoveryWork;
+    if (this.runWork !== undefined) return this.runWork;
     this.stopping = false;
     if (this.resolvedEnvironment === undefined) {
       await this.start();
+      if (this.state.phase === 'failed') throw new Error(this.state.error?.message ?? '本地服务启动失败');
       return;
     }
     await this.recoverRuntime('manual');
@@ -181,8 +190,10 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
 
   async stop(): Promise<void> {
     this.stopping = true;
+    this.recoveryController?.abort();
     if (this.stableTimer !== undefined) clearTimeout(this.stableTimer);
     await this.input.daemon.stop();
+    await this.recoveryWork;
   }
 
   private async startInternal(
@@ -322,46 +333,52 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
   private async recoverRuntimeInternal(reason: 'exit' | 'health' | 'manual'): Promise<void> {
     if (this.stopping) return;
     const environment = this.resolvedEnvironment;
-    if (environment === undefined || (reason !== 'manual' && this.automaticRestarts >= 2)) {
-      this.updateState({
-        phase: 'failed',
-        error: {
-          code: 'DAEMON_RESTART_EXHAUSTED',
-          message: '本地运行服务未能自动恢复，请手动重启运行服务。'
-        }
-      });
-      return;
-    }
     if (reason === 'manual') this.automaticRestarts = 0;
-    else this.automaticRestarts += 1;
-    this.input.logger.warn('Runtime recovery started', {
-      reason,
-      attempt: this.automaticRestarts,
-      pid: this.input.daemon.pid
-    });
-    this.updateState({
-      phase: 'starting_daemon',
-      error: undefined
-    });
-    try {
-      const input = this.daemonStartInput(environment, false, true);
-      if (reason === 'exit') await this.input.daemon.start(input);
-      else await this.input.daemon.restart(input);
-      this.updateState({ phase: 'starting_runtime' });
-      this.emit('ready');
-      this.armStableTimer();
-      this.input.logger.info('Runtime recovery completed', { reason, pid: this.input.daemon.pid });
-    } catch (error) {
-      this.input.logger.error('Runtime recovery failed', {
-        reason,
-        message: error instanceof Error ? error.message : String(error)
-      });
-      this.updateState({
-        phase: 'failed',
-        error: parseBootstrapError(error)
-      });
-      if (reason === 'manual') throw error;
+    const delays = this.input.automaticRestartDelays ?? [500, 1_500, 3_000];
+    const controller = new AbortController();
+    this.recoveryController = controller;
+    if (this.stableTimer !== undefined) clearTimeout(this.stableTimer);
+    let manualAttempted = false;
+    while (
+      environment !== undefined
+      && !this.stopping
+      && (reason === 'manual' ? !manualAttempted : this.automaticRestarts < delays.length)
+    ) {
+      const delay = reason === 'manual' ? 0 : delays[this.automaticRestarts] ?? 3_000;
+      if (reason === 'manual') manualAttempted = true;
+      else this.automaticRestarts += 1;
+      this.updateState({ phase: 'starting_daemon', error: undefined });
+      this.input.logger.info('Recovering local Runtime', { reason, attempt: this.automaticRestarts, delayMs: delay });
+      if (reason !== 'manual') await waitForRecovery(delay, controller.signal);
+      if (controller.signal.aborted || this.stopping) return;
+      try {
+        if (reason !== 'exit') {
+          await this.input.daemon.stop();
+          if (controller.signal.aborted || this.stopping) return;
+        }
+        await this.input.daemon.start(this.daemonStartInput(environment, false, true));
+        if (controller.signal.aborted || this.stopping) {
+          await this.input.daemon.stop();
+          return;
+        }
+        this.updateState({ phase: 'starting_runtime', error: undefined });
+        this.emit('ready');
+        this.armStableTimer();
+        return;
+      } catch (error) {
+        if (controller.signal.aborted || this.stopping) return;
+        this.input.logger.error('Local Runtime recovery failed', { message: error instanceof Error ? error.message : String(error) });
+        if (reason === 'manual') {
+          this.updateState({ phase: 'failed', error: parseBootstrapError(error) });
+          throw error;
+        }
+      }
     }
+    if (controller.signal.aborted || this.stopping) return;
+    this.updateState({
+      phase: 'failed',
+      error: { code: 'DAEMON_RESTART_EXHAUSTED', message: '本地服务多次恢复失败，请在连接提示或设置 → 诊断中重启本地服务。' }
+    });
   }
 
   private daemonStartInput(
@@ -424,6 +441,18 @@ async function probeDaemonHealth(connection: DaemonConnection): Promise<boolean>
   } catch {
     return false;
   }
+}
+
+function waitForRecovery(delay: number, signal: AbortSignal): Promise<void> {
+  return new Promise(resolve => {
+    const finish = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', finish);
+      resolve();
+    };
+    const timer = setTimeout(finish, delay);
+    signal.addEventListener('abort', finish, { once: true });
+  });
 }
 
 function isWorkspaceError(

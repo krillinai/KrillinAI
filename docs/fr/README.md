@@ -15,15 +15,16 @@
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="OpenCreator (anciennement KrillinAI) : dépôt n° 1 du jour sur Trendshift" width="250" height="55" /></a>
 
-[English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | **Français** | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md)
+[English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | **Français** | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md) | [ภาษาไทย](../th/README.md)
 
-[![GitHub Stars](https://img.shields.io/github/stars/krillinai/OpenCreator?style=flat&logo=github&label=Stars&color=gold)](https://github.com/krillinai/OpenCreator/stargazers)
+[![GitHub Stars](https://badgen.net/github/stars/krillinai/OpenCreator?icon=github&label=Stars&color=EAB308)](https://github.com/krillinai/OpenCreator/stargazers)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%E7%B2%89%E4%B8%9D&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
+[![AtomGit G-Star](https://img.shields.io/badge/AtomGit-G--Star-DA203E?style=flat)](https://atomgit.com/krillinai/OpenCreator)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![Groupe QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Points forts](#points-forts) · [Outils de création](#outils-de-création) · [Modèles de création](#modèles-de-création) · [Skills](#skills) · [Conversation et espace de travail](#conversation-et-espace-de-travail-avancent-ensemble) · [Modèles pris en charge](#modèles-pris-en-charge) · [Exemples](#exemples) · [Démarrage rapide](#démarrage-rapide) · [Desktop](#desktop) · [Structure du système](#structure-du-système-opencreator) · [Développement](#développement) · [Documentation](#documentation) · [Contribuer](#contribuer) · [Contributeurs](#contributeurs) · [Historique des Stars](#historique-des-stars)
+[Points forts](#points-forts) · [Outils](#outils-de-création) · [Skills](#skills) · [Exemples](#exemples) · [Démarrer](#démarrage-rapide) · [Desktop](#desktop) · [Docs](#documentation) · [Communauté](#communauté)
 
 </div>
 
@@ -45,6 +46,8 @@ Web constitue l'unique implémentation du frontend. Desktop charge la même comp
 - 🤖 **Natif Codex** : réutilisez la boucle Agent, les modèles, le raisonnement, les appels d'outils, les conversations, les Skills et MCP de Codex sans maintenir un second moteur d'exécution.
 
 - 🚀 **Application Desktop prête à l'emploi** : lancez OpenCreator directement depuis l'application Desktop, qui inclut Codex CLI ; le Runtime local démarre à la demande et prépare automatiquement un projet par défaut.
+
+- ⚙️ **Détection de la configuration Codex locale** : au premier lancement, Desktop vérifie la configuration existante et propose de réutiliser une connexion ChatGPT ou une clé API utilisable. Un assistant permet aussi de configurer un autre fournisseur de modèles.
 
 - 🔄 **Composants Runtime gérés** : consultez les versions de yt-dlp incluse, active et la plus récente, vérifiez régulièrement les mises à jour et lancez-les manuellement, tout en conservant la version fonctionnelle si une mise à jour échoue.
 
@@ -72,6 +75,8 @@ Ouvrez le Dashboard pour traduire ou télécharger des vidéos, générer des mi
 
 > De nouveaux outils de création sont ajoutés en continu.
 
+**La traduction vidéo prend en charge 101 langues cibles.**
+
 <table width="100%">
 <thead>
 <tr>
@@ -85,7 +90,10 @@ Ouvrez le Dashboard pour traduire ou télécharger des vidéos, générer des mi
 <tr><td valign="top">Téléchargement de vidéos</td><td valign="top">✅ Disponible</td><td>Analysez des vidéos publiques individuelles de YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu et Pinterest ; comparez les formats disponibles et téléchargez la vidéo ou l'audio. Certaines plateformes peuvent nécessiter des cookies</td></tr>
 <tr><td valign="top">Génération de miniatures</td><td valign="top">✅ Disponible</td><td>Combinez un sujet, un lien vidéo et une image de référence facultative pour générer et comparer plusieurs variantes de miniatures de contenu</td></tr>
 <tr><td valign="top">Génération d'images</td><td valign="top">✅ Disponible</td><td>Générez des images avec GPT Image à partir d'un prompt et d'une image de référence facultative, configurez le format et le nombre de résultats, puis prévisualisez et téléchargez chaque image</td></tr>
-<tr><td valign="top">Animation de bonshommes allumettes</td><td valign="top">Prochainement</td><td>Créez des personnages, des storyboards, des voix off et des animations dans un flux de travail guidé</td></tr>
+<tr><td valign="top">Rédaction d’articles</td><td valign="top">✅ Disponible</td><td>Transformez un sujet, des liens, des vidéos ou des documents en choix de sujets, plan et article modifiables ; ajoutez des images et exportez en Markdown, HTML ou PDF.</td></tr>
+<tr><td valign="top">Publications Xiaohongshu</td><td valign="top">✅ Disponible</td><td>Générez une publication à partir d’un sujet ou de sources en choisissant le public, le type et la longueur, puis copiez ou téléchargez le résultat.</td></tr>
+<tr><td valign="top">Script de vidéo courte</td><td valign="top">✅ Disponible</td><td>Créez un script découpé prêt au tournage à partir d’un sujet ou de sources, adapté au public, à la plateforme, à la durée et au ton ; modifiez-le ou exportez-le.</td></tr>
+<tr><td valign="top">Animation de bonshommes allumettes</td><td valign="top">✅ Disponible</td><td>Transformez du texte ou du contenu YouTube en narration, voix, images de storyboard aux personnages cohérents, sous-titres et animation téléchargeable.</td></tr>
 <tr><td valign="top">Clips automatiques</td><td valign="top">En développement</td><td>Analysez de longues vidéos, identifiez les temps forts et transformez les moments choisis en clips courts réutilisables</td></tr>
 <tr><td valign="top">Doublage intelligent</td><td valign="top">✅ Disponible</td><td>Transformez des scripts en voix off avec un choix de voix et des réglages de rythme et d'émotion</td></tr>
 <tr><td valign="top">Génération vidéo</td><td valign="top">✅ Disponible</td><td>Générez des vidéos avec Seedance à partir de prompts et d'images de référence, puis prévisualisez, régénérez ou téléchargez chaque version</td></tr>
@@ -197,11 +205,12 @@ Les tableaux présentent les fournisseurs préconfigurés et les modèles recomm
 
 <table>
 <tr>
-<td align="center" width="20%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>Whisper</strong></td>
-<td align="center" width="20%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>OpenAI TTS</strong></td>
-<td align="center" width="20%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
-<td align="center" width="20%"><img src="https://github.com/microsoft.png?size=80" alt="Microsoft" width="40" height="40" /><br /><strong>Edge TTS</strong></td>
-<td align="center" width="20%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
+<td align="center" width="16%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>Whisper</strong></td>
+<td align="center" width="16%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>OpenAI TTS</strong></td>
+<td align="center" width="16%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
+<td align="center" width="16%"><img src="https://github.com/microsoft.png?size=80" alt="Microsoft" width="40" height="40" /><br /><strong>Edge TTS</strong></td>
+<td align="center" width="16%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
+<td align="center" width="16%"><img src="https://github.com/volcengine.png?size=80" alt="Volcengine" width="40" height="40" /><br /><strong>Volcengine Speech</strong></td>
 </tr>
 </table>
 
@@ -279,21 +288,31 @@ La disponibilité dépend de la vidéo et de la région ; certaines sources peuv
 
 ![Sélection du format dans l'outil de téléchargement vidéo OpenCreator](../images/examples/video-downloader-formats-en.png)
 
-### Animation de bonshommes allumettes (prochainement)
+### Animation de bonshommes allumettes
 
-> Prochainement. Cette fonctionnalité n'est pas encore intégrée à la version actuelle.
-
-OpenCreator a développé cette collection de personnages originaux en collaboration avec l'artiste [Harbor Hsia](https://www.behance.net/xiaheyuan1), créateur de [Stickman sur Behance](https://www.behance.net/gallery/254715463/Stickman). Cette galerie de personnages prédéfinis est en préparation pour un futur flux de création d'histoires et d'animations aux identités cohérentes.
+OpenCreator a développé cette collection de personnages originaux avec l’artiste [Harbor Hsia](https://www.behance.net/xiaheyuan1), créateur de [Stickman sur Behance](https://www.behance.net/gallery/254715463/Stickman). Les personnages intégrés conservent une identité cohérente tout au long de la création.
 
 ![Personnages bonshommes allumettes d'OpenCreator développés avec des artistes](../images/examples/stick-figure-characters.webp)
 
-Le flux de travail prévu accompagnera une idée de personnage et d'histoire à travers la génération du storyboard, la révision des plans, la voix off, la musique et la production d'animations versionnées.
+Transformez du texte ou du contenu YouTube en animation grâce à la révision du scénario, la narration, le minutage, le storyboard, les sous-titres, le rendu et le téléchargement de la vidéo.
 
 ![Exemple d'image d'animation de bonshommes allumettes OpenCreator](../images/examples/stick-figure-animation-frame.jpg)
 
 ## Démarrage rapide
 
-### Prérequis
+### Installer l’application Desktop
+
+Téléchargez l’installateur macOS Apple Silicon, macOS Intel ou Windows x64 depuis la [dernière version](https://github.com/krillinai/OpenCreator/releases/latest). Desktop ne nécessite ni Node.js ni pnpm et inclut Codex CLI. Les tâches utilisant un modèle exigent une connexion ChatGPT ou une configuration de clé API utilisable.
+
+Au premier lancement, Desktop démarre le Runtime local, prépare un projet par défaut et vérifie la configuration Codex de votre ordinateur. Si une connexion ou une clé API et des paramètres de modèle utilisables sont détectés, choisissez **Utiliser le Codex local et continuer** pour les réutiliser. Vous pouvez aussi configurer un autre fournisseur dans le même assistant de démarrage.
+
+![Configuration du fournisseur de modèles au premier lancement d'OpenCreator Desktop](../images/product/opencreator-codex-setup.png)
+
+Après la configuration, saisissez une demande pour lancer une tâche. En cas de problème, consultez le [guide utilisateur](../opencreator-user-guide-and-troubleshooting.md).
+
+### Exécuter Web depuis le code source
+
+Pour développer ou utiliser Web depuis les sources, préparez :
 
 - Node.js 22 ou version ultérieure
 - pnpm 9.15.0, épinglé dans le champ `packageManager` du dépôt
@@ -307,8 +326,6 @@ node --version
 pnpm --version
 codex --version
 ```
-
-### Exécuter Web depuis le code source
 
 ```bash
 git clone https://github.com/krillinai/OpenCreator.git
@@ -523,13 +540,7 @@ Consultez le [guide de l'utilisateur et de dépannage](../opencreator-user-guide
 | `pnpm smoke:ci` | Exécuter le test de fumée du Runtime avec un faux Codex |
 | `pnpm perf:check` | Vérifier la référence de performance enregistrée |
 
-Avant de soumettre une modification, exécutez au minimum :
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
+Avant de soumettre une modification, choisissez les vérifications adaptées à son impact selon le [guide de contribution](../../CONTRIBUTING.md#what-reviewers-check). Les changements de documentation, de texte et de style demandent seulement des contrôles ciblés ; le comportement partagé et Runtime exigent des tests ciblés et une vérification de types. N’exécutez les tests ou builds complets que si nécessaire et indiquez les vérifications effectuées dans la PR.
 
 Les modifications apportées à Desktop, à Host Bridge, au proxy du Runtime ou aux flux frontend partagés nécessitent également des tests de cohérence Web/Desktop, des tests E2E de l'application empaquetée et une vérification du hash de la compilation Web. La réussite des seuls tests unitaires Web ne suffit pas à établir qu'une version Desktop est prête à être publiée.
 
@@ -542,18 +553,65 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## Documentation
 
-- [Guide de l'utilisateur et de dépannage](../opencreator-user-guide-and-troubleshooting.md)
-- [Runtime API v1](../runtime-api-for-ui-v1.md)
-- [Conception du Runtime natif Codex](../2026-07-03-codex-native-agent-runtime-design.md)
-- [Guide opérationnel des versions Desktop](../operations/opencreator-desktop-release-runbook.md)
-- [Guide des versions Desktop pour Windows](../operations/opencreator-desktop-windows-release.md)
-- [Directives relatives aux composants visuels](../visual-component-guidelines.md)
+- **Utiliser OpenCreator:** [Démarrage rapide](#démarrage-rapide) · [Guide de l'utilisateur et de dépannage](../opencreator-user-guide-and-troubleshooting.md)
+- **Développer et étendre:** [Guide de contribution](../../CONTRIBUTING.md) · [Contribuer à un Skill](../contributing/skills-contributing.md) · [Contribuer à un modèle de création](../contributing/templates-contributing.md) · [Runtime API v1](../runtime-api-for-ui-v1.md) · [Directives relatives aux composants visuels](../visual-component-guidelines.md)
+- **Maintenir et publier:** [Conception du Runtime natif Codex](../2026-07-03-codex-native-agent-runtime-design.md) · [Guide opérationnel des versions Desktop](../operations/opencreator-desktop-release-runbook.md) · [Guide des versions Desktop pour Windows](../operations/opencreator-desktop-windows-release.md)
 
 ## Convention de traduction
 
 Le fichier `README.md` situé à la racine est le document anglais de référence. Les traductions maintenues se trouvent dans `docs/<locale>/README.md`. N'ajoutez une langue au sélecteur qu'une fois l'intégralité du document traduite et synchronisée avec la structure anglaise.
 
-## Contribuer
+## Communauté
+
+<p>OpenCreator a reçu des étoiles d’utilisateurs GitHub dans <strong>au moins 100 pays et régions</strong>.</p>
+
+<img src="../images/star-coverage-map.svg" alt="Carte du monde indiquant les pays et régions des utilisateurs GitHub ayant attribué une étoile à OpenCreator" width="760" />
+
+### L’équipe
+
+Chaque membre est responsable des règles, de la revue et de la fusion des contributions et du soutien à la communauté dans son domaine.
+
+<table border="1" cellpadding="12">
+  <tr>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/wulien.svg" width="64" height="64" alt="wulien avatar" /><br /><a href="https://github.com/wulien">wulien</a><br />Code et corrections de bugs</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/dle-kb.svg" width="64" height="64" alt="DLe-kb avatar" /><br /><a href="https://github.com/DLe-kb">DLe-kb</a><br />Modèles de création</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/xiaheyuan.svg" width="64" height="64" alt="xiaheyuan avatar" /><br /><a href="https://github.com/xiaheyuan">xiaheyuan</a><br />Design et ressources</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/krillinai.svg" width="64" height="64" alt="krillinai avatar" /><br /><a href="https://github.com/krillinai">krillinai</a><br />Skills et documentation</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/hbxugang.svg" width="64" height="64" alt="hbxugang avatar" /><br /><a href="https://github.com/hbxugang">hbxugang</a><br />Déploiement en entreprise</td>
+  </tr>
+</table>
+
+### Contributeurs
+
+Merci à toutes les personnes qui ont contribué par le code, la documentation, les retours, les rapports de problèmes, les Skills, les conceptions et les idées.
+
+<div>
+  <a href="https://github.com/maranello-o"><img src="../images/contributors/maranello-o.svg" width="48" height="48" alt="maranello-o" /></a>
+  <a href="https://github.com/wulien"><img src="../images/contributors/wulien.svg" width="48" height="48" alt="wulien" /></a>
+  <a href="https://github.com/puji4810"><img src="../images/contributors/puji4810.svg" width="48" height="48" alt="puji4810" /></a>
+  <a href="https://github.com/krillinai"><img src="../images/contributors/krillinai.svg" width="48" height="48" alt="krillinai" /></a>
+  <a href="https://github.com/PairZhu"><img src="../images/contributors/pairzhu.svg" width="48" height="48" alt="PairZhu" /></a>
+  <a href="https://github.com/Mijaelx"><img src="../images/contributors/mijaelx.svg" width="48" height="48" alt="Mijaelx" /></a>
+  <a href="https://github.com/OutisLi"><img src="../images/contributors/outisli.svg" width="48" height="48" alt="OutisLi" /></a>
+  <a href="https://github.com/yeager"><img src="../images/contributors/yeager.svg" width="48" height="48" alt="yeager" /></a>
+  <a href="https://github.com/catwithtudou"><img src="../images/contributors/catwithtudou.svg" width="48" height="48" alt="catwithtudou" /></a>
+  <a href="https://github.com/newdee"><img src="../images/contributors/newdee.svg" width="48" height="48" alt="newdee" /></a>
+  <a href="https://github.com/scwf"><img src="../images/contributors/scwf.svg" width="48" height="48" alt="scwf" /></a>
+  <a href="https://github.com/xiaheyuan"><img src="../images/contributors/xiaheyuan.svg" width="48" height="48" alt="xiaheyuan" /></a>
+  <a href="https://github.com/hbxugang"><img src="../images/contributors/hbxugang.svg" width="48" height="48" alt="hbxugang" /></a>
+  <a href="https://github.com/kapil971390"><img src="../images/contributors/kapil971390.svg" width="48" height="48" alt="kapil971390" /></a>
+  <a href="https://github.com/octo-patch"><img src="../images/contributors/octo-patch.svg" width="48" height="48" alt="octo-patch" /></a>
+  <a href="https://github.com/yuanjinghh"><img src="../images/contributors/yuanjinghh.svg" width="48" height="48" alt="yuanjinghh" /></a>
+  <a href="https://github.com/DLe-kb"><img src="../images/contributors/dle-kb.svg" width="48" height="48" alt="DLe-kb" /></a>
+  <a href="https://github.com/liupig"><img src="../images/contributors/liupig.svg" width="48" height="48" alt="liupig" /></a>
+  <a href="https://github.com/alextavares" title="alextavares"><img src="../images/contributors/alextavares.svg" width="48" height="48" alt="alextavares" /></a>
+  <a href="https://github.com/krillinai/OpenCreator/commit/a89cff0ac5d91540f03e361af50b286ee57691ae" title="卡皮巴拉"><img src="../images/contributors/kapibala.svg" width="48" height="48" alt="卡皮巴拉" /></a>
+  <a href="https://github.com/mifan100g" title="mifan100g (米饭二两)"><img src="../images/contributors/mifan100g.svg" width="48" height="48" alt="mifan100g (米饭二两)" /></a>
+  <a href="https://github.com/askalf"><img src="../images/contributors/askalf.svg" width="48" height="48" alt="askalf" /></a>
+  <a href="https://github.com/Yi-111-a"><img src="../images/contributors/yi-111-a.svg" width="48" height="48" alt="Yi-111-a" /></a>
+</div>
+
+### Contribuer
 
 Vous pouvez contribuer à OpenCreator de nombreuses façons, au-delà du code :
 
@@ -577,14 +635,6 @@ Comment contribuer :
 
 [contribute-issue]: https://github.com/krillinai/OpenCreator/issues
 [contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
-
-## Contributeurs
-
-Merci à toutes les personnes qui ont contribué par le code, la documentation, les retours, les rapports de problèmes, les Skills, les conceptions et les idées.
-
-<a href="https://github.com/krillinai/KrillinAI/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=krillinai/KrillinAI&amp;max=500&amp;columns=20" alt="OpenCreator Contributeurs" />
-</a>
 
 ## Historique des Stars
 

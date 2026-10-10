@@ -1,8 +1,38 @@
-import { describe, expect, it } from 'vitest';
-import { ApiClientError, type RuntimeClient } from '../runtime/client.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ApiClientError, RuntimeClient } from '../runtime/client.js';
 import { createConnectionService } from './connection-service.js';
 
 describe('ConnectionService', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it.each([true, false])('bounds stalled health/Codex reads without timing out business requests (health=%s)', async healthy => {
+    vi.useFakeTimers();
+    const fetchImpl = vi.fn((url: string | URL | Request, options?: RequestInit) => {
+      if (healthy && String(url).endsWith('/healthz')) return Promise.resolve(new Response('{}'));
+      return new Promise<Response>((_resolve, reject) => {
+        options?.signal?.addEventListener('abort', () => reject(options.signal?.reason));
+      });
+    });
+    const client = new RuntimeClient({ baseUrl: 'http://runtime.test', fetchImpl });
+    const result = createConnectionService(client).check();
+    await vi.advanceTimersByTimeAsync(4_000);
+    expect((await result).status).toBe(healthy ? 'connected' : 'disconnected');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it('keeps a healthy Runtime connected when Codex status is unavailable', async () => {
+    const get = vi.fn().mockResolvedValueOnce({ ok: true }).mockRejectedValueOnce(new Error('Codex unavailable'));
+    const service = createConnectionService({ get, post: vi.fn(), patch: vi.fn() });
+    await expect(service.check()).resolves.toEqual({ status: 'connected', codexStatusError: 'Codex unavailable' });
+    expect(get.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('keeps authentication errors distinct even when health is successful', async () => {
+    const get = vi.fn().mockResolvedValueOnce({ ok: true }).mockRejectedValueOnce(
+      new ApiClientError({ status: 401, code: 'UNAUTHORIZED', message: 'Unauthorized' })
+    );
+    const service = createConnectionService({ get, post: vi.fn(), patch: vi.fn() });
+    await expect(service.check()).resolves.toEqual({ status: 'invalid_token', message: 'Unauthorized' });
+  });
   it('returns invalid_token for unauthorized Runtime responses', async () => {
     const client = {
       async get<T>(): Promise<T> {

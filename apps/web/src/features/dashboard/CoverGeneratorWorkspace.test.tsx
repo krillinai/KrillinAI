@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type {
   CreatorActionRequest,
   CreatorArtifact,
@@ -8,7 +8,7 @@ import type {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import CoverGeneratorWorkspace from './CoverGeneratorWorkspace.js';
-import { CreatorSessionProvider } from './creator-session-store.js';
+import { CreatorSessionProvider, useOptionalCreatorSession, type CreatorSessionContextValue } from './creator-session-store.js';
 
 describe('CoverGeneratorWorkspace', () => {
   beforeEach(() => {
@@ -33,6 +33,75 @@ describe('CoverGeneratorWorkspace', () => {
     expect(row).toContainElement(referenceUpload);
     expect(referenceUpload.compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING)
       .not.toBe(0);
+  });
+
+  it.each(['none', 'reference_image', 'source_keyframe'] as const)(
+    'keeps the same cover preview across repeated snapshots (%s)',
+    async referenceKind => {
+      const fixture = createFixture();
+      const base = fixture.currentJob();
+      const cover = coverArtifact(base.id, 1, 1, base.createdAt);
+      const reference = referenceKind === 'none' ? undefined : {
+        ...sourceKeyframeArtifact(base.id, base.createdAt),
+        id: 'preview_reference', kind: referenceKind
+      };
+      const snapshot = coverResultSnapshot(1, cover, base.createdAt) as Record<string, CreatorJson>;
+      snapshot.artifactRefs = {
+        cover_image: [cover.id],
+        ...(reference === undefined ? {} : { [referenceKind]: [reference.id] })
+      };
+      const job: CreatorJob = {
+        ...base, status: 'completed', artifacts: [cover, ...(reference === undefined ? [] : [reference])],
+        state: { ...base.state, currentStep: 2, furthestStep: 2, resultVersion: 1,
+          latestResultVersion: 1, resultSnapshots: [snapshot],
+          referenceImageArtifactId: referenceKind === 'reference_image' ? reference!.id : null }
+      };
+      const view = renderWorkspace(fixture, job);
+      const image = await screen.findByAltText('封面方案 1');
+      const url = image.getAttribute('src');
+      const requests = fixture.openArtifact.mock.calls.length;
+      expect(requests).toBe(referenceKind === 'none' ? 1 : referenceKind === 'source_keyframe' ? 2 : 3);
+      for (let revision = 1; revision <= 3; revision += 1) {
+        await view.pushSnapshot({ ...structuredClone(job), revision });
+        expect(screen.getByAltText('封面方案 1')).toBe(image);
+        expect(image).toHaveAttribute('src', url);
+      }
+      expect(fixture.openArtifact).toHaveBeenCalledTimes(requests);
+      expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+      view.unmount();
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith(url);
+    }
+  );
+
+  it('loads a different preview when the selected result version changes', async () => {
+    const fixture = createFixture();
+    const base = fixture.currentJob();
+    const first = { ...coverArtifact(base.id, 1, 1, base.createdAt), id: 'cover_v1' };
+    const second = { ...coverArtifact(base.id, 1, 2, base.createdAt), id: 'cover_v2' };
+    const job: CreatorJob = { ...base, status: 'completed', artifacts: [first, second],
+      state: { ...base.state, currentStep: 2, resultVersion: 1, latestResultVersion: 2,
+        resultSnapshots: [coverResultSnapshot(1, first, base.createdAt), coverResultSnapshot(2, second, base.createdAt)] }
+    };
+    const view = renderWorkspace(fixture, job);
+    const firstUrl = (await screen.findByAltText('封面方案 1')).getAttribute('src');
+    await view.pushSnapshot({ ...job, revision: 1, state: { ...job.state, resultVersion: 2 } });
+    const image = await screen.findByAltText('封面方案 1');
+    expect(image.getAttribute('src')).not.toBe(firstUrl);
+    expect(fixture.openArtifact).toHaveBeenCalledTimes(2);
+    expect(fixture.openArtifact).toHaveBeenLastCalledWith(job.id, second.id);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(firstUrl);
+  });
+
+  it('releases a preview whose fetch completes after unmount', async () => {
+    const fixture = createFixture();
+    const base = fixture.currentJob();
+    let finish!: (response: Response) => void;
+    fixture.openArtifact.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const view = renderWorkspace(fixture, { ...base, artifacts: [coverArtifact(base.id, 1, 1, base.createdAt)] });
+    await waitFor(() => expect(fixture.openArtifact).toHaveBeenCalledOnce());
+    view.unmount();
+    await act(async () => { finish(new Response(new Blob([png('cover')], { type: 'image/png' }))); });
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(vi.mocked(URL.createObjectURL).mock.results[0]!.value);
   });
 
   it('renders real result artifacts and downloads them without a selection state', async () => {
@@ -496,7 +565,8 @@ function renderWorkspace(
   initialJob = fixture.currentJob(),
   language: 'zh-CN' | 'en-US' = 'zh-CN'
 ) {
-  return render(
+  let currentSession: CreatorSessionContextValue | null = null;
+  const view = render(
     <LanguageProvider initialPreference={language}>
       <CreatorSessionProvider
         initialJob={initialJob}
@@ -507,10 +577,19 @@ function renderWorkspace(
           runAgentTurn: vi.fn()
         } as never}
       >
+        <SessionObserver onSession={session => { currentSession = session; }} />
         <CoverGeneratorWorkspace onBack={vi.fn()} />
       </CreatorSessionProvider>
     </LanguageProvider>
   );
+  return { ...view, async pushSnapshot(job: CreatorJob) {
+    await act(async () => { currentSession!.applyRemoteSnapshot(job); });
+  } };
+}
+
+function SessionObserver(props: { onSession(session: CreatorSessionContextValue | null): void }) {
+  props.onSession(useOptionalCreatorSession());
+  return null;
 }
 
 function createFixture() {

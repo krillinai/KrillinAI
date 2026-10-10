@@ -35,7 +35,7 @@ import {
   RotateCcw,
   Save
 } from 'lucide-react';
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useConfirmDialog } from '../../components/dialogs/ConfirmDialogProvider.js';
 import { TtsVoicePicker } from '../../components/tts/TtsVoicePicker.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
@@ -43,7 +43,13 @@ import type { CreatorServicesSettingsService } from '../../services/creator-serv
 import type { ConnectionService } from '../../services/connection-service.js';
 import { IssueList } from '../issues/IssuePresenter.js';
 import { usePageIssueState } from '../issues/page-issue-state.js';
+import { inferLlmProviderId, llmProviderOptions } from './llm-provider-selection.js';
 import './creator-services-settings.css';
+
+const CodexImageStatusNotice = lazy(async () => {
+  const module = await import('./CodexImageStatusNotice.js');
+  return { default: module.CodexImageStatusNotice };
+});
 
 export type CreatorServicesSection = 'text' | 'transcription' | 'tts' | 'image' | 'video';
 type ModelSettingsService = Pick<ConnectionService, 'getCodexProvider' | 'updateCodexProvider'> & {
@@ -64,6 +70,7 @@ export function CreatorServicesSettingsView(props: {
     props.initialSection ?? 'text'
   );
   const [config, setConfig] = useState<CreatorServicesConfig>();
+  const [savedImageProvider, setSavedImageProvider] = useState<CreatorServicesConfig['image']['provider']>();
   const [capabilities, setCapabilities] = useState<CreatorServicesCapabilitiesResponse>();
   const [modelProvider, setModelProvider] = useState<CodexProviderConfig>();
   const [textModelMode, setTextModelMode] = useState<TextModelMode>('codex');
@@ -103,7 +110,7 @@ export function CreatorServicesSettingsView(props: {
     void Promise.allSettled([
       props.service.getConfig(),
       props.service.getCapabilities(),
-      props.modelService?.getCodexProvider()
+      props.service.getCodexModelStatus?.() ?? props.modelService?.getCodexProvider()
         ?? Promise.reject(new Error('Model provider configuration is unavailable'))
       ,props.modelService?.getCodexModels?.()
         ?? Promise.reject(new Error('Model catalog is unavailable'))
@@ -131,6 +138,7 @@ export function CreatorServicesSettingsView(props: {
           ? modelsResult.value.models.map(model => model.model)
           : []);
         setConfig(response.config);
+        setSavedImageProvider(response.config.image.provider);
         setTextModelMode(response.config.llm.source);
         setCapabilities(capabilitiesResult.value);
         setConfiguredCredentials(new Set(response.configuredCredentials));
@@ -139,7 +147,10 @@ export function CreatorServicesSettingsView(props: {
         if (providerResult.status === 'fulfilled') {
           const provider = providerResult.value;
           setModelProvider(provider);
-          setModelProviderId(inferLlmProviderId(provider.baseUrl, provider.model));
+          setModelProviderId(inferLlmProviderId(
+            useLegacyTextModel ? response.config.llm.baseUrl : provider.baseUrl,
+            useLegacyTextModel ? response.config.llm.model : provider.model
+          ));
           setModelBaseUrl(useLegacyTextModel ? response.config.llm.baseUrl : provider.baseUrl);
           setModelName(useLegacyTextModel ? response.config.llm.model : provider.model);
           pageIssues.resolveOperation('settings.creator-services.load-model-provider');
@@ -148,7 +159,7 @@ export function CreatorServicesSettingsView(props: {
           setModelProviderId('custom');
           setModelBaseUrl(response.config.llm.baseUrl);
           setModelName(response.config.llm.model);
-          if (props.modelService !== null && props.modelService !== undefined) {
+          if (props.service?.getCodexModelStatus !== undefined || props.modelService != null) {
             pageIssues.captureOperationFailure(
               'settings.creator-services.load-model-provider',
               providerResult.reason,
@@ -272,6 +283,7 @@ export function CreatorServicesSettingsView(props: {
       }
       const response = await props.service.saveConfig(nextConfig);
       setConfig(response.config);
+      setSavedImageProvider(response.config.image.provider);
       setConfiguredCredentials(new Set(response.configuredCredentials));
       setSavedTranscriptionSelection(transcriptionSelection(response.config));
       pageIssues.resolveOperation('settings.creator-services.save');
@@ -313,6 +325,7 @@ export function CreatorServicesSettingsView(props: {
     try {
       const response = await props.service.resetConfig();
       setConfig(response.config);
+      setSavedImageProvider(response.config.image.provider);
       setConfiguredCredentials(new Set(response.configuredCredentials));
       setSavedTranscriptionSelection(transcriptionSelection(response.config));
       pageIssues.resolveOperation('settings.creator-services.reset');
@@ -438,7 +451,7 @@ export function CreatorServicesSettingsView(props: {
             />
           ) : null}
           {activeSection === 'image' ? (
-            <ImageSettings config={config} update={updateConfig} configuredCredentials={configuredCredentials} />
+            <ImageSettings config={config} update={updateConfig} configuredCredentials={configuredCredentials} service={props.service} enabled={savedImageProvider === config.image.provider} />
           ) : null}
           {activeSection === 'video' ? (
             <VideoSettings config={config} update={updateConfig} configuredCredentials={configuredCredentials} />
@@ -550,7 +563,7 @@ function TextModelSettings(props: SettingsGroupProps & {
         {props.mode === 'custom' ? <label className="creator-services-field is-wide">
           <span>{l('供应商', 'Provider')}</span>
           <select value={props.providerId} onChange={event => props.onProviderIdChange(event.target.value)}>
-            {Object.values(creatorProviderCatalogById.llm).map(provider => (
+            {llmProviderOptions.map(provider => (
               <option key={provider.id} value={provider.id}>{provider.label}</option>
             ))}
           </select>
@@ -589,6 +602,13 @@ function TextModelSettings(props: SettingsGroupProps & {
                 : l('文本任务需要 API Key', 'Text tasks require an API key')}
           </span>
         </div>
+        {props.mode === 'codex' && props.config.llm.source === 'codex' && codexAvailable ? (
+          <p className="creator-services-inline-note">{l(
+            '已自动启用本机 Codex，无需保存即可使用。手动更改服务后，请保存配置。',
+            'Local Codex is enabled automatically and ready without saving. Save settings after changing the service.',
+            'Lokala Codex aktiveras automatiskt och kan användas utan att spara. Spara inställningarna efter att du bytt tjänst.'
+          )}</p>
+        ) : null}
         {props.error === undefined ? null : (
           <p className="creator-services-inline-note is-warning" role="alert">
             {props.error}
@@ -613,15 +633,6 @@ function TextModelSettings(props: SettingsGroupProps & {
       </SettingsFieldset>
     </>
   );
-}
-
-function inferLlmProviderId(baseUrl: string, model: string): string {
-  const normalizedUrl = baseUrl.toLowerCase();
-  const normalizedModel = model.toLowerCase();
-  if (normalizedUrl.includes('deepseek') || normalizedModel.startsWith('deepseek-')) return 'deepseek';
-  if (normalizedUrl.includes('minimax') || normalizedModel.startsWith('minimax-')) return 'minimax';
-  if (normalizedUrl.includes('openai.com')) return 'openai';
-  return 'custom';
 }
 
 function validateModelFields(
@@ -694,6 +705,7 @@ function TranscriptionSettings(props: SettingsGroupProps & {
 }) {
   const l = useLocalizedCopy();
   const provider = props.config.transcription.provider;
+  const [funasrTest, setFunasrTest] = useState<string>();
   const selectedCapability = transcriptionCapability(props.capabilities, provider);
   const mode = selectedCapability?.kind
     ?? (isLocalTranscriptionProvider(provider) ? 'local' : 'cloud');
@@ -840,6 +852,11 @@ function TranscriptionSettings(props: SettingsGroupProps & {
           })}
         />
       ) : null}
+      {provider === 'funasr' ? (
+        <OpenAiFields id="transcription-funasr" credential="transcription.funasr.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.transcription.funasr} modelPlaceholder="sensevoice" onChange={value => props.update(config => { config.transcription.funasr = { ...value, timeoutMs: config.transcription.funasr.timeoutMs }; })} />
+      ) : null}
+      {provider === 'funasr' ? <button type="button" className="secondary" onClick={() => { setFunasrTest('Testing…'); void props.service?.testTranscriptionConnection?.(props.config.transcription.funasr).then(result => setFunasrTest(`Connected · ${result.models.join(', ') || result.model}`)).catch(error => setFunasrTest(error instanceof Error ? error.message : 'Connection failed')); }}>Test connection</button> : null}
+      {funasrTest ? <p className="creator-services-inline-note" role="status">{funasrTest}</p> : null}
       {provider === 'volcengine' ? (
         <>
           <VolcengineAsrFields
@@ -1026,7 +1043,10 @@ function TtsSettings(props: SettingsGroupProps) {
   );
 }
 
-function ImageSettings(props: SettingsGroupProps) {
+function ImageSettings(props: SettingsGroupProps & {
+  service: CreatorServicesSettingsService | null;
+  enabled: boolean;
+}) {
   const l = useLocalizedCopy();
   const provider = props.config.image.provider;
   return (
@@ -1055,6 +1075,11 @@ function ImageSettings(props: SettingsGroupProps) {
           if (!target.model && preset?.models[0] !== undefined) target.model = preset.models[0].id;
         })}
       />
+      {provider === 'codex-native' ? (
+        <Suspense fallback={<div className="creator-services-inline-note" role="status">{l('正在检查 Codex 生图配置…', 'Checking Codex image configuration…', 'Kontrollerar bildinställningar för Codex…')}</div>}>
+          <CodexImageStatusNotice service={props.service} enabled={props.enabled} />
+        </Suspense>
+      ) : null}
       {provider === 'openai' ? <OpenAiFields id="image-openai" credential="image.openai.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.openai} modelPlaceholder="gpt-image-1" modelSuggestions={creatorProviderOfKind('image', 'openai')?.models.map(model => model.id)} onChange={value => props.update(config => { config.image.openai = value; })} /> : null}
       {provider === 'jimeng' ? <OpenAiFields id="image-jimeng" credential="image.jimeng.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.jimeng} modelPlaceholder="doubao-seedream-4-0-250828" modelSuggestions={creatorProviderOfKind('image', 'jimeng')?.models.map(model => model.id)} baseUrlPlaceholder="https://ark.cn-beijing.volces.com/api/v3" onChange={value => props.update(config => { config.image.jimeng = value; })} /> : null}
       {provider === 'kling' ? <KlingFields id="image-kling" accessKeyCredential="image.kling.accessKey" secretKeyCredential="image.kling.secretKey" configuredCredentials={props.configuredCredentials} value={props.config.image.kling} modelPlaceholder="kling-v2-1" modelSuggestions={creatorProviderOfKind('image', 'kling')?.models.map(model => model.id)} onChange={value => props.update(config => { config.image.kling = value; })} /> : null}
@@ -1283,48 +1308,51 @@ function AliyunFields(props: {
   return (
     <>
       <h3 className="creator-services-subheading">{l('OSS 存储', 'OSS storage')}</h3>
-      <PasswordField
-        id={`${props.id}-oss-access-key-id`}
-        label="Access Key ID"
-        value={props.oss.accessKeyId}
-        configured={props.configuredCredentials.has(`${props.credentialPrefix}.oss.accessKeyId` as CreatorServicesCredentialField)}
-        onChange={accessKeyId => props.onOssChange({ ...props.oss, accessKeyId })}
-      />
-      <PasswordField
-        id={`${props.id}-oss-access-key-secret`}
-        label="Access Key Secret"
-        value={props.oss.accessKeySecret}
-        configured={props.configuredCredentials.has(`${props.credentialPrefix}.oss.accessKeySecret` as CreatorServicesCredentialField)}
-        onChange={accessKeySecret => props.onOssChange({ ...props.oss, accessKeySecret })}
-      />
+      {(['accessKeyId', 'accessKeySecret'] as const).map(field => (
+        <PasswordField
+          key={field}
+          id={`${props.id}-oss-${field === 'accessKeyId' ? 'access-key-id' : 'access-key-secret'}`}
+          label={field === 'accessKeyId' ? 'Access Key ID' : 'Access Key Secret'}
+          value={props.oss[field]}
+          configured={props.configuredCredentials.has(`${props.credentialPrefix}.oss.${field}` as CreatorServicesCredentialField)}
+          onChange={value => props.onOssChange({ ...props.oss, [field]: value })}
+        />
+      ))}
       <PasswordField
         id={`${props.id}-oss-bucket`}
         label="Bucket"
         value={props.oss.bucket}
         onChange={bucket => props.onOssChange({ ...props.oss, bucket })}
       />
+      <TextField
+        id={`${props.id}-oss-region`}
+        label={l('OSS 地域', 'OSS region')}
+        value={props.oss.region}
+        placeholder="cn-shanghai"
+        onChange={region => props.onOssChange({ ...props.oss, region })}
+      />
+      <TextField
+        id={`${props.id}-oss-endpoint`}
+        label={l('OSS Endpoint（可选）', 'OSS endpoint (optional)')}
+        value={props.oss.endpoint}
+        placeholder={`https://oss-${props.oss.region || 'cn-shanghai'}.aliyuncs.com`}
+        onChange={endpoint => props.onOssChange({ ...props.oss, endpoint })}
+      />
+      <p className="creator-services-inline-note">{l(
+        '地域需与 Bucket 一致；Endpoint 留空时使用该地域的公网地址。填写时请使用不含 Bucket 的公网服务地址，供语音服务读取音频。',
+        'Use the bucket region. Leave endpoint blank for its public endpoint, or enter a public service endpoint without the bucket name so the speech service can read the audio.'
+      )}</p>
       <h3 className="creator-services-subheading">{l('语音服务', 'Speech service')}</h3>
-      <PasswordField
-        id={`${props.id}-speech-access-key-id`}
-        label="Access Key ID"
-        value={props.speech.accessKeyId}
-        configured={props.configuredCredentials.has(`${props.credentialPrefix}.speech.accessKeyId` as CreatorServicesCredentialField)}
-        onChange={accessKeyId => props.onSpeechChange({ ...props.speech, accessKeyId })}
-      />
-      <PasswordField
-        id={`${props.id}-speech-access-key-secret`}
-        label="Access Key Secret"
-        value={props.speech.accessKeySecret}
-        configured={props.configuredCredentials.has(`${props.credentialPrefix}.speech.accessKeySecret` as CreatorServicesCredentialField)}
-        onChange={accessKeySecret => props.onSpeechChange({ ...props.speech, accessKeySecret })}
-      />
-      <PasswordField
-        id={`${props.id}-speech-app-key`}
-        label="App Key"
-        value={props.speech.appKey}
-        configured={props.configuredCredentials.has(`${props.credentialPrefix}.speech.appKey` as CreatorServicesCredentialField)}
-        onChange={appKey => props.onSpeechChange({ ...props.speech, appKey })}
-      />
+      {(['accessKeyId', 'accessKeySecret', 'appKey'] as const).map(field => (
+        <PasswordField
+          key={field}
+          id={`${props.id}-speech-${field === 'appKey' ? 'app-key' : field === 'accessKeyId' ? 'access-key-id' : 'access-key-secret'}`}
+          label={field === 'appKey' ? 'App Key' : field === 'accessKeyId' ? 'Access Key ID' : 'Access Key Secret'}
+          value={props.speech[field]}
+          configured={props.configuredCredentials.has(`${props.credentialPrefix}.speech.${field}` as CreatorServicesCredentialField)}
+          onChange={value => props.onSpeechChange({ ...props.speech, [field]: value })}
+        />
+      ))}
     </>
   );
 }
@@ -1707,6 +1735,8 @@ function selectedTranscriptionModel(config: CreatorServicesConfig): string {
       return config.transcription.whisperCpp.model;
     case 'aliyun':
       return '';
+    case 'funasr':
+      return config.transcription.funasr.model;
     case 'volcengine':
       return config.transcription.volcengine.resourceId;
   }
@@ -1727,6 +1757,8 @@ function transcriptionProviderLabel(
       return 'Whisper.cpp';
     case 'aliyun':
       return l('阿里云百炼', 'Alibaba Cloud Model Studio');
+    case 'funasr':
+      return l('FunASR / SenseVoice', 'FunASR / SenseVoice');
     case 'volcengine':
       return l('火山引擎', 'Volcengine');
   }

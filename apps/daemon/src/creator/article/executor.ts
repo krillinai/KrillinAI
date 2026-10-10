@@ -22,6 +22,7 @@ import { CreatorExecutorError } from '../executor.js';
 import { validateImageFile } from '../validators/image.js';
 import { writeArticleHtml, writeArticlePdf } from './document-generator.js';
 import type { ArticleImageGenerationResult } from './image-generator.js';
+import type { NativeImageProgress } from '../../image-generation/codex-native.js';
 import type { ExtractedArticleSource } from './source-extractor.js';
 
 export function createWechatArticleExecutor(input: {
@@ -67,7 +68,7 @@ export function createWechatArticleExecutor(input: {
     }): Promise<WechatArticleImagePlanItem[]>;
   };
   imageGenerator?: {
-    generate(request: { prompt: string; signal: AbortSignal; cwd?: string }): Promise<ArticleImageGenerationResult>;
+    generate(request: { prompt: string; signal: AbortSignal; cwd?: string; onProgress?(progress: NativeImageProgress): void }): Promise<ArticleImageGenerationResult>;
   };
 }): CreatorExecutor {
   return {
@@ -297,7 +298,10 @@ export function createWechatArticleExecutor(input: {
                 'Do not render titles, paragraphs, logos, watermarks, UI, or illegible decorative text.'
               ].join('\n\n'),
               signal: stage.signal,
-              cwd: stage.workdir
+              cwd: stage.workdir,
+              onProgress: progress => stage.reportProgress({
+                ...progress, completed: outputs.length, failed: failures.length, total: count
+              })
             });
             const extension = extensionForMime(generated.mime);
             const fileName = `article-image-${String(index + 1).padStart(2, '0')}.${extension}`;

@@ -104,3 +104,19 @@ func TestTimestampGeneratorDoesNotMutateInputBlocks(t *testing.T) {
 		t.Fatalf("unexpected output: %+v", output[0])
 	}
 }
+
+func TestTimestampGeneratorMatchesThaiWithoutSpaces(t *testing.T) {
+	generator := NewTimestampGenerator()
+	input := []*util.SrtBlock{{OriginLanguageSentence: "สวัสดีโลก"}}
+	words := []types.Word{
+		{Text: "สวัสดี", Start: 0.5, End: 1.0},
+		{Text: "โลก", Start: 1.0, End: 1.5},
+	}
+	output, err := generator.GenerateTimestamps(input, words, types.LanguageNameThai, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if output[0].Timestamp != "00:00:00,500 --> 00:00:01,500" {
+		t.Fatalf("unexpected Thai timestamp: %q", output[0].Timestamp)
+	}
+}

@@ -15,6 +15,8 @@ import {
   signDaemonRuntimeBundle,
   signCreatorRuntimeBundle,
   signStickmanRuntimeBundle,
+  signRemotionComponent,
+  normalizeRemotionLibraryPaths,
   updateManifestHashes
 } from '../scripts/sign-creator-runtime-after-pack.mjs';
 
@@ -27,6 +29,73 @@ afterEach(() => {
 });
 
 describe('Creator Runtime Developer ID signing', () => {
+  it('binds relative Remotion libraries to their packaged loader directory', () => {
+    const fixture = createStickmanFixture();
+    const browser = fixture.binaryPaths[0];
+    const library = join(dirname(browser), 'libavdevice.dylib');
+    writeFileSync(library, 'library');
+    const runTool = vi.fn(() => `${browser}:\n\tlibavdevice.dylib (compatibility version 61.0.0, current version 61.3.100)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)\n\t@rpath/libother.dylib (compatibility version 1.0.0, current version 1.0.0)\n`);
+    normalizeRemotionLibraryPaths(browser, fixture.runtimeRoot, { runTool });
+    expect(runTool.mock.calls).toEqual([
+      ['otool', ['-L', browser]],
+      ['install_name_tool', ['-change', 'libavdevice.dylib', '@loader_path/libavdevice.dylib', browser]]
+    ]);
+  });
+
+  it('normalizes the install name of a bundled Remotion dynamic library', () => {
+    const fixture = createStickmanFixture();
+    const library = join(dirname(fixture.binaryPaths[0]), 'libavdevice.dylib');
+    writeFileSync(library, 'library');
+    const runTool = vi.fn(() => `${library}:\n\tlibavdevice.dylib (compatibility version 61.0.0, current version 61.3.100)\n`);
+    normalizeRemotionLibraryPaths(library, fixture.runtimeRoot, { runTool });
+    expect(runTool).toHaveBeenCalledWith('install_name_tool', ['-id', '@loader_path/libavdevice.dylib', library]);
+  });
+
+  it('rejects relative Remotion libraries missing from the bundle', () => {
+    const fixture = createStickmanFixture();
+    const runTool = vi.fn(() => '\tmissing.dylib (compatibility version 1.0.0, current version 1.0.0)\n');
+    expect(() => normalizeRemotionLibraryPaths(fixture.binaryPaths[0], fixture.runtimeRoot, { runTool })).toThrow('Remotion relative library is not bundled: missing.dylib');
+    expect(runTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('signs the independent Remotion component using its prepared keychain and refreshes final hashes', async () => {
+    const fixture = createStickmanFixture();
+    const findIdentity = vi.fn(() => 'Developer ID Application: Junxi YIN (NVRH5R5DJ5)');
+    const signBinary = vi.fn(path => writeFileSync(path, Buffer.concat([
+      readFileSync(path), Buffer.from('-component-signature')
+    ])));
+    const withKeychain = vi.fn(async (env, action) => action({ ...env, APPLE_KEYCHAIN: '/tmp/component-test.keychain' }));
+    await signRemotionComponent(fixture.runtimeRoot, {
+      ...signingEnv(), OPENCREATOR_SIGN_CREATOR_RUNTIME: '1', CSC_LINK: 'test-p12', CSC_KEY_PASSWORD: 'test-password'
+    }, { platform: 'darwin', withKeychain, findIdentity, findBinaries: () => fixture.binaryPaths, signBinary });
+    expect(withKeychain).toHaveBeenCalledTimes(1);
+    expect(findIdentity).toHaveBeenCalledWith('NVRH5R5DJ5', '/tmp/component-test.keychain');
+    const browserCall = signBinary.mock.calls.find(([path]) => path === fixture.binaryPaths[0]);
+    expect(browserCall.slice(0, 3)).toEqual([fixture.binaryPaths[0], 'Developer ID Application: Junxi YIN (NVRH5R5DJ5)', '/tmp/component-test.keychain']);
+    const entitlements = readFileSync(browserCall[3], 'utf8');
+    expect(entitlements).toMatch(/com\.apple\.security\.cs\.allow-jit<\/key>\s*<true\/>/);
+    expect(entitlements).toMatch(/com\.apple\.security\.cs\.allow-unsigned-executable-memory<\/key>\s*<true\/>/);
+    expect(entitlements).toMatch(/com\.apple\.security\.cs\.disable-library-validation<\/key>\s*<false\/>/);
+    expect(() => verifyStickmanRuntime(fixture.runtimeRoot, 'darwin', 'arm64')).not.toThrow();
+  });
+
+  it('does not grant browser JIT permissions to other Remotion native binaries', async () => {
+    const fixture = createStickmanFixture();
+    const compositor = join(fixture.runtimeRoot, 'node_modules', 'compositor', 'ffmpeg');
+    mkdirSync(dirname(compositor), { recursive: true });
+    writeFileSync(compositor, 'ffmpeg');
+    const manifestPath = join(fixture.runtimeRoot, 'manifest.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    manifest.resources.push({ ...manifest.resources.find(resource => resource.kind === 'browser'), path: relative(fixture.runtimeRoot, compositor).replaceAll('\\', '/'), kind: 'renderer', sha256: hashFile(compositor), bytes: readFileSync(compositor).length });
+    writeFileSync(manifestPath, JSON.stringify(manifest));
+    const signBinary = vi.fn();
+    await signRemotionComponent(fixture.runtimeRoot, {
+      ...signingEnv(), OPENCREATOR_SIGN_CREATOR_RUNTIME: '1', APPLE_KEYCHAIN: '/tmp/component-test.keychain'
+    }, { platform: 'darwin', findIdentity: () => 'test-identity', findBinaries: () => [...fixture.binaryPaths, compositor], signBinary });
+    expect(signBinary).toHaveBeenCalledWith(compositor, 'test-identity', '/tmp/component-test.keychain');
+    expect(() => verifyStickmanRuntime(fixture.runtimeRoot, 'darwin', 'arm64')).not.toThrow();
+  });
+
   it('verifies the input, signs binaries and records their final hashes', async () => {
     const fixture = createFixture();
     const verifyRuntime = vi.fn(verifyCreatorRuntime);

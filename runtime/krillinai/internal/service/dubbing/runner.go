@@ -117,14 +117,18 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		return Result{}, err
 	}
 
-	if err := ensureParentDir(r.deps.OutputVideo); err != nil {
-		return Result{}, err
-	}
-	if err := r.deps.FFmpeg(buildMuxArgs(r.deps.InputVideo, r.deps.OutputAudio, r.deps.OutputVideo)); err != nil {
-		return Result{}, err
-	}
-	if err := ensureNonEmptyFile(r.deps.OutputVideo, "output video"); err != nil {
-		return Result{}, err
+	if !r.deps.AudioOnly {
+		if err := ensureParentDir(r.deps.OutputVideo); err != nil {
+			return Result{}, err
+		}
+		if err := r.deps.FFmpeg(buildMuxArgs(r.deps.InputVideo, r.deps.OutputAudio, r.deps.OutputVideo)); err != nil {
+			return Result{}, err
+		}
+		if err := ensureNonEmptyFile(r.deps.OutputVideo, "output video"); err != nil {
+			return Result{}, err
+		}
+	} else {
+		r.deps.OutputVideo = ""
 	}
 
 	return Result{
@@ -146,6 +150,9 @@ func (r *Runner) validate() error {
 	}
 	if r.deps.TTS == nil {
 		return errors.New("tts is required")
+	}
+	if r.deps.AudioOnly {
+		return nil
 	}
 	if r.deps.InputVideo == "" {
 		return errors.New("input video is required")

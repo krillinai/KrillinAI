@@ -1,10 +1,11 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import {
   configureMacDirectorySigning,
   configureMacReleaseSigning,
   findDeveloperIdIdentity,
-  resolveNotarizationCredentials
+  resolveNotarizationCredentials,
+  withMacSigningKeychain
 } from '../scripts/mac-signing.mjs';
 
 const identity =
@@ -13,6 +14,105 @@ const identities = () => (
   `  1) ABCDEF "${identity}"\n`
   + '     1 valid identities found\n'
 );
+
+describe('shared macOS signing keychain', () => {
+  function fixture(overrides = {}) {
+    const cleanup = vi.fn();
+    const keychainTools = {
+      TmpDir: class { cleanup = cleanup; },
+      importCertificate: vi.fn(async () => '/tmp/test-certificate.p12'),
+      rootCertKeychain: '/builder/root_certs.keychain',
+      ...overrides
+    };
+    let searchList = ['/existing/login.keychain'];
+    const runSecurity = vi.fn(async args => {
+      if (args[0] === 'list-keychains') {
+        if (args[3] === '-s') searchList = args.slice(4);
+        return searchList.map(path => `"${path}"`).join('\n');
+      }
+      return '';
+    });
+    return { cleanup, keychainTools, runSecurity };
+  }
+  const credentials = { CSC_LINK: 'test-p12', CSC_KEY_PASSWORD: 'test-password' };
+
+  it('imports before signing, uses the keychain password for ACLs and reuses the keychain in Electron Builder', async () => {
+    const options = fixture();
+    let keychain;
+    expect(await withMacSigningKeychain(credentials, async env => {
+      keychain = env.APPLE_KEYCHAIN;
+      expect(env.CSC_KEYCHAIN).toBe(keychain);
+      expect(env).not.toHaveProperty('CSC_LINK');
+      expect(env).not.toHaveProperty('CSC_KEY_PASSWORD');
+      const commands = options.runSecurity.mock.calls.map(([args]) => args);
+      const keychainPassword = commands.find(args => args[0] === 'create-keychain')[2];
+      expect(keychainPassword).not.toBe(credentials.CSC_KEY_PASSWORD);
+      expect(commands).toContainEqual(['set-key-partition-list', '-S', 'apple-tool:,apple:', '-s', '-k', keychainPassword, keychain]);
+      expect(commands).toContainEqual(['import', '/tmp/test-certificate.p12', '-k', keychain,
+        '-T', '/usr/bin/codesign', '-T', '/usr/bin/productbuild', '-P', credentials.CSC_KEY_PASSWORD]);
+      expect(commands.some(args => args[0] === 'delete-keychain')).toBe(false);
+      // Preserve unrelated keychains added while the build is in progress.
+      await options.runSecurity(['list-keychains', '-d', 'user', '-s', keychain,
+        '/builder/root_certs.keychain', '/existing/login.keychain', '/another/build.keychain']);
+      return 'signed';
+    }, options)).toBe('signed');
+    expect(credentials).not.toHaveProperty('APPLE_KEYCHAIN');
+    expect(options.runSecurity).toHaveBeenCalledWith(['delete-keychain', keychain]);
+    expect(options.runSecurity).toHaveBeenCalledWith(['list-keychains', '-d', 'user', '-s', '/existing/login.keychain', '/another/build.keychain']);
+    expect(options.cleanup).toHaveBeenCalledTimes(1);
+    expect(existsSync(options.keychainTools.importCertificate.mock.calls[0][2])).toBe(false);
+  });
+
+  it.each(['signing', 'import'])('cleans temporary credentials when %s fails', async failure => {
+    const options = fixture();
+    if (failure === 'import') {
+      const original = options.runSecurity;
+      options.runSecurity = vi.fn(async args => {
+        if (args[0] === 'import') throw new Error('import failed');
+        return original(args);
+      });
+    }
+    const action = vi.fn(async () => { throw new Error('signing failed'); });
+    await expect(withMacSigningKeychain(credentials, action, options)).rejects.toThrow(`${failure} failed`);
+    if (failure === 'import') expect(action).not.toHaveBeenCalled();
+    expect(options.runSecurity).toHaveBeenCalledWith(['delete-keychain', expect.stringMatching(/signing\.keychain$/)]);
+    expect(options.cleanup).toHaveBeenCalledTimes(1);
+    expect(existsSync(options.keychainTools.importCertificate.mock.calls[0][2])).toBe(false);
+  });
+
+  it('cleans certificate preparation failures without creating a keychain or exposing certificate contents', async () => {
+    const options = fixture({ importCertificate: vi.fn(async () => { throw new Error('secret base64 contents'); }) });
+    await expect(withMacSigningKeychain(credentials, vi.fn(), options)).rejects.toThrow('Unable to prepare the macOS signing certificate');
+    expect(options.runSecurity).not.toHaveBeenCalled();
+    expect(options.cleanup).toHaveBeenCalledTimes(1);
+    expect(existsSync(options.keychainTools.importCertificate.mock.calls[0][2])).toBe(false);
+  });
+
+  it('preserves ordinary local signing without creating a keychain', async () => {
+    const options = fixture();
+    const env = {};
+    const action = vi.fn();
+    await withMacSigningKeychain(env, action, options);
+    expect(action).toHaveBeenCalledWith(env);
+    expect(options.keychainTools.importCertificate).not.toHaveBeenCalled();
+    expect(options.runSecurity).not.toHaveBeenCalled();
+  });
+
+  it.each(['APPLE_KEYCHAIN', 'CSC_KEYCHAIN'])('reuses an existing %s without deleting user credentials', async name => {
+    const options = fixture();
+    const action = vi.fn();
+    await withMacSigningKeychain({ ...credentials, [name]: '/existing/release.keychain' }, action, options);
+    expect(action).toHaveBeenCalledWith({ APPLE_KEYCHAIN: '/existing/release.keychain', CSC_KEYCHAIN: '/existing/release.keychain' });
+    expect(options.keychainTools.importCertificate).not.toHaveBeenCalled();
+    expect(options.runSecurity).not.toHaveBeenCalled();
+  });
+
+  it('rejects incomplete CI credentials before creating a keychain', async () => {
+    const options = fixture();
+    await expect(withMacSigningKeychain({ CSC_LINK: 'test-p12' }, vi.fn(), options)).rejects.toThrow('CSC_KEY_PASSWORD');
+    expect(options.keychainTools.importCertificate).not.toHaveBeenCalled();
+  });
+});
 
 describe('macOS directory signing', () => {
   it('keeps ordinary local packages ad-hoc without accessing a private key', () => {

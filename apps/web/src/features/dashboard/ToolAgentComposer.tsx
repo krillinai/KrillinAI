@@ -26,6 +26,7 @@ export default function ToolAgentComposer(props: {
   showPermission?: boolean;
   showModel?: boolean;
   submitting?: boolean;
+  disabled?: boolean;
   permission?: ToolAgentPermission;
   permissionDisabled?: boolean;
   onChange(value: string): void;
@@ -61,7 +62,7 @@ export default function ToolAgentComposer(props: {
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (!props.value.trim()) return;
+    if (props.disabled || props.submitting || !props.value.trim()) return;
     props.onSubmit();
     setAttachments([]);
     setOpenMenu(null);
@@ -228,7 +229,7 @@ export default function ToolAgentComposer(props: {
           <button
             className="tool-agent-composer-send"
             type="submit"
-            disabled={props.submitting || !props.value.trim()}
+            disabled={props.disabled || props.submitting || !props.value.trim()}
             aria-busy={props.submitting || undefined}
             aria-label={l('发送给 Agent', 'Send to Agent')}
           >

@@ -35,6 +35,8 @@ import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
 import VideoGenerationWorkspace from './VideoGenerationWorkspace.js';
 import type { CreatorWebService } from '../../services/creator-service.js';
 import { ApiClientError } from '../../runtime/errors.js';
+import { createCreatorSnapshotSubscription, type CreatorConnectionState } from '../../runtime/creator-sse.js';
+import { RuntimeRecoveryNotice } from '../../runtime/runtime-recovery.js';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 import { CreatorSessionProvider } from './creator-session-store.js';
 import type {
@@ -98,13 +100,12 @@ const featuredTools: FeaturedEntry[] = [
 
 const creatorTools: DashboardEntry[] = [
   {
-    title: '文章写作',
-    description: '公众号、X 等平台文章',
-    prompt: '帮我根据内容灵感写一篇适合公众号、X 等平台发布的文章，先给出选题和大纲，再完成正文。',
-    category: '文案创作',
-    icon: Newspaper,
-    badge: 'NEW',
-    workspace: 'wechat-article'
+    title: '视频下载',
+    description: '下载公开视频，或提取 MP3 音频',
+    prompt: '帮我下载这个视频链接，支持 YouTube、Bilibili 等平台，并保存为可用的视频文件。',
+    category: '视频编辑',
+    icon: Download,
+    workspace: 'video-download'
   },
   {
     title: '视频翻译',
@@ -116,20 +117,37 @@ const creatorTools: DashboardEntry[] = [
     workspace: 'video-translation'
   },
   {
+    title: '视频生成',
+    description: '文字或参考图生成视频片段',
+    prompt: '根据我的创意和参考素材生成一段 AI 视频，请先帮我梳理主体动作、镜头和画面风格。',
+    category: '视频创作',
+    icon: WandSparkles,
+    workspace: 'video-generation'
+  },
+  {
+    title: '图像生成',
+    description: '生成创意图片与视觉素材',
+    prompt: '根据我的创意生成一组图片，请先确认画面主体、风格、构图和使用场景。',
+    category: '图像创作',
+    icon: Image,
+    workspace: 'image-generation'
+  },
+  {
+    title: '文章写作',
+    description: '公众号、X 等平台文章',
+    prompt: '帮我根据内容灵感写一篇适合公众号、X 等平台发布的文章，先给出选题和大纲，再完成正文。',
+    category: '文案创作',
+    icon: Newspaper,
+    badge: 'NEW',
+    workspace: 'wechat-article'
+  },
+  {
     title: '火柴人动画',
     description: '角色、分镜与完整动画',
     prompt: '根据我的创意生成一支动画短片，请先帮我完善故事、角色和分镜。',
     category: '视频创作',
     icon: Sparkles,
     workspace: 'stickman-video'
-  },
-  {
-    title: '视频下载',
-    description: '支持YouTube，Bilibili等',
-    prompt: '帮我下载这个视频链接，支持 YouTube、Bilibili 等平台，并保存为可用的视频文件。',
-    category: '视频编辑',
-    icon: Download,
-    workspace: 'video-download'
   },
   {
     title: '视频切片',
@@ -174,35 +192,18 @@ const creatorTools: DashboardEntry[] = [
     workspace: 'smart-dubbing'
   },
   {
-    title: '视频生成',
-    description: '文字或参考图生成视频片段',
-    prompt: '根据我的创意和参考素材生成一段 AI 视频，请先帮我梳理主体动作、镜头和画面风格。',
-    category: '视频创作',
-    icon: WandSparkles,
-    workspace: 'video-generation'
-  },
-  {
     title: '数字人口播',
     description: '快速制作专业口播',
     prompt: '帮我制作一支数字人口播视频，请先优化文案，再规划人物、声音和画面。',
     category: '数字人',
     icon: UserRound,
     workspace: 'digital-avatar'
-  },
-  {
-    title: '图像生成',
-    description: '生成创意图片与视觉素材',
-    prompt: '根据我的创意生成一组图片，请先确认画面主体、风格、构图和使用场景。',
-    category: '图像创作',
-    icon: Image,
-    workspace: 'image-generation'
   }
 ];
 
 const categories = ['全部', '视频创作', '视频编辑', '图像创作', '文案创作', '音频处理'] as const;
 type CategoryFilter = typeof categories[number];
 
-const CREATOR_JOB_LOAD_TIMEOUT_MS = 15_000;
 const CREATOR_JOB_CREATE_ATTEMPT_TIMEOUT_MS = 4_000;
 const CREATOR_JOB_CREATE_ATTEMPTS = 3;
 const CREATOR_JOB_CREATE_RECOVERY_TIMEOUT_MS = 30_000;
@@ -347,6 +348,7 @@ export default function DashboardPage(props: {
   if (activeWorkspace === 'video-translation') {
     return renderCreatorWorkspace('video-translation', (
       <VideoTranslationWorkspace
+        runtimeDependencies={props.runtimeDependencies}
         promptHint={activePromptHint}
         videoMetadataService={props.videoMetadataService}
         creatorServicesService={props.creatorServicesService}
@@ -618,6 +620,7 @@ function CreatorWorkspaceSession(props: {
     ? createPendingCreatorJob(props.projectId, props.templateId, props.templateVersion)
     : undefined);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [restoreConnection, setRestoreConnection] = useState<CreatorConnectionState>({ status: 'connecting', attempt: 0 });
   const pageIssues = usePageIssueState('creator-launch');
   const jobRef = useRef(job);
   const mountedRef = useRef(false);
@@ -748,41 +751,40 @@ function CreatorWorkspaceSession(props: {
     }
 
     if (props.jobId !== createdJobIdRef.current) createdJobIdRef.current = undefined;
-    const request = props.service.getJob(props.jobId).then(response => response.job);
+    if (jobRef.current?.id === props.jobId) return;
+    const jobId = props.jobId;
     setJob(current => current?.id === props.jobId ? current : undefined);
-    const timeout = window.setTimeout(() => {
-      if (canceled) return;
-      pageIssues.captureOperationFailure(
-        'creator-launch.restore-job',
-        new Error('creator_job_restore_timeout'),
-        l('恢复创作项目超时，请重试。', 'Restoring the creator project timed out. Try again.'),
-        { retryable: true }
-      );
-    }, CREATOR_JOB_LOAD_TIMEOUT_MS);
-    void request.then(next => {
-      if (next.projectId !== props.projectId) {
-        throw new Error('该创作项目不属于当前工作目录');
+    const subscription = createCreatorSnapshotSubscription<CreatorJob>({
+      loadSnapshot: async options => {
+        const next = (await props.service.getJob(jobId, options)).job;
+        if (next.projectId !== props.projectId || next.templateId !== props.templateId) {
+          throw new ApiClientError({ status: 409, code: 'CREATOR_SESSION_MISMATCH', message: '该创作项目与当前工作目录或模板不匹配' });
+        }
+        return next;
+      },
+      subscribe: () => ({ close() {} }),
+      onSnapshot(next) {
+        if (canceled) return;
+        pageIssues.resolveOperation('creator-launch.restore-job');
+        setJob(next);
+        subscription.close();
+      },
+      onState(next) {
+        if (canceled) return;
+        setRestoreConnection(next);
+        if (next.status === 'failed') {
+          pageIssues.captureOperationFailure(
+            'creator-launch.restore-job', next.error,
+            l('无法恢复创作项目，请重试。', 'Could not restore the creator project. Try again.'),
+            { retryable: true }
+          );
+        }
       }
-      if (next.templateId !== props.templateId) {
-        throw new Error('该创作项目与当前模板不匹配');
-      }
-      if (canceled) return;
-      window.clearTimeout(timeout);
-      pageIssues.resolveOperation('creator-launch.restore-job');
-      setJob(next);
-    }).catch(reason => {
-      if (canceled) return;
-      window.clearTimeout(timeout);
-      pageIssues.captureOperationFailure(
-        'creator-launch.restore-job',
-        reason,
-        l('无法恢复创作项目，请重试。', 'Could not restore the creator project. Try again.'),
-        { retryable: true }
-      );
     });
+    void subscription.start();
     return () => {
       canceled = true;
-      window.clearTimeout(timeout);
+      subscription.close();
     };
   }, [
     l,
@@ -800,6 +802,7 @@ function CreatorWorkspaceSession(props: {
   if (restoreIssue) {
     return (
       <main className="creator-workspace-loading">
+        <RuntimeRecoveryNotice session={restoreConnection} onRetrySession={async () => setLoadAttempt(attempt => attempt + 1)} />
         <IssueList
           issues={pageIssues.issues}
           actions={{ retryOperations: {
@@ -817,6 +820,7 @@ function CreatorWorkspaceSession(props: {
     return (
       <main className="creator-workspace-loading" aria-busy="true">
         {l('正在恢复创作项目', 'Restoring creator project')}
+        <RuntimeRecoveryNotice session={restoreConnection} onRetrySession={async () => setLoadAttempt(attempt => attempt + 1)} />
       </main>
     );
   }
@@ -1037,5 +1041,5 @@ const englishDashboardLabels: Record<string, string> = {
   封面生成: 'Thumbnail Generator',
   生成视频与内容封面: 'Create thumbnails for videos and content',
   视频下载: 'Video Downloader',
-  '支持YouTube，Bilibili等': 'Supports YouTube, Bilibili, and more'
+  '下载公开视频，或提取 MP3 音频': 'Download public videos or extract MP3 audio'
 };

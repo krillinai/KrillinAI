@@ -41,7 +41,7 @@ describe('AttachmentTray', () => {
 
     expect(screen.getByRole('img', { name: 'ready.png' })).toBeInTheDocument();
     expect(screen.getByRole('status', { name: '正在上传 uploading.png' })).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('网络错误');
+    expect(screen.getByText('网络错误').closest('[role="status"]')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '移除附件 ready.png' }));
     await user.click(screen.getByRole('button', { name: '重试上传 failed.png' }));
     expect(onRemove).toHaveBeenCalledWith('ready');

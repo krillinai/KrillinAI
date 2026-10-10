@@ -107,6 +107,9 @@ export type RuntimeErrorCode =
   | 'VIDEO_GENERATION_NOT_READY'
   | 'VIDEO_GENERATION_STORAGE_FAILED'
   | 'VIDEO_METADATA_UNAVAILABLE'
+  | 'creator_source_part_required'
+  | 'creator_source_invalid_part'
+  | 'creator_source_metadata_unavailable'
   | 'creator_job_not_found'
   | 'creator_job_has_active_run'
   | 'creator_job_not_running'
@@ -132,6 +135,8 @@ export type RuntimeErrorCode =
   | 'creator_tts_upstream_error'
   | 'creator_dependency_prepare_failed'
   | 'creator_yt_dlp_update_unavailable'
+  | 'creator_components_unavailable'
+  | 'creator_component_download_unavailable'
   | 'creator_yt_dlp_update_check_failed'
   | 'creator_yt_dlp_update_download_failed'
   | 'creator_yt_dlp_update_verification_failed'
@@ -167,6 +172,7 @@ export function publicErrorKindForCode(code: string): PublicErrorFacts['kind'] |
   if (normalized === 'ECONNREFUSED') return 'connection-refused';
   if (normalized === 'ECONNRESET' || normalized === 'EPIPE') return 'connection-reset';
   if (normalized === 'ETIMEDOUT' || normalized.startsWith('UND_ERR_') && normalized.endsWith('_TIMEOUT')) return 'timeout';
+  if (normalized === 'ERR_FS_FILE_TOO_LARGE' || normalized === 'EFBIG') return 'storage';
   if (/(?:^|_)CONFIG(?:_[A-Z]+)*_(?:REQUIRED|MISSING|INVALID|UNAVAILABLE)$/.test(normalized)) return 'configuration';
   if (normalized === 'UNAUTHORIZED' || /(?:^|_)(?:AUTH_FAILED|PERMISSION_DENIED|ACCESS_DENIED)$/.test(normalized)) return 'unauthorized';
   if (/(?:^|_)VALIDATION_FAILED$/.test(normalized) || /(?:^|_)(?:INPUT_)?INVALID$/.test(normalized)) return 'validation';
@@ -181,8 +187,62 @@ export function safePublicErrorCode(value: unknown): string | undefined {
   return typeof value === 'string'
     && /^[a-zA-Z0-9._:/-]{1,160}$/.test(value)
     && !/^sk[-_]/i.test(value)
-    && !/[a-zA-Z0-9]{32,}/.test(value)
+    && !value.split(/[._:/-]/).some(part => part.length >= 32
+      && !/^[A-Z][a-z]+(?:[A-Z][a-z]+){2,}$/.test(part))
     ? value
+    : undefined;
+}
+
+export function publicErrorCodeFromFailure(error: unknown): string | undefined {
+  const seen = new Set<unknown>();
+  for (let depth = 0; depth < 4 && error !== null && typeof error === 'object'; depth += 1) {
+    if (seen.has(error)) break;
+    seen.add(error);
+    const code = safePublicErrorCode((error as { code?: unknown }).code);
+    if (code !== undefined) return code;
+    error = (error as { cause?: unknown }).cause;
+  }
+  return undefined;
+}
+
+export function publicErrorMessageFromFailure(error: unknown): string | undefined {
+  const seen = new Set<unknown>();
+  const messages: string[] = [];
+  for (let depth = 0; depth < 4 && error !== null && typeof error === 'object'; depth += 1) {
+    if (seen.has(error)) break;
+    seen.add(error);
+    const message = safePublicErrorMessage((error as { message?: unknown }).message);
+    if (message !== undefined && !messages.includes(message)) messages.unshift(message);
+    error = (error as { cause?: unknown }).cause;
+  }
+  return safePublicErrorMessage(messages.join('；'));
+}
+
+export function safePublicRequestId(value: unknown): string | undefined {
+  return typeof value === 'string'
+    && /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,159}$/.test(value)
+    && !/^(?:sk[-_]|AIza|AKIA|ASIA|gh[pousr]_|github_pat_|eyJ)/i.test(value)
+    ? value
+    : undefined;
+}
+
+export function safePublicErrorMessage(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.length > 4_000) return undefined;
+  const sanitized = value
+    .replace(/\b(?:authorization|api[-_ ]?key|(?:access[-_ ]?|refresh[-_ ]?)?token|secret|password)["']?\s*[:=]\s*(?:"[^"]*"|'[^']*'|(?:Bearer|Basic)\s+[^\s,;]+|[^\s,;]+)/gi, '[redacted]')
+    .replace(/\b(?:Bearer|Basic)\s+[^\s,;]+/gi, '[redacted]')
+    .replace(/\b(?:sk[-_]|AIza|AKIA|ASIA|gh[pousr]_|github_pat_|eyJ)[a-zA-Z0-9._-]+/gi, '[redacted]')
+    .replace(/data:[^\s,]+,[a-zA-Z0-9+/=]+/gi, '[redacted]')
+    .replace(/\b(?:https?|file):\/\/[^\s<>"']+/gi, '[redacted]')
+    .replace(/[a-zA-Z]:\\Users\\[^\s"']+|\/(?:Users|home)\/[^\s"']+/g, '[redacted]')
+    .replace(/^\s*at\s+[^\n]+$/gm, '')
+    .replace(/\b[a-zA-Z0-9+/=_-]{32,}\b/g, part => safePublicErrorCode(part) === undefined ? '[redacted]' : part)
+    .replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 500);
+  return sanitized.replace(/\[redacted\]/g, '').replace(/[^\p{L}\p{N}]/gu, '').length > 0
+    ? sanitized
     : undefined;
 }
 

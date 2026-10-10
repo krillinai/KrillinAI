@@ -859,6 +859,7 @@ export default function StickmanVideoWorkspace(props: {
                 onSave={saveShot}
                 onRegenerate={shotId => void regenerateShot(shotId)}
                 onGenerateMissing={() => void generateMissingShots()}
+                onRetry={() => void apply('retry-stage', { stageId: 'storyboard' })}
                 onBack={() => setActiveStep(2)}
                 onNext={() => void continueFromVisuals()}
               />
@@ -924,6 +925,20 @@ function SourceAndCharacterStep(props: {
   onStart(): void;
   onContinue(): void;
 }) {
+  const [durationInput, setDurationInput] = useState({
+    value: props.targetDurationSeconds,
+    preset: targetDurationPreset(props.targetDurationSeconds),
+    draft: String(props.targetDurationSeconds)
+  });
+
+  useEffect(() => {
+    setDurationInput(previous => previous.value === props.targetDurationSeconds ? previous : {
+      value: props.targetDurationSeconds,
+      preset: targetDurationPreset(props.targetDurationSeconds),
+      draft: String(props.targetDurationSeconds)
+    });
+  }, [props.targetDurationSeconds]);
+
   return (
     <div className="creator-tool-panel stickman-story-panel">
       <header className="creator-tool-panel-heading"><span><Sparkles size={18} /></span><div><h2>{props.l('来源与角色', 'Source and character')}</h2><p>{props.l('选择创作来源与固定角色。', 'Choose a source and a fixed character.')}</p></div></header>
@@ -964,12 +979,13 @@ function SourceAndCharacterStep(props: {
           <div className="stickman-duration-control">
             <NativeSelect
               aria-labelledby="stickman-target-duration-label"
-              value={targetDurationPreset(props.targetDurationSeconds)}
-              onChange={event => props.onPatch({
-                targetDurationSeconds: event.target.value === 'custom'
-                  ? 90
-                  : Number(event.target.value)
-              })}
+              value={durationInput.preset}
+              onChange={event => {
+                const preset = event.target.value;
+                const value = preset === 'custom' ? 90 : Number(preset);
+                setDurationInput({ value, preset, draft: String(value) });
+                props.onPatch({ targetDurationSeconds: value });
+              }}
             >
               <option value="30">{props.l('30 秒', '30 seconds')}</option>
               <option value="60">{props.l('1 分钟', '1 minute')}</option>
@@ -977,20 +993,24 @@ function SourceAndCharacterStep(props: {
               <option value="600">{props.l('10 分钟', '10 minutes')}</option>
               <option value="custom">{props.l('自定义', 'Custom')}</option>
             </NativeSelect>
-            {targetDurationPreset(props.targetDurationSeconds) === 'custom' ? (
+            {durationInput.preset === 'custom' ? (
               <span className="stickman-custom-duration">
                 <input
                   type="number"
                   min={10}
                   max={600}
-                  value={props.targetDurationSeconds}
+                  value={durationInput.draft}
                   aria-label={props.l('自定义时长（秒）', 'Custom duration in seconds')}
                   onChange={event => {
-                    const value = Number(event.target.value);
-                    if (Number.isFinite(value) && value >= 10 && value <= 600) {
+                    const draft = event.target.value;
+                    const value = Number(draft);
+                    const valid = draft !== '' && Number.isFinite(value) && value >= 10 && value <= 600;
+                    setDurationInput({ value: valid ? value : props.targetDurationSeconds, preset: 'custom', draft });
+                    if (valid) {
                       props.onPatch({ targetDurationSeconds: value });
                     }
                   }}
+                  onBlur={() => setDurationInput(previous => ({ ...previous, draft: String(props.targetDurationSeconds) }))}
                 />
                 <small>{props.l('秒', 'sec')}</small>
               </span>
@@ -1639,6 +1659,7 @@ function StoryboardStep(props: {
   onSave(shotId: string, visualDescription: string, motion: string): Promise<void>;
   onRegenerate(shotId: string): void;
   onGenerateMissing(): void;
+  onRetry(): void;
   onBack(): void;
   onNext(): void;
 }) {
@@ -1646,9 +1667,12 @@ function StoryboardStep(props: {
     return (
       <div className="stickman-storyboard-step">
         <StoryboardPlaceholderPanel
+          stage={latestStage(props.jobStages, 'storyboard')}
           script={props.script}
           timing={props.timing}
+          busy={props.busy}
           l={props.l}
+          onRetry={props.onRetry}
         />
         <WizardActions
           canContinue={false}
@@ -1858,10 +1882,14 @@ function StoryboardShotRow(props: {
 }
 
 function StoryboardPlaceholderPanel(props: {
+  stage?: CreatorStageRun;
   script?: ScriptManifest;
   timing?: AudioTiming;
+  busy: boolean;
   l: ReturnType<typeof useLocalizedCopy>;
+  onRetry(): void;
 }) {
+  const failed = props.stage?.status === 'failed';
   const timingBySegment = new Map(
     props.timing?.segments.map(segment => [segment.segmentId, segment]) ?? []
   );
@@ -1882,14 +1910,17 @@ function StoryboardPlaceholderPanel(props: {
   return (
     <div
       className="creator-tool-panel stickman-storyboard-review stickman-storyboard-placeholder"
-      aria-busy="true"
+      data-state={failed ? 'failed' : 'loading'}
+      aria-busy={!failed}
     >
       <header className="creator-tool-panel-heading">
         <span><ImageIcon size={18} /></span>
         <div>
           <h2>{props.l('分镜与画面', 'Storyboard and visuals')}</h2>
           <p role="status">
-            {segments.length > 0
+            {failed
+              ? props.l('分镜生成失败，图片生成尚未开始', 'Storyboard generation failed. Image generation has not started.')
+              : segments.length > 0
               ? props.l(
                   `正在规划 ${segments.length} 个镜头的画面描述`,
                   `Planning visual descriptions for ${segments.length} shots`
@@ -1897,53 +1928,70 @@ function StoryboardPlaceholderPanel(props: {
               : props.l('正在读取旁白并规划分镜', 'Reading narration and planning the storyboard')}
           </p>
         </div>
-        <LoaderCircle className="creator-collaboration-spin" size={17} aria-hidden="true" />
+        {!failed ? <LoaderCircle className="creator-collaboration-spin" size={17} aria-hidden="true" /> : null}
       </header>
-      <div className="stickman-storyboard-editor">
-        {rows.map((row, index) => (
-          <article
-            className="stickman-storyboard-row stickman-storyboard-loading-row"
-            data-status="planning"
-            key={row.id}
+      {failed ? (
+        <div className="stickman-storyboard-editor">
+          <p className="creator-tool-notice" role="alert">
+            {props.stage?.errorMessage ?? props.l('分镜生成未完成，请重试。', 'Storyboard generation did not complete. Try again.')}
+          </p>
+          <button
+            className="video-translation-secondary-action"
+            type="button"
+            disabled={props.busy}
+            onClick={props.onRetry}
           >
-            <div className="stickman-storyboard-meta">
-              <strong>{String(index + 1).padStart(2, '0')}</strong>
-              <small>
-                {row.durationSeconds === undefined ? '--' : formatSeconds(row.durationSeconds)}
-              </small>
-            </div>
-            <div className="stickman-storyboard-media">
-              <div className="stickman-storyboard-image stickman-storyboard-placeholder-image">
-                <div className="stickman-storyboard-placeholder-image-status">
-                  <LoaderCircle className="creator-collaboration-spin" size={17} aria-hidden="true" />
-                  <small>{props.l('准备画面', 'Preparing visual')}</small>
+            <RefreshCw size={15} aria-hidden="true" />
+            {props.l('重试分镜', 'Retry storyboard')}
+          </button>
+        </div>
+      ) : (
+        <div className="stickman-storyboard-editor">
+          {rows.map((row, index) => (
+            <article
+              className="stickman-storyboard-row stickman-storyboard-loading-row"
+              data-status="planning"
+              key={row.id}
+            >
+              <div className="stickman-storyboard-meta">
+                <strong>{String(index + 1).padStart(2, '0')}</strong>
+                <small>
+                  {row.durationSeconds === undefined ? '--' : formatSeconds(row.durationSeconds)}
+                </small>
+              </div>
+              <div className="stickman-storyboard-media">
+                <div className="stickman-storyboard-image stickman-storyboard-placeholder-image">
+                  <div className="stickman-storyboard-placeholder-image-status">
+                    <LoaderCircle className="creator-collaboration-spin" size={17} aria-hidden="true" />
+                    <small>{props.l('准备画面', 'Preparing visual')}</small>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="stickman-storyboard-copy">
-              <strong>{props.l('画面描述', 'Visual description')}</strong>
-              <div
-                className="stickman-storyboard-description-skeleton"
-                aria-label={props.l('正在生成画面描述', 'Generating visual description')}
-              >
-                <i />
-                <i className="is-medium" />
-              </div>
-              {row.narration !== '' ? (
-                <div className="stickman-storyboard-narration">
-                  <span>{props.l('旁白', 'Narration')}</span>
-                  <p>{row.narration}</p>
-                </div>
-              ) : (
-                <div className="stickman-storyboard-narration-skeleton" aria-hidden="true">
+              <div className="stickman-storyboard-copy">
+                <strong>{props.l('画面描述', 'Visual description')}</strong>
+                <div
+                  className="stickman-storyboard-description-skeleton"
+                  aria-label={props.l('正在生成画面描述', 'Generating visual description')}
+                >
                   <i />
-                  <i className="is-short" />
+                  <i className="is-medium" />
                 </div>
-              )}
-            </div>
-          </article>
-        ))}
-      </div>
+                {row.narration !== '' ? (
+                  <div className="stickman-storyboard-narration">
+                    <span>{props.l('旁白', 'Narration')}</span>
+                    <p>{row.narration}</p>
+                  </div>
+                ) : (
+                  <div className="stickman-storyboard-narration-skeleton" aria-hidden="true">
+                    <i />
+                    <i className="is-short" />
+                  </div>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -2167,7 +2215,7 @@ function ResultStep(props: {
       <div className="stickman-delivery-content">
         <section className="stickman-delivery-preview" aria-label={props.l('成片预览', 'Video preview')}>
           {props.videoUrl
-            ? <video controls preload="metadata" src={props.videoUrl} />
+            ? <video controls preload="metadata" aria-label={props.l('火柴人动画预览', 'Stickman video preview')} src={props.videoUrl} />
             : <div><FileVideo size={28} /><span>{props.l('成片暂时无法预览', 'The video preview is unavailable.')}</span></div>}
         </section>
         <section className="stickman-delivery-files">
@@ -2215,16 +2263,19 @@ function PendingPanel(props: { icon: typeof FileText; label: string }) {
 
 function useArtifactJson<T>(artifactId?: string): T | undefined {
   const session = useCreatorSession();
-  const [loaded, setLoaded] = useState<{ artifactId: string; value: T }>();
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  const jobId = session.job.id;
+  const [loaded, setLoaded] = useState<{ jobId: string; artifactId: string; value: T }>();
   useEffect(() => {
     let canceled = false;
     if (artifactId === undefined) return () => { canceled = true; };
-    void session.openArtifactJson<T>(artifactId).then(next => {
-      if (!canceled) setLoaded({ artifactId, value: next });
+    void sessionRef.current.openArtifactJson<T>(artifactId).then(next => {
+      if (!canceled) setLoaded({ jobId, artifactId, value: next });
     }).catch(() => undefined);
     return () => { canceled = true; };
-  }, [artifactId, session.openArtifactJson]);
-  return loaded !== undefined && loaded.artifactId === artifactId
+  }, [artifactId, jobId]);
+  return loaded !== undefined && loaded.jobId === jobId && loaded.artifactId === artifactId
     ? loaded.value
     : undefined;
 }
@@ -2267,24 +2318,32 @@ function readScriptManifest(value: unknown): ScriptManifest | undefined {
 
 function useArtifactUrl(artifactId?: string): string {
   const session = useCreatorSession();
-  const [url, setUrl] = useState('');
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  const jobId = session.job.id;
+  const [loaded, setLoaded] = useState<{ jobId: string; artifactId: string; url: string }>();
   useEffect(() => {
     let objectUrl = '';
     let canceled = false;
-    setUrl('');
     if (artifactId === undefined) return () => { canceled = true; };
     void createCreatorArtifactObjectUrl(
-      session,
+      sessionRef.current,
       artifactId,
       'stickman.load-artifact-preview',
       '创作产物预览加载失败，请稍后重试。'
     ).then(url => {
+      if (canceled) {
+        URL.revokeObjectURL(url);
+        return;
+      }
       objectUrl = url;
-      if (!canceled) setUrl(objectUrl);
+      setLoaded({ jobId, artifactId, url: objectUrl });
     }).catch(() => undefined);
     return () => { canceled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [artifactId, session.openArtifact]);
-  return url;
+  }, [artifactId, jobId]);
+  return loaded !== undefined && loaded.jobId === jobId && loaded.artifactId === artifactId
+    ? loaded.url
+    : '';
 }
 
 function latestCompleted(artifacts: CreatorArtifact[], kind: string): CreatorArtifact | undefined {

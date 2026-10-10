@@ -1,6 +1,7 @@
 import { open, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { protocol } from 'electron';
+import { fetchDesktopRequest } from './desktop-network.js';
 import type { DaemonConnection } from '../shared/types.js';
 import type { DesktopLogger } from './logger.js';
 import {
@@ -29,17 +30,37 @@ export function registerPrivilegedSchemes(): void {
   ]);
 }
 
+export type ProtocolHandlerController = {
+  suspendRuntime(): void;
+  resumeRuntime(): void;
+};
+
 export async function installProtocolHandler(input: {
   webRoot: string;
   bootstrapRoot: string;
   getConnection(): DaemonConnection | undefined;
   onTransportFailure?(connection: DaemonConnection): void;
   logger: DesktopLogger;
-}): Promise<void> {
+}): Promise<ProtocolHandlerController> {
+  let runtimeSuspended = false;
+  const activeRequests = new Set<AbortController>();
   await protocol.handle('opencreator-app', async request => {
     const url = new URL(request.url);
     if (isRuntimeRequestUrl(url)) {
-      return await proxyRuntimeRequest(request, url, input.getConnection(), input.logger, input.onTransportFailure);
+      if (runtimeSuspended) {
+        return jsonError(503, 'RUNTIME_SHUTTING_DOWN', 'OpenCreator Runtime is stopping');
+      }
+      const controller = new AbortController();
+      activeRequests.add(controller);
+      return await proxyRuntimeRequest(
+        request,
+        url,
+        input.getConnection(),
+        input.logger,
+        AbortSignal.any([request.signal, controller.signal]),
+        () => activeRequests.delete(controller),
+        input.onTransportFailure
+      );
     }
     if (url.hostname === 'app') {
       return await staticResponse(input.webRoot, request, true);
@@ -49,6 +70,16 @@ export async function installProtocolHandler(input: {
     }
     return new Response('Not found', { status: 404 });
   });
+  return {
+    suspendRuntime() {
+      runtimeSuspended = true;
+      for (const controller of activeRequests) controller.abort();
+      activeRequests.clear();
+    },
+    resumeRuntime() {
+      runtimeSuspended = false;
+    }
+  };
 }
 
 async function proxyRuntimeRequest(
@@ -56,9 +87,12 @@ async function proxyRuntimeRequest(
   url: URL,
   connection: DaemonConnection | undefined,
   logger: DesktopLogger,
+  signal: AbortSignal,
+  onComplete: () => void,
   onTransportFailure?: (connection: DaemonConnection) => void
 ): Promise<Response> {
   if (connection === undefined) {
+    onComplete();
     logger.warnRateLimited('runtime-proxy-unavailable', 'Runtime proxy connection unavailable', {
       method: request.method,
       path: url.pathname
@@ -85,12 +119,13 @@ async function proxyRuntimeRequest(
       headers,
       body,
       redirect: 'manual',
-      signal: request.signal
+      signal
     };
     if (streamsUpload && body !== undefined) upstreamRequest.duplex = 'half';
     phase = 'fetch';
-    const upstream = await fetch(target.toString(), upstreamRequest);
-    return relayRuntimeResponse(upstream, logger, {
+    signal.throwIfAborted();
+    const upstream = await fetchDesktopRequest(target.toString(), upstreamRequest);
+    return relayRuntimeResponse(upstream, logger, signal, onComplete, {
       method: request.method,
       path: url.pathname,
       daemonPort,
@@ -99,6 +134,10 @@ async function proxyRuntimeRequest(
       onTransportFailure
     });
   } catch (error) {
+    onComplete();
+    if (signal.aborted) {
+      return jsonError(503, 'RUNTIME_REQUEST_ABORTED', 'Runtime request was cancelled');
+    }
     if (error instanceof RuntimeProxyError) {
       return jsonError(error.status, error.code, error.message);
     }
@@ -118,6 +157,8 @@ async function proxyRuntimeRequest(
 function relayRuntimeResponse(
   upstream: Response,
   logger: DesktopLogger,
+  signal: AbortSignal,
+  onComplete: () => void,
   context: {
     method: string;
     path: string;
@@ -142,6 +183,7 @@ function relayRuntimeResponse(
   }
   const source = upstream.body;
   if (source === null) {
+    onComplete();
     return new Response(null, {
       status: upstream.status,
       statusText: upstream.statusText,
@@ -154,11 +196,13 @@ function relayRuntimeResponse(
     if (released) return;
     released = true;
     reader.releaseLock();
+    onComplete();
   };
   const body = new ReadableStream<Uint8Array>({
     async pull(controller) {
       try {
         const result = await reader.read();
+        if (released) return;
         if (result.done) {
           release();
           controller.close();
@@ -166,22 +210,26 @@ function relayRuntimeResponse(
         }
         controller.enqueue(result.value);
       } catch (error) {
+        if (released) return;
         release();
-        logger.warn('Runtime proxy response stream failed', {
-          method: context.method,
-          path: context.path,
-          phase: 'response-stream',
-          durationMs: Math.round(performance.now() - context.startedAt),
-          daemonPort: context.daemonPort,
-          errors: runtimeProxyErrorDetails(error)
-        });
-        context.onTransportFailure?.(context.connection);
+        if (!signal.aborted) {
+          logger.warn('Runtime proxy response stream failed', {
+            method: context.method,
+            path: context.path,
+            phase: 'response-stream',
+            durationMs: Math.round(performance.now() - context.startedAt),
+            daemonPort: context.daemonPort,
+            errors: runtimeProxyErrorDetails(error)
+          });
+          context.onTransportFailure?.(context.connection);
+        }
         controller.error(error);
       }
     },
     async cancel(reason) {
-      await reader.cancel(reason).catch(() => undefined);
+      const cancellation = reader.cancel(reason);
       release();
+      await cancellation.catch(() => undefined);
     }
   });
   return new Response(body, {

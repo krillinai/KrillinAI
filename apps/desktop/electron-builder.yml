@@ -51,8 +51,10 @@ extraResources:
     to: creator-runtime
   - from: .pack/codex-runtime
     to: codex-runtime
-  - from: .pack/stickman-runtime
-    to: stickman-runtime
+  - from: .pack/stickman-assets
+    to: daemon/runtime/stickman-assets
+  - from: .pack/components/remotion-component.json
+    to: daemon/runtime/remotion-component.json
   - from: ../web/dist
     to: web
   - from: resources
@@ -70,7 +72,6 @@ afterSign: ./scripts/notarize-after-sign.mjs
 mac:
   category: public.app-category.developer-tools
   extendInfo:
-    CFBundleIconName: OpenCreator
     CFBundleDevelopmentRegion: zh_CN
     CFBundleLocalizations:
       - zh_CN

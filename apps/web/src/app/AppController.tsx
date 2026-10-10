@@ -40,20 +40,15 @@ import { Timeline, type TimelineHandle } from '../components/timeline/Timeline.j
 import { eventToTimelineItem, type TimelineItem } from '../components/timeline/timeline-model.js';
 import type { CapabilitiesViewProps } from '../features/capabilities/CapabilitiesView.js';
 import { ConversationEmptyState } from '../features/conversation/ConversationEmptyState.js';
-import {
-  CreatorDashboard,
-  getCreatorSkillPromptHint,
-  type CreatorSkill
-} from '../features/conversation/CreatorDashboard.js';
+import type { CreatorSkill } from '../features/conversation/CreatorDashboard.js';
+import { getCreatorSkillPromptHint } from '../features/conversation/creator-skill-prompt-hint.js';
 import {
   creatorWorkspaceForTemplate,
   type CreatorSkillLaunch
 } from '../features/dashboard/creator-workspace.js';
 import { ConversationHeader } from '../features/conversation/ConversationHeader.js';
-import { MemorySuggestion } from '../features/conversation/MemorySuggestion.js';
 import { ApprovalPanel } from '../features/approvals/ApprovalPanel.js';
 import { useThreadHistory } from '../features/conversation/use-thread-history.js';
-import { DetailPanel } from '../features/details/DetailPanel.js';
 import { getSkillMarketDisplayTitle } from '../features/plugins/skill-market-model.js';
 import {
   collectTaskTransitions,
@@ -75,7 +70,6 @@ import {
   type OpenCreatorProject,
   type ProjectPermission
 } from '../features/projects/project-model.js';
-import { ProjectManagementDialog } from '../features/projects/ProjectManagementDialog.js';
 import {
   type CreatorProjectType
 } from '../features/projects/project-types.js';
@@ -87,7 +81,6 @@ import {
   type ComposerRunConfig,
   type ComposerSlashCommand
 } from '../features/runs/Composer.js';
-import { RunDetailPanel } from '../features/runs/RunDetailPanel.js';
 import { IssueList, PageIssueRoutingProvider } from '../features/issues/IssuePresenter.js';
 import AgentDiagnosticsPanel from '../features/issues/AgentDiagnosticsPanel.js';
 import { buildIssueAgentPrompt } from '../features/issues/issue-catalog.js';
@@ -113,6 +106,13 @@ import type {
   DefaultPermissionPreference,
   RuntimeStatus
 } from '../features/settings/OpenCreatorSettingsView.js';
+import {
+  confirmAgentSetup,
+  isAgentSetupConfirmed,
+  StartupAgentSetup,
+  type AgentSetupSnapshot
+} from '../features/settings/StartupAgentSetup.js';
+import { useLocalizedCopy } from '../i18n/useLocalizedCopy.js';
 import type { McpCapabilities } from '../features/settings/McpSettingsView.js';
 import { OpenCreatorSidebar } from '../features/shell/OpenCreatorSidebar.js';
 import {
@@ -124,6 +124,8 @@ import { browserBridge } from '../host/browser-bridge.js';
 import type { HostBridge } from '../host/bridge.js';
 import { useAppLanguage } from '../i18n/LanguageProvider.js';
 import { ApiClientError, RuntimeClient } from '../runtime/client.js';
+import { useRuntimeConnection } from '../runtime/use-runtime-connection.js';
+import { RuntimeRecoveryContext } from '../runtime/runtime-recovery.js';
 import { createFrameBatcher, type FrameBatcher } from '../runtime/frame-batcher.js';
 import { subscribeRunEvents as defaultSubscribeRunEvents, type SubscribeRunEventsInput } from '../runtime/sse.js';
 import type { ConnectionConfig } from '../runtime/types.js';
@@ -176,7 +178,7 @@ import {
   writeColorModePreference
 } from '../styles/color-mode.js';
 import { initialAppState, reduceAppState, type ActiveView, type AppState } from './app-state.js';
-import { formatRoute, type AppRoute } from './routes.js';
+import { formatRoute, parseRoute, type AppRoute } from './routes.js';
 import { useRuntimeDependencies } from './use-runtime-dependencies.js';
 
 type AppFileService = {
@@ -255,6 +257,10 @@ const FilesPage = lazy(() => import('../features/files/FilesPage.js'));
 const ProjectsPage = lazy(() => import('../features/projects/ProjectsPage.js'));
 const PluginsPage = lazy(() => import('../features/plugins/PluginsPage.js'));
 const DashboardPage = lazy(() => import('../features/dashboard/DashboardPage.js'));
+const CreatorDashboard = lazy(async () => {
+  const module = await import('../features/conversation/CreatorDashboard.js');
+  return { default: module.CreatorDashboard };
+});
 const ScheduleThreadHeader = lazy(async () => {
   const module = await import('../features/schedules/ScheduleThreadHeader.js');
   return { default: module.ScheduleThreadHeader };
@@ -263,6 +269,22 @@ const SchedulesPage = lazy(() => import('../features/schedules/SchedulesPage.js'
 const SearchPage = lazy(() => import('../features/search/SearchPage.js'));
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage.js'));
 const TaskCenterPage = lazy(() => import('../features/tasks/TaskCenterPage.js'));
+const DetailPanel = lazy(async () => {
+  const module = await import('../features/details/DetailPanel.js');
+  return { default: module.DetailPanel };
+});
+const RunDetailPanel = lazy(async () => {
+  const module = await import('../features/runs/RunDetailPanel.js');
+  return { default: module.RunDetailPanel };
+});
+const MemorySuggestion = lazy(async () => {
+  const module = await import('../features/conversation/MemorySuggestion.js');
+  return { default: module.MemorySuggestion };
+});
+const ProjectManagementDialog = lazy(async () => {
+  const module = await import('../features/projects/ProjectManagementDialog.js');
+  return { default: module.ProjectManagementDialog };
+});
 
 type PersistedNavigation = {
   currentProjectId?: string;
@@ -288,6 +310,7 @@ export function AppController(props: AppControllerProps) {
     t
   } = useAppLanguage();
   const appIssues = usePageIssueState('app-controller');
+  const l = useLocalizedCopy();
   const persistedNavigation = useMemo(readPersistedNavigation, []);
   const initialState = useMemo(
     () => createInitialState(props.route, persistedNavigation),
@@ -328,7 +351,7 @@ export function AppController(props: AppControllerProps) {
     () => new Set()
   );
   const [approvalErrors, setApprovalErrors] = useState<Record<string, string | undefined>>({});
-  const [connectionConfig, setConnectionConfig] = useState<ConnectionConfig | null>(null);
+  const { config: connectionConfig, state: connectionState, recovery: runtimeRecovery } = useRuntimeConnection(hostBridge, runtimeFetch);
   const [runtimeThreads, setRuntimeThreads] = useState<ThreadResponse[]>([]);
   const [runtimeSchedules, setRuntimeSchedules] = useState<ScheduleResponse[]>([]);
   const [runtimeTasks, setRuntimeTasks] = useState<TaskItem[]>([]);
@@ -345,12 +368,8 @@ export function AppController(props: AppControllerProps) {
   const [historyLoadingThreadId, setHistoryLoadingThreadId] = useState<string>();
   const [historyLoadedThreadId, setHistoryLoadedThreadId] = useState<string>();
   const [threadConfigUpdateError, setThreadConfigUpdateError] = useState<string>();
-  const [connectionState, setConnectionState] = useState<ConnectionState>({
-    status: 'disconnected',
-    message: '正在等待本地服务'
-  });
-  const [runtimeRestarting, setRuntimeRestarting] = useState(false);
-  const [runtimeRestartError, setRuntimeRestartError] = useState<string>();
+  const [agentSetup, setAgentSetup] = useState<'checking' | 'ready' | 'needed' | 'skipped'>('checking');
+  const [agentSetupSnapshot, setAgentSetupSnapshot] = useState<AgentSetupSnapshot>();
   const [runDiagnosticsById, setRunDiagnosticsById] = useState<Record<string, RunDiagnosticsResponse | undefined>>({});
   const [runAttachmentsById, setRunAttachmentsById] = useState<Record<string, AttachmentResponse[] | undefined>>({});
   const [runContextById, setRunContextById] = useState<Record<string, RunContextResponse | undefined>>({});
@@ -465,7 +484,6 @@ export function AppController(props: AppControllerProps) {
   const fileRevisionByPathRef = useRef<Record<string, number>>({});
   const savingFilePathsRef = useRef(new Set<string>());
   const connectionConfigRef = useRef<ConnectionConfig | null>(null);
-  const connectionConfigVersionRef = useRef(0);
   const runEventControllersRef = useRef(new Map<string, ActiveRunEventController>());
   const replayedTargetRunKeyRef = useRef<string>();
   const timelineEventBatchersByThreadIdRef = useRef(new Map<string, FrameBatcher<TimelineItem>>());
@@ -1219,40 +1237,6 @@ export function AppController(props: AppControllerProps) {
 
   useEffect(() => {
     let canceled = false;
-    const loadVersion = connectionConfigVersionRef.current;
-
-    readHostRuntimeConfig(loadVersion, () => canceled);
-    const unsubscribe = hostBridge.subscribeConnectionConfig?.(config => {
-      if (canceled) return;
-      connectionConfigVersionRef.current += 1;
-      if (config === null) {
-        setConnectionConfig(current => current === null ? null : { ...current });
-        setConnectionState({ status: 'disconnected', message: '正在恢复本地服务连接' });
-      } else {
-        setConnectionConfig(config);
-      }
-    });
-
-    return () => {
-      canceled = true;
-      unsubscribe?.();
-    };
-  }, [hostBridge]);
-
-  useEffect(() => {
-    if (connectionConfig !== null) return;
-    let canceled = false;
-    const timer = window.setInterval(() => {
-      readHostRuntimeConfig(connectionConfigVersionRef.current, () => canceled);
-    }, 2_000);
-    return () => {
-      canceled = true;
-      window.clearInterval(timer);
-    };
-  }, [connectionConfig, hostBridge]);
-
-  useEffect(() => {
-    let canceled = false;
 
     fileService
       .listTree()
@@ -1272,67 +1256,20 @@ export function AppController(props: AppControllerProps) {
   }, [fileService]);
 
   useEffect(() => {
+    if (connectionState.status !== 'connected' || connectionService === null || agentSetup !== 'checking') return;
     let canceled = false;
-    let timer: number | undefined;
-
-    if (connectionService === null) {
-      setConnectionState({ status: 'disconnected', message: '正在等待本地服务' });
-      return () => {
-        canceled = true;
-      };
-    }
-
-    const check = async () => {
-      let nextState: ConnectionState;
-      try {
-        nextState = await connectionService.check();
-      } catch {
-        nextState = { status: 'disconnected', message: '本地服务连接失败' };
-      }
+    void Promise.all([
+      connectionService.getCodexReadiness(), connectionService.getCodexProvider()
+    ]).then(([readiness, provider]) => {
       if (canceled) return;
-      setConnectionState(nextState);
-      if (nextState.status !== 'invalid_token') {
-        timer = window.setTimeout(check, nextState.status === 'connected' ? 5_000 : 2_000);
-      }
-    };
-    void check();
-
-    return () => {
-      canceled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
-  }, [connectionService]);
-
-  const availabilityProbeStatus = connectionState.status === 'connected'
-    ? connectionState.codexStatus.availabilityProbe?.status
-    : undefined;
-
-  useEffect(() => {
-    if (
-      connectionService === null
-      || connectionState.status !== 'connected'
-      || availabilityProbeStatus !== 'pending'
-    ) {
-      return;
-    }
-    let canceled = false;
-    const refresh = () => {
-      void connectionService.check()
-        .then(nextState => {
-          if (!canceled) setConnectionState(nextState);
-        })
-        .catch(() => undefined);
-    };
-    const timer = window.setInterval(refresh, 1_500);
-    return () => {
-      canceled = true;
-      window.clearInterval(timer);
-    };
-  }, [
-    availabilityProbeStatus,
-    connectionService,
-    connectionState.status
-  ]);
+      const snapshot = { readiness, provider };
+      setAgentSetupSnapshot(snapshot);
+      setAgentSetup(isAgentSetupConfirmed(snapshot) ? 'ready' : 'needed');
+    }).catch(() => {
+      if (!canceled) setAgentSetup('needed');
+    });
+    return () => { canceled = true; };
+  }, [agentSetup, connectionService, connectionState.status]);
 
   useEffect(() => {
     let canceled = false;
@@ -2306,46 +2243,6 @@ export function AppController(props: AppControllerProps) {
     if (mountedRef.current) setPendingRunStartsById(updated);
   }
 
-  function readHostRuntimeConfig(loadVersion: number, isCanceled: () => boolean) {
-    hostBridge
-      .readConnectionConfig()
-      .then(config => {
-        if (!isCanceled() && connectionConfigVersionRef.current === loadVersion) {
-          setConnectionConfig(current => config ?? current);
-        }
-      })
-      .catch(() => {
-        // Keep the last valid service while the host connection is unavailable.
-      });
-  }
-
-  function retryRuntimeConnection() {
-    setRuntimeRestartError(undefined);
-    connectionConfigVersionRef.current += 1;
-    const loadVersion = connectionConfigVersionRef.current;
-    setConnectionConfig(current => current === null ? null : { ...current });
-    setConnectionState({ status: 'disconnected', message: '正在等待本地服务' });
-    readHostRuntimeConfig(loadVersion, () => false);
-  }
-
-  async function restartLocalRuntime() {
-    if (hostBridge.restartRuntime === undefined || runtimeRestarting) return;
-    setRuntimeRestarting(true);
-    setRuntimeRestartError(undefined);
-    try {
-      const result = await hostBridge.restartRuntime();
-      if (!result.ok) {
-        setRuntimeRestartError(result.message);
-        return;
-      }
-      retryRuntimeConnection();
-    } catch (error) {
-      setRuntimeRestartError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setRuntimeRestarting(false);
-    }
-  }
-
   function handleColorModeChange(mode: ColorMode) {
     setColorMode(mode);
     applyColorMode(mode);
@@ -2506,7 +2403,7 @@ export function AppController(props: AppControllerProps) {
   }
 
   function askAgentAboutIssue(issue: OpenCreatorIssue, question: string) {
-    const prompt = buildIssueAgentPrompt(issue, question, language === 'en-US' ? 'en-US' : 'zh-CN');
+    const prompt = buildIssueAgentPrompt(issue, question, language);
     startNewConversation();
     setPendingIssueInquiry(prompt);
   }
@@ -4251,7 +4148,12 @@ export function AppController(props: AppControllerProps) {
     }
   }
 
-  const detailPanel = createDetailPanel();
+  const detailContent = createDetailPanel();
+  const detailPanel = detailContent === null ? null : (
+    <Suspense fallback={<div className="settings-state" role="status">{l('正在加载详情…', 'Loading details…', 'Läser in detaljer…')}</div>}>
+      {detailContent}
+    </Suspense>
+  );
   const selectedRunsLoading = runsLoadingThreadId !== undefined
     && runsLoadingThreadId === state.selectedThreadId;
   const conversationNeedsProject =
@@ -4262,9 +4164,12 @@ export function AppController(props: AppControllerProps) {
     || selectedPendingRunStart !== undefined
     || selectedRunsLoading
     || !runtimeWorkspaceReady
-    || connectionState.status !== 'connected';
+    || connectionState.status !== 'connected'
+    || agentSetup === 'skipped';
   const composerDisabledReason = connectionState.status !== 'connected'
     ? t('conversation.connectingRuntime')
+    : agentSetup === 'skipped'
+      ? l('请先配置 Agent 模型服务', 'Configure the Agent model service first')
     : projectLoadError !== undefined
       ? t('conversation.checkingTask')
       : conversationNeedsProject && currentProject === undefined
@@ -4360,14 +4265,16 @@ export function AppController(props: AppControllerProps) {
     item.kind === 'approval' && item.approval.status === 'pending'
   ));
   const creatorDashboard = (
-    <CreatorDashboard
-      presets={creatorPresets}
-      loading={creatorPresetsLoading}
-      error={creatorPresetsError}
-      onRetry={() => setCreatorPresetsReloadKey(value => value + 1)}
-      onSelectPreset={applyDashboardPreset}
-      onSelectSkill={applyDashboardSkill}
-    />
+    <Suspense fallback={<div role="status">{language === 'en-US' ? 'Loading templates...' : '正在加载模板...'}</div>}>
+      <CreatorDashboard
+        presets={creatorPresets}
+        loading={creatorPresetsLoading}
+        error={creatorPresetsError}
+        onRetry={() => setCreatorPresetsReloadKey(value => value + 1)}
+        onSelectPreset={applyDashboardPreset}
+        onSelectSkill={applyDashboardSkill}
+      />
+    </Suspense>
   );
   const conversationComposer = (
     <Composer
@@ -4545,14 +4452,24 @@ export function AppController(props: AppControllerProps) {
             </div>
           ) : null}
           {pendingMemorySuggestion !== undefined && memoryService !== null ? (
-            <MemorySuggestion
-              key={pendingMemorySuggestion.id}
-              content={pendingMemorySuggestion.content}
-              projectKey={currentMemoryProjectKey}
-              threadKey={state.selectedThreadId}
-              onSave={saveMemorySuggestion}
-              onDismiss={() => setPendingMemorySuggestion(undefined)}
-            />
+            <Suspense fallback={null}>
+              <MemorySuggestion
+                key={pendingMemorySuggestion.id}
+                content={pendingMemorySuggestion.content}
+                projectKey={currentMemoryProjectKey}
+                threadKey={state.selectedThreadId}
+                onSave={saveMemorySuggestion}
+                onDismiss={() => setPendingMemorySuggestion(undefined)}
+              />
+            </Suspense>
+          ) : null}
+          {agentSetup === 'skipped' ? (
+            <div className="startup-agent-banner" role="status">
+              {l('Agent 尚未配置，暂时无法发送任务。', 'Agent is not configured; you cannot send tasks yet.')}
+              <button type="button" onClick={() => setAgentSetup('needed')}>
+                {l('配置 Agent', 'Set up Agent')}
+              </button>
+            </div>
           ) : null}
           {conversationComposer}
           {showConversationEmptyState ? creatorDashboard : null}
@@ -4775,6 +4692,8 @@ export function AppController(props: AppControllerProps) {
       cleanupService={cleanupService}
       creatorServicesService={creatorServicesService}
       codexRuntimeService={connectionService}
+      agentSetupNeeded={agentSetup === 'skipped'}
+      onOpenAgentSetup={() => setAgentSetup('needed')}
       memoryService={memoryService}
       memoryProjects={memoryProjectOptions}
       memoryThreads={memoryThreadOptions}
@@ -4782,8 +4701,14 @@ export function AppController(props: AppControllerProps) {
       codexStatus={connectionState.status === 'connected' ? connectionState.codexStatus : undefined}
       initialTab={props.route.view === 'settings' ? props.route.tab : undefined}
       initialSection={props.route.view === 'settings' ? props.route.section : undefined}
+      componentId={props.route.view === 'settings' ? props.route.component : undefined}
+      returnToTranslation={props.route.view === 'settings' && props.route.from === 'video-translation'}
       onBack={() => {
-        const returnRoute = settingsReturnRouteRef.current;
+        const returnRoute = props.route.view === 'settings' && props.route.returnPath
+          ? parseRoute(props.route.returnPath)
+          : props.route.view === 'settings' && props.route.from === 'video-translation'
+            ? { view: 'workbench' as const, tool: 'video-translation' as const }
+            : settingsReturnRouteRef.current;
         applyRouteFromLocation(returnRoute);
         navigateToRoute(returnRoute);
       }}
@@ -4825,15 +4750,15 @@ export function AppController(props: AppControllerProps) {
   );
 
   return (
-    <PageIssueRoutingProvider><RuntimeConnectionProvider value={{
+    <RuntimeRecoveryContext.Provider value={runtimeRecovery}><PageIssueRoutingProvider><RuntimeConnectionProvider value={{
       status: connectionState.status,
       waitingForConfig: connectionConfig === null,
-      restarting: runtimeRestarting,
-      restartError: runtimeRestartError,
-      retry: retryRuntimeConnection,
-      ...(hostBridge.restartRuntime === undefined
+      restarting: runtimeRecovery.phase === 'restarting',
+      restartError: runtimeRecovery.phase === 'failed' ? runtimeRecovery.message : undefined,
+      retry: () => void runtimeRecovery.retry(),
+      ...(runtimeRecovery.restart === undefined
         ? {}
-        : { restart: () => void restartLocalRuntime() })
+        : { restart: () => void runtimeRecovery.restart!() })
     }}><div
       className="app-drop-shell"
       data-integrated-title-bar={
@@ -4862,7 +4787,7 @@ export function AppController(props: AppControllerProps) {
         }
         aria-live="polite"
       />
-      <AppLayout
+      {agentSetup === 'needed' ? null : <AppLayout
       sidebar={
         <OpenCreatorSidebar
           projects={projects}
@@ -4935,55 +4860,78 @@ export function AppController(props: AppControllerProps) {
       mobileSidebarOpen={mobileSidebarOpen}
       onOpenMobileSidebar={openMobileSidebar}
       onCloseMobileSidebar={dismissMobileSidebar}
-      />
+      />}
+      {agentSetup === 'checking' && connectionState.status === 'connected' ? (
+        <main className="startup-agent-setup" role="status">
+          {l('正在检查 Agent 配置…', 'Checking Agent configuration…')}
+        </main>
+      ) : null}
+      {agentSetup === 'needed' && connectionService !== null ? (
+        <StartupAgentSetup
+          service={connectionService}
+          initialSnapshot={agentSetupSnapshot}
+          onReady={snapshot => {
+            confirmAgentSetup(snapshot);
+            setAgentSetupSnapshot(snapshot);
+            setAgentSetup('ready');
+            startNewConversation({ destination: 'home' });
+          }}
+          onSkip={() => setAgentSetup('skipped')}
+        />
+      ) : null}
       {projectDropActive ? (
         <div className="project-drop-overlay" role="status" aria-live="polite">
           <FolderInput aria-hidden="true" size={30} />
           <strong>松开以添加项目文件夹</strong>
         </div>
       ) : null}
-      <ProjectManagementDialog
-        open={projectManagementOpen}
-        projects={projects}
-        archivedProjects={archivedProjects}
-        unassignedThreads={unassignedThreads}
-        initialProjectId={projectManagementProjectId}
-        busy={projectMutationBusy}
-        onClose={() => {
-          setProjectManagementOpen(false);
-          setProjectManagementProjectId(undefined);
-        }}
-        onUpdate={updateManagedProject}
-        onArchive={archiveProject}
-        onRestore={restoreManagedProject}
-        onReplaceDirectory={
-          hostBridge.selectProjectDirectory === undefined
-            ? undefined
-            : replaceManagedProjectDirectory
-        }
-        onAssignThread={assignManagedThread}
-        onAddProject={
-          projectService === null
-            ? undefined
-            : () => {
-                setProjectManagementOpen(false);
-                void createProject();
-              }
-        }
-        onAddProjectDirectory={
-          hostBridge.selectProjectDirectory === undefined
-            ? undefined
-            : async () => {
-                await addProjectDirectory();
-                setProjectManagementOpen(true);
-              }
-        }
-      />
+      {projectManagementOpen ? (
+        <Suspense fallback={<div className="conversation-toast" role="status">{l('正在加载项目管理…', 'Loading project management…', 'Läser in projekthantering…')}</div>}>
+          <ProjectManagementDialog
+            open={projectManagementOpen}
+            projects={projects}
+            archivedProjects={archivedProjects}
+            unassignedThreads={unassignedThreads}
+            initialProjectId={projectManagementProjectId}
+            busy={projectMutationBusy}
+            onClose={() => {
+              setProjectManagementOpen(false);
+              setProjectManagementProjectId(undefined);
+            }}
+            onUpdate={updateManagedProject}
+            onArchive={archiveProject}
+            onRestore={restoreManagedProject}
+            onReplaceDirectory={
+              hostBridge.selectProjectDirectory === undefined
+                ? undefined
+                : replaceManagedProjectDirectory
+            }
+            onAssignThread={assignManagedThread}
+            onAddProject={
+              projectService === null
+                ? undefined
+                : () => {
+                    setProjectManagementOpen(false);
+                    void createProject();
+                  }
+            }
+            onAddProjectDirectory={
+              hostBridge.selectProjectDirectory === undefined
+                ? undefined
+                : async () => {
+                    await addProjectDirectory();
+                    setProjectManagementOpen(true);
+                  }
+            }
+          />
+        </Suspense>
+      ) : null}
       <AgentDiagnosticsPanel
         hiddenCreatorIssues={immersiveWorkspace && props.route.view === 'workbench' && props.route.jobId === undefined}
+        hiddenBackgroundRuntimeIssues={immersiveWorkspace && props.route.view === 'workbench'}
         onAskIssue={askAgentAboutIssue}
       />
-    </div></RuntimeConnectionProvider></PageIssueRoutingProvider>
+    </div></RuntimeConnectionProvider></PageIssueRoutingProvider></RuntimeRecoveryContext.Provider>
   );
 
   function createDetailPanel() {
@@ -5555,7 +5503,7 @@ function readImageInputSupported(
   thread?: ThreadResponse
 ): boolean {
   if (connectionState.status !== 'connected') return false;
-  const capabilities = connectionState.codexStatus.capabilities;
+  const capabilities = connectionState.codexStatus?.capabilities;
   if (typeof capabilities !== 'object' || capabilities === null || Array.isArray(capabilities)) {
     return false;
   }
@@ -5569,7 +5517,7 @@ function readImageInputSupported(
 
 function readMcpCapabilities(connectionState: ConnectionState): McpCapabilities | undefined {
   if (connectionState.status !== 'connected') return undefined;
-  const capabilities = connectionState.codexStatus.capabilities;
+  const capabilities = connectionState.codexStatus?.capabilities;
   if (typeof capabilities !== 'object' || capabilities === null || Array.isArray(capabilities)) {
     return undefined;
   }
@@ -5845,9 +5793,9 @@ function mapRuntimeStatus(
     connected: true,
     ...(appVersion === undefined ? {} : { appVersion }),
     runtimeVersion: '0.1.0',
-    codexVersion: connectionState.codexStatus.codexVersion,
-    codexPath: connectionState.codexStatus.codexBin,
-    codexHome: connectionState.codexStatus.codexHome,
+    codexVersion: connectionState.codexStatus?.codexVersion,
+    codexPath: connectionState.codexStatus?.codexBin,
+    codexHome: connectionState.codexStatus?.codexHome,
     lastCheckedAt: '2026-07-07 10:00'
   };
 }

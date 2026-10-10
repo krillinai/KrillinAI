@@ -85,6 +85,7 @@ function createVideoTranslationTemplateDefinition(version: 1 | 2): CreatorTempla
           optional: true
         }],
         outputArtifacts: [
+          { kind: 'source_video', status: 'completed' },
           { kind: 'dubbed_audio', status: 'completed' },
           { kind: 'dubbed_video', status: 'completed' }
         ]
@@ -96,13 +97,13 @@ function createVideoTranslationTemplateDefinition(version: 1 | 2): CreatorTempla
         optional: true,
         allowedJobStatuses: ['draft', 'running', 'needs_input', 'failed'],
         inputArtifacts: [
-          { kind: 'source_video', selector: 'latest-completed' },
+          { kind: 'source_video', selector: 'latest-completed', optional: true },
           { kind: 'target_subtitle', selector: 'latest-completed' },
           { kind: 'bilingual_subtitle', selector: 'latest-completed', optional: true },
           { kind: 'dubbed_audio', selector: 'latest-completed', optional: true },
           { kind: 'dubbed_video', selector: 'latest-completed', optional: true }
         ],
-        outputArtifacts: [{ kind: 'horizontal_video', status: 'completed' }]
+        outputArtifacts: [{ kind: 'source_video', status: 'completed' }, { kind: 'horizontal_video', status: 'completed' }]
       },
       {
         id: 'render-vertical',
@@ -111,14 +112,36 @@ function createVideoTranslationTemplateDefinition(version: 1 | 2): CreatorTempla
         optional: true,
         allowedJobStatuses: ['draft', 'running', 'needs_input', 'failed'],
         inputArtifacts: [
-          { kind: 'source_video', selector: 'latest-completed' },
+          { kind: 'source_video', selector: 'latest-completed', optional: true },
           { kind: 'vertical_subtitle', selector: 'latest-completed', optional: true },
           { kind: 'target_subtitle', selector: 'latest-completed' },
           { kind: 'bilingual_subtitle', selector: 'latest-completed', optional: true },
           { kind: 'dubbed_audio', selector: 'latest-completed', optional: true },
           { kind: 'dubbed_video', selector: 'latest-completed', optional: true }
         ],
-        outputArtifacts: [{ kind: 'vertical_video', status: 'completed' }]
+        outputArtifacts: [{ kind: 'source_video', status: 'completed' }, { kind: 'vertical_video', status: 'completed' }]
+      },
+      {
+        id: 'preview-source-video',
+        executor: 'download',
+        optional: true,
+        resultVersionPolicy: 'none',
+        jobCompletionPolicy: 'preserve',
+        invalidateDependentArtifacts: false,
+        allowedJobStatuses: ['draft', 'needs_input', 'failed', 'completed', 'canceled'],
+        inputArtifacts: [],
+        outputArtifacts: [{ kind: 'source_video', status: 'completed' }]
+      },
+      {
+        id: 'prepare-source-video',
+        executor: 'download',
+        optional: true,
+        resultVersionPolicy: 'attach',
+        jobCompletionPolicy: 'preserve',
+        invalidateDependentArtifacts: false,
+        allowedJobStatuses: ['draft', 'running', 'needs_input', 'failed', 'completed', 'canceled'],
+        inputArtifacts: [{ kind: 'source_video', selector: 'latest-completed', optional: true }],
+        outputArtifacts: [{ kind: 'source_video', status: 'completed' }]
       }
     ],
     actions: [
@@ -155,7 +178,7 @@ function createVideoTranslationTemplateDefinition(version: 1 | 2): CreatorTempla
         inputSchema: jsonRecord,
         allowedStages: ['subtitle', 'tts', 'render-horizontal', 'render-vertical']
       }
-    ],
+    ].map(action => ({ ...action, allowedStages: [...action.allowedStages, 'prepare-source-video', 'preview-source-video'] })),
     outputs: [
       { kind: 'target_subtitle', required: true },
       { kind: 'horizontal_video', required: false },
@@ -168,7 +191,9 @@ function createVideoTranslationTemplateDefinition(version: 1 | 2): CreatorTempla
       version === 2
         ? '字幕样式只使用完整的 subtitleStyle 结构，不要使用 subtitleFont、subtitleSize、subtitleColor 或任意 ASS 标签。'
         : '历史任务可读取旧字幕样式字段，不要改变其模板版本。',
-      '启动执行时使用 availableStageIds 中的 subtitle、tts、render-horizontal 或 render-vertical。'
+      '启动执行时使用 availableStageIds 中的 subtitle、tts、render-horizontal 或 render-vertical。',
+      '字幕已完成但需要视频预览时，使用 prepare-source-video 并明确 inputResultVersion。它仅补齐所选版本的原视频，不重新翻译或创建新版本。',
+      '翻译前预览当前链接使用 preview-source-video，仅下载原视频，不启动翻译或创建结果版本。'
     ].join(' ')
   };
 }

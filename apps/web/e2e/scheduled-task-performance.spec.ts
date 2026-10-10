@@ -263,7 +263,7 @@ function expectLoadRequestBudget(
   requests: RuntimeRequest[],
   taskThreadIds: ReadonlySet<string>
 ): void {
-  expect(requests.length).toBeLessThanOrEqual(MAX_RUNTIME_REQUESTS_PER_LOAD);
+  expect(requests.length, JSON.stringify(requests)).toBeLessThanOrEqual(MAX_RUNTIME_REQUESTS_PER_LOAD);
   expect(threadListRequests(requests).length).toBeLessThanOrEqual(
     MAX_THREAD_LIST_REQUESTS_PER_LOAD
   );

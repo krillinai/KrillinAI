@@ -82,8 +82,9 @@ type asrUser struct {
 }
 
 type asrAudio struct {
-	Data   string `json:"data"`
-	Format string `json:"format"`
+	Data     string `json:"data"`
+	Format   string `json:"format"`
+	Language string `json:"language,omitempty"`
 }
 
 type asrOptions struct {
@@ -135,8 +136,9 @@ func (c *AsrClient) Transcription(audioFile, language, workDir string) (*types.T
 	body, err := json.Marshal(asrSubmitRequest{
 		User: asrUser{UID: "opencreator"},
 		Audio: asrAudio{
-			Data:   base64.StdEncoding.EncodeToString(audio),
-			Format: audioFormat(processed),
+			Data:     base64.StdEncoding.EncodeToString(audio),
+			Format:   audioFormat(processed),
+			Language: volcengineLanguage(language),
 		},
 		Request: asrOptions{
 			ModelName:      "bigmodel",
@@ -268,6 +270,43 @@ func audioFormat(path string) string {
 		return "m4a"
 	default:
 		return "mp3"
+	}
+}
+
+func volcengineLanguage(language string) string {
+	switch strings.ToLower(strings.TrimSpace(language)) {
+	case "", "auto":
+		return ""
+	case "zh", "zh_cn", "zh-cn":
+		return "zh-CN"
+	case "en", "en-us":
+		return "en-US"
+	case "ja", "ja-jp":
+		return "ja-JP"
+	case "ko", "ko-kr":
+		return "ko-KR"
+	case "es", "es-mx":
+		return "es-MX"
+	case "fr", "fr-fr":
+		return "fr-FR"
+	case "de", "de-de":
+		return "de-DE"
+	case "it", "it-it":
+		return "it-IT"
+	case "pt", "pt-br":
+		return "pt-BR"
+	case "id", "id-id":
+		return "id-ID"
+	case "ms", "ms-my":
+		return "ms-MY"
+	case "th", "th-th":
+		return "th-TH"
+	case "ru", "ru-ru":
+		return "ru-RU"
+	case "tr", "tr-tr":
+		return "tr-TR"
+	default:
+		return language
 	}
 }
 

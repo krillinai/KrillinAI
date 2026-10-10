@@ -331,6 +331,9 @@ export function createStickmanImageExecutor(input: {
         try {
           result = await generate(candidateRequest, config, {
             signal: stage.signal,
+            onProgress: progress => stage.reportProgress({
+              ...progress, completed: shotIndex, failed: candidateAttempt - 1, total: shotCount
+            }),
             referenceImages: referenceImages.map(reference => ({
               content: reference.content,
               mime: reference.mime

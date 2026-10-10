@@ -1,4 +1,5 @@
 import { dirname } from 'node:path';
+import { parse } from '@iarna/toml';
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 import { describe, expect, it } from 'vitest';
 import {
@@ -9,8 +10,67 @@ import {
   resolveKrillinCliSource
 } from '../../src/creator/krillin/cli-runner.js';
 import { createKrillinConfigToml } from '../../src/creator/krillin/config-bridge.js';
+import { buildKrillinStageOptions } from '../../src/creator/krillin/adapter.js';
 
 describe('KrillinAI CLI protocol', () => {
+  it.each([true, false])('never prepares video in the translation subtitle stage, even when composeVideo=%s', composeVideo => {
+    const stage = { job: { templateId: 'video-translation', state: { sourceUrl: 'https://youtu.be/demo', sourceLanguage: 'en', targetLanguage: 'zh_cn', composeVideo } }, stageRun: { stageId: 'subtitle', id: 'stage' }, workdir: '/job/stage' };
+    const options = buildKrillinStageOptions(stage as never);
+    expect(buildKrillinCliCommandArguments(stage as never, [], options, undefined)).not.toContain('--prepare-video');
+  });
+
+  it('generates audio-only dubbing without a video, and lazily composes that audio later', () => {
+    const state = { sourceUrl: 'https://youtu.be/demo', dubbing: true, composeVideo: false };
+    const stage = { job: { templateId: 'video-translation', state }, stageRun: { stageId: 'tts', id: 'tts' }, workdir: '/job/tts' };
+    const subtitle = { id: 'subtitle', kind: 'target_subtitle', path: '/job/target.srt' };
+    const tts = buildKrillinCliCommandArguments(stage as never, [subtitle], buildKrillinStageOptions(stage as never), undefined);
+    expect(tts).toContain('--audio-only');
+    expect(tts).not.toContain('--source-url');
+    const render = { ...stage, job: { ...stage.job, state: { ...state, composeVideo: true } }, stageRun: { stageId: 'render-horizontal', id: 'render' } };
+    const args = buildKrillinCliCommandArguments(render as never, [subtitle, { id: 'audio', kind: 'dubbed_audio', path: '/job/dubbed.wav' }], buildKrillinStageOptions(render as never), undefined);
+    expect(args).toContain('--source-url');
+    expect(args).toContain('--media-workdir');
+    expect(args.slice(args.indexOf('--audio'), args.indexOf('--audio') + 2)).toEqual(['--audio', '/job/dubbed.wav']);
+  });
+  it.each([true, false])('preserves French-to-Chinese settings through the adapter and CLI with platform captions=%s', preferPlatformCaptions => {
+    const stage = {
+      job: { templateId: 'video-translation', state: {
+        sourceUrl: 'https://youtu.be/french', sourceLanguage: 'fr', targetLanguage: 'zh_cn',
+        bilingual: true, subtitlePosition: 'top', preferPlatformCaptions
+      } },
+      stageRun: { stageId: 'subtitle', id: 'stage' }, workdir: '/job/stage'
+    };
+    const options = buildKrillinStageOptions(stage as never);
+    expect(options).toMatchObject({ originLanguage: 'fr', targetLanguage: 'zh_cn', bilingual: true });
+    const args = buildKrillinCliCommandArguments(stage as never, [], options, undefined);
+    expect(args.slice(args.indexOf('--origin-lang'), args.indexOf('--origin-lang') + 4))
+      .toEqual(['--origin-lang', 'fr', '--target-lang', 'zh_cn']);
+    expect(args[args.indexOf('--caption-source') + 1]).toBe(preferPlatformCaptions ? 'any' : 'whisper');
+    expect(args).toContain('--bilingual-top=true');
+    expect(args).not.toContain('--source-only');
+  });
+
+  it.each([
+    ['Spanish', 'es'],
+    ['Italian', 'it'],
+    ['Brazilian Portuguese', 'pt'],
+    ['Indonesian', 'id'],
+    ['Thai', 'th']
+  ])('preserves %s source language through the adapter and CLI', (_name, sourceLanguage) => {
+    const stage = {
+      job: { templateId: 'video-translation', state: {
+        sourceUrl: 'https://youtu.be/multilingual', sourceLanguage, targetLanguage: 'zh_cn',
+        bilingual: true, subtitlePosition: 'top', preferPlatformCaptions: false
+      } },
+      stageRun: { stageId: 'subtitle', id: 'stage' }, workdir: '/job/stage'
+    };
+    const options = buildKrillinStageOptions(stage as never);
+    expect(options.originLanguage).toBe(sourceLanguage);
+    const args = buildKrillinCliCommandArguments(stage as never, [], options, undefined);
+    expect(args.slice(args.indexOf('--origin-lang'), args.indexOf('--origin-lang') + 4))
+      .toEqual(['--origin-lang', sourceLanguage, '--target-lang', 'zh_cn']);
+  });
+
   it.each(['source_subtitle', 'target_subtitle'])('passes %s as an explicit CLI input', kind => {
     const args = buildKrillinCliCommandArguments({ stageRun: { stageId: 'subtitle', id: 'stage' }, workdir: '/job/stage' } as never,
       [{ id: 'srt', kind, path: '/job/local.srt' }], { sourceUrl: 'https://youtu.be/test', originLanguage: 'en', targetLanguage: 'zh_cn' }, undefined);
@@ -107,5 +167,23 @@ describe('KrillinAI CLI protocol', () => {
     config.transcription.whisperCpp.model = 'large-v3-turbo';
 
     expect(createKrillinConfigToml(config)).toContain('model = "large-v3-turbo"');
+  });
+
+  it('passes the configured FunASR endpoint, model and timeout to KrillinAI', () => {
+    const config = createDefaultCreatorServicesConfig();
+    config.transcription.provider = 'funasr';
+    config.transcription.funasr = {
+      baseUrl: 'http://127.0.0.1:8000/v1', apiKey: 'funasr-secret', model: 'sensevoice', timeoutMs: 60000
+    };
+
+    const document = parse(createKrillinConfigToml(config)) as {
+      transcribe: { provider: string; funasr: Record<string, string | number> };
+    };
+    expect(document.transcribe).toMatchObject({
+      provider: 'funasr',
+      funasr: {
+        base_url: 'http://127.0.0.1:8000/v1', api_key: 'funasr-secret', model: 'sensevoice', timeout_ms: 60000
+      }
+    });
   });
 });

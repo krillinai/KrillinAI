@@ -8,7 +8,8 @@ import type {
   DownloadOption,
   DownloadProbe
 } from '@opencreator/protocol';
-import { extractDouyinShareUrl } from '@opencreator/protocol';
+import { extractDouyinShareUrl, normalizeVideoSourceUrl, supportedVideoSourcePlatform, parseBilibiliVideoSource, videoSourceIdentity } from '@opencreator/protocol';
+import { creatorResultSnapshotForVersion } from '../result-snapshots.js';
 import type {
   CreatorExecutor,
   CreatorExecutorInput,
@@ -49,12 +50,19 @@ type PlaybackOutput = PlaybackCodecs & {
 
 const YT_DLP_UTF8_ARGS = ['--encoding', 'utf-8'];
 
+function isPreviewStage(stage: CreatorExecutorInput): boolean {
+  return stage.stageRun.stageId === 'prepare-source-video' || stage.stageRun.stageId === 'preview-source-video';
+}
+
 export function createDownloadExecutor(
   input: DownloadExecutorOptions
 ): CreatorExecutor {
   return {
     id: 'download',
     async run(stage) {
+      if (stage.job.templateId === 'video-translation' && isPreviewStage(stage)) {
+        return preparePreviewSource(input, stage);
+      }
       const url = readSourceUrl(stage);
       if (!isSupported(url)) {
         throw new CreatorExecutorError(
@@ -79,7 +87,7 @@ export function createDownloadExecutor(
             'Stickman video accepts public YouTube URLs only'
           );
         }
-        return downloadStickmanSource(input, url, proxy, stage);
+        return downloadPlaybackSource(input, url, proxy, stage);
       }
       throw new CreatorExecutorError(
         'creator_stage_not_supported',
@@ -285,17 +293,99 @@ async function downloadSelectedOption(
   };
 }
 
-async function downloadStickmanSource(
+async function preparePreviewSource(
+  input: DownloadExecutorOptions,
+  stage: CreatorExecutorInput
+): Promise<CreatorExecutorResult> {
+  const version = stage.stageRun.progress.inputResultVersion;
+  const snapshot = typeof version === 'number'
+    ? creatorResultSnapshotForVersion(stage.job, version)
+    : undefined;
+  const draftPreview = stage.stageRun.stageId === 'preview-source-video';
+  const sourceState = draftPreview
+    ? { ...stage.job.state, sourceType: 'url', sourceUrl: stage.stageRun.progress.previewSourceUrl ?? null }
+    : snapshot?.state;
+  const sourceUrl = sourceState?.sourceUrl;
+  const identity = typeof sourceUrl === 'string' ? videoSourceIdentity(sourceUrl) : null;
+  if (sourceState === undefined || sourceState.sourceType === 'file' || typeof sourceUrl !== 'string' || identity === null) {
+    throw new CreatorExecutorError(
+      'creator_action_input_invalid',
+      'A saved supported public video result source is required for preview'
+    );
+  }
+  const resolvedStage = { ...stage, job: { ...stage.job, state: sourceState } };
+  const candidates = [...stage.job.artifacts].reverse().filter(artifact => {
+    if (artifact.kind !== 'source_video' || artifact.status !== 'completed' || artifact.path === null) return false;
+    const settings = artifact.metadata.settingsSnapshot;
+    const cachedUrl = settings !== null && typeof settings === 'object' && !Array.isArray(settings)
+      ? settings.sourceUrl ?? artifact.metadata.sourceUrl
+      : artifact.metadata.sourceUrl;
+    return typeof cachedUrl === 'string' && videoSourceIdentity(cachedUrl) === identity;
+  });
+  for (const cached of candidates) {
+    try {
+      const info = await stat(cached.path!);
+      if (!info.isFile() || info.size === 0) continue;
+      const output = await normalizeVideoForPlayback(cached.path!, input, resolvedStage, null);
+      const [media, outputInfo, sha256] = await Promise.all([
+        validateMediaFile(output.path, input.ffprobePath, input.ffprobePrefixArgs),
+        stat(output.path),
+        sha256File(output.path)
+      ]);
+      return {
+        outputs: [{
+          kind: 'source_video',
+          status: 'completed',
+          path: output.path,
+          sourceArtifactIds: [cached.id],
+          metadata: {
+            ...cached.metadata,
+            ...media,
+            fileName: output.fileName,
+            size: outputInfo.size,
+            bytes: outputInfo.size,
+            sha256,
+            mimeType: mimeTypeFor(output.path),
+            videoCodec: output.videoCodec,
+            audioCodec: output.audioCodec,
+            pixelFormat: output.pixelFormat,
+            settingsSnapshot: sourceState,
+            previewOnly: draftPreview,
+            cacheReused: true,
+            playbackCompatible: true,
+            normalizedForPlayback: output.normalizedForPlayback
+          }
+        }],
+        progress: {
+          phase: 'completed',
+          percent: 100,
+          message: 'Source video is ready; existing subtitles are preserved'
+        }
+      };
+    } catch (error) {
+      if (stage.signal.aborted) throw error;
+    }
+  }
+  const bilibili = parseBilibiliVideoSource(sourceUrl);
+  const url = bilibili === null
+    ? normalizeVideoSourceUrl(sourceUrl)
+    : `https://www.bilibili.com/video/${bilibili.videoId}?p=${bilibili.partIndex ?? 1}`;
+  const proxy = (await input.configStore.read()).proxy.trim();
+  return downloadPlaybackSource(input, url, proxy, resolvedStage);
+}
+
+async function downloadPlaybackSource(
   input: DownloadExecutorOptions,
   url: string,
   proxy: string,
   stage: CreatorExecutorInput
 ): Promise<CreatorExecutorResult> {
+  const preview = isPreviewStage(stage);
   stage.reportProgress({
     status: 'running',
     phase: 'preparing_download',
-    percent: 2,
-    message: 'Preparing the YouTube source'
+    percent: preview ? null : 2,
+    message: preview ? 'Connecting to the original video source; existing subtitles are preserved' : 'Preparing the YouTube source'
   });
   const outputTemplate = join(stage.workdir, 'source.%(ext)s');
   const ytDlp = currentYtDlpRuntime(input);
@@ -315,8 +405,9 @@ async function downloadStickmanSource(
         '--progress',
         '--progress-delta',
         '0.5',
+        ...(preview ? ['--progress-template', 'download:oc-preview:%(progress)j'] : []),
         '-f',
-        'bestvideo+bestaudio/best',
+        preview ? 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]/best' : 'bestvideo+bestaudio/best',
         '--merge-output-format',
         'mp4',
         '--remux-video',
@@ -327,7 +418,7 @@ async function downloadStickmanSource(
       ], proxy)
     ],
     stage,
-    createDownloadProgressReporter(stage, 'video', [1]),
+    preview ? createPreviewProgressReporter(stage) : createDownloadProgressReporter(stage, 'video', [1]),
     ytDlp.env
   );
   const reportedPath = printedOutputPath(stdout);
@@ -343,8 +434,8 @@ async function downloadStickmanSource(
   stage.reportProgress({
     status: 'running',
     phase: 'validating_output',
-    percent: 97,
-    message: 'Checking the YouTube source'
+    percent: preview ? null : 97,
+    message: preview ? 'Checking the video for subtitle preview' : 'Checking the YouTube source'
   });
   const output = await normalizeVideoForPlayback(
     downloadedPath,
@@ -365,7 +456,7 @@ async function downloadStickmanSource(
     status: 'succeeded',
     phase: 'completed',
     percent: 100,
-    message: 'YouTube source downloaded'
+    message: preview ? 'Source video is ready; existing subtitles are preserved' : 'YouTube source downloaded'
   };
   stage.reportProgress(progress);
   return {
@@ -373,6 +464,7 @@ async function downloadStickmanSource(
       kind: 'source_video',
       status: 'completed',
       path: output.path,
+      ...(preview ? { sourceArtifactIds: [] } : {}),
       metadata: {
         ...media,
         fileName: output.fileName,
@@ -380,8 +472,10 @@ async function downloadStickmanSource(
         bytes: info.size,
         sha256,
         mimeType: mimeTypeFor(output.path),
-        source: 'stickman-video',
+        source: preview ? 'video-translation-preview' : 'stickman-video',
         sourceUrl: url,
+        ...(preview ? { settingsSnapshot: stage.job.state } : {}),
+        ...(stage.stageRun.stageId === 'preview-source-video' ? { previewOnly: true } : {}),
         videoCodec: output.videoCodec,
         audioCodec: output.audioCodec,
         pixelFormat: output.pixelFormat,
@@ -390,6 +484,36 @@ async function downloadStickmanSource(
       }
     }],
     progress
+  };
+}
+
+function createPreviewProgressReporter(stage: CreatorExecutorInput): (line: string) => void {
+  return line => {
+    const marker = line.indexOf('oc-preview:');
+    if (marker >= 0) {
+      try {
+        const data = JSON.parse(line.slice(marker + 'oc-preview:'.length)) as Record<string, unknown>;
+        const bytes = typeof data.downloaded_bytes === 'number' && Number.isFinite(data.downloaded_bytes)
+          ? Math.max(0, data.downloaded_bytes)
+          : 0;
+        const total = typeof data.total_bytes === 'number' && Number.isFinite(data.total_bytes) && data.total_bytes > 0
+          ? data.total_bytes
+          : typeof data.total_bytes_estimate === 'number' && Number.isFinite(data.total_bytes_estimate) && data.total_bytes_estimate > 0
+            ? data.total_bytes_estimate
+            : null;
+        stage.reportProgress({
+          phase: 'downloading',
+          percent: total === null ? null : Math.min(100, Math.max(0, bytes / total * 100)),
+          message: 'Downloading the current original-video resource; existing subtitles are preserved',
+          downloadedBytes: bytes,
+          totalBytes: total
+        });
+      } catch {}
+      return;
+    }
+    if (/\[(?:Merger|VideoRemuxer)\]/.test(line)) {
+      stage.reportProgress({ phase: 'merging_media', percent: null, message: 'Merging video and audio for subtitle preview' });
+    }
   };
 }
 
@@ -692,7 +816,7 @@ async function normalizeVideoForPlayback(
   stage.reportProgress({
     status: 'running',
     phase: 'normalizing_media',
-    percent: 98,
+    percent: isPreviewStage(stage) ? null : 98,
     message: 'Converting video for local playback'
   });
   const outputPath = playbackOutputPath(path);
@@ -764,7 +888,7 @@ function reportPlaybackConversionProgress(
   line: string,
   duration: number | null
 ): void {
-  if (duration === null || duration <= 0) return;
+  if (duration === null || duration <= 0 || isPreviewStage(stage)) return;
   const match = line.match(/^out_time=(\d+):(\d+):([\d.]+)$/);
   if (match === null) return;
   const elapsed = (
@@ -1178,16 +1302,7 @@ function readSourceUrl(stage: CreatorExecutorInput): string {
 }
 
 function normalizeSourceUrl(value: string): string {
-  const trimmed = extractDouyinShareUrl(value);
-  try {
-    const parsed = new URL(trimmed);
-    if (isDouyinFeaturedVideoUrl(parsed)) {
-      return `https://www.douyin.com/video/${parsed.searchParams.get('modal_id')}`;
-    }
-  } catch {
-    return trimmed;
-  }
-  return trimmed;
+  return normalizeVideoSourceUrl(value);
 }
 
 function mimeTypeFor(path: string): string {
@@ -1209,86 +1324,7 @@ function sha256File(path: string): Promise<string> {
 }
 
 function isSupported(value: string): boolean {
-  try {
-    const parsed = new URL(value);
-    const host = parsed.hostname.toLowerCase();
-    return parsed.protocol === 'https:'
-      && (
-        host === 'youtu.be'
-        || host === 'youtube.com'
-        || host.endsWith('.youtube.com')
-        || host === 'b23.tv'
-        || host === 'bilibili.com'
-        || host.endsWith('.bilibili.com')
-        || host === 'x.com'
-        || host.endsWith('.x.com')
-        || host === 'twitter.com'
-        || host.endsWith('.twitter.com')
-        || isTikTokVideoUrl(parsed)
-        || isInstagramVideoUrl(parsed)
-        || isDouyinVideoUrl(parsed)
-        || isFacebookVideoUrl(parsed)
-        || isXiaohongshuVideoUrl(parsed)
-        || isPinterestVideoUrl(parsed)
-      );
-  } catch {
-    return false;
-  }
-}
-
-function isTikTokVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  if (host === 'vm.tiktok.com' || host === 'vt.tiktok.com') {
-    return /^\/[\w-]+\/?$/.test(url.pathname);
-  }
-  return (host === 'tiktok.com' || host.endsWith('.tiktok.com'))
-    && /^\/@[^/]+\/video\/\d+\/?$/.test(url.pathname);
-}
-
-function isInstagramVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  return (host === 'instagram.com' || host === 'www.instagram.com')
-    && /^\/(?:reel|p|tv)\/[\w-]+\/?$/.test(url.pathname);
-}
-
-function isDouyinVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  if (host === 'v.douyin.com') {
-    return /^\/[\w-]+\/?$/.test(url.pathname);
-  }
-  return (host === 'douyin.com' || host === 'www.douyin.com')
-    && (/^\/video\/\d+\/?$/.test(url.pathname) || isDouyinFeaturedVideoUrl(url));
-}
-
-function isDouyinFeaturedVideoUrl(url: URL): boolean {
-  return (url.hostname === 'douyin.com' || url.hostname === 'www.douyin.com')
-    && url.pathname === '/jingxuan'
-    && /^\d+$/.test(url.searchParams.get('modal_id') ?? '');
-}
-
-function isFacebookVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  if (host === 'fb.watch') {
-    return /^\/[\w-]+\/?$/.test(url.pathname);
-  }
-  if (!['facebook.com', 'www.facebook.com', 'm.facebook.com'].includes(host)) {
-    return false;
-  }
-  return /^\/watch\/?$/.test(url.pathname)
-    ? /^\d+$/.test(url.searchParams.get('v') ?? '')
-    : /^\/(?:reel\/\d+|videos\/\d+|[^/]+\/videos\/\d+)\/?$/.test(url.pathname);
-}
-
-function isXiaohongshuVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  return (host === 'xiaohongshu.com' || host === 'www.xiaohongshu.com')
-    && /^\/explore\/[0-9a-f]{24}\/?$/i.test(url.pathname);
-}
-
-function isPinterestVideoUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  return (host === 'pinterest.com' || host === 'www.pinterest.com')
-    && /^\/pin\/\d+\/?$/.test(url.pathname);
+  return supportedVideoSourcePlatform(value) !== null;
 }
 
 function isYoutube(value: string): boolean {

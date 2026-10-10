@@ -23,16 +23,20 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import OpenCreatorMark from '../../components/brand/OpenCreatorMark.js';
 import { MarkdownRenderer } from '../../components/markdown/MarkdownRenderer.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
-import { RuntimeConnectionNotice } from '../../app/runtime-connection-context.js';
-import { issueConversationText } from '../issues/issue-catalog.js';
+import { useAppLanguage } from '../../i18n/LanguageProvider.js';
+import { issueConversationText, issueDiagnosticText } from '../issues/issue-catalog.js';
+import { OriginalErrorDetails } from '../issues/OriginalErrorDetails.js';
+import { creatorPreflightMessage } from './creator-preflight-copy.js';
 import ToolAgentComposer, { type ToolAgentPermission } from './ToolAgentComposer.js';
 import {
   creatorSystemIssueText,
+  creatorPanelAdapterFor,
   type CreatorPanelLocalize,
   type CreatorPanelAdapter,
   type CreatorStageProgressView
 } from './creator-panel-adapters.js';
 import { useOptionalCreatorSession } from './creator-session-store.js';
+import { RuntimeRecoveryNotice, useRuntimeRecovery } from '../../runtime/runtime-recovery.js';
 
 export type CreatorPanelQuickAction = {
   id: string;
@@ -103,6 +107,9 @@ export default function CreatorCollaborationPanel(props: {
 }) {
   const l = useLocalizedCopy();
   const session = useOptionalCreatorSession();
+  const runtimeRecovery = useRuntimeRecovery();
+  const connectionUnavailable = runtimeRecovery !== null && runtimeRecovery.state.status !== 'connected'
+    || session?.connection !== undefined && session.connection.status !== 'connected';
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [permission, setPermission] = useState<ToolAgentPermission>('full-access');
@@ -176,7 +183,7 @@ export default function CreatorCollaborationPanel(props: {
 
   async function send(message: string) {
     const content = message.trim();
-    if (!content || session === null || sendingRef.current) return;
+    if (!content || session === null || sendingRef.current || connectionUnavailable) return;
     sendingRef.current = true;
     session.clearError();
     setInput('');
@@ -250,9 +257,10 @@ export default function CreatorCollaborationPanel(props: {
             <ul>
               {session.preflight.blocked.map(item => (
                 <li key={item.id}>
-                  <span>{item.message}</span>
+                  <span>{creatorPreflightMessage(item.id, l)}</span>
+                  <OriginalErrorDetails detail={`${item.title}: ${item.message}`} />
                   {item.repair.deepLink === undefined ? null : (
-                    <a href={item.repair.deepLink}>{item.repair.label}</a>
+                    <a href={item.repair.deepLink}>{item.repair.deepLink.startsWith('#/settings') ? l('打开设置', 'Open settings') : l('查看详情', 'View details', 'Visa detaljer')}</a>
                   )}
                 </li>
               ))}
@@ -263,14 +271,12 @@ export default function CreatorCollaborationPanel(props: {
         </section>
       ) : null}
 
+      <RuntimeRecoveryNotice session={session?.connection} onRetrySession={session?.reconnect} />
       {session === null ? (
-        <>
-          <div className="creator-collaboration-unavailable" role="alert">
-            <ServerOff size={16} aria-hidden="true" />
-            <p>{l('Creator Runtime 未连接，Agent 不会生成替代回复。', 'Creator Runtime is disconnected. The Agent will not generate substitute responses.')}</p>
-          </div>
-          <RuntimeConnectionNotice />
-        </>
+        <div className="creator-collaboration-unavailable" role="alert">
+          <ServerOff size={16} aria-hidden="true" />
+          <p>{l('项目会话尚未初始化，请重新打开项目；这不代表本地服务已断开。', 'The project session is not initialized. Reopen the project; this does not mean the local Runtime is disconnected.')}</p>
+        </div>
       ) : (
         <>
           <div
@@ -325,7 +331,6 @@ export default function CreatorCollaborationPanel(props: {
               );
             })}
 
-            <RuntimeConnectionNotice />
 
             {showAgentWorking ? (
               <div
@@ -389,6 +394,7 @@ export default function CreatorCollaborationPanel(props: {
             permissionDisabled={session.agentBusy}
             onPermissionChange={setPermission}
             submitting={sending}
+            disabled={connectionUnavailable}
             ariaLabel={l('告诉 Agent 你的要求', 'Tell the Agent your requirements')}
             placeholder={session.agentBusy
               ? l('补充当前任务的要求', 'Add guidance to the active task')
@@ -406,7 +412,8 @@ function CollaborationIssueView(props: {
   onFocus(): void;
 }) {
   const l = useLocalizedCopy();
-  const copy = issueConversationText(props.issue, l('zh-CN', 'en-US') as 'zh-CN' | 'en-US');
+  const { language } = useAppLanguage();
+  const copy = issueConversationText(props.issue, language);
   const retryable = props.issue.stageId !== undefined
     && props.issue.repairActions.some(action => (
       action.kind === 'retry-operation'
@@ -421,6 +428,7 @@ function CollaborationIssueView(props: {
       </header>
       <div className="creator-collaboration-bubble">
         <p>{copy.message}</p>
+        <OriginalErrorDetails detail={issueDiagnosticText(props.issue, language)} />
         {props.issue.status === 'resolving' ? <p>{l('正在检查修复结果。', 'Checking the repair result.')}</p> : null}
         {props.issue.status === 'resolved' ? <p>{l('这个问题已解决。', 'This issue has been resolved.')}</p> : null}
       </div>
@@ -481,6 +489,73 @@ function CollaborationActivityView(props: { event: SyncEvent }) {
   );
 }
 
+export function CreatorTaskProgressNotice(props: { stageId: string }) {
+  const localize = useLocalizedCopy();
+  const session = useOptionalCreatorSession();
+  const stage = activeStageRun((session?.job.stages ?? []).filter(run => run.stageId === props.stageId));
+  if (stage === undefined) return null;
+  const adapter = creatorPanelAdapterFor(session?.job.templateId ?? '');
+  const progress = adapter.readStageProgress(stage, localize);
+  const percent = progress.percent === null ? null : Math.max(0, Math.min(100, Math.round(progress.percent)));
+  return (
+    <section className="creator-task-progress-notice" role="status" aria-label={localize('任务进度', 'Task progress', 'Uppgiftsförlopp')}>
+      <div className="creator-task-progress-notice-heading">
+        {stageStatusIcon(stage)}
+        <strong>{stageProgressText(stage, progress, adapter, localize)}{percent === null ? '' : ` · ${percent}%`}</strong>
+      </div>
+      <CreatorStageProgressDetails stage={stage} progress={progress} />
+    </section>
+  );
+}
+
+function CreatorStageProgressDetails(props: { stage: CreatorStageRun; progress: CreatorStageProgressView }) {
+  const localize = useLocalizedCopy();
+  const session = useOptionalCreatorSession();
+  const { stage, progress } = props;
+  const active = stage.status === 'queued' || stage.status === 'running';
+  const showTiming = active && progress.showTiming === true;
+  const observedRef = useRef({ stageId: stage.id, progress: stage.progress, firstSeenAt: Date.now(), receivedAt: Date.now() });
+  if (observedRef.current.stageId !== stage.id) {
+    observedRef.current = { stageId: stage.id, progress: stage.progress, firstSeenAt: Date.now(), receivedAt: Date.now() };
+  } else if (observedRef.current.progress !== stage.progress) {
+    observedRef.current.progress = stage.progress;
+    observedRef.current.receivedAt = Date.now();
+  }
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!showTiming) return undefined;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [showTiming, stage.id]);
+  if (!showTiming && !(active && progress.showMessage && progress.message)) return null;
+  const startedAt = Date.parse(stage.startedAt ?? '');
+  const elapsedSeconds = Math.max(0, Math.floor((now - (Number.isFinite(startedAt) ? startedAt : observedRef.current.firstSeenAt)) / 1_000));
+  const receivedSeconds = Math.max(0, Math.floor((now - observedRef.current.receivedAt) / 1_000));
+  const duration = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, '0')}`;
+  const waitingForProvider = progress.phase === 'queued' || progress.phase === 'generating';
+  const disconnected = session?.connection !== undefined && session.connection.status !== 'connected';
+  const warning = !showTiming ? null : disconnected
+    ? localize('任务连接已中断，正在尝试恢复；恢复后会同步最新状态。', 'The task connection is interrupted. Reconnecting to receive the latest status.', 'Anslutningen till uppgiften har brutits. Återansluter för att hämta den senaste statusen.')
+    : waitingForProvider && receivedSeconds >= 30
+      ? localize('暂未收到新的生成状态，仍在等待服务商响应。', 'No new generation status has arrived yet. Waiting for the provider to respond.', 'Ingen ny genereringsstatus har kommit ännu. Väntar på svar från leverantören.')
+      : waitingForProvider && elapsedSeconds >= 120
+        ? localize('仍在等待服务商返回结果，生成时间由服务商决定。可以离开当前页面，任务会在后台继续。', 'Still waiting for the provider result. Generation time depends on the provider. You can leave this page; the task continues in the background.', 'Väntar fortfarande på leverantörens resultat. Genereringstiden beror på leverantören. Du kan lämna sidan; uppgiften fortsätter i bakgrunden.')
+        : null;
+  return (
+    <div className="creator-collaboration-stage-details">
+      {active && progress.showMessage && progress.message ? <p className="creator-collaboration-stage-message" role="status">{progress.message}</p> : null}
+      {showTiming ? <small className="creator-collaboration-stage-timing" aria-live="off">
+        <span>{stage.startedAt === null
+          ? localize(`已等待 ${duration}`, `Waiting ${duration}`, `Väntat ${duration}`)
+          : localize(`已运行 ${duration}`, `Elapsed ${duration}`, `Förfluten tid ${duration}`)}</span>
+        <span>{localize(`最近收到状态：${receivedSeconds} 秒前`, `Last status received ${receivedSeconds}s ago`, `Senaste status mottogs för ${receivedSeconds}s sedan`)}</span>
+      </small> : null}
+      {warning ? <p className="creator-collaboration-stage-message">{warning}</p> : null}
+    </div>
+  );
+}
+
 function CollaborationStageView(props: {
   stage: CreatorStageRun;
   actor: CreatorActivity['actor'];
@@ -492,14 +567,14 @@ function CollaborationStageView(props: {
   const l = useLocalizedCopy();
   const { stage, actor, adapter } = props;
   const label = adapter.stageLabel(stage.stageId, l);
-  const progress = adapter.readStageProgress(stage);
+  const progress = adapter.readStageProgress(stage, l);
   const percent = progress.percent === null
     ? null
     : Math.max(0, Math.min(100, Math.round(progress.percent)));
   const compact = !['queued', 'running'].includes(stage.status);
   const showPercent = (stage.status === 'running' || stage.status === 'failed')
     && percent !== null;
-  const indeterminate = stage.status === 'running'
+  const indeterminate = (stage.status === 'running' || stage.status === 'queued')
     && progress.indeterminate === true;
   const hasProgress = showPercent || indeterminate;
   return (
@@ -558,6 +633,8 @@ function CollaborationStageView(props: {
           <span style={percent === null ? undefined : { width: `${percent}%` }} />
         </div>
       ) : null}
+      <CreatorStageProgressDetails stage={stage} progress={progress} />
+      {(stage.status === 'running' || stage.status === 'failed') && progress.detailsHref ? <a href={progress.detailsHref}>{l('查看组件下载详情', 'View component download details')}</a> : null}
     </article>
   );
 }

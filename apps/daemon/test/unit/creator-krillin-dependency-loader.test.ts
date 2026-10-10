@@ -1,11 +1,42 @@
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 import { describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
+import { createServer } from 'node:http';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
+  configuredOrDownloadedFile,
   createKrillinDependencyLoader,
   promoteDependencyPath
 } from '../../src/creator/krillin/dependency-loader.js';
 
 describe('KrillinAI on-demand dependency loader', () => {
+  it('reports actual downloaded bytes and HTTP content length before verifying the file', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'opencreator-download-progress-'));
+    const content = Buffer.alloc(128 * 1024, 'model');
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { 'Content-Length': content.length });
+      response.write(content.subarray(0, content.length / 2));
+      setTimeout(() => response.end(content.subarray(content.length / 2)), 1200);
+    });
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (address === null || typeof address === 'string') throw new Error('Expected TCP address');
+    const updates: Array<{ state: string; downloadedBytes?: number; totalBytes?: number | null }> = [];
+    try {
+      const file = await configuredOrDownloadedFile({ configured: undefined, name: 'test model', url: `http://127.0.0.1:${address.port}/model`, sha256: createHash('sha256').update(content).digest('hex'), path: join(root, 'model.bin'), proxy: '', signal: new AbortController().signal, onProgress: progress => updates.push(progress) });
+      expect(await readFile(file)).toEqual(content);
+      expect(updates.some(update => update.state === 'downloading'
+        && (update.downloadedBytes ?? 0) > 0
+        && (update.downloadedBytes ?? 0) < content.length
+        && update.totalBytes === content.length)).toBe(true);
+      expect(updates.at(-1)?.state).toBe('verifying');
+    } finally {
+      await new Promise<void>(resolve => server.close(() => resolve()));
+      await rm(root, { recursive: true, force: true });
+    }
+  });
   it('waits and retries when Windows temporarily locks a downloaded dependency', async () => {
     let attempts = 0;
     const delays: number[] = [];

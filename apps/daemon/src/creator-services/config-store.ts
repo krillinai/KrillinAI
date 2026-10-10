@@ -35,7 +35,19 @@ const klingAiSchema = z.object({
 const aliyunOssSchema = z.object({
   accessKeyId: boundedString(256),
   accessKeySecret: boundedString(4096),
-  bucket: boundedString(255)
+  bucket: boundedString(255),
+  region: z.string().trim().max(64).regex(/^$|^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .default('cn-shanghai').transform(value => value || 'cn-shanghai'),
+  endpoint: z.string().trim().max(2048).default('').refine(value => {
+    if (!value) return true;
+    if (/[?#\\]/.test(value)) return false;
+    try {
+      const url = new URL(value.includes('://') ? value : `https://${value}`);
+      return ['http:', 'https:'].includes(url.protocol) && !!url.hostname
+        && !url.username && !url.password && !url.search && !url.hash
+        && (url.pathname === '' || url.pathname === '/');
+    } catch { return false; }
+  }, 'OSS endpoint must be an HTTP(S) service endpoint without a path, credentials, query or fragment')
 }).strict();
 const aliyunSpeechSchema = z.object({
   accessKeyId: boundedString(256),
@@ -46,6 +58,7 @@ const aliyunSchema = z.object({
   oss: aliyunOssSchema,
   speech: aliyunSpeechSchema
 }).strict();
+const funasrSchema = openAiCompatibleSchema.extend({ timeoutMs: z.number().int().min(1000).max(3600000) }).strict();
 const volcengineAsrSchema = z.object({
   appId: boundedString(256),
   accessToken: boundedString(4096),
@@ -123,14 +136,15 @@ export const creatorServicesConfigSchema = z.object({
   proxy: boundedString(2048),
   llm: llmConfigSchema,
   transcription: z.object({
-    provider: z.enum(['openai', 'faster-whisper', 'whisperkit', 'whisper.cpp', 'aliyun', 'volcengine']),
+    provider: z.enum(['openai', 'faster-whisper', 'whisperkit', 'whisper.cpp', 'aliyun', 'volcengine', 'funasr']),
     enableGpuAcceleration: z.boolean(),
     openai: openAiCompatibleSchema,
     fasterWhisper: z.object({ model: z.enum(['tiny', 'medium', 'large-v2']) }).strict(),
     whisperKit: z.object({ model: z.literal('large-v2') }).strict(),
     whisperCpp: z.object({ model: z.enum(['tiny', 'medium', 'large-v2', 'large-v3-turbo']) }).strict(),
     aliyun: aliyunSchema,
-    volcengine: volcengineAsrSchema.default(creatorServicesDefaults.transcription.volcengine)
+    volcengine: volcengineAsrSchema.default(creatorServicesDefaults.transcription.volcengine),
+    funasr: funasrSchema.default(creatorServicesDefaults.transcription.funasr)
   }).strict(),
   tts: ttsConfigSchema,
   image: z.union([imageConfigSchema, legacyImageConfigSchema]),
@@ -278,7 +292,11 @@ export function createCreatorServicesConfigStoreWithTextModelFallback(
     },
     async write(config) {
       const persisted = structuredClone(config);
-      if (persisted.llm.source === 'codex') persisted.llm.apiKey = '';
+      if (persisted.llm.source === 'codex') {
+        const defaults = createDefaultCreatorServicesConfig().llm;
+        persisted.llm = { ...persisted.llm, baseUrl: defaults.baseUrl,
+          apiKey: '', model: defaults.model };
+      }
       const saved = await store.write(persisted);
       return resolveTextModelFallback(saved, fallback);
     },
@@ -302,6 +320,7 @@ const creatorCredentialPaths = [
   'transcription.aliyun.speech.appKey',
   'transcription.volcengine.appId',
   'transcription.volcengine.accessToken',
+  'transcription.funasr.apiKey',
   'tts.openai.apiKey',
   'tts.minimax.apiKey',
   'tts.aliyun.apiKey',
@@ -400,6 +419,9 @@ export function presentCreatorServicesConfig(
   redact('transcription.volcengine.accessToken', redacted.transcription.volcengine.accessToken, () => {
     redacted.transcription.volcengine.accessToken = '';
   });
+  redact('transcription.funasr.apiKey', redacted.transcription.funasr.apiKey, () => {
+    redacted.transcription.funasr.apiKey = '';
+  });
   redact('tts.openai.apiKey', redacted.tts.openai.apiKey, () => { redacted.tts.openai.apiKey = ''; });
   redact('tts.minimax.apiKey', redacted.tts.minimax.apiKey, () => { redacted.tts.minimax.apiKey = ''; });
   redact('tts.aliyun.apiKey', redacted.tts.aliyun.apiKey, () => { redacted.tts.aliyun.apiKey = ''; });
@@ -440,6 +462,13 @@ export function retainCreatorServicesCredentials(
     value => { merged.transcription.volcengine.accessToken = value; },
     current.transcription.volcengine.accessToken
   );
+  if (merged.transcription.funasr.baseUrl.replace(/\/+$/, '') === current.transcription.funasr.baseUrl.replace(/\/+$/, '')) {
+    retainBlank(
+      () => merged.transcription.funasr.apiKey,
+      value => { merged.transcription.funasr.apiKey = value; },
+      current.transcription.funasr.apiKey
+    );
+  }
   retainBlank(() => merged.tts.openai.apiKey, value => { merged.tts.openai.apiKey = value; }, current.tts.openai.apiKey);
   retainBlank(() => merged.tts.minimax.apiKey, value => { merged.tts.minimax.apiKey = value; }, current.tts.minimax.apiKey);
   retainBlank(() => merged.tts.aliyun.apiKey, value => { merged.tts.aliyun.apiKey = value; }, current.tts.aliyun.apiKey);

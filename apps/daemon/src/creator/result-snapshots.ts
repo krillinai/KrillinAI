@@ -54,6 +54,28 @@ export function creatorResultSnapshotForVersion(
     .find(snapshot => snapshot.version === version);
 }
 
+export function attachCreatorResultArtifacts(
+  job: CreatorJob,
+  version: number,
+  artifacts: CreatorArtifact[]
+): Record<string, CreatorJson> {
+  const snapshots = readCreatorResultSnapshots(job.state.resultSnapshots);
+  if (!snapshots.some(snapshot => snapshot.version === version)) {
+    throw new Error(`Creator result version ${version} was not found`);
+  }
+  const refs: Record<string, string[]> = {};
+  for (const artifact of artifacts) {
+    refs[artifact.kind] = [...(refs[artifact.kind] ?? []), artifact.id];
+  }
+  return {
+    resultSnapshots: snapshots.map(snapshot => (
+      snapshot.version === version
+        ? { ...snapshot, artifactRefs: { ...snapshot.artifactRefs, ...refs } }
+        : snapshot
+    )) as CreatorJson
+  };
+}
+
 export function appendCreatorResultSnapshot(input: {
   job: CreatorJob;
   version: number;

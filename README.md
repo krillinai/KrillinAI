@@ -15,15 +15,16 @@
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="OpenCreator, formerly KrillinAI: #1 Repository of the Day on Trendshift" width="250" height="55" /></a>
 
-**English** | [简体中文](./docs/zh/README.md) | [日本語](./docs/ja/README.md) | [한국어](./docs/ko/README.md) | [Bahasa Indonesia](./docs/id/README.md) | [Español](./docs/es/README.md) | [Français](./docs/fr/README.md) | [Deutsch](./docs/de/README.md) | [Português](./docs/pt/README.md) | [Русский](./docs/ru/README.md) | [العربية](./docs/ar/README.md)
+**English** | [简体中文](./docs/zh/README.md) | [日本語](./docs/ja/README.md) | [한국어](./docs/ko/README.md) | [Bahasa Indonesia](./docs/id/README.md) | [Español](./docs/es/README.md) | [Français](./docs/fr/README.md) | [Deutsch](./docs/de/README.md) | [Português](./docs/pt/README.md) | [Русский](./docs/ru/README.md) | [العربية](./docs/ar/README.md) | [ภาษาไทย](./docs/th/README.md)
 
-[![GitHub Stars](https://img.shields.io/github/stars/krillinai/OpenCreator?style=flat&logo=github&label=Stars&color=gold)](https://github.com/krillinai/OpenCreator/stargazers)
+[![GitHub Stars](https://badgen.net/github/stars/krillinai/OpenCreator?icon=github&label=Stars&color=EAB308)](https://github.com/krillinai/OpenCreator/stargazers)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%E7%B2%89%E4%B8%9D&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
+[![AtomGit G-Star](https://img.shields.io/badge/AtomGit-G--Star-DA203E?style=flat)](https://atomgit.com/krillinai/OpenCreator)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Project Highlights](#project-highlights) · [Creator Tools](#creator-tools) · [Creation Templates](#creation-templates) · [Skills](#skills) · [Conversation & Workspace](#conversation-and-workspace-moving-together) · [Models Supported](#models-supported) · [Examples](#examples) · [Quick Start](#quick-start) · [Desktop](#desktop) · [OpenCreator System Architecture](#opencreator-system-architecture) · [Development](#development) · [Documentation](#documentation) · [Contributing](#contributing) · [Contributors](#contributors) · [Star History](#star-history)
+[Highlights](#project-highlights) · [Creator Tools](#creator-tools) · [Skills](#skills) · [Examples](#examples) · [Quick Start](#quick-start) · [Desktop](#desktop) · [Docs](#documentation) · [Community](#community)
 
 </div>
 
@@ -45,6 +46,8 @@ Web is the single frontend implementation. Desktop loads the same Web build and 
 - 🤖 **Codex Native**: Reuse the Codex Agent loop, models, reasoning, tool calls, conversations, Skills, and MCP without maintaining a second execution engine.
 
 - 🚀 **Ready-to-Use Desktop App**: Launch OpenCreator directly from the desktop app with Codex CLI included; the local Runtime starts on demand and prepares a default project automatically.
+
+- ⚙️ **Desktop Setup That Reuses Codex**: On first launch, scan your local Codex configuration and offer to reuse a working ChatGPT sign-in or API key setup. A guided form is available for other model providers.
 
 - 🔄 **Managed Runtime Components**: Inspect bundled, active, and latest yt-dlp versions, check for updates periodically, and update manually while keeping the current working version available if an update fails.
 
@@ -73,6 +76,8 @@ Open the Dashboard to write articles, Xiaohongshu posts, or short-video scripts;
 ![OpenCreator Creator Dashboard](./docs/images/product/opencreator-dashboard-en.png)
 
 > More creator tools are continuously being added.
+
+**Video Translation supports 14 source languages and 101 target languages.** The source languages are Simplified Chinese, English, Spanish, French, Italian, Brazilian Portuguese, Indonesian, Thai, Japanese, Korean, German, Turkish, Russian, and Malay.
 
 <table width="100%">
 <thead>
@@ -202,11 +207,12 @@ The providers and models shown are examples; actual availability depends on your
 
 <table>
 <tr>
-<td align="center" width="20%"><img src="./docs/images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>Whisper</strong></td>
-<td align="center" width="20%"><img src="./docs/images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>OpenAI TTS</strong></td>
-<td align="center" width="20%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
-<td align="center" width="20%"><img src="https://github.com/microsoft.png?size=80" alt="Microsoft" width="40" height="40" /><br /><strong>Edge TTS</strong></td>
-<td align="center" width="20%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
+<td align="center" width="16%"><img src="./docs/images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>Whisper</strong></td>
+<td align="center" width="16%"><img src="./docs/images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>OpenAI TTS</strong></td>
+<td align="center" width="16%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
+<td align="center" width="16%"><img src="https://github.com/microsoft.png?size=80" alt="Microsoft" width="40" height="40" /><br /><strong>Edge TTS</strong></td>
+<td align="center" width="16%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
+<td align="center" width="16%"><img src="https://github.com/volcengine.png?size=80" alt="Volcengine" width="40" height="40" /><br /><strong>Volcengine Speech</strong></td>
 </tr>
 </table>
 
@@ -296,7 +302,19 @@ Turn text or YouTube content into a complete animation through a guided workflow
 
 ## Quick Start
 
-### Prerequisites
+### Install the Desktop App
+
+Download the installer for your platform from the [latest OpenCreator release](https://github.com/krillinai/OpenCreator/releases/latest) (macOS Apple Silicon, macOS Intel, or Windows x64). Install and open the app; you do not need Node.js or pnpm to use the Desktop app. The Desktop package includes Codex CLI; real model tasks require a usable ChatGPT sign-in or API key setup.
+
+On first launch, Desktop starts the local Runtime, prepares a default project, and checks your local Codex configuration. If it finds a usable sign-in or API key and model settings, confirm **Use local Codex and continue** to reuse them. You can also configure another provider in the same startup flow:
+
+![OpenCreator Desktop first-launch model provider setup](./docs/images/product/opencreator-codex-setup.png)
+
+After setup, enter your request in the composer to start a task. If you run into trouble, see the [user guide and troubleshooting](./docs/opencreator-user-guide-and-troubleshooting.md).
+
+### Run Web from Source
+
+For development or browser-based use, install:
 
 - Node.js 22 or later
 - pnpm 9.15.0, pinned through the repository's `packageManager` field
@@ -311,8 +329,6 @@ pnpm --version
 codex --version
 ```
 
-### Run Web from Source
-
 ```bash
 git clone https://github.com/krillinai/OpenCreator.git
 cd OpenCreator
@@ -323,7 +339,7 @@ pnpm web:dev
 
 Open `http://127.0.0.1:19861/`. The development server starts the local daemon on demand and injects a temporary Runtime token through a same-origin proxy, so no connection token needs to be copied manually.
 
-On first launch, the Runtime prepares a default project. The composer is ready as soon as the connection completes. To work on the daemon only:
+On first launch, the Runtime prepares a default project and checks local Codex settings. Confirm an existing ChatGPT sign-in or API key to use local Codex, or select a provider and enter its model, endpoint, and API key. The composer is ready after setup. To work on the daemon only:
 
 ```bash
 pnpm daemon:dev
@@ -528,13 +544,7 @@ See the [user guide and troubleshooting reference](./docs/opencreator-user-guide
 | `pnpm smoke:ci` | Run the fake-Codex Runtime smoke test |
 | `pnpm perf:check` | Check the recorded performance baseline |
 
-Before submitting a change, run at least:
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
+Before submitting a change, choose verification that matches its impact, as described in the [contributing guide](./CONTRIBUTING.md#what-reviewers-check). Docs, copy, and style changes need only relevant checks; shared behavior and Runtime changes need targeted module tests and typechecks. Run full workspace tests or builds when the affected scope requires them, and report what you ran in the PR.
 
 Changes to Desktop, Host Bridge, the Runtime proxy, or shared frontend workflows also require Web/Desktop consistency tests, packaged application E2E, and Web build hash verification. Passing Web unit tests alone does not establish Desktop release readiness.
 
@@ -547,55 +557,79 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## Documentation
 
-- [User guide and troubleshooting](./docs/opencreator-user-guide-and-troubleshooting.md)
-- [Runtime API v1](./docs/runtime-api-for-ui-v1.md)
-- [Codex-native Runtime design](./docs/2026-07-03-codex-native-agent-runtime-design.md)
-- [Desktop release runbook](./docs/operations/opencreator-desktop-release-runbook.md)
-- [Windows Desktop release guide](./docs/operations/opencreator-desktop-windows-release.md)
-- [Visual component guidelines](./docs/visual-component-guidelines.md)
+- **Use OpenCreator:** [Quick Start](#quick-start) · [User guide and troubleshooting](./docs/opencreator-user-guide-and-troubleshooting.md)
+- **Develop and extend:** [Contributing guide](./CONTRIBUTING.md) · [Code of Conduct](./CODE_OF_CONDUCT.md) · [Contributing a Skill](./docs/contributing/skills-contributing.md) · [Contributing a creation template](./docs/contributing/templates-contributing.md) · [Runtime API v1](./docs/runtime-api-for-ui-v1.md) · [Visual component guidelines](./docs/visual-component-guidelines.md)
+- **Maintain and release:** [Codex-native Runtime design](./docs/2026-07-03-codex-native-agent-runtime-design.md) · [Desktop release runbook](./docs/operations/opencreator-desktop-release-runbook.md) · [Windows Desktop release guide](./docs/operations/opencreator-desktop-windows-release.md)
 
 ## Translation Convention
 
 The root `README.md` is the canonical English document. Maintained translations live at `docs/<locale>/README.md`. Add a language to the switcher only after its full document has been translated and synchronized with the English structure.
 
-## Contributing
+## Community
+
+<p>GitHub users from <strong>at least 100 countries and regions</strong> have starred OpenCreator.</p>
+
+<img src="./docs/images/star-coverage-map.svg" alt="World map highlighting countries and regions with OpenCreator GitHub Stars" width="760" />
+
+### The Crew
+
+Each crew member is responsible for their area, including its standards, contribution reviews and merges, and community support.
+
+<table border="1" cellpadding="12">
+  <tr>
+    <td align="center" valign="middle" width="160" height="160"><img src="./docs/images/contributors/wulien.svg" width="64" height="64" alt="wulien avatar" /><br /><a href="https://github.com/wulien">wulien</a><br />Code &amp; Bug Fixes</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="./docs/images/contributors/dle-kb.svg" width="64" height="64" alt="DLe-kb avatar" /><br /><a href="https://github.com/DLe-kb">DLe-kb</a><br />Creation templates</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="./docs/images/contributors/xiaheyuan.svg" width="64" height="64" alt="xiaheyuan avatar" /><br /><a href="https://github.com/xiaheyuan">xiaheyuan</a><br />Design &amp; assets</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="./docs/images/contributors/krillinai.svg" width="64" height="64" alt="krillinai avatar" /><br /><a href="https://github.com/krillinai">krillinai</a><br />Skills &amp; Docs</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="./docs/images/contributors/hbxugang.svg" width="64" height="64" alt="hbxugang avatar" /><br /><a href="https://github.com/hbxugang">hbxugang</a><br />Enterprise deployment</td>
+  </tr>
+</table>
+
+### Contributors
+
+Thanks to everyone who has taken part through code, documentation, feedback, issue reports, Skills, designs, and ideas.
+This README list is maintained separately from GitHub's automatically generated Contributors graph.
+
+<div>
+  <a href="https://github.com/maranello-o"><img src="./docs/images/contributors/maranello-o.svg" width="48" height="48" alt="maranello-o" /></a>
+  <a href="https://github.com/wulien"><img src="./docs/images/contributors/wulien.svg" width="48" height="48" alt="wulien" /></a>
+  <a href="https://github.com/puji4810"><img src="./docs/images/contributors/puji4810.svg" width="48" height="48" alt="puji4810" /></a>
+  <a href="https://github.com/krillinai"><img src="./docs/images/contributors/krillinai.svg" width="48" height="48" alt="krillinai" /></a>
+  <a href="https://github.com/PairZhu"><img src="./docs/images/contributors/pairzhu.svg" width="48" height="48" alt="PairZhu" /></a>
+  <a href="https://github.com/Mijaelx"><img src="./docs/images/contributors/mijaelx.svg" width="48" height="48" alt="Mijaelx" /></a>
+  <a href="https://github.com/OutisLi"><img src="./docs/images/contributors/outisli.svg" width="48" height="48" alt="OutisLi" /></a>
+  <a href="https://github.com/yeager"><img src="./docs/images/contributors/yeager.svg" width="48" height="48" alt="yeager" /></a>
+  <a href="https://github.com/catwithtudou"><img src="./docs/images/contributors/catwithtudou.svg" width="48" height="48" alt="catwithtudou" /></a>
+  <a href="https://github.com/newdee"><img src="./docs/images/contributors/newdee.svg" width="48" height="48" alt="newdee" /></a>
+  <a href="https://github.com/scwf"><img src="./docs/images/contributors/scwf.svg" width="48" height="48" alt="scwf" /></a>
+  <a href="https://github.com/xiaheyuan"><img src="./docs/images/contributors/xiaheyuan.svg" width="48" height="48" alt="xiaheyuan" /></a>
+  <a href="https://github.com/hbxugang"><img src="./docs/images/contributors/hbxugang.svg" width="48" height="48" alt="hbxugang" /></a>
+  <a href="https://github.com/kapil971390"><img src="./docs/images/contributors/kapil971390.svg" width="48" height="48" alt="kapil971390" /></a>
+  <a href="https://github.com/octo-patch"><img src="./docs/images/contributors/octo-patch.svg" width="48" height="48" alt="octo-patch" /></a>
+  <a href="https://github.com/yuanjinghh"><img src="./docs/images/contributors/yuanjinghh.svg" width="48" height="48" alt="yuanjinghh" /></a>
+  <a href="https://github.com/DLe-kb"><img src="./docs/images/contributors/dle-kb.svg" width="48" height="48" alt="DLe-kb" /></a>
+  <a href="https://github.com/liupig"><img src="./docs/images/contributors/liupig.svg" width="48" height="48" alt="liupig" /></a>
+  <a href="https://github.com/alextavares" title="alextavares"><img src="./docs/images/contributors/alextavares.svg" width="48" height="48" alt="alextavares" /></a>
+  <a href="https://github.com/krillinai/OpenCreator/commit/a89cff0ac5d91540f03e361af50b286ee57691ae" title="卡皮巴拉"><img src="./docs/images/contributors/kapibala.svg" width="48" height="48" alt="卡皮巴拉" /></a>
+  <a href="https://github.com/mifan100g" title="mifan100g (米饭二两)"><img src="./docs/images/contributors/mifan100g.svg" width="48" height="48" alt="mifan100g (米饭二两)" /></a>
+  <a href="https://github.com/askalf"><img src="./docs/images/contributors/askalf.svg" width="48" height="48" alt="askalf" /></a>
+  <a href="https://github.com/Yi-111-a"><img src="./docs/images/contributors/yi-111-a.svg" width="48" height="48" alt="Yi-111-a" /></a>
+</div>
+
+### Contributing
 
 Contributions are welcome in these areas:
 
-| Type | What to contribute | How to prepare | Where to contribute |
+| Type | What to contribute | Where it lives | Ship size |
 | --- | --- | --- | --- |
-| Code | Bug fixes, creator workflows, shared features | A focused change, demo or reproduction, and relevant tests | [Issue][contribute-issue] → [PR][contribute-pr]; `apps/web/` or `apps/daemon/` |
-| Skills | Reusable Agent workflows | `SKILL.md`, prerequisites, and usage examples | [Issue][contribute-issue] → [PR][contribute-pr] in `skills/` |
-| Creation templates | Reusable image, video, or cover templates | `template.json`, cover and example assets, prompts, settings, attribution, and usage rights | [PR][contribute-pr] in [`template/`](./template/); discuss new formats in an [Issue][contribute-issue] |
-| Illustration and design | Original illustrations, icons, or UI designs | Preview, editable source files, and license or permission | [Issue][contribute-issue] → [PR][contribute-pr] in an agreed asset location |
-| Third-party service integrations | AI or media provider support | Use case, setup, error handling, credential safety, and tests | [Issue][contribute-issue] → [PR][contribute-pr] in relevant Web or Daemon modules |
+| Code | Bug fixes, creator workflows, shared features | `apps/web/`, `apps/daemon/` | One focused PR with tests |
+| Skills | Reusable Agent workflows | [`skills/`](./skills/) | One folder with `SKILL.md` and optional references → [guide](./docs/contributing/skills-contributing.md) |
+| Creation templates | Reusable image, video, or cover presets | [`template/`](./template/) | One folder with `template.json` plus assets → [guide](./docs/contributing/templates-contributing.md) |
+| Illustration and design | Original illustrations, icons, or UI designs | An agreed asset location | One PR with previews, source files, and license |
+| Third-party service integrations | AI or media provider support | Relevant Web or Daemon modules | One PR with error handling, credential safety, and tests |
+| Documentation and translations | Docs improvements or new locales | `README.md`, `docs/`, `docs/<locale>/` | One PR |
 
-Place each creation template at `template/<module>/<id>/<version>/template.json` with its local assets. The current modules are `image-generation`, `video-generation`, and `cover-generator`. Include Chinese and English titles and descriptions, and run `pnpm templates:validate` before submitting a PR.
-
-How to contribute:
-
-1. Describe the problem, use case, and expected behavior in [Issues](https://github.com/krillinai/OpenCreator/issues).
-2. Create a focused feature or fix branch from the latest development branch.
-3. Follow the existing architecture: implement general product capabilities once in Web and Daemon, and isolate native differences behind explicit capabilities.
-4. Add appropriate unit, integration, or E2E coverage for behavior changes, and list both completed and skipped verification in the Pull Request.
-5. Never commit `.runtime/`, local credentials, Codex sessions, build caches, or other user data.
-
-[contribute-issue]: https://github.com/krillinai/OpenCreator/issues
-[contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
-
-## Contributors
-
-Thanks to everyone who has taken part through code, documentation, feedback, issue reports, Skills, designs, and ideas.
-
-<a href="https://github.com/krillinai/OpenCreator/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=KrillinAI/OpenCreator&amp;max=500&amp;columns=20" alt="OpenCreator contributors" />
-</a>
-
-<!-- Keep recent contributors visible while contrib.rocks refreshes its cache. -->
-<br />
-<a href="https://github.com/xiaheyuan">
-  <img src="./docs/images/contributors/xiaheyuan.svg" width="48" height="48" alt="XiaHeyuan" />
-</a>
+The full guide — including local setup, review criteria, and common rejection patterns — lives in [CONTRIBUTING.md](./CONTRIBUTING.md) (available in [10 languages](./docs/zh/CONTRIBUTING.md)).
 
 ## Star History
 

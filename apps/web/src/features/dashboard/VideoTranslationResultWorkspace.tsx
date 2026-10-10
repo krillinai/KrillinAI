@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useLocalizedCopy, type LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
+import { OriginalErrorDetails } from '../issues/OriginalErrorDetails.js';
 
 export type VideoTranslationResultTab = 'video' | 'subtitles' | 'voice' | 'settings';
 export type VideoResultVariant = 'horizontal' | 'vertical' | 'dubbed';
@@ -94,6 +95,7 @@ export default function VideoTranslationResultWorkspace(props: {
   videoOutputs: VideoResultOutput[];
   subtitleOutputs: SubtitleResultOutput[];
   subtitleVideoPreviews: Partial<Record<SubtitleResultVariant, SubtitleVideoPreview>>;
+  previewPreparation?: { pending: boolean; blocked?: boolean; error?: string; errorDetail?: string };
   voiceOutput?: VoiceResultOutput;
   subtitleDirty: boolean;
   subtitleDirtyByVariant: Partial<Record<SubtitleResultVariant, boolean>>;
@@ -110,6 +112,7 @@ export default function VideoTranslationResultWorkspace(props: {
   onAdjustSettings(): void;
   onExport(type: 'video' | 'subtitles' | 'voice', artifactId?: string): void;
   onReloadVoice(): void;
+  onPrepareSourceVideo?(): void;
   onRequestRegenerate(): void;
   onCancelRegenerate(): void;
   onConfirmRegenerate(): void;
@@ -422,10 +425,35 @@ export default function VideoTranslationResultWorkspace(props: {
                     </>
                   ) : (
                     <div className="video-result-player-status" role="status">
-                      {activeSubtitleVideo?.previewLoading
-                        ? l('正在加载视频...', 'Loading video...')
-                        : activeSubtitleVideo?.previewError
-                          ?? l('当前版本没有可用于字幕同步预览的视频。', 'This version has no video available for synchronized subtitle preview.')}
+                      {props.onPrepareSourceVideo !== undefined && !activeSubtitleVideo?.previewLoading ? (
+                        <div className="video-result-preview-empty">
+                          <strong>{l('字幕已翻译完成', 'Subtitle translation is complete')}</strong>
+                          <p>{props.previewPreparation?.pending
+                            ? l('正在准备原视频，仅用于同步预览，不会重新翻译。下载进度见右侧任务面板。', 'Preparing the source video for synchronized preview only. Subtitles will not be translated again. See the task panel for download progress.')
+                            : props.previewPreparation?.error ?? (activeSubtitleVideo?.previewError
+                              ? l('视频预览加载失败，请检查诊断信息后重试。', 'Video preview failed to load. Check the diagnostics and retry.', 'Det gick inte att läsa in videoförhandsvisningen. Kontrollera diagnostiken och försök igen.') : undefined)
+                              ?? l('为节省下载时间，尚未下载原视频。下载后可同步播放和校对字幕，不影响字幕编辑与下载。', 'The source video has not been downloaded to save time. Download it to play and review subtitles in sync. Subtitle editing and export remain available.')}</p>
+                          {!props.previewPreparation?.pending ? <OriginalErrorDetails detail={props.previewPreparation?.errorDetail ?? activeSubtitleVideo?.previewError} /> : null}
+                          <button className="video-translation-secondary-action" type="button"
+                            disabled={props.previewPreparation?.pending || props.previewPreparation?.blocked}
+                            onClick={props.onPrepareSourceVideo}>
+                            <Download size={15} aria-hidden="true" />
+                            {props.previewPreparation?.pending ? l('正在准备…', 'Preparing…')
+                              : props.previewPreparation?.error || activeSubtitleVideo?.previewError
+                                ? l('重试下载原视频', 'Retry source video download')
+                                : l('下载原视频并预览', 'Download source video and preview')}
+                          </button>
+                          {props.previewPreparation?.blocked && !props.previewPreparation.pending
+                            ? <small>{l('请等待当前任务结束后再准备预览视频', 'Wait for the current task to finish before preparing the preview')}</small> : null}
+                        </div>
+                      ) : (
+                        <>
+                          {activeSubtitleVideo?.previewLoading
+                            ? l('正在加载视频...', 'Loading video...')
+                            : activeSubtitleVideo?.previewError
+                              ?? l('当前版本没有可用于字幕同步预览的视频。', 'This version has no video available for synchronized subtitle preview.')}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

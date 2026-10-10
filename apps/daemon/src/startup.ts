@@ -42,6 +42,7 @@ export function resolveProductionServerEnvironment(
   | 'creatorDir'
   | 'codexBin'
   | 'codexHome'
+  | 'localCodexHome'
   | 'defaultCwd'
   | 'defaultProjectRoot'
   | 'creatorYtDlpPath'
@@ -58,6 +59,7 @@ export function resolveProductionServerEnvironment(
       'codexHome',
       env.CODEX_HOME ?? env.OPENCREATOR_CODEX_HOME
     ),
+    ...optionalEnvironmentValue('localCodexHome', env.OPENCREATOR_LOCAL_CODEX_HOME),
     ...optionalEnvironmentValue('defaultCwd', env.OPENCREATOR_DEFAULT_CWD),
     ...optionalEnvironmentValue(
       'defaultProjectRoot',

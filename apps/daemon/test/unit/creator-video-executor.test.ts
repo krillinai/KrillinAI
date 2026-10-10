@@ -23,6 +23,30 @@ afterEach(async () => {
 });
 
 describe('creator video executor', () => {
+  it('preserves upstream facts and the cause when a generation request is rejected', async () => {
+    const publicFacts = {
+      kind: 'http-rejected' as const, provider: 'seedance', httpStatus: 400,
+      upstreamCode: 'InputImageSensitiveContentDetected.SensitiveContent',
+      upstreamMessage: 'Reference image was rejected', requestId: 'request-123'
+    };
+    const cause = new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'Provider rejected reference', 502, publicFacts);
+    const executor = createVideoExecutor({
+      service: videoService({ create: vi.fn(async () => { throw cause; }) }), probeVideo: vi.fn()
+    });
+    await expect(executor.run(stageInput({}, []))).rejects.toMatchObject({
+      code: 'creator_video_upstream_error', publicFacts, cause
+    });
+  });
+
+  it('preserves diagnostics from an asynchronous failed generation', async () => {
+    const publicFacts = { kind: 'provider-failed' as const, provider: 'seedance', upstreamCode: 'CONTENT_REJECTED', upstreamMessage: 'Prompt rejected' };
+    const executor = createVideoExecutor({
+      service: videoService({ create: vi.fn(async () => videoResult({ status: 'failed', error: 'Prompt rejected', publicFacts })) }),
+      probeVideo: vi.fn()
+    });
+    await expect(executor.run(stageInput({}, []))).rejects.toMatchObject({ code: 'creator_video_generation_failed', publicFacts });
+  });
+
   it('creates a generated_video artifact and keeps unknown provider progress indeterminate', async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'creator-video-executor-'));
     const referencePath = join(tempDir, 'reference.png');

@@ -1,6 +1,9 @@
 import {
   creatorPromptMaxLength,
+  imagePromptRequiresReference,
   readCreatorResultSnapshots,
+  safePublicErrorMessage,
+  type PublicErrorFacts,
   type CreatorArtifact,
   type CreatorJson,
   type ImageGenerationProvider,
@@ -20,11 +23,12 @@ import {
   X,
   WandSparkles
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
+import { publicErrorReason } from '../issues/issue-catalog.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import {
   captureCreatorClientFailure,
@@ -109,7 +113,8 @@ export default function ImageGenerationWorkspace(props: {
   const latestStage = session?.job.stages.filter(stage => stage.stageId === 'generate').at(-1);
   const generating = latestStage?.status === 'queued' || latestStage?.status === 'running';
   const runtimeError = latestStage?.status === 'failed'
-    ? formatImageError({ code: latestStage.errorCode, message: latestStage.errorMessage }, l)
+    ? formatImageError({ code: latestStage.errorCode, message: latestStage.errorMessage,
+        publicFacts: session?.issues.find(issue => issue.stageRunId === latestStage.id)?.publicFacts }, l)
     : session?.error === null || session?.error === undefined
       ? ''
       : formatImageError(session.error, l);
@@ -129,6 +134,21 @@ export default function ImageGenerationWorkspace(props: {
     session?.state.referenceImageArtifactId,
     'reference_image'
   );
+  const missingReference = imagePromptRequiresReference(prompt)
+    && referenceFile === null && activeReferenceArtifact === undefined;
+  const referenceValidationMessage = missingReference ? l(
+    '当前提示词需要基于已有图片生成，请先上传参考图；如需纯文字生图，请移除对上传图片或原图的要求。',
+    'This prompt requires an existing image. Upload a reference, or remove the uploaded/original image requirements for text-only generation.'
+  ) : '';
+  const previewContext = useRef({ session, l });
+  previewContext.current = { session, l };
+  // Snapshots replace artifact arrays frequently; only changed file identities need a new preview.
+  const resultPreviewKey = JSON.stringify({
+    jobId: session?.job.id,
+    artifacts: (selectedResult?.artifacts ?? []).map(artifact => [artifact.id, artifact.version, artifact.sha256, artifact.path])
+  });
+  const referencePreviewKey = JSON.stringify([session?.job.id, activeReferenceArtifact?.id,
+    activeReferenceArtifact?.version, activeReferenceArtifact?.sha256, activeReferenceArtifact?.path]);
   const currentReferenceName = referenceFile?.name
     ?? readArtifactString(activeReferenceArtifact, 'fileName');
   const shouldLoadDefaultProvider = session !== null
@@ -164,8 +184,10 @@ export default function ImageGenerationWorkspace(props: {
   }, [count, props.creatorServicesService, session, shouldLoadDefaultProvider]);
 
   useEffect(() => {
+    const { session, l } = previewContext.current;
+    const [, artifactId] = JSON.parse(referencePreviewKey) as Array<string | number | null>;
     if (referenceFile === null) {
-      if (activeReferenceArtifact === undefined || session === null) {
+      if (typeof artifactId !== 'string' || session === null) {
         setReferencePreview('');
         return undefined;
       }
@@ -173,13 +195,14 @@ export default function ImageGenerationWorkspace(props: {
       let objectUrl = '';
       void createCreatorArtifactObjectUrl(
         session,
-        activeReferenceArtifact.id,
+        artifactId,
         'image-generation.load-reference-preview',
         l('参考图预览加载失败，请稍后重试。', 'The reference preview failed to load. Try again later.')
       )
         .then(url => {
           objectUrl = url;
           if (active) setReferencePreview(objectUrl);
+          else URL.revokeObjectURL(url);
         })
         .catch(() => {
           if (active) setReferencePreview('');
@@ -189,6 +212,7 @@ export default function ImageGenerationWorkspace(props: {
         if (objectUrl) URL.revokeObjectURL(objectUrl);
       };
     }
+    let active = true;
     let objectUrl = '';
     void captureCreatorClientFailure(
       session,
@@ -197,13 +221,15 @@ export default function ImageGenerationWorkspace(props: {
       () => URL.createObjectURL(referenceFile)
     ).then(url => {
       objectUrl = url;
-      setReferencePreview(url);
-    }).catch(() => setReferencePreview(''));
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [activeReferenceArtifact?.id, l, referenceFile, session?.captureCreatorFailure, session?.openArtifact]);
+      if (active) setReferencePreview(url);
+      else URL.revokeObjectURL(url);
+    }).catch(() => { if (active) setReferencePreview(''); });
+    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [referencePreviewKey, referenceFile]);
 
   useEffect(() => {
-    const artifacts = selectedResult?.artifacts ?? [];
+    const { session, l } = previewContext.current;
+    const { artifacts } = JSON.parse(resultPreviewKey) as { artifacts: Array<[string, number, string | null, string | null]> };
     if (session === null || artifacts.length === 0) {
       setImageUrls({});
       setPreviewError('');
@@ -213,18 +239,19 @@ export default function ImageGenerationWorkspace(props: {
     const objectUrls: string[] = [];
     setImageUrls({});
     setPreviewError('');
-    void Promise.all(artifacts.map(async artifact => {
+    void Promise.all(artifacts.map(async ([artifactId]) => {
       const url = await createCreatorArtifactObjectUrl(
         session,
-        artifact.id,
+        artifactId,
         'image-generation.load-result-preview',
         l('图片预览加载失败，可以稍后重试或重新生成。', 'Image previews failed to load. Retry later or generate them again.')
       );
-      objectUrls.push(url);
-      return [artifact.id, url] as const;
+      if (active) objectUrls.push(url);
+      else URL.revokeObjectURL(url);
+      return [artifactId, url] as const;
     })).then(entries => {
       if (active) setImageUrls(Object.fromEntries(entries));
-    }).catch(cause => {
+    }).catch(() => {
       if (active) {
         setPreviewError(l(
           '图片预览加载失败，可以稍后重试或重新生成',
@@ -236,7 +263,7 @@ export default function ImageGenerationWorkspace(props: {
       active = false;
       objectUrls.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [l, selectedResult?.artifacts, session?.captureCreatorFailure, session?.openArtifact]);
+  }, [resultPreviewKey]);
 
   useEffect(() => {
     if (latestVersion !== undefined && !generating) {
@@ -258,6 +285,11 @@ export default function ImageGenerationWorkspace(props: {
     setError('');
     if (currentStep === 0 && characterCount === 0) {
       setError(l('请先描述需要生成的画面', 'Describe the image you want to create'));
+      return;
+    }
+    if (missingReference) {
+      setError(referenceValidationMessage);
+      openStep(0);
       return;
     }
     openStep(Math.min(2, currentStep + 1) as ImageStep);
@@ -301,6 +333,12 @@ export default function ImageGenerationWorkspace(props: {
   }
 
   function chooseReference(file: File | null) {
+    if (file !== null && (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)
+      || file.size === 0 || file.size > 20 * 1024 * 1024)) {
+      setError(l('参考图必须是非空的 PNG、JPEG 或 WebP 图片，且不超过 20 MB。',
+        'Select a non-empty PNG, JPEG, or WebP reference image no larger than 20 MB.'));
+      return;
+    }
     setReferenceFile(file);
     setError('');
   }
@@ -322,6 +360,11 @@ export default function ImageGenerationWorkspace(props: {
     }
     if (!prompt.trim()) {
       setError(l('请先描述需要生成的画面', 'Describe the image you want to create'));
+      openStep(0);
+      return;
+    }
+    if (missingReference) {
+      setError(referenceValidationMessage);
       openStep(0);
       return;
     }
@@ -527,9 +570,16 @@ export default function ImageGenerationWorkspace(props: {
                     value={prompt}
                     onChange={event => updatePrompt(event.target.value)}
                     aria-labelledby="image-prompt-label"
+                    aria-invalid={missingReference}
+                    aria-describedby={missingReference ? 'image-reference-validation' : undefined}
                     placeholder={l('例如：一位产品设计师站在明亮的工作室中，真实摄影，柔和侧光，画面简洁', 'For example: A product designer in a bright studio, realistic photography, soft side lighting, clean composition')}
                   />
                 </div>
+                {missingReference ? (
+                  <p id="image-reference-validation" className="creator-services-inline-note" role="status">
+                    {referenceValidationMessage}
+                  </p>
+                ) : null}
               </div>
               <button className="smart-dubbing-sample" type="button" onClick={() => updatePrompt(l(samplePromptZh, samplePromptEn))}>
                 <WandSparkles size={14} strokeWidth={1.8} />
@@ -687,7 +737,7 @@ export default function ImageGenerationWorkspace(props: {
               />
             </div>
           ) : null}
-          {error ? <p className="creator-tool-error" role="alert">{error}</p> : null}
+          {visibleError ? <p className="creator-tool-error" role="alert">{visibleError}</p> : null}
           {notice ? <p className="creator-tool-notice" role="status">{notice}</p> : null}
         </div>
 
@@ -835,8 +885,15 @@ function formatImageError(error: unknown, l: (zh: string, en: string) => string)
     const message = error.result.blocked.map(item => item.message).filter(Boolean).join('；');
     return message || l('启动前检查未通过，请检查任务配置', 'Preflight checks failed. Review the task settings.');
   }
-  const candidate = error as { code?: unknown; message?: unknown };
+  const candidate = error as { code?: unknown; message?: unknown; publicFacts?: PublicErrorFacts; issue?: { publicFacts?: PublicErrorFacts } };
   const code = typeof candidate?.code === 'string' ? candidate.code : '';
+  const facts = candidate?.issue?.publicFacts ?? candidate?.publicFacts;
+  if (facts !== undefined && (facts.kind !== 'unknown' || facts.upstreamMessage !== undefined)) {
+    return publicErrorReason(facts, l);
+  }
+  const message = safePublicErrorMessage(candidate?.message);
+  if (message && (code === 'image_generation_failed' || code === 'creator_stage_input_missing'
+    || code === 'unsupported_capability' || code === 'creator_image_config_missing')) return message;
   if (code === 'creator_image_config_missing') {
     return l('请先在设置的 AI 服务中配置所选图像服务', 'Configure the selected image provider in AI Services first');
   }

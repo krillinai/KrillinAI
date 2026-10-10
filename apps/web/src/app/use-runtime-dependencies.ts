@@ -1,5 +1,5 @@
-import type { CreatorYtDlpStatus, OpenCreatorIssue } from '@opencreator/protocol';
-import { useCallback, useEffect, useState } from 'react';
+import type { CreatorRuntimeComponent, CreatorRuntimeComponentsResponse, CreatorYtDlpStatus, OpenCreatorIssue } from '@opencreator/protocol';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePageIssueState } from '../features/issues/page-issue-state.js';
 import type { RuntimeDependencyService } from '../services/runtime-dependency-service.js';
 
@@ -10,6 +10,10 @@ export type RuntimeDependencyPhase =
   | 'updating';
 
 export type RuntimeDependenciesController = {
+  componentsStatus?: CreatorRuntimeComponentsResponse;
+  componentError?: string;
+  refreshComponents?(): Promise<void>;
+  downloadComponents?(componentId?: CreatorRuntimeComponent['id']): Promise<void>;
   ytDlpStatus?: CreatorYtDlpStatus;
   phase: RuntimeDependencyPhase;
   /** @deprecated Runtime failures are exposed through issues. */
@@ -25,8 +29,48 @@ export function useRuntimeDependencies(input: {
   service: RuntimeDependencyService | null;
 }): RuntimeDependenciesController {
   const [ytDlpStatus, setYtDlpStatus] = useState<CreatorYtDlpStatus>();
+  const [componentsStatus, setComponentsStatus] = useState<CreatorRuntimeComponentsResponse>();
+  const [componentError, setComponentError] = useState<string>();
+  const componentsRef = useRef<CreatorRuntimeComponentsResponse>();
+  const componentDownloadActive = componentsStatus?.components.some(component => ['downloading', 'verifying', 'extracting'].includes(component.state)) ?? false;
   const [phase, setPhase] = useState<RuntimeDependencyPhase>('idle');
   const pageIssues = usePageIssueState('runtime');
+  const refreshComponents = useCallback(async () => {
+    if (!input.connected || !input.service?.getComponentsStatus) return;
+    try {
+      const status = await input.service.getComponentsStatus();
+      componentsRef.current = status;
+      setComponentsStatus(status);
+      setComponentError(undefined);
+    } catch (error) {
+      setComponentError(error instanceof Error ? error.message : 'Unable to read local components');
+    }
+  }, [input.connected, input.service]);
+
+  useEffect(() => {
+    if (!input.connected) { setComponentsStatus(undefined); return; }
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      await refreshComponents();
+      const busy = componentsRef.current?.components.some(component => ['downloading', 'verifying', 'extracting'].includes(component.state));
+      if (!stopped) timer = setTimeout(() => { void poll(); }, busy ? 1000 : 15_000);
+    };
+    void poll();
+    return () => { stopped = true; clearTimeout(timer); };
+  }, [input.connected, refreshComponents, componentDownloadActive]);
+
+  const downloadComponents = useCallback(async (componentId?: CreatorRuntimeComponent['id']) => {
+    if (!input.connected || !input.service?.downloadComponents) return;
+    try {
+      const status = await input.service.downloadComponents(componentId);
+      componentsRef.current = status;
+      setComponentsStatus(status);
+      setComponentError(undefined);
+    } catch (error) {
+      setComponentError(error instanceof Error ? error.message : 'Unable to download local components');
+    }
+  }, [input.connected, input.service]);
 
   useEffect(() => {
     let active = true;
@@ -47,12 +91,12 @@ export function useRuntimeDependencies(input: {
         setYtDlpStatus(response.ytDlp);
         pageIssues.resolveOperation('runtime.load-yt-dlp');
         if (!response.ytDlp.checkDue) return;
-        operationId = 'runtime.check-yt-dlp';
+        operationId = 'runtime.auto-check-yt-dlp';
         setPhase('checking');
         const checked = await input.service?.checkYtDlpUpdate(false);
         if (active && checked !== undefined) {
           setYtDlpStatus(checked.ytDlp);
-          pageIssues.resolveOperation('runtime.check-yt-dlp');
+          pageIssues.resolveOperation('runtime.auto-check-yt-dlp');
         }
       })
       .catch(caught => {
@@ -89,6 +133,7 @@ export function useRuntimeDependencies(input: {
       const response = await input.service.checkYtDlpUpdate(force);
       setYtDlpStatus(response.ytDlp);
       pageIssues.resolveOperation('runtime.check-yt-dlp');
+      pageIssues.resolveOperation('runtime.auto-check-yt-dlp');
       pageIssues.resolveOperation('runtime.load-yt-dlp');
       return response.ytDlp;
     } catch (caught) {
@@ -128,6 +173,7 @@ export function useRuntimeDependencies(input: {
   }, [input.connected, input.service, pageIssues.captureOperationFailure, pageIssues.resolveOperation]);
 
   return {
+    componentsStatus, componentError, refreshComponents, downloadComponents,
     ytDlpStatus,
     phase,
     issues: pageIssues.issues,

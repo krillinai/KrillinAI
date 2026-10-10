@@ -1,6 +1,5 @@
 import {
   defaultVideoGenerationModels,
-  safePublicErrorCode,
   videoGenerationDurations,
   videoGenerationSizes,
   type CreateVideoGenerationRequest,
@@ -20,6 +19,7 @@ import {
   appendEndpointPath,
   creatorProviderEndpoint,
   creatorServiceErrorInfo,
+  creatorServiceFailureFacts,
   fetchCreatorService,
   isRecord
 } from '../creator-services/upstream-fetch.js';
@@ -157,6 +157,7 @@ export function createVideoGenerationService(input: {
       size: content.length,
       progressKnown: true,
       error: undefined,
+      publicFacts: undefined,
       updatedAt: now().toISOString()
     };
     try {
@@ -203,6 +204,7 @@ export function createVideoGenerationService(input: {
           progress: remote.progress,
           progressKnown: remote.progressKnown,
           error: remote.error,
+          publicFacts: remote.publicFacts,
           createdAt: timestamp,
           updatedAt: timestamp
         }
@@ -247,6 +249,7 @@ export function createVideoGenerationService(input: {
           progress: remote.progress,
           progressKnown: remote.progressKnown,
           error: remote.error,
+          publicFacts: remote.publicFacts,
           updatedAt: now().toISOString()
         }
       };
@@ -309,6 +312,7 @@ type RemoteVideoJob = {
   progress: number;
   progressKnown: boolean;
   error?: string;
+  publicFacts?: PublicErrorFacts;
 };
 
 async function createRemoteVideoJob(
@@ -545,6 +549,7 @@ function normalizeRemoteVideoJob(
   }
   const status = normalizeStatus(rawStatus);
   const normalizedProgress = readProgress(progress, status);
+  const publicFacts = status === 'failed' ? creatorServiceFailureFacts(payload, provider) : undefined;
   return {
     upstreamId,
     model,
@@ -552,7 +557,8 @@ function normalizeRemoteVideoJob(
     status,
     progress: normalizedProgress.value,
     progressKnown: normalizedProgress.known,
-    error: status === 'failed' ? readJobError(payload) : undefined
+    error: publicFacts === undefined ? undefined : readJobError(publicFacts),
+    publicFacts
   };
 }
 
@@ -689,12 +695,10 @@ function readProgress(
   };
 }
 
-function readJobError(payload: Record<string, unknown>): string {
-  const code = isRecord(payload.error) ? payload.error.code : undefined;
-  const safeCode = safePublicErrorCode(code);
-  return safeCode !== undefined
-    ? `Video generation failed (upstream code: ${safeCode})`
-    : 'Video generation failed; the provider did not return a safe error code';
+function readJobError(facts: PublicErrorFacts): string {
+  return 'Video generation failed'
+    + (facts.upstreamCode === undefined ? '' : ` (upstream code: ${facts.upstreamCode})`)
+    + (facts.upstreamMessage === undefined ? '' : `: ${facts.upstreamMessage}`);
 }
 
 function validateRequest(request: CreateVideoGenerationRequest) {

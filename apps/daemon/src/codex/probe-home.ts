@@ -10,6 +10,7 @@ import {
   writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import {
   basename,
   join,
@@ -77,6 +78,37 @@ export function createCodexIsolatedHome(
     cleanup() {
       // The isolated session rollout must survive between turns.
     }
+  };
+}
+
+export function importLocalCodexConfiguration(sourceHome: string, isolatedHome: string): boolean {
+  if (resolve(sourceHome) === resolve(isolatedHome)
+    || (existsSync(join(isolatedHome, 'auth.json')) || existsSync(join(isolatedHome, 'config.toml')))
+    || (!existsSync(join(sourceHome, 'auth.json')) && !existsSync(join(sourceHome, 'config.toml')))) {
+    return false;
+  }
+  createCodexIsolatedHome(sourceHome, isolatedHome);
+  return true;
+}
+
+export function createFollowingLocalCodexHome(sourceHome: string, isolatedHome: string) {
+  let version: string | undefined;
+  return () => {
+    const digest = createHash('sha256');
+    for (const name of ['auth.json', 'config.toml']) {
+      const path = join(sourceHome, name);
+      digest.update(name);
+      if (existsSync(path)) digest.update(readFileSync(path));
+    }
+    const nextVersion = digest.digest('hex');
+    if (nextVersion !== version) {
+      for (const name of ['auth.json', 'config.toml']) {
+        if (!existsSync(join(sourceHome, name))) rmSync(join(isolatedHome, name), { force: true });
+      }
+      createCodexIsolatedHome(sourceHome, isolatedHome);
+      version = nextVersion;
+    }
+    return { codexHome: isolatedHome, version: nextVersion };
   };
 }
 

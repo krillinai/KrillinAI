@@ -6,6 +6,7 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   rmSync,
   statSync,
   writeFileSync
@@ -19,6 +20,8 @@ import {
   hashFile,
   verifyStickmanRuntime
 } from './stickman-runtime-contract.mjs';
+import { copyRemotionDependencies, createRemotionComponentArtifact } from './remotion-component-artifact.mjs';
+import { signRemotionComponent } from './sign-creator-runtime-after-pack.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopDir = resolve(scriptDir, '..');
@@ -37,8 +40,9 @@ const outputRoot = resolve(
 const bundleRoot = join(outputRoot, 'bundle');
 const browserRoot = join(outputRoot, 'browser');
 const fontRoot = join(outputRoot, 'fonts');
-const characterRoot = join(outputRoot, 'characters');
-const visualAssetRoot = join(outputRoot, 'visual-assets');
+const assetsRoot = join(desktopDir, '.pack', 'stickman-assets');
+const characterRoot = join(assetsRoot, 'characters');
+const visualAssetRoot = join(assetsRoot, 'visual-assets');
 const remotionVersion = '4.0.473';
 const chromiumVersion = '149.0.7790.0';
 const requireFromDaemon = createRequire(join(rootDir, 'apps', 'daemon', 'package.json'));
@@ -47,6 +51,8 @@ const yauzl = requireFromDaemon('yauzl');
 
 rmSync(outputRoot, { recursive: true, force: true });
 mkdirSync(outputRoot, { recursive: true });
+rmSync(assetsRoot, { recursive: true, force: true });
+mkdirSync(assetsRoot, { recursive: true });
 await bundle({
   entryPoint: join(rootDir, 'packages', 'stickman-remotion', 'src', 'index.ts'),
   outDir: bundleRoot,
@@ -93,11 +99,12 @@ cpSync(
 );
 
 const resources = [];
+const rendererEntry = copyRemotionDependencies(outputRoot, requireFromDaemon);
 addDirectory(bundleRoot, 'bundle', remotionVersion);
 addDirectory(browserRoot, 'browser', chromiumVersion);
 addDirectory(fontRoot, 'font', '@fontsource/noto-sans@5.2.8');
-addDirectory(characterRoot, 'character', 'opencreator-dashboard@1');
-addDirectory(visualAssetRoot, 'visual-asset', 'stickman-visual-assets@1');
+addDirectory(join(outputRoot, 'node_modules'), 'renderer', remotionVersion);
+resources.push({ path: 'package.json', kind: 'renderer', version: remotionVersion, sha256: hashFile(join(outputRoot, 'package.json')), bytes: statSync(join(outputRoot, 'package.json')).size, platform: targetPlatform, arch: targetArch });
 resources.sort((left, right) => left.path.localeCompare(right.path));
 const manifest = {
   version: 1,
@@ -105,17 +112,22 @@ const manifest = {
   arch: targetArch,
   remotionVersion,
   chromiumVersion,
+  rendererEntry,
   bundlePath: normalizeRelative(relative(outputRoot, bundleRoot)),
   browserExecutable: normalizeRelative(relative(outputRoot, packagedBrowserExecutable)),
   resources
 };
 writeFileSync(join(outputRoot, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+await signRemotionComponent(outputRoot);
 verifyStickmanRuntime(outputRoot, targetPlatform, targetArch);
+const appVersion = JSON.parse(readFileSync(join(desktopDir, 'package.json'), 'utf8')).version;
+const component = createRemotionComponentArtifact({ runtimeRoot: outputRoot, outputRoot: join(desktopDir, '.pack', 'components'), version: appVersion, platform: targetPlatform, arch: targetArch });
 console.log(JSON.stringify({
   ok: true,
   outputRoot,
   resources: resources.length,
-  browserVersion
+  browserVersion,
+  component
 }));
 
 function addDirectory(root, kind, version) {

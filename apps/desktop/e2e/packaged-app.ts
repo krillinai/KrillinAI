@@ -101,12 +101,26 @@ export async function waitForPackagedPage(
 }
 
 export async function closePackagedApp(app: PackagedApp): Promise<void> {
-  await app.page.evaluate(() => {
-    void window.opencreatorDesktop?.quit();
-  }).catch(() => undefined);
+  await requestPackagedAppQuit(app).catch(() => undefined);
   const exited = await waitForProcessExit(app.process, 8_000);
   if (!exited) await terminateProcessTree(app.process);
   await app.browser.close().catch(() => undefined);
+}
+
+export async function requestPackagedAppQuit(app: PackagedApp): Promise<void> {
+  try {
+    await app.page.evaluate(() => {
+      if (!window.opencreatorDesktop) throw new Error('Desktop quit bridge is unavailable');
+      void window.opencreatorDesktop.quit();
+    });
+  } catch (error) {
+    // A successful quit can close CDP before evaluate's response arrives.
+    // Only accept that error after a clean native process exit.
+    if (!(error instanceof Error)
+      || !error.message.includes('Target page, context or browser has been closed')
+      || !await waitForProcessExit(app.process, 1_000)
+      || app.process.exitCode !== 0) throw error;
+  }
 }
 
 export async function waitForProcessExit(

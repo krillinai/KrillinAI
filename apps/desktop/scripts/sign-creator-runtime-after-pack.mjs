@@ -9,11 +9,12 @@ import {
   writeFileSync
 } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, relative } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { verifyCreatorRuntime } from './creator-runtime-contract.mjs';
 import { verifyStickmanRuntime } from './stickman-runtime-contract.mjs';
-import { findDeveloperIdIdentity } from './mac-signing.mjs';
+import { findDeveloperIdIdentity, withMacSigningKeychain } from './mac-signing.mjs';
 import { prepareMacAppIcon } from './mac-app-icon.mjs';
 
 const machOMagicValues = new Set([
@@ -27,12 +28,66 @@ const machOMagicValues = new Set([
   'bfbafeca'
 ]);
 
+const remotionBrowserEntitlements = fileURLToPath(
+  new URL('../resources/entitlements.mac.plist', import.meta.url)
+);
+
 export async function afterPack(context) {
   await prepareMacAppIcon(context);
   if (process.env.OPENCREATOR_SIGN_CREATOR_RUNTIME !== '1') return;
   await signDaemonRuntimeBundle(context);
   await signCreatorRuntimeBundle(context);
-  await signStickmanRuntimeBundle(context);
+}
+
+export async function signRemotionComponent(runtimeRoot, env = process.env, options = {}) {
+  if (env.OPENCREATOR_SIGN_CREATOR_RUNTIME !== '1') return;
+  if ((options.platform ?? process.platform) !== 'darwin') throw new Error('Remotion Developer ID signing requires macOS');
+  await (options.withKeychain ?? withMacSigningKeychain)(env, async signingEnv => {
+    const keychainFile = signingEnv.APPLE_KEYCHAIN ?? null;
+    const identity = signingEnv.OPENCREATOR_REMOTION_SIGNING_IDENTITY?.trim()
+      || (options.findIdentity ?? findSigningIdentity)(signingEnv.OPENCREATOR_APPLE_TEAM_ID, keychainFile);
+    const binaries = (options.findBinaries ?? findMachOBinaries)(runtimeRoot);
+    if (binaries.length === 0) throw new Error('Remotion component has no native binaries');
+    const manifest = JSON.parse(readFileSync(join(runtimeRoot, 'manifest.json'), 'utf8'));
+    const browserExecutable = resolve(runtimeRoot, manifest.browserExecutable);
+    const signBinary = options.signBinary ?? signMachOBinary;
+    for (const path of binaries) {
+      if (isMachOBinary(path)) normalizeRemotionLibraryPaths(path, runtimeRoot);
+      // Chromium's V8 needs JIT permissions when hardened runtime is enabled.
+      // Keep these permissions scoped to the browser executable.
+      if (resolve(path) === browserExecutable) {
+        await signBinary(path, identity, keychainFile, remotionBrowserEntitlements);
+      } else {
+        await signBinary(path, identity, keychainFile);
+      }
+    }
+    updateManifestHashes(runtimeRoot, binaries);
+  });
+}
+
+export function normalizeRemotionLibraryPaths(path, runtimeRoot, options = {}) {
+  const runTool = options.runTool ?? ((command, args) => {
+    const result = spawnSync(command, args, { encoding: 'utf8', timeout: 60_000 });
+    if (result.error || result.status !== 0) {
+      throw new Error(`Unable to prepare Remotion library paths for ${path}: ${result.stderr || result.error?.message}`);
+    }
+    return result.stdout;
+  });
+  const dependencies = runTool('otool', ['-L', path]);
+  for (const match of dependencies.matchAll(/^\s+(.+?) \(compatibility version .+\)$/gm)) {
+    const dependency = match[1];
+    if (dependency.startsWith('@') || isAbsolute(dependency)) continue;
+    const library = resolve(dirname(path), dependency);
+    const inside = relative(resolve(runtimeRoot), library);
+    if (inside === '..' || inside.startsWith(`..${sep}`) || isAbsolute(inside) || !existsSync(library)) {
+      throw new Error(`Remotion relative library is not bundled: ${dependency}`);
+    }
+    // Hardened runtime rejects bare relative library names, even when signed.
+    const replacement = `@loader_path/${dependency}`;
+    runTool('install_name_tool', library === resolve(path)
+      ? ['-id', replacement, path]
+      : ['-change', dependency, replacement, path]);
+  }
 }
 
 export async function signDaemonRuntimeBundle(context, options = {}) {
@@ -159,7 +214,7 @@ function listSigningIdentities(keychainFile) {
   return result.stdout;
 }
 
-function signMachOBinary(path, identity, keychainFile) {
+function signMachOBinary(path, identity, keychainFile, entitlementsPath) {
   const args = [
     '--force',
     '--timestamp',
@@ -169,6 +224,7 @@ function signMachOBinary(path, identity, keychainFile) {
     identity
   ];
   if (keychainFile) args.push('--keychain', keychainFile);
+  if (entitlementsPath) args.push('--entitlements', entitlementsPath);
   args.push(path);
   const result = spawnSync('codesign', args, {
     encoding: 'utf8',
