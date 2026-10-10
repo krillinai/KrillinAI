@@ -1,8 +1,12 @@
 import type {
   CreatorJson,
+  CreatorPresetDetail,
   CreatorPresetHighlight,
-  CreatorRuntimeWorkspace
+  CreatorRuntimeWorkspace,
+  CreatorServicesConfig
 } from '@opencreator/protocol';
+import { defaultVideoGenerationModels, isCreatorTtsProvider } from '@opencreator/protocol';
+import { readImageProvider } from '../image-settings.js';
 import { deepMergeCreatorJson } from './requirements.js';
 import type {
   CompiledCreatorPreset,
@@ -15,6 +19,65 @@ export function createCreatorPresetHighlights(
 ): CreatorPresetHighlight[] {
   const defaults = localizedDefaults(preset, locale);
   return highlightBuilders[preset.module](defaults, locale);
+}
+
+export function createCreatorPresetDetails(
+  preset: CompiledCreatorPreset,
+  locale: CreatorPresetLocale,
+  config?: CreatorServicesConfig,
+  codexImageModel?: string
+): CreatorPresetDetail[] {
+  const labels: Record<CreatorRuntimeWorkspace, [string, string][]> = {
+    'video-translation': [['语言', 'Languages'], ['字幕', 'Subtitles'], ['字体', 'Font'], ['输出', 'Output']],
+    'video-download': [['输出', 'Output']],
+    'image-generation': [['尺寸', 'Size'], ['质量', 'Quality'], ['数量', 'Count']],
+    'video-generation': [['尺寸', 'Size'], ['时长', 'Duration']],
+    'cover-generator': [['风格', 'Style'], ['比例', 'Aspect ratio'], ['文字语言', 'Text language'], ['数量', 'Count']],
+    'smart-dubbing': [['风格', 'Style'], ['语速', 'Speed'], ['格式', 'Format']]
+  };
+  const details = createCreatorPresetHighlights(preset, locale).map((highlight, index) => {
+    const [zh, en] = labels[preset.module][index] ?? ['配置', 'Setting'];
+    return { ...highlight, label: localize(locale, zh, en) };
+  });
+  if (['image-generation', 'video-generation', 'cover-generator', 'smart-dubbing'].includes(preset.module)) {
+    const defaults = localizedDefaults(preset, locale);
+    details.unshift({
+      label: localize(locale, '模型', 'Model'),
+      text: presetModelName(preset.module, defaults, locale, config, codexImageModel)
+        ?? localize(locale, '按当前服务配置', 'Current service configuration'),
+      colors: []
+    });
+  }
+  return details;
+}
+
+function presetModelName(
+  module: CreatorRuntimeWorkspace,
+  defaults: Record<string, CreatorJson>,
+  locale: CreatorPresetLocale,
+  config?: CreatorServicesConfig,
+  codexImageModel?: string
+): string | undefined {
+  const model = readString(defaults.model)?.trim() || undefined;
+  if (config === undefined) return model;
+  if (module === 'image-generation' || module === 'cover-generator') {
+    const provider = readImageProvider(defaults.provider, config.image.provider);
+    return provider === 'codex-native'
+      ? codexImageModel || localize(locale, 'Codex 原生生图', 'Codex native image generation')
+      : config.image[provider].model.trim() || undefined;
+  }
+  if (module === 'video-generation') {
+    const provider = defaults.provider === 'seedance' || defaults.provider === 'kling' || defaults.provider === 'veo'
+      ? defaults.provider
+      : config.video.provider;
+    return model ?? (config.video[provider].model.trim() || defaultVideoGenerationModels[provider]);
+  }
+  if (module === 'smart-dubbing') {
+    const provider = isCreatorTtsProvider(defaults.ttsProvider) ? defaults.ttsProvider : config.tts.provider;
+    const ttsModel = readString(defaults.ttsModel)?.trim() || undefined;
+    return provider === 'edge-tts' ? 'Edge TTS' : ttsModel ?? (config.tts[provider].model.trim() || undefined);
+  }
+  return model;
 }
 
 export function createCreatorPresetPrompt(
@@ -117,7 +180,10 @@ const highlightBuilders: Record<
 };
 
 const presetTagLabels: Record<string, [string, string]> = {
+  '3d-render': ['三维场景', '3D render'],
   action: ['动作', 'Action'],
+  'anime-style': ['动漫风格', 'Anime style'],
+  'architecture-interior': ['建筑空间', 'Architecture and interiors'],
   advertising: ['广告', 'Advertising'],
   aerial: ['航拍', 'Aerial'],
   animation: ['动画', 'Animation'],
@@ -128,6 +194,7 @@ const presetTagLabels: Record<string, [string, string]> = {
   'camera-motion': ['镜头运动', 'Camera motion'],
   'character-interaction': ['角色互动', 'Character interaction'],
   cinematic: ['电影感', 'Cinematic'],
+  'city-street': ['城市街景', 'City streets'],
   'condensed-source': ['精简提示词', 'Condensed prompt'],
   cooking: ['烹饪', 'Cooking'],
   corporate: ['企业', 'Corporate'],
@@ -149,11 +216,13 @@ const presetTagLabels: Record<string, [string, string]> = {
   'image-to-video': ['图生视频', 'Image to video'],
   insight: ['洞察', 'Insight'],
   jewelry: ['珠宝', 'Jewelry'],
+  minimalist: ['极简设计', 'Minimalist'],
   knowledge: ['知识', 'Knowledge'],
   'martial-arts': ['武术', 'Martial arts'],
   'multi-reference': ['多参考图', 'Multiple references'],
   'multi-stage': ['多阶段', 'Multi-stage'],
   mystery: ['悬疑', 'Mystery'],
+  'nature-landscape': ['自然风光', 'Natural landscapes'],
   narration: ['旁白', 'Narration'],
   news: ['资讯', 'News'],
   nostalgic: ['怀旧', 'Nostalgic'],
@@ -177,6 +246,7 @@ const presetTagLabels: Record<string, [string, string]> = {
   social: ['社交媒体', 'Social media'],
   square: ['方形', 'Square'],
   'stop-motion': ['定格动画', 'Stop motion'],
+  storyboard: ['故事分镜', 'Storyboard'],
   story: ['故事', 'Story'],
   storytelling: ['故事讲述', 'Storytelling'],
   subtitles: ['字幕', 'Subtitles'],

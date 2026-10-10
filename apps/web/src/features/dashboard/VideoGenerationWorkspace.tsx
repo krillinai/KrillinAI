@@ -1,6 +1,7 @@
 import {
   creatorPromptMaxLength,
   defaultVideoGenerationModels,
+  isPublicErrorFacts,
   readCreatorResultSnapshots,
   videoGenerationModelIds,
   type CreatorArtifact,
@@ -24,10 +25,12 @@ import {
   X
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
+import { useLocalizedCopy, type LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
+import { publicErrorReason } from '../issues/issue-catalog.js';
 import NativeSelect from '../../components/forms/NativeSelect.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
+import { CreatorTaskProgressNotice } from './CreatorCollaborationPanel.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
 import {
@@ -89,6 +92,10 @@ export default function VideoGenerationWorkspace(props: {
 }) {
   const l = useLocalizedCopy();
   const session = useOptionalCreatorSession();
+  const mediaPreviewContextRef = useRef({ session, localize: l });
+  mediaPreviewContextRef.current = { session, localize: l };
+  const mediaPreviewJobId = session?.job.id;
+  const canOpenMediaPreview = session?.openArtifact !== undefined;
   const restoredResults = session?.job.artifacts.some(artifact => (
     artifact.kind === 'generated_video' && artifact.status === 'completed'
   )) === true;
@@ -119,7 +126,7 @@ export default function VideoGenerationWorkspace(props: {
   ));
   const resultVersion = session?.job.state.resultVersion;
   const [videoUrl, setVideoUrl] = useState('');
-  const [previewError, setPreviewError] = useState('');
+  const [previewFailed, setPreviewFailed] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [taskControlPending, setTaskControlPending] = useState<'canceling' | 'resuming'>();
@@ -139,14 +146,18 @@ export default function VideoGenerationWorkspace(props: {
   const latestVersion = resultVersions.at(-1)?.value;
   const selectedResult = resultVersions.find(version => version.value === resultVersion)
     ?? resultVersions.at(-1);
+  const selectedResultArtifactId = selectedResult?.artifact.id;
   const latestStage = session?.job.stages.filter(stage => stage.stageId === 'generate').at(-1);
+  const latestStageIssue = session?.job.issues?.find(issue => (
+    issue.stageRunId === latestStage?.id && issue.status !== 'resolved'
+  ));
   const generating = latestStage?.status === 'queued' || latestStage?.status === 'running';
   const resumable = latestStage?.status === 'canceled'
     || latestStage?.status === 'interrupted'
     || isRecoverableVideoStage(latestStage);
   const runtimeError = latestStage?.status === 'failed'
     ? formatVideoError(
-        { code: latestStage.errorCode, message: latestStage.errorMessage },
+        { code: latestStage.errorCode, message: latestStage.errorMessage, publicFacts: latestStageIssue?.publicFacts },
         l,
         selectedModelLabel,
         provider
@@ -154,7 +165,14 @@ export default function VideoGenerationWorkspace(props: {
     : session?.error === null || session?.error === undefined
       ? ''
       : formatVideoError(session.error, l, selectedModelLabel, provider);
+  const previewError = previewFailed ? l(
+    '视频预览加载失败，可以稍后重试或直接下载',
+    'The video preview failed to load. Retry later or download the file.'
+  ) : '';
   const visibleError = error || runtimeError || previewError;
+  useEffect(() => {
+    if (latestStage?.status === 'failed' || latestStage?.status === 'interrupted') setNotice('');
+  }, [latestStage?.id, latestStage?.status]);
   const settingsDeepLink = readNeedsInputDeepLink(session?.state.needsInput);
   const activeReferenceArtifact = findArtifact(
     session?.job.artifacts ?? [],
@@ -163,6 +181,9 @@ export default function VideoGenerationWorkspace(props: {
   );
   const currentReferenceName = referenceImageFile?.name
     ?? readArtifactString(activeReferenceArtifact, 'fileName');
+  const referencePreviewArtifactId = referenceImageFile === undefined
+    ? activeReferenceArtifact?.id
+    : undefined;
   const followsReferenceRatio = provider === 'seedance' && Boolean(currentReferenceName);
   const resultSettings = selectedResult?.state;
   const resultProvider = providers.find(item => (
@@ -181,15 +202,14 @@ export default function VideoGenerationWorkspace(props: {
   const resultFormatLabel = resultWidth !== undefined && resultHeight !== undefined
     ? videoFormatLabel(resultWidth, resultHeight, l)
     : l(resultSizeOption.zh, resultSizeOption.en);
-  const resultDuration = readDuration(resultSettings?.duration, resultProvider.value);
+  const resultArtifactDuration = readVideoDuration(selectedResult?.artifact.metadata.duration);
+  const resultDuration = resultArtifactDuration === undefined
+    ? readDuration(resultSettings?.duration, resultProvider.value)
+    : Math.round(resultArtifactDuration * 100) / 100;
   const resultModel = readArtifactString(selectedResult?.artifact, 'model')
     ?? readOptionalModel(resultSettings?.model)
     ?? modelDefaults[resultProvider.value];
   const resultModelLabel = videoModelLabel(resultModel);
-  const progressPercent = readProgressPercent(latestStage?.progress.percent);
-  const progressLabel = latestStage === undefined
-    ? l('正在准备任务', 'Preparing the task')
-    : videoPhaseLabel(readString(latestStage.progress.phase), l);
 
   useEffect(() => {
     if (props.creatorServicesService === null || props.creatorServicesService === undefined) {
@@ -231,34 +251,37 @@ export default function VideoGenerationWorkspace(props: {
   }, [props.creatorServicesService, session?.job.id]);
 
   useEffect(() => {
-    if (referenceImageFile !== undefined) {
-      let objectUrl = '';
-      void captureCreatorClientFailure(
-        session,
-        'video-generation.load-local-reference-preview',
-        l('参考图预览加载失败，请重新选择图片。', 'The reference preview failed to load. Select the image again.'),
-        () => URL.createObjectURL(referenceImageFile)
-      ).then(url => {
-        objectUrl = url;
-        setReferenceImageUrl(url);
-      }).catch(() => setReferenceImageUrl(''));
-      return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-    }
-    if (activeReferenceArtifact === undefined || session === null) {
+    const { session, localize } = mediaPreviewContextRef.current;
+    if (referenceImageFile === undefined && (
+      referencePreviewArtifactId === undefined || session === null || !canOpenMediaPreview
+    )) {
       setReferenceImageUrl('');
       return undefined;
     }
     let active = true;
     let objectUrl = '';
-    void createCreatorArtifactObjectUrl(
-      session,
-      activeReferenceArtifact.id,
-      'video-generation.load-reference-preview',
-      l('参考图预览加载失败，请稍后重试。', 'The reference preview failed to load. Try again later.')
-    )
+    setReferenceImageUrl('');
+    const preview = referenceImageFile !== undefined
+      ? captureCreatorClientFailure(
+          session,
+          'video-generation.load-local-reference-preview',
+          localize('参考图预览加载失败，请重新选择图片。', 'The reference preview failed to load. Select the image again.'),
+          () => URL.createObjectURL(referenceImageFile)
+        )
+      : createCreatorArtifactObjectUrl(
+          session!,
+          referencePreviewArtifactId!,
+          'video-generation.load-reference-preview',
+          localize('参考图预览加载失败，请稍后重试。', 'The reference preview failed to load. Try again later.')
+        );
+    void preview
       .then(url => {
+        if (!active) {
+          URL.revokeObjectURL(url);
+          return;
+        }
         objectUrl = url;
-        if (active) setReferenceImageUrl(objectUrl);
+        setReferenceImageUrl(objectUrl);
       })
       .catch(() => {
         if (active) setReferenceImageUrl('');
@@ -267,41 +290,41 @@ export default function VideoGenerationWorkspace(props: {
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [activeReferenceArtifact?.id, l, referenceImageFile, session?.captureCreatorFailure, session?.openArtifact]);
+  }, [canOpenMediaPreview, mediaPreviewJobId, referenceImageFile, referencePreviewArtifactId]);
 
   useEffect(() => {
-    if (selectedResult === undefined || session === null) {
+    const { session, localize } = mediaPreviewContextRef.current;
+    if (selectedResultArtifactId === undefined || session === null || !canOpenMediaPreview) {
       setVideoUrl('');
-      setPreviewError('');
+      setPreviewFailed(false);
       return undefined;
     }
     let active = true;
     let objectUrl = '';
     setVideoUrl('');
-    setPreviewError('');
+    setPreviewFailed(false);
     void createCreatorArtifactObjectUrl(
       session,
-      selectedResult.artifact.id,
+      selectedResultArtifactId,
       'video-generation.load-result-preview',
-      l('视频预览加载失败，可以稍后重试或直接下载。', 'The video preview failed to load. Retry later or download the file.')
+      localize('视频预览加载失败，可以稍后重试或直接下载。', 'The video preview failed to load. Retry later or download the file.')
     )
       .then(url => {
-        objectUrl = url;
-        if (active) setVideoUrl(objectUrl);
-      })
-      .catch(cause => {
-        if (active) {
-          setPreviewError(l(
-            '视频预览加载失败，可以稍后重试或直接下载',
-            'The video preview failed to load. Retry later or download the file.'
-          ));
+        if (!active) {
+          URL.revokeObjectURL(url);
+          return;
         }
+        objectUrl = url;
+        setVideoUrl(objectUrl);
+      })
+      .catch(() => {
+        if (active) setPreviewFailed(true);
       });
     return () => {
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [l, selectedResult?.artifact.id, session?.captureCreatorFailure, session?.openArtifact]);
+  }, [canOpenMediaPreview, mediaPreviewJobId, selectedResultArtifactId]);
 
   useEffect(() => {
     if (latestVersion !== undefined && !generating) {
@@ -428,12 +451,13 @@ export default function VideoGenerationWorkspace(props: {
         await session.uploadReferenceImage(referenceImageFile);
         setReferenceImageFile(undefined);
       }
-      await session.applyAction({
+      const next = await session.applyAction({
         actor: 'user',
         action: 'run-stage',
         input: { stageId: 'generate' }
       });
-      setNotice(l(
+      const submittedStage = next.stages.filter(stage => stage.stageId === 'generate').at(-1);
+      setNotice(submittedStage?.status === 'failed' || submittedStage?.status === 'interrupted' ? '' : l(
         '视频生成任务已提交，可以离开当前页面，完成后会保留在项目中',
         'Video generation started. You can leave this page and return to the saved result later.'
       ));
@@ -549,15 +573,15 @@ export default function VideoGenerationWorkspace(props: {
     <CreatorToolShell
       title={l('视频生成', 'Video Generation')}
       subtitle={l('根据文字或参考图生成 AI 视频片段', 'Generate an AI video clip from text or a reference image')}
-      context={selectedResult
+      context={generating
+        ? selectedResult
+          ? l(`V${selectedResult.value} · 正在生成新版本`, `V${selectedResult.value} · Generating a new version`, `V${selectedResult.value} · Genererar en ny version`)
+          : l('视频生成任务进行中', 'Video generation in progress', 'Videogenerering pågår')
+        : selectedResult
         ? l(
             `V${selectedResult.value} · ${resultModelLabel} · ${resultRatio} · ${resultDuration} 秒`,
             `V${selectedResult.value} · ${resultModelLabel} · ${resultRatio} · ${resultDuration} seconds`
           )
-        : generating
-          ? progressPercent === null
-            ? progressLabel
-            : `${progressLabel} · ${progressPercent}%`
           : currentStep === 0
             ? l('正在编辑视频描述', 'Editing video description')
             : currentStep === 1
@@ -739,10 +763,12 @@ export default function VideoGenerationWorkspace(props: {
                 <div className="creator-tool-panel-heading">
                   <div>
                     <h2 id="video-output-title">{selectedResult ? l('生成结果', 'Generated video') : l('生成视频', 'Generate video')}</h2>
-                    <p>{selectedResult
-                      ? l('预览历史版本并下载需要的成片', 'Preview previous versions and download the video you need')
-                      : generating
-                        ? l('任务正在后台生成，完成后会自动显示', 'The task is running in the background and will appear automatically')
+                    <p>{generating
+                      ? selectedResult
+                        ? l('新版本正在后台生成，可以继续预览和下载当前版本', 'A new version is generating in the background. You can still preview and download the current version.', 'En ny version genereras i bakgrunden. Du kan fortfarande förhandsgranska och ladda ner den nuvarande versionen.')
+                        : l('任务正在后台生成，完成后会自动显示', 'The task is running in the background and will appear automatically')
+                      : selectedResult
+                        ? l('预览历史版本并下载需要的成片', 'Preview previous versions and download the video you need')
                         : l('确认设置后提交视频生成任务', 'Review the settings, then submit the generation job')}</p>
                   </div>
                   {selectedResult ? (
@@ -758,14 +784,19 @@ export default function VideoGenerationWorkspace(props: {
                     />
                   ) : null}
                 </div>
+                {generating ? <CreatorTaskProgressNotice stageId="generate" /> : null}
                 {selectedResult ? (
                   <div className="video-generation-result" data-ratio={resultRatio}>
                     {videoUrl ? (
-                      <video controls src={videoUrl} aria-label={l('生成视频预览', 'Generated video preview')} />
+                      <GeneratedVideoPreview src={videoUrl} duration={resultArtifactDuration} />
                     ) : (
                       <div className="video-result-player-status" role="status">
-                        <LoaderCircle className="smart-dubbing-spinner" size={18} />
-                        {l('正在加载视频预览', 'Loading video preview')}
+                        {previewFailed ? previewError : (
+                          <>
+                            <LoaderCircle className="smart-dubbing-spinner" size={18} />
+                            {l('正在加载视频预览', 'Loading video preview')}
+                          </>
+                        )}
                       </div>
                     )}
                     <div>
@@ -791,20 +822,10 @@ export default function VideoGenerationWorkspace(props: {
                     </div>
                   </div>
                 ) : generating ? (
-                  <div className="video-generation-progress" role="status">
-                    <span><LoaderCircle className="smart-dubbing-spinner" size={25} /></span>
-                    <strong>{progressLabel}</strong>
-                    <p>{l(
+                  <p className="video-generation-background-note">{l(
                       '任务已保存在项目中，可以离开当前页面',
                       'The task is saved in the project, so you can leave this page'
                     )}</p>
-                    {progressPercent === null ? null : (
-                      <>
-                        <div><span style={{ width: `${Math.max(4, progressPercent)}%` }} /></div>
-                        <small>{progressPercent}%</small>
-                      </>
-                    )}
-                  </div>
                 ) : (
                   <div className="smart-dubbing-ready">
                     <span><Clapperboard size={24} strokeWidth={1.6} /></span>
@@ -894,6 +915,63 @@ export default function VideoGenerationWorkspace(props: {
       </div>
     </CreatorToolShell>
   );
+}
+
+function GeneratedVideoPreview(props: { src: string; duration?: number }) {
+  const localize = useLocalizedCopy();
+  const [playback, setPlayback] = useState<{ src: string; currentTime: number; duration?: number }>({
+    src: props.src,
+    currentTime: 0
+  });
+  const currentTime = playback.src === props.src ? playback.currentTime : 0;
+  const duration = (playback.src === props.src ? playback.duration : undefined) ?? props.duration;
+
+  function updatePlayback(video: HTMLVideoElement) {
+    if (video.currentSrc && video.currentSrc !== props.src) return;
+    const currentTime = Number.isFinite(video.currentTime) && video.currentTime >= 0 ? video.currentTime : 0;
+    const measuredDuration = readVideoDuration(video.duration);
+    setPlayback(previous => {
+      const duration = measuredDuration ?? (previous.src === props.src ? previous.duration : undefined);
+      if (previous.src === props.src && previous.currentTime === currentTime && previous.duration === duration) return previous;
+      return { src: props.src, currentTime, duration };
+    });
+  }
+
+  return (
+    <figure className="video-generation-preview">
+      <video
+        controls
+        playsInline
+        preload="metadata"
+        src={props.src}
+        aria-label={localize('生成视频预览', 'Generated video preview')}
+        onLoadedMetadata={event => updatePlayback(event.currentTarget)}
+        onDurationChange={event => updatePlayback(event.currentTarget)}
+        onTimeUpdate={event => updatePlayback(event.currentTarget)}
+        onSeeked={event => updatePlayback(event.currentTarget)}
+      />
+      <figcaption>
+        <span>{localize('当前时间 / 总时长', 'Position / duration', 'Position / längd')}</span>
+        <output aria-label={localize('播放时间', 'Playback time', 'Uppspelningstid')} aria-live="off">
+          {formatPlaybackTime(currentTime)} / {formatPlaybackTime(duration)}
+        </output>
+      </figcaption>
+    </figure>
+  );
+}
+
+function readVideoDuration(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function formatPlaybackTime(seconds: number | undefined): string {
+  if (seconds === undefined || !Number.isFinite(seconds) || seconds < 0) return '--:--';
+  const totalSeconds = Math.floor(seconds);
+  const hours = Math.floor(totalSeconds / 3_600);
+  const minutes = Math.floor(totalSeconds / 60) % 60;
+  const remainder = totalSeconds % 60;
+  const clock = `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+  return hours > 0 ? `${String(hours).padStart(2, '0')}:${clock}` : clock;
 }
 
 function createVideoResultVersions(
@@ -1078,12 +1156,6 @@ function readPositiveInteger(value: CreatorJson | undefined): number | undefined
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined;
 }
 
-function readProgressPercent(value: CreatorJson | undefined): number | null {
-  return typeof value === 'number' && Number.isFinite(value)
-    ? Math.max(0, Math.min(100, Math.round(value)))
-    : null;
-}
-
 function isRecoverableVideoStage(
   stage: CreatorStageRun | undefined
 ): boolean {
@@ -1103,24 +1175,6 @@ function artifactFileName(artifact: CreatorArtifact, version: number): string {
     ?? `OpenCreator-video-V${version}.mp4`;
 }
 
-function videoPhaseLabel(
-  phase: string,
-  l: (zh: string, en: string) => string
-): string {
-  const labels: Record<string, string> = {
-    validating: l('检查视频生成设置', 'Checking video generation settings'),
-    preparing_reference: l('准备视频参考图', 'Preparing the reference image'),
-    submitting: l('提交视频生成任务', 'Submitting the video generation task'),
-    queued: l('视频生成任务排队中', 'Video generation task queued'),
-    generating: l('视频生成中', 'Generating video'),
-    downloading: l('下载生成的视频', 'Downloading the generated video'),
-    collecting_output: l('整理视频文件', 'Collecting the video file'),
-    validating_output: l('检查视频文件', 'Checking the video file'),
-    completed: l('视频已生成', 'Video generated')
-  };
-  return labels[phase] ?? l('正在处理视频生成任务', 'Processing the video generation task');
-}
-
 function formatBytes(size: number) {
   if (size <= 0) return 'MP4';
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
@@ -1129,7 +1183,7 @@ function formatBytes(size: number) {
 
 function formatVideoError(
   error: unknown,
-  l: (zh: string, en: string) => string,
+  l: LocalizeCopy,
   modelLabel = '',
   provider: VideoGenerationProvider = 'seedance'
 ) {
@@ -1165,6 +1219,10 @@ function formatVideoError(
       `当前账号未开通 ${selected}，请切换模型版本或前往${consoleName}开通`,
       `${selected} is not enabled for this account. Switch models or enable it in ${consoleName}.`
     );
+  }
+  if (typeof error === 'object' && error !== null && 'publicFacts' in error && isPublicErrorFacts(error.publicFacts)
+    && error.publicFacts.kind !== 'unknown') {
+    return publicErrorReason(error.publicFacts, l);
   }
   if (code === 'creator_video_upstream_error' || code === 'VIDEO_GENERATION_UPSTREAM_ERROR') {
     return l(

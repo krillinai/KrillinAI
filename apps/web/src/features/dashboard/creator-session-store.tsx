@@ -1,6 +1,8 @@
 import {
   isOpenCreatorIssue,
+  creatorPreflightFailure,
   type OpenCreatorIssue,
+  type PublicErrorFacts,
   CreatorActionRequest,
   CreatorActivity,
   CreatorAgentApproval,
@@ -17,7 +19,6 @@ import {
   CreatorStageRun
 } from '@opencreator/protocol';
 import {
-  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -27,11 +28,17 @@ import {
   type ReactNode
 } from 'react';
 import type { CreatorWebService } from '../../services/creator-service.js';
-import { createCreatorSnapshotSubscription } from '../../runtime/creator-sse.js';
+import { createCreatorSnapshotSubscription, type CreatorConnectionState } from '../../runtime/creator-sse.js';
+import { useRuntimeRecovery } from '../../runtime/runtime-recovery.js';
+import { CreatorSessionContext } from './creator-session-context.js';
 import { normalizePageIssue } from '../issues/page-issue-state.js';
-import { presentIssue } from '../issues/issue-catalog.js';
+import { issueDiagnosticText, presentIssue } from '../issues/issue-catalog.js';
+import { useAppLanguage } from '../../i18n/LanguageProvider.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
 
 export type CreatorSessionContextValue = {
+  connection?: CreatorConnectionState;
+  reconnect?(): Promise<void>;
   job: CreatorJob;
   state: Record<string, CreatorJson>;
   conflictedFields: string[];
@@ -39,7 +46,7 @@ export type CreatorSessionContextValue = {
   issues: OpenCreatorIssue[];
   focusedIssue: OpenCreatorIssue | null;
   preflight: CreatorPreflightResponse | null;
-  runPreflight(stageId: string): Promise<CreatorPreflightResponse>;
+  runPreflight(stageId: string, options?: { inputResultVersion?: number }): Promise<CreatorPreflightResponse>;
   updateDraft(
     patch: Record<string, CreatorJson>,
     options?: { semantic?: boolean; persist?: boolean }
@@ -131,13 +138,16 @@ export type CreatorSessionError = {
 };
 
 export class CreatorPreflightBlockedError extends Error {
+  readonly code: string;
+  readonly publicFacts: PublicErrorFacts;
   constructor(readonly result: CreatorPreflightResponse) {
-    super('Creator preflight blocked this stage');
+    const failure = creatorPreflightFailure(result);
+    super(failure.message);
     this.name = 'CreatorPreflightBlockedError';
+    this.code = failure.code;
+    this.publicFacts = failure.publicFacts;
   }
 }
-
-const CreatorSessionContext = createContext<CreatorSessionContextValue | null>(null);
 
 export function CreatorSessionProvider(props: {
   initialJob: CreatorJob;
@@ -166,7 +176,12 @@ export function CreatorSessionProvider(props: {
     | 'subscribeJobEvents'>>;
   children: ReactNode;
 }) {
+  const { language } = useAppLanguage();
   const [confirmedJob, setConfirmedJob] = useState(props.initialJob);
+  const [connection, setConnection] = useState<CreatorConnectionState>({ status: 'connecting', attempt: 0 });
+  const subscriptionRef = useRef<ReturnType<typeof createCreatorSnapshotSubscription<CreatorJob, CreatorEventEnvelope>>>();
+  const runtimeEpoch = useRuntimeRecovery()?.epoch ?? 0;
+  const reconnect = useCallback(async () => { await subscriptionRef.current?.retry(); }, []);
   const [draft, setDraft] = useState<Record<string, CreatorJson>>({});
   const [dirtyFields, setDirtyFields] = useState<Set<string>>(() => new Set());
   const [conflictedFields, setConflictedFields] = useState<string[]>([]);
@@ -440,7 +455,7 @@ export function CreatorSessionProvider(props: {
     props.onAskPendingIssue(issue, question);
   }, [props.onAskPendingIssue]);
 
-  const runPreflight = useCallback(async (stageId: string) => {
+  const runPreflight = useCallback(async (stageId: string, options?: { inputResultVersion?: number }) => {
     if (props.service.preflight === undefined) {
       const cause = new Error('Creator preflight is unavailable');
       captureCreatorFailure('creator.preflight', cause, '启动条件检查暂不可用，请稍后重试。', 'preflight');
@@ -449,7 +464,9 @@ export function CreatorSessionProvider(props: {
     await flush();
     await ensurePersistedJob();
     try {
-      const result = await props.service.preflight(confirmedRef.current.id, stageId);
+      const result = options?.inputResultVersion === undefined
+        ? await props.service.preflight(confirmedRef.current.id, stageId)
+        : await props.service.preflight(confirmedRef.current.id, stageId, options);
       setPreflight(result);
       if (!result.canStart) throw new CreatorPreflightBlockedError(result);
       return result;
@@ -460,6 +477,13 @@ export function CreatorSessionProvider(props: {
   }, [captureCreatorFailure, ensurePersistedJob, flush, props.service]);
 
   const applyRemoteSnapshot = useCallback((next: CreatorJob) => {
+    const current = confirmedRef.current;
+    if (next.id === current.id && (next.revision < current.revision
+      || next.revision === current.revision && next.stages.some(stage => {
+        const previous = current.stages.find(candidate => candidate.id === stage.id);
+        return previous !== undefined && terminalCreatorStage(previous.status)
+          && (stage.status === 'queued' || stage.status === 'running');
+      }))) return;
     const conflicts = [...dirtyRef.current].filter(field => (
       JSON.stringify(next.state[field]) !== JSON.stringify(draftRef.current[field])
     ));
@@ -522,11 +546,17 @@ export function CreatorSessionProvider(props: {
   }, [acceptAuthoritativeIssue]);
 
   useEffect(() => {
-    if (props.service.getJob === undefined || props.service.subscribeJobEvents === undefined) return;
-    if (isPendingCreatorJob(confirmedJob)) return;
+    if (props.service.getJob === undefined || props.service.subscribeJobEvents === undefined) {
+      setConnection({ status: 'connected', attempt: 0 });
+      return;
+    }
+    if (isPendingCreatorJob(confirmedJob)) {
+      setConnection({ status: 'connected', attempt: 0 });
+      return;
+    }
     const jobId = confirmedJob.id;
     const subscription = createCreatorSnapshotSubscription<CreatorJob, CreatorEventEnvelope>({
-      loadSnapshot: async () => (await props.service.getJob!(jobId)).job,
+      loadSnapshot: async options => (await props.service.getJob!(jobId, options)).job,
       subscribe: (onEvent, onDisconnect) => (
         props.service.subscribeJobEvents!(jobId, onEvent, onDisconnect)
       ),
@@ -548,15 +578,24 @@ export function CreatorSessionProvider(props: {
           void reloadAgentTimeline().catch(() => undefined);
         }
       },
+      onState: setConnection,
       shouldReloadSnapshot(event) {
-        return event.kind === 'snapshot_changed';
+        return event.kind === 'snapshot_changed'
+          || event.kind === 'stage_progress' && isRecord(event.payload.stage)
+            && typeof event.payload.stage.status === 'string' && terminalCreatorStage(event.payload.stage.status);
+      },
+      shouldReconcileSnapshot() {
+        const job = confirmedRef.current;
+        return job.status === 'running' || job.stages.some(stage => stage.status === 'running' || stage.status === 'queued');
       }
     });
-    void subscription.start().catch(() => undefined);
+    subscriptionRef.current = subscription;
+    void subscription.start();
     return () => {
       subscription.close();
+      if (subscriptionRef.current === subscription) subscriptionRef.current = undefined;
     };
-  }, [applyLiveEvent, applyRemoteSnapshot, confirmedJob.id, props.service, reloadAgentTimeline, reportLocalIssue]);
+  }, [applyLiveEvent, applyRemoteSnapshot, confirmedJob.id, props.service, reloadAgentTimeline, reportLocalIssue, runtimeEpoch]);
 
   useEffect(() => {
     if (
@@ -577,16 +616,16 @@ export function CreatorSessionProvider(props: {
       requestRevision = confirmedRef.current.revision;
       if (request.action === 'run-stage' && props.service.preflight !== undefined) {
         const stageId = request.input.stageId;
-        if (typeof stageId === 'string') await runPreflight(stageId);
+        if (typeof stageId === 'string') await runPreflight(stageId,
+          typeof request.input.inputResultVersion === 'number' ? { inputResultVersion: request.input.inputResultVersion } : undefined);
       }
       const response = await props.service.applyAction(confirmedRef.current.id, {
         ...request,
         expectedRevision: requestRevision
       });
-      confirmedRef.current = response.job;
-      setConfirmedJob(response.job);
+      applyRemoteSnapshot(response.job);
       setError(null);
-      return response.job;
+      return confirmedRef.current;
     } catch (cause) {
       const nextError = toSessionError(cause);
       if (!isSupersededRevisionConflict(cause, requestRevision, confirmedRef.current.revision)) {
@@ -610,9 +649,11 @@ export function CreatorSessionProvider(props: {
       && candidate.operationId === 'creator.retry-stage'
     ));
     if (action === undefined || issue.stageId === undefined || issue.status !== 'open') return;
+    const failedStage = confirmedRef.current.stages.find(stage => stage.id === issue.stageRunId);
+    const inputResultVersion = failedStage?.progress.inputResultVersion;
     await applyAction({
       action: 'run-stage',
-      input: { stageId: issue.stageId },
+      input: { stageId: issue.stageId, ...(typeof inputResultVersion === 'number' ? { inputResultVersion } : {}) },
       repairIssueId: issue.id
     });
   }, [applyAction]);
@@ -826,7 +867,7 @@ export function CreatorSessionProvider(props: {
         ? focused.id
         : undefined;
       const contextualMessage = focused !== undefined && authoritativeIssueId === undefined
-        ? `${content}\n\n相关错误：${presentIssue(focused).description}`
+        ? `${content}\n\n${createLocalizedCopy(language)('相关错误：', 'Related error: ', 'Relaterat fel: ')}${presentIssue(focused, language).description}\n${issueDiagnosticText(focused, language)}`
         : content;
       const response = await start(confirmedRef.current.id, {
         message: contextualMessage,
@@ -848,7 +889,7 @@ export function CreatorSessionProvider(props: {
     } finally {
       await reloadAgentTimeline().catch(() => undefined);
     }
-  }, [captureCreatorFailure, ensurePersistedJob, flush, focusedIssueId, props.service, reloadAgentTimeline]);
+  }, [captureCreatorFailure, ensurePersistedJob, flush, focusedIssueId, language, props.service, reloadAgentTimeline]);
 
   const steerAgentTurn = useCallback(async (message: string) => {
     const content = message.trim();
@@ -925,6 +966,8 @@ export function CreatorSessionProvider(props: {
     : issues.find(issue => issue.id === focusedIssueId) ?? null;
 
   const value = useMemo<CreatorSessionContextValue>(() => ({
+    connection,
+    reconnect,
     job: confirmedJob,
     state: { ...confirmedJob.state, ...draft },
     conflictedFields,
@@ -959,7 +1002,7 @@ export function CreatorSessionProvider(props: {
     steerAgentTurn,
     interruptAgentTurn,
     respondAgentApproval
-  }), [agentBusy, agentSession, askPendingIssue, applyAction, applyRemoteSnapshot, approvals, cancelJob, captureCreatorFailure, clearError, confirmedJob, conflictedFields, draft, error, flush, focusIssue, focusedIssue, interruptAgentTurn, issues, items, openArtifact, openArtifactJson, preflight, repairIssue, respondAgentApproval, resumeJob, runAgentTurn, runPreflight, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
+  }), [connection, reconnect, agentBusy, agentSession, askPendingIssue, applyAction, applyRemoteSnapshot, approvals, cancelJob, captureCreatorFailure, clearError, confirmedJob, conflictedFields, draft, error, flush, focusIssue, focusedIssue, interruptAgentTurn, issues, items, openArtifact, openArtifactJson, preflight, repairIssue, respondAgentApproval, resumeJob, runAgentTurn, runPreflight, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
 
   return (
     <CreatorSessionContext.Provider value={value}>
@@ -980,6 +1023,9 @@ function mergeCreatorEvent(job: CreatorJob, event: CreatorEventEnvelope): Creato
     const stage = readCreatorStage(event.payload.stage, job.id);
     if (stage === null) return job;
     const index = job.stages.findIndex(candidate => candidate.id === stage.id);
+    const previous = job.stages[index];
+    if (previous !== undefined && terminalCreatorStage(previous.status)
+      && (stage.status === 'queued' || stage.status === 'running') && event.revision <= job.revision) return job;
     const stages = index < 0
       ? [...job.stages, stage]
       : job.stages.map(candidate => candidate.id === stage.id ? stage : candidate);
@@ -1008,6 +1054,10 @@ function mergeCreatorEvent(job: CreatorJob, event: CreatorEventEnvelope): Creato
     return mergeIssueIntoJob(job, issue);
   }
   return job;
+}
+
+function terminalCreatorStage(status: string): boolean {
+  return ['succeeded', 'failed', 'canceled', 'interrupted'].includes(status);
 }
 
 function mergeIssueIntoJob(job: CreatorJob, issue: OpenCreatorIssue): CreatorJob {

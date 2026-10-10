@@ -31,11 +31,13 @@ describe('Krillin Codex LLM gateway', () => {
       isReusable: () => true,
       close: vi.fn(async () => undefined)
     }));
+    let configurationVersion = 'first';
     const gateway = createKrillinCodexLlmGateway({
       codexBin: '/bundled/codex',
       codexHome: '/isolated/codex-home',
       cwd: '/workspace',
-      createHost
+      createHost,
+      readConfiguration: () => ({ codexHome: '/following/local-home', version: configurationVersion })
     });
     const server = Fastify();
     await gateway.register(server);
@@ -92,6 +94,14 @@ describe('Krillin Codex LLM gateway', () => {
     expect(streamBody).toContain('data: [DONE]');
     expect(createHost).toHaveBeenCalledTimes(1);
     expect(run).toHaveBeenCalledTimes(2);
+    expect(createHost).toHaveBeenCalledWith(expect.objectContaining({ codexHome: '/following/local-home' }));
+    configurationVersion = 'changed';
+    expect((await server.inject({ method: 'POST', url: '/internal/krillin-llm/v1/chat/completions',
+      headers: { authorization: `Bearer ${config.apiKey}` },
+      payload: { messages: [{ role: 'user', content: 'New configuration' }] }
+    })).statusCode).toBe(200);
+    expect(createHost).toHaveBeenCalledTimes(2);
+    expect(createHost.mock.results[0]!.value.close).toHaveBeenCalledOnce();
     await gateway.close();
     await server.close();
   });

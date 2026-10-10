@@ -45,14 +45,15 @@ export function createKrillinCreatorServicesCapabilities(
           }
         ),
         cloudProvider('aliyun', []),
-        cloudProvider('volcengine', [])
+        cloudProvider('volcengine', []),
+        cloudProvider('funasr', ['sensevoice', 'paraformer', 'fun-asr-nano'])
       ]
     }
   };
 }
 
 function cloudProvider(
-  provider: 'openai' | 'aliyun' | 'volcengine',
+  provider: 'openai' | 'aliyun' | 'volcengine' | 'funasr',
   models: string[]
 ): CreatorTranscriptionProviderCapability {
   return {

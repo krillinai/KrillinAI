@@ -9,6 +9,7 @@ import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog.js';
 import { useConfirmDialog } from '../../components/dialogs/ConfirmDialogProvider.js';
 import type { OpenCreatorProject } from './project-model.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
+import './project-management.css';
 
 const reasoningOptions: Array<{ value: '' | ReasoningEffort; label: string }> = [
   { value: '', label: '默认' },

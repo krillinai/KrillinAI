@@ -15,15 +15,16 @@
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="OpenCreator (sebelumnya KrillinAI): Repositori Terbaik Hari Ini peringkat 1 di Trendshift" width="250" height="55" /></a>
 
-[English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | [한국어](../ko/README.md) | **Bahasa Indonesia** | [Español](../es/README.md) | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md)
+[English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | [한국어](../ko/README.md) | **Bahasa Indonesia** | [Español](../es/README.md) | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md) | [ภาษาไทย](../th/README.md)
 
-[![GitHub Stars](https://img.shields.io/github/stars/krillinai/OpenCreator?style=flat&logo=github&label=Stars&color=gold)](https://github.com/krillinai/OpenCreator/stargazers)
+[![GitHub Stars](https://badgen.net/github/stars/krillinai/OpenCreator?icon=github&label=Stars&color=EAB308)](https://github.com/krillinai/OpenCreator/stargazers)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%E7%B2%89%E4%B8%9D&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
+[![AtomGit G-Star](https://img.shields.io/badge/AtomGit-G--Star-DA203E?style=flat)](https://atomgit.com/krillinai/OpenCreator)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![Grup QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[Sorotan Proyek](#sorotan-proyek) · [Alat Kreasi](#alat-kreasi) · [Templat Kreasi](#templat-kreasi) · [Skills](#skills) · [Percakapan & Ruang Kerja](#percakapan-dan-ruang-kerja-bergerak-bersama) · [Model yang Didukung](#model-yang-didukung) · [Contoh](#contoh) · [Mulai Cepat](#mulai-cepat) · [Desktop](#desktop) · [Struktur Sistem](#struktur-sistem-opencreator) · [Pengembangan](#pengembangan) · [Dokumentasi](#dokumentasi) · [Berkontribusi](#berkontribusi) · [Kontributor](#kontributor) · [Riwayat Star](#riwayat-star)
+[Sorotan](#sorotan-proyek) · [Alat](#alat-kreasi) · [Skills](#skills) · [Contoh](#contoh) · [Mulai](#mulai-cepat) · [Desktop](#desktop) · [Dokumen](#dokumentasi) · [Komunitas](#komunitas)
 
 </div>
 
@@ -45,6 +46,8 @@ Web adalah satu-satunya implementasi frontend. Desktop memuat build Web yang sam
 - 🤖 **Native Codex**: gunakan kembali loop Agent, model, penalaran, pemanggilan alat, percakapan, Skills, dan MCP dari Codex tanpa memelihara mesin eksekusi kedua.
 
 - 🚀 **Aplikasi Desktop Siap Pakai**: jalankan OpenCreator langsung dari aplikasi Desktop yang sudah menyertakan Codex CLI; Runtime lokal dimulai sesuai kebutuhan dan menyiapkan proyek default secara otomatis.
+
+- ⚙️ **Deteksi Konfigurasi Codex Lokal**: saat Desktop pertama kali dibuka, konfigurasi Codex yang ada diperiksa agar login ChatGPT atau API key yang siap digunakan dapat dipakai kembali. Penyedia model lain juga dapat diatur melalui panduan awal.
 
 - 🔄 **Komponen Runtime Terkelola**: lihat versi yt-dlp bawaan, aktif, dan terbaru, periksa pembaruan secara berkala, lalu perbarui secara manual sambil mempertahankan versi yang sedang berfungsi jika pembaruan gagal.
 
@@ -72,6 +75,8 @@ Buka Dashboard untuk menerjemahkan atau mengunduh video, membuat thumbnail atau 
 
 > Alat kreasi baru terus ditambahkan.
 
+**Terjemahan video mendukung 101 bahasa sasaran.**
+
 <table width="100%">
 <thead>
 <tr>
@@ -85,7 +90,10 @@ Buka Dashboard untuk menerjemahkan atau mengunduh video, membuat thumbnail atau 
 <tr><td valign="top">Pengunduh Video</td><td valign="top">✅ Tersedia</td><td>Analisis video publik individual dari YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, dan Pinterest; bandingkan format yang tersedia dan unduh video atau audio. Beberapa platform mungkin memerlukan cookie</td></tr>
 <tr><td valign="top">Pembuatan Thumbnail</td><td valign="top">✅ Tersedia</td><td>Gabungkan topik, tautan video, dan gambar referensi opsional untuk membuat dan membandingkan beberapa variasi thumbnail konten</td></tr>
 <tr><td valign="top">Pembuatan Gambar</td><td valign="top">✅ Tersedia</td><td>Buat gambar dengan GPT Image dari prompt dan gambar referensi opsional, atur rasio aspek dan jumlah hasil, lalu pratinjau dan unduh setiap gambar</td></tr>
-<tr><td valign="top">Animasi Figur Stik</td><td valign="top">Segera hadir</td><td>Kembangkan karakter, storyboard, sulih suara, dan animasi dalam alur kerja terpandu</td></tr>
+<tr><td valign="top">Penulis Artikel</td><td valign="top">✅ Tersedia</td><td>Ubah topik, tautan, video, atau dokumen menjadi pilihan tema, kerangka, dan artikel yang dapat diedit; tambahkan gambar dan ekspor Markdown, HTML, atau PDF.</td></tr>
+<tr><td valign="top">Posting Xiaohongshu</td><td valign="top">✅ Tersedia</td><td>Buat posting dari topik atau bahan sumber dengan pilihan audiens, jenis posting, dan panjang, lalu salin atau unduh hasilnya.</td></tr>
+<tr><td valign="top">Naskah Video Pendek</td><td valign="top">✅ Tersedia</td><td>Buat naskah per segmen siap produksi dari topik atau bahan sumber sesuai audiens, platform, durasi, dan gaya; edit atau ekspor hasilnya.</td></tr>
+<tr><td valign="top">Animasi Figur Stik</td><td valign="top">✅ Tersedia</td><td>Ubah teks atau konten YouTube menjadi narasi, suara, visual storyboard dengan karakter konsisten, subtitle, dan animasi figur stik yang dapat diunduh.</td></tr>
 <tr><td valign="top">Klip Otomatis</td><td valign="top">Dalam pengembangan</td><td>Analisis video panjang, temukan sorotan, dan ubah bagian terpilih menjadi klip pendek yang dapat digunakan kembali</td></tr>
 <tr><td valign="top">Sulih Suara Cerdas</td><td valign="top">✅ Tersedia</td><td>Ubah naskah menjadi sulih suara dengan pilihan suara, tempo, dan kontrol emosi</td></tr>
 <tr><td valign="top">Pembuatan Video</td><td valign="top">✅ Tersedia</td><td>Buat video dengan Seedance dari prompt dan gambar referensi, lalu pratinjau, buat ulang, atau unduh setiap versi</td></tr>
@@ -197,11 +205,12 @@ Tabel berikut menampilkan preset penyedia dan model yang direkomendasikan; keter
 
 <table>
 <tr>
-<td align="center" width="20%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>Whisper</strong></td>
-<td align="center" width="20%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>OpenAI TTS</strong></td>
-<td align="center" width="20%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
-<td align="center" width="20%"><img src="https://github.com/microsoft.png?size=80" alt="Microsoft" width="40" height="40" /><br /><strong>Edge TTS</strong></td>
-<td align="center" width="20%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
+<td align="center" width="16%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>Whisper</strong></td>
+<td align="center" width="16%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>OpenAI TTS</strong></td>
+<td align="center" width="16%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
+<td align="center" width="16%"><img src="https://github.com/microsoft.png?size=80" alt="Microsoft" width="40" height="40" /><br /><strong>Edge TTS</strong></td>
+<td align="center" width="16%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
+<td align="center" width="16%"><img src="https://github.com/volcengine.png?size=80" alt="Volcengine" width="40" height="40" /><br /><strong>Volcengine Speech</strong></td>
 </tr>
 </table>
 
@@ -279,21 +288,31 @@ Ketersediaan bergantung pada video dan wilayah; beberapa sumber mungkin memerluk
 
 ![Pemilihan format Pengunduh Video OpenCreator](../images/examples/video-downloader-formats-en.png)
 
-### Animasi Figur Stik (Segera Hadir)
+### Animasi Figur Stik
 
-> Segera hadir. Belum terintegrasi dalam rilis saat ini.
-
-OpenCreator mengembangkan koleksi karakter orisinal ini bersama seniman [Harbor Hsia](https://www.behance.net/xiaheyuan1), kreator [Stickman di Behance](https://www.behance.net/gallery/254715463/Stickman). Kumpulan karakter bawaan ini sedang disiapkan untuk alur kerja cerita dan animasi mendatang dengan identitas karakter yang konsisten.
+OpenCreator mengembangkan koleksi karakter orisinal ini bersama seniman [Harbor Hsia](https://www.behance.net/xiaheyuan1), kreator [Stickman di Behance](https://www.behance.net/gallery/254715463/Stickman). Karakter bawaan menjaga identitas karakter tetap konsisten selama pembuatan animasi.
 
 ![Karakter figur stik OpenCreator yang dikembangkan bersama seniman](../images/examples/stick-figure-characters.webp)
 
-Alur kerja yang direncanakan akan membawa ide karakter dan cerita melalui pembuatan storyboard, peninjauan adegan, narasi suara, musik, dan keluaran animasi berversi.
+Ubah teks atau konten YouTube menjadi animasi melalui peninjauan naskah, narasi, pengaturan waktu, storyboard, subtitle, rendering, dan unduhan video.
 
 ![Contoh frame animasi figur stik OpenCreator](../images/examples/stick-figure-animation-frame.jpg)
 
 ## Mulai Cepat
 
-### Prasyarat
+### Pasang Aplikasi Desktop
+
+Unduh penginstal macOS Apple Silicon, macOS Intel, atau Windows x64 dari [rilis terbaru](https://github.com/krillinai/OpenCreator/releases/latest). Aplikasi Desktop tidak memerlukan Node.js atau pnpm dan sudah menyertakan Codex CLI. Tugas model yang nyata memerlukan login ChatGPT atau konfigurasi API key yang dapat digunakan.
+
+Saat pertama dibuka, Desktop memulai Runtime lokal, menyiapkan proyek default, dan memeriksa konfigurasi Codex di komputer Anda. Jika login atau API key serta pengaturan model yang dapat digunakan ditemukan, pilih **Gunakan Codex lokal dan lanjutkan** untuk memakainya kembali. Anda juga dapat mengatur penyedia model lain dalam panduan awal yang sama.
+
+![Pengaturan penyedia model saat pertama kali menjalankan OpenCreator Desktop](../images/product/opencreator-codex-setup.png)
+
+Setelah pengaturan selesai, masukkan permintaan untuk memulai tugas. Jika ada masalah, lihat [panduan pengguna](../opencreator-user-guide-and-troubleshooting.md).
+
+### Menjalankan Web dari Kode Sumber
+
+Untuk pengembangan atau penggunaan di browser, siapkan:
 
 - Node.js 22 atau yang lebih baru
 - pnpm 9.15.0, ditetapkan melalui kolom `packageManager` repositori
@@ -307,8 +326,6 @@ node --version
 pnpm --version
 codex --version
 ```
-
-### Menjalankan Web dari Kode Sumber
 
 ```bash
 git clone https://github.com/krillinai/OpenCreator.git
@@ -523,13 +540,7 @@ Lihat [panduan pengguna dan pemecahan masalah](../opencreator-user-guide-and-tro
 | `pnpm smoke:ci` | Menjalankan smoke test Runtime dengan Codex palsu |
 | `pnpm perf:check` | Memeriksa baseline performa yang tercatat |
 
-Sebelum mengirim perubahan, jalankan setidaknya:
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
+Sebelum mengirim perubahan, pilih verifikasi sesuai dampaknya seperti dijelaskan dalam [panduan kontribusi](../../CONTRIBUTING.md#what-reviewers-check). Dokumentasi, teks, dan gaya hanya perlu pemeriksaan terkait; perilaku bersama dan Runtime memerlukan pengujian modul terkait serta pemeriksaan tipe. Jalankan pengujian atau build seluruh workspace hanya jika diperlukan dan laporkan yang benar-benar dijalankan di PR.
 
 Perubahan pada Desktop, Host Bridge, proxy Runtime, atau alur kerja frontend bersama juga memerlukan pengujian konsistensi Web/Desktop, E2E aplikasi terkemas, dan verifikasi hash build Web. Lulus pengujian unit Web saja tidak membuktikan bahwa rilis Desktop telah siap.
 
@@ -542,18 +553,65 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## Dokumentasi
 
-- [Panduan pengguna dan pemecahan masalah](../opencreator-user-guide-and-troubleshooting.md)
-- [Runtime API v1](../runtime-api-for-ui-v1.md)
-- [Desain Runtime native Codex](../2026-07-03-codex-native-agent-runtime-design.md)
-- [Panduan operasional rilis Desktop](../operations/opencreator-desktop-release-runbook.md)
-- [Panduan rilis Desktop untuk Windows](../operations/opencreator-desktop-windows-release.md)
-- [Pedoman komponen visual](../visual-component-guidelines.md)
+- **Menggunakan OpenCreator:** [Mulai Cepat](#mulai-cepat) · [Panduan pengguna dan pemecahan masalah](../opencreator-user-guide-and-troubleshooting.md)
+- **Mengembangkan dan memperluas:** [Panduan kontribusi](../../CONTRIBUTING.md) · [Kontribusi Skill](../contributing/skills-contributing.md) · [Kontribusi template kreasi](../contributing/templates-contributing.md) · [Runtime API v1](../runtime-api-for-ui-v1.md) · [Pedoman komponen visual](../visual-component-guidelines.md)
+- **Pemeliharaan dan rilis:** [Desain Runtime native Codex](../2026-07-03-codex-native-agent-runtime-design.md) · [Panduan operasional rilis Desktop](../operations/opencreator-desktop-release-runbook.md) · [Panduan rilis Desktop untuk Windows](../operations/opencreator-desktop-windows-release.md)
 
 ## Konvensi Penerjemahan
 
 File `README.md` di root adalah dokumen bahasa Inggris kanonis. Terjemahan yang dipelihara berada di `docs/<locale>/README.md`. Tambahkan bahasa ke pemilih hanya setelah seluruh dokumen diterjemahkan dan disinkronkan dengan struktur bahasa Inggris.
 
-## Berkontribusi
+## Komunitas
+
+<p>Pengguna GitHub dari <strong>setidaknya 100 negara dan wilayah</strong> telah memberi Star kepada OpenCreator.</p>
+
+<img src="../images/star-coverage-map.svg" alt="Peta dunia yang menandai negara dan wilayah pengguna GitHub yang memberi Star pada OpenCreator" width="760" />
+
+### Tim Inti
+
+Setiap anggota bertanggung jawab atas standar, peninjauan dan penggabungan kontribusi, serta dukungan komunitas di bidangnya.
+
+<table border="1" cellpadding="12">
+  <tr>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/wulien.svg" width="64" height="64" alt="wulien avatar" /><br /><a href="https://github.com/wulien">wulien</a><br />Kode &amp; perbaikan bug</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/dle-kb.svg" width="64" height="64" alt="DLe-kb avatar" /><br /><a href="https://github.com/DLe-kb">DLe-kb</a><br />Template kreasi</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/xiaheyuan.svg" width="64" height="64" alt="xiaheyuan avatar" /><br /><a href="https://github.com/xiaheyuan">xiaheyuan</a><br />Desain &amp; aset</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/krillinai.svg" width="64" height="64" alt="krillinai avatar" /><br /><a href="https://github.com/krillinai">krillinai</a><br />Skills &amp; dokumentasi</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/hbxugang.svg" width="64" height="64" alt="hbxugang avatar" /><br /><a href="https://github.com/hbxugang">hbxugang</a><br />Deployment perusahaan</td>
+  </tr>
+</table>
+
+### Kontributor
+
+Terima kasih kepada semua orang yang telah berkontribusi melalui kode, dokumentasi, umpan balik, laporan masalah, Skills, desain, dan ide.
+
+<div>
+  <a href="https://github.com/maranello-o"><img src="../images/contributors/maranello-o.svg" width="48" height="48" alt="maranello-o" /></a>
+  <a href="https://github.com/wulien"><img src="../images/contributors/wulien.svg" width="48" height="48" alt="wulien" /></a>
+  <a href="https://github.com/puji4810"><img src="../images/contributors/puji4810.svg" width="48" height="48" alt="puji4810" /></a>
+  <a href="https://github.com/krillinai"><img src="../images/contributors/krillinai.svg" width="48" height="48" alt="krillinai" /></a>
+  <a href="https://github.com/PairZhu"><img src="../images/contributors/pairzhu.svg" width="48" height="48" alt="PairZhu" /></a>
+  <a href="https://github.com/Mijaelx"><img src="../images/contributors/mijaelx.svg" width="48" height="48" alt="Mijaelx" /></a>
+  <a href="https://github.com/OutisLi"><img src="../images/contributors/outisli.svg" width="48" height="48" alt="OutisLi" /></a>
+  <a href="https://github.com/yeager"><img src="../images/contributors/yeager.svg" width="48" height="48" alt="yeager" /></a>
+  <a href="https://github.com/catwithtudou"><img src="../images/contributors/catwithtudou.svg" width="48" height="48" alt="catwithtudou" /></a>
+  <a href="https://github.com/newdee"><img src="../images/contributors/newdee.svg" width="48" height="48" alt="newdee" /></a>
+  <a href="https://github.com/scwf"><img src="../images/contributors/scwf.svg" width="48" height="48" alt="scwf" /></a>
+  <a href="https://github.com/xiaheyuan"><img src="../images/contributors/xiaheyuan.svg" width="48" height="48" alt="xiaheyuan" /></a>
+  <a href="https://github.com/hbxugang"><img src="../images/contributors/hbxugang.svg" width="48" height="48" alt="hbxugang" /></a>
+  <a href="https://github.com/kapil971390"><img src="../images/contributors/kapil971390.svg" width="48" height="48" alt="kapil971390" /></a>
+  <a href="https://github.com/octo-patch"><img src="../images/contributors/octo-patch.svg" width="48" height="48" alt="octo-patch" /></a>
+  <a href="https://github.com/yuanjinghh"><img src="../images/contributors/yuanjinghh.svg" width="48" height="48" alt="yuanjinghh" /></a>
+  <a href="https://github.com/DLe-kb"><img src="../images/contributors/dle-kb.svg" width="48" height="48" alt="DLe-kb" /></a>
+  <a href="https://github.com/liupig"><img src="../images/contributors/liupig.svg" width="48" height="48" alt="liupig" /></a>
+  <a href="https://github.com/alextavares" title="alextavares"><img src="../images/contributors/alextavares.svg" width="48" height="48" alt="alextavares" /></a>
+  <a href="https://github.com/krillinai/OpenCreator/commit/a89cff0ac5d91540f03e361af50b286ee57691ae" title="卡皮巴拉"><img src="../images/contributors/kapibala.svg" width="48" height="48" alt="卡皮巴拉" /></a>
+  <a href="https://github.com/mifan100g" title="mifan100g (米饭二两)"><img src="../images/contributors/mifan100g.svg" width="48" height="48" alt="mifan100g (米饭二两)" /></a>
+  <a href="https://github.com/askalf"><img src="../images/contributors/askalf.svg" width="48" height="48" alt="askalf" /></a>
+  <a href="https://github.com/Yi-111-a"><img src="../images/contributors/yi-111-a.svg" width="48" height="48" alt="Yi-111-a" /></a>
+</div>
+
+### Berkontribusi
 
 Anda dapat berkontribusi ke OpenCreator dengan berbagai cara, tidak hanya lewat kode:
 
@@ -577,14 +635,6 @@ Cara berkontribusi:
 
 [contribute-issue]: https://github.com/krillinai/OpenCreator/issues
 [contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
-
-## Kontributor
-
-Terima kasih kepada semua orang yang telah berkontribusi melalui kode, dokumentasi, umpan balik, laporan masalah, Skills, desain, dan ide.
-
-<a href="https://github.com/krillinai/KrillinAI/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=krillinai/KrillinAI&amp;max=500&amp;columns=20" alt="OpenCreator Kontributor" />
-</a>
 
 ## Riwayat Star
 

@@ -14,6 +14,7 @@ import { dirname, join, resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import type {
   CreatorJson,
+  CreatorLocalComponent,
   CreatorServicesCapabilitiesResponse,
   CreatorServicesConfig
 } from '@opencreator/protocol';
@@ -21,6 +22,10 @@ import { CreatorExecutorError } from '../executor.js';
 import { spawnCreatorProcess } from '../process-tree.js';
 import { createKrillinCreatorServicesCapabilities } from './capabilities.js';
 import type { ZipFile } from 'yauzl';
+import { manageLocalComponents } from './local-components.js';
+
+type DownloadProgress = { state: 'downloading' | 'verifying' | 'extracting'; item: string; downloadedBytes?: number; totalBytes?: number | null; bytesPerSecond?: number; remainingSeconds?: number | null; statusMessage?: string };
+type DownloadReporter = { onProgress?(progress: DownloadProgress): void };
 
 const whisperKitRelease = {
   executable: {
@@ -99,6 +104,7 @@ type WhisperKitInstaller = {
     proxy: string;
     signal: AbortSignal;
     onPhase(phase: 'cli' | 'model'): void;
+    onProgress?(progress: DownloadProgress): void;
   }): Promise<void>;
 };
 
@@ -110,6 +116,7 @@ type WhisperCppInstaller = {
     model: WhisperCppModel;
     signal: AbortSignal;
     onPhase(phase: 'cli' | 'model'): void;
+    onProgress?(progress: DownloadProgress): void;
   }): Promise<void>;
 };
 
@@ -129,18 +136,16 @@ export function createKrillinDependencyLoader(input: {
   arch?: string;
   whisperKitInstaller?: WhisperKitInstaller;
   whisperCppInstaller?: WhisperCppInstaller;
-}): KrillinDependencyLoader {
+}) {
   const root = resolve(input.root);
   const platform = input.platform ?? process.platform;
   const arch = input.arch ?? process.arch;
   const whisperKitInstaller = input.whisperKitInstaller ?? defaultWhisperKitInstaller;
   const whisperCppInstaller = input.whisperCppInstaller ?? defaultWhisperCppInstaller;
-  let whisperKitReady = false;
   let whisperKitPending: Promise<void> | undefined;
-  const whisperCppReady = new Set<WhisperCppModel>();
   const whisperCppPending = new Map<WhisperCppModel, Promise<void>>();
 
-  return {
+  const loader: KrillinDependencyLoader = {
     root,
     capabilities() {
       return createKrillinCreatorServicesCapabilities(platform, arch);
@@ -155,14 +160,15 @@ export function createKrillinDependencyLoader(input: {
           );
         }
         const model = config.transcription.whisperCpp.model;
-        if (whisperCppReady.has(model) || await whisperCppInstaller.isInstalled(root, model)) {
-          whisperCppReady.add(model);
+        if (await whisperCppInstaller.isInstalled(root, model)) {
           return;
         }
         if (signal.aborted) {
           throw new CreatorExecutorError('creator_stage_canceled', 'Creator stage was canceled');
         }
         reportProgress({
+          phase: 'downloading_dependencies',
+          message: '当前本地转录组件尚未安装，正在自动下载。模型文件较大，可能需要较长时间；下载并校验完成后将自动继续，无需重新开始。',
           krillinMode: 'cli',
           providerStatus: 'preparing',
           dependency: 'whispercpp',
@@ -176,8 +182,11 @@ export function createKrillinDependencyLoader(input: {
             proxy: config.proxy.trim(),
             model,
             signal,
+            onProgress: progress => reportProgress(componentDownloadProgress('whispercpp', model, progress)),
             onPhase(phase) {
               reportProgress({
+                phase: 'downloading_dependencies',
+                message: `正在准备 Whisper.cpp ${phase === 'cli' ? '转录引擎' : model + ' 模型'}；下载并校验完成后将自动继续`,
                 krillinMode: 'cli',
                 providerStatus: 'preparing',
                 dependency: 'whispercpp',
@@ -189,7 +198,6 @@ export function createKrillinDependencyLoader(input: {
             if (!await whisperCppInstaller.isInstalled(root, model)) {
               throw new Error('Whisper.cpp dependency verification failed after installation');
             }
-            whisperCppReady.add(model);
           }).finally(() => {
             whisperCppPending.delete(model);
           });
@@ -215,14 +223,15 @@ export function createKrillinDependencyLoader(input: {
           `WhisperKit is unavailable on ${platform}/${arch}`
         );
       }
-      if (whisperKitReady || await whisperKitInstaller.isInstalled(root)) {
-        whisperKitReady = true;
+      if (await whisperKitInstaller.isInstalled(root)) {
         return;
       }
       if (signal.aborted) {
         throw new CreatorExecutorError('creator_stage_canceled', 'Creator stage was canceled');
       }
       reportProgress({
+        phase: 'downloading_dependencies',
+        message: '当前本地转录组件尚未安装，正在自动下载。模型文件较大，可能需要较长时间；下载并校验完成后将自动继续，无需重新开始。',
         krillinMode: 'cli',
         providerStatus: 'preparing',
         dependency: 'whisperkit',
@@ -233,8 +242,11 @@ export function createKrillinDependencyLoader(input: {
         root,
         proxy: config.proxy.trim(),
         signal,
+        onProgress: progress => reportProgress(componentDownloadProgress('whisperkit', 'large-v2', progress)),
         onPhase(phase) {
           reportProgress({
+            phase: 'downloading_dependencies',
+            message: `正在准备 WhisperKit ${phase === 'cli' ? '转录引擎' : 'large-v2 模型'}；下载并校验完成后将自动继续`,
             krillinMode: 'cli',
             providerStatus: 'preparing',
             dependency: 'whisperkit',
@@ -246,7 +258,6 @@ export function createKrillinDependencyLoader(input: {
         if (!await whisperKitInstaller.isInstalled(root)) {
           throw new Error('WhisperKit dependency verification failed after installation');
         }
-        whisperKitReady = true;
       }).finally(() => {
         whisperKitPending = undefined;
       });
@@ -262,6 +273,43 @@ export function createKrillinDependencyLoader(input: {
         );
       }
     }
+  };
+  return manageLocalComponents({ loader, async inspect() {
+    const capabilities = loader.capabilities();
+    const components = await Promise.all(capabilities.transcription.providers.filter(candidate => candidate.kind === 'local').map(async candidate => {
+      const provider = candidate.provider as CreatorLocalComponent['id'];
+      const executableInstalled = !candidate.available ? false : provider === 'whisperkit'
+        ? await isWhisperKitExecutableInstalled(join(root, 'bin', 'whisperkit-cli'))
+        : await isWhisperCppExecutableInstalled(join(root, 'bin', 'whispercpp'));
+      const models = await Promise.all(candidate.models.map(async model => ({ id: model,
+        installed: candidate.available && (provider === 'whisperkit'
+          ? input.whisperKitInstaller ? await whisperKitInstaller.isInstalled(root) : await isWhisperKitModelInstalled(join(root, 'models', 'whisperkit', 'openai_whisper-large-v2'), join(root, 'models', 'whisperkit', '.opencreator-large-v2.json'))
+          : input.whisperCppInstaller ? await whisperCppInstaller.isInstalled(root, model as WhisperCppModel) : await isWhisperCppModelInstalled(join(root, 'models', 'whispercpp'), model as WhisperCppModel)),
+        bytes: candidate.modelDetails?.[model]?.diskBytes ?? null
+      })));
+      const version = provider === 'whisperkit' ? whisperKitRelease.executable.version : provider === 'whisper.cpp' ? whisperCppRelease.executable.version : null;
+      const installedInfo = await stat(provider === 'whisperkit' ? join(root, 'bin', 'whisperkit-cli') : join(root, 'bin', 'whispercpp', '.opencreator-runtime.json')).catch(() => undefined);
+      const component: CreatorLocalComponent = {
+        id: provider, name: provider === 'whisperkit' ? 'WhisperKit' : provider === 'whisper.cpp' ? 'whisper.cpp' : 'Faster Whisper',
+        available: candidate.available, version: executableInstalled || ((input.whisperKitInstaller || input.whisperCppInstaller) && models.some(model => model.installed)) ? version : null,
+        supportedVersion: version, installedAt: installedInfo?.mtime.toISOString() ?? null, path: root,
+        source: provider === 'whisperkit' ? 'Homebrew / ModelScope · SHA-256 verified' : 'GitHub / Hugging Face · SHA-256 verified',
+        models, state: !candidate.available ? 'unsupported' : models.some(model => model.installed) ? 'ready' : executableInstalled ? 'partial' : 'not_installed',
+        model: null, item: null, downloadedBytes: 0, totalBytes: null, percent: null, bytesPerSecond: null, remainingSeconds: null, error: null
+      };
+      return component;
+    }));
+    return { platform, arch, components };
+  } });
+}
+
+function componentDownloadProgress(dependency: string, model: string, progress: DownloadProgress): Record<string, CreatorJson> {
+  const percent = progress.totalBytes && progress.downloadedBytes !== undefined ? Math.min(100, progress.downloadedBytes / progress.totalBytes * 100) : null;
+  return {
+    phase: `${progress.state}_dependencies`, percent: 2, dependency, dependencyModel: model, dependencyItem: progress.item,
+    dependencyPercent: percent, downloadedBytes: progress.downloadedBytes ?? 0, totalBytes: progress.totalBytes ?? null,
+    bytesPerSecond: progress.bytesPerSecond ?? null, remainingSeconds: progress.remainingSeconds ?? null,
+    message: `正在${progress.state === 'verifying' ? '校验' : progress.state === 'extracting' ? '解压安装' : '下载'} ${progress.item}。${progress.statusMessage ?? ''}模型较大，准备完成后会自动继续转录，无需重新开始。`
   };
 }
 
@@ -281,6 +329,7 @@ async function installWhisperCpp(input: {
   model: WhisperCppModel;
   signal: AbortSignal;
   onPhase(phase: 'cli' | 'model'): void;
+  onProgress?(progress: DownloadProgress): void;
 }): Promise<void> {
   await mkdir(input.root, { recursive: true, mode: 0o700 });
   const staging = join(input.root, `.whispercpp-${randomUUID()}`);
@@ -296,7 +345,7 @@ async function installWhisperCpp(input: {
 }
 
 async function installWhisperCppExecutable(
-  input: { root: string; proxy: string; signal: AbortSignal },
+  input: { root: string; proxy: string; signal: AbortSignal } & DownloadReporter,
   staging: string
 ): Promise<void> {
   const executableRoot = join(input.root, 'bin', 'whispercpp');
@@ -308,9 +357,11 @@ async function installWhisperCppExecutable(
     sha256: whisperCppRelease.executable.archiveSha256,
     path: join(staging, 'whisper-bin-x64.zip'),
     proxy: input.proxy,
-    signal: input.signal
+    signal: input.signal,
+    onProgress: input.onProgress
   });
   const extracted = join(staging, 'cli');
+  input.onProgress?.({ state: 'extracting', item: 'Whisper.cpp CLI' });
   await extractWhisperCppExecutableArchive(archive, extracted, input.signal);
   await verifyWhisperCppExecutableFiles(extracted);
   const version = await runCommand(join(extracted, 'whisper-cli.exe'), ['--version'], {
@@ -337,7 +388,7 @@ async function installWhisperCppModel(
     proxy: string;
     model: WhisperCppModel;
     signal: AbortSignal;
-  },
+  } & DownloadReporter,
   staging: string
 ): Promise<void> {
   const modelRoot = join(input.root, 'models', 'whispercpp');
@@ -351,7 +402,8 @@ async function installWhisperCppModel(
     sha256: release.sha256,
     path: stagedModel,
     proxy: input.proxy,
-    signal: input.signal
+    signal: input.signal,
+    onProgress: input.onProgress
   });
   const source = downloaded === stagedModel
     ? stagedModel
@@ -505,6 +557,7 @@ async function installWhisperKit(input: {
   proxy: string;
   signal: AbortSignal;
   onPhase(phase: 'cli' | 'model'): void;
+  onProgress?(progress: DownloadProgress): void;
 }): Promise<void> {
   await mkdir(input.root, { recursive: true, mode: 0o700 });
   await chmod(input.root, 0o700);
@@ -521,7 +574,7 @@ async function installWhisperKit(input: {
 }
 
 async function installWhisperKitExecutable(
-  input: { root: string; proxy: string; signal: AbortSignal },
+  input: { root: string; proxy: string; signal: AbortSignal } & DownloadReporter,
   staging: string
 ): Promise<void> {
   const executable = join(input.root, 'bin', 'whisperkit-cli');
@@ -535,9 +588,11 @@ async function installWhisperKitExecutable(
     path: join(staging, 'whisperkit-cli.tar.gz'),
     proxy: input.proxy,
     ghcrScope: whisperKitRelease.executable.ghcrScope,
-    signal: input.signal
+    signal: input.signal,
+    onProgress: input.onProgress
   });
   const extracted = join(staging, 'cli');
+  input.onProgress?.({ state: 'extracting', item: 'WhisperKit CLI' });
   await mkdir(extracted, { recursive: true });
   await runCommand('tar', ['-xzf', archive, '-C', extracted], {
     cwd: staging,
@@ -568,7 +623,7 @@ async function installWhisperKitExecutable(
 }
 
 async function installWhisperKitModel(
-  input: { root: string; proxy: string; signal: AbortSignal },
+  input: { root: string; proxy: string; signal: AbortSignal } & DownloadReporter,
   staging: string
 ): Promise<void> {
   const modelRoot = join(input.root, 'models', 'whisperkit');
@@ -583,9 +638,11 @@ async function installWhisperKitModel(
     sha256: whisperKitRelease.model.archiveSha256,
     path: join(staging, 'whisperkit-model.zip'),
     proxy: input.proxy,
-    signal: input.signal
+    signal: input.signal,
+    onProgress: input.onProgress
   });
   const extracted = join(staging, 'model');
+  input.onProgress?.({ state: 'extracting', item: 'WhisperKit large-v2 model' });
   await mkdir(extracted, { recursive: true });
   await runCommand('ditto', ['-x', '-k', archive, extracted], {
     cwd: staging,
@@ -657,7 +714,7 @@ async function verifyWhisperKitModel(root: string): Promise<void> {
   }
 }
 
-async function configuredOrDownloadedFile(input: {
+export async function configuredOrDownloadedFile(input: {
   configured: string | undefined;
   name: string;
   url: string;
@@ -666,12 +723,13 @@ async function configuredOrDownloadedFile(input: {
   proxy: string;
   ghcrScope?: string;
   signal: AbortSignal;
-}): Promise<string> {
+} & DownloadReporter): Promise<string> {
   if (input.configured !== undefined && input.configured.trim() !== '') {
     const configured = resolve(input.configured);
     if (!(await stat(configured)).isFile()) {
       throw new Error(`${input.name} archive is unavailable`);
     }
+    input.onProgress?.({ state: 'verifying', item: input.name });
     await verifyHash(input.name, configured, input.sha256, input.signal);
     return configured;
   }
@@ -680,7 +738,8 @@ async function configuredOrDownloadedFile(input: {
     '--location',
     '--retry', '3',
     '--connect-timeout', '20',
-    '--output', input.path
+    '--output', input.path,
+    '--dump-header', `${input.path}.headers`
   ];
   if (input.proxy) args.push('--proxy', input.proxy);
   if (input.ghcrScope !== undefined) {
@@ -701,10 +760,41 @@ async function configuredOrDownloadedFile(input: {
     args.push('--header', `Authorization: Bearer ${token}`);
   }
   args.push(input.url);
-  await runCommand('curl', args, {
-    cwd: dirname(input.path),
-    signal: input.signal
-  });
+  let lastBytes = 0;
+  let lastTime = Date.now();
+  let lastDataAt = lastTime;
+  let retrying = false;
+  let polling = false;
+  let transferring = true;
+  const report = async () => {
+    if (polling) return;
+    polling = true;
+    try {
+      const downloadedBytes = await stat(input.path).then(info => info.size, () => 0);
+      const headers = await readFile(`${input.path}.headers`, 'utf8').catch(() => '');
+      if (!transferring) return;
+      const responseHeaders = headers.trim().split(/\r?\n\r?\n/).at(-1) ?? '';
+      const length = /(?:^|\n)content-length:\s*(\d+)/i.exec(responseHeaders)?.[1];
+      const totalBytes = length === undefined ? null : Number(length);
+      const now = Date.now();
+      if (downloadedBytes > lastBytes) { lastDataAt = now; retrying = false; }
+      const bytesPerSecond = Math.max(0, downloadedBytes - lastBytes) * 1000 / Math.max(1, now - lastTime);
+      lastBytes = downloadedBytes;
+      lastTime = now;
+      input.onProgress?.({ state: 'downloading', item: input.name, downloadedBytes, totalBytes, bytesPerSecond,
+        statusMessage: retrying ? '下载连接暂时失败，正在自动重试。' : now - lastDataAt > 10_000 ? '下载暂无新数据，正在等待服务器响应；任务仍在运行。' : downloadedBytes === 0 ? '正在连接下载服务器，尚未开始传输。' : undefined,
+        remainingSeconds: totalBytes !== null && bytesPerSecond > 0 ? Math.max(0, totalBytes - downloadedBytes) / bytesPerSecond : null });
+    } finally { polling = false; }
+  };
+  input.onProgress?.({ state: 'downloading', item: input.name, downloadedBytes: 0 });
+  const timer = setInterval(() => { void report().catch(() => {}); }, 500);
+  try {
+    await runCommand('curl', args, { cwd: dirname(input.path), signal: input.signal, onStderr(text) { if (/retry/i.test(text)) retrying = true; } });
+  } finally {
+    transferring = false;
+    clearInterval(timer);
+  }
+  input.onProgress?.({ state: 'verifying', item: input.name });
   await verifyHash(input.name, input.path, input.sha256, input.signal);
   return input.path;
 }
@@ -737,6 +827,7 @@ function runCommand(
     cwd: string;
     signal: AbortSignal;
     captureStdout?: boolean;
+    onStderr?(text: string): void;
   }
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolvePromise, reject) => {
@@ -751,6 +842,7 @@ function runCommand(
       if (input.captureStdout) stdout = boundedAppend(stdout, String(chunk));
     });
     child.stderr?.on('data', chunk => {
+      input.onStderr?.(String(chunk));
       stderr = boundedAppend(stderr, String(chunk));
     });
     child.once('error', reject);

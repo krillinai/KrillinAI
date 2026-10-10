@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { protocol } from 'electron';
+import { net, protocol } from 'electron';
 import type { DesktopLogger } from '../src/main/logger.js';
 import { installProtocolHandler } from '../src/main/protocol-handler.js';
 
 vi.mock('electron', () => ({
+  net: { fetch: vi.fn() },
   protocol: {
     handle: vi.fn(),
     registerSchemesAsPrivileged: vi.fn()
@@ -13,6 +14,7 @@ vi.mock('electron', () => ({
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.mocked(protocol.handle).mockClear();
+  vi.mocked(net.fetch).mockReset();
 });
 
 describe('Desktop Runtime proxy logging', () => {
@@ -45,7 +47,7 @@ describe('Desktop Runtime proxy logging', () => {
       errno: -4078,
       syscall: 'connect'
     });
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed', { cause })));
+    vi.mocked(net.fetch).mockRejectedValue(new TypeError('fetch failed', { cause }));
     const logger = fakeLogger();
     const onTransportFailure = vi.fn();
     await installProtocolHandler({
@@ -81,7 +83,7 @@ describe('Desktop Runtime proxy logging', () => {
   });
 
   it('does not restart for an upstream application error', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('error', { status: 500 })));
+    vi.mocked(net.fetch).mockResolvedValue(new Response('error', { status: 500 }));
     const onTransportFailure = vi.fn();
     await installProtocolHandler({
       webRoot: '',

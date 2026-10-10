@@ -75,6 +75,28 @@ describe('stickman Remotion worker isolation', () => {
     expect(existsSync(join(tempDir, 'landscape-clean.mp4'))).toBe(true);
   });
 
+  it('preserves structured component rendering errors instead of stderr warnings', async () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'creator-stickman-remotion-error-'));
+    const timelinePath = join(tempDir, 'timeline.json');
+    writeFileSync(timelinePath, JSON.stringify({ fps: 30, totalFrames: 30, shots: [] }));
+    const errorWorker = join(tempDir, 'error-worker.mjs');
+    writeFileSync(errorWorker, [
+      "import { writeFileSync } from 'node:fs';",
+      "process.stderr.write('environment warning');",
+      "writeFileSync(process.argv[3], JSON.stringify({ ok: false, error: 'renderer dependency missing' }));",
+      'process.exitCode = 1;'
+    ].join('\n'));
+    const executor = createStickmanRemotionExecutor({
+      ffprobePath: 'unused', runtimeRoot: tempDir, workerEntrypoint: errorWorker,
+      runtime: { root: tempDir, bundlePath: join(tempDir, 'bundle'), browserExecutable: join(tempDir, 'browser') }
+    });
+    await expect(executor.run({
+      stageRun: { id: 'stage-error', stageId: 'render-clean' }, job: { id: 'job-error' },
+      inputArtifacts: [{ id: 'timeline-1', kind: 'timeline_manifest', status: 'completed', path: timelinePath }],
+      workdir: tempDir, reportProgress() {}, signal: new AbortController().signal
+    } as never)).rejects.toMatchObject({ code: 'stickman_remotion_failed', message: 'renderer dependency missing' });
+  });
+
   it('isolates worker crashes and cancellation without leaving a clean video', async () => {
     tempDir = mkdtempSync(join(tmpdir(), 'creator-stickman-remotion-'));
     const timelinePath = join(tempDir, 'timeline.json');

@@ -1,11 +1,14 @@
-import type {
-  CreatorJob,
-  CreatorStageRun,
-  CreatorTtsProvider
+import {
+  parseBilibiliVideoSource,
+  supportedVideoSourcePlatform,
+  type CreatorJob,
+  type CreatorStageRun,
+  type CreatorTtsProvider
 } from '@opencreator/protocol';
 import type { CreatorServicesConfigStore } from '../../creator-services/config-store.js';
 import type { CreatorCommandDispatcher } from '../command-dispatcher.js';
 import type { CreatorService } from '../service.js';
+import { VideoMetadataError, type VideoMetadataService } from '../../video-metadata/service.js';
 
 export type VideoTranslationWorkflow = ReturnType<typeof createVideoTranslationWorkflow>;
 
@@ -13,11 +16,13 @@ export function createVideoTranslationWorkflow(input: {
   creator: CreatorService;
   dispatcher: Pick<CreatorCommandDispatcher, 'dispatch'>;
   configStore: Pick<CreatorServicesConfigStore, 'read'>;
+  videoMetadataService?: VideoMetadataService;
 }) {
   async function validateStage(job: CreatorJob, stageId: string): Promise<void> {
     if (job.templateId !== 'video-translation') return;
     if (stageId === 'subtitle') {
       validateSource(job);
+      await validateBilibiliSource(job, input.videoMetadataService);
       if (job.artifacts.some(artifact => artifact.id === job.state.importedTargetSubtitleId && artifact.kind === 'target_subtitle' && artifact.status === 'completed')) return;
       const config = await input.configStore.read();
       if (
@@ -120,6 +125,38 @@ export class VideoTranslationWorkflowError extends Error {
   }
 }
 
+export async function validateBilibiliSource(job: CreatorJob, service?: VideoMetadataService): Promise<void> {
+  if (job.state.sourceType === 'file' || typeof job.state.sourceUrl !== 'string') return;
+  let host: string;
+  try {
+    host = new URL(job.state.sourceUrl).hostname.toLowerCase();
+  } catch {
+    return;
+  }
+  if (host !== 'bilibili.com' && !host.endsWith('.bilibili.com')) return;
+  const source = parseBilibiliVideoSource(job.state.sourceUrl);
+  if (source === null) {
+    throw new VideoTranslationWorkflowError('creator_source_invalid_part', 'B 站链接无效，请检查视频地址和分 P 参数（p 必须为正整数）');
+  }
+  try {
+    if (service === undefined) throw new Error('Video metadata service unavailable');
+    const metadata = await service.get(source.url);
+    if ((metadata.parts?.length ?? 0) > 1 && source.partIndex === undefined) {
+      throw new VideoTranslationWorkflowError('creator_source_part_required', `该视频包含 ${metadata.parts!.length} 个分 P，请先在视频来源中选择要翻译的分集`);
+    }
+    if (source.partIndex !== undefined && metadata.parts !== undefined
+      && !metadata.parts.some(part => part.index === source.partIndex)) {
+      throw new VideoTranslationWorkflowError('creator_source_invalid_part', '指定的分 P 不存在，请重新选择视频分集');
+    }
+  } catch (error) {
+    if (error instanceof VideoTranslationWorkflowError) throw error;
+    if (error instanceof VideoMetadataError && error.code === 'INVALID_PART') {
+      throw new VideoTranslationWorkflowError('creator_source_invalid_part', error.message);
+    }
+    throw new VideoTranslationWorkflowError('creator_source_metadata_unavailable', '无法读取 B 站分集信息，请重试；未启动下载或翻译');
+  }
+}
+
 function validateSource(job: CreatorJob): void {
   if (job.state.sourceType === 'file') {
     if (!job.artifacts.some(artifact => artifact.kind === 'source_video' && artifact.status === 'completed')) {
@@ -129,16 +166,22 @@ function validateSource(job: CreatorJob): void {
   }
   const value = job.state.sourceUrl;
   if (typeof value !== 'string' || !isSupportedVideoUrl(value)) {
-    throw new VideoTranslationWorkflowError('unsupported_source', 'Only YouTube and Bilibili public URLs are supported');
+    throw new VideoTranslationWorkflowError('unsupported_source', 'Only public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, and Pinterest video URLs are supported');
   }
 }
 
 function isSupportedVideoUrl(value: string): boolean {
   try {
-    const host = new URL(value).hostname.toLowerCase();
-    return host === 'youtu.be' || host.endsWith('youtube.com') || host === 'b23.tv' || host.endsWith('bilibili.com');
+    const source = new URL(value.trim());
+    // Existing translation jobs may use HTTP YouTube or Bilibili links.
+    if (source.protocol === 'http:') {
+      source.protocol = 'https:';
+      const platform = supportedVideoSourcePlatform(source.toString());
+      return platform === 'youtube' || platform === 'bilibili';
+    }
+    return supportedVideoSourcePlatform(value) !== null;
   } catch {
-    return false;
+    return supportedVideoSourcePlatform(value) !== null;
   }
 }
 

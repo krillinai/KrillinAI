@@ -14,6 +14,81 @@ import type { CreatorServicesSettingsService } from '../../services/creator-serv
 import { CreatorServicesSettingsView } from './CreatorServicesSettingsView.js';
 
 describe('CreatorServicesSettingsView', () => {
+  it('keeps the saved image service active until a detected local service is manually saved', async () => {
+    const user = userEvent.setup();
+    const service = createService();
+    const originalRead = service.getConfig;
+    service.getConfig = vi.fn(async () => {
+      const response = await originalRead();
+      return { ...response, config: { ...response.config, image: { ...response.config.image, provider: 'openai' as const } } };
+    });
+    service.getCodexImageStatus = vi.fn(async () => ({ authentication: 'chatgpt' as const, ready: true, executionMode: 'native' as const, message: 'ready' }));
+    render(<CreatorServicesSettingsView connected service={service} modelService={createModelService()} initialSection="image" />);
+    await user.click(await screen.findByRole('combobox', { name: '服务商' }));
+    await user.click(screen.getByRole('option', { name: '本机 Codex 生图' }));
+    expect(await screen.findByText('ChatGPT 登录态 · 原生生图')).toBeVisible();
+    expect(screen.queryByText(/本机 Codex 生图已生效/)).not.toBeInTheDocument();
+    expect(service.saveConfig).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: '保存配置' }));
+    expect(await screen.findByText(/本机 Codex 生图已生效，无需保存即可使用/)).toBeVisible();
+    expect(service.saveConfig).toHaveBeenCalledOnce();
+  });
+  it.each(['chatgpt', 'api_key'] as const)('uses detected %s defaults without asking for a settings save', async authentication => {
+    const service = createService([], runtimeCapabilities('darwin', 'arm64'), 'codex');
+    service.getCodexModelStatus = vi.fn(async () => ({ authentication, apiKeyConfigured: authentication === 'api_key', baseUrl: '', model: 'local-model' }));
+    service.getCodexImageStatus = vi.fn(async () => ({ authentication, ready: true, executionMode: authentication === 'chatgpt' ? 'native' as const : 'api' as const, message: 'ready' }));
+    const modelService = createModelService();
+    render(<CreatorServicesSettingsView connected service={service} modelService={modelService} />);
+    expect(await screen.findByText(/已自动启用本机 Codex，无需保存即可使用/)).toBeVisible();
+    expect(modelService.getCodexProvider).not.toHaveBeenCalled();
+    expect(service.saveConfig).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('tab', { name: '图像生成' }));
+    expect(await screen.findByText(/本机 Codex 生图已生效，无需保存即可使用/)).toBeVisible();
+    expect(service.saveConfig).not.toHaveBeenCalled();
+  });
+  it('loads the real Codex image status only in the native image settings section', async () => {
+    const service = createService();
+    service.getCodexImageStatus = vi.fn(async () => ({ authentication: 'chatgpt' as const, ready: true, executionMode: 'native' as const, message: '本地登录凭据已就绪' }));
+    render(<CreatorServicesSettingsView connected service={service} modelService={createModelService()} />);
+    expect(service.getCodexImageStatus).not.toHaveBeenCalled();
+    await userEvent.click(await screen.findByRole('tab', { name: '图像生成' }));
+    expect(await screen.findByText('ChatGPT 登录态 · 原生生图')).toBeInTheDocument();
+    expect(screen.getByText(/已检测到本地 ChatGPT 登录凭据和原生生图工具/)).toBeInTheDocument();
+    expect(screen.queryByText('本地登录凭据已就绪')).not.toBeInTheDocument();
+    expect(service.getCodexImageStatus).toHaveBeenCalledOnce();
+    expect(screen.getByText(/生图方式跟随本机 Codex 的登录和配置/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: '配置 Agent' })).not.toBeInTheDocument();
+  });
+  it('saves an OSS region and optional endpoint in the shared settings form', async () => {
+    const user = userEvent.setup();
+    const service = createService([
+      'transcription.aliyun.oss.accessKeyId',
+      'transcription.aliyun.speech.appKey'
+    ]);
+    render(<CreatorServicesSettingsView connected service={service} modelService={createModelService()} />);
+    await user.click(await screen.findByRole('tab', { name: '语音识别' }));
+    await user.click(screen.getByRole('combobox', { name: '语音识别服务' }));
+    await user.click(screen.getByRole('option', { name: '阿里云百炼' }));
+    const [ossAccessKey, speechAccessKey] = screen.getAllByLabelText('Access Key ID');
+    expect(ossAccessKey).toHaveAttribute('placeholder', '已配置，留空则保持');
+    expect(speechAccessKey).toHaveAttribute('placeholder', '输入密钥');
+    expect(screen.getByLabelText('App Key')).toHaveAttribute('placeholder', '已配置，留空则保持');
+    await user.type(ossAccessKey!, 'oss-key');
+    await user.type(screen.getByLabelText('App Key'), 'speech-key');
+    expect(screen.getByLabelText('OSS 地域')).toHaveValue('cn-shanghai');
+    expect(screen.getByLabelText('OSS Endpoint（可选）')).toHaveValue('');
+    await user.clear(screen.getByLabelText('OSS 地域'));
+    await user.type(screen.getByLabelText('OSS 地域'), 'ap-southeast-1');
+    expect(screen.getByLabelText('OSS Endpoint（可选）')).toHaveAttribute('placeholder', 'https://oss-ap-southeast-1.aliyuncs.com');
+    await user.type(screen.getByLabelText('OSS Endpoint（可选）'), 'https://oss-ap-southeast-1.aliyuncs.com');
+    await user.click(screen.getByRole('button', { name: '保存配置' }));
+    await waitFor(() => expect(service.saveConfig).toHaveBeenCalled());
+    expect(vi.mocked(service.saveConfig).mock.calls[0]?.[0].transcription.aliyun.oss).toMatchObject({
+      accessKeyId: 'oss-key', region: 'ap-southeast-1', endpoint: 'https://oss-ap-southeast-1.aliyuncs.com'
+    });
+    expect(vi.mocked(service.saveConfig).mock.calls[0]?.[0].transcription.aliyun.speech.appKey).toBe('speech-key');
+  });
+
   it('uses the local Codex runtime without exposing custom provider fields', async () => {
     const user = userEvent.setup();
     const service = createService([], runtimeCapabilities('darwin', 'arm64'), 'codex');
@@ -501,6 +576,7 @@ function createService(
     getConfig: vi.fn(async () => ({ config: structuredClone(config), configuredCredentials })),
     saveConfig: vi.fn(async next => ({ config: structuredClone(next), configuredCredentials })),
     resetConfig: vi.fn(async () => ({ config: createDefaultCreatorServicesConfig(), configuredCredentials: [] })),
+    testTranscriptionConnection: vi.fn(async () => ({ connected: true, model: 'sensevoice', models: ['sensevoice'], capabilities: ['audio.transcriptions'] })),
     getTtsVoices: vi.fn(async (provider: CreatorTtsProvider) => ({
       provider,
       model: config.tts[provider === 'edge-tts' ? 'openai' : provider].model,

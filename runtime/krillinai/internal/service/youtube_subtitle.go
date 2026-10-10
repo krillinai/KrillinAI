@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -23,6 +24,8 @@ import (
 
 	"go.uber.org/zap"
 )
+
+var ErrYouTubeCaptionAccess = errors.New("platform caption access failed")
 
 // VttWord 表示VTT文件中的一个单词及其时间戳信息
 type VttWord struct {
@@ -220,7 +223,8 @@ func (s *YouTubeSubtitleService) downloadYouTubeSubtitle(ctx context.Context, re
 
 	log.GetLogger().Error("downloadYouTubeSubtitle failed after all attempts", zap.Any("req", req), zap.Error(lastErr))
 	return "", fmt.Errorf(
-		"downloadYouTubeSubtitle yt-dlp error after %d attempts: %w: %s",
+		"%w: downloadYouTubeSubtitle yt-dlp error after %d attempts: %w: %s",
+		ErrYouTubeCaptionAccess,
 		maxAttempts,
 		lastErr,
 		compactCommandOutput(lastOutput),
@@ -244,14 +248,14 @@ func (s *YouTubeSubtitleService) resolveYouTubeSubtitleTrack(ctx context.Context
 			details = compactCommandOutput(exitErr.Stderr)
 		}
 		if details != "" {
-			return youtubeSubtitleTrack{}, fmt.Errorf("yt-dlp subtitle metadata error: %w: %s", err, details)
+			return youtubeSubtitleTrack{}, fmt.Errorf("%w: yt-dlp subtitle metadata error: %w: %s", ErrYouTubeCaptionAccess, err, details)
 		}
-		return youtubeSubtitleTrack{}, fmt.Errorf("yt-dlp subtitle metadata error: %w", err)
+		return youtubeSubtitleTrack{}, fmt.Errorf("%w: yt-dlp subtitle metadata error: %w", ErrYouTubeCaptionAccess, err)
 	}
 
 	var metadata youtubeSubtitleMetadata
 	if err := json.Unmarshal(output, &metadata); err != nil {
-		return youtubeSubtitleTrack{}, fmt.Errorf("parse yt-dlp subtitle metadata: %w", err)
+		return youtubeSubtitleTrack{}, fmt.Errorf("%w: parse yt-dlp subtitle metadata: %w", ErrYouTubeCaptionAccess, err)
 	}
 
 	manualLanguages := availableLanguageKeys(metadata.Subtitles)

@@ -736,7 +736,7 @@ describe('creator service', () => {
     db.close();
   });
 
-  it('stales only artifacts linked to the edited subtitle version', () => {
+  it('stales subtitle-dependent outputs without invalidating source video or other versions', () => {
     const { db, repository, service } = setup();
     const job = service.createJob({
       projectId: 'project_1',
@@ -774,6 +774,14 @@ describe('creator service', () => {
       inputFingerprint: null,
       sha256: null,
       sourceArtifactIds: [],
+      metadata: { resultVersion: 2 }
+    });
+    const sourceVideo = repository.insertArtifact({
+      jobId: job.id,
+      kind: 'source_video',
+      status: 'completed',
+      path: join(tempDir, 'source.mp4'),
+      sourceArtifactIds: [subtitleV2.id],
       metadata: { resultVersion: 2 }
     });
     const audioV2 = repository.insertArtifact({
@@ -827,6 +835,7 @@ describe('creator service', () => {
           stageId: 'render-horizontal',
           description: '生成项目 V2',
           artifactRefs: {
+            source_video: [sourceVideo.id],
             target_subtitle: [subtitleV2.id],
             dubbed_audio: [audioV2.id],
             horizontal_video: [videoV2.id]
@@ -857,6 +866,7 @@ describe('creator service', () => {
     });
 
     const artifacts = service.getJob(job.id)!.artifacts;
+    expect(artifacts.find(item => item.id === sourceVideo.id)?.status).toBe('completed');
     expect(artifacts.find(item => item.id === audioV1.id)?.status).toBe('completed');
     expect(artifacts.find(item => item.id === audioV2.id)?.status).toBe('stale');
     expect(artifacts.find(item => item.id === videoV2.id)?.status).toBe('stale');
@@ -890,6 +900,7 @@ describe('creator service', () => {
       {
         version: 2,
         artifactRefs: {
+          source_video: [sourceVideo.id],
           target_subtitle: [editedSubtitle.id],
           bilingual_subtitle: [editedBilingual.id],
           source_subtitle: [editedSource.id],

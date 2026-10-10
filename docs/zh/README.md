@@ -15,15 +15,16 @@
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="OpenCreator（原 KrillinAI）：Trendshift 单日排名第一仓库" width="250" height="55" /></a>
 
-[English](../../README.md) | **简体中文** | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md)
+[English](../../README.md) | **简体中文** | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md) | [ภาษาไทย](../th/README.md)
 
-[![GitHub Stars](https://img.shields.io/github/stars/krillinai/OpenCreator?style=flat&logo=github&label=Stars&color=gold)](https://github.com/krillinai/OpenCreator/stargazers)
+[![GitHub Stars](https://badgen.net/github/stars/krillinai/OpenCreator?icon=github&label=Stars&color=EAB308)](https://github.com/krillinai/OpenCreator/stargazers)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%E7%B2%89%E4%B8%9D&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
+[![AtomGit G-Star](https://img.shields.io/badge/AtomGit-G--Star-DA203E?style=flat)](https://atomgit.com/krillinai/OpenCreator)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
-[项目特色](#项目特色) · [创作工具](#创作工具) · [创作模板](#创作模板) · [Skills 技能](#skills-技能) · [对话与工作区](#对话与工作区协同推进) · [支持的模型](#支持的模型) · [案例展示](#案例展示) · [快速开始](#快速开始) · [Desktop](#desktop) · [OpenCreator 系统架构](#opencreator-系统架构) · [开发指南](#开发指南) · [文档](#文档) · [参与贡献](#参与贡献) · [贡献者](#贡献者) · [Star 趋势](#star-趋势)
+[项目特色](#项目特色) · [创作工具](#创作工具) · [Skills](#skills-技能) · [案例](#案例展示) · [快速开始](#快速开始) · [Desktop](#desktop) · [文档](#文档) · [社区](#社区)
 
 </div>
 
@@ -45,6 +46,8 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 - 🤖 **Codex 原生执行**：直接复用 Codex 的 Agent loop、模型、推理、工具调用、会话、Skills 和 MCP，不维护第二套执行引擎。
 
 - 🚀 **桌面端开箱即用**：通过桌面应用直接启动 OpenCreator，默认内置 Codex CLI；本地 Runtime 按需拉起并自动准备默认项目。
+
+- ⚙️ **桌面端自动识别 Codex 配置**：首次启动扫描本机 Codex 配置，可直接确认复用已有的 ChatGPT 登录态或 API Key；也能通过引导页配置其他模型服务商。
 
 - 🔄 **运行组件管理**：查看 yt-dlp 的内置版本、当前版本与最新版本，定期检查并由用户手动更新；更新失败时继续保留当前可用版本。
 
@@ -73,6 +76,8 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 ![OpenCreator 创作工作台](../images/product/opencreator-dashboard-en.png)
 
 > 更多创作工具持续增加中。
+
+**视频翻译支持 14 种源语言和 101 种目标语言。**源语言包括简体中文、英语、西班牙语、法语、意大利语、巴西葡萄牙语、印尼语、泰语、日语、韩语、德语、土耳其语、俄语和马来语。
 
 <table width="100%">
 <thead>
@@ -202,11 +207,12 @@ OpenCreator 支持以 `SKILL.md` 定义的本地 Codex Skills，可接入自己�
 
 <table>
 <tr>
-<td align="center" width="20%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>Whisper</strong></td>
-<td align="center" width="20%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>OpenAI TTS</strong></td>
-<td align="center" width="20%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
-<td align="center" width="20%"><img src="https://github.com/microsoft.png?size=80" alt="Microsoft" width="40" height="40" /><br /><strong>Edge TTS</strong></td>
-<td align="center" width="20%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
+<td align="center" width="16%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>Whisper</strong></td>
+<td align="center" width="16%"><img src="../images/models/openai.png" alt="OpenAI" width="40" height="40" /><br /><strong>OpenAI TTS</strong></td>
+<td align="center" width="16%"><img src="https://github.com/MiniMax-AI.png?size=80" alt="MiniMax" width="40" height="40" /><br /><strong>MiniMax</strong></td>
+<td align="center" width="16%"><img src="https://github.com/microsoft.png?size=80" alt="Microsoft" width="40" height="40" /><br /><strong>Edge TTS</strong></td>
+<td align="center" width="16%"><img src="https://github.com/aliyun.png?size=80" alt="Alibaba Cloud" width="40" height="40" /><br /><strong>Aliyun Speech</strong></td>
+<td align="center" width="16%"><img src="https://github.com/volcengine.png?size=80" alt="Volcengine" width="40" height="40" /><br /><strong>火山引擎语音</strong></td>
 </tr>
 </table>
 
@@ -296,7 +302,19 @@ OpenCreator 与艺术家 [Harbor Hsia](https://www.behance.net/xiaheyuan1) 合�
 
 ## 快速开始
 
-### 环境要求
+### 下载桌面版
+
+从 [最新版本](https://github.com/krillinai/OpenCreator/releases/latest)下载适用于 macOS Apple Silicon、macOS Intel 或 Windows x64 的安装包。安装并打开应用；桌面版无需 Node.js 或 pnpm，且内置 Codex CLI。真实模型任务需要可用的 ChatGPT 登录态或 API Key 配置。
+
+桌面端首次启动会拉起本地 Runtime、准备默认项目，并检查本机 Codex 配置。检测到可用的登录态或 API Key 与模型配置后，确认 **使用本机 Codex，继续** 即可复用；也可以在同一启动引导中配置其他模型服务商：
+
+![OpenCreator 桌面端首次启动时的模型服务配置界面](../images/product/opencreator-codex-setup.png)
+
+配置完成后，在输入框中输入需求即可开始。如遇问题，请参阅[用户指南与故障排查](../opencreator-user-guide-and-troubleshooting.md)。
+
+### 从源码启动 Web
+
+开发或通过浏览器使用时，需要：
 
 - Node.js 22 或更高版本
 - pnpm 9.15.0（仓库已在 `packageManager` 中锁定版本）
@@ -311,8 +329,6 @@ pnpm --version
 codex --version
 ```
 
-### 从源码启动 Web
-
 ```bash
 git clone https://github.com/krillinai/OpenCreator.git
 cd OpenCreator
@@ -323,7 +339,7 @@ pnpm web:dev
 
 打开 `http://127.0.0.1:19861/`。开发服务器会按需启动本地 daemon，并通过同源代理注入临时 Runtime token，不需要手工复制连接信息。
 
-首次启动时，Runtime 会准备默认项目；连接完成后输入框即可直接使用。如果只需要调试 daemon：
+首次启动时，Runtime 会准备默认项目，并检查本机 Codex 配置。已有可用登录态或 API Key 时，确认使用本机 Codex 即可；否则在引导页选择供应商并填写模型、Base URL（使用 OpenAI 默认地址时可留空）和 API Key。配置完成后即可使用输入框。如果只需要调试 daemon：
 
 ```bash
 pnpm daemon:dev
@@ -527,13 +543,7 @@ Codex 自身的会话与配置仍位于 `$CODEX_HOME`，备份时需要与 `.run
 | `pnpm smoke:ci` | 运行 fake Codex Runtime smoke |
 | `pnpm perf:check` | 检查已记录的性能基线 |
 
-提交前至少运行：
-
-```bash
-pnpm test
-pnpm typecheck
-pnpm build
-```
+提交前请根据改动影响选择验证范围，详见[贡献指南](../../CONTRIBUTING.md#what-reviewers-check)。文档、文案和样式改动只需相关检查；共享行为与 Runtime 改动需要定向模块测试和类型检查。仅在影响范围需要时运行全仓测试或构建，并在 PR 中说明实际执行的验证。
 
 涉及 Desktop、Host Bridge、Runtime 代理或通用前端流程时，还必须完成 Web/Desktop 一致性测试、实际打包 App E2E，以及 Web 构建产物哈希校验；只通过 Web 单测不能证明 Desktop 可发布。
 
@@ -546,18 +556,65 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 ## 文档
 
-- [用户指南与故障排查](../opencreator-user-guide-and-troubleshooting.md)
-- [Runtime API v1](../runtime-api-for-ui-v1.md)
-- [Codex-native Runtime 技术方案](../2026-07-03-codex-native-agent-runtime-design.md)
-- [Desktop 发布手册](../operations/opencreator-desktop-release-runbook.md)
-- [Windows Desktop 发布说明](../operations/opencreator-desktop-windows-release.md)
-- [视觉组件规范](../visual-component-guidelines.md)
+- **使用 OpenCreator:** [快速开始](#快速开始) · [用户指南与故障排查](../opencreator-user-guide-and-troubleshooting.md)
+- **开发与扩展:** [贡献指南](../../CONTRIBUTING.md) · [贡献 Skill](../contributing/skills-contributing.md) · [贡献创作模板](../contributing/templates-contributing.md) · [Runtime API v1](../runtime-api-for-ui-v1.md) · [视觉组件规范](../visual-component-guidelines.md)
+- **维护与发布:** [Codex-native Runtime 技术方案](../2026-07-03-codex-native-agent-runtime-design.md) · [Desktop 发布手册](../operations/opencreator-desktop-release-runbook.md) · [Windows Desktop 发布说明](../operations/opencreator-desktop-windows-release.md)
 
 ## 翻译约定
 
 根目录 `README.md` 是内容基准英文版，持续维护的翻译统一放在 `docs/<locale>/README.md`。只有完成全文翻译并与英文结构同步后，才把对应语言加入顶部切换栏。
 
-## 参与贡献
+## 社区
+
+<p>来自<strong>至少 100 个国家和地区</strong>的 GitHub 用户为 OpenCreator 点亮了 Star。</p>
+
+<img src="../images/star-coverage-map.svg" alt="世界地图：标出有 GitHub 用户为 OpenCreator 点亮 Star 的国家和地区" width="760" />
+
+### 核心团队
+
+每位成员负责各自领域的规范、贡献审核与合并，以及社区支持。
+
+<table border="1" cellpadding="12">
+  <tr>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/wulien.svg" width="64" height="64" alt="wulien avatar" /><br /><a href="https://github.com/wulien">wulien</a><br />代码与问题修复</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/dle-kb.svg" width="64" height="64" alt="DLe-kb avatar" /><br /><a href="https://github.com/DLe-kb">DLe-kb</a><br />创作模板</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/xiaheyuan.svg" width="64" height="64" alt="xiaheyuan avatar" /><br /><a href="https://github.com/xiaheyuan">xiaheyuan</a><br />设计与素材</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/krillinai.svg" width="64" height="64" alt="krillinai avatar" /><br /><a href="https://github.com/krillinai">krillinai</a><br />Skills 与文档</td>
+    <td align="center" valign="middle" width="160" height="160"><img src="../images/contributors/hbxugang.svg" width="64" height="64" alt="hbxugang avatar" /><br /><a href="https://github.com/hbxugang">hbxugang</a><br />企业级部署</td>
+  </tr>
+</table>
+
+### 贡献者
+
+感谢每一位通过代码、文档、反馈、问题报告、Skills、设计和创意参与 OpenCreator 的贡献者。
+
+<div>
+  <a href="https://github.com/maranello-o"><img src="../images/contributors/maranello-o.svg" width="48" height="48" alt="maranello-o" /></a>
+  <a href="https://github.com/wulien"><img src="../images/contributors/wulien.svg" width="48" height="48" alt="wulien" /></a>
+  <a href="https://github.com/puji4810"><img src="../images/contributors/puji4810.svg" width="48" height="48" alt="puji4810" /></a>
+  <a href="https://github.com/krillinai"><img src="../images/contributors/krillinai.svg" width="48" height="48" alt="krillinai" /></a>
+  <a href="https://github.com/PairZhu"><img src="../images/contributors/pairzhu.svg" width="48" height="48" alt="PairZhu" /></a>
+  <a href="https://github.com/Mijaelx"><img src="../images/contributors/mijaelx.svg" width="48" height="48" alt="Mijaelx" /></a>
+  <a href="https://github.com/OutisLi"><img src="../images/contributors/outisli.svg" width="48" height="48" alt="OutisLi" /></a>
+  <a href="https://github.com/yeager"><img src="../images/contributors/yeager.svg" width="48" height="48" alt="yeager" /></a>
+  <a href="https://github.com/catwithtudou"><img src="../images/contributors/catwithtudou.svg" width="48" height="48" alt="catwithtudou" /></a>
+  <a href="https://github.com/newdee"><img src="../images/contributors/newdee.svg" width="48" height="48" alt="newdee" /></a>
+  <a href="https://github.com/scwf"><img src="../images/contributors/scwf.svg" width="48" height="48" alt="scwf" /></a>
+  <a href="https://github.com/xiaheyuan"><img src="../images/contributors/xiaheyuan.svg" width="48" height="48" alt="xiaheyuan" /></a>
+  <a href="https://github.com/hbxugang"><img src="../images/contributors/hbxugang.svg" width="48" height="48" alt="hbxugang" /></a>
+  <a href="https://github.com/kapil971390"><img src="../images/contributors/kapil971390.svg" width="48" height="48" alt="kapil971390" /></a>
+  <a href="https://github.com/octo-patch"><img src="../images/contributors/octo-patch.svg" width="48" height="48" alt="octo-patch" /></a>
+  <a href="https://github.com/yuanjinghh"><img src="../images/contributors/yuanjinghh.svg" width="48" height="48" alt="yuanjinghh" /></a>
+  <a href="https://github.com/DLe-kb"><img src="../images/contributors/dle-kb.svg" width="48" height="48" alt="DLe-kb" /></a>
+  <a href="https://github.com/liupig"><img src="../images/contributors/liupig.svg" width="48" height="48" alt="liupig" /></a>
+  <a href="https://github.com/alextavares" title="alextavares"><img src="../images/contributors/alextavares.svg" width="48" height="48" alt="alextavares" /></a>
+  <a href="https://github.com/krillinai/OpenCreator/commit/a89cff0ac5d91540f03e361af50b286ee57691ae" title="卡皮巴拉"><img src="../images/contributors/kapibala.svg" width="48" height="48" alt="卡皮巴拉" /></a>
+  <a href="https://github.com/mifan100g" title="mifan100g (米饭二两)"><img src="../images/contributors/mifan100g.svg" width="48" height="48" alt="mifan100g (米饭二两)" /></a>
+  <a href="https://github.com/askalf"><img src="../images/contributors/askalf.svg" width="48" height="48" alt="askalf" /></a>
+  <a href="https://github.com/Yi-111-a"><img src="../images/contributors/yi-111-a.svg" width="48" height="48" alt="Yi-111-a" /></a>
+</div>
+
+### 参与贡献
 
 欢迎以多种方式参与 OpenCreator，不限于代码：
 
@@ -581,20 +638,6 @@ pnpm --filter @opencreator/daemon test -- test/smoke/real-codex-smoke.test.ts
 
 [contribute-issue]: https://github.com/krillinai/OpenCreator/issues
 [contribute-pr]: https://github.com/krillinai/OpenCreator/pulls
-
-## 贡献者
-
-感谢每一位通过代码、文档、反馈、问题报告、Skills、设计和创意参与 OpenCreator 的贡献者。
-
-<a href="https://github.com/krillinai/OpenCreator/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=KrillinAI/OpenCreator&amp;max=500&amp;columns=20" alt="OpenCreator 贡献者" />
-</a>
-
-<!-- contrib.rocks 刷新缓存期间，先显式保留近期贡献者。 -->
-<br />
-<a href="https://github.com/xiaheyuan">
-  <img src="../images/contributors/xiaheyuan.svg" width="48" height="48" alt="XiaHeyuan 头像" />
-</a>
 
 ## Star 趋势
 

@@ -1,7 +1,9 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import type { CreatorEventEnvelope, CreatorJob, OpenCreatorIssue } from '@opencreator/protocol';
+import type { CreatorEventEnvelope, CreatorJob, CreatorStageRun, OpenCreatorIssue } from '@opencreator/protocol';
+import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 import {
   CreatorSessionProvider,
   useCreatorSession
@@ -43,6 +45,8 @@ function Harness() {
       <output aria-label="dubbing">{String(session.state.dubbing)}</output>
       <output aria-label="conflicts">{session.conflictedFields.join(',')}</output>
       <output aria-label="error">{session.error?.code ?? ''}</output>
+      <output aria-label="connection">{session.connection?.status ?? ''}</output>
+      <button type="button" onClick={() => session.updateDraft({ targetLanguage: 'ja' }, { persist: false })}>change-local</button>
       <output aria-label="turns">{session.turns.map(turn => turn.content).join('|')}</output>
       <output aria-label="busy">{String(session.agentBusy)}</output>
       <output aria-label="stages">{session.job.stages.map(stage => `${stage.stageId}:${stage.status}`).join('|')}</output>
@@ -84,6 +88,70 @@ function PendingHarness() {
 }
 
 describe('CreatorSessionStore', () => {
+  it('does not overwrite a failed job with a delayed successful action response', async () => {
+    let resolveAction!: (value: { job: CreatorJob }) => void;
+    const applyAction = vi.fn(() => new Promise<{ job: CreatorJob }>(resolve => { resolveAction = resolve; }));
+    let session!: ReturnType<typeof useCreatorSession>;
+    function SnapshotHarness() {
+      session = useCreatorSession();
+      return <Harness />;
+    }
+    render(<CreatorSessionProvider initialJob={job(0, {})} service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+      <SnapshotHarness />
+    </CreatorSessionProvider>);
+    let actionWork!: Promise<CreatorJob>;
+    await act(async () => { actionWork = session.applyAction({ action: 'run-stage', input: { stageId: 'subtitle' } }); });
+    expect(applyAction).toHaveBeenCalledTimes(1);
+    const failed = { ...job(2, {}), status: 'failed' as const };
+    act(() => session.applyRemoteSnapshot(failed));
+    await act(async () => { resolveAction({ job: { ...job(1, {}), status: 'running' } }); await actionWork; });
+    expect(session.job).toBe(failed);
+    expect((await actionWork).status).toBe('failed');
+    expect(screen.getByLabelText('error')).toBeEmptyDOMElement();
+  });
+
+  it('ignores snapshots and replayed events that regress the same stage from failed to running', async () => {
+    const failedStage: CreatorStageRun = {
+      id: 'stage_failure', jobId: 'job_1', stageId: 'subtitle', executor: 'krillinai', status: 'failed',
+      dispatchStatus: 'finished', claimOwner: null, claimExpiresAt: null, attempt: 1, idempotencyKey: null,
+      scopeKey: null, inputFingerprint: null, progress: { percent: 8, status: 'running' },
+      errorCode: 'creator_stage_failed', errorMessage: 'Failed', startedAt: null, finishedAt: '2026-08-21T00:00:01.000Z'
+    };
+    const failed = { ...job(2, {}), status: 'failed' as const, stages: [failedStage] };
+    let session!: ReturnType<typeof useCreatorSession>;
+    let emit!: (event: CreatorEventEnvelope) => void;
+    const getJob = vi.fn(async () => ({ job: failed }));
+    const subscribeJobEvents = vi.fn((_id, onEvent) => { emit = onEvent; return { close: vi.fn() }; });
+    function SnapshotHarness() { session = useCreatorSession(); return <Harness />; }
+    render(<CreatorSessionProvider initialJob={failed} service={{ applyAction: vi.fn(), runAgentTurn: vi.fn(), getJob, subscribeJobEvents } as never}>
+      <SnapshotHarness />
+    </CreatorSessionProvider>);
+    await waitFor(() => expect(subscribeJobEvents).toHaveBeenCalledTimes(1));
+    const runningStage = { ...failedStage, status: 'running' as const, finishedAt: null };
+    act(() => session.applyRemoteSnapshot({ ...failed, status: 'running', stages: [runningStage] }));
+    act(() => emit({ id: 'stale-stage', jobId: failed.id, revision: 2, kind: 'stage_progress', payload: { stage: runningStage as never }, createdAt: '2026-08-21T00:00:00.000Z' }));
+    expect(screen.getByLabelText('stages')).toHaveTextContent('subtitle:failed');
+    act(() => session.applyRemoteSnapshot({ ...failed, revision: 3, status: 'running', stages: [{ ...runningStage, id: 'new_stage' }] }));
+    expect(screen.getByLabelText('stages')).toHaveTextContent('subtitle:running');
+  });
+
+  it('recovers an initial snapshot failure while retaining local state without submitting tasks', async () => {
+    const getJob = vi.fn().mockRejectedValueOnce(new TypeError('offline'))
+      .mockResolvedValue({ job: job(2, { targetLanguage: 'en' }) });
+    const applyAction = vi.fn();
+    const runAgentTurn = vi.fn();
+    const subscribeJobEvents = vi.fn(() => ({ close: vi.fn() }));
+    const view = render(<CreatorSessionProvider initialJob={job(1, { targetLanguage: 'en' })}
+      service={{ getJob, subscribeJobEvents, applyAction, runAgentTurn }}><Harness /></CreatorSessionProvider>);
+    await waitFor(() => expect(screen.getByLabelText('connection')).toHaveTextContent('reconnecting'));
+    fireEvent.click(screen.getByRole('button', { name: 'change-local' }));
+    await waitFor(() => expect(screen.getByLabelText('connection')).toHaveTextContent('connected'));
+    expect(screen.getByLabelText('language')).toHaveTextContent('ja');
+    expect(subscribeJobEvents).toHaveBeenCalledTimes(1);
+    expect(applyAction).not.toHaveBeenCalled();
+    expect(runAgentTurn).not.toHaveBeenCalled();
+    view.unmount();
+  });
   it('updates the confirmed job after canceling and resuming a task', async () => {
     let session: ReturnType<typeof useCreatorSession> | undefined;
     function ControlHarness() {
@@ -1076,10 +1144,11 @@ describe('CreatorSessionStore', () => {
     expect(session!.issues[0]!.occurrenceCount).toBe(3);
   });
 
-  it('waits for daemon state after retrying an issue and forwards the focused issue id to Agent', async () => {
+  it.each(['subtitle', 'prepare-source-video'])('waits for daemon state after retrying %s and preserves the input version', async stageId => {
     let session: ReturnType<typeof useCreatorSession> | undefined;
     const openIssue = creatorIssue({
-      stageId: 'subtitle',
+      stageId,
+      stageRunId: 'failed-stage',
       repairActions: [{
         kind: 'retry-operation',
         operationId: 'creator.retry-stage',
@@ -1087,7 +1156,12 @@ describe('CreatorSessionStore', () => {
         risk: 'normal'
       }]
     });
-    const initialJob = { ...job(0, {}), issues: [openIssue] };
+    const initialJob = { ...job(0, {}), issues: [openIssue], stages: stageId === 'prepare-source-video'
+      ? [{ id: 'failed-stage', jobId: 'job_1', stageId, executor: 'download', status: 'failed',
+        dispatchStatus: 'finished', claimOwner: null, claimExpiresAt: null, attempt: 1,
+        idempotencyKey: null, scopeKey: null, inputFingerprint: null, progress: { inputResultVersion: 1 },
+        errorCode: 'network_unavailable', errorMessage: 'Download failed', startedAt: null, finishedAt: null
+      } satisfies CreatorJob['stages'][number]] : [] };
     const applyAction = vi.fn(async () => ({ job: initialJob }));
     const startAgentTurn = vi.fn(async () => ({ turn: undefined as never }));
     render(
@@ -1102,7 +1176,7 @@ describe('CreatorSessionStore', () => {
     await act(async () => session!.repairIssue(openIssue));
     expect(applyAction).toHaveBeenCalledWith('job_1', expect.objectContaining({
       action: 'run-stage',
-      input: { stageId: 'subtitle' },
+      input: { stageId, ...(stageId === 'prepare-source-video' ? { inputResultVersion: 1 } : {}) },
       repairIssueId: openIssue.id
     }));
     expect(session!.issues[0]!.status).toBe('open');
@@ -1159,7 +1233,7 @@ describe('CreatorSessionStore', () => {
             ready: [],
             warning: [],
             blocked: [{
-              id: 'provider',
+              id: 'llm',
               title: '服务未配置',
               message: '请先配置服务。',
               executionMode: 'remote'
@@ -1183,6 +1257,30 @@ describe('CreatorSessionStore', () => {
       source: 'preflight'
     }));
     expect(session!.issues).toHaveLength(1);
+    expect(session!.issues[0]).toMatchObject({ code: 'creator_llm_config_missing',
+      category: 'configuration', publicFacts: { kind: 'configuration', upstreamMessage: '请先配置服务。' } });
+  });
+
+  it('uses the current display language and original evidence when asking about a local issue', async () => {
+    let session: ReturnType<typeof useCreatorSession> | undefined;
+    const raw = '后台原文：本地模型准备失败';
+    const startAgentTurn = vi.fn(async (_jobId: string, _request: { message: string; focusedIssueId?: string }) => ({ turn: undefined as never }));
+    render(<LanguageProvider initialPreference="zh-CN"><LanguageSwitchControls /><CreatorSessionProvider initialJob={job(0, {})}
+      service={{ applyAction: vi.fn(), runAgentTurn: startAgentTurn, startAgentTurn } as never}>
+      <SessionCaptureHarness onSession={value => { session = value; }} />
+    </CreatorSessionProvider></LanguageProvider>);
+    act(() => session!.captureCreatorFailure('creator.prepare', new Error(raw), raw));
+    await waitFor(() => expect(session!.issues).toHaveLength(1));
+    fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+    expect(startAgentTurn).not.toHaveBeenCalled();
+    await act(async () => session!.runAgentTurn('用户问题保持原文'));
+    expect(startAgentTurn).toHaveBeenCalledOnce();
+    const request = startAgentTurn.mock.calls[0]![1];
+    expect(request.message).toContain('用户问题保持原文');
+    expect(request.message).toContain('Relaterat fel: ');
+    expect(request.message).toContain('Felkod: CLIENT_OPERATION_FAILED');
+    expect(request.message).toContain(raw);
+    expect(request.focusedIssueId).toBeUndefined();
   });
 
   it('reconciles a focused local issue from a daemon snapshot without reporting another occurrence', async () => {

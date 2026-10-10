@@ -8,6 +8,7 @@ import (
 	"krillin-ai/config"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
+	"krillin-ai/pkg/util"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,48 @@ import (
 	"github.com/BurntSushi/toml"
 	"go.uber.org/zap"
 )
+
+func TestThaiUsesNonSpaceTextSplitting(t *testing.T) {
+	if !IsSplitUseSpace(types.LanguageNameThai) {
+		t.Fatal("Thai must use the non-space text splitting path")
+	}
+}
+
+func TestGenerateSrtWithTimestampsWritesThaiShortSubtitle(t *testing.T) {
+	dir := t.TempDir()
+	blocks := []*util.SrtBlock{
+		{
+			Index:                  1,
+			OriginLanguageSentence: "สวัสดี",
+			TargetLanguageSentence: "你好",
+		},
+	}
+	words := []types.Word{
+		{Num: 0, Text: "สวัสดี", Start: 0, End: 0.447},
+	}
+	stepParam := &types.SubtitleTaskStepParam{
+		TaskBasePath:       dir,
+		OriginLanguage:     types.LanguageNameThai,
+		MaxWordOneLine:     10,
+		SubtitleResultType: types.SubtitleResultTypeBilingualTranslationOnTop,
+	}
+
+	if err := generateSrtWithTimestamps(blocks, 0, words, 0, stepParam); err != nil {
+		t.Fatal(err)
+	}
+
+	shortPath := filepath.Join(dir, fmt.Sprintf(types.SubtitleTaskSplitShortOriginSrtFileNamePattern, 0))
+	if err := NormalizeSRTFile(shortPath, false); err != nil {
+		t.Fatalf("generated Thai short subtitle is invalid: %v", err)
+	}
+	content, err := os.ReadFile(shortPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), "สวัสดี") {
+		t.Fatalf("Thai short subtitle does not contain source text: %q", string(content))
+	}
+}
 
 func Test_isValidSplitContent(t *testing.T) {
 	dir := t.TempDir()
@@ -433,5 +476,167 @@ func TestSplitTranslateItemReportsLongSentenceProgress(t *testing.T) {
 	}
 	if got := fmt.Sprint(progress); got != "[0/2 1/2 2/2]" {
 		t.Fatalf("progress = %s", got)
+	}
+}
+
+func TestSplitOriginLongSentenceToleratesLLMNoise(t *testing.T) {
+	log.InitLogger()
+	tests := []struct {
+		name     string
+		response string
+	}{
+		{
+			name:     "尾随逗号",
+			response: "{\n\"short_sentences\":[{\n\"text\": \"And the reason why they chose the owl is because\",\n},\n{\n\"text\": \"the owl is a symbol used in Europe\",\n}] \n}",
+		},
+		{
+			name:     "中文对话式前缀",
+			response: "以下是分割后的结果：\n\n\n{\n  \"short_sentences\": [\n    { \"text\": \"And the reason why they chose the owl is because\" },\n    { \"text\": \"the owl is a symbol used in Europe\" }\n  ]\n}\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			completer := &scriptedCompleter{responses: []string{tt.response}}
+			service := Service{ChatCompleter: completer}
+
+			sentences, err := service.splitOriginLongSentence("And the reason why they chose the owl is because the owl is a symbol used in Europe")
+			if err != nil {
+				t.Fatalf("splitOriginLongSentence() error = %v, want nil", err)
+			}
+			if completer.calls != 1 {
+				t.Fatalf("ChatCompletion 调用次数 = %d, want 1（无需重试）", completer.calls)
+			}
+			want := []string{
+				"And the reason why they chose the owl is because",
+				"the owl is a symbol used in Europe",
+			}
+			if fmt.Sprint(sentences) != fmt.Sprint(want) {
+				t.Fatalf("sentences = %v, want %v", sentences, want)
+			}
+		})
+	}
+}
+
+func TestSplitLongSentenceToleratesConversationalPrefix(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{
+		"以下是分割后的结果：\n\n{\n  \"align\": [\n    { \"origin_part\": \"I want to show you\", \"translated_part\": \"Ich möchte es Ihnen zeigen\" },\n    { \"origin_part\": \"how it works\", \"translated_part\": \"wie es funktioniert\" }\n  ]\n}",
+	}}
+	service := Service{ChatCompleter: completer}
+
+	items, err := service.splitLongSentence(&TranslatedItem{
+		OriginText:     "I want to show you how it works",
+		TranslatedText: "Ich möchte es Ihnen zeigen wie es funktioniert",
+	})
+	if err != nil {
+		t.Fatalf("splitLongSentence() error = %v, want nil", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("items = %+v, want 2 items", items)
+	}
+	if items[0].OriginText != "I want to show you" || items[1].TranslatedText != "wie es funktioniert" {
+		t.Fatalf("unexpected items: %+v, %+v", items[0], items[1])
+	}
+}
+
+func TestSplitLongSentenceRejectsDecoyObject(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{
+		"格式示例：{}\n{\n  \"align\": [\n    { \"origin_part\": \"I want to show you\", \"translated_part\": \"Ich möchte es Ihnen zeigen\" },\n    { \"origin_part\": \"how it works\", \"translated_part\": \"wie es funktioniert\" }\n  ]\n}",
+	}}
+	service := Service{ChatCompleter: completer}
+
+	items, err := service.splitLongSentence(&TranslatedItem{
+		OriginText:     "I want to show you how it works",
+		TranslatedText: "Ich möchte es Ihnen zeigen wie es funktioniert",
+	})
+	if err != nil {
+		t.Fatalf("splitLongSentence() error = %v, want nil", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("items = %+v, want 2 items（示例对象不应被当作回答）", items)
+	}
+	if items[0].OriginText != "I want to show you" || items[1].TranslatedText != "wie es funktioniert" {
+		t.Fatalf("unexpected items: %+v, %+v", items[0], items[1])
+	}
+}
+
+func TestSplitOriginLongSentenceRejectsDecoyObject(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{
+		"请按如下格式输出：{\"example\": true}\n{\n  \"short_sentences\": [\n    { \"text\": \"And the reason why they chose the owl is because\" },\n    { \"text\": \"the owl is a symbol used in Europe\" }\n  ]\n}",
+	}}
+	service := Service{ChatCompleter: completer}
+
+	sentences, err := service.splitOriginLongSentence("And the reason why they chose the owl is because the owl is a symbol used in Europe")
+	if err != nil {
+		t.Fatalf("splitOriginLongSentence() error = %v, want nil", err)
+	}
+	if completer.calls != 1 {
+		t.Fatalf("ChatCompletion 调用次数 = %d, want 1（无需重试）", completer.calls)
+	}
+	want := []string{
+		"And the reason why they chose the owl is because",
+		"the owl is a symbol used in Europe",
+	}
+	if fmt.Sprint(sentences) != fmt.Sprint(want) {
+		t.Fatalf("sentences = %v, want %v", sentences, want)
+	}
+}
+
+func TestSplitLongSentenceStillFailsOnGarbage(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{"抱歉，我无法完成这个请求"}}
+	service := Service{ChatCompleter: completer}
+
+	if _, err := service.splitLongSentence(&TranslatedItem{
+		OriginText:     "I want to show you how it works",
+		TranslatedText: "Ich möchte es Ihnen zeigen wie es funktioniert",
+	}); err == nil {
+		t.Fatal("splitLongSentence() error = nil, want parse error")
+	}
+}
+
+func TestSplitLongSentenceSelectsAnswerAfterEmptyExample(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{
+		"示例格式：{\"align\":[]}\n实际结果：{\"align\":[{\"origin_part\":\"hello\",\"translated_part\":\"你好\"}]}",
+	}}
+	service := Service{ChatCompleter: completer}
+	items, err := service.splitLongSentence(&TranslatedItem{OriginText: "hello", TranslatedText: "你好"})
+	if err != nil || len(items) != 1 || items[0].TranslatedText != "你好" {
+		t.Fatalf("split result = %+v, error = %v; want the actual translation", items, err)
+	}
+}
+
+func TestSplitLongSentenceRejectsEmptyAnswer(t *testing.T) {
+	log.InitLogger()
+	service := Service{ChatCompleter: &scriptedCompleter{responses: []string{`{"align":[]}`}}}
+	if items, err := service.splitLongSentence(&TranslatedItem{OriginText: "hello", TranslatedText: "你好"}); err == nil {
+		t.Fatalf("empty split silently succeeded: %+v", items)
+	}
+}
+
+func TestSplitOriginLongSentenceRetriesEmptyAnswer(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{
+		`{"short_sentences":null}`,
+		`{"short_sentences":[{"text":"hello"}]}`,
+	}}
+	service := Service{ChatCompleter: completer}
+	sentences, err := service.splitOriginLongSentence("hello world")
+	if err != nil || len(sentences) != 1 || sentences[0] != "hello" || completer.calls != 2 {
+		t.Fatalf("split = %v, calls = %d, error = %v", sentences, completer.calls, err)
+	}
+}
+
+func TestSplitLongSentenceRejectsAmbiguousAnswers(t *testing.T) {
+	log.InitLogger()
+	service := Service{ChatCompleter: &scriptedCompleter{responses: []string{
+		`{"align":[{"origin_part":"hello","translated_part":"你好"}]} {"align":[{"origin_part":"other","translated_part":"别的"}]}`,
+	}}}
+	if items, err := service.splitLongSentence(&TranslatedItem{OriginText: "hello", TranslatedText: "你好"}); err == nil {
+		t.Fatalf("ambiguous split silently succeeded: %+v", items)
 	}
 }

@@ -849,6 +849,7 @@
 }
 
 .video-translation-subtitle-import-fields label > span,
+.video-translation-subtitle-file-field > label,
 .video-translation-subtitle-import-fields p {
   margin: 0;
   color: var(--muted);
@@ -858,6 +859,53 @@
 
 .video-translation-subtitle-import-fields select {
   padding: 0 10px;
+}
+
+.video-translation-subtitle-file-field {
+  display: grid;
+  gap: 6px;
+}
+
+.video-translation-subtitle-file-picker {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+}
+
+.video-translation-subtitle-file-picker input.app-visually-hidden {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+}
+
+.video-translation-subtitle-file-picker button {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.video-translation-subtitle-file-picker button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.video-translation-subtitle-file-picker > span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .video-translation-subtitle-import-fields details {
@@ -1825,6 +1873,79 @@
 .video-download-platforms li > span {
   max-width: 100%;
   overflow-wrap: anywhere;
+}
+
+.video-source-platforms-compact {
+  width: min(592px, 100%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 10px auto 0;
+}
+
+.video-source-platforms-compact > span {
+  flex-shrink: 0;
+  font-weight: 450;
+}
+
+.video-source-platforms-compact .video-download-platforms {
+  justify-content: flex-start;
+  gap: 0;
+  margin: 0;
+}
+
+.video-source-platforms-compact li {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: block;
+}
+
+.video-source-platform-mark {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+}
+
+.video-source-platforms-compact .video-source-platform-mark img {
+  width: 20px;
+  height: 20px;
+}
+
+.video-source-platform-mark:hover,
+.video-source-platform-mark:focus-visible {
+  background: var(--surface-2);
+}
+
+.video-source-platforms-compact li > .video-source-platform-tooltip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 5;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  max-width: none;
+  transform: translateX(-50%);
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 450;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: 0 3px 8px rgb(0 0 0 / 12%);
+}
+
+@media (pointer: coarse) {
+  .video-source-platforms-compact li,
+  .video-source-platform-mark {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 .creator-tool-panel-heading > small {
@@ -6075,6 +6196,29 @@
   object-fit: contain;
 }
 
+.video-generation-preview {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.video-generation-preview figcaption {
+  order: -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.video-generation-preview output {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .video-generation-result[data-ratio="16:9"] video {
   aspect-ratio: 16 / 9;
 }
@@ -6134,54 +6278,54 @@
   color: var(--on-accent);
 }
 
-.video-generation-progress {
-  min-height: 240px;
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 9px;
-  text-align: center;
-}
-
-.video-generation-progress > span:first-child {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
-  color: var(--accent);
-}
-
-.video-generation-progress strong {
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.video-generation-progress p {
-  max-width: 340px;
+.video-generation-background-note {
+  margin: 12px 0 0;
   color: var(--muted);
   font-size: 11px;
   line-height: 1.5;
 }
 
-.video-generation-progress > div {
-  width: min(360px, 86%);
-  height: 6px;
-  overflow: hidden;
-  border-radius: 3px;
-  background: var(--surface-2);
+.creator-task-progress-notice {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
 }
 
-.video-generation-progress > div > span {
-  height: 100%;
-  display: block;
-  border-radius: inherit;
-  background: var(--accent);
-  transition: width 180ms ease;
+.creator-task-progress-notice-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 12px;
 }
 
-.video-generation-progress > small {
+.creator-task-progress-notice-heading > svg {
+  flex: 0 0 auto;
+}
+
+.creator-collaboration-stage-details {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.creator-collaboration-stage-message {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.creator-collaboration-stage-timing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
   color: var(--subtle);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
@@ -8183,6 +8327,15 @@
 .stickman-storyboard-placeholder > .creator-tool-panel-heading > .creator-collaboration-spin {
   flex: 0 0 auto;
   color: var(--accent);
+}
+
+.stickman-storyboard-placeholder[data-state="failed"] .stickman-storyboard-editor {
+  align-content: start;
+  gap: 12px;
+}
+
+.stickman-storyboard-placeholder[data-state="failed"] .video-translation-secondary-action {
+  justify-self: start;
 }
 
 .stickman-storyboard-loading-row {
@@ -11255,6 +11408,41 @@
   box-sizing: border-box;
 }
 
+.video-translation-bilibili-parts {
+  width: min(960px, 100%);
+  margin: 0 auto;
+  padding: 0 24px 24px;
+  box-sizing: border-box;
+}
+
+.video-translation-bilibili-parts select {
+  padding: 0 12px;
+}
+
+.video-translation-bilibili-parts p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.video-result-preview-empty {
+  display: grid;
+  gap: 12px;
+  max-width: 340px;
+  margin: auto;
+  padding: 24px;
+  text-align: center;
+}
+
+.video-result-preview-empty p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.video-result-preview-empty button {
+  justify-self: center;
+}
+
 .video-translation-dropzone {
   position: relative;
   width: min(592px, 100%);
@@ -11435,6 +11623,88 @@
   color: #f4f4f5;
   font-size: 12px;
   text-decoration: none;
+}
+
+.video-source-prepare-preview {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: #f4f4f5;
+  color: #18181b;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.video-source-preview-media:has(.video-source-prepare-preview) {
+  min-height: 280px;
+}
+
+.video-source-preview-media:has(.video-source-preview-error) {
+  min-height: 340px;
+}
+
+.video-source-preview-media:has(.video-source-preview-thumbnail) {
+  min-height: 320px;
+}
+
+.video-source-preview-thumbnail {
+  width: 160px;
+  height: 90px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.video-source-retry-online {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  background: transparent;
+  color: #f4f4f5;
+  cursor: pointer;
+}
+
+.video-source-retry-online:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.video-source-prepare-preview:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.video-source-prepare-preview:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.video-source-link-preview .video-source-preview-error {
+  max-height: 72px;
+  overflow: auto;
+  color: #fca5a5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.video-source-preview-spinner {
+  animation: video-source-preview-spin 1s linear infinite;
+}
+
+@keyframes video-source-preview-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-source-preview-spinner { animation: none; }
 }
 
 .video-source-preview-footer {

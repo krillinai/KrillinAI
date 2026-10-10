@@ -42,10 +42,15 @@ test('模板提示词在 Browser/Desktop Bridge 下按语言显示并完整带�
       await runtime.openApp(page);
       await page.goto(`${runtime.origin}/#/new`);
       await page.getByRole('tab', { name: '视频创作', exact: true }).click();
-      await page.getByRole('button', { name: '查看纽约跑酷与蛛丝摆荡动作模板详情' }).click();
+      const templateCard = page.getByRole('button', { name: '查看纽约跑酷与蛛丝摆荡动作模板详情' });
+      await templateCard.click();
+      await expect(page.getByRole('button', { name: '返回模板列表' })).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(templateCard).toBeFocused();
+      await templateCard.click();
       const zhCatalog = await runtime.api<CreatorPresetListResponse>('GET', '/creator/presets?locale=zh-CN');
       const chinese = zhCatalog.presets.find(preset => preset.id === 'nyc-parkour-web-swing')!;
-      await expect(page.locator('.creator-template-prompt-card')).toHaveText(chinese.prompt!);
+      await expect(page.locator('.creator-template-prompt-card .creator-template-prompt')).toHaveText(chinese.prompt!);
 
       await runtime.api('PATCH', '/settings/ui', { language: 'en-US' });
       await page.reload();
@@ -55,7 +60,7 @@ test('模板提示词在 Browser/Desktop Bridge 下按语言显示并完整带�
       const english = enCatalog.presets.find(preset => preset.id === chinese.id)!;
       expect(english.prompt!.length).toBeGreaterThan(4000);
       expect(english.prompt).not.toBe(chinese.prompt);
-      await expect(page.locator('.creator-template-prompt-card')).toHaveText(english.prompt!);
+      await expect(page.locator('.creator-template-prompt-card .creator-template-prompt')).toHaveText(english.prompt!);
       await page.screenshot({ path: testInfo.outputPath(`${platform}-english-template.png`), fullPage: true });
       const promptBox = await page.locator('.creator-template-prompt-card').boundingBox();
       await page.getByRole('button', { name: 'Use this template', exact: true }).click();

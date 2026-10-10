@@ -10,7 +10,7 @@ import {
 export const KRILLIN_LLM_ROUTE_PREFIX = '/internal/krillin-llm';
 
 type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
-type HostSlot = { host?: CodexAppServerHost; busy: boolean };
+type HostSlot = { host?: CodexAppServerHost; busy: boolean; configurationVersion?: string };
 
 const HOST_POOL_SIZE = 2;
 const MAX_QUEUED_REQUESTS = 32;
@@ -21,6 +21,7 @@ export function createKrillinCodexLlmGateway(input: {
   codexHome: string;
   cwd: string;
   createHost?: typeof createCodexAppServerHost;
+  readConfiguration?(): { codexHome: string; version: string };
 }) {
   const token = `ocllm_${randomBytes(32).toString('base64url')}`;
   const slots: HostSlot[] = Array.from({ length: HOST_POOL_SIZE }, () => ({ busy: false }));
@@ -99,11 +100,13 @@ export function createKrillinCodexLlmGateway(input: {
   async function runCompletion(messages: ChatMessage[], jsonMode: boolean): Promise<string> {
     const slot = await acquireSlot();
     try {
-      if (slot.host === undefined || !slot.host.isReusable()) {
+      const configuration = input.readConfiguration?.();
+      if (slot.host === undefined || !slot.host.isReusable()
+        || slot.configurationVersion !== configuration?.version) {
         await slot.host?.close('krillin-llm-host-replaced').catch(() => undefined);
         slot.host = (input.createHost ?? createCodexAppServerHost)({
           codexBin: input.codexBin,
-          codexHome: input.codexHome,
+          codexHome: configuration?.codexHome ?? input.codexHome,
           cwd: resolve(input.cwd),
           profile: 'default',
           builtInTools: {
@@ -115,6 +118,7 @@ export function createKrillinCodexLlmGateway(input: {
           }
         });
         await slot.host.started;
+        slot.configurationVersion = configuration?.version;
       }
       return await complete({ host: slot.host, cwd: input.cwd, messages, jsonMode });
     } catch (error) {

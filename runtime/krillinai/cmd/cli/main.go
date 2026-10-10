@@ -131,6 +131,8 @@ func configureOpenCreatorProgress(cmd *cli.Command, output *jsonLineWriter) {
 		cmd.Subtitle.ReportProgress = writeProgress(cmd.Subtitle.ReportProgress)
 	case "tts":
 		cmd.TTS.ReportProgress = writeProgress(cmd.TTS.ReportProgress)
+	case "render-horizontal", "render-vertical":
+		cmd.Render.ReportProgress = writeProgress(cmd.Render.ReportProgress)
 	}
 }
 

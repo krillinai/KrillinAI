@@ -176,11 +176,11 @@ func TestGenerateSubtitlesFallsBackToAudioWhenAnySourceFails(t *testing.T) {
 	if !resp.OK {
 		t.Fatalf("OK = false, want true")
 	}
-	if got := fake.calls; len(got) != 4 || got[0] != "prepare" || got[1] != "download-youtube" || got[2] != "prepare" || got[3] != "audio" {
+	if got := fake.calls; len(got) != 3 || got[0] != "download-youtube" || got[1] != "prepare" || got[2] != "audio" {
 		t.Fatalf("calls = %v", got)
 	}
-	if got := fake.prepareVTT; len(got) != 2 || got[0] != true || got[1] != false {
-		t.Fatalf("prepare VttSwitch values = %v, want [true false]", got)
+	if got := fake.prepareVTT; len(got) != 1 || got[0] != false {
+		t.Fatalf("prepare VttSwitch values = %v, want [false]", got)
 	}
 }
 
@@ -323,7 +323,7 @@ func TestGenerateSubtitlesManualDoesNotFallback(t *testing.T) {
 	if resp.OK {
 		t.Fatalf("OK = true, want false")
 	}
-	if got := fake.calls; len(got) != 2 || got[1] != "download-youtube" {
+	if got := fake.calls; len(got) != 1 || got[0] != "download-youtube" {
 		t.Fatalf("calls = %v", got)
 	}
 }
@@ -349,7 +349,7 @@ func TestGenerateSubtitlesYouTubeCaptionsDoNotUseAudio(t *testing.T) {
 	if resp.CaptionSource == "" {
 		t.Fatalf("CaptionSource is empty")
 	}
-	if got := fake.calls; len(got) != 4 || got[0] != "prepare" || got[1] != "download-youtube" || got[2] != "process-youtube" || got[3] != "prepare" {
+	if got := fake.calls; len(got) != 2 || got[0] != "download-youtube" || got[1] != "process-youtube" {
 		t.Fatalf("calls = %v", got)
 	}
 	for _, call := range fake.calls {
@@ -376,11 +376,11 @@ func TestGenerateSubtitlesSourceOnlySkipsTranslationAndVideoPreparation(t *testi
 	if err != nil || !resp.OK {
 		t.Fatalf("response = %+v, error = %v", resp, err)
 	}
-	if got := fake.calls; len(got) != 3 || got[0] != "prepare" || got[1] != "download-youtube" || got[2] != "process-youtube" {
-		t.Fatalf("calls = %v, want source preparation and platform captions only", got)
+	if got := fake.calls; len(got) != 2 || got[0] != "download-youtube" || got[1] != "process-youtube" {
+		t.Fatalf("calls = %v, want platform captions only", got)
 	}
-	if fake.lastPrepare == nil || fake.lastPrepare.SubtitleResultType != types.SubtitleResultTypeOriginOnly {
-		t.Fatalf("SubtitleResultType = %v, want origin only", fake.lastPrepare.SubtitleResultType)
+	if fake.lastPrepare != nil {
+		t.Fatal("source-only captions unexpectedly prepared media")
 	}
 	if fake.lastYouTube == nil || !fake.lastYouTube.SourceOnly {
 		t.Fatal("YouTube request did not preserve SourceOnly")
@@ -403,6 +403,7 @@ func TestGenerateSubtitlesYouTubeCaptionsPrepareOriginalMediaForRendering(t *tes
 		OriginLang:    "en",
 		TargetLang:    "zh_cn",
 		CaptionSource: CaptionSourceAny,
+		PrepareVideo:  true,
 	}
 	resp, err := GenerateSubtitles(context.Background(), fake, req)
 	if err != nil {
@@ -411,14 +412,14 @@ func TestGenerateSubtitlesYouTubeCaptionsPrepareOriginalMediaForRendering(t *tes
 	if !resp.OK {
 		t.Fatalf("OK = false, want true")
 	}
-	if got := fake.calls; len(got) != 4 || got[0] != "prepare" || got[1] != "download-youtube" || got[2] != "process-youtube" || got[3] != "prepare" {
+	if got := fake.calls; len(got) != 3 || got[0] != "download-youtube" || got[1] != "process-youtube" || got[2] != "prepare" {
 		t.Fatalf("calls = %v", got)
 	}
-	if got := fake.prepareVTT; len(got) != 2 || got[0] != true || got[1] != false {
-		t.Fatalf("prepare VttSwitch values = %v, want [true false]", got)
+	if got := fake.prepareVTT; len(got) != 1 || got[0] != false {
+		t.Fatalf("prepare VttSwitch values = %v, want [false]", got)
 	}
-	if got := fake.prepareEmbedTypes; len(got) != 2 || got[1] != "all" {
-		t.Fatalf("prepare EmbedSubtitleVideoType values = %v, want second value all", got)
+	if got := fake.prepareEmbedTypes; len(got) != 1 || got[0] != "all" {
+		t.Fatalf("prepare EmbedSubtitleVideoType values = %v, want [all]", got)
 	}
 }
 
@@ -562,8 +563,31 @@ func TestGenerateSubtitlesFallbackPreparesVideoWhenRequested(t *testing.T) {
 	if !resp.OK {
 		t.Fatalf("OK = false, want true")
 	}
-	if got := fake.prepareEmbedTypes; len(got) != 2 || got[0] != "none" || got[1] != "all" {
-		t.Fatalf("prepare EmbedSubtitleVideoType values = %v, want [none all]", got)
+	if got := fake.prepareEmbedTypes; len(got) != 1 || got[0] != "all" {
+		t.Fatalf("prepare EmbedSubtitleVideoType values = %v, want [all]", got)
+	}
+}
+
+func TestPlatformTranslationFailureDoesNotDownloadOrTranscribe(t *testing.T) {
+	fake := &fakeStageService{processErr: errors.New("translation service unavailable")}
+	response, err := GenerateSubtitles(context.Background(), fake, SubtitleRequest{Input: "https://www.youtube.com/watch?v=abc", Workdir: t.TempDir(), TaskID: "translation-error", OriginLang: "en", TargetLang: "zh_cn", CaptionSource: CaptionSourceAny})
+	if err == nil || response.Error.Code != "platform_caption_processing_failed" {
+		t.Fatalf("response = %+v, error = %v", response, err)
+	}
+	if len(fake.calls) != 2 || fake.calls[0] != "download-youtube" || fake.calls[1] != "process-youtube" {
+		t.Fatalf("unexpected fallback calls: %v", fake.calls)
+	}
+}
+
+func TestPlatformAccessFailureDoesNotTriggerWhisperDownload(t *testing.T) {
+	for _, captionSource := range []CaptionSource{CaptionSourceAny, CaptionSourcePlatform} {
+		t.Run(string(captionSource), func(testCase *testing.T) {
+			fake := &fakeStageService{downloadErr: service.ErrYouTubeCaptionAccess}
+			response, err := GenerateSubtitles(context.Background(), fake, SubtitleRequest{Input: "https://www.youtube.com/watch?v=abc", Workdir: testCase.TempDir(), TaskID: "access-error", CaptionSource: captionSource})
+			if err == nil || response.Error.Code != "platform_caption_access_failed" || len(fake.calls) != 1 {
+				testCase.Fatalf("response = %+v, error = %v, calls = %v", response, err, fake.calls)
+			}
+		})
 	}
 }
 

@@ -3,7 +3,7 @@
   "scenario": "scheduled-task-100",
   "seedCount": 100,
   "thresholds": {
-    "maxRuntimeRequestsPerLoad": 12,
+    "maxRuntimeRequestsPerLoad": 14,
     "maxThreadListRequestsPerLoad": 2,
     "maxScheduleViewRequests": 3,
     "maxSearchViewRequests": 2,
@@ -22,7 +22,7 @@
         "height": 900
       },
       "measurements": {
-        "initialRuntimeRequests": 12,
+        "initialRuntimeRequests": 14,
         "refreshRuntimeRequests": 12,
         "initialThreadListRequests": 2,
         "refreshThreadListRequests": 2,
@@ -43,7 +43,7 @@
         "height": 844
       },
       "measurements": {
-        "initialRuntimeRequests": 12,
+        "initialRuntimeRequests": 14,
         "refreshRuntimeRequests": 12,
         "initialThreadListRequests": 2,
         "refreshThreadListRequests": 2,

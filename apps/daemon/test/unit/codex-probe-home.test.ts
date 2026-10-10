@@ -12,7 +12,9 @@ import { parse } from '@iarna/toml';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   createCodexIsolatedHome,
-  createCodexProbeHome
+  createCodexProbeHome,
+  importLocalCodexConfiguration,
+  createFollowingLocalCodexHome
 } from '../../src/codex/probe-home.js';
 
 let tempDir = '';
@@ -23,6 +25,40 @@ afterEach(() => {
 });
 
 describe('Codex Probe 临时 Home', () => {
+  it('refreshes automatic model credentials only when local configuration changes', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'opencreator-follow-local-'));
+    const source = join(tempDir, 'source');
+    const isolated = join(tempDir, 'isolated');
+    mkdirSync(source);
+    writeFileSync(join(source, 'auth.json'), '{"OPENAI_API_KEY":"local-secret"}');
+    writeFileSync(join(source, 'config.toml'), 'model = "first-model"\n');
+    const read = createFollowingLocalCodexHome(source, isolated);
+    const initial = read();
+    writeFileSync(join(isolated, 'auth.json'), '{"OPENAI_API_KEY":"refreshed-secret"}');
+    expect(read()).toEqual(initial);
+    expect(readFileSync(join(isolated, 'auth.json'), 'utf8')).toContain('refreshed-secret');
+    writeFileSync(join(source, 'config.toml'), 'model = "second-model"\n');
+    expect(read().version).not.toBe(initial.version);
+    expect(readFileSync(join(isolated, 'config.toml'), 'utf8')).toContain('second-model');
+    expect(readFileSync(join(source, 'auth.json'), 'utf8')).toContain('local-secret');
+    rmSync(join(source, 'auth.json'));
+    read();
+    expect(existsSync(join(isolated, 'auth.json'))).toBe(false);
+  });
+  it('imports a local login once and does not overwrite an existing OpenCreator selection', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'opencreator-codex-import-test-'));
+    const sourceHome = join(tempDir, 'source');
+    const isolatedHome = join(tempDir, 'isolated');
+    mkdirSync(sourceHome);
+    writeFileSync(join(sourceHome, 'auth.json'), '{"OPENAI_API_KEY":"local-secret"}');
+    writeFileSync(join(sourceHome, 'config.toml'), 'model = "local-model"\n');
+    expect(importLocalCodexConfiguration(sourceHome, isolatedHome)).toBe(true);
+    expect(readFileSync(join(isolatedHome, 'auth.json'), 'utf8')).toContain('local-secret');
+    writeFileSync(join(isolatedHome, 'config.toml'), 'model = "user-choice"\n');
+    expect(importLocalCodexConfiguration(sourceHome, isolatedHome)).toBe(false);
+    expect(readFileSync(join(isolatedHome, 'config.toml'), 'utf8')).toContain('user-choice');
+  });
+
   it('refreshes the isolated provider from the local Codex home', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'opencreator-isolated-provider-test-'));
     const sourceHome = join(tempDir, 'source');

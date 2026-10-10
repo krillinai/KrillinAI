@@ -9,6 +9,7 @@ export type BuildCodexExecArgsInput = {
   imagePaths?: string[];
   mcpServers?: CodexMcpServerConfig[];
   builtInTools?: BuiltInToolPolicy;
+  imageGenerationOnly?: boolean;
 };
 
 export type BuildCodexResumeArgsInput = {
@@ -69,7 +70,14 @@ export type CodexMcpServerConfig =
 export function buildCodexExecArgs(input: BuildCodexExecArgsInput): string[] {
   const args = ['exec', '--json', '--skip-git-repo-check'];
 
-  if (input.builtInTools !== undefined) {
+  if (input.imageGenerationOnly) {
+    args.push(
+      '--ignore-user-config',
+      '-c', 'cli_auth_credentials_store="file"',
+      '-c', 'forced_login_method="chatgpt"',
+      ...codexToolIsolationArgs({ shell: false, fileRead: false, fileWrite: false, applyPatch: false, webSearch: false }, { imageGeneration: true })
+    );
+  } else if (input.builtInTools !== undefined) {
     args.push('--ignore-user-config', ...codexToolIsolationArgs(input.builtInTools));
   }
 
@@ -105,7 +113,7 @@ export function buildCodexResumeArgs(input: BuildCodexResumeArgsInput): string[]
   return args;
 }
 
-export function codexToolIsolationArgs(policy: BuiltInToolPolicy): string[] {
+export function codexToolIsolationArgs(policy: BuiltInToolPolicy, options: { imageGeneration?: boolean } = {}): string[] {
   if (Object.values(policy).some(enabled => enabled)) {
     throw new Error('Restricted built-in tool policy must disable every tool');
   }
@@ -128,7 +136,9 @@ export function codexToolIsolationArgs(policy: BuiltInToolPolicy): string[] {
     '-c', 'plugins={}',
     '-c', 'web_search="disabled"',
     '-c', 'notify=[]',
-    ...disabled.flatMap(feature => ['--disable', feature])
+    ...disabled.filter(feature => !options.imageGeneration || feature !== 'image_generation')
+      .flatMap(feature => ['--disable', feature]),
+    ...(options.imageGeneration ? ['--enable', 'image_generation', '--disable', 'view_image'] : [])
   ];
 }
 

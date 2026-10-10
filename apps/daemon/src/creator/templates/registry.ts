@@ -124,6 +124,7 @@ function propagateArtifacts(
       // Reusing a previous version does not make the stage's upstream outputs downstream.
       if (stage.outputArtifacts.some(output => output.kind === current)) continue;
       for (const output of stage.outputArtifacts) {
+        if (stage.inputArtifacts.some(input => input.kind === output.kind)) continue;
         if (!result.has(output.kind)) {
           result.add(output.kind);
           queue.push(output.kind);

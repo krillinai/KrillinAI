@@ -18,6 +18,7 @@ import type {
   CreatorPresetRegistry
 } from './types.js';
 import {
+  createCreatorPresetDetails,
   createCreatorPresetHighlights,
   createCreatorPresetPrompt,
   createCreatorPresetTags
@@ -312,9 +313,11 @@ function localizePreset(
     }),
     prompt: createCreatorPresetPrompt(preset, locale),
     tags: createCreatorPresetTags(preset, locale),
+    tagIds: [...preset.tags],
     featured: preset.featured,
     sortOrder: preset.sortOrder,
     requirements: preset.requirements ?? null,
+    details: createCreatorPresetDetails(preset, locale),
     highlights: createCreatorPresetHighlights(preset, locale)
   };
 }

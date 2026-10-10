@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDefaultCreatorServicesConfig, type CreatorJob, type CreatorJson } from '@opencreator/protocol';
-import { createCreatorPreflight } from '../../src/creator/preflight.js';
+import { createCreatorPreflight, CreatorPreflightError } from '../../src/creator/preflight.js';
 import { createImageGenerationTemplate } from '../../src/creator/templates/image-generation.js';
 import { createVideoDownloadTemplate } from '../../src/creator/templates/video-download.js';
 import { createStickmanVideoTemplate } from '../../src/creator/templates/stickman-video.js';
@@ -20,6 +20,80 @@ afterEach(async () => {
 });
 
 describe('creator preflight', () => {
+  it.each(['openai', 'codex-native'])('blocks missing reference input for %s before starting a task', async provider => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-reference-'));
+    const check = createCreatorPreflight({
+      configStore: { read: async () => createDefaultCreatorServicesConfig() },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: root, jobsRoot: join(root, 'jobs'), executorIds: ['image'], validateRuntimeAssets: false
+    });
+    const job = fakeJob('image-generation', { provider, prompt: '以上传的人物照片为唯一主体，生成复古海报', referenceImageArtifactId: 'missing-artifact' });
+    const result = await check.check(job, createImageGenerationTemplate().stages[0]!);
+    expect(result.canStart).toBe(false);
+    expect(result.blocked).toContainEqual(expect.objectContaining({ id: 'reference-image-required', message: expect.stringContaining('上传参考图') }));
+    expect(new CreatorPreflightError(result)).toMatchObject({ code: 'creator_stage_input_missing', publicFacts: { kind: 'validation', upstreamCode: 'IMAGE_REFERENCE_MISSING' } });
+  });
+  it('allows rendering to prepare an installable Remotion component without downloading during preflight', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-remotion-'));
+    const status = vi.fn(async () => ({ id: 'remotion' as const, name: 'Remotion', available: true, version: null, supportedVersion: '4.0.473', installedAt: null, path: root, source: 'release', models: [], model: null, state: 'not_installed' as const, item: null, downloadedBytes: 0, totalBytes: null, percent: null, bytesPerSecond: null, remainingSeconds: null, error: null }));
+    const stage = createStickmanVideoTemplate().stages.find(candidate => candidate.id === 'render-clean')!;
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => createDefaultCreatorServicesConfig() },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: root, jobsRoot: join(root, 'jobs'), ffprobePath: '/fixture/ffprobe',
+      executorIds: ['stickman-remotion'], remotionComponent: { status }
+    }).check(fakeJob('stickman-video', {}), stage);
+    expect(status).toHaveBeenCalledOnce();
+    expect(result.blocked.map(item => item.id)).not.toContain('stickman-runtime');
+    expect(result.warning).toContainEqual(expect.objectContaining({ id: 'stickman-runtime', message: expect.stringContaining('按需准备') }));
+  });
+
+  it('prepares preview from the saved Bilibili source without translation or Whisper credentials', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const config = createDefaultCreatorServicesConfig();
+    const job = fakeJob('video-translation', {
+      sourceType: 'url', sourceUrl: 'https://www.bilibili.com/video/BV18E421w7bf?p=99',
+      resultSnapshots: [{ version: 1, createdAt: '2026-10-02T00:00:00.000Z', action: 'stage-succeeded',
+        stageId: 'subtitle', description: 'Subtitles', artifactRefs: {}, changedArtifactIds: [], staleArtifactIds: [],
+        state: { sourceType: 'url', sourceUrl: 'https://www.bilibili.com/video/BV18E421w7bf?p=3' }
+      }]
+    });
+    const get = vi.fn(async () => ({ platform: 'bilibili' as const, title: 'Course',
+      parts: [1, 2, 3].map(index => ({ index, title: `Lesson ${index}` })) }));
+    const preflight = createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: join(root, 'runtime'), jobsRoot: join(root, 'jobs'),
+      executorIds: ['download'], validateRuntimeAssets: false, videoMetadataService: { get }
+    });
+    const stage = createVideoTranslationTemplate().stages.find(candidate => candidate.id === 'prepare-source-video')!;
+    expect((await preflight.check(job, stage, { inputResultVersion: 1 })).canStart).toBe(true);
+    expect(get).toHaveBeenCalledWith('https://www.bilibili.com/video/BV18E421w7bf?p=3');
+    expect((await preflight.check(job, stage)).blocked).toContainEqual(expect.objectContaining({ id: 'input-result-version' }));
+  });
+
+  it.each([undefined, 3])('checks Bilibili selection for Agent stage requests: %s', async part => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const config = createDefaultCreatorServicesConfig();
+    config.llm.source = 'codex';
+    const job = fakeJob('video-translation', { sourceType: 'url',
+      sourceUrl: `https://www.bilibili.com/video/BV18E421w7bf${part === undefined ? '' : `?p=${part}`}` });
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: join(root, 'runtime'), jobsRoot: join(root, 'jobs'),
+      executorIds: ['krillinai'], validateRuntimeAssets: false,
+      videoMetadataService: { get: async () => ({ platform: 'bilibili', title: 'Course',
+        parts: [1, 2, 3].map(index => ({ index, title: `Lesson ${index}` })) }) }
+    }).check(job, createVideoTranslationTemplate().stages.find(stage => stage.id === 'subtitle')!);
+    if (part === undefined) {
+      expect(result.canStart).toBe(false);
+      expect(result.blocked).toContainEqual(expect.objectContaining({ id: 'bilibili-part', message: expect.stringContaining('选择要翻译的分集') }));
+    } else {
+      expect(result.blocked.map(item => item.id)).not.toContain('bilibili-part');
+    }
+  });
+
   it('blocks a stage with missing provider credentials and provides a settings repair', async () => {
     root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
     const config = createDefaultCreatorServicesConfig();
@@ -127,7 +201,7 @@ describe('creator preflight', () => {
     ]));
   });
 
-  it('accepts Codex subscription image generation without API credentials', async () => {
+  it('accepts Codex subscription image generation only with checked native capability', async () => {
     root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
     const config = createDefaultCreatorServicesConfig();
     config.image.provider = 'codex-native';
@@ -138,13 +212,40 @@ describe('creator preflight', () => {
       resourceRoot: join(root, 'runtime'),
       jobsRoot: join(root, 'jobs'),
       executorIds: ['stickman-image'],
-      validateRuntimeAssets: false
+      validateRuntimeAssets: false,
+      readCodexImageStatus: async () => ({ authentication: 'chatgpt', ready: true, executionMode: 'native', message: '原生工具已就绪' })
     }).check(fakeJob('stickman-video', { provider: 'codex-native' }), stage);
 
     expect(result.blocked.map(item => item.id)).not.toContain('image-provider');
     expect(result.ready).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'image-provider', executionMode: 'local' })
     ]));
+  });
+
+  it.each([undefined, false])('blocks unchecked or unsupported Codex image capability (%s)', async available => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const config = createDefaultCreatorServicesConfig();
+    config.image.provider = 'codex-native';
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: root, jobsRoot: join(root, 'jobs'), validateRuntimeAssets: false,
+      ...(available === undefined ? {} : { readCodexImageStatus: async () => ({ authentication: 'chatgpt' as const, ready: false, executionMode: null, message: 'Runtime 不支持原生生图' }) })
+    }).check(fakeJob('image-generation', { provider: 'codex-native', prompt: 'test' }), createImageGenerationTemplate().stages[0]!);
+    expect(result.canStart).toBe(false);
+    expect(result.blocked).toContainEqual(expect.objectContaining({ id: 'image-provider' }));
+  });
+
+  it('reports Codex API mode separately from local native generation', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
+    const config = createDefaultCreatorServicesConfig();
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: root, jobsRoot: join(root, 'jobs'), validateRuntimeAssets: false,
+      readCodexImageStatus: async () => ({ authentication: 'api_key', ready: true, executionMode: 'api', message: '接口需支持图片生成' })
+    }).check(fakeJob('image-generation', { provider: 'codex-native', prompt: 'test' }), createImageGenerationTemplate().stages[0]!);
+    expect(result.ready).toContainEqual(expect.objectContaining({ id: 'image-provider', executionMode: 'remote', message: '接口需支持图片生成' }));
   });
 
   it.each([
@@ -225,11 +326,11 @@ describe('creator preflight', () => {
     expect(result.blocked.map(item => item.id)).toContain('transcription-config');
   });
 
-  it('accepts the Codex runtime for Krillin subtitle translation without a creator API key', async () => {
+  it('accepts automatically resolved Codex credentials for subtitle translation', async () => {
     root = await mkdtemp(join(tmpdir(), 'creator-preflight-'));
     const config = createDefaultCreatorServicesConfig();
     config.llm.source = 'codex';
-    config.llm.apiKey = '';
+    config.llm.apiKey = 'internal-bridge-key';
     config.llm.model = 'gpt-5.6-sol';
     const stage = createVideoTranslationTemplate().stages.find(candidate => candidate.id === 'subtitle')!;
     const result = await createCreatorPreflight({

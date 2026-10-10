@@ -7,7 +7,7 @@ import type {
   OpenCreatorIssue,
   PublicErrorFacts
 } from '@opencreator/protocol';
-import { safePublicErrorCode } from '@opencreator/protocol';
+import { sanitizePublicErrorFacts } from '@opencreator/protocol';
 import { createHash } from 'node:crypto';
 import type { CreatorRepository } from './repository.js';
 
@@ -170,14 +170,7 @@ export function sanitizeIssueDetail(value: string, max = 1_000): string {
 }
 
 function sanitizePublicFacts(input: PublicErrorFacts): PublicErrorFacts {
-  const provider = input.provider === undefined ? undefined : sanitizeIdentifier(input.provider, 'unknown', 80);
-  const upstreamCode = input.upstreamCode === undefined ? undefined : sanitizeIdentifier(input.upstreamCode, 'unknown');
-  return {
-    kind: input.kind,
-    ...(provider !== undefined && safePublicErrorCode(provider) !== undefined ? { provider } : {}),
-    ...(upstreamCode !== undefined && safePublicErrorCode(upstreamCode) !== undefined ? { upstreamCode } : {}),
-    ...(input.httpStatus === undefined ? {} : { httpStatus: input.httpStatus })
-  };
+  return sanitizePublicErrorFacts(input);
 }
 
 function sanitizeDisplayText(value: string, max: number): string {

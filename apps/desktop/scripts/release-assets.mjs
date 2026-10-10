@@ -58,6 +58,7 @@ function sha256(path) {
 
 export function stageReleaseAssets({ manifest, version, assetsDir }) {
   const names = releaseAssetNames(version, manifest.platform, manifest.arch);
+  if (manifest.remotionComponent) names.push(remotionReleaseAssetName(version, manifest.platform, manifest.arch));
   const selected = names.map(name => {
     const matches = manifest.artifacts.filter(artifact => basename(artifact.path) === name);
     if (matches.length !== 1) throw new Error(`Expected one verified release asset: ${name}`);
@@ -81,6 +82,12 @@ export function stageReleaseAssets({ manifest, version, assetsDir }) {
   return [...names, 'SHA256SUMS.txt'];
 }
 
+export function remotionReleaseAssetName(version, platform, arch) {
+  assertVersion(version);
+  if (![...releasePlatforms, { platform: 'linux', arch: 'x64' }].some(target => target.platform === platform && target.arch === arch)) throw new Error(`Unsupported Remotion release platform: ${platform}-${arch}`);
+  return `Remotion-${version}-${platform}-${arch}.tar.gz`;
+}
+
 function writeChecksums(directory, names) {
   const lines = [...names].sort().map(name => `${sha256(join(directory, name))}  ${name}`);
   writeFileSync(join(directory, 'SHA256SUMS.txt'), `${lines.join('\n')}\n`);
@@ -93,7 +100,8 @@ export function finalizeReleaseAssets({ directory, version, repository, highligh
   const krillinAssets = krillinReleasePlatforms.flatMap(
     ({ platform, arch }) => krillinReleaseAssetNames(version, platform, arch)
   );
-  const expected = [...desktopAssets, ...krillinAssets];
+  const remotionAssets = releasePlatforms.map(({ platform, arch }) => remotionReleaseAssetName(version, platform, arch));
+  const expected = [...desktopAssets, ...krillinAssets, ...remotionAssets];
   const actual = readdirSync(directory, { withFileTypes: true });
   for (const entry of actual) {
     if (!entry.isFile() || (!expected.includes(entry.name) && entry.name !== 'SHA256SUMS.txt')) {
@@ -142,6 +150,10 @@ export function renderReleaseNotes({ version, repository, highlights = '' }) {
     '| Platform | CLI Binary |',
     '| --- | --- |',
     ...krillinRows(1),
+    '',
+    '## Optional Rendering Components',
+    '',
+    'Remotion rendering components are downloaded on demand by OpenCreator. They are not included in the Desktop installer.',
     '',
     `[SHA-256 Checksums](${downloadRoot}/SHA256SUMS.txt)`,
     '',

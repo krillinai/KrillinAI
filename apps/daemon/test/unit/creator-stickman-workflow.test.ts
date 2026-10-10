@@ -530,6 +530,121 @@ describe('stickman video workflow', () => {
     }
   });
 
+  it('ignores model-supplied storyboard timing and binds every shot to measured audio', async () => {
+    const context = setup({
+      segmentCount: 3,
+      narrationUnits: 40,
+      narrationDurationSeconds: 5.6,
+      completionOverride: request => request.stageId === 'storyboard' ? {
+        shots: generatedStoryboard(3).shots.map(shot => ({
+          ...shot,
+          startSeconds: 999,
+          endSeconds: -1,
+          durationSeconds: 'incorrect model timing'
+        }))
+      } : undefined
+    });
+    const { db, service, runner, workflow, completionRequests } = context;
+    try {
+      const { jobId, stageRunId } = await queueStoryboard(context);
+      const completed = await runner.runStageRun(stageRunId);
+      expect(completed).toMatchObject({ stageId: 'storyboard', status: 'succeeded' });
+      await workflow.handleStageChanged(completed);
+
+      const shotSpec = readArtifact(service.getJob(jobId)!, 'shot_spec') as {
+        shots: Array<{ startSeconds: number; endSeconds: number; durationSeconds: number }>;
+      };
+      const timing = readArtifact(service.getJob(jobId)!, 'audio_timing') as {
+        segments: Array<{ startSeconds: number; endSeconds: number; durationSeconds: number }>;
+      };
+      expect(shotSpec.shots).toHaveLength(3);
+      for (const [index, shot] of shotSpec.shots.entries()) {
+        const measured = timing.segments[index]!;
+        expect(shot).toMatchObject({
+          startSeconds: measured.startSeconds,
+          endSeconds: measured.endSeconds,
+          durationSeconds: measured.durationSeconds
+        });
+      }
+      const requests = completionRequests.filter(request => request.stageId === 'storyboard');
+      expect(requests).toHaveLength(1);
+      expect(requests[0]!.prompt).toContain('禁止返回 startSeconds、endSeconds、durationSeconds');
+    } finally {
+      await runner.close();
+      db.close();
+    }
+  });
+
+  it.each(['unknown field', 'missing semantic anchor', 'visible text'])(
+    'stops invalid storyboard retries for %s and resumes without regenerating narration',
+    async invalidCase => {
+      let repaired = false;
+      const context = setup({
+        segmentCount: 3,
+        narrationUnits: 40,
+        completionOverride(request) {
+          if (request.stageId !== 'storyboard' || repaired) return undefined;
+          const draft = generatedStoryboard(3);
+          return {
+            shots: draft.shots.map(shot => {
+              if (invalidCase === 'unknown field') return { ...shot, unexpectedField: true };
+              if (invalidCase === 'visible text') {
+                return { ...shot, visualDescription: '画面中显示标题文字“核心概念”' };
+              }
+              return { ...shot, semanticAnchor: undefined };
+            })
+          };
+        }
+      });
+      const { db, service, dispatcher, runner, workflow, completionRequests } = context;
+      try {
+        const { jobId, stageRunId } = await queueStoryboard(context);
+        const failed = await runner.runStageRun(stageRunId);
+        expect(failed).toMatchObject({
+          status: 'failed',
+          errorCode: 'creator_storyboard_validation_failed',
+          progress: { phase: 'failed', completed: 0, failed: 1 }
+        });
+        expect(failed.progress.message).toContain('已停止');
+        expect(failed.progress.message).not.toContain('正在整稿重生成');
+        expect(completionRequests.filter(request => request.stageId === 'storyboard')).toHaveLength(3);
+        await workflow.handleStageChanged(failed);
+        const failedJob = service.getJob(jobId)!;
+        expect(failedJob.artifacts.some(artifact => artifact.kind === 'shot_spec')).toBe(false);
+        expect(failedJob.stages.some(stage => stage.stageId === 'images')).toBe(false);
+        const audioArtifactIds = failedJob.artifacts.filter(artifact => (
+          artifact.kind === 'narration_audio' || artifact.kind === 'audio_timing'
+        )).map(artifact => artifact.id);
+        const scriptRequestCount = completionRequests.filter(request => request.stageId === 'script').length;
+
+        repaired = true;
+        dispatcher.dispatch(jobId, {
+          action: 'retry-stage',
+          expectedRevision: failedJob.revision,
+          idempotencyKey: `retry-storyboard-${jobId}`,
+          input: { stageId: 'storyboard' }
+        }, 'user');
+        await workflow.handleAction(service.getJob(jobId)!, 'retry-stage');
+        const pendingRetry = service.getJob(jobId)!.stages.find(stage => (
+          stage.stageId === 'storyboard' && stage.status === 'queued'
+        ))!;
+        const completed = await runner.runStageRun(pendingRetry.id);
+        expect(completed.status).toBe('succeeded');
+        await workflow.handleStageChanged(completed);
+        const resumedJob = service.getJob(jobId)!;
+        expect(resumedJob.artifacts.filter(artifact => audioArtifactIds.includes(artifact.id)))
+          .toHaveLength(audioArtifactIds.length);
+        expect(resumedJob.stages.filter(stage => stage.stageId === 'narration')).toHaveLength(3);
+        expect(completionRequests.filter(request => request.stageId === 'script')).toHaveLength(scriptRequestCount);
+        expect(resumedJob.artifacts.some(artifact => artifact.kind === 'shot_spec' && artifact.status === 'completed'))
+          .toBe(true);
+      } finally {
+        await runner.close();
+        db.close();
+      }
+    }
+  );
+
   it('uses the selected reference image as the sole character authority in image prompts', async () => {
     const context = setup();
     const { db, repository, service, runner } = context;
@@ -878,6 +993,54 @@ async function runContentPipeline(input: {
       queued = input.service.getJob(input.jobId)!.stages.find(stage => stage.status === 'queued')!.id;
     }
   }
+}
+
+async function queueStoryboard(context: ReturnType<typeof setup>) {
+  const { service, runner, workflow } = context;
+  const job = service.createJob({
+    projectId: 'p1',
+    templateId: 'stickman-video',
+    state: {
+      sourceType: 'text',
+      sourceText: '这是一段完整来源内容。',
+      targetDurationSeconds: 10,
+      targetLanguage: 'zh-CN',
+      ttsProvider: 'openai',
+      ttsModel: 'gpt-4o-mini-tts',
+      voiceCode: 'alloy'
+    }
+  });
+  await runContentPipeline({ ...context, jobId: job.id });
+  const reviewJob = service.getJob(job.id)!;
+  const script = reviewJob.artifacts.find(artifact => (
+    artifact.kind === 'script_manifest' && artifact.status === 'completed'
+  ))!;
+  const approved = service.applyAction(job.id, {
+    actor: 'user',
+    action: 'approve-script',
+    expectedRevision: reviewJob.revision,
+    input: { artifactId: script.id, revision: reviewJob.revision }
+  });
+  await workflow.handleAction(approved.job, 'approve-script');
+  for (const expectedStage of ['narration', 'narration', 'narration', 'audio-timing']) {
+    const pending = service.getJob(job.id)!.stages.find(stage => stage.status === 'queued')!;
+    expect(pending.stageId).toBe(expectedStage);
+    const completed = await runner.runStageRun(pending.id);
+    expect(completed.status).toBe('succeeded');
+    await workflow.handleStageChanged(completed);
+  }
+  const audioReadyJob = service.getJob(job.id)!;
+  const timing = audioReadyJob.artifacts.find(artifact => artifact.kind === 'audio_timing')!;
+  const continued = service.applyAction(job.id, {
+    actor: 'user',
+    action: 'continue-after-audio',
+    expectedRevision: audioReadyJob.revision,
+    input: { artifactId: timing.id, revision: audioReadyJob.revision }
+  });
+  await workflow.handleAction(continued.job, 'continue-after-audio');
+  const storyboard = service.getJob(job.id)!.stages.find(stage => stage.status === 'queued')!;
+  expect(storyboard.stageId).toBe('storyboard');
+  return { jobId: job.id, stageRunId: storyboard.id };
 }
 
 function readArtifact(job: NonNullable<ReturnType<ReturnType<typeof createCreatorService>['getJob']>>, kind: string): unknown {

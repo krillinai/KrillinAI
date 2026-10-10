@@ -125,8 +125,8 @@ readline.on('line', line => {
     send({
       id: message.id,
       result: {
-        account: null,
-        requiresOpenaiAuth: true
+        account: { type: 'chatgpt', email: null, planType: 'plus' },
+        requiresOpenaiAuth: false
       }
     });
     return;

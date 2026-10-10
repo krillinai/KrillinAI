@@ -1,9 +1,10 @@
-import { createHash } from 'node:crypto';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   readCreatorResultSnapshots,
   publicErrorKindForCode,
+  publicErrorCodeFromFailure,
+  publicErrorMessageFromFailure,
   type CreatorArtifact,
   type CreatorJob,
   type CreatorJson,
@@ -15,8 +16,10 @@ import type { CreatorRepository } from './repository.js';
 import type { CreatorIssueService } from './issues.js';
 import { CreatorProviderRequestError } from './provider-requests.js';
 import { publicFactsFromFailure } from './public-error-facts.js';
+import { sha256CreatorFile } from './file-hash.js';
 import {
   appendCreatorResultSnapshot,
+  attachCreatorResultArtifacts,
   creatorResultSnapshotForVersion,
   nextCreatorResultVersion
 } from './result-snapshots.js';
@@ -113,6 +116,9 @@ export function createCreatorStageRunner(input: {
       const inputSnapshot = inputResultVersion === undefined
         ? undefined
         : creatorResultSnapshotForVersion(job, inputResultVersion);
+      if (stage.resultVersionPolicy === 'attach' && inputSnapshot === undefined) {
+        throw new CreatorExecutorError('creator_result_version_not_found', 'A saved result version is required to prepare preview media');
+      }
       if (inputResultVersion !== undefined && inputSnapshot === undefined) {
         throw new CreatorExecutorError(
           'creator_result_version_not_found',
@@ -136,7 +142,7 @@ export function createCreatorStageRunner(input: {
             errorCode: 'creator_stage_input_missing',
             errorMessage: `Missing completed inputs: ${resolved.missing.join(', ')}`
           });
-          updateJob(input.repository, job, 'needs_input', { currentStage: stageId }, input.onJobChanged);
+          updateJob(input.repository, job, stage.jobCompletionPolicy === 'preserve' ? job.status : 'needs_input', { currentStage: stageId }, input.onJobChanged);
           const resolution = finishStageIssueResolution(jobId, stageRun!.id, 'failed');
           if (resolution === undefined) {
             input.issueService?.capture({
@@ -164,7 +170,7 @@ export function createCreatorStageRunner(input: {
         throw new CreatorExecutorError('creator_stage_canceled', 'Creator stage was canceled');
       }
       updateStageRun({ id: stageRun.id, status: 'running' });
-      updateJob(input.repository, job, 'running', { currentStage: stageId }, input.onJobChanged);
+      updateJob(input.repository, job, stage.jobCompletionPolicy === 'preserve' ? job.status : 'running', { currentStage: stageId }, input.onJobChanged);
       const result = await executor.run({
         stageRun: input.repository.listStageRuns(jobId).find(candidate => candidate.id === stageRun!.id)!,
         job: input.repository.getJob(jobId)!,
@@ -204,14 +210,15 @@ export function createCreatorStageRunner(input: {
         throw new CreatorOutputValidationError(blockingFinding);
       }
       const outputHashes = await Promise.all(result.outputs.map(async output => (
-        output.path === null ? null : sha256File(output.path)
+        output.path === null ? null : sha256CreatorFile(output.path, controller.signal)
       )));
       input.repository.transaction(() => {
         const beforeOutputs = requireJob(input.repository, jobId);
         const createsResultVersion = stage.resultVersionPolicy !== 'none';
         const targetResultVersion = readPositiveInteger(stageRun!.progress.targetResultVersion);
-        const resultVersion = createsResultVersion
-          ? targetResultVersion ?? nextStageResultVersion(beforeOutputs, stageId)
+        const resultVersion = stage.resultVersionPolicy === 'attach'
+          ? inputResultVersion
+          : createsResultVersion ? targetResultVersion ?? nextStageResultVersion(beforeOutputs, stageId)
           : undefined;
         const insertedArtifacts: CreatorArtifact[] = [];
         const changedKinds = new Set(result.outputs.map(output => output.kind));
@@ -283,7 +290,9 @@ export function createCreatorStageRunner(input: {
         const baseResultVersion = readPositiveInteger(stageRun!.progress.baseResultVersion);
         const snapshotPatch = insertedArtifacts.length === 0 || resultVersion === undefined
           ? {}
-          : appendCreatorResultSnapshot({
+          : stage.resultVersionPolicy === 'attach'
+            ? attachCreatorResultArtifacts(latest, resultVersion, insertedArtifacts)
+            : appendCreatorResultSnapshot({
               job: latest,
               version: resultVersion,
               ...(baseResultVersion === undefined ? {} : { baseResultVersion }),
@@ -300,7 +309,9 @@ export function createCreatorStageRunner(input: {
         updateJob(
           input.repository,
           latest,
-          unresolvedScopedFailure
+          stage.jobCompletionPolicy === 'preserve'
+            ? latest.status
+            : unresolvedScopedFailure
             ? 'needs_input'
             : stage.jobCompletionPolicy === 'continue'
               ? 'running'
@@ -332,9 +343,7 @@ export function createCreatorStageRunner(input: {
         const failureCode = canceled ? 'creator_stage_canceled' : errorCode(error);
         const failureMessage = canceled
           ? 'Creator stage was canceled'
-          : error instanceof Error
-            ? error.message
-            : 'Creator stage failed';
+          : publicErrorMessageFromFailure(error) ?? 'Creator stage failed';
         const configurationInput = creatorConfigurationInput(
           error,
           failureCode,
@@ -358,19 +367,21 @@ export function createCreatorStageRunner(input: {
           });
           const job = input.repository.getJob(jobId);
           if (job !== undefined) {
+            const preserveJob = input.templates.get(job.templateId, job.templateVersion).stages
+              .find(candidate => candidate.id === stageId)?.jobCompletionPolicy === 'preserve';
             const outputValidation = error instanceof CreatorOutputValidationError;
             const scopedFailure = stageRun!.scopeKey !== null && !canceled;
             updateJob(
               input.repository,
               job,
-              canceled
+              preserveJob ? job.status : canceled
                 ? 'canceled'
                 : outputValidation || scopedFailure || configurationInput !== null
                   ? 'needs_input'
                   : 'failed',
               {
                 currentStage: stageId,
-                ...(outputValidation
+                ...(!preserveJob && outputValidation
                   ? {
                       needsInput: {
                         code: failureCode,
@@ -378,9 +389,9 @@ export function createCreatorStageRunner(input: {
                         stageId
                       }
                     }
-                  : configurationInput !== null
+                  : !preserveJob && configurationInput !== null
                   ? { needsInput: configurationInput }
-                  : scopedFailure
+                  : !preserveJob && scopedFailure
                     ? {
                         needsInput: {
                           code: failureCode,
@@ -442,7 +453,7 @@ export function createCreatorStageRunner(input: {
                       : '创作步骤执行失败，可以重试或询问 Agent。',
                 technicalDetail: failureMessage,
                 publicFacts: configurationInput !== null
-                  ? { kind: 'configuration' }
+                  ? { ...stageFailureFacts(error, failureCode), kind: 'configuration' }
                   : stageFailureFacts(error, failureCode),
                 retryable: !unknownProviderAcceptance,
                 repairActions: [
@@ -561,10 +572,12 @@ export function createCreatorStageRunner(input: {
         });
         const job = input.repository.getJob(current.jobId);
         if (job !== undefined) {
+          const preserveJob = input.templates.get(job.templateId, job.templateVersion).stages
+            .find(candidate => candidate.id === current.stageId)?.jobCompletionPolicy === 'preserve';
           updateJob(
             input.repository,
             job,
-            'canceled',
+            preserveJob ? job.status : 'canceled',
             { currentStage: current.stageId },
             input.onJobChanged
           );
@@ -586,11 +599,6 @@ export function createCreatorStageRunner(input: {
     running -= 1;
     waiters.shift()?.();
   }
-}
-
-async function sha256File(path: string): Promise<string> {
-  const content = await readFile(path);
-  return createHash('sha256').update(content).digest('hex');
 }
 
 function subtitleOutputSources(kind: string, outputs: CreatorArtifact[], inputs: CreatorArtifact[]): string[] {
@@ -775,7 +783,7 @@ function errorCode(error: unknown): string {
     || error instanceof CreatorProviderRequestError
     || error instanceof CreatorOutputValidationError
     ? error.code
-    : 'creator_stage_failed';
+    : publicErrorCodeFromFailure(error) ?? 'creator_stage_failed';
 }
 
 function resultSnapshotDescription(stageId: string, templateId: string): string {
@@ -849,7 +857,10 @@ function creatorConfigurationInput(
 function stageFailureFacts(error: unknown, code: string) {
   const facts = publicFactsFromFailure(error);
   const codeKind = publicErrorKindForCode(code);
-  return facts.kind === 'unknown' && codeKind !== undefined
-    ? { ...facts, kind: codeKind }
-    : facts;
+  const message = publicErrorMessageFromFailure(error);
+  return {
+    ...facts,
+    ...(facts.kind === 'unknown' && codeKind !== undefined ? { kind: codeKind } : {}),
+    ...(facts.upstreamMessage === undefined && message !== undefined ? { upstreamMessage: message } : {})
+  };
 }

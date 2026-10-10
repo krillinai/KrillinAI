@@ -143,6 +143,8 @@ Flags:
   --video <file>                  Optional source video for dubbed output
   --voice <voice>                 Provider-specific voice
   --voice-clone-source <source>   Optional voice clone source
+  --audio-only                   Generate audio without downloading or muxing video
+  --source-url <url>             Download video only when needed for composition
   --dry-run                       Validate and write manifest without external calls
   -h, --help                      Show this help
 `
@@ -546,6 +548,9 @@ func parseTTS(name string, args []string) (Command, error) {
 	inputSRT := fs.String("input-srt", "", "input srt")
 	lineMode := fs.String("line-mode", string(pipeline.LineModeTargetOnly), "line mode")
 	video := fs.String("video", "", "input video")
+	sourceURL := fs.String("source-url", "", "download source video only when required")
+	mediaWorkdir := fs.String("media-workdir", "", "shared source video cache")
+	audioOnly := fs.Bool("audio-only", false, "generate audio without a video")
 	voice := fs.String("voice", "", "voice")
 	voiceCloneSource := fs.String("voice-clone-source", "", "voice clone source")
 	dryRun := fs.Bool("dry-run", false, "validate command without running external services")
@@ -564,6 +569,9 @@ func parseTTS(name string, args []string) (Command, error) {
 			InputSRT:         *inputSRT,
 			LineMode:         pipeline.LineMode(*lineMode),
 			Video:            *video,
+			SourceURL:        *sourceURL,
+			MediaWorkdir:     *mediaWorkdir,
+			AudioOnly:        *audioOnly,
 			Voice:            *voice,
 			VoiceCloneSource: *voiceCloneSource,
 		},
@@ -578,6 +586,8 @@ func parseRender(name string, args []string, horizontal bool) (Command, error) {
 	workdir := fs.String("workdir", "", "workdir")
 	taskID := fs.String("task-id", "", "task id")
 	video := fs.String("video", "", "input video")
+	sourceURL := fs.String("source-url", "", "download source video for rendering")
+	mediaWorkdir := fs.String("media-workdir", "", "shared source video cache")
 	audio := fs.String("audio", "", "input audio")
 	subtitle := fs.String("subtitle", "", "subtitle")
 	dubbed := fs.Bool("dubbed", false, "render dubbed video")
@@ -593,15 +603,17 @@ func parseRender(name string, args []string, horizontal bool) (Command, error) {
 		DryRun:            *dryRun,
 		SubtitleStyleFile: *subtitleStyleFile,
 		Render: pipeline.RenderRequest{
-			Workdir:    *workdir,
-			TaskID:     *taskID,
-			Video:      *video,
-			Audio:      *audio,
-			Subtitle:   *subtitle,
-			Horizontal: horizontal,
-			Dubbed:     *dubbed,
-			MajorTitle: *majorTitle,
-			MinorTitle: *minorTitle,
+			Workdir:      *workdir,
+			TaskID:       *taskID,
+			Video:        *video,
+			SourceURL:    *sourceURL,
+			MediaWorkdir: *mediaWorkdir,
+			Audio:        *audio,
+			Subtitle:     *subtitle,
+			Horizontal:   horizontal,
+			Dubbed:       *dubbed,
+			MajorTitle:   *majorTitle,
+			MinorTitle:   *minorTitle,
 		},
 	}, nil
 }

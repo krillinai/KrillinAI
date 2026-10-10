@@ -1,5 +1,5 @@
 import { stringify } from '@iarna/toml';
-import type { CreatorServicesConfig } from '@opencreator/protocol';
+import type { AliyunOssConfig, CreatorServicesConfig } from '@opencreator/protocol';
 
 export function createKrillinConfigToml(
   config: CreatorServicesConfig,
@@ -33,6 +33,7 @@ export function createKrillinConfigToml(
         oss: snakeAliyunOss(config.transcription.aliyun.oss),
         speech: snakeAliyunSpeech(config.transcription.aliyun.speech)
       },
+      funasr: { base_url: config.transcription.funasr.baseUrl, api_key: config.transcription.funasr.apiKey, model: config.transcription.funasr.model, timeout_ms: config.transcription.funasr.timeoutMs },
       volcengine: {
         app_id: config.transcription.volcengine.appId,
         access_token: config.transcription.volcengine.accessToken,
@@ -72,8 +73,11 @@ function ttsProvider(value: { baseUrl: string; apiKey: string; model: string; de
   };
 }
 
-function snakeAliyunOss(value: { accessKeyId: string; accessKeySecret: string; bucket: string }) {
-  return { access_key_id: value.accessKeyId, access_key_secret: value.accessKeySecret, bucket: value.bucket };
+function snakeAliyunOss(value: AliyunOssConfig) {
+  return {
+    access_key_id: value.accessKeyId, access_key_secret: value.accessKeySecret,
+    bucket: value.bucket, region: value.region, endpoint: value.endpoint
+  };
 }
 
 function snakeAliyunSpeech(value: { accessKeyId: string; accessKeySecret: string; appKey: string }) {
@@ -83,6 +87,7 @@ function snakeAliyunSpeech(value: { accessKeyId: string; accessKeySecret: string
 function normalizeTranscriptionProvider(value: CreatorServicesConfig['transcription']['provider']): string {
   if (value === 'faster-whisper') return 'fasterwhisper';
   if (value === 'whisper.cpp') return 'whispercpp';
+  if (value === 'funasr') return 'funasr';
   return value;
 }
 

@@ -32,6 +32,7 @@ import {
 } from './AppController.js';
 import { PROJECTS_STORAGE_KEY } from '../features/projects/project-model.js';
 import type { OpenCreatorProject } from '../features/projects/project-model.js';
+import { confirmAgentSetup } from '../features/settings/StartupAgentSetup.js';
 import type { HostBridge } from '../host/bridge.js';
 import type { SubscribeRunEventsInput } from '../runtime/sse.js';
 import type { FileTreeNode, WorkspaceFile } from '../services/file-service.js';
@@ -72,8 +73,27 @@ const testCreatorPresets: CreatorPresetSummary[] = [{
   ]
 }];
 
+const wrappedRuntimeFetches = new WeakMap<NonNullable<AppProps['runtimeFetch']>, NonNullable<AppProps['runtimeFetch']>>();
+
 function App(props: AppProps = {}) {
-  return <ProductionApp projectNavigationMode="tree" {...props} />;
+  const originalFetch = props.runtimeFetch;
+  const runtimeFetch = originalFetch === undefined ? undefined : async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith('/codex/readiness') || (url.endsWith('/codex/provider') && init?.method !== 'PATCH')) {
+      try {
+        return await originalFetch(input, init);
+      } catch {
+        return jsonResponse(url.endsWith('/codex/readiness') ? {
+          state: 'ready', codexHome: '/tmp/codex',
+          account: { status: 'ready', accountStatus: 'signed_in' },
+          binary: { status: 'ready' }, protocol: { status: 'ready' }, models: { status: 'ready' }, diagnostics: []
+        } : { baseUrl: '', model: 'gpt-test', apiKeyConfigured: true, authentication: 'api_key' });
+      }
+    }
+    return originalFetch(input, init);
+  };
+  if (originalFetch !== undefined && runtimeFetch !== undefined) wrappedRuntimeFetches.set(originalFetch, runtimeFetch);
+  return <ProductionApp projectNavigationMode="tree" {...props} runtimeFetch={runtimeFetch} />;
 }
 
 function navigateToTestRoute(hash: string) {
@@ -84,6 +104,120 @@ function navigateToTestRoute(hash: string) {
 describe('App', () => {
   beforeEach(() => {
     window.history.replaceState(null, '', '#/chat');
+    confirmAgentSetup({
+      readiness: {
+        state: 'ready', mode: 'bundled', version: 'test', commit: null,
+        binaryPath: '/codex', codexHome: '/tmp/codex', checkedAt: new Date(0).toISOString(),
+        account: { status: 'ready', accountStatus: 'signed_in' },
+        binary: { status: 'ready' }, protocol: { status: 'ready' }, models: { status: 'ready' },
+        skills: { status: 'ready' }, toolServer: { status: 'ready' }, diagnostics: []
+      },
+      provider: { baseUrl: '', model: 'gpt-test', apiKeyConfigured: true, authentication: 'api_key' }
+    });
+  });
+
+  it.each(['browser', 'desktop'] as const)(
+    'guides unauthenticated users in the %s host and restores Agent input after configuration',
+    async hostKind => {
+    const user = userEvent.setup();
+    const hostBridge = createHostBridge();
+    hostBridge.kind = hostKind;
+    hostBridge.readConnectionConfig = async () => ({
+      baseUrl: 'http://127.0.0.1:60764', token: 'runtime-token'
+    });
+    let authenticated = false;
+    const runtimeFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const projectResponse = handleDefaultProjectApiRequest(url, init);
+      if (projectResponse !== undefined) return projectResponse;
+      if (url.endsWith('/healthz')) return jsonResponse({ ok: true });
+      if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
+      if (url.endsWith('/codex/readiness')) return jsonResponse({
+        state: authenticated ? 'ready' : 'degraded',
+        account: { status: authenticated ? 'ready' : 'not_authenticated', accountStatus: authenticated ? 'signed_in' : 'signed_out' },
+        binary: { status: 'ready' }, protocol: { status: 'ready' }, models: { status: 'ready' }, diagnostics: []
+      });
+      if (url.endsWith('/codex/provider') && init?.method === 'PATCH') {
+        authenticated = true;
+        return jsonResponse({ baseUrl: 'https://api.openai.com/v1', model: 'gpt-test', apiKeyConfigured: true, authentication: 'api_key' });
+      }
+      if (url.endsWith('/codex/provider')) return jsonResponse({ baseUrl: authenticated ? 'https://api.openai.com/v1' : '', model: 'gpt-test', apiKeyConfigured: authenticated, authentication: authenticated ? 'api_key' : 'none' });
+      if (url.includes('/threads?')) return jsonResponse({ threads: [] });
+      throw new Error(`Unexpected request ${url}`);
+    };
+
+    render(<App hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
+    expect(await screen.findByRole('heading', { name: '开始使用 Agent' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('OpenCreator 导航')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '暂时跳过' }));
+    expect(await screen.findByText('Agent 尚未配置，暂时无法发送任务。')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '配置 Agent' }));
+    expect(await screen.findByRole('combobox', { name: '供应商' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '使用 ChatGPT 登录' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '暂时跳过' }));
+    await user.click(screen.getByRole('button', { name: '设置' }));
+    await user.click(await screen.findByRole('button', { name: /AI 服务/ }));
+    await user.click(screen.getByRole('button', { name: '配置 Agent' }));
+    await user.selectOptions(await screen.findByRole('combobox', { name: '供应商' }), 'openai');
+    expect(screen.getByLabelText('模型名称')).toHaveValue('gpt-5.6-sol');
+    await user.type(screen.getByLabelText('API Key'), 'secret');
+    await user.click(screen.getByRole('button', { name: '保存并开始使用' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: '开始使用 Agent' })).not.toBeInTheDocument();
+      expect(window.location.hash).toBe('#/new');
+    });
+    expect(screen.queryByText('Agent 尚未配置，暂时无法发送任务。')).not.toBeInTheDocument();
+
+    cleanup();
+    render(<App hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
+    await waitFor(() => {
+      expect(screen.queryByText('正在检查 Agent 配置…')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('OpenCreator 导航')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('heading', { name: '开始使用 Agent' })).not.toBeInTheDocument();
+    }
+  );
+
+  it('asks to confirm an existing ChatGPT login on first run, then remembers that choice while it remains valid', async () => {
+    window.localStorage.clear();
+    const user = userEvent.setup();
+    let signedIn = true;
+    const hostBridge = createHostBridge();
+    hostBridge.readConnectionConfig = async () => ({ baseUrl: 'http://127.0.0.1:60764', token: 'runtime-token' });
+    const runtimeFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const projectResponse = handleDefaultProjectApiRequest(url, init);
+      if (projectResponse !== undefined) return projectResponse;
+      if (url.endsWith('/healthz')) return jsonResponse({ ok: true });
+      if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
+      if (url.endsWith('/codex/readiness')) return jsonResponse({
+        state: signedIn ? 'ready' : 'degraded', codexHome: '/tmp/codex',
+        account: { status: signedIn ? 'ready' : 'not_authenticated', accountStatus: signedIn ? 'signed_in' : 'signed_out' },
+        binary: { status: 'ready' }, protocol: { status: 'ready' }, models: { status: 'ready' }, diagnostics: []
+      });
+      if (url.endsWith('/codex/provider')) return jsonResponse({
+        baseUrl: '', model: 'gpt-test', apiKeyConfigured: false, authentication: signedIn ? 'chatgpt' : 'none'
+      });
+      if (url.includes('/threads?')) return jsonResponse({ threads: [] });
+      throw new Error(`Unexpected request ${url}`);
+    };
+
+    render(<App hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
+    expect(await screen.findByText('已找到本机 Codex')).toBeInTheDocument();
+    expect(screen.queryByLabelText('OpenCreator 导航')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '使用本机 Codex，继续' }));
+    await waitFor(() => expect(screen.queryByRole('heading', { name: '开始使用 Agent' })).not.toBeInTheDocument());
+
+    cleanup();
+    render(<App hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
+    await waitFor(() => expect(screen.getByLabelText('OpenCreator 导航')).toBeInTheDocument());
+    expect(screen.queryByRole('heading', { name: '开始使用 Agent' })).not.toBeInTheDocument();
+
+    cleanup();
+    signedIn = false;
+    render(<App hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
+    expect(await screen.findByRole('heading', { name: '开始使用 Agent' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '供应商' })).toBeInTheDocument();
   });
 
   it('maps valid skills and configured MCP servers into Composer commands', () => {
@@ -287,6 +421,50 @@ describe('App', () => {
     expect(window.location.hash).toBe(
       '#/workbench?tool=cover-generator&jobId=creator-job-1'
     );
+  });
+
+  it.each(['browser', 'desktop'] as const)('retains Creator and composer drafts across Runtime recovery in the %s host', async hostKind => {
+    window.location.hash = '#/workbench?tool=cover-generator';
+    const hostBridge = createHostBridge();
+    hostBridge.kind = hostKind;
+    let online = true;
+    let announce: ((config: { baseUrl: string; token?: string } | null) => void) | undefined;
+    const config = { baseUrl: 'http://127.0.0.1:60764', token: 'runtime-token' };
+    hostBridge.readConnectionConfig = async () => online ? { ...config } : null;
+    hostBridge.subscribeConnectionConfig = listener => {
+      announce = listener;
+      return () => { announce = undefined; };
+    };
+    let taskRequests = 0;
+    const runtimeFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!online) throw new TypeError('offline');
+      if (init?.method === 'POST' && /\/agent-(turns|turn)|\/stages\//.test(url)) taskRequests += 1;
+      const projectApiResponse = handleDefaultProjectApiRequest(url, init);
+      if (projectApiResponse !== undefined) return projectApiResponse;
+      if (url.endsWith('/healthz')) return jsonResponse({ ok: true });
+      if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
+      if (url.includes('/threads?')) return jsonResponse({ threads: [] });
+      throw new Error(`Unexpected request ${url}`);
+    };
+    render(<App fileService={createFileService()} hostBridge={hostBridge} runtimeFetch={runtimeFetch} subscribeRunEvents={async () => undefined} />);
+    const draft = await screen.findByRole('textbox', { name: '内容与补充要求' });
+    fireEvent.change(draft, { target: { value: '封面业务草稿' } });
+    await waitFor(() => expect(testCreatorJobs).toHaveLength(1));
+    const composer = screen.getByRole('textbox', { name: '告诉 Agent 你的要求' });
+    fireEvent.change(composer, { target: { value: '尚未提交的 Agent 要求' } });
+    online = false;
+    act(() => announce?.(null));
+    expect(await screen.findByText(/本地服务暂未连接，正在自动重连/)).toBeVisible();
+    expect(draft).toHaveValue('封面业务草稿');
+    expect(composer).toHaveValue('尚未提交的 Agent 要求');
+    online = true;
+    act(() => announce?.(config));
+    await waitFor(() => expect(screen.queryByText(/本地服务暂未连接，正在自动重连/)).not.toBeInTheDocument());
+    expect(screen.getByRole('textbox', { name: '内容与补充要求' })).toHaveValue('封面业务草稿');
+    expect(screen.getByRole('textbox', { name: '告诉 Agent 你的要求' })).toHaveValue('尚未提交的 Agent 要求');
+    expect(testCreatorJobs).toHaveLength(1);
+    expect(taskRequests).toBe(0);
   });
 
   it('restores the project library directly from its URL', async () => {
@@ -3662,7 +3840,7 @@ describe('App', () => {
       prompt,
       resumeMode: 'auto'
     });
-    expect(sseFetchImpl).toBe(runtimeFetch);
+    expect(sseFetchImpl).toBe(wrappedRuntimeFetches.get(runtimeFetch));
 
     expect(screen.queryByRole('button', { name: /查看运行详情/ })).not.toBeInTheDocument();
     expect(screen.queryByText(/当前动态/)).not.toBeInTheDocument();
@@ -4478,7 +4656,7 @@ describe('App', () => {
     expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'legacy-project' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '管理项目' }));
-    await user.click(screen.getByRole('button', { name: '使用现有文件夹' }));
+    await user.click(await screen.findByRole('button', { name: '使用现有文件夹' }));
     expect(hostBridge.selectProjectDirectory).toHaveBeenCalledTimes(1);
     await waitFor(() => {
       expect(fetchCalls.map(call => [call.url, call.init?.method])).toContainEqual([
@@ -4677,7 +4855,7 @@ describe('App', () => {
 
     expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '管理项目' }));
-    await user.click(screen.getByRole('button', { name: '使用现有文件夹' }));
+    await user.click(await screen.findByRole('button', { name: '使用现有文件夹' }));
     await user.click(screen.getByRole('button', { name: '使用现有文件夹' }));
 
     expect(hostBridge.selectProjectDirectory).toHaveBeenCalledTimes(1);
@@ -4738,7 +4916,7 @@ describe('App', () => {
       .toHaveAttribute('data-current-project', 'true');
 
     await user.click(screen.getByRole('button', { name: '管理项目' }));
-    await user.click(screen.getByRole('button', { name: '使用现有文件夹' }));
+    await user.click(await screen.findByRole('button', { name: '使用现有文件夹' }));
 
     expect(hostBridge.selectProjectDirectory).toHaveBeenCalledTimes(1);
     expect(await screen.findByRole('button', { name: 'existing-project' }))
@@ -7148,7 +7326,7 @@ describe('App', () => {
       if (url.endsWith('/threads/thread_kept')) {
         return jsonResponse({ thread: createThreadResponse({ id: 'thread_kept', title: '保留的会话' }) });
       }
-      return jsonResponse({});
+      throw new Error(`Unexpected runtime request: ${url}`);
     };
 
     render(<App fileService={createFileService()} hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
@@ -8301,6 +8479,9 @@ function handleDefaultCreatorApiRequest(
 ): Response | undefined {
   const method = init?.method ?? 'GET';
   const parsedUrl = new URL(url);
+  if (parsedUrl.pathname === '/creator/components/status' && method === 'GET') {
+    return jsonResponse({ platform: 'darwin', arch: 'arm64', components: [] });
+  }
   if (parsedUrl.pathname === '/creator/presets' && method === 'GET') {
     const locale = parsedUrl.searchParams.get('locale') === 'en-US'
       ? 'en-US'

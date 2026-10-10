@@ -6,6 +6,8 @@ import type {
   CreatorJob,
   PublicErrorFacts
 } from '@opencreator/protocol';
+import { publicFactsFromFailure } from './public-error-facts.js';
+import { safePublicErrorMessage } from '@opencreator/protocol';
 
 export type CreatorExecutorOutput = {
   kind: string;
@@ -41,9 +43,20 @@ export class CreatorExecutorError extends Error {
     readonly code: string,
     message: string,
     readonly details: Record<string, CreatorJson> = {},
-    readonly publicFacts?: PublicErrorFacts
+    readonly publicFacts?: PublicErrorFacts,
+    options?: ErrorOptions
   ) {
-    super(message);
+    super(message, options);
     this.name = 'CreatorExecutorError';
+  }
+
+  static from(code: string, error: unknown, fallbackMessage = 'Creator stage failed'): CreatorExecutorError {
+    return new CreatorExecutorError(
+      code,
+      error instanceof Error ? safePublicErrorMessage(error.message) ?? fallbackMessage : fallbackMessage,
+      {},
+      publicFactsFromFailure(error),
+      { cause: error }
+    );
   }
 }

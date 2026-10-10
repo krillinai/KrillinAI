@@ -1,11 +1,14 @@
 import type {
+  CodexImageStatus,
   CreatorJob,
   CreatorPreflightCheck,
   CreatorPreflightExecutionMode,
   CreatorPreflightResponse,
   CreatorServicesCapabilitiesResponse,
-  CreatorServicesConfig
+  CreatorServicesConfig,
+  PublicErrorFacts
 } from '@opencreator/protocol';
+import { creatorPreflightFailure, imagePromptRequiresReference } from '@opencreator/protocol';
 import { access, mkdir } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { join } from 'node:path';
@@ -20,6 +23,9 @@ import {
 import { creatorResultSnapshotForVersion } from './result-snapshots.js';
 import { resolveCreatorStageInputs } from './stage-runner.js';
 import { readStickmanRemotionRuntime } from './stickman/remotion-runtime.js';
+import type { RemotionComponentManager } from './stickman/remotion-component.js';
+import { validateBilibiliSource } from './templates/video-translation-actions.js';
+import type { VideoMetadataService } from '../video-metadata/service.js';
 
 export type CreatorPreflight = ReturnType<typeof createCreatorPreflight>;
 
@@ -28,25 +34,14 @@ export type CreatorPreflightOptions = {
 };
 
 export class CreatorPreflightError extends Error {
+  readonly code: string;
+  readonly publicFacts: PublicErrorFacts;
   constructor(readonly result: CreatorPreflightResponse) {
-    super('Creator preflight blocked this stage');
+    const failure = creatorPreflightFailure(result);
+    super(failure.message);
     this.name = 'CreatorPreflightError';
-  }
-
-  get code(): string {
-    const ids = new Set(this.result.blocked.map(item => item.id));
-    const id = ids.has('llm') ? 'llm'
-      : ids.has('tts') ? 'tts'
-        : ids.has('image-provider') ? 'image-provider'
-          : ids.has('video-provider') ? 'video-provider'
-            : ids.has('reference-image-capability') ? 'reference-image-capability'
-              : this.result.blocked[0]?.id;
-    if (id === 'llm') return 'creator_llm_config_missing';
-    if (id === 'tts') return 'creator_tts_config_missing';
-    if (id === 'image-provider') return 'creator_image_config_missing';
-    if (id === 'video-provider') return 'VIDEO_GENERATION_CONFIG_REQUIRED';
-    if (id === 'reference-image-capability') return 'unsupported_capability';
-    return 'creator_preflight_blocked';
+    this.code = failure.code;
+    this.publicFacts = failure.publicFacts;
   }
 }
 
@@ -58,11 +53,14 @@ export function createCreatorPreflight(input: {
   ffmpegPath?: string;
   ffprobePath?: string;
   stickmanRuntimeRoot?: string;
+  remotionComponent?: Pick<RemotionComponentManager, 'status'>;
   getYtDlpRuntime?(): YtDlpRuntime | undefined;
   runtimeVerificationCachePath?: string;
   ensureRuntimeReady?(): Promise<void>;
   executorIds?: Iterable<string>;
   validateRuntimeAssets?: boolean;
+  readCodexImageStatus?(): Promise<CodexImageStatus>;
+  videoMetadataService?: VideoMetadataService;
 }) {
   const executorIds = new Set(input.executorIds ?? []);
 
@@ -94,7 +92,7 @@ export function createCreatorPreflight(input: {
     }
 
     const config = await input.configStore.read();
-    checkProviderConfig(job, stage, config, input.readCapabilities(), add);
+    await checkProviderConfig(job, stage, config, input.readCapabilities(), add, input.readCodexImageStatus);
     const inputSnapshot = options.inputResultVersion === undefined
       ? undefined
       : creatorResultSnapshotForVersion(job, options.inputResultVersion);
@@ -107,6 +105,20 @@ export function createCreatorPreflight(input: {
       }, { label: '打开诊断', deepLink: '#/settings?tab=diagnostics' });
     }
     const inputState = inputSnapshot?.state ?? job.state;
+    if (stage.resultVersionPolicy === 'attach' && inputSnapshot === undefined) {
+      add('blocked', { id: 'input-result-version', title: '请先选择项目版本', message: '准备预览视频需要明确的已保存项目版本。', executionMode: 'local' });
+    }
+    if (job.templateId === 'video-translation' && (stage.id === 'subtitle' || stage.id === 'prepare-source-video' || stage.id === 'preview-source-video')) {
+      try {
+        await validateBilibiliSource({ ...job, state: inputState }, input.videoMetadataService);
+      } catch (error) {
+        add('blocked', {
+          id: 'bilibili-part', title: '请确认 B 站分集',
+          message: error instanceof Error ? error.message : '无法确认 B 站分集，请重新选择视频来源。',
+          executionMode: 'remote'
+        }, { label: '选择视频分集', deepLink: `#/workbench?tool=video-translation&jobId=${encodeURIComponent(job.id)}` });
+      }
+    }
     if (inputState.sourceType === 'file' && stage.executor === 'krillinai' && typeof inputState.sourceArtifactId !== 'string') {
       add('blocked', {
         id: 'input-file',
@@ -121,6 +133,16 @@ export function createCreatorPreflight(input: {
       inputSnapshot?.artifactRefs,
       inputSnapshot?.state
     );
+    if (job.templateId === 'image-generation' && stage.id === 'generate'
+      && typeof inputState.prompt === 'string' && imagePromptRequiresReference(inputState.prompt)
+      && !resolvedInputs.artifacts.some(artifact => artifact.kind === 'reference_image'
+        && artifact.status === 'completed' && artifact.path !== null)) {
+      add('blocked', {
+        id: 'reference-image-required', title: '缺少参考图',
+        message: '当前提示词需要基于已有图片生成，请先上传参考图；如需纯文字生图，请移除对上传图片或原图的要求。',
+        executionMode: 'local'
+      }, { label: '上传参考图', deepLink: `#/workbench?tool=image-generation&jobId=${encodeURIComponent(job.id)}` });
+    }
     await checkInputs(stage, resolvedInputs.artifacts, resolvedInputs.missing, add);
     await checkRuntimeDependencies(job, stage, config, add);
     await checkManagedDirectory(add);
@@ -199,16 +221,25 @@ export function createCreatorPreflight(input: {
       }
       if (stage.executor === 'stickman-remotion') {
         try {
-          if (input.stickmanRuntimeRoot === undefined) throw new Error('stickman_runtime_unavailable');
-          readStickmanRemotionRuntime(input.stickmanRuntimeRoot);
-          add('ready', { id: 'stickman-runtime', title: 'Stickman 渲染运行时', message: 'Remotion 运行资源校验通过。', executionMode: 'local' });
+          if (input.remotionComponent) {
+            const component = await input.remotionComponent.status();
+            if (!component.available) throw new Error(component.error ?? 'remotion_component_unavailable');
+            add(component.state === 'ready' ? 'ready' : 'warning', {
+              id: 'stickman-runtime', title: 'Remotion 渲染组件',
+              message: component.state === 'ready' ? 'Remotion 渲染组件已就绪。' : '执行渲染时将按需准备 Remotion 组件，完成后自动继续。', executionMode: 'local'
+            });
+          } else {
+            if (input.stickmanRuntimeRoot === undefined) throw new Error('stickman_runtime_unavailable');
+            readStickmanRemotionRuntime(input.stickmanRuntimeRoot);
+            add('ready', { id: 'stickman-runtime', title: 'Stickman 渲染运行时', message: 'Remotion 运行资源校验通过。', executionMode: 'local' });
+          }
         } catch (error) {
           add('blocked', {
             id: 'stickman-runtime',
             title: 'Stickman 渲染运行时不可用',
             message: error instanceof Error ? error.message : 'Remotion 运行资源校验失败。',
             executionMode: 'local'
-          }, { label: '打开运行组件设置', deepLink: '#/settings?tab=local-components' });
+          }, { label: '打开运行组件设置', deepLink: '#/settings?tab=local-components&component=remotion' });
         }
       }
     }
@@ -263,13 +294,14 @@ function runtimeBackedExecutor(executorId: string): boolean {
   ].includes(executorId);
 }
 
-function checkProviderConfig(
+async function checkProviderConfig(
   job: CreatorJob,
   stage: CreatorTemplateStage,
   config: CreatorServicesConfig,
   capabilities: CreatorServicesCapabilitiesResponse,
-  add: (status: 'ready' | 'warning' | 'blocked', item: Omit<CreatorPreflightCheck, 'executionMode'> & { executionMode?: CreatorPreflightExecutionMode }, repair?: CreatorPreflightCheck['repair']) => void
-): void {
+  add: (status: 'ready' | 'warning' | 'blocked', item: Omit<CreatorPreflightCheck, 'executionMode'> & { executionMode?: CreatorPreflightExecutionMode }, repair?: CreatorPreflightCheck['repair']) => void,
+  readCodexImageStatus?: () => Promise<CodexImageStatus>
+): Promise<void> {
   const needs = new Set<string>();
   if (stage.executor === 'krillinai') {
     if (
@@ -293,9 +325,10 @@ function checkProviderConfig(
   if (stage.executor === 'smart-dubbing') needs.add('tts');
   if (stage.executor === 'stickman-audio' && stage.id === 'narration') needs.add('tts');
   if (stage.executor === 'stickman-image') needs.add('image');
+  if (stage.executor === 'wechat-article' && stage.id === 'images') needs.add('image');
 
   if (needs.has('llm')) {
-    if (config.llm.source === 'codex' && stage.executor === 'krillinai') {
+    if (config.llm.source === 'codex' && stage.executor === 'krillinai' && config.llm.apiKey.trim()) {
       add('ready', {
         id: 'llm',
         title: '文本模型',
@@ -320,13 +353,19 @@ function checkProviderConfig(
       maxCandidateCount: job.templateId === 'image-generation' ? 4 : 8
     });
     const { provider } = settings;
-    if (imageProviderConfigured(config, provider)) {
+    if (provider === 'codex-native') {
+      let status: CodexImageStatus | undefined;
+      try { status = await readCodexImageStatus?.(); } catch { status = undefined; }
+      add(status?.ready ? 'ready' : 'blocked', {
+        id: 'image-provider', title: '本机 Codex 生图',
+        message: status?.message ?? '无法检查 Codex 生图认证和 Runtime 能力，请检查本机 Codex 登录和配置。',
+        executionMode: status?.executionMode === 'api' ? 'remote' : 'local'
+      }, { label: '检查生图设置', deepLink: '#/settings?tab=ai-services&section=image' });
+    } else if (imageProviderConfigured(config, provider)) {
       add('ready', {
         id: 'image-provider',
         title: '图像服务',
-        message: provider === 'codex-native'
-          ? '本机 Codex 生图已启用。'
-          : `${provider} / ${settings.model} 已配置。`,
+        message: `${provider} / ${settings.model} 已配置。`,
         executionMode: settings.executionMode
       });
     } else {
@@ -357,6 +396,8 @@ function checkProviderConfig(
       checkOpenAi(config.transcription.openai, 'transcription', '语音识别', '#/settings?tab=ai-services&section=transcription', add);
     } else if (config.transcription.provider === 'aliyun' && (!config.transcription.aliyun.speech.accessKeyId.trim() || !config.transcription.aliyun.speech.accessKeySecret.trim() || !config.transcription.aliyun.speech.appKey.trim())) {
       add('blocked', { id: 'transcription-config', title: '语音识别凭据缺失', message: '请补全阿里云语音识别凭据。', executionMode: 'remote' }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=transcription' });
+    } else if (config.transcription.provider === 'funasr' && (!config.transcription.funasr.baseUrl.trim() || !config.transcription.funasr.model.trim())) {
+      add('blocked', { id: 'transcription-config', title: '语音识别配置缺失', message: '请补全 FunASR Base URL 和模型。', executionMode: 'remote' }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=transcription' });
     } else if (config.transcription.provider === 'volcengine' && (!config.transcription.volcengine.appId.trim() || !config.transcription.volcengine.accessToken.trim())) {
       add('blocked', { id: 'transcription-config', title: '语音识别凭据缺失', message: '请补全火山引擎 App ID 和 Access Token。', executionMode: 'remote' }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=transcription' });
     } else add('ready', { id: 'transcription-config', title: '语音识别', message: `${config.transcription.provider} 已配置。`, executionMode: provider.kind === 'local' ? 'local' : 'remote' });

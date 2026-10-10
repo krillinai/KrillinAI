@@ -85,12 +85,14 @@ import { createStickmanVisualAssetRegistry } from '../creator/stickman/visual-as
 import { createStickmanValidationExecutor } from '../creator/stickman/validation-executor.js';
 import { createStickmanTimelineExecutor } from '../creator/stickman/timeline-executor.js';
 import { createStickmanRemotionExecutor } from '../creator/stickman/remotion-executor.js';
+import { createRemotionComponentManager } from '../creator/stickman/remotion-component.js';
 import { createStickmanMediaValidationExecutor } from '../creator/stickman/media-validation-executor.js';
 import { createStickmanDeliveryExecutor } from '../creator/stickman/delivery-executor.js';
 import { CreatorProviderRequestLedger } from '../creator/provider-requests.js';
 import { createCreatorProjectCoverService } from '../creator/project-cover.js';
 import { createVideoGenerationService } from '../video-generation/service.js';
 import { createImageGenerationService } from '../image-generation/service.js';
+import { inspectCodexImageRuntime } from '../image-generation/codex-runtime.js';
 import {
   createCreatorReferenceImageUploadService,
   type CreatorReferenceImageUploadService
@@ -156,7 +158,7 @@ import {
   isCodexCredentialStoreConfigurationDiagnostic
 } from '../codex/credential-storage.js';
 import { resolveCodexHome } from '../codex/home.js';
-import { createCodexIsolatedHome } from '../codex/probe-home.js';
+import { createFollowingLocalCodexHome, importLocalCodexConfiguration } from '../codex/probe-home.js';
 import {
   createCodexModelCatalog,
   type CodexModelCatalog
@@ -188,6 +190,7 @@ import {
   createOpenCreatorCreatorServicesConfigStore,
   type CreatorServicesConfigStore
 } from '../creator-services/config-store.js';
+import { createLocalCodexTextModelDefaults } from '../creator-services/local-codex-defaults.js';
 import { createSmartDubbingService } from '../smart-dubbing/service.js';
 import {
   createCreatorEventHub,
@@ -290,6 +293,7 @@ export type BuildServerInput = {
   getCodexAvailabilityProbe?(): CodexAvailabilityProbe | undefined;
   memoryHistoryReader?(threadId: string): { items: import('@opencreator/protocol').ThreadHistoryItem[] } | undefined;
   creatorServicesConfigStore?: CreatorServicesConfigStore;
+  videoMetadataService?: VideoMetadataService;
   codexProviderCredentialStore?: CodexProviderCredentialStore;
   creatorService?: CreatorService;
   creatorPresetRegistry?: CreatorPresetRegistry;
@@ -359,7 +363,7 @@ export async function buildServer(input: BuildServerInput) {
     && resolvedCodexHome.mode === 'isolated'
     && localCodexHome !== codexHome
   ) {
-    createCodexIsolatedHome(localCodexHome, codexHome);
+    importLocalCodexConfiguration(localCodexHome, codexHome);
   }
   try {
     await ensureCodexFileCredentialStore(codexHome);
@@ -534,7 +538,9 @@ export async function buildServer(input: BuildServerInput) {
   const krillinCodexLlmGateway = createKrillinCodexLlmGateway({
     codexBin,
     codexHome,
-    cwd: dataDir
+    cwd: dataDir,
+    readConfiguration: createFollowingLocalCodexHome(localCodexHome,
+      join(runtimeDir, 'creator-text-codex'))
   });
   const creatorAgentBootstrapInput = {
     sourceCodexHome: localCodexHome,
@@ -605,21 +611,23 @@ export async function buildServer(input: BuildServerInput) {
       }
     }
   });
+  const localCodexTextModelDefaults = createLocalCodexTextModelDefaults({
+    codexHome: localCodexHome,
+    readGatewayConfig() {
+      const baseUrl = resolveListeningOrigin(server.server.address());
+      return baseUrl === undefined ? undefined : krillinCodexLlmGateway.config(baseUrl);
+    }
+  });
   const creatorServicesConfigStore =
     createCreatorServicesConfigStoreWithTextModelFallback(
       storedCreatorServicesConfigStore,
-      {
-        async read() {
-          const provider = await codexProviderConfig.read();
-          const apiKey = await resolveCodexProviderApiKey(provider);
-          return {
-            baseUrl: provider.baseUrl,
-            model: provider.model,
-            ...(apiKey === undefined ? {} : { apiKey })
-          };
-        }
-      }
+      localCodexTextModelDefaults
     );
+  let getCreatorYtDlpRuntime: (() => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
+  const videoMetadataService = input.videoMetadataService ?? createVideoMetadataService({
+    getProxy: async () => (await creatorServicesConfigStore.read()).proxy.trim(),
+    getYtDlpRuntime: () => getCreatorYtDlpRuntime?.()
+  });
   const creatorService = input.creatorService ?? createCreatorService({
     jobsRoot: creatorJobsRoot,
     repository: creatorRepository,
@@ -660,20 +668,33 @@ export async function buildServer(input: BuildServerInput) {
     dataDir,
     configStore: creatorServicesConfigStore
   });
+  // Image generation follows the user's local Codex login, independently of Agent settings.
+  const codexImageRuntime = { codexHome: localCodexHome, codexBin };
+  const readCodexImageStatus = () => inspectCodexImageRuntime(codexImageRuntime);
   const imageGenerationService = createImageGenerationService({
     dataDir,
     configStore: creatorServicesConfigStore,
-    codexNative: { codexHome }
+    codexNative: codexImageRuntime
   });
-  const developmentStickmanRuntimeRoot = resolve(
+  const packagedRemotionReleasePath = resolve(
     dirname(fileURLToPath(import.meta.url)),
-    '../../../desktop/.pack/stickman-runtime'
+    '../../runtime/remotion-component.json'
   );
   const stickmanRuntimeRoot = process.env.OPENCREATOR_STICKMAN_RUNTIME_ROOT
-    ?? (existsSync(developmentStickmanRuntimeRoot)
-      ? developmentStickmanRuntimeRoot
-      : join(dataDir, 'creator-runtime', 'stickman'));
-  const packagedStickmanCatalog = join(stickmanRuntimeRoot, 'visual-assets', 'catalog.json');
+    ?? join(dataDir, 'creator-runtime', 'stickman');
+  const developmentRemotionReleasePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../desktop/.pack/components/remotion-component.json');
+  const remotionReleasePath = process.env.OPENCREATOR_REMOTION_COMPONENT_MANIFEST
+    ?? (existsSync(packagedRemotionReleasePath) ? packagedRemotionReleasePath : developmentRemotionReleasePath);
+  const remotionComponent = createRemotionComponentManager({
+    root: stickmanRuntimeRoot,
+    releasePath: remotionReleasePath,
+    archivePath: process.env.OPENCREATOR_REMOTION_COMPONENT_ARCHIVE,
+    developmentArchiveRoot: !existsSync(packagedRemotionReleasePath) && process.env.OPENCREATOR_RUNTIME_CHANNEL === 'development' ? dirname(remotionReleasePath) : undefined,
+    readProxy: async () => (await creatorServicesConfigStore.read()).proxy.trim()
+  });
+  const packagedStickmanAssetsRoot = process.env.OPENCREATOR_STICKMAN_ASSETS_ROOT
+    ?? resolve(dirname(fileURLToPath(import.meta.url)), '../../runtime/stickman-assets');
+  const packagedStickmanCatalog = join(packagedStickmanAssetsRoot, 'visual-assets', 'catalog.json');
   const developmentStickmanCatalog = resolve(
     dirname(fileURLToPath(import.meta.url)),
     '../../../../resources/stickman/visual-assets/catalog.json'
@@ -684,7 +705,7 @@ export async function buildServer(input: BuildServerInput) {
   );
   const stickmanVisualAssetOptions = existsSync(packagedStickmanCatalog)
     ? {
-        root: stickmanRuntimeRoot,
+        root: packagedStickmanAssetsRoot,
         catalogPath: packagedStickmanCatalog
       }
     : existsSync(developmentStickmanCatalog)
@@ -714,7 +735,7 @@ export async function buildServer(input: BuildServerInput) {
       creatorExecutors.push(createStickmanImageExecutor({
         configStore: creatorServicesConfigStore,
         ledger: creatorProviderRequestLedger,
-        codexNative: { codexHome },
+        codexNative: codexImageRuntime,
         ...(creatorTesseractPath === undefined ? {} : { tesseractPath: creatorTesseractPath })
       }));
     }
@@ -729,7 +750,6 @@ export async function buildServer(input: BuildServerInput) {
   let creatorFfprobePath: string | undefined;
   let creatorYtDlpUpdateManager = input.creatorYtDlpUpdateManager;
   let getYtDlpRuntime: (() => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
-  let getCreatorYtDlpRuntime: (() => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
   try {
     const runtimeManifest = readKrillinRuntimeManifest(creatorRuntimeRoot);
     let runtimeVerification: ReturnType<typeof startKrillinRuntimeVerification> | undefined;
@@ -795,11 +815,7 @@ export async function buildServer(input: BuildServerInput) {
         configStore: creatorServicesConfigStore,
         getYtDlpRuntime,
         verificationCachePath: krillinVerificationCachePath,
-        ensureRuntimeReady: () => ensureKrillinRuntimeReady(),
-        getCodexLlmConfig() {
-          const baseUrl = resolveListeningOrigin(server.server.address());
-          return baseUrl === undefined ? undefined : krillinCodexLlmGateway.config(baseUrl);
-        }
+        ensureRuntimeReady: () => ensureKrillinRuntimeReady()
       }));
     }
     if (
@@ -843,7 +859,8 @@ export async function buildServer(input: BuildServerInput) {
       }));
       creatorExecutors.push(createStickmanRemotionExecutor({
         ffprobePath: creatorFfprobePath,
-        runtimeRoot: stickmanRuntimeRoot
+        runtimeRoot: stickmanRuntimeRoot,
+        ensureRuntime: stage => remotionComponent.ensure(stage)
       }));
       if (creatorFfmpegPath) {
         creatorExecutors.push(createStickmanMediaValidationExecutor({
@@ -871,7 +888,7 @@ export async function buildServer(input: BuildServerInput) {
     }));
     creatorExecutors.push(createImageExecutor({
       configStore: creatorServicesConfigStore,
-      codexNative: { codexHome },
+      codexNative: codexImageRuntime,
       ...(creatorFfmpegPath === undefined
         ? {}
         : {
@@ -894,11 +911,13 @@ export async function buildServer(input: BuildServerInput) {
       model: createWechatArticleModel({ configStore: creatorServicesConfigStore }),
       imageGenerator: createArticleImageGenerator({
         configStore: creatorServicesConfigStore,
-        codexNative: { codexHome }
+        codexNative: codexImageRuntime
       })
     }));
   }
   const creatorPreflight = createCreatorPreflight({
+    readCodexImageStatus,
+    videoMetadataService,
     configStore: creatorServicesConfigStore,
     readCapabilities: () => krillinDependencyLoader.capabilities(),
     resourceRoot: creatorRuntimeRoot,
@@ -906,6 +925,7 @@ export async function buildServer(input: BuildServerInput) {
     ffmpegPath: creatorFfmpegPath,
     ffprobePath: creatorFfprobePath,
     stickmanRuntimeRoot,
+    remotionComponent,
     ...(getYtDlpRuntime === undefined ? {} : { getYtDlpRuntime }),
     runtimeVerificationCachePath: krillinVerificationCachePath,
     ensureRuntimeReady: () => ensureKrillinRuntimeReady(),
@@ -1082,7 +1102,8 @@ export async function buildServer(input: BuildServerInput) {
     : createVideoTranslationWorkflow({
         creator: creatorService,
         dispatcher: creatorCommandDispatcher,
-        configStore: creatorServicesConfigStore
+        configStore: creatorServicesConfigStore,
+        videoMetadataService
       });
   coverWorkflow = creatorStageRunner === undefined
     ? undefined
@@ -1365,6 +1386,7 @@ export async function buildServer(input: BuildServerInput) {
       };
     }
   });
+  await registerVideoMetadataRoutes(server, videoMetadataService);
   await registerProjectRoutes(server, projectManager, runManager);
   await registerSkillRoutes(server, { skillManager });
   await registerSkillMarketRoutes(server, { skillMarketManager });
@@ -1409,10 +1431,16 @@ export async function buildServer(input: BuildServerInput) {
       await videoTranslationWorkflow?.resumeConfiguredJobs();
       await coverWorkflow?.resumeConfiguredJobs();
       await stickmanVideoWorkflow?.resumeConfiguredJobs();
-    }
+    },
+    readCodexImageStatus,
+    () => localCodexTextModelDefaults.readStatus()
   );
   await registerSmartDubbingRoutes(server, smartDubbingService);
-  await registerCreatorRuntimeRoutes(server, creatorYtDlpUpdateManager);
+  await registerCreatorRuntimeRoutes(server, creatorYtDlpUpdateManager, {
+    loader: krillinDependencyLoader,
+    remotion: remotionComponent,
+    readConfig: () => creatorServicesConfigStore.read()
+  });
   await registerImageGenerationRoutes(server, imageGenerationService);
   await registerCreatorRoutes(server, creatorService, creatorEvents, {
     sseHeartbeatMs: input.sseHeartbeatMs,
@@ -1431,6 +1459,8 @@ export async function buildServer(input: BuildServerInput) {
     stageRunner: creatorStageRunner,
     presets: creatorPresetRegistry,
     presetCatalogRoot: creatorPresetCatalogRoot,
+    readServicesConfig: () => creatorServicesConfigStore.read(),
+    codexImageRuntime,
     preflight: creatorPreflight,
     issueService: creatorIssueService
   });

@@ -1,9 +1,9 @@
 import type { CreatorJob } from '@opencreator/protocol';
 import { useEffect } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
-import CreatorCollaborationPanel from './CreatorCollaborationPanel.js';
+import CreatorCollaborationPanel, { CreatorTaskProgressNotice } from './CreatorCollaborationPanel.js';
 import {
   shortVideoScriptPanelAdapter,
   coverPanelAdapter,
@@ -16,6 +16,7 @@ import {
 } from './creator-panel-adapters.js';
 import { CreatorSessionProvider, useCreatorSession } from './creator-session-store.js';
 import { normalizePageIssue } from '../issues/page-issue-state.js';
+import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
 function PreflightHarness(props: { stageId: string }) {
   const session = useCreatorSession();
@@ -48,6 +49,91 @@ function TimelineUpdateHarness() {
     }}>Update timeline</button>
   );
 }
+
+function ProgressHeartbeatControl() {
+  const session = useCreatorSession();
+  return <button type="button" onClick={() => session.applyRemoteSnapshot({
+    ...session.job,
+    revision: session.job.revision + 1,
+    stages: session.job.stages.map(stage => ({ ...stage, progress: { ...stage.progress } }))
+  })}>Receive status</button>;
+}
+
+describe('shared video progress timing', () => {
+  it('updates elapsed time without inventing progress and tracks received status independently of language', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-07T08:00:08.000Z'));
+    try {
+      const view = render(
+        <LanguageProvider initialPreference="en-US">
+          <LanguageSwitchControls />
+          <CreatorSessionProvider initialJob={videoGenerationJob()} service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}>
+            <CreatorTaskProgressNotice stageId="generate" />
+            <ProgressHeartbeatControl />
+          </CreatorSessionProvider>
+        </LanguageProvider>
+      );
+      const notice = screen.getByRole('status', { name: 'Task progress' });
+      expect(notice).toHaveTextContent('Elapsed 0:05');
+      act(() => { vi.advanceTimersByTime(6_000); });
+      expect(notice).toHaveTextContent('Elapsed 0:11');
+      expect(notice).toHaveTextContent('Last status received 6s ago');
+      expect(notice).not.toHaveTextContent('%');
+
+      fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+      expect(notice).toHaveTextContent('Förfluten tid 0:11');
+      expect(notice).toHaveTextContent('Senaste status mottogs för 6s sedan');
+      fireEvent.click(screen.getByRole('button', { name: 'Receive status' }));
+      expect(notice).toHaveTextContent('Senaste status mottogs för 0s sedan');
+      fireEvent.click(screen.getByRole('button', { name: 'en-US' }));
+      act(() => { vi.advanceTimersByTime(30_000); });
+      expect(notice).toHaveTextContent('No new generation status has arrived yet');
+      expect(notice).not.toHaveTextContent('%');
+      view.unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('explains a long wait even when provider status continues to arrive', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-07T08:00:08.000Z'));
+    try {
+      const view = render(<LanguageProvider initialPreference="en-US">
+        <CreatorSessionProvider initialJob={videoGenerationJob()} service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}>
+          <CreatorTaskProgressNotice stageId="generate" />
+          <ProgressHeartbeatControl />
+        </CreatorSessionProvider>
+      </LanguageProvider>);
+      act(() => { vi.advanceTimersByTime(120_000); });
+      fireEvent.click(screen.getByRole('button', { name: 'Receive status' }));
+      const notice = screen.getByRole('status', { name: 'Task progress' });
+      expect(notice).toHaveTextContent('Elapsed 2:05');
+      expect(notice).toHaveTextContent('Generation time depends on the provider');
+      expect(notice).toHaveTextContent('the task continues in the background');
+      expect(notice).not.toHaveTextContent('No new generation status');
+      view.unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows connection recovery rather than silently waiting for a missing snapshot', () => {
+    const view = render(<LanguageProvider initialPreference="en-US">
+      <CreatorSessionProvider initialJob={videoGenerationJob()} service={{
+        applyAction: vi.fn(), runAgentTurn: vi.fn(),
+        getJob: vi.fn(() => new Promise<never>(() => undefined)),
+        subscribeJobEvents: vi.fn(() => ({ close: vi.fn() }))
+      } as never}>
+        <CreatorTaskProgressNotice stageId="generate" />
+      </CreatorSessionProvider>
+    </LanguageProvider>);
+    expect(screen.getByRole('status', { name: 'Task progress' })).toHaveTextContent('Reconnecting to receive the latest status');
+    view.unmount();
+  });
+});
 
 describe('Short video script panel', () => {
   it('语义化并合并短视频脚本设置动态，同时显示标准 Stage 状态和真实进度', () => {
@@ -259,6 +345,7 @@ describe('CreatorCollaborationPanel', () => {
     for (let platform = 0; platform < 2; platform += 1) {
       const view = render(
         <LanguageProvider initialPreference="zh-CN">
+          <LanguageSwitchControls />
           <CreatorSessionProvider initialJob={coverJob()} service={service as never}>
             <PreflightHarness stageId="generate" />
             <CreatorCollaborationPanel
@@ -269,14 +356,24 @@ describe('CreatorCollaborationPanel', () => {
           </CreatorSessionProvider>
         </LanguageProvider>
       );
-      await waitFor(() => expect(screen.getByText('请配置图像服务。')).toBeInTheDocument());
-      results.push(screen.getByRole('region', { name: '启动前体检' }).textContent ?? '');
+      await waitFor(() => expect(screen.getByText('图像生成尚未就绪，请检查登录、服务配置及 Runtime 工具支持。')).toBeVisible());
+      expect(screen.getByText('图像服务配置不完整: 请配置图像服务。')).not.toBeVisible();
+      fireEvent.click(screen.getByRole('button', { name: 'en-US' }));
+      expect(screen.getByText('Image generation is not ready. Check sign-in, service configuration, and Runtime tool support.')).toBeVisible();
+      expect(screen.getByRole('link', { name: 'Open settings' })).toHaveAttribute('href', '#/settings?tab=ai-services&section=image');
+      fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
+      expect(screen.getByText('Bildgenerering är inte redo. Kontrollera inloggningen, tjänsteinställningarna och verktygsstödet i Runtime.')).toBeVisible();
+      expect(screen.getByRole('link', { name: 'Öppna inställningar' })).toHaveAttribute('href', '#/settings?tab=ai-services&section=image');
+      expect(screen.getByText('图像服务配置不完整: 请配置图像服务。')).not.toBeVisible();
+      results.push(screen.getByRole('region', { name: 'Kontroll före start' }).textContent ?? '');
       expect(screen.queryByText(/Desktop-only|原生/)).not.toBeInTheDocument();
       view.unmount();
     }
 
     expect(results[0]).toBe(results[1]);
     expect(service.preflight).toHaveBeenCalledWith('cover_job', 'generate');
+    expect(service.preflight).toHaveBeenCalledTimes(2);
+    expect(service.applyAction).not.toHaveBeenCalled();
   });
 
   it('语义化并合并封面动态，同时显示标准 Stage 进度', () => {
@@ -816,7 +913,7 @@ describe('CreatorCollaborationPanel', () => {
 
     expect(wechatArticlePanelAdapter.stageLabel('sources', localize)).toBe('解析内容灵感');
     expect(wechatArticlePanelAdapter.phaseLabel('reading_video', localize)).toBe('读取视频内容');
-    expect(wechatArticlePanelAdapter.readStageProgress(stage)).toEqual(expect.objectContaining({ percent: 30 }));
+    expect(wechatArticlePanelAdapter.readStageProgress(stage, localize)).toEqual(expect.objectContaining({ percent: 30 }));
     expect(wechatArticlePanelAdapter.succeededProgressText?.(stage, localize)).toBe('内容灵感已解析');
 
     const imageStage = {
@@ -825,7 +922,7 @@ describe('CreatorCollaborationPanel', () => {
     } as never;
     expect(wechatArticlePanelAdapter.stageLabel('images', localize)).toBe('生成文章配图');
     expect(wechatArticlePanelAdapter.phaseLabel('generating_article_images', localize)).toBe('生成文章配图');
-    expect(wechatArticlePanelAdapter.readStageProgress(imageStage)).toEqual(expect.objectContaining({
+    expect(wechatArticlePanelAdapter.readStageProgress(imageStage, localize)).toEqual(expect.objectContaining({
       percent: 68,
       completed: 3,
       total: 5

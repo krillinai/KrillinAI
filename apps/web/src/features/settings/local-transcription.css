@@ -1,0 +1,129 @@
+.local-transcription-notice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.local-transcription-notice strong,
+.local-transcription-notice small {
+  display: block;
+}
+
+.local-transcription-notice small {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.local-transcription-notice p {
+  margin: 6px 0 0;
+  line-height: 1.6;
+}
+
+.local-transcription-notice-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.local-transcription-components {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.local-transcription-components [data-highlight] {
+  outline: 2px solid var(--accent, #6366f1);
+  outline-offset: 2px;
+}
+
+.local-transcription-components dd {
+  overflow-wrap: anywhere;
+}
+
+.local-transcription-components > button {
+  justify-self: start;
+}
+
+.local-component-item {
+  gap: 12px;
+}
+
+.local-component-details summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  color: var(--muted);
+  font-size: 13px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.local-component-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.local-component-details summary:hover {
+  color: var(--text);
+}
+
+.local-component-details summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.local-component-details summary svg {
+  transform: rotate(-90deg);
+}
+
+.local-component-details[open] summary svg {
+  transform: none;
+}
+
+.local-component-details > dl {
+  margin-top: 12px;
+}
+
+.local-component-models {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.local-component-check-notice {
+  color: var(--success);
+}
+
+.local-component-progress {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.local-component-progress progress {
+  width: 100%;
+}
+
+.creator-collaboration-stage-message {
+  margin: 10px 0;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .local-transcription-notice {
+    flex-direction: column;
+  }
+
+  .local-transcription-notice-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}

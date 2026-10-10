@@ -16,6 +16,9 @@ type TTSRequest struct {
 	InputSRT         string
 	LineMode         LineMode
 	Video            string
+	SourceURL        string
+	MediaWorkdir     string
+	AudioOnly        bool
 	Voice            string
 	VoiceCloneSource string
 	ReportProgress   func(phase string, percent int, message string)
@@ -54,11 +57,21 @@ func GenerateTTS(ctx context.Context, svc StageService, req TTSRequest) (Respons
 	if inputVideo == "" {
 		inputVideo = manifest.Outputs.OriginVideo
 	}
+	if req.AudioOnly {
+		inputVideo = ""
+		manifest.Outputs.VideoWithTTS = ""
+	} else if req.Video == "" && req.SourceURL != "" {
+		inputVideo, err = ensureSourceVideo(ctx, svc, manifest, req.SourceURL, req.MediaWorkdir, req.ReportProgress)
+		if err != nil {
+			return failTTSStage(req, manifest, "prepare_media_for_render_failed", err)
+		}
+	}
 	stepParam := &types.SubtitleTaskStepParam{
 		TaskId:               req.TaskID,
 		TaskPtr:              &types.SubtitleTask{TaskId: req.TaskID, Status: types.SubtitleTaskStatusProcessing},
 		TaskBasePath:         req.Workdir,
 		EnableTts:            true,
+		TtsAudioOnly:         req.AudioOnly,
 		TtsSourceFilePath:    ttsSource,
 		TtsResultFilePath:    manifest.Outputs.TTSAudio,
 		InputVideoPath:       inputVideo,
@@ -81,7 +94,7 @@ func GenerateTTS(ctx context.Context, svc StageService, req TTSRequest) (Respons
 	if stepParam.TtsResultFilePath != "" {
 		manifest.Outputs.TTSAudio = stepParam.TtsResultFilePath
 	}
-	if stepParam.VideoWithTtsFilePath != "" {
+	if !req.AudioOnly && stepParam.VideoWithTtsFilePath != "" {
 		manifest.Outputs.VideoWithTTS = stepParam.VideoWithTtsFilePath
 	}
 	manifest.MarkStage(StageTTS, true, "")

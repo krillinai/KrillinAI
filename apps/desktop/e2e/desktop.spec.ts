@@ -32,6 +32,7 @@ import {
   launchPackagedApp,
   launchSecondInstance,
   relaunchPackagedApp,
+  requestPackagedAppQuit,
   waitForProcessExit,
   type PackagedApp
 } from './packaged-app.js';
@@ -44,6 +45,73 @@ const fakeCodexScript = join(e2eDir, 'fixtures', 'fake-codex.mjs');
 const fakeCodexLauncherSource = join(e2eDir, 'fixtures', 'fake-codex-launcher.go');
 
 test.describe.configure({ mode: 'serial' });
+
+test('@package-smoke 全新账号启动时引导配置 Agent，跳过后可重新配置', async () => {
+  const fixture = await launchPackagedDesktop('success', { signedOut: true });
+  try {
+    await waitForRuntimeReady(fixture.page, false);
+    await expect(fixture.page.getByRole('heading', { name: '开始使用 Agent' })).toBeVisible();
+    await expect(fixture.page.getByRole('combobox', { name: '供应商' })).toBeVisible();
+    await expect(fixture.page.getByRole('button', { name: '使用 ChatGPT 登录' })).toHaveCount(0);
+    await fixture.page.getByRole('button', { name: '暂时跳过' }).click();
+    await fixture.page.getByRole('button', { name: '设置', exact: true }).click();
+    await fixture.page.getByRole('button', { name: /AI 服务/ }).click();
+    await expect(fixture.page.getByText('Agent 尚未配置，无法发送任务。')).toBeVisible();
+    await fixture.page.getByRole('button', { name: '配置 Agent' }).click();
+    await expect(fixture.page.getByRole('heading', { name: '开始使用 Agent' })).toBeVisible();
+  } finally {
+    await closeFixture(fixture);
+  }
+});
+
+test('@package-smoke 已有 API 凭据时仍显示复用确认和手动填写入口', async () => {
+  const fixture = await launchPackagedDesktop('success');
+  try {
+    await waitForRuntimeReady(fixture.page, false);
+    await expect(fixture.page.getByRole('heading', { name: '开始使用 Agent' })).toBeVisible();
+    await expect(fixture.page.getByRole('button', { name: '自定义模型服务' })).toBeVisible();
+    await expect(fixture.page.getByText(/API Key 已配置/)).toBeVisible();
+    await expect(fixture.page.getByLabel('API Key')).toHaveCount(0);
+    await fixture.page.getByRole('button', { name: '使用本机 Codex，继续' }).click();
+    await expect(fixture.page.getByRole('heading', { name: '开始使用 Agent' })).toBeHidden();
+  } finally {
+    await closeFixture(fixture);
+  }
+});
+
+test('@package-smoke 自定义 Provider 无 ChatGPT 登录态时可复用已有配置', async () => {
+  const fixture = await launchPackagedDesktop('success', { seedLocalCodexProvider: true });
+  try {
+    await waitForRuntimeReady(fixture.page, false);
+    await expect(fixture.page.getByRole('heading', { name: '开始使用 Agent' })).toBeVisible();
+    await expect(fixture.page.getByText('已找到本机 Codex')).toBeVisible();
+    await expect(fixture.page.getByText(/API Key 已配置 · custom-model/)).toBeVisible();
+    await expect(fixture.page.getByLabel('API Key')).toHaveCount(0);
+    await fixture.page.getByRole('button', { name: '使用本机 Codex，继续' }).click();
+    await expect(fixture.page.getByRole('heading', { name: '开始使用 Agent' })).toBeHidden();
+    expect(existsSync(join(fixture.root, 'codex-home', 'auth.json'))).toBe(false);
+  } finally {
+    await closeFixture(fixture);
+  }
+});
+
+test('首次启动从本机 Codex 导入配置但不修改原目录', async () => {
+  const fixture = await launchPackagedDesktop('success', { seedLocalCodex: true });
+  try {
+    await waitForRuntimeReady(fixture.page, false);
+    const source = join(fixture.root, 'codex-home');
+    const state = await fixture.page.evaluate(() => window.opencreatorDesktop?.readBootstrapState());
+    const imported = state?.codexHome;
+    expect(imported).toBeDefined();
+    if (imported === undefined) throw new Error('Codex home is unavailable');
+    expect(readFileSync(join(imported, 'config.toml'), 'utf8')).toContain('model = "existing-model"');
+    expect(readFileSync(join(source, 'config.toml'), 'utf8')).toBe('model = "existing-model"\n');
+    expect(readFileSync(join(imported, 'auth.json'), 'utf8')).toBe(readFileSync(join(source, 'auth.json'), 'utf8'));
+    await expect(fixture.page.getByRole('button', { name: '使用本机 Codex，继续' })).toBeVisible();
+  } finally {
+    await closeFixture(fixture);
+  }
+});
 
 test('打包 App 将旧 Electron 数据当作无关数据且不迁移', async () => {
   const fixture = await launchPackagedDesktop('success', {
@@ -914,12 +982,17 @@ test('Dashboard 握手超时后显示本地错误页并可无 Probe 重载', asy
   }
 });
 
-test('@package-smoke Daemon 异常退出后自动恢复且不重复 Probe', async () => {
+test('@package-smoke Daemon 连续退出保留 Creator 草稿，自动恢复耗尽后可手动重启', async () => {
   const fixture = await launchPackagedDesktop('success');
   try {
     await waitForWorkspace(fixture.page);
     await expect.poll(() => readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
     const mainPid = requiredPid(fixture.process.pid);
+    await fixture.page.getByRole('button', { name: '工作台', exact: true }).click();
+    await fixture.page.getByRole('button', { name: /^视频翻译/ }).click();
+    const composer = fixture.page.getByRole('textbox', { name: '告诉 Agent 你的要求' });
+    await composer.fill('保留这段尚未提交的翻译要求');
+    await fixture.page.evaluate(() => { document.body.dataset.runtimeRecoveryMarker = 'retain-renderer'; });
     const firstDaemonPid = await waitForDaemonUtilityPid(mainPid);
     process.kill(firstDaemonPid, 'SIGKILL');
 
@@ -937,8 +1010,15 @@ test('@package-smoke Daemon 异常退出后自动恢复且不重复 Probe', asyn
       health: undefined
     })), { timeout: 30_000 }).toEqual({ phase: 'ready', health: 200 });
     await expect.poll(() => readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
-
-    process.kill(replacementPid, 'SIGKILL');
+    await expect(composer).toHaveValue('保留这段尚未提交的翻译要求');
+    let currentPid = replacementPid;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      process.kill(currentPid, 'SIGKILL');
+      currentPid = await waitForDaemonUtilityPid(mainPid, currentPid);
+      await expect.poll(async () => (await fixture.page.evaluate(() => window.opencreatorDesktop?.readBootstrapState()))?.phase).toBe('ready');
+      await expect(composer).toHaveValue('保留这段尚未提交的翻译要求');
+    }
+    process.kill(currentPid, 'SIGKILL');
     await expect.poll(async () => await fixture.page.evaluate(async () => {
       const state = await window.opencreatorDesktop?.readBootstrapState();
       return {
@@ -952,6 +1032,13 @@ test('@package-smoke Daemon 异常退出后自动恢复且不重复 Probe', asyn
       phase: 'failed',
       code: 'DAEMON_RESTART_EXHAUSTED'
     });
+    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
+    await expect(fixture.page.getByRole('button', { name: '重启本地服务', exact: true })).toBeVisible();
+    fixture.page.once('dialog', dialog => void dialog.accept());
+    await fixture.page.getByRole('button', { name: '重启本地服务', exact: true }).click();
+    await expect.poll(async () => (await fixture.page.evaluate(() => window.opencreatorDesktop?.readBootstrapState()))?.phase).toBe('ready');
+    await expect(composer).toHaveValue('保留这段尚未提交的翻译要求');
+    expect(await fixture.page.evaluate(() => document.body.dataset.runtimeRecoveryMarker)).toBe('retain-renderer');
     expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
   } finally {
     await closeFixture(fixture);
@@ -1018,10 +1105,9 @@ test('@package-smoke 退出期间会回收仍在 Probe 中的 Codex 子进程', 
     const codexPid = Number(readFileSync(pidPath, 'utf8'));
     expect(isProcessAlive(codexPid)).toBe(true);
 
-    await fixture.page.evaluate(() => {
-      void window.opencreatorDesktop?.quit();
-    });
+    await requestPackagedAppQuit(fixture);
     expect(await waitForProcessExit(fixture.process, 15_000)).toBe(true);
+    expect(fixture.process.exitCode).toBe(0);
     await expect.poll(() => isProcessAlive(codexPid), { timeout: 15_000 }).toBe(false);
   } finally {
     await closeFixture(fixture);
@@ -1040,11 +1126,10 @@ test('@package-smoke 启动 Codex app-server 后在 3 秒内退出', async () =>
     expect(models.status).toBe(200);
 
     const startedAt = Date.now();
-    await fixture.page.evaluate(() => {
-      void window.opencreatorDesktop?.quit();
-    });
+    await requestPackagedAppQuit(fixture);
 
     expect(await waitForProcessExit(fixture.process, 3_000)).toBe(true);
+    expect(fixture.process.exitCode).toBe(0);
     expect(Date.now() - startedAt).toBeLessThan(3_000);
   } finally {
     await closeFixture(fixture);
@@ -1065,6 +1150,9 @@ async function launchPackagedDesktop(
     runtimeMode?: 'bundled' | 'external';
     seedLegacyData?: boolean;
     writeCurrentConfig?: boolean;
+    signedOut?: boolean;
+    seedLocalCodex?: boolean;
+    seedLocalCodexProvider?: boolean;
     telemetryUrl?: string;
   } = {}
 ): Promise<DesktopFixture> {
@@ -1076,6 +1164,23 @@ async function launchPackagedDesktop(
       : join(root, 'bin');
   const stateDir = join(root, 'fake-codex-state');
   const codexHome = join(root, 'codex-home');
+  if (options.seedLocalCodex) {
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(join(codexHome, 'auth.json'), '{"OPENAI_API_KEY":"existing-key"}');
+    writeFileSync(join(codexHome, 'config.toml'), 'model = "existing-model"\n');
+  }
+  if (options.seedLocalCodexProvider) {
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(join(codexHome, 'config.toml'), [
+      'model = "custom-model"',
+      'model_provider = "gateway"',
+      '[model_providers.gateway]',
+      'base_url = "https://gateway.example.test/v1"',
+      'experimental_bearer_token = "provider-secret"',
+      'requires_openai_auth = false',
+      ''
+    ].join('\n'));
+  }
   const userData = join(root, 'user-data');
   writeCodexShim(binDir);
   mkdirSync(userData, { recursive: true });
@@ -1120,6 +1225,8 @@ async function launchPackagedDesktop(
       OPENCREATOR_CODEX_APPLICATION_ROOTS: join(root, 'Applications'),
       OPENCREATOR_E2E_FAKE_CODEX_STATE_DIR: stateDir,
       OPENCREATOR_E2E_FAKE_CODEX_MODE: mode,
+      OPENCREATOR_E2E_FAKE_CODEX_SIGNED_OUT: options.signedOut ? '1' : '0',
+      OPENCREATOR_E2E_FAKE_CODEX_CUSTOM_PROVIDER: options.seedLocalCodexProvider ? '1' : '0',
       OPENCREATOR_E2E_NODE_BINARY: process.execPath,
       OPENCREATOR_E2E_FAKE_CODEX_SCRIPT: fakeCodexScript,
       ...(options.telemetryUrl === undefined
@@ -1212,7 +1319,7 @@ async function navigateToAppRoute(page: Page, hash: string): Promise<void> {
   }, hash);
 }
 
-async function waitForRuntimeReady(page: Page): Promise<void> {
+async function waitForRuntimeReady(page: Page, confirmSetup = true): Promise<void> {
   await page.waitForURL(url => (
     url.protocol === 'opencreator-app:'
     && url.hostname === 'app'
@@ -1220,6 +1327,16 @@ async function waitForRuntimeReady(page: Page): Promise<void> {
   await expect.poll(async () => await page.evaluate(async () => {
     return (await window.opencreatorDesktop?.readBootstrapState())?.phase;
   })).toBe('ready');
+  if (!confirmSetup) return;
+  const confirmed = await page.evaluate(() => window.localStorage.getItem('opencreator.agent-setup-confirmed.v1') !== null);
+  if (confirmed) return;
+  const setup = page.getByRole('heading', { name: '开始使用 Agent' });
+  await setup.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => undefined);
+  if (!await setup.isVisible()) return;
+  const useLocalCodex = page.getByRole('button', { name: '使用本机 Codex，继续' });
+  if (await useLocalCodex.isVisible()) await useLocalCodex.click();
+  await setup.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => undefined);
+  if (await setup.isVisible()) await page.getByRole('button', { name: '暂时跳过' }).click();
 }
 
 async function runtimeRequest<T>(

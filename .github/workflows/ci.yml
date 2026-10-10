@@ -161,3 +161,32 @@ jobs:
       - run: pnpm perf:check
         env:
           OPENCREATOR_PERFORMANCE_RESULTS_REQUIRED: '1'
+
+  desktop-network-windows:
+    if: needs.classify.outputs.release-only != 'true'
+    needs: classify
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build Desktop network test inputs
+        run: |
+          pnpm --filter @opencreator/protocol build
+          pnpm --filter @opencreator/config build
+          pnpm --filter @opencreator/desktop build:main
+      - name: Verify Electron networking on Windows
+        run: pnpm --filter @opencreator/desktop exec playwright test --config playwright.config.ts e2e/desktop-network.spec.ts
+      - name: Preserve network test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-network-windows-diagnostics
+          path: test-results/desktop-playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14

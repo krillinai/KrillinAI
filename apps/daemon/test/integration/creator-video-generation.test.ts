@@ -8,6 +8,8 @@ import { buildServer } from '../../src/api/server.js';
 import type { CreatorServicesConfigStore } from '../../src/creator-services/config-store.js';
 import { createVideoExecutor } from '../../src/creator/video/executor.js';
 import { createVideoGenerationService } from '../../src/video-generation/service.js';
+import { createAgentContextBuilder } from '../../src/creator/agent/context-builder.js';
+import { createDefaultCreatorTemplateRegistry } from '../../src/creator/templates/registry.js';
 
 let server: FastifyInstance | undefined;
 let tempDir = '';
@@ -20,6 +22,71 @@ afterEach(async () => {
 });
 
 describe('creator video generation', () => {
+  it.each(['submission', 'polling'] as const)('propagates %s failures through the service, executor, persisted job and Agent context', async phase => {
+    tempDir = await mkdtemp(join(tmpdir(), 'creator-video-error-propagation-'));
+    const config = createDefaultCreatorServicesConfig();
+    config.video.seedance.apiKey = 'seedance-test-key';
+    const configStore = createConfigStore(config);
+    const upstreamCode = 'InputImageSensitiveContentDetected.SensitiveContent';
+    const fetchImpl = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      if (phase === 'polling' && init?.method === 'POST') {
+        return new Response(JSON.stringify({ id: 'remote_error_task', status: 'queued' }));
+      }
+      return new Response(JSON.stringify({
+        ...(phase === 'polling' ? { id: 'remote_error_task', status: 'failed' } : {}),
+        error: { code: upstreamCode, message: 'Reference image rejected. api_key=private-key' },
+        request_id: 'provider-request-123'
+      }), { status: phase === 'submission' ? 400 : 200 });
+    });
+    const executor = createVideoExecutor({
+      service: createVideoGenerationService({ dataDir: tempDir, configStore, fetchImpl: fetchImpl as typeof fetch }),
+      sleep: vi.fn(async () => undefined), probeVideo: vi.fn()
+    });
+    server = await buildServer({
+      token: 'secret', dataDir: tempDir, codexHome: join(tempDir, 'codex-home'),
+      creatorServicesConfigStore: configStore,
+      codexProviderCredentialStore: { async readApiKey() { return undefined; }, async writeApiKey() {} },
+      creatorExecutors: [executor]
+    });
+    const created = await request('POST', '/creator/jobs', {
+      projectId: 'project_video', templateId: 'video-generation', creationKey: `error-${phase}`,
+      state: { prompt: 'A cinematic reveal', provider: 'seedance', size: '1280x720', duration: 5 }
+    });
+    expect(created.statusCode).toBe(201);
+    const initial = created.json().job;
+    const uploaded = await server.inject({
+      method: 'POST', url: `/creator/jobs/${initial.id}/reference-image?expectedRevision=${initial.revision}&fileName=reference.png&mime=image%2Fpng`,
+      headers: { authorization: 'Bearer secret', 'content-type': 'application/vnd.opencreator.creator-reference-image' },
+      payload: png('reference')
+    });
+    expect(uploaded.statusCode).toBe(201);
+    const started = await request('POST', `/creator/jobs/${initial.id}/actions`, {
+      action: 'run-stage', expectedRevision: uploaded.json().job.revision, input: { stageId: 'generate' }
+    });
+    expect(started.statusCode).toBe(200);
+    const deadline = Date.now() + 10_000;
+    let failed = (await request('GET', `/creator/jobs/${initial.id}`)).json().job;
+    while ((failed.status !== 'failed' || failed.issues.length === 0) && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 20));
+      failed = (await request('GET', `/creator/jobs/${initial.id}`)).json().job;
+    }
+    expect(failed.status).toBe('failed');
+    const expectedFacts = {
+      kind: phase === 'submission' ? 'http-rejected' : 'provider-failed', provider: 'seedance',
+      ...(phase === 'submission' ? { httpStatus: 400 } : {}),
+      upstreamCode, upstreamMessage: 'Reference image rejected. [redacted]', requestId: 'provider-request-123'
+    };
+    const issue = failed.issues.find((candidate: { stageRunId?: string }) => candidate.stageRunId === failed.stages.at(-1).id);
+    expect(issue.publicFacts).toEqual(expectedFacts);
+    expect(failed.stages.at(-1).errorMessage).toContain('Reference image rejected.');
+    const context = createAgentContextBuilder({ templates: createDefaultCreatorTemplateRegistry() }).build(failed, null, issue.id);
+    expect(context.focusedIssue?.publicFacts).toEqual(expectedFacts);
+    expect(context.focusedIssue?.technicalDetail).toBeUndefined();
+    expect(JSON.stringify(failed)).not.toContain('private-key');
+    expect(JSON.stringify(context)).not.toContain('private-key');
+    expect(fetchImpl.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+  });
+
   it('runs video generation through Creator Job, Stage, Artifact and ResultSnapshot', async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'creator-video-generation-api-'));
     const config = createDefaultCreatorServicesConfig();

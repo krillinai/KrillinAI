@@ -1,3 +1,5 @@
+import type { PublicErrorFacts } from './issues.js';
+
 export const imageGenerationSizes = ['1024x1024', '1536x1024', '1024x1536'] as const;
 export type ImageGenerationSize = typeof imageGenerationSizes[number];
 export type ImageGenerationQuality = 'low' | 'medium' | 'high';
@@ -29,6 +31,15 @@ export type CreateImageGenerationRequest = {
   quality: ImageGenerationQuality;
   count: number;
 };
+
+/** Detect explicit references to an existing image, rather than ordinary photo styles. */
+export function imagePromptRequiresReference(prompt: string): boolean {
+  const brief = prompt.replace(
+    /(?:无需|不需要|不用|不要|不使用|没有)(?:再|任何)?(?:上传|提供|使用|添加)?(?:的)?(?:参考图|参考图片|图片|照片|原图)|(?:without|no|do not use)\s+(?:(?:an?|any|the)\s+)?(?:(?:reference|uploaded|attached|original)\s+)?(?:images?|photos?|pictures?)/gi,
+    ''
+  );
+  return /(?:上传|上傳|附上|附带|所附|提供|给定|原始|输入|这张|该|這張|此|参考|參考)[^。！？\n]{0,12}(?:图片|照片|图像|圖片|相片|圖像)|(?:基于|根据|使用|编辑|修改|重绘|保留|保持)[^。！？\n]{0,8}参考图|参考图[^。！？\n]{0,8}(?:改成|转换|主体|构图)|(?:原图|原圖|上图|上圖)|\b(?:uploaded|attached|provided|input|reference|original|source|this|that)\s+(?:[\w-]+\s+){0,3}(?:image|photo|picture)s?\b/i.test(brief);
+}
 
 export type ImageGenerationAsset = {
   index: number;
@@ -108,6 +119,7 @@ export type VideoGenerationResult = {
   mime?: 'video/mp4';
   size?: number;
   error?: string;
+  publicFacts?: PublicErrorFacts;
   createdAt: string;
   updatedAt: string;
 };

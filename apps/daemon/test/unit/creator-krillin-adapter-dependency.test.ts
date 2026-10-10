@@ -1,4 +1,5 @@
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
+import type { CreatorExecutorInput } from '../../src/creator/executor.js';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
@@ -9,6 +10,10 @@ const runKrillinCli = vi.hoisted(() => vi.fn());
 
 vi.mock('../../src/creator/krillin/dependency-preflight.js', () => ({
   preflightKrillinDependencies
+}));
+
+vi.mock('../../src/creator/validators/media.js', () => ({
+  validateMediaFile: vi.fn(async () => ({ duration: 1, hasVideo: true, hasAudio: true }))
 }));
 
 vi.mock('../../src/creator/krillin/cli-runner.js', async importOriginal => {
@@ -28,6 +33,28 @@ afterEach(() => {
 });
 
 describe('KrillinAI configured transcription dependency', () => {
+  it.each([
+    ['分享视频 https://v.douyin.com/abc123/ 复制打开抖音', 'https://v.douyin.com/abc123/'],
+    ['https://www.douyin.com/jingxuan?modal_id=123', 'https://www.douyin.com/video/123'],
+    ['https://www.xiaohongshu.com/explore/6a9149f3000000001f01d20a?xsec_token=sample%3D',
+      'https://www.xiaohongshu.com/explore/6a9149f3000000001f01d20a?xsec_token=sample%3D']
+  ])('transcribes added translation sources with normalized URLs and preserved tokens: %s', async (sourceUrl, expected) => {
+    const fixture = setup();
+    const stage = fixture.stage as CreatorExecutorInput;
+    stage.job.templateId = 'video-translation';
+    stage.job.state.sourceType = 'url';
+    stage.job.state.sourceUrl = sourceUrl;
+    stage.inputArtifacts = [];
+    runKrillinCli.mockImplementation(async input => {
+      const subtitle = writeTargetSubtitle(input.jobsRoot);
+      return ['source_subtitle', 'target_subtitle', 'vertical_subtitle'].map(kind => ({ ...subtitle, kind }));
+    });
+    await fixture.executor.run(stage);
+    expect(fixture.ensure).toHaveBeenCalledTimes(1);
+    expect(runKrillinCli).toHaveBeenCalledTimes(1);
+    expect(runKrillinCli.mock.calls[0]?.[0]).toMatchObject({ source: expected, options: { sourceUrl: expected } });
+    expect(runKrillinCli.mock.calls[0]?.[0].options.captionSource).not.toBe('platform');
+  });
   it('uses the original YouTube URL without preparing transcription when platform captions succeed', async () => {
     const fixture = setup();
     runKrillinCli.mockImplementation(async input => [writeTargetSubtitle(input.jobsRoot)]);
@@ -92,6 +119,84 @@ describe('KrillinAI configured transcription dependency', () => {
       code: 'audio_transcription_failed',
       message: expect.stringMatching(/No original YouTube captions.*whisperkit-cli rejected/)
     });
+  });
+
+  it.each(['platform_caption_access_failed', 'platform_caption_processing_failed'])('does not download transcription components after %s', async code => {
+    const fixture = setup();
+    runKrillinCli.mockRejectedValueOnce(new KrillinCliError(code, 'Platform request failed'));
+
+    await expect(fixture.executor.run(fixture.stage)).rejects.toMatchObject({ code });
+
+    expect(runKrillinCli).toHaveBeenCalledTimes(1);
+    expect(fixture.ensure).not.toHaveBeenCalled();
+  });
+
+  it.each(['different-url', 'different-part', 'unknown'])('does not reuse a source video with %s provenance when rendering a URL', async provenance => {
+    const fixture = setup();
+    const stage = fixture.stage as CreatorExecutorInput;
+    stage.job.templateId = 'video-translation';
+    stage.stageRun.stageId = 'render-horizontal';
+    if (provenance === 'different-part') stage.job.state.sourceUrl = 'https://www.bilibili.com/video/BV18E421w7bf?p=3';
+    const previousVideo = stage.inputArtifacts[0]!;
+    previousVideo.metadata = provenance === 'different-url'
+      ? { settingsSnapshot: { sourceUrl: 'https://www.youtube.com/watch?v=previous' } }
+      : provenance === 'different-part'
+        ? { settingsSnapshot: { sourceUrl: 'https://www.bilibili.com/video/BV18E421w7bf?p=2' } }
+      : {};
+    const subtitle = writeTargetSubtitle(tempDir);
+    stage.inputArtifacts.push({ id: 'target-subtitle', kind: 'target_subtitle', path: join(tempDir, subtitle.relativePath) } as never);
+    runKrillinCli.mockImplementation(async input => {
+      const outputDir = join(input.jobsRoot, stage.job.id, 'outputs');
+      mkdirSync(outputDir, { recursive: true });
+      const sourcePath = join(outputDir, 'new-source.mp4');
+      const renderPath = join(outputDir, 'horizontal.mp4');
+      writeFileSync(sourcePath, 'new source');
+      writeFileSync(renderPath, 'render');
+      return [
+        { kind: 'source_video', relativePath: relative(input.jobsRoot, sourcePath), size: 10 },
+        { kind: 'horizontal_video', relativePath: relative(input.jobsRoot, renderPath), size: 6 }
+      ];
+    });
+
+    const result = await fixture.executor.run(stage);
+
+    expect(runKrillinCli.mock.calls[0]?.[0].artifacts).toEqual([
+      expect.objectContaining({ id: 'target-subtitle', kind: 'target_subtitle' })
+    ]);
+    expect(runKrillinCli.mock.calls[0]?.[0].options.sourceUrl).toBe(stage.job.state.sourceUrl);
+    expect(result.outputs).toEqual([
+      expect.objectContaining({ kind: 'source_video', sourceArtifactIds: [] }),
+      expect.objectContaining({ kind: 'horizontal_video', sourceArtifactIds: ['target-subtitle'] })
+    ]);
+    expect(fixture.ensure).not.toHaveBeenCalled();
+  });
+
+  it.each(['matching-url', 'matching-part', 'local-file'])('retains a source video with %s provenance', async provenance => {
+    const fixture = setup();
+    const stage = fixture.stage as CreatorExecutorInput;
+    stage.job.templateId = 'video-translation';
+    stage.stageRun.stageId = 'tts';
+    stage.job.state.sourceType = provenance === 'local-file' ? 'file' : 'url';
+    if (provenance === 'matching-part') stage.job.state.sourceUrl = 'https://www.bilibili.com/video/BV18E421w7bf?p=3&spm_id_from=share';
+    stage.inputArtifacts[0]!.metadata = provenance === 'matching-url'
+      ? { settingsSnapshot: { sourceUrl: stage.job.state.sourceUrl! } }
+      : provenance === 'matching-part'
+        ? { settingsSnapshot: { sourceUrl: 'https://www.bilibili.com/video/BV18E421w7bf/?p=3&vd_source=other' } }
+      : {};
+    runKrillinCli.mockImplementation(async input => {
+      const outputDir = join(input.jobsRoot, stage.job.id, 'outputs');
+      mkdirSync(outputDir, { recursive: true });
+      const outputPath = join(outputDir, 'dubbed.wav');
+      writeFileSync(outputPath, 'audio');
+      return [{ kind: 'dubbed_audio', relativePath: relative(input.jobsRoot, outputPath), size: 5 }];
+    });
+
+    await fixture.executor.run(stage);
+
+    expect(runKrillinCli.mock.calls[0]?.[0].artifacts).toEqual([
+      expect.objectContaining({ id: 'source-video', kind: 'source_video' })
+    ]);
+    expect(fixture.ensure).not.toHaveBeenCalled();
   });
 });
 

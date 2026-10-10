@@ -56,11 +56,19 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 	stepParam.TaskPtr.SetProgressReporter(func(percent uint8) {
 		reportSubtitleProgress(req, "preparing_source", 10+minInt(int(percent), 10), "正在准备视频来源")
 	})
-	if err := svc.PrepareMedia(ctx, stepParam); err != nil {
-		return failSubtitleStage(req, manifest, ErrorKindRetryable, "prepare_media_failed", err)
+	localInput := strings.TrimPrefix(req.Input, "local:")
+	if info, err := os.Stat(localInput); err == nil && info.Mode().IsRegular() {
+		stepParam.InputVideoPath = localInput
 	}
 	syncPreparedMediaOutputs(manifest, stepParam)
 	if req.InputSRT != "" {
+		if req.PrepareVideo {
+			stepParam.SkipAudio = true
+			if err := svc.PrepareMedia(ctx, stepParam); err != nil {
+				return failSubtitleStage(req, manifest, ErrorKindRetryable, "prepare_media_failed", err)
+			}
+			syncPreparedMediaOutputs(manifest, stepParam)
+		}
 		reportSubtitleProgress(req, "importing_subtitles", 30, "正在使用本地字幕")
 		if err := importSubtitleFile(ctx, svc, req, stepParam, manifest); err != nil {
 			return failSubtitleStage(req, manifest, ErrorKindRetryable, "subtitle_import_failed", err)
@@ -85,11 +93,14 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 			reportSubtitleProgress(req, "processing_platform_captions", 25, "正在解析平台字幕")
 			youtubeReq.VttFile = vttFile
 			_, err = svc.ProcessYouTubeSubtitle(ctx, youtubeReq)
+			if err != nil {
+				return failSubtitleStage(req, manifest, ErrorKindRetryable, "platform_caption_processing_failed", err)
+			}
 		}
 		if err == nil {
 			manifest.OriginLanguage = youtubeReq.OriginLanguage
 			manifest.CaptionSource = "youtube_vtt"
-			if !req.SourceOnly || req.PrepareVideo {
+			if req.PrepareVideo {
 				reportSubtitleProgress(req, "preparing_original_media", 76, "正在补齐原始视频")
 				stepParam.TaskPtr.SetProgressReporter(func(percent uint8) {
 					overall := 76 + minInt(int(percent), 10)*14/10
@@ -102,6 +113,9 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 			}
 			reportSubtitleProgress(req, "collecting_outputs", 95, "正在整理字幕和视频产物")
 			return saveSubtitleSuccess(manifest, req, CaptionSource("youtube_vtt"))
+		}
+		if errors.Is(err, service.ErrYouTubeCaptionAccess) || ctx.Err() != nil {
+			return failSubtitleStage(req, manifest, ErrorKindRetryable, "platform_caption_access_failed", err)
 		}
 		if req.CaptionSource != CaptionSourceAny {
 			return failSubtitleStage(req, manifest, ErrorKindRetryable, "platform_caption_failed", err)
@@ -120,6 +134,13 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 				platformCaptionErr,
 				err,
 			))
+		}
+		syncPreparedMediaOutputs(manifest, stepParam)
+	}
+	if platformCaptionErr == nil {
+		stepParam.TaskPtr.SetProgressReporter(audioSubtitleProgressReporter(req))
+		if err := svc.PrepareMedia(ctx, stepParam); err != nil {
+			return failSubtitleStage(req, manifest, ErrorKindRetryable, "prepare_media_failed", err)
 		}
 		syncPreparedMediaOutputs(manifest, stepParam)
 	}
@@ -263,6 +284,7 @@ func subtitleStepParam(req SubtitleRequest) *types.SubtitleTaskStepParam {
 func prepareOriginalMediaForRendering(ctx context.Context, svc StageService, stepParam *types.SubtitleTaskStepParam) error {
 	stepParam.VttSwitch = false
 	stepParam.EmbedSubtitleVideoType = "all"
+	stepParam.SkipAudio = true
 	return svc.PrepareMedia(ctx, stepParam)
 }
 

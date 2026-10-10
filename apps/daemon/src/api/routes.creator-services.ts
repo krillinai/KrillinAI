@@ -1,4 +1,6 @@
 import type {
+  CodexImageStatus,
+  CodexProviderConfig,
   CreatorServicesCapabilitiesResponse,
   CreatorServicesConfig,
   CreatorTtsPreviewRequest,
@@ -26,9 +28,28 @@ export async function registerCreatorServicesRoutes(
   readCapabilities: () => CreatorServicesCapabilitiesResponse =
     createKrillinCreatorServicesCapabilities,
   ttsService?: Pick<KrillinTtsService, 'listVoices' | 'preview'>,
-  onConfigurationChanged?: () => Promise<void> | void
+  onConfigurationChanged?: () => Promise<void> | void,
+  readCodexImageStatus?: () => Promise<CodexImageStatus>,
+  readCodexModelStatus?: () => Promise<CodexProviderConfig>
 ): Promise<void> {
   server.get('/creator-services/capabilities', async () => readCapabilities());
+  server.get('/creator-services/model/codex/status', async (_request, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    try {
+      return await readCodexModelStatus?.() ?? {
+        authentication: 'none', apiKeyConfigured: false, baseUrl: '', model: ''
+      } satisfies CodexProviderConfig;
+    } catch {
+      return { authentication: 'none', apiKeyConfigured: false, baseUrl: '', model: '' } satisfies CodexProviderConfig;
+    }
+  });
+  server.get('/creator-services/image/codex/status', async (_request, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    return readCodexImageStatus ? await readCodexImageStatus() : {
+      authentication: 'none', ready: false, executionMode: null,
+      message: '当前 Runtime 未配置 Codex 生图能力检查，请更新或检查 Runtime'
+    } satisfies CodexImageStatus;
+  });
 
   server.get('/creator-services/config', async (_request, reply) => {
     try {
@@ -76,6 +97,31 @@ export async function registerCreatorServicesRoutes(
       }
       return sendStoreError(reply, error);
     }
+  });
+
+  server.post<{ Body: unknown }>('/creator-services/transcription/test', async (request, reply) => {
+    try {
+      const body = request.body as { baseUrl?: string; apiKey?: string; model?: string; timeoutMs?: number };
+      const baseUrl = typeof body.baseUrl === 'string' ? body.baseUrl.replace(/\/+$/, '') : '';
+      const model = typeof body.model === 'string' ? body.model.trim() : '';
+      if (!/^https?:\/\//i.test(baseUrl) || !model) return reply.code(400).send(apiError('VALIDATION_FAILED', 'FunASR Base URL and model are required'));
+      const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), Math.min(Math.max(body.timeoutMs ?? 10000, 1000), 60000));
+      try {
+        const saved = await store.read();
+        const configured = saved.transcription.funasr;
+        const apiKey = typeof body.apiKey === 'string' && body.apiKey
+          ? body.apiKey
+          : configured.baseUrl.replace(/\/+$/, '') === baseUrl ? configured.apiKey : '';
+        const response = await fetch(`${baseUrl}/models`, { headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {}, signal: controller.signal });
+        const payload = await response.json().catch(() => undefined) as { data?: Array<{ id?: string }> } | undefined;
+        if (!response.ok) return reply.code(502).send(apiError('SMART_DUBBING_UPSTREAM_ERROR', `FunASR connection failed (HTTP ${response.status})`));
+        const models = Array.isArray(payload?.data)
+          ? payload.data.map(item => item.id).filter((id): id is string => typeof id === 'string')
+          : [];
+        if (!models.includes(model)) return reply.code(502).send(apiError('SMART_DUBBING_UPSTREAM_ERROR', `FunASR model ${model} is not available`));
+        return { connected: true, model, models, capabilities: ['audio.transcriptions'] };
+      } finally { clearTimeout(timer); }
+    } catch (error) { return reply.code(502).send(apiError('SMART_DUBBING_UPSTREAM_ERROR', error instanceof Error && error.name === 'AbortError' ? 'FunASR connection timed out' : 'FunASR connection failed')); }
   });
 
   server.delete('/creator-services/config', async (_request, reply) => {

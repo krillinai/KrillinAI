@@ -1,5 +1,165 @@
-import type { CreatorServicesCapabilitiesResponse, CreatorYtDlpStatusResponse } from '@opencreator/protocol';
+import { createDefaultCreatorServicesConfig, type CreatorRuntimeComponentsResponse, type CreatorServicesCapabilitiesResponse, type CreatorYtDlpStatusResponse } from '@opencreator/protocol';
 import { test, expect } from './fixtures/runtime.js';
+
+test('项目管理资源不随通用项目页面提前加载且 Browser/Desktop 布局一致', async ({ browser, runtime }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop');
+  const results: unknown[] = [];
+  for (const platform of ['browser', 'desktop']) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    const resources: string[] = [];
+    page.on('request', request => {
+      if (/ProjectManagementDialog|project-management\.css/.test(request.url())) resources.push(request.url());
+    });
+    if (platform === 'desktop') await installDesktopBridge(page);
+    try {
+      await runtime.openApp(page);
+      expect(resources).toHaveLength(0);
+      await page.getByRole('button', { name: '我的项目', exact: true }).click();
+      const workspace = page.getByRole('region', { name: 'OpenCreator 工作区' });
+      const heading = workspace.getByRole('heading', { name: '我的项目', exact: true });
+      await expect(heading).toBeVisible();
+      expect(resources).toHaveLength(0);
+      const styles = await workspace.evaluate(element => {
+        const style = getComputedStyle(element);
+        return { width: style.width, display: style.display, padding: style.padding, background: style.backgroundColor };
+      });
+      results.push({
+        title: await heading.innerText(),
+        headingBox: await heading.boundingBox(),
+        styles
+      });
+      await page.getByRole('button', { name: '首页', exact: true }).click();
+      await expect(page.getByRole('tab', { name: '推荐', exact: true })).toBeVisible();
+      expect(resources).toHaveLength(0);
+    } finally { await context.close(); }
+  }
+  expect(results[1]).toEqual(results[0]);
+});
+
+test('Codex 生图状态仅在选择本机服务时按需加载且 Browser/Desktop 一致', async ({ browser, runtime }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop');
+  const config = createDefaultCreatorServicesConfig();
+  config.image.provider = 'openai';
+  await runtime.api('PATCH', '/creator-services/config', config);
+  const results: unknown[] = [];
+  try {
+    for (const platform of ['browser', 'desktop']) {
+      const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+      const page = await context.newPage();
+      const resources: string[] = [];
+      const statusRequests: string[] = [];
+      page.on('request', request => {
+        if (/CodexImageStatusNotice/.test(request.url())) resources.push(request.url());
+      });
+      await page.route('**/creator-services/image/codex/status', async route => {
+        statusRequests.push(route.request().method());
+        await route.fulfill({ json: { authentication: 'chatgpt', ready: true, executionMode: 'native', message: 'raw backend status' } });
+      });
+      if (platform === 'desktop') await installDesktopBridge(page);
+      try {
+        await runtime.openApp(page);
+        await page.goto(`${runtime.origin}/#/settings?tab=ai-services&section=image`);
+        const provider = page.getByRole('tabpanel').getByRole('combobox', { name: '服务商', exact: true });
+        await expect(provider).toContainText('GPT Image');
+        expect(resources).toHaveLength(0);
+        expect(statusRequests).toHaveLength(0);
+        await provider.click();
+        await page.getByRole('option', { name: '本机 Codex 生图' }).click();
+        const notice = page.locator('.creator-services-inline-note[role="status"]').filter({ hasText: 'ChatGPT 登录态 · 原生生图' });
+        await expect(notice).toBeVisible();
+        await expect(notice).toContainText('无需额外配置图片 API Key');
+        await expect(page.getByText('raw backend status')).toHaveCount(0);
+        expect(resources.length).toBeGreaterThan(0);
+        expect(statusRequests.length).toBeGreaterThan(0);
+        expect(statusRequests.every(method => method === 'GET')).toBe(true);
+        const checksBeforeRefresh = statusRequests.length;
+        await notice.getByRole('button', { name: '刷新状态' }).click();
+        await expect(notice).toBeVisible();
+        await expect.poll(() => statusRequests.length).toBe(checksBeforeRefresh + 1);
+        results.push({ text: await notice.innerText(), requests: statusRequests, box: await notice.boundingBox() });
+      } finally { await context.close(); }
+    }
+    expect(results[1]).toEqual(results[0]);
+  } finally { await runtime.api('DELETE', '/creator-services/config'); }
+});
+
+test('OSS 地域配置在 Browser/Desktop 下保存并重新加载一致', async ({ browser, runtime }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop');
+  const results: unknown[] = [];
+  try {
+    for (const platform of ['browser', 'desktop']) {
+      await runtime.api('DELETE', '/creator-services/config');
+      const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+      const page = await context.newPage();
+      if (platform === 'desktop') await installDesktopBridge(page);
+      try {
+        await runtime.openApp(page);
+        await page.goto(`${runtime.origin}/#/settings?tab=ai-services&section=transcription`);
+        await page.getByRole('combobox', { name: '语音识别服务' }).click();
+        await page.getByRole('option', { name: '阿里云百炼' }).click();
+        await expect(page.getByLabel('OSS 地域')).toHaveValue('cn-shanghai');
+        await page.getByLabel('OSS 地域').fill('ap-southeast-1');
+        await page.getByLabel('OSS Endpoint（可选）').fill('https://oss-ap-southeast-1.aliyuncs.com');
+        const request = page.waitForRequest(req => req.method() === 'PATCH' && req.url().endsWith('/creator-services/config'));
+        await page.getByRole('button', { name: '保存配置' }).click();
+        const payload = (await request).postDataJSON();
+        await expect(page.getByText('配置已安全保存')).toBeVisible();
+        await page.reload();
+        await expect(page.getByLabel('OSS 地域')).toHaveValue('ap-southeast-1');
+        await expect(page.getByLabel('OSS Endpoint（可选）')).toHaveValue('https://oss-ap-southeast-1.aliyuncs.com');
+        results.push({
+          payload, stored: await runtime.api('GET', '/creator-services/config'),
+          text: await page.getByRole('tabpanel').innerText(),
+          regionBox: await page.getByLabel('OSS 地域').boundingBox(),
+          endpointBox: await page.getByLabel('OSS Endpoint（可选）').boundingBox()
+        });
+      } finally { await context.close(); }
+    }
+    expect(results[1]).toEqual(results[0]);
+  } finally { await runtime.api('DELETE', '/creator-services/config'); }
+});
+
+test('扩展源语言与巴西葡萄牙语设置在 Browser/Desktop 下保存并重载一致', async ({ browser, runtime }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop');
+  const results: unknown[] = [];
+  for (const platform of ['browser', 'desktop']) {
+    const created = await runtime.api<{ job: { id: string } }>('POST', '/creator/jobs', {
+      projectId: runtime.projectId, templateId: 'video-translation',
+      state: { sourceUrl: 'https://www.youtube.com/watch?v=multilingual', sourceLanguage: 'en',
+        targetLanguage: 'zh_cn', bilingual: true, currentStep: 1, furthestStep: 1 }
+    });
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page);
+    try {
+      await runtime.openApp(page);
+      await page.goto(`${runtime.origin}/#/workbench?tool=video-translation&jobId=${created.job.id}`);
+      const request = page.waitForRequest(req => req.url().endsWith('/actions')
+        && req.postDataJSON()?.input?.patch?.sourceLanguage === 'pt');
+      const source = page.getByRole('combobox', { name: '源语言', exact: true });
+      await expect(source.locator('option')).toHaveCount(14);
+      for (const value of ['es', 'fr', 'it', 'pt', 'id', 'th']) {
+        await expect(source.locator(`option[value="${value}"]`)).toHaveCount(1);
+      }
+      await source.selectOption('pt');
+      const action = (await request).postDataJSON();
+      const readSettings = async () => {
+        const { job } = await runtime.api<{ job: { state: { sourceLanguage: string; targetLanguage: string; bilingual: boolean } } }>('GET', `/creator/jobs/${created.job.id}`);
+        return { sourceLanguage: job.state.sourceLanguage, targetLanguage: job.state.targetLanguage, bilingual: job.state.bilingual };
+      };
+      await expect.poll(readSettings).toEqual({ sourceLanguage: 'pt', targetLanguage: 'zh_cn', bilingual: true });
+      await page.reload();
+      await expect(source).toHaveValue('pt');
+      await expect(page.getByRole('combobox', { name: '翻译为' })).toHaveValue('zh_cn');
+      await expect(page.getByRole('switch', { name: '双语字幕' })).toBeChecked();
+      results.push({ action: action.action, settings: await readSettings(),
+        requested: { sourceLanguage: action.input.patch.sourceLanguage, targetLanguage: action.input.patch.targetLanguage, bilingual: action.input.patch.bilingual },
+        options: await source.innerText(), sourceBox: await source.boundingBox() });
+    } finally { await context.close(); }
+  }
+  expect(results[1]).toEqual(results[0]);
+});
 
 test('Creator Issue 在 Browser/Desktop Bridge 下保持相同展示和 Agent 聚焦请求', async ({
   browser,
@@ -53,17 +213,15 @@ test('Creator Issue 在 Browser/Desktop Bridge 下保持相同展示和 Agent �
       );
 
       const panel = page.getByRole('complementary', { name: 'OpenCreator' });
-      const issue = panel.locator('.creator-collaboration-issue').filter({
-        hasText: reported.issue.diagnosticId
-      });
+      const issue = panel.locator(`.creator-collaboration-issue[data-issue-id="${reported.issue.id}"]`);
       await expect(issue).toContainText('操作未完成，请在 Agent 区域查看诊断。');
-      await expect(issue).toContainText(`诊断编号：${reported.issue.diagnosticId}`);
-      await expect(issue.getByRole('button', { name: '询问 Agent' })).toBeVisible();
-      await issue.getByRole('button', { name: '询问 Agent' }).click();
+      await expect(issue).toContainText('错误码：creator_e2e_failure');
+      await expect(issue).not.toContainText(reported.issue.diagnosticId);
+      await issue.getByRole('button', { name: '询问这个问题' }).click();
 
       const composer = panel.getByRole('textbox', { name: '告诉 Agent 你的要求' });
+      await composer.fill('请说明这个问题的已确认事实、可能原因和下一步修复方法。');
       await expect(composer).toHaveValue('请说明这个问题的已确认事实、可能原因和下一步修复方法。');
-      await expect(panel.getByText(`正在聚焦: ${reported.issue.diagnosticId}`)).toBeVisible();
       const responsePromise = page.waitForResponse(response => {
         const url = new URL(response.url());
         return response.request().method() === 'POST'
@@ -1764,6 +1922,7 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
     text: string;
     boxes: Record<string, { x: number; y: number; width: number; height: number }>;
     requests: string[];
+    downloads: unknown[];
   }> = [];
 
   for (const platform of ['browser', 'desktop'] as const) {
@@ -1776,14 +1935,31 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
     const page = await context.newPage();
     if (platform === 'desktop') await installDesktopBridge(page);
     const requests: string[] = [];
+    const downloads: unknown[] = [];
+    const components: CreatorRuntimeComponentsResponse = {
+      platform: 'darwin', arch: 'arm64', selectedProvider: 'bailian', selectedModel: null,
+      components: [{
+        id: 'remotion', name: 'Remotion', available: true, version: null, supportedVersion: '4.0.473',
+        installedAt: null, path: '/runtime/stickman', source: 'OpenCreator release · SHA-256 verified',
+        models: [], model: null, state: 'not_installed', item: null, downloadedBytes: 0,
+        totalBytes: null, percent: null, bytesPerSecond: null, remainingSeconds: null, error: null
+      }]
+    };
     page.on('request', request => {
       const url = new URL(request.url());
-      if (!url.pathname.includes('/creator/yt-dlp/')) return;
+      if (!url.pathname.includes('/creator/yt-dlp/') && !url.pathname.includes('/creator/components/')) return;
       requests.push(
         `${request.method()} ${url.pathname.replace('/.opencreator/runtime', '')}`
       );
     });
-    await page.route('**/.opencreator/runtime/creator/yt-dlp/status', route => route.fulfill({
+    await page.route('**/.opencreator/runtime/creator/components/status', route => route.fulfill({ json: components }));
+    await page.route('**/.opencreator/runtime/creator/components/download', route => {
+      downloads.push(route.request().postDataJSON());
+      components.components[0]!.state = 'ready';
+      components.components[0]!.version = components.components[0]!.supportedVersion;
+      return route.fulfill({ json: components });
+    });
+    await page.route('**/.opencreator/runtime/creator/yt-dlp/{status,check}', route => route.fulfill({
       json: {
         ytDlp: {
           channel: 'nightly',
@@ -1807,10 +1983,33 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
       const settings = page
         .getByRole('region', { name: 'OpenCreator 工作区' })
         .getByRole('main');
-      const component = settings.locator('.runtime-component-item');
+      const component = settings.locator('.runtime-component-item').filter({
+        has: page.getByRole('heading', { name: 'yt-dlp nightly' })
+      });
+      const remotion = settings.locator('#component-remotion');
       await expect(settings.getByRole('heading', { name: '第三方组件' })).toBeVisible();
       await expect(component.getByRole('heading', { name: 'yt-dlp nightly' })).toBeVisible();
       await expect(component).toContainText('用于解析和下载 YouTube、Bilibili 等公开视频资源。');
+      await expect(component).not.toContainText('正在检查');
+      await expect(remotion.getByRole('heading', { name: 'Remotion' })).toBeVisible();
+      await expect(remotion).not.toContainText('当前使用');
+      await expect(remotion.getByRole('link', { name: '调整转录设置' })).toHaveCount(0);
+      expect(downloads).toEqual([]);
+      await remotion.getByRole('button', { name: '下载组件' }).click();
+      await expect(remotion.getByRole('status')).toHaveText('已就绪');
+      await expect(remotion.locator('.settings-primary-button')).toHaveCount(0);
+      await remotion.getByRole('button', { name: '检查更新' }).click();
+      await expect(remotion.locator('.settings-primary-button')).toHaveCount(0);
+      expect(downloads).toEqual([{ componentId: 'remotion' }]);
+      components.components[0]!.supportedVersion = '4.0.474';
+      await remotion.getByRole('button', { name: '检查更新' }).click();
+      await expect(remotion.getByRole('button', { name: '更新到 4.0.474' })).toBeEnabled();
+      expect(downloads).toEqual([{ componentId: 'remotion' }]);
+      await remotion.getByRole('button', { name: '更新到 4.0.474' }).click();
+      await expect(remotion.locator('.settings-primary-button')).toHaveCount(0);
+      expect(downloads).toEqual([{ componentId: 'remotion' }, { componentId: 'remotion' }]);
+      expect(components.selectedProvider).toBe('bailian');
+      expect(components.selectedModel).toBeNull();
 
       const boxes: Record<
         string,
@@ -1818,6 +2017,8 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
       > = {};
       for (const [name, locator] of [
         ['settings', settings],
+        ['remotion', remotion],
+        ['remotion-check', remotion.getByRole('button', { name: '检查更新' })],
         ['component', component],
         ['check-button', component.getByRole('button', { name: '检查更新' })]
       ] as const) {
@@ -1833,7 +2034,8 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
       results.push({
         text: normalizeParityText(await settings.innerText()),
         boxes,
-        requests
+        requests,
+        downloads
       });
     } finally {
       await context.close();
@@ -1842,9 +2044,12 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
 
   expect(results[1]!.text).toBe(results[0]!.text);
   expect(results[1]!.boxes).toEqual(results[0]!.boxes);
+  expect(results[1]!.downloads).toEqual(results[0]!.downloads);
   expect(normalizeParityRequests(results[1]!.requests))
     .toEqual(normalizeParityRequests(results[0]!.requests));
   expect(results[0]!.requests).toContain('GET /creator/yt-dlp/status');
+  expect(results[0]!.requests).toContain('GET /creator/components/status');
+  expect(results[0]!.requests).toContain('POST /creator/components/download');
 });
 
 test('工作台模块新建 Creator Job，刷新和最近项目精确恢复历史且不启动普通 Codex Run', async ({ page, runtime }) => {
@@ -2229,5 +2434,11 @@ function normalizeParityText(value: string): string {
 }
 
 function normalizeParityRequests(requests: string[]): string[] {
-  return [...requests].sort();
+  const readRequests = new Set<string>();
+  return requests.filter(request => {
+    if (!request.startsWith('GET ')) return true;
+    if (readRequests.has(request)) return false;
+    readRequests.add(request);
+    return true;
+  }).sort();
 }

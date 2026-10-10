@@ -20,6 +20,42 @@ afterEach(() => {
 });
 
 describe('video translation workflow', () => {
+  it.each([
+    { suffix: '', error: 'creator_source_part_required' },
+    { suffix: '?p=0', error: 'creator_source_invalid_part' },
+    { suffix: '?p=4', error: 'creator_source_invalid_part' },
+    { suffix: '?p=3', error: undefined }
+  ])('validates Bilibili selection before starting: $suffix', async ({ suffix, error }) => {
+    const fixture = setup({ sourceUrl: `https://www.bilibili.com/video/BV18E421w7bf${suffix}` });
+    const config = createDefaultCreatorServicesConfig();
+    config.llm.source = 'codex';
+    const get = vi.fn(async () => ({ platform: 'bilibili' as const, title: 'Course',
+      parts: [1, 2, 3].map(index => ({ index, title: `Lesson ${index}` })) }));
+    const workflow = createVideoTranslationWorkflow({ creator: fixture.service, dispatcher: fixture.dispatcher,
+      configStore: { read: async () => config }, videoMetadataService: { get } });
+    try {
+      const validated = workflow.validateStage(fixture.service.getJob(fixture.jobId)!, 'subtitle');
+      if (error) await expect(validated).rejects.toMatchObject({ code: error });
+      else {
+        await expect(validated).resolves.toBeUndefined();
+        expect(get).toHaveBeenCalledWith('https://www.bilibili.com/video/BV18E421w7bf?p=3');
+      }
+      expect(fixture.service.getJob(fixture.jobId)!.stages).toHaveLength(0);
+    } finally { fixture.db.close(); }
+  });
+
+  it('does not download a Bilibili collection when part lookup fails', async () => {
+    const fixture = setup({ sourceUrl: 'https://www.bilibili.com/video/BV18E421w7bf' });
+    const workflow = createVideoTranslationWorkflow({ creator: fixture.service, dispatcher: fixture.dispatcher,
+      configStore: { read: async () => createDefaultCreatorServicesConfig() },
+      videoMetadataService: { get: async () => { throw new Error('network unavailable'); } } });
+    try {
+      await expect(workflow.validateStage(fixture.service.getJob(fixture.jobId)!, 'subtitle'))
+        .rejects.toMatchObject({ code: 'creator_source_metadata_unavailable', message: expect.stringContaining('未启动下载或翻译') });
+      expect(fixture.service.getJob(fixture.jobId)!.stages).toHaveLength(0);
+    } finally { fixture.db.close(); }
+  });
+
   it('accepts Codex runtime translation without a creator API key', async () => {
     const fixture = setup({});
     const config = createDefaultCreatorServicesConfig();
@@ -54,8 +90,16 @@ describe('video translation workflow', () => {
 
   it.each([
     'https://www.youtube.com/watch?v=xVWS7yHdzCU',
-    'https://youtu.be/tAkC-ZdaqWs?si=6LcL-jgzdBaZ1IFD'
-  ])('accepts the supported YouTube URL form: %s', async sourceUrl => {
+    'https://youtu.be/tAkC-ZdaqWs?si=6LcL-jgzdBaZ1IFD',
+    'https://x.com/creator/status/123',
+    'https://www.tiktok.com/@creator/video/123',
+    'https://www.instagram.com/reel/abc123/',
+    '分享视频 https://v.douyin.com/abc123/ 复制打开抖音',
+    'https://www.douyin.com/jingxuan?modal_id=123',
+    'https://www.facebook.com/watch/?v=123',
+    'https://www.xiaohongshu.com/explore/6a9149f3000000001f01d20a?xsec_token=sample%3D',
+    'https://www.pinterest.com/pin/123/'
+  ])('accepts the supported public video URL form: %s', async sourceUrl => {
     const fixture = setup({ sourceUrl });
     const config = createDefaultCreatorServicesConfig();
     config.llm.apiKey = 'llm-key';
@@ -68,6 +112,17 @@ describe('video translation workflow', () => {
     await expect(workflow.validateStage(fixture.service.getJob(fixture.jobId)!, 'subtitle'))
       .resolves.toBeUndefined();
     fixture.db.close();
+  });
+
+  it.each(['https://www.instagram.com/creator/', 'https://www.pinterest.com/creator/',
+    'https://notxiaohongshu.com/explore/6a9149f3000000001f01d20a'])('rejects unsupported translation sources: %s', async sourceUrl => {
+    const fixture = setup({ sourceUrl });
+    const workflow = createVideoTranslationWorkflow({ creator: fixture.service, dispatcher: fixture.dispatcher,
+      configStore: { read: async () => createDefaultCreatorServicesConfig() } });
+    try {
+      await expect(workflow.validateStage(fixture.service.getJob(fixture.jobId)!, 'subtitle'))
+        .rejects.toMatchObject({ code: 'unsupported_source' });
+    } finally { fixture.db.close(); }
   });
 
   it('queues the selected stages in order through the command dispatcher', async () => {

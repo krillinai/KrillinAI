@@ -1,0 +1,196 @@
+.project-management-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(0 0 0 / 48%);
+}
+
+.project-management-dialog {
+  width: min(760px, 100%);
+  max-height: min(820px, calc(100vh - 48px));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  box-shadow: 0 20px 64px rgb(0 0 0 / 32%);
+}
+
+.project-management-dialog > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.project-management-dialog h2,
+.project-management-dialog h3,
+.project-management-dialog p {
+  margin: 0;
+}
+
+.project-management-dialog > header p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.project-management-body {
+  display: grid;
+  gap: 24px;
+  max-height: calc(100vh - 170px);
+  overflow: auto;
+  padding: 20px 22px 24px;
+}
+
+.project-management-body > section {
+  display: grid;
+  gap: 10px;
+}
+
+.project-management-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.project-management-list {
+  display: grid;
+  gap: 8px;
+}
+
+.project-management-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.project-management-item-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.project-management-item-copy span {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.project-directory-warning {
+  color: var(--warning) !important;
+}
+
+.project-management-actions,
+.project-assignment-controls,
+.project-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-management-actions button,
+.project-management-item > button,
+.project-assignment-controls button,
+.project-edit-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.project-management-empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.project-management-empty-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+
+.project-management-empty-action button {
+  min-height: 34px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.project-edit-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-3);
+}
+
+.project-edit-form h3,
+.project-edit-actions {
+  grid-column: 1 / -1;
+}
+
+.project-edit-form label {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.project-edit-form input,
+.project-edit-form select,
+.project-assignment-controls select {
+  min-width: 0;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 9px;
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+@media (max-width: 720px) {
+  .project-management-backdrop {
+    padding: 0;
+  }
+
+  .project-management-dialog {
+    width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .project-management-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .project-management-actions,
+  .project-assignment-controls {
+    flex-wrap: wrap;
+  }
+
+  .project-edit-form {
+    grid-template-columns: 1fr;
+  }
+
+  .project-edit-form h3,
+  .project-edit-actions {
+    grid-column: auto;
+  }
+}

@@ -8,6 +8,7 @@ import {
 } from '../../image-generation/provider.js';
 import { CreatorExecutorError } from '../executor.js';
 import { resolveCreatorImageSettings } from '../image-settings.js';
+import type { NativeImageProgress } from '../../image-generation/codex-native.js';
 
 export type ArticleImageGenerationResult = GeneratedImageContent & {
   provider: ImageGenerationProvider;
@@ -25,6 +26,7 @@ export function createArticleImageGenerator(input: {
       prompt: string;
       signal: AbortSignal;
       cwd?: string;
+      onProgress?(progress: NativeImageProgress): void;
     }): Promise<ArticleImageGenerationResult> {
       const config = await input.configStore.read();
       const { provider } = resolveCreatorImageSettings({
@@ -41,6 +43,7 @@ export function createArticleImageGenerator(input: {
           count: 1
         }, config, {
           signal: request.signal,
+          onProgress: request.onProgress,
           ...(input.codexNative === undefined
             ? {}
             : { codexNative: input.codexNative })

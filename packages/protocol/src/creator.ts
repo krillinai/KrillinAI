@@ -162,6 +162,10 @@ export type CreatorPresetHighlight = {
   colors: string[];
 };
 
+export type CreatorPresetDetail = CreatorPresetHighlight & {
+  label: string;
+};
+
 export type CreatorPresetAuthor = {
   name: string;
   url?: string;
@@ -177,10 +181,12 @@ export type CreatorPresetSummary = CreatorPresetRef & {
   author?: CreatorPresetAuthor;
   prompt: string | null;
   tags: string[];
+  tagIds?: string[];
   featured: boolean;
   sortOrder: number;
   requirements: CreatorPresetRequirements | null;
   highlights: CreatorPresetHighlight[];
+  details?: CreatorPresetDetail[];
 };
 
 export type CreatorPresetListResponse = {
@@ -376,6 +382,40 @@ export type CreatorYtDlpStatus = {
 
 export type CreatorYtDlpStatusResponse = {
   ytDlp: CreatorYtDlpStatus;
+};
+
+export type CreatorRuntimeComponent = {
+  id: 'whisperkit' | 'whisper.cpp' | 'faster-whisper' | 'remotion';
+  name: string;
+  available: boolean;
+  version: string | null;
+  supportedVersion: string | null;
+  installedAt: string | null;
+  path: string;
+  source: string;
+  models: Array<{ id: string; installed: boolean; bytes: number | null }>;
+  state: 'not_installed' | 'partial' | 'downloading' | 'verifying' | 'extracting' | 'ready' | 'failed' | 'unsupported';
+  model: string | null;
+  item: string | null;
+  downloadedBytes: number;
+  totalBytes: number | null;
+  percent: number | null;
+  bytesPerSecond: number | null;
+  remainingSeconds: number | null;
+  error: string | null;
+  message?: string;
+};
+
+export type CreatorLocalComponent = Omit<CreatorRuntimeComponent, 'id'> & {
+  id: Exclude<CreatorRuntimeComponent['id'], 'remotion'>;
+};
+
+export type CreatorRuntimeComponentsResponse = {
+  platform: string;
+  arch: string;
+  selectedProvider: string;
+  selectedModel: string | null;
+  components: CreatorRuntimeComponent[];
 };
 
 export type CreatorSelection = {

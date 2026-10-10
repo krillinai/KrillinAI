@@ -6,6 +6,18 @@ import {
 } from '../../src/codex/argv.js';
 
 describe('codex argv', () => {
+  it('isolates native image generation from user providers, shells and MCP', () => {
+    const args = buildCodexExecArgs({ cwd: '/tmp/image-task', sandbox: 'workspace-write', imageGenerationOnly: true, imagePaths: ['/tmp/reference.png'] });
+    expect(args).toContain('--ignore-user-config');
+    expect(args.join(' ')).toContain('--enable image_generation');
+    expect(args.join(' ')).not.toContain('--disable image_generation');
+    for (const feature of ['shell_tool', 'plugins', 'apps', 'unified_exec', 'view_image']) {
+      expect(args.join(' ')).toContain(`--disable ${feature}`);
+    }
+    expect(args).toContain('mcp_servers={}');
+    expect(args).toContain('web_search="disabled"');
+    expect(args.slice(-2)).toEqual(['--image', '/tmp/reference.png']);
+  });
   it('builds exec args without prompt in argv', () => {
     const args = buildCodexExecArgs({
       profile: 'default',

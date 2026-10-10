@@ -1,4 +1,6 @@
 import type {
+  CodexImageStatus,
+  CodexProviderConfig,
   CreatorServicesCapabilitiesResponse,
   CreatorServicesConfig,
   CreatorServicesConfigResponse,
@@ -10,10 +12,19 @@ import type { RuntimeClient } from '../runtime/client.js';
 
 type ClientLike = Pick<RuntimeClient, 'get' | 'patch' | 'delete' | 'rawRequest'>;
 
-export type CreatorServicesSettingsService = ReturnType<typeof createCreatorServicesService>;
+export type CreatorServicesSettingsService = Omit<ReturnType<typeof createCreatorServicesService>, 'getCodexImageStatus' | 'getCodexModelStatus'> & {
+  getCodexImageStatus?: () => Promise<CodexImageStatus>;
+  getCodexModelStatus?: () => Promise<CodexProviderConfig>;
+};
 
 export function createCreatorServicesService(client: ClientLike) {
   return {
+    getCodexModelStatus(): Promise<CodexProviderConfig> {
+      return client.get('/creator-services/model/codex/status');
+    },
+    getCodexImageStatus(): Promise<CodexImageStatus> {
+      return client.get('/creator-services/image/codex/status');
+    },
     getCapabilities(): Promise<CreatorServicesCapabilitiesResponse> {
       return client.get('/creator-services/capabilities');
     },
@@ -23,6 +34,7 @@ export function createCreatorServicesService(client: ClientLike) {
     saveConfig(config: CreatorServicesConfig): Promise<CreatorServicesConfigResponse> {
       return client.patch('/creator-services/config', config);
     },
+    testTranscriptionConnection(config: CreatorServicesConfig['transcription']['funasr']): Promise<{ connected: boolean; model: string; models: string[]; capabilities: string[] }> { return client.rawRequest('/creator-services/transcription/test', { method: 'POST', body: config }).then(response => response.json()); },
     resetConfig(): Promise<CreatorServicesConfigResponse> {
       return client.delete('/creator-services/config');
     },

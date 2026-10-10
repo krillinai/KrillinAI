@@ -9,7 +9,7 @@ import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import ImageGenerationWorkspace from './ImageGenerationWorkspace.js';
-import { CreatorSessionProvider } from './creator-session-store.js';
+import { CreatorSessionProvider, useOptionalCreatorSession, type CreatorSessionContextValue } from './creator-session-store.js';
 
 describe('ImageGenerationWorkspace', () => {
   beforeEach(() => {
@@ -35,6 +35,95 @@ describe('ImageGenerationWorkspace', () => {
     expect(prompt).toHaveAttribute('rows', '7');
     expect(referenceUpload.compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING)
       .not.toBe(0);
+  });
+
+  it('validates required reference input while typing and blocks continuing until uploaded', async () => {
+    const fixture = createFixture();
+    renderWorkspace(fixture);
+    const prompt = screen.getByRole('textbox', { name: '提示词' });
+    fireEvent.change(prompt, { target: { value: '以上传的人物照片为唯一主体，生成复古海报' } });
+    expect(prompt).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('status')).toHaveTextContent('请先上传参考图');
+    fireEvent.click(screen.getByRole('button', { name: '继续' }));
+    expect(screen.getByRole('textbox', { name: '提示词' })).toBeInTheDocument();
+    expect(fixture.uploadReferenceImage).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('上传图像生成参考图'), { target: { files: [new File([png('reference')], 'reference.png', { type: 'image/png' })] } });
+    });
+    expect(prompt).toHaveAttribute('aria-invalid', 'false');
+    fireEvent.click(screen.getByRole('button', { name: '继续' }));
+    expect(screen.getByRole('heading', { name: '生成设置' })).toBeInTheDocument();
+  });
+
+  it('blocks generation from a restored settings step with a missing reference', () => {
+    const fixture = createFixture();
+    renderWorkspace(fixture, { ...fixture.currentJob(), state: {
+      ...fixture.currentJob().state, prompt: 'Edit the attached photo', currentStep: 2, furthestStep: 2
+    } });
+    fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
+    expect(screen.getByRole('textbox', { name: '提示词' })).toBeInTheDocument();
+    expect(fixture.applyAction).not.toHaveBeenCalled();
+  });
+
+  it('shows the actual stage failure instead of discarding it for a generic service error', () => {
+    const fixture = createFixture();
+    const job = fixture.currentJob();
+    renderWorkspace(fixture, { ...job, status: 'failed', stages: [{
+      id: 'stage-failed', jobId: job.id, stageId: 'generate', executor: 'image',
+      status: 'failed', dispatchStatus: 'finished', claimOwner: null, claimExpiresAt: null,
+      attempt: 1, idempotencyKey: null, scopeKey: null, inputFingerprint: null, progress: {},
+      errorCode: 'image_generation_failed', errorMessage: 'Codex 无法获取所需的参考图，请先上传图片后重试。 token=private-secret',
+      startedAt: job.createdAt, finishedAt: job.createdAt
+    }] });
+    expect(screen.getByRole('alert')).toHaveTextContent('Codex 无法获取所需的参考图，请先上传图片后重试');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('private-secret');
+  });
+
+  it.each([
+    ['empty.png', '', 'image/png'],
+    ['file.txt', 'text', 'text/plain']
+  ])('rejects an invalid reference before uploading (%s)', (name, content, type) => {
+    const file = new File([content], name, { type });
+    const fixture = createFixture();
+    renderWorkspace(fixture);
+    fireEvent.change(screen.getByLabelText('上传图像生成参考图'), { target: { files: [file] } });
+    expect(screen.getByRole('alert')).toHaveTextContent('参考图必须是非空的 PNG、JPEG 或 WebP 图片，且不超过 20 MB。');
+    expect(fixture.uploadReferenceImage).not.toHaveBeenCalled();
+  });
+
+  it('keeps preview URLs and image nodes across repeated job snapshots, but reloads changed results', async () => {
+    const fixture = createFixture();
+    const artifact = imageArtifact(fixture.currentJob().id, 1, fixture.currentJob().createdAt);
+    const job: CreatorJob = { ...fixture.currentJob(), status: 'completed', artifacts: [artifact] };
+    vi.mocked(URL.createObjectURL).mockImplementationOnce(() => 'blob:result-1').mockImplementationOnce(() => 'blob:result-2');
+    const view = renderWorkspace(fixture, job);
+    const image = await screen.findByRole('img', { name: '生成图片 1' });
+    expect(image).toHaveAttribute('src', 'blob:result-1');
+    for (let revision = 1; revision <= 3; revision += 1) {
+      await view.pushSnapshot({ ...structuredClone(job), revision });
+      expect(screen.getByRole('img', { name: '生成图片 1' })).toBe(image);
+      expect(image).toHaveAttribute('src', 'blob:result-1');
+    }
+    expect(fixture.openArtifact).toHaveBeenCalledTimes(1);
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+    await view.pushSnapshot({ ...job, revision: 4, artifacts: [artifact, imageArtifact(job.id, 2, job.createdAt)] });
+    await waitFor(() => expect(screen.getByRole('img', { name: '生成图片 1' })).toHaveAttribute('src', 'blob:result-2'));
+    expect(fixture.openArtifact).toHaveBeenCalledTimes(2);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:result-1');
+    view.unmount();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:result-2');
+  });
+
+  it('releases preview URLs when an in-flight fetch finishes after unmount', async () => {
+    const fixture = createFixture();
+    let finish!: (response: Response) => void;
+    fixture.openArtifact.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const artifact = imageArtifact(fixture.currentJob().id, 1, fixture.currentJob().createdAt);
+    const view = renderWorkspace(fixture, { ...fixture.currentJob(), artifacts: [artifact] });
+    await waitFor(() => expect(fixture.openArtifact).toHaveBeenCalledOnce());
+    view.unmount();
+    await act(async () => { finish(new Response(new Blob([png('result')], { type: 'image/png' }))); });
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:image-generation-reference');
   });
 
   it('does not persist an untouched pending project', async () => {
@@ -200,7 +289,8 @@ function renderWorkspace(
   initialJob = fixture.currentJob(),
   creatorServicesService?: { getConfig(): Promise<unknown> }
 ) {
-  return render(
+  let currentSession: CreatorSessionContextValue | null = null;
+  const view = render(
     <LanguageProvider initialPreference="zh-CN">
       <CreatorSessionProvider
         initialJob={initialJob}
@@ -212,6 +302,7 @@ function renderWorkspace(
           runAgentTurn: vi.fn()
         } as never}
       >
+        <SessionObserver onSession={session => { currentSession = session; }} />
         <ImageGenerationWorkspace
           onBack={vi.fn()}
           creatorServicesService={creatorServicesService as never}
@@ -219,6 +310,14 @@ function renderWorkspace(
       </CreatorSessionProvider>
     </LanguageProvider>
   );
+  return { ...view, async pushSnapshot(job: CreatorJob) {
+    await act(async () => { currentSession!.applyRemoteSnapshot(job); });
+  } };
+}
+
+function SessionObserver(props: { onSession(session: CreatorSessionContextValue | null): void }) {
+  props.onSession(useOptionalCreatorSession());
+  return null;
 }
 
 function imageArtifact(jobId: string, resultVersion: number, createdAt: string): CreatorArtifact {

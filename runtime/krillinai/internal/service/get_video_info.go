@@ -19,8 +19,8 @@ func (s Service) getVideoInfo(ctx context.Context, stepParam *types.SubtitleTask
 			title, description string
 		)
 		// 获取标题
-		titleCmdArgs := []string{"--skip-download", "--encoding", "utf-8", "--get-title", stepParam.Link}
-		descriptionCmdArgs := []string{"--skip-download", "--encoding", "utf-8", "--get-description", stepParam.Link}
+		titleCmdArgs := []string{"--no-playlist", "--skip-download", "--encoding", "utf-8", "--get-title", stepParam.Link}
+		descriptionCmdArgs := []string{"--no-playlist", "--skip-download", "--encoding", "utf-8", "--get-description", stepParam.Link}
 		titleCmdArgs = appendCookiesArgs(titleCmdArgs, youtubeCookiesPath)
 		descriptionCmdArgs = appendCookiesArgs(descriptionCmdArgs, youtubeCookiesPath)
 		if config.Conf.App.Proxy != "" {
