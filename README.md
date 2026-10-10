@@ -588,6 +588,7 @@ Each crew member is responsible for their area, including its standards, contrib
 ### Contributors
 
 Thanks to everyone who has taken part through code, documentation, feedback, issue reports, Skills, designs, and ideas.
+This README list is maintained separately from GitHub's automatically generated Contributors graph.
 
 <div>
   <a href="https://github.com/maranello-o"><img src="./docs/images/contributors/maranello-o.svg" width="48" height="48" alt="maranello-o" /></a>
