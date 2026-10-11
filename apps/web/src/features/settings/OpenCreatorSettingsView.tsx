@@ -40,6 +40,8 @@ import type { GatewayAccountSettingsService } from '../../services/gateway-accou
 import type { GatewayAccountState } from '@opencreator/protocol';
 import { OfficialServicesSettingsView } from './OfficialServicesSettingsView.js';
 import { NetworkSettings } from './NetworkSettings.js';
+import { PlatformConnectionsSettingsView } from './PlatformConnectionsSettingsView.js';
+import type { PlatformConnectionsService } from '../../services/platform-connections-service.js';
 
 const CreatorServicesSettingsView = lazy(async () => {
   const module = await import('./CreatorServicesSettingsView.js');
@@ -78,6 +80,7 @@ export type OpenCreatorSettingsViewProps = {
   onProfileDataChange?(data: CodexProfileListResponse): void;
   cleanupService?: CleanupSettingsService | null;
   creatorServicesService?: CreatorServicesSettingsService | null;
+  platformConnectionsService?: PlatformConnectionsService | null;
   gatewayAccountService?: GatewayAccountSettingsService | null;
   gatewayAccountState?: GatewayAccountState;
   onGatewayStateChange?(state: GatewayAccountState): void;
@@ -103,6 +106,7 @@ export type OpenCreatorSettingsViewProps = {
 type SettingsTab =
   | 'general'
   | 'ai-services'
+  | 'platform-connections'
   | 'local-components'
   | 'plugins'
   | 'memory'
@@ -120,6 +124,7 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
   const tabs: Array<{ id: SettingsTab; label: string }> = [
     { id: 'general', label: t('settings.tab.general') },
     { id: 'ai-services', label: t('settings.tab.aiServices') },
+    { id: 'platform-connections', label: l('平台连接', 'Platform connections') },
     { id: 'local-components', label: t('settings.tab.runtimeComponents') },
     { id: 'plugins', label: t('settings.tab.plugins') },
     { id: 'memory', label: t('settings.tab.memory') },
@@ -242,6 +247,7 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
             controller={props.runtimeDependencies}
           />
         ) : null}
+        {activeTab === 'platform-connections' ? <PlatformConnectionsSettingsView connected={props.runtimeStatus.connected} service={props.platformConnectionsService} /> : null}
         {activeTab === 'plugins' ? <PluginSettings runtimeStatus={props.runtimeStatus} /> : null}
         {activeTab === 'memory' ? (
           <MemorySettingsView

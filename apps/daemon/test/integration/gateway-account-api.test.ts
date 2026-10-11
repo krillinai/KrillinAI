@@ -1,11 +1,52 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import Fastify from 'fastify';
 import { registerGatewayAccountRoutes } from '../../src/api/routes.gateway-account.js';
 import { createGatewayClient } from '../../src/gateway/client.js';
-import { createGatewayAccountService } from '../../src/gateway/account-service.js';
+import { GatewayError } from '../../src/gateway/client.js';
+import { createGatewayAccountService, type GatewayAccountService } from '../../src/gateway/account-service.js';
+
+it('proxies account-owned orders and encoded grant cursors without caching', async () => {
+  const billing = vi.fn(async () => ({ items: [] }));
+  const server = Fastify();
+  try {
+    await registerGatewayAccountRoutes(server, { billing } as unknown as GatewayAccountService);
+    const order = await server.inject({ method: 'GET', url: '/gateway/billing/orders/order-a' });
+    expect(order.statusCode).toBe(200);
+    expect(order.headers['cache-control']).toBe('no-store');
+    expect(billing).toHaveBeenLastCalledWith('/api/v1/billing/orders/order-a');
+    const ledger = await server.inject({ method: 'GET', url: '/gateway/billing/ledger?cursor=trial%3Aa%2Bb' });
+    expect(ledger.statusCode).toBe(200);
+    expect(billing).toHaveBeenLastCalledWith('/api/v1/billing/ledger?cursor=trial%3Aa%2Bb');
+    billing.mockClear();
+    const invalid = await server.inject({ method: 'GET', url: '/gateway/billing/ledger?cursor=' + 'a'.repeat(257) });
+    expect(invalid.statusCode).toBe(400);
+    expect(billing).not.toHaveBeenCalled();
+  } finally { await server.close(); }
+});
+
+it('proxies validated website handoffs through the authenticated account service', async () => {
+  const billing = vi.fn(async () => ({ url: 'https://gateway.example/auth#handoff=example' }));
+  const server = Fastify();
+  try {
+    await registerGatewayAccountRoutes(server, { billing } as unknown as GatewayAccountService);
+    const body = { destination: 'recharge', locale: 'zh', returnUrl: 'opencreator://billing/return' };
+    const result = await server.inject({ method: 'POST', url: '/gateway/account/web', payload: body });
+    expect(result.statusCode).toBe(200);
+    expect(result.headers['cache-control']).toBe('no-store');
+    expect(billing).toHaveBeenCalledWith('/api/v1/auth/browser/start', body);
+    billing.mockClear();
+    const invalid = await server.inject({ method: 'POST', url: '/gateway/account/web', payload: { ...body, destination: 'https://evil.test' } });
+    expect(invalid.statusCode).toBe(400);
+    expect(billing).not.toHaveBeenCalled();
+    billing.mockRejectedValueOnce(new GatewayError('invalid_origin', 403));
+    const legacy = await server.inject({ method: 'POST', url: '/gateway/account/web', payload: body });
+    expect(legacy.statusCode).toBe(404);
+    expect(legacy.json().error.details.gatewayCode).toBe('browser_handoff_unavailable');
+  } finally { await server.close(); }
+});
 
 it.skipIf(!process.env.GATEWAY_BROWSER_TEST_ORIGIN)('device service completes authorization against the local Go gateway', async () => {
   const origin = process.env.GATEWAY_BROWSER_TEST_ORIGIN!;

@@ -16,6 +16,16 @@ export async function registerGatewayAccountRoutes(server: FastifyInstance, serv
     }
   }
   server.get('/gateway/account', (_r, reply) => respond(() => service.readState(), reply));
+  server.post('/gateway/account/web', (r, reply) => respond(async () => {
+    const value = z.object({ destination: z.enum(['recharge', 'account', 'usage', 'faq']), locale: z.enum(['zh', 'en']), returnUrl: z.string().max(2048).optional() }).strict().safeParse(r.body);
+    if (!value.success) throw new GatewayError('invalid_parameters', 400);
+    try { return await service.billing('/api/v1/auth/browser/start', value.data); }
+    catch (error) {
+      // Older gateways apply browser CSRF checks before recognizing the new device endpoint.
+      if (error instanceof GatewayError && error.status === 403 && error.code === 'invalid_origin') throw new GatewayError('browser_handoff_unavailable', 404);
+      throw error;
+    }
+  }, reply));
   server.get('/gateway/avatar', (r, reply) => respond(async () => {
     const query = z.object({ accountId: z.string().min(1).max(512) }).strict().safeParse(r.query);
     if (!query.success) throw new GatewayError('invalid_parameters', 400);
@@ -23,6 +33,7 @@ export async function registerGatewayAccountRoutes(server: FastifyInstance, serv
     return reply.header('X-Content-Type-Options', 'nosniff').type(image.contentType).send(Buffer.from(image.data));
   }, reply));
   server.post('/gateway/auth/start', (_r, reply) => respond(() => service.startAuthorization(), reply));
+  server.post('/gateway/auth/check', (_r, reply) => respond(async () => { service.checkAuthorization(); return service.readState(); }, reply));
   server.post('/gateway/auth/cancel', (_r, reply) => respond(async () => { await service.cancelAuthorization(); return service.readState(); }, reply));
   server.post('/gateway/auth/logout', (_r, reply) => respond(async () => { await service.logout(); return service.readState(); }, reply));
   server.post('/gateway/auth/activate', (_r, reply) => respond(async () => { await service.activate(); return service.readState(); }, reply));
@@ -35,6 +46,17 @@ export async function registerGatewayAccountRoutes(server: FastifyInstance, serv
   }, reply));
   server.get('/gateway/billing/summary', (_r, reply) => respond(() => service.billing('/api/v1/billing/summary'), reply));
   server.get('/gateway/plans', (_r, reply) => respond(() => service.readPlans(), reply));
-  for (const resource of ['orders', 'ledger'] as const) server.get(`/gateway/billing/${resource}`, (_r, reply) => respond(() => service.billing(`/api/v1/billing/${resource}`), reply));
+  server.get('/gateway/billing/orders', (_r, reply) => respond(() => service.billing('/api/v1/billing/orders'), reply));
+  server.get('/gateway/billing/orders/:id', (r, reply) => respond(() => {
+    const params = z.object({ id: z.string().min(1).max(128) }).safeParse(r.params);
+    if (!params.success) throw new GatewayError('invalid_parameters', 400);
+    return service.billing('/api/v1/billing/orders/' + encodeURIComponent(params.data.id));
+  }, reply));
+  server.get('/gateway/billing/ledger', (r, reply) => respond(() => {
+    const query = z.object({ cursor: z.string().max(256).optional() }).strict().safeParse(r.query);
+    if (!query.success) throw new GatewayError('invalid_parameters', 400);
+    const suffix = query.data.cursor ? '?cursor=' + encodeURIComponent(query.data.cursor) : '';
+    return service.billing('/api/v1/billing/ledger' + suffix);
+  }, reply));
   for (const action of ['checkout', 'portal'] as const) server.post(`/gateway/billing/${action}`, (r, reply) => respond(() => service.billing(`/api/v1/billing/${action}`, r.body ?? {}), reply));
 }

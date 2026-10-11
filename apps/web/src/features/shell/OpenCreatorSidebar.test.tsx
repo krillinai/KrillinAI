@@ -72,10 +72,10 @@ describe('OpenCreatorSidebar', () => {
   ])('opens the personal center from the footer when collapsed=$collapsed and activeView=$activeView', ({ collapsed, activeView }) => {
     const onOpenView = vi.fn();
     renderSidebar({ collapsed, activeView, onOpenView });
-    const button = screen.getByRole('button', { name: '账户' });
+    const button = screen.getByRole('button', { name: '个人中心' });
     expect(button.parentElement).toHaveClass('sidebar-bottom');
     expect(button).toHaveAttribute('aria-current', 'page');
-    expect(button).toHaveAttribute('title', '账户');
+    expect(button).toHaveAttribute('title', '个人中心');
     fireEvent.click(button);
     expect(onOpenView).toHaveBeenCalledWith('account');
   });

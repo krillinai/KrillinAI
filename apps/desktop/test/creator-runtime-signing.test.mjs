@@ -165,6 +165,22 @@ describe('Creator Runtime Developer ID signing', () => {
     )).toThrow(/absent from its manifest/i);
   });
 
+  it('grants V8 JIT permissions only to the bundled Node executable', async () => {
+    const fixture = createFixture({ javascriptRuntime: true });
+    const signBinary = vi.fn();
+    await signCreatorRuntimeBundle(createContext(fixture.appOutDir), {
+      env: signingEnv(), findIdentity: () => 'Developer ID Application: Junxi YIN (NVRH5R5DJ5)',
+      findBinaries: () => fixture.binaryPaths, signBinary
+    });
+    for (const call of signBinary.mock.calls) {
+      if (call[0] === join(fixture.runtimeRoot, 'bin', 'node')) {
+        expect(readFileSync(call[3], 'utf8')).toMatch(/com\.apple\.security\.cs\.allow-jit<\/key>\s*<true\/>/);
+      } else {
+        expect(call).toHaveLength(3);
+      }
+    }
+  });
+
   it('signs the packaged Stickman browser and refreshes its manifest', async () => {
     const fixture = createStickmanFixture();
     const signBinary = vi.fn(path => {
@@ -246,7 +262,7 @@ function signingEnv() {
   };
 }
 
-function createFixture() {
+function createFixture(options = {}) {
   const root = mkdtempSync(join(tmpdir(), 'opencreator-runtime-signing-'));
   temporaryDirectories.push(root);
   const appOutDir = join(root, 'mac-arm64');
@@ -263,6 +279,7 @@ function createFixture() {
     'bin/ffmpeg': 'ffmpeg',
     'bin/ffprobe': 'ffprobe',
     'bin/yt-dlp': 'yt-dlp',
+    ...(options.javascriptRuntime ? { 'bin/node': 'node' } : {}),
     'build-record.json': '{"version":1}',
     'subtitle-style.json': '{"version":1}'
   };
@@ -288,7 +305,10 @@ function createFixture() {
     ytDlp: {
       mode: 'standalone',
       version: 'test',
-      executable: 'bin/yt-dlp'
+      executable: 'bin/yt-dlp',
+      ...(options.javascriptRuntime ? { javascriptRuntime: {
+        name: 'node', version: '22.23.2', executable: 'bin/node'
+      } } : {})
     },
     resources
   };
@@ -303,7 +323,8 @@ function createFixture() {
       join(runtimeRoot, 'bin', 'krillinai-cli'),
       join(runtimeRoot, 'bin', 'ffmpeg'),
       join(runtimeRoot, 'bin', 'ffprobe'),
-      join(runtimeRoot, 'bin', 'yt-dlp')
+      join(runtimeRoot, 'bin', 'yt-dlp'),
+      ...(options.javascriptRuntime ? [join(runtimeRoot, 'bin', 'node')] : [])
     ]
   };
 }

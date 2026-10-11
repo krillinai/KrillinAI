@@ -264,6 +264,8 @@ import { registerTaskRoutes } from './routes.tasks.js';
 import { registerThreadRoutes } from './routes.threads.js';
 import { registerWorkspaceFileRoutes } from './routes.workspace-files.js';
 import { registerVideoMetadataRoutes } from './routes.video-metadata.js';
+import { YouTubeConnectionService } from '../platform-connections/youtube.js';
+import { registerPlatformConnectionRoutes } from './routes.platform-connections.js';
 
 export type BuildServerInput = {
   token: string;
@@ -688,9 +690,17 @@ export async function buildServer(input: BuildServerInput) {
   const creatorServicesConfigStore = gatewayCreatorSource.store;
   if (stickmanContentRuntimeManager) stickmanContentRuntimeManager = createRuntimeSource(stickmanContentRuntimeManager, gatewayAccount.peekState, () => officialManagers.get('stickman'));
   let getCreatorYtDlpRuntime: (() => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
+  const youtubeConnection = new YouTubeConnectionService({
+    root: join(dataDir, 'platform-connections', 'youtube'),
+    getRuntime: () => getCreatorYtDlpRuntime?.()
+  });
+  await youtubeConnection.initialize();
+  await registerPlatformConnectionRoutes(server, youtubeConnection);
   const videoMetadataService = input.videoMetadataService ?? createVideoMetadataService({
     getProxy: async () => (await readCommonProxy()).trim(),
-    getYtDlpRuntime: () => getCreatorYtDlpRuntime?.()
+    getYtDlpRuntime: () => getCreatorYtDlpRuntime?.(),
+    isYouTubeConnected: () => youtubeConnection.hasAuthentication(),
+    withYouTubeCookies: operation => youtubeConnection.withCookies(operation)
   });
   const creatorService = input.creatorService ?? createCreatorService({
     jobsRoot: creatorJobsRoot,
@@ -869,8 +879,9 @@ export async function buildServer(input: BuildServerInput) {
         console.warn(`yt-dlp updater is unavailable: ${formatError(error)}`);
       }
     }
-    getYtDlpRuntime = () =>
-      creatorYtDlpUpdateManager?.getRuntime() ?? ytDlp;
+    getYtDlpRuntime = () => youtubeConnection.authenticatedRuntime(
+      creatorYtDlpUpdateManager?.getRuntime() ?? ytDlp
+    );
     getCreatorYtDlpRuntime = getYtDlpRuntime;
     if (input.creatorExecutors === undefined) {
       creatorExecutors.push(createKrillinExecutor({
@@ -1052,7 +1063,10 @@ export async function buildServer(input: BuildServerInput) {
         workRoot: creatorJobsRoot,
         executors: creatorExecutors.map(executor => ({
           id: executor.id,
-          run: stage => gatewayCreatorSource!.runForJob(stage.job.id, stage.stageRun.id, () => executor.run(stage))
+          run: stage => gatewayCreatorSource!.runForJob(stage.job.id, stage.stageRun.id, () =>
+            ['download', 'krillinai', 'cover-analysis', 'wechat-article'].includes(executor.id)
+              ? youtubeConnection.withCookies(() => executor.run(stage))
+              : executor.run(stage))
         })),
         async beforeRun(job, stageId) {
           gatewayCreatorSource!.assertJob(job.id);
@@ -1399,6 +1413,7 @@ export async function buildServer(input: BuildServerInput) {
   });
 
   server.addHook('onClose', async () => {
+    await youtubeConnection.close();
     await gatewayAccount.close();
     let firstError: unknown;
     const capture = async (operation: () => void | Promise<void>) => {

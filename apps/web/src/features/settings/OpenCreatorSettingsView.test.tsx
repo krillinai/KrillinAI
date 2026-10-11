@@ -50,7 +50,7 @@ describe('OpenCreatorSettingsView', () => {
   });
   it('shows custom settings for guests and directs sign-in to the personal center', async () => {
     const gateway: GatewayAccountState = { source: 'manual', authState: 'signed_out', activationState: 'inactive', account: null, bindingVersion: null, models: [], activationError: null };
-    const service: GatewayAccountSettingsService = { getState: vi.fn(async () => gateway), setSource: vi.fn(), selectModel: vi.fn(), start: vi.fn(), cancel: vi.fn(), logout: vi.fn(), activate: vi.fn(), getBalance: vi.fn(), getSummary: vi.fn(), getPlans: vi.fn(), checkout: vi.fn(), portal: vi.fn() };
+    const service: GatewayAccountSettingsService = { getState: vi.fn(async () => gateway), setSource: vi.fn(), selectModel: vi.fn(), start: vi.fn(), cancel: vi.fn(), logout: vi.fn(), activate: vi.fn(), getBalance: vi.fn(), getSummary: vi.fn(), getPlans: vi.fn(), getOrders: vi.fn(), getOrder: vi.fn(), getCreditGrants: vi.fn(), checkout: vi.fn(), portal: vi.fn() };
     const onOpenPersonalCenter = vi.fn();
     render(<OpenCreatorSettingsView runtimeStatus={runtimeStatus} gatewayAccountService={service} gatewayAccountState={gateway} initialTab="ai-services" onOpenPersonalCenter={onOpenPersonalCenter} onBack={vi.fn()}/>);
     expect(await screen.findByText('自定义配置')).toBeInTheDocument();
@@ -62,7 +62,7 @@ describe('OpenCreatorSettingsView', () => {
   it('keeps signed-in accounts in official settings and restores custom settings after sign-out', async () => {
     const gateway: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: null, models: [], activationError: null };
     const local = { ...gateway, source: 'manual' as const, authState: 'signed_out' as const, activationState: 'inactive' as const, account: null };
-    const service: GatewayAccountSettingsService = { getState: vi.fn(async () => gateway), setSource: vi.fn(async () => local), selectModel: vi.fn(), start: vi.fn(), cancel: vi.fn(), logout: vi.fn(), activate: vi.fn(), getBalance: vi.fn(), getSummary: vi.fn(), getPlans: vi.fn(), checkout: vi.fn(), portal: vi.fn() };
+    const service: GatewayAccountSettingsService = { getState: vi.fn(async () => gateway), setSource: vi.fn(async () => local), selectModel: vi.fn(), start: vi.fn(), cancel: vi.fn(), logout: vi.fn(), activate: vi.fn(), getBalance: vi.fn(), getSummary: vi.fn(), getPlans: vi.fn(), getOrders: vi.fn(), getOrder: vi.fn(), getCreditGrants: vi.fn(), checkout: vi.fn(), portal: vi.fn() };
     const onGatewayStateChange = vi.fn();
     const view = render(<OpenCreatorSettingsView runtimeStatus={runtimeStatus} gatewayAccountService={service} gatewayAccountState={gateway} initialTab="ai-services" onGatewayStateChange={onGatewayStateChange} onBack={vi.fn()}/>);
     expect(await screen.findByText('官方服务')).toBeInTheDocument();

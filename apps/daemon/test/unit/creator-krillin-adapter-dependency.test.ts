@@ -76,16 +76,19 @@ describe('KrillinAI configured transcription dependency', () => {
     });
   });
 
-  it('prepares transcription only after platform captions fail and uses the local video', async () => {
+  it.each(['platform_caption_failed', 'platform_caption_invalid'])('prepares transcription after %s and reports the fallback to the frontend', async code => {
     const fixture = setup();
     runKrillinCli
       .mockRejectedValueOnce(new KrillinCliError(
-        'platform_caption_failed',
+        code,
         'No platform captions are available'
       ))
-      .mockImplementationOnce(async input => [writeTargetSubtitle(input.jobsRoot)]);
+      .mockImplementationOnce(async input => {
+        input.stage.reportProgress({ phase: 'transcribing_audio', percent: 55 });
+        return [writeTargetSubtitle(input.jobsRoot)];
+      });
 
-    await fixture.executor.run(fixture.stage);
+    const result = await fixture.executor.run(fixture.stage);
 
     expect(fixture.ensure).toHaveBeenCalledTimes(1);
     expect(runKrillinCli).toHaveBeenCalledTimes(2);
@@ -101,13 +104,23 @@ describe('KrillinAI configured transcription dependency', () => {
         targetLanguage: 'zh_cn'
       }
     });
+    const stage = fixture.stage as CreatorExecutorInput;
+    expect(stage.reportProgress).toHaveBeenCalledWith(expect.objectContaining({
+      phase: 'fallback_to_transcription', providerStatus: 'running',
+      captionSource: 'whisper', captionFallbackCode: code,
+      message: expect.stringContaining('已自动切换到语音转录')
+    }));
+    expect(stage.reportProgress).toHaveBeenCalledWith(expect.objectContaining({
+      phase: 'transcribing_audio', percent: 55, captionFallbackCode: code, captionSource: 'whisper'
+    }));
+    expect(result.progress).toMatchObject({ captionFallbackCode: code, captionSource: 'whisper' });
   });
 
-  it('preserves platform caption diagnostics when transcription fallback also fails', async () => {
+  it.each(['platform_caption_failed', 'platform_caption_invalid'])('preserves %s diagnostics when transcription fallback also fails', async code => {
     const fixture = setup();
     runKrillinCli
       .mockRejectedValueOnce(new KrillinCliError(
-        'platform_caption_failed',
+        code,
         'No original YouTube captions are available'
       ))
       .mockRejectedValueOnce(new KrillinCliError(
@@ -119,6 +132,48 @@ describe('KrillinAI configured transcription dependency', () => {
       code: 'audio_transcription_failed',
       message: expect.stringMatching(/No original YouTube captions.*whisperkit-cli rejected/)
     });
+  });
+
+  it('continues from unusable VTT without a local video and keeps the component preparation notice', async () => {
+    const fixture = setup();
+    const stage = fixture.stage as CreatorExecutorInput;
+    stage.job.templateId = 'video-translation';
+    stage.inputArtifacts = [];
+    fixture.ensure.mockImplementationOnce(async input => {
+      input.reportProgress({ phase: 'downloading_dependencies', message: 'Preparing the transcription model' });
+    });
+    runKrillinCli.mockImplementationOnce(async input => {
+      input.stage.reportProgress({ providerStatus: 'failed', phase: 'failed' });
+      throw new KrillinCliError('platform_caption_invalid', 'No usable text');
+    }).mockImplementationOnce(async input => {
+      const subtitle = writeTargetSubtitle(input.jobsRoot);
+      return ['source_subtitle', 'target_subtitle', 'vertical_subtitle'].map(kind => ({ ...subtitle, kind }));
+    });
+
+    await fixture.executor.run(stage);
+
+    expect(runKrillinCli.mock.calls[1]?.[0]).toMatchObject({
+      source: 'https://www.youtube.com/watch?v=demo', options: { captionSource: 'whisper' }
+    });
+    expect(stage.reportProgress).not.toHaveBeenCalledWith(expect.objectContaining({ providerStatus: 'failed' }));
+    expect(stage.reportProgress).toHaveBeenCalledWith(expect.objectContaining({
+      phase: 'downloading_dependencies', captionFallbackCode: 'platform_caption_invalid',
+      message: expect.stringContaining('平台字幕解析失败，已自动切换到语音转录')
+    }));
+  });
+
+  it('does not start transcription after the task is canceled', async () => {
+    const fixture = setup();
+    const controller = new AbortController();
+    const stage = fixture.stage as CreatorExecutorInput;
+    stage.signal = controller.signal;
+    runKrillinCli.mockImplementationOnce(async () => {
+      controller.abort();
+      throw new KrillinCliError('platform_caption_invalid', 'No usable text');
+    });
+    await expect(fixture.executor.run(stage)).rejects.toMatchObject({ code: 'platform_caption_invalid' });
+    expect(fixture.ensure).not.toHaveBeenCalled();
+    expect(runKrillinCli).toHaveBeenCalledTimes(1);
   });
 
   it.each(['platform_caption_access_failed', 'platform_caption_processing_failed'])('does not download transcription components after %s', async code => {
@@ -227,7 +282,7 @@ function setup() {
     manifest: { resources: [] },
     config
   });
-  const ensure = vi.fn(async () => undefined);
+  const ensure = vi.fn(async (_input: { reportProgress(progress: Record<string, unknown>): void }) => undefined);
   const executor = createKrillinExecutor({
     resourceRoot,
     jobsRoot,

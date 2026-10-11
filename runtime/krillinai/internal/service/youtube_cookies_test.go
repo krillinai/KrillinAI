@@ -59,3 +59,13 @@ func TestAppendCookiesArgsUsesNetscapeCookieFile(t *testing.T) {
 		t.Fatalf("appendCookiesArgs() = %v, want %v", args, want)
 	}
 }
+
+func TestAppendCookiesArgsUsesHTTPCookieFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cookies.txt")
+	if err := os.WriteFile(path, []byte("# HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t0\tSID\tfixture\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(appendCookiesArgs(nil, path), []string{"--cookies", path}) {
+		t.Fatal("expected cookies exported with the alternative official header to be accepted")
+	}
+}

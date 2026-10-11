@@ -29,8 +29,12 @@ describe('video metadata API', () => {
       width: 1920,
       height: 1080
     }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    const authentication = vi.fn();
     await registerVideoMetadataRoutes(server, createVideoMetadataService({
-      fetchImpl: fetchImpl as typeof fetch
+      fetchImpl: fetchImpl as typeof fetch,
+      getYtDlpRuntime: () => ({ version: 'test', executable: '/unused', prefixArgs: [], env: {} }),
+      isYouTubeConnected: async () => false,
+      withYouTubeCookies: async operation => { authentication(); return operation(); }
     }));
 
     const response = await server.inject({
@@ -50,6 +54,7 @@ describe('video metadata API', () => {
     const requestedUrl = new URL(String(fetchImpl.mock.calls[0]?.[0]));
     expect(requestedUrl.origin + requestedUrl.pathname).toBe('https://www.youtube.com/oembed');
     expect(requestedUrl.searchParams.get('url')).toBe('https://www.youtube.com/watch?v=video_123');
+    expect(authentication).not.toHaveBeenCalled();
   });
 
   it('rejects unsupported links without making an upstream request', async () => {
