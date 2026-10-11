@@ -8,6 +8,8 @@ import { createGatewayConfigStore } from '../../src/gateway/config-store.js';
 import Fastify from 'fastify';
 import { registerGatewayAccountRoutes } from '../../src/api/routes.gateway-account.js';
 import { createOfficialModelAccess, type OfficialModelAccess } from '../../src/gateway/model-access.js';
+import { createGatewayCreatorSource } from '../../src/gateway/creator-service-source.js';
+import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 
 const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
@@ -29,6 +31,69 @@ async function setup(activate = vi.fn(async () => undefined), close = vi.fn(asyn
   const service = module.createGatewayAccountService({ dataDir: root, client, activateRuntime: activate, closeRuntime: close, hasActiveTasks, hasPendingTasks, automaticPolling: false, modelAccess: modelAccess?.(root) });
   return { service, root, client, activate, close };
 }
+
+it('returns signed-in state immediately while bootstrap is still preparing model services', async () => {
+  const f = await setup();
+  const bootstrap = await f.client.bootstrap('access-1');
+  let release!: () => void;
+  const waiting = new Promise<void>(resolve => { release = resolve; });
+  f.client.bootstrap.mockImplementationOnce(async () => { await waiting; return bootstrap; });
+  const grant = await f.service.startAuthorization();
+  const work = f.service.pollAuthorization(grant.attemptId);
+  try {
+    await expect.poll(() => f.service.peekState().authState).toBe('signed_in');
+    const server = Fastify();
+    try {
+      await registerGatewayAccountRoutes(server, f.service);
+      const response = await server.inject({ method: 'GET', url: '/gateway/account' });
+      expect(response.json()).toMatchObject({ authState: 'signed_in', activationState: 'loading' });
+      expect(JSON.stringify(response.json())).not.toMatch(/access-1|refresh-1|private-1/);
+      const returned = await server.inject({ method: 'POST', url: '/gateway/auth/check', payload: {} });
+      expect(returned.json()).toMatchObject({ authState: 'signed_in', activationState: 'loading' });
+    } finally { await server.close(); }
+  } finally { release(); await work; await f.service.close(); }
+});
+
+it('coalesces simultaneous authorization polls so a grant is consumed only once', async () => {
+  const f = await setup();
+  let release!: () => void;
+  const waiting = new Promise<void>(resolve => { release = resolve; });
+  f.client.pollDevice.mockImplementationOnce(async () => { await waiting; return { accessToken: 'access-1', refreshToken: 'refresh-1', expiresIn: 900 }; });
+  const grant = await f.service.startAuthorization();
+  const first = f.service.pollAuthorization(grant.attemptId);
+  const second = f.service.pollAuthorization(grant.attemptId);
+  release(); await Promise.all([first, second]);
+  expect(f.client.pollDevice).toHaveBeenCalledOnce();
+  expect(f.service.peekState().authState).toBe('signed_in');
+  await f.service.close();
+});
+
+it('checks on foreground return without bypassing polling intervals or slow-down responses', async () => {
+  const f = await setup();
+  const clock = vi.spyOn(Date, 'now');
+  let now = Date.now(); clock.mockImplementation(() => now);
+  try {
+    f.client.pollDevice.mockRejectedValue(new GatewayError('authorization_pending', 428));
+    await f.service.startAuthorization();
+    f.service.checkAuthorization();
+    expect(f.client.pollDevice).not.toHaveBeenCalled();
+    now += 5000;
+    f.service.checkAuthorization();
+    await f.service.pollAuthorization('1');
+    expect(f.client.pollDevice).toHaveBeenCalledTimes(1);
+    f.service.checkAuthorization();
+    expect(f.client.pollDevice).toHaveBeenCalledTimes(1);
+    f.client.pollDevice.mockRejectedValueOnce(new GatewayError('slow_down', 429));
+    now += 5000; f.service.checkAuthorization(); await f.service.pollAuthorization('1');
+    expect(f.client.pollDevice).toHaveBeenCalledTimes(2);
+    now += 5000; f.service.checkAuthorization();
+    expect(f.client.pollDevice).toHaveBeenCalledTimes(2);
+    now += 5000; f.service.checkAuthorization(); await f.service.pollAuthorization('1');
+    expect(f.client.pollDevice).toHaveBeenCalledTimes(3);
+    now += 5000; f.service.checkAuthorization();
+    expect(f.client.pollDevice).toHaveBeenCalledTimes(3);
+  } finally { clock.mockRestore(); await f.service.close(); }
+});
 
 it('silently filters official families without blocking model selection or changing the raw candidate catalog', async () => {
   let finishProbe!: () => void;
@@ -271,13 +336,11 @@ it('reads only the public plan catalog without signing in or changing account st
   await f.service.close();
 });
 
-it('blocks logout with pending requests but permits same-account reauthorization after expiry', async () => {
+it('permits same-account reauthorization after expiry with pending requests', async () => {
   let pending = false;
   const f = await setup(undefined, undefined, () => pending);
   const first = await f.service.startAuthorization(); await f.service.pollAuthorization(first.attemptId);
   pending = true;
-  await expect(f.service.logout()).rejects.toMatchObject({ code: 'active_tasks' });
-  expect(await f.service.readState()).toMatchObject({ source: 'gateway', authState: 'signed_in', activationState: 'ready' });
   const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 16 * 60_000);
   try {
     f.client.refresh.mockRejectedValueOnce(new GatewayError('auth_required', 401));
@@ -290,6 +353,83 @@ it('blocks logout with pending requests but permits same-account reauthorization
     pending = false; await f.service.logout();
     expect((await f.service.readState()).source).toBe('manual');
   } finally { clock.mockRestore(); await f.service.close(); }
+});
+
+it('allows the logout route with pending supplier requests and clears local credentials', async () => {
+  let pending = false;
+  const f = await setup(undefined, undefined, () => pending);
+  const grant = await f.service.startAuthorization(); await f.service.pollAuthorization(grant.attemptId);
+  const revoke = vi.spyOn(f.client, 'logout');
+  pending = true;
+  const server = Fastify();
+  try {
+    await registerGatewayAccountRoutes(server, f.service);
+    const response = await server.inject({ method: 'POST', url: '/gateway/auth/logout' });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ source: 'manual', authState: 'signed_out', activationState: 'inactive', account: null, models: [] });
+    expect(f.close).toHaveBeenCalledOnce();
+    expect(revoke).toHaveBeenCalledWith('access-1');
+    expect(await createGatewayConfigStore(f.root).readCredentials()).toBeUndefined();
+    await expect(f.service.modelCredentials()).rejects.toMatchObject({ status: 401 });
+  } finally { await server.close(); await f.service.close(); }
+});
+
+it('allows login with active and pending jobs without rotating their supplier key', async () => {
+  const f = await setup(undefined, undefined, () => true, () => true);
+  const server = Fastify();
+  try {
+    await registerGatewayAccountRoutes(server, f.service);
+    const response = await server.inject({ method: 'POST', url: '/gateway/auth/start' });
+    expect(response.statusCode).toBe(200);
+    await f.service.pollAuthorization(response.json().attemptId);
+    expect(await f.service.readState()).toMatchObject({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: '1' } });
+    expect(f.client.bootstrap).toHaveBeenLastCalledWith('access-1', { rotate: false });
+    expect((await f.service.modelCredentials()).accountId).toBe('1');
+  } finally { await server.close(); await f.service.close(); }
+});
+
+it('can sign out and sign back in with unfinished jobs, while keeping old jobs bound to their account', async () => {
+  let busy = false;
+  const f = await setup(undefined, undefined, () => busy, () => busy);
+  const first = await f.service.startAuthorization(); await f.service.pollAuthorization(first.attemptId);
+  const manual = createDefaultCreatorServicesConfig();
+  let original: ReturnType<ReturnType<typeof createGatewayCreatorSource>['snapshot']>;
+  const source = createGatewayCreatorSource({
+    account: f.service, readJobBinding: () => original,
+    manual: { read: async () => manual, write: async value => value, reset: async () => manual },
+    getLocalOrigin: () => 'http://127.0.0.1:39999'
+  });
+  original = source.snapshot();
+  busy = true;
+  try {
+    await f.service.logout();
+    const same = await f.service.startAuthorization();
+    f.client.pollDevice.mockResolvedValueOnce({ accessToken: 'access-1', refreshToken: 'refresh-1', expiresIn: 900 });
+    await f.service.pollAuthorization(same.attemptId);
+    expect(await f.service.readState()).toMatchObject({ authState: 'signed_in', activationState: 'ready', account: { id: '1' } });
+    expect(() => source.assertJob('original')).not.toThrow();
+    await f.service.logout();
+    const other = await f.service.startAuthorization(); await f.service.pollAuthorization(other.attemptId);
+    expect(await f.service.readState()).toMatchObject({ authState: 'signed_in', activationState: 'ready', account: { id: '3' } });
+    const execute = vi.fn();
+    await expect(source.runForJob('original', 'stage', execute)).rejects.toMatchObject({ code: 'task_source_mismatch' });
+    expect(execute).not.toHaveBeenCalled();
+  } finally { await source.revoke(); await f.service.close(); }
+});
+
+it('signs out locally when usage reporting and remote logout are unavailable', async () => {
+  const f = await setup();
+  const binding = { ...await f.client.bootstrap('access-1'), keyRotation: true };
+  f.client.bootstrap.mockResolvedValue(binding);
+  const request = vi.spyOn(f.client, 'request').mockResolvedValue({ keyVersion: binding.keyVersion });
+  const grant = await f.service.startAuthorization(); await f.service.pollAuthorization(grant.attemptId);
+  request.mockRejectedValue(new GatewayError('gateway_unavailable'));
+  vi.spyOn(f.client, 'logout').mockRejectedValue(new GatewayError('gateway_unavailable'));
+  await f.service.logout();
+  expect(await f.service.readState()).toMatchObject({ source: 'manual', authState: 'signed_out', account: null });
+  expect(f.close).toHaveBeenCalledOnce();
+  expect(await createGatewayConfigStore(f.root).readCredentials()).toBeUndefined();
+  await f.service.close();
 });
 
 it('rejects a different account during expired-session recovery and preserves original credentials', async () => {
@@ -407,14 +547,25 @@ it('restores a failed activation on restart from a fresh bootstrap without signi
   } finally { await restored.close(); }
 });
 
-it('blocks official activation when pending tasks appear during initial authorization', async () => {
+it('completes official activation when pending tasks appear during initial authorization', async () => {
   let pending = false;
   const f = await setup(undefined, undefined, () => pending);
   const grant = await f.service.startAuthorization(); pending = true;
   await f.service.pollAuthorization(grant.attemptId);
-  expect(await f.service.readState()).toMatchObject({ source: 'gateway', authState: 'signed_in', activationState: 'blocked', activationError: { code: 'active_tasks' } });
-  expect(f.activate).not.toHaveBeenCalled();
+  expect(await f.service.readState()).toMatchObject({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: '1' }, activationError: null });
+  expect(f.client.bootstrap).toHaveBeenLastCalledWith('access-1', { rotate: false });
+  expect(f.activate).toHaveBeenCalledOnce();
   await f.service.close();
+});
+
+it('restores a signed-in session after restart even when unfinished jobs remain', async () => {
+  const f = await setup();
+  const grant = await f.service.startAuthorization(); await f.service.pollAuthorization(grant.attemptId); await f.service.close();
+  const restored = module.createGatewayAccountService({ dataDir: f.root, client: f.client, activateRuntime: f.activate, closeRuntime: f.close, hasActiveTasks: () => true, hasPendingTasks: () => true, automaticPolling: false });
+  try {
+    expect(await restored.readState()).toMatchObject({ authState: 'signed_in', activationState: 'ready', account: { id: '1' } });
+    expect(f.client.bootstrap).toHaveBeenLastCalledWith('access-1', { rotate: false });
+  } finally { await restored.close(); }
 });
 
 it('restores existing signed-in manual sessions as official and keeps guests manual', async () => {
@@ -430,15 +581,19 @@ it('restores existing signed-in manual sessions as official and keeps guests man
   await guest.close();
 });
 
-it('blocks logout before changing account state while tasks are active', async () => {
+it('allows logout while tasks and model uses are active, closing Runtime and rejecting new uses', async () => {
   let active = false;
   const f = await setup(undefined, undefined, undefined, () => active);
   const grant = await f.service.startAuthorization(); await f.service.pollAuthorization(grant.attemptId);
+  const use = await f.service.beginModelUse();
   active = true;
-  await expect(f.service.logout()).rejects.toMatchObject({ code: 'active_tasks' });
-  expect((await f.service.readState()).authState).toBe('signed_in');
-  expect(f.close).not.toHaveBeenCalled();
-  active = false; await f.service.logout(); await f.service.close();
+  await f.service.logout();
+  expect(await f.service.readState()).toMatchObject({ source: 'manual', authState: 'signed_out', account: null });
+  expect(f.close).toHaveBeenCalledOnce();
+  await expect(f.service.beginModelUse()).rejects.toMatchObject({ status: 401 });
+  expect(await createGatewayConfigStore(f.root).readCredentials()).toBeUndefined();
+  await use.release();
+  await f.service.close();
 });
 
 it('syncs profile photos independently of unavailable model services and protects the avatar route', async () => {

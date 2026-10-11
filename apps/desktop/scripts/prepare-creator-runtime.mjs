@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as fontkit from 'fontkit';
+import { verifyRuntimeExecutable } from './runtime-executable-check.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopDir = resolve(scriptDir, '..');
@@ -73,6 +74,10 @@ for (const [name, configured, vendored] of externalInputs) {
   copyExecutable(source, target);
 }
 const ytDlpRuntime = prepareYtDlpRuntime(vendorVersions);
+const javascriptRuntime = prepareYtDlpJavascriptRuntime(vendorVersions);
+ytDlpRuntime.descriptor.javascriptRuntime = javascriptRuntime.descriptor;
+ytDlpRuntime.resourcePaths.push(...javascriptRuntime.resourcePaths);
+ytDlpRuntime.executablePaths.push(javascriptRuntime.executable);
 for (const path of [
   primaryExecutablePath,
   ...externalInputs.map(([name]) => join(binDir, `${name}${executableSuffix}`)),
@@ -331,7 +336,8 @@ function ensureExternalDependencies() {
     [process.env.OPENCREATOR_FFPROBE_PATH, join(vendorRoot, `ffprobe${executableSuffix}`)],
     [configuredYtDlpPath, join(vendorRoot, 'yt-dlp')],
     [configuredYtDlpPath, join(vendorRoot, 'python-runtime.tar.gz')],
-    [configuredYtDlpPath, join(vendorRoot, 'cacert.pem')]
+    [configuredYtDlpPath, join(vendorRoot, 'cacert.pem')],
+    [process.env.OPENCREATOR_YT_DLP_NODE_PATH, join(vendorRoot, targetPlatform === 'win32' ? 'node-runtime.zip' : 'node-runtime.tar.gz')]
   ];
   if (required.every(([configured, vendored]) => configured || existsSync(vendored))) return;
   execFileSync(process.execPath, [join(scriptDir, 'install-creator-runtime-dependencies.mjs')], {
@@ -438,6 +444,44 @@ function prepareYtDlpRuntime(vendorVersions) {
     },
     resourcePaths: listFiles(runtimeRoot),
     executablePaths: [executable]
+  };
+}
+
+function prepareYtDlpJavascriptRuntime(vendorVersions) {
+  const configured = process.env.OPENCREATOR_YT_DLP_NODE_PATH?.trim();
+  const executable = join(binDir, `node${executableSuffix}`);
+  const resourcePaths = [executable];
+  let version = vendorVersions?.dependencies?.nodeRuntime?.version;
+  if (configured) {
+    copyExecutable(resolveExecutable('node', configured), executable);
+    version = commandOutput(executable, ['--version'], rootDir).trim().replace(/^v/, '');
+  } else {
+    if (!version) throw new Error('yt-dlp JavaScript runtime version is missing');
+    const extractionRoot = mkdtempSync(join(tmpdir(), 'opencreator-node-runtime-'));
+    try {
+      execFileSync(process.platform === 'win32' ? 'tar.exe' : 'tar', [
+        '-xf', join(vendorRoot, targetPlatform === 'win32' ? 'node-runtime.zip' : 'node-runtime.tar.gz'),
+        '-C', extractionRoot
+      ], { stdio: 'ignore' });
+      const nodeTarget = `${targetPlatform === 'win32' ? 'win' : targetPlatform}-${targetArch}`;
+      const extracted = join(extractionRoot, `node-v${version}-${nodeTarget}`);
+      copyExecutable(join(extracted, targetPlatform === 'win32' ? 'node.exe' : 'bin/node'), executable);
+      const license = join(outputRoot, 'licenses', 'node', 'LICENSE');
+      mkdirSync(dirname(license), { recursive: true });
+      copyFileSync(join(extracted, 'LICENSE'), license);
+      resourcePaths.push(license);
+    } finally {
+      rmSync(extractionRoot, { recursive: true, force: true });
+    }
+  }
+  if (targetPlatform === process.platform && targetArch === process.arch) {
+    verifyRuntimeExecutable({ name: 'yt-dlp Node runtime', path: executable,
+      args: ['--version'], expected: /^v(?:2[2-9]|[3-9]\d)\./, timeoutMs: 20_000 });
+  }
+  return {
+    descriptor: { name: 'node', version, executable: relative(outputRoot, executable).replaceAll('\\', '/') },
+    executable,
+    resourcePaths
   };
 }
 

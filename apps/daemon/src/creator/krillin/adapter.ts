@@ -53,6 +53,7 @@ export function createKrillinExecutor(input: {
       const materializedArtifacts = await writeArtifactIndex(input.jobsRoot, stage);
       const options = buildKrillinStageOptions(stage);
       let artifacts: KrillinResultArtifact[];
+      let captionFallbackProgress: Record<string, CreatorJson> = {};
       try {
         const attempts = createKrillinCliExecutionPlan(
           resolveKrillinStageContract(stage).stageType,
@@ -65,13 +66,22 @@ export function createKrillinExecutor(input: {
         let completed: KrillinResultArtifact[] | undefined;
         let deferredFailure: KrillinCliError | undefined;
         for (const attempt of attempts) {
+          const attemptStage: CreatorExecutorInput = {
+            ...stage,
+            reportProgress(progress) {
+              if (progress.providerStatus === 'failed' && attempt.continueOnErrorCodes !== undefined) return;
+              stage.reportProgress({ ...progress, ...captionFallbackProgress });
+            }
+          };
           try {
             if (requiresTranscriptionDependency(stage.stageRun.stageId, attempt.options)) {
               await ensureKrillinTranscriptionDependency(
                 input.dependencyLoader,
                 preflight.config,
-                stage,
-                deferredFailure !== undefined
+                attemptStage,
+                typeof captionFallbackProgress.captionFallbackMessage === 'string'
+                  ? captionFallbackProgress.captionFallbackMessage
+                  : undefined
               );
             }
             completed = await runKrillinCli({
@@ -79,7 +89,7 @@ export function createKrillinExecutor(input: {
               jobsRoot: input.jobsRoot,
               dependencyRoot: input.dependencyLoader.root,
               manifest: preflight.manifest,
-              stage,
+              stage: attemptStage,
               config: preflight.config,
               artifacts: materializedArtifacts,
               source: attempt.source,
@@ -93,9 +103,25 @@ export function createKrillinExecutor(input: {
           } catch (error) {
             if (
               error instanceof KrillinCliError
-              && error.code === attempt.continueOnErrorCode
+              && attempt.continueOnErrorCodes?.includes(error.code)
+              && !stage.signal.aborted
             ) {
               deferredFailure = error;
+              const message = error.code === 'platform_caption_invalid'
+                ? '平台字幕解析失败，已自动切换到语音转录'
+                : '未找到可用的平台字幕，已自动切换到语音转录';
+              captionFallbackProgress = {
+                captionSource: 'whisper',
+                captionFallbackCode: error.code,
+                captionFallbackMessage: message
+              };
+              stage.reportProgress({
+                ...captionFallbackProgress,
+                phase: 'fallback_to_transcription',
+                providerStatus: 'running',
+                percent: 25,
+                message
+              });
               continue;
             }
             if (deferredFailure !== undefined) {
@@ -137,6 +163,7 @@ export function createKrillinExecutor(input: {
         })),
         progress: {
           ...stage.stageRun.progress,
+          ...captionFallbackProgress,
           krillinMode: 'cli',
           providerStatus: 'succeeded',
           percent: 100,
@@ -174,7 +201,7 @@ async function ensureKrillinTranscriptionDependency(
   loader: KrillinDependencyLoader,
   config: CreatorServicesConfig,
   stage: CreatorExecutorInput,
-  platformFallback = false
+  fallbackMessage?: string
 ): Promise<void> {
   if (stage.job.templateId === 'video-translation' && (
     stage.stageRun.stageId === 'subtitle'
@@ -186,8 +213,8 @@ async function ensureKrillinTranscriptionDependency(
     signal: stage.signal,
     reportProgress(progress) {
       stage.reportProgress({ ...stage.stageRun.progress, ...progress,
-        ...(platformFallback && typeof progress.message === 'string'
-          ? { message: `未找到可用的原始字幕，已切换到本地语音转录。${progress.message}` }
+        ...(fallbackMessage && typeof progress.message === 'string'
+          ? { message: `${fallbackMessage}。${progress.message}` }
           : {})
       });
     }

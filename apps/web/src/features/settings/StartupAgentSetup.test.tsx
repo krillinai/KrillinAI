@@ -219,7 +219,7 @@ describe('StartupAgentSetup', () => {
       getState: vi.fn(async () => state),
       start: vi.fn(async () => { state = { ...state, authState: 'authorizing' }; return { attemptId: 'a', authorizationUrl: 'https://gateway.example/device', expiresAt: '2026-11-01T00:00:00Z' }; }),
       cancel: vi.fn(async () => { state = { ...state, authState: 'signed_out' }; return state; }),
-      activate: vi.fn(), logout: vi.fn(), setSource: vi.fn(), selectModel: vi.fn(), getBalance: vi.fn(), getSummary: vi.fn(), getPlans: vi.fn(), checkout: vi.fn(), portal: vi.fn()
+      activate: vi.fn(), logout: vi.fn(), setSource: vi.fn(), selectModel: vi.fn(), getBalance: vi.fn(), getSummary: vi.fn(), getPlans: vi.fn(), getOrders: vi.fn(), getOrder: vi.fn(), getCreditGrants: vi.fn(), checkout: vi.fn(), portal: vi.fn()
     };
     render(<LanguageProvider initialPreference="zh-CN"><StartupAgentSetup service={createService()} gatewayService={gateway} onReady={vi.fn()} onSkip={vi.fn()}/></LanguageProvider>);
     const user = userEvent.setup();

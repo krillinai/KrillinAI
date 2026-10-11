@@ -16,9 +16,10 @@ export function createGatewayAccountService(input: {
   const store = createGatewayConfigStore(input.dataDir);
   let state: GatewayAccountState = { source: 'manual', authState: 'signed_out', activationState: 'inactive', account: null, bindingVersion: null, models: [], activationError: null };
   let credentials: GatewayCredentials | undefined;
-  let attempt: (GatewayDeviceGrant & { generation: number; expiresAt: number; previousAuthState: GatewayAccountState['authState'] }) | undefined;
+  let attempt: (GatewayDeviceGrant & { generation: number; expiresAt: number; nextPollAt: number; previousAuthState: GatewayAccountState['authState'] }) | undefined;
   let generation = 0;
   let pollTimer: NodeJS.Timeout | undefined;
+  let pollWork: { attempt: NonNullable<typeof attempt>; work: Promise<void> } | undefined;
   let initialization: Promise<void> | undefined;
   let refreshWork: Promise<void> | undefined;
   let profileWork: Promise<void> | undefined;
@@ -126,17 +127,19 @@ export function createGatewayAccountService(input: {
     try { await refreshWork; } finally { refreshWork = undefined; }
   }
   async function activateCurrent() {
-    assertIdle(); await refresh();
+    // Connecting a new session must not wait for unrelated or persisted jobs.
+    if (state.activationState === 'ready') assertIdle();
+    await refresh();
     const original = assertSignedIn(); const expected = generation;
     state.activationState = 'loading'; state.activationError = null;
     try {
-      if (state.source !== 'gateway' && input.hasPendingTasks?.()) throw new GatewayError('active_tasks', 409);
       state.source = 'gateway'; state.bindingVersion = null;
       await saveConfiguration();
       await reportUsage();
       const bootstrap = await input.client.bootstrap(original.accessToken, { rotate: !input.hasPendingTasks?.() });
       if (generation !== expected || state.authState !== 'signed_in') return;
       if (original.account && bootstrap.account.id !== original.account.id) throw new GatewayError('account_mismatch');
+      state.account = bootstrap.account;
       for (const [modality, model] of Object.entries(selectedModels)) {
         if (bootstrap.models.some(candidate => candidate.modality === modality && candidate.id === model)) bootstrap.defaults[modality] = model;
       }
@@ -197,9 +200,14 @@ export function createGatewayAccountService(input: {
     try { await catalogWork; } finally { catalogWork = undefined; }
   }
   function schedulePoll(id: string, seconds: number) {
+    if (attempt?.attemptId !== id) return;
+    attempt.nextPollAt = Date.now() + Math.max(5, seconds) * 1000;
     if (input.automaticPolling === false) return;
     clearTimeout(pollTimer);
-    pollTimer = setTimeout(() => { void pollAuthorization(id).catch(() => undefined); }, Math.max(5, seconds) * 1000); pollTimer.unref();
+    pollTimer = setTimeout(() => { void pollAuthorization(id).catch(() => undefined); }, Math.max(0, attempt.nextPollAt - Date.now())); pollTimer.unref();
+  }
+  function checkAuthorization() {
+    if (attempt && Date.now() >= attempt.nextPollAt) void pollAuthorization(attempt.attemptId).catch(() => undefined);
   }
   async function cancelAuthorization() {
     clearTimeout(pollTimer); const old = attempt; attempt = undefined; generation++;
@@ -212,19 +220,18 @@ export function createGatewayAccountService(input: {
     }
   }
   async function startAuthorization() {
-    await initialize(); assertIdle();
+    await initialize();
     if (credentials && state.authState === 'expired') {
       if (!input.hasPendingTasks?.()) await logout();
     }
     else if (credentials) throw new GatewayError('already_signed_in', 409);
-    else if (input.hasPendingTasks?.()) throw new GatewayError('active_tasks', 409);
     await cancelAuthorization();
     const expected = generation;
     const grant = await input.client.startDevice();
     const url = new URL(grant.authorizationUrl);
     if (url.origin !== input.client.origin || url.pathname !== '/device') throw new GatewayError('invalid_authorization_url');
     if (generation !== expected) { await input.client.cancelDevice(grant.attemptId, grant.deviceSecret); throw new GatewayError('authorization_canceled'); }
-    attempt = { ...grant, generation: expected, expiresAt: Date.now() + grant.expiresIn * 1000, previousAuthState: state.authState };
+    attempt = { ...grant, generation: expected, expiresAt: Date.now() + grant.expiresIn * 1000, nextPollAt: Date.now(), previousAuthState: state.authState };
     state.source = 'gateway'; state.authState = 'authorizing'; state.activationState = 'loading'; state.activationError = null;
     await saveConfiguration();
     schedulePoll(grant.attemptId, grant.interval);
@@ -232,6 +239,15 @@ export function createGatewayAccountService(input: {
   }
   async function pollAuthorization(id: string) {
     const current = attempt; if (!current || current.attemptId !== id) return;
+    if (pollWork?.attempt === current) return pollWork.work;
+    clearTimeout(pollTimer);
+    current.nextPollAt = Date.now() + Math.max(5, current.interval) * 1000;
+    const work = performAuthorizationPoll(current);
+    const pending = { attempt: current, work }; pollWork = pending;
+    try { await work; } finally { if (pollWork === pending) pollWork = undefined; }
+  }
+  async function performAuthorizationPoll(current: NonNullable<typeof attempt>) {
+    const id = current.attemptId;
     if (current.expiresAt <= Date.now()) { await cancelAuthorization(); state.activationError = { code: 'device_expired', message: '登录授权已过期，请重新登录' }; return; }
     try {
       const tokens = await input.client.pollDevice(id, current.deviceSecret);
@@ -250,12 +266,14 @@ export function createGatewayAccountService(input: {
         if (generation !== current.generation || attempt !== current) return;
         state.source = 'gateway'; state.authState = 'signed_in'; attempt = undefined;
         await saveConfiguration();
-        if (input.hasPendingTasks?.() && current.previousAuthState !== 'expired') { fail(new GatewayError('active_tasks', 409)); return; }
         await activateCurrent();
       });
     } catch (error) {
       if (generation !== current.generation) return;
-      if (error instanceof GatewayError && ['authorization_pending', 'slow_down', 'gateway_unavailable'].includes(error.code)) { schedulePoll(id, error.code === 'slow_down' ? current.interval + 5 : current.interval); return; }
+      if (error instanceof GatewayError && ['authorization_pending', 'slow_down', 'gateway_unavailable'].includes(error.code)) {
+        if (error.code === 'slow_down') current.interval += 5;
+        schedulePoll(id, current.interval); return;
+      }
       fail(error); await cancelAuthorization();
     }
   }
@@ -327,9 +345,7 @@ export function createGatewayAccountService(input: {
     accessPaused = true;
     accessController?.abort(); await accessWork;
     await serialize(async () => {
-      assertIdle();
-      if (input.hasPendingTasks?.()) throw new GatewayError('active_tasks', 409);
-      await reportUsage();
+      await reportUsage().catch(() => undefined);
       state.authState = 'signing_out'; state.activationState = 'inactive';
       clearInterval(usageTimer); usageTimer = undefined;
       await cancelAuthorization();
@@ -351,7 +367,7 @@ export function createGatewayAccountService(input: {
   }
   return {
     peekState() { return structuredClone(state); },
-    startAuthorization, cancelAuthorization, pollAuthorization, refresh, logout, modelCredentials, beginModelUse, readBalance, billing,
+    startAuthorization, cancelAuthorization, pollAuthorization, checkAuthorization, refresh, logout, modelCredentials, beginModelUse, readBalance, billing,
     readPlans() { return input.client.request('/api/v1/plans', ''); },
     async readAvatar(accountId: string) {
       await initialize(); await refresh();
@@ -362,7 +378,14 @@ export function createGatewayAccountService(input: {
       return image;
     },
     async activate() { await initialize(); const expected = generation; await serialize(async () => { if (expected === generation) await activateCurrent(); }); },
-    async readState() { await initialize(); await readProfile(); await readCatalog(); if (needsAccessibleRuntime()) await serialize(synchronizeAccessibleRuntime); scheduleModelAccess(); return structuredClone(state); },
+    async readState() {
+      await initialize();
+      // Login is visible while model preparation still owns the mutation queue.
+      if (state.activationState === 'loading' || state.authState === 'signing_out') return structuredClone(state);
+      await readProfile(); await readCatalog();
+      if (needsAccessibleRuntime()) await serialize(synchronizeAccessibleRuntime);
+      scheduleModelAccess(); return structuredClone(state);
+    },
     async setSource(source: ServiceSource) {
       await initialize(); await serialize(async () => {
         if (source === 'manual' && (credentials || state.authState !== 'signed_out')) throw new GatewayError('logout_required', 409);

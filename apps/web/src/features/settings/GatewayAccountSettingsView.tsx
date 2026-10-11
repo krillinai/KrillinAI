@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CreditCard, ExternalLink, LogIn, LogOut, RefreshCw } from 'lucide-react';
+import { CreditCard, ExternalLink, LogIn, LogOut, MoreHorizontal, RefreshCw } from 'lucide-react';
 import type { GatewayAccountState, GatewayAuthorization } from '@opencreator/protocol';
 import type { GatewayAccountSettingsService } from '../../services/gateway-account-service.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
@@ -27,6 +27,7 @@ export function GatewayAccountSettingsView(props: {
   const l = useLocalizedCopy();
   const [state, setState] = useState<GatewayAccountState | undefined>(props.accountState);
   const [authorization, setAuthorization] = useState<GatewayAuthorization>();
+  const [confirmingAuthorization, setConfirmingAuthorization] = useState(() => window.location.hash === '#/account?login=complete');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const callback = useRef(props.onStateChange); callback.current = props.onStateChange;
@@ -34,46 +35,71 @@ export function GatewayAccountSettingsView(props: {
   const busyRef = useRef(false);
   const refreshSequence = useRef(0);
   const lastSignInRequest = useRef(0);
+  const accountMenu = useRef<HTMLDetailsElement>(null);
   const service = props.service;
   const compact = props.variant === 'login';
   const profile = props.variant === 'profile';
   useEffect(() => { if (props.accountState) { refreshSequence.current++; setState(props.accountState); } }, [props.accountState]);
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => { if (accountMenu.current && !accountMenu.current.contains(event.target as Node)) accountMenu.current.open = false; };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape' && accountMenu.current?.open) { accountMenu.current.open = false; accountMenu.current.querySelector('summary')?.focus(); } };
+    document.addEventListener('pointerdown', closeOutside); document.addEventListener('keydown', closeOnEscape);
+    return () => { document.removeEventListener('pointerdown', closeOutside); document.removeEventListener('keydown', closeOnEscape); };
+  }, []);
 
   function update(next: GatewayAccountState) {
     if (!alive.current) return;
     refreshSequence.current++;
     setState(next); callback.current?.(next);
-    if (next.authState !== 'authorizing') setAuthorization(undefined);
+    if (next.authState !== 'authorizing') { setAuthorization(undefined); setConfirmingAuthorization(false); }
   }
-  async function refresh() {
+  async function refresh(checkAuthorization = false) {
     const request = ++refreshSequence.current;
     if (service) {
-      const next = await service.getState();
+      const next = await service.getState({ checkAuthorization });
       if (alive.current && request === refreshSequence.current) { update(next); setError(''); }
     }
   }
   useEffect(() => {
     alive.current = true;
     void refresh().catch(() => { if (alive.current) setError(l('账户服务暂不可用，请稍后重试', 'Account service is unavailable. Try again later.')); });
-    const timer = setInterval(() => { if (!busyRef.current) void refresh().catch(() => undefined); }, 3000);
-    return () => { alive.current = false; refreshSequence.current++; clearInterval(timer); };
+    const onReturn = () => {
+      if (busyRef.current) return;
+      setConfirmingAuthorization(true);
+      void refresh(true).catch(() => undefined);
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') onReturn(); };
+    window.addEventListener('focus', onReturn);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      alive.current = false; refreshSequence.current++;
+      window.removeEventListener('focus', onReturn);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [service]);
+  useEffect(() => {
+    const interval = state?.authState === 'authorizing' || state?.activationState === 'loading' ? 1000 : 3000;
+    const timer = setInterval(() => { if (!busyRef.current) void refresh().catch(() => undefined); }, interval);
+    return () => clearInterval(timer);
+  }, [service, state?.authState, state?.activationState]);
 
   async function action(work: () => Promise<void>) {
     busyRef.current = true; refreshSequence.current++;
     setBusy(true); props.onBusyChange?.(true); setError('');
     try { await work(); }
-    catch (cause) { if (alive.current) setError(cause instanceof ApiClientError && cause.code === 'GATEWAY_REQUEST_CONFLICT' ? l('请先完成或取消当前任务，再退出登录', 'Complete or cancel the current tasks before signing out.') : l('操作未完成，请稍后重试', 'Request failed. Try again later.')); }
+    catch (cause) { if (alive.current) setError(cause instanceof ApiClientError && cause.code === 'GATEWAY_REQUEST_CONFLICT' ? l('当前操作与正在进行的任务冲突，请稍后重试', 'This operation conflicts with current tasks. Try again later.') : l('操作未完成，请稍后重试', 'Request failed. Try again later.')); }
     finally { busyRef.current = false; if (alive.current) { setBusy(false); props.onBusyChange?.(false); } }
   }
   async function signIn() {
     if (!service) return;
+    setConfirmingAuthorization(false);
     try {
       const value = await service.start();
       const url = new URL(value.authorizationUrl);
       if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Invalid authorization URL');
+      url.searchParams.set('lang', l('zh', 'en'));
       if (!alive.current) return;
-      setAuthorization(value); await refresh(); await props.openExternal?.(value.authorizationUrl);
+      setAuthorization({ ...value, authorizationUrl: url.href }); await refresh(); await props.openExternal?.(url.href);
     } catch (cause) { props.onSignInCanceled?.(); throw cause; }
   }
   useEffect(() => {
@@ -84,7 +110,7 @@ export function GatewayAccountSettingsView(props: {
   const signedIn = state?.authState === 'signed_in';
   const status = <p role="status">{!service ? l('登录服务暂不可用', 'Sign-in service is unavailable')
     : state === undefined ? l('正在连接账户服务…', 'Connecting to account service…')
-    : state.authState === 'authorizing' ? l('请在浏览器中完成登录', 'Complete sign-in in your browser')
+    : state.authState === 'authorizing' ? confirmingAuthorization ? l('正在确认登录结果…', 'Confirming sign-in…') : l('请在浏览器中完成登录', 'Complete sign-in in your browser')
     : state.authState === 'signing_out' ? l('正在退出登录…', 'Signing out…')
     : state.authState === 'expired' ? l('登录已过期，请重新登录', 'Session expired; sign in again')
     : signedIn && profile ? l('已登录', 'Signed in')
@@ -99,8 +125,11 @@ export function GatewayAccountSettingsView(props: {
     </div> : null}
     {state?.account && !profile ? <p className="gateway-account__email">{state.account.email}</p> : null}
     {profile ? <div className="gateway-account__identity"><h2>{signedIn ? state.account?.email ?? l('OpenCreator 账户', 'OpenCreator Account') : l('OpenCreator 账户', 'OpenCreator Account')}</h2>{status}</div> : status}
-    {state?.activationError && (!profile || state.source === 'gateway') ? <p role="alert">{state.activationError.code === 'active_tasks' ? l('请等待当前任务结束后再连接官方服务。', 'Wait for the current tasks to finish before connecting official services.') : l('模型服务暂不可用，请重新连接。', 'Model service is unavailable. Please reconnect.')}</p> : null}
-    {signedIn ? <div className="gateway-account__actions">
+    {state?.activationError && (!profile || !signedIn) ? <p role="alert">{state.activationError.code === 'device_expired' ? l('登录授权已过期，请重新登录。', 'Authorization expired. Please sign in again.')
+      : !signedIn ? l('登录未完成，请重新登录。', 'Sign-in did not complete. Please try again.')
+      : state.activationError.code === 'active_tasks' ? l('请等待当前任务结束后再连接官方服务。', 'Wait for the current tasks to finish before connecting official services.') : l('模型服务暂不可用，请重新连接。', 'Model service is unavailable. Please reconnect.')}</p> : null}
+    {signedIn && profile ? <details ref={accountMenu} className="gateway-account__menu"><summary title={l('账号菜单', 'Account menu')} aria-label={l('账号菜单', 'Account menu')}><MoreHorizontal size={20}/></summary><div><button type="button" disabled={busy || !service} onClick={() => void action(async () => update(await service!.logout()))}><LogOut size={16}/>{l('退出登录', 'Sign out')}</button></div></details>
+    : signedIn ? <div className="gateway-account__actions">
       {(profile ? state.source === 'gateway' && state.activationState !== 'ready' : state.activationState !== 'ready' || state.source !== 'gateway') ? <button type="button" disabled={busy || !service || state.activationState === 'loading'} onClick={() => void action(async () => update(await service!.activate()))}><RefreshCw size={16}/>{l('重新连接', 'Reconnect')}</button> : null}
       {props.onOpenSubscription ? <button type="button" onClick={props.onOpenSubscription}><CreditCard size={16}/>{l('积分与充值', 'Credits')}</button> : null}
       <button type="button" disabled={busy || !service} onClick={() => void action(async () => update(await service!.logout()))}><LogOut size={16}/>{l('退出登录', 'Sign out')}</button>

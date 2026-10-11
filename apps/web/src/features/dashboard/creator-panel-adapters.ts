@@ -82,6 +82,9 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
   },
   succeededProgressText(stage, localize) {
     if (stage.stageId === 'preview-source-video') return localize('原视频预览已就绪', 'Source video preview ready', 'Originalvideons förhandsvisning är redo');
+    if (stage.stageId === 'subtitle' && captionFallbackMessage(stage, localize) !== null) {
+      return localize('字幕已生成，平台字幕不可用，已使用语音转录', 'Subtitles generated using audio transcription because platform captions were unavailable', 'Undertexter skapades med ljudtranskription eftersom plattformens undertexter inte kunde användas');
+    }
     return stage.stageId === 'prepare-source-video'
       ? localize('原视频已就绪，已有字幕保持不变', 'Source video ready; existing subtitles are unchanged')
       : null;
@@ -104,6 +107,7 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
       preparing_source: l('准备视频来源', 'Preparing the video source'),
       reading_platform_captions: l('获取平台字幕', 'Fetching platform captions'),
       processing_platform_captions: l('解析平台字幕', 'Processing platform captions'),
+      fallback_to_transcription: l('切换到语音转录', 'Switching to audio transcription', 'Byter till ljudtranskription'),
       translating_subtitles: l('翻译字幕', 'Translating subtitles'),
       collecting_subtitles: l('生成双语字幕', 'Generating bilingual subtitles'),
       preparing_original_media: l('准备原始视频', 'Preparing the original video'),
@@ -147,6 +151,7 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
   },
   readStageProgress(stage, localize) {
     const standard = readStandardProgress(stage);
+    const fallbackMessage = captionFallbackMessage(stage, localize);
     if (stage.stageId === 'prepare-source-video' || stage.stageId === 'preview-source-video') {
       const bytes = readFiniteNumber(stage.progress.downloadedBytes) ?? 0;
       const total = readFiniteNumber(stage.progress.totalBytes);
@@ -177,23 +182,39 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
         showMessage: true,
         percent: standard.phase === 'downloading_dependencies' ? readFiniteNumber(stage.progress.dependencyPercent) : null,
         indeterminate: standard.phase !== 'downloading_dependencies' || readFiniteNumber(stage.progress.dependencyPercent) === null,
-        message: `${standard.phase === 'dependencies_ready'
+        message: `${fallbackMessage === null ? '' : `${fallbackMessage} `}${standard.phase === 'dependencies_ready'
           ? localize('本地转录组件已准备完成，正在开始语音转录', 'Local transcription components are ready; starting transcription.', 'De lokala transkriptionskomponenterna är redo; startar transkriptionen.')
           : localComponentPreparationMessage(standard.phase === 'verifying_dependencies' ? 'verifying' : standard.phase === 'extracting_dependencies' ? 'extracting' : 'downloading', localize)}${standard.phase === 'downloading_dependencies' ? ` ${bytes}` : ''}`,
         detailsHref: `#/settings?tab=local-components&from=video-translation&returnPath=${encodeURIComponent(`#/workbench?tool=video-translation&jobId=${encodeURIComponent(stage.jobId)}`)}`
       };
     }
     const legacy = readRecord(stage.progress.krillinEventPayload);
+    const phase = standard.phase ?? readString(legacy?.phase);
+    const phaseLabel = phase === null ? null : videoTranslationPanelAdapter.phaseLabel(phase, localize);
     return {
       percent: standard.percent ?? readFiniteNumber(legacy?.percent),
-      phase: standard.phase ?? readString(legacy?.phase),
-      message: standard.message ?? readString(legacy?.message),
+      phase,
+      showMessage: fallbackMessage !== null,
+      message: fallbackMessage === null
+        ? standard.message ?? readString(legacy?.message)
+        : `${fallbackMessage}${phaseLabel === null || phase === 'fallback_to_transcription'
+          ? '' : ` ${phaseLabel}`}`,
       completed: standard.completed,
       failed: standard.failed,
       total: standard.total
     };
   }
 };
+
+function captionFallbackMessage(stage: CreatorStageRun, l: CreatorPanelLocalize): string | null {
+  if (stage.progress.captionFallbackCode === 'platform_caption_invalid') {
+    return l('平台字幕解析失败，已自动切换到语音转录。', 'Platform captions could not be processed. Automatically switched to audio transcription.', 'Plattformens undertexter kunde inte bearbetas. Bytte automatiskt till ljudtranskription.');
+  }
+  if (stage.progress.captionFallbackCode === 'platform_caption_failed') {
+    return l('未找到可用的平台字幕，已自动切换到语音转录。', 'No usable platform captions were found. Automatically switched to audio transcription.', 'Inga användbara undertexter hittades på plattformen. Bytte automatiskt till ljudtranskription.');
+  }
+  return null;
+}
 
 export const coverPanelAdapter: CreatorPanelAdapter = {
   id: 'cover',

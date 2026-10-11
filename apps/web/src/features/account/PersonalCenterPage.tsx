@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Settings2 } from 'lucide-react';
 import type { GatewayAccountState } from '@opencreator/protocol';
+import type { ExternalNavigation } from '../../host/bridge.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { GatewayAccountSettingsService } from '../../services/gateway-account-service.js';
 import { GatewayAccountSettingsView } from '../settings/GatewayAccountSettingsView.js';
@@ -12,17 +13,21 @@ export default function PersonalCenterPage(props: {
   view?: 'account' | 'subscription';
   service: GatewayAccountSettingsService | null;
   accountState?: GatewayAccountState;
+  billingOrderId?: string;
+  billingReturnUrl?: string;
+  prepareExternalNavigation?(): ExternalNavigation;
   onStateChange?(state: GatewayAccountState): void;
   openExternal?(url: string): Promise<void> | void;
   onBack(): void;
-  onOpenSubscription(): void;
+  onOpenModelSettings?(): void;
 }) {
   const l = useLocalizedCopy();
   const [state, setState] = useState(props.accountState);
+  const [signInRequest, setSignInRequest] = useState(0);
   useEffect(() => { setState(props.accountState); }, [props.accountState]);
   const email = state?.authState === 'signed_in' ? state.account?.email : undefined;
-  const subscriptionPage = props.view === 'subscription';
-  const title = subscriptionPage ? l('积分与充值', 'Credits') : l('账户', 'Account');
+  const title = l('个人中心', 'Account');
+  const modelUnavailable = state?.authState === 'signed_in' && state.source === 'gateway' && state.activationState !== 'ready';
 
   return <main className="opencreator-scroll-page personal-center" aria-label={title}>
     <div className="personal-center__content">
@@ -36,17 +41,23 @@ export default function PersonalCenterPage(props: {
             variant="profile"
             service={props.service}
             accountState={state}
+            signInRequest={signInRequest}
             openExternal={props.openExternal}
             onStateChange={next => {
               setState(next); props.onStateChange?.(next);
             }}
           />
       </section>
+      {modelUnavailable ? <div className="personal-center__model-status" role="status">
+        <span>{state.activationState === 'loading' ? l('官方模型服务正在连接', 'Connecting to official model services') : l('官方模型服务暂不可用', 'Official model services are unavailable')}</span>
+        {props.onOpenModelSettings ? <button type="button" onClick={props.onOpenModelSettings}><Settings2 size={15}/>{l('模型设置', 'Model settings')}</button> : null}
+      </div> : null}
       <GatewaySubscriptionSettingsView
-        variant={subscriptionPage ? 'subscription' : 'overview'}
         key={`${state?.authState}:${state?.account?.id ?? ''}`}
         service={props.service} embedded accountState={state} openExternal={props.openExternal}
-        onOpenSubscription={props.onOpenSubscription}
+        billingOrderId={props.billingOrderId} billingReturnUrl={props.billingReturnUrl}
+        prepareExternalNavigation={props.prepareExternalNavigation}
+        onRequestSignIn={() => setSignInRequest(value => value + 1)}
       />
     </div>
   </main>;

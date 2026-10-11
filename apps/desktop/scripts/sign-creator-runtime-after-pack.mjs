@@ -103,7 +103,8 @@ export async function signCreatorRuntimeBundle(context, options = {}) {
   return signPackagedRuntime(context, options, {
     name: 'Creator Runtime',
     relativeRoot: ['creator-runtime', 'krillinai'],
-    verifyRuntime: options.verifyRuntime ?? verifyCreatorRuntime
+    verifyRuntime: options.verifyRuntime ?? verifyCreatorRuntime,
+    javascriptEntitlements: remotionBrowserEntitlements
   });
 }
 
@@ -143,7 +144,10 @@ async function signPackagedRuntime(context, options, runtime) {
   }
 
   const verifyRuntime = runtime.verifyRuntime;
-  verifyRuntime(runtimeRoot, 'darwin', arch);
+  const manifest = verifyRuntime(runtimeRoot, 'darwin', arch);
+  const javascriptExecutable = runtime.javascriptEntitlements && manifest?.ytDlp?.javascriptRuntime
+    ? resolve(runtimeRoot, manifest.ytDlp.javascriptRuntime.executable)
+    : undefined;
 
   const signingInfo = await context.packager.codeSigningInfo.value;
   const keychainFile = signingInfo?.keychainFile ?? null;
@@ -157,7 +161,12 @@ async function signPackagedRuntime(context, options, runtime) {
 
   const signBinary = options.signBinary ?? signMachOBinary;
   for (const path of binaries) {
-    await signBinary(path, identity, keychainFile);
+    if (resolve(path) === javascriptExecutable) {
+      // Node's V8 needs JIT permissions under macOS hardened runtime.
+      await signBinary(path, identity, keychainFile, runtime.javascriptEntitlements);
+    } else {
+      await signBinary(path, identity, keychainFile);
+    }
   }
   if (runtime.updateManifest !== false) {
     updateManifestHashes(runtimeRoot, binaries);

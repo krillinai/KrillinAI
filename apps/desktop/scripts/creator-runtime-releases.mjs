@@ -2,6 +2,7 @@ export function creatorRuntimeReleases() {
   return {
     'darwin-arm64': creatorRuntimeRelease({
       mediaTarget: 'darwin-arm64',
+      nodeSha256: '61130f394c1630d211dd50aecc4353d379480f36d3ac913cd85dbba1aed585c6',
       ffmpegSha256: 'a90e3db6a3fd35f6074b013f948b1aa45b31c6375489d39e572bea3f18336584',
       ffprobeSha256: 'bb2db6f5d8cef919da12fbf592119a987202a8c060a886f3cab091f9cab90b64',
       pythonAsset: 'cpython-3.13.15+20260825-aarch64-apple-darwin-install_only_stripped.tar.gz',
@@ -9,6 +10,7 @@ export function creatorRuntimeReleases() {
     }),
     'darwin-x64': creatorRuntimeRelease({
       mediaTarget: 'darwin-x64',
+      nodeSha256: '58e99022c2ff89395576cc7fd4d98cea24bb68081475d5f88b801ee8729fb026',
       mediaVersion: '6.1.1',
       ffmpegSha256: 'ebdddc936f61e14049a2d4b549a412b8a40deeff6540e58a9f2a2da9e6b18894',
       ffprobeSha256: 'fa3add0ce901f7241abe0dfc0155d958fc834aca3f8ce61f87cc712ae669c1e0',
@@ -17,6 +19,7 @@ export function creatorRuntimeReleases() {
     }),
     'linux-arm64': creatorRuntimeRelease({
       mediaTarget: 'linux-arm64',
+      nodeSha256: '013b59cfd2819703a6f4a14ab891fc46fc2a4e3f5bcd92de3fb4929b43e35b30',
       ffmpegSha256: '6bb182d0d75d23028db82e9e4f723ca69b853d055698486e6984ddb2c06fb8ce',
       ffprobeSha256: 'd17ae9b4c297d48e2521ba14e417bb0537c6ff77c584cdbcd6bb0d8d0307a2e8',
       pythonAsset: 'cpython-3.13.15+20260825-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz',
@@ -24,6 +27,7 @@ export function creatorRuntimeReleases() {
     }),
     'linux-x64': creatorRuntimeRelease({
       mediaTarget: 'linux-x64',
+      nodeSha256: 'b294a556e639d64338823920e5866c21c02741742d2e1529ee1a225c1ec9252a',
       ffmpegSha256: 'e7e7fb30477f717e6f55f9180a70386c62677ef8a4d4d1a5d948f4098aa3eb99',
       ffprobeSha256: '4f231a1960d83e403d08f7971e271707bec278a9ae18e21b8b5b03186668450d',
       pythonAsset: 'cpython-3.13.15+20260825-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz',
@@ -31,6 +35,7 @@ export function creatorRuntimeReleases() {
     }),
     'win32-x64': creatorRuntimeRelease({
       mediaTarget: 'win32-x64',
+      nodeSha256: '1177b4137ba5adaa56354ae40f1080c7450e8ae09cecb47da459d1c52ac99f97',
       mediaVersion: '6.1.1',
       ffmpegSha256: '04e1307997530f9cf2fe35cba2ca7e8875ca91da02f89d6c7243df819c94ad00',
       ffprobeSha256: '3a7e2dc003dc2cd1472827e4c7c4f056ae1ae0ae7c5bbc580c99b49827351ba4',
@@ -47,6 +52,9 @@ function creatorRuntimeRelease(input) {
   const pythonRelease = '20260825';
   const pythonVersion = '3.13.15';
   const ytDlpVersion = '2026.08.29.232711';
+  const nodeVersion = '22.23.2';
+  const nodeTarget = input.mediaTarget.replace('win32-', 'win-');
+  const nodeExtension = suffix === '.exe' ? 'zip' : 'tar.gz';
   const encodedPythonAsset = input.pythonAsset.replace('+', '%2B');
   return {
     ffmpeg: {
@@ -78,6 +86,12 @@ function creatorRuntimeRelease(input) {
       fileName: 'python-runtime.tar.gz',
       url: `https://github.com/astral-sh/python-build-standalone/releases/download/${pythonRelease}/${encodedPythonAsset}`,
       sha256: input.pythonSha256
+    },
+    nodeRuntime: {
+      version: nodeVersion,
+      fileName: `node-runtime.${nodeExtension}`,
+      url: `https://nodejs.org/dist/v${nodeVersion}/node-v${nodeVersion}-${nodeTarget}.${nodeExtension}`,
+      sha256: input.nodeSha256
     },
     certificateBundle: {
       version: '2026.07.22',

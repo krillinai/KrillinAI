@@ -134,6 +134,7 @@ import { createApprovalService } from '../services/approval-service.js';
 import { createConnectionService, type ConnectionState } from '../services/connection-service.js';
 import { createCreatorServicesService } from '../services/creator-services-service.js';
 import { createGatewayAccountService } from '../services/gateway-account-service.js';
+import { createPlatformConnectionsService } from '../services/platform-connections-service.js';
 import type { GatewayAccountState } from '@opencreator/protocol';
 import { createCreatorService } from '../services/creator-service.js';
 import { createCleanupService } from '../services/cleanup-service.js';
@@ -617,7 +618,11 @@ export function AppController(props: AppControllerProps) {
     () => runtimeClient === null ? null : createCreatorServicesService(runtimeClient),
     [runtimeClient]
   );
-  const gatewayAccountService = useMemo(() => runtimeClient === null ? null : createGatewayAccountService(runtimeClient), [runtimeClient]);
+  const gatewayAccountService = useMemo(() => runtimeClient === null ? null : createGatewayAccountService(runtimeClient, { authorizationReturnUrl: hostBridge.authorizationReturnUrl, billingReturnUrl: hostBridge.billingReturnUrl }), [runtimeClient, hostBridge]);
+  useEffect(() => hostBridge.subscribeBillingReturn?.(billingOrderId => {
+    props.onNavigate({ view: 'account', ...(billingOrderId ? { billingOrderId } : {}) });
+  }), [hostBridge, props.onNavigate]);
+  const platformConnectionsService = useMemo(() => runtimeClient === null ? null : createPlatformConnectionsService(runtimeClient), [runtimeClient]);
   const [gatewayAccountState, setGatewayAccountState] = useState<GatewayAccountState>();
   const officialTextModels = useMemo(() => {
     if (!gatewayAccountState || (gatewayAccountState.source === 'manual' && gatewayAccountState.authState === 'signed_out')) return undefined;
@@ -637,10 +642,26 @@ export function AppController(props: AppControllerProps) {
   useEffect(() => {
     if (connectionState.status !== 'connected' || !gatewayAccountService) return;
     let canceled = false;
-    const refresh = () => { void gatewayAccountService.getState().then(next => { if (!canceled) onGatewayStateChange(next); }).catch(() => undefined); };
+    let sequence = 0;
+    const refresh = (checkAuthorization = false) => {
+      const request = ++sequence;
+      void gatewayAccountService.getState({ checkAuthorization }).then(next => {
+        if (!canceled && request === sequence) onGatewayStateChange(next);
+      }).catch(() => undefined);
+    };
+    const onReturn = () => refresh(true);
+    const onVisible = () => { if (document.visibilityState === 'visible') onReturn(); };
     refresh();
     const timer = setInterval(() => { if (previousGatewaySource.current === 'gateway') refresh(); }, 3000);
-    return () => { canceled = true; clearInterval(timer); };
+    window.addEventListener('focus', onReturn);
+    window.addEventListener('hashchange', onReturn);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      canceled = true; clearInterval(timer);
+      window.removeEventListener('focus', onReturn);
+      window.removeEventListener('hashchange', onReturn);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [gatewayAccountService, connectionState.status, onGatewayStateChange]);
   const openCreatorSettingsService = useMemo(
     () => runtimeClient === null ? null : createOpenCreatorSettingsService(runtimeClient),
@@ -4697,15 +4718,16 @@ export function AppController(props: AppControllerProps) {
     />
   ) : state.activeView === 'account' || state.activeView === 'subscription' ? (
     <PersonalCenterPage
-      key={state.activeView}
       view={state.activeView}
       service={gatewayAccountService}
       accountState={gatewayAccountState}
+      billingOrderId={props.route.view === 'account' ? props.route.billingOrderId : undefined}
+      billingReturnUrl={hostBridge.billingReturnUrl}
+      prepareExternalNavigation={hostBridge.prepareExternalNavigation}
       onStateChange={onGatewayStateChange}
       openExternal={url => hostBridge.openExternal(url)}
-      onOpenSubscription={() => openPrimaryView('subscription')}
+      onOpenModelSettings={() => navigateToRoute({ view: 'settings', tab: 'ai-services' })}
       onBack={() => {
-        if (state.activeView === 'subscription') { openPrimaryView('account'); return; }
         applyRouteFromLocation(accountReturnRouteRef.current);
         navigateToRoute(accountReturnRouteRef.current);
       }}
@@ -4723,6 +4745,7 @@ export function AppController(props: AppControllerProps) {
       customAccentColor={customAccentColor}
       onCustomAccentColorChange={handleCustomAccentColorChange}
       storageSettingsService={openCreatorSettingsService}
+      platformConnectionsService={platformConnectionsService}
       onSelectStorageDirectory={hostBridge.selectProjectDirectory}
       desktopCloseBehavior={desktopCloseBehavior}
       onDesktopCloseBehaviorChange={(behavior: 'hide' | 'quit') => {

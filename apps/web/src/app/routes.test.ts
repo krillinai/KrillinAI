@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { formatRoute, parseRoute } from './routes.js';
 
 describe('app routes', () => {
+  it('round-trips a billing order return and ignores unverified payment parameters', () => {
+    const route = { view: 'account' as const, billingOrderId: 'order-a' };
+    expect(parseRoute(formatRoute(route))).toEqual(route);
+    expect(parseRoute('#/account?billing=return&orderId=order-a&paid=true')).toEqual(route);
+    expect(parseRoute('#/account?billing=return&orderId=..%2Fother')).toEqual({ view: 'account' });
+  });
   it('round-trips the personal center route', () => {
     expect(formatRoute({ view: 'account' })).toBe('#/account');
     expect(parseRoute('#/account')).toEqual({ view: 'account' });

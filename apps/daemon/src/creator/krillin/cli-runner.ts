@@ -525,6 +525,7 @@ function reportProgressLine(
     providerStatus: 'running',
     percent: frame.percent,
     ...(frame.phase === undefined ? {} : { phase: frame.phase }),
+    ...(frame.message === undefined ? {} : { message: frame.message }),
     krillinEventPayload: payload
   });
 }

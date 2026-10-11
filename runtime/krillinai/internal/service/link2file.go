@@ -13,7 +13,9 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -72,8 +74,7 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 			if storage.FfmpegPath != "ffmpeg" {
 				cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
 			}
-			cmd := storage.YtdlpCommand(cmdArgs...)
-			output, err = cmd.CombinedOutput()
+			output, err = downloadYouTubeMedia(ctx, cmdArgs)
 			if err != nil {
 				log.GetLogger().Error("linkToFile download audio yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
 				return fmt.Errorf("linkToFile download audio yt-dlp error: %w: %s", err, compactCommandOutput(output))
@@ -137,8 +138,11 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 		if storage.FfmpegPath != "ffmpeg" {
 			cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
 		}
-		cmd := storage.YtdlpCommand(cmdArgs...)
-		output, err = cmd.CombinedOutput()
+		if util.IsYouTubeURL(stepParam.Link) {
+			output, err = downloadYouTubeMedia(ctx, cmdArgs)
+		} else {
+			output, err = storage.YtdlpCommandContext(ctx, cmdArgs...).CombinedOutput()
+		}
 		if err != nil {
 			log.GetLogger().Error("linkToFile download video yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
 			return fmt.Errorf("linkToFile download video yt-dlp error: %w: %s", err, compactCommandOutput(output))
@@ -201,8 +205,62 @@ func resolveLocalMediaInput(input string) (string, bool) {
 func compactCommandOutput(output []byte) string {
 	const maximum = 1200
 	value := strings.TrimSpace(string(output))
+	var fatalLines []string
+	for _, line := range strings.Split(value, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "ERROR:") {
+			fatalLines = append(fatalLines, strings.TrimSpace(line))
+		}
+	}
+	if len(fatalLines) > 0 {
+		value = strings.Join(fatalLines, "\n") + "\n" + value
+		return value[:min(len(value), maximum)]
+	}
 	if len(value) <= maximum {
 		return value
 	}
 	return value[len(value)-maximum:]
+}
+
+func downloadYouTubeMedia(ctx context.Context, args []string) ([]byte, error) {
+	const maxAttempts = 3
+	var output []byte
+	var err error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return output, err
+		}
+		commandArgs := args
+		if attempt == maxAttempts {
+			// HLS can remain available when the direct audio format is rejected.
+			commandArgs = youtubeAudioFallbackArgs(args)
+		}
+		output, err = storage.YtdlpCommandContext(ctx, commandArgs...).CombinedOutput()
+		if err == nil || !strings.Contains(string(output), "HTTP Error 403") || attempt == maxAttempts {
+			return output, err
+		}
+		// Re-run extraction to replace a rejected or expired signed media URL.
+		log.GetLogger().Warn("YouTube media download returned 403; refreshing media URL", zap.Int("attempt", attempt))
+		timer := time.NewTimer(time.Duration(attempt) * time.Second)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return output, ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return output, err
+}
+
+func youtubeAudioFallbackArgs(args []string) []string {
+	if !slices.Contains(args, "--extract-audio") {
+		return args
+	}
+	fallback := append([]string{}, args...)
+	for index, arg := range fallback {
+		if (arg == "-f" || arg == "--format") && index+1 < len(fallback) {
+			fallback[index+1] = "bestaudio[protocol^=m3u8]/" + fallback[index+1]
+			return append(fallback, "--concurrent-fragments", "4")
+		}
+	}
+	return args
 }

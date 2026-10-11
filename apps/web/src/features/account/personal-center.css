@@ -9,8 +9,8 @@
 .sidebar-account__copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--muted); }
 .opencreator-sidebar[data-collapsed=true] .sidebar-account { justify-content: center; padding: 6px 0; }
 .personal-center { min-width: 0; height: 100%; padding: var(--page-title-inset) 32px 40px; }
-.personal-center__content { width: 100%; max-width: 800px; margin: 0 auto; }
-.personal-center__heading { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+.personal-center__content { width: 100%; max-width: 640px; margin: 0 auto; }
+.personal-center__heading { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
 .personal-center__heading h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0; }
 .personal-center__heading button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex: 0 0 32px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
 .personal-center__heading button:hover { color: var(--text); background: var(--surface-2); }
@@ -22,10 +22,18 @@
 .gateway-account--profile .gateway-account__actions, .gateway-account--profile > button:first-of-type { grid-column: 2; grid-row: 1; margin: 0; }
 .gateway-account--profile > [role=alert], .gateway-account--profile > a { grid-column: 1 / -1; margin: 4px 0; }
 .personal-center .gateway-subscription { padding: 0; }
+.gateway-account__menu { position: relative; grid-column: 2; grid-row: 1; }
+.gateway-account__menu > summary { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 6px; cursor: pointer; list-style: none; color: var(--muted); }
+.gateway-account__menu > summary::-webkit-details-marker { display: none; }
+.gateway-account__menu > summary:hover, .gateway-account__menu[open] > summary { background: var(--surface-2); color: var(--text); }
+.gateway-account__menu > div { position: absolute; z-index: 3; top: 40px; right: 0; width: 160px; padding: 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); box-shadow: 0 4px 16px #00000018; }
+.gateway-account__menu > div button { width: 100%; border: 0; background: transparent; justify-content: flex-start; }
+.personal-center__model-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+.personal-center__model-status button { display: inline-flex; gap: 6px; align-items: center; background: transparent; border: 0; color: var(--text); font: inherit; cursor: pointer; padding: 4px 0; }
 @media (max-width: 640px) {
   .personal-center { padding: 20px 20px 32px; }
   .personal-center__heading { margin-bottom: 24px; }
   .personal-center__identity { align-items: flex-start; gap: 14px; }
-  .personal-center .gateway-account--profile { grid-template-columns: minmax(0, 1fr); }
+  .personal-center .gateway-account--profile { grid-template-columns: minmax(0, 1fr) auto; }
   .gateway-account--profile .gateway-account__actions, .gateway-account--profile > button:first-of-type { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 6px; }
 }
