@@ -769,6 +769,8 @@ describe('DashboardPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Featured apps' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab').slice(0, 2).map(tab => tab.textContent)).toEqual(['Recommended', 'All']);
+    expect(screen.getByRole('tab', { name: 'Recommended' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Video Editing' })).toBeInTheDocument();
     expect(screen.getByRole('searchbox', { name: 'Search apps' })).toBeInTheDocument();
     expect(screen.getByText('Translate & Dub Video')).toBeInTheDocument();
@@ -852,6 +854,8 @@ describe('DashboardPage', () => {
       .toHaveAttribute('src', '/dashboard/templates/image-generation-cover.png');
     expect(screen.getByRole('region', { name: '创作应用' })).toBeInTheDocument();
     expect(screen.getByRole('searchbox', { name: '搜索应用' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab').slice(0, 2).map(tab => tab.textContent)).toEqual(['推荐', '全部']);
+    expect(screen.getByRole('tab', { name: '推荐' })).toHaveAttribute('aria-selected', 'true');
     const videoTranslationCard = screen.getByRole('button', { name: /^视频翻译/ });
     expect(within(videoTranslationCard).getByText('HOT')).toBeInTheDocument();
     const appCards = Array.from(container.querySelectorAll('.dashboard-app-card'));
@@ -869,6 +873,28 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('button', { name: /^视频生成/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^文章写作/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^数字人口播/ })).not.toBeInTheDocument();
+  });
+
+  it('lists every available module in All and keeps Recommended curated', () => {
+    const { container } = render(<DashboardPage onSelectPrompt={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('tab', { name: '全部' }));
+    expect(screen.getByRole('tab', { name: '全部' })).toHaveAttribute('aria-selected', 'true');
+    expect(Array.from(container.querySelectorAll('.dashboard-app-card strong')).map(card => card.textContent))
+      .toEqual([
+        '视频下载', '视频翻译', '视频生成', '图像生成', '文章写作', '火柴人动画',
+        '视频切片', '封面生成', '小红书帖子', '短视频脚本', '智能配音'
+      ]);
+    expect(screen.queryByRole('button', { name: /^数字人口播/ })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索应用' }), { target: { value: '小红书' } });
+    expect(container.querySelectorAll('.dashboard-app-card')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: /^小红书帖子/ })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索应用' }), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('tab', { name: '推荐' }));
+    expect(container.querySelectorAll('.dashboard-app-card')).toHaveLength(4);
+    expect(screen.queryByRole('button', { name: /^小红书帖子/ })).not.toBeInTheDocument();
   });
 
   it('opens the WeChat article writer from the app directory', () => {
@@ -1890,8 +1916,8 @@ describe('DashboardPage', () => {
     expect(screen.getByText('没有找到相关应用')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '查看全部应用' }));
     expect(screen.getByRole('tab', { name: '全部' })).toHaveAttribute('aria-selected', 'true');
-    expect(directory.querySelectorAll('.dashboard-app-card')).toHaveLength(4);
-    expect(within(directory).queryByRole('button', { name: /^封面生成/ })).not.toBeInTheDocument();
+    expect(directory.querySelectorAll('.dashboard-app-card')).toHaveLength(11);
+    expect(within(directory).getByRole('button', { name: /^封面生成/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '音频处理' }));
     expect(within(directory).getByRole('button', { name: /^智能配音/ })).toBeInTheDocument();

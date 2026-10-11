@@ -202,9 +202,9 @@ const creatorTools: DashboardEntry[] = [
   }
 ];
 
-const categories = ['全部', '视频创作', '视频编辑', '图像创作', '文案创作', '音频处理'] as const;
+const categories = ['推荐', '全部', '视频创作', '视频编辑', '图像创作', '文案创作', '音频处理'] as const;
 type CategoryFilter = typeof categories[number];
-const allTabWorkspaces = new Set<CreatorWorkspace>([
+const recommendedTabWorkspaces = new Set<CreatorWorkspace>([
   'video-download',
   'video-translation',
   'video-generation',
@@ -253,7 +253,7 @@ export default function DashboardPage(props: {
   const [workspaceOrigin, setWorkspaceOrigin] = useState<'home' | 'dashboard'>(
     () => props.skillLaunch === undefined ? 'dashboard' : 'home'
   );
-  const [category, setCategory] = useState<CategoryFilter>('全部');
+  const [category, setCategory] = useState<CategoryFilter>('推荐');
   const [query, setQuery] = useState('');
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const localize = (value: string) => language === 'en-US'
@@ -262,8 +262,7 @@ export default function DashboardPage(props: {
   const visibleTools = useMemo(() => creatorTools.filter(tool => {
     if (tool.workspace === undefined || !isVisibleCreatorWorkspace(tool.workspace)) return false;
     const matchesCategory = category === '全部'
-      ? allTabWorkspaces.has(tool.workspace)
-      : tool.category === category;
+      || (category === '推荐' ? recommendedTabWorkspaces.has(tool.workspace) : tool.category === category);
     const matchesQuery = normalizedQuery.length === 0
       || `${localize(tool.title)} ${localize(tool.description)} ${localize(tool.category)}`
         .toLocaleLowerCase()
@@ -1017,6 +1016,7 @@ function createCreationKeySuffix(): string {
 }
 
 const englishDashboardLabels: Record<string, string> = {
+  推荐: 'Recommended',
   全部: 'All',
   内容创作: 'Content Creation',
   视频创作: 'Video Creation',
