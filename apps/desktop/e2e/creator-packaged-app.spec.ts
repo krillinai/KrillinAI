@@ -889,6 +889,7 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
 
     await currentApp.page.locator('.creator-workspace-header').getByRole('button', { name: '返回' }).click();
     await expect(currentApp.page.getByRole('heading', { name: '工作台' })).toBeVisible();
+    await currentApp.page.getByRole('tab', { name: '全部', exact: true }).click();
     await currentApp.page.getByRole('button', { name: /^视频切片/ }).click();
     const clipWorkspace = currentApp.page.getByRole('region', { name: '视频切片 操作区' });
     await expect(clipWorkspace.getByRole('textbox', { name: '视频链接' })).toBeVisible();
