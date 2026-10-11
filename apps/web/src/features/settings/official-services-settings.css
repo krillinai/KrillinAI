@@ -4,7 +4,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 12px 24px;
-  margin: 0 auto 24px;
+  margin: 0 auto;
   padding: 0 0 20px;
   border-bottom: 1px solid var(--border);
 }
@@ -73,8 +73,11 @@
 }
 
 .official-services-heading h1 {
+  min-height: var(--page-title-row-height);
+  display: flex;
+  align-items: center;
   margin: 0;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 600;
   line-height: 1.3;
 }

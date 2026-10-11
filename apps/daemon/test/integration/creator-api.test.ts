@@ -301,11 +301,18 @@ describe('creator api', () => {
     });
   });
 
-  it('allows signed-out gateway users to browse presets without granting model access', async () => {
-    await setupServer({ gatewayMode: true });
+  it('restores signed-out gateway users to manual services while keeping presets available', async () => {
+    await setupServer({ gatewayMode: true, llmConfigured: false });
     const account = await request('GET', '/gateway/account');
     expect(account.json()).toMatchObject({
-      source: 'gateway', authState: 'signed_out', activationState: 'inactive'
+      source: 'manual', authState: 'signed_out', activationState: 'inactive'
+    });
+    expect(await createGatewayConfigStore(tempDir).readConfiguration())
+      .toMatchObject({ source: 'manual', bindingVersion: null });
+    const activation = await request('POST', '/gateway/auth/activate');
+    expect(activation.statusCode).toBe(401);
+    expect(activation.json()).toMatchObject({
+      error: { code: 'GATEWAY_AUTH_REQUIRED', details: { gatewayCode: 'auth_required' } }
     });
 
     const catalog = await request('GET', '/creator/presets?locale=zh-CN');
@@ -327,17 +334,16 @@ describe('creator api', () => {
     expect(cover.rawPayload.byteLength).toBeGreaterThan(1_000);
 
     const modelConfig = await request('GET', '/creator-services/config');
-    expect(modelConfig.statusCode).toBe(401);
+    expect(modelConfig.statusCode).toBe(200);
     const created = await request('POST', '/creator/jobs', {
       projectId: 'project_signed_out',
       preset: { module: imagePreset.module, id: imagePreset.id, version: imagePreset.version },
       locale: 'zh-CN',
       creationKey: 'signed-out-preset-creation'
     });
-    expect(created.statusCode).toBe(401);
-    expect(created.json().code).toBe('auth_required');
+    expect(created.statusCode).toBe(201);
     expect((await request('GET', '/creator/jobs?projectId=project_signed_out')).json().jobs)
-      .toHaveLength(0);
+      .toHaveLength(1);
   });
 
   it('lists localized presets and creates a real preset job', async () => {
