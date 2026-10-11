@@ -28,6 +28,7 @@ import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { treeSize } from './package-directory-size.mjs';
 import { verifyCreatorRuntime } from './creator-runtime-contract.mjs';
 import { verifyCodexRuntime } from './codex-runtime-contract.mjs';
 import {
@@ -1003,15 +1004,6 @@ function assertSize(label, path, maxBytes) {
   if (bytes > maxBytes) {
     throw new Error(`${label} is unexpectedly large: ${bytes} bytes`);
   }
-}
-
-function treeSize(root) {
-  let total = 0;
-  walk(root, path => {
-    const stat = statSync(path);
-    if (stat.isFile()) total += stat.size;
-  });
-  return total;
 }
 
 function walk(root, visitor) {

@@ -19,6 +19,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as fontkit from 'fontkit';
 import { verifyRuntimeExecutable } from './runtime-executable-check.mjs';
+import { stripMacNodeRuntime } from './prepare-creator-node.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopDir = resolve(scriptDir, '..');
@@ -103,6 +104,7 @@ const buildRecord = {
     join(rootDir, 'scripts', 'build-krillinai.mjs'),
     join(scriptDir, 'install-creator-runtime-dependencies.mjs'),
     join(scriptDir, 'prepare-creator-runtime.mjs'),
+    join(scriptDir, 'prepare-creator-node.mjs'),
     join(rootDir, 'apps', 'daemon', 'src', 'creator', 'krillin', 'adapter.ts'),
     join(rootDir, 'apps', 'daemon', 'src', 'creator', 'krillin', 'cli-runner.ts'),
     join(rootDir, 'apps', 'daemon', 'src', 'creator', 'krillin', 'config-bridge.ts'),
@@ -473,6 +475,9 @@ function prepareYtDlpJavascriptRuntime(vendorVersions) {
     } finally {
       rmSync(extractionRoot, { recursive: true, force: true });
     }
+  }
+  if (targetPlatform === 'darwin' && process.platform === 'darwin') {
+    stripMacNodeRuntime(executable);
   }
   if (targetPlatform === process.platform && targetArch === process.arch) {
     verifyRuntimeExecutable({ name: 'yt-dlp Node runtime', path: executable,
