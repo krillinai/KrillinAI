@@ -5,9 +5,56 @@ import type { HostBridge, HostBridgeResult, HostNotification } from './bridge.js
 
 const CONNECTION_KEY = 'opencreator.web.connection.v1';
 const DEV_RUNTIME_CONFIG_PATH = '/.opencreator/runtime-config';
+let billingTabId: string | undefined;
+function getBillingTabId() {
+  if (!billingTabId) {
+    try { billingTabId = sessionStorage.getItem('opencreator:billing-tab') ?? undefined; } catch { /* Tab memory is sufficient for the current return. */ }
+    billingTabId ||= crypto.randomUUID();
+    try { sessionStorage.setItem('opencreator:billing-tab', billingTabId); } catch { /* Optional reload recovery. */ }
+  }
+  return billingTabId;
+}
 
 export const browserBridge: HostBridge = {
   kind: 'browser',
+  get authorizationReturnUrl() { return new URL('/#/account?login=complete', window.location.href).href; },
+  get billingReturnUrl() { return new URL('/#/account?billing=return&tabId=' + getBillingTabId(), window.location.href).href; },
+  prepareExternalNavigation() {
+    const tab = window.open('about:blank', '_blank');
+    if (!tab) throw new Error('Browser blocked the new tab');
+    tab.opener = null;
+    tab.name = 'opencreator-billing';
+    return {
+      navigate(url: string) { if (tab.closed) throw new Error('The new tab was closed'); tab.location.replace(url); },
+      close() { tab.close(); }
+    };
+  },
+  subscribeBillingReturn(listener) {
+    if (typeof BroadcastChannel === 'undefined') return () => {};
+    const channel = new BroadcastChannel('opencreator.billing-return.v1');
+    const params = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+    const returnTabId = params.get('tabId');
+    const returning = params.get('billing') === 'return' && !!returnTabId;
+    const tabId = getBillingTabId();
+    const nonce = crypto.randomUUID();
+    channel.onmessage = event => {
+      const value = event.data;
+      if (returning) {
+        if (value?.type === 'ack' && value.nonce === nonce) window.close();
+      } else if (value?.type === 'return' && value.tabId === tabId && typeof value.nonce === 'string'
+        && (value.orderId === undefined || (typeof value.orderId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value.orderId)))) {
+        listener(value.orderId);
+        channel.postMessage({ type: 'ack', nonce: value.nonce });
+        window.focus();
+      }
+    };
+    // The return tab signals the original app; the app still verifies the order with the server.
+    if (returning) {
+      const orderId = params.get('orderId');
+      if (!orderId || /^[A-Za-z0-9_-]{1,128}$/.test(orderId)) channel.postMessage({ type: 'return', tabId: returnTabId, nonce, ...(orderId ? { orderId } : {}) });
+    }
+    return () => channel.close();
+  },
   async readConnectionConfig(): Promise<ConnectionConfig | null> {
     const sameOriginConfig = await readSameOriginRuntimeConfig();
     return sameOriginConfig ?? parseStoredConnectionConfig(

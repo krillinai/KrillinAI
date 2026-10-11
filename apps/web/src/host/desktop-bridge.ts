@@ -74,6 +74,8 @@ export function readDesktopHostBridge(): DesktopHostBridge | undefined {
     : undefined;
   return {
     kind: 'desktop',
+    authorizationReturnUrl: 'opencreator://auth/complete',
+    billingReturnUrl: 'opencreator://billing/return',
     ...(windowChrome === undefined ? {} : { windowChrome }),
     readAppVersion: () => api.readAppVersion(),
     readConnectionConfig: () => api.readConnectionConfig(),

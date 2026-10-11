@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"krillin-ai/config"
 	"krillin-ai/internal/deps"
 	"krillin-ai/internal/storage"
@@ -14,6 +15,36 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestProcessYouTubeSubtitleClassifiesUnusableVTT(t *testing.T) {
+	log.InitLogger()
+	for name, content := range map[string]string{
+		"empty":      "WEBVTT\n\n",
+		"music-only": "WEBVTT\n\n00:00:00.000 --> 00:00:02.000\n[Music]\n\n",
+		"block-text": "WEBVTT\nKind: captions\nLanguage: en\n\n00:00:11.840 --> 00:00:17.360\nuh these efforts by lawmakers to pass some form of&nbsp;\nAI regulation. There have been more than a hundred\n\n",
+		"malformed":  "WEBVTT\n\ninvalid --> timestamps\nNormal speech\n\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			path := filepath.Join(root, "captions.vtt")
+			if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+				t.Fatal(err)
+			}
+			_, err := (&YouTubeSubtitleService{}).processYouTubeSubtitle(context.Background(), &YoutubeSubtitleReq{
+				TaskBasePath: root, VttFile: path, SourceOnly: true,
+			})
+			if !errors.Is(err, ErrYouTubeCaptionInvalid) {
+				t.Fatalf("error = %v, want unusable caption classification", err)
+			}
+		})
+	}
+	_, err := (&YouTubeSubtitleService{}).processYouTubeSubtitle(context.Background(), &YoutubeSubtitleReq{
+		VttFile: filepath.Join(t.TempDir(), "missing.vtt"),
+	})
+	if !errors.Is(err, ErrYouTubeCaptionInvalid) {
+		t.Fatalf("missing VTT error = %v, want unusable caption classification", err)
+	}
+}
 
 func TestSelectYouTubeSubtitleTrackPrefersManualOriginLanguage(t *testing.T) {
 	metadata := youtubeSubtitleMetadata{

@@ -18,6 +18,8 @@ export type AppRoute =
   | { view: 'schedules'; scheduleId?: string }
   | { view: 'tasks' }
   | { view: 'dashboard' }
+  | { view: 'account'; billingOrderId?: string }
+  | { view: 'subscription' }
   | {
       view: 'plugins';
       tab?: 'connections';
@@ -34,7 +36,7 @@ export type AppRoute =
   | { view: 'files'; threadId?: string; path?: string };
 
 export type AiServicesSection = 'text' | 'transcription' | 'tts' | 'image' | 'video';
-export type SettingsRouteTab = 'ai-services' | 'local-components';
+export type SettingsRouteTab = 'ai-services' | 'local-components' | 'platform-connections';
 
 export function parseRoute(hash: string): AppRoute {
   const [path = '', query = ''] = hash.split('?', 2);
@@ -77,6 +79,12 @@ export function parseRoute(hash: string): AppRoute {
   }
   if (path === '#/tasks') return { view: 'tasks' };
   if (path === '#/dashboard') return { view: 'dashboard' };
+  if (path === '#/account') {
+    const params = new URLSearchParams(query);
+    const id = params.get('orderId');
+    return { view: 'account', ...(params.get('billing') === 'return' && id && /^[A-Za-z0-9_-]{1,128}$/.test(id) ? { billingOrderId: id } : {}) };
+  }
+  if (path === '#/subscription') return { view: 'subscription' };
   if (path === '#/plugins') {
     const fields = parseQuery(query);
     return {
@@ -89,6 +97,8 @@ export function parseRoute(hash: string): AppRoute {
   if (path === '#/settings') {
     const params = new URLSearchParams(query);
     const tab = params.get('tab');
+    if (tab === 'account') return { view: 'account' };
+    if (tab === 'subscription') return { view: 'subscription' };
     const section = parseAiServicesSection(params.get('section'));
     const component = params.get('component');
     const returnPath = params.get('returnPath');
@@ -97,8 +107,8 @@ export function parseRoute(hash: string): AppRoute {
     }
     return {
       view: 'settings',
-      ...(tab === 'local-components'
-        ? { tab: 'local-components' as const }
+      ...(tab === 'local-components' || tab === 'platform-connections'
+        ? { tab }
         : tab === 'ai-services' || section !== undefined
           ? { tab: 'ai-services' as const }
           : {}),
@@ -154,6 +164,10 @@ export function formatRoute(route: AppRoute): string {
       return '#/tasks';
     case 'dashboard':
       return '#/dashboard';
+    case 'account':
+      return route.billingOrderId ? '#/account?billing=return&orderId=' + encodeURIComponent(route.billingOrderId) : '#/account';
+    case 'subscription':
+      return '#/subscription';
     case 'plugins': {
       const query = new URLSearchParams();
       if (route.tab === 'connections') query.set('tab', route.tab);

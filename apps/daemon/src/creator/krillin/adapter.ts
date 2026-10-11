@@ -53,6 +53,7 @@ export function createKrillinExecutor(input: {
       const materializedArtifacts = await writeArtifactIndex(input.jobsRoot, stage);
       const options = buildKrillinStageOptions(stage);
       let artifacts: KrillinResultArtifact[];
+      let captionFallbackProgress: Record<string, CreatorJson> = {};
       try {
         const attempts = createKrillinCliExecutionPlan(
           resolveKrillinStageContract(stage).stageType,
@@ -65,13 +66,22 @@ export function createKrillinExecutor(input: {
         let completed: KrillinResultArtifact[] | undefined;
         let deferredFailure: KrillinCliError | undefined;
         for (const attempt of attempts) {
+          const attemptStage: CreatorExecutorInput = {
+            ...stage,
+            reportProgress(progress) {
+              if (progress.providerStatus === 'failed' && attempt.continueOnErrorCodes !== undefined) return;
+              stage.reportProgress({ ...progress, ...captionFallbackProgress });
+            }
+          };
           try {
             if (requiresTranscriptionDependency(stage.stageRun.stageId, attempt.options)) {
               await ensureKrillinTranscriptionDependency(
                 input.dependencyLoader,
                 preflight.config,
-                stage,
-                deferredFailure !== undefined
+                attemptStage,
+                typeof captionFallbackProgress.captionFallbackMessage === 'string'
+                  ? captionFallbackProgress.captionFallbackMessage
+                  : undefined
               );
             }
             completed = await runKrillinCli({
@@ -79,7 +89,7 @@ export function createKrillinExecutor(input: {
               jobsRoot: input.jobsRoot,
               dependencyRoot: input.dependencyLoader.root,
               manifest: preflight.manifest,
-              stage,
+              stage: attemptStage,
               config: preflight.config,
               artifacts: materializedArtifacts,
               source: attempt.source,
@@ -93,9 +103,25 @@ export function createKrillinExecutor(input: {
           } catch (error) {
             if (
               error instanceof KrillinCliError
-              && error.code === attempt.continueOnErrorCode
+              && attempt.continueOnErrorCodes?.includes(error.code)
+              && !stage.signal.aborted
             ) {
               deferredFailure = error;
+              const message = error.code === 'platform_caption_invalid'
+                ? '平台字幕解析失败，已自动切换到语音转录'
+                : '未找到可用的平台字幕，已自动切换到语音转录';
+              captionFallbackProgress = {
+                captionSource: 'whisper',
+                captionFallbackCode: error.code,
+                captionFallbackMessage: message
+              };
+              stage.reportProgress({
+                ...captionFallbackProgress,
+                phase: 'fallback_to_transcription',
+                providerStatus: 'running',
+                percent: 25,
+                message
+              });
               continue;
             }
             if (deferredFailure !== undefined) {
@@ -114,7 +140,8 @@ export function createKrillinExecutor(input: {
       } catch (error) {
         if (!(error instanceof KrillinCliError)) throw error;
         const normalized = normalizeKrillinFailure({
-          code: error.kind === 'usage' ? 'usage' : error.code,
+          code: error.code,
+          kind: error.kind,
           message: error.message
         });
         throw CreatorExecutorError.from(normalized.code, error, normalized.message);
@@ -136,6 +163,7 @@ export function createKrillinExecutor(input: {
         })),
         progress: {
           ...stage.stageRun.progress,
+          ...captionFallbackProgress,
           krillinMode: 'cli',
           providerStatus: 'succeeded',
           percent: 100,
@@ -173,7 +201,7 @@ async function ensureKrillinTranscriptionDependency(
   loader: KrillinDependencyLoader,
   config: CreatorServicesConfig,
   stage: CreatorExecutorInput,
-  platformFallback = false
+  fallbackMessage?: string
 ): Promise<void> {
   if (stage.job.templateId === 'video-translation' && (
     stage.stageRun.stageId === 'subtitle'
@@ -185,19 +213,25 @@ async function ensureKrillinTranscriptionDependency(
     signal: stage.signal,
     reportProgress(progress) {
       stage.reportProgress({ ...stage.stageRun.progress, ...progress,
-        ...(platformFallback && typeof progress.message === 'string'
-          ? { message: `未找到可用的原始字幕，已切换到本地语音转录。${progress.message}` }
+        ...(fallbackMessage && typeof progress.message === 'string'
+          ? { message: `${fallbackMessage}。${progress.message}` }
           : {})
       });
     }
   });
 }
 
-export function normalizeKrillinFailure(error: { code?: string; message?: string } | undefined): {
+export function normalizeKrillinFailure(error: { code?: string; kind?: string; message?: string } | undefined): {
   code: string;
   message: string;
 } {
   const message = error?.message ?? 'KrillinAI stage failed';
+  if (error?.code !== undefined && [
+    'audio_no_speech', 'audio_transcription_empty', 'audio_transcription_invalid_response',
+    'audio_transcription_timestamps_missing', 'audio_transcription_api_failed'
+  ].includes(error.code)) {
+    return { code: error.code, message };
+  }
   if (
     error?.code === 'subtitle_style_load_failed'
     || error?.code === 'default_subtitle_style_load_failed'
@@ -208,7 +242,7 @@ export function normalizeKrillinFailure(error: { code?: string; message?: string
   if (/OpenAI.*(?:杞綍|转录|transcri)|(?:杞綍|转录|transcri).*OpenAI/i.test(message)) {
     return { code: 'creator_transcription_config_missing', message };
   }
-  if (error?.code === 'usage') {
+  if (error?.code === 'usage' || error?.kind === 'usage') {
     if (/(?:TTS|閰嶉煶|配音|语音合成)/i.test(message)) {
       return { code: 'creator_tts_config_missing', message };
     }
@@ -216,7 +250,7 @@ export function normalizeKrillinFailure(error: { code?: string; message?: string
       return { code: 'creator_llm_config_missing', message };
     }
   }
-  return { code: error?.code ?? 'krillin_stage_failed', message };
+  return { code: error?.kind === 'usage' ? 'usage' : error?.code ?? 'krillin_stage_failed', message };
 }
 
 export function buildKrillinStageOptions(input: CreatorExecutorInput): Record<string, unknown> {

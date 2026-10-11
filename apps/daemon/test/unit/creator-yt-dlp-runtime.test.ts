@@ -18,10 +18,12 @@ describe('yt-dlp runtime resolver', () => {
     const executable = runtimePath('yt-dlp-runtime/python/bin/python3.13');
     const script = runtimePath('yt-dlp-runtime/yt-dlp');
     const certificateBundle = runtimePath('yt-dlp-runtime/cacert.pem');
+    const node = runtimePath('bin/node');
     await Promise.all([
       writeResource(executable),
       writeResource(script),
-      writeResource(certificateBundle)
+      writeResource(certificateBundle),
+      writeResource(node)
     ]);
 
     expect(resolveYtDlpRuntime({
@@ -32,21 +34,34 @@ describe('yt-dlp runtime resolver', () => {
         pythonVersion: '3.13.15',
         executable: 'yt-dlp-runtime/python/bin/python3.13',
         script: 'yt-dlp-runtime/yt-dlp',
-        certificateBundle: 'yt-dlp-runtime/cacert.pem'
+        certificateBundle: 'yt-dlp-runtime/cacert.pem',
+        javascriptRuntime: { name: 'node', version: '22.23.2', executable: 'bin/node' }
       }, [
         resource('yt-dlp-runtime/python/bin/python3.13', 'executable'),
         resource('yt-dlp-runtime/yt-dlp', 'asset'),
-        resource('yt-dlp-runtime/cacert.pem', 'asset')
+        resource('yt-dlp-runtime/cacert.pem', 'asset'),
+        resource('bin/node', 'executable')
       ])
     })).toEqual({
       version: '2026.08.29.232711',
       executable,
-      prefixArgs: ['-I', '-B', script],
+      prefixArgs: ['-I', '-B', script, '--js-runtimes', `node:${node}`],
       env: {
         SSL_CERT_FILE: certificateBundle
       },
       script
     });
+  });
+
+  it('rejects a JavaScript runtime that is not pinned as an executable', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-yt-dlp-runtime-'));
+    expect(() => resolveYtDlpRuntime({
+      resourceRoot: root,
+      manifest: manifest({
+        mode: 'standalone', version: 'test', executable: 'bin/yt-dlp',
+        javascriptRuntime: { name: 'node', version: '22.23.2', executable: 'bin/node' }
+      }, [resource('bin/yt-dlp', 'executable'), resource('bin/node', 'asset')])
+    })).toThrow(/dependency_not_packaged.*node/);
   });
 
   it('resolves standalone and legacy packaged executables', async () => {

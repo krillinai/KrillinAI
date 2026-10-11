@@ -5,6 +5,18 @@ import {
 } from '../../src/creator/krillin/execution-plan.js';
 
 describe('KrillinAI CLI execution plan', () => {
+  it('defers transcription until captions are absent or unusable', () => {
+    expect(createKrillinCliExecutionPlan('subtitle', {
+      sourceUrl: 'https://www.youtube.com/watch?v=demo', mediaSource: 'local:/video.mp4'
+    }, { captionSource: 'any' })).toEqual([
+      {
+        source: 'https://www.youtube.com/watch?v=demo', options: { captionSource: 'platform' },
+        continueOnErrorCodes: ['platform_caption_failed', 'platform_caption_invalid']
+      },
+      { source: 'local:/video.mp4', options: { captionSource: 'whisper' } }
+    ]);
+  });
+
   it('delegates platform-caption fallback to KrillinAI in one attempt', () => {
     const plan = createKrillinCliExecutionPlan(
       'subtitle',

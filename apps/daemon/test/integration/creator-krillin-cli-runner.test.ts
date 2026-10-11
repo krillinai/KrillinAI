@@ -259,6 +259,7 @@ describe('KrillinAI CLI runner', () => {
     const cli = join(resourceRoot, 'bin', process.platform === 'win32' ? 'krillinai-cli.exe' : 'krillinai-cli');
     const ffmpeg = join(resourceRoot, 'bin', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
     const ytDlp = join(tempDir, "managed yt'dlp");
+    const cookieFile = join(tempDir, "YouTube cookie's.txt");
     const whisperKit = join(
       dependencyRoot,
       'bin',
@@ -269,6 +270,7 @@ describe('KrillinAI CLI runner', () => {
     mkdirSync(dirname(source), { recursive: true });
     mkdirSync(workdir, { recursive: true });
     writeFileSync(source, 'fixture-video');
+    writeFileSync(cookieFile, '# Netscape HTTP Cookie File\n', { mode: 0o600 });
     writeFileSync(cli, `#!${process.execPath}\n${FAKE_CLI}`);
     writeFileSync(ffmpeg, 'fixture-ffmpeg');
     writeFileSync(
@@ -329,7 +331,7 @@ describe('KrillinAI CLI runner', () => {
       ytDlpRuntime: {
         version: '2026.08.31.120000',
         executable: process.execPath,
-        prefixArgs: [ytDlp],
+        prefixArgs: [ytDlp, '--cookies', cookieFile],
         env: { SSL_CERT_FILE: '/tmp/opencreator-cacert.pem' },
         script: ytDlp
       }
@@ -362,11 +364,17 @@ describe('KrillinAI CLI runner', () => {
       whisperKit: realpathSync(whisperKit),
       ytDlp: join(realpathSync(workdir), '.krillin-cli', 'bin', 'yt-dlp'),
       ytDlpMode: 0o700,
-      ytDlpVersion: '2026.08.31.120000'
+      ytDlpVersion: '2026.08.31.120000',
+      ytDlpPrefixArgs: [ytDlp, '--cookies', cookieFile]
     });
     expect(existsSync(join(workdir, '.krillin-cli'))).toBe(false);
     expect(existsSync(join(dependencyRoot, 'bin', '.yt-dlp-last-check'))).toBe(true);
     expect(existsSync(join(dependencyRoot, 'models'))).toBe(true);
+    expect(progress).toContainEqual(expect.objectContaining({
+      phase: 'fallback_to_transcription',
+      providerStatus: 'running',
+      message: 'Platform captions could not be processed. Switching to audio transcription.'
+    }));
     expect(progress.at(-1)).toMatchObject({
       krillinMode: 'cli',
       providerStatus: 'succeeded',
@@ -496,6 +504,7 @@ describe('KrillinAI CLI runner', () => {
         providerStatus: 'running',
         percent: 64,
         phase: 'generating_voice',
+        message: 'generating',
         krillinEventPayload: {
           percent: 64,
           phase: 'generating_voice',
@@ -647,6 +656,12 @@ if (args[0] === 'tts') {
   };
   writeFileSync(outputs.vertical_video, 'video');
 } else {
+  process.stdout.write(JSON.stringify({
+    type: 'progress',
+    phase: 'fallback_to_transcription',
+    percent: 25,
+    message: 'Platform captions could not be processed. Switching to audio transcription.'
+  }) + '\n');
   const ytDlpPath = join(
     process.env.KRILLINAI_RESOURCE_ROOT,
     'bin',
@@ -665,7 +680,8 @@ if (args[0] === 'tts') {
     whisperKit: realpathSync(join(process.env.KRILLINAI_RESOURCE_ROOT, 'bin', 'whisperkit-cli')),
     ytDlp: realpathSync(ytDlpPath),
     ytDlpMode: statSync(ytDlpPath).mode & 0o777,
-    ytDlpVersion: ytDlpResult.stdout.trim()
+    ytDlpVersion: ytDlpResult.stdout.trim(),
+    ytDlpPrefixArgs: JSON.parse(process.env.KRILLINAI_YT_DLP_PREFIX_ARGS || '[]')
   }));
   outputs = {
     origin_video: join(workdir, 'origin_video.mp4'),
