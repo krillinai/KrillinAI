@@ -8,8 +8,8 @@ import { createCodexAppServerHost, type CodexAppServerHost } from '../../src/cod
 import { createGatewayRuntimeBindings } from '../../src/gateway/runtime-bindings.js';
 import { createDirectRuntime } from '../../src/gateway/direct-runtime.js';
 
-const codexBin = resolve('../../apps/desktop/.pack/codex-runtime/bin/codex');
-const manifest = JSON.parse(readFileSync(resolve('../../resources/codex-runtime/darwin-arm64/manifest.json'), 'utf8'));
+const manifest = JSON.parse(readFileSync(resolve(`../../resources/codex-runtime/${process.platform}-${process.arch}/manifest.json`), 'utf8'));
+const codexBin = resolve('../../apps/desktop/.pack/codex-runtime', manifest.binary.relativePath);
 const cleanup: Array<() => Promise<void> | void> = [];
 afterEach(async () => {
   for (const close of cleanup.splice(0).reverse()) await close();

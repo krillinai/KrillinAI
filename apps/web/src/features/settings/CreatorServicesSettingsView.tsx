@@ -63,6 +63,7 @@ export function CreatorServicesSettingsView(props: {
   service: CreatorServicesSettingsService | null;
   modelService?: ModelSettingsService | null;
   initialSection?: CreatorServicesSection;
+  modeControls?: ReactNode;
 }) {
   const l = useLocalizedCopy();
   const confirm = useConfirmDialog();
@@ -356,6 +357,8 @@ export function CreatorServicesSettingsView(props: {
           {l('本地配置文件', 'Local configuration file')}
         </span>
       </header>
+
+      {props.modeControls}
 
       <div className="creator-services-tabs" role="tablist" aria-label={l('AI 服务分类', 'AI service categories')}>
         {sections.map(section => {

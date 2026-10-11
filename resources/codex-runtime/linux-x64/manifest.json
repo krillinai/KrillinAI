@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "runtime": "codex",
+  "version": "0.149.0",
+  "tag": "rust-v0.149.0",
+  "commit": "758ef40f50c1a458425c7cfbf1eb12cbc07af0b0",
+  "platform": "linux",
+  "arch": "x64",
+  "officialAsset": "https://github.com/openai/codex/releases/download/rust-v0.149.0/codex-package-x86_64-unknown-linux-musl.tar.gz",
+  "sourcePackage": "npm:@openai/codex@0.149.0-linux-x64",
+  "sourceArchive": {
+    "url": "https://registry.npmjs.org/@openai/codex/-/codex-0.149.0-linux-x64.tgz",
+    "integrity": "sha512-uZXaN9JPxu0/jjnqqJeTd4kRYPnjVZK3MiVndfG1mHhEaoDKL7ScWHfPqvAEOjwsSDEmQSlMfUkmvYp/CHciYw==",
+    "vendorPath": "package/vendor/x86_64-unknown-linux-musl"
+  },
+  "binary": {
+    "relativePath": "bin/codex",
+    "sha256": "bbc3341e44c9ead340ed9570c17be936e37870f570751a941699ffd04d672827"
+  },
+  "appServerProtocol": {
+    "sourceVersion": "v0_149_0",
+    "relativePath": "protocol/v0_149_0",
+    "schemaSha256": "6670c9dc6595e01472c7b7ec35e604bc132b9fb7fab4894ea78ebee50f36e1ac"
+  },
+  "resources": [
+    {
+      "path": "codex-package.json",
+      "sha256": "0b3f869f9fbd009f4d0c68c68ab50d53778855899b19106a607c6cd1861637a3",
+      "kind": "metadata"
+    },
+    {
+      "path": "bin/codex",
+      "sha256": "bbc3341e44c9ead340ed9570c17be936e37870f570751a941699ffd04d672827",
+      "kind": "executable"
+    },
+    {
+      "path": "bin/codex-code-mode-host",
+      "sha256": "ba0f620a1d242a7555750e96c30c4c03b8b89ec0d4cff987e21bcd79fa18a363",
+      "kind": "executable"
+    },
+    {
+      "path": "codex-path/rg",
+      "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+      "kind": "executable"
+    },
+    {
+      "path": "codex-resources/bwrap",
+      "sha256": "7df960565a0dece99240ea4b9d0e011307817f9f3b73176c7b71fda44fe84765",
+      "kind": "executable"
+    },
+    {
+      "path": "codex-resources/zsh/bin/zsh",
+      "sha256": "67faaaa89242c4a332e16e508a1977cffc24bf7fca31d4411cdfd101f3831ef3",
+      "kind": "executable"
+    }
+  ],
+  "builtAt": "2026-08-21T00:00:00.000Z"
+}

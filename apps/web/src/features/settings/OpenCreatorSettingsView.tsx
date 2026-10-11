@@ -145,6 +145,14 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
     return () => { canceled = true; };
   }, [props.gatewayAccountService, props.gatewayAccountState]);
 
+  const modeControls = props.gatewayAccountService && gatewayState ? (
+    <div className={`gateway-account ai-services-mode${officialMode ? ' ai-services-mode--official' : ''}`}>
+      <span className="ai-services-mode__label">{l('使用模式', 'Usage mode')}</span>
+      <strong>{officialMode ? l('官方服务', 'Official service') : l('自定义配置', 'Custom configuration')}</strong>
+      {!officialMode && props.onOpenPersonalCenter ? <button type="button" onClick={props.onOpenPersonalCenter}><UserRound size={15} aria-hidden="true"/>{l('登录 OpenCreator', 'Sign in to OpenCreator')}</button> : null}
+    </div>
+  ) : null;
+
   return (
     <div className="settings-page">
       <aside className="settings-sidebar" aria-label={t('settings.navigation')}>
@@ -200,12 +208,7 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
         ) : null}
         {activeTab === 'ai-services' ? (
           <>
-            {props.gatewayAccountService && gatewayState ? <div className={`gateway-account ai-services-mode${officialMode ? ' ai-services-mode--official' : ''}`}>
-              <span className="ai-services-mode__label">{l('使用模式', 'Usage mode')}</span>
-              <strong>{officialMode ? l('官方服务', 'Official service') : l('自定义配置', 'Custom configuration')}</strong>
-              {!officialMode && props.onOpenPersonalCenter ? <button type="button" onClick={props.onOpenPersonalCenter}><UserRound size={15} aria-hidden="true"/>{l('登录 OpenCreator', 'Sign in to OpenCreator')}</button> : null}
-            </div> : null}
-            {officialMode && gatewayState ? <section className="gateway-account official-services-settings" aria-labelledby="official-services-title">
+            {officialMode && gatewayState ? <section className="settings-section gateway-account official-services-settings" aria-labelledby="official-services-title">
               <header className="official-services-heading">
                 <div>
                   <h1 id="official-services-title">{l('AI 服务', 'AI services')}</h1>
@@ -216,17 +219,9 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
                 </div>
                 {props.onOpenPersonalCenter ? <button type="button" onClick={props.onOpenPersonalCenter}><UserRound size={15} aria-hidden="true"/>{l('账户', 'Account')}</button> : null}
               </header>
+              {modeControls}
               {props.gatewayAccountService ? <OfficialServicesSettingsView state={gatewayState} service={props.gatewayAccountService} onChange={next => { setGatewayState(next); props.onGatewayStateChange?.(next); }} /> : null}
             </section> : null}
-            {props.agentSetupNeeded && !officialMode && props.onOpenAgentSetup !== undefined ? (
-              <div className="settings-inline-warning" role="status">
-                {l('Agent 尚未配置，无法发送任务。', 'Agent is not configured; tasks cannot be sent.')}
-                {' '}
-                <button className="settings-secondary-button" type="button" onClick={props.onOpenAgentSetup}>
-                  {l('配置 Agent', 'Set up Agent')}
-                </button>
-              </div>
-            ) : null}
             <Suspense fallback={
               <p role="status">{l('正在加载 AI 服务设置…', 'Loading AI service settings…')}</p>
             }>
@@ -235,6 +230,18 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
                 service={props.creatorServicesService ?? null}
                 modelService={props.codexRuntimeService ?? null}
                 initialSection={props.initialSection}
+                modeControls={<>
+                  {modeControls}
+                  {props.agentSetupNeeded && props.onOpenAgentSetup !== undefined ? (
+                    <div className="settings-inline-warning" role="status">
+                      {l('Agent 尚未配置，无法发送任务。', 'Agent is not configured; tasks cannot be sent.')}
+                      {' '}
+                      <button className="settings-secondary-button" type="button" onClick={props.onOpenAgentSetup}>
+                        {l('配置 Agent', 'Set up Agent')}
+                      </button>
+                    </div>
+                  ) : null}
+                </>}
               /> : null}
             </Suspense>
           </>

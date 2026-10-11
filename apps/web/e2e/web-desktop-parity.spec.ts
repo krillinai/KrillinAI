@@ -463,9 +463,9 @@ test('所有设置 Tab 在 Browser/Desktop 下使用相同的页面留白', asyn
       await runtime.openApp(page);
       await page.getByRole('button', { name: '设置', exact: true }).click();
       const nav = page.locator('.settings-nav > button');
-      await expect(nav).toHaveCount(9);
+      await expect(nav).toHaveCount(10);
       const tabs = [];
-      for (let index = 0; index < 9; index += 1) {
+      for (let index = 0; index < 10; index += 1) {
         await nav.nth(index).click();
         const section = page.locator('.settings-content > .settings-section');
         await expect(section).toBeVisible();
@@ -1067,7 +1067,7 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
       const lightButton = settings.getByRole('button', { name: '浅色' });
       const permission = settings.getByRole('combobox', { name: '默认权限' });
       const language = settings.getByRole('combobox', { name: '显示语言' });
-      const storagePaths = settings.locator('.settings-directory-input');
+      const storagePaths = settings.locator('#settings-default-project-root, #settings-output-root');
       await expect(lightButton).toHaveAttribute('aria-pressed', 'true');
       await expect(permission).toHaveValue('workspace-write');
       await expect(language).toHaveValue('zh-CN');
@@ -2182,6 +2182,7 @@ test('封面生成在桌面和移动视口保持可操作并从项目中心恢�
   await runtime.openApp(page);
   await page.goto(`${runtime.origin}/#/workbench`);
   await expect(page.getByRole('heading', { name: '工作台' })).toBeVisible();
+  await page.getByRole('tab', { name: '全部', exact: true }).click();
   await page.getByRole('button', { name: /^封面生成/ }).click();
 
   const workspace = page.getByRole('region', { name: '封面生成 操作区' });
