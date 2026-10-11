@@ -133,12 +133,32 @@ test('@package-smoke 授权回调唤起个人中心，模型初始化期间立�
     expect(grant.status).toBe(200);
     await navigateToAppRoute(fixture.page, '#/account');
     await expect(fixture.page.getByText('请在浏览器中完成登录')).toBeVisible();
-    await fixture.page.getByRole('button', { name: '最小化窗口', exact: true }).click();
+    if (process.platform === 'win32') {
+      if (fixture.process.pid === undefined) throw new Error('Desktop process ID is unavailable');
+      execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `
+        Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices;
+          public static class OpenCreatorE2EWindow {
+            [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr window, int command);
+            [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr window);
+          }';
+        $windowHandle = (Get-Process -Id ${fixture.process.pid}).MainWindowHandle;
+        if ($windowHandle -eq [IntPtr]::Zero) { throw 'Desktop native window is unavailable'; }
+        [OpenCreatorE2EWindow]::ShowWindowAsync($windowHandle, 6) | Out-Null;
+        $deadline = [DateTime]::UtcNow.AddSeconds(5);
+        while (-not [OpenCreatorE2EWindow]::IsIconic($windowHandle) -and [DateTime]::UtcNow -lt $deadline) {
+          Start-Sleep -Milliseconds 50;
+        }
+        if (-not [OpenCreatorE2EWindow]::IsIconic($windowHandle)) { throw 'Desktop native window did not minimize'; }
+      `], { timeout: 10_000 });
+    } else {
+      await fixture.page.getByRole('button', { name: '最小化窗口', exact: true }).click();
+    }
     approved = true;
     const checks: string[] = [];
     fixture.page.on('request', request => { if (request.url().endsWith('/gateway/auth/check')) checks.push(request.url()); });
     await launchSecondInstance(fixture, ['opencreator://auth/complete']);
     await expect(fixture.page).toHaveURL(/#\/account\?login=complete$/);
+    await expect.poll(() => fixture!.page.evaluate(() => document.visibilityState)).toBe('visible');
     await expect.poll(() => checks.length).toBeGreaterThan(0);
     await expect(fixture.page.getByRole('region', { name: 'OpenCreator 账户', exact: true }).getByRole('status')).toHaveText('已登录', { timeout: 10_000 });
     await expect(fixture.page.getByText('官方模型服务正在连接', { exact: true })).toBeVisible();
