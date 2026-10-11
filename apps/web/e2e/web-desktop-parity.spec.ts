@@ -1,7 +1,7 @@
 import { createDefaultCreatorServicesConfig, type CreatorRuntimeComponentsResponse, type CreatorServicesCapabilitiesResponse, type CreatorYtDlpStatusResponse } from '@opencreator/protocol';
 import { test, expect } from './fixtures/runtime.js';
 
-test('项目管理资源不随通用项目页面提前加载且 Browser/Desktop 布局一致', async ({ browser, runtime }, testInfo) => {
+test('首页和项目页按需加载管理、登录与插件资源且 Browser/Desktop 布局一致', async ({ browser, runtime }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-desktop');
   const results: unknown[] = [];
   for (const platform of ['browser', 'desktop']) {
@@ -9,11 +9,17 @@ test('项目管理资源不随通用项目页面提前加载且 Browser/Desktop 
     const page = await context.newPage();
     const resources: string[] = [];
     page.on('request', request => {
-      if (/ProjectManagementDialog|project-management\.css/.test(request.url())) resources.push(request.url());
+      if (/ProjectManagementDialog|project-management\.css|StartupAgentSetup|startup-agent-setup\.css|gateway-account-settings\.css|skill-market-catalog|\/packages\/skill-market\//.test(request.url())) resources.push(request.url());
     });
     if (platform === 'desktop') await installDesktopBridge(page);
     try {
       await runtime.openApp(page);
+      expect(resources.some(url => /StartupAgentSetup/.test(url))).toBe(true);
+      expect(resources.some(url => /ProjectManagementDialog|\/packages\/skill-market\//.test(url))).toBe(false);
+      resources.length = 0;
+      await page.reload();
+      await expect(page.getByRole('status', { name: '本地运行内核正常' })).toBeVisible();
+      await expect(page.locator('.startup-agent-setup')).toHaveCount(0);
       expect(resources).toHaveLength(0);
       await page.getByRole('button', { name: '我的项目', exact: true }).click();
       const workspace = page.getByRole('region', { name: 'OpenCreator 工作区' });

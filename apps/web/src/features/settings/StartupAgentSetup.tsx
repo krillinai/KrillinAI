@@ -1,61 +1,23 @@
-import { creatorProviderCatalogById, type CodexProviderConfig, type CodexRuntimeReadiness } from '@opencreator/protocol';
+import { creatorProviderCatalogById } from '@opencreator/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, LogIn, Monitor } from 'lucide-react';
 import OpenCreatorMark from '../../components/brand/OpenCreatorMark.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { ConnectionService } from '../../services/connection-service.js';
-import { readJsonFromStorage, writeJsonToStorage } from '../../storage/browser-storage.js';
 import { inferLlmProviderId, llmProviderOptions } from './llm-provider-selection.js';
+import { availableAgentMode, type AgentSetupSnapshot } from './agent-setup-state.js';
+import './startup-agent-shell.css';
 import './startup-agent-setup.css';
 import { GatewayAccountSettingsView } from './GatewayAccountSettingsView.js';
 import type { GatewayAccountSettingsService } from '../../services/gateway-account-service.js';
 import type { GatewayAccountState } from '@opencreator/protocol';
 
-export type AgentSetupSnapshot = { readiness: CodexRuntimeReadiness; provider: CodexProviderConfig };
 type AgentSetupMode = 'codex' | 'custom';
-const confirmationKey = 'opencreator.agent-setup-confirmed.v1';
 
 export type AgentSetupService = Pick<ConnectionService,
   | 'getCodexReadiness'
   | 'getCodexProvider'
   | 'updateCodexProvider'>;
-
-export function needsAgentSetup(readiness: CodexRuntimeReadiness): boolean {
-  return readiness.account.accountStatus === 'signed_out'
-    || readiness.account.accountStatus === 'expired'
-    || readiness.account.status === 'not_authenticated';
-}
-
-export function availableAgentMode({ readiness, provider }: AgentSetupSnapshot): 'chatgpt' | 'api_key' | null {
-  if (readiness.binary.status !== 'ready' || readiness.protocol.status !== 'ready'
-    || readiness.models.status !== 'ready' || readiness.state === 'blocked') return null;
-  if (provider.authentication === 'chatgpt' && provider.baseUrl.length === 0
-    && !needsAgentSetup(readiness) && readiness.account.status === 'ready') return 'chatgpt';
-  if (provider.authentication === 'api_key' && provider.apiKeyConfigured && provider.model.trim().length > 0
-    && (readiness.account.status === 'ready' && readiness.account.accountStatus === 'signed_in'
-      || readiness.account.status === 'not_authenticated' && readiness.account.accountStatus === 'signed_out'
-        && provider.baseUrl.trim().length > 0)) return 'api_key';
-  return null;
-}
-
-function confirmationValue(snapshot: AgentSetupSnapshot): string {
-  const { readiness, provider } = snapshot;
-  return JSON.stringify([
-    readiness.codexHome, availableAgentMode(snapshot), provider.authentication,
-    provider.baseUrl, provider.model, provider.apiKeyConfigured
-  ]);
-}
-
-export function isAgentSetupConfirmed(snapshot: AgentSetupSnapshot): boolean {
-  return availableAgentMode(snapshot) !== null
-    && readJsonFromStorage<string>(confirmationKey) === confirmationValue(snapshot);
-}
-
-export function confirmAgentSetup(snapshot: AgentSetupSnapshot): void {
-  try {
-    writeJsonToStorage(confirmationKey, confirmationValue(snapshot));
-  } catch {}
-}
 
 export function StartupAgentSetup(props: {
   service: AgentSetupService;

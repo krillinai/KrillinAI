@@ -33,7 +33,7 @@ import {
 } from './AppController.js';
 import { PROJECTS_STORAGE_KEY } from '../features/projects/project-model.js';
 import type { OpenCreatorProject } from '../features/projects/project-model.js';
-import { confirmAgentSetup } from '../features/settings/StartupAgentSetup.js';
+import { confirmAgentSetup } from '../features/settings/agent-setup-state.js';
 import type { HostBridge } from '../host/bridge.js';
 import type { SubscribeRunEventsInput } from '../runtime/sse.js';
 import type { FileTreeNode, WorkspaceFile } from '../services/file-service.js';
@@ -133,6 +133,10 @@ describe('App', () => {
       if (projectResponse !== undefined) return projectResponse;
       if (url.endsWith('/healthz')) return jsonResponse({ ok: true });
       if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
+      if (url.endsWith('/gateway/account')) return jsonResponse({
+        source: 'manual', authState: 'signed_out', activationState: 'inactive',
+        account: null, bindingVersion: null, models: [], activationError: null
+      });
       if (url.endsWith('/codex/readiness')) return jsonResponse({
         state: authenticated ? 'ready' : 'degraded',
         account: { status: authenticated ? 'ready' : 'not_authenticated', accountStatus: authenticated ? 'signed_in' : 'signed_out' },
@@ -159,7 +163,7 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: '稍后配置，进入本地模式' }));
     await user.click(screen.getByRole('button', { name: '设置' }));
     await user.click(await screen.findByRole('button', { name: /AI 服务/ }));
-    await user.click(screen.getByRole('button', { name: '配置 Agent' }));
+    await user.click(await screen.findByRole('button', { name: '配置 Agent' }));
     await user.click(screen.getByRole('button', { name: '本地模式' }));
     await user.selectOptions(await screen.findByRole('combobox', { name: '供应商' }), 'openai');
     expect(screen.getByLabelText('模型名称')).toHaveValue('gpt-5.6-sol');

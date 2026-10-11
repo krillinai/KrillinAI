@@ -22,7 +22,6 @@ import type {
   ThreadHistoryItem,
   ThreadResponse
 } from '@opencreator/protocol';
-import { skillMarketCatalog } from '@opencreator/skill-market';
 import type {
   CSSProperties,
   DragEvent as ReactDragEvent,
@@ -48,7 +47,6 @@ import {
 import { ConversationHeader } from '../features/conversation/ConversationHeader.js';
 import { ApprovalPanel } from '../features/approvals/ApprovalPanel.js';
 import { useThreadHistory } from '../features/conversation/use-thread-history.js';
-import { getSkillMarketDisplayTitle } from '../features/plugins/skill-market-model.js';
 import {
   collectTaskTransitions,
   createTaskNotification,
@@ -81,7 +79,6 @@ import {
   type ComposerSlashCommand
 } from '../features/runs/Composer.js';
 import { IssueList, PageIssueRoutingProvider } from '../features/issues/IssuePresenter.js';
-import AgentDiagnosticsPanel from '../features/issues/AgentDiagnosticsPanel.js';
 import { buildIssueAgentPrompt } from '../features/issues/issue-catalog.js';
 import { usePageIssueState } from '../features/issues/page-issue-state.js';
 import { createScheduleTaskSummaries } from '../features/schedules/schedule-task-model.js';
@@ -108,9 +105,9 @@ import type {
 import {
   confirmAgentSetup,
   isAgentSetupConfirmed,
-  StartupAgentSetup,
   type AgentSetupSnapshot
-} from '../features/settings/StartupAgentSetup.js';
+} from '../features/settings/agent-setup-state.js';
+import '../features/settings/startup-agent-shell.css';
 import { useLocalizedCopy } from '../i18n/useLocalizedCopy.js';
 import type { McpCapabilities } from '../features/settings/McpSettingsView.js';
 import { OpenCreatorSidebar } from '../features/shell/OpenCreatorSidebar.js';
@@ -270,6 +267,11 @@ const ScheduleThreadHeader = lazy(async () => {
 const SchedulesPage = lazy(() => import('../features/schedules/SchedulesPage.js'));
 const SearchPage = lazy(() => import('../features/search/SearchPage.js'));
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage.js'));
+const AgentDiagnosticsPanel = lazy(() => import('../features/issues/AgentDiagnosticsPanel.js'));
+const StartupAgentSetup = lazy(async () => {
+  const module = await import('../features/settings/StartupAgentSetup.js');
+  return { default: module.StartupAgentSetup };
+});
 const PersonalCenterPage = lazy(() => import('../features/account/PersonalCenterPage.js'));
 const TaskCenterPage = lazy(() => import('../features/tasks/TaskCenterPage.js'));
 const DetailPanel = lazy(async () => {
@@ -3259,14 +3261,27 @@ export function AppController(props: AppControllerProps) {
   async function useMarketSkill(skillId: string, projectId: string) {
     setSkillMarketUseError(undefined);
     const isSkillCreator = skillId === 'skill-creator';
-    const entry = isSkillCreator ? undefined : getSkillMarketEntry(skillId);
-    if (!isSkillCreator && entry === undefined) {
-      setSkillMarketUseError({ skillId, error: '未找到这个技能' });
-      return;
+    let title = '创建技能';
+    if (!isSkillCreator) {
+      try {
+        const [{ skillMarketCatalog }, { getSkillMarketDisplayTitle }] = await Promise.all([
+          import('@opencreator/skill-market'),
+          import('../features/plugins/skill-market-model.js')
+        ]);
+        const entry = skillMarketCatalog.find(candidate => candidate.id === skillId);
+        if (entry === undefined) {
+          setSkillMarketUseError({ skillId, error: '未找到这个技能' });
+          return;
+        }
+        title = getSkillMarketDisplayTitle(entry);
+      } catch {
+        setSkillMarketUseError({ skillId, error: '技能列表加载失败，请重试' });
+        return;
+      }
     }
     await useSkillByName({
       skillName: skillId,
-      title: isSkillCreator ? '创建技能' : getSkillMarketDisplayTitle(entry!),
+      title,
       projectId,
       onError: error => setSkillMarketUseError(
         error === undefined ? undefined : { skillId, error }
@@ -4966,22 +4981,24 @@ export function AppController(props: AppControllerProps) {
         </main>
       ) : null}
       {agentSetup === 'needed' && connectionService !== null && !configurationPageActive ? (
-        <StartupAgentSetup
-          service={connectionService}
-          gatewayService={gatewayAccountService}
-          gatewayState={gatewayAccountState}
-          onGatewayStateChange={onGatewayStateChange}
-          openExternal={url => hostBridge.openExternal(url)}
-          initialSnapshot={agentSetupSnapshot}
-          onReady={snapshot => {
-            setAgentSetupRequested(false);
-            confirmAgentSetup(snapshot);
-            setAgentSetupSnapshot(snapshot);
-            setAgentSetup('ready');
-            startNewConversation({ destination: 'home' });
-          }}
-          onSkip={() => { setAgentSetupRequested(false); setAgentSetup('skipped'); }}
-        />
+        <Suspense fallback={<main className="startup-agent-setup" role="status">{l('正在加载 Agent 配置…', 'Loading Agent setup…')}</main>}>
+          <StartupAgentSetup
+            service={connectionService}
+            gatewayService={gatewayAccountService}
+            gatewayState={gatewayAccountState}
+            onGatewayStateChange={onGatewayStateChange}
+            openExternal={url => hostBridge.openExternal(url)}
+            initialSnapshot={agentSetupSnapshot}
+            onReady={snapshot => {
+              setAgentSetupRequested(false);
+              confirmAgentSetup(snapshot);
+              setAgentSetupSnapshot(snapshot);
+              setAgentSetup('ready');
+              startNewConversation({ destination: 'home' });
+            }}
+            onSkip={() => { setAgentSetupRequested(false); setAgentSetup('skipped'); }}
+          />
+        </Suspense>
       ) : null}
       {projectDropActive ? (
         <div className="project-drop-overlay" role="status" aria-live="polite">
@@ -5030,11 +5047,13 @@ export function AppController(props: AppControllerProps) {
           />
         </Suspense>
       ) : null}
-      <AgentDiagnosticsPanel
-        hiddenCreatorIssues={immersiveWorkspace && props.route.view === 'workbench' && props.route.jobId === undefined}
-        hiddenBackgroundRuntimeIssues={immersiveWorkspace && props.route.view === 'workbench'}
-        onAskIssue={askAgentAboutIssue}
-      />
+      <Suspense fallback={null}>
+        <AgentDiagnosticsPanel
+          hiddenCreatorIssues={immersiveWorkspace && props.route.view === 'workbench' && props.route.jobId === undefined}
+          hiddenBackgroundRuntimeIssues={immersiveWorkspace && props.route.view === 'workbench'}
+          onAskIssue={askAgentAboutIssue}
+        />
+      </Suspense>
     </div></PageIssueRoutingProvider></RuntimeRecoveryContext.Provider>
   );
 
@@ -5413,10 +5432,6 @@ function useMediaQuery(query: string): boolean {
   }, [query]);
 
   return matches;
-}
-
-function getSkillMarketEntry(skillId: string): (typeof skillMarketCatalog)[number] | undefined {
-  return skillMarketCatalog.find(entry => entry.id === skillId);
 }
 
 function shouldShowThreadInSidebar(thread: ThreadResponse): boolean {
