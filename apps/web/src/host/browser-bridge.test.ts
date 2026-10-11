@@ -25,6 +25,39 @@ describe('browserBridge', () => {
     });
     expect(fetch).toHaveBeenCalledWith('/.opencreator/runtime-config', expect.objectContaining({ method: 'GET' }));
   });
+  it('opens a tab synchronously and removes its opener before an account request', () => {
+    const replace = vi.fn(); const close = vi.fn();
+    const tab = { opener: window, name: '', closed: false, location: { replace }, close };
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+    const navigation = browserBridge.prepareExternalNavigation!();
+    expect(open).toHaveBeenCalledWith('about:blank', '_blank');
+    expect(tab.opener).toBeNull();
+    navigation.navigate('https://www.open-creator.ai/pricing');
+    expect(replace).toHaveBeenCalledWith('https://www.open-creator.ai/pricing');
+    navigation.close(); expect(close).toHaveBeenCalledOnce();
+    open.mockRestore();
+  });
+
+  it('signals an order return to the original tab without accepting a payment claim', () => {
+    let latest: { onmessage?: (event: { data: unknown }) => void; postMessage: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> };
+    class Channel {
+      onmessage?: (event: { data: unknown }) => void;
+      postMessage = vi.fn(); close = vi.fn();
+      constructor() { latest = this; }
+    }
+    vi.stubGlobal('BroadcastChannel', Channel);
+    const focus = vi.spyOn(window, 'focus').mockImplementation(() => {});
+    const received = vi.fn();
+    const unsubscribe = browserBridge.subscribeBillingReturn!(received);
+    const tabId = new URL(browserBridge.billingReturnUrl!).hash.split('tabId=')[1];
+    latest!.onmessage!({ data: { type: 'return', tabId, nonce: 'return-request', orderId: 'order-a' } });
+    expect(received).toHaveBeenCalledWith('order-a');
+    expect(latest!.postMessage).toHaveBeenCalledWith({ type: 'ack', nonce: 'return-request' });
+    latest!.onmessage!({ data: { type: 'return', tabId, nonce: 'bad-request', orderId: '../other' } });
+    latest!.onmessage!({ data: { type: 'return', tabId: 'other-tab', nonce: 'other-request', orderId: 'order-b' } });
+    expect(received).toHaveBeenCalledOnce();
+    unsubscribe(); expect(latest!.close).toHaveBeenCalledOnce(); focus.mockRestore();
+  });
 
   it('falls back to local storage when same-origin runtime config is unavailable', async () => {
     window.localStorage.setItem(

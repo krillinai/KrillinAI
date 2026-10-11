@@ -23,12 +23,24 @@ export function createVideoMetadataService(input: {
   fetchImpl?: typeof fetch;
   getProxy?(): string | Promise<string>;
   getYtDlpRuntime?(): YtDlpRuntime | undefined;
+  withYouTubeCookies?<T>(operation: () => Promise<T>): Promise<T>;
+  isYouTubeConnected?(): Promise<boolean>;
 } = {}): VideoMetadataService {
   const cache = new Map<string, { payload: unknown; expiresAt: number }>();
   return {
     async get(value: string): Promise<VideoMetadataResponse> {
       const normalized = normalizeVideoSourceUrl(value);
       const platform = supportedVideoSourcePlatform(normalized);
+      if (platform === 'youtube' && input.withYouTubeCookies && input.getYtDlpRuntime?.()
+        && (await input.isYouTubeConnected?.() ?? true)) {
+        return input.withYouTubeCookies(async () => {
+          try {
+            const { previewUrl: _previewUrl, ...metadata } = await resolveOnlineVideoMetadata({ url: normalized, platform,
+              runtime: input.getYtDlpRuntime!()!, proxy: await resolveProxy(input.getProxy) });
+            return metadata;
+          } catch { throw new VideoMetadataError('UPSTREAM_ERROR', 'YouTube 视频信息暂不可用，请检查网络或平台连接后重试'); }
+        });
+      }
       if (platform !== null && platform !== 'youtube' && platform !== 'bilibili') {
         const runtime = input.getYtDlpRuntime?.();
         if (runtime === undefined) throw new VideoMetadataError('UPSTREAM_ERROR', 'Online video preview resolver is unavailable');

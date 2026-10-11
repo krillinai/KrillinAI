@@ -624,6 +624,7 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
         executable: string;
         script: string;
         certificateBundle: string;
+        javascriptRuntime: { name: 'node'; version: string; executable: string };
       };
       resources: Array<{ path: string; kind: string }>;
     };
@@ -636,6 +637,7 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
         executableResource('bin/krillinai-cli'),
         executableResource('bin/ffmpeg'),
         executableResource('bin/ffprobe'),
+        runtimeManifest.ytDlp.javascriptRuntime.executable,
         runtimeManifest.ytDlp.executable,
         runtimeManifest.ytDlp.script,
         runtimeManifest.ytDlp.certificateBundle
@@ -644,8 +646,14 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
     expect(runtimeManifest.ytDlp).toMatchObject({
       mode: 'python',
       version: '2026.08.29.232711',
-      pythonVersion: '3.13.15'
+      pythonVersion: '3.13.15',
+      javascriptRuntime: { name: 'node', version: '22.23.2' }
     });
+    expect(execFileSync(join(runtimeRoot, runtimeManifest.ytDlp.javascriptRuntime.executable),
+      ['--version'], { encoding: 'utf8', timeout: 10_000 }).trim()).toBe('v22.23.2');
+    expect(execFileSync(join(runtimeRoot, runtimeManifest.ytDlp.javascriptRuntime.executable),
+      ['-e', 'let sum = 0; for (let i = 0; i < 100000; i++) sum += i; process.stdout.write(String(sum))'],
+      { encoding: 'utf8', timeout: 10_000 }).trim()).toBe('4999950000');
     expect(runtimeManifest.resources.some(resource => (
       resource.path.endsWith('.pyc')
       || resource.path.includes('/__pycache__/')
@@ -1673,9 +1681,10 @@ async function waitForWorkspace(page: Page): Promise<void> {
   )?.phase).toBe('ready');
   const confirmed = await page.evaluate(() => window.localStorage.getItem('opencreator.agent-setup-confirmed.v1') !== null);
   if (!confirmed) {
-    const setup = page.getByRole('heading', { name: '开始使用 Agent' });
+    const setup = page.getByRole('region', { name: '开始使用 Agent' });
     await setup.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => undefined);
     if (await setup.isVisible()) {
+      await page.getByRole('button', { name: '本地模式', exact: true }).click();
       await page.getByRole('button', { name: '使用本机 Codex，继续' }).click();
       await expect(setup).toBeHidden();
     }

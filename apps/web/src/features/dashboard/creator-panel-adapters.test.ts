@@ -82,6 +82,33 @@ describe('shared native image progress', () => {
 });
 
 describe('video translation component progress', () => {
+  it.each(['zh-CN', 'en-US', 'sv-SE'] as const)('keeps caption fallback visible during preparation, transcription and after success in %s', language => {
+    const localize = createLocalizedCopy(language);
+    const running = { ...stage('subtitle', '', 'running', null, 'subtitle'), progress: {
+      phase: 'fallback_to_transcription', percent: 25, captionSource: 'whisper',
+      captionFallbackCode: 'platform_caption_invalid', message: 'platform captions contained no usable text'
+    } };
+    for (const phase of ['fallback_to_transcription', 'downloading_dependencies', 'transcribing_audio']) {
+      const progress = videoTranslationPanelAdapter.readStageProgress({
+        ...running, progress: { ...running.progress, phase }
+      }, localize);
+      expect(progress.showMessage).toBe(true);
+      expect(progress.message).toContain(language === 'zh-CN' ? '已自动切换' : language === 'en-US' ? 'Automatically switched' : 'Bytte automatiskt');
+      expect(progress.message).not.toContain('contained no usable text');
+      if (language !== 'zh-CN') expect(progress.message).not.toMatch(/\p{Script=Han}/u);
+    }
+    expect(videoTranslationPanelAdapter.succeededProgressText?.({ ...running, status: 'succeeded' }, localize))
+      .toContain(language === 'zh-CN' ? '已使用语音转录' : language === 'en-US' ? 'audio transcription' : 'ljudtranskription');
+  });
+
+  it('distinguishes missing captions from unusable VTT in the fallback notice', () => {
+    const running = { ...stage('subtitle', '', 'running', null, 'subtitle'), progress: {
+      phase: 'fallback_to_transcription', captionFallbackCode: 'platform_caption_failed'
+    } };
+    expect(videoTranslationPanelAdapter.readStageProgress(running, zh).message).toContain('未找到可用的平台字幕');
+    expect(videoTranslationPanelAdapter.readStageProgress({ ...running, progress: {} }, zh).showMessage).toBe(false);
+  });
+
   it('labels draft preview activity and reports real progress without translation claims', () => {
     const running = { ...stage('draft-preview', '', 'running', null, 'preview-source-video'),
       progress: { phase: 'downloading', percent: 40, downloadedBytes: 4 * 1024 ** 2, totalBytes: 10 * 1024 ** 2 } };

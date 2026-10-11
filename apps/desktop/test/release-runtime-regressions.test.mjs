@@ -58,7 +58,7 @@ describe('Desktop release runtime regressions', () => {
       '@iarna/toml': '2.2.5',
       'cross-spawn': '7.0.6',
       fastify: '5.12.2',
-      sharp: '0.35.4',
+      sharp: '0.35.5',
       toml: '4.2.0',
       yauzl: '3.4.0'
     });

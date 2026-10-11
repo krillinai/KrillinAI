@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"net/url"
 	"os"
 	"os/exec"
@@ -26,6 +27,7 @@ import (
 )
 
 var ErrYouTubeCaptionAccess = errors.New("platform caption access failed")
+var ErrYouTubeCaptionInvalid = errors.New("platform caption content is unusable")
 
 // VttWord 表示VTT文件中的一个单词及其时间戳信息
 type VttWord struct {
@@ -140,7 +142,7 @@ func (s *YouTubeSubtitleService) parseVttTime(timeStr string) (float64, error) {
 
 // 使用yt-dlp下载YouTube视频的字幕文件
 func (s *YouTubeSubtitleService) downloadYouTubeSubtitle(ctx context.Context, req *YoutubeSubtitleReq) (string, error) {
-	if !strings.Contains(req.URL, "youtube.com") {
+	if !util.IsYouTubeURL(req.URL) {
 		return "", fmt.Errorf("downloadYouTubeSubtitle: not a YouTube link")
 	}
 
@@ -511,7 +513,7 @@ func (s *YouTubeSubtitleService) findDownloadedSubtitleFile(taskBasePath, langua
 // 处理YouTube字幕文件，转换为标准格式并进行翻译
 func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req *YoutubeSubtitleReq) (string, error) {
 	if req.VttFile == "" {
-		return "", fmt.Errorf("processYouTubeSubtitle: no original subtitle file found")
+		return "", fmt.Errorf("%w: no original subtitle file found", ErrYouTubeCaptionInvalid)
 	}
 
 	log.GetLogger().Info("processYouTubeSubtitle start",
@@ -535,9 +537,12 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 
 	vttWords, err := s.ExtractWordsFromVtt(vttFilePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to extract VTT words: %w", err)
+		return "", fmt.Errorf("%w: failed to extract VTT words: %w", ErrYouTubeCaptionInvalid, err)
 	}
 	log.GetLogger().Info("提取VTT单词完成", zap.Int("单词数", len(vttWords)))
+	if len(vttWords) == 0 {
+		return "", fmt.Errorf("%w: platform captions contained no usable text after filtering music, sound annotations and punctuation", ErrYouTubeCaptionInvalid)
+	}
 
 	// 更新进度：提取完成
 	if req.TaskPtr != nil {
@@ -552,7 +557,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 		sentences = s.groupWordsIntoSentences(vttWords)
 	}
 	if len(sentences) == 0 {
-		return "", fmt.Errorf("no sentences formed from VTT words")
+		return "", fmt.Errorf("%w: no sentences formed from VTT words", ErrYouTubeCaptionInvalid)
 	}
 	log.GetLogger().Info("组织句子完成", zap.Int("句子数", len(sentences)))
 
@@ -820,6 +825,8 @@ func (s *YouTubeSubtitleService) cleanVttText(text string) string {
 	if text == "" {
 		return text
 	}
+	text = html.UnescapeString(text)
+	text = strings.NewReplacer("\u200b", "", "\u200c", "", "\u200d", "", "\u00a0", " ").Replace(text)
 
 	// 先过滤音乐和其他提示标记（方括号内容）
 	// 匹配 [music], [applause], [laughter], [inaudible] 等标记
@@ -841,28 +848,6 @@ func (s *YouTubeSubtitleService) cleanVttText(text string) string {
 	// 匹配 Um, Uh, Er, Ah, Oh, Mm, Hmm 等，支持大小写
 	fillerWordsRegex := regexp.MustCompile(`(?i)^\s*(um|uh|er|ah|oh|mm|hmm|hm|eh)\s*[,，]?\s*`)
 	cleanedText = fillerWordsRegex.ReplaceAllString(cleanedText, "")
-
-	// HTML实体解码映射
-	htmlEntities := map[string]string{
-		"&gt;&gt;": "",   // 大于号双引号 - 直接过滤掉
-		"&gt;":     ">",  // 大于号
-		"&lt;&lt;": "<<", // 小于号双引号
-		"&lt;":     "<",  // 小于号
-		"&amp;":    "&",  // &符号
-		"&quot;":   "\"", // 双引号
-		"&apos;":   "'",  // 单引号
-		"&nbsp;":   " ",  // 不间断空格
-		"&#39;":    "'",  // 单引号的数字实体
-		"&#34;":    "\"", // 双引号的数字实体
-		"&#8203;":  "",   // 零宽度空格
-		"&#8204;":  "",   // 零宽度非连接符
-		"&#8205;":  "",   // 零宽度连接符
-	}
-
-	// 替换HTML实体
-	for entity, replacement := range htmlEntities {
-		cleanedText = strings.ReplaceAll(cleanedText, entity, replacement)
-	}
 
 	// 移除多余的空格
 	cleanedText = strings.TrimSpace(cleanedText)

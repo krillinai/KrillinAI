@@ -1,7 +1,7 @@
 export type KrillinCliExecutionAttempt = {
   source?: string;
   options: Record<string, unknown>;
-  continueOnErrorCode?: string;
+  continueOnErrorCodes?: string[];
 };
 
 export type KrillinCliExecutionSources = {
@@ -43,7 +43,7 @@ export function createKrillinCliExecutionPlan(
     {
       source: sources.sourceUrl,
       options: { ...options, captionSource: 'platform' },
-      continueOnErrorCode: 'platform_caption_failed'
+      continueOnErrorCodes: ['platform_caption_failed', 'platform_caption_invalid']
     },
     {
       ...(mediaSource === undefined ? {} : { source: mediaSource }),

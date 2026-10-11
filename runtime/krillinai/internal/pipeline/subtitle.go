@@ -7,7 +7,8 @@ import (
 	"krillin-ai/internal/service"
 	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"krillin-ai/internal/types"
-	"net/url"
+	"krillin-ai/pkg/util"
+	"krillin-ai/pkg/whisper"
 	"os"
 	"strings"
 )
@@ -93,7 +94,7 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 			reportSubtitleProgress(req, "processing_platform_captions", 25, "正在解析平台字幕")
 			youtubeReq.VttFile = vttFile
 			_, err = svc.ProcessYouTubeSubtitle(ctx, youtubeReq)
-			if err != nil {
+			if err != nil && !errors.Is(err, service.ErrYouTubeCaptionInvalid) {
 				return failSubtitleStage(req, manifest, ErrorKindRetryable, "platform_caption_processing_failed", err)
 			}
 		}
@@ -118,10 +119,19 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 			return failSubtitleStage(req, manifest, ErrorKindRetryable, "platform_caption_access_failed", err)
 		}
 		if req.CaptionSource != CaptionSourceAny {
-			return failSubtitleStage(req, manifest, ErrorKindRetryable, "platform_caption_failed", err)
+			code := "platform_caption_failed"
+			if errors.Is(err, service.ErrYouTubeCaptionInvalid) {
+				code = "platform_caption_invalid"
+			}
+			return failSubtitleStage(req, manifest, ErrorKindRetryable, code, err)
 		}
 		platformCaptionErr = err
-		manifest.Warnings = append(manifest.Warnings, "平台字幕不可用，回退到转录")
+		fallbackMessage := "未找到可用的平台字幕，已自动切换到语音转录"
+		if errors.Is(err, service.ErrYouTubeCaptionInvalid) {
+			fallbackMessage = "平台字幕解析失败，已自动切换到语音转录"
+		}
+		manifest.Warnings = append(manifest.Warnings, fallbackMessage)
+		reportSubtitleProgress(req, "fallback_to_transcription", 25, fallbackMessage)
 		stepParam.VttSwitch = false
 		if req.PrepareVideo {
 			stepParam.EmbedSubtitleVideoType = "all"
@@ -155,7 +165,19 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 				err,
 			)
 		}
-		return failSubtitleStage(req, manifest, ErrorKindRetryable, "audio_transcription_failed", err)
+		code, retryable := "audio_transcription_failed", true
+		var classified *whisper.TranscriptionError
+		if errors.As(err, &classified) {
+			code, retryable = classified.Code, classified.Retryable()
+		}
+		kind := ErrorKindRetryable
+		if !retryable {
+			kind = ErrorKindUsage
+			if code == "audio_transcription_invalid_response" {
+				kind = ErrorKindInternal
+			}
+		}
+		return failSubtitleStage(req, manifest, kind, code, err)
 	}
 	manifest.CaptionSource = string(CaptionSourceWhisper)
 	reportSubtitleProgress(req, "collecting_outputs", 95, "正在整理字幕产物")
@@ -368,14 +390,5 @@ func subtitleResponse(ok bool, req SubtitleRequest, manifest *Manifest, captionS
 }
 
 func IsYouTubeInput(input string) bool {
-	parsed, err := url.Parse(strings.TrimSpace(input))
-	if err != nil {
-		return false
-	}
-	hostname := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
-	return hostname == "youtu.be" ||
-		hostname == "youtube.com" ||
-		strings.HasSuffix(hostname, ".youtube.com") ||
-		hostname == "youtube-nocookie.com" ||
-		strings.HasSuffix(hostname, ".youtube-nocookie.com")
+	return util.IsYouTubeURL(input)
 }

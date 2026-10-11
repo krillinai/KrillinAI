@@ -46,19 +46,133 @@ const fakeCodexLauncherSource = join(e2eDir, 'fixtures', 'fake-codex-launcher.go
 
 test.describe.configure({ mode: 'serial' });
 
+test('@package-smoke 充值回跳进入个人中心并以网关订单确认到账', async ({}, testInfo) => {
+  let paid = false;
+  let orderChecks = 0;
+  const account = { id: 'billing-test', email: 'billing@example.test', verified: true };
+  const gateway = createServer((request, response) => {
+    response.setHeader('Content-Type', 'application/json');
+    const path = request.url?.split('?')[0];
+    if (path === '/api/v1/auth/device/start') response.end(JSON.stringify({ attemptId: 'billing-attempt', deviceSecret: 'test-device-secret', authorizationUrl: `${origin}/device`, interval: 5, expiresIn: 600 }));
+    else if (path === '/api/v1/auth/device/token') response.end(JSON.stringify({ accessToken: 'billing-access', refreshToken: 'billing-refresh', expiresIn: 900 }));
+    else if (path === '/api/v1/client/bootstrap') { response.statusCode = 503; response.end(JSON.stringify({ error: { code: 'services_not_ready' } })); }
+    else if (path === '/api/v1/me') response.end(JSON.stringify({ account }));
+    else if (path === '/api/v1/billing/summary') response.end(JSON.stringify({ balance: { availableUnits: paid ? '2500000000' : '0', reservedUnits: '0', periodEnd: null, asOf: new Date().toISOString() }, subscription: null, billingAvailable: false, plansUrl: origin + '/pricing' }));
+    else if (path === '/api/v1/billing/orders/order-a') {
+      if (request.headers.authorization !== 'Bearer billing-access') { response.statusCode = 401; response.end(JSON.stringify({ error: { code: 'auth_required' } })); return; }
+      orderChecks++;
+      response.end(JSON.stringify({ order: { id: 'order-a', planId: 'starter', currency: 'usd', amountUnits: '500', creditUnits: '2500000000', status: paid ? 'completed' : 'pending', paymentStatus: paid ? 'paid' : 'pending', creditStatus: paid ? 'ready' : 'pending', reviewRequired: false, paymentMode: 'test', createdAt: new Date().toISOString(), paidAt: null, completedAt: null } }));
+    } else response.end(JSON.stringify({ items: [] }));
+  });
+  await new Promise<void>(resolve => gateway.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${(gateway.address() as AddressInfo).port}`;
+  let fixture: DesktopFixture | undefined;
+  try {
+    fixture = await launchPackagedDesktop('success', { gatewayOrigin: origin });
+    await waitForWorkspace(fixture.page);
+    await runtimeRequest(fixture.page, 'POST', '/gateway/auth/start', {});
+    await runtimeRequest(fixture.page, 'POST', '/gateway/auth/check', {});
+    await navigateToAppRoute(fixture.page, '#/account');
+    await expect(fixture.page.getByRole('heading', { name: account.email })).toBeVisible();
+    await navigateToAppRoute(fixture.page, '#/new');
+    await launchSecondInstance(fixture, ['opencreator://billing/return?orderId=order-a']);
+    await expect(fixture.page).toHaveURL(/#\/account\?billing=return&orderId=order-a$/);
+    await expect(fixture.page.getByText('待付款', { exact: true })).toBeVisible();
+    await expect(fixture.page.getByText(/充值成功/)).toHaveCount(0);
+    paid = true;
+    await fixture.page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(fixture.page.getByText('充值成功，已到账 2500 积分', { exact: true })).toBeVisible();
+    await expect(fixture.page.locator('.account-credits__value')).toContainText('2500');
+    expect(orderChecks).toBeGreaterThanOrEqual(2);
+    await expect(fixture.page.getByRole('dialog')).toHaveCount(0);
+    await expect(fixture.page.getByRole('tab')).toHaveCount(0);
+    await fixture.page.screenshot({ path: testInfo.outputPath('billing-return-account.png') });
+  } finally {
+    if (fixture) await closeFixture(fixture);
+    gateway.closeAllConnections();
+    await new Promise<void>(resolve => gateway.close(() => resolve()));
+  }
+});
+
+test('@package-smoke 授权回调唤起个人中心，模型初始化期间立即显示登录态', async ({}, testInfo) => {
+  let approved = false;
+  let tokenRequests = 0;
+  let releaseBootstrap!: () => void;
+  const bootstrapReady = new Promise<void>(resolve => { releaseBootstrap = resolve; });
+  const account = { id: 'login-test', email: 'login@example.test', verified: true };
+  const gateway = createServer(async (request, response) => {
+    response.setHeader('Content-Type', 'application/json');
+    const path = request.url?.split('?')[0];
+    if (path === '/api/v1/auth/device/start') {
+      response.end(JSON.stringify({ attemptId: 'login-attempt', deviceSecret: 'private-device-secret', authorizationUrl: `${origin}/device?grant=login-attempt`, interval: 5, expiresIn: 600 }));
+    } else if (path === '/api/v1/auth/device/token') {
+      tokenRequests++;
+      response.statusCode = approved ? 200 : 428;
+      response.end(JSON.stringify(approved ? { accessToken: 'private-access', refreshToken: 'private-refresh', expiresIn: 900 } : { error: { code: 'authorization_pending' } }));
+    } else if (path === '/api/v1/client/bootstrap') {
+      await bootstrapReady;
+      response.statusCode = 503;
+      response.end(JSON.stringify({ error: { code: 'services_not_ready' } }));
+    } else if (path === '/api/v1/me') {
+      response.end(JSON.stringify({ account }));
+    } else if (path === '/api/v1/plans') {
+      response.end(JSON.stringify({ plans: [], billingAvailable: false }));
+    } else if (path === '/api/v1/billing/summary') {
+      response.end(JSON.stringify({ balance: { availableUnits: '0', reservedUnits: '0', periodEnd: null, asOf: new Date().toISOString() }, subscription: null, billingAvailable: false }));
+    } else {
+      response.end(JSON.stringify({ ok: true }));
+    }
+  });
+  await new Promise<void>(resolve => gateway.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${(gateway.address() as AddressInfo).port}`;
+  let fixture: DesktopFixture | undefined;
+  try {
+    fixture = await launchPackagedDesktop('success', { gatewayOrigin: origin });
+    await waitForWorkspace(fixture.page);
+    const grant = await runtimeRequest(fixture.page, 'POST', '/gateway/auth/start', {});
+    expect(grant.status).toBe(200);
+    await navigateToAppRoute(fixture.page, '#/account');
+    await expect(fixture.page.getByText('请在浏览器中完成登录')).toBeVisible();
+    await fixture.page.getByRole('button', { name: '最小化窗口', exact: true }).click();
+    approved = true;
+    const checks: string[] = [];
+    fixture.page.on('request', request => { if (request.url().endsWith('/gateway/auth/check')) checks.push(request.url()); });
+    await launchSecondInstance(fixture, ['opencreator://auth/complete']);
+    await expect(fixture.page).toHaveURL(/#\/account\?login=complete$/);
+    await expect.poll(() => checks.length).toBeGreaterThan(0);
+    await expect(fixture.page.getByText('已登录，正在连接模型服务…')).toBeVisible({ timeout: 10_000 });
+    const state = await runtimeRequest<{ authState: string; activationState: string }>(fixture.page, 'GET', '/gateway/account');
+    expect(state.body).toMatchObject({ authState: 'signed_in', activationState: 'loading' });
+    expect(tokenRequests).toBe(1);
+    await fixture.page.screenshot({ path: testInfo.outputPath('login-models-loading.png') });
+    releaseBootstrap();
+    await expect(fixture.page.getByRole('heading', { name: account.email, exact: true })).toBeVisible();
+    await expect(fixture.page.getByText('已登录，模型服务暂不可用', { exact: true })).toBeVisible();
+    await expect(fixture.page.getByRole('button', { name: '重新连接', exact: true })).toBeEnabled();
+    const signedIn = await runtimeRequest(fixture.page, 'GET', '/gateway/account');
+    expect(signedIn.body).toMatchObject({ authState: 'signed_in', activationState: 'blocked', account });
+    expect(JSON.stringify(signedIn.body)).not.toMatch(/private-access|private-refresh|private-device-secret/);
+  } finally {
+    releaseBootstrap();
+    if (fixture) await closeFixture(fixture);
+    gateway.closeAllConnections();
+    await new Promise<void>(resolve => gateway.close(() => resolve()));
+  }
+});
+
 test('@package-smoke 全新账号启动时引导配置 Agent，跳过后可重新配置', async () => {
   const fixture = await launchPackagedDesktop('success', { signedOut: true });
   try {
     await waitForRuntimeReady(fixture.page, false);
-    await expect(fixture.page.getByRole('heading', { name: '开始使用 Agent' })).toBeVisible();
+    await expect(fixture.page.getByRole('region', { name: '开始使用 Agent' })).toBeVisible();
     await expect(fixture.page.getByRole('combobox', { name: '供应商' })).toBeVisible();
     await expect(fixture.page.getByRole('button', { name: '使用 ChatGPT 登录' })).toHaveCount(0);
-    await fixture.page.getByRole('button', { name: '暂时跳过' }).click();
+    await fixture.page.getByRole('button', { name: '稍后配置，进入本地模式' }).click();
     await fixture.page.getByRole('button', { name: '设置', exact: true }).click();
     await fixture.page.getByRole('button', { name: /AI 服务/ }).click();
     await expect(fixture.page.getByText('Agent 尚未配置，无法发送任务。')).toBeVisible();
     await fixture.page.getByRole('button', { name: '配置 Agent' }).click();
-    await expect(fixture.page.getByRole('heading', { name: '开始使用 Agent' })).toBeVisible();
+    await expect(fixture.page.getByRole('region', { name: '开始使用 Agent' })).toBeVisible();
   } finally {
     await closeFixture(fixture);
   }
@@ -68,12 +182,12 @@ test('@package-smoke 已有 API 凭据时仍显示复用确认和手动填写入
   const fixture = await launchPackagedDesktop('success');
   try {
     await waitForRuntimeReady(fixture.page, false);
-    await expect(fixture.page.getByRole('heading', { name: '开始使用 Agent' })).toBeVisible();
+    await expect(fixture.page.getByRole('region', { name: '开始使用 Agent' })).toBeVisible();
     await expect(fixture.page.getByRole('button', { name: '自定义模型服务' })).toBeVisible();
     await expect(fixture.page.getByText(/API Key 已配置/)).toBeVisible();
     await expect(fixture.page.getByLabel('API Key')).toHaveCount(0);
     await fixture.page.getByRole('button', { name: '使用本机 Codex，继续' }).click();
-    await expect(fixture.page.getByRole('heading', { name: '开始使用 Agent' })).toBeHidden();
+    await expect(fixture.page.getByRole('region', { name: '开始使用 Agent' })).toBeHidden();
   } finally {
     await closeFixture(fixture);
   }
@@ -83,12 +197,12 @@ test('@package-smoke 自定义 Provider 无 ChatGPT 登录态时可复用已有�
   const fixture = await launchPackagedDesktop('success', { seedLocalCodexProvider: true });
   try {
     await waitForRuntimeReady(fixture.page, false);
-    await expect(fixture.page.getByRole('heading', { name: '开始使用 Agent' })).toBeVisible();
+    await expect(fixture.page.getByRole('region', { name: '开始使用 Agent' })).toBeVisible();
     await expect(fixture.page.getByText('已找到本机 Codex')).toBeVisible();
     await expect(fixture.page.getByText(/API Key 已配置 · custom-model/)).toBeVisible();
     await expect(fixture.page.getByLabel('API Key')).toHaveCount(0);
     await fixture.page.getByRole('button', { name: '使用本机 Codex，继续' }).click();
-    await expect(fixture.page.getByRole('heading', { name: '开始使用 Agent' })).toBeHidden();
+    await expect(fixture.page.getByRole('region', { name: '开始使用 Agent' })).toBeHidden();
     expect(existsSync(join(fixture.root, 'codex-home', 'auth.json'))).toBe(false);
   } finally {
     await closeFixture(fixture);
@@ -1136,6 +1250,113 @@ test('@package-smoke 启动 Codex app-server 后在 3 秒内退出', async () =>
   }
 });
 
+test('@package-smoke 关闭后隐藏保留本地服务，重新打开后可以正常退出', async () => {
+  test.skip(process.platform !== 'darwin', 'Custom window controls are macOS only');
+  const fixture = await launchPackagedDesktop('success');
+  try {
+    await waitForRuntimeReady(fixture.page, false);
+    await fixture.page.evaluate(async () => {
+      await window.opencreatorDesktop?.updateDesktopPreferences({ closeBehavior: 'hide' });
+    });
+    await fixture.page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+    expect(fixture.process.exitCode).toBeNull();
+    expect((await runtimeRequest(fixture.page, 'GET', '/healthz')).status).toBe(200);
+
+    await launchSecondInstance(fixture);
+    await expect(fixture.page.getByRole('button', { name: '关闭窗口', exact: true })).toBeVisible();
+    await requestPackagedAppQuit(fixture);
+    expect(await waitForProcessExit(fixture.process, 3_000)).toBe(true);
+    expect(fixture.process.exitCode).toBe(0);
+  } finally {
+    await closeFixture(fixture);
+  }
+});
+
+test('@package-smoke 创作模块连接内嵌 Runtime 并使用默认项目', async ({}, testInfo) => {
+  const fixture = await launchPackagedDesktop('success');
+  try {
+    await waitForWorkspace(fixture.page);
+    expect(await fixture.page.evaluate(() => window.opencreatorDesktop?.readConnectionConfig()))
+      .toEqual({ baseUrl: '/.opencreator/runtime' });
+    await expect.poll(async () => {
+      const response = await runtimeRequest<{ projects: Array<{ name: string }> }>(
+        fixture.page, 'GET', '/projects?status=all'
+      );
+      return response.body.projects.filter(project => project.name === '默认项目').length;
+    }).toBe(1);
+    expect((await runtimeRequest(fixture.page, 'GET', '/creator/templates')).status).toBe(200);
+
+    for (const [tool, title] of [
+      ['video-translation', '视频翻译配音'],
+      ['video-download', '视频下载'],
+      ['image-generation', '图像生成'],
+      ['video-generation', '视频生成'],
+      ['smart-dubbing', '智能配音'],
+      ['cover-generator', '封面生成'],
+      ['stickman-video', '火柴人动画']
+    ]) {
+      await navigateToAppRoute(fixture.page, `#/workbench?tool=${tool}`);
+      await expect(fixture.page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await expect(fixture.page.getByRole('heading', { name: '本地创作服务未连接' })).toHaveCount(0);
+      await fixture.page.screenshot({ path: testInfo.outputPath(`${tool}.png`) });
+    }
+  } finally {
+    await closeFixture(fixture);
+  }
+});
+
+test('@package-smoke YouTube 连接复用已登录 Chrome 并自动保存登录态', async ({}, testInfo) => {
+  test.skip(process.platform !== 'darwin' || process.env.OPENCREATOR_E2E_REAL_YOUTUBE !== '1', 'Requires an existing signed-in local Chrome profile');
+  let fixture = await launchPackagedDesktop('success');
+  try {
+    await waitForWorkspace(fixture.page);
+    await navigateToAppRoute(fixture.page, '#/settings?tab=platform-connections');
+    await expect(fixture.page.getByRole('heading', { name: '平台连接', exact: true })).toBeVisible();
+    await expect(fixture.page.getByRole('combobox', { name: '浏览器账号' })).toBeVisible();
+    await fixture.page.getByRole('button', { name: '连接', exact: true }).click();
+    await expect(fixture.page.getByRole('status').filter({ hasText: '已连接' })).toBeVisible({ timeout: 30_000 });
+    const state = await runtimeRequest<{ status: string }>(fixture.page, 'GET', '/platform-connections/youtube');
+    expect(state.body.status).toBe('connected');
+    expect(JSON.stringify(state.body)).not.toMatch(/SAPISID|secret|cookies|credentials/);
+    await fixture.page.screenshot({ path: testInfo.outputPath('youtube-connected.png') });
+    if (process.env.OPENCREATOR_E2E_YOUTUBE_PROXY) {
+      expect((await runtimeRequest(fixture.page, 'PATCH', '/creator-services/network', { proxy: process.env.OPENCREATOR_E2E_YOUTUBE_PROXY })).status).toBe(200);
+    }
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const metadata = await runtimeRequest<{ title: string }>(fixture.page, 'GET', '/video-metadata?url=' + encodeURIComponent('https://www.youtube.com/watch?v=m5yrQMnc_jQ'));
+      expect(metadata.status).toBe(200);
+      expect(metadata.body.title.length).toBeGreaterThan(0);
+    }
+    const previous = fixture;
+    await closePackagedApp(previous);
+    fixture = { ...await relaunchPackagedApp(previous), root: previous.root, stateDir: previous.stateDir };
+    await waitForWorkspace(fixture.page);
+    await navigateToAppRoute(fixture.page, '#/settings?tab=platform-connections');
+    await expect(fixture.page.getByRole('status').filter({ hasText: '已连接' })).toBeVisible();
+    const restoredMetadata = await runtimeRequest<{ title: string }>(fixture.page, 'GET', '/video-metadata?url=' + encodeURIComponent('https://www.youtube.com/watch?v=m5yrQMnc_jQ'));
+    expect(restoredMetadata.status).toBe(200);
+    expect(restoredMetadata.body.title.length).toBeGreaterThan(0);
+    await fixture.page.getByRole('button', { name: '断开', exact: true }).click();
+    await expect(fixture.page.getByRole('status').filter({ hasText: '未连接' })).toBeVisible();
+  } finally { await closeFixture(fixture); }
+});
+
+test('@package-smoke 设置关闭后退出时，关闭按钮结束实际 App', async () => {
+  test.skip(process.platform !== 'darwin', 'Custom window controls are macOS only');
+  const fixture = await launchPackagedDesktop('success');
+  try {
+    await waitForRuntimeReady(fixture.page, false);
+    await fixture.page.evaluate(async () => {
+      await window.opencreatorDesktop?.updateDesktopPreferences({ closeBehavior: 'quit' });
+    });
+    await fixture.page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+    expect(await waitForProcessExit(fixture.process, 3_000)).toBe(true);
+    expect(fixture.process.exitCode).toBe(0);
+  } finally {
+    await closeFixture(fixture);
+  }
+});
+
 type DesktopFixture = PackagedApp & {
   root: string;
   stateDir: string;
@@ -1154,6 +1375,7 @@ async function launchPackagedDesktop(
     seedLocalCodex?: boolean;
     seedLocalCodexProvider?: boolean;
     telemetryUrl?: string;
+    gatewayOrigin?: string;
   } = {}
 ): Promise<DesktopFixture> {
   const root = mkdtempSync(join(tmpdir(), 'opencreator-desktop-e2e-'));
@@ -1229,6 +1451,7 @@ async function launchPackagedDesktop(
       OPENCREATOR_E2E_FAKE_CODEX_CUSTOM_PROVIDER: options.seedLocalCodexProvider ? '1' : '0',
       OPENCREATOR_E2E_NODE_BINARY: process.execPath,
       OPENCREATOR_E2E_FAKE_CODEX_SCRIPT: fakeCodexScript,
+      ...(options.gatewayOrigin ? { OPENCREATOR_GATEWAY_ORIGIN: options.gatewayOrigin } : {}),
       ...(options.telemetryUrl === undefined
         ? {}
         : { OPENCREATOR_TELEMETRY_URL: options.telemetryUrl }),
@@ -1327,16 +1550,18 @@ async function waitForRuntimeReady(page: Page, confirmSetup = true): Promise<voi
   await expect.poll(async () => await page.evaluate(async () => {
     return (await window.opencreatorDesktop?.readBootstrapState())?.phase;
   })).toBe('ready');
-  if (!confirmSetup) return;
   const confirmed = await page.evaluate(() => window.localStorage.getItem('opencreator.agent-setup-confirmed.v1') !== null);
   if (confirmed) return;
-  const setup = page.getByRole('heading', { name: '开始使用 Agent' });
+  const setup = page.getByRole('region', { name: '开始使用 Agent' });
   await setup.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => undefined);
   if (!await setup.isVisible()) return;
+  const localMode = page.getByRole('button', { name: '本地模式', exact: true });
+  if (await localMode.isVisible()) await localMode.click();
+  if (!confirmSetup) return;
   const useLocalCodex = page.getByRole('button', { name: '使用本机 Codex，继续' });
   if (await useLocalCodex.isVisible()) await useLocalCodex.click();
   await setup.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => undefined);
-  if (await setup.isVisible()) await page.getByRole('button', { name: '暂时跳过' }).click();
+  if (await setup.isVisible()) await page.getByRole('button', { name: '稍后配置，进入本地模式' }).click();
 }
 
 async function runtimeRequest<T>(

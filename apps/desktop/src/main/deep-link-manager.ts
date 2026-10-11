@@ -7,7 +7,7 @@ export function deepLinkToRoute(value: string): string | undefined {
   } catch {
     return undefined;
   }
-  if (url.protocol !== 'opencreator:') return undefined;
+  if (url.protocol !== 'opencreator:' || url.username || url.password || url.port) return undefined;
 
   const rawSegments = [url.hostname, ...url.pathname.split('/')]
     .filter(segment => segment.length > 0);
@@ -20,6 +20,16 @@ export function deepLinkToRoute(value: string): string | undefined {
   const queryValues = parseStrictQuery(url.search);
   if (queryValues === undefined) return undefined;
 
+  if (segments[0] === 'auth' && segments[1] === 'complete' && segments.length === 2) {
+    if (url.search || url.hash) return undefined;
+    return '#/account?login=complete';
+  }
+  if (segments[0] === 'billing' && segments[1] === 'return' && segments.length === 2) {
+    if (url.hash || [...queryValues.keys()].some(key => key !== 'orderId')) return undefined;
+    const orderId = queryValues.get('orderId');
+    if (orderId !== undefined && !/^[A-Za-z0-9_-]{1,128}$/.test(orderId)) return undefined;
+    return '#/account?billing=return' + (orderId ? '&orderId=' + encodeURIComponent(orderId) : '');
+  }
   if (segments[0] === 'new' && segments.length === 1) return '#/';
   if (segments[0] === 'tasks' && segments.length === 1) return '#/tasks';
   if (segments[0] !== 'thread' || segments.length !== 2) return undefined;

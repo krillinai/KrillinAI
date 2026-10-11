@@ -64,6 +64,30 @@ function renderSidebar(overrides: Partial<ComponentProps<typeof OpenCreatorSideb
 }
 
 describe('OpenCreatorSidebar', () => {
+  it.each([
+    { collapsed: false, activeView: 'account' as const },
+    { collapsed: true, activeView: 'account' as const },
+    { collapsed: false, activeView: 'subscription' as const },
+    { collapsed: true, activeView: 'subscription' as const }
+  ])('opens the personal center from the footer when collapsed=$collapsed and activeView=$activeView', ({ collapsed, activeView }) => {
+    const onOpenView = vi.fn();
+    renderSidebar({ collapsed, activeView, onOpenView });
+    const button = screen.getByRole('button', { name: '个人中心' });
+    expect(button.parentElement).toHaveClass('sidebar-bottom');
+    expect(button).toHaveAttribute('aria-current', 'page');
+    expect(button).toHaveAttribute('title', '个人中心');
+    fireEvent.click(button);
+    expect(onOpenView).toHaveBeenCalledWith('account');
+  });
+  it('updates the footer identity when the user signs out', () => {
+    const props = { source: 'gateway' as const, authState: 'signed_in' as const, activationState: 'ready' as const, account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models: [], activationError: null };
+    const view = renderSidebar({ gatewayAccountState: props });
+    expect(screen.getByText('a@example.test')).toBeInTheDocument();
+    view.unmount();
+    renderSidebar({ gatewayAccountState: { ...props, authState: 'signed_out', account: null } });
+    expect(screen.queryByText('a@example.test')).not.toBeInTheDocument();
+    expect(screen.getByText('未登录')).toBeInTheDocument();
+  });
   it('renders global actions, projects with nested conversations, and the settings footer action', () => {
     renderSidebar();
 
@@ -74,14 +98,14 @@ describe('OpenCreatorSidebar', () => {
     expect(screen.queryByText('Coca-Cola')).not.toBeInTheDocument();
     expect(screen.queryByRole('img', { name: 'OpenCreator' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '收起侧栏' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '首页' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '模版' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '我的项目' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '工作台' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '数据看板' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Agent动态' })).not.toBeInTheDocument();
-    const primaryActions = screen.getByRole('button', { name: '首页' }).parentElement;
-    expect(primaryActions?.children[0]).toBe(screen.getByRole('button', { name: '首页' }));
-    expect(primaryActions?.children[1]).toBe(screen.getByRole('button', { name: '工作台' }));
+    const primaryActions = screen.getByRole('button', { name: '工作台' }).parentElement;
+    expect(primaryActions?.children[0]).toBe(screen.getByRole('button', { name: '工作台' }));
+    expect(primaryActions?.children[1]).toBe(screen.getByRole('button', { name: '模版' }));
     expect(primaryActions?.children[2]).toBe(screen.getByRole('button', { name: '我的项目' }));
     expect(screen.queryByRole('separator')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '搜索' })).not.toBeInTheDocument();
@@ -120,8 +144,8 @@ describe('OpenCreatorSidebar', () => {
 
     expect(screen.getByRole('button', { name: '工作台' })
       .querySelector('.lucide-panels-top-left')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '首页' })
-      .querySelector('.lucide-house')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '模版' })
+      .querySelector('.lucide-layout-template')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '插件中心' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '我的资产' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '我的项目' })
@@ -153,7 +177,7 @@ describe('OpenCreatorSidebar', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('button', { name: 'Home' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('button', { name: 'Templates' })).not.toHaveAttribute('aria-current');
     expect(screen.queryByRole('button', { name: 'Plugins' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'My Assets' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'My Projects' })).toBeInTheDocument();
@@ -562,13 +586,13 @@ describe('OpenCreatorSidebar', () => {
     expect(onNewConversation).toHaveBeenCalledWith('content-design');
   });
 
-  it('opens Home from primary navigation without starting a chat', async () => {
+  it('opens Templates from primary navigation without starting a chat', async () => {
     const user = userEvent.setup();
     const onOpenHome = vi.fn();
     const onNewConversation = vi.fn();
     renderSidebar({ onOpenHome, onNewConversation });
 
-    await user.click(screen.getByRole('button', { name: '首页' }));
+    await user.click(screen.getByRole('button', { name: '模版' }));
 
     expect(onOpenHome).toHaveBeenCalledTimes(1);
     expect(onNewConversation).not.toHaveBeenCalled();
