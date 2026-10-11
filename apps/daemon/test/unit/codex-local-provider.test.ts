@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   LocalCodexProviderError,
+  readLocalCodexConfiguredModel,
   readLocalCodexProvider,
   readLocalCodexImageConfiguration,
   readLocalCodexModelConfiguration
@@ -18,6 +19,16 @@ describe('local Codex provider', () => {
     await expect(readLocalCodexModelConfiguration({ codexHome: root, env: {} })).resolves.toEqual({
       authentication: 'api_key', provider: { baseUrl: 'https://api.openai.com/v1', apiKey: 'local-key', model: 'local-text-model' }
     });
+  });
+
+  it('reads the explicitly configured model for isolated native image execution', async () => {
+    root = await codexHome(['model = "gpt-5.6-sol"']);
+    await expect(readLocalCodexConfiguredModel({ codexHome: root })).resolves.toBe('gpt-5.6-sol');
+  });
+
+  it('rejects a missing model instead of inventing a placeholder', async () => {
+    root = await codexHome([]);
+    await expect(readLocalCodexConfiguredModel({ codexHome: root })).rejects.toThrow('未配置有效模型');
   });
 
   afterEach(async () => {
