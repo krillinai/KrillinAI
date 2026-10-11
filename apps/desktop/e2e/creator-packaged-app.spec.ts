@@ -204,9 +204,9 @@ test('打包 App 的每个设置 Tab 与主页面保持相同右侧留白', asyn
     await waitForWorkspace(fixture.app.page);
     await fixture.app.page.getByRole('button', { name: '设置', exact: true }).click();
     const nav = fixture.app.page.locator('.settings-nav > button');
-    await expect(nav).toHaveCount(9);
+    await expect(nav).toHaveCount(10);
     const boundsByTab = [];
-    for (let index = 0; index < 9; index += 1) {
+    for (let index = 0; index < 10; index += 1) {
       await nav.nth(index).click();
       const section = fixture.app.page.locator('.settings-content > .settings-section');
       await expect(section).toBeVisible();
