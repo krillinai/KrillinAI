@@ -1,14 +1,3 @@
-.startup-agent-setup {
-  position: fixed;
-  z-index: 70;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  overflow: auto;
-  padding: max(32px, var(--opencreator-titlebar-height, 0px)) 20px 32px;
-  background: var(--bg);
-}
-
 .startup-agent-setup__card {
   width: min(100%, 480px);
   display: grid;
@@ -55,13 +44,3 @@
 .startup-agent-setup__card .startup-agent-setup__primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .startup-agent-setup__card .startup-agent-setup__skip { justify-self: center; border: 0; background: transparent; color: var(--muted); }
 .startup-agent-setup__card .startup-agent-setup__error { color: var(--danger); }
-
-.startup-agent-banner {
-  width: min(760px, 100%);
-  margin: 0 auto 10px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-}
-.startup-agent-banner button { margin-left: 12px; color: var(--accent-strong); background: transparent; border: 0; cursor: pointer; }

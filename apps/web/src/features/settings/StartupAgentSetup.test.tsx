@@ -5,9 +5,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import type { GatewayAccountSettingsService } from '../../services/gateway-account-service.js';
 import {
-  availableAgentMode, confirmAgentSetup, isAgentSetupConfirmed,
-  StartupAgentSetup, type AgentSetupService, type AgentSetupSnapshot
+  StartupAgentSetup, type AgentSetupService
 } from './StartupAgentSetup.js';
+import { availableAgentMode, confirmAgentSetup, isAgentSetupConfirmed, type AgentSetupSnapshot } from './agent-setup-state.js';
 
 function readiness(accountStatus: 'signed_out' | 'signed_in' | 'expired', state: 'ready' | 'degraded' | 'blocked' = 'ready'): CodexRuntimeReadiness {
   return {
