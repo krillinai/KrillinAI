@@ -11,19 +11,24 @@ import (
 )
 
 type RenderRequest struct {
-	Workdir        string
-	TaskID         string
-	Video          string
-	SourceURL      string
-	MediaWorkdir   string
-	ReportProgress func(string, int, string)
-	Audio          string
-	Subtitle       string
-	Horizontal     bool
-	Dubbed         bool
-	MajorTitle     string
-	MinorTitle     string
-	SubtitleStyle  *subtitlestyle.StyleSet
+	Workdir             string
+	TaskID              string
+	Video               string
+	SourceURL           string
+	MediaWorkdir        string
+	ReportProgress      func(string, int, string)
+	Audio               string
+	Subtitle            string
+	Horizontal          bool
+	Dubbed              bool
+	MajorTitle          string
+	MinorTitle          string
+	SubtitleStyle       *subtitlestyle.StyleSet
+	LineMode            LineMode
+	PreviewWidth        int
+	PreviewHeight       int
+	MixedTargetSubtitle string
+	TargetOnly          bool
 }
 
 func Render(ctx context.Context, svc StageService, req RenderRequest) (Response, error) {
@@ -58,15 +63,35 @@ func Render(ctx context.Context, svc StageService, req RenderRequest) (Response,
 		VerticalVideoMajorTitle: req.MajorTitle,
 		VerticalVideoMinorTitle: req.MinorTitle,
 		SubtitleStyle:           req.SubtitleStyle,
+		SubtitleResultType:      types.SubtitleResultTypeBilingualTranslationOnTop,
+	}
+	if req.LineMode == LineModeBilingualTargetBottom {
+		stepParam.SubtitleResultType = types.SubtitleResultTypeBilingualTranslationOnBottom
+	}
+	if req.MixedTargetSubtitle != "" {
+		normalized := filepath.Join(req.Workdir, "render_subtitles.srt")
+		err = normalizeMixedRenderSRT(subtitle, req.MixedTargetSubtitle, normalized, req.LineMode, req.TargetOnly)
+		if err != nil {
+			return failRenderStage(req, manifest, renderStage(req), "subtitle_roles_invalid", err)
+		}
+		subtitle = normalized
+	} else if req.TargetOnly {
+		normalized := filepath.Join(req.Workdir, "render_subtitles.srt")
+		if err = ExtractTargetSRT(subtitle, normalized, req.LineMode); err != nil {
+			return failRenderStage(req, manifest, renderStage(req), "subtitle_roles_invalid", err)
+		}
+		subtitle = normalized
 	}
 	rendered, err := svc.RenderVideo(ctx, service.RenderVideoRequest{
-		Workdir:      req.Workdir,
-		InputVideo:   inputVideo,
-		AudioFile:    req.Audio,
-		SubtitleFile: subtitle,
-		OutputFile:   output,
-		Horizontal:   req.Horizontal,
-		StepParam:    stepParam,
+		Workdir:       req.Workdir,
+		InputVideo:    inputVideo,
+		AudioFile:     req.Audio,
+		SubtitleFile:  subtitle,
+		OutputFile:    output,
+		Horizontal:    req.Horizontal,
+		StepParam:     stepParam,
+		PreviewWidth:  req.PreviewWidth,
+		PreviewHeight: req.PreviewHeight,
 	})
 	if err != nil {
 		return failRenderStage(req, manifest, renderStage(req), "render_video_failed", err)
@@ -121,6 +146,9 @@ func renderSubtitle(req RenderRequest, manifest *Manifest) string {
 }
 
 func renderOutput(req RenderRequest) string {
+	if req.PreviewWidth > 0 && req.PreviewHeight > 0 {
+		return filepath.Join(req.Workdir, "subtitle-preview.png")
+	}
 	name := "vertical_bilingual.mp4"
 	switch {
 	case req.Horizontal && req.Dubbed:

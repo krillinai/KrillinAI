@@ -132,7 +132,7 @@ describe('dashboard CSS contracts', () => {
     const player = cssBlocks('.video-translation-subtitle-preview > div');
     const overlay = cssBlocks('.video-translation-subtitle-preview > div::after');
     const media = cssBlocks('.video-translation-subtitle-preview-media');
-    const cues = cssBlocks('.video-translation-subtitle-preview-cues');
+    const cues = cssBlocks('.video-translation-subtitle-rendered-preview,\n.video-translation-subtitle-preview-status');
     const verticalPreview = cssBlocks('.video-translation-subtitle-preview[data-orientation="portrait"] > div');
 
     expect(layout[0]).toContain('align-items: start;');

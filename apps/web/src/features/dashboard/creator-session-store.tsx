@@ -69,6 +69,7 @@ export type CreatorSessionContextValue = {
   uploadArticleImage(file: File): Promise<CreatorArtifact>;
   uploadSourceDocument(file: File): Promise<void>;
   openArtifact(artifactId: string): Promise<Response>;
+  openSubtitlePreview?: CreatorWebService['openSubtitlePreview'];
   openArtifactJson<T = unknown>(artifactId: string): Promise<T>;
   agentSession: CreatorAgentSession | null;
   turns: CreatorAgentTurn[];
@@ -159,6 +160,7 @@ export function CreatorSessionProvider(props: {
     | 'listIssues'
     | 'reportClientIssue'
     | 'openArtifact'
+    | 'openSubtitlePreview'
     | 'uploadReferenceImage'
     | 'uploadArticleImage'
     | 'uploadSourceVideo'
@@ -985,6 +987,7 @@ export function CreatorSessionProvider(props: {
     uploadSourceVideo,
     uploadArticleImage,
     openArtifact,
+    openSubtitlePreview: props.service.openSubtitlePreview,
     openArtifactJson,
     agentSession,
     turns,
@@ -995,7 +998,7 @@ export function CreatorSessionProvider(props: {
     steerAgentTurn,
     interruptAgentTurn,
     respondAgentApproval
-  }), [connection, reconnect, agentBusy, agentSession, askPendingIssue, applyAction, applyRemoteSnapshot, approvals, cancelJob, captureCreatorFailure, clearError, confirmedJob, conflictedFields, draft, error, flush, focusIssue, focusedIssue, interruptAgentTurn, issues, items, openArtifact, openArtifactJson, preflight, repairIssue, respondAgentApproval, resumeJob, runAgentTurn, runPreflight, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
+  }), [connection, reconnect, agentBusy, agentSession, askPendingIssue, applyAction, applyRemoteSnapshot, approvals, cancelJob, captureCreatorFailure, clearError, confirmedJob, conflictedFields, draft, error, flush, focusIssue, focusedIssue, interruptAgentTurn, issues, items, openArtifact, openArtifactJson, preflight, props.service.openSubtitlePreview, repairIssue, respondAgentApproval, resumeJob, runAgentTurn, runPreflight, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
 
   return (
     <CreatorSessionContext.Provider value={value}>

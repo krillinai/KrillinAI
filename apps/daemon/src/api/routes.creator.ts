@@ -23,7 +23,9 @@ import { rm, stat } from 'node:fs/promises';
 import { basename, extname, resolve, sep } from 'node:path';
 import type { Readable } from 'node:stream';
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
+import { creatorSubtitleStyleSchema } from '../creator/presets/module-schemas.js';
+import type { SubtitlePreviewService } from '../creator/krillin/subtitle-preview.js';
 import type { CreatorEventHub } from '../creator/events.js';
 import {
   creatorAgentEventKind,
@@ -108,8 +110,39 @@ export async function registerCreatorRoutes(
     presets?: CreatorPresetRegistry;
     presetCatalogRoot?: string;
     issueService?: CreatorIssueService;
+    subtitlePreviewService?: SubtitlePreviewService;
   }
 ): Promise<void> {
+  server.get('/creator/subtitle-preview', async (request, reply) => {
+    try {
+      const query = readObject(request.query);
+      const input = z.object({
+        width: z.number().int().min(32).max(1920),
+        height: z.number().int().min(32).max(1920),
+        subtitleStyle: creatorSubtitleStyleSchema,
+        bilingual: z.boolean(),
+        subtitlePosition: z.enum(['top', 'bottom']),
+        translationText: z.string().min(1).max(128).regex(/^[^\r\n{}\\]+$/u),
+        originalText: z.string().min(1).max(128).regex(/^[^\r\n{}\\]+$/u)
+      }).strict().parse(JSON.parse(readString(query.options, 'options')));
+      if (options.subtitlePreviewService === undefined) {
+        return reply.code(503).send(apiError('creator_subtitle_style_unsupported', 'Subtitle renderer is unavailable'));
+      }
+      const controller = new AbortController();
+      const cancel = () => { if (!reply.raw.writableEnded) controller.abort(); };
+      reply.raw.once('close', cancel);
+      try {
+        const png = await options.subtitlePreviewService.render(input, controller.signal);
+        return reply.type('image/png').header('Cache-Control', 'no-store').send(png);
+      } finally {
+        reply.raw.removeListener('close', cancel);
+      }
+    } catch (error) {
+      if (error instanceof SyntaxError) return reply.code(400).send(apiError('VALIDATION_FAILED', 'Invalid preview options'));
+      if (error instanceof ZodError || error instanceof TypeError) return sendCreatorError(reply, error);
+      return reply.code(503).send(apiError('creator_subtitle_style_unsupported', error instanceof Error ? error.message : 'Subtitle preview failed'));
+    }
+  });
   if (options.stickmanVisualAssets !== undefined) {
     server.get('/creator/visual-assets', async (request, reply) => {
       try {
