@@ -12046,6 +12046,10 @@
   margin-left: auto;
 }
 
+.video-translation-wizard-main .video-translation-source-step .video-translation-url-field {
+  width: min(592px, 100%);
+}
+
 .video-translation-or::before,
 .video-translation-or::after {
   content: "";
