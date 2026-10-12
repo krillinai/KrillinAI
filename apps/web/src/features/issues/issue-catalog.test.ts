@@ -6,6 +6,24 @@ const raw = '后台原文：操作无法完成';
 const issue = normalizePageIssue('runtime', 'creator.prepare', new Error(raw), raw);
 
 describe('localized issue copy', () => {
+  it.each(['zh-CN', 'en-US', 'sv-SE'] as const)('explains video platform access failures without model permission guidance in %s', language => {
+    const next = { ...issue, code: 'download_http_error', publicFacts: {
+      kind: 'unauthorized' as const, provider: 'yt-dlp', httpStatus: 403,
+      upstreamMessage: 'The video platform returned HTTP 403 to yt-dlp.'
+    } };
+    const text = issueConversationText(next, language);
+    expect(text.message).toContain('HTTP 403');
+    expect(text.message).toContain('yt-dlp');
+    expect(text.message).not.toMatch(/模型访问权限|model access permissions|modellbehörigheter/);
+    expect(text.nextStep).toMatch(/浏览器|browser|webbläsaren/);
+    expect(text.nextStep).toMatch(/代理|proxy/);
+    if (language === 'en-US') expect(text.message).toContain('The video platform denied access');
+  });
+
+  it('preserves model permission guidance for AI provider authorization failures', () => {
+    const next = { ...issue, publicFacts: { kind: 'unauthorized' as const, provider: 'seedance', httpStatus: 403 } };
+    expect(issueConversationText(next, 'en-US').nextStep).toContain('model access permissions');
+  });
   it.each([
     ['audio_no_speech', '音频为静音或音量过低', '检查原音频和音量'],
     ['audio_transcription_empty', '尚不能确认音频是否含有语音', '换一个语音识别模型核验'],

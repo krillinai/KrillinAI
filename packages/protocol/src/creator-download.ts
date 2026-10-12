@@ -1,4 +1,4 @@
-export type DownloadPlatform = 'youtube' | 'bilibili' | 'x' | 'tiktok' | 'instagram' | 'douyin' | 'facebook' | 'xiaohongshu' | 'pinterest';
+export type DownloadPlatform = 'youtube' | 'bilibili' | 'x' | 'tiktok' | 'instagram' | 'douyin' | 'facebook' | 'xiaohongshu' | 'pinterest' | 'reddit';
 
 export function extractDouyinShareUrl(value: string): string {
   const trimmed = value.trim();
@@ -34,6 +34,7 @@ export function supportedVideoSourcePlatform(value: string): DownloadPlatform | 
     if (isFacebookVideoUrl(url)) return 'facebook';
     if (isXiaohongshuVideoUrl(url)) return 'xiaohongshu';
     if (isPinterestVideoUrl(url)) return 'pinterest';
+    if (isRedditVideoUrl(url)) return 'reddit';
   } catch {
     return null;
   }
@@ -79,6 +80,14 @@ function isXiaohongshuVideoUrl(url: URL): boolean {
 
 function isPinterestVideoUrl(url: URL): boolean {
   return ['pinterest.com', 'www.pinterest.com'].includes(url.hostname.toLowerCase()) && /^\/pin\/\d+\/?$/.test(url.pathname);
+}
+
+function isRedditVideoUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  if (host === 'redd.it' || host === 'v.redd.it') return /^\/[a-z0-9]+\/?$/i.test(url.pathname);
+  return ['reddit.com', 'www.reddit.com', 'old.reddit.com', 'np.reddit.com', 'm.reddit.com'].includes(host)
+    && (/^\/(?:(?:r|user)\/[\w-]+\/)?comments\/[a-z0-9]+(?:\/.*)?$/i.test(url.pathname)
+      || /^\/r\/[\w-]+\/s\/[a-z0-9]+\/?$/i.test(url.pathname));
 }
 
 export type DownloadMediaType = 'video' | 'audio';

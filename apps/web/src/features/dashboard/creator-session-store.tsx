@@ -71,6 +71,7 @@ export type CreatorSessionContextValue = {
   uploadArticleImage(file: File): Promise<CreatorArtifact>;
   uploadSourceDocument(file: File): Promise<void>;
   openArtifact(artifactId: string): Promise<Response>;
+  openDownloadThumbnail(probeArtifactId: string): Promise<Response>;
   openArtifactJson<T = unknown>(artifactId: string): Promise<T>;
   agentSession: CreatorAgentSession | null;
   turns: CreatorAgentTurn[];
@@ -166,6 +167,7 @@ export function CreatorSessionProvider(props: {
     | 'listIssues'
     | 'reportClientIssue'
     | 'openArtifact'
+    | 'openDownloadThumbnail'
     | 'uploadReferenceImage'
     | 'uploadArticleImage'
     | 'uploadSourceVideo'
@@ -824,6 +826,11 @@ export function CreatorSessionProvider(props: {
     }
   }, [captureCreatorFailure, props.service]);
 
+  const openDownloadThumbnail = useCallback(async (probeArtifactId: string) => {
+    if (props.service.openDownloadThumbnail === undefined) throw new Error('Video thumbnail transport is unavailable');
+    return await props.service.openDownloadThumbnail(confirmedRef.current.id, probeArtifactId);
+  }, [props.service]);
+
   const openArtifactJson = useCallback(<T,>(artifactId: string): Promise<T> => {
     const cached = artifactJsonCacheRef.current.get(artifactId);
     if (cached !== undefined) return cached as Promise<T>;
@@ -992,6 +999,7 @@ export function CreatorSessionProvider(props: {
     uploadSourceVideo,
     uploadArticleImage,
     openArtifact,
+    openDownloadThumbnail,
     openArtifactJson,
     agentSession,
     turns,
@@ -1002,7 +1010,7 @@ export function CreatorSessionProvider(props: {
     steerAgentTurn,
     interruptAgentTurn,
     respondAgentApproval
-  }), [connection, reconnect, agentBusy, agentSession, askPendingIssue, applyAction, applyRemoteSnapshot, approvals, cancelJob, captureCreatorFailure, clearError, confirmedJob, conflictedFields, draft, error, flush, focusIssue, focusedIssue, interruptAgentTurn, issues, items, openArtifact, openArtifactJson, preflight, repairIssue, respondAgentApproval, resumeJob, runAgentTurn, runPreflight, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
+  }), [connection, reconnect, agentBusy, agentSession, askPendingIssue, applyAction, applyRemoteSnapshot, approvals, cancelJob, captureCreatorFailure, clearError, confirmedJob, conflictedFields, draft, error, flush, focusIssue, focusedIssue, interruptAgentTurn, issues, items, openArtifact, openDownloadThumbnail, openArtifactJson, preflight, repairIssue, respondAgentApproval, resumeJob, runAgentTurn, runPreflight, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
 
   return (
     <CreatorSessionContext.Provider value={value}>
