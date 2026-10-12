@@ -26,6 +26,11 @@ export const bootstrapSchema = z.object({
   models: z.array(modelSchema), defaults: z.record(z.string())
 });
 export type GatewayBootstrap = z.infer<typeof bootstrapSchema>;
+export const probeCredentialsSchema = z.object({
+  costBearer: z.literal('platform'), modelKey: z.string().min(1), keyVersion: z.string().min(1),
+  baseUrl: z.literal('https://openrouter.ai/api/v1'), expiresAt: z.string().datetime()
+});
+export type GatewayProbeCredentials = z.infer<typeof probeCredentialsSchema>;
 export type GatewayTokens = z.infer<typeof tokenSchema>;
 export type GatewayDeviceGrant = { attemptId: string; deviceSecret: string; authorizationUrl: string; interval: number; expiresIn: number };
 export type GatewayClient = {
