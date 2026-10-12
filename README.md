@@ -9,7 +9,7 @@
   The open-source AI workspace & Skills for creators
 </h1>
 
-<p>Bring visual creator tools, reusable Skills, and Agents together for scripts, video, images, voice, avatars, translation, and editing—all in one workspace.</p>
+<p>Bring visual settings, reusable Skills, and Agents together for scripts, video, images, voice, translation, and editing—all in one workspace.</p>
 
 <p><strong>OpenCreator was formerly known as KrillinAI.</strong></p>
 
@@ -602,7 +602,7 @@ Each crew member is responsible for their area, including its standards, contrib
 
 ### Contributors
 
-Thanks to everyone who has taken part through code, documentation, feedback, issue reports, Skills, designs, and ideas.
+Thanks to everyone who has taken part through code, documentation, feedback, issue reports, Skills, illustraions, and ideas.
 This README list is maintained separately from GitHub's automatically generated Contributors graph.
 
 <div>
