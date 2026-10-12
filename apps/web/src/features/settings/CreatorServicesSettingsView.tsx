@@ -63,6 +63,7 @@ export function CreatorServicesSettingsView(props: {
   service: CreatorServicesSettingsService | null;
   modelService?: ModelSettingsService | null;
   initialSection?: CreatorServicesSection;
+  modeControls?: ReactNode;
 }) {
   const l = useLocalizedCopy();
   const confirm = useConfirmDialog();
@@ -357,6 +358,8 @@ export function CreatorServicesSettingsView(props: {
         </span>
       </header>
 
+      {props.modeControls}
+
       <div className="creator-services-tabs" role="tablist" aria-label={l('AI 服务分类', 'AI service categories')}>
         {sections.map(section => {
           const Icon = section.icon;
@@ -614,22 +617,6 @@ function TextModelSettings(props: SettingsGroupProps & {
             {props.error}
           </p>
         )}
-      </SettingsFieldset>
-      <SettingsFieldset
-        title={l('网络', 'Network')}
-        description={l('可选。为模型和媒体请求指定 HTTP 代理。', 'Optional. Route model and media requests through an HTTP proxy.')}
-      >
-        <TextField
-          id="creator-services-proxy"
-          label={l('代理地址', 'Proxy URL')}
-          value={props.config.proxy}
-          placeholder="http://127.0.0.1:7890"
-          error={props.fieldErrors.proxy}
-          onChange={value => props.update(config => {
-            config.proxy = value;
-          })}
-          wide
-        />
       </SettingsFieldset>
     </>
   );

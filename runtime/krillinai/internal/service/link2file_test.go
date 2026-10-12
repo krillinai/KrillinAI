@@ -2,15 +2,80 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"krillin-ai/config"
 	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
+	"krillin-ai/log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 )
+
+func TestYouTubeMediaRefreshesRejectedURLs(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell downloader fixture requires POSIX")
+	}
+	log.InitLogger()
+	originalPath, originalPrefix := storage.YtdlpPath, storage.YtdlpPrefixArgs
+	t.Cleanup(func() { storage.YtdlpPath, storage.YtdlpPrefixArgs = originalPath, originalPrefix })
+	for _, test := range []struct {
+		name     string
+		failures int
+		message  string
+		attempts int
+		audio    bool
+	}{
+		{"refresh-403", 1, "ERROR: unable to download video data: HTTP Error 403: Forbidden", 2, false},
+		{"limit-403", 9, "ERROR: HTTP Error 403: Forbidden", 3, false},
+		{"no-bot-retry", 9, "ERROR: Sign in to confirm you are not a bot", 1, false},
+		{"hls-audio-fallback", 2, "ERROR: HTTP Error 403: Forbidden", 3, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			counter := filepath.Join(dir, "attempts")
+			downloader := filepath.Join(dir, "yt-dlp")
+			t.Setenv("YTDLP_MEDIA_COUNTER", counter)
+			t.Setenv("YTDLP_MEDIA_ERROR", test.message)
+			fixture := fmt.Sprintf("#!/bin/sh\nn=0\nif [ -f \"$YTDLP_MEDIA_COUNTER\" ]; then n=$(cat \"$YTDLP_MEDIA_COUNTER\"); fi\nn=$((n+1))\nprintf '%%s' \"$n\" > \"$YTDLP_MEDIA_COUNTER\"\nif [ \"$n\" -le %d ]; then printf '%%s\\n' \"$YTDLP_MEDIA_ERROR\" >&2; exit 1; fi\nprintf 'audio ready\\n'\nprintf '%%s\\n' \"$@\"\n", test.failures)
+			if err := os.WriteFile(downloader, []byte(fixture), 0700); err != nil {
+				t.Fatal(err)
+			}
+			storage.YtdlpPath, storage.YtdlpPrefixArgs = downloader, nil
+			args := []string{"https://www.youtube.com/watch?v=demo"}
+			if test.audio {
+				args = append(args, "--extract-audio", "-f", "bestaudio[ext=m4a]/bestaudio")
+			}
+			output, err := downloadYouTubeMedia(context.Background(), args)
+			if (err == nil) != (test.failures < test.attempts) {
+				t.Fatalf("error = %v", err)
+			}
+			count, readErr := os.ReadFile(counter)
+			if readErr != nil || string(count) != fmt.Sprint(test.attempts) {
+				t.Fatalf("attempts = %s, error = %v", count, readErr)
+			}
+			if test.audio && !strings.Contains(string(output), "bestaudio[protocol^=m3u8]/bestaudio[ext=m4a]/bestaudio\n--concurrent-fragments\n4") {
+				t.Fatalf("final audio retry did not select HLS: %s", output)
+			}
+		})
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := downloadYouTubeMedia(ctx, nil); !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want cancellation", err)
+	}
+}
+
+func TestCompactCommandOutputPrioritizesFatalDownloadError(t *testing.T) {
+	output := "[youtube] Downloading webpage\nWARNING: " + strings.Repeat("runtime warning ", 100) + "\nERROR: unable to download video data: HTTP Error 403: Forbidden\n"
+	message := compactCommandOutput([]byte(output))
+	if len(message) > 1200 || !strings.HasPrefix(message, "ERROR: unable to download video data: HTTP Error 403: Forbidden") {
+		t.Fatalf("fatal download error was lost: %s", message)
+	}
+}
 
 func TestBilibiliDownloadsOnlySelectedPart(testRunner *testing.T) {
 	if runtime.GOOS == "windows" {

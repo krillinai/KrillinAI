@@ -111,6 +111,12 @@ jobs:
       - run: pnpm krillinai:test
       - name: Prepare Electron for desktop tests
         run: pnpm --filter @opencreator/desktop exec node -e "require('electron')"
+      - uses: actions/cache@v4
+        with:
+          path: apps/desktop/.cache/codex-runtime
+          key: codex-runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/scripts/prepare-codex-runtime.mjs', 'apps/desktop/scripts/codex-runtime-contract.mjs', 'resources/codex-runtime/**') }}
+      - name: Prepare pinned Runtime for gateway integration tests
+        run: node apps/desktop/scripts/prepare-codex-runtime.mjs
       - run: pnpm test
       - run: pnpm release:verify-scheduled-task-upgrade
 

@@ -14,11 +14,18 @@ const resourceSchema = z.object({
   model: z.string().optional()
 }).strict();
 
+const javascriptRuntimeSchema = z.object({
+  name: z.literal('node'),
+  version: z.string().min(1),
+  executable: z.string().min(1)
+}).strict();
+
 const ytDlpRuntimeSchema = z.discriminatedUnion('mode', [
   z.object({
     mode: z.literal('standalone'),
     version: z.string().min(1),
-    executable: z.string().min(1)
+    executable: z.string().min(1),
+    javascriptRuntime: javascriptRuntimeSchema.optional()
   }).strict(),
   z.object({
     mode: z.literal('python'),
@@ -26,7 +33,8 @@ const ytDlpRuntimeSchema = z.discriminatedUnion('mode', [
     pythonVersion: z.string().min(1),
     executable: z.string().min(1),
     script: z.string().min(1),
-    certificateBundle: z.string().min(1)
+    certificateBundle: z.string().min(1),
+    javascriptRuntime: javascriptRuntimeSchema.optional()
   }).strict()
 ]);
 

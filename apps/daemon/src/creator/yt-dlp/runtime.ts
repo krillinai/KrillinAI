@@ -16,6 +16,10 @@ export function resolveYtDlpRuntime(input: {
   manifest: KrillinRuntimeManifest;
   overridePath?: string;
 }): YtDlpRuntime | undefined {
+  const javascriptRuntime = input.manifest.ytDlp?.javascriptRuntime;
+  const javascriptArgs = javascriptRuntime === undefined ? [] : [
+    '--js-runtimes', `${javascriptRuntime.name}:${manifestResource(input, javascriptRuntime.executable, 'executable')}`
+  ];
   if (input.overridePath !== undefined) {
     const executable = resolve(input.overridePath);
     if (!existsSync(executable)) {
@@ -24,7 +28,7 @@ export function resolveYtDlpRuntime(input: {
     return {
       version: 'external',
       executable,
-      prefixArgs: [],
+      prefixArgs: javascriptArgs,
       env: {}
     };
   }
@@ -34,7 +38,7 @@ export function resolveYtDlpRuntime(input: {
     return {
       version: descriptor.version,
       executable: manifestResource(input, descriptor.executable, 'executable'),
-      prefixArgs: [],
+      prefixArgs: javascriptArgs,
       env: {}
     };
   }
@@ -49,7 +53,7 @@ export function resolveYtDlpRuntime(input: {
     return {
       version: descriptor.version,
       executable,
-      prefixArgs: ['-I', '-B', script],
+      prefixArgs: ['-I', '-B', script, ...javascriptArgs],
       env: {
         SSL_CERT_FILE: certificateBundle
       },
@@ -66,7 +70,7 @@ export function resolveYtDlpRuntime(input: {
     : {
         version: 'legacy',
         executable: resolveInside(input.resourceRoot, legacy.path),
-        prefixArgs: [],
+        prefixArgs: javascriptArgs,
         env: {}
       };
 }

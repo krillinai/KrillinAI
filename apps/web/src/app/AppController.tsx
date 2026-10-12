@@ -22,7 +22,6 @@ import type {
   ThreadHistoryItem,
   ThreadResponse
 } from '@opencreator/protocol';
-import { skillMarketCatalog } from '@opencreator/skill-market';
 import type {
   CSSProperties,
   DragEvent as ReactDragEvent,
@@ -49,7 +48,6 @@ import {
 import { ConversationHeader } from '../features/conversation/ConversationHeader.js';
 import { ApprovalPanel } from '../features/approvals/ApprovalPanel.js';
 import { useThreadHistory } from '../features/conversation/use-thread-history.js';
-import { getSkillMarketDisplayTitle } from '../features/plugins/skill-market-model.js';
 import {
   collectTaskTransitions,
   createTaskNotification,
@@ -82,7 +80,6 @@ import {
   type ComposerSlashCommand
 } from '../features/runs/Composer.js';
 import { IssueList, PageIssueRoutingProvider } from '../features/issues/IssuePresenter.js';
-import AgentDiagnosticsPanel from '../features/issues/AgentDiagnosticsPanel.js';
 import { buildIssueAgentPrompt } from '../features/issues/issue-catalog.js';
 import { usePageIssueState } from '../features/issues/page-issue-state.js';
 import { createScheduleTaskSummaries } from '../features/schedules/schedule-task-model.js';
@@ -109,9 +106,9 @@ import type {
 import {
   confirmAgentSetup,
   isAgentSetupConfirmed,
-  StartupAgentSetup,
   type AgentSetupSnapshot
-} from '../features/settings/StartupAgentSetup.js';
+} from '../features/settings/agent-setup-state.js';
+import '../features/settings/startup-agent-shell.css';
 import { useLocalizedCopy } from '../i18n/useLocalizedCopy.js';
 import type { McpCapabilities } from '../features/settings/McpSettingsView.js';
 import { OpenCreatorSidebar } from '../features/shell/OpenCreatorSidebar.js';
@@ -134,6 +131,9 @@ import { createAttachmentService } from '../services/attachment-service.js';
 import { createApprovalService } from '../services/approval-service.js';
 import { createConnectionService, type ConnectionState } from '../services/connection-service.js';
 import { createCreatorServicesService } from '../services/creator-services-service.js';
+import { createGatewayAccountService } from '../services/gateway-account-service.js';
+import { createPlatformConnectionsService } from '../services/platform-connections-service.js';
+import type { GatewayAccountState } from '@opencreator/protocol';
 import { createCreatorService } from '../services/creator-service.js';
 import { createCleanupService } from '../services/cleanup-service.js';
 import { createDiagnosticsService } from '../services/diagnostics-service.js';
@@ -268,6 +268,12 @@ const ScheduleThreadHeader = lazy(async () => {
 const SchedulesPage = lazy(() => import('../features/schedules/SchedulesPage.js'));
 const SearchPage = lazy(() => import('../features/search/SearchPage.js'));
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage.js'));
+const AgentDiagnosticsPanel = lazy(() => import('../features/issues/AgentDiagnosticsPanel.js'));
+const StartupAgentSetup = lazy(async () => {
+  const module = await import('../features/settings/StartupAgentSetup.js');
+  return { default: module.StartupAgentSetup };
+});
+const PersonalCenterPage = lazy(() => import('../features/account/PersonalCenterPage.js'));
 const TaskCenterPage = lazy(() => import('../features/tasks/TaskCenterPage.js'));
 const DetailPanel = lazy(async () => {
   const module = await import('../features/details/DetailPanel.js');
@@ -369,6 +375,7 @@ export function AppController(props: AppControllerProps) {
   const [historyLoadedThreadId, setHistoryLoadedThreadId] = useState<string>();
   const [threadConfigUpdateError, setThreadConfigUpdateError] = useState<string>();
   const [agentSetup, setAgentSetup] = useState<'checking' | 'ready' | 'needed' | 'skipped'>('checking');
+  const [agentSetupRequested, setAgentSetupRequested] = useState(false);
   const [agentSetupSnapshot, setAgentSetupSnapshot] = useState<AgentSetupSnapshot>();
   const [runDiagnosticsById, setRunDiagnosticsById] = useState<Record<string, RunDiagnosticsResponse | undefined>>({});
   const [runAttachmentsById, setRunAttachmentsById] = useState<Record<string, AttachmentResponse[] | undefined>>({});
@@ -513,6 +520,9 @@ export function AppController(props: AppControllerProps) {
   const settingsReturnRouteRef = useRef<AppRoute>(
     props.route.view === 'settings' ? { view: 'home' } : props.route
   );
+  const accountReturnRouteRef = useRef<AppRoute>(
+    props.route.view === 'account' || props.route.view === 'subscription' ? { view: 'home' } : props.route
+  );
   const skipNextHistoryLoadForThreadRef = useRef<string>();
   const skillMarketMutationInFlightRef = useRef(false);
   const skillMarketUseInFlightRef = useRef(false);
@@ -611,6 +621,51 @@ export function AppController(props: AppControllerProps) {
     () => runtimeClient === null ? null : createCreatorServicesService(runtimeClient),
     [runtimeClient]
   );
+  const gatewayAccountService = useMemo(() => runtimeClient === null ? null : createGatewayAccountService(runtimeClient, { authorizationReturnUrl: hostBridge.authorizationReturnUrl, billingReturnUrl: hostBridge.billingReturnUrl }), [runtimeClient, hostBridge]);
+  useEffect(() => hostBridge.subscribeBillingReturn?.(billingOrderId => {
+    props.onNavigate({ view: 'account', ...(billingOrderId ? { billingOrderId } : {}) });
+  }), [hostBridge, props.onNavigate]);
+  const platformConnectionsService = useMemo(() => runtimeClient === null ? null : createPlatformConnectionsService(runtimeClient), [runtimeClient]);
+  const [gatewayAccountState, setGatewayAccountState] = useState<GatewayAccountState>();
+  const officialTextModels = useMemo(() => {
+    if (!gatewayAccountState || (gatewayAccountState.source === 'manual' && gatewayAccountState.authState === 'signed_out')) return undefined;
+    return { models: gatewayAccountState.models.filter(model => model.modality === 'text' && model.capabilities.includes('responses')).map((model, index) => ({
+      id: model.id, model: model.id, displayName: model.id.split('/').pop()!, description: '',
+      supportedReasoningEfforts: [], defaultReasoningEffort: null, inputModalities: ['text' as const],
+      isDefault: gatewayAccountState.selectedModels?.text ? gatewayAccountState.selectedModels.text === model.id : index === 0
+    })) } satisfies CodexModelListResponse;
+  }, [gatewayAccountState]);
+  const previousGatewaySource = useRef<'manual' | 'gateway'>('manual');
+  const onGatewayStateChange = useCallback((next: GatewayAccountState) => {
+    setGatewayAccountState(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
+    if (next.source === 'gateway') setAgentSetup(next.authState === 'signed_in' && next.activationState === 'ready' ? 'ready' : 'skipped');
+    else if (previousGatewaySource.current === 'gateway') setAgentSetup('checking');
+    previousGatewaySource.current = next.source;
+  }, []);
+  useEffect(() => {
+    if (connectionState.status !== 'connected' || !gatewayAccountService) return;
+    let canceled = false;
+    let sequence = 0;
+    const refresh = (checkAuthorization = false) => {
+      const request = ++sequence;
+      void gatewayAccountService.getState({ checkAuthorization }).then(next => {
+        if (!canceled && request === sequence) onGatewayStateChange(next);
+      }).catch(() => undefined);
+    };
+    const onReturn = () => refresh(true);
+    const onVisible = () => { if (document.visibilityState === 'visible') onReturn(); };
+    refresh();
+    const timer = setInterval(() => { if (previousGatewaySource.current === 'gateway') refresh(); }, 3000);
+    window.addEventListener('focus', onReturn);
+    window.addEventListener('hashchange', onReturn);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      canceled = true; clearInterval(timer);
+      window.removeEventListener('focus', onReturn);
+      window.removeEventListener('hashchange', onReturn);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [gatewayAccountService, connectionState.status, onGatewayStateChange]);
   const openCreatorSettingsService = useMemo(
     () => runtimeClient === null ? null : createOpenCreatorSettingsService(runtimeClient),
     [runtimeClient]
@@ -1190,6 +1245,14 @@ export function AppController(props: AppControllerProps) {
   useEffect(() => {
     let canceled = false;
 
+    if (officialTextModels) {
+      setCodexModels(officialTextModels);
+      setCodexModelsLoading(false);
+      setCodexModelsLoadError(undefined);
+      setCodexModelsNotice(undefined);
+      return;
+    }
+
     if (connectionState.status !== 'connected' || modelService === null) {
       setCodexModels(current => current ?? readCachedModelCatalog());
       setCodexModelsLoading(false);
@@ -1233,7 +1296,7 @@ export function AppController(props: AppControllerProps) {
     return () => {
       canceled = true;
     };
-  }, [connectionState.status, modelService]);
+  }, [connectionState.status, modelService, officialTextModels]);
 
   useEffect(() => {
     let canceled = false;
@@ -1259,9 +1322,10 @@ export function AppController(props: AppControllerProps) {
     if (connectionState.status !== 'connected' || connectionService === null || agentSetup !== 'checking') return;
     let canceled = false;
     void Promise.all([
-      connectionService.getCodexReadiness(), connectionService.getCodexProvider()
-    ]).then(([readiness, provider]) => {
+      connectionService.getCodexReadiness(), connectionService.getCodexProvider(), gatewayAccountService?.getState().catch(() => undefined)
+    ]).then(([readiness, provider, gateway]) => {
       if (canceled) return;
+      if (gateway?.source === 'gateway') { onGatewayStateChange(gateway); return; }
       const snapshot = { readiness, provider };
       setAgentSetupSnapshot(snapshot);
       setAgentSetup(isAgentSetupConfirmed(snapshot) ? 'ready' : 'needed');
@@ -1269,7 +1333,7 @@ export function AppController(props: AppControllerProps) {
       if (!canceled) setAgentSetup('needed');
     });
     return () => { canceled = true; };
-  }, [agentSetup, connectionService, connectionState.status]);
+  }, [agentSetup, connectionService, connectionState.status, gatewayAccountService, onGatewayStateChange]);
 
   useEffect(() => {
     let canceled = false;
@@ -2930,6 +2994,8 @@ export function AppController(props: AppControllerProps) {
       case 'dashboard':
       case 'plugins':
       case 'settings':
+      case 'account':
+      case 'subscription':
         closeMobileSidebar();
         dispatch({
           type: 'set_active_view',
@@ -2953,6 +3019,7 @@ export function AppController(props: AppControllerProps) {
   }
 
   function openPrimaryView(activeView: ActiveView) {
+    if ((activeView === 'account' || activeView === 'subscription') && props.route.view !== 'account' && props.route.view !== 'subscription') accountReturnRouteRef.current = props.route;
     closeMobileSidebar();
     if (activeView === 'files') {
       followedFileWorkspaceThreadIdRef.current = undefined;
@@ -3200,14 +3267,27 @@ export function AppController(props: AppControllerProps) {
   async function useMarketSkill(skillId: string, projectId: string) {
     setSkillMarketUseError(undefined);
     const isSkillCreator = skillId === 'skill-creator';
-    const entry = isSkillCreator ? undefined : getSkillMarketEntry(skillId);
-    if (!isSkillCreator && entry === undefined) {
-      setSkillMarketUseError({ skillId, error: '未找到这个技能' });
-      return;
+    let title = '创建技能';
+    if (!isSkillCreator) {
+      try {
+        const [{ skillMarketCatalog }, { getSkillMarketDisplayTitle }] = await Promise.all([
+          import('@opencreator/skill-market'),
+          import('../features/plugins/skill-market-model.js')
+        ]);
+        const entry = skillMarketCatalog.find(candidate => candidate.id === skillId);
+        if (entry === undefined) {
+          setSkillMarketUseError({ skillId, error: '未找到这个技能' });
+          return;
+        }
+        title = getSkillMarketDisplayTitle(entry);
+      } catch {
+        setSkillMarketUseError({ skillId, error: '技能列表加载失败，请重试' });
+        return;
+      }
     }
     await useSkillByName({
       skillName: skillId,
-      title: isSkillCreator ? '创建技能' : getSkillMarketDisplayTitle(entry!),
+      title,
       projectId,
       onError: error => setSkillMarketUseError(
         error === undefined ? undefined : { skillId, error }
@@ -4181,7 +4261,7 @@ export function AppController(props: AppControllerProps) {
   const composerDisabledReason = connectionState.status !== 'connected'
     ? t('conversation.connectingRuntime')
     : agentSetup === 'skipped'
-      ? l('请先配置 Agent 模型服务', 'Configure the Agent model service first')
+      ? gatewayAccountState?.source === 'gateway' ? l('请在账户页面连接模型服务', 'Connect model services from your account') : l('请先配置 Agent 模型服务', 'Configure the Agent model service first')
     : projectLoadError !== undefined
       ? t('conversation.checkingTask')
       : conversationNeedsProject && currentProject === undefined
@@ -4197,7 +4277,7 @@ export function AppController(props: AppControllerProps) {
     && !sidebarCollapsed
     && workspaceNeedsCompactSidebar;
   const effectiveSidebarCollapsed = sidebarCollapsed || sidebarAutoCollapsed;
-  const effectiveComposerConfig = selectedThread === undefined
+  const savedComposerConfig = selectedThread === undefined
     ? composerRunConfig ?? defaultComposerRunConfig(
         currentProject,
         defaultPermission,
@@ -4209,6 +4289,14 @@ export function AppController(props: AppControllerProps) {
         model: selectedThread.model ?? null,
         reasoning: (selectedThread.reasoning ?? null) as ComposerRunConfig['reasoning']
       };
+  const effectiveComposerConfig = officialTextModels ? {
+    ...savedComposerConfig,
+    profile: 'default',
+    model: officialTextModels.models.find(model => model.id === savedComposerConfig.model)?.id
+      ?? officialTextModels.models.find(model => model.isDefault)?.id
+      ?? officialTextModels.models[0]?.id ?? null,
+    reasoning: null
+  } : savedComposerConfig;
   const conversationFileLayoutStyle = conversationPaneWidth === undefined
     ? undefined
     : ({ '--conversation-pane-width': `${conversationPaneWidth}px` } as CSSProperties);
@@ -4299,7 +4387,7 @@ export function AppController(props: AppControllerProps) {
       profile={effectiveComposerConfig.profile}
       model={effectiveComposerConfig.model}
       reasoning={effectiveComposerConfig.reasoning}
-      models={codexModels?.models}
+      models={officialTextModels?.models ?? codexModels?.models}
       modelsLoading={codexModelsLoading}
       modelsError={codexModelsLoadError}
       modelsNotice={codexModelsNotice}
@@ -4477,9 +4565,13 @@ export function AppController(props: AppControllerProps) {
           ) : null}
           {agentSetup === 'skipped' ? (
             <div className="startup-agent-banner" role="status">
-              {l('Agent 尚未配置，暂时无法发送任务。', 'Agent is not configured; you cannot send tasks yet.')}
-              <button type="button" onClick={() => setAgentSetup('needed')}>
-                {l('配置 Agent', 'Set up Agent')}
+              {gatewayAccountState?.source === 'gateway'
+                ? gatewayAccountState.authState === 'signed_in'
+                  ? gatewayAccountState.activationState === 'loading' ? l('已登录，正在连接模型服务…', 'Signed in; connecting to model service…') : l('已登录，模型服务暂不可用。', 'Signed in; model service is unavailable.')
+                  : l('请登录 OpenCreator 后继续创作。', 'Sign in to OpenCreator to continue creating.')
+                : l('Agent 尚未配置，暂时无法发送任务。', 'Agent is not configured; you cannot send tasks yet.')}
+              <button type="button" onClick={() => gatewayAccountState?.source === 'gateway' ? openPrimaryView('account') : setAgentSetup('needed')}>
+                {gatewayAccountState?.source === 'gateway' ? l('账户', 'Account') : l('配置 Agent', 'Set up Agent')}
               </button>
             </div>
           ) : null}
@@ -4524,6 +4616,8 @@ export function AppController(props: AppControllerProps) {
       />
     </section>
   ) : conversationPage;
+  const accountPageActive = state.activeView === 'account' || state.activeView === 'subscription';
+  const configurationPageActive = accountPageActive || (state.activeView === 'settings' && !agentSetupRequested);
   const main = props.capabilitiesView !== undefined ? (
     <CapabilitiesPage {...props.capabilitiesView} />
   ) : state.activeView === 'projects' ? (
@@ -4552,6 +4646,7 @@ export function AppController(props: AppControllerProps) {
       creatorService={creatorService}
       runtimeDependencies={runtimeDependencies}
       creatorServicesService={creatorServicesService}
+      gatewayState={gatewayAccountState ?? (gatewayAccountService ? null : undefined)}
       videoMetadataService={videoMetadataService}
       workspace={props.route.view === 'workbench' ? props.route.tool : undefined}
       jobId={props.route.view === 'workbench' ? props.route.jobId : undefined}
@@ -4644,6 +4739,22 @@ export function AppController(props: AppControllerProps) {
         handleScheduleChanged(updated);
       }}
     />
+  ) : state.activeView === 'account' || state.activeView === 'subscription' ? (
+    <PersonalCenterPage
+      view={state.activeView}
+      service={gatewayAccountService}
+      accountState={gatewayAccountState}
+      billingOrderId={props.route.view === 'account' ? props.route.billingOrderId : undefined}
+      billingReturnUrl={hostBridge.billingReturnUrl}
+      prepareExternalNavigation={hostBridge.prepareExternalNavigation}
+      onStateChange={onGatewayStateChange}
+      openExternal={url => hostBridge.openExternal(url)}
+      onOpenModelSettings={() => navigateToRoute({ view: 'settings', tab: 'ai-services' })}
+      onBack={() => {
+        applyRouteFromLocation(accountReturnRouteRef.current);
+        navigateToRoute(accountReturnRouteRef.current);
+      }}
+    />
   ) : state.activeView === 'settings' ? (
     <SettingsPage
       runtimeStatus={runtimeStatus}
@@ -4657,6 +4768,7 @@ export function AppController(props: AppControllerProps) {
       customAccentColor={customAccentColor}
       onCustomAccentColorChange={handleCustomAccentColorChange}
       storageSettingsService={openCreatorSettingsService}
+      platformConnectionsService={platformConnectionsService}
       onSelectStorageDirectory={hostBridge.selectProjectDirectory}
       desktopCloseBehavior={desktopCloseBehavior}
       onDesktopCloseBehaviorChange={(behavior: 'hide' | 'quit') => {
@@ -4703,9 +4815,14 @@ export function AppController(props: AppControllerProps) {
       onProfileDataChange={setCodexProfiles}
       cleanupService={cleanupService}
       creatorServicesService={creatorServicesService}
+      gatewayAccountService={gatewayAccountService}
+      gatewayAccountState={gatewayAccountState}
+      onGatewayStateChange={onGatewayStateChange}
+      onOpenPersonalCenter={() => openPrimaryView('account')}
+      openExternal={url => hostBridge.openExternal(url)}
       codexRuntimeService={connectionService}
-      agentSetupNeeded={agentSetup === 'skipped'}
-      onOpenAgentSetup={() => setAgentSetup('needed')}
+      agentSetupNeeded={agentSetup === 'skipped' || agentSetup === 'needed'}
+      onOpenAgentSetup={() => { setAgentSetupRequested(true); setAgentSetup('needed'); }}
       memoryService={memoryService}
       memoryProjects={memoryProjectOptions}
       memoryThreads={memoryThreadOptions}
@@ -4799,7 +4916,7 @@ export function AppController(props: AppControllerProps) {
         }
         aria-live="polite"
       />
-      {agentSetup === 'needed' ? null : <AppLayout
+      {agentSetup === 'needed' && !configurationPageActive ? null : <AppLayout
       sidebar={
         <OpenCreatorSidebar
           projects={projects}
@@ -4809,7 +4926,9 @@ export function AppController(props: AppControllerProps) {
           currentProjectId={state.currentProjectId}
           selectedConversationId={state.selectedThreadId}
           activeView={state.activeView}
-          homeActive={props.route.view === 'home'}
+          gatewayAccountState={gatewayAccountState}
+          loadAccountAvatar={gatewayAccountService?.getAvatar}
+          homeActive={state.activeView === 'conversation' && props.route.view === 'home'}
           projectNavigationMode={props.projectNavigationMode}
           collapsed={effectiveSidebarCollapsed}
           autoCollapsed={sidebarAutoCollapsed}
@@ -4873,23 +4992,30 @@ export function AppController(props: AppControllerProps) {
       onOpenMobileSidebar={openMobileSidebar}
       onCloseMobileSidebar={dismissMobileSidebar}
       />}
-      {agentSetup === 'checking' && connectionState.status === 'connected' ? (
+      {agentSetup === 'checking' && connectionState.status === 'connected' && !configurationPageActive ? (
         <main className="startup-agent-setup" role="status">
           {l('正在检查 Agent 配置…', 'Checking Agent configuration…')}
         </main>
       ) : null}
-      {agentSetup === 'needed' && connectionService !== null ? (
-        <StartupAgentSetup
-          service={connectionService}
-          initialSnapshot={agentSetupSnapshot}
-          onReady={snapshot => {
-            confirmAgentSetup(snapshot);
-            setAgentSetupSnapshot(snapshot);
-            setAgentSetup('ready');
-            startNewConversation({ destination: 'home' });
-          }}
-          onSkip={() => setAgentSetup('skipped')}
-        />
+      {agentSetup === 'needed' && connectionService !== null && !configurationPageActive ? (
+        <Suspense fallback={<main className="startup-agent-setup" role="status">{l('正在加载 Agent 配置…', 'Loading Agent setup…')}</main>}>
+          <StartupAgentSetup
+            service={connectionService}
+            gatewayService={gatewayAccountService}
+            gatewayState={gatewayAccountState}
+            onGatewayStateChange={onGatewayStateChange}
+            openExternal={url => hostBridge.openExternal(url)}
+            initialSnapshot={agentSetupSnapshot}
+            onReady={snapshot => {
+              setAgentSetupRequested(false);
+              confirmAgentSetup(snapshot);
+              setAgentSetupSnapshot(snapshot);
+              setAgentSetup('ready');
+              startNewConversation({ destination: 'home' });
+            }}
+            onSkip={() => { setAgentSetupRequested(false); setAgentSetup('skipped'); }}
+          />
+        </Suspense>
       ) : null}
       {projectDropActive ? (
         <div className="project-drop-overlay" role="status" aria-live="polite">
@@ -4938,11 +5064,13 @@ export function AppController(props: AppControllerProps) {
           />
         </Suspense>
       ) : null}
-      <AgentDiagnosticsPanel
-        hiddenCreatorIssues={immersiveWorkspace && props.route.view === 'workbench' && props.route.jobId === undefined}
-        hiddenBackgroundRuntimeIssues={immersiveWorkspace && props.route.view === 'workbench'}
-        onAskIssue={askAgentAboutIssue}
-      />
+      <Suspense fallback={null}>
+        <AgentDiagnosticsPanel
+          hiddenCreatorIssues={immersiveWorkspace && props.route.view === 'workbench' && props.route.jobId === undefined}
+          hiddenBackgroundRuntimeIssues={immersiveWorkspace && props.route.view === 'workbench'}
+          onAskIssue={askAgentAboutIssue}
+        />
+      </Suspense>
     </div></RuntimeConnectionProvider></PageIssueRoutingProvider></RuntimeRecoveryContext.Provider>
   );
 
@@ -5134,6 +5262,8 @@ function createInitialState(
     case 'dashboard':
     case 'plugins':
     case 'settings':
+    case 'account':
+    case 'subscription':
       return {
         ...persistedState,
         activeView: route.view,
@@ -5171,6 +5301,10 @@ function routeForActiveView(activeView: ActiveView, selectedThreadId?: string): 
       return { view: 'plugins' };
     case 'settings':
       return { view: 'settings' };
+    case 'account':
+      return { view: 'account' };
+    case 'subscription':
+      return { view: 'subscription' };
     case 'files':
       return {
         view: 'files',
@@ -5315,10 +5449,6 @@ function useMediaQuery(query: string): boolean {
   }, [query]);
 
   return matches;
-}
-
-function getSkillMarketEntry(skillId: string): (typeof skillMarketCatalog)[number] | undefined {
-  return skillMarketCatalog.find(entry => entry.id === skillId);
 }
 
 function shouldShowThreadInSidebar(thread: ThreadResponse): boolean {

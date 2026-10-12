@@ -42,7 +42,7 @@ func isNetscapeCookiesFile(cookiesPath string) bool {
 			continue
 		}
 		line = strings.TrimPrefix(line, "\ufeff")
-		if strings.HasPrefix(line, "# Netscape HTTP Cookie File") {
+		if strings.HasPrefix(line, "# Netscape HTTP Cookie File") || strings.HasPrefix(line, "# HTTP Cookie File") {
 			return true
 		}
 		if logger := log.GetLogger(); logger != nil {

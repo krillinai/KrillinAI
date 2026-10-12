@@ -49,6 +49,15 @@ export default defineConfig({
     opencreatorStaticResourcesPlugin(),
     opencreatorRuntimeDevPlugin()
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('/packages/skill-market/')) return 'skill-market-catalog';
+        }
+      }
+    }
+  },
   server: {
     host: '127.0.0.1',
     port: 19861,

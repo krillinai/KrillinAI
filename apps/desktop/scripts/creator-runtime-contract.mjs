@@ -93,8 +93,23 @@ function verifyYtDlpRuntime(descriptor, resourcesByPath) {
   ) {
     throw new Error('Creator Runtime yt-dlp descriptor is missing or invalid');
   }
+  const javascriptKeys = descriptor.javascriptRuntime === undefined ? [] : ['javascriptRuntime'];
+  if (descriptor.javascriptRuntime !== undefined) {
+    const javascript = descriptor.javascriptRuntime;
+    if (
+      javascript === null
+      || typeof javascript !== 'object'
+      || javascript.name !== 'node'
+      || typeof javascript.version !== 'string'
+      || javascript.version.length === 0
+    ) {
+      throw new Error('Creator Runtime yt-dlp JavaScript runtime is invalid');
+    }
+    assertDescriptorKeys(javascript, ['name', 'version', 'executable']);
+    assertRuntimeResource(resourcesByPath, javascript.executable, 'executable', 'Node executable');
+  }
   if (descriptor.mode === 'standalone') {
-    assertDescriptorKeys(descriptor, ['mode', 'version', 'executable']);
+    assertDescriptorKeys(descriptor, ['mode', 'version', 'executable', ...javascriptKeys]);
     assertRuntimeResource(
       resourcesByPath,
       descriptor.executable,
@@ -110,7 +125,8 @@ function verifyYtDlpRuntime(descriptor, resourcesByPath) {
       'pythonVersion',
       'executable',
       'script',
-      'certificateBundle'
+      'certificateBundle',
+      ...javascriptKeys
     ]);
     if (
       typeof descriptor.pythonVersion !== 'string'
