@@ -142,7 +142,7 @@ func (s *YouTubeSubtitleService) parseVttTime(timeStr string) (float64, error) {
 
 // 使用yt-dlp下载YouTube视频的字幕文件
 func (s *YouTubeSubtitleService) downloadYouTubeSubtitle(ctx context.Context, req *YoutubeSubtitleReq) (string, error) {
-	if !strings.Contains(req.URL, "youtube.com") {
+	if !util.IsYouTubeURL(req.URL) {
 		return "", fmt.Errorf("downloadYouTubeSubtitle: not a YouTube link")
 	}
 

@@ -1,0 +1,20 @@
+.startup-agent-setup {
+  position: fixed;
+  z-index: 70;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: max(32px, var(--opencreator-titlebar-height, 0px)) 20px 32px;
+  background: var(--bg);
+}
+
+.startup-agent-banner {
+  width: min(760px, 100%);
+  margin: 0 auto 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.startup-agent-banner button { margin-left: 12px; color: var(--accent-strong); background: transparent; border: 0; cursor: pointer; }

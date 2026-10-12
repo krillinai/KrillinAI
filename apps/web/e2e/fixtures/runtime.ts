@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { readRuntimePid, stopRecordedProcess } from './process-cleanup.js';
 
 export type FakeCodexInvocation = {
   threadId?: string;
@@ -260,8 +261,7 @@ export const test = base.extend<TestFixtures>({
         projectId: project.project.id,
         ordinaryThreadId: ordinary.thread.id,
         async restart(options = {}) {
-          await stopProcessTree(child);
-          terminateRecordedFakeCodexProcesses(stateDir);
+          await stopFixtureRuntime(child, dataDir, stateDir);
           presetCatalogRoot = options.presetCatalogRoot ?? presetCatalogRoot;
           serverLog += '\n[opencreator-e2e] restarting Vite and Daemon\n';
           child = startRuntime();
@@ -335,6 +335,7 @@ export const test = base.extend<TestFixtures>({
           if (await page.evaluate(() => localStorage.getItem('opencreator.agent-setup-confirmed.v1') === null)) {
             const setup = page.getByRole('region', { name: '开始使用 Agent' });
             await expect(setup).toBeVisible();
+            await setup.getByRole('button', { name: '本地模式', exact: true }).click();
             await setup.getByRole('button', { name: '使用本机 Codex，继续' }).click();
             await expect(setup).not.toBeVisible();
           }
@@ -409,8 +410,7 @@ export const test = base.extend<TestFixtures>({
           contentType: 'text/plain'
         });
       }
-      await stopProcessTree(child);
-      terminateRecordedFakeCodexProcesses(stateDir);
+      await stopFixtureRuntime(child, dataDir, stateDir);
       if (process.env.OPENCREATOR_E2E_KEEP_TEMP !== '1') {
         rmSync(rootDir, {
           recursive: true,
@@ -541,26 +541,31 @@ function prepareDaemonDevelopment(packageManagerScript: string | undefined): voi
   daemonDevelopmentPrepared = true;
 }
 
-function terminateRecordedFakeCodexProcesses(stateDir: string): void {
+async function stopFixtureRuntime(
+  child: ChildProcess,
+  dataDir: string,
+  stateDir: string
+): Promise<void> {
+  // Capture the detached Daemon before Vite shutdown can remove its lock.
+  const daemonPid = readRuntimePid(dataDir);
+  if (child.pid !== undefined) {
+    await stopRecordedProcess(child.pid, { processGroup: true });
+  }
+  if (daemonPid !== undefined) {
+    await stopRecordedProcess(daemonPid, { processGroup: true });
+  }
+  await terminateRecordedFakeCodexProcesses(stateDir);
+}
+
+async function terminateRecordedFakeCodexProcesses(stateDir: string): Promise<void> {
   const path = join(stateDir, 'app-server-pids.txt');
   if (!existsSync(path)) return;
   const pids = [...new Set(readFileSync(path, 'utf8')
     .split(/\r?\n/)
     .map(value => Number(value))
-    .filter(value => Number.isInteger(value) && value > 0))].reverse();
+    .filter(value => Number.isSafeInteger(value) && value > 1 && value !== process.pid))].reverse();
   for (const pid of pids) {
-    try {
-      if (process.platform === 'win32') {
-        execFileSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], {
-          stdio: 'ignore',
-          windowsHide: true
-        });
-      } else {
-        process.kill(pid, 'SIGKILL');
-      }
-    } catch {
-      // The process may already have exited with the Daemon tree.
-    }
+    await stopRecordedProcess(pid, { force: true });
   }
 }
 
@@ -585,31 +590,4 @@ async function waitForRuntime(
     await delay(100);
   }
   throw new Error(`Runtime did not become ready: ${latestError}\n${readLog()}`);
-}
-
-async function stopProcessTree(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null || child.pid === undefined) return;
-  const exited = new Promise<void>(resolveExit => {
-    child.once('exit', () => resolveExit());
-  });
-  try {
-    if (process.platform === 'win32') {
-      execFileSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
-        stdio: 'ignore',
-        windowsHide: true
-      });
-    } else {
-      process.kill(-child.pid, 'SIGTERM');
-    }
-  } catch {
-    child.kill('SIGTERM');
-  }
-  await Promise.race([exited, delay(3_000)]);
-  if (child.exitCode !== null) return;
-  try {
-    process.kill(-child.pid, 'SIGKILL');
-  } catch {
-    child.kill('SIGKILL');
-  }
-  await Promise.race([exited, delay(3_000)]);
 }

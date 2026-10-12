@@ -14,6 +14,7 @@ import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 import { buildServer } from '../../src/api/server.js';
 import type { AgentRuntimeAdapter } from '../../src/creator/agent/runtime-adapter.js';
 import type { CreatorExecutor } from '../../src/creator/executor.js';
+import { createGatewayConfigStore } from '../../src/gateway/config-store.js';
 
 let server: FastifyInstance | undefined;
 let tempDir = '';
@@ -298,6 +299,51 @@ describe('creator api', () => {
     expect(conflicting.json()).toMatchObject({
       error: { code: 'creator_idempotency_key_reused' }
     });
+  });
+
+  it('restores signed-out gateway users to manual services while keeping presets available', async () => {
+    await setupServer({ gatewayMode: true, llmConfigured: false });
+    const account = await request('GET', '/gateway/account');
+    expect(account.json()).toMatchObject({
+      source: 'manual', authState: 'signed_out', activationState: 'inactive'
+    });
+    expect(await createGatewayConfigStore(tempDir).readConfiguration())
+      .toMatchObject({ source: 'manual', bindingVersion: null });
+    const activation = await request('POST', '/gateway/auth/activate');
+    expect(activation.statusCode).toBe(401);
+    expect(activation.json()).toMatchObject({
+      error: { code: 'GATEWAY_AUTH_REQUIRED', details: { gatewayCode: 'auth_required' } }
+    });
+
+    const catalog = await request('GET', '/creator/presets?locale=zh-CN');
+    expect(catalog.statusCode).toBe(200);
+    const imagePreset = catalog.json().presets.find(
+      (preset: { module: string }) => preset.module === 'image-generation'
+    );
+    expect(imagePreset).toMatchObject({
+      title: expect.any(String),
+      coverUrl: expect.stringMatching(/^\/creator-presets\/[a-f0-9]{64}\.(?:jpg|png|webp)$/)
+    });
+    const cover = await server!.inject({
+      method: 'GET',
+      url: imagePreset.coverUrl,
+      headers: { authorization: 'Bearer secret' }
+    });
+    expect(cover.statusCode).toBe(200);
+    expect(cover.headers['content-type']).toMatch(/^image\//);
+    expect(cover.rawPayload.byteLength).toBeGreaterThan(1_000);
+
+    const modelConfig = await request('GET', '/creator-services/config');
+    expect(modelConfig.statusCode).toBe(200);
+    const created = await request('POST', '/creator/jobs', {
+      projectId: 'project_signed_out',
+      preset: { module: imagePreset.module, id: imagePreset.id, version: imagePreset.version },
+      locale: 'zh-CN',
+      creationKey: 'signed-out-preset-creation'
+    });
+    expect(created.statusCode).toBe(201);
+    expect((await request('GET', '/creator/jobs?projectId=project_signed_out')).json().jobs)
+      .toHaveLength(1);
   });
 
   it('lists localized presets and creates a real preset job', async () => {
@@ -920,6 +966,7 @@ describe('creator api', () => {
 
 async function setupServer(options: {
   llmConfigured?: boolean;
+  gatewayMode?: boolean;
   agentRuntime?: AgentRuntimeAdapter;
   creatorSourceMediaProbe?(path: string): Promise<{
     duration: number;
@@ -931,6 +978,11 @@ async function setupServer(options: {
   creatorExecutors?: CreatorExecutor[];
 } = {}): Promise<void> {
   tempDir = mkdtempSync(join(tmpdir(), 'creator-api-'));
+  if (options.gatewayMode) {
+    await createGatewayConfigStore(tempDir).writeConfiguration({
+      source: 'gateway', bindingVersion: null
+    });
+  }
   const config = createDefaultCreatorServicesConfig();
   config.llm.source = 'custom';
   if (options.llmConfigured !== false) {

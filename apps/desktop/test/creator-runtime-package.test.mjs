@@ -33,6 +33,17 @@ describe('Creator Runtime package contract', () => {
     });
   });
 
+  it.each(['python', 'standalone'])('validates the bundled Node runtime in %s mode', ytDlpMode => {
+    createFixture({ ytDlpMode, javascriptRuntime: true });
+    expect(verifyCreatorRuntime(root, process.platform, process.arch).ytDlp.javascriptRuntime).toMatchObject({
+      name: 'node', version: '22.23.2'
+    });
+    createFixture({ ytDlpMode, javascriptRuntime: true, mutateManifest(manifest) {
+      manifest.resources.find(resource => resource.path === manifest.ytDlp.javascriptRuntime.executable).kind = 'asset';
+    } });
+    expect(() => verifyCreatorRuntime(root, process.platform, process.arch)).toThrow(/Node executable is not a manifest-pinned executable/);
+  });
+
   it('rejects the legacy source-built OpenCreator service runtime', () => {
     createFixture({ legacyService: true });
     expect(() => verifyCreatorRuntime(root, process.platform, process.arch)).toThrow(
@@ -124,6 +135,7 @@ function createFixture(options = {}) {
     primary: join(bin, `krillinai-cli${suffix}`),
     ffmpeg: join(bin, `ffmpeg${suffix}`),
     ffprobe: join(bin, `ffprobe${suffix}`),
+    ...(options.javascriptRuntime ? { node: join(bin, `node${suffix}`) } : {}),
     ...(ytDlpMode === 'standalone'
       ? {
           ytDlp: join(bin, `yt-dlp${suffix}`)
@@ -176,6 +188,12 @@ function createFixture(options = {}) {
         script: resources.find(resource => resource.path.endsWith('/yt-dlp')).path,
         certificateBundle: resources.find(resource => resource.path.endsWith('/cacert.pem')).path
       };
+  if (options.javascriptRuntime) {
+    ytDlp.javascriptRuntime = {
+      name: 'node', version: '22.23.2',
+      executable: resources.find(resource => resource.path === `bin/node${suffix}`).path
+    };
+  }
   const manifest = {
     version: 1,
     runtimeMode: legacyService ? 'service' : 'cli',
