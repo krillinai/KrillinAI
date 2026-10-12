@@ -118,7 +118,12 @@ export function createGatewayAccountService(input: {
         credentials = { ...original, ...tokens, accessExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000).toISOString() };
         await store.writeCredentials(credentials);
       } catch (error) {
-        if (error instanceof GatewayError && error.status === 401) { state.authState = 'expired'; await input.closeRuntime(); }
+        if (error instanceof GatewayError && error.status === 401 && generation === expected && credentials === original && state.authState === 'signed_in') {
+          state = { ...state, authState: 'expired', activationState: 'inactive', bindingVersion: null, activationError: null };
+          runtimeTextModel = undefined; accessController?.abort();
+          clearInterval(usageTimer); usageTimer = undefined;
+          await input.closeRuntime();
+        }
         throw error;
       }
     })();

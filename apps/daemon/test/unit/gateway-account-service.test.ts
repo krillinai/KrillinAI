@@ -352,6 +352,29 @@ it('refreshes the official catalog when idle, preserving choices and deferring p
   } finally { clock.mockRestore(); await f.service.close(); }
 });
 
+it('revokes model readiness when account polling detects an expired session', async () => {
+  const f = await setup();
+  const server = Fastify();
+  const clock = vi.spyOn(Date, 'now');
+  const startedAt = Date.now();
+  try {
+    const grant = await f.service.startAuthorization(); await f.service.pollAuthorization(grant.attemptId);
+    const ready = await f.service.readState();
+    expect(ready.activationState).toBe('ready');
+    await registerGatewayAccountRoutes(server, f.service);
+    clock.mockReturnValue(startedAt + 16 * 60_000);
+    f.client.refresh.mockRejectedValueOnce(new GatewayError('auth_required', 401));
+    const response = await server.inject({ method: 'GET', url: '/gateway/account' });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ source: 'gateway', authState: 'expired', activationState: 'inactive', bindingVersion: null,
+      models: ready.models, selectedModels: ready.selectedModels });
+    expect(f.close).toHaveBeenCalledOnce();
+    const selection = await server.inject({ method: 'PATCH', url: '/gateway/model', payload: { modality: 'text', model: 'gateway-text' } });
+    expect(selection.statusCode).toBe(401);
+    expect(selection.json().error.code).toBe('GATEWAY_AUTH_REQUIRED');
+  } finally { clock.mockRestore(); await server.close(); await f.service.close(); }
+});
+
 it('clears an expired device session before starting reauthorization', async () => {
   const f = await setup();
   const first = await f.service.startAuthorization(); await f.service.pollAuthorization(first.attemptId);
@@ -359,7 +382,7 @@ it('clears an expired device session before starting reauthorization', async () 
   try {
     f.client.refresh.mockRejectedValueOnce(new GatewayError('auth_required', 401));
     await expect(f.service.modelCredentials()).rejects.toMatchObject({ status: 401 });
-    expect((await f.service.readState()).authState).toBe('expired');
+    expect(await f.service.readState()).toMatchObject({ authState: 'expired', activationState: 'inactive' });
     const next = await f.service.startAuthorization();
     await f.service.pollAuthorization(next.attemptId);
     expect(await f.service.readState()).toMatchObject({ authState: 'signed_in', activationState: 'ready', account: { id: '2' } });

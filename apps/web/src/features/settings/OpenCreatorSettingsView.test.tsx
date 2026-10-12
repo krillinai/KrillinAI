@@ -9,6 +9,7 @@ import type { GatewayAccountState } from '@opencreator/protocol';
 import type { GatewayAccountSettingsService } from '../../services/gateway-account-service.js';
 import { createGatewayAccountService } from '../../services/gateway-account-service.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
+import { ApiClientError } from '../../runtime/errors.js';
 
 const runtimeStatus = {
   connected: true,
@@ -47,6 +48,50 @@ describe('OpenCreatorSettingsView', () => {
     await user.click(screen.getByRole('option', { name: 'second' }));
     await waitFor(() => expect(changed).toHaveBeenCalledWith(next));
     expect(client.patch).toHaveBeenCalledWith('/gateway/model', { modality: 'text', model: 'vendor/second' });
+  });
+  it.each(['ready', 'inactive'] as const)('disables official models on session expiry with %s activation and recovers after sign-in', async activationState => {
+    const state: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: 'a:1',
+      models: [{ id: 'vendor/first', modality: 'text', capabilities: ['responses'] }, { id: 'vendor/second', modality: 'text', capabilities: ['responses'] }], selectedModels: { text: 'vendor/second' }, activationError: null };
+    const expired = { ...state, authState: 'expired' as const, activationState };
+    const client = { get: vi.fn(), post: vi.fn(), patch: vi.fn() };
+    const service = createGatewayAccountService(client);
+    const onOpenPersonalCenter = vi.fn();
+    const props = { runtimeStatus, gatewayAccountService: service, initialTab: 'ai-services' as const, onOpenPersonalCenter, onBack: vi.fn() };
+    const view = render(<OpenCreatorSettingsView {...props} gatewayAccountState={state}/>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: '文本模型' }));
+    expect(screen.getByRole('listbox', { name: '文本模型' })).toBeInTheDocument();
+    view.rerender(<OpenCreatorSettingsView {...props} gatewayAccountState={expired}/>);
+    expect(await screen.findByText('登录已过期')).toBeInTheDocument();
+    expect(screen.queryByText('已连接')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).not.toHaveClass('is-ready');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    for (const model of screen.getAllByRole('combobox')) expect(model).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: '文本模型' })).toHaveValue('second');
+    await user.click(screen.getByRole('button', { name: '重新登录' }));
+    expect(onOpenPersonalCenter).toHaveBeenCalledOnce();
+    expect(client.patch).not.toHaveBeenCalled();
+    view.rerender(<OpenCreatorSettingsView {...props} gatewayAccountState={state}/>);
+    expect(await screen.findByText('已连接')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '文本模型' })).toBeEnabled();
+    expect(screen.getByRole('combobox', { name: '文本模型' })).toHaveValue('second');
+  });
+  it('refreshes account state when a model change discovers an expired session', async () => {
+    const state: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: 'a:1',
+      models: [{ id: 'vendor/first', modality: 'text', capabilities: ['responses'] }, { id: 'vendor/second', modality: 'text', capabilities: ['responses'] }], selectedModels: { text: 'vendor/first' }, activationError: null };
+    const expired = { ...state, authState: 'expired' as const, activationState: 'inactive' as const };
+    const client = { get: vi.fn().mockResolvedValue(expired), post: vi.fn(), patch: vi.fn().mockRejectedValue(new ApiClientError({ status: 401, code: 'GATEWAY_AUTH_REQUIRED', message: 'Sign in again' })) };
+    const service = createGatewayAccountService(client);
+    const changed = vi.fn();
+    render(<OpenCreatorSettingsView runtimeStatus={runtimeStatus} gatewayAccountService={service} gatewayAccountState={state} onGatewayStateChange={changed} initialTab="ai-services" onBack={vi.fn()}/>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: '文本模型' }));
+    await user.click(screen.getByRole('option', { name: 'second' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('登录已过期，请重新登录');
+    expect(screen.queryByText(/请等待当前任务结束/)).not.toBeInTheDocument();
+    await waitFor(() => expect(changed).toHaveBeenCalledWith(expired));
+    expect(client.get).toHaveBeenCalledWith('/gateway/account');
+    expect(screen.getByRole('combobox', { name: '文本模型' })).toBeDisabled();
   });
   it('shows custom settings for guests and directs sign-in to the personal center', async () => {
     const gateway: GatewayAccountState = { source: 'manual', authState: 'signed_out', activationState: 'inactive', account: null, bindingVersion: null, models: [], activationError: null };

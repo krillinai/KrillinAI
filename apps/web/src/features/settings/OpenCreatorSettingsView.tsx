@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Check, CircleCheck, CircleAlert, FolderOpen, Moon, Save, Sun, UserRound } from 'lucide-react';
+import { Check, CircleCheck, CircleAlert, FolderOpen, LogIn, Moon, Save, Sun, UserRound } from 'lucide-react';
 import type {
   CodexProfileListResponse,
   CodexStatusResponse,
@@ -121,6 +121,13 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
   const { t } = useAppLanguage();
   const l = useLocalizedCopy();
   const officialMode = gatewayState !== undefined && (gatewayState.source === 'gateway' || gatewayState.authState !== 'signed_out');
+  const officialConnected = gatewayState?.authState === 'signed_in' && gatewayState.source === 'gateway' && gatewayState.activationState === 'ready';
+  const officialStatus = gatewayState?.authState === 'expired' ? l('登录已过期', 'Session expired')
+    : gatewayState?.authState === 'authorizing' ? l('正在登录', 'Signing in')
+    : gatewayState?.authState === 'signing_out' ? l('正在退出登录…', 'Signing out…')
+    : gatewayState?.authState !== 'signed_in' ? l('未登录', 'Signed out')
+    : gatewayState.activationState === 'loading' ? l('正在连接', 'Connecting')
+    : officialConnected ? l('已连接', 'Connected') : l('暂不可用', 'Unavailable');
   const tabs: Array<{ id: SettingsTab; label: string }> = [
     { id: 'general', label: t('settings.tab.general') },
     { id: 'ai-services', label: t('settings.tab.aiServices') },
@@ -212,12 +219,14 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
               <header className="official-services-heading">
                 <div>
                   <h1 id="official-services-title">{l('AI 服务', 'AI services')}</h1>
-                  <p className={`official-services-status${gatewayState.activationState === 'ready' ? ' is-ready' : ''}`} role="status">
-                    {gatewayState.activationState === 'ready' ? <CircleCheck size={14} aria-hidden="true" /> : <CircleAlert size={14} aria-hidden="true" />}
-                    {gatewayState.authState === 'authorizing' ? l('正在登录', 'Signing in') : gatewayState.activationState === 'loading' ? l('正在连接', 'Connecting') : gatewayState.activationState === 'ready' ? l('已连接', 'Connected') : gatewayState.authState === 'expired' ? l('登录已过期', 'Session expired') : l('暂不可用', 'Unavailable')}
+                  <p className={`official-services-status${officialConnected ? ' is-ready' : ''}`} role="status">
+                    {officialConnected ? <CircleCheck size={14} aria-hidden="true" /> : <CircleAlert size={14} aria-hidden="true" />}
+                    {officialStatus}
                   </p>
                 </div>
-                {props.onOpenPersonalCenter ? <button type="button" onClick={props.onOpenPersonalCenter}><UserRound size={15} aria-hidden="true"/>{l('账户', 'Account')}</button> : null}
+                {props.onOpenPersonalCenter ? <button type="button" onClick={props.onOpenPersonalCenter}>
+                  {gatewayState.authState === 'expired' ? <><LogIn size={15} aria-hidden="true"/>{l('重新登录', 'Sign in again')}</> : <><UserRound size={15} aria-hidden="true"/>{l('账户', 'Account')}</>}
+                </button> : null}
               </header>
               {modeControls}
               {props.gatewayAccountService ? <OfficialServicesSettingsView state={gatewayState} service={props.gatewayAccountService} onChange={next => { setGatewayState(next); props.onGatewayStateChange?.(next); }} /> : null}
