@@ -20,6 +20,7 @@ import type {
   CreatorPresetListResponse,
   CreatorPreflightResponse,
   CreatorStageRun,
+  CreatorSubtitlePreviewRequest,
   CreatorSourceUploadResponse,
   CreatorTemplateListResponse,
   CreatorVisualAssetCatalogResponse,
@@ -51,6 +52,10 @@ export function createCreatorService(client: ClientLike) {
   const lastEventIdByJob = new Map<string, string>();
   const consumedEventIds = new Map<string, Set<string>>();
   return {
+    openSubtitlePreview(input: CreatorSubtitlePreviewRequest, options?: { signal?: AbortSignal }): Promise<Response> {
+      if (client.rawGet === undefined) throw new Error('Subtitle preview transport is unavailable');
+      return client.rawGet(`/creator/subtitle-preview?${new URLSearchParams({ options: JSON.stringify(input) })}`, options);
+    },
     listTemplates(): Promise<CreatorTemplateListResponse> {
       return client.get('/creator/templates') as Promise<CreatorTemplateListResponse>;
     },

@@ -600,7 +600,7 @@ describe('KrillinAI CLI runner', () => {
       'render-vertical',
       'stage-run-vertical-fallback',
       artifacts.filter(artifact => artifact.kind !== 'vertical_subtitle')
-    ))).toBe(target);
+    ))).toBe(bilingual);
     expect(selectedSubtitle(await run('render-horizontal', 'stage-run-horizontal'))).toBe(bilingual);
   });
 });

@@ -1438,17 +1438,35 @@
   object-fit: contain;
 }
 
-.video-translation-subtitle-preview-cues {
+.video-translation-subtitle-rendered-preview,
+.video-translation-subtitle-preview-status {
   position: absolute;
   z-index: 2;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.video-translation-subtitle-preview-status {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  gap: 7px;
-  padding: 28px 24px;
-  box-sizing: border-box;
+  justify-content: center;
+  gap: 8px;
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.video-translation-subtitle-preview-status button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #69717d;
+  border-radius: 4px;
+  background: #303640;
+  color: #ffffff;
+  cursor: pointer;
 }
 
 .video-translation-subtitle-preview[data-orientation="portrait"] > div {
@@ -1490,28 +1508,6 @@
 .video-translation-subtitle-preview-titles [data-title-kind="minor"] {
   font-size: 9px;
   font-weight: 400;
-}
-
-.video-translation-subtitle-preview small,
-.video-translation-subtitle-preview strong {
-  max-width: 100%;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-  -webkit-text-stroke: var(--subtitle-preview-outline-width) var(--subtitle-preview-outline-color);
-  paint-order: stroke fill;
-  text-shadow: var(--subtitle-preview-shadow);
-}
-
-.video-translation-subtitle-preview small {
-  color: var(--subtitle-preview-secondary-color);
-  font-size: 13px;
-  font-weight: var(--subtitle-preview-font-weight);
-}
-
-.video-translation-subtitle-preview strong {
-  color: var(--subtitle-preview-color);
-  font-size: var(--subtitle-preview-font-size);
-  font-weight: var(--subtitle-preview-font-weight);
 }
 
 .video-translation-summary {

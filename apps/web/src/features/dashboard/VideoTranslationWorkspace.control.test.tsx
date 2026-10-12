@@ -395,11 +395,12 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(screen.getByRole('button', { name: '#7EE7FF' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('validates HEX colors, updates the preview, and closes the palette with Escape or an outside click', () => {
+  it('validates HEX colors, updates the preview, and closes the palette with Escape or an outside click', async () => {
+    const openSubtitlePreview = vi.fn(() => new Promise<Response>(() => {}));
     render(<LanguageProvider initialPreference="zh-CN">
       <CreatorSessionProvider initialJob={job({ status: 'draft', revision: 0, stages: [], state: {
         currentStep: 2, furthestStep: 2, composeVideo: true
-      } })} service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}>
+      } })} service={{ applyAction: vi.fn(), runAgentTurn: vi.fn(), openSubtitlePreview } as never}>
         <VideoTranslationWorkspace onBack={vi.fn()} />
       </CreatorSessionProvider>
     </LanguageProvider>);
@@ -407,11 +408,17 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(screen.queryByRole('dialog', { name: '译文颜色色板' })).not.toBeInTheDocument();
     fireEvent.click(trigger);
     const hex = screen.getByRole('textbox', { name: '译文颜色 HEX' });
-    const frame = screen.getByRole('region', { name: '字幕样式预览' }).querySelector(':scope > div');
+    await waitFor(() => expect(openSubtitlePreview).toHaveBeenCalledWith(
+      expect.objectContaining({ subtitleStyle: expect.objectContaining({ primaryColor: '#FFFFFF' }) }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    ));
     fireEvent.change(hex, { target: { value: '#12' } });
-    expect(frame).toHaveStyle({ '--subtitle-preview-color': '#FFFFFF' });
+    expect(trigger).toHaveTextContent('#FFFFFF');
     fireEvent.change(hex, { target: { value: '123abc' } });
-    expect(frame).toHaveStyle({ '--subtitle-preview-color': '#123ABC' });
+    await waitFor(() => expect(openSubtitlePreview).toHaveBeenLastCalledWith(
+      expect.objectContaining({ subtitleStyle: expect.objectContaining({ primaryColor: '#123ABC' }) }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    ));
     expect(trigger).toHaveTextContent('#123ABC');
     fireEvent.keyDown(hex, { key: 'Escape' });
     expect(trigger).toHaveFocus();
@@ -666,12 +673,12 @@ describe('VideoTranslationWorkspace task controls', () => {
     }
   });
 
-  it('edits every subtitle style field and persists one structured patch', async () => {
+  it.each([1, 2])('edits every subtitle style field and persists one structured patch for template v%s', async templateVersion => {
     let currentJob = job({
       status: 'draft',
       revision: 0,
       stages: [],
-      templateVersion: 2,
+      templateVersion,
       state: {
         currentStep: 2,
         furthestStep: 2,

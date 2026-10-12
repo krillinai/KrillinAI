@@ -14,6 +14,10 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { buildKrillinSubtitleStyle } from '../../src/creator/krillin/adapter.js';
+import { createSubtitlePreviewService } from '../../src/creator/krillin/subtitle-preview.js';
+import { readKrillinRuntimeManifest } from '../../src/creator/krillin/manifest.js';
+import { resolveYtDlpRuntime } from '../../src/creator/yt-dlp/runtime.js';
+import sharp from 'sharp';
 
 const repoRoot = resolve(process.cwd(), '../..');
 const runtimeRoot = resolve(
@@ -32,6 +36,53 @@ afterAll(() => {
 });
 
 describe.runIf(hasPackagedRuntime)('Creator packaged subtitle rendering', () => {
+  it.each([
+    ['sans', 640, 360, 'top', false],
+    ['serif', 640, 360, 'bottom', false],
+    ['rounded', 360, 640, 'bottom', false],
+    ['sans', 360, 640, 'bottom', true]
+  ] as const)('uses the same rendered glyphs for %s preview and %dx%d burn-in with translation on %s (legacy mixed: %s)', async (fontPreset, width, height, position, mixed) => {
+    const style = {
+      fontPreset, fontWeight: 'bold', fontSize: 'medium',
+      primaryColor: '#7EE7FF', secondaryColor: '#FFD45C', outlineColor: '#102030', outlineWidth: 2,
+      shadow: { enabled: true, color: '#000000', opacity: 0.6, offsetX: -4, offsetY: 6, blur: 2 }
+    } as const;
+    const result = renderStyle(style, { width, height, position, mixed });
+    const service = createSubtitlePreviewService({
+      resourceRoot: runtimeRoot, workRoot: result.paths.workdir,
+      ensureRuntimeReady: async () => {},
+      getYtDlpRuntime: () => resolveYtDlpRuntime({ resourceRoot: runtimeRoot, manifest: readKrillinRuntimeManifest(runtimeRoot) })
+    });
+    const png = await service.render({ width, height, subtitleStyle: style, bilingual: true, subtitlePosition: position, translationText: 'Creator subtitle test', originalText: '创作字幕测试' });
+    const rgba = await sharp(png).ensureAlpha().raw().toBuffer();
+    const assPath = result.assPath;
+    const frame = run(ffmpegPath, [
+      '-v', 'error', '-f', 'lavfi', '-i', `color=c=0x202020:s=${width}x${height}:d=2,format=rgba`, '-ss', '0.5',
+      '-vf', `ass=filename='${assPath}':fontsdir='${join(runtimeRoot, 'fonts')}'`,
+      '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1'
+    ], null);
+    let changedPixels = 0;
+    let error = 0;
+    for (let pixel = 0; pixel < width * height; pixel += 1) {
+      const alpha = rgba[pixel * 4 + 3]! / 255;
+      if (alpha === 0 && frame[pixel * 3] === 32 && frame[pixel * 3 + 1] === 32 && frame[pixel * 3 + 2] === 32) continue;
+      changedPixels += 1;
+      for (let channel = 0; channel < 3; channel += 1) {
+        const composite = Math.round(rgba[pixel * 4 + channel]! * alpha + 32 * (1 - alpha));
+        error += Math.abs(composite - frame[pixel * 3 + channel]!);
+      }
+    }
+    expect(changedPixels).toBeGreaterThan(100);
+    expect(rgba[3]).toBe(0);
+    expect(error / (changedPixels * 3)).toBeLessThan(2);
+  });
+
+  it('applies directional shadow overrides to actual pixels', () => {
+    const style = { shadow: { enabled: true, opacity: 0.6, offsetX: -6, offsetY: 6, blur: 0 } };
+    const first = renderStyle(style);
+    const second = renderStyle({ shadow: { ...style.shadow, offsetX: 6, offsetY: -6 } });
+    expect(first.frame.sha256).not.toBe(second.frame.sha256);
+  });
   it('renders visibly different fixed frames and fails when a packaged font is missing', () => {
     const first = renderStyle({
       fontPreset: 'sans',
@@ -88,7 +139,7 @@ describe.runIf(hasPackagedRuntime)('Creator packaged subtitle rendering', () => 
   });
 });
 
-function renderStyle(style: Parameters<typeof buildKrillinSubtitleStyle>[0]) {
+function renderStyle(style: Parameters<typeof buildKrillinSubtitleStyle>[0], options: { width: number; height: number; position: string; mixed?: boolean } = { width: 640, height: 360, position: 'top' }) {
   const root = mkdtempSync(join(tmpdir(), 'opencreator-subtitle-render-'));
   roots.push(root);
   const launcher = join(root, 'launcher');
@@ -99,28 +150,38 @@ function renderStyle(style: Parameters<typeof buildKrillinSubtitleStyle>[0]) {
   const inputVideo = join(workdir, 'background.mp4');
   const subtitle = join(workdir, 'bilingual.srt');
   const stylePath = join(workdir, 'subtitle-style.json');
+  const targetPath = join(workdir, 'target.srt');
+  const timeline = '00:00:00,200 --> 00:00:01,800';
+  writeFileSync(targetPath, `1\n${timeline}\nCreator subtitle test\n\n`);
   writeFileSync(
     subtitle,
-    '1\n00:00:00,200 --> 00:00:01,800\nCreator subtitle test\n创作字幕测试\n\n'
+    options.mixed
+      ? `1\n${timeline}\nCreator subtitle test\n\n2\n${timeline}\n创作字幕测试\n\n`
+      : `1\n${timeline}\n${(options.position === 'top' ? ['Creator subtitle test', '创作字幕测试'] : ['创作字幕测试', 'Creator subtitle test']).join('\n')}\n\n`
   );
   writeFileSync(stylePath, `${JSON.stringify(buildKrillinSubtitleStyle(style), null, 2)}\n`);
   run(ffmpegPath, [
     '-v', 'error',
     '-y',
     '-f', 'lavfi',
-    '-i', 'color=c=#202020:s=640x360:d=2:r=25',
+    '-i', `color=c=#202020:s=${options.width}x${options.height}:d=2:r=25`,
     '-c:v', 'libx264',
     '-pix_fmt', 'yuv420p',
     inputVideo
   ]);
-  const result = runCli({ launcher, workdir, inputVideo, subtitle }, stylePath, runtimeRoot);
+  const horizontal = options.width >= options.height;
+  const result = runCli({ launcher, workdir, inputVideo, subtitle }, stylePath, runtimeRoot, [
+    `--line-mode=bilingual-target-${options.position}`,
+    ...(options.mixed ? ['--mixed-target-subtitle', targetPath] : [])
+  ], horizontal ? 'render-horizontal' : 'render-vertical');
   expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-  const outputVideo = join(workdir, 'horizontal_bilingual.mp4');
-  const assPath = join(workdir, 'formatted_horizontal_bilingual.ass');
+  const outputVideo = join(workdir, `${horizontal ? 'horizontal' : 'vertical'}_bilingual.mp4`);
+  const assPath = join(workdir, `formatted_${horizontal ? 'horizontal' : 'vertical'}_bilingual.ass`);
   expect(existsSync(outputVideo)).toBe(true);
   expect(existsSync(assPath)).toBe(true);
   return {
     ass: readFileSync(assPath, 'utf8'),
+    assPath,
     frame: compareFramePixels(inputVideo, outputVideo),
     paths: { launcher, workdir, inputVideo, subtitle },
     stylePath
@@ -130,7 +191,9 @@ function renderStyle(style: Parameters<typeof buildKrillinSubtitleStyle>[0]) {
 function runCli(
   paths: { launcher: string; workdir: string; inputVideo: string; subtitle: string },
   stylePath: string,
-  resourceRoot: string
+  resourceRoot: string,
+  extraArgs: string[] = [],
+  command = 'render-horizontal'
 ) {
   const manifest = JSON.parse(readFileSync(join(runtimeRoot, 'manifest.json'), 'utf8'));
   const env = {
@@ -150,12 +213,13 @@ function runCli(
       : {})
   };
   return spawnSync(cliPath, [
-    'render-horizontal',
+    command,
     '--workdir', paths.workdir,
     '--task-id', 'subtitle-render-test',
     '--video', paths.inputVideo,
     '--subtitle', paths.subtitle,
-    '--subtitle-style-file', stylePath
+    '--subtitle-style-file', stylePath,
+    ...extraArgs
   ], {
     cwd: paths.launcher,
     env,
