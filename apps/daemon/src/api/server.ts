@@ -49,6 +49,7 @@ import {
   startKrillinRuntimeVerification
 } from '../creator/krillin/runtime-verifier.js';
 import { createKrillinTtsService } from '../creator/krillin/tts-service.js';
+import { createSubtitlePreviewService } from '../creator/krillin/subtitle-preview.js';
 import {
   createKrillinCodexLlmGateway,
   KRILLIN_LLM_ROUTE_PREFIX
@@ -1461,7 +1462,13 @@ export async function buildServer(input: BuildServerInput) {
     presets: creatorPresetRegistry,
     presetCatalogRoot: creatorPresetCatalogRoot,
     preflight: creatorPreflight,
-    issueService: creatorIssueService
+    issueService: creatorIssueService,
+    subtitlePreviewService: createSubtitlePreviewService({
+      resourceRoot: creatorRuntimeRoot,
+      workRoot: join(creatorJobsRoot, '.previews'),
+      ensureRuntimeReady: () => ensureKrillinRuntimeReady(),
+      getYtDlpRuntime: () => getCreatorYtDlpRuntime?.()
+    })
   });
   await registerAttachmentRoutes(server, attachmentService, {
     maxSizeBytes: input.attachmentMaxSizeBytes

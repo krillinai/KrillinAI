@@ -234,14 +234,32 @@ export function buildKrillinStageOptions(input: CreatorExecutorInput): Record<st
     prepareVideo: input.job.templateId !== 'video-translation',
     audioOnly: input.job.templateId === 'video-translation' && state.composeVideo !== true,
     bilingual: input.stageRun.stageId === 'subtitles' || state.bilingual === true,
-    bilingualTop: state.subtitlePosition === 'top',
+    bilingualTop: state.subtitlePosition !== 'bottom',
     ttsProvider: typeof state.ttsProvider === 'string' ? state.ttsProvider : undefined,
     ttsModel: typeof state.ttsModel === 'string' ? state.ttsModel : undefined,
     voiceCode: typeof state.voiceCode === 'string' ? state.voiceCode : undefined,
     verticalTitle: typeof state.verticalTitle === 'string' ? state.verticalTitle : undefined,
     verticalSubtitle: typeof state.verticalSubtitle === 'string' ? state.verticalSubtitle : undefined,
     dubbed: state.dubbing === true || state.dubbed === true,
-    subtitleStyle: buildKrillinSubtitleStyle(state.subtitleStyle)
+    subtitleStyle: buildKrillinSubtitleStyle(state.subtitleStyle ?? (
+      input.job.templateId === 'video-translation' ? compactObject({
+        fontPreset: state.subtitleFont ?? 'sans',
+        fontWeight: state.subtitleWeight,
+        fontSize: state.subtitleSize,
+        primaryColor: state.subtitleColor,
+        secondaryColor: state.subtitleSecondaryColor,
+        outlineColor: state.subtitleOutlineColor,
+        outlineWidth: state.subtitleOutlineWidth,
+        shadow: compactObject({
+          enabled: state.subtitleShadowEnabled,
+          color: state.subtitleShadowColor,
+          opacity: state.subtitleShadowOpacity,
+          offsetX: state.subtitleShadowOffsetX,
+          offsetY: state.subtitleShadowOffsetY,
+          blur: state.subtitleShadowBlur
+        })
+      }) as CreatorJson : undefined
+    ))
   });
 }
 

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -90,10 +91,10 @@ func TestVerticalAssKeepsBothLinesFromBilingualSRT(t *testing.T) {
 		t.Fatal(err)
 	}
 	ass := string(data)
-	if !strings.Contains(ass, "{\\rMajor}这是中文字幕") {
+	if !strings.Contains(ass, "{\\rMajor}{\\an2}这是中文字幕") {
 		t.Fatalf("vertical bilingual SRT should keep first line as Major: %s", ass)
 	}
-	if !strings.Contains(ass, "{\\rMinor}This is the English subtitle") {
+	if !strings.Contains(ass, "{\\rMinor}{\\an2}This is the English subtitle") {
 		t.Fatalf("vertical bilingual SRT should keep second line as Minor: %s", ass)
 	}
 }
@@ -119,7 +120,7 @@ func TestHorizontalAssKeepsSingleLineSubtitle(t *testing.T) {
 	if count := strings.Count(ass, "Dialogue:"); count != 1 {
 		t.Fatalf("Dialogue count = %d, want 1; ass = %s", count, ass)
 	}
-	if !strings.Contains(ass, "{\\an2}{\\rMajor}我认为学习速记是一项技能") {
+	if !strings.Contains(ass, "{\\rMajor}{\\an2}我认为学习速记是一项技能") {
 		t.Fatalf("single-line subtitle was not written as Major dialogue: %s", ass)
 	}
 	if strings.Contains(ass, "{\\rMinor}") {
@@ -168,7 +169,7 @@ func TestHorizontalAssUsesCustomSubtitleStyle(t *testing.T) {
 	if !strings.Contains(ass, ",4,1.5,2,10,10,44,1") {
 		t.Fatalf("custom outline/margin missing:\n%s", ass)
 	}
-	if !strings.Contains(ass, `{\fad(120,180)\blur1}{\an2}{\rMajor}主字幕`) {
+	if !strings.Contains(ass, `{\rMajor}{\an2}{\fad(120,180)\blur1}主字幕`) {
 		t.Fatalf("custom dialogue tags missing:\n%s", ass)
 	}
 }
@@ -333,7 +334,7 @@ func TestHorizontalAssWrapsUsingNarrowRenderWidth(t *testing.T) {
 	}
 }
 
-func TestVerticalAssUsesCustomMinorStyle(t *testing.T) {
+func TestVerticalEnglishTranslationUsesMajorStyle(t *testing.T) {
 	dir := t.TempDir()
 	in := filepath.Join(dir, "subtitle.srt")
 	out := filepath.Join(dir, "subtitle.ass")
@@ -344,8 +345,8 @@ func TestVerticalAssUsesCustomMinorStyle(t *testing.T) {
 
 	fontSize := 11
 	style := subtitlestyle.DefaultStyleSet()
-	style.Vertical.Minor.FontSize = &fontSize
-	style.Vertical.Minor.PrimaryColor = "#00FF00"
+	style.Vertical.Major.FontSize = &fontSize
+	style.Vertical.Major.PrimaryColor = "#00FF00"
 
 	err := srtToAss(in, out, false, &types.SubtitleTaskStepParam{
 		TaskBasePath:  dir,
@@ -359,8 +360,33 @@ func TestVerticalAssUsesCustomMinorStyle(t *testing.T) {
 		t.Fatal(err)
 	}
 	ass := string(data)
-	if !strings.Contains(ass, "Style: Minor,Arial,11,&H0000FF00") {
-		t.Fatalf("custom vertical Minor style missing:\n%s", ass)
+	if !strings.Contains(ass, "Style: Major,Arial,11,&H0000FF00") || !strings.Contains(ass, `{\rMajor}{\an2}English subtitle`) {
+		t.Fatalf("English translation did not use the primary style:\n%s", ass)
+	}
+}
+
+func TestBilingualTranslationOnBottomKeepsSemanticStylesAndShadow(t *testing.T) {
+	for _, horizontal := range []bool{true, false} {
+		t.Run(fmt.Sprint(horizontal), func(t *testing.T) {
+			dir := t.TempDir()
+			in, out := filepath.Join(dir, "subtitle.srt"), filepath.Join(dir, "subtitle.ass")
+			if err := os.WriteFile(in, []byte("1\n00:00:00,000 --> 00:00:01,000\nSource\nTranslation\n\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			style := subtitlestyle.DefaultStyleSet()
+			style.Horizontal.Major.OverrideTags = `\xshad-4\yshad6\blur2.5`
+			style.Vertical.Major.OverrideTags = style.Horizontal.Major.OverrideTags
+			if err := srtToAss(in, out, horizontal, &types.SubtitleTaskStepParam{SubtitleStyle: style, SubtitleResultType: types.SubtitleResultTypeBilingualTranslationOnBottom}); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(out)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(data), `{\rMinor}{\an2}Source\N{\rMajor}{\an2}{\xshad-4\yshad6\blur2.5}Translation`) {
+				t.Fatalf("subtitle roles or shadow reset order are wrong: %s", data)
+			}
+		})
 	}
 }
 

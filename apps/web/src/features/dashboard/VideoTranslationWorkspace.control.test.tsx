@@ -471,12 +471,12 @@ describe('VideoTranslationWorkspace task controls', () => {
     }
   });
 
-  it('edits every subtitle style field and persists one structured patch', async () => {
+  it.each([1, 2])('edits every subtitle style field and persists one structured patch for template v%s', async templateVersion => {
     let currentJob = job({
       status: 'draft',
       revision: 0,
       stages: [],
-      templateVersion: 2,
+      templateVersion,
       state: {
         currentStep: 2,
         furthestStep: 2,

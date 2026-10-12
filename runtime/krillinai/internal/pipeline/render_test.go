@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"krillin-ai/internal/service"
 	subtitlestyle "krillin-ai/internal/subtitle_style"
+	"krillin-ai/internal/types"
 	"os"
 	"path/filepath"
 	"strings"
@@ -56,6 +57,7 @@ func TestRenderPassesSubtitleStyleToService(t *testing.T) {
 		Subtitle:      "bilingual_srt.srt",
 		Horizontal:    true,
 		SubtitleStyle: style,
+		LineMode:      LineModeBilingualTargetBottom,
 	}
 
 	resp, err := Render(context.Background(), fake, req)
@@ -67,6 +69,9 @@ func TestRenderPassesSubtitleStyleToService(t *testing.T) {
 	}
 	if fake.lastRender.StepParam == nil || fake.lastRender.StepParam.SubtitleStyle != style {
 		t.Fatalf("SubtitleStyle was not passed to service")
+	}
+	if fake.lastRender.StepParam.SubtitleResultType != types.SubtitleResultTypeBilingualTranslationOnBottom {
+		t.Fatal("subtitle line ordering was not passed to service")
 	}
 }
 

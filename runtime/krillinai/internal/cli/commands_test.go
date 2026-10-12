@@ -138,6 +138,21 @@ func TestParseRenderCommandAcceptsSubtitleStyleFile(t *testing.T) {
 	}
 }
 
+func TestParseRenderPreviewAndLineMode(t *testing.T) {
+	cmd, err := Parse([]string{"render-vertical", "--workdir", "preview", "--subtitle", "preview.srt", "--line-mode", "bilingual-target-bottom", "--preview-width", "540", "--preview-height", "960"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cmd.Render.LineMode != pipeline.LineModeBilingualTargetBottom || cmd.Render.PreviewWidth != 540 || cmd.Render.PreviewHeight != 960 {
+		t.Fatalf("preview parameters lost: %#v", cmd.Render)
+	}
+	for _, args := range [][]string{{"render-horizontal", "--line-mode", "unknown"}, {"render-horizontal", "--preview-width", "960"}} {
+		if _, err := Parse(args); err == nil {
+			t.Fatalf("invalid preview accepted: %v", args)
+		}
+	}
+}
+
 func TestParseVoicesCommand(t *testing.T) {
 	cmd, err := Parse([]string{
 		"voices",

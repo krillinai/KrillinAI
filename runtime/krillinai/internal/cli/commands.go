@@ -175,6 +175,10 @@ Flags:
   --audio <file>        Optional input audio
   --subtitle <file>     Subtitle file to burn in
   --subtitle-style-file <file>  JSON subtitle style override file
+  --line-mode <mode>    target-only, bilingual-target-top, or bilingual-target-bottom
+  --preview-width <px> --preview-height <px>  Render a transparent subtitle PNG
+  --target-only        Render only the translation from bilingual input
+  --mixed-target-subtitle <file>  Target timeline for legacy mixed vertical SRT
   --dubbed              Render dubbed variant
   --dry-run             Validate command without external calls
   -h, --help            Show this help
@@ -190,6 +194,10 @@ Flags:
   --audio <file>        Optional input audio
   --subtitle <file>     Subtitle file to burn in
   --subtitle-style-file <file>  JSON subtitle style override file
+  --line-mode <mode>    target-only, bilingual-target-top, or bilingual-target-bottom
+  --preview-width <px> --preview-height <px>  Render a transparent subtitle PNG
+  --target-only        Render only the translation from bilingual input
+  --mixed-target-subtitle <file>  Target timeline for legacy mixed vertical SRT
   --dubbed              Render dubbed variant
   --major-title <text>  Vertical video major title
   --minor-title <text>  Vertical video minor title
@@ -594,26 +602,42 @@ func parseRender(name string, args []string, horizontal bool) (Command, error) {
 	majorTitle := fs.String("major-title", "", "vertical major title")
 	minorTitle := fs.String("minor-title", "", "vertical minor title")
 	subtitleStyleFile := fs.String("subtitle-style-file", "", "subtitle style JSON file")
+	lineMode := fs.String("line-mode", string(pipeline.LineModeTargetOnly), "subtitle language ordering")
+	previewWidth := fs.Int("preview-width", 0, "transparent subtitle preview width")
+	previewHeight := fs.Int("preview-height", 0, "transparent subtitle preview height")
+	mixedTargetSubtitle := fs.String("mixed-target-subtitle", "", "target timeline for mixed vertical subtitle roles")
+	targetOnly := fs.Bool("target-only", false, "render only the translation from bilingual input")
 	dryRun := fs.Bool("dry-run", false, "validate command without running external services")
 	if err := fs.Parse(args); err != nil {
 		return Command{}, err
+	}
+	if *lineMode != string(pipeline.LineModeTargetOnly) && *lineMode != string(pipeline.LineModeBilingualTargetTop) && *lineMode != string(pipeline.LineModeBilingualTargetBottom) {
+		return Command{}, fmt.Errorf("unsupported subtitle line mode: %s", *lineMode)
+	}
+	if (*previewWidth != 0 || *previewHeight != 0) && (*previewWidth < 32 || *previewWidth > 1920 || *previewHeight < 32 || *previewHeight > 1920) {
+		return Command{}, errors.New("preview dimensions must both be between 32 and 1920")
 	}
 	return Command{
 		Name:              name,
 		DryRun:            *dryRun,
 		SubtitleStyleFile: *subtitleStyleFile,
 		Render: pipeline.RenderRequest{
-			Workdir:      *workdir,
-			TaskID:       *taskID,
-			Video:        *video,
-			SourceURL:    *sourceURL,
-			MediaWorkdir: *mediaWorkdir,
-			Audio:        *audio,
-			Subtitle:     *subtitle,
-			Horizontal:   horizontal,
-			Dubbed:       *dubbed,
-			MajorTitle:   *majorTitle,
-			MinorTitle:   *minorTitle,
+			Workdir:             *workdir,
+			TaskID:              *taskID,
+			Video:               *video,
+			SourceURL:           *sourceURL,
+			MediaWorkdir:        *mediaWorkdir,
+			Audio:               *audio,
+			Subtitle:            *subtitle,
+			Horizontal:          horizontal,
+			Dubbed:              *dubbed,
+			MajorTitle:          *majorTitle,
+			MinorTitle:          *minorTitle,
+			LineMode:            pipeline.LineMode(*lineMode),
+			PreviewWidth:        *previewWidth,
+			PreviewHeight:       *previewHeight,
+			MixedTargetSubtitle: *mixedTargetSubtitle,
+			TargetOnly:          *targetOnly,
 		},
 	}, nil
 }

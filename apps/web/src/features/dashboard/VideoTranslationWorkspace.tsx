@@ -33,6 +33,7 @@ import VideoSourceInput from './VideoSourceInput.js';
 import { BilibiliPartSelector } from './BilibiliPartSelector.js';
 import { parseVideoSource } from './VideoSourcePreview.js';
 import { VideoTranslationSubtitleImport } from './VideoTranslationSubtitleImport.js';
+import VideoTranslationStylePreview from './VideoTranslationStylePreview.js';
 import VideoTranslationResultWorkspace, {
   type SubtitleCue,
   type SubtitleResultOutput,
@@ -334,15 +335,6 @@ function subtitleWeightLabel(value: SubtitleWeight, l: LocalizeCopy) {
     medium: l('中等', 'Medium'),
     bold: l('粗体', 'Bold')
   } as const)[value];
-}
-
-function subtitleFontFamily(value: SubtitleFont, weight: SubtitleWeight) {
-  const suffix = ({ regular: 'Regular', medium: 'Medium', bold: 'Bold' } as const)[weight];
-  if (value === 'serif') return `"OpenCreator Serif ${suffix}", Georgia, serif`;
-  if (value === 'rounded') {
-    return `"OpenCreator Rounded ${suffix}", "OpenCreator Sans ${suffix}", system-ui, sans-serif`;
-  }
-  return `"OpenCreator Sans ${suffix}", system-ui, sans-serif`;
 }
 
 function localSourceFingerprint(source: TranslationSourceSnapshot) {
@@ -1798,9 +1790,7 @@ export default function VideoTranslationWorkspace(props: {
       bilingual,
       subtitlePosition,
       preferPlatformCaptions,
-      ...(creatorSession.job.templateVersion >= 2
-        ? { subtitleStyle }
-        : { subtitleFont, subtitleSize, subtitleColor }),
+      subtitleStyle,
       dubbing,
       ttsProvider,
       ttsModel,
@@ -3377,16 +3367,6 @@ export default function VideoTranslationWorkspace(props: {
                   <div
                     style={{
                       '--subtitle-preview-aspect-ratio': `${previewWidth} / ${previewHeight}`,
-                      '--subtitle-preview-color': subtitleColor,
-                      '--subtitle-preview-secondary-color': subtitleSecondaryColor,
-                      '--subtitle-preview-outline-color': subtitleOutlineColor,
-                      '--subtitle-preview-outline-width': `${subtitleOutlineWidth}px`,
-                      '--subtitle-preview-shadow': subtitleShadowEnabled
-                        ? `${subtitleShadowOffsetX}px ${subtitleShadowOffsetY}px ${subtitleShadowBlur}px color-mix(in srgb, ${subtitleShadowColor} ${Math.round(subtitleShadowOpacity * 100)}%, transparent)`
-                        : 'none',
-                      '--subtitle-preview-font-size': ({ small: '14px', medium: '16px', large: '18px' } as const)[subtitleSize],
-                      '--subtitle-preview-font-family': subtitleFontFamily(subtitleFont, subtitleWeight),
-                      '--subtitle-preview-font-weight': ({ regular: 400, medium: 500, bold: 700 } as const)[subtitleWeight]
                     } as CSSProperties}
                   >
                     {previewPosterUrl ? (
@@ -3401,15 +3381,34 @@ export default function VideoTranslationWorkspace(props: {
                     {previewVideoSrc ? (
                       <SubtitlePreviewVideo key={previewVideoSrc} src={previewVideoSrc} onDimensions={updateSourceOrientation} />
                     ) : null}
-                    <div className="video-translation-subtitle-preview-cues">
-                      {bilingual && subtitlePosition === 'bottom' ? (
-                        <small data-subtitle-kind="original">{l('这是一段原文字幕', 'This is an original subtitle')}</small>
-                      ) : null}
-                      <strong data-subtitle-kind="translation">{l('这是一段译文字幕', 'This is a translated subtitle')}</strong>
-                      {bilingual && subtitlePosition === 'top' ? (
-                        <small data-subtitle-kind="original">{l('这是一段原文字幕', 'This is an original subtitle')}</small>
-                      ) : null}
-                    </div>
+                    <VideoTranslationStylePreview
+                      render={creatorSession?.openSubtitlePreview}
+                      input={{
+                        width: Math.max(32, Math.round(960 * previewWidth / Math.max(previewWidth, previewHeight))),
+                        height: Math.max(32, Math.round(960 * previewHeight / Math.max(previewWidth, previewHeight))),
+                        bilingual,
+                        subtitlePosition,
+                        translationText: l('这是一段译文字幕', 'This is a translated subtitle'),
+                        originalText: l('这是一段原文字幕', 'This is an original subtitle'),
+                        subtitleStyle: {
+                          fontPreset: subtitleFont,
+                          fontWeight: subtitleWeight,
+                          fontSize: subtitleSize,
+                          primaryColor: subtitleColor,
+                          secondaryColor: subtitleSecondaryColor,
+                          outlineColor: subtitleOutlineColor,
+                          outlineWidth: subtitleOutlineWidth,
+                          shadow: {
+                            enabled: subtitleShadowEnabled,
+                            color: subtitleShadowColor,
+                            opacity: subtitleShadowOpacity,
+                            offsetX: subtitleShadowOffsetX,
+                            offsetY: subtitleShadowOffsetY,
+                            blur: subtitleShadowBlur
+                          }
+                        }
+                      }}
+                    />
                   </div>
                 </div>
               </div>
