@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"net/url"
 	"os"
 	"os/exec"
@@ -26,6 +27,7 @@ import (
 )
 
 var ErrYouTubeCaptionAccess = errors.New("platform caption access failed")
+var ErrYouTubeCaptionInvalid = errors.New("platform caption content is unusable")
 
 // VttWord 表示VTT文件中的一个单词及其时间戳信息
 type VttWord struct {
@@ -511,17 +513,8 @@ func (s *YouTubeSubtitleService) findDownloadedSubtitleFile(taskBasePath, langua
 // 处理YouTube字幕文件，转换为标准格式并进行翻译
 func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req *YoutubeSubtitleReq) (string, error) {
 	if req.VttFile == "" {
-		return "", fmt.Errorf("processYouTubeSubtitle: no original subtitle file found")
+		return "", fmt.Errorf("%w: no original subtitle file found", ErrYouTubeCaptionInvalid)
 	}
-	hasWordTimestamps, err := s.DetectVttFormat(req.VttFile)
-	if err != nil {
-		return "", fmt.Errorf("字幕格式检测失败: %w", err)
-	}
-	if !hasWordTimestamps {
-		return s.ProcessBlockLevelVtt(ctx, req)
-	}
-	log.GetLogger().Info("使用word-level VTT处理流程", zap.String("taskId", req.TaskId))
-
 	log.GetLogger().Info("processYouTubeSubtitle start",
 		zap.String("taskId", req.TaskId),
 		zap.String("subtitleFile", req.VttFile))
@@ -530,6 +523,15 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 	if req.TaskPtr != nil {
 		req.TaskPtr.SetProgress(10)
 	}
+
+	hasWordTimestamps, err := s.DetectVttFormat(req.VttFile)
+	if err != nil {
+		return "", fmt.Errorf("%w: 字幕格式检测失败: %w", ErrYouTubeCaptionInvalid, err)
+	}
+	if !hasWordTimestamps {
+		return s.ProcessBlockLevelVtt(ctx, req)
+	}
+	log.GetLogger().Info("使用word-level VTT处理流程", zap.String("taskId", req.TaskId))
 
 	// 1. 提取VTT单词
 	vttFilePath := req.VttFile
@@ -543,9 +545,12 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 
 	vttWords, err := s.ExtractWordsFromVtt(vttFilePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to extract VTT words: %w", err)
+		return "", fmt.Errorf("%w: failed to extract VTT words: %w", ErrYouTubeCaptionInvalid, err)
 	}
 	log.GetLogger().Info("提取VTT单词完成", zap.Int("单词数", len(vttWords)))
+	if len(vttWords) == 0 {
+		return "", fmt.Errorf("%w: platform captions contained no usable text after filtering music, sound annotations and punctuation", ErrYouTubeCaptionInvalid)
+	}
 
 	// 更新进度：提取完成
 	if req.TaskPtr != nil {
@@ -560,7 +565,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 		sentences = s.groupWordsIntoSentences(vttWords)
 	}
 	if len(sentences) == 0 {
-		return "", fmt.Errorf("no sentences formed from VTT words")
+		return "", fmt.Errorf("%w: no sentences formed from VTT words", ErrYouTubeCaptionInvalid)
 	}
 	log.GetLogger().Info("组织句子完成", zap.Int("句子数", len(sentences)))
 
@@ -822,6 +827,8 @@ func (s *YouTubeSubtitleService) cleanVttText(text string) string {
 	if text == "" {
 		return text
 	}
+	text = html.UnescapeString(text)
+	text = strings.NewReplacer("\u200b", "", "\u200c", "", "\u200d", "", "\u00a0", " ").Replace(text)
 
 	// 先过滤音乐和其他提示标记（方括号内容）
 	// 匹配 [music], [applause], [laughter], [inaudible] 等标记
@@ -841,30 +848,8 @@ func (s *YouTubeSubtitleService) cleanVttText(text string) string {
 
 	// 过滤常见的语气词（位于句首或独立出现时）
 	// 匹配 Um, Uh, Er, Ah, Oh, Mm, Hmm 等，支持大小写
-	fillerWordsRegex := regexp.MustCompile(`(?i)^\s*(um|uh|er|ah|oh|mm|hmm|hm|eh)\s*[,，]?\s*`)
+	fillerWordsRegex := regexp.MustCompile(`(?i)^\s*(um|uh|er|ah|oh|mm|hmm|hm|eh)\b\s*[,，]?\s*`)
 	cleanedText = fillerWordsRegex.ReplaceAllString(cleanedText, "")
-
-	// HTML实体解码映射
-	htmlEntities := map[string]string{
-		"&gt;&gt;": "",   // 大于号双引号 - 直接过滤掉
-		"&gt;":     ">",  // 大于号
-		"&lt;&lt;": "<<", // 小于号双引号
-		"&lt;":     "<",  // 小于号
-		"&amp;":    "&",  // &符号
-		"&quot;":   "\"", // 双引号
-		"&apos;":   "'",  // 单引号
-		"&nbsp;":   " ",  // 不间断空格
-		"&#39;":    "'",  // 单引号的数字实体
-		"&#34;":    "\"", // 双引号的数字实体
-		"&#8203;":  "",   // 零宽度空格
-		"&#8204;":  "",   // 零宽度非连接符
-		"&#8205;":  "",   // 零宽度连接符
-	}
-
-	// 替换HTML实体
-	for entity, replacement := range htmlEntities {
-		cleanedText = strings.ReplaceAll(cleanedText, entity, replacement)
-	}
 
 	// 移除多余的空格
 	cleanedText = strings.TrimSpace(cleanedText)
@@ -3500,6 +3485,7 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 	if err != nil {
 		return "", fmt.Errorf("VTT转SRT失败: %w", err)
 	}
+	defer os.Remove(tempSrtFile)
 	log.GetLogger().Info("VTT转SRT完成", zap.String("srtFile", tempSrtFile))
 
 	// 更新进度：VTT转换完成
@@ -3507,14 +3493,28 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 		req.TaskPtr.SetProgress(30)
 	}
 
-	// 2. 生成原文SRT文件（origin_language_srt.srt）
-	originSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskOriginLanguageSrtFileName)
-	// 直接复制临时SRT作为原文字幕
-	originData, err := os.ReadFile(tempSrtFile)
+	// 2. 清理音频提示，只保留可用正文并重新编号。
+	srtBlocks, err := util.ParseSrtFile(tempSrtFile)
 	if err != nil {
-		return "", fmt.Errorf("读取临时SRT失败: %w", err)
+		return "", fmt.Errorf("解析SRT文件失败: %w", err)
 	}
-	err = os.WriteFile(originSrtFile, originData, 0644)
+	cleanedBlocks := make([]*util.SrtBlock, 0, len(srtBlocks))
+	for _, block := range srtBlocks {
+		block.OriginLanguageSentence = s.cleanVttText(block.OriginLanguageSentence)
+		if block.OriginLanguageSentence == "" || s.isPurePunctuation(block.OriginLanguageSentence) || s.isAudioCue(block.OriginLanguageSentence) {
+			continue
+		}
+		block.Index = len(cleanedBlocks) + 1
+		cleanedBlocks = append(cleanedBlocks, block)
+	}
+	srtBlocks = cleanedBlocks
+	if err := s.validateYouTubeSubtitleBlocks(srtBlocks, false); err != nil {
+		return "", err
+	}
+
+	// 3. 使用清理后的字幕生成原文产物。
+	originSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskOriginLanguageSrtFileName)
+	err = s.writeSrtBlocksToFile(srtBlocks, originSrtFile)
 	if err != nil {
 		return "", fmt.Errorf("写入原文SRT失败: %w", err)
 	}
@@ -3525,20 +3525,11 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 		req.TaskPtr.SetProgress(40)
 	}
 
-	// 3. 解析SRT文件
-	srtBlocks, err := util.ParseSrtFile(tempSrtFile)
-	if err != nil {
-		return "", fmt.Errorf("解析SRT文件失败: %w", err)
-	}
-	if err := s.validateYouTubeSubtitleBlocks(srtBlocks, false); err != nil {
-		return "", err
-	}
 	log.GetLogger().Info("解析SRT完成", zap.Int("字幕块数", len(srtBlocks)))
 	if req.SourceOnly {
 		if req.TaskPtr != nil {
 			req.TaskPtr.SetProgress(100)
 		}
-		_ = os.Remove(tempSrtFile)
 		return originSrtFile, nil
 	}
 
@@ -3590,23 +3581,20 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 		zap.String("taskId", req.TaskId),
 		zap.String("输出文件", bilingualSrtFile))
 
-	// 清理临时文件
-	os.Remove(tempSrtFile)
-
 	return bilingualSrtFile, nil
 }
 
 func (s *YouTubeSubtitleService) validateYouTubeSubtitleBlocks(blocks []*util.SrtBlock, translated bool) error {
 	if len(blocks) == 0 {
-		return fmt.Errorf("字幕质量检查失败: 未生成有效字幕")
+		return fmt.Errorf("%w: 字幕质量检查失败: 未生成有效字幕", ErrYouTubeCaptionInvalid)
 	}
 	for index, block := range blocks {
 		if block == nil || strings.TrimSpace(block.OriginLanguageSentence) == "" {
-			return fmt.Errorf("字幕质量检查失败: 第%d条缺少原文", index+1)
+			return fmt.Errorf("%w: 字幕质量检查失败: 第%d条缺少原文", ErrYouTubeCaptionInvalid, index+1)
 		}
 		start, end, err := s.parseSrtTimestamp(block.Timestamp)
 		if err != nil || start < 0 || end <= start {
-			return fmt.Errorf("字幕质量检查失败: 第%d条时间区间无效", index+1)
+			return fmt.Errorf("%w: 字幕质量检查失败: 第%d条时间区间无效", ErrYouTubeCaptionInvalid, index+1)
 		}
 		if translated && strings.TrimSpace(block.TargetLanguageSentence) == "" {
 			return fmt.Errorf("字幕质量检查失败: 第%d条缺少译文", index+1)

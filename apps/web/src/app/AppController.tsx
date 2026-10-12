@@ -1288,7 +1288,9 @@ export function AppController(props: AppControllerProps) {
     setRuntimeWorkspaceReady(false);
     const activeProjectService = projectService;
     const activeThreadService = threadService;
+    let retryTimer: number | undefined;
     async function loadRuntimeWorkspace() {
+      if (canceled) return;
       let loaded = false;
       try {
         const legacyProjects = parseLegacyLocalStorageProjects(
@@ -1297,6 +1299,7 @@ export function AppController(props: AppControllerProps) {
         const migration = await activeProjectService.migrateLocalStorageV1({
           projects: legacyProjects
         });
+        if (canceled) return;
         let [activeResponse, allResponse] = await Promise.all([
           activeProjectService.listProjects('active'),
           activeProjectService.listProjects('all')
@@ -1313,6 +1316,7 @@ export function AppController(props: AppControllerProps) {
             ]);
             if (canceled) return;
           } catch (error) {
+            if (canceled) return;
             initialProjectError = getRuntimeErrorMessage(
               error,
               '无法自动创建默认项目，请手动添加项目'
@@ -1372,7 +1376,14 @@ export function AppController(props: AppControllerProps) {
         setProjectLoadError('无法迁移或加载项目，请稍后重试');
         setThreadLoadError(undefined);
       } finally {
-        if (!canceled) setRuntimeWorkspaceReady(loaded);
+        if (!canceled) {
+          setRuntimeWorkspaceReady(loaded);
+          if (!loaded) {
+            retryTimer = window.setTimeout(() => {
+              void loadRuntimeWorkspace();
+            }, 2_000);
+          }
+        }
       }
     }
 
@@ -1380,6 +1391,7 @@ export function AppController(props: AppControllerProps) {
 
     return () => {
       canceled = true;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
     };
   }, [connectionState.status, hostBridge, projectService, threadService]);
 
