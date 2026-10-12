@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import { writeFileSync } from 'node:fs';
 import { Socket } from 'node:net';
 import { app } from 'electron';
@@ -20,6 +21,35 @@ void (async () => {
   phase = 'load network module';
   const { fetchDesktopRequest } = await import(process.env.OPENCREATOR_DESKTOP_NETWORK_TEST_MODULE);
   const origin = process.env.OPENCREATOR_DESKTOP_NETWORK_TEST_ORIGIN;
+  phase = 'daemon health probe';
+  const { BootstrapController } = await import(process.env.OPENCREATOR_DESKTOP_BOOTSTRAP_TEST_MODULE);
+  const daemon = new EventEmitter();
+  daemon.currentConnection = { address: origin, token: 'test' };
+  let stopCount = 0;
+  daemon.stop = async () => { stopCount += 1; };
+  let timer;
+  const healthy = new Promise((resolve, reject) => {
+    timer = setTimeout(() => reject(new Error('Daemon health probe did not complete')), 5_000);
+    const controller = new BootstrapController({
+      daemon,
+      logger: {
+        info: message => {
+          if (message === 'Runtime proxy failure health probe succeeded') resolve(controller);
+        },
+        warn: message => reject(new Error(message))
+      }
+    });
+    controller.markWorkspaceReady();
+    controller.reportProxyFailure(daemon.currentConnection);
+  });
+  try {
+    const controller = await healthy;
+    assert.equal(stopCount, 0);
+    assert.equal(controller.currentState.phase, 'ready');
+    await controller.stop();
+  } finally {
+    clearTimeout(timer);
+  }
   phase = 'JSON request';
   const json = await fetchDesktopRequest(`${origin}/json`);
   assert.deepEqual(await json.json(), { ok: true });

@@ -19,6 +19,7 @@ import {
   DaemonManager,
   type DaemonStartInput
 } from './daemon-manager.js';
+import { fetchDesktopRequest } from './desktop-network.js';
 import type { DesktopLogger } from './logger.js';
 import type { SettingsStore } from './settings-store.js';
 
@@ -428,7 +429,7 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
 
 async function probeDaemonHealth(connection: DaemonConnection): Promise<boolean> {
   try {
-    const response = await fetch(`${connection.address}/healthz`, {
+    const response = await fetchDesktopRequest(`${connection.address}/healthz`, {
       signal: AbortSignal.timeout(1_500),
       cache: 'no-store'
     });

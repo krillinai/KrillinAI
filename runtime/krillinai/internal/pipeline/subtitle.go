@@ -93,7 +93,7 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 			reportSubtitleProgress(req, "processing_platform_captions", 25, "正在解析平台字幕")
 			youtubeReq.VttFile = vttFile
 			_, err = svc.ProcessYouTubeSubtitle(ctx, youtubeReq)
-			if err != nil {
+			if err != nil && !errors.Is(err, service.ErrYouTubeCaptionInvalid) {
 				return failSubtitleStage(req, manifest, ErrorKindRetryable, "platform_caption_processing_failed", err)
 			}
 		}
@@ -118,10 +118,19 @@ func GenerateSubtitles(ctx context.Context, svc StageService, req SubtitleReques
 			return failSubtitleStage(req, manifest, ErrorKindRetryable, "platform_caption_access_failed", err)
 		}
 		if req.CaptionSource != CaptionSourceAny {
-			return failSubtitleStage(req, manifest, ErrorKindRetryable, "platform_caption_failed", err)
+			code := "platform_caption_failed"
+			if errors.Is(err, service.ErrYouTubeCaptionInvalid) {
+				code = "platform_caption_invalid"
+			}
+			return failSubtitleStage(req, manifest, ErrorKindRetryable, code, err)
 		}
 		platformCaptionErr = err
-		manifest.Warnings = append(manifest.Warnings, "平台字幕不可用，回退到转录")
+		fallbackMessage := "未找到可用的平台字幕，已自动切换到语音转录"
+		if errors.Is(err, service.ErrYouTubeCaptionInvalid) {
+			fallbackMessage = "平台字幕解析失败，已自动切换到语音转录"
+		}
+		manifest.Warnings = append(manifest.Warnings, fallbackMessage)
+		reportSubtitleProgress(req, "fallback_to_transcription", 25, fallbackMessage)
 		stepParam.VttSwitch = false
 		if req.PrepareVideo {
 			stepParam.EmbedSubtitleVideoType = "all"

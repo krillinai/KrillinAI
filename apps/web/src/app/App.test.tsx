@@ -7289,6 +7289,109 @@ describe('App', () => {
     expect(request.prompt).not.toContain('model catalog unavailable');
   });
 
+  it.each(['browser', 'desktop'] as const)(
+    'retries workspace loading after a transient thread list failure in the %s host',
+    async hostKind => {
+      const hostBridge = createHostBridge();
+      hostBridge.kind = hostKind;
+      hostBridge.readConnectionConfig = async () => ({
+        baseUrl: 'http://127.0.0.1:60764', token: 'runtime-token'
+      });
+      let threadListCalls = 0;
+      const runtimeFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const projectResponse = handleDefaultProjectApiRequest(url, init);
+        if (projectResponse !== undefined) return projectResponse;
+        if (url.endsWith('/healthz')) return jsonResponse({ ok: true });
+        if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
+        if (url.endsWith('/schedules')) return jsonResponse({ schedules: [] });
+        if (url.endsWith('/tasks?status=all&limit=50')) {
+          return jsonResponse({ tasks: [], hasMore: false });
+        }
+        if (url.endsWith('/threads?status=active&limit=50')) {
+          threadListCalls += 1;
+          return threadListCalls === 1
+            ? jsonResponse({ error: { code: 'TEMPORARY_ERROR', message: 'temporary' } }, { status: 503 })
+            : jsonResponse({ threads: [] });
+        }
+        throw new Error(`Unexpected request: ${url}`);
+      };
+
+      render(<App fileService={createFileService()} hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
+      await waitFor(() => expect(threadListCalls).toBe(1));
+      const composer = await screen.findByRole('textbox', { name: '输入任务' });
+      expect(composer).toBeDisabled();
+      await waitFor(() => expect(composer).toBeEnabled(), { timeout: 4_000 });
+      expect(threadListCalls).toBe(2);
+      expect(screen.getByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '重试连接' })).not.toBeInTheDocument();
+    }
+  );
+
+  it('retries workspace loading after a transient project migration failure', async () => {
+    const hostBridge = createHostBridge();
+    hostBridge.readConnectionConfig = async () => ({
+      baseUrl: 'http://127.0.0.1:60764', token: 'runtime-token'
+    });
+    let migrationCalls = 0;
+    const runtimeFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/projects/migrations/local-storage-v1')) {
+        migrationCalls += 1;
+        if (migrationCalls === 1) {
+          return jsonResponse({ error: { code: 'TEMPORARY_ERROR', message: 'temporary' } }, { status: 503 });
+        }
+      }
+      const projectResponse = handleDefaultProjectApiRequest(url, init);
+      if (projectResponse !== undefined) return projectResponse;
+      if (url.endsWith('/healthz')) return jsonResponse({ ok: true });
+      if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
+      if (url.endsWith('/schedules')) return jsonResponse({ schedules: [] });
+      if (url.endsWith('/tasks?status=all&limit=50')) {
+        return jsonResponse({ tasks: [], hasMore: false });
+      }
+      if (url.endsWith('/threads?status=active&limit=50')) return jsonResponse({ threads: [] });
+      throw new Error(`Unexpected request: ${url}`);
+    };
+
+    render(<App fileService={createFileService()} hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
+    await waitFor(() => expect(migrationCalls).toBe(1));
+    await screen.findByRole('status', { name: '本地运行内核正常' }, { timeout: 4_000 });
+    expect(migrationCalls).toBe(2);
+    expect(screen.getByRole('textbox', { name: '输入任务' })).toBeEnabled();
+  });
+
+  it('cancels the scheduled workspace retry when the app unmounts', async () => {
+    const hostBridge = createHostBridge();
+    hostBridge.readConnectionConfig = async () => ({
+      baseUrl: 'http://127.0.0.1:60764', token: 'runtime-token'
+    });
+    let migrationCalls = 0;
+    const runtimeFetch = async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const creatorResponse = handleDefaultCreatorApiRequest(url);
+      if (creatorResponse !== undefined) return creatorResponse;
+      if (url.endsWith('/projects/migrations/local-storage-v1')) {
+        migrationCalls += 1;
+        return jsonResponse({ error: { code: 'TEMPORARY_ERROR', message: 'temporary' } }, { status: 503 });
+      }
+      if (url.endsWith('/healthz')) return jsonResponse({ ok: true });
+      if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
+      if (url.endsWith('/schedules')) return jsonResponse({ schedules: [] });
+      if (url.endsWith('/tasks?status=all&limit=50')) {
+        return jsonResponse({ tasks: [], hasMore: false });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    };
+
+    const app = render(<App fileService={createFileService()} hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
+    await waitFor(() => expect(migrationCalls).toBe(1));
+    expect(screen.getByRole('textbox', { name: '输入任务' })).toBeDisabled();
+    app.unmount();
+    await new Promise(resolve => window.setTimeout(resolve, 2_100));
+    expect(migrationCalls).toBe(1);
+  });
+
   it('keeps the current conversation and draft while reconnecting without a page reload', async () => {
     const hostBridge = createHostBridge();
     hostBridge.kind = 'desktop';

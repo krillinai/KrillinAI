@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -138,11 +139,14 @@ func TestProcessYouTubeSubtitleRejectsInvalidBlockVtt(test *testing.T) {
 		"WEBVTT\n",
 		"WEBVTT\n\n00:00:00.000 --> 00:00:01.000\n\n",
 		"WEBVTT\n\n00:00:02.000 --> 00:00:01.000\nInvalid time interval.\n",
+		"WEBVTT\n\n00:00:00.000 --> 00:00:01.000\n[music]\n",
+		"WEBVTT\n\n00:00:00.000 --> 00:00:01.000\n[music]<00:00:00.500><c>[applause]</c>\n",
+		"WEBVTT\n\nbroken timestamp\nBroken captions.\n",
 	} {
 		request := subtitleRoutingTestRequest(test, content)
 		request.SourceOnly = true
-		if _, err := service.processYouTubeSubtitle(context.Background(), request); err == nil {
-			test.Fatal("空字幕或无效时间轴不应成功")
+		if _, err := service.processYouTubeSubtitle(context.Background(), request); !errors.Is(err, ErrYouTubeCaptionInvalid) {
+			test.Fatalf("不可用字幕应标记为无效平台字幕: %v", err)
 		}
 		if request.TaskPtr.ProcessPct == 100 {
 			test.Fatal("不合格字幕不应报告完成")
@@ -153,9 +157,78 @@ func TestProcessYouTubeSubtitleRejectsInvalidBlockVtt(test *testing.T) {
 func TestProcessYouTubeSubtitleRejectsMissingVtt(test *testing.T) {
 	service := subtitleRoutingTestService(test)
 	request := subtitleRoutingTestRequest(test, blockSubtitleRoutingFixture)
-	request.VttFile = filepath.Join(request.TaskBasePath, "missing.vtt")
-	if _, err := service.processYouTubeSubtitle(context.Background(), request); err == nil {
-		test.Fatal("格式检测失败不应默认按逐词字幕处理")
+	for _, path := range []string{"", filepath.Join(request.TaskBasePath, "missing.vtt")} {
+		request.VttFile = path
+		if _, err := service.processYouTubeSubtitle(context.Background(), request); !errors.Is(err, ErrYouTubeCaptionInvalid) {
+			test.Fatalf("缺少VTT应标记为无效平台字幕: %v", err)
+		}
+	}
+}
+
+func TestProcessBlockCaptionsFiltersAudioCuesAndPreservesSpeech(test *testing.T) {
+	service := subtitleRoutingTestService(test)
+	content := "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\n[music]\n\n00:00:02.000 --> 00:00:03.000\n&gt;&gt; Mhm. [applause]\n\n00:00:04.000 --> 00:00:05.000\n&#91;music&#93; ♪\n\n00:00:06.000 --> 00:00:08.000\nUmbrellas &amp; rain. (applause)\n"
+	for _, sourceOnly := range []bool{true, false} {
+		for _, targetFirst := range []bool{true, false} {
+			test.Run(strconv.FormatBool(sourceOnly)+"/"+strconv.FormatBool(targetFirst), func(test *testing.T) {
+				request := subtitleRoutingTestRequest(test, content)
+				request.SourceOnly = sourceOnly
+				request.TargetLanguageFirst = targetFirst
+				if _, err := service.processYouTubeSubtitle(context.Background(), request); err != nil {
+					test.Fatal(err)
+				}
+				originPath := filepath.Join(request.TaskBasePath, types.SubtitleTaskOriginLanguageSrtFileName)
+				blocks, err := util.ParseSrtFile(originPath)
+				if err != nil || len(blocks) != 2 {
+					test.Fatalf("清理后的原文字幕=%v: %v", blocks, err)
+				}
+				for index, want := range []string{"Mhm.", "Umbrellas & rain."} {
+					if blocks[index].Index != index+1 || blocks[index].OriginLanguageSentence != want {
+						test.Fatalf("正文或序号改变: %+v", blocks[index])
+					}
+				}
+				if blocks[0].Timestamp != "00:00:02,000 --> 00:00:03,000" || blocks[1].Timestamp != "00:00:06,000 --> 00:00:08,000" {
+					test.Fatal("过滤不应改变有效字幕时间轴")
+				}
+				if !sourceOnly {
+					for _, name := range []string{
+						types.SubtitleTaskTargetLanguageSrtFileName,
+						types.SubtitleTaskBilingualSrtFileName,
+						filepath.Join("output", "origin_language.txt"),
+						filepath.Join("output", "target_language.txt"),
+					} {
+						data, err := os.ReadFile(filepath.Join(request.TaskBasePath, name))
+						if err != nil || !strings.Contains(string(data), "Mhm.") || !strings.Contains(string(data), "Umbrellas & rain.") || strings.Contains(string(data), "music") || strings.Contains(string(data), "applause") {
+							test.Fatalf("产物未使用清理后的正文 %s: %s, %v", name, data, err)
+						}
+					}
+					bilingual, err := util.ParseSrtFile(filepath.Join(request.TaskBasePath, types.SubtitleTaskBilingualSrtFileName))
+					if err != nil || len(bilingual) != 2 || strings.HasPrefix(bilingual[0].OriginLanguageSentence, "测试译文：") != targetFirst {
+						test.Fatalf("双语顺序或数量不符: %v, %v", bilingual, err)
+					}
+				}
+				if _, err := os.Stat(filepath.Join(request.TaskBasePath, "temp_block_level.srt")); !os.IsNotExist(err) {
+					test.Fatalf("临时文件未清理: %v", err)
+				}
+			})
+		}
+	}
+}
+
+func TestCleanVttTextPreservesWordsAndDecodesCues(test *testing.T) {
+	service := subtitleRoutingTestService(test)
+	for _, input := range []string{">> Mhm.", "&gt;&gt; Mhm.", "&#62;&#62; Mhm."} {
+		if got := service.cleanVttText(input); got != "Mhm." {
+			test.Fatalf("简短话语丢失: %q -> %q", input, got)
+		}
+	}
+	for _, input := range []string{"Umbrellas", "Ohana", "Ernest"} {
+		if got := service.cleanVttText(input); got != input {
+			test.Fatalf("有效词语被误当成语气词: %q -> %q", input, got)
+		}
+	}
+	if got := service.cleanVttText("&#91;music&#93; &nbsp; &#8203;"); got != "" {
+		test.Fatalf("编码后的音频提示未过滤: %q", got)
 	}
 }
 
@@ -175,8 +248,8 @@ func TestProcessYouTubeSubtitleDoesNotCompleteWithoutTextOutputs(test *testing.T
 	if err := os.WriteFile(filepath.Join(request.TaskBasePath, "output"), []byte("阻止创建文本目录"), 0644); err != nil {
 		test.Fatal(err)
 	}
-	if _, err := service.processYouTubeSubtitle(context.Background(), request); err == nil {
-		test.Fatal("必需文本产物无法生成时不应成功")
+	if _, err := service.processYouTubeSubtitle(context.Background(), request); err == nil || errors.Is(err, ErrYouTubeCaptionInvalid) {
+		test.Fatalf("产物写入失败应保留为处理错误: %v", err)
 	}
 	if request.TaskPtr.ProcessPct == 100 {
 		test.Fatal("必需产物缺失时不应报告完成")
@@ -194,6 +267,26 @@ func TestValidateYouTubeSubtitleBlocksRejectsMissingContent(test *testing.T) {
 		if err := service.validateYouTubeSubtitleBlocks(blocks, true); err == nil {
 			test.Fatal("字幕缺少原文或译文时不应成功")
 		}
+	}
+}
+
+func TestSubtitleOutputFailuresAreNotInvalidCaptions(test *testing.T) {
+	service := subtitleRoutingTestService(test)
+	blocks := []*util.SrtBlock{{Timestamp: "00:00:00,000 --> 00:00:01,000", OriginLanguageSentence: "Hello."}}
+	if err := service.validateYouTubeSubtitleBlocks(blocks, true); err == nil || errors.Is(err, ErrYouTubeCaptionInvalid) {
+		test.Fatalf("缺少译文应保留为翻译输出错误: %v", err)
+	}
+	for _, name := range []string{"temp_block_level.srt", types.SubtitleTaskOriginLanguageSrtFileName} {
+		test.Run(name, func(test *testing.T) {
+			request := subtitleRoutingTestRequest(test, blockSubtitleRoutingFixture)
+			request.SourceOnly = true
+			if err := os.Mkdir(filepath.Join(request.TaskBasePath, name), 0755); err != nil {
+				test.Fatal(err)
+			}
+			if _, err := service.processYouTubeSubtitle(context.Background(), request); err == nil || errors.Is(err, ErrYouTubeCaptionInvalid) {
+				test.Fatalf("字幕写入失败应保留为处理错误: %v", err)
+			}
+		})
 	}
 }
 

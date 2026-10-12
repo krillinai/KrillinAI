@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"fmt"
 	"krillin-ai/internal/service"
 	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"krillin-ai/internal/types"
@@ -576,6 +577,65 @@ func TestPlatformTranslationFailureDoesNotDownloadOrTranscribe(t *testing.T) {
 	}
 	if len(fake.calls) != 2 || fake.calls[0] != "download-youtube" || fake.calls[1] != "process-youtube" {
 		t.Fatalf("unexpected fallback calls: %v", fake.calls)
+	}
+}
+
+func TestUnusablePlatformCaptionsFallBackToAudio(t *testing.T) {
+	fake := &fakeStageService{processErr: fmt.Errorf("%w: no usable VTT text", service.ErrYouTubeCaptionInvalid)}
+	var messages []string
+	response, err := GenerateSubtitles(context.Background(), fake, SubtitleRequest{
+		Input: "https://www.youtube.com/watch?v=m5yrQMnc_jQ", Workdir: t.TempDir(), TaskID: "invalid-vtt",
+		OriginLang: "en", TargetLang: "zh_cn", CaptionSource: CaptionSourceAny,
+		ReportProgress: func(phase string, _ int, message string) {
+			if phase == "fallback_to_transcription" {
+				messages = append(messages, message)
+			}
+		},
+	})
+	if err != nil || !response.OK {
+		t.Fatalf("response = %+v, error = %v", response, err)
+	}
+	if !reflect.DeepEqual(fake.calls, []string{"download-youtube", "process-youtube", "prepare", "audio"}) {
+		t.Fatalf("calls = %v, want caption processing followed by audio transcription", fake.calls)
+	}
+	if !reflect.DeepEqual(fake.prepareVTT, []bool{false}) {
+		t.Fatalf("prepare VttSwitch values = %v, want [false]", fake.prepareVTT)
+	}
+	manifest, err := LoadManifest(response.Workdir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.CaptionSource != "whisper" || !reflect.DeepEqual(manifest.Warnings, messages) || len(messages) != 1 {
+		t.Fatalf("manifest = %+v, fallback messages = %v", manifest, messages)
+	}
+}
+
+func TestUnusablePlatformCaptionsSignalDeferredTranscription(t *testing.T) {
+	fake := &fakeStageService{processErr: service.ErrYouTubeCaptionInvalid}
+	response, err := GenerateSubtitles(context.Background(), fake, SubtitleRequest{
+		Input: "https://www.youtube.com/watch?v=abc", Workdir: t.TempDir(), TaskID: "invalid-vtt",
+		CaptionSource: CaptionSourcePlatform,
+	})
+	if err == nil || response.Error.Code != "platform_caption_invalid" {
+		t.Fatalf("response = %+v, error = %v", response, err)
+	}
+	if !reflect.DeepEqual(fake.calls, []string{"download-youtube", "process-youtube"}) {
+		t.Fatalf("calls = %v, want platform-only attempt", fake.calls)
+	}
+}
+
+func TestUnusableCaptionsPreserveAudioFallbackFailure(t *testing.T) {
+	fake := &fakeStageService{
+		processErr: fmt.Errorf("%w: invalid VTT timestamps", service.ErrYouTubeCaptionInvalid),
+		audioErr:   errors.New("transcription unavailable"),
+	}
+	response, err := GenerateSubtitles(context.Background(), fake, SubtitleRequest{
+		Input: "https://www.youtube.com/watch?v=abc", Workdir: t.TempDir(), TaskID: "fallback-failed",
+		CaptionSource: CaptionSourceAny,
+	})
+	if err == nil || response.Error.Code != "audio_transcription_failed" ||
+		!strings.Contains(err.Error(), "invalid VTT timestamps") || !strings.Contains(err.Error(), "transcription unavailable") {
+		t.Fatalf("response = %+v, error = %v", response, err)
 	}
 }
 
