@@ -1827,6 +1827,19 @@
   grid-template-columns: 34px 36px minmax(0, 1fr);
 }
 
+.creator-workspace-header.has-actions {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+}
+
+.creator-workspace-header.has-title-icon.has-actions {
+  grid-template-columns: 34px 36px minmax(0, 1fr) auto;
+}
+
+.creator-workspace-header-actions {
+  display: flex;
+  align-items: center;
+}
+
 .creator-workspace-title-icon {
   width: 36px;
   height: 36px;
@@ -1890,7 +1903,11 @@
 }
 
 .video-download-workspace-page .creator-tool-stack {
-  width: min(960px, 100%);
+  width: 100%;
+}
+
+.video-download-workspace-page .creator-workspace-layout {
+  --creator-workspace-pane-width: calc(80% - 3.5px);
 }
 
 .auto-clip-tool-stack {
@@ -7493,23 +7510,287 @@
   font-size: 13px;
 }
 
-.video-download-preview {
+.video-download-formats-pane {
+  container: video-download-formats / inline-size;
+}
+
+.video-download-source-column {
+  min-width: 0;
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 18px;
+}
+
+.video-download-result-toolbar {
+  gap: 8px;
+}
+
+.video-download-result-toolbar .video-result-tabs > button {
+  padding-inline: 8px;
+}
+
+.video-download-result-toolbar .video-download-add-button {
+  flex: none;
+  min-height: 38px;
+  padding-inline: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.video-download-add-button,
+.video-download-add-form button,
+.video-download-batch-error button {
+  display: inline-flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.video-download-add-button:hover,
+.video-download-add-form button:hover,
+.video-download-source-action:hover {
+  background: var(--surface-2);
+}
+
+.video-download-add-form {
+  display: grid;
+  gap: 8px;
+}
+
+.video-download-add-form label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.video-download-add-form input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--conversation-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.video-download-add-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.video-download-add-form button[type='submit'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.video-download-add-form button:disabled,
+.video-download-source-action:disabled {
+  opacity: .5;
+  cursor: default;
+}
+
+.video-download-batch-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--danger, #c93434);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.video-download-source-list {
+  display: grid;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.video-download-source-list li {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.video-download-source-list li[data-selected='true'] {
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+
+.video-download-source-select {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+  min-height: 44px;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.video-download-source-select > img,
+.video-download-source-select > .video-download-image-placeholder,
+.video-download-source-select > svg {
+  flex: none;
+  width: 40px;
+  height: 30px;
+  object-fit: cover;
+  border-radius: 4px;
+  color: var(--muted);
+}
+
+.video-download-source-select > span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.video-download-source-select strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.video-download-source-select small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.video-download-source-action {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.video-download-work-source {
+  margin: 12px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 540px) {
+  .video-download-workspace-page .creator-workspace-header {
+    padding-inline: 12px;
+    gap: 8px;
+  }
+
+  .video-download-workspace-page .creator-workspace-header p {
+    display: none;
+  }
+}
+
+.video-download-formats-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 30%) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+.video-download-preview,
+.video-download-preview > div,
+.video-download-format-list {
+  min-width: 0;
 }
 
 .video-download-preview img {
-  width: 180px;
+  width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: 7px;
 }
 
+.video-download-preview > .video-download-thumbnail {
+  position: relative;
+  margin-top: 0;
+}
+
+.video-download-thumbnail img {
+  display: block;
+}
+
+.video-download-image-placeholder {
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.video-download-thumbnail > .video-download-image-placeholder {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 7px;
+}
+
+.video-download-thumbnail-button {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: 6px;
+  background: rgb(20 20 20 / 88%);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.video-download-thumbnail-button:hover {
+  background: #141414;
+}
+
+.video-download-thumbnail-button:disabled {
+  opacity: .65;
+  cursor: default;
+}
+
+@container video-download-formats (max-width: 560px) {
+  .video-download-thumbnail-button { right: 4px; bottom: 4px; width: 28px; min-height: 28px; padding: 0; }
+  .video-download-thumbnail-button > span { display: none; }
+}
+
 .video-download-preview-placeholder {
-  width: 180px;
+  width: 100%;
   aspect-ratio: 16 / 9;
   display: grid;
   place-items: center;
@@ -7519,7 +7800,7 @@
   color: var(--muted);
 }
 
-.video-download-preview span {
+.video-download-preview > div > span {
   color: var(--accent);
   font-size: 11px;
   font-weight: 650;
@@ -7527,12 +7808,27 @@
 
 .video-download-preview h2 {
   margin-top: 5px;
+  font-size: 17px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .video-download-preview p {
   margin-top: 6px;
   color: var(--muted);
   font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.video-download-preview > div {
+  margin-top: 12px;
+}
+
+@container video-download-formats (max-width: 560px) {
+  .video-download-formats-layout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .video-download-preview { display: grid; grid-template-columns: 100px minmax(0, 1fr); align-items: start; gap: 12px; }
+  .video-download-preview > div { margin-top: 0; }
+  .video-download-format-list > .video-result-pane-heading { flex-wrap: wrap; }
 }
 
 .video-download-options {
@@ -7549,7 +7845,7 @@
 .video-download-options > label {
   min-height: 56px;
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 8px 10px 8px 13px;
@@ -7572,10 +7868,6 @@
 .video-download-options small {
   color: var(--muted);
   font-size: 11px;
-}
-
-.video-download-options > label > small {
-  color: var(--accent);
 }
 
 .video-download-options > label[data-downloaded="true"] {
@@ -7619,6 +7911,10 @@
 .download-result-workspace {
   height: auto;
   min-height: 480px;
+}
+
+.download-result-workspace .creator-result-layout {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .download-record-list {

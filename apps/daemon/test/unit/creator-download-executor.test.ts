@@ -51,7 +51,8 @@ describe('creator download executor', () => {
     'https://www.instagram.com/reel/abc123/', 'https://www.douyin.com/video/123',
     'https://www.facebook.com/watch/?v=123',
     'https://www.xiaohongshu.com/explore/6a9149f3000000001f01d20a?xsec_token=sample%3D',
-    'https://www.pinterest.com/pin/123/'
+    'https://www.pinterest.com/pin/123/',
+    'https://www.reddit.com/r/claude/s/R5I7tDfJ0h'
   ])('prepares saved translation previews from the added platform: %s', async sourceUrl => {
     const executor = createDownloadExecutor(await fakeBinaries());
     const workdir = join(tempDir, 'preview');
@@ -140,6 +141,33 @@ describe('creator download executor', () => {
         workdir, stageId: 'probe', state: { sourceUrl: invalidUrl }
       }))).rejects.toMatchObject({ code: 'unsupported_source' });
     }
+  });
+
+  it.each(['Reddit', 'Youtube'])('keeps Reddit attribution for a post resolved by %s and sends share links to the downloader', async extractor => {
+    const sourceUrl = 'https://www.reddit.com/r/claude/s/R5I7tDfJ0h';
+    const canonicalUrl = 'https://www.reddit.com/r/claude/comments/1x1qhlj/i_made_with_opus_55/';
+    const probe = parseDownloadProbe({
+      id: 'reddit-video', title: 'Reddit video', extractor_key: extractor,
+      webpage_url: canonicalUrl,
+      formats: [
+        { format_id: 'dash-video', ext: 'mp4', width: 1280, height: 720, vcodec: 'h264', acodec: 'none' },
+        { format_id: 'dash-audio', ext: 'm4a', vcodec: 'none', acodec: 'aac' }
+      ]
+    }, sourceUrl);
+    expect(probe).toMatchObject({ platform: 'reddit', requestedUrl: sourceUrl, url: canonicalUrl });
+    const option = probe.options.find(option => option.mediaType === 'video' && option.videoFormatId === 'dash-video');
+    expect(option).toMatchObject({ videoFormatId: 'dash-video', audioFormatId: 'dash-audio' });
+    const executor = createDownloadExecutor(await fakeBinaries());
+    const workdir = join(tempDir, 'reddit');
+    await mkdir(workdir);
+    await executor.run(stageInput({ workdir, stageId: 'probe', state: { sourceUrl } }));
+    expect(JSON.parse(await readFile(join(workdir, 'args.json'), 'utf8'))).toContain(sourceUrl);
+    const probeArtifact = await writeProbeArtifact(workdir, probe);
+    const result = await executor.run(stageInput({
+      workdir, stageId: 'download', state: { sourceUrl, selectedOptionId: option!.id, mediaType: 'video' }, inputArtifacts: [probeArtifact]
+    }));
+    expect(JSON.parse(await readFile(join(workdir, 'args.json'), 'utf8'))).toContain(sourceUrl);
+    expect(result.outputs[0]?.metadata).toMatchObject({ platform: 'reddit', requestedUrl: sourceUrl });
   });
 
   it('recognizes a Xiaohongshu video note and its downloadable formats', () => {

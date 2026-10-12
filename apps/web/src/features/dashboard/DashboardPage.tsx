@@ -31,7 +31,7 @@ import SmartDubbingWorkspace from './SmartDubbingWorkspace.js';
 import XiaohongshuPostWorkspace from './XiaohongshuPostWorkspace.js';
 import WechatArticleWorkspace from './WechatArticleWorkspace.js';
 import StickmanVideoWorkspace from './StickmanVideoWorkspace.js';
-import VideoDownloadWorkspace from './VideoDownloadWorkspace.js';
+import VideoDownloadBatchWorkspace from './VideoDownloadBatchWorkspace.js';
 import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
 import VideoGenerationWorkspace from './VideoGenerationWorkspace.js';
 import type { CreatorWebService } from '../../services/creator-service.js';
@@ -368,7 +368,8 @@ export default function DashboardPage(props: {
 
   if (activeWorkspace === 'video-download') {
     return renderCreatorWorkspace('video-download', (
-      <VideoDownloadWorkspace
+      <VideoDownloadBatchWorkspace
+        service={props.creatorService!}
         promptHint={activePromptHint}
         runtimeDependencies={props.runtimeDependencies}
         onOpenRuntimeComponents={props.onOpenRuntimeComponents}

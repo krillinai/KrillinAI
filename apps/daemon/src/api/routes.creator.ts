@@ -88,6 +88,7 @@ import { createCreatorPresetDetails } from '../creator/presets/presentation.js';
 import { readCodexImageConfiguration } from '../image-generation/codex-runtime.js';
 import type { CodexNativeImageRuntime } from '../image-generation/provider.js';
 import type { CreatorIssueService } from '../creator/issues.js';
+import { registerCreatorThumbnailRoutes } from './routes.creator-thumbnail.js';
 
 export async function registerCreatorRoutes(
   server: FastifyInstance,
@@ -116,6 +117,7 @@ export async function registerCreatorRoutes(
     issueService?: CreatorIssueService;
   }
 ): Promise<void> {
+  await registerCreatorThumbnailRoutes(server, service, options.readServicesConfig);
   if (options.stickmanVisualAssets !== undefined) {
     server.get('/creator/visual-assets', async (request, reply) => {
       try {

@@ -25,21 +25,25 @@ import {
   Video,
   XCircle
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import NativeSelect from '../../components/forms/NativeSelect.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
 import SupportedVideoSources from './SupportedVideoSources.js';
+import VideoDownloadThumbnail from './VideoDownloadThumbnail.js';
 import {
   createCreatorArtifactObjectUrl,
   useOptionalCreatorSession
 } from './creator-session-store.js';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
+import type { VideoDownloadBatchView } from './VideoDownloadBatchWorkspace.js';
 
 type DownloadStep = 0 | 1;
-type DownloadResultTab = 'info' | 'formats' | 'outputs';
+type DownloadResultTab = 'formats' | 'outputs';
 type DownloadHistoryItem = {
+  ownerJobId?: string;
+  sourceTitle?: string;
   option?: DownloadOption;
   stage?: CreatorStageRun;
   artifact?: CreatorArtifact;
@@ -55,6 +59,7 @@ export default function VideoDownloadWorkspace(props: {
   promptHint?: string;
   runtimeDependencies?: RuntimeDependenciesController;
   onOpenRuntimeComponents?(): void;
+  batch?: VideoDownloadBatchView;
 }) {
   const l = useLocalizedCopy();
   const session = useOptionalCreatorSession();
@@ -69,6 +74,8 @@ export default function VideoDownloadWorkspace(props: {
   const [resultTab, setResultTab] = useState<DownloadResultTab>('formats');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [thumbnailDownloading, setThumbnailDownloading] = useState(false);
+  const thumbnailDownloadPendingRef = useRef(false);
   const [submittingOptionIds, setSubmittingOptionIds] = useState<ReadonlySet<string>>(
     () => new Set()
   );
@@ -88,10 +95,10 @@ export default function VideoDownloadWorkspace(props: {
     [session?.job.artifacts, url]
   );
   const probe = useMemo(
-    () => probeArtifact === undefined
+    () => probeArtifact === undefined || props.batch?.hasSelectedSource === false
       ? undefined
       : readDownloadProbe(probeArtifact.metadata),
-    [probeArtifact]
+    [probeArtifact, props.batch?.hasSelectedSource]
   );
   const legacy = (session?.job.templateVersion ?? 2) < 2;
   const options = useMemo(() => (
@@ -152,14 +159,23 @@ export default function VideoDownloadWorkspace(props: {
   const hasActiveDownloads = activeDownloadStages.length > 0
     || submittingOptionIds.size > 0;
   const historyItems = useMemo(
-    () => downloadHistoryItems(
+    () => props.batch === undefined ? downloadHistoryItems(
       options,
       downloadStages,
       downloadArtifacts,
       probeArtifact,
       probe
-    ),
-    [downloadArtifacts, downloadStages, options, probe, probeArtifact]
+    ) : props.batch.jobs.flatMap(job => {
+      const sourceUrl = readString(job.state.sourceUrl) ?? '';
+      const sourceProbeArtifact = latestMatchingProbe(job.artifacts, sourceUrl);
+      const sourceProbe = sourceProbeArtifact === undefined ? undefined : readDownloadProbe(sourceProbeArtifact.metadata);
+      const artifacts = job.artifacts.filter(artifact => artifact.status === 'completed'
+        && (artifact.kind === 'source_video' || artifact.kind === 'source_audio')).sort(compareArtifactFreshness);
+      return downloadHistoryItems(sourceProbe?.options ?? [],
+        job.stages.filter(stage => stage.stageId === 'download'), artifacts, sourceProbeArtifact, sourceProbe)
+        .map(item => ({ ...item, ownerJobId: job.id, sourceTitle: sourceProbe?.title ?? sourceUrl }));
+    }),
+    [downloadArtifacts, downloadStages, options, probe, probeArtifact, props.batch?.jobs]
   );
   const latestTaskStage = session?.job.stages.at(-1);
   const resumableStage = latestTaskStage?.status === 'canceled'
@@ -182,7 +198,8 @@ export default function VideoDownloadWorkspace(props: {
             : probe.platform === 'douyin' ? l('抖音', 'Douyin')
               : probe.platform === 'facebook' ? 'Facebook'
                 : probe.platform === 'xiaohongshu' ? l('小红书', 'Xiaohongshu')
-                  : probe.platform === 'pinterest' ? 'Pinterest' : 'YouTube';
+                  : probe.platform === 'pinterest' ? 'Pinterest'
+                    : probe.platform === 'reddit' ? 'Reddit' : 'YouTube';
   const context = probe === undefined
     ? validUrl
       ? `${platform} · ${probing ? l('正在解析', 'Analyzing') : l('待解析', 'Waiting to analyze')}`
@@ -290,8 +307,8 @@ export default function VideoDownloadWorkspace(props: {
     if (probing || hasActiveDownloads) return;
     if (!validUrl) {
       setError(l(
-        '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书或 Pinterest 公开视频链接',
-        'Enter a valid public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, or Pinterest video URL'
+        '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 或 Reddit 公开视频链接',
+        'Enter a valid public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest, or Reddit video URL'
       ));
       return;
     }
@@ -405,11 +422,40 @@ export default function VideoDownloadWorkspace(props: {
     downloadSubmissionTailRef.current = work;
   }
 
-  async function downloadArtifact(artifact: CreatorArtifact) {
-    if (session === null) return;
+  async function downloadThumbnail() {
+    if (session === null || probeArtifact === undefined || probe?.thumbnailUrl == null || thumbnailDownloadPendingRef.current) return;
+    thumbnailDownloadPendingRef.current = true;
+    setThumbnailDownloading(true);
+    setError('');
     try {
+      const response = await session.openDownloadThumbnail(probeArtifact.id);
+      if (!response.ok) throw new Error('thumbnail_download_failed');
+      const blob = await response.blob();
+      if (!blob.size || !['image/jpeg', 'image/png', 'image/webp'].includes(blob.type)) throw new Error('thumbnail_download_failed');
+      const extension = blob.type === 'image/jpeg' ? 'jpg' : blob.type === 'image/webp' ? 'webp' : 'png';
+      const title = probe.title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').trim().slice(0, 120) || 'thumbnail';
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `${title}-thumbnail.${extension}`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      setNotice(l('封面下载已开始', 'Thumbnail download started'));
+    } catch (cause) {
+      const message = l('封面下载失败，请稍后重试', 'Could not download the thumbnail. Try again.');
+      session.captureCreatorFailure('video-download.download-thumbnail', cause, message);
+      setError(message);
+    } finally {
+      thumbnailDownloadPendingRef.current = false;
+      setThumbnailDownloading(false);
+    }
+  }
+
+  async function downloadArtifact(artifact: CreatorArtifact) {
+    try {
+      const owner = artifactSession(artifact);
       const objectUrl = await createCreatorArtifactObjectUrl(
-        session,
+        owner,
         artifact.id,
         'video-download.download-artifact',
         l('文件下载失败，请稍后重试。', 'The file download failed. Try again later.')
@@ -423,6 +469,12 @@ export default function VideoDownloadWorkspace(props: {
     } catch (caught) {
       setError(formatDownloadError(caught, l));
     }
+  }
+
+  function artifactSession(artifact: CreatorArtifact) {
+    const owner = props.batch === undefined ? session : props.batch.resolveSession(artifact.jobId);
+    if (owner === null || owner === undefined) throw new Error(l('文件所属任务尚未加载，请稍后重试', 'The file task is still loading. Try again shortly.'));
+    return owner;
   }
 
   function releaseArtifactPreviewUrl() {
@@ -445,16 +497,9 @@ export default function VideoDownloadWorkspace(props: {
       artifactId: artifact.id,
       status: 'loading'
     });
-    if (session === null) {
-      setArtifactPreview({
-        artifactId: artifact.id,
-        status: 'failed'
-      });
-      return;
-    }
     try {
       const objectUrl = await createCreatorArtifactObjectUrl(
-        session,
+        artifactSession(artifact),
         artifact.id,
         'video-download.load-artifact-preview',
         l('文件预览加载失败，请稍后重试。', 'The file preview failed to load. Try again later.')
@@ -469,8 +514,9 @@ export default function VideoDownloadWorkspace(props: {
         status: 'ready',
         objectUrl
       });
-    } catch {
+    } catch (caught) {
       if (artifactPreviewRequestRef.current !== requestId) return;
+      setError(formatDownloadError(caught, l));
       setArtifactPreview({
         artifactId: artifact.id,
         status: 'failed'
@@ -486,9 +532,10 @@ export default function VideoDownloadWorkspace(props: {
     void openArtifactPreview(artifact);
   }
 
-  function handleArtifactPreviewError(artifactId: string) {
+  function handleArtifactPreviewError(artifact: CreatorArtifact) {
+    const artifactId = artifact.id;
     if (artifactPreview?.artifactId !== artifactId) return;
-    session?.captureCreatorFailure(
+    artifactSession(artifact).captureCreatorFailure(
       'video-download.play-artifact-preview',
       new Error('artifact_preview_playback_failed'),
       l('文件预览播放失败，可重新加载或保存到本机。', 'The preview could not play. Reload it or save the file locally.')
@@ -597,6 +644,22 @@ export default function VideoDownloadWorkspace(props: {
     setResultTab('outputs');
   }
 
+  const resultToolbar = (
+    <div className="video-result-toolbar video-download-result-toolbar">
+      <div className="video-result-tabs" role="tablist" aria-label={l('下载结果类型', 'Download result types')}>
+        <button type="button" role="tab" aria-selected={resultTab === 'formats'} onClick={() => setResultTab('formats')}>
+          <Download size={15} strokeWidth={1.8} aria-hidden="true" />
+          {l('下载规格', 'Formats')}
+        </button>
+        <button type="button" role="tab" aria-selected={resultTab === 'outputs'} onClick={() => setResultTab('outputs')}>
+          <PackageOpen size={15} strokeWidth={1.8} aria-hidden="true" />
+          {l('作品', 'Works')}
+        </button>
+      </div>
+      {props.batch?.toolbarActions}
+    </div>
+  );
+
   return (
     <CreatorToolShell
       title={l('视频下载', 'Video Downloader')}
@@ -606,12 +669,29 @@ export default function VideoDownloadWorkspace(props: {
         'Analyze a public link and save video or audio to the project'
       )}
       context={context}
+      taskSummary={probe === undefined ? undefined : <CreatorTaskSummary
+        sourceIcon={Link2}
+        sourceLabel={l('视频链接', 'Video link')}
+        sourceValue={url}
+        items={[
+          { label: l('来源平台', 'Platform'), value: platform },
+          { label: l('可用规格', 'Formats'), value: String(options.length) },
+          {
+            label: l('当前选择', 'Selected'),
+            value: selectedOption === undefined
+              ? l('未选择', 'Not selected')
+              : optionLabel(selectedOption, l)
+          },
+          { label: l('作品', 'Works'), value: String(downloadArtifacts.length) }
+        ]}
+        compactSummary={`${platform} · ${selectedOption === undefined ? l('未选择', 'Not selected') : optionLabel(selectedOption, l)}`}
+      />}
       suggestions={probe === undefined
         ? [l('这个链接支持哪些规格', 'Which formats are available?')]
         : [l('下载最高画质视频', 'Download the highest-quality video'), l('提取 MP3 音频', 'Extract MP3 audio')]}
       placeholder={props.promptHint ?? l(
-        '粘贴 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书或 Pinterest 公开视频链接',
-        'Paste a public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, or Pinterest video URL'
+        '粘贴 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 或 Reddit 公开视频链接',
+        'Paste a public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest, or Reddit video URL'
       )}
       stepLabel={activeStage?.stageId === 'probe'
         ? l('解析视频信息', 'Analyze video information')
@@ -638,7 +718,10 @@ export default function VideoDownloadWorkspace(props: {
       onBack={props.onBack}
     >
       <div className="creator-tool-stack">
-        <nav
+        {props.batch === undefined ? null : resultToolbar}
+        {props.batch?.editor}
+        {props.batch !== undefined && resultTab === 'formats' && probe === undefined ? props.batch.sourceList : null}
+        {props.batch === undefined ? <nav
           className="video-translation-steps creator-tool-steps creator-tool-steps-two"
           aria-label={l('视频下载流程', 'Video download steps')}
         >
@@ -666,10 +749,10 @@ export default function VideoDownloadWorkspace(props: {
                 );
               })}
           </ol>
-        </nav>
+        </nav> : null}
 
 
-        {currentStep === 0 ? (
+        {currentStep === 0 && props.batch === undefined ? (
           <section
             className="creator-tool-panel"
             aria-labelledby="video-download-source-title"
@@ -705,214 +788,186 @@ export default function VideoDownloadWorkspace(props: {
           </section>
         ) : null}
 
-        {currentStep === 1 && probe !== undefined ? (
+        {(props.batch === undefined ? currentStep === 1 && probe !== undefined
+          : props.batch.hasSelectedSource || historyItems.length > 0 || resultTab === 'outputs') ? (
           <section
             className="video-result-workspace download-result-workspace"
             aria-label={l('视频下载结果', 'Video download results')}
           >
-            <div className="video-result-toolbar">
-              <div
-                className="video-result-tabs"
-                role="tablist"
-                aria-label={l('下载结果类型', 'Download result types')}
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={resultTab === 'info'}
-                  onClick={() => setResultTab('info')}
-                >
-                  <Video size={15} strokeWidth={1.8} aria-hidden="true" />
-                  {l('视频信息', 'Video info')}
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={resultTab === 'formats'}
-                  onClick={() => setResultTab('formats')}
-                >
-                  <Download size={15} strokeWidth={1.8} aria-hidden="true" />
-                  {l('下载规格', 'Formats')}
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={resultTab === 'outputs'}
-                  onClick={() => setResultTab('outputs')}
-                >
-                  <PackageOpen size={15} strokeWidth={1.8} aria-hidden="true" />
-                  {l('作品', 'Works')}
-                </button>
-              </div>
-            </div>
+            {props.batch === undefined ? resultToolbar : null}
             <div className="creator-result-layout">
-              {resultTab === 'info' ? (
-                <div className="video-result-pane">
-                  <header className="video-result-pane-heading">
-                    <div>
-                      <h2>{l('视频信息', 'Video information')}</h2>
-                      <p>{l('来自真实链接解析结果', 'From the live URL analysis')}</p>
+              {resultTab === 'formats' && probe !== undefined ? (
+                <div className="video-result-pane video-download-formats-pane">
+                  <div className="video-download-formats-layout">
+                    <div className="video-download-source-column">
+                    {props.batch?.sourceList}
+                    <div className="video-download-preview">
+                      {probe.thumbnailUrl
+                        ? <div className="video-download-thumbnail">
+                            <VideoDownloadThumbnail key={probeArtifact?.id} src={probe.thumbnailUrl} alt={probe.title}
+                              load={session && probeArtifact ? () => session.openDownloadThumbnail(probeArtifact.id) : undefined} />
+                            <button type="button" className="video-download-thumbnail-button"
+                              disabled={thumbnailDownloading || session === null}
+                              aria-busy={thumbnailDownloading}
+                              aria-label={l('下载封面', 'Download thumbnail')}
+                              title={l('下载封面', 'Download thumbnail')}
+                              onClick={() => void downloadThumbnail()}>
+                              {thumbnailDownloading ? <LoaderCircle size={16} className="smart-dubbing-spinner" aria-hidden="true" />
+                                : <Download size={16} aria-hidden="true" />}
+                              <span>{l('下载封面', 'Thumbnail')}</span>
+                            </button>
+                          </div>
+                        : (
+                            <span className="video-download-preview-placeholder">
+                              <FileVideo size={30} strokeWidth={1.5} />
+                            </span>
+                          )}
+                      <div>
+                        <span>{platform}</span>
+                        <h2>{probe.title}</h2>
+                        <p>
+                          {[
+                            probe.uploader,
+                            formatDuration(probe.duration),
+                            formatDimensions(probe.width, probe.height)
+                          ].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
                     </div>
-                    <button type="button" onClick={() => setCurrentStep(0)}>
-                      <Link2 size={15} strokeWidth={1.8} aria-hidden="true" />
-                      {l('更换链接', 'Change link')}
-                    </button>
-                  </header>
-                  <div className="video-download-preview">
-                    {probe.thumbnailUrl
-                      ? <img src={probe.thumbnailUrl} alt={probe.title} />
-                      : (
-                          <span className="video-download-preview-placeholder">
-                            <FileVideo size={30} strokeWidth={1.5} />
-                          </span>
-                        )}
-                    <div>
-                      <span>{platform}</span>
-                      <h2>{probe.title}</h2>
-                      <p>
-                        {[
-                          probe.uploader,
-                          formatDuration(probe.duration),
-                          formatDimensions(probe.width, probe.height)
-                        ].filter(Boolean).join(' · ')}
-                      </p>
+                    </div>
+                    <div className="video-download-format-list">
+                      <header className="video-result-pane-heading">
+                        <h2>{l('下载规格', 'Download formats')}</h2>
+                        {props.batch === undefined ? <button type="button" onClick={() => setCurrentStep(0)}>
+                          <Link2 size={15} strokeWidth={1.8} aria-hidden="true" />
+                          {l('更换链接', 'Change link')}
+                        </button> : null}
+                      </header>
+                      <div
+                        className="creator-tool-segmented"
+                        role="tablist"
+                        aria-label={l('下载格式', 'Download format')}
+                      >
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={mediaType === 'video'}
+                          disabled={!options.some(option => option.mediaType === 'video')}
+                          onClick={() => selectMediaType('video')}
+                        >
+                          <Video size={15} strokeWidth={1.8} aria-hidden="true" />
+                          MP4 {l('视频', 'video')}
+                        </button>
+                        {!legacy ? (
+                          <button
+                            type="button"
+                            role="tab"
+                            aria-selected={mediaType === 'audio'}
+                            disabled={!options.some(option => option.mediaType === 'audio')}
+                            onClick={() => selectMediaType('audio')}
+                          >
+                            <Music2 size={15} strokeWidth={1.8} aria-hidden="true" />
+                            MP3 {l('音频', 'audio')}
+                          </button>
+                        ) : null}
+                      </div>
+                      {audioLanguages.length > 1 && selectedAudioLanguage !== undefined ? (
+                        <label className="creator-tool-field video-download-language-field">
+                          <span>{l('音频语言', 'Audio language')}</span>
+                          <NativeSelect
+                            aria-label={l('音频语言', 'Audio language')}
+                            value={selectedAudioLanguage}
+                            onChange={event => selectAudioLanguage(event.target.value)}
+                          >
+                            {audioLanguages.map(language => (
+                              <option key={language} value={language}>
+                                {audioLanguageLabel(language, l)}
+                              </option>
+                            ))}
+                          </NativeSelect>
+                        </label>
+                      ) : null}
+                      {visibleOptions.length > 0 ? (
+                        <div className="video-download-options">
+                          {visibleOptions.map(option => {
+                            const downloaded = downloadedOptionIds.has(option.id);
+                            const stage = latestDownloadStageByOption.get(option.id);
+                            const submitting = submittingOptionIds.has(option.id);
+                            const queued = submitting || stage?.status === 'queued';
+                            const running = stage?.status === 'running';
+                            const normalizing = running
+                              && stage.progress.phase === 'normalizing_media';
+                            const inProgress = queued || running;
+                            return (
+                              <label
+                                key={option.id}
+                                data-downloaded={downloaded}
+                                data-status={downloaded
+                                  ? 'completed'
+                                  : inProgress
+                                    ? 'active'
+                                    : stage?.status}
+                              >
+                                <input
+                                  type="radio"
+                                  name="download-option"
+                                  checked={selectedOptionId === option.id}
+                                  onChange={() => selectOption(option)}
+                                />
+                                <span>
+                                  <strong>{optionLabel(option, l)}</strong>
+                                  <small>{optionDetail(option, l)}</small>
+                                </span>
+                                {downloaded ? (
+                                  <span
+                                    className="video-download-option-complete"
+                                    aria-label={`${l('已完成', 'Completed')} ${optionLabel(option, l)}`}
+                                  >
+                                    <CheckCircle2 size={16} strokeWidth={1.9} aria-hidden="true" />
+                                    {l('已完成', 'Completed')}
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={probing || inProgress}
+                                    onClick={() => startDownload(option)}
+                                    aria-label={`${l('下载', 'Download')} ${optionLabel(option, l)}`}
+                                  >
+                                    {inProgress
+                                      ? <LoaderCircle className="smart-dubbing-spinner" size={16} />
+                                      : <Download size={16} strokeWidth={1.8} aria-hidden="true" />}
+                                    {normalizing
+                                      ? l('转换中', 'Converting')
+                                      : running
+                                        ? l('下载中', 'Downloading')
+                                        : queued
+                                          ? l('排队中', 'Queued')
+                                      : l('下载', 'Download')}
+                                  </button>
+                                )}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="video-result-empty">
+                          <AlertCircle size={26} strokeWidth={1.5} aria-hidden="true" />
+                          <strong>{l('当前没有可用规格', 'No formats are available')}</strong>
+                          <button type="button" disabled={probing || hasActiveDownloads} onClick={() => props.batch === undefined ? setCurrentStep(0) : void analyze()}>
+                            {l('重新解析', 'Analyze again')}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               ) : null}
 
-              {resultTab === 'formats' ? (
-                <div className="video-result-pane">
-                  <header className="video-result-pane-heading">
-                    <div>
-                      <h2>{l('下载规格', 'Download formats')}</h2>
-                      <p>
-                        {legacy
-                          ? l('旧版任务仅支持视频下载', 'Legacy jobs support video downloads only')
-                          : l('选择视频清晰度或提取 MP3 音频', 'Choose video quality or extract MP3 audio')}
-                      </p>
-                    </div>
-                  </header>
-                  <div
-                    className="creator-tool-segmented"
-                    role="tablist"
-                    aria-label={l('下载格式', 'Download format')}
-                  >
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={mediaType === 'video'}
-                      disabled={!options.some(option => option.mediaType === 'video')}
-                      onClick={() => selectMediaType('video')}
-                    >
-                      <Video size={15} strokeWidth={1.8} aria-hidden="true" />
-                      MP4 {l('视频', 'video')}
-                    </button>
-                    {!legacy ? (
-                      <button
-                        type="button"
-                        role="tab"
-                        aria-selected={mediaType === 'audio'}
-                        disabled={!options.some(option => option.mediaType === 'audio')}
-                        onClick={() => selectMediaType('audio')}
-                      >
-                        <Music2 size={15} strokeWidth={1.8} aria-hidden="true" />
-                        MP3 {l('音频', 'audio')}
-                      </button>
-                    ) : null}
-                  </div>
-                  {audioLanguages.length > 1 && selectedAudioLanguage !== undefined ? (
-                    <label className="creator-tool-field video-download-language-field">
-                      <span>{l('音频语言', 'Audio language')}</span>
-                      <NativeSelect
-                        aria-label={l('音频语言', 'Audio language')}
-                        value={selectedAudioLanguage}
-                        onChange={event => selectAudioLanguage(event.target.value)}
-                      >
-                        {audioLanguages.map(language => (
-                          <option key={language} value={language}>
-                            {audioLanguageLabel(language, l)}
-                          </option>
-                        ))}
-                      </NativeSelect>
-                    </label>
-                  ) : null}
-                  {visibleOptions.length > 0 ? (
-                    <div className="video-download-options">
-                      {visibleOptions.map((option, index) => {
-                        const downloaded = downloadedOptionIds.has(option.id);
-                        const stage = latestDownloadStageByOption.get(option.id);
-                        const submitting = submittingOptionIds.has(option.id);
-                        const queued = submitting || stage?.status === 'queued';
-                        const running = stage?.status === 'running';
-                        const normalizing = running
-                          && stage.progress.phase === 'normalizing_media';
-                        const inProgress = queued || running;
-                        return (
-                          <label
-                            key={option.id}
-                            data-downloaded={downloaded}
-                            data-status={downloaded
-                              ? 'completed'
-                              : inProgress
-                                ? 'active'
-                                : stage?.status}
-                          >
-                            <input
-                              type="radio"
-                              name="download-option"
-                              checked={selectedOptionId === option.id}
-                              onChange={() => selectOption(option)}
-                            />
-                            <span>
-                              <strong>{optionLabel(option, l)}</strong>
-                              <small>{optionDetail(option, l)}</small>
-                            </span>
-                            {index === 0
-                              ? <small>{l('推荐', 'Recommended')}</small>
-                              : null}
-                            {downloaded ? (
-                              <span
-                                className="video-download-option-complete"
-                                aria-label={`${l('已完成', 'Completed')} ${optionLabel(option, l)}`}
-                              >
-                                <CheckCircle2 size={16} strokeWidth={1.9} aria-hidden="true" />
-                                {l('已完成', 'Completed')}
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                disabled={probing || inProgress}
-                                onClick={() => startDownload(option)}
-                                aria-label={`${l('下载', 'Download')} ${optionLabel(option, l)}`}
-                              >
-                                {inProgress
-                                  ? <LoaderCircle className="smart-dubbing-spinner" size={16} />
-                                  : <Download size={16} strokeWidth={1.8} aria-hidden="true" />}
-                                {normalizing
-                                  ? l('转换中', 'Converting')
-                                  : running
-                                    ? l('下载中', 'Downloading')
-                                    : queued
-                                      ? l('排队中', 'Queued')
-                                  : l('下载', 'Download')}
-                              </button>
-                            )}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="video-result-empty">
-                      <AlertCircle size={26} strokeWidth={1.5} aria-hidden="true" />
-                      <strong>{l('当前没有可用规格', 'No formats are available')}</strong>
-                      <button type="button" onClick={() => setCurrentStep(0)}>
-                        {l('重新解析', 'Analyze again')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : null}
+              {resultTab === 'formats' && probe === undefined && props.batch !== undefined ? <div className="video-result-empty" role="status">
+                {probing ? <LoaderCircle size={26} className="smart-dubbing-spinner" /> : <FileVideo size={26} />}
+                <strong>{probing ? l('正在解析视频', 'Analyzing video') : props.batch.hasSelectedSource
+                  ? l('尚无可用规格', 'No formats available yet') : l('添加视频链接', 'Add a video link')}</strong>
+              </div> : null}
 
               {resultTab === 'outputs' ? (
                 <div className="video-result-pane">
@@ -920,7 +975,7 @@ export default function VideoDownloadWorkspace(props: {
                     <div>
                       <h2>{l('作品', 'Works')}</h2>
                       <p>
-                        {hasActiveDownloads
+                        {props.batch !== undefined ? l('所有链接的下载结果', 'Downloads from all links') : hasActiveDownloads
                           ? l('各规格会按队列依次下载，并在这里显示进度', 'Formats download in order and show progress here')
                           : l('当前任务保存的真实下载产物', 'Downloaded artifacts saved by this job')}
                       </p>
@@ -942,6 +997,9 @@ export default function VideoDownloadWorkspace(props: {
                           ? undefined
                           : artifactFileName(artifact);
                         return (
+                          <Fragment key={`${item.ownerJobId ?? ''}:${artifact?.id ?? stage?.id ?? `${option?.id ?? 'download'}-${index}`}`}>
+                          {item.ownerJobId !== undefined && historyItems[index - 1]?.ownerJobId !== item.ownerJobId
+                            ? <h3 className="video-download-work-source">{item.sourceTitle}</h3> : null}
                           <div
                             className="video-result-file-row video-download-progress-row"
                             data-status={status}
@@ -953,7 +1011,7 @@ export default function VideoDownloadWorkspace(props: {
                             <div>
                               <strong>
                                 {artifact === undefined
-                                  ? downloadPendingTitle(probe.title, option, l)
+                                  ? downloadPendingTitle(item.sourceTitle ?? probe?.title ?? url, option, l)
                                   : artifactFileName(artifact)}
                               </strong>
                               <small>
@@ -1075,7 +1133,7 @@ export default function VideoDownloadWorkspace(props: {
                                     preload="metadata"
                                     src={artifactPreview.objectUrl}
                                     aria-label={`${l('音频播放', 'Audio playback')} ${fileName}`}
-                                    onError={() => handleArtifactPreviewError(artifact.id)}
+                                    onError={() => handleArtifactPreviewError(artifact)}
                                   />
                                 ) : (
                                   <video
@@ -1087,12 +1145,13 @@ export default function VideoDownloadWorkspace(props: {
                                     preload="metadata"
                                     src={artifactPreview.objectUrl}
                                     aria-label={`${l('视频预览', 'Video preview')} ${fileName}`}
-                                    onError={() => handleArtifactPreviewError(artifact.id)}
+                                    onError={() => handleArtifactPreviewError(artifact)}
                                   />
                                 )}
                               </div>
                             ) : null}
                           </div>
+                          </Fragment>
                         );
                       })}
                     </div>
@@ -1108,28 +1167,6 @@ export default function VideoDownloadWorkspace(props: {
                 </div>
               ) : null}
 
-              <CreatorTaskSummary
-                sourceIcon={Link2}
-                sourceLabel={l('视频链接', 'Video link')}
-                sourceValue={url}
-                items={[
-                  { label: l('来源平台', 'Platform'), value: platform },
-                  {
-                    label: l('可用规格', 'Formats'),
-                    value: String(options.length)
-                  },
-                  {
-                    label: l('当前选择', 'Selected'),
-                    value: selectedOption === undefined
-                      ? l('未选择', 'Not selected')
-                      : optionLabel(selectedOption, l)
-                  },
-                  {
-                    label: l('作品', 'Works'),
-                    value: String(downloadArtifacts.length)
-                  }
-                ]}
-              />
             </div>
           </section>
         ) : null}
@@ -1169,7 +1206,7 @@ function readDownloadProbe(
     || typeof metadata.title !== 'string'
     || typeof metadata.requestedUrl !== 'string'
     || typeof metadata.url !== 'string'
-    || (metadata.platform !== 'youtube' && metadata.platform !== 'bilibili' && metadata.platform !== 'x' && metadata.platform !== 'tiktok' && metadata.platform !== 'instagram' && metadata.platform !== 'douyin' && metadata.platform !== 'facebook' && metadata.platform !== 'xiaohongshu' && metadata.platform !== 'pinterest')
+    || (metadata.platform !== 'youtube' && metadata.platform !== 'bilibili' && metadata.platform !== 'x' && metadata.platform !== 'tiktok' && metadata.platform !== 'instagram' && metadata.platform !== 'douyin' && metadata.platform !== 'facebook' && metadata.platform !== 'xiaohongshu' && metadata.platform !== 'pinterest' && metadata.platform !== 'reddit')
     || !Array.isArray(metadata.formats)
     || !Array.isArray(metadata.options)
   ) {
@@ -1577,6 +1614,7 @@ function platformFor(
   if (/^https:\/\/(?:www\.|m\.)?facebook\.com\//i.test(value) || /^https:\/\/fb\.watch\//i.test(value)) return 'Facebook';
   if (/^https:\/\/(?:www\.)?xiaohongshu\.com\//i.test(value)) return l('小红书', 'Xiaohongshu');
   if (/^https:\/\/(?:www\.)?pinterest\.com\//i.test(value)) return 'Pinterest';
+  if (supportedVideoSourcePlatform(value) === 'reddit') return 'Reddit';
   return l('公开视频', 'Public video');
 }
 
@@ -1595,8 +1633,8 @@ function formatDownloadError(
   const message = caught instanceof Error ? caught.message : String(caught);
   if (/unsupported_source/i.test(message)) {
     return l(
-      '当前仅支持 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书和 Pinterest 公开视频',
-      'Only public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, and Pinterest videos are supported'
+      '当前仅支持 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 和 Reddit 公开视频',
+      'Only public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest, and Reddit videos are supported'
     );
   }
   if (/download_probe_stale/i.test(message)) {

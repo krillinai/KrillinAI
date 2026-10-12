@@ -134,9 +134,12 @@ export function publicErrorReason(input: PublicErrorFacts, language: AppLanguage
     unavailable: { zh: '服务返回服务器错误', en: 'The service returned a server error' },
     unknown: { zh: '尚未取得更细的原因', en: 'A more specific cause is not available' }
   };
+  const reason = facts.provider === 'yt-dlp' && facts.kind === 'unauthorized'
+    ? localize('视频平台拒绝了访问请求', 'The video platform denied access', 'Videoplattformen nekade åtkomst')
+    : localize(reasons[facts.kind].zh, reasons[facts.kind].en, reasons[facts.kind].sv);
   const parts = facts.kind === 'unknown'
     ? []
-    : [localize(reasons[facts.kind].zh, reasons[facts.kind].en, reasons[facts.kind].sv)];
+    : [reason];
   if (facts.provider !== undefined && safePublicErrorCode(facts.provider) !== undefined) {
     parts.push(`provider: ${safeIdentifier(facts.provider)}`);
   }
@@ -188,7 +191,9 @@ export function issueConversationText(
     : issue.publicFacts?.kind === 'http-rejected' || issue.publicFacts?.kind === 'provider-failed'
       ? localize('请根据服务返回的原因调整输入或请求参数后重试；仍有疑问时，可提供请求编号向服务方查询。', 'Review the provider reason and adjust the input or request parameters before retrying. Use the request ID to ask the provider for details if needed.', 'Läs leverantörens felorsak och justera indata eller parametrarna innan du försöker igen. Använd begärans-ID för att fråga leverantören vid behov.')
     : issue.publicFacts?.kind === 'unauthorized'
-      ? issue.publicFacts.provider === 'codex-native'
+      ? issue.publicFacts.provider === 'yt-dlp'
+        ? localize('请先确认视频可以在浏览器打开，再检查代理和地区限制。部分平台需要有效的浏览器登录态，直接重试可能仍被拒绝。', 'Confirm that the video opens in your browser, then check the proxy and region restrictions. Some platforms require a valid browser session; retrying alone may still be denied.', 'Kontrollera att videon går att öppna i webbläsaren och kontrollera sedan proxy och regionbegränsningar. Vissa plattformar kräver en giltig webbläsarsession; enbart ett nytt försök kan fortfarande nekas.')
+        : issue.publicFacts.provider === 'codex-native'
         ? localize('请在本机 Codex 中重新登录 ChatGPT 后重试。', 'Sign in to ChatGPT again in local Codex, then retry.', 'Logga in på ChatGPT igen i lokala Codex och försök igen.')
         : localize('请检查服务凭据和模型访问权限后重试。', 'Check the provider credentials and model access permissions before retrying.', 'Kontrollera leverantörens autentiseringsuppgifter och modellbehörigheter innan du försöker igen.')
     : issue.publicFacts?.kind === 'rate-limited'

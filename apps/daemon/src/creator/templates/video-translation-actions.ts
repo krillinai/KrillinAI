@@ -166,7 +166,7 @@ function validateSource(job: CreatorJob): void {
   }
   const value = job.state.sourceUrl;
   if (typeof value !== 'string' || !isSupportedVideoUrl(value)) {
-    throw new VideoTranslationWorkflowError('unsupported_source', 'Only public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, and Pinterest video URLs are supported');
+    throw new VideoTranslationWorkflowError('unsupported_source', 'Only public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest, and Reddit video URLs are supported');
   }
 }
 
