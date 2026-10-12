@@ -87,3 +87,69 @@ func TestValidateSRTTimelineAllowsOverlapOnlyWhenRequested(t *testing.T) {
 		t.Fatalf("validateSRTTimelineFile(allow overlap) error = %v", err)
 	}
 }
+func TestMixedVerticalSubtitleRolesUseTimelineInsteadOfLanguage(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target.srt")
+	mixed := filepath.Join(dir, "mixed.srt")
+	if err := os.WriteFile(target, []byte("1\n00:00:00,000 --> 00:00:02,000\nEnglish translation\n\n2\n00:00:02,000 --> 00:00:04,000\nSecond translation\n\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(mixed, []byte("1\n00:00:00,000 --> 00:00:02,000\nEdited English translation\n\n2\n00:00:00,000 --> 00:00:02,000\n原文\n\n3\n00:00:02,000 --> 00:00:04,000\nSecond translation\n\n4\n00:00:02,000 --> 00:00:03,000\nEnglish original\n\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	roles, err := mixedSubtitleSourceCueIndexes(mixed, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(roles) != 2 || !roles[2] || !roles[4] || roles[1] || roles[3] {
+		t.Fatalf("incorrect subtitle roles: %#v", roles)
+	}
+}
+
+func TestMixedRenderPairsEditedSubcuesAndPreservesGaps(t *testing.T) {
+	for _, mode := range []LineMode{LineModeBilingualTargetTop, LineModeBilingualTargetBottom} {
+		for _, targetOnly := range []bool{true, false} {
+			dir := t.TempDir()
+			target, mixed, out := filepath.Join(dir, "target.srt"), filepath.Join(dir, "mixed.srt"), filepath.Join(dir, "render.srt")
+			os.WriteFile(target, []byte("1\n00:00:00,000 --> 00:00:03,000\nTranslation\n\n"), 0644)
+			os.WriteFile(mixed, []byte("1\n00:00:00,000 --> 00:00:03,000\nEdited translation\n\n2\n00:00:00,000 --> 00:00:01,000\nEdited original\n\n3\n00:00:02,000 --> 00:00:03,000\nSecond original\n\n"), 0644)
+			if err := normalizeMixedRenderSRT(mixed, target, out, mode, targetOnly); err != nil {
+				t.Fatal(err)
+			}
+			blocks, err := readSRTBlocks(out)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if targetOnly {
+				if len(blocks) != 1 || blocks[0].Lines[0] != "Edited translation" {
+					t.Fatalf("lost edited vertical translation: %#v", blocks)
+				}
+				continue
+			}
+			if len(blocks) != 3 || len(blocks[1].Lines) != 1 || blocks[1].Timestamp != "00:00:01,000 --> 00:00:02,000" {
+				t.Fatalf("lost translation during source gap: %#v", blocks)
+			}
+			translationIndex := 0
+			if mode == LineModeBilingualTargetBottom {
+				translationIndex = 1
+			}
+			if blocks[0].Lines[translationIndex] != "Edited translation" || blocks[0].Lines[1-translationIndex] != "Edited original" {
+				t.Fatalf("lost roles or edited text: %#v", blocks)
+			}
+		}
+	}
+}
+
+func TestMixedRenderKeepsImportedBilingualCues(t *testing.T) {
+	dir := t.TempDir()
+	target, mixed, out := filepath.Join(dir, "target.srt"), filepath.Join(dir, "mixed.srt"), filepath.Join(dir, "render.srt")
+	os.WriteFile(target, []byte("1\n00:00:00,000 --> 00:00:01,000\nTranslation\n\n"), 0644)
+	os.WriteFile(mixed, []byte("1\n00:00:00,000 --> 00:00:01,000\nOriginal\nEdited translation\n\n"), 0644)
+	if err := normalizeMixedRenderSRT(mixed, target, out, LineModeBilingualTargetBottom, true); err != nil {
+		t.Fatal(err)
+	}
+	blocks, _ := readSRTBlocks(out)
+	if len(blocks) != 1 || len(blocks[0].Lines) != 1 || blocks[0].Lines[0] != "Edited translation" {
+		t.Fatalf("incorrect target-only import: %#v", blocks)
+	}
+}

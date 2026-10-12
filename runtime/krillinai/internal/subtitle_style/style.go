@@ -137,6 +137,7 @@ func BuildAssHeader(set *StyleSet, horizontal bool) string {
 	builder.WriteString("Title: Example\n")
 	builder.WriteString("Original Script: \n")
 	builder.WriteString("ScriptType: v4.00+\n")
+	builder.WriteString("PlayResX: 384\nPlayResY: 288\nScaledBorderAndShadow: yes\n")
 	builder.WriteString("PlayDepth: 0\n\n")
 	builder.WriteString("[V4+ Styles]\n")
 	builder.WriteString("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n")
