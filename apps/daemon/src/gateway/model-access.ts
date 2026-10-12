@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import type { GatewayModel } from '@opencreator/protocol';
 import { readPrivateJsonFile, writePrivateJsonFile } from '../config/private-json-file.js';
-import type { GatewayBootstrap } from './client.js';
+import { probeCredentialsSchema, type GatewayBootstrap, type GatewayProbeCredentials } from './client.js';
 
 const allowedTTL = 24 * 60 * 60_000;
 const blockedTTL = 60 * 60_000;
@@ -49,7 +49,10 @@ const preferred: Record<string, string[]> = {
   'google-gemma': ['google/gemma-3-12b-it', 'google/gemma-3-27b-it']
 };
 
-export function createOfficialModelAccess(input: { dataDir: string; fetcher: typeof fetch; readProxy(): Promise<string> }) {
+export function createOfficialModelAccess(input: {
+  dataDir: string; fetcher: typeof fetch; readProxy(): Promise<string>;
+  readProbeCredentials(): Promise<GatewayProbeCredentials>;
+}) {
   const path = join(input.dataDir, 'config', 'gateway-model-access.json');
   let cache: AccessCache = { version: 1, base: '', network: '', groups: {} };
   let loaded: Promise<void> | undefined;
@@ -139,6 +142,10 @@ export function createOfficialModelAccess(input: { dataDir: string; fetcher: typ
         return rank(a) - rank(b);
       }).slice(0, 12);
     const expectedBase = cache.base;
+    if (!pending.length || signal.aborted) return;
+    const credentials = probeCredentialsSchema.parse(await input.readProbeCredentials());
+    if (credentials.costBearer !== 'platform' || credentials.modelKey === bootstrap.modelKey
+      || Date.parse(credentials.expiresAt) <= Date.now() || signal.aborted || cache.base !== expectedBase) return;
     const deadline = Date.now() + 20_000;
     async function worker() {
       while (pending.length && !signal.aborted && Date.now() < deadline && cache.base === expectedBase) {
@@ -149,7 +156,7 @@ export function createOfficialModelAccess(input: { dataDir: string; fetcher: typ
           return rank(a.id) - rank(b.id);
         });
         const representative = (previous?.alternate ? choices.find(model => model.id !== previous.representative) : undefined) ?? choices[0]!;
-        const result = await check(representative, bootstrap.modelKey, signal);
+        const result = await check(representative, credentials.modelKey, signal);
         if (signal.aborted || cache.base !== expectedBase) return;
         cache.groups[group] = {
           status: result.status === 'unknown' ? previous?.status ?? 'unknown' : result.status,

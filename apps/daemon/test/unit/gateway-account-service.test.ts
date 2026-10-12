@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
 import * as module from '../../src/gateway/account-service.js';
-import { GatewayError, type GatewayBootstrap } from '../../src/gateway/client.js';
+import { GatewayError, type GatewayBootstrap, type GatewayProbeCredentials } from '../../src/gateway/client.js';
 import { createGatewayConfigStore } from '../../src/gateway/config-store.js';
 import Fastify from 'fastify';
 import { registerGatewayAccountRoutes } from '../../src/api/routes.gateway-account.js';
@@ -12,8 +12,12 @@ import { createGatewayCreatorSource } from '../../src/gateway/creator-service-so
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 
 const roots: string[] = [];
+const platformCredentials = (): GatewayProbeCredentials => ({
+  costBearer: 'platform', modelKey: 'platform-probe-key', keyVersion: 'probe-v1',
+  baseUrl: 'https://openrouter.ai/api/v1', expiresAt: new Date(Date.now() + 60 * 60_000).toISOString()
+});
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
-async function setup(activate = vi.fn(async () => undefined), close = vi.fn(async () => undefined), hasPendingTasks = () => false, hasActiveTasks = () => false, modelAccess?: (root: string) => OfficialModelAccess) {
+async function setup(activate = vi.fn(async () => undefined), close = vi.fn(async () => undefined), hasPendingTasks = () => false, hasActiveTasks = () => false, modelAccess?: (root: string, readProbeCredentials: () => Promise<GatewayProbeCredentials>) => OfficialModelAccess) {
   expect(module).toHaveProperty('createGatewayAccountService', expect.any(Function));
   const root = await mkdtemp(join(tmpdir(), 'oc-gateway-account-')); roots.push(root);
   let attempt = 0;
@@ -26,9 +30,12 @@ async function setup(activate = vi.fn(async () => undefined), close = vi.fn(asyn
     async logout() {},
     avatar: vi.fn(async () => ({ data: new Uint8Array([1, 2, 3]), contentType: 'image/png' })),
     bootstrap: vi.fn(async (access: string): Promise<GatewayBootstrap> => { const id = access.split('-').at(-1)!; return { schemaVersion: 1 as const, account: { id, email: `${id}@example.test`, verified: true }, modelKey: `cloud-${id}`, keyVersion: '1', bindingVersion: `${id}:1`, baseUrl: 'https://gateway.example/v1', models: [{ id: 'gateway-text', modality: 'text' as const, capabilities: ['responses'] }], defaults: { text: 'gateway-text' } }; }),
-    async request() { return {}; }
+    async request(path?: string) { return path === '/api/v1/client/probe-credentials' ? platformCredentials() : {}; }
   };
-  const service = module.createGatewayAccountService({ dataDir: root, client, activateRuntime: activate, closeRuntime: close, hasActiveTasks, hasPendingTasks, automaticPolling: false, modelAccess: modelAccess?.(root) });
+  const service: module.GatewayAccountService = module.createGatewayAccountService({
+    dataDir: root, client, activateRuntime: activate, closeRuntime: close, hasActiveTasks, hasPendingTasks, automaticPolling: false,
+    modelAccess: modelAccess?.(root, () => service.probeCredentials())
+  });
   return { service, root, client, activate, close };
 }
 
@@ -52,6 +59,36 @@ it('returns signed-in state immediately while bootstrap is still preparing model
       expect(returned.json()).toMatchObject({ authState: 'signed_in', activationState: 'loading' });
     } finally { await server.close(); }
   } finally { release(); await work; await f.service.close(); }
+});
+
+it('keeps platform credentials private and separate from user task credentials', async () => {
+  const f = await setup();
+  const grant = await f.service.startAuthorization(); await f.service.pollAuthorization(grant.attemptId);
+  const request = vi.spyOn(f.client, 'request');
+  const [a, b] = await Promise.all([f.service.probeCredentials(), f.service.probeCredentials()]);
+  expect(a).toEqual(b);
+  expect(request.mock.calls.filter(([path]) => path === '/api/v1/client/probe-credentials')).toHaveLength(1);
+  const task = await f.service.beginModelUse();
+  expect(task.credentials.modelKey).toBe('cloud-1'); await task.release();
+  expect(JSON.stringify(f.service.peekState())).not.toContain(a.modelKey);
+  expect(await readFile(join(f.root, 'config/gateway-credentials.json'), 'utf8')).not.toContain(a.modelKey);
+  await f.service.logout();
+  await expect(f.service.probeCredentials()).rejects.toMatchObject({ code: 'auth_required' });
+  await f.service.close();
+});
+
+it('rejects a platform credential that aliases the user key or has expired', async () => {
+  const f = await setup();
+  const grant = await f.service.startAuthorization(); await f.service.pollAuthorization(grant.attemptId);
+  const request = vi.spyOn(f.client, 'request');
+  request.mockResolvedValueOnce({ ...platformCredentials(), modelKey: 'cloud-1' });
+  await expect(f.service.probeCredentials()).rejects.toMatchObject({ code: 'services_not_ready' });
+  request.mockResolvedValueOnce({ ...platformCredentials(), expiresAt: new Date(Date.now() - 1000).toISOString() });
+  await expect(f.service.probeCredentials()).rejects.toMatchObject({ code: 'services_not_ready' });
+  request.mockRejectedValueOnce(new GatewayError('services_not_ready'));
+  await expect(f.service.probeCredentials()).rejects.toMatchObject({ code: 'services_not_ready' });
+  expect((await f.service.modelCredentials()).modelKey).toBe('cloud-1');
+  await f.service.close();
 });
 
 it('coalesces simultaneous authorization polls so a grant is consumed only once', async () => {
@@ -99,9 +136,10 @@ it('silently filters official families without blocking model selection or chang
   let finishProbe!: () => void;
   const waiting = new Promise<void>(resolve => { finishProbe = resolve; });
   const requests: string[] = [];
-  const f = await setup(undefined, undefined, undefined, undefined, root => createOfficialModelAccess({
-    dataDir: root, readProxy: async () => '', fetcher: async (url, options) => {
+  const f = await setup(undefined, undefined, undefined, undefined, (root, readProbeCredentials) => createOfficialModelAccess({
+    dataDir: root, readProbeCredentials, readProxy: async () => '', fetcher: async (url, options) => {
       if (String(url).endsWith('/cdn-cgi/trace')) return new Response('ip=203.0.113.1\nloc=JP\n');
+      expect(new Headers(options?.headers).get('authorization')).toBe('Bearer platform-probe-key');
       const model = JSON.parse(String(options?.body)).model; requests.push(model);
       await waiting;
       return model.startsWith('openai/') ? Response.json({ error: { message: 'The request is prohibited due to a violation of provider Terms Of Service.' } }, { status: 403 })
@@ -113,6 +151,7 @@ it('silently filters official families without blocking model selection or chang
   f.client.bootstrap.mockResolvedValue(raw);
   const usage: Array<{ busy: boolean }> = [];
   vi.spyOn(f.client, 'request').mockImplementation(async (path?: string, _access?: string, body?: unknown) => {
+    if (path === '/api/v1/client/probe-credentials') return platformCredentials();
     if (path === '/api/v1/client/usage') { usage.push(body as { busy: boolean }); return { keyVersion: raw.keyVersion }; }
     return path === '/api/v1/client/models' ? { models: raw.models } : { account: raw.account };
   });
@@ -127,7 +166,7 @@ it('silently filters official families without blocking model selection or chang
   await expect(f.service.selectModel('text', 'openai/gpt-6-sol')).rejects.toMatchObject({ code: 'invalid_model' });
   expect((await f.service.modelCredentials()).models).toEqual(f.service.peekState().models);
   expect((await createGatewayConfigStore(f.root).readCredentials())?.models).toHaveLength(6);
-  expect(usage.some(value => value.busy)).toBe(true);
+  expect(usage.some(value => value.busy)).toBe(false);
   await f.service.close();
   expect(usage.at(-1)?.busy).toBe(false);
 });
@@ -136,8 +175,8 @@ it('defers a blocked default replacement until idle and recovers after every fam
   let active = true; let denyFallback = false; let recover = false;
   let finishProbe!: () => void;
   const waiting = new Promise<void>(resolve => { finishProbe = resolve; });
-  const f = await setup(undefined, undefined, undefined, () => active, root => createOfficialModelAccess({
-    dataDir: root, readProxy: async () => '', fetcher: async (url, options) => {
+  const f = await setup(undefined, undefined, undefined, () => active, (root, readProbeCredentials) => createOfficialModelAccess({
+    dataDir: root, readProbeCredentials, readProxy: async () => '', fetcher: async (url, options) => {
       if (String(url).endsWith('/cdn-cgi/trace')) return new Response('ip=203.0.113.1\nloc=JP\n');
       await waiting;
       const model = JSON.parse(String(options?.body)).model;
@@ -150,7 +189,8 @@ it('defers a blocked default replacement until idle and recovers after every fam
   const raw = { ...await f.client.bootstrap('access-1'), transport: 'openrouter-direct' as const, baseUrl: 'https://openrouter.ai/api/v1',
     models: ['openai/gpt-4.1-mini', 'deepseek/deepseek-v3.2'].map(id => ({ id, modality: 'text' as const, capabilities: ['responses'] })), defaults: { text: 'openai/gpt-4.1-mini' } };
   f.client.bootstrap.mockResolvedValue(raw);
-  vi.spyOn(f.client, 'request').mockImplementation(async (path?: string) => path === '/api/v1/client/models' ? { models: raw.models } : { account: raw.account });
+  vi.spyOn(f.client, 'request').mockImplementation(async (path?: string) => path === '/api/v1/client/probe-credentials'
+    ? platformCredentials() : path === '/api/v1/client/models' ? { models: raw.models } : { account: raw.account });
   const grant = await f.service.startAuthorization(); await f.service.pollAuthorization(grant.attemptId);
   active = true; finishProbe();
   await expect.poll(() => f.service.peekState().selectedModels?.text).toBe('deepseek/deepseek-v3.2');
@@ -175,8 +215,8 @@ it('defers a blocked default replacement until idle and recovers after every fam
 
 it('aborts an in-flight availability check on logout without applying a late result', async () => {
   let started = false; let aborted = false;
-  const f = await setup(undefined, undefined, undefined, undefined, root => createOfficialModelAccess({
-    dataDir: root, readProxy: async () => '', fetcher: async (url, options) => {
+  const f = await setup(undefined, undefined, undefined, undefined, (root, readProbeCredentials) => createOfficialModelAccess({
+    dataDir: root, readProbeCredentials, readProxy: async () => '', fetcher: async (url, options) => {
       if (String(url).endsWith('/cdn-cgi/trace')) return new Response('ip=203.0.113.1\nloc=JP\n');
       started = true;
       return new Promise<Response>(resolve => options!.signal!.addEventListener('abort', () => {

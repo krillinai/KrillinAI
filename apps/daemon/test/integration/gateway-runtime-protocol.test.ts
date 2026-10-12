@@ -7,6 +7,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createCodexAppServerHost, type CodexAppServerHost } from '../../src/codex/app-server-host-2026-07-28.js';
 import { createGatewayRuntimeBindings } from '../../src/gateway/runtime-bindings.js';
 import { createDirectRuntime } from '../../src/gateway/direct-runtime.js';
+import { preparePlatformProbe } from '../../src/gateway/platform-probe.js';
+import * as officialFetch from '../../src/gateway/official-fetch.js';
+import { probeCodex } from '../../src/codex/probe.js';
+import type { GatewayAccountState } from '@opencreator/protocol';
 
 const manifest = JSON.parse(readFileSync(resolve(`../../resources/codex-runtime/${process.platform}-${process.arch}/manifest.json`), 'utf8'));
 const codexBin = resolve('../../apps/desktop/.pack/codex-runtime', manifest.binary.relativePath);
@@ -61,7 +65,7 @@ async function fixture(reply: (res: ServerResponse, requests: ModelRequest[]) =>
     cwd: root, sandbox: 'danger-full-access', model: 'gpt-5.2',
     prompt: 'Report the current directory and then say gateway ready.', timeoutMs: 15_000
   });
-  return { binding, prepared, host, requests, run };
+  return { binding, prepared, host, requests, run, root, supplierUrl: `http://127.0.0.1:${address.port}/v1/responses` };
 }
 
 function event(res: ServerResponse, type: string, value: Record<string, unknown>) {
@@ -95,6 +99,58 @@ const message = {
 };
 
 describe('bundled Runtime official gateway boundary', () => {
+  it('runs startup inference with the platform key and user tasks with the user key', async () => {
+    const f = await fixture(res => complete(res, [message]));
+    const fetcher = vi.spyOn(officialFetch, 'createOfficialFetch')
+      .mockReturnValue((_target, options) => fetch(f.supplierUrl, options));
+    cleanup.push(() => { fetcher.mockRestore(); });
+    const account = {
+      readState: async (): Promise<GatewayAccountState> => ({
+        source: 'gateway', authState: 'signed_in', activationState: 'ready',
+        account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: '1',
+        models: [{ id: 'gpt-5.2', modality: 'text', capabilities: ['responses'] }],
+        selectedModels: { text: 'gpt-5.2' }, activationError: null
+      }),
+      probeCredentials: vi.fn(async () => ({
+        costBearer: 'platform' as const, modelKey: 'test-platform-probe-key', keyVersion: 'probe-1',
+        baseUrl: 'https://openrouter.ai/api/v1' as const, expiresAt: new Date(Date.now() + 60_000).toISOString()
+      }))
+    };
+    const prepared = await preparePlatformProbe({ account, readProxy: async () => '' });
+    expect(prepared).toBeDefined();
+    cleanup.push(() => prepared!.cleanup());
+    const result = await probeCodex({
+      codexBin, codexHome: prepared!.codexHome, cwd: join(f.root, 'probe'),
+      baseEnvironment: prepared!.env, timeoutMs: 15_000
+    });
+    expect(result.ready).toBe(true);
+    expect(f.requests).toHaveLength(1);
+    expect(f.requests[0]!.headers.authorization).toBe('Bearer test-platform-probe-key');
+    expect(JSON.stringify(f.requests[0]!.body.input)).toContain('startup availability probe');
+    expect((await f.run().result).turnStatus).toBe('completed');
+    expect(f.requests).toHaveLength(2);
+    expect(f.requests[1]!.headers.authorization).toBe('Bearer test-official-key-a');
+    const home = prepared!.codexHome;
+    await prepared!.cleanup();
+    expect(existsSync(home)).toBe(false);
+  }, 30_000);
+
+  it('waits for platform authorization and fails without submitting a user-funded probe', async () => {
+    const probeCredentials = vi.fn(async () => { throw new Error('platform unavailable'); });
+    const state: GatewayAccountState = {
+      source: 'manual', authState: 'signed_out', activationState: 'inactive',
+      account: null, bindingVersion: null, models: [], activationError: null
+    };
+    const account = { readState: async () => state, probeCredentials };
+    expect(await preparePlatformProbe({ account, readProxy: async () => '' })).toBeUndefined();
+    expect(probeCredentials).not.toHaveBeenCalled();
+    Object.assign(state, {
+      source: 'gateway', authState: 'signed_in', account: { id: 'a', email: 'a@test', verified: true },
+      models: [{ id: 'gpt-5.2', modality: 'text', capabilities: ['responses'] }], selectedModels: { text: 'gpt-5.2' }
+    });
+    await expect(preparePlatformProbe({ account, readProxy: async () => '' })).rejects.toThrow('platform unavailable');
+    expect(probeCredentials).toHaveBeenCalledOnce();
+  });
   it('preserves complete tool history through the direct stateless connection', async () => {
     const f = await fixture((res, requests) => {
       if (requests.length === 1) complete(res, [{ id: 'fc_direct', type: 'function_call', call_id: 'call_direct', name: 'exec_command', arguments: JSON.stringify({ cmd: 'pwd', max_output_tokens: 100 }), status: 'completed' }]);
