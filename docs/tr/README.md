@@ -236,12 +236,6 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > Bu video örnekleri ve altyazı hizalama görseli, OpenCreator hâlâ KrillinAI adını kullanırken üretildi.
 
-### Video Üretimi
-
-Seedance ile metin istemi veya referans görselden video üretin; model, en-boy oranı, çözünürlük ve süreyi ayarlayın, ardından her sürümü önizleyin, yeniden üretin veya indirin.
-
-![Seedance ile OpenCreator video üretimi](../images/examples/video-generation-seedance-en.png)
-
 ### Video İndirme
 
 Herkese açık bir video bağlantısını analiz edin, kullanılabilir formatları karşılaştırın ve video ya da sesi doğrudan projenize indirin.
@@ -270,6 +264,12 @@ Kullanılabilirlik videoya ve bölgeye göre değişir; bazı kaynaklar platform
 **Pinterest video Pin'leri:** Herkese açık `https://www.pinterest.com/pin/<numeric ID>/` bağlantısını yapıştırın. Yalnızca görsel içeren Pin'lerde indirilebilir video formatı bulunmaz; panolar ve profiller desteklenmez.
 
 ![OpenCreator Video Downloader format seçimi](../images/examples/video-downloader-formats-en.png)
+
+### Video Üretimi
+
+Seedance ile metin istemi veya referans görselden video üretin; model, en-boy oranı, çözünürlük ve süreyi ayarlayın, ardından her sürümü önizleyin, yeniden üretin veya indirin.
+
+![Seedance ile OpenCreator video üretimi](../images/examples/video-generation-seedance-en.png)
 
 ### Çöp Adam Animasyonu
 

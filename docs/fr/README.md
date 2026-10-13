@@ -254,12 +254,6 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > Ces exemples vidéo et l'image d'alignement des sous-titres ont été produits lorsqu'OpenCreator utilisait encore le nom KrillinAI.
 
-### Génération vidéo
-
-Générez une vidéo par IA à partir d'un prompt textuel ou d'une image de référence avec Seedance. Configurez le modèle, le format, la résolution et la durée, puis prévisualisez, régénérez ou téléchargez chaque version depuis l'espace de travail du projet.
-
-![Génération vidéo dans OpenCreator avec Seedance](../images/examples/video-generation-seedance-en.png)
-
 ### Téléchargement de vidéos
 
 Analysez un lien vidéo public, comparez les formats disponibles, puis téléchargez la vidéo ou l'audio directement dans le projet.
@@ -288,6 +282,12 @@ La disponibilité dépend de la vidéo et de la région ; certaines sources peuv
 **Épingles vidéo Pinterest :** Collez un lien public `https://www.pinterest.com/pin/<identifiant numérique>/`. Les épingles contenant uniquement des images, les tableaux et les profils ne sont pas pris en charge.
 
 ![Sélection du format dans l'outil de téléchargement vidéo OpenCreator](../images/examples/video-downloader-formats-en.png)
+
+### Génération vidéo
+
+Générez une vidéo par IA à partir d'un prompt textuel ou d'une image de référence avec Seedance. Configurez le modèle, le format, la résolution et la durée, puis prévisualisez, régénérez ou téléchargez chaque version depuis l'espace de travail du projet.
+
+![Génération vidéo dans OpenCreator avec Seedance](../images/examples/video-generation-seedance-en.png)
 
 ### Animation de bonshommes allumettes
 

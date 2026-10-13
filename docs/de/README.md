@@ -254,12 +254,6 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > Diese Videobeispiele und das Bild zur Untertitelausrichtung entstanden, als OpenCreator noch den Namen KrillinAI verwendete.
 
-### Videogenerierung
-
-Erstelle mit Seedance ein KI-Video aus einem Text-Prompt oder Referenzbild. Konfiguriere Modell, Seitenverhältnis, Auflösung und Dauer. Anschließend kannst du jede Version im Projektarbeitsbereich ansehen, neu generieren oder herunterladen.
-
-![OpenCreator Videogenerierung mit Seedance](../images/examples/video-generation-seedance-en.png)
-
 ### Video-Download
 
 Analysiere einen öffentlichen Videolink, vergleiche die verfügbaren Formate und lade Video oder Audio direkt in das Projekt herunter.
@@ -288,6 +282,12 @@ Die Verfügbarkeit hängt vom Video und der Region ab; manche Quellen können Pl
 **Pinterest-Video-Pins:** Füge einen öffentlichen Link `https://www.pinterest.com/pin/<numerische ID>/` ein. Reine Bild-Pins, Pinnwände und Profile werden nicht unterstützt.
 
 ![Formatauswahl im OpenCreator Video-Downloader](../images/examples/video-downloader-formats-en.png)
+
+### Videogenerierung
+
+Erstelle mit Seedance ein KI-Video aus einem Text-Prompt oder Referenzbild. Konfiguriere Modell, Seitenverhältnis, Auflösung und Dauer. Anschließend kannst du jede Version im Projektarbeitsbereich ansehen, neu generieren oder herunterladen.
+
+![OpenCreator Videogenerierung mit Seedance](../images/examples/video-generation-seedance-en.png)
 
 ### Strichmännchen-Animation
 

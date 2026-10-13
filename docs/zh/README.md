@@ -256,12 +256,6 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > 这些视频与字幕对齐图片制作于 OpenCreator 仍使用 KrillinAI 名称的阶段。
 
-### 视频生成
-
-使用 Seedance 根据文本提示词或参考图片生成 AI 视频。设置模型、画面比例、分辨率和时长，然后在项目工作区预览、重新生成或下载各个版本。
-
-![OpenCreator Seedance 视频生成](../images/examples/video-generation-seedance-en.png)
-
 ### 视频下载
 
 解析公开视频链接，比较可用格式，并将视频或音频直接下载到项目中。
@@ -290,6 +284,12 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 **Pinterest 视频 Pin：**粘贴公开的 `https://www.pinterest.com/pin/<数字 ID>/` 链接。纯图片 Pin 没有可下载的视频格式；画板和个人主页暂不支持。
 
 ![OpenCreator 视频下载格式选择](../images/examples/video-downloader-formats-en.png)
+
+### 视频生成
+
+使用 Seedance 根据文本提示词或参考图片生成 AI 视频。设置模型、画面比例、分辨率和时长，然后在项目工作区预览、重新生成或下载各个版本。
+
+![OpenCreator Seedance 视频生成](../images/examples/video-generation-seedance-en.png)
 
 ### 火柴人动画
 
