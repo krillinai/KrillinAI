@@ -259,10 +259,6 @@ Desteklenen video kaynakları:
 
 Kullanılabilirlik videoya ve bölgeye göre değişir; bazı kaynaklar platform çerezleri gerektirebilir.
 
-**Xiaohongshu video gönderileri:** Herkese açık `https://www.xiaohongshu.com/explore/<24-character hex note ID>` URL'sini, varsa `xsec_token` ve diğer sorgu parametreleri dahil eksiksiz yapıştırın. Yalnızca görsel içeren gönderilerde video formatı bulunmaz; profil sayfaları ve `xhslink.com` paylaşım bağlantıları henüz desteklenmez. Bir bağlantının tanınması indirilebileceğini garanti etmez: süresi dolmuş token'lar, erişim kısıtlamaları veya platform değişiklikleri indirmeyi engelleyebilir. OpenCreator tarayıcı çerezlerini otomatik içe aktarmaz.
-
-**Pinterest video Pin'leri:** Herkese açık `https://www.pinterest.com/pin/<numeric ID>/` bağlantısını yapıştırın. Yalnızca görsel içeren Pin'lerde indirilebilir video formatı bulunmaz; panolar ve profiller desteklenmez.
-
 ![OpenCreator Video Downloader format seçimi](../images/examples/video-downloader-formats-en.png)
 
 ### Video Üretimi

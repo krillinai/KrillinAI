@@ -277,10 +277,6 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 이용 가능 여부는 동영상과 지역에 따라 다르며 일부 플랫폼에는 쿠키가 필요할 수 있습니다. OpenCreator는 브라우저 쿠키를 자동으로 가져오지 않습니다.
 
-**Xiaohongshu 동영상 게시물:** 공개 `https://www.xiaohongshu.com/explore/<24자리 16진수 게시물 ID>` 전체 URL을 붙여넣고 `xsec_token` 등의 쿼리 매개변수를 유지하세요. 이미지만 있는 게시물에는 동영상 형식이 없으며 프로필과 `xhslink.com` 단축 링크는 지원하지 않습니다. 만료된 토큰이나 접근 제한으로 다운로드가 실패할 수 있습니다.
-
-**Pinterest 동영상 Pin:** 공개 `https://www.pinterest.com/pin/<숫자 ID>/` 링크를 붙여넣으세요. 이미지만 있는 Pin, 보드 및 프로필은 지원하지 않습니다.
-
 ![OpenCreator 비디오 다운로더 형식 선택](../images/examples/video-downloader-formats-en.png)
 
 ### 동영상 생성
