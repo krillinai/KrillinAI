@@ -39,15 +39,22 @@ export function PlatformConnectionsSettingsView(props: { connected: boolean; ser
   }
 
   const service = props.service;
-  const disabled = !props.connected || !service || busy;
+  const disabled = !props.connected || !service || !state || busy;
   const connecting = state?.status === 'connecting';
   const connected = state?.status === 'connected';
-  const profiles = state?.profiles ?? [];
+  const managed = state?.connectionMethod === 'browser-login';
+  const profiles = managed ? [] : state?.profiles ?? [];
   const profileId = profiles.some(profile => profile.id === selectedProfile) ? selectedProfile
-    : state?.profileId ?? profiles[0]?.id;
-  const label = connected ? l('已连接', 'Connected') : connecting ? l('正在读取浏览器登录态', 'Reading browser session')
+    : profiles.find(profile => profile.id === state?.profileId)?.id ?? profiles[0]?.id;
+  const awaitingLogin = connecting && !!state?.actionRequired;
+  const label = connected ? l('已连接', 'Connected') : connecting ? state?.message ?? l('正在读取浏览器登录态', 'Reading browser session')
     : state?.status === 'expired' ? l('登录已过期', 'Session expired') : state?.status === 'error' ? l('连接失败', 'Connection failed')
     : l('未连接', 'Disconnected');
+
+  async function connect() {
+    if (!service || disabled) return;
+    void act(() => service.connectYouTube(profileId));
+  }
 
   return <section className="settings-section" aria-labelledby="platform-connections-title">
     <header><h1 id="platform-connections-title">{l('平台连接', 'Platform connections')}</h1></header>
@@ -62,15 +69,17 @@ export function PlatformConnectionsSettingsView(props: { connected: boolean; ser
           onChange={event => setSelectedProfile(event.target.value)}>
           {profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.label}</option>)}
         </select> : null}
+        {awaitingLogin ? <button type="button" disabled={disabled} onClick={() => service && void act(service.completeYouTubeLogin)}>
+          <CheckCircle2 size={16} />{l('完成登录', 'Finish sign-in')}</button> : null}
         {connecting ? <button type="button" disabled={disabled} onClick={() => service && void act(service.cancelYouTube)}><X size={16} />{l('取消', 'Cancel')}</button>
-          : <button type="button" disabled={disabled} onClick={() => service && void act(() => service.connectYouTube(profileId))}>
+          : <button type="button" disabled={disabled} onClick={() => void connect()}>
             {connected || state?.status === 'expired' ? <RefreshCw size={16} /> : <Link2 size={16} />}
             {connected || state?.status === 'expired' ? l('重新连接', 'Reconnect') : l('连接', 'Connect')}</button>}
         {connected || state?.status === 'expired' ? <button type="button" disabled={disabled} onClick={() => service && void act(service.disconnectYouTube)}><Unlink size={16} />{l('断开', 'Disconnect')}</button> : null}
         {!connecting ? <button type="button" disabled={disabled} aria-label={l('导入 Cookie 文件', 'Import cookie file')} title={l('导入 Cookie 文件', 'Import cookie file')} onClick={() => fileInput.current?.click()}><Upload size={16} /></button> : null}
       </div>
     </div>
-    {state?.message ? <p role="status">{state.message}</p> : null}
+    {state?.message && !connecting ? <p role="status">{state.message}</p> : null}
     {error ? <p role="alert">{error}</p> : null}
     <input ref={fileInput} type="file" accept=".txt" hidden onChange={event => {
       const file = event.currentTarget.files?.[0]; event.currentTarget.value = '';
