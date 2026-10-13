@@ -14,7 +14,7 @@ test('视频翻译显示全部下载来源并接受抖音分享文本', async ({
   await runtime.openApp(page);
   await page.goto(`${runtime.origin}/#/workbench?tool=video-translation&jobId=${encodeURIComponent(job.id)}`);
   const platforms = page.getByRole('list', { name: '支持的平台' });
-  await expect(platforms.locator('li')).toHaveCount(9);
+  await expect(platforms.locator('li')).toHaveCount(10);
   await expect.poll(() => platforms.locator('img').evaluateAll(images => images.every(image => (
     (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0
   )))).toBe(true);

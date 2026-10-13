@@ -1,4 +1,5 @@
 import { expect, test as base, type Page } from '@playwright/test';
+import type { CreatorActionRequest, CreatorJob } from '@opencreator/protocol';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import {
   copyFileSync,
@@ -470,6 +471,22 @@ export const test = base.extend<TestFixtures>({
 });
 
 export { expect };
+
+// Keep creation and persistence real while avoiding external video platforms.
+export async function stubVideoDownloadProbe(page: Page, runtime: RuntimeFixture): Promise<void> {
+  await page.route('**/creator/jobs/*/actions', async route => {
+    const request = route.request();
+    if (request.method() !== 'POST') return route.continue();
+    const action = request.postDataJSON() as CreatorActionRequest;
+    if (action.action !== 'run-stage' || action.input.stageId !== 'probe') return route.continue();
+    const jobId = new URL(request.url()).pathname.split('/').at(-2)!;
+    const { job } = await runtime.api<{ job: CreatorJob }>('GET', `/creator/jobs/${jobId}`);
+    await route.fulfill({ json: { job, receipt: {
+      actor: action.actor ?? 'user', action: action.action, summary: action.action,
+      affectedArtifacts: [], newRevision: job.revision, createdAt: job.updatedAt
+    } } });
+  });
+}
 
 function isYtDlpStatusUrl(value: string): boolean {
   try {
