@@ -540,6 +540,7 @@ export async function buildServer(input: BuildServerInput) {
   let officialInjectors: Record<string, import('../agent-tools/run-injection.js').AgentScheduleProcessInjector> = {};
   const gatewayAccount: GatewayAccountService = createGatewayAccountService({
     dataDir, client: gatewayClient,
+    deferStartupActivation: true,
     modelAccess: createOfficialModelAccess({
       dataDir, fetcher: createOfficialFetch({ readProxy: readCommonProxy }), readProxy: readCommonProxy,
       readProbeCredentials: () => gatewayAccount.probeCredentials()
@@ -581,6 +582,7 @@ export async function buildServer(input: BuildServerInput) {
       }
     }
   });
+  await gatewayAccount.initialize();
   const creatorAgentRepository = createCreatorAgentRepository(db);
   const creatorAgentReconciler = createCreatorAgentReconciler({
     repository: creatorAgentRepository
@@ -1227,18 +1229,6 @@ export async function buildServer(input: BuildServerInput) {
         creator: creatorService,
         dispatcher: creatorCommandDispatcher
       });
-  void coverWorkflow?.recover().catch(error => {
-    console.warn(`Cover workflow recovery failed: ${formatError(error)}`);
-  });
-  void videoTranslationWorkflow?.recover().catch(error => {
-    console.warn(`Video translation workflow recovery failed: ${formatError(error)}`);
-  });
-  void stickmanVideoWorkflow?.recover().catch(error => {
-    console.warn(`Stickman video workflow recovery failed: ${formatError(error)}`);
-  });
-  void autoClipWorkflow?.recover().catch(error => {
-    console.warn(`Video clip workflow recovery failed: ${formatError(error)}`);
-  });
   const scheduleRunInjector = createAgentScheduleRunInjector({
     capabilities: agentCapabilityTokens,
     getBaseUrl: getAgentToolBaseUrl,
@@ -1413,7 +1403,28 @@ export async function buildServer(input: BuildServerInput) {
     throw error;
   });
 
+  let closing = false;
+  let backgroundStartup: Promise<void> | undefined;
   server.addHook('onListen', () => {
+    backgroundStartup = (async () => {
+      await gatewayAccount.startBackgroundRestore();
+      if (closing) return;
+      void coverWorkflow?.recover().catch(error => {
+        console.warn(`Cover workflow recovery failed: ${formatError(error)}`);
+      });
+      void videoTranslationWorkflow?.recover().catch(error => {
+        console.warn(`Video translation workflow recovery failed: ${formatError(error)}`);
+      });
+      void stickmanVideoWorkflow?.recover().catch(error => {
+        console.warn(`Stickman video workflow recovery failed: ${formatError(error)}`);
+      });
+      void autoClipWorkflow?.recover().catch(error => {
+        console.warn(`Video clip workflow recovery failed: ${formatError(error)}`);
+      });
+      if (input.schedulerAutostart === true) scheduler.start();
+    })().catch(error => {
+      console.warn(`Background startup failed: ${formatError(error)}`);
+    });
     if (
       startKrillinVerification === undefined
       || !hasKrillinRuntimeVerificationWorker()
@@ -1426,9 +1437,11 @@ export async function buildServer(input: BuildServerInput) {
   });
 
   server.addHook('onClose', async () => {
+    closing = true;
     await youtubeConnection.close();
     await douyinConnection.close();
     await gatewayAccount.close();
+    await backgroundStartup;
     let firstError: unknown;
     const capture = async (operation: () => void | Promise<void>) => {
       try {
@@ -1562,7 +1575,6 @@ export async function buildServer(input: BuildServerInput) {
       : localCodexTextModelDefaults.readStatus(),
     storedCreatorServicesConfigStore
   );
-  await gatewayAccount.readState();
   await registerGatewayAccountRoutes(server, gatewayAccount);
   await gatewayCreatorSource.register(server);
   await registerSmartDubbingRoutes(server, smartDubbingService);
@@ -1650,7 +1662,6 @@ export async function buildServer(input: BuildServerInput) {
     }
   });
 
-  if (input.schedulerAutostart === true) scheduler.start();
   input.onPrepareAvailabilityProbe?.(() => preparePlatformProbe({ account: gatewayAccount, readProxy: readCommonProxy }));
   return server;
 }

@@ -185,7 +185,7 @@ describe('App', () => {
     }
   );
 
-  it.each(['ready', 'blocked'] as const)('enters the application after gateway sign-in with %s activation and never asks for provider credentials', async activationState => {
+  it.each(['ready', 'blocked', 'loading'] as const)('enters the application after gateway sign-in with %s activation and never asks for provider credentials', async activationState => {
     window.localStorage.clear();
     writeCachedModelCatalog({ models: [{ ...createCodexModelListResponse().models[0]!, id: 'personal-model', model: 'personal-model', displayName: 'Personal cached model', isDefault: true }] });
     const user = userEvent.setup();
@@ -228,6 +228,10 @@ describe('App', () => {
       expect(screen.getByText('已登录，模型服务暂不可用。')).toBeInTheDocument();
       await user.click(within(screen.getByText('已登录，模型服务暂不可用。').parentElement!).getByRole('button', { name: '账户' }));
       await waitFor(() => expect(window.location.hash).toBe('#/account'));
+    }
+    if (activationState === 'loading') {
+      expect(screen.getByText('已登录，正在连接模型服务…')).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: '输入任务' })).toBeDisabled();
     }
   });
 
