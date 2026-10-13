@@ -71,7 +71,7 @@ Dashboard'u açarak makale, Xiaohongshu gönderisi ve kısa video senaryosu yaz�
 | Çalışma alanı | Durum | Yetenekler |
 | --- | --- | --- |
 | Video Translation | ✅ Kullanılabilir | Yerel veya herkese açık videoları içe aktarma; bulut ya da yerel Whisper ile transkripsiyon; altyazı bölümlendirme, hizalama, terminoloji ve çeviri için LLM bağlamı; çift dilli altyazı, dublaj, özel ses örneği, altyazı stili ve yatay/dikey kompozisyon; SRT, ses veya video dışa aktarma |
-| Video Downloader | ✅ Kullanılabilir | YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu ve Pinterest'teki tekil herkese açık videoları analiz etme; formatları karşılaştırma; video veya ses indirme. Bazı kaynaklar platform çerezleri gerektirebilir |
+| Video Downloader | ✅ Kullanılabilir | YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest ve Reddit'teki tekil herkese açık videoları analiz etme; formatları karşılaştırma; video veya ses indirme. Bazı kaynaklar platform çerezleri gerektirebilir |
 | Thumbnail Generator | ✅ Kullanılabilir | Konu, video bağlantısı ve isteğe bağlı referans görselden küçük resim varyasyonları üretme |
 | Image Generation | ✅ Kullanılabilir | İstem ve isteğe bağlı referans görselle GPT Image kullanarak görsel üretme; oran ve çıktı sayısını ayarlama; görselleri tek tek önizleme ve indirme |
 | Article Writer | ✅ Kullanılabilir | Konu, bağlantı, video veya belgelerden konu seçenekleri, taslak ve makale üretme; görseller ekleyip Markdown, HTML veya PDF dışa aktarma |
@@ -259,6 +259,7 @@ Desteklenen video kaynakları:
     <td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
     <td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="32" height="32" /><br /><strong>Xiaohongshu</strong></td>
     <td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
+    <td align="center" width="96"><img src="../images/platforms/reddit.png" alt="Reddit" width="32" height="32" /><br /><strong>Reddit</strong></td>
   </tr>
 </table>
 

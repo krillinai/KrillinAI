@@ -87,7 +87,7 @@ Web — единственная реализация фронтенда. Deskto
 </thead>
 <tbody>
 <tr><td valign="top">Перевод видео</td><td valign="top">✅ Доступно</td><td>Импортируйте локальные или общедоступные видео; расшифровывайте их с помощью облачных или локальных сервисов Whisper; используйте контекст LLM для сегментации и выравнивания субтитров, работы с терминологией и перевода; настраивайте двуязычные субтитры, озвучивание или собственный образец голоса, стили субтитров, горизонтальную или вертикальную компоновку и экспортируйте SRT, аудио или видео</td></tr>
-<tr><td valign="top">Загрузка видео</td><td valign="top">✅ Доступно</td><td>Анализируйте отдельные общедоступные видео YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu и Pinterest, сравнивайте форматы и скачивайте видео или аудио. Для некоторых платформ могут потребоваться cookie</td></tr>
+<tr><td valign="top">Загрузка видео</td><td valign="top">✅ Доступно</td><td>Анализируйте отдельные общедоступные видео YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest и Reddit, сравнивайте форматы и скачивайте видео или аудио. Для некоторых платформ могут потребоваться cookie</td></tr>
 <tr><td valign="top">Генерация обложек</td><td valign="top">✅ Доступно</td><td>Объедините тему, ссылку на видео и необязательное референсное изображение, чтобы создать и сравнить несколько вариантов обложек для контента</td></tr>
 <tr><td valign="top">Генерация изображений</td><td valign="top">✅ Доступно</td><td>Создавайте изображения с помощью GPT Image по промпту и необязательному референсному изображению, настраивайте соотношение сторон и количество результатов, затем просматривайте и загружайте отдельные изображения</td></tr>
 <tr><td valign="top">Создание статей</td><td valign="top">✅ Доступно</td><td>Превращайте темы, ссылки, видео или документы в редактируемые варианты тем, план и статью; добавляйте изображения и экспортируйте в Markdown, HTML или PDF.</td></tr>
@@ -277,6 +277,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
     <td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
     <td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="32" height="32" /><br /><strong>Xiaohongshu</strong></td>
     <td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
+    <td align="center" width="96"><img src="../images/platforms/reddit.png" alt="Reddit" width="32" height="32" /><br /><strong>Reddit</strong></td>
   </tr>
 </table>
 

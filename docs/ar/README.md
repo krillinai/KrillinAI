@@ -87,7 +87,7 @@
 </thead>
 <tbody>
 <tr><td valign="top">ترجمة الفيديو</td><td valign="top">✅ متاح</td><td>استورد مقاطع فيديو محلية أو عامة؛ وحوّل الكلام إلى نص باستخدام خدمات Whisper السحابية أو المحلية؛ واستخدم سياق LLM لتقسيم الترجمات ومحاذاتها ومعالجة المصطلحات والترجمة؛ واضبط الترجمات ثنائية اللغة أو الدبلجة أو عينة صوت مخصصة وأنماط الترجمة والتنسيق الأفقي أو العمودي، ثم صدّر SRT أو الصوت أو الفيديو</td></tr>
-<tr><td valign="top">تنزيل الفيديو</td><td valign="top">✅ متاح</td><td>حلّل مقاطع الفيديو العامة الفردية من YouTube وBilibili وX وTikTok وInstagram وDouyin وFacebook وXiaohongshu وPinterest، وقارن التنسيقات المتاحة ونزّل الفيديو أو الصوت. قد تتطلب بعض المنصات ملفات تعريف الارتباط</td></tr>
+<tr><td valign="top">تنزيل الفيديو</td><td valign="top">✅ متاح</td><td>حلّل مقاطع الفيديو العامة الفردية من YouTube وBilibili وX وTikTok وInstagram وDouyin وFacebook وXiaohongshu وPinterest وReddit، وقارن التنسيقات المتاحة ونزّل الفيديو أو الصوت. قد تتطلب بعض المنصات ملفات تعريف الارتباط</td></tr>
 <tr><td valign="top">إنشاء الصور المصغرة</td><td valign="top">✅ متاح</td><td>ادمج موضوعًا ورابط فيديو وصورة مرجعية اختيارية لإنشاء عدة خيارات من الصور المصغرة للمحتوى ومقارنتها</td></tr>
 <tr><td valign="top">توليد الصور</td><td valign="top">✅ متاح</td><td>أنشئ صورًا باستخدام GPT Image انطلاقًا من prompt وصورة مرجعية اختيارية، واضبط نسبة العرض إلى الارتفاع وعدد النتائج، ثم عاين كل صورة ونزّلها</td></tr>
 <tr><td valign="top">كتابة المقالات</td><td valign="top">✅ متاح</td><td>حوّل موضوعًا أو روابط أو فيديوهات أو مستندات إلى أفكار ومخطط ومقال قابل للتحرير؛ أضف صورًا وصدّر بصيغ Markdown أو HTML أو PDF.</td></tr>
@@ -277,6 +277,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
     <td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
     <td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="32" height="32" /><br /><strong>Xiaohongshu</strong></td>
     <td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
+    <td align="center" width="96"><img src="../images/platforms/reddit.png" alt="Reddit" width="32" height="32" /><br /><strong>Reddit</strong></td>
   </tr>
 </table>
 

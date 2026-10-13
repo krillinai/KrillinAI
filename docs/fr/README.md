@@ -87,7 +87,7 @@ Ouvrez le Dashboard pour traduire ou télécharger des vidéos, générer des mi
 </thead>
 <tbody>
 <tr><td valign="top">Traduction vidéo</td><td valign="top">✅ Disponible</td><td>Importez des vidéos locales ou publiques ; transcrivez-les avec des services Whisper locaux ou dans le cloud ; utilisez le contexte d'un LLM pour segmenter et aligner les sous-titres, gérer la terminologie et traduire ; configurez des sous-titres bilingues, un doublage ou un échantillon vocal personnalisé, le style des sous-titres et une composition horizontale ou verticale, puis exportez au format SRT, audio ou vidéo</td></tr>
-<tr><td valign="top">Téléchargement de vidéos</td><td valign="top">✅ Disponible</td><td>Analysez des vidéos publiques individuelles de YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu et Pinterest ; comparez les formats disponibles et téléchargez la vidéo ou l'audio. Certaines plateformes peuvent nécessiter des cookies</td></tr>
+<tr><td valign="top">Téléchargement de vidéos</td><td valign="top">✅ Disponible</td><td>Analysez des vidéos publiques individuelles de YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest et Reddit ; comparez les formats disponibles et téléchargez la vidéo ou l'audio. Certaines plateformes peuvent nécessiter des cookies</td></tr>
 <tr><td valign="top">Génération de miniatures</td><td valign="top">✅ Disponible</td><td>Combinez un sujet, un lien vidéo et une image de référence facultative pour générer et comparer plusieurs variantes de miniatures de contenu</td></tr>
 <tr><td valign="top">Génération d'images</td><td valign="top">✅ Disponible</td><td>Générez des images avec GPT Image à partir d'un prompt et d'une image de référence facultative, configurez le format et le nombre de résultats, puis prévisualisez et téléchargez chaque image</td></tr>
 <tr><td valign="top">Rédaction d’articles</td><td valign="top">✅ Disponible</td><td>Transformez un sujet, des liens, des vidéos ou des documents en choix de sujets, plan et article modifiables ; ajoutez des images et exportez en Markdown, HTML ou PDF.</td></tr>
@@ -277,6 +277,7 @@ Sources vidéo prises en charge :
     <td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
     <td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="32" height="32" /><br /><strong>Xiaohongshu</strong></td>
     <td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
+    <td align="center" width="96"><img src="../images/platforms/reddit.png" alt="Reddit" width="32" height="32" /><br /><strong>Reddit</strong></td>
   </tr>
 </table>
 
