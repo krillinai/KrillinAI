@@ -6,7 +6,7 @@ const poster = Buffer.from(
   'base64'
 );
 
-test('字幕样式预览显示视频封面并按源比例或竖屏输出比例排版', async ({ page, runtime }) => {
+test('字幕样式预览显示视频封面并按源比例或竖屏输出比例排版', async ({ page, runtime }, testInfo) => {
   await page.route('**/video-metadata?*', route => route.fulfill({
     json: {
       platform: 'bilibili',
@@ -43,14 +43,38 @@ test('字幕样式预览显示视频封面并按源比例或竖屏输出比例�
   const image = preview.locator('img.video-translation-subtitle-preview-media');
   const frame = preview.locator(':scope > div');
   const settings = page.locator('.video-translation-wizard-main .video-translation-wizard-body');
+  const subtitles = preview.locator('img.video-translation-subtitle-rendered-preview');
   await expect(preview).toHaveAttribute('data-ratio', '4:3');
   await expect(image).toBeVisible();
   await expect.poll(() => image.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await expect(subtitles).toBeVisible();
+  await expect.poll(() => subtitles.evaluate(element => {
+    const img = element as HTMLImageElement;
+    if (!img.complete || img.naturalWidth === 0) return 0;
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, 0);
+    const rgba = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let painted = 0;
+    for (let offset = 3; offset < rgba.length; offset += 4) if (rgba[offset]! > 0) painted++;
+    return painted;
+  })).toBeGreaterThan(100);
+  const initialSource = await subtitles.getAttribute('src');
+  await page.getByRole('combobox', { name: '字幕字体' }).selectOption('serif');
+  await expect.poll(() => subtitles.getAttribute('src')).not.toBe(initialSource);
+  await expect.poll(() => subtitles.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(960);
+  await expect.poll(() => subtitles.evaluate(element => (element as HTMLImageElement).naturalHeight)).toBe(720);
+  const initialBox = await frame.boundingBox();
+  expect(initialBox!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  await preview.screenshot({ path: testInfo.outputPath('subtitle-style-preview.png') });
+  await page.screenshot({ path: testInfo.outputPath('subtitle-style-source.png'), fullPage: true });
   await page.setViewportSize({ width: 1920, height: 1000 });
   await expect.poll(() => settings.evaluate(element => element.getBoundingClientRect().width)).toBeGreaterThan(720);
   expect(await frame.evaluate(element => {
     const overlay = getComputedStyle(element, '::after');
-    const cues = element.querySelector('.video-translation-subtitle-preview-cues');
+    const cues = element.querySelector('.video-translation-subtitle-rendered-preview, .video-translation-subtitle-preview-status');
     return {
       background: overlay.backgroundColor,
       overlayLayer: overlay.zIndex,
@@ -71,6 +95,9 @@ test('字幕样式预览显示视频封面并按源比例或竖屏输出比例�
   await page.getByRole('combobox', { name: '输出画幅' }).selectOption('vertical');
   await expect(preview).toHaveAttribute('data-ratio', '9:16');
   await expect(preview).toHaveAttribute('data-converted', 'true');
+  await expect(subtitles).toBeVisible();
+  await expect.poll(() => subtitles.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(540);
+  await expect.poll(() => subtitles.evaluate(element => (element as HTMLImageElement).naturalHeight)).toBe(960);
   const verticalBox = await frame.boundingBox();
   expect(verticalBox).not.toBeNull();
   expect(verticalBox!.width / verticalBox!.height).toBeCloseTo(9 / 16, 1);

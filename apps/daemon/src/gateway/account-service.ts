@@ -1,7 +1,7 @@
 import type { GatewayAccountState, GatewayBalanceSnapshot, GatewayBalanceState, ServiceSource } from '@opencreator/protocol';
 import { z } from 'zod';
 import { createGatewayConfigStore, type GatewayCredentials } from './config-store.js';
-import { accountSchema, bootstrapSchema, catalogSchema, GatewayError, type GatewayBootstrap, type GatewayClient, type GatewayDeviceGrant } from './client.js';
+import { accountSchema, bootstrapSchema, catalogSchema, probeCredentialsSchema, GatewayError, type GatewayBootstrap, type GatewayClient, type GatewayDeviceGrant, type GatewayProbeCredentials } from './client.js';
 import { officialModelPolicy, withModelCatalog, type OfficialModelAccess } from './model-access.js';
 
 export function createGatewayAccountService(input: {
@@ -30,7 +30,8 @@ export function createGatewayAccountService(input: {
   let mutation = Promise.resolve();
   let selectedModels: Record<string, string> = {};
   let localUses = 0;
-  let probeUses = 0;
+  let platformProbeCredentials: GatewayProbeCredentials | undefined;
+  let platformProbeWork: Promise<GatewayProbeCredentials> | undefined;
   let accessWork: Promise<void> | undefined;
   let accessController: AbortController | undefined;
   let accessUpdatedAt = 0;
@@ -72,23 +73,20 @@ export function createGatewayAccountService(input: {
     accessUpdatedAt = Date.now();
     const controller = new AbortController(); accessController = controller;
     accessWork = (async () => {
-      const use = await acquireModelUse(true);
-      try {
-        const original = bootstrapSchema.parse(assertSignedIn()); const expected = generation;
-        await input.modelAccess!.refresh(original, controller.signal, async () => {
-          await serialize(async () => {
-            if (controller.signal.aborted || closing || generation !== expected || state.authState !== 'signed_in'
-              || credentials?.account?.id !== original.account.id || credentials.keyVersion !== original.keyVersion) return;
-            const next = input.modelAccess!.filter(withModelCatalog(bootstrapSchema.parse(credentials), officialModelPolicy(credentials.models ?? [])));
-            if (JSON.stringify(state.models) !== JSON.stringify(next.models) || JSON.stringify(state.selectedModels) !== JSON.stringify(next.defaults)) {
-              credentials = { ...credentials, defaults: next.defaults };
-              selectedModels = { ...next.defaults }; state.selectedModels = { ...selectedModels }; state.models = next.models;
-              await store.writeCredentials(credentials); await saveConfiguration();
-            }
-            await synchronizeAccessibleRuntime();
-          });
+      const original = bootstrapSchema.parse(assertSignedIn()); const expected = generation;
+      await input.modelAccess!.refresh(original, controller.signal, async () => {
+        await serialize(async () => {
+          if (controller.signal.aborted || closing || generation !== expected || state.authState !== 'signed_in'
+            || credentials?.account?.id !== original.account.id || credentials.keyVersion !== original.keyVersion) return;
+          const next = input.modelAccess!.filter(withModelCatalog(bootstrapSchema.parse(credentials), officialModelPolicy(credentials.models ?? [])));
+          if (JSON.stringify(state.models) !== JSON.stringify(next.models) || JSON.stringify(state.selectedModels) !== JSON.stringify(next.defaults)) {
+            credentials = { ...credentials, defaults: next.defaults };
+            selectedModels = { ...next.defaults }; state.selectedModels = { ...selectedModels }; state.models = next.models;
+            await store.writeCredentials(credentials); await saveConfiguration();
+          }
+          await synchronizeAccessibleRuntime();
         });
-      } finally { await use.release(); }
+      });
     })().catch(() => undefined).finally(() => { if (accessController === controller) accessController = undefined; accessWork = undefined; });
   }
   function initialize(): Promise<void> {
@@ -120,7 +118,12 @@ export function createGatewayAccountService(input: {
         credentials = { ...original, ...tokens, accessExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000).toISOString() };
         await store.writeCredentials(credentials);
       } catch (error) {
-        if (error instanceof GatewayError && error.status === 401) { state.authState = 'expired'; await input.closeRuntime(); }
+        if (error instanceof GatewayError && error.status === 401 && generation === expected && credentials === original && state.authState === 'signed_in') {
+          state = { ...state, authState: 'expired', activationState: 'inactive', bindingVersion: null, activationError: null };
+          runtimeTextModel = undefined; accessController?.abort();
+          clearInterval(usageTimer); usageTimer = undefined;
+          await input.closeRuntime();
+        }
         throw error;
       }
     })();
@@ -262,6 +265,7 @@ export function createGatewayAccountService(input: {
           }
         }
         credentials = { ...tokens, accessExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000).toISOString() };
+        platformProbeCredentials = undefined; platformProbeWork = undefined;
         await store.writeCredentials(credentials);
         if (generation !== current.generation || attempt !== current) return;
         state.source = 'gateway'; state.authState = 'signed_in'; attempt = undefined;
@@ -277,20 +281,35 @@ export function createGatewayAccountService(input: {
       fail(error); await cancelAuthorization();
     }
   }
-  async function readModelCredentials(probing = false): Promise<{ accountId: string; modelKey: string; keyVersion: string; bindingVersion: string; baseUrl: string; transport?: GatewayBootstrap['transport']; models: GatewayBootstrap['models']; defaults: Record<string, string> }> {
+  async function readModelCredentials(): Promise<{ accountId: string; modelKey: string; keyVersion: string; bindingVersion: string; baseUrl: string; transport?: GatewayBootstrap['transport']; models: GatewayBootstrap['models']; defaults: Record<string, string> }> {
     await initialize(); await refresh();
     const value = assertSignedIn();
-    if (state.source !== 'gateway' || (!probing && state.activationState !== 'ready') || !value.account || !value.modelKey || !value.keyVersion || !value.bindingVersion || !value.baseUrl || !value.models || !value.defaults) throw new GatewayError('services_not_ready');
+    if (state.source !== 'gateway' || state.activationState !== 'ready' || !value.account || !value.modelKey || !value.keyVersion || !value.bindingVersion || !value.baseUrl || !value.models || !value.defaults) throw new GatewayError('services_not_ready');
     return { accountId: value.account.id, modelKey: value.modelKey, keyVersion: value.keyVersion, bindingVersion: value.bindingVersion, baseUrl: value.baseUrl, transport: value.transport, models: structuredClone(state.models), defaults: { ...value.defaults } };
   }
   const modelCredentials = () => readModelCredentials();
+  async function probeCredentials(): Promise<GatewayProbeCredentials> {
+    await initialize(); await refresh();
+    const current = assertSignedIn(); const expected = generation;
+    if (platformProbeCredentials && Date.parse(platformProbeCredentials.expiresAt) > Date.now() + 60_000) return platformProbeCredentials;
+    if (platformProbeWork) return platformProbeWork;
+    const work = (async () => {
+      const value = probeCredentialsSchema.parse(await input.client.request('/api/v1/client/probe-credentials', current.accessToken, {}));
+      if (generation !== expected || state.authState !== 'signed_in' || credentials?.account?.id !== current.account?.id) throw new GatewayError('auth_required', 401);
+      if (value.modelKey === credentials?.modelKey || Date.parse(value.expiresAt) <= Date.now()) throw new GatewayError('services_not_ready');
+      platformProbeCredentials = value;
+      return value;
+    })();
+    platformProbeWork = work;
+    try { return await work; } finally { if (platformProbeWork === work) platformProbeWork = undefined; }
+  }
   function reportUsage() {
     const result = usageMutation.then(async () => {
       if (!credentials?.keyRotation || !credentials.keyVersion || state.authState !== 'signed_in') return undefined;
       await refresh();
       const current = assertSignedIn(); const expected = generation;
       const value = z.object({ keyVersion: z.string().min(1) }).parse(await input.client.request('/api/v1/client/usage', current.accessToken, {
-        keyVersion: current.keyVersion, installationId: await store.readDeviceID(), busy: localUses > 0 || probeUses > 0 || input.hasActiveTasks(), pending: input.hasPendingTasks?.() === true
+        keyVersion: current.keyVersion, installationId: await store.readDeviceID(), busy: localUses > 0 || input.hasActiveTasks(), pending: input.hasPendingTasks?.() === true
       }));
       if (generation !== expected || state.authState !== 'signed_in') throw new GatewayError('auth_required', 401);
       return value.keyVersion;
@@ -318,13 +337,13 @@ export function createGatewayAccountService(input: {
     selectedModels = { ...visible.defaults }; state.selectedModels = { ...selectedModels };
     await saveConfiguration();
   }
-  async function acquireModelUse(probing = false) {
-    await readModelCredentials(probing);
-    if (probing) probeUses++; else localUses++;
+  async function acquireModelUse() {
+    await readModelCredentials();
+    localUses++;
     let released = false;
     const release = async () => {
       if (released) return;
-      released = true; if (probing) probeUses--; else localUses--;
+      released = true; localUses--;
       await reportUsage().catch(() => undefined);
     };
     try {
@@ -336,7 +355,7 @@ export function createGatewayAccountService(input: {
         version = await reportUsage();
       }
       if (version && version !== credentials?.keyVersion) await synchronizeBinding();
-      return { credentials: await readModelCredentials(probing), release };
+      return { credentials: await readModelCredentials(), release };
     } catch (error) { await release(); throw error; }
   }
   const beginModelUse = () => acquireModelUse();
@@ -354,7 +373,7 @@ export function createGatewayAccountService(input: {
       runtimeTextModel = undefined;
       if (credentials) await input.client.logout(credentials.accessToken).catch(() => undefined);
       await store.deleteCredentials(); state.source = 'manual'; state.bindingVersion = null; await saveConfiguration();
-      credentials = undefined; balance = null; profileUpdatedAt = 0; catalogUpdatedAt = 0; accessUpdatedAt = 0; accessBlocked = false;
+      credentials = undefined; platformProbeCredentials = undefined; balance = null; profileUpdatedAt = 0; catalogUpdatedAt = 0; accessUpdatedAt = 0; accessBlocked = false;
       state = { ...state, authState: 'signed_out', activationState: 'inactive', account: null, models: [], bindingVersion: null, activationError: null };
     }).finally(() => { accessPaused = false; });
   }
@@ -367,7 +386,7 @@ export function createGatewayAccountService(input: {
   }
   return {
     peekState() { return structuredClone(state); },
-    startAuthorization, cancelAuthorization, pollAuthorization, checkAuthorization, refresh, logout, modelCredentials, beginModelUse, readBalance, billing,
+    startAuthorization, cancelAuthorization, pollAuthorization, checkAuthorization, refresh, logout, modelCredentials, beginModelUse, probeCredentials, readBalance, billing,
     readPlans() { return input.client.request('/api/v1/plans', ''); },
     async readAvatar(accountId: string) {
       await initialize(); await refresh();
