@@ -87,7 +87,7 @@ Abre el Dashboard para traducir o descargar vídeos, generar miniaturas o imáge
 </thead>
 <tbody>
 <tr><td valign="top">Traducción de vídeos</td><td valign="top">✅ Disponible</td><td>Importa vídeos locales o públicos; transcribe con servicios Whisper locales o en la nube; utiliza el contexto de un LLM para segmentar y alinear subtítulos, gestionar terminología y traducir; configura subtítulos bilingües, doblaje o una muestra de voz personalizada, estilos de subtítulos y composición horizontal o vertical, y exporta SRT, audio o vídeo</td></tr>
-<tr><td valign="top">Descarga de vídeos</td><td valign="top">✅ Disponible</td><td>Analiza vídeos públicos individuales de YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu y Pinterest; compara los formatos disponibles y descarga vídeo o audio. Algunas plataformas pueden requerir cookies</td></tr>
+<tr><td valign="top">Descarga de vídeos</td><td valign="top">✅ Disponible</td><td>Analiza vídeos públicos individuales de YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest y Reddit; compara los formatos disponibles y descarga vídeo o audio. Algunas plataformas pueden requerir cookies</td></tr>
 <tr><td valign="top">Generación de miniaturas</td><td valign="top">✅ Disponible</td><td>Combina un tema, un enlace de vídeo y una imagen de referencia opcional para generar y comparar varias propuestas de miniaturas de contenido</td></tr>
 <tr><td valign="top">Generación de imágenes</td><td valign="top">✅ Disponible</td><td>Genera imágenes con GPT Image a partir de un prompt y una imagen de referencia opcional, configura la relación de aspecto y la cantidad de resultados y, después, previsualiza y descarga cada imagen</td></tr>
 <tr><td valign="top">Redacción de artículos</td><td valign="top">✅ Disponible</td><td>Convierte temas, enlaces, vídeos o documentos en opciones de tema, esquema y artículo editables; añade imágenes y exporta a Markdown, HTML o PDF.</td></tr>
@@ -277,6 +277,7 @@ Fuentes de vídeo compatibles:
     <td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
     <td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="32" height="32" /><br /><strong>Xiaohongshu</strong></td>
     <td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
+    <td align="center" width="96"><img src="../images/platforms/reddit.png" alt="Reddit" width="32" height="32" /><br /><strong>Reddit</strong></td>
   </tr>
 </table>
 

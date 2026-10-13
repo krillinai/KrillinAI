@@ -87,7 +87,7 @@ Die aktuelle Version enthält sechs Kreativwerkzeuge. Verfügbare Modelle und Di
 </thead>
 <tbody>
 <tr><td valign="top">Videoübersetzung</td><td valign="top">✅ Verfügbar</td><td>Importiere lokale oder öffentliche Videos; transkribiere sie mit lokalen oder cloudbasierten Whisper-Diensten; nutze den LLM-Kontext für Segmentierung und Ausrichtung von Untertiteln, Terminologie und Übersetzung; konfiguriere zweisprachige Untertitel, Synchronisation oder ein eigenes Sprachbeispiel, Untertitelstile sowie Quer- oder Hochformat und exportiere SRT, Audio oder Video</td></tr>
-<tr><td valign="top">Video-Downloader</td><td valign="top">✅ Verfügbar</td><td>Analysiere einzelne öffentliche Videos von YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu und Pinterest, vergleiche verfügbare Formate und lade Video oder Audio herunter. Manche Plattformen benötigen Cookies</td></tr>
+<tr><td valign="top">Video-Downloader</td><td valign="top">✅ Verfügbar</td><td>Analysiere einzelne öffentliche Videos von YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest und Reddit, vergleiche verfügbare Formate und lade Video oder Audio herunter. Manche Plattformen benötigen Cookies</td></tr>
 <tr><td valign="top">Thumbnail-Generierung</td><td valign="top">✅ Verfügbar</td><td>Kombiniere ein Thema, einen Videolink und optional ein Referenzbild, um mehrere Varianten von Content-Thumbnails zu generieren und zu vergleichen</td></tr>
 <tr><td valign="top">Bildgenerierung</td><td valign="top">✅ Verfügbar</td><td>Generiere mit GPT Image Bilder aus einem Prompt und einem optionalen Referenzbild, lege Seitenverhältnis und Anzahl der Ergebnisse fest und zeige einzelne Bilder in der Vorschau an oder lade sie herunter</td></tr>
 <tr><td valign="top">Artikel verfassen</td><td valign="top">✅ Verfügbar</td><td>Erstelle aus Themen, Links, Videos oder Dokumenten editierbare Themenvorschläge, Gliederungen und Artikel; ergänze Bilder und exportiere Markdown, HTML oder PDF.</td></tr>
@@ -277,6 +277,7 @@ Unterstützte Videoquellen:
     <td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
     <td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="32" height="32" /><br /><strong>Xiaohongshu</strong></td>
     <td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
+    <td align="center" width="96"><img src="../images/platforms/reddit.png" alt="Reddit" width="32" height="32" /><br /><strong>Reddit</strong></td>
   </tr>
 </table>
 

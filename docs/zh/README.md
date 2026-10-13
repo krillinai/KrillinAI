@@ -89,7 +89,7 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 </thead>
 <tbody>
 <tr><td valign="top">视频翻译</td><td valign="top">✅ 已开放</td><td>导入本地或公开视频；通过云端或本地 Whisper 服务转写；利用 LLM 上下文完成字幕断句、对齐、术语处理和翻译；设置双语字幕、配音或自定义声音样本、字幕样式及横竖屏合成，并导出 SRT、音频或成片</td></tr>
-<tr><td valign="top">视频下载</td><td valign="top">✅ 已开放</td><td>解析 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书和 Pinterest 的单个公开视频，比较可用格式并下载视频或音频；部分平台可能需要 Cookie</td></tr>
+<tr><td valign="top">视频下载</td><td valign="top">✅ 已开放</td><td>解析 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 和 Reddit 的单个公开视频，比较可用格式并下载视频或音频；部分平台可能需要 Cookie</td></tr>
 <tr><td valign="top">封面生成</td><td valign="top">✅ 已开放</td><td>结合主题、视频链接和可选参考图片生成多版内容封面，并进行对比选择</td></tr>
 <tr><td valign="top">图像生成</td><td valign="top">✅ 已开放</td><td>使用 GPT Image，根据提示词和可选参考图片生成图像，设置画幅与生成数量，并预览和单独下载图片</td></tr>
 <tr><td valign="top">文章写作</td><td valign="top">✅ 已开放</td><td>根据主题、链接、视频或参考文档生成可编辑的候选选题、大纲和完整文章，支持添加生成配图，并导出 Markdown、HTML 或 PDF</td></tr>
@@ -279,6 +279,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
     <td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
     <td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="小红书" width="32" height="32" /><br /><strong>小红书</strong></td>
     <td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
+    <td align="center" width="96"><img src="../images/platforms/reddit.png" alt="Reddit" width="32" height="32" /><br /><strong>Reddit</strong></td>
   </tr>
 </table>
 

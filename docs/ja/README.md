@@ -87,7 +87,7 @@ Dashboard から、動画翻訳やダウンロード、サムネイル・画像�
 </thead>
 <tbody>
 <tr><td valign="top">動画翻訳</td><td valign="top">✅ 利用可能</td><td>ローカルまたは公開動画を読み込み、クラウドまたはローカルの Whisper サービスで文字起こしを実行します。LLM のコンテキストを活用して字幕の分割、位置合わせ、用語処理、翻訳を行い、二言語字幕、吹き替えまたはカスタム音声サンプル、字幕スタイル、横向き・縦向きの構成を設定し、SRT、音声、動画として書き出せます</td></tr>
-<tr><td valign="top">動画ダウンロード</td><td valign="top">✅ 利用可能</td><td>YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小紅書、Pinterest の公開動画を個別に解析し、利用可能な形式を比較して動画または音声をダウンロードできます。一部のサイトでは Cookie が必要です</td></tr>
+<tr><td valign="top">動画ダウンロード</td><td valign="top">✅ 利用可能</td><td>YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小紅書、Pinterest、Reddit の公開動画を個別に解析し、利用可能な形式を比較して動画または音声をダウンロードできます。一部のサイトでは Cookie が必要です</td></tr>
 <tr><td valign="top">サムネイル生成</td><td valign="top">✅ 利用可能</td><td>テーマ、動画リンク、任意の参照画像を組み合わせ、複数のコンテンツ用サムネイル案を生成して比較できます</td></tr>
 <tr><td valign="top">画像生成</td><td valign="top">✅ 利用可能</td><td>プロンプトと任意の参照画像から GPT Image で画像を生成し、アスペクト比と生成枚数を設定して、各画像をプレビュー・ダウンロードできます</td></tr>
 <tr><td valign="top">記事作成</td><td valign="top">✅ 利用可能</td><td>トピック、リンク、動画、資料から編集可能なテーマ、構成、記事を作成し、画像を追加して Markdown、HTML、PDF に書き出します。</td></tr>
@@ -277,6 +277,7 @@ Seedance を使用して、テキストプロンプトまたは参照画像か�
     <td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
     <td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="小紅書" width="32" height="32" /><br /><strong>小紅書</strong></td>
     <td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
+    <td align="center" width="96"><img src="../images/platforms/reddit.png" alt="Reddit" width="32" height="32" /><br /><strong>Reddit</strong></td>
   </tr>
 </table>
 

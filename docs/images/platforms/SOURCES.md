@@ -1,6 +1,6 @@
 # Video source icons
 
-These unmodified platform icons were downloaded from the platforms' own websites on September 22, 2026. ICO and WebP files were converted to PNG for consistent rendering in the README.
+These unmodified platform icons were downloaded from the platforms' own websites on September 22, 2026. The Pinterest icon was replaced with a 144 x 144 PNG and a 192 x 192 Reddit icon was added on October 13, 2026. ICO and WebP files were converted to PNG for consistent rendering in the README.
 
 | File | First-party source |
 | --- | --- |
@@ -12,4 +12,5 @@ These unmodified platform icons were downloaded from the platforms' own websites
 | `douyin.png` | `https://www.douyin.com/favicon.ico` |
 | `facebook.png` | `https://www.facebook.com/apple-touch-icon.png` |
 | `xiaohongshu.png` | `https://www.xiaohongshu.com/favicon.ico` |
-| `pinterest.png` | `https://www.pinterest.com/favicon.ico` |
+| `pinterest.png` | `https://s.pinimg.com/webapp/logo_transparent_144x144-3da7a67b.png` |
+| `reddit.png` | `https://www.redditstatic.com/shreddit/assets/favicon/192x192.png` |

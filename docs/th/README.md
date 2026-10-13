@@ -74,7 +74,7 @@ Web เป็นการพัฒนาส่วนหน้าเพียง�
 </thead>
 <tbody>
 <tr><td valign="top">แปลวิดีโอ</td><td valign="top">✅ ใช้งานได้</td><td>นำเข้าวิดีโอจากเครื่องหรือแหล่งสาธารณะ ถอดเสียงด้วยบริการ Whisper บนคลาวด์หรือในเครื่อง ใช้บริบทจาก LLM เพื่อแบ่งและจัดแนวคำบรรยาย จัดการศัพท์เฉพาะ และแปล ตั้งค่าคำบรรยายสองภาษา การพากย์หรือเสียงตัวอย่าง รูปแบบคำบรรยาย แนวนอนหรือแนวตั้ง และส่งออก SRT เสียง หรือวิดีโอ</td></tr>
-<tr><td valign="top">ดาวน์โหลดวิดีโอ</td><td valign="top">✅ ใช้งานได้</td><td>วิเคราะห์วิดีโอสาธารณะจาก YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu และ Pinterest เปรียบเทียบรูปแบบที่มีและดาวน์โหลดวิดีโอหรือเสียง บางแหล่งอาจต้องใช้คุกกี้ของแพลตฟอร์ม</td></tr>
+<tr><td valign="top">ดาวน์โหลดวิดีโอ</td><td valign="top">✅ ใช้งานได้</td><td>วิเคราะห์วิดีโอสาธารณะจาก YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest และ Reddit เปรียบเทียบรูปแบบที่มีและดาวน์โหลดวิดีโอหรือเสียง บางแหล่งอาจต้องใช้คุกกี้ของแพลตฟอร์ม</td></tr>
 <tr><td valign="top">สร้างภาพปก</td><td valign="top">✅ ใช้งานได้</td><td>ใช้หัวข้อ ลิงก์วิดีโอ และภาพอ้างอิงที่เลือกใส่ได้ เพื่อสร้างและเปรียบเทียบภาพปกหลายแบบ</td></tr>
 <tr><td valign="top">สร้างรูปภาพ</td><td valign="top">✅ ใช้งานได้</td><td>สร้างภาพด้วย GPT Image จากพรอมป์และภาพอ้างอิงที่เลือกใส่ได้ ตั้งค่าอัตราส่วนภาพและจำนวนผลลัพธ์ แล้วดูตัวอย่างและดาวน์โหลดทีละภาพ</td></tr>
 <tr><td valign="top">เขียนบทความ</td><td valign="top">✅ ใช้งานได้</td><td>แปลงหัวข้อ ลิงก์ วิดีโอ หรือเอกสารต้นทางเป็นตัวเลือกหัวข้อ โครงร่าง และบทความฉบับเต็มที่แก้ไขได้ เพิ่มภาพที่สร้างขึ้นและส่งออกเป็น Markdown, HTML หรือ PDF</td></tr>
@@ -252,6 +252,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 <td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
 <td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="32" height="32" /><br /><strong>Xiaohongshu</strong></td>
 <td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
+<td align="center" width="96"><img src="../images/platforms/reddit.png" alt="Reddit" width="32" height="32" /><br /><strong>Reddit</strong></td>
 </tr></table>
 
 การใช้งานขึ้นอยู่กับวิดีโอและภูมิภาค บางแหล่งอาจต้องใช้คุกกี้ของแพลตฟอร์ม
