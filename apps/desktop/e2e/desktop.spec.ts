@@ -1327,6 +1327,55 @@ test('@package-smoke 创作模块连接内嵌 Runtime 并使用默认项目', as
   }
 });
 
+test('@package-smoke Windows YouTube 专用登录完成和取消，保存后重启复用', async ({}, testInfo) => {
+  test.skip(process.platform !== 'win32', 'Windows normal Chrome login');
+  let fixture = await launchPackagedDesktop('success');
+  const endpoint = '/platform-connections/youtube';
+  try {
+    await waitForWorkspace(fixture.page);
+    await navigateToAppRoute(fixture.page, '#/settings?tab=platform-connections');
+    const section = fixture.page.getByRole('region', { name: '平台连接' });
+    const state = await runtimeRequest<{ connectionMethod: string }>(fixture.page, 'GET', endpoint);
+    expect(state.body.connectionMethod).toBe('browser-login');
+    await expect(section.getByRole('combobox')).toHaveCount(0);
+    await section.getByRole('button', { name: '连接', exact: true }).click();
+    await expect(section.getByRole('button', { name: '完成登录', exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(fixture.page.getByRole('alertdialog')).toHaveCount(0);
+    await expect(section.getByLabel('连接码')).toHaveCount(0);
+    await fixture.page.screenshot({ path: testInfo.outputPath('windows-youtube-login.png') });
+    await section.getByRole('button', { name: '取消', exact: true }).click();
+    await expect(section.locator('.platform-connection-status')).toHaveText('未连接');
+    await section.getByRole('button', { name: '连接', exact: true }).click();
+    await expect(section.getByRole('button', { name: '完成登录', exact: true })).toBeVisible({ timeout: 30_000 });
+    await section.getByRole('button', { name: '完成登录', exact: true }).click();
+    await expect(section.getByText('尚未完成 YouTube 登录', { exact: false })).toBeVisible({ timeout: 30_000 });
+    await expect(section.locator('.platform-connection-status')).toHaveText('连接失败');
+    // 使用纯测试凭据验证持久化和重启，真实账号登录由用户在正常 Chrome 中完成。
+    const text = '# Netscape HTTP Cookie File\n' + ['SID', 'SAPISID'].map(name =>
+      ['.youtube.com', 'TRUE', '/', 'TRUE', Math.floor(Date.now() / 1000) + 3600, name, 'fixture-' + name].join('\t')
+    ).join('\n');
+    expect((await runtimeRequest(fixture.page, 'POST', endpoint + '/import', { cookies: text })).status).toBe(200);
+    await expect(section.locator('.platform-connection-status')).toHaveText('已连接');
+    const previous = fixture;
+    await closePackagedApp(previous);
+    fixture = { ...await relaunchPackagedApp(previous), root: previous.root, stateDir: previous.stateDir };
+    await waitForWorkspace(fixture.page);
+    await navigateToAppRoute(fixture.page, '#/settings?tab=platform-connections');
+    const restored = fixture.page.getByRole('region', { name: '平台连接' });
+    await expect(restored.locator('.platform-connection-status')).toHaveText('已连接');
+    await restored.getByRole('button', { name: '重新连接', exact: true }).click();
+    await expect(restored.locator('.platform-connection-status')).toHaveText('已连接');
+    await expect(restored.getByRole('button', { name: '完成登录' })).toHaveCount(0);
+    expect(JSON.stringify((await runtimeRequest(fixture.page, 'GET', endpoint)).body)).not.toMatch(/fixture-|SID|cookies/);
+    await fixture.page.screenshot({ path: testInfo.outputPath('windows-youtube-connected.png') });
+    await restored.getByRole('button', { name: '断开', exact: true }).click();
+    await expect(restored.locator('.platform-connection-status')).toHaveText('未连接');
+  } finally {
+    await runtimeRequest(fixture.page, 'POST', endpoint + '/cancel').catch(() => undefined);
+    await closeFixture(fixture);
+  }
+});
+
 test('@package-smoke YouTube 连接复用已登录 Chrome 并自动保存登录态', async ({}, testInfo) => {
   test.skip(process.platform !== 'darwin' || process.env.OPENCREATOR_E2E_REAL_YOUTUBE !== '1', 'Requires an existing signed-in local Chrome profile');
   let fixture = await launchPackagedDesktop('success');

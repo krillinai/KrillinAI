@@ -6,6 +6,59 @@ const CREATOR_SOURCE_UPLOAD_PATH =
 
 export const MAX_RUNTIME_REQUEST_BODY_BYTES = 10 * 1024 * 1024;
 
+export type RuntimeProxyErrorDetail = {
+  name?: string;
+  code?: string;
+  errno?: number;
+  syscall?: string;
+};
+
+export function runtimeProxyErrorDetails(error: unknown): RuntimeProxyErrorDetail[] {
+  const details: RuntimeProxyErrorDetail[] = [];
+  const pending: Array<{ value: unknown; depth: number }> = [{ value: error, depth: 0 }];
+  const seen = new Set<object>();
+
+  while (pending.length > 0 && details.length < 8) {
+    const { value, depth } = pending.shift()!;
+    if (typeof value !== 'object' || value === null || seen.has(value)) continue;
+    seen.add(value);
+    try {
+      const entry = value as Record<string, unknown>;
+      const name = entry.name;
+      const code = entry.code;
+      const errno = entry.errno;
+      const syscall = entry.syscall;
+      const detail: RuntimeProxyErrorDetail = {};
+      if (typeof name === 'string' && /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(name)) {
+        detail.name = name;
+      }
+      if (typeof code === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(code)) {
+        detail.code = code;
+      }
+      if (typeof errno === 'number' && Number.isSafeInteger(errno)) {
+        detail.errno = errno;
+      }
+      if (typeof syscall === 'string' && /^[a-z][a-z0-9_]{0,31}$/.test(syscall)) {
+        detail.syscall = syscall;
+      }
+      details.push(detail);
+
+      if (depth >= 3) continue;
+      pending.push({ value: entry.cause, depth: depth + 1 });
+      const errors = entry.errors;
+      if (Array.isArray(errors)) {
+        for (let index = 0; index < Math.min(errors.length, 8); index += 1) {
+          pending.push({ value: errors[index], depth: depth + 1 });
+        }
+      }
+    } catch {
+      // Diagnostic extraction must not replace the original proxy failure.
+    }
+  }
+
+  return details;
+}
+
 export class RuntimeProxyError extends Error {
   constructor(
     readonly status: number,

@@ -3222,6 +3222,43 @@ html.is-pane-resizing * {
   background: transparent;
 }
 
+.runtime-connection-notice {
+  width: min(var(--conversation-content-max), 100%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0 auto 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-hairline);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.runtime-connection-notice > span:first-of-type {
+  flex: 1 1 180px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.runtime-connection-notice button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  padding: 2px 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.runtime-connection-notice button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .conversation-page.is-empty .composer-wrap {
   min-height: 0;
   align-self: stretch;

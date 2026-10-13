@@ -6,4 +6,6 @@ export type YouTubeConnectionState = {
   profileId?: string;
   profiles?: Array<{ id: string; browser: 'chrome' | 'edge'; label: string }>;
   message?: string;
+  connectionMethod?: 'browser-login';
+  actionRequired?: 'complete-login' | 'close-login-browser';
 };

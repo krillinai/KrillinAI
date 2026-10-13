@@ -182,29 +182,7 @@ func (s Service) StartSubtitleTask(req dto.StartVideoSubtitleTaskReq) (*dto.Star
 			}
 			req.VttFile = vttFile
 
-			// 检测VTT格式类型
-			hasWordTimestamps := true // 默认假设有单词级时间戳
-			if config.Conf.App.EnableBlockVttBatch {
-				// 只有启用了新功能才进行格式检测
-				detected, detectErr := s.YouTubeSubtitleSrv.DetectVttFormat(vttFile)
-				if detectErr != nil {
-					log.GetLogger().Warn("VTT格式检测失败，使用默认处理方式",
-						zap.String("taskId", taskId), zap.Error(detectErr))
-				} else {
-					hasWordTimestamps = detected
-				}
-			}
-
-			var srtFile string
-			if hasWordTimestamps {
-				// 使用原有的word-level处理流程（完全不变）
-				log.GetLogger().Info("使用word-level VTT处理流程", zap.String("taskId", taskId))
-				srtFile, err = s.YouTubeSubtitleSrv.processYouTubeSubtitle(ctx, req)
-			} else {
-				// 使用新的block-level处理流程
-				log.GetLogger().Info("使用block-level VTT处理流程", zap.String("taskId", taskId))
-				srtFile, err = s.YouTubeSubtitleSrv.ProcessBlockLevelVtt(ctx, req)
-			}
+			srtFile, err := s.YouTubeSubtitleSrv.processYouTubeSubtitle(ctx, req)
 
 			if err != nil {
 				// 处理字幕失败，回退到音频转录方式

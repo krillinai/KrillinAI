@@ -229,6 +229,7 @@ async function launchDesktop(): Promise<void> {
     webRoot,
     bootstrapRoot,
     getConnection: () => daemon.currentConnection,
+    onTransportFailure: connection => bootstrap?.reportProxyFailure(connection),
     logger
   });
   registerIpcHandlers({
@@ -410,8 +411,14 @@ function registerIpcHandlers(input: {
     return result.filePaths[0] ?? null;
   });
   handle(desktopIpc.restartRuntime, input.development, async () => {
-    await input.bootstrap.restartRuntime();
-    return ok();
+    try {
+      await input.bootstrap.restartRuntime();
+      return input.bootstrap.currentState.phase === 'ready'
+        ? ok()
+        : failed(input.bootstrap.currentState.error?.message ?? '本地运行服务重启失败');
+    } catch (error) {
+      return failed(error instanceof Error ? error.message : String(error));
+    }
   });
   handle(desktopIpc.reloadWorkspace, input.development, async () => {
     await input.reloadWorkspace();

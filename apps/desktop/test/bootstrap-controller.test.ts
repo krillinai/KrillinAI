@@ -57,7 +57,7 @@ describe('Desktop Runtime recovery', () => {
     input.crash();
     await vi.advanceTimersByTimeAsync(10);
     expect(input.controller.currentState.phase).toBe('ready');
-    expect(input.daemon.start).toHaveBeenCalledTimes(5);
+    expect(input.daemon.start).toHaveBeenCalledTimes(6);
     expect(input.daemon.start.mock.calls.slice(1).every(call => call[0].requireProbe === false)).toBe(true);
     await input.controller.stop();
   });
@@ -85,9 +85,8 @@ describe('Desktop Runtime recovery', () => {
     input.crash();
     await input.controller.restartRuntime();
     await vi.advanceTimersByTimeAsync(100);
-    expect(input.daemon.start).toHaveBeenCalledTimes(1);
-    expect(input.daemon.restart).toHaveBeenCalledTimes(1);
-    input.daemon.restart.mockRejectedValueOnce(new Error('cannot start'));
+    expect(input.daemon.start).toHaveBeenCalledTimes(2);
+    input.daemon.start.mockRejectedValueOnce(new Error('cannot start'));
     await expect(input.controller.restartRuntime()).rejects.toThrow('cannot start');
     expect(input.controller.currentState.phase).toBe('failed');
     await input.controller.stop();

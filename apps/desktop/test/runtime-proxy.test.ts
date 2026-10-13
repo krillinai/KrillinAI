@@ -4,10 +4,58 @@ import {
   createRuntimeProxyTarget,
   isStreamingRuntimeUploadRequest,
   isRuntimeRequestUrl,
-  readBoundedRequestBody
+  readBoundedRequestBody,
+  runtimeProxyErrorDetails
 } from '../src/main/runtime-proxy.js';
 
 describe('Desktop Runtime proxy', () => {
+  it('records nested connection error codes without logging messages or secrets', () => {
+    const cause = Object.assign(new Error('https://example.com?token=private-value'), {
+      code: 'ECONNREFUSED',
+      errno: -4078,
+      syscall: 'connect',
+      address: 'private-value'
+    });
+    const error = new TypeError('fetch failed', { cause });
+
+    expect(runtimeProxyErrorDetails(error)).toEqual([
+      { name: 'TypeError' },
+      { name: 'Error', code: 'ECONNREFUSED', errno: -4078, syscall: 'connect' }
+    ]);
+    expect(JSON.stringify(runtimeProxyErrorDetails(error))).not.toContain('private-value');
+  });
+
+  it('bounds aggregate errors and cyclic causes', () => {
+    const root = new AggregateError([
+      Object.assign(new Error('secret'), { code: 'ETIMEDOUT' }),
+      Object.assign(new Error('secret'), { code: 'ECONNRESET' })
+    ], 'secret');
+    Object.assign(root, { cause: root });
+
+    expect(runtimeProxyErrorDetails(root)).toEqual([
+      { name: 'AggregateError' },
+      { name: 'Error', code: 'ETIMEDOUT' },
+      { name: 'Error', code: 'ECONNRESET' }
+    ]);
+  });
+
+  it('rejects untrusted free-text fields in error metadata', () => {
+    expect(runtimeProxyErrorDetails({
+      name: 'Error https://example.com?key=secret',
+      code: 'ECONNREFUSED?token=secret',
+      syscall: 'connect secret',
+      errno: 'secret',
+      cause: new Error('secret')
+    })).toEqual([{}, { name: 'Error' }]);
+  });
+
+  it('does not throw when inspecting a hostile error getter', () => {
+    const error = Object.defineProperty(new Error('secret'), 'code', {
+      get() { throw new Error('secret'); }
+    });
+    expect(() => runtimeProxyErrorDetails(error)).not.toThrow();
+  });
+
   it('matches only the exact runtime route prefix', () => {
     expect(isRuntimeRequestUrl(new URL('opencreator-app://app/.opencreator/runtime'))).toBe(true);
     expect(isRuntimeRequestUrl(new URL('opencreator-app://app/.opencreator/runtime/healthz'))).toBe(true);

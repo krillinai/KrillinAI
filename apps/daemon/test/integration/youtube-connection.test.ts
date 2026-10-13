@@ -9,6 +9,7 @@ import { registerPlatformConnectionRoutes } from '../../src/api/routes.platform-
 import { requireAuth } from '../../src/api/auth.js';
 import type { BrowserProfile, readBrowserYouTubeCookies } from '../../src/platform-connections/browser.js';
 import type { YtDlpRuntime } from '../../src/creator/yt-dlp/runtime.js';
+import { LoginBrowserCloseError, type BrowserLoginSession } from '../../src/platform-connections/browser-login.js';
 
 const cookies = ['SID', 'SAPISID'].map(name => ({ name, value: `secret-${name}`, domain: '.youtube.com',
   path: '/', secure: true, httpOnly: true, expires: Date.now() / 1000 + 3600 }));
@@ -20,15 +21,133 @@ afterEach(async () => {
 });
 
 const profile: BrowserProfile = { id: 'a'.repeat(24), browser: 'chrome', label: 'Chrome · Test', directory: '/test/profile', preferred: true };
-async function setup(readBrowserCookies?: typeof readBrowserYouTubeCookies) {
+async function setup(readBrowserCookies?: typeof readBrowserYouTubeCookies,
+  options: Partial<ConstructorParameters<typeof YouTubeConnectionService>[0]> = {}) {
   const root = await mkdtemp(join(tmpdir(), 'youtube-connection-'));
   roots.push(root);
-  const service = new YouTubeConnectionService({ root, getRuntime: () => runtime, listProfiles: async () => [profile], readBrowserCookies });
+  const service = new YouTubeConnectionService({ root, getRuntime: () => runtime, platform: 'darwin', listProfiles: async () => [profile], readBrowserCookies, ...options });
   services.push(service);
   await service.initialize();
   return { root, service };
 }
 const runtime: YtDlpRuntime = { executable: '/yt-dlp', prefixArgs: ['--js-runtimes', 'node:/node'], version: 'test', env: {} };
+
+function loginSession() {
+  let exit!: () => void;
+  const session = { profile: { ...profile, directory: '/dedicated/Default' },
+    exited: new Promise<void>(resolve => { exit = resolve; }), close: vi.fn(async () => {}), dispose: vi.fn(async () => {}) } satisfies BrowserLoginSession;
+  return { session, exit, openLoginBrowser: vi.fn(async () => session) };
+}
+
+it('Windows 只打开专用登录窗口，等待完成后先关闭再读取，不扫描用户账号', async () => {
+  const login = loginSession(); const order: string[] = [];
+  login.session.close.mockImplementation(async () => { order.push('close'); });
+  const read = vi.fn(async () => { order.push('read'); return cookies; });
+  const listProfiles = vi.fn(async () => [profile]);
+  const { service } = await setup(read, { platform: 'win32', openLoginBrowser: login.openLoginBrowser, listProfiles });
+  expect(await service.getState()).toEqual({ platform: 'youtube', status: 'disconnected', connectionMethod: 'browser-login' });
+  await service.connect();
+  await vi.waitFor(async () => expect((await service.getState()).actionRequired).toBe('complete-login'));
+  await service.connect();
+  expect(login.openLoginBrowser).toHaveBeenCalledTimes(1);
+  expect(read).not.toHaveBeenCalled(); expect(listProfiles).not.toHaveBeenCalled();
+  await Promise.all([service.completeLogin(), service.completeLogin()]);
+  await vi.waitFor(async () => expect((await service.getState()).status).toBe('connected'));
+  expect(order).toEqual(['close', 'read']);
+  expect(read).toHaveBeenCalledWith(expect.objectContaining({ profile: login.session.profile }));
+  expect(login.session.dispose).toHaveBeenCalledTimes(1);
+  expect(JSON.stringify(await service.getState())).not.toMatch(/secret|SID|dedicated/);
+});
+
+it('macOS 保持原账号一键读取，不打开或关闭专用窗口', async () => {
+  const login = loginSession(); const read = vi.fn(async () => cookies);
+  const { service } = await setup(read, { openLoginBrowser: login.openLoginBrowser });
+  await service.connect(profile.id);
+  await vi.waitFor(async () => expect((await service.getState()).status).toBe('connected'));
+  expect(login.openLoginBrowser).not.toHaveBeenCalled();
+  expect((await service.getState()).connectionMethod).toBeUndefined();
+  expect(read).toHaveBeenCalledTimes(1);
+});
+
+it('Windows 专用窗口自行退出也会保存；关闭失败后等待手动完成，不循环关闭', async () => {
+  const login = loginSession();
+  login.session.close.mockRejectedValueOnce(new LoginBrowserCloseError());
+  const read = vi.fn(async () => cookies);
+  const { service } = await setup(read, { platform: 'win32', openLoginBrowser: login.openLoginBrowser });
+  await service.connect();
+  await vi.waitFor(async () => expect((await service.getState()).actionRequired).toBe('complete-login'));
+  login.exit();
+  await vi.waitFor(async () => expect((await service.getState()).actionRequired).toBe('close-login-browser'));
+  expect(login.session.close).toHaveBeenCalledTimes(1);
+  expect(read).not.toHaveBeenCalled();
+  await service.completeLogin();
+  await vi.waitFor(async () => expect((await service.getState()).status).toBe('connected'));
+  expect(login.session.close).toHaveBeenCalledTimes(2);
+  expect(read).toHaveBeenCalledTimes(1);
+});
+
+it.each(['cancel', 'timeout'] as const)('Windows 等待登录期间 %s 不保存凭据并清理专用窗口', async mode => {
+  const login = loginSession(); const read = vi.fn(async () => cookies);
+  const { root, service } = await setup(read, { platform: 'win32', openLoginBrowser: login.openLoginBrowser,
+    connectionTimeoutMs: mode === 'timeout' ? 100 : undefined });
+  await service.connect();
+  await vi.waitFor(async () => expect((await service.getState()).actionRequired).toBe('complete-login'));
+  if (mode === 'cancel') expect((await service.cancel()).status).toBe('disconnected');
+  else await vi.waitFor(async () => expect(await service.getState()).toMatchObject({ status: 'error', message: '连接已取消或超时，请重新连接。' }));
+  expect(read).not.toHaveBeenCalled();
+  expect(login.session.close).toHaveBeenCalledTimes(1);
+  expect(login.session.dispose).toHaveBeenCalledTimes(1);
+  await expect(access(join(root, 'credentials.json'))).rejects.toThrow();
+});
+
+it('Windows 未登录不假成功，启动失败也不写入凭据', async () => {
+  const login = loginSession();
+  const { root, service } = await setup(async () => [], { platform: 'win32', openLoginBrowser: login.openLoginBrowser });
+  await service.connect();
+  await vi.waitFor(async () => expect((await service.getState()).actionRequired).toBe('complete-login'));
+  await service.completeLogin();
+  await vi.waitFor(async () => expect(await service.getState()).toMatchObject({ status: 'error', message: expect.stringContaining('尚未完成') }));
+  await expect(access(join(root, 'credentials.json'))).rejects.toThrow();
+  login.openLoginBrowser.mockRejectedValueOnce(new Error('无法打开 Chrome 登录窗口，请重试连接。'));
+  await service.connect();
+  await vi.waitFor(async () => expect((await service.getState()).message).toContain('无法打开'));
+  await expect(access(join(root, 'credentials.json'))).rejects.toThrow();
+});
+
+it('Windows 重启和连接复用已保存凭据，明确过期后重新登录', async () => {
+  const login = loginSession(); const read = vi.fn(async () => cookies);
+  const { root, service } = await setup(read, { platform: 'win32', openLoginBrowser: login.openLoginBrowser });
+  await service.importCookies(serializeYouTubeCookies(cookies));
+  const restarted = new YouTubeConnectionService({ root, getRuntime: () => runtime, platform: 'win32',
+    openLoginBrowser: login.openLoginBrowser, readBrowserCookies: read });
+  services.push(restarted); await restarted.initialize();
+  expect((await restarted.connect()).status).toBe('connected');
+  expect(login.openLoginBrowser).not.toHaveBeenCalled();
+  await expect(restarted.withCookies(async () => { throw new Error('cookies have expired'); })).rejects.toThrow();
+  await restarted.connect();
+  await vi.waitFor(async () => expect((await restarted.getState()).actionRequired).toBe('complete-login'));
+  expect(login.openLoginBrowser).toHaveBeenCalledTimes(1);
+  await restarted.completeLogin();
+  await vi.waitFor(async () => expect((await restarted.getState()).status).toBe('connected'));
+});
+
+it('完成登录 API 需要 Runtime 授权，重复完成不会重复保存', async () => {
+  const login = loginSession(); const read = vi.fn(async () => cookies);
+  const { service } = await setup(read, { platform: 'win32', openLoginBrowser: login.openLoginBrowser });
+  const server = Fastify(); server.addHook('onRequest', requireAuth('runtime-token'));
+  await registerPlatformConnectionRoutes(server, service);
+  const headers = { authorization: 'Bearer runtime-token' };
+  const url = '/platform-connections/youtube/complete-login';
+  try {
+    expect((await server.inject({ method: 'POST', url })).statusCode).toBe(401);
+    expect((await server.inject({ method: 'POST', url, headers })).json().status).toBe('disconnected');
+    await service.connect();
+    await vi.waitFor(async () => expect((await service.getState()).actionRequired).toBe('complete-login'));
+    for (let i = 0; i < 2; i++) expect((await server.inject({ method: 'POST', url, headers })).statusCode).toBe(200);
+    await vi.waitFor(async () => expect((await service.getState()).status).toBe('connected'));
+    expect(read).toHaveBeenCalledTimes(1);
+  } finally { await server.close(); }
+});
 
 it('exports only valid YouTube cookies including HttpOnly, and rejects malicious cookie fields', () => {
   const filtered = filterYouTubeCookies([...cookies,
@@ -144,7 +263,7 @@ it('reuses saved browser cookies for polling, concurrent tasks, nested requests 
   await Promise.all(Array.from({ length: 5 }, () => useSavedCookies(service)));
   expect(read).toHaveBeenCalledTimes(1);
 
-  const restarted = new YouTubeConnectionService({ root, getRuntime: () => runtime,
+  const restarted = new YouTubeConnectionService({ root, getRuntime: () => runtime, platform: 'darwin',
     listProfiles: async () => [profile], readBrowserCookies: read });
   services.push(restarted);
   await restarted.initialize();
