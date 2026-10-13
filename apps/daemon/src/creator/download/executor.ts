@@ -8,7 +8,7 @@ import type {
   DownloadOption,
   DownloadProbe
 } from '@opencreator/protocol';
-import { extractDouyinShareUrl, normalizeVideoSourceUrl, supportedVideoSourcePlatform, parseBilibiliVideoSource, videoSourceIdentity } from '@opencreator/protocol';
+import { extractDouyinShareUrl, normalizeVideoSourceUrl, supportedVideoSourcePlatform, parseBilibiliVideoSource, videoSourceIdentity, sanitizePublicErrorFacts } from '@opencreator/protocol';
 import { creatorResultSnapshotForVersion } from '../result-snapshots.js';
 import type {
   CreatorExecutor,
@@ -29,7 +29,7 @@ type DownloadExecutorOptions = {
   ytDlpPath: string;
   ytDlpPrefixArgs?: string[];
   ytDlpEnv?: NodeJS.ProcessEnv;
-  getYtDlpRuntime?(): YtDlpRuntime;
+  getYtDlpRuntime?(sourceUrl?: string): YtDlpRuntime;
   ffmpegPath: string;
   ffmpegPrefixArgs?: string[];
   ffprobePath: string;
@@ -115,7 +115,7 @@ async function probe(
     percent: null,
     message: 'Reading video information and available formats'
   });
-  const ytDlp = currentYtDlpRuntime(input);
+  const ytDlp = currentYtDlpRuntime(input, url);
   const stdout = await run(
     ytDlp.executable,
     [
@@ -227,7 +227,7 @@ async function downloadSelectedOption(
     option.mediaType,
     downloadPartWeights(probe, option)
   );
-  const ytDlp = currentYtDlpRuntime(input);
+  const ytDlp = currentYtDlpRuntime(input, url);
   const stdout = await run(
     ytDlp.executable,
     [...ytDlp.prefixArgs, ...YT_DLP_UTF8_ARGS, ...args],
@@ -388,7 +388,7 @@ async function downloadPlaybackSource(
     message: preview ? 'Connecting to the original video source; existing subtitles are preserved' : 'Preparing the YouTube source'
   });
   const outputTemplate = join(stage.workdir, 'source.%(ext)s');
-  const ytDlp = currentYtDlpRuntime(input);
+  const ytDlp = currentYtDlpRuntime(input, url);
   const stdout = await run(
     ytDlp.executable,
     [
@@ -537,7 +537,7 @@ async function downloadLegacy(
     );
   }
   const outputTemplate = join(stage.workdir, 'source.%(ext)s');
-  const ytDlp = currentYtDlpRuntime(input);
+  const ytDlp = currentYtDlpRuntime(input, url);
   const stdout = await run(
     ytDlp.executable,
     [
@@ -1183,16 +1183,34 @@ function run(
 
 function classifyDownloadError(stderr: string, exitCode: number | null): CreatorExecutorError {
   const text = stderr.toLowerCase();
+  const douyin = /\[douyin(?:\+[^\]]+)?\]/.test(text);
   const failure = (
     code: string,
     message: string,
     kind: NonNullable<CreatorExecutorError['publicFacts']>['kind'],
-    httpStatus?: number
+    httpStatus?: number,
+    upstreamMessage?: string
   ) => new CreatorExecutorError(code, message, {}, {
+    ...sanitizePublicErrorFacts({ kind, upstreamMessage }),
     kind,
     provider: 'yt-dlp',
     ...(httpStatus === undefined ? {} : { httpStatus })
   });
+  if (douyin && text.includes('douyin request signature is required')) {
+    return failure('platform_request_signature_required',
+      'Douyin rejected the downloader because its required browser request signature is not supported. Reconnecting cookies alone cannot fix this; use a local video file.',
+      'unsupported', 403, stderr);
+  }
+  if (douyin && (text.includes('fresh cookies') || text.includes('douyin browser identity was rejected'))) {
+    const status = /http error\s+(\d{3})\b/i.exec(stderr);
+    return failure('platform_session_required',
+      'Douyin did not accept the browser session or requires website verification. Reconnect Douyin in Settings > Platform connections and retry; signing in is not necessarily required.',
+      'unauthorized', status === null ? undefined : Number(status[1]), stderr);
+  }
+  if (/bilibili risk control (?:rejected the media request|blocked media extraction)/.test(text)
+    || (text.includes('bilibili risk control') && text.includes('no video formats found'))) {
+    return failure('download_failed', 'Bilibili risk control rejected the media request. Wait and retry, or use a local video file.', 'http-rejected');
+  }
   if (/proxyerror|proxy connection|proxy (?:server )?(?:timed out|refused|unreachable|failed)/.test(text)) {
     const reason = /timed out|timeout/.test(text) ? 'timed out' : /refused/.test(text) ? 'was refused' : 'failed';
     return failure('network_unavailable', `yt-dlp proxy connection ${reason}. Check the proxy address and whether the proxy service is running.`,
@@ -1284,8 +1302,8 @@ function publicYtDlpErrorLine(stderr: string): string | undefined {
   return sanitizeIssueDetail(redacted, 300);
 }
 
-function currentYtDlpRuntime(input: DownloadExecutorOptions): YtDlpRuntime {
-  return input.getYtDlpRuntime?.() ?? {
+function currentYtDlpRuntime(input: DownloadExecutorOptions, sourceUrl: string): YtDlpRuntime {
+  return input.getYtDlpRuntime?.(sourceUrl) ?? {
     version: 'configured',
     executable: input.ytDlpPath,
     prefixArgs: input.ytDlpPrefixArgs ?? [],

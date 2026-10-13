@@ -35,7 +35,7 @@ export function createKrillinExecutor(input: {
   jobsRoot: string;
   dependencyLoader: KrillinDependencyLoader;
   configStore: Pick<CreatorServicesConfigStore, 'read'>;
-  getYtDlpRuntime?(): YtDlpRuntime | undefined;
+  getYtDlpRuntime?(sourceUrl?: string): YtDlpRuntime | undefined;
   verificationCachePath?: string;
   ensureRuntimeReady?(): Promise<void>;
   getCodexLlmConfig?(): { baseUrl: string; apiKey: string; model: string } | undefined;
@@ -94,7 +94,7 @@ export function createKrillinExecutor(input: {
               artifacts: materializedArtifacts,
               source: attempt.source,
               options: attempt.options,
-              ytDlpRuntime: input.getYtDlpRuntime?.(),
+              ytDlpRuntime: input.getYtDlpRuntime?.(stringValue(attempt.options.sourceUrl)),
               llmOverride: preflight.config.llm.source === 'codex'
                 ? input.getCodexLlmConfig?.()
                 : undefined
@@ -226,6 +226,10 @@ export function normalizeKrillinFailure(error: { code?: string; kind?: string; m
   message: string;
 } {
   const message = error?.message ?? 'KrillinAI stage failed';
+  if (/^prepare_(?:media|audio_fallback)_failed$/.test(error?.code ?? '') && /\[Douyin(?:\+[^\]]+)?\]/i.test(message)) {
+    if (/Douyin request signature is required/i.test(message)) return { code: 'platform_request_signature_required', message };
+    if (/fresh cookies|Douyin browser identity was rejected/i.test(message)) return { code: 'platform_session_required', message };
+  }
   if (error?.code !== undefined && [
     'audio_no_speech', 'audio_transcription_empty', 'audio_transcription_invalid_response',
     'audio_transcription_timestamps_missing', 'audio_transcription_api_failed'

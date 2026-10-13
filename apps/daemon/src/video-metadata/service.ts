@@ -22,8 +22,9 @@ export type VideoMetadataService = {
 export function createVideoMetadataService(input: {
   fetchImpl?: typeof fetch;
   getProxy?(): string | Promise<string>;
-  getYtDlpRuntime?(): YtDlpRuntime | undefined;
+  getYtDlpRuntime?(sourceUrl?: string): YtDlpRuntime | undefined;
   withYouTubeCookies?<T>(operation: () => Promise<T>): Promise<T>;
+  withDouyinCookies?<T>(operation: () => Promise<T>): Promise<T>;
   isYouTubeConnected?(): Promise<boolean>;
 } = {}): VideoMetadataService {
   const cache = new Map<string, { payload: unknown; expiresAt: number }>();
@@ -36,19 +37,23 @@ export function createVideoMetadataService(input: {
         return input.withYouTubeCookies(async () => {
           try {
             const { previewUrl: _previewUrl, ...metadata } = await resolveOnlineVideoMetadata({ url: normalized, platform,
-              runtime: input.getYtDlpRuntime!()!, proxy: await resolveProxy(input.getProxy) });
+              runtime: input.getYtDlpRuntime!(normalized)!, proxy: await resolveProxy(input.getProxy) });
             return metadata;
           } catch { throw new VideoMetadataError('UPSTREAM_ERROR', 'YouTube 视频信息暂不可用，请检查网络或平台连接后重试'); }
         });
       }
       if (platform !== null && platform !== 'youtube' && platform !== 'bilibili') {
-        const runtime = input.getYtDlpRuntime?.();
-        if (runtime === undefined) throw new VideoMetadataError('UPSTREAM_ERROR', 'Online video preview resolver is unavailable');
-        try {
-          return await resolveOnlineVideoMetadata({ url: normalized, platform, runtime, proxy: await resolveProxy(input.getProxy) });
-        } catch {
-          throw new VideoMetadataError('UPSTREAM_ERROR', 'Online video preview is unavailable for this source');
-        }
+        const resolveMetadata = async () => {
+          const runtime = input.getYtDlpRuntime?.(normalized);
+          if (runtime === undefined) throw new VideoMetadataError('UPSTREAM_ERROR', 'Online video preview resolver is unavailable');
+          try {
+            return await resolveOnlineVideoMetadata({ url: normalized, platform, runtime, proxy: await resolveProxy(input.getProxy) });
+          } catch {
+            throw new VideoMetadataError('UPSTREAM_ERROR', 'Online video preview is unavailable for this source');
+          }
+        };
+        return platform === 'douyin' && input.withDouyinCookies
+          ? input.withDouyinCookies(resolveMetadata) : resolveMetadata();
       }
       const source = parseVideoSource(value);
       const endpoint = createMetadataEndpoint(source);

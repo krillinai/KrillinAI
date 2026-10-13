@@ -6,6 +6,41 @@ const raw = '后台原文：操作无法完成';
 const issue = normalizePageIssue('runtime', 'creator.prepare', new Error(raw), raw);
 
 describe('localized issue copy', () => {
+  it('explains the confirmed Douyin signature incompatibility without requesting another cookie refresh', () => {
+    const next = { ...issue, code: 'platform_request_signature_required', publicFacts: {
+      kind: 'unsupported' as const, provider: 'yt-dlp', httpStatus: 403
+    } };
+    const text = issueConversationText(next, 'zh-CN');
+    expect(text.message).toContain('尚未兼容抖音的请求签名校验');
+    expect(text.nextStep).toContain('本地视频');
+    expect(text.nextStep).toContain('无法解决');
+  });
+  it.each(['zh-CN', 'en-US', 'sv-SE'] as const)('does not send video download access failures to model permissions in %s', language => {
+    const next = { ...issue, code: 'download_http_error', publicFacts: {
+      kind: 'unauthorized' as const, provider: 'yt-dlp', httpStatus: 403
+    } };
+    const text = issueConversationText(next, language);
+    expect(text.message).toContain('HTTP 403');
+    expect(text.nextStep).toMatch(/Cookie|cookies|kakor/);
+    expect(text.nextStep).not.toMatch(/模型|model|modell/);
+  });
+
+  it('explains the recorded Douyin cookie requirement with the available connection action', () => {
+    const next = { ...issue, code: 'platform_session_required', publicFacts: {
+      kind: 'unauthorized' as const, provider: 'yt-dlp', httpStatus: 403
+    } };
+    const text = issueConversationText(next, 'zh-CN');
+    expect(text.message).toContain('浏览器会话');
+    expect(text.nextStep).toContain('平台连接');
+    expect(text.nextStep).toContain('不一定需要登录账号');
+    expect(text.nextStep).not.toContain('模型');
+  });
+
+  it('keeps model permission guidance for a model provider authorization error', () => {
+    expect(issueConversationText({ ...issue, publicFacts: {
+      kind: 'unauthorized', provider: 'openai', httpStatus: 403
+    } }).nextStep).toContain('模型访问权限');
+  });
   it.each([
     ['audio_no_speech', '音频为静音或音量过低', '检查原音频和音量'],
     ['audio_transcription_empty', '尚不能确认音频是否含有语音', '换一个语音识别模型核验'],

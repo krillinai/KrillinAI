@@ -4,7 +4,8 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { spawnCreatorProcess } from '../creator/process-tree.js';
 import type { YtDlpRuntime } from '../creator/yt-dlp/runtime.js';
-import { filterYouTubeCookies, type YouTubeCookie } from './cookies.js';
+import type { ConnectionPlatform } from '@opencreator/protocol';
+import { filterPlatformCookies, type PlatformCookie } from './cookies.js';
 
 export type BrowserProfile = { id: string; browser: 'chrome' | 'edge'; label: string; directory: string; preferred: boolean };
 
@@ -38,7 +39,7 @@ export async function listBrowserProfiles(): Promise<BrowserProfile[]> {
   return profiles.sort((a, b) => Number(b.preferred) - Number(a.preferred));
 }
 
-// Use yt-dlp's maintained browser decryption implementation. Only YouTube cookies
+// Use yt-dlp's maintained browser decryption implementation. Only the selected platform's cookies
 // cross the private stdout pipe; no all-site plaintext cookie file is exported.
 const READ_BROWSER_COOKIES = String.raw`
 import sys, json, time
@@ -62,7 +63,7 @@ try:
         expires = c.expires or 0
         if expires > 100000000000:
             expires = int(expires / 1000000 - 11644473600)
-        if (host == 'youtube.com' or host.endswith('.youtube.com')) and (expires <= 0 or expires > time.time()):
+        if (host == sys.argv[4] or host.endswith('.' + sys.argv[4])) and (expires <= 0 or expires > time.time()):
             cookies.append(dict(name=c.name, value=c.value, domain=c.domain, path=c.path,
                 secure=bool(c.secure), httpOnly=c.has_nonstandard_attr('HttpOnly'), expires=expires))
     sys.stdout.write(json.dumps(dict(cookies=cookies, decryptionFailed=logger.decryption_failed)))
@@ -70,17 +71,19 @@ except Exception:
     sys.exit(1)
 `;
 
-export async function readBrowserYouTubeCookies(input: {
+export async function readBrowserPlatformCookies(input: {
   profile: BrowserProfile;
   runtime: YtDlpRuntime | undefined;
   signal: AbortSignal;
-}): Promise<YouTubeCookie[]> {
+  platform?: ConnectionPlatform;
+}): Promise<PlatformCookie[]> {
   const { runtime, profile, signal } = input;
+  const platform = input.platform ?? 'youtube';
   if (!runtime?.script) throw new Error('浏览器连接需要内置 yt-dlp 组件，请更新本地组件后重试。');
   signal.throwIfAborted();
   const output = await new Promise<string>((resolve, reject) => {
     const child = spawnCreatorProcess(runtime.executable, ['-I', '-B', '-c', READ_BROWSER_COOKIES,
-      runtime.script!, profile.browser, profile.directory], {
+      runtime.script!, profile.browser, profile.directory, platform === 'youtube' ? 'youtube.com' : 'douyin.com'], {
       env: { ...process.env, ...runtime.env }, stdio: ['ignore', 'pipe', 'pipe']
     }, signal);
     const chunks: Buffer[] = [];
@@ -99,9 +102,11 @@ export async function readBrowserYouTubeCookies(input: {
     });
   });
   const result = JSON.parse(output) as { cookies?: unknown; decryptionFailed?: boolean };
-  const cookies = filterYouTubeCookies(result.cookies);
+  const cookies = filterPlatformCookies(result.cookies, platform);
   if (result.decryptionFailed && cookies.length === 0) {
     throw new Error('浏览器 Cookie 解密失败，请允许 macOS 钥匙串访问后重新连接；当前浏览器的加密方式也可能不受 yt-dlp 支持。');
   }
   return cookies;
 }
+
+export const readBrowserYouTubeCookies = readBrowserPlatformCookies;

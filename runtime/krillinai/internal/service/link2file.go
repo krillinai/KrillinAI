@@ -94,8 +94,7 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 			if storage.FfmpegPath != "ffmpeg" {
 				cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
 			}
-			cmd := storage.YtdlpCommand(cmdArgs...)
-			output, err = cmd.CombinedOutput()
+			output, err = downloadBilibiliMedia(ctx, cmdArgs)
 			if err != nil {
 				log.GetLogger().Error("linkToFile download audio yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
 				return fmt.Errorf("linkToFile download audio yt-dlp error: %w: %s", err, compactCommandOutput(output))
@@ -140,6 +139,8 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 		}
 		if util.IsYouTubeURL(stepParam.Link) {
 			output, err = downloadYouTubeMedia(ctx, cmdArgs)
+		} else if sourceHost == "bilibili.com" || strings.HasSuffix(sourceHost, ".bilibili.com") {
+			output, err = downloadBilibiliMedia(ctx, cmdArgs)
 		} else {
 			output, err = storage.YtdlpCommandContext(ctx, cmdArgs...).CombinedOutput()
 		}
@@ -240,6 +241,44 @@ func downloadYouTubeMedia(ctx context.Context, args []string) ([]byte, error) {
 		}
 		// Re-run extraction to replace a rejected or expired signed media URL.
 		log.GetLogger().Warn("YouTube media download returned 403; refreshing media URL", zap.Int("attempt", attempt))
+		timer := time.NewTimer(time.Duration(attempt) * time.Second)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return output, ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return output, err
+}
+
+func downloadBilibiliMedia(ctx context.Context, args []string) ([]byte, error) {
+	const maxAttempts = 3
+	var output []byte
+	var err error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return output, err
+		}
+		output, err = storage.YtdlpCommandContext(ctx, args...).CombinedOutput()
+		if ctx.Err() != nil {
+			return output, ctx.Err()
+		}
+		if err == nil {
+			return output, err
+		}
+		message := strings.ToLower(string(output))
+		riskControl := strings.Contains(message, "bilibili risk control")
+		if !strings.Contains(message, "bilibili risk control rejected the media request") && !strings.Contains(message, "no video formats found") {
+			return output, err
+		}
+		if attempt == maxAttempts {
+			if riskControl {
+				return output, fmt.Errorf("Bilibili risk control blocked media extraction after %d attempts; wait and retry or use a local video file: %w", maxAttempts, err)
+			}
+			return output, fmt.Errorf("Bilibili returned no usable media formats after %d attempts; wait and retry or use a local video file: %w", maxAttempts, err)
+		}
+		log.GetLogger().Warn("Bilibili media extraction was rejected; refreshing media info", zap.Int("attempt", attempt))
 		timer := time.NewTimer(time.Duration(attempt) * time.Second)
 		select {
 		case <-ctx.Done():
