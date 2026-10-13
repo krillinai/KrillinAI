@@ -1,6 +1,10 @@
 import { execFile } from 'node:child_process';
 import type { CodexImageStatus } from '@opencreator/protocol';
-import { readLocalCodexImageConfiguration, type LocalCodexImageConfiguration } from '../codex/local-provider.js';
+import {
+  readLocalCodexConfiguredModel,
+  readLocalCodexImageConfiguration,
+  type LocalCodexImageConfiguration
+} from '../codex/local-provider.js';
 import type { CodexNativeImageRuntime } from './provider.js';
 
 export async function readCodexImageConfiguration(runtime: CodexNativeImageRuntime): Promise<LocalCodexImageConfiguration> {
@@ -19,11 +23,14 @@ export async function inspectCodexImageRuntime(runtime: CodexNativeImageRuntime 
       message: '已检测到 Codex API 配置；将沿用当前接口生图，接口和模型需支持图片生成。'
     };
     if (!runtime.codexBin) throw new Error('当前 Runtime 缺少 Codex 可执行程序，无法使用 ChatGPT 登录态生图');
+    const model = runtime.readModel
+      ? await runtime.readModel()
+      : await readLocalCodexConfiguredModel({ codexHome: runtime.codexHome });
     const capability = runtime.checkNativeCapability
       ? await runtime.checkNativeCapability()
       : await probeNativeImageCapability(runtime.codexBin, runtime.codexHome);
     if (!capability.supported) throw new Error(`当前 Codex Runtime ${capability.version ?? ''} 不支持原生生图，请更新 Runtime`);
-    return { authentication, ready: true, executionMode: 'native', version: capability.version,
+    return { authentication, ready: true, executionMode: 'native', version: capability.version, model,
       message: '已检测到本地 ChatGPT 登录凭据和原生生图工具；将通过 Codex 生成图片，无需额外配置图片 API Key。'
     };
   } catch (error) {

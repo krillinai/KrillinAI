@@ -39,6 +39,7 @@ export type CodexNativeImageRuntime = {
   codexHome: string;
   codexBin?: string;
   readProvider?: () => Promise<LocalCodexProvider>;
+  readModel?: () => Promise<string>;
   checkNativeCapability?: () => Promise<{ supported: boolean; version?: string }>;
   startExec?: typeof startCodexExec;
 };
@@ -133,10 +134,12 @@ export async function generateImageContents(
           const status = await inspectCodexImageRuntime(options.codexNative);
           if (!status.ready) throw new ImageGenerationProviderError('config_missing', status.message);
           if (status.executionMode !== 'native') throw new ImageGenerationProviderError('config_missing', 'Codex 认证模式已变化，请刷新状态后重试');
+          if (!status.model?.trim()) throw new ImageGenerationProviderError('config_missing', '本机 Codex 未配置有效模型，无法启动原生生图');
           const image = await generateCodexNativeImage({
             runtime: options.codexNative,
             request,
             referenceImages,
+            model: status.model,
             signal: controller.signal,
             onProgress: options.onProgress
           });

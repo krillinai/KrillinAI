@@ -12,7 +12,8 @@
 
 - 通过当前 Runtime 的 Codex CLI 原生生图工具执行，不把 OAuth 凭据当作图片 API Key。
 - 使用原始 `CODEX_HOME` 的文件认证，由 Codex 负责登录凭据刷新；不复制或改写用户认证。
-- 忽略用户自定义接口和模型配置，移除子进程继承的 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`CODEX_API_KEY`、`CODEX_ACCESS_TOKEN`，避免误走其他认证通道。
+- 当前 OpenCreator 使用的 Codex `config.toml` 必须显式配置有效且非空的顶层 `model`；缺失或为空时会提示配置错误，不会启动原生生图。
+- 保留 `--ignore-user-config` 隔离，并通过 `--model` 仅传递上述已校验模型；同时移除子进程继承的 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`CODEX_API_KEY`、`CODEX_ACCESS_TOKEN`，避免误走其他认证通道。
 - 使用独立的临时工作区，关闭 shell、MCP、插件、浏览器等无关工具；参考图片通过附件传入。
 - 只接受当前请求工作区或当前线程专属目录中的新图片，校验路径、大小与格式。不会扫描其他线程图片或把文字回复视作生图成功。
 - 原生工具失败时不回退到 API 通道。登录失效、额度限制和超时有明确提示，取消任务会终止子进程。

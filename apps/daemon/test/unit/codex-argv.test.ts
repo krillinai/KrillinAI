@@ -7,7 +7,7 @@ import {
 
 describe('codex argv', () => {
   it('isolates native image generation from user providers, shells and MCP', () => {
-    const args = buildCodexExecArgs({ cwd: '/tmp/image-task', sandbox: 'workspace-write', imageGenerationOnly: true, imagePaths: ['/tmp/reference.png'] });
+    const args = buildCodexExecArgs({ cwd: '/tmp/image-task', sandbox: 'workspace-write', model: 'gpt-5.6-sol', imageGenerationOnly: true, imagePaths: ['/tmp/reference.png'] });
     expect(args).toContain('--ignore-user-config');
     expect(args.join(' ')).toContain('--enable image_generation');
     expect(args.join(' ')).not.toContain('--disable image_generation');
@@ -16,6 +16,8 @@ describe('codex argv', () => {
     }
     expect(args).toContain('mcp_servers={}');
     expect(args).toContain('web_search="disabled"');
+    expect(args).toContain('--model');
+    expect(args[args.indexOf('--model') + 1]).toBe('gpt-5.6-sol');
     expect(args.slice(-2)).toEqual(['--image', '/tmp/reference.png']);
   });
   it('builds exec args without prompt in argv', () => {

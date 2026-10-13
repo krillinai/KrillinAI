@@ -28,11 +28,14 @@ export async function generateCodexNativeImage(input: {
   runtime: CodexNativeImageRuntime;
   request: CreateImageGenerationRequest;
   referenceImages: GeneratedImageContent[];
+  model: string;
   signal: AbortSignal;
   onProgress?(progress: NativeImageProgress): void;
 }): Promise<GeneratedImageContent> {
   input.signal.throwIfAborted();
   if (!input.runtime.codexBin) throw new CodexNativeImageError('当前 Runtime 缺少 Codex 可执行程序', 'configuration');
+  const model = input.model.trim();
+  if (!model) throw new CodexNativeImageError('本机 Codex 未配置有效模型，无法启动原生生图', 'configuration');
   const workdir = await mkdtemp(join(tmpdir(), 'opencreator-codex-image-'));
   const outputDir = join(workdir, 'output');
   let process: CodexExecProcess | undefined;
@@ -62,7 +65,13 @@ export async function generateCodexNativeImage(input: {
       codexBin: input.runtime.codexBin,
       codexHome: input.runtime.codexHome,
       cwd: workdir,
-      args: [...buildCodexExecArgs({ cwd: workdir, sandbox: 'workspace-write', imagePaths, imageGenerationOnly: true }), '--ephemeral'],
+      args: [...buildCodexExecArgs({
+        cwd: workdir,
+        sandbox: 'workspace-write',
+        model,
+        imagePaths,
+        imageGenerationOnly: true
+      }), '--ephemeral'],
       prompt: [
         'Generate exactly one image using the native image_generation tool.',
         'Do not use a shell, scripts, an external image API, or API keys. Text alone is not a successful image result.',

@@ -30,6 +30,17 @@ export async function readLocalCodexModelConfiguration(input: {
     : { authentication: 'api_key', provider: { ...image.provider, model } };
 }
 
+export async function readLocalCodexConfiguredModel(input: {
+  codexHome: string;
+}): Promise<string> {
+  const config = await readToml(join(input.codexHome, 'config.toml'), true);
+  const model = readString(config.model);
+  if (!model) {
+    throw new LocalCodexProviderError('本机 Codex 未配置有效模型，请先在当前 Codex 配置中选择支持原生生图的模型');
+  }
+  return model;
+}
+
 export class LocalCodexProviderError extends Error {
   constructor(message: string) {
     super(message);
