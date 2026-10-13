@@ -254,12 +254,6 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > これらの動画例と字幕位置合わせ画像は、OpenCreator が KrillinAI という名称を使用していた時期に制作されました。
 
-### 動画生成
-
-Seedance を使用して、テキストプロンプトまたは参照画像から AI 動画を生成します。モデル、アスペクト比、解像度、長さを設定し、プロジェクトワークスペースで各バージョンのプレビュー、再生成、ダウンロードを行えます。
-
-![OpenCreator の Seedance 動画生成](../images/examples/video-generation-seedance-en.png)
-
 ### 動画ダウンロード
 
 公開動画のリンクを解析し、利用可能な形式を比較して、動画または音声をプロジェクトへ直接ダウンロードできます。
@@ -288,6 +282,12 @@ Seedance を使用して、テキストプロンプトまたは参照画像か�
 **Pinterest の動画 Pin：**公開されている `https://www.pinterest.com/pin/<数字のID>/` を貼り付けてください。画像のみの Pin、ボード、プロフィールには対応していません。
 
 ![OpenCreator 動画ダウンロードの形式選択](../images/examples/video-downloader-formats-en.png)
+
+### 動画生成
+
+Seedance を使用して、テキストプロンプトまたは参照画像から AI 動画を生成します。モデル、アスペクト比、解像度、長さを設定し、プロジェクトワークスペースで各バージョンのプレビュー、再生成、ダウンロードを行えます。
+
+![OpenCreator の Seedance 動画生成](../images/examples/video-generation-seedance-en.png)
 
 ### スティックフィギュアアニメーション
 

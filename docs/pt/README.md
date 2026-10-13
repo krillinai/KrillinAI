@@ -254,12 +254,6 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > Estes exemplos de vídeo e a imagem de alinhamento de legendas foram produzidos quando o OpenCreator ainda usava o nome KrillinAI.
 
-### Geração de vídeos
-
-Gere um vídeo com IA a partir de um prompt de texto ou de uma imagem de referência com o Seedance. Configure o modelo, a proporção, a resolução e a duração; depois, visualize, gere novamente ou baixe cada versão no espaço de trabalho do projeto.
-
-![Geração de vídeos no OpenCreator com Seedance](../images/examples/video-generation-seedance-en.png)
-
 ### Download de vídeos
 
 Analise um link de vídeo público, compare os formatos disponíveis e baixe o vídeo ou o áudio diretamente para o projeto.
@@ -288,6 +282,12 @@ A disponibilidade depende do vídeo e da região; algumas fontes podem exigir co
 **Pins de vídeo do Pinterest:** Cole um link público `https://www.pinterest.com/pin/<ID numérico>/`. Pins apenas com imagens, painéis e perfis não são compatíveis.
 
 ![Seleção de formatos do downloader de vídeos do OpenCreator](../images/examples/video-downloader-formats-en.png)
+
+### Geração de vídeos
+
+Gere um vídeo com IA a partir de um prompt de texto ou de uma imagem de referência com o Seedance. Configure o modelo, a proporção, a resolução e a duração; depois, visualize, gere novamente ou baixe cada versão no espaço de trabalho do projeto.
+
+![Geração de vídeos no OpenCreator com Seedance](../images/examples/video-generation-seedance-en.png)
 
 ### Animação de bonecos palito
 

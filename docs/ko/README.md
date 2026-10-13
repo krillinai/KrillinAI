@@ -254,12 +254,6 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > 이 동영상 사례와 자막 정렬 이미지는 OpenCreator가 KrillinAI라는 이름을 사용하던 시기에 제작되었습니다.
 
-### 동영상 생성
-
-Seedance를 사용해 텍스트 프롬프트 또는 참조 이미지에서 AI 동영상을 생성합니다. 모델, 화면 비율, 해상도, 길이를 설정한 뒤 프로젝트 작업 공간에서 각 버전을 미리 보거나 다시 생성하거나 다운로드할 수 있습니다.
-
-![OpenCreator Seedance 동영상 생성](../images/examples/video-generation-seedance-en.png)
-
 ### 비디오 다운로드
 
 공개 동영상 링크를 분석하고 사용 가능한 형식을 비교한 뒤 비디오 또는 오디오를 프로젝트로 직접 다운로드합니다.
@@ -288,6 +282,12 @@ Seedance를 사용해 텍스트 프롬프트 또는 참조 이미지에서 AI �
 **Pinterest 동영상 Pin:** 공개 `https://www.pinterest.com/pin/<숫자 ID>/` 링크를 붙여넣으세요. 이미지만 있는 Pin, 보드 및 프로필은 지원하지 않습니다.
 
 ![OpenCreator 비디오 다운로더 형식 선택](../images/examples/video-downloader-formats-en.png)
+
+### 동영상 생성
+
+Seedance를 사용해 텍스트 프롬프트 또는 참조 이미지에서 AI 동영상을 생성합니다. 모델, 화면 비율, 해상도, 길이를 설정한 뒤 프로젝트 작업 공간에서 각 버전을 미리 보거나 다시 생성하거나 다운로드할 수 있습니다.
+
+![OpenCreator Seedance 동영상 생성](../images/examples/video-generation-seedance-en.png)
 
 ### 스틱 피겨 애니메이션
 

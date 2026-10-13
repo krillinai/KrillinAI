@@ -254,12 +254,6 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > Contoh video dan gambar penyelarasan subtitel ini dibuat saat OpenCreator masih menggunakan nama KrillinAI.
 
-### Pembuatan Video
-
-Buat video AI dari prompt teks atau gambar referensi dengan Seedance. Atur model, rasio aspek, resolusi, dan durasi, lalu pratinjau, buat ulang, atau unduh setiap versi dari ruang kerja proyek.
-
-![Pembuatan Video OpenCreator dengan Seedance](../images/examples/video-generation-seedance-en.png)
-
 ### Pengunduh Video
 
 Analisis tautan video publik, bandingkan format yang tersedia, lalu unduh video atau audio langsung ke proyek.
@@ -288,6 +282,12 @@ Ketersediaan bergantung pada video dan wilayah; beberapa sumber mungkin memerluk
 **Pin video Pinterest:** Tempel tautan publik `https://www.pinterest.com/pin/<ID numerik>/`. Pin berisi gambar saja, papan, dan profil tidak didukung.
 
 ![Pemilihan format Pengunduh Video OpenCreator](../images/examples/video-downloader-formats-en.png)
+
+### Pembuatan Video
+
+Buat video AI dari prompt teks atau gambar referensi dengan Seedance. Atur model, rasio aspek, resolusi, dan durasi, lalu pratinjau, buat ulang, atau unduh setiap versi dari ruang kerja proyek.
+
+![Pembuatan Video OpenCreator dengan Seedance](../images/examples/video-generation-seedance-en.png)
 
 ### Animasi Figur Stik
 

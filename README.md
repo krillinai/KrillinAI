@@ -256,12 +256,6 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > These video examples and the subtitle alignment image were produced while OpenCreator still used the KrillinAI name.
 
-### Video Generation
-
-Generate an AI video from a text prompt or reference image with Seedance. Configure the model, aspect ratio, resolution, and duration, then preview, regenerate, or download each version from the project workspace.
-
-![OpenCreator Video Generation with Seedance](./docs/images/examples/video-generation-seedance-en.png)
-
 ### Video Downloader
 
 Analyze a public video link, compare the available formats, and download video or audio directly to the project.
@@ -290,6 +284,12 @@ Availability varies by video and region; some sources may require platform cooki
 **Pinterest video Pins:** Paste a public `https://www.pinterest.com/pin/<numeric ID>/` link. Image-only Pins have no downloadable video formats; boards and profiles are not supported.
 
 ![OpenCreator Video Downloader format selection](./docs/images/examples/video-downloader-formats-en.png)
+
+### Video Generation
+
+Generate an AI video from a text prompt or reference image with Seedance. Configure the model, aspect ratio, resolution, and duration, then preview, regenerate, or download each version from the project workspace.
+
+![OpenCreator Video Generation with Seedance](./docs/images/examples/video-generation-seedance-en.png)
 
 ### Stick Figure Animation
 
