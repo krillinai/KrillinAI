@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { KrillinRuntimeManifest } from '../krillin/manifest.js';
 import { resolveInside } from '../krillin/manifest.js';
 
@@ -16,6 +17,7 @@ export function resolveYtDlpRuntime(input: {
   manifest: KrillinRuntimeManifest;
   overridePath?: string;
 }): YtDlpRuntime | undefined {
+  const pluginArgs = ['--plugin-dirs', fileURLToPath(new URL('../../../runtime/yt-dlp', import.meta.url))];
   const javascriptRuntime = input.manifest.ytDlp?.javascriptRuntime;
   const javascriptArgs = javascriptRuntime === undefined ? [] : [
     '--js-runtimes', `${javascriptRuntime.name}:${manifestResource(input, javascriptRuntime.executable, 'executable')}`
@@ -28,7 +30,7 @@ export function resolveYtDlpRuntime(input: {
     return {
       version: 'external',
       executable,
-      prefixArgs: javascriptArgs,
+      prefixArgs: [...pluginArgs, ...javascriptArgs],
       env: {}
     };
   }
@@ -38,7 +40,7 @@ export function resolveYtDlpRuntime(input: {
     return {
       version: descriptor.version,
       executable: manifestResource(input, descriptor.executable, 'executable'),
-      prefixArgs: javascriptArgs,
+      prefixArgs: [...pluginArgs, ...javascriptArgs],
       env: {}
     };
   }
@@ -53,7 +55,7 @@ export function resolveYtDlpRuntime(input: {
     return {
       version: descriptor.version,
       executable,
-      prefixArgs: ['-I', '-B', script, ...javascriptArgs],
+      prefixArgs: ['-I', '-B', script, ...pluginArgs, ...javascriptArgs],
       env: {
         SSL_CERT_FILE: certificateBundle
       },
@@ -70,7 +72,7 @@ export function resolveYtDlpRuntime(input: {
     : {
         version: 'legacy',
         executable: resolveInside(input.resourceRoot, legacy.path),
-        prefixArgs: javascriptArgs,
+        prefixArgs: [...pluginArgs, ...javascriptArgs],
         env: {}
       };
 }

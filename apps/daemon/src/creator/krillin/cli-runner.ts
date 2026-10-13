@@ -73,9 +73,16 @@ export class KrillinCliError extends Error {
   ) {
     super(message, options);
     this.name = 'KrillinCliError';
+    const douyinFailure = /^prepare_(?:media|audio_fallback)_failed$/.test(code) && /\[Douyin(?:\+[^\]]+)?\]/i.test(message);
+    const signatureRequired = douyinFailure && /Douyin request signature is required/i.test(message);
+    const sessionRequired = douyinFailure && /fresh cookies|Douyin browser identity was rejected/i.test(message);
+    const status = sessionRequired || signatureRequired ? /http error\s+(\d{3})\b/i.exec(message) : null;
     this.publicFacts = sanitizePublicErrorFacts({
-      kind: publicErrorKindForCode(code) ?? 'unknown', provider: 'krillinai',
-      upstreamCode: code, upstreamMessage: message
+      kind: signatureRequired ? 'unsupported' : sessionRequired ? 'unauthorized' : /^prepare_(?:media|audio_fallback)_failed$/.test(code)
+        && /bilibili risk control (?:rejected the media request|blocked media extraction)/i.test(message)
+        ? 'http-rejected' : publicErrorKindForCode(code) ?? 'unknown', provider: 'krillinai',
+      upstreamCode: code, upstreamMessage: message,
+      ...(status === null ? {} : { httpStatus: Number(status[1]) })
     });
   }
 }
