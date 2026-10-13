@@ -99,6 +99,7 @@ describe('Desktop protocol network lifecycle', () => {
     expect(await blocked.json()).toMatchObject({ error: { code: 'RUNTIME_SHUTTING_DOWN' } });
     expect(network.fetch).toHaveBeenCalledTimes(1);
     expect(fixture.logger.warn).not.toHaveBeenCalled();
+    expect(fixture.onTransportFailure).not.toHaveBeenCalled();
 
     network.fetch.mockImplementation(async () => new Response('ready'));
     fixture.controller.resumeRuntime();
@@ -168,10 +169,13 @@ describe('Desktop protocol network lifecycle', () => {
 
     expect(response.status).toBe(502);
     expect(await response.json()).toMatchObject({ error: { code: 'RUNTIME_PROXY_FAILED' } });
-    expect(fixture.logger.warn).toHaveBeenCalledWith('Runtime proxy request failed', {
+    expect(fixture.logger.warn).toHaveBeenCalledWith('Runtime proxy request failed', expect.objectContaining({
       path: '/.opencreator/runtime/healthz',
-      message: 'connection refused'
-    });
+      method: 'GET',
+      phase: 'fetch',
+      errors: [{ name: 'Error' }]
+    }));
+    expect(fixture.onTransportFailure).toHaveBeenCalledTimes(1);
   });
 
   it('rejects unsafe Runtime paths before opening a network connection', async () => {
@@ -188,6 +192,7 @@ function runtimeUrl(path: string): string {
 }
 
 async function setup() {
+  const onTransportFailure = vi.fn();
   const logger: DesktopLogger = {
     info: vi.fn(),
     warn: vi.fn(),
@@ -199,8 +204,9 @@ async function setup() {
     webRoot: '/unused/web',
     bootstrapRoot: '/unused/bootstrap',
     getConnection: () => ({ address: 'http://127.0.0.1:60764', token: 'runtime-token' }),
+    onTransportFailure,
     logger
   });
   const handle = network.handle.mock.calls[0]![1] as (request: Request) => Promise<Response>;
-  return { controller, handle, logger };
+  return { controller, handle, logger, onTransportFailure };
 }

@@ -15,6 +15,7 @@ export async function registerPlatformConnectionRoutes(server: FastifyInstance, 
     }
     return youtube.connect(profileId as string | undefined);
   });
+  server.post('/platform-connections/youtube/complete-login', () => youtube.completeLogin());
   server.post('/platform-connections/youtube/cancel', () => youtube.cancel());
   server.delete('/platform-connections/youtube', () => youtube.disconnect());
   server.post<{ Body: { cookies?: unknown } }>('/platform-connections/youtube/import', async (request, reply) => {

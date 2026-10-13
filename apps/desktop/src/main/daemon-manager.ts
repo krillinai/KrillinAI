@@ -282,7 +282,12 @@ export class DaemonManager extends EventEmitter<DaemonManagerEvents> {
       }
     }
     await this.terminateKnownCodexProcesses(true);
-    await settlesWithin(exited, 1_000);
+    if (!await settlesWithin(exited, 1_000)) {
+      throw new DaemonStartError(
+        'DAEMON_STOP_FAILED',
+        '旧的本地运行服务未确认退出，已取消启动替代进程'
+      );
+    }
   }
 
   private async terminateKnownCodexProcesses(force: boolean): Promise<void> {

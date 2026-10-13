@@ -32,6 +32,7 @@ import type {
 import { FolderInput } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { AppLayout } from '../components/layout/AppLayout.js';
+import { RuntimeConnectionNotice, RuntimeConnectionProvider } from './runtime-connection-context.js';
 import { DesktopWindowControls } from '../components/layout/DesktopWindowControls.js';
 import { beginPaneResize } from '../components/layout/pane-resize-2026-07-29.js';
 import { Timeline, type TimelineHandle } from '../components/timeline/Timeline.js';
@@ -1161,7 +1162,6 @@ export function AppController(props: AppControllerProps) {
     taskBaselineReadyRef.current = false;
 
     if (connectionState.status !== 'connected' || taskService === null) {
-      setRuntimeTasks([]);
       return () => {
         canceled = true;
       };
@@ -1237,8 +1237,7 @@ export function AppController(props: AppControllerProps) {
 
   useEffect(() => {
     if (connectionState.status === 'connected') return;
-    stopAllRunEventSubscriptions(false);
-    dispatchRunRegistry({ type: 'reset' });
+    stopAllRunEventSubscriptions();
     setRunsLoadingThreadId(undefined);
     setRunsLoadedThreadId(undefined);
   }, [connectionState.status]);
@@ -1353,7 +1352,10 @@ export function AppController(props: AppControllerProps) {
     setRuntimeWorkspaceReady(false);
     const activeProjectService = projectService;
     const activeThreadService = threadService;
+    let retryTimer: number | undefined;
     async function loadRuntimeWorkspace() {
+      if (canceled) return;
+      let loaded = false;
       try {
         const legacyProjects = parseLegacyLocalStorageProjects(
           readJsonFromStorage<unknown>(PROJECTS_STORAGE_KEY)
@@ -1361,6 +1363,7 @@ export function AppController(props: AppControllerProps) {
         const migration = await activeProjectService.migrateLocalStorageV1({
           projects: legacyProjects
         });
+        if (canceled) return;
         let [activeResponse, allResponse] = await Promise.all([
           activeProjectService.listProjects('active'),
           activeProjectService.listProjects('all')
@@ -1377,6 +1380,7 @@ export function AppController(props: AppControllerProps) {
             ]);
             if (canceled) return;
           } catch (error) {
+            if (canceled) return;
             initialProjectError = getRuntimeErrorMessage(
               error,
               '无法自动创建默认项目，请手动添加项目'
@@ -1406,6 +1410,7 @@ export function AppController(props: AppControllerProps) {
         if (canceled) return;
         setRuntimeThreads(response.threads);
         setThreadLoadError(undefined);
+        loaded = true;
 
         const restoredThreadId = restoredThreadIdRef.current;
         restoredThreadIdRef.current = undefined;
@@ -1435,7 +1440,14 @@ export function AppController(props: AppControllerProps) {
         setProjectLoadError('无法迁移或加载项目，请稍后重试');
         setThreadLoadError(undefined);
       } finally {
-        if (!canceled) setRuntimeWorkspaceReady(true);
+        if (!canceled) {
+          setRuntimeWorkspaceReady(loaded);
+          if (!loaded) {
+            retryTimer = window.setTimeout(() => {
+              void loadRuntimeWorkspace();
+            }, 2_000);
+          }
+        }
       }
     }
 
@@ -1443,14 +1455,13 @@ export function AppController(props: AppControllerProps) {
 
     return () => {
       canceled = true;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
     };
   }, [connectionState.status, hostBridge, projectService, threadService]);
 
   useEffect(() => {
     let canceled = false;
     if (connectionState.status !== 'connected' || creatorService === null) {
-      setCreatorPresets([]);
-      setCreatorPresetsError(undefined);
       setCreatorPresetsLoading(false);
       return () => {
         canceled = true;
@@ -1490,10 +1501,6 @@ export function AppController(props: AppControllerProps) {
   useEffect(() => {
     let canceled = false;
     if (connectionState.status !== 'connected' || creatorService === null) {
-      if (connectionState.status !== 'connected') {
-        setCreatorJobs([]);
-        setCreatorJobsError(undefined);
-      }
       setCreatorJobsLoading(false);
       return () => {
         canceled = true;
@@ -1529,7 +1536,6 @@ export function AppController(props: AppControllerProps) {
     let canceled = false;
 
     if (connectionState.status !== 'connected' || scheduleService === null) {
-      if (connectionState.status !== 'connected') setRuntimeSchedules([]);
       return () => {
         canceled = true;
       };
@@ -1540,9 +1546,7 @@ export function AppController(props: AppControllerProps) {
       .then(response => {
         if (!canceled) setRuntimeSchedules(response.schedules);
       })
-      .catch(() => {
-        if (!canceled) setRuntimeSchedules([]);
-      });
+      .catch(() => undefined);
 
     return () => {
       canceled = true;
@@ -1858,7 +1862,9 @@ export function AppController(props: AppControllerProps) {
       setThreadHistoryLoadError(undefined);
       setHistoryLoadingThreadId(selectedThreadId);
       setHistoryLoadedThreadId(undefined);
-      showTimelineForThread(selectedThreadId, [], false);
+      if (timelineThreadIdRef.current !== selectedThreadId) {
+        showTimelineForThread(selectedThreadId, [], false);
+      }
       return;
     }
 
@@ -4249,6 +4255,7 @@ export function AppController(props: AppControllerProps) {
   )
     || selectedPendingRunStart !== undefined
     || selectedRunsLoading
+    || !runtimeWorkspaceReady
     || connectionState.status !== 'connected'
     || agentSetup === 'skipped';
   const composerDisabledReason = connectionState.status !== 'connected'
@@ -4522,6 +4529,7 @@ export function AppController(props: AppControllerProps) {
         </div>
       ) : (
         <div className="composer-wrap" onWheel={handleComposerWheel}>
+          <RuntimeConnectionNotice />
           {showConversationEmptyState ? (
             <ConversationEmptyState />
           ) : null}
@@ -4871,7 +4879,16 @@ export function AppController(props: AppControllerProps) {
   );
 
   return (
-    <RuntimeRecoveryContext.Provider value={runtimeRecovery}><PageIssueRoutingProvider><div
+    <RuntimeRecoveryContext.Provider value={runtimeRecovery}><PageIssueRoutingProvider><RuntimeConnectionProvider value={{
+      status: connectionState.status,
+      waitingForConfig: connectionConfig === null,
+      restarting: runtimeRecovery.phase === 'restarting',
+      restartError: runtimeRecovery.phase === 'failed' ? runtimeRecovery.message : undefined,
+      retry: () => void runtimeRecovery.retry(),
+      ...(runtimeRecovery.restart === undefined
+        ? {}
+        : { restart: () => void runtimeRecovery.restart!() })
+    }}><div
       className="app-drop-shell"
       data-integrated-title-bar={
         integratedTitleBar?.integratedTitleBar === true ? 'true' : undefined
@@ -5054,7 +5071,7 @@ export function AppController(props: AppControllerProps) {
           onAskIssue={askAgentAboutIssue}
         />
       </Suspense>
-    </div></PageIssueRoutingProvider></RuntimeRecoveryContext.Provider>
+    </div></RuntimeConnectionProvider></PageIssueRoutingProvider></RuntimeRecoveryContext.Provider>
   );
 
   function createDetailPanel() {

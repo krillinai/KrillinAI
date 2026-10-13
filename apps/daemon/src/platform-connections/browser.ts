@@ -4,7 +4,8 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { spawnCreatorProcess } from '../creator/process-tree.js';
 import type { YtDlpRuntime } from '../creator/yt-dlp/runtime.js';
-import { filterYouTubeCookies, type YouTubeCookie } from './cookies.js';
+import { filterYouTubeCookies, hasYouTubeAuthentication, type YouTubeCookie } from './cookies.js';
+import { BrowserCloseError } from './browser-close.js';
 
 export type BrowserProfile = { id: string; browser: 'chrome' | 'edge'; label: string; directory: string; preferred: boolean };
 
@@ -47,14 +48,20 @@ from yt_dlp.cookies import extract_cookies_from_browser, YDLLogger
 from yt_dlp.utils import DownloadError
 class QuietLogger(YDLLogger):
     decryption_failed = False
+    failure = 'read-failed'
     def debug(self, *args, **kwargs): pass
     def info(self, *args, **kwargs): pass
     def warning(self, message, *args, **kwargs):
-        if 'decrypt' in str(message) or 'key found' in str(message) or 'find-generic-password failed' in str(message):
+        if 'decrypt' in str(message) or 'key found' in str(message) or 'find-generic-password failed' in str(message) or (sys.platform == 'win32' and 'unknown cookie version' in str(message).lower()):
             self.decryption_failed = True
-    def error(self, *args, **kwargs): raise DownloadError('Browser cookie extraction failed')
+    def error(self, message, *args, **kwargs):
+        if 'could not copy' in str(message).lower() and 'cookie' in str(message).lower():
+            self.failure = 'browser-locked'
+        elif 'decrypt' in str(message).lower() or 'encrypted key' in str(message).lower() or 'invalid key' in str(message).lower():
+            self.failure = 'decryption-failed'
+        raise DownloadError('Browser cookie extraction failed')
+logger = QuietLogger()
 try:
-    logger = QuietLogger()
     jar = extract_cookies_from_browser(sys.argv[2], profile=sys.argv[3], logger=logger)
     cookies = []
     for c in jar:
@@ -67,6 +74,8 @@ try:
                 secure=bool(c.secure), httpOnly=c.has_nonstandard_attr('HttpOnly'), expires=expires))
     sys.stdout.write(json.dumps(dict(cookies=cookies, decryptionFailed=logger.decryption_failed)))
 except Exception:
+    if sys.platform == 'win32':
+        sys.stdout.write(json.dumps(dict(failure=logger.failure)))
     sys.exit(1)
 `;
 
@@ -94,14 +103,29 @@ export async function readBrowserYouTubeCookies(input: {
     child.once('error', () => reject(new Error('无法读取浏览器 Cookie，请检查本地组件。')));
     child.once('close', code => {
       if (signal.aborted) reject(new Error('连接已取消。'));
-      else if (code !== 0) reject(new Error('无法读取 Chrome / Edge 的 Cookie。请允许钥匙串访问；若浏览器加密或文件锁阻止读取，可导入 Cookie 文件。'));
+      else if (code !== 0) {
+        if (process.platform === 'win32') {
+          let failure: string | undefined;
+          try { failure = JSON.parse(Buffer.concat(chunks).toString('utf8')).failure; } catch { /* 输出不完整时使用通用错误。 */ }
+          reject(failure === 'browser-locked' ? new BrowserCloseError(profile.browser)
+            : failure === 'decryption-failed' ? windowsDecryptionError()
+            : new Error('无法读取 YouTube 登录态，请重新连接并完成登录。'));
+        } else reject(new Error('无法读取 Chrome / Edge 的 Cookie。请允许钥匙串访问；若浏览器加密或文件锁阻止读取，可导入 Cookie 文件。'));
+      }
       else resolve(Buffer.concat(chunks).toString('utf8'));
     });
   });
   const result = JSON.parse(output) as { cookies?: unknown; decryptionFailed?: boolean };
   const cookies = filterYouTubeCookies(result.cookies);
+  if (process.platform === 'win32' && result.decryptionFailed && !hasYouTubeAuthentication(cookies)) {
+    throw windowsDecryptionError();
+  }
   if (result.decryptionFailed && cookies.length === 0) {
     throw new Error('浏览器 Cookie 解密失败，请允许 macOS 钥匙串访问后重新连接；当前浏览器的加密方式也可能不受 yt-dlp 支持。');
   }
   return cookies;
+}
+
+function windowsDecryptionError(): Error {
+  return new Error('无法解密 YouTube 登录态，请断开后重新连接并登录。');
 }

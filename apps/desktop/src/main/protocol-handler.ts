@@ -10,7 +10,8 @@ import {
   createRuntimeProxyTarget,
   isStreamingRuntimeUploadRequest,
   isRuntimeRequestUrl,
-  readBoundedRequestBody
+  readBoundedRequestBody,
+  runtimeProxyErrorDetails
 } from './runtime-proxy.js';
 
 export function registerPrivilegedSchemes(): void {
@@ -38,6 +39,7 @@ export async function installProtocolHandler(input: {
   webRoot: string;
   bootstrapRoot: string;
   getConnection(): DaemonConnection | undefined;
+  onTransportFailure?(connection: DaemonConnection): void;
   logger: DesktopLogger;
 }): Promise<ProtocolHandlerController> {
   let runtimeSuspended = false;
@@ -56,7 +58,8 @@ export async function installProtocolHandler(input: {
         input.getConnection(),
         input.logger,
         AbortSignal.any([request.signal, controller.signal]),
-        () => activeRequests.delete(controller)
+        () => activeRequests.delete(controller),
+        input.onTransportFailure
       );
     }
     if (url.hostname === 'app') {
@@ -85,16 +88,27 @@ async function proxyRuntimeRequest(
   connection: DaemonConnection | undefined,
   logger: DesktopLogger,
   signal: AbortSignal,
-  onComplete: () => void
+  onComplete: () => void,
+  onTransportFailure?: (connection: DaemonConnection) => void
 ): Promise<Response> {
   if (connection === undefined) {
     onComplete();
+    logger.warnRateLimited('runtime-proxy-unavailable', 'Runtime proxy connection unavailable', {
+      method: request.method,
+      path: url.pathname
+    }, 5_000);
     return jsonError(503, 'RUNTIME_UNAVAILABLE', 'OpenCreator Runtime is not ready');
   }
+  const startedAt = performance.now();
+  let phase = 'target';
+  let daemonPort: string | undefined;
   try {
     const target = createRuntimeProxyTarget(url, connection.address);
+    daemonPort = target.port;
+    phase = 'headers';
     const headers = createRuntimeProxyHeaders(request.headers, connection.token);
     const streamsUpload = isStreamingRuntimeUploadRequest(target, request);
+    phase = 'body';
     const body = request.method === 'GET' || request.method === 'HEAD'
       ? undefined
       : streamsUpload
@@ -108,9 +122,17 @@ async function proxyRuntimeRequest(
       signal
     };
     if (streamsUpload && body !== undefined) upstreamRequest.duplex = 'half';
+    phase = 'fetch';
     signal.throwIfAborted();
     const upstream = await fetchDesktopRequest(target.toString(), upstreamRequest);
-    return relayRuntimeResponse(upstream, logger, signal, onComplete);
+    return relayRuntimeResponse(upstream, logger, signal, onComplete, {
+      method: request.method,
+      path: url.pathname,
+      daemonPort,
+      startedAt,
+      connection,
+      onTransportFailure
+    });
   } catch (error) {
     onComplete();
     if (signal.aborted) {
@@ -120,9 +142,14 @@ async function proxyRuntimeRequest(
       return jsonError(error.status, error.code, error.message);
     }
     logger.warn('Runtime proxy request failed', {
+      method: request.method,
       path: url.pathname,
-      message: error instanceof Error ? error.message : String(error)
+      phase,
+      durationMs: Math.round(performance.now() - startedAt),
+      daemonPort,
+      errors: runtimeProxyErrorDetails(error)
     });
+    if (phase === 'fetch' && !request.signal.aborted) onTransportFailure?.(connection);
     return jsonError(502, 'RUNTIME_PROXY_FAILED', 'Runtime request failed');
   }
 }
@@ -131,7 +158,15 @@ function relayRuntimeResponse(
   upstream: Response,
   logger: DesktopLogger,
   signal: AbortSignal,
-  onComplete: () => void
+  onComplete: () => void,
+  context: {
+    method: string;
+    path: string;
+    daemonPort: string;
+    startedAt: number;
+    connection: DaemonConnection;
+    onTransportFailure?: (connection: DaemonConnection) => void;
+  }
 ): Response {
   const headers = new Headers(upstream.headers);
   for (const name of [
@@ -179,8 +214,14 @@ function relayRuntimeResponse(
         release();
         if (!signal.aborted) {
           logger.warn('Runtime proxy response stream failed', {
-            message: error instanceof Error ? error.message : String(error)
+            method: context.method,
+            path: context.path,
+            phase: 'response-stream',
+            durationMs: Math.round(performance.now() - context.startedAt),
+            daemonPort: context.daemonPort,
+            errors: runtimeProxyErrorDetails(error)
           });
+          context.onTransportFailure?.(context.connection);
         }
         controller.error(error);
       }

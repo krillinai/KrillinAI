@@ -1,5 +1,52 @@
-import { createDefaultCreatorServicesConfig, type CreatorRuntimeComponentsResponse, type CreatorServicesCapabilitiesResponse, type CreatorYtDlpStatusResponse } from '@opencreator/protocol';
+import { createDefaultCreatorServicesConfig, type CreatorRuntimeComponentsResponse, type CreatorServicesCapabilitiesResponse, type CreatorYtDlpStatusResponse, type YouTubeConnectionState } from '@opencreator/protocol';
 import { test, expect } from './fixtures/runtime.js';
+
+test('Windows YouTube 专用登录和完成在 Browser/Desktop 下保持一致', async ({ browser, runtime }, testInfo) => {
+  const results: unknown[] = [];
+  const viewport = testInfo.project.name === 'chromium-mobile' ? { width: 390, height: 844 } : { width: 1280, height: 800 };
+  for (const platform of ['browser', 'desktop']) {
+    const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    let state: YouTubeConnectionState = { platform: 'youtube', status: 'disconnected', connectionMethod: 'browser-login' };
+    const payloads: Array<{ action: string | undefined; body: string | null }> = [];
+    await page.route('**/platform-connections/youtube{,/**}', async route => {
+      if (route.request().method() === 'POST') {
+        const action = new URL(route.request().url()).pathname.split('/').at(-1);
+        payloads.push({ action, body: route.request().postData() });
+        state = action === 'connect' ? { ...state, status: 'connecting', actionRequired: 'complete-login',
+          message: '请在打开的 Chrome 窗口中登录 YouTube' }
+          : { ...state, status: action === 'cancel' ? 'disconnected' : 'connected', actionRequired: undefined, message: undefined };
+      }
+      await route.fulfill({ json: state });
+    });
+    if (platform === 'desktop') await installDesktopBridge(page);
+    try {
+      await runtime.openApp(page);
+      await page.goto(`${runtime.origin}/#/settings?tab=platform-connections`);
+      const section = page.getByRole('region', { name: '平台连接' });
+      await expect(section.getByRole('button', { name: '连接', exact: true })).toBeVisible();
+      await expect(section.getByRole('button', { name: '下载浏览器连接器' })).toHaveCount(0);
+      await section.getByRole('button', { name: '连接', exact: true }).click();
+      await expect(section.getByRole('button', { name: '完成登录', exact: true })).toBeVisible();
+      await expect(page.getByRole('alertdialog')).toHaveCount(0);
+      await section.getByRole('button', { name: '取消', exact: true }).click();
+      await expect(section.locator('.platform-connection-status')).toHaveText('未连接');
+      await section.getByRole('button', { name: '连接', exact: true }).click();
+      await expect(section.getByRole('button', { name: '完成登录', exact: true })).toBeVisible();
+      await expect(section.getByLabel('连接码', { exact: true })).toHaveCount(0);
+      await expect(section.getByRole('combobox')).toHaveCount(0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const snapshot = { text: await section.innerText(), status: await section.locator('.platform-connection-status').boundingBox(),
+        actions: await section.locator('.platform-connection-actions').boundingBox() };
+      await page.screenshot({ path: testInfo.outputPath(`${platform}-youtube-login.png`) });
+      await section.getByRole('button', { name: '完成登录', exact: true }).click();
+      await expect(section.locator('.platform-connection-status')).toHaveText('已连接');
+      expect(payloads.map(payload => payload.action)).toEqual(['connect', 'cancel', 'connect', 'complete-login']);
+      results.push({ snapshot, payloads, state });
+    } finally { await context.close(); }
+  }
+  expect(results[1]).toEqual(results[0]);
+});
 
 test('首页和项目页按需加载管理、登录与插件资源且 Browser/Desktop 布局一致', async ({ browser, runtime }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-desktop');
