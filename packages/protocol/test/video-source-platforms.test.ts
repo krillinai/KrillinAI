@@ -40,8 +40,26 @@ describe('shared public video sources', () => {
   });
 
   it.each([
+    'https://www.douyin.com/jingxuan/search/qianjidong?aid=2052a92f-0793-47c1-b739-c0af829b6103&modal_id=7693859410975690010&type=general',
+    'https://douyin.com/jingxuan/search/%E6%97%85%E8%A1%8C/?modal_id=7693859410975690010',
+    'https://www.douyin.com/jingxuan/search?modal_id=7693859410975690010'
+  ])('normalizes a selected Douyin search result and identifies the same video: %s', url => {
+    const videoUrl = 'https://www.douyin.com/video/7693859410975690010';
+    expect(normalizeVideoSourceUrl(url)).toBe(videoUrl);
+    expect(supportedVideoSourcePlatform(url)).toBe('douyin');
+    expect(videoSourceIdentity(url)).toBe(videoSourceIdentity(videoUrl));
+    expect(videoSourceIdentity(url.replace('7693859410975690010', '7693859410975690011')))
+      .not.toBe(videoSourceIdentity(url));
+  });
+
+  it.each([
     'https://www.tiktok.com/@creator', 'https://www.instagram.com/creator/',
     'https://www.douyin.com/user/123', 'https://www.facebook.com/creator/',
+    'https://www.douyin.com/jingxuan/search/qianjidong?type=general',
+    'https://www.douyin.com/jingxuan/search/qianjidong?modal_id=abc',
+    'https://www.douyin.com/jingxuan/search/qianjidong/extra?modal_id=123',
+    'https://notdouyin.com/jingxuan/search/qianjidong?modal_id=123',
+    'https://www.douyin.com/jingxuanother?modal_id=123',
     'https://www.xiaohongshu.com/user/profile/123', 'https://www.pinterest.com/creator/',
     'https://notpinterest.com/pin/123/', 'https://instagram.com.example.com/reel/abc/',
     'https://www.reddit.com/r/claude/', 'https://www.reddit.com/user/creator/',

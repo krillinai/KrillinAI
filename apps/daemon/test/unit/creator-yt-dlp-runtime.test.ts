@@ -1,11 +1,13 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { KrillinRuntimeManifest } from '../../src/creator/krillin/manifest.js';
 import { resolveYtDlpRuntime } from '../../src/creator/yt-dlp/runtime.js';
 
 let root = '';
+const pluginArgs = ['--plugin-dirs', fileURLToPath(new URL('../../runtime/yt-dlp', import.meta.url))];
 
 afterEach(async () => {
   if (root) await rm(root, { recursive: true, force: true });
@@ -45,7 +47,7 @@ describe('yt-dlp runtime resolver', () => {
     })).toEqual({
       version: '2026.08.29.232711',
       executable,
-      prefixArgs: ['-I', '-B', script, '--js-runtimes', `node:${node}`],
+      prefixArgs: ['-I', '-B', script, ...pluginArgs, '--js-runtimes', `node:${node}`],
       env: {
         SSL_CERT_FILE: certificateBundle
       },
@@ -80,7 +82,7 @@ describe('yt-dlp runtime resolver', () => {
     })).toEqual({
       version: '2026.08.29.232711',
       executable,
-      prefixArgs: [],
+      prefixArgs: pluginArgs,
       env: {}
     });
 
@@ -90,7 +92,7 @@ describe('yt-dlp runtime resolver', () => {
     })).toEqual({
       version: 'legacy',
       executable,
-      prefixArgs: [],
+      prefixArgs: pluginArgs,
       env: {}
     });
   });
@@ -127,7 +129,7 @@ describe('yt-dlp runtime resolver', () => {
     })).toEqual({
       version: 'external',
       executable: resolve(overridePath),
-      prefixArgs: [],
+      prefixArgs: pluginArgs,
       env: {}
     });
   });

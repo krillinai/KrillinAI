@@ -587,6 +587,7 @@ describe('VideoDownloadWorkspace', () => {
       'https://www.douyin.com/video/123',
       'https://v.douyin.com/abc123/',
       'https://www.douyin.com/jingxuan?modal_id=7687030616353823355',
+      'https://www.douyin.com/jingxuan/search/qianjidong?aid=2052a92f-0793-47c1-b739-c0af829b6103&modal_id=7693859410975690010&type=general',
       'https://www.facebook.com/watch/?v=123',
       'https://www.facebook.com/reel/123',
       'https://fb.watch/abc123/',

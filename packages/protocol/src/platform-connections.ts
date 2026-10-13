@@ -1,5 +1,7 @@
-export type YouTubeConnectionState = {
-  platform: 'youtube';
+export type ConnectionPlatform = 'youtube' | 'douyin';
+
+export type PlatformConnectionState = {
+  platform: ConnectionPlatform;
   status: 'disconnected' | 'connecting' | 'connected' | 'expired' | 'error';
   browser?: 'chrome' | 'edge';
   connectedAt?: string;
@@ -9,3 +11,5 @@ export type YouTubeConnectionState = {
   connectionMethod?: 'browser-login';
   actionRequired?: 'complete-login' | 'close-login-browser';
 };
+
+export type YouTubeConnectionState = PlatformConnectionState & { platform: 'youtube' };
