@@ -69,7 +69,8 @@ jobs:
           cache: pnpm
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.x'
+          go-version-file: runtime/krillinai/go.mod
+          cache-dependency-path: runtime/krillinai/go.sum
       - run: pnpm install --frozen-lockfile
       - name: Validate release workflows
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
