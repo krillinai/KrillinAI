@@ -43,6 +43,7 @@ export type GatewayClient = {
   avatar(access: string, accountId: string): Promise<{ data: Uint8Array; contentType: string }>;
   logout(access: string): Promise<void>;
   request(path: string, access: string, body?: unknown): Promise<unknown>;
+  cancelPendingRequests?(): void;
 };
 export class GatewayError extends Error {
   constructor(readonly code: string, readonly status = 503) { super('OpenCreator 网关请求未完成'); }
@@ -55,25 +56,30 @@ export function validateGatewayOrigin(origin: string) {
 }
 export function createGatewayClient(origin: string, fetcher: typeof fetch = fetch): GatewayClient {
   origin = validateGatewayOrigin(origin);
+  const pendingRequests = new Set<AbortController>();
   async function readResponse(path: string, access: string, body?: unknown) {
     if (!path.startsWith('/api/v1/') || path.includes('..')) throw new GatewayError('invalid_gateway_path');
-    let res: Response;
+    const controller = new AbortController();
+    pendingRequests.add(controller);
     try {
-      res = await fetcher(`${origin}${path}`, { method: body === undefined ? 'GET' : 'POST', redirect: 'error', signal: AbortSignal.timeout(30_000),
-        headers: { 'Content-Type': 'application/json', ...(access ? { Authorization: `Bearer ${access}` } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-    } catch { throw new GatewayError('gateway_unavailable'); }
-    const reader = res.body?.getReader();
-    if (!reader) throw new GatewayError('invalid_gateway_response');
-    const chunks: Uint8Array[] = []; let size = 0;
-    try {
-      while (true) {
-        const item = await reader.read(); if (item.done) break;
-        size += item.value.byteLength;
-        if (size > 1024 * 1024) { await reader.cancel(); throw new GatewayError('invalid_gateway_response'); }
-        chunks.push(item.value);
-      }
-    } catch (error) { if (error instanceof GatewayError) throw error; throw new GatewayError('gateway_unavailable'); }
-    return { res, data: Buffer.concat(chunks) };
+      let res: Response;
+      try {
+        res = await fetcher(`${origin}${path}`, { method: body === undefined ? 'GET' : 'POST', redirect: 'error', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)]),
+          headers: { 'Content-Type': 'application/json', ...(access ? { Authorization: `Bearer ${access}` } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+      } catch { throw new GatewayError('gateway_unavailable'); }
+      const reader = res.body?.getReader();
+      if (!reader) throw new GatewayError('invalid_gateway_response');
+      const chunks: Uint8Array[] = []; let size = 0;
+      try {
+        while (true) {
+          const item = await reader.read(); if (item.done) break;
+          size += item.value.byteLength;
+          if (size > 1024 * 1024) { await reader.cancel(); throw new GatewayError('invalid_gateway_response'); }
+          chunks.push(item.value);
+        }
+      } catch (error) { if (error instanceof GatewayError) throw error; throw new GatewayError('gateway_unavailable'); }
+      return { res, data: Buffer.concat(chunks) };
+    } finally { pendingRequests.delete(controller); }
   }
   function responseError(data: Uint8Array, status: number): never {
     let value: unknown;
@@ -90,6 +96,7 @@ export function createGatewayClient(origin: string, fetcher: typeof fetch = fetc
   }
   return {
     origin, request,
+    cancelPendingRequests() { for (const controller of pendingRequests) controller.abort(); },
     async startDevice() { return z.object({ attemptId: z.string().min(1), deviceSecret: z.string().min(12), authorizationUrl: z.string().url(), interval: z.number().positive(), expiresIn: z.number().positive() }).parse(await request('/api/v1/auth/device/start', '', { label: 'OpenCreator' })); },
     async pollDevice(attemptId, deviceSecret) { return tokenSchema.parse(await request('/api/v1/auth/device/token', '', { attemptId, deviceSecret })); },
     async cancelDevice(attemptId, deviceSecret) { await request('/api/v1/auth/device/cancel', '', { attemptId, deviceSecret }); },

@@ -12,6 +12,7 @@ export function createGatewayAccountService(input: {
   hasPendingTasks?(): boolean;
   automaticPolling?: boolean;
   modelAccess?: OfficialModelAccess;
+  deferStartupActivation?: boolean;
 }) {
   const store = createGatewayConfigStore(input.dataDir);
   let state: GatewayAccountState = { source: 'manual', authState: 'signed_out', activationState: 'inactive', account: null, bindingVersion: null, models: [], activationError: null };
@@ -21,6 +22,9 @@ export function createGatewayAccountService(input: {
   let pollTimer: NodeJS.Timeout | undefined;
   let pollWork: { attempt: NonNullable<typeof attempt>; work: Promise<void> } | undefined;
   let initialization: Promise<void> | undefined;
+  let startupRestoreWork: Promise<void> | undefined;
+  let startupRestoreFinished = false;
+  let stateRefreshWork: Promise<void> | undefined;
   let refreshWork: Promise<void> | undefined;
   let profileWork: Promise<void> | undefined;
   let profileUpdatedAt = 0;
@@ -103,9 +107,28 @@ export function createGatewayAccountService(input: {
       await saveConfiguration();
       if (!credentials) return;
       state.account = credentials.account ?? null; state.authState = 'signed_in'; state.models = credentials.models ?? [];
+      if (input.deferStartupActivation) {
+        const cached = bootstrapSchema.safeParse(credentials);
+        if (cached.success) state.models = (await visibleBootstrap(cached.data)).models;
+        state.activationState = 'loading';
+        return;
+      }
       await refresh();
       await activateCurrent();
     } catch (error) { fail(error); }
+  }
+  function startBackgroundRestore(): Promise<void> {
+    if (!input.deferStartupActivation || closing) return Promise.resolve();
+    startupRestoreWork ??= (async () => {
+      await initialize();
+      if (!credentials || state.authState !== 'signed_in') return;
+      await serialize(async () => {
+        if (!closing && !accessPaused && state.authState === 'signed_in' && state.activationState === 'loading') {
+          await activateCurrent();
+        }
+      });
+    })().catch(error => { if (!closing) fail(error); }).finally(() => { startupRestoreFinished = true; });
+    return startupRestoreWork;
   }
   async function refresh() {
     if (refreshWork) return refreshWork;
@@ -114,11 +137,11 @@ export function createGatewayAccountService(input: {
       if (Date.parse(original.accessExpiresAt) > Date.now() + 60_000) return;
       try {
         const tokens = await input.client.refresh(original.refreshToken);
-        if (generation !== expected || credentials !== original || state.authState !== 'signed_in') return;
+        if (closing || accessPaused || generation !== expected || credentials !== original || state.authState !== 'signed_in') return;
         credentials = { ...original, ...tokens, accessExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000).toISOString() };
         await store.writeCredentials(credentials);
       } catch (error) {
-        if (error instanceof GatewayError && error.status === 401 && generation === expected && credentials === original && state.authState === 'signed_in') {
+        if (!closing && !accessPaused && error instanceof GatewayError && error.status === 401 && generation === expected && credentials === original && state.authState === 'signed_in') {
           state = { ...state, authState: 'expired', activationState: 'inactive', bindingVersion: null, activationError: null };
           runtimeTextModel = undefined; accessController?.abort();
           clearInterval(usageTimer); usageTimer = undefined;
@@ -133,50 +156,55 @@ export function createGatewayAccountService(input: {
     // Connecting a new session must not wait for unrelated or persisted jobs.
     if (state.activationState === 'ready') assertIdle();
     await refresh();
+    if (closing || accessPaused) return;
     const original = assertSignedIn(); const expected = generation;
     state.activationState = 'loading'; state.activationError = null;
     try {
       state.source = 'gateway'; state.bindingVersion = null;
       await saveConfiguration();
       await reportUsage();
+      if (closing || accessPaused || generation !== expected || state.authState !== 'signed_in') return;
       const bootstrap = await input.client.bootstrap(original.accessToken, { rotate: !input.hasPendingTasks?.() });
-      if (generation !== expected || state.authState !== 'signed_in') return;
+      if (closing || accessPaused || generation !== expected || state.authState !== 'signed_in') return;
       if (original.account && bootstrap.account.id !== original.account.id) throw new GatewayError('account_mismatch');
       state.account = bootstrap.account;
       for (const [modality, model] of Object.entries(selectedModels)) {
         if (bootstrap.models.some(candidate => candidate.modality === modality && candidate.id === model)) bootstrap.defaults[modality] = model;
       }
       const visible = await visibleBootstrap(bootstrap);
-      if (generation !== expected || state.authState !== 'signed_in') return;
+      if (closing || accessPaused || generation !== expected || state.authState !== 'signed_in') return;
       selectedModels = { ...visible.defaults }; state.selectedModels = { ...selectedModels };
       credentials = { ...original, ...bootstrap, defaults: visible.defaults };
       await store.writeCredentials(credentials);
+      if (closing || accessPaused || generation !== expected || state.authState !== 'signed_in') return;
       state.account = bootstrap.account; state.models = visible.models;
       accessBlocked = !visible.defaults.text;
       if (accessBlocked) throw new GatewayError('services_not_ready');
       await input.activateRuntime(visible);
       runtimeTextModel = visible.defaults.text;
-      if (generation !== expected || state.authState !== 'signed_in') { await input.closeRuntime(); return; }
+      if (closing || accessPaused || generation !== expected || state.authState !== 'signed_in') { await input.closeRuntime(); return; }
       state.bindingVersion = bootstrap.bindingVersion;
       catalogUpdatedAt = Date.now();
       await saveConfiguration();
+      if (closing || accessPaused || generation !== expected || state.authState !== 'signed_in') { await input.closeRuntime(); return; }
       state = { ...state, source: 'gateway', activationState: 'ready', account: bootstrap.account, models: visible.models, bindingVersion: bootstrap.bindingVersion, activationError: null };
       await reportUsage();
       startUsageHeartbeat();
-    } catch (error) { runtimeTextModel = undefined; fail(error); await input.closeRuntime(); }
+    } catch (error) { runtimeTextModel = undefined; if (!closing && !accessPaused) fail(error); await input.closeRuntime(); }
     scheduleModelAccess();
   }
   async function readProfile() {
-    if (!credentials || state.authState !== 'signed_in') return;
+    if (closing || accessPaused || !credentials || state.authState !== 'signed_in') return;
     if (profileWork) return profileWork;
     if (Date.now() - profileUpdatedAt < 30_000) return;
     profileUpdatedAt = Date.now();
     profileWork = (async () => {
       await refresh();
+      if (closing || accessPaused) return;
       const original = assertSignedIn(); const expected = generation;
       const profile = z.object({ account: accountSchema }).parse(await input.client.request('/api/v1/me', original.accessToken));
       await serialize(async () => {
-        if (expected !== generation || credentials !== original || state.authState !== 'signed_in') return;
+        if (closing || accessPaused || expected !== generation || credentials !== original || state.authState !== 'signed_in') return;
         if (original.account && profile.account.id !== original.account.id) throw new GatewayError('account_mismatch');
         const next = { ...original, account: profile.account };
         await store.writeCredentials(next);
@@ -187,20 +215,29 @@ export function createGatewayAccountService(input: {
     finally { profileWork = undefined; }
   }
   async function readCatalog() {
-    if (!credentials || state.authState !== 'signed_in' || state.source !== 'gateway' || state.activationState !== 'ready') return;
+    if (closing || accessPaused || !credentials || state.authState !== 'signed_in' || state.source !== 'gateway' || state.activationState !== 'ready') return;
     if (catalogWork) return catalogWork;
     if (input.hasActiveTasks() || input.hasPendingTasks?.() || Date.now() - catalogUpdatedAt < 30_000) return;
     catalogUpdatedAt = Date.now();
     catalogWork = (async () => {
       await refresh();
+      if (closing || accessPaused) return;
       const original = assertSignedIn(); const expected = generation;
       const catalog = catalogSchema.parse(await input.client.request('/api/v1/client/models', original.accessToken));
       await serialize(async () => {
-        if (generation !== expected || credentials !== original || state.source !== 'gateway' || state.authState !== 'signed_in' || input.hasActiveTasks() || input.hasPendingTasks?.()) return;
+        if (closing || accessPaused || generation !== expected || credentials !== original || state.source !== 'gateway' || state.authState !== 'signed_in' || input.hasActiveTasks() || input.hasPendingTasks?.()) return;
         if (original.rotationPending || JSON.stringify(catalog.models) !== JSON.stringify(original.models)) await activateCurrent();
       });
     })().catch(() => undefined);
     try { await catalogWork; } finally { catalogWork = undefined; }
+  }
+  function refreshState(): Promise<void> {
+    stateRefreshWork ??= (async () => {
+      await readProfile(); await readCatalog();
+      if (needsAccessibleRuntime()) await serialize(synchronizeAccessibleRuntime);
+      scheduleModelAccess();
+    })().finally(() => { stateRefreshWork = undefined; });
+    return stateRefreshWork;
   }
   function schedulePoll(id: string, seconds: number) {
     if (attempt?.attemptId !== id) return;
@@ -303,13 +340,16 @@ export function createGatewayAccountService(input: {
     platformProbeWork = work;
     try { return await work; } finally { if (platformProbeWork === work) platformProbeWork = undefined; }
   }
-  function reportUsage() {
+  function reportUsage(allowClosing = false) {
     const result = usageMutation.then(async () => {
-      if (!credentials?.keyRotation || !credentials.keyVersion || state.authState !== 'signed_in') return undefined;
+      if ((closing && !allowClosing) || !credentials?.keyRotation || !credentials.keyVersion || state.authState !== 'signed_in') return undefined;
       await refresh();
+      if (closing && !allowClosing) return undefined;
       const current = assertSignedIn(); const expected = generation;
+      const installationId = await store.readDeviceID();
+      if (closing && !allowClosing) return undefined;
       const value = z.object({ keyVersion: z.string().min(1) }).parse(await input.client.request('/api/v1/client/usage', current.accessToken, {
-        keyVersion: current.keyVersion, installationId: await store.readDeviceID(), busy: localUses > 0 || input.hasActiveTasks(), pending: input.hasPendingTasks?.() === true
+        keyVersion: current.keyVersion, installationId, busy: localUses > 0 || input.hasActiveTasks(), pending: input.hasPendingTasks?.() === true
       }));
       if (generation !== expected || state.authState !== 'signed_in') throw new GatewayError('auth_required', 401);
       return value.keyVersion;
@@ -318,7 +358,7 @@ export function createGatewayAccountService(input: {
     return result;
   }
   function startUsageHeartbeat() {
-    if (usageTimer || !credentials?.keyRotation || input.automaticPolling === false) return;
+    if (closing || accessPaused || usageTimer || !credentials?.keyRotation || input.automaticPolling === false) return;
     usageTimer = setInterval(() => { void reportUsage().catch(() => undefined); }, 10_000);
     usageTimer.unref();
   }
@@ -362,6 +402,7 @@ export function createGatewayAccountService(input: {
   async function logout() {
     await initialize();
     accessPaused = true;
+    input.client.cancelPendingRequests?.();
     accessController?.abort(); await accessWork;
     await serialize(async () => {
       await reportUsage().catch(() => undefined);
@@ -385,6 +426,7 @@ export function createGatewayAccountService(input: {
     } catch (error) { return { status: 'unavailable', lastKnown: balance, code: error instanceof GatewayError ? error.code : 'gateway_unavailable' }; }
   }
   return {
+    initialize, startBackgroundRestore,
     peekState() { return structuredClone(state); },
     startAuthorization, cancelAuthorization, pollAuthorization, checkAuthorization, refresh, logout, modelCredentials, beginModelUse, probeCredentials, readBalance, billing,
     readPlans() { return input.client.request('/api/v1/plans', ''); },
@@ -400,10 +442,11 @@ export function createGatewayAccountService(input: {
     async readState() {
       await initialize();
       // Login is visible while model preparation still owns the mutation queue.
-      if (state.activationState === 'loading' || state.authState === 'signing_out') return structuredClone(state);
-      await readProfile(); await readCatalog();
-      if (needsAccessibleRuntime()) await serialize(synchronizeAccessibleRuntime);
-      scheduleModelAccess(); return structuredClone(state);
+      if (closing || state.activationState === 'loading' || state.authState === 'signing_out') return structuredClone(state);
+      const work = refreshState();
+      if (input.deferStartupActivation) void work.catch(() => undefined);
+      else await work;
+      return structuredClone(state);
     },
     async setSource(source: ServiceSource) {
       await initialize(); await serialize(async () => {
@@ -424,7 +467,16 @@ export function createGatewayAccountService(input: {
       });
       return structuredClone(state);
     },
-    async close() { closing = true; accessController?.abort(); await accessWork; clearTimeout(pollTimer); clearInterval(usageTimer); usageTimer = undefined; await profileWork; await catalogWork; await mutation; await refreshWork?.catch(() => undefined); await input.closeRuntime(); await reportUsage().catch(() => undefined); await usageMutation; generation++; }
+    async close() {
+      const restoring = startupRestoreWork !== undefined && !startupRestoreFinished;
+      closing = true; input.client.cancelPendingRequests?.(); accessController?.abort();
+      clearTimeout(pollTimer); clearInterval(usageTimer); usageTimer = undefined;
+      await initialization; await startupRestoreWork; await stateRefreshWork?.catch(() => undefined);
+      await accessWork; await profileWork; await catalogWork; await mutation; await refreshWork?.catch(() => undefined);
+      await input.closeRuntime();
+      if (!restoring && state.activationState === 'ready') await reportUsage(true).catch(() => undefined);
+      await usageMutation; generation++;
+    }
   };
 }
 export type GatewayAccountService = ReturnType<typeof createGatewayAccountService>;

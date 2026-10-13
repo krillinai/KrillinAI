@@ -10,6 +10,8 @@ import { registerGatewayAccountRoutes } from '../../src/api/routes.gateway-accou
 import { createOfficialModelAccess, type OfficialModelAccess } from '../../src/gateway/model-access.js';
 import { createGatewayCreatorSource } from '../../src/gateway/creator-service-source.js';
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
+import { createRuntimeSource } from '../../src/gateway/runtime-source.js';
+import type { AppServerRuntimeManager } from '../../src/codex/app-server-runtime-manager.js';
 
 const roots: string[] = [];
 const platformCredentials = (): GatewayProbeCredentials => ({
@@ -17,7 +19,7 @@ const platformCredentials = (): GatewayProbeCredentials => ({
   baseUrl: 'https://openrouter.ai/api/v1', expiresAt: new Date(Date.now() + 60 * 60_000).toISOString()
 });
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
-async function setup(activate = vi.fn(async () => undefined), close = vi.fn(async () => undefined), hasPendingTasks = () => false, hasActiveTasks = () => false, modelAccess?: (root: string, readProbeCredentials: () => Promise<GatewayProbeCredentials>) => OfficialModelAccess) {
+async function setup(activate = vi.fn(async () => undefined), close = vi.fn(async () => undefined), hasPendingTasks = () => false, hasActiveTasks = () => false, modelAccess?: (root: string, readProbeCredentials: () => Promise<GatewayProbeCredentials>) => OfficialModelAccess, deferStartupActivation = false) {
   expect(module).toHaveProperty('createGatewayAccountService', expect.any(Function));
   const root = await mkdtemp(join(tmpdir(), 'oc-gateway-account-')); roots.push(root);
   let attempt = 0;
@@ -30,14 +32,117 @@ async function setup(activate = vi.fn(async () => undefined), close = vi.fn(asyn
     async logout() {},
     avatar: vi.fn(async () => ({ data: new Uint8Array([1, 2, 3]), contentType: 'image/png' })),
     bootstrap: vi.fn(async (access: string): Promise<GatewayBootstrap> => { const id = access.split('-').at(-1)!; return { schemaVersion: 1 as const, account: { id, email: `${id}@example.test`, verified: true }, modelKey: `cloud-${id}`, keyVersion: '1', bindingVersion: `${id}:1`, baseUrl: 'https://gateway.example/v1', models: [{ id: 'gateway-text', modality: 'text' as const, capabilities: ['responses'] }], defaults: { text: 'gateway-text' } }; }),
-    async request(path?: string) { return path === '/api/v1/client/probe-credentials' ? platformCredentials() : {}; }
+    async request(path?: string) { return path === '/api/v1/client/probe-credentials' ? platformCredentials() : {}; },
+    cancelPendingRequests: vi.fn()
   };
   const service: module.GatewayAccountService = module.createGatewayAccountService({
-    dataDir: root, client, activateRuntime: activate, closeRuntime: close, hasActiveTasks, hasPendingTasks, automaticPolling: false,
+    dataDir: root, client, activateRuntime: activate, closeRuntime: close, hasActiveTasks, hasPendingTasks, automaticPolling: false, deferStartupActivation,
     modelAccess: modelAccess?.(root, () => service.probeCredentials())
   });
   return { service, root, client, activate, close };
 }
+
+async function seedSavedAccount(f: Awaited<ReturnType<typeof setup>>) {
+  const bootstrap = await f.client.bootstrap('access-1');
+  const store = createGatewayConfigStore(f.root);
+  await store.writeConfiguration({ source: 'gateway', bindingVersion: bootstrap.bindingVersion, selectedModels: bootstrap.defaults });
+  await store.writeCredentials({ ...bootstrap, accessToken: 'access-1', refreshToken: 'refresh-1', expiresIn: 900, accessExpiresAt: new Date(Date.now() + 900_000).toISOString() });
+  f.client.bootstrap.mockClear();
+  return bootstrap;
+}
+
+it('本地账号初始化不联网，恢复期间状态可读且任务不会回退到个人模型', async () => {
+  const f = await setup(undefined, undefined, undefined, undefined, undefined, true);
+  const bootstrap = await seedSavedAccount(f);
+  let release!: () => void;
+  const waiting = new Promise<void>(resolve => { release = resolve; });
+  f.client.bootstrap.mockImplementation(async () => { await waiting; return bootstrap; });
+  try {
+    await f.service.initialize();
+    expect(f.client.bootstrap).not.toHaveBeenCalled();
+    expect(f.client.refresh).not.toHaveBeenCalled();
+    expect(await f.service.readState()).toMatchObject({ source: 'gateway', authState: 'signed_in', activationState: 'loading', account: bootstrap.account, selectedModels: bootstrap.defaults });
+    f.service.startBackgroundRestore();
+    f.service.startBackgroundRestore();
+    await expect.poll(() => f.client.bootstrap.mock.calls.length).toBe(1);
+    expect(await f.service.readState()).toMatchObject({ source: 'gateway', activationState: 'loading' });
+    const manual = { startTurn: vi.fn() } as unknown as AppServerRuntimeManager;
+    const runtime = createRuntimeSource(manual, f.service.peekState, () => undefined);
+    expect(() => runtime.startTurn({} as Parameters<AppServerRuntimeManager['startTurn']>[0])).toThrow(GatewayError);
+    expect(manual.startTurn).not.toHaveBeenCalled();
+    release();
+    await expect.poll(() => f.service.peekState().activationState).toBe('ready');
+    expect(f.activate).toHaveBeenCalledOnce();
+  } finally { release(); await f.service.close(); }
+});
+
+it('后台恢复失败时保留登录态并允许重试', async () => {
+  const f = await setup(undefined, undefined, undefined, undefined, undefined, true);
+  await seedSavedAccount(f);
+  f.client.bootstrap.mockRejectedValueOnce(new GatewayError('gateway_unavailable'));
+  try {
+    await f.service.initialize();
+    f.service.startBackgroundRestore();
+    await expect.poll(() => f.service.peekState().activationState).toBe('blocked');
+    expect(await f.service.readState()).toMatchObject({ source: 'gateway', authState: 'signed_in', account: { id: '1' } });
+    await f.service.activate();
+    expect(f.service.peekState().activationState).toBe('ready');
+  } finally { await f.service.close(); }
+});
+
+it('账号资料刷新不阻塞缓存状态读取，连续读取只发送一个请求', async () => {
+  const f = await setup(undefined, undefined, undefined, undefined, undefined, true);
+  const bootstrap = await seedSavedAccount(f);
+  let release!: () => void;
+  const waiting = new Promise<void>(resolve => { release = resolve; });
+  const request = vi.spyOn(f.client, 'request').mockImplementation(async () => {
+    await waiting; return { account: { ...bootstrap.account, email: 'updated@example.test' } };
+  });
+  try {
+    await f.service.initialize(); f.service.startBackgroundRestore();
+    await expect.poll(() => f.service.peekState().activationState).toBe('ready');
+    const first = await f.service.readState();
+    await f.service.readState();
+    expect(first.account).toEqual(bootstrap.account);
+    expect(request).toHaveBeenCalledOnce();
+    release();
+    await expect.poll(() => f.service.peekState().account?.email).toBe('updated@example.test');
+  } finally { release(); await f.service.close(); }
+});
+
+it.each(['close', 'logout'] as const)('后台恢复等待网络时可以%s，迟到结果不会激活模型', async action => {
+  const f = await setup(undefined, undefined, undefined, undefined, undefined, true);
+  await seedSavedAccount(f);
+  let rejectBootstrap!: (error: Error) => void;
+  f.client.bootstrap.mockImplementation(() => new Promise((_resolve, reject) => { rejectBootstrap = reject; }));
+  f.client.cancelPendingRequests.mockImplementation(() => rejectBootstrap?.(new GatewayError('gateway_unavailable')));
+  try {
+    await f.service.initialize(); f.service.startBackgroundRestore();
+    await expect.poll(() => f.client.bootstrap.mock.calls.length).toBe(1);
+    await f.service[action]();
+    expect(f.client.cancelPendingRequests).toHaveBeenCalled();
+    expect(f.activate).not.toHaveBeenCalled();
+    if (action === 'logout') expect(f.service.peekState()).toMatchObject({ source: 'manual', authState: 'signed_out', activationState: 'inactive' });
+  } finally { await f.service.close(); }
+});
+
+it('启动用量上报挂起时关闭会取消请求，不会继续启动或发送结束上报', async () => {
+  const f = await setup(undefined, undefined, undefined, undefined, undefined, true);
+  await seedSavedAccount(f);
+  const store = createGatewayConfigStore(f.root);
+  await store.writeCredentials({ ...(await store.readCredentials())!, keyRotation: true });
+  let rejectUsage!: (error: Error) => void;
+  const request = vi.spyOn(f.client, 'request').mockImplementation(() => new Promise((_resolve, reject) => { rejectUsage = reject; }));
+  f.client.cancelPendingRequests.mockImplementation(() => rejectUsage?.(new GatewayError('gateway_unavailable')));
+  try {
+    await f.service.initialize(); f.service.startBackgroundRestore();
+    await expect.poll(() => request.mock.calls.length).toBe(1);
+    await f.service.close();
+    expect(request).toHaveBeenCalledOnce();
+    expect(f.client.bootstrap).not.toHaveBeenCalled();
+    expect(f.activate).not.toHaveBeenCalled();
+  } finally { await f.service.close(); }
+});
 
 it('returns signed-in state immediately while bootstrap is still preparing model services', async () => {
   const f = await setup();

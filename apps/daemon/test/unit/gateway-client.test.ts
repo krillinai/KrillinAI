@@ -32,3 +32,35 @@ it('rejects oversized and non-image avatar responses and preserves account error
   const client = createGatewayClient('https://gateway.example', vi.fn(async () => Response.json({ error: { code: 'auth_required' } }, { status: 401 })));
   await expect(client.avatar('private-device-token', 'a')).rejects.toMatchObject({ code: 'auth_required', status: 401 });
 });
+
+it('取消未完成的请求后仍能发起新的请求', async () => {
+  const fetcher = vi.fn<typeof fetch>().mockImplementationOnce(async (_url, options) => (
+    new Promise<Response>((_resolve, reject) => {
+      options!.signal!.addEventListener('abort', () => reject(options!.signal!.reason), { once: true });
+    })
+  )).mockResolvedValue(Response.json({ account: { id: 'a' } }));
+  const client = createGatewayClient('https://gateway.example', fetcher);
+  const pending = client.request('/api/v1/me', 'device-token');
+  const rejected = expect(pending).rejects.toMatchObject({ code: 'gateway_unavailable' });
+  client.cancelPendingRequests!();
+  await rejected;
+  expect(await client.request('/api/v1/me', 'device-token')).toEqual({ account: { id: 'a' } });
+});
+
+it('收到响应头后仍可取消未完成的响应体读取', async () => {
+  let bodyStarted!: () => void;
+  const started = new Promise<void>(resolve => { bodyStarted = resolve; });
+  const fetcher: typeof fetch = async (_url, options) => new Response(new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('{'));
+      options!.signal!.addEventListener('abort', () => controller.error(options!.signal!.reason), { once: true });
+      bodyStarted();
+    }
+  }));
+  const client = createGatewayClient('https://gateway.example', fetcher);
+  const pending = client.request('/api/v1/me', 'device-token');
+  const rejected = expect(pending).rejects.toMatchObject({ code: 'gateway_unavailable' });
+  await started;
+  client.cancelPendingRequests!();
+  await rejected;
+});

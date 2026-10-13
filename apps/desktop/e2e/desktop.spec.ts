@@ -27,6 +27,7 @@ import {
   type Page
 } from '@playwright/test';
 import { packagedExecutable } from './package-artifact.js';
+import type { GatewayCredentials } from '../../daemon/src/gateway/config-store.js';
 import {
   closePackagedApp,
   launchPackagedApp,
@@ -45,6 +46,78 @@ const fakeCodexScript = join(e2eDir, 'fixtures', 'fake-codex.mjs');
 const fakeCodexLauncherSource = join(e2eDir, 'fixtures', 'fake-codex-launcher.go');
 
 test.describe.configure({ mode: 'serial' });
+
+test('@package-smoke 慢网关不阻塞缓存账号进入工作区，后台恢复完成后可输入任务', async ({}, testInfo) => {
+  const account = { id: 'startup-test', email: 'startup@example.test', verified: true };
+  const models = [{ id: 'official-model', modality: 'text' as const, capabilities: ['responses'] }];
+  let release!: () => void;
+  const waiting = new Promise<void>(resolve => { release = resolve; });
+  let bootstrapRequests = 0;
+  const gateway = createServer(async (request, response) => {
+    response.setHeader('Content-Type', 'application/json');
+    const path = request.url?.split('?')[0];
+    if (path === '/api/v1/client/bootstrap') {
+      bootstrapRequests++;
+      await waiting;
+      if (!response.destroyed) response.end(JSON.stringify(bootstrap));
+    } else if (path === '/api/v1/client/usage') {
+      response.end(JSON.stringify({ keyVersion: '1' }));
+    } else if (path === '/api/v1/me') {
+      response.end(JSON.stringify({ account }));
+    } else if (path === '/api/v1/client/models') {
+      response.end(JSON.stringify({ models }));
+    } else {
+      response.end(JSON.stringify({ items: [] }));
+    }
+  });
+  await new Promise<void>(resolve => gateway.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${(gateway.address() as AddressInfo).port}`;
+  const bootstrap = {
+    schemaVersion: 1 as const, account, models, defaults: { text: 'official-model' },
+    modelKey: 'private-model-key', keyVersion: '1', bindingVersion: 'startup:1',
+    baseUrl: `${origin}/v1`, keyRotation: true
+  };
+  let fixture: DesktopFixture | undefined;
+  try {
+    const startedAt = Date.now();
+    fixture = await launchPackagedDesktop('success', {
+      runtimeMode: 'bundled',
+      gatewayOrigin: origin,
+      gatewayCredentials: {
+        ...bootstrap, accessToken: 'private-access-token', refreshToken: 'private-refresh-token',
+        expiresIn: 900, accessExpiresAt: new Date(Date.now() + 900_000).toISOString()
+      }
+    });
+    await fixture.page.waitForURL(url => url.protocol === 'opencreator-app:' && url.hostname === 'app');
+    await expect(fixture.page.locator('.opencreator-shell')).toBeVisible();
+    await expect.poll(() => fixture!.page.evaluate(async () => (await window.opencreatorDesktop?.readBootstrapState())?.phase)).toBe('ready');
+    await expect.poll(() => bootstrapRequests).toBe(1);
+    await navigateToAppRoute(fixture.page, '#/chat');
+    const input = fixture.page.getByRole('textbox', { name: '输入任务' });
+    await expect(input).toBeDisabled();
+    await expect(fixture.page.getByRole('status').filter({ hasText: '已登录，正在连接模型服务…' })).toBeVisible();
+    expect((await runtimeRequest(fixture.page, 'GET', '/gateway/account')).body)
+      .toMatchObject({ source: 'gateway', authState: 'signed_in', activationState: 'loading', account });
+    expect((await runtimeRequest(fixture.page, 'GET', '/projects?status=all')).body)
+      .toMatchObject({ projects: expect.arrayContaining([expect.objectContaining({ name: '默认项目' })]) });
+    await testInfo.attach('startup-timing.json', {
+      body: JSON.stringify({ workspaceReadyMs: Date.now() - startedAt, gatewayStillPending: true }),
+      contentType: 'application/json'
+    });
+    await fixture.page.screenshot({ path: testInfo.outputPath('startup-models-loading.png') });
+    release();
+    await expect.poll(async () => (await runtimeRequest<{ activationState: string }>(fixture!.page, 'GET', '/gateway/account')).body.activationState)
+      .toBe('ready');
+    await expect(input).toBeEnabled();
+    await input.fill('启动后可输入任务');
+    await expect(input).toHaveValue('启动后可输入任务');
+  } finally {
+    release();
+    if (fixture) await closeFixture(fixture);
+    gateway.closeAllConnections();
+    await new Promise<void>(resolve => gateway.close(() => resolve()));
+  }
+});
 
 test('@package-smoke 充值回跳进入个人中心并以网关订单确认到账', async ({}, testInfo) => {
   let paid = false;
@@ -1447,6 +1520,7 @@ async function launchPackagedDesktop(
     seedLocalCodexProvider?: boolean;
     telemetryUrl?: string;
     gatewayOrigin?: string;
+    gatewayCredentials?: GatewayCredentials;
   } = {}
 ): Promise<DesktopFixture> {
   const root = mkdtempSync(join(tmpdir(), 'opencreator-desktop-e2e-'));
@@ -1492,6 +1566,11 @@ async function launchPackagedDesktop(
   }
   if (options.misleadingCodexWrapper === true) {
     writeMisleadingCodexWrapper(join(root, '.local', 'bin'));
+  }
+  if (options.gatewayCredentials) {
+    const configDir = join(root, '.opencreator', 'data', 'config');
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(join(configDir, 'gateway-credentials.json'), JSON.stringify(options.gatewayCredentials));
   }
 
   const app = await launchPackagedApp({
