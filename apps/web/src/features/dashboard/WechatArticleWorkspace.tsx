@@ -155,7 +155,7 @@ export default function WechatArticleWorkspace(props: {
   const wechatArticlePresets = useMemo(
     () => wechatArticlePresetCatalog.map(preset => localizeWritingTemplate(
       preset,
-      language === 'sv-SE' ? 'en-US' : language
+      language === 'sv-SE' || language === 'vi-VN' ? 'en-US' : language
     )),
     [language]
   );

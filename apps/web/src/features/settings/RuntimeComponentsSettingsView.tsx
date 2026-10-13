@@ -8,6 +8,7 @@ import {
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 import { IssueList } from '../issues/IssuePresenter.js';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
+import type { AppLanguage } from '../../i18n/language.js';
 import { useEffect, useRef, useState } from 'react';
 import { RuntimeManagedComponents } from './RuntimeManagedComponents.js';
 
@@ -216,7 +217,7 @@ function SettingsHeader() {
 
 function formatDate(
   value: string | null,
-  language: 'zh-CN' | 'en-US' | 'sv-SE',
+  language: AppLanguage,
   fallback: string
 ): string {
   if (value === null) return fallback;

@@ -434,7 +434,9 @@ function GeneralSettings(props: {
     ? t('settings.language.zh')
     : language === 'sv-SE'
       ? t('settings.language.sv')
-      : t('settings.language.en');
+      : language === 'vi-VN'
+        ? t('settings.language.vi')
+        : t('settings.language.en');
   const languageOptions: Array<{ value: AppLanguagePreference; label: string }> = [
     {
       value: 'system',
@@ -442,7 +444,8 @@ function GeneralSettings(props: {
     },
     { value: 'zh-CN', label: t('settings.language.zh') },
     { value: 'en-US', label: t('settings.language.en') },
-    { value: 'sv-SE', label: t('settings.language.sv') }
+    { value: 'sv-SE', label: t('settings.language.sv') },
+    { value: 'vi-VN', label: t('settings.language.vi') }
   ];
 
   return (

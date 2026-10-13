@@ -1,4 +1,4 @@
-export type AppLanguagePreference = 'system' | 'zh-CN' | 'en-US' | 'sv-SE';
+export type AppLanguagePreference = 'system' | 'zh-CN' | 'en-US' | 'sv-SE' | 'vi-VN';
 export type AppLanguage = Exclude<AppLanguagePreference, 'system'>;
 
 export const languagePreferenceStorageKey = 'opencreator.preferences.language';
@@ -28,6 +28,7 @@ export function resolveSystemLanguage(languages?: readonly string[]): AppLanguag
     if (language.startsWith('zh')) return 'zh-CN';
     if (language.startsWith('sv')) return 'sv-SE';
     if (language.startsWith('en')) return 'en-US';
+    if (language.startsWith('vi')) return 'vi-VN';
   }
   return 'en-US';
 }
@@ -51,5 +52,5 @@ function readBrowserLanguages(): readonly string[] {
 }
 
 function isLanguagePreference(value: string | null): value is AppLanguagePreference {
-  return value === 'system' || value === 'zh-CN' || value === 'en-US' || value === 'sv-SE';
+  return value === 'system' || value === 'zh-CN' || value === 'en-US' || value === 'sv-SE' || value === 'vi-VN';
 }

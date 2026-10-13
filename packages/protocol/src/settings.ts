@@ -9,7 +9,7 @@ export const openCreatorAccentColors = [
 ] as const;
 
 export type OpenCreatorAccentColor = typeof openCreatorAccentColors[number];
-export type OpenCreatorLanguagePreference = 'system' | 'zh-CN' | 'en-US' | 'sv-SE';
+export type OpenCreatorLanguagePreference = 'system' | 'zh-CN' | 'en-US' | 'sv-SE' | 'vi-VN';
 export type OpenCreatorColorMode = 'light' | 'dark';
 export type OpenCreatorDefaultPermission =
   | 'follow-project'

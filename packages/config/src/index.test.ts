@@ -70,6 +70,16 @@ describe('OpenCreator config', () => {
     expect(resolveUiSettings(readOpenCreatorConfig(path)).language).toBe('sv-SE');
   });
 
+  it('round-trips the Vietnamese UI locale without normalizing it away', () => {
+    const root = mkdtempSync(join(tmpdir(), 'opencreator-config-'));
+    tempDirs.push(root);
+    const path = join(root, 'config.toml');
+
+    updateOpenCreatorUiSettings(path, { language: 'vi-VN' });
+
+    expect(resolveUiSettings(readOpenCreatorConfig(path)).language).toBe('vi-VN');
+  });
+
   it('persists anonymous telemetry preferences and the install identifier', () => {
     const root = mkdtempSync(join(tmpdir(), 'opencreator-config-'));
     tempDirs.push(root);
