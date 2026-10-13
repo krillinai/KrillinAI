@@ -277,10 +277,6 @@ Sources vidéo prises en charge :
 
 La disponibilité dépend de la vidéo et de la région ; certaines sources peuvent nécessiter des cookies de la plateforme. OpenCreator n'importe pas automatiquement les cookies du navigateur.
 
-**Publications vidéo Xiaohongshu :** Collez l'URL publique complète `https://www.xiaohongshu.com/explore/<identifiant hexadécimal de 24 caractères>`, en conservant les paramètres comme `xsec_token`. Les publications contenant uniquement des images n'ont pas de formats vidéo ; les profils et les liens courts `xhslink.com` ne sont pas pris en charge. Un jeton expiré ou des restrictions d'accès peuvent empêcher le téléchargement.
-
-**Épingles vidéo Pinterest :** Collez un lien public `https://www.pinterest.com/pin/<identifiant numérique>/`. Les épingles contenant uniquement des images, les tableaux et les profils ne sont pas pris en charge.
-
 ![Sélection du format dans l'outil de téléchargement vidéo OpenCreator](../images/examples/video-downloader-formats-en.png)
 
 ### Génération vidéo

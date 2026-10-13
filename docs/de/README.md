@@ -277,10 +277,6 @@ Unterstützte Videoquellen:
 
 Die Verfügbarkeit hängt vom Video und der Region ab; manche Quellen können Plattform-Cookies erfordern. OpenCreator importiert Browser-Cookies nicht automatisch.
 
-**Xiaohongshu-Videobeiträge:** Füge die vollständige öffentliche URL `https://www.xiaohongshu.com/explore/<24-stellige hexadezimale Beitrags-ID>` ein und behalte Parameter wie `xsec_token` bei. Reine Bildbeiträge haben keine Videoformate; Profile und `xhslink.com`-Kurzlinks werden nicht unterstützt. Abgelaufene Tokens oder Zugriffsbeschränkungen können den Download verhindern.
-
-**Pinterest-Video-Pins:** Füge einen öffentlichen Link `https://www.pinterest.com/pin/<numerische ID>/` ein. Reine Bild-Pins, Pinnwände und Profile werden nicht unterstützt.
-
 ![Formatauswahl im OpenCreator Video-Downloader](../images/examples/video-downloader-formats-en.png)
 
 ### Videogenerierung

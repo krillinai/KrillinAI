@@ -279,10 +279,6 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 实际可用性取决于视频和地区；部分来源可能需要平台 Cookie。
 
-**小红书视频笔记：**粘贴完整的公开 `https://www.xiaohongshu.com/explore/<24 位十六进制笔记 ID>` 链接；若带有 `xsec_token` 等查询参数，请一并保留。纯图片笔记没有可下载的视频格式；个人主页和 `xhslink.com` 分享短链暂不支持。识别链接不代表一定能下载：令牌过期、访问限制或平台变更都可能导致失败。OpenCreator 不会自动读取浏览器 Cookie。
-
-**Pinterest 视频 Pin：**粘贴公开的 `https://www.pinterest.com/pin/<数字 ID>/` 链接。纯图片 Pin 没有可下载的视频格式；画板和个人主页暂不支持。
-
 ![OpenCreator 视频下载格式选择](../images/examples/video-downloader-formats-en.png)
 
 ### 视频生成

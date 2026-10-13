@@ -277,10 +277,6 @@ Sumber video yang didukung:
 
 Ketersediaan bergantung pada video dan wilayah; beberapa sumber mungkin memerlukan cookie platform. OpenCreator tidak mengimpor cookie peramban secara otomatis.
 
-**Catatan video Xiaohongshu:** Tempel URL publik lengkap `https://www.xiaohongshu.com/explore/<ID catatan heksadesimal 24 karakter>` dan pertahankan parameter kueri seperti `xsec_token`. Catatan berisi gambar saja tidak memiliki format video; profil dan tautan singkat `xhslink.com` belum didukung. Token kedaluwarsa atau pembatasan akses dapat menggagalkan unduhan.
-
-**Pin video Pinterest:** Tempel tautan publik `https://www.pinterest.com/pin/<ID numerik>/`. Pin berisi gambar saja, papan, dan profil tidak didukung.
-
 ![Pemilihan format Pengunduh Video OpenCreator](../images/examples/video-downloader-formats-en.png)
 
 ### Pembuatan Video

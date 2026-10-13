@@ -277,10 +277,6 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 利用できるかどうかは動画や地域によって異なり、一部のサイトでは Cookie が必要な場合があります。OpenCreator はブラウザーの Cookie を自動で読み込みません。
 
-**小紅書の動画投稿：**公開されている `https://www.xiaohongshu.com/explore/<24桁の16進数の投稿ID>` の完全な URL を貼り付けてください。`xsec_token` などのクエリパラメーターも残してください。画像のみの投稿には動画形式がなく、プロフィールと `xhslink.com` の短縮リンクには対応していません。トークンの期限切れやアクセス制限などによりダウンロードできない場合があります。
-
-**Pinterest の動画 Pin：**公開されている `https://www.pinterest.com/pin/<数字のID>/` を貼り付けてください。画像のみの Pin、ボード、プロフィールには対応していません。
-
 ![OpenCreator 動画ダウンロードの形式選択](../images/examples/video-downloader-formats-en.png)
 
 ### 動画生成

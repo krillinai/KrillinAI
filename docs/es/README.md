@@ -277,10 +277,6 @@ Fuentes de vídeo compatibles:
 
 La disponibilidad depende del vídeo y la región; algunas fuentes pueden requerir cookies de la plataforma. OpenCreator no importa automáticamente las cookies del navegador.
 
-**Publicaciones de vídeo de Xiaohongshu:** Pega la URL pública completa `https://www.xiaohongshu.com/explore/<ID hexadecimal de 24 caracteres>`, incluidos los parámetros como `xsec_token`. Las publicaciones solo con imágenes no tienen formatos de vídeo; los perfiles y los enlaces cortos de `xhslink.com` aún no son compatibles. Los tokens caducados o las restricciones de acceso pueden impedir la descarga.
-
-**Pines de vídeo de Pinterest:** Pega un enlace público `https://www.pinterest.com/pin/<ID numérico>/`. Los pines solo con imágenes, los tableros y los perfiles no son compatibles.
-
 ![Selección de formatos del descargador de vídeos de OpenCreator](../images/examples/video-downloader-formats-en.png)
 
 ### Generación de vídeos

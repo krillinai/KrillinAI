@@ -279,10 +279,6 @@ Supported video sources:
 
 Availability varies by video and region; some sources may require platform cookies.
 
-**Xiaohongshu video notes:** Paste the complete public `https://www.xiaohongshu.com/explore/<24-character hex note ID>` URL, including `xsec_token` and other query parameters when present. Image-only notes have no video formats; profile pages and `xhslink.com` share links are not supported yet. Recognizing a link does not guarantee download: expired tokens, access restrictions, or platform changes may prevent it. OpenCreator does not automatically import browser cookies.
-
-**Pinterest video Pins:** Paste a public `https://www.pinterest.com/pin/<numeric ID>/` link. Image-only Pins have no downloadable video formats; boards and profiles are not supported.
-
 ![OpenCreator Video Downloader format selection](./docs/images/examples/video-downloader-formats-en.png)
 
 ### Video Generation
