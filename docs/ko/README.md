@@ -268,16 +268,16 @@ Seedance를 사용해 텍스트 프롬프트 또는 참조 이미지에서 AI �
 
 <table align="center">
   <tr>
-    <td align="center" width="96"><img src="../images/platforms/youtube.png" alt="YouTube" width="32" height="32" /><br /><strong>YouTube</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/bilibili.png" alt="Bilibili" width="32" height="32" /><br /><strong>Bilibili</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/x.png" alt="X" width="32" height="32" /><br /><strong>X</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/tiktok.png" alt="TikTok" width="32" height="32" /><br /><strong>TikTok</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/instagram.png" alt="Instagram" width="32" height="32" /><br /><strong>Instagram</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/douyin.png" alt="Douyin" width="32" height="32" /><br /><strong>Douyin</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="32" height="32" /><br /><strong>Xiaohongshu</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/reddit.png" alt="Reddit" width="32" height="32" /><br /><strong>Reddit</strong></td>
+    <td align="center" width="48"><img src="../images/platforms/youtube.png" alt="YouTube" width="24" height="24" /><br /><small><small>YouTube</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/bilibili.png" alt="Bilibili" width="24" height="24" /><br /><small><small>Bilibili</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/x.png" alt="X" width="24" height="24" /><br /><small><small>X</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/tiktok.png" alt="TikTok" width="24" height="24" /><br /><small><small>TikTok</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/instagram.png" alt="Instagram" width="24" height="24" /><br /><small><small>Instagram</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/douyin.png" alt="Douyin" width="24" height="24" /><br /><small><small>Douyin</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/facebook.png" alt="Facebook" width="24" height="24" /><br /><small><small>Facebook</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="24" height="24" /><br /><small><small>Xiaohongshu</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="24" height="24" /><br /><small><small>Pinterest</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/reddit.png" alt="Reddit" width="24" height="24" /><br /><small><small>Reddit</small></small></td>
   </tr>
 </table>
 
