@@ -78,6 +78,8 @@ describe('creator web service', () => {
     });
     await service.openProjectCover('job_1');
     await service.openArtifact('job_1', 'artifact 1');
+    await service.openDownloadThumbnail('job 1', 'probe 1');
+    expect(client.rawGet).toHaveBeenCalledWith('/creator/jobs/job%201/artifacts/probe%201/thumbnail');
     await service.deleteJob('job 1');
     await service.deleteJob('job 2', { deleteFiles: true });
     await service.listVisualAssets('stickman-video', 'style');

@@ -51,6 +51,10 @@ export function createCreatorService(client: ClientLike) {
   const lastEventIdByJob = new Map<string, string>();
   const consumedEventIds = new Map<string, Set<string>>();
   return {
+    openDownloadThumbnail(jobId: string, probeArtifactId: string): Promise<Response> {
+      if (client.rawGet === undefined) throw new Error('Video thumbnail transport is unavailable');
+      return client.rawGet(`/creator/jobs/${encodeURIComponent(jobId)}/artifacts/${encodeURIComponent(probeArtifactId)}/thumbnail`);
+    },
     listTemplates(): Promise<CreatorTemplateListResponse> {
       return client.get('/creator/templates') as Promise<CreatorTemplateListResponse>;
     },

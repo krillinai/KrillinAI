@@ -228,7 +228,7 @@ function runYtDlp(
   });
 }
 
-async function downloadThumbnail(
+export async function downloadThumbnail(
   url: string,
   proxy: string,
   signal: AbortSignal

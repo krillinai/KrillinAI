@@ -67,7 +67,7 @@ export function createDownloadExecutor(
       if (!isSupported(url)) {
         throw new CreatorExecutorError(
           'unsupported_source',
-          'Only public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, and Pinterest video URLs are supported'
+          'Only public YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest, and Reddit video URLs are supported'
         );
       }
       const proxy = (await input.configStore.read()).proxy.trim();

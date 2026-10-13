@@ -3970,7 +3970,7 @@ function creatorErrorMessage(cause: unknown, l: LocalizeCopy): string {
     return l('已开启配音，请先配置配音服务。', 'Dubbing is enabled. Configure a TTS service first.');
   }
   if (code === 'unsupported_source') {
-    return l('请使用 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 的单个公开视频链接或已上传的本地视频。', 'Use a single public video link from YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, or Pinterest, or an uploaded local video.');
+    return l('请使用 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest、Reddit 的单个公开视频链接或已上传的本地视频。', 'Use a single public video link from YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest, or Reddit, or an uploaded local video.');
   }
   return l('启动翻译失败，请在 Agent 区域查看诊断后重试。', 'Failed to start translation. Review the diagnosis in the Agent panel and retry.');
 }

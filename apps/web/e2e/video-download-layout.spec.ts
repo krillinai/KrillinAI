@@ -1,7 +1,7 @@
 import type { CreatorJob } from '@opencreator/protocol';
 import { expect, test } from './fixtures/runtime.js';
 
-test('video download platforms stay centered and wrap within translation-sized settings', async ({ page, runtime }) => {
+test('video download platforms stay centered and wrap within the full workspace width', async ({ page, runtime }) => {
   const { job } = await runtime.api<{ job: CreatorJob }>('POST', '/creator/jobs', {
     projectId: runtime.projectId,
     templateId: 'video-download',
@@ -27,7 +27,11 @@ test('video download platforms stay centered and wrap within translation-sized s
       loadedIcons: [...element.querySelectorAll<HTMLImageElement>('img')].every(image => image.naturalWidth > 0)
     };
   });
-  expect(await stack.evaluate(element => element.getBoundingClientRect().width)).toBeCloseTo(960, 0);
+  const contentWidth = await page.locator('.video-download-workspace-page .creator-workspace-content').evaluate(element => {
+    const style = getComputedStyle(element);
+    return element.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  });
+  expect(await stack.evaluate(element => element.getBoundingClientRect().width)).toBeCloseTo(contentWidth, 0);
   expect(wide.rowTops).toHaveLength(1);
   expect(Math.abs(wide.itemsCenter - wide.listCenter)).toBeLessThan(2);
   expect(wide.loadedIcons).toBe(true);
