@@ -3,6 +3,7 @@ import type {
   DownloadProbe,
   DownloadProbeFormat
 } from '@opencreator/protocol';
+import { supportedVideoSourcePlatform } from '@opencreator/protocol';
 import { z } from 'zod';
 
 const formatSchema = z.object({
@@ -78,7 +79,8 @@ export function parseDownloadProbe(
 function parseSingleDownloadProbe(value: unknown, requestedUrl: string): DownloadProbe {
   const parsed = probeSchema.parse(value);
   const extractor = parsed.extractor_key ?? '';
-  const platform = /^https:\/\/(?:v|www)\.douyin\.com\//i.test(requestedUrl)
+  const platform = supportedVideoSourcePlatform(requestedUrl) === 'reddit' || /^reddit(?::|$)/i.test(extractor) ? 'reddit'
+    : /^https:\/\/(?:v|www)\.douyin\.com\//i.test(requestedUrl)
     || /^douyin(?::|$)/i.test(extractor) ? 'douyin'
     : /bilibili/i.test(extractor) ? 'bilibili'
     : /^(twitter|x)(?::|$)/i.test(extractor) ? 'x'

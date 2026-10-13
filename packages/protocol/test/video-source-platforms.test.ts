@@ -17,7 +17,13 @@ describe('shared public video sources', () => {
     ['facebook', 'https://www.facebook.com/watch/?v=123'],
     ['facebook', 'https://fb.watch/abc123/'],
     ['xiaohongshu', 'https://www.xiaohongshu.com/explore/6a9149f3000000001f01d20a?xsec_token=sample%3D'],
-    ['pinterest', 'https://www.pinterest.com/pin/123/']
+    ['pinterest', 'https://www.pinterest.com/pin/123/'],
+    ['reddit', 'https://www.reddit.com/r/claude/s/R5I7tDfJ0h'],
+    ['reddit', 'https://www.reddit.com/r/claude/comments/1x1qhlj/i_made_with_opus_55/'],
+    ['reddit', 'https://old.reddit.com/comments/1x1qhlj'],
+    ['reddit', 'https://www.reddit.com/user/creator/comments/abc123/video/'],
+    ['reddit', 'https://redd.it/1x1qhlj'],
+    ['reddit', 'https://v.redd.it/demo123/']
   ])('accepts %s videos and identifies them for saved previews: %s', (platform, url) => {
     expect(supportedVideoSourcePlatform(url)).toBe(platform);
     expect(videoSourceIdentity(url)).not.toBeNull();
@@ -38,6 +44,10 @@ describe('shared public video sources', () => {
     'https://www.douyin.com/user/123', 'https://www.facebook.com/creator/',
     'https://www.xiaohongshu.com/user/profile/123', 'https://www.pinterest.com/creator/',
     'https://notpinterest.com/pin/123/', 'https://instagram.com.example.com/reel/abc/',
+    'https://www.reddit.com/r/claude/', 'https://www.reddit.com/user/creator/',
+    'https://www.reddit.com/r/claude/s/', 'https://www.reddit.com/comments/',
+    'https://reddit.com.example.com/r/claude/s/R5I7tDfJ0h', 'https://notreddit.com/comments/123',
+    'https://redd.it/', 'https://v.redd.it.example.com/demo123/',
     'http://www.instagram.com/reel/abc/', 'file:///tmp/video.mp4', 'not a URL'
   ])('rejects unsupported links: %s', url => {
     expect(supportedVideoSourcePlatform(url)).toBeNull();

@@ -13,6 +13,8 @@ export default function CreatorToolShell(props: {
   titleIcon?: ReactNode;
   subtitle: string;
   context: string;
+  taskSummary?: ReactNode;
+  headerActions?: ReactNode;
   initialMessage?: string;
   suggestions: string[];
   placeholder: string;
@@ -43,7 +45,7 @@ export default function CreatorToolShell(props: {
       <CreatorResizableLayout
         className="creator-workspace-layout"
         workspace={<section className="creator-workspace-main" aria-label={`${props.title} ${l('操作区', 'workspace')}`}>
-          <header className={`creator-workspace-header${props.titleIcon === undefined ? '' : ' has-title-icon'}`}>
+          <header className={`creator-workspace-header${props.titleIcon === undefined ? '' : ' has-title-icon'}${props.headerActions === undefined ? '' : ' has-actions'}`}>
             <button type="button" onClick={props.onBack} aria-label={l('返回', 'Back')}>
               <ArrowLeft size={18} strokeWidth={1.8} aria-hidden="true" />
             </button>
@@ -54,6 +56,7 @@ export default function CreatorToolShell(props: {
               <h1>{props.title}</h1>
               <p>{props.subtitle}</p>
             </div>
+            {props.headerActions === undefined ? null : <div className="creator-workspace-header-actions">{props.headerActions}</div>}
           </header>
           <div className={`creator-workspace-content${props.contentClassName ? ` ${props.contentClassName}` : ''}`}>{props.children}</div>
         </section>}
@@ -61,6 +64,7 @@ export default function CreatorToolShell(props: {
           adapter={adapter}
           stepLabel={props.stepLabel ?? props.title}
           contextSummary={props.context}
+          taskSummary={props.taskSummary}
           promptHint={props.placeholder}
           currentIssue={props.currentIssue}
           quickActions={quickActions}

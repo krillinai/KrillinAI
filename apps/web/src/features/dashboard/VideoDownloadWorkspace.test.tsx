@@ -46,14 +46,54 @@ afterEach(() => {
 });
 
 describe('VideoDownloadWorkspace', () => {
+  it('downloads the current thumbnail as an image and disables repeated clicks until it is ready', async () => {
+    const current = job({ state: { sourceUrl: 'https://www.youtube.com/watch?v=demo' }, artifacts: [probeArtifact()] });
+    let finish!: (response: Response) => void;
+    const openDownloadThumbnail = vi.fn(() => new Promise<Response>(resolve => { finish = resolve; }));
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function(this: HTMLAnchorElement) {
+      expect(this.download).toBe('Creator Download-thumbnail.webp');
+    });
+    createObjectURL.mockReturnValue('blob:thumbnail');
+    renderWorkspace(current, { applyAction: vi.fn(), openDownloadThumbnail });
+    const button = await screen.findByRole('button', { name: '下载封面' });
+    fireEvent.click(button);
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(openDownloadThumbnail).toHaveBeenCalledTimes(1);
+    expect(openDownloadThumbnail).toHaveBeenCalledWith(current.id, 'probe_artifact');
+    expect(screen.queryByText('封面下载已开始')).not.toBeInTheDocument();
+    await act(async () => finish(new Response('image', { headers: { 'content-type': 'image/webp' } })));
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('封面下载已开始')).toBeInTheDocument();
+    expect(button).toBeEnabled();
+    click.mockRestore();
+  });
+
+  it('reports thumbnail download failures without announcing a saved file', async () => {
+    const current = job({ state: { sourceUrl: 'https://www.youtube.com/watch?v=demo' }, artifacts: [probeArtifact()] });
+    renderWorkspace(current, { applyAction: vi.fn(), openDownloadThumbnail: vi.fn(async () => new Response('unavailable', { status: 502 })) });
+    fireEvent.click(await screen.findByRole('button', { name: '下载封面' }));
+    await waitFor(() => expect(screen.getAllByText('封面下载失败，请稍后重试').length).toBeGreaterThan(0));
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(screen.queryByText('封面下载已开始')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '下载封面' })).toBeEnabled();
+  });
+
+  it('does not offer thumbnail download when the video has no thumbnail', async () => {
+    const probe = probeArtifact(); probe.metadata.thumbnailUrl = null;
+    renderWorkspace(job({ state: { sourceUrl: 'https://www.youtube.com/watch?v=demo' }, artifacts: [probe] }), { applyAction: vi.fn() });
+    await screen.findByRole('heading', { name: 'Creator Download' });
+    expect(screen.queryByRole('button', { name: '下载封面' })).not.toBeInTheDocument();
+  });
+
   it('shows labeled icons for every supported platform', () => {
     renderWorkspace(job(), { applyAction: vi.fn() });
     expect(screen.getByText('支持的视频来源（支持单个公开视频链接）')).toBeInTheDocument();
     expect(screen.getAllByText(/支持单个公开视频链接/)).toHaveLength(1);
     const platforms = screen.getByRole('list', { name: '支持的平台' });
     const items = within(platforms).getAllByRole('listitem');
-    expect(items).toHaveLength(9);
-    for (const [index, name] of ['YouTube', 'Bilibili', 'X', 'TikTok', 'Instagram', '抖音', 'Facebook', '小红书', 'Pinterest'].entries()) {
+    expect(items).toHaveLength(10);
+    for (const [index, name] of ['YouTube', 'Bilibili', 'X', 'TikTok', 'Instagram', '抖音', 'Facebook', '小红书', 'Pinterest', 'Reddit'].entries()) {
       const item = items[index]!;
       expect(item).toHaveTextContent(name);
       expect(item.querySelector('img')).toHaveAttribute('src', expect.stringMatching(/^\/platforms\//));
@@ -170,10 +210,18 @@ describe('VideoDownloadWorkspace', () => {
       applyAction: vi.fn()
     });
 
-    expect(await screen.findByRole('tab', { name: '视频信息' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('tab', { name: '视频信息' }));
+    expect(await screen.findByRole('tab', { name: '下载规格' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('tab', { name: '视频信息' })).not.toBeInTheDocument();
     expect(screen.getByText('Creator Download')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('tab', { name: '下载规格' }));
+    expect(screen.getByRole('button', { name: '更换链接' })).toBeInTheDocument();
+    const panel = screen.getByRole('complementary', { name: 'OpenCreator' });
+    const summary = within(panel).getByRole('complementary', { name: '任务摘要' });
+    expect(screen.getAllByRole('complementary', { name: '任务摘要' })).toHaveLength(1);
+    expect(summary.querySelector('details')).not.toHaveAttribute('open');
+    fireEvent.click(within(summary).getByText('任务摘要'));
+    expect(summary.querySelector('details')).toHaveAttribute('open');
+    expect(summary).toHaveTextContent('https://www.youtube.com/watch?v=demo');
+    expect(summary).toHaveTextContent('当前选择1080p');
     expect(screen.getAllByText('1080p')).toHaveLength(2);
     expect(screen.getByText('MP4 · 1920 x 1080 · 30 FPS · 84 MB')).toBeInTheDocument();
     expect(screen.getByLabelText('已完成 1080p')).toBeInTheDocument();
@@ -528,7 +576,7 @@ describe('VideoDownloadWorkspace', () => {
       .not.toHaveAttribute('aria-valuenow');
   });
 
-  it('accepts X, Twitter, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, and Pinterest video URLs for analysis', async () => {
+  it('accepts supported platform video URLs and Reddit share links for analysis', async () => {
     for (const url of [
       'https://x.com/creator/status/123',
       'https://twitter.com/creator/status/123',
@@ -543,7 +591,9 @@ describe('VideoDownloadWorkspace', () => {
       'https://www.facebook.com/reel/123',
       'https://fb.watch/abc123/',
       'https://www.xiaohongshu.com/explore/6a9149f3000000001f01d20a?xsec_token=sample%3D&xsec_source=pc_feed',
-      'https://www.pinterest.com/pin/6544361954284154/'
+      'https://www.pinterest.com/pin/6544361954284154/',
+      'https://www.reddit.com/r/claude/s/R5I7tDfJ0h',
+      'https://www.reddit.com/r/claude/comments/1x1qhlj/i_made_with_opus_55/'
     ]) {
       let current = job();
       const applyAction = vi.fn(async (
@@ -588,7 +638,7 @@ describe('VideoDownloadWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: '解析链接' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书或 Pinterest 公开视频链接'
+      '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 或 Reddit 公开视频链接'
     );
     expect(applyAction).not.toHaveBeenCalled();
   });
@@ -601,7 +651,7 @@ describe('VideoDownloadWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '解析链接' }));
     expect(screen.getByRole('alert')).toHaveTextContent(
-      '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书或 Pinterest 公开视频链接'
+      '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 或 Reddit 公开视频链接'
     );
     expect(applyAction).not.toHaveBeenCalled();
   });
@@ -614,7 +664,7 @@ describe('VideoDownloadWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '解析链接' }));
     expect(screen.getByRole('alert')).toHaveTextContent(
-      '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书或 Pinterest 公开视频链接'
+      '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 或 Reddit 公开视频链接'
     );
     expect(applyAction).not.toHaveBeenCalled();
   });
@@ -627,7 +677,7 @@ describe('VideoDownloadWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '解析链接' }));
     expect(screen.getByRole('alert')).toHaveTextContent(
-      '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书或 Pinterest 公开视频链接'
+      '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 或 Reddit 公开视频链接'
     );
     expect(applyAction).not.toHaveBeenCalled();
   });
@@ -640,7 +690,7 @@ describe('VideoDownloadWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '解析链接' }));
     expect(screen.getByRole('alert')).toHaveTextContent(
-      '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书或 Pinterest 公开视频链接'
+      '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 或 Reddit 公开视频链接'
     );
     expect(applyAction).not.toHaveBeenCalled();
   });
@@ -653,7 +703,7 @@ describe('VideoDownloadWorkspace', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: '解析链接' }));
     expect(screen.getByRole('alert')).toHaveTextContent(
-      '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书或 Pinterest 公开视频链接'
+      '请输入有效的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 或 Reddit 公开视频链接'
     );
     expect(applyAction).not.toHaveBeenCalled();
   });
@@ -816,6 +866,7 @@ function renderWorkspace(
   input: {
     applyAction: ReturnType<typeof vi.fn>;
     openArtifact?: ReturnType<typeof vi.fn>;
+    openDownloadThumbnail?: ReturnType<typeof vi.fn>;
     runtimeDependencies?: Partial<RuntimeDependenciesController>;
     onOpenRuntimeComponents?: () => void;
     onSnapshot?: (callback: (next: CreatorJob) => void) => void;
@@ -836,6 +887,7 @@ function renderWorkspace(
         service={{
           applyAction: input.applyAction,
           openArtifact: input.openArtifact,
+          openDownloadThumbnail: input.openDownloadThumbnail,
           runAgentTurn: vi.fn()
         } as never}
       >
