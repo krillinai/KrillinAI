@@ -49,6 +49,7 @@ import {
   startKrillinRuntimeVerification
 } from '../creator/krillin/runtime-verifier.js';
 import { createKrillinTtsService } from '../creator/krillin/tts-service.js';
+import { createSubtitlePreviewService } from '../creator/krillin/subtitle-preview.js';
 import {
   createKrillinCodexLlmGateway,
   KRILLIN_LLM_ROUTE_PREFIX
@@ -236,11 +237,12 @@ import { registerCodexRoutes } from './routes.codex.js';
 import { registerCleanupRoutes } from './routes.cleanup.js';
 import { registerCreatorServicesRoutes } from './routes.creator-services.js';
 import { registerGatewayAccountRoutes } from './routes.gateway-account.js';
-import { createGatewayAccountService } from '../gateway/account-service.js';
+import { createGatewayAccountService, type GatewayAccountService } from '../gateway/account-service.js';
 import { createGatewayClient, GatewayError, type GatewayClient } from '../gateway/client.js';
 import { createGatewayRuntimeBindings } from '../gateway/runtime-bindings.js';
 import { createOfficialFetch } from '../gateway/official-fetch.js';
 import { createOfficialModelAccess } from '../gateway/model-access.js';
+import { preparePlatformProbe } from '../gateway/platform-probe.js';
 import { createRuntimeSource } from '../gateway/runtime-source.js';
 import { createGatewayCreatorSource } from '../gateway/creator-service-source.js';
 import { createCodexAppServerHost } from '../codex/app-server-host-2026-07-28.js';
@@ -304,6 +306,7 @@ export type BuildServerInput = {
   codexSessionProvider?: CodexSessionProvider;
   codexModelCatalog?: CodexModelCatalog;
   getCodexAvailabilityProbe?(): CodexAvailabilityProbe | undefined;
+  onPrepareAvailabilityProbe?(prepare: () => ReturnType<typeof preparePlatformProbe>): void;
   memoryHistoryReader?(threadId: string): { items: import('@opencreator/protocol').ThreadHistoryItem[] } | undefined;
   creatorServicesConfigStore?: CreatorServicesConfigStore;
   videoMetadataService?: VideoMetadataService;
@@ -535,9 +538,12 @@ export async function buildServer(input: BuildServerInput) {
     refresh: unavailable, bootstrap: unavailable, avatar: unavailable, logout: unavailable, request: unavailable
   };
   let officialInjectors: Record<string, import('../agent-tools/run-injection.js').AgentScheduleProcessInjector> = {};
-  const gatewayAccount = createGatewayAccountService({
+  const gatewayAccount: GatewayAccountService = createGatewayAccountService({
     dataDir, client: gatewayClient,
-    modelAccess: createOfficialModelAccess({ dataDir, fetcher: createOfficialFetch({ readProxy: readCommonProxy }), readProxy: readCommonProxy }),
+    modelAccess: createOfficialModelAccess({
+      dataDir, fetcher: createOfficialFetch({ readProxy: readCommonProxy }), readProxy: readCommonProxy,
+      readProbeCredentials: () => gatewayAccount.probeCredentials()
+    }),
     hasActiveTasks: () => [appServerRuntimeManager, creatorAppServerRuntimeManager, stickmanContentRuntimeManager]
       .some(manager => manager?.listScopes().some(scope => scope.active || scope.pending > 0))
       || creatorRepository.listJobs().some(job => job.status === 'running' || job.stages.some(stage => stage.status === 'queued')) || gatewayCreatorSource?.isBusy() === true,
@@ -1586,7 +1592,13 @@ export async function buildServer(input: BuildServerInput) {
     readServicesConfig: () => creatorServicesConfigStore.read(),
     codexImageRuntime,
     preflight: creatorPreflight,
-    issueService: creatorIssueService
+    issueService: creatorIssueService,
+    subtitlePreviewService: createSubtitlePreviewService({
+      resourceRoot: creatorRuntimeRoot,
+      workRoot: join(creatorJobsRoot, '.previews'),
+      ensureRuntimeReady: () => ensureKrillinRuntimeReady(),
+      getYtDlpRuntime: () => getCreatorYtDlpRuntime?.()
+    })
   });
   await registerAttachmentRoutes(server, attachmentService, {
     maxSizeBytes: input.attachmentMaxSizeBytes
@@ -1639,6 +1651,7 @@ export async function buildServer(input: BuildServerInput) {
   });
 
   if (input.schedulerAutostart === true) scheduler.start();
+  input.onPrepareAvailabilityProbe?.(() => preparePlatformProbe({ account: gatewayAccount, readProxy: readCommonProxy }));
   return server;
 }
 

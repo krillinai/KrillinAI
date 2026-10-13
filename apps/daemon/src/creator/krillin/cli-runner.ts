@@ -304,7 +304,7 @@ export function buildKrillinCliCommandArguments(
     const target = artifactPath(artifacts, 'target_subtitle');
     const bilingual = artifactPath(artifacts, 'bilingual_subtitle');
     const subtitle = command === 'render-vertical'
-      ? vertical ?? target ?? bilingual
+      ? vertical ?? (booleanOption(options, 'bilingual', false) ? bilingual ?? target : target ?? bilingual)
       : booleanOption(options, 'bilingual', false) && bilingual
         ? bilingual
         : target ?? bilingual;
@@ -317,6 +317,11 @@ export function buildKrillinCliCommandArguments(
       ...mediaCache,
       ...(video ? ['--video', video] : ['--source-url', sourceUrl!]),
       '--subtitle', subtitle,
+      '--line-mode', subtitle === bilingual || subtitle === vertical
+        ? booleanOption(options, 'bilingualTop', true) ? 'bilingual-target-top' : 'bilingual-target-bottom'
+        : 'target-only',
+      ...(subtitle === vertical && target ? ['--mixed-target-subtitle', target] : []),
+      ...(!booleanOption(options, 'bilingual', false) && subtitle !== target ? ['--target-only'] : []),
       ...(dubbed && !dubbedVideo && dubbedAudio ? ['--audio', dubbedAudio] : []),
       ...(dubbed ? ['--dubbed'] : []),
       ...(command === 'render-vertical'

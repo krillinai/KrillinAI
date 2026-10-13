@@ -19,6 +19,8 @@ import {
 } from './codex/capabilities.js';
 import { resolveCodexHome } from './codex/home.js';
 import { importLocalCodexConfiguration } from './codex/probe-home.js';
+import { setTimeout as delay } from 'node:timers/promises';
+import type { preparePlatformProbe } from './gateway/platform-probe.js';
 import {
   CODEX_PROBE_TIMEOUT_MS,
   probeCodex
@@ -50,6 +52,7 @@ let releaseRuntimeLock: (() => void) | undefined;
 let stopManagedParentWatch: (() => void) | undefined;
 let cancelCapabilityRefresh: (() => void) | undefined;
 let cancelAvailabilityProbe: (() => void) | undefined;
+let availabilityProbeWork: Promise<void> | undefined;
 
 await main().catch(error => {
   emitBootstrapError({
@@ -155,11 +158,13 @@ async function main(): Promise<void> {
         startBackgroundRefresh() {}
       };
   const capabilities = capabilityResolution.state;
+  let prepareAvailabilityProbe: (() => ReturnType<typeof preparePlatformProbe>) | undefined;
   const { buildServer } = await import('./api/server.js');
   server = await buildServer(createProductionServerInput({
     token,
     capabilities,
     getCodexAvailabilityProbe: () => availabilityProbe,
+    onPrepareAvailabilityProbe(prepare) { prepareAvailabilityProbe = prepare; },
     persistentAppServerEnabled:
       process.env.OPENCREATOR_PERSISTENT_APP_SERVER !== '0',
     ...(process.env.OPENCREATOR_E2E_FAKE_CODEX_CONFIG !== undefined
@@ -207,14 +212,19 @@ async function main(): Promise<void> {
   if (shouldRunAvailabilityProbe) {
     const controller = new AbortController();
     cancelAvailabilityProbe = () => controller.abort();
-    void runAvailabilityProbe({
+    availabilityProbeWork = runAvailabilityProbe({
       codexBin,
-      codexHome,
       dataDir,
+      prepare: () => prepareAvailabilityProbe!(),
       signal: controller.signal,
       update(next) {
         availabilityProbe = next;
       }
+    }).catch(() => {
+      if (!controller.signal.aborted) availabilityProbe = {
+        status: 'failed', checkedAt: new Date().toISOString(),
+        errorCode: 'PLATFORM_PROBE_UNAVAILABLE', message: 'Platform availability probe is unavailable'
+      };
     });
   }
 }
@@ -228,6 +238,7 @@ async function closeServer(): Promise<void> {
   stopManagedParentWatch = undefined;
   cancelCapabilityRefresh?.();
   cancelAvailabilityProbe?.();
+  await availabilityProbeWork;
   closeWork ??= server?.close() ?? Promise.resolve();
   await closeWork;
   releaseRuntimeLock?.();
@@ -401,18 +412,28 @@ function probeErrorMessage(input: {
 
 async function runAvailabilityProbe(input: {
   codexBin: string;
-  codexHome: string;
   dataDir: string;
+  prepare(): ReturnType<typeof preparePlatformProbe>;
   signal: AbortSignal;
   update(probe: CodexAvailabilityProbe): void;
 }): Promise<void> {
-  const result = await probeCodex({
-    codexBin: input.codexBin,
-    codexHome: input.codexHome,
-    cwd: join(input.dataDir, 'probe'),
-    timeoutMs: CODEX_PROBE_TIMEOUT_MS,
-    signal: input.signal
-  });
+  let prepared: Awaited<ReturnType<typeof input.prepare>>;
+  while (!input.signal.aborted) {
+    try { prepared = await input.prepare(); } catch { /* Retry when platform credentials become available. */ }
+    if (prepared) break;
+    await delay(30_000, undefined, { signal: input.signal });
+  }
+  if (!prepared) return;
+  if (input.signal.aborted) { await prepared.cleanup(); return; }
+  const result = await (async () => {
+    try {
+      return await probeCodex({
+        codexBin: input.codexBin, codexHome: prepared.codexHome,
+        baseEnvironment: prepared.env, cwd: join(input.dataDir, 'probe'),
+        timeoutMs: CODEX_PROBE_TIMEOUT_MS, signal: input.signal
+      });
+    } finally { await prepared.cleanup(); }
+  })();
   if (input.signal.aborted) return;
   const checkedAt = new Date().toISOString();
   if (result.ready) {

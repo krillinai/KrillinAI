@@ -4,6 +4,7 @@ import type { GatewayAccountState, GatewayModel } from '@opencreator/protocol';
 import type { GatewayAccountSettingsService } from '../../services/gateway-account-service.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import OfficialModelSelect from '../../components/forms/OfficialModelSelect.js';
+import { ApiClientError } from '../../runtime/errors.js';
 import './official-services-settings.css';
 
 export function OfficialServicesSettingsView(props: { state: GatewayAccountState; service: GatewayAccountSettingsService; onChange(state: GatewayAccountState): void }) {
@@ -33,12 +34,19 @@ export function OfficialServicesSettingsView(props: { state: GatewayAccountState
           </span>
         </span>
         <span className="official-services-model-select">
-          <OfficialModelSelect label={modality.label} describedBy={`official-${modality.id}-count`} models={models} disabled={pendingModality !== null || props.state.activationState !== 'ready' || models.length === 0}
+          <OfficialModelSelect label={modality.label} describedBy={`official-${modality.id}-count`} models={models} disabled={pendingModality !== null || props.state.authState !== 'signed_in' || props.state.source !== 'gateway' || props.state.activationState !== 'ready' || models.length === 0}
             value={props.state.selectedModels?.[modality.id] ?? models[0]?.id ?? ''}
             onChange={id => {
               setPendingModality(modality.id); setError('');
               void props.service.selectModel(modality.id, id).then(props.onChange)
-                .catch(() => setError(l('模型切换失败，请等待当前任务结束后重试', 'Could not switch models. Wait for the current task to finish and try again.')))
+                .catch(async cause => {
+                  if (cause instanceof ApiClientError && cause.code === 'GATEWAY_AUTH_REQUIRED') {
+                    setError(l('登录已过期，请重新登录', 'Session expired; sign in again'));
+                    await props.service.getState().then(props.onChange).catch(() => undefined);
+                  } else {
+                    setError(l('模型切换失败，请等待当前任务结束后重试', 'Could not switch models. Wait for the current task to finish and try again.'));
+                  }
+                })
                 .finally(() => setPendingModality(null));
             }} />
           {saving ? <LoaderCircle className="official-services-spinner" size={16} aria-hidden="true" /> : null}

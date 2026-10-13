@@ -24,13 +24,17 @@ async function fixture(models: GatewayModel[], reply: (id: string) => Response |
     if (String(target).endsWith('/cdn-cgi/trace')) return new Response(`ip=${ip}\nloc=JP\n`);
     const body = JSON.parse(String(options?.body)); calls.push(body.model);
     expect(body).toMatchObject({ store: false, stream: false, max_output_tokens: 512 });
-    expect(new Headers(options?.headers).get('authorization')).toBe('Bearer private-model-key');
+    expect(new Headers(options?.headers).get('authorization')).toBe('Bearer platform-probe-key');
     return reply(body.model);
   });
-  const input = { dataDir: root, fetcher, readProxy: async () => proxy };
+  const readProbeCredentials = vi.fn(async () => ({
+    costBearer: 'platform' as const, modelKey: 'platform-probe-key', keyVersion: 'probe-v1',
+    baseUrl: 'https://openrouter.ai/api/v1' as const, expiresAt: new Date(Date.now() + 60 * 60_000).toISOString()
+  }));
+  const input = { dataDir: root, fetcher, readProxy: async () => proxy, readProbeCredentials };
   const access = createOfficialModelAccess(input); const value = bootstrap(models);
   const run = (target = value) => access.refresh(target, new AbortController().signal, async () => undefined);
-  return { root, input, access, value, run, calls, fetcher, setIP(value: string) { ip = value; }, setProxy(value: string) { proxy = value; } };
+  return { root, input, access, value, run, calls, fetcher, readProbeCredentials, setIP(value: string) { ip = value; }, setProxy(value: string) { proxy = value; } };
 }
 
 it('keeps hosted GPT and Gemini separate from open weight models and removes unsupported catalog entries', () => {
@@ -144,4 +148,33 @@ it('bounds each background pass and stops starting probes after cancellation', a
   const controller = new AbortController(); controller.abort();
   await f.access.refresh(f.value, controller.signal, async () => undefined);
   expect(f.calls).toHaveLength(12);
+});
+
+it('never falls back to the user key when platform credentials are unavailable', async () => {
+  const f = await fixture([text('deepseek/deepseek-v3.2')]);
+  f.readProbeCredentials.mockRejectedValueOnce(new Error('platform unavailable'));
+  await expect(f.run()).rejects.toThrow('platform unavailable');
+  expect(f.calls).toEqual([]);
+  await f.run();
+  expect(f.calls).toHaveLength(1);
+});
+
+it.each(['user-key', 'expired'] as const)('does not perform inference with %s platform credentials', async failure => {
+  const f = await fixture([text('deepseek/deepseek-v3.2')]);
+  const credentials = await f.readProbeCredentials();
+  f.readProbeCredentials.mockResolvedValue({
+    ...credentials, ...(failure === 'user-key'
+      ? { modelKey: f.value.modelKey } : { expiresAt: new Date(Date.now() - 1000).toISOString() })
+  });
+  await f.run();
+  expect(f.calls).toEqual([]);
+});
+
+it('keeps cached access results and avoids requesting credentials when no probe is due', async () => {
+  const f = await fixture([text('deepseek/deepseek-v3.2')]);
+  await f.run();
+  f.readProbeCredentials.mockRejectedValue(new Error('platform unavailable'));
+  await f.run();
+  expect(f.readProbeCredentials).toHaveBeenCalledOnce();
+  expect(f.access.filter(f.value).models).toHaveLength(1);
 });
