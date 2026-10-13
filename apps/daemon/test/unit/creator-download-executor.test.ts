@@ -409,13 +409,15 @@ describe('creator download executor', () => {
     }
   });
 
-  it('converts a Douyin jingxuan modal link into a video URL for probing and downloading', async () => {
+  it.each([
+    ['https://www.douyin.com/jingxuan?modal_id=7687030616353823355', 'https://www.douyin.com/video/7687030616353823355'],
+    ['https://www.douyin.com/jingxuan/search/qianjidong?aid=2052a92f-0793-47c1-b739-c0af829b6103&modal_id=7693859410975690010&type=general',
+      'https://www.douyin.com/video/7693859410975690010']
+  ])('converts a Douyin jingxuan modal link into a video URL for probing and downloading: %s', async (sourceUrl, videoUrl) => {
     const binaries = await fakeBinaries();
     const executor = createDownloadExecutor(binaries);
     const workdir = join(tempDir, 'douyin-featured');
     await mkdir(workdir, { recursive: true });
-    const sourceUrl = 'https://www.douyin.com/jingxuan?modal_id=7687030616353823355';
-    const videoUrl = 'https://www.douyin.com/video/7687030616353823355';
     const result = await executor.run(stageInput({
       workdir, stageId: 'probe', state: { sourceUrl }
     }));
@@ -442,6 +444,8 @@ describe('creator download executor', () => {
     for (const sourceUrl of [
       'https://www.douyin.com/jingxuan',
       'https://www.douyin.com/jingxuan?modal_id=abc',
+      'https://www.douyin.com/jingxuan/search/qianjidong',
+      'https://www.douyin.com/jingxuan/search/qianjidong?modal_id=abc',
       'https://notdouyin.com/jingxuan?modal_id=123'
     ]) {
       await expect(executor.run(stageInput({
@@ -457,6 +461,44 @@ describe('creator download executor', () => {
       workdir: tempDir, stageId: 'probe',
       state: { sourceUrl: 'https://www.douyin.com/jingxuan?modal_id=7687030616353823355' }
     }))).rejects.toMatchObject({ code: 'login_required' });
+  });
+
+  it('preserves the Douyin session requirement when the preceding API warning contains HTTP 403', async () => {
+    const binaries = await fakeBinaries({ failure: 'WARNING: [Douyin] Failed to download web detail JSON: HTTP Error 403: Forbidden\nERROR: [Douyin] Fresh cookies (not necessarily logged in) are needed' });
+    const executor = createDownloadExecutor(binaries);
+    await expect(executor.run(stageInput({
+      workdir: tempDir, stageId: 'probe', state: { sourceUrl: 'https://www.douyin.com/video/7693859410975690010' }
+    }))).rejects.toMatchObject({
+      code: 'platform_session_required',
+      publicFacts: { kind: 'unauthorized', provider: 'yt-dlp', httpStatus: 403,
+        upstreamMessage: expect.stringContaining('Fresh cookies (not necessarily logged in) are needed') }
+    });
+  });
+
+  it('selects the runtime session using the queued source instead of the edited draft URL', async () => {
+    const binaries = await fakeBinaries();
+    const sourceUrl = 'https://www.douyin.com/video/7693859410975690010';
+    const workdir = join(tempDir, 'queued-douyin-cookie');
+    await mkdir(workdir, { recursive: true });
+    const probeArtifact = await writeProbeArtifact(workdir, { ...parsedProbe(), requestedUrl: sourceUrl, url: sourceUrl });
+    const getYtDlpRuntime = vi.fn(() => ({ executable: binaries.ytDlpPath,
+      prefixArgs: [...binaries.ytDlpPrefixArgs!, '--cookies', '/test/douyin-cookies.txt'], env: {}, version: 'test' }));
+    const input = stageInput({ workdir, stageId: 'download',
+      state: { sourceUrl: 'https://www.youtube.com/watch?v=draft', mediaType: 'video', selectedOptionId: 'video-360-2' },
+      inputArtifacts: [probeArtifact] });
+    input.stageRun.progress.sourceUrl = sourceUrl;
+    await createDownloadExecutor({ ...binaries, getYtDlpRuntime }).run(input);
+    expect(getYtDlpRuntime).toHaveBeenCalledWith(sourceUrl);
+    expect(JSON.parse(await readFile(join(workdir, 'args.json'), 'utf8'))).toEqual(expect.arrayContaining(['--cookies', '/test/douyin-cookies.txt', sourceUrl]));
+  });
+
+  it.each(['Douyin', 'Douyin+opencreator'])('distinguishes the confirmed %s signature incompatibility from cookie and model permissions', async prefix => {
+    const binaries = await fakeBinaries({ failure: `ERROR: [${prefix}] Douyin request signature is required (HTTP Error 403; Signature Not Found). Reconnecting cookies alone cannot fix it.` });
+    await expect(createDownloadExecutor(binaries).run(stageInput({ workdir: tempDir, stageId: 'probe',
+      state: { sourceUrl: 'https://www.douyin.com/video/7693859410975690010' }
+    }))).rejects.toMatchObject({ code: 'platform_request_signature_required',
+      publicFacts: { kind: 'unsupported', provider: 'yt-dlp', httpStatus: 403,
+        upstreamMessage: expect.stringContaining('Signature Not Found') } });
   });
 
   it('recognizes Instagram extractor formats', () => {
@@ -1292,6 +1334,33 @@ describe('creator download executor', () => {
       message: 'yt-dlp could not extract this video; its platform extractor may be outdated.',
       publicFacts: { kind: 'unsupported', provider: 'yt-dlp' }
     });
+  });
+
+  it('identifies a Bilibili risk-control rejection even when the extractor also reports no formats', async () => {
+    const binaries = await fakeBinaries({
+      failure: 'WARNING: Bilibili risk control rejected the playback API request\nERROR: No video formats found!'
+    });
+    const workdir = join(tempDir, 'bilibili-risk-control-work');
+    await mkdir(workdir, { recursive: true });
+    const executor = createDownloadExecutor(binaries);
+    await expect(executor.run(stageInput({
+      workdir, stageId: 'probe', state: { sourceUrl: 'https://www.bilibili.com/video/BV18Qhf6hE8P?p=1' }
+    }))).rejects.toMatchObject({
+      code: 'download_failed',
+      message: 'Bilibili risk control rejected the media request. Wait and retry, or use a local video file.',
+      publicFacts: { kind: 'http-rejected', provider: 'yt-dlp' }
+    });
+  });
+
+  it('does not attribute a later format selection failure to successful Bilibili risk-control fallback', async () => {
+    const binaries = await fakeBinaries({
+      failure: 'WARNING: Bilibili risk control rejected the playback API request; retaining webpage media formats when available\nERROR: Requested format is not available'
+    });
+    const workdir = join(tempDir, 'bilibili-format-work');
+    await mkdir(workdir, { recursive: true });
+    await expect(createDownloadExecutor(binaries).run(stageInput({
+      workdir, stageId: 'probe', state: { sourceUrl: 'https://www.bilibili.com/video/BV18Qhf6hE8P?p=1' }
+    }))).rejects.toMatchObject({ publicFacts: { kind: 'not-found' } });
   });
 
   it('rejects misleading domains that only end with a supported domain name', async () => {

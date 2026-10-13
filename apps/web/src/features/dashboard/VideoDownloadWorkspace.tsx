@@ -1611,6 +1611,12 @@ function formatDownloadError(
   if (/login_required/i.test(message)) {
     return l('平台要求登录或有效 Cookie，当前无法下载', 'This video requires sign-in or fresh platform cookies.');
   }
+  if (/platform_session_required/i.test(message)) {
+    return l('抖音未接受浏览器会话或需要网页验证，请在设置的平台连接中重新连接抖音后重试', 'Douyin did not accept the browser session or requires website verification. Reconnect Douyin in Settings > Platform connections and retry.');
+  }
+  if (/platform_request_signature_required/i.test(message)) {
+    return l('当前下载器尚未兼容抖音请求签名校验，请使用本地视频文件继续', 'The downloader does not yet support Douyin request signatures. Use a local video file to continue.');
+  }
   if (/region_or_copyright_restricted/i.test(message)) {
     return l('该视频受地区或版权限制，当前无法下载', 'This video is region or copyright restricted.');
   }

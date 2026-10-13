@@ -60,7 +60,8 @@ function isDouyinVideoUrl(url: URL): boolean {
 
 function isDouyinFeaturedVideoUrl(url: URL): boolean {
   return ['douyin.com', 'www.douyin.com'].includes(url.hostname.toLowerCase())
-    && url.pathname === '/jingxuan' && /^\d+$/.test(url.searchParams.get('modal_id') ?? '');
+    && /^\/jingxuan(?:\/search(?:\/[^/]+)?)?\/?$/.test(url.pathname)
+    && /^\d+$/.test(url.searchParams.get('modal_id') ?? '');
 }
 
 function isFacebookVideoUrl(url: URL): boolean {

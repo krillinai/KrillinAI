@@ -65,6 +65,8 @@ function issuePublicFacts(issue: OpenCreatorIssue): PublicErrorFacts | undefined
 }
 
 function localizedIssueSummary(issue: OpenCreatorIssue, localize: LocalizeCopy): string {
+  if (issue.code === 'platform_request_signature_required') return localize('当前下载器尚未兼容抖音的请求签名校验。', 'The current downloader does not support Douyin request signature verification.', 'Den nuvarande nedladdaren stöder inte Douyins verifiering av begäranssignaturer.');
+  if (issue.code === 'platform_session_required') return localize('视频平台未接受浏览器会话或需要网页验证。', 'The video platform did not accept the browser session or requires website verification.', 'Videoplattformen accepterade inte webbläsarsessionen eller kräver webbplatsverifiering.');
   const transcription = transcriptionIssueCopy(issue.code, localize) ?? transcriptionIssueCopy(issue.publicFacts?.upstreamCode, localize);
   if (transcription !== undefined) return transcription.message;
   if (issue.code === 'ERR_FS_FILE_TOO_LARGE' || issue.publicFacts?.upstreamCode === 'ERR_FS_FILE_TOO_LARGE') return localize('本地文件读取超过大小限制。', 'The local file exceeded the read-size limit.', 'Den lokala filen överskred storleksgränsen för läsning.');
@@ -179,6 +181,10 @@ export function issueConversationText(
   const facts = issuePublicFacts(issue);
   const transcription = transcriptionIssueCopy(issue.code, localize) ?? transcriptionIssueCopy(facts?.upstreamCode, localize);
   const nextStep = transcription !== undefined ? transcription.nextStep
+    : issue.code === 'platform_request_signature_required'
+    ? localize('请使用本地视频文件继续；当前平台要求下载器尚不支持的请求签名，重新连接 Cookie 或修改模型权限无法解决。', 'Use a local video file to continue. The platform requires a request signature that the downloader does not yet support; reconnecting cookies or changing model permissions will not resolve it.', 'Använd en lokal videofil för att fortsätta. Plattformen kräver en begäranssignatur som nedladdaren ännu inte stöder. Att ansluta kakor igen eller ändra modellbehörigheter löser inte problemet.')
+    : issue.code === 'platform_session_required'
+    ? localize('请先在 Chrome 或 Edge 中打开抖音视频并完成网页验证，再到设置中的平台连接重新连接抖音后重试；不一定需要登录账号。', 'Open the Douyin video in Chrome or Edge and complete the website verification, then reconnect Douyin in Settings > Platform connections and retry; account sign-in is not necessarily required.', 'Öppna Douyin-videon i Chrome eller Edge och slutför webbplatsens verifiering. Anslut sedan Douyin igen under Inställningar > Plattformsanslutningar och försök igen. Kontoinloggning krävs inte nödvändigtvis.')
     : issue.code === 'ERR_FS_FILE_TOO_LARGE' || facts?.upstreamCode === 'ERR_FS_FILE_TOO_LARGE'
     ? localize('请重试当前步骤；如果仍然失败，可先切分视频，并向 Agent 提供文件大小和诊断编号。', 'Retry the current step. If it still fails, split the video and provide the file size and diagnostic ID to the Agent.', 'Försök igen. Om det fortfarande misslyckas, dela videon och ge filstorleken och diagnostik-ID till Agent.')
     : issue.publicFacts?.upstreamCode === 'IMAGE_REFERENCE_MISSING'
@@ -188,7 +194,9 @@ export function issueConversationText(
     : issue.publicFacts?.kind === 'http-rejected' || issue.publicFacts?.kind === 'provider-failed'
       ? localize('请根据服务返回的原因调整输入或请求参数后重试；仍有疑问时，可提供请求编号向服务方查询。', 'Review the provider reason and adjust the input or request parameters before retrying. Use the request ID to ask the provider for details if needed.', 'Läs leverantörens felorsak och justera indata eller parametrarna innan du försöker igen. Använd begärans-ID för att fråga leverantören vid behov.')
     : issue.publicFacts?.kind === 'unauthorized'
-      ? issue.publicFacts.provider === 'codex-native'
+      ? issue.publicFacts.provider === 'yt-dlp'
+        ? localize('请确认浏览器中能正常播放该视频，并检查视频平台的浏览器会话、Cookie 或访问限制后重试。', 'Confirm that the video plays in your browser, then check the video platform session, cookies or access restrictions before retrying.', 'Kontrollera att videon kan spelas i webbläsaren och kontrollera sedan videoplattformens session, kakor eller åtkomstbegränsningar innan du försöker igen.')
+        : issue.publicFacts.provider === 'codex-native'
         ? localize('请在本机 Codex 中重新登录 ChatGPT 后重试。', 'Sign in to ChatGPT again in local Codex, then retry.', 'Logga in på ChatGPT igen i lokala Codex och försök igen.')
         : localize('请检查服务凭据和模型访问权限后重试。', 'Check the provider credentials and model access permissions before retrying.', 'Kontrollera leverantörens autentiseringsuppgifter och modellbehörigheter innan du försöker igen.')
     : issue.publicFacts?.kind === 'rate-limited'
