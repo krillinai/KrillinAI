@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import type { CreatorJson } from '@opencreator/protocol';
 import type { CreatorServicesConfigStore } from '../../creator-services/config-store.js';
+import { creatorTextCompletionConfig } from '../../creator-services/text-completion-config.js';
 import {
   creatorServiceErrorInfo,
   fetchCreatorService,
@@ -72,7 +73,8 @@ export function createShortVideoScriptExecutor(input: {
       stage.reportProgress({ phase: 'validating', percent: 5 });
       const request = readRequest(stage.job.state);
       const config = await input.configStore.read();
-      if (!config.llm.apiKey.trim()) {
+      const llm = creatorTextCompletionConfig(config);
+      if (!llm.apiKey.trim()) {
         throw new CreatorExecutorError(
           'creator_llm_config_missing',
           'LLM configuration is incomplete'
@@ -81,15 +83,15 @@ export function createShortVideoScriptExecutor(input: {
       stage.reportProgress({ phase: 'generating_script', percent: 20 });
       try {
         const response = await fetchCreatorService({
-          endpoint: openAiCompatibleEndpoint(config.llm.baseUrl, 'chat/completions'),
+          endpoint: openAiCompatibleEndpoint(llm.baseUrl, 'chat/completions'),
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${config.llm.apiKey}`,
+            Authorization: `Bearer ${llm.apiKey}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: config.llm.model,
-            response_format: { type: 'json_object' },
+            model: llm.model,
+            ...(config.muse2api.sparkEnabled ? {} : { response_format: { type: 'json_object' } }),
             messages: [{
               role: 'user',
               content: scriptPrompt(request)
@@ -140,7 +142,7 @@ export function createShortVideoScriptExecutor(input: {
               tone: request.tone,
               targetDurationSeconds: request.targetDurationSeconds,
               actualDurationSeconds,
-              model: config.llm.model,
+              model: llm.model,
               settingsSnapshot: stage.job.state
             }
           }],

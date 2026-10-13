@@ -12,10 +12,15 @@ export async function registerVideoGenerationRoutes(
 ): Promise<void> {
   server.post<{ Body: CreateVideoGenerationRequest }>(
     '/video-generation/results',
-    { config: { bodyLimit: 8 * 1024 * 1024 } },
+    { bodyLimit: 8 * 1024 * 1024 },
     async (request, reply) => {
       try {
-        return reply.code(202).send({ result: await service.create(request.body) });
+        const operationId = request.body.operationId
+          ?? (typeof request.headers['idempotency-key'] === 'string' ? request.headers['idempotency-key'] : undefined);
+        const body = request.body.provider === 'muse2api' && operationId !== undefined
+          ? { ...request.body, operationId }
+          : request.body;
+        return reply.code(202).send({ result: await service.create(body) });
       } catch (error) {
         return sendError(reply, error);
       }

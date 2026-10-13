@@ -1,4 +1,4 @@
-import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
+import { createDefaultCreatorServicesConfig, type ImageGenerationResult } from '@opencreator/protocol';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerImageGenerationRoutes } from '../../src/api/routes.image-generation.js';
 import type { CreatorServicesConfigStore } from '../../src/creator-services/config-store.js';
 import { generateImageContents } from '../../src/image-generation/provider.js';
-import { createImageGenerationService } from '../../src/image-generation/service.js';
+import { createImageGenerationService, type ImageGenerationService } from '../../src/image-generation/service.js';
 import { startCodexExec } from '../../src/codex/runner.js';
 
 describe('image generation API', () => {
@@ -23,6 +23,52 @@ describe('image generation API', () => {
   afterEach(async () => {
     await server.close();
     await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it('accepts standalone Muse I2I requests within the decoded reference image size limit', async () => {
+    const result: ImageGenerationResult = {
+      id: 'muse_image_large_ref',
+      prompt: 'A large reference fixture',
+      provider: 'muse2api',
+      model: 'muse-image',
+      imageSize: '1024x1024',
+      quality: 'medium',
+      count: 1,
+      images: [],
+      createdAt: '2026-10-12T00:00:00.000Z'
+    };
+    const generate = vi.fn(async () => result);
+    const service = {
+      generate,
+      get: async () => result,
+      read: async () => ({
+        result,
+        asset: { index: 0, fileName: 'reference.png', mime: 'image/png' as const, size: 0 },
+        content: Buffer.alloc(0)
+      })
+    } satisfies ImageGenerationService;
+    await registerImageGenerationRoutes(server, service);
+
+    const referenceData = 'A'.repeat(1_100_000);
+    const response = await server.inject({
+      method: 'POST',
+      url: '/image-generation/results',
+      payload: {
+        operationId: 'muse-image-large-ref-001',
+        prompt: 'A large reference fixture',
+        provider: 'muse2api',
+        size: '1024x1024',
+        quality: 'medium',
+        count: 1,
+        referenceImage: { data: referenceData, mime: 'image/png' }
+      }
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({
+      operationId: 'muse-image-large-ref-001',
+      referenceImage: { data: referenceData, mime: 'image/png' }
+    }));
   });
 
   it('generates and serves native ChatGPT artifacts through the existing image API without HTTP fallback', async () => {

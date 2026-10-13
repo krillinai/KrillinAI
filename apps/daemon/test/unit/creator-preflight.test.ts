@@ -10,6 +10,7 @@ import { createStickmanVideoTemplate } from '../../src/creator/templates/stickma
 import { createCoverTemplate } from '../../src/creator/templates/cover.js';
 import { createSmartDubbingTemplate } from '../../src/creator/templates/smart-dubbing.js';
 import { createVideoTranslationTemplate } from '../../src/creator/templates/video-translation.js';
+import { createWechatArticleTemplate } from '../../src/creator/templates/wechat-article.js';
 import { createKrillinCreatorServicesCapabilities } from '../../src/creator/krillin/capabilities.js';
 import { createGatewayCreatorSource } from '../../src/gateway/creator-service-source.js';
 
@@ -47,6 +48,60 @@ describe('creator preflight', () => {
     const result = await createCreatorPreflight({ configStore: source.store, readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'), resourceRoot: root, jobsRoot: join(root, 'jobs'), validateRuntimeAssets: false }).check(job, template.stages[0]!);
     expect(result.blocked.map(item => item.id)).toContain(feature === 'reference' ? 'reference-image-capability' : 'tts-style-capability');
   });
+  it('preflights the selected custom structured topic provider without probing or falling back to Muse', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-article-topics-'));
+    const config = createDefaultCreatorServicesConfig();
+    config.muse2api.sparkEnabled = true;
+    config.llm.source = 'custom';
+    config.llm.baseUrl = 'https://structured.example.test/v1';
+    config.llm.apiKey = 'secret-value';
+    config.llm.model = 'structured-model';
+    (config as unknown as { articleWriter: unknown }).articleWriter = {
+      topicProvider: 'custom',
+      topicResponseFormat: 'json_schema'
+    };
+    const stage = createWechatArticleTemplate().stages.find(candidate => candidate.id === 'topics')!;
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: join(root, 'runtime'), jobsRoot: join(root, 'jobs'),
+      validateRuntimeAssets: false
+    }).check(fakeJob('wechat-article', {}), stage);
+
+    expect(result.canStart).toBe(true);
+    expect(result.ready).toContainEqual(expect.objectContaining({
+      id: 'llm', message: expect.stringContaining('structured-model')
+    }));
+    expect(JSON.stringify(result)).not.toContain('secret-value');
+  });
+
+  it('blocks a custom topic override with no declared response format before any generation request', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-preflight-article-topics-format-'));
+    const config = createDefaultCreatorServicesConfig();
+    config.muse2api.sparkEnabled = true;
+    config.llm.source = 'custom';
+    config.llm.baseUrl = 'https://structured.example.test/v1';
+    config.llm.apiKey = 'secret-value';
+    config.llm.model = 'structured-model';
+    (config as unknown as { articleWriter: unknown }).articleWriter = {
+      topicProvider: 'custom',
+      topicResponseFormat: 'none'
+    };
+    const stage = createWechatArticleTemplate().stages.find(candidate => candidate.id === 'topics')!;
+    const result = await createCreatorPreflight({
+      configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: join(root, 'runtime'), jobsRoot: join(root, 'jobs'),
+      validateRuntimeAssets: false
+    }).check(fakeJob('wechat-article', {}), stage);
+
+    expect(result.canStart).toBe(false);
+    expect(result.blocked).toContainEqual(expect.objectContaining({
+      id: 'article-topic-provider',
+      message: expect.not.stringContaining('secret-value')
+    }));
+  });
+
   it.each(['openai', 'codex-native'])('blocks missing reference input for %s before starting a task', async provider => {
     root = await mkdtemp(join(tmpdir(), 'creator-preflight-reference-'));
     const check = createCreatorPreflight({

@@ -12,14 +12,19 @@ import { resolve } from 'node:path';
 import type { CreatorServicesConfigStore } from '../creator-services/config-store.js';
 import { isRecord } from '../creator-services/upstream-fetch.js';
 import {
+  type ProviderOperationLedger
+} from '../creator/provider-operations.js';
+import {
   generateImageContents,
   ImageGenerationProviderError,
+  museImageRequestFingerprint,
   type CodexNativeImageRuntime
 } from './provider.js';
 
 const MAX_PROMPT_LENGTH = 4_000;
+const MAX_REFERENCE_IMAGE_BYTES = 20 * 1024 * 1024;
 const SAFE_RESULT_ID = /^[A-Za-z0-9_-]{12,64}$/;
-const imageProviders = ['openai', 'jimeng', 'kling', 'gemini', 'codex-native'] as const;
+const imageProviders = ['openai', 'jimeng', 'kling', 'gemini', 'codex-native', 'muse2api'] as const;
 
 export type ImageGenerationService = {
   generate(request: CreateImageGenerationRequest): Promise<ImageGenerationResult>;
@@ -55,6 +60,8 @@ export function createImageGenerationService(input: {
   codexNative?: CodexNativeImageRuntime;
   now?: () => Date;
   createId?: () => string;
+  providerOperationLedger?: ProviderOperationLedger;
+  pollIntervalMs?: number;
 }): ImageGenerationService {
   const rootDir = resolve(input.dataDir, 'image-generation');
   const now = input.now ?? (() => new Date());
@@ -78,18 +85,63 @@ export function createImageGenerationService(input: {
   return {
     async generate(request) {
       validateRequest(request);
+      if (request.provider === 'muse2api' && request.operationId !== undefined) {
+        if (input.providerOperationLedger === undefined) {
+          throw new ImageGenerationError('IMAGE_GENERATION_CONFIG_REQUIRED', 'Muse Image requires the durable operation ledger', 409);
+        }
+        const reference = request.referenceImage === undefined ? undefined : {
+          content: Buffer.from(request.referenceImage.data, 'base64'),
+          mime: request.referenceImage.mime
+        };
+        const operation = input.providerOperationLedger.register({
+          operationId: request.operationId,
+          provider: 'muse2api-image',
+          scope: 'standalone-image',
+          requestKey: request.operationId,
+          requestFingerprint: museImageRequestFingerprint(request, reference)
+        });
+        try {
+          const existing = await get(request.operationId);
+          const durable = input.providerOperationLedger.get(operation.operationId);
+          if (durable?.status === 'waiting_remote') {
+            input.providerOperationLedger.markSucceeded(operation.operationId);
+          }
+          return existing;
+        } catch (error) {
+          if (!(error instanceof ImageGenerationError) || error.statusCode !== 404) throw error;
+        }
+      }
       const config = await input.configStore.read();
       let generated: Awaited<ReturnType<typeof generateImageContents>>;
       try {
         generated = await generateImageContents(request, config, {
           fetchImpl: input.fetchImpl,
+          ...(request.provider === 'muse2api' && input.providerOperationLedger !== undefined
+            ? {
+                providerOperation: {
+                  ledger: input.providerOperationLedger,
+                  registration: {
+                    operationId: request.operationId,
+                    scope: 'standalone-image' as const,
+                    requestKey: request.operationId!
+                  }
+                },
+                pollIntervalMs: input.pollIntervalMs
+              }
+            : {}),
+          ...(request.provider === 'muse2api' && request.referenceImage !== undefined
+            ? { referenceImage: {
+                content: Buffer.from(request.referenceImage.data, 'base64'),
+                mime: request.referenceImage.mime
+              } }
+            : {}),
           ...(input.codexNative === undefined ? {} : { codexNative: input.codexNative })
         });
       } catch (error) {
         throw mapProviderError(error);
       }
 
-      const id = createId();
+      const id = generated.operationId ?? createId();
       validateResultId(id);
       const images: ImageGenerationAsset[] = generated.contents.map(({ content, mime }, index) => ({
         index,
@@ -114,6 +166,9 @@ export function createImageGenerationService(input: {
           writeFile(assetPath(id, asset), generated.contents[index]!.content, { mode: 0o600, flag: 'wx' })
         )));
         await writeFile(metadataPath(id), `${JSON.stringify(result)}\n`, { mode: 0o600, flag: 'wx' });
+        if (generated.operationId !== undefined) {
+          input.providerOperationLedger?.markSucceeded(generated.operationId);
+        }
       } catch {
         await rm(resultDir(id), { recursive: true, force: true }).catch(() => undefined);
         throw new ImageGenerationError(
@@ -183,6 +238,24 @@ function validateRequest(request: CreateImageGenerationRequest) {
   if (!(imageProviders as readonly unknown[]).includes(request.provider)) {
     throw new ImageGenerationError('VALIDATION_FAILED', 'image provider is invalid', 400);
   }
+  if (request.provider === 'muse2api' && (
+    typeof request.operationId !== 'string'
+    || !SAFE_RESULT_ID.test(request.operationId)
+  )) {
+    throw new ImageGenerationError('VALIDATION_FAILED', 'Muse Image requires a stable operation id', 400);
+  }
+  if (request.provider === 'muse2api' && request.referenceImage !== undefined) {
+    if (
+      !['image/jpeg', 'image/png', 'image/webp'].includes(request.referenceImage.mime)
+      || typeof request.referenceImage.data !== 'string'
+      || request.referenceImage.data.length === 0
+      || request.referenceImage.data.length % 4 !== 0
+      || !/^[A-Za-z0-9+/]+={0,2}$/.test(request.referenceImage.data)
+      || Buffer.from(request.referenceImage.data, 'base64').length > MAX_REFERENCE_IMAGE_BYTES
+    ) {
+      throw new ImageGenerationError('VALIDATION_FAILED', 'Muse Image reference data is invalid', 400);
+    }
+  }
   if (!(imageGenerationSizes as readonly unknown[]).includes(request.size)) {
     throw new ImageGenerationError('VALIDATION_FAILED', 'image size is invalid', 400);
   }
@@ -191,6 +264,9 @@ function validateRequest(request: CreateImageGenerationRequest) {
   }
   if (!Number.isInteger(request.count) || request.count < 1 || request.count > 4) {
     throw new ImageGenerationError('VALIDATION_FAILED', 'image count must be between 1 and 4', 400);
+  }
+  if (request.provider === 'muse2api' && request.count !== 1) {
+    throw new ImageGenerationError('VALIDATION_FAILED', 'Muse Image supports one image per operation', 400);
   }
 }
 

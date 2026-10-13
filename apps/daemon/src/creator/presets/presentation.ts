@@ -67,7 +67,7 @@ function presetModelName(
       : config.image[provider].model.trim() || undefined;
   }
   if (module === 'video-generation') {
-    const provider = defaults.provider === 'seedance' || defaults.provider === 'kling' || defaults.provider === 'veo'
+    const provider = defaults.provider === 'seedance' || defaults.provider === 'kling' || defaults.provider === 'veo' || defaults.provider === 'muse2api'
       ? defaults.provider
       : config.video.provider;
     return model ?? (config.video[provider].model.trim() || defaultVideoGenerationModels[provider]);

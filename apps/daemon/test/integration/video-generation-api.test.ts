@@ -1,4 +1,4 @@
-import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
+import { createDefaultCreatorServicesConfig, type VideoGenerationResult } from '@opencreator/protocol';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerVideoGenerationRoutes } from '../../src/api/routes.video-generation.js';
 import type { CreatorServicesConfigStore } from '../../src/creator-services/config-store.js';
-import { createVideoGenerationService } from '../../src/video-generation/service.js';
+import { createVideoGenerationService, type VideoGenerationService } from '../../src/video-generation/service.js';
 
 describe('video generation API', () => {
   let server: FastifyInstance;
@@ -20,6 +20,52 @@ describe('video generation API', () => {
   afterEach(async () => {
     await server.close();
     await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it('accepts standalone Muse I2V requests within the reference image size limit', async () => {
+    const result: VideoGenerationResult = {
+      id: 'muse_video_large_ref',
+      prompt: 'A large reference fixture',
+      provider: 'muse2api',
+      model: 'muse-video',
+      videoSize: '1280x720',
+      duration: 5,
+      status: 'queued',
+      progress: 0,
+      progressKnown: false,
+      createdAt: '2026-10-12T00:00:00.000Z',
+      updatedAt: '2026-10-12T00:00:00.000Z'
+    };
+    const create = vi.fn(async () => result);
+    const service = {
+      create,
+      get: async () => result,
+      refresh: async () => result,
+      read: async () => ({ result, content: Buffer.alloc(0) }),
+      copyTo: async () => result
+    } satisfies VideoGenerationService;
+    await registerVideoGenerationRoutes(server, service);
+
+    const referenceData = 'A'.repeat(1_100_000);
+    const response = await server.inject({
+      method: 'POST',
+      url: '/video-generation/results',
+      payload: {
+        operationId: 'muse-video-large-ref-001',
+        prompt: 'A large reference fixture',
+        provider: 'muse2api',
+        model: 'muse-video',
+        size: '1280x720',
+        duration: 5,
+        referenceImage: { data: referenceData, mime: 'image/png' }
+      }
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      operationId: 'muse-video-large-ref-001',
+      referenceImage: { data: referenceData, mime: 'image/png' }
+    }));
   });
 
   it('returns provider HTTP facts without exposing arbitrary response text', async () => {

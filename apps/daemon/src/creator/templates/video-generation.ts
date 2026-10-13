@@ -11,7 +11,7 @@ export function createVideoGenerationTemplate(): CreatorTemplateDefinition {
     renderer: 'video-generation',
     inputSchema: z.object({
       prompt: z.string().max(creatorPromptMaxLength).default(''),
-      provider: z.enum(['seedance', 'kling', 'veo']).default('seedance'),
+      provider: z.enum(['seedance', 'kling', 'veo', 'muse2api']).default('seedance'),
       model: z.string().trim().min(1).max(200).optional(),
       size: z.string().regex(/^(?:\d+x\d+|[A-Za-z0-9._-]+@\d+:\d+)$/).default('1280x720'),
       duration: z.number().int().positive().max(600).default(5),

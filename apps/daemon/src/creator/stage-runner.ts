@@ -24,6 +24,10 @@ import {
   nextCreatorResultVersion
 } from './result-snapshots.js';
 import { currentStickmanScopedArtifacts } from './stickman/lineage.js';
+import {
+  articleOutputDiagnosticFromError,
+  formatArticleOutputDiagnostic
+} from './article/output-diagnostics.js';
 import type { CreatorTemplateRegistry, CreatorTemplateStage } from './templates/types.js';
 import { videoTranslationArtifactRefsPatch } from './templates/video-translation-results.js';
 import {
@@ -95,6 +99,7 @@ export function createCreatorStageRunner(input: {
     let stageRun = input.repository.getStageRun(stageRunId);
     const jobId = stageRun?.jobId ?? '';
     const stageId = stageRun?.stageId ?? '';
+    let articleTopicsArtifactPersistenceStarted = false;
     try {
       if (closed) throw new CreatorExecutorError('creator_runner_closed', 'Creator stage runner is closed');
       if (stageRun === undefined) {
@@ -209,6 +214,9 @@ export function createCreatorStageRunner(input: {
       if (blockingFinding !== undefined) {
         throw new CreatorOutputValidationError(blockingFinding);
       }
+      articleTopicsArtifactPersistenceStarted = job.templateId === 'wechat-article'
+        && stageId === 'topics'
+        && result.outputs.some(output => output.kind === 'article_topics');
       const outputHashes = await Promise.all(result.outputs.map(async output => (
         output.path === null ? null : sha256CreatorFile(output.path, controller.signal)
       )));
@@ -344,6 +352,17 @@ export function createCreatorStageRunner(input: {
         const failureMessage = canceled
           ? 'Creator stage was canceled'
           : publicErrorMessageFromFailure(error) ?? 'Creator stage failed';
+        const articleOutputDiagnostic = articleOutputDiagnosticFromError(error)
+          ?? (articleTopicsArtifactPersistenceStarted
+            ? {
+                category: 'PERSISTENCE_FAILED' as const,
+                layer: 'topic-artifact' as const,
+                operation: 'persist-topic-artifact' as const
+              }
+            : undefined);
+        const issueTechnicalDetail = articleOutputDiagnostic === undefined
+          ? failureMessage
+          : failureMessage + ' | ' + formatArticleOutputDiagnostic(articleOutputDiagnostic);
         const configurationInput = creatorConfigurationInput(
           error,
           failureCode,
@@ -451,7 +470,7 @@ export function createCreatorStageRunner(input: {
                     : providerFailure
                       ? '外部服务调用失败，可以重试或询问 Agent。'
                       : '创作步骤执行失败，可以重试或询问 Agent。',
-                technicalDetail: failureMessage,
+                technicalDetail: issueTechnicalDetail,
                 publicFacts: configurationInput !== null
                   ? { ...stageFailureFacts(error, failureCode), kind: 'configuration' }
                   : stageFailureFacts(error, failureCode),

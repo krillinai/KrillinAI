@@ -106,6 +106,15 @@ export function isCreatorTranscriptionProvider(
 
 export type CreatorServicesConfig = {
   proxy: string;
+  articleWriter: {
+    topicProvider: 'inherit' | 'custom';
+    topicResponseFormat: 'none' | 'json_schema' | 'json_object';
+  };
+  muse2api: {
+    baseUrl: string;
+    apiKey: string;
+    sparkEnabled: boolean;
+  };
   llm: OpenAiCompatibleConfig & {
     jsonMode: boolean;
     source: 'codex' | 'custom';
@@ -132,18 +141,20 @@ export type CreatorServicesConfig = {
     volcengine: VolcengineTtsConfig;
   };
   image: {
-    provider: 'openai' | 'jimeng' | 'kling' | 'gemini' | 'codex-native';
+    provider: 'openai' | 'jimeng' | 'kling' | 'gemini' | 'codex-native' | 'muse2api';
     openai: OpenAiCompatibleConfig;
     jimeng: OpenAiCompatibleConfig;
     kling: KlingAiConfig;
     gemini: OpenAiCompatibleConfig;
+    muse2api: { model: string };
     codexNative: Record<never, never>;
   };
   video: {
-    provider: 'seedance' | 'kling' | 'veo';
+    provider: 'seedance' | 'kling' | 'veo' | 'muse2api';
     seedance: OpenAiCompatibleConfig;
     kling: KlingAiConfig;
     veo: OpenAiCompatibleConfig;
+    muse2api: { model: string };
   };
 };
 
@@ -233,6 +244,7 @@ export function creatorPreflightFailure(result: CreatorPreflightResponse): {
 }
 
 export type CreatorServicesCredentialField =
+  | 'muse2api.apiKey'
   | 'llm.apiKey'
   | 'transcription.openai.apiKey'
   | 'transcription.aliyun.oss.accessKeyId'
@@ -266,6 +278,8 @@ export const defaultVolcengineTtsVoiceId = 'BV001_streaming';
 export function createDefaultCreatorServicesConfig(): CreatorServicesConfig {
   return {
     proxy: '',
+    articleWriter: { topicProvider: 'inherit', topicResponseFormat: 'none' },
+    muse2api: { baseUrl: 'http://127.0.0.1:18610/v1', apiKey: '', sparkEnabled: false },
     llm: {
       baseUrl: '',
       apiKey: '',
@@ -347,6 +361,7 @@ export function createDefaultCreatorServicesConfig(): CreatorServicesConfig {
         apiKey: '',
         model: 'gemini-2.5-flash-image'
       },
+      muse2api: { model: 'muse-image' },
       codexNative: {}
     },
     video: {
@@ -366,7 +381,8 @@ export function createDefaultCreatorServicesConfig(): CreatorServicesConfig {
         baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
         apiKey: '',
         model: defaultVideoGenerationModels.veo
-      }
+      },
+      muse2api: { model: 'muse-video' }
     }
   };
 }

@@ -16,6 +16,32 @@ import {
 } from '../../src/creator-services/config-store.js';
 
 describe('CreatorServicesConfigStore', () => {
+  it('supplies Muse defaults when reading a configuration written before Muse2API support', () => {
+    const current = structuredClone(createDefaultCreatorServicesConfig());
+    const { muse2api: _sharedMuse, ...legacy } = current;
+    const { muse2api: _imageMuse, ...legacyImage } = current.image;
+    const { muse2api: _videoMuse, ...legacyVideo } = current.video;
+    void _sharedMuse;
+    void _imageMuse;
+    void _videoMuse;
+
+    const oldConfig = { ...legacy, image: legacyImage, video: legacyVideo } as Record<string, unknown>;
+    delete oldConfig.articleWriter;
+    const parsed = parseCreatorServicesConfig(oldConfig);
+
+    expect(parsed.muse2api).toMatchObject({
+      baseUrl: 'http://127.0.0.1:18610/v1', apiKey: '', sparkEnabled: false
+    });
+    expect(parsed.image.muse2api.model).toBe('muse-image');
+    expect(parsed.video.muse2api.model).toBe('muse-video');
+    expect(parsed.image.provider).toBe('codex-native');
+    expect(parsed.video.provider).toBe('seedance');
+    expect((parsed as unknown as { articleWriter: unknown }).articleWriter).toEqual({
+      topicProvider: 'inherit',
+      topicResponseFormat: 'none'
+    });
+  });
+
   it('migrates legacy OSS settings and retains a custom region and endpoint across reloads', async () => {
     const legacy = createDefaultCreatorServicesConfig();
     const { region: _region, endpoint: _endpoint, ...oldOss } = legacy.transcription.aliyun.oss;
@@ -74,6 +100,8 @@ describe('CreatorServicesConfigStore', () => {
       })
     });
     const config = createDefaultCreatorServicesConfig();
+    config.articleWriter.topicProvider = 'custom';
+    config.articleWriter.topicResponseFormat = 'json_schema';
     config.llm.apiKey = 'sk-private';
     config.tts.provider = 'minimax';
 
@@ -138,6 +166,8 @@ describe('CreatorServicesConfigStore', () => {
     const credentialsFile = join(root, 'credentials.json');
     const config = createDefaultCreatorServicesConfig();
     config.proxy = 'http://127.0.0.1:7897';
+    config.muse2api.apiKey = 'muse-private-api-key';
+    config.muse2api.sparkEnabled = true;
     config.image.provider = 'gemini';
     config.image.gemini.apiKey = 'gemini-private-key';
 
@@ -149,9 +179,11 @@ describe('CreatorServicesConfigStore', () => {
     await expect(store.write(config)).resolves.toEqual(config);
     await expect(store.read()).resolves.toEqual(config);
     expect(readFileSync(configFile, 'utf8')).toContain('[creator_services.image]');
+    expect(readFileSync(configFile, 'utf8')).not.toContain('muse-private-api-key');
     expect(readFileSync(configFile, 'utf8')).not.toContain('gemini-private-key');
     expect(JSON.parse(readFileSync(credentialsFile, 'utf8'))).toMatchObject({
       creatorServices: {
+        'muse2api.apiKey': 'muse-private-api-key',
         'image.gemini.apiKey': 'gemini-private-key'
       }
     });
@@ -216,6 +248,39 @@ describe('CreatorServicesConfigStore', () => {
     const retained = retainCreatorServicesCredentials(presented.config, current);
     expect(retained.image).toEqual(current.image);
     expect(retained.video).toEqual(current.video);
+  });
+
+  it('keeps the shared Muse2API API key private while allowing Spark, Image and Video selection', () => {
+    const config = createDefaultCreatorServicesConfig();
+    config.muse2api.baseUrl = 'http://host.docker.internal:18610/v1';
+    config.muse2api.apiKey = 'muse-private-key';
+    config.muse2api.sparkEnabled = true;
+    config.image.provider = 'muse2api';
+    config.video.provider = 'muse2api';
+
+    const presented = presentCreatorServicesConfig(config);
+    expect(presented.configuredCredentials).toContain('muse2api.apiKey');
+    expect(presented.config.muse2api).toEqual({
+      baseUrl: 'http://host.docker.internal:18610/v1', apiKey: '', sparkEnabled: true
+    });
+    expect(retainCreatorServicesCredentials(presented.config, config).muse2api.apiKey)
+      .toBe('muse-private-key');
+  });
+
+  it('retains the existing custom LLM credential for the topic override without exposing it', () => {
+    const config = createDefaultCreatorServicesConfig();
+    config.articleWriter.topicProvider = 'custom';
+    config.articleWriter.topicResponseFormat = 'json_schema';
+    config.llm.source = 'custom';
+    config.llm.apiKey = 'topic-custom-secret';
+
+    const presented = presentCreatorServicesConfig(config);
+
+    expect(presented.config.articleWriter).toEqual(config.articleWriter);
+    expect(presented.config.llm.apiKey).toBe('');
+    expect(presented.configuredCredentials).toContain('llm.apiKey');
+    expect(retainCreatorServicesCredentials(presented.config, config).llm.apiKey)
+      .toBe('topic-custom-secret');
   });
 
   it('redacts and retains the simplified TTS provider credentials', () => {

@@ -9,6 +9,7 @@ import type {
 import { createDefaultCreatorServicesConfig } from '@opencreator/protocol';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import type { AppLanguagePreference } from '../../i18n/language.js';
 import ImageGenerationWorkspace from './ImageGenerationWorkspace.js';
 import { CreatorSessionProvider, useOptionalCreatorSession, type CreatorSessionContextValue } from './creator-session-store.js';
 import { OfficialServicesContext } from './official-services.js';
@@ -175,6 +176,17 @@ describe('ImageGenerationWorkspace', () => {
     }
   });
 
+  it('shows the Muse Image operation limit in Vietnamese', () => {
+    const fixture = createFixture();
+    const job = fixture.currentJob();
+    renderWorkspace(fixture, {
+      ...job,
+      state: { ...job.state, provider: 'muse2api', currentStep: 1, furthestStep: 1 }
+    }, undefined, undefined, 'vi-VN');
+
+    expect(screen.getByText('Muse Image tạo 1 ảnh mỗi tác vụ và nhận tối đa 1 ảnh tham chiếu.')).toBeVisible();
+  });
+
   it('inherits Codex and its single-candidate limit from AI service settings', async () => {
     const fixture = createFixture({ pending: true });
     const config = createDefaultCreatorServicesConfig();
@@ -198,7 +210,8 @@ describe('ImageGenerationWorkspace', () => {
   it.each([
     ['gemini', 'Gemini'],
     ['jimeng', '即梦'],
-    ['kling', '可灵']
+    ['kling', '可灵'],
+    ['muse2api', 'Muse Image']
   ] as const)('keeps the preset-selected %s provider', async (provider, label) => {
     vi.useFakeTimers();
     try {
@@ -323,11 +336,12 @@ function renderWorkspace(
   fixture: ReturnType<typeof createFixture>,
   initialJob = fixture.currentJob(),
   creatorServicesService?: { getConfig(): Promise<unknown> },
-  gatewayState?: GatewayAccountState
+  gatewayState?: GatewayAccountState,
+  language: AppLanguagePreference = 'zh-CN'
 ) {
   let currentSession: CreatorSessionContextValue | null = null;
   const view = render(
-    <LanguageProvider initialPreference="zh-CN">
+    <LanguageProvider initialPreference={language}>
       <CreatorSessionProvider
         initialJob={initialJob}
         ensureJob={fixture.ensureJob}

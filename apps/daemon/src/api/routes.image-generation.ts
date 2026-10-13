@@ -10,13 +10,22 @@ export async function registerImageGenerationRoutes(
   server: FastifyInstance,
   service: ImageGenerationService
 ): Promise<void> {
-  server.post<{ Body: CreateImageGenerationRequest }>('/image-generation/results', async (request, reply) => {
-    try {
-      return reply.code(201).send({ result: await service.generate(request.body) });
-    } catch (error) {
-      return sendError(reply, error);
+  server.post<{ Body: CreateImageGenerationRequest }>(
+    '/image-generation/results',
+    { bodyLimit: 28 * 1024 * 1024 },
+    async (request, reply) => {
+      try {
+        const operationId = request.body.operationId
+          ?? (typeof request.headers['idempotency-key'] === 'string' ? request.headers['idempotency-key'] : undefined);
+        const body = request.body.provider === 'muse2api' && operationId !== undefined
+          ? { ...request.body, operationId }
+          : request.body;
+        return reply.code(201).send({ result: await service.generate(body) });
+      } catch (error) {
+        return sendError(reply, error);
+      }
     }
-  });
+  );
 
   server.get<{ Params: { id: string } }>('/image-generation/results/:id', async (request, reply) => {
     try {

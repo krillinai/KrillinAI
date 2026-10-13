@@ -26,11 +26,14 @@ export function resolveCreatorImageSettings(input: {
     ? Math.floor(input.candidateCount)
     : input.fallbackCandidateCount;
   const candidateCount = provider === 'codex-native'
+    || provider === 'muse2api'
     ? 1
     : Math.min(input.maxCandidateCount, Math.max(1, requestedCount));
   return {
     provider,
-    model: provider === 'codex-native' ? 'codex-native' : input.config.image[provider].model,
+    model: provider === 'codex-native' ? 'codex-native'
+      : provider === 'muse2api' ? input.config.image.muse2api.model
+        : input.config.image[provider].model,
     candidateCount,
     supportsReferenceImage: capabilities.supportsReferenceImage,
     maxReferenceImages: capabilities.maxReferenceImages,
@@ -43,6 +46,11 @@ export function imageProviderConfigured(
   provider: ImageGenerationProvider
 ): boolean {
   if (provider === 'codex-native') return true;
+  if (provider === 'muse2api') {
+    return config.muse2api.baseUrl.trim().length > 0
+      && config.muse2api.apiKey.trim().length > 0
+      && config.image.muse2api.model === 'muse-image';
+  }
   if (provider === 'kling') {
     const settings = config.image.kling;
     return settings.baseUrl.trim().length > 0
@@ -63,6 +71,7 @@ export function readImageProvider(
     || value === 'jimeng'
     || value === 'kling'
     || value === 'gemini'
+    || value === 'muse2api'
     || value === 'codex-native'
     ? value
     : fallback;

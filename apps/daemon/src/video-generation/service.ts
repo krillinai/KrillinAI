@@ -10,7 +10,7 @@ import {
   type VideoGenerationResult,
   type VideoGenerationStatus
 } from '@opencreator/protocol';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { CreatorServicesConfig } from '@opencreator/protocol';
@@ -26,6 +26,12 @@ import {
 } from '../creator-services/upstream-fetch.js';
 import { publicFactsFromFailure } from '../creator/public-error-facts.js';
 import type { GatewayCreatorBinding } from '../gateway/creator-service-source.js';
+import {
+  submitProviderOperationOnce,
+  type ProviderOperationLedger,
+  type ProviderOperationRegistration
+} from '../creator/provider-operations.js';
+import { createMuse2ApiClient } from '../creator-services/muse2api.js';
 
 const MAX_PROMPT_LENGTH = 4_000;
 const MAX_REFERENCE_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -34,13 +40,14 @@ const MAX_VIDEO_BYTES = 1024 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 180_000;
 const DOWNLOAD_TIMEOUT_MS = 10 * 60_000;
 const SAFE_RESULT_ID = /^[A-Za-z0-9_-]{12,64}$/;
-const videoProviders = ['seedance', 'kling', 'veo'] as const;
+const videoProviders = ['seedance', 'kling', 'veo', 'muse2api'] as const;
 
 type StoredVideoGeneration = {
   result: VideoGenerationResult;
   upstreamId: string;
   generationMode?: 'text-to-video' | 'image-to-video';
   gateway?: { accountId: string; bindingVersion: string; logicalId: string; params: Record<string, unknown> };
+  providerOperationId?: string;
 };
 
 export type VideoGenerationOperationOptions = {
@@ -50,6 +57,11 @@ export type VideoGenerationOperationOptions = {
   onPending?(id: string): void;
   onGatewayBinding?(binding: { accountId: string; bindingVersion: string; logicalId: string }): void;
   onGatewayRequest?(id: string): void;
+  providerOperation?: {
+    ledger: ProviderOperationLedger;
+    registration: Pick<ProviderOperationRegistration,
+      'operationId' | 'scope' | 'requestKey' | 'jobId' | 'stageRunId'>;
+  };
 };
 
 export type VideoGenerationService = {
@@ -89,6 +101,8 @@ export function createVideoGenerationService(input: {
   now?: () => Date;
   createId?: () => string;
   gatewaySource?: { binding(): Promise<GatewayCreatorBinding | undefined> };
+  providerOperationLedger?: ProviderOperationLedger;
+  pollIntervalMs?: number;
 }): VideoGenerationService {
   const rootDir = resolve(input.dataDir, 'video-generation');
   const now = input.now ?? (() => new Date());
@@ -165,33 +179,38 @@ export function createVideoGenerationService(input: {
     const download = resolveVideoDownload(stored, payload, config);
     options.onDownloadStart?.();
     const operation = operationSignal(options.signal, DOWNLOAD_TIMEOUT_MS);
-    let response: Response;
+    let content: Buffer;
     try {
-      response = await fetchCreatorService({
-        endpoint: download.endpoint,
-        method: 'GET',
-        headers: download.headers,
-        proxy: config.proxy.trim(),
-        signal: operation.signal,
-        maxResponseBytes: MAX_VIDEO_BYTES,
-        fetchImpl: input.fetchImpl
-      });
+      if (stored.result.provider === 'muse2api') {
+        const downloaded = await createMuse2ApiClient({
+          baseUrl: config.muse2api.baseUrl,
+          apiKey: config.muse2api.apiKey,
+          fetchImpl: input.fetchImpl
+        }).downloadMedia(download.endpoint.href, 'video', operation.signal);
+        content = downloaded.content;
+      } else {
+        const response = await fetchCreatorService({
+          endpoint: download.endpoint,
+          method: 'GET',
+          headers: download.headers,
+          proxy: config.proxy.trim(),
+          signal: operation.signal,
+          maxResponseBytes: MAX_VIDEO_BYTES,
+          fetchImpl: input.fetchImpl
+        });
+        if (!response.ok) {
+          const failure = await creatorServiceErrorInfo(response, 'Video download', stored.result.provider);
+          throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', failure.message, 502, failure.publicFacts);
+        }
+        content = Buffer.from(await response.arrayBuffer());
+      }
     } catch (error) {
+      if (error instanceof VideoGenerationError) throw error;
       throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'The generated video could not be downloaded', 502,
         publicFactsFromFailure(error, stored.result.provider, { timedOut: operation.signal.aborted && options.signal?.aborted !== true }));
     } finally {
       operation.cleanup();
     }
-    if (!response.ok) {
-      const failure = await creatorServiceErrorInfo(response, 'Video download', stored.result.provider);
-      throw new VideoGenerationError(
-        'VIDEO_GENERATION_UPSTREAM_ERROR',
-        failure.message,
-        502,
-        failure.publicFacts
-      );
-    }
-    const content = Buffer.from(await response.arrayBuffer());
     if (content.length === 0 || content.length > MAX_VIDEO_BYTES) {
       throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'The video provider returned an invalid video file', 502);
     }
@@ -210,6 +229,9 @@ export function createVideoGenerationService(input: {
     try {
       await writeFile(videoPath(result.id), content, { mode: 0o600, flag: 'wx' });
       await writeStored({ ...stored, result });
+      if (stored.providerOperationId !== undefined) {
+        input.providerOperationLedger?.markSucceeded(stored.providerOperationId);
+      }
     } catch (error) {
       await rm(videoPath(result.id), { force: true }).catch(() => undefined);
       if (error instanceof VideoGenerationError) throw error;
@@ -221,7 +243,7 @@ export function createVideoGenerationService(input: {
   return {
     async create(request, options = {}) {
       const gateway = await input.gatewaySource?.binding();
-      validateRequest(request, gateway === undefined);
+      validateRequest(request, options, gateway === undefined);
       if (gateway) {
         if (!gateway.models.video || (request.referenceImage && !gateway.capabilities?.video?.includes('image_to_video'))) throw new VideoGenerationError('VIDEO_GENERATION_CONFIG_REQUIRED', '当前官方路由未提供此视频能力', 400);
         if (request.model && request.model !== gateway.models.video) throw new VideoGenerationError('VALIDATION_FAILED', '请选择当前任务的官方视频模型', 400);
@@ -237,8 +259,77 @@ export function createVideoGenerationService(input: {
       const config = await input.configStore.read();
       const operation = operationSignal(options.signal, REQUEST_TIMEOUT_MS);
       let remote: RemoteVideoJob;
+      let providerOperationId: string | undefined;
       try {
-        remote = await createRemoteVideoJob(request, config, operation.signal, input.fetchImpl);
+        if (request.provider === 'muse2api') {
+          const ledger = options.providerOperation?.ledger ?? input.providerOperationLedger;
+          if (ledger === undefined) {
+            throw new VideoGenerationError('VIDEO_GENERATION_CONFIG_REQUIRED', 'Muse Video requires the durable provider operation ledger', 409);
+          }
+          const registration = options.providerOperation?.registration ?? {
+            operationId: request.operationId,
+            scope: 'standalone-video' as const,
+            requestKey: request.operationId!
+          };
+          requireApiKey(config.muse2api.apiKey, 'muse2api');
+          if (config.video.muse2api.model !== 'muse-video') {
+            throw new VideoGenerationError('VALIDATION_FAILED', 'Muse Video model is not supported', 400);
+          }
+          const requestFingerprint = createHash('sha256').update(JSON.stringify({
+            prompt: request.prompt.trim(),
+            model: request.model ?? config.video.muse2api.model,
+            size: request.size,
+            duration: request.duration,
+            referenceImage: request.referenceImage === undefined
+              ? null
+              : createHash('sha256').update(request.referenceImage.data).digest('hex')
+          })).digest('hex');
+          const registered = ledger.register({
+            ...registration,
+            provider: 'muse2api-video',
+            requestFingerprint
+          });
+          providerOperationId = registered.operationId;
+          try {
+            const existing = await readStored(registered.operationId);
+            const durable = ledger.get(registered.operationId);
+            if (existing.result.status === 'completed' && durable?.status === 'waiting_remote') {
+              ledger.markSucceeded(registered.operationId);
+            }
+            return existing.result;
+          } catch (error) {
+            if (!(error instanceof VideoGenerationError) || error.statusCode !== 404) throw error;
+          }
+          const accepted = await submitProviderOperationOnce({
+            ledger,
+            operation: registered,
+            submit: () => createMuse2ApiClient({
+              baseUrl: config.muse2api.baseUrl,
+              apiKey: config.muse2api.apiKey,
+              fetchImpl: input.fetchImpl
+            }).submitVideo({
+              prompt: request.prompt.trim(),
+              model: requestedModel(request.model, config.video.muse2api.model, defaultVideoGenerationModels.muse2api),
+              duration: request.duration,
+              aspectRatio: videoAspectRatio(request.size),
+              ...(request.referenceImage === undefined ? {} : {
+                referenceImage: referenceImageDataUrl(request.referenceImage)
+              }),
+              signal: operation.signal
+            })
+          });
+          if (accepted.remoteTaskId === null) invalidRemoteJob('Muse Video');
+          remote = {
+            upstreamId: accepted.remoteTaskId,
+            model: requestedModel(request.model, config.video.muse2api.model, defaultVideoGenerationModels.muse2api),
+            payload: {},
+            status: 'queued',
+            progress: 0,
+            progressKnown: false
+          };
+        } else {
+          remote = await createRemoteVideoJob(request, config, operation.signal, input.fetchImpl);
+        }
       } catch (error) {
         if (error instanceof VideoGenerationError) throw error;
         throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'The video generation provider could not be reached', 502,
@@ -247,12 +338,13 @@ export function createVideoGenerationService(input: {
         operation.cleanup();
       }
 
-      const id = createId();
+      const id = providerOperationId ?? createId();
       validateResultId(id);
       const timestamp = now().toISOString();
       let stored: StoredVideoGeneration = {
         upstreamId: remote.upstreamId,
         generationMode: request.referenceImage ? 'image-to-video' : 'text-to-video',
+        ...(providerOperationId === undefined ? {} : { providerOperationId }),
         result: {
           id,
           prompt: request.prompt.trim(),
@@ -292,7 +384,15 @@ export function createVideoGenerationService(input: {
     async refresh(id, options = {}) {
       let stored = await readStored(id);
       if (stored.gateway) return refreshGateway(stored, options);
-      if (stored.result.status === 'completed' || stored.result.status === 'failed') return stored.result;
+      if (stored.result.status === 'completed' || stored.result.status === 'failed') {
+        if (stored.result.status === 'completed' && stored.providerOperationId !== undefined) {
+          const operation = input.providerOperationLedger?.get(stored.providerOperationId);
+          if (operation?.status === 'waiting_remote') {
+            input.providerOperationLedger?.markSucceeded(stored.providerOperationId);
+          }
+        }
+        return stored.result;
+      }
       const config = await input.configStore.read();
       const operation = operationSignal(options.signal, REQUEST_TIMEOUT_MS);
       let remote: RemoteVideoJob;
@@ -318,6 +418,9 @@ export function createVideoGenerationService(input: {
           updatedAt: now().toISOString()
         }
       };
+      if (remote.status === 'failed' && stored.providerOperationId !== undefined) {
+        input.providerOperationLedger?.markFailed(stored.providerOperationId);
+      }
       if (remote.status === 'completed') {
         stored = await completeFromPayload(stored, remote.payload, config, options);
       } else {
@@ -386,6 +489,7 @@ async function createRemoteVideoJob(
   signal: AbortSignal,
   fetchImpl?: typeof fetch
 ): Promise<RemoteVideoJob> {
+  if (request.provider === 'muse2api') invalidRemoteJob('Muse Video requires a durable provider operation');
   if (request.provider === 'kling') return await createKlingVideoJob(request, config, signal, fetchImpl);
   if (request.provider === 'veo') return await createVeoVideoJob(request, config, signal, fetchImpl);
   return await createSeedanceVideoJob(request, config, signal, fetchImpl);
@@ -398,6 +502,19 @@ async function refreshRemoteVideoJob(
   fetchImpl?: typeof fetch
 ): Promise<RemoteVideoJob> {
   const provider = stored.result.provider;
+  if (provider === 'muse2api') {
+    const state = await createMuse2ApiClient({
+      baseUrl: config.muse2api.baseUrl,
+      apiKey: config.muse2api.apiKey,
+      fetchImpl
+    }).pollVideo(stored.upstreamId, signal);
+    return normalizeRemoteVideoJob('muse2api', stored.upstreamId, stored.result.model, {
+      status: state.status,
+      ...(state.progress === undefined ? {} : { progress: state.progress }),
+      ...(state.url === undefined ? {} : { url: state.url }),
+      ...(state.error === undefined ? {} : { error: state.error })
+    });
+  }
   let endpoint: URL;
   let headers: Record<string, string>;
   if (provider === 'kling') {
@@ -634,10 +751,12 @@ function resolveVideoDownload(
 ): { endpoint: URL; headers: Record<string, string> } {
   const urlValue = stored.result.provider === 'kling'
     ? readString(payload, ['data', 'task_result', 'videos', '0', 'url'])
-    : stored.result.provider === 'veo'
+      : stored.result.provider === 'veo'
       ? readString(payload, ['response', 'generateVideoResponse', 'generatedSamples', '0', 'video', 'uri'])
         ?? readString(payload, ['response', 'generatedVideos', '0', 'video', 'uri'])
-      : readString(payload, ['content', 'video_url'])
+      : stored.result.provider === 'muse2api'
+        ? readString(payload, ['url'])
+        : readString(payload, ['content', 'video_url'])
         ?? readString(payload, ['content', 'videoUrl'])
         ?? readString(payload, ['output_url']);
   if (!urlValue) {
@@ -645,7 +764,9 @@ function resolveVideoDownload(
   }
   let endpoint: URL;
   try {
-    endpoint = new URL(urlValue);
+    endpoint = stored.result.provider === 'muse2api'
+      ? new URL(urlValue, config.muse2api.baseUrl)
+      : new URL(urlValue);
   } catch {
     throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'The video provider returned an invalid download URL', 502);
   }
@@ -766,7 +887,11 @@ function readJobError(facts: PublicErrorFacts): string {
     + (facts.upstreamMessage === undefined ? '' : `: ${facts.upstreamMessage}`);
 }
 
-function validateRequest(request: CreateVideoGenerationRequest, validateProvider = true) {
+function validateRequest(
+  request: CreateVideoGenerationRequest,
+  options: VideoGenerationOperationOptions,
+  validateProvider = true
+) {
   if (!isRecord(request)) {
     throw new VideoGenerationError('VALIDATION_FAILED', 'request body must be an object', 400);
   }
@@ -776,6 +901,18 @@ function validateRequest(request: CreateVideoGenerationRequest, validateProvider
   }
   if (!(videoProviders as readonly unknown[]).includes(request.provider)) {
     throw new VideoGenerationError('VALIDATION_FAILED', 'video provider is invalid', 400);
+  }
+  if (request.provider === 'muse2api') {
+    if (request.operationId !== undefined && !SAFE_RESULT_ID.test(request.operationId)) {
+      throw new VideoGenerationError('VALIDATION_FAILED', 'Muse Video operation id is invalid', 400);
+    }
+    if (request.operationId === undefined && options.providerOperation === undefined) {
+      throw new VideoGenerationError('VALIDATION_FAILED', 'Muse Video requires a stable operation id', 400);
+    }
+    const model = request.model?.trim();
+    if (model !== undefined && model !== 'muse-video') {
+      throw new VideoGenerationError('VALIDATION_FAILED', 'Muse Video model is not supported', 400);
+    }
   }
   if (
     request.model !== undefined

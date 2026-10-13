@@ -23,6 +23,7 @@ const openAiCompatibleSchema = z.object({
   apiKey: boundedString(4096),
   model: boundedString(128)
 }).strict();
+const muse2apiModelSchema = z.object({ model: boundedString(128) }).strict();
 const ttsProviderSchema = (defaultVoiceId: string) => openAiCompatibleSchema.extend({
   defaultVoiceId: boundedString(256).default(defaultVoiceId)
 }).strict();
@@ -76,11 +77,12 @@ const llmConfigSchema = openAiCompatibleSchema.extend({
   source: value.source ?? inferLegacyTextModelSource(value)
 }));
 const imageConfigSchema = z.object({
-  provider: z.enum(['openai', 'jimeng', 'kling', 'gemini', 'codex-native']),
+  provider: z.enum(['openai', 'jimeng', 'kling', 'gemini', 'codex-native', 'muse2api']),
   openai: openAiCompatibleSchema,
   jimeng: openAiCompatibleSchema,
   kling: klingAiSchema,
   gemini: openAiCompatibleSchema,
+  muse2api: muse2apiModelSchema.default(creatorServicesDefaults.image.muse2api),
   codexNative: z.object({}).strict().default({})
 }).strict();
 const legacyImageConfigSchema = z.object({
@@ -92,10 +94,11 @@ const legacyImageConfigSchema = z.object({
   openai: value.openai
 }));
 const videoConfigSchema = z.object({
-  provider: z.enum(['seedance', 'kling', 'veo']),
+  provider: z.enum(['seedance', 'kling', 'veo', 'muse2api']),
   seedance: openAiCompatibleSchema,
   kling: klingAiSchema,
-  veo: openAiCompatibleSchema
+  veo: openAiCompatibleSchema,
+  muse2api: muse2apiModelSchema.default(creatorServicesDefaults.video.muse2api)
 }).strict();
 const legacyVideoConfigSchema = z.object({
   provider: z.literal('openai-compatible'),
@@ -134,6 +137,15 @@ const ttsConfigSchema = z.object({
 
 export const creatorServicesConfigSchema = z.object({
   proxy: boundedString(2048),
+  articleWriter: z.object({
+    topicProvider: z.enum(['inherit', 'custom']).default('inherit'),
+    topicResponseFormat: z.enum(['none', 'json_schema', 'json_object']).default('none')
+  }).strict().default(creatorServicesDefaults.articleWriter),
+  muse2api: z.object({
+    baseUrl: boundedString(2048),
+    apiKey: boundedString(4096),
+    sparkEnabled: z.boolean().default(false)
+  }).strict().default(creatorServicesDefaults.muse2api),
   llm: llmConfigSchema,
   transcription: z.object({
     provider: z.enum(['openai', 'faster-whisper', 'whisperkit', 'whisper.cpp', 'aliyun', 'volcengine', 'funasr']),
@@ -311,6 +323,7 @@ export function parseCreatorServicesConfig(value: unknown): CreatorServicesConfi
 }
 
 const creatorCredentialPaths = [
+  'muse2api.apiKey',
   'llm.apiKey',
   'transcription.openai.apiKey',
   'transcription.aliyun.oss.accessKeyId',
@@ -408,6 +421,7 @@ export function presentCreatorServicesConfig(
     clear();
   };
 
+  redact('muse2api.apiKey', redacted.muse2api.apiKey, () => { redacted.muse2api.apiKey = ''; });
   redact('llm.apiKey', redacted.llm.apiKey, () => { redacted.llm.apiKey = ''; });
   redact('transcription.openai.apiKey', redacted.transcription.openai.apiKey, () => {
     redacted.transcription.openai.apiKey = '';
@@ -445,6 +459,7 @@ export function retainCreatorServicesCredentials(
   current: CreatorServicesConfig
 ): CreatorServicesConfig {
   const merged = structuredClone(next);
+  retainBlank(() => merged.muse2api.apiKey, value => { merged.muse2api.apiKey = value; }, current.muse2api.apiKey);
   retainBlank(() => merged.llm.apiKey, value => { merged.llm.apiKey = value; }, current.llm.apiKey);
   retainBlank(
     () => merged.transcription.openai.apiKey,

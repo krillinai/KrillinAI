@@ -11,6 +11,7 @@ import type {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import type { AppLanguagePreference } from '../../i18n/language.js';
 import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 import VideoGenerationWorkspace from './VideoGenerationWorkspace.js';
 import { CreatorSessionProvider, useCreatorSession } from './creator-session-store.js';
@@ -675,6 +676,37 @@ describe('VideoGenerationWorkspace', () => {
     expect(duration).toHaveValue('8');
   });
 
+  it('normalizes the Muse Video model and duration when selected', () => {
+    renderWorkspace(creatorJob({ state: {
+      provider: 'seedance', model: 'doubao-seedance-2-0-260128',
+      duration: 10, currentStep: 1, furthestStep: 1
+    } }));
+    const provider = screen.getByRole('combobox', { name: '视频服务' });
+    const model = screen.getByRole('combobox', { name: '模型版本' });
+    const duration = screen.getByRole('combobox', { name: '视频时长' });
+
+    fireEvent.change(provider, { target: { value: 'muse2api' } });
+
+    expect(provider).toHaveValue('muse2api');
+    expect(model).toHaveValue('muse-video');
+    expect(duration).toHaveValue('10');
+  });
+
+  it('shows the Muse2API reference transfer disclosure in Vietnamese', async () => {
+    const job = creatorJob({
+      state: {
+        provider: 'muse2api', model: 'muse-video',
+        currentStep: 0, furthestStep: 0
+      }
+    });
+    renderWorkspace(job, { language: 'vi-VN' });
+    fireEvent.change(screen.getByLabelText('Upload video reference image'), {
+      target: { files: [new File(['reference'], 'reference.png', { type: 'image/png' })] }
+    });
+
+    await waitFor(() => expect(screen.getByText('Tạo video sẽ gửi hình tham chiếu đến Muse2API.')).toBeVisible());
+  });
+
   it('uses the configured default model for a task and allows a task-level override', async () => {
     const job = creatorJob({
       state: {
@@ -719,7 +751,7 @@ function renderWorkspace(
   overrides: {
     openArtifact?: (jobId: string, artifactId: string) => Promise<Response>;
     creatorServicesService?: { getConfig(): Promise<CreatorServicesConfigResponse> };
-    language?: 'zh-CN' | 'en-US' | 'sv-SE';
+    language?: AppLanguagePreference;
     children?: ReactNode;
     gatewayState?: GatewayAccountState | null;
   } = {}
@@ -831,6 +863,8 @@ function GenerationUpdateControls() {
 function createVideoConfig() {
   return {
     proxy: '',
+    articleWriter: { topicProvider: 'inherit' as const, topicResponseFormat: 'none' as const },
+    muse2api: { baseUrl: 'http://127.0.0.1:18610/v1', apiKey: '', sparkEnabled: false },
     llm: {
       baseUrl: '',
       apiKey: '',
@@ -876,13 +910,15 @@ function createVideoConfig() {
       jimeng: { baseUrl: '', apiKey: '', model: '' },
       kling: { baseUrl: '', accessKey: '', secretKey: '', model: '' },
       gemini: { baseUrl: '', apiKey: '', model: '' },
+      muse2api: { model: 'muse-image' },
       codexNative: {}
     },
     video: {
       provider: 'seedance' as const,
       seedance: { baseUrl: '', apiKey: '', model: 'doubao-seedance-2-5-260628' },
       kling: { baseUrl: '', accessKey: '', secretKey: '', model: 'kling-v2-1-master' },
-      veo: { baseUrl: '', apiKey: '', model: 'veo-3.1-generate-preview' }
+      veo: { baseUrl: '', apiKey: '', model: 'veo-3.1-generate-preview' },
+      muse2api: { model: 'muse-video' }
     }
   };
 }

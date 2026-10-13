@@ -62,13 +62,15 @@ const sizes: Array<{ value: VideoGenerationSize; zh: string; en: string; ratio: 
 const providers: Array<{ value: VideoGenerationProvider; zh: string; en: string }> = [
   { value: 'seedance', zh: 'Seedance', en: 'Seedance' },
   { value: 'kling', zh: '可灵', en: 'Kling' },
-  { value: 'veo', zh: 'Veo', en: 'Veo' }
+  { value: 'veo', zh: 'Veo', en: 'Veo' },
+  { value: 'muse2api', zh: 'Muse Video', en: 'Muse Video' }
 ];
 
 const providerDurations: Record<VideoGenerationProvider, VideoGenerationDuration[]> = {
   seedance: [5, 10],
   kling: [5, 10],
-  veo: [4, 6, 8]
+  veo: [4, 6, 8],
+  muse2api: [5, 10]
 };
 const modelLabels: Record<string, string> = {
   'doubao-seedance-2-5-260628': 'Seedance 2.5',
@@ -79,7 +81,8 @@ const modelLabels: Record<string, string> = {
   'doubao-seedance-1-0-pro-fast-251015': 'Seedance 1.0 Pro Fast',
   'doubao-seedance-1-0-pro-250528': 'Seedance 1.0 Pro',
   'kling-v2-1-master': 'Kling 2.1 Master',
-  'veo-3.1-generate-preview': 'Veo 3.1'
+  'veo-3.1-generate-preview': 'Veo 3.1',
+  'muse-video': 'Muse Video'
 };
 
 const samplePromptZh = '一辆复古红色跑车沿着海岸公路行驶，黄昏金色阳光，低机位跟拍，海风吹动路边植物，电影级真实质感，镜头运动平稳';
@@ -691,9 +694,17 @@ export default function VideoGenerationWorkspace(props: {
                       </button>
                     ) : null}
                   </div>
-                  <small className="video-reference-meta" title={currentReferenceName ?? l('支持 JPG、PNG、WebP，最大 5MB', 'JPG, PNG, or WebP, up to 5 MB')}>
-                    {currentReferenceName ?? l('选填', 'Optional')}
-                  </small>
+                <small className="video-reference-meta" title={currentReferenceName ?? l('支持 JPG、PNG、WebP，最大 5MB', 'JPG, PNG, or WebP, up to 5 MB')}>
+                  {currentReferenceName ?? l('选填', 'Optional')}
+                </small>
+                {provider === 'muse2api' && currentReferenceName ? <small className="creator-services-inline-note">
+                  {l(
+                    '生成视频时，参考图会发送给 Muse2API。',
+                    'The reference image will be sent to Muse2API when you generate.',
+                    undefined,
+                    'Tạo video sẽ gửi hình tham chiếu đến Muse2API.'
+                  )}
+                </small> : null}
                 </div>
                 <label className="creator-tool-field">
                   <span>{l('提示词', 'Prompt')}</span>
@@ -1036,13 +1047,13 @@ function readString(value: CreatorJson | undefined): string {
 }
 
 function readProvider(value: CreatorJson | undefined): VideoGenerationProvider {
-  return value === 'kling' || value === 'veo' ? value : 'seedance';
+  return value === 'kling' || value === 'veo' || value === 'muse2api' ? value : 'seedance';
 }
 
 function readOptionalProvider(
   value: CreatorJson | undefined
 ): VideoGenerationProvider | undefined {
-  return value === 'seedance' || value === 'kling' || value === 'veo'
+  return value === 'seedance' || value === 'kling' || value === 'veo' || value === 'muse2api'
     ? value
     : undefined;
 }
@@ -1064,7 +1075,8 @@ function videoModelDefaults(
   return {
     seedance: config.video.seedance.model.trim() || defaultVideoGenerationModels.seedance,
     kling: config.video.kling.model.trim() || defaultVideoGenerationModels.kling,
-    veo: config.video.veo.model.trim() || defaultVideoGenerationModels.veo
+    veo: config.video.veo.model.trim() || defaultVideoGenerationModels.veo,
+    muse2api: config.video.muse2api.model.trim() || defaultVideoGenerationModels.muse2api
   };
 }
 

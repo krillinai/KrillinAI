@@ -14,6 +14,45 @@ import type { CreatorServicesSettingsService } from '../../services/creator-serv
 import { CreatorServicesSettingsView } from './CreatorServicesSettingsView.js';
 
 describe('CreatorServicesSettingsView', () => {
+  it('saves the topic-only custom structured provider choice and reloads it without changing Muse selection', async () => {
+    const user = userEvent.setup();
+    const service = createService(['llm.apiKey', 'muse2api.apiKey']);
+    let persisted = createDefaultCreatorServicesConfig();
+    persisted.llm.baseUrl = 'https://gateway.example.test/v1';
+    persisted.llm.model = 'gpt-shared';
+    persisted.llm.source = 'custom';
+    persisted.muse2api.sparkEnabled = true;
+    persisted.muse2api.apiKey = 'muse-secret';
+    const configuredCredentials: CreatorServicesCredentialField[] = ['llm.apiKey', 'muse2api.apiKey'];
+    service.getConfig = vi.fn(async () => ({
+      config: structuredClone(persisted),
+      configuredCredentials
+    }));
+    service.saveConfig = vi.fn(async next => {
+      persisted = structuredClone(next);
+      return { config: structuredClone(persisted), configuredCredentials };
+    });
+
+    const firstRender = render(
+      <CreatorServicesSettingsView connected service={service} modelService={createModelService()} />
+    );
+    await user.selectOptions(await screen.findByRole('combobox', { name: '文章选题 AI' }), 'custom');
+    await user.selectOptions(screen.getByRole('combobox', { name: '结构化输出格式' }), 'json_schema');
+    await user.click(screen.getByRole('button', { name: '保存配置' }));
+
+    await waitFor(() => expect(service.saveConfig).toHaveBeenCalledOnce());
+    expect((persisted as unknown as { articleWriter: { topicProvider: string; topicResponseFormat: string } }).articleWriter)
+      .toEqual({ topicProvider: 'custom', topicResponseFormat: 'json_schema' });
+    expect(persisted.muse2api.sparkEnabled).toBe(true);
+    expect(persisted.llm.source).toBe('custom');
+    expect(document.body).not.toHaveTextContent('sk-test-secret');
+
+    firstRender.unmount();
+    render(<CreatorServicesSettingsView connected service={service} modelService={createModelService()} />);
+    expect(await screen.findByRole('combobox', { name: '文章选题 AI' })).toHaveValue('custom');
+    expect(screen.getByRole('combobox', { name: '结构化输出格式' })).toHaveValue('json_schema');
+  });
+
   it('keeps the saved image service active until a detected local service is manually saved', async () => {
     const user = userEvent.setup();
     const service = createService();
@@ -109,6 +148,46 @@ describe('CreatorServicesSettingsView', () => {
     await waitFor(() => expect(service.saveConfig).toHaveBeenCalled());
     expect(modelService.updateCodexProvider).not.toHaveBeenCalled();
     expect(vi.mocked(service.saveConfig).mock.calls[0]?.[0].llm.source).toBe('codex');
+  });
+
+  it('selects Muse Spark independently and saves the shared Muse2API credential', async () => {
+    const user = userEvent.setup();
+    const service = createService();
+    render(<CreatorServicesSettingsView connected service={service} modelService={createModelService()} />);
+
+    await user.click(await screen.findByRole('button', { name: 'Muse Spark' }));
+    expect(screen.getByLabelText('Muse2API Base URL')).toHaveValue('http://127.0.0.1:18610/v1');
+    await user.type(screen.getByLabelText('API Key'), 'muse-secret');
+    await user.click(screen.getByRole('button', { name: '保存配置' }));
+
+    await waitFor(() => expect(service.saveConfig).toHaveBeenCalled());
+    const saved = vi.mocked(service.saveConfig).mock.calls.at(-1)?.[0];
+    expect(saved?.muse2api).toMatchObject({ sparkEnabled: true, apiKey: 'muse-secret' });
+    expect(saved?.llm.source).toBe('custom');
+    expect(saved?.image.provider).toBe('codex-native');
+    expect(saved?.video.provider).toBe('seedance');
+  });
+
+  it('renders Muse and Article Writer topic settings in Vietnamese', async () => {
+    const user = userEvent.setup();
+    render(
+      <LanguageProvider initialPreference="vi-VN">
+        <CreatorServicesSettingsView
+          connected
+          service={createService()}
+          modelService={createModelService()}
+        />
+      </LanguageProvider>
+    );
+
+    const topicProvider = await screen.findByRole('combobox', { name: 'AI tạo chủ đề bài viết' });
+    expect(screen.getByText(/Cài đặt này chỉ áp dụng cho việc tạo chủ đề/)).toBeVisible();
+    await user.selectOptions(topicProvider, 'custom');
+    expect(screen.getByRole('combobox', { name: 'Định dạng đầu ra có cấu trúc' })).toBeVisible();
+    expect(screen.getByRole('option', { name: 'Dùng LLM tùy chỉnh đã cấu hình để tạo chủ đề' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Muse Spark' }));
+    expect(screen.getByText(/Endpoint và khóa API này dùng chung cho Muse Spark/)).toBeVisible();
   });
 
   it('keeps custom model configuration available when local Codex is unavailable', async () => {

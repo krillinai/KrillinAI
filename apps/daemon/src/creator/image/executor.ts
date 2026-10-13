@@ -19,6 +19,7 @@ import {
 } from '../../image-generation/provider.js';
 import type { CreatorExecutor, CreatorExecutorInput, CreatorExecutorOutput } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
+import type { ProviderOperationLedger } from '../provider-operations.js';
 import { spawnCreatorProcess } from '../process-tree.js';
 import { validateImageFile } from '../validators/image.js';
 import { resolveCreatorImageSettings } from '../image-settings.js';
@@ -59,6 +60,7 @@ type CoverImageNormalizer = (input: {
 export function createImageExecutor(input: {
   ledger?: CreatorProviderRequestLedger;
   configStore: Pick<CreatorServicesConfigStore, 'read'>;
+  providerOperationLedger?: ProviderOperationLedger;
   generate?: GenerateImageContents;
   codexNative?: CodexNativeImageRuntime;
   normalizeCoverImage?: CoverImageNormalizer;
@@ -144,6 +146,19 @@ export function createImageExecutor(input: {
                       mime: referenceImage.mime
                     }
                   }),
+              ...(request.provider === 'muse2api' && input.providerOperationLedger !== undefined
+                ? {
+                    providerOperation: {
+                      ledger: input.providerOperationLedger,
+                      registration: {
+                        scope: 'creator-image' as const,
+                        requestKey: `creator:${stage.job.id}:image:${stage.stageRun.scopeKey ?? 'root'}:v${creatorResultVersion(stage.job.state.resultVersion)}:${index + 1}`,
+                        jobId: stage.job.id,
+                        stageRunId: stage.stageRun.id
+                      }
+                    }
+                  }
+                : {}),
               ...(input.codexNative === undefined
                 ? {}
                 : { codexNative: input.codexNative })
@@ -183,6 +198,9 @@ export function createImageExecutor(input: {
               }
               const metadata = await validateImageFile(path);
               if (ledger) ledger = input.ledger!.markSucceeded(ledger.id);
+              if (result.operationId !== undefined) {
+                input.providerOperationLedger?.markSucceeded(result.operationId);
+              }
               completed += 1;
               stage.reportProgress({
                 status: 'running',
@@ -291,6 +309,10 @@ export function createImageExecutor(input: {
 
 function candidateProgress(completed: number, failed: number, total: number): number {
   return 10 + Math.round(((completed + failed) / Math.max(1, total)) * 85);
+}
+
+function creatorResultVersion(value: unknown): number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
 
 export function createFfmpegCoverImageNormalizer(

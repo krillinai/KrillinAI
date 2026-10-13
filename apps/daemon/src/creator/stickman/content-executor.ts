@@ -2,6 +2,7 @@ import { readFile, rename, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { z } from 'zod';
 import type { CreatorServicesConfigStore } from '../../creator-services/config-store.js';
+import { creatorTextCompletionConfig } from '../../creator-services/text-completion-config.js';
 import type { CreatorArtifact, CreatorJson } from '@opencreator/protocol';
 import type { CreatorExecutor, CreatorExecutorInput, CreatorExecutorOutput } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
@@ -1076,7 +1077,8 @@ export function createStickmanConfiguredCompletion(input: {
 }): CompleteJson {
   return async request => {
     const config = await input.configStore.read();
-    if (config.llm.source === 'codex') {
+    const llm = creatorTextCompletionConfig(config);
+    if (config.llm.source === 'codex' && !config.muse2api.sparkEnabled) {
       if (input.codexCompleteJson === undefined) {
         throw new CreatorExecutorError(
           'creator_llm_config_missing',
@@ -1086,24 +1088,24 @@ export function createStickmanConfiguredCompletion(input: {
       return input.codexCompleteJson({
         ...request,
         ...input.context,
-        model: config.llm.model
+        model: llm.model
       });
     }
-    if (!config.llm.apiKey.trim()) {
+    if (!llm.apiKey.trim()) {
       throw new CreatorExecutorError('creator_llm_config_missing', 'LLM configuration is incomplete');
     }
     const response = await fetch(
-      `${config.llm.baseUrl.replace(/\/$/, '') || 'https://api.openai.com/v1'}/chat/completions`,
+      `${llm.baseUrl.replace(/\/$/, '') || 'https://api.openai.com/v1'}/chat/completions`,
       {
         method: 'POST',
         signal: request.signal,
         headers: {
-          authorization: `Bearer ${config.llm.apiKey}`,
+          authorization: `Bearer ${llm.apiKey}`,
           'content-type': 'application/json'
         },
         body: JSON.stringify({
-          model: config.llm.model,
-          response_format: { type: 'json_object' },
+          model: llm.model,
+          ...(llm.jsonMode ? { response_format: { type: 'json_object' } } : {}),
           messages: [{ role: 'user', content: request.prompt }]
         })
       }

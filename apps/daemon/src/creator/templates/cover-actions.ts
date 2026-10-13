@@ -4,6 +4,7 @@ import type {
   ImageGenerationProvider
 } from '@opencreator/protocol';
 import type { CreatorServicesConfigStore } from '../../creator-services/config-store.js';
+import { creatorTextCompletionConfig } from '../../creator-services/text-completion-config.js';
 import type { CreatorCommandDispatcher } from '../command-dispatcher.js';
 import type { CreatorService } from '../service.js';
 import {
@@ -25,7 +26,7 @@ export function createCoverWorkflow(input: {
     if (stageId === 'analyze-source') {
       validateYoutubeSource(job);
       const config = await input.configStore.read();
-      if (!config.llm.apiKey.trim()) {
+      if (!creatorTextCompletionConfig(config).apiKey.trim()) {
         setConfigurationNeeded(input.creator, job.id, {
           code: 'creator_llm_config_missing',
           message: '请先完成文本模型配置，以分析视频内容',

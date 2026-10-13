@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CreatorServicesConfigStore } from '../../creator-services/config-store.js';
+import { creatorTextCompletionConfig } from '../../creator-services/text-completion-config.js';
 import type { CreatorExecutor } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
 import { spawnCreatorProcess } from '../process-tree.js';
@@ -23,7 +24,8 @@ export function createClipExecutor(input: {
           message: 'Checking the source video and analysis settings'
         });
         const config = await input.configStore.read();
-        if (!config.llm.apiKey) throw new CreatorExecutorError('creator_llm_config_missing', 'LLM configuration is incomplete');
+        const llm = creatorTextCompletionConfig(config);
+        if (!llm.apiKey) throw new CreatorExecutorError('creator_llm_config_missing', 'LLM configuration is incomplete');
         const subtitle = stage.inputArtifacts.find(artifact => artifact.kind.includes('subtitle'))?.path;
         const source = stage.inputArtifacts.find(artifact => artifact.kind === 'source_video')?.path;
         if (!subtitle || !source) throw new CreatorExecutorError('creator_stage_input_missing', 'Video and subtitle are required');
@@ -38,7 +40,7 @@ export function createClipExecutor(input: {
           message: 'Finding the strongest standalone moments'
         });
         const candidates = await analyzeClips({
-          ...config.llm,
+          ...llm,
           transcript: await readFile(subtitle, 'utf8'),
           duration: media.duration,
           focus,

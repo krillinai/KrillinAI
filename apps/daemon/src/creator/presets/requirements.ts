@@ -225,6 +225,7 @@ function hasImageCredentials(
     && provider !== 'kling'
     && provider !== 'gemini'
     && provider !== 'codex-native'
+    && provider !== 'muse2api'
   ) return false;
   return imageProviderConfigured(services, provider);
 }
@@ -239,6 +240,10 @@ function hasVideoCredentials(
   }
   if (provider === 'seedance' || provider === 'veo') {
     return services.video[provider].apiKey.trim() !== '';
+  }
+  if (provider === 'muse2api') {
+    return services.muse2api.apiKey.trim() !== ''
+      && services.muse2api.baseUrl.trim() !== '';
   }
   return false;
 }

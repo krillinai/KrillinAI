@@ -19,6 +19,9 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CreatorExecutor, CreatorExecutorResult } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
+import {
+  withArticleOutputDiagnostic
+} from './output-diagnostics.js';
 import { validateImageFile } from '../validators/image.js';
 import { writeArticleHtml, writeArticlePdf } from './document-generator.js';
 import type { ArticleImageGenerationResult } from './image-generator.js';
@@ -153,7 +156,15 @@ export function createWechatArticleExecutor(input: {
           signal: stage.signal
         });
         const topicsPath = join(stage.workdir, 'article-topics.json');
-        await writeJson(topicsPath, topics);
+        try {
+          await writeJson(topicsPath, topics);
+        } catch (error) {
+          throw withArticleOutputDiagnostic(error, {
+            category: 'PERSISTENCE_FAILED',
+            layer: 'topic-artifact',
+            operation: 'write-topic-file'
+          });
+        }
         const sourceArtifactIds = cachedSourceArtifact === undefined
           ? documents.map(artifact => artifact.id)
           : [cachedSourceArtifact.id];

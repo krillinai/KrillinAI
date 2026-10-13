@@ -3,6 +3,7 @@ import type {
   CreatorServicesConfig,
   ImageGenerationAsset
 } from '@opencreator/protocol';
+import { createHash } from 'node:crypto';
 import type { PublicErrorFacts } from '@opencreator/protocol';
 import { publicErrorKindForCode, sanitizePublicErrorFacts } from '@opencreator/protocol';
 import {
@@ -25,6 +26,17 @@ import {
 } from '../creator-services/upstream-fetch.js';
 import { publicFactsFromFailure } from '../creator/public-error-facts.js';
 import { gatewayCreatorBinding } from '../gateway/creator-service-source.js';
+import {
+  submitProviderOperationOnce,
+  type ProviderOperationLedger,
+  type ProviderOperationRegistration
+} from '../creator/provider-operations.js';
+import {
+  createMuse2ApiClient,
+  Muse2ApiError,
+  pollMuseTaskUntilTerminal,
+  validateMuseImageContent
+} from '../creator-services/muse2api.js';
 
 const MAX_IMAGE_BYTES = 30 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 120 * 1024 * 1024;
@@ -52,8 +64,9 @@ export function imageGenerationCapabilities(
   provider: CreateImageGenerationRequest['provider']
 ): ImageGenerationCapabilities {
   return {
-    supportsReferenceImage: provider === 'openai' || provider === 'gemini' || provider === 'codex-native',
-    maxReferenceImages: provider === 'openai' || provider === 'gemini' || provider === 'codex-native' ? 8 : 0
+    supportsReferenceImage: provider === 'openai' || provider === 'gemini' || provider === 'codex-native' || provider === 'muse2api',
+    maxReferenceImages: provider === 'muse2api' ? 1
+      : provider === 'openai' || provider === 'gemini' || provider === 'codex-native' ? 8 : 0
   };
 }
 
@@ -86,8 +99,14 @@ export async function generateImageContents(
     onProgress?(progress: NativeImageProgress): void;
     logicalId?: string;
     onGatewayRequest?(id: string): void;
+    providerOperation?: {
+      ledger: ProviderOperationLedger;
+      registration: Pick<ProviderOperationRegistration,
+        'operationId' | 'scope' | 'requestKey' | 'jobId' | 'stageRunId'>;
+    };
+    pollIntervalMs?: number;
   } = {}
-): Promise<{ model: string; contents: GeneratedImageContent[] }> {
+): Promise<{ model: string; contents: GeneratedImageContent[]; operationId?: string }> {
   if (gatewayCreatorBinding(config)) request = { ...request, provider: 'openai' };
   const referenceImages = options.referenceImages
     ?? (options.referenceImage === undefined ? [] : [options.referenceImage]);
@@ -111,6 +130,20 @@ export async function generateImageContents(
           ? `The ${request.provider} image provider supports at most ${capabilities.maxReferenceImages} reference images`
           : `The ${request.provider} image provider does not support reference images`
       );
+    }
+    if (request.provider === 'muse2api') {
+      if (request.count !== 1) {
+        throw new ImageGenerationProviderError('unsupported_capability', 'Muse Image supports one image per paid operation');
+      }
+      if (options.providerOperation === undefined) {
+        throw new ImageGenerationProviderError('unsupported_capability', 'Muse Image requires the durable provider operation ledger');
+      }
+      nativeExecution = true;
+      return await generateMuseImages(request, config, controller.signal, referenceImages, {
+        ...options.providerOperation,
+        ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
+        pollIntervalMs: options.pollIntervalMs
+      });
     }
     if (request.provider === 'codex-native') {
       if (request.count !== 1) {
@@ -204,6 +237,108 @@ export async function generateImageContents(
     clearTimeout(timeout);
     options.signal?.removeEventListener('abort', abort);
   }
+}
+
+async function generateMuseImages(
+  request: CreateImageGenerationRequest,
+  config: CreatorServicesConfig,
+  signal: AbortSignal,
+  referenceImages: GeneratedImageContent[],
+  options: {
+    ledger: ProviderOperationLedger;
+    registration: Pick<ProviderOperationRegistration,
+      'operationId' | 'scope' | 'requestKey' | 'jobId' | 'stageRunId'>;
+    fetchImpl?: typeof fetch;
+    pollIntervalMs?: number;
+  }
+): Promise<{ model: string; contents: GeneratedImageContent[]; operationId: string }> {
+  const settings = config.muse2api;
+  if (!settings.apiKey.trim()) missingConfig('muse2api');
+  const model = config.image.muse2api.model.trim();
+  if (model !== 'muse-image') {
+    throw new ImageGenerationProviderError('unsupported_capability', 'Muse Image model is not supported');
+  }
+  const reference = referenceImages[0];
+  const requestFingerprint = museImageRequestFingerprint(request, reference);
+  const operation = options.ledger.register({
+    ...options.registration,
+    provider: 'muse2api-image',
+    requestFingerprint
+  });
+  const client = createMuse2ApiClient({
+    baseUrl: settings.baseUrl,
+    apiKey: settings.apiKey,
+    fetchImpl: options.fetchImpl
+  });
+  let accepted;
+  try {
+    accepted = await submitProviderOperationOnce({
+      ledger: options.ledger,
+      operation,
+      submit: () => client.submitImage({
+        prompt: request.prompt.trim(),
+        model,
+        aspectRatio: imageAspectRatio(request.size),
+        ...(reference === undefined ? {} : {
+          referenceImage: `data:${reference.mime};base64,${reference.content.toString('base64')}`
+        }),
+        operationId: operation.operationId,
+        signal
+      })
+    });
+  } catch (error) {
+    if (error instanceof ImageGenerationProviderError) throw error;
+    throw new ImageGenerationProviderError(
+      'upstream_error',
+      error instanceof Error ? error.message : 'Muse Image task could not be submitted',
+      publicFactsFromFailure(error, 'muse2api-image'),
+      { cause: error }
+    );
+  }
+  if (accepted.remoteTaskId === null) {
+    throw new ImageGenerationProviderError('upstream_error', 'Muse Image task id is unavailable');
+  }
+  const result = await pollMuseTaskUntilTerminal(
+    () => client.pollImage(accepted.remoteTaskId!, signal),
+    signal,
+    options.pollIntervalMs
+  );
+  if (result.status === 'failed') {
+    options.ledger.markFailed(operation.operationId);
+    throw new ImageGenerationProviderError(
+      'upstream_error',
+      result.error || 'Muse Image generation failed',
+      { kind: 'provider-failed', provider: 'muse2api-image', upstreamMessage: result.error }
+    );
+  }
+  let content: Buffer;
+  let mime: ImageGenerationAsset['mime'];
+  if (result.base64 !== undefined) {
+    content = Buffer.from(result.base64, 'base64');
+    mime = await validateMuseImageContent(content, result.mime);
+  } else if (result.url !== undefined) {
+    const downloaded = await client.downloadMedia(result.url, 'image', signal);
+    content = downloaded.content;
+    mime = downloaded.mime as ImageGenerationAsset['mime'];
+  } else {
+    throw new ImageGenerationProviderError('upstream_error', 'Muse Image completed without image data');
+  }
+  validateImageContent(content);
+  return { model, contents: [{ content, mime }], operationId: operation.operationId };
+}
+
+export function museImageRequestFingerprint(
+  request: CreateImageGenerationRequest,
+  reference?: GeneratedImageContent
+): string {
+  return createHash('sha256').update(JSON.stringify({
+    provider: 'muse2api-image',
+    prompt: request.prompt.trim(),
+    model: 'muse-image',
+    size: request.size,
+    quality: request.quality,
+    reference: reference === undefined ? null : createHash('sha256').update(reference.content).digest('hex')
+  })).digest('hex');
 }
 
 async function generateOpenAiImages(

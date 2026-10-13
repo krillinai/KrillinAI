@@ -14,6 +14,7 @@ import type { MediaProbe } from '../validators/media.js';
 import type { CreatorExecutor, CreatorExecutorInput } from '../executor.js';
 import { CreatorExecutorError } from '../executor.js';
 import type { CreatorProviderRequestLedger } from '../provider-requests.js';
+import type { ProviderOperationLedger } from '../provider-operations.js';
 import {
   VideoGenerationError,
   type VideoGenerationService
@@ -25,6 +26,7 @@ const MAX_CONSECUTIVE_REFRESH_FAILURES = 3;
 export function createVideoExecutor(input: {
   ledger?: CreatorProviderRequestLedger;
   service: VideoGenerationService;
+  providerOperationLedger?: ProviderOperationLedger;
   probeVideo: ProbeVideo;
   pollIntervalMs?: number;
   sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
@@ -72,6 +74,19 @@ export function createVideoExecutor(input: {
             },
             onGatewayRequest: id => { if (providerRequest) providerRequest = input.ledger!.markWaitingRemote(providerRequest.id,id); },
             onPending: id => stage.reportProgress({ phase: 'submitting', videoGenerationResultId: id }),
+            ...(request.provider === 'muse2api' && input.providerOperationLedger !== undefined
+              ? {
+                  providerOperation: {
+                    ledger: input.providerOperationLedger,
+                    registration: {
+                      scope: 'creator-video' as const,
+                      requestKey: `creator:${stage.job.id}:video:${stage.stageRun.scopeKey ?? 'root'}:v${creatorResultVersion(stage.job.state.resultVersion)}`,
+                      jobId: stage.job.id,
+                      stageRunId: stage.stageRun.id
+                    }
+                  }
+                }
+              : {}),
             onDownloadStart: () => reportDownloading(stage)
           });
           stage.reportProgress({
@@ -369,6 +384,10 @@ function readString(value: CreatorJson | undefined): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function creatorResultVersion(value: unknown): number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+}
+
 function isUnavailableModelError(message: string): boolean {
   return /(?:not activated|not enabled|not subscribed|no permission|permission denied|access denied).{0,80}(?:model|service)|(?:model|service).{0,80}(?:not activated|not enabled|not subscribed|no permission|permission denied|access denied)/i
     .test(message);
@@ -380,7 +399,7 @@ function isRetryableRefreshError(error: unknown): boolean {
 }
 
 function readProvider(value: CreatorJson | undefined): VideoGenerationProvider {
-  return value === 'kling' || value === 'veo' ? value : 'seedance';
+  return value === 'kling' || value === 'veo' || value === 'muse2api' ? value : 'seedance';
 }
 
 function readSize(value: CreatorJson | undefined): VideoGenerationSize {

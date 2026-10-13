@@ -15,6 +15,8 @@ import { constants } from 'node:fs';
 import { join } from 'node:path';
 import type { CreatorTemplateStage } from './templates/types.js';
 import type { CreatorServicesConfigStore } from '../creator-services/config-store.js';
+import { creatorTextCompletionConfig } from '../creator-services/text-completion-config.js';
+import { resolveArticleTopicProvider } from './article/topic-provider.js';
 import { preflightKrillinDependencies } from './krillin/dependency-preflight.js';
 import type { YtDlpRuntime } from './yt-dlp/runtime.js';
 import {
@@ -325,6 +327,7 @@ async function checkProviderConfig(
     if (stage.id === 'tts' && job.state.dubbing === true) needs.add('tts');
   }
   if (stage.executor === 'clip') needs.add('llm');
+  if (stage.executor === 'wechat-article' && stage.id === 'topics') needs.add('llm');
   if (stage.executor === 'stickman-content' && ['source-brief', 'content-plan', 'script', 'storyboard'].includes(stage.id)) needs.add('llm');
   if (stage.executor === 'cover-analysis') needs.add('llm');
   if (stage.executor === 'image') {
@@ -338,15 +341,37 @@ async function checkProviderConfig(
   if (stage.executor === 'wechat-article' && stage.id === 'images') needs.add('image');
 
   if (needs.has('llm')) {
-    if (config.llm.source === 'codex' && stage.executor === 'krillinai' && config.llm.apiKey.trim()) {
+    if (stage.executor === 'wechat-article' && stage.id === 'topics') {
+      const topicProvider = resolveArticleTopicProvider(config);
+      if (!topicProvider.ok) {
+        add('blocked', {
+          id: 'article-topic-provider',
+          title: '文章选题模型配置不可用',
+          message: topicProvider.message,
+          executionMode: 'remote'
+        }, { label: '打开模型服务设置', deepLink: '#/settings?tab=ai-services&section=text' });
+      } else {
+        checkOpenAi(topicProvider.provider, 'llm', '文章选题模型', '#/settings?tab=ai-services&section=text', add);
+        if (topicProvider.responseFormatName !== undefined) {
+          add('ready', {
+            id: 'article-topic-response-format',
+            title: '结构化输出格式',
+            message: `${topicProvider.responseFormatName} 已选择。`,
+            executionMode: 'remote'
+          });
+        }
+      }
+    } else if (config.llm.source === 'codex' && stage.executor === 'krillinai' && config.llm.apiKey.trim()) {
       add('ready', {
         id: 'llm',
         title: '文本模型',
         message: `本机 Codex / ${config.llm.model || 'Runtime'} 已启用。`,
         executionMode: 'local'
       });
-    } else {
+    } else if (stage.executor === 'krillinai') {
       checkOpenAi(config.llm, 'llm', '文本模型', '#/settings?tab=ai-services&section=text', add);
+    } else {
+      checkOpenAi(creatorTextCompletionConfig(config), 'llm', '文本模型', '#/settings?tab=ai-services&section=text', add);
     }
   }
   if (needs.has('tts')) {
@@ -416,12 +441,23 @@ async function checkProviderConfig(
       if (job.artifacts.some(artifact => artifact.kind === 'reference_image' && artifact.status === 'completed') && !gateway.capabilities?.video?.includes('image_to_video')) add('blocked', { id:'reference-image-capability',title:'参考图能力不匹配',message:'当前官方视频模型不支持参考图。',executionMode:'remote' });
     } else {
       const provider = readVideoProvider(job, config);
-      const settings = config.video[provider];
-      const hasKey = providerCredentials(settings, provider);
-      if (!hasKey || !settings.model.trim() || !settings.baseUrl.trim()) add('blocked', {
+      let model: string;
+      let baseUrl: string;
+      let hasKey: boolean;
+      if (provider === 'muse2api') {
+        model = config.video.muse2api.model;
+        baseUrl = config.muse2api.baseUrl;
+        hasKey = config.muse2api.apiKey.trim().length > 0;
+      } else {
+        const settings = config.video[provider];
+        model = settings.model;
+        baseUrl = settings.baseUrl;
+        hasKey = providerCredentials(settings, provider);
+      }
+      if (!hasKey || !model.trim() || !baseUrl.trim()) add('blocked', {
         id: 'video-provider', title: '视频服务配置不完整', message: `请配置 ${provider} 的 Base URL、模型和凭据。`, executionMode: 'remote'
       }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=video' });
-      else add('ready', { id: 'video-provider', title: '视频服务', message: `${provider} / ${settings.model} 已配置。`, executionMode: 'remote' });
+      else add('ready', { id: 'video-provider', title: '视频服务', message: `${provider} / ${model} 已配置。`, executionMode: 'remote' });
     }
   }
   if (stage.executor === 'krillinai' && stage.id === 'subtitle' && (job.state.sourceType === 'file' || job.state.preferPlatformCaptions === false)) {
@@ -489,7 +525,7 @@ function readTtsProvider(job: CreatorJob, config: CreatorServicesConfig): Creato
 }
 function readVideoProvider(job: CreatorJob, config: CreatorServicesConfig): CreatorServicesConfig['video']['provider'] {
   const value = job.state.provider;
-  return value === 'seedance' || value === 'kling' || value === 'veo' ? value : config.video.provider;
+  return value === 'seedance' || value === 'kling' || value === 'veo' || value === 'muse2api' ? value : config.video.provider;
 }
 function executionMode(stage: CreatorTemplateStage, job: CreatorJob): CreatorPreflightExecutionMode {
   if (stage.executor === 'image' || stage.executor === 'video' || stage.executor === 'smart-dubbing' || stage.executor === 'stickman-image') return 'remote';
@@ -505,7 +541,7 @@ function executionMode(stage: CreatorTemplateStage, job: CreatorJob): CreatorPre
 
 function providerCredentials(
   settings: { model: string; apiKey?: string; accessKey?: string; secretKey?: string },
-  provider: 'openai' | 'jimeng' | 'kling' | 'gemini' | 'seedance' | 'veo'
+  provider: 'openai' | 'jimeng' | 'kling' | 'gemini' | 'seedance' | 'veo' | 'muse2api'
 ): boolean {
   if (provider === 'kling') {
     return (settings.accessKey?.trim().length ?? 0) > 0

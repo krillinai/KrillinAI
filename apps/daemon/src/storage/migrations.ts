@@ -359,6 +359,9 @@ export function migrate(db: Database.Database): void {
       FOREIGN KEY(job_id) REFERENCES creator_jobs(id) ON DELETE CASCADE
     );
 
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_creator_stage_runs_id_job
+      ON creator_stage_runs(id, job_id);
+
     CREATE TABLE IF NOT EXISTS creator_artifacts (
       id TEXT PRIMARY KEY,
       job_id TEXT NOT NULL,
@@ -396,6 +399,52 @@ export function migrate(db: Database.Database): void {
       FOREIGN KEY(stage_run_id) REFERENCES creator_stage_runs(id) ON DELETE CASCADE,
       FOREIGN KEY(result_artifact_id) REFERENCES creator_artifacts(id) ON DELETE SET NULL,
       FOREIGN KEY(resubmission_of) REFERENCES creator_provider_requests(id) ON DELETE SET NULL,
+      UNIQUE(provider, request_key, generation)
+    );
+
+    -- Cross-context operations (standalone endpoints and Muse-backed Creator
+    -- executors) use the same paid-operation lifecycle without weakening the
+    -- legacy Creator request table's mandatory job/stage foreign keys.
+    CREATE TABLE IF NOT EXISTS creator_provider_operations (
+      operation_id TEXT PRIMARY KEY CHECK(
+        length(operation_id) BETWEEN 12 AND 128
+        AND operation_id NOT GLOB '*[^A-Za-z0-9_-]*'
+      ),
+      provider TEXT NOT NULL CHECK(length(provider) BETWEEN 1 AND 128),
+      scope TEXT NOT NULL CHECK(scope IN (
+        'standalone-image', 'standalone-video', 'creator-image', 'creator-video'
+      )),
+      job_id TEXT,
+      stage_run_id TEXT,
+      request_key TEXT NOT NULL CHECK(length(request_key) BETWEEN 1 AND 512),
+      request_fingerprint TEXT NOT NULL CHECK(
+        length(request_fingerprint) = 64
+        AND request_fingerprint NOT GLOB '*[^a-f0-9]*'
+      ),
+      generation INTEGER NOT NULL DEFAULT 1 CHECK(generation >= 1),
+      remote_task_id TEXT,
+      submit_owner TEXT,
+      status TEXT NOT NULL CHECK(status IN (
+        'registered', 'submitting', 'waiting_remote',
+        'unknown_remote_acceptance', 'succeeded', 'failed', 'canceled'
+      )),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      CHECK((job_id IS NULL AND stage_run_id IS NULL)
+         OR (job_id IS NOT NULL AND stage_run_id IS NOT NULL)),
+      CHECK(status NOT IN ('waiting_remote', 'succeeded') OR remote_task_id IS NOT NULL),
+      CHECK(status <> 'submitting' OR submit_owner IS NOT NULL),
+      CHECK(status IN ('submitting', 'registered', 'failed', 'canceled') OR submit_owner IS NULL),
+      CHECK(
+        (scope IN ('standalone-image', 'standalone-video') AND job_id IS NULL AND stage_run_id IS NULL)
+        OR (scope IN ('creator-image', 'creator-video') AND job_id IS NOT NULL AND stage_run_id IS NOT NULL)
+      ),
+      CHECK(
+        (scope IN ('standalone-image', 'creator-image') AND provider = 'muse2api-image')
+        OR (scope IN ('standalone-video', 'creator-video') AND provider = 'muse2api-video')
+      ),
+      FOREIGN KEY(job_id) REFERENCES creator_jobs(id) ON DELETE CASCADE,
+      FOREIGN KEY(stage_run_id, job_id) REFERENCES creator_stage_runs(id, job_id) ON DELETE CASCADE,
       UNIQUE(provider, request_key, generation)
     );
 
@@ -651,6 +700,11 @@ export function migrate(db: Database.Database): void {
       ON creator_artifacts(job_id, kind, version DESC);
     CREATE INDEX IF NOT EXISTS idx_creator_provider_requests_job_scope_status
       ON creator_provider_requests(job_id, scope_key, status, created_at ASC);
+    CREATE INDEX IF NOT EXISTS idx_creator_provider_operations_scope_status
+      ON creator_provider_operations(scope, status, updated_at ASC);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_creator_provider_operations_remote_id
+      ON creator_provider_operations(provider, remote_task_id)
+      WHERE remote_task_id IS NOT NULL;
     CREATE INDEX IF NOT EXISTS idx_creator_activities_job_revision
       ON creator_activities(job_id, revision ASC, created_at ASC, id ASC);
     CREATE INDEX IF NOT EXISTS idx_creator_agent_turns_session_created

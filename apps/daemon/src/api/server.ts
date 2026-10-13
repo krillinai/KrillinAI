@@ -90,6 +90,7 @@ import { createRemotionComponentManager } from '../creator/stickman/remotion-com
 import { createStickmanMediaValidationExecutor } from '../creator/stickman/media-validation-executor.js';
 import { createStickmanDeliveryExecutor } from '../creator/stickman/delivery-executor.js';
 import { CreatorProviderRequestLedger } from '../creator/provider-requests.js';
+import { createProviderOperationLedger } from '../creator/provider-operations.js';
 import { createCreatorProjectCoverService } from '../creator/project-cover.js';
 import { createVideoGenerationService } from '../video-generation/service.js';
 import { createImageGenerationService } from '../image-generation/service.js';
@@ -528,6 +529,7 @@ export async function buildServer(input: BuildServerInput) {
     creatorRepository,
     creatorIssueService
   );
+  const providerOperationLedger = createProviderOperationLedger({ db });
   const officialManagers = new Map<string, AppServerRuntimeManager>();
   let officialBindings: ReturnType<typeof createGatewayRuntimeBindings> | undefined;
   const gatewayOrigin = input.gatewayOrigin ?? process.env.OPENCREATOR_GATEWAY_ORIGIN;
@@ -755,7 +757,8 @@ export async function buildServer(input: BuildServerInput) {
   const videoGenerationService = createVideoGenerationService({
     dataDir,
     configStore: creatorServicesConfigStore,
-    gatewaySource: gatewayCreatorSource
+    gatewaySource: gatewayCreatorSource,
+    providerOperationLedger
   });
   // Image generation follows the user's local Codex login, independently of Agent settings.
   const codexImageRuntime = { codexHome: localCodexHome, codexBin };
@@ -763,7 +766,8 @@ export async function buildServer(input: BuildServerInput) {
   const imageGenerationService = createImageGenerationService({
     dataDir,
     configStore: creatorServicesConfigStore,
-    codexNative: codexImageRuntime
+    codexNative: codexImageRuntime,
+    providerOperationLedger
   });
   const packagedRemotionReleasePath = resolve(
     dirname(fileURLToPath(import.meta.url)),
@@ -979,6 +983,7 @@ export async function buildServer(input: BuildServerInput) {
     creatorExecutors.push(createImageExecutor({
       ledger: creatorProviderRequestLedger,
       configStore: creatorServicesConfigStore,
+      providerOperationLedger,
       codexNative: codexImageRuntime,
       ...(creatorFfmpegPath === undefined
         ? {}
@@ -992,6 +997,7 @@ export async function buildServer(input: BuildServerInput) {
       creatorExecutors.push(createVideoExecutor({
         ledger: creatorProviderRequestLedger,
         service: videoGenerationService,
+        providerOperationLedger,
         probeVideo: path => validateMediaFile(path, creatorFfprobePath!)
       }));
     }

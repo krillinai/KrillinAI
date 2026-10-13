@@ -63,7 +63,8 @@ const providers: Array<{ value: ImageGenerationProvider; zh: string; en: string 
   { value: 'openai', zh: 'GPT Image', en: 'GPT Image' },
   { value: 'jimeng', zh: '即梦', en: 'Jimeng' },
   { value: 'kling', zh: '可灵', en: 'Kling' },
-  { value: 'gemini', zh: 'Gemini', en: 'Gemini' }
+  { value: 'gemini', zh: 'Gemini', en: 'Gemini' },
+  { value: 'muse2api', zh: 'Muse Image', en: 'Muse Image' }
 ];
 
 const samplePromptZh = '一间通透的现代创意工作室，清晨自然光从落地窗照入，桌面有相机、手稿和绿植，真实摄影质感，构图干净，细节丰富';
@@ -93,7 +94,9 @@ export default function ImageGenerationWorkspace(props: {
   const [provider, setProvider] = useState<ImageGenerationProvider>(() => readProvider(session?.state.provider));
   const [size, setSize] = useState<ImageGenerationSize>(() => readSize(session?.state.size));
   const [quality, setQuality] = useState<ImageGenerationQuality>(() => readQuality(session?.state.quality));
-  const [count, setCount] = useState(() => readCount(session?.state.candidateCount));
+  const [count, setCount] = useState(() => (
+    provider === 'muse2api' && !official.official ? 1 : readCount(session?.state.candidateCount)
+  ));
   const [aspectRatio, setAspectRatio] = useState(() => readString(session?.state.aspectRatio));
   const [resolution, setResolution] = useState(() => readString(session?.state.resolution));
   const [officialQuality, setOfficialQuality] = useState(() => readString(session?.state.officialQuality));
@@ -188,7 +191,7 @@ export default function ImageGenerationWorkspace(props: {
     void props.creatorServicesService?.getConfig().then(response => {
       if (!active) return;
       const nextProvider = response.config.image.provider;
-      const nextCount = nextProvider === 'codex-native' ? 1 : count;
+      const nextCount = nextProvider === 'codex-native' || nextProvider === 'muse2api' ? 1 : count;
       setProvider(nextProvider);
       setCount(nextCount);
       session.updateDraft(
@@ -324,7 +327,7 @@ export default function ImageGenerationWorkspace(props: {
   function updateProvider(value: ImageGenerationProvider) {
     if (official.official) return;
     setProvider(value);
-    const nextCount = value === 'codex-native' ? 1 : count;
+    const nextCount = value === 'codex-native' || value === 'muse2api' ? 1 : count;
     if (nextCount !== count) setCount(nextCount);
     session?.updateDraft({
       provider: value,
@@ -347,7 +350,7 @@ export default function ImageGenerationWorkspace(props: {
   }
 
   function updateCount(value: number) {
-    if (!official.official && provider === 'codex-native' && value !== 1) return;
+    if (!official.official && (provider === 'codex-native' || provider === 'muse2api') && value !== 1) return;
     setCount(value);
     session?.updateDraft({ candidateCount: value });
     setError('');
@@ -574,7 +577,7 @@ export default function ImageGenerationWorkspace(props: {
                           ? l('更换参考图', 'Replace reference')
                           : l('添加参考图', 'Add reference')}</span>
                       </label>
-                      {currentReferenceName ? (
+                {currentReferenceName ? (
                         <button
                           className="cover-reference-remove"
                           type="button"
@@ -603,6 +606,14 @@ export default function ImageGenerationWorkspace(props: {
                     {referenceValidationMessage}
                   </p>
                 ) : null}
+                {provider === 'muse2api' && currentReferenceName ? <p className="creator-services-inline-note" role="note">
+                  {l(
+                    '生成图像时，参考图会发送给 Muse2API。',
+                    'The reference image will be sent to Muse2API when you generate.',
+                    undefined,
+                    'Tạo ảnh sẽ gửi hình tham chiếu đến Muse2API.'
+                  )}
+                </p> : null}
               </div>
               <button className="smart-dubbing-sample" type="button" onClick={() => updatePrompt(l(samplePromptZh, samplePromptEn))}>
                 <WandSparkles size={14} strokeWidth={1.8} />
@@ -636,6 +647,14 @@ export default function ImageGenerationWorkspace(props: {
                     )}
                   </p>
                 ) : null}
+                {provider === 'muse2api' ? <p className="creator-services-inline-note">
+                  {l(
+                    'Muse Image 每个任务生成 1 张图片；可选添加 1 张参考图进行图生图。',
+                    'Muse Image generates one image per operation and accepts one optional reference image.',
+                    undefined,
+                    'Muse Image tạo 1 ảnh mỗi tác vụ và nhận tối đa 1 ảnh tham chiếu.'
+                  )}
+                </p> : null}
               </div>}
               {imageOptions ? <>
                 {[
@@ -674,7 +693,7 @@ export default function ImageGenerationWorkspace(props: {
               <div className="media-generation-control">
                 <span>{l('生成数量', 'Number of images')}</span>
                 <div className="creator-tool-segmented" role="radiogroup" aria-label={l('生成数量', 'Number of images')}>
-                  {(!official.official && provider === 'codex-native' ? [1] : [1, 2, 4]).map(value => (
+                  {(!official.official && (provider === 'codex-native' || provider === 'muse2api') ? [1] : [1, 2, 4]).map(value => (
                     <button type="button" role="radio" aria-checked={count === value} aria-selected={count === value} key={value} onClick={() => updateCount(value)}>
                       {value} {l('张', value === 1 ? 'image' : 'images')}
                     </button>
@@ -868,7 +887,7 @@ function readArtifactString(
 }
 
 function readProvider(value: CreatorJson | undefined): ImageGenerationProvider {
-  return value === 'jimeng' || value === 'kling' || value === 'gemini' || value === 'codex-native'
+  return value === 'jimeng' || value === 'kling' || value === 'gemini' || value === 'codex-native' || value === 'muse2api'
     ? value
     : 'openai';
 }

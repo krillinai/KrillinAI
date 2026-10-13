@@ -56,7 +56,7 @@ type ModelSettingsService = Pick<ConnectionService, 'getCodexProvider' | 'update
   getCodexModels?: ConnectionService['getCodexModels'];
 };
 type ModelFieldErrors = Partial<Record<'baseUrl' | 'apiKey' | 'model' | 'proxy', string>>;
-type TextModelMode = 'codex' | 'custom';
+type TextModelMode = 'codex' | 'custom' | 'muse2api';
 
 export function CreatorServicesSettingsView(props: {
   connected: boolean;
@@ -140,7 +140,7 @@ export function CreatorServicesSettingsView(props: {
           : []);
         setConfig(response.config);
         setSavedImageProvider(response.config.image.provider);
-        setTextModelMode(response.config.llm.source);
+        setTextModelMode(response.config.muse2api.sparkEnabled ? 'muse2api' : response.config.llm.source);
         setCapabilities(capabilitiesResult.value);
         setConfiguredCredentials(new Set(response.configuredCredentials));
         setSavedTranscriptionSelection(transcriptionSelection(response.config));
@@ -253,7 +253,9 @@ export function CreatorServicesSettingsView(props: {
     if (activeSection === 'text') {
       const fieldErrors = textModelMode === 'custom'
         ? validateModelFields(modelBaseUrl, modelName, modelApiKey, config.proxy, l)
-        : validateModelFields('', 'codex', '', config.proxy, l);
+        : textModelMode === 'muse2api'
+          ? validateMuse2ApiSettings(config, configuredCredentials, l)
+          : validateModelFields('', 'codex', '', config.proxy, l);
       setModelFieldErrors(fieldErrors);
       if (Object.keys(fieldErrors).length > 0) {
         setValidationError(l(
@@ -261,6 +263,30 @@ export function CreatorServicesSettingsView(props: {
           'The model provider settings are invalid. Fix the highlighted fields.'
         ));
         return;
+      }
+      if (config.articleWriter.topicProvider === 'custom') {
+        const customModelReady = config.llm.source === 'custom'
+          && modelBaseUrl.trim().length > 0
+          && modelName.trim().length > 0
+          && (modelApiKey.trim().length > 0 || configuredCredentials.has('llm.apiKey'));
+        if (!customModelReady) {
+          setValidationError(l(
+            '文章选题自定义 LLM 尚未配置完整。请先在模型服务中保存自定义 Base URL、模型和 API Key。',
+            'The custom LLM for Article Writer topics is not configured. Save a custom Base URL, model, and API key in Model provider settings.',
+            undefined,
+            'LLM tùy chỉnh cho chủ đề bài viết chưa được cấu hình đầy đủ. Hãy lưu Base URL, model và API Key tùy chỉnh trong cài đặt dịch vụ model.'
+          ));
+          return;
+        }
+        if (config.articleWriter.topicResponseFormat === 'none') {
+          setValidationError(l(
+            '请选择自定义 LLM 文档明确支持的结构化输出格式。',
+            'Choose a structured response format documented as supported by the custom LLM endpoint.',
+            undefined,
+            'Hãy chọn định dạng đầu ra có cấu trúc được tài liệu của endpoint LLM tùy chỉnh xác nhận hỗ trợ.'
+          ));
+          return;
+        }
       }
     }
     setSaving(true);
@@ -271,8 +297,12 @@ export function CreatorServicesSettingsView(props: {
       let nextConfig = structuredClone(config);
       if (activeSection === 'text') {
         if (textModelMode === 'codex') {
+          nextConfig.muse2api.sparkEnabled = false;
           nextConfig.llm = { ...nextConfig.llm, apiKey: '', source: 'codex' };
+        } else if (textModelMode === 'muse2api') {
+          nextConfig.muse2api.sparkEnabled = true;
         } else {
+          nextConfig.muse2api.sparkEnabled = false;
           nextConfig.llm = {
             ...nextConfig.llm,
             baseUrl: modelBaseUrl,
@@ -528,16 +558,45 @@ function TextModelSettings(props: SettingsGroupProps & {
   const legacyApiKeyConfigured = props.config.llm.source === 'custom'
     && props.configuredCredentials.has('llm.apiKey');
   const providerApiKeyConfigured = props.provider?.apiKeyConfigured === true;
+  const museApiKeyConfigured = props.configuredCredentials.has('muse2api.apiKey');
   const codexAvailable = props.provider !== undefined
     && (props.provider.authentication === 'chatgpt' || providerApiKeyConfigured);
   const textTasksAvailable = props.mode === 'codex'
     ? codexAvailable
-    : legacyApiKeyConfigured || props.apiKey.trim().length > 0;
+    : props.mode === 'muse2api'
+      ? (museApiKeyConfigured || props.config.muse2api.apiKey.trim().length > 0)
+        && props.config.muse2api.baseUrl.trim().length > 0
+      : legacyApiKeyConfigured || props.apiKey.trim().length > 0;
   const selectedModeAvailable = props.mode === 'codex' ? codexAvailable : textTasksAvailable;
   const TextTaskStatusIcon = textTasksAvailable ? Check : CircleAlert;
   const modelCredentials = legacyApiKeyConfigured
     ? new Set<CreatorServicesCredentialField>(['llm.apiKey'])
     : new Set<CreatorServicesCredentialField>();
+  const topicConfigurationError = props.config.articleWriter.topicProvider !== 'custom'
+    ? undefined
+    : props.config.llm.source !== 'custom'
+      ? l(
+        '请先在模型服务中配置自定义 LLM。',
+        'Configure a custom LLM in Model provider settings first.',
+        undefined,
+        'Hãy cấu hình LLM tùy chỉnh trong phần Dịch vụ model trước.'
+      )
+      : props.baseUrl.trim().length === 0 || props.model.trim().length === 0
+        || (!props.apiKey.trim() && !props.configuredCredentials.has('llm.apiKey'))
+        ? l(
+          '自定义 LLM 需要 Base URL、模型和 API Key。',
+          'The custom LLM requires a Base URL, model, and API key.',
+          undefined,
+          'LLM tùy chỉnh cần Base URL, model và API Key.'
+        )
+        : props.config.articleWriter.topicResponseFormat === 'none'
+          ? l(
+            '请选择 endpoint 文档明确支持的结构化输出格式。',
+            'Choose a structured output format documented as supported by the endpoint.',
+            undefined,
+            'Hãy chọn định dạng đầu ra có cấu trúc được tài liệu endpoint xác nhận hỗ trợ.'
+          )
+          : undefined;
   return (
     <>
       <SettingsFieldset
@@ -561,6 +620,13 @@ function TextModelSettings(props: SettingsGroupProps & {
             onClick={() => props.onModeChange('custom')}
           >
             {l('自定义模型服务', 'Custom model service')}
+          </button>
+          <button
+            type="button"
+            aria-pressed={props.mode === 'muse2api'}
+            onClick={() => props.onModeChange('muse2api')}
+          >
+            {l('Muse Spark', 'Muse Spark', undefined, 'Muse Spark')}
           </button>
         </div>
         {props.mode === 'custom' ? <label className="creator-services-field is-wide">
@@ -586,6 +652,10 @@ function TextModelSettings(props: SettingsGroupProps & {
             : creatorProviderCatalogById.llm[props.providerId]?.models.map(model => model.id)}
           errors={props.fieldErrors}
           onChange={props.onProviderChange}
+        /> : props.mode === 'muse2api' ? <Muse2ApiFields
+          config={props.config}
+          configuredCredentials={props.configuredCredentials}
+          update={props.update}
         /> : (
           <p className="creator-services-runtime-note">
             {props.provider === undefined
@@ -618,6 +688,58 @@ function TextModelSettings(props: SettingsGroupProps & {
           </p>
         )}
       </SettingsFieldset>
+      <SettingsFieldset
+        title={l('文章选题 AI', 'Article Writer Topic AI', undefined, 'AI tạo chủ đề bài viết')}
+        description={l(
+          '此设置只影响文章选题生成，不会更改大纲、正文、配图规划或其他文本任务。',
+          'This setting affects topic generation only. It does not change outlines, article text, image plans, or other text tasks.',
+          undefined,
+          'Cài đặt này chỉ áp dụng cho việc tạo chủ đề; không đổi nhà cung cấp cho dàn ý, nội dung bài viết, kế hoạch ảnh hoặc tác vụ văn bản khác.'
+        )}
+      >
+        <label className="creator-services-field is-wide">
+          <span>{l('文章选题 AI', 'Article Writer topic AI', undefined, 'AI tạo chủ đề bài viết')}</span>
+          <select
+            aria-label={l('文章选题 AI', 'Article Writer topic AI', undefined, 'AI tạo chủ đề bài viết')}
+            value={props.config.articleWriter.topicProvider}
+            onChange={event => props.update(config => {
+              config.articleWriter.topicProvider = event.target.value as CreatorServicesConfig['articleWriter']['topicProvider'];
+            })}
+          >
+            <option value="inherit">{l('使用当前文本模型（默认）', 'Use current text provider (default)', undefined, 'Dùng nhà cung cấp văn bản hiện tại (mặc định)')}</option>
+            <option value="custom">{l('使用已配置的自定义 LLM 生成选题', 'Use the configured custom LLM for topics', undefined, 'Dùng LLM tùy chỉnh đã cấu hình để tạo chủ đề')}</option>
+          </select>
+        </label>
+        {props.config.articleWriter.topicProvider === 'custom' ? (
+          <>
+            <label className="creator-services-field is-wide">
+              <span>{l('结构化输出格式', 'Structured output format', undefined, 'Định dạng đầu ra có cấu trúc')}</span>
+              <select
+                aria-label={l('结构化输出格式', 'Structured output format', undefined, 'Định dạng đầu ra có cấu trúc')}
+                value={props.config.articleWriter.topicResponseFormat}
+                onChange={event => props.update(config => {
+                  config.articleWriter.topicResponseFormat = event.target.value as CreatorServicesConfig['articleWriter']['topicResponseFormat'];
+                })}
+              >
+                <option value="none">{l('选择 endpoint 支持的格式', 'Select a format supported by the endpoint', undefined, 'Chọn định dạng endpoint hỗ trợ')}</option>
+                <option value="json_schema">Strict JSON Schema</option>
+                <option value="json_object">JSON object</option>
+              </select>
+            </label>
+            <p className="creator-services-inline-note is-wide">
+              {l(
+                '使用现有自定义 LLM 配置和凭据。请依据服务商文档选择格式；预检只检查本地配置，不会探测模型。',
+                'Uses the existing custom LLM settings and credential. Choose the format from the provider documentation; preflight checks local settings and does not probe the model.',
+                undefined,
+                'Sử dụng cấu hình và thông tin xác thực LLM tùy chỉnh hiện có. Hãy chọn định dạng theo tài liệu nhà cung cấp; bước kiểm tra trước chỉ xác minh cấu hình cục bộ, không gọi model.'
+              )}
+            </p>
+            {topicConfigurationError ? (
+              <p className="creator-services-inline-note is-warning is-wide" role="alert">{topicConfigurationError}</p>
+            ) : null}
+          </>
+        ) : null}
+      </SettingsFieldset>
     </>
   );
 }
@@ -647,6 +769,24 @@ function validateModelFields(
       '请输入有效的 HTTP 或 HTTPS 代理地址',
       'Enter a valid HTTP or HTTPS proxy URL'
     );
+  }
+  return errors;
+}
+
+function validateMuse2ApiSettings(
+  config: CreatorServicesConfig,
+  configured: ReadonlySet<CreatorServicesCredentialField>,
+  l: (zh: string, en: string) => string
+): ModelFieldErrors {
+  const errors: ModelFieldErrors = {};
+  if (!isHttpUrl(config.muse2api.baseUrl)) {
+    errors.baseUrl = l('请输入有效的 Muse2API HTTP(S) 地址', 'Enter a valid Muse2API HTTP(S) URL');
+  }
+  if (!config.muse2api.apiKey.trim() && !configured.has('muse2api.apiKey')) {
+    errors.apiKey = l('请输入 Muse2API API Key', 'Enter the Muse2API API key');
+  }
+  if (config.proxy.trim().length > 0 && !isHttpUrl(config.proxy)) {
+    errors.proxy = l('请输入有效的 HTTP 或 HTTPS 代理地址', 'Enter a valid HTTP or HTTPS proxy URL');
   }
   return errors;
 }
@@ -1050,12 +1190,13 @@ function ImageSettings(props: SettingsGroupProps & {
           ['openai', 'GPT Image'],
           ['jimeng', l('即梦', 'Jimeng')],
           ['kling', l('可灵', 'Kling')],
-          ['gemini', 'Gemini']
+          ['gemini', 'Gemini'],
+          ['muse2api', l('Muse Image', 'Muse Image', undefined, 'Muse Image')]
         ]}
         onChange={value => props.update(config => {
           const nextProvider = value as CreatorServicesConfig['image']['provider'];
           config.image.provider = nextProvider;
-          if (nextProvider === 'codex-native') return;
+          if (nextProvider === 'codex-native' || nextProvider === 'muse2api') return;
           const preset = creatorProviderOfKind('image', nextProvider);
           const target = config.image[nextProvider];
           if (preset?.defaultBaseUrl !== undefined && !target.baseUrl) target.baseUrl = preset.defaultBaseUrl;
@@ -1071,6 +1212,10 @@ function ImageSettings(props: SettingsGroupProps & {
       {provider === 'jimeng' ? <OpenAiFields id="image-jimeng" credential="image.jimeng.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.jimeng} modelPlaceholder="doubao-seedream-4-0-250828" modelSuggestions={creatorProviderOfKind('image', 'jimeng')?.models.map(model => model.id)} baseUrlPlaceholder="https://ark.cn-beijing.volces.com/api/v3" onChange={value => props.update(config => { config.image.jimeng = value; })} /> : null}
       {provider === 'kling' ? <KlingFields id="image-kling" accessKeyCredential="image.kling.accessKey" secretKeyCredential="image.kling.secretKey" configuredCredentials={props.configuredCredentials} value={props.config.image.kling} modelPlaceholder="kling-v2-1" modelSuggestions={creatorProviderOfKind('image', 'kling')?.models.map(model => model.id)} onChange={value => props.update(config => { config.image.kling = value; })} /> : null}
       {provider === 'gemini' ? <OpenAiFields id="image-gemini" credential="image.gemini.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.image.gemini} modelPlaceholder="gemini-2.5-flash-image" modelSuggestions={creatorProviderOfKind('image', 'gemini')?.models.map(model => model.id)} baseUrlPlaceholder="https://generativelanguage.googleapis.com/v1beta" onChange={value => props.update(config => { config.image.gemini = value; })} /> : null}
+      {provider === 'muse2api' ? <>
+        <ReadonlyModelField label={l('模型', 'Model')} value={props.config.image.muse2api.model} />
+        <Muse2ApiFields config={props.config} configuredCredentials={props.configuredCredentials} update={props.update} />
+      </> : null}
     </SettingsFieldset>
   );
 }
@@ -1082,8 +1227,10 @@ function VideoSettings(props: SettingsGroupProps) {
     <SettingsFieldset
       title={l('视频生成', 'Video generation')}
       description={l(
-        '配置 Seedance、可灵或 Veo 视频生成服务，以及新任务使用的默认模型。',
-        'Configure Seedance, Kling, or Veo video generation and the default model for new tasks.'
+        '配置 Seedance、可灵、Veo 或 Muse 视频生成服务，以及新任务使用的默认模型。',
+        'Configure Seedance, Kling, Veo, or Muse Video and the default model for new tasks.',
+        undefined,
+        '配置 Seedance、Kling、Veo 或 Muse 视频生成服务，以及新任务的默认模型。'
       )}
     >
       <SelectField
@@ -1093,11 +1240,13 @@ function VideoSettings(props: SettingsGroupProps) {
         options={[
           ['seedance', 'Seedance'],
           ['kling', l('可灵', 'Kling')],
-          ['veo', 'Veo']
+          ['veo', 'Veo'],
+          ['muse2api', l('Muse Video', 'Muse Video', undefined, 'Muse Video')]
         ]}
         onChange={value => props.update(config => {
           const nextProvider = value as CreatorServicesConfig['video']['provider'];
           config.video.provider = nextProvider;
+          if (nextProvider === 'muse2api') return;
           const catalogId = nextProvider === 'kling' ? 'kling-video' : nextProvider;
           const preset = creatorProviderOfKind('video', catalogId);
           const target = config.video[nextProvider];
@@ -1108,8 +1257,39 @@ function VideoSettings(props: SettingsGroupProps) {
       {provider === 'seedance' ? <OpenAiFields id="video-seedance" credential="video.seedance.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.video.seedance} modelLabel={l('默认模型', 'Default model')} modelPlaceholder={defaultVideoGenerationModels.seedance} modelSuggestions={videoGenerationModelIds.seedance} baseUrlPlaceholder="https://ark.cn-beijing.volces.com/api/v3" onChange={value => props.update(config => { config.video.seedance = value; })} /> : null}
       {provider === 'kling' ? <KlingFields id="video-kling" accessKeyCredential="video.kling.accessKey" secretKeyCredential="video.kling.secretKey" configuredCredentials={props.configuredCredentials} value={props.config.video.kling} modelLabel={l('默认模型', 'Default model')} modelPlaceholder={defaultVideoGenerationModels.kling} modelSuggestions={creatorProviderOfKind('video', 'kling-video')?.models.map(model => model.id)} onChange={value => props.update(config => { config.video.kling = value; })} /> : null}
       {provider === 'veo' ? <OpenAiFields id="video-veo" credential="video.veo.apiKey" configuredCredentials={props.configuredCredentials} value={props.config.video.veo} modelLabel={l('默认模型', 'Default model')} modelPlaceholder={defaultVideoGenerationModels.veo} modelSuggestions={videoGenerationModelIds.veo} baseUrlPlaceholder="https://generativelanguage.googleapis.com/v1beta" onChange={value => props.update(config => { config.video.veo = value; })} /> : null}
+      {provider === 'muse2api' ? <>
+        <ReadonlyModelField label={l('模型', 'Model')} value={props.config.video.muse2api.model} />
+        <Muse2ApiFields config={props.config} configuredCredentials={props.configuredCredentials} update={props.update} />
+      </> : null}
     </SettingsFieldset>
   );
+}
+
+function Muse2ApiFields(props: SettingsGroupProps) {
+  const l = useLocalizedCopy();
+  return <>
+    <TextField
+      id="muse2api-base-url"
+      label={l('Muse2API Base URL', 'Muse2API Base URL', undefined, 'Muse2API Base URL')}
+      value={props.config.muse2api.baseUrl}
+      placeholder="http://127.0.0.1:18610/v1"
+      onChange={baseUrl => props.update(config => { config.muse2api.baseUrl = baseUrl; })}
+      wide
+    />
+    <PasswordField
+      id="muse2api-api-key"
+      label={l('API Key', 'API Key', undefined, 'Khóa API')}
+      value={props.config.muse2api.apiKey}
+      configured={props.configuredCredentials.has('muse2api.apiKey')}
+      onChange={apiKey => props.update(config => { config.muse2api.apiKey = apiKey; })}
+    />
+    <p className="creator-services-inline-note is-wide">{l(
+      'Endpoint và API Key này được dùng chung bởi Muse Spark, Muse Image và Muse Video. Nếu chạy trong Docker, hãy dùng hostname mà daemon truy cập được như host.docker.internal hoặc tên service. Không dùng Muse cho Agent hoặc MCP.',
+      'This endpoint and API key are shared by Muse Spark, Muse Image, and Muse Video. In Docker, use a hostname reachable from the daemon, such as host.docker.internal or the service name. Muse is not used for Agent or MCP.',
+      undefined,
+      'Endpoint và khóa API này dùng chung cho Muse Spark, Muse Image và Muse Video. Nếu chạy Docker, dùng hostname daemon truy cập được như host.docker.internal hoặc tên service. Không dùng cho Agent hoặc MCP.'
+    )}</p>
+  </>;
 }
 
 type SettingsGroupProps = {

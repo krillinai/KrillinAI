@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CreatorServicesConfigStore } from '../../creator-services/config-store.js';
+import { creatorTextCompletionConfig } from '../../creator-services/text-completion-config.js';
 import {
   fetchCreatorService
 } from '../../creator-services/upstream-fetch.js';
@@ -41,7 +42,8 @@ export function createCoverAnalysisExecutor(input: {
         );
       }
       const config = await input.configStore.read();
-      if (!config.llm.apiKey.trim()) {
+      const llm = creatorTextCompletionConfig(config);
+      if (!llm.apiKey.trim()) {
         throw new CreatorExecutorError(
           'creator_llm_config_missing',
           'LLM configuration is incomplete'
@@ -64,9 +66,9 @@ export function createCoverAnalysisExecutor(input: {
         retryTotal: null
       });
       const brief = await generateCoverBrief({
-        baseUrl: config.llm.baseUrl,
-        apiKey: config.llm.apiKey,
-        model: config.llm.model,
+        baseUrl: llm.baseUrl,
+        apiKey: llm.apiKey,
+        model: llm.model,
         proxy: config.proxy,
         metadata,
         userPrompt: typeof stage.job.state.prompt === 'string'
