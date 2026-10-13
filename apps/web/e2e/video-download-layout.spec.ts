@@ -1,7 +1,7 @@
 import type { CreatorJob } from '@opencreator/protocol';
 import { expect, test } from './fixtures/runtime.js';
 
-test('video download platforms stay centered and wrap within the full workspace width', async ({ page, runtime }) => {
+test('video download platforms stay centered and wrap within the full workspace width', async ({ page, runtime }, testInfo) => {
   const { job } = await runtime.api<{ job: CreatorJob }>('POST', '/creator/jobs', {
     projectId: runtime.projectId,
     templateId: 'video-download',
@@ -14,7 +14,10 @@ test('video download platforms stay centered and wrap within the full workspace 
   const stack = page.locator('.video-download-workspace-page .creator-tool-stack');
   const platforms = page.getByRole('list', { name: '支持的平台' });
   const items = platforms.locator('li');
-  await expect(items).toHaveCount(9);
+  await expect(items).toHaveCount(10);
+
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('video-download-layout.png'), fullPage: true });
 
   await page.setViewportSize({ width: 1920, height: 1000 });
   const wide = await platforms.evaluate(element => {
@@ -31,7 +34,8 @@ test('video download platforms stay centered and wrap within the full workspace 
     const style = getComputedStyle(element);
     return element.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
   });
-  expect(await stack.evaluate(element => element.getBoundingClientRect().width)).toBeCloseTo(contentWidth, 0);
+  // clientWidth excludes the scrollbar gutter and rounds fractional CSS pixels.
+  expect(Math.round(await stack.evaluate(element => element.getBoundingClientRect().width))).toBe(Math.round(contentWidth));
   expect(wide.rowTops).toHaveLength(1);
   expect(Math.abs(wide.itemsCenter - wide.listCenter)).toBeLessThan(2);
   expect(wide.loadedIcons).toBe(true);
