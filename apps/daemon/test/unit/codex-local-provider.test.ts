@@ -42,7 +42,7 @@ describe('local Codex provider', () => {
   it('does not silently route corrupted authentication to a configured API provider', async () => {
     root = await codexHome(['openai_base_url = "https://api.example.test/v1"']);
     await writeFile(join(root, 'auth.json'), '{corrupt');
-    await expect(readLocalCodexImageConfiguration({ codexHome: root })).rejects.toThrow('无法读取本机 Codex 登录凭据');
+    await expect(readLocalCodexImageConfiguration({ codexHome: root })).rejects.toThrow('Could not read local Codex credentials');
   });
 
   it.each(['chatgpt', undefined])('recognizes OAuth credentials without treating them as API keys (%s)', async authMode => {
@@ -56,7 +56,7 @@ describe('local Codex provider', () => {
   it('does not fall back to an old key when the selected ChatGPT login is incomplete', async () => {
     root = await codexHome(['openai_base_url = "https://api.example.test/v1"']);
     await writeFile(join(root, 'auth.json'), JSON.stringify({ auth_mode: 'chatgpt', OPENAI_API_KEY: 'old-secret' }));
-    await expect(readLocalCodexImageConfiguration({ codexHome: root })).rejects.toThrow('重新登录');
+    await expect(readLocalCodexImageConfiguration({ codexHome: root })).rejects.toThrow('Sign in again');
   });
 
   it('reads the selected provider base URL and bearer token', async () => {

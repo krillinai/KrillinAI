@@ -88,7 +88,7 @@ describe('task monitor', () => {
         failureSummary: '项目目录不存在或无法访问，请编辑项目后重试。'
       })
     )).toEqual({
-      title: '任务失败',
+      title: 'Task failed',
       body: '整理发布说明：项目目录不存在或无法访问，请编辑项目后重试。',
       threadId: 'thread_1',
       runId: 'run_1'
@@ -123,8 +123,8 @@ describe('task monitor', () => {
         errorMessage: 'Authorization: Bearer private-token'
       })
     )).toEqual({
-      title: '每日总结失败',
-      body: '任务未完成，请打开会话查看详情。',
+      title: '每日总结: failed',
+      body: 'The task did not complete. Open its conversation for details.',
       threadId: 'thread_1',
       runId: 'run_1'
     });
@@ -156,7 +156,7 @@ describe('task monitor', () => {
         }
       })
     )).toEqual({
-      title: '每日总结等待审批',
+      title: '每日总结: awaiting approval',
       body: '需要允许写入 docs/daily',
       threadId: 'thread_1',
       runId: 'run_1',

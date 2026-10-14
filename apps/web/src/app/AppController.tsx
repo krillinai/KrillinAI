@@ -424,15 +424,15 @@ export function AppController(props: AppControllerProps) {
   const appIssueSignalsRef = useRef<Record<string, string | undefined>>({});
   useEffect(() => {
     const signals = [
-      ['app.load-files', treeLoadError, '无法加载文件列表，请重试。'],
-      ['app.project-operation', projectLoadError, '项目操作未完成，请查看诊断后重试。'],
-      ['app.thread-operation', threadLoadError, '会话操作未完成，请查看诊断后重试。'],
-      ['app.load-thread-history', threadHistoryLoadError, '无法加载会话历史，请重试。'],
-      ['app.update-thread-config', threadConfigUpdateError, '会话配置未更新，请重试。'],
-      ['app.load-skill-market', skillMarketLoadError, '无法加载技能市场，请重试。'],
-      ['app.mutate-skill-market', skillMarketOperation?.error, '技能安装或更新未完成，请重试。'],
-      ['app.use-skill', skillMarketUseError?.error, '无法使用该技能，请重试。'],
-      ['app.sync-default-permission', defaultPermissionSyncError, '默认权限同步失败，重新打开相关会话后会重试。']
+      ['app.load-files', treeLoadError, 'Could not load the file list. Try again.'],
+      ['app.project-operation', projectLoadError, 'The project operation did not complete. Check diagnostics and try again.'],
+      ['app.thread-operation', threadLoadError, 'The conversation operation did not complete. Check diagnostics and try again.'],
+      ['app.load-thread-history', threadHistoryLoadError, 'Could not load conversation history. Try again.'],
+      ['app.update-thread-config', threadConfigUpdateError, 'Conversation settings were not updated. Try again.'],
+      ['app.load-skill-market', skillMarketLoadError, 'Could not load the skill marketplace. Try again.'],
+      ['app.mutate-skill-market', skillMarketOperation?.error, 'Skill installation or update did not complete. Try again.'],
+      ['app.use-skill', skillMarketUseError?.error, 'Could not use this skill. Try again.'],
+      ['app.sync-default-permission', defaultPermissionSyncError, 'Default permission synchronization failed. Reopen the conversation to retry.']
     ] as const;
     for (const [operationId, error, fallback] of signals) {
       if (appIssueSignalsRef.current[operationId] === error) continue;
@@ -1282,10 +1282,10 @@ export function AppController(props: AppControllerProps) {
             ?? codexModelsRef.current;
           if (fallbackModels !== undefined && fallbackModels.models.length > 0) {
             setCodexModels(fallbackModels);
-            setCodexModelsNotice('模型目录刷新失败，当前使用本地缓存');
+            setCodexModelsNotice('Could not refresh the model catalog. Using the local cache.');
           } else {
             setCodexModels(undefined);
-            setCodexModelsLoadError('无法加载模型列表');
+            setCodexModelsLoadError('Could not load the model list');
           }
         }
       })
@@ -1310,7 +1310,7 @@ export function AppController(props: AppControllerProps) {
         }
       })
       .catch(() => {
-        if (!canceled) setTreeLoadError('无法加载项目文件');
+        if (!canceled) setTreeLoadError('Could not load project files');
       });
 
     return () => {
@@ -1383,7 +1383,7 @@ export function AppController(props: AppControllerProps) {
             if (canceled) return;
             initialProjectError = getRuntimeErrorMessage(
               error,
-              '无法自动创建默认项目，请手动添加项目'
+              'Could not create the default project. Add a project manually.'
             );
           }
         }
@@ -1433,11 +1433,11 @@ export function AppController(props: AppControllerProps) {
             dispatch({ type: 'new_conversation' });
             return;
           }
-          setThreadLoadError('无法恢复上次打开的历史会话');
+          setThreadLoadError('Could not restore the last conversation');
         }
       } catch {
         if (canceled) return;
-        setProjectLoadError('无法迁移或加载项目，请稍后重试');
+        setProjectLoadError('Could not migrate or load projects. Try again later.');
         setThreadLoadError(undefined);
       } finally {
         if (!canceled) {
@@ -1520,7 +1520,7 @@ export function AppController(props: AppControllerProps) {
       })
       .catch(error => {
         if (!canceled) {
-          setCreatorJobsError(getRuntimeErrorMessage(error, '无法加载最近项目'));
+          setCreatorJobsError(getRuntimeErrorMessage(error, 'Could not load recent projects'));
         }
       })
       .finally(() => {
@@ -1619,14 +1619,14 @@ export function AppController(props: AppControllerProps) {
           setRuntimeThreads(previous => upsertThread(previous, response.thread));
           setDefaultPermissionSyncError(
             defaultPermissionSyncFailuresRef.current.size > 0
-              ? '部分普通会话的全局权限同步失败，重新打开会话后会重试'
+              ? 'Global permission synchronization failed for some conversations. Reopen them to retry.'
               : undefined
           );
         })
         .catch(() => {
           if (!mountedRef.current) return;
           defaultPermissionSyncFailuresRef.current.add(thread.id);
-          setDefaultPermissionSyncError('部分普通会话的全局权限同步失败，重新打开会话后会重试');
+          setDefaultPermissionSyncError('Global permission synchronization failed for some conversations. Reopen them to retry.');
         });
     }
   }, [
@@ -1695,7 +1695,7 @@ export function AppController(props: AppControllerProps) {
         if (mcpResult?.status === 'fulfilled') setCodexMcp(mcpResult.value);
         else setCodexMcp(undefined);
         if (skillsResult?.status === 'rejected' || mcpResult?.status === 'rejected') {
-          setCapabilitiesLoadError('本机能力检测失败');
+          setCapabilitiesLoadError('Could not detect local capabilities');
         }
       })
       .finally(() => {
@@ -1813,8 +1813,8 @@ export function AppController(props: AppControllerProps) {
         if (recordsResult?.status === 'fulfilled') setSkillMarketInstallRecords(recordsResult.value.records);
         else setSkillMarketInstallRecords(undefined);
         const marketErrors: string[] = [];
-        if (skillsResult?.status === 'rejected') marketErrors.push('技能状态加载失败');
-        if (recordsResult?.status === 'rejected') marketErrors.push('安装记录加载失败');
+        if (skillsResult?.status === 'rejected') marketErrors.push('Could not load skill status');
+        if (recordsResult?.status === 'rejected') marketErrors.push('Could not load installation history');
         setSkillMarketLoadError(marketErrors.length > 0 ? marketErrors.join('；') : undefined);
       })
       .finally(() => {
@@ -2082,7 +2082,7 @@ export function AppController(props: AppControllerProps) {
           return;
         }
 
-        setLoadErrorByPath(previous => ({ ...previous, [path]: '无法加载文件' }));
+        setLoadErrorByPath(previous => ({ ...previous, [path]: 'Could not load the file' }));
         if (selectedFilePathRef.current === path) {
           setLoadingFilePath('');
         }
@@ -2243,11 +2243,11 @@ export function AppController(props: AppControllerProps) {
       appIssues.captureOperationFailure(
         `app.approval:${id}`,
         error,
-        '审批操作未完成，请查看诊断后重试。'
+        'The approval operation did not complete. Check diagnostics and try again.'
       );
       setApprovalErrors(previous => ({
         ...previous,
-        [id]: '审批操作未完成，请重试。'
+        [id]: 'The approval operation did not complete. Try again.'
       }));
     } finally {
       setResolvingApprovalIds(previous => {
@@ -2328,7 +2328,7 @@ export function AppController(props: AppControllerProps) {
       .catch(cause => appIssues.captureOperationFailure(
         'app.save-color-mode',
         cause,
-        '外观设置未同步到本地 Runtime，请重试。'
+        'Appearance settings were not synchronized with the local Runtime. Try again.'
       ));
   }
 
@@ -2341,7 +2341,7 @@ export function AppController(props: AppControllerProps) {
       .catch(cause => appIssues.captureOperationFailure(
         'app.save-accent-color',
         cause,
-        '强调色设置未同步到本地 Runtime，请重试。'
+        'Accent color settings were not synchronized with the local Runtime. Try again.'
       ));
   }
 
@@ -2360,7 +2360,7 @@ export function AppController(props: AppControllerProps) {
       .catch(cause => appIssues.captureOperationFailure(
         'app.save-accent-color',
         cause,
-        '强调色设置未同步到本地 Runtime，请重试。'
+        'Accent color settings were not synchronized with the local Runtime. Try again.'
       ));
   }
 
@@ -2440,7 +2440,7 @@ export function AppController(props: AppControllerProps) {
         kind: 'diagnostic',
         id: createTimelineId('runtime_not_connected'),
         severity: 'error',
-        message: '本地运行内核尚未连接，无法发送任务。',
+        message: 'The local Runtime is disconnected. Tasks cannot be sent.',
         content: getConnectionStatusLabel(connectionState),
         source: 'runtime'
       }
@@ -2552,7 +2552,7 @@ export function AppController(props: AppControllerProps) {
       if (path === null) return;
       await registerProjectDirectory(path);
     } catch (error) {
-      setProjectLoadError(getRuntimeErrorMessage(error, '添加项目失败，请重试'));
+      setProjectLoadError(getRuntimeErrorMessage(error, 'Could not add the project. Try again.'));
     } finally {
       projectDirectoryDialogInFlightRef.current = false;
     }
@@ -2588,7 +2588,7 @@ export function AppController(props: AppControllerProps) {
       setCreateProjectError(undefined);
       return true;
     } catch (error) {
-      const message = getRuntimeErrorMessage(error, '新建项目失败，请重试');
+      const message = getRuntimeErrorMessage(error, 'Could not create the project. Try again.');
       setProjectLoadError(message);
       setCreateProjectError(message);
       return false;
@@ -2622,7 +2622,7 @@ export function AppController(props: AppControllerProps) {
         setProjectLoadError(undefined);
         return;
       }
-      throw new Error('项目已存在，但无法在项目列表中找到');
+      throw new Error('The project already exists but could not be found in the project list');
     }
   }
 
@@ -2662,13 +2662,13 @@ export function AppController(props: AppControllerProps) {
 
     const path = hostBridge.resolveDroppedFilePath(file);
     if (path === null) {
-      setProjectLoadError('无法读取拖入的项目文件夹路径');
+      setProjectLoadError('Could not read the dropped project folder path');
       return;
     }
     try {
       await registerProjectDirectory(path);
     } catch (error) {
-      setProjectLoadError(getRuntimeErrorMessage(error, '拖入项目失败，请确认选择的是文件夹'));
+      setProjectLoadError(getRuntimeErrorMessage(error, 'Could not add the dropped project. Make sure it is a folder.'));
     }
   }
 
@@ -2690,7 +2690,7 @@ export function AppController(props: AppControllerProps) {
       }
       setProjectLoadError(undefined);
     } catch (error) {
-      setProjectLoadError(getRuntimeErrorMessage(error, '移除项目失败，请重试'));
+      setProjectLoadError(getRuntimeErrorMessage(error, 'Could not remove the project. Try again.'));
     }
   }
 
@@ -2703,7 +2703,7 @@ export function AppController(props: AppControllerProps) {
       if (mountedRef.current) setUnassignedThreads(response.threads);
     } catch (error) {
       if (mountedRef.current) {
-        setProjectLoadError(getRuntimeErrorMessage(error, '无法加载待归属会话'));
+        setProjectLoadError(getRuntimeErrorMessage(error, 'Could not load unassigned conversations'));
       }
     }
   }
@@ -2731,7 +2731,7 @@ export function AppController(props: AppControllerProps) {
       setProjects(current => upsertProject(current, response.project));
       setProjectLoadError(undefined);
     } catch (error) {
-      setProjectLoadError(getRuntimeErrorMessage(error, '更新项目失败，请重试'));
+      setProjectLoadError(getRuntimeErrorMessage(error, 'Could not update the project. Try again.'));
     } finally {
       setProjectMutationBusy(false);
     }
@@ -2745,7 +2745,7 @@ export function AppController(props: AppControllerProps) {
       await refreshProjectsFromRuntime();
       setProjectLoadError(undefined);
     } catch (error) {
-      setProjectLoadError(getRuntimeErrorMessage(error, '恢复项目失败，请重试'));
+      setProjectLoadError(getRuntimeErrorMessage(error, 'Could not restore the project. Try again.'));
     } finally {
       setProjectMutationBusy(false);
     }
@@ -2761,7 +2761,7 @@ export function AppController(props: AppControllerProps) {
       setProjects(current => upsertProject(current, response.project));
       setProjectLoadError(undefined);
     } catch (error) {
-      setProjectLoadError(getRuntimeErrorMessage(error, '更换项目目录失败，请重试'));
+      setProjectLoadError(getRuntimeErrorMessage(error, 'Could not change the project directory. Try again.'));
     } finally {
       setProjectMutationBusy(false);
     }
@@ -2776,7 +2776,7 @@ export function AppController(props: AppControllerProps) {
       setUnassignedThreads(current => current.filter(thread => thread.id !== threadId));
       setProjectLoadError(undefined);
     } catch (error) {
-      setProjectLoadError(getRuntimeErrorMessage(error, '认领会话失败，请重试'));
+      setProjectLoadError(getRuntimeErrorMessage(error, 'Could not assign the conversation. Try again.'));
     } finally {
       setProjectMutationBusy(false);
     }
@@ -2793,7 +2793,7 @@ export function AppController(props: AppControllerProps) {
       }
       setThreadLoadError(undefined);
     } catch (error) {
-      setThreadLoadError(getRuntimeErrorMessage(error, '删除任务草稿失败，请重试'));
+      setThreadLoadError(getRuntimeErrorMessage(error, 'Could not delete the task draft. Try again.'));
     }
   }
 
@@ -2845,8 +2845,8 @@ export function AppController(props: AppControllerProps) {
     } catch (error) {
       setThreadLoadError(
         error instanceof ApiClientError && error.code === 'THREAD_HAS_ACTIVE_RUN'
-          ? '任务运行期间不能归档会话，请等待当前任务结束'
-          : getRuntimeErrorMessage(error, '归档会话失败，请重试')
+          ? 'Wait for the active task to finish before archiving this conversation.'
+          : getRuntimeErrorMessage(error, 'Could not archive the conversation. Try again.')
       );
     }
   }
@@ -2858,7 +2858,7 @@ export function AppController(props: AppControllerProps) {
       setRuntimeThreads(current => upsertThread(current, response.thread));
       setThreadLoadError(undefined);
     } catch (error) {
-      setThreadLoadError(getRuntimeErrorMessage(error, '重命名会话失败，请重试'));
+      setThreadLoadError(getRuntimeErrorMessage(error, 'Could not rename the conversation. Try again.'));
       throw error;
     }
   }
@@ -2870,7 +2870,7 @@ export function AppController(props: AppControllerProps) {
       setRuntimeThreads(current => upsertThread(current, response.thread));
       setThreadLoadError(undefined);
     } catch (error) {
-      setThreadLoadError(getRuntimeErrorMessage(error, pinned ? '置顶会话失败，请重试' : '取消置顶失败，请重试'));
+      setThreadLoadError(getRuntimeErrorMessage(error, pinned ? 'Could not pin the conversation. Try again.' : 'Could not unpin the conversation. Try again.'));
       throw error;
     }
   }
@@ -2888,8 +2888,8 @@ export function AppController(props: AppControllerProps) {
     } catch (error) {
       setThreadLoadError(
         error instanceof ApiClientError && error.code === 'THREAD_HAS_ACTIVE_RUN'
-          ? '任务运行期间不能删除会话，请等待当前任务结束'
-          : getRuntimeErrorMessage(error, '删除会话失败，请重试')
+          ? 'Wait for the active task to finish before deleting this conversation.'
+          : getRuntimeErrorMessage(error, 'Could not delete the conversation. Try again.')
       );
       throw error;
     }
@@ -3062,7 +3062,7 @@ export function AppController(props: AppControllerProps) {
         thread = response.thread;
         setRuntimeThreads(previous => upsertThread(previous, response.thread));
       } catch {
-        if (mountedRef.current) setThreadLoadError('无法打开搜索结果对应的会话');
+        if (mountedRef.current) setThreadLoadError('Could not open the conversation for this search result');
         return;
       }
     }
@@ -3103,7 +3103,7 @@ export function AppController(props: AppControllerProps) {
       return true;
     }
     if (currentRunBusy) {
-      setThreadConfigUpdateError('任务运行期间不能修改访问权限，请等待当前任务结束');
+      setThreadConfigUpdateError('Wait for the active task to finish before changing access permissions.');
       return false;
     }
 
@@ -3113,7 +3113,7 @@ export function AppController(props: AppControllerProps) {
       return true;
     }
     if (threadService === null) {
-      setThreadConfigUpdateError('本地服务暂不可用，无法更新会话访问权限');
+      setThreadConfigUpdateError('The local Runtime is unavailable. Conversation permissions cannot be updated.');
       return false;
     }
 
@@ -3127,8 +3127,8 @@ export function AppController(props: AppControllerProps) {
       if (mountedRef.current) {
         setThreadConfigUpdateError(
           error instanceof ApiClientError && error.code === 'THREAD_HAS_ACTIVE_RUN'
-            ? '任务运行期间不能修改访问权限，请等待当前任务结束'
-            : '无法更新会话访问权限'
+            ? 'Wait for the active task to finish before changing access permissions.'
+            : 'Could not update conversation permissions'
         );
       }
       return false;
@@ -3195,13 +3195,13 @@ export function AppController(props: AppControllerProps) {
       setCodexSkills(skillsResult.value);
     } else {
       setCodexSkills(undefined);
-      refreshErrors.push('技能状态刷新失败');
+      refreshErrors.push('Could not refresh skill status');
     }
     if (recordsResult.status === 'fulfilled') {
       setSkillMarketInstallRecords(recordsResult.value.records);
     } else {
       setSkillMarketInstallRecords(undefined);
-      refreshErrors.push('安装记录刷新失败');
+      refreshErrors.push('Could not refresh installation history');
     }
     setSkillMarketLoadError(refreshErrors.length > 0 ? refreshErrors.join('；') : undefined);
   }
@@ -3225,7 +3225,7 @@ export function AppController(props: AppControllerProps) {
         setSkillMarketOperation({
           skillId,
           kind: 'install',
-          error: getRuntimeErrorMessage(error, '安装失败，请重试')
+          error: getRuntimeErrorMessage(error, 'Installation failed. Try again.')
         });
       }
     } finally {
@@ -3254,7 +3254,7 @@ export function AppController(props: AppControllerProps) {
         setSkillMarketOperation({
           skillId,
           kind: 'update',
-          error: getRuntimeErrorMessage(error, '更新失败，请重试')
+          error: getRuntimeErrorMessage(error, 'Update failed. Try again.')
         });
       }
     } finally {
@@ -3267,7 +3267,7 @@ export function AppController(props: AppControllerProps) {
   async function useMarketSkill(skillId: string, projectId: string) {
     setSkillMarketUseError(undefined);
     const isSkillCreator = skillId === 'skill-creator';
-    let title = '创建技能';
+    let title = 'Create skill';
     if (!isSkillCreator) {
       try {
         const [{ skillMarketCatalog }, { getSkillMarketDisplayTitle }] = await Promise.all([
@@ -3276,12 +3276,12 @@ export function AppController(props: AppControllerProps) {
         ]);
         const entry = skillMarketCatalog.find(candidate => candidate.id === skillId);
         if (entry === undefined) {
-          setSkillMarketUseError({ skillId, error: '未找到这个技能' });
+          setSkillMarketUseError({ skillId, error: 'Skill not found' });
           return;
         }
         title = getSkillMarketDisplayTitle(entry);
       } catch {
-        setSkillMarketUseError({ skillId, error: '技能列表加载失败，请重试' });
+        setSkillMarketUseError({ skillId, error: 'Could not load the skill list. Try again.' });
         return;
       }
     }
@@ -3305,12 +3305,12 @@ export function AppController(props: AppControllerProps) {
     input.onError(undefined);
     const activeThreadService = threadService;
     if (activeThreadService === null) {
-      input.onError('本地服务暂不可用，无法创建对话');
+      input.onError('The local Runtime is unavailable. Conversations cannot be created.');
       return;
     }
     const project = findProjectById(projects, input.projectId);
     if (project === undefined) {
-      input.onError('未找到所选项目');
+      input.onError('Selected project not found');
       return;
     }
     const config = defaultComposerRunConfig(
@@ -3350,7 +3350,7 @@ export function AppController(props: AppControllerProps) {
       });
     } catch (error) {
       if (isCurrentThreadRuntime(generation, activeThreadService)) {
-        input.onError(getRuntimeErrorMessage(error, '创建对话失败，请重试'));
+        input.onError(getRuntimeErrorMessage(error, 'Could not create the conversation. Try again.'));
       }
     } finally {
       if (isCurrentThreadRuntime(generation, activeThreadService)) {
@@ -3366,7 +3366,7 @@ export function AppController(props: AppControllerProps) {
     const activeSkillMarketService = skillMarketService;
     if (selectDirectory === undefined) return;
     if (activeRuntimeClient === null || activeCapabilityService === null || activeSkillMarketService === null) {
-      setSkillMarketLoadError('本地服务暂不可用，无法上传技能');
+      setSkillMarketLoadError('The local Runtime is unavailable. Skills cannot be uploaded.');
       return;
     }
 
@@ -3385,7 +3385,7 @@ export function AppController(props: AppControllerProps) {
       );
     } catch (error) {
       if (mountedRef.current) {
-        setSkillMarketLoadError(getRuntimeErrorMessage(error, '上传技能失败，请重试'));
+        setSkillMarketLoadError(getRuntimeErrorMessage(error, 'Could not upload the skill. Try again.'));
       }
     }
   }
@@ -3491,7 +3491,7 @@ export function AppController(props: AppControllerProps) {
       }
       if (attachments.length > 0) {
         const draftId = attachments[0]!.attachment.draftId;
-        if (draftId === undefined) throw new Error('附件缺少草稿归属，无法发送');
+        if (draftId === undefined) throw new Error('The attachment has no associated draft and cannot be sent');
         runInput.draftId = draftId;
         runInput.attachmentIds = attachments.map(item => item.attachment.id);
       }
@@ -3574,7 +3574,7 @@ export function AppController(props: AppControllerProps) {
   async function requestRunCancellation(runId: string) {
     let cancellationError: unknown;
     try {
-      if (runService === null) throw new Error('本地运行内核已断开，无法停止任务');
+      if (runService === null) throw new Error('The local Runtime is disconnected. The task cannot be stopped.');
       await runService.cancelRun(runId);
     } catch (error) {
       cancellationError = error;
@@ -3600,7 +3600,7 @@ export function AppController(props: AppControllerProps) {
       runId,
       state: 'failed'
     });
-    const message = getRuntimeErrorMessage(cancellationError, '停止任务失败，请重试');
+    const message = getRuntimeErrorMessage(cancellationError, 'Could not stop the task. Try again.');
     const item: TimelineItem = {
       kind: 'diagnostic',
       id: createTimelineId('cancel_error'),
@@ -3630,11 +3630,11 @@ export function AppController(props: AppControllerProps) {
   async function steerQueuedRun(runId: string) {
     const threadId = runRegistryRef.current.runsById[runId]?.threadId;
     try {
-      if (runService === null) throw new Error('本地运行内核已断开，无法调整等待任务');
+      if (runService === null) throw new Error('The local Runtime is disconnected. Queued tasks cannot be changed.');
       await runService.steerRun(runId);
       if (threadId !== undefined) await refreshThreadRunState(threadId);
     } catch (error) {
-      const message = getRuntimeErrorMessage(error, '调整等待任务失败，请重试');
+      const message = getRuntimeErrorMessage(error, 'Could not change the queued task. Try again.');
       const item: TimelineItem = {
         kind: 'diagnostic',
         id: createTimelineId('steer_error'),
@@ -3915,7 +3915,7 @@ export function AppController(props: AppControllerProps) {
   }
 
   async function saveMemorySuggestion(input: CreateMemoryRequest) {
-    if (memoryService === null) throw new Error('记忆服务暂不可用');
+    if (memoryService === null) throw new Error('The memory service is unavailable');
     await memoryService.createMemory(input);
   }
 
@@ -3932,7 +3932,7 @@ export function AppController(props: AppControllerProps) {
         thread = response.thread;
         setRuntimeThreads(previous => upsertThread(previous, response.thread));
       } catch {
-        if (mountedRef.current) setThreadLoadError('无法打开任务对应的会话');
+        if (mountedRef.current) setThreadLoadError('Could not open the conversation for this task');
         return false;
       }
     }
@@ -3992,7 +3992,7 @@ export function AppController(props: AppControllerProps) {
       state.activeView === 'conversation'
       && state.selectedThreadId === schedule.threadId;
     const opened = alreadyOpen || await openScheduleTask(schedule.threadId);
-    if (!opened) throw new Error('无法打开任务对应的会话');
+    if (!opened) throw new Error('Could not open the conversation for this task');
     if (alreadyOpen) {
       setTimelineRunTarget(undefined);
       setTimelineApprovalTarget(undefined);
@@ -4001,7 +4001,7 @@ export function AppController(props: AppControllerProps) {
 
     try {
       if (scheduleService === null) {
-        throw new Error('本地服务暂不可用，无法立即运行任务');
+        throw new Error('The local Runtime is unavailable. The task cannot run now.');
       }
       const response = await scheduleService.runNow(schedule.id);
       handleScheduleChanged(response.schedule);
@@ -4019,9 +4019,9 @@ export function AppController(props: AppControllerProps) {
       }
 
       const message = response.queued
-        ? '本次运行已排队，会在当前任务结束后执行'
+        ? 'This run is queued and will start after the active task finishes.'
         : response.skipped
-          ? '已有任务在运行，本次已跳过'
+          ? 'A task is already running. This run was skipped.'
           : undefined;
       if (message !== undefined) {
         appendTimelineItemsForThread(schedule.threadId, [
@@ -4034,7 +4034,7 @@ export function AppController(props: AppControllerProps) {
         ]);
       }
     } catch (error) {
-      const message = getRuntimeErrorMessage(error, '无法立即运行任务');
+      const message = getRuntimeErrorMessage(error, 'Could not run the task now');
       appendTimelineItemsForThread(schedule.threadId, [
         {
           kind: 'diagnostic',
@@ -4071,7 +4071,7 @@ export function AppController(props: AppControllerProps) {
         thread = response.thread;
         setRuntimeThreads(previous => upsertThread(previous, response.thread));
       } catch {
-        setThreadLoadError('无法打开任务对应的会话');
+        setThreadLoadError('Could not open the conversation for this task');
         return;
       }
     }
@@ -4180,7 +4180,7 @@ export function AppController(props: AppControllerProps) {
       }
     } catch {
       if (mountedRef.current) {
-        setSaveErrorByPath(previous => ({ ...previous, [saveSnapshot.path]: '保存到本地草稿失败' }));
+        setSaveErrorByPath(previous => ({ ...previous, [saveSnapshot.path]: 'Could not save the local draft' }));
       }
     } finally {
       if (mountedRef.current) {
@@ -4406,7 +4406,7 @@ export function AppController(props: AppControllerProps) {
       imageInputUnsupportedReason={
         imageInputSupported
           ? undefined
-          : '当前 Codex 版本不支持图片输入，请更新 Codex'
+          : 'This Codex version does not support image input. Update Codex.'
       }
       draftRequest={
         pendingComposerDraft !== undefined && pendingComposerDraft.threadId === state.selectedThreadId
@@ -4438,7 +4438,7 @@ export function AppController(props: AppControllerProps) {
       onCancelQueuedRun={(runId) => void cancelQueuedRun(runId)}
       onSteerQueuedRun={(runId) => void steerQueuedRun(runId)}
       onUploadAttachment={async file => {
-        if (attachmentService === null) throw new Error('附件服务暂不可用');
+        if (attachmentService === null) throw new Error('The attachment service is unavailable');
         const response = await attachmentService.upload({
           file,
           draftId: composerAttachmentDraftId
@@ -4584,7 +4584,7 @@ export function AppController(props: AppControllerProps) {
   const conversationWorkspace = fileWorkspaceOpen ? (
     <section
       className="conversation-file-layout"
-      aria-label="会话和文件工作区"
+      aria-label="Conversation and file workspace"
       ref={conversationFileLayoutRef}
       style={conversationFileLayoutStyle}
     >
@@ -4592,7 +4592,7 @@ export function AppController(props: AppControllerProps) {
       <div
         className="pane-resize-handle conversation-file-resize-handle"
         role="separator"
-        aria-label="调整会话和文件区域宽度"
+        aria-label="Resize the conversation and file areas"
         aria-orientation="vertical"
         aria-valuenow={conversationPaneWidth}
         tabIndex={0}
@@ -4734,7 +4734,7 @@ export function AppController(props: AppControllerProps) {
         navigateToRoute({ view: 'schedules', scheduleId });
       }}
       onPauseSchedule={async scheduleId => {
-        if (scheduleService === null) throw new Error('本地运行内核未连接');
+        if (scheduleService === null) throw new Error('The local Runtime is disconnected');
         const updated = await scheduleService.updateSchedule(scheduleId, { enabled: false });
         handleScheduleChanged(updated);
       }}
@@ -4786,7 +4786,7 @@ export function AppController(props: AppControllerProps) {
             appIssues.captureOperationFailure(
               'app.save-desktop-close-behavior',
               cause,
-              '窗口关闭行为未保存，请重试。'
+              'Window close preferences were not saved. Try again.'
             );
           });
       }}
@@ -4806,7 +4806,7 @@ export function AppController(props: AppControllerProps) {
             appIssues.captureOperationFailure(
               'app.save-desktop-telemetry',
               cause,
-              '诊断数据偏好未保存，请重试。'
+              'Diagnostics preferences were not saved. Try again.'
             );
           });
       }}
@@ -4912,7 +4912,7 @@ export function AppController(props: AppControllerProps) {
         aria-label={
           connectionState.status === 'connected' && runtimeWorkspaceReady
             ? getConnectionStatusLabel(connectionState)
-            : '正在加载本地运行内核'
+            : 'Loading the local Runtime'
         }
         aria-live="polite"
       />
@@ -5020,7 +5020,7 @@ export function AppController(props: AppControllerProps) {
       {projectDropActive ? (
         <div className="project-drop-overlay" role="status" aria-live="polite">
           <FolderInput aria-hidden="true" size={30} />
-          <strong>松开以添加项目文件夹</strong>
+          <strong>Drop to add a project folder</strong>
         </div>
       ) : null}
       {projectManagementOpen ? (
@@ -5082,7 +5082,7 @@ export function AppController(props: AppControllerProps) {
       return (
         <DetailPanel
           mode="run"
-          title="运行详情"
+          title="Run details"
           subtitle={state.selectedRunId}
           content={
             <RunDetailPanel
@@ -5101,7 +5101,7 @@ export function AppController(props: AppControllerProps) {
       return (
         <DetailPanel
           mode="change"
-          title="已编辑 docs/atoms.md"
+          title="Edited docs/atoms.md"
           subtitle="+903 -0"
           content="docs/atoms.md"
           onClose={() => dispatch({ type: 'close_detail' })}
@@ -5113,8 +5113,8 @@ export function AppController(props: AppControllerProps) {
 
     const fileTitle = selectedFilePath.split('/').at(-1) ?? selectedFilePath;
     const fileContent = loadingSelectedFile
-      ? '正在加载文件...'
-      : loadError ?? saveError ?? (selectedDraftContent.length > 0 ? selectedDraftContent : '暂无预览内容');
+      ? 'Loading file...'
+      : loadError ?? saveError ?? (selectedDraftContent.length > 0 ? selectedDraftContent : 'No preview available');
 
     return (
       <DetailPanel
@@ -5321,14 +5321,14 @@ function routeForConversation(selectedThreadId?: string): AppRoute {
 
 function PageLoading() {
   return (
-    <section className="page-loading" role="status" aria-label="正在加载页面">
-      <span>正在加载页面...</span>
+    <section className="page-loading" role="status" aria-label="Loading page">
+      <span>Loading page...</span>
     </section>
   );
 }
 
 function getConnectionStatusLabel(connectionState: ConnectionState) {
-  if (connectionState.status === 'connected') return '本地运行内核正常';
+  if (connectionState.status === 'connected') return 'The local Runtime is ready';
   return connectionState.message;
 }
 
@@ -5420,11 +5420,11 @@ function PlaceholderView(props: { label: string }) {
 function getPlaceholderLabel(activeView: 'schedules' | 'plugins' | 'files') {
   switch (activeView) {
     case 'schedules':
-      return '已安排';
+      return 'Scheduled';
     case 'plugins':
-      return '插件';
+      return 'Plugins';
     case 'files':
-      return '文件';
+      return 'Files';
   }
 }
 
@@ -5487,7 +5487,7 @@ function buildMemoryProjectOptions(
   const options = new Map<string, string>();
   for (const thread of threads) {
     if (thread.purpose !== 'conversation' || thread.projectId === null) continue;
-    const label = findProjectById(projects, thread.projectId)?.name ?? '未知项目';
+    const label = findProjectById(projects, thread.projectId)?.name ?? 'Unknown project';
     options.set(thread.projectId, label);
   }
   return Array.from(options, ([key, label]) => ({ key, label }));
@@ -5557,11 +5557,11 @@ export function formatRelativeTime(iso: string): string {
   const hour = 60 * minute;
   const day = 24 * hour;
 
-  if (diffMs < minute) return '刚刚';
-  if (diffMs < hour) return `${Math.floor(diffMs / minute)}分钟`;
-  if (diffMs < day) return `${Math.floor(diffMs / hour)}小时`;
-  if (diffMs < 7 * day) return `${Math.floor(diffMs / day)}天`;
-  return `${Math.floor(diffMs / (7 * day))}周`;
+  if (diffMs < minute) return 'Just now';
+  if (diffMs < hour) return `${Math.floor(diffMs / minute)}m ago`;
+  if (diffMs < day) return `${Math.floor(diffMs / hour)}h ago`;
+  if (diffMs < 7 * day) return `${Math.floor(diffMs / day)}d ago`;
+  return `${Math.floor(diffMs / (7 * day))}w ago`;
 }
 
 function getRuntimeErrorMessage(error: unknown, fallback: string): string {
@@ -5576,7 +5576,7 @@ function buildThreadRequest(
 ): Extract<CreateThreadRequest, { projectId: string }> {
   const request: Extract<CreateThreadRequest, { projectId: string }> = {
     projectId: project.id,
-    title: prompt.trim() || '新对话',
+    title: prompt.trim() || 'New conversation',
     profile: config.profile,
     sandbox: toRuntimeSandbox(config.permission)
   };
@@ -5695,8 +5695,8 @@ export function buildComposerSlashCommands(
       id: `mcp:${server.name}`,
       category: 'mcp' as const,
       label: server.name,
-      description: `${server.transport} · 已配置`,
-      insertText: `使用 MCP：${server.name} `
+      description: `${server.transport} · Configured`,
+      insertText: `Use MCP: ${server.name} `
     }));
   return [...skillCommands, ...mcpCommands];
 }
@@ -5874,8 +5874,8 @@ function mapHistoryItemToTimelineItem(item: ThreadHistoryItem, fallbackRunId?: s
         ...base,
         kind: 'change_card',
         title: formatHistoryFileChangeTitle(item.changes),
-        path: item.changes.find(change => change.path.length > 0)?.path ?? '文件变更',
-        delta: `${item.changes.length} 项变更`,
+        path: item.changes.find(change => change.path.length > 0)?.path ?? 'File changes',
+        delta: `${item.changes.length} changes`,
         source: 'runtime'
       };
     case 'done':
@@ -5896,7 +5896,7 @@ function mapHistoryItemToTimelineItem(item: ThreadHistoryItem, fallbackRunId?: s
 function formatHistoryFileChangeTitle(
   changes: Array<{ kind: 'add' | 'modify' | 'delete' | 'unknown' }>
 ): string {
-  if (changes.length === 0) return '文件变更';
+  if (changes.length === 0) return 'File changes';
 
   const counts = new Map<'add' | 'modify' | 'delete' | 'unknown', number>();
   for (const change of changes) counts.set(change.kind, (counts.get(change.kind) ?? 0) + 1);
@@ -5905,10 +5905,10 @@ function formatHistoryFileChangeTitle(
     .map(kind => {
       const count = counts.get(kind) ?? 0;
       if (count === 0) return undefined;
-      if (kind === 'add') return `新增 ${count} 个文件`;
-      if (kind === 'modify') return `修改 ${count} 个文件`;
-      if (kind === 'delete') return `删除 ${count} 个文件`;
-      return `变更 ${count} 个文件`;
+      if (kind === 'add') return `Added ${count} files`;
+      if (kind === 'modify') return `Modified ${count} files`;
+      if (kind === 'delete') return `Deleted ${count} files`;
+      return `Changed ${count} files`;
     })
     .filter((part): part is string => part !== undefined)
     .join('，');

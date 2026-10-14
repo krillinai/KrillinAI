@@ -32,7 +32,7 @@ export function ApprovalPanel(props: {
       {hasApprovalDetails(props.approval.details) ? (
         <details className="approval-disclosure">
           <summary>
-            <span>查看操作详情</span>
+            <span>View operation details</span>
             <ChevronDown aria-hidden="true" size={14} />
           </summary>
           <ApprovalDetails details={props.approval.details} />
@@ -40,18 +40,18 @@ export function ApprovalPanel(props: {
       ) : null}
       {props.approval.status === 'expired' ? (
         <p className="approval-resolution">
-          审批已过期，本次任务不会继续执行。
+          This approval has expired. The task will not continue.
         </p>
       ) : null}
       {props.approval.status === 'rejected' ? (
         <p className="approval-resolution">
-          你已拒绝这项操作，本次任务不会继续执行。
+          You denied this operation. The task will not continue.
         </p>
       ) : null}
       {props.error ? <p className="inline-error">{props.error}</p> : null}
       {pending ? (
         <div className="approval-footer">
-          <span className="approval-scope">仅本次</span>
+          <span className="approval-scope">This time only</span>
           <div className="approval-actions">
             <button
               type="button"
@@ -60,7 +60,7 @@ export function ApprovalPanel(props: {
               onClick={() => props.onReject(props.approval.id)}
             >
               <X aria-hidden="true" size={14} />
-              拒绝
+              Reject
             </button>
             <button
               type="button"
@@ -69,7 +69,7 @@ export function ApprovalPanel(props: {
               onClick={() => props.onApprove(props.approval.id)}
             >
               <Check aria-hidden="true" size={14} />
-              允许一次
+              Allow once
             </button>
           </div>
         </div>
@@ -85,11 +85,11 @@ function getApprovalCopy(kind: RuntimeApproval['kind']): {
 } {
   switch (kind) {
     case 'command_execution':
-      return { source: '终端', question: '允许 OpenCreator 执行这条命令？', icon: SquareTerminal };
+      return { source: 'Terminal', question: 'Allow OpenCreator to run this command?', icon: SquareTerminal };
     case 'file_change':
-      return { source: '文件', question: '允许 OpenCreator 修改项目文件？', icon: FilePenLine };
+      return { source: 'Files', question: 'Allow OpenCreator to modify project files?', icon: FilePenLine };
     case 'permissions':
-      return { source: '权限', question: '允许 OpenCreator 获取这项权限？', icon: ShieldCheck };
+      return { source: 'Permission', question: 'Allow OpenCreator to request this permission?', icon: ShieldCheck };
   }
 }
 
@@ -117,10 +117,10 @@ function ApprovalDetails(props: { details: Record<string, unknown> }) {
 
   return (
     <dl className="approval-details">
-      {command ? <Detail label="命令" value={command} code /> : null}
-      {cwd ? <Detail label="目录" value={cwd} code /> : null}
-      {grantRoot ? <Detail label="写入范围" value={grantRoot} code /> : null}
-      {host ? <Detail label="网络目标" value={formatNetwork(network!)} code /> : null}
+      {command ? <Detail label="Command" value={command} code /> : null}
+      {cwd ? <Detail label="Directory" value={cwd} code /> : null}
+      {grantRoot ? <Detail label="Write scope" value={grantRoot} code /> : null}
+      {host ? <Detail label="Network target" value={formatNetwork(network!)} code /> : null}
     </dl>
   );
 }
@@ -152,15 +152,15 @@ function formatNetwork(network: Record<string, unknown>): string {
 function formatApprovalStatus(status: RuntimeApproval['status']): string {
   switch (status) {
     case 'pending':
-      return '等待你的决定';
+      return 'Waiting for your decision';
     case 'approved':
-      return '已批准';
+      return 'Approved';
     case 'rejected':
-      return '已拒绝';
+      return 'Denied';
     case 'expired':
-      return '已过期';
+      return 'Expired';
     case 'canceled':
-      return '已取消';
+      return 'Canceled';
   }
 }
 

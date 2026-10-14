@@ -137,7 +137,7 @@ describe('approval runtime integration', () => {
       threadId: fixture.thread.id,
       kind: 'permissions',
       status: 'pending',
-      title: '允许创建定时任务',
+      title: 'Allow scheduled task creation',
       summary: '武汉天气每5分钟简报',
       details: {
         serverName: 'opencreator_schedule',
@@ -281,7 +281,7 @@ describe('approval runtime integration', () => {
         type: 'diagnostic',
         payload: expect.objectContaining({
           code: 'THREAD_CODEX_SESSION_ROTATED',
-          message: '执行上下文已重新连接'
+          message: 'Execution context reconnected'
         })
       })
     ]));

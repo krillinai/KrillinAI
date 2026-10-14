@@ -126,7 +126,7 @@ async function main(): Promise<void> {
   if (!versionProbe.ready) {
     emitBootstrapError({
       code: 'CODEX_VERSION_CHECK_FAILED',
-      message: 'Codex CLI 无法正常启动，请重新安装或选择其他 Codex 可执行文件',
+      message: 'Codex CLI could not start. Reinstall it or select another Codex executable.',
       details: {
         codexBin,
         version: versionProbe.version,
@@ -405,9 +405,9 @@ function probeErrorMessage(input: {
 }): string {
   if (input.stderrSummary !== undefined) return input.stderrSummary;
   if (input.exitCode !== null && input.exitCode !== 0) {
-    return `Codex CLI 退出码为 ${input.exitCode}`;
+    return `Codex CLI exited with code ${input.exitCode}`;
   }
-  return `Codex CLI 未返回有效回复（${input.terminationReason}）`;
+  return `Codex CLI returned no valid response (${input.terminationReason})`;
 }
 
 async function runAvailabilityProbe(input: {
@@ -461,7 +461,7 @@ async function runAvailabilityProbe(input: {
     errorCode,
     message
   });
-  console.warn(`Codex 后台可用性验证失败 [${errorCode}]：${message}`);
+  console.warn(`Codex background availability check failed [${errorCode}]: ${message}`);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -183,7 +183,7 @@ describe('video metadata API', () => {
     const url = 'https://www.bilibili.com/video/BV18E421w7bf?p=3';
     const response = await server.inject({ method: 'GET', url: `/video-metadata?${new URLSearchParams({ url })}` });
     expect(response.statusCode).toBe(400);
-    expect(response.json().error.message).toContain('分 P 3 不存在');
+    expect(response.json().error.message).toContain('Video part 3 does not exist');
   });
 
   it('registers production metadata and prevents a multipart task from bypassing selection', async () => {

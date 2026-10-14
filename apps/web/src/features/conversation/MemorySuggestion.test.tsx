@@ -19,7 +19,7 @@ describe('MemorySuggestion', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: '忽略记忆建议' }));
+    await user.click(screen.getByRole('button', { name: 'Dismiss memory suggestion' }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
     expect(onSave).not.toHaveBeenCalled();
   });
@@ -38,10 +38,10 @@ describe('MemorySuggestion', () => {
       />
     );
 
-    await user.clear(screen.getByRole('textbox', { name: '记忆建议内容' }));
-    await user.type(screen.getByRole('textbox', { name: '记忆建议内容' }), '默认运行全量测试');
-    await user.selectOptions(screen.getByRole('combobox', { name: '记忆建议范围' }), 'project');
-    await user.click(screen.getByRole('button', { name: '保存记忆建议' }));
+    await user.clear(screen.getByRole('textbox', { name: 'Suggested memory content' }));
+    await user.type(screen.getByRole('textbox', { name: 'Suggested memory content' }), '默认运行全量测试');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Suggested memory scope' }), 'project');
+    await user.click(screen.getByRole('button', { name: 'Save memory suggestion' }));
 
     expect(onSave).toHaveBeenCalledWith({
       content: '默认运行全量测试',
@@ -71,9 +71,9 @@ describe('MemorySuggestion', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: '保存记忆建议' }));
-    expect(await screen.findByText(/可能包含敏感信息/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '确认保存敏感建议' }));
+    await user.click(screen.getByRole('button', { name: 'Save memory suggestion' }));
+    expect(await screen.findByText(/may contain sensitive information/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Confirm saving the sensitive suggestion' }));
 
     expect(onSave).toHaveBeenLastCalledWith({
       content: 'password=secret',

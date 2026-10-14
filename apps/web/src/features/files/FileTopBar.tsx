@@ -19,7 +19,7 @@ type FileTopBarProps = {
 };
 
 export function FileTopBar(props: FileTopBarProps) {
-  const title = props.fileName ?? '文件工作区';
+  const title = props.fileName ?? 'File workspace';
   const segments = props.path?.split('/').filter(Boolean) ?? [];
 
   return (
@@ -27,13 +27,13 @@ export function FileTopBar(props: FileTopBarProps) {
       <div className="file-top-bar-title-row">
         <div className="file-top-bar-title">
           <strong>{title}</strong>
-          {props.dirty ? <span className="dirty-indicator" aria-label="未保存">未保存</span> : null}
+          {props.dirty ? <span className="dirty-indicator" aria-label="Unsaved">Unsaved</span> : null}
         </div>
         <button
           className="icon-button file-toolbar-icon-button"
           type="button"
-          aria-label="关闭文件工作区"
-          title="关闭文件工作区"
+          aria-label="Close file workspace"
+          title="Close file workspace"
           onClick={props.onClose}
         >
           <X aria-hidden="true" size={16} />
@@ -42,8 +42,8 @@ export function FileTopBar(props: FileTopBarProps) {
 
       <div className="file-top-bar-control-row">
         <div className="file-top-bar-path-group">
-          <nav className="file-top-bar-path" aria-label="文件路径">
-            <span>{props.rootName ?? '工作区'}</span>
+          <nav className="file-top-bar-path" aria-label="File path">
+            <span>{props.rootName ?? 'Workspace'}</span>
             {segments.flatMap((segment, index) => [
               <span className="file-top-bar-path-separator" key={`${props.path ?? ''}:separator:${index}`}>/</span>,
               <span key={`${props.path ?? ''}:${index}`}>{segment}</span>
@@ -53,8 +53,8 @@ export function FileTopBar(props: FileTopBarProps) {
             <button
               className="icon-button file-top-bar-path-open-button"
               type="button"
-              aria-label="打开文件"
-              title="打开文件"
+              aria-label="Open file"
+              title="Open file"
               disabled={!props.path}
               onClick={props.onOpenFile}
             >
@@ -65,20 +65,20 @@ export function FileTopBar(props: FileTopBarProps) {
 
         <div className="file-top-bar-actions">
           {props.canToggleMode && props.mode && props.onModeChange ? (
-            <div className="file-editor-mode-toggle" aria-label="文件视图模式">
+            <div className="file-editor-mode-toggle" aria-label="File view mode">
               <button
                 type="button"
                 aria-pressed={props.mode === 'preview'}
                 onClick={() => props.onModeChange?.('preview')}
               >
-                预览
+                Preview
               </button>
               <button
                 type="button"
                 aria-pressed={props.mode === 'edit'}
                 onClick={() => props.onModeChange?.('edit')}
               >
-                编辑
+                Edit
               </button>
             </div>
           ) : null}
@@ -89,16 +89,16 @@ export function FileTopBar(props: FileTopBarProps) {
               disabled={props.saveDisabled}
               onClick={() => props.onSave?.()}
             >
-              保存
+              Save
             </button>
           ) : null}
           {props.onToggleTree ? (
             <button
               className="icon-button file-toolbar-icon-button"
               type="button"
-              aria-label={props.treeCollapsed ? '展开目录树' : '收起目录树'}
+              aria-label={props.treeCollapsed ? 'Expand file tree' : 'Collapse file tree'}
               aria-pressed={props.treeCollapsed}
-              title={props.treeCollapsed ? '展开目录树' : '收起目录树'}
+              title={props.treeCollapsed ? 'Expand file tree' : 'Collapse file tree'}
               onClick={props.onToggleTree}
             >
               {props.treeCollapsed ? (

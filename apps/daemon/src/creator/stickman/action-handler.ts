@@ -271,7 +271,7 @@ export function handleStickmanAction(input: {
     if (visualDescription === undefined && motion === undefined) {
       throw new CreatorServiceError(
         'creator_action_input_invalid',
-        '画面描述或运镜至少需要修改一项'
+        'Change the visual description or camera motion'
       );
     }
     const shots = shotSpec.shots.map((shot, index) => index === targetIndex
@@ -401,7 +401,7 @@ function requireNoPendingImageProviderRequest(job: CreatorJob): void {
   if (pending) {
     throw new CreatorServiceError(
       'creator_provider_resolution_required',
-      '必须先确认状态未明的画面生成请求，才能继续批量生成'
+      'Resolve the unknown visual generation request before continuing batch generation'
     );
   }
 }
@@ -431,7 +431,7 @@ function normalizeEditedScript(
   if (overlongSegment !== undefined) {
     throw new CreatorServiceError(
       'creator_script_segment_duration_invalid',
-      `${overlongSegment.id} 的预计配音时长超过 5 秒，请按完整语义拆成多个旁白单元`
+      `The estimated speech duration of ${overlongSegment.id} exceeds 5 seconds. Split it into complete narration units.`
     );
   }
   const totalNarrationUnits = segments.reduce((total, segment) => total + segment.narrationUnits, 0);
@@ -441,7 +441,7 @@ function normalizeEditedScript(
   ) {
     throw new CreatorServiceError(
       'creator_script_duration_budget_invalid',
-      `旁白长度必须保持在 ${value.narrationBudget.minUnits}-${value.narrationBudget.maxUnits} ${unit === 'words' ? '词' : '字符'}内`
+      `Narration must contain ${value.narrationBudget.minUnits}-${value.narrationBudget.maxUnits} ${unit === 'words' ? 'words' : 'characters'}.`
     );
   }
   return stickmanScriptManifestSchema.parse({

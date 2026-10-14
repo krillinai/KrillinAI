@@ -91,21 +91,21 @@ function isInternalRuntimeDiagnostic(item: TimelineItem): boolean {
 function getTimelineTitle(item: TimelineItem): string {
   switch (item.kind) {
     case 'user_message':
-      return '你';
+      return 'You';
     case 'schedule_trigger':
-      return '定时执行';
+      return 'Scheduled run';
     case 'assistant_message':
       return 'OpenCreator';
     case 'change_card':
-      return '文件变更';
+      return 'File changes';
     case 'approval':
-      return '需要确认';
+      return 'Confirmation required';
     case 'reasoning_summary':
     case 'tool_step':
     case 'diagnostic':
     case 'run_status':
     case 'done':
-      return '处理过程';
+      return 'Process';
     default:
       const _exhaustive: never = item;
       return _exhaustive;
@@ -113,8 +113,8 @@ function getTimelineTitle(item: TimelineItem): string {
 }
 
 function getTimelineAvatar(item: TimelineItem): string {
-  if (item.kind === 'user_message') return '你';
-  if (item.kind === 'schedule_trigger') return '定';
+  if (item.kind === 'user_message') return 'Y';
+  if (item.kind === 'schedule_trigger') return 'S';
   if (item.kind === 'change_card') return 'Δ';
   if (item.kind === 'assistant_message') return '·';
   return '·';
@@ -311,110 +311,110 @@ function getToolActivity(
     normalizedName.includes('apply_patch')
     || normalizedName.includes('edit')
     || normalizedName.includes('write')
-  ) return '修改项目文件';
+  ) return 'Edit project files';
   if (
     normalizedName.includes('image')
     || normalizedName.includes('screenshot')
-  ) return '查看图片';
+  ) return 'View image';
   if (
     normalizedName.includes('browser')
     || normalizedName.includes('chrome')
     || normalizedName.includes('playwright')
-  ) return '操作浏览器';
+  ) return 'Use browser';
   if (
     normalizedName.includes('web')
     || normalizedName.includes('query')
-  ) return '查询资料';
+  ) return 'Search information';
   if (
     normalizedName.includes('read')
     || normalizedName.includes('open')
     || normalizedName.includes('find')
     || normalizedName.includes('search')
-  ) return '查看项目内容';
+  ) return 'Read project files';
   if (
     normalizedName.includes('lark')
     || normalizedName.includes('docs')
-  ) return '处理飞书文档';
-  return '执行开发操作';
+  ) return 'Work with Feishu documents';
+  return 'Run development tools';
 }
 
 function getCompletedActivityLabel(activity: string, count = 1): string | undefined {
   const label = (() => {
     switch (activity) {
-      case '查看项目内容':
-        return '已读取文件';
-      case '查看图片':
-        return '已查看图片';
-      case '操作浏览器':
-        return '已使用浏览器';
-      case '查询资料':
-        return '已查询资料';
-      case '处理飞书文档':
-        return '已处理飞书文档';
-      case '修改项目文件':
-        return '已更新文件';
-      case '运行测试':
-        return '已运行测试';
-      case '打包应用':
-        return '已打包应用';
-      case '构建应用':
-        return '已构建应用';
-      case '检查代码变更':
-        return '已检查代码变更';
-      case '更新代码':
-        return '已更新代码';
+      case 'Read project files':
+        return 'Read files';
+      case 'View image':
+        return 'Viewed image';
+      case 'Use browser':
+        return 'Used browser';
+      case 'Search information':
+        return 'Searched information';
+      case 'Work with Feishu documents':
+        return 'Updated Feishu documents';
+      case 'Edit project files':
+        return 'Updated files';
+      case 'Run tests':
+        return 'Ran tests';
+      case 'Package application':
+        return 'Packaged application';
+      case 'Build application':
+        return 'Built application';
+      case 'Review code changes':
+        return 'Reviewed code changes';
+      case 'Update code':
+        return 'Updated code';
       default:
         return undefined;
     }
   })();
 
   if (label === undefined || count === 1) return label;
-  return `${label}（${count} 次）`;
+  return `${label} (${count} times)`;
 }
 
 function getCommandActivity(command: string | undefined): string {
-  if (command === undefined) return '执行本地命令';
+  if (command === undefined) return 'Run local command';
   const normalized = command.trim().toLocaleLowerCase();
   if (
     /\b(?:vitest|jest|pytest|go test|cargo test)\b/u.test(normalized)
     || /\b(?:pnpm|npm|yarn)\b[^\n]*\btest\b/u.test(normalized)
-  ) return '运行测试';
+  ) return 'Run tests';
   if (
     /\b(?:electron-builder|package-release)\b/u.test(normalized)
     || /\b(?:pnpm|npm|yarn)\b[^\n]*\bpackage\b/u.test(normalized)
-  ) return '打包应用';
+  ) return 'Package application';
   if (
     /\b(?:vite build|tsc|electron-builder)\b/u.test(normalized)
     || /\b(?:pnpm|npm|yarn)\b[^\n]*\bbuild\b/u.test(normalized)
-  ) return '构建应用';
-  if (/^git\s+(?:status|diff|log|show)\b/u.test(normalized)) return '检查代码变更';
-  if (/^git\s+/u.test(normalized)) return '更新代码';
+  ) return 'Build application';
+  if (/^git\s+(?:status|diff|log|show)\b/u.test(normalized)) return 'Review code changes';
+  if (/^git\s+/u.test(normalized)) return 'Update code';
   if (/^(?:rg|grep|sed|cat|ls|find|head|tail|wc|pwd)\b/u.test(normalized)) {
-    return '查看项目内容';
+    return 'Read project files';
   }
-  return '执行本地命令';
+  return 'Run local command';
 }
 
 function formatTerminationReason(reason: string | undefined): string {
   switch (reason) {
     case 'timeout':
-      return '任务运行时间过长，已自动停止';
+      return 'The task exceeded its time limit and was stopped automatically';
     case 'inactivity_timeout':
-      return '任务长时间无响应，已自动停止';
+      return 'The task stopped responding and was stopped automatically';
     case 'spawn_timeout':
-      return 'Codex 启动超时';
+      return 'Codex startup timed out';
     case 'user_canceled':
-      return '用户已取消';
+      return 'Canceled by user';
     case 'daemon_restart':
-      return '服务重启，任务已中断';
+      return 'The Runtime restarted and interrupted the task';
     case 'codex_exit_non_zero':
-      return 'Codex 执行失败';
+      return 'Codex execution failed';
     case 'spawn_failed':
-      return 'Codex 启动失败';
+      return 'Codex failed to start';
     case 'stream_error':
-      return 'Codex 输出异常';
+      return 'Invalid Codex output';
     case undefined:
-      return '未知原因';
+      return 'Unknown reason';
     default:
       return reason;
   }
@@ -427,14 +427,14 @@ function getProcessStepTitle(item: ProcessTimelineItem): string {
       return item.text;
     case 'tool_step': {
       return getPayloadType(item) === 'tool_result'
-        ? '操作已完成'
-        : `正在${getToolActivity(item.name, getToolCommand(item))}`;
+        ? 'Operation completed'
+        : `Running: ${getToolActivity(item.name, getToolCommand(item))}`;
     }
     case 'diagnostic':
       return item.message;
     case 'done':
       return item.status === 'canceled'
-        ? `运行已取消：${formatTerminationReason(item.terminationReason ?? 'user_canceled')}`
+        ? `Run canceled: ${formatTerminationReason(item.terminationReason ?? 'user_canceled')}`
         : item.status === 'failed'
           ? formatTerminationReason(item.terminationReason)
           : '';
@@ -451,13 +451,13 @@ function getTransientProcessActivity(item: VisibleProcessItem): string | undefin
   const text = item.text.trim();
   if (text.length === 0 || text.length > 80 || text.includes('\n')) return undefined;
   if (/^正在\S/.test(text)) return text;
-  if (/^planning\b/i.test(text)) return '正在确认执行方案';
-  if (/^inspect(?:ing)?\b.*\b(?:site|website)\b/i.test(text)) return '正在检查网站可访问性';
-  if (/^read(?:ing)?\b/i.test(text)) return '正在读取任务资料';
-  if (/^search(?:ing)?\b/i.test(text)) return '正在查询资料';
-  if (/^(?:check(?:ing)?|review(?:ing)?|analyz(?:ing)?)\b/i.test(text)) return '正在分析任务信息';
-  if (/^(?:run(?:ning)?|execut(?:ing)?)\b/i.test(text)) return '正在执行任务';
-  if (/^fetch(?:ing)?\b/i.test(text)) return '正在获取数据';
+  if (/^planning\b/i.test(text)) return 'Reviewing the execution plan';
+  if (/^inspect(?:ing)?\b.*\b(?:site|website)\b/i.test(text)) return 'Checking website access';
+  if (/^read(?:ing)?\b/i.test(text)) return 'Reading task information';
+  if (/^search(?:ing)?\b/i.test(text)) return 'Searching information';
+  if (/^(?:check(?:ing)?|review(?:ing)?|analyz(?:ing)?)\b/i.test(text)) return 'Analyzing task information';
+  if (/^(?:run(?:ning)?|execut(?:ing)?)\b/i.test(text)) return 'Running task';
+  if (/^fetch(?:ing)?\b/i.test(text)) return 'Fetching data';
   return undefined;
 }
 
@@ -551,7 +551,7 @@ function buildVisibleProcessSteps(process: ProcessBlock): ProcessDisplayStep[] {
   steps.push({
     key: `live:${latestToolUse.id}`,
     item: latestToolUse,
-    title: `${activityRunning ? '正在' : '已'}${activity}`,
+    title: `${activityRunning ? 'Running: ' : 'Completed: '}${activity}`,
     liveActivity: true,
     activityRunning
   });
@@ -564,8 +564,8 @@ function getProcessCompletedActivityLabel(
   activity: string,
   count = 1
 ): string | undefined {
-  if (activity === '执行本地命令' && process.approvedCommandExecution === true) {
-    return count === 1 ? '已允许并执行本地命令' : `已允许并执行本地命令（${count} 次）`;
+  if (activity === 'Run local command' && process.approvedCommandExecution === true) {
+    return count === 1 ? 'Approved and ran local command' : `Approved and ran local command (${count} times)`;
   }
   return getCompletedActivityLabel(activity, count);
 }
@@ -748,7 +748,7 @@ function collectCompletedCommandRunIds(items: TimelineItem[]): Set<string> {
     if (toolCallId === undefined || runId === undefined) continue;
     const callKey = `${runId}:${toolCallId}`;
     const payloadType = getPayloadType(item);
-    if (payloadType === 'tool_use' && getToolActivity(item.name, getToolCommand(item)) === '执行本地命令') {
+    if (payloadType === 'tool_use' && getToolActivity(item.name, getToolCommand(item)) === 'Run local command') {
       commandUsesByCallId.set(callKey, runId);
       continue;
     }
@@ -799,13 +799,13 @@ function renderMessageContent(
           : undefined}
       />
       {artifacts.length > 0 ? (
-        <div className="timeline-artifacts" aria-label="任务成果">
+        <div className="timeline-artifacts" aria-label="Task outputs">
           {artifacts.map(path => (
             <button
               key={path}
               type="button"
               className="timeline-artifact-card"
-              aria-label={`打开成果 ${path}`}
+              aria-label={`Open output ${path}`}
               onClick={() => onOpenFile?.(path)}
             >
               <FileText aria-hidden="true" size={17} />
@@ -813,7 +813,7 @@ function renderMessageContent(
                 <strong>{artifactFileName(path)}</strong>
                 <span>{artifactTypeLabel(path)}</span>
               </span>
-              <span className="timeline-artifact-action">打开</span>
+              <span className="timeline-artifact-action">Open</span>
             </button>
           ))}
         </div>
@@ -842,22 +842,22 @@ function artifactTypeLabel(path: string): string {
   switch (artifactExtension(path)) {
     case 'html':
     case 'htm':
-      return 'HTML 报告';
+      return 'HTML report';
     case 'pdf':
-      return 'PDF 文档';
+      return 'PDF document';
     case 'doc':
     case 'docx':
-      return 'Word 文档';
+      return 'Word document';
     case 'xls':
     case 'xlsx':
-      return 'Excel 表格';
+      return 'Excel workbook';
     case 'ppt':
     case 'pptx':
-      return '演示文稿';
+      return 'Presentation';
     case 'csv':
-      return '数据表';
+      return 'Data table';
     default:
-      return '文档';
+      return 'Document';
   }
 }
 
@@ -876,15 +876,15 @@ function formatApprovalResolution(approval: Extract<TimelineItem, { kind: 'appro
   const prefix = (() => {
     switch (approval.status) {
       case 'approved':
-        return '已允许';
+        return 'Allowed';
       case 'rejected':
-        return '已拒绝';
+        return 'Denied';
       case 'expired':
-        return '权限申请已过期';
+        return 'Permission request expired';
       case 'canceled':
-        return '权限申请已取消';
+        return 'Permission request canceled';
       case 'pending':
-        return '等待批准';
+        return 'Waiting for approval';
     }
   })();
   if (approval.status === 'expired' || approval.status === 'canceled') return prefix;
@@ -892,10 +892,10 @@ function formatApprovalResolution(approval: Extract<TimelineItem, { kind: 'appro
   if (approval.kind === 'permissions') {
     const network = isRecord(approval.details.network) ? approval.details.network : undefined;
     const host = typeof network?.host === 'string' ? network.host : undefined;
-    return host ? `${prefix}访问 ${host}` : `${prefix}获取权限`;
+    return host ? `${prefix}: access ${host}` : `${prefix}: request permissions`;
   }
-  if (approval.kind === 'file_change') return `${prefix}修改文件`;
-  return `${prefix}执行命令`;
+  if (approval.kind === 'file_change') return `${prefix}: modify files`;
+  return `${prefix}: run command`;
 }
 
 function MessageMeta(props: {
@@ -904,7 +904,7 @@ function MessageMeta(props: {
   onEdit?: (item: Extract<TimelineItem, { kind: 'user_message' }>) => void;
 }) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
-  const itemLabel = props.item.kind === 'assistant_message' ? '回复' : '消息';
+  const itemLabel = props.item.kind === 'assistant_message' ? 'Reply' : 'Message';
   const timestamp = props.item.timestamp ? (
     <time dateTime={props.item.timestamp}>{formatMessageTime(props.item.timestamp)}</time>
   ) : null;
@@ -913,12 +913,12 @@ function MessageMeta(props: {
       type="button"
       aria-label={
         copyState === 'copied'
-          ? `已复制${itemLabel}`
+          ? `Copied ${itemLabel}`
           : copyState === 'failed'
-            ? `复制${itemLabel}失败`
-            : `复制${itemLabel}`
+            ? `Could not copy ${itemLabel}`
+            : `Copy ${itemLabel}`
       }
-      title={copyState === 'copied' ? '已复制' : copyState === 'failed' ? '复制失败' : '复制'}
+      title={copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy'}
       onClick={async () => {
         setCopyState(await copyToClipboard(props.item.text) ? 'copied' : 'failed');
       }}
@@ -938,8 +938,8 @@ function MessageMeta(props: {
       {props.item.kind === 'user_message' && props.onEdit ? (
         <button
           type="button"
-          aria-label="编辑消息"
-          title="编辑"
+          aria-label="Edit message"
+          title="Edit"
           onClick={() => {
             if (props.item.kind === 'user_message') props.onEdit?.(props.item);
           }}
@@ -998,7 +998,7 @@ function renderChangeCard(item: Extract<TimelineItem, { kind: 'change_card' }>, 
       <strong>{item.title}</strong>
       <span>{item.path}</span>
       <code>{item.delta}</code>
-      {onOpenFile ? <span className="change-card-action">打开</span> : null}
+      {onOpenFile ? <span className="change-card-action">Open</span> : null}
     </>
   );
 
@@ -1007,7 +1007,7 @@ function renderChangeCard(item: Extract<TimelineItem, { kind: 'change_card' }>, 
       <button
         type="button"
         className="change-card-content change-card-button"
-        aria-label={`打开文件 ${item.path}`}
+        aria-label={`Open file ${item.path}`}
         onClick={() => onOpenFile(item.path)}
       >
         {content}
@@ -1036,8 +1036,8 @@ function renderChangeBlock(
 
   return (
     <div className="change-card-content change-card-group">
-      <strong>{block.items.length} 次连续文件变更</strong>
-      <span>{paths.length} 个文件</span>
+      <strong>{block.items.length} consecutive file changes</strong>
+      <span>{paths.length} files</span>
       <div className="change-card-paths">
         {visiblePaths.map(path => (
           onOpenFile ? (
@@ -1045,7 +1045,7 @@ function renderChangeBlock(
               key={path}
               type="button"
               className="change-card-path-button"
-              aria-label={`打开文件 ${path}`}
+              aria-label={`Open file ${path}`}
               onClick={() => onOpenFile(path)}
             >
               {path}
@@ -1054,7 +1054,7 @@ function renderChangeBlock(
             <code key={path}>{path}</code>
           )
         ))}
-        {hiddenCount > 0 ? <span>另有 {hiddenCount} 个文件</span> : null}
+        {hiddenCount > 0 ? <span>Additional {hiddenCount} files</span> : null}
       </div>
     </div>
   );
@@ -1165,19 +1165,19 @@ function renderProcessStep(step: ProcessDisplayStep) {
 function renderMilestoneIcon(activity: string) {
   const props = { className: 'process-milestone-icon', 'aria-hidden': true, size: 14 } as const;
   switch (activity) {
-    case '查看项目内容':
-    case '处理飞书文档':
+    case 'Read project files':
+    case 'Work with Feishu documents':
       return <BookOpen {...props} />;
-    case '查询资料':
-    case '操作浏览器':
+    case 'Search information':
+    case 'Use browser':
       return <Globe2 {...props} />;
-    case '查看图片':
+    case 'View image':
       return <ImageIcon {...props} />;
-    case '修改项目文件':
+    case 'Edit project files':
       return <FilePenLine {...props} />;
-    case '运行测试':
-    case '构建应用':
-    case '打包应用':
+    case 'Run tests':
+    case 'Build application':
+    case 'Package application':
       return <PackageCheck {...props} />;
     default:
       return <Check {...props} />;
@@ -1395,8 +1395,8 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
     <div className="timeline-list">
       {props.items.length === 0 ? (
         <div className="timeline-empty">
-          <strong>暂无任务记录</strong>
-          <span>发送任务后，OpenCreator 会在这里展示处理过程和结果。</span>
+          <strong>No task history</strong>
+          <span>Task progress and results will appear here.</span>
         </div>
       ) : (
         <div
@@ -1446,7 +1446,7 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
                       ) : (
                         <ArrowUp aria-hidden="true" size={14} />
                       )}
-                      <span>{props.loadingOlder ? '正在加载更早记录' : '加载更早记录'}</span>
+                      <span>{props.loadingOlder ? 'Loading earlier history' : 'Load earlier history'}</span>
                     </button>
                   ) : null}
                 </div>
@@ -1487,7 +1487,7 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
               onClick={scrollToLatest}
             >
               <ArrowDown aria-hidden="true" size={15} />
-              <span>有新内容</span>
+              <span>New content</span>
             </button>
           ) : null}
         </div>

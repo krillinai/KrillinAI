@@ -26,6 +26,44 @@ afterEach(async () => {
 });
 
 describe('creator video executor', () => {
+  it('submits a fresh video after the previous saved attempt was definitively rejected', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'creator-video-retry-rejected-'));
+    const db = openRuntimeDatabase(join(tempDir, 'runtime.sqlite'));
+    try {
+      const repository = createCreatorRepository(db);
+      const job = repository.createJob({ projectId: 'project', templateId: 'video-generation', templateVersion: 1, status: 'running', state: stageInput({}, []).job.state });
+      const previous = repository.createStageRun({ jobId: job.id, stageId: 'generate', executor: 'video', status: 'failed', progress: { videoGenerationResultId: 'rejected-video-result' } });
+      repository.updateStageRun({ id: previous.id, status: 'failed', errorCode: 'creator_video_upstream_error', errorMessage: 'Rejected' });
+      const current = repository.createStageRun({ jobId: job.id, stageId: 'generate', executor: 'video', status: 'running' });
+      const ledger = new CreatorProviderRequestLedger(repository);
+      const receipt = ledger.registerBeforeSubmit({ jobId: job.id, stageRunId: previous.id, provider: 'opencreator-gateway-video', requestKey: previous.id, request: {} });
+      ledger.markSubmitting(receipt.id); ledger.markFailed(receipt.id);
+      const service = videoService({});
+      const stage = stageInput({}, []); stage.job = repository.getJob(job.id)!; stage.stageRun = current;
+      await createVideoExecutor({ ledger, service, probeVideo: async () => ({ duration: 5, width: 1280, height: 720, hasVideo: true, hasAudio: false }) }).run(stage);
+      expect(service.create).toHaveBeenCalledOnce();
+      expect(service.get).not.toHaveBeenCalled();
+    } finally { db.close(); }
+  });
+  it.each([400, 402, 422, 429])('finalizes a rejected video submission instead of blocking it as unknown (%s)', async status => {
+    tempDir = await mkdtemp(join(tmpdir(), 'creator-video-rejection-'));
+    const db = openRuntimeDatabase(join(tempDir, 'runtime.sqlite'));
+    try {
+      const repository = createCreatorRepository(db);
+      const job = repository.createJob({ projectId: 'project', templateId: 'video-generation', templateVersion: 1, status: 'running', state: {} });
+      const stageRun = repository.createStageRun({ jobId: job.id, stageId: 'generate', executor: 'video', status: 'running' });
+      const stage = stageInput({}, []); stage.job.id = job.id; stage.stageRun.id = stageRun.id;
+      const ledger = new CreatorProviderRequestLedger(repository);
+      const service = videoService({ create: vi.fn(async (_request, options) => {
+        options!.onGatewayBinding!({ accountId: 'a', bindingVersion: 'a:1', logicalId: stageRun.id });
+        throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'Rejected', 502, { kind: 'http-rejected', httpStatus: status });
+      }) });
+      const executor = createVideoExecutor({ ledger, service, probeVideo: vi.fn() });
+      await expect(executor.run(stage)).rejects.toMatchObject({ code: 'creator_video_upstream_error' });
+      expect(repository.getJob(job.id)!.providerRequests).toMatchObject([{ status: 'failed' }]);
+      expect(ledger.unresolvedForStage({ jobId: job.id, stageId: 'generate' })).toEqual([]);
+    } finally { db.close(); }
+  });
   it('recovers exactly the original video ledger entry among multiple pending requests', async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'creator-video-recover-ledger-'));
     const db = openRuntimeDatabase(join(tempDir, 'runtime.sqlite'));

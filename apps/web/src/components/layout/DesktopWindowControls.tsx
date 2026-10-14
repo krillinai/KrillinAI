@@ -6,13 +6,13 @@ export function DesktopWindowControls(props: {
   onAction(action: WindowAction): Promise<void>;
 }) {
   const actions = [
-    { action: 'close', label: '关闭窗口', Icon: X },
-    { action: 'minimize', label: '最小化窗口', Icon: Minus },
-    { action: 'zoom', label: '缩放窗口', Icon: Maximize2 }
+    { action: 'close', label: 'Close window', Icon: X },
+    { action: 'minimize', label: 'Minimize window', Icon: Minus },
+    { action: 'zoom', label: 'Zoom window', Icon: Maximize2 }
   ] as const;
 
   return (
-    <div className="desktop-window-controls" role="group" aria-label="窗口控制">
+    <div className="desktop-window-controls" role="group" aria-label="Window controls">
       {actions.map(({ action, label, Icon }) => (
         <button
           key={action}

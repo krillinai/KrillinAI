@@ -10,6 +10,7 @@ export type GatewayModel = {
   durations?: number[];
   resolutions?: string[];
   aspectRatios?: string[];
+  verification?: { adapterVersion: number; verifiedAt: string; countries: string[] };
   imageOptions?: {
     aspectRatios?: string[];
     resolutions?: string[];

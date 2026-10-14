@@ -82,7 +82,7 @@ export function HtmlPreview(props: {
   if (preview.status === 'loading') {
     return (
       <div className="file-preview file-preview-html file-preview-html-status" role="status">
-        正在准备 HTML 预览...
+        Preparing HTML preview...
       </div>
     );
   }
@@ -90,7 +90,7 @@ export function HtmlPreview(props: {
   if (preview.status === 'error') {
     return (
       <div className="file-preview file-preview-html file-preview-html-status" role="status">
-        预览暂不可用，可切换至编辑查看源码。
+        Preview is unavailable. Switch to edit mode to view the source.
       </div>
     );
   }
@@ -98,18 +98,18 @@ export function HtmlPreview(props: {
   return (
     <div className="file-preview file-preview-html">
       <iframe
-        title={`${props.name} HTML 预览`}
+        title={`${props.name} HTML preview`}
         srcDoc={preview.document.html}
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"
       />
       {preview.document.externalLinks.length > 0 && props.onOpenExternal !== undefined ? (
-        <div className="html-preview-external-links" aria-label="预览外链">
+        <div className="html-preview-external-links" aria-label="Preview external link">
           {preview.document.externalLinks.map(link => (
             <button
               key={link.url}
               type="button"
-              aria-label={`外部打开 ${link.label}`}
+              aria-label={`Open externally ${link.label}`}
               title={link.url}
               onClick={() => props.onOpenExternal?.(link.url)}
             >
@@ -436,7 +436,7 @@ function normalizePreviewResourceMime(value: string): string | undefined {
 
 async function objectUrlToDataUrl(objectUrl: string, mime: string): Promise<string> {
   const response = await fetch(objectUrl);
-  if (!response.ok) throw new Error('无法读取预览资源');
+  if (!response.ok) throw new Error('Could not read preview resources');
   const bytes = new Uint8Array(await response.arrayBuffer());
   let binary = '';
   for (let offset = 0; offset < bytes.length; offset += 0x8000) {

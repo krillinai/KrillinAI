@@ -62,14 +62,14 @@ export function createProjectManager(input: CreateProjectManagerInput): ProjectM
         if (!existsSync(cwd)) {
           throw new ProjectManagerError(
             'PROJECT_DIRECTORY_UNAVAILABLE',
-            '无法创建项目目录'
+            'Could not create the project directory'
           );
         }
       }
     }
     throw new ProjectManagerError(
       'PROJECT_DIRECTORY_CONFLICT',
-      '无法生成唯一项目目录'
+      'Could not create a unique project directory'
     );
   };
 
@@ -80,7 +80,7 @@ export function createProjectManager(input: CreateProjectManagerInput): ProjectM
       } catch {
         throw new ProjectManagerError(
           'PROJECT_DIRECTORY_UNAVAILABLE',
-          'OpenCreator 默认项目目录不可用'
+          'The OpenCreator default project directory is unavailable'
         );
       }
 
@@ -94,7 +94,7 @@ export function createProjectManager(input: CreateProjectManagerInput): ProjectM
           if (!existsSync(cwd)) {
             throw new ProjectManagerError(
               'PROJECT_DIRECTORY_UNAVAILABLE',
-              '无法创建默认项目目录'
+              'Could not create the default project directory'
             );
           }
         }
@@ -105,7 +105,7 @@ export function createProjectManager(input: CreateProjectManagerInput): ProjectM
       if (existing !== undefined) return mapProjectRow(existing);
 
       try {
-        return createProjectRecord({ cwd: directory.cwd, name: '默认项目' });
+        return createProjectRecord({ cwd: directory.cwd, name: 'Default project' });
       } catch (error) {
         if (createdDirectory) {
           try {
@@ -127,7 +127,7 @@ export function createProjectManager(input: CreateProjectManagerInput): ProjectM
       } catch {
         throw new ProjectManagerError(
           'PROJECT_DIRECTORY_UNAVAILABLE',
-          'OpenCreator 默认项目目录不可用'
+          'The OpenCreator default project directory is unavailable'
         );
       }
 
@@ -415,7 +415,7 @@ function normalizeProjectPath(value: string, homeDir: string): string {
 }
 
 function normalizeProjectName(value: string | undefined, cwd: string): string {
-  const name = value?.trim() || basename(cwd) || '项目';
+  const name = value?.trim() || basename(cwd) || 'Project';
   if (name.length === 0) throw new Error('Project name is required');
   return name;
 }
@@ -423,10 +423,10 @@ function normalizeProjectName(value: string | undefined, cwd: string): string {
 function normalizeManagedProjectName(value: string): string {
   const name = value.trim();
   if (name.length === 0) {
-    throw new ProjectManagerError('PROJECT_NAME_INVALID', '项目名称不能为空');
+    throw new ProjectManagerError('PROJECT_NAME_INVALID', 'Project name cannot be empty');
   }
   if (name.length > 80) {
-    throw new ProjectManagerError('PROJECT_NAME_INVALID', '项目名称不能超过 80 个字符');
+    throw new ProjectManagerError('PROJECT_NAME_INVALID', 'Project name cannot exceed 80 characters');
   }
   if (
     name === '.'
@@ -437,7 +437,7 @@ function normalizeManagedProjectName(value: string): string {
   ) {
     throw new ProjectManagerError(
       'PROJECT_NAME_INVALID',
-      '项目名称不能包含路径分隔符'
+      'Project name cannot contain path separators'
     );
   }
   return name;

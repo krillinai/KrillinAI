@@ -6,6 +6,7 @@ import { readPrivateJsonFile, writePrivateJsonFile } from '../config/private-jso
 import type { YtDlpRuntime } from '../creator/yt-dlp/runtime.js';
 import { listBrowserProfiles, readBrowserPlatformCookies, type BrowserProfile } from './browser.js';
 import { LoginBrowserCloseError, openWindowsYouTubeLogin, type BrowserLoginSession } from './browser-login.js';
+import { PublicPlatformConnectionError } from './errors.js';
 import { filterPlatformCookies, hasPlatformSession, parsePlatformCookies,
   serializePlatformCookies, type PlatformCookie } from './cookies.js';
 
@@ -65,7 +66,7 @@ export class PlatformConnectionService<P extends ConnectionPlatform = Connection
         if (await this.hasAuthentication()) { await this.refreshState(); return this.publicState(); }
         const attempt: ConnectionAttempt = { controller: new AbortController(), work: Promise.resolve() };
         this.attempt = attempt;
-        this.state = { platform: this.platform, status: 'connecting', message: '正在打开 YouTube 登录窗口' };
+        this.state = { platform: this.platform, status: 'connecting', message: 'Opening the YouTube sign-in window' };
         attempt.work = this.finishConnection(attempt);
         return this.publicState();
       }
@@ -73,8 +74,8 @@ export class PlatformConnectionService<P extends ConnectionPlatform = Connection
       const profile = profileId ? profiles.find(p => p.id === profileId) : profiles[0];
       if (!profile) {
         this.state = { platform: this.platform, status: 'error', message: this.platform === 'youtube'
-          ? '未找到可用的浏览器账号，请先在 Chrome 或 Edge 中登录 YouTube。'
-          : '未找到可用的浏览器账号，请先在 Chrome 或 Edge 中打开抖音并完成网页验证。' };
+          ? 'No browser profile was found. Sign in to YouTube in Chrome or Edge first.'
+          : 'No browser profile was found. Open Douyin in Chrome or Edge and complete website verification first.' };
         return this.publicState();
       }
       const attempt = { controller: new AbortController(), work: Promise.resolve() };
@@ -88,7 +89,7 @@ export class PlatformConnectionService<P extends ConnectionPlatform = Connection
     return this.serialize(async () => {
       if (this.attempt?.completeLogin) {
         this.attempt.completeLogin();
-        this.state = { platform: this.platform, status: 'connecting', browser: 'chrome', message: '正在保存 YouTube 登录态' };
+        this.state = { platform: this.platform, status: 'connecting', browser: 'chrome', message: 'Saving the YouTube session' };
       }
       return this.publicState();
     });
@@ -112,8 +113,8 @@ export class PlatformConnectionService<P extends ConnectionPlatform = Connection
   importCookies(source: string): Promise<ConnectionState<P>> {
     return this.serialize(async () => {
       const cookies = parsePlatformCookies(source, this.platform);
-      if (!hasPlatformSession(cookies, this.platform)) throw new Error(this.platform === 'youtube'
-        ? 'Cookie 文件中没有有效的 YouTube 登录态。' : 'Cookie 文件中没有有效的抖音会话。');
+      if (!hasPlatformSession(cookies, this.platform)) throw new PublicPlatformConnectionError(this.platform === 'youtube'
+        ? 'The cookie file contains no valid YouTube session.' : 'The cookie file contains no valid Douyin session.');
       await this.stopConnection();
       await writePrivateJsonFile(this.credentialFile, { version: 1, cookies, connectedAt: new Date().toISOString() } satisfies Credential);
       await this.refreshState();
@@ -161,7 +162,7 @@ export class PlatformConnectionService<P extends ConnectionPlatform = Connection
       if (managed) {
         login = await (this.input.openLoginBrowser ?? openWindowsYouTubeLogin)({ root: this.input.root, signal: attempt.controller.signal });
         profile = login.profile;
-        let message = '请在打开的 Chrome 窗口中登录 YouTube';
+        let message = 'Sign in to YouTube in the Chrome window';
         let actionRequired: 'complete-login' | 'close-login-browser' = 'complete-login';
         let watchExit = true;
         while (!browserClosed) {
@@ -169,7 +170,7 @@ export class PlatformConnectionService<P extends ConnectionPlatform = Connection
           await this.waitForLoginCompletion(attempt, login, watchExit);
           watchExit = false;
           attempt.controller.signal.throwIfAborted();
-          this.state = { platform: this.platform, status: 'connecting', browser: 'chrome', profileId: profile.id, message: '正在保存 YouTube 登录态' };
+          this.state = { platform: this.platform, status: 'connecting', browser: 'chrome', profileId: profile.id, message: 'Saving the YouTube session' };
           try { await login.close(attempt.controller.signal); browserClosed = true; }
           catch (error) {
             if (!(error instanceof LoginBrowserCloseError)) throw error;
@@ -178,17 +179,17 @@ export class PlatformConnectionService<P extends ConnectionPlatform = Connection
         }
       }
       attempt.controller.signal.throwIfAborted();
-      if (!profile) throw new Error('未找到可用的浏览器账号，请重新连接。');
+      if (!profile) throw new PublicPlatformConnectionError('No browser profile was found. Connect again.');
       const cookies = filterPlatformCookies(await (this.input.readBrowserCookies ?? readBrowserPlatformCookies)({
         profile, runtime: this.input.getRuntime(), signal: attempt.controller.signal,
         ...(this.platform === 'douyin' ? { platform: 'douyin' as const } : {})
       }), this.platform);
       attempt.controller.signal.throwIfAborted();
-      if (!hasPlatformSession(cookies, this.platform)) throw new Error(managed
-        ? '尚未完成 YouTube 登录，请重新连接并在登录窗口中完成登录。'
+      if (!hasPlatformSession(cookies, this.platform)) throw new PublicPlatformConnectionError(managed
+        ? 'YouTube sign-in is incomplete. Reconnect and finish signing in in the sign-in window.'
         : this.platform === 'youtube'
-        ? '此浏览器账号尚未登录 YouTube，或登录已过期。请在该账号中登录后重新连接。'
-        : '此浏览器账号没有有效的抖音会话，请先打开抖音视频并完成网页验证后重新连接。');
+        ? 'This browser profile is signed out of YouTube or its session expired. Sign in with this profile and reconnect.'
+        : 'This browser profile has no valid Douyin session. Open the video, complete website verification, and reconnect.');
       const connectedAt = new Date().toISOString();
       await writePrivateJsonFile(this.credentialFile, {
         version: 1, cookies, connectedAt, browser: profile.browser, profileId: profile.id
@@ -196,7 +197,7 @@ export class PlatformConnectionService<P extends ConnectionPlatform = Connection
       this.state = { platform: this.platform, status: 'connected', connectedAt, browser: profile.browser, profileId: profile.id };
     } catch (error) {
       this.state = { platform: this.platform, status: 'error', browser: profile?.browser, profileId: profile?.id,
-        message: attempt.controller.signal.aborted ? '连接已取消或超时，请重新连接。' : publicConnectionError(error) };
+        message: attempt.controller.signal.aborted ? 'The connection was canceled or timed out. Connect again.' : publicConnectionError(error) };
     } finally {
       clearTimeout(timeout);
       if (login) {
@@ -255,5 +256,7 @@ export class PlatformConnectionService<P extends ConnectionPlatform = Connection
 }
 function publicConnectionError(error: unknown): string {
   const message = error instanceof Error ? error.message : '';
-  return /^[\u4e00-\u9fff]/.test(message) ? message : '读取浏览器登录态失败，请重试或选择其他浏览器账号。';
+  return error instanceof PublicPlatformConnectionError || /^[\u4e00-\u9fff]/.test(message)
+    ? message
+    : 'Could not read the browser session. Try again or select another browser profile.';
 }

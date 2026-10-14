@@ -54,7 +54,7 @@ describe('ChatGPT native image execution', () => {
     const error = await generateImageContents(request, createDefaultCreatorServicesConfig(), { codexNative: runtime(mode) }).catch(error => error);
     expect(error).toMatchObject({ code: 'upstream_error', publicFacts: {
       kind: 'validation', provider: 'codex-native', upstreamCode: 'IMAGE_REFERENCE_MISSING',
-      upstreamMessage: expect.stringContaining('参考图')
+      upstreamMessage: expect.stringContaining('reference image')
     } });
     expect(JSON.stringify(error.publicFacts)).not.toContain('private-oauth-secret');
   });
@@ -72,26 +72,26 @@ describe('ChatGPT native image execution', () => {
         return base.startExec(input).result;
       }) };
     });
-    await expect(generateCodexNativeImage({ runtime: { ...base, startExec }, request, referenceImages: [{ content: reference, mime: 'image/png' }], signal: new AbortController().signal })).rejects.toThrow('唯一的新图片');
+    await expect(generateCodexNativeImage({ runtime: { ...base, startExec }, request, referenceImages: [{ content: reference, mime: 'image/png' }], signal: new AbortController().signal })).rejects.toThrow('instead of exactly one');
     await expect(readFile(join(workspace, 'reference-0.png'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('only discovers artifacts for the current thread and isolates concurrent requests', async () => {
     const [first, second] = await Promise.all(['thread-first', 'thread-second'].map(thread => generateCodexNativeImage({ runtime: runtime('home', thread), request, referenceImages: [], signal: new AbortController().signal })));
     expect(first!.content).toEqual(second!.content);
-    await expect(generateCodexNativeImage({ runtime: runtime('other-thread'), request, referenceImages: [], signal: new AbortController().signal })).rejects.toThrow('唯一的新图片');
+    await expect(generateCodexNativeImage({ runtime: runtime('other-thread'), request, referenceImages: [], signal: new AbortController().signal })).rejects.toThrow('instead of exactly one');
   });
 
   it('rejects a thread directory symlink pointing to another thread', async () => {
     const generated = join(home, 'generated_images');
     await mkdir(join(generated, 'different-thread'), { recursive: true });
     await symlink(join(generated, 'different-thread'), join(generated, 'image-test-thread'));
-    await expect(generateCodexNativeImage({ runtime: runtime('home'), request, referenceImages: [], signal: new AbortController().signal })).rejects.toThrow('唯一的新图片');
+    await expect(generateCodexNativeImage({ runtime: runtime('home'), request, referenceImages: [], signal: new AbortController().signal })).rejects.toThrow('instead of exactly one');
   });
 
   it.each([
-    ['text-only', '唯一的新图片'], ['old', '已有图片'], ['outside', '不属于当前生图任务'],
-    ['symlink', '不属于当前生图任务'], ['invalid', '不是受支持'], ['failure', '重新登录'], ['quota', '额度']
+    ['text-only', 'instead of exactly one'], ['old', 'existing image'], ['outside', 'does not belong to this task'],
+    ['symlink', 'does not belong to this task'], ['invalid', 'not a supported'], ['failure', 'Sign in again'], ['quota', 'quota']
   ])('rejects unsafe or unsuccessful results (%s)', async (mode, message) => {
     await expect(generateCodexNativeImage({ runtime: runtime(mode), request, referenceImages: [], signal: new AbortController().signal })).rejects.toThrow(message);
   });
@@ -112,7 +112,7 @@ describe('ChatGPT native image execution', () => {
     await expect(generateCodexNativeImage({
       runtime: { ...base, startExec: () => ({ cancel() {}, result: Promise.reject(new CodexExecError({ message: 'timeout token=private-oauth-secret', terminationReason: 'timeout', stdoutLines: [], stderr: '' })) }) },
       request, referenceImages: [], signal: new AbortController().signal
-    })).rejects.toThrow('原生生图超时');
+    })).rejects.toThrow('native image generation timed out');
   });
 });
 
@@ -143,14 +143,14 @@ describe('Codex authentication dispatch and readiness', () => {
   it('does not fall back to HTTP after a native failure', async () => {
     const fetchImpl = vi.fn();
     const task = generateImageContents(request, createDefaultCreatorServicesConfig(), { codexNative: runtime('failure'), fetchImpl });
-    await expect(task).rejects.toMatchObject({ code: 'upstream_error', message: expect.stringContaining('重新登录') });
+    await expect(task).rejects.toMatchObject({ code: 'upstream_error', message: expect.stringContaining('Sign in again') });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('blocks native execution when Runtime capability is missing', async () => {
     const startExec = vi.fn(runtime().startExec);
     const codexNative = { ...runtime(), startExec, checkNativeCapability: async () => ({ supported: false, version: 'old-runtime' }) };
-    await expect(generateImageContents(request, createDefaultCreatorServicesConfig(), { codexNative })).rejects.toMatchObject({ code: 'config_missing', message: expect.stringContaining('不支持原生生图') });
+    await expect(generateImageContents(request, createDefaultCreatorServicesConfig(), { codexNative })).rejects.toMatchObject({ code: 'config_missing', message: expect.stringContaining('does not support native image generation') });
     expect(startExec).not.toHaveBeenCalled();
     await expect(inspectCodexImageRuntime(codexNative)).resolves.toMatchObject({ authentication: 'chatgpt', ready: false, executionMode: null });
   });
@@ -168,6 +168,6 @@ describe('Codex authentication dispatch and readiness', () => {
   });
 
   it('blocks ChatGPT mode without a Codex executable', async () => {
-    await expect(inspectCodexImageRuntime({ codexHome: home })).resolves.toMatchObject({ authentication: 'chatgpt', ready: false, message: expect.stringContaining('缺少 Codex') });
+    await expect(inspectCodexImageRuntime({ codexHome: home })).resolves.toMatchObject({ authentication: 'chatgpt', ready: false, message: expect.stringContaining('Codex executable is missing') });
   });
 });

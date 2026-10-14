@@ -108,8 +108,8 @@ export function createKrillinExecutor(input: {
             ) {
               deferredFailure = error;
               const message = error.code === 'platform_caption_invalid'
-                ? '平台字幕解析失败，已自动切换到语音转录'
-                : '未找到可用的平台字幕，已自动切换到语音转录';
+                ? 'Platform subtitle parsing failed. Switched to speech transcription.'
+                : 'No usable platform subtitles were found. Switched to speech transcription.';
               captionFallbackProgress = {
                 captionSource: 'whisper',
                 captionFallbackCode: error.code,

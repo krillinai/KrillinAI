@@ -58,7 +58,7 @@ describe('TaskCenter', () => {
     expect(onMarkRead).toHaveBeenCalledWith('run_1');
     expect(onOpenTask).toHaveBeenCalledWith(expect.objectContaining({ id: 'run_1' }));
 
-    await user.click(screen.getByRole('button', { name: '全部已读' }));
+    await user.click(screen.getByRole('button', { name: 'Mark all read' }));
     expect(onClearUnread).toHaveBeenCalledTimes(1);
   });
 
@@ -86,13 +86,13 @@ describe('TaskCenter', () => {
       />
     );
 
-    await user.click(await screen.findByRole('tab', { name: '待审批' }));
+    await user.click(await screen.findByRole('tab', { name: 'Awaiting approval' }));
     expect(list).toHaveBeenLastCalledWith({
       status: 'waiting_approval',
       limit: 20
     });
 
-    await user.click(await screen.findByRole('button', { name: '批准' }));
+    await user.click(await screen.findByRole('button', { name: 'Approve' }));
     expect(approve).toHaveBeenCalledWith('approval_1');
   });
 
@@ -138,8 +138,8 @@ describe('TaskCenter', () => {
       .toBeInTheDocument();
     expect(screen.queryByText('/workspace')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '编辑项目' }));
-    await user.click(screen.getByRole('button', { name: '暂停任务' }));
+    await user.click(screen.getByRole('button', { name: 'Edit project' }));
+    await user.click(screen.getByRole('button', { name: 'Pause task' }));
 
     expect(onEditSchedule).toHaveBeenCalledWith('schedule_1');
     expect(onPauseSchedule).toHaveBeenCalledWith('schedule_1');

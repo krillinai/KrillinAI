@@ -8,14 +8,14 @@ describe('ProjectFileTree', () => {
   it('nodes 为空时显示空态文案', () => {
     renderTree({ nodes: [] });
 
-    expect(screen.getByText('当前工作区暂无可显示文件')).toBeInTheDocument();
+    expect(screen.getByText('No files to display in this workspace')).toBeInTheDocument();
     expect(screen.queryByRole('tree')).not.toBeInTheDocument();
   });
 
   it('渲染搜索框、目录、文件和当前文件高亮', () => {
     renderTree();
 
-    expect(screen.getByRole('searchbox', { name: '筛选文件' })).toHaveAttribute('placeholder', '筛选文件...');
+    expect(screen.getByRole('searchbox', { name: 'Filter files' })).toHaveAttribute('placeholder', 'Filter files...');
     expect(screen.getByRole('tree')).toBeInTheDocument();
     expect(screen.getByRole('treeitem', { name: 'docs' })).toBeInTheDocument();
 
@@ -73,7 +73,7 @@ describe('ProjectFileTree', () => {
   it('渲染截断目录提示', () => {
     renderTree({ truncatedPaths: ['docs'] });
 
-    expect(screen.getByText('当前目录文件较多，仅显示前 500 项')).toBeInTheDocument();
+    expect(screen.getByText('Only the first 500 items in this directory are shown')).toBeInTheDocument();
   });
 
   it('输入搜索时触发 onSearchChange(value)', async () => {
@@ -93,7 +93,7 @@ describe('ProjectFileTree', () => {
     );
 
     for (const value of ['r', 're', 'rea', 'read', 'readm', 'readme']) {
-      await user.type(screen.getByRole('searchbox', { name: '筛选文件' }), value.slice(-1));
+      await user.type(screen.getByRole('searchbox', { name: 'Filter files' }), value.slice(-1));
       rerender(
         <ProjectFileTree
           nodes={createNodes()}

@@ -7,7 +7,7 @@ describe('RunDetailPanel', () => {
   it('shows an empty state when no run is selected', () => {
     render(<RunDetailPanel />);
 
-    expect(screen.getByText('选择 run 查看详情')).toBeInTheDocument();
+    expect(screen.getByText('Select a run to view details')).toBeInTheDocument();
   });
 
   it('shows an empty diagnostics state when the selected run has no diagnostic files', () => {
@@ -29,7 +29,7 @@ describe('RunDetailPanel', () => {
 
     render(<RunDetailPanel runId="run_1" diagnostics={diagnostics} />);
 
-    expect(screen.getByText('暂无诊断文件')).toBeInTheDocument();
+    expect(screen.getByText('No diagnostic files')).toBeInTheDocument();
   });
 
   it('shows attachments associated with the selected run', () => {
@@ -54,7 +54,7 @@ describe('RunDetailPanel', () => {
       />
     );
 
-    expect(screen.getByText('附件')).toBeInTheDocument();
+    expect(screen.getByText('Attachments')).toBeInTheDocument();
     expect(screen.getByText('screen.png')).toBeInTheDocument();
     expect(screen.getByText('image/png · 2 KB')).toBeInTheDocument();
   });
@@ -83,10 +83,10 @@ describe('RunDetailPanel', () => {
 
     render(<RunDetailPanel runId="run_2" diagnostics={createDiagnostics()} context={context} />);
 
-    expect(screen.getByText('本次使用的上下文')).toBeInTheDocument();
-    expect(screen.getByText('项目记忆')).toBeInTheDocument();
+    expect(screen.getByText('Context used in this run')).toBeInTheDocument();
+    expect(screen.getByText('Project memory')).toBeInTheDocument();
     expect(screen.getByText('提交前运行全部测试')).toBeInTheDocument();
-    expect(screen.getByText('会话摘要 v3')).toBeInTheDocument();
+    expect(screen.getByText('Conversation summary v3')).toBeInTheDocument();
     expect(screen.getByText('用户：继续开发')).toBeInTheDocument();
   });
 
@@ -99,7 +99,7 @@ describe('RunDetailPanel', () => {
       />
     );
 
-    expect(screen.getByText('本次运行未使用长期记忆或摘要')).toBeInTheDocument();
+    expect(screen.getByText('This run used no long-term memories or summaries')).toBeInTheDocument();
   });
 
   it('requires confirmation before exporting the redacted diagnostics bundle', async () => {
@@ -114,15 +114,15 @@ describe('RunDetailPanel', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '导出脱敏诊断包' }));
-    const confirmation = screen.getByRole('region', { name: '确认导出诊断' });
-    expect(within(confirmation).getByText(/不包含原始 Prompt、Token 或 Secret/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Export redacted diagnostics' }));
+    const confirmation = screen.getByRole('region', { name: 'Confirm diagnostics export' });
+    expect(within(confirmation).getByText(/without original prompts, tokens, or secrets/)).toBeInTheDocument();
 
-    fireEvent.click(within(confirmation).getByRole('button', { name: '取消' }));
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Cancel' }));
     expect(onExport).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: '导出脱敏诊断包' }));
-    fireEvent.click(screen.getByRole('button', { name: '确认导出' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Export redacted diagnostics' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm export' }));
 
     await waitFor(() => expect(onExport).toHaveBeenCalledWith(diagnostics));
   });
@@ -175,7 +175,7 @@ describe('RunDetailPanel', () => {
 
     render(<RunDetailPanel runId="run_3" diagnostics={diagnostics} />);
 
-    expect(screen.getByText('暂无 Codex 诊断')).toBeInTheDocument();
+    expect(screen.getByText('No Codex diagnostics')).toBeInTheDocument();
   });
 });
 

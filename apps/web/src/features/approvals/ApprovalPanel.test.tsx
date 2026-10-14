@@ -34,14 +34,14 @@ describe('ApprovalPanel', () => {
       />
     );
 
-    expect(screen.getByText('终端')).toBeInTheDocument();
-    expect(screen.getByText('允许 OpenCreator 执行这条命令？')).toBeInTheDocument();
-    expect(screen.getByText('仅本次')).toBeInTheDocument();
-    expect(screen.getByText('查看操作详情')).toBeInTheDocument();
+    expect(screen.getByText('Terminal')).toBeInTheDocument();
+    expect(screen.getByText('Allow OpenCreator to run this command?')).toBeInTheDocument();
+    expect(screen.getByText('This time only')).toBeInTheDocument();
+    expect(screen.getByText('View operation details')).toBeInTheDocument();
     expect(screen.getByText('rm -rf build')).toBeInTheDocument();
     expect(screen.getByText('/workspace')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '允许一次' }));
-    fireEvent.click(screen.getByRole('button', { name: '拒绝' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Allow once' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
 
     expect(onApprove).toHaveBeenCalledWith('approval_1');
     expect(onReject).toHaveBeenCalledWith('approval_1');
@@ -56,8 +56,8 @@ describe('ApprovalPanel', () => {
       />
     );
 
-    expect(screen.getByText('已拒绝')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '允许一次' })).not.toBeInTheDocument();
+    expect(screen.getByText('Denied')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Allow once' })).not.toBeInTheDocument();
   });
 
   it('explains an expired approval without exposing technical codes', () => {
@@ -74,7 +74,7 @@ describe('ApprovalPanel', () => {
       />
     );
 
-    expect(screen.getByText('审批已过期，本次任务不会继续执行。')).toBeInTheDocument();
+    expect(screen.getByText('This approval has expired. The task will not continue.')).toBeInTheDocument();
     expect(screen.queryByText('approval_timeout')).not.toBeInTheDocument();
   });
 });

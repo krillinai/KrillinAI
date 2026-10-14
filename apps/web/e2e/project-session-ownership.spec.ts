@@ -145,7 +145,7 @@ test('OpenCreator owns projects and mapped sessions across reloads', async ({ pa
   });
 
   await page.reload();
-  await expect(page.getByRole('status', { name: '本地运行内核正常' })).toBeVisible();
+  await expect(page.getByRole('status', { name: 'The local Runtime is ready' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '普通会话' })).toBeVisible();
   await expect(page.getByText(prompt)).toBeVisible();
   await expect(page.getByText('刷新后仍从 Codex 会话恢复的回答')).toBeVisible();

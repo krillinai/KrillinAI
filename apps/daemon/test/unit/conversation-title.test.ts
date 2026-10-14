@@ -22,7 +22,7 @@ describe('createConversationTitle', () => {
   it('uses a concise compatibility title for truncated legacy assistant prompts', () => {
     expect(createConversationTitle(
       '你是 OpenCreator 的计划任务配置助手。 不要调用工具，不要修改文件，只根据用户描述生成一个计划任务草稿。 用户所在时区：Asia/Shanghai 只输出一…'
-    )).toBe('创建计划任务');
+    )).toBe('Create scheduled task');
   });
 
   it('removes attachment metadata and uses the user request', () => {
@@ -44,8 +44,8 @@ describe('createConversationTitle', () => {
 
   it('uses a short fallback for attachment-only and blank requests', () => {
     expect(createConversationTitle('# Files mentioned by the user:\n\n## image.png: /tmp/image.png'))
-      .toBe('查看附件');
-    expect(createConversationTitle('   ')).toBe('新对话');
+      .toBe('View attachments');
+    expect(createConversationTitle('   ')).toBe('New conversation');
   });
 
   it('limits long titles by visual width', () => {

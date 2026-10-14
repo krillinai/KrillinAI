@@ -224,7 +224,7 @@ test('@package-smoke 授权回调唤起个人中心，模型初始化期间立�
         if (-not [OpenCreatorE2EWindow]::IsIconic($windowHandle)) { throw 'Desktop native window did not minimize'; }
       `], { timeout: 10_000 });
     } else {
-      await fixture.page.getByRole('button', { name: '最小化窗口', exact: true }).click();
+      await fixture.page.getByRole('button', { name: 'Minimize window', exact: true }).click();
     }
     approved = true;
     const checks: string[] = [];
@@ -1154,7 +1154,7 @@ test('后台 Probe 失败时仍进入 Dashboard 并暴露诊断状态', async ()
         status: payload.availabilityProbe?.status,
         errorCode: payload.availabilityProbe?.errorCode,
         hasDiagnostic: payload.diagnostics?.some(message =>
-          message.includes('Codex 后台可用性验证失败')
+          message.includes('Codex background availability verification failed')
         ) ?? false
       };
     }), { timeout: 15_000 }).toEqual({
@@ -1172,7 +1172,7 @@ test('Dashboard 握手超时后显示本地错误页并可无 Probe 重载', asy
   const fixture = await launchPackagedDesktop('workspace-failure');
   try {
     await expect(fixture.page.locator('#status-title')).toHaveText(
-      'Dashboard 加载失败',
+      'Dashboard failed to load',
       { timeout: 30_000 }
     );
     await expect(fixture.page.locator('#reload-workspace')).toBeVisible();
@@ -1353,12 +1353,12 @@ test('@package-smoke 关闭后隐藏保留本地服务，重新打开后可以�
     await fixture.page.evaluate(async () => {
       await window.opencreatorDesktop?.updateDesktopPreferences({ closeBehavior: 'hide' });
     });
-    await fixture.page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+    await fixture.page.getByRole('button', { name: 'Close window', exact: true }).click();
     expect(fixture.process.exitCode).toBeNull();
     expect((await runtimeRequest(fixture.page, 'GET', '/healthz')).status).toBe(200);
 
     await launchSecondInstance(fixture);
-    await expect(fixture.page.getByRole('button', { name: '关闭窗口', exact: true })).toBeVisible();
+    await expect(fixture.page.getByRole('button', { name: 'Close window', exact: true })).toBeVisible();
     await requestPackagedAppQuit(fixture);
     expect(await waitForProcessExit(fixture.process, 3_000)).toBe(true);
     expect(fixture.process.exitCode).toBe(0);
@@ -1493,7 +1493,7 @@ test('@package-smoke 设置关闭后退出时，关闭按钮结束实际 App', a
     await fixture.page.evaluate(async () => {
       await window.opencreatorDesktop?.updateDesktopPreferences({ closeBehavior: 'quit' });
     });
-    await fixture.page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+    await fixture.page.getByRole('button', { name: 'Close window', exact: true }).click();
     expect(await waitForProcessExit(fixture.process, 3_000)).toBe(true);
     expect(fixture.process.exitCode).toBe(0);
   } finally {

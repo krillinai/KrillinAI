@@ -88,7 +88,7 @@ export function McpSettingsView(props: {
         if (!canceled) pageIssues.captureOperationFailure(
           'settings.mcp.load',
           reason,
-          '无法加载 MCP 服务，请重试。',
+          'Could not load MCP servers. Try again.',
           { retryable: true }
         );
       })
@@ -119,17 +119,17 @@ export function McpSettingsView(props: {
     if (props.service === null) return;
     const removeConfirmed = action !== 'remove'
       || (props.confirmRemove?.(server) ?? await confirm({
-        title: '删除 MCP',
-        description: `确认删除“${server.name}”？相关连接将立即停用。`,
-        confirmLabel: '删除',
+        title: 'Remove MCP',
+        description: `Delete "${server.name}"? Its connections will be disabled immediately.`,
+        confirmLabel: 'Remove',
         destructive: true
       }));
     if (!removeConfirmed) return;
     const confirmed = !data?.requiresWriteConfirmation
       || (props.confirmWrite?.() ?? (action === 'remove' ? true : await confirm({
-        title: '确认修改全局配置',
-        description: '此操作会修改全局 CODEX_HOME，并影响使用同一配置目录的其他会话。',
-        confirmLabel: '继续'
+        title: 'Confirm global configuration change',
+        description: 'This changes the global CODEX_HOME and may affect other sessions using it.',
+        confirmLabel: 'Continue'
       })));
     if (!confirmed) return;
 
@@ -149,7 +149,7 @@ export function McpSettingsView(props: {
       pageIssues.captureOperationFailure(
         operationId,
         reason,
-        `MCP ${action === 'login' ? '登录' : action === 'logout' ? '退出' : '删除'}操作未完成，请检查诊断信息后重试。`
+        `MCP ${action === 'login' ? 'sign-in' : action === 'logout' ? 'sign-out' : 'removal'} did not complete. Check diagnostics and try again.`
       );
     } finally {
       setBusyName(undefined);
@@ -162,8 +162,8 @@ export function McpSettingsView(props: {
     <section className="settings-section settings-management" aria-labelledby="settings-mcp-title">
       <header className="settings-management__header">
         <div>
-          <h1 id="settings-mcp-title">MCP 服务</h1>
-          <p>管理 Codex 可连接的本机命令和远程 MCP 服务。</p>
+          <h1 id="settings-mcp-title">MCP servers</h1>
+          <p>Manage local commands and remote MCP servers available to Codex.</p>
         </div>
         <button
           className="settings-primary-button"
@@ -172,18 +172,18 @@ export function McpSettingsView(props: {
           onClick={() => setEditorOpen(true)}
         >
           <Plus size={16} />
-          新增 MCP
+          Add MCP server
         </button>
       </header>
 
       {!props.connected || props.service === null ? (
-        <p className="settings-notice">本地服务连接后可以管理 MCP。</p>
+        <p className="settings-notice">Connect the local Runtime to manage MCP servers.</p>
       ) : null}
       {props.connected && props.service !== null && props.capabilities?.mcpAdd !== true ? (
-        <p className="settings-notice">当前 Codex 版本不支持新增 MCP</p>
+        <p className="settings-notice">This Codex version does not support adding MCP servers</p>
       ) : null}
       {data?.requiresWriteConfirmation ? (
-        <p className="settings-notice">写操作会修改全局 CODEX_HOME，每次操作都需要确认。</p>
+        <p className="settings-notice">Write operations change the global CODEX_HOME and require confirmation each time.</p>
       ) : null}
       <IssueList
         issues={pageIssues.issues}
@@ -202,9 +202,9 @@ export function McpSettingsView(props: {
             if (props.service === null) return;
             const confirmed = !data?.requiresWriteConfirmation
               || (props.confirmWrite?.() ?? await confirm({
-                title: '确认修改全局配置',
-                description: '此操作会修改全局 CODEX_HOME，并影响使用同一配置目录的其他会话。',
-                confirmLabel: '继续'
+                title: 'Confirm global configuration change',
+                description: 'This changes the global CODEX_HOME and may affect other sessions using it.',
+                confirmLabel: 'Continue'
               }));
             if (!confirmed) return;
             try {
@@ -228,7 +228,7 @@ export function McpSettingsView(props: {
               pageIssues.captureOperationFailure(
                 'settings.mcp.add',
                 reason,
-                '无法新增 MCP，请检查配置后重试。'
+                'Could not add the MCP server. Check the settings and try again.'
               );
             }
           }}
@@ -238,15 +238,15 @@ export function McpSettingsView(props: {
       {loading ? (
         <div className="settings-state" role="status">
           <LoaderCircle size={20} className="settings-spin" />
-          正在加载 MCP 服务
+          Loading MCP servers
         </div>
       ) : data !== undefined && data.servers.length === 0 ? (
         <div className="settings-state">
           <Server size={22} />
-          暂无 MCP 服务
+          No MCP servers
         </div>
       ) : (
-        <ul className="settings-item-list" aria-label="MCP 服务列表">
+        <ul className="settings-item-list" aria-label="MCP server list">
           {data?.servers.map(server => {
             const busy = busyName === server.name;
             return (
@@ -255,11 +255,11 @@ export function McpSettingsView(props: {
                   <div className="settings-item__title">
                     <Server size={16} />
                     <h2>{server.name}</h2>
-                    <span data-status={server.status}>{server.status === 'configured' ? '已配置' : server.status}</span>
+                    <span data-status={server.status}>{server.status === 'configured' ? 'Configured' : server.status}</span>
                   </div>
                   <p>{mcpEndpoint(server)}</p>
                   {server.envKeys.length > 0 ? (
-                    <div className="settings-tags" aria-label={`${server.name} 环境变量`}>
+                    <div className="settings-tags" aria-label={`${server.name} environment variables`}>
                       <KeyRound size={14} />
                       {server.envKeys.map(key => <code key={key}>{key}</code>)}
                     </div>
@@ -271,8 +271,8 @@ export function McpSettingsView(props: {
                 <div className="settings-item__actions">
                   <button
                     type="button"
-                    aria-label={`登录 ${server.name}`}
-                    title="登录"
+                    aria-label={`Sign in to ${server.name}`}
+                    title="Sign in"
                     disabled={busy || props.capabilities?.mcpLogin !== true}
                     onClick={() => void runServerAction(server, 'login')}
                   >
@@ -280,8 +280,8 @@ export function McpSettingsView(props: {
                   </button>
                   <button
                     type="button"
-                    aria-label={`退出 ${server.name}`}
-                    title="退出"
+                    aria-label={`Sign out of ${server.name}`}
+                    title="Sign out"
                     disabled={busy || props.capabilities?.mcpLogout !== true}
                     onClick={() => void runServerAction(server, 'logout')}
                   >
@@ -289,8 +289,8 @@ export function McpSettingsView(props: {
                   </button>
                   <button
                     type="button"
-                    aria-label={`删除 ${server.name}`}
-                    title="删除"
+                    aria-label={`Remove ${server.name}`}
+                    title="Remove"
                     disabled={busy || props.capabilities?.mcpRemove !== true}
                     onClick={() => void runServerAction(server, 'remove')}
                   >
@@ -327,7 +327,7 @@ export function McpEditor(props: {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedName = name.trim();
-    if (trimmedName.length === 0) return setFormError('请输入 MCP 名称');
+    if (trimmedName.length === 0) return setFormError('Enter an MCP server name');
     const env = Object.fromEntries(
       envEntries
         .map(entry => [entry.key.trim(), entry.value] as const)
@@ -335,7 +335,7 @@ export function McpEditor(props: {
     );
     let input: AddCodexMcpRequest;
     if (transport === 'stdio') {
-      if (command.trim().length === 0) return setFormError('请输入启动命令');
+      if (command.trim().length === 0) return setFormError('Enter a launch command');
       input = {
         name: trimmedName,
         transport,
@@ -344,7 +344,7 @@ export function McpEditor(props: {
         ...(Object.keys(env).length > 0 ? { env } : {})
       };
     } else {
-      if (url.trim().length === 0) return setFormError('请输入 MCP URL');
+      if (url.trim().length === 0) return setFormError('Enter an MCP URL');
       input = {
         name: trimmedName,
         transport,
@@ -366,26 +366,26 @@ export function McpEditor(props: {
   }
 
   return (
-    <form className="settings-editor" aria-label="新增 MCP" onSubmit={submit}>
+    <form className="settings-editor" aria-label="Add MCP server" onSubmit={submit}>
       <header>
         <div>
-          <p>新增连接</p>
-          <h2>配置 MCP 服务</h2>
+          <p>Add connection</p>
+          <h2>Configure MCP server</h2>
         </div>
-        <button type="button" aria-label="关闭 MCP 编辑器" title="关闭" onClick={props.onCancel}>
+        <button type="button" aria-label="Close MCP editor" title="Close" onClick={props.onCancel}>
           <X size={17} />
         </button>
       </header>
       {formError ? <p className="settings-error" role="alert">{formError}</p> : null}
       <div className="settings-form-grid">
         <label>
-          <span>名称</span>
-          <input aria-label="名称" value={name} onChange={event => setName(event.target.value)} />
+          <span>Name</span>
+          <input aria-label="Name" value={name} onChange={event => setName(event.target.value)} />
         </label>
         <label>
-          <span>传输方式</span>
+          <span>Transport</span>
           <select
-            aria-label="传输方式"
+            aria-label="Transport"
             value={transport}
             onChange={event => setTransport(event.target.value as typeof transport)}
           >
@@ -397,12 +397,12 @@ export function McpEditor(props: {
         {transport === 'stdio' ? (
           <>
             <label>
-              <span>命令</span>
-              <input aria-label="命令" value={command} onChange={event => setCommand(event.target.value)} />
+              <span>Command</span>
+              <input aria-label="Command" value={command} onChange={event => setCommand(event.target.value)} />
             </label>
             <label>
-              <span>参数（每行一个）</span>
-              <textarea aria-label="参数" rows={3} value={args} onChange={event => setArgs(event.target.value)} />
+              <span>Arguments (one per line)</span>
+              <textarea aria-label="Arguments" rows={3} value={args} onChange={event => setArgs(event.target.value)} />
             </label>
           </>
         ) : (
@@ -412,9 +412,9 @@ export function McpEditor(props: {
               <input aria-label="MCP URL" value={url} onChange={event => setUrl(event.target.value)} />
             </label>
             <label>
-              <span>Bearer Token 环境变量名</span>
+              <span>Bearer token environment variable</span>
               <input
-                aria-label="Bearer Token 环境变量名"
+                aria-label="Bearer token environment variable"
                 disabled={props.capabilities?.mcpAddBearerTokenEnvVar !== true}
                 value={bearerTokenEnvVar}
                 onChange={event => setBearerTokenEnvVar(event.target.value)}
@@ -442,22 +442,22 @@ export function McpEditor(props: {
         )}
       </div>
       <fieldset className="settings-env-editor" disabled={props.capabilities?.mcpAddEnv !== true}>
-        <legend>环境变量</legend>
+        <legend>Environment variables</legend>
         {envEntries.map((entry, index) => (
           <div key={entry.id}>
             <input
-              aria-label={index === 0 ? '环境变量名' : `环境变量名 ${index + 1}`}
-              placeholder="变量名"
+              aria-label={index === 0 ? 'Environment variable name' : `Environment variable name ${index + 1}`}
+              placeholder="Variable name"
               value={entry.key}
               onChange={event => setEnvEntries(current => current.map(item => (
                 item.id === entry.id ? { ...item, key: event.target.value } : item
               )))}
             />
             <input
-              aria-label={index === 0 ? '环境变量值' : `环境变量值 ${index + 1}`}
+              aria-label={index === 0 ? 'Environment variable value' : `Environment variable value ${index + 1}`}
               type="password"
               autoComplete="off"
-              placeholder="仅在本次保存时使用"
+              placeholder="Used only for this save"
               value={entry.value}
               onChange={event => setEnvEntries(current => current.map(item => (
                 item.id === entry.id ? { ...item, value: event.target.value } : item
@@ -466,7 +466,7 @@ export function McpEditor(props: {
             {envEntries.length > 1 ? (
               <button
                 type="button"
-                aria-label={`移除环境变量 ${index + 1}`}
+                aria-label={`Remove environment variable ${index + 1}`}
                 onClick={() => setEnvEntries(current => current.filter(item => item.id !== entry.id))}
               >
                 <Trash2 size={15} />
@@ -483,15 +483,15 @@ export function McpEditor(props: {
           ])}
         >
           <Plus size={15} />
-          添加变量
+          Add variable
         </button>
       </fieldset>
-      {props.requiresWriteConfirmation ? <p className="settings-notice">保存时将再次确认全局写入。</p> : null}
+      {props.requiresWriteConfirmation ? <p className="settings-notice">Saving requires another confirmation of the global configuration change.</p> : null}
       <footer>
-        <button className="settings-secondary-button" type="button" onClick={props.onCancel}>取消</button>
+        <button className="settings-secondary-button" type="button" onClick={props.onCancel}>Cancel</button>
         <button className="settings-primary-button" type="submit" disabled={saving}>
           {saving ? <LoaderCircle size={16} className="settings-spin" /> : <Server size={16} />}
-          保存 MCP
+          Save MCP server
         </button>
       </footer>
     </form>

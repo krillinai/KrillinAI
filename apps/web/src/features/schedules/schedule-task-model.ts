@@ -34,7 +34,7 @@ export type ScheduleTaskSummary =
       threadId: string | null;
       bindingStatus: 'repair_required';
       bindingIssue: ScheduleTaskBindingIssue;
-      statusMessage: '任务会话需要修复';
+      statusMessage: 'The task conversation needs attention';
       currentRunStatus: null;
     });
 
@@ -100,7 +100,7 @@ function repairSummary(
     threadId,
     bindingStatus: 'repair_required',
     bindingIssue,
-    statusMessage: '任务会话需要修复',
+    statusMessage: 'The task conversation needs attention',
     currentRunStatus: null
   };
 }

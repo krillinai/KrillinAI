@@ -215,7 +215,11 @@ export function createVideoExecutor(input: {
           }
         };
       } catch (error) {
-        if (providerRequest && input.ledger && ['submitting', 'waiting_remote'].includes(providerRequest.status)) input.ledger.markUnknownRemoteAcceptance(providerRequest.id);
+        if (providerRequest && input.ledger && ['submitting', 'waiting_remote'].includes(providerRequest.status)) {
+          const status = error instanceof VideoGenerationError ? error.publicFacts?.httpStatus ?? error.statusCode : undefined;
+          if (providerRequest.remoteTaskId === null && status !== undefined && [400, 401, 402, 403, 404, 422, 429].includes(status)) input.ledger.markFailed(providerRequest.id, error);
+          else input.ledger.markUnknownRemoteAcceptance(providerRequest.id);
+        }
         throw creatorVideoError(error);
       }
     }
@@ -284,10 +288,11 @@ function readResumedResultId(stage: CreatorExecutorInput): string | undefined {
     : [...stage.job.stages].reverse().find(candidate => (
         candidate.id !== stage.stageRun.id
         && candidate.stageId === stage.stageRun.stageId
+        && candidate.scopeKey === stage.stageRun.scopeKey
         && candidate.status === 'failed'
-        && candidate.errorCode === 'creator_video_upstream_error'
-        && typeof candidate.progress.videoGenerationResultId === 'string'
       ));
+  if (typeof resumedFrom !== 'string' && (previous?.errorCode !== 'creator_video_upstream_error'
+    || stage.job.providerRequests.some(request => request.stageRunId === previous.id && request.provider === 'opencreator-gateway-video' && request.status === 'failed'))) return undefined;
   const resultId = previous?.progress.videoGenerationResultId;
   return typeof resultId === 'string' && resultId.length > 0 ? resultId : undefined;
 }

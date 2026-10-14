@@ -51,7 +51,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
   const [expandedPaths, setExpandedPaths] = useState<string[]>([]);
   const [truncatedPaths, setTruncatedPaths] = useState<string[]>([]);
   const [search, setSearch] = useState('');
-  const [rootName, setRootName] = useState('工作区');
+  const [rootName, setRootName] = useState('Workspace');
   const [rootPathLabel, setRootPathLabel] = useState('');
   const [workspaceMessage, setWorkspaceMessage] = useState<string>();
   const [activePath, setActivePath] = useState<string>();
@@ -67,7 +67,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
   const [fileMode, setFileMode] = useState<FileEditorMode>('preview');
   const pageIssues = usePageIssueState('files');
   const handlePreviewError = useCallback((error: unknown) => {
-    pageIssues.captureOperationFailure('files.preview-html', error, '无法生成 HTML 预览，请切换到编辑模式查看源码。');
+    pageIssues.captureOperationFailure('files.preview-html', error, 'Could not generate the HTML preview. Switch to edit mode to view the source.');
   }, [pageIssues.captureOperationFailure]);
   const handlePreviewReady = useCallback(() => {
     pageIssues.resolveOperation('files.preview-html');
@@ -141,7 +141,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
     setExpandedPaths([]);
     setTruncatedPaths([]);
     setSearch('');
-    setRootName('工作区');
+    setRootName('Workspace');
     setRootPathLabel('');
     setWorkspaceMessage(undefined);
     setActivePath(undefined);
@@ -188,7 +188,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
         }
 
         setWorkspaceMessage(undefined);
-        pageIssues.captureOperationFailure('files.load-workspace', error, '无法加载文件工作区，请重试。', { retryable: true });
+        pageIssues.captureOperationFailure('files.load-workspace', error, 'Could not load the file workspace. Try again.', { retryable: true });
       });
 
     return () => {
@@ -270,9 +270,9 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
     }
 
     if (!options?.skipDirtyConfirm && dirty && !await confirm({
-      title: '放弃未保存的修改？',
-      description: '切换文件后，当前文件中尚未保存的修改将丢失。',
-      confirmLabel: '放弃并切换',
+      title: 'Discard unsaved changes?',
+      description: 'Switching files will discard unsaved changes in the current file.',
+      confirmLabel: 'Discard and switch',
       destructive: true
     })) {
       return;
@@ -324,7 +324,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
       if (!mountedRef.current || requestId !== openRequestIdRef.current) {
         return;
       }
-      pageIssues.captureOperationFailure('files.open', error, '无法打开文件，请重试。', { retryable: true });
+      pageIssues.captureOperationFailure('files.open', error, 'Could not open the file. Try again.', { retryable: true });
     } finally {
       if (mountedRef.current && requestId === openRequestIdRef.current) {
         setLoading(false);
@@ -372,7 +372,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
         return;
       }
       setWorkspaceMessage(undefined);
-      pageIssues.captureOperationFailure('files.list-directory', error, '无法加载目录，请重试。', { retryable: true });
+      pageIssues.captureOperationFailure('files.list-directory', error, 'Could not load the directory. Try again.', { retryable: true });
     }
   }
 
@@ -409,12 +409,12 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
 
       if (error instanceof ApiClientError && error.status === 409 && error.code === 'FILE_CONFLICT') {
         setConflictOpen(true);
-        pageIssues.captureOperationFailure('files.save', error, '文件已在其他位置更新，请确认是否覆盖。', {
+        pageIssues.captureOperationFailure('files.save', error, 'The file was changed elsewhere. Confirm before overwriting it.', {
           retryable: true,
           risk: 'overwrite'
         });
       } else {
-        pageIssues.captureOperationFailure('files.save', error, '文件保存失败，请重试。', { retryable: true });
+        pageIssues.captureOperationFailure('files.save', error, 'Could not save the file. Try again.', { retryable: true });
       }
     } finally {
       if (mountedRef.current) {
@@ -433,15 +433,15 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
       await service.reveal({ threadId: thread.id, path: activePath, mode: 'file' });
       pageIssues.resolveOperation('files.reveal');
     } catch (error) {
-      pageIssues.captureOperationFailure('files.reveal', error, '无法在系统中打开文件，请重试。', { retryable: true });
+      pageIssues.captureOperationFailure('files.reveal', error, 'Could not open the file in the system application. Try again.', { retryable: true });
     }
   }
 
   async function handleBack() {
     if (dirty && !await confirm({
-      title: '关闭文件工作区？',
-      description: '当前文件还有未保存的修改，关闭后这些修改将丢失。',
-      confirmLabel: '放弃并关闭',
+      title: 'Close the file workspace?',
+      description: 'Closing the workspace will discard unsaved changes in the current file.',
+      confirmLabel: 'Discard and close',
       destructive: true
     })) {
       return;
@@ -491,11 +491,11 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
   }
 
   if (!thread) {
-    return renderEmptyWorkspace('请选择或创建一个会话后查看文件');
+    return renderEmptyWorkspace('Select or create a conversation to view files');
   }
 
   if (!service) {
-    return renderEmptyWorkspace('本地文件服务暂不可用');
+    return renderEmptyWorkspace('The local file service is unavailable');
   }
 
   const fileWorkspaceBodyStyle = {
@@ -557,19 +557,19 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
             onDismiss={pageIssues.dismissIssue}
             compact
           />
-          {threadReadonly ? <div className="file-workspace-notice">当前会话为只读模式，不能保存文件</div> : null}
+          {threadReadonly ? <div className="file-workspace-notice">This conversation is read-only. Files cannot be saved.</div> : null}
           {workspaceMessage ? <div className="file-workspace-notice">{workspaceMessage}</div> : null}
           {conflictOpen ? (
-            <div className="file-workspace-conflict" role="group" aria-label="处理文件冲突">
+            <div className="file-workspace-conflict" role="group" aria-label="Resolve file conflict">
               <div className="file-workspace-conflict-actions">
                 <button className="button-secondary" type="button" onClick={() => void openFilePath(meta?.path ?? '', { skipDirtyConfirm: true })}>
-                  重新加载
+                  Reload
                 </button>
                 <button className="button-secondary" type="button" onClick={() => void handleSave(true)}>
-                  覆盖保存
+                  Overwrite and save
                 </button>
                 <button className="button-secondary" type="button" onClick={() => setConflictOpen(false)}>
-                  取消
+                  Cancel
                 </button>
               </div>
             </div>
@@ -599,7 +599,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
             <div
               className="pane-resize-handle file-tree-resize-handle"
               role="separator"
-              aria-label="调整编辑区和目录树宽度"
+              aria-label="Resize the editor and file tree"
               aria-orientation="vertical"
               aria-valuenow={treeWidth}
               tabIndex={0}

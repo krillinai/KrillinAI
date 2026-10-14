@@ -8,21 +8,21 @@ export function ConnectionPanel(props: {
 }) {
   const title =
     props.status === 'connected'
-      ? `已连接 ${props.codexStatus?.codexVersion ?? 'unknown'}`
+      ? `Connected ${props.codexStatus?.codexVersion ?? 'unknown'}`
       : props.status === 'invalid_token'
-        ? 'Runtime 授权未就绪'
-        : '正在等待本机 Runtime';
+        ? 'Runtime authorization is not ready'
+        : 'Waiting for the local Runtime';
   const message =
     props.status === 'connected'
       ? props.codexStatus?.codexHome
       : props.status === 'invalid_token'
-        ? '本机 Runtime 握手失败，请重新检测。'
+        ? 'The local Runtime handshake failed. Check again.'
         : props.message !== undefined && props.message !== title
           ? props.message
-          : '应用会自动接入本机 Codex Runtime，无需手动配置。';
+          : 'OpenCreator connects to the local Codex Runtime automatically.';
 
   return (
-    <div className="connection-panel" aria-label="Runtime 连接状态">
+    <div className="connection-panel" aria-label="Runtime connection status">
       <div className="panel-header">
         <div className="connection-status">
           <span className={`connection-status-dot ${props.status}`} aria-hidden="true" />
@@ -32,7 +32,7 @@ export function ConnectionPanel(props: {
       <div className="connection-summary">
         {message ? <p>{message}</p> : null}
         <button type="button" onClick={props.onRetry}>
-          重新检测
+          Retry detection
         </button>
       </div>
     </div>

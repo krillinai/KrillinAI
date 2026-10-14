@@ -2342,7 +2342,7 @@ function useArtifactUrl(artifactId?: string): string {
       sessionRef.current,
       artifactId,
       'stickman.load-artifact-preview',
-      '创作产物预览加载失败，请稍后重试。'
+      'Could not load the output preview. Try again later.'
     ).then(url => {
       if (canceled) {
         URL.revokeObjectURL(url);
@@ -2500,7 +2500,7 @@ async function openArtifact(session: CreatorSessionContextValue, artifact: Creat
     session,
     artifact.id,
     'stickman.open-artifact',
-    '无法打开创作产物，请稍后重试。'
+    'Could not open the output. Try again later.'
   );
   window.open(url, '_blank', 'noopener,noreferrer');
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
@@ -2511,7 +2511,7 @@ async function downloadArtifact(session: CreatorSessionContextValue, artifact: C
     session,
     artifact.id,
     'stickman.download-artifact',
-    '创作产物下载失败，请稍后重试。'
+    'Could not download the output. Try again later.'
   );
   const anchor = document.createElement('a');
   anchor.href = url;

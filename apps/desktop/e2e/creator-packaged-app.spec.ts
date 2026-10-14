@@ -251,7 +251,7 @@ test('打包 App 的浅色窗口按钮区域与设置侧栏连续且保留标题
     expect(await fixture.app.page.evaluate(() => (
       typeof window.opencreatorDesktop?.setWindowColorMode
     ))).toBe('function');
-    await expect(fixture.app.page.getByRole('group', { name: '窗口控制' }).getByRole('button')).toHaveCount(3);
+    await expect(fixture.app.page.getByRole('group', { name: 'Window controls' }).getByRole('button')).toHaveCount(3);
     for (const action of ['close', 'minimize', 'zoom']) {
       const background = await fixture.app.page.locator(`.desktop-window-control-${action}`).evaluate(element =>
         getComputedStyle(element).backgroundColor
@@ -268,9 +268,9 @@ test('打包 App 的浅色窗口按钮区域与设置侧栏连续且保留标题
       const title = document.querySelector('.creator-tools-page-header h1')!.getBoundingClientRect();
       return Math.round((brand.top + brand.bottom - title.top - title.bottom) / 2);
     })).toBeLessThanOrEqual(3);
-    await fixture.app.page.getByRole('button', { name: '缩放窗口' }).click();
+    await fixture.app.page.getByRole('button', { name: 'Zoom window' }).click();
     await expect.poll(() => fixture.app.page.evaluate(() => window.innerWidth)).toBeGreaterThan(980);
-    await fixture.app.page.getByRole('button', { name: '缩放窗口' }).click();
+    await fixture.app.page.getByRole('button', { name: 'Zoom window' }).click();
     await expect.poll(() => fixture.app.page.evaluate(() => window.innerWidth)).toBe(980);
     await fixture.app.page.getByRole('button', { name: '我的项目', exact: true }).click();
     await expect(fixture.app.page.getByRole('heading', { name: '我的项目' })).toBeVisible();

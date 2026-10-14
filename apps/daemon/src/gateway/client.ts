@@ -10,6 +10,10 @@ const modelSchema = z.object({
   durations: z.array(z.number().int().positive()).optional(),
   resolutions: z.array(z.string().min(1)).optional(),
   aspectRatios: z.array(z.string().min(1)).optional(),
+  verification: z.object({
+    adapterVersion: z.number().int().positive(), verifiedAt: z.string().datetime(),
+    countries: z.array(z.string().regex(/^[A-Z]{2}$/))
+  }).optional(),
   imageOptions: z.object({
     aspectRatios: z.array(z.string()).optional(), resolutions: z.array(z.string()).optional(),
     qualities: z.array(z.string()).optional(), outputFormats: z.array(z.string()).optional(),
@@ -49,7 +53,7 @@ export type GatewayClient = {
   cancelPendingRequests?(): void;
 };
 export class GatewayError extends Error {
-  constructor(readonly code: string, readonly status = 503) { super('OpenCreator 网关请求未完成'); }
+  constructor(readonly code: string, readonly status = 503) { super('The OpenCreator gateway request did not complete'); }
 }
 export function validateGatewayOrigin(origin: string) {
   const u = new URL(origin);

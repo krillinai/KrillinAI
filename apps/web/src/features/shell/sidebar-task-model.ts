@@ -75,7 +75,7 @@ export function createScheduleDraftSidebarSummaries(
     return {
       id: `draft:${draft.id}`,
       threadId: draft.id,
-      name: draft.title?.trim() || '任务草稿',
+      name: draft.title?.trim() || 'Task draft',
       status: resolveScheduleDraftStatus(
         threadTasks,
         runningThreadIds.has(draft.id)
@@ -128,7 +128,7 @@ function formatNextRunLabel(value: string | null): string | undefined {
   if (value === null) return undefined;
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return undefined;
-  return `下次 ${new Intl.DateTimeFormat('zh-CN', {
+  return `Next ${new Intl.DateTimeFormat('en-US', {
     month: 'numeric',
     day: 'numeric',
     hour: '2-digit',

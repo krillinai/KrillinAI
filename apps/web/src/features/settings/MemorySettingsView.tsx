@@ -96,7 +96,7 @@ export function MemorySettingsView(props: {
       if (!canceled) pageIssues.captureOperationFailure(
         'settings.memory.load',
         reason,
-        '无法加载记忆，请重试。',
+        'Could not load memories. Try again.',
         { retryable: true }
       );
     }).finally(() => {
@@ -157,11 +157,11 @@ export function MemorySettingsView(props: {
     if (!available || editor === undefined) return;
     const content = editor.content.trim();
     if (content.length === 0) {
-      setValidationError('记忆内容不能为空');
+      setValidationError('Memory content cannot be empty');
       return;
     }
     if (editor.scope !== 'global' && editor.scopeKey === undefined) {
-      setValidationError('请选择范围目标');
+      setValidationError('Select a scope target');
       return;
     }
     setSaving(true);
@@ -195,7 +195,7 @@ export function MemorySettingsView(props: {
         pageIssues.captureOperationFailure(
           'settings.memory.save',
           reason,
-          '保存记忆失败，请检查内容后重试。',
+          'Could not save the memory. Check its content and try again.',
           { retryable: true }
         );
       }
@@ -212,7 +212,7 @@ export function MemorySettingsView(props: {
       await refresh();
       pageIssues.resolveOperation(operationId);
     } catch (reason) {
-      pageIssues.captureOperationFailure(operationId, reason, '更新记忆状态失败，请重试。');
+      pageIssues.captureOperationFailure(operationId, reason, 'Could not update memory status. Try again.');
     }
   }
 
@@ -224,7 +224,7 @@ export function MemorySettingsView(props: {
       await refresh();
       pageIssues.resolveOperation(operationId);
     } catch (reason) {
-      pageIssues.captureOperationFailure(operationId, reason, '删除记忆失败，请重试。');
+      pageIssues.captureOperationFailure(operationId, reason, 'Could not delete the memory. Try again.');
     }
   }
 
@@ -236,7 +236,7 @@ export function MemorySettingsView(props: {
       await refresh();
       pageIssues.resolveOperation('settings.memory.disable-all');
     } catch (reason) {
-      pageIssues.captureOperationFailure('settings.memory.disable-all', reason, '全部停用失败，请重试。');
+      pageIssues.captureOperationFailure('settings.memory.disable-all', reason, 'Could not disable all memories. Try again.');
     }
   }
 
@@ -248,7 +248,7 @@ export function MemorySettingsView(props: {
       await refresh();
       pageIssues.resolveOperation(operationId);
     } catch (reason) {
-      pageIssues.captureOperationFailure(operationId, reason, '删除摘要失败，请重试。');
+      pageIssues.captureOperationFailure(operationId, reason, 'Could not delete the summary. Try again.');
     }
   }
 
@@ -256,17 +256,17 @@ export function MemorySettingsView(props: {
     <section className="settings-section settings-management memory-settings" aria-labelledby="settings-memory-title">
       <header className="settings-management__header">
         <div>
-          <h1 id="settings-memory-title">记忆</h1>
-          <p>只保存你明确确认的长期偏好，并记录每次 Run 实际使用的上下文快照。</p>
+          <h1 id="settings-memory-title">Memories</h1>
+          <p>Save confirmed long-term preferences and track the context used by each run.</p>
         </div>
         <button className="settings-primary-button" type="button" disabled={!available} onClick={openCreate}>
           <Plus aria-hidden="true" size={15} />
-          新建记忆
+          New memory
         </button>
       </header>
 
-      {!props.connected ? <p className="settings-notice">本地服务未连接，无法管理记忆。</p> : null}
-      {props.connected && props.service === null ? <p className="settings-notice">记忆服务当前不可用。</p> : null}
+      {!props.connected ? <p className="settings-notice">The local Runtime is disconnected. Memories cannot be managed.</p> : null}
+      {props.connected && props.service === null ? <p className="settings-notice">The memory service is unavailable.</p> : null}
       {validationError ? <p className="settings-error" role="alert">{validationError}</p> : null}
       <IssueList
         issues={pageIssues.issues}
@@ -282,40 +282,40 @@ export function MemorySettingsView(props: {
           <Search aria-hidden="true" size={15} />
           <input
             type="search"
-            aria-label="搜索记忆"
-            placeholder="搜索记忆"
+            aria-label="Search memories"
+            placeholder="Search memories"
             value={query}
             disabled={!available}
             onChange={event => setQuery(event.target.value)}
           />
         </label>
         <label>
-          <span>范围</span>
+          <span>Scope</span>
           <select
-            aria-label="筛选记忆范围"
+            aria-label="Filter memory scope"
             value={scope}
             disabled={!available}
             onChange={event => setScope(event.target.value as MemoryScope | 'all')}
           >
-            <option value="all">全部范围</option>
-            <option value="global">全局</option>
-            <option value="project">项目</option>
-            <option value="thread">线程</option>
+            <option value="all">All scopes</option>
+            <option value="global">Global</option>
+            <option value="project">Project</option>
+            <option value="thread">Thread</option>
           </select>
         </label>
         <label>
-          <span>状态</span>
+          <span>Status</span>
           <select
-            aria-label="筛选记忆状态"
+            aria-label="Filter memory status"
             value={String(enabled)}
             disabled={!available}
             onChange={event => setEnabled(
               event.target.value === 'all' ? 'all' : event.target.value === 'true'
             )}
           >
-            <option value="all">全部状态</option>
-            <option value="true">已启用</option>
-            <option value="false">已停用</option>
+            <option value="all">All statuses</option>
+            <option value="true">Enabled</option>
+            <option value="false">Disabled</option>
           </select>
         </label>
         <button
@@ -325,7 +325,7 @@ export function MemorySettingsView(props: {
           onClick={() => setConfirmingDisableAll(true)}
         >
           <PowerOff aria-hidden="true" size={15} />
-          全部停用
+          Disable all
         </button>
       </div>
 
@@ -343,18 +343,18 @@ export function MemorySettingsView(props: {
       ) : null}
 
       {confirmingDisableAll ? (
-        <section className="settings-confirmation" role="region" aria-label="确认全部停用记忆">
+        <section className="settings-confirmation" role="region" aria-label="Confirm disabling all memories">
           <AlertTriangle aria-hidden="true" size={18} />
           <div>
-            <strong>确认停用全部长期记忆？</strong>
-            <p>记录不会删除，但后续 Run 不再注入这些记忆。</p>
+            <strong>Disable all long-term memories?</strong>
+            <p>Records are retained, but future runs will no longer use these memories.</p>
           </div>
           <div className="settings-confirmation__actions">
             <button className="settings-text-button" type="button" onClick={() => setConfirmingDisableAll(false)}>
-              取消
+              Cancel
             </button>
             <button className="settings-primary-button" type="button" onClick={() => void disableAll()}>
-              确认全部停用
+              Confirm disable all
             </button>
           </div>
         </section>
@@ -363,14 +363,14 @@ export function MemorySettingsView(props: {
       <section className="memory-block" aria-labelledby="memory-list-title">
         <div className="memory-block__header">
           <div>
-            <h2 id="memory-list-title">长期记忆</h2>
-            <p>{memories.length} 条</p>
+            <h2 id="memory-list-title">Long-term memories</h2>
+            <p>{memories.length} entries</p>
           </div>
         </div>
         {loading ? (
-          <div className="settings-state">正在加载记忆...</div>
+          <div className="settings-state">Loading memories...</div>
         ) : memories.length === 0 ? (
-          <div className="settings-state">没有符合条件的记忆</div>
+          <div className="settings-state">No matching memories</div>
         ) : (
           <ul className="memory-list">
             {memories.map(memory => (
@@ -379,29 +379,29 @@ export function MemorySettingsView(props: {
                   <div className="memory-item__meta">
                     <span>{memoryScopeLabel(memory.scope)}</span>
                     <span data-status={memory.enabled ? 'enabled' : 'disabled'}>
-                      {memory.enabled ? '已启用' : '已停用'}
+                      {memory.enabled ? 'Enabled' : 'Disabled'}
                     </span>
-                    {memory.sensitive ? <span data-status="sensitive">敏感</span> : null}
-                    <span>{memory.source === 'user' ? '用户保存' : 'Agent 建议'}</span>
+                    {memory.sensitive ? <span data-status="sensitive">Sensitive</span> : null}
+                    <span>{memory.source === 'user' ? 'Saved by user' : 'Suggested by Agent'}</span>
                   </div>
                   <p>{memory.content}</p>
                   {memory.scopeKey ? <code>{scopeKeyLabel(memory, props.projects, props.threads)}</code> : null}
                 </div>
                 <div className="memory-item__actions">
-                  <button type="button" aria-label="编辑记忆" title="编辑记忆" onClick={() => openEdit(memory)}>
+                  <button type="button" aria-label="Edit memory" title="Edit memory" onClick={() => openEdit(memory)}>
                     <Pencil aria-hidden="true" size={15} />
                   </button>
                   <button
                     type="button"
-                    aria-label={memory.enabled ? '停用记忆' : '启用记忆'}
-                    title={memory.enabled ? '停用记忆' : '启用记忆'}
+                    aria-label={memory.enabled ? 'Disable memory' : 'Enable memory'}
+                    title={memory.enabled ? 'Disable memory' : 'Enable memory'}
                     onClick={() => void toggleMemory(memory)}
                   >
                     {memory.enabled
                       ? <PowerOff aria-hidden="true" size={15} />
                       : <Power aria-hidden="true" size={15} />}
                   </button>
-                  <button type="button" aria-label="删除记忆" title="删除记忆" onClick={() => void deleteMemory(memory.id)}>
+                  <button type="button" aria-label="Delete memory" title="Delete memory" onClick={() => void deleteMemory(memory.id)}>
                     <Trash2 aria-hidden="true" size={15} />
                   </button>
                 </div>
@@ -414,12 +414,12 @@ export function MemorySettingsView(props: {
       <section className="memory-block" aria-labelledby="summary-list-title">
         <div className="memory-block__header">
           <div>
-            <h2 id="summary-list-title">会话摘要</h2>
-            <p>{summaries.length} 个版本</p>
+            <h2 id="summary-list-title">Conversation summaries</h2>
+            <p>{summaries.length} versions</p>
           </div>
         </div>
         {summaries.length === 0 ? (
-          <div className="settings-state">尚未生成会话摘要</div>
+          <div className="settings-state">No conversation summaries yet</div>
         ) : (
           <ul className="summary-list">
             {summaries.map(summary => (
@@ -427,15 +427,15 @@ export function MemorySettingsView(props: {
                 <header>
                   <div>
                     <strong>{optionLabel(summary.threadId, props.threads)}</strong>
-                    <span>版本 {summary.version}</span>
+                    <span>Version {summary.version}</span>
                   </div>
-                  <button type="button" aria-label="删除摘要" title="删除摘要" onClick={() => void deleteSummary(summary.id)}>
+                  <button type="button" aria-label="Delete summary" title="Delete summary" onClick={() => void deleteSummary(summary.id)}>
                     <Trash2 aria-hidden="true" size={15} />
                   </button>
                 </header>
                 <p>{summary.content}</p>
                 <small>
-                  {summary.itemCount} 项 · {summary.coveredFromCursor} 至 {summary.coveredToCursor}
+                  {summary.itemCount} items | {summary.coveredFromCursor} to {summary.coveredToCursor}
                 </small>
               </li>
             ))}
@@ -462,21 +462,21 @@ function MemoryEditor(props: {
       ? props.threads
       : [];
   return (
-    <section className="settings-editor memory-editor" aria-label={props.editor.mode === 'create' ? '新建记忆' : '编辑记忆'}>
+    <section className="settings-editor memory-editor" aria-label={props.editor.mode === 'create' ? 'New memory' : 'Edit memory'}>
       <header>
         <div>
-          <h2>{props.editor.mode === 'create' ? '新建记忆' : '编辑记忆'}</h2>
-          <p>单条最多 2000 字符，只存储在本机 Runtime 数据库。</p>
+          <h2>{props.editor.mode === 'create' ? 'New memory' : 'Edit memory'}</h2>
+          <p>Up to 2,000 characters per memory, stored only in the local Runtime database.</p>
         </div>
-        <button type="button" aria-label="关闭记忆编辑器" onClick={props.onClose}>
+        <button type="button" aria-label="Close memory editor" onClick={props.onClose}>
           <X aria-hidden="true" size={15} />
         </button>
       </header>
       <div className="settings-form-grid">
         <label className="settings-form-wide">
-          <span>记忆内容</span>
+          <span>Memory content</span>
           <textarea
-            aria-label="记忆内容"
+            aria-label="Memory content"
             rows={4}
             maxLength={2000}
             value={props.editor.content}
@@ -485,9 +485,9 @@ function MemoryEditor(props: {
           />
         </label>
         <label>
-          <span>范围</span>
+          <span>Scope</span>
           <select
-            aria-label="记忆范围"
+            aria-label="Memory scope"
             value={props.editor.scope}
             disabled={props.saving || props.editor.mode === 'edit'}
             onChange={event => {
@@ -501,21 +501,21 @@ function MemoryEditor(props: {
               });
             }}
           >
-            <option value="global">全局</option>
-            <option value="project">项目</option>
-            <option value="thread">线程</option>
+            <option value="global">Global</option>
+            <option value="project">Project</option>
+            <option value="thread">Thread</option>
           </select>
         </label>
         {props.editor.scope !== 'global' ? (
           <label>
-            <span>目标</span>
+            <span>Target</span>
             <select
-              aria-label="范围目标"
+              aria-label="Scope target"
               value={props.editor.scopeKey ?? ''}
               disabled={props.saving || props.editor.mode === 'edit'}
               onChange={event => props.onChange({ ...props.editor, scopeKey: event.target.value })}
             >
-              {options.length === 0 ? <option value="">无可用目标</option> : null}
+              {options.length === 0 ? <option value="">No targets available</option> : null}
               {options.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
             </select>
           </label>
@@ -524,17 +524,17 @@ function MemoryEditor(props: {
       {props.confirmingSensitive ? (
         <div className="settings-inline-warning memory-sensitive-warning" role="alert">
           <AlertTriangle aria-hidden="true" size={16} />
-          <span>内容可能包含敏感信息，确认后才会保存到本机。</span>
-          <button type="button" onClick={() => void props.onSave(true)} aria-label="确认保存敏感记忆">
-            确认保存
+          <span>This content may contain sensitive information. Confirm before saving it locally.</span>
+          <button type="button" onClick={() => void props.onSave(true)} aria-label="Confirm saving sensitive memory">
+            Confirm save
           </button>
         </div>
       ) : null}
       <footer>
-        <button className="settings-text-button" type="button" onClick={props.onClose}>取消</button>
+        <button className="settings-text-button" type="button" onClick={props.onClose}>Cancel</button>
         <button className="settings-primary-button" type="button" disabled={props.saving} onClick={() => void props.onSave()}>
           <Brain aria-hidden="true" size={15} />
-          {props.saving ? '正在保存' : props.editor.mode === 'create' ? '保存记忆' : '保存修改'}
+          {props.saving ? 'Saving' : props.editor.mode === 'create' ? 'Save memory' : 'Save changes'}
         </button>
       </footer>
     </section>
@@ -542,9 +542,9 @@ function MemoryEditor(props: {
 }
 
 function memoryScopeLabel(scope: MemoryScope): string {
-  if (scope === 'project') return '项目';
-  if (scope === 'thread') return '线程';
-  return '全局';
+  if (scope === 'project') return 'Project';
+  if (scope === 'thread') return 'Thread';
+  return 'Global';
 }
 
 function optionLabel(key: string, options: MemoryScopeOption[]): string {

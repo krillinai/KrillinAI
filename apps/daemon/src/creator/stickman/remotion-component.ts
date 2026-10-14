@@ -97,7 +97,7 @@ export function createRemotionComponentManager(input: {
           state = update.state;
           const percent = update.totalBytes ? Math.min(100, (update.downloadedBytes ?? 0) / update.totalBytes * 100) : null;
           publish({ phase: 'preparing_dependencies', percent: percent === null ? 1 : percent * 0.05,
-            message: '正在准备 Remotion 渲染组件，完成后将自动继续渲染。',
+            message: 'Preparing the Remotion rendering component. Rendering will continue automatically when ready.',
             dependency: 'remotion', dependencyItem: update.item, dependencyPercent: percent,
             downloadedBytes: update.downloadedBytes ?? 0, totalBytes: update.totalBytes ?? value.bytes,
             bytesPerSecond: update.bytesPerSecond ?? null, remainingSeconds: update.remainingSeconds ?? null });
@@ -105,7 +105,7 @@ export function createRemotionComponentManager(input: {
       });
       if ((await stat(archive)).size !== value.bytes) throw new Error('remotion_component_archive_size_mismatch');
       state = 'extracting';
-      publish({ phase: 'preparing_dependencies', percent: 4, message: '正在安装并校验 Remotion 渲染组件。', dependency: 'remotion' });
+      publish({ phase: 'preparing_dependencies', percent: 4, message: 'Installing and verifying the Remotion rendering component.', dependency: 'remotion' });
       const listing = await runTar(['-tvzf', archive], staging, signal);
       if (listing.split('\n').filter(Boolean).some(line => !/^[-d]/.test(line) || / -> | link to /.test(line))) throw new Error('remotion_component_archive_links_not_allowed');
       const names = await runTar(['-tzf', archive], staging, signal);
@@ -139,10 +139,10 @@ export function createRemotionComponentManager(input: {
       controller = new AbortController();
       state = 'verifying';
       error = null;
-      publish({ phase: 'preparing_dependencies', percent: 1, dependency: 'remotion', message: '正在检查 Remotion 渲染组件，缺失时将按需下载。' });
+      publish({ phase: 'preparing_dependencies', percent: 1, dependency: 'remotion', message: 'Checking the Remotion rendering component. Missing files will download on demand.' });
       pending = install().then(runtime => {
         state = 'ready';
-        publish({ phase: 'dependencies_ready', percent: 5, dependency: 'remotion', message: 'Remotion 渲染组件已就绪，正在开始渲染。' });
+        publish({ phase: 'dependencies_ready', percent: 5, dependency: 'remotion', message: 'The Remotion rendering component is ready. Starting rendering.' });
         return runtime;
       }).catch(cause => {
         state = 'failed';

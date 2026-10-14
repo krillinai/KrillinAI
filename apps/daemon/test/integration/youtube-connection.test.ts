@@ -93,7 +93,7 @@ it.each(['cancel', 'timeout'] as const)('Windows 等待登录期间 %s 不保存
   await service.connect();
   await vi.waitFor(async () => expect((await service.getState()).actionRequired).toBe('complete-login'));
   if (mode === 'cancel') expect((await service.cancel()).status).toBe('disconnected');
-  else await vi.waitFor(async () => expect(await service.getState()).toMatchObject({ status: 'error', message: '连接已取消或超时，请重新连接。' }));
+  else await vi.waitFor(async () => expect(await service.getState()).toMatchObject({ status: 'error', message: 'The connection was canceled or timed out. Connect again.' }));
   expect(read).not.toHaveBeenCalled();
   expect(login.session.close).toHaveBeenCalledTimes(1);
   expect(login.session.dispose).toHaveBeenCalledTimes(1);
@@ -106,7 +106,7 @@ it('Windows 未登录不假成功，启动失败也不写入凭据', async () =>
   await service.connect();
   await vi.waitFor(async () => expect((await service.getState()).actionRequired).toBe('complete-login'));
   await service.completeLogin();
-  await vi.waitFor(async () => expect(await service.getState()).toMatchObject({ status: 'error', message: expect.stringContaining('尚未完成') }));
+  await vi.waitFor(async () => expect(await service.getState()).toMatchObject({ status: 'error', message: expect.stringContaining('incomplete') }));
   await expect(access(join(root, 'credentials.json'))).rejects.toThrow();
   login.openLoginBrowser.mockRejectedValueOnce(new Error('无法打开 Chrome 登录窗口，请重试连接。'));
   await service.connect();

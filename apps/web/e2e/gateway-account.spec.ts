@@ -34,10 +34,10 @@ test('独立订阅页面支持游客选套餐、登录后继续购买并返回�
   });
   await runtime.openApp(page);
   const navigation = page.getByRole('navigation', { name: 'OpenCreator', exact: true });
-  const openNavigation = page.getByRole('button', { name: '打开导航', exact: true });
+  const openNavigation = page.getByRole('button', { name: 'Open navigation', exact: true });
   if (await openNavigation.isVisible()) await openNavigation.click();
   await navigation.getByRole('button', { name: '账户', exact: true }).click();
-  if (await openNavigation.isVisible()) await expect(page.getByLabel('OpenCreator 导航', { exact: true })).toHaveCSS('visibility', 'hidden');
+  if (await openNavigation.isVisible()) await expect(page.getByLabel('OpenCreator navigation', { exact: true })).toHaveCSS('visibility', 'hidden');
   const center = page.getByRole('main', { name: '账户', exact: true });
   await expect(center.getByRole('button', { name: '登录 / 注册' })).toBeVisible();
   await expect(center.getByRole('heading', { name: '订阅套餐', exact: true })).toHaveCount(0);
@@ -137,10 +137,10 @@ test('浏览器完成真实网关设备授权，缺少模型配置时保留登�
   await expect.poll(async () => (await runtime.api<{ authState: string }>('GET', '/gateway/account')).authState).toBe('signed_in');
   await expect(setup).not.toBeVisible();
   const navigation = page.getByRole('navigation', { name: 'OpenCreator', exact: true });
-  const openNavigation = page.getByRole('button', { name: '打开导航', exact: true });
+  const openNavigation = page.getByRole('button', { name: 'Open navigation', exact: true });
   if (await openNavigation.isVisible()) await openNavigation.click();
   await navigation.getByRole('button', { name: '账户', exact: true }).click();
-  if (await openNavigation.isVisible()) await expect(page.getByLabel('OpenCreator 导航', { exact: true })).toHaveCSS('visibility', 'hidden');
+  if (await openNavigation.isVisible()) await expect(page.getByLabel('OpenCreator navigation', { exact: true })).toHaveCSS('visibility', 'hidden');
   await expect(page).toHaveURL(/#\/account$/);
   await expect(navigation.getByRole('button', { name: '账户', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(navigation.getByRole('button', { name: '模版', exact: true })).not.toHaveAttribute('aria-current', 'page');

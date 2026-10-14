@@ -35,7 +35,7 @@ export function createVideoTranslationWorkflow(input: {
       ) {
         setConfigurationNeeded(input.creator, job.id, {
           code: 'creator_llm_config_missing',
-          message: '请先完成文本翻译模型配置',
+          message: 'Configure the text translation model first',
           section: 'text'
         });
         throw new VideoTranslationWorkflowError(
@@ -50,7 +50,7 @@ export function createVideoTranslationWorkflow(input: {
     if (!hasTtsCredentials(config, job)) {
       setConfigurationNeeded(input.creator, job.id, {
         code: 'creator_tts_config_missing',
-        message: '请先完成目标语言配音服务配置',
+        message: 'Configure the target-language TTS service first',
         section: 'tts'
       });
       throw new VideoTranslationWorkflowError(
@@ -136,24 +136,24 @@ export async function validateBilibiliSource(job: CreatorJob, service?: VideoMet
   if (host !== 'bilibili.com' && !host.endsWith('.bilibili.com')) return;
   const source = parseBilibiliVideoSource(job.state.sourceUrl);
   if (source === null) {
-    throw new VideoTranslationWorkflowError('creator_source_invalid_part', 'B 站链接无效，请检查视频地址和分 P 参数（p 必须为正整数）');
+    throw new VideoTranslationWorkflowError('creator_source_invalid_part', 'Invalid Bilibili URL. Check the video address and part parameter (p must be a positive integer).');
   }
   try {
     if (service === undefined) throw new Error('Video metadata service unavailable');
     const metadata = await service.get(source.url);
     if ((metadata.parts?.length ?? 0) > 1 && source.partIndex === undefined) {
-      throw new VideoTranslationWorkflowError('creator_source_part_required', `该视频包含 ${metadata.parts!.length} 个分 P，请先在视频来源中选择要翻译的分集`);
+      throw new VideoTranslationWorkflowError('creator_source_part_required', `This video has ${metadata.parts!.length} parts. Select the part to translate in the video source settings.`);
     }
     if (source.partIndex !== undefined && metadata.parts !== undefined
       && !metadata.parts.some(part => part.index === source.partIndex)) {
-      throw new VideoTranslationWorkflowError('creator_source_invalid_part', '指定的分 P 不存在，请重新选择视频分集');
+      throw new VideoTranslationWorkflowError('creator_source_invalid_part', 'The requested video part does not exist. Select another part.');
     }
   } catch (error) {
     if (error instanceof VideoTranslationWorkflowError) throw error;
     if (error instanceof VideoMetadataError && error.code === 'INVALID_PART') {
       throw new VideoTranslationWorkflowError('creator_source_invalid_part', error.message);
     }
-    throw new VideoTranslationWorkflowError('creator_source_metadata_unavailable', '无法读取 B 站分集信息，请重试；未启动下载或翻译');
+    throw new VideoTranslationWorkflowError('creator_source_metadata_unavailable', 'Could not read Bilibili video parts. Try again. Download and translation have not started.');
   }
 }
 

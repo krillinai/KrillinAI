@@ -62,12 +62,12 @@ export function DetailPanel(props: DetailPanelProps) {
           <h2 id="detail-panel-title">{props.title}</h2>
           {props.subtitle ? <span>{props.subtitle}</span> : null}
         </div>
-        <button className="icon-button" type="button" aria-label="关闭详情" onClick={props.onClose}>
+        <button className="icon-button" type="button" aria-label="Close details" onClick={props.onClose}>
           <X aria-hidden="true" size={16} />
         </button>
       </header>
 
-      <div className="detail-content" role="region" aria-label="详情内容">
+      <div className="detail-content" role="region" aria-label="Detail content">
         <DetailContent mode={props.mode} title={props.title} subtitle={props.subtitle} content={props.content} />
       </div>
 
@@ -75,11 +75,11 @@ export function DetailPanel(props: DetailPanelProps) {
         <footer className="detail-actions">
           <button className="toolbar-button" type="button" onClick={props.onRevert} disabled={!props.onRevert}>
             <RotateCcw aria-hidden="true" size={16} />
-            <span>撤销</span>
+            <span>Undo</span>
           </button>
           <button className="toolbar-button primary" type="button" onClick={props.onApprove} disabled={!props.onApprove}>
             <Check aria-hidden="true" size={16} />
-            <span>审核</span>
+            <span>Review</span>
           </button>
         </footer>
       ) : null}

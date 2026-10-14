@@ -11,6 +11,7 @@ import { createCreatorRepository } from '../../src/creator/repository.js';
 import { createCreatorService } from '../../src/creator/service.js';
 import { createDefaultCreatorTemplateRegistry } from '../../src/creator/templates/registry.js';
 import { openRuntimeDatabase } from '../../src/storage/database.js';
+import { CreatorProviderRequestLedger } from '../../src/creator/provider-requests.js';
 
 let tempDir = '';
 
@@ -20,6 +21,72 @@ afterEach(() => {
 });
 
 describe('creator command dispatcher', () => {
+  it('queues video retries once and retains the original media request identity', () => {
+    const fixture = setup();
+    try {
+      const job = fixture.service.createJob({ projectId: 'project', templateId: 'video-generation', state: { prompt: 'test' } });
+      const original = fixture.repository.createStageRun({ jobId: job.id, stageId: 'generate', executor: 'video', status: 'failed' });
+      const wake = vi.fn();
+      const dispatcher = createCreatorCommandDispatcher({ service: fixture.service, repository: fixture.repository, receipts: fixture.receipts, onQueuedStage: wake });
+      const command = { action: 'retry-stage', expectedRevision: job.revision, idempotencyKey: 'retry-video', input: { stageId: 'generate' } };
+      const first = dispatcher.dispatch(job.id, command, 'user');
+      const replay = dispatcher.dispatch(job.id, command, 'user');
+      expect(first.commandReceipt.stageRunId).toBe(replay.commandReceipt.stageRunId);
+      expect(first.job.stages.find(stage => stage.id === first.commandReceipt.stageRunId)).toMatchObject({ status: 'queued', progress: { resumedFromStageRunId: original.id } });
+      expect(fixture.repository.getJob(job.id)!.stages).toHaveLength(2);
+      expect(wake).toHaveBeenCalledOnce();
+    } finally { fixture.db.close(); }
+  });
+
+  it('gives a definitively failed video a new attempt instead of replaying its failure', () => {
+    const fixture = setup();
+    try {
+      const job = fixture.service.createJob({ projectId: 'project', templateId: 'video-generation', state: { prompt: 'test' } });
+      const original = fixture.repository.createStageRun({ jobId: job.id, stageId: 'generate', executor: 'video', status: 'failed' });
+      const ledger = new CreatorProviderRequestLedger(fixture.repository);
+      const receipt = ledger.registerBeforeSubmit({ jobId: job.id, stageRunId: original.id, provider: 'opencreator-gateway-video', requestKey: 'rejected-video', request: {} });
+      ledger.markSubmitting(receipt.id); ledger.markFailed(receipt.id);
+      const dispatcher = createCreatorCommandDispatcher({ service: fixture.service, repository: fixture.repository, receipts: fixture.receipts });
+      const result = dispatcher.dispatch(job.id, { action: 'retry-stage', expectedRevision: job.revision, idempotencyKey: 'retry-rejected-video', input: { stageId: 'generate' } }, 'user');
+      expect(result.job.stages.find(stage => stage.id === result.commandReceipt.stageRunId)?.progress).not.toHaveProperty('resumedFromStageRunId');
+    } finally { fixture.db.close(); }
+  });
+
+  it('performs request lookup before committing a query and replays it without querying again', async () => {
+    const fixture = setup();
+    try {
+      const job = fixture.service.createJob({ projectId: 'project', templateId: 'image-generation', state: { prompt: 'test' } });
+      const stage = fixture.repository.createStageRun({ jobId: job.id, stageId: 'generate', executor: 'image', status: 'failed' });
+      const ledger = new CreatorProviderRequestLedger(fixture.repository);
+      const receipt = ledger.registerBeforeSubmit({ jobId: job.id, stageRunId: stage.id, provider: 'image', requestKey: 'paid', request: {} });
+      ledger.markSubmitting(receipt.id); ledger.markUnknownRemoteAcceptance(receipt.id);
+      const query = vi.fn(async () => { await ledger.recover(receipt.id, { lookupByRequestKey: true, lookup: async () => ({ status: 'failed' }) }); });
+      const dispatcher = createCreatorCommandDispatcher({ service: fixture.service, repository: fixture.repository, receipts: fixture.receipts, queryProviderRequest: query });
+      const command = { action: 'resolve-provider-request', expectedRevision: job.revision, idempotencyKey: 'query-paid', input: { ledgerId: receipt.id, decision: 'query' } };
+      await expect(dispatcher.dispatchAsync(job.id, { ...command, expectedRevision: 99 }, 'user')).rejects.toMatchObject({ code: 'creator_revision_conflict' });
+      expect(query).not.toHaveBeenCalled();
+      expect(() => dispatcher.dispatch(job.id, command, 'user')).toThrow('asynchronous dispatch');
+      const first = await dispatcher.dispatchAsync(job.id, command, 'user');
+      expect(first.job).toMatchObject({ status: 'failed', providerRequests: [{ status: 'failed' }] });
+      expect((await dispatcher.dispatchAsync(job.id, command, 'user')).commandReceipt.status).toBe('replayed');
+      expect(query).toHaveBeenCalledOnce();
+    } finally { fixture.db.close(); }
+  });
+
+  it('keeps unknown media requests blocked after an inconclusive query', async () => {
+    const fixture = setup();
+    try {
+      const job = fixture.service.createJob({ projectId: 'project', templateId: 'video-generation', state: { prompt: 'test' } });
+      const stage = fixture.repository.createStageRun({ jobId: job.id, stageId: 'generate', executor: 'video', status: 'failed' });
+      const ledger = new CreatorProviderRequestLedger(fixture.repository);
+      const receipt = ledger.registerBeforeSubmit({ jobId: job.id, stageRunId: stage.id, provider: 'video', requestKey: 'paid', request: {} });
+      ledger.markSubmitting(receipt.id); ledger.markUnknownRemoteAcceptance(receipt.id);
+      const dispatcher = createCreatorCommandDispatcher({ service: fixture.service, repository: fixture.repository, receipts: fixture.receipts, queryProviderRequest: async () => {} });
+      const result = await dispatcher.dispatchAsync(job.id, { action: 'resolve-provider-request', expectedRevision: job.revision, idempotencyKey: 'query', input: { ledgerId: receipt.id, decision: 'query' } }, 'user');
+      for (const action of ['run-stage', 'retry-stage']) expect(() => dispatcher.dispatch(job.id, { action, expectedRevision: result.job.revision, idempotencyKey: action, input: { stageId: 'generate' } }, 'user')).toThrow('request');
+      expect(result.job.providerRequests[0]!.status).toBe('unknown_remote_acceptance');
+    } finally { fixture.db.close(); }
+  });
   it('imports subtitle versions through user and agent commands and invalidates only dependencies', () => {
     const fixture = setup();
     try {

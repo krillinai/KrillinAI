@@ -8,8 +8,8 @@ import { KRILLIN_LLM_ROUTE_PREFIX } from '../creator/krillin/codex-llm-gateway.j
 import type { GatewayAccountService } from './account-service.js';
 import { GatewayError } from './client.js';
 import type { CreatorServiceBinding } from '../creator/repository.js';
-import type { CreatorProviderRequestLedger } from '../creator/provider-requests.js';
-import { createDirectTransport } from './direct-transport.js';
+import type { CreatorProviderRequestLedger, CreatorProviderLookupResult } from '../creator/provider-requests.js';
+import { createDirectTransport, directRequestId } from './direct-transport.js';
 import { createOfficialFetch } from './official-fetch.js';
 
 export type GatewayCreatorBinding = { accountId: string; bindingVersion: string; baseUrl: string; apiKey: string; models: Record<string, string>; catalog?: GatewayModel[]; capabilities?: Record<string, string[]>; speechVoices?: string[]; logicalId?: string; stageRunId?: string };
@@ -17,7 +17,7 @@ const bindings = new WeakMap<CreatorServicesConfig, GatewayCreatorBinding>();
 export function gatewayCreatorBinding(config: CreatorServicesConfig) { return bindings.get(config); }
 
 export function createGatewayCreatorSource(input: {
-  account: Pick<GatewayAccountService, 'peekState' | 'modelCredentials'> & Partial<Pick<GatewayAccountService, 'beginModelUse' | 'recoverModelCredentials'>>;
+  account: Pick<GatewayAccountService, 'peekState' | 'modelCredentials'> & Partial<Pick<GatewayAccountService, 'beginModelUse' | 'recoverModelCredentials' | 'reportModelFailure'>>;
   manual: CreatorServicesConfigStore;
   getLocalOrigin(): string | undefined;
   fetcher?: typeof fetch;
@@ -54,9 +54,9 @@ export function createGatewayCreatorSource(input: {
     }
     return { source: 'gateway', accountId: state.account.id, bindingVersion: state.bindingVersion, models, capabilities: caps };
   }
-  function assertSnapshot(value: CreatorServiceBinding) {
+  function assertSnapshot(value: CreatorServiceBinding, recovery = false) {
     const state = input.account.peekState();
-    if (value.source === 'gateway' && (state.authState !== 'signed_in' || state.activationState !== 'ready')) throw new GatewayError('services_not_ready');
+    if (value.source === 'gateway' && (state.authState !== 'signed_in' || (!recovery && state.activationState !== 'ready'))) throw new GatewayError('services_not_ready');
     if (value.source !== state.source || (value.source === 'gateway' && value.accountId !== state.account?.id)) throw new GatewayError('task_source_mismatch', 409);
   }
   function assertJob(jobId: string) { if (input.readJobBinding) assertSnapshot(input.readJobBinding(jobId)); }
@@ -97,6 +97,43 @@ export function createGatewayCreatorSource(input: {
   };
   return {
     store, binding, snapshot, assertJob,
+    async queryProviderRequest(request: CreatorProviderRequest) {
+      if (input.readJobBinding) assertSnapshot(input.readJobBinding(request.jobId), true);
+      if (!input.ledger || !request.gateway || !request.provider.startsWith('opencreator-gateway-')) throw new GatewayError('capability_unsupported', 400);
+      const use = await input.account.beginModelUse?.({ recovery: true });
+      try {
+        const credentials = use?.credentials ?? await input.account.modelCredentials();
+        if (credentials.accountId !== request.gateway.accountId) throw new GatewayError('task_source_mismatch', 409);
+        const requestId = request.remoteTaskId ?? (credentials.transport === 'openrouter-direct'
+          ? directRequestId(credentials.accountId, request.requestKey) : undefined);
+        if (!requestId) throw new GatewayError('request_outcome_unknown', 409);
+        const signal = AbortSignal.timeout(30_000);
+        let lookupResult: Promise<CreatorProviderLookupResult> | undefined;
+        const lookup = async (): Promise<CreatorProviderLookupResult> => {
+          let response: Response;
+          try {
+            response = credentials.transport === 'openrouter-direct' && direct
+              ? await direct.request({ account: credentials.accountId, key: credentials.modelKey, resource: `requests/${requestId}`, method: 'GET', body: undefined, contentType: 'application/json', identity: '', fingerprint: '', signal,
+                onModelFailure: async (id, modality, facts) => { await input.account.reportModelFailure?.(credentials, id, modality, facts); } })
+              : await (input.fetcher ?? fetch)(`${credentials.baseUrl}/requests/${encodeURIComponent(requestId)}`, { method: 'GET', headers: { Authorization: `Bearer ${credentials.modelKey}` }, redirect: 'error', signal });
+          } catch (error) { if (error instanceof GatewayError && error.code === 'request_not_found') return { status: 'not_found' }; throw error; }
+          if (response.status === 404) return { status: 'not_found' };
+          if (!response.ok) throw new GatewayError('gateway_unavailable');
+          const result = await response.json() as { requestId?: string; state?: string };
+          if (result.requestId !== requestId) throw new GatewayError('invalid_gateway_response');
+          if (result.state === 'succeeded') return { status: 'succeeded', remoteTaskId: requestId };
+          if (result.state === 'failed' || result.state === 'canceled') return { status: 'failed', remoteTaskId: requestId };
+          if (result.state === 'outcome_unknown') return { status: 'not_found' };
+          if (!['submitting', 'waiting_upstream'].includes(result.state ?? '')) throw new GatewayError('invalid_gateway_response');
+          return { status: 'waiting_remote', remoteTaskId: requestId };
+        };
+        const provider = { lookupByRequestKey: true, lookup: () => lookupResult ??= lookup() };
+        await input.ledger.recover(request.id, provider);
+        for (const related of input.ledger.findByRemoteTaskId(request.jobId, requestId)) {
+          if (related.id !== request.id && related.gateway?.accountId === credentials.accountId && related.provider.startsWith('opencreator-gateway-')) await input.ledger.recover(related.id, provider);
+        }
+      } finally { await use?.release(); }
+    },
     async runForJob<T>(jobId: string, stageRunId: string, work: () => Promise<T>): Promise<T> {
       let original = input.readJobBinding?.(jobId) ?? snapshot();
       assertSnapshot(original);
@@ -108,7 +145,12 @@ export function createGatewayCreatorSource(input: {
           const catalog = input.account.peekState().models;
           for (const [modality, id] of Object.entries(choices)) {
             const selected = catalog.find(candidate => candidate.modality === modality && candidate.id === id && (modality !== 'text' || candidate.capabilities.includes('responses')));
-            if (!selected) throw new GatewayError('invalid_model', 400);
+            if (!selected) {
+              const resumed = typeof input.readStageRun?.(stageRunId)?.progress.resumedFromStageRunId === 'string';
+              if (!resumed || !['image', 'video'].includes(modality) || typeof id !== 'string') throw new GatewayError('invalid_model', 400);
+              original.models[modality] = id;
+              continue;
+            }
             original.models[modality] = selected.id; original.capabilities[modality] = [...selected.capabilities];
           }
         }
@@ -179,7 +221,7 @@ export function createGatewayCreatorSource(input: {
               heartbeat = setInterval(() => { if (!reply.raw.destroyed && !reply.raw.writableEnded) reply.raw.write(': keep-alive\n\n'); }, 10_000);
               heartbeat.unref();
             }
-            const use = await input.account.beginModelUse?.(); releaseUse = use?.release;
+            const use = await input.account.beginModelUse?.({ recovery: request.method === 'GET' }); releaseUse = use?.release;
             signal.throwIfAborted();
             const credentials = use?.credentials ?? await input.account.modelCredentials();
             signal.throwIfAborted();
@@ -202,7 +244,8 @@ export function createGatewayCreatorSource(input: {
                   await input.ledger!.recover(receipt!.id, { lookupByRequestKey: false, async lookup({ remoteTaskId }) {
                     if (!remoteTaskId) return { status: 'not_found' };
                     const response = credentials.transport === 'openrouter-direct' && direct
-                      ? await direct.request({ account: credentials.accountId, key: credentials.modelKey, resource: `requests/${remoteTaskId}`, method: 'GET', body: undefined, contentType: 'application/json', identity: '', fingerprint: '', signal })
+                      ? await direct.request({ account: credentials.accountId, key: credentials.modelKey, resource: `requests/${remoteTaskId}`, method: 'GET', body: undefined, contentType: 'application/json', identity: '', fingerprint: '', signal,
+                        onModelFailure: async (id, modality, facts) => { await input.account.reportModelFailure?.(credentials, id, modality, facts); } })
                       : await (input.fetcher ?? fetch)(`${credentials.baseUrl}/requests/${encodeURIComponent(remoteTaskId)}`, { method: 'GET', headers: { Authorization: `Bearer ${credentials.modelKey}` }, redirect: 'error', signal });
                     if (!response.ok) throw new GatewayError('gateway_unavailable');
                     const result = await response.json() as { requestId?: string; state?: string };
@@ -219,15 +262,20 @@ export function createGatewayCreatorSource(input: {
             if (credentials.transport === 'openrouter-direct') {
               if (!direct) throw new GatewayError('services_not_ready');
               let modelMetadata: GatewayModel | undefined;
+              let cachedResponse: Response | undefined;
               if (request.method === 'POST') {
                 const modality = resource.startsWith('images/') ? 'image' : resource === 'audio/speech' ? 'speech' : resource === 'audio/transcriptions' ? 'transcription' : resource.startsWith('video') ? 'video' : 'text';
                 const model = Buffer.isBuffer(request.body)
                   ? (await new Request('http://localhost', { method: 'POST', headers: { 'Content-Type': headers['Content-Type']! }, body: new Uint8Array(request.body) }).formData()).get('model')
                   : (request.body as { model?: unknown })?.model;
                 modelMetadata = credentials.models.find(candidate => candidate.modality === modality && candidate.id === model);
-                if (!modelMetadata) throw new GatewayError('invalid_model', 400);
+                if (!modelMetadata) {
+                  if (modality === 'image' || modality === 'video') cachedResponse = await direct.replay(credentials.accountId, headers['Idempotency-Key']!, digest ?? '');
+                  if (!cachedResponse) throw new GatewayError('invalid_model', 400);
+                }
               }
-              response = await direct.request({ account: credentials.accountId, key: credentials.modelKey, resource, method: request.method, body: request.body, contentType: headers['Content-Type']!, identity: headers['Idempotency-Key'] ?? '', fingerprint: digest ?? '', signal, model: modelMetadata, asyncImage: request.headers.prefer === 'respond-async' });
+              response = cachedResponse ?? await direct.request({ account: credentials.accountId, key: credentials.modelKey, resource, method: request.method, body: request.body, contentType: headers['Content-Type']!, identity: headers['Idempotency-Key'] ?? '', fingerprint: digest ?? '', signal, model: modelMetadata, asyncImage: request.headers.prefer === 'respond-async',
+                onModelFailure: async (id, modality, facts) => { await input.account.reportModelFailure?.(credentials, id, modality, facts); } });
             } else response = await (input.fetcher ?? fetch)(`${credentials.baseUrl}/${resource}`, { method: request.method, headers, body, redirect: 'error', signal });
             signal.throwIfAborted();
             const id = response.headers.get('x-request-id');

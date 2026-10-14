@@ -1,13 +1,65 @@
 import { createHash } from 'node:crypto';
-import { gatewayDefaultVoiceId, gatewayVideoSizeParameters, type GatewayModel } from '@opencreator/protocol';
+import { gatewayDefaultVoiceId, gatewayVideoSizeParameters, safePublicRequestId, type GatewayModel, type PublicErrorFacts } from '@opencreator/protocol';
 import { join } from 'node:path';
 import { readPrivateJsonFile, writePrivateJsonFile } from '../config/private-json-file.js';
 import { GatewayError } from './client.js';
 import { officialEventStream } from './official-stream.js';
+import { creatorServiceFailureFacts } from '../creator-services/upstream-fetch.js';
+import { publicFactsFromFailure } from '../creator/public-error-facts.js';
 
-type Receipt = { account: string; fingerprint: string; state: 'submitting' | 'waiting_upstream' | 'succeeded' | 'failed' | 'outcome_unknown'; remoteId?: string; status?: number; mime?: string; content?: string; errorCode?: string; errorStatus?: number };
+type Receipt = { account: string; fingerprint: string; state: 'submitting' | 'waiting_upstream' | 'succeeded' | 'failed' | 'outcome_unknown'; remoteId?: string; status?: number; mime?: string; content?: string; errorCode?: string; errorStatus?: number;
+  model?: string; operation?: string; createdAt?: string; updatedAt?: string; upstreamRequestId?: string; upstreamGenerationId?: string; reportedCostUsd?: number; receivedBytes?: number; upstreamError?: PublicErrorFacts };
 const base = 'https://openrouter.ai/api/v1';
+export const DIRECT_MEDIA_ADAPTER_VERSION = 2;
 export const DIRECT_IMAGE_TIMEOUT_MS = 10 * 60_000;
+
+export function directRequestId(account: string, identity: string) {
+  return 'ocdir_' + createHash('sha256').update(JSON.stringify([account, identity])).digest('hex').slice(0, 48);
+}
+
+class DirectUpstreamError extends GatewayError {
+  constructor(code: string, status: number, readonly facts: PublicErrorFacts) { super(code, status); }
+}
+
+export type OfficialModelFailureReporter = (id: string, modality: GatewayModel['modality'], facts: PublicErrorFacts) => Promise<void>;
+
+export async function errorFacts(response: Response, key: string, signal?: AbortSignal): Promise<PublicErrorFacts> {
+  const reader = response.body?.getReader();
+  const chunks: Uint8Array[] = []; let size = 0;
+  let payload: unknown;
+  try {
+    if (reader) for (;;) {
+      const chunk = await (signal ? abortable(reader.read(), signal) : reader.read());
+      if (chunk.done) break;
+      size += chunk.value.length;
+      if (size > 16_384) break;
+      chunks.push(chunk.value);
+    }
+    if (size <= 16_384) payload = JSON.parse(Buffer.concat(chunks).toString('utf8').replaceAll(key, '[redacted]'));
+  } catch {} finally { void reader?.cancel().catch(() => undefined); }
+  return creatorServiceFailureFacts(payload, undefined, { httpStatus: response.status, requestId: response.headers.get('x-request-id') ?? undefined });
+}
+
+function recordUpstreamMetadata(record: Receipt, value: unknown) {
+  if (!value || typeof value !== 'object') return;
+  const metadata = value as { id?: unknown; generation_id?: unknown; request_id?: unknown; usage?: { cost?: unknown } };
+  const generationId = [metadata.generation_id, metadata.id].find(id => typeof id === 'string' && /^gen-[A-Za-z0-9_-]{1,180}$/.test(id));
+  if (typeof generationId === 'string') record.upstreamGenerationId = generationId;
+  if (typeof metadata.request_id === 'string') record.upstreamRequestId ??= safePublicRequestId(metadata.request_id);
+  const cost = metadata.usage?.cost;
+  if (typeof cost === 'number' && Number.isFinite(cost) && cost >= 0) record.reportedCostUsd = cost;
+}
+
+function recordVideoStatus(record: Receipt, value: unknown, key: string) {
+  const remote = value as { status?: unknown } | null;
+  if (!remote || typeof remote.status !== 'string' || !['pending', 'in_progress', 'completed', 'failed', 'cancelled', 'expired'].includes(remote.status)) throw new GatewayError('invalid_gateway_response');
+  record.state = remote.status === 'completed' ? 'succeeded' : ['failed', 'cancelled', 'expired'].includes(remote.status) ? 'failed' : 'waiting_upstream';
+  recordUpstreamMetadata(record, remote);
+  if (record.state === 'failed') {
+    record.errorCode = 'official_service_unavailable';
+    record.upstreamError = creatorServiceFailureFacts(JSON.parse(JSON.stringify(remote).replaceAll(key, '[redacted]')));
+  }
+}
 
 function abortable<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
   signal.throwIfAborted();
@@ -24,6 +76,20 @@ function completeImageResponse(content: Buffer): boolean {
     return Array.isArray(value.data) && value.data.length > 0
       && value.data.every(image => typeof image?.b64_json === 'string' && image.b64_json.length > 0);
   } catch { return false; }
+}
+
+function pcmWave(content: Buffer, contentType: string): Buffer {
+  const rate = Number(/(?:^|;)\s*rate=(\d+)\s*(?:;|$)/i.exec(contentType)?.[1]);
+  const channels = Number(/(?:^|;)\s*channels=(\d+)\s*(?:;|$)/i.exec(contentType)?.[1]);
+  if (!Number.isInteger(rate) || rate < 8_000 || rate > 192_000 || !Number.isInteger(channels) || channels < 1 || channels > 8
+    || !content.length || content.length % (channels * 2) !== 0) throw new GatewayError('invalid_gateway_response');
+  // OpenRouter PCM is signed 16-bit little-endian; rate and channels come from its response.
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0); header.writeUInt32LE(content.length + 36, 4); header.write('WAVEfmt ', 8);
+  header.writeUInt32LE(16, 16); header.writeUInt16LE(1, 20); header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(rate, 24); header.writeUInt32LE(rate * channels * 2, 28);
+  header.writeUInt16LE(channels * 2, 32); header.writeUInt16LE(16, 34); header.write('data', 36); header.writeUInt32LE(content.length, 40);
+  return Buffer.concat([header, content]);
 }
 
 function completeEventStream(content: Buffer, resource?: string): boolean {
@@ -51,7 +117,7 @@ function pixelAspectRatio(size: unknown) {
   return `${width / divisor}:${height / divisor}`;
 }
 
-export function statelessResponses(body: Record<string, unknown>) {
+export function statelessResponses(body: Record<string, unknown>): Record<string, unknown> {
   if (body.previous_response_id) throw new GatewayError('capability_unsupported', 400);
   const { previous_response_id: _previous, store: _store, ...rest } = body;
   return { ...rest, store: false };
@@ -72,7 +138,7 @@ export function createDirectTransport(root: string, fetcher: typeof fetch = fetc
     }
     return record;
   };
-  const write = (id: string, record: Receipt) => writePrivateJsonFile(path(id), record);
+  const write = (id: string, record: Receipt) => writePrivateJsonFile(path(id), { ...record, updatedAt: new Date().toISOString() });
   const response = (id: string, record: Receipt) => new Response(Buffer.from(record.content ?? '', 'base64'), { status: record.status ?? 200, headers: { 'Content-Type': record.mime ?? 'application/json', 'X-Request-ID': id } });
   const accepted = (id: string) => Response.json({ requestId: id, state: 'waiting_upstream' }, { status: 202, headers: { 'X-Request-ID': id } });
   async function call(resource: string, options: RequestInit, key: string, account: string) {
@@ -85,7 +151,8 @@ export function createDirectTransport(root: string, fetcher: typeof fetch = fetc
         throw error;
       }
     };
-    let result = await submit(key);
+    let modelKey = key;
+    let result = await submit(modelKey);
     if (result.status === 401 && recoverKey) {
       await result.body?.cancel();
       const recovery = recoverKey(account, key);
@@ -95,29 +162,38 @@ export function createDirectTransport(root: string, fetcher: typeof fetch = fetc
         options.signal?.throwIfAborted();
         throw error instanceof GatewayError && [401, 403].includes(error.status) ? error : new GatewayError('model_auth_required', 401);
       }
-      if (updated && updated !== key) result = await submit(updated);
+      if (updated && updated !== key) { modelKey = updated; result = await submit(modelKey); }
     }
     if (!result.ok) {
-      let limitExceeded = false;
-      if (result.status === 403) {
-        try {
-          const payload = await abortable(result.json() as Promise<{ error?: { message?: unknown } }>, options.signal!);
-          limitExceeded = typeof payload.error?.message === 'string' && /^Key limit exceeded\b/i.test(payload.error.message);
-        } catch {}
-      } else void result.body?.cancel().catch(() => undefined);
-      throw new GatewayError(result.status === 401 ? 'model_auth_required' : result.status === 402 || limitExceeded ? 'credits_insufficient' : 'official_service_unavailable', result.status >= 400 && result.status < 500 ? result.status : 503);
+      const facts = await errorFacts(result, modelKey, options.signal ?? undefined);
+      const limitExceeded = result.status === 403 && /^Key limit exceeded\b/i.test(facts.upstreamMessage ?? '');
+      throw new DirectUpstreamError(result.status === 401 ? 'model_auth_required' : result.status === 402 || limitExceeded ? 'credits_insufficient' : 'official_service_unavailable', result.status >= 400 && result.status < 500 ? result.status : 503, facts);
     }
     return result;
   }
   return {
     isBusy() { return workers.size > 0; },
+    async replay(account: string, identity: string, fingerprint: string): Promise<Response | undefined> {
+      const id = directRequestId(account, identity);
+      const saved = await read(id);
+      if (!saved) return undefined;
+      if (saved.account !== account || saved.fingerprint !== fingerprint) throw new GatewayError('operation_conflict', 409);
+      if (saved.state === 'succeeded' && !saved.remoteId) return response(id, saved);
+      if (saved.remoteId) return Response.json({ requestId: id, state: saved.state }, { status: 202, headers: { 'X-Request-ID': id } });
+      if (saved.state === 'failed') return undefined;
+      if (pending.has(id)) return accepted(id);
+      throw new GatewayError('request_outcome_unknown', 409);
+    },
     async close() {
       const work = [...workers.keys()].map(id => pending.get(id));
       for (const controller of workers.values()) controller.abort();
       await Promise.allSettled(work);
     },
-    async request(input: { account: string; key: string; resource: string; method: string; body: unknown; contentType: string; identity: string; fingerprint: string; signal: AbortSignal; model?: GatewayModel; asyncImage?: boolean }): Promise<Response> {
+    async request(input: { account: string; key: string; resource: string; method: string; body: unknown; contentType: string; identity: string; fingerprint: string; signal: AbortSignal; model?: GatewayModel; asyncImage?: boolean; onModelFailure?: OfficialModelFailureReporter }): Promise<Response> {
       const { account, key, resource } = input;
+      const notify = async (id: string | undefined, modality: GatewayModel['modality'], facts: PublicErrorFacts | undefined) => {
+        if (id && facts) { try { await input.onModelFailure?.(id, modality, facts); } catch {} }
+      };
       const asyncImage = input.asyncImage === true && /^images\/(generations|edits)$/.test(resource) && input.method === 'POST';
       const controller = asyncImage ? new AbortController() : undefined;
       const signal = controller ? AbortSignal.any([controller.signal, AbortSignal.timeout(DIRECT_IMAGE_TIMEOUT_MS)]) : input.signal;
@@ -133,15 +209,18 @@ export function createDirectTransport(root: string, fetcher: typeof fetch = fetc
             if (record.state !== 'succeeded') throw new GatewayError('request_outcome_unknown', 409);
             return call(`videos/${encodeURIComponent(record.remoteId)}/content?index=0`, { method: 'GET', signal }, key, account);
           }
-          const remote = await (await call(`videos/${encodeURIComponent(record.remoteId)}`, { method: 'GET', signal }, key, account)).json() as { status?: string };
-          record.state = remote.status === 'completed' ? 'succeeded' : ['failed', 'cancelled', 'expired'].includes(remote.status ?? '') ? 'failed' : 'waiting_upstream';
+          let remote: unknown;
+          try { remote = await (await call(`videos/${encodeURIComponent(record.remoteId)}`, { method: 'GET', signal }, key, account)).json(); }
+          catch (error) { if (error instanceof DirectUpstreamError) await notify(record.model, 'video', error.facts); throw error; }
+          recordVideoStatus(record, remote, key);
           await write(id, record);
+          if (record.state === 'failed') await notify(record.model, 'video', record.upstreamError);
         }
         if (lookup[2]) { if (record.state !== 'succeeded') throw new GatewayError('request_outcome_unknown', 409); return response(id, record); }
         return Response.json({ requestId: id, state: record.state, ...(record.errorCode ? { error: { code: record.errorCode, status: record.errorStatus } } : {}) }, { headers: { 'X-Request-ID': id } });
       }
       if (input.method !== 'POST') throw new GatewayError('capability_unsupported', 404);
-      const id = 'ocdir_' + createHash('sha256').update(JSON.stringify([account, input.identity])).digest('hex').slice(0, 48);
+      const id = directRequestId(account, input.identity);
       const existing = pending.get(id);
       if (existing) {
         if (fingerprints.get(id) !== input.fingerprint) throw new GatewayError('operation_conflict', 409);
@@ -171,45 +250,67 @@ export function createDirectTransport(root: string, fetcher: typeof fetch = fetc
         }
         if (resource === 'images/generations') endpoint = 'images';
         if (endpoint === 'images') {
-          const { response_format: _format, size, quality, aspect_ratio, resolution, ...fields } = body as Record<string, unknown>;
+          const { response_format: _format, size, quality, aspect_ratio, resolution, output_format, stream, ...fields } = body as Record<string, unknown>;
           const options = input.model?.imageOptions;
-          const aspectRatio = aspect_ratio || pixelAspectRatio(size);
+          const aspectRatio = aspect_ratio || (options && !options.aspectRatios?.length ? undefined : pixelAspectRatio(size));
           const valid = (value: unknown, allowed?: string[]) => value === undefined || value === '' || (typeof value === 'string' && !!allowed?.includes(value));
-          if (options && (!valid(aspect_ratio, options.aspectRatios) || !valid(resolution, options.resolutions) || !valid(quality, options.qualities)
-            || (Number(fields.n ?? 1) > options.maxImages) || (Array.isArray(fields.input_references) && fields.input_references.length > options.maxReferences))) throw new GatewayError('capability_unsupported', 400);
-          const selectedRatio = options?.aspectRatios?.length && !options.aspectRatios.includes(String(aspectRatio)) ? options.aspectRatios[0] : aspectRatio;
-          const outputFormat = ['png', 'jpeg', 'webp'].find(format => !options?.outputFormats?.length || options.outputFormats.includes(format));
-          if (!outputFormat) throw new GatewayError('capability_unsupported', 400);
-          body = { ...fields, ...(selectedRatio ? { aspect_ratio: selectedRatio } : {}), ...(resolution ? { resolution } : {}), ...(quality ? { quality } : {}), output_format: outputFormat };
+          const count = fields.n ?? 1;
+          if (typeof count !== 'number' || !Number.isInteger(count) || count < 1 || count > 10
+            || (stream !== undefined && stream !== false)
+            || typeof fields.model !== 'string' || !fields.model || typeof fields.prompt !== 'string' || !fields.prompt.trim()
+            || (fields.input_references !== undefined && (!Array.isArray(fields.input_references) || fields.input_references.length > 16
+              || fields.input_references.some(ref => !ref || ref.type !== 'image_url' || typeof ref.image_url?.url !== 'string' || !ref.image_url.url)))) throw new GatewayError('capability_unsupported', 400);
+          if (options && (!valid(aspectRatio, options.aspectRatios) || !valid(resolution, options.resolutions) || !valid(quality, options.qualities) || !valid(output_format, options.outputFormats)
+            || count > options.maxImages || (Array.isArray(fields.input_references) && fields.input_references.length > options.maxReferences))) throw new GatewayError('capability_unsupported', 400);
+          if (input.model && Array.isArray(fields.input_references) && fields.input_references.length && !input.model.capabilities.includes('edit')) throw new GatewayError('capability_unsupported', 400);
+          if (resource === 'images/edits' && (!Array.isArray(fields.input_references) || !fields.input_references.length)) throw new GatewayError('capability_unsupported', 400);
+          const outputFormat = output_format || ['png', 'jpeg', 'webp'].find(format => options?.outputFormats?.includes(format));
+          body = { ...fields, stream: false, ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}), ...(resolution ? { resolution } : {}), ...(quality ? { quality } : {}), ...(outputFormat ? { output_format: outputFormat } : {}) };
         }
         if (resource === 'audio/speech') {
           const { voice, ...fields } = body as Record<string, unknown>;
+          const format = input.model?.capabilities.includes('pcm_speech') ? 'pcm' : 'mp3';
+          if (input.model?.verification && (typeof fields.input !== 'string' || !fields.input.trim()
+            || (fields.speed !== undefined && fields.speed !== 1) || fields.instructions !== undefined
+            || (!input.model.capabilities.includes('default_voice') && (typeof voice !== 'string' || !input.model.voices?.includes(voice))))) throw new GatewayError('capability_unsupported', 400);
           if (input.model?.capabilities.includes('default_voice')) {
             if (voice && voice !== gatewayDefaultVoiceId) throw new GatewayError('capability_unsupported', 400);
-            body = { ...fields, response_format: 'mp3' };
-          } else body = { ...fields, voice, response_format: 'mp3' };
+            body = { ...fields, response_format: format };
+          } else body = { ...fields, voice, response_format: format };
         }
         if (resource === 'video/jobs' || resource === 'videos/tasks') {
           const value = body as { model: string; prompt: string; duration?: number; size?: string; image?: string };
           const sizeParams = input.model ? gatewayVideoSizeParameters(input.model, value.size ?? '') : value.size ? { size: value.size } : {};
-          if (!sizeParams || (input.model?.durations && !input.model.durations.includes(value.duration!))) throw new GatewayError('capability_unsupported', 400);
+          if (!sizeParams || typeof value.model !== 'string' || !value.model || typeof value.prompt !== 'string' || !value.prompt.trim()
+            || (value.duration !== undefined && (!Number.isInteger(value.duration) || value.duration < 1))
+            || (input.model?.durations && !input.model.durations.includes(value.duration!))) throw new GatewayError('capability_unsupported', 400);
+          if (value.image !== undefined && (typeof value.image !== 'string' || !value.image)) throw new GatewayError('capability_unsupported', 400);
+          if (value.image && input.model && !input.model.capabilities.includes('image_to_video')) throw new GatewayError('capability_unsupported', 400);
           body = { model: value.model, prompt: value.prompt, duration: value.duration, ...sizeParams, ...(value.image ? { frame_images: [{ type: 'image_url', image_url: { url: value.image }, frame_type: 'first_frame' }] } : {}) };
           endpoint = 'videos';
         }
-        const record: Receipt = { account, fingerprint: input.fingerprint, state: asyncImage ? 'waiting_upstream' : 'submitting' };
+        const record: Receipt = { account, fingerprint: input.fingerprint, state: asyncImage ? 'waiting_upstream' : 'submitting', operation: resource, model: input.model?.id ?? (body && typeof body === 'object' && 'model' in body && typeof body.model === 'string' ? body.model : undefined), createdAt: new Date().toISOString() };
         await write(id, record);
         registered();
         try {
           const remote = await call(endpoint, { method: 'POST', signal, headers: { 'Content-Type': contentType }, body: Buffer.isBuffer(body) ? new Uint8Array(body) : JSON.stringify(body) }, key, account);
+          record.upstreamRequestId = safePublicRequestId(remote.headers.get('x-request-id') ?? undefined);
+          recordUpstreamMetadata(record, { generation_id: remote.headers.get('x-generation-id') });
+          record.status = remote.status;
+          await write(id, record);
           if (endpoint === 'videos') {
             const value = await remote.json() as { id?: string };
             if (!value.id || !/^[A-Za-z0-9_-]{1,200}$/.test(value.id)) throw new GatewayError('invalid_gateway_response');
-            record.remoteId = value.id; record.state = 'waiting_upstream'; await write(id, record);
+            // Keep the remote ID even if the submit response needs reconciliation.
+            record.remoteId = value.id;
+            recordVideoStatus(record, value, key);
+            await write(id, record);
+            if (record.state === 'failed') await notify(record.model, 'video', record.upstreamError);
             return Response.json({ requestId: id, state: record.state }, { status: 202, headers: { 'X-Request-ID': id } });
           }
           record.status = remote.status; record.mime = remote.headers.get('content-type') ?? 'application/json';
           await write(id, record);
-          const reader = (record.mime.includes('text/event-stream') && remote.body ? officialEventStream(remote.body) : remote.body)?.getReader(); if (!reader) throw new GatewayError('invalid_gateway_response');
+          const reader = (record.mime.includes('text/event-stream') && remote.body ? officialEventStream(remote.body, error => notify(record.model, 'text', creatorServiceFailureFacts(error))) : remote.body)?.getReader(); if (!reader) throw new GatewayError('invalid_gateway_response');
           const chunks: Uint8Array[] = []; let size = 0;
           if (!record.mime.includes('text/event-stream')) {
             try {
@@ -220,9 +321,33 @@ export function createDirectTransport(root: string, fetcher: typeof fetch = fetc
                 // Buffered image JSON can be complete before the upstream closes its HTTP stream.
                 if (endpoint === 'images' && Buffer.from(item.value).toString('utf8').trimEnd().endsWith('}') && completeImageResponse(Buffer.concat(chunks))) break;
               }
-            } finally { void reader.cancel().catch(() => undefined); }
-            if (endpoint === 'images' && !completeImageResponse(Buffer.concat(chunks))) throw new GatewayError('invalid_gateway_response');
-            record.content = Buffer.concat(chunks).toString('base64'); record.state = 'succeeded'; await write(id, record);
+            } catch (error) {
+              if (endpoint === 'images') record.content = Buffer.from(Buffer.concat(chunks).toString('utf8').replaceAll(key, '[redacted]')).toString('base64');
+              throw error;
+            } finally { record.receivedBytes = size; void reader.cancel().catch(() => undefined); }
+            let content: Buffer = Buffer.concat(chunks);
+            if (endpoint === 'audio/speech' && /^audio\/pcm(?:;|$)/i.test(record.mime)) {
+              content = pcmWave(content, record.mime); record.mime = 'audio/wav';
+            }
+            record.content = content.toString('base64');
+            if (endpoint === 'audio/transcriptions') {
+              try { recordUpstreamMetadata(record, JSON.parse(content.toString('utf8'))); } catch {}
+              if (input.model?.capabilities.includes('subtitle_timestamps')) {
+                const value = JSON.parse(content.toString('utf8')) as { text?: unknown; words?: Array<{ word?: unknown; start?: unknown; end?: unknown }>; segments?: Array<{ text?: unknown; start?: unknown; end?: unknown }> };
+                const timings = [...(Array.isArray(value.words) ? value.words.map(word => ({ ...word, text: word.word })) : []), ...(Array.isArray(value.segments) ? value.segments : [])];
+                if (typeof value.text !== 'string' || !value.text.trim() || !timings.some(item => typeof item?.text === 'string' && item.text.trim()
+                  && typeof item.start === 'number' && Number.isFinite(item.start) && item.start >= 0 && typeof item.end === 'number' && Number.isFinite(item.end) && item.end > item.start)) throw new GatewayError('invalid_gateway_response');
+              }
+            }
+            if (endpoint === 'images') {
+              try { recordUpstreamMetadata(record, JSON.parse(content.toString('utf8'))); } catch {}
+              if (!completeImageResponse(content)) {
+                record.content = Buffer.from(content.toString('utf8').replaceAll(key, '[redacted]')).toString('base64');
+                record.upstreamError = { kind: 'invalid-response', httpStatus: remote.status, upstreamCode: 'invalid_image_response' };
+                throw new GatewayError('invalid_gateway_response');
+              }
+            }
+            record.state = 'succeeded'; await write(id, record);
             return response(id, record);
           }
           let settlement = Promise.resolve();
@@ -270,7 +395,11 @@ export function createDirectTransport(root: string, fetcher: typeof fetch = fetc
         } catch (error) {
           record.state = error instanceof GatewayError && [400, 401, 402, 403, 404, 422, 429].includes(error.status) ? 'failed' : 'outcome_unknown';
           if (error instanceof GatewayError) { record.errorCode = error.code; record.errorStatus = error.status; }
-          await write(id, record); throw error;
+          if (error instanceof DirectUpstreamError) { record.upstreamError = error.facts; record.upstreamRequestId ??= error.facts.requestId; }
+          else record.upstreamError ??= publicFactsFromFailure(error, undefined, { timedOut: signal.aborted && signal.reason instanceof DOMException && signal.reason.name === 'TimeoutError' });
+          await write(id, record);
+          if (error instanceof DirectUpstreamError) await notify(record.model, input.model?.modality ?? 'text', error.facts);
+          throw error;
         }
       })();
       pending.set(id, work);

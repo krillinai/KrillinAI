@@ -38,8 +38,8 @@ describe('DiagnosticsSettingsView', () => {
     expect(screen.getByText('/Users/test/.codex')).toBeInTheDocument();
     expect(screen.getByText('MCP github 登录已过期')).toBeInTheDocument();
     expect(screen.getByText(/"mcpAdd": true/)).toBeInTheDocument();
-    expect(screen.getByText('可写')).toBeInTheDocument();
-    expect(screen.getByText('可正常调用')).toBeInTheDocument();
+    expect(screen.getByText('Writable')).toBeInTheDocument();
+    expect(screen.getByText('Available')).toBeInTheDocument();
   });
 
   it('shows explicit empty and disconnected states', () => {
@@ -51,7 +51,7 @@ describe('DiagnosticsSettingsView', () => {
       />
     );
 
-    expect(screen.getByText('当前没有诊断告警')).toBeInTheDocument();
+    expect(screen.getByText('No diagnostic warnings')).toBeInTheDocument();
 
     rerender(
       <DiagnosticsSettingsView
@@ -60,7 +60,7 @@ describe('DiagnosticsSettingsView', () => {
       />
     );
 
-    expect(screen.getByText('本地服务未连接，诊断状态可能已过期。')).toBeInTheDocument();
-    expect(screen.getAllByText('等待连接')).toHaveLength(2);
+    expect(screen.getByText('The local Runtime is disconnected. Diagnostics may be out of date.')).toBeInTheDocument();
+    expect(screen.getAllByText('Waiting for connection')).toHaveLength(2);
   });
 });

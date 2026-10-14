@@ -74,7 +74,7 @@ export async function registerCreatorServicesRoutes(
     reply.header('Cache-Control', 'no-store');
     return readCodexImageStatus ? await readCodexImageStatus() : {
       authentication: 'none', ready: false, executionMode: null,
-      message: '当前 Runtime 未配置 Codex 生图能力检查，请更新或检查 Runtime'
+      message: 'Codex image capability checks are not configured. Update or check the Runtime.'
     } satisfies CodexImageStatus;
   });
 
@@ -126,7 +126,7 @@ export async function registerCreatorServicesRoutes(
           'VALIDATION_FAILED',
           firstIssue === undefined
             ? 'Creator services configuration is invalid'
-            : `字段 ${firstIssue.field || 'config'} 无效：${firstIssue.message}`,
+            : `Invalid field ${firstIssue.field || 'config'}: ${firstIssue.message}`,
           { fields: issues }
         ));
       }

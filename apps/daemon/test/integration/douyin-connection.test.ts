@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import Fastify from 'fastify';
 import { afterEach, expect, it, vi } from 'vitest';
 import { PlatformConnectionService } from '../../src/platform-connections/service.js';
+import { PublicPlatformConnectionError } from '../../src/platform-connections/errors.js';
 import { filterPlatformCookies, hasPlatformSession, parsePlatformCookies, serializePlatformCookies } from '../../src/platform-connections/cookies.js';
 import { readBrowserPlatformCookies, type BrowserProfile } from '../../src/platform-connections/browser.js';
 import { registerPlatformConnectionRoutes } from '../../src/api/routes.platform-connections.js';
@@ -58,6 +59,15 @@ it('connects without requiring a logged-in account and returns no credentials in
   expect(JSON.stringify(await service.getState())).not.toMatch(/private-verification-session|s_v_web_id|\/private\/profile/);
   expect(JSON.parse(await readFile(join(root, 'credentials.json'), 'utf8')).cookies).toEqual([cookie]);
   if (process.platform !== 'win32') expect((await stat(join(root, 'credentials.json'))).mode & 0o777).toBe(0o600);
+});
+
+it.each([
+  [new PublicPlatformConnectionError('Allow macOS Keychain access and reconnect.'), 'Allow macOS Keychain access and reconnect.'],
+  [new Error('Could not read /private/profile/Cookies with token=private'), 'Could not read the browser session. Try again or select another browser profile.']
+])('preserves public connection guidance and filters internal errors: %s', async (error, message) => {
+  const { service } = await setup(async () => { throw error; });
+  await service.connect(profile.id);
+  await vi.waitFor(async () => expect(await service.getState()).toMatchObject({ status: 'error', message }));
 });
 
 it('isolates concurrent task files and platform credentials and removes snapshots after failure', async () => {

@@ -217,7 +217,7 @@ describe('codex sessions scanner', () => {
     expect(sessions).toEqual([
       expect.objectContaining({
         codexThreadId: 'large-session',
-        title: '未命名对话',
+        title: 'Untitled conversation',
         updatedAt: modifiedAt.toISOString()
       })
     ]);

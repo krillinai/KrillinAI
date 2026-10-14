@@ -109,7 +109,7 @@ describe('codex status response builder', () => {
       errorCode: 'CODEX_PROBE_EXIT_NON_ZERO'
     });
     expect(response.diagnostics).toEqual([
-      'Codex 后台可用性验证失败：尚未登录'
+      'Codex background availability verification failed: 尚未登录'
     ]);
   });
 });

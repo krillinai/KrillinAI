@@ -91,7 +91,7 @@ export function createImageExecutor(input: {
       }
       if (stage.job.templateId === 'image-generation' && referenceImage === undefined
         && imagePromptRequiresReference(request.prompt)) {
-        const message = '当前提示词需要参考图，但任务没有可用的参考图片。请先上传图片，或移除提示词中对上传图片或原图的要求。';
+        const message = 'This prompt requires a reference image, but none is available. Upload an image or remove references to an uploaded or original image from the prompt.';
         throw new CreatorExecutorError('creator_stage_input_missing', message, {}, {
           kind: 'validation', upstreamCode: 'IMAGE_REFERENCE_MISSING', upstreamMessage: message
         });

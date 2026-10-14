@@ -31,7 +31,7 @@ describe('creator preflight', () => {
     const job = fakeJob('stickman-video', { provider: 'gemini' });
     job.artifacts = ['character_reference', 'style_reference'].map((kind, i) => ({ id: `ref-${i}`, jobId: job.id, kind, version: 1, scopeKey: null, inputFingerprint: null, sourceArtifactIds: [], path: join(root, `${i}.png`), status: 'completed', metadata: {}, sha256: 'hash', producerStageRunId: null, createdAt: job.createdAt, updatedAt: job.updatedAt }));
     const result = await createCreatorPreflight({ configStore: source.store, readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'), resourceRoot: root, jobsRoot: join(root, 'jobs'), validateRuntimeAssets: false }).check(job, createStickmanVideoTemplate().stages.find(stage => stage.executor === 'stickman-image')!);
-    expect(result.blocked).toContainEqual(expect.objectContaining({ id: 'reference-image-count', message: expect.stringContaining('1 张') }));
+    expect(result.blocked).toContainEqual(expect.objectContaining({ id: 'reference-image-count', message: expect.stringContaining('one reference image') }));
   });
   it.each(['reference', 'speech-style'])('blocks unverified official %s before executing', async feature => {
     root = await mkdtemp(join(tmpdir(), 'creator-official-capability-'));
@@ -57,7 +57,7 @@ describe('creator preflight', () => {
     const job = fakeJob('image-generation', { provider, prompt: '以上传的人物照片为唯一主体，生成复古海报', referenceImageArtifactId: 'missing-artifact' });
     const result = await check.check(job, createImageGenerationTemplate().stages[0]!);
     expect(result.canStart).toBe(false);
-    expect(result.blocked).toContainEqual(expect.objectContaining({ id: 'reference-image-required', message: expect.stringContaining('上传参考图') }));
+    expect(result.blocked).toContainEqual(expect.objectContaining({ id: 'reference-image-required', message: expect.stringContaining('Upload a reference image') }));
     expect(new CreatorPreflightError(result)).toMatchObject({ code: 'creator_stage_input_missing', publicFacts: { kind: 'validation', upstreamCode: 'IMAGE_REFERENCE_MISSING' } });
   });
   it('allows rendering to prepare an installable Remotion component without downloading during preflight', async () => {
@@ -72,7 +72,7 @@ describe('creator preflight', () => {
     }).check(fakeJob('stickman-video', {}), stage);
     expect(status).toHaveBeenCalledOnce();
     expect(result.blocked.map(item => item.id)).not.toContain('stickman-runtime');
-    expect(result.warning).toContainEqual(expect.objectContaining({ id: 'stickman-runtime', message: expect.stringContaining('按需准备') }));
+    expect(result.warning).toContainEqual(expect.objectContaining({ id: 'stickman-runtime', message: expect.stringContaining('prepared on demand') }));
   });
 
   it('prepares preview from the saved Bilibili source without translation or Whisper credentials', async () => {
@@ -115,7 +115,7 @@ describe('creator preflight', () => {
     }).check(job, createVideoTranslationTemplate().stages.find(stage => stage.id === 'subtitle')!);
     if (part === undefined) {
       expect(result.canStart).toBe(false);
-      expect(result.blocked).toContainEqual(expect.objectContaining({ id: 'bilibili-part', message: expect.stringContaining('选择要翻译的分集') }));
+      expect(result.blocked).toContainEqual(expect.objectContaining({ id: 'bilibili-part', message: expect.stringContaining('Select the part to translate') }));
     } else {
       expect(result.blocked.map(item => item.id)).not.toContain('bilibili-part');
     }

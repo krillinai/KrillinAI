@@ -254,7 +254,7 @@ function requestFailure(error: unknown, area: string): {
       protocolFailure ? 'invalid' : 'unavailable',
       undefined,
       protocolFailure ? 'codex_runtime_protocol_incompatible' : undefined,
-      `Codex ${area} 检查失败：${message}`
+      `Codex ${area} check failed: ${message}`
     ),
     protocolFailure
   };

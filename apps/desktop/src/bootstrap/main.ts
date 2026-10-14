@@ -68,14 +68,14 @@ const selectCodex = element('select-codex');
 let currentState: BootstrapState | undefined;
 
 const labels: Record<BootstrapState['phase'], [string, string]> = {
-  idle: ['正在准备 OpenCreator', '正在初始化桌面环境'],
-  resolving_codex: ['正在查找本机 Codex', '正在读取终端环境和已保存路径'],
-  starting_daemon: ['正在启动本地运行服务', '正在创建独立的 OpenCreator Runtime'],
-  probing_codex: ['正在验证 Codex 是否可用', '正在检查本机 Codex 进程'],
-  starting_runtime: ['正在打开 OpenCreator', '正在加载本地数据和 Codex 能力信息'],
-  ready: ['正在打开 OpenCreator', '本地运行环境已就绪'],
-  workspace_failed: ['Dashboard 加载失败', '本地 Runtime 仍在运行，可以直接重载 Dashboard 或重启 Runtime'],
-  failed: ['Codex CLI 暂时无法完成调用', 'OpenCreator 没有收到有效响应，请检查诊断后重试']
+  idle: ['Preparing OpenCreator', 'Initializing the desktop environment'],
+  resolving_codex: ['Locating Codex', 'Reading the shell environment and saved paths'],
+  starting_daemon: ['Starting the local Runtime', 'Creating an isolated OpenCreator Runtime'],
+  probing_codex: ['Checking Codex availability', 'Checking the local Codex process'],
+  starting_runtime: ['Opening OpenCreator', 'Loading local data and Codex capabilities'],
+  ready: ['Opening OpenCreator', 'The local Runtime is ready'],
+  workspace_failed: ['Dashboard failed to load', 'The local Runtime is still running. Reload the Dashboard or restart the Runtime.'],
+  failed: ['Codex CLI is unavailable', 'OpenCreator did not receive a valid response. Check diagnostics and try again.']
 };
 
 api.subscribeBootstrapState(render);
@@ -102,7 +102,7 @@ window.setInterval(() => {
   }
   const seconds = Math.max(0, Math.floor((Date.now() - Date.parse(currentState.startedAt)) / 1000));
   elapsed.hidden = seconds < 3;
-  elapsed.textContent = `已等待 ${seconds} 秒`;
+  elapsed.textContent = `Waiting for ${seconds}s`;
 }, 500);
 
 function render(state: BootstrapState): void {
@@ -129,17 +129,17 @@ function render(state: BootstrapState): void {
 function failureLabel(state: BootstrapState): [string, string] {
   if (state.error?.code === 'CODEX_NOT_FOUND') {
     return [
-      '未找到本机 Codex CLI',
-      '请确认终端中可以运行 codex，或直接选择 ChatGPT/Codex 应用'
+      'Codex CLI not found',
+      'Make sure codex runs in your terminal, or select the ChatGPT or Codex app.'
     ];
   }
   if (state.error?.code === 'CODEX_PATH_INVALID') {
-    return ['所选 Codex 路径不可用', state.error.message];
+    return ['The selected Codex path is unavailable', state.error.message];
   }
   if (state.error?.code === 'RUNTIME_DATA_IN_USE') {
     return [
-      'OpenCreator 本地服务已在运行',
-      '当前运行环境正在使用同一数据目录，请关闭另一个同版本窗口后重试'
+      'OpenCreator Runtime is already running',
+      'Another instance is using the same data directory. Close the other window for this version and try again.'
     ];
   }
   return labels.failed;

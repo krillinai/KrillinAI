@@ -34,26 +34,26 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
   const visibleEntries = filterEntries(tree, query);
 
   return (
-    <section className="file-tree-panel" aria-label="项目文件树">
+    <section className="file-tree-panel" aria-label="Project file tree">
       <label className="file-search">
         <span className="file-search-icon" aria-hidden="true">
           <Search size={14} strokeWidth={2} />
         </span>
-        <span className="file-search-label">筛选文件</span>
+        <span className="file-search-label">Filter files</span>
         <input
           type="search"
           role="searchbox"
-          aria-label="筛选文件"
-          placeholder="筛选文件..."
+          aria-label="Filter files"
+          placeholder="Filter files..."
           value={props.search}
           onChange={(event) => props.onSearchChange(event.target.value)}
         />
       </label>
 
       {visibleEntries.length === 0 ? (
-        <p className="file-tree-empty">当前工作区暂无可显示文件</p>
+        <p className="file-tree-empty">No files to display in this workspace</p>
       ) : (
-        <ul className="file-tree-list" role="tree" aria-label="项目文件">
+        <ul className="file-tree-list" role="tree" aria-label="Project files">
           {visibleEntries.map((entry) => (
             <TreeNodeRow
               key={entry.node.path}
@@ -110,7 +110,7 @@ function TreeNodeRow(props: TreeNodeRowProps) {
 
         {props.truncated.has(node.path) ? (
           <p className="file-tree-warning" style={{ paddingInlineStart: `${40 + node.depth * 16}px` }}>
-            当前目录文件较多，仅显示前 500 项
+            Only the first 500 items in this directory are shown
           </p>
         ) : null}
 

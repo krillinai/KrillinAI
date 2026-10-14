@@ -28,7 +28,7 @@ export function createCoverWorkflow(input: {
       if (!config.llm.apiKey.trim()) {
         setConfigurationNeeded(input.creator, job.id, {
           code: 'creator_llm_config_missing',
-          message: '请先完成文本模型配置，以分析视频内容',
+          message: 'Configure a text model before analyzing video content',
           section: 'text',
           resumeStageId: stageId
         });
@@ -57,7 +57,7 @@ export function createCoverWorkflow(input: {
     if (!hasImageCredentials(config, provider)) {
       setConfigurationNeeded(input.creator, job.id, {
         code: 'creator_image_config_missing',
-        message: '请先完成当前图像生成服务配置',
+        message: 'Configure the current image generation service first',
         section: 'image',
         resumeStageId: stageId
       });
@@ -72,7 +72,7 @@ export function createCoverWorkflow(input: {
     ) {
       setConfigurationNeeded(input.creator, job.id, {
         code: 'unsupported_capability',
-        message: '当前图像服务不支持参考图，请切换到 OpenAI 或 Gemini',
+        message: 'The image service does not support references. Switch to OpenAI or Gemini.',
         section: 'image',
         resumeStageId: stageId
       });
@@ -299,7 +299,7 @@ function setReferenceNeeded(
   }
   creator.setNeedsInput(jobId, {
     code: 'creator_cover_reference_missing',
-    message: '无法获取 YouTube 原封面，请重新分析视频来源',
+    message: 'Could not retrieve the YouTube thumbnail. Analyze the video source again.',
     resumeStageId: 'analyze-source',
     workflow: true
   });

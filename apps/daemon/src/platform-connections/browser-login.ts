@@ -13,8 +13,10 @@ export type BrowserLoginSession = {
   dispose(): Promise<void>;
 };
 
-export class LoginBrowserCloseError extends Error {
-  constructor() { super('请关闭刚才打开的 YouTube 登录窗口，再点击“完成登录”。其他 Chrome 窗口可以保持打开。'); }
+import { PublicPlatformConnectionError } from './errors.js';
+
+export class LoginBrowserCloseError extends PublicPlatformConnectionError {
+  constructor() { super('Close the YouTube sign-in window, then click "Finish sign-in". Other Chrome windows can stay open.'); }
 }
 
 export function windowsYouTubeBrowserArgs(directory: string, url = 'https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2F'): string[] {
@@ -33,7 +35,7 @@ export async function openWindowsYouTubeLogin(input: { root: string; signal: Abo
   const browser = spawn(executable, windowsYouTubeBrowserArgs(directory, input.url), { stdio: 'ignore', windowsHide: true });
   await new Promise<void>((resolve, reject) => {
     browser.once('spawn', resolve);
-    browser.once('error', () => reject(new Error('无法打开 Chrome 登录窗口，请重试连接。')));
+    browser.once('error', () => reject(new PublicPlatformConnectionError('Could not open the Chrome sign-in window. Connect again.')));
   });
   const pids = existing.length ? existing : [browser.pid!];
   const powershell = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32/WindowsPowerShell/v1.0/powershell.exe');
@@ -64,5 +66,5 @@ async function findChrome(): Promise<string> {
     const executable = join(root, 'Google/Chrome/Application/chrome.exe');
     if ((await stat(executable).catch(() => undefined))?.isFile()) return executable;
   }
-  throw new Error('未找到 Chrome，请安装 Chrome 后重新连接 YouTube。');
+  throw new PublicPlatformConnectionError('Chrome was not found. Install Chrome and reconnect YouTube.');
 }

@@ -15,7 +15,7 @@ export async function registerPlatformConnectionRoutes(server: FastifyInstance, 
     server.post<{ Body: { profileId?: unknown } }>(`${path}/connect`, (request, reply) => {
       const profileId = request.body?.profileId;
       if (profileId !== undefined && (typeof profileId !== 'string' || !/^[a-f0-9]{24}$/.test(profileId))) {
-        return reply.code(400).send(apiError('VALIDATION_FAILED', '请选择有效的浏览器账号。'));
+        return reply.code(400).send(apiError('VALIDATION_FAILED', 'Select a valid browser profile.'));
       }
       return connection.connect(profileId as string | undefined);
     });
@@ -23,10 +23,10 @@ export async function registerPlatformConnectionRoutes(server: FastifyInstance, 
     server.delete(path, () => connection.disconnect());
     server.post<{ Body: { cookies?: unknown } }>(`${path}/import`, async (request, reply) => {
       if (typeof request.body?.cookies !== 'string' || Buffer.byteLength(request.body.cookies) > 1024 * 1024) {
-        return reply.code(400).send(apiError('VALIDATION_FAILED', '请选择有效的 Cookie 文件。'));
+        return reply.code(400).send(apiError('VALIDATION_FAILED', 'Select a valid cookie file.'));
       }
       try { return await connection.importCookies(request.body.cookies); }
-      catch { return reply.code(400).send(apiError('VALIDATION_FAILED', `文件中没有有效的${platform === 'youtube' ? 'YouTube' : '抖音'}会话，请检查文件或重新连接。`)); }
+      catch { return reply.code(400).send(apiError('VALIDATION_FAILED', `The file contains no valid ${platform === 'youtube' ? 'YouTube' : 'Douyin'} session. Check the file or reconnect.`)); }
     });
   }
 }

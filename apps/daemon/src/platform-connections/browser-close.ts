@@ -1,10 +1,12 @@
 import { join } from 'node:path';
 import { spawnCreatorProcess } from '../creator/process-tree.js';
 
-export class BrowserCloseError extends Error {
+import { PublicPlatformConnectionError } from './errors.js';
+
+export class BrowserCloseError extends PublicPlatformConnectionError {
   constructor(browser: 'chrome' | 'edge') {
     const name = browser === 'chrome' ? 'Chrome' : 'Edge';
-    super(`无法读取 ${name} 登录窗口。请关闭刚才打开的 YouTube 登录窗口后重新连接；其他浏览器窗口可以保持打开。`);
+    super(`Could not read the ${name} sign-in window. Close the YouTube sign-in window and reconnect. Other browser windows can stay open.`);
   }
 }
 
@@ -116,7 +118,7 @@ $pids = @(Get-CimInstance Win32_Process -Filter "Name = '${processName}'" | Wher
 `, signal);
   if (!Array.isArray(result?.pids) || result.pids.some(pid => !Number.isSafeInteger(pid) || pid <= 0)) {
     signal.throwIfAborted();
-    throw new Error('无法确认 YouTube 登录窗口，请重试连接。');
+    throw new PublicPlatformConnectionError('Could not verify the YouTube sign-in window. Connect again.');
   }
   return result.pids as number[];
 }

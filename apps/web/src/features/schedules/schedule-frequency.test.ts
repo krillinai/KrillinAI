@@ -44,10 +44,10 @@ describe('schedule frequency', () => {
   });
 
   it('formats schedules in language ordinary users can understand', () => {
-    expect(formatScheduleFrequency('15 * * * *')).toBe('每小时第 15 分钟');
-    expect(formatScheduleFrequency('0 8 * * 1-5')).toBe('工作日 08:00');
-    expect(formatScheduleFrequency('0 16 * * 5')).toBe('每周五 16:00');
-    expect(formatScheduleFrequency('0 10 * * 1,3,5')).toBe('每周一、周三、周五 10:00');
-    expect(formatScheduleFrequency('0 9 1 * *')).toBe('自定义计划');
+    expect(formatScheduleFrequency('15 * * * *')).toBe('Every hour at minute 15');
+    expect(formatScheduleFrequency('0 8 * * 1-5')).toBe('Weekdays at 08:00');
+    expect(formatScheduleFrequency('0 16 * * 5')).toBe('Every Friday at 16:00');
+    expect(formatScheduleFrequency('0 10 * * 1,3,5')).toBe('Every Monday, Wednesday, Friday at 10:00');
+    expect(formatScheduleFrequency('0 9 1 * *')).toBe('Custom schedule');
   });
 });

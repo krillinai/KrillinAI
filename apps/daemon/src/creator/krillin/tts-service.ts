@@ -157,9 +157,9 @@ export function createKrillinTtsService(input: {
     const gateway = gatewayCreatorBinding(config);
     if (gateway) {
       const selected = gateway.catalog?.find(candidate => candidate.modality === 'speech' && candidate.id === (model || gateway.models.speech));
-      if (model && model !== gateway.models.speech && !selected) throw new KrillinTtsServiceError('VALIDATION_FAILED', '请选择官方语音模型', 400);
+      if (model && model !== gateway.models.speech && !selected) throw new KrillinTtsServiceError('VALIDATION_FAILED', 'Select an official speech model', 400);
       const defaultVoice = selected?.capabilities.includes('default_voice') ?? gateway.capabilities?.speech?.includes('default_voice');
-      return { provider: 'openai', model: selected?.id ?? gateway.models.speech ?? '', voices: (defaultVoice ? [gatewayDefaultVoiceId] : selected?.voices ?? gateway.speechVoices ?? []).map(id => ({ id, name: id === gatewayDefaultVoiceId ? '默认音色' : id, provider: 'openai' as const, kind: 'builtin' as const })) };
+      return { provider: 'openai', model: selected?.id ?? gateway.models.speech ?? '', voices: (defaultVoice ? [gatewayDefaultVoiceId] : selected?.voices ?? gateway.speechVoices ?? []).map(id => ({ id, name: id === gatewayDefaultVoiceId ? 'Default voice' : id, provider: 'openai' as const, kind: 'builtin' as const })) };
     }
     if (provider === 'edge-tts') {
       return { provider, model: '', voices: [] };
@@ -203,7 +203,7 @@ export function createKrillinTtsService(input: {
     const configured = await input.configStore.read();
     const gateway = gatewayCreatorBinding(configured);
     const selected = gateway?.catalog?.find(candidate => candidate.modality === 'speech' && candidate.id === (request.model || gateway.models.speech));
-    if (gateway && request.model && request.model !== gateway.models.speech && (gateway.stageRunId || !selected)) throw new KrillinTtsServiceError('VALIDATION_FAILED', '请选择当前任务的官方语音模型', 400);
+    if (gateway && request.model && request.model !== gateway.models.speech && (gateway.stageRunId || !selected)) throw new KrillinTtsServiceError('VALIDATION_FAILED', 'Select an official speech model for this task', 400);
     const provider = gateway ? 'openai' : request.provider ?? configured.tts.provider;
     if (provider === 'edge-tts') {
       throw new KrillinTtsServiceError(
@@ -218,14 +218,14 @@ export function createKrillinTtsService(input: {
     const voiceId = request.voiceId?.trim() || (defaultVoice ? gatewayDefaultVoiceId : selected?.voices?.[0] || prepared.providerConfig.defaultVoiceId);
     const allowedVoices = defaultVoice ? [gatewayDefaultVoiceId] : selected?.voices ?? gateway?.speechVoices;
     if (allowedVoices && !allowedVoices.includes(voiceId)) {
-      throw new KrillinTtsServiceError('VALIDATION_FAILED', '请选择当前模型支持的音色', 400);
+      throw new KrillinTtsServiceError('VALIDATION_FAILED', 'Select a voice supported by this model', 400);
     }
     if (!voiceId) {
       throw new KrillinTtsServiceError('VALIDATION_FAILED', 'A voice must be selected', 400);
     }
     const format = request.format ?? 'wav';
     const speed = request.speed ?? 1;
-    if (gateway && (speed !== 1 || request.instructions)) throw new KrillinTtsServiceError('unsupported_capability', '当前官方语音路由未验证此生成参数', 400);
+    if (gateway && (speed !== 1 || request.instructions)) throw new KrillinTtsServiceError('unsupported_capability', 'This generation parameter is not verified for the official speech route', 400);
     if (!Number.isFinite(speed) || speed < 0.5 || speed > 2) {
       throw new KrillinTtsServiceError(
         'VALIDATION_FAILED',

@@ -37,11 +37,11 @@ type ApprovalService = {
 };
 
 const FILTERS: Array<{ value: TaskStatusFilter; label: string }> = [
-  { value: 'all', label: '全部' },
-  { value: 'active', label: '进行中' },
-  { value: 'waiting_approval', label: '待审批' },
-  { value: 'terminal', label: '已结束' },
-  { value: 'failed', label: '失败' }
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Running' },
+  { value: 'waiting_approval', label: 'Awaiting approval' },
+  { value: 'terminal', label: 'Finished' },
+  { value: 'failed', label: 'Failed' }
 ];
 
 export function TaskCenter(props: {
@@ -73,7 +73,7 @@ export function TaskCenter(props: {
   async function loadTasks(reset: boolean) {
     if (props.service === null) {
       setTasks([]);
-      pageIssues.captureOperationFailure('tasks.load', new Error('runtime_unavailable'), '本地运行内核未连接');
+      pageIssues.captureOperationFailure('tasks.load', new Error('runtime_unavailable'), 'The local Runtime is disconnected');
       return;
     }
     if (reset) setLoading(true);
@@ -89,7 +89,7 @@ export function TaskCenter(props: {
       setHasMore(response.hasMore);
       pageIssues.resolveOperation('tasks.load');
     } catch (loadError) {
-      pageIssues.captureOperationFailure('tasks.load', loadError, '无法加载任务，请重试。', { retryable: true });
+      pageIssues.captureOperationFailure('tasks.load', loadError, 'Could not load tasks. Try again.', { retryable: true });
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -121,7 +121,7 @@ export function TaskCenter(props: {
       )));
       await loadTasks(true);
     } catch (approvalError) {
-      pageIssues.captureOperationFailure('tasks.approval', approvalError, '审批操作未完成，请重试。');
+      pageIssues.captureOperationFailure('tasks.approval', approvalError, 'The approval operation did not complete. Try again.');
     } finally {
       setResolvingIds(current => {
         const next = new Set(current);
@@ -137,7 +137,7 @@ export function TaskCenter(props: {
       await props.onPauseSchedule(scheduleId);
       await loadTasks(true);
     } catch (pauseError) {
-      pageIssues.captureOperationFailure('tasks.pause-schedule', pauseError, '无法暂停任务，请重试。');
+      pageIssues.captureOperationFailure('tasks.pause-schedule', pauseError, 'Could not pause the task. Try again.');
     }
   }
 
@@ -146,20 +146,20 @@ export function TaskCenter(props: {
       <div className="task-center__inner">
         <header className="task-center__header">
           <div>
-            <h1>任务中心</h1>
-            <p>查看跨会话运行、待审批操作和最近结果。</p>
+            <h1>Task center</h1>
+            <p>View runs across conversations, pending approvals, and recent results.</p>
           </div>
           <div className="task-center__header-actions">
             {props.unreadIds.size > 0 ? (
               <button type="button" onClick={props.onClearUnread}>
                 <Check size={15} aria-hidden="true" />
-                全部已读
+                Mark all read
               </button>
             ) : null}
             {props.notificationSettings.enabled ? (
               <button type="button" onClick={props.onDisableNotifications}>
                 <BellOff size={15} aria-hidden="true" />
-                关闭通知
+                Disable notifications
               </button>
             ) : (
               <button
@@ -168,13 +168,13 @@ export function TaskCenter(props: {
                 onClick={() => void props.onEnableNotifications()}
               >
                 <Bell size={15} aria-hidden="true" />
-                开启通知
+                Enable notifications
               </button>
             )}
             <button
               type="button"
-              aria-label="刷新任务"
-              title="刷新任务"
+              aria-label="Refresh tasks"
+              title="Refresh tasks"
               onClick={() => void loadTasks(true)}
             >
               <RefreshCw size={15} aria-hidden="true" />
@@ -182,7 +182,7 @@ export function TaskCenter(props: {
           </div>
         </header>
 
-        <div className="task-center__filters" role="tablist" aria-label="任务筛选">
+        <div className="task-center__filters" role="tablist" aria-label="Task filters">
           {FILTERS.map(item => (
             <button
               key={item.value}
@@ -204,12 +204,12 @@ export function TaskCenter(props: {
         {loading ? (
           <div className="task-center__state" role="status">
             <LoaderCircle className="task-center__spin" size={22} />
-            正在加载任务
+            Loading tasks
           </div>
         ) : tasks.length === 0 ? (
           <div className="task-center__state">
             <Clock3 size={22} />
-            <strong>当前筛选下没有任务</strong>
+            <strong>No tasks match these filters</strong>
           </div>
         ) : (
           <ul className="task-center__list">
@@ -248,7 +248,7 @@ export function TaskCenter(props: {
             onClick={() => void loadTasks(false)}
           >
             {loadingMore ? <LoaderCircle className="task-center__spin" size={15} /> : null}
-            {loadingMore ? '正在加载' : '加载更多'}
+            {loadingMore ? 'Loading' : 'Load more'}
           </button>
         ) : null}
       </div>
@@ -295,7 +295,7 @@ function TaskRow(props: {
           <div>
             <button type="button" disabled={props.resolving} onClick={props.onReject}>
               <X size={14} aria-hidden="true" />
-              拒绝
+              Reject
             </button>
             <button
               className="task-row__approve"
@@ -304,7 +304,7 @@ function TaskRow(props: {
               onClick={props.onApprove}
             >
               <Check size={14} aria-hidden="true" />
-              批准
+              Approve
             </button>
           </div>
         </div>
@@ -314,26 +314,26 @@ function TaskRow(props: {
           <div>
             <strong>
               {props.task.consecutiveFailureCount === undefined
-                ? '项目目录需要更新'
-                : `已连续失败 ${props.task.consecutiveFailureCount} 次`}
+                ? 'The project directory needs updating'
+                : `${props.task.consecutiveFailureCount} consecutive failures`}
             </strong>
             <span>
               {props.task.suggestPause
-                ? '建议先暂停任务，更新项目目录后再恢复。'
-                : '更新项目目录后可以重新执行。'}
+                ? 'Pause the task, update the project directory, then resume it.'
+                : 'Retry after updating the project directory.'}
             </span>
           </div>
           <div>
             {props.onEditSchedule === undefined ? null : (
               <button type="button" onClick={props.onEditSchedule}>
                 <FolderOpen size={14} aria-hidden="true" />
-                编辑项目
+                Edit project
               </button>
             )}
             {!props.task.suggestPause || props.onPauseSchedule === undefined ? null : (
               <button type="button" onClick={() => void props.onPauseSchedule?.()}>
                 <PauseCircle size={14} aria-hidden="true" />
-                暂停任务
+                Pause task
               </button>
             )}
           </div>
@@ -352,17 +352,17 @@ function mergeTasks(current: TaskItem[], incoming: TaskItem[]): TaskItem[] {
 function formatStatus(status: TaskItem['status']): string {
   switch (status) {
     case 'waiting_approval':
-      return '等待审批';
+      return 'Awaiting approval';
     case 'queued':
-      return '排队中';
+      return 'Queued';
     case 'running':
-      return '运行中';
+      return 'Running';
     case 'succeeded':
-      return '已完成';
+      return 'Completed';
     case 'failed':
-      return '失败';
+      return 'Failed';
     case 'canceled':
-      return '已取消';
+      return 'Canceled';
   }
 }
 
@@ -372,9 +372,9 @@ function taskSummary(task: TaskItem): string {
     return task.pendingApproval.summary;
   }
   if (task.status === 'queued' && task.queuePosition !== undefined) {
-    return `队列第 ${task.queuePosition} 位 · ${task.cwd}`;
+    return `Queue position ${task.queuePosition} · ${task.cwd}`;
   }
-  if (task.status === 'failed') return '任务未完成，请打开会话查看详情。';
+  if (task.status === 'failed') return 'The task did not complete. Open its conversation for details.';
   return `${task.profile} · ${task.cwd}`;
 }
 
@@ -392,15 +392,15 @@ function formatTime(value: string): string {
 function formatDuration(task: TaskItem): string {
   const start = new Date(task.startedAt ?? task.createdAt).getTime();
   const end = new Date(task.endedAt ?? task.updatedAt).getTime();
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return '时长未知';
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return 'Unknown duration';
   const seconds = Math.max(0, Math.round((end - start) / 1_000));
-  if (seconds < 60) return `${seconds} 秒`;
+  if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   if (minutes < 60) return remainingSeconds === 0
-    ? `${minutes} 分钟`
-    : `${minutes} 分 ${remainingSeconds} 秒`;
+    ? `${minutes}m`
+    : `${minutes}m ${remainingSeconds}s`;
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  return remainingMinutes === 0 ? `${hours} 小时` : `${hours} 小时 ${remainingMinutes} 分`;
+  return remainingMinutes === 0 ? `${hours}h` : `${hours}h ${remainingMinutes}m`;
 }

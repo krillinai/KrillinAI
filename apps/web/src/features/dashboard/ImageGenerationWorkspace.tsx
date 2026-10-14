@@ -820,7 +820,7 @@ function createImageResultVersions(
     .sort(([left], [right]) => left - right)
     .map(([value, versionArtifacts]) => ({
       value,
-      description: '生成图片',
+      description: 'Generate',
       artifacts: versionArtifacts.sort(compareCandidates),
       state: {}
     }));

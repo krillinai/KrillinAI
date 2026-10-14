@@ -10,7 +10,7 @@ export async function openExternal(url: string): Promise<void> {
 
 export async function revealPath(path: string): Promise<DesktopHostResult> {
   if (!existsSync(path)) {
-    return { ok: false, code: 'FAILED', message: '路径不存在' };
+    return { ok: false, code: 'FAILED', message: 'Path does not exist' };
   }
   shell.showItemInFolder(path);
   return { ok: true };

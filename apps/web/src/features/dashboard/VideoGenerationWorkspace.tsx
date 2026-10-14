@@ -1020,7 +1020,7 @@ function createVideoResultVersions(
     ))
     .map(artifact => ({
       value: readPositiveInteger(artifact.metadata.resultVersion) ?? artifact.version,
-      description: '生成视频',
+      description: 'Generate',
       artifact,
       state: {}
     }))

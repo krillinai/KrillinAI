@@ -1244,7 +1244,7 @@ function createCoverResultVersions(
     .sort(([left], [right]) => left - right)
     .map(([value, versionArtifacts]) => ({
       value,
-      description: '生成封面',
+      description: 'Generate cover',
       artifacts: versionArtifacts.sort(compareCandidates),
       state: {},
       artifactRefs: { cover_image: versionArtifacts.map(artifact => artifact.id) }

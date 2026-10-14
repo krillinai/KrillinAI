@@ -65,7 +65,7 @@ export const browserBridge: HostBridge = {
     window.open(url, '_blank', 'noopener,noreferrer');
   },
   async revealPath(_path: string): Promise<HostBridgeResult> {
-    return { ok: false, code: 'UNSUPPORTED', message: '浏览器版不支持在系统文件管理器中显示路径' };
+    return { ok: false, code: 'UNSUPPORTED', message: 'Revealing paths in the system file manager is unavailable in the browser' };
   },
   async notify(message: HostNotification): Promise<void> {
     if (

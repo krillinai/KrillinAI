@@ -213,7 +213,7 @@ describe('task service', () => {
       id: 'run_directory_3',
       scheduleId: 'sch_missing_project',
       failureKind: 'project_directory',
-      failureSummary: '项目目录不存在或无法访问，请编辑项目后重试。',
+      failureSummary: 'The project directory is missing or inaccessible. Edit the project and try again.',
       consecutiveFailureCount: 3,
       suggestPause: true
     });

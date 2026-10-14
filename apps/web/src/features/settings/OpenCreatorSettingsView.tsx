@@ -601,8 +601,8 @@ function StorageDirectoryRow(props: {
         <button
           type="button"
           className="icon-button"
-          aria-label={`保存${props.label}`}
-          title={`保存${props.label}`}
+          aria-label={`Save ${props.label}`}
+          title={`Save ${props.label}`}
           disabled={props.disabled || !dirty}
           onClick={props.onSave}
         >
@@ -611,8 +611,8 @@ function StorageDirectoryRow(props: {
         {props.onSelect === undefined ? null : <button
           type="button"
           className="icon-button"
-          aria-label={`选择${props.label}`}
-          title={`选择${props.label}`}
+          aria-label={`Select ${props.label}`}
+          title={`Select ${props.label}`}
           disabled={props.disabled}
           onClick={props.onSelect}
         >

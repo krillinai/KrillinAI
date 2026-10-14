@@ -148,7 +148,7 @@ async function runAction(
   if (action.kind === 'retry-operation') {
     if (
       (action.requiresConfirmation || action.risk !== 'normal')
-      && !globalThis.confirm('此操作可能产生费用或覆盖结果，确定继续吗？')
+      && !globalThis.confirm('This operation may incur charges or overwrite results. Continue?')
     ) return;
     const handler = registry.retryOperations?.[action.operationId];
     if (handler === undefined) return;

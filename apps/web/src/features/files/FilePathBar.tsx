@@ -10,7 +10,7 @@ export function FilePathBar(props: FilePathBarProps) {
 
   return (
     <div className="file-path-bar">
-      <nav className="file-path-breadcrumbs" aria-label="文件路径">
+      <nav className="file-path-breadcrumbs" aria-label="File path">
         <span>{props.rootName}</span>
         {segments.map((segment) => (
           <span key={`${props.path ?? ''}:${segment}`}>{segment}</span>
@@ -19,10 +19,10 @@ export function FilePathBar(props: FilePathBarProps) {
 
       <div className="file-path-actions">
         <button className="toolbar-button" type="button" onClick={props.onRevealDirectory} disabled={!props.path}>
-          打开所在目录
+          Open containing folder
         </button>
         <button className="toolbar-button" type="button" onClick={props.onCopyPath} disabled={!props.path}>
-          复制路径
+          Copy path
         </button>
       </div>
     </div>

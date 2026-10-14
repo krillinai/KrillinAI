@@ -27,11 +27,11 @@ export function MemorySuggestion(props: {
         ? props.projectKey
         : undefined;
     if (normalized.length === 0) {
-      setError('记忆内容不能为空');
+      setError('Memory content cannot be empty');
       return;
     }
     if (scope !== 'global' && scopeKey === undefined) {
-      setError('当前范围不可用，请选择其他范围');
+      setError('This scope is unavailable. Select another scope.');
       return;
     }
 
@@ -54,7 +54,7 @@ export function MemorySuggestion(props: {
       ) {
         setConfirmingSensitive(true);
       } else {
-        pageIssues.captureOperationFailure('memory-suggestion.save', reason, '保存记忆失败，请重试。', { retryable: true });
+        pageIssues.captureOperationFailure('memory-suggestion.save', reason, 'Could not save the memory. Try again.', { retryable: true });
       }
     } finally {
       setSaving(false);
@@ -62,13 +62,13 @@ export function MemorySuggestion(props: {
   }
 
   return (
-    <section className="memory-suggestion" aria-label="记忆建议">
+    <section className="memory-suggestion" aria-label="Memory suggestion">
       <div className="memory-suggestion__title">
         <Brain aria-hidden="true" size={16} />
-        <strong>保存为长期记忆？</strong>
+        <strong>Save as a long-term memory?</strong>
       </div>
       <textarea
-        aria-label="记忆建议内容"
+        aria-label="Suggested memory content"
         maxLength={2000}
         value={content}
         disabled={saving}
@@ -76,39 +76,39 @@ export function MemorySuggestion(props: {
       />
       <div className="memory-suggestion__actions">
         <label>
-          <span>范围</span>
+          <span>Scope</span>
           <select
-            aria-label="记忆建议范围"
+            aria-label="Suggested memory scope"
             value={scope}
             disabled={saving}
             onChange={event => setScope(event.target.value as MemoryScope)}
           >
-            {props.threadKey !== undefined ? <option value="thread">当前线程</option> : null}
-            {props.projectKey !== undefined ? <option value="project">当前项目</option> : null}
-            <option value="global">全局</option>
+            {props.threadKey !== undefined ? <option value="thread">Current thread</option> : null}
+            {props.projectKey !== undefined ? <option value="project">Current project</option> : null}
+            <option value="global">Global</option>
           </select>
         </label>
-        <button type="button" disabled={saving} aria-label="忽略记忆建议" onClick={props.onDismiss}>
+        <button type="button" disabled={saving} aria-label="Dismiss memory suggestion" onClick={props.onDismiss}>
           <X aria-hidden="true" size={15} />
-          忽略
+          Dismiss
         </button>
         <button
           className="memory-suggestion__save"
           type="button"
           disabled={saving}
-          aria-label="保存记忆建议"
+          aria-label="Save memory suggestion"
           onClick={() => void save()}
         >
           <Check aria-hidden="true" size={15} />
-          {saving ? '正在保存' : '保存记忆'}
+          {saving ? 'Saving' : 'Save memory'}
         </button>
       </div>
       {confirmingSensitive ? (
         <div className="memory-suggestion__warning" role="alert">
           <AlertTriangle aria-hidden="true" size={16} />
-          <span>内容可能包含敏感信息，仅在确认后保存到本机。</span>
-          <button type="button" onClick={() => void save(true)} aria-label="确认保存敏感建议">
-            确认保存
+          <span>This content may contain sensitive information. Confirm before saving it locally.</span>
+          <button type="button" onClick={() => void save(true)} aria-label="Confirm saving the sensitive suggestion">
+            Confirm save
           </button>
         </div>
       ) : null}

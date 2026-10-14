@@ -12,7 +12,7 @@ describe('CleanupSettingsView', () => {
 
     render(<CleanupSettingsView connected={false} service={service} />);
 
-    expect(screen.getByText('本地服务未连接，无法检查可清理内容。')).toBeInTheDocument();
+    expect(screen.getByText('The local Runtime is disconnected. Cleanup candidates cannot be checked.')).toBeInTheDocument();
     expect(service.previewCleanup).not.toHaveBeenCalled();
   });
 
@@ -27,10 +27,10 @@ describe('CleanupSettingsView', () => {
     });
 
     render(<CleanupSettingsView connected service={service} />);
-    fireEvent.click(screen.getByRole('button', { name: '检查可清理内容' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check cleanup candidates' }));
 
-    expect(await screen.findByText('没有符合条件的可清理内容')).toBeInTheDocument();
-    expect(screen.getByText(/运行中、排队中和正在取消的任务不会被清理/)).toBeInTheDocument();
+    expect(await screen.findByText('No eligible cleanup candidates')).toBeInTheDocument();
+    expect(screen.getByText(/Active, queued, and canceling tasks are retained/)).toBeInTheDocument();
     expect(service.previewCleanup).toHaveBeenCalledWith(30);
   });
 
@@ -57,24 +57,24 @@ describe('CleanupSettingsView', () => {
     });
 
     render(<CleanupSettingsView connected service={service} />);
-    fireEvent.click(screen.getByRole('button', { name: '检查可清理内容' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check cleanup candidates' }));
 
     expect(await screen.findByText('/runtime/runs/run_old')).toBeInTheDocument();
     expect(screen.getByText('/runtime/workspaces/thread_failed')).toBeInTheDocument();
     expect(screen.getByText('/runtime/workspaces/thread_skipped')).toBeInTheDocument();
     expect(
-      screen.getByRole('region', { name: '清理预览' }).querySelector('.cleanup-summary p')
-    ).toHaveTextContent('3 项 · 4 KB');
+      screen.getByRole('region', { name: 'Cleanup preview' }).querySelector('.cleanup-summary p')
+    ).toHaveTextContent('3 items | 4 KB');
 
-    fireEvent.click(screen.getByRole('button', { name: '删除 3 项' }));
-    const confirmation = screen.getByRole('region', { name: '确认清理' });
-    expect(within(confirmation).getByText(/此操作无法撤销/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove 3 items' }));
+    const confirmation = screen.getByRole('region', { name: 'Confirm cleanup' });
+    expect(within(confirmation).getByText(/This cannot be undone/)).toBeInTheDocument();
 
-    fireEvent.click(within(confirmation).getByRole('button', { name: '取消' }));
+    fireEvent.click(within(confirmation).getByRole('button', { name: 'Cancel' }));
     expect(service.deleteCleanup).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: '删除 3 项' }));
-    fireEvent.click(screen.getByRole('button', { name: '确认删除 3 项' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove 3 items' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm deleting 3 items' }));
 
     await waitFor(() => {
       expect(service.deleteCleanup).toHaveBeenCalledWith({
@@ -82,9 +82,9 @@ describe('CleanupSettingsView', () => {
         confirm: true
       });
     });
-    expect(await screen.findByText('已删除 1 项')).toBeInTheDocument();
-    expect(screen.getByText('删除失败 1 项')).toBeInTheDocument();
-    expect(screen.getByText('跳过 1 项')).toBeInTheDocument();
+    expect(await screen.findByText('Deleted 1 items')).toBeInTheDocument();
+    expect(screen.getByText('Deletion failed 1 items')).toBeInTheDocument();
+    expect(screen.getByText('Skipped 1 items')).toBeInTheDocument();
     expect(screen.getByText('permission denied')).toBeInTheDocument();
     expect(screen.getByText('一个目录在删除前发生变化')).toBeInTheDocument();
   });

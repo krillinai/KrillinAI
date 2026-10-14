@@ -1624,7 +1624,7 @@ describe('run manager', () => {
     expect(rotationDiagnostics).toHaveLength(1);
     expect(rotationDiagnostics[0]).toMatchObject({
       payload: {
-        message: '执行上下文已重新连接',
+        message: 'Execution context reconnected',
         details: {
           reason: 'resume_failed',
           previousCodexThreadId: 'codex-thread-old',

@@ -884,7 +884,7 @@ export function createRunManager(options: RunManagerOptions): RunManager {
         id,
         ++seq,
         'THREAD_CODEX_SESSION_ROTATED',
-        '执行上下文已重新连接',
+        'Execution context reconnected',
         publish,
         {
           reason: rotation.reason,
@@ -913,7 +913,7 @@ export function createRunManager(options: RunManagerOptions): RunManager {
           id,
           ++seq,
           'THREAD_ROTATION_CONTEXT_UNAVAILABLE',
-          '会话摘要暂不可用，已使用本次公开任务输入重新连接',
+          'Conversation summary unavailable. Reconnected using the current public task input.',
           publish,
           { error: redactText(error instanceof Error ? error.message : String(error)) }
         ).catch(() => undefined);
@@ -2067,14 +2067,14 @@ function buildApprovalRequest(input: {
       ? 'file_change' as const
       : 'permissions' as const;
   const title = isScheduleCreate
-    ? '允许创建定时任务'
+    ? 'Allow scheduled task creation'
     : isMcpElicitation
-      ? '允许调用 MCP 工具'
+      ? 'Allow MCP tool call'
       : kind === 'command_execution'
-        ? host === undefined ? '允许执行命令' : '允许网络访问'
+        ? host === undefined ? 'Allow command execution' : 'Allow network access'
         : kind === 'file_change'
-          ? '允许修改文件'
-          : '允许扩大权限';
+          ? 'Allow file changes'
+          : 'Allow additional permissions';
   const summary = host !== undefined
     ? `${protocol ?? 'network'}://${host}${port === undefined ? '' : `:${port}`}`
     : scheduleName ?? toolName ?? serverName ?? command ?? grantRoot ?? reason ?? title;

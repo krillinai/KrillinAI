@@ -295,7 +295,7 @@ describe('Codex provider configuration', () => {
     await expect(service.update({
       baseUrl: 'https://api.deepseek.com',
       model: 'deepseek-chat'
-    })).rejects.toThrow('自定义 Base URL 需要 API Key 登录');
+    })).rejects.toThrow('A custom Base URL requires API key authentication');
     expect(client.restart).not.toHaveBeenCalled();
   });
 

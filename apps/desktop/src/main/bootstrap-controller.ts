@@ -124,7 +124,7 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
         phase: 'failed',
         error: {
           code: 'CODEX_PATH_INVALID',
-          message: '请选择 ChatGPT.app、Codex.app，或可执行的 codex 文件'
+          message: 'Select ChatGPT.app, Codex.app, or a codex executable'
         }
       });
       return;
@@ -146,7 +146,7 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
     this.stopping = false;
     if (this.resolvedEnvironment === undefined) {
       await this.start();
-      if (this.state.phase === 'failed') throw new Error(this.state.error?.message ?? '本地服务启动失败');
+      if (this.state.phase === 'failed') throw new Error(this.state.error?.message ?? 'Failed to start the local Runtime');
       return;
     }
     await this.recoverRuntime('manual');
@@ -256,7 +256,7 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
         phase: 'failed',
         error: {
           code: 'CODEX_NOT_FOUND',
-          message: '未能自动找到 Codex CLI。请确认终端中可以运行 codex，或手动选择 Codex 路径',
+          message: 'Codex CLI could not be located automatically. Make sure codex runs in your terminal, or select its path manually.',
           ...(resolutionDiagnostics === undefined
             ? {}
             : { details: { ...resolutionDiagnostics } })
@@ -378,7 +378,7 @@ export class BootstrapController extends EventEmitter<BootstrapControllerEvents>
     if (controller.signal.aborted || this.stopping) return;
     this.updateState({
       phase: 'failed',
-      error: { code: 'DAEMON_RESTART_EXHAUSTED', message: '本地服务多次恢复失败，请在连接提示或设置 → 诊断中重启本地服务。' }
+      error: { code: 'DAEMON_RESTART_EXHAUSTED', message: 'Runtime recovery failed repeatedly. Restart the local Runtime from the connection notice or Settings > Diagnostics.' }
     });
   }
 

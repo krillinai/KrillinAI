@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
 import { join } from 'node:path';
 import { z } from 'zod';
-import type { GatewayModel } from '@opencreator/protocol';
+import type { GatewayModel, PublicErrorFacts } from '@opencreator/protocol';
 import { readPrivateJsonFile, writePrivateJsonFile } from '../config/private-json-file.js';
 import { probeCredentialsSchema, type GatewayBootstrap, type GatewayProbeCredentials } from './client.js';
 
@@ -10,12 +10,18 @@ const allowedTTL = 24 * 60 * 60_000;
 const blockedTTL = 60 * 60_000;
 const retryTTL = 5 * 60_000;
 const entrySchema = z.object({
-  status: z.enum(['allowed', 'blocked', 'unknown']),
-  nextCheck: z.number(), representative: z.string(), alternate: z.boolean().optional()
+  status: z.enum(['allowed', 'blocked', 'unknown']), profile: z.string(),
+  nextCheck: z.number(), validUntil: z.number()
 });
-const cacheSchema = z.object({ version: z.literal(1), base: z.string(), network: z.string(), groups: z.record(entrySchema) });
+const cacheSchema = z.object({
+  version: z.literal(2), base: z.string(), network: z.string(), country: z.string(),
+  models: z.record(entrySchema), catalogIDs: z.array(z.string()), catalogExpiresAt: z.number()
+});
 type AccessCache = z.infer<typeof cacheSchema>;
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const modelKey = (model: Pick<GatewayModel, 'id' | 'modality'>) => `${model.modality}:${model.id}`;
+const profileKey = ({ name: _name, ...model }: GatewayModel) => digest(model);
+const emptyCache = (base = ''): AccessCache => ({ version: 2, base, network: '', country: '', models: {}, catalogIDs: [], catalogExpiresAt: 0 });
 
 export function modelAccessGroup(model: GatewayModel): string | undefined {
   const [vendor, slug] = model.id.replace(/^~/, '').split('/');
@@ -40,61 +46,109 @@ export function withModelCatalog(bootstrap: GatewayBootstrap, models: GatewayMod
   return { ...bootstrap, models, defaults };
 }
 
-const preferred: Record<string, string[]> = {
-  openai: ['openai/gpt-4.1-mini', 'openai/gpt-6-sol', 'openai/gpt-4o-mini'],
-  'google-gemini': ['google/gemini-2.5-flash-lite', 'google/gemini-2.5-flash'],
-  deepseek: ['deepseek/deepseek-v3.2', 'deepseek/deepseek-chat'],
-  qwen: ['qwen/qwen3-coder', 'qwen/qwen3-max'],
-  'openai-oss': ['openai/gpt-oss-20b', 'openai/gpt-oss-120b'],
-  'google-gemma': ['google/gemma-3-12b-it', 'google/gemma-3-27b-it']
-};
+// Only model access failures affect admission. Quota, content policy and outages do not.
+export function isModelAccessFailure(facts: PublicErrorFacts): boolean {
+  const status = facts.httpStatus ?? Number(facts.upstreamCode);
+  const message = facts.upstreamMessage ?? '';
+  if (/key limit|balance|credits|quota|rate limit|moderation|content policy|safety filter/i.test(message)) return false;
+  const regionOrTerms = /provider terms of service|(?:country|region|location).{0,80}(?:not supported|restricted|not allowed|unavailable|prohibited)|(?:not available|unavailable|unsupported|restricted).{0,80}(?:country|region|location)/i.test(message);
+  if (facts.kind === 'provider-failed' && !Number.isFinite(status) && regionOrTerms) return true;
+  if (![400, 403, 404].includes(status)) return false;
+  return regionOrTerms || /no (?:available )?endpoints found|(?:model|provider).{0,80}(?:permission denied|not allowed|not found|not available|unavailable)|(?:permission denied|not allowed).{0,80}(?:model|provider)|does not support response_format/i.test(message);
+}
 
 export function createOfficialModelAccess(input: {
   dataDir: string; fetcher: typeof fetch; readProxy(): Promise<string>;
   readProbeCredentials(): Promise<GatewayProbeCredentials>;
 }) {
   const path = join(input.dataDir, 'config', 'gateway-model-access.json');
-  let cache: AccessCache = { version: 1, base: '', network: '', groups: {} };
+  let cache = emptyCache();
   let loaded: Promise<void> | undefined;
   let saving = Promise.resolve();
-  let networkCheckedAt = 0;
-  async function prepare(bootstrap: GatewayBootstrap) {
-    loaded ??= (async () => {
-      try {
-        const parsed = cacheSchema.safeParse(await readPrivateJsonFile(path));
-        if (parsed.success) cache = parsed.data;
-      } catch { /* A broken availability cache must not prevent sign-in. */ }
-    })();
-    await loaded;
-    const base = digest([bootstrap.account.id, bootstrap.keyVersion, await input.readProxy()]);
-    if (cache.base !== base) {
-      cache = { version: 1, base, network: '', groups: {} };
-      networkCheckedAt = 0;
-    }
-    return filter(bootstrap);
-  }
-  function filter(bootstrap: GatewayBootstrap) {
-    const eligible = officialModelPolicy(bootstrap.models);
-    const status = (model: GatewayModel) => cache.groups[modelAccessGroup(model) ?? '']?.status;
-    const text = eligible.filter(model => model.modality === 'text' && model.capabilities.includes('responses'));
-    const selected = text.find(model => model.id === bootstrap.defaults.text);
-    const fallback = (selected && status(selected) !== 'blocked' ? selected : undefined)
-      ?? text.find(model => status(model) === 'allowed')
-      ?? text.find(model => status(model) !== 'blocked');
-    const fallbackGroup = fallback && modelAccessGroup(fallback);
-    return withModelCatalog(bootstrap, eligible.filter(model => {
-      const group = modelAccessGroup(model);
-      if (group === undefined) return true;
-      if (cache.groups[group]?.status === 'blocked') return false;
-      return model.modality !== 'text' || cache.groups[group]?.status === 'allowed' || group === fallbackGroup;
-    }));
-  }
+  let metadataWork: Promise<void> | undefined;
+  let metadataCheckedAt = 0;
+  let identityValid = false;
+  const context = () => identityValid && cache.network ? digest([cache.base, cache.network]) : '';
   function save() {
     const snapshot = structuredClone(cache);
     saving = saving.catch(() => undefined).then(() => writePrivateJsonFile(path, snapshot));
     return saving;
   }
-  async function check(model: GatewayModel, key: string, signal: AbortSignal): Promise<{ status: 'allowed' | 'blocked' | 'unknown'; alternate?: boolean }> {
+  async function prepare(bootstrap: GatewayBootstrap, signal?: AbortSignal) {
+    loaded ??= (async () => {
+      try {
+        const parsed = cacheSchema.safeParse(await readPrivateJsonFile(path));
+        if (parsed.success) cache = parsed.data;
+      } catch { /* A broken cache must not prevent sign-in. */ }
+    })();
+    await loaded;
+    if (signal?.aborted) return filter(bootstrap);
+    const base = digest([bootstrap.account.id, bootstrap.keyVersion, await input.readProxy()]);
+    if (cache.base !== base) { cache = emptyCache(base); identityValid = false; metadataCheckedAt = 0; }
+    if (metadataWork) await metadataWork;
+    if (Date.now() - metadataCheckedAt >= 60_000 || metadataCheckedAt === 0) {
+      metadataCheckedAt = Date.now();
+      const expectedBase = cache.base;
+      const work = (async () => {
+        const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(8000)]) : AbortSignal.timeout(8000);
+        identityValid = false;
+        try {
+          const response = await input.fetcher('https://openrouter.ai/cdn-cgi/trace', { redirect: 'error', signal: requestSignal });
+          const fields = new URLSearchParams((await response.text()).replace(/\r?\n/g, '&'));
+          const ip = fields.get('ip') ?? ''; const country = fields.get('loc') ?? '';
+          if (!response.ok || !isIP(ip) || !/^[A-Z]{2}$/.test(country)) throw new Error('Unknown network');
+          if (cache.base !== expectedBase || signal?.aborted) return;
+          const network = digest([ip, country]);
+          if (cache.network !== network) cache = { ...emptyCache(expectedBase), network, country };
+          identityValid = true;
+          cache.catalogExpiresAt = 0;
+          const ids: string[] = [];
+          let offset = 0;
+          for (let page = 0; page < 10; page++) {
+            const response = await input.fetcher(`https://openrouter.ai/api/v1/models/user?output_modalities=all&limit=1000&offset=${offset}`, {
+              redirect: 'error', signal: requestSignal, headers: { Authorization: `Bearer ${bootstrap.modelKey}` }
+            });
+            if (!response.ok) throw new Error('Unknown account catalog');
+            const value = z.object({ data: z.array(z.object({ id: z.string().min(1) })), links: z.object({ next: z.string().nullable().optional() }).optional() }).parse(await response.json());
+            ids.push(...value.data.map(model => model.id));
+            if (!value.links?.next) break;
+            const next = new URL(value.links.next, 'https://openrouter.ai');
+            const nextOffset = Number(next.searchParams.get('offset'));
+            if (next.origin !== 'https://openrouter.ai' || next.pathname !== '/api/v1/models/user' || !Number.isInteger(nextOffset) || nextOffset <= offset || page === 9 || !value.data.length) throw new Error('Invalid account catalog pagination');
+            offset = nextOffset;
+          }
+          if (cache.base !== expectedBase || signal?.aborted) return;
+          cache.catalogIDs = ids; cache.catalogExpiresAt = Date.now() + retryTTL;
+          await save();
+        } catch {
+          if (cache.base === expectedBase && !signal?.aborted) await save();
+        }
+      })();
+      metadataWork = work;
+      try { await work; } finally { if (metadataWork === work) metadataWork = undefined; }
+    }
+    return filter(bootstrap);
+  }
+  function filter(bootstrap: GatewayBootstrap) {
+    const ids = new Set(cache.catalogExpiresAt > Date.now() ? cache.catalogIDs : []);
+    return withModelCatalog(bootstrap, officialModelPolicy(bootstrap.models).filter(model => {
+      if (!identityValid || !ids.has(model.id)) return false;
+      const entry = cache.models[modelKey(model)];
+      const current = entry?.profile === profileKey(model) ? entry : undefined;
+      if (current?.status === 'blocked') return false;
+      if (model.modality === 'text') return model.capabilities.includes('responses') && current?.status === 'allowed' && current.validUntil > Date.now();
+      const verified = model.verification;
+      return verified?.adapterVersion === 2 && verified.countries.includes(cache.country)
+        && (model.modality !== 'transcription' || model.capabilities.includes('subtitle_timestamps'));
+    }));
+  }
+  async function recordFailure(expectedContext: string, model: GatewayModel, facts: PublicErrorFacts) {
+    if (!expectedContext || expectedContext !== context() || !isModelAccessFailure(facts)) return false;
+    cache.models[modelKey(model)] = { status: 'blocked', profile: profileKey(model), nextCheck: Date.now() + blockedTTL, validUntil: 0 };
+    await save();
+    return true;
+  }
+  async function check(model: GatewayModel, key: string, signal: AbortSignal): Promise<'allowed' | 'blocked' | 'unknown'> {
     try {
       const response = await input.fetcher('https://openrouter.ai/api/v1/responses', {
         method: 'POST', redirect: 'error', signal: AbortSignal.any([signal, AbortSignal.timeout(8000)]),
@@ -105,70 +159,49 @@ export function createOfficialModelAccess(input: {
       });
       const value = await response.json() as { status?: string; error?: { message?: unknown }; output?: Array<{ type?: string; name?: string; arguments?: string }> };
       const message = typeof value.error?.message === 'string' ? value.error.message : '';
-      if (response.status === 403 && /provider terms of service|(?:country|region|location).{0,80}(?:not supported|restricted|not allowed|unavailable|prohibited)|(?:not available|unavailable|unsupported|restricted).{0,80}(?:country|region|location)/i.test(message)) return { status: 'blocked' };
-      if (!response.ok) return { status: 'unknown', alternate: response.status === 400 || response.status === 404 };
+      if (isModelAccessFailure({ kind: 'http-rejected', httpStatus: response.status, upstreamMessage: message })) return 'blocked';
+      if (!response.ok) return 'unknown';
       const call = value.output?.find(item => item.type === 'function_call' && item.name === 'oc_access_check');
-      return value.status === 'completed' && call && JSON.parse(call.arguments ?? '{}').ready === true ? { status: 'allowed' } : { status: 'unknown', alternate: true };
-    } catch { return { status: 'unknown' }; }
+      return value.status === 'completed' && call && JSON.parse(call.arguments ?? '{}').ready === true ? 'allowed' : 'unknown';
+    } catch { return 'unknown'; }
   }
   async function refresh(bootstrap: GatewayBootstrap, signal: AbortSignal, onChange: () => Promise<void>) {
-    await prepare(bootstrap);
+    await prepare(bootstrap, signal);
     if (signal.aborted) return;
-    if (Date.now() - networkCheckedAt > 60_000) {
-      networkCheckedAt = Date.now();
-      try {
-        const response = await input.fetcher('https://openrouter.ai/cdn-cgi/trace', { redirect: 'error', signal: AbortSignal.any([signal, AbortSignal.timeout(4000)]) });
-        const fields = new URLSearchParams((await response.text()).replace(/\r?\n/g, '&'));
-        const ip = fields.get('ip') ?? ''; const country = fields.get('loc') ?? '';
-        if (response.ok && isIP(ip) && /^[A-Z]{2}$/.test(country)) {
-          const network = digest([ip, country]);
-          if (cache.network !== network) {
-            cache = { ...cache, network, groups: {} };
-            await save(); await onChange();
-          }
-        }
-      } catch { /* Keep prior results when the network identity endpoint is unavailable. */ }
-    }
-    const groups = new Map<string, GatewayModel[]>();
-    for (const model of officialModelPolicy(bootstrap.models)) {
-      const group = modelAccessGroup(model);
-      if (model.modality !== 'text' || !model.capabilities.includes('responses') || !group) continue;
-      groups.set(group, [...(groups.get(group) ?? []), model]);
-    }
+    await onChange();
+    if (!context() || cache.catalogExpiresAt <= Date.now()) return;
+    const ids = new Set(cache.catalogIDs);
     const priority = ['openai', 'google-gemini', 'deepseek', 'qwen', 'openai-oss', 'google-gemma'];
-    const pending = [...groups].filter(([group]) => (cache.groups[group]?.nextCheck ?? 0) <= Date.now())
-      .sort(([a], [b]) => {
-        const rank = (group: string) => priority.includes(group) ? priority.indexOf(group) : priority.length;
-        return rank(a) - rank(b);
-      }).slice(0, 12);
-    const expectedBase = cache.base;
+    const rank = (model: GatewayModel) => {
+      if (model.id === bootstrap.defaults.text) return -1;
+      const index = priority.indexOf(modelAccessGroup(model) ?? '');
+      return index < 0 ? priority.length : index;
+    };
+    const pending = officialModelPolicy(bootstrap.models).filter(model => {
+      const entry = cache.models[modelKey(model)];
+      return model.modality === 'text' && model.capabilities.includes('responses') && ids.has(model.id)
+        && (entry?.profile !== profileKey(model) || entry.nextCheck <= Date.now());
+    }).sort((a, b) => rank(a) - rank(b)).slice(0, 12);
+    const expectedContext = context();
     if (!pending.length || signal.aborted) return;
     const credentials = probeCredentialsSchema.parse(await input.readProbeCredentials());
-    if (credentials.costBearer !== 'platform' || credentials.modelKey === bootstrap.modelKey
-      || Date.parse(credentials.expiresAt) <= Date.now() || signal.aborted || cache.base !== expectedBase) return;
+    if (credentials.modelKey === bootstrap.modelKey || Date.parse(credentials.expiresAt) <= Date.now() || signal.aborted || context() !== expectedContext) return;
     const deadline = Date.now() + 20_000;
     async function worker() {
-      while (pending.length && !signal.aborted && Date.now() < deadline && cache.base === expectedBase) {
-        const [group, models] = pending.shift()!;
-        const previous = cache.groups[group];
-        const choices = [...models].sort((a, b) => {
-          const rank = (id: string) => { const index = preferred[group]?.indexOf(id) ?? -1; return index < 0 ? 100 : index; };
-          return rank(a.id) - rank(b.id);
-        });
-        const representative = (previous?.alternate ? choices.find(model => model.id !== previous.representative) : undefined) ?? choices[0]!;
-        const result = await check(representative, credentials.modelKey, signal);
-        if (signal.aborted || cache.base !== expectedBase) return;
-        cache.groups[group] = {
-          status: result.status === 'unknown' ? previous?.status ?? 'unknown' : result.status,
-          representative: representative.id, alternate: result.alternate,
-          nextCheck: Date.now() + (result.status === 'allowed' ? allowedTTL : result.status === 'blocked' ? blockedTTL : retryTTL)
-        };
+      while (pending.length && !signal.aborted && Date.now() < deadline && context() === expectedContext) {
+        const model = pending.shift()!;
+        const key = modelKey(model); const previous = cache.models[key];
+        const result = await check(model, credentials.modelKey, signal);
+        if (signal.aborted || context() !== expectedContext || cache.models[key] !== previous) continue;
+        cache.models[key] = { status: result, profile: profileKey(model),
+          validUntil: result === 'allowed' ? Date.now() + allowedTTL : 0,
+          nextCheck: Date.now() + (result === 'allowed' ? allowedTTL : result === 'blocked' ? blockedTTL : retryTTL) };
         await save(); await onChange();
       }
     }
     await Promise.all([worker(), worker()]);
   }
-  return { prepare, filter, refresh };
+  return { prepare, filter, refresh, context, recordFailure };
 }
 
 export type OfficialModelAccess = ReturnType<typeof createOfficialModelAccess>;

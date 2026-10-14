@@ -33,12 +33,12 @@ export async function exportDesktopDiagnostics(input: {
   };
   const now = dependencies.now();
   const result = await dependencies.showSaveDialog({
-    title: '导出 OpenCreator 诊断',
+    title: 'Export OpenCreator diagnostics',
     defaultPath: `opencreator-diagnostics-${now.toISOString().slice(0, 10)}.json`,
     filters: [{ name: 'JSON', extensions: ['json'] }]
   });
   if (result.canceled || result.filePath === undefined) {
-    return { ok: false, code: 'FAILED', message: '已取消导出' };
+    return { ok: false, code: 'FAILED', message: 'Export canceled' };
   }
   const desktopLogTail = await readDesktopLogTail(
     join(input.logDir, 'desktop-main.log'),

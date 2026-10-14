@@ -12,7 +12,7 @@ export async function registerGatewayAccountRoutes(server: FastifyInstance, serv
       const code = cloud.status === 401 ? 'GATEWAY_AUTH_REQUIRED' : cloud.code === 'account_disabled' ? 'GATEWAY_ACCOUNT_DISABLED'
         : cloud.status === 402 ? 'GATEWAY_CREDITS_INSUFFICIENT' : cloud.status === 409 ? 'GATEWAY_REQUEST_CONFLICT'
           : cloud.code === 'services_not_ready' ? 'GATEWAY_SERVICES_NOT_READY' : 'GATEWAY_UNAVAILABLE';
-      return reply.code(cloud.status).send(apiError(code, code === 'GATEWAY_REQUEST_CONFLICT' ? '请等待当前任务结束后再切换账户或服务来源' : cloud.message, { gatewayCode: cloud.code }));
+      return reply.code(cloud.status).send(apiError(code, code === 'GATEWAY_REQUEST_CONFLICT' ? 'Wait for the active task to finish before switching accounts or service sources.' : cloud.message, { gatewayCode: cloud.code }));
     }
   }
   server.get('/gateway/account', (_r, reply) => respond(() => service.readState(), reply));

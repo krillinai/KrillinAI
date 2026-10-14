@@ -259,7 +259,7 @@ export function createStickmanImageExecutor(input: {
       const quality = readQuality(stage.job.state.quality);
       if (gateway) {
         if (!gateway.capabilities?.image?.includes('edit') || referenceImages.length > 1) {
-          throw new CreatorExecutorError('creator_stickman_image_provider_unsupported', '当前官方图像服务仅支持 1 张参考图，无法执行此镜头');
+          throw new CreatorExecutorError('creator_stickman_image_provider_unsupported', 'The official image service supports one reference image. This shot cannot be generated.');
         }
       } else assertReferenceImageSupport(provider, referenceImages.length);
       const model = imageSettings.model;

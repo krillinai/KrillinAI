@@ -258,7 +258,7 @@ async function script(stage: CreatorExecutorInput, complete: CompleteJson) {
         progress: {
           phase: 'completed',
           percent: 100,
-          message: '脚本已生成，等待审核',
+          message: 'The script is ready for review',
           completed: 1,
           failed: 0,
           total: 1
@@ -269,7 +269,7 @@ async function script(stage: CreatorExecutorInput, complete: CompleteJson) {
     stage.reportProgress({
       phase: 'writing',
       percent: 40 + attempt * 25,
-      message: `脚本第 ${attempt + 1} 次生成未通过完整性校验，正在整稿重生成`,
+      message: `Script attempt ${attempt + 1} failed completeness checks. Regenerating the full script.`,
       completed: 0,
       failed: 1,
       total: 1
@@ -278,7 +278,7 @@ async function script(stage: CreatorExecutorInput, complete: CompleteJson) {
 
   throw new CreatorExecutorError(
     'creator_script_validation_failed',
-    `脚本在 3 次整稿生成后仍未通过校验：${formatScriptFailures(failures)}`
+    `The script failed validation after 3 complete attempts: ${formatScriptFailures(failures)}`
   );
 }
 
@@ -374,22 +374,22 @@ function finalizeShotScript(
     const narration = raw.narration.trim();
 
     if (!/[。！？!?；;.]\s*["'”’）)\]]?$/u.test(narration)) {
-      failures.push(`${id} 的旁白不是完整句子`);
+      failures.push(`Narration for ${id} is not a complete sentence`);
     }
     if (claimIds.some(claimId => !retained.has(claimId))) {
-      failures.push(`${id} 引用了未保留或不存在的 Claim`);
+      failures.push(`${id} references a discarded or missing claim`);
     }
     const supportedSpans = new Set(
       claimIds.flatMap(claimId => [...(claimSpans.get(claimId) ?? [])])
     );
     if (sourceSpanIds.some(sourceSpanId => !supportedSpans.has(sourceSpanId))) {
-      failures.push(`${id} 的来源片段不受其 Claim 支持`);
+      failures.push(`The source spans for ${id} are not supported by its claims`);
     }
     claimIds.forEach(claimId => coveredClaims.add(claimId));
 
     const normalized = normalizeScriptText(narration);
     if (normalizedNarrations.has(normalized)) {
-      failures.push(`${id} 与 ${normalizedNarrations.get(normalized)} 的旁白重复`);
+      failures.push(`${id} duplicates the narration of ${normalizedNarrations.get(normalized)}`);
     } else {
       normalizedNarrations.set(normalized, id);
     }
@@ -398,7 +398,7 @@ function finalizeShotScript(
       narrationUnits / plan.narrationBudget.unitsPerMinute * 60
     );
     if (estimatedDurationSeconds > MAX_ESTIMATED_SCRIPT_SEGMENT_SECONDS) {
-      failures.push(`${id} 的预计配音时长 ${estimatedDurationSeconds} 秒超过 ${MAX_ESTIMATED_SCRIPT_SEGMENT_SECONDS} 秒，请按完整语义重新拆成多个旁白单元`);
+      failures.push(`The estimated speech duration of ${id} (${estimatedDurationSeconds} seconds) exceeds ${MAX_ESTIMATED_SCRIPT_SEGMENT_SECONDS} seconds. Split it into complete narration units.`);
     }
     return {
       id,
@@ -413,7 +413,7 @@ function finalizeShotScript(
 
   const missingClaims = plan.retainedClaimIds.filter(claimId => !coveredClaims.has(claimId));
   if (missingClaims.length > 0) {
-    failures.push(`保留 Claim 未被脚本覆盖：${missingClaims.join('、')}`);
+    failures.push(`Retained claims not covered by the script: ${missingClaims.join(', ')}`);
   }
   const totalNarrationUnits = segments.reduce((total, segment) => (
     total + segment.narrationUnits
@@ -423,8 +423,8 @@ function finalizeShotScript(
     || totalNarrationUnits > plan.narrationBudget.maxUnits
   ) {
     failures.push(
-      `旁白总${plan.narrationBudget.unit === 'characters' ? '字符' : '词'}数 ${totalNarrationUnits} `
-      + `不在预算 ${plan.narrationBudget.minUnits}-${plan.narrationBudget.maxUnits} 内`
+      `The narration contains ${totalNarrationUnits} ${plan.narrationBudget.unit === 'characters' ? 'characters' : 'words'}, `
+      + `outside the ${plan.narrationBudget.minUnits}-${plan.narrationBudget.maxUnits} budget`
     );
   }
   if (failures.length > 0) return { failures: [...new Set(failures)] };
@@ -460,9 +460,9 @@ function assertContentPlanClaims(
     throw new CreatorExecutorError(
       'creator_content_plan_claim_partition_invalid',
       [
-        missing.length > 0 ? `未处理 Claim：${missing.join('、')}` : '',
-        unknown.length > 0 ? `未知 Claim：${unknown.join('、')}` : ''
-      ].filter(Boolean).join('；') || '内容计划的 Claim 取舍无效'
+        missing.length > 0 ? `Unprocessed claims: ${missing.join(', ')}` : '',
+        unknown.length > 0 ? `Unknown claims: ${unknown.join(', ')}` : ''
+      ].filter(Boolean).join('; ') || 'Invalid claim selection in the content plan'
     );
   }
 }
@@ -516,8 +516,8 @@ async function storyboard(stage: CreatorExecutorInput, complete: CompleteJson) {
       phase: attempt < 2 ? 'planning' : 'failed',
       percent: 40 + attempt * 25,
       message: attempt < 2
-        ? `分镜第 ${attempt + 1} 次生成未通过语义契约，正在整稿重生成`
-        : '分镜连续 3 次生成未通过校验，已停止，请重试',
+        ? `Storyboard attempt ${attempt + 1} failed semantic validation. Regenerating the full storyboard.`
+        : 'The storyboard failed validation 3 times. Generation stopped. Try again.',
       completed: 0,
       failed: 1,
       total: 1
@@ -526,7 +526,7 @@ async function storyboard(stage: CreatorExecutorInput, complete: CompleteJson) {
   if (value === undefined) {
     throw new CreatorExecutorError(
       'creator_storyboard_validation_failed',
-      `分镜在 3 次整稿生成后仍未通过校验：${formatScriptFailures(failures)}`
+      `The storyboard failed validation after 3 complete attempts: ${formatScriptFailures(failures)}`
     );
   }
   const shotSpec = await writeJsonArtifact(stage, 'shot-spec.json', value);
@@ -597,11 +597,11 @@ function finalizeStoryboard(input: {
   const actualIds = parsed.data.shots.map(shot => shot.sourceSegmentId);
   const failures: string[] = [];
   if (JSON.stringify(actualIds) !== JSON.stringify(expectedIds)) {
-    failures.push('分镜必须按顺序完整覆盖每个旁白单元，且每个单元只能出现一次');
+    failures.push('The storyboard must cover every narration unit exactly once and in order');
   }
   for (const shot of parsed.data.shots) {
     if (requestsVisibleText(shot.visualDescription)) {
-      failures.push(`${shot.sourceSegmentId} 的画面描述要求生成可见文字`);
+      failures.push(`The visual description for ${shot.sourceSegmentId} requests visible text`);
     }
   }
   if (failures.length > 0) return { failures };
@@ -918,7 +918,7 @@ function buildSourceSpans(
   if (content.length === 0) {
     throw new CreatorExecutorError(
       'creator_source_content_missing',
-      '来源内容为空，无法生成来源片段'
+      'The source content is empty. Source segments cannot be generated.'
     );
   }
   const sentences = (content.match(/[^。！？!?；;\n]+[。！？!?；;]?/gu) ?? [content])
@@ -958,7 +958,7 @@ function assertSourceReferences(
   if (invalidIds.length > 0) {
     throw new CreatorExecutorError(
       errorCode,
-      `内容引用了不存在的来源片段：${invalidIds.join('、')}`
+      `The content references missing source spans: ${invalidIds.join(', ')}`
     );
   }
 }

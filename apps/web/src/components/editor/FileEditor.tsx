@@ -18,7 +18,7 @@ export function FileEditor(props: FileEditorProps) {
         <div className="file-editor-title">
           <strong>{props.path}</strong>
           <span className={`save-state${props.dirty ? ' dirty' : ''}`}>
-            {props.dirty ? '未保存' : '已保存到本地草稿'}
+            {props.dirty ? 'Unsaved' : 'Saved to local draft'}
           </span>
           {errors.length === 0 ? null : (
             <div className="file-editor-errors" role="status">
@@ -29,14 +29,14 @@ export function FileEditor(props: FileEditorProps) {
           )}
         </div>
         <button className="editor-save-button" type="button" disabled={props.saving} onClick={props.onSave}>
-          保存到本地草稿
+          Save to local draft
         </button>
       </div>
       <div className="file-editor-body">
         <div className="editor-card">
           <textarea
             className="code-textarea"
-            aria-label={`${props.path} 编辑器`}
+            aria-label={`${props.path} editor`}
             value={props.content}
             onChange={event => props.onChange(event.currentTarget.value)}
             spellCheck={false}

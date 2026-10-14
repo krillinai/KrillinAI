@@ -74,10 +74,10 @@ describe('MarkdownRenderer', () => {
     expect(screen.getByText('const value = 1;')).toBeInTheDocument();
     expect(document.querySelector('.md-code-highlighted')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '复制' }));
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
 
     expect(writeText).toHaveBeenCalledWith('const value = 1;');
-    expect(screen.getByRole('button', { name: '已复制' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument();
   });
 
   it('collapses long code at a complete line boundary and expands all content', async () => {
@@ -100,10 +100,10 @@ describe('MarkdownRenderer', () => {
       '…',
     ].join('\n'));
 
-    await user.click(screen.getByRole('button', { name: '展开代码' }));
+    await user.click(screen.getByRole('button', { name: 'Expand code' }));
 
     expect(code?.textContent).toBe(body);
-    expect(screen.getByRole('button', { name: '收起代码' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Collapse code' })).toHaveAttribute(
       'aria-expanded',
       'true'
     );
@@ -118,9 +118,9 @@ describe('MarkdownRenderer', () => {
 
     render(<MarkdownRenderer variant="assistant" text={'```txt\nhello\n```'} />);
 
-    await user.click(screen.getByRole('button', { name: '复制' }));
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
 
-    expect(screen.getByRole('button', { name: '复制失败' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy failed' })).toBeInTheDocument();
   });
 
   it('does not render unsafe links as anchors', () => {
@@ -209,7 +209,7 @@ describe('MarkdownRenderer', () => {
     expect(skill).toBeInTheDocument();
     expect(skill).toHaveAttribute(
       'title',
-      '技能：zhiyu-brainstorm'
+      'Skill: zhiyu-brainstorm'
     );
     expect(screen.getByText(/分析需求，再继续执行/)).toBeInTheDocument();
   });

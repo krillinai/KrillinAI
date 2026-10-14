@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,10 +7,10 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <div class="desktop-window-controls" role="group" aria-label="窗口控制" hidden>
-      <button type="button" data-action="close" aria-label="关闭窗口" title="关闭窗口"><span aria-hidden="true">×</span></button>
-      <button type="button" data-action="minimize" aria-label="最小化窗口" title="最小化窗口"><span aria-hidden="true">−</span></button>
-      <button type="button" data-action="zoom" aria-label="缩放窗口" title="缩放窗口"><span aria-hidden="true">+</span></button>
+    <div class="desktop-window-controls" role="group" aria-label="Window controls" hidden>
+      <button type="button" data-action="close" aria-label="Close window" title="Close window"><span aria-hidden="true">×</span></button>
+      <button type="button" data-action="minimize" aria-label="Minimize window" title="Minimize window"><span aria-hidden="true">−</span></button>
+      <button type="button" data-action="zoom" aria-label="Zoom window" title="Zoom window"><span aria-hidden="true">+</span></button>
     </div>
     <main class="bootstrap-shell">
       <section class="bootstrap-panel" aria-live="polite">
@@ -18,30 +18,30 @@
         <div class="status-mark" id="status-mark" aria-hidden="true">
           <span></span>
         </div>
-        <h1 id="status-title">正在准备 OpenCreator</h1>
-        <p id="status-detail">正在检查本机运行环境</p>
+        <h1 id="status-title">Preparing OpenCreator</h1>
+        <p id="status-detail">Checking the local environment</p>
         <p class="elapsed" id="elapsed" hidden></p>
 
         <div class="failure-actions" id="failure-actions" hidden>
-          <button class="primary" id="retry" type="button">重新检测</button>
-          <button id="select-codex" type="button">选择 Codex 或 ChatGPT</button>
-          <button id="diagnostics" type="button">导出诊断</button>
-          <button class="quiet" id="quit" type="button">退出</button>
+          <button class="primary" id="retry" type="button">Retry</button>
+          <button id="select-codex" type="button">Select Codex or ChatGPT</button>
+          <button id="diagnostics" type="button">Export diagnostics</button>
+          <button class="quiet" id="quit" type="button">Quit</button>
         </div>
 
         <div class="failure-actions" id="workspace-actions" hidden>
-          <button class="primary" id="reload-workspace" type="button">重新加载 Dashboard</button>
-          <button id="restart-runtime" type="button">重启 Runtime</button>
-          <button id="workspace-diagnostics" type="button">导出诊断</button>
-          <button class="quiet" id="workspace-quit" type="button">退出</button>
+          <button class="primary" id="reload-workspace" type="button">Reload Dashboard</button>
+          <button id="restart-runtime" type="button">Restart Runtime</button>
+          <button id="workspace-diagnostics" type="button">Export diagnostics</button>
+          <button class="quiet" id="workspace-quit" type="button">Quit</button>
         </div>
 
         <details id="technical-details" hidden>
-          <summary>技术信息</summary>
+          <summary>Technical details</summary>
           <dl>
             <div><dt>Codex</dt><dd id="codex-path">-</dd></div>
             <div><dt>CODEX_HOME</dt><dd id="codex-home">-</dd></div>
-            <div><dt>错误代码</dt><dd id="error-code">-</dd></div>
+            <div><dt>Error code</dt><dd id="error-code">-</dd></div>
           </dl>
           <pre id="error-message"></pre>
         </details>

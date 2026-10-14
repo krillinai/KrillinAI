@@ -332,7 +332,7 @@ export const test = base.extend<TestFixtures>({
             legacyProjects: options.legacyProjects
           });
           await page.goto(`${origin}/#/thread/${encodeURIComponent(selectedThreadId)}`);
-          await expect(page.getByRole('status', { name: '本地运行内核正常' })).toBeVisible();
+          await expect(page.getByRole('status', { name: 'The local Runtime is ready' })).toBeVisible();
           if (await page.evaluate(() => localStorage.getItem('opencreator.agent-setup-confirmed.v1') === null)) {
             const setup = page.getByRole('region', { name: '开始使用 Agent' });
             await expect(setup).toBeVisible();
