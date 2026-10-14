@@ -9,7 +9,7 @@ import { useConfirmDialog } from '../../components/dialogs/ConfirmDialogProvider
 import type { ColorMode } from '../../styles/color-mode.js';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
-import type { AppLanguagePreference } from '../../i18n/language.js';
+import { appLanguageOptions, type AppLanguagePreference } from '../../i18n/language.js';
 import {
   defaultAccentColor,
   defaultCustomAccentColor,
@@ -430,19 +430,13 @@ function GeneralSettings(props: {
     { value: 'workspace-write', label: t('settings.permission.approval') },
     { value: 'danger-full-access', label: t('settings.permission.fullAccess') }
   ];
-  const languageName = language === 'zh-CN'
-    ? t('settings.language.zh')
-    : language === 'sv-SE'
-      ? t('settings.language.sv')
-      : t('settings.language.en');
+  const languageName = appLanguageOptions.find(option => option.value === language)?.label ?? 'English';
   const languageOptions: Array<{ value: AppLanguagePreference; label: string }> = [
     {
       value: 'system',
       label: t('settings.language.system', { language: languageName })
     },
-    { value: 'zh-CN', label: t('settings.language.zh') },
-    { value: 'en-US', label: t('settings.language.en') },
-    { value: 'sv-SE', label: t('settings.language.sv') }
+    ...appLanguageOptions
   ];
 
   return (

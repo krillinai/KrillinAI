@@ -1,3 +1,5 @@
+import type { LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type {
   CodexAvailabilityProbe,
   CodexStatusResponse
@@ -12,6 +14,7 @@ export type DiagnosticsSettingsViewProps = {
 };
 
 export function DiagnosticsSettingsView(props: DiagnosticsSettingsViewProps) {
+  const l = useLocalizedCopy();
   const status = props.codexStatus;
   const diagnostics = status?.diagnostics ?? [];
 
@@ -19,13 +22,13 @@ export function DiagnosticsSettingsView(props: DiagnosticsSettingsViewProps) {
     <section className="settings-section settings-management diagnostics-settings" aria-labelledby="settings-diagnostics-title">
       <header className="settings-management__header">
         <div>
-          <h1 id="settings-diagnostics-title">Diagnostics</h1>
-          <p>View the local Runtime, Codex paths, capabilities, and current warnings.</p>
+          <h1 id="settings-diagnostics-title">{l("诊断", "diagnosis")}</h1>
+          <p>{l("查看本地 Runtime、Codex 路径、能力矩阵和当前告警。", "View the local runtime, Codex path, capability matrix and current alarms.")}</p>
         </div>
       </header>
 
       {!props.connected ? (
-        <p className="settings-notice">The local Runtime is disconnected. Diagnostics may be out of date.</p>
+        <p className="settings-notice">{l("本地服务未连接，诊断状态可能已过期。", "The local service is not connected and the diagnostic status may be out of date.")}</p>
       ) : null}
       <RuntimeRecoveryNotice diagnostics />
 
@@ -33,32 +36,32 @@ export function DiagnosticsSettingsView(props: DiagnosticsSettingsViewProps) {
         <section>
           <SquareTerminal aria-hidden="true" size={18} />
           <span>Runtime</span>
-          <strong>{props.connected ? 'Connected' : 'Waiting for connection'}</strong>
-          <small>{props.runtimeVersion ?? 'Unknown version'}</small>
+          <strong>{props.connected ? l("已连接", "Connected") : l("等待连接", "Waiting for connection")}</strong>
+          <small>{props.runtimeVersion ?? l("版本未知", "Unknown version")}</small>
         </section>
         <section>
           <HardDrive aria-hidden="true" size={18} />
           <span>Codex Home</span>
-          <strong>{status?.codexHomeWritable ? 'Writable' : status ? 'Read only' : 'Waiting for connection'}</strong>
-          <small>{status?.codexHomeMode ?? 'Unknown mode'}</small>
+          <strong>{status?.codexHomeWritable ? l("可写", "writable") : status ? l("只读", "Read only") : l("等待连接", "Waiting for connection")}</strong>
+          <small>{status?.codexHomeMode ?? l("未知模式", "Unknown mode")}</small>
         </section>
       </div>
 
       <section className="diagnostics-block" aria-labelledby="diagnostics-runtime-title">
-        <h2 id="diagnostics-runtime-title">Versions and Runtime directories</h2>
+        <h2 id="diagnostics-runtime-title">{l("版本与运行目录", "Version and running directory")}</h2>
         <dl>
-          <dt>Runtime version</dt>
-          <dd>{props.runtimeVersion ?? 'Unknown'}</dd>
-          <dt>Codex CLI version</dt>
-          <dd>{status?.codexVersion ?? 'Unknown'}</dd>
-          <dt>Codex CLI path</dt>
-          <dd><code>{status?.codexBin ?? 'Disconnected'}</code></dd>
+          <dt>{l("Runtime 版本", "Runtime version")}</dt>
+          <dd>{props.runtimeVersion ?? l("未知", "unknown")}</dd>
+          <dt>{l("Codex CLI 版本", "Codex CLI version")}</dt>
+          <dd>{status?.codexVersion ?? l("未知", "unknown")}</dd>
+          <dt>{l("Codex CLI 路径", "Codex CLI path")}</dt>
+          <dd><code>{status?.codexBin ?? l("未连接", "Not connected")}</code></dd>
           <dt>CODEX_HOME</dt>
-          <dd><code>{status?.codexHome ?? 'Disconnected'}</code></dd>
-          <dt>Configuration source</dt>
-          <dd>{status ? `${status.codexHomeMode} · ${status.codexHomeSource}` : 'Unknown'}</dd>
-          <dt>Background availability check</dt>
-          <dd>{availabilityProbeLabel(status?.availabilityProbe?.status)}</dd>
+          <dd><code>{status?.codexHome ?? l("未连接", "Not connected")}</code></dd>
+          <dt>{l("配置来源", "Configuration source")}</dt>
+          <dd>{status ? `${status.codexHomeMode} · ${status.codexHomeSource}` : l("未知", "unknown")}</dd>
+          <dt>{l("后台可用性验证", "Backend availability verification")}</dt>
+          <dd>{availabilityProbeLabel(l, status?.availabilityProbe?.status)}</dd>
         </dl>
       </section>
 
@@ -68,12 +71,11 @@ export function DiagnosticsSettingsView(props: DiagnosticsSettingsViewProps) {
       </section>
 
       <section className="diagnostics-block" aria-labelledby="diagnostics-warnings-title">
-        <h2 id="diagnostics-warnings-title">Log warnings</h2>
+        <h2 id="diagnostics-warnings-title">{l("日志告警", "Log alarm")}</h2>
         {diagnostics.length === 0 ? (
           <div className="diagnostics-empty">
             <CheckCircle2 aria-hidden="true" size={17} />
-            No diagnostic warnings
-          </div>
+            {l("当前没有诊断告警", "There are currently no diagnostic alerts")}</div>
         ) : (
           <ul className="diagnostics-warning-list">
             {diagnostics.map(diagnostic => (
@@ -93,23 +95,23 @@ function stringify(value: unknown): string {
   try {
     return JSON.stringify(value, null, 2) ?? String(value);
   } catch {
-    return '[Could not serialize capabilities]';
+    return '[无法序列化 Capabilities]';
   }
 }
 
-function availabilityProbeLabel(
+function availabilityProbeLabel(l: LocalizeCopy,
   status: CodexAvailabilityProbe['status'] | undefined
 ): string {
   switch (status) {
     case 'pending':
-      return 'Checking';
+      return l("检查中", "Under inspection");
     case 'succeeded':
-      return 'Available';
+      return l("可正常调用", "Can be called normally");
     case 'failed':
-      return 'Unavailable. Check warnings.';
+      return l("调用失败，请查看告警", "The call failed, please check the alarm");
     case 'skipped':
-      return 'Skipped this time';
+      return l("本次已跳过", "This time has been skipped");
     default:
-      return 'Unknown';
+      return l("未知", "unknown");
   }
 }

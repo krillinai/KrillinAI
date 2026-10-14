@@ -66,9 +66,13 @@ function PlatformConnectionRow(props: { connected: boolean; service?: PlatformCo
   return <div role="group" aria-label={name}>
     <div className="platform-connection-row">
       <div className="platform-connection-identity">
-        <img src={youtube ? '/youtube.ico' : '/platforms/douyin.png'} width="36" height="36" alt="" />
-        <div><h2>{name}</h2><span className={`platform-connection-status${connected ? ' is-connected' : ''}`} role="status">
-          {connected ? <CheckCircle2 size={15} /> : connecting ? <Loader2 size={15} className="platform-connection-spinner" /> : null}{label}</span></div>
+        <img src={youtube ? '/platforms/youtube.png' : '/platforms/douyin-hd.png'} width="36" height="36" alt="" />
+        <div className="platform-connection-copy"><h2>{name}</h2><span className={`platform-connection-status${connected ? ' is-connected' : ''}`} role="status">
+          {connected ? <CheckCircle2 size={15} /> : connecting ? <Loader2 size={15} className="platform-connection-spinner" /> : null}{label}</span>
+          <p className="platform-connection-description">{youtube
+            ? l('使用 YouTube 登录态获取视频信息和下载视频，应对平台登录验证。', 'Use your YouTube sign-in to fetch video details and download videos when authentication is required.', 'Använd din YouTube-inloggning för att hämta videoinformation och ladda ner videor när inloggning krävs.')
+            : l('使用抖音浏览器会话获取视频信息和下载公开视频，应对平台访问校验。', 'Use your Douyin browser session to fetch video details and download public videos that require session verification.', 'Använd din Douyin-webbläsarsession för att hämta videoinformation och ladda ner offentliga videor som kräver sessionsverifiering.')}</p>
+        </div>
       </div>
       <div className="platform-connection-actions">
         {profiles.length ? <select aria-label={l('浏览器账号', 'Browser profile')} value={profileId} disabled={disabled || connecting}

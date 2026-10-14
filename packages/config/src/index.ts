@@ -13,6 +13,7 @@ import {
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { parse, stringify } from '@iarna/toml';
+import { openCreatorLanguages, type OpenCreatorLanguage } from '@opencreator/protocol';
 import type {
   OpenCreatorStorageSettings,
   OpenCreatorUiSettings,
@@ -274,8 +275,8 @@ function normalizeUiSettings(value: unknown): OpenCreatorUiSettings {
   const accentColor = source.accentColor ?? source.accent_color;
   const defaultPermission = source.defaultPermission ?? source.default_permission;
   return {
-    language: source.language === 'zh-CN' || source.language === 'en-US' || source.language === 'sv-SE'
-      ? source.language
+    language: openCreatorLanguages.includes(source.language as OpenCreatorLanguage)
+      ? source.language as OpenCreatorLanguage
       : 'system',
     colorMode: colorMode === 'light' ? 'light' : 'dark',
     accentColor:

@@ -1,3 +1,5 @@
+import type { LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import {
   ArrowDown,
   ArrowUp,
@@ -88,44 +90,44 @@ function isInternalRuntimeDiagnostic(item: TimelineItem): boolean {
   return /skill descriptions were shortened to fit the .*skills context budget/i.test(item.message);
 }
 
-function getTimelineTitle(item: TimelineItem): string {
+function getTimelineTitle(l: LocalizeCopy, item: TimelineItem): string {
   switch (item.kind) {
     case 'user_message':
-      return 'You';
+      return l("你", "you");
     case 'schedule_trigger':
-      return 'Scheduled run';
+      return l("定时执行", "Scheduled execution");
     case 'assistant_message':
       return 'OpenCreator';
     case 'change_card':
-      return 'File changes';
+      return l("文件变更", "File changes");
     case 'approval':
-      return 'Confirmation required';
+      return l("需要确认", "Need confirmation");
     case 'reasoning_summary':
     case 'tool_step':
     case 'diagnostic':
     case 'run_status':
     case 'done':
-      return 'Process';
+      return l("处理过程", "Processing");
     default:
       const _exhaustive: never = item;
       return _exhaustive;
   }
 }
 
-function getTimelineAvatar(item: TimelineItem): string {
-  if (item.kind === 'user_message') return 'Y';
-  if (item.kind === 'schedule_trigger') return 'S';
+function getTimelineAvatar(l: LocalizeCopy, item: TimelineItem): string {
+  if (item.kind === 'user_message') return l("你", "you");
+  if (item.kind === 'schedule_trigger') return l("定", "Certainly");
   if (item.kind === 'change_card') return 'Δ';
   if (item.kind === 'assistant_message') return '·';
   return '·';
 }
 
-function renderTimelineAvatar(item: TimelineItem) {
+function renderTimelineAvatar(l: LocalizeCopy, item: TimelineItem) {
   if (item.kind === 'schedule_trigger') {
     return <Clock3 aria-hidden="true" size={14} />;
   }
 
-  return getTimelineAvatar(item);
+  return getTimelineAvatar(l, item);
 }
 
 function shouldRenderTimelineHeader(item: TimelineItem) {
@@ -311,132 +313,132 @@ function getToolActivity(
     normalizedName.includes('apply_patch')
     || normalizedName.includes('edit')
     || normalizedName.includes('write')
-  ) return 'Edit project files';
+  ) return '修改项目文件';
   if (
     normalizedName.includes('image')
     || normalizedName.includes('screenshot')
-  ) return 'View image';
+  ) return '查看图片';
   if (
     normalizedName.includes('browser')
     || normalizedName.includes('chrome')
     || normalizedName.includes('playwright')
-  ) return 'Use browser';
+  ) return '操作浏览器';
   if (
     normalizedName.includes('web')
     || normalizedName.includes('query')
-  ) return 'Search information';
+  ) return '查询资料';
   if (
     normalizedName.includes('read')
     || normalizedName.includes('open')
     || normalizedName.includes('find')
     || normalizedName.includes('search')
-  ) return 'Read project files';
+  ) return '查看项目内容';
   if (
     normalizedName.includes('lark')
     || normalizedName.includes('docs')
-  ) return 'Work with Feishu documents';
-  return 'Run development tools';
+  ) return '处理飞书文档';
+  return '执行开发操作';
 }
 
 function getCompletedActivityLabel(activity: string, count = 1): string | undefined {
   const label = (() => {
     switch (activity) {
-      case 'Read project files':
-        return 'Read files';
-      case 'View image':
-        return 'Viewed image';
-      case 'Use browser':
-        return 'Used browser';
-      case 'Search information':
-        return 'Searched information';
-      case 'Work with Feishu documents':
-        return 'Updated Feishu documents';
-      case 'Edit project files':
-        return 'Updated files';
-      case 'Run tests':
-        return 'Ran tests';
-      case 'Package application':
-        return 'Packaged application';
-      case 'Build application':
-        return 'Built application';
-      case 'Review code changes':
-        return 'Reviewed code changes';
-      case 'Update code':
-        return 'Updated code';
+      case '查看项目内容':
+        return '已读取文件';
+      case '查看图片':
+        return '已查看图片';
+      case '操作浏览器':
+        return '已使用浏览器';
+      case '查询资料':
+        return '已查询资料';
+      case '处理飞书文档':
+        return '已处理飞书文档';
+      case '修改项目文件':
+        return '已更新文件';
+      case '运行测试':
+        return '已运行测试';
+      case '打包应用':
+        return '已打包应用';
+      case '构建应用':
+        return '已构建应用';
+      case '检查代码变更':
+        return '已检查代码变更';
+      case '更新代码':
+        return '已更新代码';
       default:
         return undefined;
     }
   })();
 
   if (label === undefined || count === 1) return label;
-  return `${label} (${count} times)`;
+  return `${label}（${count} 次）`;
 }
 
 function getCommandActivity(command: string | undefined): string {
-  if (command === undefined) return 'Run local command';
+  if (command === undefined) return '执行本地命令';
   const normalized = command.trim().toLocaleLowerCase();
   if (
     /\b(?:vitest|jest|pytest|go test|cargo test)\b/u.test(normalized)
     || /\b(?:pnpm|npm|yarn)\b[^\n]*\btest\b/u.test(normalized)
-  ) return 'Run tests';
+  ) return '运行测试';
   if (
     /\b(?:electron-builder|package-release)\b/u.test(normalized)
     || /\b(?:pnpm|npm|yarn)\b[^\n]*\bpackage\b/u.test(normalized)
-  ) return 'Package application';
+  ) return '打包应用';
   if (
     /\b(?:vite build|tsc|electron-builder)\b/u.test(normalized)
     || /\b(?:pnpm|npm|yarn)\b[^\n]*\bbuild\b/u.test(normalized)
-  ) return 'Build application';
-  if (/^git\s+(?:status|diff|log|show)\b/u.test(normalized)) return 'Review code changes';
-  if (/^git\s+/u.test(normalized)) return 'Update code';
+  ) return '构建应用';
+  if (/^git\s+(?:status|diff|log|show)\b/u.test(normalized)) return '检查代码变更';
+  if (/^git\s+/u.test(normalized)) return '更新代码';
   if (/^(?:rg|grep|sed|cat|ls|find|head|tail|wc|pwd)\b/u.test(normalized)) {
-    return 'Read project files';
+    return '查看项目内容';
   }
-  return 'Run local command';
+  return '执行本地命令';
 }
 
-function formatTerminationReason(reason: string | undefined): string {
+function formatTerminationReason(l: LocalizeCopy, reason: string | undefined): string {
   switch (reason) {
     case 'timeout':
-      return 'The task exceeded its time limit and was stopped automatically';
+      return l('任务运行时间过长，已自动停止', 'The task exceeded its time limit and was stopped automatically');
     case 'inactivity_timeout':
-      return 'The task stopped responding and was stopped automatically';
+      return l('任务长时间无响应，已自动停止', 'The task stopped responding and was stopped automatically');
     case 'spawn_timeout':
-      return 'Codex startup timed out';
+      return l('Codex 启动超时', 'Codex startup timed out');
     case 'user_canceled':
-      return 'Canceled by user';
+      return l('用户已取消', 'Canceled by user');
     case 'daemon_restart':
-      return 'The Runtime restarted and interrupted the task';
+      return l('服务重启，任务已中断', 'The service restarted and interrupted the task');
     case 'codex_exit_non_zero':
-      return 'Codex execution failed';
+      return l('Codex 执行失败', 'Codex execution failed');
     case 'spawn_failed':
-      return 'Codex failed to start';
+      return l('Codex 启动失败', 'Codex failed to start');
     case 'stream_error':
-      return 'Invalid Codex output';
+      return l('Codex 输出异常', 'Codex output error');
     case undefined:
-      return 'Unknown reason';
+      return l('未知原因', 'Unknown reason');
     default:
       return reason;
   }
 }
 
-function getProcessStepTitle(item: ProcessTimelineItem): string {
+function getProcessStepTitle(l: LocalizeCopy, item: ProcessTimelineItem): string {
   switch (item.kind) {
     case 'reasoning_summary':
     case 'assistant_message':
       return item.text;
     case 'tool_step': {
       return getPayloadType(item) === 'tool_result'
-        ? 'Operation completed'
-        : `Running: ${getToolActivity(item.name, getToolCommand(item))}`;
+        ? l('操作已完成', 'Operation completed')
+        : localizeActivityLabel(l, `正在${getToolActivity(item.name, getToolCommand(item))}`);
     }
     case 'diagnostic':
       return item.message;
     case 'done':
       return item.status === 'canceled'
-        ? `Run canceled: ${formatTerminationReason(item.terminationReason ?? 'user_canceled')}`
+        ? l(`运行已取消：${formatTerminationReason(l, item.terminationReason ?? 'user_canceled')}`, `Run canceled: ${formatTerminationReason(l, item.terminationReason ?? 'user_canceled')}`)
         : item.status === 'failed'
-          ? formatTerminationReason(item.terminationReason)
+          ? formatTerminationReason(l, item.terminationReason)
           : '';
     case 'run_status':
       return '';
@@ -446,18 +448,63 @@ function getProcessStepTitle(item: ProcessTimelineItem): string {
   }
 }
 
+// Translate generated activity labels after grouping; user-authored messages stay intact.
+function localizeActivityLabel(l: LocalizeCopy, title: string): string {
+  const counted = /^(.*)（(\d+) 次）$/.exec(title);
+  if (counted) {
+    const label = localizeActivityLabel(l, counted[1]!);
+    return l(`${label}（${counted[2]} 次）`, `${label} (${counted[2]} times)`);
+  }
+  switch (title) {
+    case '正在查看项目内容': return l(title, 'Reading project files');
+    case '正在查看图片': return l(title, 'Viewing images');
+    case '正在操作浏览器': return l(title, 'Using the browser');
+    case '正在查询资料': return l(title, 'Searching for information');
+    case '正在处理飞书文档': return l(title, 'Processing Feishu documents');
+    case '正在修改项目文件': return l(title, 'Updating project files');
+    case '正在运行测试': return l(title, 'Running tests');
+    case '正在打包应用': return l(title, 'Packaging the app');
+    case '正在构建应用': return l(title, 'Building the app');
+    case '正在检查代码变更': return l(title, 'Reviewing code changes');
+    case '正在更新代码': return l(title, 'Updating code');
+    case '正在执行本地命令': return l(title, 'Executing a local command');
+    case '正在执行开发操作': return l(title, 'Performing a development operation');
+    case '正在确认执行方案': return l(title, 'Planning the task');
+    case '正在检查网站可访问性': return l(title, 'Checking website availability');
+    case '正在读取任务资料': return l(title, 'Reading task information');
+    case '正在分析任务信息': return l(title, 'Analyzing task information');
+    case '正在执行任务': return l(title, 'Executing the task');
+    case '正在获取数据': return l(title, 'Fetching data');
+    case '已读取文件': return l(title, 'Files read');
+    case '已查看图片': return l(title, 'Images viewed');
+    case '已使用浏览器': return l(title, 'Browser used');
+    case '已查询资料': return l(title, 'Information retrieved');
+    case '已处理飞书文档': return l(title, 'Feishu documents processed');
+    case '已更新文件': return l(title, 'Files updated');
+    case '已运行测试': return l(title, 'Tests run');
+    case '已打包应用': return l(title, 'App packaged');
+    case '已构建应用': return l(title, 'App built');
+    case '已检查代码变更': return l(title, 'Code changes reviewed');
+    case '已更新代码': return l(title, 'Code updated');
+    case '已允许并执行本地命令': return l(title, 'Local command approved and executed');
+    case '已执行本地命令': return l(title, 'Local command executed');
+    case '已执行开发操作': return l(title, 'Development operation completed');
+    default: return title;
+  }
+}
+
 function getTransientProcessActivity(item: VisibleProcessItem): string | undefined {
   if (item.kind !== 'reasoning_summary' && item.kind !== 'assistant_message') return undefined;
   const text = item.text.trim();
   if (text.length === 0 || text.length > 80 || text.includes('\n')) return undefined;
   if (/^正在\S/.test(text)) return text;
-  if (/^planning\b/i.test(text)) return 'Reviewing the execution plan';
-  if (/^inspect(?:ing)?\b.*\b(?:site|website)\b/i.test(text)) return 'Checking website access';
-  if (/^read(?:ing)?\b/i.test(text)) return 'Reading task information';
-  if (/^search(?:ing)?\b/i.test(text)) return 'Searching information';
-  if (/^(?:check(?:ing)?|review(?:ing)?|analyz(?:ing)?)\b/i.test(text)) return 'Analyzing task information';
-  if (/^(?:run(?:ning)?|execut(?:ing)?)\b/i.test(text)) return 'Running task';
-  if (/^fetch(?:ing)?\b/i.test(text)) return 'Fetching data';
+  if (/^planning\b/i.test(text)) return '正在确认执行方案';
+  if (/^inspect(?:ing)?\b.*\b(?:site|website)\b/i.test(text)) return '正在检查网站可访问性';
+  if (/^read(?:ing)?\b/i.test(text)) return '正在读取任务资料';
+  if (/^search(?:ing)?\b/i.test(text)) return '正在查询资料';
+  if (/^(?:check(?:ing)?|review(?:ing)?|analyz(?:ing)?)\b/i.test(text)) return '正在分析任务信息';
+  if (/^(?:run(?:ning)?|execut(?:ing)?)\b/i.test(text)) return '正在执行任务';
+  if (/^fetch(?:ing)?\b/i.test(text)) return '正在获取数据';
   return undefined;
 }
 
@@ -551,7 +598,7 @@ function buildVisibleProcessSteps(process: ProcessBlock): ProcessDisplayStep[] {
   steps.push({
     key: `live:${latestToolUse.id}`,
     item: latestToolUse,
-    title: `${activityRunning ? 'Running: ' : 'Completed: '}${activity}`,
+    title: `${activityRunning ? '正在' : '已'}${activity}`,
     liveActivity: true,
     activityRunning
   });
@@ -564,8 +611,8 @@ function getProcessCompletedActivityLabel(
   activity: string,
   count = 1
 ): string | undefined {
-  if (activity === 'Run local command' && process.approvedCommandExecution === true) {
-    return count === 1 ? 'Approved and ran local command' : `Approved and ran local command (${count} times)`;
+  if (activity === '执行本地命令' && process.approvedCommandExecution === true) {
+    return count === 1 ? '已允许并执行本地命令' : `已允许并执行本地命令（${count} 次）`;
   }
   return getCompletedActivityLabel(activity, count);
 }
@@ -748,7 +795,7 @@ function collectCompletedCommandRunIds(items: TimelineItem[]): Set<string> {
     if (toolCallId === undefined || runId === undefined) continue;
     const callKey = `${runId}:${toolCallId}`;
     const payloadType = getPayloadType(item);
-    if (payloadType === 'tool_use' && getToolActivity(item.name, getToolCommand(item)) === 'Run local command') {
+    if (payloadType === 'tool_use' && getToolActivity(item.name, getToolCommand(item)) === '执行本地命令') {
       commandUsesByCallId.set(callKey, runId);
       continue;
     }
@@ -759,7 +806,7 @@ function collectCompletedCommandRunIds(items: TimelineItem[]): Set<string> {
   return completedRunIds;
 }
 
-function renderMessageContent(
+function renderMessageContent(l: LocalizeCopy,
   item: Extract<TimelineItem, { kind: 'user_message' | 'assistant_message' }>,
   onOpenFile?: (path: string) => void,
   onEditUserMessage?: (item: Extract<TimelineItem, { kind: 'user_message' }>) => void
@@ -799,21 +846,21 @@ function renderMessageContent(
           : undefined}
       />
       {artifacts.length > 0 ? (
-        <div className="timeline-artifacts" aria-label="Task outputs">
+        <div className="timeline-artifacts" aria-label={l("任务成果", "Mission results")}>
           {artifacts.map(path => (
             <button
               key={path}
               type="button"
               className="timeline-artifact-card"
-              aria-label={`Open output ${path}`}
+              aria-label={l(`打开成果 ${path}`, `Open results ${path}`)}
               onClick={() => onOpenFile?.(path)}
             >
               <FileText aria-hidden="true" size={17} />
               <span className="timeline-artifact-copy">
                 <strong>{artifactFileName(path)}</strong>
-                <span>{artifactTypeLabel(path)}</span>
+                <span>{artifactTypeLabel(l, path)}</span>
               </span>
-              <span className="timeline-artifact-action">Open</span>
+              <span className="timeline-artifact-action">{l("打开", "Open")}</span>
             </button>
           ))}
         </div>
@@ -838,30 +885,30 @@ function artifactFileName(path: string): string {
   return path.split('/').at(-1) ?? path;
 }
 
-function artifactTypeLabel(path: string): string {
+function artifactTypeLabel(l: LocalizeCopy, path: string): string {
   switch (artifactExtension(path)) {
     case 'html':
     case 'htm':
-      return 'HTML report';
+      return l("HTML 报告", "HTML report");
     case 'pdf':
-      return 'PDF document';
+      return l("PDF 文档", "PDF document");
     case 'doc':
     case 'docx':
-      return 'Word document';
+      return l("Word 文档", "Word document");
     case 'xls':
     case 'xlsx':
-      return 'Excel workbook';
+      return l("Excel 表格", "Excel table");
     case 'ppt':
     case 'pptx':
-      return 'Presentation';
+      return l("演示文稿", "presentation");
     case 'csv':
-      return 'Data table';
+      return l("数据表", "data sheet");
     default:
-      return 'Document';
+      return l("文档", "document");
   }
 }
 
-function renderResolvedApproval(approval: Extract<TimelineItem, { kind: 'approval' }>['approval']) {
+function renderResolvedApproval(l: LocalizeCopy, approval: Extract<TimelineItem, { kind: 'approval' }>['approval']) {
   const approved = approval.status === 'approved';
   const Icon = approved ? ShieldCheck : ShieldX;
   return (
@@ -876,15 +923,15 @@ function formatApprovalResolution(approval: Extract<TimelineItem, { kind: 'appro
   const prefix = (() => {
     switch (approval.status) {
       case 'approved':
-        return 'Allowed';
+        return '已允许';
       case 'rejected':
-        return 'Denied';
+        return '已拒绝';
       case 'expired':
-        return 'Permission request expired';
+        return '权限申请已过期';
       case 'canceled':
-        return 'Permission request canceled';
+        return '权限申请已取消';
       case 'pending':
-        return 'Waiting for approval';
+        return '等待批准';
     }
   })();
   if (approval.status === 'expired' || approval.status === 'canceled') return prefix;
@@ -892,10 +939,10 @@ function formatApprovalResolution(approval: Extract<TimelineItem, { kind: 'appro
   if (approval.kind === 'permissions') {
     const network = isRecord(approval.details.network) ? approval.details.network : undefined;
     const host = typeof network?.host === 'string' ? network.host : undefined;
-    return host ? `${prefix}: access ${host}` : `${prefix}: request permissions`;
+    return host ? `${prefix}访问 ${host}` : `${prefix}获取权限`;
   }
-  if (approval.kind === 'file_change') return `${prefix}: modify files`;
-  return `${prefix}: run command`;
+  if (approval.kind === 'file_change') return `${prefix}修改文件`;
+  return `${prefix}执行命令`;
 }
 
 function MessageMeta(props: {
@@ -903,22 +950,24 @@ function MessageMeta(props: {
   latestAssistant?: boolean;
   onEdit?: (item: Extract<TimelineItem, { kind: 'user_message' }>) => void;
 }) {
+  const l = useLocalizedCopy();
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
-  const itemLabel = props.item.kind === 'assistant_message' ? 'Reply' : 'Message';
+  const { language } = useAppLanguage();
+  const itemLabel = props.item.kind === 'assistant_message' ? l('回复', 'response') : l('消息', 'message');
   const timestamp = props.item.timestamp ? (
-    <time dateTime={props.item.timestamp}>{formatMessageTime(props.item.timestamp)}</time>
+    <time dateTime={props.item.timestamp}>{formatMessageTime(props.item.timestamp, language)}</time>
   ) : null;
   const copyButton = (
     <button
       type="button"
       aria-label={
         copyState === 'copied'
-          ? `Copied ${itemLabel}`
+          ? l(`已复制${itemLabel}`, `Copied ${itemLabel}`)
           : copyState === 'failed'
-            ? `Could not copy ${itemLabel}`
-            : `Copy ${itemLabel}`
+            ? l(`复制${itemLabel}失败`, `Failed to copy ${itemLabel}`)
+            : l(`复制${itemLabel}`, `Copy ${itemLabel}`)
       }
-      title={copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy'}
+      title={copyState === 'copied' ? l("已复制", "Copied") : copyState === 'failed' ? l("复制失败", "Copy failed") : l("复制", "copy")}
       onClick={async () => {
         setCopyState(await copyToClipboard(props.item.text) ? 'copied' : 'failed');
       }}
@@ -938,8 +987,8 @@ function MessageMeta(props: {
       {props.item.kind === 'user_message' && props.onEdit ? (
         <button
           type="button"
-          aria-label="Edit message"
-          title="Edit"
+          aria-label={l("编辑消息", "Edit message")}
+          title={l("编辑", "Edit")}
           onClick={() => {
             if (props.item.kind === 'user_message') props.onEdit?.(props.item);
           }}
@@ -951,10 +1000,10 @@ function MessageMeta(props: {
   );
 }
 
-function formatMessageTime(value: string): string {
+function formatMessageTime(value: string, language: AppLanguage): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(language, {
     weekday: 'short',
     hour: '2-digit',
     minute: '2-digit',
@@ -962,21 +1011,21 @@ function formatMessageTime(value: string): string {
   }).format(date);
 }
 
-function renderScheduleTrigger(
-  item: Extract<TimelineItem, { kind: 'schedule_trigger' }>
-) {
+function ScheduleTriggerContent(props: { item: Extract<TimelineItem, { kind: 'schedule_trigger' }> }) {
+  const { item } = props;
+  const { language } = useAppLanguage();
   return (
     <div className="timeline-schedule-trigger-content">
-      <time dateTime={item.triggeredAt}>{formatScheduleTriggerTime(item.triggeredAt)}</time>
+      <time dateTime={item.triggeredAt}>{formatScheduleTriggerTime(item.triggeredAt, language)}</time>
       <MarkdownRenderer text={item.prompt} variant="user" />
     </div>
   );
 }
 
-function formatScheduleTriggerTime(value: string): string {
+function formatScheduleTriggerTime(value: string, language: AppLanguage): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(language, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -992,13 +1041,13 @@ function formatAttachmentSize(size: number): string {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function renderChangeCard(item: Extract<TimelineItem, { kind: 'change_card' }>, onOpenFile?: (path: string) => void) {
+function renderChangeCard(l: LocalizeCopy, item: Extract<TimelineItem, { kind: 'change_card' }>, onOpenFile?: (path: string) => void) {
   const content = (
     <>
       <strong>{item.title}</strong>
       <span>{item.path}</span>
       <code>{item.delta}</code>
-      {onOpenFile ? <span className="change-card-action">Open</span> : null}
+      {onOpenFile ? <span className="change-card-action">{l("打开", "Open")}</span> : null}
     </>
   );
 
@@ -1007,7 +1056,7 @@ function renderChangeCard(item: Extract<TimelineItem, { kind: 'change_card' }>, 
       <button
         type="button"
         className="change-card-content change-card-button"
-        aria-label={`Open file ${item.path}`}
+        aria-label={l(`打开文件 ${item.path}`, `Open file ${item.path}`)}
         onClick={() => onOpenFile(item.path)}
       >
         {content}
@@ -1022,12 +1071,12 @@ function renderChangeCard(item: Extract<TimelineItem, { kind: 'change_card' }>, 
   );
 }
 
-function renderChangeBlock(
+function renderChangeBlock(l: LocalizeCopy,
   block: ChangeBlock,
   onOpenFile?: (path: string) => void
 ) {
   if (block.items.length === 1) {
-    return renderChangeCard(block.items[0]!, onOpenFile);
+    return renderChangeCard(l, block.items[0]!, onOpenFile);
   }
 
   const paths = [...new Set(block.items.map(item => item.path))];
@@ -1036,8 +1085,8 @@ function renderChangeBlock(
 
   return (
     <div className="change-card-content change-card-group">
-      <strong>{block.items.length} consecutive file changes</strong>
-      <span>{paths.length} files</span>
+      <strong>{l(`${block.items.length} 次连续文件变更`, `${block.items.length} consecutive file changes`)}</strong>
+      <span>{l(`${paths.length} 个文件`, `${paths.length} files`)}</span>
       <div className="change-card-paths">
         {visiblePaths.map(path => (
           onOpenFile ? (
@@ -1045,7 +1094,7 @@ function renderChangeBlock(
               key={path}
               type="button"
               className="change-card-path-button"
-              aria-label={`Open file ${path}`}
+              aria-label={l(`打开文件 ${path}`, `Open file ${path}`)}
               onClick={() => onOpenFile(path)}
             >
               {path}
@@ -1054,13 +1103,13 @@ function renderChangeBlock(
             <code key={path}>{path}</code>
           )
         ))}
-        {hiddenCount > 0 ? <span>Additional {hiddenCount} files</span> : null}
+        {hiddenCount > 0 ? <span>{l(`另有 ${hiddenCount} 个文件`, `${hiddenCount} more files`)}</span> : null}
       </div>
     </div>
   );
 }
 
-function renderTimelineItemContent(
+function renderTimelineItemContent(l: LocalizeCopy,
   item: TimelineItem,
   onOpenFile?: (path: string) => void,
   onEditUserMessage?: (item: Extract<TimelineItem, { kind: 'user_message' }>) => void,
@@ -1074,13 +1123,13 @@ function renderTimelineItemContent(
   switch (item.kind) {
     case 'user_message':
     case 'assistant_message':
-      return renderMessageContent(item, onOpenFile, onEditUserMessage);
+      return renderMessageContent(l, item, onOpenFile, onEditUserMessage);
     case 'schedule_trigger':
-      return renderScheduleTrigger(item);
+      return <ScheduleTriggerContent item={item} />;
     case 'change_card':
-      return renderChangeCard(item, onOpenFile);
+      return renderChangeCard(l, item, onOpenFile);
     case 'approval':
-      if (item.approval.status !== 'pending') return renderResolvedApproval(item.approval);
+      if (item.approval.status !== 'pending') return renderResolvedApproval(l, item.approval);
       return approvalState === undefined ? null : (
         <ApprovalPanel
           approval={item.approval}
@@ -1110,7 +1159,7 @@ function renderTimelineItemContent(
   }
 }
 
-function renderProcessStep(step: ProcessDisplayStep) {
+function renderProcessStep(l: LocalizeCopy, step: ProcessDisplayStep) {
   const { item } = step;
   if (step.liveActivity && (item.kind === 'reasoning_summary' || item.kind === 'assistant_message')) {
     return (
@@ -1122,7 +1171,7 @@ function renderProcessStep(step: ProcessDisplayStep) {
         <div className="process-step-row">
           <LoaderCircle className="process-live-activity-icon is-running" aria-hidden="true" size={13} />
           <div className="process-live-activity-text">
-            <MarkdownRenderer text={step.title ?? item.text} variant="process" />
+            <MarkdownRenderer text={step.title ? localizeActivityLabel(l, step.title) : item.text} variant="process" />
           </div>
         </div>
       </li>
@@ -1155,7 +1204,7 @@ function renderProcessStep(step: ProcessDisplayStep) {
         {step.milestoneActivity ? renderMilestoneIcon(step.milestoneActivity) : null}
         {item.kind === 'diagnostic' ? <span className={`process-step-severity ${item.severity}`}>{item.severity}</span> : null}
         <span className="process-step-title">
-          {step.title ?? getProcessStepTitle(item)}
+          {step.title ? localizeActivityLabel(l, step.title) : getProcessStepTitle(l, item)}
         </span>
       </div>
     </li>
@@ -1165,19 +1214,19 @@ function renderProcessStep(step: ProcessDisplayStep) {
 function renderMilestoneIcon(activity: string) {
   const props = { className: 'process-milestone-icon', 'aria-hidden': true, size: 14 } as const;
   switch (activity) {
-    case 'Read project files':
-    case 'Work with Feishu documents':
+    case '查看项目内容':
+    case '处理飞书文档':
       return <BookOpen {...props} />;
-    case 'Search information':
-    case 'Use browser':
+    case '查询资料':
+    case '操作浏览器':
       return <Globe2 {...props} />;
-    case 'View image':
+    case '查看图片':
       return <ImageIcon {...props} />;
-    case 'Edit project files':
+    case '修改项目文件':
       return <FilePenLine {...props} />;
-    case 'Run tests':
-    case 'Build application':
-    case 'Package application':
+    case '运行测试':
+    case '构建应用':
+    case '打包应用':
       return <PackageCheck {...props} />;
     default:
       return <Check {...props} />;
@@ -1192,6 +1241,7 @@ function ProcessBlockView(props: {
 }) {
   const { process, expanded, onExpandedChange } = props;
   const { language, t } = useAppLanguage();
+  const l = useLocalizedCopy();
   const complete = isProcessComplete(process);
   const duration = getProcessDuration(process, language);
   const fallbackStartedAtRef = useRef({ key: process.key, value: Date.now() });
@@ -1243,7 +1293,7 @@ function ProcessBlockView(props: {
         </summary>
         {expanded && steps.length > 0 ? (
           <div className="process-detail">
-            <ol className="process-steps">{steps.map(renderProcessStep)}</ol>
+            <ol className="process-steps">{steps.map(step => renderProcessStep(l, step))}</ol>
           </div>
         ) : null}
       </details>
@@ -1272,6 +1322,7 @@ type TimelineProps = {
 };
 
 export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timeline(props, ref) {
+  const l = useLocalizedCopy();
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const atBottomRef = useRef(true);
   const userInteractedRef = useRef(false);
@@ -1395,8 +1446,8 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
     <div className="timeline-list">
       {props.items.length === 0 ? (
         <div className="timeline-empty">
-          <strong>No task history</strong>
-          <span>Task progress and results will appear here.</span>
+          <strong>{l("暂无任务记录", "No task record yet")}</strong>
+          <span>{l("发送任务后，OpenCreator 会在这里展示处理过程和结果。", "After sending the task, OpenCreator will display the processing process and results here.")}</span>
         </div>
       ) : (
         <div
@@ -1446,7 +1497,7 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
                       ) : (
                         <ArrowUp aria-hidden="true" size={14} />
                       )}
-                      <span>{props.loadingOlder ? 'Loading earlier history' : 'Load earlier history'}</span>
+                      <span>{props.loadingOlder ? l("正在加载更早记录", "Loading older records") : l("加载更早记录", "Load older records")}</span>
                     </button>
                   ) : null}
                 </div>
@@ -1455,7 +1506,7 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
             }}
             itemContent={(_index, renderItem) => (
               <div className="timeline-virtual-item">
-                {renderTimelineRenderItem(
+                {renderTimelineRenderItem(l,
                   renderItem,
                   props.targetItemId,
                   props.targetRunId,
@@ -1487,7 +1538,7 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
               onClick={scrollToLatest}
             >
               <ArrowDown aria-hidden="true" size={15} />
-              <span>New content</span>
+              <span>{l("有新内容", "There is new content")}</span>
             </button>
           ) : null}
         </div>
@@ -1496,7 +1547,7 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
   );
 });
 
-function renderTimelineRenderItem(
+function renderTimelineRenderItem(l: LocalizeCopy,
   renderItem: TimelineRenderItem,
   targetItemId?: string,
   targetRunId?: string,
@@ -1539,7 +1590,7 @@ function renderTimelineRenderItem(
           targetApprovalId
         ) ? 'true' : undefined}
       >
-        <div className="timeline-bubble">{renderChangeBlock(renderItem, onOpenFile)}</div>
+        <div className="timeline-bubble">{renderChangeBlock(l, renderItem, onOpenFile)}</div>
       </article>
     );
   }
@@ -1561,12 +1612,12 @@ function renderTimelineRenderItem(
     >
       {shouldRenderTimelineHeader(item) ? (
         <div className="timeline-item-header">
-          <span className="timeline-avatar">{renderTimelineAvatar(item)}</span>
-          <span className="timeline-kind">{getTimelineTitle(item)}</span>
+          <span className="timeline-avatar">{renderTimelineAvatar(l, item)}</span>
+          <span className="timeline-kind">{getTimelineTitle(l, item)}</span>
         </div>
       ) : null}
       <div className="timeline-bubble">
-        {renderTimelineItemContent(
+        {renderTimelineItemContent(l,
           item,
           onOpenFile,
           onEditUserMessage,

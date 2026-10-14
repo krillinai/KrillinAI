@@ -173,6 +173,21 @@ describe('OpenCreatorSettingsView', () => {
     window.localStorage.removeItem(languagePreferenceStorageKey);
   });
 
+  it.each([
+    ['ja-JP', '一般'], ['ko-KR', '일반'], ['es-ES', 'General'],
+    ['fr-FR', 'Général'], ['de-DE', 'Allgemein'], ['pt-BR', 'Geral']
+  ] as const)('offers and immediately switches to %s', (language, heading) => {
+    render(<LanguageProvider initialPreference="en-US"><OpenCreatorSettingsView runtimeStatus={runtimeStatus} onBack={vi.fn()} /></LanguageProvider>);
+    const select = screen.getByRole('combobox', { name: 'Display language' });
+    expect(select.querySelectorAll('option')).toHaveLength(10);
+    fireEvent.change(select, { target: { value: language } });
+    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
+    expect(select).toHaveValue(language);
+    expect(window.localStorage.getItem(languagePreferenceStorageKey)).toBe(language);
+    expect(document.documentElement.lang).toBe(language);
+    window.localStorage.removeItem(languagePreferenceStorageKey);
+  });
+
   it('opens AI services on demand and can return to general settings', async () => {
     render(<OpenCreatorSettingsView runtimeStatus={runtimeStatus} onBack={vi.fn()} />);
 
@@ -539,7 +554,7 @@ describe('OpenCreatorSettingsView', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Profiles' }));
     expect(screen.getByRole('heading', { name: 'Profiles' })).toBeInTheDocument();
-    expect(screen.getByText('Connect the local Runtime to manage Profiles.')).toBeInTheDocument();
+    expect(screen.getByText('本地服务连接后可以管理 Profile。')).toBeInTheDocument();
   });
 
   it('opens Cleanup and Diagnostics pages from settings navigation', () => {
@@ -561,10 +576,10 @@ describe('OpenCreatorSettingsView', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: '清理' }));
-    expect(screen.getByRole('heading', { name: 'Runtime data cleanup' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '运行数据清理' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '诊断' }));
-    expect(screen.getByRole('heading', { name: 'Diagnostics' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '诊断' })).toBeInTheDocument();
     expect(screen.getByText(runtimeStatus.codexPath)).toBeInTheDocument();
   });
 

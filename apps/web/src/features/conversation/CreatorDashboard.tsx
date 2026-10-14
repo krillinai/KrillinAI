@@ -1,3 +1,5 @@
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
+import type { AppLanguage } from '../../i18n/language.js';
 import type {
   CreatorPresetSummary,
   CreatorRuntimeWorkspace
@@ -292,9 +294,7 @@ export function CreatorDashboard(props: {
     pageIssues.captureOperationFailure(
       'creator-launch.load-presets',
       new Error(props.error),
-      language === 'en-US'
-        ? 'Could not load creator templates. Check the Runtime connection and retry.'
-        : '无法加载创作模板，请检查 Runtime 连接后重试。',
+      createLocalizedCopy(language)('无法加载创作模板，请检查 Runtime 连接后重试。', 'Could not load creator templates. Check the Runtime connection and retry.'),
       { retryable: props.onRetry !== undefined }
     );
   }, [
@@ -414,9 +414,7 @@ export function CreatorDashboard(props: {
       pageIssues.captureOperationFailure(
         'creator-launch.select-preset',
         error,
-        language === 'en-US'
-          ? 'Could not start this template. Check the diagnosis and retry.'
-          : '无法启动此模板，请查看诊断后重试。',
+        createLocalizedCopy(language)('无法启动此模板，请查看诊断后重试。', 'Could not start this template. Check the diagnosis and retry.'),
         { retryable: true }
       );
     } finally {
@@ -435,7 +433,7 @@ export function CreatorDashboard(props: {
     const previewUrl = selectedPreset.previewUrl ?? selectedPreset.coverUrl;
     const detailRows = selectedPreset.details ?? selectedPreset.highlights.map((highlight, index) => ({
       ...highlight,
-      label: language === 'en-US' ? `Setting ${index + 1}` : `配置 ${index + 1}`
+      label: createLocalizedCopy(language)(`配置 ${index + 1}`, `Setting ${index + 1}`)
     }));
     const authorAvatar = selectedPreset.author === undefined ? null : (
       <>
@@ -445,9 +443,7 @@ export function CreatorDashboard(props: {
         <UserRound size={17} aria-hidden="true" />
       </>
     );
-    const authorLinkLabel = language === 'en-US'
-      ? `View original source from ${selectedPreset.author?.name}`
-      : `查看${selectedPreset.author?.name}的原始来源`;
+    const authorLinkLabel = createLocalizedCopy(language)(`查看${selectedPreset.author?.name}的原始来源`, `View original source from ${selectedPreset.author?.name}`);
     return (
       <>
         <div className="creator-template-detail-backdrop" onMouseDown={event => {
@@ -459,7 +455,7 @@ export function CreatorDashboard(props: {
         <div className="creator-template-detail-layout">
           <section
             className="creator-template-outcome"
-            aria-label={language === 'en-US' ? 'Example result' : '示例图片'}
+            aria-label={createLocalizedCopy(language)('示例图片', 'Example result')}
             onClick={event => {
               if (event.target instanceof Element && event.target.closest('img, video') === null) closeDetails();
             }}
@@ -470,10 +466,8 @@ export function CreatorDashboard(props: {
                 ref={previewTriggerRef}
                 type="button"
                 className="creator-template-outcome-media"
-                aria-label={language === 'en-US'
-                  ? `View full ${selectedPreset.title} result`
-                  : `全屏查看${selectedPreset.title}完整作品`}
-                title={language === 'en-US' ? 'View full result' : '查看完整作品'}
+                aria-label={createLocalizedCopy(language)(`全屏查看${selectedPreset.title}完整作品`, `View full ${selectedPreset.title} result`)}
+                title={createLocalizedCopy(language)('查看完整作品', 'View full result')}
                 onClick={event => {
                   // Keyboard activation has detail 0; pointer clicks on empty space dismiss.
                   if (event.target === event.currentTarget && event.detail !== 0) return;
@@ -493,9 +487,7 @@ export function CreatorDashboard(props: {
                   preload="metadata"
                   autoPlay
                   loop
-                  aria-label={language === 'en-US'
-                    ? `${selectedPreset.title} example video`
-                    : `${selectedPreset.title}示例视频`}
+                  aria-label={createLocalizedCopy(language)(`${selectedPreset.title}示例视频`, `${selectedPreset.title} example video`)}
                 />
               </div>
             )}
@@ -507,7 +499,7 @@ export function CreatorDashboard(props: {
                 <h1 className={selectedPreset.author === undefined ? undefined : 'creator-template-visually-hidden'}>{selectedPreset.title}</h1>
                 <p className={selectedPreset.author === undefined ? undefined : 'creator-template-visually-hidden'}>{selectedPreset.description}</p>
                 {selectedPreset.author === undefined ? null : (
-                  <div className="creator-template-author" aria-label={language === 'en-US' ? 'Template author' : '模板作者'}>
+                  <div className="creator-template-author" aria-label={createLocalizedCopy(language)('模板作者', 'Template author')}>
                     {selectedPreset.author.url === undefined ? (
                       <span className="creator-template-author-avatar" aria-hidden="true">{authorAvatar}</span>
                     ) : (
@@ -517,12 +509,12 @@ export function CreatorDashboard(props: {
                     )}
                     <span className="creator-template-author-copy">
                       <strong title={selectedPreset.author.name}>{selectedPreset.author.name}</strong>
-                      <small>{language === 'en-US' ? 'Author' : '作者'}</small>
+                      <small>{createLocalizedCopy(language)('作者', 'Author')}</small>
                     </span>
                   </div>
                 )}
               </div>
-              <button ref={detailCloseRef} type="button" className="creator-template-back" aria-label={language === 'en-US' ? 'Back to templates' : '返回模板列表'} title={language === 'en-US' ? 'Back to templates' : '返回模板列表'} onClick={closeDetails}>
+              <button ref={detailCloseRef} type="button" className="creator-template-back" aria-label={createLocalizedCopy(language)('返回模板列表', 'Back to templates')} title={createLocalizedCopy(language)('返回模板列表', 'Back to templates')} onClick={closeDetails}>
                 <X size={18} aria-hidden="true" />
               </button>
             </header>
@@ -530,23 +522,23 @@ export function CreatorDashboard(props: {
             <section className="creator-template-detail-section creator-template-prompt-section">
               <div className="creator-template-prompt-card">
                 <div className="creator-template-prompt-heading">
-                  <h2>{language === 'en-US' ? 'Prompt' : '提示词'}</h2>
+                  <h2>{createLocalizedCopy(language)('提示词', 'Prompt')}</h2>
                   <button type="button" disabled={selectedPreset.prompt === null} onClick={() => {
                     if (selectedPreset.prompt === null) return;
                     void navigator.clipboard.writeText(selectedPreset.prompt).then(() => setPromptCopied(true)).catch(() => setPromptCopied(false));
                   }}>
                     <Copy size={16} aria-hidden="true" />
-                    {promptCopied ? (language === 'en-US' ? 'Copied' : '已复制') : (language === 'en-US' ? 'Copy' : '复制 Prompt')}
+                    {promptCopied ? (createLocalizedCopy(language)('已复制', 'Copied')) : (createLocalizedCopy(language)('复制 Prompt', 'Copy'))}
                   </button>
                 </div>
                 <p ref={promptRef} className={`${selectedPreset.prompt === null ? 'creator-template-detail-empty' : 'creator-template-prompt'}${promptExpanded ? ' is-expanded' : ''}`}>
                   {selectedPreset.prompt === null
-                    ? (language === 'en-US' ? 'This template uses fixed settings and does not require a preset prompt.' : '此模板使用固定配置，无需预设提示词。')
-                    : renderPromptVariables(selectedPreset.prompt, language === 'zh-CN' ? 'zh-CN' : 'en-US')}
+                    ? (createLocalizedCopy(language)('此模板使用固定配置，无需预设提示词。', 'This template uses fixed settings and does not require a preset prompt.'))
+                    : renderPromptVariables(selectedPreset.prompt, language)}
                 </p>
                 {promptHasOverflow || promptExpanded ? (
                   <button className="creator-template-prompt-expand" type="button" aria-expanded={promptExpanded} onClick={() => setPromptExpanded(value => !value)}>
-                    {promptExpanded ? (language === 'en-US' ? 'Show less' : '收起') : (language === 'en-US' ? 'See all' : '查看全部')}
+                    {promptExpanded ? (createLocalizedCopy(language)('收起', 'Show less')) : (createLocalizedCopy(language)('查看全部', 'See all'))}
                     <ChevronDown size={16} aria-hidden="true" />
                   </button>
                 ) : null}
@@ -556,7 +548,7 @@ export function CreatorDashboard(props: {
             <section className="creator-template-detail-section creator-template-specs-section">
               <button className="creator-template-specs-toggle" type="button" aria-expanded={detailsExpanded} onClick={() => setDetailsExpanded(value => !value)}>
                 <Info size={16} aria-hidden="true" />
-                <span>{language === 'en-US' ? 'Details' : '详情'}</span>
+                <span>{createLocalizedCopy(language)('详情', 'Details')}</span>
                 <ChevronDown size={16} aria-hidden="true" />
               </button>
               {detailsExpanded ? (
@@ -571,16 +563,16 @@ export function CreatorDashboard(props: {
                     </div>
                   ))}
                   {selectedPreset.requirements !== null ? (
-                    <div><dt>{language === 'en-US' ? 'Requires' : '运行需要'}</dt><dd>{selectedPreset.requirements.capabilities.join(', ')}</dd></div>
+                    <div><dt>{createLocalizedCopy(language)('运行需要', 'Requires')}</dt><dd>{selectedPreset.requirements.capabilities.join(', ')}</dd></div>
                   ) : null}
                 </dl>
               ) : null}
             </section>
 
             {selectedPreset.tags.length > 0 ? (
-              <section className="creator-template-detail-section creator-template-tags-section" aria-label={language === 'en-US' ? 'Tags' : '标签'}>
-                <h2><Tags size={16} aria-hidden="true" />{language === 'en-US' ? 'Tags' : '标签'}</h2>
-                <ul className="creator-template-tags" aria-label={language === 'en-US' ? 'Template tags' : '模板标签'}>
+              <section className="creator-template-detail-section creator-template-tags-section" aria-label={createLocalizedCopy(language)('标签', 'Tags')}>
+                <h2><Tags size={16} aria-hidden="true" />{createLocalizedCopy(language)('标签', 'Tags')}</h2>
+                <ul className="creator-template-tags" aria-label={createLocalizedCopy(language)('模板标签', 'Template tags')}>
                   {selectedPreset.tags.map(tag => <li key={tag}>{tag}</li>)}
                 </ul>
               </section>
@@ -599,7 +591,7 @@ export function CreatorDashboard(props: {
             <div className="creator-template-detail-footer">
               <button className="creator-template-use-button" type="button" disabled={busy} aria-busy={busy} onClick={() => void selectPreset(selectedPreset)}>
                 <WandSparkles size={18} aria-hidden="true" />
-                {busy ? (language === 'en-US' ? 'Creating...' : '正在创建...') : (language === 'en-US' ? 'Use this template' : '使用此模板')}
+                {busy ? (createLocalizedCopy(language)('正在创建...', 'Creating...')) : (createLocalizedCopy(language)('使用此模板', 'Use this template'))}
               </button>
             </div>
 
@@ -618,9 +610,7 @@ export function CreatorDashboard(props: {
               className="creator-template-preview-dialog"
               role="dialog"
               aria-modal="true"
-              aria-label={language === 'en-US'
-                ? `${selectedPreset.title} full result`
-                : `${selectedPreset.title}完整作品`}
+              aria-label={createLocalizedCopy(language)(`${selectedPreset.title}完整作品`, `${selectedPreset.title} full result`)}
             >
               {selectedPreset.previewVideoUrl === undefined ? (
                 <img src={previewUrl} alt={selectedPreset.title} />
@@ -633,16 +623,14 @@ export function CreatorDashboard(props: {
                   preload="metadata"
                   autoPlay
                   loop
-                  aria-label={language === 'en-US'
-                    ? `${selectedPreset.title} full example video`
-                    : `${selectedPreset.title}完整示例视频`}
+                  aria-label={createLocalizedCopy(language)(`${selectedPreset.title}完整示例视频`, `${selectedPreset.title} full example video`)}
                 />
               )}
               <button
                 ref={previewCloseRef}
                 type="button"
-                aria-label={language === 'en-US' ? 'Close preview' : '关闭预览'}
-                title={language === 'en-US' ? 'Close preview' : '关闭预览'}
+                aria-label={createLocalizedCopy(language)('关闭预览', 'Close preview')}
+                title={createLocalizedCopy(language)('关闭预览', 'Close preview')}
                 onClick={closePreview}
               >
                 <X size={19} aria-hidden="true" />
@@ -661,7 +649,7 @@ export function CreatorDashboard(props: {
       <div
         className="creator-template-tabs"
         role="tablist"
-        aria-label={language === 'en-US' ? 'Creation template categories' : '创作模板分类'}
+        aria-label={createLocalizedCopy(language)('创作模板分类', 'Creation template categories')}
       >
         {categoryOrder.map(item => (
           <button
@@ -672,7 +660,7 @@ export function CreatorDashboard(props: {
             aria-controls="creator-template-panel"
             onClick={() => selectCategory(item)}
           >
-            {categoryLabel(item, language === 'zh-CN' ? 'zh-CN' : 'en-US')}
+            {categoryLabel(item, language)}
           </button>
         ))}
       </div>
@@ -685,7 +673,7 @@ export function CreatorDashboard(props: {
       >
         <div className="creator-dashboard-heading">
           <h1 id="creator-templates-title">
-            {language === 'en-US' ? 'Featured Templates' : '精选模板'}
+            {createLocalizedCopy(language)('精选模板', 'Featured Templates')}
           </h1>
           {searchOpen ? (
             <div className="creator-template-search">
@@ -700,13 +688,13 @@ export function CreatorDashboard(props: {
                   setQuery('');
                   setSearchOpen(false);
                 }}
-                aria-label={language === 'en-US' ? 'Search templates' : '搜索模板'}
-                placeholder={language === 'en-US' ? 'Search templates' : '搜索模板'}
+                aria-label={createLocalizedCopy(language)('搜索模板', 'Search templates')}
+                placeholder={createLocalizedCopy(language)('搜索模板', 'Search templates')}
               />
               <button
                 type="button"
-                aria-label={language === 'en-US' ? 'Close template search' : '关闭模板搜索'}
-                title={language === 'en-US' ? 'Close search' : '关闭搜索'}
+                aria-label={createLocalizedCopy(language)('关闭模板搜索', 'Close template search')}
+                title={createLocalizedCopy(language)('关闭搜索', 'Close search')}
                 onClick={() => {
                   setQuery('');
                   setSearchOpen(false);
@@ -719,8 +707,8 @@ export function CreatorDashboard(props: {
             <button
               className="creator-template-search-trigger"
               type="button"
-              aria-label={language === 'en-US' ? 'Search templates' : '搜索模板'}
-              title={language === 'en-US' ? 'Search templates' : '搜索模板'}
+              aria-label={createLocalizedCopy(language)('搜索模板', 'Search templates')}
+              title={createLocalizedCopy(language)('搜索模板', 'Search templates')}
               onClick={() => {
                 setSearchOpen(true);
                 window.requestAnimationFrame(() => searchInputRef.current?.focus());
@@ -732,7 +720,7 @@ export function CreatorDashboard(props: {
         </div>
 
         {(category === 'video' || category === 'image') ? (
-          <div className="creator-template-tags-filter" role="group" aria-label={language === 'en-US' ? 'Filter templates' : '筛选模板'} ref={tagsFilterRef}>
+          <div className="creator-template-tags-filter" role="group" aria-label={createLocalizedCopy(language)('筛选模板', 'Filter templates')} ref={tagsFilterRef}>
             <div className="creator-template-tags-line">
               <button
                 type="button"
@@ -742,7 +730,7 @@ export function CreatorDashboard(props: {
                   setMoreTagsOpen(false);
                 }}
               >
-                {language === 'en-US' ? 'All' : '全部'}
+                {createLocalizedCopy(language)('全部', 'All')}
               </button>
               {visibleTagOptions.map(option => (
                 <button
@@ -751,7 +739,7 @@ export function CreatorDashboard(props: {
                   aria-pressed={selectedTag === option.id}
                   onClick={() => setSelectedTag(option.id)}
                 >
-                  {language === 'en-US' ? option.en : option.zh}
+                  {createLocalizedCopy(language)(option.zh, option.en)}
                 </button>
               ))}
               {overflowTagOptions.length > 0 ? (
@@ -764,14 +752,14 @@ export function CreatorDashboard(props: {
                   onClick={() => setMoreTagsOpen(open => !open)}
                 >
                   {moreTagsOpen
-                    ? (language === 'en-US' ? 'Show less' : '收起')
-                    : (language === 'en-US' ? 'More' : '更多')}
+                    ? (createLocalizedCopy(language)('收起', 'Show less'))
+                    : (createLocalizedCopy(language)('更多', 'More'))}
                   <ChevronDown size={14} aria-hidden="true" />
                 </button>
               ) : null}
             </div>
             {moreTagsOpen && overflowTagOptions.length > 0 ? (
-              <div className="creator-template-tags-overflow" id="creator-template-tags-overflow" role="group" aria-label={language === 'en-US' ? 'More template filters' : '更多模板分类'}>
+              <div className="creator-template-tags-overflow" id="creator-template-tags-overflow" role="group" aria-label={createLocalizedCopy(language)('更多模板分类', 'More template filters')}>
                 {overflowTagOptions.map(option => (
                   <button
                     type="button"
@@ -782,24 +770,24 @@ export function CreatorDashboard(props: {
                       setMoreTagsOpen(false);
                     }}
                   >
-                    {language === 'en-US' ? option.en : option.zh}
+                    {createLocalizedCopy(language)(option.zh, option.en)}
                   </button>
                 ))}
               </div>
             ) : null}
             <div className="creator-template-tags-measure" aria-hidden="true" ref={tagsMeasureRef}>
-              <button type="button" tabIndex={-1}>{language === 'en-US' ? 'All' : '全部'}</button>
+              <button type="button" tabIndex={-1}>{createLocalizedCopy(language)('全部', 'All')}</button>
               {orderedTagOptions.map(option => (
                 <button type="button" tabIndex={-1} key={option.id} aria-pressed={selectedTag === option.id}>
-                  {language === 'en-US' ? option.en : option.zh}
+                  {createLocalizedCopy(language)(option.zh, option.en)}
                 </button>
               ))}
               <button type="button" tabIndex={-1} className="creator-template-tags-more">
-                {language === 'en-US' ? 'More' : '更多'}
+                {createLocalizedCopy(language)('更多', 'More')}
                 <ChevronDown size={14} aria-hidden="true" />
               </button>
               <button type="button" tabIndex={-1} className="creator-template-tags-more">
-                {language === 'en-US' ? 'Show less' : '收起'}
+                {createLocalizedCopy(language)('收起', 'Show less')}
                 <ChevronDown size={14} aria-hidden="true" />
               </button>
             </div>
@@ -811,7 +799,7 @@ export function CreatorDashboard(props: {
             className="creator-template-grid creator-template-loading-grid"
             role="status"
             aria-busy="true"
-            aria-label={language === 'en-US' ? 'Loading templates' : '正在加载模板'}
+            aria-label={createLocalizedCopy(language)('正在加载模板', 'Loading templates')}
           >
             {[0, 1, 2, 3].map(item => (
               <span className="creator-template-skeleton" aria-hidden="true" key={item}>
@@ -846,9 +834,7 @@ export function CreatorDashboard(props: {
                     setPreviewOpen(false);
                     setSelectedPresetIdentity(identity);
                   }}
-                  aria-label={language === 'en-US'
-                    ? `View ${preset.title} template details`
-                    : `查看${preset.title}模板详情`}
+                  aria-label={createLocalizedCopy(language)(`查看${preset.title}模板详情`, `View ${preset.title} template details`)}
                 >
                   <span className="creator-template-media">
                     <img src={preset.coverUrl} alt="" loading="lazy" />
@@ -867,16 +853,12 @@ export function CreatorDashboard(props: {
             {visiblePresets.length === 0 ? (
               <p className="creator-template-empty">
                 {normalizedQuery
-                  ? (language === 'en-US' ? 'No matching presets.' : '没有匹配的模板。')
+                  ? (createLocalizedCopy(language)('没有匹配的模板。', 'No matching presets.'))
                   : selectedTag !== undefined
-                    ? (language === 'en-US' ? 'No templates for this tag yet.' : '该标签暂时没有模板。')
+                    ? (createLocalizedCopy(language)('该标签暂时没有模板。', 'No templates for this tag yet.'))
                   : category === 'recent'
-                    ? (language === 'en-US'
-                        ? 'No recently used templates.'
-                        : '还没有使用过模板。')
-                    : (language === 'en-US'
-                        ? 'No templates are available in this category yet.'
-                        : '该分类暂时没有模板。')}
+                    ? (createLocalizedCopy(language)('还没有使用过模板。', 'No recently used templates.'))
+                    : (createLocalizedCopy(language)('该分类暂时没有模板。', 'No templates are available in this category yet.'))}
               </p>
             ) : null}
           </div>
@@ -894,7 +876,7 @@ function presetIdentity(preset: CreatorPresetSummary): string {
 
 function renderPromptVariables(
   prompt: string,
-  language: 'zh-CN' | 'en-US'
+  language: AppLanguage
 ) {
   const variablePattern = /(@Image\d+|\[[^\]\n]{1,80}\]|\{(?!\s*["'])[^{}\n]{1,80}\})/g;
   const nonVariableLabels = new Set(['结束', 'end']);
@@ -913,7 +895,7 @@ function renderPromptVariables(
     isVariable(part) ? (
       <mark
         className="creator-template-prompt-variable"
-        title={language === 'en-US' ? 'Replaceable variable' : '可替换变量'}
+        title={createLocalizedCopy(language)('可替换变量', 'Replaceable variable')}
         key={`${index}-${part}`}
       >
         {part}
@@ -924,7 +906,7 @@ function renderPromptVariables(
 
 function categoryLabel(
   category: CreatorHomeCategory,
-  language: 'zh-CN' | 'en-US'
+  language: AppLanguage
 ): string {
   const labels: Record<CreatorHomeCategory, { zh: string; en: string }> = {
     recent: { zh: '最近', en: 'Recent' },
@@ -933,7 +915,7 @@ function categoryLabel(
     video: { zh: '视频创作', en: 'Video Creation' },
     image: { zh: '图像设计', en: 'Image Design' }
   };
-  return language === 'en-US' ? labels[category].en : labels[category].zh;
+  return createLocalizedCopy(language)(labels[category].zh, labels[category].en);
 }
 
 function matchesFacet(preset: CreatorPresetSummary, option: FacetOption): boolean {

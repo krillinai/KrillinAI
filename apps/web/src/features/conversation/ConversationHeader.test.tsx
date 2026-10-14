@@ -15,7 +15,7 @@ describe('ConversationHeader', () => {
     expect(screen.getByRole('heading', { name: '整理本周项目进展' })).toBeInTheDocument();
     expect(screen.queryByText('content-design')).not.toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Files' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '文件' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '详情' })).not.toBeInTheDocument();
   });
 
@@ -30,7 +30,7 @@ describe('ConversationHeader', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Files' }));
+    await user.click(screen.getByRole('button', { name: '文件' }));
 
     expect(onOpenLocation).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -45,13 +45,13 @@ describe('ConversationHeader', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Files' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '文件' })).toHaveAttribute(
       'aria-pressed',
       'true'
     );
-    expect(screen.getByRole('button', { name: 'Files' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: '文件' })).toHaveAttribute(
       'title',
-      'Collapse file workspace'
+      '收起文件工作区'
     );
   });
 

@@ -1,5 +1,19 @@
-export type AppLanguagePreference = 'system' | 'zh-CN' | 'en-US' | 'sv-SE';
-export type AppLanguage = Exclude<AppLanguagePreference, 'system'>;
+import { openCreatorLanguagePreferences, openCreatorLanguages, type OpenCreatorLanguage, type OpenCreatorLanguagePreference } from '@opencreator/protocol';
+
+export type AppLanguagePreference = OpenCreatorLanguagePreference;
+export type AppLanguage = OpenCreatorLanguage;
+
+export const appLanguageOptions: ReadonlyArray<{ value: AppLanguage; label: string }> = [
+  { value: 'zh-CN', label: '简体中文' },
+  { value: 'en-US', label: 'English' },
+  { value: 'sv-SE', label: 'Svenska' },
+  { value: 'ja-JP', label: '日本語' },
+  { value: 'ko-KR', label: '한국어' },
+  { value: 'es-ES', label: 'Español' },
+  { value: 'fr-FR', label: 'Français' },
+  { value: 'de-DE', label: 'Deutsch' },
+  { value: 'pt-BR', label: 'Português (Brasil)' }
+];
 
 export const languagePreferenceStorageKey = 'opencreator.preferences.language';
 export const defaultLanguagePreference: AppLanguagePreference = 'system';
@@ -24,10 +38,9 @@ export function writeLanguagePreference(preference: AppLanguagePreference): void
 export function resolveSystemLanguage(languages?: readonly string[]): AppLanguage {
   const candidates = languages ?? readBrowserLanguages();
   for (const candidate of candidates) {
-    const language = candidate.toLocaleLowerCase();
-    if (language.startsWith('zh')) return 'zh-CN';
-    if (language.startsWith('sv')) return 'sv-SE';
-    if (language.startsWith('en')) return 'en-US';
+    const base = candidate.toLowerCase().split(/[-_]/)[0];
+    const language = openCreatorLanguages.find(locale => locale.split('-')[0] === base);
+    if (language) return language;
   }
   return 'en-US';
 }
@@ -51,5 +64,5 @@ function readBrowserLanguages(): readonly string[] {
 }
 
 function isLanguagePreference(value: string | null): value is AppLanguagePreference {
-  return value === 'system' || value === 'zh-CN' || value === 'en-US' || value === 'sv-SE';
+  return openCreatorLanguagePreferences.includes(value as AppLanguagePreference);
 }

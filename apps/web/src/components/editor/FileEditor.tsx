@@ -1,3 +1,4 @@
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 export type FileEditorProps = {
   path: string;
   content: string;
@@ -10,6 +11,7 @@ export type FileEditorProps = {
 };
 
 export function FileEditor(props: FileEditorProps) {
+  const l = useLocalizedCopy();
   const errors = [props.loadError, props.saveError].filter((error): error is string => error !== undefined);
 
   return (
@@ -18,7 +20,7 @@ export function FileEditor(props: FileEditorProps) {
         <div className="file-editor-title">
           <strong>{props.path}</strong>
           <span className={`save-state${props.dirty ? ' dirty' : ''}`}>
-            {props.dirty ? 'Unsaved' : 'Saved to local draft'}
+            {props.dirty ? l("未保存", "Unsaved") : l("已保存到本地草稿", "Saved to local draft")}
           </span>
           {errors.length === 0 ? null : (
             <div className="file-editor-errors" role="status">
@@ -29,14 +31,13 @@ export function FileEditor(props: FileEditorProps) {
           )}
         </div>
         <button className="editor-save-button" type="button" disabled={props.saving} onClick={props.onSave}>
-          Save to local draft
-        </button>
+          {l("保存到本地草稿", "Save to local draft")}</button>
       </div>
       <div className="file-editor-body">
         <div className="editor-card">
           <textarea
             className="code-textarea"
-            aria-label={`${props.path} editor`}
+            aria-label={l(`${props.path} 编辑器`, `${props.path} Editor`)}
             value={props.content}
             onChange={event => props.onChange(event.currentTarget.value)}
             spellCheck={false}

@@ -1391,6 +1391,7 @@ function ModelField(props: {
   error?: string;
   onChange(value: string): void;
 }) {
+  const l = useLocalizedCopy();
   const valueIsCustom = props.suggestions?.includes(props.value) !== true;
   const [customSelected, setCustomSelected] = useState(valueIsCustom);
   const showCustomInput = customSelected || valueIsCustom;
@@ -1417,7 +1418,7 @@ function ModelField(props: {
           }}
         >
           {props.suggestions.map(value => <option key={value} value={value}>{value}</option>)}
-          <option value="__custom__">Custom model</option>
+          <option value="__custom__">{l('自定义模型', 'Custom model')}</option>
         </select>
       ) : null}
       {(!props.suggestions?.length || showCustomInput) ? (

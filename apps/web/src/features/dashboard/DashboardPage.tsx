@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { CreatorJob, CreatorJson, GatewayAccountState, OpenCreatorIssue } from '@opencreator/protocol';
 import { OfficialServicesContext } from './official-services.js';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import {
   ArrowUpRight,
@@ -256,9 +257,7 @@ export default function DashboardPage(props: {
   const [category, setCategory] = useState<CategoryFilter>('推荐');
   const [query, setQuery] = useState('');
   const normalizedQuery = query.trim().toLocaleLowerCase();
-  const localize = (value: string) => language === 'en-US'
-    ? englishDashboardLabels[value] ?? value
-    : value;
+  const localize = (value: string) => createLocalizedCopy(language)(value, englishDashboardLabels[value] ?? value);
   const visibleTools = useMemo(() => creatorTools.filter(tool => {
     if (tool.workspace === undefined || !isVisibleCreatorWorkspace(tool.workspace)) return false;
     const matchesCategory = category === '全部'

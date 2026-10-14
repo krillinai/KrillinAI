@@ -1,3 +1,4 @@
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { WorkspaceFileNode } from '@opencreator/protocol';
 import {
   ChevronRight,
@@ -27,6 +28,7 @@ type TreeEntry = {
 };
 
 export function ProjectFileTree(props: ProjectFileTreeProps) {
+  const l = useLocalizedCopy();
   const query = props.search.trim().toLocaleLowerCase();
   const expanded = new Set(props.expandedPaths);
   const truncated = new Set(props.truncatedPaths);
@@ -34,26 +36,26 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
   const visibleEntries = filterEntries(tree, query);
 
   return (
-    <section className="file-tree-panel" aria-label="Project file tree">
+    <section className="file-tree-panel" aria-label={l("项目文件树", "Project file tree")}>
       <label className="file-search">
         <span className="file-search-icon" aria-hidden="true">
           <Search size={14} strokeWidth={2} />
         </span>
-        <span className="file-search-label">Filter files</span>
+        <span className="file-search-label">{l("筛选文件", "Filter files")}</span>
         <input
           type="search"
           role="searchbox"
-          aria-label="Filter files"
-          placeholder="Filter files..."
+          aria-label={l("筛选文件", "Filter files")}
+          placeholder={l("筛选文件...", "Filter files...")}
           value={props.search}
           onChange={(event) => props.onSearchChange(event.target.value)}
         />
       </label>
 
       {visibleEntries.length === 0 ? (
-        <p className="file-tree-empty">No files to display in this workspace</p>
+        <p className="file-tree-empty">{l("当前工作区暂无可显示文件", "There are no files to display in the current workspace.")}</p>
       ) : (
-        <ul className="file-tree-list" role="tree" aria-label="Project files">
+        <ul className="file-tree-list" role="tree" aria-label={l("项目文件", "project files")}>
           {visibleEntries.map((entry) => (
             <TreeNodeRow
               key={entry.node.path}
@@ -83,6 +85,7 @@ type TreeNodeRowProps = {
 };
 
 function TreeNodeRow(props: TreeNodeRowProps) {
+  const l = useLocalizedCopy();
   const { entry } = props;
   const node = entry.node;
 
@@ -110,8 +113,7 @@ function TreeNodeRow(props: TreeNodeRowProps) {
 
         {props.truncated.has(node.path) ? (
           <p className="file-tree-warning" style={{ paddingInlineStart: `${40 + node.depth * 16}px` }}>
-            Only the first 500 items in this directory are shown
-          </p>
+            {l("当前目录文件较多，仅显示前 500 项", "There are many files in the current directory, only the first 500 items are displayed.")}</p>
         ) : null}
 
         {isExpanded && hasChildren ? (

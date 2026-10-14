@@ -23,17 +23,17 @@ describe('MemorySettingsView', () => {
     );
 
     expect(await screen.findByText('提交前运行全部测试')).toBeInTheDocument();
-    await user.type(screen.getByRole('searchbox', { name: 'Search memories' }), '测试');
+    await user.type(screen.getByRole('searchbox', { name: '搜索记忆' }), '测试');
     await waitFor(() => expect(service.listMemories).toHaveBeenLastCalledWith(
       expect.objectContaining({ query: '测试' })
     ));
 
-    await user.click(screen.getByRole('button', { name: 'New memory' }));
-    await user.clear(screen.getByRole('textbox', { name: 'Memory content' }));
-    await user.type(screen.getByRole('textbox', { name: 'Memory content' }), '项目使用 pnpm');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Memory scope' }), 'project');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Scope target' }), '/workspace/project');
-    await user.click(screen.getByRole('button', { name: 'Save memory' }));
+    await user.click(screen.getByRole('button', { name: '新建记忆' }));
+    await user.clear(screen.getByRole('textbox', { name: '记忆内容' }));
+    await user.type(screen.getByRole('textbox', { name: '记忆内容' }), '项目使用 pnpm');
+    await user.selectOptions(screen.getByRole('combobox', { name: '记忆范围' }), 'project');
+    await user.selectOptions(screen.getByRole('combobox', { name: '范围目标' }), '/workspace/project');
+    await user.click(screen.getByRole('button', { name: '保存记忆' }));
     await waitFor(() => expect(service.createMemory).toHaveBeenCalledWith({
       content: '项目使用 pnpm',
       scope: 'project',
@@ -41,23 +41,23 @@ describe('MemorySettingsView', () => {
       source: 'user'
     }));
 
-    await user.click(screen.getByRole('button', { name: 'Edit memory' }));
-    await user.clear(screen.getByRole('textbox', { name: 'Memory content' }));
-    await user.type(screen.getByRole('textbox', { name: 'Memory content' }), '提交前运行全量测试');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(screen.getByRole('button', { name: '编辑记忆' }));
+    await user.clear(screen.getByRole('textbox', { name: '记忆内容' }));
+    await user.type(screen.getByRole('textbox', { name: '记忆内容' }), '提交前运行全量测试');
+    await user.click(screen.getByRole('button', { name: '保存修改' }));
     await waitFor(() => expect(service.updateMemory).toHaveBeenCalledWith(
       'mem_1',
       { content: '提交前运行全量测试' }
     ));
 
-    await user.click(screen.getByRole('button', { name: 'Disable memory' }));
+    await user.click(screen.getByRole('button', { name: '停用记忆' }));
     await waitFor(() => expect(service.updateMemory).toHaveBeenCalledWith('mem_1', { enabled: false }));
 
-    await user.click(screen.getByRole('button', { name: 'Delete memory' }));
+    await user.click(screen.getByRole('button', { name: '删除记忆' }));
     await waitFor(() => expect(service.deleteMemory).toHaveBeenCalledWith('mem_1'));
 
-    await user.click(screen.getByRole('button', { name: 'Disable all' }));
-    await user.click(screen.getByRole('button', { name: 'Confirm disable all' }));
+    await user.click(screen.getByRole('button', { name: '全部停用' }));
+    await user.click(screen.getByRole('button', { name: '确认全部停用' }));
     await waitFor(() => expect(service.disableAll).toHaveBeenCalledTimes(1));
   });
 
@@ -74,12 +74,12 @@ describe('MemorySettingsView', () => {
 
     render(<MemorySettingsView connected service={service} projects={[]} threads={[]} />);
     await screen.findByText('提交前运行全部测试');
-    await user.click(screen.getByRole('button', { name: 'New memory' }));
-    await user.type(screen.getByRole('textbox', { name: 'Memory content' }), 'password=secret');
-    await user.click(screen.getByRole('button', { name: 'Save memory' }));
+    await user.click(screen.getByRole('button', { name: '新建记忆' }));
+    await user.type(screen.getByRole('textbox', { name: '记忆内容' }), 'password=secret');
+    await user.click(screen.getByRole('button', { name: '保存记忆' }));
 
-    expect(await screen.findByText(/may contain sensitive information/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Confirm saving sensitive memory' }));
+    expect(await screen.findByText(/可能包含敏感信息/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '确认保存敏感记忆' }));
     await waitFor(() => expect(service.createMemory).toHaveBeenLastCalledWith({
       content: 'password=secret',
       scope: 'global',
@@ -100,9 +100,9 @@ describe('MemorySettingsView', () => {
       />
     );
 
-    expect(await screen.findByText('Version 2')).toBeInTheDocument();
+    expect(await screen.findByText('版本 2')).toBeInTheDocument();
     expect(screen.getByText('用户：继续开发')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Delete summary' }));
+    await user.click(screen.getByRole('button', { name: '删除摘要' }));
     await waitFor(() => expect(service.deleteSummary).toHaveBeenCalledWith('summary_1'));
   });
 });

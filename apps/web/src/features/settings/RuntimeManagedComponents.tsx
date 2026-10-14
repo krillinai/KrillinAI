@@ -1,5 +1,5 @@
 import type { CreatorRuntimeComponent } from '@opencreator/protocol';
-import { ChevronDown, Download, LoaderCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronDown, Download, LoaderCircle, RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
@@ -7,6 +7,13 @@ import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { OriginalErrorDetails } from '../issues/OriginalErrorDetails.js';
 import { localComponentPreparationMessage } from './local-component-copy.js';
 import './local-transcription.css';
+
+const componentLogos: Record<CreatorRuntimeComponent['id'], string> = {
+  whisperkit: '/components/whisperkit.png',
+  'whisper.cpp': '/components/whisper-cpp.png',
+  'faster-whisper': '/components/faster-whisper.png',
+  remotion: '/components/remotion.png'
+};
 
 export function componentProgressText(component: Pick<CreatorRuntimeComponent, 'downloadedBytes' | 'totalBytes' | 'bytesPerSecond' | 'remainingSeconds'>): string {
   const size = (bytes: number) => bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(2)} GiB` : `${(bytes / 1024 ** 2).toFixed(1)} MiB`;
@@ -64,6 +71,7 @@ export function RuntimeManagedComponents({ controller, componentId, onReturn }: 
       const canDownload = component.available && downloadComponents !== undefined;
       const updateAvailable = component.version !== null && component.supportedVersion !== null && component.version !== component.supportedVersion;
       const current = component.state === 'ready' && !updateAvailable;
+      const statusKind = component.state === 'failed' ? 'failed' : busy ? 'checking' : updateAvailable ? 'update' : current ? 'current' : 'checking';
       const updateLabel = localize(`更新到 ${component.supportedVersion}`, `Update to ${component.supportedVersion}`, `Uppdatera till ${component.supportedVersion}`);
       const requiredResources = [
         component.version === null || updateAvailable ? rendering ? localize('渲染引擎、浏览器和模板资源', 'rendering engine, browser, and template resources', 'renderingsmotor, webbläsare och mallresurser') : localize('转录引擎', 'transcription engine') : undefined,
@@ -73,25 +81,44 @@ export function RuntimeManagedComponents({ controller, componentId, onReturn }: 
       const labels = {
         not_installed: localize('尚未安装', 'Not installed'), partial: localize('模型尚未就绪', 'Model not ready'),
         downloading: localize('正在下载', 'Downloading'), verifying: localize('正在校验', 'Verifying'), extracting: localize('正在解压安装', 'Extracting'),
-        ready: localize('已就绪', 'Ready'), failed: localize('下载失败', 'Download failed'), unsupported: rendering ? localize('暂无兼容组件包', 'Compatible component package unavailable', 'Inget kompatibelt komponentpaket är tillgängligt') : localize('当前平台不支持受控安装', 'Managed installation unavailable on this platform')
+        ready: localize('已就绪', 'Ready', 'Redo'), failed: localize('失败', 'Failed', 'Misslyckades'), unsupported: rendering ? localize('暂无兼容组件包', 'Compatible component package unavailable', 'Inget kompatibelt komponentpaket är tillgängligt') : localize('当前平台不支持受控安装', 'Managed installation unavailable on this platform')
       };
-      return <article key={component.id} id={`component-${component.id}`} className="runtime-component-item local-component-item" data-highlight={component.id === componentId || undefined}>
+      return <article key={component.id} id={`component-${component.id}`} className="runtime-component-item local-component-item runtime-component-row" data-highlight={component.id === componentId || undefined}>
         <div className="runtime-component-heading">
           <div>
             <div className="runtime-component-title">
-              <h2>{component.name}</h2>
-              <span role="status" data-status={updateAvailable || component.state === 'failed' ? 'update' : component.state === 'ready' ? 'current' : 'checking'}>{updateAvailable && !busy ? localize('有可用更新', 'Update available', 'Uppdatering tillgänglig') : labels[component.state]}</span>
+              <h2 className="runtime-component-name"><img className="runtime-component-logo" src={componentLogos[component.id]} width="26" height="26" alt="" />{component.name}</h2>
+              <span role="status" data-status={statusKind}>
+                {statusKind === 'failed' ? <AlertCircle size={13} aria-hidden="true" /> : statusKind === 'current' ? <CheckCircle2 size={13} aria-hidden="true" /> : statusKind === 'update' ? <Download size={13} aria-hidden="true" /> : busy ? <LoaderCircle className="settings-spin" size={13} aria-hidden="true" /> : null}
+                {statusKind === 'update' ? localize('有可用更新', 'Update available', 'Uppdatering tillgänglig') : labels[component.state]}</span>
               {selected ? <span>{localize('当前使用', 'Selected')}</span> : null}
             </div>
-            <p>{rendering ? localize('用于火柴人动画本地渲染，仅在执行渲染时按需下载，也可提前安装。不影响脚本、角色预览和图片生成。', 'Used for local stickman animation rendering. Downloads only when rendering is requested, or can be installed in advance. Scripts, character previews, and image generation remain available.', 'Används för lokal rendering av streckgubbsanimationer. Laddas ned när rendering begärs eller kan installeras i förväg. Manus, förhandsvisning av figurer och bildgenerering är fortfarande tillgängliga.') : localize('用于本地语音转录，仅在实际需要转录时使用。', 'Used for local speech transcription only when transcription is needed.')}</p>
+            <p>{rendering ? localize('用于火柴人动画本地渲染。', 'Local rendering for stickman animations.', 'Lokal rendering av streckgubbsanimationer.') : localize('用于本地语音转录，仅在实际需要转录时使用。', 'Used for local speech transcription only when transcription is needed.')}</p>
           </div>
         </div>
         <dl className="runtime-component-details">
           <div><dt>{localize('已安装引擎版本', 'Installed engine version')}</dt><dd>{component.version ?? localize('未安装', 'Not installed')}</dd></div>
           {rendering ? <div><dt>{localize('受支持版本', 'Supported version')}</dt><dd>{component.supportedVersion ?? '—'}</dd></div> : <div><dt>{localize('当前模型', 'Current model')}</dt><dd>{component.model ?? '—'}</dd></div>}
         </dl>
+        {!busy ? <footer className="runtime-component-footer">
+          <div className="runtime-component-actions">
+            {refreshComponents ? <button type="button" className="settings-secondary-button" disabled={action !== undefined} onClick={() => void performAction(component.id, 'check', refreshComponents)}>
+              {checking ? <LoaderCircle className="settings-spin" size={15} aria-hidden="true" /> : <RefreshCw size={15} aria-hidden="true" />}
+              {checking ? localize('正在检查', 'Checking') : localize('检查更新', 'Check for updates', 'Sök efter uppdateringar')}
+            </button> : null}
+            {canDownload && !current && downloadComponents ? <button type="button" className="settings-primary-button" data-status={statusKind === 'update' ? 'update' : undefined} disabled={action !== undefined} onClick={() => void performAction(component.id, 'download', () => downloadComponents(component.id))}>
+              {startingDownload ? <LoaderCircle className="settings-spin" size={15} aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
+              {startingDownload ? localize('正在准备', 'Preparing') : component.state === 'failed' ? localize('重试下载', 'Retry download') : updateAvailable ? updateLabel : component.state === 'partial' ? localize('补齐组件', 'Complete installation') : localize('下载组件', 'Download components')}
+            </button> : null}
+          </div>
+          {!selected && !rendering ? <a href="#/settings?tab=ai-services&section=transcription">{localize('调整转录设置', 'Change transcription settings')}</a> : null}
+        </footer> : null}
         <details className="local-component-details">
           <summary><ChevronDown size={15} aria-hidden="true" />{localize('组件详情', 'Component details')}</summary>
+          <div className="runtime-component-notes">
+            {rendering ? <p>{localize('用于火柴人动画本地渲染，仅在执行渲染时按需下载，也可提前安装。不影响脚本、角色预览和图片生成。', 'Used for local stickman animation rendering. Downloads only when rendering is requested, or can be installed in advance. Scripts, character previews, and image generation remain available.', 'Används för lokal rendering av streckgubbsanimationer. Laddas ned när rendering begärs eller kan installeras i förväg. Manus, förhandsvisning av figurer och bildgenerering är fortfarande tillgängliga.')}</p> : null}
+            {!busy && canDownload && current ? <p>{localize('当前组件无需更新；检查更新不会重新下载组件。', 'No component update is needed. Checking for updates will not download components again.', 'Ingen komponentuppdatering behövs. Att söka efter uppdateringar laddar inte ned komponenter igen.')}</p> : null}
+          </div>
           <dl className="runtime-component-details">
             <div><dt>{localize('受支持版本', 'Supported version')}</dt><dd>{component.supportedVersion ?? '—'}</dd></div>
             <div><dt>{localize('Runtime 平台', 'Runtime platform')}</dt><dd>{status.platform} / {status.arch}</dd></div>
@@ -115,22 +142,10 @@ export function RuntimeManagedComponents({ controller, componentId, onReturn }: 
           ? localize(`检查完成，可更新到受支持版本 ${component.supportedVersion}。`, `Check complete. You can update to the supported version ${component.supportedVersion}.`, `Kontrollen är klar. Du kan uppdatera till den version som stöds: ${component.supportedVersion}.`)
           : current ? localize('检查完成，当前组件无需更新。', 'Check complete. No component update is needed.', 'Kontrollen är klar. Ingen komponentuppdatering behövs.')
           : localize('组件状态已刷新，尚未开始下载。', 'Component status refreshed. No downloads have started.')}</p> : null}
-        {!busy && canDownload ? <p>{component.state === 'ready'
+        {!busy && canDownload && !current ? <p className="runtime-component-note">{component.state === 'ready'
           ? updateAvailable ? localize(`可更新到受支持版本 ${component.supportedVersion}，点击更新后开始下载。`, `The supported version ${component.supportedVersion} is available. Click update to start downloading.`, `Den version som stöds, ${component.supportedVersion}, är tillgänglig. Klicka på uppdatera för att börja ladda ned.`) : localize('当前组件无需更新；检查更新不会重新下载组件。', 'No component update is needed. Checking for updates will not download components again.', 'Ingen komponentuppdatering behövs. Att söka efter uppdateringar laddar inte ned komponenter igen.')
           : <>{localize('将准备所需资源：', 'Resources to prepare: ')}{requiredResources || localize('当前转录引擎和模型', 'the current transcription engine and model')}{localize('。', '.')}</>}</p> : null}
-        {!busy ? <footer className="runtime-component-footer">
-          <div className="runtime-component-actions">
-            {refreshComponents ? <button type="button" className="settings-secondary-button" disabled={action !== undefined} onClick={() => void performAction(component.id, 'check', refreshComponents)}>
-              {checking ? <LoaderCircle className="settings-spin" size={15} aria-hidden="true" /> : <RefreshCw size={15} aria-hidden="true" />}
-              {checking ? localize('正在检查', 'Checking') : localize('检查更新', 'Check for updates', 'Sök efter uppdateringar')}
-            </button> : null}
-            {canDownload && !current && downloadComponents ? <button type="button" className="settings-primary-button" disabled={action !== undefined} onClick={() => void performAction(component.id, 'download', () => downloadComponents(component.id))}>
-              {startingDownload ? <LoaderCircle className="settings-spin" size={15} aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}
-              {startingDownload ? localize('正在准备', 'Preparing') : component.state === 'failed' ? localize('重试下载', 'Retry download') : updateAvailable ? updateLabel : component.state === 'partial' ? localize('补齐组件', 'Complete installation') : localize('下载组件', 'Download components')}
-            </button> : null}
-          </div>
-          {!selected && !rendering ? <a href="#/settings?tab=ai-services&section=transcription">{localize('调整转录设置', 'Change transcription settings')}</a> : null}
-        </footer> : null}
+
       </article>;
     })}
   </div>;

@@ -3,6 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { GatewayAccountState } from '@opencreator/protocol';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
 import type { GatewayAccountSettingsService, GatewayBillingSummary } from '../../services/gateway-account-service.js';
 import PersonalCenterPage from './PersonalCenterPage.js';
 
@@ -16,6 +17,15 @@ function createService(initial = signedIn): GatewayAccountSettingsService {
 function page(service: GatewayAccountSettingsService | null, accountState?: GatewayAccountState, onBack = vi.fn(), openExternal = vi.fn(), view: 'account' | 'subscription' = 'account', onOpenModelSettings = vi.fn()) {
   return <LanguageProvider initialPreference="zh-CN"><PersonalCenterPage view={view} service={service} accountState={accountState} onBack={onBack} openExternal={openExternal} onOpenModelSettings={onOpenModelSettings}/></LanguageProvider>;
 }
+it.each(['sv-SE', 'ja-JP'] as const)('localizes account actions in %s and keeps the email intact', async language => {
+  const l = createLocalizedCopy(language);
+  render(<LanguageProvider initialPreference={language}><PersonalCenterPage service={createService()} accountState={signedIn} onBack={vi.fn()} /></LanguageProvider>);
+  expect(await screen.findByText('123')).toBeVisible();
+  expect(screen.getByRole('main', { name: l('个人中心', 'Account') })).toBeVisible();
+  expect(screen.getByRole('heading', { name: 'a@example.test' })).toBeVisible();
+  expect(screen.getByRole('button', { name: l('返回', 'Back') })).toBeEnabled();
+});
+
 it('provides a single login action and a credits entry with no fabricated guest balance', async () => {
   const service = createService(signedOut); const open = vi.fn();
   render(page(service, signedOut, vi.fn(), open));

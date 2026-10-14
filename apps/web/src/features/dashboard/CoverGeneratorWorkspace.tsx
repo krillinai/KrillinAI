@@ -84,7 +84,7 @@ export default function CoverGeneratorWorkspace(props: {
   const [coverTextLanguage, setCoverTextLanguage] = useState<CoverTextLanguage>(() => (
     readCoverTextLanguagePreference(
       session?.state.coverTextLanguage,
-      appLanguage === 'sv-SE' ? 'en-US' : appLanguage
+      appLanguage === 'zh-CN' ? 'zh-CN' : 'en-US'
     )
   ));
   const [customStylePrompt, setCustomStylePrompt] = useState(() => (

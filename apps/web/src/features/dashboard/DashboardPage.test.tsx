@@ -779,6 +779,14 @@ describe('DashboardPage', () => {
     expect(screen.queryByText('Digital Avatar')).not.toBeInTheDocument();
   });
 
+  it('renders the app directory in Brazilian Portuguese', () => {
+    render(<LanguageProvider initialPreference="pt-BR"><DashboardPage onSelectPrompt={vi.fn()} /></LanguageProvider>);
+    expect(screen.getByRole('heading', { name: 'Painel', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Aplicativos em destaque' })).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: 'Pesquisar aplicativos' })).toBeInTheDocument();
+    expect(screen.getByText('Traduzir e dublar vídeo')).toBeInTheDocument();
+  });
+
   it('creates the selected project type from the dashboard dropdown', async () => {
     const onCreateProject = vi.fn();
 

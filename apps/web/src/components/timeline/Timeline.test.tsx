@@ -2,6 +2,8 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
+import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 import { Timeline } from './Timeline.js';
 import type { TimelineItem } from './timeline-model.js';
 
@@ -12,6 +14,22 @@ afterEach(() => {
 });
 
 describe('Timeline', () => {
+  it('updates generated activity and schedule dates while preserving user messages', () => {
+    const time = '2026-07-14T14:05:00.000Z';
+    const { container } = render(<LanguageProvider initialPreference="zh-CN"><LanguageSwitchControls /><Timeline items={[
+      { kind: 'schedule_trigger', id: 'trigger', runId: 'scheduled-run', prompt: '用户自己的任务', triggeredAt: time, source: 'runtime' },
+      { kind: 'tool_step', id: 'tool', runId: 'run', name: 'exec_command', content: '{"type":"tool_use","toolCallId":"call","input":{"cmd":"pnpm test"}}', source: 'runtime' }
+    ]} /></LanguageProvider>);
+    for (const language of ['sv-SE', 'ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR'] as const) {
+      fireEvent.click(screen.getByRole('button', { name: language }));
+      expect(screen.getByText(createLocalizedCopy(language)('正在运行测试', 'Running tests'))).toBeVisible();
+      expect(screen.getByText('用户自己的任务')).toBeVisible();
+      expect(container.querySelector('time[datetime="' + time + '"]')).toHaveTextContent(new Intl.DateTimeFormat(language, {
+        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false
+      }).format(new Date(time)));
+    }
+  });
+
   it('renders and targets a public schedule trigger without exposing execution rules', () => {
     const { container } = render(
       <Timeline
@@ -27,7 +45,7 @@ describe('Timeline', () => {
       />
     );
 
-    expect(screen.getByText('Scheduled run')).toBeInTheDocument();
+    expect(screen.getByText('定时执行')).toBeInTheDocument();
     expect(screen.getByText('生成每日项目摘要')).toBeInTheDocument();
     expect(screen.getByText(/2026/)).toBeInTheDocument();
     expect(screen.queryByText(/立即完成本次任务/)).not.toBeInTheDocument();
@@ -68,7 +86,7 @@ describe('Timeline', () => {
     );
 
     expect(container.querySelector('.timeline-approval-overlay')).not.toBeInTheDocument();
-    expect(screen.queryByText('Allow OpenCreator to run this command?')).not.toBeInTheDocument();
+    expect(screen.queryByText('允许 OpenCreator 执行这条命令？')).not.toBeInTheDocument();
     expect(container.querySelector('.timeline-approval')).not.toBeInTheDocument();
     expect(screen.getByTestId('virtuoso-scroller').scrollTop).toBe(0);
   });
@@ -106,10 +124,10 @@ describe('Timeline', () => {
       expect(screen.queryByText('已处理的审批')).not.toBeInTheDocument();
       expect(screen.queryByText('不应继续显示')).not.toBeInTheDocument();
       const expected = {
-        approved: 'Allowed: run command',
-        rejected: 'Denied: run command',
-        expired: 'Permission request expired',
-        canceled: 'Permission request canceled'
+        approved: '已允许执行命令',
+        rejected: '已拒绝执行命令',
+        expired: '权限申请已过期',
+        canceled: '权限申请已取消'
       }[status];
       expect(screen.getByText(expected)).toBeInTheDocument();
       expect(container.querySelector('.timeline-approval-resolved')).toBeInTheDocument();
@@ -144,7 +162,7 @@ describe('Timeline', () => {
       />
     );
 
-    expect(screen.getByText('Allowed: access apps.apple.com')).toBeInTheDocument();
+    expect(screen.getByText('已允许访问 apps.apple.com')).toBeInTheDocument();
   });
 
   it('renders image metadata and a local preview with the user message', () => {
@@ -215,11 +233,11 @@ describe('Timeline', () => {
     expect(bubble).not.toContainElement(meta);
     expect(meta?.querySelector('time')).toHaveAttribute('datetime', item.timestamp);
 
-    await user.click(screen.getByRole('button', { name: 'Copy Message' }));
+    await user.click(screen.getByRole('button', { name: '复制消息' }));
     expect(writeText).toHaveBeenCalledWith('重新整理这段需求');
-    expect(await screen.findByRole('button', { name: 'Copied Message' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '已复制消息' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Edit message' }));
+    await user.click(screen.getByRole('button', { name: '编辑消息' }));
     expect(onEditUserMessage).toHaveBeenCalledWith(item);
   });
 
@@ -267,14 +285,14 @@ describe('Timeline', () => {
     );
     const latestReplyMeta = replies[1]?.querySelector('.timeline-message-meta');
     expect(latestReplyMeta?.children[0]).toBe(
-      screen.getAllByRole('button', { name: 'Copy Reply' })[1]
+      screen.getAllByRole('button', { name: '复制回复' })[1]
     );
     expect(latestReplyMeta?.children[1]).toBe(latestReplyMeta?.querySelector('time'));
-    expect(screen.queryByRole('button', { name: 'Edit message' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '编辑消息' })).not.toBeInTheDocument();
 
-    await user.click(screen.getAllByRole('button', { name: 'Copy Reply' })[1]!);
+    await user.click(screen.getAllByRole('button', { name: '复制回复' })[1]!);
     expect(writeText).toHaveBeenCalledWith('最新回复');
-    expect(await screen.findByRole('button', { name: 'Copied Reply' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '已复制回复' })).toBeInTheDocument();
   });
 
   it('marks the virtual item that contains a search target', () => {
@@ -484,7 +502,7 @@ describe('Timeline', () => {
     expect(screen.queryByText('运行 running')).not.toBeInTheDocument();
     expect(screen.queryByText('running')).not.toBeInTheDocument();
     expect(screen.queryByText('queued')).not.toBeInTheDocument();
-    expect(screen.queryByText('Queued')).not.toBeInTheDocument();
+    expect(screen.queryByText('排队中')).not.toBeInTheDocument();
     expect(screen.queryByText('处理中')).not.toBeInTheDocument();
     expect(screen.queryByText('我会先确认日志里有没有失败信息。')).not.toBeInTheDocument();
 
@@ -492,12 +510,12 @@ describe('Timeline', () => {
 
     expect(screen.getByText('我会先确认日志里有没有失败信息。')).toBeInTheDocument();
     expect(screen.getByText('然后根据结果给出结论。')).toBeInTheDocument();
-    expect(screen.queryByText('Running: Run tests')).not.toBeInTheDocument();
+    expect(screen.queryByText('正在运行测试')).not.toBeInTheDocument();
     expect(screen.queryByText('pnpm test')).not.toBeInTheDocument();
     expect(
       screen.queryByText('{"type":"tool_use","toolCallId":"call_1","name":"exec_command","input":{"command":"pnpm test"}}')
     ).not.toBeInTheDocument();
-    expect(screen.getByText('Ran tests')).toBeInTheDocument();
+    expect(screen.getByText('已运行测试')).toBeInTheDocument();
     expect(screen.queryByText('工具完成 call_1')).not.toBeInTheDocument();
     expect(
       screen.queryByText('{"type":"tool_result","toolCallId":"call_1","output":"test output","exitCode":0,"isError":false}')
@@ -547,7 +565,7 @@ describe('Timeline', () => {
     expect(screen.getByText('正在思考')).toBeInTheDocument();
     expect(screen.queryByText(/等待 OpenCreator 返回过程/)).not.toBeInTheDocument();
     expect(screen.queryByText(/当前动态/)).not.toBeInTheDocument();
-    expect(screen.queryByText('Run details')).not.toBeInTheDocument();
+    expect(screen.queryByText('运行详情')).not.toBeInTheDocument();
     expect(container.querySelector('.process-detail')).not.toBeInTheDocument();
     expect(screen.queryByText('处理中')).not.toBeInTheDocument();
   });
@@ -742,13 +760,13 @@ describe('Timeline', () => {
 
     await user.click(screen.getByRole('link', { name: '放假.md' }));
     await user.click(screen.getByRole('link', { name: 'docs/report.pdf' }));
-    await user.click(screen.getByRole('button', { name: 'Open output docs/report.pdf' }));
+    await user.click(screen.getByRole('button', { name: '打开成果 docs/report.pdf' }));
 
     expect(onOpenFile).toHaveBeenNthCalledWith(1, '放假.md');
     expect(onOpenFile).toHaveBeenNthCalledWith(2, 'docs/report.pdf');
     expect(onOpenFile).toHaveBeenNthCalledWith(3, 'docs/report.pdf');
-    expect(screen.getByText('PDF document')).toBeInTheDocument();
-    expect(screen.getByLabelText('Task outputs')).toBeInTheDocument();
+    expect(screen.getByText('PDF 文档')).toBeInTheDocument();
+    expect(screen.getByLabelText('任务成果')).toBeInTheDocument();
   });
 
   it('keeps user messages conservative while still rendering code and safe links', () => {
@@ -910,7 +928,7 @@ describe('Timeline', () => {
     expect(screen.queryByText('正在思考')).not.toBeInTheDocument();
     await user.click(screen.getByText('已完成'));
 
-    expect(screen.queryByText('Run details')).not.toBeInTheDocument();
+    expect(screen.queryByText('运行详情')).not.toBeInTheDocument();
     expect(screen.queryByText('本次没有可展示的中间过程。')).not.toBeInTheDocument();
     expect(container.querySelector('.process-detail')).not.toBeInTheDocument();
     expect(screen.queryByText('queued')).not.toBeInTheDocument();
@@ -943,15 +961,15 @@ describe('Timeline', () => {
     expect(container.querySelector('.timeline-process')).toBeInTheDocument();
     expect(container.querySelector('.timeline-process details')).toHaveAttribute('open');
     expect(screen.getByText('已完成')).toBeInTheDocument();
-    expect(screen.getByText('The task exceeded its time limit and was stopped automatically')).toBeInTheDocument();
-    expect(screen.queryByText('Run details')).not.toBeInTheDocument();
+    expect(screen.getByText('任务运行时间过长，已自动停止')).toBeInTheDocument();
+    expect(screen.queryByText('运行详情')).not.toBeInTheDocument();
   });
 
   it('renders readable timeout failure labels', () => {
     const reasons = [
-      ['timeout', 'The task exceeded its time limit and was stopped automatically'],
-      ['inactivity_timeout', 'The task stopped responding and was stopped automatically'],
-      ['spawn_timeout', 'Codex startup timed out']
+      ['timeout', '任务运行时间过长，已自动停止'],
+      ['inactivity_timeout', '任务长时间无响应，已自动停止'],
+      ['spawn_timeout', 'Codex 启动超时']
     ] as const;
 
     for (const [terminationReason, label] of reasons) {
@@ -1002,7 +1020,7 @@ describe('Timeline', () => {
       />
     );
 
-    expect(screen.getByText('The task stopped responding and was stopped automatically')).toBeInTheDocument();
+    expect(screen.getByText('任务长时间无响应，已自动停止')).toBeInTheDocument();
     expect(screen.queryByText('Codex app-server inactivity timeout after 600000ms')).not.toBeInTheDocument();
     expect(screen.queryByText('failed')).not.toBeInTheDocument();
     expect(screen.queryByText(/terminationReason/u)).not.toBeInTheDocument();
@@ -1025,7 +1043,7 @@ describe('Timeline', () => {
       />
     );
 
-    expect(screen.queryByText('Operation completed')).not.toBeInTheDocument();
+    expect(screen.queryByText('操作已完成')).not.toBeInTheDocument();
     expect(screen.queryByText('工具完成 call_missing')).not.toBeInTheDocument();
   });
 
@@ -1048,7 +1066,7 @@ describe('Timeline', () => {
       />
     );
 
-    expect(screen.getByText('Running: Run tests')).toBeInTheDocument();
+    expect(screen.getByText('正在运行测试')).toBeInTheDocument();
     expect(screen.queryByText('pnpm --filter @opencreator/web test -- src/app/App.test.tsx')).not.toBeInTheDocument();
     expect(screen.queryByText(content)).not.toBeInTheDocument();
   });
@@ -1072,12 +1090,12 @@ describe('Timeline', () => {
     };
     const { container, rerender } = render(<Timeline items={[firstTool]} />);
 
-    expect(screen.getByText('Running: Read project files')).toBeInTheDocument();
+    expect(screen.getByText('正在查看项目内容')).toBeInTheDocument();
 
     rerender(<Timeline items={[firstTool, nextTool]} />);
 
-    expect(screen.queryByText('Running: Read project files')).not.toBeInTheDocument();
-    expect(screen.getByText('Running: Run tests')).toBeInTheDocument();
+    expect(screen.queryByText('正在查看项目内容')).not.toBeInTheDocument();
+    expect(screen.getByText('正在运行测试')).toBeInTheDocument();
     expect(container.querySelectorAll('.process-step-tool_step')).toHaveLength(1);
   });
 
@@ -1114,8 +1132,8 @@ describe('Timeline', () => {
 
     const { container } = render(<Timeline items={items} />);
 
-    expect(screen.getByText('Completed: Run local command')).toBeInTheDocument();
-    expect(screen.queryByText('Running: Run local command')).not.toBeInTheDocument();
+    expect(screen.getByText('已执行本地命令')).toBeInTheDocument();
+    expect(screen.queryByText('正在执行本地命令')).not.toBeInTheDocument();
     expect(container.querySelectorAll('.process-step-tool_step')).toHaveLength(1);
     expect(container.querySelector('.process-step-tool_step')).toHaveAttribute('aria-live', 'polite');
   });
@@ -1176,9 +1194,9 @@ describe('Timeline', () => {
 
     render(<Timeline items={items} />);
 
-    expect(screen.getByText('Approved and ran local command')).toBeInTheDocument();
-    expect(screen.queryByText('Allowed: run command')).not.toBeInTheDocument();
-    expect(screen.queryByText('Completed: Run local command')).not.toBeInTheDocument();
+    expect(screen.getByText('已允许并执行本地命令')).toBeInTheDocument();
+    expect(screen.queryByText('已允许执行命令')).not.toBeInTheDocument();
+    expect(screen.queryByText('已执行本地命令')).not.toBeInTheDocument();
   });
 
   it('keeps completed business milestones while hiding generic command history', async () => {
@@ -1229,7 +1247,7 @@ describe('Timeline', () => {
     const { container } = render(<Timeline items={items} />);
     await user.click(screen.getByText('已完成'));
 
-    expect(screen.getByText('Used browser')).toBeInTheDocument();
+    expect(screen.getByText('已使用浏览器')).toBeInTheDocument();
     expect(screen.queryByText(/执行本地命令/u)).not.toBeInTheDocument();
     expect(screen.queryByText('echo done')).not.toBeInTheDocument();
     expect(container.querySelectorAll('.process-milestone-icon')).toHaveLength(1);
@@ -1267,8 +1285,8 @@ describe('Timeline', () => {
 
     const { container } = render(<Timeline items={items} />);
 
-    expect(screen.getByText('Viewed image (3 times)')).toBeInTheDocument();
-    expect(screen.queryByText('Viewed image')).not.toBeInTheDocument();
+    expect(screen.getByText('已查看图片（3 次）')).toBeInTheDocument();
+    expect(screen.queryByText('已查看图片')).not.toBeInTheDocument();
     expect(container.querySelectorAll('.process-milestone-icon')).toHaveLength(1);
   });
 
@@ -1338,9 +1356,9 @@ describe('Timeline', () => {
     await user.click(screen.getByText('已完成'));
 
     expect(screen.getByText('我会先确认当前目录，再读取相关文件做判断。')).toBeInTheDocument();
-    expect(screen.queryByText('Running: Read project files')).not.toBeInTheDocument();
+    expect(screen.queryByText('正在查看项目内容')).not.toBeInTheDocument();
     expect(screen.queryByText('pwd')).not.toBeInTheDocument();
-    expect(screen.getByText('Read files')).toBeInTheDocument();
+    expect(screen.getByText('已读取文件')).toBeInTheDocument();
     expect(screen.queryByText('工具完成 call_1')).not.toBeInTheDocument();
     expect(screen.getByText('当前目录是 /repo，检查已完成。')).toBeInTheDocument();
     expect(container.querySelectorAll('.timeline-assistant_message')).toHaveLength(1);
@@ -1483,7 +1501,7 @@ describe('Timeline', () => {
     );
 
     expect(screen.getByText('我会先确认可访问性和索引信号，再检查首页内容与技术要素。')).toBeInTheDocument();
-    expect(screen.getByText('Reviewing the execution plan')).toBeInTheDocument();
+    expect(screen.getByText('正在确认执行方案')).toBeInTheDocument();
     expect(screen.queryByText('Planning skill reference review')).not.toBeInTheDocument();
 
     rerender(
@@ -1521,8 +1539,8 @@ describe('Timeline', () => {
       />
     );
 
-    expect(screen.queryByText('Reviewing the execution plan')).not.toBeInTheDocument();
-    expect(screen.getByText('Checking website access')).toBeInTheDocument();
+    expect(screen.queryByText('正在确认执行方案')).not.toBeInTheDocument();
+    expect(screen.getByText('正在检查网站可访问性')).toBeInTheDocument();
     expect(screen.queryByText('Inspecting site with curl')).not.toBeInTheDocument();
   });
 
@@ -1543,12 +1561,12 @@ describe('Timeline', () => {
     render(<Timeline items={items} onOpenFile={onOpenFile} />);
 
     const fileButton = screen.getByRole('button', {
-      name: 'Open file apps/web/src/components/timeline/timeline-model.ts'
+      name: '打开文件 apps/web/src/components/timeline/timeline-model.ts'
     });
 
     expect(fileButton).toHaveAttribute(
       'aria-label',
-      'Open file apps/web/src/components/timeline/timeline-model.ts'
+      '打开文件 apps/web/src/components/timeline/timeline-model.ts'
     );
 
     await user.click(fileButton);
@@ -1577,7 +1595,7 @@ describe('Timeline', () => {
     render(<Timeline items={items} />);
 
     expect(screen.queryByRole('button', { name: /查看运行详情/ })).not.toBeInTheDocument();
-    expect(screen.queryByText('Run details')).not.toBeInTheDocument();
+    expect(screen.queryByText('运行详情')).not.toBeInTheDocument();
   });
 
   it('keeps queued follow-ups out of the conversation timeline', () => {
@@ -1653,12 +1671,12 @@ describe('Timeline', () => {
 
     render(<Timeline items={items} onOpenFile={onOpenFile} />);
 
-    expect(screen.getByText('3 consecutive file changes')).toBeInTheDocument();
-    expect(screen.getByText('2 files')).toBeInTheDocument();
+    expect(screen.getByText('3 次连续文件变更')).toBeInTheDocument();
+    expect(screen.getByText('2 个文件')).toBeInTheDocument();
     expect(screen.queryByText('修改 App.tsx')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', {
-      name: 'Open file apps/web/src/app/App.tsx'
+      name: '打开文件 apps/web/src/app/App.tsx'
     }));
 
     expect(onOpenFile).toHaveBeenCalledWith('apps/web/src/app/App.tsx');
@@ -1696,17 +1714,17 @@ describe('Timeline', () => {
       />
     );
 
-    const newContentButton = await screen.findByRole('button', { name: 'New content' });
+    const newContentButton = await screen.findByRole('button', { name: '有新内容' });
     await user.click(newContentButton);
 
-    expect(screen.queryByRole('button', { name: 'New content' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '有新内容' })).not.toBeInTheDocument();
   });
 
   it('renders the OpenCreator empty state', () => {
     render(<Timeline items={[]} />);
 
-    expect(screen.getByText('No task history')).toBeInTheDocument();
-    expect(screen.getByText('Task progress and results will appear here.')).toBeInTheDocument();
+    expect(screen.getByText('暂无任务记录')).toBeInTheDocument();
+    expect(screen.getByText('发送任务后，OpenCreator 会在这里展示处理过程和结果。')).toBeInTheDocument();
   });
 
   it('keeps long histories virtualized and exposes older-page loading', async () => {
@@ -1730,7 +1748,7 @@ describe('Timeline', () => {
 
     expect(container.querySelectorAll('.timeline-item').length).toBeLessThan(80);
 
-    await user.click(screen.getByRole('button', { name: 'Load earlier history' }));
+    await user.click(screen.getByRole('button', { name: '加载更早记录' }));
 
     expect(onLoadOlder).toHaveBeenCalledTimes(1);
   });

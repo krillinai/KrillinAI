@@ -1,3 +1,5 @@
+import type { LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type {
   AttachmentResponse,
   RunContextItem,
@@ -25,13 +27,14 @@ export function RunDetailPanel(props: {
   context?: RunContextResponse;
   onExport?(diagnostics: RunDiagnosticsResponse): void | Promise<void>;
 }) {
+  const l = useLocalizedCopy();
   const [confirmingExport, setConfirmingExport] = useState(false);
   const pageIssues = usePageIssueState('run-detail');
 
   if (props.runId === undefined) {
     return (
       <div className="panel-scroll">
-        <p className="empty-state">Select a run to view details</p>
+        <p className="empty-state">{l("选择 run 查看详情", "Select a run to view its details")}</p>
       </div>
     );
   }
@@ -39,7 +42,7 @@ export function RunDetailPanel(props: {
   if (props.diagnostics === undefined) {
     return (
       <div className="run-detail">
-        <div className="settings-state">Loading run details...</div>
+        <div className="settings-state">{l("正在加载运行详情...", "Loading run details...")}</div>
       </div>
     );
   }
@@ -56,7 +59,7 @@ export function RunDetailPanel(props: {
       pageIssues.resolveOperation('run-detail.export');
       setConfirmingExport(false);
     } catch (reason) {
-      pageIssues.captureOperationFailure('run-detail.export', reason, 'Could not export the diagnostics package. Try again.', { retryable: true });
+      pageIssues.captureOperationFailure('run-detail.export', reason, l("诊断包导出失败，请重试。", "Diagnostic package export failed, please try again."), { retryable: true });
     }
   }
 
@@ -66,7 +69,7 @@ export function RunDetailPanel(props: {
         <header className="run-detail__header">
           <div>
             <h2>Run {props.runId}</h2>
-            <p>Diagnostic files are redacted by the Daemon.</p>
+            <p>{l("诊断文件由 daemon 脱敏后返回。", "The diagnostic file is desensitized and returned by the daemon.")}</p>
           </div>
           <button
             className="toolbar-button"
@@ -74,7 +77,7 @@ export function RunDetailPanel(props: {
             onClick={() => setConfirmingExport(true)}
           >
             <Download aria-hidden="true" size={15} />
-            <span>Export redacted diagnostics</span>
+            <span>{l("导出脱敏诊断包", "Export desensitization diagnostic package")}</span>
           </button>
         </header>
         <IssueList
@@ -84,26 +87,24 @@ export function RunDetailPanel(props: {
           compact
         />
         {confirmingExport ? (
-          <section className="run-diagnostics-confirm" role="region" aria-label="Confirm diagnostics export">
+          <section className="run-diagnostics-confirm" role="region" aria-label={l("确认导出诊断", "Confirm export diagnostics")}>
             <ShieldCheck aria-hidden="true" size={18} />
             <div>
-              <strong>Confirm exporting redacted Daemon diagnostics</strong>
-              <p>The export contains only the current diagnostic response, without original prompts, tokens, or secrets.</p>
+              <strong>{l("确认导出 daemon 已脱敏的诊断内容", "Confirm to export the desensitized diagnostic content of the daemon")}</strong>
+              <p>{l("导出包只包含当前诊断响应，不包含原始 Prompt、Token 或 Secret。", "The export package only contains the current diagnostic response, not the original prompt, token, or secret.")}</p>
             </div>
             <div>
               <button className="settings-text-button" type="button" onClick={() => setConfirmingExport(false)}>
-                Cancel
-              </button>
+                {l("取消", "Cancel")}</button>
               <button className="settings-primary-button" type="button" onClick={() => void exportDiagnostics()}>
                 <Download aria-hidden="true" size={15} />
-                Confirm export
-              </button>
+                {l("确认导出", "Confirm export")}</button>
             </div>
           </section>
         ) : null}
         {(props.attachments?.length ?? 0) > 0 ? (
           <section>
-            <h3>Attachments</h3>
+            <h3>{l("附件", "appendix")}</h3>
             <ul className="run-detail-attachments">
               {props.attachments?.map(attachment => (
                 <li key={attachment.id}>
@@ -118,11 +119,11 @@ export function RunDetailPanel(props: {
           </section>
         ) : null}
         <section className="run-context">
-          <h3>Context used in this run</h3>
+          <h3>{l("本次使用的上下文", "The context of this use")}</h3>
           {props.context === undefined ? (
-            <p>Loading context...</p>
+            <p>{l("正在加载上下文...", "Loading context...")}</p>
           ) : props.context.items.length === 0 ? (
-            <p>This run used no long-term memories or summaries</p>
+            <p>{l("本次运行未使用长期记忆或摘要", "No long-term memory or digests were used in this run")}</p>
           ) : (
             <ul>
               {props.context.items.map(item => (
@@ -134,7 +135,7 @@ export function RunDetailPanel(props: {
         <section>
           <h3>Diagnostics</h3>
           {diagnosticFiles.length === 0 ? (
-            <p>No diagnostic files</p>
+            <p>{l("暂无诊断文件", "No diagnostic files yet")}</p>
           ) : (
             diagnosticFiles.map((file) => (
               <details key={file.name}>
@@ -147,7 +148,7 @@ export function RunDetailPanel(props: {
         <section>
           <h3>Warnings</h3>
           {warnings.length === 0 ? (
-            <p>No diagnostic warnings</p>
+            <p>{l("暂无诊断警告", "No diagnostic warnings yet")}</p>
           ) : (
             <ul>
               {warnings.map((warning) => (
@@ -174,7 +175,7 @@ export function RunDetailPanel(props: {
               <dt>Diagnostics</dt>
               <dd>
                 {codexDiagnostics.length === 0 ? (
-                  'No Codex diagnostics'
+                  '暂无 Codex 诊断'
                 ) : (
                   <ul>
                     {codexDiagnostics.map((diagnostic) => (
@@ -196,9 +197,10 @@ export function RunDetailPanel(props: {
 }
 
 function RunContextListItem(props: { item: RunContextItem }) {
+  const l = useLocalizedCopy();
   const label = props.item.kind === 'summary'
-    ? `Conversation summary v${props.item.summaryVersion ?? 1}`
-    : `${memoryScopeLabel(props.item.scope)} memory`;
+    ? l(`会话摘要 v${props.item.summaryVersion ?? 1}`, `Conversation summary v${props.item.summaryVersion ?? 1}`)
+    : l(`${memoryScopeLabel(l, props.item.scope)}记忆`, `${memoryScopeLabel(l, props.item.scope)} memory`);
   return (
     <li className="run-context__item">
       <div>
@@ -210,10 +212,10 @@ function RunContextListItem(props: { item: RunContextItem }) {
   );
 }
 
-function memoryScopeLabel(scope: RunContextItem['scope']): string {
-  if (scope === 'project') return 'Project';
-  if (scope === 'thread') return 'Thread';
-  return 'Global';
+function memoryScopeLabel(l: LocalizeCopy, scope: RunContextItem['scope']): string {
+  if (scope === 'project') return l("项目", "Projects");
+  if (scope === 'thread') return l("线程", "Thread");
+  return l("全局", "Global");
 }
 
 function formatAttachmentSize(size: number): string {

@@ -127,3 +127,18 @@
     flex-wrap: wrap;
   }
 }
+
+.runtime-component-title h2.runtime-component-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.runtime-component-logo {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  border-radius: 4px;
+}

@@ -1898,10 +1898,6 @@
   margin: 0 auto;
 }
 
-.video-download-workspace-page .creator-tool-stack {
-  width: 100%;
-}
-
 .video-download-workspace-page .creator-workspace-layout {
   --creator-workspace-pane-width: calc(80% - 3.5px);
 }
@@ -7566,11 +7562,21 @@
   font-weight: 600;
 }
 
+.video-download-link-input {
+  --video-download-valid: #6ee7b7;
+  position: relative;
+  min-width: 0;
+}
+
+[data-theme="light"] .video-download-link-input {
+  --video-download-valid: #166534;
+}
+
 .video-download-add-form input {
   box-sizing: border-box;
   width: 100%;
   height: 44px;
-  padding: 10px 12px;
+  padding: 10px 80px 10px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--conversation-bg);
@@ -7578,6 +7584,39 @@
   font: inherit;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.video-download-link-input[data-valid="true"] input {
+  border-color: color-mix(in srgb, var(--video-download-valid) 55%, var(--border));
+}
+
+.video-download-link-valid {
+  position: absolute;
+  top: 0;
+  right: 44px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 44px;
+  color: var(--video-download-valid);
+  pointer-events: none;
+}
+
+.video-download-add-form .video-download-clear-link {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.video-download-add-form .video-download-clear-link:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
 }
 
 .video-download-add-form-actions {
@@ -12760,6 +12799,19 @@
   width: 100%;
   margin-right: auto;
   margin-left: auto;
+}
+
+.video-translation-wizard-main[data-phase="configure"]:is([data-step="1"], [data-step="2"]) .video-translation-wizard-body,
+.video-translation-wizard-main[data-phase="configure"]:is([data-step="1"], [data-step="2"]) .video-translation-actions-stack {
+  width: min(960px, calc(100% - 48px));
+  margin-inline: auto;
+}
+
+@container video-translation-workspace (max-width: 640px) {
+  .video-translation-wizard-main[data-phase="configure"]:is([data-step="1"], [data-step="2"]) .video-translation-wizard-body,
+  .video-translation-wizard-main[data-phase="configure"]:is([data-step="1"], [data-step="2"]) .video-translation-actions-stack {
+    width: 100%;
+  }
 }
 
 .creator-collaboration {

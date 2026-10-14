@@ -1,3 +1,4 @@
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import { FolderOpen, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
 import type { FileEditorMode } from './FileEditorPane.js';
 
@@ -19,7 +20,8 @@ type FileTopBarProps = {
 };
 
 export function FileTopBar(props: FileTopBarProps) {
-  const title = props.fileName ?? 'File workspace';
+  const l = useLocalizedCopy();
+  const title = props.fileName ?? '文件工作区';
   const segments = props.path?.split('/').filter(Boolean) ?? [];
 
   return (
@@ -27,13 +29,13 @@ export function FileTopBar(props: FileTopBarProps) {
       <div className="file-top-bar-title-row">
         <div className="file-top-bar-title">
           <strong>{title}</strong>
-          {props.dirty ? <span className="dirty-indicator" aria-label="Unsaved">Unsaved</span> : null}
+          {props.dirty ? <span className="dirty-indicator" aria-label={l("未保存", "Unsaved")}>{l("未保存", "Unsaved")}</span> : null}
         </div>
         <button
           className="icon-button file-toolbar-icon-button"
           type="button"
-          aria-label="Close file workspace"
-          title="Close file workspace"
+          aria-label={l("关闭文件工作区", "Close the file workspace")}
+          title={l("关闭文件工作区", "Close the file workspace")}
           onClick={props.onClose}
         >
           <X aria-hidden="true" size={16} />
@@ -42,8 +44,8 @@ export function FileTopBar(props: FileTopBarProps) {
 
       <div className="file-top-bar-control-row">
         <div className="file-top-bar-path-group">
-          <nav className="file-top-bar-path" aria-label="File path">
-            <span>{props.rootName ?? 'Workspace'}</span>
+          <nav className="file-top-bar-path" aria-label={l("文件路径", "file path")}>
+            <span>{props.rootName ?? l("工作区", "workspace")}</span>
             {segments.flatMap((segment, index) => [
               <span className="file-top-bar-path-separator" key={`${props.path ?? ''}:separator:${index}`}>/</span>,
               <span key={`${props.path ?? ''}:${index}`}>{segment}</span>
@@ -53,8 +55,8 @@ export function FileTopBar(props: FileTopBarProps) {
             <button
               className="icon-button file-top-bar-path-open-button"
               type="button"
-              aria-label="Open file"
-              title="Open file"
+              aria-label={l("打开文件", "open file")}
+              title={l("打开文件", "open file")}
               disabled={!props.path}
               onClick={props.onOpenFile}
             >
@@ -65,21 +67,19 @@ export function FileTopBar(props: FileTopBarProps) {
 
         <div className="file-top-bar-actions">
           {props.canToggleMode && props.mode && props.onModeChange ? (
-            <div className="file-editor-mode-toggle" aria-label="File view mode">
+            <div className="file-editor-mode-toggle" aria-label={l("文件视图模式", "file view mode")}>
               <button
                 type="button"
                 aria-pressed={props.mode === 'preview'}
                 onClick={() => props.onModeChange?.('preview')}
               >
-                Preview
-              </button>
+                {l("预览", "Preview")}</button>
               <button
                 type="button"
                 aria-pressed={props.mode === 'edit'}
                 onClick={() => props.onModeChange?.('edit')}
               >
-                Edit
-              </button>
+                {l("编辑", "Edit")}</button>
             </div>
           ) : null}
           {props.canSave ? (
@@ -89,16 +89,15 @@ export function FileTopBar(props: FileTopBarProps) {
               disabled={props.saveDisabled}
               onClick={() => props.onSave?.()}
             >
-              Save
-            </button>
+              {l("保存", "Save")}</button>
           ) : null}
           {props.onToggleTree ? (
             <button
               className="icon-button file-toolbar-icon-button"
               type="button"
-              aria-label={props.treeCollapsed ? 'Expand file tree' : 'Collapse file tree'}
+              aria-label={props.treeCollapsed ? l("展开目录树", "Expand directory tree") : l("收起目录树", "Collapse directory tree")}
               aria-pressed={props.treeCollapsed}
-              title={props.treeCollapsed ? 'Expand file tree' : 'Collapse file tree'}
+              title={props.treeCollapsed ? l("展开目录树", "Expand directory tree") : l("收起目录树", "Collapse directory tree")}
               onClick={props.onToggleTree}
             >
               {props.treeCollapsed ? (

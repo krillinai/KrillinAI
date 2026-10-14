@@ -18,23 +18,23 @@ describe('SchedulesView', () => {
     const user = userEvent.setup();
     renderView();
 
-    await user.click(await screen.findByRole('button', { name: /Create/ }));
+    await user.click(await screen.findByRole('button', { name: /创建/ }));
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(screen.queryByText('使用 OpenCreator 创建')).not.toBeInTheDocument();
-    expect(screen.getByRole('dialog', { name: 'Create scheduled task' })).toBeInTheDocument();
-    expect(screen.getByText('Title')).toBeInTheDocument();
-    expect(screen.getByText('Description')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Frequency' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Task instructions')).toHaveAttribute(
+    expect(screen.getByRole('dialog', { name: '创建定时任务' })).toBeInTheDocument();
+    expect(screen.getByText('标题')).toBeInTheDocument();
+    expect(screen.getByText('描述')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '执行频率' })).toBeInTheDocument();
+    expect(screen.getByLabelText('任务内容')).toHaveAttribute(
       'placeholder',
-      'Describe what you need done...'
+      '描述需要帮你做什么...'
     );
-    expect(screen.queryByRole('heading', { name: 'details' })).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Scheduled task title')).toHaveAttribute('placeholder', 'Enter task title');
-    expect(screen.getByRole('heading', { name: 'Select access permissions' })).toBeInTheDocument();
-    expect(screen.getByText('Select access permissions').closest('details')).toBeNull();
+    expect(screen.queryByRole('heading', { name: '详情' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('定时任务标题')).toHaveAttribute('placeholder', '输入任务标题');
+    expect(screen.getByRole('heading', { name: '请选择访问权限' })).toBeInTheDocument();
+    expect(screen.getByText('请选择访问权限').closest('details')).toBeNull();
     await user.keyboard('{Escape}');
-    expect(screen.queryByRole('dialog', { name: 'Create scheduled task' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '创建定时任务' })).not.toBeInTheDocument();
   });
 
   it('renders a simple searchable list with friendly schedules and status filters', async () => {
@@ -56,18 +56,18 @@ describe('SchedulesView', () => {
       }),
     });
 
-    expect(await screen.findByRole('heading', { name: 'Scheduled tasks' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '定时任务' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '每日总结' })).toBeInTheDocument();
-    expect(screen.getByText('Daily at 18:00')).toBeInTheDocument();
+    expect(screen.getByText('每天 18:00')).toBeInTheDocument();
     expect(screen.queryByText('0 18 * * *')).not.toBeInTheDocument();
-    expect(screen.getByText('Suggestions')).toBeInTheDocument();
+    expect(screen.getByText('建议')).toBeInTheDocument();
 
-    await user.type(screen.getByRole('searchbox', { name: 'Search scheduled tasks' }), '每周');
+    await user.type(screen.getByRole('searchbox', { name: '搜索定时任务' }), '每周');
     expect(screen.getByRole('heading', { name: '每周回顾' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '每日总结' })).not.toBeInTheDocument();
 
-    await user.clear(screen.getByRole('searchbox', { name: 'Search scheduled tasks' }));
-    await user.click(screen.getByRole('button', { name: 'Paused' }));
+    await user.clear(screen.getByRole('searchbox', { name: '搜索定时任务' }));
+    await user.click(screen.getByRole('button', { name: '已暂停' }));
     expect(screen.getByRole('heading', { name: '每周回顾' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '每日总结' })).not.toBeInTheDocument();
   });
@@ -106,21 +106,21 @@ describe('SchedulesView', () => {
     await openCreateEditor(user);
     expect(screen.queryByLabelText('Cron 表达式')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('运行配置')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Project')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Model')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('项目')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('模型')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('推理')).not.toBeInTheDocument();
     expect(screen.queryByText('运行于')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('时区')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('最长运行分钟')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('任务重叠时')).not.toBeInTheDocument();
-    await user.type(screen.getByLabelText('Scheduled task title'), '每日简报');
-    await user.type(screen.getByLabelText('Task instructions'), '总结今天的项目进展');
-    await user.selectOptions(screen.getByLabelText('Repeat'), 'weekdays');
-    await user.click(screen.getByRole('button', { name: 'Run time' }));
-    expect(screen.getByRole('dialog', { name: 'Select run time' })).toBeInTheDocument();
-    await user.click(screen.getByRole('option', { name: 'hours 08' }));
-    await user.click(screen.getByRole('option', { name: 'minutes 00' }));
-    await user.click(screen.getByRole('button', { name: 'Create task' }));
+    await user.type(screen.getByLabelText('定时任务标题'), '每日简报');
+    await user.type(screen.getByLabelText('任务内容'), '总结今天的项目进展');
+    await user.selectOptions(screen.getByLabelText('重复'), 'weekdays');
+    await user.click(screen.getByRole('button', { name: '执行时间' }));
+    expect(screen.getByRole('dialog', { name: '选择执行时间' })).toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: '小时 08' }));
+    await user.click(screen.getByRole('option', { name: '分钟 00' }));
+    await user.click(screen.getByRole('button', { name: '创建任务' }));
 
     expect(createSchedule).toHaveBeenCalledWith({
       name: '每日简报',
@@ -140,7 +140,7 @@ describe('SchedulesView', () => {
       threadId: 'thread-created'
     }));
     expect(onOpenTask).not.toHaveBeenCalled();
-    expect(screen.queryByRole('dialog', { name: 'Create scheduled task' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '创建定时任务' })).not.toBeInTheDocument();
   });
 
   it('prefills suggested tasks without creating them immediately', async () => {
@@ -153,9 +153,9 @@ describe('SchedulesView', () => {
       }),
     });
 
-    await user.click(await screen.findByRole('button', { name: /Daily briefing/ }));
-    expect(screen.getByLabelText('Scheduled task title')).toHaveValue('Daily briefing');
-    expect(screen.getByLabelText('Repeat')).toHaveValue('weekdays');
+    await user.click(await screen.findByRole('button', { name: /每日简报/ }));
+    expect(screen.getByLabelText('定时任务标题')).toHaveValue('每日简报');
+    expect(screen.getByLabelText('重复')).toHaveValue('weekdays');
     expect(createSchedule).not.toHaveBeenCalled();
   });
 
@@ -176,18 +176,18 @@ describe('SchedulesView', () => {
     });
 
     await openCreateEditor(user);
-    await user.click(screen.getByRole('button', { name: 'Create task' }));
-    expect(screen.getByText('Enter a task title')).toBeInTheDocument();
-    expect(screen.getByText('Describe what you need done')).toBeInTheDocument();
-    expect(screen.getByLabelText('Scheduled task title')).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: '创建任务' }));
+    expect(screen.getByText('请输入任务标题')).toBeInTheDocument();
+    expect(screen.getByText('请描述需要帮你做什么')).toBeInTheDocument();
+    expect(screen.getByLabelText('定时任务标题')).toHaveFocus();
     expect(createSchedule).not.toHaveBeenCalled();
 
-    await user.type(screen.getByLabelText('Scheduled task title'), '目录检查');
-    await user.type(screen.getByLabelText('Task instructions'), '检查项目状态');
-    await user.click(screen.getByRole('button', { name: 'Create task' }));
+    await user.type(screen.getByLabelText('定时任务标题'), '目录检查');
+    await user.type(screen.getByLabelText('任务内容'), '检查项目状态');
+    await user.click(screen.getByRole('button', { name: '创建任务' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('The project directory is missing or inaccessible');
-    expect(within(screen.getByRole('dialog')).queryByText('The project directory is missing or inaccessible')).not.toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('项目目录不存在或无法访问');
+    expect(within(screen.getByRole('dialog')).queryByText('项目目录不存在或无法访问')).not.toBeInTheDocument();
   });
 
   it('loads full details, preserves legacy schedules, and saves advanced edits', async () => {
@@ -214,14 +214,14 @@ describe('SchedulesView', () => {
       }),
     });
 
-    await user.click(await screen.findByRole('button', { name: 'Edit 每日总结' }));
-    expect(await screen.findByText('Edit scheduled task')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: '编辑每日总结' }));
+    expect(await screen.findByText('编辑定时任务')).toBeInTheDocument();
     expect(await screen.findByDisplayValue('完整的每日总结执行指令')).toBeInTheDocument();
-    expect(screen.getByLabelText('Repeat')).toHaveValue('advanced');
-    expect(screen.getByText(/legacy advanced schedule/)).toBeInTheDocument();
-    await user.clear(screen.getByLabelText('Scheduled task title'));
-    await user.type(screen.getByLabelText('Scheduled task title'), '每月总结');
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(screen.getByLabelText('重复')).toHaveValue('advanced');
+    expect(screen.getByText(/旧版高级计划/)).toBeInTheDocument();
+    await user.clear(screen.getByLabelText('定时任务标题'));
+    await user.type(screen.getByLabelText('定时任务标题'), '每月总结');
+    await user.click(screen.getByRole('button', { name: '保存更改' }));
 
     expect(updateSchedule).toHaveBeenCalledWith('schedule-1', expect.objectContaining({
       name: '每月总结',
@@ -263,10 +263,10 @@ describe('SchedulesView', () => {
       }),
     });
 
-    await user.click(await screen.findByRole('button', { name: 'Open task conversation 每日总结' }));
+    await user.click(await screen.findByRole('button', { name: '打开任务会话 每日总结' }));
     expect(onOpenTask).toHaveBeenLastCalledWith('thread-schedule-1');
 
-    await user.click(screen.getByRole('button', { name: 'View last run' }));
+    await user.click(screen.getByRole('button', { name: '查看上次运行' }));
     expect(onOpenTask).toHaveBeenLastCalledWith('thread-schedule-1', 'run-previous');
   });
 
@@ -291,7 +291,7 @@ describe('SchedulesView', () => {
       }),
     });
 
-    const toggle = await screen.findByRole('switch', { name: 'Pause 每日总结' });
+    const toggle = await screen.findByRole('switch', { name: '暂停每日总结' });
     await user.click(toggle);
     expect(updateSchedule).toHaveBeenCalledWith('schedule-1', { enabled: false });
     expect(toggle).toHaveAttribute('aria-checked', 'false');
@@ -300,13 +300,13 @@ describe('SchedulesView', () => {
       enabled: false
     }));
 
-    await user.click(screen.getByRole('button', { name: 'Run now 每日总结' }));
+    await user.click(screen.getByRole('button', { name: '立即运行每日总结' }));
     expect(onRunNow).toHaveBeenCalledWith(expect.objectContaining({
       id: 'schedule-1',
       threadId: 'thread-schedule-1'
     }));
 
-    await user.click(screen.getByRole('button', { name: 'Delete 每日总结' }));
+    await user.click(screen.getByRole('button', { name: '删除每日总结' }));
     expect(deleteSchedule).toHaveBeenCalledWith('schedule-1');
     expect(onScheduleDeleted).toHaveBeenCalledWith(expect.objectContaining({
       id: 'schedule-1',
@@ -317,7 +317,7 @@ describe('SchedulesView', () => {
 
   it('shows disconnected and load error states', async () => {
     const { rerender } = renderView({ connected: false, service: null });
-    expect(screen.getByText('Connect the local Runtime to create and manage tasks')).toBeInTheDocument();
+    expect(screen.getByText('连接本地运行内核后可以创建和管理任务')).toBeInTheDocument();
 
     rerender(createView({
       service: createService({
@@ -326,13 +326,13 @@ describe('SchedulesView', () => {
         }),
       }),
     }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load scheduled tasks');
-    expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('无法加载定时任务');
+    expect(screen.getByRole('button', { name: '重新加载' })).toBeInTheDocument();
   });
 });
 
 async function openCreateEditor(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: /Create/ }));
+  await user.click(await screen.findByRole('button', { name: /创建/ }));
 }
 
 function renderView(overrides: Partial<Parameters<typeof createView>[0]> = {}) {

@@ -18,7 +18,7 @@ describe('FileEditorPane', () => {
   it('meta 为空时显示空态', () => {
     render(<FileEditorPane />);
 
-    expect(screen.getByText('Select a file')).toBeInTheDocument();
+    expect(screen.getByText('选择一个文件')).toBeInTheDocument();
   });
 
   it('markdown 默认源码编辑，可切换到预览', async () => {
@@ -31,11 +31,11 @@ describe('FileEditorPane', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Edit' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '编辑' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('textbox', { name: 'README.md editor' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '标题' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    await user.click(screen.getByRole('button', { name: '预览' }));
 
     expect(screen.getByRole('heading', { name: '标题' })).toBeInTheDocument();
     expect(screen.getByText('正文')).toBeInTheDocument();
@@ -56,9 +56,9 @@ describe('FileEditorPane', () => {
       />
     );
 
-    const preview = await screen.findByTitle('business-cover.html HTML preview');
-    expect(screen.getByRole('button', { name: 'Preview' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.queryByRole('textbox', { name: 'business-cover.html editor' })).not.toBeInTheDocument();
+    const preview = await screen.findByTitle('business-cover.html HTML 预览');
+    expect(screen.getByRole('button', { name: '预览' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('textbox', { name: 'business-cover.html 编辑器' })).not.toBeInTheDocument();
     expect(preview).toHaveAttribute('sandbox', 'allow-scripts');
     expect(preview).toHaveAttribute('referrerpolicy', 'no-referrer');
     expect(preview.getAttribute('srcdoc')).not.toContain('document.body.dataset.ready');
@@ -75,7 +75,7 @@ describe('FileEditorPane', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    await user.click(screen.getByRole('button', { name: '预览' }));
 
     expect(document.querySelector('.file-preview pre')?.textContent).toBe('{\n  "name": "opencreator",\n  "version": 1\n}');
 
@@ -86,9 +86,9 @@ describe('FileEditorPane', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    await user.click(screen.getByRole('button', { name: '预览' }));
 
-    expect(screen.getByText('Could not parse JSON. The original content is shown below.')).toBeInTheDocument();
+    expect(screen.getByText('JSON 解析失败，以下保留原始内容。')).toBeInTheDocument();
     expect(screen.getByText('{"name": }')).toBeInTheDocument();
   });
 
@@ -103,7 +103,7 @@ describe('FileEditorPane', () => {
     );
 
     expect(screen.getByRole('textbox', { name: 'notes.txt editor' })).toHaveAttribute('aria-readonly', 'true');
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '保存' })).toBeDisabled();
   });
 
   it('dirty 时保存按钮可用，点击触发 onSave', async () => {
@@ -119,7 +119,7 @@ describe('FileEditorPane', () => {
       />
     );
 
-    const saveButton = screen.getByRole('button', { name: 'Save' });
+    const saveButton = screen.getByRole('button', { name: '保存' });
     expect(saveButton).toBeEnabled();
 
     await user.click(saveButton);
@@ -188,7 +188,7 @@ describe('FileEditorPane', () => {
       />
     );
 
-    const objectNode = screen.getByTitle('spec.pdf PDF preview');
+    const objectNode = screen.getByTitle('spec.pdf PDF 预览');
     expect(objectNode).toHaveAttribute('data', 'blob:preview-pdf');
     expect(objectNode).toHaveAttribute('type', 'application/pdf');
   });
@@ -209,7 +209,7 @@ describe('FileEditorPane', () => {
       />
     );
 
-    const panel = screen.getByText('Preview is not supported for this file').closest('.unsupported-file-state');
+    const panel = screen.getByText('暂不支持预览此文件').closest('.unsupported-file-state');
     expect(panel).not.toBeNull();
     expect(within(panel as HTMLElement).getByText('archive.bin')).toBeInTheDocument();
     expect(within(panel as HTMLElement).getByText('application/octet-stream')).toBeInTheDocument();
@@ -278,11 +278,11 @@ describe('FileEditorPane', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Preview' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '编辑' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '预览' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'logo.svg editor' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    await user.click(screen.getByRole('button', { name: '预览' }));
 
     expect(screen.queryByRole('img', { name: 'logo.svg' })).not.toBeInTheDocument();
     expect(document.querySelector('.file-preview pre')?.textContent).toBe(svgSource);

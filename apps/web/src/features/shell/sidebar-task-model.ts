@@ -1,4 +1,6 @@
 import type { TaskItem, ThreadResponse } from '@opencreator/protocol';
+import type { AppLanguage } from '../../i18n/language.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
 import type { ScheduleTaskSummary } from '../schedules/schedule-task-model.js';
 
 export type SidebarTaskStatus =
@@ -29,7 +31,8 @@ export type ScheduleSidebarTaskSummary = Omit<SidebarTaskSummary, 'status'> & {
 export function createSidebarTaskSummaries(
   schedules: ScheduleTaskSummary[],
   runtimeTasks: TaskItem[],
-  unreadTaskIds: ReadonlySet<string>
+  unreadTaskIds: ReadonlySet<string>,
+  language: AppLanguage = 'zh-CN'
 ): ScheduleSidebarTaskSummary[] {
   const runtimeTasksByThreadId = new Map<string, TaskItem[]>();
   for (const task of runtimeTasks) {
@@ -44,7 +47,7 @@ export function createSidebarTaskSummaries(
     const threadTasks = threadId === undefined
       ? []
       : runtimeTasksByThreadId.get(threadId) ?? [];
-    const nextRunLabel = formatNextRunLabel(schedule.nextRunAt);
+    const nextRunLabel = formatNextRunLabel(schedule.nextRunAt, language);
     return {
       id: schedule.scheduleId,
       ...(threadId === undefined ? {} : { threadId }),
@@ -60,7 +63,8 @@ export function createScheduleDraftSidebarSummaries(
   drafts: ThreadResponse[],
   runtimeTasks: TaskItem[],
   unreadTaskIds: ReadonlySet<string>,
-  runningThreadIds: ReadonlySet<string>
+  runningThreadIds: ReadonlySet<string>,
+  language: AppLanguage = 'zh-CN'
 ): SidebarTaskSummary[] {
   const runtimeTasksByThreadId = new Map<string, TaskItem[]>();
   for (const task of runtimeTasks) {
@@ -75,7 +79,7 @@ export function createScheduleDraftSidebarSummaries(
     return {
       id: `draft:${draft.id}`,
       threadId: draft.id,
-      name: draft.title?.trim() || 'Task draft',
+      name: draft.title?.trim() || createLocalizedCopy(language)('任务草稿', 'Task draft'),
       status: resolveScheduleDraftStatus(
         threadTasks,
         runningThreadIds.has(draft.id)
@@ -124,15 +128,16 @@ function resolveSidebarTaskStatus(
   return 'idle';
 }
 
-function formatNextRunLabel(value: string | null): string | undefined {
+function formatNextRunLabel(value: string | null, language: AppLanguage): string | undefined {
   if (value === null) return undefined;
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return undefined;
-  return `Next ${new Intl.DateTimeFormat('en-US', {
+  const time = new Intl.DateTimeFormat(language, {
     month: 'numeric',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     hour12: false
-  }).format(date)}`;
+  }).format(date);
+  return createLocalizedCopy(language)(`下次 ${time}`, `Next: ${time}`);
 }

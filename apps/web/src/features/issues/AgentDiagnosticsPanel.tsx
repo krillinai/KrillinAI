@@ -30,19 +30,60 @@ export default function AgentDiagnosticsPanel(props: {
     !(props.hiddenCreatorIssues && issue.scope.kind === 'page' && issue.scope.surface === 'creator-launch')
     && !(props.hiddenBackgroundRuntimeIssues && isBackgroundRuntimeIssue(issue))
   )), [allIssues, props.hiddenCreatorIssues, props.hiddenBackgroundRuntimeIssues]);
-  const [open, setOpen] = useState(false);
+  const [visibility, setVisibility] = useState<'closed' | 'automatic' | 'manual'>('closed');
+  const [hovered, setHovered] = useState(false);
+  const [automaticIssueId, setAutomaticIssueId] = useState<string>();
   const [focusedIssueId, setFocusedIssueId] = useState<string | null>(null);
   const [input, setInput] = useState('');
-  const latestIssueRef = useRef<string>();
+  const seenIssueIdsRef = useRef(new Set<string>());
+  const panelRef = useRef<HTMLElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusRef = useRef(false);
   const focusedIssue = issues.find(issue => issue.id === focusedIssueId) ?? issues.at(-1) ?? null;
 
   useEffect(() => {
     const latest = issues.at(-1);
-    const key = latest === undefined ? undefined : `${latest.id}:${latest.occurrenceCount}`;
-    if (latest !== undefined && key !== latestIssueRef.current
-      && !isBackgroundRuntimeIssue(latest)) setOpen(true);
-    latestIssueRef.current = key;
+    if (latest === undefined) {
+      setVisibility('closed');
+      return;
+    }
+    if (!seenIssueIdsRef.current.has(latest.id) && !isBackgroundRuntimeIssue(latest)) {
+      setAutomaticIssueId(latest.id);
+      setVisibility(current => current === 'manual' ? current : 'automatic');
+    }
+    for (const issue of issues) seenIssueIdsRef.current.add(issue.id);
   }, [issues]);
+
+  useEffect(() => {
+    if (visibility !== 'automatic' || hovered) return;
+    const timeout = window.setTimeout(() => setVisibility('closed'), 6000);
+    return () => window.clearTimeout(timeout);
+  }, [visibility, hovered, automaticIssueId]);
+
+  useEffect(() => {
+    if (visibility === 'closed') {
+      setHovered(false);
+      if (restoreFocusRef.current) triggerRef.current?.focus();
+      restoreFocusRef.current = false;
+      return;
+    }
+    function onPointerDown(event: PointerEvent) {
+      if (event.target instanceof Node && !panelRef.current?.contains(event.target)) {
+        setVisibility('closed');
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      restoreFocusRef.current = panelRef.current?.contains(document.activeElement) ?? false;
+      setVisibility('closed');
+    }
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [visibility]);
   useEffect(() => () => clearPageIssues(), []);
 
   if (issues.length === 0) return null;
@@ -52,12 +93,12 @@ export default function AgentDiagnosticsPanel(props: {
     if (!question || focusedIssue === null) return;
     props.onAskIssue(focusedIssue, question);
     setInput('');
-    setOpen(false);
+    setVisibility('closed');
   }
 
-  if (!open) {
+  if (visibility === 'closed') {
     return (
-      <button className="agent-diagnostics-trigger" type="button" onClick={() => setOpen(true)} aria-label={localize('打开 Agent 诊断', 'Open Agent diagnostics', 'Öppna Agent-diagnostik')}>
+      <button ref={triggerRef} className="agent-diagnostics-trigger" type="button" onClick={() => setVisibility('manual')} aria-label={localize('打开 Agent 诊断', 'Open Agent diagnostics', 'Öppna Agent-diagnostik')}>
         <MessageSquareText size={18} aria-hidden="true" />
         <span>{issues.length}</span>
       </button>
@@ -65,11 +106,18 @@ export default function AgentDiagnosticsPanel(props: {
   }
 
   return (
-    <aside className="agent-diagnostics-panel" aria-label={localize('Agent 诊断', 'Agent diagnostics', 'Agent-diagnostik')}>
+    <aside
+      ref={panelRef}
+      className="agent-diagnostics-panel"
+      aria-label={localize('Agent 诊断', 'Agent diagnostics', 'Agent-diagnostik')}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocusCapture={() => setVisibility('manual')}
+    >
       <header>
         <span aria-hidden="true"><OpenCreatorMark size={18} /></span>
         <strong>OpenCreator</strong>
-        <button type="button" onClick={() => setOpen(false)} aria-label={localize('收起诊断', 'Close diagnostics', 'Stäng diagnostiken')} title={localize('收起诊断', 'Close diagnostics', 'Stäng diagnostiken')}><X size={17} aria-hidden="true" /></button>
+        <button type="button" onClick={() => { restoreFocusRef.current = true; setVisibility('closed'); }} aria-label={localize('收起诊断', 'Close diagnostics', 'Stäng diagnostiken')} title={localize('收起诊断', 'Close diagnostics', 'Stäng diagnostiken')}><X size={17} aria-hidden="true" /></button>
       </header>
       <div className="agent-diagnostics-timeline" role="log" aria-label={localize('诊断对话', 'Diagnostic conversation', 'Diagnostiksamtal')} aria-live="polite">
         {issues.map(issue => (
@@ -88,7 +136,7 @@ export default function AgentDiagnosticsPanel(props: {
         <input
           aria-label={localize('询问错误原因或修复办法', 'Ask about this error', 'Fråga om det här felet')}
           value={input}
-          onChange={event => setInput(event.target.value)}
+          onChange={event => { setInput(event.target.value); setVisibility('manual'); }}
           placeholder={localize('询问错误原因或修复办法', 'Ask about this error', 'Fråga om det här felet')}
         />
         <button type="submit" disabled={!input.trim()} aria-label={localize('发送问题', 'Send question', 'Skicka fråga')} title={localize('发送问题', 'Send question', 'Skicka fråga')}><Send size={16} aria-hidden="true" /></button>

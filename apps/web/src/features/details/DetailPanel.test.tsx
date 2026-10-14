@@ -17,7 +17,7 @@ describe('DetailPanel', () => {
 
     expect(screen.getByRole('heading', { name: 'notes.txt' })).toBeInTheDocument();
     expect(screen.getByText('apps/web/notes.txt')).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Detail content' }).querySelector('pre')?.textContent).toBe(
+    expect(screen.getByRole('region', { name: '详情内容' }).querySelector('pre')?.textContent).toBe(
       '# OpenCreator\n\nDetail content'
     );
   });
@@ -65,7 +65,7 @@ describe('DetailPanel', () => {
 
     render(<DetailPanel mode="file" title="README.md" content="content" onClose={onClose} />);
 
-    await user.click(screen.getByRole('button', { name: 'Close details' }));
+    await user.click(screen.getByRole('button', { name: '关闭详情' }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -86,8 +86,8 @@ describe('DetailPanel', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Undo' }));
-    await user.click(screen.getByRole('button', { name: 'Review' }));
+    await user.click(screen.getByRole('button', { name: '撤销' }));
+    await user.click(screen.getByRole('button', { name: '审核' }));
 
     expect(onRevert).toHaveBeenCalledTimes(1);
     expect(onApprove).toHaveBeenCalledTimes(1);
@@ -96,15 +96,15 @@ describe('DetailPanel', () => {
   it('disables change actions when callbacks are missing', () => {
     render(<DetailPanel mode="change" title="变更详情" content="diff content" onClose={vi.fn()} />);
 
-    expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Review' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '撤销' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '审核' })).toBeDisabled();
   });
 
   it('shows run content without change actions', () => {
     render(<DetailPanel mode="run" title="运行详情" content="run completed" onClose={vi.fn()} />);
 
     expect(screen.getByText('run completed')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '撤销' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '审核' })).not.toBeInTheDocument();
   });
 });

@@ -43,13 +43,13 @@ describe('McpSettingsView', () => {
     expect(screen.getByText('GITHUB_TOKEN')).toBeInTheDocument();
     expect(screen.queryByText('super-secret-value')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Add MCP server' }));
-    await user.type(screen.getByLabelText('Name'), 'linear');
-    await user.type(screen.getByLabelText('Command'), 'node');
-    await user.type(screen.getByLabelText('Arguments'), 'server.js');
-    await user.type(screen.getByLabelText('Environment variable name'), 'LINEAR_TOKEN');
-    await user.type(screen.getByLabelText('Environment variable value'), 'super-secret-value');
-    await user.click(screen.getByRole('button', { name: 'Save MCP server' }));
+    await user.click(screen.getByRole('button', { name: '新增 MCP' }));
+    await user.type(screen.getByLabelText('名称'), 'linear');
+    await user.type(screen.getByLabelText('命令'), 'node');
+    await user.type(screen.getByLabelText('参数'), 'server.js');
+    await user.type(screen.getByLabelText('环境变量名'), 'LINEAR_TOKEN');
+    await user.type(screen.getByLabelText('环境变量值'), 'super-secret-value');
+    await user.click(screen.getByRole('button', { name: '保存 MCP' }));
 
     expect(addServer).toHaveBeenCalledWith({
       name: 'linear',
@@ -77,11 +77,11 @@ describe('McpSettingsView', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Add MCP server' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Sign in to github' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Sign out of github' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Remove github' })).toBeDisabled();
-    expect(screen.getByText('This Codex version does not support adding MCP servers')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '新增 MCP' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '登录 github' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '退出 github' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '删除 github' })).toBeDisabled();
+    expect(screen.getByText('当前 Codex 版本不支持新增 MCP')).toBeInTheDocument();
   });
 
   it('confirms global writes and performs login, logout, and remove', async () => {
@@ -100,9 +100,9 @@ describe('McpSettingsView', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Sign in to github' }));
-    await user.click(screen.getByRole('button', { name: 'Sign out of github' }));
-    await user.click(screen.getByRole('button', { name: 'Remove github' }));
+    await user.click(screen.getByRole('button', { name: '登录 github' }));
+    await user.click(screen.getByRole('button', { name: '退出 github' }));
+    await user.click(screen.getByRole('button', { name: '删除 github' }));
 
     expect(loginServer).toHaveBeenCalledWith('github', true);
     expect(logoutServer).toHaveBeenCalledWith('github', true);

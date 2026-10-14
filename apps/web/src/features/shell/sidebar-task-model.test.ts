@@ -1,6 +1,7 @@
 import type { TaskItem } from '@opencreator/protocol';
 import type { ThreadResponse } from '@opencreator/protocol';
 import { describe, expect, it } from 'vitest';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
 import type { ScheduleTaskSummary } from '../schedules/schedule-task-model.js';
 import {
   createScheduleDraftSidebarSummaries,
@@ -8,6 +9,16 @@ import {
 } from './sidebar-task-model.js';
 
 describe('sidebar task model', () => {
+  it.each(['sv-SE', 'ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR'] as const)('localizes generated draft names and next-run labels in %s', language => {
+    const l = createLocalizedCopy(language);
+    const drafts = createScheduleDraftSidebarSummaries([createDraft({ title: '' }), createDraft({ id: 'named', title: '用户任务标题' })], [], new Set(), new Set(), language);
+    expect(drafts[0]?.name).toBe(l('任务草稿', 'Task draft'));
+    expect(drafts[1]?.name).toBe('用户任务标题');
+    const [summary] = createSidebarTaskSummaries([createSummary({ scheduleId: 'idle', threadId: 'thread', nextRunAt: '2026-07-15T10:00:00Z' })], [], new Set(), language);
+    const time = new Intl.DateTimeFormat(language, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date('2026-07-15T10:00:00Z'));
+    expect(summary?.nextRunLabel).toBe(l(`下次 ${time}`, `Next: ${time}`));
+  });
+
   it('uses actionable runtime state before schedule state and keeps repair highest priority', () => {
     const summaries = [
       createSummary({
@@ -90,7 +101,7 @@ describe('sidebar task model', () => {
       status: 'idle',
       unread: true
     });
-    expect(task?.nextRunLabel).toMatch(/^Next /);
+    expect(task?.nextRunLabel).toMatch(/^下次 /);
   });
 
   it('shows schedule drafts as task rows with approval and active-run priority', () => {

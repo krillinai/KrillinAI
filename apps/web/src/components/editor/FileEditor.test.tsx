@@ -18,8 +18,8 @@ describe('FileEditor', () => {
       />
     );
 
-    const saveButton = screen.getByRole('button', { name: 'Save to local draft' });
-    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    const saveButton = screen.getByRole('button', { name: '保存到本地草稿' });
+    expect(screen.queryByRole('button', { name: '保存' })).not.toBeInTheDocument();
 
     await user.click(saveButton);
 
@@ -41,7 +41,7 @@ describe('FileEditor', () => {
       />
     );
 
-    const saveButton = screen.getByRole('button', { name: 'Save to local draft' });
+    const saveButton = screen.getByRole('button', { name: '保存到本地草稿' });
     expect(saveButton).toBeDisabled();
 
     await user.click(saveButton);
@@ -62,7 +62,7 @@ describe('FileEditor', () => {
     );
 
     expect(screen.getByText('无法加载文件')).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'docs/design/creator-dashboard.md editor' })).toHaveValue(
+    expect(screen.getByRole('textbox', { name: 'docs/design/creator-dashboard.md 编辑器' })).toHaveValue(
       '# Dashboard\nunsaved edit'
     );
   });
@@ -96,7 +96,7 @@ describe('FileEditor', () => {
       />
     );
 
-    expect(screen.getByRole('textbox', { name: 'README.md editor' })).toHaveValue('# OpenCreator\n\n**raw**');
+    expect(screen.getByRole('textbox', { name: 'README.md 编辑器' })).toHaveValue('# OpenCreator\n\n**raw**');
     expect(screen.queryByRole('heading', { name: 'OpenCreator' })).not.toBeInTheDocument();
   });
 });

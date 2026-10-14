@@ -1,0 +1,231 @@
+.runtime-components-settings {
+  --component-ready: #6ee7b7;
+  --component-update: #fdba74;
+  --component-failed: #fca5a5;
+  --component-update-foreground: #0a0a0a;
+  container-type: inline-size;
+  gap: 0;
+}
+
+[data-theme="light"] .runtime-components-settings {
+  --component-ready: #166534;
+  --component-update: #9a3412;
+  --component-failed: #b91c1c;
+  --component-update-foreground: #ffffff;
+}
+
+.runtime-components-settings .runtime-component-title span[data-status] {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.runtime-components-settings .runtime-component-title span svg {
+  flex: 0 0 auto;
+}
+
+.runtime-components-settings .runtime-component-title span[data-status="current"] {
+  color: var(--component-ready);
+  border-color: color-mix(in srgb, var(--component-ready) 40%, var(--border));
+  background: color-mix(in srgb, var(--component-ready) 8%, transparent);
+}
+
+.runtime-components-settings .runtime-component-title span[data-status="update"] {
+  color: var(--component-update);
+  border-color: color-mix(in srgb, var(--component-update) 40%, var(--border));
+  background: color-mix(in srgb, var(--component-update) 8%, transparent);
+}
+
+.runtime-components-settings .runtime-component-title span[data-status="failed"] {
+  color: var(--component-failed);
+  border-color: color-mix(in srgb, var(--component-failed) 40%, var(--border));
+  background: color-mix(in srgb, var(--component-failed) 8%, transparent);
+}
+
+.runtime-components-settings .runtime-component-actions button[data-status="update"] {
+  color: var(--component-update-foreground);
+  background: var(--component-update);
+  border-color: var(--component-update);
+}
+
+.runtime-components-settings .runtime-component-actions button[data-status="update"]:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--component-update) 88%, var(--text));
+}
+
+.runtime-components-settings > header {
+  margin-bottom: 20px;
+}
+
+.runtime-components-settings .local-transcription-components {
+  gap: 0;
+  margin-bottom: 0;
+}
+
+.runtime-components-settings .runtime-component-row {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 18px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.runtime-components-settings .runtime-component-heading {
+  gap: 8px;
+}
+
+.runtime-components-settings .runtime-component-heading > svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.runtime-components-settings .runtime-component-heading > svg[data-status="current"] {
+  color: var(--component-ready);
+}
+
+.runtime-components-settings .runtime-component-heading > svg[data-status="update"] {
+  color: var(--component-update);
+}
+
+.runtime-components-settings .runtime-component-heading > svg[data-status="failed"],
+.runtime-components-settings [role="alert"] > p {
+  color: var(--component-failed);
+}
+
+.runtime-components-settings .runtime-component-details {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.runtime-components-settings .runtime-component-details > div {
+  align-content: start;
+  padding: 0;
+  background: transparent;
+}
+
+.runtime-components-settings .runtime-component-details dd {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.runtime-components-settings .runtime-component-version-note {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font);
+  font-size: 12px;
+}
+
+.runtime-components-settings .runtime-component-version-note[data-status="current"] {
+  color: var(--component-ready);
+}
+
+.runtime-components-settings .runtime-component-version-note[data-status="failed"] {
+  color: var(--component-failed);
+}
+
+.runtime-components-settings .runtime-component-footer {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.runtime-components-settings .runtime-component-actions {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.runtime-components-settings .runtime-component-actions button {
+  max-width: 100%;
+  min-height: 34px;
+  padding: 7px 10px;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+  text-align: start;
+}
+
+.runtime-components-settings .runtime-component-actions button svg {
+  flex: 0 0 auto;
+}
+
+.runtime-components-settings .runtime-component-footer > a {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.runtime-components-settings .local-component-details,
+.runtime-components-settings .local-component-progress,
+.runtime-components-settings .runtime-component-note,
+.runtime-components-settings .runtime-component-row > [role="alert"],
+.runtime-components-settings .runtime-component-row > [role="status"],
+.runtime-components-settings .runtime-component-row > .issue-presenter-list {
+  grid-column: 1 / -1;
+}
+
+.runtime-components-settings .local-component-details {
+  min-width: 0;
+}
+
+.runtime-components-settings .runtime-component-notes {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.runtime-components-settings .runtime-component-notes:empty {
+  display: none;
+}
+
+.runtime-components-settings .local-component-details > dl {
+  margin-top: 12px;
+}
+
+.runtime-components-settings .local-component-progress {
+  margin: 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.runtime-components-settings .local-component-check-notice {
+  color: var(--component-ready);
+}
+
+.runtime-components-settings .local-transcription-components > [role="alert"],
+.runtime-components-settings .local-transcription-components > [role="status"],
+.runtime-components-settings .local-transcription-components > button {
+  margin-bottom: 16px;
+}
+
+@container (min-width: 640px) {
+  .runtime-components-settings .runtime-component-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 24px;
+  }
+
+  .runtime-components-settings .runtime-component-footer {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+@container (min-width: 960px) {
+  .runtime-components-settings .runtime-component-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(220px, 0.85fr);
+    align-items: start;
+  }
+
+  .runtime-components-settings .runtime-component-footer {
+    grid-column: auto;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .runtime-components-settings .runtime-component-actions {
+    justify-content: flex-end;
+  }
+}

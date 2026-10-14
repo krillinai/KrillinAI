@@ -1,3 +1,4 @@
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type {
   CodexProfileConfig,
   CodexProfileDeleteResponse,
@@ -43,6 +44,7 @@ export function ProfileSettingsView(props: {
   onDataChange?(data: CodexProfileListResponse): void;
   confirmDelete?(profile: CodexProfileResponse): boolean;
 }) {
+  const l = useLocalizedCopy();
   const confirm = useConfirmDialog();
   const [data, setData] = useState(props.data);
   const [loading, setLoading] = useState(
@@ -74,7 +76,7 @@ export function ProfileSettingsView(props: {
         if (!canceled) pageIssues.captureOperationFailure(
           'settings.profiles.load',
           reason,
-          'Could not load Profiles. Try again.',
+          l("无法加载 Profiles，请重试。", "Unable to load Profiles, please try again."),
           { retryable: true }
         );
       })
@@ -116,23 +118,23 @@ export function ProfileSettingsView(props: {
       const detail = await props.service.getProfile(profile.name);
       if (containsSensitiveConfig(detail.profile.config)) {
         setEditor(undefined);
-        setValidationError('This Profile contains sensitive settings. Edit the local configuration file directly.');
+        setValidationError(l("该 Profile 含敏感配置，请直接编辑本机配置文件", "This Profile contains sensitive configuration, please edit the local configuration file directly."));
         return;
       }
       setEditor({ mode: 'edit', name: profile.name, profile: detail.profile, loading: false });
       pageIssues.resolveOperation(operationId);
     } catch (reason) {
       setEditor(undefined);
-      pageIssues.captureOperationFailure(operationId, reason, 'Could not load Profile details. Try again.');
+      pageIssues.captureOperationFailure(operationId, reason, l("无法加载 Profile 详情，请重试。", "Unable to load profile details, please try again."));
     }
   }
 
   async function deleteProfile(profile: CodexProfileResponse) {
     if (props.service === null) return;
     const confirmed = props.confirmDelete?.(profile) ?? await confirm({
-      title: 'Delete Profile',
-      description: `Delete "${profile.name}"? This cannot be undone.`,
-      confirmLabel: 'Remove',
+      title: '删除 Profile',
+      description: `确认删除“${profile.name}”？删除后无法恢复。`,
+      confirmLabel: '删除',
       destructive: true
     });
     if (!confirmed) return;
@@ -145,7 +147,7 @@ export function ProfileSettingsView(props: {
       }
       pageIssues.resolveOperation(operationId);
     } catch (reason) {
-      pageIssues.captureOperationFailure(operationId, reason, 'Could not delete the Profile. Check whether it is in use and try again.');
+      pageIssues.captureOperationFailure(operationId, reason, l("无法删除 Profile，请检查占用情况后重试。", "Unable to delete Profile, please check the occupancy and try again."));
     } finally {
       setBusyName(undefined);
     }
@@ -161,7 +163,7 @@ export function ProfileSettingsView(props: {
       <header className="settings-management__header">
         <div>
           <h1 id="settings-profiles-title">Profiles</h1>
-          <p>Manage reusable Codex settings for conversations and scheduled tasks.</p>
+          <p>{l("维护会话和计划任务可复用的 Codex 配置。", "Maintain reusable Codex configuration for sessions and scheduled tasks.")}</p>
         </div>
         <button
           className="settings-primary-button"
@@ -170,18 +172,17 @@ export function ProfileSettingsView(props: {
           onClick={() => setEditor({ mode: 'create' })}
         >
           <Plus size={16} />
-          New Profile
-        </button>
+          {l("新建 Profile", "New Profile")}</button>
       </header>
 
       {!props.connected || props.service === null ? (
-        <p className="settings-notice">Connect the local Runtime to manage Profiles.</p>
+        <p className="settings-notice">{l("本地服务连接后可以管理 Profile。", "Profiles can be managed after the local service is connected.")}</p>
       ) : null}
       {data !== undefined && !data.writable ? (
-        <p className="settings-notice">CODEX_HOME is read-only. Profiles cannot be changed.</p>
+        <p className="settings-notice">{l("当前 CODEX_HOME 为只读，无法修改 Profile", "Currently CODEX_HOME is read-only and Profile cannot be modified.")}</p>
       ) : null}
       {data !== undefined && !data.baseConfigValid ? (
-        <p className="settings-notice">The base config.toml is invalid. Fix it first.</p>
+        <p className="settings-notice">{l("基础 config.toml 无效，请先修复配置", "The basic config.toml is invalid, please repair the configuration first")}</p>
       ) : null}
       {data?.diagnostics.map(diagnostic => (
         <p className="settings-inline-warning" key={diagnostic}>{diagnostic}</p>
@@ -215,7 +216,7 @@ export function ProfileSettingsView(props: {
               setEditor(undefined);
               pageIssues.resolveOperation(operationId);
             } catch (reason) {
-              pageIssues.captureOperationFailure(operationId, reason, 'Could not save the Profile. Check the settings and try again.');
+              pageIssues.captureOperationFailure(operationId, reason, l("无法保存 Profile，请检查配置后重试。", "Unable to save profile, please check the configuration and try again."));
             } finally {
               setSaving(false);
             }
@@ -226,15 +227,13 @@ export function ProfileSettingsView(props: {
       {loading ? (
         <div className="settings-state" role="status">
           <LoaderCircle size={20} className="settings-spin" />
-          Loading Profiles
-        </div>
+          {l("正在加载 Profiles", "Loading Profiles")}</div>
       ) : data !== undefined && data.profiles.length === 0 ? (
         <div className="settings-state">
           <FileSliders size={22} />
-          No Profiles
-        </div>
+          {l("暂无 Profile", "No profile yet")}</div>
       ) : (
-        <ul className="settings-item-list" aria-label="Profile list">
+        <ul className="settings-item-list" aria-label={l("Profile 列表", "Profile list")}>
           {data?.profiles.map(profile => {
             const busy = busyName === profile.name;
             return (
@@ -243,7 +242,7 @@ export function ProfileSettingsView(props: {
                   <div className="settings-item__title">
                     <FileSliders size={16} />
                     <h2>{profile.name}</h2>
-                    <span data-status={profile.status}>{profile.status === 'valid' ? 'Valid' : 'Invalid'}</span>
+                    <span data-status={profile.status}>{profile.status === 'valid' ? l("有效", "Valid") : l("无效", "Invalid")}</span>
                   </div>
                   <p>{profileSummary(profile)}</p>
                   {profile.diagnostics.map(diagnostic => (
@@ -253,8 +252,8 @@ export function ProfileSettingsView(props: {
                 <div className="settings-item__actions">
                   <button
                     type="button"
-                    aria-label={`Edit ${profile.name}`}
-                    title="Edit"
+                    aria-label={l(`编辑 ${profile.name}`, `Edit ${profile.name}`)}
+                    title={l("编辑", "Edit")}
                     disabled={!writable || busy}
                     onClick={() => void openEdit(profile)}
                   >
@@ -262,8 +261,8 @@ export function ProfileSettingsView(props: {
                   </button>
                   <button
                     type="button"
-                    aria-label={`Delete ${profile.name}`}
-                    title="Remove"
+                    aria-label={l(`删除 ${profile.name}`, `Delete ${profile.name}`)}
+                    title={l("删除", "Delete")}
                     disabled={!writable || busy}
                     onClick={() => void deleteProfile(profile)}
                   >
@@ -285,6 +284,7 @@ function ProfileEditor(props: {
   onCancel(): void;
   onSubmit(name: string, config: CodexProfileConfig): Promise<void>;
 }) {
+  const l = useLocalizedCopy();
   const profile = props.state.mode === 'edit' ? props.state.profile : undefined;
   const [name, setName] = useState(profile?.name ?? '');
   const [model, setModel] = useState(readString(profile?.config.model));
@@ -303,9 +303,9 @@ function ProfileEditor(props: {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (name.trim().length === 0) return setFormError('Enter a Profile name');
+    if (name.trim().length === 0) return setFormError('请输入 Profile 名称');
     if (!/^[A-Za-z0-9_.-]+$/.test(name.trim())) {
-      return setFormError('Profile names may contain only letters, numbers, underscores, dots, and hyphens');
+      return setFormError('Profile 名称只能包含字母、数字、下划线、点和短横线');
     }
     const parsed = parseAdvancedConfig(advanced);
     if (!parsed.ok) return setFormError(parsed.message);
@@ -321,79 +321,78 @@ function ProfileEditor(props: {
     return (
       <div className="settings-editor settings-state" role="status">
         <LoaderCircle size={20} className="settings-spin" />
-        Loading Profile details
-      </div>
+        {l("正在加载 Profile 详情", "Loading Profile details")}</div>
     );
   }
 
   return (
-    <form className="settings-editor" aria-label={props.state.mode === 'create' ? 'New Profile' : `Edit ${name}`} onSubmit={submit}>
+    <form className="settings-editor" aria-label={props.state.mode === 'create' ? l("新建 Profile", "New Profile") : l(`编辑 ${name}`, `Edit ${name}`)} onSubmit={submit}>
       <header>
         <div>
-          <p>{props.state.mode === 'create' ? 'New configuration' : 'Edit configuration'}</p>
-          <h2>{props.state.mode === 'create' ? 'Configure Codex Profile' : name}</h2>
+          <p>{props.state.mode === 'create' ? l("新建配置", "New configuration") : l("编辑配置", "Edit configuration")}</p>
+          <h2>{props.state.mode === 'create' ? l("配置 Codex Profile", "Configure Codex Profile") : name}</h2>
         </div>
-        <button type="button" aria-label="Close Profile editor" title="Close" onClick={props.onCancel}>
+        <button type="button" aria-label={l("关闭 Profile 编辑器", "Close the Profile editor")} title={l("关闭", "Close")} onClick={props.onCancel}>
           <X size={17} />
         </button>
       </header>
       {formError ? <p className="settings-error" role="alert">{formError}</p> : null}
       <div className="settings-form-grid">
         <label>
-          <span>Profile name</span>
+          <span>{l("Profile 名称", "Profile name")}</span>
           <input
-            aria-label="Profile name"
+            aria-label={l("Profile 名称", "Profile name")}
             disabled={props.state.mode === 'edit'}
             value={name}
             onChange={event => setName(event.target.value)}
           />
         </label>
         <label>
-          <span>Model</span>
+          <span>{l("模型", "Model")}</span>
           <input
-            aria-label="Model"
-            placeholder="Use the default Codex model"
+            aria-label={l("模型", "Model")}
+            placeholder={l("使用 Codex 默认模型", "Use Codex default model")}
             value={model}
             onChange={event => setModel(event.target.value)}
           />
         </label>
         <label>
-          <span>Reasoning effort</span>
-          <select aria-label="Reasoning effort" value={reasoning} onChange={event => setReasoning(event.target.value)}>
-            <option value="">Use default</option>
-            <option value="default">Default</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="xhigh">Extra high</option>
+          <span>{l("推理级别", "reasoning level")}</span>
+          <select aria-label={l("推理级别", "reasoning level")} value={reasoning} onChange={event => setReasoning(event.target.value)}>
+            <option value="">{l("使用默认值", "Use default value")}</option>
+            <option value="default">{l("默认", "Default")}</option>
+            <option value="low">{l("低", "Low")}</option>
+            <option value="medium">{l("中", "Medium")}</option>
+            <option value="high">{l("高", "High")}</option>
+            <option value="xhigh">{l("超高", "Extra high")}</option>
           </select>
         </label>
         <label>
           <span>Sandbox</span>
           <select aria-label="Sandbox" value={sandbox} onChange={event => setSandbox(event.target.value)}>
-            <option value="">Use default</option>
-            <option value="read-only">Read only</option>
-            <option value="workspace-write">Workspace write access</option>
-            <option value="danger-full-access">Full access</option>
+            <option value="">{l("使用默认值", "Use default value")}</option>
+            <option value="read-only">{l("只读", "Read only")}</option>
+            <option value="workspace-write">{l("工作区可写", "Workspace write access")}</option>
+            <option value="danger-full-access">{l("完全访问", "Full access")}</option>
           </select>
         </label>
         <label className="settings-form-wide">
-          <span>Advanced configuration JSON</span>
+          <span>{l("高级配置 JSON", "Advanced configuration JSON")}</span>
           <textarea
-            aria-label="Advanced configuration JSON"
+            aria-label={l("高级配置 JSON", "Advanced configuration JSON")}
             rows={7}
             spellCheck={false}
             value={advanced}
             onChange={event => setAdvanced(event.target.value)}
           />
-          <small>Only strings, finite numbers, booleans, and arrays of one type are supported.</small>
+          <small>{l("仅支持字符串、有限数字、布尔值和同类型数组。", "Only strings, finite numbers, Boolean values, and arrays of the same type are supported.")}</small>
         </label>
       </div>
       <footer>
-        <button className="settings-secondary-button" type="button" onClick={props.onCancel}>Cancel</button>
+        <button className="settings-secondary-button" type="button" onClick={props.onCancel}>{l("取消", "Cancel")}</button>
         <button className="settings-primary-button" type="submit" disabled={props.saving}>
           {props.saving ? <LoaderCircle size={16} className="settings-spin" /> : <Save size={16} />}
-          Save Profile
+          {l('保存 Profile', 'Save Profile')}
         </button>
       </footer>
     </form>
@@ -414,13 +413,13 @@ function parseAdvancedConfig(value: string):
   try {
     parsed = JSON.parse(value || '{}');
   } catch {
-    return { ok: false, message: 'Advanced configuration must be valid JSON' };
+    return { ok: false, message: '高级配置必须是有效 JSON' };
   }
-  if (!isPlainObject(parsed)) return { ok: false, message: 'Advanced configuration must be a JSON object' };
+  if (!isPlainObject(parsed)) return { ok: false, message: '高级配置必须是 JSON 对象' };
   for (const [key, entry] of Object.entries(parsed)) {
-    if (knownKeys.has(key)) return { ok: false, message: `Configure ${key} using the dedicated field above` };
-    if (isSensitiveKey(key)) return { ok: false, message: `${key} is sensitive and cannot be edited in the Web interface` };
-    if (!isProfileValue(entry)) return { ok: false, message: `${key} is not a supported Profile configuration value` };
+    if (knownKeys.has(key)) return { ok: false, message: `${key} 请使用上方专用字段配置` };
+    if (isSensitiveKey(key)) return { ok: false, message: `${key} 属于敏感配置，不能在 Web 页面中编辑` };
+    if (!isProfileValue(entry)) return { ok: false, message: `${key} 不是支持的 Profile 配置值` };
   }
   return { ok: true, config: parsed as CodexProfileConfig };
 }
@@ -453,11 +452,11 @@ function readString(value: unknown): string {
 }
 
 function profileSummary(profile: CodexProfileResponse): string {
-  const model = readString(profile.config.model) || 'Default model';
-  const reasoning = readString(profile.config.model_reasoning_effort) || 'Default reasoning';
-  const sandbox = readString(profile.config.sandbox_mode) || 'Default sandbox';
+  const model = readString(profile.config.model) || '默认模型';
+  const reasoning = readString(profile.config.model_reasoning_effort) || '默认推理';
+  const sandbox = readString(profile.config.sandbox_mode) || '默认 Sandbox';
   const advancedCount = Object.keys(profile.config).filter(key => !knownKeys.has(key)).length;
-  return [model, reasoning, sandbox, advancedCount > 0 ? `${advancedCount} advanced settings` : '']
+  return [model, reasoning, sandbox, advancedCount > 0 ? `${advancedCount} 项高级配置` : '']
     .filter(Boolean)
     .join(' · ');
 }
