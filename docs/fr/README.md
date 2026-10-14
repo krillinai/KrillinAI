@@ -107,8 +107,6 @@ Créez directement à partir d’un modèle, sans rédiger chaque prompt ni conf
 
 La collection réunit des modèles originaux d’OpenCreator et de créateurs indépendants. Pour les modèles tiers, la page de détail mentionne l’auteur et renvoie à la source d’origine.
 
-![Galerie des modèles de création pour la vidéo et les images](../images/product/creation-templates-gallery-en.png)
-
 Ouvrez un modèle pour voir un exemple de résultat et consulter son prompt, ses paramètres, ses tags, son auteur et sa source d’origine. Choisissez **Utiliser ce modèle** pour démarrer votre création, puis adaptez les éléments nécessaires.
 
 ![Détails d’un modèle de création d’image avec exemple de résultat, paramètres et prompt](../images/product/creation-templates-detail-apex-summit-en.png)

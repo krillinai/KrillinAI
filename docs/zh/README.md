@@ -109,8 +109,6 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 
 创作模板库汇集 OpenCreator 原创及第三方创作者的模板。涉及第三方作品时，模板详情会注明作者并提供原始来源链接，方便了解创意出处。
 
-![按视频创作和图像设计等分类展示的精选创作模板](../images/product/creation-templates-gallery-en.png)
-
 打开模板可以预览案例效果，查看提示词、模板设置、标签、作者与原始来源。点击 **使用这个模板** 即可基于模板直接创作，并按需调整输入内容。
 
 ![图像创作模板详情，包括案例效果、模板设置和提示词](../images/product/creation-templates-detail-apex-summit-en.png)

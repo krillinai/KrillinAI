@@ -107,8 +107,6 @@ Empieza a crear a partir de una plantilla, sin tener que preparar cada prompt y 
 
 La colección reúne plantillas originales de OpenCreator y de creadores independientes. Las plantillas de terceros indican el autor y enlazan a la fuente original en su página de detalle.
 
-![Galería de plantillas de creación destacadas para vídeo e imágenes](../images/product/creation-templates-gallery-en.png)
-
 Abre una plantilla para ver un resultado de ejemplo y consultar su prompt, ajustes, etiquetas, autor y fuente original. Selecciona **Usar esta plantilla** para empezar a crear con ella y adapta las entradas a tu proyecto.
 
 ![Detalle de una plantilla de imagen con resultado de ejemplo, ajustes y prompt](../images/product/creation-templates-detail-apex-summit-en.png)

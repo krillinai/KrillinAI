@@ -107,8 +107,6 @@ Dashboard에서 동영상을 번역하거나 다운로드하고, 썸네일 또�
 
 제작 템플릿에는 OpenCreator의 오리지널 템플릿과 외부 크리에이터의 템플릿이 함께 제공됩니다. 외부 템플릿의 상세 화면에는 제작자와 원본 출처 링크가 표시됩니다.
 
-![동영상 제작과 이미지 디자인 등의 추천 제작 템플릿 목록](../images/product/creation-templates-gallery-en.png)
-
 템플릿을 열면 예시 결과와 프롬프트, 설정, 태그, 제작자 및 원본 출처를 확인할 수 있습니다. **이 템플릿 사용**을 선택해 제작을 시작하고 필요한 입력을 조정하세요.
 
 ![예시 결과, 설정, 프롬프트가 있는 이미지 제작 템플릿 상세 화면](../images/product/creation-templates-detail-apex-summit-en.png)

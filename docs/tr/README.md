@@ -89,8 +89,6 @@ Her istemi ve ayarı sıfırdan oluşturmak yerine bir şablonla üretime başla
 
 Koleksiyon, OpenCreator ve bağımsız üreticiler tarafından hazırlanan şablonları bir araya getirir. Üçüncü taraf şablonlar, ayrıntı sayfasında üreticilerini belirtir ve özgün kaynağa bağlantı verir.
 
-![Video ve görsel kategorilerinde üretim şablonları](../images/product/creation-templates-gallery-en.png)
-
 Bir şablonu açarak örnek sonucu, istemi, ayarları, etiketleri, yazarı ve özgün kaynağı inceleyin. Kendi çalışmanızı başlatmak için **Use this template** seçeneğini kullanın, ardından girdileri çalışmanıza göre ayarlayın.
 
 ![Örnek sonuç, ayarlar ve istem içeren görsel üretim şablonu ayrıntıları](../images/product/creation-templates-detail-apex-summit-en.png)

@@ -109,8 +109,6 @@ Start creating from a template instead of building every prompt and setting from
 
 The collection brings together templates created by OpenCreator and by independent creators. Third-party templates credit their creators and link to the original source on the template detail page.
 
-![Featured creation templates across video and image categories](./docs/images/product/creation-templates-gallery-en.png)
-
 Open a template to preview its example result and inspect its prompt, settings, tags, author, and original source. Select **Use this template** to start creating with it, then adjust the inputs for your own work.
 
 ![Image creation template detail with example result, settings, and prompt](./docs/images/product/creation-templates-detail-apex-summit-en.png)

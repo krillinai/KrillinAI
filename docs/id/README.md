@@ -107,8 +107,6 @@ Mulai berkarya dari templat tanpa harus menyusun prompt dan pengaturan dari awal
 
 Koleksi ini memadukan templat buatan OpenCreator dan kreator independen. Untuk templat dari pihak ketiga, halaman detail mencantumkan pembuat dan tautan ke sumber aslinya.
 
-![Galeri templat kreasi unggulan untuk kategori video dan gambar](../images/product/creation-templates-gallery-en.png)
-
 Buka templat untuk melihat contoh hasil, prompt, pengaturan, tag, pembuat, dan sumber aslinya. Pilih **Gunakan templat ini** untuk langsung memulai kreasi, lalu sesuaikan input sesuai kebutuhan.
 
 ![Detail templat kreasi gambar dengan contoh hasil, pengaturan, dan prompt](../images/product/creation-templates-detail-apex-summit-en.png)

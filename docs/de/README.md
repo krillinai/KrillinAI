@@ -107,8 +107,6 @@ Starte direkt mit einer Vorlage, statt Prompts und Einstellungen von Grund auf a
 
 Die Sammlung vereint Vorlagen von OpenCreator und unabhängigen Kreativen. Bei Vorlagen Dritter nennt die Detailseite die Urheber und verlinkt auf die Originalquelle.
 
-![Galerie vorgestellter Kreativvorlagen für Videos und Bilder](../images/product/creation-templates-gallery-en.png)
-
 Öffne eine Vorlage, um ein Beispielergebnis sowie Prompt, Einstellungen, Tags, Autor und Originalquelle zu sehen. Wähle **Diese Vorlage verwenden**, um mit der Vorlage loszulegen, und passe die Eingaben nach Bedarf an.
 
 ![Details einer Bildvorlage mit Beispielergebnis, Einstellungen und Prompt](../images/product/creation-templates-detail-apex-summit-en.png)
