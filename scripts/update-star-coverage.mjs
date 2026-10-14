@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-const readmePaths = ['README.md', ...['zh', 'ja', 'ko', 'id', 'es', 'fr', 'de', 'pt', 'ru', 'ar', 'th']
+const readmePaths = ['README.md', ...['zh', 'ja', 'ko', 'id', 'es', 'fr', 'de', 'pt', 'ru', 'ar', 'th', 'tr', 'hi', 'bn', 'ur', 'vi', 'fil']
   .map(locale => `docs/${locale}/README.md`)];
 
 const query = `

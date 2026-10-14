@@ -51,7 +51,7 @@ test('rejects incomplete GitHub pagination', async () => {
 
 test('updates the coverage count in every README without touching other text', () => {
   const count = JSON.parse(readFileSync('docs/star-coverage.json', 'utf8')).codes.length;
-  const files = ['README.md', ...['zh', 'ja', 'ko', 'id', 'es', 'fr', 'de', 'pt', 'ru', 'ar', 'th']
+  const files = ['README.md', ...['zh', 'ja', 'ko', 'id', 'es', 'fr', 'de', 'pt', 'ru', 'ar', 'th', 'tr', 'hi', 'bn', 'ur', 'vi', 'fil']
     .map(locale => `docs/${locale}/README.md`)];
   for (const file of files) {
     const current = readFileSync(file, 'utf8');
