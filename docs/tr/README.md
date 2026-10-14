@@ -89,11 +89,9 @@ Her istemi ve ayarı sıfırdan oluşturmak yerine bir şablonla üretime başla
 
 Koleksiyon, OpenCreator ve bağımsız üreticiler tarafından hazırlanan şablonları bir araya getirir. Üçüncü taraf şablonlar, ayrıntı sayfasında üreticilerini belirtir ve özgün kaynağa bağlantı verir.
 
-![Video ve görsel kategorilerinde üretim şablonları](../images/product/creation-templates-gallery-en.png)
-
 Bir şablonu açarak örnek sonucu, istemi, ayarları, etiketleri, yazarı ve özgün kaynağı inceleyin. Kendi çalışmanızı başlatmak için **Use this template** seçeneğini kullanın, ardından girdileri çalışmanıza göre ayarlayın.
 
-![Örnek sonuç, ayarlar ve istem içeren görsel üretim şablonu ayrıntıları](../images/product/creation-templates-detail-en.png)
+![Örnek sonuç, ayarlar ve istem içeren görsel üretim şablonu ayrıntıları](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 
@@ -236,15 +234,9 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > Bu video örnekleri ve altyazı hizalama görseli, OpenCreator hâlâ KrillinAI adını kullanırken üretildi.
 
-### Video Üretimi
-
-Seedance ile metin istemi veya referans görselden video üretin; model, en-boy oranı, çözünürlük ve süreyi ayarlayın, ardından her sürümü önizleyin, yeniden üretin veya indirin.
-
-![Seedance ile OpenCreator video üretimi](../images/examples/video-generation-seedance-en.png)
-
 ### Video İndirme
 
-Herkese açık bir video bağlantısını analiz edin, kullanılabilir formatları karşılaştırın ve video ya da sesi doğrudan projenize indirin.
+Desteklenen 10 platformdaki herkese açık video bağlantılarını analiz edin, kullanılabilir formatları karşılaştırın ve video ya da sesi doğrudan projenize indirin.
 
 Desteklenen video kaynakları:
 
@@ -265,11 +257,13 @@ Desteklenen video kaynakları:
 
 Kullanılabilirlik videoya ve bölgeye göre değişir; bazı kaynaklar platform çerezleri gerektirebilir.
 
-**Xiaohongshu video gönderileri:** Herkese açık `https://www.xiaohongshu.com/explore/<24-character hex note ID>` URL'sini, varsa `xsec_token` ve diğer sorgu parametreleri dahil eksiksiz yapıştırın. Yalnızca görsel içeren gönderilerde video formatı bulunmaz; profil sayfaları ve `xhslink.com` paylaşım bağlantıları henüz desteklenmez. Bir bağlantının tanınması indirilebileceğini garanti etmez: süresi dolmuş token'lar, erişim kısıtlamaları veya platform değişiklikleri indirmeyi engelleyebilir. OpenCreator tarayıcı çerezlerini otomatik içe aktarmaz.
-
-**Pinterest video Pin'leri:** Herkese açık `https://www.pinterest.com/pin/<numeric ID>/` bağlantısını yapıştırın. Yalnızca görsel içeren Pin'lerde indirilebilir video formatı bulunmaz; panolar ve profiller desteklenmez.
-
 ![OpenCreator Video Downloader format seçimi](../images/examples/video-downloader-formats-en.png)
+
+### Video Üretimi
+
+Seedance ile metin istemi veya referans görselden video üretin; model, en-boy oranı, çözünürlük ve süreyi ayarlayın, ardından her sürümü önizleyin, yeniden üretin veya indirin.
+
+![Seedance ile OpenCreator video üretimi](../images/examples/video-generation-seedance-en.png)
 
 ### Çöp Adam Animasyonu
 

@@ -109,11 +109,9 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 
 创作模板库汇集 OpenCreator 原创及第三方创作者的模板。涉及第三方作品时，模板详情会注明作者并提供原始来源链接，方便了解创意出处。
 
-![按视频创作和图像设计等分类展示的精选创作模板](../images/product/creation-templates-gallery-en.png)
-
 打开模板可以预览案例效果，查看提示词、模板设置、标签、作者与原始来源。点击 **使用这个模板** 即可基于模板直接创作，并按需调整输入内容。
 
-![图像创作模板详情，包括案例效果、模板设置和提示词](../images/product/creation-templates-detail-en.png)
+![图像创作模板详情，包括案例效果、模板设置和提示词](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills 技能
 
@@ -256,15 +254,9 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > 这些视频与字幕对齐图片制作于 OpenCreator 仍使用 KrillinAI 名称的阶段。
 
-### 视频生成
-
-使用 Seedance 根据文本提示词或参考图片生成 AI 视频。设置模型、画面比例、分辨率和时长，然后在项目工作区预览、重新生成或下载各个版本。
-
-![OpenCreator Seedance 视频生成](../images/examples/video-generation-seedance-en.png)
-
 ### 视频下载
 
-解析公开视频链接，比较可用格式，并将视频或音频直接下载到项目中。
+支持 10 个视频来源平台，解析公开视频链接，比较可用格式，并将视频或音频直接下载到项目中。
 
 支持的视频来源：
 
@@ -285,11 +277,13 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 实际可用性取决于视频和地区；部分来源可能需要平台 Cookie。
 
-**小红书视频笔记：**粘贴完整的公开 `https://www.xiaohongshu.com/explore/<24 位十六进制笔记 ID>` 链接；若带有 `xsec_token` 等查询参数，请一并保留。纯图片笔记没有可下载的视频格式；个人主页和 `xhslink.com` 分享短链暂不支持。识别链接不代表一定能下载：令牌过期、访问限制或平台变更都可能导致失败。OpenCreator 不会自动读取浏览器 Cookie。
-
-**Pinterest 视频 Pin：**粘贴公开的 `https://www.pinterest.com/pin/<数字 ID>/` 链接。纯图片 Pin 没有可下载的视频格式；画板和个人主页暂不支持。
-
 ![OpenCreator 视频下载格式选择](../images/examples/video-downloader-formats-en.png)
+
+### 视频生成
+
+使用 Seedance 根据文本提示词或参考图片生成 AI 视频。设置模型、画面比例、分辨率和时长，然后在项目工作区预览、重新生成或下载各个版本。
+
+![OpenCreator Seedance 视频生成](../images/examples/video-generation-seedance-en.png)
 
 ### 火柴人动画
 

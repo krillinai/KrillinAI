@@ -107,11 +107,9 @@ Créez directement à partir d’un modèle, sans rédiger chaque prompt ni conf
 
 La collection réunit des modèles originaux d’OpenCreator et de créateurs indépendants. Pour les modèles tiers, la page de détail mentionne l’auteur et renvoie à la source d’origine.
 
-![Galerie des modèles de création pour la vidéo et les images](../images/product/creation-templates-gallery-en.png)
-
 Ouvrez un modèle pour voir un exemple de résultat et consulter son prompt, ses paramètres, ses tags, son auteur et sa source d’origine. Choisissez **Utiliser ce modèle** pour démarrer votre création, puis adaptez les éléments nécessaires.
 
-![Détails d’un modèle de création d’image avec exemple de résultat, paramètres et prompt](../images/product/creation-templates-detail-en.png)
+![Détails d’un modèle de création d’image avec exemple de résultat, paramètres et prompt](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 
@@ -254,15 +252,9 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > Ces exemples vidéo et l'image d'alignement des sous-titres ont été produits lorsqu'OpenCreator utilisait encore le nom KrillinAI.
 
-### Génération vidéo
-
-Générez une vidéo par IA à partir d'un prompt textuel ou d'une image de référence avec Seedance. Configurez le modèle, le format, la résolution et la durée, puis prévisualisez, régénérez ou téléchargez chaque version depuis l'espace de travail du projet.
-
-![Génération vidéo dans OpenCreator avec Seedance](../images/examples/video-generation-seedance-en.png)
-
 ### Téléchargement de vidéos
 
-Analysez un lien vidéo public, comparez les formats disponibles, puis téléchargez la vidéo ou l'audio directement dans le projet.
+Analysez des liens vidéo publics provenant de 10 plateformes prises en charge, comparez les formats disponibles, puis téléchargez la vidéo ou l'audio directement dans le projet.
 
 Sources vidéo prises en charge :
 
@@ -283,11 +275,13 @@ Sources vidéo prises en charge :
 
 La disponibilité dépend de la vidéo et de la région ; certaines sources peuvent nécessiter des cookies de la plateforme. OpenCreator n'importe pas automatiquement les cookies du navigateur.
 
-**Publications vidéo Xiaohongshu :** Collez l'URL publique complète `https://www.xiaohongshu.com/explore/<identifiant hexadécimal de 24 caractères>`, en conservant les paramètres comme `xsec_token`. Les publications contenant uniquement des images n'ont pas de formats vidéo ; les profils et les liens courts `xhslink.com` ne sont pas pris en charge. Un jeton expiré ou des restrictions d'accès peuvent empêcher le téléchargement.
-
-**Épingles vidéo Pinterest :** Collez un lien public `https://www.pinterest.com/pin/<identifiant numérique>/`. Les épingles contenant uniquement des images, les tableaux et les profils ne sont pas pris en charge.
-
 ![Sélection du format dans l'outil de téléchargement vidéo OpenCreator](../images/examples/video-downloader-formats-en.png)
+
+### Génération vidéo
+
+Générez une vidéo par IA à partir d'un prompt textuel ou d'une image de référence avec Seedance. Configurez le modèle, le format, la résolution et la durée, puis prévisualisez, régénérez ou téléchargez chaque version depuis l'espace de travail du projet.
+
+![Génération vidéo dans OpenCreator avec Seedance](../images/examples/video-generation-seedance-en.png)
 
 ### Animation de bonshommes allumettes
 

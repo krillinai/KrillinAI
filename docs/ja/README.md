@@ -107,11 +107,9 @@ Dashboard から、動画翻訳やダウンロード、サムネイル・画像�
 
 制作テンプレートには、OpenCreator のオリジナル作品と外部クリエイターの作品が含まれます。第三者のテンプレートには作者を明記し、詳細ページから元の公開元に移動できます。
 
-![動画制作や画像デザインなどのカテゴリ別制作テンプレート一覧](../images/product/creation-templates-gallery-en.png)
-
 テンプレートを開くと、制作例に加えてプロンプト、設定、タグ、作者、元の公開元を確認できます。**このテンプレートを使用** を選んで制作を始め、必要に応じて入力を調整できます。
 
-![制作例・設定・プロンプトを含む画像制作テンプレートの詳細](../images/product/creation-templates-detail-en.png)
+![制作例・設定・プロンプトを含む画像制作テンプレートの詳細](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 
@@ -254,15 +252,9 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > これらの動画例と字幕位置合わせ画像は、OpenCreator が KrillinAI という名称を使用していた時期に制作されました。
 
-### 動画生成
-
-Seedance を使用して、テキストプロンプトまたは参照画像から AI 動画を生成します。モデル、アスペクト比、解像度、長さを設定し、プロジェクトワークスペースで各バージョンのプレビュー、再生成、ダウンロードを行えます。
-
-![OpenCreator の Seedance 動画生成](../images/examples/video-generation-seedance-en.png)
-
 ### 動画ダウンロード
 
-公開動画のリンクを解析し、利用可能な形式を比較して、動画または音声をプロジェクトへ直接ダウンロードできます。
+対応する10のプラットフォームの公開動画リンクを解析し、利用可能な形式を比較して、動画または音声をプロジェクトへ直接ダウンロードできます。
 
 対応する動画サイト：
 
@@ -283,11 +275,13 @@ Seedance を使用して、テキストプロンプトまたは参照画像か�
 
 利用できるかどうかは動画や地域によって異なり、一部のサイトでは Cookie が必要な場合があります。OpenCreator はブラウザーの Cookie を自動で読み込みません。
 
-**小紅書の動画投稿：**公開されている `https://www.xiaohongshu.com/explore/<24桁の16進数の投稿ID>` の完全な URL を貼り付けてください。`xsec_token` などのクエリパラメーターも残してください。画像のみの投稿には動画形式がなく、プロフィールと `xhslink.com` の短縮リンクには対応していません。トークンの期限切れやアクセス制限などによりダウンロードできない場合があります。
-
-**Pinterest の動画 Pin：**公開されている `https://www.pinterest.com/pin/<数字のID>/` を貼り付けてください。画像のみの Pin、ボード、プロフィールには対応していません。
-
 ![OpenCreator 動画ダウンロードの形式選択](../images/examples/video-downloader-formats-en.png)
+
+### 動画生成
+
+Seedance を使用して、テキストプロンプトまたは参照画像から AI 動画を生成します。モデル、アスペクト比、解像度、長さを設定し、プロジェクトワークスペースで各バージョンのプレビュー、再生成、ダウンロードを行えます。
+
+![OpenCreator の Seedance 動画生成](../images/examples/video-generation-seedance-en.png)
 
 ### スティックフィギュアアニメーション
 

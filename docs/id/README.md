@@ -107,11 +107,9 @@ Mulai berkarya dari templat tanpa harus menyusun prompt dan pengaturan dari awal
 
 Koleksi ini memadukan templat buatan OpenCreator dan kreator independen. Untuk templat dari pihak ketiga, halaman detail mencantumkan pembuat dan tautan ke sumber aslinya.
 
-![Galeri templat kreasi unggulan untuk kategori video dan gambar](../images/product/creation-templates-gallery-en.png)
-
 Buka templat untuk melihat contoh hasil, prompt, pengaturan, tag, pembuat, dan sumber aslinya. Pilih **Gunakan templat ini** untuk langsung memulai kreasi, lalu sesuaikan input sesuai kebutuhan.
 
-![Detail templat kreasi gambar dengan contoh hasil, pengaturan, dan prompt](../images/product/creation-templates-detail-en.png)
+![Detail templat kreasi gambar dengan contoh hasil, pengaturan, dan prompt](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 
@@ -254,15 +252,9 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > Contoh video dan gambar penyelarasan subtitel ini dibuat saat OpenCreator masih menggunakan nama KrillinAI.
 
-### Pembuatan Video
-
-Buat video AI dari prompt teks atau gambar referensi dengan Seedance. Atur model, rasio aspek, resolusi, dan durasi, lalu pratinjau, buat ulang, atau unduh setiap versi dari ruang kerja proyek.
-
-![Pembuatan Video OpenCreator dengan Seedance](../images/examples/video-generation-seedance-en.png)
-
 ### Pengunduh Video
 
-Analisis tautan video publik, bandingkan format yang tersedia, lalu unduh video atau audio langsung ke proyek.
+Analisis tautan video publik dari 10 platform yang didukung, bandingkan format yang tersedia, lalu unduh video atau audio langsung ke proyek.
 
 Sumber video yang didukung:
 
@@ -283,11 +275,13 @@ Sumber video yang didukung:
 
 Ketersediaan bergantung pada video dan wilayah; beberapa sumber mungkin memerlukan cookie platform. OpenCreator tidak mengimpor cookie peramban secara otomatis.
 
-**Catatan video Xiaohongshu:** Tempel URL publik lengkap `https://www.xiaohongshu.com/explore/<ID catatan heksadesimal 24 karakter>` dan pertahankan parameter kueri seperti `xsec_token`. Catatan berisi gambar saja tidak memiliki format video; profil dan tautan singkat `xhslink.com` belum didukung. Token kedaluwarsa atau pembatasan akses dapat menggagalkan unduhan.
-
-**Pin video Pinterest:** Tempel tautan publik `https://www.pinterest.com/pin/<ID numerik>/`. Pin berisi gambar saja, papan, dan profil tidak didukung.
-
 ![Pemilihan format Pengunduh Video OpenCreator](../images/examples/video-downloader-formats-en.png)
+
+### Pembuatan Video
+
+Buat video AI dari prompt teks atau gambar referensi dengan Seedance. Atur model, rasio aspek, resolusi, dan durasi, lalu pratinjau, buat ulang, atau unduh setiap versi dari ruang kerja proyek.
+
+![Pembuatan Video OpenCreator dengan Seedance](../images/examples/video-generation-seedance-en.png)
 
 ### Animasi Figur Stik
 

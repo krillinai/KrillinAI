@@ -107,11 +107,9 @@ Comece a criar a partir de um modelo, sem precisar preparar cada prompt e config
 
 A coleção reúne modelos originais do OpenCreator e de criadores independentes. Para modelos de terceiros, a página de detalhes identifica o autor e inclui um link para a fonte original.
 
-![Galeria de modelos de criação em destaque para vídeos e imagens](../images/product/creation-templates-gallery-en.png)
-
 Abra um modelo para visualizar um resultado de exemplo e consultar prompt, configurações, tags, autor e fonte original. Selecione **Usar este modelo** para começar a criar e ajuste as entradas para o seu projeto.
 
-![Detalhes de um modelo de imagem com resultado de exemplo, configurações e prompt](../images/product/creation-templates-detail-en.png)
+![Detalhes de um modelo de imagem com resultado de exemplo, configurações e prompt](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 
@@ -254,15 +252,9 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > Estes exemplos de vídeo e a imagem de alinhamento de legendas foram produzidos quando o OpenCreator ainda usava o nome KrillinAI.
 
-### Geração de vídeos
-
-Gere um vídeo com IA a partir de um prompt de texto ou de uma imagem de referência com o Seedance. Configure o modelo, a proporção, a resolução e a duração; depois, visualize, gere novamente ou baixe cada versão no espaço de trabalho do projeto.
-
-![Geração de vídeos no OpenCreator com Seedance](../images/examples/video-generation-seedance-en.png)
-
 ### Download de vídeos
 
-Analise um link de vídeo público, compare os formatos disponíveis e baixe o vídeo ou o áudio diretamente para o projeto.
+Analise links de vídeo públicos de 10 plataformas compatíveis, compare os formatos disponíveis e baixe o vídeo ou o áudio diretamente para o projeto.
 
 Fontes de vídeo compatíveis:
 
@@ -283,11 +275,13 @@ Fontes de vídeo compatíveis:
 
 A disponibilidade depende do vídeo e da região; algumas fontes podem exigir cookies da plataforma. O OpenCreator não importa automaticamente os cookies do navegador.
 
-**Publicações de vídeo do Xiaohongshu:** Cole a URL pública completa `https://www.xiaohongshu.com/explore/<ID hexadecimal de 24 caracteres>`, mantendo parâmetros como `xsec_token`. Publicações apenas com imagens não têm formatos de vídeo; perfis e links curtos de `xhslink.com` não são compatíveis. Tokens expirados ou restrições de acesso podem impedir o download.
-
-**Pins de vídeo do Pinterest:** Cole um link público `https://www.pinterest.com/pin/<ID numérico>/`. Pins apenas com imagens, painéis e perfis não são compatíveis.
-
 ![Seleção de formatos do downloader de vídeos do OpenCreator](../images/examples/video-downloader-formats-en.png)
+
+### Geração de vídeos
+
+Gere um vídeo com IA a partir de um prompt de texto ou de uma imagem de referência com o Seedance. Configure o modelo, a proporção, a resolução e a duração; depois, visualize, gere novamente ou baixe cada versão no espaço de trabalho do projeto.
+
+![Geração de vídeos no OpenCreator com Seedance](../images/examples/video-generation-seedance-en.png)
 
 ### Animação de bonecos palito
 

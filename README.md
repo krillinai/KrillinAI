@@ -109,11 +109,9 @@ Start creating from a template instead of building every prompt and setting from
 
 The collection brings together templates created by OpenCreator and by independent creators. Third-party templates credit their creators and link to the original source on the template detail page.
 
-![Featured creation templates across video and image categories](./docs/images/product/creation-templates-gallery-en.png)
-
 Open a template to preview its example result and inspect its prompt, settings, tags, author, and original source. Select **Use this template** to start creating with it, then adjust the inputs for your own work.
 
-![Image creation template detail with example result, settings, and prompt](./docs/images/product/creation-templates-detail-en.png)
+![Image creation template detail with example result, settings, and prompt](./docs/images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 
@@ -256,15 +254,9 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > These video examples and the subtitle alignment image were produced while OpenCreator still used the KrillinAI name.
 
-### Video Generation
-
-Generate an AI video from a text prompt or reference image with Seedance. Configure the model, aspect ratio, resolution, and duration, then preview, regenerate, or download each version from the project workspace.
-
-![OpenCreator Video Generation with Seedance](./docs/images/examples/video-generation-seedance-en.png)
-
 ### Video Downloader
 
-Analyze a public video link, compare the available formats, and download video or audio directly to the project.
+Analyze public video links from 10 supported platforms, compare available formats, and download video or audio directly to your project.
 
 Supported video sources:
 
@@ -285,11 +277,13 @@ Supported video sources:
 
 Availability varies by video and region; some sources may require platform cookies.
 
-**Xiaohongshu video notes:** Paste the complete public `https://www.xiaohongshu.com/explore/<24-character hex note ID>` URL, including `xsec_token` and other query parameters when present. Image-only notes have no video formats; profile pages and `xhslink.com` share links are not supported yet. Recognizing a link does not guarantee download: expired tokens, access restrictions, or platform changes may prevent it. OpenCreator does not automatically import browser cookies.
-
-**Pinterest video Pins:** Paste a public `https://www.pinterest.com/pin/<numeric ID>/` link. Image-only Pins have no downloadable video formats; boards and profiles are not supported.
-
 ![OpenCreator Video Downloader format selection](./docs/images/examples/video-downloader-formats-en.png)
+
+### Video Generation
+
+Generate an AI video from a text prompt or reference image with Seedance. Configure the model, aspect ratio, resolution, and duration, then preview, regenerate, or download each version from the project workspace.
+
+![OpenCreator Video Generation with Seedance](./docs/images/examples/video-generation-seedance-en.png)
 
 ### Stick Figure Animation
 

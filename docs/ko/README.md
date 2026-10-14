@@ -107,11 +107,9 @@ Dashboard에서 동영상을 번역하거나 다운로드하고, 썸네일 또�
 
 제작 템플릿에는 OpenCreator의 오리지널 템플릿과 외부 크리에이터의 템플릿이 함께 제공됩니다. 외부 템플릿의 상세 화면에는 제작자와 원본 출처 링크가 표시됩니다.
 
-![동영상 제작과 이미지 디자인 등의 추천 제작 템플릿 목록](../images/product/creation-templates-gallery-en.png)
-
 템플릿을 열면 예시 결과와 프롬프트, 설정, 태그, 제작자 및 원본 출처를 확인할 수 있습니다. **이 템플릿 사용**을 선택해 제작을 시작하고 필요한 입력을 조정하세요.
 
-![예시 결과, 설정, 프롬프트가 있는 이미지 제작 템플릿 상세 화면](../images/product/creation-templates-detail-en.png)
+![예시 결과, 설정, 프롬프트가 있는 이미지 제작 템플릿 상세 화면](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 
@@ -254,15 +252,9 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > 이 동영상 사례와 자막 정렬 이미지는 OpenCreator가 KrillinAI라는 이름을 사용하던 시기에 제작되었습니다.
 
-### 동영상 생성
-
-Seedance를 사용해 텍스트 프롬프트 또는 참조 이미지에서 AI 동영상을 생성합니다. 모델, 화면 비율, 해상도, 길이를 설정한 뒤 프로젝트 작업 공간에서 각 버전을 미리 보거나 다시 생성하거나 다운로드할 수 있습니다.
-
-![OpenCreator Seedance 동영상 생성](../images/examples/video-generation-seedance-en.png)
-
 ### 비디오 다운로드
 
-공개 동영상 링크를 분석하고 사용 가능한 형식을 비교한 뒤 비디오 또는 오디오를 프로젝트로 직접 다운로드합니다.
+지원하는 10개 플랫폼의 공개 동영상 링크를 분석하고 사용 가능한 형식을 비교한 뒤 비디오 또는 오디오를 프로젝트로 직접 다운로드합니다.
 
 지원하는 동영상 플랫폼:
 
@@ -283,11 +275,13 @@ Seedance를 사용해 텍스트 프롬프트 또는 참조 이미지에서 AI �
 
 이용 가능 여부는 동영상과 지역에 따라 다르며 일부 플랫폼에는 쿠키가 필요할 수 있습니다. OpenCreator는 브라우저 쿠키를 자동으로 가져오지 않습니다.
 
-**Xiaohongshu 동영상 게시물:** 공개 `https://www.xiaohongshu.com/explore/<24자리 16진수 게시물 ID>` 전체 URL을 붙여넣고 `xsec_token` 등의 쿼리 매개변수를 유지하세요. 이미지만 있는 게시물에는 동영상 형식이 없으며 프로필과 `xhslink.com` 단축 링크는 지원하지 않습니다. 만료된 토큰이나 접근 제한으로 다운로드가 실패할 수 있습니다.
-
-**Pinterest 동영상 Pin:** 공개 `https://www.pinterest.com/pin/<숫자 ID>/` 링크를 붙여넣으세요. 이미지만 있는 Pin, 보드 및 프로필은 지원하지 않습니다.
-
 ![OpenCreator 비디오 다운로더 형식 선택](../images/examples/video-downloader-formats-en.png)
+
+### 동영상 생성
+
+Seedance를 사용해 텍스트 프롬프트 또는 참조 이미지에서 AI 동영상을 생성합니다. 모델, 화면 비율, 해상도, 길이를 설정한 뒤 프로젝트 작업 공간에서 각 버전을 미리 보거나 다시 생성하거나 다운로드할 수 있습니다.
+
+![OpenCreator Seedance 동영상 생성](../images/examples/video-generation-seedance-en.png)
 
 ### 스틱 피겨 애니메이션
 
