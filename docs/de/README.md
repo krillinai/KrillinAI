@@ -111,7 +111,7 @@ Die Sammlung vereint Vorlagen von OpenCreator und unabhängigen Kreativen. Bei V
 
 Öffne eine Vorlage, um ein Beispielergebnis sowie Prompt, Einstellungen, Tags, Autor und Originalquelle zu sehen. Wähle **Diese Vorlage verwenden**, um mit der Vorlage loszulegen, und passe die Eingaben nach Bedarf an.
 
-![Details einer Bildvorlage mit Beispielergebnis, Einstellungen und Prompt](../images/product/creation-templates-detail-en.png)
+![Details einer Bildvorlage mit Beispielergebnis, Einstellungen und Prompt](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 

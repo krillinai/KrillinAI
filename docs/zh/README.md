@@ -113,7 +113,7 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 
 打开模板可以预览案例效果，查看提示词、模板设置、标签、作者与原始来源。点击 **使用这个模板** 即可基于模板直接创作，并按需调整输入内容。
 
-![图像创作模板详情，包括案例效果、模板设置和提示词](../images/product/creation-templates-detail-en.png)
+![图像创作模板详情，包括案例效果、模板设置和提示词](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills 技能
 

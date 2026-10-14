@@ -111,7 +111,7 @@ A coleção reúne modelos originais do OpenCreator e de criadores independentes
 
 Abra um modelo para visualizar um resultado de exemplo e consultar prompt, configurações, tags, autor e fonte original. Selecione **Usar este modelo** para começar a criar e ajuste as entradas para o seu projeto.
 
-![Detalhes de um modelo de imagem com resultado de exemplo, configurações e prompt](../images/product/creation-templates-detail-en.png)
+![Detalhes de um modelo de imagem com resultado de exemplo, configurações e prompt](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 

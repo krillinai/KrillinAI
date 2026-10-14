@@ -93,7 +93,7 @@ Koleksiyon, OpenCreator ve bağımsız üreticiler tarafından hazırlanan şabl
 
 Bir şablonu açarak örnek sonucu, istemi, ayarları, etiketleri, yazarı ve özgün kaynağı inceleyin. Kendi çalışmanızı başlatmak için **Use this template** seçeneğini kullanın, ardından girdileri çalışmanıza göre ayarlayın.
 
-![Örnek sonuç, ayarlar ve istem içeren görsel üretim şablonu ayrıntıları](../images/product/creation-templates-detail-en.png)
+![Örnek sonuç, ayarlar ve istem içeren görsel üretim şablonu ayrıntıları](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 

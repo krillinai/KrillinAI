@@ -113,7 +113,7 @@ The collection brings together templates created by OpenCreator and by independe
 
 Open a template to preview its example result and inspect its prompt, settings, tags, author, and original source. Select **Use this template** to start creating with it, then adjust the inputs for your own work.
 
-![Image creation template detail with example result, settings, and prompt](./docs/images/product/creation-templates-detail-en.png)
+![Image creation template detail with example result, settings, and prompt](./docs/images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 

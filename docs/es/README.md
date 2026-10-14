@@ -111,7 +111,7 @@ La colección reúne plantillas originales de OpenCreator y de creadores indepen
 
 Abre una plantilla para ver un resultado de ejemplo y consultar su prompt, ajustes, etiquetas, autor y fuente original. Selecciona **Usar esta plantilla** para empezar a crear con ella y adapta las entradas a tu proyecto.
 
-![Detalle de una plantilla de imagen con resultado de ejemplo, ajustes y prompt](../images/product/creation-templates-detail-en.png)
+![Detalle de una plantilla de imagen con resultado de ejemplo, ajustes y prompt](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 

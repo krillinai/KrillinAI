@@ -111,7 +111,7 @@ Dashboard から、動画翻訳やダウンロード、サムネイル・画像�
 
 テンプレートを開くと、制作例に加えてプロンプト、設定、タグ、作者、元の公開元を確認できます。**このテンプレートを使用** を選んで制作を始め、必要に応じて入力を調整できます。
 
-![制作例・設定・プロンプトを含む画像制作テンプレートの詳細](../images/product/creation-templates-detail-en.png)
+![制作例・設定・プロンプトを含む画像制作テンプレートの詳細](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 

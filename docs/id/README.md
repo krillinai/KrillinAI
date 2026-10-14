@@ -111,7 +111,7 @@ Koleksi ini memadukan templat buatan OpenCreator dan kreator independen. Untuk t
 
 Buka templat untuk melihat contoh hasil, prompt, pengaturan, tag, pembuat, dan sumber aslinya. Pilih **Gunakan templat ini** untuk langsung memulai kreasi, lalu sesuaikan input sesuai kebutuhan.
 
-![Detail templat kreasi gambar dengan contoh hasil, pengaturan, dan prompt](../images/product/creation-templates-detail-en.png)
+![Detail templat kreasi gambar dengan contoh hasil, pengaturan, dan prompt](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 
