@@ -51,7 +51,7 @@ describe('video translation workflow', () => {
       videoMetadataService: { get: async () => { throw new Error('network unavailable'); } } });
     try {
       await expect(workflow.validateStage(fixture.service.getJob(fixture.jobId)!, 'subtitle'))
-        .rejects.toMatchObject({ code: 'creator_source_metadata_unavailable', message: expect.stringContaining('未启动下载或翻译') });
+        .rejects.toMatchObject({ code: 'creator_source_metadata_unavailable', message: expect.stringContaining('Download and translation have not started') });
       expect(fixture.service.getJob(fixture.jobId)!.stages).toHaveLength(0);
     } finally { fixture.db.close(); }
   });

@@ -25,12 +25,12 @@ describe('ProfileSettingsView', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: '新建 Profile' }));
-    await user.type(screen.getByLabelText('Profile 名称'), 'review');
-    await user.type(screen.getByLabelText('模型'), 'gpt-5.3-codex');
-    await user.selectOptions(screen.getByLabelText('推理级别'), 'high');
+    await user.click(screen.getByRole('button', { name: 'New Profile' }));
+    await user.type(screen.getByLabelText('Profile name'), 'review');
+    await user.type(screen.getByLabelText('Model'), 'gpt-5.3-codex');
+    await user.selectOptions(screen.getByLabelText('Reasoning effort'), 'high');
     await user.selectOptions(screen.getByLabelText('Sandbox'), 'workspace-write');
-    await user.click(screen.getByRole('button', { name: '保存 Profile' }));
+    await user.click(screen.getByRole('button', { name: 'Save Profile' }));
 
     expect(createProfile).toHaveBeenCalledWith({
       name: 'review',
@@ -64,10 +64,10 @@ describe('ProfileSettingsView', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: '编辑 review' }));
+    await user.click(screen.getByRole('button', { name: 'Edit review' }));
     expect(await screen.findByDisplayValue('gpt-5.3-codex')).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('推理级别'), 'xhigh');
-    await user.click(screen.getByRole('button', { name: '保存 Profile' }));
+    await user.selectOptions(screen.getByLabelText('Reasoning effort'), 'xhigh');
+    await user.click(screen.getByRole('button', { name: 'Save Profile' }));
 
     expect(getProfile).toHaveBeenCalledWith('review');
     expect(updateProfile).toHaveBeenCalledWith('review', {
@@ -102,10 +102,10 @@ describe('ProfileSettingsView', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: '删除 review' }));
+    await user.click(screen.getByRole('button', { name: 'Delete review' }));
 
     const issue = await screen.findByRole('alert');
-    expect(issue).toHaveTextContent('无法删除 Profile，请检查占用情况后重试。');
+    expect(issue).toHaveTextContent('Could not delete the Profile. Check whether it is in use and try again.');
     expect(issue).not.toHaveTextContent(/诊断编号：OC-/);
     expect(issue).not.toHaveTextContent('Profile is still referenced');
     expect(screen.getByRole('heading', { name: 'review' })).toBeInTheDocument();
@@ -119,8 +119,8 @@ describe('ProfileSettingsView', () => {
         data={profileData({ writable: false })}
       />
     );
-    expect(screen.getByRole('button', { name: '新建 Profile' })).toBeDisabled();
-    expect(screen.getByText('当前 CODEX_HOME 为只读，无法修改 Profile')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New Profile' })).toBeDisabled();
+    expect(screen.getByText('CODEX_HOME is read-only. Profiles cannot be changed.')).toBeInTheDocument();
 
     rerender(
       <ProfileSettingsView
@@ -129,8 +129,8 @@ describe('ProfileSettingsView', () => {
         data={profileData({ baseConfigValid: false, diagnostics: ['config.toml 解析失败'] })}
       />
     );
-    expect(screen.getByRole('button', { name: '新建 Profile' })).toBeDisabled();
-    expect(screen.getByText('基础 config.toml 无效，请先修复配置')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New Profile' })).toBeDisabled();
+    expect(screen.getByText('The base config.toml is invalid. Fix it first.')).toBeInTheDocument();
   });
 });
 

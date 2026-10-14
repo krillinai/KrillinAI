@@ -382,7 +382,7 @@ describe('OpenCreatorSettingsView', () => {
 
     expect(await screen.findByRole('textbox', { name: '默认项目位置' }))
       .toHaveValue('/Users/demo/Documents/OpenCreator');
-    await user.click(screen.getByRole('button', { name: '选择完成产物位置' }));
+    await user.click(screen.getByRole('button', { name: 'Select 完成产物位置' }));
     expect(onSelectStorageDirectory).toHaveBeenCalledWith('output-root');
     expect(updateStorageSettings).toHaveBeenCalledWith({
       outputRoot: '/Users/demo/Exports'
@@ -420,13 +420,13 @@ describe('OpenCreatorSettingsView', () => {
     const output = await screen.findByRole('textbox', { name: '完成产物位置' });
     await user.clear(output);
     await user.type(output, '/Users/demo/Custom Exports');
-    await user.click(screen.getByRole('button', { name: '保存完成产物位置' }));
+    await user.click(screen.getByRole('button', { name: 'Save 完成产物位置' }));
 
     expect(updateStorageSettings).toHaveBeenCalledWith({
       outputRoot: '/Users/demo/Custom Exports'
     });
     expect(output).toHaveValue('/Users/demo/Custom Exports');
-    expect(screen.queryByRole('button', { name: '选择完成产物位置' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Select 完成产物位置' })).not.toBeInTheDocument();
   });
 
   it('shows the anonymous telemetry scope and allows Desktop users to disable it', () => {
@@ -539,7 +539,7 @@ describe('OpenCreatorSettingsView', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Profiles' }));
     expect(screen.getByRole('heading', { name: 'Profiles' })).toBeInTheDocument();
-    expect(screen.getByText('本地服务连接后可以管理 Profile。')).toBeInTheDocument();
+    expect(screen.getByText('Connect the local Runtime to manage Profiles.')).toBeInTheDocument();
   });
 
   it('opens Cleanup and Diagnostics pages from settings navigation', () => {
@@ -561,10 +561,10 @@ describe('OpenCreatorSettingsView', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: '清理' }));
-    expect(screen.getByRole('heading', { name: '运行数据清理' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Runtime data cleanup' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '诊断' }));
-    expect(screen.getByRole('heading', { name: '诊断' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Diagnostics' })).toBeInTheDocument();
     expect(screen.getByText(runtimeStatus.codexPath)).toBeInTheDocument();
   });
 

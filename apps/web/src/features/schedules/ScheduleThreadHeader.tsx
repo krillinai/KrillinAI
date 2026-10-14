@@ -95,7 +95,7 @@ export function ScheduleThreadHeader(props: {
       await props.onRunNow(props.schedule);
       pageIssues.resolveOperation('schedule-thread.run-now');
     } catch (error) {
-      pageIssues.captureOperationFailure('schedule-thread.run-now', error, '无法立即运行任务，请重试。', { retryable: true });
+      pageIssues.captureOperationFailure('schedule-thread.run-now', error, 'Could not run the task now. Try again.', { retryable: true });
     } finally {
       setOperation(undefined);
     }
@@ -111,7 +111,7 @@ export function ScheduleThreadHeader(props: {
       props.onScheduleChanged(updated);
       pageIssues.resolveOperation('schedule-thread.toggle');
     } catch (error) {
-      pageIssues.captureOperationFailure('schedule-thread.toggle', error, '无法更新任务状态，请重试。', { retryable: true });
+      pageIssues.captureOperationFailure('schedule-thread.toggle', error, 'Could not update task status. Try again.', { retryable: true });
     } finally {
       setOperation(undefined);
     }
@@ -128,7 +128,7 @@ export function ScheduleThreadHeader(props: {
       setEditorValues(scheduleResponseToEditorValues(schedule));
       pageIssues.resolveOperation('schedule-thread.load-editor');
     } catch (error) {
-      pageIssues.captureOperationFailure('schedule-thread.load-editor', error, '无法加载计划详情，请重试。', { retryable: true });
+      pageIssues.captureOperationFailure('schedule-thread.load-editor', error, 'Could not load schedule details. Try again.', { retryable: true });
     } finally {
       setOperation(undefined);
     }
@@ -152,7 +152,7 @@ export function ScheduleThreadHeader(props: {
       pageIssues.resolveOperation('schedule-thread.save-editor');
       closeEditor();
     } catch (error) {
-      pageIssues.captureOperationFailure('schedule-thread.save-editor', error, '无法保存计划任务，请重试。', { retryable: true });
+      pageIssues.captureOperationFailure('schedule-thread.save-editor', error, 'Could not save the scheduled task. Try again.', { retryable: true });
     } finally {
       setOperation(undefined);
     }
@@ -168,13 +168,13 @@ export function ScheduleThreadHeader(props: {
 
   return (
     <>
-      <section className="schedule-thread-header" aria-label="任务管理">
+      <section className="schedule-thread-header" aria-label="Task management">
         <div className="schedule-thread-main">
           <span
             className="schedule-thread-status"
             data-status={props.status}
             role="status"
-            aria-label="任务状态"
+            aria-label="Task status"
           >
             <StatusIcon
               className={props.status === 'running' ? 'schedule-thread-spinner' : undefined}
@@ -187,7 +187,7 @@ export function ScheduleThreadHeader(props: {
             <span className="schedule-thread-next">{props.nextRunLabel}</span>
           ) : null}
           {operationLabel(operation) ? (
-            <span className="schedule-thread-operation" role="status" aria-label="任务操作状态">
+            <span className="schedule-thread-operation" role="status" aria-label="Task operation status">
               <LoaderCircle className="schedule-thread-spinner" size={14} aria-hidden="true" />
               {operationLabel(operation)}
             </span>
@@ -196,8 +196,8 @@ export function ScheduleThreadHeader(props: {
         <div className="schedule-thread-actions">
           <button
             type="button"
-            aria-label="立即运行任务"
-            title="立即运行"
+            aria-label="Run task now"
+            title="Run now"
             disabled={actionsBusy}
             onClick={() => void runNow()}
           >
@@ -209,8 +209,8 @@ export function ScheduleThreadHeader(props: {
           </button>
           <button
             type="button"
-            aria-label={props.schedule.enabled ? '暂停任务' : '恢复任务'}
-            title={props.schedule.enabled ? '暂停' : '恢复'}
+            aria-label={props.schedule.enabled ? 'Pause task' : 'Resume task'}
+            title={props.schedule.enabled ? 'Pause' : 'Restore'}
             disabled={actionsBusy}
             onClick={() => void toggleEnabled()}
           >
@@ -225,8 +225,8 @@ export function ScheduleThreadHeader(props: {
           <button
             ref={editButtonRef}
             type="button"
-            aria-label="编辑任务"
-            title="编辑"
+            aria-label="Edit task"
+            title="Edit"
             disabled={actionsBusy}
             onClick={() => void openEditor()}
           >
@@ -258,16 +258,16 @@ export function ScheduleThreadHeader(props: {
             className="schedule-thread-editor-dialog"
             role="dialog"
             aria-modal="true"
-            aria-label={`编辑任务 ${props.schedule.name}`}
+            aria-label={`Edit task ${props.schedule.name}`}
           >
             {editorValues === undefined ? (
               <div className="schedule-thread-editor-loading">
                 <header>
-                  <strong>编辑定时任务</strong>
+                  <strong>Edit scheduled task</strong>
                   <button
                     type="button"
-                    aria-label="取消编辑"
-                    title="关闭"
+                    aria-label="Cancel editing"
+                    title="Close"
                     onClick={closeEditor}
                   >
                     <X size={18} aria-hidden="true" />
@@ -278,7 +278,7 @@ export function ScheduleThreadHeader(props: {
                 ) : (
                   <span role="status">
                     <LoaderCircle className="schedule-thread-spinner" size={17} aria-hidden="true" />
-                    正在加载计划详情
+                    Loading schedule details
                   </span>
                 )}
               </div>
@@ -303,28 +303,28 @@ export function ScheduleThreadHeader(props: {
 function statusVisual(status: ScheduleSidebarTaskStatus) {
   switch (status) {
     case 'idle':
-      return { label: '已启用', icon: CircleCheck };
+      return { label: 'Enabled', icon: CircleCheck };
     case 'running':
-      return { label: '运行中', icon: LoaderCircle };
+      return { label: 'Running', icon: LoaderCircle };
     case 'queued':
-      return { label: '已排队', icon: Clock3 };
+      return { label: 'Queued', icon: Clock3 };
     case 'waiting_approval':
-      return { label: '等待审批', icon: ShieldAlert };
+      return { label: 'Awaiting approval', icon: ShieldAlert };
     case 'failed':
-      return { label: '上次失败', icon: CircleAlert };
+      return { label: 'Last run failed', icon: CircleAlert };
     case 'paused':
-      return { label: '已暂停', icon: CirclePause };
+      return { label: 'Paused', icon: CirclePause };
     case 'repair_required':
-      return { label: '需要修复', icon: Wrench };
+      return { label: 'Needs attention', icon: Wrench };
   }
 }
 
 function operationLabel(operation: Operation | undefined): string | undefined {
   switch (operation) {
     case 'run':
-      return '正在启动';
+      return 'Starting';
     case 'toggle':
-      return '正在更新';
+      return 'Updating';
     case 'load_editor':
     case 'save_editor':
     case undefined:

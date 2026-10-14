@@ -100,7 +100,7 @@ describe('shared local transcription components', () => {
     test.finish();
     await task;
     expect(test.install).toHaveBeenCalledOnce();
-    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ phase: 'dependencies_ready', message: expect.stringContaining('开始语音转录') }));
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ phase: 'dependencies_ready', message: expect.stringContaining('Starting transcription') }));
     expect((await test.loader.status(test.config)).components.find(component => component.id === 'whisperkit')).toMatchObject({ state: 'ready', version: '1.1.0' });
     test.loader.close();
   });

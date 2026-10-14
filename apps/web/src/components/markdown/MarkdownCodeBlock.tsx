@@ -39,7 +39,7 @@ export function MarkdownCodeBlock(props: {
     }, 1600);
   }
 
-  const copyLabel = copyState === 'copied' ? '已复制' : copyState === 'failed' ? '复制失败' : '复制';
+  const copyLabel = copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy';
   const CopyIcon = copyState === 'copied' ? Check : copyState === 'failed' ? AlertCircle : Copy;
   const linkifyTextFiles = props.linkifyWorkspaceFiles === true
     && props.onLinkClick !== undefined
@@ -57,7 +57,7 @@ export function MarkdownCodeBlock(props: {
             <button
               type="button"
               className="md-code-action md-code-action-icon"
-              aria-label={collapsed ? '展开代码' : '收起代码'}
+              aria-label={collapsed ? 'Expand code' : 'Collapse code'}
               aria-expanded={!collapsed}
               onClick={() => setCollapsed(value => !value)}
             >

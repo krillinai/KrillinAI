@@ -997,7 +997,7 @@ export async function registerCreatorRoutes(
         }
       }
       const expectedRevision = readInteger(body.expectedRevision, 'expectedRevision');
-      const result = options.dispatcher.dispatch(id, {
+      const result = await options.dispatcher.dispatchAsync(id, {
         idempotencyKey: typeof body.idempotencyKey === 'string'
           ? body.idempotencyKey
           : fallbackIdempotencyKey(id, action, expectedRevision, actionInput),
@@ -1556,11 +1556,11 @@ function errorCodeForIssue(error: unknown): string {
 }
 
 function fallbackForIssueSource(source: IssueSource): string {
-  if (source === 'upload') return '上传未完成，请检查文件后重试。';
-  if (source === 'preflight') return '执行条件未满足，请按提示修正后重试。';
-  if (source === 'provider') return '外部服务调用失败，请检查配置或稍后重试。';
-  if (source === 'agent') return 'Agent 操作未完成，可以在此询问原因。';
-  return '操作未完成，可以重试或询问 Agent。';
+  if (source === 'upload') return 'The upload did not complete. Check the file and try again.';
+  if (source === 'preflight') return 'Prerequisites are not met. Resolve the reported issues and try again.';
+  if (source === 'provider') return 'The external service request failed. Check the configuration or try again later.';
+  if (source === 'agent') return 'The Agent operation did not complete. Ask the Agent for details.';
+  return 'The operation did not complete. Try again or ask the Agent.';
 }
 
 function requireCreatorJob(service: CreatorService, jobId: string): CreatorJob {

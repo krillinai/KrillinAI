@@ -19,7 +19,7 @@ describe('HtmlPreview', () => {
     render(<HtmlPreview name="broken.html" path="broken.html" content="<main>test</main>" onError={onError} />);
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith(failure));
-    expect(screen.getByRole('status')).toHaveTextContent('预览暂不可用');
+    expect(screen.getByRole('status')).toHaveTextContent('Preview is unavailable');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
@@ -42,7 +42,7 @@ describe('HtmlPreview', () => {
       />
     );
 
-    const frame = await screen.findByTitle('unsafe.html HTML 预览');
+    const frame = await screen.findByTitle('unsafe.html HTML preview');
     const srcDoc = frame.getAttribute('srcdoc') ?? '';
     expect(frame).toHaveAttribute('sandbox', 'allow-scripts');
     expect(frame).toHaveAttribute('referrerpolicy', 'no-referrer');
@@ -73,7 +73,7 @@ describe('HtmlPreview', () => {
       />
     );
 
-    const frame = await screen.findByTitle('report.html HTML 预览');
+    const frame = await screen.findByTitle('report.html HTML preview');
     const srcDoc = frame.getAttribute('srcdoc') ?? '';
     const sourceStyleIndex = srcDoc.indexOf('body { opacity: 0; }');
     const previewStyleIndex = srcDoc.indexOf('data-opencreator-preview="true"');
@@ -121,7 +121,7 @@ describe('HtmlPreview', () => {
       />
     );
 
-    const frame = await screen.findByTitle('index.html HTML 预览');
+    const frame = await screen.findByTitle('index.html HTML preview');
     await waitFor(() => {
       expect(frame.getAttribute('srcdoc')).toContain('data:image/png;base64,AQIDBA==');
       expect(frame.getAttribute('srcdoc')).toContain('data:image/png;base64,BQYHCA==');
@@ -154,7 +154,7 @@ describe('HtmlPreview', () => {
       />
     );
 
-    const frame = await screen.findByTitle('index.html HTML 预览');
+    const frame = await screen.findByTitle('index.html HTML preview');
     await waitFor(() => expect(frame.getAttribute('srcdoc')).not.toContain('正在准备安全预览'));
     expect(openBlob).not.toHaveBeenCalled();
     expect(frame.getAttribute('srcdoc')).not.toContain('secret.png');
@@ -173,9 +173,9 @@ describe('HtmlPreview', () => {
       />
     );
 
-    const frame = await screen.findByTitle('links.html HTML 预览');
+    const frame = await screen.findByTitle('links.html HTML preview');
     expect(frame.getAttribute('srcdoc')).not.toContain('href="https://example.com/docs"');
-    await user.click(await screen.findByRole('button', { name: '外部打开 产品文档' }));
+    await user.click(await screen.findByRole('button', { name: 'Open externally 产品文档' }));
     expect(onOpenExternal).toHaveBeenCalledWith('https://example.com/docs');
   });
 
@@ -209,7 +209,7 @@ describe('HtmlPreview', () => {
       />
     );
 
-    await screen.findByTitle('many.html HTML 预览');
+    await screen.findByTitle('many.html HTML preview');
     await waitFor(() => expect(openBlob).toHaveBeenCalledTimes(128));
   });
 
@@ -235,7 +235,7 @@ describe('HtmlPreview', () => {
       />
     );
 
-    const frame = await screen.findByTitle('large.html HTML 预览');
+    const frame = await screen.findByTitle('large.html HTML preview');
     await waitFor(() => {
       expect(frame.getAttribute('srcdoc')).toContain('data:image/png;base64,AQ==');
     });

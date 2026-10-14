@@ -110,7 +110,7 @@ describe('OpenCreatorSidebar', () => {
     expect(screen.queryByRole('separator')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '搜索' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '定时任务' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '任务' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Tasks' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '插件中心' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '连接器' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '我的资产' })).not.toBeInTheDocument();
@@ -118,7 +118,7 @@ describe('OpenCreatorSidebar', () => {
     expect(screen.queryByRole('button', { name: '素材中心' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '我的项目' }).nextElementSibling).toBe(screen.getByRole('button', { name: '设置' }));
     expect(primaryActions).toContainElement(screen.getByRole('button', { name: '设置' }));
-    expect(screen.getByRole('heading', { name: '项目' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Project' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'content-design' })).not.toHaveAttribute('aria-current');
     expect(screen.getByRole('button', { name: 'content-design' })).toHaveAttribute('data-current-project', 'true');
     expect(screen.getByRole('button', { name: 'bili' })).toBeInTheDocument();
@@ -127,7 +127,7 @@ describe('OpenCreatorSidebar', () => {
     expect(screen.queryByRole('button', { name: '生成 B 站封面 1天' })).not.toBeInTheDocument();
     expect(screen.getByText('4天')).toBeInTheDocument();
     expect(screen.queryByText('登录即可享受云端协作')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '登录' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Sign in to' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '设置' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '更新' })).not.toBeInTheDocument();
   });
@@ -265,8 +265,8 @@ describe('OpenCreatorSidebar', () => {
       runningConversationIds: new Set(['weekly-progress-brief'])
     });
 
-    expect(screen.getByLabelText('正在运行')).toHaveClass('conversation-run-spinner');
-    expect(screen.getByRole('button', { name: /整理本周项目进展.*正在运行.*4天/ })).toBeInTheDocument();
+    expect(screen.getByLabelText('Running')).toHaveClass('conversation-run-spinner');
+    expect(screen.getByRole('button', { name: /整理本周项目进展.*Running.*4天/ })).toBeInTheDocument();
   });
 
   it('shows task rows with running, queued, approval, failed, paused, repair, and unread states', () => {
@@ -288,17 +288,17 @@ describe('OpenCreatorSidebar', () => {
       ]
     });
 
-    expect(screen.getByRole('heading', { name: '任务' })).toBeInTheDocument();
-    expect(screen.getByText('草稿')).toBeInTheDocument();
-    expect(screen.getByText('运行中')).toBeInTheDocument();
-    expect(screen.getByText('排队中')).toBeInTheDocument();
-    expect(screen.getByText('待审批')).toBeInTheDocument();
-    expect(screen.getByText('失败')).toBeInTheDocument();
-    expect(screen.getByText('已暂停')).toBeInTheDocument();
-    expect(screen.getByText('需修复')).toBeInTheDocument();
-    expect(screen.getByLabelText('未读更新')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Tasks' })).toBeInTheDocument();
+    expect(screen.getByText('Draft')).toBeInTheDocument();
+    expect(screen.getByText('Running')).toBeInTheDocument();
+    expect(screen.getByText('Queued')).toBeInTheDocument();
+    expect(screen.getByText('Awaiting approval')).toBeInTheDocument();
+    expect(screen.getByText('Failed')).toBeInTheDocument();
+    expect(screen.getByText('Paused')).toBeInTheDocument();
+    expect(screen.getByText('Needs attention')).toBeInTheDocument();
+    expect(screen.getByLabelText('Unread updates')).toBeInTheDocument();
     expect(document.querySelector('.sidebar-task-spinner')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /异常任务.*需修复/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /异常任务.*Needs attention/ })).toBeDisabled();
   });
 
   it('highlights a selected draft task without marking its execution project as current', () => {
@@ -314,7 +314,7 @@ describe('OpenCreatorSidebar', () => {
       ]
     });
 
-    expect(screen.getByRole('button', { name: /任务草稿.*草稿/ }))
+    expect(screen.getByRole('button', { name: /任务草稿.*Draft/ }))
       .toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('button', { name: 'content-design' }))
       .not.toHaveAttribute('data-current-project');
@@ -328,7 +328,7 @@ describe('OpenCreatorSidebar', () => {
       onSelectTask
     });
 
-    await user.click(screen.getByRole('button', { name: /暂停任务.*已暂停/ }));
+    await user.click(screen.getByRole('button', { name: /暂停任务.*Paused/ }));
 
     expect(onSelectTask).toHaveBeenCalledWith('thread-paused');
   });
@@ -349,24 +349,24 @@ describe('OpenCreatorSidebar', () => {
       onDeleteTask
     });
 
-    await user.click(screen.getByRole('button', { name: '更多 任务草稿' }));
-    await user.click(screen.getByRole('menuitem', { name: '重命名' }));
-    const input = screen.getByRole('textbox', { name: '重命名任务 任务草稿' });
+    await user.click(screen.getByRole('button', { name: 'More 任务草稿' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Rename' }));
+    const input = screen.getByRole('textbox', { name: 'Rename task 任务草稿' });
     await user.clear(input);
     await user.type(input, '新的任务名{Enter}');
     expect(onRenameTask).toHaveBeenCalledWith(expect.objectContaining({ id: 'draft' }), '新的任务名');
 
-    await user.click(screen.getByRole('button', { name: '归档 正式任务' }));
+    await user.click(screen.getByRole('button', { name: 'Archive 正式任务' }));
     expect(onArchiveTask).toHaveBeenCalledWith(expect.objectContaining({ id: 'scheduled' }));
 
-    await user.click(screen.getByRole('button', { name: '更多 正式任务' }));
-    await user.click(screen.getByRole('menuitem', { name: '删除任务' }));
+    await user.click(screen.getByRole('button', { name: 'More 正式任务' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete task' }));
 
-    expect(screen.getByRole('alertdialog', { name: '删除任务' })).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog', { name: 'Delete task' })).toBeInTheDocument();
     expect(onDeleteTask).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: '删除任务' }));
+    await user.click(screen.getByRole('button', { name: 'Delete task' }));
     expect(onDeleteTask).toHaveBeenCalledWith(expect.objectContaining({ id: 'scheduled' }));
-    expect(screen.queryByRole('alertdialog', { name: '删除任务' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog', { name: 'Delete task' })).not.toBeInTheDocument();
   });
 
   it('keeps a task draft when its deletion is cancelled', async () => {
@@ -378,12 +378,12 @@ describe('OpenCreatorSidebar', () => {
       onDeleteTask
     });
 
-    await user.click(screen.getByRole('button', { name: '更多 任务草稿' }));
-    await user.click(screen.getByRole('menuitem', { name: '删除任务' }));
+    await user.click(screen.getByRole('button', { name: 'More 任务草稿' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete task' }));
     await user.click(screen.getByRole('button', { name: '取消' }));
 
     expect(onDeleteTask).not.toHaveBeenCalled();
-    expect(screen.queryByRole('alertdialog', { name: '删除任务' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog', { name: 'Delete task' })).not.toBeInTheDocument();
   });
 
   it('collapses the selected project when clicking it again', async () => {
@@ -416,15 +416,15 @@ describe('OpenCreatorSidebar', () => {
     renderSidebar({ onArchiveConversation });
 
     const conversation = screen.getByRole('group', { name: '整理本周项目进展' });
-    await user.click(within(conversation).getByRole('button', { name: '归档' }));
+    await user.click(within(conversation).getByRole('button', { name: 'Archive' }));
 
-    const dialog = screen.getByRole('alertdialog', { name: '归档对话' });
+    const dialog = screen.getByRole('alertdialog', { name: 'Archive conversation' });
     expect(dialog).toHaveTextContent(
-      '确认归档“整理本周项目进展”？归档后会从项目列表隐藏，但不会删除项目文件或 Codex 历史。'
+      'Archive "整理本周项目进展"? It will be hidden from the project list. Project files and Codex history are retained.'
     );
     expect(onArchiveConversation).not.toHaveBeenCalled();
 
-    await user.click(within(dialog).getByRole('button', { name: '归档' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
 
     expect(onArchiveConversation).toHaveBeenCalledWith('weekly-progress-brief');
   });
@@ -442,18 +442,18 @@ describe('OpenCreatorSidebar', () => {
     });
     const conversation = screen.getByRole('group', { name: '整理本周项目进展' });
 
-    expect(within(conversation).getByRole('button', { name: '更多' }))
+    expect(within(conversation).getByRole('button', { name: 'More' }))
       .toBeInTheDocument();
-    await user.click(within(conversation).getByRole('button', { name: '置顶' }));
+    await user.click(within(conversation).getByRole('button', { name: 'Pin' }));
     expect(onPinConversation).toHaveBeenCalledWith('weekly-progress-brief', true);
 
-    await user.click(within(conversation).getByRole('button', { name: '更多' }));
-    const menu = screen.getByRole('menu', { name: '整理本周项目进展 操作' });
+    await user.click(within(conversation).getByRole('button', { name: 'More' }));
+    const menu = screen.getByRole('menu', { name: '整理本周项目进展 actions' });
     expect(menu).toHaveClass('sidebar-conversation-menu--portal');
     expect(menu.parentElement).toBe(document.body);
     expect(menu).toHaveStyle({ top: '8px', left: '8px' });
-    await user.click(screen.getByRole('menuitem', { name: '重命名' }));
-    const input = within(conversation).getByRole('textbox', { name: '重命名 整理本周项目进展' });
+    await user.click(screen.getByRole('menuitem', { name: 'Rename' }));
+    const input = within(conversation).getByRole('textbox', { name: 'Rename 整理本周项目进展' });
     await user.clear(input);
     await user.type(input, '新的会话标题{Enter}');
     expect(onRenameConversation).toHaveBeenCalledWith(
@@ -461,12 +461,12 @@ describe('OpenCreatorSidebar', () => {
       '新的会话标题'
     );
 
-    await user.click(within(conversation).getByRole('button', { name: '更多' }));
-    await user.click(screen.getByRole('menuitem', { name: '删除任务' }));
-    const dialog = screen.getByRole('alertdialog', { name: '删除任务' });
-    expect(dialog).toHaveTextContent('永久删除');
-    expect(dialog).toHaveTextContent('不会删除项目文件');
-    await user.click(within(dialog).getByRole('button', { name: '永久删除' }));
+    await user.click(within(conversation).getByRole('button', { name: 'More' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete conversation' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete conversation' });
+    expect(dialog).toHaveTextContent('Delete permanently');
+    expect(dialog).toHaveTextContent('Project files are retained.');
+    await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }));
     expect(onDeleteConversation).toHaveBeenCalledWith('weekly-progress-brief');
   });
 
@@ -475,12 +475,12 @@ describe('OpenCreatorSidebar', () => {
     renderSidebar({ onArchiveConversation: vi.fn() });
     const conversation = screen.getByRole('group', { name: '整理本周项目进展' });
 
-    await user.click(within(conversation).getByRole('button', { name: '更多' }));
-    expect(screen.getByRole('menu', { name: '整理本周项目进展 操作' })).toBeInTheDocument();
+    await user.click(within(conversation).getByRole('button', { name: 'More' }));
+    expect(screen.getByRole('menu', { name: '整理本周项目进展 actions' })).toBeInTheDocument();
 
     fireEvent(window, new Event('resize'));
 
-    expect(screen.queryByRole('menu', { name: '整理本周项目进展 操作' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menu', { name: '整理本周项目进展 actions' })).not.toBeInTheDocument();
   });
 
   it('does not allow archiving a conversation while it is running', () => {
@@ -490,7 +490,7 @@ describe('OpenCreatorSidebar', () => {
     });
 
     const conversation = screen.getByRole('group', { name: '整理本周项目进展' });
-    expect(within(conversation).getByRole('button', { name: '归档' })).toBeDisabled();
+    expect(within(conversation).getByRole('button', { name: 'Archive' })).toBeDisabled();
   });
 
   it('opens settings from the primary sidebar navigation', async () => {
@@ -512,7 +512,7 @@ describe('OpenCreatorSidebar', () => {
 
     renderSidebar({ onAddProject });
 
-    await user.click(screen.getByRole('button', { name: '创建项目' }));
+    await user.click(screen.getByRole('button', { name: 'Create project' }));
 
     expect(onAddProject).toHaveBeenCalledTimes(1);
   });
@@ -526,19 +526,19 @@ describe('OpenCreatorSidebar', () => {
       onArchiveProject
     });
 
-    await user.click(screen.getByRole('button', { name: '项目操作 content-design' }));
-    const remove = screen.getByRole('menuitem', { name: '移除项目 content-design' });
-    expect(remove).toHaveAttribute('title', '仅从项目列表移除，不会删除本机文件');
+    await user.click(screen.getByRole('button', { name: 'Project actions content-design' }));
+    const remove = screen.getByRole('menuitem', { name: 'Remove project content-design' });
+    expect(remove).toHaveAttribute('title', 'Remove from the project list without deleting local files');
     await user.click(remove);
 
-    expect(screen.getByRole('alertdialog', { name: '移除项目' })).toBeInTheDocument();
-    expect(screen.getByText('确认从 OpenCreator 中移除“content-design”？项目目录和文件不会被删除。'))
+    expect(screen.getByRole('alertdialog', { name: 'Remove project' })).toBeInTheDocument();
+    expect(screen.getByText('Remove "content-design" from OpenCreator? The project folder and files are retained.'))
       .toBeInTheDocument();
     expect(onArchiveProject).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: '移除项目' }));
+    await user.click(screen.getByRole('button', { name: 'Remove project' }));
 
     expect(onArchiveProject).toHaveBeenCalledWith('content-design');
-    expect(screen.queryByRole('alertdialog', { name: '移除项目' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog', { name: 'Remove project' })).not.toBeInTheDocument();
   });
 
   it('keeps a project when removal is cancelled', async () => {
@@ -546,12 +546,12 @@ describe('OpenCreatorSidebar', () => {
     const onArchiveProject = vi.fn();
     renderSidebar({ projects, onArchiveProject });
 
-    await user.click(screen.getByRole('button', { name: '项目操作 content-design' }));
-    await user.click(screen.getByRole('menuitem', { name: '移除项目 content-design' }));
+    await user.click(screen.getByRole('button', { name: 'Project actions content-design' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Remove project content-design' }));
     await user.click(screen.getByRole('button', { name: '取消' }));
 
     expect(onArchiveProject).not.toHaveBeenCalled();
-    expect(screen.queryByRole('alertdialog', { name: '移除项目' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog', { name: 'Remove project' })).not.toBeInTheDocument();
   });
 
   it('shows directory replacement only when the host provides that capability', async () => {
@@ -559,16 +559,16 @@ describe('OpenCreatorSidebar', () => {
     const onReplaceProjectDirectory = vi.fn();
     const view = renderSidebar({ onArchiveProject: vi.fn() });
 
-    await user.click(screen.getByRole('button', { name: '项目操作 content-design' }));
-    expect(screen.queryByRole('menuitem', { name: '更换目录' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Project actions content-design' }));
+    expect(screen.queryByRole('menuitem', { name: 'Change folder' })).not.toBeInTheDocument();
 
     view.unmount();
     renderSidebar({
       onArchiveProject: vi.fn(),
       onReplaceProjectDirectory
     });
-    await user.click(screen.getByRole('button', { name: '项目操作 content-design' }));
-    await user.click(screen.getByRole('menuitem', { name: '更换目录' }));
+    await user.click(screen.getByRole('button', { name: 'Project actions content-design' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Change folder' }));
 
     expect(onReplaceProjectDirectory).toHaveBeenCalledWith('content-design');
   });
@@ -580,7 +580,7 @@ describe('OpenCreatorSidebar', () => {
     renderSidebar({ onNewConversation });
 
     await user.click(screen.getByRole('button', {
-      name: '在 content-design 中新建会话'
+      name: 'New conversation in content-design'
     }));
 
     expect(onNewConversation).toHaveBeenCalledWith('content-design');
@@ -625,8 +625,8 @@ describe('OpenCreatorSidebar', () => {
     renderSidebar({ projectNavigationMode: 'library' });
 
     expect(screen.queryByRole('button', { name: '定时任务' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: '任务' })).not.toBeInTheDocument();
-    expect(screen.queryByText('暂无任务')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Tasks' })).not.toBeInTheDocument();
+    expect(screen.queryByText('No tasks')).not.toBeInTheDocument();
   });
 
   it('collapses from the header action', async () => {
@@ -657,7 +657,7 @@ describe('OpenCreatorSidebar', () => {
     expect(screen.queryByRole('button', { name: '收起侧栏' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '我的项目' })).toHaveAttribute('title', '我的项目');
     expect(screen.queryByText('折叠时隐藏的任务')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '登录' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Sign in to' })).not.toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'OpenCreator' })).toHaveAttribute('data-collapsed', 'true');
 
     await user.click(screen.getByRole('button', { name: '展开侧栏' }));

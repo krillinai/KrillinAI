@@ -145,13 +145,13 @@ function resolveBundled(input: {
   diagnostics: CodexResolutionDiagnostics;
 }): ResolvedCodexEnvironment {
   if (input.runtimeRoot === undefined) {
-    throw failure('codex_runtime_missing', '未提供 OpenCreator 内置 Codex Runtime 路径', input.diagnostics);
+    throw failure('codex_runtime_missing', 'The bundled OpenCreator Codex Runtime path was not provided', input.diagnostics);
   }
   const runtimeRoot = resolve(input.runtimeRoot);
   const manifestPath = join(runtimeRoot, 'manifest.json');
   Object.assign(input.diagnostics, { runtimeRoot, manifestPath });
   if (!existsSync(manifestPath)) {
-    throw failure('codex_runtime_missing', `内置 Codex Runtime 清单不存在：${manifestPath}`, input.diagnostics);
+    throw failure('codex_runtime_missing', `The bundled Codex Runtime manifest is missing: ${manifestPath}`, input.diagnostics);
   }
   const manifestSource = readFileSync(manifestPath, 'utf8');
   const manifest = JSON.parse(manifestSource) as Record<string, unknown>;
@@ -163,7 +163,7 @@ function resolveBundled(input: {
   ) {
     throw failure(
       'codex_runtime_version_mismatch',
-      `内置 Codex Runtime 与当前 OpenCreator 不兼容（需要 ${BUNDLED_VERSION}）`,
+      `The bundled Codex Runtime is incompatible with OpenCreator (requires ${BUNDLED_VERSION})`,
       input.diagnostics
     );
   }
@@ -171,11 +171,11 @@ function resolveBundled(input: {
   const relativePath = readString(binary.relativePath);
   const expectedHash = readString(binary.sha256);
   if (relativePath === undefined || expectedHash === undefined) {
-    throw failure('codex_runtime_hash_mismatch', '内置 Codex Runtime 主程序清单无效', input.diagnostics);
+    throw failure('codex_runtime_hash_mismatch', 'The bundled Codex Runtime executable manifest is invalid', input.diagnostics);
   }
   const codexBin = safeRuntimePath(runtimeRoot, relativePath, input.diagnostics);
   if (!existsSync(codexBin) || lstatSync(codexBin).isSymbolicLink() || !statSync(codexBin).isFile()) {
-    throw failure('codex_runtime_missing', `内置 Codex 主程序不存在：${codexBin}`, input.diagnostics);
+    throw failure('codex_runtime_missing', `The bundled Codex executable is missing: ${codexBin}`, input.diagnostics);
   }
   const verification = verifyFileIntegrityWithCache({
     cachePath: join(input.userDataDir, 'runtime-verification', 'codex.json'),
@@ -188,7 +188,7 @@ function resolveBundled(input: {
     }]
   });
   if (!verification.verified) {
-    throw failure('codex_runtime_hash_mismatch', '内置 Codex 主程序哈希校验失败', input.diagnostics);
+    throw failure('codex_runtime_hash_mismatch', 'The bundled Codex executable failed hash verification', input.diagnostics);
   }
   const codexHome = join(input.userDataDir, 'runtime', 'codex');
   mkdirSync(codexHome, { recursive: true });
@@ -220,11 +220,11 @@ function resolveExternal(input: {
   diagnostics: CodexResolutionDiagnostics;
 }): ResolvedCodexEnvironment {
   if (input.codexBin === undefined) {
-    throw failure('codex_runtime_missing', '外部 Codex 模式需要显式选择主程序', input.diagnostics);
+    throw failure('codex_runtime_missing', 'Select an executable to use external Codex mode', input.diagnostics);
   }
   const codexBin = validateManualCodexPath(input.codexBin, { platform: input.platform });
   if (codexBin === undefined) {
-    throw failure('codex_runtime_missing', '选择的外部 Codex 主程序无效', input.diagnostics);
+    throw failure('codex_runtime_missing', 'The selected external Codex executable is invalid', input.diagnostics);
   }
   const codexHome = join(input.userDataDir, 'runtime', 'external-codex');
   mkdirSync(codexHome, { recursive: true });
@@ -234,7 +234,7 @@ function resolveExternal(input: {
   if (version !== BUNDLED_VERSION) {
     throw failure(
       'codex_runtime_version_mismatch',
-      `外部 Codex 版本不兼容：${version ?? '未知'}，需要 ${BUNDLED_VERSION}`,
+      `The external Codex version is incompatible: ${version ?? 'unknown'}; requires ${BUNDLED_VERSION}`,
       input.diagnostics
     );
   }
@@ -273,7 +273,7 @@ function safeRuntimePath(
   const path = resolve(root, candidate);
   const relativePath = relative(root, path);
   if (relativePath.startsWith('..') || resolve(root, relativePath) !== path) {
-    throw failure('codex_runtime_hash_mismatch', '内置 Codex Runtime 路径越界', diagnostics);
+    throw failure('codex_runtime_hash_mismatch', 'The bundled Codex Runtime path is outside its root directory', diagnostics);
   }
   return path;
 }

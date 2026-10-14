@@ -84,3 +84,23 @@ it('Runtime 关闭期间迟到的认证恢复不会再次提交', async () => {
     expect(fetcher).toHaveBeenCalledOnce();
   } finally { resume(); await runtime.close(); await request; }
 });
+it('rejects a hidden model before inference and reports both HTTP and streamed access failures', async () => {
+  const onModelFailure = vi.fn(async () => undefined);
+  const fetcher = vi.fn(async () => Response.json({ error: { code: 403, message: 'Model unavailable in this country' } }, { status: 403 }));
+  const runtime = await createDirectRuntime('user-key', fetcher, async () => ({
+    key: 'user-key', release: async () => undefined, onModelFailure,
+    models: [{ id: 'vendor/allowed', modality: 'text', capabilities: ['responses'] }]
+  }));
+  const submit = (model: string) => fetch(`${runtime.baseUrl}/responses`, { method: 'POST', headers: { Authorization: `Bearer ${runtime.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model, input: 'test', stream: true }) });
+  try {
+    expect((await submit('vendor/hidden')).status).toBe(400);
+    expect(fetcher).not.toHaveBeenCalled();
+    const failure = await submit('vendor/allowed'); await failure.text();
+    expect(onModelFailure).toHaveBeenLastCalledWith('vendor/allowed', 'text', expect.objectContaining({ httpStatus: 403, upstreamMessage: 'Model unavailable in this country' }));
+    fetcher.mockImplementation(async () => new Response('data: {"type":"response.failed","response":{"error":{"code":403,"message":"Model unavailable in this country"}}}\n\n', { headers: { 'content-type': 'text/event-stream' } }));
+    const streamed = await submit('vendor/allowed');
+    expect(await streamed.text()).not.toContain('this country');
+    expect(onModelFailure).toHaveBeenLastCalledWith('vendor/allowed', 'text', expect.objectContaining({ upstreamCode: '403', upstreamMessage: 'Model unavailable in this country' }));
+    expect(onModelFailure).toHaveBeenCalledTimes(2);
+  } finally { await runtime.close(); }
+});

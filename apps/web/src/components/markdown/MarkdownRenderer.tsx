@@ -35,7 +35,7 @@ function renderTaskListItem(item: string, key: number, options: MarkdownRenderer
   const checked = task[1]?.toLowerCase() === 'x';
   return (
     <li key={key} className="md-task-item" data-checked={checked ? 'true' : undefined}>
-      <input className="md-task-check" type="checkbox" checked={checked} readOnly aria-label={checked ? '已完成' : '未完成'} />
+      <input className="md-task-check" type="checkbox" checked={checked} readOnly aria-label={checked ? 'Completed' : 'Incomplete'} />
       <span>{renderInlineMarkdown(task[2] ?? '', options)}</span>
     </li>
   );

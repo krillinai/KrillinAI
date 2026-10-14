@@ -429,7 +429,7 @@ function readLatestResult(artifacts: CreatorArtifact[]): {
   return {
     artifact,
     fileName: readString(artifact.metadata.fileName) || 'OpenCreator-short-video-script.md',
-    title: readString(artifact.metadata.title) || '短视频脚本'
+    title: readString(artifact.metadata.title) || 'Short video script'
   };
 }
 

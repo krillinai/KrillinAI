@@ -87,7 +87,7 @@ export function createNotificationService(input: {
     enqueueRunTerminal(runId) {
       const row = getScheduleRun.get(runId) as ScheduleRunNotificationRow | undefined;
       if (row === undefined) return undefined;
-      const title = safeText(row.schedule_name, TITLE_LIMIT, '已安排任务');
+      const title = safeText(row.schedule_name, TITLE_LIMIT, 'Scheduled task');
       const notification = terminalCopy(row, title);
       return repository.enqueue({
         id: idFactory(),
@@ -106,13 +106,13 @@ export function createNotificationService(input: {
         | ScheduleApprovalNotificationRow
         | undefined;
       if (row === undefined) return undefined;
-      const title = safeText(row.schedule_name, TITLE_LIMIT, '已安排任务');
+      const title = safeText(row.schedule_name, TITLE_LIMIT, 'Scheduled task');
       return repository.enqueue({
         id: idFactory(),
         dedupeKey: `approval:${row.approval_id}:pending`,
         kind: 'schedule_waiting_approval',
-        title: `${title}等待审批`,
-        body: safeText(row.summary, BODY_LIMIT, '需要你的审批。'),
+        title: `${title}: awaiting approval`,
+        body: safeText(row.summary, BODY_LIMIT, 'Your approval is required.'),
         threadId: row.thread_id,
         runId: row.run_id,
         approvalId: row.approval_id,
@@ -152,20 +152,20 @@ function terminalCopy(
     return {
       kind: 'schedule_succeeded',
       title,
-      body: resultSummary(row.result_event_payload_json) ?? '任务已完成。'
+      body: resultSummary(row.result_event_payload_json) ?? 'The task is complete.'
     };
   }
   if (row.public_status === 'canceled') {
     return {
       kind: 'schedule_canceled',
-      title: `${title}已取消`,
-      body: '本次任务已取消。'
+      title: `${title}: canceled`,
+      body: 'This task was canceled.'
     };
   }
   return {
     kind: 'schedule_failed',
-    title: `${title}失败`,
-    body: '任务未完成，请打开会话查看详情。'
+    title: `${title}: failed`,
+    body: 'The task did not complete. Open its conversation for details.'
   };
 }
 

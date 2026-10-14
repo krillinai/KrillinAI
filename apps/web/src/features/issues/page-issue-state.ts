@@ -27,7 +27,7 @@ export function usePageIssueState(surface: string): PageIssueState {
   const captureOperationFailure = useCallback((
     operationId: string,
     cause: unknown,
-    fallbackMessage = '操作未完成，请重试。',
+    fallbackMessage = 'The operation did not complete. Try again.',
     options: { retryable?: boolean; risk?: 'normal' | 'paid' | 'overwrite' } = {}
   ) => {
     const normalized = normalizePageIssue(surface, operationId, cause, fallbackMessage);
@@ -98,7 +98,7 @@ export function normalizePageIssue(
         operation: operationId,
         category: 'configuration',
         summaryKey: 'issue.configuration',
-        fallbackMessage: `当前页面请求的 ${templateMismatch[1]} 模板版本 ${templateMismatch[2]} 不受本地服务支持，因此任务尚未创建。`,
+        fallbackMessage: `The local Runtime does not support version ${templateMismatch[2]} of the ${templateMismatch[1]} template requested by this page. The task was not created.`,
         fingerprint
       };
     }
@@ -106,7 +106,7 @@ export function normalizePageIssue(
       ...issue,
       scope: { kind: 'page', surface },
       operation: operationId,
-      fallbackMessage: issue.fallbackMessage === '操作未完成，请稍后重试。'
+      fallbackMessage: ['操作未完成，请稍后重试。', 'The operation did not complete. Try again later.'].includes(issue.fallbackMessage)
         ? fallbackMessage
         : issue.fallbackMessage || fallbackMessage
     };

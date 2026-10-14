@@ -20,7 +20,7 @@ describe('FileTree', () => {
       />
     );
 
-    expect(screen.getByRole('navigation', { name: '项目文件' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Project files' })).toBeInTheDocument();
     expect(screen.getByText('docs')).not.toHaveAttribute('role', 'treeitem');
     expect(screen.queryByRole('tree')).not.toBeInTheDocument();
     expect(screen.queryByRole('treeitem')).not.toBeInTheDocument();

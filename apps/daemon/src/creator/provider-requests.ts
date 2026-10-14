@@ -170,7 +170,7 @@ export class CreatorProviderRequestLedger {
     if (result.status === 'waiting_remote') {
       return this.transition(
         id,
-        ['submitting', 'waiting_remote', 'unknown_remote_acceptance'],
+        ['registered', 'submitting', 'waiting_remote', 'unknown_remote_acceptance'],
         'waiting_remote',
         { remoteTaskId: result.remoteTaskId }
       );
@@ -178,7 +178,7 @@ export class CreatorProviderRequestLedger {
     if (result.status === 'succeeded') {
       const request = this.transition(
         id,
-        ['submitting', 'waiting_remote', 'unknown_remote_acceptance'],
+        ['registered', 'submitting', 'waiting_remote', 'unknown_remote_acceptance'],
         'succeeded',
         {
           ...(result.remoteTaskId === undefined ? {} : { remoteTaskId: result.remoteTaskId }),
@@ -190,7 +190,7 @@ export class CreatorProviderRequestLedger {
     }
     const request = this.transition(
       id,
-      ['submitting', 'waiting_remote', 'unknown_remote_acceptance'],
+      ['registered', 'submitting', 'waiting_remote', 'unknown_remote_acceptance'],
       'failed',
       result.remoteTaskId === undefined ? {} : { remoteTaskId: result.remoteTaskId }
     );
@@ -294,8 +294,8 @@ export class CreatorProviderRequestLedger {
       stageRunId: request.stageRunId,
       scopeKey: request.scopeKey ?? undefined,
       fallbackMessage: unknownRemoteAcceptance
-        ? '外部服务是否已接收请求尚不明确，请先查询状态或确认后再继续。'
-        : '外部服务调用失败，可以重试或询问 Agent。',
+        ? 'It is unclear whether the external service accepted the request. Check its status or confirm before continuing.'
+        : 'The external service request failed. Try again or ask the Agent.',
       publicFacts: factsForProvider(error, request.provider),
       ...(error instanceof Error ? { technicalDetail: sanitizeIssueDetail(error.message) } : {}),
       retryable: !unknownRemoteAcceptance,

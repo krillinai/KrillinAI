@@ -6,7 +6,8 @@ import type {
   CreatorCommandReceipt,
   CreatorCommandRequest,
   CreatorJob,
-  CreatorJson
+  CreatorJson,
+  CreatorProviderRequest
 } from '@opencreator/protocol';
 import type { CreatorAgentRepository } from './agent/repository.js';
 import type { CreatorRepository } from './repository.js';
@@ -38,6 +39,7 @@ export function createCreatorCommandDispatcher(input: {
   receipts: CreatorAgentRepository;
   onQueuedStage?(): void;
   onCommitted?(result: CreatorCommandDispatchResult): void;
+  queryProviderRequest?(request: CreatorProviderRequest): Promise<void>;
 }) {
   function dispatch(
     jobId: string,
@@ -66,6 +68,23 @@ export function createCreatorCommandDispatcher(input: {
     return dispatchCommand(jobId, request, 'system', identity);
   }
 
+  async function dispatchAsync(jobId: string, request: CreatorCommandRequest, actor: CreatorActor): Promise<CreatorCommandDispatchResult> {
+    if (request.action !== 'resolve-provider-request' || request.input.decision !== 'query' || input.receipts.getReceiptByKey(jobId, request.idempotencyKey)) return dispatch(jobId, request, actor);
+    const job = input.service.getJob(jobId);
+    if (!job) throw new CreatorCommandError('creator_job_not_found', 'Creator job not found');
+    if (job.revision !== request.expectedRevision) throw new CreatorCommandError('creator_revision_conflict', 'Creator job revision changed', job.revision);
+    const action = input.service.templates.get(job.templateId, job.templateVersion).actions.find(action => action.id === request.action);
+    if (!action) throw new CreatorCommandError('creator_action_not_allowed', 'Creator action is not allowed');
+    action.inputSchema.parse(request.input);
+    const receipt = job.providerRequests.find(entry => entry.id === request.input.ledgerId);
+    if (!receipt) throw new CreatorCommandError('creator_provider_request_not_found', 'Creator provider request was not found');
+    if (['registered', 'submitting', 'waiting_remote', 'unknown_remote_acceptance'].includes(receipt.status)) {
+      if (!input.queryProviderRequest) throw new CreatorCommandError('creator_provider_query_unavailable', 'Provider request lookup is unavailable');
+      await input.queryProviderRequest(receipt);
+    }
+    return dispatchCommand(jobId, request, actor, undefined, true);
+  }
+
   function dispatchCommand(
     jobId: string,
     request: CreatorCommandRequest,
@@ -75,8 +94,12 @@ export function createCreatorCommandDispatcher(input: {
       inputFingerprint?: string | null;
       parentStageRunId?: string;
       resumedFromStageRunId?: string;
-    }
+    },
+    queriedProvider = false
   ): CreatorCommandDispatchResult {
+    if (request.action === 'resolve-provider-request' && request.input.decision === 'query' && !queriedProvider && !input.receipts.getReceiptByKey(jobId, request.idempotencyKey)) {
+      throw new CreatorCommandError('creator_provider_query_required', 'Use asynchronous dispatch to query a provider request');
+    }
     const normalized = {
       action: request.action,
       expectedRevision: request.expectedRevision,
@@ -123,7 +146,7 @@ export function createCreatorCommandDispatcher(input: {
         let response = actionResponse;
         let stageRunId: string | null = null;
         if (request.action === 'run-stage'
-          || (request.action === 'retry-stage' && actionResponse.job.templateId === 'image-generation')) {
+          || (request.action === 'retry-stage' && ['image-generation', 'video-generation'].includes(actionResponse.job.templateId))) {
           const stageId = readStageId(request.input.stageId);
           const template = input.service.templates.get(
             actionResponse.job.templateId,
@@ -136,6 +159,13 @@ export function createCreatorCommandDispatcher(input: {
               'Creator stage was not found'
             );
           }
+          const previousMediaStage = request.action === 'retry-stage' && ['image-generation', 'video-generation'].includes(actionResponse.job.templateId)
+            ? [...actionResponse.job.stages].reverse().find(previous => previous.stageId === stageId
+              && previous.scopeKey === (typeof request.input.scopeKey === 'string' ? request.input.scopeKey : null)
+              && ['failed', 'interrupted', 'canceled'].includes(previous.status)) : undefined;
+          const rejectedVideo = previousMediaStage && actionResponse.job.templateId === 'video-generation'
+            && (previousMediaStage.errorCode === 'creator_video_generation_failed' || actionResponse.job.providerRequests.some(receipt => receipt.stageRunId === previousMediaStage.id && receipt.provider === 'opencreator-gateway-video' && receipt.status === 'failed'));
+          const resumedMediaStage = rejectedVideo ? undefined : previousMediaStage;
           const stageRun = input.repository.createStageRun({
             jobId,
             stageId,
@@ -153,6 +183,7 @@ export function createCreatorCommandDispatcher(input: {
               : {}),
             progress: {
               commandIdempotencyKey: request.idempotencyKey,
+              ...(resumedMediaStage ? { resumedFromStageRunId: resumedMediaStage.id } : {}),
               ...(workflowIdentity !== undefined || request.input.workflow === true
                 ? { workflow: true }
                 : {}),
@@ -227,7 +258,7 @@ export function createCreatorCommandDispatcher(input: {
     }
   }
 
-  return { dispatch, dispatchWorkflow };
+  return { dispatch, dispatchAsync, dispatchWorkflow };
 }
 
 function scopedStageIdentity(

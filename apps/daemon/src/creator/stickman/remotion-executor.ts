@@ -62,7 +62,7 @@ export function createStickmanRemotionExecutor(input: {
       const workerEntrypoint = input.workerEntrypoint
         ?? resolveDefaultWorkerEntrypoint();
       try {
-        stage.reportProgress({ phase: 'rendering', percent: 5, message: '正在渲染火柴人动画。' });
+        stage.reportProgress({ phase: 'rendering', percent: 5, message: 'Rendering stickman animation.' });
         await runWorker(workerEntrypoint, requestPath, resultPath, stage.signal);
         const result = JSON.parse(await readFile(resultPath, 'utf8')) as {
           ok?: boolean;

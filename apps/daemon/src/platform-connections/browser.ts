@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { spawnCreatorProcess } from '../creator/process-tree.js';
 import type { YtDlpRuntime } from '../creator/yt-dlp/runtime.js';
 import { BrowserCloseError } from './browser-close.js';
+import { PublicPlatformConnectionError } from './errors.js';
 import type { ConnectionPlatform } from '@opencreator/protocol';
 import { filterPlatformCookies, hasPlatformSession, type PlatformCookie } from './cookies.js';
 
@@ -88,7 +89,7 @@ export async function readBrowserPlatformCookies(input: {
 }): Promise<PlatformCookie[]> {
   const { runtime, profile, signal } = input;
   const platform = input.platform ?? 'youtube';
-  if (!runtime?.script) throw new Error('浏览器连接需要内置 yt-dlp 组件，请更新本地组件后重试。');
+  if (!runtime?.script) throw new PublicPlatformConnectionError('Browser connection requires the bundled yt-dlp component. Update local components and try again.');
   signal.throwIfAborted();
   const output = await new Promise<string>((resolve, reject) => {
     const child = spawnCreatorProcess(runtime.executable, ['-I', '-B', '-c', READ_BROWSER_COOKIES,
@@ -99,21 +100,21 @@ export async function readBrowserPlatformCookies(input: {
     let length = 0;
     child.stdout?.on('data', (chunk: Buffer) => {
       length += chunk.length;
-      if (length > 1024 * 1024) { child.kill(); reject(new Error('浏览器 Cookie 读取失败，请重试。')); return; }
+      if (length > 1024 * 1024) { child.kill(); reject(new PublicPlatformConnectionError('Could not read browser cookies. Try again.')); return; }
       chunks.push(chunk);
     });
     child.stderr?.on('data', () => undefined);
-    child.once('error', () => reject(new Error('无法读取浏览器 Cookie，请检查本地组件。')));
+    child.once('error', () => reject(new PublicPlatformConnectionError('Could not read browser cookies. Check local components.')));
     child.once('close', code => {
-      if (signal.aborted) reject(new Error('连接已取消。'));
+      if (signal.aborted) reject(new PublicPlatformConnectionError('Connection canceled.'));
       else if (code !== 0) {
         if (process.platform === 'win32') {
           let failure: string | undefined;
           try { failure = JSON.parse(Buffer.concat(chunks).toString('utf8')).failure; } catch { /* 输出不完整时使用通用错误。 */ }
           reject(failure === 'browser-locked' ? new BrowserCloseError(profile.browser)
             : failure === 'decryption-failed' ? windowsDecryptionError()
-            : new Error('无法读取 YouTube 登录态，请重新连接并完成登录。'));
-        } else reject(new Error('无法读取 Chrome / Edge 的 Cookie。请允许钥匙串访问；若浏览器加密或文件锁阻止读取，可导入 Cookie 文件。'));
+            : new PublicPlatformConnectionError('Could not read the YouTube session. Reconnect and finish signing in.'));
+        } else reject(new PublicPlatformConnectionError('Could not read Chrome or Edge cookies. Allow Keychain access. If browser encryption or file locks prevent access, import a cookie file.'));
       }
       else resolve(Buffer.concat(chunks).toString('utf8'));
     });
@@ -124,12 +125,12 @@ export async function readBrowserPlatformCookies(input: {
     throw windowsDecryptionError();
   }
   if (result.decryptionFailed && cookies.length === 0) {
-    throw new Error('浏览器 Cookie 解密失败，请允许 macOS 钥匙串访问后重新连接；当前浏览器的加密方式也可能不受 yt-dlp 支持。');
+    throw new PublicPlatformConnectionError('Browser cookie decryption failed. Allow macOS Keychain access and reconnect. This browser\'s encryption may also be unsupported by yt-dlp.');
   }
   return cookies;
 }
 
 function windowsDecryptionError(): Error {
-  return new Error('无法解密 YouTube 登录态，请断开后重新连接并登录。');
+  return new PublicPlatformConnectionError('Could not decrypt the YouTube session. Disconnect, reconnect, and sign in again.');
 }
 export const readBrowserYouTubeCookies = readBrowserPlatformCookies;

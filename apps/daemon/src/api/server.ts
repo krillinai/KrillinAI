@@ -567,7 +567,8 @@ export async function buildServer(input: BuildServerInput) {
       officialBindings = createGatewayRuntimeBindings({
         codexHome: home, baseUrl: bootstrap.baseUrl, model: model.id, direct: bootstrap.transport === 'openrouter-direct',
         readProxy: readCommonProxy,
-        beginUse: async () => { const use = await gatewayAccount.beginModelUse(); return { key: use.credentials.modelKey, keyVersion: use.credentials.keyVersion, release: use.release }; },
+        beginUse: async () => { const use = await gatewayAccount.beginModelUse(); return { key: use.credentials.modelKey, keyVersion: use.credentials.keyVersion, release: use.release, models: use.credentials.models,
+          onModelFailure: (id, modality, facts) => gatewayAccount.reportModelFailure(use.credentials, id, modality, facts) }; },
         recoverKey: async keyVersion => { const updated = await gatewayAccount.recoverModelCredentials(keyVersion); return { key: updated.modelKey, keyVersion: updated.keyVersion }; },
         readCredentials: async () => ({ accountId: bootstrap.account.id, modelKey: bootstrap.modelKey, keyVersion: bootstrap.keyVersion }),
         closeRuntime: async () => { await Promise.all([...officialManagers.values()].map(manager => manager.close())); }
@@ -1156,6 +1157,7 @@ export async function buildServer(input: BuildServerInput) {
     service: creatorService,
     repository: creatorRepository,
     receipts: creatorAgentRepository,
+    queryProviderRequest: request => gatewayCreatorSource!.queryProviderRequest(request),
     onQueuedStage: () => creatorStageScheduler?.wake(),
     onCommitted(result) {
       const activity = result.job.activities.find(candidate => (
@@ -1678,7 +1680,7 @@ function readCodexBinaryReadiness(runtimeRoot: string | undefined): CodexRuntime
       return {
         status: 'invalid',
         errorCode: 'codex_runtime_hash_mismatch',
-        message: 'Codex Runtime manifest 未提供二进制 SHA-256'
+        message: 'The Codex Runtime manifest is missing the executable SHA-256'
       };
     }
     return {

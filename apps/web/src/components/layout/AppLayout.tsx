@@ -65,7 +65,7 @@ export function AppLayout(props: {
     <main className={shellClassName}>
       {mobileSidebarOpen ? (
         <button
-          aria-label="关闭导航遮罩"
+          aria-label="Close navigation overlay"
           className="mobile-navigation-backdrop"
           onClick={props.onCloseMobileSidebar}
           type="button"
@@ -73,16 +73,16 @@ export function AppLayout(props: {
       ) : null}
       {props.immersive ? null : <aside
         className="opencreator-sidebar-pane"
-        aria-label="OpenCreator 导航"
+        aria-label="OpenCreator navigation"
         data-collapsed={props.sidebarCollapsed ? 'true' : 'false'}
         data-mobile-open={mobileSidebarOpen ? 'true' : 'false'}
         ref={sidebarRef}
       >
         <button
-          aria-label="关闭导航"
+          aria-label="Close navigation"
           className="mobile-navigation-close"
           onClick={props.onCloseMobileSidebar}
-          title="关闭导航"
+          title="Close navigation"
           type="button"
         >
           <X aria-hidden="true" size={18} />
@@ -91,7 +91,7 @@ export function AppLayout(props: {
       </aside>}
       <section
         className="opencreator-main-pane"
-        aria-label="OpenCreator 工作区"
+        aria-label="OpenCreator workspace"
         data-has-main-header={props.mainHeader === undefined ? undefined : 'true'}
       >
         {props.mainHeader === undefined ? null : (
@@ -100,11 +100,11 @@ export function AppLayout(props: {
         {props.immersive ? null : <div className="mobile-navigation-toolbar">
           <button
             aria-expanded={mobileSidebarOpen}
-            aria-label="打开导航"
+            aria-label="Open navigation"
             className="mobile-navigation-trigger"
             onClick={props.onOpenMobileSidebar}
             ref={mobileTriggerRef}
-            title="打开导航"
+            title="Open navigation"
             type="button"
           >
             <Menu aria-hidden="true" size={20} />
@@ -113,7 +113,7 @@ export function AppLayout(props: {
         <div className="opencreator-main-content">{props.main}</div>
       </section>
       {props.detailOpen ? (
-        <aside className="opencreator-detail-pane" aria-label="详情">
+        <aside className="opencreator-detail-pane" aria-label="details">
           {props.detail}
         </aside>
       ) : null}

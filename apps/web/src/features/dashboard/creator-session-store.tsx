@@ -394,7 +394,7 @@ export function CreatorSessionProvider(props: {
   const captureCreatorFailure = useCallback((
     operation: string,
     cause: unknown,
-    fallbackMessage = '操作未完成，请在 Agent 区域查看诊断。',
+    fallbackMessage = 'The operation did not complete. Check diagnostics in the Agent panel.',
     source: 'upload' | 'preflight' | 'agent' | 'client' = 'client'
   ): OpenCreatorIssue => {
     const causeObject = typeof cause === 'object' && cause !== null ? cause : undefined;
@@ -462,7 +462,7 @@ export function CreatorSessionProvider(props: {
   const runPreflight = useCallback(async (stageId: string, options?: { inputResultVersion?: number }) => {
     if (props.service.preflight === undefined) {
       const cause = new Error('Creator preflight is unavailable');
-      captureCreatorFailure('creator.preflight', cause, '启动条件检查暂不可用，请稍后重试。', 'preflight');
+      captureCreatorFailure('creator.preflight', cause, 'Preflight checks are unavailable. Try again later.', 'preflight');
       throw cause;
     }
     await flush();
@@ -475,7 +475,7 @@ export function CreatorSessionProvider(props: {
       if (!result.canStart) throw new CreatorPreflightBlockedError(result);
       return result;
     } catch (cause) {
-      captureCreatorFailure('creator.preflight', cause, '启动条件检查未通过，请查看诊断并修正后重试。', 'preflight');
+      captureCreatorFailure('creator.preflight', cause, 'Preflight checks failed. Review diagnostics and fix the issue before retrying.', 'preflight');
       throw cause;
     }
   }, [captureCreatorFailure, ensurePersistedJob, flush, props.service]);
@@ -665,7 +665,7 @@ export function CreatorSessionProvider(props: {
   const uploadSourceVideo = useCallback(async (file: File) => {
     if (props.service.uploadSourceVideo === undefined) {
       const cause = new Error('Creator source upload transport is unavailable');
-      captureCreatorFailure('creator.upload-source-video', cause, '源视频上传暂不可用，请稍后重试。', 'upload');
+      captureCreatorFailure('creator.upload-source-video', cause, 'Source video upload is unavailable. Try again later.', 'upload');
       throw cause;
     }
     let requestRevision = confirmedRef.current.revision;
@@ -683,7 +683,7 @@ export function CreatorSessionProvider(props: {
     } catch (cause) {
       if (!isSupersededRevisionConflict(cause, requestRevision, confirmedRef.current.revision)) {
         setError(toSessionError(cause));
-        captureCreatorFailure('creator.upload-source-video', cause, '源视频上传未完成，请检查文件后重试。', 'upload');
+        captureCreatorFailure('creator.upload-source-video', cause, 'Source video upload did not complete. Check the file and try again.', 'upload');
       }
       throw cause;
     }
@@ -692,7 +692,7 @@ export function CreatorSessionProvider(props: {
   const uploadReferenceImage = useCallback(async (file: File) => {
     if (props.service.uploadReferenceImage === undefined) {
       const cause = new Error('Creator reference upload transport is unavailable');
-      captureCreatorFailure('creator.upload-reference-image', cause, '参考图上传暂不可用，请稍后重试。', 'upload');
+      captureCreatorFailure('creator.upload-reference-image', cause, 'Reference image upload is unavailable. Try again later.', 'upload');
       throw cause;
     }
     let requestRevision = confirmedRef.current.revision;
@@ -710,7 +710,7 @@ export function CreatorSessionProvider(props: {
     } catch (cause) {
       if (!isSupersededRevisionConflict(cause, requestRevision, confirmedRef.current.revision)) {
         setError(toSessionError(cause));
-        captureCreatorFailure('creator.upload-reference-image', cause, '参考图上传未完成，请检查文件后重试。', 'upload');
+        captureCreatorFailure('creator.upload-reference-image', cause, 'Reference image upload did not complete. Check the file and try again.', 'upload');
       }
       throw cause;
     }
@@ -719,7 +719,7 @@ export function CreatorSessionProvider(props: {
   const uploadArticleImage = useCallback(async (file: File): Promise<CreatorArtifact> => {
     if (props.service.uploadArticleImage === undefined) {
       const cause = new Error('Creator article image upload transport is unavailable');
-      captureCreatorFailure('creator.upload-article-image', cause, '文章图片上传暂不可用，请稍后重试。', 'upload');
+      captureCreatorFailure('creator.upload-article-image', cause, 'Article image upload is unavailable. Try again later.', 'upload');
       throw cause;
     }
     let requestRevision = confirmedRef.current.revision;
@@ -738,7 +738,7 @@ export function CreatorSessionProvider(props: {
     } catch (cause) {
       if (!isSupersededRevisionConflict(cause, requestRevision, confirmedRef.current.revision)) {
         setError(toSessionError(cause));
-        captureCreatorFailure('creator.upload-article-image', cause, '文章图片上传未完成，请检查文件后重试。', 'upload');
+        captureCreatorFailure('creator.upload-article-image', cause, 'Article image upload did not complete. Check the file and try again.', 'upload');
       }
       throw cause;
     }
@@ -747,7 +747,7 @@ export function CreatorSessionProvider(props: {
   const uploadSourceDocument = useCallback(async (file: File) => {
     if (props.service.uploadSourceDocument === undefined) {
       const cause = new Error('Creator document upload transport is unavailable');
-      captureCreatorFailure('creator.upload-source-document', cause, '源文档上传暂不可用，请稍后重试。', 'upload');
+      captureCreatorFailure('creator.upload-source-document', cause, 'Source document upload is unavailable. Try again later.', 'upload');
       throw cause;
     }
     let requestRevision = confirmedRef.current.revision;
@@ -765,7 +765,7 @@ export function CreatorSessionProvider(props: {
     } catch (cause) {
       if (!isSupersededRevisionConflict(cause, requestRevision, confirmedRef.current.revision)) {
         setError(toSessionError(cause));
-        captureCreatorFailure('creator.upload-source-document', cause, '源文档上传未完成，请检查文件后重试。', 'upload');
+        captureCreatorFailure('creator.upload-source-document', cause, 'Source document upload did not complete. Check the file and try again.', 'upload');
       }
       throw cause;
     }
@@ -817,13 +817,13 @@ export function CreatorSessionProvider(props: {
   const openArtifact = useCallback(async (artifactId: string) => {
     if (props.service.openArtifact === undefined) {
       const cause = new Error('Creator artifact transport is unavailable');
-      captureCreatorFailure('creator.open-artifact', cause, '无法打开创作产物，请稍后重试。');
+      captureCreatorFailure('creator.open-artifact', cause, 'Could not open the output. Try again later.');
       throw cause;
     }
     try {
       return await props.service.openArtifact(confirmedRef.current.id, artifactId);
     } catch (cause) {
-      captureCreatorFailure('creator.open-artifact', cause, '无法打开创作产物，请稍后重试。');
+      captureCreatorFailure('creator.open-artifact', cause, 'Could not open the output. Try again later.');
       throw cause;
     }
   }, [captureCreatorFailure, props.service]);
@@ -840,7 +840,7 @@ export function CreatorSessionProvider(props: {
       return captureCreatorClientFailure(
         { captureCreatorFailure },
         'creator.read-artifact-json',
-        '无法读取创作产物内容，请稍后重试。',
+        'Could not read the output content. Try again later.',
         async () => {
           if (!response.ok) throw new Error(`Creator artifact request failed: ${response.status}`);
           return response.json() as Promise<T>;
@@ -892,7 +892,7 @@ export function CreatorSessionProvider(props: {
     } catch (cause) {
       if (!isSupersededRevisionConflict(cause, requestRevision, confirmedRef.current.revision)) {
         setError(toSessionError(cause));
-        captureCreatorFailure('creator.agent-turn', cause, 'Agent 未能完成诊断，请查看问题详情后重试。', 'agent');
+        captureCreatorFailure('creator.agent-turn', cause, 'The Agent could not complete the diagnosis. Review the issue details and retry.', 'agent');
       }
       throw cause;
     } finally {
@@ -918,7 +918,7 @@ export function CreatorSessionProvider(props: {
     } catch (cause) {
       if (!isSupersededRevisionConflict(cause, requestRevision, confirmedRef.current.revision)) {
         setError(toSessionError(cause));
-        captureCreatorFailure('creator.agent-steer', cause, 'Agent 未能接收补充要求。', 'agent');
+        captureCreatorFailure('creator.agent-steer', cause, 'The Agent could not receive the additional instructions.', 'agent');
       }
       throw cause;
     } finally {
@@ -933,7 +933,7 @@ export function CreatorSessionProvider(props: {
       setError(null);
     } catch (cause) {
       setError(toSessionError(cause));
-      captureCreatorFailure('creator.agent-interrupt', cause, 'Agent 对话未能停止。', 'agent');
+      captureCreatorFailure('creator.agent-interrupt', cause, 'The Agent conversation could not be stopped.', 'agent');
       throw cause;
     } finally {
       await reloadAgentTimeline().catch(() => undefined);
@@ -955,7 +955,7 @@ export function CreatorSessionProvider(props: {
       setError(null);
     } catch (cause) {
       setError(toSessionError(cause));
-      captureCreatorFailure('creator.agent-approval', cause, 'Agent 审批操作未完成。', 'agent');
+      captureCreatorFailure('creator.agent-approval', cause, 'The Agent approval operation did not complete.', 'agent');
       throw cause;
     } finally {
       await reloadAgentTimeline().catch(() => undefined);

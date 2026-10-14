@@ -215,7 +215,7 @@ export function createCreatorAgentService(input: {
               }
             }
           }
-          const dispatched = input.dispatcher.dispatch(jobId, {
+          const dispatched = await input.dispatcher.dispatchAsync(jobId, {
             ...runtimeResult.action,
             idempotencyKey: `${assistantTurn.id}:action:${conflictAttempt}`
           }, 'agent');
@@ -294,7 +294,7 @@ export function createCreatorAgentService(input: {
       code,
       source: 'agent',
       operation: 'creator.agent-turn',
-      fallbackMessage: 'Agent 未能完成本次诊断，请查看问题详情后重试。',
+      fallbackMessage: 'The Agent could not complete the diagnosis. Review the issue details and try again.',
       publicFacts: publicFactsFromFailure(error),
       technicalDetail: error.message,
       repairActions: [{ kind: 'focus-agent' }]
@@ -508,7 +508,7 @@ export function createCreatorAgentService(input: {
       kind: approvalKind(event.request.method),
       status: 'pending',
       title: approvalTitle(event.request.method),
-      summary: typeof params.reason === 'string' ? params.reason : 'Creator Agent 请求执行操作',
+      summary: typeof params.reason === 'string' ? params.reason : 'Creator Agent requested an operation',
       details: JSON.parse(JSON.stringify(params)),
       requestedAt,
       expiresAt: new Date(Date.parse(requestedAt) + 15 * 60_000).toISOString()
@@ -765,10 +765,10 @@ function approvalKind(method: AppServerRequest['method']): CreatorAgentApproval[
 }
 
 function approvalTitle(method: AppServerRequest['method']): string {
-  if (method === 'item/commandExecution/requestApproval') return '确认命令执行';
-  if (method === 'item/fileChange/requestApproval') return '确认文件修改';
-  if (method === 'item/permissions/requestApproval') return '确认权限请求';
-  return '确认工具调用';
+  if (method === 'item/commandExecution/requestApproval') return 'Approve command execution';
+  if (method === 'item/fileChange/requestApproval') return 'Approve file changes';
+  if (method === 'item/permissions/requestApproval') return 'Approve permission request';
+  return 'Approve tool call';
 }
 
 function isAutoApprovedCreatorReadRequest(request: AppServerRequest): boolean {

@@ -194,7 +194,7 @@ function mapSearchRow(row: SearchRow, query: string): ConversationSearchResult {
     threadId: row.thread_id,
     projectId: row.project_id,
     codexThreadId: row.codex_thread_id,
-    title: createConversationTitle(row.session_title, '未命名对话'),
+    title: createConversationTitle(row.session_title, 'Untitled conversation'),
     cwd: row.session_cwd,
     ...(row.item_id === TITLE_ITEM_ID ? {} : { itemId: row.item_id }),
     itemType: row.item_type,

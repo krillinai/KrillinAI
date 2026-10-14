@@ -322,7 +322,7 @@ function toIndexedSession(
     codexThreadId: state.codexThreadId,
     sourcePath,
     kind,
-    title: state.title ?? '未命名对话',
+    title: state.title ?? 'Untitled conversation',
     cwd: state.cwd ?? null,
     createdAt: state.createdAt ?? state.updatedAt ?? fallbackTimestamp,
     updatedAt: state.updatedAt ?? fallbackTimestamp

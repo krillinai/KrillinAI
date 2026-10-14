@@ -35,7 +35,7 @@ export type CreatorToolOperations = {
     timedOut: boolean;
     context: AgentContextEnvelope;
   }>;
-  applyAction(jobId: string, request: CreatorCommandRequest): CreatorCommandDispatchResult;
+  applyAction(jobId: string, request: CreatorCommandRequest): CreatorCommandDispatchResult | Promise<CreatorCommandDispatchResult>;
 };
 
 export function createCreatorToolOperations(input: {
@@ -97,7 +97,8 @@ export function createCreatorToolOperations(input: {
     },
     applyAction(jobId, request) {
       requireJob(input.service, jobId);
-      return input.dispatcher.dispatch(jobId, request, 'agent');
+      return request.action === 'resolve-provider-request' && request.input.decision === 'query'
+        ? input.dispatcher.dispatchAsync(jobId, request, 'agent') : input.dispatcher.dispatch(jobId, request, 'agent');
     }
   };
 }

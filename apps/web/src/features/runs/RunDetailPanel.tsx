@@ -31,7 +31,7 @@ export function RunDetailPanel(props: {
   if (props.runId === undefined) {
     return (
       <div className="panel-scroll">
-        <p className="empty-state">选择 run 查看详情</p>
+        <p className="empty-state">Select a run to view details</p>
       </div>
     );
   }
@@ -39,7 +39,7 @@ export function RunDetailPanel(props: {
   if (props.diagnostics === undefined) {
     return (
       <div className="run-detail">
-        <div className="settings-state">正在加载运行详情...</div>
+        <div className="settings-state">Loading run details...</div>
       </div>
     );
   }
@@ -56,7 +56,7 @@ export function RunDetailPanel(props: {
       pageIssues.resolveOperation('run-detail.export');
       setConfirmingExport(false);
     } catch (reason) {
-      pageIssues.captureOperationFailure('run-detail.export', reason, '诊断包导出失败，请重试。', { retryable: true });
+      pageIssues.captureOperationFailure('run-detail.export', reason, 'Could not export the diagnostics package. Try again.', { retryable: true });
     }
   }
 
@@ -66,7 +66,7 @@ export function RunDetailPanel(props: {
         <header className="run-detail__header">
           <div>
             <h2>Run {props.runId}</h2>
-            <p>诊断文件由 daemon 脱敏后返回。</p>
+            <p>Diagnostic files are redacted by the Daemon.</p>
           </div>
           <button
             className="toolbar-button"
@@ -74,7 +74,7 @@ export function RunDetailPanel(props: {
             onClick={() => setConfirmingExport(true)}
           >
             <Download aria-hidden="true" size={15} />
-            <span>导出脱敏诊断包</span>
+            <span>Export redacted diagnostics</span>
           </button>
         </header>
         <IssueList
@@ -84,26 +84,26 @@ export function RunDetailPanel(props: {
           compact
         />
         {confirmingExport ? (
-          <section className="run-diagnostics-confirm" role="region" aria-label="确认导出诊断">
+          <section className="run-diagnostics-confirm" role="region" aria-label="Confirm diagnostics export">
             <ShieldCheck aria-hidden="true" size={18} />
             <div>
-              <strong>确认导出 daemon 已脱敏的诊断内容</strong>
-              <p>导出包只包含当前诊断响应，不包含原始 Prompt、Token 或 Secret。</p>
+              <strong>Confirm exporting redacted Daemon diagnostics</strong>
+              <p>The export contains only the current diagnostic response, without original prompts, tokens, or secrets.</p>
             </div>
             <div>
               <button className="settings-text-button" type="button" onClick={() => setConfirmingExport(false)}>
-                取消
+                Cancel
               </button>
               <button className="settings-primary-button" type="button" onClick={() => void exportDiagnostics()}>
                 <Download aria-hidden="true" size={15} />
-                确认导出
+                Confirm export
               </button>
             </div>
           </section>
         ) : null}
         {(props.attachments?.length ?? 0) > 0 ? (
           <section>
-            <h3>附件</h3>
+            <h3>Attachments</h3>
             <ul className="run-detail-attachments">
               {props.attachments?.map(attachment => (
                 <li key={attachment.id}>
@@ -118,11 +118,11 @@ export function RunDetailPanel(props: {
           </section>
         ) : null}
         <section className="run-context">
-          <h3>本次使用的上下文</h3>
+          <h3>Context used in this run</h3>
           {props.context === undefined ? (
-            <p>正在加载上下文...</p>
+            <p>Loading context...</p>
           ) : props.context.items.length === 0 ? (
-            <p>本次运行未使用长期记忆或摘要</p>
+            <p>This run used no long-term memories or summaries</p>
           ) : (
             <ul>
               {props.context.items.map(item => (
@@ -134,7 +134,7 @@ export function RunDetailPanel(props: {
         <section>
           <h3>Diagnostics</h3>
           {diagnosticFiles.length === 0 ? (
-            <p>暂无诊断文件</p>
+            <p>No diagnostic files</p>
           ) : (
             diagnosticFiles.map((file) => (
               <details key={file.name}>
@@ -147,7 +147,7 @@ export function RunDetailPanel(props: {
         <section>
           <h3>Warnings</h3>
           {warnings.length === 0 ? (
-            <p>暂无诊断警告</p>
+            <p>No diagnostic warnings</p>
           ) : (
             <ul>
               {warnings.map((warning) => (
@@ -174,7 +174,7 @@ export function RunDetailPanel(props: {
               <dt>Diagnostics</dt>
               <dd>
                 {codexDiagnostics.length === 0 ? (
-                  '暂无 Codex 诊断'
+                  'No Codex diagnostics'
                 ) : (
                   <ul>
                     {codexDiagnostics.map((diagnostic) => (
@@ -197,8 +197,8 @@ export function RunDetailPanel(props: {
 
 function RunContextListItem(props: { item: RunContextItem }) {
   const label = props.item.kind === 'summary'
-    ? `会话摘要 v${props.item.summaryVersion ?? 1}`
-    : `${memoryScopeLabel(props.item.scope)}记忆`;
+    ? `Conversation summary v${props.item.summaryVersion ?? 1}`
+    : `${memoryScopeLabel(props.item.scope)} memory`;
   return (
     <li className="run-context__item">
       <div>
@@ -211,9 +211,9 @@ function RunContextListItem(props: { item: RunContextItem }) {
 }
 
 function memoryScopeLabel(scope: RunContextItem['scope']): string {
-  if (scope === 'project') return '项目';
-  if (scope === 'thread') return '线程';
-  return '全局';
+  if (scope === 'project') return 'Project';
+  if (scope === 'thread') return 'Thread';
+  return 'Global';
 }
 
 function formatAttachmentSize(size: number): string {

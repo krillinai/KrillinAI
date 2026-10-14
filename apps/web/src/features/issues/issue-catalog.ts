@@ -243,10 +243,10 @@ export function issueDiagnosticText(issue: OpenCreatorIssue, language: AppLangua
 
 function safeFallback(value: string, language: AppLanguage): string {
   const normalized = value
-    .replace(/authorization\s*[:=]\s*(?:Bearer|Basic)\s+\S+/gi, '[已隐藏]')
-    .replace(/(?:authorization|api[-_ ]?key|token|secret)\s*[:=]\s*\S+/gi, '[已隐藏]')
-    .replace(/[A-Za-z]:\\Users\\[^\\\s]+/gi, '[用户目录]')
-    .replace(/\/(?:Users|home)\/[^/\s]+/g, '[用户目录]')
+    .replace(/authorization\s*[:=]\s*(?:Bearer|Basic)\s+\S+/gi, '[redacted]')
+    .replace(/(?:authorization|api[-_ ]?key|token|secret)\s*[:=]\s*\S+/gi, '[redacted]')
+    .replace(/[A-Za-z]:\\Users\\[^\\\s]+/gi, '[user directory]')
+    .replace(/\/(?:Users|home)\/[^/\s]+/g, '[user directory]')
     .replace(/\s+at\s+[^\n]+(?:\n|$)/g, ' ')
     .trim()
     .slice(0, 500);

@@ -44,7 +44,7 @@ async function validateCompletedOutputFiles(
           findings.push({
             code: 'creator_output_file_empty',
             severity: 'blocking',
-            message: '生成的输出文件为空，请重新执行当前步骤。',
+            message: 'The output file is empty. Run this step again.',
             evidence: { artifactKind: output.kind }
           });
           continue;
@@ -57,7 +57,7 @@ async function validateCompletedOutputFiles(
       findings.push({
         code: 'creator_output_file_unreadable',
         severity: 'blocking',
-        message: '生成的输出文件无法读取，请重新执行当前步骤。',
+        message: 'The output file is unreadable. Run this step again.',
         evidence: { artifactKind: output.kind }
       });
     }
@@ -82,7 +82,7 @@ export const validateTranslationOutputLanguage: CreatorStageOutputValidator = as
     return [{
       code: 'creator_translation_output_invalid',
       severity: 'blocking',
-      message: '翻译字幕文件无法解析，请重新生成。',
+      message: 'Could not parse the translated subtitle file. Generate it again.',
       evidence: { artifactKind: 'target_subtitle' }
     }];
   }
@@ -103,7 +103,7 @@ export const validateTranslationOutputLanguage: CreatorStageOutputValidator = as
   return [{
     code: 'creator_translation_output_language_mismatch',
     severity: 'blocking',
-    message: '目标语言为中文，但翻译结果仍主要是英文，请重新生成。',
+    message: 'The target language is Chinese, but the translation is mostly English. Generate it again.',
     evidence: compactEvidence({
       targetLanguage,
       sampleCharacters: metrics.meaningfulCharacters,

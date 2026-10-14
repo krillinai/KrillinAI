@@ -16,7 +16,7 @@ export type RuntimeRecovery = {
 
 export function useRuntimeConnection(host: HostBridge, fetchImpl: typeof fetch) {
   const [config, setConfig] = useState<ConnectionConfig | null>(null);
-  const [state, setState] = useState<ConnectionState>({ status: 'disconnected', message: '正在连接本地服务' });
+  const [state, setState] = useState<ConnectionState>({ status: 'disconnected', message: 'Connecting to the local Runtime' });
   const [progress, setProgress] = useState<Omit<RuntimeRecovery, 'state' | 'retry' | 'restart'>>({
     phase: 'connecting', attempt: 0, epoch: 0
   });
@@ -51,11 +51,11 @@ export function useRuntimeConnection(host: HostBridge, fetchImpl: typeof fetch) 
           setConfig(previous => sameConfig(previous, nextConfig) ? previous : nextConfig);
         }
         next = currentConfig === null
-          ? { status: 'disconnected', message: '正在等待本地服务启动' }
+          ? { status: 'disconnected', message: 'Waiting for the local Runtime to start' }
           : await createConnectionService(new RuntimeClient({ ...currentConfig, fetchImpl }))
             .check({ signal: activeController.signal });
       } catch (error) {
-        next = { status: 'disconnected', message: error instanceof Error ? error.message : '本地服务连接失败' };
+        next = { status: 'disconnected', message: error instanceof Error ? error.message : 'Could not connect to the local Runtime' };
       }
       if (!active()) return;
       setState(next);
@@ -81,7 +81,7 @@ export function useRuntimeConnection(host: HostBridge, fetchImpl: typeof fetch) 
       if (closed) return;
       if (nextConfig === null) {
         connected = false;
-        setState({ status: 'disconnected', message: '本地服务暂时断开，正在重连' });
+        setState({ status: 'disconnected', message: 'The local Runtime disconnected. Reconnecting.' });
         setProgress(previous => ({ ...previous, phase: 'reconnecting' }));
       } else {
         currentConfig = nextConfig;
@@ -110,7 +110,7 @@ export function useRuntimeConnection(host: HostBridge, fetchImpl: typeof fetch) 
         if (!result.ok) throw new Error(result.message);
         await refreshRef.current();
       } catch (error) {
-        setProgress(previous => ({ ...previous, phase: 'failed', message: error instanceof Error ? error.message : '重启本地服务失败' }));
+        setProgress(previous => ({ ...previous, phase: 'failed', message: error instanceof Error ? error.message : 'Could not restart the local Runtime' }));
       } finally {
         restartWorkRef.current = undefined;
       }
@@ -132,7 +132,7 @@ function sameConfig(previous: ConnectionConfig | null, next: ConnectionConfig): 
 
 function readConfig(host: HostBridge, signal: AbortSignal): Promise<ConnectionConfig | null> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => finish(() => reject(new Error('读取本地服务配置超时'))), 4_000);
+    const timer = setTimeout(() => finish(() => reject(new Error('Reading the local Runtime configuration timed out'))), 4_000);
     const onAbort = () => finish(() => reject(signal.reason));
     function finish(callback: () => void) {
       clearTimeout(timer);

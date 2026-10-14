@@ -174,7 +174,7 @@ export function createCodexSessionProvider(
           codexThreadId: result.thread.id,
           title: result.thread.name?.trim()
             || result.thread.preview?.trim()
-            || '未命名对话',
+            || 'Untitled conversation',
           cwd: result.thread.cwd,
           itemType: 'title' as const,
           createdAt,

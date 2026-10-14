@@ -15,7 +15,7 @@ describe('sidebar task model', () => {
         threadId: null,
         bindingStatus: 'repair_required',
         bindingIssue: 'missing_thread_id',
-        statusMessage: '任务会话需要修复',
+        statusMessage: 'The task conversation needs attention',
         currentRunStatus: null
       }),
       createSummary({ scheduleId: 'approval', threadId: 'thread-approval' }),
@@ -90,7 +90,7 @@ describe('sidebar task model', () => {
       status: 'idle',
       unread: true
     });
-    expect(task?.nextRunLabel).toMatch(/^下次 /);
+    expect(task?.nextRunLabel).toMatch(/^Next /);
   });
 
   it('shows schedule drafts as task rows with approval and active-run priority', () => {

@@ -1,4 +1,4 @@
-import type { GatewayAccountState, GatewayBalanceSnapshot, GatewayBalanceState, ServiceSource } from '@opencreator/protocol';
+import type { GatewayAccountState, GatewayBalanceSnapshot, GatewayBalanceState, GatewayModel, PublicErrorFacts, ServiceSource } from '@opencreator/protocol';
 import { z } from 'zod';
 import { createGatewayConfigStore, type GatewayCredentials } from './config-store.js';
 import { accountSchema, bootstrapSchema, cachedModelUsePolicy, catalogSchema, probeCredentialsSchema, GatewayError, type GatewayBootstrap, type GatewayClient, type GatewayDeviceGrant, type GatewayProbeCredentials } from './client.js';
@@ -51,7 +51,7 @@ export function createGatewayAccountService(input: {
   let runtimeCloseWork: Promise<void> | undefined;
   const saveConfiguration = () => store.writeConfiguration({ source: state.source, bindingVersion: state.bindingVersion, selectedModels });
   function serialize<T>(work: () => Promise<T>): Promise<T> { const result = mutation.then(work); mutation = result.then(() => undefined, () => undefined); return result; }
-  function fail(error: unknown) { state.activationState = 'blocked'; state.activationError = { code: error instanceof GatewayError ? error.code : 'services_not_ready', message: '官方服务尚未就绪，请重试' }; }
+  function fail(error: unknown) { state.activationState = 'blocked'; state.activationError = { code: error instanceof GatewayError ? error.code : 'services_not_ready', message: 'The official service is not ready. Try again.' }; }
   function assertIdle() { if (localUses > 0 || input.hasActiveTasks()) throw new GatewayError('active_tasks', 409); }
   function assertSignedIn() { if (!credentials || state.authState !== 'signed_in') throw new GatewayError('auth_required', 401); return credentials; }
   function usesCachedModelKey() { return credentials?.modelUsePolicy === cachedModelUsePolicy && credentials.transport === 'openrouter-direct' && credentials.keyRotation === false; }
@@ -83,6 +83,35 @@ export function createGatewayAccountService(input: {
     const eligible = withModelCatalog(bootstrap, officialModelPolicy(bootstrap.models));
     return input.modelAccess && eligible.transport === 'openrouter-direct' ? input.modelAccess.prepare(eligible) : eligible;
   }
+  async function applyVisibleCatalog(next: GatewayBootstrap) {
+    if (!credentials) return;
+    if (JSON.stringify(state.models) !== JSON.stringify(next.models) || JSON.stringify(state.selectedModels) !== JSON.stringify(next.defaults)) {
+      credentials = { ...credentials, defaults: next.defaults };
+      selectedModels = { ...next.defaults }; state.selectedModels = { ...selectedModels }; state.models = next.models;
+      await store.writeCredentials(credentials); await saveConfiguration();
+    }
+  }
+  async function refreshVisibleCatalog() {
+    if (!input.modelAccess || closing || accessPaused || credentials?.modelAccessError || credentials?.transport !== 'openrouter-direct' || state.authState !== 'signed_in') return;
+    const original = bootstrapSchema.parse(credentials); const expected = generation;
+    await visibleBootstrap(original);
+    if (closing || accessPaused || generation !== expected || state.authState !== 'signed_in') return;
+    await serialize(async () => {
+      if (generation === expected && state.authState === 'signed_in' && credentials?.account?.id === original.account.id && credentials.keyVersion === original.keyVersion) await applyVisibleCatalog(input.modelAccess!.filter(bootstrapSchema.parse(credentials)));
+    });
+  }
+  async function reportModelFailure(scope: { accountId: string; keyVersion: string; accessContext?: string; models?: GatewayModel[] }, id: string, modality: GatewayModel['modality'], facts: PublicErrorFacts) {
+    if (closing || accessPaused || state.authState !== 'signed_in') return;
+    await serialize(async () => {
+      if (!input.modelAccess || state.authState !== 'signed_in' || credentials?.transport !== 'openrouter-direct'
+        || credentials.account?.id !== scope.accountId || credentials.keyVersion !== scope.keyVersion) return;
+      const bootstrap = bootstrapSchema.parse(credentials);
+      const model = bootstrap.models.find(candidate => candidate.id === id && candidate.modality === modality);
+      const submitted = scope.models?.find(candidate => candidate.id === id && candidate.modality === modality);
+      if (scope.models && JSON.stringify(submitted) !== JSON.stringify(model)) return;
+      if (model && await input.modelAccess.recordFailure(scope.accessContext ?? '', model, facts)) await applyVisibleCatalog(input.modelAccess.filter(bootstrap));
+    });
+  }
   function needsAccessibleRuntime() {
     return credentials?.transport === 'openrouter-direct' && !credentials.modelAccessError && state.authState === 'signed_in'
       && state.source === 'gateway' && !closing && !accessPaused && (state.activationState === 'ready' || accessBlocked)
@@ -112,11 +141,7 @@ export function createGatewayAccountService(input: {
           if (controller.signal.aborted || closing || generation !== expected || state.authState !== 'signed_in'
             || credentials?.account?.id !== original.account.id || credentials.keyVersion !== original.keyVersion) return;
           const next = input.modelAccess!.filter(withModelCatalog(bootstrapSchema.parse(credentials), officialModelPolicy(credentials.models ?? [])));
-          if (JSON.stringify(state.models) !== JSON.stringify(next.models) || JSON.stringify(state.selectedModels) !== JSON.stringify(next.defaults)) {
-            credentials = { ...credentials, defaults: next.defaults };
-            selectedModels = { ...next.defaults }; state.selectedModels = { ...selectedModels }; state.models = next.models;
-            await store.writeCredentials(credentials); await saveConfiguration();
-          }
+          await applyVisibleCatalog(next);
           await synchronizeAccessibleRuntime();
         });
       });
@@ -277,6 +302,7 @@ export function createGatewayAccountService(input: {
   function refreshState(): Promise<void> {
     stateRefreshWork ??= (async () => {
       await readProfile(); await readCatalog();
+      await refreshVisibleCatalog();
       if (needsAccessibleRuntime()) await serialize(synchronizeAccessibleRuntime);
       scheduleModelAccess();
     })().finally(() => { stateRefreshWork = undefined; });
@@ -331,7 +357,7 @@ export function createGatewayAccountService(input: {
   }
   async function performAuthorizationPoll(current: NonNullable<typeof attempt>) {
     const id = current.attemptId;
-    if (current.expiresAt <= Date.now()) { await cancelAuthorization(); state.activationError = { code: 'device_expired', message: '登录授权已过期，请重新登录' }; return; }
+    if (current.expiresAt <= Date.now()) { await cancelAuthorization(); state.activationError = { code: 'device_expired', message: 'Sign-in authorization expired. Sign in again.' }; return; }
     try {
       const tokens = await input.client.pollDevice(id, current.deviceSecret);
       if (generation !== current.generation || attempt !== current) { await input.client.logout(tokens.accessToken).catch(() => undefined); return; }
@@ -361,17 +387,18 @@ export function createGatewayAccountService(input: {
       fail(error); await cancelAuthorization();
     }
   }
-  async function readModelCredentials(): Promise<{ accountId: string; modelKey: string; keyVersion: string; bindingVersion: string; baseUrl: string; transport?: GatewayBootstrap['transport']; models: GatewayBootstrap['models']; defaults: Record<string, string> }> {
+  async function readModelCredentials(recovery = false): Promise<{ accountId: string; modelKey: string; keyVersion: string; bindingVersion: string; baseUrl: string; transport?: GatewayBootstrap['transport']; models: GatewayBootstrap['models']; defaults: Record<string, string>; accessContext?: string }> {
     await initialize();
     if (!usesCachedModelKey()) await refresh();
-    return currentModelCredentials();
+    await refreshVisibleCatalog();
+    return currentModelCredentials(recovery);
   }
-  function currentModelCredentials() {
+  function currentModelCredentials(recovery = false): Awaited<ReturnType<typeof readModelCredentials>> {
     if (closing || accessPaused) throw new GatewayError('auth_required', 401);
     const value = assertSignedIn();
     if (value.modelAccessError) throw new GatewayError(value.modelAccessError, value.modelAccessError === 'auth_required' ? 401 : 403);
-    if (state.source !== 'gateway' || state.activationState !== 'ready' || !value.account || !value.modelKey || !value.keyVersion || !value.bindingVersion || !value.baseUrl || !value.models || !value.defaults) throw new GatewayError('services_not_ready');
-    return { accountId: value.account.id, modelKey: value.modelKey, keyVersion: value.keyVersion, bindingVersion: value.bindingVersion, baseUrl: value.baseUrl, transport: value.transport, models: structuredClone(state.models), defaults: { ...value.defaults } };
+    if (state.source !== 'gateway' || (!recovery && state.activationState !== 'ready') || !value.account || !value.modelKey || !value.keyVersion || !value.bindingVersion || !value.baseUrl || !value.models || !value.defaults) throw new GatewayError('services_not_ready');
+    return { accountId: value.account.id, modelKey: value.modelKey, keyVersion: value.keyVersion, bindingVersion: value.bindingVersion, baseUrl: value.baseUrl, transport: value.transport, models: structuredClone(state.models), defaults: { ...value.defaults }, accessContext: input.modelAccess?.context() };
   }
   const modelCredentials = () => readModelCredentials();
   async function probeCredentials(): Promise<GatewayProbeCredentials> {
@@ -455,8 +482,8 @@ export function createGatewayAccountService(input: {
     }
     await saveConfiguration();
   }
-  async function acquireModelUse() {
-    const snapshot = await readModelCredentials();
+  async function acquireModelUse(recovery = false) {
+    const snapshot = await readModelCredentials(recovery);
     const cached = usesCachedModelKey();
     localUses++;
     let released = false;
@@ -475,17 +502,17 @@ export function createGatewayAccountService(input: {
         version = await reportUsage();
       }
       if (version && version !== credentials?.keyVersion) await synchronizeBinding();
-      return { credentials: await readModelCredentials(), release };
+      return { credentials: await readModelCredentials(recovery), release };
     } catch (error) { await release(); throw error; }
   }
-  const beginModelUse = () => acquireModelUse();
+  const beginModelUse = (options?: { recovery: boolean }) => acquireModelUse(options?.recovery);
   async function recoverModelCredentials(keyVersion: string) {
     await initialize();
     if (!usesCachedModelKey()) throw new GatewayError('model_auth_required', 401);
-    if (currentModelCredentials().keyVersion !== keyVersion) return currentModelCredentials();
+    if (currentModelCredentials(true).keyVersion !== keyVersion) return currentModelCredentials(true);
     await refresh();
     await synchronizeBinding();
-    return currentModelCredentials();
+    return currentModelCredentials(true);
   }
   async function logout() {
     await initialize();
@@ -517,7 +544,7 @@ export function createGatewayAccountService(input: {
   return {
     initialize, startBackgroundRestore,
     peekState() { return structuredClone(state); },
-    startAuthorization, cancelAuthorization, pollAuthorization, checkAuthorization, refresh, logout, modelCredentials, beginModelUse, recoverModelCredentials, probeCredentials, readBalance, billing,
+    startAuthorization, cancelAuthorization, pollAuthorization, checkAuthorization, refresh, logout, modelCredentials, beginModelUse, recoverModelCredentials, probeCredentials, readBalance, billing, reportModelFailure,
     readPlans() { return input.client.request('/api/v1/plans', ''); },
     async readAvatar(accountId: string) {
       await initialize(); await refresh();
@@ -545,7 +572,7 @@ export function createGatewayAccountService(input: {
       });
     },
     async selectModel(modality: import('@opencreator/protocol').GatewayModel['modality'], model: string) {
-      await initialize(); await serialize(async () => {
+      await initialize(); await refreshVisibleCatalog(); await serialize(async () => {
         assertIdle(); const current = assertSignedIn(); const expected = generation;
         if (state.source !== 'gateway' || state.activationState !== 'ready' || !current.defaults || !state.models.some(candidate => candidate.modality === modality && candidate.id === model && (modality !== 'text' || candidate.capabilities.includes('responses')))) throw new GatewayError('invalid_model', 400);
         if (input.hasPendingTasks?.()) throw new GatewayError('active_tasks', 409);

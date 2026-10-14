@@ -47,6 +47,15 @@ function setup(path = join(tempDir, 'runtime.sqlite')) {
 }
 
 describe('creator provider request ledger', () => {
+  it.each(['succeeded', 'failed', 'waiting_remote'] as const)('reconciles a registered request with authoritative lookup evidence (%s)', async status => {
+    tempDir = mkdtempSync(join(tmpdir(), 'creator-registered-recovery-'));
+    const { db, job, stage, ledger } = setup();
+    try {
+      const request = ledger.registerBeforeSubmit({ jobId: job.id, stageRunId: stage.id, provider: 'image', requestKey: 'recover-registered', request: {} });
+      const recovered = await ledger.recover(request.id, { lookupByRequestKey: true, lookup: async () => ({ status, remoteTaskId: 'original-remote' }) });
+      expect(recovered).toMatchObject({ status, remoteTaskId: 'original-remote' });
+    } finally { db.close(); }
+  });
   it('closes the matching unknown-receipt issue only after all requests in its scope are recovered', async () => {
     tempDir = mkdtempSync(join(tmpdir(), 'creator-provider-stream-recovery-'));
     const { db, repository, job, stage } = setup();

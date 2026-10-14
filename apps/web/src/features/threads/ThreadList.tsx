@@ -10,12 +10,12 @@ export function ThreadList(props: {
     <div className="thread-list">
       <div className="panel-header">
         <button className="thread-new-button" type="button" onClick={props.onNewThread}>
-          新对话
+          New conversation
         </button>
       </div>
       <div className="thread-list-scroll">
         {props.threads.length === 0 ? (
-          <p className="empty-state compact">暂无真实会话</p>
+          <p className="empty-state compact">No conversations yet</p>
         ) : (
           props.threads.map((thread) => (
             <button

@@ -83,19 +83,19 @@ describe('WechatArticleWorkspace', () => {
 
     fireEvent.click(within(layoutCategories).getByRole('button', { name: '资讯' }));
     expect(container.querySelectorAll('.wechat-layout-list button')).toHaveLength(1);
-    expect(screen.getByRole('button', { name: /^热点简报/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^News Brief/ })).toBeInTheDocument();
 
     fireEvent.click(within(layoutCategories).getByRole('button', { name: '科技' }));
     expect(container.querySelectorAll('.wechat-layout-list button')).toHaveLength(3);
-    const podcastLayout = screen.getByRole('button', { name: /^播客访谈/ });
-    expect(within(podcastLayout).getByText('嘉宾发言')).toBeInTheDocument();
+    const podcastLayout = screen.getByRole('button', { name: /^Podcast Interview/ });
+    expect(within(podcastLayout).getByText('Guest remarks')).toBeInTheDocument();
     fireEvent.click(podcastLayout);
     expect(container.querySelector('.wechat-article-preview')).toHaveAttribute('data-layout', 'podcast');
 
     fireEvent.click(within(layoutCategories).getByRole('button', { name: '商业' }));
 
-    const businessLayout = screen.getByRole('button', { name: /^商业报告/ });
-    expect(within(businessLayout).getByText('内容摘要')).toBeInTheDocument();
+    const businessLayout = screen.getByRole('button', { name: /^Business Report/ });
+    expect(within(businessLayout).getByText('Executive summary')).toBeInTheDocument();
     fireEvent.click(businessLayout);
 
     expect(businessLayout).toHaveAttribute('data-selected', 'true');

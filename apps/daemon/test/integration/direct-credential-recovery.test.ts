@@ -20,7 +20,7 @@ async function fixture(fetcher: typeof fetch, recover = vi.fn(async (_account: s
 }
 
 it.each(['chat/completions', 'images/generations', 'video/jobs'])('%s 明确拒绝认证后只重试一次，同一请求复用结果', async resource => {
-  const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({}, { status: 401 })).mockImplementation(async () => Response.json(resource.startsWith('images') ? { data: [{ b64_json: 'aW1hZ2U=' }] } : resource === 'video/jobs' ? { id: 'video-upstream' } : { choices: [{ message: { content: 'translated' } }] }));
+  const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({}, { status: 401 })).mockImplementation(async () => Response.json(resource.startsWith('images') ? { data: [{ b64_json: 'aW1hZ2U=' }] } : resource === 'video/jobs' ? { id: 'video-upstream', status: 'pending' } : { choices: [{ message: { content: 'translated' } }] }));
   const f = await fixture(fetcher);
   const asyncImage = resource.startsWith('images');
   const first = await f.request(resource, asyncImage);

@@ -534,13 +534,14 @@ it('checks on foreground return without bypassing polling intervals or slow-down
   } finally { clock.mockRestore(); await f.service.close(); }
 });
 
-it('silently filters official families without blocking model selection or changing the raw candidate catalog', async () => {
+it('admits exact verified models and preserves the raw candidate catalog', async () => {
   let finishProbe!: () => void;
   const waiting = new Promise<void>(resolve => { finishProbe = resolve; });
   const requests: string[] = [];
   const f = await setup(undefined, undefined, undefined, undefined, (root, readProbeCredentials) => createOfficialModelAccess({
     dataDir: root, readProbeCredentials, readProxy: async () => '', fetcher: async (url, options) => {
       if (String(url).endsWith('/cdn-cgi/trace')) return new Response('ip=203.0.113.1\nloc=JP\n');
+      if (String(url).includes('/models/user?')) return Response.json({ data: raw.models });
       expect(new Headers(options?.headers).get('authorization')).toBe('Bearer platform-probe-key');
       const model = JSON.parse(String(options?.body)).model; requests.push(model);
       await waiting;
@@ -559,14 +560,23 @@ it('silently filters official families without blocking model selection or chang
   });
   const grant = await f.service.startAuthorization(); await f.service.pollAuthorization(grant.attemptId);
   await expect.poll(() => requests.length).toBeGreaterThan(0);
-  expect(f.service.peekState().activationState).toBe('ready');
-  await f.service.selectModel('text', 'deepseek/deepseek-r1');
+  expect(f.service.peekState().activationState).toBe('blocked');
+  await expect(f.service.selectModel('text', 'deepseek/deepseek-r1')).rejects.toMatchObject({ code: 'invalid_model' });
   finishProbe();
   await expect.poll(() => f.service.peekState().models.some(model => model.id === 'qwen/qwen3-coder')).toBe(true);
+  await f.service.selectModel('text', 'deepseek/deepseek-r1');
   expect(f.service.peekState().models.map(model => model.id)).toEqual(['deepseek/deepseek-v3.2', 'deepseek/deepseek-r1', 'qwen/qwen3-coder']);
   expect(f.service.peekState().selectedModels?.text).toBe('deepseek/deepseek-r1');
   await expect(f.service.selectModel('text', 'openai/gpt-6-sol')).rejects.toMatchObject({ code: 'invalid_model' });
   expect((await f.service.modelCredentials()).models).toEqual(f.service.peekState().models);
+  const scope = await f.service.modelCredentials();
+  const facts = { kind: 'http-rejected' as const, httpStatus: 403, upstreamMessage: 'Model unavailable in this country' };
+  await f.service.reportModelFailure({ ...scope, accountId: 'stale-account' }, 'qwen/qwen3-coder', 'text', facts);
+  expect(f.service.peekState().models).toHaveLength(3);
+  await f.service.reportModelFailure(scope, 'deepseek/deepseek-r1', 'text', facts);
+  expect(f.service.peekState().models.map(model => model.id)).toEqual(['deepseek/deepseek-v3.2', 'qwen/qwen3-coder']);
+  expect((await f.service.readState()).selectedModels?.text).toBe('deepseek/deepseek-v3.2');
+  await expect(f.service.selectModel('text', 'deepseek/deepseek-r1')).rejects.toMatchObject({ code: 'invalid_model' });
   expect((await createGatewayConfigStore(f.root).readCredentials())?.models).toHaveLength(6);
   expect(usage.some(value => value.busy)).toBe(false);
   await f.service.close();
@@ -580,6 +590,7 @@ it('defers a blocked default replacement until idle and recovers after every fam
   const f = await setup(undefined, undefined, undefined, () => active, (root, readProbeCredentials) => createOfficialModelAccess({
     dataDir: root, readProbeCredentials, readProxy: async () => '', fetcher: async (url, options) => {
       if (String(url).endsWith('/cdn-cgi/trace')) return new Response('ip=203.0.113.1\nloc=JP\n');
+      if (String(url).includes('/models/user?')) return Response.json({ data: raw.models });
       await waiting;
       const model = JSON.parse(String(options?.body)).model;
       return !recover && (model.startsWith('openai/') || denyFallback)
@@ -596,7 +607,7 @@ it('defers a blocked default replacement until idle and recovers after every fam
   const grant = await f.service.startAuthorization(); await f.service.pollAuthorization(grant.attemptId);
   active = true; finishProbe();
   await expect.poll(() => f.service.peekState().selectedModels?.text).toBe('deepseek/deepseek-v3.2');
-  expect(f.activate).toHaveBeenCalledOnce();
+  expect(f.activate).not.toHaveBeenCalled();
   active = false;
   expect(await f.service.readState()).toMatchObject({ activationState: 'ready', selectedModels: { text: 'deepseek/deepseek-v3.2' } });
   expect(f.activate).toHaveBeenLastCalledWith(expect.objectContaining({ defaults: { text: 'deepseek/deepseek-v3.2' } }));
@@ -606,12 +617,19 @@ it('defers a blocked default replacement until idle and recovers after every fam
     await f.service.readState();
     await expect.poll(() => f.service.peekState().activationState).toBe('blocked');
     await expect(f.service.modelCredentials()).rejects.toMatchObject({ code: 'services_not_ready' });
+    await expect.poll(async () => {
+      const cache = JSON.parse(await readFile(join(f.root, 'config/gateway-model-access.json'), 'utf8')) as { models: Record<string, { status: string; nextCheck: number }> };
+      return Object.values(cache.models).length === 2 && Object.values(cache.models).every(entry => entry.status === 'blocked' && entry.nextCheck > Date.now());
+    }).toBe(true);
+    const recoveryUse = await f.service.beginModelUse({ recovery: true });
+    expect(recoveryUse.credentials.models).toEqual([]);
+    await recoveryUse.release();
     recover = true; clock.mockReturnValue(start + 25 * 60 * 60_000 + 2);
     await f.service.readState();
-    await expect.poll(() => f.service.peekState().activationState).toBe('ready');
+    await expect.poll(async () => (await f.service.readState()).activationState).toBe('ready');
     expect(f.service.peekState().bindingVersion).toBe(raw.bindingVersion);
     expect((await f.service.modelCredentials()).defaults.text).toBeTruthy();
-    expect(f.activate).toHaveBeenCalledTimes(3);
+    expect(f.activate).toHaveBeenCalledTimes(2);
   } finally { clock.mockRestore(); await f.service.close(); }
 });
 
@@ -620,6 +638,7 @@ it('aborts an in-flight availability check on logout without applying a late res
   const f = await setup(undefined, undefined, undefined, undefined, (root, readProbeCredentials) => createOfficialModelAccess({
     dataDir: root, readProbeCredentials, readProxy: async () => '', fetcher: async (url, options) => {
       if (String(url).endsWith('/cdn-cgi/trace')) return new Response('ip=203.0.113.1\nloc=JP\n');
+      if (String(url).includes('/models/user?')) return Response.json({ data: raw.models });
       started = true;
       return new Promise<Response>(resolve => options!.signal!.addEventListener('abort', () => {
         aborted = true;
@@ -636,7 +655,7 @@ it('aborts an in-flight availability check on logout without applying a late res
   expect(aborted).toBe(true);
   expect(f.service.peekState()).toMatchObject({ authState: 'signed_out', activationState: 'inactive', models: [] });
   expect(await createGatewayConfigStore(f.root).readCredentials()).toBeUndefined();
-  expect(f.activate).toHaveBeenCalledOnce();
+  expect(f.activate).not.toHaveBeenCalled();
   await f.service.close();
 });
 

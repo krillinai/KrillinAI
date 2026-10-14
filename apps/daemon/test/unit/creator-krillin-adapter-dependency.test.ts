@@ -111,7 +111,7 @@ describe('KrillinAI configured transcription dependency', () => {
     expect(stage.reportProgress).toHaveBeenCalledWith(expect.objectContaining({
       phase: 'fallback_to_transcription', providerStatus: 'running',
       captionSource: 'whisper', captionFallbackCode: code,
-      message: expect.stringContaining('已自动切换到语音转录')
+        message: expect.stringContaining('Switched to speech transcription.')
     }));
     expect(stage.reportProgress).toHaveBeenCalledWith(expect.objectContaining({
       phase: 'transcribing_audio', percent: 55, captionFallbackCode: code, captionSource: 'whisper'
@@ -161,7 +161,7 @@ describe('KrillinAI configured transcription dependency', () => {
     expect(stage.reportProgress).not.toHaveBeenCalledWith(expect.objectContaining({ providerStatus: 'failed' }));
     expect(stage.reportProgress).toHaveBeenCalledWith(expect.objectContaining({
       phase: 'downloading_dependencies', captionFallbackCode: 'platform_caption_invalid',
-      message: expect.stringContaining('平台字幕解析失败，已自动切换到语音转录')
+      message: expect.stringContaining('Platform subtitle parsing failed. Switched to speech transcription.')
     }));
   });
 

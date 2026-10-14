@@ -65,11 +65,11 @@ test('首页和项目页按需加载管理、登录与插件资源且 Browser/De
       expect(resources.some(url => /ProjectManagementDialog|\/packages\/skill-market\//.test(url))).toBe(false);
       resources.length = 0;
       await page.reload();
-      await expect(page.getByRole('status', { name: '本地运行内核正常' })).toBeVisible();
+      await expect(page.getByRole('status', { name: 'The local Runtime is ready' })).toBeVisible();
       await expect(page.locator('.startup-agent-setup')).toHaveCount(0);
       expect(resources).toHaveLength(0);
       await page.getByRole('button', { name: '我的项目', exact: true }).click();
-      const workspace = page.getByRole('region', { name: 'OpenCreator 工作区' });
+      const workspace = page.getByRole('region', { name: 'OpenCreator workspace' });
       const heading = workspace.getByRole('heading', { name: '我的项目', exact: true });
       await expect(heading).toBeVisible();
       expect(resources).toHaveLength(0);
@@ -1115,7 +1115,7 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
       await page.goto(`${runtime.origin}/#/settings`);
 
       const settings = page
-        .getByRole('region', { name: 'OpenCreator 工作区' })
+        .getByRole('region', { name: 'OpenCreator workspace' })
         .getByRole('main');
       const lightButton = settings.getByRole('button', { name: '浅色' });
       const permission = settings.getByRole('combobox', { name: '默认权限' });
@@ -1599,7 +1599,7 @@ test('本地 Whisper 在 Browser/Desktop Bridge 下遵守相同 Runtime 能力�
       await runtime.openApp(page);
       await page.goto(`${runtime.origin}/#/settings?tab=ai-services&section=transcription`);
       const settings = page
-        .getByRole('region', { name: 'OpenCreator 工作区' })
+        .getByRole('region', { name: 'OpenCreator workspace' })
         .getByRole('main');
       const localMode = settings.getByRole('button', { name: '本地 Whisper' });
       if (localProvider) {
@@ -2042,7 +2042,7 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
       await page.goto(`${runtime.origin}/#/settings?tab=local-components`);
 
       const settings = page
-        .getByRole('region', { name: 'OpenCreator 工作区' })
+        .getByRole('region', { name: 'OpenCreator workspace' })
         .getByRole('main');
       const component = settings.locator('.runtime-component-item').filter({
         has: page.getByRole('heading', { name: 'yt-dlp nightly' })

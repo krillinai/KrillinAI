@@ -102,15 +102,15 @@ describe('CapabilitiesView', () => {
     expect(screen.getByRole('heading', { name: 'MCP' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Profiles' })).toBeInTheDocument();
     expect(screen.getByText('2 个技能')).toBeInTheDocument();
-    expect(screen.getByText('1 个 servers')).toBeInTheDocument();
-    expect(screen.getByText('3 个 profiles')).toBeInTheDocument();
+    expect(screen.getByText('1 servers')).toBeInTheDocument();
+    expect(screen.getByText('3 profiles')).toBeInTheDocument();
   });
 
   it('shows zero counts when connected capability data is missing', () => {
     render(<CapabilitiesView connected />);
 
     expect(screen.getByText('0 个技能')).toBeInTheDocument();
-    expect(screen.getByText('0 个 servers')).toBeInTheDocument();
-    expect(screen.getByText('0 个 profiles')).toBeInTheDocument();
+    expect(screen.getByText('0 servers')).toBeInTheDocument();
+    expect(screen.getByText('0 profiles')).toBeInTheDocument();
   });
 });

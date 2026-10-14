@@ -26,7 +26,7 @@ export function createSmartDubbingExecutor(input: {
       stage.reportProgress({ phase: 'validating', percent: 5 });
       const request = readRequest(stage.job.state);
       const official = input.isOfficial?.() === true;
-      if (official && (request.style !== 'natural' || request.speed !== 1)) throw new CreatorExecutorError('unsupported_capability', '当前官方语音模型只支持自然表达和默认语速');
+      if (official && (request.style !== 'natural' || request.speed !== 1)) throw new CreatorExecutorError('unsupported_capability', 'The official speech model supports only natural delivery and default speed');
       if (stage.signal.aborted) {
         throw new CreatorExecutorError('creator_stage_canceled', 'Creator stage was canceled');
       }

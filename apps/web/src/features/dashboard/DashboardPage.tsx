@@ -768,7 +768,7 @@ function CreatorWorkspaceSession(props: {
       loadSnapshot: async options => {
         const next = (await props.service.getJob(jobId, options)).job;
         if (next.projectId !== props.projectId || next.templateId !== props.templateId) {
-          throw new ApiClientError({ status: 409, code: 'CREATOR_SESSION_MISMATCH', message: '该创作项目与当前工作目录或模板不匹配' });
+          throw new ApiClientError({ status: 409, code: 'CREATOR_SESSION_MISMATCH', message: 'This creation project does not match the current working directory or template' });
         }
         return next;
       },

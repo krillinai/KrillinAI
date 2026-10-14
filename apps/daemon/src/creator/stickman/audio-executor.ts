@@ -298,7 +298,7 @@ function resolveTtsSelection(stage: CreatorExecutorInput, config: CreatorService
   if (provider === undefined) {
     throw new CreatorExecutorError(
       'creator_tts_config_missing',
-      '请先在 AI 服务的配音服务中配置可用的配音 Provider'
+      'Configure an available TTS provider in AI Services first'
     );
   }
   if (provider === 'edge-tts') {
@@ -320,7 +320,7 @@ function resolveTtsSelection(stage: CreatorExecutorInput, config: CreatorService
   if (!voiceId) {
     throw new CreatorExecutorError(
       'creator_tts_config_missing',
-      '请先在 AI 服务的配音服务中选择默认音色'
+      'Select a default voice in AI Services first'
     );
   }
   return { provider, model, voiceId };

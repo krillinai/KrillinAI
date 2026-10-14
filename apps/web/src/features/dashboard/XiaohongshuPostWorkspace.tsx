@@ -426,7 +426,7 @@ function readLatestResult(artifacts: CreatorArtifact[]): {
   return {
     artifact,
     fileName: readString(artifact.metadata.fileName) || 'OpenCreator-xiaohongshu-post.md',
-    title: readString(artifact.metadata.title) || '小红书帖子'
+    title: readString(artifact.metadata.title) || 'Xiaohongshu post'
   };
 }
 

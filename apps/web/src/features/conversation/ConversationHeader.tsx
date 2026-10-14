@@ -18,9 +18,9 @@ export function ConversationHeader(props: {
         <button
           className="sidebar-collapse-button conversation-file-button"
           type="button"
-          aria-label="文件"
+          aria-label="Files"
           aria-pressed={props.fileWorkspaceOpen === true}
-          title={props.fileWorkspaceOpen ? '收起文件工作区' : '打开文件工作区'}
+          title={props.fileWorkspaceOpen ? 'Collapse file workspace' : 'Open file workspace'}
           onClick={props.onOpenLocation}
         >
           <PanelLeftClose aria-hidden="true" size={18} strokeWidth={1.85} />

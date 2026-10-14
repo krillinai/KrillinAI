@@ -20,28 +20,28 @@ export const defaultScheduleFrequency: ScheduleFrequency = {
 };
 
 export const scheduleRepeatOptions: Array<{ value: ScheduleRepeat; label: string }> = [
-  { value: 'hourly', label: '每小时' },
-  { value: 'daily', label: '每天' },
-  { value: 'weekdays', label: '工作日' },
-  { value: 'weekly', label: '每周' },
-  { value: 'custom', label: '自定义' },
+  { value: 'hourly', label: 'Hourly' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekdays', label: 'Weekdays' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'custom', label: 'Custom' },
 ];
 
 export const scheduleWeekdays = [
-  { value: 1, shortLabel: '一', label: '周一' },
-  { value: 2, shortLabel: '二', label: '周二' },
-  { value: 3, shortLabel: '三', label: '周三' },
-  { value: 4, shortLabel: '四', label: '周四' },
-  { value: 5, shortLabel: '五', label: '周五' },
-  { value: 6, shortLabel: '六', label: '周六' },
-  { value: 0, shortLabel: '日', label: '周日' },
+  { value: 1, shortLabel: 'Mon', label: 'Monday' },
+  { value: 2, shortLabel: 'Tue', label: 'Tuesday' },
+  { value: 3, shortLabel: 'Wed', label: 'Wednesday' },
+  { value: 4, shortLabel: 'Thu', label: 'Thursday' },
+  { value: 5, shortLabel: 'Fri', label: 'Friday' },
+  { value: 6, shortLabel: 'Sat', label: 'Saturday' },
+  { value: 0, shortLabel: 'Sun', label: 'Sunday' },
 ] as const;
 
 export function scheduleFrequencyToCron(frequency: ScheduleFrequency): string {
   if (frequency.repeat === 'advanced') {
     const legacyCron = frequency.legacyCron?.trim();
     if (legacyCron === undefined || legacyCron.length === 0) {
-      throw new Error('高级计划缺少原始表达式');
+      throw new Error('The advanced schedule is missing its original expression');
     }
     return legacyCron;
   }
@@ -52,7 +52,7 @@ export function scheduleFrequencyToCron(frequency: ScheduleFrequency): string {
   if (frequency.repeat === 'weekdays') return `${minute} ${hour} * * 1-5`;
 
   const days = normalizeDays(frequency.days);
-  if (days.length === 0) throw new Error('请至少选择一天');
+  if (days.length === 0) throw new Error('Select at least one day');
   if (frequency.repeat === 'weekly') {
     return `${minute} ${hour} * * ${days[0]}`;
   }
@@ -98,16 +98,16 @@ export function formatScheduleFrequency(cron: string): string {
   const frequency = cronToScheduleFrequency(cron);
   switch (frequency.repeat) {
     case 'hourly':
-      return `每小时第 ${Number(frequency.time.slice(3, 5))} 分钟`;
+      return `Every hour at minute ${Number(frequency.time.slice(3, 5))}`;
     case 'daily':
-      return `每天 ${frequency.time}`;
+      return `Daily at ${frequency.time}`;
     case 'weekdays':
-      return `工作日 ${frequency.time}`;
+      return `Weekdays at ${frequency.time}`;
     case 'weekly':
     case 'custom':
-      return `每${frequency.days.map(day => weekdayLabel(day)).join('、')} ${frequency.time}`;
+      return `Every ${frequency.days.map(day => weekdayLabel(day)).join(', ')} at ${frequency.time}`;
     case 'advanced':
-      return '自定义计划';
+      return 'Custom schedule';
   }
 }
 
@@ -118,7 +118,7 @@ export function formatScheduleNextRun(
   if (value === null || value === undefined) return undefined;
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return undefined;
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
     month: 'numeric',
     day: 'numeric',
@@ -131,14 +131,14 @@ export function formatScheduleNextRun(
 
 function parseTime(value: string): { hour: number; minute: number } {
   const match = /^(\d{2}):(\d{2})$/.exec(value.trim());
-  if (match === null) throw new Error('请选择有效时间');
+  if (match === null) throw new Error('Select a valid time');
   const hour = Number(match[1]);
   const minute = Number(match[2]);
   if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
-    throw new Error('请选择有效时间');
+    throw new Error('Select a valid time');
   }
   if (!Number.isInteger(minute) || minute < 0 || minute > 59) {
-    throw new Error('请选择有效时间');
+    throw new Error('Select a valid time');
   }
   return { hour, minute };
 }
@@ -184,7 +184,7 @@ function advancedFrequency(cron: string): ScheduleFrequency {
 }
 
 function weekdayLabel(day: number): string {
-  return scheduleWeekdays.find(option => option.value === day)?.label ?? '周一';
+  return scheduleWeekdays.find(option => option.value === day)?.label ?? 'Monday';
 }
 
 function padTime(value: number): string {

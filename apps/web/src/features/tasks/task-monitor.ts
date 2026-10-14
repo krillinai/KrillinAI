@@ -58,11 +58,11 @@ export function createTaskNotification(task: TaskItem): {
   if (task.createdBy === 'schedule') {
     return {
       title: task.status === 'waiting_approval'
-        ? `${task.title}等待审批`
+        ? `${task.title}: awaiting approval`
         : task.status === 'failed'
-          ? `${task.title}失败`
+          ? `${task.title}: failed`
           : task.status === 'canceled'
-            ? `${task.title}已取消`
+            ? `${task.title}: canceled`
             : task.title,
       body: detail,
       ...target
@@ -70,12 +70,12 @@ export function createTaskNotification(task: TaskItem): {
   }
 
   const title = task.status === 'waiting_approval'
-    ? '任务等待审批'
+    ? 'Task awaiting approval'
     : task.status === 'succeeded'
-      ? '任务已完成'
+      ? 'Task completed'
       : task.status === 'canceled'
-        ? '任务已取消'
-        : '任务失败';
+        ? 'Task canceled'
+        : 'Task failed';
   return {
     title,
     body: `${task.title}：${detail}`,
@@ -86,17 +86,17 @@ export function createTaskNotification(task: TaskItem): {
 function notificationDetail(task: TaskItem): string {
   switch (task.status) {
     case 'waiting_approval':
-      return task.pendingApproval?.summary ?? '需要你的审批。';
+      return task.pendingApproval?.summary ?? 'Your approval is required.';
     case 'succeeded':
-      return task.resultSummary ?? '任务已完成。';
+      return task.resultSummary ?? 'The task is complete.';
     case 'failed':
-      return task.failureSummary ?? '任务未完成，请打开会话查看详情。';
+      return task.failureSummary ?? 'The task did not complete. Open its conversation for details.';
     case 'canceled':
-      return '本次任务已取消。';
+      return 'This task was canceled.';
     case 'queued':
-      return '任务正在排队。';
+      return 'The task is queued.';
     case 'running':
-      return '任务正在运行。';
+      return 'The task is running.';
   }
 }
 

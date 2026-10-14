@@ -12,18 +12,18 @@ import { ScheduleThreadHeader } from './ScheduleThreadHeader.js';
 
 describe('ScheduleThreadHeader', () => {
   it.each([
-    ['idle', '已启用'],
-    ['running', '运行中'],
-    ['queued', '已排队'],
-    ['waiting_approval', '等待审批'],
-    ['failed', '上次失败'],
-    ['paused', '已暂停'],
+    ['idle', 'Enabled'],
+    ['running', 'Running'],
+    ['queued', 'Queued'],
+    ['waiting_approval', 'Awaiting approval'],
+    ['failed', 'Last run failed'],
+    ['paused', 'Paused'],
   ] satisfies Array<[ScheduleSidebarTaskStatus, string]>)(
     'renders the %s task status',
     (status, label) => {
       renderHeader({ status });
 
-      expect(screen.getByRole('status', { name: '任务状态' })).toHaveTextContent(label);
+      expect(screen.getByRole('status', { name: 'Task status' })).toHaveTextContent(label);
       if (status === 'idle') {
         expect(screen.getByText('下次 7/15 09:00')).toBeInTheDocument();
       }
@@ -43,16 +43,16 @@ describe('ScheduleThreadHeader', () => {
       service: createService({ updateSchedule }),
     });
 
-    await user.click(screen.getByRole('button', { name: '立即运行任务' }));
-    expect(screen.getByRole('button', { name: '立即运行任务' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '暂停任务' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '编辑任务' })).toBeDisabled();
-    expect(screen.getByRole('status', { name: '任务操作状态' })).toHaveTextContent('正在启动');
+    await user.click(screen.getByRole('button', { name: 'Run task now' }));
+    expect(screen.getByRole('button', { name: 'Run task now' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Pause task' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Edit task' })).toBeDisabled();
+    expect(screen.getByRole('status', { name: 'Task operation status' })).toHaveTextContent('Starting');
 
     runNow.resolve();
-    expect(await screen.findByRole('button', { name: '立即运行任务' })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: 'Run task now' })).toBeEnabled();
 
-    await user.click(screen.getByRole('button', { name: '暂停任务' }));
+    await user.click(screen.getByRole('button', { name: 'Pause task' }));
     expect(updateSchedule).toHaveBeenCalledWith('schedule-1', { enabled: false });
     expect(onScheduleChanged).toHaveBeenCalledWith(expect.objectContaining({
       id: 'schedule-1',
@@ -72,17 +72,17 @@ describe('ScheduleThreadHeader', () => {
       service: createService({ getSchedule, updateSchedule }),
     });
 
-    await user.click(screen.getByRole('button', { name: '编辑任务' }));
+    await user.click(screen.getByRole('button', { name: 'Edit task' }));
 
     expect(getSchedule).toHaveBeenCalledWith('schedule-1');
-    const dialog = await screen.findByRole('dialog', { name: '编辑任务 每日总结' });
+    const dialog = await screen.findByRole('dialog', { name: 'Edit task 每日总结' });
     expect(dialog).toBeInTheDocument();
-    expect(screen.getByText('编辑定时任务')).toBeInTheDocument();
+    expect(screen.getByText('Edit scheduled task')).toBeInTheDocument();
     expect(dialog.parentElement).toHaveClass('schedule-thread-editor-backdrop');
     expect(dialog.parentElement?.parentElement).toBe(document.body);
-    await user.clear(screen.getByLabelText('定时任务标题'));
-    await user.type(screen.getByLabelText('定时任务标题'), '每周总结');
-    await user.click(screen.getByRole('button', { name: '保存更改' }));
+    await user.clear(screen.getByLabelText('Scheduled task title'));
+    await user.type(screen.getByLabelText('Scheduled task title'), '每周总结');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(updateSchedule).toHaveBeenCalledWith('schedule-1', expect.objectContaining({
       name: '每周总结',
@@ -92,7 +92,7 @@ describe('ScheduleThreadHeader', () => {
     expect(onScheduleChanged).toHaveBeenCalledWith(expect.objectContaining({
       name: '每周总结',
     }));
-    expect(screen.queryByRole('dialog', { name: '编辑任务 每日总结' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Edit task 每日总结' })).not.toBeInTheDocument();
   });
 
   it('restores a paused task and settles errors without leaving actions disabled', async () => {
@@ -106,14 +106,14 @@ describe('ScheduleThreadHeader', () => {
       service: createService({ updateSchedule }),
     });
 
-    await user.click(screen.getByRole('button', { name: '恢复任务' }));
+    await user.click(screen.getByRole('button', { name: 'Resume task' }));
 
     expect(updateSchedule).toHaveBeenCalledWith('schedule-1', { enabled: true });
     const issue = await screen.findByRole('alert');
-    expect(issue).toHaveTextContent('无法更新任务状态，请重试。');
+    expect(issue).toHaveTextContent('Could not update task status. Try again.');
     expect(issue).not.toHaveTextContent(/诊断编号：OC-/);
     expect(issue).not.toHaveTextContent('更新失败');
-    expect(screen.getByRole('button', { name: '恢复任务' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Resume task' })).toBeEnabled();
   });
 });
 

@@ -1417,7 +1417,7 @@ function ModelField(props: {
           }}
         >
           {props.suggestions.map(value => <option key={value} value={value}>{value}</option>)}
-          <option value="__custom__">自定义模型 / Custom model</option>
+          <option value="__custom__">Custom model</option>
         </select>
       ) : null}
       {(!props.suggestions?.length || showCustomInput) ? (

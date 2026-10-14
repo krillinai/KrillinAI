@@ -34,7 +34,7 @@ describe('project manager', () => {
 
     expect(first).toMatchObject({
       id: 'project_default_1',
-      name: '默认项目',
+      name: 'Default project',
       cwd: join(managedProjectRoot, 'Default Project'),
       directoryState: 'available'
     });

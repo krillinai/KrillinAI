@@ -168,7 +168,7 @@ export function createKrillinDependencyLoader(input: {
         }
         reportProgress({
           phase: 'downloading_dependencies',
-          message: '当前本地转录组件尚未安装，正在自动下载。模型文件较大，可能需要较长时间；下载并校验完成后将自动继续，无需重新开始。',
+          message: 'Local transcription components are being downloaded automatically. Large model files may take time. Transcription will continue after download and verification.',
           krillinMode: 'cli',
           providerStatus: 'preparing',
           dependency: 'whispercpp',
@@ -186,7 +186,7 @@ export function createKrillinDependencyLoader(input: {
             onPhase(phase) {
               reportProgress({
                 phase: 'downloading_dependencies',
-                message: `正在准备 Whisper.cpp ${phase === 'cli' ? '转录引擎' : model + ' 模型'}；下载并校验完成后将自动继续`,
+                message: `Preparing Whisper.cpp ${phase === 'cli' ? 'transcription engine' : model + ' model'}. The task will resume after download and verification.`,
                 krillinMode: 'cli',
                 providerStatus: 'preparing',
                 dependency: 'whispercpp',
@@ -211,7 +211,7 @@ export function createKrillinDependencyLoader(input: {
           }
           throw new CreatorExecutorError(
             'creator_dependency_prepare_failed',
-            `Whisper.cpp 依赖加载失败：${errorMessage(cause)}`
+            `Could not load Whisper.cpp dependencies: ${errorMessage(cause)}`
           );
         }
         return;
@@ -231,7 +231,7 @@ export function createKrillinDependencyLoader(input: {
       }
       reportProgress({
         phase: 'downloading_dependencies',
-        message: '当前本地转录组件尚未安装，正在自动下载。模型文件较大，可能需要较长时间；下载并校验完成后将自动继续，无需重新开始。',
+        message: 'Local transcription components are being downloaded automatically. Large model files may take time. Transcription will continue after download and verification.',
         krillinMode: 'cli',
         providerStatus: 'preparing',
         dependency: 'whisperkit',
@@ -246,7 +246,7 @@ export function createKrillinDependencyLoader(input: {
         onPhase(phase) {
           reportProgress({
             phase: 'downloading_dependencies',
-            message: `正在准备 WhisperKit ${phase === 'cli' ? '转录引擎' : 'large-v2 模型'}；下载并校验完成后将自动继续`,
+            message: `Preparing WhisperKit ${phase === 'cli' ? 'transcription engine' : 'large-v2 model'}. The task will resume after download and verification.`,
             krillinMode: 'cli',
             providerStatus: 'preparing',
             dependency: 'whisperkit',
@@ -269,7 +269,7 @@ export function createKrillinDependencyLoader(input: {
         }
         throw new CreatorExecutorError(
           'creator_dependency_prepare_failed',
-          `WhisperKit 依赖加载失败：${errorMessage(cause)}`
+          `Could not load WhisperKit dependencies: ${errorMessage(cause)}`
         );
       }
     }
@@ -309,7 +309,7 @@ function componentDownloadProgress(dependency: string, model: string, progress: 
     phase: `${progress.state}_dependencies`, percent: 2, dependency, dependencyModel: model, dependencyItem: progress.item,
     dependencyPercent: percent, downloadedBytes: progress.downloadedBytes ?? 0, totalBytes: progress.totalBytes ?? null,
     bytesPerSecond: progress.bytesPerSecond ?? null, remainingSeconds: progress.remainingSeconds ?? null,
-    message: `正在${progress.state === 'verifying' ? '校验' : progress.state === 'extracting' ? '解压安装' : '下载'} ${progress.item}。${progress.statusMessage ?? ''}模型较大，准备完成后会自动继续转录，无需重新开始。`
+    message: `${progress.state === 'verifying' ? 'Verifying' : progress.state === 'extracting' ? 'Extracting and installing' : 'Downloading'} ${progress.item}. ${progress.statusMessage ?? ''}The model is large. Transcription will resume automatically when ready.`
   };
 }
 
@@ -782,7 +782,7 @@ export async function configuredOrDownloadedFile(input: {
       lastBytes = downloadedBytes;
       lastTime = now;
       input.onProgress?.({ state: 'downloading', item: input.name, downloadedBytes, totalBytes, bytesPerSecond,
-        statusMessage: retrying ? '下载连接暂时失败，正在自动重试。' : now - lastDataAt > 10_000 ? '下载暂无新数据，正在等待服务器响应；任务仍在运行。' : downloadedBytes === 0 ? '正在连接下载服务器，尚未开始传输。' : undefined,
+        statusMessage: retrying ? 'The download connection failed temporarily. Retrying automatically. ' : now - lastDataAt > 10_000 ? 'Waiting for more data from the download server. The task is still running. ' : downloadedBytes === 0 ? 'Connecting to the download server. Transfer has not started yet. ' : undefined,
         remainingSeconds: totalBytes !== null && bytesPerSecond > 0 ? Math.max(0, totalBytes - downloadedBytes) / bytesPerSecond : null });
     } finally { polling = false; }
   };

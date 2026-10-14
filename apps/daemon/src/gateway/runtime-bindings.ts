@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, lstatSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { createDirectRuntime } from './direct-runtime.js';
+import { createDirectRuntime, type DirectRuntimeUse } from './direct-runtime.js';
 import { createOfficialFetch } from './official-fetch.js';
 
 export type GatewayRuntimeBindingsInput = {
@@ -13,7 +13,7 @@ export type GatewayRuntimeBindingsInput = {
   parentEnvironment?: NodeJS.ProcessEnv;
   direct?: boolean;
   readProxy?(): Promise<string>;
-  beginUse?(): Promise<{ key: string; keyVersion?: string; release(): Promise<void> }>;
+  beginUse?(): Promise<DirectRuntimeUse>;
   recoverKey?(keyVersion: string): Promise<{ key: string; keyVersion: string }>;
 };
 

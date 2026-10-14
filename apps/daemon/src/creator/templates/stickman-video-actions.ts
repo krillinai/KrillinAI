@@ -89,7 +89,7 @@ export function createStickmanVideoWorkflow(input: {
     if (unresolved.length > 0) {
       throw new CreatorServiceError(
         'creator_provider_resolution_required',
-        '必须先处置状态未知的 Provider 请求，才能重新执行该阶段'
+        'Resolve the unknown provider request before running this stage again'
       );
     }
     const interrupted = [...job.stages].reverse().find(stage => (
@@ -100,7 +100,7 @@ export function createStickmanVideoWorkflow(input: {
     if (interrupted !== undefined && hasRemoteSideEffect(interrupted, job.providerRequests)) {
       throw new CreatorServiceError(
         'creator_provider_resolution_required',
-        '该阶段存在尚未确认的远端任务，不能自动重试'
+        'This stage has an unconfirmed remote task and cannot retry automatically'
       );
     }
     requireApprovedInputs(job, stageId);
@@ -114,7 +114,7 @@ export function createStickmanVideoWorkflow(input: {
       if (current !== undefined) {
         throw new CreatorServiceError(
           'creator_job_not_resumable',
-          '该阶段的精确输出已经完成，无需再次执行'
+          'The exact output for this stage is already complete. No rerun is needed.'
         );
       }
     }
@@ -522,14 +522,14 @@ function requireApprovedInputs(job: CreatorJob, stageId: string): void {
     stageAtOrAfter(stageId, 'narration')
     && (script === undefined || job.state.approvedScriptArtifactId !== script.id)
   ) {
-    throw new CreatorServiceError('creator_review_required', '必须先审核当前脚本');
+    throw new CreatorServiceError('creator_review_required', 'Review the current script first');
   }
   const storyboard = latestCompleted(job, 'shot_spec');
   if (
     stageAtOrAfter(stageId, 'style-assets')
     && storyboard === undefined
   ) {
-    throw new CreatorServiceError('creator_stage_input_missing', '必须先生成当前分镜');
+    throw new CreatorServiceError('creator_stage_input_missing', 'Generate the current storyboard first');
   }
 }
 
@@ -537,13 +537,13 @@ function requireWorkflowTarget(job: CreatorJob, stageId: string): void {
   if (stageAtOrAfter(stageId, 'timeline') && !workflowTargetAtLeast(job, 'delivery_ready')) {
     throw new CreatorServiceError(
       'creator_workflow_gate_required',
-      '必须先确认当前分镜画面，才能开始动画合成'
+      'Confirm the current storyboard visuals before composing the animation'
     );
   }
   if (stageAtOrAfter(stageId, 'storyboard') && !workflowTargetAtLeast(job, 'visuals_ready')) {
     throw new CreatorServiceError(
       'creator_workflow_gate_required',
-      '必须先完成配音与节奏阶段，才能开始生成分镜画面'
+      'Complete the voice and timing stage before generating storyboard visuals'
     );
   }
 }
@@ -646,7 +646,7 @@ function setReviewGate(
     && currentGate.artifactId === artifactId
   ) return;
   const messages = {
-    'approve-script': '请审核脚本后继续'
+    'approve-script': 'Review the script before continuing'
   } as const;
   creator.setNeedsInput(job.id, {
     code: 'creator_review_required',
@@ -673,8 +673,8 @@ function setProviderRecoveryGate(
   creator.setNeedsInput(job.id, {
     code: 'creator_provider_resolution_required',
     message: request === undefined
-      ? '检测到未完成的远端任务，请确认状态后继续'
-      : `Provider 请求 ${request.id} 的远端接受状态需要用户处置`,
+      ? 'An incomplete remote task was found. Confirm its status before continuing.'
+      : `The remote acceptance status of provider request ${request.id} needs your attention`,
     resumeStageId: stage.stageId,
     workflow: true
   });

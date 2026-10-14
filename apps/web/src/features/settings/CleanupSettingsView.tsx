@@ -36,7 +36,7 @@ export function CleanupSettingsView(props: CleanupSettingsViewProps) {
   async function loadPreview() {
     if (!available || phase !== 'idle') return;
     if (!Number.isInteger(olderThanDays) || olderThanDays <= 0) {
-      setValidationError('保留天数必须是正整数');
+      setValidationError('Retention days must be a positive integer');
       return;
     }
 
@@ -52,7 +52,7 @@ export function CleanupSettingsView(props: CleanupSettingsViewProps) {
       pageIssues.captureOperationFailure(
         'settings.cleanup.preview',
         reason,
-        '无法检查可清理内容，请确认本地服务状态后重试。',
+        'Could not inspect cleanup candidates. Check the local Runtime and try again.',
         { retryable: true }
       );
     } finally {
@@ -74,7 +74,7 @@ export function CleanupSettingsView(props: CleanupSettingsViewProps) {
       pageIssues.captureOperationFailure(
         'settings.cleanup.delete',
         reason,
-        '清理未完成，请检查诊断信息后重试。',
+        'Cleanup did not complete. Check diagnostics and try again.',
         { retryable: true, risk: 'overwrite' }
       );
     } finally {
@@ -86,16 +86,16 @@ export function CleanupSettingsView(props: CleanupSettingsViewProps) {
     <section className="settings-section settings-management cleanup-settings" aria-labelledby="settings-cleanup-title">
       <header className="settings-management__header">
         <div>
-          <h1 id="settings-cleanup-title">运行数据清理</h1>
-          <p>先检查候选内容，再确认删除旧 Run 日志和已归档托管工作区。</p>
+          <h1 id="settings-cleanup-title">Runtime data cleanup</h1>
+          <p>Review candidates before deleting old run logs and archived managed workspaces.</p>
         </div>
       </header>
 
       {!props.connected ? (
-        <p className="settings-notice">本地服务未连接，无法检查可清理内容。</p>
+        <p className="settings-notice">The local Runtime is disconnected. Cleanup candidates cannot be checked.</p>
       ) : null}
       {props.connected && props.service === null ? (
-        <p className="settings-notice">清理服务当前不可用。</p>
+        <p className="settings-notice">The cleanup service is unavailable.</p>
       ) : null}
       {validationError ? <p className="settings-error" role="alert">{validationError}</p> : null}
       <IssueList
@@ -107,20 +107,20 @@ export function CleanupSettingsView(props: CleanupSettingsViewProps) {
         onDismiss={pageIssues.dismissIssue}
       />
 
-      <section className="cleanup-controls" aria-label="清理范围">
+      <section className="cleanup-controls" aria-label="Cleanup scope">
         <label>
-          <span>保留最近</span>
+          <span>Keep the last</span>
           <span className="cleanup-retention-input">
             <input
               type="number"
               min="1"
               step="1"
-              aria-label="保留天数"
+              aria-label="Retention days"
               value={olderThanDays}
               disabled={!available || phase !== 'idle'}
               onChange={(event) => setOlderThanDays(Number(event.target.value))}
             />
-            <span>天</span>
+            <span>days</span>
           </span>
         </label>
         <button
@@ -130,16 +130,16 @@ export function CleanupSettingsView(props: CleanupSettingsViewProps) {
           onClick={() => void loadPreview()}
         >
           <RefreshCw className={phase === 'previewing' ? 'settings-spin' : undefined} aria-hidden="true" size={15} />
-          {phase === 'previewing' ? '正在检查' : '检查可清理内容'}
+          {phase === 'previewing' ? 'Checking' : 'Check cleanup candidates'}
         </button>
       </section>
 
       <section className="cleanup-rules" aria-labelledby="cleanup-rules-title">
-        <h2 id="cleanup-rules-title">保留规则</h2>
+        <h2 id="cleanup-rules-title">Retention rules</h2>
         <ul>
-          <li>运行中、排队中和正在取消的任务不会被清理。</li>
-          <li>只清理已归档的托管工作区，活动工作区和外部目录保持不变。</li>
-          <li>数据库中的 Run 和会话记录会保留，用于继续查看状态。</li>
+          <li>Active, queued, and canceling tasks are retained.</li>
+          <li>Only archived managed workspaces are cleaned up. Active workspaces and external directories are retained.</li>
+          <li>Run and conversation records stay in the database for status review.</li>
         </ul>
       </section>
 
@@ -147,8 +147,8 @@ export function CleanupSettingsView(props: CleanupSettingsViewProps) {
         <section className="cleanup-preview" aria-labelledby="cleanup-preview-title">
           <div className="cleanup-summary">
             <div>
-              <h2 id="cleanup-preview-title">清理预览</h2>
-              <p>{candidateCount} 项 · {formatBytes(preview.totalSizeBytes)}</p>
+              <h2 id="cleanup-preview-title">Cleanup preview</h2>
+              <p>{candidateCount} items | {formatBytes(preview.totalSizeBytes)}</p>
             </div>
             {candidateCount > 0 && result === undefined ? (
               <button
@@ -158,15 +158,15 @@ export function CleanupSettingsView(props: CleanupSettingsViewProps) {
                 onClick={() => setConfirming(true)}
               >
                 <Trash2 aria-hidden="true" size={15} />
-                删除 {candidateCount} 项
+                Remove {candidateCount} items
               </button>
             ) : null}
           </div>
 
           {preview.items.length === 0 ? (
-            <div className="settings-state">没有符合条件的可清理内容</div>
+            <div className="settings-state">No eligible cleanup candidates</div>
           ) : (
-            <ul className="cleanup-item-list" aria-label="清理候选列表">
+            <ul className="cleanup-item-list" aria-label="Cleanup candidates">
               {preview.items.map(item => <CleanupItem key={`${item.type}:${item.id}`} item={item} />)}
             </ul>
           )}
@@ -176,11 +176,11 @@ export function CleanupSettingsView(props: CleanupSettingsViewProps) {
       ) : null}
 
       {confirming && preview ? (
-        <section className="settings-confirmation" role="region" aria-label="确认清理">
+        <section className="settings-confirmation" role="region" aria-label="Confirm cleanup">
           <AlertTriangle aria-hidden="true" size={18} />
           <div>
-            <strong>确认永久删除 {candidateCount} 项？</strong>
-            <p>此操作无法撤销。删除时会重新检查候选内容，发生变化的项目可能被跳过。</p>
+            <strong>Permanently delete {candidateCount} items?</strong>
+            <p>This cannot be undone. Candidates are checked again before deletion; changed items may be skipped.</p>
           </div>
           <div className="settings-confirmation__actions">
             <button
@@ -189,7 +189,7 @@ export function CleanupSettingsView(props: CleanupSettingsViewProps) {
               disabled={phase !== 'idle'}
               onClick={() => setConfirming(false)}
             >
-              取消
+              Cancel
             </button>
             <button
               className="settings-primary-button"
@@ -198,7 +198,7 @@ export function CleanupSettingsView(props: CleanupSettingsViewProps) {
               onClick={() => void deleteCandidates()}
             >
               <Trash2 aria-hidden="true" size={15} />
-              {phase === 'deleting' ? '正在删除' : `确认删除 ${candidateCount} 项`}
+              {phase === 'deleting' ? 'Deleting' : `Confirm deleting ${candidateCount} items`}
             </button>
           </div>
         </section>
@@ -236,19 +236,19 @@ function CleanupResult(props: {
       <div className="cleanup-result__title">
         <CheckCircle2 aria-hidden="true" size={18} />
         <div>
-          <h2 id="cleanup-result-title">清理结果</h2>
-          <p>已释放 {formatBytes(props.result.totalDeletedBytes)}</p>
+          <h2 id="cleanup-result-title">Cleanup results</h2>
+          <p>Freed {formatBytes(props.result.totalDeletedBytes)}</p>
         </div>
       </div>
       <div className="cleanup-result__counts">
-        <strong>已删除 {props.result.deleted.length} 项</strong>
+        <strong>Deleted {props.result.deleted.length} items</strong>
         <strong data-status={props.result.failed.length > 0 ? 'failed' : 'ok'}>
-          删除失败 {props.result.failed.length} 项
+          Deletion failed {props.result.failed.length} items
         </strong>
-        <strong>跳过 {skipped} 项</strong>
+        <strong>Skipped {skipped} items</strong>
       </div>
       {props.result.failed.length > 0 ? (
-        <ul className="cleanup-failure-list" aria-label="删除失败明细">
+        <ul className="cleanup-failure-list" aria-label="Deletion failures">
           {props.result.failed.map(item => (
             <li key={`${item.type}:${item.id}`}>
               <code>{item.path}</code>
@@ -265,14 +265,14 @@ function CleanupResult(props: {
 function WarningList(props: { warnings: string[] }) {
   if (props.warnings.length === 0) return null;
   return (
-    <ul className="settings-warning-list" aria-label="清理告警">
+    <ul className="settings-warning-list" aria-label="Cleanup warnings">
       {props.warnings.map(warning => <li key={warning}>{warning}</li>)}
     </ul>
   );
 }
 
 function cleanupTypeLabel(type: CleanupPreviewItem['type']): string {
-  return type === 'run_logs' ? 'Run 日志' : '已归档托管工作区';
+  return type === 'run_logs' ? 'Run logs' : 'Archived managed workspace';
 }
 
 function formatBytes(value: number): string {

@@ -17,9 +17,9 @@ const languageLabels: Partial<Record<NonNullable<FileTreeNode['language']>, stri
 
 export function FileTree(props: FileTreeProps) {
   return (
-    <nav className="tree-list" aria-label="项目文件">
+    <nav className="tree-list" aria-label="Project files">
       {props.nodes.length === 0 ? (
-        <p className="empty-state compact">暂无项目文件</p>
+        <p className="empty-state compact">No project files</p>
       ) : (
         <ul>
           {props.nodes.map(node => (

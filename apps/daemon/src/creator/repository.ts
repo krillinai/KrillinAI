@@ -1381,10 +1381,10 @@ function deriveLegacyStageIssues(
           : 'issue.execution',
       summaryParams: {},
       fallbackMessage: outputFailure
-        ? '翻译结果未通过目标语言检查，请修正后重试。'
+        ? 'The translation failed target language validation. Correct it and try again.'
         : providerFailure
-          ? '外部服务调用失败，请先确认请求状态后再继续。'
-          : '创作步骤执行失败，可以重试或询问 Agent。',
+          ? 'The external service request failed. Confirm its status before continuing.'
+          : 'The creator step failed. Try again or ask the Agent.',
       retryable,
       repairActions,
       fingerprint: digest,

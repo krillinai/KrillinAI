@@ -47,9 +47,9 @@ export function FileEditorPane(props: FileEditorPaneProps) {
 
   if (!meta) {
     return (
-      <section className="file-editor-pane" data-toolbar={toolbar} aria-label="文件编辑区">
+      <section className="file-editor-pane" data-toolbar={toolbar} aria-label="File editor">
         <div className="file-preview file-preview-empty">
-          <p>选择一个文件</p>
+          <p>Select a file</p>
         </div>
       </section>
     );
@@ -66,7 +66,7 @@ export function FileEditorPane(props: FileEditorPaneProps) {
   };
 
   return (
-    <section className="file-editor-pane" data-toolbar={toolbar} aria-label="文件编辑区">
+    <section className="file-editor-pane" data-toolbar={toolbar} aria-label="File editor">
       {toolbar === 'inline' ? (
         <header className="file-editor-toolbar">
           <div className="file-editor-toolbar-main">
@@ -74,25 +74,25 @@ export function FileEditorPane(props: FileEditorPaneProps) {
               <strong>{meta.name}</strong>
               <span>{meta.path}</span>
             </div>
-            {props.dirty ? <span className="dirty-indicator">未保存</span> : null}
+            {props.dirty ? <span className="dirty-indicator">Unsaved</span> : null}
           </div>
 
           <div className="file-editor-toolbar-actions">
             {editable && previewable ? (
-              <div className="file-editor-mode-toggle" aria-label="文件视图模式">
+              <div className="file-editor-mode-toggle" aria-label="File view mode">
                 <button
                   type="button"
                   aria-pressed={currentMode === 'preview'}
                   onClick={() => setMode('preview')}
                 >
-                  预览
+                  Preview
                 </button>
                 <button
                   type="button"
                   aria-pressed={currentMode === 'edit'}
                   onClick={() => setMode('edit')}
                 >
-                  编辑
+                  Edit
                 </button>
               </div>
             ) : null}
@@ -104,14 +104,14 @@ export function FileEditorPane(props: FileEditorPaneProps) {
                 disabled={props.saving || !props.dirty || meta.readonly}
                 onClick={() => props.onSave?.()}
               >
-                保存
+                Save
               </button>
             ) : null}
           </div>
         </header>
       ) : null}
 
-      {props.loading ? <div className="file-loading-bar" role="status">正在加载文件...</div> : null}
+      {props.loading ? <div className="file-loading-bar" role="status">Loading file...</div> : null}
 
       {renderContent({
         meta,
@@ -146,7 +146,7 @@ function renderContent(args: RenderContentArgs) {
   if (isImagePreview(args.meta)) {
     return (
       <div className="file-preview file-preview-media">
-        {args.objectUrl ? <img src={args.objectUrl} alt={args.meta.name} /> : <p>图片预览不可用</p>}
+        {args.objectUrl ? <img src={args.objectUrl} alt={args.meta.name} /> : <p>Image preview unavailable</p>}
       </div>
     );
   }
@@ -155,9 +155,9 @@ function renderContent(args: RenderContentArgs) {
     return (
       <div className="file-preview file-preview-media">
         {args.objectUrl ? (
-          <object data={args.objectUrl} type="application/pdf" title={`${args.meta.name} PDF 预览`} aria-label={`${args.meta.name} PDF 预览`} />
+          <object data={args.objectUrl} type="application/pdf" title={`${args.meta.name} PDF preview`} aria-label={`${args.meta.name} PDF preview`} />
         ) : (
-          <p>PDF 预览不可用</p>
+          <p>PDF preview unavailable</p>
         )}
       </div>
     );
@@ -248,7 +248,7 @@ function JsonPreview(props: { content: string }) {
 
   return (
     <div className="file-preview">
-      {parsed.ok ? null : <p className="file-preview-note">JSON 解析失败，以下保留原始内容。</p>}
+      {parsed.ok ? null : <p className="file-preview-note">Could not parse JSON. The original content is shown below.</p>}
       <pre>{parsed.text}</pre>
     </div>
   );
@@ -261,11 +261,11 @@ function renderUnsupported(meta: WorkspaceFileMeta) {
         {unsupportedIcon(meta)}
       </div>
       <div className="unsupported-file-state-copy">
-        <strong>暂不支持预览此文件</strong>
+        <strong>Preview is not supported for this file</strong>
         <span>{meta.name}</span>
         <span>{meta.mime}</span>
         <span>{formatSize(meta.size)}</span>
-        <p>{meta.reason ?? '该文件当前既不可编辑，也没有可用预览。'}</p>
+        <p>{meta.reason ?? 'This file cannot be edited and has no available preview.'}</p>
       </div>
     </div>
   );

@@ -124,18 +124,21 @@ export function createVideoGenerationService(input: {
       headers: { Authorization: `Bearer ${binding.apiKey}`, 'Content-Type': 'application/json', ...(logicalId ? { 'Idempotency-Key': logicalId } : {}) },
       ...(params ? { body: JSON.stringify(params) } : {})
     });
-    if (!response.ok) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', '官方视频请求未完成，请查询原任务', response.status);
+    if (!response.ok) {
+      const failure = await creatorServiceErrorInfo(response, 'Official video', 'opencreator-gateway-video');
+      throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', failure.message, response.status, failure.publicFacts);
+    }
     return response;
   }
   async function refreshGateway(stored: StoredVideoGeneration, options: VideoGenerationOperationOptions) {
     const source = await input.gatewaySource?.binding();
-    if (!source || source.accountId !== stored.gateway?.accountId) throw new VideoGenerationError('VIDEO_GENERATION_CONFIG_REQUIRED', '请登录原任务账户后查询视频', 403);
+    if (!source || source.accountId !== stored.gateway?.accountId) throw new VideoGenerationError('VIDEO_GENERATION_CONFIG_REQUIRED', 'Sign in with the original task account to check the video', 403);
     if (stored.result.status === 'completed' || stored.result.status === 'failed') return stored.result;
     const response = stored.upstreamId
       ? await gatewayCall(source, `requests/${encodeURIComponent(stored.upstreamId)}`, options)
       : await gatewayCall(source, 'video/jobs', options, stored.gateway.params, stored.gateway.logicalId);
     const payload = await response.json() as { requestId?: string; state?: string };
-    if (!payload.requestId || !/^[A-Za-z0-9_-]{12,128}$/.test(payload.requestId)) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', '官方视频回执无效', 502);
+    if (!payload.requestId || !/^[A-Za-z0-9_-]{12,128}$/.test(payload.requestId)) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'Invalid official video receipt', 502);
     stored.upstreamId = payload.requestId;
     options.onGatewayRequest?.(payload.requestId);
     const completed = payload.state === 'succeeded';
@@ -145,10 +148,10 @@ export function createVideoGenerationService(input: {
       options.onDownloadStart?.();
       const response = await gatewayCall(source, `requests/${encodeURIComponent(stored.upstreamId)}/result`, options);
       const reader = response.body?.getReader(); const chunks: Buffer[] = []; let size = 0;
-      if (!reader) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', '官方视频结果为空', 502);
-      for (;;) { const chunk = await reader.read(); if (chunk.done) break; size += chunk.value.length; if (size > MAX_VIDEO_BYTES) { await reader.cancel(); throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', '视频结果过大', 502); } chunks.push(Buffer.from(chunk.value)); }
+      if (!reader) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'The official video result is empty', 502);
+      for (;;) { const chunk = await reader.read(); if (chunk.done) break; size += chunk.value.length; if (size > MAX_VIDEO_BYTES) { await reader.cancel(); throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'The video result is too large', 502); } chunks.push(Buffer.from(chunk.value)); }
       const content = Buffer.concat(chunks);
-      if (!content.length) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', '官方视频结果为空', 502);
+      if (!content.length) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'The official video result is empty', 502);
       await writeFile(videoPath(stored.result.id), content, { mode: 0o600 });
       stored.result = { ...stored.result, status: 'completed', progress: 100, progressKnown: true, fileName: `OpenCreator-video-${stored.result.id}.mp4`, mime: 'video/mp4', size: content.length };
       await writeStored(stored);
@@ -223,10 +226,10 @@ export function createVideoGenerationService(input: {
       const gateway = await input.gatewaySource?.binding();
       validateRequest(request, gateway === undefined);
       if (gateway) {
-        if (!gateway.models.video || (request.referenceImage && !gateway.capabilities?.video?.includes('image_to_video'))) throw new VideoGenerationError('VIDEO_GENERATION_CONFIG_REQUIRED', '当前官方路由未提供此视频能力', 400);
-        if (request.model && request.model !== gateway.models.video) throw new VideoGenerationError('VALIDATION_FAILED', '请选择当前任务的官方视频模型', 400);
+        if (!gateway.models.video || (request.referenceImage && !gateway.capabilities?.video?.includes('image_to_video'))) throw new VideoGenerationError('VIDEO_GENERATION_CONFIG_REQUIRED', 'The official route does not provide this video capability', 400);
+        if (request.model && request.model !== gateway.models.video) throw new VideoGenerationError('VALIDATION_FAILED', 'Select an official video model for this task', 400);
         const model = gateway.catalog?.find(candidate => candidate.modality === 'video' && candidate.id === gateway.models.video);
-        if (!model || !gatewayVideoSizes(model).includes(request.size) || !model.durations?.includes(request.duration)) throw new VideoGenerationError('VALIDATION_FAILED', '当前官方视频模型不支持所选尺寸或时长', 400);
+        if (!model || !gatewayVideoSizes(model).includes(request.size) || !model.durations?.includes(request.duration)) throw new VideoGenerationError('VALIDATION_FAILED', 'The official video model does not support this size or duration', 400);
         const id = createId(); validateResultId(id);
         const logicalId = gateway.logicalId ?? options.logicalId ?? id;
         options.onGatewayBinding?.({accountId:gateway.accountId,bindingVersion:gateway.bindingVersion,logicalId});
