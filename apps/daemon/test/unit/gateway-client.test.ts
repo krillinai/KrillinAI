@@ -1,6 +1,16 @@
 import { expect, it, vi } from 'vitest';
 import { accountSchema, createGatewayClient } from '../../src/gateway/client.js';
 
+it('协商稳定密钥策略并拒绝仍会自动轮换的响应', async () => {
+  const value = { schemaVersion: 1, transport: 'openrouter-direct', account: { id: 'a', email: 'a@test', verified: true }, modelKey: 'private', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://openrouter.ai/api/v1', models: [], defaults: {}, modelUsePolicy: 'cached-key-v1', keyRotation: false };
+  const fetcher = vi.fn<typeof fetch>(async () => Response.json(value));
+  const client = createGatewayClient('https://gateway.example', fetcher);
+  expect((await client.bootstrap('device-access', { rotate: false, modelUsePolicy: 'cached-key-v1' })).modelUsePolicy).toBe('cached-key-v1');
+  expect(fetcher.mock.calls[0]?.[0]).toBe('https://gateway.example/api/v1/client/bootstrap?rotate=0&modelUsePolicy=cached-key-v1');
+  value.keyRotation = true;
+  await expect(client.bootstrap('device-access')).rejects.toThrow();
+});
+
 it('accepts only the explicit direct transport endpoint for official credentials', async () => {
   const value = { schemaVersion: 1, transport: 'openrouter-direct', account: { id: 'a', email: 'a@test', verified: true }, modelKey: 'private', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://openrouter.ai/api/v1', models: [], defaults: {} };
   const fetcher = vi.fn(async () => Response.json(value));

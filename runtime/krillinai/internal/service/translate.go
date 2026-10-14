@@ -776,7 +776,8 @@ Required JSON format (output ONLY this structure):
 				invalidResultErr = fmt.Errorf("翻译结果包含无效索引或空文本: %d", trans.Index)
 				break
 			}
-			translations[trans.Index-1] = strings.TrimSpace(trans.Text)
+			// 空行会被 SRT 解析器当成字幕块边界，统一为单行文本。
+			translations[trans.Index-1] = strings.Join(strings.Fields(trans.Text), " ")
 		}
 		if invalidResultErr != nil {
 			lastErr = invalidResultErr
@@ -791,12 +792,12 @@ Required JSON format (output ONLY this structure):
 
 // translateSingleText 翻译单个文本（用作批量翻译失败时的回退）
 func (t *Translator) translateSingleText(text string, originLang, targetLang types.StandardLanguageCode) (string, error) {
-	prompt := fmt.Sprintf(types.SplitTextPrompt, types.GetStandardLanguageName(targetLang), text)
-
-	translatedText, err := t.translateWithRetry(prompt, text, originLang, targetLang)
+	translations, err := t.batchTranslateTexts([]string{text}, originLang, targetLang)
 	if err != nil {
 		return "", fmt.Errorf("单文本翻译失败: %w", err)
 	}
-
-	return translatedText, nil
+	if !t.isTranslationValid(text, translations[0], originLang, targetLang) {
+		return "", fmt.Errorf("单文本翻译质量检查失败")
+	}
+	return translations[0], nil
 }

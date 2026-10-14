@@ -57,7 +57,7 @@ export function statelessResponses(body: Record<string, unknown>) {
   return { ...rest, store: false };
 }
 
-export function createDirectTransport(root: string, fetcher: typeof fetch = fetch) {
+export function createDirectTransport(root: string, fetcher: typeof fetch = fetch, recoverKey?: (account: string, failedKey: string) => Promise<string | undefined>) {
   const pending = new Map<string, Promise<Response>>();
   const fingerprints = new Map<string, string>();
   const workers = new Map<string, AbortController>();
@@ -75,13 +75,27 @@ export function createDirectTransport(root: string, fetcher: typeof fetch = fetc
   const write = (id: string, record: Receipt) => writePrivateJsonFile(path(id), record);
   const response = (id: string, record: Receipt) => new Response(Buffer.from(record.content ?? '', 'base64'), { status: record.status ?? 200, headers: { 'Content-Type': record.mime ?? 'application/json', 'X-Request-ID': id } });
   const accepted = (id: string) => Response.json({ requestId: id, state: 'waiting_upstream' }, { status: 202, headers: { 'X-Request-ID': id } });
-  async function call(resource: string, options: RequestInit, key: string) {
-    const work = fetcher(`${base}/${resource}`, { ...options, redirect: 'error', headers: { ...options.headers, Authorization: `Bearer ${key}` } });
-    let result: Response;
-    try { result = options.signal ? await abortable(work, options.signal) : await work; }
-    catch (error) {
-      void work.then(value => value.body?.cancel()).catch(() => undefined);
-      throw error;
+  async function call(resource: string, options: RequestInit, key: string, account: string) {
+    const submit = async (modelKey: string) => {
+      options.signal?.throwIfAborted();
+      const work = fetcher(`${base}/${resource}`, { ...options, redirect: 'error', headers: { ...options.headers, Authorization: `Bearer ${modelKey}` } });
+      try { return options.signal ? await abortable(work, options.signal) : await work; }
+      catch (error) {
+        void work.then(value => value.body?.cancel()).catch(() => undefined);
+        throw error;
+      }
+    };
+    let result = await submit(key);
+    if (result.status === 401 && recoverKey) {
+      await result.body?.cancel();
+      const recovery = recoverKey(account, key);
+      let updated: string | undefined;
+      try { updated = options.signal ? await abortable(recovery, options.signal) : await recovery; }
+      catch (error) {
+        options.signal?.throwIfAborted();
+        throw error instanceof GatewayError && [401, 403].includes(error.status) ? error : new GatewayError('model_auth_required', 401);
+      }
+      if (updated && updated !== key) result = await submit(updated);
     }
     if (!result.ok) {
       let limitExceeded = false;
@@ -91,7 +105,7 @@ export function createDirectTransport(root: string, fetcher: typeof fetch = fetc
           limitExceeded = typeof payload.error?.message === 'string' && /^Key limit exceeded\b/i.test(payload.error.message);
         } catch {}
       } else void result.body?.cancel().catch(() => undefined);
-      throw new GatewayError(result.status === 402 || limitExceeded ? 'credits_insufficient' : 'official_service_unavailable', result.status >= 400 && result.status < 500 ? result.status : 503);
+      throw new GatewayError(result.status === 401 ? 'model_auth_required' : result.status === 402 || limitExceeded ? 'credits_insufficient' : 'official_service_unavailable', result.status >= 400 && result.status < 500 ? result.status : 503);
     }
     return result;
   }
@@ -117,9 +131,9 @@ export function createDirectTransport(root: string, fetcher: typeof fetch = fetc
         if (record.remoteId) {
           if (lookup[2]) {
             if (record.state !== 'succeeded') throw new GatewayError('request_outcome_unknown', 409);
-            return call(`videos/${encodeURIComponent(record.remoteId)}/content?index=0`, { method: 'GET', signal }, key);
+            return call(`videos/${encodeURIComponent(record.remoteId)}/content?index=0`, { method: 'GET', signal }, key, account);
           }
-          const remote = await (await call(`videos/${encodeURIComponent(record.remoteId)}`, { method: 'GET', signal }, key)).json() as { status?: string };
+          const remote = await (await call(`videos/${encodeURIComponent(record.remoteId)}`, { method: 'GET', signal }, key, account)).json() as { status?: string };
           record.state = remote.status === 'completed' ? 'succeeded' : ['failed', 'cancelled', 'expired'].includes(remote.status ?? '') ? 'failed' : 'waiting_upstream';
           await write(id, record);
         }
@@ -186,7 +200,7 @@ export function createDirectTransport(root: string, fetcher: typeof fetch = fetc
         await write(id, record);
         registered();
         try {
-          const remote = await call(endpoint, { method: 'POST', signal, headers: { 'Content-Type': contentType }, body: Buffer.isBuffer(body) ? new Uint8Array(body) : JSON.stringify(body) }, key);
+          const remote = await call(endpoint, { method: 'POST', signal, headers: { 'Content-Type': contentType }, body: Buffer.isBuffer(body) ? new Uint8Array(body) : JSON.stringify(body) }, key, account);
           if (endpoint === 'videos') {
             const value = await remote.json() as { id?: string };
             if (!value.id || !/^[A-Za-z0-9_-]{1,200}$/.test(value.id)) throw new GatewayError('invalid_gateway_response');

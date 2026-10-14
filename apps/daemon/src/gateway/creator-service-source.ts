@@ -17,7 +17,7 @@ const bindings = new WeakMap<CreatorServicesConfig, GatewayCreatorBinding>();
 export function gatewayCreatorBinding(config: CreatorServicesConfig) { return bindings.get(config); }
 
 export function createGatewayCreatorSource(input: {
-  account: Pick<GatewayAccountService, 'peekState' | 'modelCredentials'> & Partial<Pick<GatewayAccountService, 'beginModelUse'>>;
+  account: Pick<GatewayAccountService, 'peekState' | 'modelCredentials'> & Partial<Pick<GatewayAccountService, 'beginModelUse' | 'recoverModelCredentials'>>;
   manual: CreatorServicesConfigStore;
   getLocalOrigin(): string | undefined;
   fetcher?: typeof fetch;
@@ -33,7 +33,14 @@ export function createGatewayCreatorSource(input: {
   const remoteTasks = new Set<string>();
   const prefix = `${KRILLIN_LLM_ROUTE_PREFIX}/gateway/v1`;
   const direct = input.directRequestsRoot ? createDirectTransport(input.directRequestsRoot,
-    input.fetcher ?? createOfficialFetch({ readProxy: async () => (await input.manual.read()).proxy })) : undefined;
+    input.fetcher ?? createOfficialFetch({ readProxy: async () => (await input.manual.read()).proxy }),
+    input.account.recoverModelCredentials ? async (accountId, failedKey) => {
+      const current = await input.account.modelCredentials();
+      if (current.accountId !== accountId) throw new GatewayError('auth_required', 401);
+      const updated = current.modelKey !== failedKey ? current : await input.account.recoverModelCredentials!(current.keyVersion);
+      if (updated.accountId !== accountId) throw new GatewayError('auth_required', 401);
+      return updated.modelKey !== failedKey ? updated.modelKey : undefined;
+    } : undefined) : undefined;
   function snapshot(): CreatorServiceBinding {
     const state = input.account.peekState();
     if (state.source === 'manual') return { source: 'manual' };
@@ -142,7 +149,19 @@ export function createGatewayCreatorSource(input: {
           inFlight.set(controller, new Promise<void>(resolve => { complete = resolve; }));
           let streaming = false;
           let releaseUse: (() => Promise<void>) | undefined;
-          const finish = () => { inFlight.delete(controller); void releaseUse?.(); releaseUse = undefined; complete(); };
+          const chatStream = request.method === 'POST' && resource === 'chat/completions' && (request.body as { stream?: unknown })?.stream === true;
+          let heartbeat: NodeJS.Timeout | undefined;
+          const disconnected = () => { if (!reply.raw.writableFinished) controller.abort(); };
+          const finish = () => {
+            clearInterval(heartbeat); reply.raw.removeListener('close', disconnected);
+            inFlight.delete(controller); void releaseUse?.(); releaseUse = undefined; complete();
+          };
+          const sendStreamError = (error: unknown) => {
+            if (!reply.raw.destroyed && !reply.raw.writableEnded) reply.raw.end(`data: ${JSON.stringify({ error: {
+              code: error instanceof GatewayError ? error.code : 'gateway_unavailable',
+              message: 'Official service request could not be completed'
+            } })}\n\n`);
+          };
           let receipt: CreatorProviderRequest | undefined;
           let reconcile = async () => {};
           const markUnknown = () => {
@@ -151,13 +170,25 @@ export function createGatewayCreatorSource(input: {
             if (receipt && ['submitting', 'waiting_remote'].includes(receipt.status)) receipt = input.ledger.markUnknownRemoteAcceptance(receipt.id);
           };
           try {
+            // 提前建立 SSE 连接，避免账号协调和上游准备耗尽 Krillin 的响应头等待时间。
+            if (chatStream) {
+              reply.hijack();
+              reply.raw.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-store, no-transform', connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+              reply.raw.write(': connected\n\n');
+              reply.raw.once('close', disconnected);
+              heartbeat = setInterval(() => { if (!reply.raw.destroyed && !reply.raw.writableEnded) reply.raw.write(': keep-alive\n\n'); }, 10_000);
+              heartbeat.unref();
+            }
             const use = await input.account.beginModelUse?.(); releaseUse = use?.release;
+            signal.throwIfAborted();
             const credentials = use?.credentials ?? await input.account.modelCredentials();
+            signal.throwIfAborted();
             if (capabilities.get(original.token) !== original || credentials.accountId !== original.accountId) throw new GatewayError('auth_required', 401);
             const headers: Record<string,string> = { Authorization: `Bearer ${credentials.modelKey}`, 'Content-Type': request.headers['content-type'] ?? 'application/json' };
             const identity = request.headers['idempotency-key'];
             const body = request.method === 'GET' ? undefined : Buffer.isBuffer(request.body) ? new Uint8Array(request.body) : JSON.stringify(request.body);
             const digest = request.method === 'POST' && (credentials.transport === 'openrouter-direct' || (original.logicalId && typeof identity !== 'string')) ? await requestDigest(request.body, headers['Content-Type']!) : undefined;
+            signal.throwIfAborted();
             if (request.method === 'POST') headers['Idempotency-Key'] = typeof identity === 'string' ? identity : original.logicalId
               ? `creator:${createHash('sha256').update(JSON.stringify([original.logicalId, resource, digest])).digest('hex')}`
               : randomUUID();
@@ -199,9 +230,12 @@ export function createGatewayCreatorSource(input: {
               response = await direct.request({ account: credentials.accountId, key: credentials.modelKey, resource, method: request.method, body: request.body, contentType: headers['Content-Type']!, identity: headers['Idempotency-Key'] ?? '', fingerprint: digest ?? '', signal, model: modelMetadata, asyncImage: request.headers.prefer === 'respond-async' });
             } else response = await (input.fetcher ?? fetch)(`${credentials.baseUrl}/${resource}`, { method: request.method, headers, body, redirect: 'error', signal });
             signal.throwIfAborted();
-            reply.code(response.status).header('Cache-Control', 'no-store');
-            reply.header('Content-Type', response.headers.get('content-type') ?? 'application/json');
-            const id = response.headers.get('x-request-id'); if (id) reply.header('X-Request-ID', id);
+            const id = response.headers.get('x-request-id');
+            if (!chatStream) {
+              reply.code(response.status).header('Cache-Control', 'no-store');
+              reply.header('Content-Type', response.headers.get('content-type') ?? 'application/json');
+              if (id) reply.header('X-Request-ID', id);
+            }
             if (receipt && input.ledger) {
               receipt = input.ledger.findLatest(receipt.provider, receipt.requestKey);
               if (receipt && ['submitting', 'waiting_remote', 'unknown_remote_acceptance'].includes(receipt.status)) {
@@ -228,6 +262,10 @@ export function createGatewayCreatorSource(input: {
               }
               return value;
             }
+            if (chatStream && (!response.ok || !response.headers.get('content-type')?.includes('text/event-stream'))) {
+              await response.body?.cancel();
+              throw new GatewayError(response.ok ? 'invalid_gateway_response' : 'official_service_unavailable', response.ok ? 503 : response.status);
+            }
             if (!response.body) return reply.send();
             const stream = Readable.fromWeb(response.body as import('node:stream/web').ReadableStream);
             streaming = true;
@@ -235,10 +273,16 @@ export function createGatewayCreatorSource(input: {
             const abort = () => stream.destroy(new Error('Official service forwarding was interrupted'));
             signal.addEventListener('abort', abort, { once: true });
             stream.once('close', () => signal.removeEventListener('abort', abort));
+            if (chatStream) {
+              stream.once('error', sendStreamError);
+              stream.pipe(reply.raw);
+              return reply;
+            }
             return reply.send(stream);
           } catch (error) {
             if (receipt && input.ledger && error instanceof GatewayError && [400, 401, 402, 403, 404, 422, 429].includes(error.status) && ['submitting', 'waiting_remote'].includes(receipt.status)) receipt = input.ledger.markFailed(receipt.id);
             else markUnknown();
+            if (chatStream) { sendStreamError(error); return reply; }
             return reply.code(error instanceof GatewayError ? error.status : 503).send({ error: { code: error instanceof GatewayError ? error.code : 'gateway_unavailable', message: 'Official service request could not be completed' } });
           } finally { if (!streaming) finish(); }
         } });

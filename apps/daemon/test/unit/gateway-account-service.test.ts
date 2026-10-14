@@ -51,6 +51,303 @@ async function seedSavedAccount(f: Awaited<ReturnType<typeof setup>>) {
   return bootstrap;
 }
 
+async function setupCachedAccount(overrides: Partial<GatewayBootstrap> = {}) {
+  const f = await setup();
+  const bootstrap: GatewayBootstrap = { ...await f.client.bootstrap('access-1'), transport: 'openrouter-direct', baseUrl: 'https://openrouter.ai/api/v1', keyRotation: false, modelUsePolicy: 'cached-key-v1', ...overrides };
+  f.client.bootstrap.mockResolvedValue(bootstrap);
+  const grant = await f.service.startAuthorization();
+  await f.service.pollAuthorization(grant.attemptId);
+  return { ...f, bootstrap };
+}
+
+it('有效模型凭据下连续一百次调用不访问账号网关，账户令牌过期也不阻塞', async () => {
+  const f = await setupCachedAccount();
+  const request = vi.spyOn(f.client, 'request').mockRejectedValue(new GatewayError('gateway_unavailable'));
+  f.client.bootstrap.mockClear().mockRejectedValue(new GatewayError('gateway_unavailable'));
+  f.client.refresh.mockRejectedValue(new GatewayError('gateway_unavailable'));
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 16 * 60_000);
+  try {
+    for (let index = 0; index < 100; index++) {
+      const use = await f.service.beginModelUse();
+      expect(use.credentials.modelKey).toBe(f.bootstrap.modelKey);
+      await use.release(); await use.release();
+    }
+    expect(request).not.toHaveBeenCalled();
+    expect(f.client.refresh).not.toHaveBeenCalled();
+    expect(f.client.bootstrap).not.toHaveBeenCalled();
+    expect(f.service.peekState()).toMatchObject({ authState: 'signed_in', activationState: 'ready' });
+    expect((await createGatewayConfigStore(f.root).readCredentials())?.modelUsePolicy).toBe('cached-key-v1');
+  } finally { clock.mockRestore(); await f.service.close(); }
+});
+
+it('稳定密钥账号重启时从本地激活，账号网关离线不影响恢复', async () => {
+  const f = await setupCachedAccount();
+  await f.service.close();
+  f.client.bootstrap.mockClear().mockRejectedValue(new GatewayError('gateway_unavailable'));
+  f.client.refresh.mockRejectedValue(new GatewayError('gateway_unavailable'));
+  const activate = vi.fn(async () => undefined);
+  const restored = module.createGatewayAccountService({ dataDir: f.root, client: f.client, activateRuntime: activate, closeRuntime: async () => undefined, hasActiveTasks: () => false, automaticPolling: false, deferStartupActivation: true });
+  try {
+    await restored.initialize(); await restored.startBackgroundRestore();
+    const use = await restored.beginModelUse(); await use.release();
+    expect(activate).toHaveBeenCalledOnce();
+    expect(f.client.bootstrap).not.toHaveBeenCalled();
+    expect(f.client.refresh).not.toHaveBeenCalled();
+  } finally { await restored.close(); }
+});
+
+it('并发认证恢复只获取一次新密钥，旧调用保持凭据快照', async () => {
+  const f = await setupCachedAccount();
+  const first = await f.service.beginModelUse();
+  let resume!: () => void;
+  const waiting = new Promise<void>(resolve => { resume = resolve; });
+  f.client.bootstrap.mockClear().mockImplementation(async () => {
+    await waiting;
+    return { ...f.bootstrap, modelKey: 'replacement-model-key', keyVersion: '2' };
+  });
+  try {
+    const pending = Promise.all([f.service.recoverModelCredentials('1'), f.service.recoverModelCredentials('1')]);
+    await expect.poll(() => f.client.bootstrap.mock.calls.length).toBe(1);
+    resume();
+    const results = await pending;
+    expect(results.map(value => value.modelKey)).toEqual(['replacement-model-key', 'replacement-model-key']);
+    expect(first.credentials.modelKey).toBe(f.bootstrap.modelKey);
+    const next = await f.service.beginModelUse();
+    expect(next.credentials.modelKey).toBe('replacement-model-key');
+    await next.release(); await first.release();
+    await f.service.recoverModelCredentials('1');
+    expect(f.client.bootstrap).toHaveBeenCalledOnce();
+  } finally { resume(); await first.release(); await f.service.close(); }
+});
+
+it('活跃任务恢复密钥时保留模型目录，空闲后再应用新默认模型', async () => {
+  const f = await setupCachedAccount();
+  const use = await f.service.beginModelUse();
+  const next = { ...f.bootstrap, modelKey: 'new-key', keyVersion: '2', models: [{ id: 'new-text', modality: 'text' as const, capabilities: ['responses'] }], defaults: { text: 'new-text' } };
+  f.client.bootstrap.mockResolvedValue(next);
+  const request = vi.spyOn(f.client, 'request').mockImplementation(async path => path === '/api/v1/me' ? { account: f.bootstrap.account } : { models: next.models });
+  let clock: ReturnType<typeof vi.spyOn> | undefined;
+  try {
+    const updated = await f.service.recoverModelCredentials('1');
+    expect(updated).toMatchObject({ modelKey: 'new-key', defaults: f.bootstrap.defaults, models: f.bootstrap.models });
+    expect(f.activate).toHaveBeenCalledOnce();
+    await use.release();
+    clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31_000);
+    await f.service.readState();
+    expect((await f.service.modelCredentials()).defaults.text).toBe('new-text');
+    expect(f.activate).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenCalledWith('/api/v1/client/models', 'access-1');
+  } finally { clock?.mockRestore(); await use.release(); await f.service.close(); }
+});
+
+it.each(['binding-first', 'refresh-first'] as const)('绑定同步与令牌刷新并发时保留新密钥和新令牌（%s）', async order => {
+  const f = await setupCachedAccount();
+  let resumeBinding!: () => void;
+  let resumeRefresh!: () => void;
+  const bindingWaiting = new Promise<void>(resolve => { resumeBinding = resolve; });
+  const refreshWaiting = new Promise<void>(resolve => { resumeRefresh = resolve; });
+  f.client.bootstrap.mockClear().mockImplementation(async () => {
+    await bindingWaiting;
+    return { ...f.bootstrap, modelKey: 'replacement-model-key', keyVersion: '2', bindingVersion: '1:2' };
+  });
+  f.client.refresh.mockImplementation(async () => {
+    await refreshWaiting;
+    return { accessToken: 'new-access', refreshToken: 'new-refresh', expiresIn: 900 };
+  });
+  const request = vi.spyOn(f.client, 'request').mockImplementation(async (_path?: string, access?: string) => {
+    if (access !== 'new-access') throw new GatewayError('auth_required', 401);
+    return { available: true };
+  });
+  let clock: ReturnType<typeof vi.spyOn> | undefined;
+  let recovery: ReturnType<typeof f.service.recoverModelCredentials> | undefined;
+  let billing: Promise<unknown> | undefined;
+  try {
+    recovery = f.service.recoverModelCredentials('1');
+    await expect.poll(() => f.client.bootstrap.mock.calls.length).toBe(1);
+    clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 16 * 60_000);
+    billing = f.service.billing('/api/v1/billing/summary').then(value => ({ value }), error => ({ error }));
+    await expect.poll(() => f.client.refresh.mock.calls.length).toBe(1);
+    if (order === 'binding-first') { resumeBinding(); await recovery; resumeRefresh(); }
+    else { resumeRefresh(); await billing; resumeBinding(); }
+    await recovery;
+    expect(await billing).toEqual({ value: { available: true } });
+    expect(request).toHaveBeenCalledExactlyOnceWith('/api/v1/billing/summary', 'new-access', undefined);
+    expect(f.service.peekState()).toMatchObject({ authState: 'signed_in', activationState: 'ready' });
+    expect(await f.service.modelCredentials()).toMatchObject({ modelKey: 'replacement-model-key', keyVersion: '2', bindingVersion: '1:2' });
+    const persisted = await createGatewayConfigStore(f.root).readCredentials();
+    expect(persisted).toMatchObject({ accessToken: 'new-access', refreshToken: 'new-refresh', modelKey: 'replacement-model-key', keyVersion: '2' });
+    expect(persisted?.modelAccessError).toBeUndefined();
+  } finally {
+    resumeBinding(); resumeRefresh();
+    await Promise.allSettled([recovery, billing]);
+    clock?.mockRestore(); await f.service.close();
+  }
+});
+
+it.each(['binding', 'refresh'] as const)('文本模型激活期间的凭据更新不会被旧快照覆盖（%s）', async update => {
+  const f = await setupCachedAccount({
+    models: [
+      { id: 'gateway-text', modality: 'text', capabilities: ['responses'] },
+      { id: 'second-text', modality: 'text', capabilities: ['responses'] },
+      { id: 'first-image', modality: 'image', capabilities: [] }
+    ], defaults: { text: 'gateway-text', image: 'first-image' }
+  });
+  let resume!: () => void;
+  const waiting = new Promise<void>(resolve => { resume = resolve; });
+  f.activate.mockImplementationOnce(async () => { await waiting; });
+  let clock: ReturnType<typeof vi.spyOn> | undefined;
+  let selection: ReturnType<typeof f.service.selectModel> | undefined;
+  try {
+    selection = f.service.selectModel('text', 'second-text');
+    await expect.poll(() => f.activate.mock.calls.length).toBe(2);
+    if (update === 'binding') {
+      f.client.bootstrap.mockResolvedValue({
+        ...f.bootstrap, modelKey: 'replacement-model-key', keyVersion: '2', bindingVersion: '1:2',
+        models: [...f.bootstrap.models.filter(model => model.modality !== 'image'), { id: 'second-image', modality: 'image', capabilities: [] }],
+        defaults: { text: 'gateway-text', image: 'second-image' }
+      });
+      await f.service.recoverModelCredentials('1');
+    } else {
+      clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 16 * 60_000);
+      await f.service.refresh();
+    }
+    resume(); await selection;
+    const credentials = await f.service.modelCredentials();
+    expect(credentials.defaults.text).toBe('second-text');
+    const store = createGatewayConfigStore(f.root);
+    const persisted = await store.readCredentials();
+    expect(persisted?.defaults).toEqual(credentials.defaults);
+    expect(f.service.peekState().selectedModels).toEqual(credentials.defaults);
+    expect((await store.readConfiguration()).selectedModels).toEqual(credentials.defaults);
+    if (update === 'binding') {
+      expect(credentials).toMatchObject({ modelKey: 'replacement-model-key', keyVersion: '2', bindingVersion: '1:2', defaults: { image: 'second-image' } });
+      expect(persisted).toMatchObject({ modelKey: 'replacement-model-key', keyVersion: '2', bindingVersion: '1:2', defaults: { image: 'second-image' } });
+      expect(persisted?.models).toEqual(credentials.models);
+    } else expect(persisted).toMatchObject({ accessToken: 'new-access', refreshToken: 'new-refresh' });
+  } finally {
+    resume(); await Promise.allSettled([selection]);
+    clock?.mockRestore(); await f.service.close();
+  }
+});
+
+it('后台账号同步挂起时仍可并发调用模型，且不会堆积后台请求', async () => {
+  const f = await setupCachedAccount();
+  await f.service.close();
+  vi.useFakeTimers();
+  let resume!: () => void;
+  const waiting = new Promise<void>(resolve => { resume = resolve; });
+  f.client.bootstrap.mockClear().mockImplementation(async () => { await waiting; return f.bootstrap; });
+  const restored = module.createGatewayAccountService({ dataDir: f.root, client: f.client, activateRuntime: async () => undefined, closeRuntime: async () => undefined, hasActiveTasks: () => false });
+  try {
+    await restored.initialize();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(f.client.bootstrap).toHaveBeenCalledOnce();
+    const uses = await Promise.all(Array.from({ length: 20 }, () => restored.beginModelUse()));
+    await Promise.all(uses.map(use => use.release()));
+    await vi.advanceTimersByTimeAsync(180_000);
+    expect(f.client.bootstrap).toHaveBeenCalledOnce();
+    resume();
+  } finally { resume(); await restored.close(); vi.useRealTimers(); }
+});
+
+it('稳定密钥模式退出后拒绝新调用，迟到的密钥恢复不会重新登录', async () => {
+  const f = await setupCachedAccount();
+  let resume!: () => void;
+  const waiting = new Promise<void>(resolve => { resume = resolve; });
+  f.client.bootstrap.mockClear().mockImplementation(async () => { await waiting; return { ...f.bootstrap, modelKey: 'late-model-key', keyVersion: '2' }; });
+  const recovery = f.service.recoverModelCredentials('1');
+  const rejected = expect(recovery).rejects.toMatchObject({ code: 'auth_required' });
+  try {
+    await expect.poll(() => f.client.bootstrap.mock.calls.length).toBe(1);
+    await f.service.logout(); resume(); await rejected;
+    await expect(f.service.beginModelUse()).rejects.toMatchObject({ code: 'auth_required' });
+    expect(await createGatewayConfigStore(f.root).readCredentials()).toBeUndefined();
+  } finally { resume(); await rejected; await f.service.close(); }
+});
+
+it.each([
+  ['account_disabled', 403], ['payment_review_required', 403], ['auth_required', 401], ['gateway_unavailable', 503]
+] as const)('后台确认 %s 时正确处理缓存，重启也保留已确认的失效状态', async (code, status) => {
+  const f = await setupCachedAccount(); await f.service.close();
+  vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+  f.client.bootstrap.mockClear().mockRejectedValue(new GatewayError(code, status));
+  const close = vi.fn(async () => undefined);
+  const restored = module.createGatewayAccountService({ dataDir: f.root, client: f.client, activateRuntime: async () => undefined, closeRuntime: close, hasActiveTasks: () => false });
+  try {
+    await restored.initialize(); await vi.advanceTimersByTimeAsync(60_000);
+    expect(f.client.bootstrap).toHaveBeenCalledOnce();
+    if (status === 503) {
+      const use = await restored.beginModelUse(); await use.release();
+      expect(restored.peekState().activationState).toBe('ready');
+      expect(close).not.toHaveBeenCalled();
+    } else {
+      await vi.waitFor(async () => expect((await createGatewayConfigStore(f.root).readCredentials())?.modelAccessError).toBe(code));
+      await expect(restored.beginModelUse()).rejects.toMatchObject({ code });
+      expect(close).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(600_000);
+      expect(f.client.bootstrap).toHaveBeenCalledOnce();
+    }
+  } finally { await restored.close(); vi.useRealTimers(); }
+  if (status !== 503) {
+    const activate = vi.fn(async () => undefined);
+    const restarted = module.createGatewayAccountService({ dataDir: f.root, client: f.client, activateRuntime: activate, closeRuntime: async () => undefined, hasActiveTasks: () => false, automaticPolling: false, deferStartupActivation: true });
+    try {
+      await restarted.initialize(); await restarted.startBackgroundRestore();
+      await expect(restarted.beginModelUse()).rejects.toMatchObject({ code });
+      expect(activate).not.toHaveBeenCalled();
+    } finally { await restarted.close(); }
+  }
+});
+
+it.each(['refresh', 'bootstrap'] as const)('异步任务从 %s 确认撤销时不等待自己的 Runtime 关闭', async source => {
+  const f = await setupCachedAccount(); await f.service.close();
+  let finishWorker!: () => void;
+  const worker = new Promise<void>(resolve => { finishWorker = resolve; });
+  const close = vi.fn(async () => { await worker; });
+  const restored = module.createGatewayAccountService({ dataDir: f.root, client: f.client, activateRuntime: async () => undefined, closeRuntime: close, hasActiveTasks: () => false, automaticPolling: false });
+  await restored.initialize();
+  const clock = source === 'refresh' ? vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 16 * 60_000) : undefined;
+  if (source === 'refresh') f.client.refresh.mockRejectedValue(new GatewayError('auth_required', 401));
+  else f.client.bootstrap.mockRejectedValue(new GatewayError('account_disabled', 403));
+  try {
+    await expect(restored.recoverModelCredentials('1')).rejects.toMatchObject({ code: source === 'refresh' ? 'auth_required' : 'account_disabled' });
+    expect(close).toHaveBeenCalledOnce();
+    await expect(restored.beginModelUse()).rejects.toBeInstanceOf(GatewayError);
+  } finally { finishWorker(); clock?.mockRestore(); await restored.close(); }
+});
+
+it.each(['profile', 'catalog', 'billing', 'avatar', 'probe'] as const)('按需 %s 接口确认撤销后立即拒绝本地模型请求', async surface => {
+  const f = await setupCachedAccount();
+  const error = new GatewayError('auth_required', 401);
+  const request = vi.spyOn(f.client, 'request').mockImplementation(async path => {
+    if (surface === 'catalog' && path === '/api/v1/me') return { account: f.bootstrap.account };
+    throw error;
+  });
+  f.client.avatar.mockRejectedValue(error);
+  let clock: ReturnType<typeof vi.spyOn> | undefined;
+  try {
+    if (surface === 'avatar') {
+      const store = createGatewayConfigStore(f.root);
+      await store.writeCredentials({ ...(await store.readCredentials())!, account: { ...f.bootstrap.account, avatarUrl: 'https://example.test/avatar.png' } });
+      await f.service.close();
+      const restored = module.createGatewayAccountService({ dataDir: f.root, client: f.client, activateRuntime: async () => undefined, closeRuntime: async () => undefined, hasActiveTasks: () => false, automaticPolling: false });
+      try {
+        await restored.initialize(); await expect(restored.readAvatar('1')).rejects.toMatchObject({ code: 'auth_required' });
+        await expect(restored.beginModelUse()).rejects.toMatchObject({ code: 'auth_required' });
+      } finally { await restored.close(); }
+    } else {
+      if (surface === 'profile' || surface === 'catalog') {
+        clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 31_000);
+        await f.service.readState();
+      } else if (surface === 'billing') await expect(f.service.billing('/api/v1/billing/summary')).rejects.toMatchObject({ code: 'auth_required' });
+      else await expect(f.service.probeCredentials()).rejects.toMatchObject({ code: 'auth_required' });
+      await expect(f.service.beginModelUse()).rejects.toMatchObject({ code: 'auth_required' });
+    }
+    expect(request.mock.calls.length || f.client.avatar.mock.calls.length).toBeGreaterThan(0);
+    expect((await createGatewayConfigStore(f.root).readCredentials())?.modelAccessError).toBe('auth_required');
+  } finally { clock?.mockRestore(); await f.service.close(); }
+});
+
 it('本地账号初始化不联网，恢复期间状态可读且任务不会回退到个人模型', async () => {
   const f = await setup(undefined, undefined, undefined, undefined, undefined, true);
   const bootstrap = await seedSavedAccount(f);
@@ -395,7 +692,7 @@ it('automatically requests migration on restart and defers it for pending suppli
   for (const pending of [true, false]) {
     const restored = module.createGatewayAccountService({ dataDir: f.root, client: f.client, activateRuntime: f.activate, closeRuntime: f.close, hasActiveTasks: () => false, hasPendingTasks: () => pending, automaticPolling: false });
     expect(await restored.readState()).toMatchObject({ authState: 'signed_in', activationState: 'ready' });
-    expect(f.client.bootstrap).toHaveBeenLastCalledWith('access-1', { rotate: !pending });
+    expect(f.client.bootstrap).toHaveBeenLastCalledWith('access-1', { rotate: !pending, modelUsePolicy: 'cached-key-v1' });
     await restored.close();
   }
 });
@@ -551,7 +848,7 @@ it('allows login with active and pending jobs without rotating their supplier ke
     expect(response.statusCode).toBe(200);
     await f.service.pollAuthorization(response.json().attemptId);
     expect(await f.service.readState()).toMatchObject({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: '1' } });
-    expect(f.client.bootstrap).toHaveBeenLastCalledWith('access-1', { rotate: false });
+    expect(f.client.bootstrap).toHaveBeenLastCalledWith('access-1', { rotate: false, modelUsePolicy: 'cached-key-v1' });
     expect((await f.service.modelCredentials()).accountId).toBe('1');
   } finally { await server.close(); await f.service.close(); }
 });
@@ -721,7 +1018,7 @@ it('completes official activation when pending tasks appear during initial autho
   const grant = await f.service.startAuthorization(); pending = true;
   await f.service.pollAuthorization(grant.attemptId);
   expect(await f.service.readState()).toMatchObject({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: '1' }, activationError: null });
-  expect(f.client.bootstrap).toHaveBeenLastCalledWith('access-1', { rotate: false });
+  expect(f.client.bootstrap).toHaveBeenLastCalledWith('access-1', { rotate: false, modelUsePolicy: 'cached-key-v1' });
   expect(f.activate).toHaveBeenCalledOnce();
   await f.service.close();
 });
@@ -732,7 +1029,7 @@ it('restores a signed-in session after restart even when unfinished jobs remain'
   const restored = module.createGatewayAccountService({ dataDir: f.root, client: f.client, activateRuntime: f.activate, closeRuntime: f.close, hasActiveTasks: () => true, hasPendingTasks: () => true, automaticPolling: false });
   try {
     expect(await restored.readState()).toMatchObject({ authState: 'signed_in', activationState: 'ready', account: { id: '1' } });
-    expect(f.client.bootstrap).toHaveBeenLastCalledWith('access-1', { rotate: false });
+    expect(f.client.bootstrap).toHaveBeenLastCalledWith('access-1', { rotate: false, modelUsePolicy: 'cached-key-v1' });
   } finally { await restored.close(); }
 });
 

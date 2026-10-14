@@ -13,7 +13,8 @@ export type GatewayRuntimeBindingsInput = {
   parentEnvironment?: NodeJS.ProcessEnv;
   direct?: boolean;
   readProxy?(): Promise<string>;
-  beginUse?(): Promise<{ key: string; release(): Promise<void> }>;
+  beginUse?(): Promise<{ key: string; keyVersion?: string; release(): Promise<void> }>;
+  recoverKey?(keyVersion: string): Promise<{ key: string; keyVersion: string }>;
 };
 
 export type GatewayRuntimePreparation = {
@@ -53,7 +54,7 @@ export function createGatewayRuntimeBindings(input: GatewayRuntimeBindingsInput)
       }
       if (input.direct) {
         if (input.baseUrl !== 'https://openrouter.ai/api/v1') throw new Error('Invalid official endpoint');
-        connection ??= await createDirectRuntime(credentials.modelKey, createOfficialFetch({ readProxy: input.readProxy }), input.beginUse);
+        connection ??= await createDirectRuntime(credentials.modelKey, createOfficialFetch({ readProxy: input.readProxy }), input.beginUse, input.recoverKey);
         assertOpen(preparingGeneration);
       }
       mkdirSync(input.codexHome, { recursive: true, mode: 0o700 });

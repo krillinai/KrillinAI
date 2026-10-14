@@ -159,3 +159,33 @@ func TestBatchTranslateTextsRetriesDuplicateIndex(t *testing.T) {
 		t.Fatalf("translations = %v, calls = %d, error = %v", translations, completer.calls, err)
 	}
 }
+
+func TestBatchTranslateTextsKeepsSubtitleTextInOneBlock(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{
+		`{"translations":[{"index":1,"text":"第一行\n\n第二行"}]}`,
+	}}
+	translator := &Translator{chatCompleter: completer}
+	translations, err := translator.batchTranslateTexts(
+		[]string{"first line and second line"}, types.StandardLanguageCode("en"), types.StandardLanguageCode("zh_cn"),
+	)
+	if err != nil || len(translations) != 1 || translations[0] != "第一行 第二行" {
+		t.Fatalf("translations = %v, error = %v", translations, err)
+	}
+}
+
+func TestTranslateSingleTextRejectsSubtitleMarkupAndUsesStructuredTranslation(t *testing.T) {
+	log.InitLogger()
+	completer := &scriptedCompleter{responses: []string{
+		"1<br>\n[它必须快速、令人满足，]<br>\n[It should be fast, satisfying,]\n\n2<br>\n[而且由您常备的食材制成。]",
+		`{"translations":[{"index":1,"text":"它必须快速、令人满足，而且由您常备的食材制成。"}]}`,
+	}}
+	translator := &Translator{chatCompleter: completer}
+	translation, err := translator.translateSingleText(
+		"It should be fast, satisfying, and made from ingredients you can keep available.",
+		types.StandardLanguageCode("en"), types.StandardLanguageCode("zh_cn"),
+	)
+	if err != nil || translation != "它必须快速、令人满足，而且由您常备的食材制成。" || completer.calls != 2 {
+		t.Fatalf("translation = %q, calls = %d, error = %v", translation, completer.calls, err)
+	}
+}

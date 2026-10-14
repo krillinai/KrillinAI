@@ -18,13 +18,16 @@ const modelSchema = z.object({
 });
 export const catalogSchema = z.object({ models: z.array(modelSchema).min(1) });
 export const accountSchema = z.object({ id: z.string().min(1), email: z.string(), verified: z.boolean(), avatarUrl: z.string().url().max(2048).optional() });
-export const bootstrapSchema = z.object({
+export const cachedModelUsePolicy = 'cached-key-v1';
+export const bootstrapCredentialsSchema = z.object({
   schemaVersion: z.literal(1), account: accountSchema,
   transport: z.enum(['gateway', 'openrouter-direct']).optional(),
   keyRotation: z.boolean().optional(), rotationPending: z.boolean().optional(),
+  modelUsePolicy: z.literal(cachedModelUsePolicy).optional(),
   modelKey: z.string().min(1), keyVersion: z.string().min(1), bindingVersion: z.string().min(1), baseUrl: z.string().url(),
   models: z.array(modelSchema), defaults: z.record(z.string())
 });
+export const bootstrapSchema = bootstrapCredentialsSchema.refine(value => value.modelUsePolicy !== cachedModelUsePolicy || (value.transport === 'openrouter-direct' && value.keyRotation === false), 'Cached model credentials require a stable direct binding');
 export type GatewayBootstrap = z.infer<typeof bootstrapSchema>;
 export const probeCredentialsSchema = z.object({
   costBearer: z.literal('platform'), modelKey: z.string().min(1), keyVersion: z.string().min(1),
@@ -39,7 +42,7 @@ export type GatewayClient = {
   pollDevice(id: string, secret: string): Promise<GatewayTokens>;
   cancelDevice(id: string, secret: string): Promise<void>;
   refresh(refresh: string): Promise<GatewayTokens>;
-  bootstrap(access: string, options?: { rotate: boolean }): Promise<GatewayBootstrap>;
+  bootstrap(access: string, options?: { rotate: boolean; modelUsePolicy?: typeof cachedModelUsePolicy }): Promise<GatewayBootstrap>;
   avatar(access: string, accountId: string): Promise<{ data: Uint8Array; contentType: string }>;
   logout(access: string): Promise<void>;
   request(path: string, access: string, body?: unknown): Promise<unknown>;
@@ -102,7 +105,10 @@ export function createGatewayClient(origin: string, fetcher: typeof fetch = fetc
     async cancelDevice(attemptId, deviceSecret) { await request('/api/v1/auth/device/cancel', '', { attemptId, deviceSecret }); },
     async refresh(refreshToken) { return tokenSchema.parse(await request('/api/v1/auth/refresh', '', { refreshToken })); },
     async bootstrap(access, options) {
-      const value = bootstrapSchema.parse(await request('/api/v1/client/bootstrap' + (options ? `?rotate=${options.rotate ? '1' : '0'}` : ''), access));
+      const query = new URLSearchParams();
+      if (options) query.set('rotate', options.rotate ? '1' : '0');
+      if (options?.modelUsePolicy) query.set('modelUsePolicy', options.modelUsePolicy);
+      const value = bootstrapSchema.parse(await request('/api/v1/client/bootstrap' + (query.size ? `?${query}` : ''), access));
       const expected = value.transport === 'openrouter-direct' ? 'https://openrouter.ai/api/v1' : `${origin}/v1`;
       if (value.baseUrl !== expected) throw new GatewayError('invalid_gateway_response');
       return value;

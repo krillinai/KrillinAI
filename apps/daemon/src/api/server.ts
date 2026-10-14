@@ -567,7 +567,8 @@ export async function buildServer(input: BuildServerInput) {
       officialBindings = createGatewayRuntimeBindings({
         codexHome: home, baseUrl: bootstrap.baseUrl, model: model.id, direct: bootstrap.transport === 'openrouter-direct',
         readProxy: readCommonProxy,
-        beginUse: async () => { const use = await gatewayAccount.beginModelUse(); return { key: use.credentials.modelKey, release: use.release }; },
+        beginUse: async () => { const use = await gatewayAccount.beginModelUse(); return { key: use.credentials.modelKey, keyVersion: use.credentials.keyVersion, release: use.release }; },
+        recoverKey: async keyVersion => { const updated = await gatewayAccount.recoverModelCredentials(keyVersion); return { key: updated.modelKey, keyVersion: updated.keyVersion }; },
         readCredentials: async () => ({ accountId: bootstrap.account.id, modelKey: bootstrap.modelKey, keyVersion: bootstrap.keyVersion }),
         closeRuntime: async () => { await Promise.all([...officialManagers.values()].map(manager => manager.close())); }
       });

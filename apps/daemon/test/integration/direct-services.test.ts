@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createDefaultCreatorServicesConfig, gatewayDefaultVoiceId, type GatewayModel } from '@opencreator/protocol';
 import { createGatewayCreatorSource } from '../../src/gateway/creator-service-source.js';
+import type { GatewayAccountService } from '../../src/gateway/account-service.js';
 import { createDirectTransport } from '../../src/gateway/direct-transport.js';
 import { createDirectRuntime } from '../../src/gateway/direct-runtime.js';
 import { registerCreatorServicesRoutes } from '../../src/api/routes.creator-services.js';
@@ -51,14 +52,89 @@ async function fixture(ledger?: CreatorProviderRequestLedger) {
     if (String(url).endsWith('/images')) return Response.json({ data: [{ b64_json: 'aW1hZ2U=' }] });
     return Response.json({ choices: [{ message: { content: 'text result' } }] });
   }) as typeof fetch;
-  const source = createGatewayCreatorSource({ directRequestsRoot: join(root, 'receipts'), ledger,
-    account: { peekState: () => state, modelCredentials: async () => ({ accountId: 'a', bindingVersion: 'a:1', keyVersion: '1', modelKey: 'private-user-key', baseUrl: 'https://openrouter.ai/api/v1', transport: 'openrouter-direct', models, defaults }) },
+  const account: Pick<GatewayAccountService, 'peekState' | 'modelCredentials'> & Partial<Pick<GatewayAccountService, 'beginModelUse'>> = {
+    peekState: () => state, modelCredentials: async () => ({ accountId: 'a', bindingVersion: 'a:1', keyVersion: '1', modelKey: 'private-user-key', baseUrl: 'https://openrouter.ai/api/v1', transport: 'openrouter-direct', models, defaults })
+  };
+  const source = createGatewayCreatorSource({ directRequestsRoot: join(root, 'receipts'), ledger, account,
     manual: { read: async () => structuredClone(manual), write: async config => config, reset: async () => manual }, getLocalOrigin: () => 'http://127.0.0.1:39999', fetcher
   });
   const server = Fastify(); cleanup.push(() => server.close()); cleanup.push(() => source.revoke());
   await source.register(server); await registerCreatorServicesRoutes(server, source.store);
-  return { server, source, fetcher, state, manual, root };
+  return { server, source, fetcher, state, manual, root, account };
 }
+it.each(['account', 'headers', 'first-token'])('opens the translation stream before slow %s preparation and reuses the completed result', async delayed => {
+  const f = await fixture();
+  const origin = await f.server.listen({ host: '127.0.0.1', port: 0 });
+  const config = await f.source.store.read();
+  let resume!: () => void;
+  const waiting = new Promise<void>(resolve => { resume = resolve; });
+  const release = vi.fn(async () => undefined);
+  f.account.beginModelUse = async () => {
+    if (delayed === 'account') await waiting;
+    return { credentials: await f.account.modelCredentials(), release };
+  };
+  vi.mocked(f.fetcher).mockImplementation(async () => {
+    if (delayed === 'headers') await waiting;
+    return new Response(new ReadableStream<Uint8Array>({ async start(controller) {
+      if (delayed === 'first-token') await waiting;
+      controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"translated"}}]}\n\ndata: [DONE]\n\n'));
+      controller.close();
+    } }), { headers: { 'Content-Type': 'text/event-stream' } });
+  });
+  const submit = () => fetch(`${origin}/internal/krillin-llm/gateway/v1/chat/completions`, {
+    method: 'POST', headers: { Authorization: `Bearer ${config.llm.apiKey}`, 'Content-Type': 'application/json', 'Idempotency-Key': 'same-translation' },
+    body: JSON.stringify({ model: 'vendor/text', messages: [], stream: true }), signal: AbortSignal.timeout(2_000)
+  });
+  try {
+    const response = await submit();
+    expect(response.status).toBe(200);
+    const reader = response.body!.getReader();
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain(': connected');
+    if (delayed === 'account') expect(f.fetcher).not.toHaveBeenCalled();
+    resume();
+    let content = '';
+    for (;;) { const chunk = await reader.read(); if (chunk.done) break; content += new TextDecoder().decode(chunk.value); }
+    expect(content).toContain('[DONE]');
+    reader.releaseLock();
+    await vi.waitFor(() => expect(release).toHaveBeenCalledOnce());
+    expect(await (await submit()).text()).toContain('translated');
+    expect(f.fetcher).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(f.source.isBusy()).toBe(false));
+  } finally { resume(); }
+});
+it('does not submit a paid translation after the caller disconnects during account preparation', async () => {
+  const f = await fixture();
+  const origin = await f.server.listen({ host: '127.0.0.1', port: 0 });
+  const config = await f.source.store.read();
+  let resume!: () => void;
+  const waiting = new Promise<void>(resolve => { resume = resolve; });
+  const release = vi.fn(async () => undefined);
+  f.account.beginModelUse = async () => { await waiting; return { credentials: await f.account.modelCredentials(), release }; };
+  const disconnected = new Promise<void>(resolve => f.server.server.once('request', (_request, response) => response.once('close', resolve)));
+  try {
+    const response = await fetch(`${origin}/internal/krillin-llm/gateway/v1/chat/completions`, {
+      method: 'POST', headers: { Authorization: `Bearer ${config.llm.apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'vendor/text', messages: [], stream: true }), signal: AbortSignal.timeout(2_000)
+    });
+    await response.body!.cancel();
+    await disconnected;
+    resume();
+    await vi.waitFor(() => expect(release).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(f.source.isBusy()).toBe(false));
+    expect(f.fetcher).not.toHaveBeenCalled();
+  } finally { resume(); }
+});
+it('reports rejected streaming translations without exposing upstream details', async () => {
+  const f = await fixture();
+  const config = await f.source.store.read();
+  vi.mocked(f.fetcher).mockImplementation(async () => Response.json({ error: { message: 'OpenRouter private failure' } }, { status: 402 }));
+  const response = await f.server.inject({ method: 'POST', url: '/internal/krillin-llm/gateway/v1/chat/completions',
+    headers: { Authorization: `Bearer ${config.llm.apiKey}` }, payload: { model: 'vendor/text', messages: [], stream: true } });
+  expect(response.statusCode).toBe(200);
+  expect(response.body).toContain('credits_insufficient');
+  expect(response.body).not.toMatch(/OpenRouter|private-user-key|private failure/);
+  await vi.waitFor(() => expect(f.source.isBusy()).toBe(false));
+});
 it('reconciles a streamed chat result without creating an unknown-acceptance issue', async () => {
   const root = await mkdtemp(join(tmpdir(), 'oc-direct-chat-ledger-'));
   const db = openRuntimeDatabase(join(root, 'runtime.sqlite'));
