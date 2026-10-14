@@ -15,6 +15,7 @@ import (
 )
 
 func main() {
+	loadFixtureEnvironment()
 	args := os.Args[1:]
 	if len(args) == 1 && args[0] == "--version" {
 		fmt.Println("codex-cli 0.149.0")
@@ -28,6 +29,23 @@ func main() {
 		return
 	}
 	runJavaScriptFixture(args)
+}
+
+func loadFixtureEnvironment() {
+	executable, err := os.Executable()
+	must(err)
+	data, err := os.ReadFile(filepath.Join(filepath.Dir(executable), "fake-codex-config.json"))
+	if os.IsNotExist(err) {
+		return
+	}
+	must(err)
+	var environment map[string]string
+	must(json.Unmarshal(data, &environment))
+	for name, value := range environment {
+		if strings.HasPrefix(name, "OPENCREATOR_E2E_") && os.Getenv(name) == "" {
+			must(os.Setenv(name, value))
+		}
+	}
 }
 
 func printHelp(args []string) bool {
