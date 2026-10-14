@@ -254,7 +254,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 ### Video-Download
 
-Analysiere einen öffentlichen Videolink, vergleiche die verfügbaren Formate und lade Video oder Audio direkt in das Projekt herunter.
+Analysiere öffentliche Videolinks von 10 unterstützten Plattformen, vergleiche die verfügbaren Formate und lade Video oder Audio direkt in das Projekt herunter.
 
 Unterstützte Videoquellen:
 

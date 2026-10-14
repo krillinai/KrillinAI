@@ -254,7 +254,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 ### Download de vídeos
 
-Analise um link de vídeo público, compare os formatos disponíveis e baixe o vídeo ou o áudio diretamente para o projeto.
+Analise links de vídeo públicos de 10 plataformas compatíveis, compare os formatos disponíveis e baixe o vídeo ou o áudio diretamente para o projeto.
 
 Fontes de vídeo compatíveis:
 

@@ -254,7 +254,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 ### Téléchargement de vidéos
 
-Analysez un lien vidéo public, comparez les formats disponibles, puis téléchargez la vidéo ou l'audio directement dans le projet.
+Analysez des liens vidéo publics provenant de 10 plateformes prises en charge, comparez les formats disponibles, puis téléchargez la vidéo ou l'audio directement dans le projet.
 
 Sources vidéo prises en charge :
 

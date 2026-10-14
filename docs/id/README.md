@@ -254,7 +254,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 ### Pengunduh Video
 
-Analisis tautan video publik, bandingkan format yang tersedia, lalu unduh video atau audio langsung ke proyek.
+Analisis tautan video publik dari 10 platform yang didukung, bandingkan format yang tersedia, lalu unduh video atau audio langsung ke proyek.
 
 Sumber video yang didukung:
 

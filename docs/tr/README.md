@@ -236,7 +236,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 ### Video İndirme
 
-Herkese açık bir video bağlantısını analiz edin, kullanılabilir formatları karşılaştırın ve video ya da sesi doğrudan projenize indirin.
+Desteklenen 10 platformdaki herkese açık video bağlantılarını analiz edin, kullanılabilir formatları karşılaştırın ve video ya da sesi doğrudan projenize indirin.
 
 Desteklenen video kaynakları:
 

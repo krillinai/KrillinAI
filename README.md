@@ -256,7 +256,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 ### Video Downloader
 
-Analyze a public video link, compare the available formats, and download video or audio directly to the project.
+Analyze public video links from 10 supported platforms, compare available formats, and download video or audio directly to your project.
 
 Supported video sources:
 
