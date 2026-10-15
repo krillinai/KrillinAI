@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"math"
 	"net/url"
 	"os"
 	"os/exec"
@@ -562,7 +563,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 	if req.SourceOnly {
 		sentences = s.groupWordsIntoSentencesWithoutLLM(vttWords)
 	} else {
-		sentences = s.groupWordsIntoSentences(vttWords)
+		sentences = s.splitByPrimarySentencePunctuation(vttWords)
 	}
 	if len(sentences) == 0 {
 		return "", fmt.Errorf("%w: no sentences formed from VTT words", ErrYouTubeCaptionInvalid)
@@ -599,12 +600,15 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 	}
 
 	// 4. 批量翻译生成目标语言SRT（40%-90%进度）
-	err = s.translator.BatchTranslateSrtBlocks(ctx, srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr)
+	srtBlocks, err = s.translator.BatchTranslateSrtBlocks(ctx, srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr, vttWords)
 	if err != nil {
 		return "", fmt.Errorf("failed to batch translate: %w", err)
 	}
 	log.GetLogger().Info("批量翻译完成", zap.Int("块数", len(srtBlocks)))
 	if err := s.validateYouTubeSubtitleBlocks(srtBlocks, true); err != nil {
+		return "", err
+	}
+	if err := s.writeOriginLanguageSrtFile(srtBlocks, originSrtFile); err != nil {
 		return "", err
 	}
 
@@ -644,7 +648,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 	err = s.writeShortSubtitleFile(srtBlocks, sentences, shortSrtFile, req.TargetLanguageFirst)
 	if err != nil {
 		log.GetLogger().Warn("生成短字幕失败", zap.Error(err))
-		// 不影响主流程，继续执行
+		return "", fmt.Errorf("failed to write short subtitles: %w", err)
 	} else {
 		log.GetLogger().Info("生成短字幕完成", zap.String("文件", shortSrtFile))
 	}
@@ -684,6 +688,7 @@ func (s *YouTubeSubtitleService) ExtractWordsFromVtt(vttFile string) ([]VttWord,
 
 	var words []VttWord
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 4096), 4*1024*1024)
 	var blockStartTime, blockEndTime string
 	wordNum := 0
 
@@ -828,7 +833,7 @@ func (s *YouTubeSubtitleService) cleanVttText(text string) string {
 		return text
 	}
 	text = html.UnescapeString(text)
-	text = strings.NewReplacer("\u200b", "", "\u200c", "", "\u200d", "", "\u00a0", " ").Replace(text)
+	text = strings.NewReplacer("\u200b", "", "\u00a0", " ").Replace(text)
 
 	// 先过滤音乐和其他提示标记（方括号内容）
 	// 匹配 [music], [applause], [laughter], [inaudible] 等标记
@@ -845,11 +850,6 @@ func (s *YouTubeSubtitleService) cleanVttText(text string) string {
 
 	// 过滤 >> 符号（YouTube自动字幕的提示符号）
 	cleanedText = strings.ReplaceAll(cleanedText, ">>", "")
-
-	// 过滤常见的语气词（位于句首或独立出现时）
-	// 匹配 Um, Uh, Er, Ah, Oh, Mm, Hmm 等，支持大小写
-	fillerWordsRegex := regexp.MustCompile(`(?i)^\s*(um|uh|er|ah|oh|mm|hmm|hm|eh)\b\s*[,，]?\s*`)
-	cleanedText = fillerWordsRegex.ReplaceAllString(cleanedText, "")
 
 	// 移除多余的空格
 	cleanedText = strings.TrimSpace(cleanedText)
@@ -1102,182 +1102,28 @@ func (s *YouTubeSubtitleService) findVttFileInDirectory(dir string) (string, err
 	return "", fmt.Errorf("no VTT file found in directory: %s", dir)
 }
 
-// writeVttWordsToSrt 将VttWord数组写入SRT文件，支持翻译和时间戳生成
+// writeVttWordsToSrt 兼容旧入口，使用与主流程相同的目标驱动配对翻译。
 func (s *YouTubeSubtitleService) writeVttWordsToSrt(vttWords []VttWord, srtFile string, req *YoutubeSubtitleReq) error {
 	if len(vttWords) == 0 {
 		return fmt.Errorf("no VTT words to write")
 	}
-
-	// 初始进度基准（从当前进度开始，到90%结束）
-	baseProgress := uint8(10) // 假设函数开始时已有10%进度
-	if req.TaskPtr != nil && req.TaskPtr.ProcessPct > 0 {
-		baseProgress = req.TaskPtr.ProcessPct
-	}
-	targetProgress := uint8(90) // 函数完成时的目标进度
-
-	// 步骤1: 根据标点符号将单词整理成完整的句子 (约占总进度的10%)
-	sentences := s.groupWordsIntoSentences(vttWords)
-	// 输出句子到调试文件
-	debugFile := filepath.Join(req.TaskBasePath, "no_ts.txt")
-	if err := s.writeSentencesToDebugFile(sentences, debugFile); err != nil {
-		log.GetLogger().Warn("Failed to write sentences debug file", zap.Error(err))
-	}
-	if len(sentences) == 0 {
-		return fmt.Errorf("no sentences formed from VTT words")
-	}
-
-	// 更新进度到15%
-	if req.TaskPtr != nil {
-		req.TaskPtr.SetProgress(baseProgress + uint8(float64(targetProgress-baseProgress)*0.1))
-		log.GetLogger().Info("Progress updated after grouping sentences",
-			zap.Uint8("progress", req.TaskPtr.ProcessPct))
-	}
-
-	log.GetLogger().Info("Grouped VTT words into sentences", zap.Int("句子数", len(sentences)))
-
-	// 创建初始的SrtBlock列表
-	srtBlocks := make([]*util.SrtBlock, 0, 2*len(sentences))
-
-	// 使用并发翻译，同时保证顺序
-	type translationResult struct {
-		index  int
-		blocks []*util.SrtBlock
-		err    error
-	}
-
-	// 创建结果通道和goroutine数量控制
-	resultCh := make(chan translationResult, len(sentences))
-	maxConcurrency := translationParallelism()
-	semaphore := make(chan struct{}, maxConcurrency)
-
-	// 启动并发翻译
-	for idx, sentence := range sentences {
-		go func(index int, sent Sentence) {
-			// 获取信号量
-			semaphore <- struct{}{}
-			defer func() { <-semaphore }()
-
-			// The outer sentence workers already enforce the translation limit.
-			translatedBlocks, err := s.translator.splitTextAndTranslate(sent.Text, types.StandardLanguageCode(req.OriginLanguage), types.StandardLanguageCode(req.TargetLanguage), 1)
-			if err != nil {
-				log.GetLogger().Warn("Translation failed, using original text",
-					zap.Int("index", index),
-					zap.Error(err))
-				resultCh <- translationResult{index: index, blocks: nil, err: err}
-				return
-			}
-
-			// 构建临时SrtBlock
-			notsSrtBlock := make([]*util.SrtBlock, 0, len(translatedBlocks))
-			for _, block := range translatedBlocks {
-				notsSrtBlock = append(notsSrtBlock, &util.SrtBlock{
-					OriginLanguageSentence: block.OriginText,
-					TargetLanguageSentence: block.TranslatedText,
-				})
-			}
-
-			// 生成时间戳
-			updatedBlocks, err := s.timestampGenerator.GenerateTimestamps(
-				notsSrtBlock,
-				s.convertVttWordsToTypesWords(sent.Words),
-				types.StandardLanguageCode("base"), // 默认使用base语言类型
-				0.0,                                // 时间偏移
-			)
-			if err != nil {
-				log.GetLogger().Warn("Timestamp generation failed",
-					zap.Int("index", index),
-					zap.Error(err))
-				updatedBlocks = notsSrtBlock // 使用未生成时间戳的块
-			}
-
-			resultCh <- translationResult{index: index, blocks: updatedBlocks, err: nil}
-		}(idx, sentence)
-	}
-
-	// 收集结果，按顺序排列，实时更新进度 (占总进度的70%)
-	results := make(map[int][]*util.SrtBlock)
-	completedTasks := 0
-	translationProgressBase := baseProgress + uint8(float64(targetProgress-baseProgress)*0.1) // 15%
-	translationProgressRange := uint8(float64(targetProgress-baseProgress) * 0.7)             // 70%的进度范围
-
-	for i := 0; i < len(sentences); i++ {
-		result := <-resultCh
-		completedTasks++
-
-		if result.err == nil {
-			results[result.index] = result.blocks
-		}
-
-		// 实时更新翻译进度
-		if req.TaskPtr != nil {
-			currentTranslationProgress := float64(completedTasks) / float64(len(sentences))
-			req.TaskPtr.SetProgress(translationProgressBase + uint8(float64(translationProgressRange)*currentTranslationProgress))
-
-			// 每完成5个或完成所有任务时记录日志
-			if completedTasks%5 == 0 || completedTasks == len(sentences) {
-				log.GetLogger().Info("Translation progress updated",
-					zap.Int("completed", completedTasks),
-					zap.Int("total", len(sentences)),
-					zap.Uint8("progress", req.TaskPtr.ProcessPct))
-			}
-		}
-	}
-
-	// 按顺序添加到最终的srtBlocks (占总进度的10%)
-	var blockIndex int
-	for i := 0; i < len(sentences); i++ {
-		if blocks, exists := results[i]; exists {
-			for _, block := range blocks {
-				srtBlocks = append(srtBlocks, &util.SrtBlock{
-					Index:                  blockIndex + 1,
-					Timestamp:              block.Timestamp,
-					OriginLanguageSentence: block.OriginLanguageSentence,
-					TargetLanguageSentence: block.TargetLanguageSentence,
-				})
-				blockIndex++
-			}
-		}
-	}
-
-	// 更新进度到85%（结果整理完成）
-	if req.TaskPtr != nil {
-		req.TaskPtr.SetProgress(baseProgress + uint8(float64(targetProgress-baseProgress)*0.85))
-		log.GetLogger().Info("Progress updated after organizing results",
-			zap.Uint8("progress", req.TaskPtr.ProcessPct))
-	}
-
-	// 步骤6: 写入正常的SRT文件
-	err := s.writeSrtBlocksToFile(srtBlocks, srtFile)
+	sentences := s.splitByPrimarySentencePunctuation(vttWords)
+	originPath := filepath.Join(req.TaskBasePath, types.SubtitleTaskOriginLanguageSrtFileName)
+	blocks, err := s.generateOriginLanguageSrt(sentences, originPath, req)
 	if err != nil {
 		return err
 	}
-
-	// 更新进度到88%（正常SRT文件写入完成）
-	if req.TaskPtr != nil {
-		req.TaskPtr.SetProgress(baseProgress + uint8(float64(targetProgress-baseProgress)*0.88))
-		log.GetLogger().Info("Progress updated after writing SRT file",
-			zap.Uint8("progress", req.TaskPtr.ProcessPct))
-	}
-
-	// 步骤7: 生成短字幕文件
-	shortSrtFile := filepath.Join(filepath.Dir(srtFile), types.SubtitleTaskShortOriginMixedSrtFileName)
-	err = s.writeShortSubtitleFile(srtBlocks, sentences, shortSrtFile, req.TargetLanguageFirst)
+	blocks, err = s.translator.BatchTranslateSrtBlocks(context.Background(), blocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr, vttWords)
 	if err != nil {
-		log.GetLogger().Warn("生成短字幕失败", zap.Error(err))
-		// 不影响主流程，继续执行
-	} else {
-		log.GetLogger().Info("生成短字幕完成", zap.String("文件", shortSrtFile))
+		return err
 	}
-
-	// 最终更新进度到90%（所有操作完成）
-	if req.TaskPtr != nil {
-		req.TaskPtr.SetProgress(targetProgress)
-		log.GetLogger().Info("writeVttWordsToSrt completed",
-			zap.Uint8("final_progress", req.TaskPtr.ProcessPct),
-			zap.Int("total_srt_blocks", len(srtBlocks)))
+	if err := s.writeOriginLanguageSrtFile(blocks, originPath); err != nil {
+		return err
 	}
-
-	return nil
+	if err := s.writeBilingualSrtFile(blocks, srtFile, req.TargetLanguageFirst); err != nil {
+		return err
+	}
+	return s.writeShortSubtitleFile(blocks, sentences, filepath.Join(filepath.Dir(srtFile), types.SubtitleTaskShortOriginMixedSrtFileName), req.TargetLanguageFirst)
 }
 
 // Sentence 表示一个完整的句子及其时间信息
@@ -1660,16 +1506,6 @@ func (s *YouTubeSubtitleService) splitByPrimarySentencePunctuation(words []VttWo
 	var currentWords []VttWord
 	primaryEndPunctuation := []rune{'.', '!', '?', '。', '！', '？'}
 
-	// 常见的缩写词，不应该作为句子结束标志
-	abbreviations := map[string]bool{
-		"dr.": true, "mr.": true, "mrs.": true, "ms.": true, "prof.": true,
-		"vs.": true, "etc.": true, "inc.": true, "ltd.": true, "corp.": true,
-		"co.": true, "jr.": true, "sr.": true, "st.": true, "ave.": true,
-		"blvd.": true, "rd.": true, "apt.": true, "no.": true, "vol.": true,
-		"ch.": true, "sec.": true, "fig.": true, "pg.": true, "pp.": true,
-		"i.e.": true, "e.g.": true, "cf.": true, "et.": true, "al.": true,
-	}
-
 	// 跟踪引号状态
 	var inQuotes bool
 
@@ -1686,7 +1522,7 @@ func (s *YouTubeSubtitleService) splitByPrimarySentencePunctuation(words []VttWo
 			wordLower := strings.ToLower(strings.TrimSpace(word.Text))
 
 			// 如果是缩写词，不分句
-			if abbreviations[wordLower] {
+			if subtitleAbbreviations[wordLower] {
 				continue
 			}
 
@@ -2107,6 +1943,16 @@ func (s *YouTubeSubtitleService) convertVttWordsToTypesWords(vttWords []VttWord)
 	}
 
 	return typesWords
+}
+
+func (s *YouTubeSubtitleService) writeOriginLanguageSrtFile(blocks []*util.SrtBlock, path string) error {
+	originals := make([]*util.SrtBlock, len(blocks))
+	for i, block := range blocks {
+		copy := *block
+		copy.TargetLanguageSentence = ""
+		originals[i] = &copy
+	}
+	return s.writeSrtBlocksToFile(originals, path)
 }
 
 // writeSrtBlocksToFile 将SrtBlock数组写入文件
@@ -2596,26 +2442,15 @@ func (s *YouTubeSubtitleService) findVttWordsForSrtBlock(
 		useTimeFilter = true
 	}
 
-	// 在所有句子中查找匹配的单词序列
+	var closestWords []VttWord
+	var closestDistance float64
+	// 同一句话可能重复出现，按当前字幕时间选择最近的一次。
 	for _, sentence := range sentences {
 		if len(sentence.Words) < len(expectedWords) {
 			continue
 		}
 
-		// 如果启用时间过滤，检查句子的时间范围是否与 SRT 块匹配
-		if useTimeFilter && len(sentence.Words) > 0 {
-			// 获取句子第一个单词的开始时间
-			firstWordTime, err := s.parseVttTime(sentence.Words[0].Start)
-			if err == nil {
-				// 如果句子开始时间与 SRT 块开始时间相差超过 1 秒，跳过
-				// 这样可以避免匹配到重复的文本
-				timeDiff := firstWordTime - srtStartTime
-				if timeDiff < -0.5 || timeDiff > 1.0 {
-					continue
-				}
-			}
-		}
-
+		// 一个完整句可能被译文长度拆成多条，时间检查应针对匹配片段。
 		// 尝试匹配
 		for i := 0; i <= len(sentence.Words)-len(expectedWords); i++ {
 			match := true
@@ -2645,7 +2480,11 @@ func (s *YouTubeSubtitleService) findVttWordsForSrtBlock(
 								zap.String("originText", originText),
 								zap.Float64("srtStart", srtStartTime),
 								zap.Float64("vttStart", firstTime))
-							return matchedWords
+							distance := math.Abs(firstTime-srtStartTime) + math.Abs(lastTime-srtEndTime)
+							if len(closestWords) == 0 || distance < closestDistance {
+								closestWords = matchedWords
+								closestDistance = distance
+							}
 						}
 					}
 				} else {
@@ -2656,6 +2495,9 @@ func (s *YouTubeSubtitleService) findVttWordsForSrtBlock(
 		}
 	}
 
+	if len(closestWords) > 0 {
+		return closestWords
+	}
 	log.GetLogger().Debug("No VTT words found for SRT block",
 		zap.String("originText", originText),
 		zap.String("timestamp", srtBlock.Timestamp))
@@ -3535,12 +3377,15 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 	}
 
 	// 4. 批量翻译（40%-90%的进度在BatchTranslateSrtBlocks内部更新）
-	err = s.translator.BatchTranslateSrtBlocks(ctx, srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr)
+	srtBlocks, err = s.translator.BatchTranslateSrtBlocks(ctx, srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr)
 	if err != nil {
 		return "", fmt.Errorf("批量翻译失败: %w", err)
 	}
 	log.GetLogger().Info("批量翻译完成", zap.Int("翻译块数", len(srtBlocks)))
 	if err := s.validateYouTubeSubtitleBlocks(srtBlocks, true); err != nil {
+		return "", err
+	}
+	if err := s.writeOriginLanguageSrtFile(srtBlocks, originSrtFile); err != nil {
 		return "", err
 	}
 
@@ -3569,6 +3414,10 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 		return "", fmt.Errorf("写入双语字幕失败: %w", err)
 	}
 	log.GetLogger().Info("生成双语字幕完成", zap.String("bilingualSrtFile", bilingualSrtFile))
+	shortSrtFile := filepath.Join(req.TaskBasePath, types.SubtitleTaskShortOriginMixedSrtFileName)
+	if err := s.writeShortSubtitleFile(srtBlocks, nil, shortSrtFile, req.TargetLanguageFirst); err != nil {
+		return "", err
+	}
 	if err := s.writeYouTubeSubtitleTextFiles(srtBlocks, req); err != nil {
 		return "", err
 	}
@@ -3597,8 +3446,8 @@ func (s *YouTubeSubtitleService) validateYouTubeSubtitleBlocks(blocks []*util.Sr
 		if err != nil || start < 0 || end <= start {
 			return fmt.Errorf("%w: 字幕质量检查失败: 第%d条时间区间无效", ErrYouTubeCaptionInvalid, index+1)
 		}
-		if translated && strings.TrimSpace(block.TargetLanguageSentence) == "" {
-			return fmt.Errorf("字幕质量检查失败: 第%d条缺少译文", index+1)
+		if translated && (!hasSubtitleContent(block.TargetLanguageSentence) || hasSubtitleLineBreak(block.TargetLanguageSentence) || hasSubtitleLineBreak(block.OriginLanguageSentence) || subtitleTargetLength(block.TargetLanguageSentence) > subtitleTargetLimit() || subtitleTargetLength(block.OriginLanguageSentence) > subtitleTargetLimit()) {
+			return fmt.Errorf("字幕质量检查失败: 第%d条原文或译文缺少内容、包含换行或超过单行长度上限%d", index+1, subtitleTargetLimit())
 		}
 	}
 	return nil
@@ -3683,104 +3532,58 @@ func wordGroupTextLength(words []VttWord) int {
 	return length
 }
 
-// writeShortSubtitleFile 生成短字幕文件（中文完整 + 英文拆分）
-// 适用于竖屏视频：中文保持完整便于理解，英文按字符长度拆分避免一行太长
+// writeShortSubtitleFile 保留整条译文，按词时间和短字幕字符参数独立拆分原文。
 func (s *YouTubeSubtitleService) writeShortSubtitleFile(
 	srtBlocks []*util.SrtBlock,
 	sentences []Sentence,
 	shortSrtFile string,
 	targetLanguageFirst bool,
 ) error {
+	// 块级字幕没有词时间，沿用普通双语字幕作为兼容输出。
+	if len(sentences) == 0 {
+		return s.writeBilingualSrtFile(srtBlocks, shortSrtFile, targetLanguageFirst)
+	}
 	file, err := os.Create(shortSrtFile)
 	if err != nil {
 		return fmt.Errorf("failed to create short subtitle file: %w", err)
 	}
 	defer file.Close()
-
-	blockIndex := 1
 	maxChars := config.Conf.App.ShortSubtitleMaxChars
 	if maxChars <= 0 {
-		maxChars = 20 // 默认值
+		maxChars = 20
 	}
-
-	log.GetLogger().Info("开始生成短字幕文件",
-		zap.String("file", shortSrtFile),
-		zap.Int("maxChars", maxChars),
-		zap.Int("srtBlocksCount", len(srtBlocks)))
-
-	for _, srtBlock := range srtBlocks {
-		// 1. 写入完整的中文翻译
-		if srtBlock.TargetLanguageSentence != "" {
-			_, err = file.WriteString(fmt.Sprintf("%d\n", blockIndex))
-			if err != nil {
+	spans, expected, err := subtitleBlockTimingSpans(srtBlocks)
+	if err != nil {
+		return err
+	}
+	var allWords []VttWord
+	for _, sentence := range sentences {
+		allWords = append(allWords, sentence.Words...)
+	}
+	if wordSpans, timingErr := subtitleWordTimingSpans(allWords, expected); timingErr == nil {
+		spans = wordSpans
+	}
+	shortBlocks, err := splitShortSubtitleBlocks(srtBlocks, spans, maxChars, 0)
+	if err != nil {
+		return err
+	}
+	index := 1
+	writeCue := func(timestamp, text string) error {
+		_, err := fmt.Fprintf(file, "%d\n%s\n%s\n\n", index, timestamp, text)
+		index++
+		return err
+	}
+	for _, block := range srtBlocks {
+		if block.TargetLanguageSentence != "" {
+			if err := writeCue(block.Timestamp, block.TargetLanguageSentence); err != nil {
 				return err
 			}
-			_, err = file.WriteString(srtBlock.Timestamp + "\n")
-			if err != nil {
-				return err
-			}
-			_, err = file.WriteString(srtBlock.TargetLanguageSentence + "\n\n")
-			if err != nil {
-				return err
-			}
-			blockIndex++
 		}
-
-		// 2. 找到对应的 VTT 单词
-		vttWords := s.findVttWordsForSrtBlock(srtBlock, sentences)
-		if len(vttWords) == 0 {
-			log.GetLogger().Warn("No VTT words found for SRT block, skipping English split",
-				zap.String("originText", srtBlock.OriginLanguageSentence))
-			continue
-		}
-
-		// 3. 按字符长度分组
-		groups := s.groupWordsByCharLength(vttWords, maxChars)
-
-		log.GetLogger().Debug("Split English into groups",
-			zap.String("originText", srtBlock.OriginLanguageSentence),
-			zap.Int("groupsCount", len(groups)))
-
-		// 4. 为每个英文片段生成字幕块
-		for _, group := range groups {
-			startTime := group[0].Start
-			endTime := group[len(group)-1].End
-
-			// 拼接单词
-			var words []string
-			for _, word := range group {
-				words = append(words, word.Text)
-			}
-			text := strings.Join(words, " ")
-
-			// 转换时间戳格式
-			timestamp, err := s.convertToSrtTimestamp(startTime, endTime)
-			if err != nil {
-				log.GetLogger().Warn("Failed to convert timestamp, using SRT block timestamp",
-					zap.Error(err))
-				timestamp = srtBlock.Timestamp
-			}
-
-			// 写入英文片段
-			_, err = file.WriteString(fmt.Sprintf("%d\n", blockIndex))
-			if err != nil {
+		for _, short := range shortBlocks[block.Index] {
+			if err := writeCue(short.Timestamp, short.OriginLanguageSentence); err != nil {
 				return err
 			}
-			_, err = file.WriteString(timestamp + "\n")
-			if err != nil {
-				return err
-			}
-			_, err = file.WriteString(text + "\n\n")
-			if err != nil {
-				return err
-			}
-			blockIndex++
 		}
 	}
-
-	log.GetLogger().Info("Short subtitle file written successfully",
-		zap.String("file", shortSrtFile),
-		zap.Int("totalBlocks", blockIndex-1))
-
 	return nil
 }

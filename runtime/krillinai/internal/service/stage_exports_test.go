@@ -25,8 +25,8 @@ func TestImportedSubtitleTranslationDoesNotFallBackToOriginalText(t *testing.T) 
 	log.InitLogger()
 	completer := &scriptedCompleter{responses: []string{"not-json", "not-json", "not-json"}}
 	svc := Service{YouTubeSubtitleSrv: &YouTubeSubtitleService{translator: &Translator{chatCompleter: completer}}}
-	blocks := []*util.SrtBlock{{Index: 1, OriginLanguageSentence: "source"}}
-	err := svc.TranslateSubtitleBlocks(context.Background(), blocks, &types.SubtitleTaskStepParam{OriginLanguage: "en", TargetLanguage: "zh_cn"})
+	blocks := []*util.SrtBlock{{Index: 1, Timestamp: "00:00:00,000 --> 00:00:01,000", OriginLanguageSentence: "source"}}
+	_, err := svc.TranslateSubtitleBlocks(context.Background(), blocks, &types.SubtitleTaskStepParam{OriginLanguage: "en", TargetLanguage: "zh_cn"})
 	if err == nil || blocks[0].TargetLanguageSentence != "" {
 		t.Fatalf("failed translation returned a fake result: %v, %+v", err, blocks[0])
 	}

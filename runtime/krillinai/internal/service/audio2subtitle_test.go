@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"krillin-ai/config"
@@ -309,40 +308,20 @@ type echoBatchCompleter struct {
 }
 
 func (c *echoBatchCompleter) ChatCompletion(prompt string) (string, error) {
-	const marker = "输入 JSON：\n"
-	start := strings.LastIndex(prompt, marker)
-	if start < 0 {
-		return "", errors.New("missing input JSON")
-	}
-	var input struct {
-		Items []struct {
-			Index int    `json:"index"`
-			Text  string `json:"text"`
-		} `json:"items"`
-	}
-	if err := json.Unmarshal([]byte(prompt[start+len(marker):]), &input); err != nil {
+	input, err := decodePairedTestInput(prompt)
+	if err != nil {
 		return "", err
 	}
 	c.mu.Lock()
-	c.batchSizes = append(c.batchSizes, len(input.Items))
+	c.batchSizes = append(c.batchSizes, len(input.Sentences))
 	c.mu.Unlock()
-	output := struct {
-		Translations []struct {
-			Index int    `json:"index"`
-			Text  string `json:"text"`
-		} `json:"translations"`
-	}{}
-	for _, item := range input.Items {
-		output.Translations = append(output.Translations, struct {
-			Index int    `json:"index"`
-			Text  string `json:"text"`
-		}{Index: item.Index, Text: "translated: " + item.Text})
-	}
-	data, err := json.Marshal(output)
-	return string(data), err
+	return echoPairedTestResponse(input)
 }
 
 func TestSplitTextAndTranslateUsesBatchesAndReportsProgress(t *testing.T) {
+	previousParallel := config.Conf.App.TranslateParallelNum
+	config.Conf.App.TranslateParallelNum = 1
+	t.Cleanup(func() { config.Conf.App.TranslateParallelNum = previousParallel })
 	previousMaxSentenceLength := config.Conf.App.MaxSentenceLength
 	config.Conf.App.MaxSentenceLength = 100
 	t.Cleanup(func() { config.Conf.App.MaxSentenceLength = previousMaxSentenceLength })

@@ -34,6 +34,7 @@ type fakeStageService struct {
 	audioProgress     []uint8
 	audioErr          error
 	omitPreparedVideo bool
+	translatedBlocks  []*util.SrtBlock
 }
 
 func TestImportedSubtitlesSkipRecognitionAndPreserveMultilineText(t *testing.T) {
@@ -105,12 +106,15 @@ func fmtBool(value bool) string {
 	return "source"
 }
 
-func (f *fakeStageService) TranslateSubtitleBlocks(_ context.Context, blocks []*util.SrtBlock, _ *types.SubtitleTaskStepParam) error {
+func (f *fakeStageService) TranslateSubtitleBlocks(_ context.Context, blocks []*util.SrtBlock, _ *types.SubtitleTaskStepParam) ([]*util.SrtBlock, error) {
 	f.calls = append(f.calls, "translate-import")
+	if f.translatedBlocks != nil {
+		return f.translatedBlocks, f.processErr
+	}
 	for _, block := range blocks {
 		block.TargetLanguageSentence = "translated " + block.OriginLanguageSentence
 	}
-	return f.processErr
+	return blocks, f.processErr
 }
 
 func (f *fakeStageService) PrepareMedia(_ context.Context, p *types.SubtitleTaskStepParam) error {

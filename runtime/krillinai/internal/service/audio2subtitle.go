@@ -17,7 +17,6 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"sync"
 	"unicode"
 
 	"go.uber.org/zap"
@@ -419,51 +418,11 @@ func (s Service) splitTextAndTranslateV2(
 	id int,
 	reportProgress func(completed, total int) error,
 ) ([]*TranslatedItem, error) {
-	sentences := util.SplitTextSentences(inputText, config.Conf.App.MaxSentenceLength)
-	if len(sentences) == 0 {
-		return []*TranslatedItem{}, nil
-	}
-	// 补丁：whisper转录中文的时候很多句子后面不输出符号，导致上面基于符号的切分失效
-	if IsSplitUseSpace(originLang) {
-		newSentences := make([]string, 0)
-		for _, sentence := range sentences {
-			newSentences = append(newSentences, strings.Split(sentence, " ")...)
-		}
-		sentences = newSentences
-	}
-
-	shortSentences := make([]string, 0)
-	//判断句子如果还是过长，就继续用大模型拆句
-	for _, sentence := range sentences {
-		if sentence == "" {
-			continue
-		}
-		if util.CountEffectiveChars(sentence) <= config.Conf.App.MaxSentenceLength {
-			shortSentences = append(shortSentences, sentence)
-			continue
-		}
-
-		// 递归拆分长句子直到满足长度要求，保持顺序
-		splitSentences, err := s.splitSentenceRecursively(sentence, 0, 5) // 最多5层递归
-		if err != nil {
-			log.GetLogger().Error("splitSentenceRecursively error", zap.Error(err), zap.Any("sentence", sentence))
-			// 如果拆分失败，直接添加原句子
-			shortSentences = append(shortSentences, sentence)
-		} else {
-			shortSentences = append(shortSentences, splitSentences...)
-		}
-	}
-
-	sentences = shortSentences
-	results := make([]*TranslatedItem, len(sentences))
-	var checkpointMu sync.Mutex
-	completed := 0
-	checkpoint := func(start int, items []*TranslatedItem) error {
-		// Checkpoint serialization reads every result, so publish under one lock.
-		checkpointMu.Lock()
-		defer checkpointMu.Unlock()
-		copy(results[start:], items)
-		completed += len(items)
+	sentences := splitTranslationSentences(inputText)
+	translator := &Translator{chatCompleter: s.ChatCompleter, filterNonSemanticFillers: enableModalFilter}
+	var results []*TranslatedItem
+	_, err := translator.translatePairedSentences(ctx, sentences, originLang, targetLang, subtitleTargetLimit(), translationBatchSize, func(batch []pairedSentence, completed, total int) error {
+		results = append(results, flattenPairedSentences(batch)...)
 		if basePath != "" {
 			path := filepath.Join(basePath, fmt.Sprintf(types.SubtitleTaskTranslationDataPersistenceFileNamePattern, id))
 			if err := util.SaveToDisk(results, path); err != nil {
@@ -471,18 +430,9 @@ func (s Service) splitTextAndTranslateV2(
 			}
 		}
 		if reportProgress != nil {
-			return reportProgress(completed, len(sentences))
+			return reportProgress(completed, total)
 		}
 		return nil
-	}
-
-	err := runTranslationBatches(ctx, (len(sentences)+translationBatchSize-1)/translationBatchSize, func(ctx context.Context, batchIndex int) error {
-		start := batchIndex * translationBatchSize
-		end := start + translationBatchSize
-		if end > len(sentences) {
-			end = len(sentences)
-		}
-		return s.translateSentenceRange(ctx, sentences, start, end, targetLang, enableModalFilter, checkpoint)
 	})
 	if err != nil {
 		return nil, err
@@ -834,8 +784,6 @@ func (s Service) startTranslateWorker(ctx context.Context, eg *errgroup.Group, s
 	pendingTranslationQueue chan DataWithId[string], translationProgressQueue chan DataWithId[TranslationProgress],
 	translatedQueue chan DataWithId[[]*TranslatedItem]) {
 
-	const primaryTranslationProgressShare = 0.35
-
 	eg.Go(func() error {
 		for {
 			select {
@@ -849,12 +797,9 @@ func (s Service) startTranslateWorker(ctx context.Context, eg *errgroup.Group, s
 				var err error
 				// 翻译文本
 				log.GetLogger().Info("Begin to translate", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
-				attempts := config.Conf.App.TranslateMaxAttempts
-				if attempts < 1 {
-					attempts = 1
-				}
+
 				reportProgress := func(completed, total int) error {
-					fraction := scaledProgress(completed, total, 0, primaryTranslationProgressShare)
+					fraction := scaledProgress(completed, total, 0, 1)
 					select {
 					case translationProgressQueue <- DataWithId[TranslationProgress]{
 						Data: TranslationProgress{Fraction: fraction},
@@ -865,44 +810,17 @@ func (s Service) startTranslateWorker(ctx context.Context, eg *errgroup.Group, s
 						return ctx.Err()
 					}
 				}
-				for range attempts {
-					translatedResults, err = s.splitTextAndTranslateV2(ctx, stepParam.TaskBasePath, translateItem.Data, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, translateItem.Id, reportProgress)
-					if err == nil {
-						break
-					}
-				}
+				translatedResults, err = s.splitTextAndTranslateV2(ctx, stepParam.TaskBasePath, translateItem.Data, stepParam.OriginLanguage, stepParam.TargetLanguage, stepParam.EnableModalFilter, translateItem.Id, reportProgress)
 				if err != nil {
 					return fmt.Errorf("audioToSubtitle audioToSrt splitTextAndTranslate err: %w", err)
 				}
 				_ = util.SaveToDisk(translatedResults, filepath.Join(stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskTranslationDataPersistenceFileNamePattern, translateItem.Id)))
 				log.GetLogger().Info("Translate completed", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id))
-				reportTranslationProgress(
-					ctx,
-					translationProgressQueue,
-					translateItem.Id,
-					primaryTranslationProgressShare,
-				)
-				// 二次分割长句
-				splitResults, err := s.splitTranslateItem(translatedResults, func(completed, total int) {
-					reportTranslationProgress(
-						ctx,
-						translationProgressQueue,
-						translateItem.Id,
-						scaledProgress(completed, total, primaryTranslationProgressShare, 1),
-					)
-				})
-				if err != nil {
-					// 不中断
-					log.GetLogger().Error("audioToSubtitle audioToSrt splitTranslateItem err", zap.Any("taskId", stepParam.TaskId), zap.Any("splitId", translateItem.Id), zap.Error(err))
-					translatedQueue <- DataWithId[[]*TranslatedItem]{
-						Data: translatedResults,
-						Id:   translateItem.Id,
-					}
-				} else {
-					translatedQueue <- DataWithId[[]*TranslatedItem]{
-						Data: splitResults,
-						Id:   translateItem.Id,
-					}
+				reportTranslationProgress(ctx, translationProgressQueue, translateItem.Id, 1)
+				select {
+				case translatedQueue <- DataWithId[[]*TranslatedItem]{Data: translatedResults, Id: translateItem.Id}:
+				case <-ctx.Done():
+					return ctx.Err()
 				}
 			}
 		}
@@ -1534,205 +1452,59 @@ func generateSrtWithTimestamps(srtBlocks []*util.SrtBlock, tsOffset float64, wor
 	if len(srtBlocks) == 0 || len(words) == 0 {
 		return nil
 	}
-
-	// 获取每个字幕块的时间戳
-	var lastTs float64
-	shortOriginSrtMap := make(map[int][]util.SrtBlock, 0)
-	timeMatcher := NewTimestampGenerator()
-	newSrtBlocks, err := timeMatcher.GenerateTimestamps(srtBlocks, words, stepParam.OriginLanguage, tsOffset)
+	blocks, spans, err := pairedAudioTiming(srtBlocks, words, stepParam.OriginLanguage, tsOffset)
 	if err != nil {
-		return fmt.Errorf("audioToSubtitle generateTimestamps GenerateTimestamps error: %w", err)
+		return fmt.Errorf("generate paired subtitle timestamps: %w", err)
 	}
-	for index := range srtBlocks {
-		srtBlocks[index].Timestamp = newSrtBlocks[index].Timestamp
+	if err := normalizeSrtBlocks(blocks, false); err != nil {
+		return err
 	}
-
-	for blockIndex, srtBlock := range srtBlocks {
-		if srtBlock.OriginLanguageSentence == "" {
-			continue
-		}
-		var sentenceTs types.SrtSentence
-		var sentenceWords []types.Word
-		var ts float64
-		if stepParam.OriginLanguage == types.LanguageNameThai {
-			sentenceTs, sentenceWords, ts, err = getSentenceTimestampsFromGeneratedBlock(
-				words,
-				newSrtBlocks[blockIndex].Timestamp,
-				lastTs,
-				tsOffset,
-			)
-		} else {
-			sentenceTs, sentenceWords, ts, err = getSentenceTimestamps(words, srtBlock.OriginLanguageSentence, lastTs, stepParam.OriginLanguage)
-		}
-		if err != nil || ts < lastTs {
-			continue
-		}
-		srtBlock.Timestamp = fmt.Sprintf("%s --> %s", util.FormatTime(float32(sentenceTs.Start+tsOffset)), util.FormatTime(float32(sentenceTs.End+tsOffset)))
-
-		// 生成短句子的英文字幕
-		var (
-			originSentence string
-			startWord      types.Word
-			endWord        types.Word
-		)
-
-		if len(sentenceWords) <= stepParam.MaxWordOneLine {
-			shortOriginSrtMap[srtBlock.Index] = append(shortOriginSrtMap[srtBlock.Index], util.SrtBlock{
-				Index:                  srtBlock.Index,
-				Timestamp:              fmt.Sprintf("%s --> %s", util.FormatTime(float32(sentenceTs.Start+tsOffset)), util.FormatTime(float32(sentenceTs.End+tsOffset))),
-				OriginLanguageSentence: srtBlock.OriginLanguageSentence,
-			})
-			lastTs = ts
-			continue
-		}
-
-		thisLineWord := stepParam.MaxWordOneLine
-		if len(sentenceWords) > stepParam.MaxWordOneLine && len(sentenceWords) <= 2*stepParam.MaxWordOneLine {
-			thisLineWord = len(sentenceWords)/2 + 1
-		} else if len(sentenceWords) > 2*stepParam.MaxWordOneLine && len(sentenceWords) <= 3*stepParam.MaxWordOneLine {
-			thisLineWord = len(sentenceWords)/3 + 1
-		} else if len(sentenceWords) > 3*stepParam.MaxWordOneLine && len(sentenceWords) <= 4*stepParam.MaxWordOneLine {
-			thisLineWord = len(sentenceWords)/4 + 1
-		} else if len(sentenceWords) > 4*stepParam.MaxWordOneLine && len(sentenceWords) <= 5*stepParam.MaxWordOneLine {
-			thisLineWord = len(sentenceWords)/5 + 1
-		}
-
-		i := 1
-		nextStart := true
-		for _, word := range sentenceWords {
-			if nextStart {
-				startWord = word
-				if startWord.Start < lastTs {
-					startWord.Start = lastTs
-				}
-				if startWord.Start < endWord.End {
-					startWord.Start = endWord.End
-				}
-
-				if startWord.Start < sentenceTs.Start {
-					startWord.Start = sentenceTs.Start
-				}
-				// 首个单词的开始时间戳大于句子的结束时间戳，说明这个单词找错了，放弃掉
-				if startWord.End > sentenceTs.End {
-					originSentence += word.Text + " "
-					continue
-				}
-				originSentence += word.Text + " "
-				endWord = startWord
-				i++
-				nextStart = false
-				continue
-			}
-
-			originSentence += word.Text + " "
-			if endWord.End < word.End {
-				endWord = word
-			}
-
-			if endWord.End > sentenceTs.End {
-				endWord.End = sentenceTs.End
-			}
-
-			if i%thisLineWord == 0 && i > 1 {
-				shortOriginSrtMap[srtBlock.Index] = append(shortOriginSrtMap[srtBlock.Index], util.SrtBlock{
-					Index:                  srtBlock.Index,
-					Timestamp:              fmt.Sprintf("%s --> %s", util.FormatTime(float32(startWord.Start+tsOffset)), util.FormatTime(float32(endWord.End+tsOffset))),
-					OriginLanguageSentence: originSentence,
-				})
-				originSentence = ""
-				nextStart = true
-			}
-			i++
-		}
-
-		if originSentence != "" {
-			shortOriginSrtMap[srtBlock.Index] = append(shortOriginSrtMap[srtBlock.Index], util.SrtBlock{
-				Index:                  srtBlock.Index,
-				Timestamp:              fmt.Sprintf("%s --> %s", util.FormatTime(float32(startWord.Start+tsOffset)), util.FormatTime(float32(endWord.End+tsOffset))),
-				OriginLanguageSentence: originSentence,
-			})
-		}
-		lastTs = ts
+	for i := range blocks {
+		srtBlocks[i].Timestamp = blocks[i].Timestamp
 	}
-	if err := normalizeSrtBlocks(newSrtBlocks, false); err != nil {
-		return fmt.Errorf("normalize bilingual subtitle timeline: %w", err)
+	// 普通和短字幕共享位置映射，允许边界落在转录器的一个词内部。
+	maxWords := stepParam.MaxWordOneLine
+	if maxWords <= 0 {
+		maxWords = 12
 	}
-	if err := normalizeSrtBlocks(srtBlocks, true); err != nil {
-		return fmt.Errorf("normalize mixed subtitle timeline: %w", err)
-	}
-	shortTimeline := make([]*util.SrtBlock, 0)
-	for _, srtBlock := range srtBlocks {
-		blocks := shortOriginSrtMap[srtBlock.Index]
-		for index := range blocks {
-			shortTimeline = append(shortTimeline, &blocks[index])
-		}
-		shortOriginSrtMap[srtBlock.Index] = blocks
-	}
-	if err := normalizeSrtBlocks(shortTimeline, false); err != nil {
-		return fmt.Errorf("normalize vertical subtitle timeline: %w", err)
-	}
-
-	// 保存带时间戳的原始字幕
-	finalBilingualSrtFileName := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitBilingualSrtFileNamePattern, segmentIdx))
-	finalBilingualSrtFile, err := os.Create(finalBilingualSrtFileName)
+	shortOriginSrtMap, err := splitShortSubtitleBlocks(blocks, spans, subtitleTargetLimit(), maxWords)
 	if err != nil {
-		return fmt.Errorf("audioToSubtitle generateTimestamps create bilingual srt file error: %w", err)
+		return err
 	}
-	defer finalBilingualSrtFile.Close()
-
-	// 写入字幕文件
-	for _, srtBlock := range newSrtBlocks {
-		_, _ = finalBilingualSrtFile.WriteString(fmt.Sprintf("%d\n", srtBlock.Index))
-		_, _ = finalBilingualSrtFile.WriteString(srtBlock.Timestamp + "\n")
-		if stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop {
-			_, _ = finalBilingualSrtFile.WriteString(srtBlock.TargetLanguageSentence + "\n")
-			_, _ = finalBilingualSrtFile.WriteString(srtBlock.OriginLanguageSentence + "\n\n")
-		} else {
-			// on bottom 或者单语类型，都用on bottom
-			_, _ = finalBilingualSrtFile.WriteString(srtBlock.OriginLanguageSentence + "\n")
-			_, _ = finalBilingualSrtFile.WriteString(srtBlock.TargetLanguageSentence + "\n\n")
+	var shortBlocks, mixedBlocks []*util.SrtBlock
+	for _, block := range srtBlocks {
+		for _, short := range shortOriginSrtMap[block.Index] {
+			short.Index = len(shortBlocks) + 1
+			shortBlocks = append(shortBlocks, &short)
 		}
 	}
-
-	// 保存带时间戳的字幕,长中文+短英文（示意，也支持其他语言）
-	srtShortOriginMixedFileName := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitShortOriginMixedSrtFileNamePattern, segmentIdx))
-	srtShortOriginMixedFile, err := os.Create(srtShortOriginMixedFileName)
-	if err != nil {
-		return fmt.Errorf("audioToSubtitle generateTimestamps create srtShortOriginMixedFile err: %w", err)
+	if err := normalizeSrtBlocks(shortBlocks, false); err != nil {
+		return fmt.Errorf("normalize short subtitle timeline: %w", err)
 	}
-	defer srtShortOriginMixedFile.Close()
-
-	// 保存带时间戳的短英文字幕
-	srtShortOriginFileName := fmt.Sprintf("%s/%s", stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitShortOriginSrtFileNamePattern, segmentIdx))
-	srtShortOriginFile, err := os.Create(srtShortOriginFileName)
-	if err != nil {
-		return fmt.Errorf("audioToSubtitle generateTimestamps create srtShortOriginFile err: %w", err)
-	}
-	defer srtShortOriginFile.Close()
-
-	mixedSrtNum := 1
-	shortSrtNum := 1
-	// 写入短英文混合字幕文件
-	for _, srtBlock := range srtBlocks {
-		srtShortOriginMixedFile.WriteString(fmt.Sprintf("%d\n", mixedSrtNum))
-		srtShortOriginMixedFile.WriteString(srtBlock.Timestamp + "\n")
-		srtShortOriginMixedFile.WriteString(srtBlock.TargetLanguageSentence + "\n\n")
-		mixedSrtNum++
-		shortOriginSentence := shortOriginSrtMap[srtBlock.Index]
-		for _, shortOriginBlock := range shortOriginSentence {
-			srtShortOriginMixedFile.WriteString(fmt.Sprintf("%d\n", mixedSrtNum))
-			srtShortOriginMixedFile.WriteString(shortOriginBlock.Timestamp + "\n")
-			srtShortOriginMixedFile.WriteString(shortOriginBlock.OriginLanguageSentence + "\n\n")
-			mixedSrtNum++
-
-			srtShortOriginFile.WriteString(fmt.Sprintf("%d\n", shortSrtNum))
-			srtShortOriginFile.WriteString(shortOriginBlock.Timestamp + "\n")
-			srtShortOriginFile.WriteString(shortOriginBlock.OriginLanguageSentence + "\n\n")
-			shortSrtNum++
+	shortIndex := 0
+	for _, block := range srtBlocks {
+		mixedBlocks = append(mixedBlocks, &util.SrtBlock{
+			Index: len(mixedBlocks) + 1, Timestamp: block.Timestamp, OriginLanguageSentence: block.TargetLanguageSentence,
+		})
+		for range shortOriginSrtMap[block.Index] {
+			short := *shortBlocks[shortIndex]
+			short.Index = len(mixedBlocks) + 1
+			mixedBlocks = append(mixedBlocks, &short)
+			shortIndex++
 		}
 	}
-
-	return nil
+	svc := &YouTubeSubtitleService{}
+	targetFirst := stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnTop
+	bilingual := filepath.Join(stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitBilingualSrtFileNamePattern, segmentIdx))
+	if err := svc.writeBilingualSrtFile(blocks, bilingual, targetFirst); err != nil {
+		return err
+	}
+	mixed := filepath.Join(stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitShortOriginMixedSrtFileNamePattern, segmentIdx))
+	if err := svc.writeOriginLanguageSrtFile(mixedBlocks, mixed); err != nil {
+		return err
+	}
+	source := filepath.Join(stepParam.TaskBasePath, fmt.Sprintf(types.SubtitleTaskSplitShortOriginSrtFileNamePattern, segmentIdx))
+	return svc.writeOriginLanguageSrtFile(shortBlocks, source)
 }
 
 func getSentenceTimestampsFromGeneratedBlock(

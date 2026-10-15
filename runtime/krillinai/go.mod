@@ -6,15 +6,17 @@ require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/aliyun/alibaba-cloud-sdk-go v1.63.72
 	github.com/aliyun/alibabacloud-oss-go-sdk-v2 v1.1.3
+	github.com/clipperhouse/uax29/v2 v2.7.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-ego/gse v1.0.2
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/google/uuid v1.4.0
 	github.com/samber/lo v1.38.1
-	github.com/sashabaranov/go-openai v1.36.0
+	github.com/sashabaranov/go-openai v1.42.0
 	github.com/texttheater/golang-levenshtein v1.0.1
 	go.uber.org/zap v1.25.0
 	golang.org/x/sync v0.9.0
+	golang.org/x/text v0.20.0
 )
 
 require (
@@ -49,7 +51,6 @@ require (
 	golang.org/x/exp v0.0.0-20221031165847-c99f073a8326 // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
-	golang.org/x/text v0.20.0 // indirect
 	golang.org/x/time v0.4.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect

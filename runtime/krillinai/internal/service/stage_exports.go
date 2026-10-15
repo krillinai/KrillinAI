@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"krillin-ai/config"
 	"krillin-ai/internal/deps"
 	"krillin-ai/internal/types"
@@ -14,35 +13,14 @@ import (
 var ErrYouTubeSubtitleServiceNotInitialized = errors.New("youtube subtitle service not initialized")
 var ErrImageClientNotInitialized = errors.New("image client not initialized")
 
-func (s Service) TranslateSubtitleBlocks(ctx context.Context, blocks []*util.SrtBlock, p *types.SubtitleTaskStepParam) error {
+func (s Service) TranslateSubtitleBlocks(ctx context.Context, blocks []*util.SrtBlock, p *types.SubtitleTaskStepParam) ([]*util.SrtBlock, error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return nil, err
 	}
 	if s.YouTubeSubtitleSrv == nil || s.YouTubeSubtitleSrv.translator == nil {
-		return ErrYouTubeSubtitleServiceNotInitialized
+		return nil, ErrYouTubeSubtitleServiceNotInitialized
 	}
-	return runTranslationBatches(ctx, (len(blocks)+9)/10, func(ctx context.Context, batchIndex int) error {
-		start := batchIndex * 10
-		batch := blocks[start:min(start+10, len(blocks))]
-		texts := make([]string, len(batch))
-		for index, block := range batch {
-			texts[index] = block.OriginLanguageSentence
-		}
-		translations, err := s.YouTubeSubtitleSrv.translator.batchTranslateTextsContext(ctx, texts, p.OriginLanguage, p.TargetLanguage)
-		if err != nil {
-			return err
-		}
-		if len(translations) != len(batch) {
-			return fmt.Errorf("subtitle translation count mismatch")
-		}
-		for index, text := range translations {
-			if text == "" {
-				return fmt.Errorf("subtitle translation missing for cue %d", batch[index].Index)
-			}
-			batch[index].TargetLanguageSentence = text
-		}
-		return nil
-	})
+	return s.YouTubeSubtitleSrv.translator.BatchTranslateSrtBlocks(ctx, blocks, string(p.OriginLanguage), string(p.TargetLanguage), p.TaskPtr)
 }
 
 type DownloadMediaResult struct {

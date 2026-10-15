@@ -2,11 +2,9 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,21 +19,16 @@ import (
 type subtitleRoutingCompleter struct{}
 
 func (subtitleRoutingCompleter) ChatCompletion(prompt string) (string, error) {
-	_, input, found := strings.Cut(prompt, "Input subtitles:\n")
-	if !found {
-		return "", nil
+	input, err := decodePairedTestInput(prompt)
+	if err != nil {
+		return "", err
 	}
-	input, _, _ = strings.Cut(input, "\nRequired JSON format")
-	matches := regexp.MustCompile("(?m)^(\\d+)\\. (.+)$").FindAllStringSubmatch(input, -1)
-	translations := make([]map[string]any, 0, len(matches))
-	for _, match := range matches {
-		index, err := strconv.Atoi(match[1])
-		if err != nil {
-			return "", err
-		}
-		translations = append(translations, map[string]any{"index": index, "text": "测试译文：" + match[2]})
+	var sentences []pairedSentence
+	for _, item := range input.Sentences {
+		target := "测试译文：" + item.Text
+		sentences = append(sentences, pairedSentence{ID: item.ID, FullTarget: target, Source: []string{item.Text}, Target: []string{target}})
 	}
-	data, err := json.Marshal(map[string]any{"translations": translations})
+	data, err := encodePairedTestResponse(sentences)
 	return string(data), err
 }
 
@@ -46,6 +39,8 @@ func subtitleRoutingTestService(test *testing.T) *YouTubeSubtitleService {
 	previousApp := config.Conf.App
 	config.Conf.App.EnableBlockVttBatch = false
 	config.Conf.App.VttBatchSize = 10
+	config.Conf.App.MaxSentenceLength = 200
+	config.Conf.App.ShortSubtitleMaxChars = 200
 	test.Cleanup(func() {
 		log.Logger = previousLogger
 		config.Conf.App = previousApp

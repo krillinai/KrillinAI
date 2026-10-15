@@ -22,7 +22,6 @@ type blockingTranslationCompleter struct {
 	active  atomic.Int32
 	peak    atomic.Int32
 	calls   atomic.Int32
-	echo    echoBatchCompleter
 }
 
 func (c *blockingTranslationCompleter) ChatCompletion(prompt string) (string, error) {
@@ -44,10 +43,7 @@ func (c *blockingTranslationCompleter) ChatCompletionContext(ctx context.Context
 		return "", ctx.Err()
 	case <-c.release:
 	}
-	if strings.Contains(prompt, "Input subtitles:\n") {
-		return (subtitleRoutingCompleter{}).ChatCompletion(prompt)
-	}
-	return c.echo.ChatCompletion(prompt)
+	return (subtitleRoutingCompleter{}).ChatCompletion(prompt)
 }
 
 func TestSubtitleTranslationConcurrencyAndCancellation(t *testing.T) {
@@ -76,7 +72,11 @@ func TestSubtitleTranslationConcurrencyAndCancellation(t *testing.T) {
 				blocks := make([]*util.SrtBlock, len(parts))
 				for index := range parts {
 					parts[index] = fmt.Sprintf("Sentence number %d is here.", index+1)
-					blocks[index] = &util.SrtBlock{Index: index + 1, OriginLanguageSentence: parts[index]}
+					blocks[index] = &util.SrtBlock{
+						Index:                  index + 1,
+						Timestamp:              fmt.Sprintf("00:00:%02d,000 --> 00:00:%02d,900", index, index),
+						OriginLanguageSentence: parts[index],
+					}
 				}
 				var results []*TranslatedItem
 				var progress []int
@@ -86,19 +86,19 @@ func TestSubtitleTranslationConcurrencyAndCancellation(t *testing.T) {
 				checkpointDir := t.TempDir()
 				done := make(chan error, 1)
 				go func() {
+					var err error
 					switch path {
 					case "platform":
-						done <- translator.BatchTranslateSrtBlocks(ctx, blocks, "en", "zh_cn", task)
+						blocks, err = translator.BatchTranslateSrtBlocks(ctx, blocks, "en", "zh_cn", task)
 					case "imported":
-						done <- service.TranslateSubtitleBlocks(ctx, blocks, &types.SubtitleTaskStepParam{OriginLanguage: "en", TargetLanguage: "zh_cn"})
+						blocks, err = service.TranslateSubtitleBlocks(ctx, blocks, &types.SubtitleTaskStepParam{OriginLanguage: "en", TargetLanguage: "zh_cn"})
 					case "transcribed":
-						var err error
 						results, err = service.splitTextAndTranslateV2(ctx, checkpointDir, strings.Join(parts, " "), "en", "zh_cn", false, 0, func(completed, total int) error {
 							progress = append(progress, completed)
 							return nil
 						})
-						done <- err
 					}
+					done <- err
 				}()
 
 				for range 3 {
@@ -125,7 +125,7 @@ func TestSubtitleTranslationConcurrencyAndCancellation(t *testing.T) {
 					}
 					for index, part := range parts {
 						if path == "transcribed" {
-							if len(results) != len(parts) || results[index].OriginText != part || results[index].TranslatedText != "translated: "+part {
+							if len(results) != len(parts) || results[index].OriginText != part || results[index].TranslatedText != "测试译文："+part {
 								t.Fatalf("translation order mismatch at %d", index)
 							}
 						} else if blocks[index].TargetLanguageSentence != "测试译文："+part {
