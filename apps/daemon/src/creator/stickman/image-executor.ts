@@ -258,8 +258,8 @@ export function createStickmanImageExecutor(input: {
       const { provider } = imageSettings;
       const quality = readQuality(stage.job.state.quality);
       if (gateway) {
-        if (!gateway.capabilities?.image?.includes('edit') || referenceImages.length > 1) {
-          throw new CreatorExecutorError('creator_stickman_image_provider_unsupported', 'The official image service supports one reference image. This shot cannot be generated.');
+        if (!imageSettings.supportsReferenceImage || referenceImages.length > imageSettings.maxReferenceImages) {
+          throw new CreatorExecutorError('creator_stickman_image_provider_unsupported', 'This image model does not support the references required by this shot.');
         }
       } else assertReferenceImageSupport(provider, referenceImages.length);
       const model = imageSettings.model;

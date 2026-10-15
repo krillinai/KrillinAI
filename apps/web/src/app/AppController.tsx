@@ -4639,6 +4639,7 @@ export function AppController(props: AppControllerProps) {
       runtimeDependencies={runtimeDependencies}
       creatorServicesService={creatorServicesService}
       gatewayState={gatewayAccountState ?? (gatewayAccountService ? null : undefined)}
+      gatewayAccountService={gatewayAccountService}
       videoMetadataService={videoMetadataService}
       workspace={props.route.view === 'workbench' ? props.route.tool : undefined}
       jobId={props.route.view === 'workbench' ? props.route.jobId : undefined}
@@ -4741,7 +4742,11 @@ export function AppController(props: AppControllerProps) {
       prepareExternalNavigation={hostBridge.prepareExternalNavigation}
       onStateChange={onGatewayStateChange}
       openExternal={url => hostBridge.openExternal(url)}
-      onOpenModelSettings={() => navigateToRoute({ view: 'settings', tab: 'ai-services' })}
+      onOpenModelSettings={() => {
+        settingsReturnRouteRef.current = props.route;
+        applyRouteFromLocation({ view: 'settings', tab: 'ai-services' });
+        navigateToRoute({ view: 'settings', tab: 'ai-services' });
+      }}
       onBack={() => {
         applyRouteFromLocation(accountReturnRouteRef.current);
         navigateToRoute(accountReturnRouteRef.current);

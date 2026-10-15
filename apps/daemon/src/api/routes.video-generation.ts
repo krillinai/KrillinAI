@@ -10,6 +10,13 @@ export async function registerVideoGenerationRoutes(
   server: FastifyInstance,
   service: VideoGenerationService
 ): Promise<void> {
+  if (service.uploadReference) {
+    server.addContentTypeParser('application/vnd.opencreator.video-reference', { parseAs: 'buffer', bodyLimit: 100_000_000 }, (_request, body, done) => done(null, body));
+    server.post<{ Body: Buffer; Querystring: { mime?: string } }>('/video-generation/assets', { bodyLimit: 100_000_000 }, async (request, reply) => {
+      try { return await service.uploadReference!(request.body, request.query.mime ?? ''); }
+      catch (error) { return sendError(reply, error); }
+    });
+  }
   server.post<{ Body: CreateVideoGenerationRequest }>(
     '/video-generation/results',
     { config: { bodyLimit: 8 * 1024 * 1024 } },

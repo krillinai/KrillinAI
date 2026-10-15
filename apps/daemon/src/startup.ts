@@ -30,6 +30,13 @@ export type ProductionRuntimePaths = {
   codexHome: string;
 };
 
+export function requiresPaidStartupProbe(env: NodeJS.ProcessEnv = process.env): boolean {
+  // Desktop readiness checks alone must not trigger billable model inference.
+  return env.OPENCREATOR_REQUIRE_CODEX_PROBE === '1'
+    && env.OPENCREATOR_ENABLE_PAID_STARTUP_PROBE === '1'
+    && env.OPENCREATOR_CODEX_PROBE_VERIFIED !== '1';
+}
+
 export function resolveProductionServerEnvironment(
   env: NodeJS.ProcessEnv = process.env
 ): Pick<

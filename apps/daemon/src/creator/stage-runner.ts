@@ -14,7 +14,7 @@ import type { CreatorExecutor } from './executor.js';
 import { CreatorExecutorError } from './executor.js';
 import type { CreatorRepository } from './repository.js';
 import type { CreatorIssueService } from './issues.js';
-import { CreatorProviderRequestError } from './provider-requests.js';
+import { CreatorProviderRequestError, CreatorProviderRequestLedger } from './provider-requests.js';
 import { publicFactsFromFailure } from './public-error-facts.js';
 import { sha256CreatorFile } from './file-hash.js';
 import {
@@ -46,6 +46,7 @@ export function createCreatorStageRunner(input: {
   onStageSucceeded?(stage: CreatorStageRun): void;
 }) {
   const executors = new Map(input.executors.map(executor => [executor.id, executor]));
+  const providerLedger = new CreatorProviderRequestLedger(input.repository, input.issueService);
   const active = new Map<string, AbortController>();
   const laneTails = new Map<string, Promise<unknown>>();
   const waiters: Array<() => void> = [];
@@ -328,6 +329,7 @@ export function createCreatorStageRunner(input: {
           input.onJobChanged
         );
         finishStageIssueResolution(jobId, stageRun!.id, 'succeeded');
+        providerLedger.finishStage(stageRun!.id, 'succeeded');
       });
       const completed = input.repository.getStageRun(stageRun.id);
       if (completed !== undefined) {
@@ -349,14 +351,14 @@ export function createCreatorStageRunner(input: {
           failureCode,
           failureMessage
         );
-        const providerRequests = input.repository.listProviderRequests(jobId)
-          .filter(request => request.stageRunId === stageRun!.id);
+        const providerRequests = providerLedger.requestsForStage(stageRun.id);
         const unknownProviderAcceptance = providerRequests.some(request => (
           request.status === 'unknown_remote_acceptance'
         ));
         const providerFailure = error instanceof CreatorProviderRequestError
           || providerRequests.some(request => (
-            request.status === 'failed' || request.status === 'unknown_remote_acceptance'
+            request.stageRunId === stageRun!.id && request.status === 'failed'
+            || request.status === 'unknown_remote_acceptance'
           ));
         input.repository.transaction(() => {
           updateStageRun({
@@ -404,6 +406,9 @@ export function createCreatorStageRunner(input: {
               },
               input.onJobChanged
             );
+            if (!outputValidation && configurationInput === null) {
+              providerLedger.finishStage(stageRun!.id, canceled ? 'canceled' : 'failed', error);
+            }
             const resolution = finishStageIssueResolution(
               jobId,
               stageRun!.id,
@@ -505,6 +510,10 @@ export function createCreatorStageRunner(input: {
   ) {
     const issue = input.issueService?.list(jobId).find(candidate => (
       candidate.status === 'resolving' && candidate.stageRunId === stageRunId
+      && !(result === 'succeeded' && candidate.source === 'provider'
+        && ['creator_provider_request_failed', 'creator_provider_resolution_required'].includes(candidate.code)
+        && candidate.publicFacts?.provider?.startsWith('opencreator-gateway-'))
+      && input.repository.getIssueResolutionAttemptId(jobId, candidate.id) === stageRunId
     ));
     if (issue === undefined) return undefined;
     return input.issueService?.finishResolution({

@@ -68,6 +68,7 @@ export type CreatorSessionContextValue = {
   resumeJob(): Promise<void>;
   uploadSourceVideo(file: File): Promise<void>;
   uploadReferenceImage(file: File): Promise<void>;
+  uploadVideoReference?(file: File): Promise<{ assetId: string; expiresAt: string }>;
   uploadArticleImage(file: File): Promise<CreatorArtifact>;
   uploadSourceDocument(file: File): Promise<void>;
   openArtifact(artifactId: string): Promise<Response>;
@@ -171,6 +172,7 @@ export function CreatorSessionProvider(props: {
     | 'openDownloadThumbnail'
     | 'openSubtitlePreview'
     | 'uploadReferenceImage'
+    | 'uploadVideoReference'
     | 'uploadArticleImage'
     | 'uploadSourceVideo'
     | 'uploadSourceDocument'
@@ -997,6 +999,7 @@ export function CreatorSessionProvider(props: {
     cancelJob,
     resumeJob,
     uploadReferenceImage,
+    uploadVideoReference: props.service.uploadVideoReference,
     uploadSourceDocument,
     uploadSourceVideo,
     uploadArticleImage,
@@ -1013,7 +1016,7 @@ export function CreatorSessionProvider(props: {
     steerAgentTurn,
     interruptAgentTurn,
     respondAgentApproval
-  }), [connection, reconnect, agentBusy, agentSession, askPendingIssue, applyAction, applyRemoteSnapshot, approvals, cancelJob, captureCreatorFailure, clearError, confirmedJob, conflictedFields, draft, error, flush, focusIssue, focusedIssue, interruptAgentTurn, issues, items, openArtifact, openDownloadThumbnail, openArtifactJson, preflight, props.service.openSubtitlePreview, repairIssue, respondAgentApproval, resumeJob, runAgentTurn, runPreflight, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
+  }), [connection, reconnect, agentBusy, agentSession, askPendingIssue, applyAction, applyRemoteSnapshot, approvals, cancelJob, captureCreatorFailure, clearError, confirmedJob, conflictedFields, draft, error, flush, focusIssue, focusedIssue, interruptAgentTurn, issues, items, openArtifact, openDownloadThumbnail, openArtifactJson, preflight, props.service.openSubtitlePreview, props.service.uploadVideoReference, repairIssue, respondAgentApproval, resumeJob, runAgentTurn, runPreflight, steerAgentTurn, turns, updateDraft, uploadArticleImage, uploadReferenceImage, uploadSourceDocument, uploadSourceVideo]);
 
   return (
     <CreatorSessionContext.Provider value={value}>

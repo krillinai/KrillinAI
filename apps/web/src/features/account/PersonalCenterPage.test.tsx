@@ -99,7 +99,26 @@ it('keeps model availability separate from sign-in and opens model settings', as
   render(page(createService(blocked), blocked, vi.fn(), vi.fn(), 'account', settings));
   expect(await screen.findByText('已登录', { exact: true })).toBeInTheDocument();
   expect(screen.getByText('官方模型服务暂不可用')).toBeInTheDocument();
-  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(screen.getByRole('alert')).toHaveTextContent('官方模型服务连接失败，请重新连接');
   await userEvent.setup().click(screen.getByRole('button', { name: '模型设置' }));
   expect(settings).toHaveBeenCalledOnce();
+});
+
+it('reconnects model services from the personal center without signing in again or affecting credits', async () => {
+  const blocked: GatewayAccountState = { ...signedIn, activationState: 'blocked', activationError: { code: 'gateway_unavailable', message: 'Unavailable', stage: 'bootstrap', request: { path: '/api/v1/client/bootstrap', reason: 'timeout' } } };
+  const service = createService(blocked);
+  vi.mocked(service.activate).mockImplementation(async () => {
+    vi.mocked(service.getState).mockResolvedValue(signedIn);
+    return signedIn;
+  });
+  render(page(service, blocked));
+  expect(await screen.findByText('123')).toBeInTheDocument();
+  expect(screen.getByRole('alert')).toHaveTextContent('网关请求超时');
+  expect(screen.getByRole('alert')).toHaveTextContent('获取模型凭据');
+  await userEvent.setup().click(screen.getByRole('button', { name: '重新连接' }));
+  await waitFor(() => expect(screen.queryByText('官方模型服务暂不可用')).not.toBeInTheDocument());
+  expect(service.activate).toHaveBeenCalledOnce();
+  expect(service.start).not.toHaveBeenCalled();
+  expect(service.selectModel).not.toHaveBeenCalled();
+  expect(screen.getByText('123')).toBeInTheDocument();
 });

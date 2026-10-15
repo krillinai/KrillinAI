@@ -1,3 +1,4 @@
+import { isDirectTransport } from '../gateway/supplier.js';
 import type Database from 'better-sqlite3';
 import type { CodexAvailabilityProbe, CodexRuntimeComponentReadiness } from '@opencreator/protocol';
 import cors from '@fastify/cors';
@@ -242,7 +243,8 @@ import { createGatewayClient, GatewayError, type GatewayClient } from '../gatewa
 import { createGatewayRuntimeBindings } from '../gateway/runtime-bindings.js';
 import { createOfficialFetch } from '../gateway/official-fetch.js';
 import { createOfficialModelAccess } from '../gateway/model-access.js';
-import { preparePlatformProbe } from '../gateway/platform-probe.js';
+import { createModelSelectionProbe } from '../gateway/model-selection-probe.js';
+import { prepareOfficialRuntimeProbe } from '../gateway/runtime-probe.js';
 import { createRuntimeSource } from '../gateway/runtime-source.js';
 import { createGatewayCreatorSource } from '../gateway/creator-service-source.js';
 import { createCodexAppServerHost } from '../codex/app-server-host-2026-07-28.js';
@@ -267,7 +269,7 @@ import { registerThreadRoutes } from './routes.threads.js';
 import { registerWorkspaceFileRoutes } from './routes.workspace-files.js';
 import { registerVideoMetadataRoutes } from './routes.video-metadata.js';
 import { PlatformConnectionService } from '../platform-connections/service.js';
-import { supportedVideoSourcePlatform } from '@opencreator/protocol';
+import { supportedVideoSourcePlatform, gatewayModelReady } from '@opencreator/protocol';
 import { registerPlatformConnectionRoutes } from './routes.platform-connections.js';
 
 export type BuildServerInput = {
@@ -306,7 +308,7 @@ export type BuildServerInput = {
   codexSessionProvider?: CodexSessionProvider;
   codexModelCatalog?: CodexModelCatalog;
   getCodexAvailabilityProbe?(): CodexAvailabilityProbe | undefined;
-  onPrepareAvailabilityProbe?(prepare: () => ReturnType<typeof preparePlatformProbe>): void;
+  onPrepareAvailabilityProbe?(prepare: () => ReturnType<typeof prepareOfficialRuntimeProbe>): void;
   memoryHistoryReader?(threadId: string): { items: import('@opencreator/protocol').ThreadHistoryItem[] } | undefined;
   creatorServicesConfigStore?: CreatorServicesConfigStore;
   videoMetadataService?: VideoMetadataService;
@@ -530,6 +532,7 @@ export async function buildServer(input: BuildServerInput) {
   );
   const officialManagers = new Map<string, AppServerRuntimeManager>();
   let officialBindings: ReturnType<typeof createGatewayRuntimeBindings> | undefined;
+  let officialRuntimeIdentity: string | undefined;
   const gatewayOrigin = input.gatewayOrigin ?? process.env.OPENCREATOR_GATEWAY_ORIGIN;
   const unavailable = async (): Promise<never> => { throw new GatewayError('services_not_ready'); };
   const readCommonProxy = async () => (await storedCreatorServicesConfigStore.read()).proxy;
@@ -538,12 +541,15 @@ export async function buildServer(input: BuildServerInput) {
     refresh: unavailable, bootstrap: unavailable, avatar: unavailable, logout: unavailable, request: unavailable
   };
   let officialInjectors: Record<string, import('../agent-tools/run-injection.js').AgentScheduleProcessInjector> = {};
+  const modelSelectionProbe = createModelSelectionProbe({ dataDir,
+    fetcher: createOfficialFetch({ readProxy: readCommonProxy }), readProxy: readCommonProxy
+  });
   const gatewayAccount: GatewayAccountService = createGatewayAccountService({
     dataDir, client: gatewayClient,
+    probeModel: modelSelectionProbe.probe,
     deferStartupActivation: true,
     modelAccess: createOfficialModelAccess({
-      dataDir, fetcher: createOfficialFetch({ readProxy: readCommonProxy }), readProxy: readCommonProxy,
-      readProbeCredentials: () => gatewayAccount.probeCredentials()
+      dataDir, fetcher: createOfficialFetch({ readProxy: readCommonProxy }), readProxy: readCommonProxy
     }),
     hasActiveTasks: () => [appServerRuntimeManager, creatorAppServerRuntimeManager, stickmanContentRuntimeManager]
       .some(manager => manager?.listScopes().some(scope => scope.active || scope.pending > 0))
@@ -554,23 +560,37 @@ export async function buildServer(input: BuildServerInput) {
       officialBindings?.beginLogout();
       await officialBindings?.close();
       officialBindings = undefined;
+      officialRuntimeIdentity = undefined;
       officialManagers.clear();
     },
     async activateRuntime(bootstrap) {
       if (runtimeTransport !== 'app-server') throw new GatewayError('services_not_ready');
-      const model = bootstrap.models.find(value => value.id === bootstrap.defaults.text && value.modality === 'text' && value.capabilities.includes('responses'));
+      const model = bootstrap.models.find(value => value.id === bootstrap.defaults.text && value.modality === 'text' && value.capabilities.includes('responses') && gatewayModelReady(value));
       if (!model) throw new GatewayError('services_not_ready');
+      const identity = JSON.stringify([bootstrap.account.id, bootstrap.baseUrl, bootstrap.transport,
+        ...(isDirectTransport(bootstrap.transport) ? [] : [bootstrap.bindingVersion, bootstrap.keyVersion])]);
+      if (officialBindings && officialRuntimeIdentity === identity) {
+        // Turns already carry their own model; changing the default must keep live hosts and streams.
+        await officialBindings.updateModel(model.id);
+        return;
+      }
+      officialRuntimeIdentity = undefined;
       await officialBindings?.close(); officialManagers.clear();
       const home = join(runtimeDir, 'gateway-codex');
       const bootstrapResult = bootstrapCreatorAgentRuntime({ ...creatorAgentBootstrapInput, codexHome: home, source: 'gateway' });
       if (!bootstrapResult.available) throw new GatewayError('services_not_ready');
       officialBindings = createGatewayRuntimeBindings({
-        codexHome: home, baseUrl: bootstrap.baseUrl, model: model.id, direct: bootstrap.transport === 'openrouter-direct',
+        codexHome: home, baseUrl: bootstrap.baseUrl, model: model.id, direct: isDirectTransport(bootstrap.transport), gateway: bootstrap.transport === 'gateway',
         readProxy: readCommonProxy,
-        beginUse: async () => { const use = await gatewayAccount.beginModelUse(); return { key: use.credentials.modelKey, keyVersion: use.credentials.keyVersion, release: use.release, models: use.credentials.models,
-          onModelFailure: (id, modality, facts) => gatewayAccount.reportModelFailure(use.credentials, id, modality, facts) }; },
-        recoverKey: async keyVersion => { const updated = await gatewayAccount.recoverModelCredentials(keyVersion); return { key: updated.modelKey, keyVersion: updated.keyVersion }; },
-        readCredentials: async () => ({ accountId: bootstrap.account.id, modelKey: bootstrap.modelKey, keyVersion: bootstrap.keyVersion }),
+        beginUse: async () => { const use = await gatewayAccount.beginModelUse(); return { key: use.credentials.modelKey, keyVersion: use.credentials.keyVersion, baseUrl: use.credentials.baseUrl, release: use.release, models: use.credentials.models,
+          onModelFailure: (id, modality, facts) => gatewayAccount.reportModelFailure(use.credentials, id, modality, facts),
+          onModelSuccess: (id, modality, operation) => gatewayAccount.reportModelSuccess(use.credentials, id, modality, operation) }; },
+        recoverKey: async keyVersion => { const updated = await gatewayAccount.recoverModelCredentials(keyVersion); if (updated.baseUrl !== bootstrap.baseUrl) throw new GatewayError('supplier_binding_changed', 409); return { key: updated.modelKey, keyVersion: updated.keyVersion }; },
+        readCredentials: async () => {
+          if (bootstrap.transport !== 'gateway' && bootstrap.modelKey) return { accountId: bootstrap.account.id, modelKey: bootstrap.modelKey, keyVersion: bootstrap.keyVersion };
+          const use = await gatewayAccount.beginModelUse({ recovery: true });
+          try { return use.credentials; } finally { await use.release(); }
+        },
         closeRuntime: async () => { await Promise.all([...officialManagers.values()].map(manager => manager.close())); }
       });
       const prepared = await officialBindings.prepare();
@@ -582,6 +602,7 @@ export async function buildServer(input: BuildServerInput) {
           createHost(host) { return createCodexAppServerHost({ ...host, codexHome: home, baseEnvironment: prepared.env }); }
         }));
       }
+      officialRuntimeIdentity = identity;
     }
   });
   await gatewayAccount.initialize();
@@ -1013,6 +1034,7 @@ export async function buildServer(input: BuildServerInput) {
   }
   const creatorPreflight = createCreatorPreflight({
     assertServiceSource: gatewayCreatorSource.assertJob,
+    validateOfficialModel: gatewayAccount.validateModel,
     readCodexImageStatus,
     videoMetadataService,
     configStore: creatorServicesConfigStore,
@@ -1443,6 +1465,7 @@ export async function buildServer(input: BuildServerInput) {
     closing = true;
     await youtubeConnection.close();
     await douyinConnection.close();
+    await modelSelectionProbe.close();
     await gatewayAccount.close();
     await backgroundStartup;
     let firstError: unknown;
@@ -1498,7 +1521,7 @@ export async function buildServer(input: BuildServerInput) {
       async listModels() {
         const gateway = gatewayAccount.peekState();
         if (gateway.source === 'manual') return codexModelCatalog.listModels();
-        return { models: gateway.models.filter(model => model.modality === 'text' && model.capabilities.includes('responses')).map((model, index) => ({ id: model.id, model: model.id, displayName: /openrouter/i.test(model.id) ? 'Auto' : model.id.split('/').pop()!, description: '', supportedReasoningEfforts: [], defaultReasoningEffort: null, inputModalities: ['text' as const], isDefault: gateway.selectedModels?.text ? model.id === gateway.selectedModels.text : index === 0 })) };
+        return { models: gateway.models.filter(model => model.modality === 'text' && model.capabilities.includes('responses') && gatewayModelReady(model)).map((model, index) => ({ id: model.id, model: model.id, displayName: /openrouter/i.test(model.id) ? 'Auto' : model.id.split('/').pop()!, description: '', supportedReasoningEfforts: [], defaultReasoningEffort: null, inputModalities: ['text' as const], isDefault: gateway.selectedModels?.text ? model.id === gateway.selectedModels.text : index === 0 })) };
       }
     },
     readiness: codexRuntimeReadiness,
@@ -1665,7 +1688,7 @@ export async function buildServer(input: BuildServerInput) {
     }
   });
 
-  input.onPrepareAvailabilityProbe?.(() => preparePlatformProbe({ account: gatewayAccount, readProxy: readCommonProxy }));
+  input.onPrepareAvailabilityProbe?.(() => prepareOfficialRuntimeProbe({ account: gatewayAccount, readProxy: readCommonProxy }));
   return server;
 }
 

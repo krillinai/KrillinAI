@@ -11,7 +11,9 @@ import (
 	"krillin-ai/pkg/util"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -302,6 +304,7 @@ func TestOriginCuesFromTranscriptionFallBackToTranscriptText(t *testing.T) {
 }
 
 type echoBatchCompleter struct {
+	mu         sync.Mutex
 	batchSizes []int
 }
 
@@ -320,7 +323,9 @@ func (c *echoBatchCompleter) ChatCompletion(prompt string) (string, error) {
 	if err := json.Unmarshal([]byte(prompt[start+len(marker):]), &input); err != nil {
 		return "", err
 	}
+	c.mu.Lock()
 	c.batchSizes = append(c.batchSizes, len(input.Items))
+	c.mu.Unlock()
 	output := struct {
 		Translations []struct {
 			Index int    `json:"index"`
@@ -368,10 +373,11 @@ func TestSplitTextAndTranslateUsesBatchesAndReportsProgress(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fmt.Sprint(completer.batchSizes) != "[12 1]" {
-		t.Fatalf("batch sizes = %v, want [12 1]", completer.batchSizes)
+	sort.Ints(completer.batchSizes)
+	if fmt.Sprint(completer.batchSizes) != "[1 12]" {
+		t.Fatalf("batch sizes = %v, want [1 12]", completer.batchSizes)
 	}
-	if fmt.Sprint(progress) != "[12 13]" {
+	if len(progress) != 2 || progress[0] <= 0 || progress[0] >= 13 || progress[1] != 13 {
 		t.Fatalf("progress = %v, want [12 13]", progress)
 	}
 	if len(results) != 13 || results[12].TranslatedText == results[12].OriginText {
@@ -407,13 +413,13 @@ func TestTranslateSentenceRangeSplitsFailedBatch(t *testing.T) {
 	err := service.translateSentenceRange(
 		context.Background(),
 		sentences,
-		results,
 		0,
 		len(sentences),
 		types.StandardLanguageCode("zh_cn"),
 		false,
-		func(count int) error {
-			completed = append(completed, count)
+		func(start int, items []*TranslatedItem) error {
+			copy(results[start:], items)
+			completed = append(completed, len(items))
 			return nil
 		},
 	)

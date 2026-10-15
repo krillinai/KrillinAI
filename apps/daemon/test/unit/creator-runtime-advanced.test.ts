@@ -13,6 +13,7 @@ import { createCreatorCommandDispatcher } from '../../src/creator/command-dispat
 import { parseDownloadProbe } from '../../src/creator/download/probe-parser.js';
 import { CreatorExecutorError, type CreatorExecutor } from '../../src/creator/executor.js';
 import { createCreatorIssueService } from '../../src/creator/issues.js';
+import { CreatorProviderRequestLedger } from '../../src/creator/provider-requests.js';
 import { createCreatorRepository } from '../../src/creator/repository.js';
 import { createCreatorService } from '../../src/creator/service.js';
 import { createCreatorStageRunner } from '../../src/creator/stage-runner.js';
@@ -42,6 +43,36 @@ function setup() {
 }
 
 describe('creator runtime advanced contracts', () => {
+  it.each(['succeeded', 'failed', 'unknown', 'canceled'] as const)('reports managed provider errors only at final stage failure (%s)', async outcome => {
+    const { db, repository, service, templates } = setup();
+    const published: string[] = [];
+    const issueService = createCreatorIssueService(repository, { onChanged: issue => published.push(issue.code) });
+    const ledger = new CreatorProviderRequestLedger(repository, issueService);
+    const runner = createCreatorStageRunner({ repository, templates, issueService, workRoot: join(tempDir, 'work'),
+      executors: [{ id: 'image', async run({ stageRun, job, workdir }) {
+        const request = ledger.registerBeforeSubmit({ jobId: job.id, stageRunId: stageRun.id,
+          provider: 'opencreator-gateway-images/generations', requestKey: 'first', request: {},
+          gateway: { accountId: 'a', bindingVersion: 'a:1', logicalId: 'first' } });
+        ledger.markSubmitting(request.id);
+        if (outcome === 'unknown') ledger.markUnknownRemoteAcceptance(request.id);
+        else ledger.markFailed(request.id);
+        expect(published).toEqual([]);
+        if (outcome === 'canceled') runner.cancelJob(job.id);
+        if (outcome !== 'succeeded') throw new Error('automatic retries exhausted');
+        const path = join(workdir, 'image.png'); writeFileSync(path, 'image');
+        return { outputs: [{ kind: 'generated_image', status: 'completed', path }] };
+      } }] });
+    try {
+      const job = service.createJob({ projectId: 'p1', templateId: 'image-generation', state: { prompt: 'test' } });
+      expect((await runner.run(job.id, 'generate')).status).toBe(outcome === 'unknown' ? 'failed' : outcome);
+      if (outcome === 'succeeded' || outcome === 'canceled') expect(published).toEqual([]);
+      else {
+        expect(published).toEqual([outcome === 'unknown' ? 'creator_provider_resolution_required' : 'creator_provider_request_failed']);
+        expect(issueService.list(job.id)).toEqual([expect.objectContaining({ occurrenceCount: 1, retryable: outcome !== 'unknown' })]);
+      }
+    } finally { await runner.close(); db.close(); }
+  });
+
   it.each(['direct', 'wrapped'])('preserves a bottom-level error code and reason in stage and issue records (%s)', async mode => {
     const { db, repository, service, templates } = setup();
     const issueService = createCreatorIssueService(repository);

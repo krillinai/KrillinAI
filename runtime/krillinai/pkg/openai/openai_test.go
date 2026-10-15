@@ -2,6 +2,7 @@ package openai
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"krillin-ai/config"
 	"krillin-ai/log"
@@ -12,6 +13,32 @@ import (
 	"testing"
 	"time"
 )
+
+func TestChatCompletionUsesDefaultSampling(t *testing.T) {
+	setTestModel(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if _, exists := body["temperature"]; exists {
+			t.Error("translation must use the model's default sampling")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"choices\":[]}\n\ndata: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"translated\"}}]}\n\ndata: [DONE]\n\n"))
+	}))
+	defer server.Close()
+
+	client := newClient(server.URL, "test-key", "", time.Second)
+	content, err := client.ChatCompletion("translate")
+	if err != nil || content != "translated" {
+		t.Fatalf("ChatCompletion() = %q, %v; want translated", content, err)
+	}
+}
 
 func TestChatCompletionTimesOut(t *testing.T) {
 	setTestModel(t)
@@ -34,6 +61,21 @@ func TestChatCompletionTimesOut(t *testing.T) {
 	}
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("ChatCompletion() error = %v, want context deadline", err)
+	}
+}
+
+func TestChatCompletionReportsStreamErrorAfterKeepAlive(t *testing.T) {
+	setTestModel(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"choices\":[]}\n\ndata: {\"error\":{\"type\":\"upstream_error\",\"code\":\"official_service_unavailable\",\"message\":\"Official service request could not be completed\"}}\n\n"))
+	}))
+	defer server.Close()
+
+	client := newClient(server.URL, "test-key", "", time.Second)
+	_, err := client.ChatCompletion("translate")
+	if err == nil || !strings.Contains(err.Error(), "Official service request could not be completed") {
+		t.Fatalf("ChatCompletion() error = %v, want the API error", err)
 	}
 }
 

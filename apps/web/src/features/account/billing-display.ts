@@ -1,6 +1,19 @@
 import type { LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
 import type { GatewayBillingAvailability, GatewayRechargeOrder } from '../../services/gateway-account-service.js';
 
+export function formatGatewayCredits(units: string) {
+  if (!/^\d+$/.test(units)) return '?';
+  const value = BigInt(units);
+  if (value > 0n && value < 1_000_000n) return '<1';
+  return `${(value + 500_000n) / 1_000_000n}`;
+}
+
+export function formatGatewayCreditAmount(amount: number | undefined) {
+  if (amount === undefined || !Number.isFinite(amount)) return '?';
+  if (amount > 0 && amount < 1) return '<1';
+  return `${Math.round(amount)}`;
+}
+
 export function billingUnavailableMessage(reason: GatewayBillingAvailability['billingUnavailableReason'], l: LocalizeCopy) {
   switch (reason) {
     case 'purchases_disabled': return l('当前环境暂未开放充值，仍可查看积分方案。', 'Purchases are not enabled in this environment. Credit plans are available to browse.');

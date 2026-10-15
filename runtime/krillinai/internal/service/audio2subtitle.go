@@ -17,6 +17,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode"
 
 	"go.uber.org/zap"
@@ -455,9 +456,14 @@ func (s Service) splitTextAndTranslateV2(
 
 	sentences = shortSentences
 	results := make([]*TranslatedItem, len(sentences))
+	var checkpointMu sync.Mutex
 	completed := 0
-	checkpoint := func(count int) error {
-		completed += count
+	checkpoint := func(start int, items []*TranslatedItem) error {
+		// Checkpoint serialization reads every result, so publish under one lock.
+		checkpointMu.Lock()
+		defer checkpointMu.Unlock()
+		copy(results[start:], items)
+		completed += len(items)
 		if basePath != "" {
 			path := filepath.Join(basePath, fmt.Sprintf(types.SubtitleTaskTranslationDataPersistenceFileNamePattern, id))
 			if err := util.SaveToDisk(results, path); err != nil {
@@ -470,14 +476,16 @@ func (s Service) splitTextAndTranslateV2(
 		return nil
 	}
 
-	for start := 0; start < len(sentences); start += translationBatchSize {
+	err := runTranslationBatches(ctx, (len(sentences)+translationBatchSize-1)/translationBatchSize, func(ctx context.Context, batchIndex int) error {
+		start := batchIndex * translationBatchSize
 		end := start + translationBatchSize
 		if end > len(sentences) {
 			end = len(sentences)
 		}
-		if err := s.translateSentenceRange(ctx, sentences, results, start, end, targetLang, enableModalFilter, checkpoint); err != nil {
-			return nil, err
-		}
+		return s.translateSentenceRange(ctx, sentences, start, end, targetLang, enableModalFilter, checkpoint)
+	})
+	if err != nil {
+		return nil, err
 	}
 	return results, nil
 }
@@ -485,12 +493,14 @@ func (s Service) splitTextAndTranslateV2(
 func (s Service) translateSentenceRange(
 	ctx context.Context,
 	sentences []string,
-	results []*TranslatedItem,
 	start, end int,
 	targetLang types.StandardLanguageCode,
 	enableModalFilter bool,
-	onCompleted func(int) error,
+	onCompleted func(int, []*TranslatedItem) error,
 ) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	prompt, err := buildTranslationBatchPrompt(sentences, start, end, targetLang, enableModalFilter)
 	if err == nil {
 		var response string
@@ -499,13 +509,14 @@ func (s Service) translateSentenceRange(
 			var translations []string
 			translations, err = parseTranslationBatch(response, end-start)
 			if err == nil {
+				items := make([]*TranslatedItem, len(translations))
 				for offset, translatedText := range translations {
-					results[start+offset] = &TranslatedItem{
+					items[offset] = &TranslatedItem{
 						OriginText:     sentences[start+offset],
 						TranslatedText: translatedText,
 					}
 				}
-				return onCompleted(end - start)
+				return onCompleted(start, items)
 			}
 		}
 	}
@@ -518,10 +529,10 @@ func (s Service) translateSentenceRange(
 		zap.Int("end", end),
 		zap.Error(err))
 	middle := start + (end-start)/2
-	if err := s.translateSentenceRange(ctx, sentences, results, start, middle, targetLang, enableModalFilter, onCompleted); err != nil {
+	if err := s.translateSentenceRange(ctx, sentences, start, middle, targetLang, enableModalFilter, onCompleted); err != nil {
 		return err
 	}
-	return s.translateSentenceRange(ctx, sentences, results, middle, end, targetLang, enableModalFilter, onCompleted)
+	return s.translateSentenceRange(ctx, sentences, middle, end, targetLang, enableModalFilter, onCompleted)
 }
 
 func buildTranslationBatchPrompt(

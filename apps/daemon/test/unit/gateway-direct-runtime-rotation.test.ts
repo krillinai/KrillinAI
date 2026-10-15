@@ -35,6 +35,22 @@ it('does not submit a supplier request when coordination denies admission', asyn
   } finally { await runtime.close(); }
 });
 
+it.each(['completed', 'incomplete', 'failed'] as const)('records streamed %s outcomes only on a real Responses completion', async status => {
+  const onModelSuccess = vi.fn(async () => undefined);
+  const onModelFailure = vi.fn(async () => undefined);
+  const event = { type: `response.${status}`, response: { status, ...(status === 'failed' ? { error: { code: 403, message: 'Model unavailable in this country' } } : {}) } };
+  const fetcher = vi.fn<typeof fetch>(async () => new Response(`data: ${JSON.stringify(event)}\n\n`, { headers: { 'Content-Type': 'text/event-stream' } }));
+  const runtime = await createDirectRuntime('user-key', fetcher, async () => ({ key: 'user-key', release: async () => undefined, onModelSuccess, onModelFailure }));
+  try {
+    const result = await fetch(`${runtime.baseUrl}/responses`, { method: 'POST', headers: { Authorization: `Bearer ${runtime.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'vendor/text', input: 'Hello', stream: true }) });
+    await result.text();
+    if (status === 'completed') expect(onModelSuccess).toHaveBeenCalledExactlyOnceWith('vendor/text', 'text', 'responses');
+    else expect(onModelSuccess).not.toHaveBeenCalled();
+    if (status === 'failed') expect(onModelFailure).toHaveBeenCalledOnce();
+    expect(fetcher).toHaveBeenCalledOnce();
+  } finally { await runtime.close(); }
+});
+
 it.each(['success', 'rejected', 'unchanged', 'offline'] as const)('Runtime 的认证恢复为 %s 时最多提交两次', async outcome => {
   const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => fetcher.mock.calls.length === 1 || outcome === 'rejected' ? Response.json({}, { status: 401 }) : Response.json({ output: [] }));
   const release = vi.fn(async () => undefined);

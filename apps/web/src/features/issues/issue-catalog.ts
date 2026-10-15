@@ -15,6 +15,7 @@ const catalog: Record<string, { zh: string; en: string }> = {
   'issue.permission': { zh: '权限不足', en: 'Permission required' },
   'issue.network': { zh: '连接失败', en: 'Connection failed' },
   'issue.provider': { zh: '外部服务失败', en: 'Provider failed' },
+  'issue.provider_pending': { zh: '请求结果待确认', en: 'Request outcome pending' },
   'issue.execution': { zh: '操作未完成', en: 'Operation did not complete' },
   'issue.output-validation': { zh: '输出未通过检查', en: 'Output validation failed' },
   'issue.unknown': { zh: '发生问题', en: 'Something went wrong' },
@@ -26,12 +27,14 @@ export function presentIssue(
   issue: OpenCreatorIssue,
   language: AppLanguage = 'zh-CN'
 ): IssuePresentation {
-  const entry = catalog[issue.summaryKey] ?? catalog[`issue.${issue.category}`] ?? catalog['issue.unknown']!;
+  const entry = issue.code === 'creator_provider_resolution_required'
+    ? catalog['issue.provider_pending']!
+    : catalog[issue.summaryKey] ?? catalog[`issue.${issue.category}`] ?? catalog['issue.unknown']!;
   const resolved = issue.status === 'resolved';
   const resolving = issue.status === 'resolving';
   const localize = createLocalizedCopy(language);
   return {
-    title: localize(entry.zh, entry.en),
+    title: recoveredProviderIssue(issue) ? localize('外部服务已恢复', 'Provider recovered') : localize(entry.zh, entry.en),
     description: issueDescription(issue, language),
     diagnosticLabel: localize(`诊断编号：${issue.diagnosticId}`, `Diagnostic ID: ${issue.diagnosticId}`, `Diagnos-ID: ${issue.diagnosticId}`),
     statusLabel: resolved ? localize('已解决', 'Resolved') : resolving ? localize('处理中', 'Resolving') : localize('需要处理', 'Needs attention')
@@ -40,6 +43,12 @@ export function presentIssue(
 
 function issueDescription(issue: OpenCreatorIssue, language: AppLanguage): string {
   const localize = createLocalizedCopy(language);
+  if (recoveredProviderIssue(issue)) return localize('请求状态已核对，任务已恢复。', 'The request status was confirmed and the task recovered.', 'Begäransstatusen har bekräftats och uppgiften har återhämtats.');
+  if (issue.code === 'creator_provider_resolution_required') return localize(
+    '尚未确认外部服务的最终结果，请先查询原请求状态。',
+    'The final provider result is not confirmed yet. Check the original request status first.',
+    'Leverantörens slutliga resultat är ännu inte bekräftat. Kontrollera först den ursprungliga begäransstatusen.'
+  );
   const facts = issuePublicFacts(issue);
   const summary = localizedIssueSummary({ ...issue, publicFacts: facts }, localize);
   const code = safePublicErrorCode(issue.code) ?? 'UNKNOWN_ERROR';
@@ -47,6 +56,12 @@ function issueDescription(issue: OpenCreatorIssue, language: AppLanguage): strin
     ? localize('当前记录未提供更细的原因。', 'No more specific cause was recorded.', 'Ingen mer specifik orsak har registrerats.')
     : publicErrorReason(facts, language);
   return localize(`${summary} 错误码：${code}。${reason}`, `${summary} Error code: ${code}. ${reason}`, `${summary} Felkod: ${code}. ${reason}`);
+}
+
+function recoveredProviderIssue(issue: OpenCreatorIssue): boolean {
+  return issue.status === 'resolved' && issue.source === 'provider'
+    && ['creator_provider_resolution_required', 'creator_provider_request_failed'].includes(issue.code)
+    && issue.publicFacts?.provider?.startsWith('opencreator-gateway-') === true;
 }
 
 function issuePublicFacts(issue: OpenCreatorIssue): PublicErrorFacts | undefined {
@@ -181,9 +196,12 @@ export function issueConversationText(
 ): { message: string; nextStep: string } {
   const detail = presentIssue(issue, language).description;
   const localize = createLocalizedCopy(language);
+  if (recoveredProviderIssue(issue)) return { message: detail, nextStep: '' };
   const facts = issuePublicFacts(issue);
   const transcription = transcriptionIssueCopy(issue.code, localize) ?? transcriptionIssueCopy(facts?.upstreamCode, localize);
-  const nextStep = transcription !== undefined ? transcription.nextStep
+  const nextStep = issue.code === 'creator_provider_resolution_required'
+    ? localize('确认原请求结果前请勿重新提交，避免重复扣费。', 'Do not resubmit until the original request outcome is confirmed, to avoid duplicate charges.', 'Skicka inte igen innan resultatet av den ursprungliga begäran har bekräftats, för att undvika dubbla avgifter.')
+    : transcription !== undefined ? transcription.nextStep
     : issue.code === 'platform_request_signature_required'
     ? localize('请使用本地视频文件继续；当前平台要求下载器尚不支持的请求签名，重新连接 Cookie 或修改模型权限无法解决。', 'Use a local video file to continue. The platform requires a request signature that the downloader does not yet support; reconnecting cookies or changing model permissions will not resolve it.', 'Använd en lokal videofil för att fortsätta. Plattformen kräver en begäranssignatur som nedladdaren ännu inte stöder. Att ansluta kakor igen eller ändra modellbehörigheter löser inte problemet.')
     : issue.code === 'platform_session_required'

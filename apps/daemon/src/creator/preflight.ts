@@ -66,6 +66,7 @@ export function createCreatorPreflight(input: {
   readCodexImageStatus?(): Promise<CodexImageStatus>;
   videoMetadataService?: VideoMetadataService;
   assertServiceSource?(jobId: string): void;
+  validateOfficialModel?(modality: import('@opencreator/protocol').GatewayModel['modality'], model: string): Promise<unknown>;
 }) {
   const executorIds = new Set(input.executorIds ?? []);
 
@@ -160,6 +161,41 @@ export function createCreatorPreflight(input: {
     await checkInputs(stage, resolvedInputs.artifacts, resolvedInputs.missing, add);
     await checkRuntimeDependencies(job, stage, config, add);
     await checkManagedDirectory(add);
+
+    const gateway = gatewayCreatorBinding(config);
+    if (gateway && blocked.length === 0 && input.validateOfficialModel) {
+      const modalities = new Set<import('@opencreator/protocol').GatewayModel['modality']>();
+      for (const check of ready) {
+        if (check.id === 'llm') modalities.add('text');
+        if (check.id === 'tts') modalities.add('speech');
+        if (check.id === 'transcription-config') modalities.add('transcription');
+        if (check.id === 'image-provider') modalities.add('image');
+        if (check.id === 'video-provider') modalities.add('video');
+      }
+      // Translation starts a workflow; validate its downstream models before processing the video.
+      if (job.templateId === 'video-translation' && ['download', 'subtitle'].includes(stage.id)) {
+        modalities.add('text');
+        if (inputState.sourceType !== 'subtitle' && (inputState.sourceType === 'file' || inputState.preferPlatformCaptions === false)) modalities.add('transcription');
+        if (inputState.dubbing === true) modalities.add('speech');
+      }
+      for (const modality of modalities) {
+        const choices = inputState.officialModels;
+        const selected = choices && typeof choices === 'object' && !Array.isArray(choices) ? choices[modality] : undefined;
+        const model = typeof selected === 'string' ? selected : gateway.models[modality];
+        try {
+          if (!model) throw new Error('No official model is selected. Choose another model.');
+          await input.validateOfficialModel(modality, model);
+          add('ready', { id: `official-model-catalog:${modality}`, title: 'Model configuration', message: `${model} is in the compatible model catalog.`, executionMode: 'remote' });
+        } catch (error) {
+          const code = (error as { code?: string })?.code;
+          const message = code === 'invalid_model' || !model
+            ? `${model ?? modality} is currently unavailable. Choose another model.`
+            : 'Model configuration could not be checked. Reconnect official services and try again.';
+          add('blocked', { id: `official-model-catalog:${modality}`, title: 'Model configuration check failed', message, executionMode: 'remote' },
+            { label: 'Choose another model', deepLink: `#/workbench?tool=${encodeURIComponent(job.templateId)}&jobId=${encodeURIComponent(job.id)}` });
+        }
+      }
+    }
 
     return {
       templateId: job.templateId,
@@ -356,7 +392,8 @@ async function checkProviderConfig(
   }
   if (needs.has('tts')) {
     const gateway = gatewayCreatorBinding(config);
-    if (gateway && (stage.executor === 'smart-dubbing' || (typeof job.state.speed === 'number' && job.state.speed !== 1))) {
+    if (gateway && (stage.executor === 'smart-dubbing' && !gateway.capabilities?.speech?.includes('speech_instructions')
+      || typeof job.state.speed === 'number' && job.state.speed !== 1 && !gateway.capabilities?.speech?.includes('speech_speed'))) {
       add('blocked', { id: 'tts-style-capability', title: 'Unsupported speech settings', message: 'Style and speed controls are not verified for this official speech model. Select another TTS service.', executionMode: 'remote' }, { label: 'Open speech settings', deepLink: '#/settings?tab=ai-services&section=tts' });
     }
     const provider = readTtsProvider(job, config);
@@ -408,8 +445,11 @@ async function checkProviderConfig(
           add('blocked', { id: 'shot-spec-invalid', title: 'Storyboard data unavailable', message: 'Could not check storyboard reference requirements. Generate the storyboard again.', executionMode: 'local' });
         }
       }
-      if (multiple) add('blocked', { id: 'reference-image-count', title: 'Unsupported number of reference images', message: 'The official image service is verified for one reference image. This task needs multiple references.', executionMode: 'remote' });
+      if (multiple && settings.maxReferenceImages < 2) add('blocked', { id: 'reference-image-count', title: 'Unsupported number of reference images', message: 'This image model does not support the multiple references required by this task.', executionMode: 'remote' });
     }
+    if (gateway?.capabilities?.image?.includes('reference_required') && !hasReference) add('blocked', {
+      id: 'reference-image-required', title: 'Reference image missing', message: 'The selected image model requires a reference image.', executionMode: 'remote'
+    }, { label: 'Upload a reference image', deepLink: `#/workbench?tool=${encodeURIComponent(job.templateId)}&jobId=${encodeURIComponent(job.id)}` });
     if (hasReference && !supportsReference) add('blocked', {
       id: 'reference-image-capability', title: 'Reference image capability mismatch', message: `${provider} does not support reference image editing for this stage.`, executionMode: 'remote'
     }, { label: 'Select a service that supports reference images', deepLink: '#/settings?tab=ai-services&section=image' });
@@ -430,6 +470,10 @@ async function checkProviderConfig(
     }
   }
   if (stage.executor === 'krillinai' && stage.id === 'subtitle' && job.state.sourceType !== 'subtitle' && (job.state.sourceType === 'file' || job.state.preferPlatformCaptions === false)) {
+    const gateway = gatewayCreatorBinding(config);
+    if (gateway && !gateway.capabilities?.transcription?.includes('subtitle_timestamps')) add('blocked', {
+      id: 'transcription-timestamps', title: 'Subtitle timestamps unavailable', message: 'This speech recognition model returns text without timestamps. Select a transcription service with subtitle timestamps.', executionMode: 'remote'
+    }, { label: 'Open speech recognition settings', deepLink: '#/settings?tab=ai-services&section=transcription' });
     const provider = capabilities.transcription.providers.find(candidate => candidate.provider === config.transcription.provider);
     if (provider?.available !== true) return;
     if (config.transcription.provider === 'openai' && !config.transcription.openai.apiKey.trim()) {

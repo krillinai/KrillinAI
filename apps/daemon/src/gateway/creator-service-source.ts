@@ -1,8 +1,10 @@
-import { createDefaultCreatorServicesConfig, gatewayDefaultVoiceId, type CreatorServicesConfig, type CreatorProviderRequest, type CreatorStageRun, type CreatorJob, type GatewayModel } from '@opencreator/protocol';
+import { isDirectTransport } from './supplier.js';
+import { createDefaultCreatorServicesConfig, gatewayDefaultVoiceId, gatewayModelReady, type CreatorServicesConfig, type CreatorProviderRequest, type CreatorStageRun, type CreatorJob, type GatewayModel } from '@opencreator/protocol';
 import type { FastifyInstance } from 'fastify';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Readable } from 'node:stream';
+import { setTimeout as delay } from 'node:timers/promises';
 import type { CreatorServicesConfigStore } from '../creator-services/config-store.js';
 import { KRILLIN_LLM_ROUTE_PREFIX } from '../creator/krillin/codex-llm-gateway.js';
 import type { GatewayAccountService } from './account-service.js';
@@ -11,13 +13,14 @@ import type { CreatorServiceBinding } from '../creator/repository.js';
 import type { CreatorProviderRequestLedger, CreatorProviderLookupResult } from '../creator/provider-requests.js';
 import { createDirectTransport, directRequestId } from './direct-transport.js';
 import { createOfficialFetch } from './official-fetch.js';
+import { chatAnywhereImage } from './chatanywhere-media.js';
 
 export type GatewayCreatorBinding = { accountId: string; bindingVersion: string; baseUrl: string; apiKey: string; models: Record<string, string>; catalog?: GatewayModel[]; capabilities?: Record<string, string[]>; speechVoices?: string[]; logicalId?: string; stageRunId?: string };
 const bindings = new WeakMap<CreatorServicesConfig, GatewayCreatorBinding>();
 export function gatewayCreatorBinding(config: CreatorServicesConfig) { return bindings.get(config); }
 
 export function createGatewayCreatorSource(input: {
-  account: Pick<GatewayAccountService, 'peekState' | 'modelCredentials'> & Partial<Pick<GatewayAccountService, 'beginModelUse' | 'recoverModelCredentials' | 'reportModelFailure'>>;
+  account: Pick<GatewayAccountService, 'peekState' | 'modelCredentials'> & Partial<Pick<GatewayAccountService, 'beginModelUse' | 'recoverModelCredentials' | 'reportModelFailure' | 'reportModelSuccess'>>;
   manual: CreatorServicesConfigStore;
   getLocalOrigin(): string | undefined;
   fetcher?: typeof fetch;
@@ -27,18 +30,19 @@ export function createGatewayCreatorSource(input: {
   ledger?: CreatorProviderRequestLedger;
   directRequestsRoot?: string;
 }) {
-  const capabilities = new Map<string, { token: string; accountId: string; bindingVersion: string; logicalId?: string; jobId?: string }>();
+  const capabilities = new Map<string, { token: string; accountId: string; bindingVersion: string; supplierBase: string; logicalId?: string; stageRunId?: string; jobId?: string }>();
   const context = new AsyncLocalStorage<{ snapshot: CreatorServiceBinding; logicalId: string; stageRunId: string; jobId: string }>();
-  const inFlight = new Map<AbortController, Promise<void>>();
+  const inFlight = new Map<AbortController, { stageRunId?: string; done: Promise<void> }>();
   const remoteTasks = new Set<string>();
   const prefix = `${KRILLIN_LLM_ROUTE_PREFIX}/gateway/v1`;
   const direct = input.directRequestsRoot ? createDirectTransport(input.directRequestsRoot,
     input.fetcher ?? createOfficialFetch({ readProxy: async () => (await input.manual.read()).proxy }),
-    input.account.recoverModelCredentials ? async (accountId, failedKey) => {
+    input.account.recoverModelCredentials ? async (accountId, failedKey, baseUrl) => {
       const current = await input.account.modelCredentials();
       if (current.accountId !== accountId) throw new GatewayError('auth_required', 401);
       const updated = current.modelKey !== failedKey ? current : await input.account.recoverModelCredentials!(current.keyVersion);
       if (updated.accountId !== accountId) throw new GatewayError('auth_required', 401);
+      if (updated.baseUrl !== baseUrl) throw new GatewayError('supplier_binding_changed', 409);
       return updated.modelKey !== failedKey ? updated.modelKey : undefined;
     } : undefined) : undefined;
   function snapshot(): CreatorServiceBinding {
@@ -48,16 +52,32 @@ export function createGatewayCreatorSource(input: {
     const models: Record<string, string> = {};
     const caps: Record<string, string[]> = {};
     for (const model of state.models) {
+      if(!gatewayModelReady(model))continue;
       if (!models[model.modality] || state.selectedModels?.[model.modality] === model.id) {
         models[model.modality] = model.id; caps[model.modality] = [...model.capabilities];
       }
     }
-    return { source: 'gateway', accountId: state.account.id, bindingVersion: state.bindingVersion, models, capabilities: caps };
+    if(state.transport==='gateway'){
+      for (const modality of ['text','image','video','speech','transcription'] as const) {
+        const id = state.selectedModels?.[modality];
+        const selected = state.models.find(model => model.id === id && model.modality === modality && gatewayModelReady(model)
+          && (modality !== 'text' || model.capabilities.includes('chat'))
+          && (modality !== 'transcription' || model.capabilities.includes('subtitle_timestamps')));
+        if (selected) { models[modality] = selected.id; caps[modality] = [...selected.capabilities]; }
+        else { delete models[modality]; delete caps[modality]; }
+      }
+    }
+    return { source: 'gateway', accountId: state.account.id, bindingVersion: state.bindingVersion, supplier: state.supplier ?? 'openrouter', models, capabilities: caps };
   }
   function assertSnapshot(value: CreatorServiceBinding, recovery = false) {
     const state = input.account.peekState();
     if (value.source === 'gateway' && (state.authState !== 'signed_in' || (!recovery && state.activationState !== 'ready'))) throw new GatewayError('services_not_ready');
     if (value.source !== state.source || (value.source === 'gateway' && value.accountId !== state.account?.id)) throw new GatewayError('task_source_mismatch', 409);
+    if (value.source === 'gateway' && state.supplier) {
+      const supplier = value.supplier ?? (value.bindingVersion.startsWith(`${value.accountId}:88api:`) ? '88api'
+        : value.bindingVersion.startsWith(`${value.accountId}:chatanywhere:`) ? 'chatanywhere' : 'openrouter');
+      if (supplier !== state.supplier) throw new GatewayError('supplier_binding_changed', 409);
+    }
   }
   function assertJob(jobId: string) { if (input.readJobBinding) assertSnapshot(input.readJobBinding(jobId)); }
   async function binding(): Promise<GatewayCreatorBinding | undefined> {
@@ -69,14 +89,16 @@ export function createGatewayCreatorSource(input: {
     if (!local) throw new GatewayError('services_not_ready');
     const original = scope?.snapshot.source === 'gateway' ? scope.snapshot : undefined;
     const bindingVersion = original?.bindingVersion ?? credentials.bindingVersion;
-    let capability = [...capabilities.values()].find(value => value.accountId === credentials.accountId && value.bindingVersion === bindingVersion && value.logicalId === scope?.logicalId);
+    let capability = [...capabilities.values()].find(value => value.accountId === credentials.accountId && value.bindingVersion === bindingVersion && value.supplierBase === credentials.baseUrl && value.logicalId === scope?.logicalId && value.stageRunId === scope?.stageRunId);
     if (!capability) {
-      capability = { accountId: credentials.accountId, bindingVersion, logicalId: scope?.logicalId, jobId: scope?.jobId, token: `oclocal_${randomBytes(32).toString('base64url')}` };
+      capability = { accountId: credentials.accountId, bindingVersion, supplierBase: credentials.baseUrl, logicalId: scope?.logicalId, stageRunId: scope?.stageRunId, jobId: scope?.jobId, token: `oclocal_${randomBytes(32).toString('base64url')}` };
       capabilities.set(capability.token, capability);
     }
     const speechModel = original?.models?.speech ?? credentials.defaults.speech;
     const speechVoices = credentials.models.find(model => model.modality === 'speech' && model.id === speechModel)?.voices;
-    return { accountId: credentials.accountId, bindingVersion, baseUrl: `${local}${prefix}`, apiKey: capability.token, models: original?.models ?? credentials.defaults, catalog: credentials.models, capabilities: original?.capabilities ?? Object.fromEntries(credentials.models.filter(model => credentials.defaults[model.modality] === model.id).map(model => [model.modality, model.capabilities])), speechVoices, logicalId: scope?.logicalId, stageRunId: scope?.stageRunId };
+    const defaults={...credentials.defaults};
+    if(credentials.transport==='gateway')defaults.transcription=credentials.models.find(model=>model.id===defaults.transcription&&model.capabilities.includes('subtitle_timestamps')&&gatewayModelReady(model))?.id??'';
+    return { accountId: credentials.accountId, bindingVersion, baseUrl: `${local}${prefix}`, apiKey: capability.token, models: original?.models ?? defaults, catalog: credentials.models, capabilities: original?.capabilities ?? Object.fromEntries(credentials.models.filter(model => defaults[model.modality] === model.id).map(model => [model.modality, model.capabilities])), speechVoices, logicalId: scope?.logicalId, stageRunId: scope?.stageRunId };
   }
   const store: CreatorServicesConfigStore = {
     async read() {
@@ -95,28 +117,42 @@ export function createGatewayCreatorSource(input: {
     async write(config) { if (input.account.peekState().source !== 'manual') throw new GatewayError('official_config_read_only', 409); return input.manual.write(config); },
     async reset() { if (input.account.peekState().source !== 'manual') throw new GatewayError('official_config_read_only', 409); return input.manual.reset(); }
   };
-  return {
-    store, binding, snapshot, assertJob,
-    async queryProviderRequest(request: CreatorProviderRequest) {
+  async function queryProviderRequest(request: CreatorProviderRequest) {
       if (input.readJobBinding) assertSnapshot(input.readJobBinding(request.jobId), true);
       if (!input.ledger || !request.gateway || !request.provider.startsWith('opencreator-gateway-')) throw new GatewayError('capability_unsupported', 400);
       const use = await input.account.beginModelUse?.({ recovery: true });
       try {
-        const credentials = use?.credentials ?? await input.account.modelCredentials();
+        let credentials = use?.credentials ?? await input.account.modelCredentials();
         if (credentials.accountId !== request.gateway.accountId) throw new GatewayError('task_source_mismatch', 409);
-        const requestId = request.remoteTaskId ?? (credentials.transport === 'openrouter-direct'
-          ? directRequestId(credentials.accountId, request.requestKey) : undefined);
+        const requestId = request.remoteTaskId ?? (isDirectTransport(credentials.transport)
+          ? directRequestId(credentials.accountId, request.requestKey)
+          : credentials.transport === 'gateway'
+            ? `ocreq_${createHash('sha256').update(`${credentials.accountId}:${request.requestKey}`).digest('hex').slice(0, 48)}`
+            : undefined);
         if (!requestId) throw new GatewayError('request_outcome_unknown', 409);
         const signal = AbortSignal.timeout(30_000);
         let lookupResult: Promise<CreatorProviderLookupResult> | undefined;
-        const lookup = async (): Promise<CreatorProviderLookupResult> => {
+        let refreshedCredentials = false;
+        const lookupOnce = async (): Promise<CreatorProviderLookupResult> => {
           let response: Response;
           try {
-            response = credentials.transport === 'openrouter-direct' && direct
-              ? await direct.request({ account: credentials.accountId, key: credentials.modelKey, resource: `requests/${requestId}`, method: 'GET', body: undefined, contentType: 'application/json', identity: '', fingerprint: '', signal,
-                onModelFailure: async (id, modality, facts) => { await input.account.reportModelFailure?.(credentials, id, modality, facts); } })
+            response = isDirectTransport(credentials.transport) && direct
+              ? await direct.request({ account: credentials.accountId, baseUrl: credentials.baseUrl, key: credentials.modelKey, resource: `requests/${requestId}`, method: 'GET', body: undefined, contentType: 'application/json', identity: '', fingerprint: '', signal,
+                onModelFailure: async (id, modality, facts) => { await input.account.reportModelFailure?.(credentials, id, modality, facts); },
+                onModelSuccess: async (id, modality, operation) => { await input.account.reportModelSuccess?.(credentials, id, modality, operation); } })
               : await (input.fetcher ?? fetch)(`${credentials.baseUrl}/requests/${encodeURIComponent(requestId)}`, { method: 'GET', headers: { Authorization: `Bearer ${credentials.modelKey}` }, redirect: 'error', signal });
           } catch (error) { if (error instanceof GatewayError && error.code === 'request_not_found') return { status: 'not_found' }; throw error; }
+          if (response.status === 401 && !refreshedCredentials && credentials.transport === 'gateway' && input.account.recoverModelCredentials) {
+            refreshedCredentials = true;
+            await response.body?.cancel();
+            const updated = await input.account.recoverModelCredentials(credentials.keyVersion);
+            if (updated.accountId !== credentials.accountId || updated.baseUrl !== credentials.baseUrl) throw new GatewayError('supplier_binding_changed', 409);
+            if (updated.modelKey !== credentials.modelKey) {
+              credentials = updated;
+              return lookupOnce();
+            }
+          }
+          if (response.status === 401) throw new GatewayError('auth_required', 401);
           if (response.status === 404) return { status: 'not_found' };
           if (!response.ok) throw new GatewayError('gateway_unavailable');
           const result = await response.json() as { requestId?: string; state?: string };
@@ -127,13 +163,24 @@ export function createGatewayCreatorSource(input: {
           if (!['submitting', 'waiting_upstream'].includes(result.state ?? '')) throw new GatewayError('invalid_gateway_response');
           return { status: 'waiting_remote', remoteTaskId: requestId };
         };
+        const lookup = async (): Promise<CreatorProviderLookupResult> => {
+          for (let attempt = 0; ; attempt++) {
+            try { return await lookupOnce(); }
+            catch (error) {
+              if (attempt >= 2 || signal.aborted || error instanceof GatewayError && ['task_source_mismatch', 'supplier_binding_changed', 'auth_required'].includes(error.code)) throw error;
+              await delay(250 * 2 ** attempt, undefined, { signal });
+            }
+          }
+        };
         const provider = { lookupByRequestKey: true, lookup: () => lookupResult ??= lookup() };
         await input.ledger.recover(request.id, provider);
         for (const related of input.ledger.findByRemoteTaskId(request.jobId, requestId)) {
           if (related.id !== request.id && related.gateway?.accountId === credentials.accountId && related.provider.startsWith('opencreator-gateway-')) await input.ledger.recover(related.id, provider);
         }
       } finally { await use?.release(); }
-    },
+  }
+  return {
+    store, binding, snapshot, assertJob, queryProviderRequest,
     async runForJob<T>(jobId: string, stageRunId: string, work: () => Promise<T>): Promise<T> {
       let original = input.readJobBinding?.(jobId) ?? snapshot();
       assertSnapshot(original);
@@ -144,7 +191,7 @@ export function createGatewayCreatorSource(input: {
           original = { ...original, models: { ...original.models }, capabilities: { ...original.capabilities } };
           const catalog = input.account.peekState().models;
           for (const [modality, id] of Object.entries(choices)) {
-            const selected = catalog.find(candidate => candidate.modality === modality && candidate.id === id && (modality !== 'text' || candidate.capabilities.includes('responses')));
+            const selected = catalog.find(candidate => candidate.modality === modality && candidate.id === id && gatewayModelReady(candidate) && (modality !== 'text' || candidate.capabilities.includes('chat') || candidate.capabilities.includes('responses')));
             if (!selected) {
               const resumed = typeof input.readStageRun?.(stageRunId)?.progress.resumedFromStageRunId === 'string';
               if (!resumed || !['image', 'video'].includes(modality) || typeof id !== 'string') throw new GatewayError('invalid_model', 400);
@@ -166,11 +213,27 @@ export function createGatewayCreatorSource(input: {
           logicalId = parent.id; stage = parent;
         }
       }
-      return context.run({ snapshot: original, logicalId, stageRunId, jobId }, work);
+      let failed = false;
+      try {
+        return await context.run({ snapshot: original, logicalId, stageRunId, jobId }, work);
+      } catch (error) {
+        failed = true;
+        throw error;
+      } finally {
+        // A completed response can precede the gateway's accounting receipt.
+        const requests = [...inFlight.entries()].filter(([, entry]) => entry.stageRunId === stageRunId);
+        if (failed) for (const [controller] of requests) controller.abort();
+        await Promise.all(requests.map(([, entry]) => entry.done));
+        const pending = input.ledger?.requestsForStage(stageRunId).filter(request => request.gateway !== undefined
+          && ['submitting', 'waiting_remote', 'unknown_remote_acceptance'].includes(request.status)) ?? [];
+        for (let offset = 0; offset < pending.length; offset += 3) {
+          await Promise.allSettled(pending.slice(offset, offset + 3).map(queryProviderRequest));
+        }
+      }
     },
     async revoke() {
       capabilities.clear(); remoteTasks.clear();
-      const pending = [...inFlight.values()];
+      const pending = [...inFlight.values()].map(entry => entry.done);
       for (const controller of inFlight.keys()) controller.abort();
       await direct?.close();
       await Promise.all(pending);
@@ -179,16 +242,17 @@ export function createGatewayCreatorSource(input: {
     async register(server: FastifyInstance) {
       await server.register(async scoped => {
         scoped.addContentTypeParser('multipart/form-data', { parseAs: 'buffer', bodyLimit: 64 * 1024 * 1024 }, (_r, body, done) => done(null, body));
-        scoped.route({ method: ['GET', 'POST'], url: `${prefix}/*`, bodyLimit: 64 * 1024 * 1024, async handler(request, reply) {
+        scoped.addContentTypeParser(/^(image|video|audio)\//, { parseAs: 'buffer', bodyLimit: 100_000_000 }, (_r, body, done) => done(null, body));
+        scoped.route({ method: ['GET', 'POST'], url: `${prefix}/*`, bodyLimit: 100_000_000, async handler(request, reply) {
           const token = request.headers.authorization?.replace(/^Bearer /, '');
           const original = token ? capabilities.get(token) : undefined;
           if (!original || token !== original.token) return reply.code(401).send({ error: { code: 'auth_required', message: 'Local authorization has expired' } });
           const resource = (request.params as { '*': string })['*'];
-          if (!/^(chat\/completions|responses|images\/(generations|edits)|audio\/(speech|transcriptions)|video\/jobs(\/[A-Za-z0-9_-]{12,128}(\/result)?)?|videos\/tasks|requests\/[A-Za-z0-9_-]{12,128}(\/result)?)$/.test(resource)) return reply.code(404).send({ error: { code: 'capability_unsupported', message: 'Operation is unavailable' } });
+          if (!/^(chat\/completions|responses|images\/(generations|edits)|audio\/(speech|transcriptions)|video\/(quotes|assets|jobs(\/[A-Za-z0-9_-]{12,128}(\/result)?)?)|videos\/tasks|requests\/[A-Za-z0-9_-]{12,128}(\/result)?)$/.test(resource)) return reply.code(404).send({ error: { code: 'capability_unsupported', message: 'Operation is unavailable' } });
           const controller = new AbortController();
           const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(180_000)]);
           let complete!: () => void;
-          inFlight.set(controller, new Promise<void>(resolve => { complete = resolve; }));
+          inFlight.set(controller, { stageRunId: original.stageRunId, done: new Promise<void>(resolve => { complete = resolve; }) });
           let streaming = false;
           let releaseUse: (() => Promise<void>) | undefined;
           const chatStream = request.method === 'POST' && resource === 'chat/completions' && (request.body as { stream?: unknown })?.stream === true;
@@ -201,24 +265,29 @@ export function createGatewayCreatorSource(input: {
           const sendStreamError = (error: unknown) => {
             if (!reply.raw.destroyed && !reply.raw.writableEnded) reply.raw.end(`data: ${JSON.stringify({ error: {
               code: error instanceof GatewayError ? error.code : 'gateway_unavailable',
+              type: 'upstream_error',
               message: 'Official service request could not be completed'
             } })}\n\n`);
           };
           let receipt: CreatorProviderRequest | undefined;
           let reconcile = async () => {};
-          const markUnknown = () => {
+          const markUnknown = (error?: unknown) => {
             if (!receipt || !input.ledger) return;
             receipt = input.ledger.findLatest(receipt.provider, receipt.requestKey);
-            if (receipt && ['submitting', 'waiting_remote'].includes(receipt.status)) receipt = input.ledger.markUnknownRemoteAcceptance(receipt.id);
+            if (receipt && ['submitting', 'waiting_remote'].includes(receipt.status)) receipt = input.ledger.markUnknownRemoteAcceptance(receipt.id, error);
+            if (error !== undefined) request.log.warn({ requestId: receipt?.remoteTaskId, code: error instanceof GatewayError ? error.code : 'gateway_status_lookup_failed' }, 'Gateway request status could not be confirmed');
           };
           try {
             // 提前建立 SSE 连接，避免账号协调和上游准备耗尽 Krillin 的响应头等待时间。
             if (chatStream) {
               reply.hijack();
               reply.raw.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-store, no-transform', connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
-              reply.raw.write(': connected\n\n');
+              // go-openai includes SSE comments in its error buffer, obscuring later API errors.
+              const keepAlive = `data: ${JSON.stringify({ id: `chatcmpl-${randomUUID()}`, object: 'chat.completion.chunk',
+                created: Math.floor(Date.now() / 1000), model: (request.body as { model?: string })?.model ?? '', choices: [] })}\n\n`;
+              reply.raw.write(keepAlive);
               reply.raw.once('close', disconnected);
-              heartbeat = setInterval(() => { if (!reply.raw.destroyed && !reply.raw.writableEnded) reply.raw.write(': keep-alive\n\n'); }, 10_000);
+              heartbeat = setInterval(() => { if (!reply.raw.destroyed && !reply.raw.writableEnded) reply.raw.write(keepAlive); }, 10_000);
               heartbeat.unref();
             }
             const use = await input.account.beginModelUse?.({ recovery: request.method === 'GET' }); releaseUse = use?.release;
@@ -226,10 +295,12 @@ export function createGatewayCreatorSource(input: {
             const credentials = use?.credentials ?? await input.account.modelCredentials();
             signal.throwIfAborted();
             if (capabilities.get(original.token) !== original || credentials.accountId !== original.accountId) throw new GatewayError('auth_required', 401);
+            if (credentials.baseUrl !== original.supplierBase) throw new GatewayError('supplier_binding_changed', 409);
             const headers: Record<string,string> = { Authorization: `Bearer ${credentials.modelKey}`, 'Content-Type': request.headers['content-type'] ?? 'application/json' };
+            if (request.headers.prefer === 'respond-async' && resource.startsWith('images/')) headers.Prefer = 'respond-async';
             const identity = request.headers['idempotency-key'];
-            const body = request.method === 'GET' ? undefined : Buffer.isBuffer(request.body) ? new Uint8Array(request.body) : JSON.stringify(request.body);
-            const digest = request.method === 'POST' && (credentials.transport === 'openrouter-direct' || (original.logicalId && typeof identity !== 'string')) ? await requestDigest(request.body, headers['Content-Type']!) : undefined;
+            let body = request.method === 'GET' ? undefined : Buffer.isBuffer(request.body) ? new Uint8Array(request.body) : JSON.stringify(request.body);
+            const digest = request.method === 'POST' && resource !== 'video/assets' && (isDirectTransport(credentials.transport) || (original.logicalId && typeof identity !== 'string')) ? await requestDigest(request.body, headers['Content-Type']!) : undefined;
             signal.throwIfAborted();
             if (request.method === 'POST') headers['Idempotency-Key'] = typeof identity === 'string' ? identity : original.logicalId
               ? `creator:${createHash('sha256').update(JSON.stringify([original.logicalId, resource, digest])).digest('hex')}`
@@ -237,29 +308,19 @@ export function createGatewayCreatorSource(input: {
             if (input.ledger && original.logicalId && original.jobId && digest && /^(chat\/completions|responses|images\/(generations|edits)|audio\/(speech|transcriptions))$/.test(resource)) {
               const provider = `opencreator-gateway-${resource}`;
               const requestKey = headers['Idempotency-Key']!;
-              receipt = input.ledger.findLatest(provider, requestKey) ?? input.ledger.registerBeforeSubmit({ jobId: original.jobId, stageRunId: original.logicalId, provider, requestKey, request: { operation: resource, fingerprint: digest }, gateway: { accountId: original.accountId, bindingVersion: original.bindingVersion, logicalId: requestKey } });
+              receipt = input.ledger.findLatest(provider, requestKey) ?? input.ledger.registerBeforeSubmit({ jobId: original.jobId, stageRunId: original.stageRunId ?? original.logicalId,
+                scopeKey: input.readStageRun?.(original.stageRunId ?? original.logicalId)?.scopeKey,
+                provider, requestKey, request: { operation: resource, fingerprint: digest }, gateway: { accountId: original.accountId, bindingVersion: original.bindingVersion, logicalId: requestKey } });
               if (receipt.status === 'registered') receipt = input.ledger.markSubmitting(receipt.id);
               reconcile = async () => {
                 try {
-                  await input.ledger!.recover(receipt!.id, { lookupByRequestKey: false, async lookup({ remoteTaskId }) {
-                    if (!remoteTaskId) return { status: 'not_found' };
-                    const response = credentials.transport === 'openrouter-direct' && direct
-                      ? await direct.request({ account: credentials.accountId, key: credentials.modelKey, resource: `requests/${remoteTaskId}`, method: 'GET', body: undefined, contentType: 'application/json', identity: '', fingerprint: '', signal,
-                        onModelFailure: async (id, modality, facts) => { await input.account.reportModelFailure?.(credentials, id, modality, facts); } })
-                      : await (input.fetcher ?? fetch)(`${credentials.baseUrl}/requests/${encodeURIComponent(remoteTaskId)}`, { method: 'GET', headers: { Authorization: `Bearer ${credentials.modelKey}` }, redirect: 'error', signal });
-                    if (!response.ok) throw new GatewayError('gateway_unavailable');
-                    const result = await response.json() as { requestId?: string; state?: string };
-                    if (result.requestId !== remoteTaskId) throw new GatewayError('invalid_gateway_response');
-                    if (result.state === 'succeeded') return { status: 'succeeded', remoteTaskId };
-                    if (result.state === 'failed' || result.state === 'canceled') return { status: 'failed', remoteTaskId };
-                    return result.state === 'outcome_unknown' ? { status: 'not_found' } : { status: 'waiting_remote', remoteTaskId };
-                  } });
-                } catch { markUnknown(); }
+                  await queryProviderRequest(input.ledger!.findLatest(receipt!.provider, receipt!.requestKey) ?? receipt!);
+                } catch (error) { markUnknown(error); }
               };
             }
             signal.throwIfAborted();
             let response: Response;
-            if (credentials.transport === 'openrouter-direct') {
+            if (isDirectTransport(credentials.transport)) {
               if (!direct) throw new GatewayError('services_not_ready');
               let modelMetadata: GatewayModel | undefined;
               let cachedResponse: Response | undefined;
@@ -274,9 +335,29 @@ export function createGatewayCreatorSource(input: {
                   if (!cachedResponse) throw new GatewayError('invalid_model', 400);
                 }
               }
-              response = cachedResponse ?? await direct.request({ account: credentials.accountId, key: credentials.modelKey, resource, method: request.method, body: request.body, contentType: headers['Content-Type']!, identity: headers['Idempotency-Key'] ?? '', fingerprint: digest ?? '', signal, model: modelMetadata, asyncImage: request.headers.prefer === 'respond-async',
-                onModelFailure: async (id, modality, facts) => { await input.account.reportModelFailure?.(credentials, id, modality, facts); } });
-            } else response = await (input.fetcher ?? fetch)(`${credentials.baseUrl}/${resource}`, { method: request.method, headers, body, redirect: 'error', signal });
+              response = cachedResponse ?? await direct.request({ account: credentials.accountId, baseUrl: credentials.baseUrl, key: credentials.modelKey, resource, method: request.method, body: request.body, contentType: headers['Content-Type']!, identity: headers['Idempotency-Key'] ?? '', fingerprint: digest ?? '', signal, model: modelMetadata, asyncImage: request.headers.prefer === 'respond-async',
+                onModelFailure: async (id, modality, facts) => { await input.account.reportModelFailure?.(credentials, id, modality, facts); },
+                onModelSuccess: async (id, modality, operation) => { await input.account.reportModelSuccess?.(credentials, id, modality, operation); } });
+            } else {
+              if (credentials.transport === 'gateway' && request.method === 'POST' && resource.startsWith('images/')) {
+                const id = Buffer.isBuffer(request.body)
+                  ? (await new Request('http://localhost', { method: 'POST', headers: { 'Content-Type': headers['Content-Type']! }, body: new Uint8Array(request.body) }).formData()).get('model')
+                  : (request.body as { model?: unknown })?.model;
+                const native = await chatAnywhereImage(resource, request.body, headers['Content-Type']!, credentials.models.find(model => model.id === id && model.modality === 'image'));
+                headers['Content-Type'] = native.contentType;
+                body = Buffer.isBuffer(native.body) ? new Uint8Array(native.body) : JSON.stringify(native.body);
+              }
+              response = await (input.fetcher ?? fetch)(`${credentials.baseUrl}/${resource}`, { method: request.method, headers, body, redirect: 'error', signal });
+              if (credentials.transport === 'gateway' && response.status === 401 && input.account.recoverModelCredentials) {
+                await response.body?.cancel();
+                const updated = await input.account.recoverModelCredentials(credentials.keyVersion);
+                if (updated.accountId !== credentials.accountId || updated.baseUrl !== credentials.baseUrl) throw new GatewayError('supplier_binding_changed', 409);
+                if (updated.modelKey !== credentials.modelKey) {
+                  headers.Authorization = `Bearer ${updated.modelKey}`;
+                  response = await (input.fetcher ?? fetch)(`${credentials.baseUrl}/${resource}`, { method: request.method, headers, body, redirect: 'error', signal });
+                }
+              }
+            }
             signal.throwIfAborted();
             const id = response.headers.get('x-request-id');
             if (!chatStream) {
@@ -329,6 +410,7 @@ export function createGatewayCreatorSource(input: {
             return reply.send(stream);
           } catch (error) {
             if (receipt && input.ledger && error instanceof GatewayError && [400, 401, 402, 403, 404, 422, 429].includes(error.status) && ['submitting', 'waiting_remote'].includes(receipt.status)) receipt = input.ledger.markFailed(receipt.id);
+            else if (receipt?.remoteTaskId) await reconcile();
             else markUnknown();
             if (chatStream) { sendStreamError(error); return reply; }
             return reply.code(error instanceof GatewayError ? error.status : 503).send({ error: { code: error instanceof GatewayError ? error.code : 'gateway_unavailable', message: 'Official service request could not be completed' } });

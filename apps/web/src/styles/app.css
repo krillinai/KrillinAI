@@ -5444,6 +5444,8 @@ a.creator-template-author-avatar:focus-visible {
 
 .composer-model-status-error {
   color: var(--danger);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 .composer-menu-item {

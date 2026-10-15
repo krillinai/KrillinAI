@@ -225,11 +225,14 @@ export function createKrillinTtsService(input: {
     }
     const format = request.format ?? 'wav';
     const speed = request.speed ?? 1;
-    if (gateway && (speed !== 1 || request.instructions)) throw new KrillinTtsServiceError('unsupported_capability', 'This generation parameter is not verified for the official speech route', 400);
-    if (!Number.isFinite(speed) || speed < 0.5 || speed > 2) {
+    const capabilities = selected?.capabilities ?? gateway?.capabilities?.speech ?? [];
+    if (gateway && (speed !== 1 && !capabilities.includes('speech_speed') || request.instructions && !capabilities.includes('speech_instructions'))) throw new KrillinTtsServiceError('unsupported_capability', 'This speech model does not support the selected speed or style', 400);
+    const minSpeed = gateway && capabilities.includes('speech_speed') ? 0.25 : 0.5;
+    const maxSpeed = gateway && capabilities.includes('speech_speed') ? 4 : 2;
+    if (!Number.isFinite(speed) || speed < minSpeed || speed > maxSpeed) {
       throw new KrillinTtsServiceError(
         'VALIDATION_FAILED',
-        'Speech speed must be between 0.5 and 2',
+        `Speech speed must be between ${minSpeed} and ${maxSpeed}`,
         400
       );
     }
@@ -477,7 +480,7 @@ async function synthesizeOpenAi(
       input: input.text,
       ...(input.official && input.voiceId === gatewayDefaultVoiceId ? {} : { voice: input.voiceId }),
       response_format: input.format,
-      ...(input.official ? {} : { speed: input.speed }),
+      ...(input.official && input.speed === 1 ? {} : { speed: input.speed }),
       ...(input.instructions === undefined ? {} : { instructions: input.instructions })
     },
     input

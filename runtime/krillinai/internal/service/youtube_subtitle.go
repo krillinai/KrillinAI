@@ -599,7 +599,7 @@ func (s *YouTubeSubtitleService) processYouTubeSubtitle(ctx context.Context, req
 	}
 
 	// 4. 批量翻译生成目标语言SRT（40%-90%进度）
-	err = s.translator.BatchTranslateSrtBlocks(srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr)
+	err = s.translator.BatchTranslateSrtBlocks(ctx, srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr)
 	if err != nil {
 		return "", fmt.Errorf("failed to batch translate: %w", err)
 	}
@@ -1147,7 +1147,7 @@ func (s *YouTubeSubtitleService) writeVttWordsToSrt(vttWords []VttWord, srtFile 
 
 	// 创建结果通道和goroutine数量控制
 	resultCh := make(chan translationResult, len(sentences))
-	maxConcurrency := 5 // 限制并发数量，避免请求过多
+	maxConcurrency := translationParallelism()
 	semaphore := make(chan struct{}, maxConcurrency)
 
 	// 启动并发翻译
@@ -1157,7 +1157,8 @@ func (s *YouTubeSubtitleService) writeVttWordsToSrt(vttWords []VttWord, srtFile 
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 
-			translatedBlocks, err := s.translator.SplitTextAndTranslate(sent.Text, types.StandardLanguageCode(req.OriginLanguage), types.StandardLanguageCode(req.TargetLanguage))
+			// The outer sentence workers already enforce the translation limit.
+			translatedBlocks, err := s.translator.splitTextAndTranslate(sent.Text, types.StandardLanguageCode(req.OriginLanguage), types.StandardLanguageCode(req.TargetLanguage), 1)
 			if err != nil {
 				log.GetLogger().Warn("Translation failed, using original text",
 					zap.Int("index", index),
@@ -3534,7 +3535,7 @@ func (s *YouTubeSubtitleService) ProcessBlockLevelVtt(ctx context.Context, req *
 	}
 
 	// 4. 批量翻译（40%-90%的进度在BatchTranslateSrtBlocks内部更新）
-	err = s.translator.BatchTranslateSrtBlocks(srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr)
+	err = s.translator.BatchTranslateSrtBlocks(ctx, srtBlocks, req.OriginLanguage, req.TargetLanguage, req.TaskPtr)
 	if err != nil {
 		return "", fmt.Errorf("批量翻译失败: %w", err)
 	}

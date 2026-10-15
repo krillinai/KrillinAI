@@ -20,7 +20,7 @@ import {
 import { resolveCodexHome } from './codex/home.js';
 import { importLocalCodexConfiguration } from './codex/probe-home.js';
 import { setTimeout as delay } from 'node:timers/promises';
-import type { preparePlatformProbe } from './gateway/platform-probe.js';
+import type { prepareOfficialRuntimeProbe } from './gateway/runtime-probe.js';
 import {
   CODEX_PROBE_TIMEOUT_MS,
   probeCodex
@@ -33,6 +33,7 @@ import {
 import {
   createProductionServerInput,
   parseRuntimeChannel,
+  requiresPaidStartupProbe,
   resolveProductionRuntimePaths,
   resolveProductionServerEnvironment
 } from './startup.js';
@@ -137,8 +138,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const shouldRunAvailabilityProbe =
-    requiresProbe() && process.env.OPENCREATOR_CODEX_PROBE_VERIFIED !== '1';
+  const shouldRunAvailabilityProbe = requiresPaidStartupProbe();
   let availabilityProbe: CodexAvailabilityProbe = shouldRunAvailabilityProbe
     ? { status: 'pending' }
     : {
@@ -158,7 +158,7 @@ async function main(): Promise<void> {
         startBackgroundRefresh() {}
       };
   const capabilities = capabilityResolution.state;
-  let prepareAvailabilityProbe: (() => ReturnType<typeof preparePlatformProbe>) | undefined;
+  let prepareAvailabilityProbe: (() => ReturnType<typeof prepareOfficialRuntimeProbe>) | undefined;
   const { buildServer } = await import('./api/server.js');
   server = await buildServer(createProductionServerInput({
     token,
@@ -223,14 +223,10 @@ async function main(): Promise<void> {
     }).catch(() => {
       if (!controller.signal.aborted) availabilityProbe = {
         status: 'failed', checkedAt: new Date().toISOString(),
-        errorCode: 'PLATFORM_PROBE_UNAVAILABLE', message: 'Platform availability probe is unavailable'
+        errorCode: 'OFFICIAL_PROBE_UNAVAILABLE', message: 'Official model availability probe is unavailable'
       };
     });
   }
-}
-
-function requiresProbe(): boolean {
-  return process.env.OPENCREATOR_REQUIRE_CODEX_PROBE === '1';
 }
 
 async function closeServer(): Promise<void> {
@@ -413,7 +409,7 @@ function probeErrorMessage(input: {
 async function runAvailabilityProbe(input: {
   codexBin: string;
   dataDir: string;
-  prepare(): ReturnType<typeof preparePlatformProbe>;
+  prepare(): ReturnType<typeof prepareOfficialRuntimeProbe>;
   signal: AbortSignal;
   update(probe: CodexAvailabilityProbe): void;
 }): Promise<void> {

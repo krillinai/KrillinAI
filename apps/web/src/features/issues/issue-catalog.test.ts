@@ -6,6 +6,16 @@ const raw = '后台原文：操作无法完成';
 const issue = normalizePageIssue('runtime', 'creator.prepare', new Error(raw), raw);
 
 describe('localized issue copy', () => {
+  it.each(['zh-CN', 'en-US', 'sv-SE'] as const)('describes uncertain acceptance without reporting a final failure in %s', language => {
+    const pending = { ...issue, code: 'creator_provider_resolution_required', summaryKey: 'issue.provider',
+      source: 'provider' as const, publicFacts: { kind: 'unknown' as const, provider: 'opencreator-gateway-chat/completions' } };
+    const copy = issueConversationText(pending, language);
+    expect(copy.message).not.toMatch(/外部服务失败|Provider failed|错误码|Error code|Felkod|尚未确认更细/);
+    expect(copy.nextStep).toMatch(/重复扣费|duplicate charges|dubbla avgifter/);
+    const recovered = { ...pending, status: 'resolved' as const };
+    expect(issueConversationText(recovered, language).nextStep).toBe('');
+    expect(issueConversationText(recovered, language).message).not.toMatch(/重试|retry|försök igen/);
+  });
   it.each(['zh-CN', 'en-US', 'sv-SE'] as const)('explains video platform access failures without model permission guidance in %s', language => {
     const next = { ...issue, code: 'download_http_error', publicFacts: {
       kind: 'unauthorized' as const, provider: 'yt-dlp', httpStatus: 403,

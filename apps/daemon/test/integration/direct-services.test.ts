@@ -63,6 +63,39 @@ async function fixture(ledger?: CreatorProviderRequestLedger, options: Partial<P
   await source.register(server); await registerCreatorServicesRoutes(server, source.store);
   return { server, source, fetcher, state, manual, root, account, reportModelFailure };
 }
+it.each(['tech', 'org'])('routes Creator subtitle transcription directly through ChatAnywhere (%s)', async domain => {
+  const f = await fixture();
+  const transcription: GatewayModel = { id: 'whisper-1', modality: 'transcription', capabilities: ['transcription_text', 'subtitle_timestamps'] };
+  f.state.models.splice(0, f.state.models.length, transcription);
+  f.state.selectedModels.transcription = transcription.id;
+  f.account.modelCredentials = async () => ({ accountId: 'a', bindingVersion: 'a:chatanywhere:1', keyVersion: 'ca-1', modelKey: 'private-ca-key', baseUrl: `https://api.chatanywhere.${domain}/v1`, transport: 'supplier-direct', models: f.state.models, defaults: { transcription: transcription.id } });
+  vi.mocked(f.fetcher).mockImplementation(async (_url, options) => {
+    const body = await new Request('http://localhost', { method: 'POST', headers: options?.headers, body: options?.body }).formData();
+    expect(body.get('file')).toBeInstanceOf(File);
+    expect(body.has('timestamp_granularities[]')).toBe(false);
+    return Response.json({ text: 'recognized', segments: [{ text: 'recognized', start: 0, end: 1 }] });
+  });
+  const config = await f.source.store.read();
+  const form = new FormData(); form.set('model', transcription.id); form.set('response_format', 'verbose_json');
+  form.set('timestamp_granularities[]', 'segment'); form.set('file', new Blob(['audio'], { type: 'audio/wav' }), 'audio.wav');
+  const request = new Request('http://localhost', { method: 'POST', body: form });
+  const response = await f.server.inject({ method: 'POST', url: '/internal/krillin-llm/gateway/v1/audio/transcriptions', headers: { Authorization: `Bearer ${config.transcription.openai.apiKey}`, 'Content-Type': request.headers.get('content-type')!, 'Idempotency-Key': 'ca-asr' }, payload: Buffer.from(await request.arrayBuffer()) });
+  expect(response.statusCode).toBe(200);
+  expect(response.json()).toMatchObject({ segments: [{ start: 0, end: 1 }] });
+  expect(f.fetcher).toHaveBeenCalledOnce();
+  expect(vi.mocked(f.fetcher).mock.lastCall?.[0]).toBe(`https://api.chatanywhere.${domain}/v1/audio/transcriptions`);
+});
+
+it('rejects a Creator capability issued before a supplier change without submitting inference', async () => {
+  const f = await fixture();
+  const config = await f.source.store.read();
+  const original = await f.account.modelCredentials();
+  f.account.modelCredentials = async () => ({ ...original, baseUrl: 'https://api.chatanywhere.tech/v1', modelKey: 'new-ca-key', transport: 'supplier-direct' });
+  const response = await f.server.inject({ method: 'POST', url: '/internal/krillin-llm/gateway/v1/audio/speech', headers: { Authorization: `Bearer ${config.tts.openai.apiKey}` }, payload: { model: 'vendor/speech', input: 'test', voice: 'tested_voice' } });
+  expect(response.statusCode).toBe(409);
+  expect(response.json()).toMatchObject({ error: { code: 'supplier_binding_changed' } });
+  expect(f.fetcher).not.toHaveBeenCalled();
+});
 it.each(['account', 'headers', 'first-token'])('opens the translation stream before slow %s preparation and reuses the completed result', async delayed => {
   const f = await fixture();
   const origin = await f.server.listen({ host: '127.0.0.1', port: 0 });
@@ -90,7 +123,8 @@ it.each(['account', 'headers', 'first-token'])('opens the translation stream bef
     const response = await submit();
     expect(response.status).toBe(200);
     const reader = response.body!.getReader();
-    expect(new TextDecoder().decode((await reader.read()).value)).toContain(': connected');
+    const firstFrame = new TextDecoder().decode((await reader.read()).value);
+    expect(JSON.parse(firstFrame.replace(/^data: /, '').trim())).toMatchObject({ object: 'chat.completion.chunk', choices: [] });
     if (delayed === 'account') expect(f.fetcher).not.toHaveBeenCalled();
     resume();
     let content = '';
@@ -192,8 +226,8 @@ it('sends multimodal requests directly, translates image edits, and replays a pa
   expect(imageBody).toMatchObject({ aspect_ratio: '3:2' });
   expect(imageBody).not.toHaveProperty('output_format');
   expect(imageBody).not.toHaveProperty('size'); expect(imageBody).not.toHaveProperty('response_format');
-  expect((await submit('audio/speech', { model: 'vendor/speech', input: 'hello', voice: 'alloy', response_format: 'wav' })).headers['content-type']).toBe('audio/mpeg');
-  expect(JSON.parse(String(vi.mocked(f.fetcher).mock.lastCall?.[1]?.body)).response_format).toBe('mp3');
+  expect((await submit('audio/speech', { model: 'vendor/speech', input: 'hello', voice: 'tested_voice', response_format: 'wav' })).headers['content-type']).toBe('audio/mpeg');
+  expect(JSON.parse(String(vi.mocked(f.fetcher).mock.lastCall?.[1]?.body))).not.toHaveProperty('response_format');
   const form = new FormData(); form.set('model', 'vendor/image'); form.set('prompt', 'edit'); form.set('image[]', new Blob(['image'], { type: 'image/png' }), 'image.png');
   const request = new Request('http://localhost', { method: 'POST', body: form });
   const edited = await f.server.inject({ method: 'POST', url: '/internal/krillin-llm/gateway/v1/images/edits', headers: { Authorization: `Bearer ${config.llm.apiKey}`, 'Content-Type': request.headers.get('content-type')!, 'Idempotency-Key': 'edit' }, payload: Buffer.from(await request.arrayBuffer()) });
@@ -241,6 +275,21 @@ it('uses the selected official speech model voice catalog and rejects incompatib
   expect(await service.synthesize({ text: 'Hello' })).toMatchObject({ voiceId: 'tested_voice', model: 'vendor/speech', format: 'mp3' });
   await expect(service.synthesize({ text: 'Hello', voiceId: 'alloy' })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
   expect(synthesize).toHaveBeenCalledOnce();
+});
+
+it('passes multiple official references through the Creator image provider using the selected profile', async () => {
+  const f = await fixture();
+  f.state.models.find(model => model.modality === 'image')!.imageOptions = { maxImages: 1, maxReferences: 14 };
+  const config = await f.source.store.read();
+  const fetcher = vi.fn<typeof fetch>(async (_url, options) => {
+    const form = await new Request('http://localhost', { method: 'POST', headers: options?.headers, body: options?.body }).formData();
+    expect(form.getAll('image[]')).toHaveLength(2);
+    return Response.json({ data: [{ b64_json: 'aW1hZ2U=' }] });
+  });
+  const result = await generateImageContents({ provider: 'openai', prompt: 'test', size: '1024x1024', quality: 'medium', count: 1 }, config,
+    { fetchImpl: fetcher, referenceImages: [{ content: Buffer.from('one'), mime: 'image/png' }, { content: Buffer.from('two'), mime: 'image/png' }] });
+  expect(result.contents).toHaveLength(1);
+  expect(fetcher).toHaveBeenCalledOnce();
 });
 it('delivers a playable WAV for an official PCM-only speech model', async () => {
   const f = await fixture();

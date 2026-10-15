@@ -42,6 +42,38 @@ it('reports access failures from video polling with the saved exact model identi
   expect(f.fetcher.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
 });
 
+it('records completed image delivery once and does not turn replay into a fresh success', async () => {
+  const f = await fixture(); const onModelSuccess = vi.fn(async () => undefined);
+  const result = await f.transport.request({ ...f.input, onModelSuccess });
+  expect(result.status).toBe(200);
+  expect(onModelSuccess).toHaveBeenCalledExactlyOnceWith(f.model.id, 'image', 'images/generations');
+  await f.transport.request({ ...f.input, onModelSuccess });
+  expect(f.fetcher).toHaveBeenCalledOnce();
+  expect(onModelSuccess).toHaveBeenCalledOnce();
+});
+
+it.each([false, true])('records video success only after nonempty completed delivery (empty=%s)', async empty => {
+  const f = await fixture(); const onModelSuccess = vi.fn(async () => undefined);
+  f.fetcher.mockImplementation(async url => String(url).includes('/content?index=0')
+    ? new Response(empty ? '' : 'video', { headers: { 'Content-Type': 'video/mp4' } })
+    : Response.json({ id: 'remote-video', status: String(url).endsWith('/videos') ? 'pending' : 'completed' }));
+  const model: GatewayModel = { id: 'vendor/video', modality: 'video', capabilities: [], sizes: ['1280x720'], durations: [5] };
+  const input = { ...f.input, resource: 'video/jobs', model, body: { model: model.id, prompt: 'test', size: '1280x720', duration: 5 }, onModelSuccess };
+  const { requestId } = await (await f.transport.request(input)).json();
+  expect(onModelSuccess).not.toHaveBeenCalled();
+  await f.transport.request({ ...input, resource: `requests/${requestId}`, method: 'GET' });
+  expect(onModelSuccess).not.toHaveBeenCalled();
+  const content = await f.transport.request({ ...input, resource: `requests/${requestId}/result`, method: 'GET' });
+  if (empty) {
+    await expect(content.text()).rejects.toMatchObject({ code: 'invalid_gateway_response' });
+    expect(onModelSuccess).not.toHaveBeenCalled();
+  } else {
+    expect(await content.text()).toBe('video');
+    expect(onModelSuccess).toHaveBeenCalledExactlyOnceWith(model.id, 'video', 'video/jobs');
+  }
+  expect(f.fetcher.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
+});
+
 it('omits undeclared output_format and uses declared formats for Klein', async () => {
   const f = await fixture();
   await f.transport.request(f.input);
@@ -65,7 +97,7 @@ it.each([
 
 it.each(['pending', 'in_progress', 'completed', 'failed', 'cancelled', 'expired'])('honors the documented video submit status %s and uses the authenticated content endpoint', async status => {
   const f = await fixture();
-  f.fetcher.mockImplementation(async url => String(url).includes('/content?index=0') ? new Response('video') : Response.json({ id: 'remote-video', status, error: 'provider failed: private-test-key', usage: { cost: 0.02 }, polling_url: 'https://untrusted.invalid/job' }));
+  f.fetcher.mockImplementation(async url => String(url).includes('/content?index=0') ? new Response('video', { headers: { 'Content-Type': 'video/mp4' } }) : Response.json({ id: 'remote-video', status, error: 'provider failed: private-test-key', usage: { cost: 0.02 }, polling_url: 'https://untrusted.invalid/job' }));
   const model: GatewayModel = { id: 'video', modality: 'video', capabilities: ['image_to_video'], resolutions: ['480p'], aspectRatios: ['16:9'], durations: [1] };
   const response = await f.transport.request({ ...f.input, resource: 'video/jobs', model, body: { model: 'video', prompt: 'test', size: '480p@16:9', duration: 1, image: 'data:image/png;base64,aW1hZ2U=' } });
   expect(JSON.parse(String(f.fetcher.mock.calls[0]?.[1]?.body))).toEqual({ model: 'video', prompt: 'test', duration: 1, resolution: '480p', aspect_ratio: '16:9', frame_images: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,aW1hZ2U=' }, frame_type: 'first_frame' }] });

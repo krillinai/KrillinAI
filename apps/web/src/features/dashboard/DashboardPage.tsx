@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CreatorJob, CreatorJson, GatewayAccountState, OpenCreatorIssue } from '@opencreator/protocol';
 import { OfficialServicesContext } from './official-services.js';
+import type { GatewayAccountSettingsService } from '../../services/gateway-account-service.js';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { createLocalizedCopy } from '../../i18n/localized-copy.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
@@ -224,6 +225,7 @@ export default function DashboardPage(props: {
   skillLaunch?: CreatorSkillLaunch;
   creatorServicesService?: CreatorServicesSettingsService | null;
   gatewayState?: GatewayAccountState | null;
+  gatewayAccountService?: GatewayAccountSettingsService | null;
   videoMetadataService?: VideoMetadataService;
   workspace?: CreatorWorkspace;
   jobId?: string;

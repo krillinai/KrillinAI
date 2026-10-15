@@ -103,6 +103,36 @@ describe('official Runtime bindings', () => {
     await runtime.close();
   });
 
+  it('disables unpriced hosted search only for gateway Runtime', async () => {
+    const gateway = setup({ gateway: true });
+    const prepared = await gateway.prepare();
+    expect(readFileSync(join(prepared.codexHome, 'config.toml'), 'utf8')).toContain('web_search = "disabled"');
+    await gateway.close();
+    const direct = setup();
+    const other = await direct.prepare();
+    expect(readFileSync(join(other.codexHome, 'config.toml'), 'utf8')).not.toContain('web_search =');
+    await direct.close();
+  });
+
+  it('updates the default model without replacing credentials or closing live Runtime processes', async () => {
+    const closeRuntime = vi.fn(async () => undefined);
+    const readCredentials = vi.fn(async () => ({ accountId: 'a', modelKey: 'test-cloud-secret', keyVersion: '1' }));
+    const runtime = setup({ closeRuntime, readCredentials });
+    const prepared = await runtime.prepare();
+    await runtime.updateModel('openai/gpt-4.1-mini');
+    expect(await runtime.prepare()).toBe(prepared);
+    expect(readCredentials).toHaveBeenCalledOnce();
+    expect(closeRuntime).not.toHaveBeenCalled();
+    expect(prepared.env.OC_GATEWAY_MODEL_KEY).toBe('test-cloud-secret');
+    const config = readFileSync(join(prepared.codexHome, 'config.toml'), 'utf8');
+    expect(config).toContain('model = "openai/gpt-4.1-mini"');
+    expect(config).toContain('wire_api = "responses"');
+    expect(config).toContain('request_max_retries = 0');
+    expect(config).not.toContain('test-cloud-secret');
+    await runtime.close();
+    await expect(runtime.updateModel('gateway-text')).rejects.toThrow('signed out');
+  });
+
   it('does not report logout complete before credential-holding processes exit', async () => {
     let exited!: () => void;
     const closeRuntime = vi.fn(() => new Promise<void>(resolve => { exited = resolve; }));

@@ -37,7 +37,6 @@ func (c *Client) ChatCompletionContext(ctx context.Context, query string) (strin
 				Content: query,
 			},
 		},
-		Temperature:    0.9,
 		Stream:         true,
 		MaxTokens:      8192,
 		ResponseFormat: responseFormat,

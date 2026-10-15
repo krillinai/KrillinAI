@@ -103,11 +103,13 @@ export default function ImageGenerationWorkspace(props: {
     const nextRatio = imageOptions.aspectRatios?.includes(aspectRatio) ? aspectRatio : imageOptions.aspectRatios?.[0] ?? '';
     const nextResolution = imageOptions.resolutions?.includes(resolution) ? resolution : imageOptions.resolutions?.[0] ?? '';
     const nextQuality = imageOptions.qualities?.includes(officialQuality) ? officialQuality : imageOptions.qualities?.[0] ?? '';
+    const nextCount = Math.min(count, imageOptions.maxImages);
     setAspectRatio(nextRatio); setResolution(nextResolution); setOfficialQuality(nextQuality);
-    if (nextRatio !== aspectRatio || nextResolution !== resolution || nextQuality !== officialQuality) {
-      session?.updateDraft({ aspectRatio: nextRatio, resolution: nextResolution, officialQuality: nextQuality });
+    if (nextCount !== count) setCount(nextCount);
+    if (nextRatio !== aspectRatio || nextResolution !== resolution || nextQuality !== officialQuality || nextCount !== count) {
+      session?.updateDraft({ aspectRatio: nextRatio, resolution: nextResolution, officialQuality: nextQuality, candidateCount: nextCount });
     }
-  }, [official.model?.id, imageOptions, official.taskRunning, aspectRatio, resolution, officialQuality]);
+  }, [official.model?.id, imageOptions, official.taskRunning, aspectRatio, resolution, officialQuality, count]);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
   const [referencePreview, setReferencePreview] = useState('');
   const resultVersion = session?.job.state.resultVersion;
@@ -674,7 +676,7 @@ export default function ImageGenerationWorkspace(props: {
               <div className="media-generation-control">
                 <span>{l('生成数量', 'Number of images')}</span>
                 <div className="creator-tool-segmented" role="radiogroup" aria-label={l('生成数量', 'Number of images')}>
-                  {(!official.official && provider === 'codex-native' ? [1] : [1, 2, 4]).map(value => (
+                  {(!official.official && provider === 'codex-native' ? [1] : [1, 2, 4].filter(value => value <= (imageOptions?.maxImages ?? 4))).map(value => (
                     <button type="button" role="radio" aria-checked={count === value} aria-selected={count === value} key={value} onClick={() => updateCount(value)}>
                       {value} {l('张', value === 1 ? 'image' : 'images')}
                     </button>

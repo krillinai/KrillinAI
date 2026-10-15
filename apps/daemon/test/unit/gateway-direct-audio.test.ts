@@ -53,15 +53,58 @@ it('retains real transcription generation identity and reported cost without cha
 it('does not mark a subtitle transcription successful when timestamps are missing', async () => {
   const f = await fixture();
   f.fetcher.mockImplementation(async () => Response.json({ text: 'Hello' }));
-  const input = { ...f.input, resource: 'audio/transcriptions', model: { id: 'asr', modality: 'transcription' as const, capabilities: ['subtitle_timestamps'] }, body: { model: 'asr', input: 'fixture' } };
+  const input = { ...f.input, resource: 'audio/transcriptions', model: { id: 'asr', modality: 'transcription' as const, capabilities: ['subtitle_timestamps'] }, body: { model: 'asr', response_format: 'verbose_json', input_audio: { data: 'YXVkaW8=', format: 'wav' } } };
   await expect(f.transport.request(input)).rejects.toMatchObject({ code: 'invalid_gateway_response' });
   await expect(createDirectTransport(f.root, f.fetcher).request(input)).rejects.toMatchObject({ code: 'request_outcome_unknown' });
   expect(f.fetcher).toHaveBeenCalledOnce();
 });
 
-it('rejects an unverified speech voice before a paid call', async () => {
+it('rejects voices outside the published catalog even without internal verification', async () => {
   const f = await fixture();
-  const model = { ...f.input.model, voices: ['tested'], verification: { adapterVersion: 2, verifiedAt: '2026-10-14T00:00:00Z', countries: ['JP'] } };
+  const model = { ...f.input.model, voices: ['native'] };
   await expect(f.transport.request({ ...f.input, model })).rejects.toMatchObject({ code: 'capability_unsupported' });
   expect(f.fetcher).not.toHaveBeenCalled();
+});
+
+it.each(['wav', 'mp3'])('uses native audio encoding for %s synthesis and previews without a gateway format flag', async response_format => {
+  const f = await fixture();
+  const response = await f.transport.request({ ...f.input, body: { ...f.input.body, response_format }, model: { ...f.input.model, capabilities: [], voices: ['voice'] } });
+  expect(JSON.parse(String(f.fetcher.mock.calls[0]?.[1]?.body))).not.toHaveProperty('response_format');
+  expect(response.headers.get('content-type')).toBe('audio/wav');
+  expect(Buffer.from(await response.arrayBuffer()).subarray(44)).toEqual(f.pcm);
+});
+
+it('allows ordinary JSON transcription without timings even when the model can generate subtitles', async () => {
+  const f = await fixture();
+  f.fetcher.mockImplementation(async () => Response.json({ text: 'Hello' }));
+  const response = await f.transport.request({ ...f.input, resource: 'audio/transcriptions', model: { id: 'asr', modality: 'transcription', capabilities: ['subtitle_timestamps'] },
+    body: { model: 'asr', response_format: 'json', input_audio: { data: 'YXVkaW8=', format: 'wav' } } });
+  expect(await response.json()).toEqual({ text: 'Hello' });
+});
+
+it.each(['json', 'multipart'])('requires actual timings for a verbose %s transcription independently of catalog flags', async encoding => {
+  const f = await fixture();
+  f.fetcher.mockImplementation(async () => Response.json({ text: 'Hello' }));
+  let body: unknown = { model: 'asr', response_format: 'verbose_json', input_audio: { data: 'YXVkaW8=', format: 'wav' } };
+  let contentType = 'application/json';
+  if (encoding === 'multipart') {
+    const form = new FormData(); form.set('model', 'asr'); form.set('response_format', 'verbose_json');
+    form.set('file', new Blob(['audio'], { type: 'audio/wav' }), 'audio.wav');
+    const request = new Request('http://localhost', { method: 'POST', body: form });
+    body = Buffer.from(await request.arrayBuffer()); contentType = request.headers.get('content-type')!;
+  }
+  const input = { ...f.input, resource: 'audio/transcriptions', model: { id: 'asr', modality: 'transcription' as const, capabilities: [] }, body, contentType };
+  await expect(f.transport.request(input)).rejects.toMatchObject({ code: 'invalid_gateway_response' });
+  await expect(createDirectTransport(f.root, f.fetcher).request(input)).rejects.toMatchObject({ code: 'request_outcome_unknown' });
+  expect(f.fetcher).toHaveBeenCalledOnce();
+});
+
+it.each(['speech', 'transcriptions'])('does not record a successful audio/%s result for an HTTP 200 error body', async operation => {
+  const f = await fixture();
+  f.fetcher.mockImplementation(async () => Response.json({ error: { code: 403, message: 'Model unavailable in this country; private-test-key' } }));
+  const onModelFailure = vi.fn(async () => undefined);
+  const model = { id: 'model', modality: operation === 'speech' ? 'speech' as const : 'transcription' as const, capabilities: [] };
+  await expect(f.transport.request({ ...f.input, resource: `audio/${operation}`, model, onModelFailure })).rejects.toMatchObject({ status: 403 });
+  expect(onModelFailure).toHaveBeenCalledWith('model', model.modality, expect.objectContaining({ upstreamCode: '403' }));
+  expect(f.fetcher).toHaveBeenCalledOnce();
 });

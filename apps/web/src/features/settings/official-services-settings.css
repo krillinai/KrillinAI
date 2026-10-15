@@ -14,6 +14,47 @@
   width: min(820px, 100%);
 }
 
+.official-catalog-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; color: var(--muted); font-size: 12px; }
+.official-catalog-toolbar button { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: 0 0 34px; padding: 0; }
+.official-catalog-toolbar a { color: inherit; text-decoration: none; }
+.official-catalog-toolbar a:hover { color: var(--text); }
+
+.official-service-recovery {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 0;
+  font-size: 12px;
+}
+
+.official-service-recovery p {
+  min-width: 0;
+  flex: 1 1 220px;
+  margin: 0;
+  color: var(--warning);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.official-service-recovery small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.official-service-recovery button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
 .ai-services-mode__label {
   color: var(--muted);
   font-size: 13px;
@@ -152,7 +193,30 @@
   min-width: 0;
   display: flex;
   align-items: center;
+  gap: 8px;
 }
+
+.official-services-model-select > .official-model-select {
+  min-width: 0;
+  flex: 1;
+}
+
+.official-model-progress {
+  position: absolute;
+  left: 12px;
+  right: 48px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.official-services-model-row[aria-busy='true'] .official-model-control { visibility: hidden; }
+
+.official-model-availability { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+
+.official-services-notice { margin: 16px 0 0; color: var(--success); font-size: 13px; }
 
 .official-services-model-select select {
   appearance: none;

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"krillin-ai/config"
@@ -26,6 +27,10 @@ func NewTranslator() *Translator {
 }
 
 func (t *Translator) SplitTextAndTranslate(inputText string, originLang, targetLang types.StandardLanguageCode) ([]*TranslatedItem, error) {
+	return t.splitTextAndTranslate(inputText, originLang, targetLang, translationParallelism())
+}
+
+func (t *Translator) splitTextAndTranslate(inputText string, originLang, targetLang types.StandardLanguageCode, parallelism int) ([]*TranslatedItem, error) {
 	sentences := util.SplitTextSentences(inputText, config.Conf.App.MaxSentenceLength)
 	if len(sentences) == 0 {
 		return []*TranslatedItem{}, nil
@@ -53,7 +58,7 @@ func (t *Translator) SplitTextAndTranslate(inputText string, originLang, targetL
 	sentences = shortSentences
 
 	var (
-		signal  = make(chan struct{}, config.Conf.App.TranslateParallelNum) // 控制最大并发数
+		signal  = make(chan struct{}, parallelism) // 控制最大并发数
 		wg      sync.WaitGroup
 		results = make([]*TranslatedItem, len(sentences))
 		// errChan = make(chan error, 1)
@@ -435,7 +440,7 @@ func isSentenceEnding(text string) bool {
 }
 
 // BatchTranslateSrtBlocks 批量翻译SRT字幕块（智能分组：按完整句子分组，最多10个块）
-func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang, targetLang string, taskPtr *types.SubtitleTask) error {
+func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util.SrtBlock, originLang, targetLang string, taskPtr *types.SubtitleTask) error {
 	if len(blocks) == 0 {
 		return nil
 	}
@@ -579,8 +584,20 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 		zap.String("平均每批次", fmt.Sprintf("%.1f个块", float64(totalBlocks)/float64(max(totalBatches, 1)))),
 		zap.String("分组策略", "3/2/1句子合并策略，最大"+fmt.Sprintf("%d", maxBatchSize)+"个块"))
 
-	// 分批处理
-	for batchIdx, batch := range batches {
+	var progressMu sync.Mutex
+	completedBatches := 0
+	reportCompleted := func() {
+		progressMu.Lock()
+		defer progressMu.Unlock()
+		completedBatches++
+		if taskPtr != nil {
+			progress := float64(completedBatches) / float64(totalBatches)
+			taskPtr.SetProgress(40 + uint8(progress*50))
+		}
+	}
+
+	err := runTranslationBatches(ctx, totalBatches, func(ctx context.Context, batchIdx int) error {
+		batch := batches[batchIdx]
 		currentBatchNum := batchIdx + 1
 		log.GetLogger().Info("处理批次",
 			zap.Int("当前批次", currentBatchNum),
@@ -597,12 +614,16 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 		}
 
 		if len(originTexts) == 0 {
-			continue
+			reportCompleted()
+			return nil
 		}
 
 		// 调用批量翻译
-		translations, err := t.batchTranslateTexts(originTexts, originLangCode, targetLangCode)
+		translations, err := t.batchTranslateTextsContext(ctx, originTexts, originLangCode, targetLangCode)
 		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			log.GetLogger().Error("批量翻译失败，尝试单独翻译",
 				zap.Error(err),
 				zap.Int("当前批次", currentBatchNum),
@@ -619,12 +640,16 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 					zap.Int("块索引", block.Index),
 					zap.String("文本预览", block.OriginLanguageSentence[:min(len(block.OriginLanguageSentence), 50)]))
 
-				translatedText, err := t.translateSingleText(
+				translatedText, err := t.translateSingleTextContext(
+					ctx,
 					block.OriginLanguageSentence,
 					originLangCode,
 					targetLangCode)
 
 				if err != nil {
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
 					log.GetLogger().Error("单独翻译失败，使用原文",
 						zap.Error(err),
 						zap.Int("块索引", block.Index))
@@ -634,12 +659,8 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 				}
 			}
 
-			// 更新任务进度
-			if taskPtr != nil {
-				progress := float64(currentBatchNum) / float64(totalBatches)
-				taskPtr.SetProgress(40 + uint8(progress*50))
-			}
-			continue
+			reportCompleted()
+			return nil
 		}
 
 		log.GetLogger().Info("批量翻译成功",
@@ -653,12 +674,11 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 			}
 		}
 
-		// 更新任务进度（假设翻译占总进度的50%）
-		if taskPtr != nil {
-			progress := float64(currentBatchNum) / float64(totalBatches)
-			// 假设翻译在40%-90%之间
-			taskPtr.SetProgress(40 + uint8(progress*50))
-		}
+		reportCompleted()
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	log.GetLogger().Info("智能批量翻译完成",
@@ -670,6 +690,10 @@ func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang
 
 // batchTranslateTexts 批量翻译多个文本（通过单次LLM调用）
 func (t *Translator) batchTranslateTexts(texts []string, originLang, targetLang types.StandardLanguageCode) ([]string, error) {
+	return t.batchTranslateTextsContext(context.Background(), texts, originLang, targetLang)
+}
+
+func (t *Translator) batchTranslateTextsContext(ctx context.Context, texts []string, originLang, targetLang types.StandardLanguageCode) ([]string, error) {
 	if len(texts) == 0 {
 		return []string{}, nil
 	}
@@ -716,17 +740,31 @@ Required JSON format (output ONLY this structure):
 	var lastErr error
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		log.GetLogger().Info("调用LLM翻译",
 			zap.Int("文本数", len(texts)),
 			zap.Int("尝试次数", attempt+1))
 
-		response, err := t.chatCompleter.ChatCompletion(prompt)
+		response, err := chatCompletionWithContext(ctx, t.chatCompleter, prompt)
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			lastErr = err
 			log.GetLogger().Warn("批量翻译LLM调用失败，重试",
 				zap.Error(err),
 				zap.Int("尝试次数", attempt+1))
-			time.Sleep(time.Second * time.Duration(attempt+1))
+			if attempt+1 < maxAttempts {
+				timer := time.NewTimer(time.Second * time.Duration(attempt+1))
+				select {
+				case <-ctx.Done():
+					timer.Stop()
+					return nil, ctx.Err()
+				case <-timer.C:
+				}
+			}
 			continue
 		}
 
@@ -792,7 +830,11 @@ Required JSON format (output ONLY this structure):
 
 // translateSingleText 翻译单个文本（用作批量翻译失败时的回退）
 func (t *Translator) translateSingleText(text string, originLang, targetLang types.StandardLanguageCode) (string, error) {
-	translations, err := t.batchTranslateTexts([]string{text}, originLang, targetLang)
+	return t.translateSingleTextContext(context.Background(), text, originLang, targetLang)
+}
+
+func (t *Translator) translateSingleTextContext(ctx context.Context, text string, originLang, targetLang types.StandardLanguageCode) (string, error) {
+	translations, err := t.batchTranslateTextsContext(ctx, []string{text}, originLang, targetLang)
 	if err != nil {
 		return "", fmt.Errorf("单文本翻译失败: %w", err)
 	}

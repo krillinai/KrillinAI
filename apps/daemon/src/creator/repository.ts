@@ -37,7 +37,7 @@ type RepositoryOptions = {
 };
 
 export type CreatorServiceBinding = { source: 'manual' } | {
-  source: 'gateway'; accountId: string; bindingVersion: string;
+  source: 'gateway'; accountId: string; bindingVersion: string; supplier?: string;
   models: Record<string, string>; capabilities: Record<string, string[]>;
 };
 
@@ -210,6 +210,7 @@ export type CreatorRepository = {
   listActivities(jobId: string): CreatorActivity[];
   captureIssue(input: NormalizedCreatorIssueInput): OpenCreatorIssue;
   getIssue(jobId: string, issueId: string): OpenCreatorIssue | undefined;
+  getIssueResolutionAttemptId(jobId: string, issueId: string): string | undefined;
   listIssues(jobId: string): OpenCreatorIssue[];
   listIssueEvents(jobId: string, input?: {
     cursor?: string;
@@ -807,6 +808,11 @@ export function createCreatorRepository(
       })();
     },
     getIssue,
+    getIssueResolutionAttemptId(jobId, issueId) {
+      const row = db.prepare('SELECT resolution_attempt_id FROM creator_issues WHERE id = ? AND job_id = ?')
+        .get(issueId, jobId) as { resolution_attempt_id: string | null } | undefined;
+      return row?.resolution_attempt_id ?? undefined;
+    },
     listIssues,
     listIssueEvents(jobId, input = {}) {
       const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);

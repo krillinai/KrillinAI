@@ -21,16 +21,14 @@ func (s Service) TranslateSubtitleBlocks(ctx context.Context, blocks []*util.Srt
 	if s.YouTubeSubtitleSrv == nil || s.YouTubeSubtitleSrv.translator == nil {
 		return ErrYouTubeSubtitleServiceNotInitialized
 	}
-	for start := 0; start < len(blocks); start += 10 {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
+	return runTranslationBatches(ctx, (len(blocks)+9)/10, func(ctx context.Context, batchIndex int) error {
+		start := batchIndex * 10
 		batch := blocks[start:min(start+10, len(blocks))]
 		texts := make([]string, len(batch))
 		for index, block := range batch {
 			texts[index] = block.OriginLanguageSentence
 		}
-		translations, err := s.YouTubeSubtitleSrv.translator.batchTranslateTexts(texts, p.OriginLanguage, p.TargetLanguage)
+		translations, err := s.YouTubeSubtitleSrv.translator.batchTranslateTextsContext(ctx, texts, p.OriginLanguage, p.TargetLanguage)
 		if err != nil {
 			return err
 		}
@@ -43,8 +41,8 @@ func (s Service) TranslateSubtitleBlocks(ctx context.Context, blocks []*util.Srt
 			}
 			batch[index].TargetLanguageSentence = text
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 type DownloadMediaResult struct {

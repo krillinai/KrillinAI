@@ -185,11 +185,12 @@ describe('App', () => {
     }
   );
 
-  it.each(['ready', 'blocked', 'loading'] as const)('enters the application after gateway sign-in with %s activation and never asks for provider credentials', async activationState => {
+  it.each([['ready', 'browser'], ['blocked', 'browser'], ['loading', 'browser'], ['blocked', 'desktop']] as const)('enters the application after gateway sign-in with %s activation in %s and never asks for provider credentials', async (activationState, hostKind) => {
     window.localStorage.clear();
     writeCachedModelCatalog({ models: [{ ...createCodexModelListResponse().models[0]!, id: 'personal-model', model: 'personal-model', displayName: 'Personal cached model', isDefault: true }] });
     const user = userEvent.setup();
     const hostBridge = createHostBridge();
+    hostBridge.kind = hostKind;
     hostBridge.readConnectionConfig = async () => ({ baseUrl: 'http://127.0.0.1:60764', token: 'runtime-token' });
     let gateway: GatewayAccountState = { source: 'manual', authState: 'signed_out', activationState: 'inactive', account: null, bindingVersion: null, models: [], activationError: null };
     const runtimeFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -228,6 +229,12 @@ describe('App', () => {
       expect(screen.getByText('已登录，模型服务暂不可用。')).toBeInTheDocument();
       await user.click(within(screen.getByText('已登录，模型服务暂不可用。').parentElement!).getByRole('button', { name: '账户' }));
       await waitFor(() => expect(window.location.hash).toBe('#/account'));
+      await user.click(await screen.findByRole('button', { name: '模型设置' }));
+      expect(await screen.findByRole('heading', { name: 'AI 服务' })).toBeInTheDocument();
+      expect(window.location.hash).toBe('#/settings?tab=ai-services');
+      await user.click(screen.getByRole('button', { name: '返回应用' }));
+      expect(await screen.findByRole('main', { name: '个人中心' })).toBeInTheDocument();
+      expect(window.location.hash).toBe('#/account');
     }
     if (activationState === 'loading') {
       expect(screen.getByText('已登录，正在连接模型服务…')).toBeInTheDocument();

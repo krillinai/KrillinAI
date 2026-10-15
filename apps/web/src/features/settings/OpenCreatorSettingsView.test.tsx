@@ -22,6 +22,24 @@ const runtimeStatus = {
 };
 
 describe('OpenCreatorSettingsView', () => {
+  it('shows connection diagnostics and reconnects official services without a model probe', async () => {
+    const blocked: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'blocked', account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: null,
+      models: [{ id: 'vendor/text', modality: 'text', capabilities: ['responses'] }], activationError: { code: 'gateway_unavailable', message: 'Unavailable', stage: 'usage', request: { path: '/api/v1/client/usage', reason: 'http', httpStatus: 503 } } };
+    const ready: GatewayAccountState = { ...blocked, activationState: 'ready', bindingVersion: 'a:1', activationError: null };
+    const client = { get: vi.fn(), post: vi.fn().mockResolvedValue(ready), patch: vi.fn() };
+    const changed = vi.fn();
+    render(<OpenCreatorSettingsView runtimeStatus={runtimeStatus} gatewayAccountService={createGatewayAccountService(client)} gatewayAccountState={blocked} onGatewayStateChange={changed} initialTab="ai-services" onBack={vi.fn()} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('同步设备状态');
+    expect(screen.getByRole('alert')).toHaveTextContent('/api/v1/client/usage');
+    expect(screen.getByRole('alert')).toHaveTextContent('HTTP 503');
+    expect(screen.getByRole('combobox', { name: '文本模型' })).toBeDisabled();
+    await userEvent.setup().click(screen.getByRole('button', { name: '重新连接' }));
+    await waitFor(() => expect(changed).toHaveBeenCalledWith(ready));
+    expect(client.post).toHaveBeenCalledExactlyOnceWith('/gateway/auth/activate', {});
+    expect(client.patch).not.toHaveBeenCalled();
+    expect(screen.getByRole('combobox', { name: '文本模型' })).toBeEnabled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
   it('keeps the general proxy editable while signed in without reading custom credentials', async () => {
     const state: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: '1', models: [], activationError: null };
     const getConfig = vi.fn(); const saveNetwork = vi.fn(async (value: { proxy: string }) => value);
@@ -92,6 +110,23 @@ describe('OpenCreatorSettingsView', () => {
     await waitFor(() => expect(changed).toHaveBeenCalledWith(expired));
     expect(client.get).toHaveBeenCalledWith('/gateway/account');
     expect(screen.getByRole('combobox', { name: '文本模型' })).toBeDisabled();
+  });
+  it.each([
+    ['invalid_model', '该模型已不可用，请刷新模型列表后重试'],
+    ['services_not_ready', '模型服务暂不可用，请重新连接后重试'],
+    ['gateway_unavailable', '模型切换失败，请重试']
+  ])('shows the actual model switch failure for %s without claiming a task is active', async (gatewayCode, message) => {
+    const state: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: 'a:1',
+      models: [{ id: 'vendor/first', modality: 'text', capabilities: ['responses'] }, { id: 'vendor/second', modality: 'text', capabilities: ['responses'] }], selectedModels: { text: 'vendor/first' }, activationError: null };
+    const client = { get: vi.fn().mockResolvedValue(state), post: vi.fn(), patch: vi.fn().mockRejectedValue(new ApiClientError({ status: 400, code: 'GATEWAY_UNAVAILABLE', message: 'Switch failed', details: { gatewayCode } })) };
+    render(<OpenCreatorSettingsView runtimeStatus={runtimeStatus} gatewayAccountService={createGatewayAccountService(client)} gatewayAccountState={state} initialTab="ai-services" onBack={vi.fn()}/>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: '文本模型' }));
+    await user.click(screen.getByRole('option', { name: 'second' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(message);
+    expect(screen.queryByText(/请等待当前任务结束/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('combobox', { name: '文本模型' })).toBeEnabled());
+    expect(screen.getByRole('combobox', { name: '文本模型' })).toHaveValue('first');
   });
   it('shows custom settings for guests and directs sign-in to the personal center', async () => {
     const gateway: GatewayAccountState = { source: 'manual', authState: 'signed_out', activationState: 'inactive', account: null, bindingVersion: null, models: [], activationError: null };

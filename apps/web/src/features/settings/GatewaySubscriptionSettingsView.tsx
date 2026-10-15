@@ -6,8 +6,8 @@ import type { GatewayAccountSettingsService, GatewayBillingSummary, GatewayRecha
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { ApiClientError } from '../../runtime/errors.js';
-import { formatGatewayCredits, GatewayAccountSettingsView } from './GatewayAccountSettingsView.js';
-import { billingUnavailableMessage, creditPlansURL, rechargeOrderLabel, rechargeOrderStatus } from '../account/billing-display.js';
+import { GatewayAccountSettingsView } from './GatewayAccountSettingsView.js';
+import { billingUnavailableMessage, creditPlansURL, formatGatewayCredits, rechargeOrderLabel, rechargeOrderStatus } from '../account/billing-display.js';
 import './gateway-account-settings.css';
 import '../account/credits.css';
 
@@ -39,7 +39,7 @@ export function GatewaySubscriptionSettingsView(props: {
   const [state, setState] = useState(props.accountState);
   const account = props.embedded ? props.accountState : state;
   const accountId = account?.authState === 'signed_in' ? account.account?.id : undefined;
-  const [summary, setSummary] = useState<GatewayBillingSummary>();
+  const [summaryResult, setSummaryResult] = useState<{ service: GatewayAccountSettingsService; accountId: string; value: GatewayBillingSummary }>();
   const [refreshing, setRefreshing] = useState(false);
   const [balanceError, setBalanceError] = useState(false);
   const [webError, setWebError] = useState(false);
@@ -53,8 +53,13 @@ export function GatewaySubscriptionSettingsView(props: {
   const visit = useRef<PortalVisit>();
   const dismissedOrder = useRef<string>();
   const service = props.service;
+  const summary = summaryResult?.service === service && summaryResult.accountId === accountId ? summaryResult.value
+    : accountId ? service?.getCachedSummary?.(accountId) : undefined;
   const plansURL = creditPlansURL(summary?.plansUrl, language);
 
+  function setSummary(value?: GatewayBillingSummary) {
+    setSummaryResult(value && service && accountId ? { service, accountId, value } : undefined);
+  }
   function saveVisit(value?: PortalVisit) {
     visit.current = value;
     if (accountId) try {
@@ -168,7 +173,7 @@ export function GatewaySubscriptionSettingsView(props: {
         {accountId ? <p className="account-credits__value">{summary ? formatGatewayCredits(summary.balance.availableUnits) : '--'} <small>{l('积分', 'credits')}</small></p>
           : <p className="credit-muted">{l('登录后查看积分', 'Sign in to view your credits')}</p>}
         {accountId && !summary && refreshing ? <p className="credit-loading" role="status"><LoaderCircle size={14}/>{l('正在加载积分', 'Loading credits')}</p> : null}
-        {balanceError && summary ? <p className="credit-muted">{l('上次更新', 'Last updated')} {new Date(summary.balance.asOf).toLocaleString(language)}</p> : null}
+        {summary && (refreshing || balanceError) ? <p className="credit-muted">{l('上次更新', 'Last updated')} {new Date(summary.balance.asOf).toLocaleString(language)}</p> : null}
       </div>
       <div className="account-credits__actions">
         {accountId ? <button type="button" className="credit-icon-button" title={l('刷新积分', 'Refresh credits')} aria-label={l('刷新积分', 'Refresh credits')} disabled={refreshing} onClick={() => void refresh()}><RefreshCw size={17} className={refreshing ? 'is-spinning' : ''}/></button> : null}

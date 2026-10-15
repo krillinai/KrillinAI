@@ -6,6 +6,7 @@ import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { GatewayAccountSettingsService } from '../../services/gateway-account-service.js';
 import { GatewayAccountSettingsView } from '../settings/GatewayAccountSettingsView.js';
 import { GatewaySubscriptionSettingsView } from '../settings/GatewaySubscriptionSettingsView.js';
+import { OfficialServiceRecovery } from '../settings/OfficialServiceRecovery.js';
 import { AccountAvatar } from './AccountAvatar.js';
 import './personal-center.css';
 
@@ -49,9 +50,15 @@ export default function PersonalCenterPage(props: {
           />
       </section>
       {modelUnavailable ? <div className="personal-center__model-status" role="status">
-        <span>{state.activationState === 'loading' ? l('官方模型服务正在连接', 'Connecting to official model services') : l('官方模型服务暂不可用', 'Official model services are unavailable')}</span>
+        <span>{state.activationState === 'loading' ? l('官方模型服务正在连接', 'Connecting to official model services')
+          : state.activationError?.code === 'model_catalog_unavailable' ? l('模型列表暂时无法获取', 'The model list is temporarily unavailable')
+          : state.activationError?.code === 'no_available_models' ? l('当前没有可用的文本模型', 'No compatible text models are available')
+          : l('官方模型服务暂不可用', 'Official model services are unavailable')}</span>
         {props.onOpenModelSettings ? <button type="button" onClick={props.onOpenModelSettings}><Settings2 size={15}/>{l('模型设置', 'Model settings')}</button> : null}
       </div> : null}
+      {modelUnavailable && props.service ? <OfficialServiceRecovery state={state} service={props.service} onChange={next => {
+        setState(next); props.onStateChange?.(next);
+      }} /> : null}
       <GatewaySubscriptionSettingsView
         key={`${state?.authState}:${state?.account?.id ?? ''}`}
         service={props.service} embedded accountState={state} openExternal={props.openExternal}

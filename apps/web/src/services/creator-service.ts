@@ -149,6 +149,10 @@ export function createCreatorService(client: ClientLike) {
         CREATOR_REFERENCE_IMAGE_CONTENT_TYPE
       ) as Promise<CreatorSourceUploadResponse>;
     },
+    uploadVideoReference(file: File): Promise<{ assetId: string; expiresAt: string }> {
+      if (!client.postBinary) return Promise.reject(new Error('Video reference upload transport is unavailable'));
+      return client.postBinary(`/video-generation/assets?${new URLSearchParams({ mime: file.type })}`, file, 'application/vnd.opencreator.video-reference') as Promise<{ assetId: string; expiresAt: string }>;
+    },
     uploadArticleImage(jobId: string, input: {
       file: File;
       expectedRevision: number;

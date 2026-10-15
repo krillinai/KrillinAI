@@ -14,6 +14,31 @@ function service(): GatewayAccountSettingsService {
     getSummary: vi.fn(async () => ({ balance: { availableUnits: '123000000', reservedUnits: '0', periodEnd: null, asOf: '2026-10-05T01:00:00Z' }, subscription: null, billingAvailable: true, purchaseMode: 'credits' as const, plansUrl: 'https://www.open-creator.ai/pricing' })),
     getPlans: vi.fn(async () => ({ plans: [{ id: 'starter', name: 'Starter', amountUnits: '500', creditUnits: '2500000000', currency: 'usd' }], billingAvailable: true })), getOrders: vi.fn(async () => ({ items: [] })), getOrder: vi.fn(), getCreditGrants: vi.fn(async () => ({ items: [] })), checkout: vi.fn(), portal: vi.fn() };
 }
+it('changes the ChatAnywhere region without offering supplier self-selection', async () => {
+  const value = service();
+  const initial = { ...state, supplier: 'chatanywhere' as const, supplierRegion: 'auto' as const };
+  vi.mocked(value.getState).mockResolvedValue(initial);
+  value.setRegion = vi.fn(async region => ({ ...initial, supplierRegion: region }));
+  render(<LanguageProvider initialPreference="zh-CN"><GatewayAccountSettingsView service={value}/></LanguageProvider>);
+  const region = await screen.findByRole('combobox', { name: '连接区域' });
+  await userEvent.setup().selectOptions(region, 'overseas');
+  await waitFor(() => expect(value.setRegion).toHaveBeenCalledWith('overseas'));
+  expect(region).toHaveValue('overseas');
+});
+it('keeps supplier region settings hidden when the server owns the gateway route', async () => {
+  const value = service();
+  vi.mocked(value.getState).mockResolvedValue({ ...state, transport: 'gateway', supplier: 'chatanywhere' });
+  value.setRegion = vi.fn();
+  render(<LanguageProvider initialPreference="zh-CN"><GatewayAccountSettingsView service={value}/></LanguageProvider>);
+  await screen.findByText('已登录，可以开始创作');
+  expect(screen.queryByRole('combobox', { name: '连接区域' })).not.toBeInTheDocument();
+});
+it('shows a supplier migration on the signed-in profile', async () => {
+  const value = service();
+  vi.mocked(value.getState).mockResolvedValue({ ...state, activationState: 'blocked', activationError: { code: 'supplier_migrating', message: 'Switching supplier' } });
+  render(<LanguageProvider initialPreference="zh-CN"><GatewayAccountSettingsView variant="profile" service={value}/></LanguageProvider>);
+  expect(await screen.findByText('正在切换模型供应商，完成后将自动恢复。')).toBeInTheDocument();
+});
 it('shows an expired session explicitly and keeps reauthorization available', async () => {
   const value = service();
   vi.mocked(value.getState).mockResolvedValue({ ...state, authState: 'expired', activationState: 'inactive' });
@@ -115,4 +140,24 @@ it('reconnects a signed-in account without manual provider fields', async () => 
   expect(screen.queryByText('API Key')).not.toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button', { name: '重新连接' }));
   await waitFor(() => expect(changed).toHaveBeenLastCalledWith(state));
+});
+
+it('refreshes the user model catalog from the account menu', async () => {
+  const value = service();
+  render(<LanguageProvider initialPreference="zh-CN"><GatewayAccountSettingsView variant="profile" service={value}/></LanguageProvider>);
+  await screen.findByText('已登录', { exact: true });
+  await userEvent.setup().click(screen.getByLabelText('账号菜单'));
+  await userEvent.setup().click(screen.getByRole('button', { name: '刷新模型' }));
+  await waitFor(() => expect(value.getState).toHaveBeenLastCalledWith({ checkAuthorization: false, refreshModels: true }));
+});
+
+it.each([
+  ['model_catalog_unavailable', '模型列表暂时无法获取，请重试。'],
+  ['no_available_models', '当前没有可用的文本模型。']
+])('shows %s separately from sign-in failures', async (code, message) => {
+  const value = service();
+  vi.mocked(value.getState).mockResolvedValue({ ...state, activationState: 'blocked', activationError: { code, message: 'Unavailable' } });
+  render(<LanguageProvider initialPreference="zh-CN"><GatewayAccountSettingsView variant="login" service={value}/></LanguageProvider>);
+  expect(await screen.findByRole('alert')).toHaveTextContent(message);
+  expect(screen.getByRole('button', { name: '重新连接' })).toBeEnabled();
 });

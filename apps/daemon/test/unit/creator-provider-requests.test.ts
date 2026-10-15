@@ -47,6 +47,71 @@ function setup(path = join(tempDir, 'runtime.sqlite')) {
 }
 
 describe('creator provider request ledger', () => {
+  it('leaves a stage retry resolving during automatic request failures and closes it with the stage outcome', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'creator-managed-stage-retry-'));
+    const { db, repository, job, stage } = setup();
+    const issues = createCreatorIssueService(repository);
+    const ledger = new CreatorProviderRequestLedger(repository, issues);
+    try {
+      const issue = issues.capture({ jobId: job.id, source: 'provider', code: 'creator_provider_request_failed',
+        stageId: stage.stageId, stageRunId: stage.id, scopeKey: stage.scopeKey!,
+        publicFacts: { kind: 'unknown', provider: 'opencreator-gateway-chat/completions' } });
+      issues.beginResolution({ jobId: job.id, issueId: issue.id, stageRunId: stage.id,
+        resolutionAttemptId: stage.id, associationKind: 'stage-run', associationId: stage.id });
+      for (const status of ['failed', 'succeeded'] as const) {
+        const request = ledger.registerBeforeSubmit({ jobId: job.id, stageRunId: stage.id, scopeKey: stage.scopeKey,
+          provider: 'opencreator-gateway-chat/completions', requestKey: status, request: {},
+          gateway: { accountId: 'a', bindingVersion: 'a:1', logicalId: status } });
+        ledger.markSubmitting(request.id);
+        if (status === 'failed') ledger.markFailed(request.id);
+        else ledger.markSucceeded(request.id);
+        expect(issues.get(job.id, issue.id)?.status).toBe('resolving');
+      }
+      repository.updateStageRun({ id: stage.id, status: 'succeeded' });
+      ledger.finishStage(stage.id, 'succeeded');
+      expect(issues.get(job.id, issue.id)).toMatchObject({ status: 'resolved', occurrenceCount: 1 });
+    } finally { db.close(); }
+  });
+
+  it('keeps automatic recovery private and resolves old failures only after every pending receipt is confirmed', async () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'creator-managed-recovery-'));
+    const { db, repository, job, stage } = setup();
+    const issues = createCreatorIssueService(repository);
+    const ledger = new CreatorProviderRequestLedger(repository, issues);
+    const provider = 'opencreator-gateway-chat/completions';
+    const register = (requestKey: string) => {
+      const request = ledger.registerBeforeSubmit({ jobId: job.id, stageRunId: stage.id, scopeKey: stage.scopeKey,
+        provider, requestKey, request: {}, gateway: { accountId: 'a', bindingVersion: 'a:1', logicalId: requestKey } });
+      ledger.markSubmitting(request.id);
+      return request;
+    };
+    try {
+      const failed = register('failed-attempt');
+      ledger.markFailed(failed.id);
+      const pending = register('pending-attempt');
+      ledger.markUnknownRemoteAcceptance(pending.id);
+      expect(issues.list(job.id)).toEqual([]);
+      repository.updateStageRun({ id: stage.id, status: 'failed' });
+      ledger.finishStage(stage.id, 'failed');
+      expect(issues.list(job.id)).toEqual([expect.objectContaining({ code: 'creator_provider_resolution_required', retryable: false })]);
+      issues.capture({ jobId: job.id, stageRunId: stage.id, stageId: stage.stageId, scopeKey: stage.scopeKey!,
+        source: 'provider', code: 'creator_provider_request_failed', publicFacts: { kind: 'unknown', provider } });
+      const resumed = repository.createStageRun({ jobId: job.id, stageId: stage.stageId, executor: stage.executor,
+        scopeKey: stage.scopeKey, status: 'running', progress: { resumedFromStageRunId: stage.id } });
+      const other = register('other-pending-attempt');
+      ledger.markUnknownRemoteAcceptance(other.id);
+      await ledger.recover(pending.id, { lookupByRequestKey: true, lookup: async () => ({ status: 'succeeded' }) });
+      expect(issues.list(job.id).every(issue => issue.status === 'open')).toBe(true);
+      repository.updateStageRun({ id: resumed.id, status: 'succeeded' });
+      ledger.finishStage(resumed.id, 'succeeded');
+      expect(issues.list(job.id).every(issue => issue.status === 'open')).toBe(true);
+      await ledger.recover(other.id, { lookupByRequestKey: true, lookup: async () => ({ status: 'succeeded' }) });
+      ledger.finishStage(resumed.id, 'succeeded');
+      expect(issues.list(job.id).every(issue => issue.status === 'resolved')).toBe(true);
+      expect(ledger.requestsForStage(resumed.id)).toHaveLength(3);
+    } finally { db.close(); }
+  });
+
   it.each(['succeeded', 'failed', 'waiting_remote'] as const)('reconciles a registered request with authoritative lookup evidence (%s)', async status => {
     tempDir = mkdtempSync(join(tmpdir(), 'creator-registered-recovery-'));
     const { db, job, stage, ledger } = setup();
@@ -56,7 +121,7 @@ describe('creator provider request ledger', () => {
       expect(recovered).toMatchObject({ status, remoteTaskId: 'original-remote' });
     } finally { db.close(); }
   });
-  it('closes the matching unknown-receipt issue only after all requests in its scope are recovered', async () => {
+  it.each(['succeeded', 'failed'] as const)('closes the matching unknown-receipt issue only after all requests in its scope are recovered (%s)', async status => {
     tempDir = mkdtempSync(join(tmpdir(), 'creator-provider-stream-recovery-'));
     const { db, repository, job, stage } = setup();
     const issues = createCreatorIssueService(repository);
@@ -71,14 +136,14 @@ describe('creator provider request ledger', () => {
       const failedIssue = issues.capture({ jobId: job.id, stageRunId: stage.id, stageId: stage.stageId,
         scopeKey: stage.scopeKey ?? undefined, source: 'provider', code: 'creator_provider_request_failed',
         publicFacts: { kind: 'unknown', provider: requests[0]!.provider } });
-      const lookup = { lookupByRequestKey: false, lookup: async () => ({ status: 'succeeded' as const }) };
+      const lookup = { lookupByRequestKey: false, lookup: async () => ({ status }) };
       await ledger.recover(requests[0]!.id, lookup);
-      expect(issues.list(job.id)).toHaveLength(2);
+      expect(issues.list(job.id)).toHaveLength(status === 'failed' ? 3 : 2);
       expect(issues.list(job.id).every(issue => issue.status === 'open')).toBe(true);
       await ledger.recover(requests[1]!.id, lookup);
       expect(issues.list(job.id).find(issue => issue.code === 'creator_provider_resolution_required')!.status).toBe('resolved');
       expect(issues.get(job.id, failedIssue.id)!.status).toBe('open');
-      expect(repository.listProviderRequests(job.id).every(request => request.status === 'succeeded')).toBe(true);
+      expect(repository.listProviderRequests(job.id).every(request => request.status === status)).toBe(true);
     } finally { db.close(); }
   });
   it('blocks fresh image runs and retries until a previous paid request is explicitly resolved', () => {

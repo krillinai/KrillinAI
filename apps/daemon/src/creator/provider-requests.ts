@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import type {
   CreatorJson,
   CreatorProviderRequest,
-  CreatorProviderRequestStatus
+  CreatorProviderRequestStatus,
+  CreatorStageRun
 } from '@opencreator/protocol';
 import { isPublicErrorFacts } from '@opencreator/protocol';
 import { sanitizeIssueDetail, type CreatorIssueService } from './issues.js';
@@ -142,14 +143,64 @@ export class CreatorProviderRequestLedger {
     return request;
   }
 
-  markUnknownRemoteAcceptance(id: string): CreatorProviderRequest {
+  markUnknownRemoteAcceptance(id: string, error?: unknown): CreatorProviderRequest {
     const request = this.transition(
       id,
       ['submitting', 'waiting_remote'],
       'unknown_remote_acceptance'
     );
-    if (!this.finishProviderIssue(request, 'unknown')) this.captureProviderIssue(request, true);
+    if (!this.finishProviderIssue(request, 'unknown', error)) this.captureProviderIssue(request, true, error);
     return request;
+  }
+
+  requestsForStage(stageRunId: string): CreatorProviderRequest[] {
+    const stage = this.repository.getStageRun(stageRunId);
+    if (stage === undefined) return [];
+    const lineage = this.stageLineage(stage);
+    return this.repository.listProviderRequests(stage.jobId).filter(request => lineage.has(request.stageRunId));
+  }
+
+  finishStage(stageRunId: string, result: 'succeeded' | 'failed' | 'canceled', error?: unknown): void {
+    const stage = this.repository.getStageRun(stageRunId);
+    if (stage === undefined) return;
+    const requests = this.requestsForStage(stageRunId).filter(request => request.gateway !== undefined);
+    if (result === 'failed') {
+      const request = requests.find(candidate => isPendingRemote(candidate.status))
+        ?? requests.find(candidate => candidate.stageRunId === stageRunId && candidate.status === 'failed');
+      if (request !== undefined) {
+        this.captureProviderIssue({ ...request, stageRunId, scopeKey: stage.scopeKey }, isPendingRemote(request.status), error);
+      }
+      return;
+    }
+    if (result !== 'succeeded') return;
+    const lineage = this.stageLineage(stage);
+    for (const issue of this.issueService?.list(stage.jobId) ?? []) {
+      if (issue.status === 'resolved' || issue.source !== 'provider'
+        || !['creator_provider_request_failed', 'creator_provider_resolution_required'].includes(issue.code)
+        || issue.stageRunId === undefined || !lineage.has(issue.stageRunId)
+        || issue.scopeKey !== (stage.scopeKey ?? undefined)
+        || !issue.publicFacts?.provider?.startsWith('opencreator-gateway-')) continue;
+      if (requests.some(request => request.provider === issue.publicFacts!.provider && isPendingRemote(request.status))) continue;
+      const resolutionAttemptId = issue.status === 'resolving'
+        ? this.repository.getIssueResolutionAttemptId(stage.jobId, issue.id)
+        : `stage:${stageRunId}:${issue.id}`;
+      if (resolutionAttemptId === undefined) continue;
+      if (issue.status === 'open') this.issueService?.beginResolution({ jobId: stage.jobId, issueId: issue.id, resolutionAttemptId,
+        associationKind: 'stage-run', associationId: stageRunId, stageRunId });
+      this.issueService?.finishResolution({ jobId: stage.jobId, issueId: issue.id, resolutionAttemptId, result: 'succeeded' });
+    }
+  }
+
+  private stageLineage(stage: CreatorStageRun): Set<string> {
+    const lineage = new Set<string>();
+    let current: CreatorStageRun | undefined = stage;
+    while (current !== undefined && !lineage.has(current.id)) {
+      lineage.add(current.id);
+      const parentId: unknown = current.progress.resumedFromStageRunId;
+      const parent = typeof parentId === 'string' ? this.repository.getStageRun(parentId) : undefined;
+      current = parent?.jobId === stage.jobId && parent.stageId === stage.stageId && parent.scopeKey === stage.scopeKey ? parent : undefined;
+    }
+    return lineage;
   }
 
   async recover(
@@ -282,6 +333,8 @@ export class CreatorProviderRequestLedger {
     error?: unknown
   ): void {
     const stage = this.repository.getStageRun(request.stageRunId);
+    // The stage owns automatic recovery; a single attempt is not a task failure.
+    if (this.hasActiveStage(request)) return;
     this.issueService?.capture({
       jobId: request.jobId,
       code: unknownRemoteAcceptance
@@ -289,6 +342,7 @@ export class CreatorProviderRequestLedger {
         : 'creator_provider_request_failed',
       source: 'provider',
       category: 'provider',
+      ...(unknownRemoteAcceptance ? { summaryKey: 'issue.provider_pending' } : {}),
       operation: 'creator.retry-stage',
       stageId: stage?.stageId,
       stageRunId: request.stageRunId,
@@ -331,8 +385,10 @@ export class CreatorProviderRequestLedger {
     result: 'succeeded' | 'failed' | 'canceled' | 'unknown',
     error?: unknown
   ): boolean {
+    if (this.hasActiveStage(request)) return false;
     let issue = this.findProviderIssue(request, 'resolving');
-    if (issue === undefined && result === 'succeeded' && !this.repository.listProviderRequests(request.jobId).some(other => (
+    let resolvedAcceptance = false;
+    if (issue === undefined && (result === 'succeeded' || result === 'failed') && !this.repository.listProviderRequests(request.jobId).some(other => (
       other.id !== request.id && other.provider === request.provider && other.stageRunId === request.stageRunId
       && other.scopeKey === request.scopeKey && isPendingRemote(other.status)
     ))) {
@@ -342,6 +398,7 @@ export class CreatorProviderRequestLedger {
         && candidate.scopeKey === (request.scopeKey ?? undefined) && candidate.publicFacts?.provider === request.provider
       ));
       if (issue !== undefined) {
+        resolvedAcceptance = true;
         this.issueService?.beginResolution({
           jobId: request.jobId,
           issueId: issue.id,
@@ -357,13 +414,14 @@ export class CreatorProviderRequestLedger {
       jobId: request.jobId,
       issueId: issue.id,
       resolutionAttemptId: request.id,
-      result,
+      // A definitive failure resolves acceptance uncertainty; it remains a separate failure issue.
+      result: resolvedAcceptance ? 'succeeded' : result,
       ...(result === 'failed' && error !== undefined ? {
         publicFacts: factsForProvider(error, request.provider),
         ...(error instanceof Error ? { technicalDetail: sanitizeIssueDetail(error.message) } : {})
       } : {})
     });
-    return true;
+    return !(resolvedAcceptance && result === 'failed');
   }
 
   private findProviderIssue(
@@ -376,6 +434,14 @@ export class CreatorProviderRequestLedger {
       && issue.status === status
       && issue.scopeKey === (request.scopeKey ?? undefined)
       && (stageId === undefined || issue.stageId === stageId)
+      && (issue.publicFacts?.provider === undefined || issue.publicFacts.provider === request.provider)
+      && (status !== 'resolving' || this.repository.getIssueResolutionAttemptId(request.jobId, issue.id) === request.id)
+    ));
+  }
+
+  private hasActiveStage(request: CreatorProviderRequest): boolean {
+    return request.gateway !== undefined && this.repository.listStageRuns(request.jobId).some(stage => (
+      ['queued', 'running'].includes(stage.status) && this.stageLineage(stage).has(request.stageRunId)
     ));
   }
 

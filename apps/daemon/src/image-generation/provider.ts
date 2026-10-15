@@ -92,7 +92,9 @@ export async function generateImageContents(
   const referenceImages = options.referenceImages
     ?? (options.referenceImage === undefined ? [] : [options.referenceImage]);
   const gateway = gatewayCreatorBinding(config);
-  const capabilities = gateway ? { supportsReferenceImage: gateway.capabilities?.image?.includes('edit') === true, maxReferenceImages: gateway.capabilities?.image?.includes('edit') ? 1 : 0 } : imageGenerationCapabilities(request.provider);
+  const profile = gateway?.catalog?.find(model => model.modality === 'image' && model.id === gateway.models.image);
+  const capabilities = gateway ? { supportsReferenceImage: gateway.capabilities?.image?.includes('edit') === true,
+    maxReferenceImages: gateway.capabilities?.image?.includes('edit') ? profile?.imageOptions?.maxReferences ?? 1 : 0 } : imageGenerationCapabilities(request.provider);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(new DOMException(gateway ? 'Image generation timed out. Check the request status before retrying to avoid duplicate charges.' : 'Image generation timed out. Try again.', 'TimeoutError')), gateway ? DIRECT_IMAGE_TIMEOUT_MS + 30_000 : REQUEST_TIMEOUT_MS);
   const abort = () => controller.abort(options.signal?.reason);
@@ -262,7 +264,7 @@ async function generateOpenAiImages(
   if (gatewayRequest && /^[A-Za-z0-9_-]{12,128}$/.test(gatewayRequest)) onGatewayRequest?.(gatewayRequest);
   if (official && response.status === 202) {
     const accepted = await response.json() as { requestId?: string };
-    if (!accepted.requestId || accepted.requestId !== gatewayRequest || !/^ocdir_[a-f0-9]{48}$/.test(accepted.requestId)) {
+    if (!accepted.requestId || accepted.requestId !== gatewayRequest || !/^(?:ocdir|ocreq)_[a-f0-9]{48}$/.test(accepted.requestId)) {
       throw new ImageGenerationProviderError('upstream_error', 'Invalid image generation receipt');
     }
     const statusUrl = openAiCompatibleEndpoint(provider.baseUrl, `requests/${accepted.requestId}`);

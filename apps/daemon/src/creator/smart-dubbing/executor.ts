@@ -26,7 +26,6 @@ export function createSmartDubbingExecutor(input: {
       stage.reportProgress({ phase: 'validating', percent: 5 });
       const request = readRequest(stage.job.state);
       const official = input.isOfficial?.() === true;
-      if (official && (request.style !== 'natural' || request.speed !== 1)) throw new CreatorExecutorError('unsupported_capability', 'The official speech model supports only natural delivery and default speed');
       if (stage.signal.aborted) {
         throw new CreatorExecutorError('creator_stage_canceled', 'Creator stage was canceled');
       }
@@ -40,7 +39,7 @@ export function createSmartDubbingExecutor(input: {
           ...(request.voiceCode === undefined ? {} : { voiceId: request.voiceCode }),
           format: request.format,
           speed: request.speed,
-          instructions: official ? undefined : smartDubbingInstructions(request.style),
+          instructions: official && request.style === 'natural' ? undefined : smartDubbingInstructions(request.style),
           signal: stage.signal
         });
         if (stage.signal.aborted) {

@@ -117,7 +117,7 @@ export function creatorServiceFailureFacts(
   const root = isRecord(payload) ? payload : {};
   const data = isRecord(root.data) ? root.data : {};
   const detail = isRecord(root.error) ? root.error : isRecord(data.error) ? data.error : isRecord(root.data) ? data : root;
-  const code = detail.code ?? detail.error_code ?? detail.type
+  const code = detail.upstreamCode ?? detail.code ?? detail.error_code ?? detail.type
     ?? (options.httpStatus === undefined ? undefined : root.code ?? root.error_code);
   const message = detail.task_status_msg ?? detail.message ?? detail.error_msg ?? detail.msg
     ?? root.message ?? root.error_msg ?? (typeof root.error === 'string' ? root.error : undefined);

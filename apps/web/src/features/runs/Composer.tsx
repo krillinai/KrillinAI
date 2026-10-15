@@ -168,7 +168,7 @@ export function Composer(props: {
     submissionMode?: RunSubmissionMode
   ): boolean | void | Promise<boolean | void>;
 }) {
-  const { t } = useAppLanguage();
+  const { t, language } = useAppLanguage();
   const permissionOptions: Array<{
     value: ProjectPermission;
     label: string;
@@ -1669,18 +1669,10 @@ export function Composer(props: {
                         aria-checked={resolvedSelectedModel?.model === option.model}
                         disabled={imageBlocked}
                         onClick={() => {
-                          const nextReasoning = isReasoningAvailable(
-                            option,
-                            selectedReasoning
-                          )
-                            ? selectedReasoning
-                            : null;
+                          const nextReasoning = isReasoningAvailable(option, selectedReasoning) ? selectedReasoning : null;
                           setSelectedModel(option.model);
                           setSelectedReasoning(nextReasoning);
-                          props.onModelConfigChange?.({
-                            model: option.model,
-                            reasoning: nextReasoning
-                          });
+                          props.onModelConfigChange?.({ model: option.model, reasoning: nextReasoning });
                         }}
                       >
                         <span className="composer-menu-icon" aria-hidden="true">

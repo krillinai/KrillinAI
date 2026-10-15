@@ -39,6 +39,7 @@ import type { SettingsRouteTab } from '../../app/routes.js';
 import type { GatewayAccountSettingsService } from '../../services/gateway-account-service.js';
 import type { GatewayAccountState } from '@opencreator/protocol';
 import { OfficialServicesSettingsView } from './OfficialServicesSettingsView.js';
+import { OfficialServiceRecovery } from './OfficialServiceRecovery.js';
 import { NetworkSettings } from './NetworkSettings.js';
 import { PlatformConnectionsSettingsView } from './PlatformConnectionsSettingsView.js';
 import type { PlatformConnectionsService } from '../../services/platform-connections-service.js';
@@ -229,6 +230,7 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
                 </button> : null}
               </header>
               {modeControls}
+              {props.gatewayAccountService ? <OfficialServiceRecovery state={gatewayState} service={props.gatewayAccountService} onChange={next => { setGatewayState(next); props.onGatewayStateChange?.(next); }} /> : null}
               {props.gatewayAccountService ? <OfficialServicesSettingsView state={gatewayState} service={props.gatewayAccountService} onChange={next => { setGatewayState(next); props.onGatewayStateChange?.(next); }} /> : null}
             </section> : null}
             <Suspense fallback={

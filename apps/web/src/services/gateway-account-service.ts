@@ -1,4 +1,4 @@
-import type { GatewayAccountState, GatewayAuthorization, GatewayBalanceSnapshot, GatewayBalanceState, ServiceSource } from '@opencreator/protocol';
+import type { GatewayAccountState, GatewayAuthorization, GatewayBalanceSnapshot, GatewayBalanceState, GatewayModelProbeOptions, ServiceSource } from '@opencreator/protocol';
 import type { RuntimeClient } from '../runtime/client.js';
 export type GatewayPlan = { id: string; name: string; currency: string; amountUnits: string; creditUnits: string; wechatAmountUnits?: string };
 export type GatewayBillingAvailability = {
@@ -12,7 +12,7 @@ export type GatewayRechargeOrder = {
   status: string; paymentStatus: string; creditStatus: string; reviewRequired: boolean;
   paymentMode: 'test' | 'live'; createdAt: string; expiresAt?: string; paidAt: string | null; completedAt: string | null;
 };
-export type GatewayCreditGrant = { id: string; kind: 'grant'; units: string; createdAt: string; businessKey: string; source: string };
+export type GatewayCreditGrant = { id: string; kind: 'grant' | 'reserve' | 'settle' | 'release' | 'refund' | 'migration'; units: string; createdAt: string; businessKey: string; source?: string; facts?: { model?: string; requestId?: string; releasedUnits?: string; reason?: string } };
 export type GatewayBillingSummary = {
   balance: GatewayBalanceSnapshot;
   subscription: { id: string; status: string; periodStart: string; periodEnd: string; cancelAtPeriodEnd: boolean; nextPlanId: string | null; plan?: GatewayPlan } | null;
@@ -26,6 +26,34 @@ export type GatewayWebDestination = 'recharge' | 'account' | 'usage' | 'faq';
 export function createGatewayAccountService(client: Pick<RuntimeClient, 'get' | 'post' | 'patch'> & Partial<Pick<RuntimeClient, 'rawGet'>>, options: { authorizationReturnUrl?: string; billingReturnUrl?: string } = {}) {
   const rawGet = client.rawGet?.bind(client);
   let avatarCache: { key: string; work: Promise<Blob> } | undefined;
+  let accountId: string | undefined;
+  let accountGeneration = 0;
+  let summaryCache: { accountId: string; value: GatewayBillingSummary } | undefined;
+  let summaryWork: Promise<GatewayBillingSummary> | undefined;
+  function clearSummary(nextAccountId?: string) {
+    accountGeneration++; accountId = nextAccountId;
+    summaryCache = undefined; summaryWork = undefined;
+  }
+  function getSummary(): Promise<GatewayBillingSummary> {
+    if (summaryWork) return summaryWork;
+    const expected = accountGeneration; const owner = accountId;
+    const work = client.get<GatewayBillingSummary>('/gateway/billing/summary').then(value => {
+      if (owner && expected === accountGeneration) summaryCache = { accountId: owner, value };
+      return value;
+    }).finally(() => { if (summaryWork === work) summaryWork = undefined; });
+    summaryWork = work;
+    return work;
+  }
+  function observeState(state: GatewayAccountState, expected = accountGeneration): GatewayAccountState {
+    if (expected !== accountGeneration) return state;
+    const nextAccountId = state.authState === 'signed_in' ? state.account?.id : undefined;
+    if (nextAccountId !== accountId) {
+      clearSummary(nextAccountId);
+      // Warm the account view without delaying sign-in or model preparation.
+      if (nextAccountId) void getSummary().catch(() => undefined);
+    }
+    return state;
+  }
   return {
     ...(rawGet ? { getAvatar(accountId: string, revision: string): Promise<Blob> {
       const key = `${accountId}:${revision}`;
@@ -37,8 +65,13 @@ export function createGatewayAccountService(client: Pick<RuntimeClient, 'get' | 
       avatarCache = { key, work };
       return work;
     } } : {}),
-    getState(options?: { checkAuthorization?: boolean }): Promise<GatewayAccountState> {
-      return options?.checkAuthorization ? client.post('/gateway/auth/check', {}) : client.get('/gateway/account');
+    async getState(options?: { checkAuthorization?: boolean; refreshModels?: boolean }): Promise<GatewayAccountState> {
+      const expected = accountGeneration;
+      if (options?.checkAuthorization) {
+        const state = observeState(await client.post<GatewayAccountState>('/gateway/auth/check', {}), expected);
+        if (!options.refreshModels) return state;
+      }
+      return observeState(await client.get<GatewayAccountState>('/gateway/account' + (options?.refreshModels ? '?refreshModels=1' : '')), expected);
     },
     async start(): Promise<GatewayAuthorization> {
       const grant = await client.post<GatewayAuthorization>('/gateway/auth/start', {});
@@ -47,22 +80,30 @@ export function createGatewayAccountService(client: Pick<RuntimeClient, 'get' | 
       url.searchParams.set('returnTo', options.authorizationReturnUrl);
       return { ...grant, authorizationUrl: url.href };
     },
-    cancel(): Promise<GatewayAccountState> { return client.post('/gateway/auth/cancel', {}); },
-    logout(): Promise<GatewayAccountState> { return client.post('/gateway/auth/logout', {}); },
+    async cancel(): Promise<GatewayAccountState> { return observeState(await client.post<GatewayAccountState>('/gateway/auth/cancel', {})); },
+    async logout(): Promise<GatewayAccountState> {
+      clearSummary();
+      return observeState(await client.post<GatewayAccountState>('/gateway/auth/logout', {}));
+    },
     activate(): Promise<GatewayAccountState> { return client.post('/gateway/auth/activate', {}); },
     setSource(source: ServiceSource): Promise<GatewayAccountState> { return client.patch('/gateway/source', { source }); },
-    selectModel(modality: import('@opencreator/protocol').GatewayModel['modality'], model: string): Promise<GatewayAccountState> { return client.patch('/gateway/model', { modality, model }); },
+    setRegion(region: 'auto' | 'domestic' | 'overseas'): Promise<GatewayAccountState> { return client.patch('/gateway/supplier-region', { region }); },
+    selectModel(modality: import('@opencreator/protocol').GatewayModelPurpose, model: string): Promise<GatewayAccountState> { return client.patch('/gateway/model', { modality, model }); },
+    probeModel(modality: import('@opencreator/protocol').GatewayModel['modality'], model: string, options?: GatewayModelProbeOptions): Promise<{ model: string; modality: import('@opencreator/protocol').GatewayModel['modality']; costBearer: 'customer' }> {
+      return client.post('/gateway/model/probe', { modality, model, ...options });
+    },
     getBalance(): Promise<GatewayBalanceState> { return client.get('/gateway/billing'); },
-    getSummary(): Promise<GatewayBillingSummary> { return client.get('/gateway/billing/summary'); },
+    getSummary,
+    getCachedSummary(owner: string): GatewayBillingSummary | undefined { return summaryCache?.accountId === owner ? summaryCache.value : undefined; },
     openWebAccount(destination: GatewayWebDestination, locale: 'zh' | 'en'): Promise<{ url: string }> {
       return client.post('/gateway/account/web', { destination, locale, ...(options.billingReturnUrl ? { returnUrl: options.billingReturnUrl } : {}) });
     },
     getPlans(): Promise<GatewayPlans> { return client.get('/gateway/plans'); },
     getOrders(): Promise<{ items: GatewayRechargeOrder[] }> { return client.get('/gateway/billing/orders'); },
     getOrder(id: string): Promise<{ order: GatewayRechargeOrder }> { return client.get('/gateway/billing/orders/' + encodeURIComponent(id)); },
-    getCreditGrants(cursor?: string): Promise<{ items: GatewayCreditGrant[] }> { return client.get('/gateway/billing/ledger' + (cursor ? '?cursor=' + encodeURIComponent(cursor) : '')); },
+    getCreditGrants(cursor?: string): Promise<{ items: GatewayCreditGrant[]; nextCursor?: string }> { return client.get('/gateway/billing/ledger' + (cursor ? '?cursor=' + encodeURIComponent(cursor) : '')); },
     checkout(planId: string, operationId: string, options: { locale?: 'zh' | 'en'; currency?: string } = {}): Promise<{ url: string; orderId: string }> { return client.post('/gateway/billing/checkout', { planId, operationId, ...options }); },
     portal(): Promise<{ url: string }> { return client.post('/gateway/billing/portal', {}); }
   };
 }
-export type GatewayAccountSettingsService = Omit<ReturnType<typeof createGatewayAccountService>, 'openWebAccount'> & Partial<Pick<ReturnType<typeof createGatewayAccountService>, 'openWebAccount'>>;
+export type GatewayAccountSettingsService = Omit<ReturnType<typeof createGatewayAccountService>, 'openWebAccount' | 'probeModel' | 'setRegion' | 'getCachedSummary'> & Partial<Pick<ReturnType<typeof createGatewayAccountService>, 'openWebAccount' | 'probeModel' | 'setRegion' | 'getCachedSummary'>>;

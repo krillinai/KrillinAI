@@ -50,17 +50,60 @@ describe('creator preflight', () => {
     expect(get).not.toHaveBeenCalled();
     expect([...result.ready, ...result.blocked].map(item => item.id)).not.toContain('transcription-config');
   });
-  it('blocks multiple official Stickman references before submitting any generation', async () => {
+  it('validates only the official text model for subtitle-only translation', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-srt-official-preflight-'));
+    const path = join(root, 'source.srt');
+    await writeFile(path, '1\n00:00:02,250 --> 00:00:04,750\nHello\n');
+    const config = createDefaultCreatorServicesConfig();
+    const source = createGatewayCreatorSource({
+      account: { peekState: () => ({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models: [], activationError: null }),
+        modelCredentials: async () => ({ accountId: 'a', modelKey: 'customer-key', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://gateway.example/v1', defaults: { text: 'official-text' }, models: [] }) },
+      manual: { read: async () => config, write: async c => c, reset: async () => config }, getLocalOrigin: () => 'http://127.0.0.1:39999'
+    });
+    const job = fakeJob('video-translation', { sourceType: 'subtitle', importedSourceSubtitleId: 'source-srt', preferPlatformCaptions: false });
+    job.artifacts = [{ id: 'source-srt', jobId: job.id, kind: 'source_subtitle', version: 1, status: 'completed', path,
+      scopeKey: null, inputFingerprint: null, sha256: null, sourceArtifactIds: [], metadata: {}, createdAt: job.createdAt }];
+    const validateOfficialModel = vi.fn(async () => {});
+    const result = await createCreatorPreflight({ configStore: source.store, validateOfficialModel,
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'), resourceRoot: root,
+      jobsRoot: join(root, 'jobs'), executorIds: ['krillinai'], validateRuntimeAssets: false
+    }).check(job, createVideoTranslationTemplate().stages.find(stage => stage.id === 'subtitle')!);
+    expect(result.blocked).toEqual([]);
+    expect(validateOfficialModel).toHaveBeenCalledExactlyOnceWith('text', 'official-text');
+  });
+  it.each([false, true])('checks the task-selected model catalog without inference and blocks invalid choices (%s)', async denied => {
+    root = await mkdtemp(join(tmpdir(), 'creator-model-probe-'));
+    const config = createDefaultCreatorServicesConfig();
+    const source = createGatewayCreatorSource({
+      account: { peekState: () => ({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models: [], activationError: null }),
+        modelCredentials: async () => ({ accountId: 'a', modelKey: 'customer-key', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://gateway.example/v1', defaults: { image: 'default-image' }, models: [] }) },
+      manual: { read: async () => config, write: async c => c, reset: async () => config }, getLocalOrigin: () => 'http://127.0.0.1:39999'
+    });
+    const validateOfficialModel = vi.fn(async () => {
+      if (denied) throw Object.assign(new Error('unavailable'), { code: 'invalid_model' });
+    });
+    const result = await createCreatorPreflight({ configStore: source.store, validateOfficialModel,
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'), resourceRoot: root,
+      jobsRoot: join(root, 'jobs'), executorIds: ['image'], validateRuntimeAssets: false
+    }).check(fakeJob('image-generation', { provider: 'openai', prompt: 'Draw a circle', officialModels: { image: 'task-image' } }), createImageGenerationTemplate().stages[0]!);
+    expect(validateOfficialModel).toHaveBeenCalledWith('image', 'task-image');
+    expect(result.canStart).toBe(!denied);
+    if (denied) expect(result.blocked).toContainEqual(expect.objectContaining({ id: 'official-model-catalog:image',
+      message: expect.stringContaining('Choose another model.') }));
+    else expect(result.ready).toContainEqual(expect.objectContaining({ id: 'official-model-catalog:image',
+      message: expect.stringContaining('compatible model catalog') }));
+  });
+  it.each([1, 14])('checks the official Stickman reference limit (%s) before generation', async maxReferences => {
     root = await mkdtemp(join(tmpdir(), 'creator-official-references-'));
     const config = createDefaultCreatorServicesConfig();
     const source = createGatewayCreatorSource({
-      account: { peekState: () => ({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models: [], activationError: null }), modelCredentials: async () => ({ accountId: 'a', modelKey: 'secret', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://gateway.example/v1', defaults: { image: 'image' }, models: [{ id: 'image', modality: 'image', capabilities: ['edit'] }] }) },
+      account: { peekState: () => ({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models: [], activationError: null }), modelCredentials: async () => ({ accountId: 'a', modelKey: 'secret', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://gateway.example/v1', defaults: { image: 'image' }, models: [{ id: 'image', modality: 'image', capabilities: ['edit'], imageOptions: { maxImages: 1, maxReferences } }] }) },
       manual: { read: async () => config, write: async c => c, reset: async () => config }, getLocalOrigin: () => 'http://127.0.0.1:39999'
     });
     const job = fakeJob('stickman-video', { provider: 'gemini' });
     job.artifacts = ['character_reference', 'style_reference'].map((kind, i) => ({ id: `ref-${i}`, jobId: job.id, kind, version: 1, scopeKey: null, inputFingerprint: null, sourceArtifactIds: [], path: join(root, `${i}.png`), status: 'completed', metadata: {}, sha256: 'hash', producerStageRunId: null, createdAt: job.createdAt, updatedAt: job.updatedAt }));
     const result = await createCreatorPreflight({ configStore: source.store, readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'), resourceRoot: root, jobsRoot: join(root, 'jobs'), validateRuntimeAssets: false }).check(job, createStickmanVideoTemplate().stages.find(stage => stage.executor === 'stickman-image')!);
-    expect(result.blocked).toContainEqual(expect.objectContaining({ id: 'reference-image-count', message: expect.stringContaining('one reference image') }));
+    expect(result.blocked.some(item => item.id === 'reference-image-count')).toBe(maxReferences < 2);
   });
   it.each(['reference', 'speech-style'])('blocks unverified official %s before executing', async feature => {
     root = await mkdtemp(join(tmpdir(), 'creator-official-capability-'));

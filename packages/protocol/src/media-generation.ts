@@ -106,6 +106,15 @@ export type CreateVideoGenerationRequest = {
   size: VideoGenerationSize;
   duration: VideoGenerationDuration;
   referenceImage?: VideoGenerationReferenceImage;
+  references?: VideoGenerationReference[];
+  generateAudio?: boolean;
+  priceVersion?: string;
+};
+
+export type VideoGenerationReference = {
+  role: 'image' | 'video' | 'audio' | 'firstFrame' | 'lastFrame';
+  assetId: string;
+  fileName: string;
 };
 
 export type VideoGenerationResult = {
@@ -118,6 +127,7 @@ export type VideoGenerationResult = {
   status: VideoGenerationStatus;
   progress: number;
   progressKnown?: boolean;
+  phase?: 'preparing' | 'queued' | 'generating' | 'downloading' | 'reconciling';
   fileName?: string;
   mime?: 'video/mp4';
   size?: number;
