@@ -34,6 +34,16 @@ const probeSchema = z.object({
   width: z.number().nullish(),
   height: z.number().nullish(),
   language: z.string().nullish(),
+  subtitles: z.record(z.array(z.object({
+    ext: z.string().nullish(),
+    url: z.string().nullish(),
+    name: z.string().nullish()
+  }).passthrough())).nullish(),
+  automatic_captions: z.record(z.array(z.object({
+    ext: z.string().nullish(),
+    url: z.string().nullish(),
+    name: z.string().nullish()
+  }).passthrough())).nullish(),
   formats: z.array(formatSchema).default([])
 }).passthrough();
 
@@ -116,8 +126,34 @@ function parseSingleDownloadProbe(value: unknown, requestedUrl: string): Downloa
     width: parsed.width ?? largestDimension(formats, 'width'),
     height: parsed.height ?? largestDimension(formats, 'height'),
     formats,
-    options: createDownloadOptions(formats, parsed.duration ?? null)
+    options: [
+      ...createDownloadOptions(formats, parsed.duration ?? null),
+      ...createSubtitleOptions(parsed.subtitles, 'manual'),
+      ...createSubtitleOptions(parsed.automatic_captions, 'automatic')
+    ]
   };
+}
+
+function createSubtitleOptions(
+  tracks: Record<string, Array<{ ext?: string | null; url?: string | null; name?: string | null }>> | null | undefined,
+  source: 'manual' | 'automatic'
+): DownloadOption[] {
+  return Object.entries(tracks ?? {}).flatMap(([language, formats]) => {
+    if (!language || language === 'live_chat') return [];
+    const format = formats.find(candidate => (
+      ['srt', 'vtt', 'ttml'].includes(candidate.ext ?? '')
+      && /^https?:\/\//i.test(candidate.url ?? '')
+    ));
+    if (format === undefined) return [];
+    return [{
+      id: `subtitle-${source}-${encodeURIComponent(language)}`,
+      mediaType: 'subtitle',
+      container: 'srt',
+      subtitleLanguage: language,
+      ...(format.name ? { subtitleName: format.name } : {}),
+      subtitleSource: source
+    }];
+  });
 }
 
 function createDownloadOptions(

@@ -244,16 +244,19 @@ export function buildKrillinCliCommandArguments(
   const sourceUrl = stringOption(options, 'sourceUrl');
   const mediaCache = sourceUrl ? ['--media-workdir', join(dirname(stage.workdir), 'source-media', createHash('sha256').update(sourceUrl).digest('hex').slice(0, 16))] : [];
   if (command === 'subtitle') {
-    const source = sourceOverride ?? resolveKrillinCliSource(artifacts, options);
-    if (!source) throw new CreatorExecutorError('creator_stage_input_missing', 'Subtitle input video or URL is required');
+    const subtitleOnly = options.sourceType === 'subtitle';
+    const source = subtitleOnly ? undefined : sourceOverride ?? resolveKrillinCliSource(artifacts, options);
     const sourceOnly = booleanOption(options, 'sourceOnly', false);
-    const importedTarget = artifactPath(artifacts, 'target_subtitle');
+    const importedTarget = subtitleOnly ? undefined : artifactPath(artifacts, 'target_subtitle');
     const importedSource = artifactPath(artifacts, 'source_subtitle');
     const imported = importedTarget ?? importedSource;
+    if (subtitleOnly ? !importedSource : !source && !imported) {
+      throw new CreatorExecutorError('creator_stage_input_missing', 'A video, URL or imported source SRT is required');
+    }
     return [
       'subtitle',
-      source,
-      ...(!sourceOnly && booleanOption(options, 'prepareVideo', true) ? ['--prepare-video'] : []),
+      ...(source ? [source] : []),
+      ...(!subtitleOnly && source && !sourceOnly && booleanOption(options, 'prepareVideo', true) ? ['--prepare-video'] : []),
       '--origin-lang', requiredOption(options, 'originLanguage'),
       '--target-lang', requiredOption(options, 'targetLanguage'),
       '--caption-source', stringOption(options, 'captionSource') ?? 'any',

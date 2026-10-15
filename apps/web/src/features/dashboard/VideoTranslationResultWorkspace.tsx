@@ -89,6 +89,8 @@ const resultTabs: Array<{
 ];
 
 export default function VideoTranslationResultWorkspace(props: {
+  subtitleOnly?: boolean;
+  subtitleDownloads?: Array<{ artifactId: string; label: string }>;
   activeTab: VideoTranslationResultTab;
   version: number;
   versions: VersionItem[];
@@ -136,6 +138,8 @@ export default function VideoTranslationResultWorkspace(props: {
       ? 'horizontal'
       : availableSubtitleVariants[0];
   const activeSubtitleOutput = props.subtitleOutputs.find(output => output.variant === activeSubtitleVariant);
+  const activeSubtitleLabel = props.subtitleOnly ? l('字幕', 'Subtitles')
+    : subtitleVariantLabel(activeSubtitleOutput?.variant ?? 'horizontal', l);
   const activeSubtitleDirty = activeSubtitleVariant === undefined
     ? false
     : props.subtitleDirtyByVariant[activeSubtitleVariant] === true;
@@ -196,7 +200,7 @@ export default function VideoTranslationResultWorkspace(props: {
     <section className="video-result-workspace" aria-label={l('视频翻译项目产出', 'Video translation project outputs')}>
       <div className="video-result-toolbar">
         <div className="video-result-tabs" role="tablist" aria-label={l('产出物类型', 'Output types')}>
-          {resultTabs.map(tab => {
+          {resultTabs.filter(tab => !props.subtitleOnly || tab.value === 'subtitles' || tab.value === 'settings').map(tab => {
             const Icon = tab.icon;
             return (
               <button
@@ -356,6 +360,11 @@ export default function VideoTranslationResultWorkspace(props: {
               </p>
             </div>
             <div className="video-result-pane-actions">
+              {props.subtitleDownloads?.map(download => <button key={download.artifactId} type="button"
+                disabled={hasSubtitleDrafts || props.subtitleSavePending}
+                onClick={() => props.onExport('subtitles', download.artifactId)}>
+                <Download size={15} aria-hidden="true" />{download.label}
+              </button>)}
               {availableSubtitleVariants.length > 1 ? (
                 <div className="video-result-subtitle-variants" role="radiogroup" aria-label={l('字幕画幅', 'Subtitle format')}>
                   {availableSubtitleVariants.map(variant => (
@@ -380,7 +389,7 @@ export default function VideoTranslationResultWorkspace(props: {
                   <Save size={15} strokeWidth={1.8} aria-hidden="true" />
                   {props.subtitleSavePending
                     ? l('正在保存...', 'Saving...')
-                    : l(
+                    : props.subtitleOnly ? l('保存字幕', 'Save subtitles') : l(
                         `保存${activeSubtitleOutput.variant === 'horizontal' ? '横屏' : '竖屏'}字幕`,
                         `Save ${activeSubtitleOutput.variant === 'horizontal' ? 'horizontal' : 'vertical'} subtitles`
                       )}
@@ -389,8 +398,8 @@ export default function VideoTranslationResultWorkspace(props: {
             </div>
           </header>
           {activeSubtitleOutput !== undefined ? (
-            <div className="video-result-subtitle-preview-layout">
-              <section className="video-result-subtitle-video" aria-label={l('同步视频预览', 'Synchronized video preview')}>
+            <div className="video-result-subtitle-preview-layout" data-subtitle-only={props.subtitleOnly || undefined}>
+              {!props.subtitleOnly ? <section className="video-result-subtitle-video" aria-label={l('同步视频预览', 'Synchronized video preview')}>
                 <div
                   className="video-result-player-frame"
                   data-ratio={activeSubtitleOutput.variant === 'vertical' ? '9:16' : '16:9'}
@@ -459,7 +468,7 @@ export default function VideoTranslationResultWorkspace(props: {
                 {activeSubtitleVideo?.source ? (
                   <small>{l('当前使用原视频同步预览', 'Using the source video for synchronized preview')}</small>
                 ) : null}
-              </section>
+              </section> : null}
 
               <section className="video-result-output-column" data-variant={activeSubtitleOutput.variant}>
                 {activeSubtitleOutput.cues.length > 0 ? (
@@ -467,8 +476,8 @@ export default function VideoTranslationResultWorkspace(props: {
                     className="video-subtitle-editor"
                     role="list"
                     aria-label={l(
-                      `${subtitleVariantLabel(activeSubtitleOutput.variant, l)}内容`,
-                      `${subtitleVariantLabel(activeSubtitleOutput.variant, l)} content`
+                      `${activeSubtitleLabel}内容`,
+                      `${activeSubtitleLabel} content`
                     )}
                   >
                     {subtitleCueGroups.map((group, groupIndex) => {
@@ -510,8 +519,8 @@ export default function VideoTranslationResultWorkspace(props: {
                                     activeSubtitleOutput.variant, cue.id, event.target.value, 'sourceText'
                                   )}
                                   aria-label={l(
-                                    `${subtitleVariantLabel(activeSubtitleOutput.variant, l)}原文 ${index + 1}`,
-                                    `${subtitleVariantLabel(activeSubtitleOutput.variant, l)} source ${index + 1}`
+                                    `${activeSubtitleLabel}原文 ${index + 1}`,
+                                    `${activeSubtitleLabel} source ${index + 1}`
                                   )}
                                 />
                               );
@@ -528,7 +537,7 @@ export default function VideoTranslationResultWorkspace(props: {
                                         cue.id,
                                         event.target.value
                                       )}
-                                  aria-label={`${subtitleVariantLabel(activeSubtitleOutput.variant, l)} ${index + 1}`}
+                                  aria-label={props.subtitleOnly ? `${activeSubtitleLabel} ${index + 1}` : `${subtitleVariantLabel(activeSubtitleOutput.variant, l)} ${index + 1}`}
                                 />
                               );
                               return (
@@ -639,8 +648,8 @@ export default function VideoTranslationResultWorkspace(props: {
           </header>
           <dl className="video-result-settings">
             <div><dt>{l('目标语言', 'Target language')}</dt><dd>{props.targetLanguage}</dd></div>
-            <div><dt>{l('字幕样式', 'Subtitle style')}</dt><dd>{props.subtitleStyleLabel}</dd></div>
-            <div><dt>{l('配音', 'Dubbing')}</dt><dd>{props.dubbing ? l('已开启', 'Enabled') : l('未开启', 'Disabled')}</dd></div>
+            {!props.subtitleOnly ? <div><dt>{l('字幕样式', 'Subtitle style')}</dt><dd>{props.subtitleStyleLabel}</dd></div> : null}
+            {!props.subtitleOnly ? <div><dt>{l('配音', 'Dubbing')}</dt><dd>{props.dubbing ? l('已开启', 'Enabled') : l('未开启', 'Disabled')}</dd></div> : null}
             <div><dt>{l('输出内容', 'Output')}</dt><dd>{props.outputLabel}</dd></div>
             <div>
               <dt>{l('字幕文件', 'Subtitle files')}</dt>

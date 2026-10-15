@@ -91,15 +91,18 @@ function isRedditVideoUrl(url: URL): boolean {
       || /^\/r\/[\w-]+\/s\/[a-z0-9]+\/?$/i.test(url.pathname));
 }
 
-export type DownloadMediaType = 'video' | 'audio';
+export type DownloadMediaType = 'video' | 'audio' | 'subtitle';
 
-export type DownloadContainer = 'mp4' | 'mp3' | 'm4a' | 'webm';
+export type DownloadContainer = 'mp4' | 'mp3' | 'm4a' | 'webm' | 'srt';
 
 export type DownloadOption = {
   id: string;
   mediaType: DownloadMediaType;
   container: DownloadContainer;
   audioLanguage?: string;
+  subtitleLanguage?: string;
+  subtitleName?: string;
+  subtitleSource?: 'manual' | 'automatic';
   width?: number;
   height?: number;
   fps?: number;

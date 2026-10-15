@@ -20,10 +20,13 @@ export function createVideoTranslationWorkflow(input: {
 }) {
   async function validateStage(job: CreatorJob, stageId: string): Promise<void> {
     if (job.templateId !== 'video-translation') return;
+    if (job.state.sourceType === 'subtitle' && stageId !== 'subtitle') {
+      throw new VideoTranslationWorkflowError('creator_action_not_allowed', 'Subtitle-only tasks only support subtitle translation');
+    }
     if (stageId === 'subtitle') {
       validateSource(job);
       await validateBilibiliSource(job, input.videoMetadataService);
-      if (job.artifacts.some(artifact => artifact.id === job.state.importedTargetSubtitleId && artifact.kind === 'target_subtitle' && artifact.status === 'completed')) return;
+      if (job.state.sourceType !== 'subtitle' && job.artifacts.some(artifact => artifact.id === job.state.importedTargetSubtitleId && artifact.kind === 'target_subtitle' && artifact.status === 'completed')) return;
       const config = await input.configStore.read();
       if (
         config.llm.source === 'custom'
@@ -126,7 +129,7 @@ export class VideoTranslationWorkflowError extends Error {
 }
 
 export async function validateBilibiliSource(job: CreatorJob, service?: VideoMetadataService): Promise<void> {
-  if (job.state.sourceType === 'file' || typeof job.state.sourceUrl !== 'string') return;
+  if (job.state.sourceType === 'file' || job.state.sourceType === 'subtitle' || typeof job.state.sourceUrl !== 'string') return;
   let host: string;
   try {
     host = new URL(job.state.sourceUrl).hostname.toLowerCase();
@@ -158,6 +161,13 @@ export async function validateBilibiliSource(job: CreatorJob, service?: VideoMet
 }
 
 function validateSource(job: CreatorJob): void {
+  if (job.state.sourceType === 'subtitle') {
+    if (!job.artifacts.some(artifact => artifact.id === job.state.importedSourceSubtitleId
+      && artifact.kind === 'source_subtitle' && artifact.status === 'completed')) {
+      throw new VideoTranslationWorkflowError('creator_source_missing', 'An imported source SRT file is required');
+    }
+    return;
+  }
   if (job.state.sourceType === 'file') {
     if (!job.artifacts.some(artifact => artifact.kind === 'source_video' && artifact.status === 'completed')) {
       throw new VideoTranslationWorkflowError('creator_source_missing', 'Registered local source video is required');
@@ -245,6 +255,7 @@ function queueNextStage(
 }
 
 function nextWorkflowStage(job: CreatorJob, completedStageId: string): string | undefined {
+  if (job.state.sourceType === 'subtitle') return undefined;
   if (completedStageId === 'subtitle') {
     if (job.state.dubbing === true) return 'tts';
     return firstRenderStage(job);

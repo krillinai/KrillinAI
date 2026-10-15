@@ -72,6 +72,32 @@ func TestImportedSubtitlesSkipRecognitionAndPreserveMultilineText(t *testing.T) 
 	}
 }
 
+func TestStandaloneSRTTranslatesWithoutMediaAndPreservesTimeline(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "source.srt")
+	content := "1\n00:00:02,250 --> 00:00:04,750\nHello\nworld\n\n2\n00:00:05,000 --> 00:00:06,500\nNext cue\n"
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+	fake := &fakeStageService{}
+	response, err := GenerateSubtitles(context.Background(), fake, SubtitleRequest{Workdir: root, TaskID: "srt-only", OriginLang: "en", TargetLang: "zh_cn", InputSRT: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(fake.calls, []string{"translate-import"}) {
+		t.Fatalf("unexpected media or ASR calls: %v", fake.calls)
+	}
+	if response.Outputs.OriginVideo != "" {
+		t.Fatalf("unexpected video: %+v", response.Outputs)
+	}
+	for _, output := range []string{response.Outputs.OriginSRT, response.Outputs.TargetSRT, response.Outputs.BilingualSRT} {
+		data, err := os.ReadFile(output)
+		if err != nil || !strings.Contains(string(data), "00:00:02,250 --> 00:00:04,750") || !strings.Contains(string(data), "00:00:05,000 --> 00:00:06,500") {
+			t.Fatalf("timeline changed: %s, %v", data, err)
+		}
+	}
+}
+
 func fmtBool(value bool) string {
 	if value {
 		return "translated"

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import type {
@@ -20,6 +20,7 @@ import { CreatorExecutorError } from '../executor.js';
 import { sanitizeIssueDetail } from '../issues.js';
 import { spawnCreatorProcess } from '../process-tree.js';
 import { validateMediaFile } from '../validators/media.js';
+import { validateSrtFile } from '../validators/srt.js';
 import { withYtDlpProxy } from '../yt-dlp/args.js';
 import type { YtDlpRuntime } from '../yt-dlp/runtime.js';
 import { parseDownloadProbe } from './probe-parser.js';
@@ -208,6 +209,10 @@ async function downloadSelectedOption(
     );
   }
 
+  if (option.mediaType === 'subtitle') {
+    return downloadSubtitle(input, url, proxy, stage, probe, option);
+  }
+
   stage.reportProgress({
     status: 'running',
     phase: 'preparing_download',
@@ -288,6 +293,63 @@ async function downloadSelectedOption(
       status: 'completed',
       path: output.path,
       metadata
+    }],
+    progress
+  };
+}
+
+async function downloadSubtitle(
+  input: DownloadExecutorOptions,
+  url: string,
+  proxy: string,
+  stage: CreatorExecutorInput,
+  probe: DownloadProbe,
+  option: DownloadOption
+): Promise<CreatorExecutorResult> {
+  const { subtitleLanguage, subtitleSource } = option;
+  if (!subtitleLanguage || (subtitleSource !== 'manual' && subtitleSource !== 'automatic')) {
+    throw new CreatorExecutorError('format_unavailable', 'The selected subtitle track is invalid');
+  }
+  const outputDir = join(stage.workdir, 'subtitles');
+  await mkdir(outputDir, { recursive: true });
+  stage.reportProgress({ status: 'running', phase: 'preparing_download', percent: null, message: 'Downloading the selected subtitles as SRT' });
+  const ytDlp = currentYtDlpRuntime(input, url);
+  const languagePattern = `^${subtitleLanguage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`;
+  await run(ytDlp.executable, [
+    ...ytDlp.prefixArgs,
+    ...YT_DLP_UTF8_ARGS,
+    ...withYtDlpProxy([
+      '--skip-download', '--no-playlist', '--windows-filenames',
+      ...(option.playlistIndex === undefined ? [] : ['--playlist-items', String(option.playlistIndex)]),
+      ...(subtitleSource === 'automatic'
+        ? ['--write-auto-subs', '--no-write-subs']
+        : ['--write-subs', '--no-write-auto-subs']),
+      '--sub-langs', languagePattern,
+      '--sub-format', 'srt/vtt/ttml', '--convert-subs', 'srt',
+      '--ffmpeg-location', input.ffmpegPath,
+      '-o', join(outputDir, 'OpenCreator-%(title).120B-%(id)s.%(ext)s'),
+      normalizeSourceUrl(url)
+    ], proxy)
+  ], stage, undefined, ytDlp.env);
+  const files = (await readdir(outputDir)).filter(file => file.endsWith('.srt'));
+  if (files.length !== 1) {
+    throw new CreatorExecutorError('download_output_missing', 'The selected subtitles are no longer available. Analyze the video again.');
+  }
+  const path = await safeOutputPath(stage.workdir, join(outputDir, files[0]!));
+  const cues = await validateSrtFile(path, { allowOverlaps: true });
+  const info = await stat(path);
+  const sha256 = await sha256File(path);
+  const progress = { status: 'succeeded', phase: 'completed', percent: 100, message: 'Subtitles downloaded to the project' };
+  stage.reportProgress(progress);
+  return {
+    outputs: [{
+      kind: 'source_subtitle', status: 'completed', path,
+      metadata: {
+        ...sourceMetadata(probe), fileName: basename(path), size: info.size, bytes: info.size,
+        sha256, mimeType: 'application/x-subrip', optionId: option.id,
+        mediaType: 'subtitle', container: 'srt', subtitleLanguage,
+        subtitleSource, cueCount: cues.length
+      }
     }],
     progress
   };

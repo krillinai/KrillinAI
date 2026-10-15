@@ -1,4 +1,5 @@
 import type { CreatorExecutor } from '../../src/creator/executor.js';
+import type { CreatorJson } from '@opencreator/protocol';
 import type { FastifyInstance } from 'fastify';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -17,6 +18,36 @@ afterEach(async () => {
 });
 
 describe('creator video download', () => {
+  it('queues a probed subtitle option and serves its SRT artifact', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'creator-subtitle-download-api-'));
+    server = await buildServer({ token: 'secret', dataDir: tempDir, codexHome: join(tempDir, 'codex-home'), creatorExecutors: [fakeDownloadExecutor(true)] });
+    const { job } = (await request('POST', '/creator/jobs', {
+      projectId: 'project_download', templateId: 'video-download', creationKey: 'subtitle-flow',
+      state: { sourceUrl: 'https://www.youtube.com/watch?v=download-demo' }
+    })).json();
+    expect((await request('POST', `/creator/jobs/${job.id}/actions`, {
+      action: 'run-stage', expectedRevision: job.revision, input: { stageId: 'probe' }
+    })).statusCode).toBe(200);
+    const probed = await waitForStage(job.id, 'probe');
+    const rejected = await request('POST', `/creator/jobs/${job.id}/actions`, {
+      action: 'run-stage', expectedRevision: probed.revision,
+      input: { stageId: 'download', optionId: 'subtitle-manual-en', mediaType: 'video' }
+    });
+    expect(rejected.statusCode).toBe(400);
+    const queued = await request('POST', `/creator/jobs/${job.id}/actions`, {
+      action: 'run-stage', expectedRevision: probed.revision,
+      input: { stageId: 'download', optionId: 'subtitle-manual-en', mediaType: 'subtitle' }
+    });
+    expect(queued.statusCode).toBe(200);
+    const downloaded = await waitForStage(job.id, 'download');
+    const artifact = downloaded.artifacts.find((item: { kind: string }) => item.kind === 'source_subtitle');
+    expect(artifact).toMatchObject({ status: 'completed', metadata: { optionId: 'subtitle-manual-en', mediaType: 'subtitle' } });
+    const content = await server.inject({ method: 'GET', url: `/creator/jobs/${job.id}/artifacts/${artifact.id}/content`, headers: { authorization: 'Bearer secret' } });
+    expect(content.statusCode).toBe(200);
+    expect(content.headers['content-type']).toContain('application/x-subrip');
+    expect(content.body).toContain('Hello subtitles');
+  });
+
   it('runs probe and download stages, then imports the video into translation', async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'creator-video-download-api-'));
     server = await buildServer({
@@ -153,13 +184,13 @@ describe('creator video download', () => {
   });
 });
 
-function fakeDownloadExecutor(): CreatorExecutor {
+function fakeDownloadExecutor(subtitles = false): CreatorExecutor {
   return {
     id: 'download',
     async run(stage) {
       if (stage.stageRun.stageId === 'probe') {
         const path = join(stage.workdir, 'probe.json');
-        const metadata = {
+        const metadata: Record<string, CreatorJson> = {
           id: 'download-demo',
           title: 'Download Demo',
           requestedUrl: 'https://www.youtube.com/watch?v=download-demo',
@@ -179,7 +210,7 @@ function fakeDownloadExecutor(): CreatorExecutor {
             height: 1080,
             videoFormatId: '399',
             audioFormatId: '140'
-          }]
+          }, ...(subtitles ? [{ id: 'subtitle-manual-en', mediaType: 'subtitle', container: 'srt', subtitleLanguage: 'en', subtitleSource: 'manual' }] : [])]
         };
         await writeFile(path, JSON.stringify(metadata));
         return {
@@ -190,6 +221,13 @@ function fakeDownloadExecutor(): CreatorExecutor {
             metadata
           }]
         };
+      }
+      if (stage.stageRun.progress.mediaType === 'subtitle') {
+        const path = join(stage.workdir, 'Download Demo.en.srt');
+        await writeFile(path, '1\n00:00:00,000 --> 00:00:01,000\nHello subtitles\n');
+        return { outputs: [{ kind: 'source_subtitle', status: 'completed', path, metadata: {
+          fileName: 'Download Demo.en.srt', mimeType: 'application/x-subrip', optionId: 'subtitle-manual-en', mediaType: 'subtitle', subtitleLanguage: 'en'
+        } }] };
       }
       const path = join(stage.workdir, 'Download Demo.mp4');
       await writeFile(path, 'downloaded-video');

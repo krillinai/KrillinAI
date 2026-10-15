@@ -376,10 +376,10 @@ function stageRequestProgress(
   const selectedOption = options.find(candidate => (
     isJsonRecord(candidate)
     && candidate.id === optionId
-    && (candidate.mediaType === 'video' || candidate.mediaType === 'audio')
+    && (candidate.mediaType === 'video' || candidate.mediaType === 'audio' || candidate.mediaType === 'subtitle')
   ));
   const selectedMediaType = isJsonRecord(selectedOption)
-    && (selectedOption.mediaType === 'video' || selectedOption.mediaType === 'audio')
+    && (selectedOption.mediaType === 'video' || selectedOption.mediaType === 'audio' || selectedOption.mediaType === 'subtitle')
     ? selectedOption.mediaType
     : undefined;
   if (

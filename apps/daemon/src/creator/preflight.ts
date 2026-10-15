@@ -113,6 +113,11 @@ export function createCreatorPreflight(input: {
       }, { label: 'Open diagnostics', deepLink: '#/settings?tab=diagnostics' });
     }
     const inputState = inputSnapshot?.state ?? job.state;
+    if (inputState.sourceType === 'subtitle' && stage.id === 'subtitle'
+      && !job.artifacts.some(artifact => artifact.id === inputState.importedSourceSubtitleId
+        && artifact.kind === 'source_subtitle' && artifact.status === 'completed')) {
+      add('blocked', { id: 'input-subtitle', title: 'Subtitle file missing', message: 'Import a source SRT file to translate.', executionMode: 'local' });
+    }
     if (stage.resultVersionPolicy === 'attach' && inputSnapshot === undefined) {
       add('blocked', { id: 'input-result-version', title: 'Select a project version', message: 'Select a saved project version before preparing the preview video.', executionMode: 'local' });
     }
@@ -252,7 +257,7 @@ export function createCreatorPreflight(input: {
         }
       }
     }
-    if (input.validateRuntimeAssets !== false && (stage.executor === 'download' || stage.executor === 'cover-analysis' || (stage.executor === 'krillinai' && job.state.sourceType !== 'file'))) {
+    if (input.validateRuntimeAssets !== false && (stage.executor === 'download' || stage.executor === 'cover-analysis' || (stage.executor === 'krillinai' && job.state.sourceType !== 'file' && job.state.sourceType !== 'subtitle'))) {
       let runtime: YtDlpRuntime | undefined;
       try { runtime = input.getYtDlpRuntime?.(); } catch { runtime = undefined; }
       if (runtime === undefined) add('blocked', {
@@ -278,7 +283,7 @@ export function createCreatorPreflight(input: {
         }, { label: 'Open local component settings', deepLink: '#/settings?tab=local-components' });
       }
     }
-    if (stage.executor === 'krillinai' && (job.state.sourceType === 'file' || job.state.preferPlatformCaptions === false) && ['whisper.cpp', 'whisperkit', 'faster-whisper'].includes(config.transcription.provider)) {
+    if (stage.executor === 'krillinai' && job.state.sourceType !== 'subtitle' && (job.state.sourceType === 'file' || job.state.preferPlatformCaptions === false) && ['whisper.cpp', 'whisperkit', 'faster-whisper'].includes(config.transcription.provider)) {
       const provider = input.readCapabilities().transcription.providers.find(candidate => candidate.provider === config.transcription.provider);
       if (provider?.available !== true) add('blocked', {
         id: 'transcription-capability',
@@ -316,11 +321,11 @@ async function checkProviderConfig(
   if (stage.executor === 'krillinai') {
     if (
       stage.id === 'subtitle'
-      && !job.artifacts.some(artifact => (
+      && (job.state.sourceType === 'subtitle' || !job.artifacts.some(artifact => (
         artifact.id === job.state.importedTargetSubtitleId
         && artifact.kind === 'target_subtitle'
         && artifact.status === 'completed'
-      ))
+      )))
     ) needs.add('llm');
     if (stage.id === 'tts' && job.state.dubbing === true) needs.add('tts');
   }
@@ -424,7 +429,7 @@ async function checkProviderConfig(
       else add('ready', { id: 'video-provider', title: 'Video service', message: `${provider} / ${settings.model} is configured.`, executionMode: 'remote' });
     }
   }
-  if (stage.executor === 'krillinai' && stage.id === 'subtitle' && (job.state.sourceType === 'file' || job.state.preferPlatformCaptions === false)) {
+  if (stage.executor === 'krillinai' && stage.id === 'subtitle' && job.state.sourceType !== 'subtitle' && (job.state.sourceType === 'file' || job.state.preferPlatformCaptions === false)) {
     const provider = capabilities.transcription.providers.find(candidate => candidate.provider === config.transcription.provider);
     if (provider?.available !== true) return;
     if (config.transcription.provider === 'openai' && !config.transcription.openai.apiKey.trim()) {

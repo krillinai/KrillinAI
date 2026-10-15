@@ -675,6 +675,7 @@ export function resolveCreatorStageInputs(
 
 function creatorInputArtifactEnabled(job: CreatorJob, kind: string): boolean {
   if (job.templateId !== 'video-translation') return true;
+  if (job.state.sourceType === 'subtitle' && (kind === 'source_video' || kind === 'target_subtitle')) return false;
   if (
     (kind === 'dubbed_audio' || kind === 'dubbed_video')
     && job.state.dubbing !== true

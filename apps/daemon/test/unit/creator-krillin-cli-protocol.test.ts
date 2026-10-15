@@ -13,6 +13,23 @@ import { createKrillinConfigToml } from '../../src/creator/krillin/config-bridge
 import { buildKrillinStageOptions, normalizeKrillinFailure } from '../../src/creator/krillin/adapter.js';
 
 describe('KrillinAI CLI protocol', () => {
+  it('translates a standalone SRT without passing an old video or translated import', () => {
+    const stage = { job: { templateId: 'video-translation', state: { sourceType: 'subtitle', sourceUrl: 'https://youtu.be/old', sourceLanguage: 'en', targetLanguage: 'zh_cn' } }, stageRun: { stageId: 'subtitle', id: 'stage' }, workdir: '/job/stage' };
+    const args = buildKrillinCliCommandArguments(stage as never, [
+      { id: 'srt', kind: 'source_subtitle', path: '/job/source.srt' },
+      { id: 'old', kind: 'source_video', path: '/job/old.mp4' },
+      { id: 'old-target', kind: 'target_subtitle', path: '/job/old-target.srt' }
+    ], buildKrillinStageOptions(stage as never), undefined, 'https://youtu.be/old');
+    expect(args.slice(0, 2)).toEqual(['subtitle', '--origin-lang']);
+    expect(args).toContain('/job/source.srt');
+    expect(args).toContain('--srt-translated=false');
+    expect(args).not.toContain('--prepare-video');
+    expect(args).not.toContain('/job/old.mp4');
+    expect(args).not.toContain('/job/old-target.srt');
+    expect(args).not.toContain('https://youtu.be/old');
+    expect(() => buildKrillinCliCommandArguments(stage as never, [], buildKrillinStageOptions(stage as never), undefined))
+      .toThrow('imported source SRT');
+  });
   it.each(['audio_no_speech', 'audio_transcription_empty', 'audio_transcription_invalid_response', 'audio_transcription_timestamps_missing', 'audio_transcription_api_failed'])('preserves %s through usage-error normalization', code => {
     const message = 'OpenAI transcription response was classified by the runtime';
     expect(normalizeKrillinFailure({ code, kind: 'usage', message })).toEqual({ code, message });

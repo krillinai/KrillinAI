@@ -21,6 +21,35 @@ afterEach(async () => {
 });
 
 describe('creator preflight', () => {
+  it('requires an SRT input but no transcription credentials for subtitle-only tasks', async () => {
+    root = await mkdtemp(join(tmpdir(), 'creator-srt-preflight-'));
+    const path = join(root, 'source.srt');
+    await writeFile(path, '1\n00:00:02,250 --> 00:00:04,750\nHello\n');
+    const config = createDefaultCreatorServicesConfig();
+    config.llm.source = 'custom';
+    config.llm.baseUrl = 'https://example.test/v1';
+    config.llm.apiKey = 'test-translation-key';
+    config.llm.model = 'test-translation-model';
+    config.transcription.provider = 'openai';
+    config.transcription.openai.apiKey = '';
+    const job = fakeJob('video-translation', { sourceType: 'subtitle', sourceUrl: 'https://www.bilibili.com/video/BV18E421w7bf', preferPlatformCaptions: false });
+    const get = vi.fn();
+    const preflight = createCreatorPreflight({ configStore: { read: async () => config },
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'),
+      resourceRoot: root, jobsRoot: join(root, 'jobs'), executorIds: ['krillinai'],
+      validateRuntimeAssets: false, videoMetadataService: { get }
+    });
+    const stage = createVideoTranslationTemplate().stages.find(stage => stage.id === 'subtitle')!;
+    expect((await preflight.check(job, stage)).blocked).toContainEqual(expect.objectContaining({ id: 'input-subtitle' }));
+    job.state.importedSourceSubtitleId = 'source-srt';
+    job.artifacts = [{ id: 'source-srt', jobId: job.id, kind: 'source_subtitle', version: 1, status: 'completed', path,
+      scopeKey: null, inputFingerprint: null, sha256: null, sourceArtifactIds: [], metadata: {}, createdAt: job.createdAt }];
+    const result = await preflight.check(job, stage);
+    expect(result.blocked).toEqual([]);
+    expect(result.canStart).toBe(true);
+    expect(get).not.toHaveBeenCalled();
+    expect([...result.ready, ...result.blocked].map(item => item.id)).not.toContain('transcription-config');
+  });
   it('blocks multiple official Stickman references before submitting any generation', async () => {
     root = await mkdtemp(join(tmpdir(), 'creator-official-references-'));
     const config = createDefaultCreatorServicesConfig();

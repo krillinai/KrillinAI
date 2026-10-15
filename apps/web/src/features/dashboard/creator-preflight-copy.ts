@@ -1,6 +1,7 @@
 import type { LocalizeCopy } from '../../i18n/localized-copy.js';
 
 const messages: Record<string, [string, string, string]> = {
+  'input-subtitle': ['请先添加需要翻译的 SRT 字幕', 'Add an SRT file to translate first', 'Lägg till en SRT-fil att översätta först'],
   'input-result-version': ['请先选择有效的已保存项目版本，再准备预览视频。', 'Select a valid saved result version before preparing preview media.', 'Välj en giltig sparad resultatversion innan du förbereder förhandsvisningsvideon.'],
   'bilibili-part': ['请检查 B 站链接，并确认要翻译的视频分集后重试。', 'Check the Bilibili URL and confirm the video part before retrying.', 'Kontrollera Bilibili-länken och bekräfta videodelen innan du försöker igen.'],
   'image-provider': ['图像生成尚未就绪，请检查登录、服务配置及 Runtime 工具支持。', 'Image generation is not ready. Check sign-in, service configuration, and Runtime tool support.', 'Bildgenerering är inte redo. Kontrollera inloggningen, tjänsteinställningarna och verktygsstödet i Runtime.'],

@@ -11,6 +11,10 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEffect } from 'react';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import type { AppLanguage } from '../../i18n/language.js';
+import { appLanguageOptions } from '../../i18n/language.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
+import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 import { CreatorSessionProvider, useOptionalCreatorSession } from './creator-session-store.js';
 import VideoDownloadWorkspace from './VideoDownloadWorkspace.js';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
@@ -46,6 +50,95 @@ afterEach(() => {
 });
 
 describe('VideoDownloadWorkspace', () => {
+  it('localizes subtitle provenance and reorders tracks when the display language changes', () => {
+    const probe = probeArtifact();
+    const tracks = ['en', ...appLanguageOptions.filter(option => option.value !== 'en-US').map(option => option.value)];
+    (probe.metadata.options as CreatorJson[]).push(...tracks.map((track, index) => ({
+      id: `subtitle-${index}`, mediaType: 'subtitle', container: 'srt', subtitleLanguage: track, subtitleName: track,
+      subtitleSource: index % 2 === 0 ? 'manual' : 'automatic'
+    })));
+    render(<LanguageProvider initialPreference="zh-CN"><LanguageSwitchControls /><CreatorSessionProvider
+      initialJob={job({ state: { sourceUrl: 'https://www.youtube.com/watch?v=demo' }, artifacts: [probe] })}
+      service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}>
+      <VideoDownloadWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    fireEvent.click(screen.getByRole('tab', { name: /SRT/ }));
+    for (const { value: language } of appLanguageOptions) {
+      fireEvent.click(screen.getByRole('button', { name: language }));
+      const l = createLocalizedCopy(language);
+      expect(screen.getByRole('tab', { name: `SRT ${l('字幕', 'Subtitles')}` })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByText(`SRT · ${l('人工字幕', 'Manual subtitles')} · en`)).toBeVisible();
+      expect(screen.getByText(`SRT · ${l('自动字幕', 'Automatic captions')} · zh-CN`)).toBeVisible();
+      const promoted = language === 'en-US' ? ['en'] : ['en', language];
+      expect(screen.getAllByRole('radio').map(radio => radio.closest('label')?.querySelector('strong')?.textContent))
+        .toEqual([...promoted, ...tracks.filter(track => !promoted.includes(track))]);
+    }
+  });
+
+  it.each<{
+    language: AppLanguage;
+    tracks: string[];
+    expected: string[];
+  }>([
+    { language: 'zh-CN', tracks: ['fr', 'zh-Hant', 'ja', 'en', 'de', 'zh-Hans', 'en-US'], expected: ['en', 'zh-Hans', 'fr', 'zh-Hant', 'ja', 'de', 'en-US'] },
+    { language: 'en-US', tracks: ['fr', 'zh', 'en-US', 'de', 'en'], expected: ['en-US', 'fr', 'zh', 'de', 'en'] },
+    { language: 'fr-FR', tracks: ['ja', 'de', 'fr', 'en-orig', 'zh'], expected: ['en-orig', 'fr', 'ja', 'de', 'zh'] },
+    { language: 'ja-JP', tracks: ['fr', 'en', 'de'], expected: ['en', 'fr', 'de'] },
+    { language: 'zh-CN', tracks: ['fr', 'zh', 'de'], expected: ['zh', 'fr', 'de'] },
+    { language: 'ja-JP', tracks: ['fr', 'de'], expected: ['fr', 'de'] }
+  ])('prioritizes English and $language subtitles while preserving the remaining order: $tracks', async ({ language, tracks, expected }) => {
+    const probe = probeArtifact();
+    (probe.metadata.options as CreatorJson[]).push(...tracks.map((track, index) => ({
+      id: `subtitle-${index}`, mediaType: 'subtitle', container: 'srt', subtitleLanguage: track, subtitleName: track,
+      subtitleSource: index % 2 === 0 ? 'manual' : 'automatic'
+    })));
+    renderWorkspace(job({ state: { sourceUrl: 'https://www.youtube.com/watch?v=demo' }, artifacts: [probe] }), { applyAction: vi.fn(), language });
+    fireEvent.click(await screen.findByRole('tab', { name: /SRT/ }));
+    const radios = screen.getAllByRole('radio');
+    expect(radios.map(radio => radio.closest('label')?.querySelector('strong')?.textContent)).toEqual(expected);
+    expect(radios[0]).toBeChecked();
+    expect((probe.metadata.options as Array<{ subtitleLanguage?: string }>).filter(option => option.subtitleLanguage).map(option => option.subtitleLanguage)).toEqual(tracks);
+  });
+
+  it('shows the subtitle tab only when the probe includes subtitle tracks and queues the selected SRT', async () => {
+    const probe = probeArtifact();
+    (probe.metadata.options as CreatorJson[]).push({
+      id: 'subtitle-manual-en', mediaType: 'subtitle', container: 'srt', subtitleLanguage: 'en', subtitleName: 'English', subtitleSource: 'manual'
+    }, {
+      id: 'subtitle-automatic-zh', mediaType: 'subtitle', container: 'srt', subtitleLanguage: 'zh', subtitleName: '中文', subtitleSource: 'automatic'
+    });
+    const current = job({ state: { sourceUrl: 'https://www.youtube.com/watch?v=demo' }, artifacts: [probe] });
+    const applyAction = vi.fn();
+    renderWorkspace(current, { applyAction });
+    const tab = await screen.findByRole('tab', { name: 'SRT 字幕' });
+    fireEvent.click(tab);
+    expect(tab).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('SRT · 人工字幕 · en')).toBeInTheDocument();
+    expect(screen.getByText('SRT · 自动字幕 · zh')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: '音频语言' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '下载 中文' }));
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith(current.id, expect.objectContaining({
+      action: 'run-stage', input: { stageId: 'download', optionId: 'subtitle-automatic-zh', mediaType: 'subtitle', sourceUrl: 'https://www.youtube.com/watch?v=demo' }
+    })));
+  });
+
+  it('hides the subtitle tab when no subtitles are available', async () => {
+    renderWorkspace(job({ state: { sourceUrl: 'https://www.youtube.com/watch?v=demo' }, artifacts: [probeArtifact()] }), { applyAction: vi.fn() });
+    await screen.findByRole('heading', { name: 'Creator Download' });
+    expect(screen.queryByRole('tab', { name: 'SRT 字幕' })).not.toBeInTheDocument();
+  });
+
+  it('shows downloaded SRT files with a save action and without a video playback action', async () => {
+    const subtitle = { ...probeArtifact(), id: 'downloaded_subtitle', kind: 'source_subtitle', path: '/tmp/captions.en.srt', metadata: {
+      fileName: 'captions.en.srt', size: 100, subtitleLanguage: 'en', subtitleSource: 'manual', mediaType: 'subtitle', optionId: 'subtitle-manual-en'
+    } };
+    renderWorkspace(job({ state: { sourceUrl: 'https://www.youtube.com/watch?v=demo' }, artifacts: [probeArtifact(), subtitle] }), { applyAction: vi.fn() });
+    fireEvent.click(await screen.findByRole('tab', { name: /作品/ }));
+    expect(screen.getByText('captions.en.srt')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '保存到本机 captions.en.srt' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '预览视频 captions.en.srt' })).not.toBeInTheDocument();
+  });
+
   it('downloads the current thumbnail as an image and disables repeated clicks until it is ready', async () => {
     const current = job({ state: { sourceUrl: 'https://www.youtube.com/watch?v=demo' }, artifacts: [probeArtifact()] });
     let finish!: (response: Response) => void;
@@ -871,6 +964,7 @@ function renderWorkspace(
     runtimeDependencies?: Partial<RuntimeDependenciesController>;
     onOpenRuntimeComponents?: () => void;
     onSnapshot?: (callback: (next: CreatorJob) => void) => void;
+    language?: AppLanguage;
   }
 ) {
   const runtimeDependencies = input.runtimeDependencies === undefined
@@ -882,7 +976,7 @@ function renderWorkspace(
         ...input.runtimeDependencies
       } as RuntimeDependenciesController;
   return render(
-    <LanguageProvider initialPreference="zh-CN">
+    <LanguageProvider initialPreference={input.language ?? 'zh-CN'}>
       <CreatorSessionProvider
         initialJob={initialJob}
         service={{

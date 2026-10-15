@@ -3,6 +3,23 @@ import { additionalLanguageCatalogs, translateEnglishCopy } from './translated-c
 import type { AppLanguage } from './language.js';
 
 describe('additional language catalogs', () => {
+  it('covers subtitle translation and download messages in every additional language', () => {
+    const messages = [
+      'Add an SRT file to translate first', 'Add source', 'Add subtitles', 'Automatic captions',
+      'Bilingual SRT', 'Manual subtitles', 'Remove subtitles', 'Replace file', 'Save subtitles',
+      'Source type', 'Subtitle Translation', 'Subtitles were saved; the project remains V{{0}}.',
+      'Translate subtitles', 'Translate video', 'Translated SRT', 'Waiting for subtitles'
+    ];
+    for (const [language, catalog] of Object.entries(additionalLanguageCatalogs)) {
+      for (const message of messages) {
+        expect(Object.hasOwn(catalog!, message), `${language}: ${message}`).toBe(true);
+        expect(translateEnglishCopy(language as AppLanguage, message)).not.toBe(message);
+      }
+      expect(translateEnglishCopy(language as AppLanguage, 'Subtitles were saved; the project remains V12.'))
+        .toBe(catalog!['Subtitles were saved; the project remains V{{0}}.']!.replace('{{0}}', '12'));
+    }
+  });
+
   it.each([
     ['ja-JP', '取得'], ['ko-KR', '가져오기'], ['es-ES', 'Obtener'],
     ['fr-FR', 'Récupérer'], ['de-DE', 'Abrufen'], ['pt-BR', 'Obter']

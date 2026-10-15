@@ -112,7 +112,7 @@ func Help(cmd Command) string {
 	switch cmd.Name {
 	case "subtitle":
 		return `Usage:
-  krillinai-cli subtitle <input> --origin-lang <lang> --target-lang <lang> --workdir <dir> [flags]
+  krillinai-cli subtitle [input] --origin-lang <lang> --target-lang <lang> --workdir <dir> [flags]
 
 Flags:
   --origin-lang <lang>       Source language, such as en, zh, ja
@@ -521,8 +521,8 @@ func parseSubtitle(name string, args []string) (Command, error) {
 	if input == "" && fs.NArg() == 1 {
 		input = fs.Arg(0)
 	}
-	if input == "" || fs.NArg() > 1 {
-		return Command{}, errors.New("subtitle requires input")
+	if (input == "" && (*inputSRT == "" || *prepareVideo)) || fs.NArg() > 1 {
+		return Command{}, errors.New("subtitle requires input or --input-srt (video preparation requires input)")
 	}
 	return Command{
 		Name:              name,

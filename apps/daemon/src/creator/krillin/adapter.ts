@@ -260,7 +260,8 @@ export function normalizeKrillinFailure(error: { code?: string; kind?: string; m
 export function buildKrillinStageOptions(input: CreatorExecutorInput): Record<string, unknown> {
   const state = input.job.state;
   return compactObject({
-    sourceUrl: typeof state.sourceUrl === 'string' ? normalizeVideoSourceUrl(state.sourceUrl) : undefined,
+    sourceType: state.sourceType,
+    sourceUrl: state.sourceType !== 'subtitle' && typeof state.sourceUrl === 'string' ? normalizeVideoSourceUrl(state.sourceUrl) : undefined,
     originLanguage: normalizeKrillinLanguage(
       typeof state.sourceLanguage === 'string' ? state.sourceLanguage : undefined
     ),

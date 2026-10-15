@@ -899,6 +899,16 @@
   outline-offset: 2px;
 }
 
+.video-translation-subtitle-file-picker .video-translation-subtitle-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  padding: 0;
+}
+
 .video-translation-subtitle-file-picker > span {
   min-width: 0;
   overflow: hidden;
@@ -14707,6 +14717,78 @@
   gap: 18px;
 }
 
+.video-result-subtitle-preview-layout[data-subtitle-only="true"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.video-translation-source-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.video-translation-source-modes button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 12px;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.video-translation-source-modes button[aria-selected="true"] {
+  color: var(--accent);
+  border-bottom-color: currentColor;
+}
+
+.video-translation-subtitle-source-step {
+  width: min(800px, 100%);
+  min-width: 0;
+  margin: 0 auto;
+  box-sizing: border-box;
+  border: 0;
+  background: transparent;
+}
+
+.video-translation-wizard-main[data-phase="configure"] .video-translation-subtitle-source-step {
+  padding-block: 8px;
+}
+
+.video-translation-wizard-main[data-phase="configure"] .video-translation-subtitle-source-step .video-translation-step-heading {
+  margin-bottom: 12px;
+}
+
+.video-translation-subtitle-source-step .video-translation-step-heading h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.video-translation-subtitle-source-step fieldset {
+  min-inline-size: 0;
+}
+
+.video-translation-subtitle-source-step details {
+  overflow-wrap: anywhere;
+}
+
+.video-translation-subtitle-source-step pre {
+  max-height: 320px;
+  overflow: auto;
+  margin: 12px 0 0;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
 .video-result-subtitle-pane {
   container-type: inline-size;
   container-name: video-result-subtitles;
@@ -14945,6 +15027,16 @@
 }
 
 @container video-result-subtitles (max-width: 600px) {
+  .video-result-subtitle-preview-layout[data-subtitle-only="true"] .video-subtitle-cue {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .video-result-subtitle-preview-layout[data-subtitle-only="true"] .video-subtitle-cue-time {
+    display: flex;
+    gap: 10px;
+  }
+
   .video-result-subtitle-preview-layout {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto;

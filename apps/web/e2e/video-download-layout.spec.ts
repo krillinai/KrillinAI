@@ -1,6 +1,54 @@
 import type { CreatorJob } from '@opencreator/protocol';
 import { expect, test } from './fixtures/runtime.js';
 
+test('available subtitles appear beside video and audio with language and caption source', async ({ page, runtime }, testInfo) => {
+  const sourceUrl = 'https://www.youtube.com/watch?v=subtitle-demo';
+  const { job } = await runtime.api<{ job: CreatorJob }>('POST', '/creator/jobs', {
+    projectId: runtime.projectId, templateId: 'video-download', creationKey: 'subtitle-layout', state: { sourceUrl }
+  });
+  const probe: CreatorJob['artifacts'][number] = {
+    id: 'subtitle-probe', jobId: job.id, kind: 'download_probe', status: 'completed', version: 1,
+    path: null, scopeKey: null, inputFingerprint: null, sha256: null, sourceArtifactIds: [], createdAt: new Date().toISOString(),
+    metadata: {
+      id: 'subtitle-demo', title: 'YouTube subtitle demo', requestedUrl: sourceUrl, url: sourceUrl, platform: 'youtube',
+      uploader: 'OpenCreator', thumbnailUrl: null, duration: 90, width: 1920, height: 1080, formats: [],
+      options: [
+        { id: 'video-1080', mediaType: 'video', container: 'mp4', height: 1080 },
+        { id: 'audio-mp3', mediaType: 'audio', container: 'mp3', bitrateKbps: 192 },
+        { id: 'subtitle-manual-en', mediaType: 'subtitle', container: 'srt', subtitleLanguage: 'en', subtitleName: 'English', subtitleSource: 'manual' },
+        { id: 'subtitle-automatic-zh-Hans', mediaType: 'subtitle', container: 'srt', subtitleLanguage: 'zh-Hans', subtitleName: 'Chinese (Simplified)', subtitleSource: 'automatic' }
+      ]
+    }
+  };
+  await page.route(`**/creator/jobs/${job.id}`, async route => {
+    if (route.request().method() === 'GET') await route.fulfill({ json: { job: { ...job, artifacts: [probe] } } });
+    else await route.continue();
+  });
+  await page.addInitScript(({ projectId, threadId }) => {
+    localStorage.setItem('opencreator.preferences.dynamicBackground', 'false');
+    localStorage.setItem('opencreator.preferences.language', 'zh-CN');
+    localStorage.setItem('opencreator.navigation.v3', JSON.stringify({ currentProjectId: projectId, selectedThreadId: threadId }));
+  }, { projectId: runtime.projectId, threadId: runtime.ordinaryThreadId });
+  await page.goto(`${runtime.origin}/#/workbench?tool=video-download&jobId=${encodeURIComponent(job.id)}`);
+  await page.getByRole('button', { name: '稍后配置，进入本地模式' }).click();
+  await expect(page.getByRole('tab', { name: 'MP4 视频' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'MP3 音频' })).toBeVisible();
+  const subtitles = page.getByRole('tab', { name: 'SRT 字幕' });
+  await subtitles.click();
+  await expect(subtitles).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByText('SRT · 人工字幕 · en')).toBeVisible();
+  await expect(page.getByText('SRT · 自动字幕 · zh-Hans')).toBeVisible();
+  await expect(page.getByRole('button', { name: '下载 English' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: '下载 Chinese (Simplified)' })).toBeEnabled();
+  await expect(page.getByRole('tab', { name: 'MP4 视频' })).toHaveAttribute('aria-selected', 'false');
+  const tabStyles = await page.getByRole('tablist', { name: '下载格式' }).evaluate(element => [...element.querySelectorAll('button')].map(button => ({
+    label: button.textContent, selected: button.getAttribute('aria-selected'), background: getComputedStyle(button).backgroundColor
+  })));
+  await testInfo.attach('download-tab-styles', { body: JSON.stringify(tabStyles, null, 2), contentType: 'application/json' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('video-download-subtitles.png'), fullPage: true, animations: 'disabled' });
+});
+
 test('video download platforms stay centered and wrap within the full workspace width', async ({ page, runtime }, testInfo) => {
   const { job } = await runtime.api<{ job: CreatorJob }>('POST', '/creator/jobs', {
     projectId: runtime.projectId,

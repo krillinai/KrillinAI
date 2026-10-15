@@ -8,11 +8,187 @@ import {
 } from '@opencreator/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import { appLanguageOptions } from '../../i18n/language.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
 import { CreatorSessionProvider, useCreatorSession } from './creator-session-store.js';
 import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
 import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
 describe('VideoTranslationWorkspace task controls', () => {
+  it('localizes subtitle import controls across all languages without losing the selected file or preview', () => {
+    const source = { ...subtitleArtifact(1, 'Original text'), id: 'source-srt', kind: 'source_subtitle', metadata: {
+      ...subtitleArtifact(1, 'Original text').metadata, source: 'local-upload', fileName: 'lecture.en.srt', cueCount: 1
+    } };
+    render(<LanguageProvider initialPreference="zh-CN"><LanguageSwitchControls /><CreatorSessionProvider
+      initialJob={job({ status: 'draft', revision: 0, stages: [], artifacts: [source], state: {
+        sourceType: 'subtitle', sourceUrl: '', currentStep: 0, furthestStep: 0, importedSourceSubtitleId: source.id
+      } })} service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}>
+      <VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    for (const { value: language } of appLanguageOptions) {
+      fireEvent.click(screen.getByRole('button', { name: language }));
+      const l = createLocalizedCopy(language);
+      expect(screen.getByRole('tab', { name: l('翻译视频', 'Translate video') })).toBeVisible();
+      expect(screen.getByRole('tab', { name: l('翻译字幕', 'Translate subtitles') })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('heading', { name: l('添加字幕', 'Add subtitles') })).toBeVisible();
+      expect(screen.getByRole('button', { name: l('更换文件', 'Replace file') })).toBeEnabled();
+      expect(screen.getByRole('button', { name: l('移除字幕', 'Remove subtitles') })).toHaveAttribute('title', l('移除字幕', 'Remove subtitles'));
+      expect(screen.getByRole('button', { name: new RegExp(l('添加素材', 'Add source')) })).toBeVisible();
+      expect(within(screen.getByRole('group', { name: l('导入已有字幕', 'Import existing subtitles') })).getByText('lecture.en.srt')).toBeVisible();
+      expect(document.querySelector('.video-translation-subtitle-import pre')).toBeVisible();
+      expect(document.querySelector('.video-translation-subtitle-import pre')).toHaveTextContent('Original text');
+    }
+  });
+
+  it('replaces and removes the selected SRT, then allows selecting the same file again', async () => {
+    const source = { ...subtitleArtifact(1, 'Original text'), id: 'original-srt', kind: 'source_subtitle', metadata: {
+      ...subtitleArtifact(1, 'Original text').metadata, source: 'local-upload', fileName: 'original.srt', cueCount: 1
+    } };
+    let current = job({ status: 'draft', revision: 0, stages: [], artifacts: [source], state: {
+      sourceType: 'subtitle', sourceUrl: '', currentStep: 0, furthestStep: 0, importedSourceSubtitleId: source.id
+    } });
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
+      if (request.action === 'import-subtitle') {
+        const replacement = { ...source, id: `replacement-${current.revision}`, metadata: {
+          ...source.metadata, fileName: String(request.input.fileName), cues: [{ id: 1, start: '00:00:00,000', end: '00:00:01,000', text: 'Replacement text' }]
+        } };
+        current = { ...current, revision: current.revision + 1, artifacts: [...current.artifacts, replacement],
+          state: { ...current.state, importedSourceSubtitleId: replacement.id } };
+      } else current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
+      return { job: current };
+    });
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
+      service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+      <VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    const workspace = screen.getByRole('region', { name: '视频翻译操作区' });
+    expect(within(workspace).getByRole('button', { name: '更换文件' })).toBeEnabled();
+    expect(workspace.querySelector('pre')).toHaveTextContent('Original text');
+    const file = new File(['1\n00:00:00,000 --> 00:00:01,000\nReplacement text\n'], 'replacement.srt');
+    fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [file] } });
+    await waitFor(() => expect(workspace.querySelector('pre')).toHaveTextContent('Replacement text'));
+    expect(workspace.querySelector('pre')).not.toHaveTextContent('Original text');
+    await waitFor(() => expect(within(workspace).getByRole('button', { name: '移除字幕' })).toBeEnabled());
+    fireEvent.click(within(workspace).getByRole('button', { name: '移除字幕' }));
+    expect(workspace.querySelector('pre')).toBeNull();
+    expect(within(workspace).getByText('未选择文件')).toBeVisible();
+    expect(within(workspace).getByRole('button', { name: '选择文件' })).toBeEnabled();
+    expect(within(workspace).queryByRole('button', { name: '移除字幕' })).not.toBeInTheDocument();
+    await waitFor(() => expect(current.state.importedSourceSubtitleId).toBeNull());
+    fireEvent.click(within(workspace).getByRole('button', { name: '继续' }));
+    expect(within(workspace).getByRole('alert')).toHaveTextContent('请先添加需要翻译的 SRT 字幕');
+    fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [file] } });
+    await waitFor(() => expect(workspace.querySelector('pre')).toHaveTextContent('Replacement text'));
+    expect(within(workspace).getByRole('button', { name: '更换文件' })).toBeInTheDocument();
+  });
+
+  it('switches from subtitles to combined video inputs and clears imported subtitle selections', async () => {
+    let current = job({ status: 'draft', revision: 0, stages: [], state: {
+      sourceType: 'subtitle', sourceUrl: '', currentStep: 0, furthestStep: 0,
+      importedSourceSubtitleId: 'source-srt', importedTargetSubtitleId: 'target-srt'
+    } });
+    const applyAction = vi.fn(async (_id: string, request: { input: { patch: Record<string, CreatorJson> } }) => {
+      current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch } };
+      return { job: current };
+    });
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
+      service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+      <VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    const workspace = screen.getByRole('region', { name: '视频翻译操作区' });
+    const sourceTabs = within(workspace).getByRole('tablist', { name: '素材类型' });
+    expect(within(sourceTabs).getAllByRole('tab')).toHaveLength(2);
+    fireEvent.click(within(sourceTabs).getByRole('tab', { name: '翻译视频' }));
+    expect(within(sourceTabs).getByRole('tab', { name: '翻译视频' })).toHaveAttribute('aria-selected', 'true');
+    expect(within(workspace).getByRole('button', { name: '选择本地视频' })).toBeVisible();
+    expect(within(workspace).getByRole('textbox', { name: '视频链接' })).toBeVisible();
+    expect(within(workspace).queryByLabelText('UTF-8 SRT 文件')).not.toBeInTheDocument();
+    expect(within(workspace).getByRole('navigation', { name: '翻译流程' }).querySelectorAll('li')).toHaveLength(3);
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({
+      input: expect.objectContaining({ patch: expect.objectContaining({
+        sourceType: 'url', importedSourceSubtitleId: null, importedTargetSubtitleId: null
+      }) })
+    })));
+  });
+
+  it('requires an imported SRT and starts directly from the second step without video settings', async () => {
+    let current = job({ status: 'draft', revision: 0, stages: [], state: { sourceType: 'subtitle', sourceUrl: '', currentStep: 0, furthestStep: 0 } });
+    const source = { ...subtitleArtifact(1, 'Hello'), id: 'source-srt', kind: 'source_subtitle', metadata: {
+      ...subtitleArtifact(1, 'Hello').metadata, source: 'local-upload', fileName: 'source.srt', cueCount: 1
+    } };
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
+      if (request.action === 'import-subtitle') current = { ...current, revision: current.revision + 1, artifacts: [source], state: { ...current.state, importedSourceSubtitleId: source.id } };
+      else if (request.action === 'run-stage') current = { ...current, revision: current.revision + 1, status: 'running', stages: [stage({ id: 'srt-translation', status: 'queued', dispatchStatus: 'queued', progress: {} })] };
+      else current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
+      return { job: current };
+    });
+    const uploadSourceVideo = vi.fn();
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
+      service={{ applyAction, uploadSourceVideo, runAgentTurn: vi.fn(), preflight: vi.fn(async () => ({ canStart: true, ready: [], blocked: [], warning: [] })) } as never}>
+      <VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    const workspace = screen.getByRole('region', { name: '视频翻译操作区' });
+    expect(within(workspace).getByRole('tab', { name: '翻译字幕' })).toHaveAttribute('aria-selected', 'true');
+    expect(within(workspace).getByRole('navigation', { name: '翻译流程' }).querySelectorAll('li')).toHaveLength(2);
+    fireEvent.click(within(workspace).getByRole('button', { name: '继续' }));
+    expect(within(workspace).getByRole('alert')).toHaveTextContent('请先添加需要翻译的 SRT 字幕');
+    fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['1\n00:00:00,000 --> 00:00:01,000\nHello\n'], 'source.srt')] } });
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'import-subtitle', input: expect.objectContaining({ kind: 'source_subtitle', fileName: 'source.srt' }) })));
+    await waitFor(() => expect(within(workspace).getByRole('button', { name: '继续' })).toBeEnabled());
+    const subtitlePreview = workspace.querySelector('details');
+    expect(subtitlePreview).toHaveAttribute('open');
+    expect(subtitlePreview?.querySelector('pre')).toBeVisible();
+    expect(subtitlePreview?.querySelector('pre')).toHaveTextContent('Hello');
+    expect(subtitlePreview?.querySelector('pre')).toHaveTextContent('00:00:00,000');
+    fireEvent.click(within(workspace).getByRole('button', { name: '继续' }));
+    expect(within(workspace).getByRole('heading', { name: '设置翻译语言' })).toBeVisible();
+    expect(within(workspace).queryByRole('switch', { name: '优先使用平台字幕' })).not.toBeInTheDocument();
+    expect(within(workspace).queryByRole('button', { name: /视频与字幕/ })).not.toBeInTheDocument();
+    fireEvent.click(within(workspace).getByRole('button', { name: '开始翻译' }));
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'run-stage', input: { stageId: 'subtitle', workflow: true } })));
+    expect(uploadSourceVideo).not.toHaveBeenCalled();
+    expect(within(workspace).getByRole('tab', { name: '字幕' })).toHaveAttribute('aria-selected', 'true');
+    expect(within(workspace).queryByRole('tab', { name: '作品' })).not.toBeInTheDocument();
+    expect(within(workspace).queryByRole('tab', { name: '配音' })).not.toBeInTheDocument();
+  });
+
+  it('restores subtitle-only results with source text, downloads and no video player', () => {
+    const source = { ...subtitleArtifact(1, 'Hello'), id: 'source-srt', kind: 'source_subtitle', metadata: { ...subtitleArtifact(1, 'Hello').metadata, fileName: 'source.srt', source: 'local-upload' } };
+    const target = subtitleArtifact(1, '你好');
+    const bilingual = { ...target, id: 'bilingual-srt', kind: 'bilingual_subtitle' };
+    const initialJob = job({ status: 'completed', revision: 1, stages: [], artifacts: [source, target, bilingual], state: {
+      sourceType: 'subtitle', sourceUrl: '', importedSourceSubtitleId: source.id, composeVideo: false,
+      resultSnapshots: [{ version: 1, createdAt: target.createdAt, action: 'run-stage', stageId: 'subtitle', description: '字幕翻译', artifactRefs: { source_subtitle: [source.id], target_subtitle: [target.id], bilingual_subtitle: [bilingual.id] }, changedArtifactIds: [target.id, bilingual.id], staleArtifactIds: [], state: { sourceType: 'subtitle', importedSourceSubtitleId: source.id, targetLanguage: 'zh_cn', sourceLanguage: 'en', bilingual: true } }]
+    } });
+    render(<LanguageProvider initialPreference="zh-CN"><LanguageSwitchControls /><CreatorSessionProvider initialJob={initialJob}
+      service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}>
+      <VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    const workspace = screen.getByRole('region', { name: '视频翻译操作区' });
+    expect(within(workspace).getByRole('textbox', { name: '字幕原文 1' })).toHaveValue('Hello');
+    expect(within(workspace).getByRole('textbox', { name: '字幕 1' })).toHaveValue('你好');
+    expect(within(workspace).getByRole('button', { name: '译文 SRT' })).toBeEnabled();
+    expect(within(workspace).getByRole('button', { name: '双语 SRT' })).toBeEnabled();
+    expect(workspace.querySelector('video')).toBeNull();
+    expect(within(workspace).queryByRole('button', { name: '下载原视频并预览' })).not.toBeInTheDocument();
+    fireEvent.change(within(workspace).getByRole('textbox', { name: '字幕 1' }), { target: { value: '你好世界' } });
+    expect(within(workspace).getByRole('button', { name: '保存字幕' })).toBeEnabled();
+    expect(within(workspace).getByRole('button', { name: '译文 SRT' })).toBeDisabled();
+    expect(within(workspace).queryByRole('button', { name: /保存并生成/ })).not.toBeInTheDocument();
+    fireEvent.click(within(workspace).getByRole('tab', { name: '任务设置' }));
+    expect(within(workspace).queryByText('字幕样式')).not.toBeInTheDocument();
+    expect(within(workspace).queryByText('配音')).not.toBeInTheDocument();
+    fireEvent.click(within(workspace).getByRole('tab', { name: /^字幕/ }));
+    for (const { value: language } of appLanguageOptions) {
+      fireEvent.click(screen.getByRole('button', { name: language }));
+      const l = createLocalizedCopy(language);
+      expect(within(workspace).getByRole('button', { name: l('译文 SRT', 'Translated SRT') })).toBeVisible();
+      expect(within(workspace).getByRole('button', { name: l('双语 SRT', 'Bilingual SRT') })).toBeVisible();
+      expect(within(workspace).getByRole('button', { name: l('保存字幕', 'Save subtitles') })).toBeEnabled();
+      expect(within(workspace).getByRole('textbox', { name: `${l('字幕', 'Subtitles')} 1` })).toHaveValue('你好世界');
+      expect(within(workspace).getByRole('textbox', { name: l(`${l('字幕', 'Subtitles')}原文 1`, `${l('字幕', 'Subtitles')} source 1`) })).toHaveValue('Hello');
+    }
+  });
   it.each([
     ['running', 'queued', '翻译任务等待执行'],
     ['running', 'running', '翻译进行中'],
@@ -597,15 +773,21 @@ describe('VideoTranslationWorkspace task controls', () => {
       view = render(
         <LanguageProvider initialPreference="zh-CN">
           <CreatorSessionProvider
-            initialJob={job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 0, furthestStep: 0 } })}
+            initialJob={job({ status: 'draft', revision: 0, stages: [], state: { sourceUrl: '', currentStep: 0, furthestStep: 0 } })}
             service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
           >
             <VideoTranslationWorkspace onBack={vi.fn()} />
           </CreatorSessionProvider>
         </LanguageProvider>
       );
+      const videoTab = screen.getByRole('tab', { name: '翻译视频' });
+      expect(videoTab).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('button', { name: '选择本地视频' })).toBeVisible();
+      expect(screen.getByRole('textbox', { name: '视频链接' })).toBeVisible();
       const file = new File(['video'], 'portrait.mp4', { type: 'video/mp4' });
       fireEvent.change(screen.getByLabelText('上传本地视频'), { target: { files: [file] } });
+      expect(videoTab).toHaveAttribute('aria-selected', 'true');
+      fireEvent.click(videoTab);
       const sourceVideo = screen.getByLabelText('本地视频预览');
       Object.defineProperties(sourceVideo, {
         videoWidth: { configurable: true, value: 1080 },
