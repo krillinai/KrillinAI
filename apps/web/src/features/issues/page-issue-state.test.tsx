@@ -31,7 +31,7 @@ describe('usePageIssueState', () => {
       }),
       '无法创建创作任务。'
     );
-    expect(issue.fallbackMessage).toContain('模板版本 1 不受本地服务支持');
+    expect(issue.fallbackMessage).toContain('does not support version 1 of the stickman-video template');
     expect(issue.code).toBe('creator_template_version_mismatch');
     expect(issue.fallbackMessage).not.toContain('Unknown creator template');
   });

@@ -9,7 +9,7 @@ import {
   type CreatorResultSnapshot
 } from '@opencreator/protocol';
 import type { ComponentProps } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import { ApiClientError } from '../../runtime/errors.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
@@ -32,6 +32,22 @@ function openBlankWorkspace(moduleName: string, _blankName: string) {
   fireEvent.click(screen.getByRole('button', {
     name: new RegExp(`^${moduleName}`)
   }));
+}
+
+afterEach(() => vi.unstubAllGlobals());
+
+function createSubtitlePreviewService() {
+  class PreviewURL extends URL {
+    static createObjectURL = vi.fn(() => 'blob:subtitle-preview');
+    static revokeObjectURL = vi.fn();
+  }
+  vi.stubGlobal('URL', PreviewURL);
+  return {
+    ...createInMemoryCreatorService(),
+    openSubtitlePreview: vi.fn(async () => new Response(new Blob(['png'], { type: 'image/png' }), {
+      headers: { 'content-type': 'image/png' }
+    }))
+  };
 }
 
 describe('Creator initial session recovery', () => {
@@ -976,9 +992,11 @@ describe('DashboardPage', () => {
 
   it('opens the video translation workspace and keeps its result in place', async () => {
     const onSelectPrompt = vi.fn();
+    const creatorService = createSubtitlePreviewService();
     render(
       <DashboardPage
         onSelectPrompt={onSelectPrompt}
+        creatorService={creatorService}
         videoMetadataService={{
           getVideoMetadata: vi.fn(async () => ({
             platform: 'youtube' as const,
@@ -1024,10 +1042,14 @@ describe('DashboardPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '#FFE45C' }));
     fireEvent.keyDown(screen.getByRole('button', { name: '#FFE45C' }), { key: 'Escape' });
     const subtitlePreview = screen.getByRole('region', { name: '字幕样式预览' });
-    expect(subtitlePreview).toHaveTextContent('这是一段译文字幕');
-    expect(subtitlePreview).toHaveTextContent('这是一段原文字幕');
-    expect(subtitlePreview.querySelectorAll('[data-subtitle-kind]')[0]).toHaveAttribute('data-subtitle-kind', 'translation');
-    expect(subtitlePreview.querySelector(':scope > div')).toHaveStyle({ '--subtitle-preview-font-size': '18px' });
+    expect(await within(subtitlePreview).findByRole('img', { name: '字幕样式预览' })).toHaveAttribute('src', 'blob:subtitle-preview');
+    expect(creatorService.openSubtitlePreview).toHaveBeenLastCalledWith(expect.objectContaining({
+      bilingual: true,
+      subtitlePosition: 'top',
+      translationText: '这是一段译文字幕',
+      originalText: '这是一段原文字幕',
+      subtitleStyle: expect.objectContaining({ fontPreset: 'rounded', fontSize: 'large', primaryColor: '#FFE45C' })
+    }), { signal: expect.any(AbortSignal) });
     expect(screen.getByLabelText('任务摘要')).toHaveTextContent('English → 简体中文');
     expect(screen.getByLabelText('任务摘要')).toHaveTextContent('圆体 · 粗体 · 大 · #FFE45C');
     expect(screen.getByLabelText('任务摘要')).toHaveClass('video-translation-summary', 'creator-task-summary');
@@ -1049,12 +1071,13 @@ describe('DashboardPage', () => {
     expect(screen.queryByRole('button', { name: '生成新版本' })).not.toBeInTheDocument();
   });
 
-  it('shows the translation steps and reopens completed steps', () => {
-    render(<DashboardPage onSelectPrompt={vi.fn()} />);
+  it('shows the translation steps and reopens completed steps', async () => {
+    const creatorService = createSubtitlePreviewService();
+    render(<DashboardPage onSelectPrompt={vi.fn()} creatorService={creatorService} />);
     openBlankWorkspace('视频翻译', '空白视频翻译');
 
     const steps = screen.getByRole('navigation', { name: '翻译流程' });
-    expect(within(steps).getByRole('button', { name: '1 添加视频' })).toHaveAttribute('aria-current', 'step');
+    expect(within(steps).getByRole('button', { name: '1 添加素材' })).toHaveAttribute('aria-current', 'step');
     expect(within(steps).getByRole('button', { name: '2 翻译设置' })).toBeDisabled();
     expect(within(steps).getByRole('button', { name: '3 视频与字幕' })).toBeDisabled();
     expect(within(steps).getAllByRole('button')).toHaveLength(3);
@@ -1071,16 +1094,20 @@ describe('DashboardPage', () => {
     expect(within(screen.getByRole('region', { name: '视频翻译操作区' })).getByRole('button', { name: '开始翻译' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('switch', { name: '合成字幕视频' }));
     const bottomTranslationPreview = screen.getByRole('region', { name: '字幕样式预览' });
-    expect(bottomTranslationPreview.querySelectorAll('[data-subtitle-kind]')[0]).toHaveAttribute('data-subtitle-kind', 'original');
-    expect(bottomTranslationPreview.querySelectorAll('[data-subtitle-kind]')[1]).toHaveAttribute('data-subtitle-kind', 'translation');
+    expect(await within(bottomTranslationPreview).findByRole('img', { name: '字幕样式预览' })).toBeVisible();
+    expect(creatorService.openSubtitlePreview).toHaveBeenLastCalledWith(expect.objectContaining({
+      bilingual: true, subtitlePosition: 'bottom'
+    }), { signal: expect.any(AbortSignal) });
     expect(screen.getByRole('button', { name: '选择原文颜色' })).toBeInTheDocument();
 
     fireEvent.click(within(steps).getByRole('button', { name: /翻译设置$/ }));
     fireEvent.click(screen.getByRole('switch', { name: '双语字幕' }));
     fireEvent.click(within(steps).getByRole('button', { name: /视频与字幕$/ }));
     const translationOnlyPreview = screen.getByRole('region', { name: '字幕样式预览' });
-    expect(translationOnlyPreview.querySelector('[data-subtitle-kind="original"]')).not.toBeInTheDocument();
-    expect(translationOnlyPreview.querySelector('[data-subtitle-kind="translation"]')).toBeInTheDocument();
+    expect(await within(translationOnlyPreview).findByRole('img', { name: '字幕样式预览' })).toBeVisible();
+    expect(creatorService.openSubtitlePreview).toHaveBeenLastCalledWith(expect.objectContaining({
+      bilingual: false, subtitlePosition: 'bottom'
+    }), { signal: expect.any(AbortSignal) });
     expect(screen.queryByRole('button', { name: '选择原文颜色' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '选择译文颜色' })).toBeInTheDocument();
     expect(screen.getByLabelText('任务摘要')).toBeInTheDocument();
@@ -1157,7 +1184,7 @@ describe('DashboardPage', () => {
     fireEvent.change(screen.getByRole('textbox', { name: '视频链接' }), {
       target: { value: 'https://www.youtube.com/watch?v=download-test' }
     });
-    fireEvent.click(screen.getByRole('button', { name: '添加并解析' }));
+    fireEvent.click(screen.getByRole('button', { name: '获取' }));
 
     await waitFor(() => expect(applyAction).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
       action: 'run-stage', input: { stageId: 'probe' }
@@ -1464,7 +1491,7 @@ describe('DashboardPage', () => {
     fireEvent.change(screen.getByRole('combobox', { name: '翻译为' }), {
       target: { value: 'ja' }
     });
-    fireEvent.click(screen.getByRole('button', { name: '添加视频' }));
+    fireEvent.click(screen.getByRole('button', { name: '添加素材' }));
     fireEvent.click(screen.getByRole('button', { name: '清除当前视频来源' }));
     fireEvent.change(screen.getByRole('textbox', { name: '视频链接' }), {
       target: { value: 'https://www.youtube.com/watch?v=draft-source' }
@@ -1479,7 +1506,7 @@ describe('DashboardPage', () => {
     fireEvent.click(screen.getByRole('tab', { name: '任务设置' }));
     fireEvent.click(screen.getByRole('button', { name: '调整设置' }));
     expect(screen.getByRole('combobox', { name: '翻译为' })).toHaveValue('ja');
-    fireEvent.click(screen.getByRole('button', { name: '添加视频' }));
+    fireEvent.click(screen.getByRole('button', { name: '添加素材' }));
     expect(screen.getByRole('img', { name: 'YouTube 视频缩略图' })).toHaveAttribute(
       'src',
       'https://i.ytimg.com/vi/draft-source/hqdefault.jpg'
@@ -1580,7 +1607,7 @@ describe('DashboardPage', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: '任务设置' }));
     fireEvent.click(screen.getByRole('button', { name: '调整设置' }));
-    fireEvent.click(screen.getByRole('button', { name: '添加视频' }));
+    fireEvent.click(screen.getByRole('button', { name: '添加素材' }));
     fireEvent.click(screen.getByRole('button', { name: '清除当前视频来源' }));
     fireEvent.change(screen.getByRole('textbox', { name: '视频链接' }), {
       target: { value: 'https://www.youtube.com/watch?v=source-v2' }

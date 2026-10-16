@@ -657,7 +657,7 @@ test('bundled 模式在最小 PATH 下忽略 ChatGPT 应用内置的 Codex', asy
   }
 });
 
-test('@package-smoke 成功 Probe 后进入 Dashboard，刷新不重复 Probe，并代理 JSON、二进制和 SSE', async ({}, testInfo) => {
+test('@package-smoke 启动和刷新不触发付费 Probe，并代理 JSON、二进制和 SSE', async ({}, testInfo) => {
   const fixture = await launchPlatformProbeDesktop('success');
   try {
     await waitForWorkspace(fixture.page);
@@ -669,7 +669,9 @@ test('@package-smoke 成功 Probe 后进入 Dashboard，刷新不重复 Probe，
     await fixture.page.getByRole('button', { name: '工作台' }).click();
     await expect(fixture.page.getByText('登录即可享受云端协作')).toHaveCount(0);
     await expect(fixture.page.getByRole('button', { name: '登录' })).toHaveCount(0);
-    await expect.poll(() => readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
+    expect((await runtimeRequest(fixture.page, 'GET', '/codex/status')).body)
+      .toMatchObject({ availabilityProbe: { status: 'skipped' } });
+    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(0);
     const startupMetrics = await fixture.page.evaluate(async () => (
       await window.opencreatorDesktop?.readBootstrapState()
     )?.startupMetrics);
@@ -864,7 +866,7 @@ test('@package-smoke 成功 Probe 后进入 Dashboard，刷新不重复 Probe，
       await fixture.page.reload({ waitUntil: 'domcontentloaded' });
       await waitForWorkspace(fixture.page);
     }
-    await expect.poll(() => readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
+    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(0);
 
     const pageClosed = fixture.page.waitForEvent('close');
     await fixture.page.evaluate(() => {
@@ -1162,9 +1164,9 @@ test('打包 App 使用 Codex app-server 并持久化项目与会话', async ({}
     }>(fixture.page, 'GET', '/projects?status=all');
     expect(initialProjects.status).toBe(200);
     expect(
-      initialProjects.body.projects.filter(project => project.name === '默认项目')
+      initialProjects.body.projects.filter(project => project.name === 'Default project')
     ).toHaveLength(1);
-    const defaultProject = initialProjects.body.projects.find(project => project.name === '默认项目');
+    const defaultProject = initialProjects.body.projects.find(project => project.name === 'Default project');
     if (defaultProject === undefined) throw new Error('打包 App 未创建默认工作目录');
     const initialCreatorJob = await runtimeRequest<{
       job: { id: string };
@@ -1255,7 +1257,7 @@ test('打包 App 使用 Codex app-server 并持久化项目与会话', async ({}
     }>(fixture.page, 'GET', '/projects?status=all');
     expect(persistedProjects.status).toBe(200);
     expect(
-      persistedProjects.body.projects.filter(project => project.name === '默认项目')
+      persistedProjects.body.projects.filter(project => project.name === 'Default project')
     ).toHaveLength(1);
     expect(persistedProjects.body.projects).toContainEqual(expect.objectContaining({
       id: createdProject.body.project.id,
@@ -1343,11 +1345,10 @@ test('打包 App 首页 Skills 菜单保持在内容区内', async ({}, testInfo
   }
 });
 
-test('后台 Probe 失败时仍进入 Dashboard 并暴露诊断状态', async () => {
-  const fixture = await launchPackagedDesktop('probe-failure');
+test('未启用付费 Probe 时不执行失败探测，工作区保持可用', async () => {
+  const fixture = await launchPlatformProbeDesktop('probe-failure');
   try {
     await waitForWorkspace(fixture.page);
-    await expect.poll(() => readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
     await expect.poll(async () => await fixture.page.evaluate(async () => {
       const response = await fetch('/.opencreator/runtime/codex/status');
       const payload = await response.json() as {
@@ -1362,10 +1363,11 @@ test('后台 Probe 失败时仍进入 Dashboard 并暴露诊断状态', async ()
         ) ?? false
       };
     }), { timeout: 15_000 }).toEqual({
-      status: 'failed',
-      errorCode: 'CODEX_PROBE_EXIT_NON_ZERO',
-      hasDiagnostic: true
+      status: 'skipped',
+      errorCode: undefined,
+      hasDiagnostic: false
     });
+    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(0);
     expect(fixture.page.url()).toContain('opencreator-app://app/');
   } finally {
     await closeFixture(fixture);
@@ -1382,13 +1384,13 @@ test('Dashboard 握手超时后显示本地错误页并可无 Probe 重载', asy
     await expect(fixture.page.locator('#reload-workspace')).toBeVisible();
     await expect(fixture.page.locator('#restart-runtime')).toBeVisible();
     await expect(fixture.page.locator('#failure-actions')).toBeHidden();
-    await expect.poll(() => readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
+    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(0);
 
     const mainPid = requiredPid(fixture.process.pid);
     const daemonPid = await waitForDaemonUtilityPid(mainPid);
     await fixture.page.locator('#reload-workspace').click();
     await waitForWorkspace(fixture.page);
-    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
+    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(0);
     expect(findDaemonUtilityPid(mainPid)).toBe(daemonPid);
   } finally {
     await closeFixture(fixture);
@@ -1399,7 +1401,7 @@ test('@package-smoke Daemon 连续退出保留 Creator 草稿，自动恢复耗�
   const fixture = await launchPlatformProbeDesktop('success');
   try {
     await waitForWorkspace(fixture.page);
-    await expect.poll(() => readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
+    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(0);
     const mainPid = requiredPid(fixture.process.pid);
     await fixture.page.getByRole('button', { name: '工作台', exact: true }).click();
     await fixture.page.getByRole('button', { name: /^视频翻译/ }).click();
@@ -1422,7 +1424,7 @@ test('@package-smoke Daemon 连续退出保留 Creator 草稿，自动恢复耗�
       phase: undefined,
       health: undefined
     })), { timeout: 30_000 }).toEqual({ phase: 'ready', health: 200 });
-    await expect.poll(() => readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
+    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(0);
     await expect(composer).toHaveValue('保留这段尚未提交的翻译要求');
     let currentPid = replacementPid;
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -1445,14 +1447,14 @@ test('@package-smoke Daemon 连续退出保留 Creator 草稿，自动恢复耗�
       phase: 'failed',
       code: 'DAEMON_RESTART_EXHAUSTED'
     });
-    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
+    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(0);
     await expect(fixture.page.getByRole('button', { name: '重启本地服务', exact: true })).toBeVisible();
     fixture.page.once('dialog', dialog => void dialog.accept());
     await fixture.page.getByRole('button', { name: '重启本地服务', exact: true }).click();
     await expect.poll(async () => (await fixture.page.evaluate(() => window.opencreatorDesktop?.readBootstrapState()))?.phase).toBe('ready');
     await expect(composer).toHaveValue('保留这段尚未提交的翻译要求');
     expect(await fixture.page.evaluate(() => document.body.dataset.runtimeRecoveryMarker)).toBe('retain-renderer');
-    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
+    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(0);
   } finally {
     await closeFixture(fixture);
   }
@@ -1500,28 +1502,21 @@ test('启动页使用 OpenCreator 文字品牌', async ({}, testInfo) => {
   }
 });
 
-test('@package-smoke 退出期间会回收仍在 Probe 中的 Codex 子进程', async () => {
-  test.setTimeout(120_000);
+test('@package-smoke 跳过付费 Probe 并快速退出，回收 Codex 子进程', async () => {
   const fixture = await launchPlatformProbeDesktop('probe-hang');
-  const pidPath = join(fixture.stateDir, 'probe-pid.txt');
   try {
-    await expect.poll(async () => ({
-      pidRecorded: existsSync(pidPath),
-      bootstrapFailure: await fixture.page.evaluate(async () => {
-        const state = await window.opencreatorDesktop?.readBootstrapState();
-        return state?.phase === 'failed' ? state.error?.code ?? 'failed' : undefined;
-      }).catch(() => undefined)
-    }), { timeout: 45_000 }).toEqual({
-      pidRecorded: true,
-      bootstrapFailure: undefined
-    });
-    const codexPid = Number(readFileSync(pidPath, 'utf8'));
-    expect(isProcessAlive(codexPid)).toBe(true);
+    await waitForWorkspace(fixture.page);
+    expect((await runtimeRequest(fixture.page, 'GET', '/codex/status')).body)
+      .toMatchObject({ availabilityProbe: { status: 'skipped' } });
+    expect(readCounter(fixture.stateDir, 'probe-count.txt')).toBe(0);
+    const codexPids = readFileSync(join(fixture.stateDir, 'invocations.ndjson'), 'utf8')
+      .trim().split('\n').map(line => (JSON.parse(line) as { pid: number }).pid);
+    expect(codexPids.length).toBeGreaterThan(0);
 
     await requestPackagedAppQuit(fixture);
-    expect(await waitForProcessExit(fixture.process, 15_000)).toBe(true);
+    expect(await waitForProcessExit(fixture.process, 3_000)).toBe(true);
     expect(fixture.process.exitCode).toBe(0);
-    await expect.poll(() => isProcessAlive(codexPid), { timeout: 15_000 }).toBe(false);
+    await expect.poll(() => codexPids.some(isProcessAlive), { timeout: 15_000 }).toBe(false);
   } finally {
     await closeFixture(fixture);
   }
@@ -1557,12 +1552,12 @@ test('@package-smoke 关闭后隐藏保留本地服务，重新打开后可以�
     await fixture.page.evaluate(async () => {
       await window.opencreatorDesktop?.updateDesktopPreferences({ closeBehavior: 'hide' });
     });
-    await fixture.page.getByRole('button', { name: 'Close window', exact: true }).click();
+    await fixture.page.getByRole('button', { name: '关闭窗口', exact: true }).click();
     expect(fixture.process.exitCode).toBeNull();
     expect((await runtimeRequest(fixture.page, 'GET', '/healthz')).status).toBe(200);
 
     await launchSecondInstance(fixture);
-    await expect(fixture.page.getByRole('button', { name: 'Close window', exact: true })).toBeVisible();
+    await expect(fixture.page.getByRole('button', { name: '关闭窗口', exact: true })).toBeVisible();
     await requestPackagedAppQuit(fixture);
     expect(await waitForProcessExit(fixture.process, 3_000)).toBe(true);
     expect(fixture.process.exitCode).toBe(0);
@@ -1581,7 +1576,7 @@ test('@package-smoke 创作模块连接内嵌 Runtime 并使用默认项目', as
       const response = await runtimeRequest<{ projects: Array<{ name: string }> }>(
         fixture.page, 'GET', '/projects?status=all'
       );
-      return response.body.projects.filter(project => project.name === '默认项目').length;
+      return response.body.projects.filter(project => project.name === 'Default project').length;
     }).toBe(1);
     expect((await runtimeRequest(fixture.page, 'GET', '/creator/templates')).status).toBe(200);
 
@@ -1697,7 +1692,7 @@ test('@package-smoke 设置关闭后退出时，关闭按钮结束实际 App', a
     await fixture.page.evaluate(async () => {
       await window.opencreatorDesktop?.updateDesktopPreferences({ closeBehavior: 'quit' });
     });
-    await fixture.page.getByRole('button', { name: 'Close window', exact: true }).click();
+    await fixture.page.getByRole('button', { name: '关闭窗口', exact: true }).click();
     expect(await waitForProcessExit(fixture.process, 3_000)).toBe(true);
     expect(fixture.process.exitCode).toBe(0);
   } finally {
@@ -1719,12 +1714,6 @@ async function launchPlatformProbeDesktop(mode: string): Promise<DesktopFixture>
     const path = request.url?.split('?')[0];
     if (path === '/api/v1/client/bootstrap') {
       response.end(JSON.stringify(bootstrap));
-    } else if (path === '/api/v1/client/probe-credentials') {
-      response.end(JSON.stringify({
-        costBearer: 'platform', modelKey: 'platform-probe-key', keyVersion: 'probe-1',
-        baseUrl: 'https://openrouter.ai/api/v1',
-        expiresAt: new Date(Date.now() + 900_000).toISOString()
-      }));
     } else if (path === '/api/v1/client/models') {
       response.end(JSON.stringify({ models }));
     } else if (path === '/api/v1/client/usage') {
@@ -1742,9 +1731,10 @@ async function launchPlatformProbeDesktop(mode: string): Promise<DesktopFixture>
   });
   const origin = `http://127.0.0.1:${(gateway.address() as AddressInfo).port}`;
   const bootstrap = {
-    schemaVersion: 1 as const, account, models, defaults: { text: 'official-model' },
-    modelKey: 'user-model-key', keyVersion: '1', bindingVersion: 'probe:1',
-    baseUrl: `${origin}/v1`, keyRotation: true
+    schemaVersion: 3 as const, account, models, defaults: { text: 'official-model' },
+    keyVersion: '1', bindingVersion: 'probe:1',
+    transport: 'gateway' as const, supplier: 'chatanywhere' as const,
+    baseUrl: `${origin}/v1`, keyRotation: false
   };
   const closeGateway = async () => {
     gateway.closeAllConnections();

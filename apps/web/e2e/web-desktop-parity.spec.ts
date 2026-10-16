@@ -23,7 +23,7 @@ test('Windows YouTube 专用登录和完成在 Browser/Desktop 下保持一致',
     try {
       await runtime.openApp(page);
       await page.goto(`${runtime.origin}/#/settings?tab=platform-connections`);
-      const section = page.getByRole('region', { name: '平台连接' });
+      const section = page.getByRole('region', { name: '平台连接' }).getByLabel('YouTube', { exact: true });
       await expect(section.getByRole('button', { name: '连接', exact: true })).toBeVisible();
       await expect(section.getByRole('button', { name: '下载浏览器连接器' })).toHaveCount(0);
       await section.getByRole('button', { name: '连接', exact: true }).click();
@@ -65,11 +65,11 @@ test('首页和项目页按需加载管理、登录与插件资源且 Browser/De
       expect(resources.some(url => /ProjectManagementDialog|\/packages\/skill-market\//.test(url))).toBe(false);
       resources.length = 0;
       await page.reload();
-      await expect(page.getByRole('status', { name: 'The local Runtime is ready' })).toBeVisible();
+      await expect(page.getByRole('status', { name: '本地运行内核正常' })).toBeVisible();
       await expect(page.locator('.startup-agent-setup')).toHaveCount(0);
       expect(resources).toHaveLength(0);
       await page.getByRole('button', { name: '我的项目', exact: true }).click();
-      const workspace = page.getByRole('region', { name: 'OpenCreator workspace' });
+      const workspace = page.getByRole('region', { name: 'OpenCreator 工作区' });
       const heading = workspace.getByRole('heading', { name: '我的项目', exact: true });
       await expect(heading).toBeVisible();
       expect(resources).toHaveLength(0);
@@ -1115,7 +1115,7 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
       await page.goto(`${runtime.origin}/#/settings`);
 
       const settings = page
-        .getByRole('region', { name: 'OpenCreator workspace' })
+        .getByRole('region', { name: 'OpenCreator 工作区' })
         .getByRole('main');
       const lightButton = settings.getByRole('button', { name: '浅色' });
       const permission = settings.getByRole('combobox', { name: '默认权限' });
@@ -1274,7 +1274,7 @@ test('视频下载在 Browser/Desktop Bridge 下保持相同界面、请求和�
       await expect(sources).toHaveCount(0);
       await workspace.getByRole('textbox', { name: '视频链接', exact: true })
         .fill('https://www.youtube.com/watch?v=OpenCreatorParity');
-      await workspace.getByRole('button', { name: '添加并解析' }).click();
+      await workspace.getByRole('button', { name: '获取' }).click();
       await expect(sources.getByRole('listitem')).toHaveCount(1);
       await expect(workspace.getByRole('textbox', { name: '视频链接', exact: true })).toHaveCount(0);
 
@@ -1599,7 +1599,7 @@ test('本地 Whisper 在 Browser/Desktop Bridge 下遵守相同 Runtime 能力�
       await runtime.openApp(page);
       await page.goto(`${runtime.origin}/#/settings?tab=ai-services&section=transcription`);
       const settings = page
-        .getByRole('region', { name: 'OpenCreator workspace' })
+        .getByRole('region', { name: 'OpenCreator 工作区' })
         .getByRole('main');
       const localMode = settings.getByRole('button', { name: '本地 Whisper' });
       if (localProvider) {
@@ -2042,7 +2042,7 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
       await page.goto(`${runtime.origin}/#/settings?tab=local-components`);
 
       const settings = page
-        .getByRole('region', { name: 'OpenCreator workspace' })
+        .getByRole('region', { name: 'OpenCreator 工作区' })
         .getByRole('main');
       const component = settings.locator('.runtime-component-item').filter({
         has: page.getByRole('heading', { name: 'yt-dlp nightly' })
@@ -2133,7 +2133,7 @@ test('工作台模块新建 Creator Job，刷新和最近项目精确恢复历�
   const input = page.getByRole('textbox', { name: '视频链接', exact: true });
   await expect(input).toBeVisible();
   await input.fill('https://www.youtube.com/watch?v=OpenCreatorDemo');
-  await page.getByRole('button', { name: '添加并解析' }).click();
+  await page.getByRole('button', { name: '获取' }).click();
   await expect(page).toHaveURL(/#\/workbench\?tool=video-download&jobId=creator_job_/);
   const firstJobId = new URL(page.url()).hash.match(/jobId=([^&]+)/)?.[1];
   expect(firstJobId).toBeTruthy();
@@ -2159,7 +2159,7 @@ test('工作台模块新建 Creator Job，刷新和最近项目精确恢复历�
 
   await page.getByRole('button', { name: '添加链接', exact: true }).click();
   await input.fill('https://www.youtube.com/watch?v=OpenCreatorChild');
-  await page.getByRole('button', { name: '添加并解析' }).click();
+  await page.getByRole('button', { name: '获取' }).click();
   await expect(page.getByRole('list', { name: '视频链接列表' }).getByRole('listitem')).toHaveCount(2);
   const children = await runtime.api<{ jobs: Array<{ state: Record<string, unknown> }> }>(
     'GET', `/creator/jobs?projectId=${encodeURIComponent(runtime.projectId)}`
@@ -2180,7 +2180,7 @@ test('工作台模块新建 Creator Job，刷新和最近项目精确恢复历�
   await expect(page.getByRole('textbox', { name: '视频链接', exact: true })).toHaveValue('');
   await page.getByRole('textbox', { name: '视频链接', exact: true })
     .fill('https://www.youtube.com/watch?v=OpenCreatorSecond');
-  await page.getByRole('button', { name: '添加并解析' }).click();
+  await page.getByRole('button', { name: '获取' }).click();
   await expect(page).toHaveURL(/#\/workbench\?tool=video-download&jobId=creator_job_/);
   const secondJobId = new URL(page.url()).hash.match(/jobId=([^&]+)/)?.[1];
   expect(secondJobId).toBeTruthy();

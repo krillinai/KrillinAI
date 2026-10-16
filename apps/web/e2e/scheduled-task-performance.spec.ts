@@ -78,7 +78,7 @@ test('100 个任务只加载摘要，并按需加载单个任务会话历史', a
   expectLoadRequestBudget(initialRequests, taskThreadIds);
 
   await page.reload();
-  await expect(page.getByRole('status', { name: 'The local Runtime is ready' })).toBeVisible();
+  await expect(page.getByRole('status', { name: '本地运行内核正常' })).toBeVisible();
   const refreshSample = await readPerformanceSample(page);
   const refreshRequests = requests.splice(0);
   expectLoadRequestBudget(refreshRequests, taskThreadIds);

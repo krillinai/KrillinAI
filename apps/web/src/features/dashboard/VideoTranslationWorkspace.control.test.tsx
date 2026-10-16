@@ -356,7 +356,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
     expect(screen.getByText('Det gick inte att starta förberedelsen av originalvideon. Kontrollera diagnostiken och försök igen.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Försök ladda ned originalvideon igen' })).toBeEnabled();
-    expect(screen.getByRole('textbox', { name: /subtitles 1$/ })).toHaveValue('保留未保存字幕');
+    expect(screen.getByRole('textbox', { name: /undertexter 1$/ })).toHaveValue('保留未保存字幕');
     expect(screen.getByRole('button', { name: /V1/ })).toBeInTheDocument();
     expect(screen.getByText(raw)).not.toBeVisible();
     expect(applyAction).toHaveBeenCalledTimes(requestsBeforeSwitch);
@@ -536,7 +536,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     } })));
     expect(within(screen.getByRole('group', { name: '导入已有字幕' })).queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByText('Invalid UTF-8 SRT: timeline 2')).not.toBeInTheDocument();
-    expect(await screen.findByText(/操作未完成，请在 Agent 区域查看诊断。/)).toBeInTheDocument();
+    expect(await screen.findByText(/操作未完成 错误码：CLIENT_OPERATION_FAILED/)).toBeVisible();
     expect(screen.queryByText(/诊断编号：OC-/)).not.toBeInTheDocument();
     expect(screen.getByLabelText('UTF-8 SRT 文件')).not.toBeDisabled();
   });
