@@ -111,8 +111,9 @@ export default function OfficialModelSelect(props: {
       const above = rect.top - viewportTop - 14;
       const opensAbove = below < 300 && above > below;
       const width = Math.min(Math.max(rect.width, 340), viewportWidth - 16);
+      const menuLeft = getComputedStyle(rootRef.current!).direction === 'rtl' ? rect.right - width : rect.left;
       const next = {
-        width, left: Math.max(viewportLeft + 8, Math.min(rect.left, viewportLeft + viewportWidth - width - 8)),
+        width, left: Math.max(viewportLeft + 8, Math.min(menuLeft, viewportLeft + viewportWidth - width - 8)),
         top: opensAbove ? rect.top - 6 : rect.bottom + 6,
         maxHeight: Math.max(0, Math.min(360, opensAbove ? above : below)), above: opensAbove,
       };

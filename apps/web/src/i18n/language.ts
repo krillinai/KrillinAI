@@ -39,7 +39,14 @@ export const appLanguageOptions: ReadonlyArray<{ value: AppLanguage; label: stri
   { value: 'bg-BG', label: 'Български' },
   { value: 'sk-SK', label: 'Slovenčina' },
   { value: 'hr-HR', label: 'Hrvatski' },
-  { value: 'sr-RS', label: 'Српски' }
+  { value: 'sr-RS', label: 'Српски' },
+  { value: 'ar-SA', label: 'العربية' },
+  { value: 'fa-IR', label: 'فارسی' },
+  { value: 'ur-PK', label: 'اردو' },
+  { value: 'he-IL', label: 'עברית' },
+  { value: 'mr-IN', label: 'मराठी' },
+  { value: 'gu-IN', label: 'ગુજરાતી' },
+  { value: 'pa-IN', label: 'ਪੰਜਾਬੀ' }
 ];
 
 export const languagePreferenceStorageKey = 'opencreator.preferences.language';
@@ -72,6 +79,10 @@ export function resolveSystemLanguage(languages?: readonly string[]): AppLanguag
     if (base === 'no') return 'nb-NO';
     // Tagalog is the basis of Filipino and some systems still report it as tl.
     if (base === 'tl') return 'fil-PH';
+    // Older browsers still use the legacy Hebrew language code.
+    if (base === 'iw') return 'he-IL';
+    // This Punjabi catalog uses Gurmukhi, not Pakistan's Shahmukhi script.
+    if (base === 'pa' && (parts.includes('arab') || parts.includes('pk'))) continue;
     const language = openCreatorLanguages.find(locale => locale.split('-')[0] === base);
     if (language) return language;
   }
@@ -93,6 +104,7 @@ export function resolveAppLanguage(
 
 export function applyAppLanguage(language: AppLanguage): void {
   document.documentElement.lang = language;
+  document.documentElement.dir = ['ar-SA', 'fa-IR', 'ur-PK', 'he-IL'].includes(language) ? 'rtl' : 'ltr';
   document.documentElement.dataset.locale = language;
 }
 

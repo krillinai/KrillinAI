@@ -5,7 +5,7 @@
   width: 100%;
   min-width: 0;
   height: 40px;
-  padding: 0 64px 0 42px;
+  padding-block: 0; padding-inline: 42px 64px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface-2);
@@ -23,9 +23,9 @@
   outline-offset: 2px;
 }
 .official-model-control input:disabled { opacity: var(--state-disabled-opacity); cursor: default; }
-.official-model-search-icon { position: absolute; z-index: 1; top: 12px; left: 11px; color: var(--subtle); pointer-events: none; }
-.official-model-control.is-open input { padding-left: 34px; }
-.official-model-selected-icon { position: absolute; z-index: 1; top: 6px; left: 8px; width: 28px; height: 28px; border-radius: 4px; background: transparent; pointer-events: none; }
+.official-model-search-icon { position: absolute; z-index: 1; top: 12px; inset-inline-start: 11px; color: var(--subtle); pointer-events: none; }
+.official-model-control.is-open input { padding-inline-start: 34px; }
+.official-model-selected-icon { position: absolute; z-index: 1; top: 6px; inset-inline-start: 8px; width: 28px; height: 28px; border-radius: 4px; background: transparent; pointer-events: none; }
 .official-model-selected-icon > img { width: 21px; height: 21px; }
 .official-model-control input { box-sizing: border-box; }
 .official-model-control:has(input:disabled) .official-model-selected-icon { opacity: var(--state-disabled-opacity); }
@@ -45,8 +45,8 @@
   color: var(--muted);
 }
 .official-model-control button:hover:not(:disabled) { background: var(--state-hover-bg); color: var(--text); }
-.official-model-clear { right: 32px; }
-.official-model-toggle { right: 4px; }
+.official-model-clear { inset-inline-end: 32px; }
+.official-model-toggle { inset-inline-end: 4px; }
 .official-model-control.is-open .official-model-toggle svg { transform: rotate(180deg); }
 
 .official-model-menu {
@@ -78,7 +78,7 @@
   background: transparent;
   color: var(--text);
   font: inherit;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 .official-model-option.is-active { background: var(--state-hover-bg); }

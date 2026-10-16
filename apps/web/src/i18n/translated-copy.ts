@@ -32,6 +32,13 @@ import bulgarian from './locales/bg-BG.json' with { type: 'json' };
 import slovak from './locales/sk-SK.json' with { type: 'json' };
 import croatian from './locales/hr-HR.json' with { type: 'json' };
 import serbian from './locales/sr-RS.json' with { type: 'json' };
+import arabic from './locales/ar-SA.json' with { type: 'json' };
+import persian from './locales/fa-IR.json' with { type: 'json' };
+import urdu from './locales/ur-PK.json' with { type: 'json' };
+import hebrew from './locales/he-IL.json' with { type: 'json' };
+import marathi from './locales/mr-IN.json' with { type: 'json' };
+import gujarati from './locales/gu-IN.json' with { type: 'json' };
+import punjabi from './locales/pa-IN.json' with { type: 'json' };
 import type { AppLanguage } from './language.js';
 
 export const additionalLanguageCatalogs: Readonly<Partial<Record<AppLanguage, Readonly<Record<string, string>>>>> = {
@@ -68,7 +75,14 @@ export const additionalLanguageCatalogs: Readonly<Partial<Record<AppLanguage, Re
   'bg-BG': bulgarian,
   'sk-SK': slovak,
   'hr-HR': croatian,
-  'sr-RS': serbian
+  'sr-RS': serbian,
+  'ar-SA': arabic,
+  'fa-IR': persian,
+  'ur-PK': urdu,
+  'he-IL': hebrew,
+  'mr-IN': marathi,
+  'gu-IN': gujarati,
+  'pa-IN': punjabi
 };
 
 type TemplateMatcher = { pattern: RegExp; slots: string[]; translation: string };

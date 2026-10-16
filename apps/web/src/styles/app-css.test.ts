@@ -292,7 +292,7 @@ describe('app CSS visual contracts', () => {
 
     expect(projectTree).toContain('align-content: start;');
     expect(projectTree).toContain('grid-auto-rows: max-content;');
-    expect(projectTree).toContain('margin-right: -12px;');
+    expect(projectTree).toContain('margin-inline-end: -12px;');
     expect(projectTree).toContain('padding: 0 12px 4px 0;');
     expect(sidebarRow).toContain('height: var(--control-compact-md);');
     expect(sidebarRow).toContain('font-size: 13px;');
@@ -331,7 +331,7 @@ describe('app CSS visual contracts', () => {
       /\.sidebar-conversation-row-shell:hover \.conversation-row-meta,[^{]+\{\s*display: none;/
     );
     expect(appCss).toMatch(
-      /\.sidebar-conversation-row-shell:hover \.conversation-row,[^{]+\{[^}]*padding-right: 88px;[^}]*background:/
+      /\.sidebar-conversation-row-shell:hover \.conversation-row,[^{]+\{[^}]*padding-inline-end: 88px;[^}]*background:/
     );
     expect(cssBlock('.conversation-title-hover')).toContain('display: none;');
     expect(appCss).toContain('.sidebar-conversation-row-shell:hover .conversation-title-hover');
@@ -382,7 +382,7 @@ describe('app CSS visual contracts', () => {
     expect(appCss).toMatch(/\.sidebar-task-copy span\s*\{[^}]*transform: scale\(0\.92\);/);
     expect(appCss).toContain('.sidebar-task-row-shell:hover .sidebar-task-row');
     expect(appCss).toMatch(
-      /\.sidebar-task-row-shell:hover \.sidebar-task-row,[^{]+\{\s*padding-right: 56px;/
+      /\.sidebar-task-row-shell:hover \.sidebar-task-row,[^{]+\{\s*padding-inline-end: 56px;/
     );
     expect(appCss).toMatch(
       /\.sidebar-task-action:hover:not\(:disabled\),[^{]+\{[^}]*background: transparent;/
@@ -485,7 +485,7 @@ describe('app CSS visual contracts', () => {
     expect(appCss).not.toContain('.conversation-project');
     expect(composer).toContain('background: var(--composer-project-background);');
     expect(composer).not.toMatch(/background:\s*(?:linear-gradient|color-mix)/);
-    expect(appCss).toMatch(/\.opencreator-sidebar-pane\s*\{[^}]*background:\s*var\(--sidebar\);[^}]*border-right:\s*1px solid var\(--border-hairline\);/);
+    expect(appCss).toMatch(/\.opencreator-sidebar-pane\s*\{[^}]*background:\s*var\(--sidebar\);[^}]*border-inline-end:\s*1px solid var\(--border-hairline\);/);
   });
 
   it('keeps the desktop shell inside short viewports', () => {
@@ -593,7 +593,7 @@ describe('app CSS visual contracts', () => {
     const projectActions = cssBlock('.sidebar-project-actions');
 
     expect(sectionHeading).toContain('grid-template-columns: minmax(0, 1fr) 58px;');
-    expect(sectionHeading).toContain('padding-right: 0;');
+    expect(sectionHeading).toContain('padding-inline-end: 0;');
     expect(sectionActions).toContain('width: 58px;');
     expect(sectionActions).toContain('grid-template-columns: repeat(2, 28px);');
     expect(projectRowShell).toContain('grid-template-columns: minmax(0, 1fr) 58px;');
@@ -1037,13 +1037,13 @@ describe('app CSS visual contracts', () => {
 
     expect(composer).toContain('--composer-left-baseline: 20px;');
     expect(textarea).toContain(
-      'padding-left: calc(var(--composer-left-baseline) - 18px);'
+      'padding-inline-start: calc(var(--composer-left-baseline) - 18px);'
     );
     expect(firstLeftControl).toContain(
-      'margin-left: calc(var(--composer-left-baseline) - 29px);'
+      'margin-inline-start: calc(var(--composer-left-baseline) - 29px);'
     );
     expect(projectContext).toContain(
-      'padding-left: calc(var(--composer-left-baseline) - 6px);'
+      'padding-inline-start: calc(var(--composer-left-baseline) - 6px);'
     );
     expect(iconButton).toContain('width: 38px;');
   });
@@ -1063,7 +1063,7 @@ describe('app CSS visual contracts', () => {
     expect(connectorIcon).toContain('box-shadow: none;');
     expect(connectorIcon).toContain('letter-spacing: 0;');
     expect(cssBlock('.composer-enabled-connectors > span + span'))
-      .toContain('margin-left: -5px;');
+      .toContain('margin-inline-start: -5px;');
   });
 
   it('uses a compact switch list for the Composer connector shortcut', () => {
@@ -1192,7 +1192,7 @@ describe('app CSS visual contracts', () => {
     expect(messageMeta).toContain('opacity: 0;');
     expect(messageMeta).toContain('pointer-events: none;');
     expect(assistantMessageMeta).toContain('justify-content: flex-start;');
-    expect(assistantMessageMeta).toContain('padding-left: 0;');
+    expect(assistantMessageMeta).toContain('padding-inline-start: 0;');
     expect(appCss).toContain('.timeline-user_message:hover .timeline-message-meta');
     expect(appCss).toContain('.timeline-assistant_message:hover .timeline-message-meta');
     expect(appCss).toContain('.timeline-message-meta.is-latest-assistant');

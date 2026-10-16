@@ -20,7 +20,7 @@
 .video-generation-model-row > .creator-tool-field:hover { border-color: var(--border-strong); }
 .video-generation-model-row > .creator-tool-field > span:not(.model-brand-icon):not(.official-model-select) {
   display: block;
-  margin-left: 54px;
+  margin-inline-start: 54px;
   color: var(--muted);
   font-size: 11px;
   line-height: 18px;
@@ -28,7 +28,7 @@
 .video-generation-model-row .official-model-control,
 .video-generation-model-row .official-model-control input[role='combobox'] { height: 28px; min-height: 28px; }
 .video-generation-model-row .official-model-control input[role='combobox'] {
-  padding: 0 36px 0 54px;
+  padding-block: 0; padding-inline: 54px 36px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -39,7 +39,7 @@
 .video-generation-model-row .official-model-value > .model-brand-icon {
   position: absolute;
   top: -16px;
-  left: 0;
+  inset-inline-start: 0;
   width: 40px;
   height: 40px;
   border-radius: 6px;
@@ -47,11 +47,11 @@
 }
 .video-generation-model-row .model-brand-icon > img { width: 27px; height: 27px; }
 .video-generation-model-row .official-model-control button { top: -12px; height: 40px; }
-.video-generation-model-row .official-model-search-icon { top: 6px; left: 13px; }
+.video-generation-model-row .official-model-search-icon { top: 6px; inset-inline-start: 13px; }
 .video-generation-model-row .official-model-value {
   position: relative;
   min-height: 28px;
-  padding: 0 0 0 54px;
+  padding-block: 0; padding-inline: 54px 0;
   border: 0;
   background: transparent;
   font-size: 16px;
@@ -60,15 +60,15 @@
 .video-generation-model-row .video-generation-provider-picker > .model-brand-icon {
   position: absolute;
   top: 15px;
-  left: 16px;
+  inset-inline-start: 16px;
   width: 40px;
   height: 40px;
 }
-.video-generation-provider-picker .native-select { margin-left: 54px; }
+.video-generation-provider-picker .native-select { margin-inline-start: 54px; }
 .video-generation-provider-picker .native-select select {
   height: 28px;
   min-height: 28px;
-  padding: 0 32px 0 0;
+  padding-block: 0; padding-inline: 0 32px;
   border: 0;
   background: transparent;
   font-size: 16px;
@@ -122,7 +122,7 @@
 .video-generation-reference-copy strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
 .video-generation-reference-copy small { color: var(--muted); font-size: 11px; line-height: 1.5; }
 .video-generation-reference-count { align-self: start; color: var(--muted); font-size: 11px; line-height: 20px; font-variant-numeric: tabular-nums; }
-.video-generation-reference-remove { position: relative; z-index: 1; margin-right: 10px; }
+.video-generation-reference-remove { position: relative; z-index: 1; margin-inline-end: 10px; }
 
 .video-generation-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .video-generation-editor .video-generation-prompt-field { display: block; padding: 16px 18px 8px; }
@@ -141,7 +141,7 @@
 .video-generation-editor.is-expanded .video-generation-prompt-field textarea { min-height: 400px; }
 .video-generation-workspace-page .video-generation-prompt-field textarea:focus-visible { outline: 0; }
 .video-generation-prompt-tools { display: flex; align-items: center; gap: 4px; padding: 8px 12px; border-top: 1px solid var(--border-hairline); }
-.video-generation-prompt-tools > small { margin-left: auto; padding: 0 6px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.video-generation-prompt-tools > small { margin-inline-start: auto; padding: 0 6px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .video-generation-prompt-tools > button:disabled { opacity: .4; }
 
 .video-generation-composer .video-generation-settings-grid {

@@ -19,6 +19,7 @@ describe('display language preference', () => {
   beforeEach(() => {
     window.localStorage.clear();
     document.documentElement.removeAttribute('lang');
+    document.documentElement.removeAttribute('dir');
     delete document.documentElement.dataset.locale;
   });
 
@@ -65,6 +66,25 @@ describe('display language preference', () => {
   it('respects browser language preference order', () => {
     expect(resolveSystemLanguage(['en-US', 'sv-SE'])).toBe('en-US');
     expect(resolveSystemLanguage(['sv-SE', 'zh-CN'])).toBe('sv-SE');
+  });
+
+  it('recognizes Middle Eastern and South Asian regional locales', () => {
+    for (const [system, expected] of [
+      ['ar-EG', 'ar-SA'], ['fa', 'fa-IR'], ['ur-IN', 'ur-PK'], ['he', 'he-IL'],
+      ['iw-IL', 'he-IL'], ['mr', 'mr-IN'], ['gu', 'gu-IN'], ['pa-Guru-IN', 'pa-IN']
+    ]) expect(resolveSystemLanguage([system!])).toBe(expected);
+    expect(resolveSystemLanguage(['pa-Arab-PK', 'en-US'])).toBe('en-US');
+  });
+
+  it('switches direction with the display language and resets it when leaving RTL', () => {
+    for (const language of ['ar-SA', 'fa-IR', 'ur-PK', 'he-IL'] as const) {
+      applyAppLanguage(language);
+      expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+    }
+    for (const language of ['en-US', 'zh-CN', 'mr-IN', 'gu-IN', 'pa-IN'] as const) {
+      applyAppLanguage(language);
+      expect(document.documentElement).toHaveAttribute('dir', 'ltr');
+    }
   });
 
   it('defaults to the system and ignores invalid stored values', () => {

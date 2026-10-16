@@ -2,6 +2,11 @@ import type { MouseEvent as ReactMouseEvent } from 'react';
 
 let activeResizeCleanup: (() => void) | undefined;
 
+export function paneInlineDirection(element: HTMLElement | null): 1 | -1 {
+  const direction = element ? getComputedStyle(element).direction : '';
+  return (direction || document.documentElement.dir) === 'rtl' ? -1 : 1;
+}
+
 export function beginPaneResize(
   event: ReactMouseEvent<HTMLElement>,
   update: (clientX: number) => void,

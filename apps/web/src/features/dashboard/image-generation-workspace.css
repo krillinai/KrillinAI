@@ -20,7 +20,7 @@
 .image-generation-model-row > .creator-tool-field:hover { border-color: var(--border-strong); }
 .image-generation-model-row > .creator-tool-field > span:not(.model-brand-icon):not(.official-model-select) {
   display: block;
-  margin-left: 54px;
+  margin-inline-start: 54px;
   color: var(--muted);
   font-size: 11px;
   line-height: 18px;
@@ -28,7 +28,7 @@
 .image-generation-model-row .official-model-control,
 .image-generation-model-row .official-model-control input[role='combobox'] { height: 28px; min-height: 28px; }
 .image-generation-model-row .official-model-control input[role='combobox'] {
-  padding: 0 36px 0 54px;
+  padding-block: 0; padding-inline: 54px 36px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -39,7 +39,7 @@
 .image-generation-model-row .official-model-value > .model-brand-icon {
   position: absolute;
   top: -16px;
-  left: 0;
+  inset-inline-start: 0;
   width: 40px;
   height: 40px;
   border-radius: 6px;
@@ -47,11 +47,11 @@
 }
 .image-generation-model-row .model-brand-icon > img { width: 27px; height: 27px; }
 .image-generation-model-row .official-model-control button { top: -12px; height: 40px; }
-.image-generation-model-row .official-model-search-icon { top: 6px; left: 13px; }
+.image-generation-model-row .official-model-search-icon { top: 6px; inset-inline-start: 13px; }
 .image-generation-model-row .official-model-value {
   position: relative;
   min-height: 28px;
-  padding: 0 0 0 54px;
+  padding-block: 0; padding-inline: 54px 0;
   border: 0;
   background: transparent;
   font-size: 16px;
@@ -105,7 +105,7 @@
 .image-generation-reference-copy strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
 .image-generation-reference-copy small { color: var(--muted); font-size: 11px; line-height: 1.5; }
 .image-generation-reference-count { align-self: start; color: var(--muted); font-size: 11px; line-height: 20px; font-variant-numeric: tabular-nums; }
-.image-generation-reference-remove { position: relative; z-index: 1; margin-right: 10px; }
+.image-generation-reference-remove { position: relative; z-index: 1; margin-inline-end: 10px; }
 
 .image-generation-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .image-generation-editor .image-generation-prompt-field { display: block; padding: 16px 18px 8px; }
@@ -124,7 +124,7 @@
 .image-generation-editor.is-expanded .image-generation-prompt-field textarea { min-height: 400px; }
 .image-generation-workspace-page .image-generation-prompt-field textarea:focus-visible { outline: 0; }
 .image-generation-prompt-tools { display: flex; align-items: center; gap: 4px; padding: 8px 12px; border-top: 1px solid var(--border-hairline); }
-.image-generation-prompt-tools > small { margin-left: auto; padding: 0 6px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.image-generation-prompt-tools > small { margin-inline-start: auto; padding: 0 6px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .image-generation-prompt-tools > button:disabled { opacity: .4; }
 
 .image-generation-settings-grid, .image-generation-settings-grid.is-official {

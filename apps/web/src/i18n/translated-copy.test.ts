@@ -55,7 +55,9 @@ describe('additional language catalogs', () => {
     ['ms-MY', 'Dapatkan'], ['da-DK', 'Hent'], ['nb-NO', 'Hent'], ['fi-FI', 'Nouda'],
     ['cs-CZ', 'Načíst'], ['ro-RO', 'Preia'], ['hu-HU', 'Lekérés'], ['el-GR', 'Ανάκτηση'],
     ['ta-IN', 'பெறு'], ['te-IN', 'పొందు'], ['bg-BG', 'Извлечи'],
-    ['sk-SK', 'Načítať'], ['hr-HR', 'Dohvati'], ['sr-RS', 'Дохвати']
+    ['sk-SK', 'Načítať'], ['hr-HR', 'Dohvati'], ['sr-RS', 'Дохвати'],
+    ['ar-SA', 'جلب'], ['fa-IR', 'دریافت'], ['ur-PK', 'حاصل کریں'], ['he-IL', 'אחזור'],
+    ['mr-IN', 'मिळवा'], ['gu-IN', 'મેળવો'], ['pa-IN', 'ਪ੍ਰਾਪਤ ਕਰੋ']
   ] as const)('translates primary actions in %s', (language, expected) => {
     expect(translateEnglishCopy(language, 'Fetch')).toBe(expected);
     expect(translateEnglishCopy(language, 'Some unknown UI text')).toBe('Some unknown UI text');
@@ -88,7 +90,7 @@ describe('additional language catalogs', () => {
     }
   });
 
-  it.each(['th-TH', 'fil-PH', 'hi-IN', 'bn-BD', 'pl-PL', 'uk-UA', 'nl-NL', 'ms-MY', 'da-DK', 'nb-NO', 'fi-FI', 'cs-CZ', 'ro-RO', 'hu-HU', 'el-GR', 'ta-IN', 'te-IN', 'bg-BG', 'sk-SK', 'hr-HR', 'sr-RS'] as const)('retains product names in %s service guidance', language => {
+  it.each(['th-TH', 'fil-PH', 'hi-IN', 'bn-BD', 'pl-PL', 'uk-UA', 'nl-NL', 'ms-MY', 'da-DK', 'nb-NO', 'fi-FI', 'cs-CZ', 'ro-RO', 'hu-HU', 'el-GR', 'ta-IN', 'te-IN', 'bg-BG', 'sk-SK', 'hr-HR', 'sr-RS', 'ar-SA', 'fa-IR', 'ur-PK', 'he-IL', 'mr-IN', 'gu-IN', 'pa-IN'] as const)('retains product names in %s service guidance', language => {
     const l = (source: string) => translateEnglishCopy(language, source);
     expect(l('OpenCreator version')).toContain('OpenCreator');
     expect(l('Maintain reusable Codex configuration for sessions and scheduled tasks.')).toContain('Codex');

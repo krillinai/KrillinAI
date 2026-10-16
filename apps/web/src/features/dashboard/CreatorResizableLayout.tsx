@@ -7,7 +7,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode
 } from 'react';
-import { beginPaneResize } from '../../components/layout/pane-resize-2026-07-29.js';
+import { beginPaneResize, paneInlineDirection } from '../../components/layout/pane-resize-2026-07-29.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import { useOptionalCreatorSession } from './creator-session-store.js';
 
@@ -48,7 +48,7 @@ export default function CreatorResizableLayout(props: {
     if (!rect) return;
     setWorkspaceWidth(Math.max(
       WORKSPACE_MIN_WIDTH,
-      Math.min(rect.width - AGENT_MIN_WIDTH - RESIZE_HANDLE_WIDTH, clientX - rect.left)
+      Math.min(rect.width - AGENT_MIN_WIDTH - RESIZE_HANDLE_WIDTH, (paneInlineDirection(layoutRef.current) === -1 ? rect.right - clientX : clientX - rect.left))
     ));
   }
 
@@ -67,10 +67,10 @@ export default function CreatorResizableLayout(props: {
   function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (event.key === 'ArrowLeft') {
       event.preventDefault();
-      adjustWorkspaceWidth(-RESIZE_KEY_STEP);
+      adjustWorkspaceWidth(-RESIZE_KEY_STEP * paneInlineDirection(layoutRef.current));
     } else if (event.key === 'ArrowRight') {
       event.preventDefault();
-      adjustWorkspaceWidth(RESIZE_KEY_STEP);
+      adjustWorkspaceWidth(RESIZE_KEY_STEP * paneInlineDirection(layoutRef.current));
     }
   }
 

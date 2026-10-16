@@ -525,7 +525,7 @@
   display: grid;
   gap: 7px;
   margin: 0;
-  padding-left: 19px;
+  padding-inline-start: 19px;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
@@ -784,13 +784,13 @@
 .memory-search svg {
   position: absolute;
   bottom: 10px;
-  left: 10px;
+  inset-inline-start: 10px;
   color: var(--muted);
   pointer-events: none;
 }
 
 .memory-search input {
-  padding-left: 32px;
+  padding-inline-start: 32px;
 }
 
 .memory-block {
