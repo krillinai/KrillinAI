@@ -3,10 +3,10 @@ import { buildKrillinSubtitleStyle } from '../../src/creator/krillin/adapter.js'
 
 describe('Creator KrillinAI subtitle style mapping', () => {
   it.each([
-    ['system', 'regular', 'small', 'OpenCreator Sans Regular', false, [12, 9, 10, 6]],
-    ['sans', 'medium', 'medium', 'OpenCreator Sans Medium', false, [14, 10, 12, 7]],
-    ['serif', 'bold', 'large', 'OpenCreator Serif Bold', true, [18, 12, 15, 9]],
-    ['rounded', 'bold', 'medium', 'OpenCreator Rounded Bold', true, [14, 10, 12, 7]]
+    ['system', 'regular', 'small', 'OpenCreator Sans Regular', false, [14, 10, 12, 7]],
+    ['sans', 'medium', 'medium', 'OpenCreator Sans Medium', false, [18, 12, 15, 9]],
+    ['serif', 'bold', 'large', 'OpenCreator Serif Bold', true, [22, 15, 18, 11]],
+    ['rounded', 'bold', 'medium', 'OpenCreator Rounded Bold', true, [18, 12, 15, 9]]
   ] as const)(
     'maps %s/%s/%s to validated horizontal and vertical ASS styles',
     (fontPreset, fontWeight, fontSize, fontName, bold, sizes) => {

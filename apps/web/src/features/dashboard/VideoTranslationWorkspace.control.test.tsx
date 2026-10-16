@@ -564,6 +564,8 @@ describe('VideoTranslationWorkspace task controls', () => {
       </LanguageProvider>
     );
 
+    expect(screen.getByRole('radio', { name: '经典' })).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
     expect(screen.getByRole('combobox', { name: '字幕字体' })).toHaveValue('serif');
     expect(screen.getByRole('combobox', { name: '字幕大小' })).toHaveValue('large');
     expect(screen.getByRole('button', { name: '选择译文颜色' })).toHaveTextContent('#7EE7FF');
@@ -580,6 +582,7 @@ describe('VideoTranslationWorkspace task controls', () => {
         <VideoTranslationWorkspace onBack={vi.fn()} />
       </CreatorSessionProvider>
     </LanguageProvider>);
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
     const trigger = screen.getByRole('button', { name: '选择译文颜色' });
     expect(screen.queryByRole('dialog', { name: '译文颜色色板' })).not.toBeInTheDocument();
     fireEvent.click(trigger);
@@ -601,8 +604,127 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(trigger);
     expect(screen.getByRole('textbox', { name: '译文颜色 HEX' })).toHaveValue('#123ABC');
-    fireEvent.pointerDown(screen.getByRole('combobox', { name: '输出画幅' }));
+    fireEvent.pointerDown(screen.getByRole('combobox', { name: '字幕字体' }));
     expect(screen.queryByRole('dialog', { name: '译文颜色色板' })).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '自定义字幕样式' })).toBeInTheDocument();
+  });
+
+  it('applies subtitle style presets and reverts drawer edits on cancel', () => {
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 2, furthestStep: 2, composeVideo: true } })}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <VideoTranslationWorkspace onBack={vi.fn()} />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    fireEvent.click(screen.getByRole('radio', { name: '经典' }));
+    expect(screen.getByRole('radio', { name: '经典' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('radio', { name: '电影感' }));
+    expect(screen.getByRole('radio', { name: '电影感' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: '经典' })).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
+    const drawer = screen.getByRole('dialog', { name: '自定义字幕样式' });
+    expect(within(drawer).getByRole('combobox', { name: '字幕字体' })).toHaveValue('serif');
+    fireEvent.change(within(drawer).getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
+    fireEvent.click(within(drawer).getByRole('button', { name: '取消' }));
+    expect(screen.queryByRole('dialog', { name: '自定义字幕样式' })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '电影感' })).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
+    fireEvent.change(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
+    fireEvent.click(screen.getByRole('button', { name: '完成' }));
+    expect(screen.getByRole('radio', { name: '电影感' })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('button', { name: '自定义样式' })).toHaveAttribute('data-active', 'true');
+  });
+
+  it('saves the current subtitle style as a local template and deletes it', () => {
+    window.localStorage.removeItem('opencreator.videoTranslation.savedSubtitleStyles');
+    const renderWorkspace = () => render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 2, furthestStep: 2, composeVideo: true } })}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <VideoTranslationWorkspace onBack={vi.fn()} />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+    const { unmount } = renderWorkspace();
+
+    expect(screen.getByRole('tab', { name: '推荐' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('tab', { name: '我的样式' }));
+    expect(screen.getByText(/还没有保存的样式/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
+    expect(screen.getByRole('region', { name: '字幕样式预览' })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('spinbutton', { name: '描边宽度' }), { target: { value: '6' } });
+    expect(screen.getByRole('slider', { name: '描边宽度滑块' })).toHaveValue('6');
+    fireEvent.change(screen.getByRole('slider', { name: '模糊滑块' }), { target: { value: '3' } });
+    expect(screen.getByRole('spinbutton', { name: '模糊' })).toHaveValue(3);
+    fireEvent.click(screen.getByRole('button', { name: '另存为模版' }));
+    fireEvent.change(screen.getByRole('textbox', { name: '模版名称' }), { target: { value: '口播粗描边' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    fireEvent.click(screen.getByRole('button', { name: '完成' }));
+
+    expect(screen.getByRole('tab', { name: '我的样式' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('radio', { name: '经典' })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '口播粗描边' })).toHaveAttribute('aria-checked', 'true');
+    expect(JSON.parse(window.localStorage.getItem('opencreator.videoTranslation.savedSubtitleStyles') ?? '[]')).toEqual([
+      expect.objectContaining({ name: '口播粗描边', style: expect.objectContaining({ subtitleOutlineWidth: 6, subtitleShadowBlur: 3 }) })
+    ]);
+
+    unmount();
+    renderWorkspace();
+    expect(screen.getByRole('tab', { name: '我的样式' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('radio', { name: '口播粗描边' }));
+    expect(screen.getByRole('radio', { name: '口播粗描边' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('button', { name: '删除模版 口播粗描边' }));
+    expect(screen.queryByRole('radio', { name: '口播粗描边' })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '推荐' })).toHaveAttribute('aria-selected', 'true');
+    expect(window.localStorage.getItem('opencreator.videoTranslation.savedSubtitleStyles')).toBe('[]');
+  });
+
+  it('edits a saved subtitle template and restores the active style on cancel', () => {
+    window.localStorage.setItem('opencreator.videoTranslation.savedSubtitleStyles', JSON.stringify([{
+      id: 'saved-test',
+      name: '口播',
+      style: { subtitleFont: 'serif', subtitleWeight: 'bold', subtitleSize: 'large', subtitleColor: '#FFE45C', subtitleSecondaryColor: '#FFFFFF', subtitleOutlineColor: '#000000', subtitleOutlineWidth: 3, subtitleShadowEnabled: true, subtitleShadowColor: '#000000', subtitleShadowOpacity: 0.6, subtitleShadowOffsetX: 1.5, subtitleShadowOffsetY: 1.5, subtitleShadowBlur: 0.5 }
+    }]));
+    render(
+      <LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider
+          initialJob={job({ status: 'draft', revision: 0, stages: [], state: { currentStep: 2, furthestStep: 2, composeVideo: true } })}
+          service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}
+        >
+          <VideoTranslationWorkspace onBack={vi.fn()} />
+        </CreatorSessionProvider>
+      </LanguageProvider>
+    );
+
+    // Cancel restores the style that was active before editing and leaves the template unchanged.
+    fireEvent.click(screen.getByRole('button', { name: '编辑模版 口播' }));
+    const drawer = screen.getByRole('dialog', { name: '编辑模版' });
+    expect(within(drawer).getByRole('combobox', { name: '字幕字体' })).toHaveValue('serif');
+    fireEvent.change(within(drawer).getByRole('combobox', { name: '字幕大小' }), { target: { value: 'small' } });
+    fireEvent.click(within(drawer).getByRole('button', { name: '取消' }));
+    expect(screen.getByRole('radio', { name: '口播' })).toHaveAttribute('aria-checked', 'false');
+    expect(JSON.parse(window.localStorage.getItem('opencreator.videoTranslation.savedSubtitleStyles') ?? '[]')[0].style.subtitleSize).toBe('large');
+
+    fireEvent.click(screen.getByRole('button', { name: '编辑模版 口播' }));
+    fireEvent.change(screen.getByRole('textbox', { name: '模版名称' }), { target: { value: '口播小字' } });
+    fireEvent.change(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'small' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存修改' }));
+
+    expect(screen.queryByRole('dialog', { name: '编辑模版' })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '口播小字' })).toHaveAttribute('aria-checked', 'true');
+    expect(JSON.parse(window.localStorage.getItem('opencreator.videoTranslation.savedSubtitleStyles') ?? '[]')).toEqual([
+      expect.objectContaining({ id: 'saved-test', name: '口播小字', style: expect.objectContaining({ subtitleSize: 'small', subtitleFont: 'serif' }) })
+    ]);
+    window.localStorage.removeItem('opencreator.videoTranslation.savedSubtitleStyles');
   });
 
   it('uses the same preset and custom color controls for original, outline, and shadow', () => {
@@ -617,7 +739,7 @@ describe('VideoTranslationWorkspace task controls', () => {
       </LanguageProvider>
     );
 
-    fireEvent.click(screen.getByText('更多样式'));
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
     for (const label of ['原文颜色', '描边颜色', '阴影颜色']) {
       fireEvent.click(screen.getByRole('button', { name: `选择${label}` }));
       const preset = screen.getByRole('button', { name: `${label} #7EE7FF` });
@@ -625,7 +747,8 @@ describe('VideoTranslationWorkspace task controls', () => {
       expect(preset).toHaveAttribute('aria-pressed', 'true');
       expect(screen.getByRole('textbox', { name: `${label} HEX` })).toHaveValue('#7EE7FF');
     }
-    expect(screen.getAllByRole('slider')).toHaveLength(2);
+    // Two from the open color picker, five from the outline and shadow range controls.
+    expect(screen.getAllByRole('slider')).toHaveLength(7);
     expect(screen.queryByText('自定义')).not.toBeInTheDocument();
   });
 
@@ -920,6 +1043,7 @@ describe('VideoTranslationWorkspace task controls', () => {
       </LanguageProvider>
     );
 
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
     fireEvent.change(screen.getByRole('combobox', { name: '字幕字体' }), {
       target: { value: 'rounded' }
     });
@@ -937,10 +1061,6 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.change(screen.getByRole('textbox', { name: '原文颜色 HEX' }), {
       target: { value: '#654321' }
     });
-    const advancedStyles = screen.getByText('更多样式').closest('details');
-    expect(advancedStyles).not.toHaveAttribute('open');
-    fireEvent.click(screen.getByText('更多样式'));
-    expect(advancedStyles).toHaveAttribute('open');
     fireEvent.click(screen.getByRole('button', { name: '选择描边颜色' }));
     fireEvent.change(screen.getByRole('textbox', { name: '描边颜色 HEX' }), {
       target: { value: '#111111' }

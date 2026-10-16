@@ -125,7 +125,7 @@ describe('dashboard CSS contracts', () => {
   });
 
   it('keeps subtitle style previews at their output aspect ratio instead of stretching with the form', () => {
-    const layout = cssBlocks('.video-translation-subtitle-style-layout');
+    const presets = cssBlocks('.video-translation-subtitle-presets');
     const outlineFields = cssBlocks('.video-translation-outline-fields');
     const colorOptions = cssBlocks('.video-translation-color-options');
     const preview = cssBlocks('.video-translation-subtitle-preview');
@@ -135,8 +135,8 @@ describe('dashboard CSS contracts', () => {
     const cues = cssBlocks('.video-translation-subtitle-rendered-preview,\n.video-translation-subtitle-preview-status');
     const verticalPreview = cssBlocks('.video-translation-subtitle-preview[data-orientation="portrait"] > div');
 
-    expect(layout[0]).toContain('align-items: start;');
-    expect(layout[0]).toContain('grid-template-columns: minmax(0, 1fr) 280px;');
+    expect(presets[0]).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));');
+    expect(cssBlocks('.video-translation-subtitle-style-body')[0]).toContain('grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);');
     expect(outlineFields[0]).toContain('grid-template-columns: minmax(0, 1fr) 88px;');
     expect(colorOptions[0]).toContain('flex-wrap: wrap;');
     expect(preview[0]).toContain('grid-template-rows: auto auto;');
@@ -148,7 +148,7 @@ describe('dashboard CSS contracts', () => {
     expect(cues[0]).toContain('position: absolute;');
     expect(cues[0]).toContain('z-index: 2;');
     expect(verticalPreview).toHaveLength(1);
-    expect(verticalPreview[0]).toContain('width: min(158px, 100%);');
+    expect(verticalPreview[0]).toContain('width: min(180px, 100%);');
   });
 
   it('fills the available translation workspace width and keeps smaller color swatches', () => {

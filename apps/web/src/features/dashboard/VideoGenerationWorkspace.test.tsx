@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { normalizePageIssue } from '../issues/page-issue-state.js';
 import type {
   CreatorArtifact,
@@ -17,6 +17,75 @@ import { CreatorSessionProvider, useCreatorSession } from './creator-session-sto
 import { OfficialServicesContext } from './official-services.js';
 
 describe('VideoGenerationWorkspace', () => {
+  it.each([0, 1, 2])('opens legacy step %s as a single editable form with the summary in the agent panel', step => {
+    renderWorkspace(creatorJob({ state: {
+      prompt: 'A coastal tracking shot', provider: 'veo', model: 'veo-3.1-generate-preview',
+      size: '720x1280', duration: 8, currentStep: step, furthestStep: step
+    } }));
+    const form = screen.getByRole('form', { name: '视频生成' });
+    expect(within(form).getByRole('textbox', { name: '提示词' })).toHaveValue('A coastal tracking shot');
+    expect(within(form).getByRole('combobox', { name: '模型版本' })).toHaveValue('Veo 3.1');
+    expect(within(form).getByRole('combobox', { name: '画幅' })).toHaveValue('720x1280');
+    expect(within(form).getByRole('combobox', { name: '视频时长' })).toHaveValue('8');
+    expect(within(form).getByRole('button', { name: '开始生成' })).toBeEnabled();
+    const agent = screen.getByRole('complementary', { name: 'OpenCreator' });
+    expect(within(agent).getByRole('complementary', { name: '任务摘要' })).toHaveTextContent('Veo 3.1 · 9:16 · 8s');
+    expect(document.querySelector('.creator-workspace-main .creator-task-summary')).toBeNull();
+    expect(screen.queryByRole('navigation', { name: '视频生成流程' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '继续' })).not.toBeInTheDocument();
+  });
+
+  it('validates and submits the edited prompt and settings directly from one form', async () => {
+    const view = renderWorkspace(creatorJob({}));
+    fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('请先描述需要生成的视频');
+    expect(view.applyAction).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByRole('textbox', { name: '提示词' }), { target: { value: '  The city at dusk  ' } });
+    fireEvent.change(screen.getByRole('combobox', { name: '视频服务' }), { target: { value: 'veo' } });
+    fireEvent.change(screen.getByRole('combobox', { name: '视频时长' }), { target: { value: '8' } });
+    fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
+
+    await waitFor(() => expect(view.applyAction).toHaveBeenCalledWith('creator_video_workspace', expect.objectContaining({
+      action: 'run-stage', input: { stageId: 'generate' }
+    })));
+    const settings = view.applyAction.mock.calls.filter(([, request]) => request.action === 'update-settings');
+    expect(settings.at(-1)?.[1].input.patch).toMatchObject({ prompt: 'The city at dusk', provider: 'veo', duration: 8 });
+    for (const [, request] of settings) {
+      expect(request.input.patch).not.toHaveProperty('currentStep');
+      expect(request.input.patch).not.toHaveProperty('furthestStep');
+    }
+  });
+
+  it('previews, removes, and replaces a reference image without leaving the form', async () => {
+    renderWorkspace(creatorJob({}));
+    const upload = screen.getByLabelText('上传视频参考图');
+    const image = new File(['image'], 'reference.png', { type: 'image/png' });
+    fireEvent.change(upload, { target: { files: [image] } });
+    expect(await screen.findByRole('img', { name: '视频参考图预览' })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: '画幅' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '移除参考图' }));
+    expect(screen.queryByRole('img', { name: '视频参考图预览' })).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '画幅' })).toBeEnabled();
+    fireEvent.change(upload, { target: { files: [image] } });
+    expect(await screen.findByRole('img', { name: '视频参考图预览' })).toBeVisible();
+    expect(upload).toHaveValue('');
+  });
+
+  it.each([
+    { language: 'zh-CN' as const, form: '视频生成', prompt: '提示词', model: '模型版本', generate: '开始生成', clear: '清空提示词', summary: '任务摘要' },
+    { language: 'en-US' as const, form: 'Video Generation', prompt: 'Prompt', model: 'Model version', generate: 'Generate', clear: 'Clear prompt', summary: 'Task summary' },
+    { language: 'sv-SE' as const, form: 'Videogenerering', prompt: 'Prompt', model: 'Modellversion', generate: 'Generera', clear: 'Rensa prompt', summary: 'Uppgiftssammanfattning' }
+  ])('localizes the single-page controls and summary in $language', copy => {
+    renderWorkspace(creatorJob({}), { language: copy.language });
+    const form = screen.getByRole('form', { name: copy.form });
+    expect(within(form).getByRole('textbox', { name: copy.prompt })).toBeInTheDocument();
+    expect(within(form).getByRole('combobox', { name: copy.model })).toBeInTheDocument();
+    expect(within(form).getByRole('button', { name: copy.generate })).toBeInTheDocument();
+    expect(within(form).getByRole('button', { name: copy.clear })).toBeDisabled();
+    expect(within(screen.getByRole('complementary', { name: 'OpenCreator' })).getByRole('complementary', { name: copy.summary })).toBeInTheDocument();
+  });
+
   it('shows model-native video sizes and durations beyond the custom provider presets', () => {
     const gatewayState: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: '1', models: [{ id: 'vendor/video', modality: 'video', capabilities: [], resolutions: ['1080p', '720p'], aspectRatios: ['16:9', '9:16'], durations: [3, 12] }], activationError: null };
     renderWorkspace(creatorJob({ state: { prompt: 'city', currentStep: 1, furthestStep: 1 } }), { gatewayState });
@@ -498,7 +567,7 @@ describe('VideoGenerationWorkspace', () => {
 
     renderWorkspace(job);
 
-    expect(screen.getByRole('heading', { name: '生成视频' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '提示词' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: /项目 V/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '开始生成' })).toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: 'OpenCreator' })).toHaveTextContent('视频生成未完成，请检查模型服务配置后重试');
@@ -653,8 +722,8 @@ describe('VideoGenerationWorkspace', () => {
 
     renderWorkspace(job, { language: 'en-US' });
 
-    expect(screen.getByText('Format')).toBeInTheDocument();
-    expect(screen.getByText('Output format')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Format' })).toBeInTheDocument();
+    expect(within(screen.getByRole('complementary', { name: 'Task summary' })).getByText('Output format')).toBeInTheDocument();
   });
 
   it('preserves user selections when service defaults arrive late', async () => {
@@ -671,7 +740,7 @@ describe('VideoGenerationWorkspace', () => {
     fireEvent.change(duration, { target: { value: '8' } });
     await act(async () => { resolveConfig({ config: createVideoConfig(), configuredCredentials: [] }); });
     expect(provider).toHaveValue('veo');
-    expect(model).toHaveValue('veo-3.1-generate-preview');
+    expect(model).toHaveValue('Veo 3.1');
     expect(duration).toHaveValue('8');
   });
 
@@ -708,9 +777,10 @@ describe('VideoGenerationWorkspace', () => {
     });
 
     const model = await screen.findByRole('combobox', { name: '模型版本' });
-    await waitFor(() => expect(model).toHaveValue('doubao-seedance-2-0-260128'));
-    fireEvent.change(model, { target: { value: 'doubao-seedance-2-5-260628' } });
-    expect(model).toHaveValue('doubao-seedance-2-5-260628');
+    await waitFor(() => expect(model).toHaveValue('Seedance 2.0'));
+    fireEvent.focus(model);
+    fireEvent.click(screen.getByRole('option', { name: 'Seedance 2.5' }));
+    expect(model).toHaveValue('Seedance 2.5');
   });
 });
 
@@ -724,16 +794,17 @@ function renderWorkspace(
     gatewayState?: GatewayAccountState | null;
   } = {}
 ) {
+  const applyAction = vi.fn(async (_id: string, request: { action: string; input: { version?: CreatorJson; patch?: Record<string, CreatorJson> } }) => ({
+    job: { ...initialJob, revision: initialJob.revision + 1, state: { ...initialJob.state, ...(request.action === 'select-result-version' ? { resultVersion: request.input.version } : request.input.patch) } },
+    receipt: {}
+  }));
   const workspace = (options: typeof overrides) => (
     <LanguageProvider initialPreference={options.language ?? 'zh-CN'}>
       <CreatorSessionProvider
         initialJob={initialJob}
         onPreJobFailure={() => undefined}
         service={{
-          applyAction: vi.fn(async (_id, request) => ({
-            job: { ...initialJob, revision: initialJob.revision + 1, state: { ...initialJob.state, ...(request.action === 'select-result-version' ? { resultVersion: request.input.version } : request.input.patch) } },
-            receipt: {}
-          })),
+          applyAction,
           openArtifact: options.openArtifact ?? vi.fn(),
           runAgentTurn: vi.fn()
         } as never}
@@ -751,6 +822,7 @@ function renderWorkspace(
   const view = render(workspace(overrides));
   return {
     ...view,
+    applyAction,
     rerenderWorkspace(patch: typeof overrides = {}) {
       view.rerender(workspace({ ...overrides, ...patch }));
     }

@@ -419,12 +419,12 @@ function subtitleFontSizes(size: 'small' | 'medium' | 'large'): {
   verticalMinor: number;
 } {
   if (size === 'small') {
-    return { horizontalMajor: 12, horizontalMinor: 9, verticalMajor: 10, verticalMinor: 6 };
+    return { horizontalMajor: 14, horizontalMinor: 10, verticalMajor: 12, verticalMinor: 7 };
   }
   if (size === 'large') {
-    return { horizontalMajor: 18, horizontalMinor: 12, verticalMajor: 15, verticalMinor: 9 };
+    return { horizontalMajor: 22, horizontalMinor: 15, verticalMajor: 18, verticalMinor: 11 };
   }
-  return { horizontalMajor: 14, horizontalMinor: 10, verticalMajor: 12, verticalMinor: 7 };
+  return { horizontalMajor: 18, horizontalMinor: 12, verticalMajor: 15, verticalMinor: 9 };
 }
 
 function assBackColor(color: string, opacity: number): string {

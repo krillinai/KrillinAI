@@ -558,7 +558,7 @@ Die Datei `README.md` im Stammverzeichnis ist das maßgebliche englische Dokumen
 
 ## Community
 
-<p>GitHub-Nutzer aus <strong>mindestens 100 Ländern und Regionen</strong> haben OpenCreator mit einem Star ausgezeichnet.</p>
+<p>GitHub-Nutzer aus <strong>mindestens 103 Ländern und Regionen</strong> haben OpenCreator mit einem Star ausgezeichnet.</p>
 
 <img src="../images/star-coverage-map.svg" alt="Weltkarte mit Ländern und Regionen, aus denen GitHub-Nutzer OpenCreator einen Star gegeben haben" width="760" />
 

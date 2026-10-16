@@ -4,6 +4,7 @@
   min-height: 40px;
   display: flex;
   align-items: center;
+  gap: 8px;
   padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -11,6 +12,17 @@
   color: var(--text);
   font-size: 13px;
   overflow-wrap: anywhere;
+}
+
+.official-model-value > .model-brand-icon {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+}
+
+.official-model-value > .model-brand-icon > img {
+  width: 21px;
+  height: 21px;
 }
 
 .video-generation-settings-grid.is-official {

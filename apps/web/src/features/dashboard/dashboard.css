@@ -1011,6 +1011,30 @@
   padding: 6px 12px 6px 9px;
 }
 
+.video-translation-option-title .video-translation-toggle-row {
+  min-height: 40px;
+}
+
+/* Title and description share one line; the description truncates first. */
+.video-translation-option-title .video-translation-toggle-row > span {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.video-translation-option-title .video-translation-toggle-row strong {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.video-translation-option-title .video-translation-toggle-row small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .video-translation-option-icon {
   width: 34px;
   height: 34px;
@@ -1029,22 +1053,69 @@
   border-top: 1px solid var(--border-hairline);
 }
 
+.video-translation-dubbing-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  align-items: start;
+  gap: 12px 20px;
+}
+
+/* Labels sit to the left of their controls to keep the dubbing block one row tall. */
+.video-translation-dubbing-row > .video-translation-voice-source,
+.video-translation-dubbing-row > .creator-tool-field,
+.video-translation-dubbing-row .tts-voice-picker-field {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.video-translation-dubbing-row > .video-translation-voice-source > span,
+.video-translation-dubbing-row > .creator-tool-field > span,
+.video-translation-dubbing-row .tts-voice-picker-field > span {
+  white-space: nowrap;
+}
+
+.video-translation-dubbing-row .tts-voice-picker {
+  align-items: center;
+}
+
 .video-translation-voice-source {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  gap: 7px;
   min-width: 0;
+}
+
+.video-translation-voice-source > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.video-translation-voice-source > div {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 0 11px;
+  box-sizing: border-box;
+  border: 1px solid var(--border-hairline);
+  border-radius: 7px;
+  background: var(--surface-2);
 }
 
 .video-translation-voice-source strong,
 .video-translation-voice-source small {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .video-translation-voice-source strong {
+  flex-shrink: 0;
   color: var(--text);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .video-translation-voice-source small {
@@ -1112,12 +1183,6 @@
   gap: 10px;
 }
 
-.video-translation-output-format-settings {
-  display: grid;
-  gap: 12px;
-  margin-top: 16px;
-}
-
 .video-translation-subtitle-style-title {
   margin: 0;
   font-size: 14px;
@@ -1141,27 +1206,479 @@
   margin-top: 16px;
 }
 
-.video-translation-dubbing-settings .tts-voice-picker > label:first-child {
-  grid-template-columns: auto minmax(0, 1fr);
+
+.video-translation-subtitle-style-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.video-translation-subtitle-style-column {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 36px auto auto;
+  align-content: start;
+  gap: 10px;
+}
+
+.video-translation-subtitle-style-column > .video-translation-subtitle-style-title {
+  align-self: center;
+}
+
+.video-translation-subtitle-style-tabs-row {
+  min-width: 0;
+}
+
+.video-translation-subtitle-style-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  padding: 2px;
+  border-radius: 7px;
+  background: var(--surface-2);
+}
+
+.video-translation-subtitle-style-tabs > button {
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.video-translation-subtitle-style-tabs > button:hover {
+  color: var(--text);
+}
+
+.video-translation-subtitle-style-tabs > button[aria-selected="true"] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.video-translation-subtitle-style-tabs > button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.video-translation-subtitle-presets-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--subtle);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.video-translation-output-format-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.video-translation-output-format-inline > span {
+  white-space: nowrap;
+}
+
+.video-translation-output-format-inline .video-translation-select-wrap {
+  width: 190px;
+}
+
+.video-translation-subtitle-style-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  align-items: start;
+  gap: 16px;
+}
+
+.video-translation-subtitle-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  gap: 8px;
+}
+
+@container video-translation-output-controls (max-width: 560px) {
+  .video-translation-subtitle-style-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .video-translation-subtitle-presets {
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  }
+}
+
+.video-translation-subtitle-preset {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 4px 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 550;
+  text-align: center;
+  cursor: pointer;
+}
+
+.video-translation-subtitle-preset:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.video-translation-subtitle-preset:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.video-translation-subtitle-preset[aria-checked="true"],
+.video-translation-subtitle-preset[data-active="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  color: var(--text);
+}
+
+.video-translation-subtitle-preset-thumb {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  container-type: inline-size;
+  display: grid;
+  place-items: end center;
+  overflow: hidden;
+  border-radius: 5px;
+  background: linear-gradient(160deg, #3b4350 0%, #1b2027 60%, #11151a 100%);
+}
+
+.video-translation-subtitle-preset-thumb > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.55);
+}
+
+.video-translation-subtitle-preset-thumb[data-empty="true"] {
+  place-items: center;
+  color: var(--muted);
+}
+
+.video-translation-subtitle-preset-lines {
+  position: relative;
+  display: grid;
+  max-width: calc(100% - 8px);
+  gap: 2px;
+  padding-bottom: 10%;
+  font-family: var(--subtitle-thumb-family);
+  line-height: 1.1;
+  white-space: nowrap;
+  -webkit-text-stroke: var(--subtitle-thumb-stroke);
+  paint-order: stroke fill;
+  text-shadow: var(--subtitle-thumb-shadow);
+}
+
+.video-translation-subtitle-preset-lines > [data-line="translation"] {
+  color: var(--subtitle-thumb-color);
+  font-size: var(--subtitle-thumb-size);
+}
+
+.video-translation-subtitle-preset-lines > [data-line="original"] {
+  color: var(--subtitle-thumb-secondary);
+  font-size: calc(var(--subtitle-thumb-size) * 0.62);
+}
+
+.video-translation-style-drawer-backdrop {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: transparent;
+}
+
+.video-translation-style-drawer {
+  width: min(440px, 100%);
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  border-left: 1px solid var(--border-strong);
+  background: var(--surface);
+  box-shadow: -18px 0 60px color-mix(in srgb, #000 28%, transparent);
+  animation: video-translation-drawer-in 180ms ease-out;
+}
+
+@keyframes video-translation-drawer-in {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-translation-style-drawer {
+    animation: none;
+  }
+}
+
+.video-translation-style-drawer > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.video-translation-style-drawer > header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.video-translation-style-drawer > header button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.video-translation-style-drawer > header button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.video-translation-style-drawer-body {
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px 20px 20px;
+  container-type: inline-size;
+  container-name: video-translation-output-controls;
+}
+
+.video-translation-style-drawer-section {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.video-translation-style-drawer > footer {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 20px;
+  border-top: 1px solid var(--border-hairline);
+  background: var(--surface-2);
+}
+
+.video-translation-style-drawer > footer > span {
+  flex: 1;
+}
+
+.video-translation-style-drawer > footer button,
+.video-translation-style-drawer-save button {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.video-translation-style-drawer > header > div {
+  display: flex;
+  gap: 4px;
+}
+
+.video-translation-style-drawer > footer button[data-intent="ghost"] {
+  padding: 0 12px;
+  border-color: var(--border-strong);
+  background: var(--surface-3);
+  color: var(--text);
+  font-weight: 550;
+}
+
+.video-translation-style-drawer > footer button[data-intent="ghost"]:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-3));
+}
+
+.video-translation-style-drawer > footer button:disabled,
+.video-translation-style-drawer-save button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.video-translation-style-drawer-save {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-hairline);
+}
+
+.video-translation-style-drawer-save button {
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.video-translation-style-drawer-save button[data-intent="primary"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.video-translation-style-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.video-translation-range-control {
+  display: grid;
+  gap: 7px;
+}
+
+.video-translation-range-control > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.video-translation-range-control > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
   align-items: center;
   gap: 12px;
 }
 
-.video-translation-subtitle-style-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  align-items: start;
-  gap: 22px;
-  margin-top: 16px;
+.video-translation-range-control input[type="range"] {
+  width: 100%;
+  height: 4px;
+  margin: 0;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--accent) var(--range-progress, 0%), var(--surface-3) var(--range-progress, 0%));
+  appearance: none;
+  cursor: pointer;
 }
 
-.video-translation-subtitle-controls {
+.video-translation-range-control input[type="range"]::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent-strong);
+  appearance: none;
+}
+
+.video-translation-range-control input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent-strong);
+}
+
+.video-translation-range-control input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.video-translation-range-control input[type="number"] {
+  width: 100%;
+  height: 34px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--conversation-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: right;
+}
+
+.video-translation-subtitle-preset-saved {
+  position: relative;
   min-width: 0;
-  grid-column: 1;
-  grid-row: 1;
   display: grid;
-  align-content: start;
-  gap: 12px;
+}
+
+.video-translation-subtitle-preset-actions {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+}
+
+.video-translation-subtitle-preset-actions > button {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, #000 65%, transparent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.video-translation-subtitle-preset-actions > button:hover {
+  background: color-mix(in srgb, #000 85%, transparent);
+}
+
+.video-translation-subtitle-preset-saved:hover .video-translation-subtitle-preset-actions,
+.video-translation-subtitle-preset-actions:focus-within {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .video-translation-subtitle-preset-actions {
+    opacity: 1;
+  }
+}
+
+.video-translation-style-drawer > footer button {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.video-translation-style-drawer > footer button[data-intent="primary"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .video-translation-style-control {
@@ -1169,8 +1686,7 @@
   gap: 7px;
 }
 
-.video-translation-style-control > span,
-.video-translation-subtitle-preview > span {
+.video-translation-style-control > span {
   color: var(--muted);
   font-size: 12px;
   font-weight: 550;
@@ -1400,10 +1916,7 @@
 
 .video-translation-subtitle-preview {
   min-width: 0;
-  width: min(280px, 100%);
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: end;
+  width: 100%;
   display: grid;
   grid-template-rows: auto auto;
   align-content: start;
@@ -1412,6 +1925,9 @@
 
 .video-translation-subtitle-preview > div {
   position: relative;
+  width: min(100%, calc(320px * (var(--subtitle-preview-aspect-ratio, 16 / 9))));
+  max-height: 320px;
+  justify-self: center;
   aspect-ratio: var(--subtitle-preview-aspect-ratio, 16 / 9);
   overflow: hidden;
   border: 1px solid #343a43;
@@ -1480,7 +1996,7 @@
 }
 
 .video-translation-subtitle-preview[data-orientation="portrait"] > div {
-  width: min(158px, 100%);
+  width: min(180px, 100%);
   justify-self: center;
 }
 
@@ -11843,6 +12359,10 @@
     margin-left: 14px;
   }
 
+  .video-translation-dubbing-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .video-translation-switch {
     position: relative;
     width: 44px;
@@ -12817,6 +13337,11 @@
   margin-inline: auto;
 }
 
+.video-translation-wizard-main[data-phase="configure"][data-step="2"] .video-translation-wizard-body,
+.video-translation-wizard-main[data-phase="configure"][data-step="2"] .video-translation-actions-stack {
+  width: min(1200px, calc(100% - 48px));
+}
+
 @container video-translation-workspace (max-width: 640px) {
   .video-translation-wizard-main[data-phase="configure"]:is([data-step="1"], [data-step="2"]) .video-translation-wizard-body,
   .video-translation-wizard-main[data-phase="configure"]:is([data-step="1"], [data-step="2"]) .video-translation-actions-stack {
@@ -12837,20 +13362,6 @@
   background: var(--surface);
 }
 
-@container video-translation-output-controls (max-width: 560px) {
-  .video-translation-subtitle-style-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .video-translation-subtitle-preview {
-    grid-column: 1;
-  }
-
-  .video-translation-subtitle-controls {
-    grid-row: 2;
-  }
-}
-
 @container video-translation-output-controls (max-width: 360px) {
   .video-translation-typography-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -12869,11 +13380,6 @@
 @container video-translation-output-controls (max-width: 480px) {
   .video-translation-dubbing-settings .tts-voice-picker {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .video-translation-dubbing-settings .tts-voice-picker > label:first-child {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 7px;
   }
 
   .video-translation-dubbing-settings .tts-voice-picker-actions {

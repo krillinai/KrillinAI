@@ -1,0 +1,165 @@
+.video-generation-workspace-page .media-generation-workspace-content {
+  overflow-y: auto;
+}
+
+.video-generation-studio {
+  align-content: start;
+  gap: 24px;
+  container: video-generation / inline-size;
+}
+
+.video-generation-composer {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.video-generation-composer:focus-within {
+  border-color: var(--border-strong);
+}
+
+.video-generation-composer-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.video-generation-composer-heading h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.video-generation-composer-heading > small {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.video-generation-composer .video-generation-prompt-inputs {
+  align-items: start;
+  gap: 16px;
+}
+
+.video-generation-composer .video-generation-prompt-field {
+  display: block;
+}
+
+.video-generation-composer .video-generation-prompt-field > textarea {
+  min-height: 190px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 14px;
+  line-height: 1.7;
+  caret-color: var(--accent);
+}
+
+.video-generation-composer .video-generation-prompt-field > textarea:focus,
+.video-generation-workspace-page .video-generation-prompt-field > textarea:focus-visible {
+  outline: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.video-generation-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.video-generation-prompt-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 12px 0;
+}
+
+.video-generation-prompt-tools > button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.video-generation-prompt-tools > button:hover:enabled {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.video-generation-composer .video-generation-settings-grid {
+  grid-template-columns: minmax(110px, .8fr) minmax(180px, 1.3fr) minmax(180px, 1.4fr) minmax(100px, .7fr);
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-hairline);
+}
+
+.video-generation-composer .video-generation-settings-grid.is-official {
+  grid-template-columns: minmax(160px, 1.2fr) minmax(180px, 1.4fr) minmax(100px, .7fr);
+}
+
+.video-generation-submit-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.video-generation-submit-row > button {
+  min-width: 120px;
+  min-height: 40px;
+  justify-content: center;
+}
+
+.video-generation-composer button:disabled,
+.video-generation-composer input:disabled {
+  cursor: not-allowed;
+}
+
+.video-generation-prompt-tools > button:disabled {
+  opacity: .4;
+}
+
+.video-generation-output {
+  min-width: 0;
+}
+
+@container video-generation (max-width: 760px) {
+  .video-generation-composer .video-generation-settings-grid,
+  .video-generation-composer .video-generation-settings-grid.is-official {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container video-generation (max-width: 420px) {
+  .video-generation-composer {
+    padding: 16px;
+  }
+
+  .video-generation-composer .video-generation-prompt-inputs {
+    gap: 12px;
+  }
+
+  .video-generation-composer .video-generation-settings-grid,
+  .video-generation-composer .video-generation-settings-grid.is-official {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .video-generation-composer .video-generation-prompt-field > textarea {
+    min-height: 180px;
+  }
+}

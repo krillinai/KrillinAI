@@ -19,11 +19,11 @@ describe('ImageGenerationWorkspace', () => {
     const state: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: '1', models: [{ id: 'vendor/image', modality: 'image', capabilities: [], imageOptions: { aspectRatios: ['16:9', '9:16'], resolutions: ['1K', '2K'], qualities: ['standard', 'hd'], outputFormats: ['jpeg'], maxImages: 1, maxReferences: 0 } }], activationError: null };
     renderWorkspace(fixture, { ...fixture.currentJob(), state: { prompt: 'city', currentStep: 1, furthestStep: 1 } }, { getConfig: vi.fn() }, state);
     expect(screen.getByRole('combobox', { name: '图片画幅' })).toHaveValue('16:9');
+    expect(within(screen.getByRole('combobox', { name: '图片质量' })).getAllByRole('option').map(option => option.textContent)).toEqual(['标准', '高清']);
     fireEvent.change(screen.getByRole('combobox', { name: '分辨率' }), { target: { value: '2K' } });
     fireEvent.change(screen.getByRole('combobox', { name: '图片质量' }), { target: { value: 'hd' } });
     expect(screen.queryByRole('radio', { name: '4 张' })).not.toBeInTheDocument();
     expect(screen.getByRole('radio', { name: '1 张' })).toHaveAttribute('aria-checked', 'true');
-    fireEvent.click(screen.getByRole('button', { name: '继续' }));
     fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
     await waitFor(() => expect(fixture.applyAction).toHaveBeenCalled());
     const update = fixture.applyAction.mock.calls.find(([, request]) => request.action === 'update-settings');
@@ -37,10 +37,9 @@ describe('ImageGenerationWorkspace', () => {
     const model = screen.getByRole('combobox', { name: '图片模型' });
     fireEvent.click(model);
     expect(within(screen.getByRole('listbox', { name: '图片模型' })).getAllByRole('option').map(option => option.getAttribute('aria-label'))).toEqual(['first', 'second']);
-    expect(screen.queryByRole('radio', { name: '本机 Codex 生图' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: '图像服务' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('option', { name: 'second' }));
     await waitFor(() => expect(model).toHaveValue('second'));
-    fireEvent.click(screen.getByRole('button', { name: '继续' }));
     fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
     await waitFor(() => expect(fixture.applyAction).toHaveBeenCalledWith('creator_job_image_ui', expect.objectContaining({ action: 'run-stage', input: { stageId: 'generate' } })));
     const update = fixture.applyAction.mock.calls.find(([, request]) => request.action === 'update-settings');
@@ -60,36 +59,132 @@ describe('ImageGenerationWorkspace', () => {
     });
   });
 
-  it('places the reference upload before the prompt in one row', () => {
+  it('validates and submits prompt and settings directly without persisting wizard steps', async () => {
+    const fixture = createFixture();
+    renderWorkspace(fixture);
+    fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('请先描述需要生成的画面');
+    expect(fixture.applyAction).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole('textbox', { name: '提示词' }), { target: { value: '  A coastal landscape  ' } });
+    fireEvent.change(screen.getByRole('combobox', { name: '图片画幅' }), { target: { value: '1536x1024' } });
+    fireEvent.change(screen.getByRole('combobox', { name: '图片质量' }), { target: { value: 'high' } });
+    fireEvent.click(screen.getByRole('radio', { name: '4 张' }));
+    fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
+    await waitFor(() => expect(fixture.applyAction).toHaveBeenCalledWith('creator_job_image_ui', expect.objectContaining({ action: 'run-stage' })));
+    const updates = fixture.applyAction.mock.calls.filter(([, request]) => request.action === 'update-settings');
+    expect(updates.at(-1)?.[1].input.patch).toMatchObject({ prompt: 'A coastal landscape', size: '1536x1024', quality: 'high', candidateCount: 4 });
+    for (const [, request] of updates) {
+      expect(request.input.patch).not.toHaveProperty('currentStep');
+      expect(request.input.patch).not.toHaveProperty('furthestStep');
+    }
+  });
+
+  it('previews, removes and reselects the same reference file in the single form', async () => {
+    const fixture = createFixture();
+    renderWorkspace(fixture);
+    const input = screen.getByLabelText('上传图像生成参考图');
+    const image = new File([png('reference')], 'reference.png', { type: 'image/png' });
+    fireEvent.change(input, { target: { files: [image] } });
+    expect(await screen.findByRole('img', { name: '图像生成参考图' })).toBeVisible();
+    expect(document.querySelector('.image-generation-reference')).toHaveTextContent('reference.png');
+    expect(document.querySelector('.image-generation-reference')).toHaveTextContent('1/1');
+    fireEvent.click(screen.getByRole('button', { name: '移除参考图' }));
+    expect(screen.queryByRole('img', { name: '图像生成参考图' })).not.toBeInTheDocument();
+    fireEvent.change(input, { target: { files: [image] } });
+    expect(await screen.findByRole('img', { name: '图像生成参考图' })).toBeVisible();
+    expect(input).toHaveValue('');
+  });
+
+  it('prevents duplicate submissions and settings changes while a reference uploads', async () => {
+    const fixture = createFixture();
+    let release!: () => void;
+    const pendingUpload = new Promise<void>(resolve => { release = resolve; });
+    const upload = fixture.uploadReferenceImage.getMockImplementation()!;
+    fixture.uploadReferenceImage.mockImplementationOnce(async (...args) => {
+      await pendingUpload;
+      return upload(...args);
+    });
+    renderWorkspace(fixture);
+    const form = screen.getByRole('form', { name: '图像生成' });
+    fireEvent.change(screen.getByRole('textbox', { name: '提示词' }), { target: { value: 'A landscape' } });
+    fireEvent.change(screen.getByLabelText('上传图像生成参考图'), {
+      target: { files: [new File([png('reference')], 'reference.png', { type: 'image/png' })] }
+    });
+    fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
+    await waitFor(() => expect(fixture.uploadReferenceImage).toHaveBeenCalledOnce());
+    expect(screen.getByRole('textbox', { name: '提示词' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '正在生成' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: '图片质量' })).toBeDisabled();
+    fireEvent.submit(form);
+    await act(async () => { release(); });
+    await waitFor(() => expect(fixture.applyAction.mock.calls.filter(([, request]) => request.action === 'run-stage')).toHaveLength(1));
+    expect(fixture.uploadReferenceImage).toHaveBeenCalledOnce();
+    expect(screen.getByRole('button', { name: '开始生成' })).toBeEnabled();
+  });
+
+  it.each([
+    { language: 'zh-CN' as const, form: '图像生成', prompt: '提示词', format: '图片画幅', generate: '开始生成', clear: '清空提示词', summary: '任务摘要' },
+    { language: 'en-US' as const, form: 'Image Generation', prompt: 'Prompt', format: 'Image format', generate: 'Generate', clear: 'Clear prompt', summary: 'Task summary' },
+    { language: 'sv-SE' as const, form: 'Bildgenerering', prompt: 'Prompt', format: 'Bildformat', generate: 'Generera', clear: 'Rensa prompt', summary: 'Uppgiftssammanfattning' }
+  ])('localizes the single-page controls and task summary in $language', copy => {
+    const fixture = createFixture();
+    renderWorkspace(fixture, fixture.currentJob(), undefined, undefined, copy.language);
+    const form = screen.getByRole('form', { name: copy.form });
+    expect(within(form).getByRole('textbox', { name: copy.prompt })).toBeInTheDocument();
+    expect(within(form).getByRole('combobox', { name: copy.format })).toBeInTheDocument();
+    expect(within(form).getByRole('button', { name: copy.generate })).toBeEnabled();
+    expect(within(form).getByRole('button', { name: copy.clear })).toBeDisabled();
+    expect(within(screen.getByRole('complementary', { name: 'OpenCreator' })).getByRole('complementary', { name: copy.summary })).toBeInTheDocument();
+  });
+
+  it('places model selection before the editor and the reference banner above the prompt', () => {
     const fixture = createFixture({ pending: true });
     renderWorkspace(fixture);
     const workspace = screen.getByRole('region', { name: '图像生成 操作区' });
     const prompt = within(workspace).getByRole('textbox', { name: '提示词' });
     const referenceUpload = within(workspace).getByLabelText('上传图像生成参考图');
-    const row = prompt.closest('.cover-prompt-row');
+    const editor = prompt.closest('.image-generation-editor');
+    const model = within(workspace).getByRole('combobox', { name: '图像服务' });
 
-    expect(row).toContainElement(referenceUpload);
+    expect(editor).toContainElement(referenceUpload);
+    expect(editor).toHaveTextContent('JPG、PNG、WebP，最大 20 MB');
+    expect(editor).toHaveTextContent('0/1');
+    expect(model.compareDocumentPosition(referenceUpload) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     expect(prompt).toHaveAttribute('rows', '7');
     expect(referenceUpload.compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING)
       .not.toBe(0);
   });
 
-  it('validates required reference input while typing and blocks continuing until uploaded', async () => {
+  it('expands and collapses the editor without changing or submitting the draft', () => {
+    const fixture = createFixture();
+    renderWorkspace(fixture, { ...fixture.currentJob(), state: { prompt: 'A bright studio', provider: 'openai' } });
+    const prompt = screen.getByRole('textbox', { name: '提示词' });
+    fireEvent.click(screen.getByRole('button', { name: '展开编辑区' }));
+    expect(prompt).toHaveAttribute('rows', '14');
+    expect(screen.getByRole('button', { name: '收起编辑区' })).toHaveAttribute('aria-expanded', 'true');
+    expect(prompt).toHaveValue('A bright studio');
+    fireEvent.click(screen.getByRole('button', { name: '收起编辑区' }));
+    expect(prompt).toHaveAttribute('rows', '7');
+    expect(fixture.applyAction).not.toHaveBeenCalled();
+  });
+
+  it('validates required reference input while typing and blocks generation until uploaded', async () => {
     const fixture = createFixture();
     renderWorkspace(fixture);
     const prompt = screen.getByRole('textbox', { name: '提示词' });
     fireEvent.change(prompt, { target: { value: '以上传的人物照片为唯一主体，生成复古海报' } });
     expect(prompt).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByRole('status')).toHaveTextContent('请先上传参考图');
-    fireEvent.click(screen.getByRole('button', { name: '继续' }));
+    fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
     expect(screen.getByRole('textbox', { name: '提示词' })).toBeInTheDocument();
     expect(fixture.uploadReferenceImage).not.toHaveBeenCalled();
+    expect(fixture.applyAction).not.toHaveBeenCalled();
     await act(async () => {
       fireEvent.change(screen.getByLabelText('上传图像生成参考图'), { target: { files: [new File([png('reference')], 'reference.png', { type: 'image/png' })] } });
     });
     expect(prompt).toHaveAttribute('aria-invalid', 'false');
-    fireEvent.click(screen.getByRole('button', { name: '继续' }));
-    expect(screen.getByRole('heading', { name: '生成设置' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
+    await waitFor(() => expect(fixture.uploadReferenceImage).toHaveBeenCalledOnce());
   });
 
   it('blocks generation from a restored settings step with a missing reference', () => {
@@ -188,11 +283,7 @@ describe('ImageGenerationWorkspace', () => {
     fireEvent.change(screen.getByRole('textbox', { name: '提示词' }), {
       target: { value: '使用默认 Codex 生成一张图片' }
     });
-    fireEvent.click(screen.getByRole('button', { name: '继续' }));
-    expect(await screen.findByRole('radio', { name: '本机 Codex 生图' })).toHaveAttribute(
-      'aria-checked',
-      'true'
-    );
+    await waitFor(() => expect(screen.getByRole('combobox', { name: '图像服务' })).toHaveValue('codex-native'));
     expect(screen.getByRole('radio', { name: '1 张' })).toHaveAttribute('aria-checked', 'true');
     expect(fixture.ensureJob).not.toHaveBeenCalled();
   });
@@ -224,10 +315,7 @@ describe('ImageGenerationWorkspace', () => {
       };
 
       renderWorkspace(fixture, initialJob);
-      expect(screen.getByRole('radio', { name: label })).toHaveAttribute(
-        'aria-checked',
-        'true'
-      );
+      expect(screen.getByRole('combobox', { name: '图像服务' })).toHaveValue(provider);
       await act(() => vi.advanceTimersByTimeAsync(500));
       expect(fixture.applyAction).not.toHaveBeenCalled();
     } finally {
@@ -235,7 +323,7 @@ describe('ImageGenerationWorkspace', () => {
     }
   });
 
-  it('restores a saved project at its second step', () => {
+  it('opens saved wizard drafts with prompt and settings together and the summary above the conversation', () => {
     const fixture = createFixture();
     const initialJob: CreatorJob = {
       ...fixture.currentJob(),
@@ -249,8 +337,18 @@ describe('ImageGenerationWorkspace', () => {
 
     renderWorkspace(fixture, initialJob);
 
-    expect(screen.getByRole('heading', { name: '生成设置' })).toBeInTheDocument();
-    expect(screen.queryByRole('textbox', { name: '提示词' })).not.toBeInTheDocument();
+    const workspace = screen.getByRole('region', { name: '图像生成 操作区' });
+    expect(within(workspace).getByRole('textbox', { name: '提示词' })).toHaveValue('一张产品主视觉');
+    expect(within(workspace).getByRole('combobox', { name: '图片画幅' })).toBeInTheDocument();
+    expect(within(workspace).getByRole('button', { name: '开始生成' })).toBeInTheDocument();
+    expect(within(workspace).queryByRole('navigation', { name: '图像生成流程' })).not.toBeInTheDocument();
+    expect(within(workspace).queryByRole('button', { name: '继续' })).not.toBeInTheDocument();
+    expect(within(workspace).queryByRole('complementary', { name: '任务摘要' })).not.toBeInTheDocument();
+    const summary = screen.getByRole('complementary', { name: '任务摘要' });
+    const panel = summary.closest('.creator-collaboration-panel')!;
+    expect(panel.querySelector('.creator-collaboration-task-summary')).toContainElement(summary);
+    expect(summary.compareDocumentPosition(panel.querySelector('.creator-collaboration-messages')!) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(summary).toHaveTextContent('一张产品主视觉');
   });
 
   it('opens an existing project on its persisted result version', async () => {
@@ -300,8 +398,6 @@ describe('ImageGenerationWorkspace', () => {
     fireEvent.change(within(workspace).getByLabelText('上传图像生成参考图'), {
       target: { files: [reference] }
     });
-    fireEvent.click(within(workspace).getByRole('button', { name: '继续' }));
-    fireEvent.click(within(workspace).getByRole('button', { name: '继续' }));
     fireEvent.click(within(workspace).getByRole('button', { name: '开始生成' }));
 
     await waitFor(() => expect(fixture.uploadReferenceImage).toHaveBeenCalledWith(
@@ -325,11 +421,12 @@ function renderWorkspace(
   fixture: ReturnType<typeof createFixture>,
   initialJob = fixture.currentJob(),
   creatorServicesService?: { getConfig(): Promise<unknown> },
-  gatewayState?: GatewayAccountState
+  gatewayState?: GatewayAccountState,
+  language: 'zh-CN' | 'en-US' | 'sv-SE' = 'zh-CN'
 ) {
   let currentSession: CreatorSessionContextValue | null = null;
   const view = render(
-    <LanguageProvider initialPreference="zh-CN">
+    <LanguageProvider initialPreference={language}>
       <CreatorSessionProvider
         initialJob={initialJob}
         ensureJob={fixture.ensureJob}

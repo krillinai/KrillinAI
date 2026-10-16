@@ -8,12 +8,14 @@ import {
   Play,
   RefreshCw
 } from 'lucide-react';
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { IssueList } from '../../features/issues/IssuePresenter.js';
 import { usePageIssueState } from '../../features/issues/page-issue-state.js';
+import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
-import NativeSelect from '../forms/NativeSelect.js';
+import { TtsVoiceSelect, type TtsVoiceSelectGroup } from './TtsVoiceSelect.js';
+import { voiceScenarioLabel } from './voice-scenario-copy.js';
 import './tts-voice-picker.css';
 
 export function TtsVoicePicker(props: {
@@ -29,6 +31,7 @@ export function TtsVoicePicker(props: {
   onVoiceResolved?(voice: CreatorTtsVoice): void;
 }) {
   const l = useLocalizedCopy();
+  const { language: appLanguage } = useAppLanguage();
   const allowCustomVoice = props.allowCustomVoice ?? props.provider === 'volcengine';
   const pageIssues = usePageIssueState('tts-voice');
   const [voices, setVoices] = useState<CreatorTtsVoice[]>([]);
@@ -102,7 +105,14 @@ export function TtsVoicePicker(props: {
       kind: 'custom' as const
     }, ...voices];
   }, [props.provider, props.value, voices]);
-  const groupedOptions = useMemo(() => groupVoices(options), [options]);
+  const selectGroups = useMemo<TtsVoiceSelectGroup[]>(() => groupVoices(options).map(group => ({
+    label: group.label ? voiceScenarioLabel(group.label, l) : '',
+    options: group.voices.map(voice => ({
+      value: voice.id,
+      name: voiceName(voice, l),
+      detail: voiceDetail(voice, l, appLanguage, group.label)
+    }))
+  })), [appLanguage, l, options]);
   const selected = options.find(voice => voice.id === props.value);
 
   useEffect(() => {
@@ -171,45 +181,27 @@ export function TtsVoicePicker(props: {
 
   return (
     <div className="tts-voice-picker">
-      <label htmlFor={props.id}>
-        <span>{props.label ?? l('默认音色', 'Default voice')}</span>
-        <NativeSelect
+      <div className="tts-voice-picker-field">
+        <span id={`${props.id}-label`}>{props.label ?? l('默认音色', 'Default voice')}</span>
+        <TtsVoiceSelect
           id={props.id}
+          labelId={`${props.id}-label`}
           value={props.value}
+          groups={selectGroups}
+          placeholder={loading
+            ? l('正在加载音色', 'Loading voices')
+            : allowCustomVoice
+              ? l('请填写下方 Speaker ID', 'Enter a speaker ID below')
+              : l('暂无可用音色', 'No voices available')}
           disabled={props.disabled || loading || props.provider === 'edge-tts'}
-          onChange={event => {
+          onChange={voiceId => {
             stopPreview();
-            const voice = options.find(candidate => candidate.id === event.target.value);
-            setCustomId(event.target.value);
-            props.onChange(event.target.value, voice);
+            const voice = options.find(candidate => candidate.id === voiceId);
+            setCustomId(voiceId);
+            props.onChange(voiceId, voice);
           }}
-        >
-          {options.length === 0 ? (
-            <option value={props.value}>
-              {loading
-                ? l('正在加载音色', 'Loading voices')
-                : allowCustomVoice
-                  ? l('请填写下方 Speaker ID', 'Enter a speaker ID below')
-                  : l('暂无可用音色', 'No voices available')}
-            </option>
-          ) : null}
-          {groupedOptions.map(group => {
-            const items = group.voices.map(voice => (
-              <option key={voice.id} value={voice.id}>
-                {voiceLabel(voice, l)}
-              </option>
-            ));
-            if (!group.label) {
-              return <Fragment key="ungrouped">{items}</Fragment>;
-            }
-            return (
-              <optgroup key={group.label} label={group.label}>
-                {items}
-              </optgroup>
-            );
-          })}
-        </NativeSelect>
-      </label>
+        />
+      </div>
       <div className="tts-voice-picker-actions">
         <button
           type="button"
@@ -259,13 +251,7 @@ export function TtsVoicePicker(props: {
           />
         </label>
       ) : null}
-      {selected ? (
-        <small className="tts-voice-picker-meta">
-          {[selected.scenario, selected.language, voiceKindLabel(selected.kind, l)]
-            .filter(Boolean)
-            .join(' · ')}
-        </small>
-      ) : allowCustomVoice && !loading ? (
+      {!selected && allowCustomVoice && !loading ? (
         <small className="tts-voice-picker-meta">
           {l(
             '声音复刻请填写控制台中的 Speaker ID（S_ 开头）。',
@@ -288,15 +274,59 @@ export function TtsVoicePicker(props: {
   );
 }
 
-function voiceLabel(
-  voice: CreatorTtsVoice,
-  l: (zh: string, en: string) => string
-): string {
-  const recommended = voice.recommended ? ` · ${l('推荐', 'Recommended')}` : '';
-  return voice.name === voice.id
-    ? `${voice.name}${recommended}`
-    : `${voice.name} (${voice.id})${recommended}`;
+function voiceName(voice: CreatorTtsVoice, l: (zh: string, en: string) => string): string {
+  const name = voice.name === voice.id ? voice.name : `${voice.name} (${voice.id})`;
+  return voice.recommended ? `${name} · ${l('推荐', 'Recommended')}` : name;
 }
+
+function voiceDetail(
+  voice: CreatorTtsVoice,
+  l: (zh: string, en: string) => string,
+  appLanguage: string,
+  groupLabel: string
+): string | undefined {
+  // The group header already shows the scenario, so only repeat it for ungrouped voices.
+  const details = [
+    voice.scenario && voice.scenario !== groupLabel ? voiceScenarioLabel(voice.scenario, l) : undefined,
+    voiceLanguageLabel(voice.language, appLanguage, l),
+    voiceKindLabel(voice.kind, l)
+  ].filter(Boolean);
+  return details.length > 0 ? details.join(' · ') : undefined;
+}
+
+function voiceLanguageLabel(
+  code: string | undefined,
+  appLanguage: string,
+  l: (zh: string, en: string) => string
+): string | undefined {
+  if (!code) return undefined;
+  if (code === 'multi') return l('多语种', 'Multilingual');
+  const dialect = chineseDialects[code];
+  if (dialect !== undefined) return l(dialect[0], dialect[1]);
+  // Catalogs mix BCP 47 codes with free-form labels; anything Intl rejects is shown as-is.
+  try {
+    const names = new Intl.DisplayNames([appLanguage], { type: 'language', fallback: 'none' });
+    return names.of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+const chineseDialects: Readonly<Record<string, readonly [string, string]>> = {
+  'zh-yue': ['粤语', 'Cantonese'],
+  'zh-minnan': ['闽南语', 'Hokkien'],
+  'zh-sichuan': ['四川话', 'Sichuanese'],
+  'zh-dongbei': ['东北话', 'Northeastern Mandarin'],
+  'zh-beijing': ['北京话', 'Beijing dialect'],
+  'zh-tianjin': ['天津话', 'Tianjin dialect'],
+  'zh-shanghai': ['上海话', 'Shanghainese'],
+  'zh-nanjing': ['南京话', 'Nanjing dialect'],
+  'zh-shaanxi': ['陕西话', 'Shaanxi dialect'],
+  'zh-xian': ['西安话', "Xi'an dialect"],
+  'zh-hunan': ['湖南话', 'Hunanese'],
+  'zh-guangxi': ['广西话', 'Guangxi dialect'],
+  'zh-zhengzhou': ['郑州话', 'Zhengzhou dialect']
+};
 
 function voiceKindLabel(
   kind: CreatorTtsVoice['kind'],

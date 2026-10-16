@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
+import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 import { TtsVoicePicker } from './TtsVoicePicker.js';
 
 type TtsVoiceService = Pick<
@@ -69,9 +70,13 @@ describe('TtsVoicePicker', () => {
     );
 
     const select = await screen.findByRole('combobox', { name: '默认音色' });
-    expect(select).toHaveValue('Cherry');
-    expect(screen.getByRole('option', { name: '芊悦 (Cherry) · 推荐' })).toBeInTheDocument();
-    expect(screen.getByText('自然对话 · 中文')).toBeInTheDocument();
+    await waitFor(() => expect(select).toHaveAttribute('data-value', 'Cherry'));
+    // The selected voice shows its language inline; the scenario is the group header.
+    expect(select).toHaveTextContent('芊悦 (Cherry) · 推荐');
+    expect(select).toHaveTextContent('中文');
+    expect(screen.queryByText('自然对话 · 中文')).not.toBeInTheDocument();
+    fireEvent.click(select);
+    expect(screen.getByRole('group', { name: '自然对话' })).toBeInTheDocument();
     await waitFor(() => {
       expect(onVoiceResolved).toHaveBeenCalledWith(expect.objectContaining({
         id: 'Cherry',
@@ -79,7 +84,8 @@ describe('TtsVoicePicker', () => {
       }));
     });
 
-    fireEvent.change(select, { target: { value: 'Ethan' } });
+    fireEvent.click(screen.getByRole('option', { name: /^晨煦 \(Ethan\)/ }));
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
 
     expect(onChange).toHaveBeenCalledWith('Ethan', expect.objectContaining({
       id: 'Ethan',
@@ -112,7 +118,8 @@ describe('TtsVoicePicker', () => {
       />
     );
 
-    await screen.findByRole('option', { name: '芊悦 (Cherry) · 推荐' });
+    const select = await screen.findByRole('combobox', { name: '默认音色' });
+    await waitFor(() => expect(select).toHaveTextContent('芊悦 (Cherry) · 推荐'));
     fireEvent.click(screen.getByRole('button', { name: '试听当前音色' }));
 
     expect(await screen.findByRole('button', { name: '暂停音色试听' })).toBeInTheDocument();
@@ -125,6 +132,45 @@ describe('TtsVoicePicker', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '暂停音色试听' }));
     expect(pause).toHaveBeenCalled();
+  });
+
+  it('localizes voice details and opens the list above the field by default', async () => {
+    const getTtsVoices = vi.fn(async () => ({
+      provider: 'openai' as const,
+      model: 'gpt-4o-mini-tts',
+      voices: [
+        { id: 'alloy', name: 'Alloy', provider: 'openai' as const, language: 'multi', scenario: '均衡', kind: 'builtin' as const },
+        { id: 'yue', name: '阿粤', provider: 'openai' as const, language: 'zh-yue', scenario: '粤语', kind: 'builtin' as const }
+      ]
+    }));
+    const rect = { top: 600, bottom: 640, left: 20, right: 320, width: 300, height: 40, x: 20, y: 600, toJSON: () => ({}) };
+    const getRect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect as DOMRect);
+
+    render(
+      <LanguageProvider initialPreference="en-US">
+        <TtsVoicePicker
+          id="voice"
+          provider="openai"
+          model="gpt-4o-mini-tts"
+          value="alloy"
+          service={{ getTtsVoices, previewTtsVoice: vi.fn() } as never}
+          onChange={vi.fn()}
+        />
+      </LanguageProvider>
+    );
+
+    const select = await screen.findByRole('combobox', { name: 'Default voice' });
+    await waitFor(() => expect(select).toHaveTextContent('Multilingual'));
+    fireEvent.click(select);
+    expect(screen.getByRole('group', { name: 'Balanced' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Cantonese' })).toBeInTheDocument();
+    expect(screen.queryByText('均衡')).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /阿粤.*Cantonese/ })).toBeInTheDocument();
+    expect(screen.getByRole('listbox').parentElement).toHaveStyle({ transform: 'translateY(-100%)' });
+
+    fireEvent.keyDown(select, { key: 'Escape' });
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    getRect.mockRestore();
   });
 
   it('shows a retryable error when the voice catalog cannot be loaded', async () => {

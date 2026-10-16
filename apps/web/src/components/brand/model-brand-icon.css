@@ -1,0 +1,22 @@
+.model-brand-icon {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.model-brand-icon > img {
+  display: block;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+:root:not([data-theme='light']) .model-brand-monochrome {
+  /* The app globally resets filters; preserve monochrome logo contrast. */
+  filter: brightness(0) invert(1) !important;
+}
