@@ -91,7 +91,6 @@ test('统一配音配置在设置、智能配音和视频翻译中保持一致',
   await page.goto(`${runtime.origin}/#/workbench?tool=smart-dubbing`);
   await expect(page.getByRole('heading', { name: '智能配音' })).toBeVisible();
   await page.getByRole('textbox', { name: '配音文案内容' }).fill('这是统一配音配置的端到端验证。');
-  await page.getByRole('button', { name: '继续' }).click();
   await expect(page.locator('.smart-dubbing-provider-row')).toContainText('阿里云百炼');
   await expect(page.locator('.smart-dubbing-provider-row')).toContainText('qwen3-tts-flash');
   await expect(page.getByRole('combobox', { name: '配音音色' })).toHaveValue('Kiki');

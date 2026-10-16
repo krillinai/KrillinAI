@@ -3044,10 +3044,6 @@
   box-sizing: border-box;
 }
 
-.smart-dubbing-workspace-content {
-  overflow: hidden;
-}
-
 .media-generation-workspace-content {
   overflow: hidden;
 }
@@ -7072,32 +7068,6 @@
   border-top: 1px solid var(--border-hairline);
 }
 
-.smart-dubbing-stack {
-  height: 100%;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-}
-
-.video-translation-steps.smart-dubbing-steps ol {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.smart-dubbing-step-scroll {
-  min-height: 0;
-  overflow-y: auto;
-  padding: 2px;
-  scrollbar-gutter: stable;
-}
-
-.smart-dubbing-script-panel textarea {
-  min-height: 260px;
-  resize: none;
-}
-
-.smart-dubbing-script-panel .creator-tool-panel-heading > small {
-  color: var(--subtle);
-  font-variant-numeric: tabular-nums;
-}
-
 .smart-dubbing-sample {
   min-height: 30px;
   display: inline-flex;
@@ -7309,20 +7279,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.smart-dubbing-output-panel {
-  min-height: 360px;
-}
-
-.smart-dubbing-ready {
-  min-height: 250px;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 8px;
-  text-align: center;
-}
-
-.smart-dubbing-ready > span,
 .smart-dubbing-result-icon {
   width: 52px;
   height: 52px;
@@ -7331,21 +7287,6 @@
   border-radius: 8px;
   background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
   color: var(--accent);
-}
-
-.smart-dubbing-ready strong {
-  margin-top: 4px;
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.smart-dubbing-ready p {
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.smart-dubbing-ready .creator-tool-primary {
-  margin-top: 10px;
 }
 
 .smart-dubbing-result {
@@ -7438,12 +7379,6 @@
 
 .smart-dubbing-error a:hover {
   text-decoration: underline;
-}
-
-.smart-dubbing-actions {
-  margin-top: 0;
-  padding-top: 14px;
-  border-top: 1px solid var(--border-hairline);
 }
 
 .xiaohongshu-post-fields,

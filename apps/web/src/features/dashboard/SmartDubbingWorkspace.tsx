@@ -8,17 +8,20 @@ import {
   type SmartDubbingVoice
 } from '@opencreator/protocol';
 import {
-  Check,
   Download,
   FileAudio,
   Gauge,
   LoaderCircle,
+  Maximize2,
   Mic2,
+  Minimize2,
   RotateCcw,
-  Sparkles,
+  Settings2,
+  Trash2,
   WandSparkles
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import ModelBrandIcon from '../../components/brand/ModelBrandIcon.js';
 import { TtsVoicePicker } from '../../components/tts/TtsVoicePicker.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
@@ -29,8 +32,7 @@ import {
   createCreatorArtifactObjectUrl,
   useOptionalCreatorSession
 } from './creator-session-store.js';
-
-type DubbingStep = 0 | 1 | 2;
+import './smart-dubbing-workspace.css';
 
 type DubbingResult = {
   artifact: CreatorArtifact;
@@ -68,14 +70,8 @@ export default function SmartDubbingWorkspace(props: {
   const official = useOfficialServices('speech');
   const supportsStyle = !official.official || official.model?.capabilities.includes('speech_instructions') === true;
   const supportsSpeed = !official.official || official.model?.capabilities.includes('speech_speed') === true;
-  const restoredResult = session?.job.artifacts.some(artifact => (
-    artifact.kind === 'dubbed_audio' && artifact.status === 'completed'
-  )) === true;
-  const restoredStep = restoredResult ? 2 : readStep(session?.state.currentStep, 0);
-  const [currentStep, setCurrentStep] = useState<DubbingStep>(restoredStep);
-  const [furthestStep, setFurthestStep] = useState<DubbingStep>(() => (
-    Math.max(restoredStep, readStep(session?.state.furthestStep, restoredStep)) as DubbingStep
-  ));
+  const [editorExpanded, setEditorExpanded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [text, setText] = useState(() => readString(session?.state.text));
   const [provider, setProvider] = useState<CreatorTtsProvider>(() => (
     readProvider(session?.state.ttsProvider) ?? 'openai'
@@ -98,6 +94,7 @@ export default function SmartDubbingWorkspace(props: {
   );
   const latestStage = session?.job.stages.filter(stage => stage.stageId === 'tts').at(-1);
   const generating = latestStage?.status === 'queued' || latestStage?.status === 'running';
+  const busy = generating || submitting;
   const runtimeError = latestStage?.status === 'failed'
     ? formatGenerationError({ code: latestStage.errorCode, message: latestStage.errorMessage }, l)
     : session?.error === null || session?.error === undefined
@@ -181,31 +178,9 @@ export default function SmartDubbingWorkspace(props: {
 
   useEffect(() => {
     if (result !== undefined && !generating) {
-      setCurrentStep(2);
-      setFurthestStep(2);
       setNotice(l('配音已生成，可以试听或下载音频', 'Dubbing is ready to preview or download'));
     }
   }, [generating, l, result?.artifact.id]);
-
-  function openStep(step: DubbingStep) {
-    const nextFurthest = Math.max(furthestStep, step) as DubbingStep;
-    setCurrentStep(step);
-    setFurthestStep(nextFurthest);
-    session?.updateDraft({ currentStep: step, furthestStep: nextFurthest });
-  }
-
-  function nextStep() {
-    setError('');
-    if (currentStep === 0 && characterCount === 0) {
-      setError(l('请先填写需要配音的文案', 'Enter the script to be voiced'));
-      return;
-    }
-    if (currentStep === 1 && !voice.trim()) {
-      setError(l('请选择一个可用音色', 'Select an available voice'));
-      return;
-    }
-    openStep(Math.min(2, currentStep + 1) as DubbingStep);
-  }
 
   function updateText(value: string) {
     setText(value);
@@ -233,19 +208,17 @@ export default function SmartDubbingWorkspace(props: {
 
   async function generate() {
     if (official.official && !official.ready) { setError(l('官方语音服务暂不可用，请在账户页面检查连接状态', 'Official speech service is unavailable. Check your account.')); return; }
-    if (generating) return;
+    if (busy) return;
     if (session === null) {
       setError(l('智能配音服务暂不可用，请检查 Runtime 连接', 'Smart dubbing is unavailable. Check the Runtime connection.'));
       return;
     }
     if (!text.trim()) {
       setError(l('请先填写需要配音的文案', 'Enter the script to be voiced'));
-      openStep(0);
       return;
     }
     if (!voice.trim()) {
       setError(l('请选择一个可用音色', 'Select an available voice'));
-      openStep(1);
       return;
     }
     if (provider === 'edge-tts') {
@@ -253,11 +226,11 @@ export default function SmartDubbingWorkspace(props: {
         '智能配音暂不支持 Edge TTS，请先在设置中选择阿里云百炼、OpenAI 或 MiniMax',
         'AI dubbing does not support Edge TTS. Select Alibaba Cloud, OpenAI, or MiniMax in Settings.'
       ));
-      openStep(1);
       return;
     }
     setError('');
     setNotice('');
+    setSubmitting(true);
     session.updateDraft({
       text: text.trim(),
       ttsProvider: official.official ? 'openai' : provider,
@@ -277,7 +250,9 @@ export default function SmartDubbingWorkspace(props: {
         input: { stageId: 'tts' }
       });
       setNotice(l('配音任务已提交，完成后会自动显示音频', 'Dubbing started. The audio will appear automatically.'));
-    } catch {}
+    } catch {} finally {
+      setSubmitting(false);
+    }
   }
 
   function download() {
@@ -312,30 +287,25 @@ export default function SmartDubbingWorkspace(props: {
   function handleCommand(command: string) {
     if (/示例|sample/i.test(command)) {
       updateText(l(sampleTextZh, sampleTextEn));
-      openStep(0);
       return l('示例文案已填入，可以继续选择音色。', 'The sample script is ready. Continue to voice selection.');
     }
     const styleMatch = styles.find(item => (
       command.includes(item.zh) || command.toLowerCase().includes(item.en.toLowerCase())
     ));
-    if (styleMatch) {
+    if (styleMatch && supportsStyle) {
       updateStyle(styleMatch.value);
-      openStep(1);
       return l(`表达风格已改为${styleMatch.zh}。`, `Delivery style changed to ${styleMatch.en}.`);
     }
-    if (/快一点|加快|faster/i.test(command)) {
+    if (supportsSpeed && /快一点|加快|faster/i.test(command)) {
       updateSpeed(Math.min(1.25, Math.round((speed + 0.1) * 100) / 100));
-      openStep(1);
       return l('语速已加快。', 'The speaking rate is faster.');
     }
-    if (/慢一点|减慢|slower/i.test(command)) {
+    if (supportsSpeed && /慢一点|减慢|slower/i.test(command)) {
       updateSpeed(Math.max(0.75, Math.round((speed - 0.1) * 100) / 100));
-      openStep(1);
       return l('语速已放慢。', 'The speaking rate is slower.');
     }
     if (command.trim().length > 12) {
       updateText(command.trim());
-      openStep(0);
       return l('文案已同步到左侧，可以继续设置音色和表达。', 'The script is synchronized on the left. Continue with voice and delivery settings.');
     }
     return l('可以发送配音文案，或告诉我需要自然、专业、温暖、活力、沉静或叙事风格。', 'Send a script, or ask for a natural, professional, warm, energetic, calm, or storytelling delivery.');
@@ -355,12 +325,14 @@ export default function SmartDubbingWorkspace(props: {
     <CreatorTaskSummary
       sourceIcon={FileAudio}
       sourceLabel={l('配音文案', 'Script')}
-      sourceValue={summaryText}
+      sourceValue={summaryText || '—'}
+      compactSummary={`${result?.voiceName || voiceName || voice || providerLabel(provider, l)} · ${(result?.format ?? format).toUpperCase()}`}
       items={[
         { label: l('服务商', 'Provider'), value: providerLabel(result?.provider ?? provider, l) },
-        { label: l('音色', 'Voice'), value: result?.voiceName || voiceName || voice },
-        { label: l('表达风格', 'Delivery'), value: l(summaryStyle.zh, summaryStyle.en) },
-        { label: l('语速', 'Speed'), value: `${(result?.speed ?? speed).toFixed(2)}x` },
+        { label: l('模型', 'Model'), value: result?.model || model || '—' },
+        { label: l('音色', 'Voice'), value: result?.voiceName || voiceName || voice || '—' },
+        ...(result || supportsStyle ? [{ label: l('表达风格', 'Delivery'), value: l(summaryStyle.zh, summaryStyle.en) }] : []),
+        ...(result || supportsSpeed ? [{ label: l('语速', 'Speed'), value: `${(result?.speed ?? speed).toFixed(2)}x` }] : []),
         { label: l('音频格式', 'Format'), value: (result?.format ?? format).toUpperCase() },
         { label: l('文案长度', 'Length'), value: l(`${result?.characterCount ?? characterCount} 字`, `${result?.characterCount ?? characterCount} characters`) }
       ]}
@@ -371,16 +343,13 @@ export default function SmartDubbingWorkspace(props: {
     <CreatorToolShell
       title={l('智能配音', 'AI Dubbing')}
       subtitle={l('自然音色、表达风格与可下载音频', 'Natural voices, expressive delivery, and downloadable audio')}
-      context={result
-        ? l(`${result.format.toUpperCase()} 配音已完成`, `${result.format.toUpperCase()} dubbing ready`)
-        : currentStep === 0
-          ? l('正在编辑文案', 'Editing script')
-          : currentStep === 1
-            ? `${voiceName || voice || providerLabel(provider, l)} · ${speed.toFixed(2)}x`
-            : generating
-              ? l('正在生成配音', 'Generating dubbing')
-              : l('等待生成', 'Ready to generate')}
-      stepLabel={generating ? l('正在生成配音', 'Generating dubbing') : l('智能配音', 'AI dubbing')}
+      context={busy
+        ? l('正在生成配音', 'Generating dubbing')
+        : result
+          ? l(`${result.format.toUpperCase()} 配音已完成`, `${result.format.toUpperCase()} dubbing ready`)
+          : `${voiceName || voice || providerLabel(provider, l)} · ${speed.toFixed(2)}x`}
+      taskSummary={summary}
+      stepLabel={busy ? l('正在生成配音', 'Generating dubbing') : l('智能配音', 'AI dubbing')}
       currentIssue={visibleError || undefined}
       suggestions={result
         ? [l('换成温暖风格', 'Use a warm style'), l('语速慢一点', 'Make it slower')]
@@ -391,61 +360,66 @@ export default function SmartDubbingWorkspace(props: {
       onCancelTask={() => void cancelTask()}
       onResumeTask={() => void resumeTask()}
       taskControlPending={taskControlPending}
+      pageClassName="smart-dubbing-workspace-page"
       contentClassName="smart-dubbing-workspace-content"
     >
-      <div className="creator-tool-stack smart-dubbing-stack">
-        <nav className="video-translation-steps creator-tool-steps smart-dubbing-steps" aria-label={l('智能配音流程', 'AI dubbing workflow')}>
-          <ol>
-            {[l('配音文案', 'Script'), l('音色与表达', 'Voice and delivery'), l('生成音频', 'Generate audio')].map((label, index) => {
-              const active = currentStep === index;
-              const completed = index < currentStep;
-              return (
-                <li key={label} data-active={active} data-completed={completed}>
-                  <button type="button" disabled={index > furthestStep} aria-current={active ? 'step' : undefined} onClick={() => openStep(index as DubbingStep)}>
-                    <span>{completed ? <Check size={13} strokeWidth={2.2} /> : index + 1}</span>
-                    <strong>{label}</strong>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
-
-        <div className="smart-dubbing-step-scroll">
-          {currentStep === 0 ? (
-            <section className="creator-tool-panel smart-dubbing-script-panel" aria-labelledby="smart-dubbing-script-title">
-              <div className="creator-tool-panel-heading">
-                <div><h2 id="smart-dubbing-script-title">{l('配音文案', 'Dubbing script')}</h2><p>{l('支持中英文及多语言文本，最多 5000 字', 'Supports multilingual text up to 5,000 characters')}</p></div>
-                <small>{characterCount} / 5000</small>
+      <div className="creator-tool-stack smart-dubbing-studio">
+        <form className="smart-dubbing-composer" aria-label={l('智能配音', 'AI Dubbing')} onSubmit={event => {
+          event.preventDefault();
+          void generate();
+        }}>
+          <fieldset className="smart-dubbing-fields" disabled={busy}>
+            <div className="smart-dubbing-model-row">
+              {official.official ? <OfficialModelField label={l('模型', 'Model')} service={official} disabled={busy} /> : (
+                <div className="smart-dubbing-configured-model">
+                  <ModelBrandIcon model={{ id: model, name: provider }} />
+                  <div>
+                    <span>{l('模型', 'Model')}</span>
+                    <div className="smart-dubbing-provider-row">
+                      <strong>{model || l('本地语音服务', 'Local speech service')}</strong>
+                      <small>{providerLabel(provider, l)}</small>
+                    </div>
+                  </div>
+                  <a href="#/settings?tab=ai-services&section=tts" aria-label={l('打开配音服务设置', 'Open voice service settings')} title={l('打开配音服务设置', 'Open voice service settings')}>
+                    <Settings2 size={17} strokeWidth={1.8} aria-hidden="true" />
+                  </a>
+                </div>
+              )}
+            </div>
+            <div className={`smart-dubbing-editor${editorExpanded ? ' is-expanded' : ''}`}>
+              <div className="smart-dubbing-editor-heading">
+                <h2 id="smart-dubbing-script-title"><Mic2 size={18} strokeWidth={1.7} aria-hidden="true" />{l('配音文案', 'Dubbing script')}</h2>
+                <button type="button" className="smart-dubbing-expand" aria-expanded={editorExpanded} aria-controls="smart-dubbing-script-input"
+                  aria-label={editorExpanded ? l('收起编辑区', 'Collapse editor') : l('展开编辑区', 'Expand editor')}
+                  title={editorExpanded ? l('收起编辑区', 'Collapse editor') : l('展开编辑区', 'Expand editor')}
+                  onClick={() => setEditorExpanded(value => !value)}>
+                  {editorExpanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+                </button>
               </div>
-              <label className="creator-tool-field">
-                <span>{l('文案内容', 'Script')}</span>
+              <div className="creator-tool-field smart-dubbing-script-field">
                 <textarea
-                  rows={12}
+                  id="smart-dubbing-script-input"
+                  rows={editorExpanded ? 14 : 7}
                   maxLength={5000}
                   value={text}
                   onChange={event => updateText(event.target.value)}
                   placeholder={l('输入需要转换为语音的文案', 'Enter the script to convert into speech')}
                   aria-label={l('配音文案内容', 'Dubbing script content')}
                 />
-              </label>
-              <button className="smart-dubbing-sample" type="button" onClick={() => updateText(l(sampleTextZh, sampleTextEn))}>
-                <WandSparkles size={14} strokeWidth={1.8} aria-hidden="true" />
-                {l('填入示例文案', 'Use sample script')}
-              </button>
-            </section>
-          ) : null}
-
-          {currentStep === 1 ? (
-            <section className="creator-tool-panel" aria-labelledby="smart-dubbing-voice-title">
-              <div className="creator-tool-panel-heading"><div><h2 id="smart-dubbing-voice-title">{l('音色与表达', 'Voice and delivery')}</h2><p>{l('选择基础音色，再设置表达风格和语速', 'Choose a voice, delivery style, and speaking rate')}</p></div></div>
-              <div className="smart-dubbing-control-group">
-                <span>{l('基础音色', 'Voice')}</span>
-                {official.official ? <OfficialModelField label={l('语音合成模型', 'Speech model')} service={official} disabled={generating} /> :
-                <div className="smart-dubbing-provider-row">
-                  <strong>{providerLabel(provider, l)}</strong>
-                  <small>{model || l('本地语音服务', 'Local speech service')}</small>
-                </div>}
+              </div>
+              <div className="smart-dubbing-script-tools">
+                <button className="smart-dubbing-sample" type="button" onClick={() => updateText(l(sampleTextZh, sampleTextEn))}>
+                  <WandSparkles size={15} strokeWidth={1.8} aria-hidden="true" />
+                  {l('填入示例文案', 'Use sample script')}
+                </button>
+                <button className="smart-dubbing-clear" type="button" disabled={!text} aria-label={l('清空文案', 'Clear script')} title={l('清空文案', 'Clear script')} onClick={() => updateText('')}>
+                  <Trash2 size={16} strokeWidth={1.8} aria-hidden="true" />
+                </button>
+                <small dir="ltr">{characterCount} / 5000</small>
+              </div>
+            </div>
+            <div className="smart-dubbing-settings">
+              <div className="smart-dubbing-voice-field">
                 <TtsVoicePicker
                   id="smart-dubbing-voice"
                   provider={provider}
@@ -453,6 +427,7 @@ export default function SmartDubbingWorkspace(props: {
                   value={voice}
                   service={props.creatorServicesService ?? null}
                   label={l('配音音色', 'Dubbing voice')}
+                  disabled={busy}
                   onChange={(voiceId, selectedVoice) => {
                     setVoice(voiceId);
                     setVoiceName(selectedVoice?.name ?? voiceId);
@@ -473,66 +448,56 @@ export default function SmartDubbingWorkspace(props: {
               </div> : null}
               {supportsSpeed ? <label className="smart-dubbing-speed">
                 <span><span><Gauge size={15} strokeWidth={1.8} aria-hidden="true" />{l('语速', 'Speaking rate')}</span><output>{speed.toFixed(2)}x</output></span>
-                <input type="range" min="0.75" max="1.25" step="0.05" value={speed} onChange={event => updateSpeed(Number(event.target.value))} />
+                <input type="range" aria-label={l('语速', 'Speaking rate')} min="0.75" max="1.25" step="0.05" value={speed} onChange={event => updateSpeed(Number(event.target.value))} />
                 <small><span>0.75x</span><span>1.00x</span><span>1.25x</span></small>
               </label> : null}
-              <div className="smart-dubbing-control-group">
+              <div className="smart-dubbing-control-group smart-dubbing-format-field">
                 <span>{l('音频格式', 'Audio format')}</span>
                 <div className="creator-tool-segmented smart-dubbing-format-options" role="radiogroup" aria-label={l('音频格式', 'Audio format')}>
                   {(['mp3', 'wav'] as const).map(value => <button type="button" role="radio" aria-checked={format === value} aria-selected={format === value} key={value} onClick={() => updateFormat(value)}>{value.toUpperCase()}</button>)}
                 </div>
               </div>
-            </section>
-          ) : null}
+            </div>
+            <div className="smart-dubbing-submit-row">
+              <button className="creator-tool-primary" type="submit" disabled={busy || (official.official && !official.ready)}>
+                {busy ? <LoaderCircle className="smart-dubbing-spinner" size={16} aria-hidden="true" /> : result ? <RotateCcw size={16} aria-hidden="true" /> : <Mic2 size={16} aria-hidden="true" />}
+                {busy ? l('正在生成', 'Generating') : result ? l('重新生成', 'Regenerate') : l('开始生成', 'Generate')}
+              </button>
+            </div>
+          </fieldset>
+        </form>
 
-          {currentStep === 2 ? (
-            <div className="creator-task-final-grid smart-dubbing-final-grid">
-              <section className="creator-tool-panel smart-dubbing-output-panel" aria-labelledby="smart-dubbing-output-title">
-                <div className="creator-tool-panel-heading">
-                  <div><h2 id="smart-dubbing-output-title">{result ? l('配音音频', 'Dubbing audio') : l('生成音频', 'Generate audio')}</h2><p>{result ? l('音频已生成，可以试听或下载', 'Audio is ready to preview or download') : l('确认任务设置后开始生成', 'Review the task settings before generating')}</p></div>
+        {result || generating ? (
+          <section className="smart-dubbing-output-panel" aria-labelledby="smart-dubbing-output-title">
+            <div className="creator-tool-panel-heading">
+              <div><h2 id="smart-dubbing-output-title">{result ? l('配音音频', 'Dubbing audio') : l('生成音频', 'Generate audio')}</h2><p>{generating ? l('正在生成配音', 'Generating dubbing') : l('音频已生成，可以试听或下载', 'Audio is ready to preview or download')}</p></div>
+            </div>
+            {result && audioUrl ? (
+              <div className="smart-dubbing-result">
+                <span className="smart-dubbing-result-icon"><FileAudio size={28} strokeWidth={1.5} aria-hidden="true" /></span>
+                <div><strong>{result.fileName}</strong><small>{formatBytes(result.size)} · {result.model}</small></div>
+                <audio controls src={audioUrl} aria-label={l('智能配音试听', 'AI dubbing preview')} />
+                <div className="smart-dubbing-result-actions">
+                  <button className="creator-tool-primary" type="button" onClick={download}><Download size={15} strokeWidth={1.8} aria-hidden="true" />{l('下载音频', 'Download audio')}</button>
                 </div>
-                {result && audioUrl ? (
-                  <div className="smart-dubbing-result">
-                    <span className="smart-dubbing-result-icon"><FileAudio size={28} strokeWidth={1.5} aria-hidden="true" /></span>
-                    <div><strong>{result.fileName}</strong><small>{formatBytes(result.size)} · {result.model}</small></div>
-                    <audio controls src={audioUrl} aria-label={l('智能配音试听', 'AI dubbing preview')} />
-                    <div className="smart-dubbing-result-actions">
-                      <button type="button" onClick={() => void generate()} disabled={generating || (official.official && !official.ready)}><RotateCcw size={15} strokeWidth={1.8} aria-hidden="true" />{l('重新生成', 'Regenerate')}</button>
-                      <button className="creator-tool-primary" type="button" onClick={download}><Download size={15} strokeWidth={1.8} aria-hidden="true" />{l('下载音频', 'Download audio')}</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="smart-dubbing-ready">
-                    <span><Sparkles size={24} strokeWidth={1.6} aria-hidden="true" /></span>
-                    <strong>{generating ? l('正在生成配音', 'Generating dubbing') : l('准备生成配音', 'Ready to generate dubbing')}</strong>
-                    <p>{l('文案、音色和输出格式已经就绪', 'The script, voice, and output format are ready')}</p>
-                    <button className="creator-tool-primary" type="button" onClick={() => void generate()} disabled={generating || (official.official && !official.ready)}>
-                      {generating ? <LoaderCircle className="smart-dubbing-spinner" size={16} strokeWidth={1.8} aria-hidden="true" /> : <Mic2 size={16} strokeWidth={1.8} aria-hidden="true" />}
-                      {generating ? l('正在生成', 'Generating') : l('开始生成', 'Generate')}
-                    </button>
-                  </div>
-                )}
-              </section>
-              {summary}
-            </div>
-          ) : null}
-          {error ? (
-            <div className="creator-tool-error smart-dubbing-error" role="alert">
-              <span>{error}</span>
-              {settingsHref ? (
-                <a href={settingsHref}>{l('打开配音服务设置', 'Open voice service settings')}</a>
-              ) : null}
-            </div>
-          ) : null}
-          {notice ? <p className="creator-tool-notice" role="status">{notice}</p> : null}
-        </div>
-
-        <footer className="video-translation-wizard-actions smart-dubbing-actions">
-          <button className="video-translation-secondary-action" type="button" onClick={() => currentStep === 0 ? props.onBack() : openStep((currentStep - 1) as DubbingStep)}>
-            {currentStep === 0 ? l('返回', 'Back') : l('上一步', 'Back')}
-          </button>
-          {currentStep < 2 ? <button className="video-translation-primary-action" type="button" onClick={nextStep}>{l('继续', 'Continue')}</button> : null}
-        </footer>
+              </div>
+            ) : (
+              <div className="smart-dubbing-preview-pending" role="status">
+                <LoaderCircle className="smart-dubbing-spinner" size={20} aria-hidden="true" />
+                <span>{generating ? l('正在生成配音', 'Generating dubbing') : l('正在加载', 'Loading')}</span>
+              </div>
+            )}
+          </section>
+        ) : null}
+        {visibleError ? (
+          <div className="creator-tool-error smart-dubbing-error" role="alert">
+            <span>{visibleError}</span>
+            {settingsHref ? (
+              <a href={settingsHref}>{l('打开配音服务设置', 'Open voice service settings')}</a>
+            ) : null}
+          </div>
+        ) : null}
+        {notice ? <p className="creator-tool-notice" role="status">{notice}</p> : null}
       </div>
     </CreatorToolShell>
   );
@@ -596,10 +561,6 @@ function formatGenerationError(error: unknown, l: (zh: string, en: string) => st
     return l('配音服务请求失败，请检查服务配置和网络后重试', 'The dubbing request failed. Check the service configuration and network, then retry.');
   }
   return l('配音生成失败，请在 Agent 区域查看诊断后重试', 'Dubbing generation failed. Review the diagnosis in the Agent panel and retry.');
-}
-
-function readStep(value: CreatorJson | undefined, fallback: DubbingStep): DubbingStep {
-  return value === 0 || value === 1 || value === 2 ? value : fallback;
 }
 
 function readString(value: CreatorJson | undefined): string {
