@@ -20,7 +20,7 @@ describe('creator agent context', () => {
     ]) {
       expect(context.templateGuidance).toContain(platform);
     }
-    expect(context.templateGuidance).toContain('可下载视频或提取音频');
+    expect(context.templateGuidance).toContain('可下载视频、提取音频或下载来源提供的 SRT 字幕');
     expect(context.templateGuidance).toContain('download_probe.options');
     expect(context.templateGuidance).not.toContain('仅支持公开的 YouTube 和 Bilibili');
   });

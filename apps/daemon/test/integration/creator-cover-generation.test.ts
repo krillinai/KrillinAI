@@ -83,7 +83,7 @@ describe('creator cover generation', () => {
     const first = await waitForCompletedJob(created.json().job.id, 1);
     expect(first.state.resultSnapshots).toMatchObject([{
       version: 1,
-      description: '生成封面',
+      description: 'Generated thumbnail',
       artifactRefs: {
         cover_image: expect.arrayContaining([expect.any(String), expect.any(String)])
       }

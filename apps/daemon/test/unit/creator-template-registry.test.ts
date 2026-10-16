@@ -209,7 +209,8 @@ describe('creator template registry', () => {
         id: 'download',
         outputArtifacts: [
           { kind: 'source_video', status: 'completed' },
-          { kind: 'source_audio', status: 'completed' }
+          { kind: 'source_audio', status: 'completed' },
+          { kind: 'source_subtitle', status: 'completed' }
         ]
       }
     ]);

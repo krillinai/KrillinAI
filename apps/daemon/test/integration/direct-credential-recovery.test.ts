@@ -31,7 +31,7 @@ it.each(['chat/completions', 'images/generations', 'video/jobs'])('%s 明确拒�
     expect(await (await f.request(`requests/${id}/result`)).json()).toMatchObject({ data: [{ b64_json: 'aW1hZ2U=' }] });
   }
   await (await f.request(resource, asyncImage)).text();
-  expect(f.recover).toHaveBeenCalledExactlyOnceWith('a', 'old-key');
+  expect(f.recover).toHaveBeenCalledExactlyOnceWith('a', 'old-key', 'https://openrouter.ai/api/v1');
   expect(fetcher).toHaveBeenCalledTimes(2);
   expect(fetcher.mock.calls.map(([, options]) => new Headers(options?.headers).get('authorization'))).toEqual(['Bearer old-key', 'Bearer new-key']);
   expect(fetcher.mock.calls[0]![1]!.body).toEqual(fetcher.mock.calls[1]![1]!.body);

@@ -98,7 +98,7 @@ describe('creator xiaohongshu post', () => {
         resultSnapshots: [{
           version: 1,
           stageId: 'generate',
-          description: '生成小红书帖子',
+          description: 'Generated Xiaohongshu post',
           artifactRefs: { xiaohongshu_post: [expect.any(String)] }
         }]
       },

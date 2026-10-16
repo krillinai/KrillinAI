@@ -449,10 +449,14 @@ it.each([true, false])('reconciles both image ledgers and records usable progres
   } finally { await f.source.revoke(); db.close(); await rm(root, { recursive: true, force: true }); }
 });
 it('uses a local Runtime capability and stateless Responses with safe upstream errors', async () => {
-  const fetcher = vi.fn(async (_url: URL | RequestInfo, _options?: RequestInit) => Response.json({ error: { message: 'OpenRouter private error' } }, { status: 402 }));
+  const fetcher = vi.fn(async (_url: URL | RequestInfo, _options?: RequestInit) => Response.json({ error: { message: 'Insufficient provider credits token=private-provider-secret key=private-user-key' } }, { status: 402 }));
   const runtime = await createDirectRuntime('private-user-key', fetcher); cleanup.push(() => runtime.close());
   const result = await fetch(`${runtime.baseUrl}/responses`, { method: 'POST', headers: { Authorization: `Bearer ${runtime.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'vendor/text', input: [], store: true }) });
-  expect(result.status).toBe(402); expect(await result.text()).not.toContain('OpenRouter');
+  expect(result.status).toBe(402);
+  const error = await result.json();
+  expect(error).toMatchObject({ error: { code: 'official_service_unavailable', message: expect.stringContaining('Insufficient provider credits') } });
+  expect(JSON.stringify(error)).not.toContain('private-provider-secret');
+  expect(JSON.stringify(error)).not.toContain('private-user-key');
   expect(JSON.parse(String(fetcher.mock.lastCall?.[1]?.body))).toMatchObject({ store: false });
   expect((await fetch(`${runtime.baseUrl}/responses`, { method: 'POST', body: '{}' })).status).toBe(401);
 });

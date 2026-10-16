@@ -563,7 +563,7 @@ describe('creator runtime advanced contracts', () => {
     expect(completed.state.resultSnapshots).toMatchObject([
       {
         version: 1,
-        description: '识别视频高光片段',
+        description: 'Identified video highlights',
         artifactRefs: {
           source_video: [source.id],
           target_subtitle: [subtitle.id],
@@ -572,7 +572,7 @@ describe('creator runtime advanced contracts', () => {
       },
       {
         version: 2,
-        description: '识别视频高光片段',
+        description: 'Identified video highlights',
         artifactRefs: {
           source_video: [source.id],
           target_subtitle: [subtitle.id],

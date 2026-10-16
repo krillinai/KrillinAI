@@ -474,6 +474,37 @@ export { expect };
 
 // Keep creation and persistence real while avoiding external video platforms.
 export async function stubVideoDownloadProbe(page: Page, runtime: RuntimeFixture): Promise<void> {
+  const completedProbes = new Set<string>();
+  function withProbe(job: CreatorJob): CreatorJob {
+    if (!completedProbes.has(job.id)) return job;
+    const url = String(job.state.sourceUrl);
+    return {
+      ...job,
+      revision: job.revision + 1,
+      artifacts: [...job.artifacts, {
+        id: `${job.id}-probe`, jobId: job.id, kind: 'download_probe', version: 1,
+        status: 'completed', path: null, scopeKey: null, inputFingerprint: null,
+        sha256: null, sourceArtifactIds: [], createdAt: job.createdAt,
+        metadata: {
+          id: job.id, title: `youtube.com · ${new URL(url).searchParams.get('v')}`, url,
+          requestedUrl: url, platform: 'youtube', duration: 120,
+          formats: [], options: [{ id: 'video-1080', mediaType: 'video', container: 'mp4',
+            height: 1080, videoFormatId: '399', audioFormatId: '140' }]
+        }
+      }]
+    };
+  }
+  // Replay the external probe result when real persisted tasks are reloaded.
+  await page.route(/\/creator\/jobs(?:\/[^/?]+)?(?:\?[^#]*)?$/, async route => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const response = await route.fetch();
+    const payload = await response.json() as { job?: CreatorJob; jobs?: CreatorJob[] };
+    await route.fulfill({ response, json: {
+      ...payload,
+      ...(payload.job === undefined ? {} : { job: withProbe(payload.job) }),
+      ...(payload.jobs === undefined ? {} : { jobs: payload.jobs.map(withProbe) })
+    } });
+  });
   await page.route('**/creator/jobs/*/actions', async route => {
     const request = route.request();
     if (request.method() !== 'POST') return route.continue();
@@ -481,9 +512,11 @@ export async function stubVideoDownloadProbe(page: Page, runtime: RuntimeFixture
     if (action.action !== 'run-stage' || action.input.stageId !== 'probe') return route.continue();
     const jobId = new URL(request.url()).pathname.split('/').at(-2)!;
     const { job } = await runtime.api<{ job: CreatorJob }>('GET', `/creator/jobs/${jobId}`);
-    await route.fulfill({ json: { job, receipt: {
+    completedProbes.add(jobId);
+    const completed = withProbe(job);
+    await route.fulfill({ json: { job: completed, receipt: {
       actor: action.actor ?? 'user', action: action.action, summary: action.action,
-      affectedArtifacts: [], newRevision: job.revision, createdAt: job.updatedAt
+      affectedArtifacts: [`${job.id}-probe`], newRevision: completed.revision, createdAt: job.updatedAt
     } } });
   });
 }

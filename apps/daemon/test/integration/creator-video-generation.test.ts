@@ -210,7 +210,7 @@ describe('creator video generation', () => {
         latestResultVersion: 1,
         resultSnapshots: [{
           version: 1,
-          description: '生成视频',
+          description: 'Generated video',
           state: {
             model: 'doubao-seedance-2-0-260128'
           },

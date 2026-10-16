@@ -338,7 +338,7 @@ describe('stickman video workflow', () => {
       expect(script.totalNarrationUnits).toBe(120);
       const secondPrompt = completionRequests.filter(request => request.stageId === 'script')[1]!.prompt;
       expect(secondPrompt).toContain('上一份完整草稿');
-      expect(secondPrompt).toContain('旁白总字符数');
+      expect(secondPrompt).toContain('outside the 108-132 budget');
       expect(secondPrompt).toContain('重新生成整份脚本');
       expect(completionRequests.some(request => (
         request.stageId === 'script-narration'
@@ -605,8 +605,8 @@ describe('stickman video workflow', () => {
           errorCode: 'creator_storyboard_validation_failed',
           progress: { phase: 'failed', completed: 0, failed: 1 }
         });
-        expect(failed.progress.message).toContain('已停止');
-        expect(failed.progress.message).not.toContain('正在整稿重生成');
+        expect(failed.progress.message).toContain('Generation stopped');
+        expect(failed.progress.message).not.toContain('Regenerating the complete draft');
         expect(completionRequests.filter(request => request.stageId === 'storyboard')).toHaveLength(3);
         await workflow.handleStageChanged(failed);
         const failedJob = service.getJob(jobId)!;

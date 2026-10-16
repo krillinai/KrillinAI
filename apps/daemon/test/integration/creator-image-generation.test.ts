@@ -39,7 +39,7 @@ describe('creator image generation', () => {
     })).statusCode).toBe(200);
     await vi.waitFor(async () => {
       const job = (await request('GET', `/creator/jobs/${initial.id}`)).json().job;
-      expect(job.stages).toContainEqual(expect.objectContaining({ status: 'failed', errorCode: 'image_generation_failed', errorMessage: expect.stringContaining('参考图') }));
+      expect(job.stages).toContainEqual(expect.objectContaining({ status: 'failed', errorCode: 'image_generation_failed', errorMessage: expect.stringContaining('reference image') }));
     });
     const issues = (await request('GET', `/creator/jobs/${initial.id}/issues`)).json().issues;
     expect(issues).toContainEqual(expect.objectContaining({ code: 'image_generation_failed', publicFacts: {

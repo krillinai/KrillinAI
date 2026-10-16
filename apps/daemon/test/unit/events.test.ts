@@ -194,7 +194,7 @@ describe('event parser and normalizer', () => {
       type: 'diagnostic',
       code: 'CODEX_STREAM_RETRYING',
       severity: 'warning',
-      message: 'Codex 响应连接中断，正在自动重连（1/5）'
+      message: 'The Codex response connection was interrupted. Reconnecting automatically (1/5).'
     });
   });
 

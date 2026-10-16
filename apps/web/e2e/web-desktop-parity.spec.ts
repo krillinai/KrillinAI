@@ -1135,17 +1135,17 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
       ]);
       const outputPath = settings.getByRole('textbox', { name: '完成产物位置' });
       await outputPath.fill(savedOutputRoot);
-      await settings.getByRole('button', { name: '保存完成产物位置' }).click();
+      await settings.getByRole('button', { name: 'Save 完成产物位置' }).click();
       await expect(outputPath).toHaveValue(savedOutputRoot);
       await expect.poll(async () => (
         await runtime.api<{ settings: { outputRoot: string } }>('GET', '/settings/storage')
       ).settings.outputRoot).toBe(savedOutputRoot);
       const storagePickerCount = await settings.getByRole('button', {
-        name: /选择(?:默认项目位置|完成产物位置)/
+        name: /Select (?:默认项目位置|完成产物位置)/
       }).count();
       expect(storagePickerCount).toBe(platform === 'desktop' ? 2 : 0);
       if (platform === 'desktop') {
-        await settings.getByRole('button', { name: '选择完成产物位置' }).click();
+        await settings.getByRole('button', { name: 'Select 完成产物位置' }).click();
         await expect.poll(() => page.evaluate(() => (
           window as unknown as { __directorySelectionPurpose?: string }
         ).__directorySelectionPurpose)).toBe('output-root');
@@ -2116,7 +2116,7 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
 test('工作台模块新建 Creator Job，刷新和最近项目精确恢复历史且不启动普通 Codex Run', async ({ page, runtime }) => {
   await stubVideoDownloadProbe(page, runtime);
   await page.route(
-    /^https:\/\/i\.ytimg\.com\/vi\/OpenCreator(?:Demo|Second)\/maxresdefault\.jpg$/,
+    /^https:\/\/i\.ytimg\.com\/vi\/OpenCreator(?:Demo|Second|Child)\/maxresdefault\.jpg$/,
     route => route.fulfill({
       contentType: 'image/png',
       body: Buffer.from(
@@ -2171,7 +2171,7 @@ test('工作台模块新建 Creator Job，刷新和最近项目精确恢复历�
   await expect(page.getByRole('heading', { name: '视频下载' })).toBeVisible();
   await expect(page.getByRole('list', { name: '视频链接列表' }).getByRole('listitem')).toHaveCount(2);
   await expect(page.getByRole('list', { name: '视频链接列表' }))
-    .toContainText('https://www.youtube.com/watch?v=OpenCreatorDemo');
+    .toContainText('youtube.com · OpenCreatorDemo');
 
   await page.getByRole('region', { name: '视频下载 操作区' })
     .getByRole('button', { name: '返回', exact: true })
@@ -2197,7 +2197,7 @@ test('工作台模块新建 Creator Job，刷新和最近项目精确恢复历�
   await expect(page).toHaveURL(new RegExp(`jobId=${firstJobId}`));
   await expect(page.getByRole('list', { name: '视频链接列表' }).getByRole('listitem')).toHaveCount(2);
   await expect(page.getByRole('list', { name: '视频链接列表' }))
-    .toContainText('https://www.youtube.com/watch?v=OpenCreatorDemo');
+    .toContainText('youtube.com · OpenCreatorDemo');
 });
 
 test('图像生成在桌面和移动视口创建、持久化并从项目中心恢复 Creator Job', async ({

@@ -119,7 +119,7 @@ describe('creator short video script', () => {
         resultSnapshots: [{
           version: 1,
           stageId: 'generate',
-          description: '生成短视频脚本',
+          description: 'Generated short video script',
           artifactRefs: { short_video_script: [expect.any(String)] }
         }]
       },
@@ -219,7 +219,7 @@ describe('creator short video script', () => {
       await expect(run).resolves.toMatchObject({ outputs: [{ metadata: { actualDurationSeconds: actual } }] });
       expect(await readdir(tempDir)).toEqual(['OpenCreator-short-video-script.md']);
     } else {
-      await expect(run).rejects.toMatchObject({ code: 'creator_llm_upstream_error', message: expect.stringContaining('偏离目标') });
+      await expect(run).rejects.toMatchObject({ code: 'creator_llm_upstream_error', message: expect.stringContaining('script duration') });
       expect(await readdir(tempDir)).toEqual([]);
     }
   });
