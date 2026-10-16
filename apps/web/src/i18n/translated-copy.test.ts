@@ -22,7 +22,9 @@ describe('additional language catalogs', () => {
 
   it.each([
     ['ja-JP', '取得'], ['ko-KR', '가져오기'], ['es-ES', 'Obtener'],
-    ['fr-FR', 'Récupérer'], ['de-DE', 'Abrufen'], ['pt-BR', 'Obter']
+    ['fr-FR', 'Récupérer'], ['de-DE', 'Abrufen'], ['pt-BR', 'Obter'],
+    ['zh-TW', '擷取'], ['it-IT', 'Recupera'], ['ru-RU', 'Получить'],
+    ['tr-TR', 'Getir'], ['id-ID', 'Ambil'], ['vi-VN', 'Lấy']
   ] as const)('translates primary actions in %s', (language, expected) => {
     expect(translateEnglishCopy(language, 'Fetch')).toBe(expected);
     expect(translateEnglishCopy(language, 'Some unknown UI text')).toBe('Some unknown UI text');

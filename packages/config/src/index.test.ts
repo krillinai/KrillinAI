@@ -26,7 +26,7 @@ afterEach(() => {
 });
 
 describe('OpenCreator config', () => {
-  it.each(['ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR'] as const)('preserves %s across config writes and reads', language => {
+  it.each(['zh-TW', 'ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR', 'it-IT', 'ru-RU', 'tr-TR', 'id-ID', 'vi-VN'] as const)('preserves %s across config writes and reads', language => {
     const root = mkdtempSync(join(tmpdir(), 'opencreator-config-'));
     tempDirs.push(root);
     const path = join(root, 'config.toml');

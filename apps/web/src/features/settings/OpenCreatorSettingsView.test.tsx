@@ -210,11 +210,14 @@ describe('OpenCreatorSettingsView', () => {
 
   it.each([
     ['ja-JP', '一般'], ['ko-KR', '일반'], ['es-ES', 'General'],
-    ['fr-FR', 'Général'], ['de-DE', 'Allgemein'], ['pt-BR', 'Geral']
+    ['fr-FR', 'Général'], ['de-DE', 'Allgemein'], ['pt-BR', 'Geral'],
+    ['zh-TW', '一般'], ['it-IT', 'Generale'], ['ru-RU', 'Общие'],
+    ['tr-TR', 'Genel'], ['id-ID', 'Umum'], ['vi-VN', 'Chung']
   ] as const)('offers and immediately switches to %s', (language, heading) => {
     render(<LanguageProvider initialPreference="en-US"><OpenCreatorSettingsView runtimeStatus={runtimeStatus} onBack={vi.fn()} /></LanguageProvider>);
     const select = screen.getByRole('combobox', { name: 'Display language' });
-    expect(select.querySelectorAll('option')).toHaveLength(10);
+    // The system option plus every supported display language.
+    expect(select.querySelectorAll('option')).toHaveLength(16);
     fireEvent.change(select, { target: { value: language } });
     expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
     expect(select).toHaveValue(language);

@@ -229,7 +229,7 @@ export function issueConversationText(
       : issue.category === 'input'
       ? localize('请检查输入内容后重试。', 'Check the input and try again.', 'Kontrollera indata och försök igen.')
         : localize('请检查当前任务状态后重试。', 'You can retry after checking the current task state.', 'Kontrollera den aktuella uppgiftsstatusen innan du försöker igen.');
-  return language !== 'zh-CN'
+  return language !== 'zh-CN' && language !== 'zh-TW'
     ? {
         message: `${detail} ${nextStep}`,
         nextStep

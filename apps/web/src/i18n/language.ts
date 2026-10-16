@@ -5,6 +5,7 @@ export type AppLanguage = OpenCreatorLanguage;
 
 export const appLanguageOptions: ReadonlyArray<{ value: AppLanguage; label: string }> = [
   { value: 'zh-CN', label: '简体中文' },
+  { value: 'zh-TW', label: '繁體中文' },
   { value: 'en-US', label: 'English' },
   { value: 'sv-SE', label: 'Svenska' },
   { value: 'ja-JP', label: '日本語' },
@@ -12,7 +13,12 @@ export const appLanguageOptions: ReadonlyArray<{ value: AppLanguage; label: stri
   { value: 'es-ES', label: 'Español' },
   { value: 'fr-FR', label: 'Français' },
   { value: 'de-DE', label: 'Deutsch' },
-  { value: 'pt-BR', label: 'Português (Brasil)' }
+  { value: 'pt-BR', label: 'Português (Brasil)' },
+  { value: 'it-IT', label: 'Italiano' },
+  { value: 'ru-RU', label: 'Русский' },
+  { value: 'tr-TR', label: 'Türkçe' },
+  { value: 'id-ID', label: 'Bahasa Indonesia' },
+  { value: 'vi-VN', label: 'Tiếng Việt' }
 ];
 
 export const languagePreferenceStorageKey = 'opencreator.preferences.language';
@@ -38,11 +44,21 @@ export function writeLanguagePreference(preference: AppLanguagePreference): void
 export function resolveSystemLanguage(languages?: readonly string[]): AppLanguage {
   const candidates = languages ?? readBrowserLanguages();
   for (const candidate of candidates) {
-    const base = candidate.toLowerCase().split(/[-_]/)[0];
+    const parts = candidate.toLowerCase().split(/[-_]/);
+    const base = parts[0];
+    if (base === 'zh') return isTraditionalChinese(parts.slice(1)) ? 'zh-TW' : 'zh-CN';
+    // Malay readers are served by the Indonesian catalog until Malay has its own.
+    if (base === 'ms') return 'id-ID';
     const language = openCreatorLanguages.find(locale => locale.split('-')[0] === base);
     if (language) return language;
   }
   return 'en-US';
+}
+
+// zh-Hant and the Taiwan, Hong Kong and Macau regions use Traditional characters.
+function isTraditionalChinese(subtags: readonly string[]): boolean {
+  if (subtags.includes('hans')) return false;
+  return subtags.some(tag => tag === 'hant' || tag === 'tw' || tag === 'hk' || tag === 'mo');
 }
 
 export function resolveAppLanguage(

@@ -96,7 +96,7 @@ describe('OpenCreator settings routes', () => {
     expect(store.updateUi).not.toHaveBeenCalled();
   });
 
-  it.each(['system', 'zh-CN', 'en-US', 'sv-SE', 'ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR'])('accepts language preference %s', async language => {
+  it.each(['system', 'zh-CN', 'zh-TW', 'en-US', 'sv-SE', 'ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR', 'it-IT', 'ru-RU', 'tr-TR', 'id-ID', 'vi-VN'])('accepts language preference %s', async language => {
     const response = await server.inject({ method: 'PATCH', url: '/settings/ui', payload: { language } });
     expect(response.statusCode).toBe(200);
     expect(response.json().settings.language).toBe(language);

@@ -18,8 +18,22 @@ describe('display language preference', () => {
 
   it('follows Chinese system locales and uses English for other system locales', () => {
     expect(resolveSystemLanguage(['zh-Hans-CN', 'en-US'])).toBe('zh-CN');
+    expect(resolveSystemLanguage(['zh-SG'])).toBe('zh-CN');
+    expect(resolveSystemLanguage(['zh'])).toBe('zh-CN');
     expect(resolveSystemLanguage(['en-GB', 'fr-FR'])).toBe('en-US');
-    expect(resolveAppLanguage('system', ['zh-TW'])).toBe('zh-CN');
+  });
+
+  it('uses Traditional Chinese for Hant scripts and Taiwan, Hong Kong and Macau', () => {
+    expect(resolveAppLanguage('system', ['zh-TW'])).toBe('zh-TW');
+    expect(resolveSystemLanguage(['zh-HK'])).toBe('zh-TW');
+    expect(resolveSystemLanguage(['zh-MO'])).toBe('zh-TW');
+    expect(resolveSystemLanguage(['zh-Hant'])).toBe('zh-TW');
+    expect(resolveSystemLanguage(['zh_Hant_HK'])).toBe('zh-TW');
+    expect(resolveSystemLanguage(['zh-Hans-HK'])).toBe('zh-CN');
+  });
+
+  it('serves Malay readers with Indonesian', () => {
+    expect(resolveSystemLanguage(['ms-MY'])).toBe('id-ID');
   });
 
   it('respects browser language preference order', () => {
@@ -44,7 +58,7 @@ describe('display language preference', () => {
     expect(document.documentElement).toHaveAttribute('data-locale', 'en-US');
   });
 
-  it.each(['ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR'] as const)('resolves and persists %s', language => {
+  it.each(['zh-TW', 'ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR', 'it-IT', 'ru-RU', 'tr-TR', 'id-ID', 'vi-VN'] as const)('resolves and persists %s', language => {
     writeLanguagePreference(language);
     expect(readLanguagePreference()).toBe(language);
     expect(resolveSystemLanguage([language])).toBe(language);
