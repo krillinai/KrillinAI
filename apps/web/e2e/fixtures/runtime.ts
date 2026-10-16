@@ -1,5 +1,5 @@
 import { expect, test as base, type Page } from '@playwright/test';
-import type { CreatorActionRequest, CreatorJob } from '@opencreator/protocol';
+import type { CreatorActionRequest, CreatorJob, CreatorPreflightResponse } from '@opencreator/protocol';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import {
   copyFileSync,
@@ -475,6 +475,19 @@ export { expect };
 // Keep creation and persistence real while avoiding external video platforms.
 export async function stubVideoDownloadProbe(page: Page, runtime: RuntimeFixture): Promise<void> {
   const completedProbes = new Set<string>();
+  // The simulated probe needs no native media tools on the browser test runner.
+  await page.route('**/creator/jobs/*/preflight?*', async route => {
+    const url = new URL(route.request().url());
+    if (route.request().method() !== 'GET' || url.searchParams.get('stageId') !== 'probe') return route.continue();
+    const jobId = url.pathname.split('/').at(-2)!;
+    const { job } = await runtime.api<{ job: CreatorJob }>('GET', `/creator/jobs/${jobId}`);
+    const response: CreatorPreflightResponse = {
+      templateId: job.templateId, templateVersion: job.templateVersion, stageId: 'probe',
+      executionMode: 'local', canStart: true, ready: [], warning: [], blocked: [],
+      checkedAt: new Date().toISOString()
+    };
+    await route.fulfill({ json: response });
+  });
   function withProbe(job: CreatorJob): CreatorJob {
     if (!completedProbes.has(job.id)) return job;
     const url = String(job.state.sourceUrl);
