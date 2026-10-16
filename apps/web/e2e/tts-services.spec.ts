@@ -93,7 +93,7 @@ test('统一配音配置在设置、智能配音和视频翻译中保持一致',
   await page.getByRole('textbox', { name: '配音文案内容' }).fill('这是统一配音配置的端到端验证。');
   await expect(page.locator('.smart-dubbing-provider-row')).toContainText('阿里云百炼');
   await expect(page.locator('.smart-dubbing-provider-row')).toContainText('qwen3-tts-flash');
-  await expect(page.getByRole('radiogroup', { name: '配音音色' }).getByRole('radio', { name: /^Kiki/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('button', { name: /^配音音色/ })).toContainText('Kiki');
 
   const translationJob = await runtime.api<{
     job: { id: string };

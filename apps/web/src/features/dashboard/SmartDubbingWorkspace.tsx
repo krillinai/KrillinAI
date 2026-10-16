@@ -402,6 +402,8 @@ export default function SmartDubbingWorkspace(props: {
                   <small dir="ltr">{characterCount} / 5000</small>
                 </div>
               </div>
+            </div>
+            <div className="smart-dubbing-side-fields">
               <div className="smart-dubbing-voice-field">
                 <TtsVoicePicker
                   id="smart-dubbing-voice"
@@ -424,8 +426,6 @@ export default function SmartDubbingWorkspace(props: {
                   onVoiceResolved={selectedVoice => setVoiceName(selectedVoice.name)}
                 />
               </div>
-            </div>
-            <div className="smart-dubbing-side-fields">
               <div className="smart-dubbing-model-row">
                 {official.official ? <OfficialModelField label={l('模型', 'Model')} service={official} disabled={busy} /> : (
                   <div className="smart-dubbing-configured-model">

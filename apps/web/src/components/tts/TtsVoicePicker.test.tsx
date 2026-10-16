@@ -228,6 +228,7 @@ describe('TtsVoicePicker', () => {
       ] }))
     };
     render(<TtsVoicePicker id="voice" presentation="library" provider="aliyun" model="qwen3-tts-flash" value="Cherry" service={service} onChange={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('button', { name: '默认音色 芊悦' }));
     await screen.findByRole('radio', { name: /芊悦/ });
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'eThAn' } });
     expect(screen.getAllByRole('radio')).toHaveLength(1);
@@ -252,6 +253,7 @@ describe('TtsVoicePicker', () => {
     const tts = createService();
     const onChange = vi.fn();
     render(<TtsVoicePicker id="voice" presentation="library" provider="aliyun" model="qwen3-tts-flash" value="Cherry" service={tts.service} onChange={onChange} />);
+    fireEvent.click(await screen.findByRole('button', { name: '默认音色 芊悦' }));
     const selected = await screen.findByRole('radio', { name: /芊悦/ });
     const next = screen.getByRole('radio', { name: /晨煦/ });
     expect(selected).toHaveAttribute('tabindex', '0');
@@ -261,6 +263,29 @@ describe('TtsVoicePicker', () => {
     expect(next).toHaveFocus();
     fireEvent.keyDown(next, { key: 'Home' });
     expect(selected).toHaveFocus();
+  });
+
+  it('opens the library from one entry, closes on Escape or outside input, and restores focus after choosing', async () => {
+    const tts = createService();
+    const onChange = vi.fn();
+    render(<><button type="button">Outside</button><TtsVoicePicker id="voice" presentation="library" provider="aliyun" model="qwen3-tts-flash" value="Cherry" service={tts.service} onChange={onChange} /></>);
+    const entry = await screen.findByRole('button', { name: '默认音色 芊悦' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(entry);
+    const search = await screen.findByRole('searchbox');
+    expect(search).toHaveFocus();
+    fireEvent.keyDown(search, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(entry).toHaveFocus();
+    fireEvent.click(entry);
+    fireEvent.click(await screen.findByRole('radio', { name: /晨煦/ }));
+    expect(onChange).toHaveBeenCalledWith('Ethan', expect.objectContaining({ id: 'Ethan' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(entry).toHaveFocus();
+    fireEvent.click(entry);
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Outside' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(entry).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('previews library voices independently and ignores stale responses after switching or disabling', async () => {
@@ -276,6 +301,7 @@ describe('TtsVoicePicker', () => {
     const onChange = vi.fn();
     const props = { id: 'voice', presentation: 'library' as const, provider: 'aliyun' as const, model: 'qwen3-tts-flash', value: 'Cherry', service: tts.service, onChange };
     const view = render(<TtsVoicePicker {...props} />);
+    fireEvent.click(await screen.findByRole('button', { name: '默认音色 芊悦' }));
     await screen.findByRole('radio', { name: /芊悦/ });
     fireEvent.click(screen.getByRole('button', { name: '试听 · 晨煦' }));
     fireEvent.click(screen.getByRole('button', { name: '试听 · 芊悦' }));
@@ -292,7 +318,8 @@ describe('TtsVoicePicker', () => {
     view.rerender(<TtsVoicePicker {...props} disabled />);
     await act(async () => { pending[2]!(response()); });
     expect(play).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: '试听 · 晨煦' })).toBeDisabled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '默认音色 芊悦' })).toBeDisabled();
     view.unmount();
   });
 });

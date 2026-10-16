@@ -36,7 +36,9 @@ it('validates and submits the complete dubbing form directly without persisting 
   fireEvent.click(submit);
   expect(within(form.parentElement!).getByRole('alert')).toHaveTextContent('请选择一个可用音色');
   expect(fixture.applyAction.mock.calls.every(([, request]) => request.action !== 'run-stage')).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: /^配音音色/ }));
   fireEvent.click(await screen.findByRole('radio', { name: 'Cedar' }));
+  expect(screen.queryByRole('dialog', { name: '配音音色' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('radio', { name: '温暖' }));
   fireEvent.change(screen.getByRole('slider', { name: '语速' }), { target: { value: '0.9' } });
   fireEvent.click(screen.getByRole('radio', { name: 'WAV' }));
@@ -55,7 +57,8 @@ it.each([0, 1, 2])('restores a legacy step %s draft with every control available
   const fixture = createFixture({ text: 'Saved script', currentStep: step, furthestStep: step, style: 'calm', speed: 1.1, format: 'wav' });
   await renderWorkspace(fixture);
   expect(screen.getByRole('textbox', { name: '配音文案内容' })).toHaveValue('Saved script');
-  expect(within(screen.getByRole('radiogroup', { name: '配音音色' })).getByRole('radio', { name: 'Marin' })).toHaveAttribute('aria-checked', 'true');
+  expect(screen.getByRole('button', { name: '配音音色 Marin' })).toHaveAttribute('aria-expanded', 'false');
+  expect(screen.queryByRole('radiogroup', { name: '配音音色' })).not.toBeInTheDocument();
   expect(screen.getByRole('radio', { name: '沉静' })).toHaveAttribute('aria-checked', 'true');
   expect(screen.getByRole('slider', { name: '语速' })).toHaveValue('1.1');
   expect(screen.getByRole('radio', { name: 'WAV' })).toHaveAttribute('aria-checked', 'true');
@@ -79,7 +82,7 @@ it('keeps the editor and voice controls locked until a submission finishes', asy
   fireEvent.click(within(form).getByRole('button', { name: '开始生成' }));
   await waitFor(() => expect(fixture.applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(true));
   expect(screen.getByRole('textbox', { name: '配音文案内容' })).toBeDisabled();
-  expect(within(screen.getByRole('radiogroup', { name: '配音音色' })).getByRole('radio', { name: 'Marin' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '配音音色 Marin' })).toBeDisabled();
   expect(screen.getByRole('slider')).toBeDisabled();
   fireEvent.click(within(form).getByRole('button', { name: '正在生成' }));
   expect(fixture.applyAction.mock.calls.filter(([, request]) => request.action === 'run-stage')).toHaveLength(1);

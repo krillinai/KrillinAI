@@ -1,4 +1,16 @@
 .tts-voice-picker.is-library { display: block; container: tts-library / inline-size; }
+.tts-voice-library-entry { display: grid; gap: 8px; min-width: 0; }
+.tts-voice-library-entry > span { color: var(--muted); font-size: 12px; font-weight: 600; }
+.tts-voice-library-trigger { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 64px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); text-align: start; }
+.tts-voice-library-trigger > svg { flex-shrink: 0; color: var(--muted); }
+.tts-voice-library-trigger > span { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.tts-voice-library-trigger strong { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.tts-voice-library-trigger small { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.tts-voice-library-trigger:hover:enabled, .tts-voice-library-trigger[aria-expanded='true'] { border-color: var(--border-strong); }
+.tts-voice-library-trigger:focus-visible { outline: 2px solid var(--state-focus-ring); outline-offset: 2px; }
+.tts-voice-library-trigger:disabled { opacity: .5; }
+[dir='rtl'] .tts-voice-library-chevron { transform: rotate(180deg); }
+.tts-voice-library-popover { position: fixed; z-index: 500; display: grid; align-content: start; gap: 16px; padding: 16px; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface-popover); color: var(--text); container: tts-library / inline-size; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 .tts-voice-library { min-width: 0; display: grid; gap: 12px; }
 .tts-voice-library-heading { display: flex; align-items: center; gap: 10px; }
 .tts-voice-library-heading h2 { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0; color: var(--text); font-size: 14px; font-weight: 600; }
@@ -11,6 +23,7 @@
 .tts-voice-library-search > svg { flex-shrink: 0; }
 .tts-voice-library-search input { flex: 1; min-width: 0; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px; outline: 0; caret-color: var(--accent); }
 .tts-voice-library-search input::placeholder { color: var(--muted); }
+.tts-voice-library-search input:focus-visible { outline: 0; box-shadow: none; }
 .tts-voice-library-search input::-webkit-search-cancel-button { appearance: none; }
 .tts-voice-library-search:focus-within { border-color: var(--border-strong); outline: 2px solid var(--state-focus-ring); outline-offset: 2px; }
 .tts-voice-library-filters { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }

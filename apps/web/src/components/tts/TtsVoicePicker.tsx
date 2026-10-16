@@ -16,6 +16,7 @@ import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import { TtsVoiceSelect, type TtsVoiceSelectGroup } from './TtsVoiceSelect.js';
 import { TtsVoiceLibrary, type VoiceLibraryOption } from './TtsVoiceLibrary.js';
+import { TtsVoiceLibraryPopover } from './TtsVoiceLibraryPopover.js';
 import { voiceScenarioLabel } from './voice-scenario-copy.js';
 import './tts-voice-picker.css';
 
@@ -226,26 +227,81 @@ export function TtsVoicePicker(props: {
     }
   }
 
+  const voiceDetails = <>
+    {allowCustomVoice ? (
+      <label className="tts-voice-picker-custom" htmlFor={`${props.id}-custom`}>
+        <span>{l('克隆 / 自定义 Speaker ID', 'Clone / custom speaker ID')}</span>
+        <input
+          id={`${props.id}-custom`}
+          type="text"
+          value={customId}
+          placeholder={l('例如 S_xxxxxxxx 或官方音色 ID', 'e.g. S_xxxxxxxx or an official voice ID')}
+          spellCheck={false}
+          autoComplete="off"
+          disabled={props.disabled || props.provider === 'edge-tts'}
+          onChange={event => setCustomId(event.target.value)}
+          onBlur={() => commitCustomVoice(customId)}
+          onKeyDown={event => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              commitCustomVoice(customId);
+            }
+          }}
+        />
+      </label>
+    ) : null}
+    {!selected && allowCustomVoice && !loading ? (
+      <small className="tts-voice-picker-meta">
+        {l(
+          '声音复刻请填写控制台中的 Speaker ID（S_ 开头）。',
+          'For cloned voices, enter the console Speaker ID starting with S_.'
+        )}
+      </small>
+    ) : null}
+    <IssueList
+      issues={pageIssues.issues}
+      actions={{
+        retryOperations: {
+          'tts.load-voices': () => setReloadToken(current => current + 1),
+          'tts.preview-voice': () => preview(previewVoiceId || props.value)
+        }
+      }}
+      onDismiss={pageIssues.dismissIssue}
+      compact
+    />
+  </>;
+
   return (
     <div className={`tts-voice-picker${props.presentation === 'library' ? ' is-library' : ''}`}>
-      {props.presentation === 'library' ? <TtsVoiceLibrary
-        key={`${props.provider}:${props.model}:${appLanguage}`}
-        id={props.id}
+      {props.presentation === 'library' ? <TtsVoiceLibraryPopover
         label={props.label ?? l('默认音色', 'Default voice')}
-        value={props.value}
-        options={libraryOptions}
-        loading={loading}
+        name={loading ? l('正在加载音色', 'Loading voices') : selected?.name ?? props.value}
+        detail={selected ? voiceDetail(selected, l, appLanguage, '') : undefined}
         disabled={props.disabled || props.provider === 'edge-tts'}
-        canRefresh={props.service !== null && props.provider !== 'edge-tts'}
-        canPreview={props.service !== null && props.provider !== 'edge-tts'}
-        previewVoiceId={previewVoiceId}
-        previewing={previewing}
-        playing={playing}
-        onRefresh={() => { stopPreview(); setReloadToken(current => current + 1); }}
-        onPreview={voiceId => void preview(voiceId)}
-        onStopPreview={stopPreview}
-        onChange={selectVoice}
-      /> : <>
+        resetKey={`${props.provider}:${props.model}:${appLanguage}`}
+        onClose={stopPreview}
+      >{close => <>
+        <TtsVoiceLibrary
+          key={`${props.provider}:${props.model}:${appLanguage}`}
+          id={props.id}
+          label={props.label ?? l('默认音色', 'Default voice')}
+          value={props.value}
+          options={libraryOptions}
+          loading={loading}
+          disabled={props.disabled || props.provider === 'edge-tts'}
+          canRefresh={props.service !== null && props.provider !== 'edge-tts'}
+          canPreview={props.service !== null && props.provider !== 'edge-tts'}
+          previewVoiceId={previewVoiceId}
+          previewing={previewing}
+          playing={playing}
+          onRefresh={() => { stopPreview(); setReloadToken(current => current + 1); }}
+          onPreview={voiceId => void preview(voiceId)}
+          onStopPreview={stopPreview}
+          onChange={(voiceId, commit) => { selectVoice(voiceId); if (commit) close(); }}
+          onClose={close}
+        />
+        {voiceDetails}
+      </>}</TtsVoiceLibraryPopover> : <>
         <div className="tts-voice-picker-field">
           <span id={`${props.id}-label`}>{props.label ?? l('默认音色', 'Default voice')}</span>
           <TtsVoiceSelect
@@ -290,47 +346,7 @@ export function TtsVoicePicker(props: {
         </div>
       </>}
       <audio ref={audioRef} hidden onEnded={stopPreview} />
-      {allowCustomVoice ? (
-        <label className="tts-voice-picker-custom" htmlFor={`${props.id}-custom`}>
-          <span>{l('克隆 / 自定义 Speaker ID', 'Clone / custom speaker ID')}</span>
-          <input
-            id={`${props.id}-custom`}
-            type="text"
-            value={customId}
-            placeholder={l('例如 S_xxxxxxxx 或官方音色 ID', 'e.g. S_xxxxxxxx or an official voice ID')}
-            spellCheck={false}
-            autoComplete="off"
-            disabled={props.disabled || props.provider === 'edge-tts'}
-            onChange={event => setCustomId(event.target.value)}
-            onBlur={() => commitCustomVoice(customId)}
-            onKeyDown={event => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                commitCustomVoice(customId);
-              }
-            }}
-          />
-        </label>
-      ) : null}
-      {!selected && allowCustomVoice && !loading ? (
-        <small className="tts-voice-picker-meta">
-          {l(
-            '声音复刻请填写控制台中的 Speaker ID（S_ 开头）。',
-            'For cloned voices, enter the console Speaker ID starting with S_.'
-          )}
-        </small>
-      ) : null}
-      <IssueList
-        issues={pageIssues.issues}
-        actions={{
-          retryOperations: {
-            'tts.load-voices': () => setReloadToken(current => current + 1),
-            'tts.preview-voice': () => preview(previewVoiceId || props.value)
-          }
-        }}
-        onDismiss={pageIssues.dismissIssue}
-        compact
-      />
+      {props.presentation !== 'library' ? voiceDetails : null}
     </div>
   );
 }

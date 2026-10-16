@@ -33,7 +33,8 @@ export function TtsVoiceLibrary(props: {
   onRefresh(): void;
   onPreview(id: string): void;
   onStopPreview(): void;
-  onChange(id: string): void;
+  onChange(id: string, commit?: boolean): void;
+  onClose?(): void;
 }) {
   const l = useLocalizedCopy();
   const [query, setQuery] = useState('');
@@ -76,7 +77,7 @@ export function TtsVoiceLibrary(props: {
     event.preventDefault();
     const voice = filtered[next];
     if (!voice) return;
-    props.onChange(voice.id);
+    props.onChange(voice.id, false);
     rowRefs.current.get(voice.id)?.focus();
   }
 
@@ -88,6 +89,7 @@ export function TtsVoiceLibrary(props: {
         aria-label={l('刷新音色列表', 'Refresh voices')} title={l('刷新音色列表', 'Refresh voices')} onClick={props.onRefresh}>
         {props.loading ? <LoaderCircle className="tts-voice-picker-spinner" size={16} aria-hidden="true" /> : <RefreshCw size={16} aria-hidden="true" />}
       </button>
+      {props.onClose ? <button className="tts-voice-library-refresh" type="button" aria-label={l('关闭', 'Close')} title={l('关闭', 'Close')} onClick={props.onClose}><X size={18} aria-hidden="true" /></button> : null}
     </div>
     <div className="tts-voice-library-toolbar">
       <div className="tts-voice-library-search">
@@ -135,7 +137,7 @@ export function TtsVoiceLibrary(props: {
             </button>
             <button ref={element => { if (element) rowRefs.current.set(option.id, element); else rowRefs.current.delete(option.id); }}
               className="tts-voice-library-choice" type="button" role="radio" aria-checked={selected} aria-label={name}
-              disabled={props.disabled} tabIndex={option.id === focusId ? 0 : -1} onKeyDown={event => onRadioKeyDown(event, index)} onClick={() => props.onChange(option.id)}>
+              disabled={props.disabled} tabIndex={option.id === focusId ? 0 : -1} onKeyDown={event => onRadioKeyDown(event, index)} onClick={() => props.onChange(option.id, true)}>
               <span className="tts-voice-library-copy">
                 <span className="tts-voice-library-name"><bdi>{option.name}</bdi>{option.name !== option.id ? <small dir="ltr">{option.id}</small> : null}</span>
                 {tags.length || option.recommended ? <span className="tts-voice-library-tags">
