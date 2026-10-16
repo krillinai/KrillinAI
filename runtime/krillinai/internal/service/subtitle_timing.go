@@ -69,12 +69,33 @@ func subtitleBlockTimingSpans(blocks []*util.SrtBlock) ([]subtitleTimingSpan, st
 func splitShortSubtitleBlocks(blocks []*util.SrtBlock, spans []subtitleTimingSpan, maxChars, maxWords int) (map[int][]util.SrtBlock, error) {
 	result := make(map[int][]util.SrtBlock)
 	position := 0
+	hardLimit := subtitleTargetLimit()
+	if maxChars <= 0 || maxChars > hardLimit {
+		maxChars = hardLimit
+	}
+	fitsLine := func(text string) bool {
+		return subtitleTargetLength(text) <= hardLimit && (maxWords <= 0 || len(strings.Fields(text)) <= maxWords)
+	}
 	for _, block := range blocks {
 		parts, err := splitSubtitleText(block.OriginLanguageSentence, func(text string) bool {
-			return (maxChars <= 0 || subtitleTargetLength(text) <= maxChars) && (maxWords <= 0 || len(strings.Fields(text)) <= maxWords)
+			return subtitleTargetLength(text) <= maxChars && fitsLine(text)
 		})
 		if err != nil {
 			return nil, err
+		}
+		// 保留短尾词回并，但不突破单行硬上限或音频短字幕词数限制。
+		if len(parts) > 1 {
+			last := parts[len(parts)-1]
+			if len(strings.Fields(last)) == 1 && subtitleTargetLength(last) <= 12 {
+				tail := strings.TrimSpace(block.OriginLanguageSentence)
+				for _, part := range parts[:len(parts)-2] {
+					tail = strings.TrimSpace(tail[len(part):])
+				}
+				if fitsLine(tail) {
+					parts[len(parts)-2] = tail
+					parts = parts[:len(parts)-1]
+				}
+			}
 		}
 		for _, part := range parts {
 			start := subtitlePositionTime(spans, position, false)

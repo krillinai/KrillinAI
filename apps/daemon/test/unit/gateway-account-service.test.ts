@@ -565,6 +565,69 @@ it('本地账号初始化不联网，恢复期间状态可读且任务不会回�
   } finally { release(); await f.service.close(); }
 });
 
+it.each(['openrouter', '88api', 'chatanywhere'] as const)('直连账号初始化只读缓存，慢模型目录在后台恢复（%s）', async supplier => {
+  let release!: () => void;
+  const waiting = new Promise<void>(resolve => { release = resolve; });
+  const fetcher = vi.fn<typeof fetch>(async (url, options) => {
+    if (String(url).endsWith('/cdn-cgi/trace')) return new Response('ip=203.0.113.1\nloc=JP\n');
+    await waiting;
+    options?.signal?.throwIfAborted();
+    return Response.json({ data: [{ id: 'gateway-text' }] });
+  });
+  const f = await setup(undefined, undefined, undefined, undefined, root => createOfficialModelAccess({ dataDir: root, fetcher, readProxy: async () => '' }), true);
+  const bootstrap: GatewayBootstrap = { ...await f.client.bootstrap('access-1'), schemaVersion: 2, supplier,
+    transport: supplier === 'openrouter' ? 'openrouter-direct' : 'supplier-direct',
+    baseUrl: supplier === 'openrouter' ? 'https://openrouter.ai/api/v1' : supplier === '88api' ? 'https://api.88api.ai/v1' : 'https://api.chatanywhere.tech/v1' };
+  f.client.bootstrap.mockResolvedValue(bootstrap);
+  await seedSavedAccount(f);
+  try {
+    // A pending fetch must not hold either initialization or account reads open.
+    await f.service.initialize();
+    expect(await f.service.readState()).toMatchObject({ source: 'gateway', authState: 'signed_in', activationState: 'loading', models: bootstrap.models });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(f.client.bootstrap).not.toHaveBeenCalled();
+    expect(f.client.refresh).not.toHaveBeenCalled();
+    const restoring = f.service.startBackgroundRestore();
+    void f.service.startBackgroundRestore();
+    await expect.poll(() => fetcher.mock.calls.some(([url]) => String(url).includes('/models'))).toBe(true);
+    expect(f.client.bootstrap).toHaveBeenCalledOnce();
+    expect(await f.service.readState()).toMatchObject({ source: 'gateway', activationState: 'loading' });
+    const manual = { startTurn: vi.fn() } as unknown as AppServerRuntimeManager;
+    const runtime = createRuntimeSource(manual, f.service.peekState, () => undefined);
+    expect(() => runtime.startTurn({} as Parameters<AppServerRuntimeManager['startTurn']>[0])).toThrow(GatewayError);
+    expect(manual.startTurn).not.toHaveBeenCalled();
+    expect(f.activate).not.toHaveBeenCalled();
+    release(); await restoring;
+    expect(f.service.peekState().activationState).toBe('ready');
+    expect(f.activate).toHaveBeenCalledOnce();
+    expect(f.probe).not.toHaveBeenCalled();
+  } finally { release(); await f.service.close(); }
+});
+
+it.each(['close', 'logout'] as const)('直连模型目录挂起时可以%s，不会激活迟到的恢复结果', async action => {
+  let catalogSignal: AbortSignal | undefined;
+  const fetcher = vi.fn<typeof fetch>(async (url, options) => {
+    if (String(url).endsWith('/cdn-cgi/trace')) return new Response('ip=203.0.113.1\nloc=JP\n');
+    catalogSignal = options!.signal!;
+    return new Promise<Response>((_resolve, reject) => {
+      catalogSignal!.addEventListener('abort', () => reject(catalogSignal!.reason), { once: true });
+    });
+  });
+  const f = await setup(undefined, undefined, undefined, undefined, root => createOfficialModelAccess({ dataDir: root, fetcher, readProxy: async () => '' }), true);
+  const bootstrap: GatewayBootstrap = { ...await f.client.bootstrap('access-1'), transport: 'openrouter-direct', baseUrl: 'https://openrouter.ai/api/v1' };
+  f.client.bootstrap.mockResolvedValue(bootstrap);
+  await seedSavedAccount(f);
+  try {
+    await f.service.initialize();
+    const restoring = f.service.startBackgroundRestore();
+    await expect.poll(() => !!catalogSignal).toBe(true);
+    await f.service[action](); await restoring;
+    expect(catalogSignal!.aborted).toBe(true);
+    expect(f.activate).not.toHaveBeenCalled();
+    if (action === 'logout') expect(f.service.peekState()).toMatchObject({ source: 'manual', authState: 'signed_out', activationState: 'inactive' });
+  } finally { await f.service.close(); }
+});
+
 it('后台恢复失败时保留登录态并允许重试', async () => {
   const f = await setup(undefined, undefined, undefined, undefined, undefined, true);
   await seedSavedAccount(f);
@@ -917,6 +980,63 @@ it('automatically requests migration on restart and defers it for pending suppli
     expect(f.client.bootstrap).toHaveBeenLastCalledWith('access-1', { rotate: !pending, modelUsePolicy: 'cached-key-v1' });
     await restored.close();
   }
+});
+
+it.each([false, true])('旧轮换凭据收到迁移提示后切换网关，无需重新登录（后台恢复=%s）', async deferred => {
+  const network = vi.fn<typeof fetch>(async () => { throw new Error('Migrated accounts must not access the old supplier'); });
+  const f = await setup(undefined, undefined, undefined, undefined,
+    root => createOfficialModelAccess({ dataDir: root, fetcher: network, readProxy: async () => '' }), deferred);
+  const legacy: GatewayBootstrap = { ...await f.client.bootstrap('access-1'), transport: 'openrouter-direct',
+    baseUrl: 'https://openrouter.ai/api/v1', keyRotation: true };
+  f.client.bootstrap.mockResolvedValue(legacy);
+  await seedSavedAccount(f);
+  const gateway: GatewayBootstrap = { ...legacy, schemaVersion: 3, transport: 'gateway', supplier: 'chatanywhere',
+    baseUrl: `${f.client.origin}/v1`, keyRotation: false, modelKey: undefined, keyVersion: 'gateway-3', bindingVersion: '1:gateway-3',
+    models: legacy.models.map(model => ({ ...model, capabilities: ['responses', 'chat'] })) };
+  f.client.bootstrap.mockResolvedValue(gateway);
+  const request = vi.spyOn(f.client, 'request').mockImplementation(async path => {
+    if (path === '/api/v1/client/usage') throw new GatewayError('gateway_migrated', 409, { path, reason: 'http', httpStatus: 409 });
+    return path === '/api/v1/client/models' ? { models: gateway.models } : { account: gateway.account };
+  });
+  try {
+    await f.service.initialize();
+    if (deferred) {
+      expect(f.service.peekState().activationState).toBe('loading');
+      expect(request).not.toHaveBeenCalled();
+      await f.service.startBackgroundRestore();
+    }
+    expect(f.service.peekState()).toMatchObject({ authState: 'signed_in', activationState: 'ready', transport: 'gateway', activationError: null });
+    expect(f.client.bootstrap).toHaveBeenCalledOnce();
+    expect(f.client.bootstrap).toHaveBeenCalledWith('access-1', { rotate: false, modelUsePolicy: 'cached-key-v1' });
+    expect(request.mock.calls.filter(([path]) => path === '/api/v1/client/usage')).toHaveLength(1);
+    expect(f.activate).toHaveBeenCalledWith(expect.objectContaining({ transport: 'gateway', keyRotation: false }));
+    expect(network).not.toHaveBeenCalled();
+    expect(f.probe).not.toHaveBeenCalled();
+    const saved = await createGatewayConfigStore(f.root).readCredentials();
+    expect(saved).toMatchObject({ schemaVersion: 3, transport: 'gateway', keyRotation: false, accessToken: 'access-1', refreshToken: 'refresh-1' });
+    expect(saved).not.toHaveProperty('modelKey');
+  } finally { await f.service.close(); }
+});
+
+it.each([
+  { code: 'gateway_unavailable', status: 503, migrated: false },
+  { code: 'account_disabled', status: 403, migrated: false },
+  { code: 'gateway_migrated', status: 403, migrated: false },
+  { code: 'gateway_migrated', status: 409, migrated: true }
+])('旧凭据同步失败时不能绕过直连协调（$code/$status）', async ({ code, status, migrated }) => {
+  const f = await setup(undefined, undefined, undefined, undefined, undefined, true);
+  const legacy: GatewayBootstrap = { ...await f.client.bootstrap('access-1'), transport: 'openrouter-direct',
+    baseUrl: 'https://openrouter.ai/api/v1', keyRotation: true };
+  f.client.bootstrap.mockResolvedValue(legacy);
+  await seedSavedAccount(f);
+  vi.spyOn(f.client, 'request').mockRejectedValue(new GatewayError(code, status));
+  try {
+    await f.service.startBackgroundRestore();
+    expect(f.service.peekState()).toMatchObject({ activationState: 'blocked', activationError: { code, stage: 'usage' } });
+    expect(f.activate).not.toHaveBeenCalled();
+    expect(f.client.bootstrap).toHaveBeenCalledTimes(migrated ? 1 : 0);
+    expect((await createGatewayConfigStore(f.root).readCredentials())?.transport).toBe('openrouter-direct');
+  } finally { await f.service.close(); }
 });
 
 it('does not admit direct use when control-plane coordination fails', async () => {

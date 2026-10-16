@@ -220,8 +220,8 @@ export function createGatewayAccountService(input: {
       if (credentials.modelAccessError) { restoreModelAccessError(credentials.modelAccessError); return; }
       if (input.deferStartupActivation) {
         const cached = bootstrapSchema.safeParse(credentials);
-        if (cached.success) state.models = cached.data.transport === 'gateway'
-          ? withModelCatalog(cached.data, officialModelPolicy(cached.data.models)).models : (await visibleBootstrap(cached.data)).models;
+        // Catalog preparation may access the network; only restore the local snapshot before listen.
+        if (cached.success) state.models = withModelCatalog(cached.data, officialModelPolicy(cached.data.models)).models;
         state.activationState = 'loading';
         return;
       }
@@ -283,12 +283,19 @@ export function createGatewayAccountService(input: {
       stage = 'configuration';
       await saveConfiguration();
       stage = 'usage';
-      await reportUsage();
+      let migration: GatewayError | undefined;
+      try { await reportUsage(); }
+      catch (error) {
+        if (!(error instanceof GatewayError) || error.status !== 409 || error.code !== 'gateway_migrated') throw error;
+        migration = error;
+      }
       if (closing || accessPaused || generation !== expected || state.authState !== 'signed_in') return;
       stage = 'bootstrap';
-      const bootstrap = cached?.success ? cached.data : await input.client.bootstrap(original.accessToken, { rotate: rotate && !usesCachedModelKey() && !input.hasPendingTasks?.(), modelUsePolicy: cachedModelUsePolicy, ...(region === 'auto' ? {} : { region }) });
+      const bootstrap = cached?.success ? cached.data : await input.client.bootstrap(original.accessToken, { rotate: !migration && rotate && !usesCachedModelKey() && !input.hasPendingTasks?.(), modelUsePolicy: cachedModelUsePolicy, ...(region === 'auto' ? {} : { region }) });
       if (closing || accessPaused || generation !== expected || state.authState !== 'signed_in') return;
       if (original.account && bootstrap.account.id !== original.account.id) throw new GatewayError('account_mismatch');
+      // Only a confirmed gateway binding can replace obsolete direct-key coordination.
+      if (migration && (bootstrap.transport !== 'gateway' || bootstrap.keyRotation !== false)) { stage = 'usage'; throw migration; }
       state.account = bootstrap.account;
       state.supplier = bootstrap.supplier ?? 'openrouter'; supplierMigrating = false;
       state.transport = bootstrap.transport;

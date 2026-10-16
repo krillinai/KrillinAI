@@ -94,6 +94,9 @@ func TestPairedTranslationProtectsUnpunctuatedInputAndBatchBudget(t *testing.T) 
 }
 
 func TestShortSubtitleKeepsTrailingPunctuationWithText(t *testing.T) {
+	previous := config.Conf
+	t.Cleanup(func() { config.Conf = previous })
+	config.Conf.App.MaxSentenceLength = 50
 	text := "And you can do this with almost anything."
 	blocks := []*util.SrtBlock{{Index: 1, Timestamp: "00:00:00,000 --> 00:00:04,000", OriginLanguageSentence: text}}
 	spans, _, err := subtitleBlockTimingSpans(blocks)
@@ -106,13 +109,65 @@ func TestShortSubtitleKeepsTrailingPunctuationWithText(t *testing.T) {
 	}
 	var parts []string
 	for _, block := range short[1] {
-		if !hasSubtitleContent(block.OriginLanguageSentence) || subtitleTargetLength(block.OriginLanguageSentence) > 20 {
+		if !hasSubtitleContent(block.OriginLanguageSentence) || subtitleTargetLength(block.OriginLanguageSentence) > 50 {
 			t.Fatalf("短字幕不能独立显示标点或超限: %+v", block)
 		}
 		parts = append(parts, block.OriginLanguageSentence)
 	}
 	if compactSubtitleText(strings.Join(parts, "")) != compactSubtitleText(text) {
 		t.Fatalf("短字幕内容丢失: %q", parts)
+	}
+}
+
+func TestShortSubtitleMergesTailWithinSingleLineLimits(t *testing.T) {
+	previous := config.Conf
+	t.Cleanup(func() { config.Conf = previous })
+	for _, tc := range []struct {
+		name, text                      string
+		groupLimit, lineLimit, maxWords int
+		want                            []string
+	}{
+		{"英文短尾回并", "And you can do this with almost anything.", 20, 50, 0, []string{"And you can do this", "with almost anything."}},
+		{"回并不得突破单行上限", "And you can do this with almost anything.", 20, 20, 0, []string{"And you can do this", "with almost", "anything."}},
+		{"词数限制仍生效", "one two three four five", 50, 50, 2, []string{"one two", "three four", "five"}},
+		{"无空格原文不插入空格", "甲乙丙丁戊己庚辛壬癸。", 8, 50, 0, []string{"甲乙丙丁", "戊己庚辛壬癸。"}},
+		{"长词内部回并不插入空格", strings.Repeat("a", 26) + ".", 20, 50, 0, []string{strings.Repeat("a", 26) + "."}},
+		{"短字幕配置不得放宽单行上限", "alpha beta gamma delta", 80, 16, 0, []string{"alpha beta gamma", "delta"}},
+		{"组合字符保持完整", "cafe\u0301cafe\u0301.", 6, 50, 0, []string{"cafe\u0301cafe\u0301."}},
+		{"Emoji连接序列保持完整", "👩🏽‍💻👨‍👩‍👧‍👦👩🏽‍💻", 4, 50, 0, []string{"👩🏽‍💻👨‍👩‍👧‍👦👩🏽‍💻"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			config.Conf.App.MaxSentenceLength = tc.lineLimit
+			blocks := []*util.SrtBlock{{Index: 1, Timestamp: "00:00:00,000 --> 00:00:04,000", OriginLanguageSentence: tc.text}}
+			spans, _, err := subtitleBlockTimingSpans(blocks)
+			if err != nil {
+				t.Fatal(err)
+			}
+			short, err := splitShortSubtitleBlocks(blocks, spans, tc.groupLimit, tc.maxWords)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var parts []string
+			var previousEnd int64
+			for _, block := range short[1] {
+				part := block.OriginLanguageSentence
+				if subtitleTargetLength(part) > tc.lineLimit || tc.maxWords > 0 && len(strings.Fields(part)) > tc.maxWords {
+					t.Fatalf("合并后超过单行或词数限制: %q", part)
+				}
+				start, end, err := parseSRTTimeline(block.Timestamp)
+				if err != nil || start != previousEnd || end <= start {
+					t.Fatalf("短字幕时间不连续: %+v, %v", block, err)
+				}
+				previousEnd = end
+				parts = append(parts, part)
+			}
+			if strings.Join(parts, "\n") != strings.Join(tc.want, "\n") {
+				t.Fatalf("分组错误: got=%q want=%q", parts, tc.want)
+			}
+			if previousEnd != 4000 || compactSubtitleText(strings.Join(parts, "")) != compactSubtitleText(tc.text) || !subtitleSegmentsHaveSafeBoundaries(parts) {
+				t.Fatalf("合并破坏原文、字素或时间范围: %q", parts)
+			}
+		})
 	}
 }
 

@@ -20,6 +20,8 @@ const (
 	DefaultTTSBaseURL = "https://api.openai.com/v1"
 	DefaultTTSModel   = "gpt-4o-mini-tts"
 	DefaultTTSVoice   = "marin"
+	// Gateway receipts can remain pending while a speech segment is generated.
+	ttsTimeout = 10 * time.Minute
 )
 
 type TtsClient struct {
@@ -47,7 +49,7 @@ func NewTtsClient(baseURL, apiKey, model, proxy string) *TtsClient {
 		Model:   strings.TrimSpace(model),
 		httpClient: &http.Client{
 			Transport: transport,
-			Timeout:   90 * time.Second,
+			Timeout:   ttsTimeout,
 		},
 	}
 }
@@ -87,7 +89,7 @@ func (c *TtsClient) Synthesize(ctx context.Context, options types.TTSSpeechOptio
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, ttsTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/audio/speech", bytes.NewReader(body))
 	if err != nil {

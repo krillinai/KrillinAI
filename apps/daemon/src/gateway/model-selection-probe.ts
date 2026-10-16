@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import sharp from 'sharp';
 import { gatewayVideoSizes, type GatewayConnectionDiagnostics, type GatewayModel, type GatewayModelProbeOptions, type PublicErrorFacts } from '@opencreator/protocol';
 import { GatewayError, validateGatewayOrigin } from './client.js';
 import { chatAnywhereImage } from './chatanywhere-media.js';
@@ -89,6 +88,7 @@ export function createModelSelectionProbe(input: {
             break;
           }
           case 'image': {
+            const { default: sharp } = await import('sharp');
             const options = model.imageOptions;
             let resource = 'images/generations'; let contentType = 'application/json';
             let body: unknown = { model: model.id, prompt: 'A red circle on a white background.', n: 1,
