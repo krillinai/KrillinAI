@@ -1620,7 +1620,7 @@ test('@package-smoke Windows YouTube 专用登录完成和取消，保存后重�
     await section.getByRole('button', { name: '连接', exact: true }).click();
     await expect(section.getByRole('button', { name: '完成登录', exact: true })).toBeVisible({ timeout: 30_000 });
     await section.getByRole('button', { name: '完成登录', exact: true }).click();
-    await expect(section.getByText('尚未完成 YouTube 登录', { exact: false })).toBeVisible({ timeout: 30_000 });
+    await expect(section.getByText('YouTube sign-in is incomplete. Reconnect and finish signing in in the sign-in window.', { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(section.locator('.platform-connection-status')).toHaveText('连接失败');
     // 使用纯测试凭据验证持久化和重启，真实账号登录由用户在正常 Chrome 中完成。
     const text = '# Netscape HTTP Cookie File\n' + ['SID', 'SAPISID'].map(name =>
