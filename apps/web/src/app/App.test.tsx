@@ -1296,7 +1296,7 @@ describe('App', () => {
     expect(shell?.style.getPropertyValue('--opencreator-titlebar-height')).toBe('38px');
     expect(shell?.style.getPropertyValue('--opencreator-traffic-light-inset')).toBe('76px');
     expect(document.querySelector('.desktop-titlebar-drag-region')).toBeInTheDocument();
-    expect(screen.queryByRole('group', { name: 'Window controls' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: '窗口控制' })).not.toBeInTheDocument();
     expect(document.querySelector('.opencreator-main-titlebar')).not.toBeInTheDocument();
   });
 
@@ -1314,10 +1314,10 @@ describe('App', () => {
     render(<App fileService={createFileService()} hostBridge={hostBridge} />);
 
     await screen.findByRole('button', { name: '工作台' });
-    const controls = screen.getByRole('group', { name: 'Window controls' });
-    await user.click(within(controls).getByRole('button', { name: 'Zoom window' }));
-    await user.click(within(controls).getByRole('button', { name: 'Minimize window' }));
-    await user.click(within(controls).getByRole('button', { name: 'Close window' }));
+    const controls = screen.getByRole('group', { name: '窗口控制' });
+    await user.click(within(controls).getByRole('button', { name: '缩放窗口' }));
+    await user.click(within(controls).getByRole('button', { name: '最小化窗口' }));
+    await user.click(within(controls).getByRole('button', { name: '关闭窗口' }));
     expect(controlWindow.mock.calls).toEqual([['zoom'], ['minimize'], ['close']]);
   });
 

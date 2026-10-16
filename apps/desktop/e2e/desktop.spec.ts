@@ -428,7 +428,7 @@ test('@package-smoke 授权回调唤起个人中心，模型初始化期间立�
         if (-not [OpenCreatorE2EWindow]::IsIconic($windowHandle)) { throw 'Desktop native window did not minimize'; }
       `], { timeout: 10_000 });
     } else {
-      await fixture.page.getByRole('button', { name: 'Minimize window', exact: true }).click();
+      await fixture.page.getByRole('button', { name: '最小化窗口', exact: true }).click();
     }
     approved = true;
     const checks: string[] = [];
