@@ -20,7 +20,7 @@ export type GatewayModel = {
   status?: 'ready' | 'temporarily_unavailable' | 'retired';
   statusReason?: string;
   recommended?: boolean;
-  price?: { version: string; inputPerMillion?: number; outputPerMillion?: number; perMinute?: number; perMillionCharacters?: number; perRequest?: number; videoUnitsPerSecond?: Record<string, number> };
+  price?: { version: string; billing?: 'usage'; inputPerMillion?: number; cachedInputPerMillion?: number; cacheWritePerMillion?: number; imageInputPerMillion?: number; outputPerMillion?: number; perMinute?: number; perMillionCharacters?: number; perRequest?: number; videoUnitsPerSecond?: Record<string, number> };
   videoOptions?: {
     profile: string;
     maxImages: number; maxVideos: number; maxAudios: number;

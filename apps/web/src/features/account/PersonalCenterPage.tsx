@@ -14,6 +14,7 @@ export default function PersonalCenterPage(props: {
   view?: 'account' | 'subscription';
   service: GatewayAccountSettingsService | null;
   accountState?: GatewayAccountState;
+  hasActiveTasks?: boolean;
   billingOrderId?: string;
   billingReturnUrl?: string;
   prepareExternalNavigation?(): ExternalNavigation;
@@ -62,6 +63,7 @@ export default function PersonalCenterPage(props: {
       <GatewaySubscriptionSettingsView
         key={`${state?.authState}:${state?.account?.id ?? ''}`}
         service={props.service} embedded accountState={state} openExternal={props.openExternal}
+        hasActiveTasks={props.hasActiveTasks}
         billingOrderId={props.billingOrderId} billingReturnUrl={props.billingReturnUrl}
         prepareExternalNavigation={props.prepareExternalNavigation}
         onRequestSignIn={() => setSignInRequest(value => value + 1)}

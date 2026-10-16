@@ -8,7 +8,7 @@ const modelSchema = z.object({
   modality: z.enum(['text', 'image', 'video', 'speech', 'transcription']),
   capabilities: z.array(z.string()), voices: z.array(z.string().min(1)).optional(),
   vendor: z.string().optional(), status: z.enum(['ready','temporarily_unavailable','retired']).optional(), statusReason: z.string().optional(), recommended: z.boolean().optional(),
-  price: z.object({version:z.string(),inputPerMillion:z.number().optional(),outputPerMillion:z.number().optional(),perMinute:z.number().optional(),perMillionCharacters:z.number().optional(),perRequest:z.number().optional(),videoUnitsPerSecond:z.record(z.number().int().positive().max(1_000_000_000_000)).optional()}).optional(),
+  price: z.object({version:z.string(),billing:z.literal('usage').optional(),inputPerMillion:z.number().optional(),cachedInputPerMillion:z.number().optional(),cacheWritePerMillion:z.number().optional(),imageInputPerMillion:z.number().optional(),outputPerMillion:z.number().optional(),perMinute:z.number().optional(),perMillionCharacters:z.number().optional(),perRequest:z.number().optional(),videoUnitsPerSecond:z.record(z.number().int().positive().max(1_000_000_000_000)).optional()}).optional(),
   videoOptions: z.object({ profile:z.string(), maxImages:z.number().int().min(0).max(30), maxVideos:z.number().int().min(0).max(10), maxAudios:z.number().int().min(0).max(10), firstLastFrames:z.boolean(), framesExclusive:z.boolean(), generateAudio:z.boolean(), referenceDuration:z.number().int().positive().optional() }).optional(),
   sizes: z.array(z.string().regex(/^\d+x\d+$/)).optional(),
   durations: z.array(z.number().int().positive()).optional(),

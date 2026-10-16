@@ -131,7 +131,21 @@ func splitSubtitleSourceHint(text string, limit int) ([]string, error) {
 		score := max(leftSize, rightSize) - min(leftSize, rightSize)
 		last, _ := utf8.DecodeLastRuneInString(left)
 		if unicode.IsPunct(last) && min(leftSize, rightSize)*4 >= leftSize+rightSize {
-			score -= limit / 2
+			score -= limit
+		}
+		if subtitleBoundarySplitsSubject(left, right, limit) {
+			score += limit * 2
+		}
+		leftWords, rightWords := strings.Fields(strings.ToLower(left)), strings.Fields(strings.ToLower(right))
+		if len(leftWords) > 0 && len(rightWords) > 0 {
+			switch leftWords[len(leftWords)-1] {
+			case "that", "because", "although", "unless", "whereas":
+				score += limit
+			}
+			switch rightWords[0] {
+			case "that", "because", "although", "unless", "whereas":
+				score -= limit / 2
+			}
 		}
 		if score < bestScore && subtitleSegmentsHaveSafeBoundaries([]string{left, right}) {
 			bestCut, bestScore = cut, score
@@ -142,6 +156,37 @@ func splitSubtitleSourceHint(text string, limit int) ([]string, error) {
 		parts[len(parts)-1] = strings.TrimSpace(tail[bestCut:])
 	}
 	return parts, nil
+}
+
+// Only flag clear dangling subjects when moving them can still satisfy the limit.
+func subtitleBoundarySplitsSubject(left, right string, limit int) bool {
+	left, right = strings.TrimSpace(left), strings.TrimSpace(right)
+	fields := strings.Fields(left)
+	if len(fields) > 1 {
+		subject := fields[len(fields)-1]
+		switch strings.ToLower(subject) {
+		case "i", "you", "he", "she", "it", "we", "they":
+			following := strings.Fields(strings.ToLower(right))
+			if len(following) > 0 {
+				predicate := strings.ReplaceAll(following[0], "’", "'")
+				switch predicate {
+				case "am", "is", "are", "was", "were", "isn't", "aren't", "wasn't", "weren't", "has", "have", "had", "hasn't", "haven't", "hadn't", "do", "does", "did", "don't", "doesn't", "didn't", "can", "could", "cannot", "can't", "couldn't", "will", "would", "won't", "wouldn't", "should", "shouldn't", "may", "might", "must", "mustn't":
+					return subtitleTargetLength(subject+" "+right) <= limit
+				}
+			}
+		}
+	}
+	for _, subject := range []string{"我", "你", "您", "他", "她", "它", "我们", "你们", "他们", "她们", "它们"} {
+		prefix, found := strings.CutSuffix(left, subject)
+		if !found || !hasSubtitleContent(prefix) {
+			continue
+		}
+		last, _ := utf8.DecodeLastRuneInString(strings.TrimSpace(prefix))
+		if strings.ContainsRune("，,；;：:", last) && subtitleTargetLength(subject+right) <= limit {
+			return true
+		}
+	}
+	return false
 }
 
 func subtitleTextPreview(text string, maxBytes int) string {

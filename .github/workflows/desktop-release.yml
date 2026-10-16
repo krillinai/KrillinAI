@@ -94,6 +94,7 @@ jobs:
     environment: release
     env:
       OPENCREATOR_DESKTOP_CACHE_DIR: ${{ github.workspace }}/apps/desktop/.cache
+      ELECTRON_CACHE: ${{ github.workspace }}/apps/desktop/.cache/electron
       OPENCREATOR_DESKTOP_BUILD_MANIFEST: ${{ github.workspace }}/apps/desktop/release/opencreator-desktop-build-manifest-${{ matrix.platform }}-${{ matrix.arch }}.json
       OPENCREATOR_DESKTOP_OFFICIAL_BUILD: '1'
     steps:
@@ -149,7 +150,6 @@ jobs:
         with:
           go-version-file: runtime/krillinai/go.mod
           cache-dependency-path: runtime/krillinai/go.sum
-      - run: pnpm install --frozen-lockfile
       - uses: actions/cache@v4
         with:
           path: |
@@ -158,10 +158,14 @@ jobs:
             apps/desktop/.cache/node-gyp
             apps/desktop/.cache/npm
           key: desktop-tools-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('pnpm-lock.yaml', 'apps/desktop/package.json', 'apps/desktop/packaging/daemon-runtime/pnpm-lock.yaml') }}
+          restore-keys: |
+            desktop-tools-${{ runner.os }}-${{ matrix.arch }}-
       - uses: actions/cache@v4
         with:
           path: apps/desktop/.cache/codex-runtime
           key: codex-runtime-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('apps/desktop/scripts/prepare-codex-runtime.mjs', 'apps/desktop/scripts/codex-runtime-contract.mjs', 'resources/codex-runtime/**') }}
+          restore-keys: |
+            codex-runtime-${{ runner.os }}-${{ matrix.arch }}-
       - uses: actions/cache@v4
         with:
           path: |
@@ -169,9 +173,14 @@ jobs:
           key: creator-runtime-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('apps/desktop/scripts/install-creator-runtime-dependencies.mjs', 'apps/desktop/scripts/creator-runtime-releases.mjs', 'apps/desktop/scripts/prepare-creator-runtime.mjs') }}
       - uses: actions/cache@v4
         with:
+          path: .runtime/vendor/stickman-runtime/${{ matrix.platform }}-${{ matrix.arch }}
+          key: stickman-browser-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('apps/desktop/scripts/prepare-stickman-runtime.mjs') }}
+      - uses: actions/cache@v4
+        with:
           path: |
             .runtime/build/krillinai/${{ matrix.platform }}-${{ matrix.arch }}
           key: krillinai-build-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('scripts/build-krillinai.mjs', 'runtime/krillinai/**') }}
+      - run: pnpm install --frozen-lockfile
       - name: 生成 macOS 正式签名安装包
         if: matrix.platform == 'darwin'
         shell: bash
@@ -209,9 +218,7 @@ jobs:
           OPENCREATOR_DESKTOP_TARGET_PLATFORM: ${{ matrix.platform }}
           OPENCREATOR_DESKTOP_TARGET_ARCH: ${{ matrix.arch }}
       - name: 验证实际打包应用
-        run: >-
-          pnpm --filter @opencreator/desktop
-          ${{ matrix.name == 'macos-arm64' && 'e2e:package' || 'e2e:package:smoke' }}
+        run: pnpm --filter @opencreator/desktop e2e:package:smoke
       - name: 生成 KrillinAI Server 与 CLI 独立发布包
         run: pnpm krillinai:package
         env:
@@ -223,12 +230,14 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ env.OPENCREATOR_DESKTOP_RELEASE_ASSETS }}/*
           if-no-files-found: error
+          compression-level: 0
       - name: 上传 KrillinAI Server 与 CLI 发布附件
         uses: actions/upload-artifact@v4
         with:
           name: krillinai-release-${{ matrix.name }}
           path: ${{ env.OPENCREATOR_KRILLINAI_RELEASE_ASSETS }}/*
           if-no-files-found: error
+          compression-level: 0
       - name: 保留内部构建诊断
         if: always()
         uses: actions/upload-artifact@v4
@@ -271,6 +280,7 @@ jobs:
           name: krillinai-release-linux
           path: .runtime/release/krillinai/*
           if-no-files-found: error
+          compression-level: 0
 
   candidate-ready:
     if: github.event_name == 'workflow_dispatch' && inputs.target == 'all'

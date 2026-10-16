@@ -85,6 +85,14 @@ const (
 	translationOutputBudget  = 6500 // 为 8192 token 响应留出 JSON 和纠错余量。
 )
 
+type budgetedChatCompleter interface {
+	ChatCompletionContextWithMaxTokens(context.Context, string, int) (string, error)
+}
+
+func pairedTranslationResponseBudget(text string, limit int) int {
+	return 4*len(text) + (3*subtitleTargetLength(text)/limit+1)*48
+}
+
 func buildPairedTranslationBatches(texts []string, originLang, targetLang types.StandardLanguageCode, limit, batchSize int) ([]pairedTranslationInput, error) {
 	var batches []pairedTranslationInput
 	for start := 0; start < len(texts); {
@@ -115,7 +123,7 @@ func buildPairedTranslationBatches(texts []string, originLang, targetLang types.
 					source.After = append(source.After, parts[0])
 				}
 			}
-			estimate := 4*len(texts[i]) + (3*subtitleTargetLength(texts[i])/limit+1)*48
+			estimate := pairedTranslationResponseBudget(texts[i], limit)
 			input.Sentences = append(input.Sentences, source)
 			payload, err := json.Marshal(input)
 			if err != nil {
@@ -216,12 +224,22 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 		prompt := basePrompt
 		var batch []pairedSentence
 		requestFailures := 0
+		maxTokens := 1024
+		for _, sentence := range input.Sentences {
+			maxTokens += pairedTranslationResponseBudget(sentence.Text, limit)
+		}
+		maxTokens = min(8192, max(2048, maxTokens))
+		budgeted, supportsBudget := t.chatCompleter.(budgetedChatCompleter)
 		for attempt := 0; attempt < 3; {
 			if err = ctx.Err(); err != nil {
 				return nil, err
 			}
 			var response string
-			response, err = chatCompletionWithContext(ctx, t.chatCompleter, prompt)
+			if supportsBudget {
+				response, err = budgeted.ChatCompletionContextWithMaxTokens(ctx, prompt, maxTokens)
+			} else {
+				response, err = chatCompletionWithContext(ctx, t.chatCompleter, prompt)
+			}
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
@@ -240,6 +258,11 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 				continue
 			}
 			attempt++
+			if supportsBudget && err != nil && strings.Contains(err.Error(), "llm_translation_truncated") && maxTokens < 8192 {
+				maxTokens = min(8192, maxTokens*2)
+				log.GetLogger().Warn("字幕翻译响应截断，增加输出预算后重试", zap.Int("max_tokens", maxTokens), zap.Int("attempt", attempt))
+				continue
+			}
 			if err == nil {
 				batch, err = t.parsePairedTranslation(response, input, originLang, targetLang)
 				if err == nil {
@@ -383,6 +406,17 @@ func (t *Translator) parsePairedTranslation(response string, input pairedTransla
 			result[i].Source = []string{input.Sentences[i].Text}
 			result[i].Target = []string{target}
 		}
+	}
+	for _, sentence := range result {
+		for j := 0; j+1 < len(sentence.Source); j++ {
+			if subtitleBoundarySplitsSubject(sentence.Source[j], sentence.Source[j+1], input.MaxTargetChars) ||
+				subtitleBoundarySplitsSubject(sentence.Target[j], sentence.Target[j+1], input.MaxTargetChars) {
+				issues = append(issues, fmt.Errorf("句子%s第%d与%d段拆开了主语和谓语；请将悬在上一段末尾的主语移到下一段，并同步调整原译配对。优先完整意群，不要为了均衡长度保留生硬边界", sentence.ID, j+1, j+2))
+			}
+		}
+	}
+	if len(issues) > 0 {
+		return nil, errors.Join(issues...)
 	}
 	return result, nil
 }

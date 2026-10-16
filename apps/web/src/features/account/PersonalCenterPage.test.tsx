@@ -56,6 +56,14 @@ it('shows account and credits and returns to the previous view', async () => {
   await userEvent.setup().click(screen.getByRole('button', { name: '返回' }));
   expect(back).toHaveBeenCalledOnce();
 });
+it('forwards active task state to the credit estimate and hides it when work ends', async () => {
+  const service = createService();
+  vi.mocked(service.getSummary).mockResolvedValue({ ...summary, balance: { ...summary.balance, reservedUnits: '1000000' } });
+  const view = render(<LanguageProvider initialPreference="zh-CN"><PersonalCenterPage service={service} accountState={signedIn} hasActiveTasks onBack={vi.fn()} /></LanguageProvider>);
+  expect(await screen.findByText('预估消耗', { exact: true })).toBeInTheDocument();
+  view.rerender(<LanguageProvider initialPreference="zh-CN"><PersonalCenterPage service={service} accountState={signedIn} hasActiveTasks={false} onBack={vi.fn()} /></LanguageProvider>);
+  expect(screen.queryByText('预估消耗', { exact: true })).not.toBeInTheDocument();
+});
 it('loads credits immediately after login', async () => {
   const service = createService(signedOut); const open = vi.fn();
   vi.mocked(service.start).mockImplementation(async () => { vi.mocked(service.getState).mockResolvedValue(signedIn); return { attemptId: 'attempt', authorizationUrl: 'https://gateway.example/device', expiresAt: '2026-10-08T00:00:00Z' }; });

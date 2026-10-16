@@ -27,6 +27,7 @@ export function GatewaySubscriptionSettingsView(props: {
   service: GatewayAccountSettingsService | null;
   embedded?: boolean;
   accountState?: GatewayAccountState;
+  hasActiveTasks?: boolean;
   billingOrderId?: string;
   billingReturnUrl?: string;
   prepareExternalNavigation?(): ExternalNavigation;
@@ -55,6 +56,8 @@ export function GatewaySubscriptionSettingsView(props: {
   const service = props.service;
   const summary = summaryResult?.service === service && summaryResult.accountId === accountId ? summaryResult.value
     : accountId ? service?.getCachedSummary?.(accountId) : undefined;
+  const totalUnits = summary ? (BigInt(summary.balance.availableUnits) + BigInt(summary.balance.reservedUnits)).toString() : undefined;
+  const showEstimatedUsage = props.hasActiveTasks === true && summary !== undefined && BigInt(summary.balance.reservedUnits) >= 1_000_000n;
   const plansURL = creditPlansURL(summary?.plansUrl, language);
 
   function setSummary(value?: GatewayBillingSummary) {
@@ -169,9 +172,13 @@ export function GatewaySubscriptionSettingsView(props: {
   return <section className="account-credits" aria-label={l('积分与充值', 'Credits')}>
     {!props.embedded ? <GatewayAccountSettingsView service={service} variant="login" signInRequest={signInRequest} openExternal={props.openExternal} onStateChange={value => { setState(value); props.onStateChange?.(value); }}/> : null}
     <div className="account-credits__balance">
-      <div><h2>{l('可用积分', 'Available credits')}</h2>
-        {accountId ? <p className="account-credits__value">{summary ? formatGatewayCredits(summary.balance.availableUnits) : '--'} <small>{l('积分', 'credits')}</small></p>
+      <div><h2>{l('账户积分', 'Credit balance')}</h2>
+        {accountId ? <p className="account-credits__value">{totalUnits ? formatGatewayCredits(totalUnits) : '--'} <small>{l('积分', 'credits')}</small></p>
           : <p className="credit-muted">{l('登录后查看积分', 'Sign in to view your credits')}</p>}
+        {summary && showEstimatedUsage ? <dl className="account-credits__breakdown">
+          <div><dt>{l('可用积分', 'Available credits')}</dt><dd>{`${formatGatewayCredits(summary.balance.availableUnits)} ${l('积分', 'credits')}`}</dd></div>
+          <div><dt>{l('预估消耗', 'Estimated usage')}</dt><dd>{`${formatGatewayCredits(summary.balance.reservedUnits)} ${l('积分', 'credits')}`}</dd></div>
+        </dl> : null}
         {accountId && !summary && refreshing ? <p className="credit-loading" role="status"><LoaderCircle size={14}/>{l('正在加载积分', 'Loading credits')}</p> : null}
         {summary && (refreshing || balanceError) ? <p className="credit-muted">{l('上次更新', 'Last updated')} {new Date(summary.balance.asOf).toLocaleString(language)}</p> : null}
       </div>

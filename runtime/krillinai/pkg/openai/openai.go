@@ -17,6 +17,13 @@ func (c *Client) ChatCompletion(query string) (string, error) {
 }
 
 func (c *Client) ChatCompletionContext(ctx context.Context, query string) (string, error) {
+	return c.ChatCompletionContextWithMaxTokens(ctx, query, 8192)
+}
+
+func (c *Client) ChatCompletionContextWithMaxTokens(ctx context.Context, query string, maxTokens int) (string, error) {
+	if maxTokens < 1 || maxTokens > 8192 {
+		return "", fmt.Errorf("llm_translation_invalid_budget: output token budget must be between 1 and 8192")
+	}
 	if c.requestTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, c.requestTimeout)
@@ -36,7 +43,7 @@ func (c *Client) ChatCompletionContext(ctx context.Context, query string) (strin
 				Content: query,
 			},
 		},
-		MaxTokens:      8192,
+		MaxTokens:      maxTokens,
 		ResponseFormat: responseFormat,
 	}
 	// DeepSeek V4 的推理可能耗尽字幕 JSON 的输出预算。

@@ -4,29 +4,15 @@ import { Check, ChevronDown, Search, X } from 'lucide-react';
 import Fuse from 'fuse.js';
 import { gatewayModelReady, gatewayRecommendedModelId, type GatewayModel } from '@opencreator/protocol';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
-import { formatGatewayCreditAmount } from '../../features/account/billing-display.js';
+import { officialModelPrice, officialModelPriceDescription } from './official-model-pricing.js';
 import './official-model-select.css';
+
+export { officialModelPrice } from './official-model-pricing.js';
 
 export function officialModelLabel(model: GatewayModel, automatic: string): string {
   if (/openrouter/i.test(model.id)) return automatic;
   return (model.name || model.id.split('/').pop() || model.id).replace(/OpenRouter\s*:?\s*/gi, '').trim();
 }
-export function officialModelPrice(model:GatewayModel,l:(zh:string,en:string)=>string):string {
- const p=model.price;if(!p)return '';
- if(model.modality==='video'){
-  const rates=Object.values(p.videoUnitsPerSecond??{});
-  if(!rates.length)return '';
-  const amount=formatGatewayCreditAmount(Math.min(...rates)/1_000_000);
-  return l(`${amount} 积分/秒起`, `From ${amount} credits/second`);
- }
- if(p.perRequest)return l(`${formatGatewayCreditAmount(p.perRequest)} 积分/次`,`${formatGatewayCreditAmount(p.perRequest)} credits/request`);
- const components=[];
- if(p.perMinute)components.push(l(`${formatGatewayCreditAmount(p.perMinute)} 积分/分钟`,`${formatGatewayCreditAmount(p.perMinute)} credits/min`));
- if(p.perMillionCharacters)components.push(l(`${formatGatewayCreditAmount(p.perMillionCharacters)} 积分/百万字符`,`${formatGatewayCreditAmount(p.perMillionCharacters)} credits/M characters`));
- if(components.length)return components.join(' + ');
- return l(`输入 ${formatGatewayCreditAmount(p.inputPerMillion)} / 输出 ${formatGatewayCreditAmount(p.outputPerMillion)} 积分/百万 token`,`${formatGatewayCreditAmount(p.inputPerMillion)} in / ${formatGatewayCreditAmount(p.outputPerMillion)} out credits/M tokens`);
-}
-
 export default function OfficialModelSelect(props: {
   label: string; describedBy?: string; models: GatewayModel[]; value: string;
   recommendedModel?: GatewayModel; followsRecommendation?: boolean;
@@ -42,20 +28,24 @@ export default function OfficialModelSelect(props: {
   const [activeIndex, setActiveIndex] = useState(0);
   const [position, setPosition] = useState<{ left: number; top: number; width: number; maxHeight: number; above: boolean }>();
   const automatic = l('自动选择', 'Automatic');
-  const selectionValue = props.followsRecommendation && props.recommendedModel ? gatewayRecommendedModelId : props.value;
-  const choices = useMemo(() => [...(props.recommendedModel ? [{ ...props.recommendedModel,
-    id: gatewayRecommendedModelId, vendor: undefined, name: l(`系统推荐 · ${officialModelLabel(props.recommendedModel, automatic)}`, `Recommended · ${officialModelLabel(props.recommendedModel, automatic)}`), recommended: true }] : []), ...props.models].map(model => {
-    const label = officialModelLabel(model, automatic);
-    return { model, label, nameSearch: normalizeSearch(label), idSearch: normalizeSearch(model.id) };
-  }), [props.models, props.recommendedModel, automatic, l]);
+  const selectionValue = props.recommendedModel && (props.followsRecommendation || props.value === props.recommendedModel.id) ? gatewayRecommendedModelId : props.value;
+  const choices = useMemo(() => {
+    const models = [...new Map(props.models.map(model => [model.id, model])).values()];
+    return [...(props.recommendedModel ? [props.recommendedModel] : []), ...models.filter(model => model.id !== props.recommendedModel?.id)].map(model => {
+      const recommended = model.id === props.recommendedModel?.id;
+      const name = officialModelLabel(model, automatic);
+      const label = recommended ? l(`系统推荐 · ${name}`, `Recommended · ${name}`) : name;
+      return { model, value: recommended ? gatewayRecommendedModelId : model.id, label, nameSearch: normalizeSearch(label), idSearch: normalizeSearch(model.id) };
+    });
+  }, [props.models, props.recommendedModel, automatic, l]);
   const search = useMemo(() => new Fuse(choices, {
     keys: [{ name: 'nameSearch', weight: 0.7 }, { name: 'idSearch', weight: 0.3 }],
     threshold: 0.3, ignoreLocation: true,
   }), [choices]);
   const filtered = useMemo(() => {
     if (!query.trim()) {
-      return [...choices].sort((a,b)=>Number(b.model.id===selectionValue)-Number(a.model.id===selectionValue)
-        || Number(!!b.model.recommended)-Number(!!a.model.recommended)
+      return [...choices].sort((a,b)=>Number(b.value===selectionValue)-Number(a.value===selectionValue)
+        || Number(b.value===gatewayRecommendedModelId || !!b.model.recommended)-Number(a.value===gatewayRecommendedModelId || !!a.model.recommended)
         || (a.model.vendor??'').localeCompare(b.model.vendor??''));
     }
     const terms = query.trim().split(/\s+/).map(normalizeSearch).filter(Boolean);
@@ -66,7 +56,7 @@ export default function OfficialModelSelect(props: {
     const exact = new Set(choices.filter(choice => terms.every(term => choice.nameSearch.includes(term) || choice.idSearch.includes(term))));
     return exact.size ? results.filter(choice => exact.has(choice)) : results;
   }, [choices, search, query, selectionValue]);
-  const selected = choices.find(choice => choice.model.id === selectionValue);
+  const selected = choices.find(choice => choice.value === selectionValue);
   const selectedLabel = selected?.label ?? (props.value || (props.models.length === 0 ? l('暂不可用', 'Unavailable') : l('选择模型', 'Select model')));
   const expanded = open && !props.disabled;
   const currentIndex = Math.min(activeIndex, filtered.length - 1);
@@ -81,7 +71,7 @@ export default function OfficialModelSelect(props: {
     if (!(value === gatewayRecommendedModelId && props.recommendedModel) && !props.models.some(model=>model.id===value&&gatewayModelReady(model)))return;
     inputRef.current?.focus();
     close();
-    if (value !== selectionValue) props.onChange(value);
+    if (value !== selectionValue || (value === gatewayRecommendedModelId && !props.followsRecommendation)) props.onChange(value);
   }
 
   useEffect(() => { if (props.disabled) close(); }, [props.disabled]);
@@ -144,7 +134,7 @@ export default function OfficialModelSelect(props: {
     } else if (event.key === 'Enter') {
       event.preventDefault();
       if (!expanded) show();
-      else if (filtered[currentIndex]) select(filtered[currentIndex].model.id);
+      else if (filtered[currentIndex]) select(filtered[currentIndex].value);
     } else if (event.key === 'Escape' && expanded) {
       event.preventDefault(); event.stopPropagation(); close();
     } else if (event.key === 'Tab') close();
@@ -180,25 +170,25 @@ export default function OfficialModelSelect(props: {
       transform: position.above ? 'translateY(-100%)' : undefined,
     }}>
       <div className="official-model-menu-count" role="status">
-        {query.trim() ? l(`${filtered.length} 个匹配项`, `${filtered.length} matches`) : l(`${props.models.length} 个模型`, `${props.models.length} models`)}
+        {query.trim() ? l(`${filtered.length} 个匹配项`, `${filtered.length} matches`) : l(`${choices.length} 个模型`, `${choices.length} models`)}
       </div>
       <div id={`${id}-listbox`} className="official-model-options" role="listbox" aria-label={props.label}>
         {filtered.map((choice, index) => <Fragment key={choice.model.id}>
-          {choice.model.vendor && choice.model.vendor !== filtered[index-1]?.model.vendor ? <div className="official-model-menu-count" role="presentation">{choice.model.vendor}</div> : null}
+          {choice.value !== gatewayRecommendedModelId && choice.model.vendor && (choice.model.vendor !== filtered[index-1]?.model.vendor || filtered[index-1]?.value === gatewayRecommendedModelId) ? <div className="official-model-menu-count" role="presentation">{choice.model.vendor}</div> : null}
           <button id={optionId(index)} type="button" role="option" tabIndex={-1}
-          aria-label={choice.label} aria-selected={choice.model.id === selectionValue}
+          aria-label={choice.label} aria-selected={choice.value === selectionValue}
           disabled={!gatewayModelReady(choice.model)} aria-disabled={!gatewayModelReady(choice.model)}
           className={`official-model-option${index === currentIndex ? ' is-active' : ''}`}
-          title={choice.label} onMouseDown={event => event.preventDefault()}
+          title={[choice.label, officialModelPriceDescription(choice.model, l)].filter(Boolean).join('\n')} onMouseDown={event => event.preventDefault()}
           onPointerMove={event => { if (event.pointerType === 'mouse') setActiveIndex(index); }}
-          onClick={() => select(choice.model.id)}>
+          onClick={() => select(choice.value)}>
           <span className="official-model-option-text"><span className="official-model-option-name">{choice.label}</span>
-            {!/openrouter/i.test(choice.model.id) && choice.model.id !== gatewayRecommendedModelId ? <span className="official-model-option-id">{choice.model.vendor ? `${choice.model.vendor} · ` : ''}{choice.model.id}</span> : null}
+            {!/openrouter/i.test(choice.model.id) && choice.value !== gatewayRecommendedModelId ? <span className="official-model-option-id">{choice.model.vendor ? `${choice.model.vendor} · ` : ''}{choice.model.id}</span> : null}
             {choice.model.price?<span className="official-model-option-id">{officialModelPrice(choice.model,l)}</span>:null}
-            {choice.model.recommended?<span className="official-model-option-id">{l('推荐','Recommended')}</span>:null}
+            {choice.model.recommended && choice.value !== gatewayRecommendedModelId ?<span className="official-model-option-id">{l('推荐','Recommended')}</span>:null}
             {!gatewayModelReady(choice.model)?<span className="official-model-option-id">{l('暂不可用','Temporarily unavailable')}</span>:null}
           </span>
-          {choice.model.id === selectionValue ? <Check size={16} aria-hidden="true" /> : <span className="official-model-check-space" />}
+          {choice.value === selectionValue ? <Check size={16} aria-hidden="true" /> : <span className="official-model-check-space" />}
         </button></Fragment>)}
         {filtered.length === 0 ? <div className="official-model-empty" role="status">{l('未找到匹配模型', 'No matching models')}</div> : null}
       </div>

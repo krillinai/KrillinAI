@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { GatewayAccountState } from '@opencreator/protocol';
@@ -16,9 +16,59 @@ function service(): GatewayAccountSettingsService {
   return { getState: vi.fn(async () => account), start: vi.fn(), cancel: vi.fn(), logout: vi.fn(), activate: vi.fn(), setSource: vi.fn(), selectModel: vi.fn(), getBalance: vi.fn(), getSummary: vi.fn(async () => summary),
     openWebAccount: vi.fn(async () => ({ url: handoff })), getPlans: vi.fn(), getOrders: vi.fn(async () => ({ items: [] })), getOrder: vi.fn(async () => ({ order })), getCreditGrants: vi.fn(), checkout: vi.fn(), portal: vi.fn() };
 }
-function page(value: GatewayAccountSettingsService, openExternal = vi.fn(), state = account, billingOrderId?: string) {
-  return <LanguageProvider initialPreference="zh-CN"><GatewaySubscriptionSettingsView service={value} embedded accountState={state} openExternal={openExternal} billingOrderId={billingOrderId} billingReturnUrl="opencreator://billing/return"/></LanguageProvider>;
+function page(value: GatewayAccountSettingsService, openExternal = vi.fn(), state = account, billingOrderId?: string, hasActiveTasks = false) {
+  return <LanguageProvider initialPreference="zh-CN"><GatewaySubscriptionSettingsView service={value} embedded accountState={state} hasActiveTasks={hasActiveTasks} openExternal={openExternal} billingOrderId={billingOrderId} billingReturnUrl="opencreator://billing/return"/></LanguageProvider>;
 }
+
+it('keeps reserved credits in the balance and changes it only when usage settles', async () => {
+  const value = service();
+  const snapshot = (availableUnits: string, reservedUnits: string) => ({ ...summary, balance: { ...summary.balance, availableUnits, reservedUnits } });
+  vi.mocked(value.getSummary).mockResolvedValue(snapshot('2087231437', '0'));
+  render(page(value, vi.fn(), account, undefined, true));
+  expect(await screen.findByText('2087')).toBeInTheDocument();
+  const available = () => screen.getByText('可用积分').closest('div')!;
+  const reserved = () => screen.getByText('预估消耗', { exact: true }).closest('div')!;
+  expect(screen.queryByText('预估消耗', { exact: true })).not.toBeInTheDocument();
+  expect(screen.queryByText('可用积分')).not.toBeInTheDocument();
+  expect(screen.queryByText(/多余部分自动解冻/)).not.toBeInTheDocument();
+  vi.mocked(value.getSummary).mockResolvedValue(snapshot('1325135419', '762096018'));
+  await userEvent.setup().click(screen.getByRole('button', { name: '刷新积分' }));
+  expect(screen.getByText('2087')).toBeInTheDocument();
+  expect(within(available()).getByText('1325 积分')).toBeInTheDocument();
+  expect(within(reserved()).getByText('762 积分')).toBeInTheDocument();
+  expect(screen.queryByText(/已冻结|账户积分包含冻结部分|多余部分自动解冻/)).not.toBeInTheDocument();
+  vi.mocked(value.getSummary).mockResolvedValue(snapshot('1937558807', '0'));
+  await userEvent.setup().click(screen.getByRole('button', { name: '刷新积分' }));
+  expect(screen.getByText('1938')).toBeInTheDocument();
+  expect(screen.queryByText('预估消耗', { exact: true })).not.toBeInTheDocument();
+  expect(screen.queryByText('可用积分')).not.toBeInTheDocument();
+  expect(screen.queryByText(/多余部分自动解冻/)).not.toBeInTheDocument();
+});
+
+it.each([
+  [true, '0'], [true, '1'], [true, '500000'], [true, '999999'],
+  [false, '1000000'], [false, '762096018']
+] as const)('hides the estimate when tasks are inactive or the reservation is below one credit (%s, %s)', async (hasActiveTasks, reservedUnits) => {
+  const value = service();
+  vi.mocked(value.getSummary).mockResolvedValue({ ...summary, balance: { ...summary.balance, availableUnits: '1860000000', reservedUnits } });
+  render(page(value, vi.fn(), account, undefined, hasActiveTasks));
+  await waitFor(() => expect(screen.getByRole('button', { name: '刷新积分' })).toBeEnabled());
+  expect(screen.queryByText('预估消耗', { exact: true })).not.toBeInTheDocument();
+  expect(screen.queryByText('可用积分')).not.toBeInTheDocument();
+});
+
+it('shows an estimate from one credit only while a task is active', async () => {
+  const value = service();
+  vi.mocked(value.getSummary).mockResolvedValue({ ...summary, balance: { ...summary.balance, reservedUnits: '1000000' } });
+  const view = render(page(value));
+  expect(await screen.findByText('415')).toBeInTheDocument();
+  expect(screen.queryByText('预估消耗', { exact: true })).not.toBeInTheDocument();
+  view.rerender(page(value, vi.fn(), account, undefined, true));
+  expect(within(screen.getByText('预估消耗', { exact: true }).closest('div')!).getByText('1 积分')).toBeInTheDocument();
+  view.rerender(page(value));
+  expect(screen.queryByText('预估消耗', { exact: true })).not.toBeInTheDocument();
+  expect(screen.getByText('415')).toBeInTheDocument();
+});
 
 it('opens the website through a one-time account handoff without an app checkout', async () => {
   const value = service(); const open = vi.fn(); render(page(value, open));

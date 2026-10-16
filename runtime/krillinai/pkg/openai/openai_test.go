@@ -34,6 +34,30 @@ func TestChatCompletionReceivesCompleteJSON(t *testing.T) {
 	}
 }
 
+func TestChatCompletionSendsRequestedOutputBudget(t *testing.T) {
+	setTestModel(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request struct {
+			MaxTokens int `json:"max_tokens"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil || request.MaxTokens != 2048 {
+			t.Errorf("输出预算未传给供应商: %d %v", request.MaxTokens, err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"你好。"}}]}`))
+	}))
+	defer server.Close()
+	client := newClient(server.URL, "test-key", "", time.Second)
+	if text, err := client.ChatCompletionContextWithMaxTokens(context.Background(), "translate", 2048); err != nil || text != "你好。" {
+		t.Fatalf("text=%q err=%v", text, err)
+	}
+	for _, budget := range []int{0, -1, 8193} {
+		if _, err := client.ChatCompletionContextWithMaxTokens(context.Background(), "translate", budget); err == nil {
+			t.Fatalf("无效预算被接受: %d", budget)
+		}
+	}
+}
+
 func TestChatCompletionRejectsEmptyResponse(t *testing.T) {
 	setTestModel(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

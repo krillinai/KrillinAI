@@ -105,7 +105,7 @@ describe('Desktop release workflow', () => {
     expect(releaseWorkflow).toContain("candidate-ready:");
     expect(releaseWorkflow).toContain("inputs.target == 'all'");
     expect(releaseWorkflow).toContain('e2e:package:smoke');
-    expect(releaseWorkflow).toContain("matrix.name == 'macos-arm64'");
+    expect(releaseWorkflow).not.toContain("matrix.name == 'macos-arm64'");
     expect(releaseWorkflow).toContain('opencreator-release-candidate-${{ steps.build-input.outputs.digest }}');
   });
 
@@ -167,5 +167,30 @@ describe('Desktop release workflow', () => {
     expect(releaseWorkflow).toContain(
       "'apps/desktop/packaging/daemon-runtime/pnpm-lock.yaml'"
     );
+  });
+
+  it('restores reusable tools and caches the version-bound Chromium download', () => {
+    expect(releaseWorkflow).toContain(
+      'ELECTRON_CACHE: ${{ github.workspace }}/apps/desktop/.cache/electron'
+    );
+    expect(releaseWorkflow.indexOf('key: desktop-tools-')).toBeLessThan(
+      releaseWorkflow.indexOf('run: pnpm install --frozen-lockfile')
+    );
+    expect(releaseWorkflow).toContain(
+      'restore-keys: |\n            desktop-tools-${{ runner.os }}-${{ matrix.arch }}-'
+    );
+    expect(releaseWorkflow).toContain(
+      'restore-keys: |\n            codex-runtime-${{ runner.os }}-${{ matrix.arch }}-'
+    );
+    expect(releaseWorkflow).toContain(
+      'path: .runtime/vendor/stickman-runtime/${{ matrix.platform }}-${{ matrix.arch }}'
+    );
+    expect(releaseWorkflow).toContain(
+      "key: stickman-browser-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('apps/desktop/scripts/prepare-stickman-runtime.mjs') }}"
+    );
+  });
+
+  it('uploads compressed release archives without recompressing them', () => {
+    expect(releaseWorkflow.match(/compression-level: 0/g)).toHaveLength(3);
   });
 });

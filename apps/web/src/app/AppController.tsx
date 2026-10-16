@@ -334,6 +334,7 @@ export function AppController(props: AppControllerProps) {
   const [creatorJobs, setCreatorJobs] = useState<CreatorJob[]>([]);
   const [creatorJobsLoading, setCreatorJobsLoading] = useState(false);
   const [creatorJobsError, setCreatorJobsError] = useState<string>();
+  const [hasActiveCreatorTasks, setHasActiveCreatorTasks] = useState(false);
   const [creatorPresets, setCreatorPresets] = useState<CreatorPresetSummary[]>([]);
   const [creatorPresetsLoading, setCreatorPresetsLoading] = useState(false);
   const [creatorPresetsError, setCreatorPresetsError] = useState<string>();
@@ -1524,6 +1525,30 @@ export function AppController(props: AppControllerProps) {
     return () => {
       canceled = true;
     };
+  }, [connectionState.status, creatorService, state.activeView]);
+
+  useEffect(() => {
+    setHasActiveCreatorTasks(false);
+    if (connectionState.status !== 'connected' || creatorService === null
+      || (state.activeView !== 'account' && state.activeView !== 'subscription')) return;
+    const service = creatorService;
+    let canceled = false;
+    let working = false;
+    async function refreshActiveCreatorTasks() {
+      if (working) return;
+      working = true;
+      try {
+        const response = await service.listJobs();
+        if (!canceled) setHasActiveCreatorTasks(response.jobs.some(job => job.status === 'running'));
+      } catch {
+        if (!canceled) setHasActiveCreatorTasks(false);
+      } finally {
+        working = false;
+      }
+    }
+    void refreshActiveCreatorTasks();
+    const timer = window.setInterval(() => void refreshActiveCreatorTasks(), 5_000);
+    return () => { canceled = true; window.clearInterval(timer); };
   }, [connectionState.status, creatorService, state.activeView]);
 
   useEffect(() => {
@@ -4737,6 +4762,9 @@ export function AppController(props: AppControllerProps) {
       view={state.activeView}
       service={gatewayAccountService}
       accountState={gatewayAccountState}
+      hasActiveTasks={connectionState.status === 'connected' && (
+        hasActiveCreatorTasks || runningThreadIds.size > 0 || runtimeTasks.some(task => task.status === 'running')
+      )}
       billingOrderId={props.route.view === 'account' ? props.route.billingOrderId : undefined}
       billingReturnUrl={hostBridge.billingReturnUrl}
       prepareExternalNavigation={hostBridge.prepareExternalNavigation}

@@ -1,6 +1,20 @@
 import { spawn } from 'node:child_process';
 import { isAbsolute } from 'node:path';
 
+export async function runParallelStages(stages) {
+  const results = await Promise.allSettled(
+    stages.map(stage => Promise.resolve().then(stage))
+  );
+  const failures = results
+    .filter(result => result.status === 'rejected')
+    .map(result => result.reason);
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) {
+    throw new AggregateError(failures, '多个打包阶段失败');
+  }
+  return results.map(result => result.value);
+}
+
 export async function runStage(label, command, args, options = {}) {
   const timeoutMs = options.timeoutMs ?? 5 * 60_000;
   const startedAt = Date.now();

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import OfficialModelSelect from './OfficialModelSelect.js';
+import { gatewayRecommendedModelId, type GatewayModel } from '@opencreator/protocol';
 
 function catalog() {
   const models = Array.from({ length: 12 }, (_, index) => ({ id: `vendor/model-${index}`, name: `Model ${index}`, modality: 'text' as const, capabilities: ['responses'] }));
@@ -21,7 +22,7 @@ it('shows search results immediately in the same control without retaining unrel
   await user.type(input, 'Model 11');
   const list = screen.getByRole('listbox', { name: '文本模型' });
   expect(within(list).getAllByRole('option')).toHaveLength(1);
-  expect(screen.getByText('1 个匹配模型')).toBeInTheDocument();
+  expect(screen.getByText('1 个匹配项')).toBeInTheDocument();
   expect(change).not.toHaveBeenCalled();
   await user.click(within(list).getByRole('option', { name: 'Model 11' }));
   expect(change).toHaveBeenCalledWith('vendor/model-11');
@@ -111,4 +112,49 @@ it('closes when disabled and retains accessibility descriptions and the selected
   expect(input).toBeDisabled(); expect(input).toHaveValue('Model 0');
   expect(input).toHaveAttribute('aria-describedby', 'model-count');
   expect(screen.queryByRole('listbox')).not.toBeInTheDocument(); expect(change).not.toHaveBeenCalled();
+});
+
+it('lists the recommended model once and can search its original ID', async () => {
+  const recommended: GatewayModel = { id: 'openai/gpt-image-2.5-flare', name: 'GPT Image Flare', vendor: 'OpenAI', modality: 'image', capabilities: [], price: { version: 'v1', billing: 'usage', inputPerMillion: 5229.58, outputPerMillion: 31377.47 } };
+  const other: GatewayModel = { ...recommended, id: 'openai/gpt-image-2.5-sunburst', name: 'GPT Image Sunburst' };
+  const change = vi.fn();
+  render(<OfficialModelSelect label="图片模型" models={[recommended, other]} value={recommended.id} recommendedModel={recommended} followsRecommendation onChange={change} />);
+  const user = userEvent.setup();
+  const input = screen.getByRole('combobox');
+  await user.click(input);
+  expect(screen.getByText('2 个模型')).toBeInTheDocument();
+  expect(screen.getAllByRole('option')).toHaveLength(2);
+  expect(screen.queryByRole('option', { name: 'GPT Image Flare' })).not.toBeInTheDocument();
+  const option = screen.getByRole('option', { name: '系统推荐 · GPT Image Flare' });
+  expect(option).toHaveAttribute('aria-selected', 'true');
+  expect(within(option).getByText('约 64 积分/张')).toBeInTheDocument();
+  expect(option.title).toContain('2,000 个图像输出 tokens');
+  await user.type(input, recommended.id);
+  expect(screen.getAllByRole('option')).toHaveLength(1);
+  await user.keyboard('{Enter}');
+  expect(change).not.toHaveBeenCalled();
+  expect(input).toHaveValue('系统推荐 · GPT Image Flare');
+});
+
+it('preserves a manual selection matching the recommendation and can enable future recommendations', async () => {
+  const recommended = catalog()[0]!;
+  const change = vi.fn();
+  const view = render(<OfficialModelSelect label="文本模型" models={catalog()} value={recommended.id} recommendedModel={recommended} followsRecommendation={false} onChange={change} />);
+  const input = screen.getByRole('combobox');
+  const user = userEvent.setup();
+  expect(input).toHaveValue('系统推荐 · Model 0');
+  await user.click(input);
+  expect(screen.getAllByRole('option')).toHaveLength(13);
+  await user.click(screen.getByRole('option', { name: '系统推荐 · Model 0', selected: true }));
+  expect(change).toHaveBeenCalledWith(gatewayRecommendedModelId);
+  const next = catalog()[1]!;
+  view.rerender(<OfficialModelSelect label="文本模型" models={catalog()} value={recommended.id} recommendedModel={next} followsRecommendation={false} onChange={change} />);
+  expect(input).toHaveValue('Model 0');
+  await user.click(input);
+  expect(screen.getByRole('option', { name: 'Model 0' })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getAllByRole('option')).toHaveLength(13);
+  expect(screen.queryByRole('option', { name: 'Model 1' })).not.toBeInTheDocument();
+  view.rerender(<OfficialModelSelect label="文本模型" models={catalog()} value={next.id} recommendedModel={next} followsRecommendation onChange={change} />);
+  await user.keyboard('{Escape}');
+  expect(input).toHaveValue('系统推荐 · Model 1');
 });

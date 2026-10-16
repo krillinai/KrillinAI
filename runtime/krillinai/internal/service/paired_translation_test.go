@@ -405,6 +405,101 @@ func TestPairedSourceHintKeepsShortTailWithItsClause(t *testing.T) {
 	}
 }
 
+func TestPairedTranslationKeepsSubjectsWithPredicates(t *testing.T) {
+	text := "And the interesting part is that it isn't just a giant database of titles."
+	parts, err := splitSubtitleSourceHint(text, 70)
+	if err != nil || len(parts) != 2 || parts[0] != "And the interesting part is" || parts[1] != "that it isn't just a giant database of titles." {
+		t.Fatalf("参考分段应保留完整从句: %q %v", parts, err)
+	}
+	previous := config.Conf
+	t.Cleanup(func() { config.Conf = previous })
+	config.Conf.App.TranslateParallelNum = 1
+	calls := 0
+	translator := &Translator{chatCompleter: translationCompleterFunc(func(prompt string) (string, error) {
+		calls++
+		source, target := []string{"And the interesting part is that it", "isn't just a giant database of titles."}, []string{"而有意思的是，它", "不只是一个庞大的书名数据库。"}
+		if calls > 1 {
+			if !strings.Contains(prompt, "拆开了主语和谓语") {
+				t.Error("纠错请求必须说明语义边界问题")
+			}
+			source, target = parts, []string{"而有意思的是，", "它不只是一个庞大的书名数据库。"}
+		}
+		response, err := encodePairedTestResponse([]pairedSentence{{ID: "1", FullTarget: "而有意思的是，它不只是一个庞大的书名数据库。", Source: source, Target: target}})
+		return string(response), err
+	})}
+	result, err := translator.translatePairedSentences(context.Background(), []string{text}, "en", "zh_cn", 70, 1, nil)
+	if err != nil || calls != 2 || len(result) != 1 || result[0].Target[0] != "而有意思的是，" {
+		t.Fatalf("不自然的分段应被纠正: calls=%d result=%+v err=%v", calls, result, err)
+	}
+}
+
+func TestSubtitleSubjectBoundaryGuardIsConservative(t *testing.T) {
+	for _, tc := range []struct {
+		left, right string
+		limit       int
+		want        bool
+	}{
+		{"And that it", "isn't just a database.", 70, true},
+		{"而有意思的是，它", "不只是一个数据库。", 70, true},
+		{"但接下来，我们", "会继续探索。", 70, true},
+		{"it", "is", 2, false},
+		{"I", "can do it.", 70, false},
+		{"We discussed it.", "Isn't it great?", 70, false},
+		{"I spoke to him", "yesterday.", 70, false},
+		{"这是它", "的名字。", 70, false},
+		{"他说：他", "不是那个已经离开的人。", 10, false},
+	} {
+		if got := subtitleBoundarySplitsSubject(tc.left, tc.right, tc.limit); got != tc.want {
+			t.Errorf("%q / %q: got %v want %v", tc.left, tc.right, got, tc.want)
+		}
+	}
+}
+
+func TestPairedTranslationMergesShortSentenceBeforeCheckingSubjectBoundary(t *testing.T) {
+	input := pairedTranslationInput{MaxTargetChars: 70, Sentences: []pairedTranslationSource{{ID: "1", Text: "We know that it isn't a database."}}}
+	response, _ := encodePairedTestResponse([]pairedSentence{{ID: "1", FullTarget: "我们知道，它不是数据库。", Source: []string{"We know that it", "isn't a database."}, Target: []string{"我们知道，它", "不是数据库。"}}})
+	result, err := (&Translator{}).parsePairedTranslation(string(response), input, "en", "zh_cn")
+	if err != nil || len(result) != 1 || len(result[0].Source) != 1 || result[0].Target[0] != "我们知道，它不是数据库。" {
+		t.Fatalf("可直接合并的短句不应触发额外模型请求: %+v %v", result, err)
+	}
+}
+
+type budgetedTranslationTestCompleter struct {
+	translationCompleterFunc
+	complete func(context.Context, string, int) (string, error)
+}
+
+func (c budgetedTranslationTestCompleter) ChatCompletionContextWithMaxTokens(ctx context.Context, prompt string, limit int) (string, error) {
+	return c.complete(ctx, prompt, limit)
+}
+
+func TestPairedTranslationOutputBudgetGrowsOnlyAfterTruncation(t *testing.T) {
+	previous := config.Conf
+	t.Cleanup(func() { config.Conf = previous })
+	config.Conf.App.TranslateParallelNum = 1
+	for _, truncate := range []bool{false, true} {
+		var budgets []int
+		translator := &Translator{chatCompleter: budgetedTranslationTestCompleter{complete: func(ctx context.Context, prompt string, limit int) (string, error) {
+			budgets = append(budgets, limit)
+			if truncate && len(budgets) < 3 {
+				return "", fmt.Errorf("llm_translation_truncated: output budget exhausted")
+			}
+			input, err := decodePairedTestInput(prompt)
+			if err != nil {
+				return "", err
+			}
+			return echoPairedTestResponse(input)
+		}}}
+		_, err := translator.translatePairedSentences(context.Background(), []string{"Hello."}, "en", "zh_cn", 70, 1, nil)
+		if err != nil || len(budgets) == 0 || budgets[0] != 2048 {
+			t.Fatalf("小批次应使用较小的输出预算: budgets=%v err=%v", budgets, err)
+		}
+		if truncate && (len(budgets) != 3 || budgets[1] != 4096 || budgets[2] != 8192) || !truncate && len(budgets) != 1 {
+			t.Fatalf("截断后应在原重试次数内逐步增加预算: %v", budgets)
+		}
+	}
+}
+
 func TestSubtitleTargetLengthUsesWeightedCharacters(t *testing.T) {
 	for _, tc := range []struct {
 		text string

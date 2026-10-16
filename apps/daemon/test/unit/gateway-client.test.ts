@@ -1,5 +1,11 @@
 import { expect, it, vi } from 'vitest';
-import { accountSchema, createGatewayClient, GatewayError } from '../../src/gateway/client.js';
+import { accountSchema, catalogSchema, createGatewayClient, GatewayError } from '../../src/gateway/client.js';
+
+it('retains fractional retail token prices and image/cache billing categories', () => {
+  const price = { version: 'cost-50-v1', billing: 'usage', inputPerMillion: 5229.578, imageInputPerMillion: 10459.156, cachedInputPerMillion: 104.591, cacheWritePerMillion: 2614.789, outputPerMillion: 31377.469 };
+  const catalog = catalogSchema.parse({ models: [{ id: 'gpt-image-2.5-flare', modality: 'image', capabilities: ['generate'], price }] });
+  expect(catalog.models[0]?.price).toEqual(price);
+});
 
 it('协商稳定密钥策略并拒绝仍会自动轮换的响应', async () => {
   const value = { schemaVersion: 1, transport: 'openrouter-direct', account: { id: 'a', email: 'a@test', verified: true }, modelKey: 'private', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://openrouter.ai/api/v1', models: [], defaults: {}, modelUsePolicy: 'cached-key-v1', keyRotation: false };

@@ -27,7 +27,7 @@ import {
 } from './mac-signing.mjs';
 import { submitAndWaitForNotarization } from './apple-notarization.mjs';
 import { prepareElectronBuilderCache } from './electron-builder-cache.mjs';
-import { runStage } from './script-utils.mjs';
+import { runParallelStages, runStage } from './script-utils.mjs';
 import { stageReleaseAssets } from './release-assets.mjs';
 import {
   hashDirectory as hashStickmanDirectory,
@@ -93,27 +93,17 @@ await runStage('构建 Desktop', 'pnpm', ['--filter', '@opencreator/desktop', 'b
   env,
   timeoutMs: 5 * 60_000
 });
-await runStage('准备打包 Daemon 与 Web', process.execPath, [
-  resolve(scriptDir, 'prepare-daemon.mjs')
-], {
-  cwd: rootDir,
-  env,
-  timeoutMs: 25 * 60_000
-});
-await runStage('准备 Creator Runtime', process.execPath, [
-  resolve(scriptDir, 'prepare-creator-runtime.mjs')
-], {
-  cwd: rootDir,
-  env,
-  timeoutMs: 25 * 60_000
-});
-await runStage('准备 Codex Runtime', process.execPath, [
-  resolve(scriptDir, 'prepare-codex-runtime.mjs')
-], {
-  cwd: rootDir,
-  env,
-  timeoutMs: 10 * 60_000
-});
+await runParallelStages([
+  () => runStage('准备打包 Daemon 与 Web', process.execPath, [
+    resolve(scriptDir, 'prepare-daemon.mjs')
+  ], { cwd: rootDir, env, timeoutMs: 25 * 60_000 }),
+  () => runStage('准备 Creator Runtime', process.execPath, [
+    resolve(scriptDir, 'prepare-creator-runtime.mjs')
+  ], { cwd: rootDir, env, timeoutMs: 25 * 60_000 }),
+  () => runStage('准备 Codex Runtime', process.execPath, [
+    resolve(scriptDir, 'prepare-codex-runtime.mjs')
+  ], { cwd: rootDir, env, timeoutMs: 10 * 60_000 })
+]);
 const candidates = packageRootCandidates(platform, arch);
 for (const path of candidates) rmSync(path, { recursive: true, force: true });
 
@@ -132,23 +122,27 @@ const packageWithSigningEnvironment = async builderEnv => {
   await runStage('构建独立 Remotion 组件与轻量角色资源', process.execPath, [
     resolve(scriptDir, 'prepare-stickman-runtime.mjs')
   ], { cwd: rootDir, env: builderEnv, timeoutMs: 25 * 60_000 });
-  if (macSigning.mode === 'developer-id' && mode === 'release') {
-    const componentNotaryArchive = resolve(desktopDir, '.pack', 'remotion-notarization.zip');
-    try {
-      await runStage('准备 Remotion 组件公证', 'ditto', ['-c', '-k', '--keepParent', resolve(desktopDir, '.pack', 'stickman-runtime'), componentNotaryArchive], { cwd: rootDir, env: builderEnv });
-      await submitAndWaitForNotarization(componentNotaryArchive, notarizationArgs);
-    } finally { rmSync(componentNotaryArchive, { force: true }); }
-  }
-  await runStage(
-    mode === 'dir' ? '生成可运行目录' : '生成桌面安装包',
-    'electron-builder',
-    args,
-    {
-      cwd: desktopDir,
-      env: builderEnv,
-      timeoutMs: mode === 'dir' ? 20 * 60_000 : 50 * 60_000
-    }
-  );
+  // Remotion is distributed separately; its notarization does not modify the App.
+  await runParallelStages([
+    async () => {
+      if (macSigning.mode !== 'developer-id' || mode !== 'release') return;
+      const componentNotaryArchive = resolve(desktopDir, '.pack', 'remotion-notarization.zip');
+      try {
+        await runStage('准备 Remotion 组件公证', 'ditto', ['-c', '-k', '--keepParent', resolve(desktopDir, '.pack', 'stickman-runtime'), componentNotaryArchive], { cwd: rootDir, env: builderEnv });
+        await submitAndWaitForNotarization(componentNotaryArchive, notarizationArgs);
+      } finally { rmSync(componentNotaryArchive, { force: true }); }
+    },
+    () => runStage(
+      mode === 'dir' ? '生成可运行目录' : '生成桌面安装包',
+      'electron-builder',
+      args,
+      {
+        cwd: desktopDir,
+        env: builderEnv,
+        timeoutMs: mode === 'dir' ? 20 * 60_000 : 50 * 60_000
+      }
+    )
+  ]);
 
   const packageRoot = findFreshPackageRoot(candidates);
   const artifacts = findFreshArtifacts(packageStartedAt, mode, platform);

@@ -3,7 +3,8 @@ import { AudioLines, Image, LoaderCircle, Mic, RefreshCw, TextCursorInput, Video
 import { gatewayModelCompatible, gatewayModelSupports, gatewayModelReady, type GatewayAccountState, type GatewayModelPurpose } from '@opencreator/protocol';
 import type { GatewayAccountSettingsService } from '../../services/gateway-account-service.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
-import OfficialModelSelect, { officialModelPrice } from '../../components/forms/OfficialModelSelect.js';
+import OfficialModelSelect from '../../components/forms/OfficialModelSelect.js';
+import { officialModelPrice, officialModelPriceDescription } from '../../components/forms/official-model-pricing.js';
 import { ApiClientError } from '../../runtime/errors.js';
 import './official-services-settings.css';
 
@@ -75,7 +76,7 @@ export function OfficialServicesSettingsView(props: { state: GatewayAccountState
           <span className="official-services-model-count" id={`official-${modality.id}-count`}>{models.some(gatewayModelReady)
             ? l(`${models.filter(gatewayModelReady).length} 个可用模型`, `${models.filter(gatewayModelReady).length} available models`)
             : l('暂不可用', 'Unavailable')}</span>
-          {selectedModel?.price ? <span className="official-model-availability">{officialModelPrice(selectedModel, l)}</span> : null}
+          {selectedModel?.price ? <span className="official-model-availability" title={officialModelPriceDescription(selectedModel, l)}>{officialModelPrice(selectedModel, l)}</span> : null}
           {selected && (!selectedModel || !gatewayModelReady(selectedModel)) ? <span className="official-model-availability">{l('暂不可用，请选择其他模型', 'Unavailable; select another model')}</span> : null}
         </span></span>
         <span className="official-services-model-select">
