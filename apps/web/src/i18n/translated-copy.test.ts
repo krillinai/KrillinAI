@@ -31,6 +31,7 @@ describe('additional language catalogs', () => {
     for (const language of Object.keys(additionalLanguageCatalogs) as AppLanguage[]) {
       expect(additionalLanguageCatalogs[language]).toHaveProperty('Model');
       for (const message of [
+        'Search languages', 'No matching languages',
         'Expand editor', 'Collapse editor', 'Add visual reference', 'Reference mode',
         'Reference images', 'Reference videos', 'Reference audio', 'First and last frames',
         'First frame', 'Last frame', 'Maximum 3 files for references', 'Maximum',
