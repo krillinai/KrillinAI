@@ -9,6 +9,7 @@ import {
   finalizeReleaseAssets,
   krillinReleaseAssetNames,
   releaseAssetNames,
+  renderReleaseNotes,
   refreshUpdaterMetadata,
   verifyPublishedPayloads,
   remotionReleaseAssetName,
@@ -16,6 +17,7 @@ import {
 } from '../scripts/release-assets.mjs';
 
 const version = '3.0.0';
+const highlights = '## What\'s New\n\n- Added Creator workflows.';
 const directories = [];
 const targets = [['darwin', 'arm64'], ['darwin', 'x64'], ['win32', 'x64']];
 const { parse: parseYaml } = createRequire(new URL('../../daemon/package.json', import.meta.url))('yaml');
@@ -140,7 +142,7 @@ describe('Desktop release assets', () => {
       directory: data.directory,
       version,
       repository: 'krillinai/OpenCreator',
-      highlights: '## What\'s New\n\n- Added Creator workflows.'
+      highlights
     });
     expect(readdirSync(data.directory)).toHaveLength(24);
     expect(readFileSync(join(data.directory, 'SHA256SUMS.txt'), 'utf8').trim().split('\n')).toHaveLength(23);
@@ -165,14 +167,16 @@ describe('Desktop release assets', () => {
     expect(() => finalizeReleaseAssets({
       directory: data.directory,
       version,
-      repository: 'krillinai/OpenCreator'
+      repository: 'krillinai/OpenCreator',
+      highlights
     })).toThrow('Unexpected public release asset');
     rmSync(join(data.directory, 'builder-debug.yml'));
     rmSync(join(data.directory, 'latest.yml'));
     expect(() => finalizeReleaseAssets({
       directory: data.directory,
       version,
-      repository: 'krillinai/OpenCreator'
+      repository: 'krillinai/OpenCreator',
+      highlights
     })).toThrow('Missing release asset');
   });
 
@@ -206,19 +210,64 @@ describe('Desktop release assets', () => {
         writeFileSync(join(data.directory, name), name);
       }
     }
-    const notesPath = join(data.directory, '..', 'release-notes.md');
+    const notesDir = mkdtempSync(join(tmpdir(), 'opencreator-release-notes-'));
+    directories.push(notesDir);
+    const notesPath = join(notesDir, 'release-notes.md');
+    const highlightsPath = join(notesDir, 'highlights.md');
+    writeFileSync(highlightsPath, highlights);
     const result = spawnSync(process.execPath, [
       resolve(process.cwd(), 'scripts/release-assets.mjs'),
       data.directory,
       `v${version}`,
       'krillinai/OpenCreator',
-      notesPath
+      notesPath,
+      highlightsPath
     ], { encoding: 'utf8' });
 
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain(`Verified 24 public release assets for v${version}`);
     expect(readFileSync(notesPath, 'utf8')).toContain(`# OpenCreator v${version}`);
+    expect(readFileSync(notesPath, 'utf8')).toContain(highlights);
     rmSync(notesPath);
+  });
+});
+
+describe('Release notes language gate', () => {
+  it.each([
+    undefined,
+    '',
+    '  \n',
+    '# OpenCreator v3.0.0',
+    '## 更新内容\n\n- 改进视频下载。',
+    '## What\'s New\n\n- Improved 视频下载.',
+    '## 更新内容\n\n- Improved video downloads.'
+  ])('rejects invalid highlights before changing release assets: %j', invalidHighlights => {
+    const data = fixture();
+    const snapshot = () => readdirSync(data.directory).sort().map(name => [name, readFileSync(join(data.directory, name), 'utf8')]);
+    const before = snapshot();
+    expect(() => renderReleaseNotes({ version, repository: 'krillinai/OpenCreator', highlights: invalidHighlights })).toThrow(/English/);
+    expect(() => finalizeReleaseAssets({ directory: data.directory, version, repository: 'krillinai/OpenCreator', highlights: invalidHighlights })).toThrow(/English/);
+    expect(snapshot()).toEqual(before);
+  });
+
+  it.each(['missing', 'empty', 'chinese', 'mixed'])('fails the promotion CLI for %s source notes without writing output', problem => {
+    const directory = mkdtempSync(join(tmpdir(), 'opencreator-invalid-notes-'));
+    directories.push(directory);
+    const highlightsPath = join(directory, 'highlights.md');
+    const notesPath = join(directory, 'release-notes.md');
+    const cases = { empty: '', chinese: '## 更新内容\n\n- 改进下载。', mixed: '## What\'s New\n\n- Improved 下载.' };
+    if (problem !== 'missing') writeFileSync(highlightsPath, cases[problem]);
+    const result = spawnSync(process.execPath, [
+      resolve(process.cwd(), 'scripts/release-assets.mjs'),
+      join(directory, 'assets-not-yet-read'),
+      `v${version}`,
+      'krillinai/OpenCreator',
+      notesPath,
+      highlightsPath
+    ], { encoding: 'utf8' });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(problem === 'missing' ? /ENOENT.*highlights\.md/ : /English/);
+    expect(readdirSync(directory)).not.toContain('release-notes.md');
   });
 });
 

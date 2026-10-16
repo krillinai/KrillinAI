@@ -1,150 +1,151 @@
-# OpenCreator 项目级 Agent 规则
+# OpenCreator Project Agent Rules
 
-## Git 提交说明语言门禁
+## Language Requirements for Git Commit Messages and Release Materials
 
-- 铁律：本项目所有 Git 提交说明必须使用英文，包括提交标题、正文，以及 merge、squash、revert 等操作产生的说明。
-- 此规则优先于“回答和文档必须使用中文”的全局规则，仅 Git 提交说明使用英文；回答和项目文档仍使用中文。
-- 提交前必须检查即将使用的完整说明；发现中文描述时，先准确翻译为英文，再执行提交。不得只翻译标题而保留中文正文。
-- 合并、变基、挑选提交或回滚时，必须检查自动生成的提交说明，避免重新引入中文说明。
-- 提交完成后必须通过 `git log -1 --format=%B` 核对完整说明；推送前必须检查本次待推送提交的标题和正文，存在中文说明时不得推送。
+- Mandatory: All Git commit messages in this project must be in English, including subjects, bodies, and messages produced by merge, squash, revert, and similar operations.
+- GitHub Release titles and complete bodies, release notes files, and annotated tag messages must also be in English, including feature updates and download and installation instructions. Chinese and mixed Chinese-English text are prohibited.
+- These English requirements for Git commit messages and Release materials take precedence over the global rule that responses and documents must be in Chinese. Responses and other project documents must remain in Chinese.
+- Before committing, review the complete message to be used. Accurately translate any Chinese descriptions into English before committing. Do not translate only the subject while leaving the body in Chinese.
+- During merges, rebases, cherry-picks, or reverts, inspect automatically generated commit messages to avoid reintroducing Chinese descriptions.
+- After committing, verify the complete message with `git log -1 --format=%B`. Before pushing, inspect the subjects and bodies of all commits to be pushed. Do not push if any contain Chinese descriptions.
 
-## 执行效率与最小充分验证铁律
+## Mandatory Rules for Execution Efficiency and Minimum Sufficient Validation
 
-### 总原则
+### General Principles
 
-- 铁律：验证范围必须与改动风险和实际影响范围匹配。不得把小型、局部、低风险修改默认升级为全量测试、完整构建、服务重启、端到端测试或桌面打包。
-- 铁律：先完成最小范围的代码定位和修改，再执行能够证明本次改动正确的最小验证集。只有验证结果表明存在更大影响时，才允许逐级扩大范围。
-- 铁律：不得因为仓库存在无关的历史失败、脏工作区或其他模块问题而主动扩大当前任务；与本次改动无关的问题只需记录，不得顺手排查或修复。
-- 用户明确要求完整测试、构建、打包、发布或跨平台一致性验证时，按用户要求执行，不受下述默认分级限制。
+- Mandatory: Match validation scope to the risk and actual impact of the change. Do not automatically escalate small, local, low-risk changes to full test suites, complete builds, service restarts, end-to-end tests, or Desktop packaging.
+- Mandatory: First locate and modify the smallest relevant area of code, then run the minimum set of checks that can establish the correctness of the change. Expand validation incrementally only when results reveal a broader impact.
+- Mandatory: Do not expand the current task because the repository has unrelated historical failures, a dirty working tree, or problems in other modules. Record unrelated issues without investigating or fixing them as part of the current task.
+- When the user explicitly requests complete testing, builds, packaging, publishing, or cross-platform parity validation, follow that request rather than the default tiers below.
 
-### 风险分级
+### Risk Tiers
 
-- P0 低风险修改：文案、样式微调、默认值、局部展示条件、测试断言等不改变 Runtime/API/持久化协议的改动。
-  - 默认只执行相关文件检查、最接近的定向测试；TypeScript 代码按需执行对应包的 `typecheck`。
-  - 默认不执行全量测试、生产构建、端到端测试、Desktop 打包或服务重启。
-- P1 中风险修改：共享状态、业务逻辑、持久化行为、跨组件交互、Runtime 请求参数或公共组件改动。
-  - 执行受影响模块的定向测试和对应包的 `typecheck`。
-  - 仅在涉及编译边界、懒加载、资源产物或构建配置时执行生产构建。
-  - 仅在真实交互无法由定向测试充分覆盖时增加浏览器验证。
-- P2 高风险修改：Daemon/Runtime、协议、数据库迁移、进程管理、服务配置、构建打包、发布链路或明确的 Web/Desktop 一致性改动。
-  - 执行相关集成测试、构建、服务重启和健康检查。
-  - 只有任务涉及 Desktop 或交付包时才执行 Desktop 构建、打包及一致性门禁。
+- P0, low risk: Copy, minor style adjustments, defaults, local visibility conditions, test assertions, and other changes that do not alter Runtime/API/persistence contracts.
+  - By default, run only relevant file checks and the closest targeted tests. Run the corresponding package's `typecheck` for TypeScript code as needed.
+  - By default, do not run full test suites, production builds, end-to-end tests, Desktop packaging, or service restarts.
+- P1, medium risk: Changes to shared state, business logic, persistence behavior, interactions between components, Runtime request parameters, or shared components.
+  - Run targeted tests for the affected modules and the corresponding package's `typecheck`.
+  - Run a production build only when compilation boundaries, lazy loading, generated assets, or build configuration are involved.
+  - Add browser validation only when targeted tests cannot adequately cover the actual interaction.
+- P2, high risk: Changes to Daemon/Runtime, protocols, database migrations, process management, service configuration, builds and packaging, release workflows, or explicitly targeted Web/Desktop parity.
+  - Run relevant integration tests, builds, service restarts, and health checks.
+  - Run Desktop builds, packaging, and parity gates only when the task involves Desktop or a deliverable package.
 
-### Web 快速验证路径
+### Fast Validation Path for Web Changes
 
-- 只修改 `apps/web` 中的页面、模板 Workspace、样式或局部前端状态，且未触及 Host Bridge、Desktop capability、Preload/IPC、Daemon/Runtime、协议、持久化或构建资源时，以相关 Web 定向测试、`@opencreator/web` typecheck 和必要的浏览器交互验证为完成标准。
-- 上述纯 Web 改动通过验证后即可交付。默认不运行生产构建、Browser/Desktop 双上下文一致性规格、`desktop:package` 或 packaged App E2E；不能仅因 Desktop 复用同一份 Web 产物而升级验证。
-- 只有改动依赖平台 capability、响应式结果可能受 Electron 内容视口影响，或用户明确要求对比 Web/Desktop 时，才增加 Browser/Desktop 双上下文规格。双上下文规格通过后，仍不因该规格本身自动升级到实际 App 打包。
-- 只有触及 `apps/desktop`、Host Bridge、Preload/IPC、窗口或系统原生能力、Daemon 启动与代理、打包资源/脚本，或任务目标是 Desktop 交付、候选验证或发布时，才执行实际 App 打包和 packaged App E2E。
+- When changes affect only pages, template Workspaces, styles, or local frontend state in `apps/web`, without touching Host Bridge, Desktop capabilities, Preload/IPC, Daemon/Runtime, protocols, persistence, or build assets, completion requires relevant targeted Web tests, the `@opencreator/web` typecheck, and any necessary browser interaction checks.
+- These Web-only changes can be delivered once those checks pass. By default, do not run production builds, Browser/Desktop parity specifications in both contexts, `desktop:package`, or packaged App E2E tests. Desktop's reuse of the same Web assets alone does not justify broader validation.
+- Add Browser/Desktop specifications in both contexts only when changes depend on platform capabilities, Electron's content viewport could affect responsive behavior, or the user explicitly requests a Web/Desktop comparison. Passing these specifications does not itself require actual App packaging.
+- Perform actual App packaging and packaged App E2E tests only when changes touch `apps/desktop`, Host Bridge, Preload/IPC, window or native system capabilities, Daemon startup and proxying, packaging assets/scripts, or when the task targets Desktop delivery, release candidate validation, or publishing.
 
-### 服务操作
+### Service Operations
 
-- 前端源码在正在运行的 Vite 开发服务下能够热更新时，不得仅为使页面生效而重启 Web 服务。
-- 只有服务端代码、启动配置、环境变量、进程依赖发生变化，热更新失败，服务未启动，或用户明确要求时，才停止或重启对应服务。
-- 重启前先确认目标端口和进程命令；重启后只验证对应服务和直接依赖的健康状态，避免无关服务操作。
+- When a running Vite development server can hot-reload frontend source changes, do not restart the Web service merely to apply page changes.
+- Stop or restart the relevant service only when server code, startup configuration, environment variables, or process dependencies change; hot reload fails; the service is not running; or the user explicitly requests it.
+- Before restarting, confirm the target port and process command. After restarting, check only that service and its direct dependencies, avoiding operations on unrelated services.
 
-### 验证升级条件
+### Conditions for Expanding Validation
 
-- 定向测试失败且失败与本次改动相关。
-- 改动触及共享公共层，无法通过局部测试覆盖主要调用方。
-- 类型检查或构建结果暴露跨模块影响。
-- 用户要求更高等级验证，或任务目标本身是发布、打包、全流程验收、跨平台一致性。
+- Targeted tests fail for reasons related to the current change.
+- Changes touch a shared layer whose main callers cannot be covered by local tests.
+- Typechecks or build results reveal an impact across modules.
+- The user requests broader validation, or the task itself targets publishing, packaging, complete workflow acceptance, or cross-platform parity.
 
-### 交付说明
+### Delivery Reports
 
-- 完成时只报告实际执行的验证，不得用未执行的全量验证暗示项目整体无回归。
-- 若最小验证集已覆盖本次改动，应及时交付，不得为了形式上的“更完整”继续运行低收益验证。
+- Report only validation actually performed. Do not imply that the entire project is free of regressions based on comprehensive checks that were not run.
+- Deliver promptly once the minimum validation set covers the change. Do not continue running low-value checks merely to appear more thorough.
 
-## `opencreator-bug-fix` 使用铁律
+## Mandatory Rules for Using `opencreator-bug-fix`
 
-- 铁律：普通开发、代码修复、体验优化和用户直接提出的需求，不得默认启用或附加 `opencreator-bug-fix` 流程。
-- 只有用户明确要求读取、处理或回写 OpenCreator 飞书 Bug 文档时，才允许使用 `opencreator-bug-fix`。
-- 未得到上述明确要求时，禁止因为任务看起来像 Bug 而读取飞书文档、执行文档闭环或按该流程自动创建 Git commit；应直接按当前需求完成代码修改与必要验证。
+- Mandatory: Do not enable or append the `opencreator-bug-fix` workflow by default for regular development, code fixes, experience improvements, or direct user requests.
+- Use `opencreator-bug-fix` only when the user explicitly asks to read, process, or write back to the OpenCreator Feishu bug document.
+- Without that explicit request, do not read Feishu documents, carry out the document feedback workflow, or automatically create Git commits through that workflow merely because a task resembles a bug. Complete the requested code changes and necessary validation directly.
 
-## Creator 模板协作面板架构铁律
+## Mandatory Architecture Rules for Creator Template Collaboration Panels
 
-- 铁律：视频翻译、封面生成、图像生成、视频生成及后续所有 Creator 模板必须共用唯一的 `CreatorCollaborationPanel`；禁止为单个模板复制或新建一套完整的 Agent Panel。
-- 通用 Panel 统一负责 Agent 消息、Activity 时间线、Stage 状态卡、真实进度、审批、Composer、权限以及任务终止和继续。模板 Workspace 不得自行维护第二套消息、审批、SSE 或 Stage 展示逻辑。
-- 模板差异只能通过 `CreatorPanelAdapter`、配置、回调或局部 slot 表达。Adapter 只负责 Stage/Phase/字段文案、Activity 语义化、进度标准化、Composer 默认提示和模板上下文摘要，不得复制通用交互框架。
-- Workspace 只向通用 Panel 提供当前步骤、业务上下文、问题状态和快捷操作。真正只属于某个模板的能力可以使用局部 slot，但不得借此复制完整 Panel。
-- 通用 Panel 禁止读取 `krillinEventPayload` 或其他执行器私有字段。Runtime 对外进度统一为 `phase`、`percent`、`message`、`completed`、`failed`、`total`；旧字段兼容只能存在于对应 Adapter 或 Runtime normalizer。
-- 纯界面状态不得写入用户可见的创作动态，包括步骤索引、最远步骤、工作区页签、结果页签和草稿版本等 UI-only 字段。Activity 必须先语义化、过滤并合并连续同类更新。
-- 未知模板必须使用 fallback adapter，显示稳定的通用文案，不得直接暴露内部 Stage ID、执行器名称或原始事件字段。
-- 新增 Creator 模板时必须同时增加 Adapter 测试、Activity 过滤与去重测试、Stage 状态测试和真实进度测试；禁止以创建独立 Panel 作为交付方式。
+- Mandatory: Video translation, cover generation, image generation, video generation, and all future Creator templates must share a single `CreatorCollaborationPanel`. Do not duplicate or create an entire Agent Panel for an individual template.
+- The shared Panel owns Agent messages, the Activity timeline, Stage status cards, actual progress, approvals, the Composer, permissions, and task termination and continuation. Template Workspaces must not maintain separate message, approval, SSE, or Stage presentation logic.
+- Express template differences only through `CreatorPanelAdapter`, configuration, callbacks, or local slots. Adapters handle only Stage/Phase/field copy, meaningful Activity descriptions, progress normalization, default Composer prompts, and template context summaries. They must not duplicate the shared interaction framework.
+- Workspaces provide only the current step, business context, issue state, and quick actions to the shared Panel. Truly template-specific capabilities may use local slots, but slots must not be used to duplicate the entire Panel.
+- The shared Panel must not read `krillinEventPayload` or other executor-private fields. Runtime progress exposed externally must use `phase`, `percent`, `message`, `completed`, `failed`, and `total`. Compatibility with legacy fields belongs only in the corresponding Adapter or Runtime normalizer.
+- Do not write UI-only state to user-visible creation activity, including step indices, the furthest step reached, Workspace tabs, result tabs, and draft versions. Convert Activity updates into meaningful descriptions, filter them, and merge consecutive updates of the same kind before displaying them.
+- Unknown templates must use a fallback adapter with stable, generic copy. Do not expose internal Stage IDs, executor names, or raw event fields directly.
+- Every new Creator template must include Adapter tests, Activity filtering and deduplication tests, Stage status tests, and actual progress tests. Delivering an independent Panel is prohibited.
 
-## Web / Desktop 一致性铁律门禁
+## Mandatory Web / Desktop Parity Gates
 
-### 核心定义
+### Core Definitions
 
-- 铁律：OpenCreator 以 `apps/web` 作为唯一的前端实现和主要开发环境，Desktop 必须直接使用同一套 Web 前端构建产物，不得维护第二套页面、组件、样式或通用交互逻辑。
-- 铁律：在相同业务数据、相同用户偏好和相同前端内容区尺寸下，Web 与 Desktop 的通用界面、文案、布局、状态、交互结果和 Runtime 请求必须一致。
-- “一致”指通用产品能力一致，不要求浏览器模拟操作系统窗口、系统目录选择器、菜单栏、托盘和原生通知等系统能力。
-- 不能因为 Web 和 Desktop 共用 React 代码就默认平台边界已经一致。纯共享 Web 改动按“Web 快速验证路径”验证；涉及 Desktop 边界或交付包时才要求实际打包 App 验证。
+- Mandatory: `apps/web` is OpenCreator's only frontend implementation and primary development environment. Desktop must directly use the same Web frontend build assets. Do not maintain a second set of pages, components, styles, or shared interaction logic.
+- Mandatory: Given the same business data, user preferences, and frontend content area dimensions, Web and Desktop must have identical shared interfaces, copy, layouts, states, interaction results, and Runtime requests.
+- Parity means consistency of shared product capabilities. It does not require the browser to emulate system capabilities such as operating system windows, directory pickers, menu bars, trays, or native notifications.
+- Shared React code alone does not establish parity at platform boundaries. Validate changes limited to shared Web code through the Fast Validation Path for Web Changes. Require actual packaged App validation only when Desktop boundaries or deliverable packages are involved.
 
-### 通用能力铁律
+### Mandatory Rules for Shared Capabilities
 
-- 默认项目、项目创建、项目选择、项目配置、会话、任务、计划、权限、模型、附件、文件编辑和其他业务能力必须由 Web 与 Desktop 共用的 Daemon/API/Service 实现。
-- 通用业务不得分别为 Browser Bridge 和 Desktop Bridge 实现两套逻辑。
-- 首次启动无项目时，Web 与 Desktop 必须得到相同的默认项目和可直接输入的会话状态，不得一端自动创建项目、另一端要求用户手动创建。
-- 创建空白项目必须走统一的 Runtime 项目接口；Desktop Bridge 不得单独承担通用项目创建逻辑。
-- Desktop Bridge 只负责必须依赖操作系统或 Electron 的能力，例如选择现有目录、解析文件夹拖放路径、窗口生命周期、菜单栏、托盘和原生通知。
+- Default projects, project creation, project selection, project configuration, sessions, tasks, plans, permissions, models, attachments, file editing, and other business capabilities must use Daemon/API/Service implementations shared by Web and Desktop.
+- Do not implement separate shared business logic for Browser Bridge and Desktop Bridge.
+- On first launch without a project, Web and Desktop must obtain the same default project and a session ready for input. Do not automatically create a project on one platform while requiring manual creation on the other.
+- Blank project creation must use the shared Runtime project API. Desktop Bridge must not independently implement shared project creation logic.
+- Desktop Bridge handles only capabilities that require the operating system or Electron, such as selecting existing directories, resolving paths from folder drops, window lifecycle, menu bars, trays, and native notifications.
 
-### 平台能力铁律
+### Mandatory Rules for Platform Capabilities
 
-- 禁止在共享 UI 中使用 `hostBridge.kind` 随意分叉通用业务、页面结构或样式。
-- 平台差异必须通过明确的 capability 或可选回调表达，例如 `canSelectDirectory`、`canControlWindow`。
-- 组件只能在能力真实可用时显示对应入口。禁止显示按钮后在处理函数中静默 `return`，禁止出现 Web 可见但点击无反应、Desktop 可正常操作的伪一致状态。
-- 禁止为了“看起来一致”给不支持的平台传入空函数、假成功结果或无实际作用的回调。
-- 平台专属 UI 必须保持局部、可识别、可单独测试，不得改变通用页面的主体布局和核心工作流。
-- 当前允许的平台专属能力仅包括：
-  - 选择或更换本机现有文件夹。
-  - 读取文件夹拖放的真实系统路径。
-  - Electron 窗口关闭、隐藏、菜单栏和托盘行为。
-  - 原生系统通知及其后台生命周期。
-  - 其他经需求明确确认、确实无法由本地 Daemon 提供的系统能力。
+- Do not arbitrarily branch shared business logic, page structure, or styles on `hostBridge.kind` in shared UI.
+- Express platform differences through explicit capabilities or optional callbacks, such as `canSelectDirectory` and `canControlWindow`.
+- Components may display an action only when its capability is actually available. Do not show buttons whose handlers silently `return`, or create apparent parity where a visible action does nothing on Web but works on Desktop.
+- Do not pass empty functions, fake success results, or ineffective callbacks to unsupported platforms merely to make them look consistent.
+- Keep platform-specific UI local, identifiable, and independently testable. It must not change the main layout or core workflow of shared pages.
+- Currently permitted platform-specific capabilities are limited to:
+  - Selecting or switching to an existing local folder.
+  - Reading the actual system path of a dropped folder.
+  - Electron window closing and hiding, menu bar behavior, and tray behavior.
+  - Native system notifications and their background lifecycle.
+  - Other system capabilities explicitly confirmed by requirements that truly cannot be provided by the local Daemon.
 
-### 内容视口铁律
+### Mandatory Rules for Content Viewports
 
-- Web 与 Desktop 的视觉对比必须使用相同的前端内容区尺寸，不能直接使用浏览器窗口外框和 Electron 窗口外框尺寸比较。
-- Desktop 创建窗口时应优先保证内容区尺寸稳定；涉及响应式布局时必须验证 Electron 标题栏、系统边框和缩放比例不会错误触发断点。
-- 相同内容区尺寸下，通用页面的主要 DOM、可见文案、关键元素尺寸和截图必须一致。
+- Visual comparisons between Web and Desktop must use identical frontend content area dimensions. Do not compare using the outer dimensions of browser and Electron windows directly.
+- Prioritize stable content area dimensions when creating Desktop windows. For responsive layouts, verify that Electron title bars, system borders, and scaling do not incorrectly trigger breakpoints.
+- With identical content area dimensions, shared pages must have matching main DOM structure, visible copy, key element dimensions, and screenshots.
 
-### 构建产物铁律
+### Mandatory Rules for Build Assets
 
-- Desktop 打包前必须重新构建当前工作区的 Web，禁止复用无法证明来源的旧 `apps/web/dist`。
-- Desktop 包中嵌入的 Web 文件必须与本次 `apps/web/dist` 完全一致。
-- 桌面构建清单必须至少记录 Git commit、工作区 dirty 状态、Web 构建标识或哈希、平台、架构和构建时间。
-- 打包校验必须比较 App 内嵌 Web 资源与本次 Web 构建产物；不一致时必须终止打包。
-- 不得通过手工复制、替换 App 内资源或跳过 Web 构建来制作可交付 App。
+- Rebuild Web from the current working tree before Desktop packaging. Do not reuse an old `apps/web/dist` whose provenance cannot be established.
+- Web files embedded in the Desktop package must exactly match the current `apps/web/dist`.
+- The Desktop build manifest must record at least the Git commit, working tree dirty status, Web build identifier or hash, platform, architecture, and build time.
+- Packaging validation must compare the App's embedded Web assets with the current Web build output. Abort packaging if they differ.
+- Do not produce a deliverable App by manually copying or replacing resources inside it or by skipping the Web build.
 
-### 分级一致性测试
+### Tiered Parity Testing
 
-明确影响 Web/Desktop 通用行为或平台 capability 时，按实际影响选择以下自动化测试，不得因纯 Web 局部改动默认执行整组：
+When changes explicitly affect shared Web/Desktop behavior or platform capabilities, select the following automated tests according to their actual impact. Do not run the entire set by default for local Web-only changes:
 
-1. 使用同一个 Fake Daemon、相同项目、相同会话、相同本地偏好和相同内容视口，分别以 Browser Bridge 和 Desktop Bridge 渲染应用。
-2. 对比首页、项目选择器、创建项目、设置页、会话输入区和文件工作区的通用可见文案、按钮、状态、关键尺寸和操作结果。
-3. 验证两端执行同一通用操作时调用相同 Runtime API，并产生相同持久化结果。
-4. 验证 Web 首次启动会自动获得默认项目，输入框立即可用。
-5. 验证 Browser Bridge 下不显示目录选择、目录更换、窗口关闭等不可用的 Desktop 原生入口。
-6. 验证 Desktop Bridge 下原生入口真实调用对应 Bridge 能力，不得只验证按钮存在。
-实际 App 打包仅在“Web 快速验证路径”的升级条件命中时执行，并必须完成：
+1. Render the application with Browser Bridge and Desktop Bridge using the same Fake Daemon, project, session, local preferences, and content viewport.
+2. Compare shared visible copy, buttons, states, key dimensions, and interaction results on the home page, project selector, project creation flow, settings page, session input area, and file Workspace.
+3. Verify that the same shared operation calls the same Runtime API and produces the same persisted results on both platforms.
+4. Verify that Web automatically obtains a default project on first launch and that the input is immediately usable.
+5. Verify that Browser Bridge does not display unavailable Desktop native actions such as directory selection, directory switching, or window closing.
+6. Verify that native actions under Desktop Bridge actually invoke the corresponding Bridge capabilities. Checking only that buttons exist is insufficient.
+Perform actual App packaging only when the escalation conditions in the Fast Validation Path for Web Changes apply. In that case, also complete:
 
-7. 运行实际打包 App E2E，验证 Preload Bridge、`opencreator-app://` 页面、Runtime 代理、默认项目、核心输入流程和原生能力。
-8. 校验 `apps/web/dist` 与 App 内嵌 Web 目录文件列表和内容哈希完全一致。
+7. Run E2E tests against the actual packaged App to verify Preload Bridge, the `opencreator-app://` page, Runtime proxying, the default project, the core input flow, and native capabilities.
+8. Verify that the file lists and content hashes in `apps/web/dist` exactly match the App's embedded Web directory.
 
-### 修改时的强制判断
+### Required Decisions Before Making Changes
 
-- 修改 `apps/web` 页面、状态、Service、Host Bridge、Daemon 项目逻辑、Desktop Preload、窗口逻辑、协议代理或打包脚本时，必须先按“Web 快速验证路径”判断验证等级，不得把普通 Web 修改自动视为 Desktop 打包任务。
-- 新功能开发前必须先归类：
-  - 通用产品能力：只实现一次，由 Web 和 Daemon 共用。
-  - 系统原生能力：通过 capability 隔离，并提供平台专属测试。
-- 修复一端问题时必须检查另一端的相同流程，不得只验证最初报告问题的平台。
-- 如果发现两端不一致，必须先确认它是经过明确设计的平台差异，还是能力判断、数据源、旧构建产物、视口或测试缺失造成的缺陷。
-- 未经明确需求确认，不得把现有不一致直接解释为“平台差异”。
+- Before changing `apps/web` pages, state, Services, Host Bridge, Daemon project logic, Desktop Preload, window logic, protocol proxies, or packaging scripts, determine the validation tier using the Fast Validation Path for Web Changes. Do not automatically treat ordinary Web changes as Desktop packaging tasks.
+- Classify each new feature before implementation:
+  - Shared product capability: Implement it once, shared by Web and Daemon.
+  - Native system capability: Isolate it through a capability and provide platform-specific tests.
+- When fixing an issue on one platform, inspect the same flow on the other. Do not validate only the platform where the issue was originally reported.
+- When the platforms differ, first determine whether the difference is explicitly designed or is a defect caused by capability detection, data sources, stale build assets, viewports, or missing tests.
+- Do not dismiss an existing inconsistency as a platform difference without explicit confirmation in the requirements.
 
-### 完成声明门禁
+### Requirements for Completion Claims
 
-- 纯 Web 改动通过相关 Web 定向测试、typecheck 和必要的浏览器验证后，可以声明该改动完成，但不得据此声明实际 Desktop 包或发布候选已验证。
-- 命中 Desktop 打包升级条件时，未通过相关测试、实际打包 App 验证和资源哈希校验，不得声称 Desktop 功能完成、两端已经一致或可以发布。
-- 如果当前环境无法运行其中某项验证，必须明确说明未验证内容、原因和残余风险。
-- 发现 Web 与 Desktop 通用行为回归、App 嵌入旧 Web 产物、无效平台入口或首次启动状态不一致时，必须阻止发布，不得降级为普通提示。
+- Web-only changes may be declared complete after relevant targeted Web tests, typechecks, and necessary browser checks pass. This does not establish that an actual Desktop package or release candidate has been validated.
+- When the conditions requiring Desktop packaging apply, do not claim that Desktop functionality is complete, the platforms have parity, or the product is ready for release until relevant tests, actual packaged App validation, and asset hash checks pass.
+- If the current environment cannot run a required check, clearly state what remains unverified, why, and the remaining risk.
+- Block the release if shared Web/Desktop behavior regresses, the App embeds stale Web assets, platform actions are ineffective, or first-launch states differ. Do not reduce these failures to ordinary warnings.

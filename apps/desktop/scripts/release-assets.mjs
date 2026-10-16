@@ -3,6 +3,7 @@ import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, w
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { verifyEnglishReleaseNotes } from './verify-release-notes.mjs';
 
 // Reuse the YAML parser already pinned by the Daemon workspace.
 const { parse: parseYaml, stringify: stringifyYaml } = createRequire(
@@ -158,6 +159,7 @@ export function verifyPublishedPayloads({ directory, assets }) {
 }
 
 export function finalizeReleaseAssets({ directory, version, repository, highlights = '' }) {
+  const notes = renderReleaseNotes({ version, repository, highlights });
   const desktopAssets = releasePlatforms.flatMap(
     ({ platform, arch }) => releaseAssetNames(version, platform, arch)
   );
@@ -177,11 +179,12 @@ export function finalizeReleaseAssets({ directory, version, repository, highligh
   }
   refreshUpdaterMetadata({ directory, version });
   writeChecksums(directory, expected);
-  return renderReleaseNotes({ version, repository, highlights });
+  return notes;
 }
 
 export function renderReleaseNotes({ version, repository, highlights = '' }) {
   assertVersion(version);
+  verifyEnglishReleaseNotes(highlights, `Release highlights for v${version}`);
   const downloadRoot = `https://github.com/${repository}/releases/download/v${version}`;
   const desktopRows = releasePlatforms.map(({ platform, arch, label }) => {
     const installer = releaseAssetNames(version, platform, arch)[0];
@@ -194,10 +197,11 @@ export function renderReleaseNotes({ version, repository, highlights = '' }) {
     }
   );
   const normalizedHighlights = highlights.trim();
-  return [
+  const notes = [
     `# OpenCreator v${version}`,
     '',
-    ...(normalizedHighlights.length === 0 ? [] : [normalizedHighlights, '']),
+    normalizedHighlights,
+    '',
     '## OpenCreator Desktop',
     '',
     '| Platform | Installer |',
@@ -233,6 +237,8 @@ export function renderReleaseNotes({ version, repository, highlights = '' }) {
     '</details>',
     ''
   ].join('\n');
+  verifyEnglishReleaseNotes(notes, `Release body for v${version}`);
+  return notes;
 }
 
 function assertVersion(version) {
@@ -243,18 +249,13 @@ function assertVersion(version) {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    const [directory, tag, repository, notesPath] = process.argv.slice(2);
+    const [directory, tag, repository, notesPath, highlightsFile] = process.argv.slice(2);
     if (!directory || !tag?.startsWith('v') || !repository || !notesPath) {
-      throw new Error('Usage: node release-assets.mjs <assets-directory> <vVERSION> <owner/repo> <notes-file>');
+      throw new Error('Usage: node release-assets.mjs <assets-directory> <vVERSION> <owner/repo> <notes-file> [highlights-file]');
     }
     const version = tag.slice(1);
-    const highlightsPath = resolve(desktopDir, 'release-notes', `${tag}.md`);
-    let highlights = '';
-    try {
-      highlights = readFileSync(highlightsPath, 'utf8');
-    } catch (error) {
-      if (error?.code !== 'ENOENT') throw error;
-    }
+    const highlightsPath = highlightsFile ?? resolve(desktopDir, 'release-notes', `${tag}.md`);
+    const highlights = readFileSync(highlightsPath, 'utf8');
     const notes = finalizeReleaseAssets({ directory, version, repository, highlights });
     writeFileSync(notesPath, notes);
     console.log(`Verified ${readdirSync(directory).length} public release assets for ${tag}`);

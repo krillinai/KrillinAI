@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyEnglishReleaseNotes } from './verify-release-notes.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopDir = resolve(scriptDir, '..');
@@ -34,6 +35,10 @@ if (invokedDirectly) {
       ?? process.env.OPENCREATOR_DESKTOP_RELEASE_TAG
       ?? '';
     const result = verifyDesktopReleaseTag(tag.trim(), packageJson.version);
+    if (!result.skipped) {
+      const notesPath = resolve(desktopDir, 'release-notes', `${result.tag}.md`);
+      verifyEnglishReleaseNotes(readFileSync(notesPath, 'utf8'), notesPath);
+    }
     process.stdout.write(`${JSON.stringify({ ok: true, ...result })}\n`);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
