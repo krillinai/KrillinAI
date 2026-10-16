@@ -1,9 +1,13 @@
-# Additional client languages
+# 客户端多语言资源
 
-These static catalogs cover the keyed UI messages, English inline copy, and interpolated inline templates for Swedish, Japanese, Korean, Spanish, French, German, and Brazilian Portuguese. Explicit Swedish copy and the previously reviewed inline catalog take precedence over the Swedish fallback catalog.
+客户端支持 36 种显示语言。简体中文和英文使用源码文案；其余 34 种语言由本目录的静态词典覆盖导航、设置、创作流程、错误提示及插值模板。组件内显式的瑞典语文案及已审阅的瑞典语内联词典优先于本目录的回退词典。
 
-The initial translations were generated from public UI source strings using Google Translate in October 2026. Primary navigation, actions, and terminology are reviewed separately. The client never calls a translation service at runtime.
+语言包括繁体中文、瑞典语、日语、韩语、西班牙语、法语、德语、巴西葡萄牙语、意大利语、俄语、土耳其语、印尼语、越南语、泰语、菲律宾语、印地语、孟加拉语、波兰语、乌克兰语、荷兰语、马来语、丹麦语、挪威博克马尔语、芬兰语、捷克语、罗马尼亚语、匈牙利语、希腊语、泰米尔语、泰卢固语、保加利亚语、斯洛伐克语、克罗地亚语和塞尔维亚语（西里尔字母）。
 
-Keys are the English source messages. Keep `{{name}}` placeholders in keyed messages and `{{0}}`, `{{1}}`, etc. in inline templates intact; translated templates may reorder placeholders. Unknown messages fall back to English.
+初始译文于 2026 年 10 月使用 Google Translate 从公开的界面源码文案生成；主要导航、常用操作和设置名称另行校对。长篇提示和专业术语仍建议由母语使用者复核。客户端运行时不会请求翻译服务。
 
-Product and provider names should retain their official spelling. Display language does not change a project's content language or provider configuration.
+词典的键为英文源文案。必须保留 `{{name}}` 命名占位符以及 `{{0}}`、`{{1}}` 等内联占位符；译文可以调整占位符顺序。缺失文案回退到英文，繁体中文内联文案则回退到中文源文案。
+
+产品和服务商名称保留官方拼写。显示语言不会改变项目内容的目标语言或服务商配置。`tl` 系统语言映射到菲律宾语，`no` 映射到挪威博克马尔语，`ms-SG`、`bn-IN` 和 `nl-BE` 等地区变体使用对应的受支持词典。
+
+新增显示语言时，需要同时更新协议语言枚举、语言选择器、词典注册和语言切换测试。`translated-copy.test.ts` 检查词典注册是否齐全、所有语言的键是否一致及占位符是否完整；`client-copy-coverage.test.ts` 检查已审计界面的文案覆盖。

@@ -9,7 +9,7 @@ export const openCreatorAccentColors = [
 ] as const;
 
 export type OpenCreatorAccentColor = typeof openCreatorAccentColors[number];
-export const openCreatorLanguages = ['zh-CN', 'zh-TW', 'en-US', 'sv-SE', 'ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR', 'it-IT', 'ru-RU', 'tr-TR', 'id-ID', 'vi-VN'] as const;
+export const openCreatorLanguages = ['zh-CN', 'zh-TW', 'en-US', 'sv-SE', 'ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR', 'it-IT', 'ru-RU', 'tr-TR', 'id-ID', 'vi-VN', 'hi-IN', 'th-TH', 'fil-PH', 'bn-BD', 'pl-PL', 'uk-UA', 'nl-NL', 'ms-MY', 'da-DK', 'nb-NO', 'fi-FI', 'cs-CZ', 'ro-RO', 'hu-HU', 'el-GR', 'ta-IN', 'te-IN', 'bg-BG', 'sk-SK', 'hr-HR', 'sr-RS'] as const;
 export type OpenCreatorLanguage = typeof openCreatorLanguages[number];
 export const openCreatorLanguagePreferences = ['system', ...openCreatorLanguages] as const;
 export type OpenCreatorLanguagePreference = typeof openCreatorLanguagePreferences[number];

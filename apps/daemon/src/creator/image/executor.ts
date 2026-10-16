@@ -203,6 +203,9 @@ export function createImageExecutor(input: {
                   candidate,
                   imageSize: request.size,
                   quality: request.quality,
+                  ...(request.aspectRatio ? { aspectRatio: request.aspectRatio } : {}),
+                  ...(request.resolution ? { resolution: request.resolution } : {}),
+                  ...(request.modelQuality ? { modelQuality: request.modelQuality } : {}),
                   mimeType: image.mime,
                   fileName,
                   ...(referenceImage === undefined
@@ -341,10 +344,12 @@ function imageRequest(
       size,
       quality,
       count: settings.candidateCount,
-      ...(gatewayCreatorBinding(config) && stage.job.templateId === 'image-generation' ? {
+      ...(stage.job.templateId === 'image-generation' ? {
         aspectRatio: readString(stage.job.state.aspectRatio) || undefined,
         resolution: readString(stage.job.state.resolution) || undefined,
-        officialQuality: readString(stage.job.state.officialQuality) || undefined
+        ...(gatewayCreatorBinding(config) ? {
+          officialQuality: readString(stage.job.state.officialQuality) || undefined
+        } : { modelQuality: readString(stage.job.state.modelQuality) || undefined })
       } : {})
     },
     ...(cover === undefined ? {} : { cover: cover.details })

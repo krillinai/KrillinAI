@@ -18,7 +18,28 @@ export const appLanguageOptions: ReadonlyArray<{ value: AppLanguage; label: stri
   { value: 'ru-RU', label: 'Русский' },
   { value: 'tr-TR', label: 'Türkçe' },
   { value: 'id-ID', label: 'Bahasa Indonesia' },
-  { value: 'vi-VN', label: 'Tiếng Việt' }
+  { value: 'vi-VN', label: 'Tiếng Việt' },
+  { value: 'th-TH', label: 'ไทย' },
+  { value: 'fil-PH', label: 'Filipino' },
+  { value: 'hi-IN', label: 'हिन्दी' },
+  { value: 'bn-BD', label: 'বাংলা' },
+  { value: 'pl-PL', label: 'Polski' },
+  { value: 'uk-UA', label: 'Українська' },
+  { value: 'nl-NL', label: 'Nederlands' },
+  { value: 'ms-MY', label: 'Bahasa Melayu' },
+  { value: 'da-DK', label: 'Dansk' },
+  { value: 'nb-NO', label: 'Norsk bokmål' },
+  { value: 'fi-FI', label: 'Suomi' },
+  { value: 'cs-CZ', label: 'Čeština' },
+  { value: 'ro-RO', label: 'Română' },
+  { value: 'hu-HU', label: 'Magyar' },
+  { value: 'el-GR', label: 'Ελληνικά' },
+  { value: 'ta-IN', label: 'தமிழ்' },
+  { value: 'te-IN', label: 'తెలుగు' },
+  { value: 'bg-BG', label: 'Български' },
+  { value: 'sk-SK', label: 'Slovenčina' },
+  { value: 'hr-HR', label: 'Hrvatski' },
+  { value: 'sr-RS', label: 'Српски' }
 ];
 
 export const languagePreferenceStorageKey = 'opencreator.preferences.language';
@@ -47,8 +68,10 @@ export function resolveSystemLanguage(languages?: readonly string[]): AppLanguag
     const parts = candidate.toLowerCase().split(/[-_]/);
     const base = parts[0];
     if (base === 'zh') return isTraditionalChinese(parts.slice(1)) ? 'zh-TW' : 'zh-CN';
-    // Malay readers are served by the Indonesian catalog until Malay has its own.
-    if (base === 'ms') return 'id-ID';
+    // Browsers may report Norwegian Bokmål using the generic Norwegian code.
+    if (base === 'no') return 'nb-NO';
+    // Tagalog is the basis of Filipino and some systems still report it as tl.
+    if (base === 'tl') return 'fil-PH';
     const language = openCreatorLanguages.find(locale => locale.split('-')[0] === base);
     if (language) return language;
   }

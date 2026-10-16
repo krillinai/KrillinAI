@@ -6,10 +6,10 @@ import './model-brand-icon.css';
 type ModelIdentity = Pick<GatewayModel, 'id' | 'name'>;
 
 const brands = [
-  { id: 'bytedance', name: 'ByteDance', match: /seedance|seedream|doubao|bytedance|字节|豆包/i, asset: 'bytedance-color.svg' },
+  { id: 'bytedance', name: 'ByteDance', match: /seedance|seedream|doubao|bytedance|jimeng|字节|豆包|即梦/i, asset: 'bytedance-color.svg' },
   { id: 'kling', name: 'Kling', match: /kling|可灵/i, asset: 'kling-color.svg' },
   { id: 'google', name: 'Google', match: /google|gemini|\bveo\b|nano[- ]?banana/i, asset: 'google-color.svg' },
-  { id: 'openai', name: 'OpenAI', match: /openai|\bgpt\b|\bsora\b|\bdall[- ]?e\b|\bo[134](?:\b|-)/i, asset: 'openai.svg', monochrome: true },
+  { id: 'openai', name: 'OpenAI', match: /openai|codex-native|\bgpt\b|\bsora\b|\bdall[- ]?e\b|\bo[134](?:\b|-)/i, asset: 'openai.svg', monochrome: true },
   { id: 'anthropic', name: 'Anthropic', match: /anthropic|claude/i, asset: 'claude-color.svg' },
   { id: 'deepseek', name: 'DeepSeek', match: /deepseek/i, asset: 'deepseek-color.svg' },
   { id: 'qwen', name: 'Qwen', match: /qwen|通义千问/i, asset: 'qwen-color.svg' },

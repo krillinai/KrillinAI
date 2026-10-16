@@ -140,6 +140,16 @@ describe('creator image executor', () => {
     expect(result.outputs).toHaveLength(1);
   });
 
+  it('forwards manual image model controls from drafts to the provider and saved artifact', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'creator-image-model-options-'));
+    const config = createDefaultCreatorServicesConfig();
+    const generate = vi.fn(async () => ({ model: 'gpt-image-2', contents: [{ content: png('image'), mime: 'image/png' as const }] }));
+    const executor = createImageExecutor({ configStore: { read: async () => config }, generate });
+    const result = await executor.run(stageInput({ provider: 'openai', candidateCount: 1, aspectRatio: '16:9', resolution: '2K', modelQuality: 'auto' }));
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ aspectRatio: '16:9', resolution: '2K', modelQuality: 'auto' }), config, expect.any(Object));
+    expect(result.outputs[0]?.metadata).toMatchObject({ aspectRatio: '16:9', resolution: '2K', modelQuality: 'auto' });
+  });
+
   it('normalizes inherited candidate counts for codex-native', async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'creator-image-executor-codex-native-many-'));
     const config = createDefaultCreatorServicesConfig();

@@ -3,7 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ConfirmDialogProvider } from '../../components/dialogs/ConfirmDialogProvider.js';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
-import { languagePreferenceStorageKey } from '../../i18n/language.js';
+import { appLanguageOptions, languagePreferenceStorageKey } from '../../i18n/language.js';
 import { OpenCreatorSettingsView } from './OpenCreatorSettingsView.js';
 import type { GatewayAccountState } from '@opencreator/protocol';
 import type { GatewayAccountSettingsService } from '../../services/gateway-account-service.js';
@@ -212,12 +212,18 @@ describe('OpenCreatorSettingsView', () => {
     ['ja-JP', '一般'], ['ko-KR', '일반'], ['es-ES', 'General'],
     ['fr-FR', 'Général'], ['de-DE', 'Allgemein'], ['pt-BR', 'Geral'],
     ['zh-TW', '一般'], ['it-IT', 'Generale'], ['ru-RU', 'Общие'],
-    ['tr-TR', 'Genel'], ['id-ID', 'Umum'], ['vi-VN', 'Chung']
+    ['tr-TR', 'Genel'], ['id-ID', 'Umum'], ['vi-VN', 'Chung'],
+    ['th-TH', 'ทั่วไป'], ['fil-PH', 'Pangkalahatan'], ['hi-IN', 'सामान्य'],
+    ['bn-BD', 'সাধারণ'], ['pl-PL', 'Ogólne'], ['uk-UA', 'Загальні'], ['nl-NL', 'Algemeen'],
+    ['ms-MY', 'Umum'], ['da-DK', 'Generelt'], ['nb-NO', 'Generelt'], ['fi-FI', 'Yleiset'],
+    ['cs-CZ', 'Obecné'], ['ro-RO', 'General'], ['hu-HU', 'Általános'], ['el-GR', 'Γενικά'],
+    ['ta-IN', 'பொது'], ['te-IN', 'సాధారణం'], ['bg-BG', 'Общи'],
+    ['sk-SK', 'Všeobecné'], ['hr-HR', 'Općenito'], ['sr-RS', 'Опште']
   ] as const)('offers and immediately switches to %s', (language, heading) => {
     render(<LanguageProvider initialPreference="en-US"><OpenCreatorSettingsView runtimeStatus={runtimeStatus} onBack={vi.fn()} /></LanguageProvider>);
     const select = screen.getByRole('combobox', { name: 'Display language' });
     // The system option plus every supported display language.
-    expect(select.querySelectorAll('option')).toHaveLength(16);
+    expect(select.querySelectorAll('option')).toHaveLength(appLanguageOptions.length + 1);
     fireEvent.change(select, { target: { value: language } });
     expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
     expect(select).toHaveValue(language);

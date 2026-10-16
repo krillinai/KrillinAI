@@ -1,5 +1,9 @@
 import {
   creatorPromptMaxLength,
+  createDefaultCreatorServicesConfig,
+  imageModelOptions,
+  imageSizeAspectRatio,
+  type CreatorServicesConfig,
   imagePromptRequiresReference,
   readCreatorResultSnapshots,
   safePublicErrorMessage,
@@ -30,8 +34,8 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalizedCopy, type LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
-import ModelBrandIcon from '../../components/brand/ModelBrandIcon.js';
 import NativeSelect from '../../components/forms/NativeSelect.js';
+import OfficialModelSelect from '../../components/forms/OfficialModelSelect.js';
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
 import CreatorToolShell from './CreatorToolShell.js';
@@ -71,6 +75,7 @@ const providers: Array<{ value: ImageGenerationProvider; zh: string; en: string 
   { value: 'kling', zh: '可灵', en: 'Kling' },
   { value: 'gemini', zh: 'Gemini', en: 'Gemini' }
 ];
+const defaultImageConfig = createDefaultCreatorServicesConfig().image;
 
 const samplePromptZh = '一间通透的现代创意工作室，清晨自然光从落地窗照入，桌面有相机、手稿和绿植，真实摄影质感，构图干净，细节丰富';
 const samplePromptEn = 'A bright modern creative studio at sunrise, natural light through floor-to-ceiling windows, a camera, sketches, and plants on the desk, realistic photography, clean composition, rich detail';
@@ -92,19 +97,37 @@ export default function ImageGenerationWorkspace(props: {
   const [aspectRatio, setAspectRatio] = useState(() => readString(session?.state.aspectRatio));
   const [resolution, setResolution] = useState(() => readString(session?.state.resolution));
   const [officialQuality, setOfficialQuality] = useState(() => readString(session?.state.officialQuality));
-  const imageOptions = official.official ? official.model?.imageOptions : undefined;
+  const [modelQuality, setModelQuality] = useState(() => readString(session?.state.modelQuality));
+  const [imageConfig, setImageConfig] = useState<CreatorServicesConfig['image'] | null>(null);
+  const configuredModel = provider === 'codex-native' ? '' : (imageConfig ?? defaultImageConfig)[provider].model;
+  const imageOptions = useMemo(() => official.official
+    ? official.model?.imageOptions ?? {}
+    : provider === 'codex-native' ? undefined : imageModelOptions(provider, configuredModel),
+  [official.official, official.model, provider, configuredModel]);
+  const activeQuality = official.official ? officialQuality : modelQuality;
+  useEffect(() => {
+    if (official.official) return;
+    let active = true;
+    void props.creatorServicesService?.getConfig().then(response => {
+      if (active) setImageConfig(response.config.image);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [props.creatorServicesService, official.official]);
   useEffect(() => {
     if (!imageOptions || official.taskRunning) return;
-    const nextRatio = imageOptions.aspectRatios?.includes(aspectRatio) ? aspectRatio : imageOptions.aspectRatios?.[0] ?? '';
+    const inheritedRatio = aspectRatio || imageSizeAspectRatio(size);
+    const inheritedQuality = activeQuality || quality;
+    const nextRatio = imageOptions.aspectRatios?.includes(inheritedRatio) ? inheritedRatio : imageOptions.aspectRatios?.[0] ?? '';
     const nextResolution = imageOptions.resolutions?.includes(resolution) ? resolution : imageOptions.resolutions?.[0] ?? '';
-    const nextQuality = imageOptions.qualities?.includes(officialQuality) ? officialQuality : imageOptions.qualities?.[0] ?? '';
-    const nextCount = Math.min(count, imageOptions.maxImages);
-    setAspectRatio(nextRatio); setResolution(nextResolution); setOfficialQuality(nextQuality);
+    const nextQuality = imageOptions.qualities?.includes(inheritedQuality) ? inheritedQuality : imageOptions.qualities?.[0] ?? '';
+    const nextCount = Math.min(count, official.official ? official.model?.imageOptions?.maxImages ?? 4 : 4);
+    setAspectRatio(nextRatio); setResolution(nextResolution);
+    if (official.official) setOfficialQuality(nextQuality); else setModelQuality(nextQuality);
     if (nextCount !== count) setCount(nextCount);
-    if (nextRatio !== aspectRatio || nextResolution !== resolution || nextQuality !== officialQuality || nextCount !== count) {
+    if (official.official && (nextRatio !== aspectRatio || nextResolution !== resolution || nextQuality !== activeQuality || nextCount !== count)) {
       session?.updateDraft({ aspectRatio: nextRatio, resolution: nextResolution, officialQuality: nextQuality, candidateCount: nextCount });
     }
-  }, [official.model?.id, imageOptions, official.taskRunning, aspectRatio, resolution, officialQuality, count]);
+  }, [imageOptions, official.taskRunning, official.official, aspectRatio, resolution, activeQuality, count, size, quality]);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
   const [referencePreview, setReferencePreview] = useState('');
   const resultVersion = session?.job.state.resultVersion;
@@ -115,8 +138,8 @@ export default function ImageGenerationWorkspace(props: {
   const [submitting, setSubmitting] = useState(false);
   const [promptExpanded, setPromptExpanded] = useState(false);
   const characterCount = useMemo(() => [...prompt.trim()].length, [prompt]);
-  const selectedSize = imageOptions ? { value: resolution, zh: aspectRatio, en: aspectRatio, ratio: aspectRatio } : sizes.find(item => item.value === size) ?? sizes[0]!;
-  const selectedQuality = imageOptions ? { zh: imageQualityLabel(officialQuality, l) || resolution || l('默认', 'Default'), en: imageQualityLabel(officialQuality, l) || resolution || l('默认', 'Default') } : qualities.find(item => item.value === quality) ?? qualities[1]!;
+  const selectedSize = imageOptions ? { value: resolution, zh: aspectRatio || l('默认', 'Default'), en: aspectRatio || l('默认', 'Default'), ratio: aspectRatio || l('默认', 'Default') } : sizes.find(item => item.value === size) ?? sizes[0]!;
+  const selectedQuality = imageOptions ? { zh: imageQualityLabel(activeQuality, l) || l('默认', 'Default'), en: imageQualityLabel(activeQuality, l) || l('默认', 'Default') } : qualities.find(item => item.value === quality) ?? qualities[1]!;
   const selectedProvider = official.official ? { zh: '官方服务', en: 'Official service' } : providers.find(item => item.value === provider) ?? providers[0]!;
   const resultVersions = useMemo(
     () => createImageResultVersions(session?.job.artifacts ?? [], session?.state.resultSnapshots),
@@ -137,13 +160,14 @@ export default function ImageGenerationWorkspace(props: {
   const visibleError = error || runtimeError || previewError;
   const resultSettings = selectedResult?.state;
   const resultSize = readSize(resultSettings?.size);
-  const resultSizeOption = resultSettings?.officialModels && typeof resultSettings.aspectRatio === 'string'
+  const resultSizeOption = typeof resultSettings?.aspectRatio === 'string' && resultSettings.aspectRatio
     ? { value: readString(resultSettings.resolution), zh: resultSettings.aspectRatio, en: resultSettings.aspectRatio, ratio: resultSettings.aspectRatio }
     : sizes.find(item => item.value === resultSize) ?? sizes[0]!;
   const resultProvider = resultSettings?.officialModels ? { zh: '官方服务', en: 'Official service' } : providers.find(item => item.value === readProvider(resultSettings?.provider))
     ?? providers[0]!;
-  const resultQuality = resultSettings?.officialModels && typeof resultSettings.officialQuality === 'string' && resultSettings.officialQuality
-    ? { zh: imageQualityLabel(resultSettings.officialQuality, l), en: imageQualityLabel(resultSettings.officialQuality, l) }
+  const savedModelQuality = readString(resultSettings?.officialModels ? resultSettings.officialQuality : resultSettings?.modelQuality);
+  const resultQuality = savedModelQuality || resultSettings?.modelQuality === ''
+    ? { zh: imageQualityLabel(savedModelQuality, l) || l('默认', 'Default'), en: imageQualityLabel(savedModelQuality, l) || l('默认', 'Default') }
     : qualities.find(item => item.value === readQuality(resultSettings?.quality)) ?? qualities[1]!;
   const supportsReferenceImage = session === null
     || session.job.id.startsWith('pending:')
@@ -184,24 +208,16 @@ export default function ImageGenerationWorkspace(props: {
   useEffect(() => {
     if (official.official) return;
     if (session === null || !shouldLoadDefaultProvider) return;
-    let active = true;
-    void props.creatorServicesService?.getConfig().then(response => {
-      if (!active) return;
-      const nextProvider = response.config.image.provider;
-      const nextCount = nextProvider === 'codex-native' ? 1 : count;
-      setProvider(nextProvider);
-      setCount(nextCount);
-      session.updateDraft(
-        {
-          provider: nextProvider,
-          providerSource: 'default',
-          candidateCount: nextCount
-        },
-        { persist: false }
-      );
-    }).catch(() => undefined);
-    return () => { active = false; };
-  }, [count, props.creatorServicesService, session, shouldLoadDefaultProvider, official.official]);
+    if (!imageConfig) return;
+    const nextProvider = imageConfig.provider;
+    const nextCount = nextProvider === 'codex-native' ? 1 : count;
+    setProvider(nextProvider);
+    setCount(nextCount);
+    session.updateDraft(
+      { providerSource: 'default' },
+      { persist: false }
+    );
+  }, [count, imageConfig, session, shouldLoadDefaultProvider, official.official]);
 
   useEffect(() => {
     const { session, l } = previewContext.current;
@@ -300,25 +316,37 @@ export default function ImageGenerationWorkspace(props: {
   function updateProvider(value: ImageGenerationProvider) {
     if (official.official) return;
     setProvider(value);
+    const options = imageModelOptions(value, value === 'codex-native' ? '' : (imageConfig ?? defaultImageConfig)[value].model);
+    const nextRatio = options.aspectRatios?.includes(aspectRatio) ? aspectRatio : options.aspectRatios?.[0] ?? '';
+    const nextResolution = options.resolutions?.includes(resolution) ? resolution : options.resolutions?.[0] ?? '';
+    const nextQuality = options.qualities?.includes(modelQuality) ? modelQuality : options.qualities?.includes(quality) ? quality : options.qualities?.[0] ?? '';
+    setAspectRatio(nextRatio); setResolution(nextResolution); setModelQuality(nextQuality);
     const nextCount = value === 'codex-native' ? 1 : count;
     if (nextCount !== count) setCount(nextCount);
     session?.updateDraft({
       provider: value,
       providerSource: 'user',
-      candidateCount: nextCount
+      candidateCount: nextCount,
+      aspectRatio: value === 'codex-native' ? '' : nextRatio,
+      resolution: nextResolution,
+      modelQuality: nextQuality
     });
     setError('');
   }
 
   function updateSize(value: ImageGenerationSize) {
     setSize(value);
-    session?.updateDraft({ size: value });
+    const nextRatio = imageSizeAspectRatio(value);
+    if (imageOptions?.aspectRatios?.includes(nextRatio)) setAspectRatio(nextRatio);
+    session?.updateDraft({ size: value, ...(imageOptions?.aspectRatios?.includes(nextRatio) ? { aspectRatio: nextRatio } : {}) });
     setError('');
   }
 
   function updateQuality(value: ImageGenerationQuality) {
     setQuality(value);
-    session?.updateDraft({ quality: value });
+    const manualQuality = !official.official && imageOptions?.qualities?.includes(value);
+    if (manualQuality) setModelQuality(value);
+    session?.updateDraft({ quality: value, ...(manualQuality ? { modelQuality: value } : {}) });
     setError('');
   }
 
@@ -373,7 +401,7 @@ export default function ImageGenerationWorkspace(props: {
       size,
       quality,
       candidateCount: count,
-      ...(official.official ? { ...official.draftPatch, aspectRatio, resolution, officialQuality } : {})
+      ...(official.official ? { ...official.draftPatch, aspectRatio, resolution, officialQuality } : { aspectRatio: imageOptions ? aspectRatio : '', resolution: imageOptions ? resolution : '', modelQuality: imageOptions ? modelQuality : quality })
     }, { semantic: true });
     try {
       await session.flush();
@@ -481,14 +509,14 @@ export default function ImageGenerationWorkspace(props: {
           : `${l(selectedProvider.zh, selectedProvider.en)} · ${selectedSize.ratio} · ${l(`${count} 张`, `${count} images`, `${count} bilder`)}`}
         items={selectedResult ? [
           { label: l('图像服务', 'Provider'), value: l(resultProvider.zh, resultProvider.en) },
-          { label: l('画幅', 'Format'), value: `${l(resultSizeOption.zh, resultSizeOption.en)} · ${resultSizeOption.ratio}` },
-          { label: l('分辨率', 'Resolution'), value: resultSettings?.officialModels ? readString(resultSettings.resolution) || l('默认', 'Default') : resultSize },
+          { label: l('画幅', 'Format'), value: resultSettings?.aspectRatio ? resultSizeOption.ratio : `${l(resultSizeOption.zh, resultSizeOption.en)} · ${resultSizeOption.ratio}` },
+          { label: l('分辨率', 'Resolution'), value: readString(resultSettings?.resolution) || (resultSettings?.aspectRatio ? l('默认', 'Default') : resultSize) },
           { label: l('质量', 'Quality'), value: l(resultQuality.zh, resultQuality.en) },
           { label: l('当前版本', 'Version'), value: `V${selectedResult.value}` }
         ] : [
           ...(currentReferenceName ? [{ label: l('参考图', 'Reference image'), value: currentReferenceName }] : []),
           { label: l('图像服务', 'Provider'), value: l(selectedProvider.zh, selectedProvider.en) },
-          { label: l('画幅', 'Format'), value: `${l(selectedSize.zh, selectedSize.en)} · ${selectedSize.ratio}` },
+          { label: l('画幅', 'Format'), value: imageOptions ? selectedSize.ratio : `${l(selectedSize.zh, selectedSize.en)} · ${selectedSize.ratio}` },
           { label: l('分辨率', 'Resolution'), value: imageOptions ? resolution || l('默认', 'Default') : size },
           { label: l('质量', 'Quality'), value: l(selectedQuality.zh, selectedQuality.en) },
           { label: l('生成数量', 'Images'), value: String(count) }
@@ -512,11 +540,19 @@ export default function ImageGenerationWorkspace(props: {
             <div className="image-generation-model-row">
               {official.official ? <OfficialModelField label={l('图片模型', 'Image model')} service={official} disabled={busy} /> : (
                 <label className="creator-tool-field image-generation-provider-picker">
-                  <ModelBrandIcon model={{ id: provider === 'codex-native' ? 'openai' : provider === 'jimeng' ? 'bytedance' : provider, name: selectedProvider.en }} />
-                  <span>{l('图像服务', 'Image provider')}</span>
-                  <NativeSelect aria-label={l('图像服务', 'Image provider')} value={provider} onChange={event => updateProvider(readProvider(event.target.value))}>
-                    {providers.map(item => <option key={item.value} value={item.value}>{l(item.zh, item.en)}</option>)}
-                  </NativeSelect>
+                  <span>{l('模型', 'Model')}</span>
+                  <OfficialModelSelect
+                    label={l('模型', 'Model')}
+                    value={provider}
+                    disabled={busy}
+                    onChange={value => updateProvider(readProvider(value))}
+                    models={providers.map(item => ({
+                      id: item.value,
+                      name: l(item.zh, item.en),
+                      modality: 'image',
+                      capabilities: []
+                    }))}
+                  />
                 </label>
               )}
             </div>
@@ -593,12 +629,12 @@ export default function ImageGenerationWorkspace(props: {
                 {[
                   { key: 'aspectRatio', icon: RectangleHorizontal, label: l('图片画幅', 'Image format'), values: imageOptions.aspectRatios, value: aspectRatio, set: setAspectRatio },
                   { key: 'resolution', icon: ScanLine, label: l('分辨率', 'Resolution'), values: imageOptions.resolutions, value: resolution, set: setResolution },
-                  { key: 'officialQuality', icon: SlidersHorizontal, label: l('图片质量', 'Image quality'), values: imageOptions.qualities, value: officialQuality, set: setOfficialQuality }
+                  { key: official.official ? 'officialQuality' : 'modelQuality', icon: SlidersHorizontal, label: l('图片质量', 'Image quality'), values: imageOptions.qualities, value: activeQuality, set: official.official ? setOfficialQuality : setModelQuality }
                 ].filter(option => option.values?.length).map(option => <label className="creator-tool-field" key={option.key}>
                   <span><option.icon size={15} strokeWidth={1.7} aria-hidden="true" />{option.label}</span>
-                  <NativeSelect aria-label={option.label} value={option.value} disabled={official.taskRunning || !official.ready}
+                  <NativeSelect aria-label={option.label} value={option.value} disabled={busy || official.taskRunning || (official.official && !official.ready)}
                     onChange={event => { option.set(event.target.value); session?.updateDraft({ [option.key]: event.target.value }); }}>
-                    {option.values?.map(value => <option key={value} value={value}>{option.key === 'officialQuality' ? imageQualityLabel(value, l) : value}</option>)}
+                    {option.values?.map(value => <option key={value} value={value}>{option.key.endsWith('Quality') ? imageQualityLabel(value, l) : value}</option>)}
                   </NativeSelect>
                 </label>)}
               </> : <>
@@ -618,7 +654,7 @@ export default function ImageGenerationWorkspace(props: {
               <div className="media-generation-control">
                 <span><Images size={15} strokeWidth={1.7} aria-hidden="true" />{l('生成数量', 'Number of images')}</span>
                 <div className="creator-tool-segmented" role="radiogroup" aria-label={l('生成数量', 'Number of images')}>
-                  {(!official.official && provider === 'codex-native' ? [1] : [1, 2, 4].filter(value => value <= (imageOptions?.maxImages ?? 4))).map(value => (
+                  {(!official.official && provider === 'codex-native' ? [1] : [1, 2, 4].filter(value => value <= (official.official ? official.model?.imageOptions?.maxImages ?? 4 : 4))).map(value => (
                     <button type="button" role="radio" aria-checked={count === value} aria-selected={count === value} key={value} onClick={() => updateCount(value)}>
                       {value} {l('张', value === 1 ? 'image' : 'images')}
                     </button>
@@ -795,6 +831,8 @@ function imageQualityLabel(value: string, l: LocalizeCopy): string {
     case 'high':
     case 'hd': return l('高清', 'High');
     case 'auto': return l('自动选择', 'Automatic', 'Automatiskt');
+    case 'xhigh': return `${l('高清', 'High')}+`;
+    case 'max': return l('最高', 'Maximum', 'Maximal');
     default: return value;
   }
 }

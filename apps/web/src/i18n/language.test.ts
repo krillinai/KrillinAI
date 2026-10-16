@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { openCreatorLanguages } from '@opencreator/protocol';
 import {
   applyAppLanguage,
+  appLanguageOptions,
   defaultLanguagePreference,
   languagePreferenceStorageKey,
   readLanguagePreference,
@@ -10,6 +12,10 @@ import {
 } from './language.js';
 
 describe('display language preference', () => {
+  it('offers every supported language exactly once', () => {
+    expect(appLanguageOptions.map(option => option.value).sort()).toEqual([...openCreatorLanguages].sort());
+  });
+
   beforeEach(() => {
     window.localStorage.clear();
     document.documentElement.removeAttribute('lang');
@@ -32,8 +38,28 @@ describe('display language preference', () => {
     expect(resolveSystemLanguage(['zh-Hans-HK'])).toBe('zh-CN');
   });
 
-  it('serves Malay readers with Indonesian', () => {
-    expect(resolveSystemLanguage(['ms-MY'])).toBe('id-ID');
+  it('uses the Malay catalog and recognizes Norwegian Bokmål aliases', () => {
+    expect(resolveSystemLanguage(['ms-MY'])).toBe('ms-MY');
+    expect(resolveSystemLanguage(['ms-SG'])).toBe('ms-MY');
+    expect(resolveSystemLanguage(['no-NO'])).toBe('nb-NO');
+    expect(resolveSystemLanguage(['nb-NO'])).toBe('nb-NO');
+    expect(resolveSystemLanguage(['no_NO'])).toBe('nb-NO');
+  });
+
+  it('maps Tagalog and regional variants to the closest supported language', () => {
+    expect(resolveSystemLanguage(['tl-PH'])).toBe('fil-PH');
+    expect(resolveSystemLanguage(['fil'])).toBe('fil-PH');
+    expect(resolveSystemLanguage(['bn-IN'])).toBe('bn-BD');
+    expect(resolveSystemLanguage(['nl-BE'])).toBe('nl-NL');
+  });
+
+  it('recognizes the new South Asian and European system locales', () => {
+    expect(resolveSystemLanguage(['ta-LK'])).toBe('ta-IN');
+    expect(resolveSystemLanguage(['te'])).toBe('te-IN');
+    expect(resolveSystemLanguage(['bg'])).toBe('bg-BG');
+    expect(resolveSystemLanguage(['sk'])).toBe('sk-SK');
+    expect(resolveSystemLanguage(['hr-BA'])).toBe('hr-HR');
+    expect(resolveSystemLanguage(['sr-Cyrl-RS'])).toBe('sr-RS');
   });
 
   it('respects browser language preference order', () => {
@@ -58,7 +84,7 @@ describe('display language preference', () => {
     expect(document.documentElement).toHaveAttribute('data-locale', 'en-US');
   });
 
-  it.each(['zh-TW', 'ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR', 'it-IT', 'ru-RU', 'tr-TR', 'id-ID', 'vi-VN'] as const)('resolves and persists %s', language => {
+  it.each(openCreatorLanguages)('resolves and persists %s', language => {
     writeLanguagePreference(language);
     expect(readLanguagePreference()).toBe(language);
     expect(resolveSystemLanguage([language])).toBe(language);

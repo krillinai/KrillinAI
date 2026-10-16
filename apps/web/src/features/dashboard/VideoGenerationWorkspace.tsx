@@ -15,9 +15,13 @@ import {
 } from '@opencreator/protocol';
 import {
   Clapperboard,
+  Clock3,
   Download,
+  ImagePlus,
   LoaderCircle,
-  Plus,
+  Maximize2,
+  Minimize2,
+  Ratio,
   RotateCcw,
   Sparkles,
   Trash2,
@@ -28,6 +32,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalizedCopy, type LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
 import { publicErrorReason } from '../issues/issue-catalog.js';
 import NativeSelect from '../../components/forms/NativeSelect.js';
+import ModelBrandIcon from '../../components/brand/ModelBrandIcon.js';
 import OfficialModelSelect from '../../components/forms/OfficialModelSelect.js';
 import { OfficialModelField, useOfficialServices } from './official-services.js';
 import OfficialVideoReferences, { readVideoReferences, videoReferenceIssue } from './OfficialVideoReferences.js';
@@ -125,6 +130,7 @@ export default function VideoGenerationWorkspace(props: {
   const [notice, setNotice] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [uploadingVideoReference, setUploadingVideoReference] = useState(false);
+  const [promptExpanded, setPromptExpanded] = useState(false);
   const videoReferences = readVideoReferences(session?.state.videoReferences);
   const [taskControlPending, setTaskControlPending] = useState<'canceling' | 'resuming'>();
   const characterCount = useMemo(() => [...prompt.trim()].length, [prompt]);
@@ -635,125 +641,133 @@ export default function VideoGenerationWorkspace(props: {
           event.preventDefault();
           void generate();
         }}>
-          <div className="video-generation-composer-heading">
-            <h2 id="video-prompt-title">{l('视频描述', 'Video prompt')}</h2>
-            <small>{characterCount} / {creatorPromptMaxLength}</small>
-          </div>
-          <div className={`video-generation-prompt-inputs${official.model?.videoOptions && !currentReferenceName ? ' has-official-references' : ''}`}>
-            {!official.model?.videoOptions || currentReferenceName ? <div className="video-reference-field">
-              <div className="video-reference-upload-wrap">
-                <label className="video-reference-upload" title={l('上传 JPG、PNG 或 WebP 图片，最大 5MB', 'Upload a JPG, PNG, or WebP image up to 5 MB')}>
-                  <input
-                    type="file"
-                    disabled={busy}
-                    accept="image/jpeg,image/png,image/webp"
-                    aria-label={l('上传视频参考图', 'Upload video reference image')}
-                    onChange={event => {
-                      updateReferenceImage(event.target.files?.[0] ?? null);
-                      event.target.value = '';
-                    }}
-                  />
-                  <span className="video-reference-thumbnail" data-loaded={currentReferenceName ? 'true' : 'false'}>
-                    {referenceImageUrl
-                      ? <img src={referenceImageUrl} alt={l('视频参考图预览', 'Video reference preview')} />
-                      : (
-                        <>
-                          <Plus size={22} strokeWidth={1.6} />
-                          <small>{l('参考图', 'Reference')}</small>
-                        </>
-                      )}
-                  </span>
+          <fieldset className="video-generation-fields" disabled={busy}>
+            <div className="video-generation-model-row">
+              {official.official ? <OfficialModelField label={l('视频模型', 'Video model')} service={official} disabled={busy || uploadingVideoReference} /> : <>
+                <label className="creator-tool-field video-generation-provider-picker">
+                  <ModelBrandIcon model={{ id: provider, name: selectedProvider.en }} />
+                  <span>{l('模型', 'Model')}</span>
+                  <NativeSelect aria-label={l('模型', 'Model')} value={provider} disabled={busy} onChange={event => updateProvider(event.target.value as VideoGenerationProvider)}>
+                    {providers.map(item => <option key={item.value} value={item.value}>{l(item.zh, item.en)}</option>)}
+                  </NativeSelect>
                 </label>
-                {currentReferenceName ? (
-                  <button
-                    className="video-reference-remove"
-                    type="button"
+                <label className="creator-tool-field">
+                  <span>{l('模型版本', 'Model version')}</span>
+                  <OfficialModelSelect
+                    label={l('模型版本', 'Model version')}
+                    value={model}
                     disabled={busy}
-                    onClick={removeReferenceImage}
-                    aria-label={l('移除参考图', 'Remove reference image')}
-                    title={l('移除参考图', 'Remove reference image')}
-                  >
-                    <X size={15} strokeWidth={1.8} />
-                  </button>
-                ) : null}
+                    onChange={updateModel}
+                    models={modelOptions.map(item => ({
+                      id: item.value,
+                      name: item.label,
+                      modality: 'video',
+                      capabilities: [],
+                      durations: providerDurations[provider]
+                    }))}
+                  />
+                </label>
+              </>}
+            </div>
+            <div className={`video-generation-editor${promptExpanded ? ' is-expanded' : ''}`}>
+              <div className="video-generation-composer-heading">
+                <h2 id="video-prompt-title"><Clapperboard size={18} strokeWidth={1.7} aria-hidden="true" />{l('视频描述', 'Video prompt')}</h2>
+                <button type="button" className="video-generation-expand" aria-expanded={promptExpanded} aria-controls="video-prompt-input"
+                  aria-label={promptExpanded ? l('收起编辑区', 'Collapse editor', 'Minska redigeringsytan') : l('展开编辑区', 'Expand editor', 'Utöka redigeringsytan')}
+                  title={promptExpanded ? l('收起编辑区', 'Collapse editor', 'Minska redigeringsytan') : l('展开编辑区', 'Expand editor', 'Utöka redigeringsytan')}
+                  onClick={() => setPromptExpanded(value => !value)}>
+                  {promptExpanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+                </button>
               </div>
-              <small className="video-reference-meta" title={currentReferenceName ?? l('支持 JPG、PNG、WebP，最大 5MB', 'JPG, PNG, or WebP, up to 5 MB')}>
-                {currentReferenceName ?? l('选填', 'Optional')}
-              </small>
-            </div> : null}
-            <label className="creator-tool-field video-generation-prompt-field">
-              <span className="video-generation-visually-hidden">{l('提示词', 'Prompt')}</span>
-              <textarea
-                rows={7}
-                disabled={busy}
-                maxLength={creatorPromptMaxLength}
-                value={prompt}
-                onChange={event => updatePrompt(event.target.value)}
-                placeholder={l(
-                  '例如：低机位跟随一辆红色跑车驶过海岸公路，黄昏金色光线，镜头平稳',
-                  'For example: A low-angle tracking shot following a red sports car along a coastal road at golden hour, smooth camera motion'
-                )}
-              />
-            </label>
-          </div>
-          {official.official && official.model?.videoOptions ? <OfficialVideoReferences model={official.model} references={videoReferences} disabled={busy} onBusyChange={setUploadingVideoReference} onError={setError} /> : null}
-          <div className="video-generation-prompt-tools">
-            <button type="button" disabled={busy} title={l('填入示例提示词', 'Use sample prompt')} aria-label={l('填入示例提示词', 'Use sample prompt')} onClick={() => updatePrompt(l(samplePromptZh, samplePromptEn, samplePromptSv))}>
-              <WandSparkles size={16} strokeWidth={1.8} />
-            </button>
-            <button type="button" disabled={busy || !prompt} title={l('清空提示词', 'Clear prompt', 'Rensa prompt')} aria-label={l('清空提示词', 'Clear prompt', 'Rensa prompt')} onClick={() => updatePrompt('')}>
-              <Trash2 size={16} strokeWidth={1.8} />
-            </button>
-          </div>
-          <div className={`video-generation-settings-grid${official.official ? ' is-official' : ''}`}>
-            {official.official ? <OfficialModelField label={l('视频模型', 'Video model')} service={official} disabled={busy || uploadingVideoReference} /> : <>
+              {!official.model?.videoOptions || currentReferenceName ? <div className="video-generation-reference" data-loaded={Boolean(currentReferenceName)}>
+                  <label className="video-generation-reference-upload" title={currentReferenceName ? l('更换参考图', 'Replace reference') : l('添加参考图', 'Add reference image')}>
+                    <input
+                      type="file"
+                      disabled={busy}
+                      accept="image/jpeg,image/png,image/webp"
+                      aria-label={l('上传视频参考图', 'Upload video reference image')}
+                      onChange={event => {
+                        updateReferenceImage(event.target.files?.[0] ?? null);
+                        event.target.value = '';
+                      }}
+                    />
+                    <span className="video-generation-reference-thumbnail">
+                      {referenceImageUrl
+                        ? <img src={referenceImageUrl} alt={l('视频参考图预览', 'Video reference preview')} />
+                        : <ImagePlus size={24} strokeWidth={1.5} />}
+                    </span>
+                    <span className="video-generation-reference-copy">
+                      <span><strong>{currentReferenceName ?? l('添加视觉参考', 'Add visual reference', 'Lägg till visuell referens')}</strong>
+                        {!currentReferenceName ? <small>{l('选填', 'Optional')}</small> : null}</span>
+                      <small>{currentReferenceName ? l('更换参考图', 'Replace reference') : l('支持 JPG、PNG、WebP，最大 5MB', 'JPG, PNG, or WebP, up to 5 MB')}</small>
+                    </span>
+                    <span className="video-generation-reference-count">{currentReferenceName ? 1 : 0}/1</span>
+                  </label>
+                  {currentReferenceName ? (
+                    <button
+                      className="video-generation-reference-remove"
+                      type="button"
+                      disabled={busy}
+                      onClick={removeReferenceImage}
+                      aria-label={l('移除参考图', 'Remove reference image')}
+                      title={l('移除参考图', 'Remove reference image')}
+                    >
+                      <X size={15} strokeWidth={1.8} />
+                    </button>
+                  ) : null}
+              </div> : null}
+              {official.official && official.model?.videoOptions ? <OfficialVideoReferences model={official.model} references={videoReferences} disabled={busy} onBusyChange={setUploadingVideoReference} onError={setError} /> : null}
+              <label className="creator-tool-field video-generation-prompt-field">
+                <span className="video-generation-visually-hidden">{l('提示词', 'Prompt')}</span>
+                <textarea
+                  id="video-prompt-input"
+                  rows={promptExpanded ? 14 : 7}
+                  disabled={busy}
+                  maxLength={creatorPromptMaxLength}
+                  value={prompt}
+                  onChange={event => updatePrompt(event.target.value)}
+                  placeholder={l(
+                    '例如：低机位跟随一辆红色跑车驶过海岸公路，黄昏金色光线，镜头平稳',
+                    'For example: A low-angle tracking shot following a red sports car along a coastal road at golden hour, smooth camera motion'
+                  )}
+                />
+              </label>
+              <div className="video-generation-prompt-tools">
+                <button type="button" disabled={busy} title={l('填入示例提示词', 'Use sample prompt')} aria-label={l('填入示例提示词', 'Use sample prompt')} onClick={() => updatePrompt(l(samplePromptZh, samplePromptEn, samplePromptSv))}>
+                  <WandSparkles size={16} strokeWidth={1.8} />
+                </button>
+                <button type="button" disabled={busy || !prompt} title={l('清空提示词', 'Clear prompt', 'Rensa prompt')} aria-label={l('清空提示词', 'Clear prompt', 'Rensa prompt')} onClick={() => updatePrompt('')}>
+                  <Trash2 size={16} strokeWidth={1.8} />
+                </button>
+                <small>{characterCount} / {creatorPromptMaxLength}</small>
+              </div>
+            </div>
+            <div className={`video-generation-settings-grid${official.official ? ' is-official' : ''}`}>
               <label className="creator-tool-field">
-                <span>{l('视频服务', 'Video provider')}</span>
-                <NativeSelect value={provider} disabled={busy} onChange={event => updateProvider(event.target.value as VideoGenerationProvider)}>
-                  {providers.map(item => <option key={item.value} value={item.value}>{l(item.zh, item.en)}</option>)}
+                <span><Ratio size={15} aria-hidden="true" />{l('画幅', 'Format')}</span>
+                <NativeSelect
+                  value={size}
+                  disabled={busy || followsReferenceRatio || !serviceReady}
+                  title={followsReferenceRatio
+                    ? l('Seedance 参考图模式会跟随参考图画幅', 'Seedance matches the reference image aspect ratio')
+                    : undefined}
+                  onChange={event => updateSize(event.target.value as VideoGenerationSize)}
+                >
+                  {followsReferenceRatio ? (
+                    <option value={size}>{l('跟随参考图', 'Match reference image')}</option>
+                  ) : availableSizes.length ? availableSizes.map(item => <option key={item.value} value={item.value}>{item.value.includes('@') ? videoSizeDisplay(item.value) : `${l(item.zh, item.en)} · ${item.ratio} · ${item.value}`}</option>) : <option value="">{l('暂不可用', 'Unavailable')}</option>}
                 </NativeSelect>
               </label>
               <label className="creator-tool-field">
-                <span>{l('模型版本', 'Model version')}</span>
-                <OfficialModelSelect
-                  label={l('模型版本', 'Model version')}
-                  value={model}
-                  disabled={busy}
-                  onChange={updateModel}
-                  models={modelOptions.map(item => ({
-                    id: item.value,
-                    name: item.label,
-                    modality: 'video',
-                    capabilities: [],
-                    durations: providerDurations[provider]
-                  }))}
-                />
+                <span><Clock3 size={15} aria-hidden="true" />{l('视频时长', 'Video duration')}</span>
+                <NativeSelect value={duration} disabled={busy || !serviceReady} onChange={event => updateDuration(Number(event.target.value) as VideoGenerationDuration)}>
+                  {durations.length ? durations.map(value => <option key={value} value={value}>{value} {l('秒', 'seconds')}</option>) : <option value="">{l('暂不可用', 'Unavailable')}</option>}
+                </NativeSelect>
               </label>
-            </>}
-            <label className="creator-tool-field">
-              <span>{l('画幅', 'Format')}</span>
-              <NativeSelect
-                value={size}
-                disabled={busy || followsReferenceRatio || !serviceReady}
-                title={followsReferenceRatio
-                  ? l('Seedance 参考图模式会跟随参考图画幅', 'Seedance matches the reference image aspect ratio')
-                  : undefined}
-                onChange={event => updateSize(event.target.value as VideoGenerationSize)}
-              >
-                {followsReferenceRatio ? (
-                  <option value={size}>{l('跟随参考图', 'Match reference image')}</option>
-                ) : availableSizes.length ? availableSizes.map(item => <option key={item.value} value={item.value}>{item.value.includes('@') ? videoSizeDisplay(item.value) : `${l(item.zh, item.en)} · ${item.ratio} · ${item.value}`}</option>) : <option value="">{l('暂不可用', 'Unavailable')}</option>}
-              </NativeSelect>
-            </label>
-            <label className="creator-tool-field">
-              <span>{l('视频时长', 'Video duration')}</span>
-              <NativeSelect value={duration} disabled={busy || !serviceReady} onChange={event => updateDuration(Number(event.target.value) as VideoGenerationDuration)}>
-                {durations.length ? durations.map(value => <option key={value} value={value}>{value} {l('秒', 'seconds')}</option>) : <option value="">{l('暂不可用', 'Unavailable')}</option>}
-              </NativeSelect>
-            </label>
-          </div>
-          {official.official && official.model?.videoOptions?.generateAudio ? <label className="official-video-audio"><input type="checkbox" checked={session?.state.generateAudio !== false} disabled={busy} onChange={event => session?.updateDraft({ generateAudio: event.target.checked }, { semantic: true })} />{l('生成音频', 'Generate audio')}</label> : null}
-          {quotedCredits !== undefined ? <output className="official-video-quote" aria-label={l('积分报价', 'Credit quote')}>{l(`本次消耗 ${formatGatewayCreditAmount(quotedCredits)} 积分`, `This generation costs ${formatGatewayCreditAmount(quotedCredits)} credits`)}</output> : null}
+            </div>
+            {official.official && official.model?.videoOptions?.generateAudio ? <label className="official-video-audio"><input type="checkbox" checked={session?.state.generateAudio !== false} disabled={busy} onChange={event => session?.updateDraft({ generateAudio: event.target.checked }, { semantic: true })} />{l('生成音频', 'Generate audio')}</label> : null}
+            {quotedCredits !== undefined ? <output className="official-video-quote" aria-label={l('积分报价', 'Credit quote')}>{l(`本次消耗 ${formatGatewayCreditAmount(quotedCredits)} 积分`, `This generation costs ${formatGatewayCreditAmount(quotedCredits)} credits`)}</output> : null}
+          </fieldset>
           <div className="video-generation-submit-row">
             {resumable ? (
               <button className="creator-tool-primary" type="button" onClick={() => void resumeTask()} disabled={taskControlPending !== undefined}>

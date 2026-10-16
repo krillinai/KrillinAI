@@ -10,6 +10,7 @@ export * from './errors.js';
 export * from './issues.js';
 export * from './events.js';
 export * from './media-generation.js';
+export * from './image-model-options.js';
 export * from './settings.js';
 export * from './smart-dubbing.js';
 export * from './video-metadata.js';

@@ -11,6 +11,27 @@ import russian from './locales/ru-RU.json' with { type: 'json' };
 import turkish from './locales/tr-TR.json' with { type: 'json' };
 import indonesian from './locales/id-ID.json' with { type: 'json' };
 import vietnamese from './locales/vi-VN.json' with { type: 'json' };
+import thai from './locales/th-TH.json' with { type: 'json' };
+import filipino from './locales/fil-PH.json' with { type: 'json' };
+import hindi from './locales/hi-IN.json' with { type: 'json' };
+import bengali from './locales/bn-BD.json' with { type: 'json' };
+import polish from './locales/pl-PL.json' with { type: 'json' };
+import ukrainian from './locales/uk-UA.json' with { type: 'json' };
+import dutch from './locales/nl-NL.json' with { type: 'json' };
+import malay from './locales/ms-MY.json' with { type: 'json' };
+import danish from './locales/da-DK.json' with { type: 'json' };
+import norwegianBokmal from './locales/nb-NO.json' with { type: 'json' };
+import finnish from './locales/fi-FI.json' with { type: 'json' };
+import czech from './locales/cs-CZ.json' with { type: 'json' };
+import romanian from './locales/ro-RO.json' with { type: 'json' };
+import hungarian from './locales/hu-HU.json' with { type: 'json' };
+import greek from './locales/el-GR.json' with { type: 'json' };
+import tamil from './locales/ta-IN.json' with { type: 'json' };
+import telugu from './locales/te-IN.json' with { type: 'json' };
+import bulgarian from './locales/bg-BG.json' with { type: 'json' };
+import slovak from './locales/sk-SK.json' with { type: 'json' };
+import croatian from './locales/hr-HR.json' with { type: 'json' };
+import serbian from './locales/sr-RS.json' with { type: 'json' };
 import type { AppLanguage } from './language.js';
 
 export const additionalLanguageCatalogs: Readonly<Partial<Record<AppLanguage, Readonly<Record<string, string>>>>> = {
@@ -26,7 +47,28 @@ export const additionalLanguageCatalogs: Readonly<Partial<Record<AppLanguage, Re
   'ru-RU': russian,
   'tr-TR': turkish,
   'id-ID': indonesian,
-  'vi-VN': vietnamese
+  'vi-VN': vietnamese,
+  'th-TH': thai,
+  'fil-PH': filipino,
+  'hi-IN': hindi,
+  'bn-BD': bengali,
+  'pl-PL': polish,
+  'uk-UA': ukrainian,
+  'nl-NL': dutch,
+  'ms-MY': malay,
+  'da-DK': danish,
+  'nb-NO': norwegianBokmal,
+  'fi-FI': finnish,
+  'cs-CZ': czech,
+  'ro-RO': romanian,
+  'hu-HU': hungarian,
+  'el-GR': greek,
+  'ta-IN': tamil,
+  'te-IN': telugu,
+  'bg-BG': bulgarian,
+  'sk-SK': slovak,
+  'hr-HR': croatian,
+  'sr-RS': serbian
 };
 
 type TemplateMatcher = { pattern: RegExp; slots: string[]; translation: string };

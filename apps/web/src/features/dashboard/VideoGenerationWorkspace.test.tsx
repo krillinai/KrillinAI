@@ -42,7 +42,7 @@ describe('VideoGenerationWorkspace', () => {
     expect(view.applyAction).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByRole('textbox', { name: '提示词' }), { target: { value: '  The city at dusk  ' } });
-    fireEvent.change(screen.getByRole('combobox', { name: '视频服务' }), { target: { value: 'veo' } });
+    fireEvent.change(screen.getByRole('combobox', { name: '模型' }), { target: { value: 'veo' } });
     fireEvent.change(screen.getByRole('combobox', { name: '视频时长' }), { target: { value: '8' } });
     fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
 
@@ -73,6 +73,25 @@ describe('VideoGenerationWorkspace', () => {
   });
 
   it.each([
+    { language: 'zh-CN' as const, expand: '展开编辑区', collapse: '收起编辑区', prompt: '提示词' },
+    { language: 'en-US' as const, expand: 'Expand editor', collapse: 'Collapse editor', prompt: 'Prompt' },
+    { language: 'sv-SE' as const, expand: 'Utöka redigeringsytan', collapse: 'Minska redigeringsytan', prompt: 'Prompt' }
+  ])('expands the editor without changing the draft or submitting in $language', copy => {
+    const view = renderWorkspace(creatorJob({ state: { prompt: 'A coastal tracking shot' } }), { language: copy.language });
+    const prompt = screen.getByRole('textbox', { name: copy.prompt });
+    const expand = screen.getByRole('button', { name: copy.expand });
+    expect(expand).toHaveAttribute('aria-expanded', 'false');
+    expect(expand).toHaveAttribute('aria-controls', prompt.id);
+    fireEvent.click(expand);
+    expect(screen.getByRole('button', { name: copy.collapse })).toHaveAttribute('aria-expanded', 'true');
+    expect(prompt).toHaveAttribute('rows', '14');
+    expect(prompt).toHaveValue('A coastal tracking shot');
+    fireEvent.click(screen.getByRole('button', { name: copy.collapse }));
+    expect(prompt).toHaveAttribute('rows', '7');
+    expect(view.applyAction).not.toHaveBeenCalled();
+  });
+
+  it.each([
     { language: 'zh-CN' as const, form: '视频生成', prompt: '提示词', model: '模型版本', generate: '开始生成', clear: '清空提示词', summary: '任务摘要' },
     { language: 'en-US' as const, form: 'Video Generation', prompt: 'Prompt', model: 'Model version', generate: 'Generate', clear: 'Clear prompt', summary: 'Task summary' },
     { language: 'sv-SE' as const, form: 'Videogenerering', prompt: 'Prompt', model: 'Modellversion', generate: 'Generera', clear: 'Rensa prompt', summary: 'Uppgiftssammanfattning' }
@@ -99,7 +118,7 @@ describe('VideoGenerationWorkspace', () => {
     const getConfig = vi.fn();
     renderWorkspace(creatorJob({ state: { prompt: 'city skyline', provider: 'veo', model: 'veo-3.1-generate-preview', size: '1024x1024', duration: 10, currentStep: 1, furthestStep: 1 } }), { gatewayState, creatorServicesService: { getConfig } });
     expect(screen.getByLabelText('视频模型')).toHaveTextContent('seedance-1-5-pro');
-    expect(screen.queryByRole('combobox', { name: '视频服务' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: '模型' })).not.toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: '模型版本' })).not.toBeInTheDocument();
     const durations = screen.getByRole('combobox', { name: '视频时长' }) as HTMLSelectElement;
     expect([...durations.options].map(option => option.value)).toEqual(['4', '5']);
@@ -110,7 +129,7 @@ describe('VideoGenerationWorkspace', () => {
   it('blocks official generation when account activation is unavailable', () => {
     renderWorkspace(creatorJob({ state: { prompt: 'city skyline', currentStep: 2, furthestStep: 2 } }), { gatewayState: null });
     expect(screen.getByRole('button', { name: '开始生成' })).toBeDisabled();
-    expect(screen.queryByRole('combobox', { name: '视频服务' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: '模型' })).not.toBeInTheDocument();
   });
 
   it('leaves the running screen and shows the true failure through read-only reconciliation without an SSE event', async () => {
@@ -733,7 +752,7 @@ describe('VideoGenerationWorkspace', () => {
       provider: 'seedance', model: 'doubao-seedance-2-0-260128',
       duration: 5, currentStep: 1, furthestStep: 1
     } }), { creatorServicesService: { getConfig: () => pendingConfig } });
-    const provider = screen.getByRole('combobox', { name: '视频服务' });
+    const provider = screen.getByRole('combobox', { name: '模型' });
     const model = screen.getByRole('combobox', { name: '模型版本' });
     const duration = screen.getByRole('combobox', { name: '视频时长' });
     fireEvent.change(provider, { target: { value: 'veo' } });
