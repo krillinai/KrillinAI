@@ -1,21 +1,36 @@
-import japanese from './locales/ja-JP.json' with { type: 'json' };
-import swedish from './locales/sv-SE.json' with { type: 'json' };
-import korean from './locales/ko-KR.json' with { type: 'json' };
-import spanish from './locales/es-ES.json' with { type: 'json' };
-import french from './locales/fr-FR.json' with { type: 'json' };
-import german from './locales/de-DE.json' with { type: 'json' };
-import portuguese from './locales/pt-BR.json' with { type: 'json' };
 import type { AppLanguage } from './language.js';
 
-export const additionalLanguageCatalogs: Readonly<Partial<Record<AppLanguage, Readonly<Record<string, string>>>>> = {
-  'sv-SE': swedish,
-  'ja-JP': japanese,
-  'ko-KR': korean,
-  'es-ES': spanish,
-  'fr-FR': french,
-  'de-DE': german,
-  'pt-BR': portuguese
+type LanguageCatalog = Readonly<Record<string, string>>;
+const catalogs: Partial<Record<AppLanguage, LanguageCatalog>> = {};
+export const additionalLanguageCatalogs: Readonly<typeof catalogs> = catalogs;
+
+const catalogLoaders = {
+  'sv-SE': () => import('./locales/sv-SE.json'),
+  'ja-JP': () => import('./locales/ja-JP.json'),
+  'ko-KR': () => import('./locales/ko-KR.json'),
+  'es-ES': () => import('./locales/es-ES.json'),
+  'fr-FR': () => import('./locales/fr-FR.json'),
+  'de-DE': () => import('./locales/de-DE.json'),
+  'pt-BR': () => import('./locales/pt-BR.json')
 };
+const pendingCatalogs = new Map<AppLanguage, Promise<void>>();
+
+export function hasLanguageCatalog(language: AppLanguage): boolean {
+  return !Object.hasOwn(catalogLoaders, language) || catalogs[language] !== undefined;
+}
+
+export function loadLanguageCatalog(language: AppLanguage): Promise<void> {
+  if (hasLanguageCatalog(language)) return Promise.resolve();
+  const pending = pendingCatalogs.get(language);
+  if (pending !== undefined) return pending;
+  const load = catalogLoaders[language as keyof typeof catalogLoaders]().then(module => {
+    catalogs[language] = module.default;
+  }).finally(() => {
+    pendingCatalogs.delete(language);
+  });
+  pendingCatalogs.set(language, load);
+  return load;
+}
 
 type TemplateMatcher = { pattern: RegExp; slots: string[]; translation: string };
 const templateMatchers = new Map<AppLanguage, TemplateMatcher[]>();

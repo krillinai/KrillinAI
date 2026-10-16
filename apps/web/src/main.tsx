@@ -22,6 +22,7 @@ import {
 } from './i18n/language.js';
 import { installAutoHidingScrollbars } from './styles/scrollbar-visibility.js';
 import { installWindowResizeStability } from './styles/window-resize-stability.js';
+import { hasLanguageCatalog, loadLanguageCatalog } from './i18n/translated-copy.js';
 import './styles/app.css';
 
 const desktopHostBridge = readDesktopHostBridge();
@@ -31,7 +32,8 @@ applyColorMode(initialColorMode);
 void desktopHostBridge?.setWindowColorMode?.(initialColorMode).catch(error => {
   console.error('Failed to synchronize native window color mode', error);
 });
-applyAppLanguage(resolveAppLanguage(readLanguagePreference()));
+const initialLanguage = resolveAppLanguage(readLanguagePreference());
+applyAppLanguage(initialLanguage);
 applyAccentColor(
   readAccentColorPreference(),
   readCustomAccentColorPreference()
@@ -39,14 +41,24 @@ applyAccentColor(
 installAutoHidingScrollbars();
 installWindowResizeStability();
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <>
-      <App {...(desktopHostBridge === undefined ? {} : { hostBridge: desktopHostBridge })} />
-      {desktopHostBridge === undefined ? null : <WorkspaceReadySignal />}
-    </>
-  </StrictMode>
-);
+function renderApp() {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <>
+        <App {...(desktopHostBridge === undefined ? {} : { hostBridge: desktopHostBridge })} />
+        {desktopHostBridge === undefined ? null : <WorkspaceReadySignal />}
+      </>
+    </StrictMode>
+  );
+}
+
+if (hasLanguageCatalog(initialLanguage)) {
+  renderApp();
+} else {
+  void loadLanguageCatalog(initialLanguage).catch(error => {
+    console.error('Failed to load initial display language', error);
+  }).then(renderApp);
+}
 
 if (desktopHostBridge !== undefined) {
   subscribeDesktopNavigation(route => {

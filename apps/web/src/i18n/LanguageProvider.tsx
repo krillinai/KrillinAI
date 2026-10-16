@@ -15,7 +15,7 @@ import {
   type AppLanguage,
   type AppLanguagePreference
 } from './language.js';
-import { translateEnglishCopy } from './translated-copy.js';
+import { hasLanguageCatalog, loadLanguageCatalog, translateEnglishCopy } from './translated-copy.js';
 
 const messages = {
   'zh-CN': {
@@ -559,6 +559,18 @@ export function LanguageProvider(props: PropsWithChildren<{
   );
   const [systemLanguage, setSystemLanguage] = useState(() => resolveAppLanguage('system'));
   const language = preference === 'system' ? systemLanguage : preference;
+  const [loadedLanguage, setLoadedLanguage] = useState<AppLanguage>();
+
+  useEffect(() => {
+    if (hasLanguageCatalog(language)) return;
+    let active = true;
+    void loadLanguageCatalog(language).then(() => {
+      if (active) setLoadedLanguage(language);
+    }).catch(error => {
+      console.error('Failed to load display language', error);
+    });
+    return () => { active = false; };
+  }, [language]);
 
   useEffect(() => {
     applyAppLanguage(language);
@@ -576,7 +588,7 @@ export function LanguageProvider(props: PropsWithChildren<{
     setPreferenceState(nextPreference);
     if (nextPreference === 'system') setSystemLanguage(resolveAppLanguage('system'));
   }, []);
-  const t = useMemo(() => createTranslator(language), [language]);
+  const t = useMemo(() => createTranslator(language), [language, loadedLanguage]);
   const value = useMemo<LanguageContextValue>(() => ({
     preference,
     language,

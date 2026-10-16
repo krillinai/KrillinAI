@@ -1,5 +1,10 @@
 import '@testing-library/jest-dom/vitest';
 import 'fake-indexeddb/auto';
+import { appLanguageOptions } from '../i18n/language.js';
+import { loadLanguageCatalog } from '../i18n/translated-copy.js';
+
+// Component tests exercise initialized copy; cold loading is covered separately.
+await Promise.all(appLanguageOptions.map(({ value }) => loadLanguageCatalog(value)));
 
 Object.defineProperty(window.navigator, 'language', {
   configurable: true,

@@ -5,6 +5,6 @@ import { createLocalizedCopy, type LocalizeCopy } from './localized-copy.js';
 export type { LocalizeCopy } from './localized-copy.js';
 
 export function useLocalizedCopy(): LocalizeCopy {
-  const { language } = useAppLanguage();
-  return useMemo(() => createLocalizedCopy(language), [language]);
+  const { language, t } = useAppLanguage();
+  return useMemo(() => createLocalizedCopy(language), [language, t]);
 }

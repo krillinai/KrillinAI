@@ -4,6 +4,7 @@ import type { AppLanguage } from './language.js';
 
 describe('additional language catalogs', () => {
   it('covers subtitle translation and download messages in every additional language', () => {
+    expect(Object.keys(additionalLanguageCatalogs)).toHaveLength(7);
     const messages = [
       'Add an SRT file to translate first', 'Add source', 'Add subtitles', 'Automatic captions',
       'Bilingual SRT', 'Manual subtitles', 'Remove subtitles', 'Replace file', 'Save subtitles',
