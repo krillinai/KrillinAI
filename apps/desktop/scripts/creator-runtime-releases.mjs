@@ -51,7 +51,6 @@ function creatorRuntimeRelease(input) {
   const mediaVersion = input.mediaVersion ?? '6.0';
   const pythonRelease = '20260825';
   const pythonVersion = '3.13.15';
-  const ytDlpVersion = '2026.08.29.232711';
   const nodeVersion = '22.23.2';
   const nodeTarget = input.mediaTarget.replace('win32-', 'win-');
   const nodeExtension = suffix === '.exe' ? 'zip' : 'tar.gz';
@@ -75,12 +74,6 @@ function creatorRuntimeRelease(input) {
       verify: ['-version'],
       expected: mediaVersionPattern('ffprobe', mediaVersion)
     },
-    ytDlp: {
-      version: ytDlpVersion,
-      fileName: 'yt-dlp',
-      url: `https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/download/${ytDlpVersion}/yt-dlp`,
-      sha256: 'e8bc4155d3af4fa4fa8efbb5146790f6e9da48266d103eea859de8a44ba194ad'
-    },
     pythonRuntime: {
       version: pythonVersion,
       fileName: 'python-runtime.tar.gz',
@@ -100,6 +93,58 @@ function creatorRuntimeRelease(input) {
       sha256: '9cc2a774b5198dcff14d9be1e66091f538975d867ce029a96bce15a55dfd730f'
     }
   };
+}
+
+const ytDlpRepository = 'yt-dlp/yt-dlp-nightly-builds';
+
+export function resolveYtDlpRelease({ readText, offline = false, cached }) {
+  if (offline) {
+    const asset = ytDlpAsset(cached?.version, cached?.sha256);
+    if (cached?.path !== asset.fileName || cached?.source !== asset.url) {
+      throw new Error('The offline yt-dlp cache has no valid release metadata');
+    }
+    return asset;
+  }
+
+  const release = JSON.parse(readText(
+    `https://api.github.com/repos/${ytDlpRepository}/releases/latest`
+  ));
+  if (release.draft !== false || release.prerelease !== false) {
+    throw new Error('The latest yt-dlp release is not a published nightly build');
+  }
+  const url = ytDlpDownloadUrl(release.tag_name);
+  const download = release.assets?.find(candidate => candidate.name === 'yt-dlp');
+  if (download?.browser_download_url !== url) {
+    throw new Error('The latest yt-dlp release is missing its official download');
+  }
+  let sha256;
+  if (download.digest != null) {
+    sha256 = /^sha256:([a-f0-9]{64})$/i.exec(download.digest)?.[1];
+  } else {
+    const checksums = readText(url.replace(/\/yt-dlp$/, '/SHA2-256SUMS'));
+    sha256 = /^([a-f0-9]{64})\s+\*?yt-dlp\r?$/im.exec(checksums)?.[1];
+  }
+  return ytDlpAsset(release.tag_name, sha256);
+}
+
+function ytDlpAsset(version, sha256) {
+  const url = ytDlpDownloadUrl(version);
+  if (!/^[a-f0-9]{64}$/i.test(sha256 ?? '')) {
+    throw new Error('The yt-dlp release SHA-256 is missing or invalid');
+  }
+  return {
+    version,
+    fileName: 'yt-dlp',
+    url,
+    sha256: sha256.toLowerCase()
+  };
+}
+
+function ytDlpDownloadUrl(version) {
+  if (!/^\d{4}\.\d{2}\.\d{2}\.\d{6}$/.test(version ?? '')) {
+    throw new Error('The yt-dlp release version is missing or invalid');
+  }
+  return `https://github.com/${ytDlpRepository}/releases/download/${version}/yt-dlp`;
 }
 
 function mediaVersionPattern(tool, version) {

@@ -2,7 +2,7 @@
 
 ## 1. 适用范围
 
-本文用于发布 OpenCreator Desktop 的 macOS x64、macOS arm64 和 Windows x64 安装包，以及 KrillinAI Server 和 CLI 的 macOS、Windows、Linux 独立程序包。Desktop 安装包包含固定版本的 Codex CLI、KrillinAI CLI、ffmpeg、ffprobe 和 yt-dlp；Whisper CLI 与模型不进入安装包，由 KrillinAI 在功能实际需要时下载到用户数据目录。
+本文用于发布 OpenCreator Desktop 的 macOS x64、macOS arm64 和 Windows x64 安装包，以及 KrillinAI Server 和 CLI 的 macOS、Windows、Linux 独立程序包。Desktop 安装包包含固定版本的 Codex CLI、KrillinAI CLI、ffmpeg、ffprobe，以及打包时解析的最新 yt-dlp nightly；Whisper CLI 与模型不进入安装包，由 KrillinAI 在功能实际需要时下载到用户数据目录。
 
 发布入口：
 
@@ -26,6 +26,8 @@ pnpm desktop:package
 
 `OPENCREATOR_DESKTOP_OFFLINE=1` 要求 pnpm、Electron headers、原生模块、Codex Runtime 和 Creator Runtime 构建缓存已经完整。缓存缺失时必须明确失败，不能静默切换为在线下载。
 
+在线打包即使命中 Creator Runtime 缓存，也会查询官方 yt-dlp nightly 最新发布。下载按解析出的具体版本地址进行，使用 GitHub 发布附件的 SHA-256（缺失时读取同一版本的 `SHA2-256SUMS`）校验；相同版本且哈希匹配时复用文件。查询、下载或校验失败会终止打包，不回退旧版本。实际版本、下载地址和哈希写入缓存 `versions.json`，版本继续写入包内 Runtime manifest。显式离线模式只使用带有效发布信息且哈希匹配的缓存，不保证缓存版本最新；设置 `OPENCREATOR_YT_DLP_PATH` 时使用显式指定的独立程序。
+
 ## 2. 发布前条件
 
 1. Node.js 22。
@@ -35,7 +37,7 @@ pnpm desktop:package
 5. 仓库全量测试、类型检查和构建通过。
 6. 打包脚本会删除目标架构旧目录，并要求构建后只找到一个 fresh package root。
 7. Codex Runtime 三个平台清单中的 npm tarball integrity 和逐文件 SHA-256 已固定。
-8. Creator Runtime 的 KrillinAI、ffmpeg、ffprobe、yt-dlp 下载地址和 SHA-256 已固定。
+8. Creator Runtime 的 KrillinAI、ffmpeg、ffprobe 下载地址和 SHA-256 已固定；yt-dlp 在在线打包前解析最新 nightly，并固定本次下载地址和 SHA-256。
 9. OSV Scanner 2.3.8 扫描发布源码无未解释漏洞。
 10. `.github/workflows/desktop-release.yml` 通过 actionlint。
 

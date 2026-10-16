@@ -8,6 +8,7 @@ import {
   openSync,
   mkdtempSync,
   mkdirSync,
+  readFileSync,
   readSync,
   renameSync,
   rmSync,
@@ -17,7 +18,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { creatorRuntimeReleases } from './creator-runtime-releases.mjs';
+import { creatorRuntimeReleases, resolveYtDlpRelease } from './creator-runtime-releases.mjs';
 import { verifyRuntimeExecutable } from './runtime-executable-check.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -42,6 +43,13 @@ if (release === undefined) {
     + 'and OPENCREATOR_YT_DLP_PATH explicitly.'
   );
 }
+
+release.ytDlp = resolveYtDlpRelease({
+  readText: readReleaseText,
+  offline,
+  cached: offline ? readCachedYtDlpRelease() : undefined
+});
+console.log(`[creator-runtime] ${offline ? 'Using offline cached' : 'Resolved latest nightly'} yt-dlp ${release.ytDlp.version}`);
 
 mkdirSync(outputRoot, { recursive: true });
 const installed = {};
@@ -68,6 +76,31 @@ writeFileSync(join(outputRoot, 'versions.json'), `${JSON.stringify({
   dependencies: installed
 }, null, 2)}\n`);
 console.log(JSON.stringify({ ok: true, outputRoot, dependencies: installed }));
+
+function readCachedYtDlpRelease() {
+  const path = join(outputRoot, 'versions.json');
+  if (!existsSync(path)) return undefined;
+  const versions = JSON.parse(readFileSync(path, 'utf8'));
+  return versions?.version === 1 && versions.platform === platform && versions.arch === arch
+    ? versions.dependencies?.ytDlp
+    : undefined;
+}
+
+function readReleaseText(url) {
+  const args = [
+    '--fail', '--silent', '--show-error', '--location',
+    '--retry', '3', '--connect-timeout', '20', '--max-time', '60',
+    '--header', 'Cache-Control: no-cache'
+  ];
+  if (proxy) args.push('--proxy', proxy);
+  args.push(url);
+  return execFileSync('curl', args, {
+    cwd: rootDir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'inherit'],
+    maxBuffer: 4 * 1024 * 1024
+  });
+}
 
 function installAsset(name, asset, path) {
   if (existsSync(path) && statSync(path).isFile() && hashFile(path) === asset.sha256) {

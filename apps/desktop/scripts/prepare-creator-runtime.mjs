@@ -103,6 +103,7 @@ const buildRecord = {
   integrationPatchSha256: hashFiles([
     join(rootDir, 'scripts', 'build-krillinai.mjs'),
     join(scriptDir, 'install-creator-runtime-dependencies.mjs'),
+    join(scriptDir, 'creator-runtime-releases.mjs'),
     join(scriptDir, 'prepare-creator-runtime.mjs'),
     join(scriptDir, 'prepare-creator-node.mjs'),
     join(rootDir, 'apps', 'daemon', 'src', 'creator', 'krillin', 'adapter.ts'),
@@ -341,7 +342,7 @@ function ensureExternalDependencies() {
     [configuredYtDlpPath, join(vendorRoot, 'cacert.pem')],
     [process.env.OPENCREATOR_YT_DLP_NODE_PATH, join(vendorRoot, targetPlatform === 'win32' ? 'node-runtime.zip' : 'node-runtime.tar.gz')]
   ];
-  if (required.every(([configured, vendored]) => configured || existsSync(vendored))) return;
+  if (configuredYtDlpPath && required.every(([configured, vendored]) => configured || existsSync(vendored))) return;
   execFileSync(process.execPath, [join(scriptDir, 'install-creator-runtime-dependencies.mjs')], {
     cwd: rootDir,
     env: {
