@@ -1,5 +1,5 @@
 import { Check, ChevronDown, Search } from 'lucide-react';
-import { Fragment, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { appLanguageOptions, type AppLanguagePreference } from '../../i18n/language.js';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
@@ -30,9 +30,9 @@ export default function LanguageSelect(props: {
     const localizedNames = new Intl.DisplayNames([language, 'en'], { type: 'language' });
     const chineseNames = new Intl.DisplayNames(['zh-CN'], { type: 'language' });
     return [
-      { value: 'system' as const, label: props.systemLabel, englishName: 'System', group: '',
+      { value: 'system' as const, label: props.systemLabel, englishName: 'System',
         search: normalize(`${props.systemLabel} System 跟随系统 跟隨系統`) },
-      ...appLanguageOptions.map(option => ({ ...option, group: option.englishName[0]!,
+      ...appLanguageOptions.map(option => ({ ...option,
         search: normalize([option.label, option.englishName, option.value,
           localizedNames.of(option.value), chineseNames.of(option.value)].join(' ')) }))
     ];
@@ -40,7 +40,7 @@ export default function LanguageSelect(props: {
   const filtered = useMemo(() => {
     const term = normalize(query);
     if (!term) return options;
-    // A single Latin letter jumps to the corresponding English-name section.
+    // A single Latin letter filters by the English-name prefix.
     if (/^[a-z]$/.test(term)) return options.filter(option => option.value !== 'system' && normalize(option.englishName).startsWith(term));
     const codeMatches = options.filter(option => option.value.toLowerCase() === term || option.value.split('-')[0] === term);
     if (codeMatches.length) return codeMatches;
@@ -150,16 +150,13 @@ export default function LanguageSelect(props: {
       transform: position.above ? 'translateY(-100%)' : undefined
     }}>
       <div id={listId} role="listbox" aria-label={props.label}>
-        {filtered.map((option, index) => <Fragment key={option.value}>
-          {option.group && option.group !== filtered[index - 1]?.group ? <div className="language-select-letter" aria-hidden="true">{option.group}</div> : null}
-          <div id={optionId(index)} role="option" aria-selected={props.value === option.value}
-            data-value={option.value} className={`language-select-option${index === currentIndex ? ' is-active' : ''}`}
-            onMouseDown={event => event.preventDefault()}
-            onPointerMove={event => { if (event.pointerType === 'mouse') setActiveIndex(index); }} onClick={() => select(option.value)}>
-            <span><bdi lang={option.value === 'system' ? undefined : option.value}>{option.label}</bdi>{option.value !== 'system' && option.label !== option.englishName ? <small lang="en" dir="ltr">{option.englishName}</small> : null}</span>
-            {props.value === option.value ? <Check size={16} aria-hidden="true" /> : null}
-          </div>
-        </Fragment>)}
+        {filtered.map((option, index) => <div key={option.value} id={optionId(index)} role="option" aria-selected={props.value === option.value}
+          data-value={option.value} className={`language-select-option${index === currentIndex ? ' is-active' : ''}`}
+          onMouseDown={event => event.preventDefault()}
+          onPointerMove={event => { if (event.pointerType === 'mouse') setActiveIndex(index); }} onClick={() => select(option.value)}>
+          <span><bdi lang={option.value === 'system' ? undefined : option.value}>{option.label}</bdi>{option.value !== 'system' && option.label !== option.englishName ? <small lang="en" dir="ltr">{option.englishName}</small> : null}</span>
+          {props.value === option.value ? <Check size={16} aria-hidden="true" /> : null}
+        </div>)}
       </div>
       {!filtered.length ? <div className="language-select-empty" role="status">{l('没有匹配的语言', 'No matching languages')}</div> : null}
     </div>, document.body) : null}
