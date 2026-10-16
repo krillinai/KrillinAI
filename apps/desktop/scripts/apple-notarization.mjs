@@ -2,6 +2,47 @@ import { spawnSync } from 'node:child_process';
 
 const defaultPollIntervalMs = 15_000;
 const defaultMaxPolls = 120;
+const staplerRetryDelaysMs = [15_000, 30_000, 60_000, 60_000];
+const transientNetworkCodes = new Set([-1001, -1003, -1004, -1005, -1006, -1009]);
+
+export async function runStapler(action, filePath, options = {}) {
+  if (action !== 'staple' && action !== 'validate') {
+    throw new Error(`Unsupported stapler action: ${action}`);
+  }
+  const run = options.run ?? spawnSync;
+  const wait = options.delay ?? delay;
+  const logger = options.logger ?? console.log;
+  for (let attempt = 0; attempt <= staplerRetryDelaysMs.length; attempt += 1) {
+    const result = run('xcrun', ['stapler', action, filePath], {
+      encoding: 'utf8',
+      maxBuffer: 20 * 1024 * 1024,
+      timeout: 2 * 60_000
+    });
+    const output = [result.stdout, result.stderr].filter(Boolean).join('\n').trim();
+    if (!result.error && result.status === 0) {
+      if (output) logger(output);
+      return;
+    }
+
+    // Error 68 also covers permanent ticket failures; retry only explicit
+    // network errors, never a missing/invalid ticket or a rejected signature.
+    const networkFailure = result.error?.code === 'ETIMEDOUT'
+      || [...output.matchAll(/\b(?:NSURLErrorDomain|kCFErrorDomainCFNetwork)\s+Code=(-\d+)\b/g)]
+        .some(match => transientNetworkCodes.has(Number(match[1])));
+    if (!networkFailure || attempt === staplerRetryDelaysMs.length) {
+      if (result.error) throw result.error;
+      throw new Error(
+        `Apple stapler ${action} failed with exit ${String(result.status)}: ${output}`
+      );
+    }
+    const waitMs = staplerRetryDelaysMs[attempt];
+    logger(
+      `[desktop-package] Apple 票据服务网络错误，${waitMs / 1000} 秒后重试 `
+      + `${action} (${attempt + 1}/${staplerRetryDelaysMs.length})：${output || result.error.message}`
+    );
+    await wait(waitMs);
+  }
+}
 
 export async function submitAndWaitForNotarization(
   filePath,

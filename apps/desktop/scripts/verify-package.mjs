@@ -41,6 +41,7 @@ import {
   verifyStickmanBuildBinding
 } from './package-content-contract.mjs';
 import { verifyMacAppIcon } from './mac-app-icon.mjs';
+import { runStapler } from './apple-notarization.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopDir = resolve(scriptDir, '..');
@@ -126,7 +127,7 @@ assertSize('Codex Runtime', codexRuntimeDir, 450 * 1024 * 1024);
 assertSize('Stickman assets', join(daemonDir, 'runtime', 'stickman-assets'), 16 * 1024 * 1024);
 assertSize('Desktop package', packageRoot, 1600 * 1024 * 1024);
 await assertFuseConfiguration();
-verifyMacPackageMetadata();
+await verifyMacPackageMetadata();
 
 console.log(JSON.stringify({
   ok: true,
@@ -820,7 +821,7 @@ async function assertFuseConfiguration() {
   }
 }
 
-function verifyMacPackageMetadata() {
+async function verifyMacPackageMetadata() {
   if (process.platform !== 'darwin') return;
   const signature = spawnSync('codesign', [
     '--verify',
@@ -847,11 +848,7 @@ function verifyMacPackageMetadata() {
         'A notarized macOS package must also require Developer ID verification'
       );
     }
-    runMacVerification(
-      'macOS notarization ticket',
-      'xcrun',
-      ['stapler', 'validate', packageRoot]
-    );
+    await runStapler('validate', packageRoot);
     runMacVerification(
       'macOS Gatekeeper assessment',
       'spctl',

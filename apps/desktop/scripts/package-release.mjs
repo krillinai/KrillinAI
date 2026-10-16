@@ -25,7 +25,7 @@ import {
   configureMacReleaseSigning,
   withMacSigningKeychain
 } from './mac-signing.mjs';
-import { submitAndWaitForNotarization } from './apple-notarization.mjs';
+import { runStapler, submitAndWaitForNotarization } from './apple-notarization.mjs';
 import { prepareElectronBuilderCache } from './electron-builder-cache.mjs';
 import { runParallelStages, runStage } from './script-utils.mjs';
 import { stageReleaseAssets } from './release-assets.mjs';
@@ -515,18 +515,8 @@ async function finalizeMacReleaseArtifacts(artifacts, notarizationArgs) {
       { cwd: releaseDir, timeoutMs: 5 * 60_000 }
     );
     await submitAndWaitForNotarization(artifact, notarizationArgs);
-    await runStage(
-      `写入 DMG 公证票据：${basename(artifact)}`,
-      'xcrun',
-      ['stapler', 'staple', artifact],
-      { cwd: releaseDir, timeoutMs: 5 * 60_000 }
-    );
-    await runStage(
-      `验证 DMG 公证票据：${basename(artifact)}`,
-      'xcrun',
-      ['stapler', 'validate', artifact],
-      { cwd: releaseDir, timeoutMs: 5 * 60_000 }
-    );
+    await runStapler('staple', artifact);
+    await runStapler('validate', artifact);
     await runStage(
       `验证 DMG Gatekeeper：${basename(artifact)}`,
       'spctl',

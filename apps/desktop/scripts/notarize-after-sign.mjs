@@ -11,7 +11,7 @@ import {
 } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { resolveNotarizationCredentials } from './mac-signing.mjs';
-import { submitAndWaitForNotarization } from './apple-notarization.mjs';
+import { runStapler, submitAndWaitForNotarization } from './apple-notarization.mjs';
 
 export async function afterSign(context) {
   if (process.env.OPENCREATOR_NOTARIZE_MAC_APP !== '1') return;
@@ -47,8 +47,8 @@ export async function afterSign(context) {
       timeout: 15 * 60_000
     });
     await submitAndWaitForNotarization(archivePath, credentials.args);
-    runCommand('xcrun', ['stapler', 'staple', appPath]);
-    runCommand('xcrun', ['stapler', 'validate', appPath]);
+    await runStapler('staple', appPath);
+    await runStapler('validate', appPath);
     runCommand('spctl', [
       '--assess',
       '--type',
