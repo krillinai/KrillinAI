@@ -1,6 +1,5 @@
 import type { CreatorServicesConfig } from '@opencreator/protocol';
 import type { FastifyInstance } from 'fastify';
-import sharp from 'sharp';
 import { downloadThumbnail } from '../creator/cover/executor.js';
 import type { CreatorService } from '../creator/service.js';
 import { apiError } from './errors.js';
@@ -23,6 +22,7 @@ export async function registerCreatorThumbnailRoutes(
     try {
       const config = await readServicesConfig?.();
       const thumbnail = await downloadThumbnail(url, config?.proxy ?? '', AbortSignal.timeout(30_000));
+      const { default: sharp } = await import('sharp');
       const image = sharp(thumbnail.content);
       const metadata = await image.metadata();
       const content = metadata.format === 'jpeg' ? thumbnail.content

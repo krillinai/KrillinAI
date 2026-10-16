@@ -14,6 +14,7 @@ import type { CreatorProviderRequestLedger, CreatorProviderLookupResult } from '
 import { createDirectTransport, directRequestId } from './direct-transport.js';
 import { createOfficialFetch } from './official-fetch.js';
 import { chatAnywhereImage } from './chatanywhere-media.js';
+import { resolveGatewaySpeech } from './speech-response.js';
 
 export type GatewayCreatorBinding = { accountId: string; bindingVersion: string; baseUrl: string; apiKey: string; models: Record<string, string>; catalog?: GatewayModel[]; capabilities?: Record<string, string[]>; speechVoices?: string[]; logicalId?: string; stageRunId?: string };
 const bindings = new WeakMap<CreatorServicesConfig, GatewayCreatorBinding>();
@@ -250,7 +251,7 @@ export function createGatewayCreatorSource(input: {
           const resource = (request.params as { '*': string })['*'];
           if (!/^(chat\/completions|responses|images\/(generations|edits)|audio\/(speech|transcriptions)|video\/(quotes|assets|jobs(\/[A-Za-z0-9_-]{12,128}(\/result)?)?)|videos\/tasks|requests\/[A-Za-z0-9_-]{12,128}(\/result)?)$/.test(resource)) return reply.code(404).send({ error: { code: 'capability_unsupported', message: 'Operation is unavailable' } });
           const controller = new AbortController();
-          const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(180_000)]);
+          const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(resource === 'audio/speech' ? 600_000 : 180_000)]);
           let complete!: () => void;
           inFlight.set(controller, { stageRunId: original.stageRunId, done: new Promise<void>(resolve => { complete = resolve; }) });
           let streaming = false;
@@ -258,6 +259,7 @@ export function createGatewayCreatorSource(input: {
           const chatStream = request.method === 'POST' && resource === 'chat/completions' && (request.body as { stream?: unknown })?.stream === true;
           let heartbeat: NodeJS.Timeout | undefined;
           const disconnected = () => { if (!reply.raw.writableFinished) controller.abort(); };
+          reply.raw.once('close', disconnected);
           const finish = () => {
             clearInterval(heartbeat); reply.raw.removeListener('close', disconnected);
             inFlight.delete(controller); void releaseUse?.(); releaseUse = undefined; complete();
@@ -286,7 +288,6 @@ export function createGatewayCreatorSource(input: {
               const keepAlive = `data: ${JSON.stringify({ id: `chatcmpl-${randomUUID()}`, object: 'chat.completion.chunk',
                 created: Math.floor(Date.now() / 1000), model: (request.body as { model?: string })?.model ?? '', choices: [] })}\n\n`;
               reply.raw.write(keepAlive);
-              reply.raw.once('close', disconnected);
               heartbeat = setInterval(() => { if (!reply.raw.destroyed && !reply.raw.writableEnded) reply.raw.write(keepAlive); }, 10_000);
               heartbeat.unref();
             }
@@ -347,15 +348,35 @@ export function createGatewayCreatorSource(input: {
                 headers['Content-Type'] = native.contentType;
                 body = Buffer.isBuffer(native.body) ? new Uint8Array(native.body) : JSON.stringify(native.body);
               }
-              response = await (input.fetcher ?? fetch)(`${credentials.baseUrl}/${resource}`, { method: request.method, headers, body, redirect: 'error', signal });
-              if (credentials.transport === 'gateway' && response.status === 401 && input.account.recoverModelCredentials) {
-                await response.body?.cancel();
-                const updated = await input.account.recoverModelCredentials(credentials.keyVersion);
-                if (updated.accountId !== credentials.accountId || updated.baseUrl !== credentials.baseUrl) throw new GatewayError('supplier_binding_changed', 409);
-                if (updated.modelKey !== credentials.modelKey) {
-                  headers.Authorization = `Bearer ${updated.modelKey}`;
-                  response = await (input.fetcher ?? fetch)(`${credentials.baseUrl}/${resource}`, { method: request.method, headers, body, redirect: 'error', signal });
+              const gatewayRequest = async (target: string, method = 'GET', payload?: typeof body): Promise<Response> => {
+                let result = await (input.fetcher ?? fetch)(`${credentials.baseUrl}/${target}`, { method, headers, body: payload, redirect: 'error', signal });
+                if (credentials.transport === 'gateway' && result.status === 401 && input.account.recoverModelCredentials) {
+                  await result.body?.cancel();
+                  const updated = await input.account.recoverModelCredentials(credentials.keyVersion);
+                  if (updated.accountId !== credentials.accountId || updated.baseUrl !== credentials.baseUrl) throw new GatewayError('supplier_binding_changed', 409);
+                  if (updated.modelKey !== headers.Authorization?.replace(/^Bearer /, '')) {
+                    headers.Authorization = `Bearer ${updated.modelKey}`;
+                    result = await (input.fetcher ?? fetch)(`${credentials.baseUrl}/${target}`, { method, headers, body: payload, redirect: 'error', signal });
+                  }
                 }
+                return result;
+              };
+              const resumeSpeech = credentials.transport === 'gateway' && resource === 'audio/speech' && request.method === 'POST' && receipt?.remoteTaskId;
+              const speechResponse = (accepted?: Response) => resolveGatewaySpeech({ response: accepted, requestId: receipt?.remoteTaskId ?? undefined,
+                  signal, request: gatewayRequest, async onReceipt(value) {
+                    if (!receipt || !input.ledger) return;
+                    if (['submitting', 'waiting_remote', 'unknown_remote_acceptance'].includes(receipt.status)) receipt = input.ledger.markWaitingRemote(receipt.id, value.requestId);
+                    receipt = await input.ledger.recover(receipt.id, { lookupByRequestKey: false, async lookup() {
+                      if (value.state === 'succeeded') return { status: 'succeeded', remoteTaskId: value.requestId };
+                      if (value.state === 'failed' || value.state === 'canceled') return { status: 'failed', remoteTaskId: value.requestId };
+                      if (value.state === 'outcome_unknown') return { status: 'not_found' };
+                      return { status: 'waiting_remote', remoteTaskId: value.requestId };
+                    } });
+                  } });
+              if (resumeSpeech) response = await speechResponse();
+              else {
+                response = await gatewayRequest(resource, request.method, body);
+                if (credentials.transport === 'gateway' && resource === 'audio/speech' && request.method === 'POST' && response.status === 202) response = await speechResponse(response);
               }
             }
             signal.throwIfAborted();
@@ -409,8 +430,8 @@ export function createGatewayCreatorSource(input: {
             }
             return reply.send(stream);
           } catch (error) {
-            if (receipt && input.ledger && error instanceof GatewayError && [400, 401, 402, 403, 404, 422, 429].includes(error.status) && ['submitting', 'waiting_remote'].includes(receipt.status)) receipt = input.ledger.markFailed(receipt.id);
-            else if (receipt?.remoteTaskId) await reconcile();
+            if (receipt?.remoteTaskId) await reconcile();
+            else if (receipt && input.ledger && error instanceof GatewayError && [400, 401, 402, 403, 404, 422, 429].includes(error.status) && ['submitting', 'waiting_remote'].includes(receipt.status)) receipt = input.ledger.markFailed(receipt.id);
             else markUnknown();
             if (chatStream) { sendStreamError(error); return reply; }
             return reply.code(error instanceof GatewayError ? error.status : 503).send({ error: { code: error instanceof GatewayError ? error.code : 'gateway_unavailable', message: 'Official service request could not be completed' } });

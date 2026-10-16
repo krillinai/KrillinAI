@@ -19,7 +19,7 @@ import {
 import { execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import { createServer } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import type { AddressInfo, Socket } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import {
   expect,
@@ -28,6 +28,7 @@ import {
 } from '@playwright/test';
 import { packagedExecutable } from './package-artifact.js';
 import type { GatewayCredentials } from '../../daemon/src/gateway/config-store.js';
+import { createOpenCreatorCreatorServicesConfigStore } from '../../daemon/src/creator-services/config-store.js';
 import {
   closePackagedApp,
   launchPackagedApp,
@@ -46,6 +47,68 @@ const fakeCodexScript = join(e2eDir, 'fixtures', 'fake-codex.mjs');
 const fakeCodexLauncherSource = join(e2eDir, 'fixtures', 'fake-codex-launcher.go');
 
 test.describe.configure({ mode: 'serial' });
+
+test('@package-smoke 官方配音等待异步回执后返回音频', async ({}, testInfo) => {
+  const account = { id: 'speech-test', email: 'speech@example.test', verified: true };
+  const models = [
+    { id: 'text-model', modality: 'text' as const, capabilities: ['chat'] },
+    { id: 'speech-model', modality: 'speech' as const, capabilities: [], voices: ['marin'] }
+  ];
+  const requestId = 'ocreq_packaged_speech';
+  let submissions = 0;
+  let statusQueries = 0;
+  const gateway = createServer((request, response) => {
+    response.setHeader('Content-Type', 'application/json');
+    const path = request.url?.split('?')[0];
+    if (path === '/api/v1/client/bootstrap') response.end(JSON.stringify(bootstrap));
+    else if (path === '/api/v1/me') response.end(JSON.stringify({ account }));
+    else if (path === '/api/v1/client/models') response.end(JSON.stringify({ models, defaults: bootstrap.defaults }));
+    else if (path === '/v1/audio/speech') {
+      submissions++;
+      response.writeHead(202, { 'X-Request-ID': requestId }).end(JSON.stringify({ requestId, state: 'submitting', billingState: 'reserved' }));
+    } else if (path === `/v1/requests/${requestId}`) {
+      statusQueries++;
+      response.end(JSON.stringify({ requestId, state: statusQueries === 1 ? 'waiting_upstream' : 'succeeded' }));
+    } else if (path === `/v1/requests/${requestId}/result`) {
+      response.setHeader('Content-Type', 'audio/wav');
+      response.end('RIFF-packaged-speech');
+    } else response.end(JSON.stringify({ items: [] }));
+  });
+  await new Promise<void>(resolve => gateway.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${(gateway.address() as AddressInfo).port}`;
+  const bootstrap = {
+    schemaVersion: 3 as const, account, models, defaults: { text: 'text-model', speech: 'speech-model' },
+    keyVersion: 'speech-1', bindingVersion: 'speech:1', keyRotation: false,
+    transport: 'gateway' as const, supplier: 'chatanywhere' as const, baseUrl: `${origin}/v1`
+  };
+  let fixture: DesktopFixture | undefined;
+  try {
+    fixture = await launchPackagedDesktop('success', { runtimeMode: 'bundled', gatewayOrigin: origin,
+      gatewaySelectedModels: bootstrap.defaults,
+      gatewayCredentials: { ...bootstrap, accessToken: 'speech-private-access', refreshToken: 'speech-private-refresh',
+        expiresIn: 900, accessExpiresAt: new Date(Date.now() + 900_000).toISOString() }
+    });
+    await waitForWorkspace(fixture.page);
+    await expect.poll(async () => (await runtimeRequest<{ activationState: string }>(fixture!.page, 'GET', '/gateway/account')).body.activationState).toBe('ready');
+    expect(await fixture.page.evaluate(() => window.opencreatorDesktop?.readConnectionConfig())).toEqual({ baseUrl: '/.opencreator/runtime' });
+    expect((await runtimeRequest(fixture.page, 'GET', '/projects?status=all')).body)
+      .toMatchObject({ projects: expect.arrayContaining([expect.objectContaining({ name: 'Default project' })]) });
+    const audio = await fixture.page.evaluate(async () => {
+      const response = await fetch('/.opencreator/runtime/creator-services/tts/preview', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'openai', voiceId: 'marin', text: 'Hello' }) });
+      return { status: response.status, contentType: response.headers.get('content-type'), content: await response.text() };
+    });
+    expect(audio).toMatchObject({ status: 200, contentType: 'audio/wav', content: 'RIFF-packaged-speech' });
+    expect(submissions).toBe(1);
+    expect(statusQueries).toBe(2);
+    await testInfo.attach('speech-receipt.json', { body: JSON.stringify({ submissions, statusQueries, audio }), contentType: 'application/json' });
+    await fixture.page.screenshot({ path: testInfo.outputPath('speech-receipt-workspace.png') });
+  } finally {
+    if (fixture) await closeFixture(fixture);
+    gateway.closeAllConnections();
+    await new Promise<void>(resolve => gateway.close(() => resolve()));
+  }
+});
 
 test('@package-smoke 慢网关不阻塞缓存账号进入工作区，后台恢复完成后可输入任务', async ({}, testInfo) => {
   const account = { id: 'startup-test', email: 'startup@example.test', verified: true };
@@ -99,7 +162,7 @@ test('@package-smoke 慢网关不阻塞缓存账号进入工作区，后台恢�
     expect((await runtimeRequest(fixture.page, 'GET', '/gateway/account')).body)
       .toMatchObject({ source: 'gateway', authState: 'signed_in', activationState: 'loading', account });
     expect((await runtimeRequest(fixture.page, 'GET', '/projects?status=all')).body)
-      .toMatchObject({ projects: expect.arrayContaining([expect.objectContaining({ name: '默认项目' })]) });
+      .toMatchObject({ projects: expect.arrayContaining([expect.objectContaining({ id: expect.any(String), name: 'Default project' })]) });
     await testInfo.attach('startup-timing.json', {
       body: JSON.stringify({ workspaceReadyMs: Date.now() - startedAt, gatewayStillPending: true }),
       contentType: 'application/json'
@@ -113,6 +176,147 @@ test('@package-smoke 慢网关不阻塞缓存账号进入工作区，后台恢�
     await expect(input).toHaveValue('启动后可输入任务');
   } finally {
     release();
+    if (fixture) await closeFixture(fixture);
+    gateway.closeAllConnections();
+    await new Promise<void>(resolve => gateway.close(() => resolve()));
+  }
+});
+
+test('@package-smoke 直连模型目录挂起时进入工作区，退出取消后台恢复', async ({}, testInfo) => {
+  const account = { id: 'direct-startup', email: 'direct-startup@example.test', verified: true };
+  const models = [{ id: 'openai/gpt-4.1-mini', modality: 'text' as const, capabilities: ['responses'] }];
+  const tunnels = new Set<Socket>();
+  let connections = 0;
+  const proxy = createServer();
+  proxy.on('connect', (_request, socket) => {
+    const tunnel = socket as Socket;
+    tunnels.add(tunnel); connections++;
+    tunnel.on('error', () => undefined);
+    tunnel.on('close', () => tunnels.delete(tunnel));
+    tunnel.on('end', () => tunnel.end());
+    tunnel.on('data', () => undefined);
+    // Accept CONNECT but hold TLS open, keeping all supplier traffic local and pending.
+    tunnel.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+  });
+  await new Promise<void>(resolve => proxy.listen(0, '127.0.0.1', resolve));
+  const gateway = createServer((request, response) => {
+    response.setHeader('Content-Type', 'application/json');
+    const path = request.url?.split('?')[0];
+    response.end(JSON.stringify(path === '/api/v1/client/bootstrap' ? bootstrap
+      : path === '/api/v1/client/models' ? { models }
+        : path === '/api/v1/me' ? { account } : { keyVersion: '1' }));
+  });
+  await new Promise<void>(resolve => gateway.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${(gateway.address() as AddressInfo).port}`;
+  const bootstrap = {
+    schemaVersion: 1 as const, account, models, defaults: { text: models[0]!.id },
+    modelKey: 'private-direct-model-key', keyVersion: '1', bindingVersion: 'direct:1',
+    transport: 'openrouter-direct' as const, baseUrl: 'https://openrouter.ai/api/v1', keyRotation: true
+  };
+  let fixture: DesktopFixture | undefined;
+  try {
+    const startedAt = Date.now();
+    fixture = await launchPackagedDesktop('success', {
+      runtimeMode: 'bundled', gatewayOrigin: origin,
+      proxy: `http://127.0.0.1:${(proxy.address() as AddressInfo).port}`,
+      gatewayCredentials: { ...bootstrap, accessToken: 'private-access-token', refreshToken: 'private-refresh-token',
+        expiresIn: 900, accessExpiresAt: new Date(Date.now() + 900_000).toISOString() }
+    });
+    await fixture.page.waitForURL(url => url.protocol === 'opencreator-app:' && url.hostname === 'app');
+    await expect(fixture.page.locator('.opencreator-shell')).toBeVisible();
+    const workspaceReadyMs = Date.now() - startedAt;
+    const startupLog = readFileSync(join(fixture.root, '.opencreator', 'logs', 'desktop-main.log'), 'utf8')
+      .split('\n').filter(line => /Desktop starting|Daemon Utility Process (starting|ready)|workspace ready/.test(line)).join('\n');
+    const timingPath = testInfo.outputPath('direct-startup-timing.json');
+    writeFileSync(timingPath, JSON.stringify({ workspaceReadyMs, startupLog }, null, 2));
+    await testInfo.attach('direct-startup-timing.json', { path: timingPath, contentType: 'application/json' });
+    await expect.poll(() => fixture!.page.evaluate(async () => (await window.opencreatorDesktop?.readBootstrapState())?.phase)).toBe('ready');
+    // The first tunnel is exit detection; the second is the still-pending model catalog.
+    await expect.poll(() => connections).toBeGreaterThanOrEqual(2);
+    expect(tunnels.size).toBeGreaterThan(0);
+    expect((await runtimeRequest(fixture.page, 'GET', '/gateway/account')).body)
+      .toMatchObject({ source: 'gateway', authState: 'signed_in', activationState: 'loading', account });
+    expect((await runtimeRequest(fixture.page, 'GET', '/projects?status=all')).body)
+      .toMatchObject({ projects: expect.arrayContaining([expect.objectContaining({ id: expect.any(String), name: 'Default project' })]) });
+    await navigateToAppRoute(fixture.page, '#/chat');
+    await expect(fixture.page.getByRole('textbox', { name: '输入任务' })).toBeDisabled();
+    await fixture.page.screenshot({ path: testInfo.outputPath('direct-startup-models-loading.png') });
+    await requestPackagedAppQuit(fixture);
+    expect(await waitForProcessExit(fixture.process, 3_000)).toBe(true);
+    expect(fixture.process.exitCode).toBe(0);
+    await expect.poll(() => tunnels.size).toBe(0);
+  } finally {
+    if (fixture) await closeFixture(fixture);
+    for (const socket of tunnels) socket.destroy();
+    proxy.closeAllConnections(); gateway.closeAllConnections();
+    await Promise.all([
+      new Promise<void>(resolve => proxy.close(() => resolve())),
+      new Promise<void>(resolve => gateway.close(() => resolve()))
+    ]);
+  }
+});
+
+test('@package-smoke 旧账号收到 gateway_migrated 后恢复新网关，个人中心不再报错', async ({}, testInfo) => {
+  const account = { id: 'migrated-startup', email: 'migrated-startup@example.test', verified: true };
+  const models = [{ id: 'gpt-4.1-mini', modality: 'text' as const, capabilities: ['responses', 'chat'] }];
+  let usageRequests = 0;
+  let bootstrapRequests = 0;
+  let bootstrapRotate: string | null = null;
+  const gateway = createServer((request, response) => {
+    response.setHeader('Content-Type', 'application/json');
+    const path = request.url?.split('?')[0];
+    if (path === '/api/v1/client/usage') {
+      usageRequests++;
+      response.writeHead(409).end(JSON.stringify({ error: { code: 'gateway_migrated' } }));
+    } else if (path === '/api/v1/client/bootstrap') {
+      bootstrapRequests++;
+      bootstrapRotate = new URL(request.url!, origin).searchParams.get('rotate');
+      response.end(JSON.stringify(bootstrap));
+    } else if (path === '/api/v1/me') response.end(JSON.stringify({ account }));
+    else if (path === '/api/v1/client/models') response.end(JSON.stringify({ models, defaults: bootstrap.defaults }));
+    else if (path === '/api/v1/billing/summary') response.end(JSON.stringify({
+      balance: { availableUnits: '1000000000', reservedUnits: '0', periodEnd: null, asOf: new Date().toISOString() },
+      subscription: null, billingAvailable: false, plansUrl: `${origin}/pricing`
+    }));
+    else response.end(JSON.stringify({ items: [] }));
+  });
+  await new Promise<void>(resolve => gateway.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${(gateway.address() as AddressInfo).port}`;
+  const bootstrap = {
+    schemaVersion: 3 as const, account, models, defaults: { text: models[0]!.id },
+    keyVersion: 'gateway-3', bindingVersion: 'migrated:gateway-3', keyRotation: false,
+    transport: 'gateway' as const, supplier: 'chatanywhere' as const, baseUrl: `${origin}/v1`
+  };
+  let fixture: DesktopFixture | undefined;
+  try {
+    fixture = await launchPackagedDesktop('success', {
+      runtimeMode: 'bundled', gatewayOrigin: origin,
+      gatewayCredentials: { schemaVersion: 1, account,
+        models: [{ id: 'openai/gpt-4.1-mini', modality: 'text', capabilities: ['responses'] }], defaults: { text: 'openai/gpt-4.1-mini' },
+        modelKey: 'obsolete-private-key', keyVersion: 'legacy-1', bindingVersion: 'migrated:legacy-1',
+        transport: 'openrouter-direct', baseUrl: 'https://openrouter.ai/api/v1', keyRotation: true,
+        accessToken: 'private-access-token', refreshToken: 'private-refresh-token', expiresIn: 900,
+        accessExpiresAt: new Date(Date.now() + 900_000).toISOString()
+      }
+    });
+    await waitForWorkspace(fixture.page);
+    await expect.poll(async () => (await runtimeRequest<{ activationState: string }>(fixture!.page, 'GET', '/gateway/account')).body.activationState).toBe('ready');
+    expect(usageRequests).toBe(1);
+    expect(bootstrapRequests).toBe(1);
+    expect(bootstrapRotate).toBe('0');
+    await navigateToAppRoute(fixture.page, '#/account');
+    await expect(fixture.page.getByRole('heading', { name: account.email, exact: true })).toBeVisible();
+    await expect(fixture.page.getByText('网关返回错误，请稍后重试。', { exact: true })).toHaveCount(0);
+    await expect(fixture.page.getByText('官方模型服务暂不可用', { exact: true })).toHaveCount(0);
+    await fixture.page.screenshot({ path: testInfo.outputPath('migrated-account-ready.png') });
+    const saved = JSON.parse(readFileSync(join(fixture.root, '.opencreator', 'data', 'config', 'gateway-credentials.json'), 'utf8')) as GatewayCredentials;
+    expect(saved).toMatchObject({ schemaVersion: 3, transport: 'gateway', keyRotation: false });
+    expect(saved).not.toHaveProperty('modelKey');
+    await navigateToAppRoute(fixture.page, '#/chat');
+    await expect(fixture.page.getByRole('textbox', { name: '输入任务' })).toBeEnabled();
+    await fixture.page.getByRole('textbox', { name: '输入任务' }).fill('迁移后可输入任务');
+    expect(usageRequests).toBe(1);
+  } finally {
     if (fixture) await closeFixture(fixture);
     gateway.closeAllConnections();
     await new Promise<void>(resolve => gateway.close(() => resolve()));
@@ -1580,6 +1784,7 @@ async function launchPackagedDesktop(
     gatewayOrigin?: string;
     gatewayCredentials?: GatewayCredentials;
     gatewaySelectedModels?: Record<string, string>;
+    proxy?: string;
   } = {}
 ): Promise<DesktopFixture> {
   const root = mkdtempSync(join(tmpdir(), 'opencreator-desktop-e2e-'));
@@ -1629,6 +1834,13 @@ async function launchPackagedDesktop(
       join(binDir, process.platform === 'win32' ? 'codex.exe' : 'codex'),
       options.runtimeMode ?? 'external'
     );
+  }
+  if (options.proxy) {
+    const store = createOpenCreatorCreatorServicesConfigStore({
+      configFile: join(root, '.opencreator', 'config.toml'),
+      credentialsFile: join(root, '.opencreator', 'credentials.json')
+    });
+    await store.write({ ...await store.read(), proxy: options.proxy });
   }
   if (options.misleadingCodexWrapper === true) {
     writeMisleadingCodexWrapper(join(root, '.local', 'bin'));

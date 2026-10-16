@@ -146,7 +146,7 @@ export function createKrillinTtsService(input: {
   };
   const executeSynthesis = input.executeSynthesis ?? (request => executeProviderSynthesis({
     ...request,
-    timeoutMs: input.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    timeoutMs: input.timeoutMs ?? (request.official ? 600_000 : DEFAULT_TIMEOUT_MS)
   }));
 
   async function listVoices(
