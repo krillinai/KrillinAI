@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
+  changedPaths,
   changesAreReleaseOnly,
   digestBuildEntries,
   isReleaseOnlyPath,
@@ -48,5 +53,32 @@ describe('release build input identity', () => {
     expect(parseTreeEntries(
       '100644 blob 1111111111111111111111111111111111111111\tapps/web/src/App.tsx\0'
     )).toEqual([appEntry]);
+  });
+
+  it('runs full checks when the successful baseline is missing or no longer an ancestor', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'opencreator-ci-baseline-'));
+    const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+    const commit = message => git('-c', 'user.name=Release Test', '-c', 'user.email=release@example.test', 'commit', '--allow-empty', '-m', message);
+    try {
+      git('init', '-q');
+      commit('Initial baseline');
+      const initial = git('rev-parse', 'HEAD');
+      mkdirSync(join(cwd, '.github', 'workflows'), { recursive: true });
+      writeFileSync(join(cwd, '.github', 'workflows', 'ci.yml'), 'name: CI\n');
+      git('add', '.');
+      commit('Update release infrastructure');
+      const releaseHead = git('rev-parse', 'HEAD');
+      expect(changedPaths(initial, releaseHead, cwd)).toEqual(['.github/workflows/ci.yml']);
+      expect(changesAreReleaseOnly(changedPaths(initial, releaseHead, cwd))).toBe(true);
+      expect(changedPaths('9'.repeat(40), releaseHead, cwd)).toBeNull();
+      expect(changesAreReleaseOnly(changedPaths('9'.repeat(40), releaseHead, cwd))).toBe(false);
+      git('checkout', '-q', '-b', 'alternate', initial);
+      commit('Diverged history');
+      expect(changedPaths(releaseHead, 'HEAD', cwd)).toBeNull();
+      expect(changesAreReleaseOnly(changedPaths(releaseHead, 'HEAD', cwd))).toBe(false);
+      expect(() => changedPaths(initial, 'missing-head', cwd)).toThrow();
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 });

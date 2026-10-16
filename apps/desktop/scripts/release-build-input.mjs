@@ -53,6 +53,18 @@ export function buildInputDigest(ref = 'HEAD', cwd = process.cwd()) {
 
 export function changedPaths(base, head, cwd = process.cwd()) {
   if (!base || /^0+$/.test(base)) return null;
+  try {
+    execFileSync('git', ['cat-file', '-e', `${base}^{commit}`], { cwd, stdio: 'ignore' });
+  } catch (error) {
+    if (error.status === 1 || error.status === 128) return null;
+    throw error;
+  }
+  try {
+    execFileSync('git', ['merge-base', '--is-ancestor', base, head], { cwd, stdio: 'ignore' });
+  } catch (error) {
+    if (error.status === 1) return null;
+    throw error;
+  }
   const output = execFileSync(
     'git',
     ['diff', '--name-only', '-z', base, head],

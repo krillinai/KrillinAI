@@ -52,6 +52,7 @@ Desktop 使用 `resources/icon.png` 作为各平台统一的应用图标源。ma
 7. tag 工作流不再重复构建、签名、公证或 E2E；它按应用构建输入 SHA-256 查找成功的 `target=all` 候选，并确认候选 commit 是 tag commit 的祖先。任何 App、Runtime、依赖或打包输入变化都会产生不同指纹并要求新候选。随后工作流复核 run 与候选身份凭据，下载已验证附件，校验附件白名单并发布 GitHub Release。
 
 CI 变更分类始终以最近一次成功的 `master` push CI 为基线，而不是只比较直接父提交。这样，失败的产品提交后即使只修复 workflow，也必须重新执行完整 CI，不会被 release-only 快速路径掩盖。
+如果该基线对象已不在远端历史中，或不再是当前提交的祖先，分类器回退为完整 CI，不阻断分类步骤，也不将未知变更按纯发布改动处理。
 
 候选构建在依赖安装前恢复缓存，并通过 `ELECTRON_CACHE` 让安装脚本复用 Electron 下载；新增 Chromium 下载缓存，工具和 Codex 下载缓存允许按平台与架构回退复用。Codex 归档仍须通过固定 integrity 校验，Creator Runtime 下载保持精确缓存键。Daemon/Web、Creator Runtime 与 Codex Runtime 独立并行准备。Remotion 组件公证与主应用打包并行，但全部成功后才允许生成可交付产物清单；App 和 DMG 的签名、公证、Web 资源哈希及包完整性校验继续执行。上传已压缩的发布附件时关闭 Artifact 二次压缩。
 
