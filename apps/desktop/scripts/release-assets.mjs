@@ -2,6 +2,12 @@ import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+
+// Reuse the YAML parser already pinned by the Daemon workspace.
+const { parse: parseYaml, stringify: stringifyYaml } = createRequire(
+  new URL('../../daemon/package.json', import.meta.url)
+)('yaml');
 
 const scriptDir = resolve(fileURLToPath(new URL('.', import.meta.url)));
 const desktopDir = resolve(scriptDir, '..');
@@ -93,6 +99,64 @@ function writeChecksums(directory, names) {
   writeFileSync(join(directory, 'SHA256SUMS.txt'), `${lines.join('\n')}\n`);
 }
 
+export function refreshUpdaterMetadata({ directory, version }) {
+  const updates = releasePlatforms.map(({ platform, arch }) => {
+    const names = releaseAssetNames(version, platform, arch);
+    const metadataName = names.find(name => name.endsWith('.yml'));
+    const primaryName = names.find(name => name.endsWith(platform === 'darwin' ? '.zip' : '.exe'));
+    const metadata = parseYaml(readFileSync(join(directory, metadataName), 'utf8'), {
+      maxAliasCount: 0
+    });
+    if (metadata?.version !== version || metadata.path !== primaryName || !Array.isArray(metadata.files)) {
+      throw new Error(`Invalid updater target or version: ${metadataName}`);
+    }
+    const allowed = names.filter(name => /\.(zip|dmg|exe)$/.test(name));
+    const seen = new Set();
+    for (const file of metadata.files) {
+      if (!allowed.includes(file.url) || seen.has(file.url)) {
+        throw new Error(`Unexpected updater file in ${metadataName}: ${file.url}`);
+      }
+      seen.add(file.url);
+      const path = join(directory, file.url);
+      const size = statSync(path).size;
+      const sha512 = createHash('sha512').update(readFileSync(path)).digest('base64');
+      // Stapling changes the DMG after Electron Builder writes its metadata.
+      // The ZIP/EXE update payload must already match the verified candidate.
+      if (!file.url.endsWith('.dmg') && (
+        file.sha512 !== sha512 || (file.size !== undefined && file.size !== size)
+      )) {
+        throw new Error(`Updater payload does not match its candidate metadata: ${file.url}`);
+      }
+      file.sha512 = sha512;
+      file.size = size;
+      if (file.url === primaryName && metadata.sha512 !== sha512) {
+        throw new Error(`Updater primary checksum is inconsistent: ${metadataName}`);
+      }
+    }
+    if (!seen.has(primaryName)) throw new Error(`Missing updater payload: ${metadataName}`);
+    return { path: join(directory, metadataName), metadata };
+  });
+  // Validate every platform before writing any derived metadata.
+  for (const update of updates) {
+    writeFileSync(update.path, stringifyYaml(update.metadata, { lineWidth: 0 }));
+  }
+}
+
+export function verifyPublishedPayloads({ directory, assets }) {
+  const names = readdirSync(directory).sort();
+  if (JSON.stringify(assets.map(asset => asset.name).sort()) !== JSON.stringify(names)) {
+    throw new Error('Published release asset list differs from the verified candidate');
+  }
+  const checksums = new Map(readFileSync(join(directory, 'SHA256SUMS.txt'), 'utf8')
+    .trim().split('\n').map(line => [line.slice(66), `sha256:${line.slice(0, 64)}`]));
+  for (const asset of assets) {
+    if (asset.name === 'SHA256SUMS.txt' || asset.name.endsWith('.yml')) continue;
+    if (asset.digest !== checksums.get(asset.name)) {
+      throw new Error(`Published payload differs from the verified candidate: ${asset.name}`);
+    }
+  }
+}
+
 export function finalizeReleaseAssets({ directory, version, repository, highlights = '' }) {
   const desktopAssets = releasePlatforms.flatMap(
     ({ platform, arch }) => releaseAssetNames(version, platform, arch)
@@ -111,6 +175,7 @@ export function finalizeReleaseAssets({ directory, version, repository, highligh
   for (const name of expected) {
     if (!actual.some(entry => entry.name === name)) throw new Error(`Missing release asset: ${name}`);
   }
+  refreshUpdaterMetadata({ directory, version });
   writeChecksums(directory, expected);
   return renderReleaseNotes({ version, repository, highlights });
 }

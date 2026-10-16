@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyDesktopReleaseTag } from './verify-desktop-release-tag.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 
@@ -51,6 +53,20 @@ export function buildInputDigest(ref = 'HEAD', cwd = process.cwd()) {
   return digestBuildEntries(parseTreeEntries(output));
 }
 
+export function resolvePromotionTarget(tag, cwd = process.cwd()) {
+  const { version } = JSON.parse(readFileSync(resolve(cwd, 'apps/desktop/package.json'), 'utf8'));
+  if (!tag) throw new Error('An existing release tag is required for promotion');
+  verifyDesktopReleaseTag(tag, version);
+  const sha = execFileSync('git', ['rev-parse', '--verify', `refs/tags/${tag}^{commit}`], {
+    cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']
+  }).trim();
+  execFileSync('git', ['merge-base', '--is-ancestor', sha, 'HEAD'], { cwd, stdio: 'pipe' });
+  if (buildInputDigest(sha, cwd) !== buildInputDigest('HEAD', cwd)) {
+    throw new Error('Promotion requires identical application build inputs at the tag and workflow commit');
+  }
+  return { tag, sha };
+}
+
 export function changedPaths(base, head, cwd = process.cwd()) {
   if (!base || /^0+$/.test(base)) return null;
   try {
@@ -85,6 +101,8 @@ if (process.argv[1] && resolve(process.argv[1]) === scriptPath) {
     } else if (command === 'release-only') {
       if (args.length !== 2) throw new Error('release-only requires <base> <head>');
       console.log(changesAreReleaseOnly(changedPaths(args[0], args[1])) ? 'true' : 'false');
+    } else if (command === 'promotion-target') {
+      console.log(JSON.stringify(resolvePromotionTarget(args[0])));
     } else {
       throw new Error(`Unknown command: ${command}`);
     }

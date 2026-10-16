@@ -113,7 +113,7 @@ describe('Desktop release workflow', () => {
     expect(releaseWorkflow).toContain("if: github.event_name == 'workflow_dispatch'");
     expect(releaseWorkflow).toContain('name: 查找可复用的完整候选构建');
     expect(releaseWorkflow).toContain('release-build-input.mjs digest');
-    expect(releaseWorkflow).toContain('repos/$GH_REPO/compare/$candidate_sha...$GITHUB_SHA');
+    expect(releaseWorkflow).toContain('repos/$GH_REPO/compare/$candidate_sha...$RELEASE_SHA');
     expect(releaseWorkflow).toContain('comparison_status');
     expect(releaseWorkflow).toContain('CANDIDATE_BUILD_INPUT_DIGEST');
     expect(releaseWorkflow).toContain('candidate.schemaVersion === 2');
@@ -125,6 +125,20 @@ describe('Desktop release workflow', () => {
     expect(releaseWorkflow).toContain('name: 校验候选包身份凭据');
     expect(releaseWorkflow).toContain('needs: verify');
     expect(releaseWorkflow).not.toContain("startsWith(github.ref, 'refs/tags/') || inputs.target == 'all'");
+  });
+
+  it('republishes an existing tag only from master with matching inputs and successful CI', () => {
+    expect(releaseWorkflow).toContain('          - publish');
+    expect(releaseWorkflow).toContain('release_tag:');
+    expect(releaseWorkflow).toContain('promotion-target "$RELEASE_TAG"');
+    expect(releaseWorkflow).toContain('"$GITHUB_REF" != refs/heads/master');
+    expect(releaseWorkflow).toContain("inputs.target != 'publish'");
+    expect(releaseWorkflow).toContain('TAG: ${{ needs.verify.outputs.release-tag }}');
+    expect(releaseWorkflow).toContain('RELEASE_SHA: ${{ needs.verify.outputs.release-sha }}');
+    expect(releaseWorkflow).toContain('"$GITHUB_SHA" "$RELEASE_SHA"');
+    expect(releaseWorkflow).toContain('pnpm install --filter @opencreator/daemon --frozen-lockfile --ignore-scripts');
+    expect(releaseWorkflow).not.toContain('git tag -f');
+    expect(releaseWorkflow).not.toContain('git push --force');
   });
 
   it('keeps build diagnostics separate from validated public release assets', () => {

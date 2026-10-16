@@ -51,6 +51,16 @@ Desktop 使用 `resources/icon.png` 作为各平台统一的应用图标源。ma
 6. 候选全绿后才创建并推送 `v<version>` Git tag。标签版本必须与 `apps/desktop/package.json` 完全一致。通常 tag 指向候选 commit；候选后只有发布基础设施变化且应用构建输入 SHA-256 不变时，可以复用原候选。
 7. tag 工作流不再重复构建、签名、公证或 E2E；它按应用构建输入 SHA-256 查找成功的 `target=all` 候选，并确认候选 commit 是 tag commit 的祖先。任何 App、Runtime、依赖或打包输入变化都会产生不同指纹并要求新候选。随后工作流复核 run 与候选身份凭据，下载已验证附件，校验附件白名单并发布 GitHub Release。
 
+发布阶段会按最终候选文件重新计算更新元数据和总校验清单。DMG 写入公证票据后大小和 SHA-512 会改变，不能沿用 Electron Builder 在公证前写入的 DMG 字段；ZIP/EXE 的更新校验必须与原候选完全一致。候选安装包、ZIP、blockmap、Runtime 和组件归档保持原始字节。
+
+如果发布后仅需修复元数据，可在发布基础设施修复通过 master push CI 后运行：
+
+```bash
+gh workflow run desktop-release.yml --ref master -f target=publish -f release_tag=v3.2.7
+```
+
+该入口要求现有 tag 是 master 的祖先，tag 与当前提交的应用构建指纹完全一致，并且两个提交的 CI 均成功。它仍须校验完整候选的来源，逐一确认已发布的程序附件 SHA-256 与候选一致，最终只替换三个 latest YAML 与总校验清单；不会修改 tag 或重新构建、替换安装包。
+
 CI 变更分类始终以最近一次成功的 `master` push CI 为基线，而不是只比较直接父提交。这样，失败的产品提交后即使只修复 workflow，也必须重新执行完整 CI，不会被 release-only 快速路径掩盖。
 如果该基线对象已不在远端历史中，或不再是当前提交的祖先，分类器回退为完整 CI，不阻断分类步骤，也不将未知变更按纯发布改动处理。
 
@@ -122,14 +132,15 @@ repo: OpenCreator
 
 生产运行时不依赖 `OPENCREATOR_UPDATE_URL`。测试通过注入 fake updater 隔离，不允许把开发覆盖写入正式包。
 
-GitHub Release 发布 21 个附件，另外 2 个源码归档由 GitHub 自动生成：
+GitHub Release 发布 24 个附件，另外 2 个源码归档由 GitHub 自动生成：
 
 1. macOS arm64：`OpenCreator-<version>-mac-arm64.dmg`、对应 ZIP、ZIP blockmap 和 `latest-mac.yml`。
 2. macOS x64：`OpenCreator-<version>-mac-x64.dmg`、对应 ZIP、ZIP blockmap 和 `latest-x64-mac.yml`。
 3. Windows x64：`OpenCreator-<version>-win-x64.exe` 和 `latest.yml`。
 4. KrillinAI Server：macOS arm64、macOS x64、Windows x64、Linux x64 和 Linux arm64 共 5 个独立程序包。
 5. KrillinAI CLI：macOS arm64、macOS x64、Windows x64、Linux x64 和 Linux arm64 共 5 个独立程序包。
-6. 一份 `SHA256SUMS.txt`，覆盖以上 20 个文件。
+6. macOS arm64、macOS x64 和 Windows x64 三个独立 Remotion 组件归档。
+7. 一份 `SHA256SUMS.txt`，覆盖以上 23 个文件。
 
 安装包、更新文件的文件名、版本和 SHA512 保持 Electron Builder 原始输出，不在构建后重命名。macOS 更新使用 ZIP，其 DMG blockmap 不进入发布附件；Windows 当前关闭差分包，不生成独立 blockmap。
 

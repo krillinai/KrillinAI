@@ -13,6 +13,11 @@ on:
           - macos-x64
           - macos-arm64
           - windows-x64
+          - publish
+      release_tag:
+        description: 仅 target=publish 时使用的现有发布标签（保留标签和候选安装包）
+        required: false
+        type: string
   push:
     tags:
       - 'v*'
@@ -33,30 +38,60 @@ jobs:
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.release-matrix.outputs.matrix }}
+      release-tag: ${{ steps.release-target.outputs.tag }}
+      release-sha: ${{ steps.release-target.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: 校验 Desktop 发布标签
-        if: startsWith(github.ref, 'refs/tags/')
-        run: node apps/desktop/scripts/verify-desktop-release-tag.mjs "${{ github.ref_name }}"
+        id: release-target
+        env:
+          TARGET: ${{ inputs.target }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$TARGET" == publish ]]; then
+            if [[ "$GITHUB_REF" != refs/heads/master ]]; then
+              echo '::error::手动提升现有标签只能从 master 运行。'
+              exit 1
+            fi
+            release="$(node apps/desktop/scripts/release-build-input.mjs promotion-target "$RELEASE_TAG")"
+            echo "tag=$(jq -r '.tag' <<< "$release")" >> "$GITHUB_OUTPUT"
+            echo "sha=$(jq -r '.sha' <<< "$release")" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            node apps/desktop/scripts/verify-desktop-release-tag.mjs "$GITHUB_REF_NAME"
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+            echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          else
+            if [[ -n "$RELEASE_TAG" ]]; then
+              echo '::error::release_tag 只能与 target=publish 一起使用。'
+              exit 1
+            fi
+            echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          fi
       - name: 校验同一提交的 CI 已通过
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          RELEASE_SHA: ${{ steps.release-target.outputs.sha }}
         run: |
-          successful_runs="$(
-            gh run list \
-              --workflow ci.yml \
-              --commit "$GITHUB_SHA" \
-              --event push \
-              --status success \
-              --limit 1 \
-              --json databaseId \
-              --jq 'length'
-          )"
-          if [[ "$successful_runs" != "1" ]]; then
-            echo "::error::提交 $GITHUB_SHA 尚无成功的 master push CI，请等待 CI 通过后再创建发布标签。"
-            exit 1
-          fi
+          for sha in $(printf '%s\n' "$GITHUB_SHA" "$RELEASE_SHA" | sort -u); do
+            successful_runs="$(
+              gh run list \
+                --workflow ci.yml \
+                --commit "$sha" \
+                --event push \
+                --status success \
+                --limit 1 \
+                --json databaseId \
+                --jq 'length'
+            )"
+            if [[ "$successful_runs" != "1" ]]; then
+              echo "::error::提交 $sha 尚无成功的 master push CI，请等待 CI 通过后再创建发布标签。"
+              exit 1
+            fi
+          done
       - name: 选择 Desktop 构建平台
         id: release-matrix
         shell: bash
@@ -64,7 +99,7 @@ jobs:
           TARGET: ${{ inputs.target || 'all' }}
         run: |
           case "$TARGET" in
-            all)
+            all|publish)
               matrix='{"include":[{"name":"macos-x64","os":"macos-15-intel","platform":"darwin","arch":"x64","artifact":"opencreator-desktop-macos-x64"},{"name":"macos-arm64","os":"macos-15","platform":"darwin","arch":"arm64","artifact":"opencreator-desktop-macos-arm64"},{"name":"windows-x64","os":"windows-latest","platform":"win32","arch":"x64","artifact":"opencreator-desktop-windows-x64-unsigned"}]}'
               ;;
             macos-x64)
@@ -84,7 +119,7 @@ jobs:
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   package:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.target != 'publish'
     needs: verify
     timeout-minutes: 90
     strategy:
@@ -323,18 +358,25 @@ jobs:
           retention-days: 90
 
   publish:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.target == 'publish')
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       actions: read
       contents: write
+    env:
+      TAG: ${{ needs.verify.outputs.release-tag }}
+      RELEASE_SHA: ${{ needs.verify.outputs.release-sha }}
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
+      - name: 安装发布元数据解析依赖
+        run: pnpm install --filter @opencreator/daemon --frozen-lockfile --ignore-scripts
       - name: 计算应用构建输入指纹
         id: build-input
         run: echo "digest=$(node apps/desktop/scripts/release-build-input.mjs digest)" >> "$GITHUB_OUTPUT"
@@ -359,7 +401,7 @@ jobs:
           run="$(gh api "repos/$GH_REPO/actions/runs/$candidate_run_id")"
           candidate_sha="$(jq -r '.head_sha' <<< "$run")"
           comparison_status="$(
-            gh api "repos/$GH_REPO/compare/$candidate_sha...$GITHUB_SHA" --jq '.status'
+            gh api "repos/$GH_REPO/compare/$candidate_sha...$RELEASE_SHA" --jq '.status'
           )"
           if [[ "$(jq -r '.event' <<< "$run")" != "workflow_dispatch" \
             || "$(jq -r '.head_branch' <<< "$run")" != "master" \
@@ -416,15 +458,25 @@ jobs:
           NODE
       - name: 校验发布附件并生成下载说明
         env:
-          TAG: ${{ github.ref_name }}
           GH_REPO: ${{ github.repository }}
         run: node apps/desktop/scripts/release-assets.mjs artifacts "$TAG" "$GH_REPO" release-notes.md
       - name: 发布 GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
+          PROMOTION_ONLY: ${{ inputs.target == 'publish' }}
         run: |
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --draft --title "OpenCreator $TAG" --notes-file release-notes.md
-          find artifacts -maxdepth 1 -type f -print0 | xargs -0 gh release upload "$TAG" --clobber
+          if [[ "$PROMOTION_ONLY" == true ]]; then
+            gh api "repos/$GH_REPO/releases/tags/$TAG" > published-release.json
+            node --input-type=module <<'NODE'
+              import { readFileSync } from 'node:fs';
+              import { verifyPublishedPayloads } from './apps/desktop/scripts/release-assets.mjs';
+              const { assets } = JSON.parse(readFileSync('published-release.json', 'utf8'));
+              verifyPublishedPayloads({ directory: 'artifacts', assets });
+          NODE
+            gh release upload "$TAG" artifacts/latest*.yml artifacts/SHA256SUMS.txt --clobber
+          else
+            gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --draft --title "OpenCreator $TAG" --notes-file release-notes.md
+            find artifacts -maxdepth 1 -type f -print0 | xargs -0 gh release upload "$TAG" --clobber
+          fi
           gh release edit "$TAG" --draft=false --latest --title "OpenCreator $TAG" --notes-file release-notes.md

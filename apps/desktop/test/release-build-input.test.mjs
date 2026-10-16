@@ -8,7 +8,8 @@ import {
   changesAreReleaseOnly,
   digestBuildEntries,
   isReleaseOnlyPath,
-  parseTreeEntries
+  parseTreeEntries,
+  resolvePromotionTarget
 } from '../scripts/release-build-input.mjs';
 
 const appEntry = {
@@ -25,6 +26,36 @@ const releaseEntry = {
 };
 
 describe('release build input identity', () => {
+  it('promotes an existing tag only when the workflow changes are release-only', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'opencreator-promotion-'));
+    const git = (...args) => execFileSync('git', ['-c', 'user.name=Release Test', '-c', 'user.email=release@example.test', ...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+    const commit = message => {
+      git('add', '.');
+      git('commit', '-m', message);
+    };
+    try {
+      git('init', '-q');
+      mkdirSync(join(cwd, 'apps/desktop'), { recursive: true });
+      writeFileSync(join(cwd, 'apps/desktop/package.json'), JSON.stringify({ version: '3.0.0' }));
+      commit('Prepare release');
+      git('tag', '-a', 'v3.0.0', '-m', 'OpenCreator v3.0.0');
+      const sha = git('rev-parse', 'HEAD');
+      mkdirSync(join(cwd, '.github/workflows'), { recursive: true });
+      writeFileSync(join(cwd, '.github/workflows/desktop-release.yml'), 'name: Release');
+      commit('Correct release infrastructure');
+      expect(resolvePromotionTarget('v3.0.0', cwd)).toEqual({ tag: 'v3.0.0', sha });
+      expect(() => resolvePromotionTarget('', cwd)).toThrow('tag is required');
+      expect(() => resolvePromotionTarget('v3.1.0', cwd)).toThrow('does not match');
+      expect(() => resolvePromotionTarget('../unsafe', cwd)).toThrow('must use');
+      writeFileSync(join(cwd, 'product.txt'), 'changed application inputs');
+      commit('Change product inputs');
+      expect(() => resolvePromotionTarget('v3.0.0', cwd)).toThrow('identical application build inputs');
+      git('tag', '-d', 'v3.0.0');
+      expect(() => resolvePromotionTarget('v3.0.0', cwd)).toThrow();
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
   it('classifies only explicit release infrastructure as release-only', () => {
     expect(isReleaseOnlyPath(releaseEntry.path)).toBe(true);
     expect(isReleaseOnlyPath('apps/desktop/release-notes/v3.2.2.md')).toBe(true);
