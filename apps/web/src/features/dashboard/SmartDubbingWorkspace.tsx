@@ -369,59 +369,43 @@ export default function SmartDubbingWorkspace(props: {
           void generate();
         }}>
           <fieldset className="smart-dubbing-fields" disabled={busy}>
-            <div className="smart-dubbing-model-row">
-              {official.official ? <OfficialModelField label={l('模型', 'Model')} service={official} disabled={busy} /> : (
-                <div className="smart-dubbing-configured-model">
-                  <ModelBrandIcon model={{ id: model, name: provider }} />
-                  <div>
-                    <span>{l('模型', 'Model')}</span>
-                    <div className="smart-dubbing-provider-row">
-                      <strong>{model || l('本地语音服务', 'Local speech service')}</strong>
-                      <small>{providerLabel(provider, l)}</small>
-                    </div>
-                  </div>
-                  <a href="#/settings?tab=ai-services&section=tts" aria-label={l('打开配音服务设置', 'Open voice service settings')} title={l('打开配音服务设置', 'Open voice service settings')}>
-                    <Settings2 size={17} strokeWidth={1.8} aria-hidden="true" />
-                  </a>
+            <div className="smart-dubbing-main-fields">
+              <div className={`smart-dubbing-editor${editorExpanded ? ' is-expanded' : ''}`}>
+                <div className="smart-dubbing-editor-heading">
+                  <h2 id="smart-dubbing-script-title"><Mic2 size={18} strokeWidth={1.7} aria-hidden="true" />{l('配音文案', 'Dubbing script')}</h2>
+                  <button type="button" className="smart-dubbing-expand" aria-expanded={editorExpanded} aria-controls="smart-dubbing-script-input"
+                    aria-label={editorExpanded ? l('收起编辑区', 'Collapse editor') : l('展开编辑区', 'Expand editor')}
+                    title={editorExpanded ? l('收起编辑区', 'Collapse editor') : l('展开编辑区', 'Expand editor')}
+                    onClick={() => setEditorExpanded(value => !value)}>
+                    {editorExpanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+                  </button>
                 </div>
-              )}
-            </div>
-            <div className={`smart-dubbing-editor${editorExpanded ? ' is-expanded' : ''}`}>
-              <div className="smart-dubbing-editor-heading">
-                <h2 id="smart-dubbing-script-title"><Mic2 size={18} strokeWidth={1.7} aria-hidden="true" />{l('配音文案', 'Dubbing script')}</h2>
-                <button type="button" className="smart-dubbing-expand" aria-expanded={editorExpanded} aria-controls="smart-dubbing-script-input"
-                  aria-label={editorExpanded ? l('收起编辑区', 'Collapse editor') : l('展开编辑区', 'Expand editor')}
-                  title={editorExpanded ? l('收起编辑区', 'Collapse editor') : l('展开编辑区', 'Expand editor')}
-                  onClick={() => setEditorExpanded(value => !value)}>
-                  {editorExpanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
-                </button>
+                <div className="creator-tool-field smart-dubbing-script-field">
+                  <textarea
+                    id="smart-dubbing-script-input"
+                    rows={editorExpanded ? 14 : 7}
+                    maxLength={5000}
+                    value={text}
+                    onChange={event => updateText(event.target.value)}
+                    placeholder={l('输入需要转换为语音的文案', 'Enter the script to convert into speech')}
+                    aria-label={l('配音文案内容', 'Dubbing script content')}
+                  />
+                </div>
+                <div className="smart-dubbing-script-tools">
+                  <button className="smart-dubbing-sample" type="button" onClick={() => updateText(l(sampleTextZh, sampleTextEn))}>
+                    <WandSparkles size={15} strokeWidth={1.8} aria-hidden="true" />
+                    {l('填入示例文案', 'Use sample script')}
+                  </button>
+                  <button className="smart-dubbing-clear" type="button" disabled={!text} aria-label={l('清空文案', 'Clear script')} title={l('清空文案', 'Clear script')} onClick={() => updateText('')}>
+                    <Trash2 size={16} strokeWidth={1.8} aria-hidden="true" />
+                  </button>
+                  <small dir="ltr">{characterCount} / 5000</small>
+                </div>
               </div>
-              <div className="creator-tool-field smart-dubbing-script-field">
-                <textarea
-                  id="smart-dubbing-script-input"
-                  rows={editorExpanded ? 14 : 7}
-                  maxLength={5000}
-                  value={text}
-                  onChange={event => updateText(event.target.value)}
-                  placeholder={l('输入需要转换为语音的文案', 'Enter the script to convert into speech')}
-                  aria-label={l('配音文案内容', 'Dubbing script content')}
-                />
-              </div>
-              <div className="smart-dubbing-script-tools">
-                <button className="smart-dubbing-sample" type="button" onClick={() => updateText(l(sampleTextZh, sampleTextEn))}>
-                  <WandSparkles size={15} strokeWidth={1.8} aria-hidden="true" />
-                  {l('填入示例文案', 'Use sample script')}
-                </button>
-                <button className="smart-dubbing-clear" type="button" disabled={!text} aria-label={l('清空文案', 'Clear script')} title={l('清空文案', 'Clear script')} onClick={() => updateText('')}>
-                  <Trash2 size={16} strokeWidth={1.8} aria-hidden="true" />
-                </button>
-                <small dir="ltr">{characterCount} / 5000</small>
-              </div>
-            </div>
-            <div className="smart-dubbing-settings">
               <div className="smart-dubbing-voice-field">
                 <TtsVoicePicker
                   id="smart-dubbing-voice"
+                  presentation="library"
                   provider={provider}
                   model={model}
                   value={voice}
@@ -440,29 +424,50 @@ export default function SmartDubbingWorkspace(props: {
                   onVoiceResolved={selectedVoice => setVoiceName(selectedVoice.name)}
                 />
               </div>
-              {supportsStyle ? <div className="smart-dubbing-control-group">
-                <span>{l('表达风格', 'Delivery style')}</span>
-                <div className="creator-tool-segmented smart-dubbing-style-options" role="radiogroup" aria-label={l('表达风格', 'Delivery style')}>
-                  {styles.map(item => <button type="button" role="radio" aria-checked={style === item.value} aria-selected={style === item.value} key={item.value} onClick={() => updateStyle(item.value)}>{l(item.zh, item.en)}</button>)}
-                </div>
-              </div> : null}
-              {supportsSpeed ? <label className="smart-dubbing-speed">
-                <span><span><Gauge size={15} strokeWidth={1.8} aria-hidden="true" />{l('语速', 'Speaking rate')}</span><output>{speed.toFixed(2)}x</output></span>
-                <input type="range" aria-label={l('语速', 'Speaking rate')} min="0.75" max="1.25" step="0.05" value={speed} onChange={event => updateSpeed(Number(event.target.value))} />
-                <small><span>0.75x</span><span>1.00x</span><span>1.25x</span></small>
-              </label> : null}
-              <div className="smart-dubbing-control-group smart-dubbing-format-field">
-                <span>{l('音频格式', 'Audio format')}</span>
-                <div className="creator-tool-segmented smart-dubbing-format-options" role="radiogroup" aria-label={l('音频格式', 'Audio format')}>
-                  {(['mp3', 'wav'] as const).map(value => <button type="button" role="radio" aria-checked={format === value} aria-selected={format === value} key={value} onClick={() => updateFormat(value)}>{value.toUpperCase()}</button>)}
+            </div>
+            <div className="smart-dubbing-side-fields">
+              <div className="smart-dubbing-model-row">
+                {official.official ? <OfficialModelField label={l('模型', 'Model')} service={official} disabled={busy} /> : (
+                  <div className="smart-dubbing-configured-model">
+                    <ModelBrandIcon model={{ id: model, name: provider }} />
+                    <div>
+                      <span>{l('模型', 'Model')}</span>
+                      <div className="smart-dubbing-provider-row">
+                        <strong>{model || l('本地语音服务', 'Local speech service')}</strong>
+                        <small>{providerLabel(provider, l)}</small>
+                      </div>
+                    </div>
+                    <a href="#/settings?tab=ai-services&section=tts" aria-label={l('打开配音服务设置', 'Open voice service settings')} title={l('打开配音服务设置', 'Open voice service settings')}>
+                      <Settings2 size={17} strokeWidth={1.8} aria-hidden="true" />
+                    </a>
+                  </div>
+                )}
+              </div>
+              <div className="smart-dubbing-settings">
+                {supportsStyle ? <div className="smart-dubbing-control-group">
+                  <span>{l('表达风格', 'Delivery style')}</span>
+                  <div className="creator-tool-segmented smart-dubbing-style-options" role="radiogroup" aria-label={l('表达风格', 'Delivery style')}>
+                    {styles.map(item => <button type="button" role="radio" aria-checked={style === item.value} aria-selected={style === item.value} key={item.value} onClick={() => updateStyle(item.value)}>{l(item.zh, item.en)}</button>)}
+                  </div>
+                </div> : null}
+                {supportsSpeed ? <label className="smart-dubbing-speed">
+                  <span><span><Gauge size={15} strokeWidth={1.8} aria-hidden="true" />{l('语速', 'Speaking rate')}</span><output>{speed.toFixed(2)}x</output></span>
+                  <input type="range" aria-label={l('语速', 'Speaking rate')} min="0.75" max="1.25" step="0.05" value={speed} onChange={event => updateSpeed(Number(event.target.value))} />
+                  <small><span>0.75x</span><span>1.00x</span><span>1.25x</span></small>
+                </label> : null}
+                <div className="smart-dubbing-control-group smart-dubbing-format-field">
+                  <span>{l('音频格式', 'Audio format')}</span>
+                  <div className="creator-tool-segmented smart-dubbing-format-options" role="radiogroup" aria-label={l('音频格式', 'Audio format')}>
+                    {(['mp3', 'wav'] as const).map(value => <button type="button" role="radio" aria-checked={format === value} aria-selected={format === value} key={value} onClick={() => updateFormat(value)}>{value.toUpperCase()}</button>)}
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="smart-dubbing-submit-row">
-              <button className="creator-tool-primary" type="submit" disabled={busy || (official.official && !official.ready)}>
-                {busy ? <LoaderCircle className="smart-dubbing-spinner" size={16} aria-hidden="true" /> : result ? <RotateCcw size={16} aria-hidden="true" /> : <Mic2 size={16} aria-hidden="true" />}
-                {busy ? l('正在生成', 'Generating') : result ? l('重新生成', 'Regenerate') : l('开始生成', 'Generate')}
-              </button>
+              <div className="smart-dubbing-submit-row">
+                <button className="creator-tool-primary" type="submit" disabled={busy || (official.official && !official.ready)}>
+                  {busy ? <LoaderCircle className="smart-dubbing-spinner" size={16} aria-hidden="true" /> : result ? <RotateCcw size={16} aria-hidden="true" /> : <Mic2 size={16} aria-hidden="true" />}
+                  {busy ? l('正在生成', 'Generating') : result ? l('重新生成', 'Regenerate') : l('开始生成', 'Generate')}
+                </button>
+              </div>
             </div>
           </fieldset>
         </form>

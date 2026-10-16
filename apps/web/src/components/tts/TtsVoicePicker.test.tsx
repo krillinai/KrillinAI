@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
@@ -215,5 +215,84 @@ describe('TtsVoicePicker', () => {
       id: 'S_cloned_speaker',
       kind: 'custom'
     }));
+  });
+
+  it('filters the library by search, metadata and category, and resets an empty result', async () => {
+    const tts = createService();
+    const catalog = await tts.service.getTtsVoices('aliyun', 'qwen3-tts-flash');
+    const service = {
+      ...tts.service,
+      getTtsVoices: vi.fn(async () => ({ ...catalog, voices: [
+        { ...catalog.voices[0]!, gender: 'female' },
+        { ...catalog.voices[1]!, gender: 'male', language: 'en-US', scenario: '自然对话', kind: 'custom' as const }
+      ] }))
+    };
+    render(<TtsVoicePicker id="voice" presentation="library" provider="aliyun" model="qwen3-tts-flash" value="Cherry" service={service} onChange={vi.fn()} />);
+    await screen.findByRole('radio', { name: /芊悦/ });
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'eThAn' } });
+    expect(screen.getAllByRole('radio')).toHaveLength(1);
+    expect(screen.getByRole('radio', { name: /晨煦/ })).toHaveAttribute('aria-checked', 'false');
+    fireEvent.change(screen.getByRole('combobox', { name: '全部性别' }), { target: { value: '女声' } });
+    expect(screen.getByText('没有匹配的音色')).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: '全部' }).at(-1)!);
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    fireEvent.change(screen.getByRole('combobox', { name: '全部语言' }), { target: { value: '中文' } });
+    fireEvent.change(screen.getByRole('combobox', { name: '全部风格' }), { target: { value: '自然对话' } });
+    expect(screen.getAllByRole('radio')).toHaveLength(1);
+    fireEvent.change(screen.getByRole('combobox', { name: '全部语言' }), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: '推荐' }));
+    expect(screen.getByRole('radio', { name: /芊悦/ })).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /晨煦/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '自定义音色' }));
+    expect(screen.getAllByRole('radio')).toHaveLength(1);
+    expect(screen.getByRole('radio', { name: /晨煦/ })).toBeInTheDocument();
+  });
+
+  it('supports keyboard selection in the voice library', async () => {
+    const tts = createService();
+    const onChange = vi.fn();
+    render(<TtsVoicePicker id="voice" presentation="library" provider="aliyun" model="qwen3-tts-flash" value="Cherry" service={tts.service} onChange={onChange} />);
+    const selected = await screen.findByRole('radio', { name: /芊悦/ });
+    const next = screen.getByRole('radio', { name: /晨煦/ });
+    expect(selected).toHaveAttribute('tabindex', '0');
+    expect(next).toHaveAttribute('tabindex', '-1');
+    fireEvent.keyDown(selected, { key: 'ArrowDown' });
+    expect(onChange).toHaveBeenCalledWith('Ethan', expect.objectContaining({ id: 'Ethan' }));
+    expect(next).toHaveFocus();
+    fireEvent.keyDown(next, { key: 'Home' });
+    expect(selected).toHaveFocus();
+  });
+
+  it('previews library voices independently and ignores stale responses after switching or disabling', async () => {
+    const createUrl = vi.fn(() => 'blob:library-preview');
+    const revokeUrl = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createUrl });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeUrl });
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    const tts = createService();
+    const pending: Array<(response: Response) => void> = [];
+    tts.previewTtsVoice.mockImplementation(() => new Promise(resolve => pending.push(resolve)));
+    const onChange = vi.fn();
+    const props = { id: 'voice', presentation: 'library' as const, provider: 'aliyun' as const, model: 'qwen3-tts-flash', value: 'Cherry', service: tts.service, onChange };
+    const view = render(<TtsVoicePicker {...props} />);
+    await screen.findByRole('radio', { name: /芊悦/ });
+    fireEvent.click(screen.getByRole('button', { name: '试听 · 晨煦' }));
+    fireEvent.click(screen.getByRole('button', { name: '试听 · 芊悦' }));
+    const response = () => new Response(new Blob(['preview'], { type: 'audio/mpeg' }));
+    await act(async () => { pending[1]!(response()); });
+    expect(await screen.findByRole('button', { name: '暂停 · 芊悦' })).toHaveAttribute('aria-pressed', 'true');
+    await act(async () => { pending[0]!(response()); });
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('radio', { name: /芊悦/ })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('button', { name: '试听 · 晨煦' }));
+    expect(pause).toHaveBeenCalled();
+    expect(revokeUrl).toHaveBeenCalledWith('blob:library-preview');
+    view.rerender(<TtsVoicePicker {...props} disabled />);
+    await act(async () => { pending[2]!(response()); });
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: '试听 · 晨煦' })).toBeDisabled();
+    view.unmount();
   });
 });

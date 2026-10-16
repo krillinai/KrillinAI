@@ -1,4 +1,12 @@
 {
+  "Multilingual": "چندزبانه",
+  "Search voices": "جستجوی صداها",
+  "All languages": "همه زبان‌ها",
+  "All genders": "همه جنسیت‌ها",
+  "All styles": "همه سبک‌ها",
+  "No matching voices": "صدای مطابقی پیدا نشد",
+  "Male": "مرد",
+  "Female": "زن",
   "Clear script": "پاک کردن متن",
   " (stale)": " (کهنه)",
   " · does not include this artifact": " · شامل این مصنوع نمی شود",

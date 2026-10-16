@@ -36,9 +36,7 @@ it('validates and submits the complete dubbing form directly without persisting 
   fireEvent.click(submit);
   expect(within(form.parentElement!).getByRole('alert')).toHaveTextContent('请选择一个可用音色');
   expect(fixture.applyAction.mock.calls.every(([, request]) => request.action !== 'run-stage')).toBe(true);
-  await waitFor(() => expect(screen.getByRole('combobox', { name: '配音音色' })).toBeEnabled());
-  fireEvent.click(screen.getByRole('combobox', { name: '配音音色' }));
-  fireEvent.click(screen.getByRole('option', { name: /Cedar/ }));
+  fireEvent.click(await screen.findByRole('radio', { name: 'Cedar' }));
   fireEvent.click(screen.getByRole('radio', { name: '温暖' }));
   fireEvent.change(screen.getByRole('slider', { name: '语速' }), { target: { value: '0.9' } });
   fireEvent.click(screen.getByRole('radio', { name: 'WAV' }));
@@ -57,7 +55,7 @@ it.each([0, 1, 2])('restores a legacy step %s draft with every control available
   const fixture = createFixture({ text: 'Saved script', currentStep: step, furthestStep: step, style: 'calm', speed: 1.1, format: 'wav' });
   await renderWorkspace(fixture);
   expect(screen.getByRole('textbox', { name: '配音文案内容' })).toHaveValue('Saved script');
-  expect(screen.getByRole('combobox', { name: '配音音色' })).toBeVisible();
+  expect(within(screen.getByRole('radiogroup', { name: '配音音色' })).getByRole('radio', { name: 'Marin' })).toHaveAttribute('aria-checked', 'true');
   expect(screen.getByRole('radio', { name: '沉静' })).toHaveAttribute('aria-checked', 'true');
   expect(screen.getByRole('slider', { name: '语速' })).toHaveValue('1.1');
   expect(screen.getByRole('radio', { name: 'WAV' })).toHaveAttribute('aria-checked', 'true');
@@ -81,7 +79,7 @@ it('keeps the editor and voice controls locked until a submission finishes', asy
   fireEvent.click(within(form).getByRole('button', { name: '开始生成' }));
   await waitFor(() => expect(fixture.applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(true));
   expect(screen.getByRole('textbox', { name: '配音文案内容' })).toBeDisabled();
-  expect(screen.getByRole('combobox', { name: '配音音色' })).toBeDisabled();
+  expect(within(screen.getByRole('radiogroup', { name: '配音音色' })).getByRole('radio', { name: 'Marin' })).toBeDisabled();
   expect(screen.getByRole('slider')).toBeDisabled();
   fireEvent.click(within(form).getByRole('button', { name: '正在生成' }));
   expect(fixture.applyAction.mock.calls.filter(([, request]) => request.action === 'run-stage')).toHaveLength(1);
@@ -146,6 +144,16 @@ it('provides the new clear-script action in every supported client language', ()
     const copy = createLocalizedCopy(value)('清空文案', 'Clear script');
     expect(copy).toBeTruthy();
     if (value !== 'en-US') expect(copy, value).not.toBe('Clear script');
+  }
+});
+
+it('provides voice library search, filters, and gender labels in every client language', () => {
+  for (const { value } of appLanguageOptions) {
+    if (value === 'en-US') continue;
+    const l = createLocalizedCopy(value);
+    for (const [zh, en] of [['搜索音色', 'Search voices'], ['全部语言', 'All languages'], ['全部性别', 'All genders'], ['全部风格', 'All styles'], ['没有匹配的音色', 'No matching voices'], ['男声', 'Male'], ['女声', 'Female'], ['多语种', 'Multilingual']]) {
+      expect(l(zh!, en!), `${value}: ${en}`).not.toBe(en);
+    }
   }
 });
 

@@ -1,4 +1,12 @@
 {
+  "Multilingual": "Багатомовний",
+  "Search voices": "Пошук голосів",
+  "All languages": "Усі мови",
+  "All genders": "Усі типи голосу",
+  "All styles": "Усі стилі",
+  "No matching voices": "Відповідних голосів не знайдено",
+  "Male": "Чоловічий",
+  "Female": "Жіночий",
   "Clear script": "Очистити текст",
   "Maximum": "Максимальна",
   "Reference mode": "Режим референсів",

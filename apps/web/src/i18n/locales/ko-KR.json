@@ -1,4 +1,12 @@
 {
+  "Multilingual": "다국어",
+  "Search voices": "음성 검색",
+  "All languages": "모든 언어",
+  "All genders": "모든 성별",
+  "All styles": "모든 스타일",
+  "No matching voices": "일치하는 음성이 없습니다",
+  "Male": "남성",
+  "Female": "여성",
   "Clear script": "대본 지우기",
   "Maximum": "최대",
   "Reference mode": "참조 모드",

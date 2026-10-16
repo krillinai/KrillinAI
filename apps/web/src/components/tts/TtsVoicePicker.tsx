@@ -8,13 +8,14 @@ import {
   Play,
   RefreshCw
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IssueList } from '../../features/issues/IssuePresenter.js';
 import { usePageIssueState } from '../../features/issues/page-issue-state.js';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import { TtsVoiceSelect, type TtsVoiceSelectGroup } from './TtsVoiceSelect.js';
+import { TtsVoiceLibrary, type VoiceLibraryOption } from './TtsVoiceLibrary.js';
 import { voiceScenarioLabel } from './voice-scenario-copy.js';
 import './tts-voice-picker.css';
 
@@ -25,6 +26,7 @@ export function TtsVoicePicker(props: {
   value: string;
   service: Pick<CreatorServicesSettingsService, 'getTtsVoices' | 'previewTtsVoice'> | null;
   label?: string;
+  presentation?: 'select' | 'library';
   disabled?: boolean;
   allowCustomVoice?: boolean;
   onChange(voiceId: string, voice?: CreatorTtsVoice): void;
@@ -38,10 +40,12 @@ export function TtsVoicePicker(props: {
   const [loading, setLoading] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [previewVoiceId, setPreviewVoiceId] = useState('');
   const [reloadToken, setReloadToken] = useState(0);
   const [customId, setCustomId] = useState(props.value);
   const audioRef = useRef<HTMLAudioElement>(null);
   const previewUrlRef = useRef('');
+  const previewRequestRef = useRef(0);
   const onVoiceResolvedRef = useRef(props.onVoiceResolved);
   onVoiceResolvedRef.current = props.onVoiceResolved;
 
@@ -49,6 +53,7 @@ export function TtsVoicePicker(props: {
     let active = true;
     if (props.service === null || props.provider === 'edge-tts') {
       setVoices([]);
+      setLoading(false);
       pageIssues.resolveOperation('tts.load-voices');
       return () => {
         active = false;
@@ -88,8 +93,13 @@ export function TtsVoicePicker(props: {
     reloadToken
   ]);
 
-  useEffect(() => () => {
-    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+  useEffect(() => {
+    const audio = audioRef.current;
+    return () => {
+      previewRequestRef.current += 1;
+      if (audio?.getAttribute('src')) audio.pause();
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -114,16 +124,44 @@ export function TtsVoicePicker(props: {
     }))
   })), [appLanguage, l, options]);
   const selected = options.find(voice => voice.id === props.value);
+  const libraryOptions = useMemo<VoiceLibraryOption[]>(() => options.map(voice => ({
+    id: voice.id,
+    name: voice.name,
+    language: voiceLanguageLabel(voice.language, appLanguage, l) ?? '',
+    gender: voiceGenderLabel(voice.gender, l),
+    scenario: voice.scenario ? voiceScenarioLabel(voice.scenario, l) : '',
+    kind: voiceKindLabel(voice.kind, l),
+    custom: voice.kind === 'custom',
+    recommended: voice.recommended === true,
+    search: [voice.id, voice.name, voice.language, voice.gender, voice.scenario,
+      voiceLanguageLabel(voice.language, appLanguage, l), voiceGenderLabel(voice.gender, l),
+      voice.scenario ? voiceScenarioLabel(voice.scenario, l) : '', voiceKindLabel(voice.kind, l)].join(' ')
+  })), [appLanguage, l, options]);
 
   useEffect(() => {
     if (selected) onVoiceResolvedRef.current?.(selected);
   }, [selected]);
 
-  function stopPreview() {
+  const stopPreview = useCallback(() => {
+    previewRequestRef.current += 1;
     if (audioRef.current?.getAttribute('src')) {
       audioRef.current.pause();
+      audioRef.current.removeAttribute('src');
     }
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = '';
     setPlaying(false);
+    setPreviewing(false);
+    setPreviewVoiceId('');
+  }, []);
+
+  useEffect(() => { stopPreview(); }, [props.provider, props.model, props.value, props.disabled, props.service, appLanguage, stopPreview]);
+
+  function selectVoice(voiceId: string) {
+    stopPreview();
+    const voice = options.find(candidate => candidate.id === voiceId);
+    setCustomId(voiceId);
+    if (voiceId !== props.value) props.onChange(voiceId, voice);
   }
 
   function commitCustomVoice(raw: string) {
@@ -140,34 +178,43 @@ export function TtsVoicePicker(props: {
     });
   }
 
-  async function preview() {
-    if (playing) {
+  async function preview(voiceId = props.value) {
+    if (previewVoiceId === voiceId && (playing || previewing)) {
       stopPreview();
       return;
     }
     if (
       props.service === null
       || props.provider === 'edge-tts'
-      || !props.value
-      || previewing
+      || !voiceId
+      || props.disabled
+      || loading
     ) return;
+    stopPreview();
+    const request = ++previewRequestRef.current;
+    setPreviewVoiceId(voiceId);
     setPreviewing(true);
     try {
       const response = await props.service.previewTtsVoice({
         provider: props.provider,
         model: props.model,
-        voiceId: props.value
+        voiceId
       });
-      const url = URL.createObjectURL(await response.blob());
+      if (!response.ok) throw new Error(`Voice preview request failed: ${response.status}`);
+      const blob = await response.blob();
+      if (request !== previewRequestRef.current) return;
+      const url = URL.createObjectURL(blob);
       if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
       previewUrlRef.current = url;
       const audio = audioRef.current;
       if (!audio) return;
       audio.src = url;
       await audio.play();
+      if (request !== previewRequestRef.current) return;
       setPlaying(true);
       pageIssues.resolveOperation('tts.preview-voice');
     } catch (cause) {
+      if (request !== previewRequestRef.current) return;
       pageIssues.captureOperationFailure(
         'tts.preview-voice',
         cause,
@@ -175,60 +222,74 @@ export function TtsVoicePicker(props: {
         { retryable: true }
       );
     } finally {
-      setPreviewing(false);
+      if (request === previewRequestRef.current) setPreviewing(false);
     }
   }
 
   return (
-    <div className="tts-voice-picker">
-      <div className="tts-voice-picker-field">
-        <span id={`${props.id}-label`}>{props.label ?? l('默认音色', 'Default voice')}</span>
-        <TtsVoiceSelect
-          id={props.id}
-          labelId={`${props.id}-label`}
-          value={props.value}
-          groups={selectGroups}
-          placeholder={loading
-            ? l('正在加载音色', 'Loading voices')
-            : allowCustomVoice
-              ? l('请填写下方 Speaker ID', 'Enter a speaker ID below')
-              : l('暂无可用音色', 'No voices available')}
-          disabled={props.disabled || loading || props.provider === 'edge-tts'}
-          onChange={voiceId => {
-            stopPreview();
-            const voice = options.find(candidate => candidate.id === voiceId);
-            setCustomId(voiceId);
-            props.onChange(voiceId, voice);
-          }}
-        />
-      </div>
-      <div className="tts-voice-picker-actions">
-        <button
-          type="button"
-          disabled={props.disabled || loading || props.service === null || props.provider === 'edge-tts'}
-          aria-label={l('刷新音色列表', 'Refresh voices')}
-          title={l('刷新音色列表', 'Refresh voices')}
-          onClick={() => setReloadToken(current => current + 1)}
-        >
-          {loading
-            ? <LoaderCircle className="tts-voice-picker-spinner" size={16} aria-hidden="true" />
-            : <RefreshCw size={16} aria-hidden="true" />}
-        </button>
-        <button
-          type="button"
-          disabled={props.disabled || !selected || props.service === null || props.provider === 'edge-tts' || previewing}
-          aria-label={playing ? l('暂停音色试听', 'Pause voice preview') : l('试听当前音色', 'Preview selected voice')}
-          title={playing ? l('暂停', 'Pause') : l('试听', 'Preview')}
-          onClick={() => void preview()}
-        >
-          {previewing
-            ? <LoaderCircle className="tts-voice-picker-spinner" size={16} aria-hidden="true" />
-            : playing
-              ? <Pause size={16} aria-hidden="true" />
-              : <Play size={16} aria-hidden="true" />}
-        </button>
-      </div>
-      <audio ref={audioRef} hidden onEnded={() => setPlaying(false)} />
+    <div className={`tts-voice-picker${props.presentation === 'library' ? ' is-library' : ''}`}>
+      {props.presentation === 'library' ? <TtsVoiceLibrary
+        key={`${props.provider}:${props.model}:${appLanguage}`}
+        id={props.id}
+        label={props.label ?? l('默认音色', 'Default voice')}
+        value={props.value}
+        options={libraryOptions}
+        loading={loading}
+        disabled={props.disabled || props.provider === 'edge-tts'}
+        canRefresh={props.service !== null && props.provider !== 'edge-tts'}
+        canPreview={props.service !== null && props.provider !== 'edge-tts'}
+        previewVoiceId={previewVoiceId}
+        previewing={previewing}
+        playing={playing}
+        onRefresh={() => { stopPreview(); setReloadToken(current => current + 1); }}
+        onPreview={voiceId => void preview(voiceId)}
+        onStopPreview={stopPreview}
+        onChange={selectVoice}
+      /> : <>
+        <div className="tts-voice-picker-field">
+          <span id={`${props.id}-label`}>{props.label ?? l('默认音色', 'Default voice')}</span>
+          <TtsVoiceSelect
+            id={props.id}
+            labelId={`${props.id}-label`}
+            value={props.value}
+            groups={selectGroups}
+            placeholder={loading
+              ? l('正在加载音色', 'Loading voices')
+              : allowCustomVoice
+                ? l('请填写下方 Speaker ID', 'Enter a speaker ID below')
+                : l('暂无可用音色', 'No voices available')}
+            disabled={props.disabled || loading || props.provider === 'edge-tts'}
+            onChange={selectVoice}
+          />
+        </div>
+        <div className="tts-voice-picker-actions">
+          <button
+            type="button"
+            disabled={props.disabled || loading || props.service === null || props.provider === 'edge-tts'}
+            aria-label={l('刷新音色列表', 'Refresh voices')}
+            title={l('刷新音色列表', 'Refresh voices')}
+            onClick={() => { stopPreview(); setReloadToken(current => current + 1); }}
+          >
+            {loading
+              ? <LoaderCircle className="tts-voice-picker-spinner" size={16} aria-hidden="true" />
+              : <RefreshCw size={16} aria-hidden="true" />}
+          </button>
+          <button
+            type="button"
+            disabled={props.disabled || !selected || props.service === null || props.provider === 'edge-tts' || previewing}
+            aria-label={playing ? l('暂停音色试听', 'Pause voice preview') : l('试听当前音色', 'Preview selected voice')}
+            title={playing ? l('暂停', 'Pause') : l('试听', 'Preview')}
+            onClick={() => void preview()}
+          >
+            {previewing
+              ? <LoaderCircle className="tts-voice-picker-spinner" size={16} aria-hidden="true" />
+              : playing
+                ? <Pause size={16} aria-hidden="true" />
+                : <Play size={16} aria-hidden="true" />}
+          </button>
+        </div>
+      </>}
+      <audio ref={audioRef} hidden onEnded={stopPreview} />
       {allowCustomVoice ? (
         <label className="tts-voice-picker-custom" htmlFor={`${props.id}-custom`}>
           <span>{l('克隆 / 自定义 Speaker ID', 'Clone / custom speaker ID')}</span>
@@ -264,7 +325,7 @@ export function TtsVoicePicker(props: {
         actions={{
           retryOperations: {
             'tts.load-voices': () => setReloadToken(current => current + 1),
-            'tts.preview-voice': preview
+            'tts.preview-voice': () => preview(previewVoiceId || props.value)
           }
         }}
         onDismiss={pageIssues.dismissIssue}
@@ -335,6 +396,14 @@ function voiceKindLabel(
   if (kind === 'custom') return l('自定义音色', 'Custom');
   if (kind === 'designed') return l('设计音色', 'Designed');
   return '';
+}
+
+function voiceGenderLabel(gender: string | undefined, l: (zh: string, en: string) => string): string {
+  if (!gender) return '';
+  if (/^(?:male|男|男性|男声)$/i.test(gender)) return l('男声', 'Male');
+  if (/^(?:female|女|女性|女声)$/i.test(gender)) return l('女声', 'Female');
+  if (/^(?:neutral|中性)$/i.test(gender)) return l('中性', 'Neutral');
+  return gender;
 }
 
 function groupVoices(voices: CreatorTtsVoice[]): Array<{

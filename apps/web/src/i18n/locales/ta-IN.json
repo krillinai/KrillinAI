@@ -1,4 +1,12 @@
 {
+  "Multilingual": "பன்மொழி",
+  "Search voices": "குரல்களைத் தேடு",
+  "All languages": "அனைத்து மொழிகளும்",
+  "All genders": "அனைத்து பாலினங்களும்",
+  "All styles": "அனைத்து பாணிகளும்",
+  "No matching voices": "பொருந்தும் குரல்கள் இல்லை",
+  "Male": "ஆண்",
+  "Female": "பெண்",
   "Clear script": "உரையை அழி",
   " (stale)": " (பழைய)",
   " · does not include this artifact": " · இந்த கலைப்பொருள் சேர்க்கப்படவில்லை",

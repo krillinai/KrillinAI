@@ -1,4 +1,12 @@
 {
+  "Multilingual": "Многоязычный",
+  "Search voices": "Поиск голосов",
+  "All languages": "Все языки",
+  "All genders": "Все типы голоса",
+  "All styles": "Все стили",
+  "No matching voices": "Подходящие голоса не найдены",
+  "Male": "Мужской",
+  "Female": "Женский",
   "Clear script": "Очистить текст",
   "Maximum": "Максимальное",
   "Reference mode": "Режим референсов",
