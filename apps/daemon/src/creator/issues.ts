@@ -225,11 +225,11 @@ function categoryForSource(source: IssueSource): IssueCategory {
 }
 
 function fallbackForCategory(category: IssueCategory): string {
-  if (category === 'configuration') return '配置不完整，请检查相关设置。';
-  if (category === 'permission') return '当前操作没有所需权限。';
-  if (category === 'network') return '连接失败，请检查网络或服务状态。';
-  if (category === 'output-validation') return '输出未通过检查，请修正后重试。';
-  return '操作未完成，请重试。';
+  if (category === 'configuration') return 'Configuration is incomplete. Check the relevant settings.';
+  if (category === 'permission') return 'This operation requires additional permissions.';
+  if (category === 'network') return 'Connection failed. Check the network or service status.';
+  if (category === 'output-validation') return 'Output validation failed. Correct the output and try again.';
+  return 'The operation did not complete. Try again.';
 }
 
 function sanitizeIdentifier(value: string, fallback: string, max = 160): string {

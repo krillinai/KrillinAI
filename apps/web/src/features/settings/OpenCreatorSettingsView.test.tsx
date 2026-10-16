@@ -9,6 +9,7 @@ import type { GatewayAccountState } from '@opencreator/protocol';
 import type { GatewayAccountSettingsService } from '../../services/gateway-account-service.js';
 import { createGatewayAccountService } from '../../services/gateway-account-service.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
+import { ApiClientError } from '../../runtime/errors.js';
 
 const runtimeStatus = {
   connected: true,
@@ -21,6 +22,24 @@ const runtimeStatus = {
 };
 
 describe('OpenCreatorSettingsView', () => {
+  it('shows connection diagnostics and reconnects official services without a model probe', async () => {
+    const blocked: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'blocked', account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: null,
+      models: [{ id: 'vendor/text', modality: 'text', capabilities: ['responses'] }], activationError: { code: 'gateway_unavailable', message: 'Unavailable', stage: 'usage', request: { path: '/api/v1/client/usage', reason: 'http', httpStatus: 503 } } };
+    const ready: GatewayAccountState = { ...blocked, activationState: 'ready', bindingVersion: 'a:1', activationError: null };
+    const client = { get: vi.fn(), post: vi.fn().mockResolvedValue(ready), patch: vi.fn() };
+    const changed = vi.fn();
+    render(<OpenCreatorSettingsView runtimeStatus={runtimeStatus} gatewayAccountService={createGatewayAccountService(client)} gatewayAccountState={blocked} onGatewayStateChange={changed} initialTab="ai-services" onBack={vi.fn()} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('同步设备状态');
+    expect(screen.getByRole('alert')).toHaveTextContent('/api/v1/client/usage');
+    expect(screen.getByRole('alert')).toHaveTextContent('HTTP 503');
+    expect(screen.getByRole('combobox', { name: '文本模型' })).toBeDisabled();
+    await userEvent.setup().click(screen.getByRole('button', { name: '重新连接' }));
+    await waitFor(() => expect(changed).toHaveBeenCalledWith(ready));
+    expect(client.post).toHaveBeenCalledExactlyOnceWith('/gateway/auth/activate', {});
+    expect(client.patch).not.toHaveBeenCalled();
+    expect(screen.getByRole('combobox', { name: '文本模型' })).toBeEnabled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
   it('keeps the general proxy editable while signed in without reading custom credentials', async () => {
     const state: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: '1', models: [], activationError: null };
     const getConfig = vi.fn(); const saveNetwork = vi.fn(async (value: { proxy: string }) => value);
@@ -47,6 +66,67 @@ describe('OpenCreatorSettingsView', () => {
     await user.click(screen.getByRole('option', { name: 'second' }));
     await waitFor(() => expect(changed).toHaveBeenCalledWith(next));
     expect(client.patch).toHaveBeenCalledWith('/gateway/model', { modality: 'text', model: 'vendor/second' });
+  });
+  it.each(['ready', 'inactive'] as const)('disables official models on session expiry with %s activation and recovers after sign-in', async activationState => {
+    const state: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: 'a:1',
+      models: [{ id: 'vendor/first', modality: 'text', capabilities: ['responses'] }, { id: 'vendor/second', modality: 'text', capabilities: ['responses'] }], selectedModels: { text: 'vendor/second' }, activationError: null };
+    const expired = { ...state, authState: 'expired' as const, activationState };
+    const client = { get: vi.fn(), post: vi.fn(), patch: vi.fn() };
+    const service = createGatewayAccountService(client);
+    const onOpenPersonalCenter = vi.fn();
+    const props = { runtimeStatus, gatewayAccountService: service, initialTab: 'ai-services' as const, onOpenPersonalCenter, onBack: vi.fn() };
+    const view = render(<OpenCreatorSettingsView {...props} gatewayAccountState={state}/>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: '文本模型' }));
+    expect(screen.getByRole('listbox', { name: '文本模型' })).toBeInTheDocument();
+    view.rerender(<OpenCreatorSettingsView {...props} gatewayAccountState={expired}/>);
+    expect(await screen.findByText('登录已过期')).toBeInTheDocument();
+    expect(screen.queryByText('已连接')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).not.toHaveClass('is-ready');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    for (const model of screen.getAllByRole('combobox')) expect(model).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: '文本模型' })).toHaveValue('second');
+    await user.click(screen.getByRole('button', { name: '重新登录' }));
+    expect(onOpenPersonalCenter).toHaveBeenCalledOnce();
+    expect(client.patch).not.toHaveBeenCalled();
+    view.rerender(<OpenCreatorSettingsView {...props} gatewayAccountState={state}/>);
+    expect(await screen.findByText('已连接')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '文本模型' })).toBeEnabled();
+    expect(screen.getByRole('combobox', { name: '文本模型' })).toHaveValue('second');
+  });
+  it('refreshes account state when a model change discovers an expired session', async () => {
+    const state: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: 'a:1',
+      models: [{ id: 'vendor/first', modality: 'text', capabilities: ['responses'] }, { id: 'vendor/second', modality: 'text', capabilities: ['responses'] }], selectedModels: { text: 'vendor/first' }, activationError: null };
+    const expired = { ...state, authState: 'expired' as const, activationState: 'inactive' as const };
+    const client = { get: vi.fn().mockResolvedValue(expired), post: vi.fn(), patch: vi.fn().mockRejectedValue(new ApiClientError({ status: 401, code: 'GATEWAY_AUTH_REQUIRED', message: 'Sign in again' })) };
+    const service = createGatewayAccountService(client);
+    const changed = vi.fn();
+    render(<OpenCreatorSettingsView runtimeStatus={runtimeStatus} gatewayAccountService={service} gatewayAccountState={state} onGatewayStateChange={changed} initialTab="ai-services" onBack={vi.fn()}/>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: '文本模型' }));
+    await user.click(screen.getByRole('option', { name: 'second' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('登录已过期，请重新登录');
+    expect(screen.queryByText(/请等待当前任务结束/)).not.toBeInTheDocument();
+    await waitFor(() => expect(changed).toHaveBeenCalledWith(expired));
+    expect(client.get).toHaveBeenCalledWith('/gateway/account');
+    expect(screen.getByRole('combobox', { name: '文本模型' })).toBeDisabled();
+  });
+  it.each([
+    ['invalid_model', '该模型已不可用，请刷新模型列表后重试'],
+    ['services_not_ready', '模型服务暂不可用，请重新连接后重试'],
+    ['gateway_unavailable', '模型切换失败，请重试']
+  ])('shows the actual model switch failure for %s without claiming a task is active', async (gatewayCode, message) => {
+    const state: GatewayAccountState = { source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@test', verified: true }, bindingVersion: 'a:1',
+      models: [{ id: 'vendor/first', modality: 'text', capabilities: ['responses'] }, { id: 'vendor/second', modality: 'text', capabilities: ['responses'] }], selectedModels: { text: 'vendor/first' }, activationError: null };
+    const client = { get: vi.fn().mockResolvedValue(state), post: vi.fn(), patch: vi.fn().mockRejectedValue(new ApiClientError({ status: 400, code: 'GATEWAY_UNAVAILABLE', message: 'Switch failed', details: { gatewayCode } })) };
+    render(<OpenCreatorSettingsView runtimeStatus={runtimeStatus} gatewayAccountService={createGatewayAccountService(client)} gatewayAccountState={state} initialTab="ai-services" onBack={vi.fn()}/>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('combobox', { name: '文本模型' }));
+    await user.click(screen.getByRole('option', { name: 'second' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(message);
+    expect(screen.queryByText(/请等待当前任务结束/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('combobox', { name: '文本模型' })).toBeEnabled());
+    expect(screen.getByRole('combobox', { name: '文本模型' })).toHaveValue('first');
   });
   it('shows custom settings for guests and directs sign-in to the personal center', async () => {
     const gateway: GatewayAccountState = { source: 'manual', authState: 'signed_out', activationState: 'inactive', account: null, bindingVersion: null, models: [], activationError: null };
@@ -125,6 +205,21 @@ describe('OpenCreatorSettingsView', () => {
     expect(window.localStorage.getItem(languagePreferenceStorageKey)).toBe('en-US');
     expect(document.documentElement).toHaveAttribute('lang', 'en-US');
 
+    window.localStorage.removeItem(languagePreferenceStorageKey);
+  });
+
+  it.each([
+    ['ja-JP', '一般'], ['ko-KR', '일반'], ['es-ES', 'General'],
+    ['fr-FR', 'Général'], ['de-DE', 'Allgemein'], ['pt-BR', 'Geral']
+  ] as const)('offers and immediately switches to %s', (language, heading) => {
+    render(<LanguageProvider initialPreference="en-US"><OpenCreatorSettingsView runtimeStatus={runtimeStatus} onBack={vi.fn()} /></LanguageProvider>);
+    const select = screen.getByRole('combobox', { name: 'Display language' });
+    expect(select.querySelectorAll('option')).toHaveLength(10);
+    fireEvent.change(select, { target: { value: language } });
+    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
+    expect(select).toHaveValue(language);
+    expect(window.localStorage.getItem(languagePreferenceStorageKey)).toBe(language);
+    expect(document.documentElement.lang).toBe(language);
     window.localStorage.removeItem(languagePreferenceStorageKey);
   });
 
@@ -337,7 +432,7 @@ describe('OpenCreatorSettingsView', () => {
 
     expect(await screen.findByRole('textbox', { name: '默认项目位置' }))
       .toHaveValue('/Users/demo/Documents/OpenCreator');
-    await user.click(screen.getByRole('button', { name: '选择完成产物位置' }));
+    await user.click(screen.getByRole('button', { name: 'Select 完成产物位置' }));
     expect(onSelectStorageDirectory).toHaveBeenCalledWith('output-root');
     expect(updateStorageSettings).toHaveBeenCalledWith({
       outputRoot: '/Users/demo/Exports'
@@ -375,13 +470,13 @@ describe('OpenCreatorSettingsView', () => {
     const output = await screen.findByRole('textbox', { name: '完成产物位置' });
     await user.clear(output);
     await user.type(output, '/Users/demo/Custom Exports');
-    await user.click(screen.getByRole('button', { name: '保存完成产物位置' }));
+    await user.click(screen.getByRole('button', { name: 'Save 完成产物位置' }));
 
     expect(updateStorageSettings).toHaveBeenCalledWith({
       outputRoot: '/Users/demo/Custom Exports'
     });
     expect(output).toHaveValue('/Users/demo/Custom Exports');
-    expect(screen.queryByRole('button', { name: '选择完成产物位置' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Select 完成产物位置' })).not.toBeInTheDocument();
   });
 
   it('shows the anonymous telemetry scope and allows Desktop users to disable it', () => {

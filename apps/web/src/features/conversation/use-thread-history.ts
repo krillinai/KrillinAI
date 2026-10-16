@@ -102,7 +102,7 @@ export function useThreadHistory(input: {
         const next: ThreadHistoryState = {
           ...emptyState(threadId),
           loaded: true,
-          error: '无法加载聊天历史'
+          error: 'Could not load chat history'
         };
         stateRef.current = next;
         setState(next);
@@ -174,7 +174,7 @@ export function useThreadHistory(input: {
       const next = {
         ...stateRef.current,
         loadingOlder: false,
-        error: '无法加载更早的聊天历史'
+        error: 'Could not load earlier chat history'
       };
       stateRef.current = next;
       setState(next);

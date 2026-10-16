@@ -65,6 +65,7 @@ describe('yt-dlp update manager', () => {
     const release = releaseFixture(LATEST_VERSION);
     const fetchImpl = releaseFetch(release);
     const updatesRoot = join(root, 'updates');
+    bundledRuntime.prefixArgs.push('--plugin-dirs', join(root, 'plugins'));
     const manager = await createManager(updatesRoot, bundledRuntime, fetchImpl);
 
     await manager.update();
@@ -83,6 +84,9 @@ describe('yt-dlp update manager', () => {
       script: join(updatesRoot, 'versions', LATEST_VERSION, 'yt-dlp')
     });
     expect(manager.getRuntime().script).not.toBe(bundledRuntime.script);
+    expect(manager.getRuntime().prefixArgs).toEqual([
+      manager.getRuntime().script, '--plugin-dirs', join(root, 'plugins')
+    ]);
 
     const restored = await createManager(updatesRoot, bundledRuntime, fetchImpl);
     expect(restored.status()).toMatchObject({
@@ -93,6 +97,7 @@ describe('yt-dlp update manager', () => {
     expect(restored.getRuntime().script).toBe(
       join(updatesRoot, 'versions', LATEST_VERSION, 'yt-dlp')
     );
+    expect(restored.getRuntime().prefixArgs.slice(1)).toEqual(['--plugin-dirs', join(root, 'plugins')]);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 

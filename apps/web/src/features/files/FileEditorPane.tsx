@@ -1,3 +1,5 @@
+import type { LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { WorkspaceFileMeta } from '@opencreator/protocol';
 import { FileCode2, FileImage, FileText, Image as ImageIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -26,6 +28,7 @@ export type FileEditorPaneProps = {
 export type FileEditorMode = 'edit' | 'preview';
 
 export function FileEditorPane(props: FileEditorPaneProps) {
+  const l = useLocalizedCopy();
   const meta = props.meta;
   const [uncontrolledMode, setUncontrolledMode] = useState<FileEditorMode>(
     () => defaultModeForMeta(props.meta)
@@ -47,9 +50,9 @@ export function FileEditorPane(props: FileEditorPaneProps) {
 
   if (!meta) {
     return (
-      <section className="file-editor-pane" data-toolbar={toolbar} aria-label="文件编辑区">
+      <section className="file-editor-pane" data-toolbar={toolbar} aria-label={l("文件编辑区", "File editing area")}>
         <div className="file-preview file-preview-empty">
-          <p>选择一个文件</p>
+          <p>{l("选择一个文件", "Select a file")}</p>
         </div>
       </section>
     );
@@ -66,7 +69,7 @@ export function FileEditorPane(props: FileEditorPaneProps) {
   };
 
   return (
-    <section className="file-editor-pane" data-toolbar={toolbar} aria-label="文件编辑区">
+    <section className="file-editor-pane" data-toolbar={toolbar} aria-label={l("文件编辑区", "File editing area")}>
       {toolbar === 'inline' ? (
         <header className="file-editor-toolbar">
           <div className="file-editor-toolbar-main">
@@ -74,26 +77,24 @@ export function FileEditorPane(props: FileEditorPaneProps) {
               <strong>{meta.name}</strong>
               <span>{meta.path}</span>
             </div>
-            {props.dirty ? <span className="dirty-indicator">未保存</span> : null}
+            {props.dirty ? <span className="dirty-indicator">{l("未保存", "Unsaved")}</span> : null}
           </div>
 
           <div className="file-editor-toolbar-actions">
             {editable && previewable ? (
-              <div className="file-editor-mode-toggle" aria-label="文件视图模式">
+              <div className="file-editor-mode-toggle" aria-label={l("文件视图模式", "file view mode")}>
                 <button
                   type="button"
                   aria-pressed={currentMode === 'preview'}
                   onClick={() => setMode('preview')}
                 >
-                  预览
-                </button>
+                  {l("预览", "Preview")}</button>
                 <button
                   type="button"
                   aria-pressed={currentMode === 'edit'}
                   onClick={() => setMode('edit')}
                 >
-                  编辑
-                </button>
+                  {l("编辑", "Edit")}</button>
               </div>
             ) : null}
 
@@ -104,16 +105,15 @@ export function FileEditorPane(props: FileEditorPaneProps) {
                 disabled={props.saving || !props.dirty || meta.readonly}
                 onClick={() => props.onSave?.()}
               >
-                保存
-              </button>
+                {l("保存", "Save")}</button>
             ) : null}
           </div>
         </header>
       ) : null}
 
-      {props.loading ? <div className="file-loading-bar" role="status">正在加载文件...</div> : null}
+      {props.loading ? <div className="file-loading-bar" role="status">{l("正在加载文件...", "Loading files...")}</div> : null}
 
-      {renderContent({
+      {renderContent(l, {
         meta,
         mode: currentMode,
         content: props.content ?? '',
@@ -142,11 +142,11 @@ type RenderContentArgs = {
   onSave?: () => void;
 };
 
-function renderContent(args: RenderContentArgs) {
+function renderContent(l: LocalizeCopy, args: RenderContentArgs) {
   if (isImagePreview(args.meta)) {
     return (
       <div className="file-preview file-preview-media">
-        {args.objectUrl ? <img src={args.objectUrl} alt={args.meta.name} /> : <p>图片预览不可用</p>}
+        {args.objectUrl ? <img src={args.objectUrl} alt={args.meta.name} /> : <p>{l("图片预览不可用", "Image preview not available")}</p>}
       </div>
     );
   }
@@ -155,9 +155,9 @@ function renderContent(args: RenderContentArgs) {
     return (
       <div className="file-preview file-preview-media">
         {args.objectUrl ? (
-          <object data={args.objectUrl} type="application/pdf" title={`${args.meta.name} PDF 预览`} aria-label={`${args.meta.name} PDF 预览`} />
+          <object data={args.objectUrl} type="application/pdf" title={l(`${args.meta.name} PDF 预览`, `${args.meta.name} PDF preview`)} aria-label={l(`${args.meta.name} PDF 预览`, `${args.meta.name} PDF preview`)} />
         ) : (
-          <p>PDF 预览不可用</p>
+          <p>{l("PDF 预览不可用", "PDF preview not available")}</p>
         )}
       </div>
     );
@@ -165,7 +165,7 @@ function renderContent(args: RenderContentArgs) {
 
   if (isTextLike(args.meta)) {
     if (args.mode === 'preview') {
-      return renderTextPreview(
+      return renderTextPreview(l,
         args.meta,
         args.content,
         args.htmlPreviewResources,
@@ -187,10 +187,10 @@ function renderContent(args: RenderContentArgs) {
     );
   }
 
-  return renderUnsupported(args.meta);
+  return renderUnsupported(l, args.meta);
 }
 
-function renderTextPreview(
+function renderTextPreview(l: LocalizeCopy,
   meta: WorkspaceFileMeta,
   content: string,
   htmlPreviewResources?: HtmlPreviewResources,
@@ -232,6 +232,7 @@ function renderTextPreview(
 }
 
 function JsonPreview(props: { content: string }) {
+  const l = useLocalizedCopy();
   const parsed = useMemo(() => {
     try {
       return {
@@ -248,24 +249,24 @@ function JsonPreview(props: { content: string }) {
 
   return (
     <div className="file-preview">
-      {parsed.ok ? null : <p className="file-preview-note">JSON 解析失败，以下保留原始内容。</p>}
+      {parsed.ok ? null : <p className="file-preview-note">{l("JSON 解析失败，以下保留原始内容。", "JSON parsing failed, original content retained below.")}</p>}
       <pre>{parsed.text}</pre>
     </div>
   );
 }
 
-function renderUnsupported(meta: WorkspaceFileMeta) {
+function renderUnsupported(l: LocalizeCopy, meta: WorkspaceFileMeta) {
   return (
     <div className="unsupported-file-state">
       <div className="unsupported-file-state-icon" aria-hidden="true">
         {unsupportedIcon(meta)}
       </div>
       <div className="unsupported-file-state-copy">
-        <strong>暂不支持预览此文件</strong>
+        <strong>{l('暂不支持预览此文件', 'Preview is not supported for this file yet')}</strong>
         <span>{meta.name}</span>
         <span>{meta.mime}</span>
         <span>{formatSize(meta.size)}</span>
-        <p>{meta.reason ?? '该文件当前既不可编辑，也没有可用预览。'}</p>
+        <p>{meta.reason ?? l('该文件当前既不可编辑，也没有可用预览。', 'This file cannot be edited and has no available preview.')}</p>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import { Check, RotateCcw, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { MarkdownRenderer } from '../../components/markdown/MarkdownRenderer.js';
@@ -55,6 +56,7 @@ function DetailContent(props: Pick<DetailPanelProps, 'mode' | 'title' | 'subtitl
 }
 
 export function DetailPanel(props: DetailPanelProps) {
+  const l = useLocalizedCopy();
   return (
     <aside className={`detail-panel detail-${props.mode}`} aria-labelledby="detail-panel-title">
       <header className="detail-header">
@@ -62,12 +64,12 @@ export function DetailPanel(props: DetailPanelProps) {
           <h2 id="detail-panel-title">{props.title}</h2>
           {props.subtitle ? <span>{props.subtitle}</span> : null}
         </div>
-        <button className="icon-button" type="button" aria-label="关闭详情" onClick={props.onClose}>
+        <button className="icon-button" type="button" aria-label={l("关闭详情", "Close details")} onClick={props.onClose}>
           <X aria-hidden="true" size={16} />
         </button>
       </header>
 
-      <div className="detail-content" role="region" aria-label="详情内容">
+      <div className="detail-content" role="region" aria-label={l("详情内容", "Details")}>
         <DetailContent mode={props.mode} title={props.title} subtitle={props.subtitle} content={props.content} />
       </div>
 
@@ -75,11 +77,11 @@ export function DetailPanel(props: DetailPanelProps) {
         <footer className="detail-actions">
           <button className="toolbar-button" type="button" onClick={props.onRevert} disabled={!props.onRevert}>
             <RotateCcw aria-hidden="true" size={16} />
-            <span>撤销</span>
+            <span>{l("撤销", "Cancel")}</span>
           </button>
           <button className="toolbar-button primary" type="button" onClick={props.onApprove} disabled={!props.onApprove}>
             <Check aria-hidden="true" size={16} />
-            <span>审核</span>
+            <span>{l("审核", "review")}</span>
           </button>
         </footer>
       ) : null}

@@ -3,6 +3,9 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import type { AppLanguage } from '../../i18n/language.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
+import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 import { OpenCreatorSidebar } from './OpenCreatorSidebar.js';
 
 const projects = [
@@ -41,7 +44,7 @@ const conversations = [
   }
 ];
 
-function renderSidebar(overrides: Partial<ComponentProps<typeof OpenCreatorSidebar>> = {}) {
+function renderSidebar(overrides: Partial<ComponentProps<typeof OpenCreatorSidebar>> = {}, language: AppLanguage = 'zh-CN') {
   return render(
     <OpenCreatorSidebar
       projects={projects}
@@ -59,11 +62,43 @@ function renderSidebar(overrides: Partial<ComponentProps<typeof OpenCreatorSideb
       onOpenSettings={vi.fn()}
       onToggleCollapsed={vi.fn()}
       {...overrides}
-    />
+    />,
+    { wrapper: ({ children }) => <LanguageProvider initialPreference={language}><LanguageSwitchControls />{children}</LanguageProvider> }
   );
 }
 
 describe('OpenCreatorSidebar', () => {
+  it.each([
+    ['zh-CN', '个人中心', '未登录'], ['en-US', 'Account', 'Signed out'],
+    ['sv-SE', 'Konto', 'Utloggad'], ['ja-JP', 'アカウント', '未ログイン'],
+    ['ko-KR', '계정', '로그인되지 않음'], ['es-ES', 'Cuenta', 'Sin iniciar sesión'],
+    ['fr-FR', 'Compte', 'Non connecté'], ['de-DE', 'Konto', 'Abgemeldet'],
+    ['pt-BR', 'Conta', 'Não conectado']
+  ] as const)('localizes the footer, expired state and collapsed tooltip in %s', (language, account, signedOut) => {
+    const view = renderSidebar({}, language);
+    const button = screen.getByRole('button', { name: account });
+    expect(button).toHaveAttribute('title', account);
+    expect(within(button).getByText(signedOut)).toBeVisible();
+    view.unmount();
+    const expired = renderSidebar({ gatewayAccountState: { source: 'gateway', authState: 'expired', activationState: 'inactive', account: null, bindingVersion: 'guest:0', models: [], activationError: null } }, language);
+    expect(screen.getByText(createLocalizedCopy(language)('登录已过期', 'Session expired'))).toBeVisible();
+    expired.unmount();
+    renderSidebar({ collapsed: true }, language);
+    expect(screen.getByRole('button', { name: account })).toHaveAttribute('title', account);
+  });
+
+  it('updates footer and project actions without changing account or user content', () => {
+    renderSidebar({ onArchiveProject: vi.fn(), gatewayAccountState: { source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models: [], activationError: null } });
+    for (const language of ['sv-SE', 'ja-JP', 'fr-FR'] as const) {
+      fireEvent.click(screen.getByRole('button', { name: language }));
+      expect(screen.getByRole('button', { name: createLocalizedCopy(language)('个人中心', 'Account') })).toBeVisible();
+      expect(screen.getByText('a@example.test')).toBeVisible();
+      expect(screen.getByRole('button', { name: 'content-design' })).toBeVisible();
+      expect(screen.getAllByTitle(createLocalizedCopy(language)('项目操作', 'Project operations'))[0]).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '整理本周项目进展 4天' })).toBeInTheDocument();
+    }
+  });
+
   it.each([
     { collapsed: false, activeView: 'account' as const },
     { collapsed: true, activeView: 'account' as const },

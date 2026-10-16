@@ -525,7 +525,7 @@ describe.runIf(runRealCodex)('real codex smoke', () => {
       expect(secondRun.codexThreadId).not.toBe(firstRun.codexThreadId);
       expect(second.events.body).toContain(ROTATION_SECOND_MARKER);
       expect(second.events.body).toContain('THREAD_CODEX_SESSION_ROTATED');
-      expect(second.events.body).toContain('执行上下文已重新连接');
+      expect(second.events.body).toContain('Execution context reconnected');
     } finally {
       await server.close();
       rmSync(dataDir, { recursive: true, force: true });

@@ -17,6 +17,28 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.official-model-error { color: var(--danger, #c43c45); overflow-wrap: anywhere; white-space: pre-line; }
+
+.video-generation-prompt-inputs.has-official-references { grid-template-columns: minmax(0, 1fr); }
+.official-video-references { display: grid; gap: 12px; min-width: 0; padding-top: 12px; border-top: 1px solid var(--border); }
+.official-video-modes { display: flex; flex-wrap: wrap; gap: 4px; }
+.official-video-modes button { padding: 6px 12px; border: 1px solid var(--border); border-radius: 4px; color: var(--text); background: var(--surface-2); font-size: 12px; }
+.official-video-modes button[aria-pressed="true"] { background: var(--text); color: var(--surface); }
+.official-video-reference-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 14px; }
+.official-video-reference-field { display: grid; align-content: start; gap: 8px; min-width: 0; font-size: 12px; }
+.official-video-reference-field > span { display: flex; justify-content: space-between; gap: 8px; }
+.official-video-reference-field small { color: var(--text-muted); }
+.official-video-reference-field ul { list-style: none; display: grid; gap: 5px; margin: 0; padding: 0; }
+.official-video-reference-field li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.official-video-reference-field li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.official-video-reference-field li button { display: grid; place-items: center; flex: 0 0 26px; width: 26px; height: 26px; border: 0; background: transparent; color: var(--text-muted); }
+.official-video-reference-add { display: inline-flex; align-items: center; justify-self: start; position: relative; gap: 6px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
+.official-video-reference-add input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.official-video-reference-add[aria-disabled="true"] { opacity: .5; cursor: default; }
+.official-video-reference-add:focus-within { outline: 2px solid var(--text-muted); outline-offset: 2px; }
+.official-video-quote { color: var(--text); font-size: 13px; overflow-wrap: anywhere; }
+.official-video-audio { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+
 @media (max-width: 760px) {
   .video-generation-settings-grid.is-official { grid-template-columns: minmax(0, 1fr); }
 }

@@ -15,13 +15,13 @@
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="OpenCreator (المعروف سابقًا باسم KrillinAI): المستودع رقم 1 لهذا اليوم على Trendshift" width="250" height="55" /></a>
 
-[English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | **العربية** | [ภาษาไทย](../th/README.md)
+[English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | **العربية** | [ภาษาไทย](../th/README.md) | [Türkçe](../tr/README.md) | [हिन्दी](../hi/README.md) | [বাংলা](../bn/README.md) | [اردو](../ur/README.md) | [Tiếng Việt](../vi/README.md) | [Filipino](../fil/README.md)
 
 [![GitHub Stars](https://badgen.net/github/stars/krillinai/OpenCreator?icon=github&label=Stars&color=EAB308)](https://github.com/krillinai/OpenCreator/stargazers)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%E7%B2%89%E4%B8%9D&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
 [![AtomGit G-Star](https://img.shields.io/badge/AtomGit-G--Star-DA203E?style=flat)](https://atomgit.com/krillinai/OpenCreator)
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/fUNvbqDaw)
 [![مجموعة QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
 [الميزات](#أبرز-ميزات-المشروع) · [الأدوات](#أدوات-الإنشاء) · [Skills](#skills) · [أمثلة](#أمثلة) · [البدء](#البدء-السريع) · [Desktop](#desktop) · [الوثائق](#الوثائق) · [المجتمع](#المجتمع)
@@ -87,7 +87,7 @@
 </thead>
 <tbody>
 <tr><td valign="top">ترجمة الفيديو</td><td valign="top">✅ متاح</td><td>استورد مقاطع فيديو محلية أو عامة؛ وحوّل الكلام إلى نص باستخدام خدمات Whisper السحابية أو المحلية؛ واستخدم سياق LLM لتقسيم الترجمات ومحاذاتها ومعالجة المصطلحات والترجمة؛ واضبط الترجمات ثنائية اللغة أو الدبلجة أو عينة صوت مخصصة وأنماط الترجمة والتنسيق الأفقي أو العمودي، ثم صدّر SRT أو الصوت أو الفيديو</td></tr>
-<tr><td valign="top">تنزيل الفيديو</td><td valign="top">✅ متاح</td><td>حلّل مقاطع الفيديو العامة الفردية من YouTube وBilibili وX وTikTok وInstagram وDouyin وFacebook وXiaohongshu وPinterest، وقارن التنسيقات المتاحة ونزّل الفيديو أو الصوت. قد تتطلب بعض المنصات ملفات تعريف الارتباط</td></tr>
+<tr><td valign="top">تنزيل الفيديو</td><td valign="top">✅ متاح</td><td>حلّل مقاطع الفيديو العامة الفردية من YouTube وBilibili وX وTikTok وInstagram وDouyin وFacebook وXiaohongshu وPinterest وReddit، وقارن التنسيقات المتاحة ونزّل الفيديو أو الصوت. قد تتطلب بعض المنصات ملفات تعريف الارتباط</td></tr>
 <tr><td valign="top">إنشاء الصور المصغرة</td><td valign="top">✅ متاح</td><td>ادمج موضوعًا ورابط فيديو وصورة مرجعية اختيارية لإنشاء عدة خيارات من الصور المصغرة للمحتوى ومقارنتها</td></tr>
 <tr><td valign="top">توليد الصور</td><td valign="top">✅ متاح</td><td>أنشئ صورًا باستخدام GPT Image انطلاقًا من prompt وصورة مرجعية اختيارية، واضبط نسبة العرض إلى الارتفاع وعدد النتائج، ثم عاين كل صورة ونزّلها</td></tr>
 <tr><td valign="top">كتابة المقالات</td><td valign="top">✅ متاح</td><td>حوّل موضوعًا أو روابط أو فيديوهات أو مستندات إلى أفكار ومخطط ومقال قابل للتحرير؛ أضف صورًا وصدّر بصيغ Markdown أو HTML أو PDF.</td></tr>
@@ -107,11 +107,9 @@
 
 تجمع المكتبة بين القوالب الأصلية من OpenCreator وقوالب المبدعين المستقلين. وتذكر صفحة تفاصيل قوالب الجهات الخارجية اسم المؤلف ورابط المصدر الأصلي.
 
-![معرض قوالب الإنشاء المميزة للفيديو والصور](../images/product/creation-templates-gallery-en.png)
-
 افتح القالب لمعاينة مثال للنتيجة والاطلاع على الوصف والإعدادات والوسوم والمؤلف والمصدر الأصلي. اختر **استخدم هذا القالب** لبدء الإنشاء منه، ثم عدّل المدخلات بما يناسب عملك.
 
-![تفاصيل قالب إنشاء الصور مع مثال للنتيجة والإعدادات والوصف](../images/product/creation-templates-detail-en.png)
+![تفاصيل قالب إنشاء الصور مع مثال للنتيجة والإعدادات والوصف](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 
@@ -254,39 +252,36 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > أُنتجت أمثلة الفيديو هذه وصورة محاذاة الترجمات عندما كان OpenCreator لا يزال يستخدم اسم KrillinAI.
 
-### إنشاء الفيديو
-
-أنشئ فيديو بالذكاء الاصطناعي من مطالبة نصية أو صورة مرجعية باستخدام Seedance. اضبط النموذج ونسبة العرض إلى الارتفاع والدقة والمدة، ثم عاين كل إصدار أو أعد إنشاءه أو نزّله من مساحة عمل المشروع.
-
-![إنشاء فيديو في OpenCreator باستخدام Seedance](../images/examples/video-generation-seedance-en.png)
-
 ### تنزيل الفيديو
 
-حلّل رابط فيديو عامًا، وقارن التنسيقات المتاحة، ثم نزّل الفيديو أو الصوت مباشرةً إلى المشروع.
+حلّل روابط الفيديو العامة من 10 منصات مدعومة، وقارن التنسيقات المتاحة، ثم نزّل الفيديو أو الصوت مباشرةً إلى المشروع.
 
 مصادر الفيديو المدعومة:
 
 <table align="center">
   <tr>
-    <td align="center" width="96"><img src="../images/platforms/youtube.png" alt="YouTube" width="32" height="32" /><br /><strong>YouTube</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/bilibili.png" alt="Bilibili" width="32" height="32" /><br /><strong>Bilibili</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/x.png" alt="X" width="32" height="32" /><br /><strong>X</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/tiktok.png" alt="TikTok" width="32" height="32" /><br /><strong>TikTok</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/instagram.png" alt="Instagram" width="32" height="32" /><br /><strong>Instagram</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/douyin.png" alt="Douyin" width="32" height="32" /><br /><strong>Douyin</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="32" height="32" /><br /><strong>Xiaohongshu</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
+    <td align="center" width="48"><img src="../images/platforms/youtube.png" alt="YouTube" width="24" height="24" /><br /><small><small>YouTube</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/bilibili.png" alt="Bilibili" width="24" height="24" /><br /><small><small>Bilibili</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/x.png" alt="X" width="24" height="24" /><br /><small><small>X</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/tiktok.png" alt="TikTok" width="24" height="24" /><br /><small><small>TikTok</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/instagram.png" alt="Instagram" width="24" height="24" /><br /><small><small>Instagram</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/douyin.png" alt="Douyin" width="24" height="24" /><br /><small><small>Douyin</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/facebook.png" alt="Facebook" width="24" height="24" /><br /><small><small>Facebook</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="24" height="24" /><br /><small><small>Xiaohongshu</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="24" height="24" /><br /><small><small>Pinterest</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/reddit.png" alt="Reddit" width="24" height="24" /><br /><small><small>Reddit</small></small></td>
   </tr>
 </table>
 
 يعتمد توفر التنزيل على الفيديو والمنطقة؛ وقد تتطلب بعض المصادر ملفات تعريف الارتباط الخاصة بالمنصة. لا يستورد OpenCreator ملفات تعريف الارتباط من المتصفح تلقائيًا.
 
-**منشورات فيديو Xiaohongshu:** الصق الرابط العام الكامل `https://www.xiaohongshu.com/explore/<معرّف منشور سداسي عشري من 24 خانة>` مع الاحتفاظ بمعلمات مثل `xsec_token`. المنشورات التي تحتوي على صور فقط لا توفر تنسيقات فيديو؛ ولا تُدعم صفحات الملفات الشخصية أو روابط `xhslink.com` المختصرة. قد تمنع الرموز المنتهية أو قيود الوصول التنزيل.
-
-**دبابيس فيديو Pinterest:** الصق رابطًا عامًا `https://www.pinterest.com/pin/<معرّف رقمي>/`. لا تُدعم الدبابيس التي تحتوي على صور فقط أو اللوحات أو الملفات الشخصية.
-
 ![اختيار تنسيق تنزيل الفيديو في OpenCreator](../images/examples/video-downloader-formats-en.png)
+
+### إنشاء الفيديو
+
+أنشئ فيديو بالذكاء الاصطناعي من مطالبة نصية أو صورة مرجعية باستخدام Seedance. اضبط النموذج ونسبة العرض إلى الارتفاع والدقة والمدة، ثم عاين كل إصدار أو أعد إنشاءه أو نزّله من مساحة عمل المشروع.
+
+![إنشاء فيديو في OpenCreator باستخدام Seedance](../images/examples/video-generation-seedance-en.png)
 
 ### رسوم شخصيات العصا المتحركة
 

@@ -67,7 +67,7 @@ export function manageLocalComponents(input: {
         for (const listener of listeners) listener(progress);
       };
       publish({ phase: preceding.length > 0 ? 'downloading_dependencies' : 'verifying_dependencies', percent: 2, dependency: provider, dependencyModel: model,
-        message: preceding.length > 0 ? '正在等待本地转录引擎的共享组件准备完成，随后会自动准备当前模型并继续转录，无需重新开始。' : '正在检查本地转录引擎和模型是否已安装；缺失时会自动下载，准备完成后会自动继续转录。'
+        message: preceding.length > 0 ? 'Waiting for shared transcription components. The selected model will be prepared next, and transcription will resume automatically.' : 'Checking the local transcription engine and model. Missing components will be downloaded, and transcription will resume automatically.'
       });
       current.promise = Promise.all(preceding).then(() => input.loader.ensure({
         config: structuredClone(request.config),
@@ -76,7 +76,7 @@ export function manageLocalComponents(input: {
       })).then(() => {
         states.set(key, { state: 'ready', model, error: null, percent: 100 });
         inspectedAt = 0;
-        const progress: Progress = { phase: 'dependencies_ready', percent: 5, message: '本地转录组件已准备完成，正在开始语音转录', dependency: provider, dependencyModel: model };
+        const progress: Progress = { phase: 'dependencies_ready', percent: 5, message: 'Local transcription components are ready. Starting transcription.', dependency: provider, dependencyModel: model };
         for (const listener of listeners) listener(progress);
       }).catch(error => {
         states.set(key, { ...states.get(key), state: 'failed', error: error instanceof Error ? error.message : String(error) });

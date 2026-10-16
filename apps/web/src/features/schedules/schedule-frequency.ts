@@ -1,3 +1,6 @@
+import type { AppLanguage } from '../../i18n/language.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
+
 export type ScheduleRepeat =
   | 'hourly'
   | 'daily'
@@ -94,31 +97,34 @@ export function cronToScheduleFrequency(cron: string): ScheduleFrequency {
   };
 }
 
-export function formatScheduleFrequency(cron: string): string {
+export function formatScheduleFrequency(cron: string, language: AppLanguage = 'zh-CN'): string {
   const frequency = cronToScheduleFrequency(cron);
+  const l = createLocalizedCopy(language);
   switch (frequency.repeat) {
     case 'hourly':
-      return `每小时第 ${Number(frequency.time.slice(3, 5))} 分钟`;
+      return l(`每小时第 ${Number(frequency.time.slice(3, 5))} 分钟`, `Hourly at minute ${Number(frequency.time.slice(3, 5))}`);
     case 'daily':
-      return `每天 ${frequency.time}`;
+      return l(`每天 ${frequency.time}`, `Daily at ${frequency.time}`);
     case 'weekdays':
-      return `工作日 ${frequency.time}`;
+      return l(`工作日 ${frequency.time}`, `Weekdays at ${frequency.time}`);
     case 'weekly':
     case 'custom':
-      return `每${frequency.days.map(day => weekdayLabel(day)).join('、')} ${frequency.time}`;
+      if (language === 'zh-CN') return `每${frequency.days.map(day => weekdayLabel(day)).join('、')} ${frequency.time}`;
+      return l('', `Every ${new Intl.ListFormat(language, { style: 'short', type: 'conjunction' }).format(frequency.days.map(day => formatScheduleWeekday(day, language)))} at ${frequency.time}`);
     case 'advanced':
-      return '自定义计划';
+      return l('自定义计划', 'Custom schedule');
   }
 }
 
 export function formatScheduleNextRun(
   value: string | null | undefined,
-  timezone: string
+  timezone: string,
+  language: AppLanguage = 'zh-CN'
 ): string | undefined {
   if (value === null || value === undefined) return undefined;
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return undefined;
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(language, {
     timeZone: timezone,
     month: 'numeric',
     day: 'numeric',
@@ -127,6 +133,11 @@ export function formatScheduleNextRun(
     minute: '2-digit',
     hour12: false,
   }).format(date);
+}
+
+export function formatScheduleWeekday(day: number, language: AppLanguage): string {
+  return new Intl.DateTimeFormat(language, { weekday: 'short', timeZone: 'UTC' })
+    .format(new Date(Date.UTC(2024, 0, 7 + day)));
 }
 
 function parseTime(value: string): { hour: number; minute: number } {

@@ -247,7 +247,7 @@ export class DaemonManager extends EventEmitter<DaemonManagerEvents> {
         const timeoutMs = input.startupTimeoutMs ?? DEFAULT_DAEMON_START_TIMEOUT_MS;
         fail(new DaemonStartError(
           'DAEMON_START_FAILED',
-          `本地运行服务在 ${timeoutMs}ms 内未能就绪`,
+          `The local Runtime did not become ready within ${timeoutMs}ms`,
           diagnosticOutputDetails({ stdoutTail, stderrTail })
         ));
         child.kill();
@@ -282,7 +282,12 @@ export class DaemonManager extends EventEmitter<DaemonManagerEvents> {
       }
     }
     await this.terminateKnownCodexProcesses(true);
-    await settlesWithin(exited, 1_000);
+    if (!await settlesWithin(exited, 1_000)) {
+      throw new DaemonStartError(
+        'DAEMON_STOP_FAILED',
+        'The previous Runtime has not been confirmed stopped. Starting a replacement process was canceled.'
+      );
+    }
   }
 
   private async terminateKnownCodexProcesses(force: boolean): Promise<void> {
@@ -511,8 +516,8 @@ export function createDaemonExitError(
     ?? summarizeDaemonFailure(output.stdoutTail);
   return new DaemonStartError(
     'DAEMON_START_FAILED',
-    `本地运行服务在就绪前退出（代码 ${String(code)}）${
-      summary === undefined ? '' : `：${summary}`
+    `The local Runtime exited before becoming ready (code ${String(code)})${
+      summary === undefined ? '' : `: ${summary}`
     }`,
     {
       exitCode: code,

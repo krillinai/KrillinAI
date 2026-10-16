@@ -334,6 +334,7 @@ export default function CreatorCollaborationPanel(props: {
               );
             })}
 
+
             {showAgentWorking ? (
               <div
                 className="creator-collaboration-working"

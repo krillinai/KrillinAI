@@ -331,21 +331,21 @@ function classifyFailure(
   ) {
     return {
       kind: 'project_directory',
-      summary: '项目目录不存在或无法访问，请编辑项目后重试。'
+      summary: 'The project directory is missing or inaccessible. Edit the project and try again.'
     };
   }
 
   switch (row.termination_reason) {
     case 'timeout':
-      return { kind: 'other', summary: '任务运行时间过长，已自动停止。' };
+      return { kind: 'other', summary: 'The task exceeded its time limit and was stopped automatically.' };
     case 'inactivity_timeout':
-      return { kind: 'other', summary: '任务长时间没有响应，已自动停止。' };
+      return { kind: 'other', summary: 'The task stopped responding and was stopped automatically.' };
     case 'daemon_restart':
-      return { kind: 'other', summary: '本地服务重启中断了本次任务，可以稍后重试。' };
+      return { kind: 'other', summary: 'A Runtime restart interrupted this task. Try again later.' };
     case 'spawn_failed':
-      return { kind: 'other', summary: '任务无法启动，请检查项目和运行配置。' };
+      return { kind: 'other', summary: 'The task could not start. Check the project and Runtime configuration.' };
     default:
-      return { kind: 'other', summary: '任务未完成，请打开会话查看详情。' };
+      return { kind: 'other', summary: 'The task did not complete. Open its conversation for details.' };
   }
 }
 

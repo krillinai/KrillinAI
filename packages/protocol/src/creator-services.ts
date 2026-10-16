@@ -224,8 +224,8 @@ export function creatorPreflightFailure(result: CreatorPreflightResponse): {
   };
   const id = Object.keys(codes).find(id => result.blocked.some(item => item.id === id));
   const code = id === undefined ? 'creator_preflight_blocked' : codes[id]!;
-  const message = safePublicErrorMessage(result.blocked.map(item => item.message).join('；'))
-    ?? '启动条件检查未通过，请检查任务配置。';
+  const message = safePublicErrorMessage(result.blocked.map(item => item.message).join('; '))
+    ?? 'Preflight checks failed. Review the task configuration.';
   return { code, message, publicFacts: {
     kind: publicErrorKindForCode(code) ?? 'validation', upstreamMessage: message,
     ...(id === 'reference-image-required' ? { upstreamCode: 'IMAGE_REFERENCE_MISSING' } : {})

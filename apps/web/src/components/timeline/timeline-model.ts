@@ -78,18 +78,18 @@ function safeStringify(value: unknown): string {
 function formatChangeKind(kind: 'add' | 'modify' | 'delete' | 'unknown'): string {
   switch (kind) {
     case 'add':
-      return '新增';
+      return 'Added';
     case 'modify':
-      return '修改';
+      return 'Modified';
     case 'delete':
-      return '删除';
+      return 'Deleted';
     case 'unknown':
-      return '变更';
+      return 'Changed';
   }
 }
 
 function formatFileChangeTitle(changes: Array<{ kind: 'add' | 'modify' | 'delete' | 'unknown' }>): string {
-  if (changes.length === 0) return '文件变更';
+  if (changes.length === 0) return 'File changes';
 
   const counts = new Map<'add' | 'modify' | 'delete' | 'unknown', number>();
   for (const change of changes) counts.set(change.kind, (counts.get(change.kind) ?? 0) + 1);
@@ -97,10 +97,10 @@ function formatFileChangeTitle(changes: Array<{ kind: 'add' | 'modify' | 'delete
   return (['add', 'modify', 'delete', 'unknown'] as const)
     .map(kind => {
       const count = counts.get(kind) ?? 0;
-      return count === 0 ? undefined : `${formatChangeKind(kind)} ${count} 个文件`;
+      return count === 0 ? undefined : `${formatChangeKind(kind)} ${count} ${count === 1 ? 'file' : 'files'}`;
     })
     .filter((part): part is string => part !== undefined)
-    .join('，');
+    .join(', ');
 }
 
 export function eventToTimelineItem(event: AgentEventEnvelope): TimelineItem | null {
@@ -155,14 +155,14 @@ export function eventToTimelineItem(event: AgentEventEnvelope): TimelineItem | n
         source: 'runtime'
       };
     case 'file_change': {
-      const primaryPath = event.payload.changes.find(change => change.path.length > 0)?.path ?? '文件变更';
+      const primaryPath = event.payload.changes.find(change => change.path.length > 0)?.path ?? 'File changes';
       return {
         kind: 'change_card',
         id: event.id,
         runId: event.runId,
         title: formatFileChangeTitle(event.payload.changes),
         path: primaryPath,
-        delta: `${event.payload.changes.length} 项变更`,
+        delta: `${event.payload.changes.length} changes`,
         source: 'runtime'
       };
     }

@@ -15,6 +15,7 @@ const catalog: Record<string, { zh: string; en: string }> = {
   'issue.permission': { zh: '权限不足', en: 'Permission required' },
   'issue.network': { zh: '连接失败', en: 'Connection failed' },
   'issue.provider': { zh: '外部服务失败', en: 'Provider failed' },
+  'issue.provider_pending': { zh: '请求结果待确认', en: 'Request outcome pending' },
   'issue.execution': { zh: '操作未完成', en: 'Operation did not complete' },
   'issue.output-validation': { zh: '输出未通过检查', en: 'Output validation failed' },
   'issue.unknown': { zh: '发生问题', en: 'Something went wrong' },
@@ -26,12 +27,14 @@ export function presentIssue(
   issue: OpenCreatorIssue,
   language: AppLanguage = 'zh-CN'
 ): IssuePresentation {
-  const entry = catalog[issue.summaryKey] ?? catalog[`issue.${issue.category}`] ?? catalog['issue.unknown']!;
+  const entry = issue.code === 'creator_provider_resolution_required'
+    ? catalog['issue.provider_pending']!
+    : catalog[issue.summaryKey] ?? catalog[`issue.${issue.category}`] ?? catalog['issue.unknown']!;
   const resolved = issue.status === 'resolved';
   const resolving = issue.status === 'resolving';
   const localize = createLocalizedCopy(language);
   return {
-    title: localize(entry.zh, entry.en),
+    title: recoveredProviderIssue(issue) ? localize('外部服务已恢复', 'Provider recovered') : localize(entry.zh, entry.en),
     description: issueDescription(issue, language),
     diagnosticLabel: localize(`诊断编号：${issue.diagnosticId}`, `Diagnostic ID: ${issue.diagnosticId}`, `Diagnos-ID: ${issue.diagnosticId}`),
     statusLabel: resolved ? localize('已解决', 'Resolved') : resolving ? localize('处理中', 'Resolving') : localize('需要处理', 'Needs attention')
@@ -40,6 +43,12 @@ export function presentIssue(
 
 function issueDescription(issue: OpenCreatorIssue, language: AppLanguage): string {
   const localize = createLocalizedCopy(language);
+  if (recoveredProviderIssue(issue)) return localize('请求状态已核对，任务已恢复。', 'The request status was confirmed and the task recovered.', 'Begäransstatusen har bekräftats och uppgiften har återhämtats.');
+  if (issue.code === 'creator_provider_resolution_required') return localize(
+    '尚未确认外部服务的最终结果，请先查询原请求状态。',
+    'The final provider result is not confirmed yet. Check the original request status first.',
+    'Leverantörens slutliga resultat är ännu inte bekräftat. Kontrollera först den ursprungliga begäransstatusen.'
+  );
   const facts = issuePublicFacts(issue);
   const summary = localizedIssueSummary({ ...issue, publicFacts: facts }, localize);
   const code = safePublicErrorCode(issue.code) ?? 'UNKNOWN_ERROR';
@@ -47,6 +56,12 @@ function issueDescription(issue: OpenCreatorIssue, language: AppLanguage): strin
     ? localize('当前记录未提供更细的原因。', 'No more specific cause was recorded.', 'Ingen mer specifik orsak har registrerats.')
     : publicErrorReason(facts, language);
   return localize(`${summary} 错误码：${code}。${reason}`, `${summary} Error code: ${code}. ${reason}`, `${summary} Felkod: ${code}. ${reason}`);
+}
+
+function recoveredProviderIssue(issue: OpenCreatorIssue): boolean {
+  return issue.status === 'resolved' && issue.source === 'provider'
+    && ['creator_provider_resolution_required', 'creator_provider_request_failed'].includes(issue.code)
+    && issue.publicFacts?.provider?.startsWith('opencreator-gateway-') === true;
 }
 
 function issuePublicFacts(issue: OpenCreatorIssue): PublicErrorFacts | undefined {
@@ -65,6 +80,8 @@ function issuePublicFacts(issue: OpenCreatorIssue): PublicErrorFacts | undefined
 }
 
 function localizedIssueSummary(issue: OpenCreatorIssue, localize: LocalizeCopy): string {
+  if (issue.code === 'platform_request_signature_required') return localize('当前下载器尚未兼容抖音的请求签名校验。', 'The current downloader does not support Douyin request signature verification.', 'Den nuvarande nedladdaren stöder inte Douyins verifiering av begäranssignaturer.');
+  if (issue.code === 'platform_session_required') return localize('视频平台未接受浏览器会话或需要网页验证。', 'The video platform did not accept the browser session or requires website verification.', 'Videoplattformen accepterade inte webbläsarsessionen eller kräver webbplatsverifiering.');
   const transcription = transcriptionIssueCopy(issue.code, localize) ?? transcriptionIssueCopy(issue.publicFacts?.upstreamCode, localize);
   if (transcription !== undefined) return transcription.message;
   if (issue.code === 'ERR_FS_FILE_TOO_LARGE' || issue.publicFacts?.upstreamCode === 'ERR_FS_FILE_TOO_LARGE') return localize('本地文件读取超过大小限制。', 'The local file exceeded the read-size limit.', 'Den lokala filen överskred storleksgränsen för läsning.');
@@ -179,9 +196,16 @@ export function issueConversationText(
 ): { message: string; nextStep: string } {
   const detail = presentIssue(issue, language).description;
   const localize = createLocalizedCopy(language);
+  if (recoveredProviderIssue(issue)) return { message: detail, nextStep: '' };
   const facts = issuePublicFacts(issue);
   const transcription = transcriptionIssueCopy(issue.code, localize) ?? transcriptionIssueCopy(facts?.upstreamCode, localize);
-  const nextStep = transcription !== undefined ? transcription.nextStep
+  const nextStep = issue.code === 'creator_provider_resolution_required'
+    ? localize('确认原请求结果前请勿重新提交，避免重复扣费。', 'Do not resubmit until the original request outcome is confirmed, to avoid duplicate charges.', 'Skicka inte igen innan resultatet av den ursprungliga begäran har bekräftats, för att undvika dubbla avgifter.')
+    : transcription !== undefined ? transcription.nextStep
+    : issue.code === 'platform_request_signature_required'
+    ? localize('请使用本地视频文件继续；当前平台要求下载器尚不支持的请求签名，重新连接 Cookie 或修改模型权限无法解决。', 'Use a local video file to continue. The platform requires a request signature that the downloader does not yet support; reconnecting cookies or changing model permissions will not resolve it.', 'Använd en lokal videofil för att fortsätta. Plattformen kräver en begäranssignatur som nedladdaren ännu inte stöder. Att ansluta kakor igen eller ändra modellbehörigheter löser inte problemet.')
+    : issue.code === 'platform_session_required'
+    ? localize('请先在 Chrome 或 Edge 中打开抖音视频并完成网页验证，再到设置中的平台连接重新连接抖音后重试；不一定需要登录账号。', 'Open the Douyin video in Chrome or Edge and complete the website verification, then reconnect Douyin in Settings > Platform connections and retry; account sign-in is not necessarily required.', 'Öppna Douyin-videon i Chrome eller Edge och slutför webbplatsens verifiering. Anslut sedan Douyin igen under Inställningar > Plattformsanslutningar och försök igen. Kontoinloggning krävs inte nödvändigtvis.')
     : issue.code === 'ERR_FS_FILE_TOO_LARGE' || facts?.upstreamCode === 'ERR_FS_FILE_TOO_LARGE'
     ? localize('请重试当前步骤；如果仍然失败，可先切分视频，并向 Agent 提供文件大小和诊断编号。', 'Retry the current step. If it still fails, split the video and provide the file size and diagnostic ID to the Agent.', 'Försök igen. Om det fortfarande misslyckas, dela videon och ge filstorleken och diagnostik-ID till Agent.')
     : issue.publicFacts?.upstreamCode === 'IMAGE_REFERENCE_MISSING'
@@ -192,7 +216,7 @@ export function issueConversationText(
       ? localize('请根据服务返回的原因调整输入或请求参数后重试；仍有疑问时，可提供请求编号向服务方查询。', 'Review the provider reason and adjust the input or request parameters before retrying. Use the request ID to ask the provider for details if needed.', 'Läs leverantörens felorsak och justera indata eller parametrarna innan du försöker igen. Använd begärans-ID för att fråga leverantören vid behov.')
     : issue.publicFacts?.kind === 'unauthorized'
       ? issue.publicFacts.provider === 'yt-dlp'
-        ? localize('请先确认视频可以在浏览器打开，再检查代理和地区限制。部分平台需要有效的浏览器登录态，直接重试可能仍被拒绝。', 'Confirm that the video opens in your browser, then check the proxy and region restrictions. Some platforms require a valid browser session; retrying alone may still be denied.', 'Kontrollera att videon går att öppna i webbläsaren och kontrollera sedan proxy och regionbegränsningar. Vissa plattformar kräver en giltig webbläsarsession; enbart ett nytt försök kan fortfarande nekas.')
+        ? localize('请先确认视频可以在浏览器打开，再检查代理和地区限制。部分平台需要有效的浏览器会话或 Cookie，直接重试可能仍被拒绝。', 'Confirm that the video opens in your browser, then check the proxy and region restrictions. Some platforms require a valid browser session or cookies; retrying alone may still be denied.', 'Kontrollera att videon går att öppna i webbläsaren och kontrollera sedan proxy och regionbegränsningar. Vissa plattformar kräver en giltig webbläsarsession eller kakor; enbart ett nytt försök kan fortfarande nekas.')
         : issue.publicFacts.provider === 'codex-native'
         ? localize('请在本机 Codex 中重新登录 ChatGPT 后重试。', 'Sign in to ChatGPT again in local Codex, then retry.', 'Logga in på ChatGPT igen i lokala Codex och försök igen.')
         : localize('请检查服务凭据和模型访问权限后重试。', 'Check the provider credentials and model access permissions before retrying.', 'Kontrollera leverantörens autentiseringsuppgifter och modellbehörigheter innan du försöker igen.')
@@ -237,10 +261,10 @@ export function issueDiagnosticText(issue: OpenCreatorIssue, language: AppLangua
 
 function safeFallback(value: string, language: AppLanguage): string {
   const normalized = value
-    .replace(/authorization\s*[:=]\s*(?:Bearer|Basic)\s+\S+/gi, '[已隐藏]')
-    .replace(/(?:authorization|api[-_ ]?key|token|secret)\s*[:=]\s*\S+/gi, '[已隐藏]')
-    .replace(/[A-Za-z]:\\Users\\[^\\\s]+/gi, '[用户目录]')
-    .replace(/\/(?:Users|home)\/[^/\s]+/g, '[用户目录]')
+    .replace(/authorization\s*[:=]\s*(?:Bearer|Basic)\s+\S+/gi, '[redacted]')
+    .replace(/(?:authorization|api[-_ ]?key|token|secret)\s*[:=]\s*\S+/gi, '[redacted]')
+    .replace(/[A-Za-z]:\\Users\\[^\\\s]+/gi, '[user directory]')
+    .replace(/\/(?:Users|home)\/[^/\s]+/g, '[user directory]')
     .replace(/\s+at\s+[^\n]+(?:\n|$)/g, ' ')
     .trim()
     .slice(0, 500);

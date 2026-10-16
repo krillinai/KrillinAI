@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"krillin-ai/config"
@@ -9,14 +10,15 @@ import (
 	"krillin-ai/pkg/openai"
 	"krillin-ai/pkg/util"
 	"strings"
-	"sync"
 	"time"
+	"unicode"
 
 	"go.uber.org/zap"
 )
 
 type Translator struct {
-	chatCompleter types.ChatCompleter
+	chatCompleter            types.ChatCompleter
+	filterNonSemanticFillers bool
 }
 
 func NewTranslator() *Translator {
@@ -26,98 +28,12 @@ func NewTranslator() *Translator {
 }
 
 func (t *Translator) SplitTextAndTranslate(inputText string, originLang, targetLang types.StandardLanguageCode) ([]*TranslatedItem, error) {
-	sentences := util.SplitTextSentences(inputText, config.Conf.App.MaxSentenceLength)
-	if len(sentences) == 0 {
-		return []*TranslatedItem{}, nil
+	sentences := splitTranslationSentences(inputText)
+	paired, err := t.translatePairedSentences(context.Background(), sentences, originLang, targetLang, subtitleTargetLimit(), 3, nil)
+	if err != nil {
+		return nil, err
 	}
-
-	// 补丁：whisper转录中文的时候很多句子后面不输出符号，导致上面基于符号的切分失效
-	if IsSplitUseSpace(originLang) {
-		newSentences := make([]string, 0)
-		for _, sentence := range sentences {
-			newSentences = append(newSentences, strings.Split(sentence, " ")...)
-		}
-		sentences = newSentences
-	}
-
-	shortSentences := make([]string, 0)
-	// 使用递归拆句确保所有句子都满足长度要求
-	for _, sentence := range sentences {
-		if sentence == "" {
-			continue
-		}
-		recursiveSplitItems := t.recursiveSplitSentence(sentence, 0)
-		shortSentences = append(shortSentences, recursiveSplitItems...)
-	}
-
-	sentences = shortSentences
-
-	var (
-		signal  = make(chan struct{}, config.Conf.App.TranslateParallelNum) // 控制最大并发数
-		wg      sync.WaitGroup
-		results = make([]*TranslatedItem, len(sentences))
-		// errChan = make(chan error, 1)
-		// mutex   sync.Mutex
-	)
-
-	for i, sentence := range sentences {
-		wg.Add(1)
-		signal <- struct{}{}
-
-		go func(index int, originText string) {
-			defer wg.Done()
-			defer func() { <-signal }()
-
-			contextSentenceNum := 3
-
-			// 生成前面3个句子的string
-			var previousSentences string
-			if index > 0 {
-				start := 0
-				if index-contextSentenceNum > 0 {
-					start = index - contextSentenceNum
-				}
-				for i := start; i < index; i++ {
-					previousSentences += sentences[i] + "\n"
-				}
-			}
-
-			// 生成后面3个句子的string
-			var nextSentences string
-			if index < len(sentences)-1 {
-				end := len(sentences) - 1
-				if index+contextSentenceNum < end {
-					end = index + contextSentenceNum
-				}
-				for i := index + 1; i <= end; i++ {
-					if i > index+1 {
-						nextSentences += "\n"
-					}
-					nextSentences += sentences[i]
-				}
-			}
-
-			prompt := fmt.Sprintf(types.SplitTextWithContextPrompt, types.GetStandardLanguageName(targetLang), previousSentences, originText, nextSentences)
-
-			translatedText, err := t.translateWithRetry(prompt, originText, originLang, targetLang)
-			if err != nil {
-				log.GetLogger().Error("splitTextAndTranslate llm translate error after retries", zap.Error(err), zap.Any("original text", originText))
-				results[index] = &TranslatedItem{
-					OriginText:     originText,
-					TranslatedText: originText,
-				}
-			} else {
-				results[index] = &TranslatedItem{
-					OriginText:     originText,
-					TranslatedText: translatedText,
-				}
-			}
-		}(i, sentence)
-	}
-
-	wg.Wait()
-
-	return results, nil
+	return flattenPairedSentences(paired), nil
 }
 
 func (t *Translator) splitOriginLongSentence(sentence string) ([]string, error) {
@@ -283,39 +199,19 @@ func (t *Translator) translateWithRetry(prompt, originText string, originLang, t
 
 // isTranslationValid 检查翻译是否有效
 func (t *Translator) isTranslationValid(originText, translatedText string, originLang, targetLang types.StandardLanguageCode) bool {
-	// 1. 翻译不能为空
-	if strings.TrimSpace(translatedText) == "" {
+	originText = strings.Join(strings.Fields(originText), " ")
+	translatedText = strings.Join(strings.Fields(translatedText), " ")
+	if translatedText == "" {
 		return false
 	}
-
-	// 2. 翻译不能与原文完全相同（除非是特殊情况）
-	if strings.TrimSpace(originText) == strings.TrimSpace(translatedText) {
-		// 检查是否是专有名词、数字或特殊符号
-		if t.isSpecialContent(originText) {
-			return true // 专有名词等可以保持原文
-		}
-		return false
+	if originLang == targetLang {
+		return true
+	}
+	if strings.EqualFold(originText, translatedText) {
+		return t.isSpecialContent(originText)
 	}
 
-	// 3. 检查语言特征（简单的启发式检查）
-	if !t.hasTargetLanguageCharacteristics(translatedText, targetLang) {
-		return false
-	}
-
-	// 4. 长度合理性检查（翻译结果不应该过长或过短）
-	originLen := len(strings.TrimSpace(originText))
-	translatedLen := len(strings.TrimSpace(translatedText))
-
-	// 翻译结果长度应该在原文的0.3-3倍之间（考虑语言特性）
-	if float64(translatedLen) < float64(originLen)*0.3 || float64(translatedLen) > float64(originLen)*3 {
-		// 但对于很短的文本，允许更大的变化范围
-		if originLen < 10 {
-			return true
-		}
-		return false
-	}
-
-	return true
+	return t.hasTargetLanguageCharacteristics(translatedText, targetLang)
 }
 
 // isSpecialContent 检查是否是专有名词、数字等特殊内容
@@ -325,33 +221,42 @@ func (t *Translator) isSpecialContent(text string) bool {
 		return false
 	}
 
-	// 检查是否主要包含数字、符号、英文名词等
-	nonAlphaCount := 0
+	letterCount := 0
+	allUpper := true
 	for _, r := range text {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')) {
-			nonAlphaCount++
+		if unicode.IsLetter(r) {
+			letterCount++
+			if r < 'A' || r > 'Z' {
+				allUpper = false
+			}
 		}
 	}
-
-	// 如果超过一半的字符不是字母，可能是特殊内容
-	if float64(nonAlphaCount) > float64(len(text))*0.5 {
+	if letterCount == 0 {
+		return true
+	}
+	if allUpper && letterCount >= 2 && letterCount <= 10 && len(strings.Fields(text)) == 1 {
 		return true
 	}
 
-	// 检查常见的专有名词模式
+	// 仅允许完整的已知专名；句子包含专名不代表整句可以不翻译。
 	commonProperNouns := []string{
 		"Dr.", "Mr.", "Mrs.", "Ms.", "Prof.",
 		"Andrew", "Huberman", "OpenAI", "ChatGPT", "YouTube",
 	}
-
-	textLower := strings.ToLower(text)
-	for _, noun := range commonProperNouns {
-		if strings.Contains(textLower, strings.ToLower(noun)) {
-			return true
+	trimPunctuation := func(r rune) bool { return unicode.IsPunct(r) || unicode.IsSpace(r) }
+	for _, word := range strings.Fields(text) {
+		known := false
+		for _, noun := range commonProperNouns {
+			if strings.EqualFold(strings.TrimFunc(word, trimPunctuation), strings.TrimFunc(noun, trimPunctuation)) {
+				known = true
+				break
+			}
+		}
+		if !known {
+			return false
 		}
 	}
-
-	return false
+	return true
 }
 
 // hasTargetLanguageCharacteristics 检查文本是否具有目标语言特征
@@ -413,6 +318,7 @@ IMPORTANT: The previous translation was inadequate. Please ensure:
 // isSentenceEnding 判断文本是否以句子结束符号结尾
 func isSentenceEnding(text string) bool {
 	text = strings.TrimSpace(text)
+	text = strings.TrimRight(text, "\"'”’)]}")
 	if text == "" {
 		return false
 	}
@@ -434,242 +340,31 @@ func isSentenceEnding(text string) bool {
 	return false
 }
 
-// BatchTranslateSrtBlocks 批量翻译SRT字幕块（智能分组：按完整句子分组，最多10个块）
-func (t *Translator) BatchTranslateSrtBlocks(blocks []*util.SrtBlock, originLang, targetLang string, taskPtr *types.SubtitleTask) error {
-	if len(blocks) == 0 {
-		return nil
+func subtitleTranslationContext(blocks []*util.SrtBlock, start, end int) ([]string, []string) {
+	var previousTexts, nextTexts []string
+	for _, block := range blocks[max(0, start-2):start] {
+		previousTexts = append(previousTexts, block.OriginLanguageSentence)
 	}
-
-	maxBatchSize := config.Conf.App.VttBatchSize
-	if maxBatchSize <= 0 {
-		maxBatchSize = 10 // 默认最大批次大小
+	for _, block := range blocks[end:min(len(blocks), end+2)] {
+		nextTexts = append(nextTexts, block.OriginLanguageSentence)
 	}
-
-	originLangCode := types.StandardLanguageCode(originLang)
-	targetLangCode := types.StandardLanguageCode(targetLang)
-
-	// 统计有内容的字幕块数量
-	validBlocksCount := 0
-	for _, block := range blocks {
-		if block.OriginLanguageSentence != "" {
-			validBlocksCount++
-		}
-	}
-
-	log.GetLogger().Info("开始智能批量翻译SRT字幕块",
-		zap.Int("总块数", len(blocks)),
-		zap.Int("有效块数", validBlocksCount),
-		zap.Int("最大批次大小", maxBatchSize),
-		zap.String("源语言", originLang),
-		zap.String("目标语言", targetLang))
-
-	// 第一步：按句子分组（识别完整句子）
-	var sentences [][]*util.SrtBlock
-	var currentSentence []*util.SrtBlock
-
-	for _, block := range blocks {
-		// 跳过空块
-		if block.OriginLanguageSentence == "" {
-			continue
-		}
-
-		currentSentence = append(currentSentence, block)
-
-		// 兜底保证：即使没有句子结束符，也不能超过最大批次大小
-		if len(currentSentence) >= maxBatchSize {
-			log.GetLogger().Warn("句子累积达到最大批次大小，强制结束句子",
-				zap.Int("当前块数", len(currentSentence)),
-				zap.Int("最大批次大小", maxBatchSize))
-			sentences = append(sentences, currentSentence)
-			currentSentence = make([]*util.SrtBlock, 0)
-			continue
-		}
-
-		// 遇到句子结尾，结束当前句子
-		if isSentenceEnding(block.OriginLanguageSentence) {
-			sentences = append(sentences, currentSentence)
-			currentSentence = make([]*util.SrtBlock, 0)
-		}
-	}
-
-	// 处理最后一个未结束的句子
-	if len(currentSentence) > 0 {
-		sentences = append(sentences, currentSentence)
-	}
-
-	log.GetLogger().Info("句子识别完成",
-		zap.Int("识别到的句子数", len(sentences)))
-
-	// 第二步：智能合并句子成批次（3/2/1策略）
-	var batches [][]*util.SrtBlock
-	i := 0
-
-	for i < len(sentences) {
-		// 策略1: 尝试合并3个句子
-		if i+2 < len(sentences) {
-			combined := make([]*util.SrtBlock, 0)
-			combined = append(combined, sentences[i]...)
-			combined = append(combined, sentences[i+1]...)
-			combined = append(combined, sentences[i+2]...)
-
-			// 确保合并后不超过最大批次大小
-			if len(combined) > 0 && len(combined) <= maxBatchSize {
-				batches = append(batches, combined)
-				log.GetLogger().Debug("合并3个句子",
-					zap.Int("批次块数", len(combined)),
-					zap.Int("句子索引", i))
-				i += 3
-				continue
-			}
-		}
-
-		// 策略2: 尝试合并2个句子
-		if i+1 < len(sentences) {
-			combined := make([]*util.SrtBlock, 0)
-			combined = append(combined, sentences[i]...)
-			combined = append(combined, sentences[i+1]...)
-
-			// 确保合并后不超过最大批次大小
-			if len(combined) > 0 && len(combined) <= maxBatchSize {
-				batches = append(batches, combined)
-				log.GetLogger().Debug("合并2个句子",
-					zap.Int("批次块数", len(combined)),
-					zap.Int("句子索引", i))
-				i += 2
-				continue
-			}
-		}
-
-		// 策略3: 单个句子
-		// 确保单个句子不超过最大批次大小
-		if len(sentences[i]) > 0 && len(sentences[i]) <= maxBatchSize {
-			batches = append(batches, sentences[i])
-			log.GetLogger().Debug("单个句子",
-				zap.Int("批次块数", len(sentences[i])),
-				zap.Int("句子索引", i))
-			i++
-		} else {
-			// 如果单个句子超过最大批次大小，需要拆分
-			log.GetLogger().Warn("单个句子超过最大批次大小，强制拆分",
-				zap.Int("句子块数", len(sentences[i])),
-				zap.Int("最大批次大小", maxBatchSize))
-
-			for j := 0; j < len(sentences[i]); j += maxBatchSize {
-				end := j + maxBatchSize
-				if end > len(sentences[i]) {
-					end = len(sentences[i])
-				}
-				batches = append(batches, sentences[i][j:end])
-			}
-			i++
-		}
-	}
-
-	totalBatches := len(batches)
-
-	// 统计合并策略使用情况
-	var totalBlocks int
-	for _, batch := range batches {
-		totalBlocks += len(batch)
-	}
-
-	log.GetLogger().Info("智能分组完成",
-		zap.Int("总句子数", len(sentences)),
-		zap.Int("总批次数", totalBatches),
-		zap.String("平均每批次", fmt.Sprintf("%.1f个块", float64(totalBlocks)/float64(max(totalBatches, 1)))),
-		zap.String("分组策略", "3/2/1句子合并策略，最大"+fmt.Sprintf("%d", maxBatchSize)+"个块"))
-
-	// 分批处理
-	for batchIdx, batch := range batches {
-		currentBatchNum := batchIdx + 1
-		log.GetLogger().Info("处理批次",
-			zap.Int("当前批次", currentBatchNum),
-			zap.Int("总批次", totalBatches),
-			zap.Int("批次块数", len(batch)),
-			zap.String("进度", fmt.Sprintf("%d/%d", currentBatchNum, totalBatches)))
-
-		// 构建批量翻译的输入文本
-		var originTexts []string
-		for _, block := range batch {
-			if block.OriginLanguageSentence != "" {
-				originTexts = append(originTexts, block.OriginLanguageSentence)
-			}
-		}
-
-		if len(originTexts) == 0 {
-			continue
-		}
-
-		// 调用批量翻译
-		translations, err := t.batchTranslateTexts(originTexts, originLangCode, targetLangCode)
-		if err != nil {
-			log.GetLogger().Error("批量翻译失败，尝试单独翻译",
-				zap.Error(err),
-				zap.Int("当前批次", currentBatchNum),
-				zap.Int("总批次", totalBatches),
-				zap.Int("批次块数", len(batch)))
-
-			// 失败时回退到单独翻译每个字幕
-			for _, block := range batch {
-				if block.OriginLanguageSentence == "" {
-					continue
-				}
-
-				log.GetLogger().Info("单独翻译字幕",
-					zap.Int("块索引", block.Index),
-					zap.String("文本预览", block.OriginLanguageSentence[:min(len(block.OriginLanguageSentence), 50)]))
-
-				translatedText, err := t.translateSingleText(
-					block.OriginLanguageSentence,
-					originLangCode,
-					targetLangCode)
-
-				if err != nil {
-					log.GetLogger().Error("单独翻译失败，使用原文",
-						zap.Error(err),
-						zap.Int("块索引", block.Index))
-					block.TargetLanguageSentence = block.OriginLanguageSentence
-				} else {
-					block.TargetLanguageSentence = translatedText
-				}
-			}
-
-			// 更新任务进度
-			if taskPtr != nil {
-				progress := float64(currentBatchNum) / float64(totalBatches)
-				taskPtr.SetProgress(40 + uint8(progress*50))
-			}
-			continue
-		}
-
-		log.GetLogger().Info("批量翻译成功",
-			zap.Int("当前批次", currentBatchNum),
-			zap.Int("翻译数量", len(translations)))
-
-		// 将翻译结果赋值回SRT块
-		for j, translation := range translations {
-			if j < len(batch) {
-				batch[j].TargetLanguageSentence = translation
-			}
-		}
-
-		// 更新任务进度（假设翻译占总进度的50%）
-		if taskPtr != nil {
-			progress := float64(currentBatchNum) / float64(totalBatches)
-			// 假设翻译在40%-90%之间
-			taskPtr.SetProgress(40 + uint8(progress*50))
-		}
-	}
-
-	log.GetLogger().Info("智能批量翻译完成",
-		zap.Int("总块数", len(blocks)),
-		zap.Int("处理批次", totalBatches),
-		zap.String("平均每批次", fmt.Sprintf("%.1f个块", float64(validBlocksCount)/float64(max(totalBatches, 1)))))
-	return nil
+	return previousTexts, nextTexts
 }
 
 // batchTranslateTexts 批量翻译多个文本（通过单次LLM调用）
 func (t *Translator) batchTranslateTexts(texts []string, originLang, targetLang types.StandardLanguageCode) ([]string, error) {
+	return t.batchTranslateTextsContext(context.Background(), texts, originLang, targetLang)
+}
+
+func (t *Translator) batchTranslateTextsContext(ctx context.Context, texts []string, originLang, targetLang types.StandardLanguageCode) ([]string, error) {
+	return t.batchTranslateTextsRequest(ctx, texts, originLang, targetLang, nil, nil)
+}
+
+func (t *Translator) batchTranslateTextsWithContext(texts []string, originLang, targetLang types.StandardLanguageCode, previousTexts, nextTexts []string) ([]string, error) {
+	return t.batchTranslateTextsRequest(context.Background(), texts, originLang, targetLang, previousTexts, nextTexts)
+}
+
+func (t *Translator) batchTranslateTextsRequest(ctx context.Context, texts []string, originLang, targetLang types.StandardLanguageCode, previousTexts, nextTexts []string) ([]string, error) {
 	if len(texts) == 0 {
 		return []string{}, nil
 	}
@@ -682,7 +377,7 @@ func (t *Translator) batchTranslateTexts(texts []string, originLang, targetLang 
 
 	// 构建语言说明，如果是中文特别强调简体
 	targetLangName := types.GetStandardLanguageName(targetLang)
-	if targetLang == "zh" || string(targetLang) == "Chinese" {
+	if targetLang == types.LanguageNameSimplifiedChinese || targetLang == "zh" || string(targetLang) == "Chinese" {
 		targetLangName = "Simplified Chinese (简体中文)"
 	}
 
@@ -691,13 +386,22 @@ func (t *Translator) batchTranslateTexts(texts []string, originLang, targetLang 
 CRITICAL INSTRUCTIONS:
 1. DO NOT modify, add, or remove any content from the original text - translate ONLY
 2. Translate naturally and fluently in %s
-3. If target language is Chinese, MUST use Simplified Chinese characters (简体中文), NOT Traditional Chinese (繁体中文)
+3. For Simplified Chinese, use 简体中文; for Traditional Chinese, use 繁體中文
 4. Maintain the exact same number of subtitles (%d items)
 5. Preserve punctuation and formatting exactly as they appear
 6. Keep proper nouns, numbers, and special terms accurate
 7. Do NOT add explanations, interpretations, or extra information
 8. Output ONLY valid JSON, NO markdown code blocks, NO explanations, NO notes
 9. Start directly with { and end with }
+10. Each input index MUST appear exactly once with non-empty translated text; never merge or move content to another index
+11. Use the surrounding context to resolve references and keep terminology consistent; translate ONLY the numbered input subtitles
+12. Each index has its own video timestamp. Translate each fragment at its original index, even if target-language word order differs. Never move a time phrase or other meaning to another index, and never replace spoken words with only punctuation
+
+Previous context (reference only, do NOT include in output):
+%s
+
+Following context (reference only, do NOT include in output):
+%s
 
 Input subtitles:
 %s
@@ -709,24 +413,39 @@ Required JSON format (output ONLY this structure):
 		targetLangName,
 		targetLangName,
 		len(texts),
+		strings.Join(previousTexts, "\n"),
+		strings.Join(nextTexts, "\n"),
 		textList.String())
 
 	// 调用LLM
 	maxAttempts := 3
 	var lastErr error
+	requestPrompt := prompt
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		log.GetLogger().Info("调用LLM翻译",
 			zap.Int("文本数", len(texts)),
 			zap.Int("尝试次数", attempt+1))
 
-		response, err := t.chatCompleter.ChatCompletion(prompt)
+		response, err := chatCompletionWithContext(ctx, t.chatCompleter, requestPrompt)
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			lastErr = err
 			log.GetLogger().Warn("批量翻译LLM调用失败，重试",
 				zap.Error(err),
 				zap.Int("尝试次数", attempt+1))
-			time.Sleep(time.Second * time.Duration(attempt+1))
+			if attempt < maxAttempts-1 {
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(time.Second * time.Duration(attempt+1)):
+				}
+			}
 			continue
 		}
 
@@ -776,27 +495,36 @@ Required JSON format (output ONLY this structure):
 				invalidResultErr = fmt.Errorf("翻译结果包含无效索引或空文本: %d", trans.Index)
 				break
 			}
-			translations[trans.Index-1] = strings.TrimSpace(trans.Text)
+			// 空行会被 SRT 解析器当成字幕块边界，统一为单行文本。
+			translation := strings.Join(strings.Fields(trans.Text), " ")
+			if !t.isTranslationValid(texts[trans.Index-1], translation, originLang, targetLang) {
+				invalidResultErr = fmt.Errorf("第%d条译文未通过检查（原文未翻译、仅标点或目标语言不符）: 原文=%q, 译文=%q", trans.Index, texts[trans.Index-1], translation)
+				break
+			}
+			translations[trans.Index-1] = translation
 		}
 		if invalidResultErr != nil {
 			lastErr = invalidResultErr
+			log.GetLogger().Warn("批量翻译结果无效", zap.Error(lastErr), zap.Int("尝试次数", attempt+1))
+			requestPrompt = prompt + fmt.Sprintf("\nRETRY CORRECTION: The previous response failed validation: %s. Translate the source fragment at the SAME index; do not move its meaning to a neighboring subtitle or use a blank/punctuation-only placeholder. Return the COMPLETE corrected JSON for all %d input subtitles.\n", invalidResultErr, len(texts))
 			continue
 		}
 
 		return translations, nil
 	}
 
-	return nil, fmt.Errorf("批量翻译失败，已重试%d次: %w", maxAttempts, lastErr)
+	return nil, fmt.Errorf("批量翻译失败，已尝试%d次: %w", maxAttempts, lastErr)
 }
 
-// translateSingleText 翻译单个文本（用作批量翻译失败时的回退）
+// translateSingleText 通过结构化接口翻译单个文本。
 func (t *Translator) translateSingleText(text string, originLang, targetLang types.StandardLanguageCode) (string, error) {
-	prompt := fmt.Sprintf(types.SplitTextPrompt, types.GetStandardLanguageName(targetLang), text)
+	return t.translateSingleTextContext(context.Background(), text, originLang, targetLang)
+}
 
-	translatedText, err := t.translateWithRetry(prompt, text, originLang, targetLang)
+func (t *Translator) translateSingleTextContext(ctx context.Context, text string, originLang, targetLang types.StandardLanguageCode) (string, error) {
+	translations, err := t.batchTranslateTextsContext(ctx, []string{text}, originLang, targetLang)
 	if err != nil {
 		return "", fmt.Errorf("单文本翻译失败: %w", err)
 	}
-
-	return translatedText, nil
+	return translations[0], nil
 }

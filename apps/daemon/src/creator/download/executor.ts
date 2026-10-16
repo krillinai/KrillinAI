@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import type {
@@ -8,7 +8,7 @@ import type {
   DownloadOption,
   DownloadProbe
 } from '@opencreator/protocol';
-import { extractDouyinShareUrl, normalizeVideoSourceUrl, supportedVideoSourcePlatform, parseBilibiliVideoSource, videoSourceIdentity } from '@opencreator/protocol';
+import { extractDouyinShareUrl, normalizeVideoSourceUrl, supportedVideoSourcePlatform, parseBilibiliVideoSource, videoSourceIdentity, sanitizePublicErrorFacts } from '@opencreator/protocol';
 import { creatorResultSnapshotForVersion } from '../result-snapshots.js';
 import type {
   CreatorExecutor,
@@ -20,6 +20,7 @@ import { CreatorExecutorError } from '../executor.js';
 import { sanitizeIssueDetail } from '../issues.js';
 import { spawnCreatorProcess } from '../process-tree.js';
 import { validateMediaFile } from '../validators/media.js';
+import { validateSrtFile } from '../validators/srt.js';
 import { withYtDlpProxy } from '../yt-dlp/args.js';
 import type { YtDlpRuntime } from '../yt-dlp/runtime.js';
 import { parseDownloadProbe } from './probe-parser.js';
@@ -29,7 +30,7 @@ type DownloadExecutorOptions = {
   ytDlpPath: string;
   ytDlpPrefixArgs?: string[];
   ytDlpEnv?: NodeJS.ProcessEnv;
-  getYtDlpRuntime?(): YtDlpRuntime;
+  getYtDlpRuntime?(sourceUrl?: string): YtDlpRuntime;
   ffmpegPath: string;
   ffmpegPrefixArgs?: string[];
   ffprobePath: string;
@@ -115,7 +116,7 @@ async function probe(
     percent: null,
     message: 'Reading video information and available formats'
   });
-  const ytDlp = currentYtDlpRuntime(input);
+  const ytDlp = currentYtDlpRuntime(input, url);
   const stdout = await run(
     ytDlp.executable,
     [
@@ -208,6 +209,10 @@ async function downloadSelectedOption(
     );
   }
 
+  if (option.mediaType === 'subtitle') {
+    return downloadSubtitle(input, url, proxy, stage, probe, option);
+  }
+
   stage.reportProgress({
     status: 'running',
     phase: 'preparing_download',
@@ -227,7 +232,7 @@ async function downloadSelectedOption(
     option.mediaType,
     downloadPartWeights(probe, option)
   );
-  const ytDlp = currentYtDlpRuntime(input);
+  const ytDlp = currentYtDlpRuntime(input, url);
   const stdout = await run(
     ytDlp.executable,
     [...ytDlp.prefixArgs, ...YT_DLP_UTF8_ARGS, ...args],
@@ -288,6 +293,63 @@ async function downloadSelectedOption(
       status: 'completed',
       path: output.path,
       metadata
+    }],
+    progress
+  };
+}
+
+async function downloadSubtitle(
+  input: DownloadExecutorOptions,
+  url: string,
+  proxy: string,
+  stage: CreatorExecutorInput,
+  probe: DownloadProbe,
+  option: DownloadOption
+): Promise<CreatorExecutorResult> {
+  const { subtitleLanguage, subtitleSource } = option;
+  if (!subtitleLanguage || (subtitleSource !== 'manual' && subtitleSource !== 'automatic')) {
+    throw new CreatorExecutorError('format_unavailable', 'The selected subtitle track is invalid');
+  }
+  const outputDir = join(stage.workdir, 'subtitles');
+  await mkdir(outputDir, { recursive: true });
+  stage.reportProgress({ status: 'running', phase: 'preparing_download', percent: null, message: 'Downloading the selected subtitles as SRT' });
+  const ytDlp = currentYtDlpRuntime(input, url);
+  const languagePattern = `^${subtitleLanguage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`;
+  await run(ytDlp.executable, [
+    ...ytDlp.prefixArgs,
+    ...YT_DLP_UTF8_ARGS,
+    ...withYtDlpProxy([
+      '--skip-download', '--no-playlist', '--windows-filenames',
+      ...(option.playlistIndex === undefined ? [] : ['--playlist-items', String(option.playlistIndex)]),
+      ...(subtitleSource === 'automatic'
+        ? ['--write-auto-subs', '--no-write-subs']
+        : ['--write-subs', '--no-write-auto-subs']),
+      '--sub-langs', languagePattern,
+      '--sub-format', 'srt/vtt/ttml', '--convert-subs', 'srt',
+      '--ffmpeg-location', input.ffmpegPath,
+      '-o', join(outputDir, 'OpenCreator-%(title).120B-%(id)s.%(ext)s'),
+      normalizeSourceUrl(url)
+    ], proxy)
+  ], stage, undefined, ytDlp.env);
+  const files = (await readdir(outputDir)).filter(file => file.endsWith('.srt'));
+  if (files.length !== 1) {
+    throw new CreatorExecutorError('download_output_missing', 'The selected subtitles are no longer available. Analyze the video again.');
+  }
+  const path = await safeOutputPath(stage.workdir, join(outputDir, files[0]!));
+  const cues = await validateSrtFile(path, { allowOverlaps: true });
+  const info = await stat(path);
+  const sha256 = await sha256File(path);
+  const progress = { status: 'succeeded', phase: 'completed', percent: 100, message: 'Subtitles downloaded to the project' };
+  stage.reportProgress(progress);
+  return {
+    outputs: [{
+      kind: 'source_subtitle', status: 'completed', path,
+      metadata: {
+        ...sourceMetadata(probe), fileName: basename(path), size: info.size, bytes: info.size,
+        sha256, mimeType: 'application/x-subrip', optionId: option.id,
+        mediaType: 'subtitle', container: 'srt', subtitleLanguage,
+        subtitleSource, cueCount: cues.length
+      }
     }],
     progress
   };
@@ -388,7 +450,7 @@ async function downloadPlaybackSource(
     message: preview ? 'Connecting to the original video source; existing subtitles are preserved' : 'Preparing the YouTube source'
   });
   const outputTemplate = join(stage.workdir, 'source.%(ext)s');
-  const ytDlp = currentYtDlpRuntime(input);
+  const ytDlp = currentYtDlpRuntime(input, url);
   const stdout = await run(
     ytDlp.executable,
     [
@@ -537,7 +599,7 @@ async function downloadLegacy(
     );
   }
   const outputTemplate = join(stage.workdir, 'source.%(ext)s');
-  const ytDlp = currentYtDlpRuntime(input);
+  const ytDlp = currentYtDlpRuntime(input, url);
   const stdout = await run(
     ytDlp.executable,
     [
@@ -1183,16 +1245,34 @@ function run(
 
 function classifyDownloadError(stderr: string, exitCode: number | null): CreatorExecutorError {
   const text = stderr.toLowerCase();
+  const douyin = /\[douyin(?:\+[^\]]+)?\]/.test(text);
   const failure = (
     code: string,
     message: string,
     kind: NonNullable<CreatorExecutorError['publicFacts']>['kind'],
-    httpStatus?: number
+    httpStatus?: number,
+    upstreamMessage?: string
   ) => new CreatorExecutorError(code, message, {}, {
+    ...sanitizePublicErrorFacts({ kind, upstreamMessage }),
     kind,
     provider: 'yt-dlp',
     ...(httpStatus === undefined ? {} : { httpStatus })
   });
+  if (douyin && text.includes('douyin request signature is required')) {
+    return failure('platform_request_signature_required',
+      'Douyin rejected the downloader because its required browser request signature is not supported. Reconnecting cookies alone cannot fix this; use a local video file.',
+      'unsupported', 403, stderr);
+  }
+  if (douyin && (text.includes('fresh cookies') || text.includes('douyin browser identity was rejected'))) {
+    const status = /http error\s+(\d{3})\b/i.exec(stderr);
+    return failure('platform_session_required',
+      'Douyin did not accept the browser session or requires website verification. Reconnect Douyin in Settings > Platform connections and retry; signing in is not necessarily required.',
+      'unauthorized', status === null ? undefined : Number(status[1]), stderr);
+  }
+  if (/bilibili risk control (?:rejected the media request|blocked media extraction)/.test(text)
+    || (text.includes('bilibili risk control') && text.includes('no video formats found'))) {
+    return failure('download_failed', 'Bilibili risk control rejected the media request. Wait and retry, or use a local video file.', 'http-rejected');
+  }
   if (/proxyerror|proxy connection|proxy (?:server )?(?:timed out|refused|unreachable|failed)/.test(text)) {
     const reason = /timed out|timeout/.test(text) ? 'timed out' : /refused/.test(text) ? 'was refused' : 'failed';
     return failure('network_unavailable', `yt-dlp proxy connection ${reason}. Check the proxy address and whether the proxy service is running.`,
@@ -1284,8 +1364,8 @@ function publicYtDlpErrorLine(stderr: string): string | undefined {
   return sanitizeIssueDetail(redacted, 300);
 }
 
-function currentYtDlpRuntime(input: DownloadExecutorOptions): YtDlpRuntime {
-  return input.getYtDlpRuntime?.() ?? {
+function currentYtDlpRuntime(input: DownloadExecutorOptions, sourceUrl: string): YtDlpRuntime {
+  return input.getYtDlpRuntime?.(sourceUrl) ?? {
     version: 'configured',
     executable: input.ytDlpPath,
     prefixArgs: input.ytDlpPrefixArgs ?? [],

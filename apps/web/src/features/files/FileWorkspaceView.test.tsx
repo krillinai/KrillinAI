@@ -105,7 +105,7 @@ describe('FileWorkspaceView', () => {
     await waitFor(() => expect(service.openText).toHaveBeenCalledWith(thread.id, 'README.md'));
     expect(await screen.findAllByText('README.md')).not.toHaveLength(0);
     expect(screen.getByRole('button', { name: '预览' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.queryByRole('textbox', { name: 'README.md 编辑器' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'README.md editor' })).not.toBeInTheDocument();
     expect(window.localStorage.getItem(`opencreator.file-workspace.recent.${workspaceKey(thread.canonicalCwd)}`)).toBe('README.md');
   });
 
@@ -547,7 +547,7 @@ describe('FileWorkspaceView', () => {
 
     expect(within(toolbar).getByRole('button', { name: '编辑' })).toHaveAttribute('aria-pressed', 'true');
     expect(within(toolbar).getByRole('button', { name: '预览' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('textbox', { name: 'scripts/notes.md 编辑器' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'scripts/notes.md editor' })).toBeInTheDocument();
 
     expect(container.querySelector('.file-path-bar')).not.toBeInTheDocument();
     expect(container.querySelector('.file-editor-toolbar')).not.toBeInTheDocument();
@@ -582,7 +582,7 @@ describe('FileWorkspaceView', () => {
     const preview = await screen.findByTitle('business-cover.html HTML 预览');
     expect(screen.getByRole('button', { name: '预览' })).toHaveAttribute('aria-pressed', 'true');
     expect(preview).toHaveAttribute('sandbox', 'allow-scripts');
-    expect(screen.queryByRole('textbox', { name: 'business-cover.html 编辑器' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'business-cover.html editor' })).not.toBeInTheDocument();
   });
 
   it('可以收起和展开右侧目录树，编辑区保持可用', async () => {
@@ -813,7 +813,7 @@ describe('FileWorkspaceView', () => {
       .toHaveTextContent('切换文件后，当前文件中尚未保存的修改将丢失。');
     await user.click(screen.getByRole('button', { name: '取消' }));
     expect(service.getMeta).not.toHaveBeenCalledWith(thread.id, 'guide.md');
-    expect(screen.getByRole('textbox', { name: 'notes.txt 编辑器' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'notes.txt editor' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('treeitem', { name: 'guide.md' }));
     await user.click(screen.getByRole('button', { name: '放弃并切换' }));
@@ -911,7 +911,7 @@ describe('FileWorkspaceView', () => {
 
     expect(await screen.findByText('当前会话为只读模式，不能保存文件')).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole('button', { name: '编辑' }));
-    expect(await screen.findByRole('textbox', { name: 'notes.txt 编辑器' })).toHaveAttribute('aria-readonly', 'true');
+    expect(await screen.findByRole('textbox', { name: 'notes.txt editor' })).toHaveAttribute('aria-readonly', 'true');
     expect(screen.getByRole('button', { name: '保存' })).toBeDisabled();
   });
 
@@ -957,10 +957,10 @@ async function openFileEditor(
   user: ReturnType<typeof userEvent.setup>,
   fileName: string
 ): Promise<HTMLElement> {
-  const existing = screen.queryByRole('textbox', { name: `${fileName} 编辑器` });
+  const existing = screen.queryByRole('textbox', { name: `${fileName} editor` });
   if (existing !== null) return existing;
   await user.click(await screen.findByRole('button', { name: '编辑' }));
-  return await screen.findByRole('textbox', { name: `${fileName} 编辑器` });
+  return await screen.findByRole('textbox', { name: `${fileName} editor` });
 }
 
 type ServiceOptions = {

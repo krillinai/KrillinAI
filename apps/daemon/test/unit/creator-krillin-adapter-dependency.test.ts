@@ -36,6 +36,8 @@ describe('KrillinAI configured transcription dependency', () => {
   it.each([
     ['分享视频 https://v.douyin.com/abc123/ 复制打开抖音', 'https://v.douyin.com/abc123/'],
     ['https://www.douyin.com/jingxuan?modal_id=123', 'https://www.douyin.com/video/123'],
+    ['https://www.douyin.com/jingxuan/search/qianjidong?aid=2052a92f-0793-47c1-b739-c0af829b6103&modal_id=7693859410975690010&type=general',
+      'https://www.douyin.com/video/7693859410975690010'],
     ['https://www.xiaohongshu.com/explore/6a9149f3000000001f01d20a?xsec_token=sample%3D',
       'https://www.xiaohongshu.com/explore/6a9149f3000000001f01d20a?xsec_token=sample%3D']
   ])('transcribes added translation sources with normalized URLs and preserved tokens: %s', async (sourceUrl, expected) => {
@@ -53,6 +55,7 @@ describe('KrillinAI configured transcription dependency', () => {
     expect(fixture.ensure).toHaveBeenCalledTimes(1);
     expect(runKrillinCli).toHaveBeenCalledTimes(1);
     expect(runKrillinCli.mock.calls[0]?.[0]).toMatchObject({ source: expected, options: { sourceUrl: expected } });
+    expect(fixture.getYtDlpRuntime).toHaveBeenCalledWith(expected);
     expect(runKrillinCli.mock.calls[0]?.[0].options.captionSource).not.toBe('platform');
   });
   it('uses the original YouTube URL without preparing transcription when platform captions succeed', async () => {
@@ -108,7 +111,7 @@ describe('KrillinAI configured transcription dependency', () => {
     expect(stage.reportProgress).toHaveBeenCalledWith(expect.objectContaining({
       phase: 'fallback_to_transcription', providerStatus: 'running',
       captionSource: 'whisper', captionFallbackCode: code,
-      message: expect.stringContaining('已自动切换到语音转录')
+        message: expect.stringContaining('Switched to speech transcription.')
     }));
     expect(stage.reportProgress).toHaveBeenCalledWith(expect.objectContaining({
       phase: 'transcribing_audio', percent: 55, captionFallbackCode: code, captionSource: 'whisper'
@@ -158,7 +161,7 @@ describe('KrillinAI configured transcription dependency', () => {
     expect(stage.reportProgress).not.toHaveBeenCalledWith(expect.objectContaining({ providerStatus: 'failed' }));
     expect(stage.reportProgress).toHaveBeenCalledWith(expect.objectContaining({
       phase: 'downloading_dependencies', captionFallbackCode: 'platform_caption_invalid',
-      message: expect.stringContaining('平台字幕解析失败，已自动切换到语音转录')
+      message: expect.stringContaining('Platform subtitle parsing failed. Switched to speech transcription.')
     }));
   });
 
@@ -283,9 +286,11 @@ function setup() {
     config
   });
   const ensure = vi.fn(async (_input: { reportProgress(progress: Record<string, unknown>): void }) => undefined);
+  const getYtDlpRuntime = vi.fn(() => undefined);
   const executor = createKrillinExecutor({
     resourceRoot,
     jobsRoot,
+    getYtDlpRuntime,
     configStore: {
       read: vi.fn(async () => config)
     } as never,
@@ -320,7 +325,7 @@ function setup() {
     workdir: join(jobsRoot, 'auto-clip-job', 'subtitle-stage'),
     reportProgress: vi.fn()
   } as never;
-  return { ensure, executor, stage };
+  return { ensure, executor, stage, getYtDlpRuntime };
 }
 
 function writeTargetSubtitle(jobsRoot: string) {

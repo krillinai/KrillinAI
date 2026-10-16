@@ -73,9 +73,16 @@ export class KrillinCliError extends Error {
   ) {
     super(message, options);
     this.name = 'KrillinCliError';
+    const douyinFailure = /^prepare_(?:media|audio_fallback)_failed$/.test(code) && /\[Douyin(?:\+[^\]]+)?\]/i.test(message);
+    const signatureRequired = douyinFailure && /Douyin request signature is required/i.test(message);
+    const sessionRequired = douyinFailure && /fresh cookies|Douyin browser identity was rejected/i.test(message);
+    const status = sessionRequired || signatureRequired ? /http error\s+(\d{3})\b/i.exec(message) : null;
     this.publicFacts = sanitizePublicErrorFacts({
-      kind: publicErrorKindForCode(code) ?? 'unknown', provider: 'krillinai',
-      upstreamCode: code, upstreamMessage: message
+      kind: signatureRequired ? 'unsupported' : sessionRequired ? 'unauthorized' : /^prepare_(?:media|audio_fallback)_failed$/.test(code)
+        && /bilibili risk control (?:rejected the media request|blocked media extraction)/i.test(message)
+        ? 'http-rejected' : publicErrorKindForCode(code) ?? 'unknown', provider: 'krillinai',
+      upstreamCode: code, upstreamMessage: message,
+      ...(status === null ? {} : { httpStatus: Number(status[1]) })
     });
   }
 }
@@ -237,16 +244,19 @@ export function buildKrillinCliCommandArguments(
   const sourceUrl = stringOption(options, 'sourceUrl');
   const mediaCache = sourceUrl ? ['--media-workdir', join(dirname(stage.workdir), 'source-media', createHash('sha256').update(sourceUrl).digest('hex').slice(0, 16))] : [];
   if (command === 'subtitle') {
-    const source = sourceOverride ?? resolveKrillinCliSource(artifacts, options);
-    if (!source) throw new CreatorExecutorError('creator_stage_input_missing', 'Subtitle input video or URL is required');
+    const subtitleOnly = options.sourceType === 'subtitle';
+    const source = subtitleOnly ? undefined : sourceOverride ?? resolveKrillinCliSource(artifacts, options);
     const sourceOnly = booleanOption(options, 'sourceOnly', false);
-    const importedTarget = artifactPath(artifacts, 'target_subtitle');
+    const importedTarget = subtitleOnly ? undefined : artifactPath(artifacts, 'target_subtitle');
     const importedSource = artifactPath(artifacts, 'source_subtitle');
     const imported = importedTarget ?? importedSource;
+    if (subtitleOnly ? !importedSource : !source && !imported) {
+      throw new CreatorExecutorError('creator_stage_input_missing', 'A video, URL or imported source SRT is required');
+    }
     return [
       'subtitle',
-      source,
-      ...(!sourceOnly && booleanOption(options, 'prepareVideo', true) ? ['--prepare-video'] : []),
+      ...(source ? [source] : []),
+      ...(!subtitleOnly && source && !sourceOnly && booleanOption(options, 'prepareVideo', true) ? ['--prepare-video'] : []),
       '--origin-lang', requiredOption(options, 'originLanguage'),
       '--target-lang', requiredOption(options, 'targetLanguage'),
       '--caption-source', stringOption(options, 'captionSource') ?? 'any',
@@ -297,7 +307,7 @@ export function buildKrillinCliCommandArguments(
     const target = artifactPath(artifacts, 'target_subtitle');
     const bilingual = artifactPath(artifacts, 'bilingual_subtitle');
     const subtitle = command === 'render-vertical'
-      ? vertical ?? target ?? bilingual
+      ? vertical ?? (booleanOption(options, 'bilingual', false) ? bilingual ?? target : target ?? bilingual)
       : booleanOption(options, 'bilingual', false) && bilingual
         ? bilingual
         : target ?? bilingual;
@@ -310,6 +320,11 @@ export function buildKrillinCliCommandArguments(
       ...mediaCache,
       ...(video ? ['--video', video] : ['--source-url', sourceUrl!]),
       '--subtitle', subtitle,
+      '--line-mode', subtitle === bilingual || subtitle === vertical
+        ? booleanOption(options, 'bilingualTop', true) ? 'bilingual-target-top' : 'bilingual-target-bottom'
+        : 'target-only',
+      ...(subtitle === vertical && target ? ['--mixed-target-subtitle', target] : []),
+      ...(!booleanOption(options, 'bilingual', false) && subtitle !== target ? ['--target-only'] : []),
       ...(dubbed && !dubbedVideo && dubbedAudio ? ['--audio', dubbedAudio] : []),
       ...(dubbed ? ['--dubbed'] : []),
       ...(command === 'render-vertical'

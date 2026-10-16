@@ -1,3 +1,7 @@
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
+import type { LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
+import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import type {
   CreateScheduleRequest,
   ReasoningEffort,
@@ -16,6 +20,7 @@ import {
   scheduleFrequencyToCron,
   scheduleRepeatOptions,
   scheduleWeekdays,
+  formatScheduleWeekday,
   type ScheduleFrequency,
   type ScheduleRepeat,
 } from './schedule-frequency.js';
@@ -54,6 +59,13 @@ export function ScheduleEditor(props: {
   onCancel(): void;
   onSubmit(values: ScheduleEditorValues): void;
 }) {
+  const l = useLocalizedCopy();
+  const { language } = useAppLanguage();
+  const repeatLabels: Record<ScheduleRepeat, string> = {
+    hourly: l('每小时', 'Hourly'), daily: l('每天', 'Daily'),
+    weekdays: l('工作日', 'Weekdays'), weekly: l('每周', 'Weekly'),
+    custom: l('自定义', 'Custom'), advanced: l('高级计划', 'Advanced schedule')
+  };
   const confirm = useConfirmDialog();
   const [values, setValues] = useState(props.initialValues);
   const formRef = useRef<HTMLFormElement>(null);
@@ -69,7 +81,7 @@ export function ScheduleEditor(props: {
     firstInvalidField?.scrollIntoView?.({ block: 'center' });
   }, [props.errors]);
 
-  const formLabel = props.mode === 'create' ? '创建定时任务' : `编辑${values.name || '定时任务'}`;
+  const formLabel = props.mode === 'create' ? l('创建定时任务', 'Create scheduled task') : l(`编辑${values.name || '定时任务'}`, `Edit ${values.name || l('定时任务', 'Scheduled task')}`);
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     props.onSubmit(values);
@@ -124,12 +136,12 @@ export function ScheduleEditor(props: {
   return (
     <form ref={formRef} className="schedule-editor" aria-label={formLabel} onSubmit={submit}>
       <header className="schedule-editor__topbar">
-        <strong>{props.mode === 'create' ? '创建定时任务' : '编辑定时任务'}</strong>
+        <strong>{props.mode === 'create' ? l("创建定时任务", "Create a scheduled task") : l("编辑定时任务", "Edit scheduled tasks")}</strong>
         <button
           className="schedule-icon-button schedule-icon-button--plain"
           type="button"
-          aria-label="取消编辑"
-          title="关闭"
+          aria-label={l("取消编辑", "Cancel edit")}
+          title={l("关闭", "Close")}
           onClick={props.onCancel}
         >
           <X size={18} />
@@ -139,8 +151,7 @@ export function ScheduleEditor(props: {
       {props.loading ? (
         <div className="schedule-editor__loading" role="status">
           <LoaderCircle size={18} className="schedule-spin" />
-          正在加载计划详情
-        </div>
+          {l("正在加载计划详情", "Loading plan details")}</div>
       ) : (
         <>
           <div className="schedule-editor__scroll">
@@ -152,13 +163,12 @@ export function ScheduleEditor(props: {
 
             <label className="schedule-title-field">
               <span>
-                标题
-                <small>必填</small>
+                {l("标题", "title")}<small>{l("必填", "Required")}</small>
               </span>
               <input
-                aria-label="定时任务标题"
+                aria-label={l("定时任务标题", "Scheduled task title")}
                 value={values.name}
-                placeholder="输入任务标题"
+                placeholder={l("输入任务标题", "Enter task title")}
                 aria-invalid={props.errors?.name ? 'true' : undefined}
                 onChange={event => update('name', event.target.value)}
               />
@@ -168,11 +178,11 @@ export function ScheduleEditor(props: {
             </label>
 
             <label className="schedule-prompt-field">
-              <span>描述</span>
+              <span>{l("描述", "describe")}</span>
               <textarea
-                aria-label="任务内容"
+                aria-label={l("任务内容", "Task content")}
                 value={values.prompt}
-                placeholder="描述需要帮你做什么..."
+                placeholder={l("描述需要帮你做什么...", "Describe what we need to do for you...")}
                 rows={3}
                 aria-invalid={props.errors?.prompt ? 'true' : undefined}
                 onChange={event => update('prompt', event.target.value)}
@@ -183,20 +193,20 @@ export function ScheduleEditor(props: {
             </label>
 
             <section className="schedule-editor-group" aria-labelledby="schedule-frequency-heading">
-              <h2 id="schedule-frequency-heading">执行频率</h2>
+              <h2 id="schedule-frequency-heading">{l("执行频率", "Execution frequency")}</h2>
               <div className="schedule-setting-list schedule-setting-list--time-popover">
-                <SettingRow label="重复">
+                <SettingRow label={l("重复", "repeat")}>
                   <SelectControl
-                    ariaLabel="重复"
+                    ariaLabel={l('重复', 'Repeat')}
                     value={values.frequency.repeat}
                     onChange={value => updateRepeat(value as ScheduleRepeat)}
                   >
                     {values.frequency.repeat === 'advanced' ? (
-                      <option value="advanced">高级计划（保持原设置）</option>
+                      <option value="advanced">{l("高级计划（保持原设置）", "Advanced plan (keep original settings)")}</option>
                     ) : null}
                     {scheduleRepeatOptions.map(option => (
                       <option key={option.value} value={option.value}>
-                        {option.label}
+                        {repeatLabels[option.value]}
                       </option>
                     ))}
                   </SelectControl>
@@ -204,18 +214,17 @@ export function ScheduleEditor(props: {
 
                 {values.frequency.repeat === 'advanced' ? (
                   <div className="schedule-legacy-note">
-                    这是旧版高级计划。保持当前选项可原样保存，也可以改成更简单的重复频率。
-                  </div>
+                    {l("这是旧版高级计划。保持当前选项可原样保存，也可以改成更简单的重复频率。", "This schedule uses an advanced frequency. Keep it as is, or choose a simpler repeat frequency.")}</div>
                 ) : (
                   <>
                     <SettingRow
-                      label={values.frequency.repeat === 'hourly' ? '分钟' : '时间'}
+                      label={values.frequency.repeat === 'hourly' ? l("分钟", "minute") : l("时间", "time")}
                     >
                       {values.frequency.repeat === 'hourly' ? (
                         <div className="schedule-hourly-control">
-                          <span>每小时第</span>
+                          <span>{l("每小时第", "hourly")}</span>
                           <input
-                            aria-label="每小时分钟"
+                            aria-label={l("每小时分钟", "minutes per hour")}
                             type="number"
                             min="0"
                             max="59"
@@ -231,7 +240,7 @@ export function ScheduleEditor(props: {
                               });
                             }}
                           />
-                          <span>分钟</span>
+                          <span>{l("分钟", "minute")}</span>
                         </div>
                       ) : (
                         <ScheduleTimePicker
@@ -246,7 +255,7 @@ export function ScheduleEditor(props: {
 
                     {values.frequency.repeat === 'weekly'
                       || values.frequency.repeat === 'custom' ? (
-                        <div className="schedule-day-picker" role="group" aria-label="执行日期">
+                        <div className="schedule-day-picker" role="group" aria-label={l("执行日期", "execution date")}>
                           {scheduleWeekdays.map(day => {
                             const selected = values.frequency.days.includes(day.value);
                             return (
@@ -266,7 +275,7 @@ export function ScheduleEditor(props: {
                                 }}
                                 type="button"
                               >
-                                {day.shortLabel}
+                                {language === 'zh-CN' ? day.shortLabel : formatScheduleWeekday(day.value, language)}
                               </button>
                             );
                           })}
@@ -284,11 +293,11 @@ export function ScheduleEditor(props: {
               className="schedule-editor-advanced"
               aria-labelledby="schedule-advanced-heading"
             >
-              <h2 id="schedule-advanced-heading">请选择访问权限</h2>
+              <h2 id="schedule-advanced-heading">{l("请选择访问权限", "Please select access rights")}</h2>
               <div className="schedule-setting-list">
-                <SettingRow label="权限">
+                <SettingRow label={l("权限", "Permissions")}>
                   <SelectControl
-                    ariaLabel="权限"
+                    ariaLabel={l('权限', 'Permission')}
                     value={values.sandbox === 'danger-full-access'
                       ? 'danger-full-access'
                       : 'workspace-write'}
@@ -297,9 +306,9 @@ export function ScheduleEditor(props: {
                         value === 'danger-full-access'
                         && values.sandbox !== 'danger-full-access'
                         && !await confirm({
-                          title: '开启完全访问权限',
-                          description: '完全访问权限允许任务访问本机文件并执行本地操作。仅为可信任务开启。',
-                          confirmLabel: '开启'
+                          title: l('开启完全访问权限', 'Enable full access'),
+                          description: l('完全访问权限允许任务访问本机文件并执行本地操作。仅为可信任务开启。', 'Full access allows tasks to access local files and perform local operations. Enable it only for trusted tasks.'),
+                          confirmLabel: l('开启', 'Enable')
                         })
                       ) {
                         return;
@@ -307,8 +316,8 @@ export function ScheduleEditor(props: {
                       update('sandbox', value as SandboxMode);
                     }}
                   >
-                    <option value="workspace-write">请求批准</option>
-                    <option value="danger-full-access">完全访问权限</option>
+                    <option value="workspace-write">{l("请求批准", "request approval")}</option>
+                    <option value="danger-full-access">{l("完全访问权限", "full access")}</option>
                   </SelectControl>
                 </SettingRow>
               </div>
@@ -321,8 +330,8 @@ export function ScheduleEditor(props: {
                 onChange={event => update('enabled', event.target.checked)}
               />
               <span>
-                <strong>创建后启用</strong>
-                <small>关闭后会保存为暂停状态</small>
+                <strong>{l("创建后启用", "Enable after creation")}</strong>
+                <small>{l("关闭后会保存为暂停状态", "After closing, it will be saved as paused state.")}</small>
               </span>
             </label>
           </div>
@@ -333,8 +342,7 @@ export function ScheduleEditor(props: {
               type="button"
               onClick={props.onCancel}
             >
-              取消
-            </button>
+              {l("取消", "Cancel")}</button>
             <button
               className="schedule-button schedule-button--secondary"
               type="submit"
@@ -345,7 +353,7 @@ export function ScheduleEditor(props: {
               ) : (
                 <Save size={16} />
               )}
-              {props.mode === 'create' ? '创建任务' : '保存更改'}
+              {props.mode === 'create' ? l("创建任务", "Create tasks") : l("保存更改", "Save changes")}
             </button>
           </footer>
         </>
@@ -358,6 +366,7 @@ function ScheduleTimePicker(props: {
   value: string;
   onChange(value: string): void;
 }) {
+  const l = useLocalizedCopy();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const hour = props.value.slice(0, 2);
@@ -387,7 +396,7 @@ function ScheduleTimePicker(props: {
       <button
         aria-expanded={open}
         aria-haspopup="dialog"
-        aria-label="执行时间"
+        aria-label={l("执行时间", "Execution time")}
         className="schedule-time-picker__trigger"
         type="button"
         onClick={() => setOpen(current => !current)}
@@ -396,15 +405,15 @@ function ScheduleTimePicker(props: {
         <Clock3 size={15} aria-hidden="true" />
       </button>
       {open ? (
-        <div className="schedule-time-picker__popover" role="dialog" aria-label="选择执行时间">
+        <div className="schedule-time-picker__popover" role="dialog" aria-label={l("选择执行时间", "Select execution time")}>
           <TimeColumn
-            label="小时"
+            label={l("小时", "Hour")}
             selected={hour}
             values={Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'))}
             onSelect={nextHour => props.onChange(`${nextHour}:${minute}`)}
           />
           <TimeColumn
-            label="分钟"
+            label={l("分钟", "minute")}
             selected={minute}
             values={Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0'))}
             onSelect={nextMinute => props.onChange(`${hour}:${nextMinute}`)}
@@ -476,19 +485,20 @@ export function createScheduleUpdate(values: ScheduleEditorValues): UpdateSchedu
 }
 
 export function validateScheduleEditorValues(
-  values: ScheduleEditorValues
+  values: ScheduleEditorValues,
+  l: LocalizeCopy = createLocalizedCopy('zh-CN')
 ): ScheduleEditorErrors {
   const errors: ScheduleEditorErrors = {};
-  if (values.name.trim().length === 0) errors.name = '请输入任务标题';
-  if (values.prompt.trim().length === 0) errors.prompt = '请描述需要帮你做什么';
+  if (values.name.trim().length === 0) errors.name = l('请输入任务标题', 'Enter a task title');
+  if (values.prompt.trim().length === 0) errors.prompt = l('请描述需要帮你做什么', 'Describe what you need done');
   try {
     scheduleFrequencyToCron(values.frequency);
   } catch {
-    errors.frequency = '请选择执行频率';
+    errors.frequency = l('请选择执行频率', 'Choose a schedule frequency');
   }
-  if (values.cwd.trim().length === 0) errors.form = '当前项目不可用，请先选择或创建项目';
+  if (values.cwd.trim().length === 0) errors.form = l('当前项目不可用，请先选择或创建项目', 'The current project is unavailable. Select or create a project first.');
   if (values.profile.trim().length === 0) {
-    errors.form = '当前项目的运行配置不可用，请先在项目设置中修复';
+    errors.form = l('当前项目的运行配置不可用，请先在项目设置中修复', 'The project runtime configuration is unavailable. Fix it in project settings first.');
   }
   return errors;
 }

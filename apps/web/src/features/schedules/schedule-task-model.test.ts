@@ -44,7 +44,7 @@ describe('schedule task model', () => {
         threadId: null,
         bindingStatus: 'repair_required',
         bindingIssue: 'missing_thread_id',
-        statusMessage: '任务会话需要修复',
+        statusMessage: 'The task conversation needs attention',
         currentRunStatus: null
       })
     ]);
@@ -62,7 +62,7 @@ describe('schedule task model', () => {
         threadId: 'thread-task',
         bindingStatus: 'repair_required',
         bindingIssue: 'thread_not_found',
-        statusMessage: '任务会话需要修复'
+        statusMessage: 'The task conversation needs attention'
       })
     ]);
   });

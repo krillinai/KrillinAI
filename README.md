@@ -15,13 +15,13 @@
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="OpenCreator, formerly KrillinAI: #1 Repository of the Day on Trendshift" width="250" height="55" /></a>
 
-**English** | [简体中文](./docs/zh/README.md) | [日本語](./docs/ja/README.md) | [한국어](./docs/ko/README.md) | [Bahasa Indonesia](./docs/id/README.md) | [Español](./docs/es/README.md) | [Français](./docs/fr/README.md) | [Deutsch](./docs/de/README.md) | [Português](./docs/pt/README.md) | [Русский](./docs/ru/README.md) | [العربية](./docs/ar/README.md) | [ภาษาไทย](./docs/th/README.md)
+**English** | [简体中文](./docs/zh/README.md) | [日本語](./docs/ja/README.md) | [한국어](./docs/ko/README.md) | [Bahasa Indonesia](./docs/id/README.md) | [Español](./docs/es/README.md) | [Français](./docs/fr/README.md) | [Deutsch](./docs/de/README.md) | [Português](./docs/pt/README.md) | [Русский](./docs/ru/README.md) | [العربية](./docs/ar/README.md) | [ภาษาไทย](./docs/th/README.md) | [Türkçe](./docs/tr/README.md) | [हिन्दी](./docs/hi/README.md) | [বাংলা](./docs/bn/README.md) | [اردو](./docs/ur/README.md) | [Tiếng Việt](./docs/vi/README.md) | [Filipino](./docs/fil/README.md)
 
 [![GitHub Stars](https://badgen.net/github/stars/krillinai/OpenCreator?icon=github&label=Stars&color=EAB308)](https://github.com/krillinai/OpenCreator/stargazers)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%E7%B2%89%E4%B8%9D&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
 [![AtomGit G-Star](https://img.shields.io/badge/AtomGit-G--Star-DA203E?style=flat)](https://atomgit.com/krillinai/OpenCreator)
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/fUNvbqDaw)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
 [Highlights](#project-highlights) · [Creator Tools](#creator-tools) · [Skills](#skills) · [Examples](#examples) · [Quick Start](#quick-start) · [Desktop](#desktop) · [Docs](#documentation) · [Community](#community)
@@ -89,7 +89,7 @@ Open the Dashboard to write articles, Xiaohongshu posts, or short-video scripts;
 </thead>
 <tbody>
 <tr><td valign="top">Video Translation</td><td valign="top">✅ Available</td><td>Import local or public videos; transcribe with cloud or local Whisper services; use LLM context for subtitle segmentation, alignment, terminology, and translation; configure bilingual subtitles, dubbing or a custom voice sample, subtitle styles, landscape or portrait composition, and export SRT, audio, or video</td></tr>
-<tr><td valign="top">Video Downloader</td><td valign="top">✅ Available</td><td>Analyze individual public videos from YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, and Pinterest; compare available formats and download video or audio. Some sources may require platform cookies</td></tr>
+<tr><td valign="top">Video Downloader</td><td valign="top">✅ Available</td><td>Analyze individual public videos from YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest, and Reddit; compare available formats and download video or audio. Some sources may require platform cookies</td></tr>
 <tr><td valign="top">Thumbnail Generator</td><td valign="top">✅ Available</td><td>Combine a topic, video link, and optional reference image to generate and compare multiple content-thumbnail variations</td></tr>
 <tr><td valign="top">Image Generation</td><td valign="top">✅ Available</td><td>Generate with GPT Image from a prompt and optional reference image, configure the aspect ratio and output count, then preview and download individual images</td></tr>
 <tr><td valign="top">Article Writer</td><td valign="top">✅ Available</td><td>Turn a topic, links, videos, or source documents into editable topic options, an outline, and a complete article; add generated images and export Markdown, HTML, or PDF</td></tr>
@@ -109,11 +109,9 @@ Start creating from a template instead of building every prompt and setting from
 
 The collection brings together templates created by OpenCreator and by independent creators. Third-party templates credit their creators and link to the original source on the template detail page.
 
-![Featured creation templates across video and image categories](./docs/images/product/creation-templates-gallery-en.png)
-
 Open a template to preview its example result and inspect its prompt, settings, tags, author, and original source. Select **Use this template** to start creating with it, then adjust the inputs for your own work.
 
-![Image creation template detail with example result, settings, and prompt](./docs/images/product/creation-templates-detail-en.png)
+![Image creation template detail with example result, settings, and prompt](./docs/images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 
@@ -256,39 +254,36 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > These video examples and the subtitle alignment image were produced while OpenCreator still used the KrillinAI name.
 
-### Video Generation
-
-Generate an AI video from a text prompt or reference image with Seedance. Configure the model, aspect ratio, resolution, and duration, then preview, regenerate, or download each version from the project workspace.
-
-![OpenCreator Video Generation with Seedance](./docs/images/examples/video-generation-seedance-en.png)
-
 ### Video Downloader
 
-Analyze a public video link, compare the available formats, and download video or audio directly to the project.
+Analyze public video links from 10 supported platforms, compare available formats, and download video or audio directly to your project.
 
 Supported video sources:
 
 <table align="center">
   <tr>
-    <td align="center" width="96"><img src="./docs/images/platforms/youtube.png" alt="YouTube" width="32" height="32" /><br /><strong>YouTube</strong></td>
-    <td align="center" width="96"><img src="./docs/images/platforms/bilibili.png" alt="Bilibili" width="32" height="32" /><br /><strong>Bilibili</strong></td>
-    <td align="center" width="96"><img src="./docs/images/platforms/x.png" alt="X" width="32" height="32" /><br /><strong>X</strong></td>
-    <td align="center" width="96"><img src="./docs/images/platforms/tiktok.png" alt="TikTok" width="32" height="32" /><br /><strong>TikTok</strong></td>
-    <td align="center" width="96"><img src="./docs/images/platforms/instagram.png" alt="Instagram" width="32" height="32" /><br /><strong>Instagram</strong></td>
-    <td align="center" width="96"><img src="./docs/images/platforms/douyin.png" alt="Douyin" width="32" height="32" /><br /><strong>Douyin</strong></td>
-    <td align="center" width="96"><img src="./docs/images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
-    <td align="center" width="96"><img src="./docs/images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="32" height="32" /><br /><strong>Xiaohongshu</strong></td>
-    <td align="center" width="96"><img src="./docs/images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
+    <td align="center" width="48"><img src="./docs/images/platforms/youtube.png" alt="YouTube" width="24" height="24" /><br /><small><small>YouTube</small></small></td>
+    <td align="center" width="48"><img src="./docs/images/platforms/bilibili.png" alt="Bilibili" width="24" height="24" /><br /><small><small>Bilibili</small></small></td>
+    <td align="center" width="48"><img src="./docs/images/platforms/x.png" alt="X" width="24" height="24" /><br /><small><small>X</small></small></td>
+    <td align="center" width="48"><img src="./docs/images/platforms/tiktok.png" alt="TikTok" width="24" height="24" /><br /><small><small>TikTok</small></small></td>
+    <td align="center" width="48"><img src="./docs/images/platforms/instagram.png" alt="Instagram" width="24" height="24" /><br /><small><small>Instagram</small></small></td>
+    <td align="center" width="48"><img src="./docs/images/platforms/douyin.png" alt="Douyin" width="24" height="24" /><br /><small><small>Douyin</small></small></td>
+    <td align="center" width="48"><img src="./docs/images/platforms/facebook.png" alt="Facebook" width="24" height="24" /><br /><small><small>Facebook</small></small></td>
+    <td align="center" width="48"><img src="./docs/images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="24" height="24" /><br /><small><small>Xiaohongshu</small></small></td>
+    <td align="center" width="48"><img src="./docs/images/platforms/pinterest.png" alt="Pinterest" width="24" height="24" /><br /><small><small>Pinterest</small></small></td>
+    <td align="center" width="48"><img src="./docs/images/platforms/reddit.png" alt="Reddit" width="24" height="24" /><br /><small><small>Reddit</small></small></td>
   </tr>
 </table>
 
 Availability varies by video and region; some sources may require platform cookies.
 
-**Xiaohongshu video notes:** Paste the complete public `https://www.xiaohongshu.com/explore/<24-character hex note ID>` URL, including `xsec_token` and other query parameters when present. Image-only notes have no video formats; profile pages and `xhslink.com` share links are not supported yet. Recognizing a link does not guarantee download: expired tokens, access restrictions, or platform changes may prevent it. OpenCreator does not automatically import browser cookies.
-
-**Pinterest video Pins:** Paste a public `https://www.pinterest.com/pin/<numeric ID>/` link. Image-only Pins have no downloadable video formats; boards and profiles are not supported.
-
 ![OpenCreator Video Downloader format selection](./docs/images/examples/video-downloader-formats-en.png)
+
+### Video Generation
+
+Generate an AI video from a text prompt or reference image with Seedance. Configure the model, aspect ratio, resolution, and duration, then preview, regenerate, or download each version from the project workspace.
+
+![OpenCreator Video Generation with Seedance](./docs/images/examples/video-generation-seedance-en.png)
 
 ### Stick Figure Animation
 

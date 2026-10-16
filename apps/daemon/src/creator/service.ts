@@ -240,7 +240,7 @@ export function createCreatorService(input: {
         revision: 0,
         actor: 'user',
         action: 'create-job',
-        summary: '创建创作任务',
+        summary: 'Created creator task',
         details: input.activityDetails
       });
       return repository.getJob(job.id)!;
@@ -362,7 +362,7 @@ export function createCreatorService(input: {
           revision,
           actor: 'user',
           action: 'register-source-video',
-          summary: '上传本地视频',
+          summary: 'Uploaded local video',
           details: {
             objectId: input.fileName,
             affectedArtifactIds: [artifact.id]
@@ -466,7 +466,7 @@ export function createCreatorService(input: {
           revision,
           actor: 'user',
           action: 'import-source-video',
-          summary: '从项目文件导入视频',
+          summary: 'Imported video from project files',
           details: {
             objectId: fileName,
             sourceJobId: input.sourceJobId,
@@ -555,16 +555,16 @@ export function createCreatorService(input: {
           }) as Record<string, CreatorJson>
         });
         const referenceImageLabel = current.templateId === 'cover'
-          ? '封面参考图'
+          ? 'thumbnail reference image'
           : current.templateId === 'video-generation'
-            ? '视频生成参考图'
-            : '图像生成参考图';
+            ? 'video reference image'
+            : 'image generation reference image';
         repository.insertActivity({
           jobId,
           revision,
           actor: 'user',
           action: 'register-reference-image',
-          summary: `${duplicate === undefined ? '上传' : '重新选择'}${referenceImageLabel}`,
+          summary: `${duplicate === undefined ? 'Uploaded' : 'Reselected'} ${referenceImageLabel}`,
           details: {
             objectId: input.fileName,
             affectedArtifactIds: [artifact.id]
@@ -651,7 +651,7 @@ export function createCreatorService(input: {
           revision,
           actor: 'user',
           action: 'register-article-image',
-          summary: duplicate === undefined ? '上传文章配图' : '重新插入文章配图',
+          summary: duplicate === undefined ? 'Uploaded article image' : 'Reinserted article image',
           details: {
             objectId: input.fileName,
             affectedArtifactIds: [artifact.id]
@@ -742,7 +742,7 @@ export function createCreatorService(input: {
           revision,
           actor: 'user',
           action: 'register-source-document',
-          summary: duplicate === undefined ? '上传内容灵感' : '重新选择内容灵感',
+          summary: duplicate === undefined ? 'Uploaded inspiration source' : 'Reselected inspiration source',
           details: {
             objectId: input.fileName,
             affectedArtifactIds: [artifact.id]
@@ -946,7 +946,7 @@ export function createCreatorService(input: {
             [kind === 'source_subtitle' ? 'sourceLanguage' : 'targetLanguage']: language };
           nextState = { ...nextState, ...appendCreatorResultSnapshot({ job: current, version: resultVersion,
             changedArtifacts: [artifact], artifactRefsPatch, staleArtifactIds: affectedArtifactIds,
-            action: request.action, description: '导入本地字幕', state: nextState }) };
+            action: request.action, description: 'Imported local subtitles', state: nextState }) };
           affectedArtifactIds.push(artifact.id);
           nextStatus = 'draft';
         } else if (request.action === 'edit-subtitle') {
@@ -1115,8 +1115,8 @@ export function createCreatorService(input: {
               )),
               action: request.action,
               description: source.kind === 'target_subtitle'
-                ? '保存横屏字幕修改'
-                : '保存竖屏字幕修改',
+                ? 'Saved horizontal subtitle changes'
+                : 'Saved vertical subtitle changes',
               state: nextState
             })
           };
@@ -1137,7 +1137,7 @@ export function createCreatorService(input: {
               changedArtifacts: [],
               artifactRefsPatch: videoTranslationArtifactRefsPatch(nextState),
               action: request.action,
-              description: '保存版本设置',
+              description: 'Saved version settings',
               state: nextState
             })
           };
@@ -1148,8 +1148,8 @@ export function createCreatorService(input: {
           if (stage === undefined) {
             throw new CreatorServiceError('creator_stage_not_found', 'Creator stage was not found');
           }
-          if (current.templateId === 'image-generation' && providerRequestLedger.unresolvedForStage({ jobId, stageId, scopeKey: typeof parsedInput.scopeKey === 'string' ? parsedInput.scopeKey : null }).length > 0) {
-            throw new CreatorServiceError('creator_provider_resolution_required', 'Resolve the previous paid image request before starting another generation');
+          if (['image-generation', 'video-generation'].includes(current.templateId) && providerRequestLedger.unresolvedForStage({ jobId, stageId, scopeKey: typeof parsedInput.scopeKey === 'string' ? parsedInput.scopeKey : null }).length > 0) {
+            throw new CreatorServiceError('creator_provider_resolution_required', 'Resolve the previous paid media request before starting another generation');
           }
           for (const field of ['baseResultVersion', 'inputResultVersion', 'targetResultVersion'] as const) {
             readResultVersion(current, parsedInput[field], field);
@@ -1215,7 +1215,8 @@ export function createCreatorService(input: {
               });
             }
           } else if (decision === 'query') {
-            nextStatus = 'needs_input';
+            nextStatus = ledger.status === 'failed' ? 'failed' : 'needs_input';
+            if (ledger.status === 'succeeded' || ledger.status === 'failed') delete nextState.needsInput;
           } else {
             throw new CreatorServiceError(
               'creator_action_invalid',
@@ -1505,15 +1506,15 @@ function dependentArtifacts(artifacts: CreatorArtifact[], sourceId: string): Cre
 }
 
 function summarizeAction(action: string, input: Record<string, CreatorJson>): string {
-  if (action === 'select-result-version') return `选择项目结果 V${String(input.version)}`;
-  if (action === 'import-subtitle') return '导入本地字幕并保留旧版本';
-  if (action === 'edit-subtitle') return '更新字幕并保留下游旧版本';
-  if (action === 'commit-version') return '保存项目版本设置';
-  if (action === 'run-stage') return `启动阶段 ${String(input.stageId ?? '')}`.trim();
-  if (action === 'retry-stage') return `重试阶段 ${String(input.stageId ?? '')}`.trim();
-  if (action === 'resolve-provider-request') return '处置计费服务请求';
-  if (action === 'undo-action') return '撤销上一次创作修改';
-  return '更新创作设置';
+  if (action === 'select-result-version') return `Selected project result V${String(input.version)}`;
+  if (action === 'import-subtitle') return 'Imported local subtitles and retained previous versions';
+  if (action === 'edit-subtitle') return 'Updated subtitles and retained previous downstream versions';
+  if (action === 'commit-version') return 'Saved project version settings';
+  if (action === 'run-stage') return `Started stage ${String(input.stageId ?? '')}`.trim();
+  if (action === 'retry-stage') return `Retried stage ${String(input.stageId ?? '')}`.trim();
+  if (action === 'resolve-provider-request') return 'Resolved a billed service request';
+  if (action === 'undo-action') return 'Undid the previous creator change';
+  return 'Updated creator settings';
 }
 
 

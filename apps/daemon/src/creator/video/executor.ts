@@ -67,7 +67,8 @@ export function createVideoExecutor(input: {
             logicalId: stage.stageRun.id,
             onGatewayBinding: gateway => {
               providerRequest = input.ledger?.registerBeforeSubmit({ jobId:stage.job.id, stageRunId:stage.stageRun.id, provider:'opencreator-gateway-video', requestKey:gateway.logicalId, gateway,
-                request:{prompt:request.prompt,duration:request.duration,size:request.size,reference:request.referenceImage?.data ?? null} });
+                request:{model:request.model ?? null,prompt:request.prompt,duration:request.duration,size:request.size,reference:request.referenceImage?.data ?? null,
+                  references:request.references ?? [],generateAudio:request.generateAudio ?? null,priceVersion:request.priceVersion ?? null} });
               if (providerRequest) providerRequest = input.ledger!.markSubmitting(providerRequest.id);
             },
             onGatewayRequest: id => { if (providerRequest) providerRequest = input.ledger!.markWaitingRemote(providerRequest.id,id); },
@@ -215,7 +216,11 @@ export function createVideoExecutor(input: {
           }
         };
       } catch (error) {
-        if (providerRequest && input.ledger && ['submitting', 'waiting_remote'].includes(providerRequest.status)) input.ledger.markUnknownRemoteAcceptance(providerRequest.id);
+        if (providerRequest && input.ledger && ['submitting', 'waiting_remote'].includes(providerRequest.status)) {
+          const status = error instanceof VideoGenerationError ? error.publicFacts?.httpStatus ?? error.statusCode : undefined;
+          if (providerRequest.remoteTaskId === null && status !== undefined && [400, 401, 402, 403, 404, 422, 429].includes(status)) input.ledger.markFailed(providerRequest.id, error);
+          else input.ledger.markUnknownRemoteAcceptance(providerRequest.id);
+        }
         throw creatorVideoError(error);
       }
     }
@@ -244,6 +249,9 @@ async function videoRequest(
       : {}),
     size: readSize(stage.job.state.size),
     duration: readDuration(stage.job.state.duration),
+    ...(Array.isArray(stage.job.state.videoReferences) ? { references: stage.job.state.videoReferences as CreateVideoGenerationRequest['references'] } : {}),
+    ...(typeof stage.job.state.generateAudio === 'boolean' ? { generateAudio: stage.job.state.generateAudio } : {}),
+    ...(typeof stage.job.state.videoPriceVersion === 'string' ? { priceVersion: stage.job.state.videoPriceVersion } : {}),
     ...(reference === undefined
       ? {}
       : { referenceImage: await readReferenceImage(reference) })
@@ -284,15 +292,18 @@ function readResumedResultId(stage: CreatorExecutorInput): string | undefined {
     : [...stage.job.stages].reverse().find(candidate => (
         candidate.id !== stage.stageRun.id
         && candidate.stageId === stage.stageRun.stageId
+        && candidate.scopeKey === stage.stageRun.scopeKey
         && candidate.status === 'failed'
-        && candidate.errorCode === 'creator_video_upstream_error'
-        && typeof candidate.progress.videoGenerationResultId === 'string'
       ));
+  if (typeof resumedFrom !== 'string' && (previous?.errorCode !== 'creator_video_upstream_error'
+    || stage.job.providerRequests.some(request => request.stageRunId === previous.id && request.provider === 'opencreator-gateway-video' && request.status === 'failed'))) return undefined;
   const resultId = previous?.progress.videoGenerationResultId;
   return typeof resultId === 'string' && resultId.length > 0 ? resultId : undefined;
 }
 
 function remoteProgress(result: VideoGenerationResult): Record<string, CreatorJson> {
+  if (result.phase === 'reconciling') return { status: 'running', phase: 'generating', percent: null, message: 'Waiting for confirmation of the existing video task' };
+  if (result.phase === 'downloading' && result.status !== 'completed') return { status: 'running', phase: 'downloading', percent: 90 };
   if (result.status === 'completed') {
     return {
       status: 'running',

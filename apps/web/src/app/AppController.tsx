@@ -1,3 +1,4 @@
+import { createLocalizedCopy } from '../i18n/localized-copy.js';
 import type {
   AttachmentResponse,
   ApprovalDecisionResponse,
@@ -32,6 +33,7 @@ import type {
 import { FolderInput } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { AppLayout } from '../components/layout/AppLayout.js';
+import { RuntimeConnectionNotice, RuntimeConnectionProvider } from './runtime-connection-context.js';
 import { DesktopWindowControls } from '../components/layout/DesktopWindowControls.js';
 import { beginPaneResize } from '../components/layout/pane-resize-2026-07-29.js';
 import { Timeline, type TimelineHandle } from '../components/timeline/Timeline.js';
@@ -816,9 +818,11 @@ export function AppController(props: AppControllerProps) {
       visibleThreadGroups.scheduleDraftThreads,
       runtimeTasks,
       unreadTaskIds,
-      runningThreadIds
+      runningThreadIds,
+      language
     ),
     [
+      language,
       runningThreadIds,
       runtimeTasks,
       unreadTaskIds,
@@ -829,9 +833,10 @@ export function AppController(props: AppControllerProps) {
     () => createSidebarTaskSummaries(
       scheduleTaskSummaries,
       runtimeTasks,
-      unreadTaskIds
+      unreadTaskIds,
+      language
     ),
-    [runtimeTasks, scheduleTaskSummaries, unreadTaskIds]
+    [language, runtimeTasks, scheduleTaskSummaries, unreadTaskIds]
   );
   const sidebarTasks = useMemo(
     () => [...scheduleDraftSidebarTasks, ...scheduleSidebarTasks],
@@ -894,15 +899,11 @@ export function AppController(props: AppControllerProps) {
   }
   async function applyDashboardPreset(preset: CreatorPresetSummary): Promise<void> {
     if (creatorService === null) {
-      throw new Error(language === 'en-US'
-        ? 'The local creator service is unavailable.'
-        : '本地创作服务不可用。');
+      throw new Error(createLocalizedCopy(language)('本地创作服务不可用。', 'The local creator service is unavailable.'));
     }
     const projectId = state.currentProjectId;
     if (projectId === undefined) {
-      throw new Error(language === 'en-US'
-        ? 'Select a project before using a preset.'
-        : '请先选择项目，再使用模板。');
+      throw new Error(createLocalizedCopy(language)('请先选择项目，再使用模板。', 'Select a project before using a preset.'));
     }
     const scope = [
       projectId,
@@ -931,9 +932,7 @@ export function AppController(props: AppControllerProps) {
           locale: language === 'zh-CN' ? 'zh-CN' : 'en-US',
           creationKey: intent.creationKey
         }).then(response => response.job),
-        language === 'en-US'
-          ? 'Preset creation timed out. Try again.'
-          : '模板任务创建超时，请重试。'
+        createLocalizedCopy(language)('模板任务创建超时，请重试。', 'Preset creation timed out. Try again.')
       );
       intent.request = request;
     }
@@ -956,9 +955,7 @@ export function AppController(props: AppControllerProps) {
         && error.code === 'creator_preset_not_found'
       ) {
         setCreatorPresetsReloadKey(value => value + 1);
-        throw new Error(language === 'en-US'
-          ? 'This preset is no longer available. The catalog has been refreshed.'
-          : '该模板已不可用，模板目录已刷新。');
+        throw new Error(createLocalizedCopy(language)('该模板已不可用，模板目录已刷新。', 'This preset is no longer available. The catalog has been refreshed.'));
       }
       throw error;
     }
@@ -1161,7 +1158,6 @@ export function AppController(props: AppControllerProps) {
     taskBaselineReadyRef.current = false;
 
     if (connectionState.status !== 'connected' || taskService === null) {
-      setRuntimeTasks([]);
       return () => {
         canceled = true;
       };
@@ -1237,8 +1233,7 @@ export function AppController(props: AppControllerProps) {
 
   useEffect(() => {
     if (connectionState.status === 'connected') return;
-    stopAllRunEventSubscriptions(false);
-    dispatchRunRegistry({ type: 'reset' });
+    stopAllRunEventSubscriptions();
     setRunsLoadingThreadId(undefined);
     setRunsLoadedThreadId(undefined);
   }, [connectionState.status]);
@@ -1353,7 +1348,10 @@ export function AppController(props: AppControllerProps) {
     setRuntimeWorkspaceReady(false);
     const activeProjectService = projectService;
     const activeThreadService = threadService;
+    let retryTimer: number | undefined;
     async function loadRuntimeWorkspace() {
+      if (canceled) return;
+      let loaded = false;
       try {
         const legacyProjects = parseLegacyLocalStorageProjects(
           readJsonFromStorage<unknown>(PROJECTS_STORAGE_KEY)
@@ -1361,6 +1359,7 @@ export function AppController(props: AppControllerProps) {
         const migration = await activeProjectService.migrateLocalStorageV1({
           projects: legacyProjects
         });
+        if (canceled) return;
         let [activeResponse, allResponse] = await Promise.all([
           activeProjectService.listProjects('active'),
           activeProjectService.listProjects('all')
@@ -1377,6 +1376,7 @@ export function AppController(props: AppControllerProps) {
             ]);
             if (canceled) return;
           } catch (error) {
+            if (canceled) return;
             initialProjectError = getRuntimeErrorMessage(
               error,
               '无法自动创建默认项目，请手动添加项目'
@@ -1406,6 +1406,7 @@ export function AppController(props: AppControllerProps) {
         if (canceled) return;
         setRuntimeThreads(response.threads);
         setThreadLoadError(undefined);
+        loaded = true;
 
         const restoredThreadId = restoredThreadIdRef.current;
         restoredThreadIdRef.current = undefined;
@@ -1435,7 +1436,14 @@ export function AppController(props: AppControllerProps) {
         setProjectLoadError('无法迁移或加载项目，请稍后重试');
         setThreadLoadError(undefined);
       } finally {
-        if (!canceled) setRuntimeWorkspaceReady(true);
+        if (!canceled) {
+          setRuntimeWorkspaceReady(loaded);
+          if (!loaded) {
+            retryTimer = window.setTimeout(() => {
+              void loadRuntimeWorkspace();
+            }, 2_000);
+          }
+        }
       }
     }
 
@@ -1443,14 +1451,13 @@ export function AppController(props: AppControllerProps) {
 
     return () => {
       canceled = true;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
     };
   }, [connectionState.status, hostBridge, projectService, threadService]);
 
   useEffect(() => {
     let canceled = false;
     if (connectionState.status !== 'connected' || creatorService === null) {
-      setCreatorPresets([]);
-      setCreatorPresetsError(undefined);
       setCreatorPresetsLoading(false);
       return () => {
         canceled = true;
@@ -1467,9 +1474,7 @@ export function AppController(props: AppControllerProps) {
         if (!canceled) {
           setCreatorPresetsError(getRuntimeErrorMessage(
             error,
-            language === 'en-US'
-              ? 'Unable to load creator presets'
-              : '无法加载创作模板'
+            createLocalizedCopy(language)('无法加载创作模板', 'Unable to load creator presets')
           ));
         }
       })
@@ -1490,10 +1495,6 @@ export function AppController(props: AppControllerProps) {
   useEffect(() => {
     let canceled = false;
     if (connectionState.status !== 'connected' || creatorService === null) {
-      if (connectionState.status !== 'connected') {
-        setCreatorJobs([]);
-        setCreatorJobsError(undefined);
-      }
       setCreatorJobsLoading(false);
       return () => {
         canceled = true;
@@ -1529,7 +1530,6 @@ export function AppController(props: AppControllerProps) {
     let canceled = false;
 
     if (connectionState.status !== 'connected' || scheduleService === null) {
-      if (connectionState.status !== 'connected') setRuntimeSchedules([]);
       return () => {
         canceled = true;
       };
@@ -1540,9 +1540,7 @@ export function AppController(props: AppControllerProps) {
       .then(response => {
         if (!canceled) setRuntimeSchedules(response.schedules);
       })
-      .catch(() => {
-        if (!canceled) setRuntimeSchedules([]);
-      });
+      .catch(() => undefined);
 
     return () => {
       canceled = true;
@@ -1858,7 +1856,9 @@ export function AppController(props: AppControllerProps) {
       setThreadHistoryLoadError(undefined);
       setHistoryLoadingThreadId(selectedThreadId);
       setHistoryLoadedThreadId(undefined);
-      showTimelineForThread(selectedThreadId, [], false);
+      if (timelineThreadIdRef.current !== selectedThreadId) {
+        showTimelineForThread(selectedThreadId, [], false);
+      }
       return;
     }
 
@@ -2561,10 +2561,8 @@ export function AppController(props: AppControllerProps) {
       || projectDirectoryDialogInFlightRef.current
     ) return false;
     const projectName = projectType === undefined
-      ? (language === 'en-US' ? 'Project' : '项目')
-      : language === 'en-US'
-        ? `${projectType.englishTitle} Project`
-        : `${projectType.title}项目`;
+      ? (createLocalizedCopy(language)('项目', 'Project'))
+      : createLocalizedCopy(language)(`${projectType.title}项目`, `${projectType.englishTitle} Project`);
     projectDirectoryDialogInFlightRef.current = true;
     try {
       const response = await projectService.createManagedProject({ name: projectName });
@@ -4249,6 +4247,7 @@ export function AppController(props: AppControllerProps) {
   )
     || selectedPendingRunStart !== undefined
     || selectedRunsLoading
+    || !runtimeWorkspaceReady
     || connectionState.status !== 'connected'
     || agentSetup === 'skipped';
   const composerDisabledReason = connectionState.status !== 'connected'
@@ -4358,7 +4357,7 @@ export function AppController(props: AppControllerProps) {
     item.kind === 'approval' && item.approval.status === 'pending'
   ));
   const creatorDashboard = (
-    <Suspense fallback={<div role="status">{language === 'en-US' ? 'Loading templates...' : '正在加载模板...'}</div>}>
+    <Suspense fallback={<div role="status">{createLocalizedCopy(language)('正在加载模板...', 'Loading templates...')}</div>}>
       <CreatorDashboard
         presets={creatorPresets}
         loading={creatorPresetsLoading}
@@ -4522,6 +4521,7 @@ export function AppController(props: AppControllerProps) {
         </div>
       ) : (
         <div className="composer-wrap" onWheel={handleComposerWheel}>
+          <RuntimeConnectionNotice />
           {showConversationEmptyState ? (
             <ConversationEmptyState />
           ) : null}
@@ -4639,6 +4639,7 @@ export function AppController(props: AppControllerProps) {
       runtimeDependencies={runtimeDependencies}
       creatorServicesService={creatorServicesService}
       gatewayState={gatewayAccountState ?? (gatewayAccountService ? null : undefined)}
+      gatewayAccountService={gatewayAccountService}
       videoMetadataService={videoMetadataService}
       workspace={props.route.view === 'workbench' ? props.route.tool : undefined}
       jobId={props.route.view === 'workbench' ? props.route.jobId : undefined}
@@ -4741,7 +4742,11 @@ export function AppController(props: AppControllerProps) {
       prepareExternalNavigation={hostBridge.prepareExternalNavigation}
       onStateChange={onGatewayStateChange}
       openExternal={url => hostBridge.openExternal(url)}
-      onOpenModelSettings={() => navigateToRoute({ view: 'settings', tab: 'ai-services' })}
+      onOpenModelSettings={() => {
+        settingsReturnRouteRef.current = props.route;
+        applyRouteFromLocation({ view: 'settings', tab: 'ai-services' });
+        navigateToRoute({ view: 'settings', tab: 'ai-services' });
+      }}
       onBack={() => {
         applyRouteFromLocation(accountReturnRouteRef.current);
         navigateToRoute(accountReturnRouteRef.current);
@@ -4871,7 +4876,16 @@ export function AppController(props: AppControllerProps) {
   );
 
   return (
-    <RuntimeRecoveryContext.Provider value={runtimeRecovery}><PageIssueRoutingProvider><div
+    <RuntimeRecoveryContext.Provider value={runtimeRecovery}><PageIssueRoutingProvider><RuntimeConnectionProvider value={{
+      status: connectionState.status,
+      waitingForConfig: connectionConfig === null,
+      restarting: runtimeRecovery.phase === 'restarting',
+      restartError: runtimeRecovery.phase === 'failed' ? runtimeRecovery.message : undefined,
+      retry: () => void runtimeRecovery.retry(),
+      ...(runtimeRecovery.restart === undefined
+        ? {}
+        : { restart: () => void runtimeRecovery.restart!() })
+    }}><div
       className="app-drop-shell"
       data-integrated-title-bar={
         integratedTitleBar?.integratedTitleBar === true ? 'true' : undefined
@@ -5054,7 +5068,7 @@ export function AppController(props: AppControllerProps) {
           onAskIssue={askAgentAboutIssue}
         />
       </Suspense>
-    </div></PageIssueRoutingProvider></RuntimeRecoveryContext.Provider>
+    </div></RuntimeConnectionProvider></PageIssueRoutingProvider></RuntimeRecoveryContext.Provider>
   );
 
   function createDetailPanel() {
@@ -5303,9 +5317,10 @@ function routeForConversation(selectedThreadId?: string): AppRoute {
 }
 
 function PageLoading() {
+  const l = useLocalizedCopy();
   return (
-    <section className="page-loading" role="status" aria-label="正在加载页面">
-      <span>正在加载页面...</span>
+    <section className="page-loading" role="status" aria-label={l('正在加载页面', 'Loading page')}>
+      <span>{l('正在加载页面...', 'Loading page...')}</span>
     </section>
   );
 }

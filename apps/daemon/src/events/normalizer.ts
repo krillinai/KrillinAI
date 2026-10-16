@@ -419,8 +419,8 @@ export function normalizeAppServerEvent(input: NormalizeInput): AgentEventEnvelo
           code: 'CODEX_STREAM_RETRYING',
           severity: 'warning',
           message: reconnectProgress === undefined
-            ? 'Codex 响应连接中断，正在自动重连'
-            : `Codex 响应连接中断，正在自动重连（${reconnectProgress}）`,
+            ? 'The Codex response connection was interrupted. Reconnecting automatically.'
+            : `The Codex response connection was interrupted. Reconnecting automatically (${reconnectProgress}).`,
           details: { raw: params }
         }
       };

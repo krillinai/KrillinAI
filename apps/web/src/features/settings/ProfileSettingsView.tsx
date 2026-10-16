@@ -1,3 +1,4 @@
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type {
   CodexProfileConfig,
   CodexProfileDeleteResponse,
@@ -43,6 +44,7 @@ export function ProfileSettingsView(props: {
   onDataChange?(data: CodexProfileListResponse): void;
   confirmDelete?(profile: CodexProfileResponse): boolean;
 }) {
+  const l = useLocalizedCopy();
   const confirm = useConfirmDialog();
   const [data, setData] = useState(props.data);
   const [loading, setLoading] = useState(
@@ -74,7 +76,7 @@ export function ProfileSettingsView(props: {
         if (!canceled) pageIssues.captureOperationFailure(
           'settings.profiles.load',
           reason,
-          '无法加载 Profiles，请重试。',
+          l("无法加载 Profiles，请重试。", "Unable to load Profiles, please try again."),
           { retryable: true }
         );
       })
@@ -116,14 +118,14 @@ export function ProfileSettingsView(props: {
       const detail = await props.service.getProfile(profile.name);
       if (containsSensitiveConfig(detail.profile.config)) {
         setEditor(undefined);
-        setValidationError('该 Profile 含敏感配置，请直接编辑本机配置文件');
+        setValidationError(l("该 Profile 含敏感配置，请直接编辑本机配置文件", "This Profile contains sensitive configuration, please edit the local configuration file directly."));
         return;
       }
       setEditor({ mode: 'edit', name: profile.name, profile: detail.profile, loading: false });
       pageIssues.resolveOperation(operationId);
     } catch (reason) {
       setEditor(undefined);
-      pageIssues.captureOperationFailure(operationId, reason, '无法加载 Profile 详情，请重试。');
+      pageIssues.captureOperationFailure(operationId, reason, l("无法加载 Profile 详情，请重试。", "Unable to load profile details, please try again."));
     }
   }
 
@@ -145,7 +147,7 @@ export function ProfileSettingsView(props: {
       }
       pageIssues.resolveOperation(operationId);
     } catch (reason) {
-      pageIssues.captureOperationFailure(operationId, reason, '无法删除 Profile，请检查占用情况后重试。');
+      pageIssues.captureOperationFailure(operationId, reason, l("无法删除 Profile，请检查占用情况后重试。", "Unable to delete Profile, please check the occupancy and try again."));
     } finally {
       setBusyName(undefined);
     }
@@ -161,7 +163,7 @@ export function ProfileSettingsView(props: {
       <header className="settings-management__header">
         <div>
           <h1 id="settings-profiles-title">Profiles</h1>
-          <p>维护会话和计划任务可复用的 Codex 配置。</p>
+          <p>{l("维护会话和计划任务可复用的 Codex 配置。", "Maintain reusable Codex configuration for sessions and scheduled tasks.")}</p>
         </div>
         <button
           className="settings-primary-button"
@@ -170,18 +172,17 @@ export function ProfileSettingsView(props: {
           onClick={() => setEditor({ mode: 'create' })}
         >
           <Plus size={16} />
-          新建 Profile
-        </button>
+          {l("新建 Profile", "New Profile")}</button>
       </header>
 
       {!props.connected || props.service === null ? (
-        <p className="settings-notice">本地服务连接后可以管理 Profile。</p>
+        <p className="settings-notice">{l("本地服务连接后可以管理 Profile。", "Profiles can be managed after the local service is connected.")}</p>
       ) : null}
       {data !== undefined && !data.writable ? (
-        <p className="settings-notice">当前 CODEX_HOME 为只读，无法修改 Profile</p>
+        <p className="settings-notice">{l("当前 CODEX_HOME 为只读，无法修改 Profile", "Currently CODEX_HOME is read-only and Profile cannot be modified.")}</p>
       ) : null}
       {data !== undefined && !data.baseConfigValid ? (
-        <p className="settings-notice">基础 config.toml 无效，请先修复配置</p>
+        <p className="settings-notice">{l("基础 config.toml 无效，请先修复配置", "The basic config.toml is invalid, please repair the configuration first")}</p>
       ) : null}
       {data?.diagnostics.map(diagnostic => (
         <p className="settings-inline-warning" key={diagnostic}>{diagnostic}</p>
@@ -215,7 +216,7 @@ export function ProfileSettingsView(props: {
               setEditor(undefined);
               pageIssues.resolveOperation(operationId);
             } catch (reason) {
-              pageIssues.captureOperationFailure(operationId, reason, '无法保存 Profile，请检查配置后重试。');
+              pageIssues.captureOperationFailure(operationId, reason, l("无法保存 Profile，请检查配置后重试。", "Unable to save profile, please check the configuration and try again."));
             } finally {
               setSaving(false);
             }
@@ -226,15 +227,13 @@ export function ProfileSettingsView(props: {
       {loading ? (
         <div className="settings-state" role="status">
           <LoaderCircle size={20} className="settings-spin" />
-          正在加载 Profiles
-        </div>
+          {l("正在加载 Profiles", "Loading Profiles")}</div>
       ) : data !== undefined && data.profiles.length === 0 ? (
         <div className="settings-state">
           <FileSliders size={22} />
-          暂无 Profile
-        </div>
+          {l("暂无 Profile", "No profile yet")}</div>
       ) : (
-        <ul className="settings-item-list" aria-label="Profile 列表">
+        <ul className="settings-item-list" aria-label={l("Profile 列表", "Profile list")}>
           {data?.profiles.map(profile => {
             const busy = busyName === profile.name;
             return (
@@ -243,7 +242,7 @@ export function ProfileSettingsView(props: {
                   <div className="settings-item__title">
                     <FileSliders size={16} />
                     <h2>{profile.name}</h2>
-                    <span data-status={profile.status}>{profile.status === 'valid' ? '有效' : '无效'}</span>
+                    <span data-status={profile.status}>{profile.status === 'valid' ? l("有效", "Valid") : l("无效", "Invalid")}</span>
                   </div>
                   <p>{profileSummary(profile)}</p>
                   {profile.diagnostics.map(diagnostic => (
@@ -253,8 +252,8 @@ export function ProfileSettingsView(props: {
                 <div className="settings-item__actions">
                   <button
                     type="button"
-                    aria-label={`编辑 ${profile.name}`}
-                    title="编辑"
+                    aria-label={l(`编辑 ${profile.name}`, `Edit ${profile.name}`)}
+                    title={l("编辑", "Edit")}
                     disabled={!writable || busy}
                     onClick={() => void openEdit(profile)}
                   >
@@ -262,8 +261,8 @@ export function ProfileSettingsView(props: {
                   </button>
                   <button
                     type="button"
-                    aria-label={`删除 ${profile.name}`}
-                    title="删除"
+                    aria-label={l(`删除 ${profile.name}`, `Delete ${profile.name}`)}
+                    title={l("删除", "Delete")}
                     disabled={!writable || busy}
                     onClick={() => void deleteProfile(profile)}
                   >
@@ -285,6 +284,7 @@ function ProfileEditor(props: {
   onCancel(): void;
   onSubmit(name: string, config: CodexProfileConfig): Promise<void>;
 }) {
+  const l = useLocalizedCopy();
   const profile = props.state.mode === 'edit' ? props.state.profile : undefined;
   const [name, setName] = useState(profile?.name ?? '');
   const [model, setModel] = useState(readString(profile?.config.model));
@@ -321,79 +321,78 @@ function ProfileEditor(props: {
     return (
       <div className="settings-editor settings-state" role="status">
         <LoaderCircle size={20} className="settings-spin" />
-        正在加载 Profile 详情
-      </div>
+        {l("正在加载 Profile 详情", "Loading Profile details")}</div>
     );
   }
 
   return (
-    <form className="settings-editor" aria-label={props.state.mode === 'create' ? '新建 Profile' : `编辑 ${name}`} onSubmit={submit}>
+    <form className="settings-editor" aria-label={props.state.mode === 'create' ? l("新建 Profile", "New Profile") : l(`编辑 ${name}`, `Edit ${name}`)} onSubmit={submit}>
       <header>
         <div>
-          <p>{props.state.mode === 'create' ? '新建配置' : '编辑配置'}</p>
-          <h2>{props.state.mode === 'create' ? '配置 Codex Profile' : name}</h2>
+          <p>{props.state.mode === 'create' ? l("新建配置", "New configuration") : l("编辑配置", "Edit configuration")}</p>
+          <h2>{props.state.mode === 'create' ? l("配置 Codex Profile", "Configure Codex Profile") : name}</h2>
         </div>
-        <button type="button" aria-label="关闭 Profile 编辑器" title="关闭" onClick={props.onCancel}>
+        <button type="button" aria-label={l("关闭 Profile 编辑器", "Close the Profile editor")} title={l("关闭", "Close")} onClick={props.onCancel}>
           <X size={17} />
         </button>
       </header>
       {formError ? <p className="settings-error" role="alert">{formError}</p> : null}
       <div className="settings-form-grid">
         <label>
-          <span>Profile 名称</span>
+          <span>{l("Profile 名称", "Profile name")}</span>
           <input
-            aria-label="Profile 名称"
+            aria-label={l("Profile 名称", "Profile name")}
             disabled={props.state.mode === 'edit'}
             value={name}
             onChange={event => setName(event.target.value)}
           />
         </label>
         <label>
-          <span>模型</span>
+          <span>{l("模型", "Model")}</span>
           <input
-            aria-label="模型"
-            placeholder="使用 Codex 默认模型"
+            aria-label={l("模型", "Model")}
+            placeholder={l("使用 Codex 默认模型", "Use Codex default model")}
             value={model}
             onChange={event => setModel(event.target.value)}
           />
         </label>
         <label>
-          <span>推理级别</span>
-          <select aria-label="推理级别" value={reasoning} onChange={event => setReasoning(event.target.value)}>
-            <option value="">使用默认值</option>
-            <option value="default">默认</option>
-            <option value="low">低</option>
-            <option value="medium">中</option>
-            <option value="high">高</option>
-            <option value="xhigh">超高</option>
+          <span>{l("推理级别", "reasoning level")}</span>
+          <select aria-label={l("推理级别", "reasoning level")} value={reasoning} onChange={event => setReasoning(event.target.value)}>
+            <option value="">{l("使用默认值", "Use default value")}</option>
+            <option value="default">{l("默认", "Default")}</option>
+            <option value="low">{l("低", "Low")}</option>
+            <option value="medium">{l("中", "Medium")}</option>
+            <option value="high">{l("高", "High")}</option>
+            <option value="xhigh">{l("超高", "Extra high")}</option>
           </select>
         </label>
         <label>
           <span>Sandbox</span>
           <select aria-label="Sandbox" value={sandbox} onChange={event => setSandbox(event.target.value)}>
-            <option value="">使用默认值</option>
-            <option value="read-only">只读</option>
-            <option value="workspace-write">工作区可写</option>
-            <option value="danger-full-access">完全访问</option>
+            <option value="">{l("使用默认值", "Use default value")}</option>
+            <option value="read-only">{l("只读", "Read only")}</option>
+            <option value="workspace-write">{l("工作区可写", "Workspace write access")}</option>
+            <option value="danger-full-access">{l("完全访问", "Full access")}</option>
           </select>
         </label>
         <label className="settings-form-wide">
-          <span>高级配置 JSON</span>
+          <span>{l("高级配置 JSON", "Advanced configuration JSON")}</span>
           <textarea
-            aria-label="高级配置 JSON"
+            aria-label={l("高级配置 JSON", "Advanced configuration JSON")}
             rows={7}
             spellCheck={false}
             value={advanced}
             onChange={event => setAdvanced(event.target.value)}
           />
-          <small>仅支持字符串、有限数字、布尔值和同类型数组。</small>
+          <small>{l("仅支持字符串、有限数字、布尔值和同类型数组。", "Only strings, finite numbers, Boolean values, and arrays of the same type are supported.")}</small>
         </label>
       </div>
       <footer>
-        <button className="settings-secondary-button" type="button" onClick={props.onCancel}>取消</button>
+        <button className="settings-secondary-button" type="button" onClick={props.onCancel}>{l("取消", "Cancel")}</button>
         <button className="settings-primary-button" type="submit" disabled={props.saving}>
           {props.saving ? <LoaderCircle size={16} className="settings-spin" /> : <Save size={16} />}
-          保存 Profile
+          {l('保存 Profile', 'Save Profile')}
         </button>
       </footer>
     </form>

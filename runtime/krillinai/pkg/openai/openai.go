@@ -7,7 +7,6 @@ import (
 	"fmt"
 	openai "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
-	"io"
 	"krillin-ai/config"
 	"krillin-ai/log"
 	"strings"
@@ -37,38 +36,29 @@ func (c *Client) ChatCompletionContext(ctx context.Context, query string) (strin
 				Content: query,
 			},
 		},
-		Temperature:    0.9,
-		Stream:         true,
 		MaxTokens:      8192,
 		ResponseFormat: responseFormat,
 	}
+	// DeepSeek V4 的推理可能耗尽字幕 JSON 的输出预算。
+	switch strings.ToLower(strings.TrimSpace(req.Model)) {
+	case "deepseek-flash", "deepseek-v4-flash", "deepseek-v4-pro":
+		req.ReasoningEffort = "none"
+		req.Temperature = 0.2
+	}
 
-	stream, err := c.client.CreateChatCompletionStream(ctx, req)
+	response, err := c.client.CreateChatCompletion(ctx, req)
 	if err != nil {
-		log.GetLogger().Error("openai create chat completion stream failed", zap.Error(err))
+		log.GetLogger().Error("openai chat completion failed", zap.Error(err))
 		return "", normalizeChatCompletionError(err)
 	}
-	defer stream.Close()
-
-	var resContent string
-	for {
-		response, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.GetLogger().Error("openai stream receive failed", zap.Error(err))
-			return "", normalizeChatCompletionError(err)
-		}
-		if len(response.Choices) == 0 {
-			log.GetLogger().Info("openai stream receive no choices", zap.Any("response", response))
-			continue
-		}
-
-		resContent += response.Choices[0].Delta.Content
+	log.GetLogger().Info("openai chat completion received", zap.String("id", response.ID), zap.String("model", response.Model), zap.Any("usage", response.Usage))
+	if len(response.Choices) > 0 && response.Choices[0].FinishReason == openai.FinishReasonLength {
+		return "", fmt.Errorf("llm_translation_truncated: response %s exceeded its output token budget", response.ID)
 	}
-
-	return resContent, nil
+	if len(response.Choices) == 0 || strings.TrimSpace(response.Choices[0].Message.Content) == "" {
+		return "", fmt.Errorf("llm_translation_empty_response: response %s has no content", response.ID)
+	}
+	return response.Choices[0].Message.Content, nil
 }
 
 func normalizeChatCompletionError(err error) error {

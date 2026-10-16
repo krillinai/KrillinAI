@@ -67,7 +67,7 @@ export function parseCodexSessionLine(input: {
     state.title === undefined
     && userMessage !== undefined
   ) {
-    state.title = createConversationTitle(scheduleTrigger?.prompt ?? userMessage, '未命名对话');
+    state.title = createConversationTitle(scheduleTrigger?.prompt ?? userMessage, 'Untitled conversation');
   }
 
   if (entry.type === 'event_msg' && payload?.type === 'user_message') {

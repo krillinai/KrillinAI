@@ -66,6 +66,7 @@ export function createCreatorPreflight(input: {
   readCodexImageStatus?(): Promise<CodexImageStatus>;
   videoMetadataService?: VideoMetadataService;
   assertServiceSource?(jobId: string): void;
+  validateOfficialModel?(modality: import('@opencreator/protocol').GatewayModel['modality'], model: string): Promise<unknown>;
 }) {
   const executorIds = new Set(input.executorIds ?? []);
 
@@ -82,22 +83,22 @@ export function createCreatorPreflight(input: {
       const value = { ...item, executionMode: item.executionMode ?? mode };
       if (status === 'ready') ready.push(value);
       else if (status === 'warning') warning.push(value);
-      else blocked.push({ ...value, repair: repair ?? { label: '打开设置', deepLink: '#/settings?tab=diagnostics' } });
+      else blocked.push({ ...value, repair: repair ?? { label: 'Open settings', deepLink: '#/settings?tab=diagnostics' } });
     };
 
     if (executorIds.size > 0 && !executorIds.has(stage.executor)) {
       add('blocked', {
         id: 'executor',
-        title: '执行器不可用',
-        message: `当前 Runtime 未加载 ${stage.executor} 执行器。`,
+        title: 'Executor unavailable',
+        message: `The Runtime has not loaded the ${stage.executor} executor.`,
         executionMode: mode
-      }, { label: '打开诊断', deepLink: '#/settings?tab=diagnostics' });
+      }, { label: 'Open diagnostics', deepLink: '#/settings?tab=diagnostics' });
     } else {
-      add('ready', { id: 'executor', title: '执行器', message: `${stage.executor} 已加载`, executionMode: mode });
+      add('ready', { id: 'executor', title: 'Executor', message: `${stage.executor} loaded`, executionMode: mode });
     }
 
     try { input.assertServiceSource?.(job.id); } catch {
-      add('blocked', { id: 'service-source', title: '任务服务来源不匹配', message: '请恢复原任务账户和服务来源后继续。', executionMode: 'remote' }, { label: '打开账户设置', deepLink: '#/settings?tab=ai-services' });
+      add('blocked', { id: 'service-source', title: 'Task service source mismatch', message: 'Restore the original task account and service source before continuing.', executionMode: 'remote' }, { label: 'Open account settings', deepLink: '#/settings?tab=ai-services' });
       return { templateId: job.templateId, templateVersion: job.templateVersion, stageId: stage.id, executionMode: mode, canStart: false, ready, warning, blocked, checkedAt: new Date().toISOString() };
     }
     const config = await input.configStore.read();
@@ -107,33 +108,38 @@ export function createCreatorPreflight(input: {
     if (options.inputResultVersion !== undefined && inputSnapshot === undefined) {
       add('blocked', {
         id: 'input-result-version',
-        title: '结果版本不存在',
-        message: `找不到结果版本 ${options.inputResultVersion}，无法安全复用历史输入。`,
+        title: 'Result version not found',
+        message: `Result version ${options.inputResultVersion} was not found. Saved inputs cannot be reused safely.`,
         executionMode: 'local'
-      }, { label: '打开诊断', deepLink: '#/settings?tab=diagnostics' });
+      }, { label: 'Open diagnostics', deepLink: '#/settings?tab=diagnostics' });
     }
     const inputState = inputSnapshot?.state ?? job.state;
+    if (inputState.sourceType === 'subtitle' && stage.id === 'subtitle'
+      && !job.artifacts.some(artifact => artifact.id === inputState.importedSourceSubtitleId
+        && artifact.kind === 'source_subtitle' && artifact.status === 'completed')) {
+      add('blocked', { id: 'input-subtitle', title: 'Subtitle file missing', message: 'Import a source SRT file to translate.', executionMode: 'local' });
+    }
     if (stage.resultVersionPolicy === 'attach' && inputSnapshot === undefined) {
-      add('blocked', { id: 'input-result-version', title: '请先选择项目版本', message: '准备预览视频需要明确的已保存项目版本。', executionMode: 'local' });
+      add('blocked', { id: 'input-result-version', title: 'Select a project version', message: 'Select a saved project version before preparing the preview video.', executionMode: 'local' });
     }
     if (job.templateId === 'video-translation' && (stage.id === 'subtitle' || stage.id === 'prepare-source-video' || stage.id === 'preview-source-video')) {
       try {
         await validateBilibiliSource({ ...job, state: inputState }, input.videoMetadataService);
       } catch (error) {
         add('blocked', {
-          id: 'bilibili-part', title: '请确认 B 站分集',
-          message: error instanceof Error ? error.message : '无法确认 B 站分集，请重新选择视频来源。',
+          id: 'bilibili-part', title: 'Confirm the Bilibili video part',
+          message: error instanceof Error ? error.message : 'Could not confirm the Bilibili video part. Select the video source again.',
           executionMode: 'remote'
-        }, { label: '选择视频分集', deepLink: `#/workbench?tool=video-translation&jobId=${encodeURIComponent(job.id)}` });
+        }, { label: 'Select a video part', deepLink: `#/workbench?tool=video-translation&jobId=${encodeURIComponent(job.id)}` });
       }
     }
     if (inputState.sourceType === 'file' && stage.executor === 'krillinai' && typeof inputState.sourceArtifactId !== 'string') {
       add('blocked', {
         id: 'input-file',
-        title: '输入文件缺失',
-        message: '请选择要处理的本地视频文件。',
+        title: 'Input file missing',
+        message: 'Select a local video file to process.',
         executionMode: 'local'
-      }, { label: '选择输入文件', deepLink: '#/settings?tab=diagnostics' });
+      }, { label: 'Select an input file', deepLink: '#/settings?tab=diagnostics' });
     }
     const resolvedInputs = resolveCreatorStageInputs(
       job,
@@ -147,14 +153,49 @@ export function createCreatorPreflight(input: {
       && !resolvedInputs.artifacts.some(artifact => artifact.kind === 'reference_image'
         && artifact.status === 'completed' && artifact.path !== null)) {
       add('blocked', {
-        id: 'reference-image-required', title: '缺少参考图',
-        message: '当前提示词需要基于已有图片生成，请先上传参考图；如需纯文字生图，请移除对上传图片或原图的要求。',
+        id: 'reference-image-required', title: 'Reference image missing',
+        message: 'This prompt requires an existing image. Upload a reference image, or remove the image requirements for text-only generation.',
         executionMode: 'local'
-      }, { label: '上传参考图', deepLink: `#/workbench?tool=image-generation&jobId=${encodeURIComponent(job.id)}` });
+      }, { label: 'Upload a reference image', deepLink: `#/workbench?tool=image-generation&jobId=${encodeURIComponent(job.id)}` });
     }
     await checkInputs(stage, resolvedInputs.artifacts, resolvedInputs.missing, add);
     await checkRuntimeDependencies(job, stage, config, add);
     await checkManagedDirectory(add);
+
+    const gateway = gatewayCreatorBinding(config);
+    if (gateway && blocked.length === 0 && input.validateOfficialModel) {
+      const modalities = new Set<import('@opencreator/protocol').GatewayModel['modality']>();
+      for (const check of ready) {
+        if (check.id === 'llm') modalities.add('text');
+        if (check.id === 'tts') modalities.add('speech');
+        if (check.id === 'transcription-config') modalities.add('transcription');
+        if (check.id === 'image-provider') modalities.add('image');
+        if (check.id === 'video-provider') modalities.add('video');
+      }
+      // Translation starts a workflow; validate its downstream models before processing the video.
+      if (job.templateId === 'video-translation' && ['download', 'subtitle'].includes(stage.id)) {
+        modalities.add('text');
+        if (inputState.sourceType !== 'subtitle' && (inputState.sourceType === 'file' || inputState.preferPlatformCaptions === false)) modalities.add('transcription');
+        if (inputState.dubbing === true) modalities.add('speech');
+      }
+      for (const modality of modalities) {
+        const choices = inputState.officialModels;
+        const selected = choices && typeof choices === 'object' && !Array.isArray(choices) ? choices[modality] : undefined;
+        const model = typeof selected === 'string' ? selected : gateway.models[modality];
+        try {
+          if (!model) throw new Error('No official model is selected. Choose another model.');
+          await input.validateOfficialModel(modality, model);
+          add('ready', { id: `official-model-catalog:${modality}`, title: 'Model configuration', message: `${model} is in the compatible model catalog.`, executionMode: 'remote' });
+        } catch (error) {
+          const code = (error as { code?: string })?.code;
+          const message = code === 'invalid_model' || !model
+            ? `${model ?? modality} is currently unavailable. Choose another model.`
+            : 'Model configuration could not be checked. Reconnect official services and try again.';
+          add('blocked', { id: `official-model-catalog:${modality}`, title: 'Model configuration check failed', message, executionMode: 'remote' },
+            { label: 'Choose another model', deepLink: `#/workbench?tool=${encodeURIComponent(job.templateId)}&jobId=${encodeURIComponent(job.id)}` });
+        }
+      }
+    }
 
     return {
       templateId: job.templateId,
@@ -177,14 +218,14 @@ export function createCreatorPreflight(input: {
     try {
       await mkdir(input.jobsRoot, { recursive: true });
       await access(input.jobsRoot, constants.W_OK);
-      add('ready', { id: 'managed-directory', title: '受管目录', message: '任务目录可写。', executionMode: 'local' });
+      add('ready', { id: 'managed-directory', title: 'Managed directory', message: 'The task directory is writable.', executionMode: 'local' });
     } catch {
       add('blocked', {
         id: 'managed-directory',
-        title: '受管目录不可写',
-        message: 'OpenCreator 无法写入任务目录，无法安全保存 Artifact。',
+        title: 'Managed directory is not writable',
+        message: 'OpenCreator cannot write to the task directory or save artifacts safely.',
         executionMode: 'local'
-      }, { label: '打开诊断', deepLink: '#/settings?tab=diagnostics' });
+      }, { label: 'Open diagnostics', deepLink: '#/settings?tab=diagnostics' });
     }
   }
 
@@ -204,10 +245,10 @@ export function createCreatorPreflight(input: {
       } catch (error) {
         add('blocked', {
           id: 'krillin-runtime',
-          title: 'KrillinAI Runtime 不可用',
-          message: error instanceof Error ? error.message : 'KrillinAI Runtime 校验失败。',
+          title: 'KrillinAI Runtime unavailable',
+          message: error instanceof Error ? error.message : 'KrillinAI Runtime verification failed.',
           executionMode: 'local'
-        }, { label: '打开运行组件设置', deepLink: '#/settings?tab=local-components' });
+        }, { label: 'Open local component settings', deepLink: '#/settings?tab=local-components' });
         return;
       }
     }
@@ -219,14 +260,14 @@ export function createCreatorPreflight(input: {
         const label = id === 'ffmpeg' ? 'FFmpeg' : 'ffprobe';
         if (path === undefined) add('blocked', {
           id,
-          title: `${label} 不可用`,
-          message: `当前 Runtime 未找到 ${label}，该阶段无法执行。`,
+          title: `${label} unavailable`,
+          message: `The Runtime could not find ${label}. This stage cannot run.`,
           executionMode: 'local'
-        }, { label: '打开运行组件设置', deepLink: '#/settings?tab=local-components' });
-        else add('ready', { id, title: label, message: `${label} 已就绪。`, executionMode: 'local' });
+        }, { label: 'Open local component settings', deepLink: '#/settings?tab=local-components' });
+        else add('ready', { id, title: label, message: `${label} is ready.`, executionMode: 'local' });
       }
       if (stage.executor === 'stickman-delivery' && input.ffmpegPath === undefined) {
-        add('warning', { id: 'ffmpeg', title: 'FFmpeg 不可用', message: '交付校验将跳过视频帧采样。', executionMode: 'local' });
+        add('warning', { id: 'ffmpeg', title: 'FFmpeg unavailable', message: 'Delivery checks will skip video frame sampling.', executionMode: 'local' });
       }
       if (stage.executor === 'stickman-remotion') {
         try {
@@ -234,58 +275,58 @@ export function createCreatorPreflight(input: {
             const component = await input.remotionComponent.status();
             if (!component.available) throw new Error(component.error ?? 'remotion_component_unavailable');
             add(component.state === 'ready' ? 'ready' : 'warning', {
-              id: 'stickman-runtime', title: 'Remotion 渲染组件',
-              message: component.state === 'ready' ? 'Remotion 渲染组件已就绪。' : '执行渲染时将按需准备 Remotion 组件，完成后自动继续。', executionMode: 'local'
+              id: 'stickman-runtime', title: 'Remotion rendering component',
+              message: component.state === 'ready' ? 'The Remotion rendering component is ready.' : 'Remotion will be prepared on demand. Rendering will continue automatically when ready.', executionMode: 'local'
             });
           } else {
             if (input.stickmanRuntimeRoot === undefined) throw new Error('stickman_runtime_unavailable');
             readStickmanRemotionRuntime(input.stickmanRuntimeRoot);
-            add('ready', { id: 'stickman-runtime', title: 'Stickman 渲染运行时', message: 'Remotion 运行资源校验通过。', executionMode: 'local' });
+            add('ready', { id: 'stickman-runtime', title: 'Stickman rendering Runtime', message: 'Remotion Runtime assets passed verification.', executionMode: 'local' });
           }
         } catch (error) {
           add('blocked', {
             id: 'stickman-runtime',
-            title: 'Stickman 渲染运行时不可用',
-            message: error instanceof Error ? error.message : 'Remotion 运行资源校验失败。',
+            title: 'Stickman rendering Runtime unavailable',
+            message: error instanceof Error ? error.message : 'Remotion Runtime asset verification failed.',
             executionMode: 'local'
-          }, { label: '打开运行组件设置', deepLink: '#/settings?tab=local-components&component=remotion' });
+          }, { label: 'Open local component settings', deepLink: '#/settings?tab=local-components&component=remotion' });
         }
       }
     }
-    if (input.validateRuntimeAssets !== false && (stage.executor === 'download' || stage.executor === 'cover-analysis' || (stage.executor === 'krillinai' && job.state.sourceType !== 'file'))) {
+    if (input.validateRuntimeAssets !== false && (stage.executor === 'download' || stage.executor === 'cover-analysis' || (stage.executor === 'krillinai' && job.state.sourceType !== 'file' && job.state.sourceType !== 'subtitle'))) {
       let runtime: YtDlpRuntime | undefined;
       try { runtime = input.getYtDlpRuntime?.(); } catch { runtime = undefined; }
       if (runtime === undefined) add('blocked', {
         id: 'yt-dlp',
-        title: 'yt-dlp 不可用',
-        message: '当前 Runtime 未找到 yt-dlp，无法处理远程媒体。',
+        title: 'yt-dlp unavailable',
+        message: 'yt-dlp was not found. Remote media cannot be processed.',
         executionMode: 'local'
-      }, { label: '打开运行组件设置', deepLink: '#/settings?tab=local-components' });
-      else add('ready', { id: 'yt-dlp', title: 'yt-dlp', message: `已就绪（${runtime.version}）。`, executionMode: 'local' });
+      }, { label: 'Open local component settings', deepLink: '#/settings?tab=local-components' });
+      else add('ready', { id: 'yt-dlp', title: 'yt-dlp', message: `Ready (${runtime.version}).`, executionMode: 'local' });
     }
     if (input.validateRuntimeAssets !== false && stage.executor === 'krillinai') {
       try {
         preflightKrillinDependencies(input.resourceRoot, config, {
           cachePath: input.runtimeVerificationCachePath
         });
-        add('ready', { id: 'krillin-runtime', title: 'KrillinAI Runtime', message: '运行资源校验通过。', executionMode: 'local' });
+        add('ready', { id: 'krillin-runtime', title: 'KrillinAI Runtime', message: 'Runtime assets passed verification.', executionMode: 'local' });
       } catch (error) {
         add('blocked', {
           id: 'krillin-runtime',
-          title: 'KrillinAI Runtime 不完整',
-          message: error instanceof Error ? error.message : 'KrillinAI 运行资源校验失败。',
+          title: 'KrillinAI Runtime incomplete',
+          message: error instanceof Error ? error.message : 'KrillinAI Runtime asset verification failed.',
           executionMode: 'local'
-        }, { label: '打开运行组件设置', deepLink: '#/settings?tab=local-components' });
+        }, { label: 'Open local component settings', deepLink: '#/settings?tab=local-components' });
       }
     }
-    if (stage.executor === 'krillinai' && (job.state.sourceType === 'file' || job.state.preferPlatformCaptions === false) && ['whisper.cpp', 'whisperkit', 'faster-whisper'].includes(config.transcription.provider)) {
+    if (stage.executor === 'krillinai' && job.state.sourceType !== 'subtitle' && (job.state.sourceType === 'file' || job.state.preferPlatformCaptions === false) && ['whisper.cpp', 'whisperkit', 'faster-whisper'].includes(config.transcription.provider)) {
       const provider = input.readCapabilities().transcription.providers.find(candidate => candidate.provider === config.transcription.provider);
       if (provider?.available !== true) add('blocked', {
         id: 'transcription-capability',
-        title: '语音识别能力不可用',
-        message: `${config.transcription.provider} 在当前 Runtime 不可用。`,
+        title: 'Speech recognition unavailable',
+        message: `${config.transcription.provider} is unavailable in this Runtime.`,
         executionMode: 'local'
-      }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=transcription' });
+      }, { label: 'Open AI service settings', deepLink: '#/settings?tab=ai-services&section=transcription' });
     }
   }
 }
@@ -316,11 +357,11 @@ async function checkProviderConfig(
   if (stage.executor === 'krillinai') {
     if (
       stage.id === 'subtitle'
-      && !job.artifacts.some(artifact => (
+      && (job.state.sourceType === 'subtitle' || !job.artifacts.some(artifact => (
         artifact.id === job.state.importedTargetSubtitleId
         && artifact.kind === 'target_subtitle'
         && artifact.status === 'completed'
-      ))
+      )))
     ) needs.add('llm');
     if (stage.id === 'tts' && job.state.dubbing === true) needs.add('tts');
   }
@@ -341,21 +382,22 @@ async function checkProviderConfig(
     if (config.llm.source === 'codex' && stage.executor === 'krillinai' && config.llm.apiKey.trim()) {
       add('ready', {
         id: 'llm',
-        title: '文本模型',
-        message: `本机 Codex / ${config.llm.model || 'Runtime'} 已启用。`,
+        title: 'Text model',
+        message: `Local Codex / ${config.llm.model || 'Runtime'} is enabled.`,
         executionMode: 'local'
       });
     } else {
-      checkOpenAi(config.llm, 'llm', '文本模型', '#/settings?tab=ai-services&section=text', add);
+      checkOpenAi(config.llm, 'llm', 'Text model', '#/settings?tab=ai-services&section=text', add);
     }
   }
   if (needs.has('tts')) {
     const gateway = gatewayCreatorBinding(config);
-    if (gateway && (stage.executor === 'smart-dubbing' || (typeof job.state.speed === 'number' && job.state.speed !== 1))) {
-      add('blocked', { id: 'tts-style-capability', title: '配音参数不受支持', message: '当前官方语音模型未提供已验证的样式或语速控制，请选择其他配音服务。', executionMode: 'remote' }, { label: '打开配音设置', deepLink: '#/settings?tab=ai-services&section=tts' });
+    if (gateway && (stage.executor === 'smart-dubbing' && !gateway.capabilities?.speech?.includes('speech_instructions')
+      || typeof job.state.speed === 'number' && job.state.speed !== 1 && !gateway.capabilities?.speech?.includes('speech_speed'))) {
+      add('blocked', { id: 'tts-style-capability', title: 'Unsupported speech settings', message: 'Style and speed controls are not verified for this official speech model. Select another TTS service.', executionMode: 'remote' }, { label: 'Open speech settings', deepLink: '#/settings?tab=ai-services&section=tts' });
     }
     const provider = readTtsProvider(job, config);
-    if (provider === 'edge-tts') add('ready', { id: 'tts', title: '配音服务', message: 'Edge TTS 不需要 API Key。', executionMode: 'remote' });
+    if (provider === 'edge-tts') add('ready', { id: 'tts', title: 'Speech service', message: 'Edge TTS does not require an API key.', executionMode: 'remote' });
     else checkTts(config, provider, add);
   }
   if (needs.has('image')) {
@@ -371,21 +413,21 @@ async function checkProviderConfig(
       let status: CodexImageStatus | undefined;
       try { status = await readCodexImageStatus?.(); } catch { status = undefined; }
       add(status?.ready ? 'ready' : 'blocked', {
-        id: 'image-provider', title: '本机 Codex 生图',
-        message: status?.message ?? '无法检查 Codex 生图认证和 Runtime 能力，请检查本机 Codex 登录和配置。',
+        id: 'image-provider', title: 'Local Codex image generation',
+        message: status?.message ?? 'Could not check Codex image authentication and Runtime capabilities. Check local Codex sign-in and configuration.',
         executionMode: status?.executionMode === 'api' ? 'remote' : 'local'
-      }, { label: '检查生图设置', deepLink: '#/settings?tab=ai-services&section=image' });
+      }, { label: 'Check image settings', deepLink: '#/settings?tab=ai-services&section=image' });
     } else if (imageProviderConfigured(config, provider)) {
       add('ready', {
         id: 'image-provider',
-        title: '图像服务',
-        message: `${provider} / ${settings.model} 已配置。`,
+        title: 'Image service',
+        message: `${provider} / ${settings.model} is configured.`,
         executionMode: settings.executionMode
       });
     } else {
       add('blocked', {
-        id: 'image-provider', title: '图像服务配置不完整', message: `请配置 ${provider} 的 Base URL、模型和凭据。`, executionMode: settings.executionMode
-      }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=image' });
+        id: 'image-provider', title: 'Image service configuration incomplete', message: `Configure the Base URL, model, and credentials for ${provider}.`, executionMode: settings.executionMode
+      }, { label: 'Open AI service settings', deepLink: '#/settings?tab=ai-services&section=image' });
     }
     const hasReference = stage.executor === 'stickman-image'
       || (stage.inputArtifacts.some(item => item.kind === 'reference_image')
@@ -400,42 +442,49 @@ async function checkProviderConfig(
           const spec = stickmanShotSpecSchema.parse(JSON.parse(await readFile(shotSpec.path, 'utf8')));
           multiple ||= spec.shots.some(shouldUsePreviousShotReference);
         } catch {
-          add('blocked', { id: 'shot-spec-invalid', title: '分镜数据不可用', message: '无法检查分镜的参考图要求，请重新生成分镜。', executionMode: 'local' });
+          add('blocked', { id: 'shot-spec-invalid', title: 'Storyboard data unavailable', message: 'Could not check storyboard reference requirements. Generate the storyboard again.', executionMode: 'local' });
         }
       }
-      if (multiple) add('blocked', { id: 'reference-image-count', title: '参考图数量不支持', message: '当前官方图像服务仅验证了 1 张参考图，此任务需要多张参考图。', executionMode: 'remote' });
+      if (multiple && settings.maxReferenceImages < 2) add('blocked', { id: 'reference-image-count', title: 'Unsupported number of reference images', message: 'This image model does not support the multiple references required by this task.', executionMode: 'remote' });
     }
+    if (gateway?.capabilities?.image?.includes('reference_required') && !hasReference) add('blocked', {
+      id: 'reference-image-required', title: 'Reference image missing', message: 'The selected image model requires a reference image.', executionMode: 'remote'
+    }, { label: 'Upload a reference image', deepLink: `#/workbench?tool=${encodeURIComponent(job.templateId)}&jobId=${encodeURIComponent(job.id)}` });
     if (hasReference && !supportsReference) add('blocked', {
-      id: 'reference-image-capability', title: '参考图能力不匹配', message: `${provider} 不支持当前阶段的参考图编辑。`, executionMode: 'remote'
-    }, { label: '选择支持参考图的服务', deepLink: '#/settings?tab=ai-services&section=image' });
+      id: 'reference-image-capability', title: 'Reference image capability mismatch', message: `${provider} does not support reference image editing for this stage.`, executionMode: 'remote'
+    }, { label: 'Select a service that supports reference images', deepLink: '#/settings?tab=ai-services&section=image' });
   }
   if (needs.has('video')) {
     const gateway = gatewayCreatorBinding(config);
     if (gateway) {
-      add(gateway.models.video ? 'ready' : 'blocked', { id: 'video-provider', title: '官方视频服务', message: gateway.models.video ? `${gateway.models.video} 已配置。` : '当前官方服务没有可用的视频模型', executionMode: 'remote' });
-      if (job.artifacts.some(artifact => artifact.kind === 'reference_image' && artifact.status === 'completed') && !gateway.capabilities?.video?.includes('image_to_video')) add('blocked', { id:'reference-image-capability',title:'参考图能力不匹配',message:'当前官方视频模型不支持参考图。',executionMode:'remote' });
+      add(gateway.models.video ? 'ready' : 'blocked', { id: 'video-provider', title: 'Official video service', message: gateway.models.video ? `${gateway.models.video} is configured.` : 'The official service has no available video model', executionMode: 'remote' });
+      if (job.artifacts.some(artifact => artifact.kind === 'reference_image' && artifact.status === 'completed') && !gateway.capabilities?.video?.includes('image_to_video')) add('blocked', { id:'reference-image-capability',title:'Reference image capability mismatch',message:'The official video model does not support reference images.',executionMode:'remote' });
     } else {
       const provider = readVideoProvider(job, config);
       const settings = config.video[provider];
       const hasKey = providerCredentials(settings, provider);
       if (!hasKey || !settings.model.trim() || !settings.baseUrl.trim()) add('blocked', {
-        id: 'video-provider', title: '视频服务配置不完整', message: `请配置 ${provider} 的 Base URL、模型和凭据。`, executionMode: 'remote'
-      }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=video' });
-      else add('ready', { id: 'video-provider', title: '视频服务', message: `${provider} / ${settings.model} 已配置。`, executionMode: 'remote' });
+        id: 'video-provider', title: 'Video service configuration incomplete', message: `Configure the Base URL, model, and credentials for ${provider}.`, executionMode: 'remote'
+      }, { label: 'Open AI service settings', deepLink: '#/settings?tab=ai-services&section=video' });
+      else add('ready', { id: 'video-provider', title: 'Video service', message: `${provider} / ${settings.model} is configured.`, executionMode: 'remote' });
     }
   }
-  if (stage.executor === 'krillinai' && stage.id === 'subtitle' && (job.state.sourceType === 'file' || job.state.preferPlatformCaptions === false)) {
+  if (stage.executor === 'krillinai' && stage.id === 'subtitle' && job.state.sourceType !== 'subtitle' && (job.state.sourceType === 'file' || job.state.preferPlatformCaptions === false)) {
+    const gateway = gatewayCreatorBinding(config);
+    if (gateway && !gateway.capabilities?.transcription?.includes('subtitle_timestamps')) add('blocked', {
+      id: 'transcription-timestamps', title: 'Subtitle timestamps unavailable', message: 'This speech recognition model returns text without timestamps. Select a transcription service with subtitle timestamps.', executionMode: 'remote'
+    }, { label: 'Open speech recognition settings', deepLink: '#/settings?tab=ai-services&section=transcription' });
     const provider = capabilities.transcription.providers.find(candidate => candidate.provider === config.transcription.provider);
     if (provider?.available !== true) return;
     if (config.transcription.provider === 'openai' && !config.transcription.openai.apiKey.trim()) {
-      checkOpenAi(config.transcription.openai, 'transcription', '语音识别', '#/settings?tab=ai-services&section=transcription', add);
+      checkOpenAi(config.transcription.openai, 'transcription', 'Speech recognition', '#/settings?tab=ai-services&section=transcription', add);
     } else if (config.transcription.provider === 'aliyun' && (!config.transcription.aliyun.speech.accessKeyId.trim() || !config.transcription.aliyun.speech.accessKeySecret.trim() || !config.transcription.aliyun.speech.appKey.trim())) {
-      add('blocked', { id: 'transcription-config', title: '语音识别凭据缺失', message: '请补全阿里云语音识别凭据。', executionMode: 'remote' }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=transcription' });
+      add('blocked', { id: 'transcription-config', title: 'Speech recognition credentials missing', message: 'Complete the Aliyun speech recognition credentials.', executionMode: 'remote' }, { label: 'Open AI service settings', deepLink: '#/settings?tab=ai-services&section=transcription' });
     } else if (config.transcription.provider === 'funasr' && (!config.transcription.funasr.baseUrl.trim() || !config.transcription.funasr.model.trim())) {
-      add('blocked', { id: 'transcription-config', title: '语音识别配置缺失', message: '请补全 FunASR Base URL 和模型。', executionMode: 'remote' }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=transcription' });
+      add('blocked', { id: 'transcription-config', title: 'Speech recognition configuration missing', message: 'Complete the FunASR Base URL and model.', executionMode: 'remote' }, { label: 'Open AI service settings', deepLink: '#/settings?tab=ai-services&section=transcription' });
     } else if (config.transcription.provider === 'volcengine' && (!config.transcription.volcengine.appId.trim() || !config.transcription.volcengine.accessToken.trim())) {
-      add('blocked', { id: 'transcription-config', title: '语音识别凭据缺失', message: '请补全火山引擎 App ID 和 Access Token。', executionMode: 'remote' }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=transcription' });
-    } else add('ready', { id: 'transcription-config', title: '语音识别', message: `${config.transcription.provider} 已配置。`, executionMode: provider.kind === 'local' ? 'local' : 'remote' });
+      add('blocked', { id: 'transcription-config', title: 'Speech recognition credentials missing', message: 'Complete the Volcengine App ID and access token.', executionMode: 'remote' }, { label: 'Open AI service settings', deepLink: '#/settings?tab=ai-services&section=transcription' });
+    } else add('ready', { id: 'transcription-config', title: 'Speech recognition', message: `${config.transcription.provider} is configured.`, executionMode: provider.kind === 'local' ? 'local' : 'remote' });
   }
 }
 
@@ -446,8 +495,8 @@ function checkOpenAi(
   deepLink: string,
   add: Parameters<typeof checkProviderConfig>[5]
 ) {
-  if (!value.baseUrl.trim() || !value.model.trim() || !value.apiKey.trim()) add('blocked', { id, title: `${title}配置不完整`, message: `请补全 ${title} 的 Base URL、模型和 API Key。`, executionMode: 'remote' }, { label: '打开 AI 服务设置', deepLink });
-  else add('ready', { id, title, message: `${value.model} 已配置。`, executionMode: 'remote' });
+  if (!value.baseUrl.trim() || !value.model.trim() || !value.apiKey.trim()) add('blocked', { id, title: `${title} configuration incomplete`, message: `Complete the Base URL, model, and API key for ${title}.`, executionMode: 'remote' }, { label: 'Open AI service settings', deepLink });
+  else add('ready', { id, title, message: `${value.model} is configured.`, executionMode: 'remote' });
 }
 
 function checkTts(config: CreatorServicesConfig, provider: Exclude<CreatorServicesConfig['tts']['provider'], 'edge-tts'>, add: Parameters<typeof checkProviderConfig>[5]) {
@@ -455,8 +504,8 @@ function checkTts(config: CreatorServicesConfig, provider: Exclude<CreatorServic
     ? Boolean(config.tts.volcengine.appId.trim() && config.tts.volcengine.accessToken.trim())
     : Boolean(config.tts[provider].apiKey.trim());
   const value = config.tts[provider];
-  if (!value.baseUrl.trim() || !value.model.trim() || !credentialsReady) add('blocked', { id: 'tts', title: '配音服务配置不完整', message: `请补全 ${provider} 的 Base URL、模型和凭据。`, executionMode: 'remote' }, { label: '打开 AI 服务设置', deepLink: '#/settings?tab=ai-services&section=tts' });
-  else add('ready', { id: 'tts', title: '配音服务', message: `${provider} / ${value.model} 已配置。`, executionMode: 'remote' });
+  if (!value.baseUrl.trim() || !value.model.trim() || !credentialsReady) add('blocked', { id: 'tts', title: 'Speech service configuration incomplete', message: `Complete the Base URL, model, and credentials for ${provider}.`, executionMode: 'remote' }, { label: 'Open AI service settings', deepLink: '#/settings?tab=ai-services&section=tts' });
+  else add('ready', { id: 'tts', title: 'Speech service', message: `${provider} / ${value.model} is configured.`, executionMode: 'remote' });
 }
 
 async function checkInputs(
@@ -466,18 +515,18 @@ async function checkInputs(
   add: Parameters<typeof checkProviderConfig>[5]
 ): Promise<void> {
   for (const kind of missing) {
-    add('blocked', { id: `input-artifact:${kind}`, title: '前置产物缺失', message: `请先生成 ${kind}，再启动 ${stage.id}。`, executionMode: 'local' }, { label: '返回上一步', deepLink: '#/settings?tab=diagnostics' });
+    add('blocked', { id: `input-artifact:${kind}`, title: 'Required input missing', message: `Generate ${kind} before starting ${stage.id}.`, executionMode: 'local' }, { label: 'Return to the previous step', deepLink: '#/settings?tab=diagnostics' });
   }
   for (const artifact of artifacts) {
     if (artifact.path === null) {
-      add('blocked', { id: 'input-file', title: '输入文件不可用', message: '所选输入文件不存在或不可读。', executionMode: 'local' }, { label: '重新选择输入文件', deepLink: '#/settings?tab=diagnostics' });
+      add('blocked', { id: 'input-file', title: 'Input file unavailable', message: 'The selected input file is missing or unreadable.', executionMode: 'local' }, { label: 'Select the input file again', deepLink: '#/settings?tab=diagnostics' });
       continue;
     }
     try {
       await access(artifact.path, constants.R_OK);
-      add('ready', { id: `input-file:${artifact.id}`, title: '输入文件', message: '输入文件存在且可读。', executionMode: 'local' });
+      add('ready', { id: `input-file:${artifact.id}`, title: 'Input file', message: 'The input file exists and is readable.', executionMode: 'local' });
     } catch {
-      add('blocked', { id: 'input-file', title: '输入文件不可读', message: '所选输入文件不存在或不可读。', executionMode: 'local' }, { label: '重新选择输入文件', deepLink: '#/settings?tab=diagnostics' });
+      add('blocked', { id: 'input-file', title: 'Input file unreadable', message: 'The selected input file is missing or unreadable.', executionMode: 'local' }, { label: 'Select the input file again', deepLink: '#/settings?tab=diagnostics' });
     }
   }
 }

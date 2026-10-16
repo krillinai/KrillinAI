@@ -21,18 +21,18 @@ export function CapabilitiesView(props: CapabilitiesViewProps) {
 
   return (
     <div className="panel-scroll">
-      <h2>能力</h2>
+      <h2>{l("能力", "ability")}</h2>
       <section>
         <h3>{l('技能', 'Skills')}</h3>
         <p>{props.skills?.skills.length ?? 0} {l('个技能', 'skills')}</p>
       </section>
       <section>
         <h3>MCP</h3>
-        <p>{props.mcp?.servers.length ?? 0} 个 servers</p>
+        <p>{l(`${props.mcp?.servers.length ?? 0} 个 servers`, `${props.mcp?.servers.length ?? 0} servers`)}</p>
       </section>
       <section>
         <h3>Profiles</h3>
-        <p>{props.profiles?.profiles.length ?? 0} 个 profiles</p>
+        <p>{l(`${props.profiles?.profiles.length ?? 0} 个 profiles`, `${props.profiles?.profiles.length ?? 0} profiles`)}</p>
       </section>
     </div>
   );

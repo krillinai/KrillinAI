@@ -23,5 +23,8 @@ describe('inline multilingual copy', () => {
     fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
     expect(screen.getByText('Ladda ned originalvideon och förhandsvisa')).toBeVisible();
     expect(document.documentElement.lang).toBe('sv-SE');
+    fireEvent.click(screen.getByRole('button', { name: 'ja-JP' }));
+    expect(screen.getByText(createLocalizedCopy('ja-JP')('', 'Download source video and preview'))).toBeVisible();
+    expect(document.documentElement.lang).toBe('ja-JP');
   });
 });

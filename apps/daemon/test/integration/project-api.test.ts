@@ -34,7 +34,7 @@ describe('project API', () => {
 
     expect(first.statusCode).toBe(200);
     expect(first.json().project).toMatchObject({
-      name: '默认项目',
+      name: 'Default project',
       cwd: join(tempDir, 'OpenCreator', 'Default Project'),
       directoryState: 'available'
     });

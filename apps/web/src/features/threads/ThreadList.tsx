@@ -1,3 +1,4 @@
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { ThreadResponse } from '@opencreator/protocol';
 
 export function ThreadList(props: {
@@ -6,16 +7,16 @@ export function ThreadList(props: {
   onSelect(threadId: string): void;
   onNewThread(): void;
 }) {
+  const l = useLocalizedCopy();
   return (
     <div className="thread-list">
       <div className="panel-header">
         <button className="thread-new-button" type="button" onClick={props.onNewThread}>
-          新对话
-        </button>
+          {l("新对话", "new conversation")}</button>
       </div>
       <div className="thread-list-scroll">
         {props.threads.length === 0 ? (
-          <p className="empty-state compact">暂无真实会话</p>
+          <p className="empty-state compact">{l("暂无真实会话", "No real conversations yet")}</p>
         ) : (
           props.threads.map((thread) => (
             <button

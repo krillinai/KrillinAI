@@ -13,9 +13,54 @@ import { createKrillinConfigToml } from '../../src/creator/krillin/config-bridge
 import { buildKrillinStageOptions, normalizeKrillinFailure } from '../../src/creator/krillin/adapter.js';
 
 describe('KrillinAI CLI protocol', () => {
+  it('translates a standalone SRT without passing an old video or translated import', () => {
+    const stage = { job: { templateId: 'video-translation', state: { sourceType: 'subtitle', sourceUrl: 'https://youtu.be/old', sourceLanguage: 'en', targetLanguage: 'zh_cn' } }, stageRun: { stageId: 'subtitle', id: 'stage' }, workdir: '/job/stage' };
+    const args = buildKrillinCliCommandArguments(stage as never, [
+      { id: 'srt', kind: 'source_subtitle', path: '/job/source.srt' },
+      { id: 'old', kind: 'source_video', path: '/job/old.mp4' },
+      { id: 'old-target', kind: 'target_subtitle', path: '/job/old-target.srt' }
+    ], buildKrillinStageOptions(stage as never), undefined, 'https://youtu.be/old');
+    expect(args.slice(0, 2)).toEqual(['subtitle', '--origin-lang']);
+    expect(args).toContain('/job/source.srt');
+    expect(args).toContain('--srt-translated=false');
+    expect(args).not.toContain('--prepare-video');
+    expect(args).not.toContain('/job/old.mp4');
+    expect(args).not.toContain('/job/old-target.srt');
+    expect(args).not.toContain('https://youtu.be/old');
+    expect(() => buildKrillinCliCommandArguments(stage as never, [], buildKrillinStageOptions(stage as never), undefined))
+      .toThrow('imported source SRT');
+  });
   it.each(['audio_no_speech', 'audio_transcription_empty', 'audio_transcription_invalid_response', 'audio_transcription_timestamps_missing', 'audio_transcription_api_failed'])('preserves %s through usage-error normalization', code => {
     const message = 'OpenAI transcription response was classified by the runtime';
     expect(normalizeKrillinFailure({ code, kind: 'usage', message })).toEqual({ code, message });
+  });
+  it.each(['top', 'bottom'])('passes semantic subtitle ordering to the render command with translation on %s', subtitlePosition => {
+    const stage = { job: { templateId: 'video-translation', state: { bilingual: true, subtitlePosition } }, stageRun: { stageId: 'render-horizontal', id: 'render' }, workdir: '/job/render' };
+    const args = buildKrillinCliCommandArguments(stage as never, [
+      { id: 'source', kind: 'source_video', path: '/job/video.mp4' },
+      { id: 'target', kind: 'target_subtitle', path: '/job/target.srt' },
+      { id: 'bilingual', kind: 'bilingual_subtitle', path: '/job/bilingual.srt' }
+    ], buildKrillinStageOptions(stage as never), '/job/style.json');
+    expect(args[args.indexOf('--line-mode') + 1]).toBe(`bilingual-target-${subtitlePosition}`);
+    expect(args).toContain('--subtitle-style-file');
+  });
+
+  it('passes saved legacy styles instead of silently using runtime defaults', () => {
+    const stage = { job: { templateId: 'video-translation', state: { subtitleFont: 'rounded', subtitleSize: 'large', subtitleColor: '#123456', subtitleShadowOffsetX: -4, subtitleShadowOffsetY: 6, subtitleShadowBlur: 2 } }, stageRun: { stageId: 'render-horizontal' } };
+    expect(buildKrillinStageOptions(stage as never).subtitleStyle).toMatchObject({ horizontal: { major: { font_name: 'OpenCreator Rounded Bold', font_size: 18, primary_color: '#123456', override_tags: '\\xshad-4\\yshad6\\blur2' } } });
+  });
+
+  it.each([true, false])('keeps edited vertical subtitles and renders the requested bilingual=%s mode', bilingual => {
+    const stage = { job: { templateId: 'video-translation', state: { bilingual, subtitlePosition: 'bottom' } }, stageRun: { stageId: 'render-vertical', id: 'render' }, workdir: '/job/render' };
+    const args = buildKrillinCliCommandArguments(stage as never, [
+      { id: 'source', kind: 'source_video', path: '/job/video.mp4' },
+      { id: 'target', kind: 'target_subtitle', path: '/job/target.srt' },
+      { id: 'vertical', kind: 'vertical_subtitle', path: '/job/edited-vertical.srt' }
+    ], buildKrillinStageOptions(stage as never), undefined);
+    expect(args[args.indexOf('--subtitle') + 1]).toBe('/job/edited-vertical.srt');
+    expect(args[args.indexOf('--mixed-target-subtitle') + 1]).toBe('/job/target.srt');
+    expect(args[args.indexOf('--line-mode') + 1]).toBe('bilingual-target-bottom');
+    expect(args.includes('--target-only')).toBe(!bilingual);
   });
   it.each([true, false])('never prepares video in the translation subtitle stage, even when composeVideo=%s', composeVideo => {
     const stage = { job: { templateId: 'video-translation', state: { sourceUrl: 'https://youtu.be/demo', sourceLanguage: 'en', targetLanguage: 'zh_cn', composeVideo } }, stageRun: { stageId: 'subtitle', id: 'stage' }, workdir: '/job/stage' };

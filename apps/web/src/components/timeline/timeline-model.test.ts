@@ -296,9 +296,9 @@ describe('timeline model', () => {
       kind: 'change_card',
       id: 'evt_file_change',
       runId: 'run_1',
-      title: '新增 1 个文件，修改 1 个文件',
+      title: 'Added 1 file, Modified 1 file',
       path: '/repo/放假.md',
-      delta: '2 项变更',
+      delta: '2 changes',
       source: 'runtime'
     });
   });

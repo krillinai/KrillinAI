@@ -19,11 +19,11 @@ describe('KrillinTtsService', () => {
     await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true })));
   });
 
-  it('rejects personal models and lists voices for the selected official speech model', async () => {
+  it.each([false, true])('validates official speech model, voices and optional style/speed (%s)', async supportsStyle => {
     const root = await temporaryRoot();
     const executeUtility = vi.fn();
     const source = createGatewayCreatorSource({
-      account: { peekState: () => ({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models: [], activationError: null }), modelCredentials: async () => ({ accountId: 'a', modelKey: 'secret', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://gateway.example/v1', defaults: { speech: 'official-first' }, models: [{ id: 'official-first', modality: 'speech', capabilities: [], voices: ['first-voice'] }, { id: 'official-second', modality: 'speech', capabilities: [], voices: ['second-voice'] }] }) },
+      account: { peekState: () => ({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models: [], activationError: null }), modelCredentials: async () => ({ accountId: 'a', modelKey: 'secret', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://gateway.example/v1', defaults: { speech: 'official-first' }, models: [{ id: 'official-first', modality: 'speech', capabilities: [], voices: ['first-voice'] }, { id: 'official-second', modality: 'speech', capabilities: supportsStyle ? ['speech_instructions', 'speech_speed'] : [], voices: ['second-voice'] }] }) },
       manual: createConfigStore(createDefaultCreatorServicesConfig()), getLocalOrigin: () => 'http://127.0.0.1:39999'
     });
     const service = createKrillinTtsService({ resourceRoot: join(root, 'runtime'), workRoot: join(root, 'work'), configStore: source.store, executeUtility });
@@ -41,6 +41,11 @@ describe('KrillinTtsService', () => {
     await expect(service.synthesize({ text: 'hello', model: 'official-second', voiceId: 'first-voice' })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     await expect(source.runForJob('job', 'stage', () => service.synthesize({ text: 'hello', model: 'official-second' }))).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     expect(fetchMock).toHaveBeenCalledOnce();
+    const styled = service.synthesize({ text: 'hello', model: 'official-second', instructions: 'Calm', speed: 1.1, format: 'mp3' });
+    if (supportsStyle) {
+      await styled;
+      expect(JSON.parse(String(fetchMock.mock.lastCall?.[1]?.body))).toMatchObject({ instructions: 'Calm', speed: 1.1 });
+    } else await expect(styled).rejects.toMatchObject({ code: 'unsupported_capability' });
   });
 
   it('lists the bundled Qwen3 voice catalog without calling an outdated Runtime', async () => {

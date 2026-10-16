@@ -30,6 +30,8 @@ import { useLocalizedCopy, type LocalizeCopy } from '../../i18n/useLocalizedCopy
 import { publicErrorReason } from '../issues/issue-catalog.js';
 import NativeSelect from '../../components/forms/NativeSelect.js';
 import { OfficialModelField, useOfficialServices } from './official-services.js';
+import OfficialVideoReferences, { readVideoReferences, videoReferenceIssue } from './OfficialVideoReferences.js';
+import { formatGatewayCreditAmount } from '../account/billing-display.js';
 import type { CreatorServicesSettingsService } from '../../services/creator-services-service.js';
 import CreatorResultVersionMenu from './CreatorResultVersionMenu.js';
 import { CreatorTaskProgressNotice } from './CreatorCollaborationPanel.js';
@@ -132,6 +134,8 @@ export default function VideoGenerationWorkspace(props: {
   const [previewFailed, setPreviewFailed] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [uploadingVideoReference, setUploadingVideoReference] = useState(false);
+  const videoReferences = readVideoReferences(session?.state.videoReferences);
   const [taskControlPending, setTaskControlPending] = useState<'canceling' | 'resuming'>();
   const characterCount = useMemo(() => [...prompt.trim()].length, [prompt]);
   const selectedProvider = official.official ? { zh: '官方服务', en: 'Official service' } : providers.find(item => item.value === provider) ?? providers[0]!;
@@ -143,8 +147,12 @@ export default function VideoGenerationWorkspace(props: {
   const selectedModelLabel = videoModelLabel(activeModel);
   const availableSizes = official.official ? gatewayVideoSizes(official.model).map(videoSizeOption) : sizes;
   const selectedSize = availableSizes.find(item => item.value === size) ?? videoSizeOption(size);
-  const durations = official.official ? official.model?.durations ?? [] : providerDurations[provider];
-  const serviceReady = !official.official || (official.ready && availableSizes.length > 0 && durations.length > 0);
+  const referenceDuration = official.model?.videoOptions?.referenceDuration;
+  const hasReferenceImage = !!referenceImageFile || (session?.job.artifacts ?? []).some(artifact => artifact.id === session?.state.referenceImageArtifactId && artifact.kind === 'reference_image') || videoReferences.some(ref => ref.role === 'image');
+  const durations = official.official ? (official.model?.durations ?? []).filter(value => !referenceDuration || !hasReferenceImage || value === referenceDuration) : providerDurations[provider];
+  const serviceReady = !uploadingVideoReference && (!official.official || (official.ready && availableSizes.length > 0 && durations.length > 0));
+  const quotedUnitsPerSecond = official.model?.price?.videoUnitsPerSecond?.[size.split('@')[0]!];
+  const quotedCredits = quotedUnitsPerSecond === undefined ? undefined : quotedUnitsPerSecond * duration / 1_000_000;
   const resultVersions = useMemo(
     () => createVideoResultVersions(session?.job.artifacts ?? [], session?.state.resultSnapshots),
     [session?.job.artifacts, session?.state.resultSnapshots]
@@ -448,6 +456,11 @@ export default function VideoGenerationWorkspace(props: {
       openStep(0);
       return;
     }
+    const referenceIssue = official.official ? videoReferenceIssue(official.model, videoReferences, !!currentReferenceName) : undefined;
+    if (referenceIssue) {
+      setError(referenceIssue === 'frames' ? l('请先添加首帧', 'Add a first frame before a last frame') : referenceIssue === 'mixed' ? l('首尾帧不能与参考素材同时使用', 'First and last frames cannot be combined with reference media') : referenceIssue === 'audio' ? l('参考音频需要搭配参考图片', 'Reference audio requires reference images') : l('参考素材超出当前模型支持范围，请移除多余素材', 'Reference media exceeds the selected model limits. Remove unsupported references.'));
+      openStep(0); return;
+    }
     setError('');
     setNotice('');
     session.updateDraft({
@@ -456,6 +469,7 @@ export default function VideoGenerationWorkspace(props: {
       model: activeModel,
       size,
       duration,
+      ...(official.official ? { videoPriceVersion: official.model?.price?.version ?? null, generateAudio: official.model?.videoOptions?.generateAudio ? session.state.generateAudio ?? true : null } : {}),
       ...(official.official ? official.draftPatch : {})
     }, { semantic: true });
     try {
@@ -657,8 +671,8 @@ export default function VideoGenerationWorkspace(props: {
                 </div>
                 <small>{characterCount} / {creatorPromptMaxLength}</small>
               </div>
-              <div className="video-generation-prompt-inputs">
-                <div className="video-reference-field">
+              <div className={`video-generation-prompt-inputs${official.model?.videoOptions && !currentReferenceName ? ' has-official-references' : ''}`}>
+                {!official.model?.videoOptions || currentReferenceName ? <div className="video-reference-field">
                   <span className="video-reference-label">{l('参考图', 'Reference')}</span>
                   <div className="video-reference-upload-wrap">
                     <label className="video-reference-upload" title={l('上传 JPG、PNG 或 WebP 图片，最大 5MB', 'Upload a JPG, PNG, or WebP image up to 5 MB')}>
@@ -694,7 +708,7 @@ export default function VideoGenerationWorkspace(props: {
                   <small className="video-reference-meta" title={currentReferenceName ?? l('支持 JPG、PNG、WebP，最大 5MB', 'JPG, PNG, or WebP, up to 5 MB')}>
                     {currentReferenceName ?? l('选填', 'Optional')}
                   </small>
-                </div>
+                </div> : null}
                 <label className="creator-tool-field">
                   <span>{l('提示词', 'Prompt')}</span>
                   <textarea
@@ -709,6 +723,7 @@ export default function VideoGenerationWorkspace(props: {
                   />
                 </label>
               </div>
+              {official.official && official.model?.videoOptions ? <OfficialVideoReferences model={official.model} references={videoReferences} disabled={generating} onBusyChange={setUploadingVideoReference} onError={setError} /> : null}
               <button className="smart-dubbing-sample" type="button" onClick={() => updatePrompt(l(samplePromptZh, samplePromptEn))}>
                 <WandSparkles size={14} strokeWidth={1.8} />
                 {l('填入示例提示词', 'Use sample prompt')}
@@ -725,7 +740,7 @@ export default function VideoGenerationWorkspace(props: {
                 </div>
               </div>
               <div className={`video-generation-settings-grid${official.official ? ' is-official' : ''}`}>
-                {official.official ? <OfficialModelField label={l('视频模型', 'Video model')} service={official} disabled={generating} /> : <>
+                {official.official ? <OfficialModelField label={l('视频模型', 'Video model')} service={official} disabled={generating || uploadingVideoReference} /> : <>
                 <label className="creator-tool-field">
                   <span>{l('视频服务', 'Video provider')}</span>
                   <NativeSelect value={provider} onChange={event => updateProvider(event.target.value as VideoGenerationProvider)}>
@@ -763,6 +778,8 @@ export default function VideoGenerationWorkspace(props: {
                   </NativeSelect>
                 </label>
               </div>
+              {official.official && official.model?.videoOptions?.generateAudio ? <label className="official-video-audio"><input type="checkbox" checked={session?.state.generateAudio !== false} disabled={generating} onChange={event => session?.updateDraft({ generateAudio: event.target.checked }, { semantic: true })} />{l('生成音频', 'Generate audio')}</label> : null}
+              {quotedCredits !== undefined ? <output className="official-video-quote" aria-label={l('积分报价', 'Credit quote')}>{l(`本次消耗 ${formatGatewayCreditAmount(quotedCredits)} 积分`, `This generation costs ${formatGatewayCreditAmount(quotedCredits)} credits`)}</output> : null}
               <div className="media-generation-setting-note">
                 <Film size={17} strokeWidth={1.7} />
                 <span>
@@ -912,6 +929,7 @@ export default function VideoGenerationWorkspace(props: {
         </div>
 
         <footer className="video-translation-wizard-actions media-generation-actions" aria-label={l('视频生成操作', 'Video generation actions')}>
+          {currentStep === 2 && quotedCredits !== undefined && !generating ? <output className="official-video-quote">{l(`${formatGatewayCreditAmount(quotedCredits)} 积分`, `${formatGatewayCreditAmount(quotedCredits)} credits`)}</output> : null}
           <button
             className="video-translation-secondary-action"
             type="button"
@@ -1020,7 +1038,7 @@ function createVideoResultVersions(
     ))
     .map(artifact => ({
       value: readPositiveInteger(artifact.metadata.resultVersion) ?? artifact.version,
-      description: '生成视频',
+      description: 'Generate',
       artifact,
       state: {}
     }))

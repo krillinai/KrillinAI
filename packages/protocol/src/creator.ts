@@ -767,3 +767,12 @@ function isCreatorJsonValue(value: unknown): value is CreatorJson {
   return isUnknownRecord(value)
     && Object.values(value).every(isCreatorJsonValue);
 }
+export type CreatorSubtitlePreviewRequest = {
+  width: number;
+  height: number;
+  subtitleStyle: Record<string, CreatorJson>;
+  bilingual: boolean;
+  subtitlePosition: 'top' | 'bottom';
+  translationText: string;
+  originalText: string;
+};

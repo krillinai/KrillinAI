@@ -22,8 +22,9 @@ export type VideoMetadataService = {
 export function createVideoMetadataService(input: {
   fetchImpl?: typeof fetch;
   getProxy?(): string | Promise<string>;
-  getYtDlpRuntime?(): YtDlpRuntime | undefined;
+  getYtDlpRuntime?(sourceUrl?: string): YtDlpRuntime | undefined;
   withYouTubeCookies?<T>(operation: () => Promise<T>): Promise<T>;
+  withDouyinCookies?<T>(operation: () => Promise<T>): Promise<T>;
   isYouTubeConnected?(): Promise<boolean>;
 } = {}): VideoMetadataService {
   const cache = new Map<string, { payload: unknown; expiresAt: number }>();
@@ -36,19 +37,23 @@ export function createVideoMetadataService(input: {
         return input.withYouTubeCookies(async () => {
           try {
             const { previewUrl: _previewUrl, ...metadata } = await resolveOnlineVideoMetadata({ url: normalized, platform,
-              runtime: input.getYtDlpRuntime!()!, proxy: await resolveProxy(input.getProxy) });
+              runtime: input.getYtDlpRuntime!(normalized)!, proxy: await resolveProxy(input.getProxy) });
             return metadata;
-          } catch { throw new VideoMetadataError('UPSTREAM_ERROR', 'YouTube 视频信息暂不可用，请检查网络或平台连接后重试'); }
+          } catch { throw new VideoMetadataError('UPSTREAM_ERROR', 'YouTube metadata is unavailable. Check the network or platform connection and retry.'); }
         });
       }
       if (platform !== null && platform !== 'youtube' && platform !== 'bilibili') {
-        const runtime = input.getYtDlpRuntime?.();
-        if (runtime === undefined) throw new VideoMetadataError('UPSTREAM_ERROR', 'Online video preview resolver is unavailable');
-        try {
-          return await resolveOnlineVideoMetadata({ url: normalized, platform, runtime, proxy: await resolveProxy(input.getProxy) });
-        } catch {
-          throw new VideoMetadataError('UPSTREAM_ERROR', 'Online video preview is unavailable for this source');
-        }
+        const resolveMetadata = async () => {
+          const runtime = input.getYtDlpRuntime?.(normalized);
+          if (runtime === undefined) throw new VideoMetadataError('UPSTREAM_ERROR', 'Online video preview resolver is unavailable');
+          try {
+            return await resolveOnlineVideoMetadata({ url: normalized, platform, runtime, proxy: await resolveProxy(input.getProxy) });
+          } catch {
+            throw new VideoMetadataError('UPSTREAM_ERROR', 'Online video preview is unavailable for this source');
+          }
+        };
+        return platform === 'douyin' && input.withDouyinCookies
+          ? input.withDouyinCookies(resolveMetadata) : resolveMetadata();
       }
       const source = parseVideoSource(value);
       const endpoint = createMetadataEndpoint(source);
@@ -176,7 +181,7 @@ function parseVideoSource(value: string): ParsedVideoSource {
     if (hostname === 'bilibili.com' || hostname.endsWith('.bilibili.com')) {
       const bilibili = parseBilibiliVideoSource(value);
       if (bilibili === null) {
-        throw new VideoMetadataError('UNSUPPORTED_SOURCE', 'B 站链接无效，请检查视频地址和分 P 参数（p 必须为正整数）');
+        throw new VideoMetadataError('UNSUPPORTED_SOURCE', 'Invalid Bilibili URL. Check the video address and part parameter (p must be a positive integer).');
       }
       return { platform: 'bilibili', videoId: bilibili.videoId, ...(bilibili.partIndex === undefined ? {} : { partIndex: bilibili.partIndex }) };
     }
@@ -227,12 +232,12 @@ function parseMetadataPayload(source: ParsedVideoSource, payload: unknown): Vide
   const thumbnailUrl = boundedText(payload.data.pic, 2048);
   const parts = Array.isArray(payload.data.pages) ? payload.data.pages.map(parseBilibiliPart) : undefined;
   if (parts?.length === 0) {
-    throw new VideoMetadataError('UPSTREAM_ERROR', '无法读取 B 站视频分集信息，请重试');
+    throw new VideoMetadataError('UPSTREAM_ERROR', 'Could not read Bilibili video parts. Try again.');
   }
   const partIndex = source.partIndex ?? (parts?.length === 1 ? parts[0]?.index : undefined);
   const selectedPart = parts?.find(part => part.index === partIndex);
   if (source.partIndex !== undefined && (parts === undefined ? source.partIndex !== 1 : selectedPart === undefined)) {
-    throw new VideoMetadataError('INVALID_PART', `分 P ${source.partIndex} 不存在，请重新选择视频分集`);
+    throw new VideoMetadataError('INVALID_PART', `Video part ${source.partIndex} does not exist. Select a video part again.`);
   }
   const dimension = selectedPart ?? (parts !== undefined && parts.length > 1 ? undefined : payload.data.dimension);
   const dimensions = parseDimensions(dimension);
@@ -249,7 +254,7 @@ function parseMetadataPayload(source: ParsedVideoSource, payload: unknown): Vide
 
 function parseBilibiliPart(value: unknown): VideoSourcePart {
   if (!isRecord(value) || typeof value.page !== 'number' || !Number.isSafeInteger(value.page) || value.page < 1) {
-    throw new VideoMetadataError('UPSTREAM_ERROR', '无法读取 B 站视频分集信息，请重试');
+    throw new VideoMetadataError('UPSTREAM_ERROR', 'Could not read Bilibili video parts. Try again.');
   }
   const cid = typeof value.cid === 'number' && Number.isSafeInteger(value.cid) && value.cid > 0 ? value.cid : undefined;
   const durationSeconds = typeof value.duration === 'number' && value.duration >= 0 ? value.duration : undefined;

@@ -195,7 +195,7 @@ describe('notification outbox api', () => {
     expect(page.notifications).toEqual([
       expect.objectContaining({
         kind: 'schedule_waiting_approval',
-        title: '发布日报等待审批',
+        title: '发布日报: awaiting approval',
         body: expect.stringContaining('写入发布目录'),
         threadId: schedule.threadId,
         runId: 'run_approval',

@@ -48,7 +48,7 @@ export default function CreatorArtifactDetails() {
         if (text.length > 200_000) throw new Error('artifact_text_too_large');
         return text;
       } catch (cause) {
-        session.captureCreatorFailure('creator.compare-artifacts', cause, '无法加载产物对比，请稍后重试。', 'client');
+        session.captureCreatorFailure('creator.compare-artifacts', cause, 'Could not load the output comparison. Try again later.', 'client');
         throw cause;
       }
     })).then(values => { if (active) setTexts(values); })
@@ -90,7 +90,7 @@ export default function CreatorArtifactDetails() {
         link.click();
         window.setTimeout(() => URL.revokeObjectURL(url), 0);
       } catch (cause) {
-        session.captureCreatorFailure('creator.download-artifact', cause, '无法下载创作产物，请稍后重试。', 'client');
+        session.captureCreatorFailure('creator.download-artifact', cause, 'Could not download the output. Try again later.', 'client');
         throw cause;
       }
     } catch (cause) {
@@ -180,7 +180,7 @@ function ArtifactMediaPreview({ artifact }: { artifact: CreatorArtifact }) {
         objectUrl = URL.createObjectURL(blob);
         setUrl(objectUrl);
       } catch (cause) {
-        session.captureCreatorFailure('creator.preview-artifact', cause, '无法预览创作产物，请稍后重试。', 'client');
+        session.captureCreatorFailure('creator.preview-artifact', cause, 'Could not preview the output. Try again later.', 'client');
         throw cause;
       }
     }).catch(() => {

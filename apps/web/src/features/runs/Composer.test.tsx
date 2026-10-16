@@ -86,6 +86,34 @@ describe('Composer', () => {
     vi.restoreAllMocks();
   });
 
+  it('commits a catalog model immediately and keeps send available without inference', async () => {
+    const user = userEvent.setup();
+    const onModelConfigChange = vi.fn();
+    const fetcher = vi.spyOn(globalThis, 'fetch');
+    render(<Composer {...defaultProps} models={codexModels} onModelConfigChange={onModelConfigChange} />);
+    await user.type(screen.getByRole('textbox', { name: '输入任务' }), 'Hello');
+    await user.click(screen.getByRole('button', { name: '选择模型 GPT-5.6 Sol' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /GPT-5.5/ }));
+    expect(onModelConfigChange).toHaveBeenCalledWith({ model: 'gpt-5.5', reasoning: null });
+    expect(screen.getByRole('button', { name: '发送' })).toBeEnabled();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('preserves the draft when switching models and closing the menu', async () => {
+    const user = userEvent.setup();
+    const onModelConfigChange = vi.fn();
+    render(<Composer {...defaultProps} models={codexModels} onModelConfigChange={onModelConfigChange} />);
+    await user.type(screen.getByRole('textbox', { name: '输入任务' }), 'Hello');
+    await user.click(screen.getByRole('button', { name: '选择模型 GPT-5.6 Sol' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /GPT-5.5/ }));
+    expect(onModelConfigChange).toHaveBeenCalledWith({ model: 'gpt-5.5', reasoning: null });
+    fireEvent.pointerDown(screen.getByRole('textbox', { name: '输入任务' }));
+    expect(screen.queryByRole('menu', { name: '模型' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '输入任务' })).toHaveValue('Hello');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '发送' })).toBeEnabled();
+  });
+
   it('shows codex-style composer controls', () => {
     render(<Composer {...defaultProps} permission="workspace-write" />);
 

@@ -14,7 +14,7 @@ import type { CreatorExecutor } from './executor.js';
 import { CreatorExecutorError } from './executor.js';
 import type { CreatorRepository } from './repository.js';
 import type { CreatorIssueService } from './issues.js';
-import { CreatorProviderRequestError } from './provider-requests.js';
+import { CreatorProviderRequestError, CreatorProviderRequestLedger } from './provider-requests.js';
 import { publicFactsFromFailure } from './public-error-facts.js';
 import { sha256CreatorFile } from './file-hash.js';
 import {
@@ -46,6 +46,7 @@ export function createCreatorStageRunner(input: {
   onStageSucceeded?(stage: CreatorStageRun): void;
 }) {
   const executors = new Map(input.executors.map(executor => [executor.id, executor]));
+  const providerLedger = new CreatorProviderRequestLedger(input.repository, input.issueService);
   const active = new Map<string, AbortController>();
   const laneTails = new Map<string, Promise<unknown>>();
   const waiters: Array<() => void> = [];
@@ -154,7 +155,7 @@ export function createCreatorStageRunner(input: {
               stageId,
               stageRunId: stageRun!.id,
               scopeKey: stageRun!.scopeKey ?? undefined,
-              fallbackMessage: '缺少执行当前步骤所需的输入，请补充后重试。',
+              fallbackMessage: 'Required input for this step is missing. Add it and try again.',
               repairActions: [{ kind: 'select-input', inputField: 'source' }, { kind: 'focus-agent' }]
             });
           }
@@ -328,6 +329,7 @@ export function createCreatorStageRunner(input: {
           input.onJobChanged
         );
         finishStageIssueResolution(jobId, stageRun!.id, 'succeeded');
+        providerLedger.finishStage(stageRun!.id, 'succeeded');
       });
       const completed = input.repository.getStageRun(stageRun.id);
       if (completed !== undefined) {
@@ -349,14 +351,14 @@ export function createCreatorStageRunner(input: {
           failureCode,
           failureMessage
         );
-        const providerRequests = input.repository.listProviderRequests(jobId)
-          .filter(request => request.stageRunId === stageRun!.id);
+        const providerRequests = providerLedger.requestsForStage(stageRun.id);
         const unknownProviderAcceptance = providerRequests.some(request => (
           request.status === 'unknown_remote_acceptance'
         ));
         const providerFailure = error instanceof CreatorProviderRequestError
           || providerRequests.some(request => (
-            request.status === 'failed' || request.status === 'unknown_remote_acceptance'
+            request.stageRunId === stageRun!.id && request.status === 'failed'
+            || request.status === 'unknown_remote_acceptance'
           ));
         input.repository.transaction(() => {
           updateStageRun({
@@ -404,6 +406,9 @@ export function createCreatorStageRunner(input: {
               },
               input.onJobChanged
             );
+            if (!outputValidation && configurationInput === null) {
+              providerLedger.finishStage(stageRun!.id, canceled ? 'canceled' : 'failed', error);
+            }
             const resolution = finishStageIssueResolution(
               jobId,
               stageRun!.id,
@@ -442,15 +447,15 @@ export function createCreatorStageRunner(input: {
                 fallbackMessage: outputValidation
                   ? failureMessage
                   : configurationInput !== null
-                    ? '缺少执行当前步骤所需的服务配置，请检查相关服务设置。'
+                    ? 'Required service configuration is missing for this step. Check the relevant service settings.'
                   : unknownProviderAcceptance
-                    ? '外部服务是否已接收请求尚不明确，请先查询状态或确认后再继续。'
+                    ? 'It is unclear whether the external service accepted the request. Check its status or confirm before continuing.'
                     : error instanceof CreatorExecutorError
                       && error.publicFacts?.provider === 'yt-dlp'
                       ? failureMessage
                     : providerFailure
-                      ? '外部服务调用失败，可以重试或询问 Agent。'
-                      : '创作步骤执行失败，可以重试或询问 Agent。',
+                      ? 'The external service request failed. Try again or ask the Agent.'
+                      : 'The creator step failed. Try again or ask the Agent.',
                 technicalDetail: failureMessage,
                 publicFacts: configurationInput !== null
                   ? { ...stageFailureFacts(error, failureCode), kind: 'configuration' }
@@ -505,6 +510,10 @@ export function createCreatorStageRunner(input: {
   ) {
     const issue = input.issueService?.list(jobId).find(candidate => (
       candidate.status === 'resolving' && candidate.stageRunId === stageRunId
+      && !(result === 'succeeded' && candidate.source === 'provider'
+        && ['creator_provider_request_failed', 'creator_provider_resolution_required'].includes(candidate.code)
+        && candidate.publicFacts?.provider?.startsWith('opencreator-gateway-'))
+      && input.repository.getIssueResolutionAttemptId(jobId, candidate.id) === stageRunId
     ));
     if (issue === undefined) return undefined;
     return input.issueService?.finishResolution({
@@ -675,6 +684,7 @@ export function resolveCreatorStageInputs(
 
 function creatorInputArtifactEnabled(job: CreatorJob, kind: string): boolean {
   if (job.templateId !== 'video-translation') return true;
+  if (job.state.sourceType === 'subtitle' && (kind === 'source_video' || kind === 'target_subtitle')) return false;
   if (
     (kind === 'dubbed_audio' || kind === 'dubbed_video')
     && job.state.dubbing !== true
@@ -788,28 +798,28 @@ function errorCode(error: unknown): string {
 
 function resultSnapshotDescription(stageId: string, templateId: string): string {
   if (templateId === 'wechat-article') {
-    if (stageId === 'sources') return '解析内容灵感';
-    if (stageId === 'topics') return '生成候选选题';
-    if (stageId === 'outline') return '生成文章大纲';
-    if (stageId === 'article') return '撰写公众号文章';
-    if (stageId === 'images') return '生成文章配图';
+    if (stageId === 'sources') return 'Parsed inspiration sources';
+    if (stageId === 'topics') return 'Generated topic candidates';
+    if (stageId === 'outline') return 'Generated article outline';
+    if (stageId === 'article') return 'Wrote WeChat article';
+    if (stageId === 'images') return 'Generated article images';
   }
   if (templateId === 'auto-clip') {
-    if (stageId === 'analyze') return '识别视频高光片段';
-    if (stageId === 'render') return '导出视频切片';
+    if (stageId === 'analyze') return 'Identified video highlights';
+    if (stageId === 'render') return 'Exported video clips';
   }
-  if (stageId === 'subtitle') return '生成字幕';
-  if (stageId === 'tts') return '生成配音';
-  if (stageId === 'render-horizontal') return '合成横屏视频';
-  if (stageId === 'render-vertical') return '合成竖屏视频';
+  if (stageId === 'subtitle') return 'Generated subtitles';
+  if (stageId === 'tts') return 'Generated dubbing';
+  if (stageId === 'render-horizontal') return 'Rendered horizontal video';
+  if (stageId === 'render-vertical') return 'Rendered vertical video';
   if (stageId === 'generate') {
-    if (templateId === 'cover') return '生成封面';
-    if (templateId === 'video-generation') return '生成视频';
-    if (templateId === 'xiaohongshu-post') return '生成小红书帖子';
-    if (templateId === 'short-video-script') return '生成短视频脚本';
-    return '生成图片';
+    if (templateId === 'cover') return 'Generated thumbnail';
+    if (templateId === 'video-generation') return 'Generated video';
+    if (templateId === 'xiaohongshu-post') return 'Generated Xiaohongshu post';
+    if (templateId === 'short-video-script') return 'Generated short video script';
+    return 'Generated image';
   }
-  return `完成 ${stageId}`;
+  return `Completed ${stageId}`;
 }
 
 function nextStageResultVersion(job: CreatorJob, stageId: string): number {

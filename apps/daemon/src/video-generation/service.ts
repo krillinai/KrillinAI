@@ -26,6 +26,7 @@ import {
 } from '../creator-services/upstream-fetch.js';
 import { publicFactsFromFailure } from '../creator/public-error-facts.js';
 import type { GatewayCreatorBinding } from '../gateway/creator-service-source.js';
+import { writePrivateJsonFile } from '../config/private-json-file.js';
 
 const MAX_PROMPT_LENGTH = 4_000;
 const MAX_REFERENCE_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -53,6 +54,7 @@ export type VideoGenerationOperationOptions = {
 };
 
 export type VideoGenerationService = {
+  uploadReference?(content: Buffer, mime: string): Promise<{ assetId: string; expiresAt: string }>;
   create(
     request: CreateVideoGenerationRequest,
     options?: VideoGenerationOperationOptions
@@ -112,45 +114,55 @@ export function createVideoGenerationService(input: {
   async function writeStored(value: StoredVideoGeneration) {
     try {
       await mkdir(resultDir(value.result.id), { recursive: true, mode: 0o700 });
-      await writeFile(metadataPath(value.result.id), `${JSON.stringify(value)}\n`, { mode: 0o600 });
+      await writePrivateJsonFile(metadataPath(value.result.id), value);
     } catch {
       throw new VideoGenerationError('VIDEO_GENERATION_STORAGE_FAILED', 'Video generation metadata could not be stored', 500);
     }
   }
 
-  async function gatewayCall(binding: GatewayCreatorBinding, resource: string, options: VideoGenerationOperationOptions, params?: Record<string, unknown>, logicalId?: string) {
+  async function gatewayCall(binding: GatewayCreatorBinding, resource: string, options: VideoGenerationOperationOptions, params?: Record<string, unknown>, logicalId?: string, timeoutMs = REQUEST_TIMEOUT_MS) {
     const response = await (input.fetchImpl ?? fetch)(`${binding.baseUrl}/${resource}`, {
-      method: params ? 'POST' : 'GET', redirect: 'error', signal: options.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      method: params ? 'POST' : 'GET', redirect: 'error', signal: AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(options.signal ? [options.signal] : [])]),
       headers: { Authorization: `Bearer ${binding.apiKey}`, 'Content-Type': 'application/json', ...(logicalId ? { 'Idempotency-Key': logicalId } : {}) },
       ...(params ? { body: JSON.stringify(params) } : {})
     });
-    if (!response.ok) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', '官方视频请求未完成，请查询原任务', response.status);
+    if (!response.ok) {
+      const failure = await creatorServiceErrorInfo(response, 'Official video', 'opencreator-gateway-video');
+      throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', failure.message, response.status, failure.publicFacts);
+    }
     return response;
   }
   async function refreshGateway(stored: StoredVideoGeneration, options: VideoGenerationOperationOptions) {
     const source = await input.gatewaySource?.binding();
-    if (!source || source.accountId !== stored.gateway?.accountId) throw new VideoGenerationError('VIDEO_GENERATION_CONFIG_REQUIRED', '请登录原任务账户后查询视频', 403);
+    if (!source || source.accountId !== stored.gateway?.accountId) throw new VideoGenerationError('VIDEO_GENERATION_CONFIG_REQUIRED', 'Sign in with the original task account to check the video', 403);
     if (stored.result.status === 'completed' || stored.result.status === 'failed') return stored.result;
     const response = stored.upstreamId
       ? await gatewayCall(source, `requests/${encodeURIComponent(stored.upstreamId)}`, options)
       : await gatewayCall(source, 'video/jobs', options, stored.gateway.params, stored.gateway.logicalId);
-    const payload = await response.json() as { requestId?: string; state?: string };
-    if (!payload.requestId || !/^[A-Za-z0-9_-]{12,128}$/.test(payload.requestId)) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', '官方视频回执无效', 502);
+    const payload = await response.json() as { requestId?: string; state?: string; status?: string; phase?: string; progress?: number | null; errorCode?: string };
+    if (!payload.requestId || !/^(?:ocdir|ocreq)_[a-f0-9]{48}$/.test(payload.requestId)
+      || response.headers.get('X-Request-ID') !== payload.requestId || stored.upstreamId && stored.upstreamId !== payload.requestId
+      || !['submitting', 'waiting_upstream', 'succeeded', 'failed', 'canceled', 'outcome_unknown'].includes(payload.state ?? '')) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'Invalid official video receipt', 502);
     stored.upstreamId = payload.requestId;
     options.onGatewayRequest?.(payload.requestId);
     const completed = payload.state === 'succeeded';
-    stored.result = { ...stored.result, status: completed ? 'in_progress' : ['failed','canceled'].includes(payload.state ?? '') ? 'failed' : 'in_progress', progress: completed ? 90 : 0, progressKnown: false, updatedAt: now().toISOString() };
+    const failed = ['failed','canceled'].includes(payload.state ?? '');
+    const progressKnown = typeof payload.progress === 'number' && Number.isFinite(payload.progress) && payload.progress >= 0 && payload.progress <= 100;
+    const phase = completed || payload.phase === 'downloading' ? 'downloading' : payload.state === 'outcome_unknown' ? 'reconciling' : payload.status === 'queued' ? 'queued' : payload.phase === 'preparing' ? 'preparing' : 'generating';
+    stored.result = { ...stored.result, status: failed ? 'failed' : phase === 'queued' || phase === 'preparing' ? 'queued' : 'in_progress',
+      phase, progress: completed ? 90 : progressKnown ? Math.min(payload.progress!, 90) : 0, progressKnown: completed || progressKnown,
+      ...(failed ? { error: payload.errorCode === 'video_reconciliation_expired' ? 'The video task could not be confirmed; reserved credits have been released' : 'The official video service could not complete this task' } : {}), updatedAt: now().toISOString() };
     await writeStored(stored);
     if (completed) {
       options.onDownloadStart?.();
-      const response = await gatewayCall(source, `requests/${encodeURIComponent(stored.upstreamId)}/result`, options);
+      const response = await gatewayCall(source, `requests/${encodeURIComponent(stored.upstreamId)}/result`, options, undefined, undefined, DOWNLOAD_TIMEOUT_MS);
       const reader = response.body?.getReader(); const chunks: Buffer[] = []; let size = 0;
-      if (!reader) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', '官方视频结果为空', 502);
-      for (;;) { const chunk = await reader.read(); if (chunk.done) break; size += chunk.value.length; if (size > MAX_VIDEO_BYTES) { await reader.cancel(); throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', '视频结果过大', 502); } chunks.push(Buffer.from(chunk.value)); }
+      if (!reader) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'The official video result is empty', 502);
+      for (;;) { const chunk = await reader.read(); if (chunk.done) break; size += chunk.value.length; if (size > MAX_VIDEO_BYTES) { await reader.cancel(); throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'The video result is too large', 502); } chunks.push(Buffer.from(chunk.value)); }
       const content = Buffer.concat(chunks);
-      if (!content.length) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', '官方视频结果为空', 502);
+      if (!content.length) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'The official video result is empty', 502);
       await writeFile(videoPath(stored.result.id), content, { mode: 0o600 });
-      stored.result = { ...stored.result, status: 'completed', progress: 100, progressKnown: true, fileName: `OpenCreator-video-${stored.result.id}.mp4`, mime: 'video/mp4', size: content.length };
+      stored.result = { ...stored.result, status: 'completed', phase: undefined, progress: 100, progressKnown: true, fileName: `OpenCreator-video-${stored.result.id}.mp4`, mime: 'video/mp4', size: content.length, updatedAt: now().toISOString() };
       await writeStored(stored);
     }
     return stored.result;
@@ -219,18 +231,45 @@ export function createVideoGenerationService(input: {
   }
 
   return {
+    async uploadReference(content, mime) {
+      const gateway = await input.gatewaySource?.binding();
+      if (!gateway || !gateway.models.video) throw new VideoGenerationError('VIDEO_GENERATION_CONFIG_REQUIRED', 'Sign in to upload official video references', 403);
+      if (!content.length || content.length > 100_000_000 || !/^(image|audio|video)\/[a-z0-9.+-]+$/i.test(mime)) throw new VideoGenerationError('VALIDATION_FAILED', 'Invalid video reference upload', 400);
+      const response = await (input.fetchImpl ?? fetch)(`${gateway.baseUrl}/video/assets`, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        headers: { Authorization: `Bearer ${gateway.apiKey}`, 'Content-Type': mime }, body: new Uint8Array(content) });
+      if (!response.ok) {
+        const failure = await creatorServiceErrorInfo(response, 'Official video upload', 'opencreator-gateway-video');
+        throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', failure.message, response.status, failure.publicFacts);
+      }
+      const result = await response.json() as { assetId?: string; expiresAt?: string };
+      if (!result.assetId || !/^ocasset_[a-f0-9]{48}$/.test(result.assetId) || !result.expiresAt || !Number.isFinite(Date.parse(result.expiresAt))) throw new VideoGenerationError('VIDEO_GENERATION_UPSTREAM_ERROR', 'Invalid video upload receipt', 502);
+      return { assetId: result.assetId, expiresAt: result.expiresAt };
+    },
     async create(request, options = {}) {
       const gateway = await input.gatewaySource?.binding();
       validateRequest(request, gateway === undefined);
       if (gateway) {
-        if (!gateway.models.video || (request.referenceImage && !gateway.capabilities?.video?.includes('image_to_video'))) throw new VideoGenerationError('VIDEO_GENERATION_CONFIG_REQUIRED', '当前官方路由未提供此视频能力', 400);
-        if (request.model && request.model !== gateway.models.video) throw new VideoGenerationError('VALIDATION_FAILED', '请选择当前任务的官方视频模型', 400);
+        if (!gateway.models.video || (request.referenceImage && !gateway.capabilities?.video?.includes('image_to_video'))) throw new VideoGenerationError('VIDEO_GENERATION_CONFIG_REQUIRED', 'The official route does not provide this video capability', 400);
+        if (request.model && request.model !== gateway.models.video) throw new VideoGenerationError('VALIDATION_FAILED', 'Select an official video model for this task', 400);
         const model = gateway.catalog?.find(candidate => candidate.modality === 'video' && candidate.id === gateway.models.video);
-        if (!model || !gatewayVideoSizes(model).includes(request.size) || !model.durations?.includes(request.duration)) throw new VideoGenerationError('VALIDATION_FAILED', '当前官方视频模型不支持所选尺寸或时长', 400);
+        if (!model || !gatewayVideoSizes(model).includes(request.size) || !model.durations?.includes(request.duration)) throw new VideoGenerationError('VALIDATION_FAILED', 'The official video model does not support this size or duration', 400);
         const id = createId(); validateResultId(id);
         const logicalId = gateway.logicalId ?? options.logicalId ?? id;
         options.onGatewayBinding?.({accountId:gateway.accountId,bindingVersion:gateway.bindingVersion,logicalId});
-        const stored: StoredVideoGeneration = { upstreamId: '', gateway: { accountId: gateway.accountId, bindingVersion: gateway.bindingVersion, logicalId, params: { model: gateway.models.video, prompt: request.prompt.trim(), duration: request.duration, size: request.size, ...(request.referenceImage ? { image: referenceImageDataUrl(request.referenceImage) } : {}) } }, result: { id, prompt: request.prompt.trim(), provider: request.provider, model: gateway.models.video, videoSize: request.size, duration: request.duration, status: 'queued', progress: 0, progressKnown: false, createdAt: now().toISOString(), updatedAt: now().toISOString() } };
+        const params: Record<string, unknown> = { model: gateway.models.video, prompt: request.prompt.trim(), duration: request.duration, size: request.size,
+          ...(request.priceVersion || model.price ? { priceVersion: request.priceVersion ?? model.price!.version } : {}),
+          ...(request.generateAudio === undefined ? {} : { generate_audio: request.generateAudio }) };
+        const images = [...(request.referenceImage ? [referenceImageDataUrl(request.referenceImage)] : []), ...(request.references ?? []).filter(ref => ref.role === 'image').map(ref => ref.assetId)];
+        if (images.length) params.images = images;
+        for (const [role, key] of [['video', 'referenceVideos'], ['audio', 'referenceAudios']] as const) {
+          const refs = (request.references ?? []).filter(ref => ref.role === role).map(ref => ref.assetId);
+          if (refs.length) params[key] = refs;
+        }
+        for (const role of ['firstFrame', 'lastFrame'] as const) {
+          const ref = request.references?.find(candidate => candidate.role === role);
+          if (ref) params[role] = ref.assetId;
+        }
+        const stored: StoredVideoGeneration = { upstreamId: '', gateway: { accountId: gateway.accountId, bindingVersion: gateway.bindingVersion, logicalId, params }, result: { id, prompt: request.prompt.trim(), provider: request.provider, model: gateway.models.video, videoSize: request.size, duration: request.duration, status: 'queued', progress: 0, progressKnown: false, createdAt: now().toISOString(), updatedAt: now().toISOString() } };
         await writeStored(stored); options.onPending?.(id);
         return refreshGateway(stored, options);
       }
@@ -802,6 +841,9 @@ function validateRequest(request: CreateVideoGenerationRequest, validateProvider
     throw new VideoGenerationError('VALIDATION_FAILED', `video duration is not supported by ${request.provider}`, 400);
   }
   validateReferenceImage(request.referenceImage);
+  if (request.references !== undefined && (!Array.isArray(request.references) || request.references.length > 50 || request.references.some(ref => !isRecord(ref) || !['image','video','audio','firstFrame','lastFrame'].includes(ref.role) || typeof ref.assetId !== 'string' || !/^ocasset_[a-f0-9]{48}$/.test(ref.assetId)))) throw new VideoGenerationError('VALIDATION_FAILED', 'Invalid video references', 400);
+  if (['firstFrame', 'lastFrame'].some(role => (request.references ?? []).filter(ref => ref.role === role).length > 1)) throw new VideoGenerationError('VALIDATION_FAILED', 'Duplicate video frame references', 400);
+  if (validateProvider && (request.references?.length || request.generateAudio !== undefined)) throw new VideoGenerationError('VALIDATION_FAILED', 'These video options require official services', 400);
 }
 
 function validateReferenceImage(referenceImage: CreateVideoGenerationRequest['referenceImage']) {

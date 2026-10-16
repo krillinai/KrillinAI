@@ -15,13 +15,13 @@
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="OpenCreator (เดิมชื่อ KrillinAI): อันดับหนึ่ง Repository of the Day บน Trendshift" width="250" height="55" /></a>
 
-[English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md) | **ภาษาไทย**
+[English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md) | **ภาษาไทย** | [Türkçe](../tr/README.md) | [हिन्दी](../hi/README.md) | [বাংলা](../bn/README.md) | [اردو](../ur/README.md) | [Tiếng Việt](../vi/README.md) | [Filipino](../fil/README.md)
 
 [![GitHub Stars](https://badgen.net/github/stars/krillinai/OpenCreator?icon=github&label=Stars&color=EAB308)](https://github.com/krillinai/OpenCreator/stargazers)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%E7%B2%89%E4%B8%9D&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
 [![AtomGit G-Star](https://img.shields.io/badge/AtomGit-G--Star-DA203E?style=flat)](https://atomgit.com/krillinai/OpenCreator)
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/fUNvbqDaw)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
 [จุดเด่น](#จุดเด่นของโครงการ) · [เครื่องมือสร้างสรรค์](#เครื่องมือสร้างสรรค์) · [Skills](#skills) · [ตัวอย่าง](#ตัวอย่าง) · [เริ่มต้นใช้งาน](#เริ่มต้นใช้งาน) · [Desktop](#desktop) · [เอกสาร](#เอกสาร) · [ชุมชน](#ชุมชน)
@@ -74,7 +74,7 @@ Web เป็นการพัฒนาส่วนหน้าเพียง�
 </thead>
 <tbody>
 <tr><td valign="top">แปลวิดีโอ</td><td valign="top">✅ ใช้งานได้</td><td>นำเข้าวิดีโอจากเครื่องหรือแหล่งสาธารณะ ถอดเสียงด้วยบริการ Whisper บนคลาวด์หรือในเครื่อง ใช้บริบทจาก LLM เพื่อแบ่งและจัดแนวคำบรรยาย จัดการศัพท์เฉพาะ และแปล ตั้งค่าคำบรรยายสองภาษา การพากย์หรือเสียงตัวอย่าง รูปแบบคำบรรยาย แนวนอนหรือแนวตั้ง และส่งออก SRT เสียง หรือวิดีโอ</td></tr>
-<tr><td valign="top">ดาวน์โหลดวิดีโอ</td><td valign="top">✅ ใช้งานได้</td><td>วิเคราะห์วิดีโอสาธารณะจาก YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu และ Pinterest เปรียบเทียบรูปแบบที่มีและดาวน์โหลดวิดีโอหรือเสียง บางแหล่งอาจต้องใช้คุกกี้ของแพลตฟอร์ม</td></tr>
+<tr><td valign="top">ดาวน์โหลดวิดีโอ</td><td valign="top">✅ ใช้งานได้</td><td>วิเคราะห์วิดีโอสาธารณะจาก YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest และ Reddit เปรียบเทียบรูปแบบที่มีและดาวน์โหลดวิดีโอหรือเสียง บางแหล่งอาจต้องใช้คุกกี้ของแพลตฟอร์ม</td></tr>
 <tr><td valign="top">สร้างภาพปก</td><td valign="top">✅ ใช้งานได้</td><td>ใช้หัวข้อ ลิงก์วิดีโอ และภาพอ้างอิงที่เลือกใส่ได้ เพื่อสร้างและเปรียบเทียบภาพปกหลายแบบ</td></tr>
 <tr><td valign="top">สร้างรูปภาพ</td><td valign="top">✅ ใช้งานได้</td><td>สร้างภาพด้วย GPT Image จากพรอมป์และภาพอ้างอิงที่เลือกใส่ได้ ตั้งค่าอัตราส่วนภาพและจำนวนผลลัพธ์ แล้วดูตัวอย่างและดาวน์โหลดทีละภาพ</td></tr>
 <tr><td valign="top">เขียนบทความ</td><td valign="top">✅ ใช้งานได้</td><td>แปลงหัวข้อ ลิงก์ วิดีโอ หรือเอกสารต้นทางเป็นตัวเลือกหัวข้อ โครงร่าง และบทความฉบับเต็มที่แก้ไขได้ เพิ่มภาพที่สร้างขึ้นและส่งออกเป็น Markdown, HTML หรือ PDF</td></tr>
@@ -94,11 +94,9 @@ Web เป็นการพัฒนาส่วนหน้าเพียง�
 
 คอลเลกชันนี้มีเทมเพลตจาก OpenCreator และครีเอเตอร์อิสระ เทมเพลตจากบุคคลภายนอกจะแสดงเครดิตผู้สร้างและลิงก์ต้นฉบับในหน้ารายละเอียด
 
-![แกลเลอรีเทมเพลตสร้างสรรค์](../images/product/creation-templates-gallery-en.png)
-
 เปิดเทมเพลตเพื่อดูผลลัพธ์ตัวอย่าง พรอมป์ การตั้งค่า แท็ก ผู้สร้าง และแหล่งที่มา เลือก **ใช้เทมเพลตนี้** เพื่อเริ่มสร้าง แล้วปรับอินพุตให้เหมาะกับงาน
 
-![รายละเอียดเทมเพลตสร้างภาพ](../images/product/creation-templates-detail-en.png)
+![รายละเอียดเทมเพลตสร้างภาพ](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 
@@ -230,37 +228,34 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > ตัวอย่างวิดีโอและภาพการจัดแนวคำบรรยายเหล่านี้สร้างขึ้นเมื่อ OpenCreator ยังใช้ชื่อ KrillinAI
 
+### ดาวน์โหลดวิดีโอ
+
+วิเคราะห์ลิงก์วิดีโอสาธารณะจาก 10 แพลตฟอร์มที่รองรับ เปรียบเทียบรูปแบบที่มี และดาวน์โหลดวิดีโอหรือเสียงเข้าสู่โครงการโดยตรง
+
+แหล่งวิดีโอที่รองรับ:
+
+<table align="center"><tr>
+<td align="center" width="48"><img src="../images/platforms/youtube.png" alt="YouTube" width="24" height="24" /><br /><small><small>YouTube</small></small></td>
+<td align="center" width="48"><img src="../images/platforms/bilibili.png" alt="Bilibili" width="24" height="24" /><br /><small><small>Bilibili</small></small></td>
+<td align="center" width="48"><img src="../images/platforms/x.png" alt="X" width="24" height="24" /><br /><small><small>X</small></small></td>
+<td align="center" width="48"><img src="../images/platforms/tiktok.png" alt="TikTok" width="24" height="24" /><br /><small><small>TikTok</small></small></td>
+<td align="center" width="48"><img src="../images/platforms/instagram.png" alt="Instagram" width="24" height="24" /><br /><small><small>Instagram</small></small></td>
+<td align="center" width="48"><img src="../images/platforms/douyin.png" alt="Douyin" width="24" height="24" /><br /><small><small>Douyin</small></small></td>
+<td align="center" width="48"><img src="../images/platforms/facebook.png" alt="Facebook" width="24" height="24" /><br /><small><small>Facebook</small></small></td>
+<td align="center" width="48"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="24" height="24" /><br /><small><small>Xiaohongshu</small></small></td>
+<td align="center" width="48"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="24" height="24" /><br /><small><small>Pinterest</small></small></td>
+<td align="center" width="48"><img src="../images/platforms/reddit.png" alt="Reddit" width="24" height="24" /><br /><small><small>Reddit</small></small></td>
+</tr></table>
+
+การใช้งานขึ้นอยู่กับวิดีโอและภูมิภาค บางแหล่งอาจต้องใช้คุกกี้ของแพลตฟอร์ม
+
+![การเลือกรูปแบบดาวน์โหลดวิดีโอ OpenCreator](../images/examples/video-downloader-formats-en.png)
+
 ### สร้างวิดีโอ
 
 สร้างวิดีโอ AI จากพรอมป์ข้อความหรือภาพอ้างอิงด้วย Seedance ตั้งค่าโมเดล อัตราส่วนภาพ ความละเอียด และระยะเวลา แล้วดูตัวอย่าง สร้างใหม่ หรือดาวน์โหลดแต่ละเวอร์ชันจากพื้นที่ทำงานของโครงการ
 
 ![การสร้างวิดีโอ OpenCreator ด้วย Seedance](../images/examples/video-generation-seedance-en.png)
-
-### ดาวน์โหลดวิดีโอ
-
-วิเคราะห์ลิงก์วิดีโอสาธารณะ เปรียบเทียบรูปแบบที่มี และดาวน์โหลดวิดีโอหรือเสียงเข้าสู่โครงการโดยตรง
-
-แหล่งวิดีโอที่รองรับ:
-
-<table align="center"><tr>
-<td align="center" width="96"><img src="../images/platforms/youtube.png" alt="YouTube" width="32" height="32" /><br /><strong>YouTube</strong></td>
-<td align="center" width="96"><img src="../images/platforms/bilibili.png" alt="Bilibili" width="32" height="32" /><br /><strong>Bilibili</strong></td>
-<td align="center" width="96"><img src="../images/platforms/x.png" alt="X" width="32" height="32" /><br /><strong>X</strong></td>
-<td align="center" width="96"><img src="../images/platforms/tiktok.png" alt="TikTok" width="32" height="32" /><br /><strong>TikTok</strong></td>
-<td align="center" width="96"><img src="../images/platforms/instagram.png" alt="Instagram" width="32" height="32" /><br /><strong>Instagram</strong></td>
-<td align="center" width="96"><img src="../images/platforms/douyin.png" alt="Douyin" width="32" height="32" /><br /><strong>Douyin</strong></td>
-<td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
-<td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="32" height="32" /><br /><strong>Xiaohongshu</strong></td>
-<td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
-</tr></table>
-
-การใช้งานขึ้นอยู่กับวิดีโอและภูมิภาค บางแหล่งอาจต้องใช้คุกกี้ของแพลตฟอร์ม
-
-**หมายเหตุสำหรับวิดีโอ Xiaohongshu:** วาง URL สาธารณะแบบเต็ม `https://www.xiaohongshu.com/explore/<24-character hex note ID>` รวม `xsec_token` และพารามิเตอร์อื่นหากมี โพสต์ที่มีเฉพาะรูปภาพจะไม่มีรูปแบบวิดีโอให้ดาวน์โหลด ส่วนหน้าโปรไฟล์และลิงก์แชร์ `xhslink.com` ยังไม่รองรับ การรู้จำลิงก์ไม่ได้รับประกันว่าจะดาวน์โหลดได้ เพราะโทเค็นหมดอายุ ข้อจำกัดการเข้าถึง หรือการเปลี่ยนแปลงของแพลตฟอร์ม OpenCreator ไม่ได้นำเข้าคุกกี้จากเบราว์เซอร์อัตโนมัติ
-
-**วิดีโอ Pin ของ Pinterest:** วางลิงก์สาธารณะ `https://www.pinterest.com/pin/<numeric ID>/` Pin ที่มีเฉพาะรูปภาพจะไม่มีวิดีโอให้ดาวน์โหลด และยังไม่รองรับบอร์ดหรือโปรไฟล์
-
-![การเลือกรูปแบบดาวน์โหลดวิดีโอ OpenCreator](../images/examples/video-downloader-formats-en.png)
 
 ### แอนิเมชันตัวละครเส้น
 

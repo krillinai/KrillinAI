@@ -1,3 +1,4 @@
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import { Maximize2, Minus, X } from 'lucide-react';
 
 type WindowAction = 'close' | 'minimize' | 'zoom';
@@ -5,6 +6,7 @@ type WindowAction = 'close' | 'minimize' | 'zoom';
 export function DesktopWindowControls(props: {
   onAction(action: WindowAction): Promise<void>;
 }) {
+  const l = useLocalizedCopy();
   const actions = [
     { action: 'close', label: '关闭窗口', Icon: X },
     { action: 'minimize', label: '最小化窗口', Icon: Minus },
@@ -12,7 +14,7 @@ export function DesktopWindowControls(props: {
   ] as const;
 
   return (
-    <div className="desktop-window-controls" role="group" aria-label="窗口控制">
+    <div className="desktop-window-controls" role="group" aria-label={l("窗口控制", "window control")}>
       {actions.map(({ action, label, Icon }) => (
         <button
           key={action}

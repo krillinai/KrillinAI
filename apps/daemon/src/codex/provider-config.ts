@@ -80,12 +80,12 @@ export function createCodexProviderConfigService(input: {
 
     if (loginApiKey === undefined && current.authentication === 'none') {
       throw new CodexProviderConfigValidationError(
-        '请填写 API Key'
+        'Enter an API key'
       );
     }
     if (normalized.baseUrl.length > 0 && loginApiKey === undefined) {
       throw new CodexProviderConfigValidationError(
-        '自定义 Base URL 需要 API Key 登录'
+        'A custom Base URL requires API key authentication'
       );
     }
 
@@ -220,21 +220,21 @@ function normalizeUpdateRequest(request: CodexProviderConfigUpdateRequest): {
   const model = request.model.trim();
   const apiKey = request.apiKey?.trim();
   if (model.length === 0) {
-    throw new CodexProviderConfigValidationError('Model 不能为空');
+    throw new CodexProviderConfigValidationError('Model cannot be empty');
   }
   if (baseUrl.length > 0) {
     let parsed: URL;
     try {
       parsed = new URL(baseUrl);
     } catch {
-      throw new CodexProviderConfigValidationError('Base URL 必须是有效的 HTTP 或 HTTPS 地址');
+      throw new CodexProviderConfigValidationError('Base URL must be a valid HTTP or HTTPS URL');
     }
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      throw new CodexProviderConfigValidationError('Base URL 必须是有效的 HTTP 或 HTTPS 地址');
+      throw new CodexProviderConfigValidationError('Base URL must be a valid HTTP or HTTPS URL');
     }
   }
   if (request.apiKey !== undefined && apiKey?.length === 0) {
-    throw new CodexProviderConfigValidationError('API Key 不能为空');
+    throw new CodexProviderConfigValidationError('API key cannot be empty');
   }
   return {
     baseUrl,

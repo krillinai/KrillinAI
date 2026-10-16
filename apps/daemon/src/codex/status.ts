@@ -17,8 +17,8 @@ export function buildCodexStatusResponse(
 ): CodexStatusResponse {
   const diagnostics = input.availabilityProbe?.status === 'failed'
     ? [
-        `Codex 后台可用性验证失败：${
-          input.availabilityProbe.message ?? input.availabilityProbe.errorCode ?? '未知错误'
+        `Codex background availability verification failed: ${
+          input.availabilityProbe.message ?? input.availabilityProbe.errorCode ?? 'Unknown error'
         }`
       ]
     : [];

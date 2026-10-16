@@ -23,12 +23,12 @@ export class TrayManager {
     const tray = new Tray(icon);
     tray.setToolTip('OpenCreator');
     tray.setContextMenu(Menu.buildFromTemplate([
-      { label: '打开 OpenCreator', click: input.open },
+      { label: 'Open OpenCreator', click: input.open },
       { type: 'separator' },
-      { label: '新建任务', click: () => input.navigate('#/') },
-      { label: '查看运行中任务', click: () => input.navigate('#/tasks') },
+      { label: 'New task', click: () => input.navigate('#/') },
+      { label: 'View running tasks', click: () => input.navigate('#/tasks') },
       { type: 'separator' },
-      { label: '退出 OpenCreator', click: input.quit }
+      { label: 'Quit OpenCreator', click: input.quit }
     ]));
     tray.on('click', input.open);
     this.tray = tray;

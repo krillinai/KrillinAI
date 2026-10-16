@@ -229,6 +229,7 @@ async function launchDesktop(): Promise<void> {
     webRoot,
     bootstrapRoot,
     getConnection: () => daemon.currentConnection,
+    onTransportFailure: connection => bootstrap?.reportProxyFailure(connection),
     logger
   });
   registerIpcHandlers({
@@ -382,26 +383,26 @@ function registerIpcHandlers(input: {
   });
   handle(desktopIpc.selectCodex, input.development, async () => {
     const result = await dialog.showOpenDialog({
-      title: '选择 Codex 或 ChatGPT',
-      message: '可直接选择 ChatGPT.app、Codex.app，或 codex 可执行文件',
-      buttonLabel: '使用所选项目',
+      title: 'Select Codex or ChatGPT',
+      message: 'Select ChatGPT.app, Codex.app, or the codex executable',
+      buttonLabel: 'Use selection',
       properties: ['openFile']
     });
     const path = result.filePaths[0];
     if (result.canceled || path === undefined) {
-      return failed('已取消选择');
+      return failed('Selection canceled');
     }
     await input.bootstrap.selectCodexPath(path);
     return input.bootstrap.currentState.phase === 'ready'
       ? ok()
-      : failed(input.bootstrap.currentState.error?.message ?? 'Codex 检测失败');
+      : failed(input.bootstrap.currentState.error?.message ?? 'Codex detection failed');
   });
   handle(desktopIpc.selectProjectDirectory, input.development, async (_event, purpose: unknown) => {
     const labels = purpose === 'default-project-root'
-      ? { title: '选择默认项目位置', buttonLabel: '使用此位置' }
+      ? { title: 'Select the default project location', buttonLabel: 'Use this location' }
       : purpose === 'output-root'
-        ? { title: '选择完成产物位置', buttonLabel: '使用此位置' }
-        : { title: '添加项目文件夹', buttonLabel: '添加项目' };
+        ? { title: 'Select the output location', buttonLabel: 'Use this location' }
+        : { title: 'Add a project folder', buttonLabel: 'Add project' };
     const result = await dialog.showOpenDialog({
       ...labels,
       properties: ['openDirectory']
@@ -410,14 +411,20 @@ function registerIpcHandlers(input: {
     return result.filePaths[0] ?? null;
   });
   handle(desktopIpc.restartRuntime, input.development, async () => {
-    await input.bootstrap.restartRuntime();
-    return ok();
+    try {
+      await input.bootstrap.restartRuntime();
+      return input.bootstrap.currentState.phase === 'ready'
+        ? ok()
+        : failed(input.bootstrap.currentState.error?.message ?? 'Failed to restart the local Runtime');
+    } catch (error) {
+      return failed(error instanceof Error ? error.message : String(error));
+    }
   });
   handle(desktopIpc.reloadWorkspace, input.development, async () => {
     await input.reloadWorkspace();
     return input.bootstrap.currentState.phase === 'ready'
       ? ok()
-      : failed(input.bootstrap.currentState.error?.message ?? 'Dashboard 加载失败');
+      : failed(input.bootstrap.currentState.error?.message ?? 'Dashboard failed to load');
   });
   handle(desktopIpc.readPreferences, input.development, () => ({
     closeBehavior: input.settings.read().closeBehavior,
@@ -469,7 +476,7 @@ function registerIpcHandlers(input: {
     await openExternal(url);
   });
   handle(desktopIpc.revealPath, input.development, async (_event, path: unknown) => {
-    if (typeof path !== 'string') return failed('路径必须是字符串');
+    if (typeof path !== 'string') return failed('Path must be a string');
     return await revealPath(path);
   });
   handle(desktopIpc.notify, input.development, (_event, message: unknown) => {
@@ -479,7 +486,7 @@ function registerIpcHandlers(input: {
   });
   handle(desktopIpc.configureNotifications, input.development, (_event, configuration: unknown) => {
     if (!isRecord(configuration) || typeof configuration.enabled !== 'boolean') {
-      return failed('通知配置无效');
+      return failed('Invalid notification configuration');
     }
     input.notifications.configure(configuration.enabled);
     return ok();

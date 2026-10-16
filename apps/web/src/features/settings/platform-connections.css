@@ -1,9 +1,13 @@
 .platform-connection-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--border); }
 .platform-connection-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.platform-connection-identity > img { flex: 0 0 36px; width: 36px; height: 36px; object-fit: contain; }
+.platform-connection-copy { min-width: 0; }
 .platform-connection-identity h2 { font-size: 16px; margin: 0 0 6px; }
+.platform-connection-description { max-width: 55ch; margin: 8px 0 0; font-size: 13px; line-height: 1.6; color: var(--muted); overflow-wrap: anywhere; }
 .platform-connection-status { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .platform-connection-status.is-connected { color: var(--success); }
-.platform-connection-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.platform-connection-status svg { flex-shrink: 0; }
+.platform-connection-actions { display: flex; flex-wrap: wrap; flex-shrink: 0; gap: 8px; }
 .platform-connection-actions select { min-width: 0; max-width: 220px; min-height: 34px; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--text); background: var(--surface); }
 .platform-connection-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
 .platform-connection-actions button:hover:not(:disabled) { background: var(--surface-hover); }

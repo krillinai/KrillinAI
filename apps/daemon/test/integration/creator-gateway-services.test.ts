@@ -9,9 +9,101 @@ import { join } from 'node:path';
 import { openRuntimeDatabase } from '../../src/storage/database.js';
 import { createCreatorRepository } from '../../src/creator/repository.js';
 import { CreatorProviderRequestLedger } from '../../src/creator/provider-requests.js';
+import { createCreatorIssueService } from '../../src/creator/issues.js';
 
 const close: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const callback of close.splice(0)) await callback(); });
+
+it.each(['failed', 'outcome_unknown'] as const)('reconciles a rejected Krillin stream with the gateway state (%s)', async remoteState => {
+  const root = await mkdtemp(join(tmpdir(), 'oc-gateway-krillin-error-'));
+  const db = openRuntimeDatabase(join(root, 'runtime.sqlite'));
+  const repository = createCreatorRepository(db);
+  const job = repository.createJob({ projectId: 'project', templateId: 'video-translation', templateVersion: 1, status: 'running', state: {} });
+  const stage = repository.createStageRun({ jobId: job.id, stageId: 'subtitle', executor: 'krillin', status: 'running' });
+  const manual = createDefaultCreatorServicesConfig();
+  const requestId = 'gateway_rejected_translation';
+  const fetcher = vi.fn<typeof fetch>(async (_url, options) => options?.method === 'GET'
+    ? Response.json({ requestId, state: remoteState })
+    : Response.json({ error: { code: 'official_service_unavailable' } }, { status: 503, headers: { 'X-Request-ID': requestId } }));
+  const source = module.createGatewayCreatorSource({
+    ledger: new CreatorProviderRequestLedger(repository),
+    readJobBinding: () => ({ source: 'gateway', accountId: 'a', bindingVersion: 'a:1', models: { text: 'text' }, capabilities: { text: ['chat'] } }),
+    account: {
+      peekState: () => ({ source: 'gateway', transport: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models: [], activationError: null }),
+      modelCredentials: async () => ({ accountId: 'a', transport: 'gateway', modelKey: 'cloud-secret', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://gateway.example/v1', defaults: { text: 'text' }, models: [] })
+    },
+    manual: { read: async () => manual, write: async c => c, reset: async () => manual },
+    getLocalOrigin: () => 'http://127.0.0.1:39999', fetcher
+  });
+  const server = Fastify();
+  try {
+    await source.register(server);
+    const response = await source.runForJob(job.id, stage.id, async () => {
+      const config = await source.store.read();
+      return server.inject({ method: 'POST', url: '/internal/krillin-llm/gateway/v1/chat/completions',
+        headers: { Authorization: `Bearer ${config.llm.apiKey}` }, payload: { model: 'text', stream: true, messages: [{ role: 'user', content: 'translate' }] } });
+    });
+    const frames = response.body.trim().split('\n\n').map(frame => JSON.parse(frame.replace(/^data: /, '')));
+    expect(frames[0]).toMatchObject({ object: 'chat.completion.chunk', choices: [] });
+    expect(frames.at(-1)).toMatchObject({ error: { code: 'official_service_unavailable', type: 'upstream_error' } });
+    expect(repository.listProviderRequests(job.id)).toEqual([expect.objectContaining({ remoteTaskId: requestId,
+      status: remoteState === 'failed' ? 'failed' : 'unknown_remote_acceptance' })]);
+    expect(fetcher.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
+    expect(fetcher.mock.calls.filter(([, options]) => options?.method === 'GET')).toHaveLength(remoteState === 'outcome_unknown' ? 2 : 1);
+    expect(String(fetcher.mock.calls[1]![0])).toBe(`https://gateway.example/v1/requests/${requestId}`);
+  } finally {
+    await source.revoke(); await server.close(); db.close(); await rm(root, { recursive: true, force: true });
+  }
+});
+
+it.each(['temporary-network-error', 'expired-key'] as const)('recovers status lookup without another paid submission (%s)', async failure => {
+  const root = await mkdtemp(join(tmpdir(), 'oc-gateway-status-retry-'));
+  const db = openRuntimeDatabase(join(root, 'runtime.sqlite'));
+  const repository = createCreatorRepository(db);
+  const issues = createCreatorIssueService(repository);
+  const job = repository.createJob({ projectId: 'project', templateId: 'video-translation', templateVersion: 1, status: 'running', state: {} });
+  const stage = repository.createStageRun({ jobId: job.id, stageId: 'subtitle', executor: 'krillin', status: 'running' });
+  const manual = createDefaultCreatorServicesConfig();
+  const requestId = 'gateway_successful_translation';
+  let lookups = 0;
+  let modelKey = 'original-key';
+  const credentials = () => ({ accountId: 'a', transport: 'gateway' as const, modelKey, keyVersion: modelKey,
+    bindingVersion: 'a:1', baseUrl: 'https://gateway.example/v1', defaults: { text: 'text' }, models: [] });
+  const recover = vi.fn(async () => { modelKey = 'recovered-key'; return credentials(); });
+  const fetcher = vi.fn<typeof fetch>(async (_url, options) => {
+    if (options?.method !== 'GET') return Response.json({ choices: [{ message: { content: 'translated' } }] }, { headers: { 'X-Request-ID': requestId } });
+    if (++lookups === 1) {
+      if (failure === 'temporary-network-error') throw new TypeError('fetch failed');
+      return new Response(null, { status: 401 });
+    }
+    if (failure === 'expired-key') expect(new Headers(options.headers).get('Authorization')).toBe('Bearer recovered-key');
+    return Response.json({ requestId, state: 'succeeded' });
+  });
+  const source = module.createGatewayCreatorSource({ ledger: new CreatorProviderRequestLedger(repository, issues),
+    readStageRun: id => repository.getStageRun(id),
+    readJobBinding: () => ({ source: 'gateway', accountId: 'a', bindingVersion: 'a:1', models: { text: 'text' }, capabilities: { text: ['chat'] } }),
+    account: { peekState: () => ({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models: [], activationError: null }),
+      modelCredentials: async () => credentials(), recoverModelCredentials: recover },
+    manual: { read: async () => manual, write: async c => c, reset: async () => manual },
+    getLocalOrigin: () => 'http://127.0.0.1:39999', fetcher });
+  const server = Fastify();
+  try {
+    await source.register(server);
+    const resumed = repository.createStageRun({ jobId: job.id, stageId: stage.stageId, executor: stage.executor,
+      status: 'running', progress: { resumedFromStageRunId: stage.id } });
+    await source.runForJob(job.id, resumed.id, async () => {
+      const config = await source.store.read();
+      expect((await server.inject({ method: 'POST', url: '/internal/krillin-llm/gateway/v1/chat/completions',
+        headers: { Authorization: `Bearer ${config.llm.apiKey}` }, payload: { model: 'text', messages: [{ role: 'user', content: 'translate' }] } })).statusCode).toBe(200);
+    });
+    expect(repository.listProviderRequests(job.id)).toEqual([expect.objectContaining({ stageRunId: resumed.id, status: 'succeeded', remoteTaskId: requestId })]);
+    expect(issues.list(job.id)).toEqual([]);
+    expect(fetcher.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
+    expect(lookups).toBe(2);
+    expect(recover).toHaveBeenCalledTimes(failure === 'expired-key' ? 1 : 0);
+  } finally { await source.revoke(); await server.close(); db.close(); await rm(root, { recursive: true, force: true }); }
+});
+
 it('reuses the persisted legacy request identity after acceptance loss and Daemon restart', async () => {
   const root = await mkdtemp(join(tmpdir(), 'oc-gateway-restart-'));
   const upstream = Fastify();
@@ -194,10 +286,11 @@ it('uses a task-specific official model without changing account defaults and re
 
 it('video uses the unified gateway task and preserves its account for query and download', async () => {
   const root = await mkdtemp(join(tmpdir(), 'oc-gateway-video-')); close.push(() => rm(root, { recursive: true, force: true }));
+  const requestId = `ocreq_${'a'.repeat(48)}`;
   const fetcher = vi.fn(async (url: URL | RequestInfo, options?: RequestInit) => {
-    if (String(url).endsWith('/video/jobs')) return Response.json({ requestId: 'gateway_request_original', state: 'waiting_upstream' }, { status: 202 });
+    if (String(url).endsWith('/video/jobs')) return Response.json({ requestId, state: 'waiting_upstream' }, { status: 202, headers: { 'X-Request-ID': requestId } });
     if (String(url).endsWith('/result')) return new Response(new Uint8Array([1,2,3]), { headers: { 'Content-Type': 'video/mp4' } });
-    return Response.json({ requestId: 'gateway_request_original', state: 'succeeded' });
+    return Response.json({ requestId, state: 'succeeded' }, { headers: { 'X-Request-ID': requestId } });
   }) as typeof fetch;
   const binding = { accountId: 'a', bindingVersion: 'a:1', baseUrl: 'http://127.0.0.1:39999/internal/krillin-llm/gateway/v1', apiKey: 'local-token', models: { video: 'gateway-video' }, catalog: [{ id: 'gateway-video', modality: 'video' as const, capabilities: [], sizes: ['1280x720', '720x1280'], durations: [4, 5] }] };
   const service = createVideoGenerationService({ dataDir: root, configStore: { read: async () => createDefaultCreatorServicesConfig(), write: async c => c, reset: async () => createDefaultCreatorServicesConfig() }, fetchImpl: fetcher, gatewaySource: { binding: async () => binding } });

@@ -15,6 +15,7 @@ import {
   type AppLanguage,
   type AppLanguagePreference
 } from './language.js';
+import { translateEnglishCopy } from './translated-copy.js';
 
 const messages = {
   'zh-CN': {
@@ -592,10 +593,12 @@ export function useAppLanguage(): LanguageContextValue {
 
 function createTranslator(language: AppLanguage): Translate {
   return (key, variables) => {
-    const template: string = (messages[language] as Partial<Record<TranslationKey, string>>)[key] ?? messages['en-US'][key];
+    const baseLanguage = language === 'zh-CN' || language === 'sv-SE' ? language : 'en-US';
+    const source = (messages[baseLanguage] as Partial<Record<TranslationKey, string>>)[key] ?? messages['en-US'][key];
+    const template = translateEnglishCopy(language, source);
     if (variables === undefined) return template;
     return Object.entries(variables).reduce<string>(
-      (result, [name, value]) => result.replaceAll(`{{${name}}}`, String(value)),
+      (result, [name, value]) => result.replaceAll(`{{${name}}}`, () => String(value)),
       template
     );
   };

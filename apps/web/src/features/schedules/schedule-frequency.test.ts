@@ -2,10 +2,22 @@ import { describe, expect, it } from 'vitest';
 import {
   cronToScheduleFrequency,
   formatScheduleFrequency,
+  formatScheduleWeekday,
+  formatScheduleNextRun,
   scheduleFrequencyToCron,
 } from './schedule-frequency.js';
 
 describe('schedule frequency', () => {
+  it.each(['en-US', 'sv-SE', 'ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR'] as const)('formats weekdays and next-run dates in %s', language => {
+    const monday = new Date('2024-01-08T00:00:00Z');
+    const day = new Intl.DateTimeFormat(language, { weekday: 'short', timeZone: 'UTC' }).format(monday);
+    expect(formatScheduleWeekday(1, language)).toBe(day);
+    expect(formatScheduleFrequency('0 16 * * 1', language)).toContain(day);
+    expect(formatScheduleNextRun(monday.toISOString(), 'UTC', language)).toBe(new Intl.DateTimeFormat(language, {
+      timeZone: 'UTC', month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false
+    }).format(monday));
+  });
+
   it('converts friendly repeat options to cron without exposing cron to the form', () => {
     expect(scheduleFrequencyToCron({ repeat: 'hourly', time: '00:15', days: [] }))
       .toBe('15 * * * *');

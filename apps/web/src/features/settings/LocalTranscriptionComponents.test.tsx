@@ -35,6 +35,9 @@ describe('local transcription component management', () => {
     controller.componentsStatus!.components = [{ ...componentFixture(), id: 'remotion', name: 'Remotion', model: null, models: [], supportedVersion: '4.0.473' }];
     render(<LanguageProvider><LocalTranscriptionComponents controller={controller} componentId="remotion" /></LanguageProvider>);
     expect(screen.getByRole('heading', { name: 'Remotion' })).toBeVisible();
+    expect(screen.getByText('用于火柴人动画本地渲染。')).toBeVisible();
+    expect(screen.getByText(/仅在执行渲染时按需下载/)).not.toBeVisible();
+    fireEvent.click(screen.getByText('组件详情'));
     expect(screen.getByText(/仅在执行渲染时按需下载/)).toBeVisible();
     expect(screen.queryByText('当前模型')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '调整转录设置' })).not.toBeInTheDocument();
@@ -72,7 +75,10 @@ describe('local transcription component management', () => {
 
   it('localizes a failed component while keeping its original error in a collapsed disclosure', () => {
     const raw = '下载模型失败：连接被拒绝';
-    render(<LanguageProvider initialPreference="en-US"><LanguageSwitchControls /><LocalTranscriptionComponents controller={controllerFixture({ state: 'failed', error: raw })} /></LanguageProvider>);
+    render(<LanguageProvider initialPreference="en-US"><LanguageSwitchControls /><LocalTranscriptionComponents controller={controllerFixture({ state: 'failed', version: '1.0.0', error: raw })} /></LanguageProvider>);
+    expect(screen.getByRole('status')).toHaveTextContent('Failed');
+    expect(screen.getByRole('status')).toHaveAttribute('data-status', 'failed');
+    expect(screen.queryByText('Update available')).not.toBeInTheDocument();
     expect(screen.getByText(/Local transcription preparation failed/)).toBeVisible();
     expect(screen.getByText(raw)).not.toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'sv-SE' }));
@@ -116,6 +122,7 @@ describe('local transcription component management', () => {
     expect(button).toHaveClass('settings-secondary-button');
     expect(button.closest('.runtime-component-actions')).not.toBeNull();
     expect(screen.getByRole('status')).toHaveTextContent('已就绪');
+    expect(screen.getByRole('status')).toHaveAttribute('data-status', 'current');
     expect(screen.queryByRole('button', { name: /更新到|已是受支持版本|下载组件/ })).not.toBeInTheDocument();
     expect(controller.downloadComponents).not.toHaveBeenCalled();
 
@@ -134,6 +141,7 @@ describe('local transcription component management', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('有可用更新');
     const update = screen.getByRole('button', { name: `更新到 ${component.version}` });
+    expect(update).toHaveAttribute('data-status', 'update');
     expect(update).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: '检查更新' }));
     await waitFor(() => expect(screen.getByText(`检查完成，可更新到受支持版本 ${component.version}。`)).toBeVisible());

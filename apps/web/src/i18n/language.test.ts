@@ -30,7 +30,7 @@ describe('display language preference', () => {
   it('defaults to the system and ignores invalid stored values', () => {
     expect(readLanguagePreference()).toBe(defaultLanguagePreference);
 
-    window.localStorage.setItem(languagePreferenceStorageKey, 'fr-FR');
+    window.localStorage.setItem(languagePreferenceStorageKey, 'xx-XX');
     expect(readLanguagePreference()).toBe('system');
   });
 
@@ -42,5 +42,18 @@ describe('display language preference', () => {
     expect(window.localStorage.getItem(languagePreferenceStorageKey)).toBe('en-US');
     expect(document.documentElement).toHaveAttribute('lang', 'en-US');
     expect(document.documentElement).toHaveAttribute('data-locale', 'en-US');
+  });
+
+  it.each(['ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR'] as const)('resolves and persists %s', language => {
+    writeLanguagePreference(language);
+    expect(readLanguagePreference()).toBe(language);
+    expect(resolveSystemLanguage([language])).toBe(language);
+    expect(resolveAppLanguage(language, ['en-US'])).toBe(language);
+  });
+
+  it('matches regional variants and skips unsupported languages', () => {
+    expect(resolveSystemLanguage(['xx-XX', 'pt-PT', 'fr-FR'])).toBe('pt-BR');
+    expect(resolveSystemLanguage(['fr-CA', 'en-US'])).toBe('fr-FR');
+    expect(resolveSystemLanguage(['xx-XX'])).toBe('en-US');
   });
 });

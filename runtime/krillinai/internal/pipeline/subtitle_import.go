@@ -34,7 +34,8 @@ func importSubtitleFile(ctx context.Context, svc StageService, req SubtitleReque
 	}
 	if !req.SRTTranslated {
 		reportSubtitleProgress(req, "translating_subtitles", 40, "正在翻译导入的原文字幕")
-		if err := svc.TranslateSubtitleBlocks(ctx, blocks, step); err != nil {
+		blocks, err = svc.TranslateSubtitleBlocks(ctx, blocks, step)
+		if err != nil {
 			return err
 		}
 	}

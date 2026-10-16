@@ -179,7 +179,7 @@ export function TextFileEditor(props: TextFileEditorProps) {
 
 function configureContentDom(view: EditorView, path: string, readonly: boolean) {
   view.contentDOM.setAttribute('role', 'textbox');
-  view.contentDOM.setAttribute('aria-label', `${path} 编辑器`);
+  view.contentDOM.setAttribute('aria-label', `${path} editor`);
   view.contentDOM.setAttribute('aria-multiline', 'true');
   view.contentDOM.setAttribute('aria-readonly', readonly ? 'true' : 'false');
 }

@@ -10,6 +10,7 @@ export function createOfficialFetch(input: {
 } = {}): typeof fetch {
   let systemProxy: Promise<string> | undefined;
   let proxyCheckedAt = 0;
+  const proxyAgents = new Map<string, HttpsProxyAgent<string>>();
   async function proxy() {
     const configured = (await input.readProxy?.())?.trim();
     if (configured) return configured;
@@ -38,10 +39,15 @@ export function createOfficialFetch(input: {
     const content = request.body ? Buffer.from(await request.arrayBuffer()) : undefined;
     const headers = Object.fromEntries(request.headers);
     if (content) headers['content-length'] = String(content.length);
+    let agent = proxyAgents.get(address);
+    if (!agent) {
+      agent = new HttpsProxyAgent(address, { keepAlive: true, maxFreeSockets: 2 });
+      proxyAgents.set(address, agent);
+    }
     // Return the stream as soon as headers arrive; image persistence owns its deadline.
     return new Promise<Response>((resolve, reject) => {
       const remote = httpsRequest(request.url, {
-        method: request.method, headers, agent: new HttpsProxyAgent(address), signal: request.signal
+        method: request.method, headers, agent, signal: request.signal
       }, response => {
         const responseHeaders = new Headers();
         for (const [name, value] of Object.entries(response.headers)) {

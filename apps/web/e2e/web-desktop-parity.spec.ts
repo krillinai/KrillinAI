@@ -1,5 +1,52 @@
-import { createDefaultCreatorServicesConfig, type CreatorRuntimeComponentsResponse, type CreatorServicesCapabilitiesResponse, type CreatorYtDlpStatusResponse } from '@opencreator/protocol';
-import { test, expect } from './fixtures/runtime.js';
+import { createDefaultCreatorServicesConfig, type CreatorRuntimeComponentsResponse, type CreatorServicesCapabilitiesResponse, type CreatorYtDlpStatusResponse, type YouTubeConnectionState } from '@opencreator/protocol';
+import { test, expect, stubVideoDownloadProbe } from './fixtures/runtime.js';
+
+test('Windows YouTube 专用登录和完成在 Browser/Desktop 下保持一致', async ({ browser, runtime }, testInfo) => {
+  const results: unknown[] = [];
+  const viewport = testInfo.project.name === 'chromium-mobile' ? { width: 390, height: 844 } : { width: 1280, height: 800 };
+  for (const platform of ['browser', 'desktop']) {
+    const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    let state: YouTubeConnectionState = { platform: 'youtube', status: 'disconnected', connectionMethod: 'browser-login' };
+    const payloads: Array<{ action: string | undefined; body: string | null }> = [];
+    await page.route('**/platform-connections/youtube{,/**}', async route => {
+      if (route.request().method() === 'POST') {
+        const action = new URL(route.request().url()).pathname.split('/').at(-1);
+        payloads.push({ action, body: route.request().postData() });
+        state = action === 'connect' ? { ...state, status: 'connecting', actionRequired: 'complete-login',
+          message: '请在打开的 Chrome 窗口中登录 YouTube' }
+          : { ...state, status: action === 'cancel' ? 'disconnected' : 'connected', actionRequired: undefined, message: undefined };
+      }
+      await route.fulfill({ json: state });
+    });
+    if (platform === 'desktop') await installDesktopBridge(page);
+    try {
+      await runtime.openApp(page);
+      await page.goto(`${runtime.origin}/#/settings?tab=platform-connections`);
+      const section = page.getByRole('region', { name: '平台连接' });
+      await expect(section.getByRole('button', { name: '连接', exact: true })).toBeVisible();
+      await expect(section.getByRole('button', { name: '下载浏览器连接器' })).toHaveCount(0);
+      await section.getByRole('button', { name: '连接', exact: true }).click();
+      await expect(section.getByRole('button', { name: '完成登录', exact: true })).toBeVisible();
+      await expect(page.getByRole('alertdialog')).toHaveCount(0);
+      await section.getByRole('button', { name: '取消', exact: true }).click();
+      await expect(section.locator('.platform-connection-status')).toHaveText('未连接');
+      await section.getByRole('button', { name: '连接', exact: true }).click();
+      await expect(section.getByRole('button', { name: '完成登录', exact: true })).toBeVisible();
+      await expect(section.getByLabel('连接码', { exact: true })).toHaveCount(0);
+      await expect(section.getByRole('combobox')).toHaveCount(0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const snapshot = { text: await section.innerText(), status: await section.locator('.platform-connection-status').boundingBox(),
+        actions: await section.locator('.platform-connection-actions').boundingBox() };
+      await page.screenshot({ path: testInfo.outputPath(`${platform}-youtube-login.png`) });
+      await section.getByRole('button', { name: '完成登录', exact: true }).click();
+      await expect(section.locator('.platform-connection-status')).toHaveText('已连接');
+      expect(payloads.map(payload => payload.action)).toEqual(['connect', 'cancel', 'connect', 'complete-login']);
+      results.push({ snapshot, payloads, state });
+    } finally { await context.close(); }
+  }
+  expect(results[1]).toEqual(results[0]);
+});
 
 test('首页和项目页按需加载管理、登录与插件资源且 Browser/Desktop 布局一致', async ({ browser, runtime }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-desktop');
@@ -18,11 +65,11 @@ test('首页和项目页按需加载管理、登录与插件资源且 Browser/De
       expect(resources.some(url => /ProjectManagementDialog|\/packages\/skill-market\//.test(url))).toBe(false);
       resources.length = 0;
       await page.reload();
-      await expect(page.getByRole('status', { name: '本地运行内核正常' })).toBeVisible();
+      await expect(page.getByRole('status', { name: 'The local Runtime is ready' })).toBeVisible();
       await expect(page.locator('.startup-agent-setup')).toHaveCount(0);
       expect(resources).toHaveLength(0);
       await page.getByRole('button', { name: '我的项目', exact: true }).click();
-      const workspace = page.getByRole('region', { name: 'OpenCreator 工作区' });
+      const workspace = page.getByRole('region', { name: 'OpenCreator workspace' });
       const heading = workspace.getByRole('heading', { name: '我的项目', exact: true });
       await expect(heading).toBeVisible();
       expect(resources).toHaveLength(0);
@@ -1068,7 +1115,7 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
       await page.goto(`${runtime.origin}/#/settings`);
 
       const settings = page
-        .getByRole('region', { name: 'OpenCreator 工作区' })
+        .getByRole('region', { name: 'OpenCreator workspace' })
         .getByRole('main');
       const lightButton = settings.getByRole('button', { name: '浅色' });
       const permission = settings.getByRole('combobox', { name: '默认权限' });
@@ -1219,9 +1266,17 @@ test('视频下载在 Browser/Desktop Bridge 下保持相同界面、请求和�
 
       const workspace = page.getByRole('region', { name: '视频下载 操作区' });
       const panel = page.getByRole('complementary', { name: 'OpenCreator' });
-      await expect(workspace.getByRole('textbox', { name: '待下载视频链接' }))
-        .toHaveValue('https://www.youtube.com/watch?v=OpenCreatorParity');
+      const sources = workspace.getByRole('list', { name: '视频链接列表' });
+      await expect(sources).toContainText('https://www.youtube.com/watch?v=OpenCreatorParity');
       await expect(panel).toContainText('YouTube · 待解析');
+      await expect(workspace.getByText('正在加载链接列表')).toHaveCount(0);
+      await sources.getByRole('button', { name: /^移除链接/ }).click();
+      await expect(sources).toHaveCount(0);
+      await workspace.getByRole('textbox', { name: '视频链接', exact: true })
+        .fill('https://www.youtube.com/watch?v=OpenCreatorParity');
+      await workspace.getByRole('button', { name: '添加并解析' }).click();
+      await expect(sources.getByRole('listitem')).toHaveCount(1);
+      await expect(workspace.getByRole('textbox', { name: '视频链接', exact: true })).toHaveCount(0);
 
       const boxes: Record<
         string,
@@ -1230,7 +1285,7 @@ test('视频下载在 Browser/Desktop Bridge 下保持相同界面、请求和�
       for (const [name, locator] of [
         ['workspace', workspace],
         ['panel', panel],
-        ['source-input', workspace.getByRole('textbox', { name: '待下载视频链接' })]
+        ['source-list', sources]
       ] as const) {
         const box = await locator.boundingBox();
         expect(box, `${platform} 缺少 ${name} 尺寸目标`).not.toBeNull();
@@ -1544,7 +1599,7 @@ test('本地 Whisper 在 Browser/Desktop Bridge 下遵守相同 Runtime 能力�
       await runtime.openApp(page);
       await page.goto(`${runtime.origin}/#/settings?tab=ai-services&section=transcription`);
       const settings = page
-        .getByRole('region', { name: 'OpenCreator 工作区' })
+        .getByRole('region', { name: 'OpenCreator workspace' })
         .getByRole('main');
       const localMode = settings.getByRole('button', { name: '本地 Whisper' });
       if (localProvider) {
@@ -1987,7 +2042,7 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
       await page.goto(`${runtime.origin}/#/settings?tab=local-components`);
 
       const settings = page
-        .getByRole('region', { name: 'OpenCreator 工作区' })
+        .getByRole('region', { name: 'OpenCreator workspace' })
         .getByRole('main');
       const component = settings.locator('.runtime-component-item').filter({
         has: page.getByRole('heading', { name: 'yt-dlp nightly' })
@@ -2059,6 +2114,7 @@ test('第三方组件设置在 Browser/Desktop Bridge 下保持相同状态、�
 });
 
 test('工作台模块新建 Creator Job，刷新和最近项目精确恢复历史且不启动普通 Codex Run', async ({ page, runtime }) => {
+  await stubVideoDownloadProbe(page, runtime);
   await page.route(
     /^https:\/\/i\.ytimg\.com\/vi\/OpenCreator(?:Demo|Second)\/maxresdefault\.jpg$/,
     route => route.fulfill({
@@ -2074,15 +2130,19 @@ test('工作台模块新建 Creator Job，刷新和最近项目精确恢复历�
   await expect(page.getByRole('heading', { name: '工作台' })).toBeVisible();
 
   await page.getByRole('button', { name: /^视频下载/ }).click();
-  const input = page.getByRole('textbox', { name: '待下载视频链接' });
+  const input = page.getByRole('textbox', { name: '视频链接', exact: true });
   await expect(input).toBeVisible();
   await input.fill('https://www.youtube.com/watch?v=OpenCreatorDemo');
+  await page.getByRole('button', { name: '添加并解析' }).click();
   await expect(page).toHaveURL(/#\/workbench\?tool=video-download&jobId=creator_job_/);
   const firstJobId = new URL(page.url()).hash.match(/jobId=([^&]+)/)?.[1];
   expect(firstJobId).toBeTruthy();
 
+  const mobileAgentTab = page.getByRole('tab', { name: 'Agent', exact: true });
+  if (await mobileAgentTab.isVisible()) await mobileAgentTab.click();
   await expect(page.getByRole('complementary', { name: 'OpenCreator' }))
     .toContainText('YouTube');
+  if (await mobileAgentTab.isVisible()) await page.getByRole('tab', { name: '创作', exact: true }).click();
   await expect.poll(async () => {
     const listed = await runtime.api<{
       jobs: Array<{ id: string; templateId: string; state: Record<string, unknown> }>;
@@ -2097,18 +2157,30 @@ test('工作台模块新建 Creator Job，刷新和最近项目精确恢复历�
   }).toBe(1);
   expect(runtime.readInvocationCount()).toBe(0);
 
+  await page.getByRole('button', { name: '添加链接', exact: true }).click();
+  await input.fill('https://www.youtube.com/watch?v=OpenCreatorChild');
+  await page.getByRole('button', { name: '添加并解析' }).click();
+  await expect(page.getByRole('list', { name: '视频链接列表' }).getByRole('listitem')).toHaveCount(2);
+  const children = await runtime.api<{ jobs: Array<{ state: Record<string, unknown> }> }>(
+    'GET', `/creator/jobs?projectId=${encodeURIComponent(runtime.projectId)}`
+  );
+  expect(children.jobs.find(job => job.state.sourceUrl === 'https://www.youtube.com/watch?v=OpenCreatorChild')?.state.downloadBatchId)
+    .toBe(decodeURIComponent(firstJobId!));
+
   await page.reload();
   await expect(page.getByRole('heading', { name: '视频下载' })).toBeVisible();
-  await expect(page.getByRole('textbox', { name: '待下载视频链接' }))
-    .toHaveValue('https://www.youtube.com/watch?v=OpenCreatorDemo');
+  await expect(page.getByRole('list', { name: '视频链接列表' }).getByRole('listitem')).toHaveCount(2);
+  await expect(page.getByRole('list', { name: '视频链接列表' }))
+    .toContainText('https://www.youtube.com/watch?v=OpenCreatorDemo');
 
   await page.getByRole('region', { name: '视频下载 操作区' })
     .getByRole('button', { name: '返回', exact: true })
     .click();
   await page.getByRole('button', { name: /^视频下载/ }).click();
-  await expect(page.getByRole('textbox', { name: '待下载视频链接' })).toHaveValue('');
-  await page.getByRole('textbox', { name: '待下载视频链接' })
+  await expect(page.getByRole('textbox', { name: '视频链接', exact: true })).toHaveValue('');
+  await page.getByRole('textbox', { name: '视频链接', exact: true })
     .fill('https://www.youtube.com/watch?v=OpenCreatorSecond');
+  await page.getByRole('button', { name: '添加并解析' }).click();
   await expect(page).toHaveURL(/#\/workbench\?tool=video-download&jobId=creator_job_/);
   const secondJobId = new URL(page.url()).hash.match(/jobId=([^&]+)/)?.[1];
   expect(secondJobId).toBeTruthy();
@@ -2118,13 +2190,14 @@ test('工作台模块新建 Creator Job，刷新和最近项目精确恢复历�
       jobs: Array<{ templateId: string }>;
     }>('GET', `/creator/jobs?projectId=${encodeURIComponent(runtime.projectId)}`);
     return listed.jobs.filter(job => job.templateId === 'video-download').length;
-  }).toBe(2);
+  }).toBe(3);
 
   await page.goto(`${runtime.origin}/#/projects`);
   await page.getByRole('button', { name: '打开项目 youtube.com · OpenCreatorDemo' }).click();
   await expect(page).toHaveURL(new RegExp(`jobId=${firstJobId}`));
-  await expect(page.getByRole('textbox', { name: '待下载视频链接' }))
-    .toHaveValue('https://www.youtube.com/watch?v=OpenCreatorDemo');
+  await expect(page.getByRole('list', { name: '视频链接列表' }).getByRole('listitem')).toHaveCount(2);
+  await expect(page.getByRole('list', { name: '视频链接列表' }))
+    .toContainText('https://www.youtube.com/watch?v=OpenCreatorDemo');
 });
 
 test('图像生成在桌面和移动视口创建、持久化并从项目中心恢复 Creator Job', async ({

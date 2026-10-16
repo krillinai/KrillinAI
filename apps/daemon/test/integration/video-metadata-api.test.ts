@@ -72,15 +72,34 @@ describe('video metadata API', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('resolves a Douyin share link into metadata and an online video URL without downloading', async () => {
+  it.each([
+    ['https://v.douyin.com/example/', 'https://v.douyin.com/example/'],
+    ['https://www.douyin.com/jingxuan/search/qianjidong?aid=2052a92f-0793-47c1-b739-c0af829b6103&modal_id=7693859410975690010&type=general',
+      'https://www.douyin.com/video/7693859410975690010']
+  ])('resolves a Douyin link into metadata and an online video URL without downloading: %s', async (url, expectedUrl) => {
     const payload = { title: 'Douyin preview', thumbnail: 'https://media.example.com/cover.jpg',
       formats: [{ url: 'https://media.example.com/video.mp4', ext: 'mp4', protocol: 'https', vcodec: 'h264', acodec: 'aac', width: 1080, height: 1920 }] };
-    await registerVideoMetadataRoutes(server, createVideoMetadataService({ getProxy: () => '', getYtDlpRuntime: () => ({
-      version: 'test', executable: process.execPath, prefixArgs: ['-e', `if(!process.argv.includes('--skip-download'))process.exit(1);process.stdout.write(${JSON.stringify(JSON.stringify(payload))})`, '--'], env: {}
-    }) }));
-    const response = await server.inject({ method: 'GET', url: `/video-metadata?${new URLSearchParams({ url: 'https://v.douyin.com/example/' })}` });
+    let inDouyinScope = false;
+    const youtubeScope = vi.fn();
+    const getYtDlpRuntime = vi.fn((sourceUrl?: string) => {
+      expect(inDouyinScope).toBe(true);
+      expect(sourceUrl).toBe(expectedUrl);
+      return {
+      version: 'test', executable: process.execPath, prefixArgs: ['-e', `if(!process.argv.includes('--skip-download')||!process.argv.includes(${JSON.stringify(expectedUrl)}))process.exit(1);process.stdout.write(${JSON.stringify(JSON.stringify(payload))})`, '--'], env: {}
+      };
+    });
+    await registerVideoMetadataRoutes(server, createVideoMetadataService({ getProxy: () => '', getYtDlpRuntime,
+      withYouTubeCookies: async operation => { youtubeScope(); return operation(); },
+      withDouyinCookies: async operation => {
+        inDouyinScope = true;
+        try { return await operation(); } finally { inDouyinScope = false; }
+      }
+    }));
+    const response = await server.inject({ method: 'GET', url: `/video-metadata?${new URLSearchParams({ url })}` });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ platform: 'douyin', title: 'Douyin preview', previewUrl: 'https://media.example.com/video.mp4', width: 1080, height: 1920 });
+    expect(getYtDlpRuntime).toHaveBeenCalledWith(expectedUrl);
+    expect(youtubeScope).not.toHaveBeenCalled();
   });
 
   it('returns title information for a Bilibili video', async () => {
@@ -164,7 +183,7 @@ describe('video metadata API', () => {
     const url = 'https://www.bilibili.com/video/BV18E421w7bf?p=3';
     const response = await server.inject({ method: 'GET', url: `/video-metadata?${new URLSearchParams({ url })}` });
     expect(response.statusCode).toBe(400);
-    expect(response.json().error.message).toContain('分 P 3 不存在');
+    expect(response.json().error.message).toContain('Video part 3 does not exist');
   });
 
   it('registers production metadata and prevents a multipart task from bypassing selection', async () => {

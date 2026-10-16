@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CreatorJob, CreatorJson, GatewayAccountState, OpenCreatorIssue } from '@opencreator/protocol';
 import { OfficialServicesContext } from './official-services.js';
+import type { GatewayAccountSettingsService } from '../../services/gateway-account-service.js';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import {
   ArrowUpRight,
@@ -223,6 +225,7 @@ export default function DashboardPage(props: {
   skillLaunch?: CreatorSkillLaunch;
   creatorServicesService?: CreatorServicesSettingsService | null;
   gatewayState?: GatewayAccountState | null;
+  gatewayAccountService?: GatewayAccountSettingsService | null;
   videoMetadataService?: VideoMetadataService;
   workspace?: CreatorWorkspace;
   jobId?: string;
@@ -256,9 +259,7 @@ export default function DashboardPage(props: {
   const [category, setCategory] = useState<CategoryFilter>('推荐');
   const [query, setQuery] = useState('');
   const normalizedQuery = query.trim().toLocaleLowerCase();
-  const localize = (value: string) => language === 'en-US'
-    ? englishDashboardLabels[value] ?? value
-    : value;
+  const localize = (value: string) => createLocalizedCopy(language)(value, englishDashboardLabels[value] ?? value);
   const visibleTools = useMemo(() => creatorTools.filter(tool => {
     if (tool.workspace === undefined || !isVisibleCreatorWorkspace(tool.workspace)) return false;
     const matchesCategory = category === '全部'
@@ -768,7 +769,7 @@ function CreatorWorkspaceSession(props: {
       loadSnapshot: async options => {
         const next = (await props.service.getJob(jobId, options)).job;
         if (next.projectId !== props.projectId || next.templateId !== props.templateId) {
-          throw new ApiClientError({ status: 409, code: 'CREATOR_SESSION_MISMATCH', message: '该创作项目与当前工作目录或模板不匹配' });
+          throw new ApiClientError({ status: 409, code: 'CREATOR_SESSION_MISMATCH', message: 'This creation project does not match the current working directory or template' });
         }
         return next;
       },

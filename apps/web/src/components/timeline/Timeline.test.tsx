@@ -2,6 +2,8 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
+import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 import { Timeline } from './Timeline.js';
 import type { TimelineItem } from './timeline-model.js';
 
@@ -12,6 +14,22 @@ afterEach(() => {
 });
 
 describe('Timeline', () => {
+  it('updates generated activity and schedule dates while preserving user messages', () => {
+    const time = '2026-07-14T14:05:00.000Z';
+    const { container } = render(<LanguageProvider initialPreference="zh-CN"><LanguageSwitchControls /><Timeline items={[
+      { kind: 'schedule_trigger', id: 'trigger', runId: 'scheduled-run', prompt: '用户自己的任务', triggeredAt: time, source: 'runtime' },
+      { kind: 'tool_step', id: 'tool', runId: 'run', name: 'exec_command', content: '{"type":"tool_use","toolCallId":"call","input":{"cmd":"pnpm test"}}', source: 'runtime' }
+    ]} /></LanguageProvider>);
+    for (const language of ['sv-SE', 'ja-JP', 'ko-KR', 'es-ES', 'fr-FR', 'de-DE', 'pt-BR'] as const) {
+      fireEvent.click(screen.getByRole('button', { name: language }));
+      expect(screen.getByText(createLocalizedCopy(language)('正在运行测试', 'Running tests'))).toBeVisible();
+      expect(screen.getByText('用户自己的任务')).toBeVisible();
+      expect(container.querySelector('time[datetime="' + time + '"]')).toHaveTextContent(new Intl.DateTimeFormat(language, {
+        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false
+      }).format(new Date(time)));
+    }
+  });
+
   it('renders and targets a public schedule trigger without exposing execution rules', () => {
     const { container } = render(
       <Timeline

@@ -1,3 +1,4 @@
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import { Menu, X } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 
@@ -13,6 +14,7 @@ export function AppLayout(props: {
   onOpenMobileSidebar?(): void;
   onCloseMobileSidebar?(): void;
 }) {
+  const l = useLocalizedCopy();
   const sidebarRef = useRef<HTMLElement>(null);
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
   const onCloseMobileSidebarRef = useRef(props.onCloseMobileSidebar);
@@ -65,7 +67,7 @@ export function AppLayout(props: {
     <main className={shellClassName}>
       {mobileSidebarOpen ? (
         <button
-          aria-label="关闭导航遮罩"
+          aria-label={l("关闭导航遮罩", "Turn off navigation mask")}
           className="mobile-navigation-backdrop"
           onClick={props.onCloseMobileSidebar}
           type="button"
@@ -73,16 +75,16 @@ export function AppLayout(props: {
       ) : null}
       {props.immersive ? null : <aside
         className="opencreator-sidebar-pane"
-        aria-label="OpenCreator 导航"
+        aria-label={l("OpenCreator 导航", "OpenCreator navigation")}
         data-collapsed={props.sidebarCollapsed ? 'true' : 'false'}
         data-mobile-open={mobileSidebarOpen ? 'true' : 'false'}
         ref={sidebarRef}
       >
         <button
-          aria-label="关闭导航"
+          aria-label={l("关闭导航", "Close navigation")}
           className="mobile-navigation-close"
           onClick={props.onCloseMobileSidebar}
-          title="关闭导航"
+          title={l("关闭导航", "Close navigation")}
           type="button"
         >
           <X aria-hidden="true" size={18} />
@@ -91,7 +93,7 @@ export function AppLayout(props: {
       </aside>}
       <section
         className="opencreator-main-pane"
-        aria-label="OpenCreator 工作区"
+        aria-label={l("OpenCreator 工作区", "OpenCreator workspace")}
         data-has-main-header={props.mainHeader === undefined ? undefined : 'true'}
       >
         {props.mainHeader === undefined ? null : (
@@ -100,11 +102,11 @@ export function AppLayout(props: {
         {props.immersive ? null : <div className="mobile-navigation-toolbar">
           <button
             aria-expanded={mobileSidebarOpen}
-            aria-label="打开导航"
+            aria-label={l("打开导航", "Open navigation")}
             className="mobile-navigation-trigger"
             onClick={props.onOpenMobileSidebar}
             ref={mobileTriggerRef}
-            title="打开导航"
+            title={l("打开导航", "Open navigation")}
             type="button"
           >
             <Menu aria-hidden="true" size={20} />
@@ -113,7 +115,7 @@ export function AppLayout(props: {
         <div className="opencreator-main-content">{props.main}</div>
       </section>
       {props.detailOpen ? (
-        <aside className="opencreator-detail-pane" aria-label="详情">
+        <aside className="opencreator-detail-pane" aria-label={l("详情", "Details")}>
           {props.detail}
         </aside>
       ) : null}

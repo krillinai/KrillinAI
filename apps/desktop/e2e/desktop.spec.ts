@@ -27,6 +27,7 @@ import {
   type Page
 } from '@playwright/test';
 import { packagedExecutable } from './package-artifact.js';
+import type { GatewayCredentials } from '../../daemon/src/gateway/config-store.js';
 import {
   closePackagedApp,
   launchPackagedApp,
@@ -45,6 +46,78 @@ const fakeCodexScript = join(e2eDir, 'fixtures', 'fake-codex.mjs');
 const fakeCodexLauncherSource = join(e2eDir, 'fixtures', 'fake-codex-launcher.go');
 
 test.describe.configure({ mode: 'serial' });
+
+test('@package-smoke 慢网关不阻塞缓存账号进入工作区，后台恢复完成后可输入任务', async ({}, testInfo) => {
+  const account = { id: 'startup-test', email: 'startup@example.test', verified: true };
+  const models = [{ id: 'official-model', modality: 'text' as const, capabilities: ['responses'] }];
+  let release!: () => void;
+  const waiting = new Promise<void>(resolve => { release = resolve; });
+  let bootstrapRequests = 0;
+  const gateway = createServer(async (request, response) => {
+    response.setHeader('Content-Type', 'application/json');
+    const path = request.url?.split('?')[0];
+    if (path === '/api/v1/client/bootstrap') {
+      bootstrapRequests++;
+      await waiting;
+      if (!response.destroyed) response.end(JSON.stringify(bootstrap));
+    } else if (path === '/api/v1/client/usage') {
+      response.end(JSON.stringify({ keyVersion: '1' }));
+    } else if (path === '/api/v1/me') {
+      response.end(JSON.stringify({ account }));
+    } else if (path === '/api/v1/client/models') {
+      response.end(JSON.stringify({ models }));
+    } else {
+      response.end(JSON.stringify({ items: [] }));
+    }
+  });
+  await new Promise<void>(resolve => gateway.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${(gateway.address() as AddressInfo).port}`;
+  const bootstrap = {
+    schemaVersion: 1 as const, account, models, defaults: { text: 'official-model' },
+    modelKey: 'private-model-key', keyVersion: '1', bindingVersion: 'startup:1',
+    baseUrl: `${origin}/v1`, keyRotation: true
+  };
+  let fixture: DesktopFixture | undefined;
+  try {
+    const startedAt = Date.now();
+    fixture = await launchPackagedDesktop('success', {
+      runtimeMode: 'bundled',
+      gatewayOrigin: origin,
+      gatewayCredentials: {
+        ...bootstrap, accessToken: 'private-access-token', refreshToken: 'private-refresh-token',
+        expiresIn: 900, accessExpiresAt: new Date(Date.now() + 900_000).toISOString()
+      }
+    });
+    await fixture.page.waitForURL(url => url.protocol === 'opencreator-app:' && url.hostname === 'app');
+    await expect(fixture.page.locator('.opencreator-shell')).toBeVisible();
+    await expect.poll(() => fixture!.page.evaluate(async () => (await window.opencreatorDesktop?.readBootstrapState())?.phase)).toBe('ready');
+    await expect.poll(() => bootstrapRequests).toBe(1);
+    await navigateToAppRoute(fixture.page, '#/chat');
+    const input = fixture.page.getByRole('textbox', { name: '输入任务' });
+    await expect(input).toBeDisabled();
+    await expect(fixture.page.getByRole('status').filter({ hasText: '已登录，正在连接模型服务…' })).toBeVisible();
+    expect((await runtimeRequest(fixture.page, 'GET', '/gateway/account')).body)
+      .toMatchObject({ source: 'gateway', authState: 'signed_in', activationState: 'loading', account });
+    expect((await runtimeRequest(fixture.page, 'GET', '/projects?status=all')).body)
+      .toMatchObject({ projects: expect.arrayContaining([expect.objectContaining({ name: '默认项目' })]) });
+    await testInfo.attach('startup-timing.json', {
+      body: JSON.stringify({ workspaceReadyMs: Date.now() - startedAt, gatewayStillPending: true }),
+      contentType: 'application/json'
+    });
+    await fixture.page.screenshot({ path: testInfo.outputPath('startup-models-loading.png') });
+    release();
+    await expect.poll(async () => (await runtimeRequest<{ activationState: string }>(fixture!.page, 'GET', '/gateway/account')).body.activationState)
+      .toBe('ready');
+    await expect(input).toBeEnabled();
+    await input.fill('启动后可输入任务');
+    await expect(input).toHaveValue('启动后可输入任务');
+  } finally {
+    release();
+    if (fixture) await closeFixture(fixture);
+    gateway.closeAllConnections();
+    await new Promise<void>(resolve => gateway.close(() => resolve()));
+  }
+});
 
 test('@package-smoke 充值回跳进入个人中心并以网关订单确认到账', async ({}, testInfo) => {
   let paid = false;
@@ -151,7 +224,7 @@ test('@package-smoke 授权回调唤起个人中心，模型初始化期间立�
         if (-not [OpenCreatorE2EWindow]::IsIconic($windowHandle)) { throw 'Desktop native window did not minimize'; }
       `], { timeout: 10_000 });
     } else {
-      await fixture.page.getByRole('button', { name: '最小化窗口', exact: true }).click();
+      await fixture.page.getByRole('button', { name: 'Minimize window', exact: true }).click();
     }
     approved = true;
     const checks: string[] = [];
@@ -381,7 +454,7 @@ test('bundled 模式在最小 PATH 下忽略 ChatGPT 应用内置的 Codex', asy
 });
 
 test('@package-smoke 成功 Probe 后进入 Dashboard，刷新不重复 Probe，并代理 JSON、二进制和 SSE', async ({}, testInfo) => {
-  const fixture = await launchPackagedDesktop('success');
+  const fixture = await launchPlatformProbeDesktop('success');
   try {
     await waitForWorkspace(fixture.page);
     await expect(fixture.page.getByRole('button', { name: '工作台' })).toBeVisible();
@@ -1081,7 +1154,7 @@ test('后台 Probe 失败时仍进入 Dashboard 并暴露诊断状态', async ()
         status: payload.availabilityProbe?.status,
         errorCode: payload.availabilityProbe?.errorCode,
         hasDiagnostic: payload.diagnostics?.some(message =>
-          message.includes('Codex 后台可用性验证失败')
+          message.includes('Codex background availability verification failed')
         ) ?? false
       };
     }), { timeout: 15_000 }).toEqual({
@@ -1099,7 +1172,7 @@ test('Dashboard 握手超时后显示本地错误页并可无 Probe 重载', asy
   const fixture = await launchPackagedDesktop('workspace-failure');
   try {
     await expect(fixture.page.locator('#status-title')).toHaveText(
-      'Dashboard 加载失败',
+      'Dashboard failed to load',
       { timeout: 30_000 }
     );
     await expect(fixture.page.locator('#reload-workspace')).toBeVisible();
@@ -1119,7 +1192,7 @@ test('Dashboard 握手超时后显示本地错误页并可无 Probe 重载', asy
 });
 
 test('@package-smoke Daemon 连续退出保留 Creator 草稿，自动恢复耗尽后可手动重启', async () => {
-  const fixture = await launchPackagedDesktop('success');
+  const fixture = await launchPlatformProbeDesktop('success');
   try {
     await waitForWorkspace(fixture.page);
     await expect.poll(() => readCounter(fixture.stateDir, 'probe-count.txt')).toBe(1);
@@ -1225,7 +1298,7 @@ test('启动页使用 OpenCreator 文字品牌', async ({}, testInfo) => {
 
 test('@package-smoke 退出期间会回收仍在 Probe 中的 Codex 子进程', async () => {
   test.setTimeout(120_000);
-  const fixture = await launchPackagedDesktop('probe-hang');
+  const fixture = await launchPlatformProbeDesktop('probe-hang');
   const pidPath = join(fixture.stateDir, 'probe-pid.txt');
   try {
     await expect.poll(async () => ({
@@ -1280,12 +1353,12 @@ test('@package-smoke 关闭后隐藏保留本地服务，重新打开后可以�
     await fixture.page.evaluate(async () => {
       await window.opencreatorDesktop?.updateDesktopPreferences({ closeBehavior: 'hide' });
     });
-    await fixture.page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+    await fixture.page.getByRole('button', { name: 'Close window', exact: true }).click();
     expect(fixture.process.exitCode).toBeNull();
     expect((await runtimeRequest(fixture.page, 'GET', '/healthz')).status).toBe(200);
 
     await launchSecondInstance(fixture);
-    await expect(fixture.page.getByRole('button', { name: '关闭窗口', exact: true })).toBeVisible();
+    await expect(fixture.page.getByRole('button', { name: 'Close window', exact: true })).toBeVisible();
     await requestPackagedAppQuit(fixture);
     expect(await waitForProcessExit(fixture.process, 3_000)).toBe(true);
     expect(fixture.process.exitCode).toBe(0);
@@ -1323,6 +1396,55 @@ test('@package-smoke 创作模块连接内嵌 Runtime 并使用默认项目', as
       await fixture.page.screenshot({ path: testInfo.outputPath(`${tool}.png`) });
     }
   } finally {
+    await closeFixture(fixture);
+  }
+});
+
+test('@package-smoke Windows YouTube 专用登录完成和取消，保存后重启复用', async ({}, testInfo) => {
+  test.skip(process.platform !== 'win32', 'Windows normal Chrome login');
+  let fixture = await launchPackagedDesktop('success');
+  const endpoint = '/platform-connections/youtube';
+  try {
+    await waitForWorkspace(fixture.page);
+    await navigateToAppRoute(fixture.page, '#/settings?tab=platform-connections');
+    const section = fixture.page.getByRole('group', { name: 'YouTube', exact: true });
+    const state = await runtimeRequest<{ connectionMethod: string }>(fixture.page, 'GET', endpoint);
+    expect(state.body.connectionMethod).toBe('browser-login');
+    await expect(section.getByRole('combobox')).toHaveCount(0);
+    await section.getByRole('button', { name: '连接', exact: true }).click();
+    await expect(section.getByRole('button', { name: '完成登录', exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(fixture.page.getByRole('alertdialog')).toHaveCount(0);
+    await expect(section.getByLabel('连接码')).toHaveCount(0);
+    await fixture.page.screenshot({ path: testInfo.outputPath('windows-youtube-login.png') });
+    await section.getByRole('button', { name: '取消', exact: true }).click();
+    await expect(section.locator('.platform-connection-status')).toHaveText('未连接');
+    await section.getByRole('button', { name: '连接', exact: true }).click();
+    await expect(section.getByRole('button', { name: '完成登录', exact: true })).toBeVisible({ timeout: 30_000 });
+    await section.getByRole('button', { name: '完成登录', exact: true }).click();
+    await expect(section.getByText('尚未完成 YouTube 登录', { exact: false })).toBeVisible({ timeout: 30_000 });
+    await expect(section.locator('.platform-connection-status')).toHaveText('连接失败');
+    // 使用纯测试凭据验证持久化和重启，真实账号登录由用户在正常 Chrome 中完成。
+    const text = '# Netscape HTTP Cookie File\n' + ['SID', 'SAPISID'].map(name =>
+      ['.youtube.com', 'TRUE', '/', 'TRUE', Math.floor(Date.now() / 1000) + 3600, name, 'fixture-' + name].join('\t')
+    ).join('\n');
+    expect((await runtimeRequest(fixture.page, 'POST', endpoint + '/import', { cookies: text })).status).toBe(200);
+    await expect(section.locator('.platform-connection-status')).toHaveText('已连接');
+    const previous = fixture;
+    await closePackagedApp(previous);
+    fixture = { ...await relaunchPackagedApp(previous), root: previous.root, stateDir: previous.stateDir };
+    await waitForWorkspace(fixture.page);
+    await navigateToAppRoute(fixture.page, '#/settings?tab=platform-connections');
+    const restored = fixture.page.getByRole('group', { name: 'YouTube', exact: true });
+    await expect(restored.locator('.platform-connection-status')).toHaveText('已连接');
+    await restored.getByRole('button', { name: '重新连接', exact: true }).click();
+    await expect(restored.locator('.platform-connection-status')).toHaveText('已连接');
+    await expect(restored.getByRole('button', { name: '完成登录' })).toHaveCount(0);
+    expect(JSON.stringify((await runtimeRequest(fixture.page, 'GET', endpoint)).body)).not.toMatch(/fixture-|SID|cookies/);
+    await fixture.page.screenshot({ path: testInfo.outputPath('windows-youtube-connected.png') });
+    await restored.getByRole('button', { name: '断开', exact: true }).click();
+    await expect(restored.locator('.platform-connection-status')).toHaveText('未连接');
+  } finally {
+    await runtimeRequest(fixture.page, 'POST', endpoint + '/cancel').catch(() => undefined);
     await closeFixture(fixture);
   }
 });
@@ -1371,7 +1493,7 @@ test('@package-smoke 设置关闭后退出时，关闭按钮结束实际 App', a
     await fixture.page.evaluate(async () => {
       await window.opencreatorDesktop?.updateDesktopPreferences({ closeBehavior: 'quit' });
     });
-    await fixture.page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+    await fixture.page.getByRole('button', { name: 'Close window', exact: true }).click();
     expect(await waitForProcessExit(fixture.process, 3_000)).toBe(true);
     expect(fixture.process.exitCode).toBe(0);
   } finally {
@@ -1382,7 +1504,65 @@ test('@package-smoke 设置关闭后退出时，关闭按钮结束实际 App', a
 type DesktopFixture = PackagedApp & {
   root: string;
   stateDir: string;
+  closeGateway?: () => Promise<void>;
 };
+
+async function launchPlatformProbeDesktop(mode: string): Promise<DesktopFixture> {
+  const account = { id: 'probe-test', email: 'probe@example.test', verified: true };
+  const models = [{ id: 'official-model', modality: 'text' as const, capabilities: ['responses'] }];
+  const gateway = createServer((request, response) => {
+    response.setHeader('Content-Type', 'application/json');
+    const path = request.url?.split('?')[0];
+    if (path === '/api/v1/client/bootstrap') {
+      response.end(JSON.stringify(bootstrap));
+    } else if (path === '/api/v1/client/probe-credentials') {
+      response.end(JSON.stringify({
+        costBearer: 'platform', modelKey: 'platform-probe-key', keyVersion: 'probe-1',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        expiresAt: new Date(Date.now() + 900_000).toISOString()
+      }));
+    } else if (path === '/api/v1/client/models') {
+      response.end(JSON.stringify({ models }));
+    } else if (path === '/api/v1/client/usage') {
+      response.end(JSON.stringify({ keyVersion: '1' }));
+    } else if (path === '/api/v1/me') {
+      response.end(JSON.stringify({ account }));
+    } else {
+      response.writeHead(404);
+      response.end(JSON.stringify({ error: { code: 'not_found' } }));
+    }
+  });
+  await new Promise<void>((resolve, reject) => {
+    gateway.once('error', reject);
+    gateway.listen(0, '127.0.0.1', resolve);
+  });
+  const origin = `http://127.0.0.1:${(gateway.address() as AddressInfo).port}`;
+  const bootstrap = {
+    schemaVersion: 1 as const, account, models, defaults: { text: 'official-model' },
+    modelKey: 'user-model-key', keyVersion: '1', bindingVersion: 'probe:1',
+    baseUrl: `${origin}/v1`, keyRotation: true
+  };
+  const closeGateway = async () => {
+    gateway.closeAllConnections();
+    await new Promise<void>((resolve, reject) => {
+      gateway.close(error => error ? reject(error) : resolve());
+    });
+  };
+  try {
+    const fixture = await launchPackagedDesktop(mode, {
+      gatewayOrigin: origin,
+      gatewaySelectedModels: bootstrap.defaults,
+      gatewayCredentials: {
+        ...bootstrap, accessToken: 'private-access-token', refreshToken: 'private-refresh-token',
+        expiresIn: 900, accessExpiresAt: new Date(Date.now() + 900_000).toISOString()
+      }
+    });
+    return { ...fixture, closeGateway };
+  } catch (error) {
+    await closeGateway();
+    throw error;
+  }
+}
 
 async function launchPackagedDesktop(
   mode: string,
@@ -1398,6 +1578,8 @@ async function launchPackagedDesktop(
     seedLocalCodexProvider?: boolean;
     telemetryUrl?: string;
     gatewayOrigin?: string;
+    gatewayCredentials?: GatewayCredentials;
+    gatewaySelectedModels?: Record<string, string>;
   } = {}
 ): Promise<DesktopFixture> {
   const root = mkdtempSync(join(tmpdir(), 'opencreator-desktop-e2e-'));
@@ -1426,7 +1608,14 @@ async function launchPackagedDesktop(
     ].join('\n'));
   }
   const userData = join(root, 'user-data');
-  writeCodexShim(binDir);
+  writeCodexShim(binDir, {
+    OPENCREATOR_E2E_FAKE_CODEX_STATE_DIR: stateDir,
+    OPENCREATOR_E2E_FAKE_CODEX_MODE: mode,
+    OPENCREATOR_E2E_FAKE_CODEX_SIGNED_OUT: options.signedOut ? '1' : '0',
+    OPENCREATOR_E2E_FAKE_CODEX_CUSTOM_PROVIDER: options.seedLocalCodexProvider ? '1' : '0',
+    OPENCREATOR_E2E_NODE_BINARY: process.execPath,
+    OPENCREATOR_E2E_FAKE_CODEX_SCRIPT: fakeCodexScript
+  });
   mkdirSync(userData, { recursive: true });
   if (options.seedLegacyData === true) {
     writeLegacyDesktopData(
@@ -1443,6 +1632,17 @@ async function launchPackagedDesktop(
   }
   if (options.misleadingCodexWrapper === true) {
     writeMisleadingCodexWrapper(join(root, '.local', 'bin'));
+  }
+  if (options.gatewayCredentials) {
+    const configDir = join(root, '.opencreator', 'data', 'config');
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(join(configDir, 'gateway-credentials.json'), JSON.stringify(options.gatewayCredentials));
+    if (options.gatewaySelectedModels) {
+      writeFileSync(join(configDir, 'gateway.json'), JSON.stringify({
+        source: 'gateway', bindingVersion: options.gatewayCredentials.bindingVersion ?? null,
+        selectedModels: options.gatewaySelectedModels
+      }));
+    }
   }
 
   const app = await launchPackagedApp({
@@ -1606,14 +1806,17 @@ async function runtimeRequest<T>(
 }
 
 async function closeFixture(fixture: DesktopFixture): Promise<void> {
-  await closePackagedApp(fixture);
+  try { await closePackagedApp(fixture); }
+  finally { await fixture.closeGateway?.(); }
   if (process.env.OPENCREATOR_E2E_KEEP_TEMP !== '1') {
     rmSync(fixture.root, { recursive: true, force: true });
   }
 }
 
-function writeCodexShim(binDir: string): void {
+function writeCodexShim(binDir: string, environment: Record<string, string>): void {
   mkdirSync(binDir, { recursive: true });
+  const fixtureConfig = join(binDir, 'fake-codex-config.json');
+  writeFileSync(fixtureConfig, JSON.stringify(environment));
   const scriptPath = process.platform === 'win32'
     ? join(binDir, 'codex.exe')
     : join(binDir, 'codex');
@@ -1635,7 +1838,7 @@ function writeCodexShim(binDir: string): void {
   }
   writeFileSync(
     scriptPath,
-    `#!/bin/sh\nexec "${process.execPath}" "${fakeCodexScript}" "$@"\n`
+    `#!/bin/sh\nexec "${process.execPath}" "${fakeCodexScript}" --fixture-config "${fixtureConfig}" "$@"\n`
   );
   chmodSync(scriptPath, 0o755);
 }

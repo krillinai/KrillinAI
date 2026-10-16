@@ -84,7 +84,7 @@ export default function CoverGeneratorWorkspace(props: {
   const [coverTextLanguage, setCoverTextLanguage] = useState<CoverTextLanguage>(() => (
     readCoverTextLanguagePreference(
       session?.state.coverTextLanguage,
-      appLanguage === 'sv-SE' ? 'en-US' : appLanguage
+      appLanguage === 'zh-CN' ? 'zh-CN' : 'en-US'
     )
   ));
   const [customStylePrompt, setCustomStylePrompt] = useState(() => (
@@ -1244,7 +1244,7 @@ function createCoverResultVersions(
     .sort(([left], [right]) => left - right)
     .map(([value, versionArtifacts]) => ({
       value,
-      description: '生成封面',
+      description: 'Generate cover',
       artifacts: versionArtifacts.sort(compareCandidates),
       state: {},
       artifactRefs: { cover_image: versionArtifacts.map(artifact => artifact.id) }

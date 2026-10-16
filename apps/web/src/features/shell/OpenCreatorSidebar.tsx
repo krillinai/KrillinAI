@@ -1,3 +1,4 @@
+import type { LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -315,15 +316,15 @@ export function OpenCreatorSidebar(props: {
       {collapsed || props.projectNavigationMode !== 'tree' ? null : (
         <section className="sidebar-section" aria-labelledby="opencreator-projects-heading">
           <div className="sidebar-section-heading">
-            <h2 id="opencreator-projects-heading">项目</h2>
+            <h2 id="opencreator-projects-heading">{l("项目", "Projects")}</h2>
             {props.onAddProject || props.onManageProjects ? (
               <div className="sidebar-section-actions">
                 {props.onAddProject ? (
                   <button
                     type="button"
                     className="sidebar-section-action"
-                    aria-label="创建项目"
-                    title="创建项目"
+                    aria-label={l("创建项目", "Create project")}
+                    title={l("创建项目", "Create project")}
                     onClick={props.onAddProject}
                   >
                     <FolderPlus size={16} strokeWidth={1.9} aria-hidden="true" />
@@ -333,8 +334,8 @@ export function OpenCreatorSidebar(props: {
                   <button
                     type="button"
                     className="sidebar-section-action"
-                    aria-label="管理项目"
-                    title="管理项目"
+                    aria-label={l("管理项目", "Manage projects")}
+                    title={l("管理项目", "Manage projects")}
                     onClick={props.onManageProjects}
                   >
                     <Settings2 size={16} strokeWidth={1.9} aria-hidden="true" />
@@ -343,7 +344,7 @@ export function OpenCreatorSidebar(props: {
               </div>
             ) : null}
           </div>
-          <div className="sidebar-project-tree" aria-label="项目和对话">
+          <div className="sidebar-project-tree" aria-label={l("项目和对话", "projects and conversations")}>
             {props.projects.map((project) => {
               const isCurrentProject =
                 !selectedTaskThread && project.id === props.currentProjectId;
@@ -380,8 +381,8 @@ export function OpenCreatorSidebar(props: {
                       <button
                         type="button"
                         className="sidebar-project-new-conversation"
-                        aria-label={`在 ${project.name} 中新建会话`}
-                        title="新建会话"
+                        aria-label={l(`在 ${project.name} 中新建会话`, `New conversation in ${project.name}`)}
+                        title={l("新建会话", "New conversation")}
                         onClick={() => props.onNewConversation(project.id)}
                       >
                         <SquarePen size={16} strokeWidth={1.9} aria-hidden="true" />
@@ -391,8 +392,8 @@ export function OpenCreatorSidebar(props: {
                           <button
                             type="button"
                             className="sidebar-project-menu-trigger"
-                            aria-label={`项目操作 ${project.name}`}
-                            title="项目操作"
+                            aria-label={l(`项目操作 ${project.name}`, `Project actions for ${project.name}`)}
+                            title={l("项目操作", "Project operations")}
                             aria-haspopup="menu"
                             aria-expanded={projectMenuId === project.id}
                             onClick={() => setProjectMenuId(
@@ -405,7 +406,7 @@ export function OpenCreatorSidebar(props: {
                             <div
                               className="sidebar-project-menu"
                               role="menu"
-                              aria-label={`${project.name} 项目操作`}
+                              aria-label={l(`${project.name} 项目操作`, `Project actions for ${project.name}`)}
                             >
                               <button
                                 type="button"
@@ -416,7 +417,7 @@ export function OpenCreatorSidebar(props: {
                                 }}
                               >
                                 <Settings2 size={15} strokeWidth={1.9} aria-hidden="true" />
-                                <span>编辑项目</span>
+                                <span>{l("编辑项目", "Edit project")}</span>
                               </button>
                               {props.onReplaceProjectDirectory ? (
                                 <button
@@ -428,21 +429,21 @@ export function OpenCreatorSidebar(props: {
                                   }}
                                 >
                                   <FolderCog size={15} strokeWidth={1.9} aria-hidden="true" />
-                                  <span>更换目录</span>
+                                  <span>{l("更换目录", "Change directory")}</span>
                                 </button>
                               ) : null}
                               <button
                                 type="button"
                                 role="menuitem"
-                                aria-label={`移除项目 ${project.name}`}
-                                title="仅从项目列表移除，不会删除本机文件"
+                                aria-label={l(`移除项目 ${project.name}`, `Remove project ${project.name}`)}
+                                title={l("仅从项目列表移除，不会删除本机文件", "Remove from the project list. Local files will be preserved.")}
                                 onClick={() => {
                                   setProjectMenuId(undefined);
                                   setProjectPendingRemoval({ id: project.id, name: project.name });
                                 }}
                               >
                                 <FolderMinus size={15} strokeWidth={1.9} aria-hidden="true" />
-                                <span>移除项目</span>
+                                <span>{l("移除项目", "Remove project")}</span>
                               </button>
                             </div>
                           ) : null}
@@ -451,7 +452,7 @@ export function OpenCreatorSidebar(props: {
                     </div>
                   </div>
                   {isExpanded && projectConversations.length > 0 ? (
-                    <div className="sidebar-conversation-tree" aria-label={`${project.name} 对话`}>
+                    <div className="sidebar-conversation-tree" aria-label={l(`${project.name} 对话`, `Conversations in ${project.name}`)}>
                       {projectConversations.map((conversation) => {
                         const isRunning = props.runningConversationIds?.has(conversation.id) === true;
                         return (
@@ -465,7 +466,7 @@ export function OpenCreatorSidebar(props: {
                             {conversationRename?.id === conversation.id ? (
                               <input
                                 className="sidebar-conversation-rename-input"
-                                aria-label={`重命名 ${conversationRename.originalTitle}`}
+                                aria-label={l(`重命名 ${conversationRename.originalTitle}`, `Rename ${conversationRename.originalTitle}`)}
                                 autoFocus
                                 value={conversationRename.title}
                                 onChange={event => setConversationRename(current => (
@@ -523,7 +524,7 @@ export function OpenCreatorSidebar(props: {
                                     className="conversation-run-spinner"
                                     size={13}
                                     strokeWidth={2}
-                                    aria-label="正在运行"
+                                    aria-label={l("正在运行", "Running")}
                                   />
                                 ) : null}
                                 <span className="conversation-updated-label">{conversation.updatedLabel}</span>
@@ -537,8 +538,8 @@ export function OpenCreatorSidebar(props: {
                                 <button
                                   type="button"
                                   className="sidebar-conversation-action"
-                                  aria-label="更多"
-                                  title="更多"
+                                  aria-label={l("更多", "More")}
+                                  title={l("更多", "More")}
                                   aria-haspopup="menu"
                                   aria-expanded={conversationMenuId === conversation.id}
                                   onClick={event => {
@@ -556,7 +557,7 @@ export function OpenCreatorSidebar(props: {
                                     <div
                                       className="sidebar-conversation-menu sidebar-conversation-menu--portal"
                                       role="menu"
-                                      aria-label={`${conversation.title} 操作`}
+                                      aria-label={l(`${conversation.title} 操作`, `Actions for ${conversation.title}`)}
                                       ref={conversationMenuPortalRef}
                                       style={conversationMenuPosition}
                                     >
@@ -573,7 +574,7 @@ export function OpenCreatorSidebar(props: {
                                         }}
                                       >
                                         <Pencil size={15} strokeWidth={1.9} aria-hidden="true" />
-                                        <span>重命名</span>
+                                        <span>{l("重命名", "Rename")}</span>
                                       </button>
                                       <button
                                         type="button"
@@ -589,7 +590,7 @@ export function OpenCreatorSidebar(props: {
                                         }}
                                       >
                                         <Trash2 size={15} strokeWidth={1.9} aria-hidden="true" />
-                                        <span>删除任务</span>
+                                        <span>{l("删除任务", "Delete task")}</span>
                                       </button>
                                     </div>
                                   ), document.body)
@@ -599,8 +600,8 @@ export function OpenCreatorSidebar(props: {
                               <button
                                 type="button"
                                 className="sidebar-conversation-action sidebar-conversation-archive"
-                                aria-label="归档"
-                                title={isRunning ? '任务运行结束后可归档' : '归档会话'}
+                                aria-label={l("归档", "Archive")}
+                                title={isRunning ? l("任务运行结束后可归档", "Available when the task finishes") : l("归档会话", "Archive conversation")}
                                 disabled={
                                   isRunning
                                   || archivingConversationId === conversation.id
@@ -628,8 +629,8 @@ export function OpenCreatorSidebar(props: {
                                 <button
                                   type="button"
                                   className="sidebar-conversation-action"
-                                  aria-label={conversation.pinnedAt == null ? '置顶' : '取消置顶'}
-                                  title={conversation.pinnedAt == null ? '置顶会话' : '取消置顶'}
+                                  aria-label={conversation.pinnedAt == null ? l("置顶", "Pin") : l("取消置顶", "Unpin")}
+                                  title={conversation.pinnedAt == null ? l("置顶会话", "Pin conversation") : l("取消置顶", "Unpin")}
                                   disabled={conversationActionBusyId === conversation.id}
                                   onClick={() => {
                                     setConversationActionBusyId(conversation.id);
@@ -662,13 +663,13 @@ export function OpenCreatorSidebar(props: {
           className="sidebar-section sidebar-task-section"
           aria-labelledby="opencreator-tasks-heading"
         >
-          <h2 id="opencreator-tasks-heading">任务</h2>
+          <h2 id="opencreator-tasks-heading">{l("任务", "Tasks")}</h2>
           {props.tasks.length === 0 ? (
-            <p className="sidebar-empty">暂无任务</p>
+            <p className="sidebar-empty">{l("暂无任务", "No tasks yet")}</p>
           ) : (
-            <div className="sidebar-task-list" aria-label="任务会话">
+            <div className="sidebar-task-list" aria-label={l("任务会话", "Task conversations")}>
               {props.tasks.map(task => {
-                const visual = taskStatusVisual(task.status);
+                const visual = taskStatusVisual(l, task.status);
                 const StatusIcon = visual.icon;
                 const disabled = task.status === 'repair_required' || task.threadId === undefined;
                 const detail = task.status === 'idle'
@@ -685,7 +686,7 @@ export function OpenCreatorSidebar(props: {
                     {isRenaming ? (
                       <input
                         className="sidebar-task-rename-input"
-                        aria-label={`重命名任务 ${task.name}`}
+                        aria-label={l(`重命名任务 ${task.name}`, `Rename task ${task.name}`)}
                         autoFocus
                         value={taskRename.title}
                         onChange={event => setTaskRename(current => current === undefined
@@ -742,7 +743,7 @@ export function OpenCreatorSidebar(props: {
                         <span>{detail}</span>
                       </span>
                       {task.unread ? (
-                        <span className="sidebar-task-unread" aria-label="未读更新" />
+                        <span className="sidebar-task-unread" aria-label={l("未读更新", "unread updates")} />
                       ) : null}
                     </button>}
                     {isRenaming ? null : (
@@ -751,7 +752,7 @@ export function OpenCreatorSidebar(props: {
                           <button
                             type="button"
                             className="sidebar-task-action"
-                            aria-label={`更多 ${task.name}`}
+                            aria-label={l(`更多 ${task.name}`, `More ${task.name}`)}
                             aria-haspopup="menu"
                             aria-expanded={taskMenuId === task.id}
                             onClick={event => {
@@ -766,7 +767,7 @@ export function OpenCreatorSidebar(props: {
                             <div
                               className="sidebar-task-menu sidebar-task-menu--portal"
                               role="menu"
-                              aria-label={`${task.name} 操作`}
+                              aria-label={l(`${task.name} 操作`, `Actions for ${task.name}`)}
                               ref={taskMenuPortalRef}
                               style={taskMenuPosition}
                             >
@@ -774,13 +775,13 @@ export function OpenCreatorSidebar(props: {
                                 setTaskMenuId(undefined);
                                 setTaskRename({ id: task.id, originalTitle: task.name, title: task.name });
                               }}>
-                                <Pencil size={15} aria-hidden="true" /><span>重命名</span>
+                                <Pencil size={15} aria-hidden="true" /><span>{l("重命名", "Rename")}</span>
                               </button>
                               <button type="button" role="menuitem" className="is-destructive" disabled={isRunning} onClick={() => {
                                 setTaskMenuId(undefined);
                                 setTaskPendingDeletion(task);
                               }}>
-                                <Trash2 size={15} aria-hidden="true" /><span>删除任务</span>
+                                <Trash2 size={15} aria-hidden="true" /><span>{l("删除任务", "Delete task")}</span>
                               </button>
                             </div>
                           ), document.body) : null}
@@ -788,8 +789,8 @@ export function OpenCreatorSidebar(props: {
                       <button
                         type="button"
                         className="sidebar-task-action sidebar-task-archive"
-                        aria-label={`归档 ${task.name}`}
-                        title={isRunning ? '任务运行结束后可归档' : '归档任务'}
+                        aria-label={l(`归档 ${task.name}`, `Archive ${task.name}`)}
+                        title={isRunning ? l("任务运行结束后可归档", "Available when the task finishes") : l("归档任务", "Archive task")}
                         disabled={isRunning || taskActionBusyId === task.id}
                         onClick={() => {
                           setTaskActionBusyId(task.id);
@@ -821,11 +822,11 @@ export function OpenCreatorSidebar(props: {
 
       <ConfirmDialog
         open={conversationPendingDeletion !== undefined}
-        title="删除任务"
+        title={l("删除任务", "Delete task")}
         description={conversationPendingDeletion === undefined
-          ? '永久删除后无法恢复，但不会删除项目文件。'
-          : `确认永久删除“${conversationPendingDeletion.title}”？会话及历史记录将无法恢复，但不会删除项目文件。`}
-        confirmLabel="永久删除"
+          ? l("永久删除后无法恢复，但不会删除项目文件。", "Deletion is permanent. Project files will be preserved.")
+          : l(`确认永久删除“${conversationPendingDeletion.title}”？会话及历史记录将无法恢复，但不会删除项目文件。`, `Permanently delete \"${conversationPendingDeletion.title}\"? Its conversation and history cannot be restored. Project files will be preserved.`)}
+        confirmLabel={l("永久删除", "Delete permanently")}
         destructive
         busy={conversationActionBusyId !== undefined}
         onCancel={() => setConversationPendingDeletion(undefined)}
@@ -841,11 +842,11 @@ export function OpenCreatorSidebar(props: {
       />
       <ConfirmDialog
         open={conversationPendingArchive !== undefined}
-        title="归档对话"
+        title={l("归档对话", "Archive conversation")}
         description={conversationPendingArchive === undefined
-          ? '归档后会从项目列表隐藏，但不会删除项目文件或 Codex 历史。'
-          : `确认归档“${conversationPendingArchive.title}”？归档后会从项目列表隐藏，但不会删除项目文件或 Codex 历史。`}
-        confirmLabel="归档"
+          ? l("归档后会从项目列表隐藏，但不会删除项目文件或 Codex 历史。", "Archiving hides the conversation from the project list. Project files and Codex history will be preserved.")
+          : l(`确认归档“${conversationPendingArchive.title}”？归档后会从项目列表隐藏，但不会删除项目文件或 Codex 历史。`, `Archive \"${conversationPendingArchive.title}\"? It will be hidden from the project list. Project files and Codex history will be preserved.`)}
+        confirmLabel={l("归档", "Archive")}
         busy={archivingConversationId !== undefined}
         onCancel={() => setConversationPendingArchive(undefined)}
         onConfirm={() => {
@@ -860,11 +861,11 @@ export function OpenCreatorSidebar(props: {
       />
       <ConfirmDialog
         open={projectPendingRemoval !== undefined}
-        title="移除项目"
+        title={l("移除项目", "Remove project")}
         description={projectPendingRemoval === undefined
-          ? '项目目录和文件不会被删除。'
-          : `确认从 OpenCreator 中移除“${projectPendingRemoval.name}”？项目目录和文件不会被删除。`}
-        confirmLabel="移除项目"
+          ? l("项目目录和文件不会被删除。", "Project directories and files will not be deleted.")
+          : l(`确认从 OpenCreator 中移除“${projectPendingRemoval.name}”？项目目录和文件不会被删除。`, `Are you sure you want to remove \"${projectPendingRemoval.name}\" from OpenCreator? Project directories and files will not be deleted.`)}
+        confirmLabel={l("移除项目", "Remove project")}
         destructive
         onCancel={() => setProjectPendingRemoval(undefined)}
         onConfirm={() => {
@@ -875,11 +876,11 @@ export function OpenCreatorSidebar(props: {
       />
       <ConfirmDialog
         open={taskPendingDeletion !== undefined}
-        title="删除任务"
+        title={l("删除任务", "Delete task")}
         description={taskPendingDeletion === undefined
-          ? '删除后无法恢复。'
-          : `确认删除“${taskPendingDeletion.name}”？删除后无法恢复。`}
-        confirmLabel="删除任务"
+          ? l("删除后无法恢复。", "It cannot be restored after deletion.")
+          : l(`确认删除“${taskPendingDeletion.name}”？删除后无法恢复。`, `Are you sure you want to delete \"${taskPendingDeletion.name}\"? It cannot be restored after deletion.`)}
+        confirmLabel={l("删除任务", "Delete task")}
         destructive
         busy={taskActionBusyId !== undefined}
         onCancel={() => setTaskPendingDeletion(undefined)}
@@ -895,9 +896,9 @@ export function OpenCreatorSidebar(props: {
       />
       <ConfirmDialog
         open={draftPendingDeletion !== undefined}
-        title="删除任务草稿"
-        description="此操作不会删除项目文件。"
-        confirmLabel="删除草稿"
+        title={l("删除任务草稿", "Delete task draft")}
+        description={l("此操作不会删除项目文件。", "This operation does not delete the project files.")}
+        confirmLabel={l("删除草稿", "Delete draft")}
         destructive
         busy={deletingDraftThreadId !== undefined}
         onCancel={() => setDraftPendingDeletion(undefined)}
@@ -934,27 +935,27 @@ function positionSidebarActionMenu(trigger: DOMRect): { top: number; left: numbe
   };
 }
 
-function taskStatusVisual(status: SidebarTaskStatus): {
+function taskStatusVisual(l: LocalizeCopy, status: SidebarTaskStatus): {
   icon: LucideIcon;
   label: string;
 } {
   switch (status) {
     case 'draft':
-      return { icon: SquarePen, label: '草稿' };
+      return { icon: SquarePen, label: l("草稿", "draft") };
     case 'running':
-      return { icon: LoaderCircle, label: '运行中' };
+      return { icon: LoaderCircle, label: l("运行中", "Running") };
     case 'queued':
-      return { icon: Clock3, label: '排队中' };
+      return { icon: Clock3, label: l("排队中", "Queuing") };
     case 'waiting_approval':
-      return { icon: ShieldAlert, label: '待审批' };
+      return { icon: ShieldAlert, label: l("待审批", "Pending approval") };
     case 'failed':
-      return { icon: CircleAlert, label: '失败' };
+      return { icon: CircleAlert, label: l("失败", "fail") };
     case 'paused':
-      return { icon: PauseCircle, label: '已暂停' };
+      return { icon: PauseCircle, label: l("已暂停", "Paused") };
     case 'repair_required':
-      return { icon: TriangleAlert, label: '需修复' };
+      return { icon: TriangleAlert, label: l("需修复", "Needs repair") };
     case 'idle':
-      return { icon: Clock3, label: '等待首次运行' };
+      return { icon: Clock3, label: l("等待首次运行", "Waiting for first run") };
   }
 }
 

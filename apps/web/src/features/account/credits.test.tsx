@@ -22,7 +22,7 @@ function page(value: GatewayAccountSettingsService, openExternal = vi.fn(), stat
 
 it('opens the website through a one-time account handoff without an app checkout', async () => {
   const value = service(); const open = vi.fn(); render(page(value, open));
-  expect(await screen.findByText('413.937')).toBeInTheDocument();
+  expect(await screen.findByText('414')).toBeInTheDocument();
   expect(value.getOrders).not.toHaveBeenCalled();
   await userEvent.setup().click(screen.getByRole('button', { name: '充值积分' }));
   expect(value.openWebAccount).toHaveBeenCalledWith('recharge', 'zh');
@@ -36,7 +36,7 @@ it('opens the website through a one-time account handoff without an app checkout
 
 it.each([['账单与充值记录', 'account'], ['积分用量估算', 'usage'], ['FAQ', 'faq']])('opens %s at its website destination', async (label, destination) => {
   const value = service(); const open = vi.fn(); render(page(value, open));
-  expect(await screen.findByText('413.937')).toBeInTheDocument();
+  expect(await screen.findByText('414')).toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button', { name: label }));
   expect(value.openWebAccount).toHaveBeenCalledWith(destination, 'zh');
   expect(open).toHaveBeenCalledWith(handoff);
@@ -44,15 +44,44 @@ it.each([['账单与充值记录', 'account'], ['积分用量估算', 'usage'], 
 
 it('keeps website recharge available when purchases are disabled globally', async () => {
   const value = service(); vi.mocked(value.getSummary).mockResolvedValue({ ...summary, billingAvailable: false });
-  render(page(value)); expect(await screen.findByText('413.937')).toBeInTheDocument();
+  render(page(value)); expect(await screen.findByText('414')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '充值积分' })).toBeEnabled();
   expect(screen.queryByText(/充值暂不可用/)).not.toBeInTheDocument();
+});
+
+it('shows cached credits immediately while a slow request refreshes the balance', async () => {
+  const value = service(); let finish!: (result: GatewayBillingSummary) => void;
+  value.getCachedSummary = vi.fn(id => id === account.account!.id ? summary : undefined);
+  vi.mocked(value.getSummary).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  render(page(value));
+  expect(screen.getByText('414')).toBeInTheDocument();
+  expect(screen.queryByText('正在加载积分')).not.toBeInTheDocument();
+  expect(screen.getByText(/上次更新/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '刷新积分' })).toBeDisabled();
+  await act(async () => finish({ ...summary, balance: { ...summary.balance, availableUnits: '8000000' } }));
+  expect(screen.getByText('8')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '刷新积分' })).toBeEnabled();
+  await userEvent.setup().click(screen.getByRole('button', { name: '刷新积分' }));
+  expect(value.getSummary).toHaveBeenCalledTimes(2);
+  expect(await screen.findByText('414')).toBeInTheDocument();
+});
+
+it('keeps cached credits visible after a failed refresh and isolates another account', async () => {
+  const value = service();
+  value.getCachedSummary = vi.fn(id => id === account.account!.id ? summary : undefined);
+  vi.mocked(value.getSummary).mockRejectedValue(new Error('offline'));
+  const view = render(page(value));
+  expect(screen.getByText('414')).toBeInTheDocument();
+  expect(await screen.findByRole('alert')).toHaveTextContent('积分信息加载失败');
+  expect(screen.getByText('414')).toBeInTheDocument();
+  await act(async () => view.rerender(page(value, vi.fn(), { ...account, account: { ...account.account!, id: 'account-b' } })));
+  expect(screen.queryByText('414')).not.toBeInTheDocument();
 });
 
 it('falls back to the existing website when an older gateway lacks handoffs', async () => {
   const value = service(); const open = vi.fn();
   vi.mocked(value.openWebAccount!).mockRejectedValue(new ApiClientError({ status: 404, code: 'GATEWAY_UNAVAILABLE', message: 'Not found' }));
-  render(page(value, open)); expect(await screen.findByText('413.937')).toBeInTheDocument();
+  render(page(value, open)); expect(await screen.findByText('414')).toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button', { name: '充值积分' }));
   const url = new URL(open.mock.calls[0]![0]);
   expect(url.pathname).toBe('/pricing');
@@ -64,7 +93,7 @@ it('falls back to the existing website when an older gateway lacks handoffs', as
 it('rejects a handoff to an unexpected origin and permits retry', async () => {
   const value = service(); const open = vi.fn();
   vi.mocked(value.openWebAccount!).mockResolvedValueOnce({ url: 'https://evil.test/auth#handoff=' + 'a'.repeat(43) });
-  render(page(value, open)); expect(await screen.findByText('413.937')).toBeInTheDocument();
+  render(page(value, open)); expect(await screen.findByText('414')).toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button', { name: '充值积分' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('网页未打开');
   expect(open).not.toHaveBeenCalled();
@@ -73,7 +102,7 @@ it('rejects a handoff to an unexpected origin and permits retry', async () => {
 });
 
 it('does not claim success when returning without a confirmed order', async () => {
-  const value = service(); render(page(value)); expect(await screen.findByText('413.937')).toBeInTheDocument();
+  const value = service(); render(page(value)); expect(await screen.findByText('414')).toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button', { name: '充值积分' }));
   await act(async () => window.dispatchEvent(new Event('focus')));
   expect(screen.queryByText(/充值成功/)).not.toBeInTheDocument();
@@ -81,7 +110,7 @@ it('does not claim success when returning without a confirmed order', async () =
 });
 
 it('finds a new website order on focus and distinguishes payment from credit completion', async () => {
-  const value = service(); render(page(value)); expect(await screen.findByText('413.937')).toBeInTheDocument();
+  const value = service(); render(page(value)); expect(await screen.findByText('414')).toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button', { name: '充值积分' }));
   vi.mocked(value.getOrders).mockResolvedValue({ items: [order] });
   vi.mocked(value.getOrder).mockResolvedValue({ order: { ...order, status: 'processing', paymentStatus: 'paid' } });
@@ -92,7 +121,7 @@ it('finds a new website order on focus and distinguishes payment from credit com
   vi.mocked(value.getSummary).mockResolvedValue({ ...summary, balance: { ...summary.balance, availableUnits: '2913937000' } });
   await act(async () => window.dispatchEvent(new Event('focus')));
   expect(await screen.findByText('充值成功，已到账 2500 积分')).toBeInTheDocument();
-  expect(screen.getByText('2913.937')).toBeInTheDocument();
+  expect(screen.getByText('2914')).toBeInTheDocument();
   expect(sessionStorage.getItem('opencreator:billing-visit:account-a')).toBeNull();
 });
 
@@ -106,7 +135,7 @@ it('verifies the returned order under the signed-in account rather than trusting
 it('restores a website visit and ignores orders that already existed', async () => {
   sessionStorage.setItem('opencreator:billing-visit:account-a', JSON.stringify({ startedAt: Date.now(), knownOrders: ['old-order'] }));
   const value = service(); vi.mocked(value.getOrders).mockResolvedValue({ items: [{ ...order, id: 'old-order' }] });
-  render(page(value)); expect(await screen.findByText('413.937')).toBeInTheDocument();
+  render(page(value)); expect(await screen.findByText('414')).toBeInTheDocument();
   await waitFor(() => expect(value.getOrders).toHaveBeenCalled());
   expect(value.getOrder).not.toHaveBeenCalled();
 });
@@ -114,7 +143,7 @@ it('restores a website visit and ignores orders that already existed', async () 
 it('ignores a website response from the previous account', async () => {
   const value = service(); const open = vi.fn(); let finish!: (value: { url: string }) => void;
   vi.mocked(value.openWebAccount!).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
-  const view = render(page(value, open)); expect(await screen.findByText('413.937')).toBeInTheDocument();
+  const view = render(page(value, open)); expect(await screen.findByText('414')).toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button', { name: '充值积分' }));
   view.rerender(page(value, open, { ...account, account: { id: 'account-b', email: 'other@example.test', verified: true } }));
   await act(async () => finish({ url: handoff }));

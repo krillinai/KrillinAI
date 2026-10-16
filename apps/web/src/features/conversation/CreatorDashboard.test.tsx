@@ -865,6 +865,16 @@ describe('CreatorDashboard', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
+  it('localizes template navigation and details in Japanese', () => {
+    render(<LanguageProvider initialPreference="ja-JP"><CreatorDashboard presets={presets} /></LanguageProvider>);
+    expect(screen.getByRole('heading', { name: '注目のテンプレート' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '推奨' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'ビデオ制作' })).toBeInTheDocument();
+    fireEvent.click(document.querySelector('.creator-template-card')!);
+    expect(screen.getByRole('button', { name: 'このテンプレートを使う' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'プロンプト' })).toBeInTheDocument();
+  });
+
   it('uses the selected interface language for labels and prompt hints', () => {
     render(
       <LanguageProvider initialPreference="en-US">

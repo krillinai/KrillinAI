@@ -51,7 +51,7 @@ describe('video translation workflow', () => {
       videoMetadataService: { get: async () => { throw new Error('network unavailable'); } } });
     try {
       await expect(workflow.validateStage(fixture.service.getJob(fixture.jobId)!, 'subtitle'))
-        .rejects.toMatchObject({ code: 'creator_source_metadata_unavailable', message: expect.stringContaining('未启动下载或翻译') });
+        .rejects.toMatchObject({ code: 'creator_source_metadata_unavailable', message: expect.stringContaining('Download and translation have not started') });
       expect(fixture.service.getJob(fixture.jobId)!.stages).toHaveLength(0);
     } finally { fixture.db.close(); }
   });
@@ -96,6 +96,7 @@ describe('video translation workflow', () => {
     'https://www.instagram.com/reel/abc123/',
     '分享视频 https://v.douyin.com/abc123/ 复制打开抖音',
     'https://www.douyin.com/jingxuan?modal_id=123',
+    'https://www.douyin.com/jingxuan/search/qianjidong?aid=2052a92f-0793-47c1-b739-c0af829b6103&modal_id=7693859410975690010&type=general',
     'https://www.facebook.com/watch/?v=123',
     'https://www.xiaohongshu.com/explore/6a9149f3000000001f01d20a?xsec_token=sample%3D',
     'https://www.pinterest.com/pin/123/'

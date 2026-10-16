@@ -66,6 +66,8 @@ export default function SmartDubbingWorkspace(props: {
   const l = useLocalizedCopy();
   const session = useOptionalCreatorSession();
   const official = useOfficialServices('speech');
+  const supportsStyle = !official.official || official.model?.capabilities.includes('speech_instructions') === true;
+  const supportsSpeed = !official.official || official.model?.capabilities.includes('speech_speed') === true;
   const restoredResult = session?.job.artifacts.some(artifact => (
     artifact.kind === 'dubbed_audio' && artifact.status === 'completed'
   )) === true;
@@ -110,7 +112,9 @@ export default function SmartDubbingWorkspace(props: {
 
   useEffect(() => {
     if (official.official) {
-      setProvider('openai'); setModel(official.model?.id ?? ''); setStyle('natural'); setSpeed(1);
+      setProvider('openai'); setModel(official.model?.id ?? '');
+      if (!supportsStyle) setStyle('natural');
+      if (!supportsSpeed) setSpeed(1);
       const voices = official.model?.voices ?? [];
       if (!voices.includes(voice)) { setVoice(voices[0] ?? ''); setVoiceName(voices[0] ?? ''); }
       return;
@@ -146,7 +150,7 @@ export default function SmartDubbingWorkspace(props: {
         );
       });
     return () => { active = false; };
-  }, [props.creatorServicesService, session?.job.id, official.official, official.model?.id]);
+  }, [props.creatorServicesService, session?.job.id, official.official, official.model?.id, supportsStyle, supportsSpeed]);
 
   useEffect(() => {
     if (session === null || result === undefined) {
@@ -461,18 +465,17 @@ export default function SmartDubbingWorkspace(props: {
                   onVoiceResolved={selectedVoice => setVoiceName(selectedVoice.name)}
                 />
               </div>
-              {!official.official ? <><div className="smart-dubbing-control-group">
+              {supportsStyle ? <div className="smart-dubbing-control-group">
                 <span>{l('表达风格', 'Delivery style')}</span>
                 <div className="creator-tool-segmented smart-dubbing-style-options" role="radiogroup" aria-label={l('表达风格', 'Delivery style')}>
                   {styles.map(item => <button type="button" role="radio" aria-checked={style === item.value} aria-selected={style === item.value} key={item.value} onClick={() => updateStyle(item.value)}>{l(item.zh, item.en)}</button>)}
                 </div>
-              </div>
-              <label className="smart-dubbing-speed">
+              </div> : null}
+              {supportsSpeed ? <label className="smart-dubbing-speed">
                 <span><span><Gauge size={15} strokeWidth={1.8} aria-hidden="true" />{l('语速', 'Speaking rate')}</span><output>{speed.toFixed(2)}x</output></span>
                 <input type="range" min="0.75" max="1.25" step="0.05" value={speed} onChange={event => updateSpeed(Number(event.target.value))} />
                 <small><span>0.75x</span><span>1.00x</span><span>1.25x</span></small>
-              </label>
-              </> : null}
+              </label> : null}
               <div className="smart-dubbing-control-group">
                 <span>{l('音频格式', 'Audio format')}</span>
                 <div className="creator-tool-segmented smart-dubbing-format-options" role="radiogroup" aria-label={l('音频格式', 'Audio format')}>

@@ -1,3 +1,4 @@
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { FileTreeNode } from '../../services/file-service.js';
 
 export type FileTreeProps = {
@@ -16,10 +17,11 @@ const languageLabels: Partial<Record<NonNullable<FileTreeNode['language']>, stri
 };
 
 export function FileTree(props: FileTreeProps) {
+  const l = useLocalizedCopy();
   return (
-    <nav className="tree-list" aria-label="项目文件">
+    <nav className="tree-list" aria-label={l("项目文件", "project files")}>
       {props.nodes.length === 0 ? (
-        <p className="empty-state compact">暂无项目文件</p>
+        <p className="empty-state compact">{l("暂无项目文件", "No project files yet")}</p>
       ) : (
         <ul>
           {props.nodes.map(node => (

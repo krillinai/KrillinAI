@@ -12,6 +12,7 @@ import {
 } from './fixtures/creator-presets.js';
 import {
   expect,
+  stubVideoDownloadProbe,
   test,
   type RuntimeFixture
 } from './fixtures/runtime.js';
@@ -301,19 +302,18 @@ test('@AC-4 六模块解析严格默认值，工作台首帧预填并持久化�
     statePath: ['subtitleStyle', 'primaryColor'],
     expectedPersistedValue: '#112233'
   });
-  await verifyWorkspaceEdit({
-    page,
-    runtime,
-    module: 'video-download',
-    job: jobs.get('video-download')!,
-    heading: '视频下载',
-    field: page.getByRole('textbox', { name: '待下载视频链接' }),
-    initialValue: '',
-    editedValue: 'https://www.youtube.com/watch?v=OpenCreatorPreset',
-    statePath: ['sourceUrl'],
-    expectedPersistedValue: 'https://www.youtube.com/watch?v=OpenCreatorPreset',
-    preservedState: { mediaType: 'audio' }
-  });
+  await stubVideoDownloadProbe(page, runtime);
+  const downloadJob = jobs.get('video-download')!;
+  const downloadUrl = 'https://www.youtube.com/watch?v=OpenCreatorPreset';
+  await openWorkspace(page, runtime, 'video-download', downloadJob.id);
+  const downloadInput = page.getByRole('textbox', { name: '视频链接', exact: true });
+  await expect(downloadInput).toHaveValue('');
+  await downloadInput.fill(downloadUrl);
+  await page.getByRole('button', { name: '添加并解析' }).click();
+  await expectJobState(runtime, downloadJob.id, ['sourceUrl'], downloadUrl);
+  expect((await getJob(runtime, downloadJob.id)).state).toMatchObject({ mediaType: 'audio' });
+  await page.reload();
+  await expect(page.getByRole('list', { name: '视频链接列表' })).toContainText(downloadUrl);
   await verifyWorkspaceEdit({
     page,
     runtime,

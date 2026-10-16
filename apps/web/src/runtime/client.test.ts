@@ -174,7 +174,7 @@ describe('RuntimeClient', () => {
       code: 'IMAGE_GENERATION_CONFIG_REQUIRED',
       issue: {
         publicFacts: { kind: 'configuration', httpStatus: 409 },
-        fallbackMessage: expect.stringContaining('配置')
+        fallbackMessage: expect.stringContaining('configuration')
       }
     });
   });

@@ -20,10 +20,13 @@ export function createVideoTranslationWorkflow(input: {
 }) {
   async function validateStage(job: CreatorJob, stageId: string): Promise<void> {
     if (job.templateId !== 'video-translation') return;
+    if (job.state.sourceType === 'subtitle' && stageId !== 'subtitle') {
+      throw new VideoTranslationWorkflowError('creator_action_not_allowed', 'Subtitle-only tasks only support subtitle translation');
+    }
     if (stageId === 'subtitle') {
       validateSource(job);
       await validateBilibiliSource(job, input.videoMetadataService);
-      if (job.artifacts.some(artifact => artifact.id === job.state.importedTargetSubtitleId && artifact.kind === 'target_subtitle' && artifact.status === 'completed')) return;
+      if (job.state.sourceType !== 'subtitle' && job.artifacts.some(artifact => artifact.id === job.state.importedTargetSubtitleId && artifact.kind === 'target_subtitle' && artifact.status === 'completed')) return;
       const config = await input.configStore.read();
       if (
         config.llm.source === 'custom'
@@ -35,7 +38,7 @@ export function createVideoTranslationWorkflow(input: {
       ) {
         setConfigurationNeeded(input.creator, job.id, {
           code: 'creator_llm_config_missing',
-          message: '请先完成文本翻译模型配置',
+          message: 'Configure the text translation model first',
           section: 'text'
         });
         throw new VideoTranslationWorkflowError(
@@ -50,7 +53,7 @@ export function createVideoTranslationWorkflow(input: {
     if (!hasTtsCredentials(config, job)) {
       setConfigurationNeeded(input.creator, job.id, {
         code: 'creator_tts_config_missing',
-        message: '请先完成目标语言配音服务配置',
+        message: 'Configure the target-language TTS service first',
         section: 'tts'
       });
       throw new VideoTranslationWorkflowError(
@@ -126,7 +129,7 @@ export class VideoTranslationWorkflowError extends Error {
 }
 
 export async function validateBilibiliSource(job: CreatorJob, service?: VideoMetadataService): Promise<void> {
-  if (job.state.sourceType === 'file' || typeof job.state.sourceUrl !== 'string') return;
+  if (job.state.sourceType === 'file' || job.state.sourceType === 'subtitle' || typeof job.state.sourceUrl !== 'string') return;
   let host: string;
   try {
     host = new URL(job.state.sourceUrl).hostname.toLowerCase();
@@ -136,28 +139,35 @@ export async function validateBilibiliSource(job: CreatorJob, service?: VideoMet
   if (host !== 'bilibili.com' && !host.endsWith('.bilibili.com')) return;
   const source = parseBilibiliVideoSource(job.state.sourceUrl);
   if (source === null) {
-    throw new VideoTranslationWorkflowError('creator_source_invalid_part', 'B 站链接无效，请检查视频地址和分 P 参数（p 必须为正整数）');
+    throw new VideoTranslationWorkflowError('creator_source_invalid_part', 'Invalid Bilibili URL. Check the video address and part parameter (p must be a positive integer).');
   }
   try {
     if (service === undefined) throw new Error('Video metadata service unavailable');
     const metadata = await service.get(source.url);
     if ((metadata.parts?.length ?? 0) > 1 && source.partIndex === undefined) {
-      throw new VideoTranslationWorkflowError('creator_source_part_required', `该视频包含 ${metadata.parts!.length} 个分 P，请先在视频来源中选择要翻译的分集`);
+      throw new VideoTranslationWorkflowError('creator_source_part_required', `This video has ${metadata.parts!.length} parts. Select the part to translate in the video source settings.`);
     }
     if (source.partIndex !== undefined && metadata.parts !== undefined
       && !metadata.parts.some(part => part.index === source.partIndex)) {
-      throw new VideoTranslationWorkflowError('creator_source_invalid_part', '指定的分 P 不存在，请重新选择视频分集');
+      throw new VideoTranslationWorkflowError('creator_source_invalid_part', 'The requested video part does not exist. Select another part.');
     }
   } catch (error) {
     if (error instanceof VideoTranslationWorkflowError) throw error;
     if (error instanceof VideoMetadataError && error.code === 'INVALID_PART') {
       throw new VideoTranslationWorkflowError('creator_source_invalid_part', error.message);
     }
-    throw new VideoTranslationWorkflowError('creator_source_metadata_unavailable', '无法读取 B 站分集信息，请重试；未启动下载或翻译');
+    throw new VideoTranslationWorkflowError('creator_source_metadata_unavailable', 'Could not read Bilibili video parts. Try again. Download and translation have not started.');
   }
 }
 
 function validateSource(job: CreatorJob): void {
+  if (job.state.sourceType === 'subtitle') {
+    if (!job.artifacts.some(artifact => artifact.id === job.state.importedSourceSubtitleId
+      && artifact.kind === 'source_subtitle' && artifact.status === 'completed')) {
+      throw new VideoTranslationWorkflowError('creator_source_missing', 'An imported source SRT file is required');
+    }
+    return;
+  }
   if (job.state.sourceType === 'file') {
     if (!job.artifacts.some(artifact => artifact.kind === 'source_video' && artifact.status === 'completed')) {
       throw new VideoTranslationWorkflowError('creator_source_missing', 'Registered local source video is required');
@@ -245,6 +255,7 @@ function queueNextStage(
 }
 
 function nextWorkflowStage(job: CreatorJob, completedStageId: string): string | undefined {
+  if (job.state.sourceType === 'subtitle') return undefined;
   if (completedStageId === 'subtitle') {
     if (job.state.dubbing === true) return 'tts';
     return firstRenderStage(job);

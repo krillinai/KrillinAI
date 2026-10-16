@@ -37,6 +37,8 @@ export function createVideoGenerationTemplate(): CreatorTemplateDefinition {
     actions: [
       { id: 'update-settings', inputSchema: record, allowedStages: ['generate'] },
       { id: 'run-stage', inputSchema: record, allowedStages: ['generate'] },
+      { id: 'retry-stage', inputSchema: record, allowedStages: ['generate'] },
+      { id: 'resolve-provider-request', inputSchema: record, allowedStages: ['generate'] },
       { id: 'undo-action', inputSchema: record, allowedStages: ['generate'] }
     ],
     outputs: [{ kind: 'generated_video', required: true }],

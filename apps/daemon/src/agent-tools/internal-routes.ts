@@ -189,7 +189,7 @@ export async function registerAgentToolRoutes(
           return reply.code(400).send(apiError('VALIDATION_FAILED', 'actor, jobId and projectId are bound by the capability token'));
         }
         try {
-          return input.creator!.applyAction(grant.jobId, {
+          return await input.creator!.applyAction(grant.jobId, {
             action: readRequiredString(body.action, 'action'),
             expectedRevision: readRequiredInteger(body.expectedRevision, 'expectedRevision'),
             idempotencyKey: readRequiredString(body.idempotencyKey, 'idempotencyKey'),

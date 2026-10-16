@@ -877,7 +877,7 @@ function createAutoClipResultVersions(
       if (candidates.length === 0) return [];
       return [{
         value: readPositiveInteger(artifact.metadata.resultVersion) ?? artifact.version,
-        description: '识别视频高光片段',
+        description: 'Identify video highlights',
         state: {},
         artifact,
         sourceArtifact: artifacts.find(candidate => (

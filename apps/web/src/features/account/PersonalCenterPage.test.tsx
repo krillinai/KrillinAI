@@ -3,6 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { GatewayAccountState } from '@opencreator/protocol';
 import { LanguageProvider } from '../../i18n/LanguageProvider.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
 import type { GatewayAccountSettingsService, GatewayBillingSummary } from '../../services/gateway-account-service.js';
 import PersonalCenterPage from './PersonalCenterPage.js';
 
@@ -16,6 +17,15 @@ function createService(initial = signedIn): GatewayAccountSettingsService {
 function page(service: GatewayAccountSettingsService | null, accountState?: GatewayAccountState, onBack = vi.fn(), openExternal = vi.fn(), view: 'account' | 'subscription' = 'account', onOpenModelSettings = vi.fn()) {
   return <LanguageProvider initialPreference="zh-CN"><PersonalCenterPage view={view} service={service} accountState={accountState} onBack={onBack} openExternal={openExternal} onOpenModelSettings={onOpenModelSettings}/></LanguageProvider>;
 }
+it.each(['sv-SE', 'ja-JP'] as const)('localizes account actions in %s and keeps the email intact', async language => {
+  const l = createLocalizedCopy(language);
+  render(<LanguageProvider initialPreference={language}><PersonalCenterPage service={createService()} accountState={signedIn} onBack={vi.fn()} /></LanguageProvider>);
+  expect(await screen.findByText('123')).toBeVisible();
+  expect(screen.getByRole('main', { name: l('个人中心', 'Account') })).toBeVisible();
+  expect(screen.getByRole('heading', { name: 'a@example.test' })).toBeVisible();
+  expect(screen.getByRole('button', { name: l('返回', 'Back') })).toBeEnabled();
+});
+
 it('provides a single login action and a credits entry with no fabricated guest balance', async () => {
   const service = createService(signedOut); const open = vi.fn();
   render(page(service, signedOut, vi.fn(), open));
@@ -89,7 +99,26 @@ it('keeps model availability separate from sign-in and opens model settings', as
   render(page(createService(blocked), blocked, vi.fn(), vi.fn(), 'account', settings));
   expect(await screen.findByText('已登录', { exact: true })).toBeInTheDocument();
   expect(screen.getByText('官方模型服务暂不可用')).toBeInTheDocument();
-  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(screen.getByRole('alert')).toHaveTextContent('官方模型服务连接失败，请重新连接');
   await userEvent.setup().click(screen.getByRole('button', { name: '模型设置' }));
   expect(settings).toHaveBeenCalledOnce();
+});
+
+it('reconnects model services from the personal center without signing in again or affecting credits', async () => {
+  const blocked: GatewayAccountState = { ...signedIn, activationState: 'blocked', activationError: { code: 'gateway_unavailable', message: 'Unavailable', stage: 'bootstrap', request: { path: '/api/v1/client/bootstrap', reason: 'timeout' } } };
+  const service = createService(blocked);
+  vi.mocked(service.activate).mockImplementation(async () => {
+    vi.mocked(service.getState).mockResolvedValue(signedIn);
+    return signedIn;
+  });
+  render(page(service, blocked));
+  expect(await screen.findByText('123')).toBeInTheDocument();
+  expect(screen.getByRole('alert')).toHaveTextContent('网关请求超时');
+  expect(screen.getByRole('alert')).toHaveTextContent('获取模型凭据');
+  await userEvent.setup().click(screen.getByRole('button', { name: '重新连接' }));
+  await waitFor(() => expect(screen.queryByText('官方模型服务暂不可用')).not.toBeInTheDocument());
+  expect(service.activate).toHaveBeenCalledOnce();
+  expect(service.start).not.toHaveBeenCalled();
+  expect(service.selectModel).not.toHaveBeenCalled();
+  expect(screen.getByText('123')).toBeInTheDocument();
 });

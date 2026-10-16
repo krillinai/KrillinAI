@@ -1,5 +1,5 @@
-const DEFAULT_TITLE = '新对话';
-const ATTACHMENT_TITLE = '查看附件';
+const DEFAULT_TITLE = 'New conversation';
+const ATTACHMENT_TITLE = 'View attachments';
 const MAX_TITLE_WIDTH = 30;
 
 const REQUEST_MARKERS = [
@@ -21,7 +21,7 @@ export function createConversationTitle(input: string, fallback = DEFAULT_TITLE)
 
   const command = /<command>\s*([\s\S]*?)\s*<\/command>/i.exec(extracted)?.[1];
   if (command !== undefined) {
-    return limitTitle(`执行 ${normalizeWhitespace(command)}`, fallback);
+    return limitTitle(`Run ${normalizeWhitespace(command)}`, fallback);
   }
 
   const withoutSkill = extracted
@@ -94,7 +94,7 @@ function extractRequest(input: string): string | undefined {
     markerEnd < 0
     && source.startsWith('你是 OpenCreator 的计划任务配置助手')
   ) {
-    return '创建计划任务';
+    return 'Create scheduled task';
   }
 
   if (source.startsWith('# Files mentioned by the user:')) {

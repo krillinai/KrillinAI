@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestYouTubeMediaRefreshesRejectedURLs(t *testing.T) {
@@ -140,6 +141,75 @@ func TestResolveLocalMediaInput(t *testing.T) {
 
 	if got, ok := resolveLocalMediaInput(filepath.Join(dir, "missing.mp4")); ok || got != "" {
 		t.Fatalf("missing input = %q, %v; want empty, false", got, ok)
+	}
+}
+
+func TestBilibiliMediaRetriesOnlyExtractionRejections(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell downloader fixture requires POSIX")
+	}
+	originalPath, originalPrefix := storage.YtdlpPath, storage.YtdlpPrefixArgs
+	t.Cleanup(func() { storage.YtdlpPath, storage.YtdlpPrefixArgs = originalPath, originalPrefix })
+	for _, test := range []struct {
+		name, message      string
+		failures, attempts int
+		wantError          bool
+	}{
+		{"refresh-risk-control", "ERROR: Bilibili risk control rejected the media request", 1, 2, false},
+		{"refresh-legacy-no-formats", "ERROR: No video formats found!", 1, 2, false},
+		{"limit-risk-control", "ERROR: Bilibili risk control rejected the media request", 9, 3, true},
+		{"no-format-selector-retry", "ERROR: Requested format is not available", 9, 1, true},
+		{"no-retry-after-successful-fallback", "WARNING: Bilibili risk control rejected the playback API request; retaining webpage media formats when available\nERROR: Requested format is not available", 9, 1, true},
+		{"no-login-retry", "ERROR: Login required", 9, 1, true},
+		{"no-storage-retry", "ERROR: No space left on device", 9, 1, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			counter := filepath.Join(dir, "attempts")
+			downloader := filepath.Join(dir, "yt-dlp")
+			t.Setenv("BILIBILI_MEDIA_COUNTER", counter)
+			t.Setenv("BILIBILI_MEDIA_ERROR", test.message)
+			fixture := fmt.Sprintf("#!/bin/sh\nn=0\nif [ -f \"$BILIBILI_MEDIA_COUNTER\" ]; then n=$(cat \"$BILIBILI_MEDIA_COUNTER\"); fi\nn=$((n+1))\nprintf '%%s' \"$n\" > \"$BILIBILI_MEDIA_COUNTER\"\nif [ \"$n\" -le %d ]; then printf '%%s\\n' \"$BILIBILI_MEDIA_ERROR\" >&2; exit 1; fi\nprintf 'media ready\\n'\n", test.failures)
+			if err := os.WriteFile(downloader, []byte(fixture), 0700); err != nil {
+				t.Fatal(err)
+			}
+			storage.YtdlpPath, storage.YtdlpPrefixArgs = downloader, nil
+			output, err := downloadBilibiliMedia(context.Background(), []string{"https://www.bilibili.com/video/BV18Qhf6hE8P?p=3"})
+			if (err != nil) != test.wantError {
+				t.Fatalf("error = %v, output = %s", err, output)
+			}
+			count, readErr := os.ReadFile(counter)
+			if readErr != nil || string(count) != fmt.Sprint(test.attempts) {
+				t.Fatalf("attempts = %s, error = %v", count, readErr)
+			}
+			if test.name == "limit-risk-control" && !strings.Contains(err.Error(), "Bilibili risk control blocked media extraction after 3 attempts") {
+				t.Fatalf("risk-control cause was lost: %v", err)
+			}
+		})
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := downloadBilibiliMedia(ctx, nil); !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want cancellation", err)
+	}
+}
+
+func TestBilibiliMediaCancellationStopsRetryWait(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell downloader fixture requires POSIX")
+	}
+	originalPath, originalPrefix := storage.YtdlpPath, storage.YtdlpPrefixArgs
+	t.Cleanup(func() { storage.YtdlpPath, storage.YtdlpPrefixArgs = originalPath, originalPrefix })
+	dir := t.TempDir()
+	downloader := filepath.Join(dir, "yt-dlp")
+	if err := os.WriteFile(downloader, []byte("#!/bin/sh\nprintf 'ERROR: Bilibili risk control rejected the media request\\n' >&2\nexit 1\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	storage.YtdlpPath, storage.YtdlpPrefixArgs = downloader, nil
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	if _, err := downloadBilibiliMedia(ctx, nil); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("error = %v, want deadline exceeded", err)
 	}
 }
 

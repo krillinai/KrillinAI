@@ -16,6 +16,8 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog.js';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
+import type { AppLanguage } from '../../i18n/language.js';
+import { createLocalizedCopy } from '../../i18n/localized-copy.js';
 import { useLocalizedCopy, type LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
 import { ApiClientError } from '../../runtime/client.js';
 import type { CreatorWebService } from '../../services/creator-service.js';
@@ -1096,8 +1098,19 @@ function readString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function formatProjectTime(value: string, language: 'zh-CN' | 'en-US' | 'sv-SE'): string {
+function formatProjectTime(value: string, language: AppLanguage): string {
   const timestamp = Date.parse(value);
+  if (!['zh-CN', 'en-US', 'sv-SE'].includes(language)) {
+    const l = createLocalizedCopy(language);
+    if (!Number.isFinite(timestamp)) return l('最近更新', 'Recently updated');
+    const elapsedMinutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
+    if (elapsedMinutes < 1) return l('刚刚更新', 'Updated just now');
+    const relative = new Intl.RelativeTimeFormat(language, { numeric: 'auto' });
+    if (elapsedMinutes < 60) return relative.format(-elapsedMinutes, 'minute');
+    if (elapsedMinutes < 24 * 60) return relative.format(-Math.floor(elapsedMinutes / 60), 'hour');
+    if (elapsedMinutes < 30 * 24 * 60) return relative.format(-Math.floor(elapsedMinutes / (24 * 60)), 'day');
+    return new Intl.DateTimeFormat(language, { month: 'short', day: 'numeric' }).format(timestamp);
+  }
   if (!Number.isFinite(timestamp)) return language === 'zh-CN' ? '最近更新' : language === 'sv-SE' ? 'Nyligen uppdaterad' : 'Recently updated';
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
   if (minutes < 1) return language === 'zh-CN' ? '刚刚更新' : language === 'sv-SE' ? 'Uppdaterades nyss' : 'Updated just now';

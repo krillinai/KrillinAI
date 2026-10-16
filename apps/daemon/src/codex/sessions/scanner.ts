@@ -110,7 +110,7 @@ function readCodexSession(path: string): { kind: 'user'; summary: CodexSessionSu
     kind: 'user',
     summary: {
       codexThreadId: state.codexThreadId,
-      title: state.title ?? '未命名对话',
+      title: state.title ?? 'Untitled conversation',
       cwd: state.cwd,
       createdAt,
       updatedAt,

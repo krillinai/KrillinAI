@@ -98,6 +98,78 @@ describe('video download link batches', () => {
     expect(existing.service.createJob.mock.calls[0]![0].state?.[DOWNLOAD_BATCH_PARENT]).toBe('persisted-root');
   });
 
+  it('offers Add link and Cancel only after the first video has been analyzed', async () => {
+    setup(makeJob('pending:project:video-download'));
+    expect(screen.getByRole('textbox', { name: '视频链接' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: '添加链接' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '取消' })).not.toBeInTheDocument();
+
+    await addLinks(firstUrl);
+    await screen.findByRole('heading', { name: 'Video first' });
+    fireEvent.click(screen.getByRole('button', { name: '添加链接' }));
+    expect(screen.getByRole('textbox', { name: '视频链接' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '取消' }));
+    expect(screen.queryByRole('textbox', { name: '视频链接' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '添加链接' })).toBeEnabled();
+  });
+
+  it('clears the entered link and its validation error and returns focus to the input', async () => {
+    const harness = setup(makeJob('pending:project:video-download'));
+    const input = screen.getByRole('textbox', { name: '视频链接' });
+    expect(screen.queryByRole('button', { name: '清空链接' })).not.toBeInTheDocument();
+    fireEvent.change(input, { target: { value: 'https://example.com' } });
+    fireEvent.blur(input);
+    expect(await screen.findByRole('alert')).toHaveTextContent('请输入支持的公开视频链接');
+
+    fireEvent.click(screen.getByRole('button', { name: '清空链接' }));
+    expect(input).toHaveValue('');
+    expect(input).toHaveFocus();
+    expect(screen.queryByRole('button', { name: '清空链接' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '获取' })).toBeDisabled();
+    expect(harness.service.createJob).not.toHaveBeenCalled();
+    expect(harness.ensureJob).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    firstUrl,
+    'https://www.douyin.com/jingxuan?modal_id=7667962912690031907',
+    '分享 https://v.douyin.com/example/ 复制链接'
+  ])('validates %s locally while keeping the clear action available', value => {
+    const harness = setup(makeJob('pending:project:video-download'));
+    const input = screen.getByRole('textbox', { name: '视频链接' });
+    expect(screen.queryByRole('status', { name: '链接格式有效' })).not.toBeInTheDocument();
+    fireEvent.change(input, { target: { value } });
+    expect(screen.getByRole('status', { name: '链接格式有效' })).toBeVisible();
+    expect(screen.getByRole('button', { name: '获取' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: '清空链接' }));
+    expect(input).toHaveValue('');
+    expect(screen.queryByRole('status', { name: '链接格式有效' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '获取' })).toBeDisabled();
+    expect(harness.ensureJob).not.toHaveBeenCalled();
+    expect(harness.service.createJob).not.toHaveBeenCalled();
+  });
+
+  it('disables analysis for invalid or multiple links and waits for blur to show validation errors', () => {
+    const harness = setup(makeJob('pending:project:video-download'));
+    const input = screen.getByRole('textbox', { name: '视频链接' });
+    for (const value of ['https://', 'https://example.com', 'https://youtube.com.example.com/watch?v=test', `${firstUrl} ${secondUrl}`]) {
+      fireEvent.change(input, { target: { value } });
+      expect(screen.queryByRole('status', { name: '链接格式有效' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '获取' })).toBeDisabled();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      fireEvent.blur(input);
+      expect(input).toHaveAttribute('aria-invalid', 'true');
+      expect(screen.getByRole('alert')).toHaveTextContent(value.includes(secondUrl) ? '每次只能添加一个链接' : '请输入支持的公开视频链接');
+    }
+    fireEvent.change(input, { target: { value: firstUrl } });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByRole('button', { name: '获取' })).toBeEnabled();
+    expect(harness.ensureJob).not.toHaveBeenCalled();
+    expect(harness.service.createJob).not.toHaveBeenCalled();
+  });
+
   it('continues adding other links when one analysis fails and retries only that source', async () => {
     const harness = setup(readyJob('root', firstUrl));
     const apply = harness.service.applyAction.getMockImplementation()!;
@@ -189,7 +261,7 @@ describe('video download link batches', () => {
     await addLinks(thirdUrl);
     expect(await screen.findByRole('alert')).toHaveTextContent('connection lost');
     expect(screen.getByRole('textbox', { name: '视频链接' })).toHaveValue(thirdUrl);
-    fireEvent.click(screen.getByRole('button', { name: '添加并解析' }));
+    fireEvent.click(screen.getByRole('button', { name: '获取' }));
     await waitFor(() => expect(harness.probes()).toHaveLength(2));
     expect(harness.service.createJob.mock.calls[2]![0].creationKey).toBe(failedKey);
     expect(harness.jobs.size).toBe(3);
@@ -212,7 +284,7 @@ async function addLinks(value: string) {
   await waitFor(() => expect(screen.queryByText('正在加载链接列表')).not.toBeInTheDocument());
   if (screen.queryByRole('textbox', { name: '视频链接' }) === null) fireEvent.click(screen.getByRole('button', { name: '添加链接' }));
   fireEvent.change(screen.getByRole('textbox', { name: '视频链接' }), { target: { value } });
-  await act(async () => { fireEvent.click(screen.getByRole('button', { name: '添加并解析' })); });
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: '获取' })); });
 }
 
 function setup(root: CreatorJob, members: CreatorJob[] = []) {

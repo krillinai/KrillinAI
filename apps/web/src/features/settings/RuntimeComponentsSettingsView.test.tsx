@@ -31,6 +31,8 @@ describe('RuntimeComponentsSettingsView', () => {
       name: '更新到 2026.08.31.120000'
     }));
 
+    expect(screen.getByText('有可用更新')).toHaveAttribute('data-status', 'update');
+    expect(screen.getByRole('button', { name: '更新到 2026.08.31.120000' })).toHaveAttribute('data-status', 'update');
     await waitFor(() => expect(updateYtDlp).toHaveBeenCalledOnce());
   });
 
@@ -90,7 +92,8 @@ describe('RuntimeComponentsSettingsView', () => {
       checkYtDlpUpdate
     });
 
-    await waitFor(() => expect(screen.getByText('检查失败')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('失败')).toHaveAttribute('data-status', 'failed'));
+    expect(screen.getByText('检查失败').closest('.runtime-component-details')).not.toBeNull();
     expect(screen.getByText('上次检查版本')).toBeInTheDocument();
     expect(screen.queryByText('已是最新')).not.toBeInTheDocument();
   });
@@ -99,10 +102,33 @@ describe('RuntimeComponentsSettingsView', () => {
     const checkYtDlpUpdate = vi.fn(async () => status());
     renderView({ checkYtDlpUpdate });
 
+    await waitFor(() => expect(screen.getByRole('button', { name: '检查更新' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: '检查更新' }));
 
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('已经是最新版本'));
     expect(checkYtDlpUpdate).toHaveBeenCalledWith(true);
+  });
+
+  it('recovers the failed status after a successful manual retry', async () => {
+    const checkYtDlpUpdate = vi.fn()
+      .mockRejectedValueOnce(new Error('network unavailable'))
+      .mockResolvedValue(status());
+    renderView({ checkYtDlpUpdate });
+
+    await waitFor(() => expect(screen.getByText('失败')).toHaveAttribute('data-status', 'failed'));
+    fireEvent.click(screen.getByRole('button', { name: '检查更新' }));
+
+    await waitFor(() => expect(screen.getByText('已就绪')).toHaveAttribute('data-status', 'current'));
+    expect(screen.queryByText('检查失败')).not.toBeInTheDocument();
+    expect(checkYtDlpUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows readiness in the main badge and the latest status next to the version', async () => {
+    renderView({ ytDlpStatus: status({ latestVersion: '2026.08.29.232711' }) });
+
+    await waitFor(() => expect(screen.getByText('已就绪')).toHaveAttribute('data-status', 'current'));
+    expect(screen.getByText('已是最新').closest('.runtime-component-details')).not.toBeNull();
+    expect(screen.getByText('已是最新').closest('.runtime-component-title')).toBeNull();
   });
 });
 

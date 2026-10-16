@@ -32,7 +32,7 @@ export function createVideoDownloadTemplate(): CreatorTemplateDefinition {
     renderer: 'video-download',
     inputSchema: z.object({
       sourceUrl: z.string().default(''),
-      mediaType: z.enum(['video', 'audio']).default('video'),
+      mediaType: z.enum(['video', 'audio', 'subtitle']).default('video'),
       selectedOptionId: z.string().nullable().default(null),
       currentStage: z.string().nullable().default(null)
     }).passthrough() as never,
@@ -58,7 +58,8 @@ export function createVideoDownloadTemplate(): CreatorTemplateDefinition {
         }],
         outputArtifacts: [
           { kind: 'source_video', status: 'completed' },
-          { kind: 'source_audio', status: 'completed' }
+          { kind: 'source_audio', status: 'completed' },
+          { kind: 'source_subtitle', status: 'completed' }
         ]
       }
     ],
@@ -81,11 +82,12 @@ export function createVideoDownloadTemplate(): CreatorTemplateDefinition {
     ],
     outputs: [
       { kind: 'source_video', required: false },
-      { kind: 'source_audio', required: false }
+      { kind: 'source_audio', required: false },
+      { kind: 'source_subtitle', required: false }
     ],
     agentGuidance: [
-      '支持公开的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 和 Reddit 视频链接，可下载视频或提取音频。',
-      '先设置 sourceUrl 并运行 probe，再读取最新 download_probe.options；只选择其中与用户请求的 video 或 audio 对应的 option.id。',
+      '支持公开的 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 和 Reddit 视频链接，可下载视频、提取音频或下载来源提供的 SRT 字幕。',
+      '先设置 sourceUrl 并运行 probe，再读取最新 download_probe.options；只选择其中与用户请求的 video、audio 或 subtitle 对应的 option.id，字幕须匹配语言和人工或自动来源。',
       '更新 selectedOptionId 和 mediaType 后运行 download；不得自行构造或写入 formatId。若 probe 没有对应选项，再说明该链接无法提供所需媒体。'
     ].join(' ')
   };

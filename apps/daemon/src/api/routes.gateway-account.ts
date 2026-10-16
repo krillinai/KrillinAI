@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { apiError } from './errors.js';
 import { GatewayError } from '../gateway/client.js';
 import type { GatewayAccountService } from '../gateway/account-service.js';
+import { ModelProbeError } from '../gateway/model-selection-probe.js';
 
 export async function registerGatewayAccountRoutes(server: FastifyInstance, service: GatewayAccountService) {
   async function respond(work: () => Promise<unknown>, reply: import('fastify').FastifyReply) {
@@ -12,10 +13,16 @@ export async function registerGatewayAccountRoutes(server: FastifyInstance, serv
       const code = cloud.status === 401 ? 'GATEWAY_AUTH_REQUIRED' : cloud.code === 'account_disabled' ? 'GATEWAY_ACCOUNT_DISABLED'
         : cloud.status === 402 ? 'GATEWAY_CREDITS_INSUFFICIENT' : cloud.status === 409 ? 'GATEWAY_REQUEST_CONFLICT'
           : cloud.code === 'services_not_ready' ? 'GATEWAY_SERVICES_NOT_READY' : 'GATEWAY_UNAVAILABLE';
-      return reply.code(cloud.status).send(apiError(code, code === 'GATEWAY_REQUEST_CONFLICT' ? '请等待当前任务结束后再切换账户或服务来源' : cloud.message, { gatewayCode: cloud.code }));
+      return reply.code(cloud.status).send(apiError(code, code === 'GATEWAY_REQUEST_CONFLICT' ? 'Wait for the active task to finish before switching accounts or service sources.' : cloud.message, { gatewayCode: cloud.code,
+        ...(cloud instanceof ModelProbeError && cloud.publicFacts ? { publicFacts: cloud.publicFacts } : {}),
+        ...(cloud instanceof ModelProbeError && cloud.diagnostics ? { probeRequest: cloud.diagnostics } : {}) }));
     }
   }
-  server.get('/gateway/account', (_r, reply) => respond(() => service.readState(), reply));
+  server.get('/gateway/account', (r, reply) => respond(() => {
+    const query = z.object({ refreshModels: z.literal('1').optional() }).safeParse(r.query);
+    if (!query.success) throw new GatewayError('invalid_parameters', 400);
+    return service.readState({ refreshModels: query.data.refreshModels === '1' });
+  }, reply));
   server.post('/gateway/account/web', (r, reply) => respond(async () => {
     const value = z.object({ destination: z.enum(['recharge', 'account', 'usage', 'faq']), locale: z.enum(['zh', 'en']), returnUrl: z.string().max(2048).optional() }).strict().safeParse(r.body);
     if (!value.success) throw new GatewayError('invalid_parameters', 400);
@@ -39,6 +46,18 @@ export async function registerGatewayAccountRoutes(server: FastifyInstance, serv
   server.post('/gateway/auth/activate', (_r, reply) => respond(async () => { await service.activate(); return service.readState(); }, reply));
   server.patch('/gateway/source', (r, reply) => respond(async () => { const value = z.object({ source: z.enum(['manual', 'gateway']) }).strict().safeParse(r.body); if (!value.success) throw new GatewayError('invalid_source', 400); await service.setSource(value.data.source); return service.readState(); }, reply));
   server.get('/gateway/billing', (_r, reply) => respond(() => service.readBalance(), reply));
+  server.patch('/gateway/supplier-region', (r, reply) => respond(async () => {
+    const value = z.object({ region: z.enum(['auto', 'domestic', 'overseas']) }).strict().safeParse(r.body);
+    if (!value.success) throw new GatewayError('invalid_parameters', 400);
+    return service.setRegion(value.data.region);
+  }, reply));
+  server.post('/gateway/model/probe', (r, reply) => respond(async () => {
+    const value = z.object({ modality: z.enum(['text', 'image', 'video', 'speech', 'transcription']), model: z.string().min(1).max(256),
+      textApi: z.enum(['responses', 'chat/completions']).optional() }).strict().safeParse(r.body);
+    if (!value.success) throw new GatewayError('invalid_model', 400);
+    if (value.data.textApi && value.data.modality !== 'text') throw new GatewayError('invalid_parameters', 400);
+    return service.probeModel(value.data.modality, value.data.model, value.data.textApi ? { textApi: value.data.textApi } : undefined);
+  }, reply));
   server.patch('/gateway/model', (r, reply) => respond(async () => {
     const value = z.object({ modality: z.enum(['text', 'image', 'video', 'speech', 'transcription']), model: z.string().min(1).max(256) }).strict().safeParse(r.body);
     if (!value.success) throw new GatewayError('invalid_model', 400);

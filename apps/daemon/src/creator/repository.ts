@@ -37,7 +37,7 @@ type RepositoryOptions = {
 };
 
 export type CreatorServiceBinding = { source: 'manual' } | {
-  source: 'gateway'; accountId: string; bindingVersion: string;
+  source: 'gateway'; accountId: string; bindingVersion: string; supplier?: string;
   models: Record<string, string>; capabilities: Record<string, string[]>;
 };
 
@@ -210,6 +210,7 @@ export type CreatorRepository = {
   listActivities(jobId: string): CreatorActivity[];
   captureIssue(input: NormalizedCreatorIssueInput): OpenCreatorIssue;
   getIssue(jobId: string, issueId: string): OpenCreatorIssue | undefined;
+  getIssueResolutionAttemptId(jobId: string, issueId: string): string | undefined;
   listIssues(jobId: string): OpenCreatorIssue[];
   listIssueEvents(jobId: string, input?: {
     cursor?: string;
@@ -807,6 +808,11 @@ export function createCreatorRepository(
       })();
     },
     getIssue,
+    getIssueResolutionAttemptId(jobId, issueId) {
+      const row = db.prepare('SELECT resolution_attempt_id FROM creator_issues WHERE id = ? AND job_id = ?')
+        .get(issueId, jobId) as { resolution_attempt_id: string | null } | undefined;
+      return row?.resolution_attempt_id ?? undefined;
+    },
     listIssues,
     listIssueEvents(jobId, input = {}) {
       const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);
@@ -1381,10 +1387,10 @@ function deriveLegacyStageIssues(
           : 'issue.execution',
       summaryParams: {},
       fallbackMessage: outputFailure
-        ? '翻译结果未通过目标语言检查，请修正后重试。'
+        ? 'The translation failed target language validation. Correct it and try again.'
         : providerFailure
-          ? '外部服务调用失败，请先确认请求状态后再继续。'
-          : '创作步骤执行失败，可以重试或询问 Agent。',
+          ? 'The external service request failed. Confirm its status before continuing.'
+          : 'The creator step failed. Try again or ask the Agent.',
       retryable,
       repairActions,
       fingerprint: digest,

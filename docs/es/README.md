@@ -15,13 +15,13 @@
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="OpenCreator (antes KrillinAI): repositorio n.º 1 del día en Trendshift" width="250" height="55" /></a>
 
-[English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | **Español** | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md) | [ภาษาไทย](../th/README.md)
+[English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | **Español** | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md) | [ภาษาไทย](../th/README.md) | [Türkçe](../tr/README.md) | [हिन्दी](../hi/README.md) | [বাংলা](../bn/README.md) | [اردو](../ur/README.md) | [Tiếng Việt](../vi/README.md) | [Filipino](../fil/README.md)
 
 [![GitHub Stars](https://badgen.net/github/stars/krillinai/OpenCreator?icon=github&label=Stars&color=EAB308)](https://github.com/krillinai/OpenCreator/stargazers)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%E7%B2%89%E4%B8%9D&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
 [![AtomGit G-Star](https://img.shields.io/badge/AtomGit-G--Star-DA203E?style=flat)](https://atomgit.com/krillinai/OpenCreator)
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/fUNvbqDaw)
 [![Grupo de QQ](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
 [Destacados](#características-principales) · [Herramientas](#herramientas-de-creación) · [Skills](#skills) · [Ejemplos](#ejemplos) · [Inicio](#inicio-rápido) · [Desktop](#desktop) · [Docs](#documentación) · [Comunidad](#comunidad)
@@ -87,7 +87,7 @@ Abre el Dashboard para traducir o descargar vídeos, generar miniaturas o imáge
 </thead>
 <tbody>
 <tr><td valign="top">Traducción de vídeos</td><td valign="top">✅ Disponible</td><td>Importa vídeos locales o públicos; transcribe con servicios Whisper locales o en la nube; utiliza el contexto de un LLM para segmentar y alinear subtítulos, gestionar terminología y traducir; configura subtítulos bilingües, doblaje o una muestra de voz personalizada, estilos de subtítulos y composición horizontal o vertical, y exporta SRT, audio o vídeo</td></tr>
-<tr><td valign="top">Descarga de vídeos</td><td valign="top">✅ Disponible</td><td>Analiza vídeos públicos individuales de YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu y Pinterest; compara los formatos disponibles y descarga vídeo o audio. Algunas plataformas pueden requerir cookies</td></tr>
+<tr><td valign="top">Descarga de vídeos</td><td valign="top">✅ Disponible</td><td>Analiza vídeos públicos individuales de YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest y Reddit; compara los formatos disponibles y descarga vídeo o audio. Algunas plataformas pueden requerir cookies</td></tr>
 <tr><td valign="top">Generación de miniaturas</td><td valign="top">✅ Disponible</td><td>Combina un tema, un enlace de vídeo y una imagen de referencia opcional para generar y comparar varias propuestas de miniaturas de contenido</td></tr>
 <tr><td valign="top">Generación de imágenes</td><td valign="top">✅ Disponible</td><td>Genera imágenes con GPT Image a partir de un prompt y una imagen de referencia opcional, configura la relación de aspecto y la cantidad de resultados y, después, previsualiza y descarga cada imagen</td></tr>
 <tr><td valign="top">Redacción de artículos</td><td valign="top">✅ Disponible</td><td>Convierte temas, enlaces, vídeos o documentos en opciones de tema, esquema y artículo editables; añade imágenes y exporta a Markdown, HTML o PDF.</td></tr>
@@ -107,11 +107,9 @@ Empieza a crear a partir de una plantilla, sin tener que preparar cada prompt y 
 
 La colección reúne plantillas originales de OpenCreator y de creadores independientes. Las plantillas de terceros indican el autor y enlazan a la fuente original en su página de detalle.
 
-![Galería de plantillas de creación destacadas para vídeo e imágenes](../images/product/creation-templates-gallery-en.png)
-
 Abre una plantilla para ver un resultado de ejemplo y consultar su prompt, ajustes, etiquetas, autor y fuente original. Selecciona **Usar esta plantilla** para empezar a crear con ella y adapta las entradas a tu proyecto.
 
-![Detalle de una plantilla de imagen con resultado de ejemplo, ajustes y prompt](../images/product/creation-templates-detail-en.png)
+![Detalle de una plantilla de imagen con resultado de ejemplo, ajustes y prompt](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 
@@ -254,39 +252,36 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > Estos ejemplos de vídeo y la imagen de alineación de subtítulos se produjeron cuando OpenCreator todavía utilizaba el nombre KrillinAI.
 
-### Generación de vídeos
-
-Genera un vídeo con IA a partir de una instrucción de texto o una imagen de referencia con Seedance. Configura el modelo, la relación de aspecto, la resolución y la duración; después, previsualiza, vuelve a generar o descarga cada versión desde el espacio de trabajo del proyecto.
-
-![Generación de vídeos en OpenCreator con Seedance](../images/examples/video-generation-seedance-en.png)
-
 ### Descarga de vídeos
 
-Analiza un enlace de vídeo público, compara los formatos disponibles y descarga el vídeo o el audio directamente en el proyecto.
+Analiza enlaces de vídeo públicos de 10 plataformas compatibles, compara los formatos disponibles y descarga el vídeo o el audio directamente en el proyecto.
 
 Fuentes de vídeo compatibles:
 
 <table align="center">
   <tr>
-    <td align="center" width="96"><img src="../images/platforms/youtube.png" alt="YouTube" width="32" height="32" /><br /><strong>YouTube</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/bilibili.png" alt="Bilibili" width="32" height="32" /><br /><strong>Bilibili</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/x.png" alt="X" width="32" height="32" /><br /><strong>X</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/tiktok.png" alt="TikTok" width="32" height="32" /><br /><strong>TikTok</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/instagram.png" alt="Instagram" width="32" height="32" /><br /><strong>Instagram</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/douyin.png" alt="Douyin" width="32" height="32" /><br /><strong>Douyin</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="32" height="32" /><br /><strong>Xiaohongshu</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
+    <td align="center" width="48"><img src="../images/platforms/youtube.png" alt="YouTube" width="24" height="24" /><br /><small><small>YouTube</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/bilibili.png" alt="Bilibili" width="24" height="24" /><br /><small><small>Bilibili</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/x.png" alt="X" width="24" height="24" /><br /><small><small>X</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/tiktok.png" alt="TikTok" width="24" height="24" /><br /><small><small>TikTok</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/instagram.png" alt="Instagram" width="24" height="24" /><br /><small><small>Instagram</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/douyin.png" alt="Douyin" width="24" height="24" /><br /><small><small>Douyin</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/facebook.png" alt="Facebook" width="24" height="24" /><br /><small><small>Facebook</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="24" height="24" /><br /><small><small>Xiaohongshu</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="24" height="24" /><br /><small><small>Pinterest</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/reddit.png" alt="Reddit" width="24" height="24" /><br /><small><small>Reddit</small></small></td>
   </tr>
 </table>
 
 La disponibilidad depende del vídeo y la región; algunas fuentes pueden requerir cookies de la plataforma. OpenCreator no importa automáticamente las cookies del navegador.
 
-**Publicaciones de vídeo de Xiaohongshu:** Pega la URL pública completa `https://www.xiaohongshu.com/explore/<ID hexadecimal de 24 caracteres>`, incluidos los parámetros como `xsec_token`. Las publicaciones solo con imágenes no tienen formatos de vídeo; los perfiles y los enlaces cortos de `xhslink.com` aún no son compatibles. Los tokens caducados o las restricciones de acceso pueden impedir la descarga.
-
-**Pines de vídeo de Pinterest:** Pega un enlace público `https://www.pinterest.com/pin/<ID numérico>/`. Los pines solo con imágenes, los tableros y los perfiles no son compatibles.
-
 ![Selección de formatos del descargador de vídeos de OpenCreator](../images/examples/video-downloader-formats-en.png)
+
+### Generación de vídeos
+
+Genera un vídeo con IA a partir de una instrucción de texto o una imagen de referencia con Seedance. Configura el modelo, la relación de aspecto, la resolución y la duración; después, previsualiza, vuelve a generar o descarga cada versión desde el espacio de trabajo del proyecto.
+
+![Generación de vídeos en OpenCreator con Seedance](../images/examples/video-generation-seedance-en.png)
 
 ### Animación de figuras de palitos
 

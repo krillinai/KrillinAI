@@ -19,6 +19,8 @@ import {
 } from './codex/capabilities.js';
 import { resolveCodexHome } from './codex/home.js';
 import { importLocalCodexConfiguration } from './codex/probe-home.js';
+import { setTimeout as delay } from 'node:timers/promises';
+import type { prepareOfficialRuntimeProbe } from './gateway/runtime-probe.js';
 import {
   CODEX_PROBE_TIMEOUT_MS,
   probeCodex
@@ -31,6 +33,7 @@ import {
 import {
   createProductionServerInput,
   parseRuntimeChannel,
+  requiresPaidStartupProbe,
   resolveProductionRuntimePaths,
   resolveProductionServerEnvironment
 } from './startup.js';
@@ -50,6 +53,7 @@ let releaseRuntimeLock: (() => void) | undefined;
 let stopManagedParentWatch: (() => void) | undefined;
 let cancelCapabilityRefresh: (() => void) | undefined;
 let cancelAvailabilityProbe: (() => void) | undefined;
+let availabilityProbeWork: Promise<void> | undefined;
 
 await main().catch(error => {
   emitBootstrapError({
@@ -123,7 +127,7 @@ async function main(): Promise<void> {
   if (!versionProbe.ready) {
     emitBootstrapError({
       code: 'CODEX_VERSION_CHECK_FAILED',
-      message: 'Codex CLI 无法正常启动，请重新安装或选择其他 Codex 可执行文件',
+      message: 'Codex CLI could not start. Reinstall it or select another Codex executable.',
       details: {
         codexBin,
         version: versionProbe.version,
@@ -134,8 +138,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const shouldRunAvailabilityProbe =
-    requiresProbe() && process.env.OPENCREATOR_CODEX_PROBE_VERIFIED !== '1';
+  const shouldRunAvailabilityProbe = requiresPaidStartupProbe();
   let availabilityProbe: CodexAvailabilityProbe = shouldRunAvailabilityProbe
     ? { status: 'pending' }
     : {
@@ -155,11 +158,13 @@ async function main(): Promise<void> {
         startBackgroundRefresh() {}
       };
   const capabilities = capabilityResolution.state;
+  let prepareAvailabilityProbe: (() => ReturnType<typeof prepareOfficialRuntimeProbe>) | undefined;
   const { buildServer } = await import('./api/server.js');
   server = await buildServer(createProductionServerInput({
     token,
     capabilities,
     getCodexAvailabilityProbe: () => availabilityProbe,
+    onPrepareAvailabilityProbe(prepare) { prepareAvailabilityProbe = prepare; },
     persistentAppServerEnabled:
       process.env.OPENCREATOR_PERSISTENT_APP_SERVER !== '0',
     ...(process.env.OPENCREATOR_E2E_FAKE_CODEX_CONFIG !== undefined
@@ -207,20 +212,21 @@ async function main(): Promise<void> {
   if (shouldRunAvailabilityProbe) {
     const controller = new AbortController();
     cancelAvailabilityProbe = () => controller.abort();
-    void runAvailabilityProbe({
+    availabilityProbeWork = runAvailabilityProbe({
       codexBin,
-      codexHome,
       dataDir,
+      prepare: () => prepareAvailabilityProbe!(),
       signal: controller.signal,
       update(next) {
         availabilityProbe = next;
       }
+    }).catch(() => {
+      if (!controller.signal.aborted) availabilityProbe = {
+        status: 'failed', checkedAt: new Date().toISOString(),
+        errorCode: 'OFFICIAL_PROBE_UNAVAILABLE', message: 'Official model availability probe is unavailable'
+      };
     });
   }
-}
-
-function requiresProbe(): boolean {
-  return process.env.OPENCREATOR_REQUIRE_CODEX_PROBE === '1';
 }
 
 async function closeServer(): Promise<void> {
@@ -228,6 +234,7 @@ async function closeServer(): Promise<void> {
   stopManagedParentWatch = undefined;
   cancelCapabilityRefresh?.();
   cancelAvailabilityProbe?.();
+  await availabilityProbeWork;
   closeWork ??= server?.close() ?? Promise.resolve();
   await closeWork;
   releaseRuntimeLock?.();
@@ -394,25 +401,35 @@ function probeErrorMessage(input: {
 }): string {
   if (input.stderrSummary !== undefined) return input.stderrSummary;
   if (input.exitCode !== null && input.exitCode !== 0) {
-    return `Codex CLI 退出码为 ${input.exitCode}`;
+    return `Codex CLI exited with code ${input.exitCode}`;
   }
-  return `Codex CLI 未返回有效回复（${input.terminationReason}）`;
+  return `Codex CLI returned no valid response (${input.terminationReason})`;
 }
 
 async function runAvailabilityProbe(input: {
   codexBin: string;
-  codexHome: string;
   dataDir: string;
+  prepare(): ReturnType<typeof prepareOfficialRuntimeProbe>;
   signal: AbortSignal;
   update(probe: CodexAvailabilityProbe): void;
 }): Promise<void> {
-  const result = await probeCodex({
-    codexBin: input.codexBin,
-    codexHome: input.codexHome,
-    cwd: join(input.dataDir, 'probe'),
-    timeoutMs: CODEX_PROBE_TIMEOUT_MS,
-    signal: input.signal
-  });
+  let prepared: Awaited<ReturnType<typeof input.prepare>>;
+  while (!input.signal.aborted) {
+    try { prepared = await input.prepare(); } catch { /* Retry when platform credentials become available. */ }
+    if (prepared) break;
+    await delay(30_000, undefined, { signal: input.signal });
+  }
+  if (!prepared) return;
+  if (input.signal.aborted) { await prepared.cleanup(); return; }
+  const result = await (async () => {
+    try {
+      return await probeCodex({
+        codexBin: input.codexBin, codexHome: prepared.codexHome,
+        baseEnvironment: prepared.env, cwd: join(input.dataDir, 'probe'),
+        timeoutMs: CODEX_PROBE_TIMEOUT_MS, signal: input.signal
+      });
+    } finally { await prepared.cleanup(); }
+  })();
   if (input.signal.aborted) return;
   const checkedAt = new Date().toISOString();
   if (result.ready) {
@@ -440,7 +457,7 @@ async function runAvailabilityProbe(input: {
     errorCode,
     message
   });
-  console.warn(`Codex 后台可用性验证失败 [${errorCode}]：${message}`);
+  console.warn(`Codex background availability check failed [${errorCode}]: ${message}`);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

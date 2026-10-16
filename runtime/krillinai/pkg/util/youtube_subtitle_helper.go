@@ -357,6 +357,7 @@ func ParseVttToWords(vttPath string) ([]Word, error) {
 
 	var words []Word
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 4096), 4*1024*1024)
 	var blockStartTime, blockEndTime float64
 	wordNum := 0
 
@@ -460,6 +461,7 @@ func ParseSrtFile(srtFilePath string) ([]*SrtBlock, error) {
 
 	var srtBlocks []*SrtBlock
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 4096), 4*1024*1024)
 	var currentBlock []string
 
 	for scanner.Scan() {

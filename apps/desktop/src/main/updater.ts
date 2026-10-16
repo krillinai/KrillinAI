@@ -124,10 +124,10 @@ export function startUpdater(input: {
       try {
         const choice = await showMessageBox({
           type: 'info',
-          title: 'OpenCreator 更新',
-          message: `发现 OpenCreator ${info.version}`,
-          detail: '可以在后台下载更新，当前任务不会被中断。',
-          buttons: ['下载更新', '稍后'],
+          title: 'OpenCreator update',
+          message: `OpenCreator ${info.version} is available`,
+          detail: 'The update can download in the background without interrupting your current tasks.',
+          buttons: ['Download update', 'Later'],
           defaultId: 0,
           cancelId: 1
         });
@@ -148,10 +148,10 @@ export function startUpdater(input: {
       try {
         const choice = await showMessageBox({
           type: 'info',
-          title: '更新已下载',
-          message: `OpenCreator ${info.version} 已准备好`,
-          detail: '退出并安装会关闭当前本地运行服务，请确认没有需要继续运行的任务。',
-          buttons: ['退出并安装', '稍后'],
+          title: 'Update downloaded',
+          message: `OpenCreator ${info.version} is ready to install`,
+          detail: 'Quitting to install will stop the local Runtime. Make sure no tasks need to keep running.',
+          buttons: ['Quit and install', 'Later'],
           defaultId: 1,
           cancelId: 1
         });

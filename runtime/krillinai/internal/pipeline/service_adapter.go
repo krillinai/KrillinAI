@@ -9,7 +9,7 @@ import (
 )
 
 type StageService interface {
-	TranslateSubtitleBlocks(context.Context, []*util.SrtBlock, *types.SubtitleTaskStepParam) error
+	TranslateSubtitleBlocks(context.Context, []*util.SrtBlock, *types.SubtitleTaskStepParam) ([]*util.SrtBlock, error)
 	PrepareMedia(context.Context, *types.SubtitleTaskStepParam) error
 	GenerateSubtitlesFromAudio(context.Context, *types.SubtitleTaskStepParam) error
 	GenerateSpeechFromSRT(context.Context, *types.SubtitleTaskStepParam) error
@@ -20,7 +20,7 @@ type StageService interface {
 	GenerateCoverImage(context.Context, pkgimage.GenerateRequest) (pkgimage.GenerateResult, error)
 }
 
-func (a *ServiceAdapter) TranslateSubtitleBlocks(ctx context.Context, blocks []*util.SrtBlock, p *types.SubtitleTaskStepParam) error {
+func (a *ServiceAdapter) TranslateSubtitleBlocks(ctx context.Context, blocks []*util.SrtBlock, p *types.SubtitleTaskStepParam) ([]*util.SrtBlock, error) {
 	return a.svc.TranslateSubtitleBlocks(ctx, blocks, p)
 }
 

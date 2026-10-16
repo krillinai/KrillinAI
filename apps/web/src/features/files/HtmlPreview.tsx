@@ -1,3 +1,4 @@
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import { ExternalLink } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -54,6 +55,7 @@ export function HtmlPreview(props: {
   onError?(error: unknown): void;
   onReady?(): void;
 }) {
+  const l = useLocalizedCopy();
   const [preview, setPreview] = useState<PreviewState>({ status: 'loading' });
 
   useEffect(() => {
@@ -82,34 +84,32 @@ export function HtmlPreview(props: {
   if (preview.status === 'loading') {
     return (
       <div className="file-preview file-preview-html file-preview-html-status" role="status">
-        正在准备 HTML 预览...
-      </div>
+        {l("正在准备 HTML 预览...", "Preparing HTML preview...")}</div>
     );
   }
 
   if (preview.status === 'error') {
     return (
       <div className="file-preview file-preview-html file-preview-html-status" role="status">
-        预览暂不可用，可切换至编辑查看源码。
-      </div>
+        {l("预览暂不可用，可切换至编辑查看源码。", "Preview is temporarily unavailable, you can switch to edit to view the source code.")}</div>
     );
   }
 
   return (
     <div className="file-preview file-preview-html">
       <iframe
-        title={`${props.name} HTML 预览`}
+        title={l(`${props.name} HTML 预览`, `${props.name} HTML preview`)}
         srcDoc={preview.document.html}
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"
       />
       {preview.document.externalLinks.length > 0 && props.onOpenExternal !== undefined ? (
-        <div className="html-preview-external-links" aria-label="预览外链">
+        <div className="html-preview-external-links" aria-label={l("预览外链", "Preview external links")}>
           {preview.document.externalLinks.map(link => (
             <button
               key={link.url}
               type="button"
-              aria-label={`外部打开 ${link.label}`}
+              aria-label={l(`外部打开 ${link.label}`, `Open ${link.label} externally`)}
               title={link.url}
               onClick={() => props.onOpenExternal?.(link.url)}
             >

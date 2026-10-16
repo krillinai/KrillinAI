@@ -22,10 +22,12 @@ import {
   PackageOpen,
   Play,
   RefreshCw,
+  Subtitles,
   Video,
   XCircle
 } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import NativeSelect from '../../components/forms/NativeSelect.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
@@ -62,10 +64,11 @@ export default function VideoDownloadWorkspace(props: {
   batch?: VideoDownloadBatchView;
 }) {
   const l = useLocalizedCopy();
+  const { language } = useAppLanguage();
   const session = useOptionalCreatorSession();
   const [url, setUrl] = useState(() => readString(session?.state.sourceUrl) ?? '');
   const [mediaType, setMediaType] = useState<DownloadMediaType>(
-    () => session?.state.mediaType === 'audio' ? 'audio' : 'video'
+    () => session?.state.mediaType === 'subtitle' ? 'subtitle' : session?.state.mediaType === 'audio' ? 'audio' : 'video'
   );
   const [selectedOptionId, setSelectedOptionId] = useState(
     () => readString(session?.state.selectedOptionId) ?? ''
@@ -101,9 +104,13 @@ export default function VideoDownloadWorkspace(props: {
     [probeArtifact, props.batch?.hasSelectedSource]
   );
   const legacy = (session?.job.templateVersion ?? 2) < 2;
-  const options = useMemo(() => (
-    (probe?.options ?? []).filter(option => !legacy || option.mediaType === 'video')
-  ), [legacy, probe?.options]);
+  const options = useMemo(() => {
+    const available = (probe?.options ?? []).filter(option => !legacy || option.mediaType === 'video');
+    return [
+      ...available.filter(option => option.mediaType !== 'subtitle'),
+      ...prioritizeSubtitleOptions(available.filter(option => option.mediaType === 'subtitle'), language)
+    ];
+  }, [language, legacy, probe?.options]);
   const selectedOption = options.find(option => option.id === selectedOptionId);
   const mediaOptions = options.filter(option => option.mediaType === mediaType);
   const audioLanguages = availableAudioLanguages(mediaOptions);
@@ -119,7 +126,7 @@ export default function VideoDownloadWorkspace(props: {
     () => (session?.job.artifacts ?? [])
       .filter(artifact => (
         artifact.status === 'completed'
-        && (artifact.kind === 'source_video' || artifact.kind === 'source_audio')
+        && (artifact.kind === 'source_video' || artifact.kind === 'source_audio' || artifact.kind === 'source_subtitle')
       ))
       .sort(compareArtifactFreshness),
     [session?.job.artifacts]
@@ -170,7 +177,7 @@ export default function VideoDownloadWorkspace(props: {
       const sourceProbeArtifact = latestMatchingProbe(job.artifacts, sourceUrl);
       const sourceProbe = sourceProbeArtifact === undefined ? undefined : readDownloadProbe(sourceProbeArtifact.metadata);
       const artifacts = job.artifacts.filter(artifact => artifact.status === 'completed'
-        && (artifact.kind === 'source_video' || artifact.kind === 'source_audio')).sort(compareArtifactFreshness);
+        && (artifact.kind === 'source_video' || artifact.kind === 'source_audio' || artifact.kind === 'source_subtitle')).sort(compareArtifactFreshness);
       return downloadHistoryItems(sourceProbe?.options ?? [],
         job.stages.filter(stage => stage.stageId === 'download'), artifacts, sourceProbeArtifact, sourceProbe)
         .map(item => ({ ...item, ownerJobId: job.id, sourceTitle: sourceProbe?.title ?? sourceUrl }));
@@ -627,7 +634,7 @@ export default function VideoDownloadWorkspace(props: {
     if (
       stage.stageId !== 'download'
       || optionId === undefined
-      || (mediaType !== 'video' && mediaType !== 'audio')
+      || (mediaType !== 'video' && mediaType !== 'audio' && mediaType !== 'subtitle')
     ) {
       throw new Error('failed download stage cannot be retried');
     }
@@ -870,6 +877,17 @@ export default function VideoDownloadWorkspace(props: {
                             MP3 {l('音频', 'audio')}
                           </button>
                         ) : null}
+                        {!legacy && options.some(option => option.mediaType === 'subtitle') ? (
+                          <button
+                            type="button"
+                            role="tab"
+                            aria-selected={mediaType === 'subtitle'}
+                            onClick={() => selectMediaType('subtitle')}
+                          >
+                            <Subtitles size={15} strokeWidth={1.8} aria-hidden="true" />
+                            SRT {l('字幕', 'Subtitles')}
+                          </button>
+                        ) : null}
                       </div>
                       {audioLanguages.length > 1 && selectedAudioLanguage !== undefined ? (
                         <label className="creator-tool-field video-download-language-field">
@@ -1056,7 +1074,7 @@ export default function VideoDownloadWorkspace(props: {
                               </span>
                             ) : (
                               <div className="video-download-file-actions">
-                                <button
+                                {artifact.kind !== 'source_subtitle' ? <button
                                   type="button"
                                   onClick={() => toggleArtifactPreview(artifact)}
                                   aria-label={previewOpen
@@ -1075,7 +1093,7 @@ export default function VideoDownloadWorkspace(props: {
                                     : previewOpen
                                       ? <ChevronUp size={16} strokeWidth={1.8} />
                                       : <Play size={16} strokeWidth={1.8} />}
-                                </button>
+                                </button> : null}
                                 <button
                                   type="button"
                                   onClick={() => void downloadArtifact(artifact)}
@@ -1237,8 +1255,8 @@ function readDownloadOption(value: CreatorJson): DownloadOption | undefined {
   }
   if (
     typeof value.id !== 'string'
-    || (value.mediaType !== 'video' && value.mediaType !== 'audio')
-    || !['mp4', 'mp3', 'm4a', 'webm'].includes(String(value.container))
+    || (value.mediaType !== 'video' && value.mediaType !== 'audio' && value.mediaType !== 'subtitle')
+    || !['mp4', 'mp3', 'm4a', 'webm', 'srt'].includes(String(value.container))
   ) {
     return undefined;
   }
@@ -1246,6 +1264,9 @@ function readDownloadOption(value: CreatorJson): DownloadOption | undefined {
     id: value.id,
     mediaType: value.mediaType,
     container: value.container as DownloadOption['container'],
+    ...(typeof value.subtitleLanguage === 'string' ? { subtitleLanguage: value.subtitleLanguage } : {}),
+    ...(typeof value.subtitleName === 'string' ? { subtitleName: value.subtitleName } : {}),
+    ...(value.subtitleSource === 'manual' || value.subtitleSource === 'automatic' ? { subtitleSource: value.subtitleSource } : {}),
     ...(readString(value.audioLanguage) === undefined
       ? {}
       : { audioLanguage: readString(value.audioLanguage) }),
@@ -1451,6 +1472,7 @@ function downloadPhaseLabel(
 
 function downloadHistoryIcon(item: DownloadHistoryItem) {
   if (item.artifact !== undefined) {
+    if (item.artifact.kind === 'source_subtitle') return <Subtitles size={18} strokeWidth={1.7} />;
     return item.artifact.kind === 'source_audio'
       ? <FileAudio size={18} strokeWidth={1.7} />
       : <FileVideo size={18} strokeWidth={1.7} />;
@@ -1477,6 +1499,9 @@ function optionLabel(
   const prefix = option.playlistIndex === undefined
     ? ''
     : `${l('视频', 'Video')} ${option.playlistIndex} · `;
+  if (option.mediaType === 'subtitle') {
+    return `${prefix}${option.subtitleName ?? audioLanguageLabel(option.subtitleLanguage ?? 'und', l)}`;
+  }
   if (option.mediaType === 'audio') {
     return `${prefix}${option.bitrateKbps ?? 192}kbps`;
   }
@@ -1489,6 +1514,10 @@ function optionDetail(
   l: ReturnType<typeof useLocalizedCopy>
 ): string {
   const parts = [option.container.toUpperCase()];
+  if (option.mediaType === 'subtitle') {
+    parts.push(option.subtitleSource === 'automatic' ? l('自动字幕', 'Automatic captions') : l('人工字幕', 'Manual subtitles'));
+    if (option.subtitleLanguage !== undefined) parts.push(option.subtitleLanguage);
+  }
   if (option.width !== undefined && option.height !== undefined) {
     parts.push(`${option.width} x ${option.height}`);
   }
@@ -1505,7 +1534,11 @@ function artifactDescription(
   l: ReturnType<typeof useLocalizedCopy>
 ): string {
   const parts = [
-    artifact.kind === 'source_audio' ? 'MP3' : 'MP4',
+    artifact.kind === 'source_subtitle' ? 'SRT' : artifact.kind === 'source_audio' ? 'MP3' : 'MP4',
+    readString(artifact.metadata.subtitleLanguage) === undefined ? undefined
+      : audioLanguageLabel(readString(artifact.metadata.subtitleLanguage)!, l),
+    artifact.kind !== 'source_subtitle' ? undefined : artifact.metadata.subtitleSource === 'automatic'
+      ? l('自动字幕', 'Automatic captions') : l('人工字幕', 'Manual subtitles'),
     readNumber(artifact.metadata.size) === undefined
       ? undefined
       : formatBytes(readNumber(artifact.metadata.size)!),
@@ -1522,6 +1555,29 @@ function artifactDescription(
     l('已保存到项目', 'Saved to project')
   ];
   return parts.filter(Boolean).join(' · ');
+}
+
+function prioritizeSubtitleOptions(options: DownloadOption[], language: string): DownloadOption[] {
+  const appLocale = subtitleLocale(language);
+  const english = options.findIndex(option => subtitleLocale(option.subtitleLanguage)?.language === 'en');
+  const localized = appLocale === undefined || appLocale.language === 'en' ? -1 : options.findIndex(option => {
+    const locale = subtitleLocale(option.subtitleLanguage);
+    return locale?.language === appLocale.language && locale.script === appLocale.script;
+  });
+  const promoted = [english, localized].filter(index => index >= 0);
+  return [
+    ...promoted.map(index => options[index]!),
+    ...options.filter((_option, index) => !promoted.includes(index))
+  ];
+}
+
+function subtitleLocale(language: string | undefined): Intl.Locale | undefined {
+  if (language === undefined) return undefined;
+  try {
+    return new Intl.Locale(language.trim().replaceAll('_', '-').replace(/-orig$/i, '')).maximize();
+  } catch {
+    return undefined;
+  }
 }
 
 function availableAudioLanguages(options: DownloadOption[]): string[] {
@@ -1648,6 +1704,12 @@ function formatDownloadError(
   }
   if (/login_required/i.test(message)) {
     return l('平台要求登录或有效 Cookie，当前无法下载', 'This video requires sign-in or fresh platform cookies.');
+  }
+  if (/platform_session_required/i.test(message)) {
+    return l('抖音未接受浏览器会话或需要网页验证，请在设置的平台连接中重新连接抖音后重试', 'Douyin did not accept the browser session or requires website verification. Reconnect Douyin in Settings > Platform connections and retry.');
+  }
+  if (/platform_request_signature_required/i.test(message)) {
+    return l('当前下载器尚未兼容抖音请求签名校验，请使用本地视频文件继续', 'The downloader does not yet support Douyin request signatures. Use a local video file to continue.');
   }
   if (/region_or_copyright_restricted/i.test(message)) {
     return l('该视频受地区或版权限制，当前无法下载', 'This video is region or copyright restricted.');

@@ -8,7 +8,10 @@ import { clearPageIssues, publishPageIssue } from './page-issue-hub.js';
 import { normalizePageIssue, usePageIssueState } from './page-issue-state.js';
 import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
-afterEach(() => act(() => clearPageIssues()));
+afterEach(() => {
+  act(() => clearPageIssues());
+  vi.useRealTimers();
+});
 
 function Harness(props: {
   onAskIssue: Parameters<typeof AgentDiagnosticsPanel>[0]['onAskIssue'];
@@ -26,6 +29,75 @@ function Harness(props: {
 }
 
 describe('AgentDiagnosticsPanel', () => {
+  it('automatically collapses a new diagnosis without discarding its record', () => {
+    vi.useFakeTimers();
+    render(<LanguageProvider initialPreference="en-US"><AgentDiagnosticsPanel onAskIssue={vi.fn()} /></LanguageProvider>);
+    act(() => publishPageIssue(normalizePageIssue('projects', 'projects.create', new Error('raw detail'), 'Creation failed')));
+    expect(screen.getByRole('complementary', { name: 'Agent diagnostics' })).toBeVisible();
+
+    act(() => vi.advanceTimersByTime(6000));
+
+    expect(screen.queryByRole('complementary', { name: 'Agent diagnostics' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open Agent diagnostics' }));
+    expect(screen.getByRole('complementary', { name: 'Agent diagnostics' })).toHaveTextContent('CLIENT_OPERATION_FAILED');
+    act(() => vi.advanceTimersByTime(6000));
+    expect(screen.getByRole('complementary', { name: 'Agent diagnostics' })).toBeVisible();
+  });
+
+  it('does not reopen for another occurrence of the same error', () => {
+    vi.useFakeTimers();
+    render(<LanguageProvider initialPreference="en-US"><Harness onAskIssue={vi.fn()} onRetry={vi.fn()} /></LanguageProvider>);
+    fireEvent.click(screen.getByRole('button', { name: '创建项目' }));
+    act(() => vi.advanceTimersByTime(6000));
+    fireEvent.click(screen.getByRole('button', { name: '创建项目' }));
+    expect(screen.queryByRole('complementary', { name: 'Agent diagnostics' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '归档项目' }));
+    expect(screen.getByRole('complementary', { name: 'Agent diagnostics' })).toBeVisible();
+    act(() => vi.advanceTimersByTime(6000));
+    fireEvent.click(screen.getByRole('button', { name: '创建项目' }));
+    fireEvent.click(screen.getByRole('button', { name: '归档项目' }));
+    expect(screen.queryByRole('complementary', { name: 'Agent diagnostics' })).not.toBeInTheDocument();
+  });
+
+  it('pauses automatic collapse while reading and preserves an in-progress question', () => {
+    vi.useFakeTimers();
+    render(<LanguageProvider initialPreference="en-US"><Harness onAskIssue={vi.fn()} onRetry={vi.fn()} /></LanguageProvider>);
+    fireEvent.click(screen.getByRole('button', { name: '创建项目' }));
+    const panel = screen.getByRole('complementary', { name: 'Agent diagnostics' });
+    fireEvent.mouseEnter(panel);
+    act(() => vi.advanceTimersByTime(60000));
+    expect(panel).toBeVisible();
+    fireEvent.mouseLeave(panel);
+    act(() => vi.advanceTimersByTime(6000));
+    expect(screen.queryByRole('complementary', { name: 'Agent diagnostics' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '归档项目' }));
+    const input = screen.getByRole('textbox', { name: 'Ask about this error' });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'How do I retry?' } });
+    act(() => vi.advanceTimersByTime(60000));
+    expect(input).toHaveValue('How do I retry?');
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByRole('complementary', { name: 'Agent diagnostics' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open Agent diagnostics' }));
+    expect(screen.getByRole('textbox', { name: 'Ask about this error' })).toHaveValue('How do I retry?');
+  });
+
+  it('collapses on outside click or Escape but keeps interactions inside the panel available', () => {
+    render(<LanguageProvider initialPreference="en-US"><Harness onAskIssue={vi.fn()} onRetry={vi.fn()} /></LanguageProvider>);
+    fireEvent.click(screen.getByRole('button', { name: '创建项目' }));
+    const input = screen.getByRole('textbox', { name: 'Ask about this error' });
+    fireEvent.pointerDown(input);
+    expect(screen.getByRole('complementary', { name: 'Agent diagnostics' })).toBeVisible();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole('complementary', { name: 'Agent diagnostics' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open Agent diagnostics' }));
+    act(() => screen.getByRole('textbox', { name: 'Ask about this error' }).focus());
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('complementary', { name: 'Agent diagnostics' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open Agent diagnostics' })).toHaveFocus();
+  });
+
   it('updates diagnosis guidance and preserves the typed question across language changes', () => {
     const raw = '后台原文：本地 Whisper 下载失败';
     act(() => publishPageIssue({ ...normalizePageIssue('runtime', 'creator.prepare', new Error(raw), raw), code: 'creator_dependency_prepare_failed' }));

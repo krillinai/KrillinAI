@@ -705,10 +705,14 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 	if isHorizontal {
 		screenStyle = styleSet.Horizontal
 	}
-	majorTags := subtitlestyle.DialogueTags(screenStyle.Major)
-	minorTags := subtitlestyle.DialogueTags(screenStyle.Minor)
-	majorAlignment := subtitlestyle.Alignment(screenStyle.Major)
-	minorAlignment := subtitlestyle.Alignment(screenStyle.Minor)
+	majorPrefix := fmt.Sprintf("{\\rMajor}{\\an%d}%s", subtitlestyle.Alignment(screenStyle.Major), subtitlestyle.DialogueTags(screenStyle.Major))
+	minorPrefix := fmt.Sprintf("{\\rMinor}{\\an%d}%s", subtitlestyle.Alignment(screenStyle.Minor), subtitlestyle.DialogueTags(screenStyle.Minor))
+	firstStyle, secondStyle := screenStyle.Major, screenStyle.Minor
+	firstPrefix, secondPrefix := majorPrefix, minorPrefix
+	if stepParam != nil && stepParam.SubtitleResultType == types.SubtitleResultTypeBilingualTranslationOnBottom {
+		firstStyle, secondStyle = screenStyle.Minor, screenStyle.Major
+		firstPrefix, secondPrefix = minorPrefix, majorPrefix
+	}
 
 	if isHorizontal {
 		_, _ = assFile.WriteString(subtitlestyle.BuildAssHeader(styleSet, isHorizontal))
@@ -766,15 +770,13 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 			endFormatted := formatTimestamp(endTime)
 			if len(subtitleLines) == 1 {
 				majorText := joinASSLines(wrapSubtitleForASS(subtitleLines[0], screenStyle.Major, stepParam))
-				combinedText := fmt.Sprintf("%s{\\an%d}{\\rMajor}%s", majorTags, majorAlignment, majorText)
+				combinedText := majorPrefix + majorText
 				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 				continue
 			}
-			majorText := joinASSLines(wrapSubtitleForASS(subtitleLines[0], screenStyle.Major, stepParam))
-			minorText := joinASSLines(wrapSubtitleForASS(subtitleLines[1], screenStyle.Minor, stepParam))
-			combinedText := fmt.Sprintf("%s{\\an%d}{\\rMajor}%s\\N%s{\\an%d}{\\rMinor}%s",
-				majorTags, majorAlignment, majorText,
-				minorTags, minorAlignment, minorText)
+			majorText := joinASSLines(wrapSubtitleForASS(subtitleLines[0], firstStyle, stepParam))
+			minorText := joinASSLines(wrapSubtitleForASS(subtitleLines[1], secondStyle, stepParam))
+			combinedText := firstPrefix + majorText + `\N` + secondPrefix + minorText
 			_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 		}
 	} else {
@@ -819,11 +821,9 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 			if len(subtitleLines) > 1 {
 				startFormatted := formatTimestamp(startTime)
 				endFormatted := formatTimestamp(endTime)
-				majorText := joinASSLines(wrapSubtitleForASS(subtitleLines[0], screenStyle.Major, stepParam))
-				minorText := joinASSLines(wrapSubtitleForASS(subtitleLines[1], screenStyle.Minor, stepParam))
-				combinedText := fmt.Sprintf("%s{\\an%d}{\\rMajor}%s\\N%s{\\an%d}{\\rMinor}%s",
-					majorTags, majorAlignment, majorText,
-					minorTags, minorAlignment, minorText)
+				majorText := joinASSLines(wrapSubtitleForASS(subtitleLines[0], firstStyle, stepParam))
+				minorText := joinASSLines(wrapSubtitleForASS(subtitleLines[1], secondStyle, stepParam))
+				combinedText := firstPrefix + majorText + `\N` + secondPrefix + minorText
 				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 				continue
 			}
@@ -845,22 +845,16 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 					}
 					startFormatted := formatTimestamp(iStart)
 					endFormatted := formatTimestamp(iEnd)
-					combinedText := fmt.Sprintf("%s{\\an%d}{\\rMajor}%s",
-						majorTags,
-						majorAlignment,
-						line)
+					combinedText := majorPrefix + line
 					_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 				}
 			} else {
 				// 处理英文字幕
 				startFormatted := formatTimestamp(startTime)
 				endFormatted := formatTimestamp(endTime)
-				cleanedText := joinASSLines(wrapSubtitleForASS(content, screenStyle.Minor, stepParam))
-				combinedText := fmt.Sprintf("%s{\\an%d}{\\rMinor}%s",
-					minorTags,
-					minorAlignment,
-					cleanedText)
-				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Minor,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
+				cleanedText := joinASSLines(wrapSubtitleForASS(content, screenStyle.Major, stepParam))
+				combinedText := majorPrefix + cleanedText
+				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 			}
 		}
 	}

@@ -87,7 +87,10 @@ describe('runtime api', () => {
       schedulerAutostart: true
     });
 
-    expect(scheduler.start).toHaveBeenCalledTimes(1);
+    expect(scheduler.start).not.toHaveBeenCalled();
+    expect(steps).toEqual(['repair', 'classify']);
+    await server.listen({ host: '127.0.0.1', port: 0 });
+    await expect.poll(() => vi.mocked(scheduler.start).mock.calls.length).toBe(1);
     expect(steps).toEqual(['repair', 'classify', 'start']);
 
     await server.close();

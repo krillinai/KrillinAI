@@ -779,6 +779,14 @@ describe('DashboardPage', () => {
     expect(screen.queryByText('Digital Avatar')).not.toBeInTheDocument();
   });
 
+  it('renders the app directory in Brazilian Portuguese', () => {
+    render(<LanguageProvider initialPreference="pt-BR"><DashboardPage onSelectPrompt={vi.fn()} /></LanguageProvider>);
+    expect(screen.getByRole('heading', { name: 'Painel', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Aplicativos em destaque' })).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: 'Pesquisar aplicativos' })).toBeInTheDocument();
+    expect(screen.getByText('Traduzir e dublar vídeo')).toBeInTheDocument();
+  });
+
   it('creates the selected project type from the dashboard dropdown', async () => {
     const onCreateProject = vi.fn();
 
@@ -987,7 +995,7 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('heading', { name: '视频翻译配音' })).toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: 'OpenCreator' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '拖放视频到这里' })).toBeInTheDocument();
-    expect(screen.getByRole('list', { name: '支持的平台' }).querySelectorAll('li')).toHaveLength(9);
+    expect(screen.getByRole('list', { name: '支持的平台' }).querySelectorAll('li')).toHaveLength(10);
     fireEvent.change(screen.getByRole('textbox', { name: '视频链接' }), {
       target: { value: 'https://www.youtube.com/watch?v=test' }
     });
@@ -1140,18 +1148,22 @@ describe('DashboardPage', () => {
   });
 
   it('submits public video link analysis from the dashboard', async () => {
-    render(<DashboardPage onSelectPrompt={vi.fn()} />);
+    const creatorService = createInMemoryCreatorService();
+    const applyAction = vi.spyOn(creatorService, 'applyAction');
+    render(<DashboardPage onSelectPrompt={vi.fn()} creatorService={creatorService} />);
     openBlankWorkspace('视频下载', '空白视频下载');
 
     expect(screen.getByRole('heading', { name: '视频下载' })).toBeInTheDocument();
-    fireEvent.change(screen.getByRole('textbox', { name: '待下载视频链接' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: '视频链接' }), {
       target: { value: 'https://www.youtube.com/watch?v=download-test' }
     });
-    fireEvent.click(screen.getByRole('button', { name: '解析链接' }));
+    fireEvent.click(screen.getByRole('button', { name: '添加并解析' }));
 
-    expect(await screen.findByText('解析任务已提交，真实规格返回后会自动显示'))
-      .toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: '下载规格' })).not.toBeInTheDocument();
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+      action: 'run-stage', input: { stageId: 'probe' }
+    })));
+    expect(await screen.findByRole('list', { name: '视频链接列表' })).toHaveTextContent('https://www.youtube.com/watch?v=download-test');
+    expect(screen.getByRole('tab', { name: '下载规格' })).toBeInTheDocument();
   });
 
   it('opens the runtime-backed stickman workspace from the dashboard', async () => {

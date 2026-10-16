@@ -1,3 +1,6 @@
+import type { LocalizeCopy } from '../../i18n/useLocalizedCopy.js';
+import { useAppLanguage } from '../../i18n/LanguageProvider.js';
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type {
   CreateScheduleRequest,
   CodexProfileResponse,
@@ -93,6 +96,8 @@ export type SchedulesViewProps = {
 };
 
 export function SchedulesView(props: SchedulesViewProps) {
+  const l = useLocalizedCopy();
+  const { language } = useAppLanguage();
   const confirm = useConfirmDialog();
   const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -125,7 +130,7 @@ export function SchedulesView(props: SchedulesViewProps) {
     } catch (cause) {
       if (generation !== requestGenerationRef.current) return;
       setLoadError('无法加载定时任务');
-      pageIssues.captureOperationFailure('schedules.load', cause, '无法加载定时任务，请重试。', { retryable: true });
+      pageIssues.captureOperationFailure('schedules.load', cause, l("无法加载定时任务，请重试。", "Unable to load the scheduled task, please try again."), { retryable: true });
     } finally {
       if (generation === requestGenerationRef.current && showLoading) setLoading(false);
     }
@@ -184,7 +189,7 @@ export function SchedulesView(props: SchedulesViewProps) {
       return [
         schedule.name,
         schedule.promptPreviewRedacted,
-        formatScheduleFrequency(schedule.cron),
+        formatScheduleFrequency(schedule.cron, language),
       ].some(value => value.toLocaleLowerCase().includes(normalizedQuery));
     });
   }, [filter, query, schedules]);
@@ -194,8 +199,8 @@ export function SchedulesView(props: SchedulesViewProps) {
       <section className="schedules-view">
         <div className="schedules-state">
           <CalendarClock size={28} aria-hidden="true" />
-          <h2>已安排功能暂不可用</h2>
-          <p>连接本地运行内核后可以创建和管理任务</p>
+          <h2>{l("已安排功能暂不可用", "Scheduled functions are temporarily unavailable")}</h2>
+          <p>{l("连接本地运行内核后可以创建和管理任务", "Connect to the local Runtime to create and manage tasks")}</p>
         </div>
       </section>
     );
@@ -238,7 +243,7 @@ export function SchedulesView(props: SchedulesViewProps) {
           : current
       ));
     } catch (error) {
-      pageIssues.captureOperationFailure('schedules.load-detail', error, '无法加载计划详情，请重试。');
+      pageIssues.captureOperationFailure('schedules.load-detail', error, l("无法加载计划详情，请重试。", "Unable to load plan details, please try again."));
       setEditor(current => (
         current?.mode === 'edit' && current.scheduleId === schedule.id
           ? { ...current, loading: false }
@@ -249,7 +254,7 @@ export function SchedulesView(props: SchedulesViewProps) {
 
   async function saveEditor(values: ScheduleEditorValues) {
     if (props.service === null || editor === undefined) return;
-    const validationErrors = validateScheduleEditorValues(values);
+    const validationErrors = validateScheduleEditorValues(values, l);
     if (Object.keys(validationErrors).length > 0) {
       setEditorErrors(validationErrors);
       return;
@@ -267,9 +272,9 @@ export function SchedulesView(props: SchedulesViewProps) {
       props.onScheduleChanged(saved);
       pageIssues.resolveOperation('schedules.save');
     } catch (error) {
-      const mapped = mapScheduleError(error);
+      const mapped = mapScheduleError(l, error);
       setEditorErrors({ ...mapped, form: undefined });
-      pageIssues.captureOperationFailure('schedules.save', error, mapped.form ?? '无法保存计划任务，请检查后重试。');
+      pageIssues.captureOperationFailure('schedules.save', error, mapped.form ?? l("无法保存计划任务，请检查后重试。", "Unable to save scheduled task, please check and try again."));
     } finally {
       setSaving(false);
     }
@@ -287,7 +292,7 @@ export function SchedulesView(props: SchedulesViewProps) {
       pageIssues.resolveOperation('schedules.toggle');
     } catch (error) {
       setSchedules(current => replaceSchedule(current, schedule));
-      pageIssues.captureOperationFailure('schedules.toggle', error, '无法更新任务状态，请重试。');
+      pageIssues.captureOperationFailure('schedules.toggle', error, l("无法更新任务状态，请重试。", "Unable to update task status, please try again."));
     } finally {
       setBusy(schedule.id, false);
     }
@@ -300,7 +305,7 @@ export function SchedulesView(props: SchedulesViewProps) {
       await props.onRunNow(schedule);
       pageIssues.resolveOperation('schedules.run-now');
     } catch (error) {
-      pageIssues.captureOperationFailure('schedules.run-now', error, '无法立即运行任务，请重试。');
+      pageIssues.captureOperationFailure('schedules.run-now', error, l("无法立即运行任务，请重试。", "Unable to run task now, please try again."));
     } finally {
       setBusy(schedule.id, false);
     }
@@ -310,9 +315,9 @@ export function SchedulesView(props: SchedulesViewProps) {
     if (props.service === null || busyIds.has(schedule.id)) return;
     const confirmed = props.confirmDelete?.(schedule)
       ?? await confirm({
-        title: '删除任务',
-        description: `确认删除“${schedule.name}”？删除后无法恢复。`,
-        confirmLabel: '删除任务',
+        title: l('删除任务', 'Delete task'),
+        description: l(`确认删除“${schedule.name}”？删除后无法恢复。`, `Delete “${schedule.name}”? This cannot be undone.`),
+        confirmLabel: l('删除任务', 'Delete task'),
         destructive: true
       });
     if (!confirmed) return;
@@ -326,7 +331,7 @@ export function SchedulesView(props: SchedulesViewProps) {
         setEditor(undefined);
       }
     } catch (error) {
-      pageIssues.captureOperationFailure('schedules.delete', error, '无法删除任务，请重试。');
+      pageIssues.captureOperationFailure('schedules.delete', error, l("无法删除任务，请重试。", "Unable to delete task, please try again."));
     } finally {
       setBusy(schedule.id, false);
     }
@@ -353,8 +358,8 @@ export function SchedulesView(props: SchedulesViewProps) {
         <>
             <header className="schedules-view__header">
               <div>
-                <h1>定时任务</h1>
-                <p>安排任务、设置提醒或定期处理工作</p>
+                <h1>{l("定时任务", "Scheduled tasks")}</h1>
+                <p>{l("安排任务、设置提醒或定期处理工作", "Schedule tasks, set reminders, or schedule work")}</p>
               </div>
               <button
                 className="schedule-button schedule-button--secondary"
@@ -362,8 +367,7 @@ export function SchedulesView(props: SchedulesViewProps) {
                 onClick={() => openCreateEditor('manual')}
               >
                 <Plus size={16} />
-                创建
-              </button>
+                {l("创建", "create")}</button>
             </header>
             <IssueList
               issues={pageIssues.issues}
@@ -376,15 +380,15 @@ export function SchedulesView(props: SchedulesViewProps) {
             <label className="schedules-search">
               <Search size={17} aria-hidden="true" />
               <input
-                aria-label="搜索定时任务"
+                aria-label={l("搜索定时任务", "Search for scheduled tasks")}
                 type="search"
                 value={query}
-                placeholder="搜索定时任务"
+                placeholder={l("搜索定时任务", "Search for scheduled tasks")}
                 onChange={event => setQuery(event.target.value)}
               />
             </label>
 
-            <div className="schedules-filters" role="group" aria-label="任务状态">
+            <div className="schedules-filters" role="group" aria-label={l("任务状态", "Task status")}>
               {scheduleFilterOptions.map(option => (
                 <button
                   aria-pressed={filter === option.value}
@@ -393,7 +397,7 @@ export function SchedulesView(props: SchedulesViewProps) {
                   type="button"
                   onClick={() => setFilter(option.value)}
                 >
-                  {option.label}
+                  {l(option.label, option.labelEn)}
                 </button>
               ))}
             </div>
@@ -401,30 +405,28 @@ export function SchedulesView(props: SchedulesViewProps) {
             {loading ? (
               <div className="schedules-state" role="status">
                 <LoaderCircle size={24} className="schedule-spin" />
-                正在加载定时任务
-              </div>
+                {l("正在加载定时任务", "Loading scheduled tasks")}</div>
             ) : loadError ? (
               <div className="schedules-state" role="status">
-                <p>当前没有可显示的任务。</p>
+                <p>{l("当前没有可显示的任务。", "There are currently no tasks to display.")}</p>
                 <button
                   className="schedule-button schedule-button--secondary"
                   type="button"
                   onClick={() => void loadSchedules(true)}
                 >
                   <RefreshCw size={16} />
-                  重新加载
-                </button>
+                  {l("重新加载", "reload")}</button>
               </div>
             ) : filteredSchedules.length === 0 ? (
               <div className="schedules-empty">
                 <CalendarClock size={24} aria-hidden="true" />
                 <strong>
-                  {schedules.length === 0 ? '还没有定时任务' : '没有找到匹配的任务'}
+                  {schedules.length === 0 ? l("还没有定时任务", "There are no scheduled tasks yet") : l("没有找到匹配的任务", "No matching tasks found")}
                 </strong>
                 <span>
                   {schedules.length === 0
-                    ? '从建议开始，或者创建一个自己的任务'
-                    : '换个关键词或状态筛选试试'}
+                    ? l("从建议开始，或者创建一个自己的任务", "Start with a suggestion, or create a task of your own")
+                    : l("换个关键词或状态筛选试试", "Try changing keywords or status filtering")}
                 </span>
               </div>
             ) : (
@@ -433,7 +435,8 @@ export function SchedulesView(props: SchedulesViewProps) {
                   const busy = busyIds.has(schedule.id);
                   const nextRun = formatScheduleNextRun(
                     schedule.nextRunAt,
-                    schedule.timezone
+                    schedule.timezone,
+                    language
                   );
                   return (
                     <li className="schedule-row" key={schedule.id}>
@@ -446,7 +449,7 @@ export function SchedulesView(props: SchedulesViewProps) {
                             <button
                               className="schedule-row__title-button"
                               type="button"
-                              aria-label={`打开任务会话 ${schedule.name}`}
+                              aria-label={l(`打开任务会话 ${schedule.name}`, `Open task conversation ${schedule.name}`)}
                               onClick={() => props.onOpenTask(schedule.threadId)}
                             >
                               {schedule.name}
@@ -456,15 +459,15 @@ export function SchedulesView(props: SchedulesViewProps) {
                             || schedule.lastStatus === 'queued' ? (
                               <span className="schedule-running-label">
                                 <LoaderCircle size={13} className="schedule-spin" />
-                                {lastStatusLabel(schedule.lastStatus)}
+                                {lastStatusLabel(l, schedule.lastStatus)}
                               </span>
                             ) : null}
                         </div>
                         <p>{schedule.promptPreviewRedacted}</p>
                         <div className="schedule-row__meta">
-                          <span>{formatScheduleFrequency(schedule.cron)}</span>
-                          {nextRun ? <span>下次 {nextRun}</span> : null}
-                          {!schedule.enabled ? <span>已暂停</span> : null}
+                          <span>{formatScheduleFrequency(schedule.cron, language)}</span>
+                          {nextRun ? <span>{l(`下次 ${nextRun}`, `Next: ${nextRun}`)}</span> : null}
+                          {!schedule.enabled ? <span>{l("已暂停", "Paused")}</span> : null}
                         </div>
                         {schedule.lastRunId ? (
                           <button
@@ -476,8 +479,7 @@ export function SchedulesView(props: SchedulesViewProps) {
                             )}
                           >
                             <ExternalLink size={14} />
-                            查看上次运行
-                          </button>
+                            {l("查看上次运行", "View last run")}</button>
                         ) : null}
                       </div>
                       <div className="schedule-row__actions">
@@ -486,15 +488,15 @@ export function SchedulesView(props: SchedulesViewProps) {
                           type="button"
                           role="switch"
                           aria-checked={schedule.enabled}
-                          aria-label={`${schedule.enabled ? '暂停' : '启用'}${schedule.name}`}
+                          aria-label={schedule.enabled ? l(`暂停${schedule.name}`, `Pause ${schedule.name}`) : l(`启用${schedule.name}`, `Enable ${schedule.name}`)}
                           disabled={busy}
                           onClick={() => void toggleSchedule(schedule)}
                         />
                         <button
                           className="schedule-icon-button"
                           type="button"
-                          aria-label={`立即运行${schedule.name}`}
-                          title="立即运行"
+                          aria-label={l(`立即运行${schedule.name}`, `Run now${schedule.name}`)}
+                          title={l("立即运行", "Run now")}
                           disabled={busy}
                           onClick={() => void runSchedule(schedule)}
                         >
@@ -507,8 +509,8 @@ export function SchedulesView(props: SchedulesViewProps) {
                         <button
                           className="schedule-icon-button"
                           type="button"
-                          aria-label={`编辑${schedule.name}`}
-                          title="编辑"
+                          aria-label={l(`编辑${schedule.name}`, `Edit${schedule.name}`)}
+                          title={l("编辑", "Edit")}
                           disabled={busy}
                           onClick={() => void openEditEditor(schedule)}
                         >
@@ -517,8 +519,8 @@ export function SchedulesView(props: SchedulesViewProps) {
                         <button
                           className="schedule-icon-button"
                           type="button"
-                          aria-label={`删除${schedule.name}`}
-                          title="删除"
+                          aria-label={l(`删除${schedule.name}`, `Delete${schedule.name}`)}
+                          title={l("删除", "Delete")}
                           disabled={busy}
                           onClick={() => void deleteSchedule(schedule)}
                         >
@@ -533,9 +535,9 @@ export function SchedulesView(props: SchedulesViewProps) {
 
             {query.trim().length === 0 && filter === 'all' ? (
               <section className="schedule-suggestions" aria-labelledby="schedule-suggestions-heading">
-                <h2 id="schedule-suggestions-heading">建议</h2>
+                <h2 id="schedule-suggestions-heading">{l("建议", "Suggestions")}</h2>
                 <div className="schedule-suggestion-list">
-                  {scheduleSuggestions.map(suggestion => {
+                {scheduleSuggestions(l).map(suggestion => {
                     const Icon = suggestion.icon;
                     return (
                       <button
@@ -573,7 +575,7 @@ export function SchedulesView(props: SchedulesViewProps) {
               }}
             >
               <div
-                aria-label={editor.mode === 'create' ? '创建定时任务' : '编辑定时任务'}
+                aria-label={editor.mode === 'create' ? l("创建定时任务", "Create a scheduled task") : l("编辑定时任务", "Edit scheduled tasks")}
                 aria-modal="true"
                 className="schedule-editor-dialog"
                 role="dialog"
@@ -620,20 +622,20 @@ function createDefaultValues(
   };
 }
 
-function mapScheduleError(error: unknown): ScheduleEditorErrors {
+function mapScheduleError(l: LocalizeCopy, error: unknown): ScheduleEditorErrors {
   const message = error instanceof Error ? error.message : '';
   const normalized = message.toLowerCase();
   if (normalized.includes('cwd') || normalized.includes('directory')) {
-    return { form: '项目目录不存在或无法访问' };
+    return { form: l('项目目录不存在或无法访问', 'The project directory does not exist or cannot be accessed') };
   }
-  if (normalized.includes('cron')) return { frequency: '执行频率无效' };
-  if (normalized.includes('timezone')) return { timezone: '时区无效' };
+  if (normalized.includes('cron')) return { frequency: l('执行频率无效', 'Invalid frequency') };
+  if (normalized.includes('timezone')) return { timezone: l('时区无效', 'Invalid timezone') };
   if (normalized.includes('profile')) {
-    return { form: '当前项目的运行配置不可用，请先在项目设置中修复' };
+    return { form: l('当前项目的运行配置不可用，请先在项目设置中修复', 'The project runtime configuration is unavailable. Update it in project settings first.') };
   }
-  if (normalized.includes('timeout')) return { timeoutMinutes: '最长运行时间无效' };
+  if (normalized.includes('timeout')) return { timeoutMinutes: l('最长运行时间无效', 'Invalid maximum runtime') };
   if (error instanceof ApiClientError) return { form: error.message };
-  return { form: '无法保存计划任务' };
+  return { form: l('无法保存计划任务', 'Unable to save scheduled task') };
 }
 
 function upsertSchedule(
@@ -652,32 +654,32 @@ function replaceSchedule(
   return current.map(item => item.id === schedule.id ? schedule : item);
 }
 
-function lastStatusLabel(status: ScheduleResponse['lastStatus']): string {
+function lastStatusLabel(l: LocalizeCopy, status: ScheduleResponse['lastStatus']): string {
   switch (status) {
     case 'succeeded':
-      return '上次成功';
+      return l("上次成功", "Success last time");
     case 'failed':
-      return '上次失败';
+      return l("上次失败", "failed last time");
     case 'canceled':
-      return '上次取消';
+      return l("上次取消", "last canceled");
     case 'running':
-      return '正在运行';
+      return l("正在运行", "Running");
     case 'queued':
-      return '等待运行';
+      return l("等待运行", "waiting to run");
     case 'skipped':
-      return '上次跳过';
+      return l("上次跳过", "last skipped");
     default:
-      return '等待首次运行';
+      return l("等待首次运行", "Waiting for first run");
   }
 }
 
-const scheduleFilterOptions: Array<{ value: ScheduleFilter; label: string }> = [
-  { value: 'all', label: '全部' },
-  { value: 'enabled', label: '已启用' },
-  { value: 'paused', label: '已暂停' },
+const scheduleFilterOptions: Array<{ value: ScheduleFilter; label: string; labelEn: string }> = [
+  { value: 'all', label: '全部', labelEn: 'All' },
+  { value: 'enabled', label: '已启用', labelEn: 'Enabled' },
+  { value: 'paused', label: '已暂停', labelEn: 'Paused' },
 ];
 
-const scheduleSuggestions: Array<{
+function scheduleSuggestions(l: LocalizeCopy): Array<{
   name: string;
   prompt: string;
   frequency: ScheduleFrequency;
@@ -685,32 +687,32 @@ const scheduleSuggestions: Array<{
   description: string;
   icon: typeof Bell;
   tone: 'blue' | 'violet' | 'green';
-}> = [
+}> { return [
   {
-    name: '每日简报',
-    prompt: '结合当前项目内容，总结昨天的进展、未完成事项和今天最重要的三件事。',
+    name: l('每日简报', 'Daily briefing'),
+    prompt: l('结合当前项目内容，总结昨天的进展、未完成事项和今天最重要的三件事。', "Using the current project, summarize yesterday's progress, unfinished work, and today's three most important tasks."),
     frequency: { repeat: 'weekdays', time: '08:00', days: [] },
-    scheduleLabel: '工作日 08:00',
-    description: '汇总项目进展、未完成事项和当天优先级',
+    scheduleLabel: l('工作日 08:00', 'Weekdays 08:00'),
+    description: l('汇总项目进展、未完成事项和当天优先级', 'Summarize project progress, unfinished work, and daily priorities'),
     icon: Bell,
     tone: 'blue',
   },
   {
-    name: '每周回顾',
-    prompt: '整理本周完成的工作、遇到的问题、关键决定和下周计划。',
+    name: l('每周回顾', 'Weekly review'),
+    prompt: l('整理本周完成的工作、遇到的问题、关键决定和下周计划。', "Summarize this week's completed work, problems, key decisions, and plans for next week."),
     frequency: { repeat: 'weekly', time: '16:00', days: [5] },
-    scheduleLabel: '每周五 16:00',
-    description: '每周五整理工作进展并形成清晰的状态更新',
+    scheduleLabel: l('每周五 16:00', 'Fridays 16:00'),
+    description: l('每周五整理工作进展并形成清晰的状态更新', 'Review progress and prepare a clear status update every Friday'),
     icon: PencilLine,
     tone: 'violet',
   },
   {
-    name: '跟进监控',
-    prompt: '检查最近的项目和日历活动，列出需要继续跟进或可能阻塞的事项。',
+    name: l('跟进监控', 'Follow-up monitor'),
+    prompt: l('检查最近的项目和日历活动，列出需要继续跟进或可能阻塞的事项。', 'Review recent project and calendar activity, then list follow-up items and possible blockers.'),
     frequency: { repeat: 'weekdays', time: '09:00', days: [] },
-    scheduleLabel: '工作日 09:00',
-    description: '查看最近活动并标记需要持续关注的事项',
+    scheduleLabel: l('工作日 09:00', 'Weekdays 09:00'),
+    description: l('查看最近活动并标记需要持续关注的事项', 'Review recent activity and identify items needing follow-up'),
     icon: MoreHorizontal,
     tone: 'green',
   },
-];
+]; }

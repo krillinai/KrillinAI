@@ -17,7 +17,8 @@ import (
 )
 
 func TestProcessYouTubeSubtitleClassifiesUnusableVTT(t *testing.T) {
-	log.InitLogger()
+	service := subtitleRoutingTestService(t)
+	service.translator = nil
 	for name, content := range map[string]string{
 		"empty":      "WEBVTT\n\n",
 		"music-only": "WEBVTT\n\n00:00:00.000 --> 00:00:02.000\n[Music]\n\n",
@@ -25,24 +26,29 @@ func TestProcessYouTubeSubtitleClassifiesUnusableVTT(t *testing.T) {
 		"malformed":  "WEBVTT\n\ninvalid --> timestamps\nNormal speech\n\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			root := t.TempDir()
-			path := filepath.Join(root, "captions.vtt")
-			if err := os.WriteFile(path, []byte(content), 0600); err != nil {
-				t.Fatal(err)
+			request := subtitleRoutingTestRequest(t, content)
+			request.SourceOnly = true
+			output, err := service.processYouTubeSubtitle(context.Background(), request)
+			if name == "block-text" {
+				if err != nil {
+					t.Fatalf("有效整句字幕应成功: %v", err)
+				}
+				data, err := os.ReadFile(output)
+				if err != nil || !strings.Contains(string(data), "AI regulation. There have been more than a hundred") {
+					t.Fatalf("整句正文丢失: %s, %v", data, err)
+				}
+				return
 			}
-			_, err := (&YouTubeSubtitleService{}).processYouTubeSubtitle(context.Background(), &YoutubeSubtitleReq{
-				TaskBasePath: root, VttFile: path, SourceOnly: true,
-			})
 			if !errors.Is(err, ErrYouTubeCaptionInvalid) {
-				t.Fatalf("error = %v, want unusable caption classification", err)
+				t.Fatalf("不可用字幕应使用平台字幕无效分类: %v", err)
 			}
 		})
 	}
-	_, err := (&YouTubeSubtitleService{}).processYouTubeSubtitle(context.Background(), &YoutubeSubtitleReq{
+	_, err := service.processYouTubeSubtitle(context.Background(), &YoutubeSubtitleReq{
 		VttFile: filepath.Join(t.TempDir(), "missing.vtt"),
 	})
 	if !errors.Is(err, ErrYouTubeCaptionInvalid) {
-		t.Fatalf("missing VTT error = %v, want unusable caption classification", err)
+		t.Fatalf("缺少VTT应使用平台字幕无效分类: %v", err)
 	}
 }
 

@@ -3,11 +3,19 @@ import {
   createProductionServerInput,
   parseRuntimeChannel,
   prepareSchedulerStartup,
+  requiresPaidStartupProbe,
   resolveProductionRuntimePaths,
   resolveProductionServerEnvironment
 } from '../../src/startup.js';
 
 describe('daemon production startup', () => {
+  it('requires explicit paid-test opt-in instead of charging for desktop readiness checks', () => {
+    expect(requiresPaidStartupProbe({ OPENCREATOR_REQUIRE_CODEX_PROBE: '1' })).toBe(false);
+    expect(requiresPaidStartupProbe({ OPENCREATOR_ENABLE_PAID_STARTUP_PROBE: '1' })).toBe(false);
+    expect(requiresPaidStartupProbe({ OPENCREATOR_REQUIRE_CODEX_PROBE: '1', OPENCREATOR_ENABLE_PAID_STARTUP_PROBE: '1' })).toBe(true);
+    expect(requiresPaidStartupProbe({ OPENCREATOR_REQUIRE_CODEX_PROBE: '1', OPENCREATOR_ENABLE_PAID_STARTUP_PROBE: '1', OPENCREATOR_CODEX_PROBE_VERIFIED: '1' })).toBe(false);
+  });
+
   it('enables scheduler autostart and built-in agent tools for the production server', () => {
     const input = createProductionServerInput({
       token: 'runtime-token'

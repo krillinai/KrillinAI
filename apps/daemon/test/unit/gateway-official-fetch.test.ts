@@ -62,6 +62,20 @@ it('uses the direct connection when no proxy is available', async () => {
   expect(mocks.request).not.toHaveBeenCalled();
 });
 
+it('reuses proxy connections for repeated account refreshes', async () => {
+  const fetcher = createOfficialFetch({ readProxy: async () => 'http://127.0.0.1:7897', platform: 'linux' });
+  let remote = upstream();
+  const first = await fetcher('https://www.open-creator.ai/api/v1/billing/summary');
+  remote.response.end('{}'); await first.text();
+  const agent = mocks.request.mock.lastCall![1].agent;
+  expect(agent.keepAlive).toBe(true);
+  expect(agent.maxFreeSockets).toBe(2);
+  remote = upstream();
+  const second = await fetcher('https://www.open-creator.ai/api/v1/billing/summary');
+  remote.response.end('{}'); await second.text();
+  expect(mocks.request.mock.lastCall![1].agent).toBe(agent);
+});
+
 it('reads shared proxy changes for each request without restarting the transport', async () => {
   let proxy = 'http://127.0.0.1:7897';
   const fetcher = createOfficialFetch({ readProxy: async () => proxy, platform: 'linux' });
@@ -69,10 +83,18 @@ it('reads shared proxy changes for each request without restarting the transport
   const first = await fetcher('https://www.open-creator.ai/api/v1/client/models');
   remote.response.end('{}'); await first.text();
   expect(mocks.request.mock.lastCall![1].agent.proxy.port).toBe('7897');
+  const firstAgent = mocks.request.mock.lastCall![1].agent;
+  const destroy = vi.spyOn(firstAgent, 'destroy');
   proxy = 'http://127.0.0.1:8888'; remote = upstream();
   const second = await fetcher('https://openrouter.ai/api/v1/images');
   remote.response.end('{}'); await second.text();
   expect(mocks.request.mock.lastCall![1].agent.proxy.port).toBe('8888');
+  expect(mocks.request.mock.lastCall![1].agent).not.toBe(firstAgent);
+  expect(destroy).not.toHaveBeenCalled();
+  proxy = 'http://127.0.0.1:7897'; remote = upstream();
+  const third = await fetcher('https://www.open-creator.ai/api/v1/billing/summary');
+  remote.response.end('{}'); await third.text();
+  expect(mocks.request.mock.lastCall![1].agent).toBe(firstAgent);
   proxy = ''; const direct = vi.fn(async () => Response.json({})); vi.stubGlobal('fetch', direct);
   await fetcher('https://openrouter.ai/api/v1/images'); expect(direct).toHaveBeenCalledOnce();
 });

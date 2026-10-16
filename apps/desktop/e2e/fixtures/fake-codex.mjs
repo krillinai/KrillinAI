@@ -10,7 +10,14 @@ import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { parse, stringify } from '@iarna/toml';
 
-const args = process.argv.slice(2);
+let args = process.argv.slice(2);
+if (args[0] === '--fixture-config') {
+  const environment = JSON.parse(readFileSync(args[1], 'utf8'));
+  for (const [name, value] of Object.entries(environment)) {
+    if (name.startsWith('OPENCREATOR_E2E_') && !process.env[name]) process.env[name] = value;
+  }
+  args = args.slice(2);
+}
 const stateDir = process.env.OPENCREATOR_E2E_FAKE_CODEX_STATE_DIR;
 const mode = process.env.OPENCREATOR_E2E_FAKE_CODEX_MODE ?? 'success';
 

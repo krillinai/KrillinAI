@@ -1,5 +1,5 @@
 import type { CreatorJob } from '@opencreator/protocol';
-import { FileVideo, LoaderCircle, Plus, RefreshCw, X } from 'lucide-react';
+import { CheckCircle2, FileVideo, LoaderCircle, Plus, RefreshCw, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { CreatorWebService } from '../../services/creator-service.js';
@@ -39,8 +39,10 @@ export default function VideoDownloadBatchWorkspace(props: ComponentProps<typeof
   const l = useLocalizedCopy();
   const [jobs, setJobs] = useState<CreatorJob[]>([]);
   const [selectedId, setSelectedId] = useState(ROOT);
-  const [editorOpen, setEditorOpen] = useState(() => downloadSourceForJob({ ...root.job, state: root.state }) === undefined);
+  const [editorOpen, setEditorOpen] = useState(() => downloadSourceForJob({ ...root.job, state: root.state }) === undefined
+    || !root.job.artifacts.some(artifact => artifact.kind === 'download_probe' && artifact.status === 'completed'));
   const [linksText, setLinksText] = useState('');
+  const [linkTouched, setLinkTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [restoreAttempt, setRestoreAttempt] = useState(0);
@@ -62,9 +64,13 @@ export default function VideoDownloadBatchWorkspace(props: ComponentProps<typeof
   const rootSource = downloadSourceForJob({ ...root.job, state: root.state });
   const hiddenIds = hiddenDownloadJobIds({ ...root.job, state: root.state });
   const allJobs = [root.job, ...jobs];
+  const hasAnalyzedVideo = allJobs.some(job => job.artifacts.some(artifact => artifact.kind === 'download_probe' && artifact.status === 'completed'));
   const sources = [rootSource, ...jobs.map(downloadSourceForJob)]
     .filter((source): source is DownloadSource => source !== undefined && !hiddenIds.includes(source.id));
   const activeJobId = selectedId === ROOT ? root.job.id : selectedId;
+  const parsedLink = parseDownloadLink(linksText);
+  const validLink = parsedLink.error === undefined;
+  const inputError = error || (linkTouched && linksText.trim() && parsedLink.error ? linkError(parsedLink.error) : '');
 
   useEffect(() => {
     if (editorOpen) inputRef.current?.focus();
@@ -274,31 +280,41 @@ export default function VideoDownloadBatchWorkspace(props: ComponentProps<typeof
     {editorOpen ? <form className="video-download-add-form" onSubmit={event => { event.preventDefault(); void addLink(); }}>
       {sources.length === 0 ? <SupportedVideoSources label={l('支持的视频来源', 'Supported video sources')} /> : null}
       <label htmlFor="video-download-add-links">{l('视频链接', 'Video URL')}</label>
-      <input id="video-download-add-links" ref={inputRef} value={linksText} disabled={busy} type="text" inputMode="url"
-        onChange={event => { setLinksText(event.target.value); setError(''); }}
-        onPaste={event => {
-          const pasted = event.clipboardData.getData('text');
-          const input = event.currentTarget;
-          const combined = linksText.slice(0, input.selectionStart ?? 0) + pasted + linksText.slice(input.selectionEnd ?? linksText.length);
-          const parsed = parseDownloadLink(combined);
-          if (parsed.error === 'multiple' || /[\r\n]/.test(pasted)) {
-            event.preventDefault();
-            if (parsed.error) setError(linkError(parsed.error));
-            else { setLinksText(parsed.url); setError(''); }
-          }
-        }}
-        placeholder={l('粘贴一个视频链接', 'Paste a video URL')} />
-      <div className="video-download-add-form-actions"><button type="button" disabled={busy} onClick={() => { setEditorOpen(false); setError(''); }}>{l('取消', 'Cancel')}</button>
-        <button type="submit" disabled={busy || loading || !linksText.trim()}>{busy ? <LoaderCircle size={15} className="smart-dubbing-spinner" /> : <Plus size={15} />}{l('添加并解析', 'Add and analyze')}</button></div>
+      <div className="video-download-link-input" data-valid={validLink || undefined}>
+        <input id="video-download-add-links" ref={inputRef} value={linksText} disabled={busy} type="text" inputMode="url"
+          aria-invalid={inputError && parsedLink.error ? true : undefined}
+          aria-describedby={inputError ? 'video-download-link-error' : validLink ? 'video-download-link-valid' : undefined}
+          onChange={event => { setLinksText(event.target.value); setError(''); setLinkTouched(false); }}
+          onBlur={() => setLinkTouched(true)}
+          onPaste={event => {
+            const pasted = event.clipboardData.getData('text');
+            const input = event.currentTarget;
+            const combined = linksText.slice(0, input.selectionStart ?? 0) + pasted + linksText.slice(input.selectionEnd ?? linksText.length);
+            const parsed = parseDownloadLink(combined);
+            if (parsed.error === 'multiple' || /[\r\n]/.test(pasted)) {
+              event.preventDefault();
+              if (parsed.error) setError(linkError(parsed.error));
+              else { setLinksText(parsed.url); setError(''); setLinkTouched(false); }
+            }
+          }}
+          placeholder={l('粘贴一个视频链接', 'Paste a video URL')} />
+        {validLink ? <span id="video-download-link-valid" className="video-download-link-valid" role="status"
+          aria-label={l('链接格式有效', 'Valid link format', 'Giltigt länkformat')} title={l('链接格式有效', 'Valid link format', 'Giltigt länkformat')}><CheckCircle2 size={18} aria-hidden="true" /></span> : null}
+        {linksText.length > 0 ? <button className="video-download-clear-link" type="button" disabled={busy}
+          aria-label={l('清空链接', 'Clear link', 'Rensa länk')} title={l('清空链接', 'Clear link', 'Rensa länk')}
+          onClick={() => { setLinksText(''); setError(''); setLinkTouched(false); inputRef.current?.focus(); }}><X size={16} aria-hidden="true" /></button> : null}
+      </div>
+      <div className="video-download-add-form-actions">{hasAnalyzedVideo ? <button type="button" disabled={busy} onClick={() => { setEditorOpen(false); setError(''); }}>{l('取消', 'Cancel')}</button> : null}
+        <button type="submit" disabled={busy || loading || !validLink}>{busy ? <LoaderCircle size={15} className="smart-dubbing-spinner" /> : <Plus size={15} />}{l('获取', 'Fetch', 'Hämta')}</button></div>
     </form> : null}
     {loading ? <p className="creator-tool-notice" role="status">{l('正在加载链接列表', 'Loading links')}</p> : null}
-    {error ? <div className="video-download-batch-error" role="alert">{error}</div> : null}
+    {inputError ? <div id="video-download-link-error" className="video-download-batch-error" role="alert">{inputError}</div> : null}
     {restoreError ? <div className="video-download-batch-error" role="alert">{restoreError}<button type="button" onClick={() => setRestoreAttempt(value => value + 1)}><RefreshCw size={15} />{l('重试', 'Retry')}</button></div> : null}
   </>;
   const batch: VideoDownloadBatchView = {
     jobs: allJobs, hasSelectedSource: sources.some(source => source.id === activeJobId), sourceList, editor,
     resolveSession,
-    toolbarActions: <button type="button" className="video-download-add-button" disabled={busy} onClick={() => setEditorOpen(value => !value)} aria-expanded={editorOpen} aria-controls={editorOpen ? 'video-download-add-links' : undefined}><Plus size={16} aria-hidden="true" />{l('添加链接', 'Add link')}</button>
+    toolbarActions: hasAnalyzedVideo ? <button type="button" className="video-download-add-button" disabled={busy} onClick={() => setEditorOpen(value => !value)} aria-expanded={editorOpen} aria-controls={editorOpen ? 'video-download-add-links' : undefined}><Plus size={16} aria-hidden="true" />{l('添加链接', 'Add link')}</button> : null
   };
   const workspace = <VideoDownloadWorkspace {...props} batch={batch} />;
   return <>

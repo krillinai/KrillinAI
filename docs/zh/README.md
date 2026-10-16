@@ -15,13 +15,13 @@
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="OpenCreator（原 KrillinAI）：Trendshift 单日排名第一仓库" width="250" height="55" /></a>
 
-[English](../../README.md) | **简体中文** | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md) | [ภาษาไทย](../th/README.md)
+[English](../../README.md) | **简体中文** | [日本語](../ja/README.md) | [한국어](../ko/README.md) | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md) | [ภาษาไทย](../th/README.md) | [Türkçe](../tr/README.md) | [हिन्दी](../hi/README.md) | [বাংলা](../bn/README.md) | [اردو](../ur/README.md) | [Tiếng Việt](../vi/README.md) | [Filipino](../fil/README.md)
 
 [![GitHub Stars](https://badgen.net/github/stars/krillinai/OpenCreator?icon=github&label=Stars&color=EAB308)](https://github.com/krillinai/OpenCreator/stargazers)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%E7%B2%89%E4%B8%9D&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
 [![AtomGit G-Star](https://img.shields.io/badge/AtomGit-G--Star-DA203E?style=flat)](https://atomgit.com/krillinai/OpenCreator)
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/fUNvbqDaw)
 [![QQ 群](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
 [项目特色](#项目特色) · [创作工具](#创作工具) · [Skills](#skills-技能) · [案例](#案例展示) · [快速开始](#快速开始) · [Desktop](#desktop) · [文档](#文档) · [社区](#社区)
@@ -89,7 +89,7 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 </thead>
 <tbody>
 <tr><td valign="top">视频翻译</td><td valign="top">✅ 已开放</td><td>导入本地或公开视频；通过云端或本地 Whisper 服务转写；利用 LLM 上下文完成字幕断句、对齐、术语处理和翻译；设置双语字幕、配音或自定义声音样本、字幕样式及横竖屏合成，并导出 SRT、音频或成片</td></tr>
-<tr><td valign="top">视频下载</td><td valign="top">✅ 已开放</td><td>解析 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书和 Pinterest 的单个公开视频，比较可用格式并下载视频或音频；部分平台可能需要 Cookie</td></tr>
+<tr><td valign="top">视频下载</td><td valign="top">✅ 已开放</td><td>解析 YouTube、Bilibili、X、TikTok、Instagram、抖音、Facebook、小红书、Pinterest 和 Reddit 的单个公开视频，比较可用格式并下载视频或音频；部分平台可能需要 Cookie</td></tr>
 <tr><td valign="top">封面生成</td><td valign="top">✅ 已开放</td><td>结合主题、视频链接和可选参考图片生成多版内容封面，并进行对比选择</td></tr>
 <tr><td valign="top">图像生成</td><td valign="top">✅ 已开放</td><td>使用 GPT Image，根据提示词和可选参考图片生成图像，设置画幅与生成数量，并预览和单独下载图片</td></tr>
 <tr><td valign="top">文章写作</td><td valign="top">✅ 已开放</td><td>根据主题、链接、视频或参考文档生成可编辑的候选选题、大纲和完整文章，支持添加生成配图，并导出 Markdown、HTML 或 PDF</td></tr>
@@ -109,11 +109,9 @@ Web 是唯一的前端实现；Desktop 直接加载同一份 Web 构建产物，
 
 创作模板库汇集 OpenCreator 原创及第三方创作者的模板。涉及第三方作品时，模板详情会注明作者并提供原始来源链接，方便了解创意出处。
 
-![按视频创作和图像设计等分类展示的精选创作模板](../images/product/creation-templates-gallery-en.png)
-
 打开模板可以预览案例效果，查看提示词、模板设置、标签、作者与原始来源。点击 **使用这个模板** 即可基于模板直接创作，并按需调整输入内容。
 
-![图像创作模板详情，包括案例效果、模板设置和提示词](../images/product/creation-templates-detail-en.png)
+![图像创作模板详情，包括案例效果、模板设置和提示词](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills 技能
 
@@ -256,39 +254,36 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > 这些视频与字幕对齐图片制作于 OpenCreator 仍使用 KrillinAI 名称的阶段。
 
-### 视频生成
-
-使用 Seedance 根据文本提示词或参考图片生成 AI 视频。设置模型、画面比例、分辨率和时长，然后在项目工作区预览、重新生成或下载各个版本。
-
-![OpenCreator Seedance 视频生成](../images/examples/video-generation-seedance-en.png)
-
 ### 视频下载
 
-解析公开视频链接，比较可用格式，并将视频或音频直接下载到项目中。
+支持 10 个视频来源平台，解析公开视频链接，比较可用格式，并将视频或音频直接下载到项目中。
 
 支持的视频来源：
 
 <table align="center">
   <tr>
-    <td align="center" width="96"><img src="../images/platforms/youtube.png" alt="YouTube" width="32" height="32" /><br /><strong>YouTube</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/bilibili.png" alt="Bilibili" width="32" height="32" /><br /><strong>Bilibili</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/x.png" alt="X" width="32" height="32" /><br /><strong>X</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/tiktok.png" alt="TikTok" width="32" height="32" /><br /><strong>TikTok</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/instagram.png" alt="Instagram" width="32" height="32" /><br /><strong>Instagram</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/douyin.png" alt="抖音" width="32" height="32" /><br /><strong>抖音</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="小红书" width="32" height="32" /><br /><strong>小红书</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
+    <td align="center" width="48"><img src="../images/platforms/youtube.png" alt="YouTube" width="24" height="24" /><br /><small><small>YouTube</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/bilibili.png" alt="Bilibili" width="24" height="24" /><br /><small><small>Bilibili</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/x.png" alt="X" width="24" height="24" /><br /><small><small>X</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/tiktok.png" alt="TikTok" width="24" height="24" /><br /><small><small>TikTok</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/instagram.png" alt="Instagram" width="24" height="24" /><br /><small><small>Instagram</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/douyin.png" alt="抖音" width="24" height="24" /><br /><small><small>抖音</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/facebook.png" alt="Facebook" width="24" height="24" /><br /><small><small>Facebook</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/xiaohongshu.png" alt="小红书" width="24" height="24" /><br /><small><small>小红书</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="24" height="24" /><br /><small><small>Pinterest</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/reddit.png" alt="Reddit" width="24" height="24" /><br /><small><small>Reddit</small></small></td>
   </tr>
 </table>
 
 实际可用性取决于视频和地区；部分来源可能需要平台 Cookie。
 
-**小红书视频笔记：**粘贴完整的公开 `https://www.xiaohongshu.com/explore/<24 位十六进制笔记 ID>` 链接；若带有 `xsec_token` 等查询参数，请一并保留。纯图片笔记没有可下载的视频格式；个人主页和 `xhslink.com` 分享短链暂不支持。识别链接不代表一定能下载：令牌过期、访问限制或平台变更都可能导致失败。OpenCreator 不会自动读取浏览器 Cookie。
-
-**Pinterest 视频 Pin：**粘贴公开的 `https://www.pinterest.com/pin/<数字 ID>/` 链接。纯图片 Pin 没有可下载的视频格式；画板和个人主页暂不支持。
-
 ![OpenCreator 视频下载格式选择](../images/examples/video-downloader-formats-en.png)
+
+### 视频生成
+
+使用 Seedance 根据文本提示词或参考图片生成 AI 视频。设置模型、画面比例、分辨率和时长，然后在项目工作区预览、重新生成或下载各个版本。
+
+![OpenCreator Seedance 视频生成](../images/examples/video-generation-seedance-en.png)
 
 ### 火柴人动画
 

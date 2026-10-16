@@ -33,6 +33,54 @@ afterEach(async () => {
 });
 
 describe('creator api', () => {
+  it('translates a standalone SRT without video and stops after the subtitle stage', async () => {
+    const calls: string[] = [];
+    await setupServer({ creatorExecutors: [{ id: 'krillinai', async run(stage) {
+      calls.push(stage.stageRun.stageId);
+      expect(stage.job.state.sourceType).toBe('subtitle');
+      expect(stage.inputArtifacts.map(artifact => artifact.kind)).toEqual(['source_subtitle']);
+      expect(readFileSync(stage.inputArtifacts[0]!.path!, 'utf8')).toContain('00:00:02,250 --> 00:00:04,750');
+      const path = join(stage.workdir, 'translated.srt');
+      writeFileSync(path, '1\n00:00:02,250 --> 00:00:04,750\n你好\n');
+      return { outputs: [{ kind: 'target_subtitle', status: 'completed', path }] };
+    } }] });
+    const created = await request('POST', '/creator/jobs', { projectId: 'project_srt', templateId: 'video-translation', state: {
+      sourceType: 'subtitle', sourceUrl: '', sourceLanguage: 'en', targetLanguage: 'zh_cn',
+      dubbing: true, composeVideo: true, videoFormat: 'all'
+    } });
+    expect(created.statusCode).toBe(201);
+    const job = created.json().job;
+    expect(job.state).toMatchObject({ composeVideo: false, dubbing: false });
+    const missing = await request('POST', `/creator/jobs/${job.id}/actions`, { action: 'run-stage', expectedRevision: job.revision, input: { stageId: 'subtitle', workflow: true } });
+    expect(missing.statusCode).toBe(400);
+    const imported = await request('POST', `/creator/jobs/${job.id}/actions`, { action: 'import-subtitle', expectedRevision: job.revision, input: {
+      kind: 'source_subtitle', language: 'en', fileName: 'source.srt',
+      contentBase64: Buffer.from('1\n00:00:02,250 --> 00:00:04,750\nHello\n').toString('base64')
+    } });
+    expect(imported.statusCode).toBe(200);
+    const started = await request('POST', `/creator/jobs/${job.id}/actions`, { action: 'run-stage', expectedRevision: imported.json().job.revision, input: { stageId: 'subtitle', workflow: true } });
+    expect(started.statusCode).toBe(200);
+    const completed = await waitForCreatorJob(job.id, job => job.status === 'completed');
+    expect(calls).toEqual(['subtitle']);
+    expect(completed.artifacts.map((artifact: { kind: string }) => artifact.kind)).toEqual(['source_subtitle', 'target_subtitle']);
+    const target = completed.artifacts.find((artifact: { kind: string }) => artifact.kind === 'target_subtitle');
+    const download = await request('GET', `/creator/jobs/${job.id}/artifacts/${target.id}/content`);
+    expect(download.statusCode).toBe(200);
+    const edited = await request('POST', `/creator/jobs/${job.id}/actions`, { action: 'edit-subtitle', expectedRevision: completed.revision, input: {
+      artifactId: target.id, baseResultVersion: completed.state.resultVersion, preserveResultVersion: true,
+      cues: [{ id: 1, start: '00:00:02,250', end: '00:00:04,750', text: '你好世界', sourceText: 'Hello' }]
+    } });
+    expect(edited.statusCode).toBe(200);
+    const editedJob = edited.json().job;
+    const editedTarget = editedJob.artifacts.find((artifact: { metadata: { editedFromArtifactId?: string } }) => artifact.metadata.editedFromArtifactId === target.id);
+    expect(readFileSync(editedTarget.path, 'utf8')).toContain('00:00:02,250 --> 00:00:04,750\n你好世界');
+    expect(editedJob.artifacts.some((artifact: { kind: string }) => artifact.kind === 'bilingual_subtitle')).toBe(true);
+    expect(calls).toEqual(['subtitle']);
+    for (const stageId of ['tts', 'render-horizontal', 'render-vertical', 'prepare-source-video']) {
+      const blocked = await request('POST', `/creator/jobs/${job.id}/actions`, { action: 'run-stage', expectedRevision: editedJob.revision, input: { stageId } });
+      expect(blocked.statusCode).toBe(400);
+    }
+  });
   it.each(['source_subtitle', 'target_subtitle'])('imports %s and runs downstream workflow with the persisted input', async kind => {
     const calls: string[] = [];
     await setupServer({ llmConfigured: kind === 'source_subtitle', creatorExecutors: [{

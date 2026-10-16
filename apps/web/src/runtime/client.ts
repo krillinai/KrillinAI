@@ -108,7 +108,7 @@ export class RuntimeClient {
           code,
           source: 'network',
           category: 'network',
-          fallbackMessage: timeout ? '请求超时，请检查连接后重试。' : '无法连接本地服务，请检查服务状态后重试。',
+          fallbackMessage: timeout ? 'The request timed out. Check the connection and try again.' : 'Could not connect to the local Runtime. Check its status and try again.',
           publicFacts: { kind: timeout ? 'timeout' : 'unknown' }
         })
       });
@@ -151,7 +151,7 @@ async function readSuccessfulJson(response: Response, path: string): Promise<unk
         code: 'INVALID_JSON_RESPONSE',
         source: 'api',
         category: 'execution',
-        fallbackMessage: '本地服务返回了无法读取的结果，请重试。',
+        fallbackMessage: 'The local Runtime returned an unreadable response. Try again.',
         publicFacts: { kind: 'invalid-response' }
       })
     });
@@ -299,10 +299,10 @@ function categoryForStatus(status: number): IssueCategory {
 }
 
 function fallbackForStatus(status: number): string {
-  if (status === 401 || status === 403) return '当前操作没有权限，请检查登录或授权设置。';
-  if (status === 404) return '请求的内容不存在或已被移除。';
-  if (status === 409) return '当前状态已发生变化，请刷新后重试。';
-  return '操作未完成，请稍后重试。';
+  if (status === 401 || status === 403) return 'This operation requires permission. Check sign-in or authorization settings.';
+  if (status === 404) return 'The requested content is missing or was removed.';
+  if (status === 409) return 'The current state has changed. Refresh and try again.';
+  return 'The operation did not complete. Try again later.';
 }
 
 function publicFactsForApiError(code: string, status: number): PublicErrorFacts {
@@ -317,12 +317,12 @@ function publicFactsForApiError(code: string, status: number): PublicErrorFacts 
 
 function fallbackForApiError(code: string, status: number): string {
   const kind = publicErrorKindForCode(code);
-  if (kind === 'configuration') return '缺少或无法读取此操作所需的配置，请检查相关服务设置。';
-  if (kind === 'validation') return '输入或参数未通过校验，请检查后重试。';
-  if (kind === 'not-found') return '请求的资源不存在或已被移除。';
-  if (kind === 'conflict') return '当前状态与此操作冲突，请刷新状态后重试。';
-  if (kind === 'unsupported') return '当前环境或服务不支持此操作。';
-  if (kind === 'storage') return '本地文件或结果未能写入，请检查存储状态。';
+  if (kind === 'configuration') return 'Required configuration is missing or unreadable. Check the service settings.';
+  if (kind === 'validation') return 'The input or parameters failed validation. Check them and try again.';
+  if (kind === 'not-found') return 'The requested resource is missing or was removed.';
+  if (kind === 'conflict') return 'The current state conflicts with this operation. Refresh and try again.';
+  if (kind === 'unsupported') return 'This environment or service does not support the operation.';
+  if (kind === 'storage') return 'Could not write the local file or result. Check storage status.';
   return fallbackForStatus(status);
 }
 

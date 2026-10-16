@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"krillin-ai/config"
@@ -11,7 +10,9 @@ import (
 	"krillin-ai/pkg/util"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -302,42 +303,25 @@ func TestOriginCuesFromTranscriptionFallBackToTranscriptText(t *testing.T) {
 }
 
 type echoBatchCompleter struct {
+	mu         sync.Mutex
 	batchSizes []int
 }
 
 func (c *echoBatchCompleter) ChatCompletion(prompt string) (string, error) {
-	const marker = "输入 JSON：\n"
-	start := strings.LastIndex(prompt, marker)
-	if start < 0 {
-		return "", errors.New("missing input JSON")
-	}
-	var input struct {
-		Items []struct {
-			Index int    `json:"index"`
-			Text  string `json:"text"`
-		} `json:"items"`
-	}
-	if err := json.Unmarshal([]byte(prompt[start+len(marker):]), &input); err != nil {
+	input, err := decodePairedTestInput(prompt)
+	if err != nil {
 		return "", err
 	}
-	c.batchSizes = append(c.batchSizes, len(input.Items))
-	output := struct {
-		Translations []struct {
-			Index int    `json:"index"`
-			Text  string `json:"text"`
-		} `json:"translations"`
-	}{}
-	for _, item := range input.Items {
-		output.Translations = append(output.Translations, struct {
-			Index int    `json:"index"`
-			Text  string `json:"text"`
-		}{Index: item.Index, Text: "translated: " + item.Text})
-	}
-	data, err := json.Marshal(output)
-	return string(data), err
+	c.mu.Lock()
+	c.batchSizes = append(c.batchSizes, len(input.Sentences))
+	c.mu.Unlock()
+	return echoPairedTestResponse(input)
 }
 
 func TestSplitTextAndTranslateUsesBatchesAndReportsProgress(t *testing.T) {
+	previousParallel := config.Conf.App.TranslateParallelNum
+	config.Conf.App.TranslateParallelNum = 1
+	t.Cleanup(func() { config.Conf.App.TranslateParallelNum = previousParallel })
 	previousMaxSentenceLength := config.Conf.App.MaxSentenceLength
 	config.Conf.App.MaxSentenceLength = 100
 	t.Cleanup(func() { config.Conf.App.MaxSentenceLength = previousMaxSentenceLength })
@@ -368,10 +352,11 @@ func TestSplitTextAndTranslateUsesBatchesAndReportsProgress(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fmt.Sprint(completer.batchSizes) != "[12 1]" {
-		t.Fatalf("batch sizes = %v, want [12 1]", completer.batchSizes)
+	sort.Ints(completer.batchSizes)
+	if fmt.Sprint(completer.batchSizes) != "[1 12]" {
+		t.Fatalf("batch sizes = %v, want [1 12]", completer.batchSizes)
 	}
-	if fmt.Sprint(progress) != "[12 13]" {
+	if len(progress) != 2 || progress[0] <= 0 || progress[0] >= 13 || progress[1] != 13 {
 		t.Fatalf("progress = %v, want [12 13]", progress)
 	}
 	if len(results) != 13 || results[12].TranslatedText == results[12].OriginText {
@@ -407,13 +392,13 @@ func TestTranslateSentenceRangeSplitsFailedBatch(t *testing.T) {
 	err := service.translateSentenceRange(
 		context.Background(),
 		sentences,
-		results,
 		0,
 		len(sentences),
 		types.StandardLanguageCode("zh_cn"),
 		false,
-		func(count int) error {
-			completed = append(completed, count)
+		func(start int, items []*TranslatedItem) error {
+			copy(results[start:], items)
+			completed = append(completed, len(items))
 			return nil
 		},
 	)

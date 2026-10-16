@@ -8,6 +8,7 @@ export function videoTranslationArtifactRefsPatch(
   const remove = (...kinds: string[]) => {
     for (const kind of kinds) patch[kind] = [];
   };
+  if (state.sourceType === 'subtitle') remove('source_video', 'dubbed_audio', 'dubbed_video', 'horizontal_video', 'vertical_video');
 
   if (stageId === 'subtitle') {
     remove('dubbed_audio', 'dubbed_video', 'horizontal_video', 'vertical_video');

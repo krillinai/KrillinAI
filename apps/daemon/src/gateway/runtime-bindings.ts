@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { chmodSync, existsSync, lstatSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { createDirectRuntime } from './direct-runtime.js';
+import { parse, stringify } from '@iarna/toml';
+import { createDirectRuntime, type DirectRuntimeUse } from './direct-runtime.js';
 import { createOfficialFetch } from './official-fetch.js';
+import { isKnownDirectBase } from './supplier.js';
 
 export type GatewayRuntimeBindingsInput = {
   codexHome: string;
@@ -12,8 +14,10 @@ export type GatewayRuntimeBindingsInput = {
   closeRuntime(): Promise<void>;
   parentEnvironment?: NodeJS.ProcessEnv;
   direct?: boolean;
+  gateway?: boolean;
   readProxy?(): Promise<string>;
-  beginUse?(): Promise<{ key: string; release(): Promise<void> }>;
+  beginUse?(): Promise<DirectRuntimeUse>;
+  recoverKey?(keyVersion: string): Promise<{ key: string; keyVersion: string }>;
 };
 
 export type GatewayRuntimePreparation = {
@@ -41,6 +45,16 @@ export function createGatewayRuntimeBindings(input: GatewayRuntimeBindingsInput)
     if (!admitting || generation !== expectedGeneration) throw new Error('Official Runtime is signed out');
   }
 
+  function writeConfiguration(config: string) {
+    const temporary = join(input.codexHome, `.config-${randomUUID()}.tmp`);
+    try {
+      writeFileSync(temporary, config, { flag: 'wx', mode: 0o600 });
+      renameSync(temporary, join(input.codexHome, 'config.toml'));
+    } finally {
+      rmSync(temporary, { force: true });
+    }
+  }
+
   async function prepare(): Promise<GatewayRuntimePreparation> {
     assertOpen();
     if (preparation !== undefined) return preparation;
@@ -51,9 +65,9 @@ export function createGatewayRuntimeBindings(input: GatewayRuntimeBindingsInput)
       if (!credentials.accountId || !credentials.modelKey || !credentials.keyVersion) {
         throw new Error('Official Runtime credentials are unavailable');
       }
-      if (input.direct) {
-        if (input.baseUrl !== 'https://openrouter.ai/api/v1') throw new Error('Invalid official endpoint');
-        connection ??= await createDirectRuntime(credentials.modelKey, createOfficialFetch({ readProxy: input.readProxy }), input.beginUse);
+      if (input.direct || input.gateway) {
+        if (input.direct && !isKnownDirectBase(input.baseUrl)) throw new Error('Invalid official endpoint');
+        connection ??= await createDirectRuntime(credentials.modelKey, createOfficialFetch({ readProxy: input.readProxy }), input.beginUse, input.recoverKey, input.baseUrl, input.gateway);
         assertOpen(preparingGeneration);
       }
       mkdirSync(input.codexHome, { recursive: true, mode: 0o700 });
@@ -66,6 +80,7 @@ export function createGatewayRuntimeBindings(input: GatewayRuntimeBindingsInput)
         `model = ${JSON.stringify(input.model)}`,
         'model_provider = "opencreator_gateway"',
         'cli_auth_credentials_store = "file"',
+        ...(input.gateway ? ['web_search = "disabled"'] : []),
         '[shell_environment_policy]',
         'inherit = "core"',
         'exclude = ["OC_GATEWAY_MODEL_KEY"]',
@@ -87,13 +102,7 @@ export function createGatewayRuntimeBindings(input: GatewayRuntimeBindingsInput)
         'hooks = false',
         ''
       ].join('\n');
-      const temporary = join(input.codexHome, `.config-${randomUUID()}.tmp`);
-      try {
-        writeFileSync(temporary, config, { flag: 'wx', mode: 0o600 });
-        renameSync(temporary, join(input.codexHome, 'config.toml'));
-      } finally {
-        rmSync(temporary, { force: true });
-      }
+      writeConfiguration(config);
       const env: Record<string, string> = {};
       const parent = input.parentEnvironment ?? process.env;
       for (const name of ['PATH', 'SystemRoot', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TZ']) {
@@ -121,6 +130,15 @@ export function createGatewayRuntimeBindings(input: GatewayRuntimeBindingsInput)
 
   return {
     prepare,
+    async updateModel(model: string) {
+      if (!model.trim()) throw new Error('Official Runtime model is required');
+      const prepared = await prepare();
+      assertOpen(prepared.generation);
+      const config = parse(readFileSync(join(input.codexHome, 'config.toml'), 'utf8'));
+      if (config.model === model) return;
+      config.model = model;
+      writeConfiguration(stringify(config));
+    },
     beginLogout,
     async close() {
       beginLogout();

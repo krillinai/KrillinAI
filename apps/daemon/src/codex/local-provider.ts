@@ -45,7 +45,7 @@ export async function readLocalCodexImageConfiguration(input: {
   const tokens = readRecord(auth?.tokens);
   if (auth?.auth_mode !== 'apikey' && (auth?.auth_mode === 'chatgpt' || readString(tokens?.access_token))) {
     if (!readString(tokens?.access_token)) {
-      throw new LocalCodexProviderError('本机 Codex 的 ChatGPT 登录凭据不完整，请在本机 Codex 中重新登录');
+      throw new LocalCodexProviderError('Local Codex ChatGPT credentials are incomplete. Sign in again in local Codex.');
     }
     return { authentication: 'chatgpt' };
   }
@@ -76,11 +76,11 @@ export async function readLocalCodexProvider(input: {
   const apiKey = providerToken || envToken || authToken;
 
   if (!baseUrl) {
-    throw new LocalCodexProviderError('本机 Codex 未配置可用于生图的 Base URL');
+    throw new LocalCodexProviderError('Local Codex has no Base URL configured for image generation');
   }
   if (!apiKey) {
     throw new LocalCodexProviderError(
-      '本机 Codex 未配置图像接口可用的 API Key，请检查本机 Codex 配置'
+      'Local Codex has no API key for image generation. Check its configuration.'
     );
   }
   return {
@@ -96,9 +96,9 @@ async function readToml(path: string, optional = false): Promise<Record<string, 
   } catch (error) {
     if (isNotFound(error)) {
       if (optional) return {};
-      throw new LocalCodexProviderError('未找到本机 Codex 配置');
+      throw new LocalCodexProviderError('Local Codex configuration not found');
     }
-    throw new LocalCodexProviderError('无法读取本机 Codex 配置');
+    throw new LocalCodexProviderError('Could not read local Codex configuration');
   }
 }
 
@@ -110,7 +110,7 @@ async function readJson(path: string, strict = false): Promise<Record<string, un
     return record;
   } catch (error) {
     if (isNotFound(error)) return undefined;
-    if (strict) throw new LocalCodexProviderError('无法读取本机 Codex 登录凭据，请在本机 Codex 中重新登录或配置 API Key');
+    if (strict) throw new LocalCodexProviderError('Could not read local Codex credentials. Sign in again or configure an API key.');
     return undefined;
   }
 }

@@ -7,6 +7,51 @@ import { registerGatewayAccountRoutes } from '../../src/api/routes.gateway-accou
 import { createGatewayClient } from '../../src/gateway/client.js';
 import { GatewayError } from '../../src/gateway/client.js';
 import { createGatewayAccountService, type GatewayAccountService } from '../../src/gateway/account-service.js';
+import { ModelProbeError } from '../../src/gateway/model-selection-probe.js';
+
+it('validates task probes and preserves upstream denials without exposing credentials', async () => {
+  const probeModel = vi.fn(async () => { throw new ModelProbeError('model_probe_failed', { kind: 'unauthorized', httpStatus: 403, upstreamMessage: 'Provider Terms Of Service restriction' }); });
+  const server = Fastify();
+  try {
+    await registerGatewayAccountRoutes(server, { probeModel } as unknown as GatewayAccountService);
+    const response = await server.inject({ method: 'POST', url: '/gateway/model/probe', payload: { modality: 'text', model: 'vendor/text' } });
+    expect(response.statusCode).toBe(503);
+    expect(response.json().error.details).toMatchObject({ gatewayCode: 'model_probe_failed', publicFacts: { httpStatus: 403, upstreamMessage: 'Provider Terms Of Service restriction' } });
+    expect(probeModel).toHaveBeenCalledWith('text', 'vendor/text', undefined);
+    probeModel.mockClear();
+    expect((await server.inject({ method: 'POST', url: '/gateway/model/probe', payload: { modality: 'unknown', model: 'vendor/text' } })).statusCode).toBe(400);
+    expect(probeModel).not.toHaveBeenCalled();
+  } finally { await server.close(); }
+});
+
+it('reports missing platform probe support consistently for task checks and settings choices', async () => {
+  const diagnostics = { path: '/api/v1/client/probe-credentials', reason: 'http' as const, httpStatus: 404 };
+  const probeError = new ModelProbeError('model_probe_not_supported', undefined, diagnostics);
+  const service = { probeModel: vi.fn(async () => { throw probeError; }), selectModel: vi.fn(async () => { throw probeError; }) };
+  const server = Fastify();
+  try {
+    await registerGatewayAccountRoutes(server, service as unknown as GatewayAccountService);
+    for (const [method, url] of [['POST', '/gateway/model/probe'], ['PATCH', '/gateway/model']] as const) {
+      const response = await server.inject({ method, url, payload: { modality: 'text', model: 'vendor/text' } });
+      expect(response.statusCode).toBe(503);
+      expect(response.json().error.details).toEqual({ gatewayCode: 'model_probe_not_supported', probeRequest: diagnostics });
+      expect(response.json().error.code).toBe('GATEWAY_UNAVAILABLE');
+    }
+  } finally { await server.close(); }
+});
+
+it('validates and forwards explicit model refreshes without caching the account response', async () => {
+  const readState = vi.fn(async () => ({ models: [] })); const server = Fastify();
+  try {
+    await registerGatewayAccountRoutes(server, { readState } as unknown as GatewayAccountService);
+    const response = await server.inject('/gateway/account?refreshModels=1');
+    expect(response.statusCode).toBe(200); expect(response.headers['cache-control']).toBe('no-store');
+    expect(readState).toHaveBeenLastCalledWith({ refreshModels: true });
+    readState.mockClear();
+    expect((await server.inject('/gateway/account?refreshModels=invalid')).statusCode).toBe(400);
+    expect(readState).not.toHaveBeenCalled();
+  } finally { await server.close(); }
+});
 
 it('proxies account-owned orders and encoded grant cursors without caching', async () => {
   const billing = vi.fn(async () => ({ items: [] }));

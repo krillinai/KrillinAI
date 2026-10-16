@@ -15,13 +15,13 @@
 
 <a href="https://trendshift.io/repositories/13360" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13360" alt="OpenCreator(구 KrillinAI): Trendshift 오늘의 리포지토리 1위" width="250" height="55" /></a>
 
-[English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | **한국어** | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md) | [ภาษาไทย](../th/README.md)
+[English](../../README.md) | [简体中文](../zh/README.md) | [日本語](../ja/README.md) | **한국어** | [Bahasa Indonesia](../id/README.md) | [Español](../es/README.md) | [Français](../fr/README.md) | [Deutsch](../de/README.md) | [Português](../pt/README.md) | [Русский](../ru/README.md) | [العربية](../ar/README.md) | [ภาษาไทย](../th/README.md) | [Türkçe](../tr/README.md) | [हिन्दी](../hi/README.md) | [বাংলা](../bn/README.md) | [اردو](../ur/README.md) | [Tiếng Việt](../vi/README.md) | [Filipino](../fil/README.md)
 
 [![GitHub Stars](https://badgen.net/github/stars/krillinai/OpenCreator?icon=github&label=Stars&color=EAB308)](https://github.com/krillinai/OpenCreator/stargazers)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Bilibili](https://img.shields.io/badge/dynamic/json?label=Bilibili&query=%24.data.follower&suffix=%E7%B2%89%E4%B8%9D&url=https%3A%2F%2Fapi.bilibili.com%2Fx%2Frelation%2Fstat%3Fvmid%3D242124650&logo=bilibili&color=00A1D6&labelColor=FE7398&logoColor=FFFFFF)](https://space.bilibili.com/242124650)
 [![AtomGit G-Star](https://img.shields.io/badge/AtomGit-G--Star-DA203E?style=flat)](https://atomgit.com/krillinai/OpenCreator)
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/3GwBGsjs8)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/fUNvbqDaw)
 [![QQ 그룹](https://img.shields.io/badge/QQ%20群-754069680-green?logo=tencent-qq)](https://qm.qq.com/q/W4YC0PLMeA)
 
 [특징](#주요-특징) · [도구](#제작-도구) · [Skills](#skills) · [사례](#활용-사례) · [시작](#빠른-시작) · [Desktop](#desktop) · [문서](#문서) · [커뮤니티](#커뮤니티)
@@ -87,7 +87,7 @@ Dashboard에서 동영상을 번역하거나 다운로드하고, 썸네일 또�
 </thead>
 <tbody>
 <tr><td valign="top">동영상 번역</td><td valign="top">✅ 사용 가능</td><td>로컬 또는 공개 동영상을 불러오고 클라우드나 로컬 Whisper 서비스로 음성을 텍스트로 변환합니다. LLM 컨텍스트를 활용해 자막 분할, 정렬, 용어 처리, 번역을 수행하고, 이중 언어 자막, 더빙 또는 사용자 지정 음성 샘플, 자막 스타일, 가로·세로 구성을 설정한 뒤 SRT, 오디오 또는 동영상으로 내보낼 수 있습니다</td></tr>
-<tr><td valign="top">동영상 다운로드</td><td valign="top">✅ 사용 가능</td><td>YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest의 개별 공개 동영상을 분석하고 사용 가능한 형식을 비교해 동영상 또는 오디오를 다운로드합니다. 일부 플랫폼에는 쿠키가 필요할 수 있습니다</td></tr>
+<tr><td valign="top">동영상 다운로드</td><td valign="top">✅ 사용 가능</td><td>YouTube, Bilibili, X, TikTok, Instagram, Douyin, Facebook, Xiaohongshu, Pinterest, Reddit의 개별 공개 동영상을 분석하고 사용 가능한 형식을 비교해 동영상 또는 오디오를 다운로드합니다. 일부 플랫폼에는 쿠키가 필요할 수 있습니다</td></tr>
 <tr><td valign="top">썸네일 생성</td><td valign="top">✅ 사용 가능</td><td>주제, 동영상 링크, 선택적 참조 이미지를 조합해 여러 콘텐츠 썸네일 시안을 생성하고 비교할 수 있습니다</td></tr>
 <tr><td valign="top">이미지 생성</td><td valign="top">✅ 사용 가능</td><td>프롬프트와 선택적 참조 이미지로 GPT Image를 사용해 이미지를 생성하고, 화면 비율과 출력 수를 설정한 뒤 각 이미지를 미리 보고 다운로드할 수 있습니다</td></tr>
 <tr><td valign="top">기사 작성</td><td valign="top">✅ 사용 가능</td><td>주제, 링크, 동영상 또는 자료에서 편집 가능한 주제와 개요 및 기사를 만들고 이미지를 추가해 Markdown, HTML 또는 PDF로 내보냅니다.</td></tr>
@@ -107,11 +107,9 @@ Dashboard에서 동영상을 번역하거나 다운로드하고, 썸네일 또�
 
 제작 템플릿에는 OpenCreator의 오리지널 템플릿과 외부 크리에이터의 템플릿이 함께 제공됩니다. 외부 템플릿의 상세 화면에는 제작자와 원본 출처 링크가 표시됩니다.
 
-![동영상 제작과 이미지 디자인 등의 추천 제작 템플릿 목록](../images/product/creation-templates-gallery-en.png)
-
 템플릿을 열면 예시 결과와 프롬프트, 설정, 태그, 제작자 및 원본 출처를 확인할 수 있습니다. **이 템플릿 사용**을 선택해 제작을 시작하고 필요한 입력을 조정하세요.
 
-![예시 결과, 설정, 프롬프트가 있는 이미지 제작 템플릿 상세 화면](../images/product/creation-templates-detail-en.png)
+![예시 결과, 설정, 프롬프트가 있는 이미지 제작 템플릿 상세 화면](../images/product/creation-templates-detail-apex-summit-en.png)
 
 ## Skills
 
@@ -254,39 +252,36 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 > 이 동영상 사례와 자막 정렬 이미지는 OpenCreator가 KrillinAI라는 이름을 사용하던 시기에 제작되었습니다.
 
-### 동영상 생성
-
-Seedance를 사용해 텍스트 프롬프트 또는 참조 이미지에서 AI 동영상을 생성합니다. 모델, 화면 비율, 해상도, 길이를 설정한 뒤 프로젝트 작업 공간에서 각 버전을 미리 보거나 다시 생성하거나 다운로드할 수 있습니다.
-
-![OpenCreator Seedance 동영상 생성](../images/examples/video-generation-seedance-en.png)
-
 ### 비디오 다운로드
 
-공개 동영상 링크를 분석하고 사용 가능한 형식을 비교한 뒤 비디오 또는 오디오를 프로젝트로 직접 다운로드합니다.
+지원하는 10개 플랫폼의 공개 동영상 링크를 분석하고 사용 가능한 형식을 비교한 뒤 비디오 또는 오디오를 프로젝트로 직접 다운로드합니다.
 
 지원하는 동영상 플랫폼:
 
 <table align="center">
   <tr>
-    <td align="center" width="96"><img src="../images/platforms/youtube.png" alt="YouTube" width="32" height="32" /><br /><strong>YouTube</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/bilibili.png" alt="Bilibili" width="32" height="32" /><br /><strong>Bilibili</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/x.png" alt="X" width="32" height="32" /><br /><strong>X</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/tiktok.png" alt="TikTok" width="32" height="32" /><br /><strong>TikTok</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/instagram.png" alt="Instagram" width="32" height="32" /><br /><strong>Instagram</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/douyin.png" alt="Douyin" width="32" height="32" /><br /><strong>Douyin</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/facebook.png" alt="Facebook" width="32" height="32" /><br /><strong>Facebook</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="32" height="32" /><br /><strong>Xiaohongshu</strong></td>
-    <td align="center" width="96"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="32" height="32" /><br /><strong>Pinterest</strong></td>
+    <td align="center" width="48"><img src="../images/platforms/youtube.png" alt="YouTube" width="24" height="24" /><br /><small><small>YouTube</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/bilibili.png" alt="Bilibili" width="24" height="24" /><br /><small><small>Bilibili</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/x.png" alt="X" width="24" height="24" /><br /><small><small>X</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/tiktok.png" alt="TikTok" width="24" height="24" /><br /><small><small>TikTok</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/instagram.png" alt="Instagram" width="24" height="24" /><br /><small><small>Instagram</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/douyin.png" alt="Douyin" width="24" height="24" /><br /><small><small>Douyin</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/facebook.png" alt="Facebook" width="24" height="24" /><br /><small><small>Facebook</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/xiaohongshu.png" alt="Xiaohongshu" width="24" height="24" /><br /><small><small>Xiaohongshu</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/pinterest.png" alt="Pinterest" width="24" height="24" /><br /><small><small>Pinterest</small></small></td>
+    <td align="center" width="48"><img src="../images/platforms/reddit.png" alt="Reddit" width="24" height="24" /><br /><small><small>Reddit</small></small></td>
   </tr>
 </table>
 
 이용 가능 여부는 동영상과 지역에 따라 다르며 일부 플랫폼에는 쿠키가 필요할 수 있습니다. OpenCreator는 브라우저 쿠키를 자동으로 가져오지 않습니다.
 
-**Xiaohongshu 동영상 게시물:** 공개 `https://www.xiaohongshu.com/explore/<24자리 16진수 게시물 ID>` 전체 URL을 붙여넣고 `xsec_token` 등의 쿼리 매개변수를 유지하세요. 이미지만 있는 게시물에는 동영상 형식이 없으며 프로필과 `xhslink.com` 단축 링크는 지원하지 않습니다. 만료된 토큰이나 접근 제한으로 다운로드가 실패할 수 있습니다.
-
-**Pinterest 동영상 Pin:** 공개 `https://www.pinterest.com/pin/<숫자 ID>/` 링크를 붙여넣으세요. 이미지만 있는 Pin, 보드 및 프로필은 지원하지 않습니다.
-
 ![OpenCreator 비디오 다운로더 형식 선택](../images/examples/video-downloader-formats-en.png)
+
+### 동영상 생성
+
+Seedance를 사용해 텍스트 프롬프트 또는 참조 이미지에서 AI 동영상을 생성합니다. 모델, 화면 비율, 해상도, 길이를 설정한 뒤 프로젝트 작업 공간에서 각 버전을 미리 보거나 다시 생성하거나 다운로드할 수 있습니다.
+
+![OpenCreator Seedance 동영상 생성](../images/examples/video-generation-seedance-en.png)
 
 ### 스틱 피겨 애니메이션
 

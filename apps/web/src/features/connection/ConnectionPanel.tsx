@@ -1,3 +1,4 @@
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type { CodexStatusResponse } from '@opencreator/protocol';
 
 export function ConnectionPanel(props: {
@@ -6,6 +7,7 @@ export function ConnectionPanel(props: {
   message?: string;
   onRetry?(): void;
 }) {
+  const l = useLocalizedCopy();
   const title =
     props.status === 'connected'
       ? `已连接 ${props.codexStatus?.codexVersion ?? 'unknown'}`
@@ -22,7 +24,7 @@ export function ConnectionPanel(props: {
           : '应用会自动接入本机 Codex Runtime，无需手动配置。';
 
   return (
-    <div className="connection-panel" aria-label="Runtime 连接状态">
+    <div className="connection-panel" aria-label={l("Runtime 连接状态", "Runtime connection status")}>
       <div className="panel-header">
         <div className="connection-status">
           <span className={`connection-status-dot ${props.status}`} aria-hidden="true" />
@@ -32,8 +34,7 @@ export function ConnectionPanel(props: {
       <div className="connection-summary">
         {message ? <p>{message}</p> : null}
         <button type="button" onClick={props.onRetry}>
-          重新检测
-        </button>
+          {l("重新检测", "Check again")}</button>
       </div>
     </div>
   );

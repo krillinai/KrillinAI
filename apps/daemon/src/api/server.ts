@@ -1,3 +1,4 @@
+import { isDirectTransport } from '../gateway/supplier.js';
 import type Database from 'better-sqlite3';
 import type { CodexAvailabilityProbe, CodexRuntimeComponentReadiness } from '@opencreator/protocol';
 import cors from '@fastify/cors';
@@ -49,6 +50,7 @@ import {
   startKrillinRuntimeVerification
 } from '../creator/krillin/runtime-verifier.js';
 import { createKrillinTtsService } from '../creator/krillin/tts-service.js';
+import { createSubtitlePreviewService } from '../creator/krillin/subtitle-preview.js';
 import {
   createKrillinCodexLlmGateway,
   KRILLIN_LLM_ROUTE_PREFIX
@@ -236,11 +238,13 @@ import { registerCodexRoutes } from './routes.codex.js';
 import { registerCleanupRoutes } from './routes.cleanup.js';
 import { registerCreatorServicesRoutes } from './routes.creator-services.js';
 import { registerGatewayAccountRoutes } from './routes.gateway-account.js';
-import { createGatewayAccountService } from '../gateway/account-service.js';
+import { createGatewayAccountService, type GatewayAccountService } from '../gateway/account-service.js';
 import { createGatewayClient, GatewayError, type GatewayClient } from '../gateway/client.js';
 import { createGatewayRuntimeBindings } from '../gateway/runtime-bindings.js';
 import { createOfficialFetch } from '../gateway/official-fetch.js';
 import { createOfficialModelAccess } from '../gateway/model-access.js';
+import { createModelSelectionProbe } from '../gateway/model-selection-probe.js';
+import { prepareOfficialRuntimeProbe } from '../gateway/runtime-probe.js';
 import { createRuntimeSource } from '../gateway/runtime-source.js';
 import { createGatewayCreatorSource } from '../gateway/creator-service-source.js';
 import { createCodexAppServerHost } from '../codex/app-server-host-2026-07-28.js';
@@ -264,7 +268,8 @@ import { registerTaskRoutes } from './routes.tasks.js';
 import { registerThreadRoutes } from './routes.threads.js';
 import { registerWorkspaceFileRoutes } from './routes.workspace-files.js';
 import { registerVideoMetadataRoutes } from './routes.video-metadata.js';
-import { YouTubeConnectionService } from '../platform-connections/youtube.js';
+import { PlatformConnectionService } from '../platform-connections/service.js';
+import { supportedVideoSourcePlatform, gatewayModelReady } from '@opencreator/protocol';
 import { registerPlatformConnectionRoutes } from './routes.platform-connections.js';
 
 export type BuildServerInput = {
@@ -303,6 +308,7 @@ export type BuildServerInput = {
   codexSessionProvider?: CodexSessionProvider;
   codexModelCatalog?: CodexModelCatalog;
   getCodexAvailabilityProbe?(): CodexAvailabilityProbe | undefined;
+  onPrepareAvailabilityProbe?(prepare: () => ReturnType<typeof prepareOfficialRuntimeProbe>): void;
   memoryHistoryReader?(threadId: string): { items: import('@opencreator/protocol').ThreadHistoryItem[] } | undefined;
   creatorServicesConfigStore?: CreatorServicesConfigStore;
   videoMetadataService?: VideoMetadataService;
@@ -526,6 +532,7 @@ export async function buildServer(input: BuildServerInput) {
   );
   const officialManagers = new Map<string, AppServerRuntimeManager>();
   let officialBindings: ReturnType<typeof createGatewayRuntimeBindings> | undefined;
+  let officialRuntimeIdentity: string | undefined;
   const gatewayOrigin = input.gatewayOrigin ?? process.env.OPENCREATOR_GATEWAY_ORIGIN;
   const unavailable = async (): Promise<never> => { throw new GatewayError('services_not_ready'); };
   const readCommonProxy = async () => (await storedCreatorServicesConfigStore.read()).proxy;
@@ -534,9 +541,16 @@ export async function buildServer(input: BuildServerInput) {
     refresh: unavailable, bootstrap: unavailable, avatar: unavailable, logout: unavailable, request: unavailable
   };
   let officialInjectors: Record<string, import('../agent-tools/run-injection.js').AgentScheduleProcessInjector> = {};
-  const gatewayAccount = createGatewayAccountService({
+  const modelSelectionProbe = createModelSelectionProbe({ dataDir,
+    fetcher: createOfficialFetch({ readProxy: readCommonProxy }), readProxy: readCommonProxy
+  });
+  const gatewayAccount: GatewayAccountService = createGatewayAccountService({
     dataDir, client: gatewayClient,
-    modelAccess: createOfficialModelAccess({ dataDir, fetcher: createOfficialFetch({ readProxy: readCommonProxy }), readProxy: readCommonProxy }),
+    probeModel: modelSelectionProbe.probe,
+    deferStartupActivation: true,
+    modelAccess: createOfficialModelAccess({
+      dataDir, fetcher: createOfficialFetch({ readProxy: readCommonProxy }), readProxy: readCommonProxy
+    }),
     hasActiveTasks: () => [appServerRuntimeManager, creatorAppServerRuntimeManager, stickmanContentRuntimeManager]
       .some(manager => manager?.listScopes().some(scope => scope.active || scope.pending > 0))
       || creatorRepository.listJobs().some(job => job.status === 'running' || job.stages.some(stage => stage.status === 'queued')) || gatewayCreatorSource?.isBusy() === true,
@@ -546,21 +560,37 @@ export async function buildServer(input: BuildServerInput) {
       officialBindings?.beginLogout();
       await officialBindings?.close();
       officialBindings = undefined;
+      officialRuntimeIdentity = undefined;
       officialManagers.clear();
     },
     async activateRuntime(bootstrap) {
       if (runtimeTransport !== 'app-server') throw new GatewayError('services_not_ready');
-      const model = bootstrap.models.find(value => value.id === bootstrap.defaults.text && value.modality === 'text' && value.capabilities.includes('responses'));
+      const model = bootstrap.models.find(value => value.id === bootstrap.defaults.text && value.modality === 'text' && value.capabilities.includes('responses') && gatewayModelReady(value));
       if (!model) throw new GatewayError('services_not_ready');
+      const identity = JSON.stringify([bootstrap.account.id, bootstrap.baseUrl, bootstrap.transport,
+        ...(isDirectTransport(bootstrap.transport) ? [] : [bootstrap.bindingVersion, bootstrap.keyVersion])]);
+      if (officialBindings && officialRuntimeIdentity === identity) {
+        // Turns already carry their own model; changing the default must keep live hosts and streams.
+        await officialBindings.updateModel(model.id);
+        return;
+      }
+      officialRuntimeIdentity = undefined;
       await officialBindings?.close(); officialManagers.clear();
       const home = join(runtimeDir, 'gateway-codex');
       const bootstrapResult = bootstrapCreatorAgentRuntime({ ...creatorAgentBootstrapInput, codexHome: home, source: 'gateway' });
       if (!bootstrapResult.available) throw new GatewayError('services_not_ready');
       officialBindings = createGatewayRuntimeBindings({
-        codexHome: home, baseUrl: bootstrap.baseUrl, model: model.id, direct: bootstrap.transport === 'openrouter-direct',
+        codexHome: home, baseUrl: bootstrap.baseUrl, model: model.id, direct: isDirectTransport(bootstrap.transport), gateway: bootstrap.transport === 'gateway',
         readProxy: readCommonProxy,
-        beginUse: async () => { const use = await gatewayAccount.beginModelUse(); return { key: use.credentials.modelKey, release: use.release }; },
-        readCredentials: async () => ({ accountId: bootstrap.account.id, modelKey: bootstrap.modelKey, keyVersion: bootstrap.keyVersion }),
+        beginUse: async () => { const use = await gatewayAccount.beginModelUse(); return { key: use.credentials.modelKey, keyVersion: use.credentials.keyVersion, baseUrl: use.credentials.baseUrl, release: use.release, models: use.credentials.models,
+          onModelFailure: (id, modality, facts) => gatewayAccount.reportModelFailure(use.credentials, id, modality, facts),
+          onModelSuccess: (id, modality, operation) => gatewayAccount.reportModelSuccess(use.credentials, id, modality, operation) }; },
+        recoverKey: async keyVersion => { const updated = await gatewayAccount.recoverModelCredentials(keyVersion); if (updated.baseUrl !== bootstrap.baseUrl) throw new GatewayError('supplier_binding_changed', 409); return { key: updated.modelKey, keyVersion: updated.keyVersion }; },
+        readCredentials: async () => {
+          if (bootstrap.transport !== 'gateway' && bootstrap.modelKey) return { accountId: bootstrap.account.id, modelKey: bootstrap.modelKey, keyVersion: bootstrap.keyVersion };
+          const use = await gatewayAccount.beginModelUse({ recovery: true });
+          try { return use.credentials; } finally { await use.release(); }
+        },
         closeRuntime: async () => { await Promise.all([...officialManagers.values()].map(manager => manager.close())); }
       });
       const prepared = await officialBindings.prepare();
@@ -572,8 +602,10 @@ export async function buildServer(input: BuildServerInput) {
           createHost(host) { return createCodexAppServerHost({ ...host, codexHome: home, baseEnvironment: prepared.env }); }
         }));
       }
+      officialRuntimeIdentity = identity;
     }
   });
+  await gatewayAccount.initialize();
   const creatorAgentRepository = createCreatorAgentRepository(db);
   const creatorAgentReconciler = createCreatorAgentReconciler({
     repository: creatorAgentRepository
@@ -689,18 +721,25 @@ export async function buildServer(input: BuildServerInput) {
   gatewayCreatorSource = createGatewayCreatorSource({ account: gatewayAccount, manual: manualCreatorServicesConfigStore, getLocalOrigin: getAgentToolBaseUrl, readJobBinding: creatorRepository.getServiceBinding, readJobState: id => creatorRepository.getJob(id)?.state, readStageRun: creatorRepository.getStageRun, ledger: creatorProviderRequestLedger, directRequestsRoot: join(dataDir, 'gateway', 'requests') });
   const creatorServicesConfigStore = gatewayCreatorSource.store;
   if (stickmanContentRuntimeManager) stickmanContentRuntimeManager = createRuntimeSource(stickmanContentRuntimeManager, gatewayAccount.peekState, () => officialManagers.get('stickman'));
-  let getCreatorYtDlpRuntime: (() => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
-  const youtubeConnection = new YouTubeConnectionService({
+  let getCreatorYtDlpRuntime: ((sourceUrl?: string) => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
+  const youtubeConnection = new PlatformConnectionService({
     root: join(dataDir, 'platform-connections', 'youtube'),
     getRuntime: () => getCreatorYtDlpRuntime?.()
   });
+  const douyinConnection = new PlatformConnectionService({
+    platform: 'douyin',
+    root: join(dataDir, 'platform-connections', 'douyin'),
+    getRuntime: () => getCreatorYtDlpRuntime?.()
+  });
   await youtubeConnection.initialize();
-  await registerPlatformConnectionRoutes(server, youtubeConnection);
+  await douyinConnection.initialize();
+  await registerPlatformConnectionRoutes(server, youtubeConnection, douyinConnection);
   const videoMetadataService = input.videoMetadataService ?? createVideoMetadataService({
     getProxy: async () => (await readCommonProxy()).trim(),
-    getYtDlpRuntime: () => getCreatorYtDlpRuntime?.(),
+    getYtDlpRuntime: sourceUrl => getCreatorYtDlpRuntime?.(sourceUrl),
     isYouTubeConnected: () => youtubeConnection.hasAuthentication(),
-    withYouTubeCookies: operation => youtubeConnection.withCookies(operation)
+    withYouTubeCookies: operation => youtubeConnection.withCookies(operation),
+    withDouyinCookies: operation => douyinConnection.withCookies(operation)
   });
   const creatorService = input.creatorService ?? createCreatorService({
     jobsRoot: creatorJobsRoot,
@@ -824,7 +863,7 @@ export async function buildServer(input: BuildServerInput) {
   let creatorFfmpegPath: string | undefined;
   let creatorFfprobePath: string | undefined;
   let creatorYtDlpUpdateManager = input.creatorYtDlpUpdateManager;
-  let getYtDlpRuntime: (() => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
+  let getYtDlpRuntime: ((sourceUrl?: string) => ReturnType<typeof resolveYtDlpRuntime>) | undefined;
   try {
     const runtimeManifest = readKrillinRuntimeManifest(creatorRuntimeRoot);
     let runtimeVerification: ReturnType<typeof startKrillinRuntimeVerification> | undefined;
@@ -879,9 +918,8 @@ export async function buildServer(input: BuildServerInput) {
         console.warn(`yt-dlp updater is unavailable: ${formatError(error)}`);
       }
     }
-    getYtDlpRuntime = () => youtubeConnection.authenticatedRuntime(
-      creatorYtDlpUpdateManager?.getRuntime() ?? ytDlp
-    );
+    getYtDlpRuntime = sourceUrl => (sourceUrl && supportedVideoSourcePlatform(sourceUrl) === 'douyin'
+      ? douyinConnection : youtubeConnection).authenticatedRuntime(creatorYtDlpUpdateManager?.getRuntime() ?? ytDlp);
     getCreatorYtDlpRuntime = getYtDlpRuntime;
     if (input.creatorExecutors === undefined) {
       creatorExecutors.push(createKrillinExecutor({
@@ -905,7 +943,7 @@ export async function buildServer(input: BuildServerInput) {
         ytDlpPath: ytDlp.executable,
         ytDlpPrefixArgs: ytDlp.prefixArgs,
         ytDlpEnv: ytDlp.env,
-        getYtDlpRuntime: () => getYtDlpRuntime!()!,
+        getYtDlpRuntime: sourceUrl => getYtDlpRuntime!(sourceUrl)!,
         ffmpegPath: creatorFfmpegPath,
         ffprobePath: creatorFfprobePath
       }));
@@ -996,6 +1034,7 @@ export async function buildServer(input: BuildServerInput) {
   }
   const creatorPreflight = createCreatorPreflight({
     assertServiceSource: gatewayCreatorSource.assertJob,
+    validateOfficialModel: gatewayAccount.validateModel,
     readCodexImageStatus,
     videoMetadataService,
     configStore: creatorServicesConfigStore,
@@ -1065,7 +1104,7 @@ export async function buildServer(input: BuildServerInput) {
           id: executor.id,
           run: stage => gatewayCreatorSource!.runForJob(stage.job.id, stage.stageRun.id, () =>
             ['download', 'krillinai', 'cover-analysis', 'wechat-article'].includes(executor.id)
-              ? youtubeConnection.withCookies(() => executor.run(stage))
+              ? youtubeConnection.withCookies(() => douyinConnection.withCookies(() => executor.run(stage)))
               : executor.run(stage))
         })),
         async beforeRun(job, stageId) {
@@ -1140,6 +1179,7 @@ export async function buildServer(input: BuildServerInput) {
     service: creatorService,
     repository: creatorRepository,
     receipts: creatorAgentRepository,
+    queryProviderRequest: request => gatewayCreatorSource!.queryProviderRequest(request),
     onQueuedStage: () => creatorStageScheduler?.wake(),
     onCommitted(result) {
       const activity = result.job.activities.find(candidate => (
@@ -1214,18 +1254,6 @@ export async function buildServer(input: BuildServerInput) {
         creator: creatorService,
         dispatcher: creatorCommandDispatcher
       });
-  void coverWorkflow?.recover().catch(error => {
-    console.warn(`Cover workflow recovery failed: ${formatError(error)}`);
-  });
-  void videoTranslationWorkflow?.recover().catch(error => {
-    console.warn(`Video translation workflow recovery failed: ${formatError(error)}`);
-  });
-  void stickmanVideoWorkflow?.recover().catch(error => {
-    console.warn(`Stickman video workflow recovery failed: ${formatError(error)}`);
-  });
-  void autoClipWorkflow?.recover().catch(error => {
-    console.warn(`Video clip workflow recovery failed: ${formatError(error)}`);
-  });
   const scheduleRunInjector = createAgentScheduleRunInjector({
     capabilities: agentCapabilityTokens,
     getBaseUrl: getAgentToolBaseUrl,
@@ -1400,7 +1428,28 @@ export async function buildServer(input: BuildServerInput) {
     throw error;
   });
 
+  let closing = false;
+  let backgroundStartup: Promise<void> | undefined;
   server.addHook('onListen', () => {
+    backgroundStartup = (async () => {
+      await gatewayAccount.startBackgroundRestore();
+      if (closing) return;
+      void coverWorkflow?.recover().catch(error => {
+        console.warn(`Cover workflow recovery failed: ${formatError(error)}`);
+      });
+      void videoTranslationWorkflow?.recover().catch(error => {
+        console.warn(`Video translation workflow recovery failed: ${formatError(error)}`);
+      });
+      void stickmanVideoWorkflow?.recover().catch(error => {
+        console.warn(`Stickman video workflow recovery failed: ${formatError(error)}`);
+      });
+      void autoClipWorkflow?.recover().catch(error => {
+        console.warn(`Video clip workflow recovery failed: ${formatError(error)}`);
+      });
+      if (input.schedulerAutostart === true) scheduler.start();
+    })().catch(error => {
+      console.warn(`Background startup failed: ${formatError(error)}`);
+    });
     if (
       startKrillinVerification === undefined
       || !hasKrillinRuntimeVerificationWorker()
@@ -1413,8 +1462,12 @@ export async function buildServer(input: BuildServerInput) {
   });
 
   server.addHook('onClose', async () => {
+    closing = true;
     await youtubeConnection.close();
+    await douyinConnection.close();
+    await modelSelectionProbe.close();
     await gatewayAccount.close();
+    await backgroundStartup;
     let firstError: unknown;
     const capture = async (operation: () => void | Promise<void>) => {
       try {
@@ -1468,7 +1521,7 @@ export async function buildServer(input: BuildServerInput) {
       async listModels() {
         const gateway = gatewayAccount.peekState();
         if (gateway.source === 'manual') return codexModelCatalog.listModels();
-        return { models: gateway.models.filter(model => model.modality === 'text' && model.capabilities.includes('responses')).map((model, index) => ({ id: model.id, model: model.id, displayName: /openrouter/i.test(model.id) ? 'Auto' : model.id.split('/').pop()!, description: '', supportedReasoningEfforts: [], defaultReasoningEffort: null, inputModalities: ['text' as const], isDefault: gateway.selectedModels?.text ? model.id === gateway.selectedModels.text : index === 0 })) };
+        return { models: gateway.models.filter(model => model.modality === 'text' && model.capabilities.includes('responses') && gatewayModelReady(model)).map((model, index) => ({ id: model.id, model: model.id, displayName: /openrouter/i.test(model.id) ? 'Auto' : model.id.split('/').pop()!, description: '', supportedReasoningEfforts: [], defaultReasoningEffort: null, inputModalities: ['text' as const], isDefault: gateway.selectedModels?.text ? model.id === gateway.selectedModels.text : index === 0 })) };
       }
     },
     readiness: codexRuntimeReadiness,
@@ -1548,7 +1601,6 @@ export async function buildServer(input: BuildServerInput) {
       : localCodexTextModelDefaults.readStatus(),
     storedCreatorServicesConfigStore
   );
-  await gatewayAccount.readState();
   await registerGatewayAccountRoutes(server, gatewayAccount);
   await gatewayCreatorSource.register(server);
   await registerSmartDubbingRoutes(server, smartDubbingService);
@@ -1578,7 +1630,13 @@ export async function buildServer(input: BuildServerInput) {
     readServicesConfig: () => creatorServicesConfigStore.read(),
     codexImageRuntime,
     preflight: creatorPreflight,
-    issueService: creatorIssueService
+    issueService: creatorIssueService,
+    subtitlePreviewService: createSubtitlePreviewService({
+      resourceRoot: creatorRuntimeRoot,
+      workRoot: join(creatorJobsRoot, '.previews'),
+      ensureRuntimeReady: () => ensureKrillinRuntimeReady(),
+      getYtDlpRuntime: () => getCreatorYtDlpRuntime?.()
+    })
   });
   await registerAttachmentRoutes(server, attachmentService, {
     maxSizeBytes: input.attachmentMaxSizeBytes
@@ -1630,7 +1688,7 @@ export async function buildServer(input: BuildServerInput) {
     }
   });
 
-  if (input.schedulerAutostart === true) scheduler.start();
+  input.onPrepareAvailabilityProbe?.(() => prepareOfficialRuntimeProbe({ account: gatewayAccount, readProxy: readCommonProxy }));
   return server;
 }
 
@@ -1645,7 +1703,7 @@ function readCodexBinaryReadiness(runtimeRoot: string | undefined): CodexRuntime
       return {
         status: 'invalid',
         errorCode: 'codex_runtime_hash_mismatch',
-        message: 'Codex Runtime manifest 未提供二进制 SHA-256'
+        message: 'The Codex Runtime manifest is missing the executable SHA-256'
       };
     }
     return {

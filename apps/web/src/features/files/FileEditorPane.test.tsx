@@ -32,7 +32,7 @@ describe('FileEditorPane', () => {
     );
 
     expect(screen.getByRole('button', { name: '编辑' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('textbox', { name: 'README.md 编辑器' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'README.md editor' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '标题' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '预览' }));
@@ -102,7 +102,7 @@ describe('FileEditorPane', () => {
       />
     );
 
-    expect(screen.getByRole('textbox', { name: 'notes.txt 编辑器' })).toHaveAttribute('aria-readonly', 'true');
+    expect(screen.getByRole('textbox', { name: 'notes.txt editor' })).toHaveAttribute('aria-readonly', 'true');
     expect(screen.getByRole('button', { name: '保存' })).toBeDisabled();
   });
 
@@ -139,7 +139,7 @@ describe('FileEditorPane', () => {
       />
     );
 
-    const editor = screen.getByRole('textbox', { name: 'notes.txt 编辑器' });
+    const editor = screen.getByRole('textbox', { name: 'notes.txt editor' });
     await user.click(editor);
     await user.keyboard('A');
 
@@ -229,7 +229,7 @@ describe('FileEditorPane', () => {
       />
     );
 
-    fireEvent.keyDown(screen.getByRole('textbox', { name: 'notes.txt 编辑器' }), {
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'notes.txt editor' }), {
       key: 's',
       code: 'KeyS',
       ctrlKey: true
@@ -250,7 +250,7 @@ describe('FileEditorPane', () => {
       />
     );
 
-    fireEvent.keyDown(screen.getByRole('textbox', { name: 'notes.txt 编辑器' }), {
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'notes.txt editor' }), {
       key: 's',
       code: 'KeyS',
       ctrlKey: true
@@ -280,7 +280,7 @@ describe('FileEditorPane', () => {
 
     expect(screen.getByRole('button', { name: '编辑' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '预览' })).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'logo.svg 编辑器' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'logo.svg editor' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '预览' }));
 

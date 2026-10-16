@@ -153,7 +153,7 @@ describe('App', () => {
 
     render(<App hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
     expect(await screen.findByRole('heading', { name: 'OpenCreator' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('OpenCreator 导航')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('OpenCreator navigation')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '稍后配置，进入本地模式' }));
     expect(await screen.findByText('Agent 尚未配置，暂时无法发送任务。')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '配置 Agent' }));
@@ -179,17 +179,18 @@ describe('App', () => {
     render(<App hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
     await waitFor(() => {
       expect(screen.queryByText('正在检查 Agent 配置…')).not.toBeInTheDocument();
-      expect(screen.getByLabelText('OpenCreator 导航')).toBeInTheDocument();
+      expect(screen.getByLabelText('OpenCreator navigation')).toBeInTheDocument();
     });
     expect(screen.queryByRole('heading', { name: 'OpenCreator' })).not.toBeInTheDocument();
     }
   );
 
-  it.each(['ready', 'blocked'] as const)('enters the application after gateway sign-in with %s activation and never asks for provider credentials', async activationState => {
+  it.each([['ready', 'browser'], ['blocked', 'browser'], ['loading', 'browser'], ['blocked', 'desktop']] as const)('enters the application after gateway sign-in with %s activation in %s and never asks for provider credentials', async (activationState, hostKind) => {
     window.localStorage.clear();
     writeCachedModelCatalog({ models: [{ ...createCodexModelListResponse().models[0]!, id: 'personal-model', model: 'personal-model', displayName: 'Personal cached model', isDefault: true }] });
     const user = userEvent.setup();
     const hostBridge = createHostBridge();
+    hostBridge.kind = hostKind;
     hostBridge.readConnectionConfig = async () => ({ baseUrl: 'http://127.0.0.1:60764', token: 'runtime-token' });
     let gateway: GatewayAccountState = { source: 'manual', authState: 'signed_out', activationState: 'inactive', account: null, bindingVersion: null, models: [], activationError: null };
     const runtimeFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -215,7 +216,7 @@ describe('App', () => {
     expect(screen.queryByLabelText('Base URL')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('API Key')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '登录 OpenCreator' }));
-    await waitFor(() => expect(screen.getByLabelText('OpenCreator 导航')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText('OpenCreator navigation')).toBeInTheDocument());
     expect(screen.queryByRole('region', { name: '开始使用 Agent' })).not.toBeInTheDocument();
     expect(screen.queryByText('Agent 尚未配置，暂时无法发送任务。')).not.toBeInTheDocument();
     if (activationState === 'ready') {
@@ -228,6 +229,16 @@ describe('App', () => {
       expect(screen.getByText('已登录，模型服务暂不可用。')).toBeInTheDocument();
       await user.click(within(screen.getByText('已登录，模型服务暂不可用。').parentElement!).getByRole('button', { name: '账户' }));
       await waitFor(() => expect(window.location.hash).toBe('#/account'));
+      await user.click(await screen.findByRole('button', { name: '模型设置' }));
+      expect(await screen.findByRole('heading', { name: 'AI 服务' })).toBeInTheDocument();
+      expect(window.location.hash).toBe('#/settings?tab=ai-services');
+      await user.click(screen.getByRole('button', { name: '返回应用' }));
+      expect(await screen.findByRole('main', { name: '个人中心' })).toBeInTheDocument();
+      expect(window.location.hash).toBe('#/account');
+    }
+    if (activationState === 'loading') {
+      expect(screen.getByText('已登录，正在连接模型服务…')).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: '输入任务' })).toBeDisabled();
     }
   });
 
@@ -258,13 +269,13 @@ describe('App', () => {
     render(<App hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
     await user.click(await screen.findByRole('button', { name: '本地模式' }));
     expect(await screen.findByText('已找到本机 Codex')).toBeInTheDocument();
-    expect(screen.queryByLabelText('OpenCreator 导航')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('OpenCreator navigation')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '使用本机 Codex，继续' }));
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'OpenCreator' })).not.toBeInTheDocument());
 
     cleanup();
     render(<App hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
-    await waitFor(() => expect(screen.getByLabelText('OpenCreator 导航')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText('OpenCreator navigation')).toBeInTheDocument());
     expect(screen.queryByRole('heading', { name: 'OpenCreator' })).not.toBeInTheDocument();
 
     cleanup();
@@ -296,7 +307,7 @@ describe('App', () => {
       diagnostics: []
     })).toEqual(expect.arrayContaining([
       expect.objectContaining({ category: 'skill', insertText: '$brainstorming ' }),
-      expect.objectContaining({ category: 'mcp', insertText: '使用 MCP：github ' })
+      expect.objectContaining({ category: 'mcp', insertText: 'Use MCP: github ' })
     ]));
   });
 
@@ -305,7 +316,7 @@ describe('App', () => {
       Date.parse('2026-07-21T07:00:30.000Z')
     );
 
-    expect(formatRelativeTime('2026-07-21 07:00:00')).toBe('刚刚');
+    expect(formatRelativeTime('2026-07-21 07:00:00')).toBe('Just now');
 
     now.mockRestore();
   });
@@ -528,7 +539,7 @@ describe('App', () => {
 
     expect(await screen.findByRole('heading', { name: '我的项目' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '我的项目' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.queryByLabelText('项目和对话')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Projects and conversations')).not.toBeInTheDocument();
   });
 
   it('returns to My Projects after opening a creator project from the project list', async () => {
@@ -710,12 +721,12 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('heading', { name: '任务中心' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Task center' })).toBeInTheDocument();
     expect(window.location.hash).toBe('#/tasks');
 
     await user.click(await within(screen.getByRole('list')).findByRole('button', { name: /后台整理任务/ }));
 
-    expect(await screen.findByRole('heading', { name: '运行详情' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Run details' })).toBeInTheDocument();
     expect(screen.getByText('run_task')).toBeInTheDocument();
     expect(window.location.hash).toBe('#/thread/thread_task');
   });
@@ -804,7 +815,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('heading', { name: '任务中心' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Task center' })).toBeInTheDocument();
     await user.click(await within(await screen.findByRole('list')).findByRole('button', {
       name: /每日总结/
     }));
@@ -814,7 +825,7 @@ describe('App', () => {
     });
     expect(document.querySelector('[data-search-target="true"]'))
       .toContainElement(approvalRegion);
-    expect(screen.queryByRole('heading', { name: '运行详情' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Run details' })).not.toBeInTheDocument();
     expect(window.location.hash).toBe(
       '#/thread/thread_approval_task?runId=run_approval_task&approvalId=approval_task'
     );
@@ -825,7 +836,7 @@ describe('App', () => {
 
     render(<App fileService={createFileService()} />);
 
-    expect(await screen.findByRole('button', { name: '关闭文件工作区' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Close file workspace' })).toBeInTheDocument();
     expect(window.location.hash).toBe('#/files?path=docs%2Fatoms.md');
   });
 
@@ -833,14 +844,14 @@ describe('App', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const navigation = await screen.findByLabelText('OpenCreator 导航');
-    await user.click(screen.getByRole('button', { name: '打开导航' }));
+    const navigation = await screen.findByLabelText('OpenCreator navigation');
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }));
     expect(navigation).toHaveAttribute('data-mobile-open', 'true');
 
     await user.click(screen.getByRole('button', { name: '工作台' }));
     expect(navigation).toHaveAttribute('data-mobile-open', 'false');
 
-    await user.click(screen.getByRole('button', { name: '打开导航' }));
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }));
     expect(navigation).toHaveAttribute('data-mobile-open', 'true');
     act(() => window.dispatchEvent(new PopStateEvent('popstate')));
 
@@ -864,16 +875,16 @@ describe('App', () => {
 
     render(<App />);
 
-    await user.click(await screen.findByRole('button', { name: '打开导航' }));
+    await user.click(await screen.findByRole('button', { name: 'Open navigation' }));
     expect(pushState).toHaveBeenCalledWith(
       expect.objectContaining({ opencreatorMobileNavigation: true }),
       ''
     );
 
-    await user.click(screen.getByRole('button', { name: '关闭导航' }));
+    await user.click(screen.getByRole('button', { name: 'Close navigation' }));
 
     expect(back).toHaveBeenCalledTimes(1);
-    expect(screen.getByLabelText('OpenCreator 导航')).toHaveAttribute('data-mobile-open', 'false');
+    expect(screen.getByLabelText('OpenCreator navigation')).toHaveAttribute('data-mobile-open', 'false');
   });
 
   it('replaces the temporary mobile drawer entry when navigating from the drawer', async () => {
@@ -892,13 +903,13 @@ describe('App', () => {
 
     render(<App />);
 
-    await user.click(await screen.findByRole('button', { name: '打开导航' }));
+    await user.click(await screen.findByRole('button', { name: 'Open navigation' }));
     await user.click(screen.getByRole('button', { name: '工作台' }));
 
     await waitFor(() => expect(window.location.hash).toBe('#/dashboard'));
     expect(back).not.toHaveBeenCalled();
     expect(window.history.state?.opencreatorMobileNavigation).not.toBe(true);
-    expect(screen.getByLabelText('OpenCreator 导航')).toHaveAttribute('data-mobile-open', 'false');
+    expect(screen.getByLabelText('OpenCreator navigation')).toHaveAttribute('data-mobile-open', 'false');
   });
 
   afterEach(() => {
@@ -965,7 +976,7 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /^视频翻译/ }));
 
     expect(await screen.findByRole('heading', { name: '视频翻译配音' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('OpenCreator 导航')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('OpenCreator navigation')).not.toBeInTheDocument();
     const agentInput = screen.getByRole('textbox', { name: '告诉 Agent 你的要求' });
     expect(agentInput).toHaveAttribute(
       'placeholder',
@@ -975,7 +986,7 @@ describe('App', () => {
     await user.click(within(
       screen.getByRole('region', { name: '视频翻译操作区' })
     ).getByRole('button', { name: '返回' }));
-    expect(await screen.findByLabelText('OpenCreator 导航')).toBeInTheDocument();
+    expect(await screen.findByLabelText('OpenCreator navigation')).toBeInTheDocument();
     await waitFor(() => expect(window.location.hash).toBe('#/workbench'));
   });
 
@@ -1285,7 +1296,7 @@ describe('App', () => {
     expect(shell?.style.getPropertyValue('--opencreator-titlebar-height')).toBe('38px');
     expect(shell?.style.getPropertyValue('--opencreator-traffic-light-inset')).toBe('76px');
     expect(document.querySelector('.desktop-titlebar-drag-region')).toBeInTheDocument();
-    expect(screen.queryByRole('group', { name: '窗口控制' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Window controls' })).not.toBeInTheDocument();
     expect(document.querySelector('.opencreator-main-titlebar')).not.toBeInTheDocument();
   });
 
@@ -1303,10 +1314,10 @@ describe('App', () => {
     render(<App fileService={createFileService()} hostBridge={hostBridge} />);
 
     await screen.findByRole('button', { name: '工作台' });
-    const controls = screen.getByRole('group', { name: '窗口控制' });
-    await user.click(within(controls).getByRole('button', { name: '缩放窗口' }));
-    await user.click(within(controls).getByRole('button', { name: '最小化窗口' }));
-    await user.click(within(controls).getByRole('button', { name: '关闭窗口' }));
+    const controls = screen.getByRole('group', { name: 'Window controls' });
+    await user.click(within(controls).getByRole('button', { name: 'Zoom window' }));
+    await user.click(within(controls).getByRole('button', { name: 'Minimize window' }));
+    await user.click(within(controls).getByRole('button', { name: 'Close window' }));
     expect(controlWindow.mock.calls).toEqual([['zoom'], ['minimize'], ['close']]);
   });
 
@@ -1354,7 +1365,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /hello/ }));
 
     const mainTitlebar = document.querySelector<HTMLElement>('.opencreator-main-titlebar');
@@ -1363,10 +1374,10 @@ describe('App', () => {
     expect(document.querySelector('.conversation-page > .conversation-header')).not.toBeInTheDocument();
     expect(screen.getAllByRole('heading', { name: 'hello' })).toHaveLength(1);
 
-    await user.click(within(mainTitlebar!).getByRole('button', { name: '文件' }));
+    await user.click(within(mainTitlebar!).getByRole('button', { name: 'Files' }));
 
-    expect(await screen.findByLabelText('会话和文件工作区')).toBeInTheDocument();
-    expect(within(mainTitlebar!).getByRole('button', { name: '文件' }))
+    expect(await screen.findByLabelText('Conversation and file workspace')).toBeInTheDocument();
+    expect(within(mainTitlebar!).getByRole('button', { name: 'Files' }))
       .toHaveAttribute('aria-pressed', 'true');
   });
 
@@ -1559,7 +1570,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /浏览器会话标题/ }));
 
     const conversationPage = document.querySelector<HTMLElement>('.conversation-page');
@@ -1681,19 +1692,19 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '定时任务' }));
 
     expect(await screen.findByRole('heading', { name: '每日总结' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'OpenCreator：已安排' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '查看上次运行' }));
+    await user.click(screen.getByRole('button', { name: 'View last run' }));
 
     expect(await screen.findByRole('heading', { name: '每日总结' })).toBeInTheDocument();
     expect(window.location.hash).toBe('#/thread/thread-schedule-1?runId=run_schedule');
-    expect(screen.queryByRole('heading', { name: '运行详情' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Run details' })).not.toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: '输入任务' })).toBeInTheDocument();
-    expect(screen.getByText('定时执行')).toBeInTheDocument();
+    expect(screen.getByText('Scheduled run')).toBeInTheDocument();
     expect(screen.getByText('生成每日项目摘要')).toBeInTheDocument();
   });
 
@@ -1760,20 +1771,20 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('任务管理')).not.toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Task management')).not.toBeInTheDocument();
 
     await user.click(await screen.findByRole('button', { name: /^每日总结/ }));
 
-    expect(await screen.findByLabelText('任务管理')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Task management')).toBeInTheDocument();
     expect(document.querySelector('.opencreator-main-titlebar')).toHaveTextContent('每日总结');
     expect(document.querySelector('.conversation-task-strip--standalone'))
-      .toContainElement(screen.getByLabelText('任务管理'));
+      .toContainElement(screen.getByLabelText('Task management'));
     expect(document.querySelector('.conversation-page > .conversation-header')).not.toBeInTheDocument();
     expect(screen.queryByText('需要帮你做点什么')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '立即运行任务' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '暂停任务' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '编辑任务' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Run task now' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pause task' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit task' })).toBeInTheDocument();
   });
 
   it.each([
@@ -1798,7 +1809,7 @@ describe('App', () => {
         skipped: false,
         queued: true
       },
-      expectedMessage: '本次运行已排队，会在当前任务结束后执行'
+      expectedMessage: 'This run is queued and will start after the active task finishes.'
     },
     {
       label: 'skips',
@@ -1808,7 +1819,7 @@ describe('App', () => {
         skipped: true,
         queued: false
       },
-      expectedMessage: '已有任务在运行，本次已跳过'
+      expectedMessage: 'A task is already running. This run was skipped.'
     }
   ])('$label a schedule from its task thread', async ({ response, expectedMessage }) => {
     const user = userEvent.setup();
@@ -1868,7 +1879,7 @@ describe('App', () => {
     );
 
     await user.click(await screen.findByRole('button', { name: '定时任务' }));
-    await user.click(await screen.findByRole('button', { name: '立即运行每日总结' }));
+    await user.click(await screen.findByRole('button', { name: 'Run now 每日总结' }));
 
     expect(window.location.hash).toBe('#/thread/thread-schedule-1');
     runNow.resolve(jsonResponse(response));
@@ -1947,12 +1958,12 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '定时任务' }));
-    expect(await screen.findByRole('heading', { name: '定时任务' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Scheduled tasks' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /^创建$/ }));
-    expect(screen.getByRole('dialog', { name: '创建定时任务' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^Create$/ }));
+    expect(screen.getByRole('dialog', { name: 'Create scheduled task' })).toBeInTheDocument();
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(screen.queryByText('使用 OpenCreator 创建')).not.toBeInTheDocument();
     expect(findPostCall(fetchCalls, '/threads')).toBeUndefined();
@@ -2057,17 +2068,17 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '定时任务' }));
-    await user.click(await screen.findByRole('button', { name: /^创建$/ }));
-    expect(screen.getByRole('dialog', { name: '创建定时任务' })).toBeInTheDocument();
-    expect(screen.getByLabelText('定时任务标题')).toBeInTheDocument();
-    expect(screen.getByLabelText('任务内容')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /^Create$/ }));
+    expect(screen.getByRole('dialog', { name: 'Create scheduled task' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Scheduled task title')).toBeInTheDocument();
+    expect(screen.getByLabelText('Task instructions')).toBeInTheDocument();
     expect(findPostCall(fetchCalls, '/threads')).toBeUndefined();
     expect(findPostCall(fetchCalls, '/runs')).toBeUndefined();
     expect(findPostCall(fetchCalls, '/schedules')).toBeUndefined();
     expect(scheduleListCalls).toBeGreaterThanOrEqual(1);
-    expect(screen.queryByLabelText('任务管理')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Task management')).not.toBeInTheDocument();
   });
 
   it('keeps the current project selected while editing a new schedule', async () => {
@@ -2135,19 +2146,19 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'customer-agent' }))
         .toHaveAttribute('data-current-project', 'true');
     });
     await user.click(screen.getByRole('button', { name: '定时任务' }));
-    await user.click(await screen.findByRole('button', { name: /^创建$/ }));
-    expect(screen.getByRole('dialog', { name: '创建定时任务' })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /^Create$/ }));
+    expect(screen.getByRole('dialog', { name: 'Create scheduled task' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'customer-agent' }))
       .toHaveAttribute('data-current-project', 'true');
-    expect(screen.getByRole('heading', { name: '请选择访问权限' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Select access permissions' })).toBeInTheDocument();
     expect(findPostCall(fetchCalls, '/threads')).toBeUndefined();
-    expect(within(screen.getByLabelText('customer-agent 对话')).queryByText('任务草稿'))
+    expect(within(screen.getByLabelText('customer-agent conversations')).queryByText('Task draft'))
       .not.toBeInTheDocument();
   });
 
@@ -2235,12 +2246,12 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '定时任务' }));
-    await user.click(await screen.findByRole('button', { name: /^创建$/ }));
-    expect(screen.getByRole('dialog', { name: '创建定时任务' })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /^Create$/ }));
+    expect(screen.getByRole('dialog', { name: 'Create scheduled task' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '每日文稿' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('任务管理')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Task management')).not.toBeInTheDocument();
     expect(scheduleListCalls).toBeGreaterThanOrEqual(2);
   });
 
@@ -2300,7 +2311,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     expect(runRequests).toEqual([]);
 
     await user.click(await screen.findByRole('button', { name: /会话 A/ }));
@@ -2308,7 +2319,7 @@ describe('App', () => {
     expect(await screen.findByRole('button', { name: '停止任务' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: '输入任务' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: '排队发送' })).not.toBeInTheDocument();
-    expect(screen.getByLabelText('正在运行')).toBeInTheDocument();
+    expect(screen.getByLabelText('Running')).toBeInTheDocument();
     expect(runRequests).toEqual(['thread_a']);
 
     await user.click(await screen.findByRole('button', { name: /会话 B/ }));
@@ -2397,7 +2408,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /队列会话/ }));
 
     const textbox = screen.getByRole('textbox', { name: '输入任务' });
@@ -2496,7 +2507,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /会话 A/ }));
     await waitFor(() => {
       expect(screen.getByRole('textbox', { name: '输入任务' })).toBeEnabled();
@@ -2515,7 +2526,7 @@ describe('App', () => {
     });
     expect(activeSubscription?.signal?.aborted).toBe(false);
     expect(screen.queryByText('切换前的实时进度')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /会话 A.*正在运行/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /会话 A.*Running/ })).toBeInTheDocument();
 
     await act(async () => {
       activeSubscription?.onEvent(
@@ -2543,7 +2554,7 @@ describe('App', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /会话 A/ })).not.toHaveAccessibleName(/正在运行/);
+      expect(screen.getByRole('button', { name: /会话 A/ })).not.toHaveAccessibleName(/Running/);
     });
     expect(screen.queryByText('后台完成后的内容')).not.toBeInTheDocument();
 
@@ -2613,7 +2624,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /会话 A/ }));
     await user.click(await screen.findByRole('button', { name: '停止任务' }));
     await user.click(screen.getByRole('button', { name: /会话 B/ }));
@@ -2685,7 +2696,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /会话 A/ }));
     await user.click(await screen.findByRole('button', { name: '停止任务' }));
 
@@ -2846,7 +2857,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /断线恢复会话/ }));
 
     await waitFor(() => expect(subscriptions).toHaveLength(2), { timeout: 2_000 });
@@ -2909,7 +2920,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /会话 A/ }));
     await waitFor(() => {
       expect(screen.getByRole('textbox', { name: '输入任务' })).toBeEnabled();
@@ -3018,7 +3029,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.type(screen.getByRole('textbox', { name: '输入任务' }), '/');
 
     expect(await screen.findByRole('listbox', { name: '能力菜单' })).toBeInTheDocument();
@@ -3101,9 +3112,9 @@ describe('App', () => {
         />
       );
 
-      expect(await screen.findByLabelText('OpenCreator 导航')).toBeInTheDocument();
+      expect(await screen.findByLabelText('OpenCreator navigation')).toBeInTheDocument();
       expect(screen.queryByText('登录即可享受云端协作')).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: '登录' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Sign in to' })).not.toBeInTheDocument();
     }
   );
 
@@ -3180,7 +3191,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await waitFor(() => expect(skillRequests).toBe(1));
 
     navigateToTestRoute('#/plugins');
@@ -3293,7 +3304,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.type(screen.getByRole('textbox', { name: '输入任务' }), '/');
     expect(await screen.findByRole('option', { name: /frontend-slides/ })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: /github/ })).not.toBeInTheDocument();
@@ -3302,10 +3313,10 @@ describe('App', () => {
     navigateToTestRoute('#/plugins');
     await waitFor(() => expect(screen.getAllByTestId('skill-market-card')).toHaveLength(12));
     await showSkillMarketCard(user, 'frontend-slides');
-    const marketIssue = await findIssueByDescription('无法加载技能市场，请重试。');
+    const marketIssue = await findIssueByDescription('Could not load the skill marketplace. Try again.');
     expect(marketIssue).not.toHaveTextContent(/诊断编号：OC-/);
     const card = getSkillMarketCard('frontend-slides');
-    expect(within(card).queryByText('版本未知')).not.toBeInTheDocument();
+    expect(within(card).queryByText('Unknown version')).not.toBeInTheDocument();
     expect(within(card).getByRole('button', { name: '使用' })).toBeEnabled();
     expect(within(card).queryByRole('button', { name: '更新' })).not.toBeInTheDocument();
   });
@@ -3342,11 +3353,11 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     navigateToTestRoute('#/plugins');
     await waitFor(() => expect(screen.getAllByTestId('skill-market-card')).toHaveLength(12));
     await showSkillMarketCard(user, 'frontend-slides');
-    const marketIssue = await findIssueByDescription('无法加载技能市场，请重试。');
+    const marketIssue = await findIssueByDescription('Could not load the skill marketplace. Try again.');
     expect(marketIssue).not.toHaveTextContent(/诊断编号：OC-/);
     const action = within(getSkillMarketCard('frontend-slides')).getByRole('button', {
       name: '状态未知'
@@ -3393,7 +3404,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     navigateToTestRoute('#/plugins');
     await showSkillMarketCard(user, 'frontend-slides');
     await waitFor(() => expect(within(getSkillMarketCard('frontend-slides')).getByRole('button', { name: '使用' })).toBeEnabled());
@@ -3405,17 +3416,17 @@ describe('App', () => {
     await user.click(within(dialog).getByRole('button', { name: '使用' }));
     await user.click(screen.getByRole('button', { name: '在 content-design' }));
 
-    const useIssue = await findIssueByDescription('无法使用该技能，请重试。');
-    expect(useIssue).toHaveTextContent('无法使用该技能，请重试。');
+    const useIssue = await findIssueByDescription('Could not use this skill. Try again.');
+    expect(useIssue).toHaveTextContent('Could not use this skill. Try again.');
     expect(useIssue).not.toHaveTextContent(/诊断编号：OC-/);
-    expect(screen.queryByText(/创建对话失败/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Create对话失败/)).not.toBeInTheDocument();
     await user.click(
       within(getSkillMarketCard('frontend-slides')).getByRole('button', {
         name: /打开 .*详情/
       })
     );
     const retryDialog = screen.getByRole('dialog');
-    expect(within(retryDialog).queryByText(/创建对话失败/)).not.toBeInTheDocument();
+    expect(within(retryDialog).queryByText(/Create对话失败/)).not.toBeInTheDocument();
     await user.click(within(retryDialog).getByRole('button', { name: '使用' }));
     await user.click(screen.getByRole('button', { name: '在 content-design' }));
     await waitFor(() => {
@@ -3468,7 +3479,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     navigateToTestRoute('#/plugins');
     await showSkillMarketCard(user, 'frontend-slides');
     await waitFor(() => expect(within(getSkillMarketCard('frontend-slides')).getByRole('button', { name: '使用' })).toBeEnabled());
@@ -3574,7 +3585,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     navigateToTestRoute('#/plugins');
     await showSkillMarketCard(user, 'frontend-slides');
     await waitFor(() => expect(within(getSkillMarketCard('frontend-slides')).getByRole('button', { name: '安装' })).toBeEnabled());
@@ -3655,7 +3666,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await waitFor(() => expect(skillRequests).toBe(1));
     navigateToTestRoute('#/plugins');
     await showSkillMarketCard(user, 'frontend-slides');
@@ -3713,15 +3724,15 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     navigateToTestRoute('#/plugins');
     await showSkillMarketCard(user, 'frontend-slides');
     await user.click(await within(getSkillMarketCard('frontend-slides')).findByRole('button', { name: '安装' }));
 
-    expect(await findIssueByDescription('无法加载技能市场，请重试。')).not.toHaveTextContent(/诊断编号：OC-/);
-    expect(within(getSkillMarketCard('frontend-slides')).queryByText('版本未知')).not.toBeInTheDocument();
+    expect(await findIssueByDescription('Could not load the skill marketplace. Try again.')).not.toHaveTextContent(/诊断编号：OC-/);
+    expect(within(getSkillMarketCard('frontend-slides')).queryByText('Unknown version')).not.toBeInTheDocument();
     expect(within(getSkillMarketCard('frontend-slides')).getByRole('button', { name: '使用' })).toBeEnabled();
-    expect(screen.queryByText('安装失败，请重试')).not.toBeInTheDocument();
+    expect(screen.queryByText('Installation failed. Try again.')).not.toBeInTheDocument();
   });
 
   it('applies refreshed records and disables actions when update skills refresh fails', async () => {
@@ -3777,17 +3788,17 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     navigateToTestRoute('#/plugins');
     await showSkillMarketCard(user, 'frontend-slides');
     await user.click(await within(getSkillMarketCard('frontend-slides')).findByRole('button', { name: '更新' }));
 
-    expect(await findIssueByDescription('无法加载技能市场，请重试。')).not.toHaveTextContent(/诊断编号：OC-/);
+    expect(await findIssueByDescription('Could not load the skill marketplace. Try again.')).not.toHaveTextContent(/诊断编号：OC-/);
     const action = within(getSkillMarketCard('frontend-slides')).getByRole('button', {
       name: '状态未知'
     });
     expect(action).toBeDisabled();
-    expect(screen.queryByText('更新失败，请重试')).not.toBeInTheDocument();
+    expect(screen.queryByText('Update failed. Try again.')).not.toBeInTheDocument();
   });
 
   it('starts a real runtime run, records SSE events without redundant process detail, and shows Codex info in settings', async () => {
@@ -3863,7 +3874,7 @@ describe('App', () => {
       </StrictMode>
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     expect(screen.queryByText('codex-cli test')).not.toBeInTheDocument();
 
     await user.type(screen.getByRole('textbox', { name: '输入任务' }), prompt);
@@ -3874,7 +3885,7 @@ describe('App', () => {
     expect(await screen.findByText(/^(?:已完成|已处理 .+)$/)).toBeInTheDocument();
     expect(screen.queryByText('queued')).not.toBeInTheDocument();
     expect(screen.queryByText('running')).not.toBeInTheDocument();
-    expect(screen.queryByText('排队中')).not.toBeInTheDocument();
+    expect(screen.queryByText('Queued')).not.toBeInTheDocument();
     expect(screen.queryByText('处理中')).not.toBeInTheDocument();
 
     await user.click(screen.getByText(/^(?:已完成|已处理 .+)$/));
@@ -3993,13 +4004,13 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.type(screen.getByRole('textbox', { name: '输入任务' }), prompt);
     await user.click(screen.getByRole('button', { name: '发送' }));
 
-    expect(await screen.findByText('允许 OpenCreator 执行这条命令？')).toBeInTheDocument();
+    expect(await screen.findByText('Allow OpenCreator to run this command?')).toBeInTheDocument();
     expect(document.querySelector('.composer-approval-overlay')).toBeInTheDocument();
-    await user.click(screen.getByText('查看操作详情'));
+    await user.click(screen.getByText('View operation details'));
     expect(screen.getByText('rm -rf build')).toBeInTheDocument();
     const timelineScroller = screen.getByTestId('virtuoso-scroller');
     const composerWrap = document.querySelector<HTMLElement>('.composer-wrap');
@@ -4018,11 +4029,11 @@ describe('App', () => {
     fireEvent.wheel(composerInput, { deltaY: 80 });
     expect(timelineScroller.scrollTop).toBe(160);
 
-    await user.click(screen.getByRole('button', { name: '允许一次' }));
+    await user.click(screen.getByRole('button', { name: 'Allow once' }));
 
     await waitFor(() => {
       expect(screen.queryByText('rm -rf build')).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: '允许一次' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Allow once' })).not.toBeInTheDocument();
     });
     expect(fetchCalls.some(call => (
       call.url.endsWith('/approvals/approval_1/approve')
@@ -4078,7 +4089,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
 
     await user.type(screen.getByRole('textbox', { name: '输入任务' }), prompt);
     await user.click(screen.getByRole('button', { name: '发送' }));
@@ -4092,7 +4103,7 @@ describe('App', () => {
 
     await user.click(screen.getByText(/^(?:已完成|已处理 .+)$/));
 
-    expect(screen.queryByText('运行详情')).not.toBeInTheDocument();
+    expect(screen.queryByText('Run details')).not.toBeInTheDocument();
     expect(screen.queryByText('queued')).not.toBeInTheDocument();
     expect(screen.queryByText('running')).not.toBeInTheDocument();
     expect(screen.queryByText('finalizing')).not.toBeInTheDocument();
@@ -4150,7 +4161,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
 
     await user.type(screen.getByRole('textbox', { name: '输入任务' }), prompt);
     await user.click(screen.getByRole('button', { name: '发送' }));
@@ -4220,7 +4231,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.type(screen.getByRole('textbox', { name: '输入任务' }), prompt);
     await user.click(screen.getByRole('button', { name: '发送' }));
 
@@ -4262,7 +4273,7 @@ describe('App', () => {
       await Promise.resolve();
     });
 
-    expect(await screen.findByText('运行已取消：用户已取消')).toBeInTheDocument();
+    expect(await screen.findByText('Run canceled: Canceled by user')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: '输入任务' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: '停止任务' })).not.toBeInTheDocument();
   });
@@ -4347,7 +4358,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
 
     await user.type(screen.getByRole('textbox', { name: '输入任务' }), prompt);
     await user.click(screen.getByRole('button', { name: '发送' }));
@@ -4358,9 +4369,9 @@ describe('App', () => {
     await user.click(screen.getByText(/^(?:已完成|已处理 .+)$/));
 
     expect(screen.getByText('我会先确认当前目录，再读取必要文件。')).toBeInTheDocument();
-    expect(screen.queryByText('正在查看项目内容')).not.toBeInTheDocument();
+    expect(screen.queryByText('Running: Read project files')).not.toBeInTheDocument();
     expect(screen.queryByText('pwd')).not.toBeInTheDocument();
-    expect(screen.getByText('已读取文件')).toBeInTheDocument();
+    expect(screen.getByText('Read files')).toBeInTheDocument();
     expect(screen.queryByText('工具完成 call_1')).not.toBeInTheDocument();
     expect(screen.getByText('当前目录是 /repo，检查已完成。')).toBeInTheDocument();
     expect(container.querySelectorAll('.timeline-assistant_message')).toHaveLength(1);
@@ -4417,9 +4428,9 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '整理本周项目进展 4天' }));
+    await user.click(screen.getByRole('button', { name: '整理本周项目进展 4d ago' }));
     expect(await screen.findByRole('heading', { name: '整理本周项目进展' })).toBeInTheDocument();
 
     await user.type(screen.getByRole('textbox', { name: '输入任务' }), prompt);
@@ -4428,9 +4439,9 @@ describe('App', () => {
     expect(await findTimelineUserMessage(prompt)).toBeInTheDocument();
     expect(await screen.findByText('周报已整理。')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '在 content-design 中新建会话' }));
+    await user.click(screen.getByRole('button', { name: 'New conversation in content-design' }));
 
-    expect(screen.queryByRole('heading', { name: '新对话' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'New conversation' })).not.toBeInTheDocument();
     expect(screen.getByText('需要帮你做点什么')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /选择项目 / })).not.toBeInTheDocument();
     expect(screen.queryByText(prompt)).not.toBeInTheDocument();
@@ -4536,7 +4547,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '默认项目' }))
       .toHaveAttribute('data-current-project', 'true');
     await user.type(screen.getByRole('textbox', { name: '输入任务' }), prompt);
@@ -4589,7 +4600,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: /Playground 历史会话/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'playground' })).not.toBeInTheDocument();
@@ -4649,7 +4660,7 @@ describe('App', () => {
         />
       );
 
-      expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+      expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
       await user.click(await screen.findByRole('button', {
         name: new RegExp(`^${hostKind} 归档会话 `)
       }));
@@ -4657,9 +4668,9 @@ describe('App', () => {
       const conversation = screen.getByRole('group', {
         name: `${hostKind} 归档会话`
       });
-      await user.click(within(conversation).getByRole('button', { name: '归档' }));
-      const archiveDialog = screen.getByRole('alertdialog', { name: '归档对话' });
-      await user.click(within(archiveDialog).getByRole('button', { name: '归档' }));
+      await user.click(within(conversation).getByRole('button', { name: 'Archive' }));
+      const archiveDialog = screen.getByRole('alertdialog', { name: 'Archive conversation' });
+      await user.click(within(archiveDialog).getByRole('button', { name: 'Archive' }));
 
       await waitFor(() => {
         expect(screen.queryByRole('button', {
@@ -4706,9 +4717,9 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'legacy-project' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '管理项目' }));
+    await user.click(screen.getByRole('button', { name: 'Manage projects' }));
     await user.click(await screen.findByRole('button', { name: '使用现有文件夹' }));
     expect(hostBridge.selectProjectDirectory).toHaveBeenCalledTimes(1);
     await waitFor(() => {
@@ -4722,9 +4733,9 @@ describe('App', () => {
     expect(findPostCall(fetchCalls, '/projects')).toBeDefined();
     expect(window.localStorage.getItem(PROJECTS_STORAGE_KEY)).toBe(legacyProjects);
 
-    await user.click(screen.getByRole('button', { name: '项目操作 官网资料' }));
-    await user.click(screen.getByRole('menuitem', { name: '移除项目 官网资料' }));
-    await user.click(screen.getByRole('button', { name: '移除项目' }));
+    await user.click(screen.getByRole('button', { name: 'Project actions 官网资料' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Remove project 官网资料' }));
+    await user.click(screen.getByRole('button', { name: 'Remove project' }));
 
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: '官网资料' })).not.toBeInTheDocument();
@@ -4765,10 +4776,10 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
-    await user.click(await screen.findByRole('button', { name: '创建项目' }));
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Create project' }));
 
-    expect(screen.queryByRole('dialog', { name: '创建项目' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Create project' })).not.toBeInTheDocument();
 
     expect(await screen.findByRole('button', { name: '项目' })).toBeInTheDocument();
     const createCall = findPostCall(fetchCalls, '/projects/managed');
@@ -4810,7 +4821,7 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { name: '我的项目' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '新建项目' }));
     expect(screen.getByRole('menu', { name: '项目类型' })).toBeInTheDocument();
-    expect(screen.queryByRole('dialog', { name: '创建项目' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Create project' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('menuitem', { name: /图像生成/ }));
 
     expect(await screen.findByRole(
@@ -4855,21 +4866,21 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     const dropRoot = document.querySelector<HTMLElement>('[data-project-drop-root="true"]');
     if (dropRoot === null) throw new Error('Expected project drop root');
     const folder = new File([], 'dropped-project');
     const dataTransfer = createDirectoryDataTransfer(folder);
 
     fireEvent.dragEnter(dropRoot, { dataTransfer });
-    expect(screen.getByText('松开以添加项目文件夹')).toBeInTheDocument();
+    expect(screen.getByText('Drop to add a project folder')).toBeInTheDocument();
 
     fireEvent.drop(dropRoot, { dataTransfer });
 
     expect(hostBridge.resolveDroppedFilePath).toHaveBeenCalledWith(folder);
     expect(await screen.findByRole('button', { name: 'dropped-project' })).toBeInTheDocument();
     expect(findPostCall(fetchCalls, '/projects')).toBeDefined();
-    expect(screen.queryByText('松开以添加项目文件夹')).not.toBeInTheDocument();
+    expect(screen.queryByText('Drop to add a project folder')).not.toBeInTheDocument();
   });
 
   it('opens only one project directory picker while the previous request is pending', async () => {
@@ -4906,8 +4917,8 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '管理项目' }));
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Manage projects' }));
     await user.click(await screen.findByRole('button', { name: '使用现有文件夹' }));
     await user.click(screen.getByRole('button', { name: '使用现有文件夹' }));
 
@@ -4953,9 +4964,9 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
-    await user.click(await screen.findByRole('button', { name: '创建项目' }));
-    expect(screen.queryByRole('dialog', { name: '创建项目' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Create project' }));
+    expect(screen.queryByRole('dialog', { name: 'Create project' })).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(fetchCalls.map(call => [call.url, call.init?.method])).toContainEqual([
@@ -4968,7 +4979,7 @@ describe('App', () => {
     expect(await screen.findByRole('button', { name: '项目' }))
       .toHaveAttribute('data-current-project', 'true');
 
-    await user.click(screen.getByRole('button', { name: '管理项目' }));
+    await user.click(screen.getByRole('button', { name: 'Manage projects' }));
     await user.click(await screen.findByRole('button', { name: '使用现有文件夹' }));
 
     expect(hostBridge.selectProjectDirectory).toHaveBeenCalledTimes(1);
@@ -5027,7 +5038,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: /Playground 历史会话/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'thread_RwiAbzbZ8p' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'thread_1Qm6X_K0eo' })).not.toBeInTheDocument();
@@ -5109,7 +5120,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
 
     await user.type(screen.getByRole('textbox', { name: '输入任务' }), prompt);
     await user.click(screen.getByRole('button', { name: '发送' }));
@@ -5117,9 +5128,9 @@ describe('App', () => {
     expect(await findTimelineUserMessage(prompt)).toBeInTheDocument();
     expect(await screen.findByText('周报已整理。')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '在 secondary 中新建会话' }));
+    await user.click(screen.getByRole('button', { name: 'New conversation in secondary' }));
 
-    expect(screen.queryByRole('heading', { name: '新对话' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'New conversation' })).not.toBeInTheDocument();
     expect(screen.getByText('需要帮你做点什么')).toBeInTheDocument();
     expect(Array.from(document.querySelectorAll('.timeline-user_message')).some(
       message => message.textContent?.includes(prompt)
@@ -5235,13 +5246,13 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
 
     await user.type(screen.getByRole('textbox', { name: '输入任务' }), '旧任务');
     await user.click(screen.getByRole('button', { name: '发送' }));
     await waitFor(() => expect(subscriptionSequence).toBe(1));
 
-    await user.click(screen.getByRole('button', { name: '在 secondary 中新建会话' }));
+    await user.click(screen.getByRole('button', { name: 'New conversation in secondary' }));
     await user.type(screen.getByRole('textbox', { name: '输入任务' }), '新任务');
     await user.click(screen.getByRole('button', { name: '发送' }));
     await waitFor(() => expect(subscriptionSequence).toBe(2));
@@ -5336,7 +5347,7 @@ describe('App', () => {
 
     const firstRender = render(<App {...appProps} />);
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'bili' }));
     await user.click(await screen.findByRole('button', { name: /bili 历史/ }));
     expect(await findTimelineUserMessage('刷新后仍然打开这条对话')).toBeInTheDocument();
@@ -5459,9 +5470,9 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: /真实 Codex 历史会话/ })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '整理本周项目进展 4天' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '整理本周项目进展 4d ago' })).not.toBeInTheDocument();
   });
 
   it('loads task summaries without preloading task history or listing task threads as conversations', async () => {
@@ -5531,13 +5542,13 @@ describe('App', () => {
       />
     );
 
-    const conversationList = await screen.findByLabelText('content-design 对话');
-    const taskList = await screen.findByLabelText('任务会话');
+    const conversationList = await screen.findByLabelText('content-design conversations');
+    const taskList = await screen.findByLabelText('Task conversations');
     expect(within(conversationList).getByRole('button', { name: /普通会话/ }))
       .toBeInTheDocument();
-    expect(within(taskList).getByRole('button', { name: /任务草稿.*草稿/ }))
+    expect(within(taskList).getByRole('button', { name: /任务草稿.*Draft/ }))
       .toHaveClass('sidebar-task-row');
-    expect(within(conversationList).queryByText('任务草稿'))
+    expect(within(conversationList).queryByText('Task draft'))
       .not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /任务线程旧标题/ })).not.toBeInTheDocument();
     await waitFor(() => {
@@ -5642,8 +5653,8 @@ describe('App', () => {
       />
     );
 
-    const conversationList = await screen.findByLabelText('content-design 对话');
-    const taskList = await screen.findByLabelText('任务会话');
+    const conversationList = await screen.findByLabelText('content-design conversations');
+    const taskList = await screen.findByLabelText('Task conversations');
     await user.click(within(conversationList).getByRole('button', { name: /普通会话/ }));
     expect(await screen.findByText('旧会话内容')).toBeInTheDocument();
 
@@ -5725,7 +5736,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /真实 Codex 历史会话/ }));
 
     expect(await findTimelineUserMessage('分析这个 skill 是干什么的')).toBeInTheDocument();
@@ -5737,7 +5748,7 @@ describe('App', () => {
     expect(screen.getByText('先读取 skill 说明。')).toBeInTheDocument();
     expect(screen.getByText('这个 skill 用于分析选品资料。')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '编辑消息' }));
+    await user.click(screen.getByRole('button', { name: 'Edit message' }));
 
     expect(screen.getByRole('textbox', { name: '输入任务' }))
       .toHaveValue('分析这个 skill 是干什么的');
@@ -5826,7 +5837,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /分页历史会话/ }));
 
     expect(await screen.findByText('最新一页内容')).toBeInTheDocument();
@@ -5836,7 +5847,7 @@ describe('App', () => {
       'http://127.0.0.1:60764/threads/thread_paged_history/history?limit=50'
     ]);
 
-    await user.click(screen.getByRole('button', { name: '加载更早记录' }));
+    await user.click(screen.getByRole('button', { name: 'Load earlier history' }));
 
     expect(await findTimelineUserMessage('更早的一页内容')).toBeInTheDocument();
     expect(document.querySelectorAll('.timeline-user_message')).toHaveLength(2);
@@ -5957,13 +5968,13 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /无 Turn ID 的分页会话/ }));
     await user.click(await screen.findByText(/^(?:已完成|已处理 .+)$/));
 
     expect(screen.getByText('当前任务的处理过程')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '加载更早记录' }));
+    await user.click(screen.getByRole('button', { name: 'Load earlier history' }));
 
     expect(await findTimelineUserMessage('更早的任务')).toBeInTheDocument();
     expect(screen.getByText('当前任务的处理过程')).toBeInTheDocument();
@@ -6026,7 +6037,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /刚生成的内容/ }));
 
     expect(await findTimelineUserMessage('帮我生成视频脚本')).toBeInTheDocument();
@@ -6124,7 +6135,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.type(await screen.findByRole('searchbox', { name: '搜索会话' }), 'App.tsx');
     const result = await screen.findByTestId('search-result-title');
     await user.click(within(result).getByRole('button'));
@@ -6196,7 +6207,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     const conversationButton = await screen.findByRole('button', { name: /当前打开的历史/ });
     await user.click(conversationButton);
 
@@ -6283,7 +6294,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /content-design 历史/ }));
     expect(await findTimelineUserMessage('上一条会话内容保持可见')).toBeInTheDocument();
 
@@ -6411,20 +6422,20 @@ describe('App', () => {
     );
 
     await user.click(await screen.findByRole('button', { name: /真实文件会话/ }));
-    await user.click(screen.getByRole('button', { name: '文件' }));
+    await user.click(screen.getByRole('button', { name: 'Files' }));
 
-    expect(await screen.findByLabelText('会话和文件工作区')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '文件' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByLabelText('Conversation and file workspace')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('heading', { name: '真实文件会话' })).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Workspace' })).toBeInTheDocument();
-    expect(screen.queryByText('打开文件')).not.toBeInTheDocument();
+    expect(screen.queryByText('Open file')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '返回对话' })).not.toBeInTheDocument();
-    expect(screen.queryByText('暂无预览内容')).not.toBeInTheDocument();
+    expect(screen.queryByText('No preview available')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '文件' }));
+    await user.click(screen.getByRole('button', { name: 'Files' }));
 
-    expect(screen.queryByLabelText('会话和文件工作区')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '文件' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByLabelText('Conversation and file workspace')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('点击聊天回复中的成果卡片会直接打开对应文件', async () => {
@@ -6563,12 +6574,12 @@ describe('App', () => {
     );
 
     await user.click(await screen.findByRole('button', { name: /真实文件会话/ }));
-    await user.click(await screen.findByRole('button', { name: `打开成果 ${absoluteChangedPath}` }));
+    await user.click(await screen.findByRole('button', { name: `Open output ${absoluteChangedPath}` }));
 
-    expect(await screen.findByLabelText('会话和文件工作区')).toBeInTheDocument();
-    expect(await screen.findByTitle('xiaodoujia-apple-aso-audit.html HTML 预览')).toBeInTheDocument();
-    expect(screen.queryByText('选择一个文件')).not.toBeInTheDocument();
-    expect(screen.queryByText('已编辑 docs/atoms.md')).not.toBeInTheDocument();
+    expect(await screen.findByLabelText('Conversation and file workspace')).toBeInTheDocument();
+    expect(await screen.findByTitle('xiaodoujia-apple-aso-audit.html HTML preview')).toBeInTheDocument();
+    expect(screen.queryByText('Select a file')).not.toBeInTheDocument();
+    expect(screen.queryByText('Edited docs/atoms.md')).not.toBeInTheDocument();
     expect(
       fetchCalls.some(call => (
         call.url.includes('/workspace/files/meta?')
@@ -6686,16 +6697,16 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
-    const navigation = screen.getByLabelText('OpenCreator 导航');
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
+    const navigation = screen.getByLabelText('OpenCreator navigation');
     expect(navigation).toHaveAttribute('data-collapsed', 'false');
     await user.click(await screen.findByRole('button', { name: /真实文件会话/ }));
-    await user.click(screen.getByRole('button', { name: '文件' }));
+    await user.click(screen.getByRole('button', { name: 'Files' }));
     await screen.findByRole('heading', { name: 'Workspace' });
     expect(navigation).toHaveAttribute('data-collapsed', 'true');
     expect(screen.getByRole('button', { name: '侧栏已自动收起' })).toBeInTheDocument();
 
-    const layout = screen.getByLabelText('会话和文件工作区');
+    const layout = screen.getByLabelText('Conversation and file workspace');
     vi.spyOn(layout, 'getBoundingClientRect').mockReturnValue({
       x: 0,
       y: 0,
@@ -6708,7 +6719,7 @@ describe('App', () => {
       toJSON: () => undefined
     });
 
-    const separator = screen.getByRole('separator', { name: '调整会话和文件区域宽度' });
+    const separator = screen.getByRole('separator', { name: 'Resize the conversation and file areas' });
     fireEvent.mouseDown(separator, { button: 0, clientX: 420 });
     expect(document.querySelector('.pane-resize-shield')).not.toBeNull();
     fireEvent.mouseMove(window, { clientX: 520 });
@@ -6723,7 +6734,7 @@ describe('App', () => {
 
     expect(layout).toHaveStyle({ '--conversation-pane-width': '914px' });
 
-    await user.click(screen.getByRole('button', { name: '关闭文件工作区' }));
+    await user.click(screen.getByRole('button', { name: 'Close file workspace' }));
     expect(navigation).toHaveAttribute('data-collapsed', 'false');
   });
 
@@ -6850,22 +6861,22 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /文件会话 A/ }));
-    await user.click(screen.getByRole('button', { name: '文件' }));
+    await user.click(screen.getByRole('button', { name: 'Files' }));
     expect(await screen.findByRole('heading', { name: 'A.md' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /文件会话 B/ }));
-    expect(screen.getByLabelText('会话和文件工作区')).toBeInTheDocument();
+    expect(screen.getByLabelText('Conversation and file workspace')).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'B.md' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /空文件会话/ }));
     await waitFor(() => {
-      expect(screen.queryByLabelText('会话和文件工作区')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Conversation and file workspace')).not.toBeInTheDocument();
     });
 
     await user.click(screen.getByRole('button', { name: /文件会话 A/ }));
-    expect(screen.queryByLabelText('会话和文件工作区')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Conversation and file workspace')).not.toBeInTheDocument();
     }
   );
 
@@ -6989,14 +7000,14 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /只读文件会话/ }));
-    await user.click(screen.getByRole('button', { name: '文件' }));
+    await user.click(screen.getByRole('button', { name: 'Files' }));
 
-    expect(await screen.findByText('当前会话为只读模式，不能保存文件')).toBeInTheDocument();
+    expect(await screen.findByText('This conversation is read-only. Files cannot be saved.')).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Workspace' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '编辑' }));
-    expect(await screen.findByRole('textbox', { name: 'README.md 编辑器' })).toHaveAttribute('aria-readonly', 'true');
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(await screen.findByRole('textbox', { name: 'README.md editor' })).toHaveAttribute('aria-readonly', 'true');
 
     await user.click(screen.getByRole('button', { name: '选择访问权限 请求批准' }));
     await user.click(screen.getByRole('menuitemradio', { name: /完全访问/ }));
@@ -7005,10 +7016,10 @@ describe('App', () => {
     await waitFor(() => {
       expect(findPatchCall(fetchCalls, '/threads/thread_files')).toBeDefined();
     });
-    expect(screen.queryByText('当前会话为只读模式，不能保存文件')).not.toBeInTheDocument();
+    expect(screen.queryByText('This conversation is read-only. Files cannot be saved.')).not.toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Workspace' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '编辑' }));
-    expect(await screen.findByRole('textbox', { name: 'README.md 编辑器' })).toHaveAttribute('aria-readonly', 'false');
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(await screen.findByRole('textbox', { name: 'README.md editor' })).toHaveAttribute('aria-readonly', 'false');
   });
 
   it('不显示无用途的详情按钮，点击文件进入真实文件工作区', async () => {
@@ -7110,21 +7121,21 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /真实文件会话/ }));
 
-    expect(screen.queryByRole('button', { name: '详情' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'details' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'README.md' })).not.toBeInTheDocument();
-    expect(screen.queryByText('已编辑 docs/atoms.md')).not.toBeInTheDocument();
+    expect(screen.queryByText('Edited docs/atoms.md')).not.toBeInTheDocument();
     expect(screen.queryByText('+903 -0')).not.toBeInTheDocument();
-    expect(screen.queryByText('暂无预览内容')).not.toBeInTheDocument();
-    expect(screen.queryByText('打开文件')).not.toBeInTheDocument();
+    expect(screen.queryByText('No preview available')).not.toBeInTheDocument();
+    expect(screen.queryByText('Open file')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '文件' }));
-    expect(screen.getByLabelText('会话和文件工作区')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Files' }));
+    expect(screen.getByLabelText('Conversation and file workspace')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '真实文件会话' })).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Workspace' })).toBeInTheDocument();
-    expect(screen.queryByText('打开文件')).not.toBeInTheDocument();
+    expect(screen.queryByText('Open file')).not.toBeInTheDocument();
   });
 
   it('loads migrated projects from Runtime and never renders local home', async () => {
@@ -7182,7 +7193,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'content-design' })).toHaveAttribute('data-current-project', 'true');
     expect(screen.queryByRole('button', { name: '本机目录' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'opencreator-agent' })).not.toBeInTheDocument();
@@ -7227,7 +7238,7 @@ describe('App', () => {
 
     expect(screen.getByRole('button', { name: '选择模型 Cached GPT' }))
       .toBeInTheDocument();
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' }))
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' }))
       .toBeInTheDocument();
 
     modelResponse.resolve(jsonResponse(liveCatalog));
@@ -7269,14 +7280,14 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' }))
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' }))
       .toBeInTheDocument();
     const modelButton = await screen.findByRole('button', {
       name: '选择模型 Cached GPT'
     });
     await user.click(modelButton);
 
-    expect(await screen.findByText('模型目录刷新失败，当前使用本地缓存'))
+    expect(await screen.findByText('Could not refresh the model catalog. Using the local cache.'))
       .toBeInTheDocument();
     expect(screen.queryByText('暂无可用模型')).not.toBeInTheDocument();
   });
@@ -7318,7 +7329,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' }))
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' }))
       .toBeInTheDocument();
     await user.click(await screen.findByRole('button', {
       name: '选择模型 默认模型'
@@ -7340,6 +7351,171 @@ describe('App', () => {
     expect(request.prompt).toContain('无法加载模型列表，请重试。');
     expect(request.prompt).toContain('为什么模型列表失败？');
     expect(request.prompt).not.toContain('model catalog unavailable');
+  });
+
+  it.each(['browser', 'desktop'] as const)(
+    'retries workspace loading after a transient thread list failure in the %s host',
+    async hostKind => {
+      const hostBridge = createHostBridge();
+      hostBridge.kind = hostKind;
+      hostBridge.readConnectionConfig = async () => ({
+        baseUrl: 'http://127.0.0.1:60764', token: 'runtime-token'
+      });
+      let threadListCalls = 0;
+      const runtimeFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const projectResponse = handleDefaultProjectApiRequest(url, init);
+        if (projectResponse !== undefined) return projectResponse;
+        if (url.endsWith('/healthz')) return jsonResponse({ ok: true });
+        if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
+        if (url.endsWith('/schedules')) return jsonResponse({ schedules: [] });
+        if (url.endsWith('/tasks?status=all&limit=50')) {
+          return jsonResponse({ tasks: [], hasMore: false });
+        }
+        if (url.endsWith('/threads?status=active&limit=50')) {
+          threadListCalls += 1;
+          return threadListCalls === 1
+            ? jsonResponse({ error: { code: 'TEMPORARY_ERROR', message: 'temporary' } }, { status: 503 })
+            : jsonResponse({ threads: [] });
+        }
+        throw new Error(`Unexpected request: ${url}`);
+      };
+
+      render(<App fileService={createFileService()} hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
+      await waitFor(() => expect(threadListCalls).toBe(1));
+      const composer = await screen.findByRole('textbox', { name: '输入任务' });
+      expect(composer).toBeDisabled();
+      await waitFor(() => expect(composer).toBeEnabled(), { timeout: 4_000 });
+      expect(threadListCalls).toBe(2);
+      expect(screen.getByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '重试连接' })).not.toBeInTheDocument();
+    }
+  );
+
+  it('retries workspace loading after a transient project migration failure', async () => {
+    const hostBridge = createHostBridge();
+    hostBridge.readConnectionConfig = async () => ({
+      baseUrl: 'http://127.0.0.1:60764', token: 'runtime-token'
+    });
+    let migrationCalls = 0;
+    const runtimeFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/projects/migrations/local-storage-v1')) {
+        migrationCalls += 1;
+        if (migrationCalls === 1) {
+          return jsonResponse({ error: { code: 'TEMPORARY_ERROR', message: 'temporary' } }, { status: 503 });
+        }
+      }
+      const projectResponse = handleDefaultProjectApiRequest(url, init);
+      if (projectResponse !== undefined) return projectResponse;
+      if (url.endsWith('/healthz')) return jsonResponse({ ok: true });
+      if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
+      if (url.endsWith('/schedules')) return jsonResponse({ schedules: [] });
+      if (url.endsWith('/tasks?status=all&limit=50')) {
+        return jsonResponse({ tasks: [], hasMore: false });
+      }
+      if (url.endsWith('/threads?status=active&limit=50')) return jsonResponse({ threads: [] });
+      throw new Error(`Unexpected request: ${url}`);
+    };
+
+    render(<App fileService={createFileService()} hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
+    await waitFor(() => expect(migrationCalls).toBe(1));
+    await screen.findByRole('status', { name: 'The local Runtime is ready' }, { timeout: 4_000 });
+    expect(migrationCalls).toBe(2);
+    expect(screen.getByRole('textbox', { name: '输入任务' })).toBeEnabled();
+  });
+
+  it('cancels the scheduled workspace retry when the app unmounts', async () => {
+    const hostBridge = createHostBridge();
+    hostBridge.readConnectionConfig = async () => ({
+      baseUrl: 'http://127.0.0.1:60764', token: 'runtime-token'
+    });
+    let migrationCalls = 0;
+    const runtimeFetch = async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const creatorResponse = handleDefaultCreatorApiRequest(url);
+      if (creatorResponse !== undefined) return creatorResponse;
+      if (url.endsWith('/projects/migrations/local-storage-v1')) {
+        migrationCalls += 1;
+        return jsonResponse({ error: { code: 'TEMPORARY_ERROR', message: 'temporary' } }, { status: 503 });
+      }
+      if (url.endsWith('/healthz')) return jsonResponse({ ok: true });
+      if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
+      if (url.endsWith('/schedules')) return jsonResponse({ schedules: [] });
+      if (url.endsWith('/tasks?status=all&limit=50')) {
+        return jsonResponse({ tasks: [], hasMore: false });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    };
+
+    const app = render(<App fileService={createFileService()} hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
+    await waitFor(() => expect(migrationCalls).toBe(1));
+    expect(screen.getByRole('textbox', { name: '输入任务' })).toBeDisabled();
+    app.unmount();
+    await new Promise(resolve => window.setTimeout(resolve, 2_100));
+    expect(migrationCalls).toBe(1);
+  });
+
+  it('keeps the current conversation and draft while reconnecting without a page reload', async () => {
+    const hostBridge = createHostBridge();
+    hostBridge.kind = 'desktop';
+    let available = true;
+    let notifyConnection: ((config: { baseUrl: string; token: string } | null) => void) | undefined;
+    const config = { baseUrl: 'http://127.0.0.1:60764', token: 'runtime-token' };
+    hostBridge.readConnectionConfig = async () => available ? config : null;
+    hostBridge.subscribeConnectionConfig = listener => {
+      notifyConnection = listener;
+      return () => { notifyConnection = undefined; };
+    };
+    hostBridge.restartRuntime = vi.fn(async () => ({ ok: true as const }));
+    let failedHealthChecks = 0;
+    const runtimeFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const projectResponse = handleDefaultProjectApiRequest(url, init);
+      if (projectResponse !== undefined) return projectResponse;
+      if (url.endsWith('/healthz')) {
+        if (!available) {
+          failedHealthChecks += 1;
+          return jsonResponse({ error: { code: 'RUNTIME_UNAVAILABLE', message: 'offline' } }, { status: 503 });
+        }
+        return jsonResponse({ ok: true });
+      }
+      if (url.endsWith('/codex/status')) return jsonResponse(createCodexStatusResponse());
+      if (url.endsWith('/schedules')) return jsonResponse({ schedules: [] });
+      if (url.endsWith('/tasks?status=all&limit=50')) return jsonResponse({ tasks: [], hasMore: false });
+      if (url.endsWith('/threads?status=active&limit=50')) {
+        return jsonResponse({ threads: [createThreadResponse({ id: 'thread_kept', title: '保留的会话' })] });
+      }
+      if (url.endsWith('/threads/thread_kept/history?limit=50')) {
+        return jsonResponse({ threadId: 'thread_kept', codexThreadId: null, items: [] });
+      }
+      if (url.endsWith('/threads/thread_kept/runs?limit=50')) return jsonResponse({ runs: [] });
+      if (url.endsWith('/threads/thread_kept')) {
+        return jsonResponse({ thread: createThreadResponse({ id: 'thread_kept', title: '保留的会话' }) });
+      }
+      throw new Error(`Unexpected runtime request: ${url}`);
+    };
+
+    render(<App fileService={createFileService()} hostBridge={hostBridge} runtimeFetch={runtimeFetch} />);
+    await screen.findByRole('status', { name: 'The local Runtime is ready' });
+    const conversation = await screen.findByRole('button', { name: /保留的会话/ });
+    fireEvent.click(conversation);
+    const composer = await screen.findByRole('textbox', { name: '输入任务' });
+    fireEvent.change(composer, { target: { value: '恢复后继续这段草稿' } });
+
+    available = false;
+    act(() => notifyConnection?.(null));
+    expect(screen.getByRole('button', { name: /保留的会话/ })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '输入任务' })).toHaveValue('恢复后继续这段草稿');
+    expect(screen.getByRole('button', { name: '重启本地服务' })).toBeInTheDocument();
+    await waitFor(() => expect(failedHealthChecks).toBeGreaterThan(0));
+
+    available = true;
+    await waitFor(() => expect(screen.getByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument(), {
+      timeout: 4_000
+    });
+    expect(screen.getByRole('textbox', { name: '输入任务' })).toHaveValue('恢复后继续这段草稿');
+    expect(screen.getByRole('button', { name: /保留的会话/ })).toBeInTheDocument();
   });
 
   it('restores the recent model config for a new conversation', async () => {
@@ -7375,7 +7551,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' }))
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' }))
       .toBeInTheDocument();
     expect(await screen.findByRole('button', { name: '选择模型 GPT-5.5' }))
       .toBeInTheDocument();
@@ -7482,7 +7658,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
 
     await user.type(screen.getByRole('textbox', { name: '输入任务' }), prompt);
     await user.click(screen.getByRole('button', { name: '发送' }));
@@ -7573,7 +7749,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
 
     expect(screen.queryByRole('button', { name: /Profile/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '选择访问权限 请求批准' }));
@@ -7658,7 +7834,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /已有会话/ }));
     await user.click(await screen.findByRole('button', {
       name: '选择模型 GPT-5.6 Sol'
@@ -7689,7 +7865,7 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: '返回应用' }));
 
-    expect(screen.queryByRole('heading', { name: '新对话' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'New conversation' })).not.toBeInTheDocument();
     expect(screen.queryByText('需要帮你做点什么')).not.toBeInTheDocument();
     expect(await screen.findByText('精选模板')).toBeInTheDocument();
     expect(window.location.hash).toBe('#/new');
@@ -7736,7 +7912,7 @@ describe('App', () => {
 
     render(<App fileService={createFileService()} />);
 
-    expect(screen.queryByRole('heading', { name: '新对话' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'New conversation' })).not.toBeInTheDocument();
     expect(screen.queryByTestId('conversation-lightfall-background')).not.toBeInTheDocument();
     expect(document.querySelector('.conversation-page')).not.toHaveAttribute('data-background-mode');
     expect(document.querySelector('.conversation-page')).not.toHaveAttribute('data-dynamic-background');
@@ -7857,7 +8033,7 @@ describe('App', () => {
     };
     const firstRender = render(<App {...appProps} />);
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: 'secondary' }));
     expect(screen.getByRole('button', { name: '选择访问权限 完全访问权限' })).toBeInTheDocument();
 
@@ -8034,7 +8210,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /运行中的权限会话/ }));
 
     const permissionButton = await screen.findByRole('button', {
@@ -8098,7 +8274,7 @@ describe('App', () => {
       />
     );
 
-    expect(await screen.findByRole('status', { name: '本地运行内核正常' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'The local Runtime is ready' })).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /权限切换竞争/ }));
     await user.click(await screen.findByRole('button', {
       name: '选择访问权限 请求批准'
@@ -8106,8 +8282,8 @@ describe('App', () => {
     await user.click(screen.getByRole('menuitemradio', { name: /完全访问权限/ }));
     await user.click(screen.getByRole('button', { name: '开启' }));
 
-    const permissionIssue = await findIssueByDescription('会话配置未更新，请重试。');
-    expect(permissionIssue).toHaveTextContent('会话配置未更新，请重试。');
+    const permissionIssue = await findIssueByDescription('Conversation settings were not updated. Try again.');
+    expect(permissionIssue).toHaveTextContent('Conversation settings were not updated. Try again.');
     expect(permissionIssue).not.toHaveTextContent(/诊断编号：OC-/);
     expect(permissionIssue).not.toHaveTextContent('Thread has active run');
     expect(screen.getByRole('button', { name: '选择访问权限 请求批准' }))
@@ -8255,14 +8431,14 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: '设置' }));
     await user.click(await screen.findByRole('button', { name: '记忆' }));
     expect(await screen.findByText('提交前运行全部测试')).toBeInTheDocument();
-    expect(screen.getByText('版本 1')).toBeInTheDocument();
+    expect(screen.getByText('Version 1')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '返回应用' }));
     const prompt = '以后默认运行全量测试';
     await user.type(await screen.findByRole('textbox', { name: '输入任务' }), prompt);
     await user.click(screen.getByRole('button', { name: '发送' }));
-    expect(await screen.findByRole('region', { name: '记忆建议' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '忽略记忆建议' }));
+    expect(await screen.findByRole('region', { name: 'Memory suggestion' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Dismiss memory suggestion' }));
     expect(fetchCalls.some(call => (
       call.url.endsWith('/memories') && call.init?.method === 'POST'
     ))).toBe(false);
@@ -8470,6 +8646,9 @@ function handleDefaultCreatorApiRequest(
 ): Response | undefined {
   const method = init?.method ?? 'GET';
   const parsedUrl = new URL(url);
+  if (parsedUrl.pathname === '/creator/components/status' && method === 'GET') {
+    return jsonResponse({ platform: 'darwin', arch: 'arm64', components: [] });
+  }
   if (parsedUrl.pathname === '/creator/presets' && method === 'GET') {
     const locale = parsedUrl.searchParams.get('locale') === 'en-US'
       ? 'en-US'

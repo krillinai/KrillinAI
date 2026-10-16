@@ -30,6 +30,7 @@ export type CodexProbeInput = {
   forceKillGraceMs?: number;
   finalKillSettleMs?: number;
   env?: Record<string, string>;
+  baseEnvironment?: NodeJS.ProcessEnv;
   signal?: AbortSignal;
 };
 
@@ -84,6 +85,7 @@ export async function probeCodex(input: CodexProbeInput): Promise<CodexProbeResu
       forceKillGraceMs: input.forceKillGraceMs ?? CODEX_PROBE_FORCE_KILL_GRACE_MS,
       finalKillSettleMs: input.finalKillSettleMs ?? CODEX_PROBE_FINAL_SETTLE_MS,
       env: input.env,
+      baseEnvironment: input.baseEnvironment,
       onStdoutLine(line) {
         const inspected = inspectProbeLine(line);
         if (inspected.eventSeen && firstEventMs === undefined) {

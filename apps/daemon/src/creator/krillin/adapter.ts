@@ -35,7 +35,7 @@ export function createKrillinExecutor(input: {
   jobsRoot: string;
   dependencyLoader: KrillinDependencyLoader;
   configStore: Pick<CreatorServicesConfigStore, 'read'>;
-  getYtDlpRuntime?(): YtDlpRuntime | undefined;
+  getYtDlpRuntime?(sourceUrl?: string): YtDlpRuntime | undefined;
   verificationCachePath?: string;
   ensureRuntimeReady?(): Promise<void>;
   getCodexLlmConfig?(): { baseUrl: string; apiKey: string; model: string } | undefined;
@@ -94,7 +94,7 @@ export function createKrillinExecutor(input: {
               artifacts: materializedArtifacts,
               source: attempt.source,
               options: attempt.options,
-              ytDlpRuntime: input.getYtDlpRuntime?.(),
+              ytDlpRuntime: input.getYtDlpRuntime?.(stringValue(attempt.options.sourceUrl)),
               llmOverride: preflight.config.llm.source === 'codex'
                 ? input.getCodexLlmConfig?.()
                 : undefined
@@ -108,8 +108,8 @@ export function createKrillinExecutor(input: {
             ) {
               deferredFailure = error;
               const message = error.code === 'platform_caption_invalid'
-                ? '平台字幕解析失败，已自动切换到语音转录'
-                : '未找到可用的平台字幕，已自动切换到语音转录';
+                ? 'Platform subtitle parsing failed. Switched to speech transcription.'
+                : 'No usable platform subtitles were found. Switched to speech transcription.';
               captionFallbackProgress = {
                 captionSource: 'whisper',
                 captionFallbackCode: error.code,
@@ -226,6 +226,10 @@ export function normalizeKrillinFailure(error: { code?: string; kind?: string; m
   message: string;
 } {
   const message = error?.message ?? 'KrillinAI stage failed';
+  if (/^prepare_(?:media|audio_fallback)_failed$/.test(error?.code ?? '') && /\[Douyin(?:\+[^\]]+)?\]/i.test(message)) {
+    if (/Douyin request signature is required/i.test(message)) return { code: 'platform_request_signature_required', message };
+    if (/fresh cookies|Douyin browser identity was rejected/i.test(message)) return { code: 'platform_session_required', message };
+  }
   if (error?.code !== undefined && [
     'audio_no_speech', 'audio_transcription_empty', 'audio_transcription_invalid_response',
     'audio_transcription_timestamps_missing', 'audio_transcription_api_failed'
@@ -256,7 +260,8 @@ export function normalizeKrillinFailure(error: { code?: string; kind?: string; m
 export function buildKrillinStageOptions(input: CreatorExecutorInput): Record<string, unknown> {
   const state = input.job.state;
   return compactObject({
-    sourceUrl: typeof state.sourceUrl === 'string' ? normalizeVideoSourceUrl(state.sourceUrl) : undefined,
+    sourceType: state.sourceType,
+    sourceUrl: state.sourceType !== 'subtitle' && typeof state.sourceUrl === 'string' ? normalizeVideoSourceUrl(state.sourceUrl) : undefined,
     originLanguage: normalizeKrillinLanguage(
       typeof state.sourceLanguage === 'string' ? state.sourceLanguage : undefined
     ),
@@ -269,14 +274,32 @@ export function buildKrillinStageOptions(input: CreatorExecutorInput): Record<st
     prepareVideo: input.job.templateId !== 'video-translation',
     audioOnly: input.job.templateId === 'video-translation' && state.composeVideo !== true,
     bilingual: input.stageRun.stageId === 'subtitles' || state.bilingual === true,
-    bilingualTop: state.subtitlePosition === 'top',
+    bilingualTop: state.subtitlePosition !== 'bottom',
     ttsProvider: typeof state.ttsProvider === 'string' ? state.ttsProvider : undefined,
     ttsModel: typeof state.ttsModel === 'string' ? state.ttsModel : undefined,
     voiceCode: typeof state.voiceCode === 'string' ? state.voiceCode : undefined,
     verticalTitle: typeof state.verticalTitle === 'string' ? state.verticalTitle : undefined,
     verticalSubtitle: typeof state.verticalSubtitle === 'string' ? state.verticalSubtitle : undefined,
     dubbed: state.dubbing === true || state.dubbed === true,
-    subtitleStyle: buildKrillinSubtitleStyle(state.subtitleStyle)
+    subtitleStyle: buildKrillinSubtitleStyle(state.subtitleStyle ?? (
+      input.job.templateId === 'video-translation' ? compactObject({
+        fontPreset: state.subtitleFont ?? 'sans',
+        fontWeight: state.subtitleWeight,
+        fontSize: state.subtitleSize,
+        primaryColor: state.subtitleColor,
+        secondaryColor: state.subtitleSecondaryColor,
+        outlineColor: state.subtitleOutlineColor,
+        outlineWidth: state.subtitleOutlineWidth,
+        shadow: compactObject({
+          enabled: state.subtitleShadowEnabled,
+          color: state.subtitleShadowColor,
+          opacity: state.subtitleShadowOpacity,
+          offsetX: state.subtitleShadowOffsetX,
+          offsetY: state.subtitleShadowOffsetY,
+          blur: state.subtitleShadowBlur
+        })
+      }) as CreatorJson : undefined
+    ))
   });
 }
 

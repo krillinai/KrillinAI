@@ -92,9 +92,11 @@ export async function generateImageContents(
   const referenceImages = options.referenceImages
     ?? (options.referenceImage === undefined ? [] : [options.referenceImage]);
   const gateway = gatewayCreatorBinding(config);
-  const capabilities = gateway ? { supportsReferenceImage: gateway.capabilities?.image?.includes('edit') === true, maxReferenceImages: gateway.capabilities?.image?.includes('edit') ? 1 : 0 } : imageGenerationCapabilities(request.provider);
+  const profile = gateway?.catalog?.find(model => model.modality === 'image' && model.id === gateway.models.image);
+  const capabilities = gateway ? { supportsReferenceImage: gateway.capabilities?.image?.includes('edit') === true,
+    maxReferenceImages: gateway.capabilities?.image?.includes('edit') ? profile?.imageOptions?.maxReferences ?? 1 : 0 } : imageGenerationCapabilities(request.provider);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(new DOMException(gateway ? '图片生成等待超时，请先查询请求状态，避免重复扣费' : '图片生成超时，请重试', 'TimeoutError')), gateway ? DIRECT_IMAGE_TIMEOUT_MS + 30_000 : REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(new DOMException(gateway ? 'Image generation timed out. Check the request status before retrying to avoid duplicate charges.' : 'Image generation timed out. Try again.', 'TimeoutError')), gateway ? DIRECT_IMAGE_TIMEOUT_MS + 30_000 : REQUEST_TIMEOUT_MS);
   const abort = () => controller.abort(options.signal?.reason);
   timeout.unref();
   if (options.signal?.aborted) abort();
@@ -129,10 +131,10 @@ export async function generateImageContents(
         const configuration = await readCodexImageConfiguration(options.codexNative);
         if (configuration.authentication === 'chatgpt') {
           nativeExecution = true;
-          options.onProgress?.({ phase: 'preparing_native_image', message: '正在检查 ChatGPT 登录态和 Codex 原生生图能力…' });
+          options.onProgress?.({ phase: 'preparing_native_image', message: 'Checking ChatGPT sign-in and Codex native image capabilities...' });
           const status = await inspectCodexImageRuntime(options.codexNative);
           if (!status.ready) throw new ImageGenerationProviderError('config_missing', status.message);
-          if (status.executionMode !== 'native') throw new ImageGenerationProviderError('config_missing', 'Codex 认证模式已变化，请刷新状态后重试');
+          if (status.executionMode !== 'native') throw new ImageGenerationProviderError('config_missing', 'Codex authentication mode changed. Refresh status and try again.');
           const image = await generateCodexNativeImage({
             runtime: options.codexNative,
             request,
@@ -184,7 +186,7 @@ export async function generateImageContents(
     if (error instanceof ImageGenerationProviderError) throw error;
     if (options.signal?.aborted) throw error;
     if (controller.signal.reason instanceof DOMException && controller.signal.reason.name === 'TimeoutError') {
-      const message = gateway ? '图片生成等待超时，请先查询请求状态，避免重复扣费' : '图片生成超时，请稍后重试';
+      const message = gateway ? 'Image generation timed out. Check the request status before retrying to avoid duplicate charges.' : 'Image generation timed out. Try again later.';
       throw new ImageGenerationProviderError('upstream_error', message,
         { kind: 'timeout', provider: request.provider, upstreamMessage: message }, { cause: error });
     }
@@ -262,8 +264,8 @@ async function generateOpenAiImages(
   if (gatewayRequest && /^[A-Za-z0-9_-]{12,128}$/.test(gatewayRequest)) onGatewayRequest?.(gatewayRequest);
   if (official && response.status === 202) {
     const accepted = await response.json() as { requestId?: string };
-    if (!accepted.requestId || accepted.requestId !== gatewayRequest || !/^ocdir_[a-f0-9]{48}$/.test(accepted.requestId)) {
-      throw new ImageGenerationProviderError('upstream_error', '图片生成请求回执无效');
+    if (!accepted.requestId || accepted.requestId !== gatewayRequest || !/^(?:ocdir|ocreq)_[a-f0-9]{48}$/.test(accepted.requestId)) {
+      throw new ImageGenerationProviderError('upstream_error', 'Invalid image generation receipt');
     }
     const statusUrl = openAiCompatibleEndpoint(provider.baseUrl, `requests/${accepted.requestId}`);
     for (;;) {
@@ -271,23 +273,23 @@ async function generateOpenAiImages(
       const status = await fetchCreatorService({ endpoint: statusUrl, method: 'GET', headers: { Authorization: `Bearer ${provider.apiKey}` }, proxy: config.proxy.trim(), signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]), maxResponseBytes: 16_384, fetchImpl });
       if (!status.ok) {
         void status.body?.cancel().catch(() => undefined);
-        throw new ImageGenerationProviderError('upstream_error', '暂时无法查询图片生成结果，请保留任务，避免重复扣费', { kind: 'provider-failed', upstreamCode: 'request_outcome_unknown', requestId: accepted.requestId });
+        throw new ImageGenerationProviderError('upstream_error', 'Could not query the image result. Keep the task to avoid duplicate charges.', { kind: 'provider-failed', upstreamCode: 'request_outcome_unknown', requestId: accepted.requestId });
       }
       const receipt = await status.json() as { state?: string; error?: { code?: string; status?: number } };
       if (receipt.state === 'succeeded') {
         response = await fetchCreatorService({ endpoint: appendEndpointPath(statusUrl, 'result'), method: 'GET', headers: { Authorization: `Bearer ${provider.apiKey}` }, proxy: config.proxy.trim(), signal, maxResponseBytes: MAX_RESPONSE_BYTES, fetchImpl });
         if (!response.ok) {
           void response.body?.cancel().catch(() => undefined);
-          throw new ImageGenerationProviderError('upstream_error', '图片结果暂时无法下载，请保留任务，避免重复扣费', { kind: 'provider-failed', upstreamCode: 'request_outcome_unknown', requestId: accepted.requestId });
+          throw new ImageGenerationProviderError('upstream_error', 'The image result cannot be downloaded yet. Keep the task to avoid duplicate charges.', { kind: 'provider-failed', upstreamCode: 'request_outcome_unknown', requestId: accepted.requestId });
         }
         break;
       }
       if (receipt.state === 'failed') {
-        response = Response.json({ error: { code: receipt.error?.code ?? 'official_service_unavailable', message: receipt.error?.code === 'credits_insufficient' ? '积分不足，请补充积分后再试' : '图片生成请求被拒绝' } }, { status: receipt.error?.status ?? 503 });
+        response = Response.json({ error: { code: receipt.error?.code ?? 'official_service_unavailable', message: receipt.error?.code === 'credits_insufficient' ? 'Insufficient credits. Add credits and try again.' : 'The image generation request was rejected' } }, { status: receipt.error?.status ?? 503 });
         break;
       }
-      if (receipt.state === 'outcome_unknown') throw new ImageGenerationProviderError('upstream_error', '图片生成结果尚未确认，请先查询请求状态，避免重复扣费', { kind: 'provider-failed', upstreamCode: 'request_outcome_unknown', requestId: accepted.requestId });
-      if (!['submitting', 'waiting_upstream'].includes(receipt.state ?? '')) throw new ImageGenerationProviderError('upstream_error', '图片生成请求状态无效');
+      if (receipt.state === 'outcome_unknown') throw new ImageGenerationProviderError('upstream_error', 'The image result is unconfirmed. Check request status first to avoid duplicate charges.', { kind: 'provider-failed', upstreamCode: 'request_outcome_unknown', requestId: accepted.requestId });
+      if (!['submitting', 'waiting_upstream'].includes(receipt.state ?? '')) throw new ImageGenerationProviderError('upstream_error', 'Invalid image generation request status');
       await delay(1_000, undefined, { signal });
     }
   }

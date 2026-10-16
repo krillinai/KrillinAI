@@ -1,3 +1,4 @@
+import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
 import type {
   ThreadResponse,
   WorkspaceDirectoryResponse,
@@ -46,6 +47,7 @@ const RESIZE_KEY_STEP = 32;
 const FILE_REFRESH_INTERVAL_MS = 2000;
 
 export function FileWorkspaceView(props: FileWorkspaceViewProps) {
+  const l = useLocalizedCopy();
   const confirm = useConfirmDialog();
   const [nodes, setNodes] = useState<WorkspaceDirectoryResponse['nodes']>([]);
   const [expandedPaths, setExpandedPaths] = useState<string[]>([]);
@@ -67,7 +69,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
   const [fileMode, setFileMode] = useState<FileEditorMode>('preview');
   const pageIssues = usePageIssueState('files');
   const handlePreviewError = useCallback((error: unknown) => {
-    pageIssues.captureOperationFailure('files.preview-html', error, '无法生成 HTML 预览，请切换到编辑模式查看源码。');
+    pageIssues.captureOperationFailure('files.preview-html', error, l("无法生成 HTML 预览，请切换到编辑模式查看源码。", "Unable to generate HTML preview, please switch to edit mode to view source code."));
   }, [pageIssues.captureOperationFailure]);
   const handlePreviewReady = useCallback(() => {
     pageIssues.resolveOperation('files.preview-html');
@@ -188,7 +190,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
         }
 
         setWorkspaceMessage(undefined);
-        pageIssues.captureOperationFailure('files.load-workspace', error, '无法加载文件工作区，请重试。', { retryable: true });
+        pageIssues.captureOperationFailure('files.load-workspace', error, l("无法加载文件工作区，请重试。", "Unable to load file workspace, please try again."), { retryable: true });
       });
 
     return () => {
@@ -324,7 +326,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
       if (!mountedRef.current || requestId !== openRequestIdRef.current) {
         return;
       }
-      pageIssues.captureOperationFailure('files.open', error, '无法打开文件，请重试。', { retryable: true });
+      pageIssues.captureOperationFailure('files.open', error, l("无法打开文件，请重试。", "Unable to open file, please try again."), { retryable: true });
     } finally {
       if (mountedRef.current && requestId === openRequestIdRef.current) {
         setLoading(false);
@@ -372,7 +374,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
         return;
       }
       setWorkspaceMessage(undefined);
-      pageIssues.captureOperationFailure('files.list-directory', error, '无法加载目录，请重试。', { retryable: true });
+      pageIssues.captureOperationFailure('files.list-directory', error, l("无法加载目录，请重试。", "Unable to load directory, please try again."), { retryable: true });
     }
   }
 
@@ -409,12 +411,12 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
 
       if (error instanceof ApiClientError && error.status === 409 && error.code === 'FILE_CONFLICT') {
         setConflictOpen(true);
-        pageIssues.captureOperationFailure('files.save', error, '文件已在其他位置更新，请确认是否覆盖。', {
+        pageIssues.captureOperationFailure('files.save', error, l("文件已在其他位置更新，请确认是否覆盖。", "The file has been updated elsewhere, please confirm whether to overwrite it."), {
           retryable: true,
           risk: 'overwrite'
         });
       } else {
-        pageIssues.captureOperationFailure('files.save', error, '文件保存失败，请重试。', { retryable: true });
+        pageIssues.captureOperationFailure('files.save', error, l("文件保存失败，请重试。", "File saving failed, please try again."), { retryable: true });
       }
     } finally {
       if (mountedRef.current) {
@@ -433,7 +435,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
       await service.reveal({ threadId: thread.id, path: activePath, mode: 'file' });
       pageIssues.resolveOperation('files.reveal');
     } catch (error) {
-      pageIssues.captureOperationFailure('files.reveal', error, '无法在系统中打开文件，请重试。', { retryable: true });
+      pageIssues.captureOperationFailure('files.reveal', error, l("无法在系统中打开文件，请重试。", "Unable to open file on your system, please try again."), { retryable: true });
     }
   }
 
@@ -557,20 +559,17 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
             onDismiss={pageIssues.dismissIssue}
             compact
           />
-          {threadReadonly ? <div className="file-workspace-notice">当前会话为只读模式，不能保存文件</div> : null}
+          {threadReadonly ? <div className="file-workspace-notice">{l("当前会话为只读模式，不能保存文件", "The current session is in read-only mode and files cannot be saved.")}</div> : null}
           {workspaceMessage ? <div className="file-workspace-notice">{workspaceMessage}</div> : null}
           {conflictOpen ? (
-            <div className="file-workspace-conflict" role="group" aria-label="处理文件冲突">
+            <div className="file-workspace-conflict" role="group" aria-label={l("处理文件冲突", "Handle file conflicts")}>
               <div className="file-workspace-conflict-actions">
                 <button className="button-secondary" type="button" onClick={() => void openFilePath(meta?.path ?? '', { skipDirtyConfirm: true })}>
-                  重新加载
-                </button>
+                  {l("重新加载", "reload")}</button>
                 <button className="button-secondary" type="button" onClick={() => void handleSave(true)}>
-                  覆盖保存
-                </button>
+                  {l("覆盖保存", "Overwrite and save")}</button>
                 <button className="button-secondary" type="button" onClick={() => setConflictOpen(false)}>
-                  取消
-                </button>
+                  {l("取消", "Cancel")}</button>
               </div>
             </div>
           ) : null}
@@ -599,7 +598,7 @@ export function FileWorkspaceView(props: FileWorkspaceViewProps) {
             <div
               className="pane-resize-handle file-tree-resize-handle"
               role="separator"
-              aria-label="调整编辑区和目录树宽度"
+              aria-label={l("调整编辑区和目录树宽度", "Adjust the width of the editing area and directory tree")}
               aria-orientation="vertical"
               aria-valuenow={treeWidth}
               tabIndex={0}

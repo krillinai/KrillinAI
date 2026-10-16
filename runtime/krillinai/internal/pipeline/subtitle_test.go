@@ -34,6 +34,7 @@ type fakeStageService struct {
 	audioProgress     []uint8
 	audioErr          error
 	omitPreparedVideo bool
+	translatedBlocks  []*util.SrtBlock
 }
 
 func TestImportedSubtitlesSkipRecognitionAndPreserveMultilineText(t *testing.T) {
@@ -72,6 +73,32 @@ func TestImportedSubtitlesSkipRecognitionAndPreserveMultilineText(t *testing.T) 
 	}
 }
 
+func TestStandaloneSRTTranslatesWithoutMediaAndPreservesTimeline(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "source.srt")
+	content := "1\n00:00:02,250 --> 00:00:04,750\nHello\nworld\n\n2\n00:00:05,000 --> 00:00:06,500\nNext cue\n"
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+	fake := &fakeStageService{}
+	response, err := GenerateSubtitles(context.Background(), fake, SubtitleRequest{Workdir: root, TaskID: "srt-only", OriginLang: "en", TargetLang: "zh_cn", InputSRT: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(fake.calls, []string{"translate-import"}) {
+		t.Fatalf("unexpected media or ASR calls: %v", fake.calls)
+	}
+	if response.Outputs.OriginVideo != "" {
+		t.Fatalf("unexpected video: %+v", response.Outputs)
+	}
+	for _, output := range []string{response.Outputs.OriginSRT, response.Outputs.TargetSRT, response.Outputs.BilingualSRT} {
+		data, err := os.ReadFile(output)
+		if err != nil || !strings.Contains(string(data), "00:00:02,250 --> 00:00:04,750") || !strings.Contains(string(data), "00:00:05,000 --> 00:00:06,500") {
+			t.Fatalf("timeline changed: %s, %v", data, err)
+		}
+	}
+}
+
 func fmtBool(value bool) string {
 	if value {
 		return "translated"
@@ -79,12 +106,15 @@ func fmtBool(value bool) string {
 	return "source"
 }
 
-func (f *fakeStageService) TranslateSubtitleBlocks(_ context.Context, blocks []*util.SrtBlock, _ *types.SubtitleTaskStepParam) error {
+func (f *fakeStageService) TranslateSubtitleBlocks(_ context.Context, blocks []*util.SrtBlock, _ *types.SubtitleTaskStepParam) ([]*util.SrtBlock, error) {
 	f.calls = append(f.calls, "translate-import")
+	if f.translatedBlocks != nil {
+		return f.translatedBlocks, f.processErr
+	}
 	for _, block := range blocks {
 		block.TargetLanguageSentence = "translated " + block.OriginLanguageSentence
 	}
-	return f.processErr
+	return blocks, f.processErr
 }
 
 func (f *fakeStageService) PrepareMedia(_ context.Context, p *types.SubtitleTaskStepParam) error {

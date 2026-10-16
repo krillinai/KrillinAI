@@ -2,7 +2,9 @@ package openai
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"krillin-ai/config"
 	"krillin-ai/log"
 	"net/http"
@@ -12,6 +14,93 @@ import (
 	"testing"
 	"time"
 )
+
+func TestChatCompletionReceivesCompleteJSON(t *testing.T) {
+	setTestModel(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request struct {
+			Stream bool `json:"stream"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil || request.Stream {
+			t.Errorf("请求应使用非流式JSON: stream=%v error=%v", request.Stream, err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"complete-json","choices":[{"message":{"role":"assistant","content":"完整译文"}}]}`))
+	}))
+	defer server.Close()
+	text, err := newClient(server.URL, "test-key", "", time.Second).ChatCompletion("translate")
+	if err != nil || text != "完整译文" {
+		t.Fatalf("text=%q error=%v", text, err)
+	}
+}
+
+func TestChatCompletionRejectsEmptyResponse(t *testing.T) {
+	setTestModel(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"empty","choices":[]}`))
+	}))
+	defer server.Close()
+	_, err := newClient(server.URL, "test-key", "", time.Second).ChatCompletion("translate")
+	if err == nil || !strings.Contains(err.Error(), "llm_translation_empty_response") {
+		t.Fatalf("未明确拒绝空响应: %v", err)
+	}
+}
+
+func TestChatCompletionDisablesDeepSeekV4Thinking(t *testing.T) {
+	for _, model := range []string{"deepseek-flash", "deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "test-model"} {
+		t.Run(model, func(t *testing.T) {
+			setTestModel(t)
+			config.Conf.Llm.Model = model
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var request struct {
+					Model           string   `json:"model"`
+					ReasoningEffort string   `json:"reasoning_effort"`
+					Temperature     *float32 `json:"temperature"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+					t.Error(err)
+				}
+				want := "none"
+				if model == "deepseek-chat" || model == "test-model" {
+					want = ""
+				}
+				if request.Model != model || request.ReasoningEffort != want {
+					t.Errorf("model=%q reasoning_effort=%q, want %q %q", request.Model, request.ReasoningEffort, model, want)
+				}
+				if want == "none" && (request.Temperature == nil || *request.Temperature != 0.2) {
+					t.Errorf("DeepSeek V4 temperature = %v, want 0.2", request.Temperature)
+				}
+				if want == "" && request.Temperature != nil {
+					t.Errorf("model %q should use default sampling", model)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"id":"translated","choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"完整译文"}}]}`))
+			}))
+			defer server.Close()
+			if _, err := newClient(server.URL, "test-key", "", time.Second).ChatCompletion("translate"); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestChatCompletionRejectsTruncatedResponse(t *testing.T) {
+	for _, content := range []string{"", `{"sentences":[`} {
+		t.Run(content, func(t *testing.T) {
+			setTestModel(t)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprintf(w, `{"id":"truncated","choices":[{"finish_reason":"length","message":{"role":"assistant","content":%q}}]}`, content)
+			}))
+			defer server.Close()
+			text, err := newClient(server.URL, "test-key", "", time.Second).ChatCompletion("translate")
+			if text != "" || err == nil || !strings.Contains(err.Error(), "llm_translation_truncated") {
+				t.Fatalf("截断响应不应作为译文或普通空响应返回: text=%q error=%v", text, err)
+			}
+		})
+	}
+}
 
 func TestChatCompletionTimesOut(t *testing.T) {
 	setTestModel(t)
@@ -34,6 +123,41 @@ func TestChatCompletionTimesOut(t *testing.T) {
 	}
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("ChatCompletion() error = %v, want context deadline", err)
+	}
+}
+
+func TestChatCompletionUsesDefaultSampling(t *testing.T) {
+	setTestModel(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request map[string]json.RawMessage
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Error(err)
+		}
+		if _, exists := request["temperature"]; exists {
+			t.Error("default model should not send temperature")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"default-sampling","choices":[{"message":{"role":"assistant","content":"完整译文"}}]}`))
+	}))
+	defer server.Close()
+	if _, err := newClient(server.URL, "test-key", "", time.Second).ChatCompletion("translate"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestChatCompletionReportsAPIError(t *testing.T) {
+	setTestModel(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"error":{"type":"upstream_error","code":"official_service_unavailable","message":"Official service request could not be completed"}}`))
+	}))
+	defer server.Close()
+
+	client := newClient(server.URL, "test-key", "", time.Second)
+	_, err := client.ChatCompletion("translate")
+	if err == nil || !strings.Contains(err.Error(), "Official service request could not be completed") {
+		t.Fatalf("ChatCompletion() error = %v, want the API error", err)
 	}
 }
 

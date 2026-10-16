@@ -1,8 +1,9 @@
-import type {
-  OpenCreatorStorageSettingsResponse,
-  UpdateOpenCreatorStorageSettingsRequest,
-  OpenCreatorUiSettingsResponse,
-  UpdateOpenCreatorUiSettingsRequest
+import {
+  openCreatorLanguagePreferences,
+  type OpenCreatorStorageSettingsResponse,
+  type UpdateOpenCreatorStorageSettingsRequest,
+  type OpenCreatorUiSettingsResponse,
+  type UpdateOpenCreatorUiSettingsRequest
 } from '@opencreator/protocol';
 import type { FastifyInstance } from 'fastify';
 import { accessSync, constants, mkdirSync, statSync } from 'node:fs';
@@ -12,7 +13,7 @@ import type { OpenCreatorSettingsStore } from '../settings/store.js';
 import { apiError } from './errors.js';
 
 const updateSchema = z.object({
-  language: z.enum(['system', 'zh-CN', 'en-US', 'sv-SE']).optional(),
+  language: z.enum(openCreatorLanguagePreferences).optional(),
   colorMode: z.enum(['light', 'dark']).optional(),
   accentColor: z.enum([
     'neutral',

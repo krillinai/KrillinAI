@@ -175,7 +175,7 @@ function pushTextWithLinks(
           <span
             key={`${baseKey}-${key++}`}
             className="md-skill-reference"
-            title={`技能：${reference.slice(1)}`}
+            title={`Skill: ${reference.slice(1)}`}
           >
             <Blocks aria-hidden="true" size={14} strokeWidth={1.8} />
             <span>{formatSkillName(reference)}</span>
@@ -273,7 +273,7 @@ export function renderInlineMarkdown(
       const src = options.resolveImageSrc?.(match[3]);
       output.push(src
         ? <img key={key++} className="md-image" src={src} alt={alt ?? ''} />
-        : <Fragment key={key++}>{alt ? `${alt} [图片]` : '[图片]'}</Fragment>);
+        : <Fragment key={key++}>{alt ? `${alt} [Image]` : '[Image]'}</Fragment>);
     } else if (match[4] && match[5]) {
       output.push(renderLink(match[5], match[4], key++, {
         allowRelative,
