@@ -118,7 +118,7 @@ export function GatewayAccountSettingsView(props: {
       <button type="button" className="gateway-account__icon" title={l('刷新账户', 'Refresh account')} aria-label={l('刷新账户', 'Refresh account')} disabled={busy || !service} onClick={() => void action(() => refresh(false, true))}><RefreshCw size={16}/></button>
     </div> : null}
     {state?.account && !profile ? <p className="gateway-account__email">{state.account.email}</p> : null}
-    {signedIn && !compact && state.transport !== 'gateway' && state.supplier === 'chatanywhere' && service?.setRegion ? <label>{l('连接区域', 'Connection Region')}<select aria-label={l('连接区域', 'Connection Region')} value={state.supplierRegion ?? 'auto'} disabled={busy} onChange={event => { const next = event.target.value as 'auto' | 'domestic' | 'overseas'; void action(async () => update(await service.setRegion!(next))); }}>
+    {signedIn && !compact && state.transport === 'supplier-direct' && state.supplier === 'chatanywhere' && service?.setRegion ? <label>{l('连接区域', 'Connection Region')}<select aria-label={l('连接区域', 'Connection Region')} value={state.supplierRegion ?? 'auto'} disabled={busy} onChange={event => { const next = event.target.value as 'auto' | 'domestic' | 'overseas'; void action(async () => update(await service.setRegion!(next))); }}>
       <option value="auto">{l('默认（国内线路）', 'Default (Mainland route)')}</option><option value="domestic">{l('国内', 'Mainland China')}</option><option value="overseas">{l('海外', 'Overseas')}</option>
     </select></label> : null}
     {profile ? <div className="gateway-account__identity"><h2>{signedIn ? state.account?.email ?? l('OpenCreator 账户', 'OpenCreator Account') : l('OpenCreator 账户', 'OpenCreator Account')}</h2>{status}</div> : status}

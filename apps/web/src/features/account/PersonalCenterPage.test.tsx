@@ -56,6 +56,22 @@ it('shows account and credits and returns to the previous view', async () => {
   await userEvent.setup().click(screen.getByRole('button', { name: '返回' }));
   expect(back).toHaveBeenCalledOnce();
 });
+it.each([undefined, 'gateway'] as const)('keeps route selection hidden while restoring a gateway account (transport=%s)', async transport => {
+  const restoring: GatewayAccountState = { ...signedIn, transport, supplier: 'chatanywhere', activationState: 'loading' };
+  const ready: GatewayAccountState = { ...restoring, transport: 'gateway', activationState: 'ready' };
+  const service = createService(ready);
+  let complete!: (state: GatewayAccountState) => void;
+  vi.mocked(service.getState).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+  service.setRegion = vi.fn();
+  render(page(service, restoring));
+  expect(screen.getByText('官方模型服务正在连接')).toBeInTheDocument();
+  expect(screen.queryByRole('combobox', { name: '连接区域' })).not.toBeInTheDocument();
+  await act(async () => complete(ready));
+  await waitFor(() => expect(screen.queryByText('官方模型服务正在连接')).not.toBeInTheDocument());
+  expect(screen.getByText('已登录', { exact: true })).toBeInTheDocument();
+  expect(screen.queryByRole('combobox', { name: '连接区域' })).not.toBeInTheDocument();
+  expect(service.setRegion).not.toHaveBeenCalled();
+});
 it('forwards active task state to the credit estimate and hides it when work ends', async () => {
   const service = createService();
   vi.mocked(service.getSummary).mockResolvedValue({ ...summary, balance: { ...summary.balance, reservedUnits: '1000000' } });

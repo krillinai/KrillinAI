@@ -216,6 +216,7 @@ export function createGatewayAccountService(input: {
       await saveConfiguration();
       if (!credentials) return;
       state.supplier = credentials.supplier;
+      state.transport = credentials.transport;
       state.account = credentials.account ?? null; state.authState = 'signed_in'; state.models = credentials.models ?? [];
       if (credentials.modelAccessError) { restoreModelAccessError(credentials.modelAccessError); return; }
       if (input.deferStartupActivation) {

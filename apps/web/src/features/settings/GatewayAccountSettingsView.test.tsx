@@ -16,7 +16,7 @@ function service(): GatewayAccountSettingsService {
 }
 it('changes the ChatAnywhere region without offering supplier self-selection', async () => {
   const value = service();
-  const initial = { ...state, supplier: 'chatanywhere' as const, supplierRegion: 'auto' as const };
+  const initial = { ...state, transport: 'supplier-direct' as const, supplier: 'chatanywhere' as const, supplierRegion: 'auto' as const };
   vi.mocked(value.getState).mockResolvedValue(initial);
   value.setRegion = vi.fn(async region => ({ ...initial, supplierRegion: region }));
   render(<LanguageProvider initialPreference="zh-CN"><GatewayAccountSettingsView service={value}/></LanguageProvider>);

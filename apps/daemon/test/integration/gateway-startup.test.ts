@@ -7,7 +7,7 @@ import { buildServer } from '../../src/api/server.js';
 import { createGatewayConfigStore } from '../../src/gateway/config-store.js';
 import type { SchedulerService } from '../../src/scheduler/service.js';
 
-it.each([true, false])('网关请求未完成时本地服务已可用，调度等待恢复且关闭会取消恢复（提前关闭=%s）', async closeWhileRestoring => {
+it.each([[true, undefined], [false, undefined], [true, 'gateway'], [false, 'gateway']] as const)('网关请求未完成时本地服务已可用，调度等待恢复且关闭会取消恢复（提前关闭=%s，传输=%s）', async (closeWhileRestoring, transport) => {
   const root = await mkdtemp(join(tmpdir(), 'oc-gateway-startup-'));
   let release!: () => void;
   const waiting = new Promise<void>(resolve => { release = resolve; });
@@ -25,10 +25,11 @@ it.each([true, false])('网关请求未完成时本地服务已可用，调度�
   const origin = `http://127.0.0.1:${address.port}`;
   const dataDir = join(root, 'data');
   await createGatewayConfigStore(dataDir).writeCredentials({
-    schemaVersion: 1, account: { id: 'a', email: 'a@example.test', verified: true },
+    ...(transport === 'gateway' ? { schemaVersion: 3 as const, transport, supplier: 'chatanywhere' as const, keyRotation: false } : { schemaVersion: 1 as const, modelKey: 'private-model-key' }),
+    account: { id: 'a', email: 'a@example.test', verified: true },
     accessToken: 'private-access-token', refreshToken: 'private-refresh-token',
     expiresIn: 900, accessExpiresAt: new Date(Date.now() + 900_000).toISOString(),
-    modelKey: 'private-model-key', keyVersion: '1', bindingVersion: 'a:1', baseUrl: `${origin}/v1`,
+    keyVersion: '1', bindingVersion: 'a:1', baseUrl: `${origin}/v1`,
     models: [{ id: 'official-model', modality: 'text', capabilities: ['responses'] }], defaults: { text: 'official-model' }
   });
   let server: Awaited<ReturnType<typeof buildServer>> | undefined;
@@ -48,13 +49,15 @@ it.each([true, false])('网关请求未完成时本地服务已可用，调度�
     expect((await server.inject('/healthz')).json()).toEqual({ ok: true });
     const state = await server.inject({ method: 'GET', url: '/gateway/account', headers: { authorization: 'Bearer local-runtime-token' } });
     expect(state.json()).toMatchObject({ source: 'gateway', authState: 'signed_in', activationState: 'loading', account: { id: 'a' } });
+    expect(state.json().transport).toBe(transport);
     expect(state.body).not.toContain('private-');
     expect(start).not.toHaveBeenCalled();
     if (!closeWhileRestoring) {
       release();
       await expect.poll(() => start.mock.calls.length).toBe(1);
-      expect((await server.inject({ url: '/gateway/account', headers: { authorization: 'Bearer local-runtime-token' } })).json())
-        .toMatchObject({ authState: 'signed_in', activationState: 'blocked' });
+      const blocked = (await server.inject({ url: '/gateway/account', headers: { authorization: 'Bearer local-runtime-token' } })).json();
+      expect(blocked).toMatchObject({ authState: 'signed_in', activationState: 'blocked' });
+      expect(blocked.transport).toBe(transport);
     }
     await server.close();
     await expect.poll(() => bootstrapCanceled).toBe(true);
