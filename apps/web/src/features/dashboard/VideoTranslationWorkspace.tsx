@@ -2871,7 +2871,7 @@ export default function VideoTranslationWorkspace(props: {
       ? l('作品', 'Works')
       : resultTab === 'subtitles'
         ? selectedSubtitleContextLabel
-        : ({ voice: l('配音', 'Dubbing'), settings: l('任务设置', 'Task settings') } as const)[resultTab]} V${resultVersion}`
+        : l('配音', 'Dubbing')} V${resultVersion}`
     : currentStep === 0
       ? sourceName
       : currentStep === 1

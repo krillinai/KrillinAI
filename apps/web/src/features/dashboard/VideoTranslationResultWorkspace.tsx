@@ -25,7 +25,6 @@ import {
   RotateCcw,
   Save,
   Search,
-  Settings2,
   X,
   Redo2,
   Undo2
@@ -39,7 +38,7 @@ import { sameSubtitleCues, subtitleSeconds } from './subtitle-editing.js';
 import { beginPaneResize, paneInlineDirection } from '../../components/layout/pane-resize-2026-07-29.js';
 import './subtitle-editor.css';
 
-export type VideoTranslationResultTab = 'video' | 'subtitles' | 'voice' | 'settings';
+export type VideoTranslationResultTab = 'video' | 'subtitles' | 'voice';
 export type VideoResultVariant = 'horizontal' | 'vertical' | 'dubbed';
 export type SubtitleResultVariant = 'horizontal' | 'vertical';
 type EditorSettingsPanel = 'language' | 'style' | 'voice' | 'output';
@@ -106,8 +105,7 @@ const resultTabs: Array<{
 }> = [
   { value: 'video', label: '作品', icon: PackageOpen },
   { value: 'subtitles', label: '字幕', icon: Captions },
-  { value: 'voice', label: '配音', icon: Mic2 },
-  { value: 'settings', label: '任务设置', icon: Settings2 }
+  { value: 'voice', label: '配音', icon: Mic2 }
 ];
 
 export default function VideoTranslationResultWorkspace(props: {
@@ -237,7 +235,6 @@ export default function VideoTranslationResultWorkspace(props: {
   const subtitleCueGroups = activeSubtitleOutput === undefined
     ? []
     : groupSubtitleCues(activeSubtitleOutput.cues, activeSubtitleOutput.variant);
-  const subtitleCueCount = props.subtitleOutputs.reduce((total, output) => total + output.cues.length, 0);
   const generatedArtifactCount = props.videoOutputs.length
     + props.subtitleOutputs.length
     + (props.voiceOutput === undefined ? 0 : 1);
@@ -599,7 +596,7 @@ export default function VideoTranslationResultWorkspace(props: {
       </div> : null}
       <div className="video-result-toolbar">
         <div className="video-result-tabs" role="tablist" aria-label={l('产出物类型', 'Output types')}>
-          {resultTabs.filter(tab => tab.value === 'settings' || tab.value === (props.subtitleOnly ? 'subtitles' : 'video')).map(tab => {
+          {resultTabs.filter(tab => tab.value === (props.subtitleOnly ? 'subtitles' : 'video')).map(tab => {
             const Icon = tab.icon;
             return (
               <button
@@ -1067,30 +1064,6 @@ export default function VideoTranslationResultWorkspace(props: {
         </div>
       ) : null}
 
-      {props.activeTab === 'settings' ? (
-        <div className="video-result-pane">
-          <header className="video-result-pane-heading">
-            <div>
-              <h2>{l('当前版本设置', 'Current version settings')}</h2>
-            </div>
-            <button type="button" onClick={props.onAdjustSettings}>
-              <Settings2 size={15} strokeWidth={1.8} aria-hidden="true" />
-              {l('调整设置', 'Adjust settings')}
-            </button>
-          </header>
-          <dl className="video-result-settings">
-            <div><dt>{l('目标语言', 'Target language')}</dt><dd>{props.targetLanguage}</dd></div>
-            {!props.subtitleOnly ? <div><dt>{l('字幕样式', 'Subtitle style')}</dt><dd>{props.subtitleStyleLabel}</dd></div> : null}
-            {!props.subtitleOnly ? <div><dt>{l('配音', 'Dubbing')}</dt><dd>{props.dubbing ? l('已开启', 'Enabled') : l('未开启', 'Disabled')}</dd></div> : null}
-            <div><dt>{l('输出内容', 'Output')}</dt><dd>{props.outputLabel}</dd></div>
-            <div>
-              <dt>{l('字幕文件', 'Subtitle files')}</dt>
-              <dd>{props.subtitleOutputs.length} {l('个文件', 'files')} · {subtitleCueCount} {l('条字幕', 'subtitles')}</dd>
-            </div>
-          </dl>
-        </div>
-      ) : null}
-
       {props.immersive && props.editorSettings && editorPanel ? <SubtitleEditorSettingsPanel
         title={editorPanelLabel(editorPanel)}
         context={l(`正在基于 V${props.version} 调整`, `Adjusting from V${props.version}`)}
@@ -1200,8 +1173,7 @@ function localizeResultTab(label: string, l: LocalizeCopy): string {
   const labels: Record<string, string> = {
     '作品': 'Outputs',
     '字幕': 'Subtitles',
-    '配音': 'Dubbing',
-    '任务设置': 'Task settings'
+    '配音': 'Dubbing'
   };
   return l(label, labels[label] ?? label);
 }

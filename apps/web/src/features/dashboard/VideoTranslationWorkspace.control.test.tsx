@@ -29,8 +29,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     const workspace = within(screen.getByRole('region', { name: l('视频翻译操作区', 'Video translation workspace') }));
     const notice = l('已返回 V1，配置草稿仍然保留', 'Returned to V1. Your configuration draft is still saved.');
     const returnFromSettings = async () => {
-      await act(async () => { fireEvent.click(workspace.getByRole('tab', { name: l('任务设置', 'Task settings') })); });
-      await act(async () => { fireEvent.click(workspace.getByRole('button', { name: l('调整设置', 'Adjust settings') })); });
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: l('调整任务设置', 'Adjust settings') })); });
       await act(async () => { fireEvent.click(workspace.getByRole('button', { name: l('返回 V1 成品', 'Return to V1 output') })); });
     };
     vi.useFakeTimers();
@@ -77,8 +76,7 @@ describe('VideoTranslationWorkspace task controls', () => {
       expect(screen.getByText(warning)).toBeVisible();
       await act(async () => { vi.advanceTimersByTime(5_000); });
       expect(screen.queryByText(warning)).not.toBeInTheDocument();
-      await act(async () => { fireEvent.click(screen.getByRole('tab', { name: '任务设置' })); });
-      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '调整设置' })); });
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '调整任务设置' })); });
       await act(async () => { fireEvent.click(screen.getByRole('button', { name: '返回 V1 成品' })); });
       expect(screen.getByText('已返回 V1，配置草稿仍然保留')).toBeVisible();
       await act(async () => { vi.advanceTimersByTime(5_000); });
@@ -202,8 +200,7 @@ describe('VideoTranslationWorkspace task controls', () => {
       service={{ applyAction, runAgentTurn: vi.fn() } as never}><VideoTranslationWorkspace onBack={vi.fn()} />
     </CreatorSessionProvider></LanguageProvider>);
     if (subtitleOnly) {
-      fireEvent.click(screen.getByRole('tab', { name: '任务设置' }));
-      fireEvent.click(screen.getByRole('button', { name: '调整设置' }));
+      fireEvent.click(screen.getByRole('button', { name: '调整任务设置' }));
       fireEvent.change(screen.getByRole('combobox', { name: '翻译为' }), { target: { value: 'de' } });
       await waitFor(() => expect(current.state.targetLanguage).toBe('de'));
       fireEvent.click(screen.getByRole('button', { name: '返回 V1 成品' }));
@@ -302,8 +299,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: '完成' }));
     fireEvent.click(screen.getByRole('button', { name: '返回项目' }));
-    fireEvent.click(screen.getByRole('tab', { name: '任务设置' }));
-    fireEvent.click(screen.getByRole('button', { name: '调整设置' }));
+    fireEvent.click(screen.getByRole('button', { name: '调整任务设置' }));
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
     await waitFor(() => expect(screen.getByRole('combobox', { name: '配音音色' })).toHaveAttribute('data-value', 'echo'));
     fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
@@ -584,7 +580,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(within(workspace).getByRole('button', { name: '保存字幕' })).toBeEnabled();
     expect(within(workspace).getByRole('button', { name: '译文 SRT' })).toBeDisabled();
     expect(within(workspace).queryByRole('button', { name: /保存并生成/ })).not.toBeInTheDocument();
-    fireEvent.click(within(workspace).getByRole('tab', { name: '任务设置' }));
+    expect(within(workspace).queryByRole('tab', { name: '任务设置' })).not.toBeInTheDocument();
     expect(within(workspace).queryByText('字幕样式')).not.toBeInTheDocument();
     expect(within(workspace).queryByText('配音')).not.toBeInTheDocument();
     fireEvent.click(within(workspace).getByRole('tab', { name: /^字幕/ }));
@@ -1956,16 +1952,8 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(screen.queryByRole('tab', { name: '配音' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '字幕' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('tab', { name: '任务设置' }));
-    await waitFor(() => expect(applyAction).toHaveBeenCalledWith(
-      'job_control',
-      expect.objectContaining({
-        input: expect.objectContaining({
-          patch: expect.objectContaining({ resultTab: 'settings' })
-        })
-      })
-    ));
-    expect(screen.getByRole('tab', { name: '任务设置' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('tab', { name: '任务设置' })).not.toBeInTheDocument();
+    await waitFor(() => expect(currentJob.state.resultTab).toBe('video'));
   });
 
   it.each(['queued', 'running', 'canceled', 'interrupted'] as const)(

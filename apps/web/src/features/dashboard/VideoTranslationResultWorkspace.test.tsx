@@ -157,8 +157,6 @@ describe('VideoTranslationResultWorkspace', () => {
     rerender(<VideoTranslationResultWorkspace {...props} activeTab="video"
       videoOutputs={[{ artifactId: 'final-video', variant: 'horizontal', artifactVersion: 1, src: 'blob:final' }]} />);
     expectEditingOnly();
-    rerender(<VideoTranslationResultWorkspace {...props} activeTab="settings" />);
-    expectEditingOnly();
     fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
     expect(onImmersiveChange).toHaveBeenCalledWith(true);
     expect(onRequestRegenerate).not.toHaveBeenCalled();
@@ -540,7 +538,7 @@ describe('VideoTranslationResultWorkspace', () => {
     );
 
     expect(screen.getByRole('tab', { name: '作品' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['作品', '任务设置']);
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['作品']);
     expect(screen.queryByRole('tab', { name: '字幕' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '配音' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '作品' })).not.toBeInTheDocument();
@@ -1023,8 +1021,9 @@ describe('VideoTranslationResultWorkspace', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('tab', { name: '任务设置' }));
-    expect(onTabChange).toHaveBeenCalledWith('settings');
+    expect(screen.queryByRole('tab', { name: '任务设置' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: '作品' }));
+    expect(onTabChange).toHaveBeenCalledWith('video');
 
     fireEvent.click(screen.getByRole('button', { name: /项目 V1/ }));
     fireEvent.click(screen.getByRole('menuitem', { name: /项目 V2/ }));
