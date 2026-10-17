@@ -126,7 +126,7 @@
 
 .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout[data-subtitle-only="true"] { grid-template-columns: minmax(0, 1fr); }
 .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout[data-editor-settings="true"] {
-  grid-template-columns: minmax(0, var(--subtitle-editor-width, 45%)) 7px minmax(0, 1fr) clamp(180px, 17vw, 240px);
+  grid-template-columns: minmax(0, var(--subtitle-editor-width, 45%)) 7px minmax(0, 1fr) clamp(168px, 14vw, 200px);
 }
 .video-result-workspace[data-immersive="true"] .video-result-output-column {
   grid-column: 1;
@@ -159,8 +159,8 @@
   width: min(100%, calc((100cqh - 100px) * .5625));
 }
 
-.subtitle-editor-settings-nav { grid-column: 4; grid-row: 1; display: flex; min-width: 0; min-height: 0; flex-direction: column; align-items: stretch; gap: 12px; padding: 24px 16px; border-inline-start: 1px solid var(--border); background: var(--surface); overflow-y: auto; overscroll-behavior: contain; }
-.subtitle-editor-settings-nav > button { display: grid; grid-template-columns: 20px minmax(0, 1fr) 16px; align-items: center; gap: 12px; flex: 0 0 auto; min-height: 72px; padding: 16px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); text-align: start; white-space: normal; font: inherit; font-size: 13px; font-weight: 550; line-height: 1.5; cursor: pointer; }
+.subtitle-editor-settings-nav { grid-column: 4; grid-row: 1; display: flex; min-width: 0; min-height: 0; flex-direction: column; align-items: stretch; gap: 12px; padding: 24px 12px; border-inline-start: 1px solid var(--border); background: var(--surface); overflow-y: auto; overscroll-behavior: contain; }
+.subtitle-editor-settings-nav > button { display: grid; grid-template-columns: 20px minmax(0, 1fr) 16px; align-items: center; gap: 8px; flex: 0 0 auto; min-height: 72px; padding: 16px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); text-align: start; white-space: normal; font: inherit; font-size: 13px; font-weight: 550; line-height: 1.5; cursor: pointer; }
 .subtitle-editor-settings-nav > button > svg { color: var(--muted); }
 .subtitle-editor-settings-nav > button > span { min-width: 0; overflow-wrap: anywhere; }
 .subtitle-editor-settings-nav > button > svg:last-child { justify-self: end; }
@@ -303,15 +303,15 @@ body:has(.video-translation-page[data-subtitle-immersive="true"]) .tts-voice-lib
   .video-result-workspace[data-immersive="true"] .video-result-pane-actions > button { min-height: 32px; padding: 6px 8px; }
   .video-result-workspace[data-immersive="true"] .subtitle-editor-export > span { display: none; }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout[data-editor-settings="true"] { grid-template-columns: minmax(0, 1fr) minmax(140px, 40%); }
+  .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout[data-editor-settings="true"] { grid-template-columns: minmax(0, 1fr) minmax(132px, 35%); }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout[data-subtitle-only="true"] { grid-template-rows: minmax(0, 1fr); }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout .video-result-output-column { grid-column: 1 / -1; grid-row: 2; height: auto; min-height: 0; }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-preview-layout[data-subtitle-only="true"] .video-result-output-column { grid-row: 1; }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-video { grid-column: 1; grid-row: 1; padding: 8px; container-type: normal; max-height: 36dvh; }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-video .video-result-player-frame { width: min(230px, 100%); max-height: 130px; }
   .video-result-workspace[data-immersive="true"] .video-result-subtitle-video .video-result-player-frame[data-ratio="9:16"] { width: 73px; }
-  .subtitle-editor-settings-nav { grid-column: 2; padding: 12px 10px; gap: 8px; max-height: 36dvh; box-sizing: border-box; }
-  .subtitle-editor-settings-nav > button { min-height: 56px; padding: 10px; gap: 8px; font-size: 12px; grid-template-columns: 18px minmax(0, 1fr) 12px; }
+  .subtitle-editor-settings-nav { grid-column: 2; padding: 12px 8px; gap: 8px; max-height: 36dvh; box-sizing: border-box; }
+  .subtitle-editor-settings-nav > button { min-height: 56px; padding: 10px 8px; gap: 6px; font-size: 12px; grid-template-columns: 18px minmax(0, 1fr) 12px; }
   .subtitle-editor-settings-nav > button > svg { width: 16px; }
   .subtitle-editor-settings > header, .subtitle-editor-settings > footer { padding: 16px; }
   .subtitle-editor-settings-body { padding: 20px 16px; }
