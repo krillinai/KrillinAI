@@ -3456,12 +3456,15 @@ export default function VideoTranslationWorkspace(props: {
     setResultNotice('');
   }
 
-  function prepareEditorSettings() {
-    if (!selectedResult || draftBaseVersion === selectedResult.value) return;
-    applySourceSnapshot(selectedResult.source);
-    applySettingsSnapshot(selectedResult.settings);
-    setDraftBaseVersion(selectedResult.value);
-    setResultProposal(undefined);
+  function prepareEditorSettings(compose = false) {
+    if (!selectedResult) return;
+    if (draftBaseVersion !== selectedResult.value) {
+      applySourceSnapshot(selectedResult.source);
+      applySettingsSnapshot(selectedResult.settings);
+      setDraftBaseVersion(selectedResult.value);
+      setResultProposal(undefined);
+    }
+    if (compose) setComposeVideo(true);
   }
 
   function returnToBaseResult() {
@@ -4015,10 +4018,10 @@ export default function VideoTranslationWorkspace(props: {
               subtitleSavePending={submitting}
               immersive={subtitleImmersive}
               editorSettings={!selectedSubtitleOnly ? {
-                style: <>{compositionControl}{composeVideo ? <>{outputFormatControl}{subtitleLayoutControls}{subtitleStyleChoices}{verticalTitleControls}</> : null}</>,
-                voice: <>{!composeVideo ? compositionControl : null}{composeVideo ? dubbingSettings : null}</>,
+                style: <>{subtitleStylePreview}{outputFormatControl}{subtitleLayoutControls}{subtitleStyleChoices}{verticalTitleControls}</>,
+                voice: dubbingSettings,
                 disabled: submitting || activeStage !== undefined,
-                onOpen: prepareEditorSettings
+                onOpen: () => prepareEditorSettings(true)
               } : undefined}
               renderSubtitlePreview={creatorSession?.openSubtitlePreview ? (cues, width, height) => <VideoTranslationStylePreview
                 render={creatorSession.openSubtitlePreview}

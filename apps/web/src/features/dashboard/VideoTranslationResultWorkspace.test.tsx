@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import VideoTranslationResultWorkspace, { type SubtitleResultOutput } from './VideoTranslationResultWorkspace.js';
@@ -66,8 +66,11 @@ describe('VideoTranslationResultWorkspace', () => {
     const video = screen.getByLabelText('横屏字幕视频预览');
     fireEvent.click(screen.getByRole('button', { name: '字幕样式' }));
     expect(onOpen).toHaveBeenCalledOnce();
+    const dialog = screen.getByRole('dialog', { name: '字幕样式' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(video.closest('.video-result-workspace')).toHaveAttribute('inert');
     expect(screen.getByRole('textbox', { name: 'Shared style' })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: '配音' }));
+    fireEvent.click(within(dialog).getByRole('tab', { name: '配音' }));
     expect(screen.getByText('Shared dubbing settings')).toBeVisible();
     expect(screen.getByLabelText('横屏字幕视频预览')).toBe(video);
     fireEvent.click(screen.getByRole('button', { name: '生成 V2' }));
@@ -77,8 +80,35 @@ describe('VideoTranslationResultWorkspace', () => {
       subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }} />);
     expect(screen.getByText('将更新配音、成片，V1 的全部产出会保留')).toBeVisible();
     expect(screen.getByRole('button', { name: '确认生成 V2' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: '字幕样式' }));
+    fireEvent.click(screen.getByRole('tab', { name: '字幕样式' }));
     expect(screen.getByRole('textbox', { name: 'Shared style' })).toBeDisabled();
+    fireEvent.keyDown(screen.getByRole('button', { name: '关闭' }), { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(video.closest('.video-result-workspace')).not.toHaveAttribute('inert');
+  });
+
+  it('previews the rendered version until editing and preserves the playhead when switching to the source', () => {
+    const settings = { style: <p>Style settings</p>, voice: null, disabled: false, onOpen: vi.fn() };
+    const props = { ...baseProps, activeTab: 'subtitles' as const, immersive: true, editorSettings: settings,
+      videoOutputs: [{ artifactId: 'final', variant: 'horizontal' as const, artifactVersion: 1, src: 'blob:final' }],
+      subtitleVideoPreviews: { horizontal: { artifactId: 'source', src: 'blob:source', source: true } },
+      renderSubtitlePreview: () => <p>Draft subtitle overlay</p> };
+    render(<VideoTranslationResultWorkspace {...props} />);
+    const video = screen.getByLabelText('横屏字幕视频预览') as HTMLVideoElement;
+    expect(video).toHaveAttribute('src', 'blob:final');
+    expect(screen.queryByText('Draft subtitle overlay')).toBeNull();
+    fireEvent.timeUpdate(video, { target: { currentTime: 0.5 } });
+    fireEvent.click(screen.getByRole('button', { name: '字幕样式' }));
+    expect(screen.getByLabelText('横屏字幕视频预览')).toBe(video);
+    expect(video).toHaveAttribute('src', 'blob:source');
+    // A source reload emits a transient zero before metadata is available.
+    fireEvent.timeUpdate(video, { target: { currentTime: 0 } });
+    fireEvent.loadedMetadata(video);
+    expect(video.currentTime).toBe(0.5);
+    expect(screen.getByText('Draft subtitle overlay')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '完成' }));
+    expect(video).toHaveAttribute('src', 'blob:final');
+    expect(screen.queryByText('Draft subtitle overlay')).toBeNull();
   });
 
   it('synchronizes generated dubbing with the video and restores its original audio on exit', async () => {

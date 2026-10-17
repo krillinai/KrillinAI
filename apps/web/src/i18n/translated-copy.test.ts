@@ -7,7 +7,8 @@ describe('additional language catalogs', () => {
   it('covers immersive subtitle editing controls in every client language', () => {
     for (const [language, catalog] of Object.entries(additionalLanguageCatalogs)) {
       for (const key of ['Back to project', 'Subtitle editor', 'Undo', 'Redo', 'AI assistant', 'Advanced editing',
-        'Export subtitles', 'Resize subtitles and preview', 'Time', 'Original text']) {
+        'Export subtitles', 'Resize subtitles and preview', 'Time', 'Original text', 'Done',
+        'Current version', 'Adjusting from V{{0}}']) {
         expect(Object.hasOwn(catalog!, key), `${language}: ${key}`).toBe(true);
         expect(catalog![key]?.trim().length, `${language}: ${key}`).toBeGreaterThan(0);
       }
