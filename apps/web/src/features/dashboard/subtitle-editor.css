@@ -122,8 +122,7 @@
 }
 
 .subtitle-editor-history { display: flex; gap: 4px; }
-.video-result-subtitle-preview-layout { position: relative; }
-.subtitle-editor-find-anchor { position: absolute; z-index: 6; inset-block-start: 12px; inset-inline-start: 12px; width: min(440px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow-y: auto; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); }
+.subtitle-editor-find-anchor { position: absolute; z-index: 6; overflow-y: auto; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); }
 .subtitle-editor-find { display: grid; gap: 10px; padding: 12px; color: var(--text); font-size: 12px; }
 .subtitle-editor-find header { display: flex; align-items: center; gap: 8px; }
 .subtitle-editor-find header strong { flex: 1; min-width: 0; }

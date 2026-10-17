@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -175,6 +176,7 @@ export default function VideoTranslationResultWorkspace(props: {
   const [selectedCueId, setSelectedCueId] = useState<number>();
   const [findOpen, setFindOpen] = useState(false);
   const findButtonRef = useRef<HTMLButtonElement>(null);
+  const findPanelRef = useRef<HTMLDivElement>(null);
   const [editorWidth, setEditorWidth] = useState(45);
   const maxEditorWidth = props.editorSettings ? 60 : 75;
   const [, setHistoryRevision] = useState(0);
@@ -275,6 +277,45 @@ export default function VideoTranslationResultWorkspace(props: {
   useEffect(() => { if (!props.immersive || props.activeTab !== 'subtitles') setEditorPanel(undefined); }, [props.immersive, props.activeTab]);
 
   useEffect(() => { setAuditionVoice(false); setVoicePlaybackFailed(false); }, [props.voiceOutput?.src, props.version]);
+
+  useLayoutEffect(() => {
+    if (!findOpen) return;
+    const place = () => {
+      const root = rootRef.current?.getBoundingClientRect();
+      const button = findButtonRef.current?.getBoundingClientRect();
+      const panel = findPanelRef.current;
+      if (!root || !button || !panel) return;
+      const viewport = window.visualViewport;
+      const viewportLeft = viewport?.offsetLeft ?? 0;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const left = Math.max(root.left, viewportLeft) + 12;
+      const right = Math.min(root.right, viewportLeft + (viewport?.width ?? window.innerWidth)) - 12;
+      const bottom = Math.min(root.bottom, viewportTop + (viewport?.height ?? window.innerHeight)) - 12;
+      const width = Math.max(0, Math.min(440, right - left));
+      const start = getComputedStyle(findButtonRef.current!).direction === 'rtl' ? button.right - width : button.left;
+      const top = button.bottom + 8;
+      Object.assign(panel.style, {
+        left: `${Math.max(left, Math.min(start, right - width)) - root.left}px`,
+        top: `${top - root.top}px`, width: `${width}px`, maxHeight: `${Math.max(0, bottom - top)}px`
+      });
+    };
+    place();
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(place);
+    for (const node of [rootRef.current, findButtonRef.current?.closest('.video-result-pane-heading'), findButtonRef.current?.parentElement]) {
+      if (node) observer?.observe(node);
+    }
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    window.visualViewport?.addEventListener('resize', place);
+    window.visualViewport?.addEventListener('scroll', place);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+      window.visualViewport?.removeEventListener('resize', place);
+      window.visualViewport?.removeEventListener('scroll', place);
+    };
+  }, [findOpen, props.activeTab, props.immersive, editorPanel, props.hasPendingChanges, props.regenerationPending, props.subtitleSavePending, props.subtitleDirty]);
 
   useEffect(() => {
     const video = subtitleVideoRef.current;
@@ -539,6 +580,23 @@ export default function VideoTranslationResultWorkspace(props: {
           event.preventDefault(); travelHistory(event.shiftKey ? 'future' : 'past');
         }
       }}>
+      {findOpen && activeSubtitleOutput && props.activeTab === 'subtitles' ? <div ref={findPanelRef} id="subtitle-editor-find-panel" className="subtitle-editor-find-anchor">
+        <SubtitleFindReplace key={historyKey} cues={activeSubtitleOutput.cues} readOnly={editReadOnly || !props.onSubtitleCuesChange}
+          onChange={replaceCues} onClose={closeFind} onLocate={match => {
+            if (!match) return;
+            const cue = activeSubtitleOutput.cues[match.cueIndex];
+            if (!cue) return;
+            subtitleVideoRef.current?.pause();
+            seekToSubtitleCue(cue);
+            const row = subtitleCueRefs.current.get(cue.id);
+            row?.scrollIntoView?.({ block: 'nearest' });
+            const group = subtitleCueGroups.find(items => items.some(item => item.cue.id === cue.id));
+            const cueIndex = group?.findIndex(item => item.cue.id === cue.id) ?? 0;
+            const pair = row?.querySelectorAll('.video-subtitle-cue-pair')[cueIndex];
+            const field = pair?.querySelector<HTMLTextAreaElement>(`textarea[data-subtitle-field="${match.field}"]`);
+            field?.setSelectionRange(match.start, match.end);
+          }} />
+      </div> : null}
       <div className="video-result-toolbar">
         <div className="video-result-tabs" role="tablist" aria-label={l('产出物类型', 'Output types')}>
           {resultTabs.filter(tab => tab.value === 'settings' || tab.value === (props.subtitleOnly ? 'subtitles' : 'video')).map(tab => {
@@ -772,23 +830,6 @@ export default function VideoTranslationResultWorkspace(props: {
             <div className="video-result-subtitle-preview-layout" ref={previewLayoutRef} data-subtitle-only={props.subtitleOnly || undefined}
               data-editor-settings={props.immersive && Boolean(props.editorSettings) && !props.subtitleOnly || undefined}
               style={props.immersive ? { '--subtitle-editor-width': `${editorWidth}%` } as CSSProperties : undefined}>
-              {findOpen ? <div id="subtitle-editor-find-panel" className="subtitle-editor-find-anchor">
-                <SubtitleFindReplace key={historyKey} cues={activeSubtitleOutput.cues} readOnly={editReadOnly || !props.onSubtitleCuesChange}
-                  onChange={replaceCues} onClose={closeFind} onLocate={match => {
-                    if (!match) return;
-                    const cue = activeSubtitleOutput.cues[match.cueIndex];
-                    if (!cue) return;
-                    subtitleVideoRef.current?.pause();
-                    seekToSubtitleCue(cue);
-                    const row = subtitleCueRefs.current.get(cue.id);
-                    row?.scrollIntoView?.({ block: 'nearest' });
-                    const group = subtitleCueGroups.find(items => items.some(item => item.cue.id === cue.id));
-                    const cueIndex = group?.findIndex(item => item.cue.id === cue.id) ?? 0;
-                    const pair = row?.querySelectorAll('.video-subtitle-cue-pair')[cueIndex];
-                    const field = pair?.querySelector<HTMLTextAreaElement>(`textarea[data-subtitle-field="${match.field}"]`);
-                    field?.setSelectionRange(match.start, match.end);
-                  }} />
-              </div> : null}
               {subtitleVideoPreview}
 
               {props.immersive && props.editorSettings && !props.subtitleOnly ? <div className="subtitle-editor-settings-nav" role="group" aria-label={l('项目设置', 'Project settings')}
