@@ -249,7 +249,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 การใช้งานขึ้นอยู่กับวิดีโอและภูมิภาค บางแหล่งอาจต้องใช้คุกกี้ของแพลตฟอร์ม
 
-![การเลือกรูปแบบดาวน์โหลดวิดีโอ OpenCreator](../images/examples/video-downloader-formats-en.png)
+![การเลือกรูปแบบดาวน์โหลดวิดีโอ OpenCreator](../images/examples/video-downloader-formats-and-subtitles-en.png)
 
 ### สร้างวิดีโอ
 

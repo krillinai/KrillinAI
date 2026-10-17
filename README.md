@@ -277,7 +277,7 @@ Supported video sources:
 
 Availability varies by video and region; some sources may require platform cookies.
 
-![OpenCreator Video Downloader format selection](./docs/images/examples/video-downloader-formats-en.png)
+![OpenCreator Video Downloader format selection](./docs/images/examples/video-downloader-formats-and-subtitles-en.png)
 
 ### Video Generation
 

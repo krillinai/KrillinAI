@@ -257,7 +257,7 @@ Desteklenen video kaynakları:
 
 Kullanılabilirlik videoya ve bölgeye göre değişir; bazı kaynaklar platform çerezleri gerektirebilir.
 
-![OpenCreator Video Downloader format seçimi](../images/examples/video-downloader-formats-en.png)
+![OpenCreator Video Downloader format seçimi](../images/examples/video-downloader-formats-and-subtitles-en.png)
 
 ### Video Üretimi
 

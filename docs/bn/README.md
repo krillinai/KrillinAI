@@ -321,7 +321,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 ভিডিও ও অঞ্চল অনুযায়ী প্রাপ্যতা বদলায়; কিছু উৎসে প্ল্যাটফর্ম কুকি লাগে।
 
-![OpenCreator ভিডিও ডাউনলোডের ফরম্যাট নির্বাচন](../images/examples/video-downloader-formats-en.png)
+![OpenCreator ভিডিও ডাউনলোডের ফরম্যাট নির্বাচন](../images/examples/video-downloader-formats-and-subtitles-en.png)
 
 <a id="video-generation"></a>
 

@@ -321,7 +321,7 @@ Mga sinusuportahang pinagmumulan:
 
 Nag-iiba ang availability ayon sa video at rehiyon; maaaring kailanganin ang platform cookie.
 
-![Pagpili ng format sa Video Downloader](../images/examples/video-downloader-formats-en.png)
+![Pagpili ng format sa Video Downloader](../images/examples/video-downloader-formats-and-subtitles-en.png)
 
 <a id="video-generation"></a>
 

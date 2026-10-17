@@ -275,7 +275,7 @@ Fontes de vídeo compatíveis:
 
 A disponibilidade depende do vídeo e da região; algumas fontes podem exigir cookies da plataforma. O OpenCreator não importa automaticamente os cookies do navegador.
 
-![Seleção de formatos do downloader de vídeos do OpenCreator](../images/examples/video-downloader-formats-en.png)
+![Seleção de formatos do downloader de vídeos do OpenCreator](../images/examples/video-downloader-formats-and-subtitles-en.png)
 
 ### Geração de vídeos
 

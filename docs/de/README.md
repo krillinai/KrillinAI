@@ -275,7 +275,7 @@ Unterstützte Videoquellen:
 
 Die Verfügbarkeit hängt vom Video und der Region ab; manche Quellen können Plattform-Cookies erfordern. OpenCreator importiert Browser-Cookies nicht automatisch.
 
-![Formatauswahl im OpenCreator Video-Downloader](../images/examples/video-downloader-formats-en.png)
+![Formatauswahl im OpenCreator Video-Downloader](../images/examples/video-downloader-formats-and-subtitles-en.png)
 
 ### Videogenerierung
 

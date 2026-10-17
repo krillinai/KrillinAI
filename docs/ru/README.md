@@ -275,7 +275,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 Доступность зависит от видео и региона; некоторым источникам могут потребоваться cookie платформы. OpenCreator не импортирует cookie браузера автоматически.
 
-![Выбор формата в загрузчике видео OpenCreator](../images/examples/video-downloader-formats-en.png)
+![Выбор формата в загрузчике видео OpenCreator](../images/examples/video-downloader-formats-and-subtitles-en.png)
 
 ### Генерация видео
 

@@ -277,7 +277,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 实际可用性取决于视频和地区；部分来源可能需要平台 Cookie。
 
-![OpenCreator 视频下载格式选择](../images/examples/video-downloader-formats-en.png)
+![OpenCreator 视频下载格式选择](../images/examples/video-downloader-formats-and-subtitles-en.png)
 
 ### 视频生成
 

@@ -321,7 +321,7 @@ Nguồn video hỗ trợ:
 
 Khả dụng tùy video và khu vực; một số nguồn cần cookie nền tảng.
 
-![Chọn định dạng trong trình tải video OpenCreator](../images/examples/video-downloader-formats-en.png)
+![Chọn định dạng trong trình tải video OpenCreator](../images/examples/video-downloader-formats-and-subtitles-en.png)
 
 <a id="video-generation"></a>
 

@@ -321,7 +321,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 उपलब्धता वीडियो और क्षेत्र के अनुसार बदलती है; कुछ स्रोतों को प्लेटफ़ॉर्म कुकी चाहिए।
 
-![OpenCreator वीडियो डाउनलोडर प्रारूप चयन](../images/examples/video-downloader-formats-en.png)
+![OpenCreator वीडियो डाउनलोडर प्रारूप चयन](../images/examples/video-downloader-formats-and-subtitles-en.png)
 
 <a id="video-generation"></a>
 

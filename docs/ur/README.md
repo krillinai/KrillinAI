@@ -323,7 +323,7 @@ https://github.com/user-attachments/assets/c2c7b528-0ef8-4ba9-b8ac-f9f92f6d4e71
 
 دستیابی ویڈیو اور خطے کے مطابق بدلتی ہے؛ بعض ذرائع کو پلیٹ فارم کوکی چاہیے۔
 
-![OpenCreator ویڈیو ڈاؤن لوڈر میں فارمیٹ انتخاب](../images/examples/video-downloader-formats-en.png)
+![OpenCreator ویڈیو ڈاؤن لوڈر میں فارمیٹ انتخاب](../images/examples/video-downloader-formats-and-subtitles-en.png)
 
 <a id="video-generation"></a>
 

@@ -275,7 +275,7 @@ Sumber video yang didukung:
 
 Ketersediaan bergantung pada video dan wilayah; beberapa sumber mungkin memerlukan cookie platform. OpenCreator tidak mengimpor cookie peramban secara otomatis.
 
-![Pemilihan format Pengunduh Video OpenCreator](../images/examples/video-downloader-formats-en.png)
+![Pemilihan format Pengunduh Video OpenCreator](../images/examples/video-downloader-formats-and-subtitles-en.png)
 
 ### Pembuatan Video
 
