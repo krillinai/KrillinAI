@@ -21,10 +21,11 @@ type TTSRequest struct {
 	AudioOnly        bool
 	Voice            string
 	VoiceCloneSource string
-	ReportProgress   func(phase string, percent int, message string)
+	ReportProgress   ProgressReporter
 }
 
 func GenerateTTS(ctx context.Context, svc StageService, req TTSRequest) (Response, error) {
+	req.ReportProgress = monotonicProgress(req.ReportProgress)
 	if req.LineMode == "" {
 		req.LineMode = LineModeTargetOnly
 	}
@@ -87,6 +88,7 @@ func GenerateTTS(ctx context.Context, svc StageService, req TTSRequest) (Respons
 		}
 		reportTTSProgress(req, "generating_voice", int(percent), "正在生成配音")
 	})
+	forwardTaskProgress(stepParam.TaskPtr, req.ReportProgress, nil)
 	reportTTSProgress(req, "generating_voice", 20, "正在生成配音")
 	if err := svc.GenerateSpeechFromSRT(ctx, stepParam); err != nil {
 		return failTTSStage(req, manifest, "generate_speech_failed", err)
@@ -105,11 +107,11 @@ func GenerateTTS(ctx context.Context, svc StageService, req TTSRequest) (Respons
 	return ttsResponse(true, req, manifest, nil), nil
 }
 
-func reportTTSProgress(req TTSRequest, phase string, percent int, message string) {
+func reportTTSProgress(req TTSRequest, phase string, percent int, message string, counts ...ProgressCounts) {
 	if req.ReportProgress == nil {
 		return
 	}
-	req.ReportProgress(phase, percent, message)
+	req.ReportProgress(phase, percent, message, counts...)
 }
 
 func ttsManifest(req TTSRequest) (*Manifest, error) {

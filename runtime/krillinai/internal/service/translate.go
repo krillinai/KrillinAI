@@ -315,31 +315,6 @@ IMPORTANT: The previous translation was inadequate. Please ensure:
 	return originalPrompt + enhancement
 }
 
-// isSentenceEnding 判断文本是否以句子结束符号结尾
-func isSentenceEnding(text string) bool {
-	text = strings.TrimSpace(text)
-	text = strings.TrimRight(text, "\"'”’)]}")
-	if text == "" {
-		return false
-	}
-
-	// 检查常见的句子结束符号
-	sentenceEndings := []string{
-		".", "?", "!", // 英文
-		"。", "？", "！", // 中文
-		"…", ".", "?", "!", // 日文
-		"..", "...", // 省略号
-	}
-
-	for _, ending := range sentenceEndings {
-		if strings.HasSuffix(text, ending) {
-			return true
-		}
-	}
-
-	return false
-}
-
 func subtitleTranslationContext(blocks []*util.SrtBlock, start, end int) ([]string, []string) {
 	var previousTexts, nextTexts []string
 	for _, block := range blocks[max(0, start-2):start] {

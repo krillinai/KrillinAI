@@ -88,6 +88,32 @@ func TestConfigureOpenCreatorProgressWritesJSONLines(t *testing.T) {
 	}
 }
 
+func TestConfigureOpenCreatorProgressIncludesZeroCompletedSentences(t *testing.T) {
+	t.Setenv("OPENCREATOR_KRILLINAI_CLI", "1")
+	for _, name := range []string{"subtitle", "tts", "render-horizontal", "render-vertical"} {
+		t.Run(name, func(t *testing.T) {
+			var buffer bytes.Buffer
+			cmd := cli.Command{Name: name}
+			configureOpenCreatorProgress(&cmd, &jsonLineWriter{output: &buffer})
+			report := cmd.Subtitle.ReportProgress
+			if name == "tts" {
+				report = cmd.TTS.ReportProgress
+			}
+			if strings.HasPrefix(name, "render-") {
+				report = cmd.Render.ReportProgress
+			}
+			report("working", 5, "details", pipeline.ProgressCounts{Completed: 0, Total: 52})
+			var frame progressFrame
+			if err := json.Unmarshal(buffer.Bytes(), &frame); err != nil {
+				t.Fatal(err)
+			}
+			if frame.Completed == nil || *frame.Completed != 0 || frame.Total == nil || *frame.Total != 52 {
+				t.Fatalf("missing work counts: %s", buffer.String())
+			}
+		})
+	}
+}
+
 func TestConfigureOpenCreatorTTSProgressWritesJSONLines(t *testing.T) {
 	t.Setenv("OPENCREATOR_KRILLINAI_CLI", "1")
 	var buffer bytes.Buffer

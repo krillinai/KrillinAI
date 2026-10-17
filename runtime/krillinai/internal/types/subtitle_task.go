@@ -402,7 +402,10 @@ type SubtitleTask struct {
 	SpeechDownloadUrl     string         `json:"speech_download_url" gorm:"column:speech_download_url"` // 语音文件下载地址
 	CreateTime            int64          `json:"create_time" gorm:"column:create_time;autoCreateTime"`  // 创建时间
 	UpdateTime            int64          `json:"update_time" gorm:"column:update_time;autoUpdateTime"`  // 更新时间
-	progressReporter      func(uint8)
+
+	progressReporter            func(uint8)
+	translationProgressReporter func(completed, total int)
+	detailedProgressReporter    func(TaskProgress)
 }
 
 func (t *SubtitleTask) SetProgressReporter(reporter func(uint8)) {
@@ -410,6 +413,26 @@ func (t *SubtitleTask) SetProgressReporter(reporter func(uint8)) {
 		return
 	}
 	t.progressReporter = reporter
+}
+
+func (t *SubtitleTask) SetTranslationProgressReporter(reporter func(completed, total int)) {
+	if t != nil {
+		t.translationProgressReporter = reporter
+	}
+}
+
+func (t *SubtitleTask) SetTranslationProgress(completed, total int) {
+	if t == nil || total <= 0 {
+		return
+	}
+	if t.translationProgressReporter != nil {
+		t.translationProgressReporter(completed, total)
+		return
+	}
+	// Preserve the legacy video pipeline's translation range.
+	if completed > 0 {
+		t.SetProgress(40 + uint8(completed*50/total))
+	}
 }
 
 func (t *SubtitleTask) SetProgress(percent uint8) {

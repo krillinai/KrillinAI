@@ -21,6 +21,43 @@ afterEach(async () => {
 });
 
 describe('creator preflight', () => {
+  it.each(['timestamped', 'text-only'])('checks subtitle timestamps for the task-selected official ASR: %s', async selected => {
+    root = await mkdtemp(join(tmpdir(), 'creator-asr-model-preflight-'));
+    const config = createDefaultCreatorServicesConfig();
+    const models = [
+      { id: 'timestamped', modality: 'transcription' as const, capabilities: ['subtitle_timestamps'] },
+      { id: 'text-only', modality: 'transcription' as const, capabilities: [] }
+    ];
+    const source = createGatewayCreatorSource({
+      account: {
+        peekState: () => ({ source: 'gateway', authState: 'signed_in', activationState: 'ready', account: { id: 'a', email: 'a@example.test', verified: true }, bindingVersion: 'a:1', models, activationError: null }),
+        modelCredentials: async () => ({ accountId: 'a', modelKey: 'fixture-key', keyVersion: '1', bindingVersion: 'a:1', baseUrl: 'https://gateway.example/v1', defaults: { transcription: 'timestamped', text: 'text' }, models })
+      },
+      manual: { read: async () => config, write: async c => c, reset: async () => config },
+      getLocalOrigin: () => 'http://127.0.0.1:39999'
+    });
+    const result = await createCreatorPreflight({ configStore: source.store,
+      readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'), resourceRoot: root,
+      jobsRoot: join(root, 'jobs'), executorIds: ['krillinai'], validateRuntimeAssets: false
+    }).check(fakeJob('video-translation', { sourceType: 'file', sourceLanguage: 'hi', officialModels: { transcription: selected } }), createVideoTranslationTemplate().stages.find(stage => stage.id === 'subtitle')!);
+    expect(result.blocked.some(item => item.id === 'transcription-timestamps')).toBe(selected === 'text-only');
+    expect(result.warning).toContainEqual(expect.objectContaining({ id: 'transcription-language-unknown', executionMode: 'remote' }));
+  });
+  it.each(['file', 'platform', 'srt', 'import'])('scopes language restrictions to required transcription: %s', async route => {
+    root = await mkdtemp(join(tmpdir(), 'creator-language-preflight-'));
+    const config = createDefaultCreatorServicesConfig();
+    config.transcription.provider = 'whisperkit';
+    const job = fakeJob('video-translation', { sourceType: route === 'file' ? 'file' : route === 'srt' ? 'subtitle' : 'url', sourceUrl: 'https://www.youtube.com/watch?v=demo', sourceLanguage: 'yue', sourceArtifactId: 'video', preferPlatformCaptions: route === 'platform' });
+    if (route === 'srt' || route === 'import') {
+      const path = join(root, 'source.srt'); await writeFile(path, '1\n00:00:00,000 --> 00:00:01,000\nHello\n');
+      job.state.importedSourceSubtitleId = 'source-srt';
+      job.artifacts = [{ id: 'source-srt', jobId: job.id, kind: 'source_subtitle', version: 1, status: 'completed', path, scopeKey: null, inputFingerprint: null, sha256: null, sourceArtifactIds: [], metadata: {}, createdAt: job.createdAt }];
+    }
+    const result = await createCreatorPreflight({ configStore: { read: async () => config }, readCapabilities: () => createKrillinCreatorServicesCapabilities('darwin', 'arm64'), resourceRoot: root, jobsRoot: join(root, 'jobs'), executorIds: ['krillinai'], validateRuntimeAssets: false }).check(job, createVideoTranslationTemplate().stages.find(stage => stage.id === 'subtitle')!);
+    expect(result.blocked.some(item => item.id === 'transcription-language')).toBe(route === 'file');
+    expect(result.warning.some(item => item.id === 'transcription-language')).toBe(route === 'platform');
+    if (route === 'srt' || route === 'import') expect([...result.ready, ...result.warning, ...result.blocked].some(item => item.id.startsWith('transcription-'))).toBe(false);
+  });
   it('requires an SRT input but no transcription credentials for subtitle-only tasks', async () => {
     root = await mkdtemp(join(tmpdir(), 'creator-srt-preflight-'));
     const path = join(root, 'source.srt');

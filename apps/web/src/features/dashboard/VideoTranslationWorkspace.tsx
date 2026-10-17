@@ -64,6 +64,8 @@ import {
 } from './creator-session-store.js';
 import {
   readCreatorResultSnapshots,
+  creatorLanguages, creatorLanguage, searchCreatorLanguages, creatorTranscriptionModel, transcriptionLanguageSupport,
+  type TranscriptionLanguageCapability,
   parseBilibiliVideoSource,
   normalizeVideoSourceUrl,
   videoSourceIdentity,
@@ -335,129 +337,32 @@ function writeSavedSubtitleStyles(styles: SavedSubtitleStyle[]) {
     // Storage can be full or blocked; the in-memory list still works for this session.
   }
 }
-const sourceLanguages: LanguageOption[] = [
-  { value: 'zh_cn', label: '简体中文' },
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Español' },
-  { value: 'fr', label: 'Français' },
-  { value: 'it', label: 'Italiano' },
-  { value: 'pt', label: 'Português (Brasil)' },
-  { value: 'id', label: 'Bahasa Indonesia' },
-  { value: 'th', label: 'ภาษาไทย' },
-  { value: 'ja', label: '日本語' },
-  { value: 'ko', label: '한국어' },
-  { value: 'de', label: 'Deutsch' },
-  { value: 'tr', label: 'Türkçe' },
-  { value: 'ru', label: 'Русский' },
-  { value: 'ms', label: 'Bahasa Melayu' }
-];
+const sourceLanguageCatalog = creatorLanguages.filter(language => language.speech)
+  .sort((left, right) => Number(right.sourcePreferred) - Number(left.sourcePreferred));
+const sourceLanguages: LanguageOption[] = sourceLanguageCatalog.map(language => ({ value: language.code, label: language.nativeName }));
+const targetLanguages: LanguageOption[] = creatorLanguages.map(language => ({ value: language.code, label: language.nativeName }));
 
-const targetLanguages: LanguageOption[] = [
-  { value: 'zh_cn', label: '简体中文' },
-  { value: 'zh_tw', label: '繁體中文' },
-  { value: 'en', label: 'English' },
-  { value: 'ja', label: '日本語' },
-  { value: 'ko', label: '한국어' },
-  { value: 'es', label: 'Español' },
-  { value: 'fr', label: 'Français' },
-  { value: 'de', label: 'Deutsch' },
-  { value: 'it', label: 'Italiano' },
-  { value: 'pt', label: 'Português' },
-  { value: 'ru', label: 'Русский' },
-  { value: 'ar', label: 'العربية' },
-  { value: 'hi', label: 'हिन्दी' },
-  { value: 'id', label: 'Bahasa Indonesia' },
-  { value: 'ms', label: 'Bahasa Melayu' },
-  { value: 'th', label: 'ภาษาไทย' },
-  { value: 'vi', label: 'Tiếng Việt' },
-  { value: 'fil', label: 'Wikang Filipino' },
-  { value: 'tr', label: 'Türkçe' },
-  { value: 'pl', label: 'Polski' },
-  { value: 'nl', label: 'Nederlands' },
-  { value: 'uk', label: 'Українська' },
-  { value: 'bn', label: 'বাংলা' },
-  { value: 'he', label: 'עברית' },
-  { value: 'fa', label: 'فارسی' },
-  { value: 'af', label: 'Afrikaans' },
-  { value: 'sv', label: 'Svenska' },
-  { value: 'fi', label: 'Suomi' },
-  { value: 'da', label: 'Dansk' },
-  { value: 'no', label: 'Norsk' },
-  { value: 'el', label: 'Ελληνικά' },
-  { value: 'hu', label: 'Magyar' },
-  { value: 'sr', label: 'Српски' },
-  { value: 'hr', label: 'Hrvatski' },
-  { value: 'cs', label: 'Čeština' },
-  { value: 'pinyin', label: '拼音' },
-  { value: 'sw', label: 'Kiswahili' },
-  { value: 'yo', label: 'Èdè Yorùbá' },
-  { value: 'ha', label: 'Hausa' },
-  { value: 'am', label: 'አማርኛ' },
-  { value: 'om', label: 'Afaan Oromoo' },
-  { value: 'is', label: 'Íslenska' },
-  { value: 'lb', label: 'Lëtzebuergesch' },
-  { value: 'ca', label: 'Català' },
-  { value: 'ro', label: 'Română' },
-  { value: 'sk', label: 'Slovenčina' },
-  { value: 'bs', label: 'Bosanski' },
-  { value: 'mk', label: 'Македонски' },
-  { value: 'sl', label: 'Slovenščina' },
-  { value: 'bg', label: 'Български' },
-  { value: 'lv', label: 'Latviešu' },
-  { value: 'lt', label: 'Lietuvių' },
-  { value: 'et', label: 'Eesti' },
-  { value: 'mt', label: 'Malti' },
-  { value: 'sq', label: 'Shqip' },
-  { value: 'pa', label: 'ਪੰਜਾਬੀ' },
-  { value: 'jv', label: 'ꦧꦱꦗꦮ' },
-  { value: 'ta', label: 'தமிழ்' },
-  { value: 'ur', label: 'اردو' },
-  { value: 'mr', label: 'मराठी' },
-  { value: 'te', label: 'తెలుగు' },
-  { value: 'ps', label: 'پښتو' },
-  { value: 'ln', label: 'Lingála' },
-  { value: 'ml', label: 'മലയാളം' },
-  { value: 'cnh', label: 'Hakha Chin' },
-  { value: 'uz', label: 'Oʻzbekcha' },
-  { value: 'kn', label: 'ಕನ್ನಡ' },
-  { value: 'or', label: 'ଓଡ଼ିଆ' },
-  { value: 'ig', label: 'Igbo' },
-  { value: 'zu', label: 'isiZulu' },
-  { value: 'xh', label: 'isiXhosa' },
-  { value: 'km', label: 'ភាសាខ្មែរ' },
-  { value: 'lo', label: 'ພາສາລາວ' },
-  { value: 'ka', label: 'ქართული' },
-  { value: 'hy', label: 'Հայերեն' },
-  { value: 'tg', label: 'Тоҷикӣ' },
-  { value: 'tk', label: 'Türkmençe' },
-  { value: 'kk', label: 'Қазақша' },
-  { value: 'ky', label: 'Кыргызча' },
-  { value: 'mn', label: 'Монгол хэл' },
-  { value: 'gd', label: 'Gàidhlig' },
-  { value: 'ga', label: 'Gaeilge' },
-  { value: 'cy', label: 'Cymraeg' },
-  { value: 'ba', label: 'Башҡортса' },
-  { value: 'ceb', label: 'Bisaya' },
-  { value: 'ilo', label: 'Ilokano' },
-  { value: 'tt', label: 'Татарча' },
-  { value: 'pi', label: 'पाऴि' },
-  { value: 'rw', label: 'Ikinyarwanda' },
-  { value: 'be', label: 'Беларуская' },
-  { value: 'mg', label: 'Malagasy' },
-  { value: 'tvl', label: 'Te Ggana Tuuvalu' },
-  { value: 'mh', label: 'Kajin M̧ajeļ' },
-  { value: 'ch', label: 'Chamoru' },
-  { value: 'sm', label: 'Gagana Samoa' },
-  { value: 'to', label: 'Lea faka-Tonga' },
-  { value: 'mi', label: 'Māori' },
-  { value: 'tpi', label: 'Tok Pisin' },
-  { value: 'cv', label: 'Чӑвашла' },
-  { value: 'kv', label: 'Коми кыв' },
-  { value: 'gv', label: 'Gaelg' }
-];
+function LanguageSelect(props: { label: string; value: string; onChange(value: string): void; source?: boolean; l: LocalizeCopy }) {
+  const [query, setQuery] = useState('');
+  const selectId = useId();
+  const matches = query.trim() ? searchCreatorLanguages(query, props.source) : props.source ? sourceLanguageCatalog : creatorLanguages;
+  const options: LanguageOption[] = matches.map(language => ({ value: language.code, label: language.nativeName }));
+  if (!options.some(option => option.value === props.value)) options.unshift({ value: props.value, label: props.value === 'auto' ? props.l('请选择语言', 'Select a language') : creatorLanguage(props.value)?.nativeName ?? props.value });
+  return <div className="video-translation-field">
+    <label htmlFor={selectId}>{props.label}</label>
+    <input type="search" aria-label={props.l(`搜索${props.label}`, `Search ${props.label.toLowerCase()}`)} placeholder={props.l('搜索语言或代码', 'Search language or code')} value={query} onChange={event => setQuery(event.target.value)} />
+    <div className="video-translation-select-wrap">
+      <select id={selectId} value={props.value} onChange={event => props.onChange(event.target.value)}>
+        {options.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
+      </select>
+      <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+    </div>
+  </div>;
+}
 
 function languageLabel(options: LanguageOption[], value: string) {
-  return options.find(option => option.value === value)?.label ?? value;
+  if (value === 'auto') return '—';
+  return options.find(option => option.value === value)?.label ?? creatorLanguage(value)?.nativeName ?? value;
 }
 
 function ttsProviderLabel(provider: CreatorTtsProvider, l: LocalizeCopy): string {
@@ -1854,6 +1759,7 @@ export default function VideoTranslationWorkspace(props: {
   const [videoFileSize, setVideoFileSize] = useState<number | null>(null);
   const [videoFileLastModified, setVideoFileLastModified] = useState<number | null>(null);
   const [sourceLanguage, setSourceLanguage] = useState('en');
+  const [asrCapability, setAsrCapability] = useState<TranscriptionLanguageCapability>();
   const [targetLanguage, setTargetLanguage] = useState('zh_cn');
   const [bilingual, setBilingual] = useState(true);
   const [subtitlePosition, setSubtitlePosition] = useState<SubtitlePosition>('top');
@@ -2171,6 +2077,22 @@ export default function VideoTranslationWorkspace(props: {
         ? 'result' : 'configure');
     }
   }, [creatorSession?.job.id, creatorSession?.job.revision]);
+
+  useEffect(() => {
+    let active = true;
+    const service = props.creatorServicesService;
+    if (!service) return;
+    const refresh = () => {
+      void Promise.all([service.getConfig(), service.getCapabilities()]).then(([response, capabilities]) => {
+        if (!active) return;
+        const provider = capabilities.transcription.providers.find(item => item.provider === response.config.transcription.provider);
+        setAsrCapability(provider?.languageCapabilities?.[creatorTranscriptionModel(response.config)] ?? { coverage: 'unknown', supportedLanguages: [], timestamps: 'unknown', profileVersion: 'unverified-v1' });
+      }).catch(() => { if (active) setAsrCapability(undefined); });
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => { active = false; window.removeEventListener('focus', refresh); };
+  }, [props.creatorServicesService, currentStep]);
 
   useEffect(() => {
     if (!composeVideo) return;
@@ -3219,6 +3141,11 @@ export default function VideoTranslationWorkspace(props: {
 
   async function submit() {
     if (subtitleImportPending) return;
+    if (importedSourceSubtitle && sourceLanguage === 'auto') {
+      setCurrentStep(1);
+      setResultNotice(l('未能可靠识别字幕语言，请手动选择源语言。', 'The subtitle language could not be reliably detected. Select the source language.'));
+      return;
+    }
     if (!hasSource || !sourceSelectionReady) {
       setCurrentStep(0);
       setAttemptedContinue(true);
@@ -3712,27 +3639,16 @@ export default function VideoTranslationWorkspace(props: {
   );
 
   const languageControls = (
-    <div className="video-translation-language-row">
-      <label className="video-translation-field">
-        <span>{l('源语言', 'Source language')}</span>
-        <div className="video-translation-select-wrap">
-          <select value={sourceLanguage} onChange={event => setSourceLanguage(event.target.value)}>
-            {sourceLanguages.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
-          </select>
-          <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
-        </div>
-      </label>
-      <span className="video-translation-language-arrow" aria-hidden="true">→</span>
-      <label className="video-translation-field" data-agent-focus={agentFocus === 'language'}>
-        <span>{l('翻译为', 'Translate to')}</span>
-        <div className="video-translation-select-wrap">
-          <select value={targetLanguage} onChange={event => setTargetLanguage(event.target.value)}>
-            {targetLanguages.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
-          </select>
-          <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
-        </div>
-      </label>
-    </div>
+    <>
+      <div className="video-translation-language-row">
+        <LanguageSelect label={l('源语言', 'Source language')} value={sourceLanguage} onChange={setSourceLanguage} source l={l} />
+        <span className="video-translation-language-arrow" aria-hidden="true">→</span>
+        <LanguageSelect label={l('翻译为', 'Translate to')} value={targetLanguage} onChange={setTargetLanguage} l={l} />
+      </div>
+      {!subtitleOnly && transcriptionLanguageSupport(sourceLanguage, asrCapability) === 'unsupported' ? <p role="status">{l('当前识别服务不支持该源语言。请更换识别服务或导入原文字幕；优先使用平台字幕时仅影响转录回退。', 'The speech service does not support this source language. Change services or import source subtitles; with platform captions this only affects audio fallback.')}</p> : null}
+      {importedSourceSubtitle && sourceLanguage === 'auto' ? <p role="status">{l('未能可靠识别字幕语言，请手动选择源语言。', 'The subtitle language could not be reliably detected. Select the source language.')}</p> : null}
+      {!subtitleOnly && asrCapability && transcriptionLanguageSupport(sourceLanguage, asrCapability) === 'unknown' ? <p role="status">{l('当前识别服务的语言范围尚未确认，请确认服务支持所选语言。', 'Language coverage is unverified. Confirm that the speech service supports this language.')}</p> : null}
+    </>
   );
   const subtitleImportControl = !subtitleOnly ? <VideoTranslationSubtitleImport
     sourceLanguage={sourceLanguage} targetLanguage={targetLanguage}
@@ -4530,6 +4446,8 @@ function creatorErrorMessage(cause: unknown, l: LocalizeCopy): string {
   if (code === 'creator_llm_config_missing') {
     return l('开始翻译前需要配置文本翻译模型 API。', 'Configure the text translation model API before starting.');
   }
+  if (code === 'creator_transcription_language_unsupported') return l('当前识别模型不支持所选源语言，请更换识别服务或导入原文字幕', 'This model does not support the source language. Change the speech service or import source subtitles');
+  if (code === 'creator_transcription_timestamps_unavailable') return l('请选择提供字幕时间戳的识别服务', 'Choose a speech service that provides subtitle timestamps');
   if (code === 'creator_transcription_config_missing') {
     return l('当前字幕策略需要配置语音识别服务。', 'The current subtitle strategy requires a transcription service.');
   }
@@ -4631,7 +4549,7 @@ function normalizeStageConfigurationError(code: string | null | undefined, messa
 function needsCreatorServicesConfiguration(...codes: Array<string | null | undefined>): boolean {
   return codes.some(code => (
     code === 'creator_llm_config_missing'
-    || code === 'creator_transcription_config_missing'
+    || ['creator_transcription_config_missing', 'creator_transcription_language_unsupported', 'creator_transcription_timestamps_unavailable'].includes(code ?? '')
     || code === 'creator_tts_config_missing'
   ));
 }
@@ -4654,7 +4572,7 @@ function creatorServicesSettingsHref(...codes: Array<string | null | undefined>)
   const code = codes.find(candidate => needsCreatorServicesConfiguration(candidate));
   const section = code === 'creator_tts_config_missing'
     ? 'tts'
-    : code === 'creator_transcription_config_missing'
+    : ['creator_transcription_config_missing', 'creator_transcription_language_unsupported', 'creator_transcription_timestamps_unavailable'].includes(code ?? '')
       ? 'transcription'
       : 'text';
   return `#/settings?tab=ai-services&section=${section}`;

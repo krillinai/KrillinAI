@@ -3,11 +3,12 @@ package whispercpp
 import (
 	"encoding/json"
 	"fmt"
-	"krillin-ai/internal/storage"
 	"krillin-ai/internal/resourcepath"
+	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
+	"krillin-ai/pkg/whisper"
 	"os"
 	"os/exec"
 	"regexp"
@@ -18,6 +19,11 @@ import (
 )
 
 func (c *WhispercppProcessor) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
+	if err := c.ValidateLanguage(language); err != nil {
+		return nil, err
+	}
+	language = types.WhisperLanguageCode(language)
+
 	name := util.ChangeFileExtension(audioFile, "")
 	modelPath, err := resourcepath.Resolve("models", "whispercpp", fmt.Sprintf("ggml-%s.bin", c.Model))
 	if err != nil {
@@ -59,7 +65,7 @@ func (c *WhispercppProcessor) Transcription(audioFile, language, workDir string)
 		num               int
 	)
 	for _, segment := range result.Transcription {
-		transcriptionData.Text += strings.ReplaceAll(segment.Text, "—", " ") // 连字符处理，因为模型存在很多错误添加到连字符
+		transcriptionData.Text += segment.Text
 		for _, word := range segment.Tokens {
 			fromSec, err := parseTimestampToSeconds(word.Timestamps.From)
 			if err != nil {
@@ -75,29 +81,10 @@ func (c *WhispercppProcessor) Transcription(audioFile, language, workDir string)
 			regex := regexp.MustCompile(`^\[.*\]$`)
 			if regex.MatchString(word.Text) {
 				continue
-			} else if strings.Contains(word.Text, "—") {
-				// 对称切分
-				mid := (fromSec + toSec) / 2
-				seperatedWords := strings.Split(word.Text, "—")
-				transcriptionData.Words = append(transcriptionData.Words, []types.Word{
-					{
-						Num:   num,
-						Text:  util.CleanPunction(strings.TrimSpace(seperatedWords[0])),
-						Start: fromSec,
-						End:   mid,
-					},
-					{
-						Num:   num + 1,
-						Text:  util.CleanPunction(strings.TrimSpace(seperatedWords[1])),
-						Start: mid,
-						End:   toSec,
-					},
-				}...)
-				num += 2
 			} else {
 				transcriptionData.Words = append(transcriptionData.Words, types.Word{
 					Num:   num,
-					Text:  util.CleanPunction(strings.TrimSpace(word.Text)),
+					Text:  word.Text,
 					Start: fromSec,
 					End:   toSec,
 				})
@@ -127,4 +114,11 @@ func parseTimestampToSeconds(timeStr string) (float64, error) {
 	milliseconds, _ := strconv.Atoi(parts[1])
 
 	return float64(hours*3600+minutes*60+seconds) + float64(milliseconds)/1000, nil
+}
+
+func (c *WhispercppProcessor) ValidateLanguage(language string) error {
+	if err := types.ValidateWhisperLanguage(language, c.Model); err != nil {
+		return &whisper.TranscriptionError{Code: "creator_transcription_language_unsupported", Message: err.Error()}
+	}
+	return nil
 }

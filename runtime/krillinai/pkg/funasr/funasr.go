@@ -44,6 +44,11 @@ func NewClient(baseURL, apiKey, model string, timeoutMs int, proxy string) *Clie
 	return &Client{strings.TrimRight(baseURL, "/"), apiKey, model, timeout, &http.Client{Transport: tr, Timeout: timeout}}
 }
 func (c *Client) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
+	language = string(types.NormalizeLanguage(language))
+	if language == "zh_cn" || language == "zh_tw" {
+		language = "zh"
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 	var body bytes.Buffer

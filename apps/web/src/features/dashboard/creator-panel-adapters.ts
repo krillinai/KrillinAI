@@ -109,6 +109,7 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
       processing_platform_captions: l('解析平台字幕', 'Processing platform captions'),
       fallback_to_transcription: l('切换到语音转录', 'Switching to audio transcription', 'Byter till ljudtranskription'),
       translating_subtitles: l('翻译字幕', 'Translating subtitles'),
+      importing_subtitles: l('读取字幕文件', 'Reading subtitle file'),
       collecting_subtitles: l('生成双语字幕', 'Generating bilingual subtitles'),
       preparing_original_media: l('准备原始视频', 'Preparing the original video'),
       preparing_download: l('连接原视频来源', 'Connecting to the source video'),
@@ -122,12 +123,30 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
       verifying_dependencies: l('校验本地转录组件', 'Verifying local transcription components'),
       extracting_dependencies: l('安装本地转录组件', 'Installing local transcription components'),
       dependencies_ready: l('组件已就绪，开始转录', 'Components ready; starting transcription'),
-      transcribing_audio: l('转录并翻译音频', 'Transcribing and translating audio'),
+      transcribing_audio: l('识别视频语音', 'Transcribing video audio'),
+      processing_audio: l('识别语音并翻译字幕', 'Transcribing audio and translating subtitles'),
+      downloading_media: l('下载视频与音频', 'Downloading video and audio'),
+      extracting_audio: l('提取视频音频', 'Extracting video audio'),
+      preparing_render: l('准备视频画面和字幕', 'Preparing video and subtitles'),
+      planning_voice: l('规划配音片段', 'Planning dubbing segments'),
+      fitting_voice: l('对齐配音时间轴', 'Aligning the dubbing timeline'),
+      assembling_voice: l('拼接配音音频', 'Assembling dubbing audio'),
+      muxing_voice: l('合并配音和视频', 'Combining dubbing and video'),
       collecting_outputs: l('整理输出文件', 'Collecting outputs'),
       generating_voice: l('生成配音', 'Generating dubbing'),
       rendering_video: l('渲染视频', 'Rendering video')
     };
     return labels[phase] ?? genericPhaseLabel(phase, l);
+  },
+  runningProgressText(_stage, progress, l) {
+    if (progress.total !== null && progress.total > 0 && progress.completed !== null) {
+      const amount = `${progress.completed}/${progress.total}`;
+      if (progress.phase === 'translating_subtitles') return l(`翻译字幕，已完成 ${amount} 句`, `Translating subtitles, ${amount} sentences completed`);
+      if (progress.phase === 'processing_audio') return l(`处理音频，字幕翻译完成 ${amount} 段`, `Processing audio, ${amount} segments translated`);
+      if (progress.phase === 'transcribing_audio') return l(`识别语音，已完成 ${amount} 段`, `Transcribing audio, ${amount} segments completed`);
+      if (progress.phase === 'generating_voice') return l(`生成配音，已完成 ${amount} 段`, `Generating dubbing, ${amount} segments completed`);
+    }
+    return null;
   },
   activityStageId: readActivityStageId,
   normalizeActivity(activity, l) {
@@ -191,20 +210,68 @@ export const videoTranslationPanelAdapter: CreatorPanelAdapter = {
     const legacy = readRecord(stage.progress.krillinEventPayload);
     const phase = standard.phase ?? readString(legacy?.phase);
     const phaseLabel = phase === null ? null : videoTranslationPanelAdapter.phaseLabel(phase, localize);
+    const translating = phase === 'translating_subtitles';
+    const detailed = phase !== null && videoTranslationDetailedPhases.has(phase);
+    const detailMessage = translating
+      ? localize('正在等待翻译服务返回结果，进度随已完成的句子更新。', 'Waiting for the translation service. Progress updates as sentences are completed.')
+      : localizeVideoProgressMessage(standard.message ?? readString(legacy?.message), localize) ?? phaseLabel;
     return {
       percent: standard.percent ?? readFiniteNumber(legacy?.percent),
       phase,
-      showMessage: fallbackMessage !== null,
+      showTiming: detailed,
+      showMessage: fallbackMessage !== null || detailed,
       message: fallbackMessage === null
-        ? standard.message ?? readString(legacy?.message)
-        : `${fallbackMessage}${phaseLabel === null || phase === 'fallback_to_transcription'
-          ? '' : ` ${phaseLabel}`}`,
+        ? detailed ? detailMessage : standard.message ?? readString(legacy?.message)
+        : `${fallbackMessage}${detailMessage === null || phase === 'fallback_to_transcription'
+          ? '' : ` ${detailMessage}`}`,
       completed: standard.completed,
       failed: standard.failed,
       total: standard.total
     };
   }
 };
+
+const videoTranslationDetailedPhases = new Set([
+  'preparing_source', 'reading_platform_captions', 'processing_platform_captions',
+  'preparing_original_media', 'preparing_audio', 'downloading_media', 'extracting_audio',
+  'transcribing_audio', 'processing_audio', 'translating_subtitles', 'planning_voice',
+  'generating_voice', 'fitting_voice', 'assembling_voice', 'muxing_voice',
+  'preparing_render', 'rendering_video'
+]);
+
+function localizeVideoProgressMessage(message: string | null, l: CreatorPanelLocalize): string | null {
+  if (message === null) return null;
+  const audio = /^音频分段 (\d+)\/(\d+)；语音识别 (\d+)\/(\d+) 段；字幕翻译 (\d+)\/(\d+) 段(?:；第 (\d+) 段识别 (\d+)%)?(?:；第 (\d+) 段已翻译 (\d+)\/(\d+) 句)?$/.exec(message);
+  if (audio) {
+    const base = l(`音频分段 ${audio[1]}/${audio[2]}；语音识别 ${audio[3]}/${audio[4]} 段；字幕翻译 ${audio[5]}/${audio[6]} 段`, `Audio split ${audio[1]}/${audio[2]}; transcribed ${audio[3]}/${audio[4]} segments; translated ${audio[5]}/${audio[6]} segments`);
+    const recognizing = audio[7] ? l(`；第 ${audio[7]} 段识别 ${audio[8]}%`, `; recognizing segment ${audio[7]} (${audio[8]}%)`) : '';
+    const translating = audio[9] ? l(`；第 ${audio[9]} 段已翻译 ${audio[10]}/${audio[11]} 句`, `; segment ${audio[9]}: ${audio[10]}/${audio[11]} sentences translated`) : '';
+    return `${base}${recognizing}${translating}`;
+  }
+  const transcription = /^语音识别 (\d+)\/(\d+) 段；正在识别第 (\d+) 段（(\d+)%）$/.exec(message);
+  if (transcription) return l(message, `Transcribed ${transcription[1]}/${transcription[2]} segments; recognizing segment ${transcription[3]} (${transcription[4]}%)`);
+  const transcribed = /^语音识别完成 (\d+)\/(\d+) 段$/.exec(message);
+  if (transcribed) return l(message, `Transcription completed for ${transcribed[1]}/${transcribed[2]} segments`);
+  const speech = /^已生成配音 (\d+)\/(\d+) 段$/.exec(message);
+  if (speech) return l(message, `Dubbing generated for ${speech[1]}/${speech[2]} segments`);
+  const labels: Record<string, string> = {
+    '正在提取音频': l('正在提取音频', 'Extracting audio'),
+    '正在转换竖屏画面': l('正在转换竖屏画面', 'Converting the video to portrait'),
+    '正在编码并合成字幕视频': l('正在编码并合成字幕视频', 'Encoding video with subtitles'),
+    '正在拼接配音音频': l('正在拼接配音音频', 'Assembling dubbing audio'),
+    '正在合并配音和视频': l('正在合并配音和视频', 'Combining dubbing and video')
+  };
+  const media = /^(.*)；已处理 (\d+) 秒(?: \/ (\d+) 秒)?$/.exec(message);
+  if (media?.[1] && labels[media[1]]) return `${labels[media[1]]}${l(`；已处理 ${media[2]} 秒${media[3] ? ` / ${media[3]} 秒` : ''}`, `; processed ${media[2]} s${media[3] ? ` / ${media[3]} s` : ''}`)}`;
+  if (labels[message]) return labels[message];
+  const download = /^正在下载(视频|音频)：([\d.]+ MiB)(?: \/ ([\d.]+ MiB))?(?:；([\d.]+ MiB\/s))?(?:；预计剩余 (\d+) 秒)?$/.exec(message);
+  if (download) return l(message, `Downloading ${download[1] === '视频' ? 'video' : 'audio'}: ${download[2]}${download[3] ? ` / ${download[3]}` : ''}${download[4] ? `; ${download[4]}` : ''}${download[5] ? `; about ${download[5]} s remaining` : ''}`);
+  const connecting = /^正在连接来源，准备下载(视频|音频)$/.exec(message);
+  if (connecting) return l(message, `Connecting to the source to download ${connecting[1] === '视频' ? 'video' : 'audio'}`);
+  const downloaded = /^(视频|音频)下载完成，正在处理媒体文件$/.exec(message);
+  if (downloaded) return l(message, `${downloaded[1] === '视频' ? 'Video' : 'Audio'} download complete; processing media files`);
+  return null;
+}
 
 function captionFallbackMessage(stage: CreatorStageRun, l: CreatorPanelLocalize): string | null {
   if (stage.progress.captionFallbackCode === 'platform_caption_invalid') {
@@ -1038,6 +1105,8 @@ function videoTranslationFieldLabel(
   l: CreatorPanelLocalize
 ): string | null {
   const labels: Record<string, string> = {
+    creator_transcription_language_unsupported: l('请更换识别服务或导入原文字幕', 'Change the speech recognition service or import source subtitles'),
+    creator_transcription_timestamps_unavailable: l('请选择提供字幕时间戳的识别服务', 'Choose a speech service that provides subtitle timestamps'),
     sourceLanguage: l('源语言', 'Source language'),
     targetLanguage: l('目标语言', 'Target language'),
     bilingual: l('双语字幕', 'Bilingual subtitles'),

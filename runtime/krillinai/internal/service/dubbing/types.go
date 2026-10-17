@@ -102,6 +102,7 @@ type Dependencies struct {
 	FFmpeg         CommandRunner
 	Duration       DurationProbe
 	ReportProgress func(completed, total int)
+	ReportPhase    func(phase string)
 }
 
 type TextOptimizer interface {

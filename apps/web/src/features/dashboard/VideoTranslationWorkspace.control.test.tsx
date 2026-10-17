@@ -241,6 +241,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     });
     const service = {
       getConfig: vi.fn(async () => ({ config: { tts: { provider: 'openai', openai: { model: 'tts-1-hd', defaultVoiceId: 'nova' } } } })),
+      getCapabilities: vi.fn(async () => ({ transcription: { providers: [] } })),
       getTtsVoices: vi.fn(async () => ({ voices: [{ id: 'nova', name: 'Nova', provider: 'openai', kind: 'builtin' }] })),
       previewTtsVoice: vi.fn()
     };
@@ -270,7 +271,11 @@ describe('VideoTranslationWorkspace task controls', () => {
       return { job: current };
     });
     const services = {
-      getConfig: vi.fn(async () => ({ config: { tts: { provider: 'openai', openai: { model: 'gpt-4o-mini-tts', defaultVoiceId: 'alloy' } } } })),
+      getConfig: vi.fn(async () => ({ config: {
+        transcription: { provider: 'openai', openai: { model: 'whisper-1' } },
+        tts: { provider: 'openai', openai: { model: 'gpt-4o-mini-tts', defaultVoiceId: 'alloy' } }
+      } })),
+      getCapabilities: vi.fn(async () => ({ transcription: { providers: [] } })),
       getTtsVoices: vi.fn(async () => ({ voices: [
         { id: 'alloy', name: 'Alloy', provider: 'openai', kind: 'builtin' },
         { id: 'echo', name: 'Echo', provider: 'openai', kind: 'builtin' }
@@ -442,6 +447,73 @@ describe('VideoTranslationWorkspace task controls', () => {
     }) })));
     await waitFor(() => expect(screen.getByRole('button', { name: '保存字幕' })).toBeDisabled());
     expect(screen.getByRole('textbox', { name: '字幕 2' })).toHaveValue('world');
+  });
+
+  it.each([['hi', 'es'], ['si', 'nn']])('carries detected %s and replacement %s through manual selection and reload', async (detected, replacement) => {
+    let current = job({ status: 'draft', revision: 0, stages: [], artifacts: [], state: {
+      sourceType: 'subtitle', sourceUrl: '', currentStep: 0, furthestStep: 0,
+      sourceLanguage: 'en', targetLanguage: 'ja'
+    } });
+    let imports = 0;
+    const applyAction = vi.fn(async (_id: string, request: { action: string; input: Record<string, CreatorJson> }) => {
+      if (request.action === 'import-subtitle') {
+        const language = ++imports === 1 ? detected : replacement;
+        const artifact = { ...subtitleArtifact(imports, 'Imported text'), id: `source-${imports}`, kind: 'source_subtitle', metadata: {
+          ...subtitleArtifact(imports, 'Imported text').metadata, source: 'local-upload', language,
+          languageDetection: 'detected', fileName: String(request.input.fileName), cueCount: 1
+        } };
+        current = { ...current, revision: current.revision + 1, artifacts: [...current.artifacts, artifact],
+          state: { ...current.state, sourceLanguage: language, importedSourceSubtitleId: artifact.id } };
+      } else current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch as object } };
+      return { job: current };
+    });
+    const service = { applyAction, runAgentTurn: vi.fn() } as never;
+    const view = render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current} service={service}>
+      <VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['Hindi subtitles'], 'unknown.en.srt')] } });
+    await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({
+      action: 'import-subtitle', input: expect.objectContaining({ language: 'auto' })
+    })));
+    await waitFor(() => expect(screen.getByRole('button', { name: '继续' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: '继续' }));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: '源语言' })).toHaveValue(detected));
+    expect(screen.getByRole('combobox', { name: '翻译为' })).toHaveValue('ja');
+    fireEvent.change(screen.getByRole('combobox', { name: '源语言' }), { target: { value: 'en' } });
+    await waitFor(() => expect(current.state.sourceLanguage).toBe('en'));
+    fireEvent.click(screen.getByRole('button', { name: /上一步/ }));
+    fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['Spanish subtitles'], 'replacement.srt')] } });
+    await waitFor(() => expect(current.state.sourceLanguage).toBe(replacement));
+    await waitFor(() => expect(screen.getByRole('button', { name: '继续' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: '继续' }));
+    await waitFor(() => expect(screen.getByRole('combobox', { name: '源语言' })).toHaveValue(replacement));
+    expect(screen.getByRole('combobox', { name: '翻译为' })).toHaveValue('ja');
+    view.unmount();
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current} service={service}>
+      <VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    if (screen.queryByRole('button', { name: '继续' })) fireEvent.click(screen.getByRole('button', { name: '继续' }));
+    expect(screen.getByRole('combobox', { name: '源语言' })).toHaveValue(replacement);
+  });
+
+  it('asks for manual source selection when subtitle language is unresolved and does not start translation', async () => {
+    const source = { ...subtitleArtifact(1, 'Hello'), id: 'uncertain-srt', kind: 'source_subtitle', metadata: {
+      ...subtitleArtifact(1, 'Hello').metadata, source: 'local-upload', language: 'auto', languageDetection: 'uncertain', fileName: 'short.srt', cueCount: 1
+    } };
+    const applyAction = vi.fn();
+    render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider
+      initialJob={job({ status: 'draft', revision: 0, stages: [], artifacts: [source], state: {
+        sourceType: 'subtitle', currentStep: 1, furthestStep: 1, sourceLanguage: 'auto', importedSourceSubtitleId: source.id
+      } })} service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+      <VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    expect(screen.getByRole('combobox', { name: '源语言' })).toHaveValue('auto');
+    expect(screen.getByRole('option', { name: '请选择语言' })).toBeInTheDocument();
+    expect(screen.getByText('未能可靠识别字幕语言，请手动选择源语言。')).toBeVisible();
+    fireEvent.click(within(screen.getByRole('region', { name: '视频翻译操作区' })).getByRole('button', { name: '开始翻译' }));
+    expect(applyAction.mock.calls.some(([, request]) => request.action === 'run-stage')).toBe(false);
+    fireEvent.change(screen.getByRole('combobox', { name: '源语言' }), { target: { value: 'hi' } });
+    expect(screen.getByRole('combobox', { name: '源语言' })).toHaveValue('hi');
   });
 
   it('localizes subtitle import controls across all languages without losing the selected file or preview', () => {
@@ -961,7 +1033,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.change(screen.getByRole('combobox', { name: '字幕类型' }), { target: { value: kind } });
     fireEvent.change(screen.getByLabelText('UTF-8 SRT 文件'), { target: { files: [new File(['invalid'], 'local.srt', { type: 'application/x-subrip' })] } });
     await waitFor(() => expect(applyAction).toHaveBeenCalledWith('job_control', expect.objectContaining({ action: 'import-subtitle', input: {
-      kind, fileName: 'local.srt', language: kind === 'source_subtitle' ? 'en' : 'zh_cn', contentBase64: btoa('invalid')
+      kind, fileName: 'local.srt', language: kind === 'source_subtitle' ? 'auto' : 'zh_cn', contentBase64: btoa('invalid')
     } })));
     expect(within(screen.getByRole('group', { name: '导入已有字幕' })).queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByText('Invalid UTF-8 SRT: timeline 2')).not.toBeInTheDocument();
@@ -1580,22 +1652,42 @@ describe('VideoTranslationWorkspace task controls', () => {
     const targetOptions = within(targetSelect).getAllByRole('option');
     const targetValues = targetOptions.map(option => (option as HTMLOptionElement).value);
 
-    expect(sourceOptions).toHaveLength(14);
+    expect(sourceOptions).toHaveLength(123);
+    const sourceValues = sourceOptions.map(option => (option as HTMLOptionElement).value);
+    expect(new Set(sourceValues).size).toBe(123);
+    expect(sourceValues).not.toContain('pinyin');
+    expect(sourceValues).toEqual(expect.arrayContaining(['yue', 'si', 'bo', 'am', 'ml', 'kn', 'or', 'ka', 'hy', 'nn', 'om']));
     for (const [name, value] of [
       ['Español', 'es'],
       ['Français', 'fr'],
       ['Italiano', 'it'],
-      ['Português (Brasil)', 'pt'],
+      ['Português', 'pt'],
       ['Bahasa Indonesia', 'id'],
       ['ภาษาไทย', 'th']
     ]) {
       expect(within(sourceSelect).getByRole('option', { name })).toHaveAttribute('value', value);
     }
-    expect(targetOptions).toHaveLength(101);
-    expect(new Set(targetValues).size).toBe(101);
+    expect(targetOptions).toHaveLength(124);
+    expect(new Set(targetValues).size).toBe(124);
     expect(within(targetSelect).getByRole('option', { name: 'বাংলা' })).toHaveAttribute('value', 'bn');
     expect(within(targetSelect).getByRole('option', { name: 'Gàidhlig' })).toHaveAttribute('value', 'gd');
     expect(within(targetSelect).getByRole('option', { name: 'Gaelg' })).toHaveAttribute('value', 'gv');
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索源语言' }), { target: { value: '印地' } });
+    expect(within(sourceSelect).getByRole('option', { name: 'हिन्दी' })).toHaveAttribute('value', 'hi');
+    fireEvent.change(sourceSelect, { target: { value: 'hi' } });
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索源语言' }), { target: { value: 'Arabic' } });
+    expect(sourceSelect).toHaveValue('hi');
+    expect(within(sourceSelect).getByRole('option', { name: 'العربية' })).toHaveAttribute('value', 'ar');
+    expect(within(sourceSelect).getByRole('option', { name: 'हिन्दी' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索源语言' }), { target: { value: '' } });
+    fireEvent.change(sourceSelect, { target: { value: 'bo' } });
+    expect(sourceSelect).toHaveValue('bo');
+    expect(within(sourceSelect).getAllByRole('option')).toHaveLength(123);
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索源语言' }), { target: { value: 'pinyin' } });
+    expect(sourceSelect).toHaveValue('bo');
+    expect(within(sourceSelect).queryByRole('option', { name: '拼音' })).not.toBeInTheDocument();
+
   });
 
   it('uses the source video for synchronized subtitle preview when no rendered video exists', async () => {

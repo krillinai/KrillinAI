@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 )
 
-func ensureSourceVideo(ctx context.Context, svc StageService, manifest *Manifest, sourceURL, mediaWorkdir string, report func(string, int, string)) (string, error) {
+func ensureSourceVideo(ctx context.Context, svc StageService, manifest *Manifest, sourceURL, mediaWorkdir string, report ProgressReporter) (string, error) {
 	if info, err := os.Stat(manifest.Outputs.OriginVideo); err == nil && info.Mode().IsRegular() && info.Size() > 0 {
 		return manifest.Outputs.OriginVideo, nil
 	}
@@ -36,6 +36,7 @@ func ensureSourceVideo(ctx context.Context, svc StageService, manifest *Manifest
 	}
 	if report != nil {
 		report("preparing_original_media", 5, "字幕已保留，正在为视频合成下载原始视频")
+		forwardTaskProgress(step.TaskPtr, report, func(percent int) int { return 5 + percent*10/100 })
 		step.TaskPtr.SetProgressReporter(func(percent uint8) {
 			report("preparing_original_media", int(percent), "字幕已保留，正在为视频合成下载原始视频")
 		})

@@ -21,6 +21,32 @@ afterEach(() => {
 });
 
 describe('creator command dispatcher', () => {
+  it('blocks user and agent subtitle runs until an uncertain source language is selected', () => {
+    const fixture = setup();
+    try {
+      const dispatcher = createCreatorCommandDispatcher({ service: fixture.service, repository: fixture.repository, receipts: fixture.receipts });
+      const imported = dispatcher.dispatch(fixture.jobId, {
+        action: 'import-subtitle', expectedRevision: 0, idempotencyKey: 'import-auto', input: {
+          kind: 'source_subtitle', language: 'auto', fileName: 'unknown.srt',
+          contentBase64: Buffer.from('1\n00:00:00,000 --> 00:00:01,000\nHello\n').toString('base64')
+        }
+      }, 'user').job;
+      expect(imported.state.sourceLanguage).toBe('auto');
+      for (const actor of ['user', 'agent'] as const) {
+        expect(() => dispatcher.dispatch(fixture.jobId, {
+          action: 'run-stage', expectedRevision: imported.revision, idempotencyKey: `${actor}-run-stage`, input: { stageId: 'subtitle' }
+        }, actor)).toThrow('Select the source subtitle language');
+      }
+      expect(fixture.service.getJob(fixture.jobId)).toMatchObject({ revision: imported.revision, stages: [] });
+      const selected = dispatcher.dispatch(fixture.jobId, {
+        action: 'update-settings', expectedRevision: imported.revision, idempotencyKey: 'select-language', input: { patch: { sourceLanguage: 'en' } }
+      }, 'user').job;
+      expect(dispatcher.dispatch(fixture.jobId, {
+        action: 'run-stage', expectedRevision: selected.revision, idempotencyKey: 'start-selected', input: { stageId: 'subtitle' }
+      }, 'user').job.stages).toHaveLength(1);
+    } finally { fixture.db.close(); }
+  });
+
   it('queues video retries once and retains the original media request identity', () => {
     const fixture = setup();
     try {

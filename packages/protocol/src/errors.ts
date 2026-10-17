@@ -136,6 +136,9 @@ export type RuntimeErrorCode =
   | 'creator_conflict_requires_user'
   | 'creator_llm_config_missing'
   | 'creator_transcription_config_missing'
+  | 'creator_transcription_language_unsupported'
+  | 'creator_transcription_language_unknown'
+  | 'creator_transcription_timestamps_unavailable'
   | 'creator_tts_config_missing'
   | 'creator_tts_runtime_unavailable'
   | 'creator_tts_upstream_error'
@@ -177,6 +180,7 @@ export function publicErrorKindForCode(code: string): PublicErrorFacts['kind'] |
   if (normalized === 'AUDIO_NO_SPEECH') return 'validation';
   if (normalized === 'AUDIO_TRANSCRIPTION_INVALID_RESPONSE') return 'invalid-response';
   if (normalized === 'AUDIO_TRANSCRIPTION_TIMESTAMPS_MISSING') return 'unsupported';
+  if (normalized === 'CREATOR_TRANSCRIPTION_TIMESTAMPS_UNAVAILABLE') return 'unsupported';
   if (normalized === 'AUDIO_TRANSCRIPTION_API_FAILED') return 'provider-failed';
   if (normalized === 'GATEWAY_AUTH_REQUIRED') return 'unauthorized';
   if (normalized === 'GATEWAY_ACCOUNT_DISABLED' || normalized === 'GATEWAY_CREDITS_INSUFFICIENT') return 'http-rejected';

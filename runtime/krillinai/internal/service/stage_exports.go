@@ -48,6 +48,11 @@ func (s Service) PrepareMedia(ctx context.Context, stepParam *types.SubtitleTask
 }
 
 func (s Service) GenerateSubtitlesFromAudio(ctx context.Context, stepParam *types.SubtitleTaskStepParam) error {
+	if validator, ok := s.Transcriber.(interface{ ValidateLanguage(string) error }); ok && stepParam != nil {
+		if err := validator.ValidateLanguage(string(stepParam.OriginLanguage)); err != nil {
+			return err
+		}
+	}
 	if err := config.ValidateTranscriptionConfig(); err != nil {
 		return err
 	}

@@ -1,3 +1,5 @@
+@import "../../../../../assets/creator-subtitle-fonts/fallback-fonts.css";
+
 @font-face {
   font-family: "OpenCreator Sans Regular";
   src: url("/fonts/opencreator/OpenCreatorSans-Regular.woff2") format("woff2");
@@ -626,7 +628,8 @@
   gap: 7px;
 }
 
-.video-translation-field > span {
+.video-translation-field > span,
+.video-translation-field > label {
   color: var(--muted);
   font-size: 12px;
   font-weight: 550;
@@ -784,6 +787,10 @@
   padding-block: 0;
   padding-inline: 12px 40px;
   outline: 0;
+}
+
+.video-translation-language-row select {
+  font-family: var(--font), var(--creator-subtitle-fallback-families);
 }
 
 .video-translation-select-wrap svg {
@@ -1958,7 +1965,7 @@
   background: #1b2027;
   box-sizing: border-box;
   color: var(--subtitle-preview-color);
-  font-family: var(--subtitle-preview-font-family);
+  font-family: var(--subtitle-preview-font-family), var(--creator-subtitle-fallback-families);
   text-align: center;
 }
 
@@ -14828,6 +14835,7 @@
   background: transparent;
   color: var(--text);
   font: inherit;
+  font-family: var(--font), var(--creator-subtitle-fallback-families);
   font-size: 13px;
   line-height: 1.55;
   box-sizing: border-box;

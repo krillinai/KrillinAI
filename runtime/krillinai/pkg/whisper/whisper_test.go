@@ -8,6 +8,33 @@ import (
 	"testing"
 )
 
+func TestTranscriptionMapsProductLanguageAndPreservesHyphens(t *testing.T) {
+	for _, test := range []struct{ input, want string }{{"zh_tw", "zh"}, {"fil", "tl"}, {"jv", "jw"}, {"iw", "he"}} {
+		t.Run(test.input, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if err := r.ParseMultipartForm(1 << 20); err != nil {
+					t.Error(err)
+				}
+				if r.FormValue("language") != test.want {
+					t.Errorf("language=%s", r.FormValue("language"))
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"text":"well-known—word","words":[{"word":"well-known—word","start":0,"end":1}]}`))
+			}))
+			defer server.Close()
+			audio := filepath.Join(t.TempDir(), "audio.wav")
+			os.WriteFile(audio, []byte("audio"), 0600)
+			result, err := NewClient(server.URL, "test", "").Transcription(audio, test.input, t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Text != "well-known—word" || len(result.Words) != 1 || result.Words[0].Text != result.Text {
+				t.Fatalf("inconsistent source text: %+v", result)
+			}
+		})
+	}
+}
+
 func TestOfficialSelectedModelUsesReturnedSegmentTimestamps(t *testing.T) {
 	testTranscription(t, true, `{"text":"Hello world","language":"en","segments":[{"start":1.25,"end":3.5,"text":"Hello world"}]}`, false)
 }

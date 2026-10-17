@@ -203,6 +203,15 @@ describe('KrillinAI CLI protocol', () => {
     expect(parseKrillinCliProgressFrame('not-json')).toBeUndefined();
   });
 
+  it('preserves zero completed sentences and ignores invalid translation counts', () => {
+    expect(parseKrillinCliProgressFrame('{"type":"progress","phase":"translating_subtitles","percent":5,"completed":0,"total":52}'))
+      .toMatchObject({ completed: 0, total: 52, percent: 5 });
+    for (const counts of [{ completed: -1, total: 52 }, { completed: 53, total: 52 }, { completed: 1.5, total: 52 }, { completed: 0, total: 0 }, { completed: '1', total: 52 }]) {
+      const frame = parseKrillinCliProgressFrame(JSON.stringify({ type: 'progress', percent: 5, ...counts }));
+      expect(frame).toEqual({ type: 'progress', percent: 5 });
+    }
+  });
+
   it('maps the short mixed subtitle to the vertical subtitle artifact', () => {
     expect(outputMappings('subtitle')).toContainEqual([
       'short_origin_mixed_srt',

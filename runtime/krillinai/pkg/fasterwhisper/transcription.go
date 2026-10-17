@@ -3,11 +3,12 @@ package fasterwhisper
 import (
 	"encoding/json"
 	"krillin-ai/config"
-	"krillin-ai/internal/storage"
 	"krillin-ai/internal/resourcepath"
+	"krillin-ai/internal/storage"
 	"krillin-ai/internal/types"
 	"krillin-ai/log"
 	"krillin-ai/pkg/util"
+	"krillin-ai/pkg/whisper"
 	"os"
 	"os/exec"
 	"strings"
@@ -16,6 +17,11 @@ import (
 )
 
 func (c *FastwhisperProcessor) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
+	if err := c.ValidateLanguage(language); err != nil {
+		return nil, err
+	}
+	language = types.WhisperLanguageCode(language)
+
 	modelDir := "./models/"
 	if root, configured, err := resourcepath.Root(); err != nil {
 		return nil, err
@@ -60,42 +66,26 @@ func (c *FastwhisperProcessor) Transcription(audioFile, language, workDir string
 	}
 
 	var (
-		transcriptionData types.TranscriptionData
+		transcriptionData = types.TranscriptionData{Language: string(types.NormalizeLanguage(language))}
 		num               int
 	)
 	for _, segment := range result.Segments {
-		transcriptionData.Text += strings.ReplaceAll(segment.Text, "—", " ") // 连字符处理，因为模型存在很多错误添加到连字符
+		transcriptionData.Text += segment.Text
 		for _, word := range segment.Words {
-			if strings.Contains(word.Word, "—") {
-				// 对称切分
-				mid := (word.Start + word.End) / 2
-				seperatedWords := strings.Split(word.Word, "—")
-				transcriptionData.Words = append(transcriptionData.Words, []types.Word{
-					{
-						Num:   num,
-						Text:  util.CleanPunction(strings.TrimSpace(seperatedWords[0])),
-						Start: word.Start,
-						End:   mid,
-					},
-					{
-						Num:   num + 1,
-						Text:  util.CleanPunction(strings.TrimSpace(seperatedWords[1])),
-						Start: mid,
-						End:   word.End,
-					},
-				}...)
-				num += 2
-			} else {
-				transcriptionData.Words = append(transcriptionData.Words, types.Word{
-					Num:   num,
-					Text:  util.CleanPunction(strings.TrimSpace(word.Word)),
-					Start: word.Start,
-					End:   word.End,
-				})
-				num++
+			if strings.TrimSpace(word.Word) == "" {
+				continue
 			}
+			transcriptionData.Words = append(transcriptionData.Words, types.Word{Num: num, Text: word.Word, Start: word.Start, End: word.End})
+			num++
 		}
 	}
 	log.GetLogger().Info("FastwhisperProcessor转录成功")
 	return &transcriptionData, nil
+}
+
+func (c *FastwhisperProcessor) ValidateLanguage(language string) error {
+	if err := types.ValidateWhisperLanguage(language, c.Model); err != nil {
+		return &whisper.TranscriptionError{Code: "creator_transcription_language_unsupported", Message: err.Error()}
+	}
+	return nil
 }

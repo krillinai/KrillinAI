@@ -380,6 +380,12 @@ describe('KrillinAI CLI runner', () => {
       providerStatus: 'succeeded',
       percent: 100
     });
+    for (const completed of [0, 3]) {
+      expect(progress).toContainEqual(expect.objectContaining({
+        phase: 'translating_subtitles', completed, total: 6,
+        krillinEventPayload: expect.objectContaining({ completed, total: 6 })
+      }));
+    }
   });
 
   it.skipIf(process.platform === 'win32')('overrides the configured TTS provider and model from the job snapshot', async () => {
@@ -446,6 +452,7 @@ describe('KrillinAI CLI runner', () => {
     });
 
     expect(artifacts.map(artifact => artifact.kind)).toEqual(['dubbed_audio']);
+    expect(progress).toContainEqual(expect.objectContaining({ phase: 'generating_voice', percent: 48, completed: 4, total: 10, message: '已生成配音 4/10 段' }));
     expect(JSON.parse(readFileSync(join(workdir, 'observed-args.json'), 'utf8'))).toEqual([
       'tts',
       '--workdir',
@@ -641,6 +648,7 @@ if (shouldFail) {
 }
 let outputs;
 if (args[0] === 'tts') {
+  process.stdout.write(JSON.stringify({ type: 'progress', phase: 'generating_voice', percent: 48, completed: 4, total: 10, message: '已生成配音 4/10 段' }) + '\n');
   outputs = {
     tts_audio: join(workdir, 'dubbed_audio.wav')
   };
@@ -662,6 +670,9 @@ if (args[0] === 'tts') {
     percent: 25,
     message: 'Platform captions could not be processed. Switching to audio transcription.'
   }) + '\n');
+  for (const completed of [0, 3]) {
+    process.stdout.write(JSON.stringify({ type: 'progress', phase: 'translating_subtitles', percent: 5 + completed * 15, completed, total: 6 }) + '\n');
+  }
   const ytDlpPath = join(
     process.env.KRILLINAI_RESOURCE_ROOT,
     'bin',

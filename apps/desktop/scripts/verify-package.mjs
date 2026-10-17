@@ -533,13 +533,13 @@ function assertCreatorSubtitleFontContents() {
     'utf8'
   ));
   if (
-    sourceFontManifest?.version !== 1
+    ![1, 2].includes(sourceFontManifest?.version)
     || !Array.isArray(sourceFontManifest.fonts)
     || sourceFontManifest.fonts.length === 0
   ) {
     throw new Error('Creator subtitle source font manifest is invalid');
   }
-  const webFontResources = sourceFontManifest.fonts.map(font => {
+  const webFontResources = [...sourceFontManifest.fonts, ...(sourceFontManifest.fallbackFonts ?? [])].map(font => {
     if (
       typeof font?.webFile !== 'string'
       || !font.webFile.endsWith('.woff2')

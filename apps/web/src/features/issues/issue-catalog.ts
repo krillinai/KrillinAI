@@ -98,6 +98,11 @@ function localizedIssueSummary(issue: OpenCreatorIssue, localize: LocalizeCopy):
 
 function transcriptionIssueCopy(code: string | undefined, localize: LocalizeCopy): { message: string; nextStep: string } | undefined {
   switch (code) {
+    case 'creator_transcription_language_unsupported':
+      return {
+        message: localize('当前识别模型不支持所选源语言。', 'The speech recognition model does not support the selected source language.', 'Taligenkänningsmodellen stöder inte det valda källspråket.'),
+        nextStep: localize('请更换识别服务或导入原文字幕后重试。', 'Change the speech recognition service or import source subtitles and retry.', 'Byt taligenkänningstjänst eller importera källundertexter och försök igen.')
+      };
     case 'audio_no_speech':
       return {
         message: localize('音频为静音或音量过低，未识别到可用语音。', 'The audio is silent or extremely quiet; no usable speech was transcribed.', 'Ljudet är tyst eller mycket svagt; inget användbart tal transkriberades.'),
@@ -113,6 +118,7 @@ function transcriptionIssueCopy(code: string | undefined, localize: LocalizeCopy
         message: localize('语音识别服务返回了无效结果。', 'The speech recognition service returned an invalid response.', 'Taligenkänningstjänsten returnerade ett ogiltigt svar.'),
         nextStep: localize('请检查服务返回的错误，或更换语音识别模型后重试。', 'Review the provider error, or choose another speech recognition model and retry.', 'Kontrollera leverantörens fel, eller välj en annan taligenkänningsmodell och försök igen.')
       };
+    case 'creator_transcription_timestamps_unavailable':
     case 'audio_transcription_timestamps_missing':
       return {
         message: localize('已识别到文字，但当前模型未提供可用的字幕时间戳。', 'Text was recognized, but the current model did not provide usable subtitle timestamps.', 'Text identifierades, men den aktuella modellen gav inga användbara tidsstämplar för undertexter.'),

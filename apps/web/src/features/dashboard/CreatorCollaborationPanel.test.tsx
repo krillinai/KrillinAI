@@ -12,7 +12,8 @@ import {
   wechatArticlePanelAdapter,
   xiaohongshuPostPanelAdapter,
   videoDownloadPanelAdapter,
-  videoGenerationPanelAdapter
+  videoGenerationPanelAdapter,
+  videoTranslationPanelAdapter
 } from './creator-panel-adapters.js';
 import { CreatorSessionProvider, useCreatorSession } from './creator-session-store.js';
 import { normalizePageIssue } from '../issues/page-issue-state.js';
@@ -60,6 +61,53 @@ function ProgressHeartbeatControl() {
 }
 
 describe('shared video progress timing', () => {
+  it('keeps subtitle translation progress fixed while waiting and shows real sentence counts', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-07T08:00:08.000Z'));
+    try {
+      const current = videoGenerationJob();
+      current.templateId = 'video-translation';
+      current.stages = current.stages.map(stage => ({ ...stage, stageId: 'subtitle', progress: {
+        phase: 'translating_subtitles', percent: 5, completed: 0, total: 52
+      } }));
+      const view = render(<LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider initialJob={current} service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}>
+          <CreatorCollaborationPanel adapter={videoTranslationPanelAdapter} stepLabel="翻译设置" contextSummary="印地语 → 简体中文" />
+        </CreatorSessionProvider>
+      </LanguageProvider>);
+      expect(screen.getByText('翻译字幕，已完成 0/52 句')).toBeVisible();
+      expect(screen.getByRole('progressbar', { name: '字幕翻译进度' })).toHaveAttribute('aria-valuenow', '5');
+      act(() => { vi.advanceTimersByTime(30_000); });
+      expect(screen.getByText('已运行 0:35')).toBeVisible();
+      expect(screen.getByRole('progressbar', { name: '字幕翻译进度' })).toHaveAttribute('aria-valuenow', '5');
+      view.unmount();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it.each([
+    ['subtitle', 'processing_audio', '字幕翻译', '音频分段 4/4；语音识别 3/4 段；字幕翻译 1/4 段；第 2 段已翻译 5/12 句'],
+    ['tts', 'generating_voice', '配音生成', '已生成配音 1/4 段'],
+    ['render-horizontal', 'rendering_video', '横屏成片', '正在编码并合成字幕视频；已处理 12 秒 / 60 秒']
+  ])('shows video details and elapsed time for %s without advancing progress while waiting', (stageId, phase, label, message) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-07T08:00:08.000Z'));
+    try {
+      const current = videoGenerationJob();
+      current.templateId = 'video-translation';
+      current.stages = current.stages.map(stage => ({ ...stage, stageId, progress: { phase, message, percent: 45, completed: 1, total: 4 } }));
+      const view = render(<LanguageProvider initialPreference="zh-CN">
+        <CreatorSessionProvider initialJob={current} service={{ applyAction: vi.fn(), runAgentTurn: vi.fn() } as never}>
+          <CreatorCollaborationPanel adapter={videoTranslationPanelAdapter} stepLabel="视频翻译" contextSummary="英语 → 简体中文" />
+        </CreatorSessionProvider>
+      </LanguageProvider>);
+      expect(screen.getByText(message)).toBeVisible();
+      act(() => { vi.advanceTimersByTime(30_000); });
+      expect(screen.getByText('已运行 0:35')).toBeVisible();
+      expect(screen.getByRole('progressbar', { name: `${label}进度` })).toHaveAttribute('aria-valuenow', '45');
+      view.unmount();
+    } finally { vi.useRealTimers(); }
+  });
+
   it('updates elapsed time without inventing progress and tracks received status independently of language', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-07T08:00:08.000Z'));

@@ -33,6 +33,26 @@ afterEach(() => {
 });
 
 describe('KrillinAI configured transcription dependency', () => {
+  it.each(['platform-success', 'platform-failure', 'audio', 'import'])('checks language only at the actual ASR boundary: %s', async route => {
+    const fixture = setup();
+    fixture.config.transcription.provider = 'whisperkit';
+    const stage = fixture.stage as CreatorExecutorInput;
+    stage.job.templateId = 'video-translation';
+    stage.job.state.sourceLanguage = 'yue'; // Bundled large-v2 lacks the Cantonese token.
+    if (route === 'audio') stage.job.state.preferPlatformCaptions = false;
+    if (route === 'import') {
+      stage.job.state.preferPlatformCaptions = false;
+      const subtitle = writeTargetSubtitle(tempDir);
+      stage.inputArtifacts.push({ id: 'source-srt', kind: 'source_subtitle', path: join(tempDir, subtitle.relativePath) } as never);
+    }
+    if (route === 'platform-failure') runKrillinCli.mockRejectedValueOnce(new KrillinCliError('platform_caption_failed', 'No platform captions'));
+    else runKrillinCli.mockImplementation(async input => { const subtitle = writeTargetSubtitle(input.jobsRoot); return ['source_subtitle', 'target_subtitle', 'vertical_subtitle'].map(kind => ({ ...subtitle, kind })); });
+    if (route === 'audio' || route === 'platform-failure') {
+      await expect(fixture.executor.run(stage)).rejects.toMatchObject({ code: 'creator_transcription_language_unsupported' });
+      expect(runKrillinCli).toHaveBeenCalledTimes(route === 'audio' ? 0 : 1);
+    } else await expect(fixture.executor.run(stage)).resolves.toMatchObject({ outputs: expect.any(Array) });
+    expect(fixture.ensure).not.toHaveBeenCalled();
+  });
   it.each([
     ['分享视频 https://v.douyin.com/abc123/ 复制打开抖音', 'https://v.douyin.com/abc123/'],
     ['https://www.douyin.com/jingxuan?modal_id=123', 'https://www.douyin.com/video/123'],
@@ -325,7 +345,7 @@ function setup() {
     workdir: join(jobsRoot, 'auto-clip-job', 'subtitle-stage'),
     reportProgress: vi.fn()
   } as never;
-  return { ensure, executor, stage, getYtDlpRuntime };
+  return { ensure, executor, stage, getYtDlpRuntime, config };
 }
 
 function writeTargetSubtitle(jobsRoot: string) {

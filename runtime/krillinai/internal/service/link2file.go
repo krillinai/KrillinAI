@@ -11,7 +11,6 @@ import (
 	"krillin-ai/pkg/util"
 	"net/url"
 	"os"
-	"os/exec"
 	"regexp"
 	"slices"
 	"strings"
@@ -42,8 +41,8 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 			stepParam.InputVideoPath = videoPath
 			return nil
 		}
-		cmd := exec.Command(storage.FfmpegPath, "-i", videoPath, "-vn", "-ar", "44100", "-ac", "2", "-ab", "192k", "-f", "mp3", audioPath)
-		output, err = cmd.CombinedOutput()
+		args := []string{"-y", "-i", videoPath, "-vn", "-ar", "44100", "-ac", "2", "-ab", "192k", "-f", "mp3", audioPath}
+		output, err = runFFmpegProgress(ctx, args, videoPath, "extracting_audio", "正在提取音频", stepParam.TaskPtr, 0, 100)
 		if err != nil {
 			log.GetLogger().Error("generateAudioSubtitles.linkToFile ffmpeg error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
 			return fmt.Errorf("generateAudioSubtitles.linkToFile ffmpeg error: %w", err)
@@ -74,7 +73,7 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 			if storage.FfmpegPath != "ffmpeg" {
 				cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
 			}
-			output, err = downloadYouTubeMedia(ctx, cmdArgs)
+			output, err = downloadYouTubeMedia(ctx, cmdArgs, downloadProgressReporter(stepParam.TaskPtr, true, 0, 45))
 			if err != nil {
 				log.GetLogger().Error("linkToFile download audio yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
 				return fmt.Errorf("linkToFile download audio yt-dlp error: %w: %s", err, compactCommandOutput(output))
@@ -94,7 +93,7 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 			if storage.FfmpegPath != "ffmpeg" {
 				cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
 			}
-			output, err = downloadBilibiliMedia(ctx, cmdArgs)
+			output, err = downloadBilibiliMedia(ctx, cmdArgs, downloadProgressReporter(stepParam.TaskPtr, true, 0, 45))
 			if err != nil {
 				log.GetLogger().Error("linkToFile download audio yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
 				return fmt.Errorf("linkToFile download audio yt-dlp error: %w: %s", err, compactCommandOutput(output))
@@ -110,7 +109,7 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 			if storage.FfmpegPath != "ffmpeg" {
 				cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
 			}
-			output, err = storage.YtdlpCommand(cmdArgs...).CombinedOutput()
+			output, err = runMediaDownload(ctx, cmdArgs, downloadProgressReporter(stepParam.TaskPtr, true, 0, 45))
 			if err != nil {
 				return fmt.Errorf("linkToFile download audio yt-dlp error: %w: %s", err, compactCommandOutput(output))
 			}
@@ -138,11 +137,11 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 			cmdArgs = append(cmdArgs, "--ffmpeg-location", storage.FfmpegPath)
 		}
 		if util.IsYouTubeURL(stepParam.Link) {
-			output, err = downloadYouTubeMedia(ctx, cmdArgs)
+			output, err = downloadYouTubeMedia(ctx, cmdArgs, downloadProgressReporter(stepParam.TaskPtr, false, 45, 95))
 		} else if sourceHost == "bilibili.com" || strings.HasSuffix(sourceHost, ".bilibili.com") {
-			output, err = downloadBilibiliMedia(ctx, cmdArgs)
+			output, err = downloadBilibiliMedia(ctx, cmdArgs, downloadProgressReporter(stepParam.TaskPtr, false, 45, 95))
 		} else {
-			output, err = storage.YtdlpCommandContext(ctx, cmdArgs...).CombinedOutput()
+			output, err = runMediaDownload(ctx, cmdArgs, downloadProgressReporter(stepParam.TaskPtr, false, 45, 95))
 		}
 		if err != nil {
 			log.GetLogger().Error("linkToFile download video yt-dlp error", zap.Any("step param", stepParam), zap.String("output", string(output)), zap.Error(err))
@@ -152,7 +151,7 @@ func (s Service) linkToFile(ctx context.Context, stepParam *types.SubtitleTaskSt
 	stepParam.InputVideoPath = videoPath
 
 	// 更新字幕任务信息
-	stepParam.TaskPtr.SetProgress(10)
+	stepParam.TaskPtr.ReportProgress(types.TaskProgress{Phase: "preparing_source", Percent: 100, Message: "媒体文件准备完成"})
 	return nil
 }
 
@@ -222,7 +221,7 @@ func compactCommandOutput(output []byte) string {
 	return value[len(value)-maximum:]
 }
 
-func downloadYouTubeMedia(ctx context.Context, args []string) ([]byte, error) {
+func downloadYouTubeMedia(ctx context.Context, args []string, progress ...func(mediaDownloadProgress)) ([]byte, error) {
 	const maxAttempts = 3
 	var output []byte
 	var err error
@@ -235,7 +234,7 @@ func downloadYouTubeMedia(ctx context.Context, args []string) ([]byte, error) {
 			// HLS can remain available when the direct audio format is rejected.
 			commandArgs = youtubeAudioFallbackArgs(args)
 		}
-		output, err = storage.YtdlpCommandContext(ctx, commandArgs...).CombinedOutput()
+		output, err = runMediaDownload(ctx, commandArgs, progress...)
 		if err == nil || !strings.Contains(string(output), "HTTP Error 403") || attempt == maxAttempts {
 			return output, err
 		}
@@ -252,7 +251,7 @@ func downloadYouTubeMedia(ctx context.Context, args []string) ([]byte, error) {
 	return output, err
 }
 
-func downloadBilibiliMedia(ctx context.Context, args []string) ([]byte, error) {
+func downloadBilibiliMedia(ctx context.Context, args []string, progress ...func(mediaDownloadProgress)) ([]byte, error) {
 	const maxAttempts = 3
 	var output []byte
 	var err error
@@ -260,7 +259,7 @@ func downloadBilibiliMedia(ctx context.Context, args []string) ([]byte, error) {
 		if err := ctx.Err(); err != nil {
 			return output, err
 		}
-		output, err = storage.YtdlpCommandContext(ctx, args...).CombinedOutput()
+		output, err = runMediaDownload(ctx, args, progress...)
 		if ctx.Err() != nil {
 			return output, ctx.Err()
 		}

@@ -53,6 +53,8 @@ export type KrillinCliProgressFrame = {
   phase?: string;
   percent: number;
   message?: string;
+  completed?: number;
+  total?: number;
 };
 
 type RunProcess = (input: {
@@ -153,7 +155,7 @@ export async function runKrillinCli(input: RunKrillinCliInput): Promise<KrillinR
   input.stage.reportProgress({
     krillinMode: 'cli',
     providerStatus: 'running',
-    percent: 5
+    percent: args[0] === 'subtitle' ? 1 : 5
   });
   try {
     let response: KrillinCliResponse;
@@ -535,12 +537,12 @@ function reportProgressLine(
   const payload: Record<string, CreatorJson> = { percent: frame.percent };
   if (frame.phase !== undefined) payload.phase = frame.phase;
   if (frame.message !== undefined) payload.message = frame.message;
+  if (frame.completed !== undefined) payload.completed = frame.completed;
+  if (frame.total !== undefined) payload.total = frame.total;
   reportProgress({
     krillinMode: 'cli',
     providerStatus: 'running',
-    percent: frame.percent,
-    ...(frame.phase === undefined ? {} : { phase: frame.phase }),
-    ...(frame.message === undefined ? {} : { message: frame.message }),
+    ...payload,
     krillinEventPayload: payload
   });
 }
@@ -559,11 +561,17 @@ export function parseKrillinCliProgressFrame(line: string): KrillinCliProgressFr
     const message = typeof parsed.message === 'string' && parsed.message.trim()
       ? parsed.message.trim()
       : undefined;
+    const counts = typeof parsed.completed === 'number' && Number.isSafeInteger(parsed.completed)
+      && typeof parsed.total === 'number' && Number.isSafeInteger(parsed.total)
+      && parsed.total > 0 && parsed.completed >= 0 && parsed.completed <= parsed.total
+      ? { completed: parsed.completed, total: parsed.total }
+      : {};
     return {
       type: 'progress',
       percent: Math.max(0, Math.min(99, Math.round(parsed.percent))),
       ...(phase === undefined ? {} : { phase }),
-      ...(message === undefined ? {} : { message })
+      ...(message === undefined ? {} : { message }),
+      ...counts
     };
   } catch {
     return undefined;

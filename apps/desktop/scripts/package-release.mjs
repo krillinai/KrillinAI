@@ -200,7 +200,7 @@ const packageWithSigningEnvironment = async builderEnv => {
       resource.path.startsWith('fonts/')
       || resource.path.startsWith('licenses/fonts/')
     ));
-  const creatorSubtitleWebFontResources = creatorSubtitleFontSourceManifest.fonts
+  const creatorSubtitleWebFontResources = [...creatorSubtitleFontSourceManifest.fonts, ...(creatorSubtitleFontSourceManifest.fallbackFonts ?? [])]
     .map(font => {
       if (
         typeof font?.webFile !== 'string'

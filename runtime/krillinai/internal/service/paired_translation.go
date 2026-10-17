@@ -14,11 +14,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/clipperhouse/uax29/v2/sentences"
 	openaiapi "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -166,28 +166,7 @@ func hasSubtitleContent(text string) bool {
 	return strings.ContainsFunc(text, func(r rune) bool { return unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.IsSymbol(r) })
 }
 
-func splitTranslationSentences(text string) []string {
-	var texts []string
-	var pending strings.Builder
-	iter := sentences.FromString(text)
-	for iter.Next() {
-		pending.WriteString(iter.Value())
-		fields := strings.Fields(pending.String())
-		if len(fields) > 0 && subtitleAbbreviations[strings.ToLower(fields[len(fields)-1])] {
-			continue
-		}
-		if sentence := strings.TrimSpace(pending.String()); sentence != "" {
-			texts = append(texts, sentence)
-		}
-		pending.Reset()
-	}
-	if sentence := strings.TrimSpace(pending.String()); sentence != "" {
-		texts = append(texts, sentence)
-	}
-	return texts
-}
-
-func (t *Translator) translatePairedSentences(ctx context.Context, texts []string, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, onBatch func([]pairedSentence, int, int) error) ([]pairedSentence, error) {
+func (t *Translator) translatePairedSentences(ctx context.Context, texts []string, originLang, targetLang types.StandardLanguageCode, limit, batchSize int, onBatch func([]pairedSentence, int, int) error, onProgress ...func(completed, total int)) ([]pairedSentence, error) {
 	if limit < 1 || batchSize < 1 {
 		return nil, fmt.Errorf("目标长度和批次大小必须大于0")
 	}
@@ -197,7 +176,7 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 		inputSentences = append(inputSentences, splitTranslationSentences(text)...)
 	}
 	for _, text := range inputSentences {
-		parts, err := splitSubtitleText(strings.Join(strings.Fields(text), " "), func(s string) bool { return len(s) <= min(translationSentenceBytes, max(32, limit*16)) })
+		parts, err := splitTranslationSentenceForBudget(strings.Join(strings.Fields(text), " "), min(translationSentenceBytes, max(32, limit*16)))
 		if err != nil {
 			return nil, err
 		}
@@ -208,6 +187,19 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 	if err != nil {
 		return nil, err
 	}
+	var progressMu sync.Mutex
+	completed := 0
+	reportCompleted := func(count int) {
+		progressMu.Lock()
+		defer progressMu.Unlock()
+		completed += count
+		for _, report := range onProgress {
+			if report != nil && len(texts) > 0 {
+				report(completed, len(texts))
+			}
+		}
+	}
+	reportCompleted(0)
 	translateBatch := func(ctx context.Context, input pairedTranslationInput) ([]pairedSentence, error) {
 		start, _ := strconv.Atoi(input.Sentences[0].ID)
 		end := start + len(input.Sentences) - 1
@@ -291,6 +283,7 @@ func (t *Translator) translatePairedSentences(ctx context.Context, texts []strin
 				batch, err := translateBatch(batchCtx, input)
 				if err == nil {
 					batches[i] = batch
+					reportCompleted(len(batch))
 				}
 				return err
 			})
@@ -355,7 +348,7 @@ func (t *Translator) parsePairedTranslation(response string, input pairedTransla
 		}
 		if !hasSubtitleContent(sentence.FullTarget) || hasSubtitleLineBreak(sentence.FullTarget) {
 			issues = append(issues, fmt.Errorf("句子%s缺少有效的完整译文target_text，必须先完整翻译一次，再只插入分段边界", sentence.ID))
-		} else if compactSubtitleText(strings.Join(sentence.Target, "")) != compactSubtitleText(sentence.FullTarget) {
+		} else if !subtitleSegmentsPreserveText(sentence.FullTarget, sentence.Target) {
 			issues = append(issues, fmt.Errorf("句子%s译文分段覆盖错误，存在重复、遗漏、改写或乱序。完整译文=%q；错误的译文拼接=%q。请丢弃该句错误的target分段，只从完整译文按顺序插入分割边界，禁止改动任何文字和标点。若原译语序不适合对应，先统一重写该句target_text，再从这份译文顺序分段，不可分别翻译", sentence.ID, sentence.FullTarget, strings.Join(sentence.Target, "")))
 		}
 		for j := 0; j < max(len(sentence.Source), len(sentence.Target)); j++ {
@@ -382,8 +375,8 @@ func (t *Translator) parsePairedTranslation(response string, input pairedTransla
 		if !subtitleSegmentsHaveSafeBoundaries(sentence.Source) || !subtitleSegmentsHaveSafeBoundaries(sentence.Target) {
 			issues = append(issues, fmt.Errorf("句子%s在字素簇内部切分，必须保留组合字符、连接符、Emoji和文字方向控制字符", sentence.ID))
 		}
-		if compactSubtitleText(strings.Join(sentence.Source, "")) != compactSubtitleText(original.Text) {
-			issues = append(issues, fmt.Errorf("句子%s原文覆盖错误，存在改写、遗漏、重复或乱序。仅译文可以调整语序，segments的source只能在以下正确原文中插入分割边界，禁止移动任何词。正确原文=%q；错误的原文拼接=%q。请丢弃该句错误的source分段，直接从正确原文按顺序重新切成%d段", sentence.ID, original.Text, strings.Join(sentence.Source, " "), len(sentence.Target)))
+		if !subtitleSegmentsPreserveText(original.Text, sentence.Source) {
+			issues = append(issues, fmt.Errorf("句子%s原文覆盖错误，存在改写、遗漏、重复、乱序或段内词间空格变化。仅译文可以调整语序，segments的source只能在以下正确原文中插入分割边界，禁止移动任何词或修改段内空格。正确原文=%q；错误的原文拼接=%q。请丢弃该句错误的source分段，直接从正确原文按顺序重新切成%d段", sentence.ID, original.Text, strings.Join(sentence.Source, " "), len(sentence.Target)))
 		}
 		// 检查完整句子，允许其中的专名片段保持原样及跨片段调整语序。
 		if !t.isTranslationValid(original.Text, sentence.FullTarget, originLang, targetLang) {
@@ -447,7 +440,7 @@ func joinPairedTargetSegments(segments []string, targetLang types.StandardLangua
 }
 
 func subtitleLanguageWithoutWordSpaces(language types.StandardLanguageCode) bool {
-	return language == types.LanguageNameSimplifiedChinese || language == types.LanguageNameTraditionalChinese || language == types.LanguageNameJapanese || language == types.LanguageNameThai || language == types.LanguageNameKhmer || language == types.LanguageNameLao || language == "my"
+	return !types.LanguageUsesWordSpaces(language)
 }
 
 func canJoinPairedTargetSegments(segments []string, language types.StandardLanguageCode) bool {
@@ -532,7 +525,6 @@ func subtitlePositionTime(spans []subtitleTimingSpan, position int, ending bool)
 func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util.SrtBlock, originLang, targetLang string, taskPtr *types.SubtitleTask, wordTimings ...[]VttWord) ([]*util.SrtBlock, error) {
 	var texts []string
 	var spans []subtitleTimingSpan
-	var pending []string
 	position := 0
 	for _, block := range blocks {
 		if block == nil || !hasSubtitleContent(block.OriginLanguageSentence) {
@@ -546,14 +538,11 @@ func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util
 		length := utf8.RuneCountInString(compactSubtitleText(text))
 		spans = append(spans, subtitleTimingSpan{position, position + length, start, end})
 		position += length
-		pending = append(pending, text)
-		if isSentenceEnding(text) {
-			texts = append(texts, strings.Join(pending, " "))
-			pending = nil
-		}
+		texts = append(texts, text)
 	}
-	if len(pending) > 0 {
-		texts = append(texts, strings.Join(pending, " "))
+	// cue 是时间边界，不是语义句界；先连起全文，让同一分句器看到跨 cue 的缩写和姓名。
+	if len(texts) > 0 {
+		texts = []string{strings.Join(texts, " ")}
 	}
 	if len(wordTimings) > 0 && len(wordTimings[0]) > 0 {
 		var err error
@@ -567,12 +556,7 @@ func (t *Translator) BatchTranslateSrtBlocks(ctx context.Context, blocks []*util
 		batchSize = 10
 	}
 	batchSize = min(3, batchSize)
-	paired, err := t.translatePairedSentences(ctx, texts, types.StandardLanguageCode(originLang), types.StandardLanguageCode(targetLang), subtitleTargetLimit(), batchSize, func(_ []pairedSentence, done, total int) error {
-		if taskPtr != nil {
-			taskPtr.SetProgress(40 + uint8(done*50/total))
-		}
-		return nil
-	})
+	paired, err := t.translatePairedSentences(ctx, texts, types.StandardLanguageCode(originLang), types.StandardLanguageCode(targetLang), subtitleTargetLimit(), batchSize, nil, taskPtr.SetTranslationProgress)
 	if err != nil {
 		if len(blocks) > 0 {
 			return nil, fmt.Errorf("字幕%d-%d: %w", blocks[0].Index, blocks[len(blocks)-1].Index, err)

@@ -159,7 +159,7 @@ var Conf = Config{
 		TranscribeParallelNum: 1,
 		TranscribeMaxAttempts: 3,
 		TranslateMaxAttempts:  3,
-		MaxSentenceLength:     70,
+		MaxSentenceLength:     50,
 		EnableBlockVttBatch:   false,
 		VttBatchSize:          10,
 	},

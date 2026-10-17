@@ -16,7 +16,7 @@ type RenderRequest struct {
 	Video               string
 	SourceURL           string
 	MediaWorkdir        string
-	ReportProgress      func(string, int, string)
+	ReportProgress      ProgressReporter
 	Audio               string
 	Subtitle            string
 	Horizontal          bool
@@ -32,6 +32,7 @@ type RenderRequest struct {
 }
 
 func Render(ctx context.Context, svc StageService, req RenderRequest) (Response, error) {
+	req.ReportProgress = monotonicProgress(req.ReportProgress)
 	manifest, err := renderManifest(req)
 	if err != nil {
 		return renderFailureResponse(req, nil, ErrorKindInternal, "load_manifest_failed", err), err
@@ -82,6 +83,7 @@ func Render(ctx context.Context, svc StageService, req RenderRequest) (Response,
 		}
 		subtitle = normalized
 	}
+	forwardTaskProgress(stepParam.TaskPtr, req.ReportProgress, nil)
 	rendered, err := svc.RenderVideo(ctx, service.RenderVideoRequest{
 		Workdir:       req.Workdir,
 		InputVideo:    inputVideo,

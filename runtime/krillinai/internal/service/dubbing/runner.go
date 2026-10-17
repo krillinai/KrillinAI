@@ -70,12 +70,14 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		return Result{}, err
 	}
 
+	r.reportPhase("planning_voice")
 	planner := NewPlanner(r.deps.Config, NewStatisticalEstimator(), NewLLMOptimizer(r.deps.Chat))
 	plan, chunks, err := planner.Plan(cues, r.deps.Language)
 	if err != nil {
 		return Result{}, err
 	}
 
+	r.reportPhase("generating_voice")
 	plan, chunks, err = GenerateRawChunkSegments(
 		ctx,
 		r.deps.TTS,
@@ -91,6 +93,7 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		return Result{}, err
 	}
 
+	r.reportPhase("fitting_voice")
 	fitted, fittedChunks, report, err := FitTimeline(plan, chunks, r.deps.Config)
 	if err != nil {
 		return Result{}, err
@@ -110,6 +113,7 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 	if err := ensureParentDir(r.deps.OutputAudio); err != nil {
 		return Result{}, err
 	}
+	r.reportPhase("assembling_voice")
 	if err := AssembleChunkAudio(fitted, fittedChunks, segmentsDir, r.deps.OutputAudio, r.deps.FFmpeg); err != nil {
 		return Result{}, err
 	}
@@ -121,6 +125,7 @@ func (r *Runner) Run(ctx context.Context) (Result, error) {
 		if err := ensureParentDir(r.deps.OutputVideo); err != nil {
 			return Result{}, err
 		}
+		r.reportPhase("muxing_voice")
 		if err := r.deps.FFmpeg(buildMuxArgs(r.deps.InputVideo, r.deps.OutputAudio, r.deps.OutputVideo)); err != nil {
 			return Result{}, err
 		}
@@ -201,4 +206,10 @@ func writeJSON(path string, value any) error {
 	}
 	data = append(data, '\n')
 	return os.WriteFile(path, data, 0644)
+}
+
+func (r *Runner) reportPhase(phase string) {
+	if r.deps.ReportPhase != nil {
+		r.deps.ReportPhase(phase)
+	}
 }

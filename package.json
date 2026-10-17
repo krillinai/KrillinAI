@@ -28,7 +28,9 @@
     "templates:preview-videos": "node scripts/optimize-creator-preview-videos.mjs",
     "krillinai:build": "node scripts/build-krillinai.mjs",
     "krillinai:package": "node scripts/package-krillinai-release.mjs",
-    "krillinai:test": "node scripts/build-krillinai.mjs --test-only"
+    "krillinai:test": "node scripts/build-krillinai.mjs --test-only",
+    "languages:generate": "node scripts/generate-creator-languages.mjs",
+    "languages:check": "node scripts/generate-creator-languages.mjs --check"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

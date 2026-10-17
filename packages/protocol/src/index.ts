@@ -18,3 +18,4 @@ export * from './wechat-article.js';
 export * from './stickman.js';
 export * from './gateway-account.js';
 export * from './platform-connections.js';
+export * from './creator-languages.js';

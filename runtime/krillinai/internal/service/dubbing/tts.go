@@ -83,6 +83,9 @@ func GenerateRawChunkSegments(
 
 	outPlan := append([]PlanItem(nil), plan...)
 	outChunks := append([]Chunk(nil), chunks...)
+	if reportProgress != nil {
+		reportProgress(0, len(outChunks))
+	}
 	for i := range outChunks {
 		if err := ctx.Err(); err != nil {
 			return nil, nil, err

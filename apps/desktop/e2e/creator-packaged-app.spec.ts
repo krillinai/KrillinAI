@@ -136,6 +136,50 @@ test('Remotion 组件不随 App 内嵌，首次渲染按需下载后自动继续
 
 function rootDirForFixture(): string { return resolve(desktopDir, '../..'); }
 
+test('打包 App 的视频翻译支持多语言检索、保存和内置字体', async () => {
+  const fixture = await launchCreatorDesktop({ width: 1180, height: 850 });
+  let currentApp = fixture.app;
+  try {
+    await waitForWorkspace(fixture.app.page);
+    const page = fixture.app.page;
+    const projects = await runtimeRequest<{ projects: Array<{ id: string }> }>(page, 'GET', '/projects');
+    const created = await runtimeRequest<{ job: { id: string } }>(page, 'POST', '/creator/jobs', {
+      projectId: projects.body.projects[0]!.id, templateId: 'video-translation',
+      state: { sourceLanguage: 'hi', targetLanguage: 'zh_cn', currentStep: 1, furthestStep: 1, workspacePhase: 'configure' }
+    });
+    expect(created.status).toBe(201);
+    await page.evaluate(jobId => { window.location.hash = `#/workbench?tool=video-translation&jobId=${jobId}`; }, created.body.job.id);
+    const source = page.getByRole('combobox', { name: '源语言', exact: true });
+    await expect(source).toHaveValue('hi');
+    await expect(source.locator('option')).toHaveCount(52);
+    await expect(page.getByRole('combobox', { name: '翻译为', exact: true }).locator('option')).toHaveCount(124);
+    const search = page.getByRole('searchbox', { name: '搜索源语言' });
+    await search.fill('阿拉伯');
+    await expect(source).toHaveValue('hi');
+    await expect(source.locator('option[value="ar"]')).toHaveText('العربية');
+    await source.selectOption('ar');
+    await expect.poll(async () => (await runtimeRequest<{ job: { state: { sourceLanguage: string } } }>(page, 'GET', `/creator/jobs/${created.body.job.id}`)).body.job.state.sourceLanguage).toBe('ar');
+    await page.reload();
+    await expect(source).toHaveValue('ar');
+    const font = await page.evaluate(async () => {
+      const response = await fetch('/fonts/opencreator/NotoSansArabic-Regular.woff2');
+      return { status: response.status, bytes: (await response.arrayBuffer()).byteLength };
+    });
+    expect(font.status).toBe(200);
+    expect(font.bytes).toBeGreaterThan(10_000);
+    await closePackagedApp(currentApp);
+    currentApp = await relaunchPackagedApp(currentApp, 45_000);
+    await waitForWorkspace(currentApp.page);
+    const restored = await runtimeRequest<{ job: { state: { sourceLanguage: string } } }>(currentApp.page, 'GET', `/creator/jobs/${created.body.job.id}`);
+    expect(restored.body.job.state.sourceLanguage).toBe('ar');
+    await currentApp.page.evaluate(jobId => { window.location.hash = `#/workbench?tool=video-translation&jobId=${jobId}`; }, created.body.job.id);
+    await expect(currentApp.page.getByRole('combobox', { name: '源语言', exact: true })).toHaveValue('ar');
+  } finally {
+    await closePackagedApp(currentApp).catch(() => undefined);
+    rmSync(fixture.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
 test('打包 App 的 YouTube 视频嵌入请求带有有效 HTTP 来源标识', async () => {
   const fixture = await launchCreatorDesktop({ width: 1180, height: 850 });
   try {
