@@ -46,7 +46,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.change(screen.getByRole('combobox', { name: '字幕字体' }), { target: { value: 'serif' } });
     fireEvent.change(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
     fireEvent.click(within(screen.getByRole('dialog', { name: '自定义字幕样式' })).getByRole('button', { name: '完成' }));
-    fireEvent.click(within(screen.getByRole('dialog', { name: '字幕样式' })).getByRole('tab', { name: '配音' }));
+    fireEvent.click(within(screen.getByRole('complementary', { name: '字幕样式' })).getByRole('tab', { name: '配音' }));
     fireEvent.click(screen.getByRole('switch', { name: '生成目标语言配音' }));
     const picker = await screen.findByRole('combobox', { name: '配音音色' });
     await waitFor(() => expect(picker).toBeEnabled());
@@ -101,7 +101,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.click(await screen.findByRole('tab', { name: '字幕' }));
     fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
     fireEvent.click(screen.getByRole('button', { name: panel }));
-    const dialog = screen.getByRole('dialog', { name: panel });
+    const dialog = screen.getByRole('complementary', { name: panel });
     expect(within(dialog).queryByRole('switch', { name: '合成字幕视频' })).toBeNull();
     if (panel === '字幕样式') {
       expect(within(dialog).getByRole('radiogroup', { name: '推荐样式' })).toBeVisible();

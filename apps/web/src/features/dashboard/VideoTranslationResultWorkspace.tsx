@@ -5,7 +5,6 @@ import {
   type CSSProperties,
   type ReactNode
 } from 'react';
-import { createPortal } from 'react-dom';
 import {
   Captions,
   ChevronRight,
@@ -389,13 +388,17 @@ export default function VideoTranslationResultWorkspace(props: {
 
   return (
     <section ref={rootRef} className="video-result-workspace" data-immersive={props.immersive || undefined}
+      data-settings-open={props.immersive && Boolean(props.editorSettings) && Boolean(editorPanel) || undefined}
       aria-label={l('视频翻译项目产出', 'Video translation project outputs')}
       onKeyDown={event => {
         if (!props.immersive || event.defaultPrevented) return;
         if (event.key === 'Escape' && !document.querySelector('[role="dialog"], dialog[open]')) {
-          event.preventDefault(); props.onImmersiveChange?.(false);
+          event.preventDefault();
+          if (editorPanel) setEditorPanel(undefined);
+          else props.onImmersiveChange?.(false);
         }
         const target = event.target as HTMLElement;
+        if (target.closest('.subtitle-editor-settings')) return;
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z' && !target.matches('input, textarea, [contenteditable="true"]')) {
           event.preventDefault(); travelHistory(event.shiftKey ? 'future' : 'past');
         }
@@ -719,7 +722,7 @@ export default function VideoTranslationResultWorkspace(props: {
               {props.immersive && props.editorSettings && !props.subtitleOnly ? <div className="subtitle-editor-settings-nav" role="group" aria-label={l('项目设置', 'Project settings')}>
                 {editorPanels.map(panel => {
                   const Icon = panel === 'style' ? Captions : panel === 'voice' ? Mic2 : MonitorPlay;
-                  return <button key={panel} type="button" aria-expanded={editorPanel === panel} aria-haspopup="dialog"
+                  return <button key={panel} type="button" aria-expanded={editorPanel === panel}
                     disabled={props.editorSettings?.disabled}
                     aria-controls="subtitle-editor-settings-panel" onClick={() => {
                       if (subtitleVideoRef.current && !subtitleVideoRef.current.paused) subtitleVideoRef.current.pause();
@@ -964,10 +967,10 @@ export default function VideoTranslationResultWorkspace(props: {
         </div>
       ) : null}
 
-      {props.immersive && props.editorSettings && editorPanel ? <SubtitleEditorSettingsDrawer
+      {props.immersive && props.editorSettings && editorPanel ? <SubtitleEditorSettingsPanel
         title={editorPanelLabel(editorPanel)}
         context={l(`正在基于 V${props.version} 调整`, `Adjusting from V${props.version}`)}
-        workspace={rootRef.current?.closest<HTMLElement>('.video-translation-page') ?? rootRef.current} onClose={() => setEditorPanel(undefined)}
+        onClose={() => setEditorPanel(undefined)}
         actions={regenerationControls}
         footer={<button type="button" onClick={() => setEditorPanel(undefined)}>{l('完成', 'Done')}</button>}>
         <div className="subtitle-editor-settings-tabs" role="tablist" aria-label={l('项目设置', 'Project settings')}>
@@ -996,62 +999,45 @@ export default function VideoTranslationResultWorkspace(props: {
             <button type="button" onClick={props.onReloadVoice}>{l('重新加载配音', 'Reload dubbing')}</button>
           </> : null}
         </div> : null}
-      </SubtitleEditorSettingsDrawer> : null}
+      </SubtitleEditorSettingsPanel> : null}
     </section>
   );
 }
 
-function SubtitleEditorSettingsDrawer(props: {
+function SubtitleEditorSettingsPanel(props: {
   title: string;
   context: string;
-  workspace: HTMLElement | null;
   children: ReactNode;
   actions: ReactNode;
   footer: ReactNode;
   onClose(): void;
 }) {
   const l = useLocalizedCopy();
-  const dialogRef = useRef<HTMLElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const onCloseRef = useRef(props.onClose);
-  onCloseRef.current = props.onClose;
   useEffect(() => {
     const trigger = document.activeElement as HTMLElement | null;
-    const workspace = props.workspace;
-    const wasInert = workspace?.hasAttribute('inert');
-    workspace?.setAttribute('inert', '');
+    const panel = panelRef.current;
+    const workspace = panel?.parentElement;
     closeRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || document.querySelector('[role="dialog"]:not(#subtitle-editor-settings-panel)')) return;
-      if (event.key === 'Escape') { event.preventDefault(); onCloseRef.current(); }
-      if (event.key !== 'Tab') return;
-      const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
-        'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
-      ) ?? []).filter(element => element.tabIndex >= 0 && !element.closest('fieldset:disabled, [hidden]'));
-      const first = controls[0], last = controls.at(-1);
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-    };
-    document.addEventListener('keydown', onKeyDown);
     return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      if (!wasInert) workspace?.removeAttribute('inert');
-      trigger?.focus();
+      if (document.activeElement === document.body || panel?.contains(document.activeElement)) {
+        const destination = trigger?.matches(':disabled') ? workspace?.querySelector<HTMLElement>('.subtitle-editor-back') : trigger;
+        destination?.focus();
+      }
     };
   }, []);
-  return createPortal(<div className="subtitle-editor-settings-backdrop" onMouseDown={event => {
-    if (event.target === event.currentTarget) props.onClose();
-  }}>
-    <section className="subtitle-editor-settings" id="subtitle-editor-settings-panel" ref={dialogRef}
-      role="dialog" aria-modal="true" aria-label={props.title}>
+  return (
+    <aside className="subtitle-editor-settings" id="subtitle-editor-settings-panel" ref={panelRef}
+      aria-label={props.title}>
       <header><div><h2>{props.title}</h2><p>{props.context}</p></div>
         {props.actions}
         <button ref={closeRef} type="button" aria-label={l('关闭', 'Close')} onClick={props.onClose}><X size={18} /></button>
       </header>
       <div className="subtitle-editor-settings-body">{props.children}</div>
       <footer>{props.footer}</footer>
-    </section>
-  </div>, document.body);
+    </aside>
+  );
 }
 
 function videoVariantFormatLabel(variant: VideoResultVariant, l: LocalizeCopy): string {

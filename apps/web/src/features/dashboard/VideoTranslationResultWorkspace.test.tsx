@@ -58,21 +58,29 @@ function EditingHarness(props: { preview?: boolean; readOnly?: boolean; saving?:
 
 describe('VideoTranslationResultWorkspace', () => {
   it('opens shared editor settings without replacing the player and keeps explicit regeneration available', () => {
-    const onOpen = vi.fn(), onRequest = vi.fn();
+    const onOpen = vi.fn(), onRequest = vi.fn(), onImmersiveChange = vi.fn();
     const settings = { style: <label>Shared style<input aria-label="Shared style" /></label>, voice: <p>Shared dubbing settings</p>,
       output: <label>Shared format<select aria-label="Shared format"><option>16:9</option><option>9:16</option></select></label>, disabled: false, onOpen };
     const { rerender } = render(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" immersive
-      editorSettings={settings} hasPendingChanges onRequestRegenerate={onRequest}
+      editorSettings={settings} hasPendingChanges onRequestRegenerate={onRequest} onImmersiveChange={onImmersiveChange}
       subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }} />);
     const video = screen.getByLabelText('横屏字幕视频预览');
     expect(screen.getByRole('button', { name: '生成 V2' }).closest('header')).not.toBeNull();
     expect(screen.getByRole('button', { name: '输出画幅' }).closest('.video-result-subtitle-video')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '字幕样式' }));
+    const styleTrigger = screen.getByRole('button', { name: '字幕样式' });
+    styleTrigger.focus();
+    fireEvent.click(styleTrigger);
     expect(onOpen).toHaveBeenCalledOnce();
-    const dialog = screen.getByRole('dialog', { name: '字幕样式' });
-    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    const dialog = screen.getByRole('complementary', { name: '字幕样式' });
+    expect(dialog).not.toHaveAttribute('aria-modal');
+    expect(dialog.parentElement).toBe(video.closest('.video-result-workspace'));
     expect(within(dialog).getByRole('button', { name: '生成 V2' }).closest('header')).not.toBeNull();
-    expect(video.closest('.video-result-workspace')).toHaveAttribute('inert');
+    expect(video.closest('.video-result-workspace')).not.toHaveAttribute('inert');
+    expect(video.closest('.video-result-workspace')).toHaveAttribute('data-settings-open', 'true');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(fireEvent.keyDown(within(dialog).getByRole('button', { name: '完成' }), { key: 'Tab' })).toBe(true);
+    fireEvent.timeUpdate(video, { target: { currentTime: 0.5 } });
+    expect(screen.getByRole('slider', { name: '播放位置' })).toHaveAttribute('aria-valuenow', '0.5');
     expect(screen.getByRole('textbox', { name: 'Shared style' })).toBeEnabled();
     fireEvent.click(within(dialog).getByRole('tab', { name: '输出画幅' }));
     expect(within(dialog).getByRole('combobox', { name: 'Shared format' })).toBeEnabled();
@@ -83,7 +91,7 @@ describe('VideoTranslationResultWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: '生成 V2' }));
     expect(onRequest).toHaveBeenCalledOnce();
     rerender(<VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" immersive
-      editorSettings={{ ...settings, disabled: true }} hasPendingChanges regenerationPending affectedArtifacts={['配音', '成片']}
+      editorSettings={{ ...settings, disabled: true }} hasPendingChanges regenerationPending affectedArtifacts={['配音', '成片']} onImmersiveChange={onImmersiveChange}
       subtitleVideoPreviews={{ horizontal: { artifactId: 'source', src: 'blob:source', source: true } }} />);
     expect(screen.getByText('将更新配音、成片，V1 的全部产出会保留')).toBeVisible();
     expect(screen.getByRole('button', { name: '确认生成 V2' })).toBeDisabled();
@@ -91,7 +99,10 @@ describe('VideoTranslationResultWorkspace', () => {
     fireEvent.click(screen.getByRole('tab', { name: '字幕样式' }));
     expect(screen.getByRole('textbox', { name: 'Shared style' })).toBeDisabled();
     fireEvent.keyDown(screen.getByRole('button', { name: '关闭' }), { key: 'Escape' });
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('complementary')).toBeNull();
+    expect(onImmersiveChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '返回项目' })).toHaveFocus();
+    expect(video.closest('.video-result-workspace')).not.toHaveAttribute('data-settings-open');
     expect(video.closest('.video-result-workspace')).not.toHaveAttribute('inert');
   });
 
