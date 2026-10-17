@@ -31,6 +31,7 @@ import {
 } from './MemorySettingsView.js';
 import type { RuntimeDependenciesController } from '../../app/use-runtime-dependencies.js';
 import { RuntimeComponentsSettingsView } from './RuntimeComponentsSettingsView.js';
+import './settings-layout.css';
 import './settings-management.css';
 import type { OpenCreatorSettingsService } from '../../services/opencreator-settings-service.js';
 import { IssueList } from '../issues/IssuePresenter.js';
@@ -42,12 +43,16 @@ import type { GatewayAccountState } from '@opencreator/protocol';
 import { OfficialServicesSettingsView } from './OfficialServicesSettingsView.js';
 import { OfficialServiceRecovery } from './OfficialServiceRecovery.js';
 import { NetworkSettings } from './NetworkSettings.js';
-import { PlatformConnectionsSettingsView } from './PlatformConnectionsSettingsView.js';
 import type { PlatformConnectionsService } from '../../services/platform-connections-service.js';
 
 const CreatorServicesSettingsView = lazy(async () => {
   const module = await import('./CreatorServicesSettingsView.js');
   return { default: module.CreatorServicesSettingsView };
+});
+
+const PlatformConnectionsSettingsView = lazy(async () => {
+  const module = await import('./PlatformConnectionsSettingsView.js');
+  return { default: module.PlatformConnectionsSettingsView };
 });
 
 export type RuntimeStatus = {
@@ -266,7 +271,11 @@ export function OpenCreatorSettingsView(props: OpenCreatorSettingsViewProps) {
             controller={props.runtimeDependencies}
           />
         ) : null}
-        {activeTab === 'platform-connections' ? <PlatformConnectionsSettingsView connected={props.runtimeStatus.connected} service={props.platformConnectionsService} /> : null}
+        {activeTab === 'platform-connections' ? (
+          <Suspense fallback={<p role="status">{l('正在加载…', 'Loading…')}</p>}>
+            <PlatformConnectionsSettingsView connected={props.runtimeStatus.connected} service={props.platformConnectionsService} />
+          </Suspense>
+        ) : null}
         {activeTab === 'plugins' ? <PluginSettings runtimeStatus={props.runtimeStatus} /> : null}
         {activeTab === 'memory' ? (
           <MemorySettingsView
