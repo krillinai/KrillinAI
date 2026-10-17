@@ -1851,9 +1851,20 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(dialog).toHaveTextContent('当前正在执行“字幕翻译”，进度 4%');
     expect(dialog).toHaveTextContent('当前 4% 的阶段内进度不会保留');
     expect(within(dialog).getByRole('button', { name: '取消' })).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: '终止任务' }));
-
-    await waitFor(() => expect(cancelJob).toHaveBeenCalledWith('job_control'));
+    vi.useFakeTimers();
+    try {
+      await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: '终止任务' })); });
+      expect(cancelJob).toHaveBeenCalledWith('job_control');
+      const notice = '终止请求已发送。已完成阶段和产物会保留；继续时当前阶段将重新开始。';
+      expect(within(workspace).getByText(notice)).toBeVisible();
+      await act(async () => { vi.advanceTimersByTime(4_999); });
+      expect(within(workspace).getByText(notice)).toBeVisible();
+      await act(async () => { vi.advanceTimersByTime(1); });
+      expect(within(workspace).queryByText(notice)).not.toBeInTheDocument();
+      expect(screen.getByText('已终止，可继续')).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
     const resumeButton = await screen.findByRole('button', { name: '继续字幕翻译' });
     await waitFor(() => expect(resumeButton).toBeEnabled());
     expect(within(workspace).queryByRole('button', { name: '继续任务' })).not.toBeInTheDocument();
@@ -1861,8 +1872,17 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(screen.getByText('已终止，可继续').closest('[data-status="canceled"]')?.querySelector('.lucide-square'))
       .toHaveAttribute('fill', 'currentColor');
 
-    fireEvent.click(resumeButton);
-    await waitFor(() => expect(resumeJob).toHaveBeenCalledWith('job_control'));
+    vi.useFakeTimers();
+    try {
+      await act(async () => { fireEvent.click(resumeButton); });
+      expect(resumeJob).toHaveBeenCalledWith('job_control');
+      const notice = '任务已继续，正在从“字幕翻译”重新开始';
+      expect(within(workspace).getByText(notice)).toBeVisible();
+      await act(async () => { vi.advanceTimersByTime(5_000); });
+      expect(within(workspace).queryByText(notice)).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
     expect(await screen.findByRole('button', { name: '终止字幕翻译' })).toBeInTheDocument();
     expect(within(workspace).queryByRole('button', { name: '终止任务' })).not.toBeInTheDocument();
     expect(within(workspace).queryByRole('button', { name: '开始翻译' })).not.toBeInTheDocument();

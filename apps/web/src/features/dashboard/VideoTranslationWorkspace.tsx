@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -1901,7 +1902,18 @@ export default function VideoTranslationWorkspace(props: {
   }, [workspacePhase, resultTab]);
   const [draftBaseVersion, setDraftBaseVersion] = useState<number>();
   const [resultProposal, setResultProposal] = useState<ResultProposal>();
-  const [resultNotice, setResultNotice] = useState('');
+  const [resultNoticeState, setResultNoticeState] = useState({ message: '', transient: false });
+  const resultNotice = resultNoticeState.message;
+  const setResultNotice = useCallback((message: string, transient = false) => {
+    setResultNoticeState({ message, transient });
+  }, []);
+  useEffect(() => {
+    if (!resultNoticeState.message || !resultNoticeState.transient) return;
+    const timeout = window.setTimeout(() => {
+      setResultNoticeState(current => current === resultNoticeState ? { message: '', transient: false } : current);
+    }, 5_000);
+    return () => window.clearTimeout(timeout);
+  }, [resultNoticeState]);
   const [voicePreviewReload, setVoicePreviewReload] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [subtitleImportPending, setSubtitleImportPending] = useState(false);
@@ -3319,7 +3331,7 @@ export default function VideoTranslationWorkspace(props: {
       setResultNotice(l(
         '终止请求已发送。已完成阶段和产物会保留；继续时当前阶段将重新开始。',
         'Stop requested. Completed stages and outputs are preserved; the current stage will restart when resumed.'
-      ));
+      ), true);
     } catch (cause) {
       setResultNotice(creatorErrorMessage(cause, l));
     } finally {
@@ -3337,7 +3349,7 @@ export default function VideoTranslationWorkspace(props: {
       setResultNotice(l(
         `任务已继续，正在从“${translationStageLabel(resumableStage.stageId, l)}”重新开始`,
         `The task resumed and is restarting from "${translationStageLabel(resumableStage.stageId, l)}"`
-      ));
+      ), true);
     } catch (cause) {
       setResultNotice(creatorErrorMessage(cause, l));
     } finally {
