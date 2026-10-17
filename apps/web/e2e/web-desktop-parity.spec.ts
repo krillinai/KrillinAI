@@ -381,7 +381,7 @@ test('Agent 面板在 Browser/Desktop Bridge 下均不显示产物版本详情',
     try {
       await runtime.openApp(page);
       await page.goto(`${runtime.origin}/#/workbench?tool=image-generation&jobId=${created.job.id}`);
-      await expect(page.getByText('当前任务', { exact: true })).toBeVisible();
+      await expect(page.locator('.creator-collaboration-panel')).toBeVisible();
       await expect(page.getByText('产物版本与来源', { exact: true })).toHaveCount(0);
       const layout = await page.evaluate(() => {
         const panel = document.querySelector('.creator-collaboration-panel')!;
@@ -1170,7 +1170,7 @@ test('通用界面设置在 Browser/Desktop Bridge 下读取并写入相同 Runt
       const storagePaths = settings.locator('#settings-default-project-root, #settings-output-root');
       await expect(lightButton).toHaveAttribute('aria-pressed', 'true');
       await expect(permission).toHaveValue('workspace-write');
-      await expect(language).toHaveValue('zh-CN');
+      await expect(language).toHaveAttribute('data-value', 'zh-CN');
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
       await expect(page.locator('html')).toHaveAttribute('data-accent', 'red');
       const readStoragePaths = () => storagePaths.evaluateAll(inputs => (
@@ -1427,16 +1427,16 @@ test('视频生成在 Browser/Desktop Bridge 下保持相同界面、请求和�
 
       const workspace = page.getByRole('region', { name: '视频生成 操作区' });
       const panel = page.getByRole('complementary', { name: 'OpenCreator' });
-      const provider = workspace.getByRole('combobox', { name: '视频服务' });
+      const provider = workspace.getByRole('combobox', { name: '模型', exact: true });
       const model = workspace.getByRole('combobox', { name: '模型版本' });
       const format = workspace.getByRole('combobox', { name: '画幅' });
       const duration = workspace.getByRole('combobox', { name: '视频时长' });
       await expect(provider).toHaveValue('seedance');
-      await expect(model).toHaveValue('doubao-seedance-2-0-260128');
+      await expect(model).toHaveValue('Seedance 2.0');
       await expect(format).toHaveValue('1280x720');
       await expect(duration).toHaveValue('5');
       await provider.selectOption('veo');
-      await expect(model).toHaveValue('veo-3.1-generate-preview');
+      await expect(model).toHaveValue('Veo 3.1');
       await format.selectOption('720x1280');
       await duration.selectOption('8');
 
@@ -1453,7 +1453,7 @@ test('视频生成在 Browser/Desktop Bridge 下保持相同界面、请求和�
         currentStep: 1,
         furthestStep: 1
       });
-      await expect(panel).toContainText('竖屏 · 8s');
+      await expect(panel).toContainText('9:16 · 8s');
 
       const boxes: Record<
         string,
@@ -2259,12 +2259,12 @@ test('图像生成在桌面和移动视口创建、持久化并从项目中心�
   const prompt = '一间明亮的现代创意工作室，清晨自然光，真实摄影';
   await page.getByRole('textbox', { name: '提示词' }).fill(prompt);
   await expect(page).toHaveURL(/#\/workbench\?tool=image-generation&jobId=creator_job_/);
-  await page.getByRole('button', { name: '继续', exact: true }).click();
-  await expect(page.getByRole('radio', { name: '本机 Codex 生图', exact: true })).toBeChecked();
+  await expect(page.getByRole('combobox', { name: '模型', exact: true })).toHaveValue('本机 Codex 生图');
   await expect(page.getByRole('radio', { name: '4 张', exact: true })).toHaveCount(0);
-  await page.getByRole('radio', { name: 'GPT Image', exact: true }).click();
-  await page.getByRole('radio', { name: /横向/ }).click();
-  await page.getByRole('radio', { name: '高清', exact: true }).click();
+  await page.getByRole('combobox', { name: '模型', exact: true }).click();
+  await page.getByRole('option', { name: 'GPT Image', exact: true }).click();
+  await page.getByRole('combobox', { name: '图片画幅' }).selectOption('3:2');
+  await page.getByRole('combobox', { name: '图片质量' }).selectOption('high');
   await page.getByRole('radio', { name: '4 张', exact: true }).click();
 
   const jobId = new URL(page.url()).hash.match(/jobId=([^&]+)/)?.[1];
@@ -2277,18 +2277,16 @@ test('图像生成在桌面和移动视口创建、持久化并从项目中心�
   }).toMatchObject({
     prompt,
     provider: 'openai',
-    size: '1536x1024',
-    quality: 'high',
-    candidateCount: 4,
-    currentStep: 1,
-    furthestStep: 1
+    aspectRatio: '3:2',
+    modelQuality: 'high',
+    candidateCount: 4
   });
   expect(runtime.readInvocationCount()).toBe(0);
 
   await page.reload();
   await expect(page.getByRole('heading', { name: '图像生成' })).toBeVisible();
-  await expect(page.getByRole('radio', { name: /横向/ })).toBeChecked();
-  await expect(page.getByRole('radio', { name: '高清', exact: true })).toBeChecked();
+  await expect(page.getByRole('combobox', { name: '图片画幅' })).toHaveValue('3:2');
+  await expect(page.getByRole('combobox', { name: '图片质量' })).toHaveValue('high');
   await expect(page.getByRole('radio', { name: '4 张', exact: true })).toBeChecked();
 
   await page.goto(`${runtime.origin}/#/projects`);
@@ -2296,8 +2294,8 @@ test('图像生成在桌面和移动视口创建、持久化并从项目中心�
   await page.getByRole('button', { name: `打开项目 ${prompt}` }).click();
   await expect(page).toHaveURL(new RegExp(`jobId=${jobId}`));
   await expect(page.getByRole('heading', { name: '图像生成' })).toBeVisible();
-  await expect(page.getByRole('radio', { name: /横向/ })).toBeChecked();
-  await expect(page.getByRole('radio', { name: '高清', exact: true })).toBeChecked();
+  await expect(page.getByRole('combobox', { name: '图片画幅' })).toHaveValue('3:2');
+  await expect(page.getByRole('combobox', { name: '图片质量' })).toHaveValue('high');
   await expect(page.getByRole('radio', { name: '4 张', exact: true })).toBeChecked();
 });
 

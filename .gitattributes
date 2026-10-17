@@ -1,1 +1,3 @@
 apps/daemon/src/codex/generated/** text eol=lf
+packages/protocol/src/creator-languages.generated.ts text eol=lf
+runtime/krillinai/internal/types/language_catalog.generated.go text eol=lf

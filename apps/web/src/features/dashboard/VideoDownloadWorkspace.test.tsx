@@ -68,7 +68,7 @@ describe('VideoDownloadWorkspace', () => {
       const l = createLocalizedCopy(language);
       expect(screen.getByRole('tab', { name: `SRT ${l('字幕', 'Subtitles')}` })).toHaveAttribute('aria-selected', 'true');
       expect(screen.getByText(`SRT · ${l('人工字幕', 'Manual subtitles')} · en`)).toBeVisible();
-      expect(screen.getByText(`SRT · ${l('自动字幕', 'Automatic captions')} · zh-CN`)).toBeVisible();
+      expect(screen.getByText(`SRT · ${l('自动字幕', 'Automatic captions')} · ${tracks[1]}`)).toBeVisible();
       const promoted = language === 'en-US' ? ['en'] : ['en', language];
       expect(screen.getAllByRole('radio').map(radio => radio.closest('label')?.querySelector('strong')?.textContent))
         .toEqual([...promoted, ...tracks.filter(track => !promoted.includes(track))]);

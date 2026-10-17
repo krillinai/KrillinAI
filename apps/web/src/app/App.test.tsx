@@ -1475,7 +1475,7 @@ describe('App', () => {
     ).getByRole('button', { name: '开始翻译' }));
     expect(screen.getByRole('heading', { name: '视频翻译项目' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '作品' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tab', { name: '字幕' })).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByRole('button', { name: '深度编辑' })).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: '输入任务' })).not.toBeInTheDocument();
   });
 

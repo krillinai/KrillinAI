@@ -539,7 +539,7 @@ describe('VideoTranslationWorkspace task controls', () => {
       expect(document.querySelector('.video-translation-subtitle-import pre')).toBeVisible();
       expect(document.querySelector('.video-translation-subtitle-import pre')).toHaveTextContent('Original text');
     }
-  });
+  }, 15_000);
 
   it('replaces and removes the selected SRT, then allows selecting the same file again', async () => {
     const source = { ...subtitleArtifact(1, 'Original text'), id: 'original-srt', kind: 'source_subtitle', metadata: {

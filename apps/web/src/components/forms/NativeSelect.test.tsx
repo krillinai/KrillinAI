@@ -35,11 +35,11 @@ describe('NativeSelect', () => {
     expect(screen.getByRole('combobox', { name: 'Style' })).toHaveValue('pencil');
   });
 
-  it('reserves text space and insets the noninteractive arrow from the right border', () => {
+  it('reserves text space and insets the noninteractive arrow at the inline end', () => {
     const css = readFileSync('src/components/forms/native-select.css', 'utf8');
     expect(css).toContain('appearance: none;');
     expect(css).toContain('padding-inline-end: 40px;');
-    expect(css).toContain('right: 12px;');
+    expect(css).toContain('inset-inline-end: 12px;');
     expect(css).toContain('pointer-events: none;');
     expect(css).toContain('select:disabled + svg');
   });
