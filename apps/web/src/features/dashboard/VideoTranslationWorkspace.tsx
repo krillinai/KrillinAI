@@ -4289,12 +4289,6 @@ export default function VideoTranslationWorkspace(props: {
         ) : null}
         </div>
         ) : null}
-        {workspacePhase === 'result' && (activeStage !== undefined || resumableStage !== undefined) ? (
-          <footer className="video-translation-wizard-actions video-translation-task-controls">
-            <span />
-            {renderTaskControlButton()}
-          </footer>
-        ) : null}
           </div>}
           agentPanel={<VideoTranslationAgentPanel
             stepLabel={workspacePhase === 'result' ? l('项目结果', 'Project results') : localizeStep(steps[currentStep], l)}

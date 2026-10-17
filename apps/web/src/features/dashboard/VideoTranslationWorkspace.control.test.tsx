@@ -1839,13 +1839,12 @@ describe('VideoTranslationWorkspace task controls', () => {
     );
 
     const workspace = screen.getByRole('region', { name: '视频翻译操作区' });
-    const stopButton = await within(workspace).findByRole('button', { name: '终止任务' });
+    const stopButton = await screen.findByRole('button', { name: '终止字幕翻译' });
     expect(stopButton.querySelector('.lucide-square')).toHaveAttribute('fill', 'currentColor');
-    expect(screen.getByRole('button', { name: '终止字幕翻译' }).querySelector('.lucide-square'))
-      .toHaveAttribute('fill', 'currentColor');
+    expect(within(workspace).queryByRole('button', { name: '终止任务' })).not.toBeInTheDocument();
     expect(within(workspace).queryByRole('button', { name: '开始翻译' })).not.toBeInTheDocument();
 
-    fireEvent.click(within(workspace).getByRole('button', { name: '终止任务' }));
+    fireEvent.click(stopButton);
     const dialog = screen.getByRole('dialog', { name: '终止翻译任务？' });
     expect(within(dialog).getByRole('button', { name: '终止任务' }).querySelector('.lucide-square'))
       .toHaveAttribute('fill', 'currentColor');
@@ -1855,16 +1854,17 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '终止任务' }));
 
     await waitFor(() => expect(cancelJob).toHaveBeenCalledWith('job_control'));
-    const resumeButton = await within(workspace).findByRole('button', { name: '继续任务' });
+    const resumeButton = await screen.findByRole('button', { name: '继续字幕翻译' });
     await waitFor(() => expect(resumeButton).toBeEnabled());
-    expect(screen.getByRole('button', { name: '继续字幕翻译' })).toBeInTheDocument();
+    expect(within(workspace).queryByRole('button', { name: '继续任务' })).not.toBeInTheDocument();
     expect(screen.getByText('已终止，可继续')).toBeInTheDocument();
     expect(screen.getByText('已终止，可继续').closest('[data-status="canceled"]')?.querySelector('.lucide-square'))
       .toHaveAttribute('fill', 'currentColor');
 
     fireEvent.click(resumeButton);
     await waitFor(() => expect(resumeJob).toHaveBeenCalledWith('job_control'));
-    expect(await within(workspace).findByRole('button', { name: '终止任务' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '终止字幕翻译' })).toBeInTheDocument();
+    expect(within(workspace).queryByRole('button', { name: '终止任务' })).not.toBeInTheDocument();
     expect(within(workspace).queryByRole('button', { name: '开始翻译' })).not.toBeInTheDocument();
   });
 
@@ -1938,7 +1938,8 @@ describe('VideoTranslationWorkspace task controls', () => {
     expect(screen.getByText('翻译任务已开始，进度会实时同步到创作动态')).toBeInTheDocument();
     expect(within(workspace).getByText('翻译进行中')).toBeVisible();
     expect(within(workspace).queryByText('当前项目版本没有作品')).not.toBeInTheDocument();
-    expect(within(workspace).getByRole('button', { name: '终止任务' })).toBeInTheDocument();
+    expect(within(workspace).queryByRole('button', { name: '终止任务' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '终止字幕翻译' })).toBeInTheDocument();
     expect(applyAction.mock.calls.filter(([, request]) => request.action === 'run-stage')).toHaveLength(1);
     act(() => currentSession!.applyRemoteSnapshot(job({
       status: 'completed', revision: 4, artifacts: [subtitleArtifact(1, '翻译完成')],

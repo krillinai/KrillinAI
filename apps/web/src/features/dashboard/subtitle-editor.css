@@ -38,7 +38,6 @@
 }
 
 .video-translation-page[data-subtitle-immersive="true"] .video-translation-wizard-main > .video-translation-header,
-.video-translation-page[data-subtitle-immersive="true"] .video-translation-task-controls,
 .video-result-workspace[data-immersive="true"] > .video-result-toolbar {
   display: none;
 }

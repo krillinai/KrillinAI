@@ -12937,10 +12937,6 @@
   outline-color: color-mix(in srgb, var(--destructive) 72%, transparent);
 }
 
-.video-translation-task-controls {
-  padding: 0 22px 20px;
-}
-
 .video-translation-run-notice {
   width: 100%;
   min-height: 40px;
