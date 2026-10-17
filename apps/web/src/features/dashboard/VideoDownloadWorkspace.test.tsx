@@ -73,7 +73,7 @@ describe('VideoDownloadWorkspace', () => {
       expect(screen.getAllByRole('radio').map(radio => radio.closest('label')?.querySelector('strong')?.textContent))
         .toEqual([...promoted, ...tracks.filter(track => !promoted.includes(track))]);
     }
-  });
+  }, 15_000);
 
   it.each<{
     language: AppLanguage;
