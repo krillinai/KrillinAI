@@ -398,6 +398,14 @@ export default function VideoTranslationResultWorkspace(props: {
     </div>
   ) : null;
 
+  const previewEditingAction = activeSubtitleOutput && props.onImmersiveChange ? (
+    <div className="video-result-preview-actions">
+      <button ref={immersiveButtonRef} type="button" onClick={() => props.onImmersiveChange?.(true)}>
+        <Maximize2 size={15} aria-hidden="true" />{l('深度编辑', 'Advanced editing')}
+      </button>
+    </div>
+  ) : null;
+
   const subtitleVideoPreview = activeSubtitleOutput && !props.subtitleOnly ? (
     <section className={props.activeTab === 'video' ? 'video-result-output-column' : 'video-result-subtitle-video'} aria-label={l('同步视频预览', 'Synchronized video preview')}>
       {props.immersive && props.voiceOutput?.src ? <audio ref={subtitleAudioRef} src={props.voiceOutput.src} preload="metadata" hidden
@@ -534,13 +542,6 @@ export default function VideoTranslationResultWorkspace(props: {
         </div>
 
         <div className="video-result-toolbar-actions">
-          {props.activeTab === 'video' && activeSubtitleOutput && props.onImmersiveChange ? (
-            <div className="video-result-pane-actions">
-              <button ref={immersiveButtonRef} type="button" onClick={() => props.onImmersiveChange?.(true)}>
-                <Maximize2 size={15} aria-hidden="true" />{l('深度编辑', 'Advanced editing')}
-              </button>
-            </div>
-          ) : null}
           <CreatorResultVersionMenu
             showCompletion={props.execution === undefined && generatedArtifactCount > 0}
             version={props.version}
@@ -563,6 +564,7 @@ export default function VideoTranslationResultWorkspace(props: {
               {props.videoOutputs.length === 0 && subtitleVideoPreview ? (
                 <section className="video-result-generated-section">
                   <div className="video-result-video-grid">{subtitleVideoPreview}</div>
+                  {previewEditingAction}
                 </section>
               ) : null}
               {props.videoOutputs.length > 0 ? (
@@ -608,6 +610,7 @@ export default function VideoTranslationResultWorkspace(props: {
                       );
                     })}
                   </div>
+                  {previewEditingAction}
                 </section>
               ) : null}
 
