@@ -404,6 +404,23 @@ export default function SmartDubbingWorkspace(props: {
               </div>
             </div>
             <div className="smart-dubbing-side-fields">
+              <div className="smart-dubbing-model-row">
+                {official.official ? <OfficialModelField label={l('模型', 'Model')} service={official} disabled={busy} /> : (
+                  <div className="smart-dubbing-configured-model">
+                    <ModelBrandIcon model={{ id: model, name: provider }} />
+                    <div>
+                      <span>{l('模型', 'Model')}</span>
+                      <div className="smart-dubbing-provider-row">
+                        <strong>{model || l('本地语音服务', 'Local speech service')}</strong>
+                        <small>{providerLabel(provider, l)}</small>
+                      </div>
+                    </div>
+                    <a href="#/settings?tab=ai-services&section=tts" aria-label={l('打开配音服务设置', 'Open voice service settings')} title={l('打开配音服务设置', 'Open voice service settings')}>
+                      <Settings2 size={17} strokeWidth={1.8} aria-hidden="true" />
+                    </a>
+                  </div>
+                )}
+              </div>
               <div className="smart-dubbing-voice-field">
                 <TtsVoicePicker
                   id="smart-dubbing-voice"
@@ -425,23 +442,6 @@ export default function SmartDubbingWorkspace(props: {
                   }}
                   onVoiceResolved={selectedVoice => setVoiceName(selectedVoice.name)}
                 />
-              </div>
-              <div className="smart-dubbing-model-row">
-                {official.official ? <OfficialModelField label={l('模型', 'Model')} service={official} disabled={busy} /> : (
-                  <div className="smart-dubbing-configured-model">
-                    <ModelBrandIcon model={{ id: model, name: provider }} />
-                    <div>
-                      <span>{l('模型', 'Model')}</span>
-                      <div className="smart-dubbing-provider-row">
-                        <strong>{model || l('本地语音服务', 'Local speech service')}</strong>
-                        <small>{providerLabel(provider, l)}</small>
-                      </div>
-                    </div>
-                    <a href="#/settings?tab=ai-services&section=tts" aria-label={l('打开配音服务设置', 'Open voice service settings')} title={l('打开配音服务设置', 'Open voice service settings')}>
-                      <Settings2 size={17} strokeWidth={1.8} aria-hidden="true" />
-                    </a>
-                  </div>
-                )}
               </div>
               <div className="smart-dubbing-settings">
                 {supportsStyle ? <div className="smart-dubbing-control-group">
