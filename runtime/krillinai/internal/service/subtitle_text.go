@@ -47,8 +47,30 @@ func hasSubtitleLineBreak(text string) bool {
 		strings.Contains(text, `\N`) || strings.Contains(text, `\n`)
 }
 
+// Only segment-edge whitespace may differ; interior spaces carry word meaning.
+func subtitleSegmentsPreserveText(text string, segments []string) bool {
+	remaining := strings.TrimSpace(text)
+	for _, segment := range segments {
+		segment = strings.TrimSpace(segment)
+		if segment == "" {
+			return false
+		}
+		var matched bool
+		remaining, matched = strings.CutPrefix(remaining, segment)
+		if !matched {
+			return false
+		}
+		remaining = strings.TrimLeftFunc(remaining, unicode.IsSpace)
+	}
+	return remaining == ""
+}
+
 // 优先在 Unicode 词边界切分，无自然边界的长词才回退到完整字素簇。
 func splitSubtitleText(text string, fits func(string) bool) ([]string, error) {
+	return splitSubtitleTextAtBoundaries(text, fits, nil)
+}
+
+func splitSubtitleTextAtBoundaries(text string, fits func(string) bool, canSplit func(int) bool) ([]string, error) {
 	wordEnds := make(map[int]bool)
 	wordIter := words.FromString(text)
 	for wordIter.Next() {
@@ -66,12 +88,18 @@ func splitSubtitleText(text string, fits func(string) bool) ([]string, error) {
 			if !fits(strings.TrimSpace(text[start:ends[j]])) {
 				break
 			}
+			if canSplit != nil && !canSplit(ends[j]) {
+				continue
+			}
 			cut = j
 			if wordEnds[ends[j]] {
 				preferred = j
 			}
 		}
 		if cut == index {
+			if canSplit != nil {
+				return nil, fmt.Errorf("当前输入上限无法在保留字素簇和缩写的前提下安全切分文本")
+			}
 			return nil, fmt.Errorf("单个字素簇超过字幕或输入上限: %q", text[start:ends[index+1]])
 		}
 		if cut+1 < len(ends) && preferred > index && ends[preferred]-start >= (ends[cut]-start)/2 {
@@ -81,6 +109,9 @@ func splitSubtitleText(text string, fits func(string) bool) ([]string, error) {
 			adjusted := 0
 			for _, preferWords := range []bool{true, false} {
 				for j := cut - 1; j > index; j-- {
+					if canSplit != nil && !canSplit(ends[j]) {
+						continue
+					}
 					if preferWords && !wordEnds[ends[j]] {
 						continue
 					}

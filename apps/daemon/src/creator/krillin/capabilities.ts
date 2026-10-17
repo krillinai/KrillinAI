@@ -2,6 +2,7 @@ import type {
   CreatorServicesCapabilitiesResponse,
   CreatorTranscriptionProviderCapability
 } from '@opencreator/protocol';
+import { localWhisperLanguageCapability, unknownTranscriptionCapability } from '@opencreator/protocol';
 
 export function createKrillinCreatorServicesCapabilities(
   platform: NodeJS.Platform = process.platform,
@@ -61,6 +62,7 @@ function cloudProvider(
     kind: 'cloud',
     available: true,
     models,
+    languageCapabilities: Object.fromEntries(models.map(model => [model, unknownTranscriptionCapability()])),
     gpuAcceleration: false
   };
 }
@@ -78,6 +80,7 @@ function localProvider(
     kind: 'local',
     available,
     models,
+    languageCapabilities: Object.fromEntries(models.map(model => [model, localWhisperLanguageCapability(model)])),
     gpuAcceleration,
     ...(modelDetails === undefined ? {} : { modelDetails }),
     ...(unavailableReason === undefined ? {} : { unavailableReason })

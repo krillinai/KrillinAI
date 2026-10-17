@@ -47,7 +47,7 @@ describe('KrillinAI CLI protocol', () => {
 
   it('passes saved legacy styles instead of silently using runtime defaults', () => {
     const stage = { job: { templateId: 'video-translation', state: { subtitleFont: 'rounded', subtitleSize: 'large', subtitleColor: '#123456', subtitleShadowOffsetX: -4, subtitleShadowOffsetY: 6, subtitleShadowBlur: 2 } }, stageRun: { stageId: 'render-horizontal' } };
-    expect(buildKrillinStageOptions(stage as never).subtitleStyle).toMatchObject({ horizontal: { major: { font_name: 'OpenCreator Rounded Bold', font_size: 18, primary_color: '#123456', override_tags: '\\xshad-4\\yshad6\\blur2' } } });
+    expect(buildKrillinStageOptions(stage as never).subtitleStyle).toMatchObject({ horizontal: { major: { font_name: 'OpenCreator Rounded Bold', font_size: 22, primary_color: '#123456', override_tags: '\\xshad-4\\yshad6\\blur2' } } });
   });
 
   it.each([true, false])('keeps edited vertical subtitles and renders the requested bilingual=%s mode', bilingual => {
@@ -201,6 +201,15 @@ describe('KrillinAI CLI protocol', () => {
     });
     expect(parseKrillinCliProgressFrame('{"ok":true,"stage":"subtitle"}')).toBeUndefined();
     expect(parseKrillinCliProgressFrame('not-json')).toBeUndefined();
+  });
+
+  it('preserves zero completed sentences and ignores invalid translation counts', () => {
+    expect(parseKrillinCliProgressFrame('{"type":"progress","phase":"translating_subtitles","percent":5,"completed":0,"total":52}'))
+      .toMatchObject({ completed: 0, total: 52, percent: 5 });
+    for (const counts of [{ completed: -1, total: 52 }, { completed: 53, total: 52 }, { completed: 1.5, total: 52 }, { completed: 0, total: 0 }, { completed: '1', total: 52 }]) {
+      const frame = parseKrillinCliProgressFrame(JSON.stringify({ type: 'progress', percent: 5, ...counts }));
+      expect(frame).toEqual({ type: 'progress', percent: 5 });
+    }
   });
 
   it('maps the short mixed subtitle to the vertical subtitle artifact', () => {

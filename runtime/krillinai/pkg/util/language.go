@@ -1,6 +1,9 @@
 package util
 
-import "strings"
+import (
+	"krillin-ai/internal/types"
+	"strings"
+)
 
 // 将内部语言代码映射为YouTube字幕语言代码
 func MapLanguageForYouTube(language string) string {
@@ -114,17 +117,5 @@ func MapLanguageFromYouTube(language string) string {
 	normalized = strings.TrimSuffix(normalized, "-orig")
 	normalized = strings.ReplaceAll(normalized, "_", "-")
 
-	switch normalized {
-	case "zh-hant", "zh-tw", "zh-hk", "zh-mo":
-		return "zh_tw"
-	case "zh", "zh-hans", "zh-cn", "zh-sg":
-		return "zh_cn"
-	case "iw":
-		return "he"
-	}
-
-	if separator := strings.IndexByte(normalized, '-'); separator >= 0 {
-		return normalized[:separator]
-	}
-	return normalized
+	return string(types.NormalizeLanguage(normalized))
 }

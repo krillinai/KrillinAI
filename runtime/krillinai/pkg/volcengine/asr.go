@@ -117,6 +117,11 @@ type asrWord struct {
 }
 
 func (c *AsrClient) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
+	language = string(types.NormalizeLanguage(language))
+	if language == "zh_cn" || language == "zh_tw" {
+		language = "zh"
+	}
+
 	_ = workDir
 	if c.appID == "" || c.accessToken == "" {
 		return nil, fmt.Errorf("volcengine asr app id or access token is empty")

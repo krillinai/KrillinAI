@@ -210,7 +210,7 @@ function getProcessStartedAt(process: ProcessBlock): number | undefined {
 
 function formatDuration(durationMs: number, language: AppLanguage): string {
   const totalSeconds = Math.max(1, Math.round(durationMs / 1000));
-  if (language !== 'zh-CN') {
+  if (language !== 'zh-CN' && language !== 'zh-TW') {
     if (totalSeconds < 60) return `${totalSeconds}s`;
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
@@ -222,10 +222,12 @@ function formatDuration(durationMs: number, language: AppLanguage): string {
   if (totalSeconds < 60) return `${totalSeconds}秒`;
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  if (minutes < 60) return seconds === 0 ? `${minutes}分钟` : `${minutes}分${seconds}秒`;
+  if (minutes < 60) return seconds === 0 ? `${minutes}${language === 'zh-TW' ? '分鐘' : '分钟'}` : `${minutes}分${seconds}秒`;
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  return remainingMinutes === 0 ? `${hours}小时` : `${hours}小时${remainingMinutes}分钟`;
+  const hour = language === 'zh-TW' ? '小時' : '小时';
+  const minute = language === 'zh-TW' ? '分鐘' : '分钟';
+  return remainingMinutes === 0 ? `${hours}${hour}` : `${hours}${hour}${remainingMinutes}${minute}`;
 }
 
 function safeParseJson(content: string): unknown {

@@ -4,7 +4,7 @@ import type {
   ImageGenerationAsset
 } from '@opencreator/protocol';
 import type { PublicErrorFacts } from '@opencreator/protocol';
-import { publicErrorKindForCode, sanitizePublicErrorFacts } from '@opencreator/protocol';
+import { imageModelOptions, imageModelPixelSize, imageSizeAspectRatio, publicErrorKindForCode, sanitizePublicErrorFacts } from '@opencreator/protocol';
 import {
   LocalCodexProviderError,
   type LocalCodexProvider
@@ -224,6 +224,7 @@ async function generateOpenAiImages(
   if (!provider.apiKey.trim()) missingConfig(request.provider);
   const model = provider.model.trim()
     || (request.provider === 'jimeng' ? 'doubao-seedream-4-0-250828' : 'gpt-image-1');
+  const parameters = official ? undefined : manualImageParameters(request, request.provider === 'codex-native' ? 'openai' : request.provider, model);
   const endpoint = openAiImageEndpoint(
     provider.baseUrl,
     referenceImages.length === 0 ? 'generations' : 'edits'
@@ -233,8 +234,8 @@ async function generateOpenAiImages(
     : createImageEditBody({
         model,
         prompt: request.prompt.trim(),
-        size: request.size,
-        quality: request.quality,
+        size: parameters?.size ?? request.size,
+        quality: parameters?.quality,
         count: request.count,
         images: referenceImages,
         ...(official ? { official: true, aspectRatio: request.aspectRatio, resolution: request.resolution, officialQuality: request.officialQuality } : {})
@@ -251,8 +252,8 @@ async function generateOpenAiImages(
     body: multipart?.body ?? JSON.stringify({
         model,
         prompt: request.prompt.trim(),
-        size: request.size,
-        ...(official ? { aspect_ratio: request.aspectRatio, resolution: request.resolution, quality: request.officialQuality } : request.provider === 'jimeng' ? {} : { quality: request.quality }),
+        size: parameters?.size ?? request.size,
+        ...(official ? { aspect_ratio: request.aspectRatio, resolution: request.resolution, quality: request.officialQuality } : { quality: parameters?.quality }),
         n: request.count
       }),
     proxy: config.proxy.trim(),
@@ -321,6 +322,7 @@ async function generateGeminiImages(
   const provider = config.image.gemini;
   if (!provider.apiKey.trim()) missingConfig('gemini');
   const model = provider.model.trim() || 'gemini-2.5-flash-image';
+  const parameters = manualImageParameters(request, 'gemini', model);
   const endpoint = creatorProviderEndpoint(
     provider.baseUrl,
     'https://generativelanguage.googleapis.com/v1beta',
@@ -345,7 +347,10 @@ async function generateGeminiImages(
         }],
         generationConfig: {
           responseModalities: ['TEXT', 'IMAGE'],
-          imageConfig: { aspectRatio: imageAspectRatio(request.size) }
+          ...(parameters.aspectRatio || parameters.resolution ? { imageConfig: {
+            ...(parameters.aspectRatio ? { aspectRatio: parameters.aspectRatio } : {}),
+            ...(parameters.resolution ? { imageSize: parameters.resolution } : {})
+          } } : {})
         }
       }),
       proxy: config.proxy.trim(),
@@ -406,7 +411,7 @@ function createImageEditBody(input: {
   model: string;
   prompt: string;
   size: string;
-  quality: string;
+  quality?: string;
   count: number;
   images: GeneratedImageContent[];
   aspectRatio?: string;
@@ -428,7 +433,7 @@ function createImageEditBody(input: {
   addField('model', input.model);
   addField('prompt', input.prompt);
   addField('size', input.size);
-  if (!input.official) addField('quality', input.quality);
+  if (!input.official && input.quality) addField('quality', input.quality);
   if (input.aspectRatio) addField('aspect_ratio', input.aspectRatio);
   if (input.resolution) addField('resolution', input.resolution);
   if (input.officialQuality) addField('quality', input.officialQuality);
@@ -461,6 +466,7 @@ async function generateKlingImages(
   const provider = config.image.kling;
   if (!provider.accessKey.trim() || !provider.secretKey.trim()) missingConfig('kling');
   const model = provider.model.trim() || 'kling-v2-1';
+  const parameters = manualImageParameters(request, 'kling', model);
   const endpoint = creatorProviderEndpoint(
     provider.baseUrl,
     'https://api-beijing.klingai.com',
@@ -476,7 +482,7 @@ async function generateKlingImages(
     body: JSON.stringify({
       model_name: model,
       prompt: request.prompt.trim(),
-      aspect_ratio: imageAspectRatio(request.size),
+      aspect_ratio: parameters.aspectRatio,
       n: request.count
     }),
     proxy: config.proxy.trim(),
@@ -544,10 +550,23 @@ function missingConfig(provider: CreateImageGenerationRequest['provider']): neve
   );
 }
 
-function imageAspectRatio(size: CreateImageGenerationRequest['size']) {
-  if (size === '1536x1024') return '3:2';
-  if (size === '1024x1536') return '2:3';
-  return '1:1';
+function manualImageParameters(request: CreateImageGenerationRequest, provider: CreateImageGenerationRequest['provider'], model: string) {
+  const options = imageModelOptions(provider, model);
+  const select = (value: string | undefined, allowed: string[] | undefined, fallback?: string) => {
+    if (value && !allowed?.includes(value)) {
+      throw new ImageGenerationProviderError('unsupported_capability', `The ${model} image model does not support the selected image parameter`);
+    }
+    return value || (fallback && allowed?.includes(fallback) ? fallback : allowed?.[0]);
+  };
+  const aspectRatio = select(request.aspectRatio, options.aspectRatios, imageSizeAspectRatio(request.size));
+  const resolution = select(request.resolution, options.resolutions);
+  const quality = select(request.modelQuality, options.qualities, request.quality);
+  return {
+    aspectRatio, resolution, quality,
+    size: aspectRatio && provider !== 'gemini' && provider !== 'kling'
+      && (provider !== 'openai' || request.aspectRatio || request.resolution)
+      ? imageModelPixelSize(provider, aspectRatio, resolution) : request.size
+  };
 }
 
 function findGeminiImagePart(payload: unknown): { data: string; mime: string | null } | undefined {

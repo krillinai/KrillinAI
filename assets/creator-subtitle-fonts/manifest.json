@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "sources": [
     {
       "package": "@fontsource/noto-sans-sc",
@@ -142,6 +142,624 @@
     {
       "file": "licenses/OFL-M-PLUS-Rounded-1c.txt",
       "sha256": "64a7bd79d7e69545e66d003153e7e4999910cbb15249a19ae2a49c472637c7e0"
+    },
+    {
+      "file": "licenses/OFL-NotoSans.txt",
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb"
+    },
+    {
+      "file": "licenses/OFL-NotoSansArabic.txt",
+      "sha256": "07fc70bfeb985cc1a87a8587d0a0c80bab11c86c9dc3fd95b6f0cb332f983e96"
+    },
+    {
+      "file": "licenses/OFL-NotoSansHebrew.txt",
+      "sha256": "9b9fe028b5ba74d231659a1bbaf0ed09b11e759d1ca6a070999e16d151616b47"
+    },
+    {
+      "file": "licenses/OFL-NotoSansDevanagari.txt",
+      "sha256": "a216f6f8d85c7228093e0ee5e258d9d377e6671f68acb4db1930b29583d0f331"
+    },
+    {
+      "file": "licenses/OFL-NotoSansBengali.txt",
+      "sha256": "754f0e221aa7d5a915489f3bf1f20fe53ddc35ab2834a4d91656d78f9622de70"
+    },
+    {
+      "file": "licenses/OFL-NotoSansGurmukhi.txt",
+      "sha256": "3f7451b7e2c8381be0c5712f7b0dd5c2d75fe787ae16a99f18b7fa45627a0fde"
+    },
+    {
+      "file": "licenses/OFL-NotoSansGujarati.txt",
+      "sha256": "c0b88977aa18b5e4fd05d646d560da89fde61b6581fa4507cb00dd90bd1bf7d4"
+    },
+    {
+      "file": "licenses/OFL-NotoSansTamil.txt",
+      "sha256": "f8ff8ce7d0a81bf8d5e121c635ef027250c531f2fd37d5988b8dd6e45f19d7f1"
+    },
+    {
+      "file": "licenses/OFL-NotoSansTelugu.txt",
+      "sha256": "481c72a8f1b4f645a7e6b10326be41b2da2c15cb470ff48a07fab773eed00102"
+    },
+    {
+      "file": "licenses/OFL-NotoSansThai.txt",
+      "sha256": "2e98fd23a52d253db8612cd5942c8f2ff4111b21d2367050fdca91d8ccc374a0"
+    },
+    {
+      "file": "licenses/OFL-NotoSansMyanmar.txt",
+      "sha256": "246a75859267af7da466823969d2e2b407ed8455ee5f74f4c8d63d8783be9b57"
+    },
+    {
+      "file": "licenses/OFL-NotoSansKhmer.txt",
+      "sha256": "be0407f060aea48787ff9e75d8d3aedef70aef113b3ce9aca26fdaacd10b1870"
+    },
+    {
+      "file": "licenses/OFL-NotoSansLao.txt",
+      "sha256": "a42993999944845fb5af693ea678a372a053db1f0981d55e911dcfa9d330f279"
+    },
+    {
+      "file": "licenses/OFL-NanumGothic.txt",
+      "sha256": "eeacf16032901d0ed0456876ec77b8f0fda6b3fecec7d972f8543eb602e6c30f"
+    },
+    {
+      "file": "licenses/OFL-NotoSansEthiopic.txt",
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb"
+    },
+    {
+      "file": "licenses/OFL-NotoSansJavanese.txt",
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb"
+    },
+    {
+      "file": "licenses/OFL-NotoSansMalayalam.txt",
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb"
+    },
+    {
+      "file": "licenses/OFL-NotoSansKannada.txt",
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb"
+    },
+    {
+      "file": "licenses/OFL-NotoSansOriya.txt",
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb"
+    },
+    {
+      "file": "licenses/OFL-NotoSansGeorgian.txt",
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb"
+    },
+    {
+      "file": "licenses/OFL-NotoSansArmenian.txt",
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb"
+    },
+    {
+      "file": "licenses/OFL-NotoSansSinhala.txt",
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb"
+    },
+    {
+      "file": "licenses/OFL-NotoSerifTibetan.txt",
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb"
+    }
+  ],
+  "fallbackFonts": [
+    {
+      "family": "Noto Sans",
+      "fullName": "Noto Sans Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Latn",
+        "Grek",
+        "Cyrl"
+      ],
+      "unicodeRange": "U+0000-052F,U+1E00-1FFF,U+2C60-2C7F,U+A640-A69F,U+A720-A7FF",
+      "sample": "Tiếng Việt Ελληνικά Українська",
+      "desktopFile": "desktop/NotoSans-Regular.ttf",
+      "desktopSha256": "b333234ff539a082cacb1edb0018b2420eb3722c1e2f224b08063395b2889f98",
+      "webFile": "web/NotoSans-Regular.woff2",
+      "webSha256": "a59520cf8afb0d68017a64d2fe704a1cfec3288dc8a59475d014fe34e975a5dc",
+      "license": "licenses/OFL-NotoSans.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSans/NotoSans-Regular.ttf",
+        "commit": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+        "sha256": "b85c38ecea8a7cfb39c24e395a4007474fa5a4fc864f6ee33309eb4948d232d5",
+        "fontVersion": "Version 2.008; ttfautohint (v1.8) -l 8 -r 50 -G 200 -x 14 -D latn -f none -a qsq -X \"\"",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Arabic",
+      "fullName": "Noto Sans Arabic Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Arab"
+      ],
+      "unicodeRange": "U+0600-06FF,U+0750-077F,U+08A0-08FF,U+FB50-FDFF,U+FE70-FEFF",
+      "sample": "العَرَبِيَّة فارسی اردو",
+      "desktopFile": "desktop/NotoSansArabic-Regular.ttf",
+      "desktopSha256": "65efad4885c590b640d9601b8cc6d9b66026e9ff74154ac600207600842c0f70",
+      "webFile": "web/NotoSansArabic-Regular.woff2",
+      "webSha256": "52e9d3ae32783abe0cf3ee6052b3ddd31299b57889eeacb2a384e0a92755bdfe",
+      "license": "licenses/OFL-NotoSansArabic.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/bf7c667ae010c0ffb39944ae85097021478cb91d/ofl/notosansarabic/NotoSansArabic%5Bwdth%2Cwght%5D.ttf",
+        "commit": "bf7c667ae010c0ffb39944ae85097021478cb91d",
+        "fontVersion": "Version 2.012",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Hebrew",
+      "fullName": "Noto Sans Hebrew Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Hebr"
+      ],
+      "unicodeRange": "U+0590-05FF,U+FB1D-FB4F",
+      "sample": "עברית שָׁלוֹם",
+      "desktopFile": "desktop/NotoSansHebrew-Regular.ttf",
+      "desktopSha256": "5fb2e1fc38c242d64f9fc5f77e026473f288b9791762d80df98a3ec762d5bbdf",
+      "webFile": "web/NotoSansHebrew-Regular.woff2",
+      "webSha256": "df550429f4198245bf9bb89b283227959ff08b4048c87f1eb3a34b0555236f72",
+      "license": "licenses/OFL-NotoSansHebrew.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/bf7c667ae010c0ffb39944ae85097021478cb91d/ofl/notosanshebrew/NotoSansHebrew%5Bwdth%2Cwght%5D.ttf",
+        "commit": "bf7c667ae010c0ffb39944ae85097021478cb91d",
+        "sha256": "7ef36a2c3593758cdb622e1bdef4f84523e92fbc3ccc667438dd80ff54c2de88",
+        "fontVersion": "Version 3.001",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Devanagari",
+      "fullName": "Noto Sans Devanagari Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Deva"
+      ],
+      "unicodeRange": "U+0900-097F,U+A8E0-A8FF",
+      "sample": "क्षि हिन्दी मराठी नेपाली",
+      "desktopFile": "desktop/NotoSansDevanagari-Regular.ttf",
+      "desktopSha256": "c08b31cb15937175a62a2ad3a2659b78a0330395213f0e9c424b3b0c3635336a",
+      "webFile": "web/NotoSansDevanagari-Regular.woff2",
+      "webSha256": "c0cd6bfb777e1d85230515fa3f8ba2de8d3cac01e14842122f0652ca3709b8dd",
+      "license": "licenses/OFL-NotoSansDevanagari.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/bf7c667ae010c0ffb39944ae85097021478cb91d/ofl/notosansdevanagari/NotoSansDevanagari%5Bwdth%2Cwght%5D.ttf",
+        "commit": "bf7c667ae010c0ffb39944ae85097021478cb91d",
+        "fontVersion": "Version 2.007",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Bengali",
+      "fullName": "Noto Sans Bengali Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Beng"
+      ],
+      "unicodeRange": "U+0980-09FF",
+      "sample": "বাংলা",
+      "desktopFile": "desktop/NotoSansBengali-Regular.ttf",
+      "desktopSha256": "1e9e00dd135c770ec3428e6791893a2a14f9c923615e708c2bb8f5e40a965e9e",
+      "webFile": "web/NotoSansBengali-Regular.woff2",
+      "webSha256": "67e65c20414f6ef24c93ecb1615d559bc0db183fb660deb0cc53f919213d2fad",
+      "license": "licenses/OFL-NotoSansBengali.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/bf7c667ae010c0ffb39944ae85097021478cb91d/ofl/notosansbengali/NotoSansBengali%5Bwdth%2Cwght%5D.ttf",
+        "commit": "bf7c667ae010c0ffb39944ae85097021478cb91d",
+        "fontVersion": "Version 3.011",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Gurmukhi",
+      "fullName": "Noto Sans Gurmukhi Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Guru"
+      ],
+      "unicodeRange": "U+0A00-0A7F",
+      "sample": "ਪੰਜਾਬੀ",
+      "desktopFile": "desktop/NotoSansGurmukhi-Regular.ttf",
+      "desktopSha256": "cea14b97a7f63b464740a3d5946eb519270be0c5848b686b42deb3829bb162b0",
+      "webFile": "web/NotoSansGurmukhi-Regular.woff2",
+      "webSha256": "c8cb60557a60a322133b83d0fa6df116fea7990833c14001f895a578e50a39a4",
+      "license": "licenses/OFL-NotoSansGurmukhi.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/bf7c667ae010c0ffb39944ae85097021478cb91d/ofl/notosansgurmukhi/NotoSansGurmukhi%5Bwdth%2Cwght%5D.ttf",
+        "commit": "bf7c667ae010c0ffb39944ae85097021478cb91d",
+        "fontVersion": "Version 2.004",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Gujarati",
+      "fullName": "Noto Sans Gujarati Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Gujr"
+      ],
+      "unicodeRange": "U+0A80-0AFF",
+      "sample": "ગુજરાતી",
+      "desktopFile": "desktop/NotoSansGujarati-Regular.ttf",
+      "desktopSha256": "e0807d55f025e98ffc62cd2db1a8cb4d4a2d2531724c44fdb0a7d23bd9f9d9d2",
+      "webFile": "web/NotoSansGujarati-Regular.woff2",
+      "webSha256": "23120fb89f970644757c0251ee63ba3cda63cd208333ffb61ade9e9101c5f953",
+      "license": "licenses/OFL-NotoSansGujarati.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/bf7c667ae010c0ffb39944ae85097021478cb91d/ofl/notosansgujarati/NotoSansGujarati%5Bwdth%2Cwght%5D.ttf",
+        "commit": "bf7c667ae010c0ffb39944ae85097021478cb91d",
+        "fontVersion": "Version 2.106",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Tamil",
+      "fullName": "Noto Sans Tamil Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Taml"
+      ],
+      "unicodeRange": "U+0B80-0BFF",
+      "sample": "தமிழ்",
+      "desktopFile": "desktop/NotoSansTamil-Regular.ttf",
+      "desktopSha256": "fec0c632226e56947bec61a5ab59e330344877655830e1989755be1b6a446f57",
+      "webFile": "web/NotoSansTamil-Regular.woff2",
+      "webSha256": "e63c82c785eb073dd43a3f423a07c06c4d35046de244549ebbb1a088dd4508b5",
+      "license": "licenses/OFL-NotoSansTamil.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/bf7c667ae010c0ffb39944ae85097021478cb91d/ofl/notosanstamil/NotoSansTamil%5Bwdth%2Cwght%5D.ttf",
+        "commit": "bf7c667ae010c0ffb39944ae85097021478cb91d",
+        "sha256": "aa3a9b321f4b0bb2c40203ffbde9af89713227866e0e13f76e5b9eeea727cf88",
+        "fontVersion": "Version 2.004",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Telugu",
+      "fullName": "Noto Sans Telugu Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Telu"
+      ],
+      "unicodeRange": "U+0C00-0C7F",
+      "sample": "తెలుగు",
+      "desktopFile": "desktop/NotoSansTelugu-Regular.ttf",
+      "desktopSha256": "a31abec3733818aa43af99dd3814aa59ad9780bd6cdba2bb2b4805a1f9c25753",
+      "webFile": "web/NotoSansTelugu-Regular.woff2",
+      "webSha256": "b9bbcf4350542b12230d63499024b156e6353e5d5ca170db01c96185234724d2",
+      "license": "licenses/OFL-NotoSansTelugu.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/bf7c667ae010c0ffb39944ae85097021478cb91d/ofl/notosanstelugu/NotoSansTelugu%5Bwdth%2Cwght%5D.ttf",
+        "commit": "bf7c667ae010c0ffb39944ae85097021478cb91d",
+        "sha256": "e618af7bf999df192ed4f388eba2e563f2b5015034e9cbb317b5bd793bd7334d",
+        "fontVersion": "Version 2.005",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Thai",
+      "fullName": "Noto Sans Thai Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Thai"
+      ],
+      "unicodeRange": "U+0E00-0E7F",
+      "sample": "ภาษาไทย",
+      "desktopFile": "desktop/NotoSansThai-Regular.ttf",
+      "desktopSha256": "6473d5fce0f52829430dd9a55b1647a02f4a2913734a35fb00e54dc69de7fbc8",
+      "webFile": "web/NotoSansThai-Regular.woff2",
+      "webSha256": "9751c1d4f6bec53dfb51494f8292171314a3369daa5ff057f93623d20cb48b67",
+      "license": "licenses/OFL-NotoSansThai.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/bf7c667ae010c0ffb39944ae85097021478cb91d/ofl/notosansthai/NotoSansThai%5Bwdth%2Cwght%5D.ttf",
+        "commit": "bf7c667ae010c0ffb39944ae85097021478cb91d",
+        "sha256": "5a1c559bb539583c8a1fd99d1c5b9491e5e14478c9cd2bd0970d5c3096cc9ef8",
+        "fontVersion": "Version 2.002",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Myanmar",
+      "fullName": "Noto Sans Myanmar Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Mymr"
+      ],
+      "unicodeRange": "U+1000-109F,U+A9E0-A9FF,U+AA60-AA7F",
+      "sample": "မြန်မာ",
+      "desktopFile": "desktop/NotoSansMyanmar-Regular.ttf",
+      "desktopSha256": "9e6e5db0c94b36dbba8294183c39947b0ef41cbf81f81b53532cb2268a15379d",
+      "webFile": "web/NotoSansMyanmar-Regular.woff2",
+      "webSha256": "b02b54bef36879cfee65980f9a4639571628ab98fd3f4e3b7554c3573665b11e",
+      "license": "licenses/OFL-NotoSansMyanmar.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/bf7c667ae010c0ffb39944ae85097021478cb91d/ofl/notosansmyanmar/NotoSansMyanmar%5Bwdth%2Cwght%5D.ttf",
+        "commit": "bf7c667ae010c0ffb39944ae85097021478cb91d",
+        "fontVersion": "Version 2.107",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Khmer",
+      "fullName": "Noto Sans Khmer Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Khmr"
+      ],
+      "unicodeRange": "U+1780-17FF,U+19E0-19FF",
+      "sample": "ភាសាខ្មែរ",
+      "desktopFile": "desktop/NotoSansKhmer-Regular.ttf",
+      "desktopSha256": "d045b44f42fcc1f012d2314ae2e3f71ff93d3be6ab784e9367a4714d5c5860a5",
+      "webFile": "web/NotoSansKhmer-Regular.woff2",
+      "webSha256": "d01b8c9ba83216d01e970730e1601b0642e3019b436ab27477084bf1e0c93876",
+      "license": "licenses/OFL-NotoSansKhmer.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/bf7c667ae010c0ffb39944ae85097021478cb91d/ofl/notosanskhmer/NotoSansKhmer%5Bwdth%2Cwght%5D.ttf",
+        "commit": "bf7c667ae010c0ffb39944ae85097021478cb91d",
+        "sha256": "f37a8431a0c5d5ed2f81a767417546aca576a81fb7eff9c924d46aecf828f2ca",
+        "fontVersion": "Version 2.004",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Lao",
+      "fullName": "Noto Sans Lao Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Laoo"
+      ],
+      "unicodeRange": "U+0E80-0EFF",
+      "sample": "ພາສາລາວ",
+      "desktopFile": "desktop/NotoSansLao-Regular.ttf",
+      "desktopSha256": "80a7cc1f1e551023da349523479f0e56dc7b9049933ca447055b7c144ab5c025",
+      "webFile": "web/NotoSansLao-Regular.woff2",
+      "webSha256": "c1689ba44eeffaf2f6e48d3fb2fb7f3058b947ac9420742f6200cf3751227095",
+      "license": "licenses/OFL-NotoSansLao.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/google/fonts/bf7c667ae010c0ffb39944ae85097021478cb91d/ofl/notosanslao/NotoSansLao%5Bwdth%2Cwght%5D.ttf",
+        "commit": "bf7c667ae010c0ffb39944ae85097021478cb91d",
+        "fontVersion": "Version 2.003",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "NanumGothic",
+      "fullName": "NanumGothic",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Hang"
+      ],
+      "unicodeRange": "U+1100-11FF,U+3130-318F,U+A960-A97F,U+AC00-D7FF",
+      "sample": "한국어 문장입니다",
+      "desktopFile": "desktop/NanumGothic-Regular.ttf",
+      "desktopSha256": "ae368a244356b6e18fa54c73a14b17781872a199d52ff861cd4b570f7caab8cd",
+      "webFile": "web/NanumGothic-Regular.woff2",
+      "webSha256": "2c9574687bc30d0cf1a24167ba6a1929a4cfd525a3048462b1ad7b74a2525b1a",
+      "license": "licenses/OFL-NanumGothic.txt",
+      "source": {
+        "url": "https://fonts.gstatic.com/s/nanumgothic/v26/PN_3Rfi-oW3hYwmKDpxS7F_D89jb.ttf",
+        "licenseCommit": "bf7c667ae010c0ffb39944ae85097021478cb91d",
+        "sha256": "9d51a4eb5433d2b927162b6409d47eacf13eba2fe068a617e8e8f4a6a930a486",
+        "fontVersion": "Version 3.020;PS 1;hotconv 1.0.57;makeotf.lib2.0.21895",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Ethiopic",
+      "fullName": "Noto Sans Ethiopic Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Ethi"
+      ],
+      "unicodeRange": "U+1200-139F,U+2D80-2DDF,U+AB00-AB2F",
+      "sample": "አማርኛ",
+      "desktopFile": "desktop/NotoSansEthiopic-Regular.ttf",
+      "desktopSha256": "13d40a50847418d326df1cc4175fc68cab3fb12c3acbefcb90389c9922efce04",
+      "webFile": "web/NotoSansEthiopic-Regular.woff2",
+      "webSha256": "f284f168a488d2e4e935ea04e56b7ea12cfdee4a8a82f001f31e1e0d3731e1db",
+      "license": "licenses/OFL-NotoSansEthiopic.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSansEthiopic/NotoSansEthiopic-Regular.ttf",
+        "commit": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+        "sha256": "e3a81ca66eb6d6b1a50a287c1dba18195541f69e0986f8b49a42658aa592ff0d",
+        "fontVersion": "Version 2.100; ttfautohint (v1.8) -l 8 -r 50 -G 200 -x 14 -D ethi -f none -a qsq -X \"\"",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Javanese",
+      "fullName": "Noto Sans Javanese Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Java"
+      ],
+      "unicodeRange": "U+A980-A9DF",
+      "sample": "ꦧꦱꦗꦮ",
+      "desktopFile": "desktop/NotoSansJavanese-Regular.ttf",
+      "desktopSha256": "58aea15bea7a0d14752e786927b08cd8598a83dc1308e63f3196dfe9d4814c6a",
+      "webFile": "web/NotoSansJavanese-Regular.woff2",
+      "webSha256": "dfac3dc1610c5223d639422e19ab1a81331253c2ba61666cafe40cba1e62fdb0",
+      "license": "licenses/OFL-NotoSansJavanese.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSansJavanese/NotoSansJavanese-Regular.ttf",
+        "commit": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+        "sha256": "58aea15bea7a0d14752e786927b08cd8598a83dc1308e63f3196dfe9d4814c6a",
+        "fontVersion": "Version 2.003",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Malayalam",
+      "fullName": "Noto Sans Malayalam Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Mlym"
+      ],
+      "unicodeRange": "U+0D00-0D7F",
+      "sample": "മലയാളം",
+      "desktopFile": "desktop/NotoSansMalayalam-Regular.ttf",
+      "desktopSha256": "a82e6689eb6295b4737153c560f46383d1a8a33f5c3e71576b03d46034deacba",
+      "webFile": "web/NotoSansMalayalam-Regular.woff2",
+      "webSha256": "85814325df84233d03e32e3c258eb6315c3564f5a97a01ef6eb2ab1b88a1d4dd",
+      "license": "licenses/OFL-NotoSansMalayalam.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSansMalayalam/NotoSansMalayalam-Regular.ttf",
+        "commit": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+        "sha256": "42eb462ff13e820ebbeaaec4e7b426bd1de145d02cef8b634f5a3efd376b513c",
+        "fontVersion": "Version 2.101; ttfautohint (v1.8) -l 8 -r 50 -G 200 -x 14 -D mlym -f none -a qsq -X \"\"",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Kannada",
+      "fullName": "Noto Sans Kannada Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Knda"
+      ],
+      "unicodeRange": "U+0C80-0CFF",
+      "sample": "ಕನ್ನಡ",
+      "desktopFile": "desktop/NotoSansKannada-Regular.ttf",
+      "desktopSha256": "eb39271c75aef43c3e66f319e1f11766c4d865ce5e7657638ca3545c64272a03",
+      "webFile": "web/NotoSansKannada-Regular.woff2",
+      "webSha256": "8b5a5885ae1097dd326431cd52f62a7d236c4a651fe92fe19227db4c309a75d3",
+      "license": "licenses/OFL-NotoSansKannada.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSansKannada/NotoSansKannada-Regular.ttf",
+        "commit": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+        "sha256": "5c804033c57f2c2844b1cd425f45b9a78d81d2f71bf358351b24258ebe168aea",
+        "fontVersion": "Version 2.002; ttfautohint (v1.8) -l 8 -r 50 -G 200 -x 14 -D knda -f none -a qsq -X \"\"",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Oriya",
+      "fullName": "Noto Sans Oriya Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Orya"
+      ],
+      "unicodeRange": "U+0B00-0B7F",
+      "sample": "ଓଡ଼ିଆ",
+      "desktopFile": "desktop/NotoSansOriya-Regular.ttf",
+      "desktopSha256": "b8d8bd784b9d09c0668233437359913c93a3a83bf37d92ecde859e2bc728a0e0",
+      "webFile": "web/NotoSansOriya-Regular.woff2",
+      "webSha256": "974434c0f41e2adf56ed9c15a38a7613d4ef1d73cd7f308bf0e8603ce2bb54f4",
+      "license": "licenses/OFL-NotoSansOriya.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSansOriya/NotoSansOriya-Regular.ttf",
+        "commit": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+        "sha256": "b8d8bd784b9d09c0668233437359913c93a3a83bf37d92ecde859e2bc728a0e0",
+        "fontVersion": "Version 2.000",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Georgian",
+      "fullName": "Noto Sans Georgian Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Geor"
+      ],
+      "unicodeRange": "U+10A0-10FF,U+1C90-1CBF,U+2D00-2D2F",
+      "sample": "ქართული",
+      "desktopFile": "desktop/NotoSansGeorgian-Regular.ttf",
+      "desktopSha256": "27b27245ead3baec34db6df62fe129354fc457fa36397b38f55ecec4dea06ed4",
+      "webFile": "web/NotoSansGeorgian-Regular.woff2",
+      "webSha256": "fd6f4d86d4abf125bd6946c30d8998fdef6594d2543b90aa1a693b55100d8f32",
+      "license": "licenses/OFL-NotoSansGeorgian.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSansGeorgian/NotoSansGeorgian-Regular.ttf",
+        "commit": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+        "sha256": "b36ab61cbdd820ffd32f957f704f5bf0c53655e820b7a64001091058919a11a6",
+        "fontVersion": "Version 2.001; ttfautohint (v1.8) -l 8 -r 50 -G 200 -x 14 -D geor -f none -a qsq -X \"\"",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Armenian",
+      "fullName": "Noto Sans Armenian Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Armn"
+      ],
+      "unicodeRange": "U+0530-058F,U+FB13-FB17",
+      "sample": "Հայերեն",
+      "desktopFile": "desktop/NotoSansArmenian-Regular.ttf",
+      "desktopSha256": "d59c958d0a6c02f034abea74da36d40e794d2a3d11e03b9ccde2aed7508e6fdb",
+      "webFile": "web/NotoSansArmenian-Regular.woff2",
+      "webSha256": "5c68f17d4d2fa5ee50827eeb5a4511d50e91ecaf1dea4dc4cfede0febd34667c",
+      "license": "licenses/OFL-NotoSansArmenian.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSansArmenian/NotoSansArmenian-Regular.ttf",
+        "commit": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+        "sha256": "c3332abfe298018517d7f5b687a9c0f5c92f163ea9258f23934eaa7a9378f40e",
+        "fontVersion": "Version 2.005; ttfautohint (v1.8) -l 8 -r 50 -G 200 -x 14 -D armn -f none -a qsq -X \"\"",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Sans Sinhala",
+      "fullName": "Noto Sans Sinhala Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Sinh"
+      ],
+      "unicodeRange": "U+0D80-0DFF,U+111E0-111FF",
+      "sample": "සිංහල",
+      "desktopFile": "desktop/NotoSansSinhala-Regular.ttf",
+      "desktopSha256": "5a7954e0d6f6496e9e59f111742b482e303a971e93b9080fbcf4a42344005e58",
+      "webFile": "web/NotoSansSinhala-Regular.woff2",
+      "webSha256": "6198d87b7faeea7235d1af24114e03a9e1f204745c2e5f54c6c44611a0cbc423",
+      "license": "licenses/OFL-NotoSansSinhala.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSansSinhala/NotoSansSinhala-Regular.ttf",
+        "commit": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+        "sha256": "a966549310b2d3046ba25bbeef11985428ff9356fa656fd6118bc90fb82df031",
+        "fontVersion": "Version 2.002; ttfautohint (v1.8) -l 8 -r 50 -G 200 -x 14 -D sinh -f none -a qsq -X \"\"",
+        "license": "OFL-1.1"
+      }
+    },
+    {
+      "family": "Noto Serif Tibetan",
+      "fullName": "Noto Serif Tibetan Regular",
+      "weight": "regular",
+      "weightValue": 400,
+      "scripts": [
+        "Tibt"
+      ],
+      "unicodeRange": "U+0F00-0FFF",
+      "sample": "བོད་སྐད་",
+      "desktopFile": "desktop/NotoSerifTibetan-Regular.ttf",
+      "desktopSha256": "3dd3876c670008cef5e29a79392fc8874d9bb9e349fc54755b2861c050c0fd7c",
+      "webFile": "web/NotoSerifTibetan-Regular.woff2",
+      "webSha256": "3f42163d57b5df4bb3141b657435aa0a42a9555ae48d5be10a49cbf09a000bc0",
+      "license": "licenses/OFL-NotoSerifTibetan.txt",
+      "source": {
+        "url": "https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/hinted/ttf/NotoSerifTibetan/NotoSerifTibetan-Regular.ttf",
+        "commit": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+        "sha256": "3dd3876c670008cef5e29a79392fc8874d9bb9e349fc54755b2861c050c0fd7c",
+        "fontVersion": "Version 2.101",
+        "license": "OFL-1.1"
+      }
     }
   ]
 }

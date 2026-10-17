@@ -883,17 +883,18 @@ describe('DashboardPage', () => {
     const videoTranslationCard = screen.getByRole('button', { name: /^视频翻译/ });
     expect(within(videoTranslationCard).getByText('HOT')).toBeInTheDocument();
     const appCards = Array.from(container.querySelectorAll('.dashboard-app-card'));
-    expect(appCards).toHaveLength(4);
+    expect(appCards).toHaveLength(5);
     expect(appCards.map(card => card.querySelector('strong')?.textContent)).toEqual([
       '视频下载',
       '视频翻译',
       '视频生成',
-      '图像生成'
+      '图像生成',
+      '文本转语音'
     ]);
     expect(screen.queryByRole('button', { name: /^火柴人动画 角色、分镜与完整动画/ }))
       .not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^自动剪辑/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^智能配音/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^文本转语音/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^视频生成/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^文章写作/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^数字人口播/ })).not.toBeInTheDocument();
@@ -907,7 +908,7 @@ describe('DashboardPage', () => {
     expect(Array.from(container.querySelectorAll('.dashboard-app-card strong')).map(card => card.textContent))
       .toEqual([
         '视频下载', '视频翻译', '视频生成', '图像生成', '文章写作', '火柴人动画',
-        '视频切片', '封面生成', '小红书帖子', '短视频脚本', '智能配音'
+        '视频切片', '封面生成', '小红书帖子', '短视频脚本', '文本转语音'
       ]);
     expect(screen.queryByRole('button', { name: /^数字人口播/ })).not.toBeInTheDocument();
 
@@ -917,7 +918,7 @@ describe('DashboardPage', () => {
 
     fireEvent.change(screen.getByRole('searchbox', { name: '搜索应用' }), { target: { value: '' } });
     fireEvent.click(screen.getByRole('tab', { name: '推荐' }));
-    expect(container.querySelectorAll('.dashboard-app-card')).toHaveLength(4);
+    expect(container.querySelectorAll('.dashboard-app-card')).toHaveLength(5);
     expect(screen.queryByRole('button', { name: /^小红书帖子/ })).not.toBeInTheDocument();
   });
 
@@ -1033,9 +1034,10 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('combobox', { name: '源语言' })).toHaveValue('en');
     expect(screen.getByRole('combobox', { name: '翻译为' })).toHaveValue('zh_cn');
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
-    expect(screen.getByRole('heading', { name: '视频与字幕' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '视频与字幕' })).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: '字幕字体' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('switch', { name: '合成字幕视频' }));
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
     fireEvent.change(screen.getByRole('combobox', { name: '字幕字体' }), { target: { value: 'rounded' } });
     fireEvent.change(screen.getByRole('combobox', { name: '字幕大小' }), { target: { value: 'large' } });
     fireEvent.click(screen.getByRole('button', { name: '选择译文颜色' }));
@@ -1116,7 +1118,7 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('heading', { name: '设置翻译语言' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('switch', { name: '双语字幕' }));
     fireEvent.click(within(steps).getByRole('button', { name: /视频与字幕$/ }));
-    expect(screen.getByRole('heading', { name: '视频与字幕' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '视频与字幕' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '选择原文颜色' })).toBeInTheDocument();
   });
 
@@ -1137,7 +1139,9 @@ describe('DashboardPage', () => {
     expect(screen.queryByRole('switch', { name: '生成目标语言配音' })).not.toBeInTheDocument();
     fireEvent.click(rendering);
     expect(screen.getByRole('combobox', { name: '输出画幅' }).closest('.video-translation-option-block')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
     fireEvent.change(screen.getByRole('combobox', { name: '字幕字体' }), { target: { value: 'rounded' } });
+    fireEvent.click(screen.getByRole('button', { name: '完成' }));
     fireEvent.change(screen.getByRole('combobox', { name: '输出画幅' }), { target: { value: 'vertical' } });
     fireEvent.change(screen.getByRole('textbox', { name: /竖屏主标题/ }), { target: { value: '保留标题' } });
     expect(screen.getByRole('region', { name: '字幕样式预览' })).toHaveAttribute('data-ratio', '9:16');
@@ -1149,7 +1153,9 @@ describe('DashboardPage', () => {
     expect(screen.getByLabelText('任务摘要')).not.toHaveTextContent('字幕样式');
     expect(screen.getByLabelText('任务摘要')).not.toHaveTextContent('配音');
     fireEvent.click(screen.getByRole('switch', { name: '合成字幕视频' }));
+    fireEvent.click(screen.getByRole('button', { name: '自定义样式' }));
     expect(screen.getByRole('combobox', { name: '字幕字体' })).toHaveValue('rounded');
+    fireEvent.click(screen.getByRole('button', { name: '完成' }));
     expect(screen.getByRole('combobox', { name: '输出画幅' })).toHaveValue('vertical');
     expect(screen.getByRole('textbox', { name: /竖屏主标题/ })).toHaveValue('保留标题');
     expect(screen.getByLabelText('任务摘要')).toHaveTextContent('字幕样式');
@@ -1789,7 +1795,8 @@ describe('DashboardPage', () => {
     fireEvent.click(screen.getByRole('switch', { name: '生成目标语言配音' }));
 
     expect(screen.getByText('demo.mp4')).toBeInTheDocument();
-    expect(await screen.findByRole('combobox', { name: '配音音色' })).toHaveValue('marin');
+    const voice = await screen.findByRole('combobox', { name: '配音音色' });
+    await waitFor(() => expect(voice).toHaveAttribute('data-value', 'marin'));
     expect(tts.getTtsVoices).toHaveBeenCalledWith('openai', 'gpt-4o-mini-tts');
     expect(screen.getByRole('switch', { name: '合成字幕视频' })).toHaveAttribute('aria-checked', 'true');
   });
@@ -1959,7 +1966,7 @@ describe('DashboardPage', () => {
     expect(within(directory).getByRole('button', { name: /^封面生成/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '音频处理' }));
-    expect(within(directory).getByRole('button', { name: /^智能配音/ })).toBeInTheDocument();
+    expect(within(directory).getByRole('button', { name: /^文本转语音/ })).toBeInTheDocument();
     expect(directory.querySelectorAll('.dashboard-app-card')).toHaveLength(1);
   });
 
@@ -1987,12 +1994,12 @@ describe('DashboardPage', () => {
       />
     );
 
-    expect(screen.getByRole('heading', { name: '智能配音' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '文本转语音' })).toBeInTheDocument();
     fireEvent.change(screen.getByRole('textbox', { name: '配音文案内容' }), {
       target: { value: '这是一段需要生成语音的测试文案。' }
     });
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
-    expect(await screen.findByRole('combobox', { name: '配音音色' })).toHaveValue('nova');
+    expect(await screen.findByRole('combobox', { name: '配音音色' })).toHaveAttribute('data-value', 'nova');
     fireEvent.click(screen.getByRole('button', { name: '试听当前音色' }));
     expect(await screen.findByRole('button', { name: '暂停音色试听' })).toBeInTheDocument();
     expect(tts.previewTtsVoice).toHaveBeenCalledWith({
@@ -2013,7 +2020,7 @@ describe('DashboardPage', () => {
     expect(summary).toHaveTextContent('MP3');
     fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
 
-    expect(await screen.findByLabelText('智能配音试听')).toHaveAttribute('src', 'blob:smart-dubbing');
+    expect(await screen.findByLabelText('文本转语音试听')).toHaveAttribute('src', 'blob:smart-dubbing');
     expect(screen.getByText('OpenCreator-dubbing-V1.mp3')).toBeInTheDocument();
     expect(screen.queryByText('Creator Runtime 未连接，Agent 不会生成替代回复。')).not.toBeInTheDocument();
     expect(applyAction).toHaveBeenCalledWith(
@@ -2054,7 +2061,7 @@ describe('DashboardPage', () => {
       target: { value: '这是一段需要配置服务后生成的配音文案。' }
     });
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
-    expect(await screen.findByRole('combobox', { name: '配音音色' })).toHaveValue('nova');
+    expect(await screen.findByRole('combobox', { name: '配音音色' })).toHaveAttribute('data-value', 'nova');
     fireEvent.click(screen.getByRole('button', { name: '继续' }));
     fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
 

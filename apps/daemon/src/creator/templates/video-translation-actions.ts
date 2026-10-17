@@ -161,6 +161,9 @@ export async function validateBilibiliSource(job: CreatorJob, service?: VideoMet
 }
 
 function validateSource(job: CreatorJob): void {
+  if (typeof job.state.importedSourceSubtitleId === 'string' && job.state.sourceLanguage === 'auto') {
+    throw new VideoTranslationWorkflowError('creator_action_invalid', 'Select the source subtitle language before translating');
+  }
   if (job.state.sourceType === 'subtitle') {
     if (!job.artifacts.some(artifact => artifact.id === job.state.importedSourceSubtitleId
       && artifact.kind === 'source_subtitle' && artifact.status === 'completed')) {

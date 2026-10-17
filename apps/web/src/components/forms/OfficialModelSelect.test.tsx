@@ -3,12 +3,56 @@ import { userEvent } from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import OfficialModelSelect from './OfficialModelSelect.js';
 import { gatewayRecommendedModelId, type GatewayModel } from '@opencreator/protocol';
+import { LanguageProvider } from '../../i18n/LanguageProvider.js';
 
 function catalog() {
   const models = Array.from({ length: 12 }, (_, index) => ({ id: `vendor/model-${index}`, name: `Model ${index}`, modality: 'text' as const, capabilities: ['responses'] }));
   models.push({ id: 'openrouter/auto', name: 'OpenRouter Automatic', modality: 'text', capabilities: ['responses'] });
   return models;
 }
+
+it('shows locally hosted brand marks and only model-supported video details', async () => {
+  const models = [
+    { id: 'bytedance/seedance-2', name: 'Seedance 2.0', modality: 'video' as const, capabilities: [], durations: [5, 10] },
+    { id: 'google/veo-3.1', name: 'Veo 3.1', modality: 'video' as const, capabilities: [], durations: [4, 8], resolutions: ['720p'] },
+    { id: 'custom/private-video', name: 'Private Video', modality: 'video' as const, capabilities: [] }
+  ];
+  render(<OfficialModelSelect label="视频模型" models={models} value={models[0]!.id} onChange={vi.fn()} />);
+  const input = screen.getByRole('combobox');
+  expect(input.parentElement?.querySelector('[data-brand="bytedance"] img')).toHaveAttribute('src', '/model-brands/bytedance-color.svg');
+  await userEvent.setup().click(input);
+  const veo = screen.getByRole('option', { name: 'Veo 3.1' });
+  expect(veo.querySelector('[data-brand="google"] img')).toHaveAttribute('src', '/model-brands/google-color.svg');
+  expect(veo).toHaveTextContent('Google · 4 / 8 秒 · 720p');
+  const unknown = screen.getByRole('option', { name: 'Private Video' });
+  expect(unknown.querySelector('[data-brand="generic"] svg')).not.toBeNull();
+  expect(unknown).not.toHaveTextContent(/秒|720p/);
+  expect(within(unknown).queryByRole('img')).not.toBeInTheDocument();
+});
+
+it('keeps options usable if a brand image fails to load', async () => {
+  const change = vi.fn();
+  render(<OfficialModelSelect label="模型" models={[{ id: 'kling-v2-1-master', name: 'Kling 2.1 Master', modality: 'video', capabilities: [] }]} value="" onChange={change} />);
+  await userEvent.setup().click(screen.getByRole('combobox'));
+  const option = screen.getByRole('option', { name: 'Kling 2.1 Master' });
+  fireEvent.error(option.querySelector('img')!);
+  expect(option.querySelector('img')).toBeNull();
+  expect(option.querySelector('svg')).not.toBeNull();
+  await userEvent.setup().click(option);
+  expect(change).toHaveBeenCalledExactlyOnceWith('kling-v2-1-master');
+});
+
+it('localizes branded video metadata and search states in Swedish', async () => {
+  render(<LanguageProvider initialPreference="sv-SE"><OfficialModelSelect label="Videomodell" models={[{
+    id: 'google/veo-3.1', name: 'Veo 3.1', modality: 'video', capabilities: [], durations: [4, 8]
+  }]} value="google/veo-3.1" onChange={vi.fn()} /></LanguageProvider>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('combobox', { name: 'Videomodell' }));
+  expect(screen.getByRole('option', { name: 'Veo 3.1' })).toHaveTextContent('Google · 4 / 8 sekunder');
+  expect(screen.getByText('1 modeller')).toBeInTheDocument();
+  await user.type(screen.getByRole('combobox'), 'zzzzzzzzzz');
+  expect(screen.getByText('Inga matchande modeller')).toBeInTheDocument();
+});
 
 it('shows search results immediately in the same control without retaining unrelated selected models', async () => {
   const models = catalog(); const change = vi.fn();

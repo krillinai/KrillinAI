@@ -1,0 +1,381 @@
+{
+  "date": "2026-10-17",
+  "method": "Local franc-all detection from parsed subtitle text; no model requests",
+  "sourceDirectory": "/Users/leggett/Documents/OpenCreator/Exports/多语言回译评测-20261016",
+  "total": 52,
+  "matched": 47,
+  "needsSelection": [
+    "hr",
+    "id",
+    "ms",
+    "no",
+    "sr"
+  ],
+  "mismatched": [],
+  "results": [
+    {
+      "expected": "ar",
+      "detected": "ar",
+      "status": "matched",
+      "cueCount": 115,
+      "sha256": "f03d7d001dfbd6f60daef2eedf924d198528818ab58c126bf9c560ed5faff2d9"
+    },
+    {
+      "expected": "bg",
+      "detected": "bg",
+      "status": "matched",
+      "cueCount": 126,
+      "sha256": "849c266fb471a2a9647c43607ef341858b7b0f7fb677776bc78e8e3e5456a8f8"
+    },
+    {
+      "expected": "bn",
+      "detected": "bn",
+      "status": "matched",
+      "cueCount": 123,
+      "sha256": "e0aee96a743e06335819c6b78d05ded5763cfa77a02153190854a73a5c0e08e3"
+    },
+    {
+      "expected": "cs",
+      "detected": "cs",
+      "status": "matched",
+      "cueCount": 120,
+      "sha256": "b811ea0c62fa538c13a4f4ab84848b8f68d605d53e150c3dcb12a9ce57730e01"
+    },
+    {
+      "expected": "da",
+      "detected": "da",
+      "status": "matched",
+      "cueCount": 123,
+      "sha256": "98e699ced93440e4a5075897ab5d13dac5f51ddbee60926f90087bfdc3767b2e"
+    },
+    {
+      "expected": "de",
+      "detected": "de",
+      "status": "matched",
+      "cueCount": 128,
+      "sha256": "21792458db0c2c32d7968d48367dbd182f3e8e173fc46509a8061d403119e3c9"
+    },
+    {
+      "expected": "el",
+      "detected": "el",
+      "status": "matched",
+      "cueCount": 127,
+      "sha256": "f3364717c6a48e8e95b0c99852b06c22776a938db10aa4da131812790aaad009"
+    },
+    {
+      "expected": "en",
+      "detected": "en",
+      "status": "matched",
+      "cueCount": 115,
+      "sha256": "28688691f498995fa0bc9eaacd2255cd60a7b6ea18e16f690b093f4c98f32808"
+    },
+    {
+      "expected": "es",
+      "detected": "es",
+      "status": "matched",
+      "cueCount": 123,
+      "sha256": "2f5908396d94ed8d2fe38fd4f585dae1bb3033d2fbaf9d9287577bf84ad8e243"
+    },
+    {
+      "expected": "et",
+      "detected": "et",
+      "status": "matched",
+      "cueCount": 122,
+      "sha256": "a1bb10d958da6287eabbc5f47415f62c98a5a003691715b9e3d32db8ebe0f5ea"
+    },
+    {
+      "expected": "fa",
+      "detected": "fa",
+      "status": "matched",
+      "cueCount": 124,
+      "sha256": "fb73607270b7d3de30434c4e7b10faafa5230a3e03bf17deefc77fbb89e75c9f"
+    },
+    {
+      "expected": "fi",
+      "detected": "fi",
+      "status": "matched",
+      "cueCount": 122,
+      "sha256": "6dc7515e4c3be6e225c2be55496e2f98c1f04cd76a1709af2232ff2edb09d8aa"
+    },
+    {
+      "expected": "fil",
+      "detected": "fil",
+      "status": "matched",
+      "cueCount": 131,
+      "sha256": "551fc0612d9d8f59ec7fedb596c85681a13faca5040d9be60b99f2c3abe2c844"
+    },
+    {
+      "expected": "fr",
+      "detected": "fr",
+      "status": "matched",
+      "cueCount": 132,
+      "sha256": "11f464278ef019f0bec7562bc364a385c7f404d3481d9e5a6b68b17a401101f0"
+    },
+    {
+      "expected": "gu",
+      "detected": "gu",
+      "status": "matched",
+      "cueCount": 122,
+      "sha256": "8c2fd2e39c06c5e66907b096b733ba548ad55b4a86a28393037a998570e53410"
+    },
+    {
+      "expected": "he",
+      "detected": "he",
+      "status": "matched",
+      "cueCount": 116,
+      "sha256": "6ff2fd164f9e62290ff7d0d91667a3b3318393e99879545f048844a868c8d61b"
+    },
+    {
+      "expected": "hi",
+      "detected": "hi",
+      "status": "matched",
+      "cueCount": 121,
+      "sha256": "e2223574263fc55eb1a1f50b1e2dc13e3976b57357191f733c80f683433c4806"
+    },
+    {
+      "expected": "hr",
+      "detected": "auto",
+      "status": "needs_selection",
+      "cueCount": 120,
+      "sha256": "d054e6a7d6bf66175c4831f64af6acadbfb7c169ac6fa8283fe784bf2484b887"
+    },
+    {
+      "expected": "hu",
+      "detected": "hu",
+      "status": "matched",
+      "cueCount": 124,
+      "sha256": "755e6aca5f7360ec3ec75f803e0a648e3192f591a0278d7c1b027299ba94235e"
+    },
+    {
+      "expected": "id",
+      "detected": "auto",
+      "status": "needs_selection",
+      "cueCount": 126,
+      "sha256": "72cb6d57de6b1312adb6925c9a0ac8fbd1d9f5d31cbae2c073bd65b0f604d7d5"
+    },
+    {
+      "expected": "it",
+      "detected": "it",
+      "status": "matched",
+      "cueCount": 125,
+      "sha256": "60f05be97bd829be0808bb1c818f968a0a38254393c5b9cf797ad9ef4f8f380a"
+    },
+    {
+      "expected": "ja",
+      "detected": "ja",
+      "status": "matched",
+      "cueCount": 121,
+      "sha256": "5e9973e5b82d7dbc862c2afa0d108b576fd5414cbfd1afaf1d8a806d39bf6e5b"
+    },
+    {
+      "expected": "km",
+      "detected": "km",
+      "status": "matched",
+      "cueCount": 121,
+      "sha256": "4ad07b436c044133af6d8bfeef7d32876e81fc29d80053a7887b1ac83f1c0b71"
+    },
+    {
+      "expected": "ko",
+      "detected": "ko",
+      "status": "matched",
+      "cueCount": 120,
+      "sha256": "c72ce7d7095f6dc56df0b054b9c7d9ec970db43cadcd20692a6a6311e0be0e10"
+    },
+    {
+      "expected": "lo",
+      "detected": "lo",
+      "status": "matched",
+      "cueCount": 124,
+      "sha256": "2b6c560eba4f1a12dff6f74b5f298197d7b57a10c9c6033847c444d7676e6fd1"
+    },
+    {
+      "expected": "lt",
+      "detected": "lt",
+      "status": "matched",
+      "cueCount": 121,
+      "sha256": "f807f918a03dcf83c4c42b301585c552f8939ec2ecd18778972ef135e6993e74"
+    },
+    {
+      "expected": "lv",
+      "detected": "lv",
+      "status": "matched",
+      "cueCount": 123,
+      "sha256": "c7d3f7164a5f354f7970adbc248f0b14f188f2131f686b3271736cb8770ecfa7"
+    },
+    {
+      "expected": "mr",
+      "detected": "mr",
+      "status": "matched",
+      "cueCount": 121,
+      "sha256": "6ffeebb92befd1978430c8297023efd17d3aa35680c5e44ba06bef0f6566b6c7"
+    },
+    {
+      "expected": "ms",
+      "detected": "auto",
+      "status": "needs_selection",
+      "cueCount": 129,
+      "sha256": "34b809de7097fb1cef51645a32569c9974de01bd1aaf2e37e543330a50e9f7f2"
+    },
+    {
+      "expected": "my",
+      "detected": "my",
+      "status": "matched",
+      "cueCount": 127,
+      "sha256": "9f6a84e26c5cefc4fc8dc0922eb0cb04839cf0ac18ae620d98f69000fd66f0df"
+    },
+    {
+      "expected": "ne",
+      "detected": "ne",
+      "status": "matched",
+      "cueCount": 121,
+      "sha256": "b15f32e7d0d8236c94ef32705336e282d01161c5c742c2da31f2ac1d3670099f"
+    },
+    {
+      "expected": "nl",
+      "detected": "nl",
+      "status": "matched",
+      "cueCount": 125,
+      "sha256": "cef4da3045e225d9770cd513d24b9482687ccc48d10a76ab0e4a0be634730966"
+    },
+    {
+      "expected": "no",
+      "detected": "auto",
+      "status": "needs_selection",
+      "cueCount": 122,
+      "sha256": "a04b627bd745a9d33d280738a4f53355a7bf8ab548616f6ba3b9771686acc5d9"
+    },
+    {
+      "expected": "pa",
+      "detected": "pa",
+      "status": "matched",
+      "cueCount": 124,
+      "sha256": "21c31b4fa5092f2ea476ffabc11480abe1ab50fc0825115f7eaa39543b6da8a6"
+    },
+    {
+      "expected": "pl",
+      "detected": "pl",
+      "status": "matched",
+      "cueCount": 125,
+      "sha256": "f69a0fe8a7b3f312b9634e025f7f00ff40c2054e9e92b874b7c3e9504d16a787"
+    },
+    {
+      "expected": "pt",
+      "detected": "pt",
+      "status": "matched",
+      "cueCount": 126,
+      "sha256": "7896658d50545099db153df3a5a7b5fb2e1a3f1a279b2446bf588be5996a69e2"
+    },
+    {
+      "expected": "ro",
+      "detected": "ro",
+      "status": "matched",
+      "cueCount": 126,
+      "sha256": "4b2eec9fa2369ff8575104d01d6e2688744dc7afdaffaf5084cb88db282156f5"
+    },
+    {
+      "expected": "ru",
+      "detected": "ru",
+      "status": "matched",
+      "cueCount": 123,
+      "sha256": "1cc23c805f217f733fb07198cc1219d117c9b18547494a1ba6735d798bf3499f"
+    },
+    {
+      "expected": "sk",
+      "detected": "sk",
+      "status": "matched",
+      "cueCount": 120,
+      "sha256": "8b4b7f83acaa8e5dac6a642014ce64e2f393f96f1027f2589aec1d61c47060f9"
+    },
+    {
+      "expected": "sl",
+      "detected": "sl",
+      "status": "matched",
+      "cueCount": 125,
+      "sha256": "d8c1190687a7181be1910c24334b687326771373b16fb1d2e3a82b8e94e4fd77"
+    },
+    {
+      "expected": "sr",
+      "detected": "auto",
+      "status": "needs_selection",
+      "cueCount": 123,
+      "sha256": "1c40bf850fa47f1cb2bcb055e9316e0d10a42d2e3e92f9f4909f7dbd4e26972e"
+    },
+    {
+      "expected": "sv",
+      "detected": "sv",
+      "status": "matched",
+      "cueCount": 122,
+      "sha256": "38265499b6be385075d388767fa114f66956add5185f392078f2421be92421cc"
+    },
+    {
+      "expected": "sw",
+      "detected": "sw",
+      "status": "matched",
+      "cueCount": 128,
+      "sha256": "d3c394ab1b620de5b236839c7b75dbb027e3b745c1c5550c3b3a62a450972dd0"
+    },
+    {
+      "expected": "ta",
+      "detected": "ta",
+      "status": "matched",
+      "cueCount": 122,
+      "sha256": "acb79950e934ac731fd857e2e59e95b482ca84730b993055213ffce150d279f1"
+    },
+    {
+      "expected": "te",
+      "detected": "te",
+      "status": "matched",
+      "cueCount": 124,
+      "sha256": "4024aaa6dbea478c84e24b1d7a3054c1bbee91b8b095bffdee651f795aa02371"
+    },
+    {
+      "expected": "th",
+      "detected": "th",
+      "status": "matched",
+      "cueCount": 122,
+      "sha256": "daada25fca4cef8269429031e2f6f1a81132a14baa062191a764032300e2229f"
+    },
+    {
+      "expected": "tr",
+      "detected": "tr",
+      "status": "matched",
+      "cueCount": 120,
+      "sha256": "0696c63f3c2fb736687dc6d13daa9920f7088cb3b2bc4531b76ba6e4c989a36b"
+    },
+    {
+      "expected": "uk",
+      "detected": "uk",
+      "status": "matched",
+      "cueCount": 125,
+      "sha256": "15e507a2d341033afd9573ce7a9b3d86ccbe41e5eeda209cb214319b9d03fe24"
+    },
+    {
+      "expected": "ur",
+      "detected": "ur",
+      "status": "matched",
+      "cueCount": 129,
+      "sha256": "57f5b8ff4dddd28078fb9872f2393f99b8addeb5874244a6654397ec4c5242a5"
+    },
+    {
+      "expected": "vi",
+      "detected": "vi",
+      "status": "matched",
+      "cueCount": 126,
+      "sha256": "b44919b6ce5763a15c0a03117c481d3f3997602dc3b42f5041f24448c97eccf6"
+    },
+    {
+      "expected": "zh_cn",
+      "detected": "zh_cn",
+      "status": "matched",
+      "cueCount": 120,
+      "sha256": "e619e4c551c4b51c23206fcb37ab4b1107542f022e4396316bab3d3607804789"
+    },
+    {
+      "expected": "zh_tw",
+      "detected": "zh_tw",
+      "status": "matched",
+      "cueCount": 120,
+      "sha256": "f69f9cf1cfc1e9313042fe6acc543c063fc929c15613d647ab8757158c73cbf9"
+    }
+  ]
+}

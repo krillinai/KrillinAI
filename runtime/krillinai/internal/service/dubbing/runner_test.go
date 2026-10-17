@@ -61,7 +61,9 @@ func TestRunWritesDubbingArtifactsWithFakeTTS(t *testing.T) {
 	if err := os.WriteFile(video, []byte("video"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	var phases []string
 	deps := Dependencies{
+		ReportPhase: func(phase string) { phases = append(phases, phase) },
 		TTS:         &fakeTTS{writeOnReturn: true},
 		Language:    "zh_cn",
 		Voice:       "voice",
@@ -79,6 +81,9 @@ func TestRunWritesDubbingArtifactsWithFakeTTS(t *testing.T) {
 	result, err := NewRunner(deps).Run(context.Background())
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
+	}
+	if strings.Join(phases, ",") != "planning_voice,generating_voice,fitting_voice,assembling_voice,muxing_voice" {
+		t.Fatalf("missing dubbing phase details: %v", phases)
 	}
 	for _, path := range []string{
 		filepath.Join(dir, DubbingDirName, DubbingInputFileName),

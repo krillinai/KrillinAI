@@ -188,7 +188,7 @@ function createVideoTranslationTemplateDefinition(version: 1 | 2): CreatorTempla
     ],
     agentGuidance: [
       '仅翻译字幕文件时设置 sourceType 为 subtitle，使用 import-subtitle 导入 source_subtitle，只运行 subtitle 阶段，不需要 sourceUrl、视频、ASR、配音、合成或字幕样式。',
-      '导入用户提供的 UTF-8 SRT 使用 import-subtitle，input 包含 fileName、contentBase64（原文件字节的 base64，最多512 KiB）、kind（source_subtitle 或 target_subtitle）和 language。原文跳过 ASR，译文跳过 ASR 与翻译。不要编造字幕。',
+      '导入用户提供的 UTF-8 SRT 使用 import-subtitle，input 包含 fileName、contentBase64（原文件字节的 base64，最多512 KiB）、kind（source_subtitle 或 target_subtitle）和 language。未知原文语言时 language 传 auto，由本地正文识别；返回仍为 auto 时需请用户选择源语言再翻译。用户明确指定语言时传对应代码。原文跳过 ASR，译文跳过 ASR 与翻译。不要编造字幕。',
       '帮助用户调整视频翻译内容与参数，修改前读取最新 revision。',
       '更新设置必须写入 input.patch。',
       version === 2

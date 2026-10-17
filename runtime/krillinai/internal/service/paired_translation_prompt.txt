@@ -13,5 +13,7 @@
 
 配对示例：整句译文“我们努力工作，因为我们在乎。”可以分成[{"source":"We work hard","target":"我们努力工作，"},{"source":"because we care.","target":"因为我们在乎。"}]，拼接target仍是“我们努力工作，因为我们在乎。”。不能在target_text中写“因为我们在乎，所以我们努力工作。”后却沿用前述分段，否则语序和文字不一致。
 
+9. 仅允许分段边界的空白变化。source 每段内部的词间空格必须与原文一致，target 每段内部的词间空格必须与 target_text 一致；不得把 apart 改为 a part，也不得把 nicht so 改为 nichtso。无空格语言中已有的短语空格也必须保留。
+
 仅输出 JSON，禁止 Markdown、解释、思考过程、计数和额外字段：
 {"sentences":[{"sentence_id":"输入ID","target_text":"目标片段1目标片段2","segments":[{"source":"原文片段1","target":"目标片段1"},{"source":"原文片段2","target":"目标片段2"}]}]}

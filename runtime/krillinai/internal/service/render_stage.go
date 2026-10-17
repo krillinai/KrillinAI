@@ -8,11 +8,9 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"krillin-ai/internal/storage"
 	subtitlestyle "krillin-ai/internal/subtitle_style"
 	"krillin-ai/internal/types"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -122,12 +120,15 @@ func renderSubtitleFile(ctx context.Context, req RenderVideoRequest) (string, er
 		req.StepParam.RenderWidth = req.PreviewWidth
 		req.StepParam.RenderHeight = req.PreviewHeight
 	} else {
-		preparedReq, err := prepareSubtitleRenderLayout(req, getResolution, convertToVertical)
+		preparedReq, err := prepareSubtitleRenderLayout(req, getResolution, func(input, output, major, minor string) error {
+			return convertToVerticalProgress(ctx, input, output, major, minor, stepParam.TaskPtr)
+		})
 		if err != nil {
 			return "", fmt.Errorf("renderSubtitleFile prepare subtitle layout error: %w", err)
 		}
 		req = preparedReq
 	}
+	stepParam.TaskPtr.ReportProgress(types.TaskProgress{Phase: "preparing_render", Percent: 30, Message: "正在准备字幕样式和视频编码"})
 	if err := validatePackagedSubtitleFonts(req.StepParam.SubtitleStyle); err != nil {
 		return "", fmt.Errorf("renderSubtitleFile subtitle fonts error: %w", err)
 	}
@@ -135,8 +136,7 @@ func renderSubtitleFile(ctx context.Context, req RenderVideoRequest) (string, er
 		return "", fmt.Errorf("renderSubtitleFile srtToAss error: %w", err)
 	}
 	args, _ := buildEmbedSubtitleArgs(req)
-	cmd := exec.CommandContext(ctx, storage.FfmpegPath, args...)
-	output, err := cmd.CombinedOutput()
+	output, err := runFFmpegProgress(ctx, args, req.InputVideo, "rendering_video", "正在编码并合成字幕视频", stepParam.TaskPtr, 35, 98)
 	if err != nil {
 		return "", fmt.Errorf("renderSubtitleFile ffmpeg error: %w, output: %s", err, string(output))
 	}
@@ -145,6 +145,7 @@ func renderSubtitleFile(ctx context.Context, req RenderVideoRequest) (string, er
 			return "", fmt.Errorf("renderSubtitleFile preview alpha error: %w", err)
 		}
 	}
+	stepParam.TaskPtr.ReportProgress(types.TaskProgress{Phase: "collecting_outputs", Percent: 99, Message: "视频编码完成，正在整理输出文件"})
 	return req.OutputFile, nil
 }
 
@@ -195,19 +196,26 @@ func transparentSubtitlePreview(filename string, width, height int) error {
 	return closeErr
 }
 
+type subtitleFontEntry struct {
+	Family  string   `json:"family"`
+	File    string   `json:"file"`
+	SHA256  string   `json:"sha256"`
+	Scripts []string `json:"scripts"`
+}
+
 type subtitleFontManifest struct {
-	Version int `json:"version"`
-	Fonts   []struct {
-		Family string `json:"family"`
-		File   string `json:"file"`
-		SHA256 string `json:"sha256"`
-	} `json:"fonts"`
+	Version       int                 `json:"version"`
+	Fonts         []subtitleFontEntry `json:"fonts"`
+	FallbackFonts []subtitleFontEntry `json:"fallbackFonts"`
 }
 
 func validatePackagedSubtitleFonts(styleSet *subtitlestyle.StyleSet) error {
 	resourceRoot := strings.TrimSpace(os.Getenv("KRILLINAI_RESOURCE_ROOT"))
-	if resourceRoot == "" || styleSet == nil {
+	if resourceRoot == "" {
 		return nil
+	}
+	if styleSet == nil {
+		styleSet = subtitlestyle.DefaultStyleSet()
 	}
 	fontsDir := filepath.Join(resourceRoot, "fonts")
 	manifestPath := filepath.Join(fontsDir, "manifest.json")
@@ -219,11 +227,11 @@ func validatePackagedSubtitleFonts(styleSet *subtitlestyle.StyleSet) error {
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		return fmt.Errorf("creator subtitle font manifest invalid: %w", err)
 	}
-	if manifest.Version != 1 || len(manifest.Fonts) == 0 {
+	if (manifest.Version != 1 && manifest.Version != 2) || len(manifest.Fonts) == 0 || (manifest.Version == 2 && len(manifest.FallbackFonts) == 0) {
 		return fmt.Errorf("creator subtitle font manifest invalid")
 	}
 	available := make(map[string]bool, len(manifest.Fonts))
-	for _, font := range manifest.Fonts {
+	for _, font := range append(manifest.Fonts, manifest.FallbackFonts...) {
 		if strings.TrimSpace(font.Family) == "" || strings.TrimSpace(font.File) == "" || len(font.SHA256) != 64 {
 			return fmt.Errorf("creator subtitle font manifest contains an invalid entry")
 		}
@@ -235,6 +243,9 @@ func validatePackagedSubtitleFonts(styleSet *subtitlestyle.StyleSet) error {
 		actual := fmt.Sprintf("%x", sha256.Sum256(content))
 		if !strings.EqualFold(actual, font.SHA256) {
 			return fmt.Errorf("creator subtitle font hash mismatch: %s", font.File)
+		}
+		if available[font.Family] {
+			return fmt.Errorf("creator subtitle font alias duplicated: %s", font.Family)
 		}
 		available[font.Family] = true
 	}

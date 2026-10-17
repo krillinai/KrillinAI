@@ -1,6 +1,53 @@
 import { createDefaultCreatorServicesConfig, type CreatorRuntimeComponentsResponse, type CreatorServicesCapabilitiesResponse, type CreatorYtDlpStatusResponse, type YouTubeConnectionState } from '@opencreator/protocol';
 import { test, expect, stubVideoDownloadProbe } from './fixtures/runtime.js';
 
+test('视频翻译语言检索和选项在 Browser/Desktop 使用相同目录', async ({ browser, runtime }, testInfo) => {
+  const results: unknown[] = [];
+  const viewport = testInfo.project.name === 'chromium-mobile' ? { width: 390, height: 844 } : { width: 1280, height: 800 };
+  for (const platform of ['browser', 'desktop']) {
+    const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    if (platform === 'desktop') await installDesktopBridge(page);
+    const { job } = await runtime.api<{ job: { id: string } }>('POST', '/creator/jobs', {
+      projectId: runtime.projectId, templateId: 'video-translation', templateVersion: 2,
+      state: { sourceLanguage: 'hi', targetLanguage: 'zh_cn', currentStep: 1, furthestStep: 1, workspacePhase: 'configure' }
+    });
+    try {
+      await runtime.openApp(page);
+      await page.goto(`${runtime.origin}/#/workbench?tool=video-translation&jobId=${encodeURIComponent(job.id)}`);
+      const source = page.getByRole('combobox', { name: '源语言', exact: true });
+      const target = page.getByRole('combobox', { name: '翻译为', exact: true });
+      await expect(source).toHaveValue('hi');
+      await expect(source.locator('option')).toHaveCount(123);
+      await expect(target.locator('option')).toHaveCount(124);
+      for (const value of ['bo', 'si', 'am', 'nn', 'yue']) await expect(source.locator(`option[value="${value}"]`)).toHaveCount(1);
+      await expect(source.locator('option[value="pinyin"]')).toHaveCount(0);
+      const loadedFonts = await page.evaluate(async () => Promise.all([
+        ['Noto Sans Ethiopic', 'አማርኛ'], ['Noto Sans Javanese', 'ꦧꦱꦗꦮ'],
+        ['Noto Sans Malayalam', 'മലയാളം'], ['Noto Sans Kannada', 'ಕನ್ನಡ'],
+        ['Noto Sans Oriya', 'ଓଡ଼ିଆ'], ['Noto Sans Georgian', 'ქართული'],
+        ['Noto Sans Armenian', 'Հայերեն'], ['Noto Sans Sinhala', 'සිංහල'],
+        ['Noto Serif Tibetan', 'བོད་སྐད་']
+      ].map(async ([family, sample]) => (await document.fonts.load(`16px "${family}"`, sample)).length)));
+      expect(loadedFonts).toEqual(Array(9).fill(1));
+      await page.getByRole('searchbox', { name: '搜索源语言' }).fill('阿拉伯');
+      await expect(source.locator('option[value="ar"]')).toHaveText('العربية');
+      await expect(source).toHaveValue('hi');
+      await source.selectOption('ar');
+      await page.getByRole('searchbox', { name: '搜索源语言' }).fill('हिन्दी');
+      await expect(source).toHaveValue('ar');
+      for (const input of [source, target, page.getByRole('searchbox', { name: '搜索源语言' })]) {
+        const box = await input.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+      }
+      results.push({ source: await source.locator('option').evaluateAll(options => options.map(option => ({ value: (option as HTMLOptionElement).value, text: option.textContent }))), target: await target.locator('option').allTextContents(), box: await source.boundingBox() });
+    } finally { await context.close(); }
+  }
+  expect(results[1]).toEqual(results[0]);
+});
+
 test('Windows YouTube 专用登录和完成在 Browser/Desktop 下保持一致', async ({ browser, runtime }, testInfo) => {
   const results: unknown[] = [];
   const viewport = testInfo.project.name === 'chromium-mobile' ? { width: 390, height: 844 } : { width: 1280, height: 800 };
@@ -191,7 +238,7 @@ test('扩展源语言与巴西葡萄牙语设置在 Browser/Desktop 下保存并
       const request = page.waitForRequest(req => req.url().endsWith('/actions')
         && req.postDataJSON()?.input?.patch?.sourceLanguage === 'pt');
       const source = page.getByRole('combobox', { name: '源语言', exact: true });
-      await expect(source.locator('option')).toHaveCount(14);
+      await expect(source.locator('option')).toHaveCount(123);
       for (const value of ['es', 'fr', 'it', 'pt', 'id', 'th']) {
         await expect(source.locator(`option[value="${value}"]`)).toHaveCount(1);
       }

@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -20,7 +21,12 @@ import {
   Languages,
   Mic2,
   MonitorPlay,
-  Play,
+  Pencil,
+  Plus,
+  RotateCcw,
+  RectangleHorizontal,
+  RectangleVertical,
+  SlidersHorizontal,
   Sparkles,
   Square,
   X
@@ -35,11 +41,13 @@ import type { VideoMetadataService } from '../../services/video-metadata-service
 import VideoTranslationAgentPanel from './VideoTranslationAgentPanel.js';
 import CreatorResizableLayout from './CreatorResizableLayout.js';
 import CreatorTaskSummary from './CreatorTaskSummary.js';
+import { sameSubtitleCues } from './subtitle-editing.js';
 import VideoSourceInput from './VideoSourceInput.js';
 import { BilibiliPartSelector } from './BilibiliPartSelector.js';
 import { parseVideoSource } from './VideoSourcePreview.js';
 import { VideoTranslationSubtitleImport } from './VideoTranslationSubtitleImport.js';
 import VideoTranslationStylePreview from './VideoTranslationStylePreview.js';
+import { readJsonFromStorage, writeJsonToStorage } from '../../storage/browser-storage.js';
 import VideoTranslationResultWorkspace, {
   type SubtitleCue,
   type SubtitleResultOutput,
@@ -56,12 +64,15 @@ import {
 } from './creator-session-store.js';
 import {
   readCreatorResultSnapshots,
+  creatorLanguages, creatorLanguage, searchCreatorLanguages, creatorTranscriptionModel, transcriptionLanguageSupport,
+  type TranscriptionLanguageCapability,
   parseBilibiliVideoSource,
   normalizeVideoSourceUrl,
   videoSourceIdentity,
   type CreatorArtifact,
   type CreatorJson,
   type CreatorResultSnapshot,
+  type CreatorSubtitlePreviewRequest,
   type CreatorTtsProvider,
   type VideoMetadataResponse
 } from '@opencreator/protocol';
@@ -178,129 +189,180 @@ const defaultSubtitleStyle: SubtitleStyleSettings = {
   subtitleShadowOffsetY: 1.5,
   subtitleShadowBlur: 0.5
 };
-const sourceLanguages: LanguageOption[] = [
-  { value: 'zh_cn', label: '简体中文' },
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Español' },
-  { value: 'fr', label: 'Français' },
-  { value: 'it', label: 'Italiano' },
-  { value: 'pt', label: 'Português (Brasil)' },
-  { value: 'id', label: 'Bahasa Indonesia' },
-  { value: 'th', label: 'ภาษาไทย' },
-  { value: 'ja', label: '日本語' },
-  { value: 'ko', label: '한국어' },
-  { value: 'de', label: 'Deutsch' },
-  { value: 'tr', label: 'Türkçe' },
-  { value: 'ru', label: 'Русский' },
-  { value: 'ms', label: 'Bahasa Melayu' }
+type SubtitleStylePreset = {
+  id: string;
+  name: [zh: string, en: string];
+  style: SubtitleStyleSettings;
+};
+const subtitleStylePresets: readonly SubtitleStylePreset[] = [
+  { id: 'classic', name: ['经典', 'Classic'], style: defaultSubtitleStyle },
+  {
+    id: 'highlight',
+    name: ['醒目黄字', 'Bold yellow'],
+    style: {
+      ...defaultSubtitleStyle,
+      subtitleSize: 'large',
+      subtitleColor: '#FFE45C',
+      subtitleSecondaryColor: '#FFFFFF',
+      subtitleOutlineWidth: 3
+    }
+  },
+  {
+    id: 'soft',
+    name: ['柔和阴影', 'Soft shadow'],
+    style: {
+      ...defaultSubtitleStyle,
+      subtitleWeight: 'medium',
+      subtitleOutlineWidth: 0,
+      subtitleShadowOpacity: 0.85,
+      subtitleShadowOffsetX: 0,
+      subtitleShadowOffsetY: 2,
+      subtitleShadowBlur: 4
+    }
+  },
+  {
+    id: 'cinema',
+    name: ['电影感', 'Cinematic'],
+    style: {
+      ...defaultSubtitleStyle,
+      subtitleFont: 'serif',
+      subtitleWeight: 'regular',
+      subtitleColor: '#F5F0E6',
+      subtitleSecondaryColor: '#BFB8AA',
+      subtitleOutlineWidth: 1,
+      subtitleShadowOpacity: 0.5,
+      subtitleShadowOffsetX: 1,
+      subtitleShadowOffsetY: 1,
+      subtitleShadowBlur: 1.5
+    }
+  },
+  {
+    id: 'playful',
+    name: ['活泼圆体', 'Playful'],
+    style: {
+      ...defaultSubtitleStyle,
+      subtitleFont: 'rounded',
+      subtitleSize: 'large',
+      subtitleSecondaryColor: '#7EE7FF',
+      subtitleOutlineColor: '#1F2937',
+      subtitleOutlineWidth: 3.5,
+      subtitleShadowOpacity: 0.4,
+      subtitleShadowOffsetX: 2,
+      subtitleShadowOffsetY: 2,
+      subtitleShadowBlur: 0
+    }
+  },
+  {
+    id: 'neon',
+    name: ['霓虹', 'Neon'],
+    style: {
+      ...defaultSubtitleStyle,
+      subtitleColor: '#7EE7FF',
+      subtitleSecondaryColor: '#E0F7FF',
+      subtitleOutlineColor: '#0B1F33',
+      subtitleOutlineWidth: 2,
+      subtitleShadowColor: '#7EE7FF',
+      subtitleShadowOpacity: 0.7,
+      subtitleShadowOffsetX: 0,
+      subtitleShadowOffsetY: 0,
+      subtitleShadowBlur: 6
+    }
+  },
+  {
+    id: 'news',
+    name: ['新闻播报', 'Broadcast'],
+    style: {
+      ...defaultSubtitleStyle,
+      subtitleWeight: 'medium',
+      subtitleColor: '#FFFFFF',
+      subtitleSecondaryColor: '#FFE45C',
+      subtitleOutlineColor: '#0B2545',
+      subtitleOutlineWidth: 2.5,
+      subtitleShadowEnabled: false
+    }
+  },
+  {
+    id: 'minimal',
+    name: ['极简', 'Minimal'],
+    style: {
+      ...defaultSubtitleStyle,
+      subtitleFont: 'system',
+      subtitleWeight: 'regular',
+      subtitleSize: 'small',
+      subtitleSecondaryColor: '#E5E7EB',
+      subtitleOutlineWidth: 1.5,
+      subtitleShadowEnabled: false
+    }
+  }
 ];
 
-const targetLanguages: LanguageOption[] = [
-  { value: 'zh_cn', label: '简体中文' },
-  { value: 'zh_tw', label: '繁體中文' },
-  { value: 'en', label: 'English' },
-  { value: 'ja', label: '日本語' },
-  { value: 'ko', label: '한국어' },
-  { value: 'es', label: 'Español' },
-  { value: 'fr', label: 'Français' },
-  { value: 'de', label: 'Deutsch' },
-  { value: 'it', label: 'Italiano' },
-  { value: 'pt', label: 'Português' },
-  { value: 'ru', label: 'Русский' },
-  { value: 'ar', label: 'العربية' },
-  { value: 'hi', label: 'हिन्दी' },
-  { value: 'id', label: 'Bahasa Indonesia' },
-  { value: 'ms', label: 'Bahasa Melayu' },
-  { value: 'th', label: 'ภาษาไทย' },
-  { value: 'vi', label: 'Tiếng Việt' },
-  { value: 'fil', label: 'Wikang Filipino' },
-  { value: 'tr', label: 'Türkçe' },
-  { value: 'pl', label: 'Polski' },
-  { value: 'nl', label: 'Nederlands' },
-  { value: 'uk', label: 'Українська' },
-  { value: 'bn', label: 'বাংলা' },
-  { value: 'he', label: 'עברית' },
-  { value: 'fa', label: 'فارسی' },
-  { value: 'af', label: 'Afrikaans' },
-  { value: 'sv', label: 'Svenska' },
-  { value: 'fi', label: 'Suomi' },
-  { value: 'da', label: 'Dansk' },
-  { value: 'no', label: 'Norsk' },
-  { value: 'el', label: 'Ελληνικά' },
-  { value: 'hu', label: 'Magyar' },
-  { value: 'sr', label: 'Српски' },
-  { value: 'hr', label: 'Hrvatski' },
-  { value: 'cs', label: 'Čeština' },
-  { value: 'pinyin', label: '拼音' },
-  { value: 'sw', label: 'Kiswahili' },
-  { value: 'yo', label: 'Èdè Yorùbá' },
-  { value: 'ha', label: 'Hausa' },
-  { value: 'am', label: 'አማርኛ' },
-  { value: 'om', label: 'Afaan Oromoo' },
-  { value: 'is', label: 'Íslenska' },
-  { value: 'lb', label: 'Lëtzebuergesch' },
-  { value: 'ca', label: 'Català' },
-  { value: 'ro', label: 'Română' },
-  { value: 'sk', label: 'Slovenčina' },
-  { value: 'bs', label: 'Bosanski' },
-  { value: 'mk', label: 'Македонски' },
-  { value: 'sl', label: 'Slovenščina' },
-  { value: 'bg', label: 'Български' },
-  { value: 'lv', label: 'Latviešu' },
-  { value: 'lt', label: 'Lietuvių' },
-  { value: 'et', label: 'Eesti' },
-  { value: 'mt', label: 'Malti' },
-  { value: 'sq', label: 'Shqip' },
-  { value: 'pa', label: 'ਪੰਜਾਬੀ' },
-  { value: 'jv', label: 'ꦧꦱꦗꦮ' },
-  { value: 'ta', label: 'தமிழ்' },
-  { value: 'ur', label: 'اردو' },
-  { value: 'mr', label: 'मराठी' },
-  { value: 'te', label: 'తెలుగు' },
-  { value: 'ps', label: 'پښتو' },
-  { value: 'ln', label: 'Lingála' },
-  { value: 'ml', label: 'മലയാളം' },
-  { value: 'cnh', label: 'Hakha Chin' },
-  { value: 'uz', label: 'Oʻzbekcha' },
-  { value: 'kn', label: 'ಕನ್ನಡ' },
-  { value: 'or', label: 'ଓଡ଼ିଆ' },
-  { value: 'ig', label: 'Igbo' },
-  { value: 'zu', label: 'isiZulu' },
-  { value: 'xh', label: 'isiXhosa' },
-  { value: 'km', label: 'ភាសាខ្មែរ' },
-  { value: 'lo', label: 'ພາສາລາວ' },
-  { value: 'ka', label: 'ქართული' },
-  { value: 'hy', label: 'Հայերեն' },
-  { value: 'tg', label: 'Тоҷикӣ' },
-  { value: 'tk', label: 'Türkmençe' },
-  { value: 'kk', label: 'Қазақша' },
-  { value: 'ky', label: 'Кыргызча' },
-  { value: 'mn', label: 'Монгол хэл' },
-  { value: 'gd', label: 'Gàidhlig' },
-  { value: 'ga', label: 'Gaeilge' },
-  { value: 'cy', label: 'Cymraeg' },
-  { value: 'ba', label: 'Башҡортса' },
-  { value: 'ceb', label: 'Bisaya' },
-  { value: 'ilo', label: 'Ilokano' },
-  { value: 'tt', label: 'Татарча' },
-  { value: 'pi', label: 'पाऴि' },
-  { value: 'rw', label: 'Ikinyarwanda' },
-  { value: 'be', label: 'Беларуская' },
-  { value: 'mg', label: 'Malagasy' },
-  { value: 'tvl', label: 'Te Ggana Tuuvalu' },
-  { value: 'mh', label: 'Kajin M̧ajeļ' },
-  { value: 'ch', label: 'Chamoru' },
-  { value: 'sm', label: 'Gagana Samoa' },
-  { value: 'to', label: 'Lea faka-Tonga' },
-  { value: 'mi', label: 'Māori' },
-  { value: 'tpi', label: 'Tok Pisin' },
-  { value: 'cv', label: 'Чӑвашла' },
-  { value: 'kv', label: 'Коми кыв' },
-  { value: 'gv', label: 'Gaelg' }
-];
+// CSS approximation of a subtitle style for preset thumbnails; the real render comes from the daemon.
+function subtitleStyleThumbnailCss(style: SubtitleStyleSettings): CSSProperties {
+  const family = style.subtitleFont === 'system'
+    ? 'system-ui, sans-serif'
+    : `"OpenCreator ${style.subtitleFont[0]!.toUpperCase()}${style.subtitleFont.slice(1)} ${style.subtitleWeight[0]!.toUpperCase()}${style.subtitleWeight.slice(1)}", system-ui, sans-serif`;
+  const shadowAlpha = Math.round(style.subtitleShadowOpacity * 255).toString(16).padStart(2, '0');
+  return {
+    '--subtitle-thumb-family': family,
+    '--subtitle-thumb-size': style.subtitleSize === 'small' ? '13cqw' : style.subtitleSize === 'large' ? '19cqw' : '16cqw',
+    '--subtitle-thumb-color': style.subtitleColor,
+    '--subtitle-thumb-secondary': style.subtitleSecondaryColor,
+    '--subtitle-thumb-stroke': `${style.subtitleOutlineWidth * 0.8}px ${style.subtitleOutlineColor}`,
+    '--subtitle-thumb-shadow': style.subtitleShadowEnabled
+      ? `${style.subtitleShadowOffsetX}px ${style.subtitleShadowOffsetY}px ${style.subtitleShadowBlur * 1.5}px ${style.subtitleShadowColor}${shadowAlpha}`
+      : 'none'
+  } as CSSProperties;
+}
+
+type SavedSubtitleStyle = { id: string; name: string; style: SubtitleStyleSettings };
+const savedSubtitleStylesKey = 'opencreator.videoTranslation.savedSubtitleStyles';
+const savedSubtitleStylesLimit = 12;
+
+function readSavedSubtitleStyles(): SavedSubtitleStyle[] {
+  const raw = readJsonFromStorage<unknown>(savedSubtitleStylesKey);
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap(entry => {
+    const record = readJsonRecord(entry as CreatorJson);
+    if (typeof record.id !== 'string' || typeof record.name !== 'string' || record.name.trim() === '') return [];
+    // Reuse the persisted-settings parser so corrupted or outdated entries fall back to safe values.
+    const style = readSubtitleStyleSettings(readJsonRecord(record.style), {}, undefined);
+    return [{ id: record.id, name: record.name.trim().slice(0, 24), style }];
+  }).slice(0, savedSubtitleStylesLimit);
+}
+
+function writeSavedSubtitleStyles(styles: SavedSubtitleStyle[]) {
+  try {
+    writeJsonToStorage(savedSubtitleStylesKey, styles);
+  } catch {
+    // Storage can be full or blocked; the in-memory list still works for this session.
+  }
+}
+const sourceLanguageCatalog = creatorLanguages.filter(language => language.speech)
+  .sort((left, right) => Number(right.sourcePreferred) - Number(left.sourcePreferred));
+const sourceLanguages: LanguageOption[] = sourceLanguageCatalog.map(language => ({ value: language.code, label: language.nativeName }));
+const targetLanguages: LanguageOption[] = creatorLanguages.map(language => ({ value: language.code, label: language.nativeName }));
+
+function LanguageSelect(props: { label: string; value: string; onChange(value: string): void; source?: boolean; l: LocalizeCopy }) {
+  const [query, setQuery] = useState('');
+  const selectId = useId();
+  const matches = query.trim() ? searchCreatorLanguages(query, props.source) : props.source ? sourceLanguageCatalog : creatorLanguages;
+  const options: LanguageOption[] = matches.map(language => ({ value: language.code, label: language.nativeName }));
+  if (!options.some(option => option.value === props.value)) options.unshift({ value: props.value, label: props.value === 'auto' ? props.l('请选择语言', 'Select a language') : creatorLanguage(props.value)?.nativeName ?? props.value });
+  return <div className="video-translation-field">
+    <label htmlFor={selectId}>{props.label}</label>
+    <input type="search" aria-label={props.l(`搜索${props.label}`, `Search ${props.label.toLowerCase()}`)} placeholder={props.l('搜索语言或代码', 'Search language or code')} value={query} onChange={event => setQuery(event.target.value)} />
+    <div className="video-translation-select-wrap">
+      <select id={selectId} value={props.value} onChange={event => props.onChange(event.target.value)}>
+        {options.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
+      </select>
+      <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+    </div>
+  </div>;
+}
 
 function languageLabel(options: LanguageOption[], value: string) {
-  return options.find(option => option.value === value)?.label ?? value;
+  if (value === 'auto') return '—';
+  return options.find(option => option.value === value)?.label ?? creatorLanguage(value)?.nativeName ?? value;
 }
 
 function ttsProviderLabel(provider: CreatorTtsProvider, l: LocalizeCopy): string {
@@ -384,8 +446,8 @@ function sameSettings(left: TranslationSettingsSnapshot, right: TranslationSetti
 }
 
 function sameSubtitleStyle(
-  left: TranslationSettingsSnapshot,
-  right: TranslationSettingsSnapshot
+  left: SubtitleStyleSettings,
+  right: SubtitleStyleSettings
 ): boolean {
   return left.subtitleFont === right.subtitleFont
     && left.subtitleWeight === right.subtitleWeight
@@ -710,25 +772,6 @@ function subtitleDraftKey(
   return `${resultVersion}:${variant}`;
 }
 
-function applySubtitleTextEdits(
-  cues: SubtitleCue[],
-  edits: Record<string, Partial<Pick<SubtitleCue, 'text' | 'sourceText'>>> | undefined
-): SubtitleCue[] {
-  if (edits === undefined) return cues;
-  return cues.map(cue => {
-    const edit = edits[String(cue.id)];
-    return edit === undefined ? cue : { ...cue, ...edit };
-  });
-}
-
-function subtitleTextChanged(
-  original: SubtitleCue[],
-  edited: SubtitleCue[]
-): boolean {
-  if (original.length !== edited.length) return true;
-  return original.some((cue, index) => cue.text !== edited[index]?.text || cue.sourceText !== edited[index]?.sourceText);
-}
-
 function stripSubtitleSourceText(cues: SubtitleCue[]): SubtitleCue[] {
   return cues.map(cue => ({
     id: cue.id,
@@ -845,10 +888,10 @@ function legacyResultVersionsFromArtifacts(
         settings: {
           sourceLanguage: typeof sourceState.sourceLanguage === 'string'
             ? sourceState.sourceLanguage
-            : persisted?.settings.sourceLanguage ?? 'zh_cn',
+            : persisted?.settings.sourceLanguage ?? 'en',
           targetLanguage: typeof sourceState.targetLanguage === 'string'
             ? sourceState.targetLanguage
-            : persisted?.settings.targetLanguage ?? 'en',
+            : persisted?.settings.targetLanguage ?? 'zh_cn',
           bilingual: typeof sourceState.bilingual === 'boolean'
             ? sourceState.bilingual
             : persisted?.settings.bilingual ?? true,
@@ -963,8 +1006,8 @@ function resultVersionFromSnapshot(
         : null
     },
     settings: {
-      sourceLanguage: readStringSetting(sourceState, fallbackState, persisted, 'sourceLanguage', 'zh_cn'),
-      targetLanguage: readStringSetting(sourceState, fallbackState, persisted, 'targetLanguage', 'en'),
+      sourceLanguage: readStringSetting(sourceState, fallbackState, persisted, 'sourceLanguage', 'en'),
+      targetLanguage: readStringSetting(sourceState, fallbackState, persisted, 'targetLanguage', 'zh_cn'),
       bilingual: readBooleanSetting(sourceState, fallbackState, persisted, 'bilingual', true),
       subtitlePosition: sourceState.subtitlePosition === 'bottom'
         ? 'bottom'
@@ -1457,6 +1500,66 @@ function SubtitlePreviewVideo(props: {
   );
 }
 
+function SubtitlePresetThumbnail(props: {
+  style: SubtitleStyleSettings;
+  bilingual: boolean;
+  translationOnTop: boolean;
+  posterUrl?: string;
+}) {
+  const l = useLocalizedCopy();
+  const translation = <span data-line="translation">{l('字幕样式', 'Subtitle')}</span>;
+  const original = props.bilingual ? <span data-line="original">{l('原文', 'Original')}</span> : null;
+  return (
+    <span className="video-translation-subtitle-preset-thumb" style={subtitleStyleThumbnailCss(props.style)} aria-hidden="true">
+      {props.posterUrl ? <img src={props.posterUrl} alt="" onError={event => { event.currentTarget.hidden = true; }} /> : null}
+      <span className="video-translation-subtitle-preset-lines">
+        {props.translationOnTop ? <>{translation}{original}</> : <>{original}{translation}</>}
+      </span>
+    </span>
+  );
+}
+
+function SubtitleRangeControl(props: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange(value: number): void;
+}) {
+  const l = useLocalizedCopy();
+  const clamp = (value: number) => Math.min(props.max, Math.max(props.min, value));
+  return (
+    <div className="video-translation-range-control">
+      <span>{props.label}</span>
+      <div>
+        <input
+          type="range"
+          aria-label={l(`${props.label}滑块`, `${props.label} slider`)}
+          min={props.min}
+          max={props.max}
+          step={props.step}
+          value={props.value}
+          style={{ '--range-progress': `${((props.value - props.min) / (props.max - props.min)) * 100}%` } as CSSProperties}
+          onChange={event => props.onChange(Number(event.target.value))}
+        />
+        <input
+          type="number"
+          aria-label={props.label}
+          min={props.min}
+          max={props.max}
+          step={props.step}
+          value={props.value}
+          onChange={event => {
+            const value = Number(event.target.value);
+            if (event.target.value !== '' && Number.isFinite(value)) props.onChange(clamp(value));
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function SubtitleColorControl(props: {
   label: string;
   value: string;
@@ -1656,6 +1759,7 @@ export default function VideoTranslationWorkspace(props: {
   const [videoFileSize, setVideoFileSize] = useState<number | null>(null);
   const [videoFileLastModified, setVideoFileLastModified] = useState<number | null>(null);
   const [sourceLanguage, setSourceLanguage] = useState('en');
+  const [asrCapability, setAsrCapability] = useState<TranscriptionLanguageCapability>();
   const [targetLanguage, setTargetLanguage] = useState('zh_cn');
   const [bilingual, setBilingual] = useState(true);
   const [subtitlePosition, setSubtitlePosition] = useState<SubtitlePosition>('top');
@@ -1682,6 +1786,7 @@ export default function VideoTranslationWorkspace(props: {
   const composeVideo = !subtitleOnly && composeVideoRequested;
   const dubbing = composeVideo && dubbingRequested;
   const [videoFormat, setVideoFormat] = useState<VideoFormat>('horizontal');
+  const outputFormatName = useId();
   const [sourceOrientation, setSourceOrientation] = useState<VideoOrientation>(() => (
     creatorSession?.state.sourceOrientation === 'portrait' ? 'portrait' : 'landscape'
   ));
@@ -1691,10 +1796,29 @@ export default function VideoTranslationWorkspace(props: {
   const [resultTab, setResultTab] = useState<VideoTranslationResultTab>('video');
   const [resultVersion, setResultVersion] = useState(1);
   const [resultVersions, setResultVersions] = useState<TranslationResultVersion[]>([]);
-  const [subtitleTextEdits, setSubtitleTextEdits] = useState<Record<string, Record<string, Partial<Pick<SubtitleCue, 'text' | 'sourceText'>>>>>({});
+  const [subtitleDrafts, setSubtitleDrafts] = useState<Record<string, SubtitleCue[]>>({});
+  const [subtitleImmersive, setSubtitleImmersive] = useState(false);
+  const [subtitleAssistantOpen, setSubtitleAssistantOpen] = useState(false);
+  useEffect(() => {
+    if (workspacePhase !== 'result' || resultTab !== 'subtitles') {
+      setSubtitleImmersive(false);
+      setSubtitleAssistantOpen(false);
+    }
+  }, [workspacePhase, resultTab]);
   const [draftBaseVersion, setDraftBaseVersion] = useState<number>();
   const [resultProposal, setResultProposal] = useState<ResultProposal>();
-  const [resultNotice, setResultNotice] = useState('');
+  const [resultNoticeState, setResultNoticeState] = useState({ message: '' });
+  const resultNotice = resultNoticeState.message;
+  const setResultNotice = useCallback((message: string) => {
+    setResultNoticeState({ message });
+  }, []);
+  useEffect(() => {
+    if (!resultNoticeState.message) return;
+    const timeout = window.setTimeout(() => {
+      setResultNoticeState(current => current === resultNoticeState ? { message: '' } : current);
+    }, 5_000);
+    return () => window.clearTimeout(timeout);
+  }, [resultNoticeState]);
   const [voicePreviewReload, setVoicePreviewReload] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [subtitleImportPending, setSubtitleImportPending] = useState(false);
@@ -1702,6 +1826,103 @@ export default function VideoTranslationWorkspace(props: {
   const [startRevisionConflict, setStartRevisionConflict] = useState(false);
   const [taskControlPending, setTaskControlPending] = useState<'canceling' | 'resuming'>();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [styleDrawerSnapshot, setStyleDrawerSnapshot] = useState<SubtitleStyleSettings>();
+  const styleDrawerTriggerRef = useRef<HTMLButtonElement>(null);
+  const currentSubtitleStyle: SubtitleStyleSettings = {
+    subtitleFont,
+    subtitleWeight,
+    subtitleSize,
+    subtitleColor,
+    subtitleSecondaryColor,
+    subtitleOutlineColor,
+    subtitleOutlineWidth,
+    subtitleShadowEnabled,
+    subtitleShadowColor,
+    subtitleShadowOpacity,
+    subtitleShadowOffsetX,
+    subtitleShadowOffsetY,
+    subtitleShadowBlur
+  };
+  const activeSubtitlePreset = subtitleStylePresets.find(preset => sameSubtitleStyle(preset.style, currentSubtitleStyle));
+  const [savedSubtitleStyles, setSavedSubtitleStyles] = useState<SavedSubtitleStyle[]>(() => readSavedSubtitleStyles());
+  const [saveStyleName, setSaveStyleName] = useState<string>();
+  const [editingSavedStyle, setEditingSavedStyle] = useState<{ id: string; name: string }>();
+  const [subtitleStyleTab, setSubtitleStyleTab] = useState<'recommended' | 'mine'>(
+    () => savedSubtitleStyles.length > 0 ? 'mine' : 'recommended'
+  );
+  const activeSavedSubtitleStyle = activeSubtitlePreset === undefined
+    ? savedSubtitleStyles.find(saved => sameSubtitleStyle(saved.style, currentSubtitleStyle))
+    : undefined;
+  function saveCurrentSubtitleStyle(name: string) {
+    const trimmed = name.trim().slice(0, 24);
+    if (trimmed === '') return;
+    const next = [
+      ...savedSubtitleStyles,
+      { id: `saved-${Date.now().toString(36)}`, name: trimmed, style: currentSubtitleStyle }
+    ].slice(-savedSubtitleStylesLimit);
+    setSavedSubtitleStyles(next);
+    writeSavedSubtitleStyles(next);
+    setSaveStyleName(undefined);
+    setSubtitleStyleTab('mine');
+  }
+  function openSavedStyleEditor(saved: SavedSubtitleStyle) {
+    // Snapshot the style in use before editing so Cancel restores it, not the template.
+    setStyleDrawerSnapshot(currentSubtitleStyle);
+    applySubtitleStyle(saved.style);
+    setEditingSavedStyle({ id: saved.id, name: saved.name });
+  }
+  function updateEditingSavedStyle() {
+    if (editingSavedStyle === undefined) return;
+    const name = editingSavedStyle.name.trim().slice(0, 24);
+    const next = savedSubtitleStyles.map(saved => saved.id === editingSavedStyle.id
+      ? { ...saved, name: name === '' ? saved.name : name, style: currentSubtitleStyle }
+      : saved);
+    setSavedSubtitleStyles(next);
+    writeSavedSubtitleStyles(next);
+  }
+  function deleteSavedSubtitleStyle(id: string) {
+    const next = savedSubtitleStyles.filter(saved => saved.id !== id);
+    setSavedSubtitleStyles(next);
+    writeSavedSubtitleStyles(next);
+    if (next.length === 0) setSubtitleStyleTab('recommended');
+  }
+  function applySubtitleStyle(style: SubtitleStyleSettings) {
+    setSubtitleFont(style.subtitleFont);
+    setSubtitleWeight(style.subtitleWeight);
+    setSubtitleSize(style.subtitleSize);
+    setSubtitleColor(style.subtitleColor);
+    setSubtitleSecondaryColor(style.subtitleSecondaryColor);
+    setSubtitleOutlineColor(style.subtitleOutlineColor);
+    setSubtitleOutlineWidth(style.subtitleOutlineWidth);
+    setSubtitleShadowEnabled(style.subtitleShadowEnabled);
+    setSubtitleShadowColor(style.subtitleShadowColor);
+    setSubtitleShadowOpacity(style.subtitleShadowOpacity);
+    setSubtitleShadowOffsetX(style.subtitleShadowOffsetX);
+    setSubtitleShadowOffsetY(style.subtitleShadowOffsetY);
+    setSubtitleShadowBlur(style.subtitleShadowBlur);
+  }
+  function selectSubtitleStyle(style: SubtitleStyleSettings) {
+    applySubtitleStyle(style);
+    if (subtitleImmersive) setComposeVideo(true);
+  }
+  function closeStyleDrawer(revert: boolean) {
+    if (revert && styleDrawerSnapshot) applySubtitleStyle(styleDrawerSnapshot);
+    if (!revert && subtitleImmersive) setComposeVideo(true);
+    setStyleDrawerSnapshot(undefined);
+    setSaveStyleName(undefined);
+    setEditingSavedStyle(undefined);
+    styleDrawerTriggerRef.current?.focus();
+  }
+  useEffect(() => {
+    if (styleDrawerSnapshot === undefined) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      // Nested color palettes handle their own Escape first.
+      if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('.video-translation-color-palette')) return;
+      closeStyleDrawer(true);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  });
   const [agentFocus, setAgentFocus] = useState<AgentFocus>();
   const cancelConfirmRef = useRef<HTMLButtonElement>(null);
   const parsedVideoSource = useMemo(() => parseVideoSource(videoUrl), [videoUrl]);
@@ -1858,6 +2079,22 @@ export default function VideoTranslationWorkspace(props: {
   }, [creatorSession?.job.id, creatorSession?.job.revision]);
 
   useEffect(() => {
+    let active = true;
+    const service = props.creatorServicesService;
+    if (!service) return;
+    const refresh = () => {
+      void Promise.all([service.getConfig(), service.getCapabilities()]).then(([response, capabilities]) => {
+        if (!active) return;
+        const provider = capabilities.transcription.providers.find(item => item.provider === response.config.transcription.provider);
+        setAsrCapability(provider?.languageCapabilities?.[creatorTranscriptionModel(response.config)] ?? { coverage: 'unknown', supportedLanguages: [], timestamps: 'unknown', profileVersion: 'unverified-v1' });
+      }).catch(() => { if (active) setAsrCapability(undefined); });
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => { active = false; window.removeEventListener('focus', refresh); };
+  }, [props.creatorServicesService, currentStep]);
+
+  useEffect(() => {
     if (!composeVideo) return;
     if (officialSpeech.official) {
       setTtsProvider('openai'); setTtsModel(officialSpeech.model?.id ?? '');
@@ -1884,10 +2121,10 @@ export default function VideoTranslationWorkspace(props: {
           return;
         }
         const providerConfig = response.config.tts[provider];
-        if (typeof creatorSession?.state.ttsModel !== 'string') {
+        if (typeof creatorSession?.state.ttsModel !== 'string' || !creatorSession.state.ttsModel.trim()) {
           setTtsModel(providerConfig.model);
         }
-        if (typeof creatorSession?.state.voiceCode !== 'string') {
+        if (typeof creatorSession?.state.voiceCode !== 'string' || !creatorSession.state.voiceCode.trim()) {
           setVoiceCode(providerConfig.defaultVoiceId);
           setVoiceName(providerConfig.defaultVoiceId);
         }
@@ -2320,10 +2557,10 @@ export default function VideoTranslationWorkspace(props: {
   const subtitleVideoArtifacts: Partial<Record<SubtitleResultVariant, CreatorArtifact>> = {
     horizontal: selectedSubtitleArtifacts.horizontal === undefined
       ? undefined
-      : selectedVideoArtifacts.horizontal ?? selectedVideoArtifacts.dubbed ?? selectedSourceVideoArtifact,
+      : selectedSourceVideoArtifact ?? selectedVideoArtifacts.horizontal ?? selectedVideoArtifacts.dubbed,
     vertical: selectedSubtitleArtifacts.vertical === undefined
       ? undefined
-      : selectedVideoArtifacts.vertical ?? selectedSourceVideoArtifact
+      : selectedSourceVideoArtifact ?? selectedVideoArtifacts.vertical
   };
   const hasVoiceArtifact = selectedVoiceArtifact !== undefined;
   const [videoPreviews, setVideoPreviews] = useState<Record<string, {
@@ -2390,7 +2627,7 @@ export default function VideoTranslationWorkspace(props: {
   useEffect(() => {
     const { session, localize } = mediaPreviewContextRef.current;
     if (
-      resultTab !== 'voice'
+      (resultTab !== 'voice' && !(subtitleImmersive && resultTab === 'subtitles'))
       || selectedVoiceArtifactId === undefined
       || session === null || !canOpenMediaPreview
     ) {
@@ -2425,7 +2662,7 @@ export default function VideoTranslationWorkspace(props: {
       canceled = true;
       if (objectUrl !== undefined) URL.revokeObjectURL(objectUrl);
     };
-  }, [canOpenMediaPreview, mediaPreviewJobId, resultTab, selectedVoiceArtifactId, voicePreviewReload]);
+  }, [canOpenMediaPreview, mediaPreviewJobId, resultTab, subtitleImmersive, selectedVoiceArtifactId, voicePreviewReload]);
   const selectedResultSource = selectedResult?.source;
   const selectedSubtitleCues = selectedResult?.subtitleCues ?? [];
   const horizontalSubtitleDraftKey = subtitleDraftKey(resultVersion, 'horizontal');
@@ -2433,17 +2670,11 @@ export default function VideoTranslationWorkspace(props: {
   const baseHorizontalSubtitleCues = subtitleCuesWithSource(
     selectedSubtitleCues,
     selectedSourceSubtitleArtifact,
-    selectedSubtitleOnly || selectedResultSettings?.bilingual === true
+    selectedSubtitleOnly || subtitleImmersive || selectedResultSettings?.bilingual === true
   );
   const baseVerticalSubtitleCues = subtitleCuesFromArtifact(selectedVerticalSubtitleArtifact);
-  const displayedHorizontalSubtitleCues = applySubtitleTextEdits(
-    baseHorizontalSubtitleCues,
-    subtitleTextEdits[horizontalSubtitleDraftKey]
-  );
-  const displayedVerticalSubtitleCues = applySubtitleTextEdits(
-    baseVerticalSubtitleCues,
-    subtitleTextEdits[verticalSubtitleDraftKey]
-  );
+  const displayedHorizontalSubtitleCues = subtitleDrafts[horizontalSubtitleDraftKey] ?? baseHorizontalSubtitleCues;
+  const displayedVerticalSubtitleCues = subtitleDrafts[verticalSubtitleDraftKey] ?? baseVerticalSubtitleCues;
   const videoOutputs: VideoResultOutput[] = selectedVideoEntries.map(({ variant, artifact }) => {
     const preview = videoPreviews[artifact.id];
     return {
@@ -2523,8 +2754,8 @@ export default function VideoTranslationWorkspace(props: {
       ?? selectedResultSource?.videoFileName
       ?? l('等待上传视频', 'Waiting for an upload'));
   const subtitleDirtyByVariant: Partial<Record<SubtitleResultVariant, boolean>> = {
-    horizontal: subtitleTextChanged(baseHorizontalSubtitleCues, displayedHorizontalSubtitleCues),
-    vertical: subtitleTextChanged(baseVerticalSubtitleCues, displayedVerticalSubtitleCues)
+    horizontal: !sameSubtitleCues(baseHorizontalSubtitleCues, displayedHorizontalSubtitleCues),
+    vertical: !sameSubtitleCues(baseVerticalSubtitleCues, displayedVerticalSubtitleCues)
   };
   const subtitleDirty = subtitleDirtyByVariant.horizontal === true;
   const subtitleNeedsRegeneration = !selectedSubtitleOnly && selectedResult
@@ -2532,6 +2763,15 @@ export default function VideoTranslationWorkspace(props: {
       !== selectedResult.generatedSubtitleSnapshot
     : false;
   const selectedHasStaleArtifacts = !selectedSubtitleOnly && (selectedResult?.staleArtifactIds.length ?? 0) > 0;
+  const staleNoticeKey = selectedHasStaleArtifacts
+    ? JSON.stringify([creatorSession?.job.id, resultVersion, selectedResult?.staleArtifactIds])
+    : '';
+  const [expiredStaleNoticeKey, setExpiredStaleNoticeKey] = useState('');
+  useEffect(() => {
+    if (!staleNoticeKey || workspacePhase !== 'result') return;
+    const timeout = window.setTimeout(() => setExpiredStaleNoticeKey(staleNoticeKey), 5_000);
+    return () => window.clearTimeout(timeout);
+  }, [staleNoticeKey, workspacePhase]);
   const staleArtifactKinds = new Set(
     (selectedResult?.staleArtifactIds ?? []).flatMap(id => {
       const artifact = jobArtifacts.find(candidate => candidate.id === id);
@@ -2541,7 +2781,7 @@ export default function VideoTranslationWorkspace(props: {
   const currentResultNotice = resultNotice === translationStartedNotice
     && resultExecution?.status !== 'running' && resultExecution?.status !== 'queued'
     ? '' : resultNotice;
-  const visibleResultNotice = currentResultNotice || (selectedHasStaleArtifacts
+  const visibleResultNotice = currentResultNotice || (staleNoticeKey && staleNoticeKey !== expiredStaleNoticeKey
     ? l(
         '当前项目版本中的部分配音或成片基于较早内容，可继续使用；重新生成后会更新引用。',
         'Some dubbing or video outputs in this project version are based on earlier content. They remain usable until regenerated.'
@@ -2558,7 +2798,7 @@ export default function VideoTranslationWorkspace(props: {
       ? l('作品', 'Works')
       : resultTab === 'subtitles'
         ? selectedSubtitleContextLabel
-        : ({ voice: l('配音', 'Dubbing'), settings: l('任务设置', 'Task settings') } as const)[resultTab]} V${resultVersion}`
+        : l('配音', 'Dubbing')} V${resultVersion}`
     : currentStep === 0
       ? sourceName
       : currentStep === 1
@@ -2796,25 +3036,14 @@ export default function VideoTranslationWorkspace(props: {
     text: string,
     field: 'text' | 'sourceText' = 'text'
   ) {
-    const baseCues = variant === 'horizontal'
-      ? baseHorizontalSubtitleCues
-      : baseVerticalSubtitleCues;
-    const original = baseCues.find(cue => cue.id === id);
-    if (original === undefined) return;
+    const cues = variant === 'horizontal' ? displayedHorizontalSubtitleCues : displayedVerticalSubtitleCues;
+    updateSubtitleCues(variant, cues.map(cue => cue.id === id ? { ...cue, [field]: text } : cue));
+  }
+
+  function updateSubtitleCues(variant: SubtitleResultVariant, cues: SubtitleCue[]) {
+    if (submitting) return;
     const key = subtitleDraftKey(resultVersion, variant);
-    setSubtitleTextEdits(current => {
-      const nextVariant = { ...(current[key] ?? {}) };
-      const edit = { ...nextVariant[String(id)] };
-      if (text === original[field]) delete edit[field];
-      else edit[field] = text;
-      if (Object.keys(edit).length === 0) delete nextVariant[String(id)];
-      else nextVariant[String(id)] = edit;
-      if (Object.keys(nextVariant).length === 0) {
-        const { [key]: _removed, ...remaining } = current;
-        return remaining;
-      }
-      return { ...current, [key]: nextVariant };
-    });
+    setSubtitleDrafts(current => ({ ...current, [key]: cues }));
     setResultNotice('');
   }
 
@@ -2850,7 +3079,7 @@ export default function VideoTranslationWorkspace(props: {
       }
     });
     const key = subtitleDraftKey(baseResultVersion, variant);
-    setSubtitleTextEdits(current => {
+    setSubtitleDrafts(current => {
       const { [key]: _removed, ...remaining } = current;
       return remaining;
     });
@@ -2912,6 +3141,11 @@ export default function VideoTranslationWorkspace(props: {
 
   async function submit() {
     if (subtitleImportPending) return;
+    if (importedSourceSubtitle && sourceLanguage === 'auto') {
+      setCurrentStep(1);
+      setResultNotice(l('未能可靠识别字幕语言，请手动选择源语言。', 'The subtitle language could not be reliably detected. Select the source language.'));
+      return;
+    }
     if (!hasSource || !sourceSelectionReady) {
       setCurrentStep(0);
       setAttemptedContinue(true);
@@ -2963,7 +3197,7 @@ export default function VideoTranslationWorkspace(props: {
         });
       }
       setWorkspacePhase('result');
-      if (subtitleOnly) setResultTab('subtitles');
+      setResultTab(subtitleOnly ? 'subtitles' : 'video');
       setDraftBaseVersion(undefined);
       setResultNotice(isRegeneration
         ? stageId === undefined
@@ -3063,42 +3297,6 @@ export default function VideoTranslationWorkspace(props: {
     }
   }
 
-  function renderTaskControlButton() {
-    if (activeStage !== undefined) {
-      const cancelRequested = activeStage.progress.cancelRequested === true;
-      return (
-        <button
-          className="video-translation-primary-action"
-          data-intent="danger"
-          type="button"
-          disabled={taskControlPending !== undefined || cancelRequested}
-          onClick={requestCancelTask}
-        >
-          <Square size={16} fill="currentColor" aria-hidden="true" />
-          {taskControlPending === 'canceling' || cancelRequested
-            ? l('正在终止...', 'Stopping...')
-            : l('终止任务', 'Stop task')}
-        </button>
-      );
-    }
-    if (resumableStage !== undefined) {
-      return (
-        <button
-          className="video-translation-primary-action"
-          type="button"
-          disabled={taskControlPending !== undefined}
-          onClick={() => void resumeTask()}
-        >
-          <Play size={16} strokeWidth={1.9} aria-hidden="true" />
-          {taskControlPending === 'resuming'
-            ? l('正在继续...', 'Resuming...')
-            : l('继续任务', 'Resume task')}
-        </button>
-      );
-    }
-    return null;
-  }
-
   async function saveSubtitles(variant: SubtitleResultVariant) {
     if (creatorSession === null || selectedResult === undefined) {
       setResultNotice(l('当前项目版本没有可编辑的真实字幕产物', 'This project version has no editable subtitle artifact.'));
@@ -3177,6 +3375,16 @@ export default function VideoTranslationWorkspace(props: {
     setResultNotice('');
   }
 
+  function prepareEditorSettings() {
+    if (!selectedResult) return;
+    if (draftBaseVersion !== selectedResult.value) {
+      applySourceSnapshot(selectedResult.source);
+      applySettingsSnapshot(selectedResult.settings);
+      setDraftBaseVersion(selectedResult.value);
+      setResultProposal(undefined);
+    }
+  }
+
   function returnToBaseResult() {
     const version = draftBaseVersion ?? resultVersion;
     setResultVersion(version);
@@ -3213,6 +3421,9 @@ export default function VideoTranslationWorkspace(props: {
         staleArtifactKinds
       );
       await executeRegeneration(stageId);
+      setSubtitleImmersive(false);
+      setSubtitleAssistantOpen(false);
+      setResultTab(selectedSubtitleOnly ? 'subtitles' : 'video');
       setResultProposal(undefined);
       setResultNotice(stageId === undefined
         ? l(
@@ -3230,8 +3441,444 @@ export default function VideoTranslationWorkspace(props: {
     }
   }
 
+  const subtitleRenderStyle: CreatorSubtitlePreviewRequest['subtitleStyle'] = {
+    fontPreset: subtitleFont,
+    fontWeight: subtitleWeight,
+    fontSize: subtitleSize,
+    primaryColor: subtitleColor,
+    secondaryColor: subtitleSecondaryColor,
+    outlineColor: subtitleOutlineColor,
+    outlineWidth: subtitleOutlineWidth,
+    shadow: {
+      enabled: subtitleShadowEnabled,
+      color: subtitleShadowColor,
+      opacity: subtitleShadowOpacity,
+      offsetX: subtitleShadowOffsetX,
+      offsetY: subtitleShadowOffsetY,
+      blur: subtitleShadowBlur
+    }
+  };
+
+  const subtitlePreviewTitles = previewVerticalOutput && (verticalTitle.trim() || verticalSubtitle.trim()) ? (
+    <div className="video-translation-subtitle-preview-titles">
+      {verticalTitle.trim() ? <div data-title-kind="major">{verticalTitle}</div> : null}
+      {verticalSubtitle.trim() ? <div data-title-kind="minor">{verticalSubtitle}</div> : null}
+    </div>
+  ) : null;
+  const subtitleStylePreview = (
+    <div
+      className="video-translation-subtitle-preview"
+      data-ratio={aspectRatioLabel(previewWidth, previewHeight)}
+      data-orientation={previewHeight > previewWidth ? 'portrait' : 'landscape'}
+      data-converted={convertedToVertical}
+      role="region"
+      aria-label={l('字幕样式预览', 'Subtitle style preview')}
+    >
+      <div
+        style={{
+          '--subtitle-preview-aspect-ratio': `${previewWidth} / ${previewHeight}`,
+        } as CSSProperties}
+      >
+        {previewPosterUrl ? (
+          <img
+            className="video-translation-subtitle-preview-media"
+            src={previewPosterUrl}
+            alt=""
+            aria-hidden="true"
+            onError={event => { event.currentTarget.hidden = true; }}
+          />
+        ) : null}
+        {previewVideoSrc ? (
+          <SubtitlePreviewVideo key={previewVideoSrc} src={previewVideoSrc} onDimensions={updateSourceOrientation} />
+        ) : null}
+        {subtitlePreviewTitles}
+        <VideoTranslationStylePreview
+          render={creatorSession?.openSubtitlePreview}
+          input={{
+            width: Math.max(32, Math.round(960 * previewWidth / Math.max(previewWidth, previewHeight))),
+            height: Math.max(32, Math.round(960 * previewHeight / Math.max(previewWidth, previewHeight))),
+            bilingual,
+            subtitlePosition,
+            translationText: l('这是一段译文字幕', 'This is a translated subtitle'),
+            originalText: l('这是一段原文字幕', 'This is an original subtitle'),
+            subtitleStyle: subtitleRenderStyle
+          }}
+        />
+      </div>
+    </div>
+  );
+  const subtitleStyleEditor = (
+    <>
+      <h4 className="video-translation-style-drawer-section">{l('文字', 'Text')}</h4>
+      <div className="video-translation-typography-fields">
+        <label className="video-translation-field">
+          <span>{l('字幕字体', 'Subtitle font')}</span>
+          <div className="video-translation-select-wrap">
+            <select
+              aria-label={l('字幕字体', 'Subtitle font')}
+              value={subtitleFont}
+              onChange={event => setSubtitleFont(event.target.value as SubtitleFont)}
+            >
+              <option value="system">{l('系统默认', 'System default')}</option>
+              <option value="sans">{l('无衬线', 'Sans serif')}</option>
+              <option value="serif">{l('衬线', 'Serif')}</option>
+              <option value="rounded">{l('圆体', 'Rounded')}</option>
+            </select>
+            <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+          </div>
+        </label>
+
+        <label className="video-translation-field">
+          <span>{l('字重', 'Font weight')}</span>
+          <div className="video-translation-select-wrap">
+            <select
+              aria-label={l('字幕字重', 'Subtitle font weight')}
+              value={subtitleWeight}
+              onChange={event => setSubtitleWeight(event.target.value as SubtitleWeight)}
+            >
+              {(['regular', 'medium', 'bold'] as const).map(weight => (
+                <option key={weight} value={weight}>{subtitleWeightLabel(weight, l)}</option>
+              ))}
+            </select>
+            <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+          </div>
+        </label>
+
+        <label className="video-translation-field">
+          <span>{l('字幕大小', 'Subtitle size')}</span>
+          <div className="video-translation-select-wrap">
+            <select
+              aria-label={l('字幕大小', 'Subtitle size')}
+              value={subtitleSize}
+              onChange={event => setSubtitleSize(event.target.value as SubtitleSize)}
+            >
+              {(['small', 'medium', 'large'] as const).map(size => (
+                <option key={size} value={size}>{subtitleSizeLabel(size, l)}</option>
+              ))}
+            </select>
+            <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+          </div>
+        </label>
+      </div>
+
+      <div className="video-translation-style-fields">
+        <SubtitleColorControl
+          label={l('译文颜色', 'Translation color')}
+          value={subtitleColor}
+          onChange={setSubtitleColor}
+        />
+
+        {bilingual ? <SubtitleColorControl
+          label={l('原文颜色', 'Original color')}
+          value={subtitleSecondaryColor}
+          onChange={setSubtitleSecondaryColor}
+          prefixPresetLabel
+        /> : null}
+      </div>
+
+      <h4 className="video-translation-style-drawer-section">{l('描边与阴影', 'Outline & shadow')}</h4>
+        <div className="video-translation-advanced-style-content">
+          <div className="video-translation-style-stack">
+            <SubtitleColorControl
+              label={l('描边颜色', 'Outline color')}
+              value={subtitleOutlineColor}
+              onChange={setSubtitleOutlineColor}
+              prefixPresetLabel
+            />
+            <SubtitleRangeControl label={l('描边宽度', 'Outline width')} min={0} max={8} step={0.5} value={subtitleOutlineWidth} onChange={setSubtitleOutlineWidth} />
+          </div>
+
+          <div className="video-translation-shadow-settings">
+            <Switch
+              checked={subtitleShadowEnabled}
+              label={l('字幕阴影', 'Subtitle shadow')}
+              description={l('为字幕增加可控阴影，提高复杂画面上的可读性', 'Add a controlled shadow for readability on detailed footage')}
+              onChange={setSubtitleShadowEnabled}
+            />
+            {subtitleShadowEnabled ? (
+              <>
+                <SubtitleColorControl
+                  label={l('阴影颜色', 'Shadow color')}
+                  value={subtitleShadowColor}
+                  onChange={setSubtitleShadowColor}
+                  prefixPresetLabel
+                />
+                <div className="video-translation-style-stack">
+                  <SubtitleRangeControl label={l('不透明度', 'Opacity')} min={0} max={1} step={0.05} value={subtitleShadowOpacity} onChange={setSubtitleShadowOpacity} />
+                  <SubtitleRangeControl label={l('水平偏移', 'Horizontal offset')} min={-20} max={20} step={1} value={subtitleShadowOffsetX} onChange={setSubtitleShadowOffsetX} />
+                  <SubtitleRangeControl label={l('垂直偏移', 'Vertical offset')} min={-20} max={20} step={1} value={subtitleShadowOffsetY} onChange={setSubtitleShadowOffsetY} />
+                  <SubtitleRangeControl label={l('模糊', 'Blur')} min={0} max={10} step={0.5} value={subtitleShadowBlur} onChange={setSubtitleShadowBlur} />
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+    </>
+  );
+
+  const subtitleLayoutControls = (
+    <>
+      <Switch
+        checked={bilingual}
+        label={l('双语字幕', 'Bilingual subtitles')}
+        description={l('同时保留原文和译文', 'Keep both the original and translated text')}
+        onChange={value => {
+          setBilingual(value);
+        }}
+      />
+      {bilingual ? (
+        <div className="video-translation-inline-setting">
+          <span>{l('译文位置', 'Translation position')}</span>
+          <div role="group" aria-label={l('译文位置', 'Translation position')}>
+            <button type="button" aria-pressed={subtitlePosition === 'top'} onClick={() => setSubtitlePosition('top')}>{l('在上', 'Above')}</button>
+            <button type="button" aria-pressed={subtitlePosition === 'bottom'} onClick={() => setSubtitlePosition('bottom')}>{l('在下', 'Below')}</button>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+
+  const languageControls = (
+    <>
+      <div className="video-translation-language-row">
+        <LanguageSelect label={l('源语言', 'Source language')} value={sourceLanguage} onChange={setSourceLanguage} source l={l} />
+        <span className="video-translation-language-arrow" aria-hidden="true">→</span>
+        <LanguageSelect label={l('翻译为', 'Translate to')} value={targetLanguage} onChange={setTargetLanguage} l={l} />
+      </div>
+      {!subtitleOnly && transcriptionLanguageSupport(sourceLanguage, asrCapability) === 'unsupported' ? <p role="status">{l('当前识别服务不支持该源语言。请更换识别服务或导入原文字幕；优先使用平台字幕时仅影响转录回退。', 'The speech service does not support this source language. Change services or import source subtitles; with platform captions this only affects audio fallback.')}</p> : null}
+      {importedSourceSubtitle && sourceLanguage === 'auto' ? <p role="status">{l('未能可靠识别字幕语言，请手动选择源语言。', 'The subtitle language could not be reliably detected. Select the source language.')}</p> : null}
+      {!subtitleOnly && asrCapability && transcriptionLanguageSupport(sourceLanguage, asrCapability) === 'unknown' ? <p role="status">{l('当前识别服务的语言范围尚未确认，请确认服务支持所选语言。', 'Language coverage is unverified. Confirm that the speech service supports this language.')}</p> : null}
+    </>
+  );
+  const subtitleImportControl = !subtitleOnly ? <VideoTranslationSubtitleImport
+    sourceLanguage={sourceLanguage} targetLanguage={targetLanguage}
+    disabled={submitting || activeStage !== undefined} onBusyChange={setSubtitleImportPending} /> : null;
+  const platformCaptionsControl = !subtitleOnly ? <Switch
+    checked={preferPlatformCaptions && sourceType === 'url'}
+    label={l('优先使用平台字幕', 'Prefer platform subtitles')}
+    description={sourceType === 'url' ? l('平台无字幕时自动识别', 'Transcribe automatically when platform subtitles are unavailable') : l('仅视频链接可用', 'Available for video links only')}
+    disabled={sourceType !== 'url'} onChange={setPreferPlatformCaptions}
+  /> : null;
+
+  const compositionControl = (
+    <div className="video-translation-option-block" data-agent-focus={agentFocus === 'output'}>
+      <div className="video-translation-option-title">
+        <span className="video-translation-option-icon"><MonitorPlay size={17} strokeWidth={1.8} /></span>
+        <Switch
+          checked={composeVideo}
+          label={l('合成字幕视频', 'Render subtitled video')}
+          description={l('将字幕直接嵌入成片', 'Embed subtitles directly in the final video')}
+          onChange={setComposeVideo}
+        />
+      </div>
+    </div>
+  );
+
+  const outputFormatOptions = [
+    ['horizontal', '16:9', '横屏'],
+    ['vertical', '9:16', '竖屏'],
+    ['all', '双画幅', '全部']
+  ] as const;
+  const outputFormatControl = subtitleImmersive ? (
+    <div className="video-translation-output-format-options" role="radiogroup" aria-label={l('输出画幅', 'Output format')}>
+      {outputFormatOptions.map(([value, ratio, label]) => (
+        <label className="video-translation-output-format-choice" data-selected={videoFormat === value || undefined} key={value}
+          title={sourceOrientation === 'portrait' && value !== 'vertical'
+            ? l('竖屏源视频仅支持竖屏输出', 'Portrait source videos only support portrait output') : undefined}>
+          <span className="video-translation-output-format-icon" aria-hidden="true">
+            {value !== 'vertical' ? <RectangleHorizontal size={24} strokeWidth={1.5} /> : null}
+            {value !== 'horizontal' ? <RectangleVertical size={24} strokeWidth={1.5} /> : null}
+          </span>
+          <span>{value === 'all' ? l('双画幅', '16:9 + 9:16') : ratio} {localizeFormatLabel(label, l)}</span>
+          <input type="radio" name={outputFormatName} value={value} checked={videoFormat === value}
+            disabled={sourceOrientation === 'portrait' && value !== 'vertical'}
+            onChange={() => setVideoFormat(value)} />
+        </label>
+      ))}
+    </div>
+  ) : (
+    <label className="video-translation-field video-translation-output-format-inline">
+      <span>{l('输出画幅', 'Output format')}</span>
+      <div className="video-translation-select-wrap">
+        <select
+          aria-label={l('输出画幅', 'Output format')}
+          value={videoFormat}
+          onChange={event => setVideoFormat(event.target.value as VideoFormat)}
+        >
+          {outputFormatOptions.map(([value, ratio, label]) => (
+            <option
+              value={value}
+              disabled={sourceOrientation === 'portrait' && value !== 'vertical'}
+              title={sourceOrientation === 'portrait' && value !== 'vertical'
+                ? l('竖屏源视频仅支持竖屏输出', 'Portrait source videos only support portrait output')
+                : undefined}
+              key={value}
+            >
+              {value === 'all' ? l('双画幅', '16:9 + 9:16') : ratio} {localizeFormatLabel(label, l)}
+            </option>
+          ))}
+        </select>
+        <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
+      </div>
+    </label>
+  );
+
+  const subtitleStyleChoices = (
+    <>
+      <h3 className="video-translation-subtitle-style-title">{l('字幕样式', 'Subtitle style')}</h3>
+      <div className="video-translation-subtitle-style-tabs-row">
+        <div className="video-translation-subtitle-style-tabs" role="tablist" aria-label={l('字幕样式分类', 'Subtitle style groups')}>
+          {([
+            ['recommended', l('推荐', 'Presets')],
+            ['mine', l('我的样式', 'My styles')]
+          ] as const).map(([tab, label]) => (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              id={`subtitle-style-tab-${tab}`}
+              aria-selected={subtitleStyleTab === tab}
+              aria-controls="subtitle-style-tabpanel"
+              onClick={() => setSubtitleStyleTab(tab)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <button
+          ref={styleDrawerTriggerRef}
+          type="button"
+          className="video-translation-subtitle-customize"
+          aria-haspopup="dialog"
+          aria-expanded={styleDrawerSnapshot !== undefined}
+          onClick={() => setStyleDrawerSnapshot(currentSubtitleStyle)}
+        >
+          <SlidersHorizontal size={14} strokeWidth={1.8} aria-hidden="true" />
+          <span>{l('自定义样式', 'Customize')}</span>
+        </button>
+      </div>
+      <div
+        id="subtitle-style-tabpanel"
+        role="tabpanel"
+        aria-labelledby={`subtitle-style-tab-${subtitleStyleTab}`}
+      >
+        {subtitleStyleTab === 'mine' && savedSubtitleStyles.length === 0 ? (
+          <p className="video-translation-subtitle-presets-empty">
+            {l('还没有保存的样式。在自定义样式里调整后点「另存为模版」。', 'No saved styles yet. Adjust a style in Customize, then choose Save as template.')}
+          </p>
+        ) : <div className="video-translation-subtitle-presets" role="radiogroup"
+          aria-label={subtitleStyleTab === 'mine' ? l('我的样式', 'My styles') : l('推荐样式', 'Recommended styles')}>
+          {subtitleStyleTab === 'recommended' ? subtitleStylePresets.map(preset => (
+            <button
+              key={preset.id}
+              type="button"
+              role="radio"
+              aria-checked={activeSubtitlePreset?.id === preset.id}
+              className="video-translation-subtitle-preset"
+              onClick={() => selectSubtitleStyle(preset.style)}
+            >
+              <SubtitlePresetThumbnail style={preset.style} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
+              <span>{l(...preset.name)}</span>
+            </button>
+          )) : null}
+          {subtitleStyleTab === 'mine' ? savedSubtitleStyles.map(saved => (
+            <div key={saved.id} className="video-translation-subtitle-preset-saved">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={activeSavedSubtitleStyle?.id === saved.id}
+                className="video-translation-subtitle-preset"
+                onClick={() => selectSubtitleStyle(saved.style)}
+              >
+                <SubtitlePresetThumbnail style={saved.style} bilingual={bilingual} translationOnTop={subtitlePosition === 'top'} posterUrl={previewPosterUrl} />
+                <span>{saved.name}</span>
+              </button>
+              <div className="video-translation-subtitle-preset-actions">
+                <button
+                  type="button"
+                  aria-label={l(`编辑模版 ${saved.name}`, `Edit template ${saved.name}`)}
+                  title={l('编辑模版', 'Edit template')}
+                  aria-haspopup="dialog"
+                  onClick={() => openSavedStyleEditor(saved)}
+                >
+                  <Pencil size={11} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={l(`删除模版 ${saved.name}`, `Delete template ${saved.name}`)}
+                  title={l('删除模版', 'Delete template')}
+                  onClick={() => deleteSavedSubtitleStyle(saved.id)}
+                >
+                  <X size={12} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          )) : null}
+        </div>}
+      </div>
+    </>
+  );
+
+  const verticalTitleControls = (
+    videoFormat === 'vertical' || videoFormat === 'all' ? (
+    <div className="video-translation-title-fields">
+      <label className="video-translation-field">
+        <span>{l('竖屏主标题', 'Vertical video title')} <small>{l('选填', 'Optional')}</small></span>
+        <input value={verticalTitle} onChange={event => setVerticalTitle(event.target.value)} placeholder={l('留空将自动生成', 'Leave blank to generate automatically')} />
+      </label>
+      <label className="video-translation-field">
+        <span>{l('竖屏副标题', 'Vertical video subtitle')} <small>{l('选填', 'Optional')}</small></span>
+        <input value={verticalSubtitle} onChange={event => setVerticalSubtitle(event.target.value)} placeholder={l('留空将自动生成', 'Leave blank to generate automatically')} />
+      </label>
+    </div>
+    ) : null
+  );
+
+  const dubbingSettings = (
+    <div className="video-translation-option-block video-translation-dubbing-settings" data-agent-focus={agentFocus === 'dubbing'}>
+      <div className="video-translation-option-title">
+        <span className="video-translation-option-icon"><Mic2 size={17} strokeWidth={1.8} /></span>
+        <Switch
+          checked={dubbing}
+          label={l('生成目标语言配音', 'Generate target-language dubbing')}
+          description={l('匹配翻译后的语速与停顿', 'Match the translated pacing and pauses')}
+          onChange={value => {
+            if (value) setComposeVideo(true);
+            setDubbing(value);
+          }}
+        />
+      </div>
+      {dubbing ? (
+        <div className="video-translation-option-content video-translation-dubbing-row">
+          {officialSpeech.official ? <OfficialModelField label={l('语音合成模型', 'Speech model')} service={officialSpeech} /> : <div className="video-translation-voice-source">
+            <span>{l('语音服务', 'Speech service')}</span>
+            <div>
+              <strong>{ttsProviderLabel(ttsProvider, l)}</strong>
+              <small>{ttsModel || l('本地语音服务', 'Local speech service')}</small>
+            </div>
+          </div>}
+          <TtsVoicePicker
+            id="video-translation-voice"
+            provider={ttsProvider}
+            model={ttsModel}
+            value={voiceCode}
+            service={props.creatorServicesService ?? null}
+            label={l('配音音色', 'Dubbing voice')}
+            disabled={submitting || activeStage !== undefined}
+            onChange={(voiceId, voice) => {
+              setVoiceCode(voiceId);
+              setVoiceName(voice?.name ?? voiceId);
+            }}
+            onVoiceResolved={voice => setVoiceName(voice.name)}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+
   return (
-    <main className="video-translation-page">
+    <main className="video-translation-page" data-subtitle-immersive={subtitleImmersive && workspacePhase === 'result' && resultTab === 'subtitles' || undefined}
+      data-subtitle-assistant={subtitleAssistantOpen || undefined}>
       <div className="video-translation-page-inner video-translation-wizard">
         <CreatorResizableLayout
           className="video-translation-collab-layout"
@@ -3325,6 +3972,44 @@ export default function VideoTranslationWorkspace(props: {
               subtitleDirty={subtitleDirty}
               subtitleDirtyByVariant={subtitleDirtyByVariant}
               subtitleSavePending={submitting}
+              immersive={subtitleImmersive}
+              editorSettings={!selectedSubtitleOnly ? {
+                language: <>{languageControls}<div className="video-translation-toggle-list">{subtitleImportControl}{platformCaptionsControl}</div></>,
+                style: <>{subtitleLayoutControls}{subtitleStyleChoices}</>,
+                voice: dubbingSettings,
+                output: <>{compositionControl}{composeVideo ? <>{outputFormatControl}{verticalTitleControls}</> : null}</>,
+                previewFormat: previewVerticalOutput ? 'vertical' : 'horizontal',
+                previewTitles: subtitlePreviewTitles,
+                disabled: submitting || subtitleImportPending || activeStage !== undefined,
+                onOpen: prepareEditorSettings
+              } : undefined}
+              renderSubtitlePreview={creatorSession?.openSubtitlePreview ? (cues, width, height) => <VideoTranslationStylePreview
+                render={creatorSession.openSubtitlePreview}
+                input={{
+                  width: Math.max(32, Math.round(960 * width / Math.max(width, height))),
+                  height: Math.max(32, Math.round(960 * height / Math.max(width, height))),
+                  bilingual,
+                  subtitlePosition,
+                  // The preview renderer accepts one plain-text line per language.
+                  translationText: cues.map(cue => cue.text).join(' ').replace(/[{}\\]/g, '').replace(/\s+/g, ' ').trim().slice(0, 128) || ' ',
+                  originalText: cues.map(cue => cue.sourceText ?? '').join(' ').replace(/[{}\\]/g, '').replace(/\s+/g, ' ').trim().slice(0, 128) || ' ',
+                  subtitleStyle: subtitleRenderStyle
+                }}
+              /> : undefined}
+              assistantOpen={subtitleAssistantOpen}
+              onImmersiveChange={value => {
+                setSubtitleImmersive(value);
+                if (value) {
+                  prepareEditorSettings();
+                  setResultTab('subtitles');
+                } else {
+                  setSubtitleAssistantOpen(false);
+                  setResultProposal(undefined);
+                  setResultTab(selectedSubtitleOnly ? 'subtitles' : 'video');
+                }
+              }}
+              onToggleAssistant={() => setSubtitleAssistantOpen(value => !value)}
+              onSubtitleCuesChange={updateSubtitleCues}
               nextVersion={nextVersion}
               affectedArtifacts={regenerationArtifacts}
               hasPendingChanges={hasPendingChanges}
@@ -3428,384 +4113,35 @@ export default function VideoTranslationWorkspace(props: {
                 {!subtitleOnly ? <p>{l('选择视频原语言、目标语言和字幕内容方式', 'Choose the source language, target language, and subtitle content')}</p> : null}
               </div>
 
-              <div className="video-translation-language-row">
-                <label className="video-translation-field">
-                  <span>{l('源语言', 'Source language')}</span>
-                  <div className="video-translation-select-wrap">
-                    <select value={sourceLanguage} onChange={event => setSourceLanguage(event.target.value)}>
-                      {sourceLanguages.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
-                    </select>
-                    <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
-                  </div>
-                </label>
-                <span className="video-translation-language-arrow" aria-hidden="true">→</span>
-                <label className="video-translation-field" data-agent-focus={agentFocus === 'language'}>
-                  <span>{l('翻译为', 'Translate to')}</span>
-                  <div className="video-translation-select-wrap">
-                    <select value={targetLanguage} onChange={event => {
-                      setTargetLanguage(event.target.value);
-                    }}>
-                      {targetLanguages.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
-                    </select>
-                    <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
-                  </div>
-                </label>
-              </div>
+              {languageControls}
 
               <div className="video-translation-toggle-list" data-agent-focus={agentFocus === 'subtitles'}>
-                {!subtitleOnly ? <VideoTranslationSubtitleImport sourceLanguage={sourceLanguage} targetLanguage={targetLanguage} disabled={submitting || activeStage !== undefined} /> : null}
-                <Switch
-                  checked={bilingual}
-                  label={l('双语字幕', 'Bilingual subtitles')}
-                  description={l('同时保留原文和译文', 'Keep both the original and translated text')}
-                  onChange={value => {
-                    setBilingual(value);
-                  }}
-                />
-                {bilingual ? (
-                  <div className="video-translation-inline-setting">
-                    <span>{l('译文位置', 'Translation position')}</span>
-                    <div role="group" aria-label={l('译文位置', 'Translation position')}>
-                      <button type="button" aria-pressed={subtitlePosition === 'top'} onClick={() => setSubtitlePosition('top')}>{l('在上', 'Above')}</button>
-                      <button type="button" aria-pressed={subtitlePosition === 'bottom'} onClick={() => setSubtitlePosition('bottom')}>{l('在下', 'Below')}</button>
-                    </div>
-                  </div>
-                ) : null}
-                {!subtitleOnly ? <Switch
-                  checked={preferPlatformCaptions && sourceType === 'url'}
-                  label={l('优先使用平台字幕', 'Prefer platform subtitles')}
-                  description={sourceType === 'url' ? l('平台无字幕时自动识别', 'Transcribe automatically when platform subtitles are unavailable') : l('仅视频链接可用', 'Available for video links only')}
-                  disabled={sourceType !== 'url'}
-                  onChange={setPreferPlatformCaptions}
-                /> : null}
+                {subtitleImportControl}
+                {subtitleLayoutControls}
+                {platformCaptionsControl}
               </div>
             </section>
           ) : null}
 
           {workspacePhase === 'configure' && currentStep === 2 ? (
             <div className="video-translation-output-settings">
-              <section className="video-translation-step-panel video-translation-subtitle-style" aria-labelledby="subtitle-style-title">
-                <div className="video-translation-step-heading">
-                  <h2 id="subtitle-style-title">{l('视频与字幕', 'Video & subtitles')}</h2>
-                </div>
-
-                <div className="video-translation-option-block" data-agent-focus={agentFocus === 'output'}>
-                  <div className="video-translation-option-title">
-                    <span className="video-translation-option-icon"><MonitorPlay size={17} strokeWidth={1.8} /></span>
-                    <Switch
-                      checked={composeVideo}
-                      label={l('合成字幕视频', 'Render subtitled video')}
-                      description={l('将字幕直接嵌入成片', 'Embed subtitles directly in the final video')}
-                      onChange={setComposeVideo}
-                    />
-                  </div>
-                </div>
-                {composeVideo ? (
-                  <div className="video-translation-output-format-settings">
-                    <label className="video-translation-field">
-                      <span>{l('输出画幅', 'Output format')}</span>
-                      <div className="video-translation-select-wrap">
-                        <select
-                          aria-label={l('输出画幅', 'Output format')}
-                          value={videoFormat}
-                          onChange={event => setVideoFormat(event.target.value as VideoFormat)}
-                        >
-                          {([
-                            ['horizontal', '16:9', '横屏'],
-                            ['vertical', '9:16', '竖屏'],
-                            ['all', '双画幅', '全部']
-                          ] as const).map(([value, ratio, label]) => (
-                            <option
-                              value={value}
-                              disabled={sourceOrientation === 'portrait' && value !== 'vertical'}
-                              title={sourceOrientation === 'portrait' && value !== 'vertical'
-                                ? l('竖屏源视频仅支持竖屏输出', 'Portrait source videos only support portrait output')
-                                : undefined}
-                              key={value}
-                            >
-                              {value === 'all' ? l('双画幅', '16:9 + 9:16') : ratio} {localizeFormatLabel(label, l)}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
-                      </div>
-                    </label>
-                    {videoFormat === 'vertical' || videoFormat === 'all' ? (
-                      <div className="video-translation-title-fields">
-                        <label className="video-translation-field">
-                          <span>{l('竖屏主标题', 'Vertical video title')} <small>{l('选填', 'Optional')}</small></span>
-                          <input value={verticalTitle} onChange={event => setVerticalTitle(event.target.value)} placeholder={l('留空将自动生成', 'Leave blank to generate automatically')} />
-                        </label>
-                        <label className="video-translation-field">
-                          <span>{l('竖屏副标题', 'Vertical video subtitle')} <small>{l('选填', 'Optional')}</small></span>
-                          <input value={verticalSubtitle} onChange={event => setVerticalSubtitle(event.target.value)} placeholder={l('留空将自动生成', 'Leave blank to generate automatically')} />
-                        </label>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
+              <section className="video-translation-step-panel video-translation-subtitle-style" aria-label={l('视频与字幕', 'Video & subtitles')}>
+                {compositionControl}
                 {composeVideo ? (
                   <>
-                    <div className="video-translation-subtitle-style-layout">
-                      <div
-                        className="video-translation-subtitle-preview"
-                        data-ratio={aspectRatioLabel(previewWidth, previewHeight)}
-                        data-orientation={previewHeight > previewWidth ? 'portrait' : 'landscape'}
-                        data-converted={convertedToVertical}
-                        role="region"
-                        aria-label={l('字幕样式预览', 'Subtitle style preview')}
-                      >
-                        <span>{l('字幕样式预览', 'Subtitle style preview')}</span>
-                        <div
-                          style={{
-                            '--subtitle-preview-aspect-ratio': `${previewWidth} / ${previewHeight}`,
-                          } as CSSProperties}
-                        >
-                          {previewPosterUrl ? (
-                            <img
-                              className="video-translation-subtitle-preview-media"
-                              src={previewPosterUrl}
-                              alt=""
-                              aria-hidden="true"
-                              onError={event => { event.currentTarget.hidden = true; }}
-                            />
-                          ) : null}
-                          {previewVideoSrc ? (
-                            <SubtitlePreviewVideo key={previewVideoSrc} src={previewVideoSrc} onDimensions={updateSourceOrientation} />
-                          ) : null}
-                          {previewVerticalOutput && (verticalTitle.trim() || verticalSubtitle.trim()) ? (
-                            <div className="video-translation-subtitle-preview-titles">
-                              {verticalTitle.trim() ? <div data-title-kind="major">{verticalTitle}</div> : null}
-                              {verticalSubtitle.trim() ? <div data-title-kind="minor">{verticalSubtitle}</div> : null}
-                            </div>
-                          ) : null}
-                          <VideoTranslationStylePreview
-                            render={creatorSession?.openSubtitlePreview}
-                            input={{
-                              width: Math.max(32, Math.round(960 * previewWidth / Math.max(previewWidth, previewHeight))),
-                              height: Math.max(32, Math.round(960 * previewHeight / Math.max(previewWidth, previewHeight))),
-                              bilingual,
-                              subtitlePosition,
-                              translationText: l('这是一段译文字幕', 'This is a translated subtitle'),
-                              originalText: l('这是一段原文字幕', 'This is an original subtitle'),
-                              subtitleStyle: {
-                                fontPreset: subtitleFont,
-                                fontWeight: subtitleWeight,
-                                fontSize: subtitleSize,
-                                primaryColor: subtitleColor,
-                                secondaryColor: subtitleSecondaryColor,
-                                outlineColor: subtitleOutlineColor,
-                                outlineWidth: subtitleOutlineWidth,
-                                shadow: {
-                                  enabled: subtitleShadowEnabled,
-                                  color: subtitleShadowColor,
-                                  opacity: subtitleShadowOpacity,
-                                  offsetX: subtitleShadowOffsetX,
-                                  offsetY: subtitleShadowOffsetY,
-                                  blur: subtitleShadowBlur
-                                }
-                              }
-                            }}
-                          />
-                        </div>
+                    <div className="video-translation-subtitle-style-section">
+                      <div className="video-translation-subtitle-style-body">
+                      <div className="video-translation-subtitle-style-column">
+                        {outputFormatControl}
+                        {subtitleStylePreview}
                       </div>
-                      <div className="video-translation-subtitle-controls">
-                        <h3 className="video-translation-subtitle-style-title">{l('字幕样式', 'Subtitle style')}</h3>
-                        <div className="video-translation-typography-fields">
-                          <label className="video-translation-field">
-                            <span>{l('字幕字体', 'Subtitle font')}</span>
-                            <div className="video-translation-select-wrap">
-                              <select
-                                aria-label={l('字幕字体', 'Subtitle font')}
-                                value={subtitleFont}
-                                onChange={event => setSubtitleFont(event.target.value as SubtitleFont)}
-                              >
-                                <option value="system">{l('系统默认', 'System default')}</option>
-                                <option value="sans">{l('无衬线', 'Sans serif')}</option>
-                                <option value="serif">{l('衬线', 'Serif')}</option>
-                                <option value="rounded">{l('圆体', 'Rounded')}</option>
-                              </select>
-                              <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
-                            </div>
-                          </label>
-
-                          <label className="video-translation-field">
-                            <span>{l('字重', 'Font weight')}</span>
-                            <div className="video-translation-select-wrap">
-                              <select
-                                aria-label={l('字幕字重', 'Subtitle font weight')}
-                                value={subtitleWeight}
-                                onChange={event => setSubtitleWeight(event.target.value as SubtitleWeight)}
-                              >
-                                {(['regular', 'medium', 'bold'] as const).map(weight => (
-                                  <option key={weight} value={weight}>{subtitleWeightLabel(weight, l)}</option>
-                                ))}
-                              </select>
-                              <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
-                            </div>
-                          </label>
-
-                          <label className="video-translation-field">
-                            <span>{l('字幕大小', 'Subtitle size')}</span>
-                            <div className="video-translation-select-wrap">
-                              <select
-                                aria-label={l('字幕大小', 'Subtitle size')}
-                                value={subtitleSize}
-                                onChange={event => setSubtitleSize(event.target.value as SubtitleSize)}
-                              >
-                                {(['small', 'medium', 'large'] as const).map(size => (
-                                  <option key={size} value={size}>{subtitleSizeLabel(size, l)}</option>
-                                ))}
-                              </select>
-                              <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
-                            </div>
-                          </label>
-                        </div>
-
-                        <div className="video-translation-style-fields">
-                          <SubtitleColorControl
-                            label={l('译文颜色', 'Translation color')}
-                            value={subtitleColor}
-                            onChange={setSubtitleColor}
-                          />
-
-                          {bilingual ? <SubtitleColorControl
-                            label={l('原文颜色', 'Original color')}
-                            value={subtitleSecondaryColor}
-                            onChange={setSubtitleSecondaryColor}
-                            prefixPresetLabel
-                          /> : null}
-                        </div>
-
-                        <details className="video-translation-advanced-style">
-                          <summary>
-                            {l('更多样式', 'More styles')}
-                            <ChevronDown size={15} strokeWidth={1.8} aria-hidden="true" />
-                          </summary>
-                          <div className="video-translation-advanced-style-content">
-                            <div className="video-translation-outline-fields">
-                              <SubtitleColorControl
-                                label={l('描边颜色', 'Outline color')}
-                                value={subtitleOutlineColor}
-                                onChange={setSubtitleOutlineColor}
-                                prefixPresetLabel
-                              />
-                              <label className="video-translation-field">
-                                <span>{l('描边宽度', 'Outline width')}</span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="8"
-                                  step="0.5"
-                                  value={subtitleOutlineWidth}
-                                  onChange={event => setSubtitleOutlineWidth(Number(event.target.value))}
-                                />
-                              </label>
-                            </div>
-
-                            <div className="video-translation-shadow-settings">
-                              <Switch
-                                checked={subtitleShadowEnabled}
-                                label={l('字幕阴影', 'Subtitle shadow')}
-                                description={l('为字幕增加可控阴影，提高复杂画面上的可读性', 'Add a controlled shadow for readability on detailed footage')}
-                                onChange={setSubtitleShadowEnabled}
-                              />
-                              {subtitleShadowEnabled ? (
-                                <>
-                                  <SubtitleColorControl
-                                    label={l('阴影颜色', 'Shadow color')}
-                                    value={subtitleShadowColor}
-                                    onChange={setSubtitleShadowColor}
-                                    prefixPresetLabel
-                                  />
-                                  <div className="video-translation-style-fields">
-                                    <label className="video-translation-field">
-                                      <span>{l('不透明度', 'Opacity')}</span>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        max="1"
-                                        step="0.05"
-                                        value={subtitleShadowOpacity}
-                                        onChange={event => setSubtitleShadowOpacity(Number(event.target.value))}
-                                      />
-                                    </label>
-                                    <label className="video-translation-field">
-                                      <span>{l('水平偏移', 'Horizontal offset')}</span>
-                                      <input
-                                        type="number"
-                                        min="-20"
-                                        max="20"
-                                        step="1"
-                                        value={subtitleShadowOffsetX}
-                                        onChange={event => setSubtitleShadowOffsetX(Number(event.target.value))}
-                                      />
-                                    </label>
-                                    <label className="video-translation-field">
-                                      <span>{l('垂直偏移', 'Vertical offset')}</span>
-                                      <input
-                                        type="number"
-                                        min="-20"
-                                        max="20"
-                                        step="1"
-                                        value={subtitleShadowOffsetY}
-                                        onChange={event => setSubtitleShadowOffsetY(Number(event.target.value))}
-                                      />
-                                    </label>
-                                    <label className="video-translation-field">
-                                      <span>{l('模糊', 'Blur')}</span>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        max="10"
-                                        step="0.5"
-                                        value={subtitleShadowBlur}
-                                        onChange={event => setSubtitleShadowBlur(Number(event.target.value))}
-                                      />
-                                    </label>
-                                  </div>
-                                </>
-                              ) : null}
-                            </div>
-                          </div>
-                        </details>
+                      <div className="video-translation-subtitle-style-column">
+                        {subtitleStyleChoices}
                       </div>
+                      </div>
+                      {verticalTitleControls}
                     </div>
-                    <div className="video-translation-option-block video-translation-dubbing-settings" data-agent-focus={agentFocus === 'dubbing'}>
-                      <div className="video-translation-option-title">
-                        <span className="video-translation-option-icon"><Mic2 size={17} strokeWidth={1.8} /></span>
-                        <Switch
-                          checked={dubbing}
-                          label={l('生成目标语言配音', 'Generate target-language dubbing')}
-                          description={l('匹配翻译后的语速与停顿', 'Match the translated pacing and pauses')}
-                          onChange={value => {
-                            setDubbing(value);
-                          }}
-                        />
-                      </div>
-                      {dubbing ? (
-                        <div className="video-translation-option-content">
-                          {officialSpeech.official ? <OfficialModelField label={l('语音合成模型', 'Speech model')} service={officialSpeech} /> : <div className="video-translation-voice-source">
-                            <strong>{ttsProviderLabel(ttsProvider, l)}</strong>
-                            <small>{ttsModel || l('本地语音服务', 'Local speech service')}</small>
-                          </div>}
-                          <TtsVoicePicker
-                            id="video-translation-voice"
-                            provider={ttsProvider}
-                            model={ttsModel}
-                            value={voiceCode}
-                            service={props.creatorServicesService ?? null}
-                            label={l('配音音色', 'Dubbing voice')}
-                            onChange={(voiceId, voice) => {
-                              setVoiceCode(voiceId);
-                              setVoiceName(voice?.name ?? voiceId);
-                            }}
-                            onVoiceResolved={voice => setVoiceName(voice.name)}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
+                    {dubbingSettings}
                   </>
                 ) : null}
               </section>
@@ -3816,6 +4152,7 @@ export default function VideoTranslationWorkspace(props: {
 
         {workspacePhase === 'configure' ? (
         <div className="video-translation-actions-stack">
+        {activeStage === undefined && resumableStage === undefined ? (
         <footer className="video-translation-wizard-actions">
           {currentStep > 0 ? (
             <button className="video-translation-secondary-action" type="button" onClick={() => setCurrentStep((currentStep - 1) as WizardStep)}>
@@ -3823,9 +4160,7 @@ export default function VideoTranslationWorkspace(props: {
               {l('上一步', 'Back')}
             </button>
           ) : <span />}
-          {activeStage !== undefined || resumableStage !== undefined ? (
-            renderTaskControlButton()
-          ) : currentStep === 0 ? (
+          {currentStep === 0 ? (
             <div className="video-translation-action-group">
               {attemptedContinue && !hasSource ? (
                 <p className="video-translation-error" role="alert">{subtitleOnly ? l('请先添加需要翻译的 SRT 字幕', 'Add an SRT file to translate first') : l('请先添加需要翻译的视频', 'Add a video to translate first')}</p>
@@ -3856,16 +4191,11 @@ export default function VideoTranslationWorkspace(props: {
             </button>
           )}
         </footer>
+        ) : null}
         {resultNotice && !runIssueMessage ? (
           <div className="video-translation-run-notice" role="status">{resultNotice}</div>
         ) : null}
         </div>
-        ) : null}
-        {workspacePhase === 'result' && (activeStage !== undefined || resumableStage !== undefined) ? (
-          <footer className="video-translation-wizard-actions video-translation-task-controls">
-            <span />
-            {renderTaskControlButton()}
-          </footer>
         ) : null}
           </div>}
           agentPanel={<VideoTranslationAgentPanel
@@ -3927,6 +4257,95 @@ export default function VideoTranslationWorkspace(props: {
           />}
         />
       </div>
+      {styleDrawerSnapshot !== undefined ? createPortal(
+        <div
+          className="video-translation-style-drawer-backdrop"
+          role="presentation"
+          onMouseDown={event => {
+            if (event.target === event.currentTarget) closeStyleDrawer(true);
+          }}
+        >
+          <section
+            className="video-translation-style-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="video-translation-style-drawer-title"
+          >
+            <header>
+              <h2 id="video-translation-style-drawer-title">
+                {editingSavedStyle !== undefined ? l('编辑模版', 'Edit template') : l('自定义字幕样式', 'Customize subtitle style')}
+              </h2>
+              <div>
+                <button type="button" aria-label={l('恢复默认样式', 'Reset to default style')} title={l('恢复默认样式', 'Reset to default style')} onClick={() => applySubtitleStyle(defaultSubtitleStyle)}>
+                  <RotateCcw size={15} aria-hidden="true" />
+                </button>
+                <button type="button" aria-label={l('关闭', 'Close')} title={l('关闭', 'Close')} onClick={() => closeStyleDrawer(true)}>
+                  <X size={16} aria-hidden="true" />
+                </button>
+              </div>
+            </header>
+            <div className="video-translation-style-drawer-body">
+              {editingSavedStyle !== undefined ? (
+                <label className="video-translation-field">
+                  <span>{l('模版名称', 'Template name')}</span>
+                  <input
+                    maxLength={24}
+                    value={editingSavedStyle.name}
+                    onChange={event => setEditingSavedStyle({ ...editingSavedStyle, name: event.target.value })}
+                  />
+                </label>
+              ) : null}
+              {subtitleStyleEditor}
+            </div>
+            {saveStyleName !== undefined ? (
+              <form
+                className="video-translation-style-drawer-save"
+                onSubmit={event => { event.preventDefault(); saveCurrentSubtitleStyle(saveStyleName); }}
+              >
+                <label className="video-translation-field">
+                  <span>{l('模版名称', 'Template name')}</span>
+                  <input
+                    autoFocus
+                    maxLength={24}
+                    value={saveStyleName}
+                    placeholder={l('例如：口播黄字', 'e.g. Talking-head yellow')}
+                    onChange={event => setSaveStyleName(event.target.value)}
+                    onKeyDown={event => {
+                      if (event.key !== 'Escape') return;
+                      event.preventDefault();
+                      setSaveStyleName(undefined);
+                    }}
+                  />
+                </label>
+                <button type="button" onClick={() => setSaveStyleName(undefined)}>{l('取消', 'Cancel')}</button>
+                <button type="submit" data-intent="primary" disabled={saveStyleName.trim() === ''}>{l('保存', 'Save')}</button>
+              </form>
+            ) : null}
+            <footer>
+              <button
+                type="button"
+                data-intent="ghost"
+                disabled={saveStyleName !== undefined}
+                onClick={() => setSaveStyleName(l(`我的样式 ${savedSubtitleStyles.length + 1}`, `My style ${savedSubtitleStyles.length + 1}`))}
+              >
+                <Plus size={14} aria-hidden="true" />
+                {l('另存为模版', 'Save as template')}
+              </button>
+              <span />
+              <button type="button" onClick={() => closeStyleDrawer(true)}>{l('取消', 'Cancel')}</button>
+              <button
+                type="button"
+                data-intent="primary"
+                disabled={editingSavedStyle !== undefined && editingSavedStyle.name.trim() === ''}
+                onClick={() => { updateEditingSavedStyle(); closeStyleDrawer(false); }}
+              >
+                {editingSavedStyle !== undefined ? l('保存修改', 'Save changes') : l('完成', 'Done')}
+              </button>
+            </footer>
+          </section>
+        </div>,
+        document.body
+      ) : null}
       {cancelDialogOpen && activeStage !== undefined ? (
         <div
           className="video-translation-confirm-backdrop"
@@ -4027,6 +4446,8 @@ function creatorErrorMessage(cause: unknown, l: LocalizeCopy): string {
   if (code === 'creator_llm_config_missing') {
     return l('开始翻译前需要配置文本翻译模型 API。', 'Configure the text translation model API before starting.');
   }
+  if (code === 'creator_transcription_language_unsupported') return l('当前识别模型不支持所选源语言，请更换识别服务或导入原文字幕', 'This model does not support the source language. Change the speech service or import source subtitles');
+  if (code === 'creator_transcription_timestamps_unavailable') return l('请选择提供字幕时间戳的识别服务', 'Choose a speech service that provides subtitle timestamps');
   if (code === 'creator_transcription_config_missing') {
     return l('当前字幕策略需要配置语音识别服务。', 'The current subtitle strategy requires a transcription service.');
   }
@@ -4128,7 +4549,7 @@ function normalizeStageConfigurationError(code: string | null | undefined, messa
 function needsCreatorServicesConfiguration(...codes: Array<string | null | undefined>): boolean {
   return codes.some(code => (
     code === 'creator_llm_config_missing'
-    || code === 'creator_transcription_config_missing'
+    || ['creator_transcription_config_missing', 'creator_transcription_language_unsupported', 'creator_transcription_timestamps_unavailable'].includes(code ?? '')
     || code === 'creator_tts_config_missing'
   ));
 }
@@ -4151,7 +4572,7 @@ function creatorServicesSettingsHref(...codes: Array<string | null | undefined>)
   const code = codes.find(candidate => needsCreatorServicesConfiguration(candidate));
   const section = code === 'creator_tts_config_missing'
     ? 'tts'
-    : code === 'creator_transcription_config_missing'
+    : ['creator_transcription_config_missing', 'creator_transcription_language_unsupported', 'creator_transcription_timestamps_unavailable'].includes(code ?? '')
       ? 'transcription'
       : 'text';
   return `#/settings?tab=ai-services&section=${section}`;

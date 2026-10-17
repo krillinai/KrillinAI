@@ -33,6 +33,7 @@ export type CreateImageGenerationRequest = {
   aspectRatio?: string;
   resolution?: string;
   officialQuality?: string;
+  modelQuality?: string;
 };
 
 /** Detect explicit references to an existing image, rather than ordinary photo styles. */
@@ -58,6 +59,9 @@ export type ImageGenerationResult = {
   model: string;
   imageSize: ImageGenerationSize;
   quality: ImageGenerationQuality;
+  aspectRatio?: string;
+  resolution?: string;
+  modelQuality?: string;
   count: number;
   images: ImageGenerationAsset[];
   createdAt: string;

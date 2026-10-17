@@ -848,7 +848,7 @@ function creatorConfigurationInput(
     : undefined;
   const section = code === 'creator_llm_config_missing'
     ? 'llm'
-    : code === 'creator_transcription_config_missing'
+    : ['creator_transcription_config_missing', 'creator_transcription_language_unsupported', 'creator_transcription_timestamps_unavailable'].includes(code)
       ? 'transcription'
       : code === 'creator_tts_config_missing'
         ? 'tts'

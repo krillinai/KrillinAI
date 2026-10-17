@@ -1,0 +1,1254 @@
+{
+  "date": "2026-10-17",
+  "targetLanguage": "zh_cn",
+  "modelResponses": "本地接口替身与固定响应，不是真实翻译模型",
+  "sourceSamples": "语言原生名、OpenCreator、数字和标点组成的合成路由探针，不是各语言自然语料",
+  "realModelCalls": 0,
+  "sources": 123,
+  "applicationRouteCases": 369,
+  "allApplicationRoutesPassed": true,
+  "sourceAndTargetSpaceRegressionPassed": true,
+  "sourceResults": [
+    {
+      "code": "zh_cn",
+      "nativeName": "简体中文",
+      "englishName": "Chinese (Simplified)",
+      "chineseName": "简体中文",
+      "script": "Han",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "zh_tw",
+      "nativeName": "繁體中文",
+      "englishName": "Chinese (Traditional)",
+      "chineseName": "繁体中文",
+      "script": "Han",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "en",
+      "nativeName": "English",
+      "englishName": "English",
+      "chineseName": "英语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ja",
+      "nativeName": "日本語",
+      "englishName": "Japanese",
+      "chineseName": "日语",
+      "script": "Jpan",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ko",
+      "nativeName": "한국어",
+      "englishName": "Korean",
+      "chineseName": "韩语",
+      "script": "Hang",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "es",
+      "nativeName": "Español",
+      "englishName": "Spanish",
+      "chineseName": "西班牙语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "fr",
+      "nativeName": "Français",
+      "englishName": "French",
+      "chineseName": "法语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "de",
+      "nativeName": "Deutsch",
+      "englishName": "German",
+      "chineseName": "德语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "it",
+      "nativeName": "Italiano",
+      "englishName": "Italian",
+      "chineseName": "意大利语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "pt",
+      "nativeName": "Português",
+      "englishName": "Portuguese",
+      "chineseName": "葡萄牙语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ru",
+      "nativeName": "Русский",
+      "englishName": "Russian",
+      "chineseName": "俄语",
+      "script": "Cyrl",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ar",
+      "nativeName": "العربية",
+      "englishName": "Arabic",
+      "chineseName": "阿拉伯语",
+      "script": "Arab",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "hi",
+      "nativeName": "हिन्दी",
+      "englishName": "Hindi",
+      "chineseName": "印地语",
+      "script": "Deva",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "id",
+      "nativeName": "Bahasa Indonesia",
+      "englishName": "Indonesian",
+      "chineseName": "印度尼西亚语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ms",
+      "nativeName": "Bahasa Melayu",
+      "englishName": "Malay",
+      "chineseName": "马来语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "th",
+      "nativeName": "ภาษาไทย",
+      "englishName": "Thai",
+      "chineseName": "泰语",
+      "script": "Thai",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "vi",
+      "nativeName": "Tiếng Việt",
+      "englishName": "Vietnamese",
+      "chineseName": "越南语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "fil",
+      "nativeName": "Wikang Filipino",
+      "englishName": "Filipino",
+      "chineseName": "菲律宾语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "tr",
+      "nativeName": "Türkçe",
+      "englishName": "Turkish",
+      "chineseName": "土耳其语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "pl",
+      "nativeName": "Polski",
+      "englishName": "Polish",
+      "chineseName": "波兰语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "nl",
+      "nativeName": "Nederlands",
+      "englishName": "Dutch",
+      "chineseName": "荷兰语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "uk",
+      "nativeName": "Українська",
+      "englishName": "Ukrainian",
+      "chineseName": "乌克兰语",
+      "script": "Cyrl",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "bn",
+      "nativeName": "বাংলা",
+      "englishName": "Bangla",
+      "chineseName": "孟加拉语",
+      "script": "Beng",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "he",
+      "nativeName": "עברית",
+      "englishName": "Hebrew",
+      "chineseName": "希伯来语",
+      "script": "Hebr",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "fa",
+      "nativeName": "فارسی",
+      "englishName": "Persian",
+      "chineseName": "波斯语",
+      "script": "Arab",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "af",
+      "nativeName": "Afrikaans",
+      "englishName": "Afrikaans",
+      "chineseName": "南非荷兰语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "sv",
+      "nativeName": "Svenska",
+      "englishName": "Swedish",
+      "chineseName": "瑞典语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "fi",
+      "nativeName": "Suomi",
+      "englishName": "Finnish",
+      "chineseName": "芬兰语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "da",
+      "nativeName": "Dansk",
+      "englishName": "Danish",
+      "chineseName": "丹麦语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "no",
+      "nativeName": "Norsk",
+      "englishName": "Norwegian",
+      "chineseName": "挪威语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "el",
+      "nativeName": "Ελληνικά",
+      "englishName": "Greek",
+      "chineseName": "希腊语",
+      "script": "Grek",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "hu",
+      "nativeName": "Magyar",
+      "englishName": "Hungarian",
+      "chineseName": "匈牙利语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "sr",
+      "nativeName": "Српски",
+      "englishName": "Serbian",
+      "chineseName": "塞尔维亚语",
+      "script": "Cyrl",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "hr",
+      "nativeName": "Hrvatski",
+      "englishName": "Croatian",
+      "chineseName": "克罗地亚语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "cs",
+      "nativeName": "Čeština",
+      "englishName": "Czech",
+      "chineseName": "捷克语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "sw",
+      "nativeName": "Kiswahili",
+      "englishName": "Swahili",
+      "chineseName": "斯瓦希里语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "yo",
+      "nativeName": "Èdè Yorùbá",
+      "englishName": "Yoruba",
+      "chineseName": "约鲁巴语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ha",
+      "nativeName": "Hausa",
+      "englishName": "Hausa",
+      "chineseName": "豪萨语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "am",
+      "nativeName": "አማርኛ",
+      "englishName": "Amharic",
+      "chineseName": "阿姆哈拉语",
+      "script": "Ethi",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "om",
+      "nativeName": "Afaan Oromoo",
+      "englishName": "Oromo",
+      "chineseName": "奥罗莫语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "is",
+      "nativeName": "Íslenska",
+      "englishName": "Icelandic",
+      "chineseName": "冰岛语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "lb",
+      "nativeName": "Lëtzebuergesch",
+      "englishName": "Luxembourgish",
+      "chineseName": "卢森堡语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ca",
+      "nativeName": "Català",
+      "englishName": "Catalan",
+      "chineseName": "加泰罗尼亚语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ro",
+      "nativeName": "Română",
+      "englishName": "Romanian",
+      "chineseName": "罗马尼亚语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "sk",
+      "nativeName": "Slovenčina",
+      "englishName": "Slovak",
+      "chineseName": "斯洛伐克语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "bs",
+      "nativeName": "Bosanski",
+      "englishName": "Bosnian",
+      "chineseName": "波斯尼亚语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "mk",
+      "nativeName": "Македонски",
+      "englishName": "Macedonian",
+      "chineseName": "马其顿语",
+      "script": "Cyrl",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "sl",
+      "nativeName": "Slovenščina",
+      "englishName": "Slovenian",
+      "chineseName": "斯洛文尼亚语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "bg",
+      "nativeName": "Български",
+      "englishName": "Bulgarian",
+      "chineseName": "保加利亚语",
+      "script": "Cyrl",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "lv",
+      "nativeName": "Latviešu",
+      "englishName": "Latvian",
+      "chineseName": "拉脱维亚语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "lt",
+      "nativeName": "Lietuvių",
+      "englishName": "Lithuanian",
+      "chineseName": "立陶宛语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "et",
+      "nativeName": "Eesti",
+      "englishName": "Estonian",
+      "chineseName": "爱沙尼亚语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "mt",
+      "nativeName": "Malti",
+      "englishName": "Maltese",
+      "chineseName": "马耳他语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "sq",
+      "nativeName": "Shqip",
+      "englishName": "Albanian",
+      "chineseName": "阿尔巴尼亚语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "pa",
+      "nativeName": "ਪੰਜਾਬੀ",
+      "englishName": "Punjabi",
+      "chineseName": "旁遮普语",
+      "script": "Guru",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "jv",
+      "nativeName": "ꦧꦱꦗꦮ",
+      "englishName": "Javanese",
+      "chineseName": "爪哇语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ta",
+      "nativeName": "தமிழ்",
+      "englishName": "Tamil",
+      "chineseName": "泰米尔语",
+      "script": "Taml",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ur",
+      "nativeName": "اردو",
+      "englishName": "Urdu",
+      "chineseName": "乌尔都语",
+      "script": "Arab",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "mr",
+      "nativeName": "मराठी",
+      "englishName": "Marathi",
+      "chineseName": "马拉地语",
+      "script": "Deva",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "te",
+      "nativeName": "తెలుగు",
+      "englishName": "Telugu",
+      "chineseName": "泰卢固语",
+      "script": "Telu",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ps",
+      "nativeName": "پښتو",
+      "englishName": "Pashto",
+      "chineseName": "普什图语",
+      "script": "Arab",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ln",
+      "nativeName": "Lingála",
+      "englishName": "Lingala",
+      "chineseName": "林加拉语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ml",
+      "nativeName": "മലയാളം",
+      "englishName": "Malayalam",
+      "chineseName": "马拉雅拉姆语",
+      "script": "Mlym",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "cnh",
+      "nativeName": "Hakha Chin",
+      "englishName": "Hakha Chin",
+      "chineseName": "哈卡钦语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "uz",
+      "nativeName": "Oʻzbekcha",
+      "englishName": "Uzbek",
+      "chineseName": "乌兹别克语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "kn",
+      "nativeName": "ಕನ್ನಡ",
+      "englishName": "Kannada",
+      "chineseName": "卡纳达语",
+      "script": "Knda",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "or",
+      "nativeName": "ଓଡ଼ିଆ",
+      "englishName": "Odia",
+      "chineseName": "奥里亚语",
+      "script": "Orya",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ig",
+      "nativeName": "Igbo",
+      "englishName": "Igbo",
+      "chineseName": "伊博语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "zu",
+      "nativeName": "isiZulu",
+      "englishName": "Zulu",
+      "chineseName": "祖鲁语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "xh",
+      "nativeName": "isiXhosa",
+      "englishName": "Xhosa",
+      "chineseName": "科萨语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "km",
+      "nativeName": "ភាសាខ្មែរ",
+      "englishName": "Khmer",
+      "chineseName": "高棉语",
+      "script": "Khmr",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "lo",
+      "nativeName": "ພາສາລາວ",
+      "englishName": "Lao",
+      "chineseName": "老挝语",
+      "script": "Laoo",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ka",
+      "nativeName": "ქართული",
+      "englishName": "Georgian",
+      "chineseName": "格鲁吉亚语",
+      "script": "Geor",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "hy",
+      "nativeName": "Հայերեն",
+      "englishName": "Armenian",
+      "chineseName": "亚美尼亚语",
+      "script": "Armn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "tg",
+      "nativeName": "Тоҷикӣ",
+      "englishName": "Tajik",
+      "chineseName": "塔吉克语",
+      "script": "Cyrl",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "tk",
+      "nativeName": "Türkmençe",
+      "englishName": "Turkmen",
+      "chineseName": "土库曼语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "kk",
+      "nativeName": "Қазақша",
+      "englishName": "Kazakh",
+      "chineseName": "哈萨克语",
+      "script": "Cyrl",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ky",
+      "nativeName": "Кыргызча",
+      "englishName": "Kyrgyz",
+      "chineseName": "吉尔吉斯语",
+      "script": "Cyrl",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "mn",
+      "nativeName": "Монгол хэл",
+      "englishName": "Mongolian",
+      "chineseName": "蒙古语",
+      "script": "Cyrl",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "gd",
+      "nativeName": "Gàidhlig",
+      "englishName": "Scottish Gaelic",
+      "chineseName": "苏格兰盖尔语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ga",
+      "nativeName": "Gaeilge",
+      "englishName": "Irish",
+      "chineseName": "爱尔兰语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "cy",
+      "nativeName": "Cymraeg",
+      "englishName": "Welsh",
+      "chineseName": "威尔士语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ba",
+      "nativeName": "Башҡортса",
+      "englishName": "Bashkir",
+      "chineseName": "巴什基尔语",
+      "script": "Cyrl",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ceb",
+      "nativeName": "Bisaya",
+      "englishName": "Cebuano",
+      "chineseName": "宿务语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ilo",
+      "nativeName": "Ilokano",
+      "englishName": "Iloko",
+      "chineseName": "伊洛卡诺语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "tt",
+      "nativeName": "Татарча",
+      "englishName": "Tatar",
+      "chineseName": "鞑靼语",
+      "script": "Cyrl",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "pi",
+      "nativeName": "पाऴि",
+      "englishName": "Pali",
+      "chineseName": "巴利语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "rw",
+      "nativeName": "Ikinyarwanda",
+      "englishName": "Kinyarwanda",
+      "chineseName": "卢旺达语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "be",
+      "nativeName": "Беларуская",
+      "englishName": "Belarusian",
+      "chineseName": "白俄罗斯语",
+      "script": "Cyrl",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "mg",
+      "nativeName": "Malagasy",
+      "englishName": "Malagasy",
+      "chineseName": "马拉加斯语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "tvl",
+      "nativeName": "Te Ggana Tuuvalu",
+      "englishName": "Tuvalu",
+      "chineseName": "图瓦卢语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "mh",
+      "nativeName": "Kajin M̧ajeļ",
+      "englishName": "Marshallese",
+      "chineseName": "马绍尔语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ch",
+      "nativeName": "Chamoru",
+      "englishName": "Chamorro",
+      "chineseName": "查莫罗语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "sm",
+      "nativeName": "Gagana Samoa",
+      "englishName": "Samoan",
+      "chineseName": "萨摩亚语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "to",
+      "nativeName": "Lea faka-Tonga",
+      "englishName": "Tongan",
+      "chineseName": "汤加语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "mi",
+      "nativeName": "Māori",
+      "englishName": "Māori",
+      "chineseName": "毛利语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "tpi",
+      "nativeName": "Tok Pisin",
+      "englishName": "Tok Pisin",
+      "chineseName": "托克皮辛语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "cv",
+      "nativeName": "Чӑвашла",
+      "englishName": "Chuvash",
+      "chineseName": "楚瓦什语",
+      "script": "Cyrl",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "kv",
+      "nativeName": "Коми кыв",
+      "englishName": "Komi",
+      "chineseName": "科米语",
+      "script": "Cyrl",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "gv",
+      "nativeName": "Gaelg",
+      "englishName": "Manx",
+      "chineseName": "马恩语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "la",
+      "nativeName": "Latina",
+      "englishName": "Latin",
+      "chineseName": "拉丁语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "az",
+      "nativeName": "Azərbaycanca",
+      "englishName": "Azerbaijani",
+      "chineseName": "阿塞拜疆语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "br",
+      "nativeName": "Brezhoneg",
+      "englishName": "Breton",
+      "chineseName": "布列塔尼语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "eu",
+      "nativeName": "Euskara",
+      "englishName": "Basque",
+      "chineseName": "巴斯克语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ne",
+      "nativeName": "नेपाली",
+      "englishName": "Nepali",
+      "chineseName": "尼泊尔语",
+      "script": "Deva",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "gl",
+      "nativeName": "Galego",
+      "englishName": "Galician",
+      "chineseName": "加利西亚语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "si",
+      "nativeName": "සිංහල",
+      "englishName": "Sinhala",
+      "chineseName": "僧伽罗语",
+      "script": "Sinh",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "sn",
+      "nativeName": "ChiShona",
+      "englishName": "Shona",
+      "chineseName": "绍纳语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "so",
+      "nativeName": "Soomaali",
+      "englishName": "Somali",
+      "chineseName": "索马里语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "oc",
+      "nativeName": "Occitan",
+      "englishName": "Occitan",
+      "chineseName": "奥克语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "sd",
+      "nativeName": "سنڌي",
+      "englishName": "Sindhi",
+      "chineseName": "信德语",
+      "script": "Arab",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "gu",
+      "nativeName": "ગુજરાતી",
+      "englishName": "Gujarati",
+      "chineseName": "古吉拉特语",
+      "script": "Gujr",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "yi",
+      "nativeName": "ייִדיש",
+      "englishName": "Yiddish",
+      "chineseName": "意第绪语",
+      "script": "Hebr",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "fo",
+      "nativeName": "Føroyskt",
+      "englishName": "Faroese",
+      "chineseName": "法罗语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "ht",
+      "nativeName": "Kreyòl ayisyen",
+      "englishName": "Haitian Creole",
+      "chineseName": "海地克里奥尔语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "nn",
+      "nativeName": "Nynorsk",
+      "englishName": "Norwegian Nynorsk",
+      "chineseName": "挪威尼诺斯克语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "sa",
+      "nativeName": "संस्कृतम्",
+      "englishName": "Sanskrit",
+      "chineseName": "梵语",
+      "script": "Deva",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "my",
+      "nativeName": "မြန်မာဘာသာ",
+      "englishName": "Burmese",
+      "chineseName": "缅甸语",
+      "script": "Mymr",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "bo",
+      "nativeName": "བོད་སྐད་",
+      "englishName": "Tibetan",
+      "chineseName": "藏语",
+      "script": "Tibt",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "as",
+      "nativeName": "অসমীয়া",
+      "englishName": "Assamese",
+      "chineseName": "阿萨姆语",
+      "script": "Beng",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "haw",
+      "nativeName": "ʻŌlelo Hawaiʻi",
+      "englishName": "Hawaiian",
+      "chineseName": "夏威夷语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "su",
+      "nativeName": "Basa Sunda",
+      "englishName": "Sundanese",
+      "chineseName": "巽他语",
+      "script": "Latn",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    },
+    {
+      "code": "yue",
+      "nativeName": "粵語",
+      "englishName": "Cantonese",
+      "chineseName": "粤语",
+      "script": "Han",
+      "srt": true,
+      "platformBlockVtt": true,
+      "afterAudioTranscription": true
+    }
+  ],
+  "actualCliRegression": {
+    "passed": true,
+    "sourceLanguage": "nn",
+    "targetLanguage": "zh_cn",
+    "model": "本地 HTTP 固定响应",
+    "requests": 2,
+    "invalidSpacesRejected": true,
+    "correctedSourcePreserved": true,
+    "timelinePreserved": true,
+    "cliSha256": "6a1e6a8e48547dab54ae07e75846555544a57ddc4e1d7a57df883192dcb0b30d"
+  }
+}

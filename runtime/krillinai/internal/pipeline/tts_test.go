@@ -119,7 +119,7 @@ func TestGenerateTTSReportsVoiceGenerationProgress(t *testing.T) {
 		Workdir:  dir,
 		TaskID:   "demo",
 		InputSRT: input,
-		ReportProgress: func(phase string, percent int, _ string) {
+		ReportProgress: func(phase string, percent int, _ string, _ ...ProgressCounts) {
 			updates = append(updates, update{phase: phase, percent: percent})
 		},
 	}

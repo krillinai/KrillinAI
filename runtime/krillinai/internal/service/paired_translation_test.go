@@ -224,6 +224,47 @@ func TestPairedTranslationParallelBatchesCommitInSourceOrder(t *testing.T) {
 	}
 }
 
+func TestPairedTranslationProgressDoesNotWaitForSlowEarlierBatch(t *testing.T) {
+	previous := config.Conf
+	t.Cleanup(func() { config.Conf = previous })
+	config.Conf.App.TranslateParallelNum = 3
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	firstReleased := make(chan struct{})
+	translator := &Translator{chatCompleter: translationCompleterFunc(func(prompt string) (string, error) {
+		input, err := decodePairedTestInput(prompt)
+		if err != nil {
+			return "", err
+		}
+		if input.Sentences[0].ID == "1" {
+			select {
+			case <-firstReleased:
+			case <-ctx.Done():
+				return "", ctx.Err()
+			}
+		}
+		return echoPairedTestResponse(input)
+	})}
+	var progress []int
+	result, err := translator.translatePairedSentences(ctx, []string{"One.", "Two.", "Three."}, "en", "zh_cn", 20, 1, nil, func(completed, total int) {
+		if total != 3 {
+			t.Errorf("total = %d, want 3", total)
+		}
+		progress = append(progress, completed)
+		if completed == 1 {
+			close(firstReleased)
+		}
+	})
+	if err != nil || len(result) != 3 || fmt.Sprint(progress) != "[0 1 2 3]" {
+		t.Fatalf("progress=%v result=%v error=%v", progress, result, err)
+	}
+	for i, sentence := range result {
+		if sentence.ID != fmt.Sprint(i+1) {
+			t.Fatalf("output order changed: %+v", result)
+		}
+	}
+}
+
 func TestPairedTranslationStopsBeforeCommittingFailedWindow(t *testing.T) {
 	previous := config.Conf
 	t.Cleanup(func() { config.Conf = previous })

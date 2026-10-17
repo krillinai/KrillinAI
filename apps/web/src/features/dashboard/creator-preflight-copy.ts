@@ -1,6 +1,9 @@
 import type { LocalizeCopy } from '../../i18n/localized-copy.js';
 
 const messages: Record<string, [string, string, string]> = {
+  'transcription-language': ['当前识别服务不支持所选源语言。请更换识别服务或导入原文字幕；平台字幕仍可优先使用。', 'The speech service does not support this source language. Change services or import source subtitles; platform captions can still be tried.', 'Taltjänsten stöder inte källspråket. Byt tjänst eller importera källundertexter; plattformsundertexter kan fortfarande provas.'],
+  'transcription-language-unknown': ['尚未确认当前识别服务的语言范围，请确认服务支持所选源语言。', 'Language coverage is unverified. Confirm that the speech service supports the selected source language.', 'Språkstödet är inte verifierat. Kontrollera att taltjänsten stöder det valda källspråket.'],
+  'transcription-timestamps': ['当前识别模型不提供字幕时间戳，请更换识别服务或导入原文字幕。', 'This model does not provide subtitle timestamps. Change services or import source subtitles.', 'Modellen ger inga tidsstämplar för undertexter. Byt tjänst eller importera källundertexter.'],
   'input-subtitle': ['请先添加需要翻译的 SRT 字幕', 'Add an SRT file to translate first', 'Lägg till en SRT-fil att översätta först'],
   'input-result-version': ['请先选择有效的已保存项目版本，再准备预览视频。', 'Select a valid saved result version before preparing preview media.', 'Välj en giltig sparad resultatversion innan du förbereder förhandsvisningsvideon.'],
   'bilibili-part': ['请检查 B 站链接，并确认要翻译的视频分集后重试。', 'Check the Bilibili URL and confirm the video part before retrying.', 'Kontrollera Bilibili-länken och bekräfta videodelen innan du försöker igen.'],

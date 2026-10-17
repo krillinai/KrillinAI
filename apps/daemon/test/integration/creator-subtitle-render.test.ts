@@ -119,10 +119,10 @@ describe.runIf(hasPackagedRuntime)('Creator packaged subtitle rendering', () => 
       }
     });
 
-    expect(first.ass).toContain('Style: Major,OpenCreator Sans Regular,12,&H00FFFFFF');
-    expect(first.ass).toContain('Style: Minor,OpenCreator Sans Regular,9,&H005CD4FF');
-    expect(second.ass).toContain('Style: Major,OpenCreator Serif Bold,18,&H00FFE77E');
-    expect(second.ass).toContain('Style: Minor,OpenCreator Serif Bold,12,&H006B6BFF');
+    expect(first.ass).toContain('Style: Major,OpenCreator Sans Regular,14,&H00FFFFFF');
+    expect(first.ass).toContain('Style: Minor,OpenCreator Sans Regular,10,&H005CD4FF');
+    expect(second.ass).toContain('Style: Major,OpenCreator Serif Bold,22,&H00FFE77E');
+    expect(second.ass).toContain('Style: Minor,OpenCreator Serif Bold,15,&H006B6BFF');
     expect(second.ass).toContain('&H99000000');
     expect(second.ass).toContain(',5,6,2,10,10,20,1');
     expect(second.ass).toContain('\\xshad-4\\yshad6\\blur2.5');

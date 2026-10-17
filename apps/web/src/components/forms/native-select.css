@@ -14,7 +14,7 @@
 .native-select > svg {
   position: absolute;
   top: 50%;
-  right: 12px;
+  inset-inline-end: 12px;
   width: 16px;
   height: 16px;
   transform: translateY(-50%);

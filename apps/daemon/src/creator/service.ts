@@ -26,6 +26,7 @@ import {
 import type { CreatorTemplateRegistry } from './templates/types.js';
 import { videoTranslationArtifactRefsPatch } from './templates/video-translation-results.js';
 import { formatSrtTimestamp, parseSrt } from './validators/srt.js';
+import { detectSubtitleLanguage } from './subtitle-language.js';
 import {
   createBlankCreationFingerprint,
   createPresetCreationFingerprint
@@ -835,6 +836,13 @@ export function createCreatorService(input: {
           throw new CreatorServiceError('creator_action_not_allowed', 'Creator action is not allowed');
         }
         const parsedInput = action.inputSchema.parse(request.input) as Record<string, CreatorJson>;
+        if (current.templateId === 'video-translation'
+          && (request.action === 'run-stage' || request.action === 'retry-stage')
+          && parsedInput.stageId === 'subtitle'
+          && typeof current.state.importedSourceSubtitleId === 'string'
+          && current.state.sourceLanguage === 'auto') {
+          throw new CreatorServiceError('creator_action_invalid', 'Select the source subtitle language before translating');
+        }
         const actor = request.actor ?? 'user';
         const newRevision = current.revision + 1;
         let nextState = { ...current.state };
@@ -893,10 +901,11 @@ export function createCreatorService(input: {
           }
           const fileName = basename(readString(parsedInput.fileName, 'fileName').replaceAll('\\', '/'));
           const encoded = readString(parsedInput.contentBase64, 'contentBase64');
-          const language = readString(parsedInput.language, 'language');
+          const requestedLanguage = readString(parsedInput.language, 'language');
           const kind = parsedInput.kind;
-          if (!/\.srt$/i.test(fileName) || !/^[a-zA-Z][a-zA-Z0-9_-]{0,34}$/.test(language)
+          if (!/\.srt$/i.test(fileName) || !/^[a-zA-Z][a-zA-Z0-9_-]{0,34}$/.test(requestedLanguage)
             || (kind !== 'source_subtitle' && kind !== 'target_subtitle')
+            || (requestedLanguage === 'auto' && kind !== 'source_subtitle')
             || encoded.length > 700_000) {
             throw new CreatorServiceError('creator_action_invalid', 'Import requires an SRT file (maximum 512 KiB), subtitle type and language');
           }
@@ -912,6 +921,9 @@ export function createCreatorService(input: {
           } catch (error) {
             throw new CreatorServiceError('creator_action_invalid', `Invalid UTF-8 SRT: ${error instanceof Error ? error.message : String(error)}`);
           }
+          const language = requestedLanguage === 'auto'
+            ? detectSubtitleLanguage(cues) ?? 'auto'
+            : requestedLanguage;
           const resultVersion = nextCreatorResultVersion(current);
           const directory = join(input.jobsRoot, current.id, 'subtitles');
           mkdirSync(directory, { recursive: true });
@@ -935,7 +947,9 @@ export function createCreatorService(input: {
           }
           const artifact = repository.insertArtifact({
             jobId, kind, status: 'completed', path, sourceArtifactIds: [],
-            metadata: { fileName, source: 'local-upload', language, cueCount: cues.length, size: bytes.length, resultVersion,
+            metadata: { fileName, source: 'local-upload', language,
+              languageDetection: requestedLanguage !== 'auto' ? 'manual' : language === 'auto' ? 'uncertain' : 'detected',
+              cueCount: cues.length, size: bytes.length, resultVersion,
               cues: cues.map(cue => ({ id: cue.index, start: formatSrtTimestamp(cue.startMs), end: formatSrtTimestamp(cue.endMs), text: cue.text })) }
           });
           const artifactRefsPatch = Object.fromEntries([...downstreamKinds].map(value => [value, [] as string[]]));
@@ -1447,23 +1461,34 @@ function writeEditedSubtitleFile(
   cues: EditableSubtitleCue[]
 ): string {
   const extension = extname(sourcePath) || '.srt';
-  const stem = basename(sourcePath, extname(sourcePath));
+  const stem = basename(sourcePath, extname(sourcePath))
+    .replace(/(?:\.opencreator-(?:source|horizontal|vertical|bilingual)-v\d+(?:-edit\d+)?)+$/, '');
   const label = kind === 'target_subtitle'
     ? 'horizontal'
     : kind === 'vertical_subtitle'
       ? 'vertical'
-      : 'bilingual';
-  const outputPath = join(
-    dirname(sourcePath),
-    `${stem}.opencreator-${label}-v${resultVersion}${extension}`
-  );
+      : kind === 'source_subtitle'
+        ? 'source'
+        : 'bilingual';
   const content = cues.map((cue, index) => [
     String(index + 1),
     `${cue.start} --> ${cue.end}`,
     cue.text
   ].join('\n')).join('\n\n');
-  writeFileSync(outputPath, `${content}\n`, { encoding: 'utf8', mode: 0o600 });
-  return outputPath;
+  // Repeated saves within one result version must keep earlier artifact files intact.
+  for (let edit = 1; ; edit += 1) {
+    const editSuffix = edit === 1 ? '' : `-edit${edit}`;
+    const outputPath = join(
+      dirname(sourcePath),
+      `${stem}.opencreator-${label}-v${resultVersion}${editSuffix}${extension}`
+    );
+    try {
+      writeFileSync(outputPath, `${content}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+      return outputPath;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    }
+  }
 }
 
 function validSrtTimestamp(value: string): boolean {

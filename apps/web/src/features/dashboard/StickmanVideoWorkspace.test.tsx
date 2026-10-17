@@ -172,8 +172,9 @@ describe('StickmanVideoWorkspace', () => {
     renderWorkspace(initialJob, new Map(), applyAction, creatorServicesService as never);
 
     const voice = await screen.findByRole('combobox', { name: '配音音色' });
-    await waitFor(() => expect(voice).toHaveValue('marin'));
-    fireEvent.change(voice, { target: { value: 'nova' } });
+    await waitFor(() => expect(voice).toHaveAttribute('data-value', 'marin'));
+    fireEvent.click(voice);
+    fireEvent.click(await screen.findByRole('option', { name: /^Nova \(nova\)/ }));
     fireEvent.click(screen.getByRole('button', { name: '开始生成' }));
 
     await waitFor(() => {

@@ -187,7 +187,7 @@ const creatorTools: DashboardEntry[] = [
     workspace: 'short-video-script'
   },
   {
-    title: '智能配音',
+    title: '文本转语音',
     description: '自然音色与情绪表达',
     prompt: '帮我为这段内容制作配音，请根据使用场景优化文本、语速、停顿和情绪。',
     category: '音频处理',
@@ -210,7 +210,8 @@ const recommendedTabWorkspaces = new Set<CreatorWorkspace>([
   'video-download',
   'video-translation',
   'video-generation',
-  'image-generation'
+  'image-generation',
+  'smart-dubbing'
 ]);
 
 const CREATOR_JOB_CREATE_ATTEMPT_TIMEOUT_MS = 4_000;
@@ -1044,7 +1045,7 @@ const englishDashboardLabels: Record<string, string> = {
   生成分段口播与画面建议: 'Generate timed narration and visual suggestions',
   视频切片: 'Video Clips',
   'AI 识别长视频高光片段': 'Find the strongest moments in long videos with AI',
-  智能配音: 'AI Dubbing',
+  文本转语音: 'Text to Speech',
   小红书帖子: 'Xiaohongshu Posts',
   从主题和素材生成完整帖子: 'Turn a topic or source material into a complete post',
   自然音色与情绪表达: 'Natural voices with expressive delivery',

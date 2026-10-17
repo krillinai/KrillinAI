@@ -155,7 +155,7 @@ function prepareSubtitleFonts() {
   }
   const sourceManifest = JSON.parse(readFileSync(sourceManifestPath, 'utf8'));
   if (
-    sourceManifest?.version !== 1
+    ![1, 2].includes(sourceManifest?.version)
     || !Array.isArray(sourceManifest.fonts)
     || sourceManifest.fonts.length !== 9
     || !Array.isArray(sourceManifest.licenses)
@@ -170,10 +170,13 @@ function prepareSubtitleFonts() {
   mkdirSync(runtimeLicensesDir, { recursive: true });
   const resourcePaths = [];
   const runtimeFonts = [];
+  const runtimeFallbackFonts = [];
+  if (sourceManifest.version === 2 && (!Array.isArray(sourceManifest.fallbackFonts) || !sourceManifest.fallbackFonts.length)) throw new Error('Creator fallback font manifest is invalid');
   const seenAliases = new Set();
-  for (const entry of sourceManifest.fonts) {
+  for (const entry of [...sourceManifest.fonts, ...(sourceManifest.fallbackFonts ?? [])]) {
+    const fallback = Array.isArray(entry.scripts);
     if (
-      !['sans', 'serif', 'rounded'].includes(entry?.preset)
+      (!fallback && !['sans', 'serif', 'rounded'].includes(entry?.preset))
       || !['regular', 'medium', 'bold'].includes(entry?.weight)
       || ![400, 500, 700].includes(entry?.weightValue)
       || typeof entry?.family !== 'string'
@@ -212,7 +215,8 @@ function prepareSubtitleFonts() {
     const target = join(runtimeFontsDir, targetName);
     copyFileSync(desktopSource, target);
     resourcePaths.push(target);
-    runtimeFonts.push({
+    (fallback ? runtimeFallbackFonts : runtimeFonts).push({
+      ...(fallback ? { scripts: entry.scripts, sample: entry.sample } : {}),
       preset: entry.preset,
       weight: entry.weight,
       weightValue: entry.weightValue,
@@ -260,6 +264,7 @@ function prepareSubtitleFonts() {
     version: sourceManifest.version,
     sources: sourceManifest.sources,
     fonts: runtimeFonts,
+    ...(sourceManifest.version === 2 ? { fallbackFonts: runtimeFallbackFonts } : {}),
     licenses: runtimeLicenses
   }, null, 2)}\n`);
   resourcePaths.push(runtimeManifestPath);
@@ -279,6 +284,14 @@ function assertSubtitleFontMetadata(path, entry) {
   ) {
     throw new Error(`Creator subtitle font metadata mismatch: ${path}`);
   }
+  if (entry.scripts) {
+    if (!entry.scripts.length || !entry.sample || (!entry.scripts.includes('Hang') && (!font.GSUB || !font.GPOS))) throw new Error(`Creator fallback font shaping metadata missing: ${path}`);
+    for (const character of entry.sample) {
+      if (!character.trim()) continue;
+      if (!font.hasGlyphForCodePoint(character.codePointAt(0))) throw new Error(`Creator fallback font lacks ${character}: ${path}`);
+    }
+  }
+
 }
 
 function resolveAssetPath(root, path) {

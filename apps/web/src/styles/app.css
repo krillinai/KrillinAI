@@ -240,7 +240,7 @@ select:focus-visible {
   min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr);
-  border-right: 1px solid var(--border);
+  border-inline-end: 1px solid var(--border);
 }
 
 .sidebar-pane {
@@ -259,7 +259,7 @@ select:focus-visible {
 
 .tree-pane {
   grid-template-rows: auto auto minmax(0, 1fr);
-  border-right: 0;
+  border-inline-end: 0;
 }
 
 .panel-header {
@@ -570,7 +570,7 @@ select:focus-visible {
   padding: 9px 10px;
   border-radius: 8px;
   color: var(--text);
-  text-align: left;
+  text-align: start;
 }
 
 .session-row:hover,
@@ -614,7 +614,7 @@ select:focus-visible {
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface) 72%, transparent);
   color: var(--muted);
-  text-align: left;
+  text-align: start;
 }
 
 .timeline-empty strong {
@@ -631,7 +631,7 @@ select:focus-visible {
   min-height: 96px;
   place-items: start;
   padding: 14px 10px;
-  text-align: left;
+  text-align: start;
 }
 
 .timeline-shell {
@@ -845,7 +845,7 @@ select:focus-visible {
 
 .timeline-assistant_message .timeline-message-meta {
   justify-content: flex-start;
-  padding-left: 0;
+  padding-inline-start: 0;
 }
 
 .timeline-user_message:hover .timeline-message-meta,
@@ -868,7 +868,7 @@ select:focus-visible {
 }
 
 .timeline-message-meta time {
-  margin-right: 4px;
+  margin-inline-end: 4px;
   color: var(--subtle);
   font-size: 12px;
   line-height: 24px;
@@ -970,7 +970,7 @@ select:focus-visible {
   border-radius: 8px;
   background: var(--surface-2);
   color: var(--text);
-  text-align: left;
+  text-align: start;
 }
 
 .timeline-artifact-card > svg {
@@ -1500,7 +1500,7 @@ select:focus-visible {
 .process-step-command {
   width: fit-content;
   max-width: 100%;
-  margin-left: 12px;
+  margin-inline-start: 12px;
   padding: 3px 7px;
   border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
   border-radius: 8px;
@@ -1533,7 +1533,7 @@ select:focus-visible {
 }
 
 .process-step-note {
-  padding-left: 13px;
+  padding-inline-start: 13px;
   color: var(--muted);
   font: 12px/1.35 var(--font-mono);
 }
@@ -1565,7 +1565,7 @@ select:focus-visible {
   background: transparent;
   color: inherit;
   cursor: pointer;
-  text-align: left;
+  text-align: start;
 }
 
 .change-card-button:hover strong {
@@ -1640,7 +1640,7 @@ select:focus-visible {
   color: var(--text);
   font: 12px/1.4 var(--font-mono);
   overflow-wrap: anywhere;
-  text-align: left;
+  text-align: start;
 }
 
 .change-card-path-button {
@@ -1839,7 +1839,7 @@ select:focus-visible {
   border-radius: 6px;
   padding: 0 8px;
   color: var(--muted);
-  text-align: left;
+  text-align: start;
 }
 
 .tree-file {
@@ -1947,7 +1947,7 @@ select:focus-visible {
   gap: 0;
   border-radius: 8px;
   color: var(--text);
-  text-align: left;
+  text-align: start;
   white-space: nowrap;
 }
 
@@ -2365,7 +2365,7 @@ select:focus-visible {
 .run-detail section > ul {
   display: grid;
   gap: 6px;
-  padding-left: 0;
+  padding-inline-start: 0;
   list-style: none;
 }
 
@@ -2384,7 +2384,7 @@ select:focus-visible {
 }
 
 .run-detail .run-detail-attachments {
-  padding-left: 0;
+  padding-inline-start: 0;
 }
 
 .run-detail-attachments li > span {
@@ -2445,14 +2445,14 @@ select:focus-visible {
 
   .timeline-pane {
     grid-row: 1;
-    border-right: 0;
+    border-inline-end: 0;
   }
 
   .right-pane,
   .tree-pane {
     grid-column: 1 / -1;
     border-top: 1px solid var(--border);
-    border-right: 0;
+    border-inline-end: 0;
   }
 
   .right-pane {
@@ -2474,7 +2474,7 @@ select:focus-visible {
   .right-pane,
   .tree-pane {
     min-height: auto;
-    border-right: 0;
+    border-inline-end: 0;
     border-bottom: 1px solid var(--border);
   }
 
@@ -2602,7 +2602,7 @@ select:focus-visible {
 }
 
 .conversation-file-layout > .conversation-page {
-  border-right: 0;
+  border-inline-end: 0;
 }
 
 .pane-resize-handle {
@@ -3071,7 +3071,7 @@ html.is-pane-resizing * {
 
 .file-path-breadcrumbs span + span::before {
   content: "/";
-  margin-right: 10px;
+  margin-inline-end: 10px;
   color: var(--subtle);
 }
 
@@ -3091,7 +3091,7 @@ html.is-pane-resizing * {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  border-right: 0;
+  border-inline-end: 0;
   background: var(--surface);
 }
 
@@ -3117,7 +3117,7 @@ html.is-pane-resizing * {
   display: inline-flex;
   align-items: center;
   min-height: 28px;
-  margin-left: 8px;
+  margin-inline-start: 8px;
   padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
   border-radius: 999px;
@@ -3194,7 +3194,7 @@ html.is-pane-resizing * {
   display: grid;
   justify-items: start;
   gap: 5px;
-  text-align: left;
+  text-align: start;
 }
 
 .conversation-empty-greeting h2 {
@@ -3598,7 +3598,7 @@ html.is-pane-resizing * {
   border-radius: 8px;
   background: var(--surface);
   color: var(--text);
-  text-align: left;
+  text-align: start;
   transition:
     border-color 140ms ease,
     background-color 140ms ease,
@@ -3767,7 +3767,7 @@ html.is-pane-resizing * {
 }
 
 .creator-template-swatches > span + span {
-  margin-left: -3px;
+  margin-inline-start: -3px;
 }
 
 .creator-template-requirement {
@@ -3989,7 +3989,7 @@ html.is-pane-resizing * {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 18px;
-  border-left: 1px solid var(--border-hairline);
+  border-inline-start: 1px solid var(--border-hairline);
   background: var(--surface-popover);
 }
 
@@ -4086,8 +4086,8 @@ a.creator-template-author-avatar:focus-visible {
 .creator-template-prompt,
 .creator-template-detail-empty {
   margin: 0;
-  padding-left: 11px;
-  border-left: 2px solid color-mix(in srgb, var(--accent) 60%, var(--border));
+  padding-inline-start: 11px;
+  border-inline-start: 2px solid color-mix(in srgb, var(--accent) 60%, var(--border));
   color: var(--text);
   font-size: 13px;
   line-height: 1.6;
@@ -4098,7 +4098,7 @@ a.creator-template-author-avatar:focus-visible {
   max-height: 210px;
   overflow: hidden;
   padding: 16px;
-  border-left: 0;
+  border-inline-start: 0;
   border-radius: 8px;
   background: var(--surface-2);
   font-family: inherit;
@@ -4110,7 +4110,7 @@ a.creator-template-author-avatar:focus-visible {
 
 .creator-template-prompt-section .creator-template-detail-empty {
   padding: 16px;
-  border-left: 0;
+  border-inline-start: 0;
   border-radius: 8px;
   background: var(--surface-2);
 }
@@ -4162,10 +4162,10 @@ a.creator-template-author-avatar:focus-visible {
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
-  text-align: left;
+  text-align: start;
 }
 
-.creator-template-specs-toggle svg:last-child { margin-left: auto; }
+.creator-template-specs-toggle svg:last-child { margin-inline-start: auto; }
 .creator-template-specs-toggle[aria-expanded="true"] svg:last-child { transform: rotate(180deg); }
 
 .creator-template-specs {
@@ -4179,8 +4179,8 @@ a.creator-template-author-avatar:focus-visible {
 
 .creator-template-specs > div { min-width: 0; display: grid; grid-template-columns: minmax(70px, 1fr) minmax(0, 2fr); gap: 12px; align-items: baseline; }
 .creator-template-specs dt { color: var(--muted); font-size: 14px; line-height: 1.5; }
-.creator-template-specs dd { min-width: 0; margin: 0; color: var(--text); font-size: 14px; line-height: 1.5; text-align: right; overflow-wrap: anywhere; }
-.creator-template-specs .creator-template-swatches { display: inline-flex; margin-right: 6px; vertical-align: middle; }
+.creator-template-specs dd { min-width: 0; margin: 0; color: var(--text); font-size: 14px; line-height: 1.5; text-align: end; overflow-wrap: anywhere; }
+.creator-template-specs .creator-template-swatches { display: inline-flex; margin-inline-end: 6px; vertical-align: middle; }
 .creator-template-tags-section { gap: 12px; padding-top: 0; border-top: 0; }
 .creator-template-tags-section h2 { display: flex; align-items: center; gap: 8px; min-height: 36px; }
 
@@ -4295,7 +4295,7 @@ a.creator-template-author-avatar:focus-visible {
   .creator-template-detail-info {
     padding: 20px;
     border-top: 1px solid var(--border-hairline);
-    border-left: 0;
+    border-inline-start: 0;
   }
   .creator-template-detail-footer { bottom: -20px; margin: auto -20px -20px; padding: 14px 20px 20px; }
   .creator-template-outcome { padding: 16px; }
@@ -4426,7 +4426,7 @@ a.creator-template-author-avatar:focus-visible {
   resize: none;
   overflow-y: hidden;
   padding: 2px;
-  padding-left: calc(var(--composer-left-baseline) - 18px);
+  padding-inline-start: calc(var(--composer-left-baseline) - 18px);
   border: 0;
   background: transparent;
   color: var(--text);
@@ -4456,7 +4456,7 @@ a.creator-template-author-avatar:focus-visible {
   min-height: 40px;
   margin: 2px -18px -10px;
   padding: 7px 12px;
-  padding-left: calc(var(--composer-left-baseline) - 6px);
+  padding-inline-start: calc(var(--composer-left-baseline) - 6px);
   border-top: 1px solid var(--composer-separator);
   border-radius: 0 0 8px 8px;
   background: var(--composer-project-background);
@@ -4559,7 +4559,7 @@ a.creator-template-author-avatar:focus-visible {
   border-radius: 6px;
   background: transparent;
   color: var(--text);
-  text-align: left;
+  text-align: start;
 }
 
 .composer-project-option:hover,
@@ -4606,7 +4606,7 @@ a.creator-template-author-avatar:focus-visible {
   border-radius: 6px;
   background: transparent;
   color: var(--text);
-  text-align: left;
+  text-align: start;
 }
 
 .composer-project-create-trigger:hover,
@@ -4900,7 +4900,7 @@ a.creator-template-author-avatar:focus-visible {
 }
 
 .composer-enabled-connectors > span + span {
-  margin-left: -5px;
+  margin-inline-start: -5px;
 }
 
 .composer-enabled-connector {
@@ -5034,7 +5034,7 @@ a.creator-template-author-avatar:focus-visible {
   background: transparent;
   color: var(--text);
   font-size: 13px;
-  text-align: left;
+  text-align: start;
 }
 
 .composer-connector-more:hover {
@@ -5054,7 +5054,7 @@ a.creator-template-author-avatar:focus-visible {
 }
 
 .composer-left-actions > .composer-control-wrap:first-child {
-  margin-left: calc(var(--composer-left-baseline) - 29px);
+  margin-inline-start: calc(var(--composer-left-baseline) - 29px);
 }
 
 .composer-right-actions {
@@ -5179,7 +5179,7 @@ a.creator-template-author-avatar:focus-visible {
   place-items: center;
   padding: 0;
   border: 1px solid var(--border-strong);
-  border-left: 1px solid color-mix(in srgb, var(--on-accent) 18%, transparent);
+  border-inline-start: 1px solid color-mix(in srgb, var(--on-accent) 18%, transparent);
   border-radius: 0 8px 8px 0;
   background: var(--accent);
   color: var(--on-accent);
@@ -5460,7 +5460,7 @@ a.creator-template-author-avatar:focus-visible {
   border-radius: 6px;
   background: transparent;
   color: var(--text);
-  text-align: left;
+  text-align: start;
 }
 
 .composer-menu-item:hover {
@@ -5712,7 +5712,7 @@ a.creator-template-author-avatar:focus-visible {
 
 .opencreator-sidebar-pane {
   background: var(--sidebar);
-  border-right: 1px solid var(--border-hairline);
+  border-inline-end: 1px solid var(--border-hairline);
 }
 
 .opencreator-main-pane {
@@ -5755,7 +5755,7 @@ a.creator-template-author-avatar:focus-visible {
 
 .opencreator-detail-pane {
   background: var(--surface);
-  border-left: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  border-inline-start: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .opencreator-sidebar {
@@ -5913,8 +5913,8 @@ a.creator-template-author-avatar:focus-visible {
   gap: 1px;
   overflow-x: hidden;
   overflow-y: auto;
-  margin-right: -12px;
-  padding-right: 12px;
+  margin-inline-end: -12px;
+  padding-inline-end: 12px;
 }
 
 .sidebar-task-row-shell {
@@ -5939,7 +5939,7 @@ a.creator-template-author-avatar:focus-visible {
   border: 1px solid transparent;
   border-radius: 8px;
   color: inherit;
-  text-align: left;
+  text-align: start;
 }
 
 .sidebar-task-actions {
@@ -5966,7 +5966,7 @@ a.creator-template-author-avatar:focus-visible {
 
 .sidebar-task-row-shell:hover .sidebar-task-row,
 .sidebar-task-row-shell:focus-within .sidebar-task-row {
-  padding-right: 56px;
+  padding-inline-end: 56px;
 }
 
 .sidebar-task-action {
@@ -6024,7 +6024,7 @@ a.creator-template-author-avatar:focus-visible {
   padding: 0 8px;
   border-radius: 6px;
   color: var(--text);
-  text-align: left;
+  text-align: start;
 }
 
 .sidebar-task-menu button:hover:not(:disabled) {
@@ -6038,7 +6038,7 @@ a.creator-template-author-avatar:focus-visible {
 .sidebar-task-rename-input {
   width: calc(100% - 8px);
   height: 28px;
-  margin-left: 4px;
+  margin-inline-start: 4px;
   padding: 0 7px;
   border: 1px solid var(--state-focus-ring);
   border-radius: 4px;
@@ -6152,7 +6152,7 @@ a.creator-template-author-avatar:focus-visible {
   grid-template-columns: minmax(0, 1fr) 58px;
   align-items: center;
   gap: 2px;
-  padding-right: 0;
+  padding-inline-end: 0;
 }
 
 .sidebar-section-actions {
@@ -6190,7 +6190,7 @@ a.creator-template-author-avatar:focus-visible {
   grid-auto-rows: max-content;
   overflow-x: hidden;
   overflow-y: auto;
-  margin-right: -12px;
+  margin-inline-end: -12px;
   padding: 0 12px 4px 0;
 }
 
@@ -6244,7 +6244,7 @@ a.creator-template-author-avatar:focus-visible {
 
 .sidebar-conversation-row-shell:hover .conversation-row,
 .sidebar-conversation-row-shell:focus-within .conversation-row {
-  padding-right: 88px;
+  padding-inline-end: 88px;
   background: color-mix(in srgb, var(--text) 7%, transparent);
 }
 
@@ -6331,7 +6331,7 @@ a.creator-template-author-avatar:focus-visible {
   padding: 0 8px;
   border-radius: 6px;
   color: var(--text);
-  text-align: left;
+  text-align: start;
 }
 
 .sidebar-conversation-menu button:hover:not(:disabled) {
@@ -6345,7 +6345,7 @@ a.creator-template-author-avatar:focus-visible {
 .sidebar-conversation-rename-input {
   width: calc(100% - 8px);
   height: 28px;
-  margin-left: 4px;
+  margin-inline-start: 4px;
   padding: 0 7px;
   border: 1px solid var(--state-focus-ring);
   border-radius: 4px;
@@ -6424,7 +6424,7 @@ a.creator-template-author-avatar:focus-visible {
   padding: 0 9px;
   border-radius: 6px;
   color: var(--text);
-  text-align: left;
+  text-align: start;
 }
 
 .sidebar-project-menu button:hover {
@@ -6438,7 +6438,7 @@ a.creator-template-author-avatar:focus-visible {
   border: 1px solid transparent;
   border-radius: 8px;
   color: inherit;
-  text-align: left;
+  text-align: start;
 }
 
 .sidebar-row {
@@ -6680,7 +6680,7 @@ a.creator-template-author-avatar:focus-visible {
   height: 100%;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  border-left: 1px solid var(--border);
+  border-inline-start: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
 }
@@ -6702,7 +6702,7 @@ a.creator-template-author-avatar:focus-visible {
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 14px;
   padding: var(--page-title-inset) 12px;
-  border-right: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  border-inline-end: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
   background: var(--sidebar);
 }
 
@@ -6740,7 +6740,7 @@ a.creator-template-author-avatar:focus-visible {
   padding: 0 10px;
   border-radius: 6px;
   color: var(--text);
-  text-align: left;
+  text-align: start;
   font-size: 13px;
   font-weight: 600;
 }
@@ -6860,7 +6860,7 @@ a.creator-template-author-avatar:focus-visible {
   font-size: 13px;
   font-weight: 500;
   overflow-wrap: anywhere;
-  text-align: right;
+  text-align: end;
 }
 
 .settings-control-row.settings-directory-row {
@@ -7128,7 +7128,7 @@ a.creator-template-author-avatar:focus-visible {
 
   .settings-sidebar {
     grid-template-rows: auto auto auto;
-    border-right: 0;
+    border-inline-end: 0;
     border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
   }
 
@@ -7162,7 +7162,7 @@ a.creator-template-author-avatar:focus-visible {
   }
 
   .settings-row strong {
-    text-align: left;
+    text-align: start;
   }
 
   .settings-select {
@@ -7316,7 +7316,7 @@ a.creator-template-author-avatar:focus-visible {
     inset: 0 auto 0 0;
     z-index: 72;
     width: min(320px, calc(100vw - 48px));
-    border-right: 1px solid var(--border-hairline);
+    border-inline-end: 1px solid var(--border-hairline);
     border-bottom: 0;
     box-shadow: 18px 0 44px color-mix(in srgb, var(--shadow-base) 38%, transparent);
     transform: translateX(-100%);
@@ -7406,7 +7406,7 @@ a.creator-template-author-avatar:focus-visible {
   }
 
   .conversation-file-layout > .conversation-page {
-    border-right: 0;
+    border-inline-end: 0;
     border-bottom: 1px solid var(--border);
   }
 
@@ -7481,10 +7481,10 @@ a.creator-template-author-avatar:focus-visible {
 
   .composer-queue {
     max-height: 116px;
-    margin-right: 6px;
-    margin-left: 6px;
-    padding-right: 7px;
-    padding-left: 7px;
+    margin-inline-end: 6px;
+    margin-inline-start: 6px;
+    padding-inline-end: 7px;
+    padding-inline-start: 7px;
     border-radius: 8px 8px 0 0;
   }
 
@@ -7619,7 +7619,7 @@ a.creator-template-author-avatar:focus-visible {
   }
 
   .schedule-thread-actions {
-    margin-left: auto;
+    margin-inline-start: auto;
   }
 
   .schedule-thread-editor-backdrop {
@@ -7653,7 +7653,7 @@ a.creator-template-author-avatar:focus-visible {
   }
 
   .file-workspace-editor {
-    border-right: 0;
+    border-inline-end: 0;
     border-bottom: 1px solid var(--border);
   }
 
@@ -7748,7 +7748,7 @@ a.creator-template-author-avatar:focus-visible {
 .markdown-prose .md-ul,
 .markdown-prose .md-ol {
   margin: 12px 0;
-  padding-left: 24px;
+  padding-inline-start: 24px;
 }
 
 .markdown-prose .md-ul li,
@@ -7757,7 +7757,7 @@ a.creator-template-author-avatar:focus-visible {
 }
 
 .markdown-prose .md-task-list {
-  padding-left: 0;
+  padding-inline-start: 0;
   list-style: none;
 }
 
@@ -7776,8 +7776,8 @@ a.creator-template-author-avatar:focus-visible {
 
 .markdown-prose .md-quote {
   margin: 12px 0;
-  padding-left: 12px;
-  border-left: 3px solid var(--border-strong);
+  padding-inline-start: 12px;
+  border-inline-start: 3px solid var(--border-strong);
   color: var(--muted);
 }
 
@@ -7945,7 +7945,7 @@ a.creator-template-author-avatar:focus-visible {
 .md-table td {
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);
-  text-align: left;
+  text-align: start;
   vertical-align: top;
 }
 
@@ -8087,7 +8087,7 @@ a.creator-template-author-avatar:focus-visible {
   min-width: 150px;
   display: grid;
   gap: 4px;
-  margin-right: auto;
+  margin-inline-end: auto;
   color: var(--muted);
   font-size: 12px;
 }
@@ -8176,7 +8176,7 @@ a.creator-template-author-avatar:focus-visible {
 
   .memory-suggestion__actions label {
     width: 100%;
-    margin-right: 0;
+    margin-inline-end: 0;
   }
 
   .memory-suggestion__warning {

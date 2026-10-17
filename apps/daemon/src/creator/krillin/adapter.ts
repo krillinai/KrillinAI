@@ -1,5 +1,5 @@
 import { copyFile, link, lstat, mkdir, realpath, rename, writeFile } from 'node:fs/promises';
-import { normalizeVideoSourceUrl, publicErrorCodeFromFailure, videoSourceIdentity } from '@opencreator/protocol';
+import { normalizeVideoSourceUrl, publicErrorCodeFromFailure, videoSourceIdentity, normalizeCreatorLanguage } from '@opencreator/protocol';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type {
   CreatorArtifact,
@@ -29,6 +29,7 @@ import { preflightKrillinDependencies } from './dependency-preflight.js';
 import { createKrillinCliExecutionPlan } from './execution-plan.js';
 import { readKrillinRuntimeManifest, resolveInside } from './manifest.js';
 import type { YtDlpRuntime } from '../yt-dlp/runtime.js';
+import { assessKrillinTranscription } from './transcription-language.js';
 
 export function createKrillinExecutor(input: {
   resourceRoot: string;
@@ -54,6 +55,7 @@ export function createKrillinExecutor(input: {
       const options = buildKrillinStageOptions(stage);
       let artifacts: KrillinResultArtifact[];
       let captionFallbackProgress: Record<string, CreatorJson> = {};
+      let transcriptionMetadata: Record<string, CreatorJson> | undefined;
       try {
         const attempts = createKrillinCliExecutionPlan(
           resolveKrillinStageContract(stage).stageType,
@@ -75,6 +77,16 @@ export function createKrillinExecutor(input: {
           };
           try {
             if (requiresTranscriptionDependency(stage.stageRun.stageId, attempt.options)) {
+              if (!stage.inputArtifacts.some(artifact => artifact.kind === 'source_subtitle' || artifact.kind === 'target_subtitle')) {
+                const assessment = assessKrillinTranscription(preflight.config, stringValue(attempt.options.originLanguage) ?? 'en');
+                if (assessment.support === 'unsupported') throw new CreatorExecutorError('creator_transcription_language_unsupported',
+                  `${assessment.provider} / ${assessment.model} does not support ${assessment.productLanguage}. Change the speech recognition service or import source subtitles.`);
+                if (assessment.capability.timestamps === 'none') throw new CreatorExecutorError('creator_transcription_timestamps_unavailable',
+                  'Select a speech recognition service that returns subtitle timestamps.');
+                transcriptionMetadata = { provider: assessment.provider, model: assessment.model, executionModel: assessment.executionModel,
+                  productLanguage: assessment.productLanguage, backendLanguage: assessment.backendLanguage,
+                  profileVersion: assessment.capability.profileVersion, languageSupport: assessment.support };
+              }
               await ensureKrillinTranscriptionDependency(
                 input.dependencyLoader,
                 preflight.config,
@@ -156,6 +168,7 @@ export function createKrillinExecutor(input: {
         artifacts: relevantArtifacts,
         ffprobe
       });
+      if (transcriptionMetadata) for (const output of outputs) output.metadata = { ...output.metadata, transcription: transcriptionMetadata };
       return {
         outputs: stage === stageInput ? outputs : outputs.map(output => ({
           ...output,
@@ -304,13 +317,7 @@ export function buildKrillinStageOptions(input: CreatorExecutorInput): Record<st
 }
 
 export function normalizeKrillinLanguage(value: string | undefined): string | undefined {
-  const normalized = value?.trim().toLowerCase().replaceAll('_', '-');
-  if (!normalized) return undefined;
-  if (normalized === 'auto') return 'auto';
-  if (['zh-tw', 'zh-hant', 'zh-hk', 'zh-mo'].includes(normalized)) return 'zh_tw';
-  if (['zh', 'zh-cn', 'zh-hans', 'zh-sg'].includes(normalized)) return 'zh_cn';
-  if (normalized === 'iw') return 'he';
-  return normalized.split('-', 1)[0];
+  return value?.trim() ? normalizeCreatorLanguage(value) : undefined;
 }
 
 function combineKrillinFallbackFailures(platformFailure: KrillinCliError, fallbackFailure: unknown): Error {
@@ -419,12 +426,12 @@ function subtitleFontSizes(size: 'small' | 'medium' | 'large'): {
   verticalMinor: number;
 } {
   if (size === 'small') {
-    return { horizontalMajor: 12, horizontalMinor: 9, verticalMajor: 10, verticalMinor: 6 };
+    return { horizontalMajor: 14, horizontalMinor: 10, verticalMajor: 12, verticalMinor: 7 };
   }
   if (size === 'large') {
-    return { horizontalMajor: 18, horizontalMinor: 12, verticalMajor: 15, verticalMinor: 9 };
+    return { horizontalMajor: 22, horizontalMinor: 15, verticalMajor: 18, verticalMinor: 11 };
   }
-  return { horizontalMajor: 14, horizontalMinor: 10, verticalMajor: 12, verticalMinor: 7 };
+  return { horizontalMajor: 18, horizontalMinor: 12, verticalMajor: 15, verticalMinor: 9 };
 }
 
 function assBackColor(color: string, opacity: number): string {

@@ -9,7 +9,8 @@ import { useConfirmDialog } from '../../components/dialogs/ConfirmDialogProvider
 import type { ColorMode } from '../../styles/color-mode.js';
 import { useAppLanguage } from '../../i18n/LanguageProvider.js';
 import { useLocalizedCopy } from '../../i18n/useLocalizedCopy.js';
-import { appLanguageOptions, type AppLanguagePreference } from '../../i18n/language.js';
+import { appLanguageOptions, resolveSystemLanguage } from '../../i18n/language.js';
+import LanguageSelect from '../../components/forms/LanguageSelect.js';
 import {
   defaultAccentColor,
   defaultCustomAccentColor,
@@ -321,7 +322,7 @@ function GeneralSettings(props: {
   storageSettingsService?: Pick<OpenCreatorSettingsService, 'getStorageSettings' | 'updateStorageSettings'> | null;
   onSelectStorageDirectory?(purpose: 'default-project-root' | 'output-root'): Promise<string | null>;
 }) {
-  const { language, preference, setPreference, t } = useAppLanguage();
+  const { preference, setPreference, t } = useAppLanguage();
   const confirm = useConfirmDialog();
   const l = useLocalizedCopy();
   const [storage, setStorage] = useState<OpenCreatorStorageSettings>();
@@ -432,14 +433,7 @@ function GeneralSettings(props: {
     { value: 'workspace-write', label: t('settings.permission.approval') },
     { value: 'danger-full-access', label: t('settings.permission.fullAccess') }
   ];
-  const languageName = appLanguageOptions.find(option => option.value === language)?.label ?? 'English';
-  const languageOptions: Array<{ value: AppLanguagePreference; label: string }> = [
-    {
-      value: 'system',
-      label: t('settings.language.system', { language: languageName })
-    },
-    ...appLanguageOptions
-  ];
+  const languageName = appLanguageOptions.find(option => option.value === resolveSystemLanguage())?.label ?? 'English';
 
   return (
     <section className="settings-section" aria-labelledby="settings-general-title">
@@ -512,13 +506,12 @@ function GeneralSettings(props: {
           }}
         />
         <SettingsRow label={t('settings.defaultFileApp')} value={t('settings.systemDefaultApp')} />
-        <SettingsSelectRow
-          id="settings-display-language"
-          label={t('settings.language')}
-          value={preference}
-          options={languageOptions}
-          onChange={setPreference}
-        />
+        <div className="settings-row settings-control-row settings-language-row">
+          <label htmlFor="settings-display-language">{t('settings.language')}</label>
+          <LanguageSelect id="settings-display-language" label={t('settings.language')}
+            value={preference} systemLabel={t('settings.language.system', { language: languageName })}
+            onChange={setPreference} />
+        </div>
         {props.desktopCloseBehavior === undefined ? (
           <SettingsRow label={t('settings.menuBar')} value={t('settings.browserMode')} />
         ) : (

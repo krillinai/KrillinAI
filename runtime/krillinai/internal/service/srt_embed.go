@@ -23,6 +23,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/clipperhouse/uax29/v2/graphemes"
 	"github.com/go-ego/gse"
 	"go.uber.org/zap"
 )
@@ -150,8 +151,9 @@ func splitChineseText(text string, maxWordLine int) []string {
 
 func splitChineseTextByRune(runes []rune, maxWordLine int) []string {
 	tokens := make([]string, 0, len(runes))
-	for _, r := range runes {
-		tokens = append(tokens, string(r))
+	iter := graphemes.FromString(string(runes))
+	for iter.Next() {
+		tokens = append(tokens, iter.Value())
 	}
 	return splitChineseSegmentsByDisplayWidth(tokens, maxWordLine)
 }
@@ -294,10 +296,23 @@ func wrapSubtitleForASS(text string, style subtitlestyle.Style, stepParam *types
 	if estimateSubtitleTextWidth(text, config) <= config.maxLineWidth {
 		return []string{text}
 	}
-	if containsCJKOrThai(text) {
+	if containsChinese(text) {
 		return wrapCJKSubtitle(text, config)
 	}
-	return []string{text}
+	for _, r := range text {
+		if unicode.IsLetter(r) && !unicode.In(r, unicode.Latin, unicode.Greek, unicode.Cyrillic) {
+			return wrapUnicodeSubtitle(text, config)
+		}
+	}
+	return []string{text} // Keep existing libass word wrapping for Latin/Greek/Cyrillic.
+}
+
+func wrapUnicodeSubtitle(text string, config subtitleWrapConfig) []string {
+	parts, err := splitSubtitleText(text, func(part string) bool { return estimateSubtitleTextWidth(part, config) <= config.maxLineWidth })
+	if err != nil {
+		return []string{text}
+	} // Never break an oversized grapheme cluster.
+	return parts
 }
 
 func wrapVerticalChineseSubtitleForASS(text string, style subtitlestyle.Style, stepParam *types.SubtitleTaskStepParam) []string {
@@ -325,9 +340,13 @@ func wrapCJKSubtitle(text string, config subtitleWrapConfig) []string {
 	if containsChinese(text) {
 		tokens = segmentChineseText(text)
 	}
+	if len(tokens) > 0 && !subtitleSegmentsHaveSafeBoundaries(tokens) {
+		return wrapUnicodeSubtitle(text, config)
+	}
 	if len(tokens) == 0 {
-		for _, r := range text {
-			tokens = append(tokens, string(r))
+		iter := graphemes.FromString(text)
+		for iter.Next() {
+			tokens = append(tokens, iter.Value())
 		}
 	}
 
@@ -444,15 +463,16 @@ func wrapCJKRunesByWidth(text string, config subtitleWrapConfig) []string {
 	var lines []string
 	var current strings.Builder
 	currentWidth := 0.0
-	for _, r := range text {
-		part := string(r)
+	iter := graphemes.FromString(text)
+	for iter.Next() {
+		part := iter.Value()
 		partWidth := estimateSubtitleTextWidth(part, config)
 		if current.Len() > 0 && currentWidth+partWidth > config.maxLineWidth {
 			lines = append(lines, util.CleanPunction(current.String()))
 			current.Reset()
 			currentWidth = 0
 		}
-		current.WriteRune(r)
+		current.WriteString(part)
 		currentWidth += partWidth
 	}
 	if current.Len() > 0 {
@@ -693,6 +713,7 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 		return fmt.Errorf("srtToAss Create output ass error: %w", err)
 	}
 	defer assFile.Close()
+	fallbacks := packagedSubtitleFallbacks()
 	scanner := bufio.NewScanner(file)
 	styleSet := subtitlestyle.DefaultStyleSet()
 	if stepParam != nil && stepParam.SubtitleStyle != nil {
@@ -770,13 +791,13 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 			endFormatted := formatTimestamp(endTime)
 			if len(subtitleLines) == 1 {
 				majorText := joinASSLines(wrapSubtitleForASS(subtitleLines[0], screenStyle.Major, stepParam))
-				combinedText := majorPrefix + majorText
+				combinedText := majorPrefix + subtitleFallbackFontTags(majorText, screenStyle.Major.FontName, fallbacks)
 				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 				continue
 			}
 			majorText := joinASSLines(wrapSubtitleForASS(subtitleLines[0], firstStyle, stepParam))
 			minorText := joinASSLines(wrapSubtitleForASS(subtitleLines[1], secondStyle, stepParam))
-			combinedText := firstPrefix + majorText + `\N` + secondPrefix + minorText
+			combinedText := firstPrefix + subtitleFallbackFontTags(majorText, firstStyle.FontName, fallbacks) + `\N` + secondPrefix + subtitleFallbackFontTags(minorText, secondStyle.FontName, fallbacks)
 			_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 		}
 	} else {
@@ -823,14 +844,14 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 				endFormatted := formatTimestamp(endTime)
 				majorText := joinASSLines(wrapSubtitleForASS(subtitleLines[0], firstStyle, stepParam))
 				minorText := joinASSLines(wrapSubtitleForASS(subtitleLines[1], secondStyle, stepParam))
-				combinedText := firstPrefix + majorText + `\N` + secondPrefix + minorText
+				combinedText := firstPrefix + subtitleFallbackFontTags(majorText, firstStyle.FontName, fallbacks) + `\N` + secondPrefix + subtitleFallbackFontTags(minorText, secondStyle.FontName, fallbacks)
 				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 				continue
 			}
 
 			content := subtitleLines[0]
 
-			if !util.ContainsAlphabetic(content) {
+			if containsChinese(content) {
 				// 处理中文字幕
 				chineseLines := wrapVerticalChineseSubtitleForASS(content, screenStyle.Major, stepParam)
 				if len(chineseLines) == 0 {
@@ -845,7 +866,7 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 					}
 					startFormatted := formatTimestamp(iStart)
 					endFormatted := formatTimestamp(iEnd)
-					combinedText := majorPrefix + line
+					combinedText := majorPrefix + subtitleFallbackFontTags(line, screenStyle.Major.FontName, fallbacks)
 					_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 				}
 			} else {
@@ -853,7 +874,7 @@ func srtToAss(inputSRT, outputASS string, isHorizontal bool, stepParam *types.Su
 				startFormatted := formatTimestamp(startTime)
 				endFormatted := formatTimestamp(endTime)
 				cleanedText := joinASSLines(wrapSubtitleForASS(content, screenStyle.Major, stepParam))
-				combinedText := majorPrefix + cleanedText
+				combinedText := majorPrefix + subtitleFallbackFontTags(cleanedText, screenStyle.Major.FontName, fallbacks)
 				_, _ = assFile.WriteString(fmt.Sprintf("Dialogue: 0,%s,%s,Major,,0,0,0,,%s\n", startFormatted, endFormatted, combinedText))
 			}
 		}
@@ -983,6 +1004,10 @@ func getResolution(inputVideo string) (int, int, error) {
 }
 
 func convertToVertical(inputVideo, outputVideo, majorTitle, minorTitle string) error {
+	return convertToVerticalProgress(context.Background(), inputVideo, outputVideo, majorTitle, minorTitle, nil)
+}
+
+func convertToVerticalProgress(ctx context.Context, inputVideo, outputVideo, majorTitle, minorTitle string, task *types.SubtitleTask) error {
 	if _, err := os.Stat(outputVideo); err == nil {
 		log.GetLogger().Info("竖屏视频已存在", zap.String("outputVideo", outputVideo))
 		return nil
@@ -1006,9 +1031,7 @@ func convertToVertical(inputVideo, outputVideo, majorTitle, minorTitle string) e
 		"-y",
 		outputVideo,
 	}
-	cmd := exec.Command(storage.FfmpegPath, cmdArgs...)
-	var output []byte
-	output, err = cmd.CombinedOutput()
+	output, err := runFFmpegProgress(ctx, cmdArgs, inputVideo, "preparing_render", "正在转换竖屏画面", task, 5, 28)
 	if err != nil {
 		log.GetLogger().Error("视频转竖屏失败", zap.String("output", string(output)), zap.Error(err))
 		return err

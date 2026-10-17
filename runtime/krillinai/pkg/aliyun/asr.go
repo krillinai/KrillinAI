@@ -92,6 +92,11 @@ type TaskResponse struct {
 }
 
 func (c *AsrClient) Transcription(audioFile, language, workDir string) (*types.TranscriptionData, error) {
+	language = string(types.NormalizeLanguage(language))
+	if language == "zh_cn" || language == "zh_tw" {
+		language = "zh"
+	}
+
 	const (
 		postRequestAction = "SubmitTask"
 		getRequestAction  = "GetTaskResult"

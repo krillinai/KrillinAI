@@ -1,0 +1,279 @@
+{
+  "date": "2026-10-17",
+  "scope": "扩展默认源语言目录与字幕字形覆盖；不代表全部语言真实识别或翻译质量验收",
+  "sourceOptions": 123,
+  "targetOptions": 124,
+  "targetIncludesPinyin": true,
+  "preferredSourceOptions": 52,
+  "whisperV2ProductOptions": 100,
+  "whisperV3ProductOptions": 101,
+  "fallbackFontFamilies": 23,
+  "actualModelCalls": 0,
+  "translationConcurrencyChanged": false,
+  "runtimeCliSha256": "dbce70c069816c37655456f63e18fb56dfc6c7a3f251d18baefacd981cacb7ce",
+  "renders": [
+    {
+      "language": "am",
+      "orientation": "horizontal",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        960,
+        540
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "e1099a828c557f51f8779aedd7319dfbc8044f05e72cbdeac440e3f608857b59",
+      "fontFamily": "Noto Sans Ethiopic",
+      "visiblePixels": 6330
+    },
+    {
+      "language": "am",
+      "orientation": "vertical",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        540,
+        960
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "9691af89c2a3f12753517e366aaf67c96e57079fa2421fc90e4c70f981d434b6",
+      "fontFamily": "Noto Sans Ethiopic",
+      "visiblePixels": 12706
+    },
+    {
+      "language": "jv",
+      "orientation": "horizontal",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        960,
+        540
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "9ece0779060e61b19dc165cbbdf3c01f72be50a4bcf944d8c51efd89720f638c",
+      "fontFamily": "Noto Sans Javanese",
+      "visiblePixels": 6077
+    },
+    {
+      "language": "jv",
+      "orientation": "vertical",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        540,
+        960
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "cd2f8461d91de671fd3e7a8bc37ac4df4637ddc86c15a15a40ea4ca2b316de58",
+      "fontFamily": "Noto Sans Javanese",
+      "visiblePixels": 12207
+    },
+    {
+      "language": "ml",
+      "orientation": "horizontal",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        960,
+        540
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "a7f6595900e42076cd9bddaad70885b5469077b563d90d5cf33b1a708257ec4b",
+      "fontFamily": "Noto Sans Malayalam",
+      "visiblePixels": 7881
+    },
+    {
+      "language": "ml",
+      "orientation": "vertical",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        540,
+        960
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "e0cfccfee1ea3903b9203f5024d08e24f2dfde344330b69d11d098b7619e5ee7",
+      "fontFamily": "Noto Sans Malayalam",
+      "visiblePixels": 15385
+    },
+    {
+      "language": "kn",
+      "orientation": "horizontal",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        960,
+        540
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "8412ae1e54f28f462cd4d7ebd44c95422a7ea01b610d360438aae3b19473c941",
+      "fontFamily": "Noto Sans Kannada",
+      "visiblePixels": 6741
+    },
+    {
+      "language": "kn",
+      "orientation": "vertical",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        540,
+        960
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "414335596fcaf766c7a3451be14724ef358d5f7599484c89a44aad4b14dec5ed",
+      "fontFamily": "Noto Sans Kannada",
+      "visiblePixels": 13464
+    },
+    {
+      "language": "or",
+      "orientation": "horizontal",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        960,
+        540
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "7f2a44fcd22daf68737c0dd1dbace704f797c175c1727195fbed916159b9b036",
+      "fontFamily": "Noto Sans Oriya",
+      "visiblePixels": 6847
+    },
+    {
+      "language": "or",
+      "orientation": "vertical",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        540,
+        960
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "4cbd0ba5373ab4cb02540d14d18960795ff2070b4f3895af0a86e38e6cbea0ff",
+      "fontFamily": "Noto Sans Oriya",
+      "visiblePixels": 13540
+    },
+    {
+      "language": "ka",
+      "orientation": "horizontal",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        960,
+        540
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "c122eee6311a6cec254ea1f670ece086cedbf1d2303fc8beee958d97d0768ba0",
+      "fontFamily": "Noto Sans Georgian",
+      "visiblePixels": 8376
+    },
+    {
+      "language": "ka",
+      "orientation": "vertical",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        540,
+        960
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "4f8da94da3eb9ba4aa7dc56044945ab2e9f526464f5908575ff42c017e400805",
+      "fontFamily": "Noto Sans Georgian",
+      "visiblePixels": 15998
+    },
+    {
+      "language": "hy",
+      "orientation": "horizontal",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        960,
+        540
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "76756c83ce62bc8b3f2cc49b31e39671ec74d602b72ddaacd4392f36a15799f1",
+      "fontFamily": "Noto Sans Armenian",
+      "visiblePixels": 7396
+    },
+    {
+      "language": "hy",
+      "orientation": "vertical",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        540,
+        960
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "1e413739803d1a3d7e70921387893f3884a280aa0792874b31dab57fb7436654",
+      "fontFamily": "Noto Sans Armenian",
+      "visiblePixels": 14401
+    },
+    {
+      "language": "si",
+      "orientation": "horizontal",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        960,
+        540
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "acbc62ad52a4213b6784dfd6ac299c92b979021614fc9d543ad10ec78cd37b04",
+      "fontFamily": "Noto Sans Sinhala",
+      "visiblePixels": 7435
+    },
+    {
+      "language": "si",
+      "orientation": "vertical",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        540,
+        960
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "0fe20744f7b3d4ed6c2f2345d0a31b99c7977fa4e0279694b76d4eb7b5781dd1",
+      "fontFamily": "Noto Sans Sinhala",
+      "visiblePixels": 14493
+    },
+    {
+      "language": "bo",
+      "orientation": "horizontal",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        960,
+        540
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "bfb06b891fd5af3b1bf1637a682603c736fb46682f8802ebbcbe157126620475",
+      "fontFamily": "Noto Serif Tibetan",
+      "visiblePixels": 5501
+    },
+    {
+      "language": "bo",
+      "orientation": "vertical",
+      "passed": true,
+      "returncode": 0,
+      "dimensions": [
+        540,
+        960
+      ],
+      "missingGlyphWarnings": [],
+      "sha256": "19952c55bfaae1147fe31f492d22f79182be93b553774fdabdd0f80891afdd5a",
+      "fontFamily": "Noto Serif Tibetan",
+      "visiblePixels": 11441
+    }
+  ],
+  "daemonPreview": {
+    "language": "si",
+    "status": 200,
+    "contentType": "image/png",
+    "dimensions": [
+      960,
+      540
+    ],
+    "sha256": "b71fdfa48d073ac0fe5afc1311855812f1e137eded85c32085484d11d96b5508"
+  },
+  "contactSheet": "source-language-expansion-render-20261017.png"
+}
