@@ -687,9 +687,15 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
         runtimeManifest.ytDlp.certificateBundle
       ])
     );
+    const buildManifest = JSON.parse(readFileSync(
+      process.env.OPENCREATOR_DESKTOP_BUILD_MANIFEST
+        ?? join(desktopDir, 'release', 'opencreator-desktop-build-manifest.json'),
+      'utf8'
+    )) as { ytDlpVersion: string };
+    expect(buildManifest.ytDlpVersion).toMatch(/^\d{4}\.\d{2}\.\d{2}\.\d{6}$/);
     expect(runtimeManifest.ytDlp).toMatchObject({
       mode: 'python',
-      version: '2026.08.29.232711',
+      version: buildManifest.ytDlpVersion,
       pythonVersion: '3.13.15',
       javascriptRuntime: { name: 'node', version: '22.23.2' }
     });
