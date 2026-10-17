@@ -3317,5 +3317,15 @@
   "Playback position": "Позиція відтворення",
   "Subtitle timing only": "Лише час субтитрів",
   "Generating audio waveform…": "Генерація аудіосигналу…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Форма сигналу недоступна для цього носія. Час субтитрів усе ще можна редагувати."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Форма сигналу недоступна для цього носія. Час субтитрів усе ще можна редагувати.",
+  "Find and replace": "Знайти й замінити",
+  "Search scope": "Область пошуку",
+  "Find": "Знайти",
+  "Match case": "Враховувати регістр",
+  "Previous match": "Попередній збіг",
+  "Next match": "Наступний збіг",
+  "Replace with": "Замінити на",
+  "Replace": "Замінити",
+  "Replace all": "Замінити все",
+  "No matches": "Збігів немає"
 }

@@ -3317,5 +3317,15 @@
   "Playback position": "موقعیت پخش",
   "Subtitle timing only": "فقط زمان بندی زیرنویس",
   "Generating audio waveform…": "در حال تولید شکل موج صوتی…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "شکل موج برای این رسانه در دسترس نیست. زمان بندی زیرنویس هنوز قابل ویرایش است."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "شکل موج برای این رسانه در دسترس نیست. زمان بندی زیرنویس هنوز قابل ویرایش است.",
+  "Find and replace": "یافتن و جایگزینی",
+  "Search scope": "محدودهٔ جستجو",
+  "Find": "یافتن",
+  "Match case": "تطبیق بزرگی و کوچکی حروف",
+  "Previous match": "تطبیق قبلی",
+  "Next match": "تطبیق بعدی",
+  "Replace with": "جایگزینی با",
+  "Replace": "جایگزینی",
+  "Replace all": "جایگزینی همه",
+  "No matches": "تطبیقی یافت نشد"
 }

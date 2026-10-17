@@ -3317,5 +3317,15 @@
   "Playback position": "ตำแหน่งการเล่น",
   "Subtitle timing only": "จังหวะคำบรรยายเท่านั้น",
   "Generating audio waveform…": "กำลังสร้างรูปคลื่นเสียง...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "รูปคลื่นไม่พร้อมใช้งานสำหรับสื่อนี้ การกำหนดเวลาคำบรรยายยังคงสามารถแก้ไขได้"
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "รูปคลื่นไม่พร้อมใช้งานสำหรับสื่อนี้ การกำหนดเวลาคำบรรยายยังคงสามารถแก้ไขได้",
+  "Find and replace": "ค้นหาและแทนที่",
+  "Search scope": "ขอบเขตการค้นหา",
+  "Find": "ค้นหา",
+  "Match case": "ตรงตามตัวพิมพ์ใหญ่เล็ก",
+  "Previous match": "รายการก่อนหน้า",
+  "Next match": "รายการถัดไป",
+  "Replace with": "แทนที่ด้วย",
+  "Replace": "แทนที่",
+  "Replace all": "แทนที่ทั้งหมด",
+  "No matches": "ไม่พบรายการที่ตรงกัน"
 }

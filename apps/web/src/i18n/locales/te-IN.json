@@ -3317,5 +3317,15 @@
   "Playback position": "ప్లేబ్యాక్ స్థానం",
   "Subtitle timing only": "ఉపశీర్షిక సమయం మాత్రమే",
   "Generating audio waveform…": "ఆడియో తరంగ రూపాన్ని రూపొందిస్తోంది…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "ఈ మీడియాకు వేవ్‌ఫారమ్ అందుబాటులో లేదు. ఉపశీర్షిక సమయం ఇప్పటికీ సవరించదగినది."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "ఈ మీడియాకు వేవ్‌ఫారమ్ అందుబాటులో లేదు. ఉపశీర్షిక సమయం ఇప్పటికీ సవరించదగినది.",
+  "Find and replace": "కనుగొని మార్చు",
+  "Search scope": "శోధన పరిధి",
+  "Find": "కనుగొను",
+  "Match case": "పెద్ద చిన్న అక్షరాలను సరిపోల్చు",
+  "Previous match": "మునుపటి సరిపోలిక",
+  "Next match": "తదుపరి సరిపోలిక",
+  "Replace with": "దీనితో మార్చు",
+  "Replace": "మార్చు",
+  "Replace all": "అన్నింటినీ మార్చు",
+  "No matches": "సరిపోలికలు లేవు"
 }

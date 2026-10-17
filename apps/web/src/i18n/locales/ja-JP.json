@@ -3317,5 +3317,15 @@
   "Playback position": "再生位置",
   "Subtitle timing only": "字幕のタイミングのみ",
   "Generating audio waveform…": "音声波形を生成中…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "このメディアでは波形を使用できません。字幕のタイミングは引き続き編集可能です。"
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "このメディアでは波形を使用できません。字幕のタイミングは引き続き編集可能です。",
+  "Find and replace": "検索と置換",
+  "Search scope": "検索範囲",
+  "Find": "検索",
+  "Match case": "大文字と小文字を区別",
+  "Previous match": "前の一致",
+  "Next match": "次の一致",
+  "Replace with": "置換後の文字列",
+  "Replace": "置換",
+  "Replace all": "すべて置換",
+  "No matches": "一致する項目はありません"
 }

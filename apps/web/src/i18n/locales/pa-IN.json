@@ -3317,5 +3317,15 @@
   "Playback position": "ਪਲੇਬੈਕ ਸਥਿਤੀ",
   "Subtitle timing only": "ਸਿਰਫ਼ ਉਪਸਿਰਲੇਖ ਸਮਾਂ",
   "Generating audio waveform…": "ਆਡੀਓ ਵੇਵਫਾਰਮ ਤਿਆਰ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "ਇਸ ਮੀਡੀਆ ਲਈ ਵੇਵਫਾਰਮ ਉਪਲਬਧ ਨਹੀਂ ਹੈ। ਉਪਸਿਰਲੇਖ ਸਮਾਂ ਅਜੇ ਵੀ ਸੰਪਾਦਨਯੋਗ ਹੈ।"
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "ਇਸ ਮੀਡੀਆ ਲਈ ਵੇਵਫਾਰਮ ਉਪਲਬਧ ਨਹੀਂ ਹੈ। ਉਪਸਿਰਲੇਖ ਸਮਾਂ ਅਜੇ ਵੀ ਸੰਪਾਦਨਯੋਗ ਹੈ।",
+  "Find and replace": "ਲੱਭੋ ਅਤੇ ਬਦਲੋ",
+  "Search scope": "ਖੋਜ ਦਾ ਦਾਇਰਾ",
+  "Find": "ਲੱਭੋ",
+  "Match case": "ਵੱਡੇ ਅਤੇ ਛੋਟੇ ਅੱਖਰ ਮਿਲਾਓ",
+  "Previous match": "ਪਿਛਲਾ ਮੇਲ",
+  "Next match": "ਅਗਲਾ ਮੇਲ",
+  "Replace with": "ਇਸ ਨਾਲ ਬਦਲੋ",
+  "Replace": "ਬਦਲੋ",
+  "Replace all": "ਸਾਰੇ ਬਦਲੋ",
+  "No matches": "ਕੋਈ ਮੇਲ ਨਹੀਂ"
 }

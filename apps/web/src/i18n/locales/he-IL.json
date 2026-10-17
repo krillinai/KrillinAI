@@ -3317,5 +3317,15 @@
   "Playback position": "עמדת השמעה",
   "Subtitle timing only": "תזמון כתוביות בלבד",
   "Generating audio waveform…": "יוצר צורת גל שמע...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "צורת גל אינה זמינה עבור מדיה זו. תזמון כתוביות עדיין ניתן לעריכה."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "צורת גל אינה זמינה עבור מדיה זו. תזמון כתוביות עדיין ניתן לעריכה.",
+  "Find and replace": "חיפוש והחלפה",
+  "Search scope": "טווח החיפוש",
+  "Find": "חיפוש",
+  "Match case": "התאמת רישיות",
+  "Previous match": "ההתאמה הקודמת",
+  "Next match": "ההתאמה הבאה",
+  "Replace with": "החלפה ב־",
+  "Replace": "החלפה",
+  "Replace all": "החלפת הכול",
+  "No matches": "אין התאמות"
 }

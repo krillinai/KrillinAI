@@ -3317,5 +3317,15 @@
   "Playback position": "Poziția de redare",
   "Subtitle timing only": "Numai sincronizarea subtitrarilor",
   "Generating audio waveform…": "Se generează forma de undă audio...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Forma de undă indisponibilă pentru acest media. Timpul de subtitrare este încă editabil."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Forma de undă indisponibilă pentru acest media. Timpul de subtitrare este încă editabil.",
+  "Find and replace": "Caută și înlocuiește",
+  "Search scope": "Domeniu de căutare",
+  "Find": "Caută",
+  "Match case": "Respectă majusculele",
+  "Previous match": "Potrivirea anterioară",
+  "Next match": "Potrivirea următoare",
+  "Replace with": "Înlocuiește cu",
+  "Replace": "Înlocuiește",
+  "Replace all": "Înlocuiește tot",
+  "No matches": "Nicio potrivire"
 }

@@ -3317,5 +3317,15 @@
   "Playback position": "Kedudukan main semula",
   "Subtitle timing only": "Masa sari kata sahaja",
   "Generating audio waveform…": "Menjana bentuk gelombang audio…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Bentuk gelombang tidak tersedia untuk media ini. Masa sari kata masih boleh diedit."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Bentuk gelombang tidak tersedia untuk media ini. Masa sari kata masih boleh diedit.",
+  "Find and replace": "Cari dan ganti",
+  "Search scope": "Skop carian",
+  "Find": "Cari",
+  "Match case": "Padankan huruf besar/kecil",
+  "Previous match": "Padanan sebelumnya",
+  "Next match": "Padanan seterusnya",
+  "Replace with": "Ganti dengan",
+  "Replace": "Ganti",
+  "Replace all": "Ganti semua",
+  "No matches": "Tiada padanan"
 }

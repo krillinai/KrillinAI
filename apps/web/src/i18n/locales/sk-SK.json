@@ -3317,5 +3317,15 @@
   "Playback position": "Pozícia prehrávania",
   "Subtitle timing only": "Len časovanie titulkov",
   "Generating audio waveform…": "Generuje sa zvukový priebeh…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Tvar vlny nie je pre toto médium k dispozícii. Časovanie titulkov je stále upraviteľné."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Tvar vlny nie je pre toto médium k dispozícii. Časovanie titulkov je stále upraviteľné.",
+  "Find and replace": "Nájsť a nahradiť",
+  "Search scope": "Rozsah hľadania",
+  "Find": "Nájsť",
+  "Match case": "Rozlišovať veľkosť písmen",
+  "Previous match": "Predchádzajúca zhoda",
+  "Next match": "Ďalšia zhoda",
+  "Replace with": "Nahradiť za",
+  "Replace": "Nahradiť",
+  "Replace all": "Nahradiť všetko",
+  "No matches": "Žiadne zhody"
 }

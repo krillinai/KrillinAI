@@ -3317,5 +3317,15 @@
   "Playback position": "موقف التشغيل",
   "Subtitle timing only": "توقيت الترجمة فقط",
   "Generating audio waveform…": "جارٍ إنشاء شكل موجة صوتية...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "الشكل الموجي غير متوفر لهذه الوسائط. توقيت الترجمة لا يزال قابلاً للتحرير."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "الشكل الموجي غير متوفر لهذه الوسائط. توقيت الترجمة لا يزال قابلاً للتحرير.",
+  "Find and replace": "بحث واستبدال",
+  "Search scope": "نطاق البحث",
+  "Find": "بحث",
+  "Match case": "مطابقة حالة الأحرف",
+  "Previous match": "التطابق السابق",
+  "Next match": "التطابق التالي",
+  "Replace with": "استبدال بـ",
+  "Replace": "استبدال",
+  "Replace all": "استبدال الكل",
+  "No matches": "لا توجد تطابقات"
 }

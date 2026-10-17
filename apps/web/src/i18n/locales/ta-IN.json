@@ -3317,5 +3317,15 @@
   "Playback position": "பின்னணி நிலை",
   "Subtitle timing only": "வசன நேரம் மட்டுமே",
   "Generating audio waveform…": "ஆடியோ அலைவடிவத்தை உருவாக்குகிறது…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "இந்த மீடியாவிற்கு அலைவடிவம் இல்லை. வசன நேரத்தை இன்னும் திருத்த முடியும்."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "இந்த மீடியாவிற்கு அலைவடிவம் இல்லை. வசன நேரத்தை இன்னும் திருத்த முடியும்.",
+  "Find and replace": "கண்டுபிடித்து மாற்று",
+  "Search scope": "தேடல் வரம்பு",
+  "Find": "கண்டுபிடி",
+  "Match case": "பெரிய சிறிய எழுத்துகளைப் பொருத்து",
+  "Previous match": "முந்தைய பொருத்தம்",
+  "Next match": "அடுத்த பொருத்தம்",
+  "Replace with": "இதனால் மாற்று",
+  "Replace": "மாற்று",
+  "Replace all": "அனைத்தையும் மாற்று",
+  "No matches": "பொருத்தங்கள் இல்லை"
 }

@@ -3317,5 +3317,15 @@
   "Playback position": "播放位置",
   "Subtitle timing only": "僅字幕計時",
   "Generating audio waveform…": "產生音訊波形...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "波形不適用於該媒體。字幕時間仍可編輯。"
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "波形不適用於該媒體。字幕時間仍可編輯。",
+  "Find and replace": "尋找與取代",
+  "Search scope": "搜尋範圍",
+  "Find": "尋找",
+  "Match case": "區分大小寫",
+  "Previous match": "上一處",
+  "Next match": "下一處",
+  "Replace with": "取代為",
+  "Replace": "取代",
+  "Replace all": "全部取代",
+  "No matches": "沒有符合項目"
 }

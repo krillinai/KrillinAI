@@ -3317,5 +3317,15 @@
   "Playback position": "પ્લેબેક સ્થિતિ",
   "Subtitle timing only": "માત્ર સબટાઈટલ સમય",
   "Generating audio waveform…": "ઓડિયો વેવફોર્મ જનરેટ કરી રહ્યું છે...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "આ મીડિયા માટે વેવફોર્મ અનુપલબ્ધ છે. ઉપશીર્ષક સમય હજુ પણ સંપાદનયોગ્ય છે."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "આ મીડિયા માટે વેવફોર્મ અનુપલબ્ધ છે. ઉપશીર્ષક સમય હજુ પણ સંપાદનયોગ્ય છે.",
+  "Find and replace": "શોધો અને બદલો",
+  "Search scope": "શોધનો વ્યાપ",
+  "Find": "શોધો",
+  "Match case": "મોટા અને નાના અક્ષરો મેળવો",
+  "Previous match": "પહેલાનો મેળ",
+  "Next match": "આગળનો મેળ",
+  "Replace with": "આનાથી બદલો",
+  "Replace": "બદલો",
+  "Replace all": "બધું બદલો",
+  "No matches": "કોઈ મેળ નથી"
 }

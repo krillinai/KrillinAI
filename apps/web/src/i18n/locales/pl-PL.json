@@ -3317,5 +3317,15 @@
   "Playback position": "Pozycja odtwarzania",
   "Subtitle timing only": "Tylko czas napisów",
   "Generating audio waveform…": "Generuję przebieg audio…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Przebieg niedostępny dla tego nośnika. Czas napisów jest nadal edytowalny."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Przebieg niedostępny dla tego nośnika. Czas napisów jest nadal edytowalny.",
+  "Find and replace": "Znajdź i zamień",
+  "Search scope": "Zakres wyszukiwania",
+  "Find": "Znajdź",
+  "Match case": "Uwzględnij wielkość liter",
+  "Previous match": "Poprzednie dopasowanie",
+  "Next match": "Następne dopasowanie",
+  "Replace with": "Zamień na",
+  "Replace": "Zamień",
+  "Replace all": "Zamień wszystkie",
+  "No matches": "Brak dopasowań"
 }

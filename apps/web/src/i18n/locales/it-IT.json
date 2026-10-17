@@ -3317,5 +3317,15 @@
   "Playback position": "Posizione di riproduzione",
   "Subtitle timing only": "Solo tempistica dei sottotitoli",
   "Generating audio waveform…": "Generazione della forma d'onda audio…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Forma d'onda non disponibile per questo supporto. La tempistica dei sottotitoli è ancora modificabile."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Forma d'onda non disponibile per questo supporto. La tempistica dei sottotitoli è ancora modificabile.",
+  "Find and replace": "Trova e sostituisci",
+  "Search scope": "Ambito di ricerca",
+  "Find": "Trova",
+  "Match case": "Distingui maiuscole",
+  "Previous match": "Corrispondenza precedente",
+  "Next match": "Corrispondenza successiva",
+  "Replace with": "Sostituisci con",
+  "Replace": "Sostituisci",
+  "Replace all": "Sostituisci tutto",
+  "No matches": "Nessuna corrispondenza"
 }

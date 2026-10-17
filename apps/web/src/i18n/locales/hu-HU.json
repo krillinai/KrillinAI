@@ -3317,5 +3317,15 @@
   "Playback position": "Lejátszási pozíció",
   "Subtitle timing only": "Csak a feliratok időzítése",
   "Generating audio waveform…": "Hanghullámforma generálása…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "A hullámforma nem érhető el ehhez a médiához. A feliratok időzítése továbbra is szerkeszthető."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "A hullámforma nem érhető el ehhez a médiához. A feliratok időzítése továbbra is szerkeszthető.",
+  "Find and replace": "Keresés és csere",
+  "Search scope": "Keresési tartomány",
+  "Find": "Keresés",
+  "Match case": "Kis- és nagybetűk megkülönböztetése",
+  "Previous match": "Előző találat",
+  "Next match": "Következő találat",
+  "Replace with": "Csere erre",
+  "Replace": "Csere",
+  "Replace all": "Összes cseréje",
+  "No matches": "Nincs találat"
 }

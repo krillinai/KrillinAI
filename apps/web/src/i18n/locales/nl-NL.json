@@ -3317,5 +3317,15 @@
   "Playback position": "Afspeelpositie",
   "Subtitle timing only": "Alleen timing van ondertiteling",
   "Generating audio waveform…": "Audiogolfvorm genereren…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Golfvorm niet beschikbaar voor dit medium. De timing van de ondertiteling kan nog steeds worden bewerkt."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Golfvorm niet beschikbaar voor dit medium. De timing van de ondertiteling kan nog steeds worden bewerkt.",
+  "Find and replace": "Zoeken en vervangen",
+  "Search scope": "Zoekbereik",
+  "Find": "Zoeken",
+  "Match case": "Hoofdlettergevoelig",
+  "Previous match": "Vorige overeenkomst",
+  "Next match": "Volgende overeenkomst",
+  "Replace with": "Vervangen door",
+  "Replace": "Vervangen",
+  "Replace all": "Alles vervangen",
+  "No matches": "Geen overeenkomsten"
 }

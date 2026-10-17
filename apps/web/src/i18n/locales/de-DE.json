@@ -3317,5 +3317,15 @@
   "Playback position": "Wiedergabeposition",
   "Subtitle timing only": "Nur Untertitel-Timing",
   "Generating audio waveform…": "Erzeugen einer Audio-Wellenform…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Wellenform für dieses Medium nicht verfügbar. Das Timing der Untertitel kann weiterhin bearbeitet werden."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Wellenform für dieses Medium nicht verfügbar. Das Timing der Untertitel kann weiterhin bearbeitet werden.",
+  "Find and replace": "Suchen und Ersetzen",
+  "Search scope": "Suchbereich",
+  "Find": "Suchen",
+  "Match case": "Groß-/Kleinschreibung beachten",
+  "Previous match": "Vorheriger Treffer",
+  "Next match": "Nächster Treffer",
+  "Replace with": "Ersetzen durch",
+  "Replace": "Ersetzen",
+  "Replace all": "Alle ersetzen",
+  "No matches": "Keine Treffer"
 }

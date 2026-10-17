@@ -3317,5 +3317,15 @@
   "Playback position": "Posição de reprodução",
   "Subtitle timing only": "Apenas tempo de legenda",
   "Generating audio waveform…": "Gerando forma de onda de áudio…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Forma de onda indisponível para esta mídia. O tempo das legendas ainda é editável."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Forma de onda indisponível para esta mídia. O tempo das legendas ainda é editável.",
+  "Find and replace": "Localizar e substituir",
+  "Search scope": "Escopo da pesquisa",
+  "Find": "Localizar",
+  "Match case": "Diferenciar maiúsculas",
+  "Previous match": "Ocorrência anterior",
+  "Next match": "Próxima ocorrência",
+  "Replace with": "Substituir por",
+  "Replace": "Substituir",
+  "Replace all": "Substituir tudo",
+  "No matches": "Nenhuma ocorrência"
 }

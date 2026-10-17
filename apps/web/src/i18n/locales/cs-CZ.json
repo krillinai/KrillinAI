@@ -3317,5 +3317,15 @@
   "Playback position": "Pozice přehrávání",
   "Subtitle timing only": "Pouze časování titulků",
   "Generating audio waveform…": "Generování zvukové vlny…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Průběh není pro toto médium k dispozici. Časování titulků je stále upravitelné."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Průběh není pro toto médium k dispozici. Časování titulků je stále upravitelné.",
+  "Find and replace": "Najít a nahradit",
+  "Search scope": "Oblast hledání",
+  "Find": "Najít",
+  "Match case": "Rozlišovat velikost písmen",
+  "Previous match": "Předchozí shoda",
+  "Next match": "Další shoda",
+  "Replace with": "Nahradit za",
+  "Replace": "Nahradit",
+  "Replace all": "Nahradit vše",
+  "No matches": "Žádné shody"
 }

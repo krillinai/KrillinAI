@@ -3317,5 +3317,15 @@
   "Playback position": "Θέση αναπαραγωγής",
   "Subtitle timing only": "Μόνο χρονισμός υποτίτλων",
   "Generating audio waveform…": "Δημιουργία κυματομορφής ήχου…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Η κυματομορφή δεν είναι διαθέσιμη για αυτό το μέσο. Ο χρόνος των υποτίτλων εξακολουθεί να είναι επεξεργάσιμος."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Η κυματομορφή δεν είναι διαθέσιμη για αυτό το μέσο. Ο χρόνος των υποτίτλων εξακολουθεί να είναι επεξεργάσιμος.",
+  "Find and replace": "Εύρεση και αντικατάσταση",
+  "Search scope": "Πεδίο αναζήτησης",
+  "Find": "Εύρεση",
+  "Match case": "Διάκριση πεζών-κεφαλαίων",
+  "Previous match": "Προηγούμενο αποτέλεσμα",
+  "Next match": "Επόμενο αποτέλεσμα",
+  "Replace with": "Αντικατάσταση με",
+  "Replace": "Αντικατάσταση",
+  "Replace all": "Αντικατάσταση όλων",
+  "No matches": "Δεν βρέθηκαν αντιστοιχίες"
 }

@@ -3317,5 +3317,15 @@
   "Playback position": "Uppspelningsposition",
   "Subtitle timing only": "Endast textningstid",
   "Generating audio waveform…": "Genererar ljudvågform...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Vågform är inte tillgänglig för det här mediet. Timing av undertexter är fortfarande redigerbar."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Vågform är inte tillgänglig för det här mediet. Timing av undertexter är fortfarande redigerbar.",
+  "Find and replace": "Sök och ersätt",
+  "Search scope": "Sökområde",
+  "Find": "Sök",
+  "Match case": "Skiftlägeskänslig",
+  "Previous match": "Föregående träff",
+  "Next match": "Nästa träff",
+  "Replace with": "Ersätt med",
+  "Replace": "Ersätt",
+  "Replace all": "Ersätt alla",
+  "No matches": "Inga träffar"
 }

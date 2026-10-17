@@ -3317,5 +3317,15 @@
   "Playback position": "Afspilningsposition",
   "Subtitle timing only": "Kun undertekst timing",
   "Generating audio waveform…": "Genererer lydbølgeform...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Bølgeformen er ikke tilgængelig for dette medie. Timing af undertekster kan stadig redigeres."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Bølgeformen er ikke tilgængelig for dette medie. Timing af undertekster kan stadig redigeres.",
+  "Find and replace": "Søg og erstat",
+  "Search scope": "Søgeområde",
+  "Find": "Søg",
+  "Match case": "Forskel på store og små bogstaver",
+  "Previous match": "Forrige resultat",
+  "Next match": "Næste resultat",
+  "Replace with": "Erstat med",
+  "Replace": "Erstat",
+  "Replace all": "Erstat alle",
+  "No matches": "Ingen resultater"
 }

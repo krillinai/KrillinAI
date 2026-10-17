@@ -57,6 +57,88 @@ function EditingHarness(props: { preview?: boolean; readOnly?: boolean; saving?:
 }
 
 describe('VideoTranslationResultWorkspace', () => {
+  it('finds and replaces across cues, navigates matches, and undoes or redoes a batch as one edit', () => {
+    render(<EditingHarness />);
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    fireEvent.keyDown(screen.getByRole('button', { name: '返回项目' }), { key: 'h', ctrlKey: true });
+    const find = screen.getByRole('search', { name: '查找与替换' });
+    const input = within(find).getByRole('textbox', { name: '查找' });
+    expect(input).toHaveFocus();
+    fireEvent.change(input, { target: { value: 'world' } });
+    expect(within(find).getByRole('status')).toHaveTextContent('1 / 2');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(within(find).getByRole('status')).toHaveTextContent('2 / 2');
+    expect(screen.getAllByRole('listitem')[1]).toHaveAttribute('data-focused', 'true');
+    fireEvent.click(within(find).getByRole('button', { name: '下一处' }));
+    expect(within(find).getByRole('status')).toHaveTextContent('1 / 2');
+    fireEvent.change(within(find).getByRole('textbox', { name: '替换为' }), { target: { value: '$&' } });
+    fireEvent.click(within(find).getByRole('button', { name: '全部替换' }));
+    expect(screen.getByDisplayValue('Hello $&')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Goodbye $&')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('你好世界')).toBeInTheDocument();
+    expect(within(find).getByRole('status')).toHaveTextContent('无匹配结果');
+    fireEvent.click(screen.getByRole('button', { name: '撤销' }));
+    expect(screen.getByDisplayValue('Hello world')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Goodbye world')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '重做' }));
+    expect(screen.getByDisplayValue('Hello $&')).toBeInTheDocument();
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByRole('search')).toBeNull();
+    expect(screen.getByRole('button', { name: '查找与替换' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: '返回项目' })).toBeInTheDocument();
+  });
+
+  it('replaces the current occurrence in source text and supports empty replacements and case matching', () => {
+    render(<EditingHarness />);
+    fireEvent.click(screen.getByRole('button', { name: '查找与替换' }));
+    const find = screen.getByRole('search');
+    fireEvent.change(within(find).getByRole('combobox', { name: '搜索范围' }), { target: { value: 'sourceText' } });
+    fireEvent.change(within(find).getByRole('textbox', { name: '查找' }), { target: { value: '世界' } });
+    fireEvent.click(within(find).getByRole('button', { name: '替换' }));
+    expect(screen.getByDisplayValue('你好')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('再见世界')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Hello world')).toBeInTheDocument();
+    fireEvent.change(within(find).getByRole('combobox'), { target: { value: 'text' } });
+    fireEvent.change(within(find).getByRole('textbox', { name: '查找' }), { target: { value: 'HELLO' } });
+    expect(within(find).getByRole('status')).toHaveTextContent('1 / 1');
+    fireEvent.click(within(find).getByRole('button', { name: '区分大小写' }));
+    expect(within(find).getByRole('status')).toHaveTextContent('无匹配结果');
+  });
+
+  it.each([{ readOnly: true }, { saving: true }])('allows search but prevents replacement when edits are unavailable: %j', state => {
+    render(<EditingHarness {...state} />);
+    fireEvent.click(screen.getByRole('button', { name: '查找与替换' }));
+    const find = screen.getByRole('search');
+    fireEvent.change(within(find).getByRole('textbox', { name: '查找' }), { target: { value: 'world' } });
+    expect(within(find).getByRole('status')).toHaveTextContent('1 / 2');
+    expect(within(find).getByRole('button', { name: '下一处' })).toBeEnabled();
+    expect(within(find).getByRole('button', { name: '替换' })).toBeDisabled();
+    expect(within(find).getByRole('button', { name: '全部替换' })).toBeDisabled();
+  });
+
+  it('advances past replacement text containing the search term and keeps the batch within the chosen fields', () => {
+    function Harness() {
+      const [output, setOutput] = useState<SubtitleResultOutput>({ ...baseProps.subtitleOutputs[0]!,
+        cues: [{ id: 1, start: '00:00:00,000', end: '00:00:04,000', text: 'hi hi', sourceText: 'hi' }] });
+      return <VideoTranslationResultWorkspace {...baseProps} activeTab="subtitles" subtitleOutputs={[output]}
+        onSubtitleCuesChange={(_variant, cues) => setOutput({ ...output, cues })} />;
+    }
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: '查找与替换' }));
+    const find = screen.getByRole('search');
+    fireEvent.change(within(find).getByRole('textbox', { name: '查找' }), { target: { value: 'hi' } });
+    const replacement = within(find).getByRole('textbox', { name: '替换为' });
+    fireEvent.change(replacement, { target: { value: 'hi!' } });
+    fireEvent.keyDown(replacement, { key: 'Enter' });
+    expect(screen.getByDisplayValue('hi! hi')).toBeInTheDocument();
+    expect(within(find).getByRole('status')).toHaveTextContent('2 / 2');
+    fireEvent.change(within(find).getByRole('combobox'), { target: { value: 'all' } });
+    fireEvent.change(replacement, { target: { value: 'bye' } });
+    fireEvent.click(within(find).getByRole('button', { name: '全部替换' }));
+    expect(screen.getByDisplayValue('bye! bye')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '横屏字幕原文 1' })).toHaveValue('bye');
+  });
+
   it.each([false, true])('offers editing in the overview toolbar and reserves generation for the editor when confirming is %s', regenerationPending => {
     const onImmersiveChange = vi.fn(), onRequestRegenerate = vi.fn(), onConfirmRegenerate = vi.fn();
     const props = { ...baseProps, hasPendingChanges: true, regenerationPending,

@@ -3317,5 +3317,15 @@
   "Playback position": "Позиция на възпроизвеждане",
   "Subtitle timing only": "Само време на субтитрите",
   "Generating audio waveform…": "Генериране на формата на аудио вълната...",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Формата на вълната не е налична за тази медия. Времето на субтитрите все още може да се редактира."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Формата на вълната не е налична за тази медия. Времето на субтитрите все още може да се редактира.",
+  "Find and replace": "Търсене и замяна",
+  "Search scope": "Обхват на търсене",
+  "Find": "Търсене",
+  "Match case": "Различаване на регистъра",
+  "Previous match": "Предишно съвпадение",
+  "Next match": "Следващо съвпадение",
+  "Replace with": "Замяна с",
+  "Replace": "Замяна",
+  "Replace all": "Замяна на всички",
+  "No matches": "Няма съвпадения"
 }

@@ -3317,5 +3317,15 @@
   "Playback position": "Toistopaikka",
   "Subtitle timing only": "Vain tekstityksen ajoitus",
   "Generating audio waveform…": "Luodaan äänen aaltomuotoa…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Aaltomuoto ei ole käytettävissä tälle medialle. Tekstityksen ajoitus on edelleen muokattavissa."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Aaltomuoto ei ole käytettävissä tälle medialle. Tekstityksen ajoitus on edelleen muokattavissa.",
+  "Find and replace": "Etsi ja korvaa",
+  "Search scope": "Hakualue",
+  "Find": "Etsi",
+  "Match case": "Erota isot ja pienet kirjaimet",
+  "Previous match": "Edellinen osuma",
+  "Next match": "Seuraava osuma",
+  "Replace with": "Korvaava teksti",
+  "Replace": "Korvaa",
+  "Replace all": "Korvaa kaikki",
+  "No matches": "Ei osumia"
 }

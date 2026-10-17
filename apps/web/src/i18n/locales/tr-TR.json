@@ -3317,5 +3317,15 @@
   "Playback position": "Oynatma konumu",
   "Subtitle timing only": "Yalnızca altyazı zamanlaması",
   "Generating audio waveform…": "Ses dalga biçimi oluşturuluyor…",
-  "Waveform unavailable for this media. Subtitle timing is still editable.": "Dalga formu bu medya için kullanılamıyor. Altyazı zamanlaması hâlâ düzenlenebilir."
+  "Waveform unavailable for this media. Subtitle timing is still editable.": "Dalga formu bu medya için kullanılamıyor. Altyazı zamanlaması hâlâ düzenlenebilir.",
+  "Find and replace": "Bul ve değiştir",
+  "Search scope": "Arama kapsamı",
+  "Find": "Bul",
+  "Match case": "Büyük/küçük harfe duyarlı",
+  "Previous match": "Önceki eşleşme",
+  "Next match": "Sonraki eşleşme",
+  "Replace with": "Yeni metin",
+  "Replace": "Değiştir",
+  "Replace all": "Tümünü değiştir",
+  "No matches": "Eşleşme yok"
 }
