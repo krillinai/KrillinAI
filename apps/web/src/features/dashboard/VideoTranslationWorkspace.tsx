@@ -1901,15 +1901,15 @@ export default function VideoTranslationWorkspace(props: {
   }, [workspacePhase, resultTab]);
   const [draftBaseVersion, setDraftBaseVersion] = useState<number>();
   const [resultProposal, setResultProposal] = useState<ResultProposal>();
-  const [resultNoticeState, setResultNoticeState] = useState({ message: '', transient: false });
+  const [resultNoticeState, setResultNoticeState] = useState({ message: '' });
   const resultNotice = resultNoticeState.message;
-  const setResultNotice = useCallback((message: string, transient = false) => {
-    setResultNoticeState({ message, transient });
+  const setResultNotice = useCallback((message: string) => {
+    setResultNoticeState({ message });
   }, []);
   useEffect(() => {
-    if (!resultNoticeState.message || !resultNoticeState.transient) return;
+    if (!resultNoticeState.message) return;
     const timeout = window.setTimeout(() => {
-      setResultNoticeState(current => current === resultNoticeState ? { message: '', transient: false } : current);
+      setResultNoticeState(current => current === resultNoticeState ? { message: '' } : current);
     }, 5_000);
     return () => window.clearTimeout(timeout);
   }, [resultNoticeState]);
@@ -2836,6 +2836,15 @@ export default function VideoTranslationWorkspace(props: {
       !== selectedResult.generatedSubtitleSnapshot
     : false;
   const selectedHasStaleArtifacts = !selectedSubtitleOnly && (selectedResult?.staleArtifactIds.length ?? 0) > 0;
+  const staleNoticeKey = selectedHasStaleArtifacts
+    ? JSON.stringify([creatorSession?.job.id, resultVersion, selectedResult?.staleArtifactIds])
+    : '';
+  const [expiredStaleNoticeKey, setExpiredStaleNoticeKey] = useState('');
+  useEffect(() => {
+    if (!staleNoticeKey || workspacePhase !== 'result') return;
+    const timeout = window.setTimeout(() => setExpiredStaleNoticeKey(staleNoticeKey), 5_000);
+    return () => window.clearTimeout(timeout);
+  }, [staleNoticeKey, workspacePhase]);
   const staleArtifactKinds = new Set(
     (selectedResult?.staleArtifactIds ?? []).flatMap(id => {
       const artifact = jobArtifacts.find(candidate => candidate.id === id);
@@ -2845,7 +2854,7 @@ export default function VideoTranslationWorkspace(props: {
   const currentResultNotice = resultNotice === translationStartedNotice
     && resultExecution?.status !== 'running' && resultExecution?.status !== 'queued'
     ? '' : resultNotice;
-  const visibleResultNotice = currentResultNotice || (selectedHasStaleArtifacts
+  const visibleResultNotice = currentResultNotice || (staleNoticeKey && staleNoticeKey !== expiredStaleNoticeKey
     ? l(
         '当前项目版本中的部分配音或成片基于较早内容，可继续使用；重新生成后会更新引用。',
         'Some dubbing or video outputs in this project version are based on earlier content. They remain usable until regenerated.'
@@ -3330,7 +3339,7 @@ export default function VideoTranslationWorkspace(props: {
       setResultNotice(l(
         '终止请求已发送。已完成阶段和产物会保留；继续时当前阶段将重新开始。',
         'Stop requested. Completed stages and outputs are preserved; the current stage will restart when resumed.'
-      ), true);
+      ));
     } catch (cause) {
       setResultNotice(creatorErrorMessage(cause, l));
     } finally {
@@ -3348,7 +3357,7 @@ export default function VideoTranslationWorkspace(props: {
       setResultNotice(l(
         `任务已继续，正在从“${translationStageLabel(resumableStage.stageId, l)}”重新开始`,
         `The task resumed and is restarting from "${translationStageLabel(resumableStage.stageId, l)}"`
-      ), true);
+      ));
     } catch (cause) {
       setResultNotice(creatorErrorMessage(cause, l));
     } finally {

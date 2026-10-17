@@ -15,6 +15,81 @@ import VideoTranslationWorkspace from './VideoTranslationWorkspace.js';
 import { LanguageSwitchControls } from '../../test/LanguageSwitchControls.js';
 
 describe('VideoTranslationWorkspace task controls', () => {
+  it.each(['zh-CN', 'en-US'] as const)('dismisses return confirmations after five seconds and restarts the timer for repeated actions in %s', async language => {
+    const l = createLocalizedCopy(language);
+    let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [subtitleArtifact(1, 'Hello world')] });
+    const applyAction = vi.fn(async (_id: string, request: { input: { patch?: Record<string, CreatorJson> } }) => {
+      current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch } };
+      return { job: current };
+    });
+    render(<LanguageProvider initialPreference={language}><CreatorSessionProvider initialJob={current}
+      service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+      <VideoTranslationWorkspace onBack={vi.fn()} />
+    </CreatorSessionProvider></LanguageProvider>);
+    const workspace = within(screen.getByRole('region', { name: l('视频翻译操作区', 'Video translation workspace') }));
+    const notice = l('已返回 V1，配置草稿仍然保留', 'Returned to V1. Your configuration draft is still saved.');
+    const returnFromSettings = async () => {
+      await act(async () => { fireEvent.click(workspace.getByRole('tab', { name: l('任务设置', 'Task settings') })); });
+      await act(async () => { fireEvent.click(workspace.getByRole('button', { name: l('调整设置', 'Adjust settings') })); });
+      await act(async () => { fireEvent.click(workspace.getByRole('button', { name: l('返回 V1 成品', 'Return to V1 output') })); });
+    };
+    vi.useFakeTimers();
+    try {
+      await returnFromSettings();
+      expect(screen.getByText(notice)).toBeVisible();
+      await act(async () => { vi.advanceTimersByTime(4_000); });
+      await returnFromSettings();
+      await act(async () => { vi.advanceTimersByTime(1_000); });
+      expect(screen.getByText(notice)).toBeVisible();
+      await act(async () => { vi.advanceTimersByTime(3_999); });
+      expect(screen.getByText(notice)).toBeVisible();
+      await act(async () => { vi.advanceTimersByTime(1); });
+      expect(screen.queryByText(notice)).not.toBeInTheDocument();
+      expect(workspace.getByRole('tab', { name: l('作品', 'Outputs') })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByText('target-subtitle-v1.srt')).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('dismisses stale-output hints without leaving a permanent fallback after a confirmation expires', async () => {
+    const target = subtitleArtifact(1, 'Hello world');
+    const voice: CreatorArtifact = { ...sourceVideoArtifact(1), id: 'stale_voice', kind: 'dubbed_audio', status: 'stale' };
+    let current = job({ status: 'completed', revision: 1, stages: [], artifacts: [target, voice] });
+    current.state.resultSnapshots = [{
+      version: 1, createdAt: target.createdAt, action: 'edit-subtitle', stageId: 'subtitle', description: 'Edited subtitles',
+      artifactRefs: { target_subtitle: [target.id], dubbed_audio: [voice.id] },
+      changedArtifactIds: [target.id], staleArtifactIds: [voice.id], state: { ...current.state }
+    }];
+    const applyAction = vi.fn(async (_id: string, request: { input: { patch?: Record<string, CreatorJson> } }) => {
+      current = { ...current, revision: current.revision + 1, state: { ...current.state, ...request.input.patch } };
+      return { job: current };
+    });
+    const warning = '当前项目版本中的部分配音或成片基于较早内容，可继续使用；重新生成后会更新引用。';
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        render(<LanguageProvider initialPreference="zh-CN"><CreatorSessionProvider initialJob={current}
+          service={{ applyAction, runAgentTurn: vi.fn() } as never}>
+          <VideoTranslationWorkspace onBack={vi.fn()} />
+        </CreatorSessionProvider></LanguageProvider>);
+      });
+      expect(screen.getByText(warning)).toBeVisible();
+      await act(async () => { vi.advanceTimersByTime(5_000); });
+      expect(screen.queryByText(warning)).not.toBeInTheDocument();
+      await act(async () => { fireEvent.click(screen.getByRole('tab', { name: '任务设置' })); });
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '调整设置' })); });
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '返回 V1 成品' })); });
+      expect(screen.getByText('已返回 V1，配置草稿仍然保留')).toBeVisible();
+      await act(async () => { vi.advanceTimersByTime(5_000); });
+      expect(screen.queryByText('已返回 V1，配置草稿仍然保留')).not.toBeInTheDocument();
+      expect(screen.queryByText(warning)).not.toBeInTheDocument();
+      expect(current.state.resultSnapshots).toEqual(expect.arrayContaining([expect.objectContaining({ staleArtifactIds: [voice.id] })]));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it.each([false, true])('opens and returns to outputs when composeVideo is %s without automatically rendering', async composeVideo => {
     const target = subtitleArtifact(1, 'Hello world');
     const initialJob = job({ status: 'completed', revision: 1, stages: [], artifacts: [target], state: {
