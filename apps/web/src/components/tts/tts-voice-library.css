@@ -10,6 +10,7 @@
 .tts-voice-library-trigger:focus-visible { outline: 2px solid var(--state-focus-ring); outline-offset: 2px; }
 .tts-voice-library-trigger:disabled { opacity: .5; }
 [dir='rtl'] .tts-voice-library-chevron { transform: rotate(180deg); }
+.tts-voice-library-backdrop { position: fixed; z-index: 499; background: color-mix(in srgb, var(--surface) 24%, transparent); -webkit-backdrop-filter: blur(6px) !important; backdrop-filter: blur(6px) !important; }
 .tts-voice-library-popover { position: fixed; z-index: 500; display: flex; flex-direction: column; gap: 16px; padding: 16px; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface-popover); color: var(--text); container: tts-library / inline-size; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 .tts-voice-library-popover > .tts-voice-library { display: flex; flex-direction: column; min-height: 0; }
 .tts-voice-library-popover .tts-voice-library > * { flex-shrink: 0; }

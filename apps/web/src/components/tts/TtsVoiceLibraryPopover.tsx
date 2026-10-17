@@ -17,7 +17,10 @@ export function TtsVoiceLibraryPopover(props: {
   const onCloseRef = useRef(props.onClose);
   onCloseRef.current = props.onClose;
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<{ left: number; top: number; width: number; maxHeight: number }>();
+  const [position, setPosition] = useState<{
+    left: number; top: number; width: number; maxHeight: number;
+    backdropLeft: number; backdropTop: number; backdropWidth: number; backdropHeight: number;
+  }>();
   const expanded = open && !props.disabled;
   const close = useCallback((restoreFocus = false) => {
     setOpen(false);
@@ -46,7 +49,11 @@ export function TtsVoiceLibraryPopover(props: {
         left: (left + right - panelWidth) / 2,
         top: (top + bottom) / 2,
         width: panelWidth,
-        maxHeight: Math.max(0, Math.min(760, bottom - top - 24))
+        maxHeight: Math.max(0, Math.min(760, bottom - top - 24)),
+        backdropLeft: left,
+        backdropTop: top,
+        backdropWidth: Math.max(0, right - left),
+        backdropHeight: Math.max(0, bottom - top)
       };
       setPosition(previous => previous && Object.keys(next).every(key => previous[key as keyof typeof next] === next[key as keyof typeof next]) ? previous : next);
     };
@@ -103,7 +110,11 @@ export function TtsVoiceLibraryPopover(props: {
         <ChevronRight className="tts-voice-library-chevron" size={17} aria-hidden="true" />
       </button>
     </div>
-    {expanded && position ? createPortal(<div id={id} ref={panelRef} className="tts-voice-library-popover" role="dialog" aria-label={props.label}
+    {expanded && position ? createPortal(<>
+      <div className="tts-voice-library-backdrop" aria-hidden="true"
+        style={{ left: position.backdropLeft, top: position.backdropTop, width: position.backdropWidth, height: position.backdropHeight }}
+        onPointerDown={event => { event.preventDefault(); event.stopPropagation(); close(true); }} />
+      <div id={id} ref={panelRef} className="tts-voice-library-popover" role="dialog" aria-label={props.label}
       style={{ left: position.left, top: position.top, width: position.width, maxHeight: position.maxHeight, transform: 'translateY(-50%)' }}
       onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); }
@@ -115,6 +126,6 @@ export function TtsVoiceLibraryPopover(props: {
         }
       }}>
       {props.children(() => close(true))}
-    </div>, document.body) : null}
+    </div></>, document.body) : null}
   </>;
 }
