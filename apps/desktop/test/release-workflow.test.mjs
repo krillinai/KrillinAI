@@ -172,6 +172,11 @@ describe('Desktop release workflow', () => {
       'node scripts/package-krillinai-release.mjs'
     );
     expect(releaseWorkflow).toContain('name: krillinai-release-linux');
+    const linuxJob = releaseWorkflow.split('\n  krillinai-linux-package:')[1].split('\n  candidate-ready:')[0];
+    const install = linuxJob.indexOf('pnpm install --filter @opencreator/daemon --frozen-lockfile --ignore-scripts');
+    expect(linuxJob).toContain('uses: pnpm/action-setup@v4');
+    expect(install).toBeGreaterThan(0);
+    expect(install).toBeLessThan(linuxJob.indexOf('node scripts/package-krillinai-release.mjs'));
   });
 
   it('invalidates the Desktop cache when Creator Runtime releases change', () => {

@@ -294,13 +294,17 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
       - uses: actions/setup-go@v5
         with:
           go-version-file: runtime/krillinai/go.mod
           cache-dependency-path: runtime/krillinai/go.sum
+      - name: Install release metadata dependencies
+        run: pnpm install --filter @opencreator/daemon --frozen-lockfile --ignore-scripts
       - name: 生成 Linux KrillinAI Server 与 CLI 发布包
         shell: bash
         run: |
