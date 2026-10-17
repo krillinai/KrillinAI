@@ -916,20 +916,18 @@ test('@package-smoke 实际 Desktop 包创建并重启恢复 Creator Job，且�
     const providerSelect = currentApp.page.getByRole('combobox', { name: '服务商' });
     await expect(providerSelect).toHaveText('OpenAI TTS');
     await expect(currentApp.page.getByRole('combobox', { name: '默认音色' }))
-      .toHaveValue('marin');
+      .toHaveAttribute('data-value', 'marin');
     await providerSelect.click();
     await currentApp.page.getByRole('option', { name: '阿里云百炼' }).click();
     await expect(currentApp.page.getByLabel('Base URL'))
       .toHaveValue('https://dashscope.aliyuncs.com/api/v1');
     await expect(currentApp.page.getByLabel('模型')).toHaveValue('qwen3-tts-flash');
-    await expect.poll(async () => (
-      currentApp.page.getByRole('combobox', { name: '默认音色' })
-        .locator('option')
-        .allTextContents()
-    )).toEqual(expect.arrayContaining([
-      expect.stringContaining('Cherry'),
-      expect.stringContaining('Kiki')
-    ]));
+    const defaultVoice = currentApp.page.getByRole('combobox', { name: '默认音色' });
+    await expect(defaultVoice).toBeEnabled();
+    await defaultVoice.click();
+    await expect(currentApp.page.getByRole('option', { name: /Cherry/ })).toBeVisible();
+    await expect(currentApp.page.getByRole('option', { name: /Kiki/ })).toBeVisible();
+    await defaultVoice.press('Escape');
 
     await currentApp.page.getByRole('button', { name: '工作台' }).click();
     await expect(currentApp.page.getByRole('heading', { name: '工作台' })).toBeVisible();
