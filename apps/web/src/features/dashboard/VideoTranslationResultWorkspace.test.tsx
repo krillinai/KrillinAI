@@ -147,6 +147,30 @@ describe('VideoTranslationResultWorkspace', () => {
     expect(screen.getByRole('button', { name: '深度编辑' })).toHaveFocus();
   });
 
+  it('moves the editing selection with playback and keeps a single visual focus when paused', () => {
+    const { container } = render(<EditingHarness preview />);
+    fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
+    const video = screen.getByLabelText('横屏字幕视频预览') as HTMLVideoElement;
+    const rows = screen.getAllByRole('listitem');
+    fireEvent.click(screen.getByRole('button', { name: '跳转到 00:00:00,000' }));
+    fireEvent.play(video);
+    fireEvent.timeUpdate(video, { target: { currentTime: 6 } });
+    expect(rows[0]).toHaveAttribute('data-selected', 'false');
+    expect(rows[1]).toHaveAttribute('data-selected', 'true');
+    expect(container.querySelectorAll('.video-subtitle-cue[data-focused="true"]')).toHaveLength(1);
+    expect(container.querySelectorAll('.subtitle-timeline-clip[data-focused="true"]')).toHaveLength(1);
+    expect(screen.getByRole('spinbutton', { name: '开始时间' })).toHaveValue(5);
+    fireEvent.pause(video);
+    fireEvent.focus(screen.getByRole('textbox', { name: '横屏字幕 1' }));
+    expect(rows[0]).toHaveAttribute('data-focused', 'true');
+    expect(rows[1]).toHaveAttribute('data-focused', 'false');
+    expect(screen.getByRole('spinbutton', { name: '开始时间' })).toHaveValue(0);
+    fireEvent.play(video);
+    fireEvent.timeUpdate(video, { target: { currentTime: 4.5 } });
+    expect(container.querySelectorAll('.video-subtitle-cue[data-focused="true"]')).toHaveLength(0);
+    expect(container.querySelectorAll('.subtitle-timeline-clip[data-focused="true"]')).toHaveLength(0);
+  });
+
   it('edits timing and both languages in subtitle-only mode with structural undo and redo', () => {
     render(<EditingHarness />);
     fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));

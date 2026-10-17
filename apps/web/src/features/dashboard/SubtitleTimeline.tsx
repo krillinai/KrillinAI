@@ -267,6 +267,9 @@ export default function SubtitleTimeline(props: {
         </div> : null}
         {positioned.filter(({ start, end }) => Number.isFinite(start) && end > start).map(({ cue, start, end, lane }) => <div key={cue.id}
           className="subtitle-timeline-clip" data-selected={props.selectedId === cue.id} data-active={props.currentTime >= start && props.currentTime < end}
+          data-focused={props.playing || props.selectedId === undefined
+            ? props.currentTime >= start && props.currentTime < end
+            : props.selectedId === cue.id}
           style={{ left: `${start / duration * 100}%`, width: `${(end - start) / duration * 100}%`, top: `${clipTop + lane * 40}px` }}>
           <button type="button" className="subtitle-timeline-clip-body" title={`${cue.start} – ${cue.end}\n${cue.text}`}
             onFocus={() => props.onSelect(cue.id)} onClick={() => { props.onSelect(cue.id); props.onSeek(start); }}

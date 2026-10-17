@@ -15390,7 +15390,7 @@
   border-top: 1px solid var(--border-hairline);
 }
 
-.video-result-subtitle-preview-layout .video-subtitle-cue[data-active="true"] {
+.video-result-subtitle-preview-layout .video-subtitle-cue[data-focused="true"] {
   border-left-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 7%, var(--surface));
 }

@@ -188,7 +188,7 @@ body:has(.video-translation-page[data-subtitle-immersive="true"]) .tts-voice-lib
 .subtitle-editor-column-labels:has(> :nth-child(3)) { grid-template-columns: 94px minmax(0, 1fr) minmax(0, 1fr); }
 .video-result-workspace[data-immersive="true"] .video-subtitle-editor { border: 0; border-radius: 0; background: var(--surface); }
 .video-result-workspace[data-immersive="true"] .video-subtitle-cue { grid-template-columns: 94px minmax(0, 1fr); padding: 16px 18px; border-inline-start: 0; gap: 12px; }
-.video-result-workspace[data-immersive="true"] .video-subtitle-cue[data-selected="true"] { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.video-result-workspace[data-immersive="true"] .video-subtitle-cue[data-focused="true"] { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
 .video-result-workspace[data-immersive="true"] .video-subtitle-cue-time { gap: 7px; }
 .video-result-workspace[data-immersive="true"] .video-subtitle-cue-time small { font-size: 10px; }
 .video-result-workspace[data-immersive="true"] .video-subtitle-cue-pair:has(textarea + textarea) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
@@ -238,7 +238,7 @@ body:has(.video-translation-page[data-subtitle-immersive="true"]) .tts-voice-lib
 .subtitle-timeline-voice svg { position: absolute; inset: 8px 0 0; height: 36px; pointer-events: none; }
 .subtitle-timeline-voice path { fill: none; stroke: currentColor; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .subtitle-timeline-clip { position: absolute; height: 32px; min-width: 3px; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); border-radius: 4px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
-.subtitle-timeline-clip[data-selected="true"], .subtitle-timeline-clip[data-active="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+.subtitle-timeline-clip[data-focused="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
 .subtitle-timeline .subtitle-timeline-clip-body { display: block; width: 100%; height: 100%; min-height: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: start; border: 0; border-radius: 0; padding: 4px 10px; cursor: grab; touch-action: none; }
 .subtitle-timeline .subtitle-timeline-clip-body:hover:not(:disabled) { background: transparent; border: 0; }
 .subtitle-timeline-clip-handle { position: absolute; top: 0; height: 100%; width: 7px; cursor: ew-resize; touch-action: none; }

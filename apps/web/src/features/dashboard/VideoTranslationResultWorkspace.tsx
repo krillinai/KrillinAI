@@ -190,6 +190,9 @@ export default function VideoTranslationResultWorkspace(props: {
   )) ?? [];
   const activeSubtitleCueIds = new Set(activeSubtitleCues.map(cue => cue.id));
   const activeSubtitleCueKey = activeSubtitleCues.map(cue => cue.id).join('|');
+  const focusedSubtitleCueIds = subtitlePlaying || selectedCueId === undefined
+    ? activeSubtitleCueIds
+    : new Set([selectedCueId]);
   const subtitleCueGroups = activeSubtitleOutput === undefined
     ? []
     : groupSubtitleCues(activeSubtitleOutput.cues, activeSubtitleOutput.variant);
@@ -275,6 +278,10 @@ export default function VideoTranslationResultWorkspace(props: {
     if (activeSubtitleCues.length === 0) return;
     subtitleCueRefs.current.get(activeSubtitleCues[0]!.id)?.scrollIntoView?.({ block: 'nearest' });
   }, [activeSubtitleCueKey]);
+
+  useEffect(() => {
+    if (subtitlePlaying) setSelectedCueId(activeSubtitleCues[0]?.id);
+  }, [subtitlePlaying, activeSubtitleCueKey]);
 
   const seekToSubtitleCue = (cue: SubtitleCue) => {
     setSelectedCueId(cue.id);
@@ -696,6 +703,7 @@ export default function VideoTranslationResultWorkspace(props: {
                           role="listitem"
                           data-active={group.some(({ cue }) => activeSubtitleCueIds.has(cue.id))}
                           data-selected={group.some(({ cue }) => selectedCueId === cue.id)}
+                          data-focused={group.some(({ cue }) => focusedSubtitleCueIds.has(cue.id))}
                           data-subtitle-cue="true"
                           key={firstCue.id}
                           onFocusCapture={() => setSelectedCueId(firstCue.id)}
