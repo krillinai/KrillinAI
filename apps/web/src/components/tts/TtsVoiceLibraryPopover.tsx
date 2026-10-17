@@ -17,7 +17,7 @@ export function TtsVoiceLibraryPopover(props: {
   const onCloseRef = useRef(props.onClose);
   onCloseRef.current = props.onClose;
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<{ left: number; top: number; width: number; maxHeight: number; above: boolean }>();
+  const [position, setPosition] = useState<{ left: number; top: number; width: number; maxHeight: number }>();
   const expanded = open && !props.disabled;
   const close = useCallback((restoreFocus = false) => {
     setOpen(false);
@@ -29,37 +29,36 @@ export function TtsVoiceLibraryPopover(props: {
 
   useLayoutEffect(() => {
     if (!expanded) return;
+    const boundary = triggerRef.current?.closest<HTMLElement>('.creator-workspace-content');
     const place = () => {
-      const trigger = triggerRef.current;
-      if (!trigger) return;
-      const rect = trigger.getBoundingClientRect();
       const viewport = window.visualViewport;
-      const left = viewport?.offsetLeft ?? 0;
-      const top = viewport?.offsetTop ?? 0;
-      const width = viewport?.width ?? window.innerWidth;
-      const bottom = top + (viewport?.height ?? window.innerHeight);
-      const anchorTop = Math.max(top + 12, Math.min(rect.top, bottom - 12));
-      const anchorBottom = Math.max(top + 12, Math.min(rect.bottom, bottom - 12));
-      const below = bottom - anchorBottom - 16;
-      const above = anchorTop - top - 16;
-      const opensAbove = below < 760 && above > below;
-      const panelWidth = Math.min(760, width - 24);
-      const panelLeft = getComputedStyle(trigger).direction === 'rtl' ? rect.left : rect.right - panelWidth;
+      const viewportLeft = viewport?.offsetLeft ?? 0;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportRight = viewportLeft + (viewport?.width ?? window.innerWidth);
+      const viewportBottom = viewportTop + (viewport?.height ?? window.innerHeight);
+      const rect = boundary?.getBoundingClientRect();
+      const left = Math.max(viewportLeft, rect?.left ?? viewportLeft);
+      const top = Math.max(viewportTop, rect?.top ?? viewportTop);
+      const right = Math.min(viewportRight, rect?.right ?? viewportRight);
+      const bottom = Math.min(viewportBottom, rect?.bottom ?? viewportBottom);
+      const panelWidth = Math.max(0, Math.min(760, right - left - 24));
       const next = {
-        left: Math.max(left + 12, Math.min(panelLeft, left + width - panelWidth - 12)),
-        top: opensAbove ? anchorTop - 8 : anchorBottom + 8,
+        left: (left + right - panelWidth) / 2,
+        top: (top + bottom) / 2,
         width: panelWidth,
-        maxHeight: Math.max(0, Math.min(760, opensAbove ? above : below)),
-        above: opensAbove
+        maxHeight: Math.max(0, Math.min(760, bottom - top - 24))
       };
       setPosition(previous => previous && Object.keys(next).every(key => previous[key as keyof typeof next] === next[key as keyof typeof next]) ? previous : next);
     };
     place();
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(place);
+    if (boundary) observer?.observe(boundary);
     window.addEventListener('resize', place);
     window.addEventListener('scroll', place, true);
     window.visualViewport?.addEventListener('resize', place);
     window.visualViewport?.addEventListener('scroll', place);
     return () => {
+      observer?.disconnect();
       window.removeEventListener('resize', place);
       window.removeEventListener('scroll', place, true);
       window.visualViewport?.removeEventListener('resize', place);
@@ -105,7 +104,7 @@ export function TtsVoiceLibraryPopover(props: {
       </button>
     </div>
     {expanded && position ? createPortal(<div id={id} ref={panelRef} className="tts-voice-library-popover" role="dialog" aria-label={props.label}
-      style={{ left: position.left, top: position.top, width: position.width, maxHeight: position.maxHeight, transform: position.above ? 'translateY(-100%)' : undefined }}
+      style={{ left: position.left, top: position.top, width: position.width, maxHeight: position.maxHeight, transform: 'translateY(-50%)' }}
       onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); }
         if (event.key === 'Tab') {
