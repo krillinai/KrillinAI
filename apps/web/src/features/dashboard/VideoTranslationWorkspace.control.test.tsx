@@ -102,6 +102,7 @@ describe('VideoTranslationWorkspace task controls', () => {
     fireEvent.click(screen.getByRole('button', { name: '深度编辑' }));
     fireEvent.click(screen.getByRole('button', { name: panel }));
     const dialog = screen.getByRole('complementary', { name: panel });
+    expect(dialog.querySelector('video, .video-translation-subtitle-preview, .video-translation-subtitle-rendered-preview')).toBeNull();
     expect(within(dialog).queryByRole('switch', { name: '合成字幕视频' })).toBeNull();
     if (panel === '字幕样式') {
       expect(within(dialog).getByRole('radiogroup', { name: '推荐样式' })).toBeVisible();

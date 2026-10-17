@@ -109,24 +109,36 @@ describe('VideoTranslationResultWorkspace', () => {
   });
 
   it('previews the rendered version until editing and preserves the playhead when switching to the source', () => {
-    const settings = { style: <p>Style settings</p>, voice: null, disabled: false, onOpen: vi.fn() };
+    const settings = { style: <p>Style settings</p>, voice: null, disabled: false, onOpen: vi.fn(),
+      previewFormat: 'vertical' as const, previewTitles: <p>Portrait title</p> };
+    const renderSubtitlePreview = vi.fn(() => <p>Draft subtitle overlay</p>);
     const props = { ...baseProps, activeTab: 'subtitles' as const, immersive: true, editorSettings: settings,
       videoOutputs: [{ artifactId: 'final', variant: 'horizontal' as const, artifactVersion: 1, src: 'blob:final' }],
       subtitleVideoPreviews: { horizontal: { artifactId: 'source', src: 'blob:source', source: true } },
-      renderSubtitlePreview: () => <p>Draft subtitle overlay</p> };
-    render(<VideoTranslationResultWorkspace {...props} />);
+      renderSubtitlePreview };
+    const { rerender } = render(<VideoTranslationResultWorkspace {...props} />);
     const video = screen.getByLabelText('横屏字幕视频预览') as HTMLVideoElement;
     expect(video).toHaveAttribute('src', 'blob:final');
     expect(screen.queryByText('Draft subtitle overlay')).toBeNull();
+    expect(screen.queryByText('Portrait title')).toBeNull();
+    expect(video.parentElement).toHaveAttribute('data-ratio', '16:9');
     fireEvent.timeUpdate(video, { target: { currentTime: 0.5 } });
     fireEvent.click(screen.getByRole('button', { name: '字幕样式' }));
-    expect(screen.getByLabelText('横屏字幕视频预览')).toBe(video);
+    expect(screen.getByLabelText('竖屏字幕视频预览')).toBe(video);
     expect(video).toHaveAttribute('src', 'blob:source');
     // A source reload emits a transient zero before metadata is available.
     fireEvent.timeUpdate(video, { target: { currentTime: 0 } });
     fireEvent.loadedMetadata(video);
     expect(video.currentTime).toBe(0.5);
     expect(screen.getByText('Draft subtitle overlay')).toBeVisible();
+    expect(renderSubtitlePreview).toHaveBeenLastCalledWith(expect.any(Array), 9, 16);
+    expect(video.parentElement).toHaveAttribute('data-ratio', '9:16');
+    expect(screen.getByText('Portrait title').parentElement).toBe(video.parentElement);
+    rerender(<VideoTranslationResultWorkspace {...props} editorSettings={{ ...settings, previewFormat: 'horizontal' }} />);
+    expect(video.parentElement).toHaveAttribute('data-ratio', '16:9');
+    expect(renderSubtitlePreview).toHaveBeenLastCalledWith(expect.any(Array), 16, 9);
+    expect(screen.queryByText('Portrait title')).toBeNull();
+    expect(video.currentTime).toBe(0.5);
     fireEvent.click(screen.getByRole('button', { name: '完成' }));
     expect(video).toHaveAttribute('src', 'blob:final');
     expect(screen.queryByText('Draft subtitle overlay')).toBeNull();

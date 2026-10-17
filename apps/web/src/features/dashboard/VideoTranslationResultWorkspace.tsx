@@ -125,7 +125,11 @@ export default function VideoTranslationResultWorkspace(props: {
   subtitleSavePending?: boolean;
   immersive?: boolean;
   assistantOpen?: boolean;
-  editorSettings?: { style: ReactNode; voice: ReactNode; output?: ReactNode; disabled: boolean; onOpen(): void };
+  editorSettings?: {
+    style: ReactNode; voice: ReactNode; output?: ReactNode;
+    previewFormat?: SubtitleResultVariant; previewTitles?: ReactNode;
+    disabled: boolean; onOpen(): void;
+  };
   renderSubtitlePreview?(cues: SubtitleCue[], width: number, height: number): ReactNode;
   onImmersiveChange?(value: boolean): void;
   onToggleAssistant?(): void;
@@ -198,6 +202,11 @@ export default function VideoTranslationResultWorkspace(props: {
   const activeSubtitleVideo = props.immersive && !previewDraft && renderedSubtitleVideo
     ? { ...renderedSubtitleVideo, source: false }
     : sourceSubtitleVideo;
+  const draftVideoPreview = props.immersive && activeSubtitleVideo?.source !== false;
+  const videoPreviewVariant = draftVideoPreview ? props.editorSettings?.previewFormat ?? activeSubtitleVariant : activeSubtitleVariant;
+  const subtitlePreviewSize = draftVideoPreview && props.editorSettings?.previewFormat
+    ? videoPreviewVariant === 'vertical' ? { width: 9, height: 16 } : { width: 16, height: 9 }
+    : subtitleVideoSize;
   const playbackPositionRef = useRef(0);
   const playbackSourceRef = useRef(activeSubtitleVideo?.src);
   const pendingPlaybackPositionRef = useRef<number>();
@@ -633,7 +642,7 @@ export default function VideoTranslationResultWorkspace(props: {
                   onError={() => { setVoicePlaybackFailed(true); setAuditionVoice(false); }} /> : null}
                 <div
                   className="video-result-player-frame"
-                  data-ratio={activeSubtitleOutput.variant === 'vertical' ? '9:16' : '16:9'}
+                  data-ratio={videoPreviewVariant === 'vertical' ? '9:16' : '16:9'}
                 >
                   {activeSubtitleVideo?.src !== undefined ? (
                     <>
@@ -662,12 +671,12 @@ export default function VideoTranslationResultWorkspace(props: {
                         onSeeked={event => updatePlaybackTime(event.currentTarget, true)}
                         onTimeUpdate={event => updatePlaybackTime(event.currentTarget)}
                         aria-label={l(
-                          `${subtitleVariantLabel(activeSubtitleOutput.variant, l)}视频预览`,
-                          `${subtitleVariantLabel(activeSubtitleOutput.variant, l)} video preview`
+                          `${subtitleVariantLabel(videoPreviewVariant ?? activeSubtitleOutput.variant, l)}视频预览`,
+                          `${subtitleVariantLabel(videoPreviewVariant ?? activeSubtitleOutput.variant, l)} video preview`
                         )}
                       />
                       {activeSubtitleVideo.source !== false && activeSubtitleCues.length > 0 && props.immersive && props.renderSubtitlePreview ? <div className="subtitle-editor-styled-overlay">
-                        {props.renderSubtitlePreview(activeSubtitleCues, subtitleVideoSize.width, subtitleVideoSize.height)}
+                        {props.renderSubtitlePreview(activeSubtitleCues, subtitlePreviewSize.width, subtitlePreviewSize.height)}
                       </div> : activeSubtitleVideo.source !== false && activeSubtitleCues.length > 0 ? (
                         <div className="video-result-subtitle-overlay" aria-hidden="true">
                           {activeSubtitleCues.map(cue => (
@@ -677,6 +686,7 @@ export default function VideoTranslationResultWorkspace(props: {
                           ))}
                         </div>
                       ) : null}
+                      {draftVideoPreview && videoPreviewVariant === 'vertical' ? props.editorSettings?.previewTitles : null}
                     </>
                   ) : (
                     <div className="video-result-player-status" role="status">

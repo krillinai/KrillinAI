@@ -3538,6 +3538,12 @@ export default function VideoTranslationWorkspace(props: {
     }
   };
 
+  const subtitlePreviewTitles = previewVerticalOutput && (verticalTitle.trim() || verticalSubtitle.trim()) ? (
+    <div className="video-translation-subtitle-preview-titles">
+      {verticalTitle.trim() ? <div data-title-kind="major">{verticalTitle}</div> : null}
+      {verticalSubtitle.trim() ? <div data-title-kind="minor">{verticalSubtitle}</div> : null}
+    </div>
+  ) : null;
   const subtitleStylePreview = (
     <div
       className="video-translation-subtitle-preview"
@@ -3564,12 +3570,7 @@ export default function VideoTranslationWorkspace(props: {
         {previewVideoSrc ? (
           <SubtitlePreviewVideo key={previewVideoSrc} src={previewVideoSrc} onDimensions={updateSourceOrientation} />
         ) : null}
-        {previewVerticalOutput && (verticalTitle.trim() || verticalSubtitle.trim()) ? (
-          <div className="video-translation-subtitle-preview-titles">
-            {verticalTitle.trim() ? <div data-title-kind="major">{verticalTitle}</div> : null}
-            {verticalSubtitle.trim() ? <div data-title-kind="minor">{verticalSubtitle}</div> : null}
-          </div>
-        ) : null}
+        {subtitlePreviewTitles}
         <VideoTranslationStylePreview
           render={creatorSession?.openSubtitlePreview}
           input={{
@@ -4018,9 +4019,11 @@ export default function VideoTranslationWorkspace(props: {
               subtitleSavePending={submitting}
               immersive={subtitleImmersive}
               editorSettings={!selectedSubtitleOnly ? {
-                style: <>{subtitleStylePreview}{subtitleLayoutControls}{subtitleStyleChoices}</>,
+                style: <>{subtitleLayoutControls}{subtitleStyleChoices}</>,
                 voice: dubbingSettings,
-                output: <>{subtitleStylePreview}{outputFormatControl}{verticalTitleControls}</>,
+                output: <>{outputFormatControl}{verticalTitleControls}</>,
+                previewFormat: previewVerticalOutput ? 'vertical' : 'horizontal',
+                previewTitles: subtitlePreviewTitles,
                 disabled: submitting || activeStage !== undefined,
                 onOpen: () => prepareEditorSettings(true)
               } : undefined}
